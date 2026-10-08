@@ -13,6 +13,7 @@
     "lint": "biome check .",
     "format": "biome check --write .",
     "typecheck": "pnpm -r typecheck",
+    "test:e2e": "pnpm --filter @3d-maker-suite/web build && playwright test",
     "i18n:check": "node scripts/i18n-check.mjs",
     "db:generate": "pnpm --filter @3d-maker-suite/db exec drizzle-kit generate",
     "db:migrate": "pnpm --filter @3d-maker-suite/server exec tsx src/db-cli.ts migrate",
@@ -20,6 +21,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.0.0",
+    "@playwright/test": "^1.64.0",
     "typescript": "^5.9.0",
     "vitest": "^3.2.0"
   }

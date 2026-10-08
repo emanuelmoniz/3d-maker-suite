@@ -79,8 +79,11 @@ export async function buildApp(
       },
     });
   });
-  app.setNotFoundHandler((_req, reply) =>
-    reply.status(404).send({ error: { code: "not_found", message: "Route not found" } }),
+  app.setNotFoundHandler((req, reply) =>
+    // Client-side routes (reload / deep link) get the SPA shell; `sendFile` exists only when main.ts serves the web build.
+    req.method === "GET" && !req.url.startsWith("/api/") && reply.sendFile
+      ? reply.sendFile("index.html")
+      : reply.status(404).send({ error: { code: "not_found", message: "Route not found" } }),
   );
 
   await app.register(healthRoutes);

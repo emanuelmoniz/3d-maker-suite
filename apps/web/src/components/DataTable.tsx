@@ -37,7 +37,13 @@ export function DataTable<T>({
   }, [rows, columns, sort]);
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-border bg-surface">
+    // Scrollable on narrow screens, so it must be keyboard-focusable (and named) to be reachable.
+    <section
+      aria-label={label}
+      // biome-ignore lint/a11y/noNoninteractiveTabindex: scroll container needs keyboard access
+      tabIndex={0}
+      className="overflow-x-auto rounded-lg border border-border bg-surface"
+    >
       <table className="w-full border-collapse text-left">
         <caption className="sr-only">{label}</caption>
         <thead>
@@ -60,7 +66,7 @@ export function DataTable<T>({
                       type="button"
                       onClick={() => setSort({ id: c.id, dir: active && sort.dir === 1 ? -1 : 1 })}
                       className={cx(
-                        "inline-flex items-center gap-1 hover:text-fg",
+                        "inline-flex h-9 items-center gap-1 hover:text-fg",
                         c.numeric && "flex-row-reverse",
                       )}
                     >
@@ -86,7 +92,13 @@ export function DataTable<T>({
               )}
             >
               {columns.map((c) => (
-                <td key={c.id} className={cx("whitespace-nowrap px-3", c.numeric && "text-right")}>
+                <td
+                  key={c.id}
+                  className={cx(
+                    "whitespace-nowrap px-3 [&_a]:inline-flex [&_a]:min-h-6 [&_a]:items-center",
+                    c.numeric && "text-right",
+                  )}
+                >
                   {c.cell(row)}
                 </td>
               ))}
@@ -101,6 +113,6 @@ export function DataTable<T>({
           )}
         </tbody>
       </table>
-    </div>
+    </section>
   );
 }

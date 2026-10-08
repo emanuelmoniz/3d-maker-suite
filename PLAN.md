@@ -272,7 +272,7 @@ Do Step 23 of PLAN.md. Use SQLite's online backup API (safe while running). Vers
 the backup format for future migrations.
 ```
 
-### [ ] Step 24 - E2E tests & responsive pass
+### [x] Step 24 - E2E tests & responsive pass
 **Model:** Sonnet (use webapp-testing skill) · **Effort:** Medium
 **Scope:** Playwright: settings, add printer, add spool, manual print deducts filament, project scan, stats filter, backup. Viewport checks at 375/768/1440. Fix what breaks.
 **Done when:** E2E runs in CI.

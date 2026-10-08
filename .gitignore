@@ -8,3 +8,5 @@ secret.key
 .env*
 .claude/settings.local.json
 BACKLOG.md
+test-results/
+playwright-report/
