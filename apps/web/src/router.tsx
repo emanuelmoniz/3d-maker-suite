@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { EmptyState } from "./components/EmptyState.tsx";
 import { loadNamespace } from "./i18n.ts";
+import { FilamentPage } from "./pages/filament/FilamentPage.tsx";
 import { ModulePage } from "./pages/ModulePage.tsx";
 import { MaintenancePage } from "./pages/maintenance/MaintenancePage.tsx";
 import { PrinterDetailPage } from "./pages/printers/PrinterDetailPage.tsx";
@@ -27,7 +28,7 @@ function NotFound() {
 const root = createRootRoute({ component: AppShell, notFoundComponent: NotFound });
 
 // Feature routes load their i18n namespace here (code-split JSON), e.g. loader: () => loadNamespace("printers").
-const built = [SETTINGS_ITEM.to, "/printers", "/maintenance"];
+const built = [SETTINGS_ITEM.to, "/printers", "/maintenance", "/filament"];
 const modules = ALL_ITEMS.filter((i) => !built.includes(i.to)).map((item) =>
   createRoute({
     getParentRoute: () => root,
@@ -56,6 +57,12 @@ const routes: AnyRoute[] = [
     path: "/maintenance",
     loader: () => loadNamespace("maintenance"),
     component: MaintenancePage,
+  }),
+  createRoute({
+    getParentRoute: () => root,
+    path: "/filament",
+    loader: () => loadNamespace("filament"),
+    component: FilamentPage,
   }),
   createRoute({
     getParentRoute: () => root,

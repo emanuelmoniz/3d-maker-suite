@@ -4,7 +4,9 @@ import {
   ENERGY_SOURCES,
   ORIGINS,
   PRINT_OUTCOMES,
+  SPOOL_STATUSES,
   TAGGABLE_TYPES,
+  WEIGHT_ENTRY_KINDS,
 } from "@3d-maker-suite/core";
 import { type SQL, sql } from "drizzle-orm";
 import {
@@ -154,6 +156,8 @@ export const filamentProfiles = sqliteTable(
     diameterMm: real().notNull().default(1.75),
     densityGcm3: real().notNull(),
     pricePerKg: integer(),
+    nozzleTempC: integer(),
+    bedTempC: integer(),
     archivedAt: text(),
     ...imported(),
     ...timestamps,
@@ -173,6 +177,8 @@ export const spools = sqliteTable(
       .references(() => filamentProfiles.id, { onDelete: "restrict" }),
     initialGrams: real().notNull(),
     remainingGrams: real().notNull(),
+    emptyWeightGrams: real(),
+    status: text({ enum: SPOOL_STATUSES }).notNull().default("new"),
     pricePaid: integer(),
     purchasedAt: text(),
     openedAt: text(),
@@ -180,7 +186,30 @@ export const spools = sqliteTable(
     archivedAt: text(),
     ...timestamps,
   },
-  (t) => [index("spools_profile_idx").on(t.profileId)],
+  (t) => [
+    index("spools_profile_idx").on(t.profileId),
+    check("spools_status_ck", oneOf(t.status, SPOOL_STATUSES)),
+  ],
+);
+
+// Append-only: `spools.remainingGrams` always equals the sum of its entries' deltas.
+export const spoolWeightEntries = sqliteTable(
+  "spool_weight_entries",
+  {
+    id: id(),
+    spoolId: text()
+      .notNull()
+      .references(() => spools.id, { onDelete: "restrict" }),
+    kind: text({ enum: WEIGHT_ENTRY_KINDS }).notNull(),
+    deltaGrams: real().notNull(),
+    remainingAfter: real().notNull(),
+    note: text(),
+    createdAt: text().notNull().$defaultFn(now),
+  },
+  (t) => [
+    index("spool_weight_entries_spool_idx").on(t.spoolId, t.createdAt),
+    check("spool_weight_entries_kind_ck", oneOf(t.kind, WEIGHT_ENTRY_KINDS)),
+  ],
 );
 
 export const projects = sqliteTable(

@@ -5,7 +5,9 @@ import {
   ENERGY_SOURCES,
   ORIGINS,
   PRINT_OUTCOMES,
+  SPOOL_STATUSES,
   TAGGABLE_TYPES,
+  WEIGHT_ENTRY_KINDS,
 } from "./enums.ts";
 
 // Row shapes as stored in the DB (nullable columns are `null`, not `undefined`).
@@ -106,6 +108,8 @@ export const filamentProfileSchema = z.object({
   diameterMm: z.number().positive(),
   densityGcm3: z.number().positive(),
   pricePerKg: money.nullable(),
+  nozzleTempC: z.number().int().positive().nullable(),
+  bedTempC: z.number().int().nonnegative().nullable(),
   archivedAt: isoDate.nullable(),
   ...imported,
   ...timestamps,
@@ -116,12 +120,27 @@ export const spoolSchema = z.object({
   profileId: id,
   initialGrams: grams,
   remainingGrams: grams,
+  /** Weight of the empty spool, to turn a scale reading into filament left. */
+  emptyWeightGrams: grams.nullable(),
+  status: z.enum(SPOOL_STATUSES),
   pricePaid: money.nullable(),
   purchasedAt: isoDate.nullable(),
   openedAt: isoDate.nullable(),
   location: z.string().nullable(),
   archivedAt: isoDate.nullable(),
   ...timestamps,
+});
+
+/** Immutable ledger: every change of `Spool.remainingGrams` is one row. */
+export const spoolWeightEntrySchema = z.object({
+  id,
+  spoolId: id,
+  kind: z.enum(WEIGHT_ENTRY_KINDS),
+  /** Signed change in grams; the first entry of a spool is +initial remaining. */
+  deltaGrams: z.number(),
+  remainingAfter: grams,
+  note: z.string().nullable(),
+  createdAt: isoDate,
 });
 
 export const projectSchema = z.object({
@@ -209,6 +228,7 @@ export type MaintenanceType = z.infer<typeof maintenanceTypeSchema>;
 export type MaintenanceTask = z.infer<typeof maintenanceTaskSchema>;
 export type FilamentProfile = z.infer<typeof filamentProfileSchema>;
 export type Spool = z.infer<typeof spoolSchema>;
+export type SpoolWeightEntry = z.infer<typeof spoolWeightEntrySchema>;
 export type Project = z.infer<typeof projectSchema>;
 export type Print = z.infer<typeof printSchema>;
 export type PrintFilamentUsage = z.infer<typeof printFilamentUsageSchema>;

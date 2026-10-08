@@ -99,7 +99,7 @@ Do Step 7 of PLAN.md. Due logic lives in core as pure functions with unit tests
 (hours, count, days, whichever comes first).
 ```
 
-### [ ] Step 8 - Filament & spools
+### [x] Step 8 - Filament & spools
 **Model:** Sonnet · **Effort:** Medium
 **Scope:** Filament profiles (brand, material, color name + hex, diameter, density, price per kg, nozzle/bed temps) and spools (profile, initial weight, remaining weight, empty spool weight, purchase date/price, location, status). Manual weight adjust with history.
 **Done when:** CRUD done; remaining weight history is visible.

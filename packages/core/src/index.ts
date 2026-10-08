@@ -1,5 +1,6 @@
 export * from "./schemas/entities.ts";
 export * from "./schemas/enums.ts";
+export * from "./schemas/filament.ts";
 export * from "./schemas/list.ts";
 export * from "./schemas/maintenance.ts";
 export * from "./schemas/preferences.ts";
