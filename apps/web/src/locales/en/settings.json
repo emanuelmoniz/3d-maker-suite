@@ -42,6 +42,8 @@
   "projects": {
     "roots": "Project folders",
     "rootsHint": "One folder per line. Watched for new models and 3MF files.",
+    "depth": "Folder depth",
+    "depthHint": "How many levels below a project folder each project sits. 1 = every subfolder is a project; 2 = look one level deeper, e.g. Category/Project.",
     "slicer": "Slicer executable",
     "slicerHint": "Full path, used to open projects in your slicer."
   },

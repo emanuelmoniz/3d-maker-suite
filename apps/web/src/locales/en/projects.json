@@ -1,0 +1,45 @@
+{
+  "loadError": "Couldn't load projects. Is the server running?",
+  "list": {
+    "table": "Projects",
+    "emptyTitle": "No projects yet",
+    "emptyBody": "Add the folders that hold your models in Settings and scan them, or create a project by hand.",
+    "add": "New project",
+    "edit": "Edit",
+    "openSource": "Open design page",
+    "settings": "Project folders",
+    "columns": {
+      "name": "Project",
+      "materials": "Materials",
+      "files": "Files",
+      "source": "Source"
+    },
+    "multicolor": "Multicolor",
+    "files_one": "{{count}} file",
+    "files_other": "{{count}} files",
+    "noFolder": "No folder"
+  },
+  "scan": {
+    "start": "Scan folders",
+    "discovering": "Looking for project folders…",
+    "progress": "Scanning {{done}} of {{total}}",
+    "done": "Scan finished: {{created}} new, {{updated}} updated.",
+    "failed_one": "{{count}} folder could not be read.",
+    "failed_other": "{{count}} folders could not be read.",
+    "missingRoot": "Folder not found: {{path}}",
+    "error": "Couldn't start the scan."
+  },
+  "form": {
+    "addTitle": "New project",
+    "editTitle": "Edit project",
+    "name": "Name",
+    "description": "Description",
+    "sourceUrl": "Design page",
+    "sourceUrlHint": "A MakerWorld, Printables or Thingiverse link, or any web address.",
+    "folder": "Folder",
+    "folderHint": "Optional. Full path of a folder with the model files; they are scanned right away.",
+    "editedHint": "Fields you change here are kept when the folder is scanned again.",
+    "save": "Save",
+    "error": "Couldn't save the project. Check the folder path and the link."
+  }
+}

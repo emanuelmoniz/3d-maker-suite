@@ -27,6 +27,7 @@ const app = await buildApp(
     adapters: adapters({ mock: config.mockIntegration }),
     filamentLibraries: filamentLibraries(),
     syncSchedule: "*/15 * * * *",
+    watchProjects: true,
   },
 );
 await app.register(fastifyStatic, {

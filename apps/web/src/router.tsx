@@ -17,6 +17,8 @@ import { PrintersPage } from "./pages/printers/PrintersPage.tsx";
 import { PrintCreatePage, PrintEditPage } from "./pages/prints/PrintFormPage.tsx";
 import { PrintReviewPage } from "./pages/prints/PrintReviewPage.tsx";
 import { PrintsPage } from "./pages/prints/PrintsPage.tsx";
+import { ProjectCreatePage, ProjectEditPage } from "./pages/projects/ProjectFormPage.tsx";
+import { ProjectsPage } from "./pages/projects/ProjectsPage.tsx";
 import { SettingsPage } from "./pages/SettingsPage.tsx";
 import { IntegrationCreatePage } from "./pages/settings/IntegrationFormPage.tsx";
 import { IntegrationLoginPage } from "./pages/settings/IntegrationLoginPage.tsx";
@@ -38,7 +40,7 @@ function NotFound() {
 const root = createRootRoute({ component: AppShell, notFoundComponent: NotFound });
 
 // Feature routes load their i18n namespace here (code-split JSON), e.g. loader: () => loadNamespace("printers").
-const built = [SETTINGS_ITEM.to, "/printers", "/maintenance", "/filament", "/prints"];
+const built = [SETTINGS_ITEM.to, "/printers", "/maintenance", "/filament", "/prints", "/projects"];
 const modules = ALL_ITEMS.filter((i) => !built.includes(i.to)).map((item) =>
   createRoute({
     getParentRoute: () => root,
@@ -110,6 +112,18 @@ const routes: AnyRoute[] = [
       path: path as string,
       loader: () =>
         Promise.all([loadNamespace("prints"), loadNamespace("filament"), loadNamespace("tags")]),
+      component: component as () => ReactNode,
+    }),
+  ),
+  ...[
+    ["/projects", ProjectsPage],
+    ["/projects/new", ProjectCreatePage],
+    ["/projects/$id/edit", ProjectEditPage],
+  ].map(([path, component]) =>
+    createRoute({
+      getParentRoute: () => root,
+      path: path as string,
+      loader: () => loadNamespace("projects"),
       component: component as () => ReactNode,
     }),
   ),

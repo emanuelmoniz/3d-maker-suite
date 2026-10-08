@@ -7,6 +7,9 @@ export const COMMENT_STATUSES = ["open", "resolved"] as const;
 export const SPOOL_STATUSES = ["new", "in_use", "empty"] as const;
 // Why a spool's remaining weight changed. "print" entries are written by prints (Step 9+).
 export const WEIGHT_ENTRY_KINDS = ["manual", "print", "correction"] as const;
+// Project fields the user can edit. A re-scan only rewrites the ones NOT listed in `editedFields`.
+export const PROJECT_EDITABLE_FIELDS = ["name", "description", "sourceUrl"] as const;
+export const PROJECT_FILE_KINDS = ["model", "image", "doc", "shortcut"] as const;
 export const TAGGABLE_TYPES = ["project", "print", "spool", "printer"] as const;
 // Adapter errors are mapped to these; vendor messages never reach the API (ADR-0003).
 export const INTEGRATION_ERROR_CODES = [

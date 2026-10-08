@@ -147,18 +147,6 @@ export const spoolWeightEntrySchema = z.object({
   createdAt: isoDate,
 });
 
-export const projectSchema = z.object({
-  id,
-  name: z.string().min(1),
-  filePath: z.string().nullable(),
-  sourceUrl: z.url().nullable(),
-  thumbnailPath: z.string().nullable(),
-  meta: z.json(),
-  archivedAt: isoDate.nullable(),
-  ...imported,
-  ...timestamps,
-});
-
 // Refinements mirror the CHECK constraints on `prints`.
 export const printSchema = z
   .object({
@@ -241,7 +229,6 @@ export type MaintenanceTask = z.infer<typeof maintenanceTaskSchema>;
 export type FilamentProfile = z.infer<typeof filamentProfileSchema>;
 export type Spool = z.infer<typeof spoolSchema>;
 export type SpoolWeightEntry = z.infer<typeof spoolWeightEntrySchema>;
-export type Project = z.infer<typeof projectSchema>;
 export type Print = z.infer<typeof printSchema>;
 export type PrintFilamentUsage = z.infer<typeof printFilamentUsageSchema>;
 export type Tag = z.infer<typeof tagSchema>;

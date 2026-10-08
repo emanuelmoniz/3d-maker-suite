@@ -5,6 +5,7 @@ import {
   INTEGRATION_ERROR_CODES,
   ORIGINS,
   PRINT_OUTCOMES,
+  type PROJECT_EDITABLE_FIELDS,
   SPOOL_STATUSES,
   SYNC_RUN_STATUSES,
   SYNC_TRIGGERS,
@@ -246,16 +247,25 @@ export const projects = sqliteTable(
   {
     id: id(),
     name: text().notNull(),
+    description: text(),
+    // Set when the project comes from a folder (scan or manual); the scan key.
+    folderPath: text(),
     filePath: text(),
     sourceUrl: text(),
     thumbnailPath: text(),
     meta: text({ mode: "json" }).notNull().default({}),
+    // Fields the user changed; a re-scan only rewrites the others.
+    editedFields: text({ mode: "json" })
+      .$type<(typeof PROJECT_EDITABLE_FIELDS)[number][]>()
+      .notNull()
+      .default([]),
     archivedAt: text(),
     ...imported(),
     ...timestamps,
   },
   (t) => [
     uniqueIndex("projects_external_uq").on(t.integrationId, t.externalId),
+    uniqueIndex("projects_folder_uq").on(t.folderPath),
     check("projects_origin_ck", oneOf(t.origin, ORIGINS)),
   ],
 );

@@ -15,6 +15,7 @@ import {
 import { HttpError } from "./errors.ts";
 import { loadKey } from "./integrations/secrets.ts";
 import { createSyncer } from "./integrations/sync.ts";
+import { createProjectScanner } from "./projects/scanner.ts";
 import { filamentRoutes } from "./routes/filament.ts";
 import { healthRoutes } from "./routes/health.ts";
 import { integrationsRoutes } from "./routes/integrations.ts";
@@ -22,6 +23,7 @@ import { maintenanceRoutes } from "./routes/maintenance.ts";
 import { preferencesRoutes } from "./routes/preferences.ts";
 import { printersRoutes } from "./routes/printers.ts";
 import { printsRoutes } from "./routes/prints.ts";
+import { projectsRoutes } from "./routes/projects.ts";
 import { settingsRoutes } from "./routes/settings.ts";
 import { collectionsRoutes, tagsRoutes } from "./routes/tags.ts";
 
@@ -33,6 +35,8 @@ export async function buildApp(
     adapters?: IntegrationAdapter[];
     filamentLibraries?: FilamentLibrary[];
     syncSchedule?: string;
+    /** Watch the project folders and scan once at startup (off in tests). */
+    watchProjects?: boolean;
   } = {},
 ) {
   const app = Fastify({ logger });
@@ -75,6 +79,10 @@ export async function buildApp(
   await app.register(maintenanceRoutes(db), { prefix: "/api/maintenance" });
   await app.register(filamentRoutes(db, opts.filamentLibraries ?? []), { prefix: "/api/filament" });
   await app.register(printsRoutes(db), { prefix: "/api/prints" });
+  const scanner = createProjectScanner(db, dataDir, app.log, { watch: opts.watchProjects });
+  await app.register(projectsRoutes(db, dataDir, scanner), { prefix: "/api/projects" });
+  app.addHook("onClose", () => scanner.close());
+  if (opts.watchProjects) app.addHook("onReady", async () => scanner.boot());
   await app.register(tagsRoutes(db), { prefix: "/api/tags" });
   await app.register(collectionsRoutes(db), { prefix: "/api/collections" });
 

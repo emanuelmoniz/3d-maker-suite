@@ -14,6 +14,8 @@ const shape = {
   currency: z.string().regex(/^[A-Z]{3}$/),
   energyCostPerKwh: z.number().nonnegative(),
   projectRoots: z.array(z.string().min(1)),
+  /** How many folder levels below a root a project may sit (1 = direct subfolders). */
+  projectScanDepth: z.number().int().min(1).max(5),
   slicerPath: z.string(),
   /** Overrides the detected config folder of a slicer library, by library id. */
   libraryPaths: z.record(z.string(), z.string()),
@@ -35,6 +37,7 @@ export const PREFERENCE_DEFAULTS: z.infer<typeof preferencesSchema> = {
   currency: "EUR",
   energyCostPerKwh: 0.25,
   projectRoots: [],
+  projectScanDepth: 1,
   slicerPath: "",
   libraryPaths: {},
   lowSpoolGrams: 100,

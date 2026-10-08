@@ -188,7 +188,7 @@ Do Step 15 of PLAN.md. Pure package, no app imports, streaming-friendly, typed o
 I'll drop sample .3mf files into packages/3mf/fixtures; ask me if none are there.
 ```
 
-### [ ] Step 16 - Project scanner & manual projects
+### [x] Step 16 - Project scanner & manual projects
 **Model:** Sonnet · **Effort:** High
 **Scope:** Scan the configured root folders (one folder = one project, configurable depth), watch for changes (chokidar), collect files (3mf/stl/step/images/docs), parse 3MFs, extract a description from README/.md/.txt, detect marketplace URLs (MakerWorld, Printables, Thingiverse) in files or `.url` shortcuts, cover image selection. Manual project creation (folder optional). Re-scan without overwriting user edits.
 **Done when:** scanning a sample tree creates correct projects; edits survive re-scan.
