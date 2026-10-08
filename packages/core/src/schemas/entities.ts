@@ -76,6 +76,7 @@ export const printerCommentSchema = z.object({
 export const maintenanceTypeSchema = z.object({
   id,
   name: z.string().min(1),
+  description: z.string().nullable(),
   intervalSec: seconds.positive().nullable(),
   intervalPrints: z.number().int().positive().nullable(),
   intervalDays: z.number().int().positive().nullable(),
@@ -92,6 +93,7 @@ export const maintenanceTaskSchema = z.object({
   printerRuntimeSecAt: seconds,
   printerPrintsAt: z.number().int().nonnegative(),
   notes: z.string().nullable(),
+  cost: money.nullable(),
   ...timestamps,
 });
 

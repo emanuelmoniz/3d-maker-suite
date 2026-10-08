@@ -113,6 +113,7 @@ export const printerComments = sqliteTable(
 export const maintenanceTypes = sqliteTable("maintenance_types", {
   id: id(),
   name: text().notNull(),
+  description: text(),
   intervalSec: integer(),
   intervalPrints: integer(),
   intervalDays: integer(),
@@ -135,6 +136,8 @@ export const maintenanceTasks = sqliteTable(
     printerRuntimeSecAt: integer().notNull(),
     printerPrintsAt: integer().notNull(),
     notes: text(),
+    /** Minor units. */
+    cost: integer(),
     ...timestamps,
   },
   (t) => [index("maintenance_tasks_latest_idx").on(t.printerId, t.typeId, t.doneAt)],

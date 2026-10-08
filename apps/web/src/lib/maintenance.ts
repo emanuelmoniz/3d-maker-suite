@@ -1,0 +1,43 @@
+import type {
+  MaintenanceDueItem,
+  MaintenanceLog,
+  MaintenanceType,
+  MaintenanceTypeInput,
+  MaintenanceTypePatch,
+  Page,
+} from "@3d-maker-suite/core";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { api } from "./api.ts";
+
+export const useDue = () =>
+  useQuery({
+    queryKey: ["maintenance", "due"],
+    queryFn: () => api<MaintenanceDueItem[]>("GET", "/api/maintenance/due"),
+  });
+
+// ponytail: one page of 100 types, add pagination controls if anyone defines more.
+export const useMaintenanceTypes = () =>
+  useQuery({
+    queryKey: ["maintenance", "types"],
+    queryFn: () => api<Page<MaintenanceType>>("GET", "/api/maintenance/types?pageSize=100"),
+  });
+
+/** Runs a mutation, then refreshes all maintenance data. */
+function useInvalidating<V>(fn: (v: V) => Promise<unknown>) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: fn,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["maintenance"] }),
+  });
+}
+
+export const useCreateType = () =>
+  useInvalidating((v: MaintenanceTypeInput) => api("POST", "/api/maintenance/types", v));
+
+export const usePatchType = () =>
+  useInvalidating((v: { id: string; patch: MaintenanceTypePatch }) =>
+    api("PATCH", `/api/maintenance/types/${v.id}`, v.patch),
+  );
+
+export const useLogDone = () =>
+  useInvalidating((v: MaintenanceLog) => api("POST", "/api/maintenance/tasks", v));

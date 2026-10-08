@@ -89,7 +89,7 @@ Do Step 6 of PLAN.md. Comments are a timeline with optional "pinned" flag and st
 (open/resolved). Stats come from a core service so Stats module can reuse it later.
 ```
 
-### [ ] Step 7 - Maintenance
+### [x] Step 7 - Maintenance
 **Model:** Sonnet · **Effort:** Medium
 **Scope:** Configurable maintenance types (name, description, interval by print hours and/or print count and/or days, applicable printer models). Schedules per printer, "log maintenance done" (date, notes, cost), next due calculation, overdue/upcoming list.
 **Done when:** due dates update after logging prints or maintenance.

@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { EmptyState } from "./components/EmptyState.tsx";
 import { loadNamespace } from "./i18n.ts";
 import { ModulePage } from "./pages/ModulePage.tsx";
+import { MaintenancePage } from "./pages/maintenance/MaintenancePage.tsx";
 import { PrinterDetailPage } from "./pages/printers/PrinterDetailPage.tsx";
 import { PrinterCreatePage, PrinterEditPage } from "./pages/printers/PrinterFormPage.tsx";
 import { PrintersPage } from "./pages/printers/PrintersPage.tsx";
@@ -26,7 +27,7 @@ function NotFound() {
 const root = createRootRoute({ component: AppShell, notFoundComponent: NotFound });
 
 // Feature routes load their i18n namespace here (code-split JSON), e.g. loader: () => loadNamespace("printers").
-const built = [SETTINGS_ITEM.to, "/printers"];
+const built = [SETTINGS_ITEM.to, "/printers", "/maintenance"];
 const modules = ALL_ITEMS.filter((i) => !built.includes(i.to)).map((item) =>
   createRoute({
     getParentRoute: () => root,
@@ -50,6 +51,12 @@ const routes: AnyRoute[] = [
   printerRoute("/printers/new", PrinterCreatePage),
   printerRoute("/printers/$id", PrinterDetailPage),
   printerRoute("/printers/$id/edit", PrinterEditPage),
+  createRoute({
+    getParentRoute: () => root,
+    path: "/maintenance",
+    loader: () => loadNamespace("maintenance"),
+    component: MaintenancePage,
+  }),
   createRoute({
     getParentRoute: () => root,
     path: SETTINGS_ITEM.to,
