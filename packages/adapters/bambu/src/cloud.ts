@@ -12,6 +12,7 @@ export const URLS = {
   csrf: "https://bambulab.com/api/csrf",
   tfaLogin: "https://bambulab.com/api/sign-in/tfa",
   bind: "https://api.bambulab.com/v1/iot-service/api/user/bind",
+  tasks: "https://api.bambulab.com/v1/user-service/my/tasks",
 };
 
 const HEADERS = {

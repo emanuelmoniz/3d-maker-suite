@@ -6,6 +6,7 @@
     "emptyBody": "Log a print to track how it went and how much filament it used.",
     "add": "Add print",
     "edit": "Edit",
+    "openDesign": "Open design page",
     "delete": "Delete",
     "columns": {
       "title": "Print",
@@ -41,6 +42,25 @@
     "spoolOption": "{{filament}} · {{weight}} left",
     "save": "Save print",
     "error": "Couldn't save the print. Check that every spool has enough filament."
+  },
+  "review": {
+    "title": "Filament to review",
+    "description": "Imported prints whose spool couldn't be matched to exactly one spool. Nothing is deducted until you pick one.",
+    "back": "Back to prints",
+    "table": "Filament to review",
+    "columns": { "print": "Print", "filament": "Filament", "grams": "Used", "spool": "Spool" },
+    "unknown": "Unknown filament",
+    "pick": "Spool for {{title}}",
+    "assign": "Assign",
+    "skip": "Don't track",
+    "skipAll": "Don't track any of these",
+    "emptyTitle": "Nothing to review",
+    "emptyBody": "Every imported print is matched to a spool.",
+    "error": "Couldn't update the review list. Is the server running?",
+    "assignError": "Couldn't assign that spool. Check that it has enough filament left.",
+    "banner_one": "{{count}} filament slot from imported prints needs a spool.",
+    "banner_other": "{{count}} filament slots from imported prints need a spool.",
+    "open": "Review"
   },
   "delete": {
     "title": "Delete this print?",

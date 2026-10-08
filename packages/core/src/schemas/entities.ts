@@ -173,6 +173,9 @@ export const printSchema = z
     energyWh: z.number().nonnegative().nullable(),
     energySource: z.enum(ENERGY_SOURCES).nullable(),
     costSnapshot: z.json().nullable(),
+    /** Imported prints: cover image and design page (e.g. MakerWorld), when the vendor gives them. */
+    coverUrl: z.string().nullable(),
+    sourceUrl: z.string().nullable(),
     ...imported,
     ...timestamps,
   })
@@ -192,6 +195,11 @@ export const printFilamentUsageSchema = z.object({
   profileId: id.nullable(),
   grams,
   slot: z.number().int().nonnegative().nullable(),
+  /** What an import reported for this slot; used to match a spool. Null for manual prints. */
+  material: z.string().nullable(),
+  colorHex: hexColor.nullable(),
+  /** The user chose not to track this filament (review queue). */
+  dismissed: z.boolean(),
 });
 
 export const tagSchema = z.object({ id, name: z.string().min(1), color: hexColor, ...timestamps });

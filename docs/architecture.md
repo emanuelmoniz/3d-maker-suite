@@ -175,7 +175,7 @@ type ExternalPrint = {
   externalId: string; printerExternalId: string; title: string; startedAt: string;
   durationSec?: number; outcome: PrintOutcome; failureReason?: string;
   filaments: { slot?: number; material?: string; colorHex?: string; grams: number }[];
-  projectFileName?: string; thumbnailUrl?: string;
+  coverUrl?: string; sourceUrl?: string;  // shown, never fetched by core
 };
 
 type ExternalFilamentProfile = {

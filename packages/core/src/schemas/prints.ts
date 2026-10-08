@@ -51,3 +51,19 @@ export type PrintUsageInput = z.infer<typeof printUsageInputSchema>;
 export type PrintDetail = z.infer<typeof printDetailSchema>;
 export type PrintInput = z.input<typeof printInputSchema>;
 export type PrintPatch = z.infer<typeof printPatchSchema>;
+
+/** An imported filament slot that has no spool yet. */
+export const filamentReviewItemSchema = z.object({
+  usageId: id,
+  printId: id,
+  printTitle: z.string(),
+  startedAt: isoDate,
+  slot: z.number().int().nonnegative().nullable(),
+  grams: z.number().nonnegative(),
+  material: z.string().nullable(),
+  colorHex: z.string().nullable(),
+});
+export const reviewAssignSchema = z.object({ spoolId: id });
+export const reviewDismissSchema = z.object({ usageIds: z.array(id).min(1).max(500) });
+
+export type FilamentReviewItem = z.infer<typeof filamentReviewItemSchema>;

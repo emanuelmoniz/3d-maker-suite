@@ -1,4 +1,9 @@
-import { type IntegrationAdapter, IntegrationError } from "@3d-maker-suite/core";
+import {
+  type ExternalPrint,
+  type IntegrationAdapter,
+  IntegrationError,
+  type Logger,
+} from "@3d-maker-suite/core";
 import { z } from "zod";
 import { call, cookie, parse, REGIONS, type Region, URLS } from "./cloud.ts";
 
@@ -24,6 +29,77 @@ const bindResponse = z.object({
     }),
   ),
 });
+// Task history (OpenBambuAPI cloud-http.md). Only what we need is required, so a harmless extra or
+// missing field doesn't break the sync; a missing id/status/time/device is `api_changed`.
+const PAGE = 20;
+const tasksResponse = z.object({
+  hits: z.array(
+    z.object({
+      id: z.number(),
+      title: z.string().nullish(),
+      designTitle: z.string().nullish(),
+      designId: z.number().nullish(),
+      status: z.number(), // 2 = finished, 3 = failed/aborted; anything else is skipped
+      startTime: z.string(),
+      endTime: z.string().nullish(),
+      costTime: z.number().nullish(), // the slicer's estimate, not the real duration
+      weight: z.number().nullish(),
+      cover: z.string().nullish(),
+      deviceId: z.string(),
+      amsDetailMapping: z
+        .array(
+          z.object({
+            ams: z.number().nullish(),
+            filamentType: z.string().nullish(),
+            targetColor: z.string().nullish(), // the tray actually used, as RRGGBBAA
+            weight: z.number(),
+          }),
+        )
+        .nullish(),
+    }),
+  ),
+});
+type Task = z.infer<typeof tasksResponse>["hits"][number];
+
+const OUTCOMES: Record<number, ExternalPrint["outcome"]> = { 2: "success", 3: "failed" };
+
+function toPrint(t: Task, region: Region, log: Logger): ExternalPrint | undefined {
+  const outcome = OUTCOMES[t.status];
+  const start = Date.parse(t.startTime);
+  if (!outcome || Number.isNaN(start)) {
+    log.debug({ status: t.status }, "bambu task skipped"); // e.g. still printing
+    return;
+  }
+  const end = t.endTime ? Date.parse(t.endTime) : Number.NaN;
+  const durationSec = end > start ? Math.round((end - start) / 1000) : undefined;
+  // ponytail: the cloud only has the sliced weight. A failed print is scaled by how far it got
+  // (time ratio); a rough guess the user can correct on the print. Add real data if Bambu ever sends it.
+  const done =
+    outcome === "failed" && durationSec && t.costTime ? Math.min(1, durationSec / t.costTime) : 1;
+  const rgb = (c?: string | null) =>
+    c && /^[0-9a-f]{6}/i.test(c) ? `#${c.slice(0, 6)}` : undefined;
+  const mapped = (t.amsDetailMapping ?? []).map((m) => ({
+    slot: m.ams != null && m.ams >= 0 ? m.ams : undefined,
+    material: m.filamentType || undefined,
+    colorHex: rgb(m.targetColor),
+    grams: Math.round(m.weight * done * 100) / 100,
+  }));
+  const filaments =
+    mapped.length || !t.weight ? mapped : [{ grams: Math.round(t.weight * done * 100) / 100 }];
+  const host = region === "china" ? "makerworld.com.cn" : "makerworld.com";
+  return {
+    externalId: String(t.id),
+    printerExternalId: t.deviceId,
+    title: t.title || t.designTitle || `Task ${t.id}`,
+    startedAt: new Date(start).toISOString(),
+    durationSec,
+    outcome,
+    filaments,
+    coverUrl: t.cover || undefined,
+    sourceUrl: t.designId ? `https://${host}/models/${t.designId}` : undefined,
+  };
+}
+
 type LoginState = { email?: string; tfaKey?: string };
 
 export function bambuCloudAdapter(): IntegrationAdapter {
@@ -79,12 +155,12 @@ export function bambuCloudAdapter(): IntegrationAdapter {
 
     create: ({ config, secrets, log, signal }) => {
       const { region } = config as { region: Region };
-      const devices = async () => {
+      const authed = async (url: string) => {
         const token = await secrets.get("token");
         if (!token) throw new IntegrationError("auth_required");
-        const res = await call(URLS.bind, { region, log, signal, token });
-        return (await parse(res, bindResponse, log)).devices;
+        return call(url, { region, log, signal, token });
       };
+      const devices = async () => (await parse(await authed(URLS.bind), bindResponse, log)).devices;
       return {
         // Thrown errors become a failed TestResult in the server.
         test: async () => {
@@ -101,6 +177,26 @@ export function bambuCloudAdapter(): IntegrationAdapter {
               model: d.dev_product_name,
               nozzleDiameterMm: Number(d.nozzle_diameter) || undefined,
             })),
+        },
+        printHistory: {
+          // Newest first; `after` is the id of the last task of the previous page.
+          listPrints: async ({ since, cursor }) => {
+            const query = new URLSearchParams({ limit: String(PAGE) });
+            if (cursor) query.set("after", cursor);
+            const { hits } = await parse(
+              await authed(`${URLS.tasks}?${query}`),
+              tasksResponse,
+              log,
+            );
+            const last = hits.at(-1);
+            const older = last && since && Date.parse(last.startTime) < Date.parse(since);
+            return {
+              items: hits
+                .map((t) => toPrint(t, region, log))
+                .filter((p): p is ExternalPrint => !!p && (!since || p.startedAt >= since)),
+              nextCursor: hits.length === PAGE && last && !older ? String(last.id) : undefined,
+            };
+          },
         },
       };
     },

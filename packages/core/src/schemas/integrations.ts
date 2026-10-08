@@ -36,8 +36,9 @@ export const externalPrintSchema = z.object({
       grams: z.number().nonnegative(),
     }),
   ),
-  projectFileName: z.string().optional(),
-  thumbnailUrl: z.string().optional(),
+  /** Cover image and design page (e.g. MakerWorld). Plain strings: stored and shown, never fetched. */
+  coverUrl: z.string().optional(),
+  sourceUrl: z.string().optional(),
 });
 
 /** `config` and `secrets` are checked against the adapter's own schemas by the server. */

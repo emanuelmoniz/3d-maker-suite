@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { Layers, Plus } from "lucide-react";
+import { ExternalLink, Layers, Plus } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
@@ -11,7 +11,7 @@ import { TagFilter } from "../../components/TagFilter.tsx";
 import { TagList } from "../../components/TagList.tsx";
 import { formatDateTime, formatDuration, formatWeight } from "../../lib/format.ts";
 import { usePrinters } from "../../lib/printers.ts";
-import { useDeletePrint, usePrints } from "../../lib/prints.ts";
+import { useDeletePrint, useFilamentReview, usePrints } from "../../lib/prints.ts";
 import { useTagsOf } from "../../lib/tags.ts";
 
 const OUTCOMES = {
@@ -26,6 +26,7 @@ export function PrintsPage() {
   const { data, isError } = usePrints(tagId);
   const tagsOf = useTagsOf("print");
   const printers = usePrinters({ archived: false }).data?.items ?? [];
+  const waiting = useFilamentReview().data?.length ?? 0;
   const del = useDeletePrint();
   const [toDelete, setToDelete] = useState<{ id: string; title: string } | null>(null);
   const grams = (p: { usages: { grams: number }[] }) => p.usages.reduce((n, u) => n + u.grams, 0);
@@ -51,6 +52,14 @@ export function PrintsPage() {
           {t("prints:loadError")}
         </p>
       )}
+      {waiting > 0 && (
+        <p className="mb-4 flex flex-wrap items-center gap-3 rounded-md border border-border bg-surface-2 p-3">
+          {t("prints:review.banner", { count: waiting })}
+          <Link to="/prints/review" className="font-medium underline">
+            {t("prints:review.open")}
+          </Link>
+        </p>
+      )}
       <div className="mb-4 flex flex-wrap items-center gap-4">
         <TagFilter value={tagId} onChange={setTagId} />
       </div>
@@ -71,7 +80,32 @@ export function PrintsPage() {
               {
                 id: "title",
                 header: t("prints:list.columns.title"),
-                cell: (p) => <span className="font-medium">{p.title}</span>,
+                cell: (p) => (
+                  <span className="flex items-center gap-2">
+                    {p.coverUrl && (
+                      <img
+                        src={p.coverUrl}
+                        alt=""
+                        loading="lazy"
+                        referrerPolicy="no-referrer"
+                        className="size-8 rounded object-cover"
+                        onError={(e) => e.currentTarget.remove()}
+                      />
+                    )}
+                    <span className="font-medium">{p.title}</span>
+                    {p.sourceUrl && (
+                      <a
+                        href={p.sourceUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        aria-label={t("prints:list.openDesign")}
+                        className="text-muted hover:text-fg"
+                      >
+                        <ExternalLink className="size-4" aria-hidden />
+                      </a>
+                    )}
+                  </span>
+                ),
                 sortValue: (p) => p.title.toLowerCase(),
               },
               {

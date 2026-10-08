@@ -11,3 +11,4 @@ export * from "./schemas/prints.ts";
 export * from "./schemas/tags.ts";
 export * from "./services/maintenanceDue.ts";
 export * from "./services/printerStats.ts";
+export * from "./services/spoolMatch.ts";

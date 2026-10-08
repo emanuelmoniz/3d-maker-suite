@@ -4,17 +4,28 @@ import {
   type IntegrationAdapter,
   IntegrationError,
   type IntegrationErrorCode,
+  matchSpool,
   type SyncRun,
   type SyncTrigger,
   type TestResult,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
-import { and, desc, eq, isNull, notInArray, sql } from "drizzle-orm";
+import { and, desc, eq, isNull, ne, notInArray, sql } from "drizzle-orm";
 import type { FastifyBaseLogger } from "fastify";
 import { HttpError } from "../errors.ts";
+import { takeFromSpool } from "../lib/spools.ts";
 import { secretStore } from "./secrets.ts";
 
-const { alerts, integrations, printers, prints, printFilamentUsages, syncRuns } = schema;
+const {
+  alerts,
+  filamentProfiles,
+  integrations,
+  printers,
+  prints,
+  printFilamentUsages,
+  spools,
+  syncRuns,
+} = schema;
 
 // ponytail: re-fetch a 7-day window so prints that finished after the last run aren't missed;
 // insert-only dedupe makes the overlap free. Widen if a vendor reports later than that.
@@ -163,6 +174,8 @@ export function createSyncer(
                   durationSec: d.durationSec,
                   outcome: d.outcome,
                   failureReason: d.outcome === "success" ? null : failureReason,
+                  coverUrl: d.coverUrl,
+                  sourceUrl: d.sourceUrl,
                 })
                 .onConflictDoNothing()
                 .returning({ id: prints.id })
@@ -172,17 +185,37 @@ export function createSyncer(
                 continue;
               }
               created++;
-              // ponytail: spool/profile unknown here; Step 13 matches material + colour to a profile.
-              if (filaments.length)
+              // A slot is booked from a spool only when matchSpool finds exactly one; anything else
+              // stays unassigned (spoolId null) and shows up in the review queue.
+              for (const f of filaments) {
+                const spoolId = matchSpool(
+                  { ...f, startedAt: d.startedAt },
+                  tx
+                    .select({
+                      id: spools.id,
+                      material: filamentProfiles.material,
+                      colorHex: filamentProfiles.colorHex,
+                      remainingGrams: spools.remainingGrams,
+                      createdAt: spools.createdAt,
+                    })
+                    .from(spools)
+                    .innerJoin(filamentProfiles, eq(filamentProfiles.id, spools.profileId))
+                    .where(and(isNull(spools.archivedAt), ne(spools.status, "empty")))
+                    .all(),
+                );
+                const profileId = spoolId ? takeFromSpool(tx, spoolId, f.grams, d.title) : null;
                 tx.insert(printFilamentUsages)
-                  .values(
-                    filaments.map((f) => ({
-                      printId: inserted.id,
-                      grams: f.grams,
-                      slot: f.slot ?? null,
-                    })),
-                  )
+                  .values({
+                    printId: inserted.id,
+                    spoolId: profileId ? spoolId : null,
+                    profileId,
+                    grams: f.grams,
+                    slot: f.slot ?? null,
+                    material: f.material,
+                    colorHex: f.colorHex?.toLowerCase(),
+                  })
                   .run();
+              }
             }
           });
           cursor = page.nextCursor;

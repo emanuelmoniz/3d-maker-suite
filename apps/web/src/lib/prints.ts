@@ -1,4 +1,10 @@
-import type { Page, PrintDetail, PrintInput, PrintPatch } from "@3d-maker-suite/core";
+import type {
+  FilamentReviewItem,
+  Page,
+  PrintDetail,
+  PrintInput,
+  PrintPatch,
+} from "@3d-maker-suite/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "./api.ts";
 
@@ -41,3 +47,19 @@ export const usePatchPrint = (id: string) =>
 
 export const useDeletePrint = () =>
   useInvalidating((id: string) => api("DELETE", `/api/prints/${id}`));
+
+export const useFilamentReview = () =>
+  useQuery({
+    queryKey: ["prints", "review"],
+    queryFn: () => api<FilamentReviewItem[]>("GET", "/api/prints/filament-review"),
+  });
+
+export const useAssignReview = () =>
+  useInvalidating((v: { usageId: string; spoolId: string }) =>
+    api("POST", `/api/prints/filament-review/${v.usageId}/assign`, { spoolId: v.spoolId }),
+  );
+
+export const useDismissReview = () =>
+  useInvalidating((usageIds: string[]) =>
+    api("POST", "/api/prints/filament-review/dismiss", { usageIds }),
+  );

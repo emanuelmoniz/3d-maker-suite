@@ -154,7 +154,7 @@ using web search, summarise the auth flow and endpoints, then plan. Handle rate 
 and API changes gracefully (clear error in UI, no crash).
 ```
 
-### [ ] Step 13 - Bambu Cloud: print history sync
+### [x] Step 13 - Bambu Cloud: print history sync
 **Model:** Sonnet · **Effort:** High
 **Scope:** Fetch task history → Prints: title, cover image, start/end, duration, printer, status → outcome, filament per AMS slot (type, color, grams), MakerWorld design link when present. Match filament to spools (auto by type + color, else "needs review" queue). Deduct via the ledger. Incremental sync + manual "sync now".
 **Done when:** history imports without duplicates; review queue works.

@@ -42,13 +42,13 @@ const ctx = (region = "global") => ({
 });
 const login = (input: Parameters<NonNullable<typeof adapter.login>>[1], region?: string) =>
   adapter.login?.(ctx(region), input) ?? Promise.reject(new Error("no login"));
-const instance = (token?: string) => {
+const instance = (token?: string, region?: string) => {
   const secrets: SecretStore = {
     get: async () => token,
     set: async () => {},
     delete: async () => {},
   };
-  return adapter.create({ ...ctx(), secrets } as IntegrationContext);
+  return adapter.create({ ...ctx(region), secrets } as IntegrationContext);
 };
 const code = (p: Promise<unknown>) =>
   p.then(
@@ -154,4 +154,88 @@ it("lists bound printers without the LAN access code", async () => {
     },
   ]);
   expect((sent(0).init.headers as Record<string, string>).authorization).toBe("Bearer tok");
+});
+
+const task = (id: number, over: Record<string, unknown> = {}) => ({
+  id,
+  title: `Task ${id}`,
+  designId: 42,
+  status: 2,
+  startTime: "2026-05-01T10:00:00Z",
+  endTime: "2026-05-01T12:00:00Z",
+  costTime: 7200,
+  weight: 30,
+  cover: "https://cdn.example/c.png",
+  deviceId: "01P00A000000001",
+  amsDetailMapping: [
+    { ams: 0, filamentType: "PLA", sourceColor: "000000FF", targetColor: "FF8800FF", weight: 20 },
+    { ams: 1, filamentType: "PETG", targetColor: "FFFFFFFF", weight: 10 },
+  ],
+  ...over,
+});
+const history = (q: { since?: string; cursor?: string } = {}, region?: string) =>
+  instance("tok", region).printHistory?.listPrints(q);
+
+it("maps finished tasks with filament per slot, link and cover", async () => {
+  queue(json(200, { total: 1, hits: [task(7)] }));
+  const page = await history();
+  expect(page).toEqual({
+    items: [
+      {
+        externalId: "7",
+        printerExternalId: "01P00A000000001",
+        title: "Task 7",
+        startedAt: "2026-05-01T10:00:00.000Z",
+        durationSec: 7200,
+        outcome: "success",
+        filaments: [
+          { slot: 0, material: "PLA", colorHex: "#FF8800", grams: 20 },
+          { slot: 1, material: "PETG", colorHex: "#FFFFFF", grams: 10 },
+        ],
+        coverUrl: "https://cdn.example/c.png",
+        sourceUrl: "https://makerworld.com/models/42",
+      },
+    ],
+    nextCursor: undefined,
+  });
+  expect(sent(0).url).toBe("https://api.bambulab.com/v1/user-service/my/tasks?limit=20");
+});
+
+it("scales a failed print by how far it got and skips unfinished tasks", async () => {
+  queue(
+    json(200, {
+      hits: [
+        task(8, { status: 3, endTime: "2026-05-01T11:00:00Z" }),
+        task(9, { status: 1 }),
+        task(10, { amsDetailMapping: [] }),
+      ],
+    }),
+  );
+  const items = (await history(undefined, "china"))?.items ?? [];
+  expect(items.map((p) => p.externalId)).toEqual(["8", "10"]);
+  expect(items[0]).toMatchObject({
+    outcome: "failed",
+    sourceUrl: "https://makerworld.com.cn/models/42",
+  });
+  expect(items[0]?.filaments.map((f) => f.grams)).toEqual([10, 5]);
+  expect(items[1]?.filaments).toEqual([{ grams: 30 }]); // no AMS detail: weight only, no colour
+});
+
+it("pages with the last id until the window is covered", async () => {
+  const full = Array.from({ length: 20 }, (_, i) => task(100 - i));
+  queue(json(200, { hits: full }));
+  expect((await history({ since: "2026-04-01T00:00:00.000Z" }))?.nextCursor).toBe("81");
+  queue(json(200, { hits: full }));
+  expect((await history({ since: "2026-06-01T00:00:00.000Z" }))?.nextCursor).toBeUndefined();
+  queue(json(200, { hits: [] }));
+  await history({ cursor: "81" });
+  expect(sent(2).url).toContain("after=81");
+});
+
+it("reports an unexpected task shape as api_changed and a missing token as auth_required", async () => {
+  queue(json(200, { hits: [{ id: 1 }] }));
+  expect(await code(history() ?? Promise.resolve())).toBe("api_changed");
+  expect(await code(instance().printHistory?.listPrints({}) ?? Promise.resolve())).toBe(
+    "auth_required",
+  );
 });

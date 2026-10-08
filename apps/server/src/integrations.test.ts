@@ -257,3 +257,104 @@ describe("sign-in", () => {
     expect(res.json().error.code).toBe("login_unsupported");
   });
 });
+
+describe("filament matching of imported prints", () => {
+  const spool = async (colorHex = "#ff8800", initialGrams = 1000) => {
+    const profile = (
+      await send("POST", "/api/filament/profiles", { material: "PLA", colorHex, densityGcm3: 1.24 })
+    ).json();
+    return (
+      await send("POST", "/api/filament/spools", { profileId: profile.id, initialGrams })
+    ).json();
+  };
+  const left = async (id: string) => (await get(`/api/filament/spools/${id}`)).remainingGrams;
+  const review = () => get("/api/prints/filament-review");
+  // Spools exist from "now", so the mock prints must start after that to be eligible.
+  const syncNow = async () => {
+    state.prints.forEach((p, i) => {
+      p.startedAt = new Date(Date.now() + i * 1000).toISOString();
+    });
+    return sync((await create()).id);
+  };
+
+  it("books a unique type + colour match through the ledger, once", async () => {
+    const s = await spool();
+    await spool("#00ff00"); // other colour: not a candidate
+    const { id } = await create();
+    for (const p of state.prints) p.startedAt = new Date().toISOString();
+    await sync(id);
+    expect(await left(s.id)).toBe(1000 - 60);
+    expect(await review()).toEqual([]);
+    const usage = (await get("/api/prints?sort=startedAt")).items[0].usages[0];
+    expect(usage).toMatchObject({
+      spoolId: s.id,
+      profileId: s.profileId,
+      material: "PLA",
+      colorHex: "#ff8800",
+    });
+    const history = await get(`/api/filament/spools/${s.id}/history`);
+    expect(history.filter((e: { kind: string }) => e.kind === "print")).toHaveLength(3);
+
+    await sync(id);
+    expect(await left(s.id)).toBe(1000 - 60);
+  });
+
+  it("queues ambiguous, unknown and too-heavy slots instead of guessing", async () => {
+    const a = await spool();
+    const b = await spool();
+    await syncNow();
+    expect(await left(a.id)).toBe(1000);
+    expect(await left(b.id)).toBe(1000);
+    expect(await review()).toHaveLength(3);
+  });
+
+  it("queues a slot that doesn't fit the only matching spool", async () => {
+    const s = await spool("#ff8800", 25); // jobs use 10, 20 and 30 g
+    await syncNow();
+    expect((await review()).map((r: { grams: number }) => r.grams).sort()).toEqual([20, 30]);
+    expect(await left(s.id)).toBe(15);
+  });
+
+  it("assigns from the queue (ledger) or dismisses, and edits keep waiting slots", async () => {
+    const a = await spool();
+    await spool();
+    await syncNow();
+    const [first, second, third] = await review();
+    expect(first.grams).toBe(30); // newest print first
+
+    expect(
+      (await send("POST", `/api/prints/filament-review/${first.usageId}/assign`, { spoolId: a.id }))
+        .statusCode,
+    ).toBe(204);
+    expect(await left(a.id)).toBe(970);
+    expect(
+      (await send("POST", `/api/prints/filament-review/${first.usageId}/assign`, { spoolId: a.id }))
+        .statusCode,
+    ).toBe(404);
+
+    // Editing the print's spools must not drop the slots still waiting in the queue.
+    await send("PATCH", `/api/prints/${second.printId}`, { usages: [] });
+    expect(await review()).toHaveLength(2);
+
+    await send("POST", "/api/prints/filament-review/dismiss", {
+      usageIds: [second.usageId, third.usageId],
+    });
+    expect(await review()).toEqual([]);
+    expect((await get(`/api/prints/${second.printId}`)).usages).toMatchObject([
+      { grams: 20, spoolId: null, dismissed: true },
+    ]);
+  });
+
+  it("refuses to assign more than the spool holds", async () => {
+    await spool();
+    await spool();
+    await syncNow();
+    const small = await spool("#123456", 1);
+    const [item] = await review();
+    const res = await send("POST", `/api/prints/filament-review/${item.usageId}/assign`, {
+      spoolId: small.id,
+    });
+    expect(res.json().error.code).toBe("insufficient_filament");
+    expect(await review()).toHaveLength(3);
+  });
+});

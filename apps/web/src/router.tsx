@@ -14,6 +14,7 @@ import { PrinterDetailPage } from "./pages/printers/PrinterDetailPage.tsx";
 import { PrinterCreatePage, PrinterEditPage } from "./pages/printers/PrinterFormPage.tsx";
 import { PrintersPage } from "./pages/printers/PrintersPage.tsx";
 import { PrintCreatePage, PrintEditPage } from "./pages/prints/PrintFormPage.tsx";
+import { PrintReviewPage } from "./pages/prints/PrintReviewPage.tsx";
 import { PrintsPage } from "./pages/prints/PrintsPage.tsx";
 import { SettingsPage } from "./pages/SettingsPage.tsx";
 import { IntegrationCreatePage } from "./pages/settings/IntegrationFormPage.tsx";
@@ -94,6 +95,7 @@ const routes: AnyRoute[] = [
   ...[
     ["/prints", PrintsPage],
     ["/prints/new", PrintCreatePage],
+    ["/prints/review", PrintReviewPage],
     ["/prints/$id/edit", PrintEditPage],
   ].map(([path, component]) =>
     createRoute({

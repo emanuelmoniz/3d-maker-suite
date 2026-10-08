@@ -42,11 +42,13 @@ function PrintForm({ print }: { print?: PrintDetail }) {
   const tags = useTagEditor("print", print?.id);
   const [outcome, setOutcome] = useState<string>(print?.outcome ?? "success");
   const [rows, setRows] = useState<Row[]>(
-    (print?.usages ?? []).map((u, key) => ({
-      key,
-      spoolId: u.spoolId ?? "",
-      grams: String(u.grams),
-    })),
+    (print?.usages ?? [])
+      .filter((u) => u.spoolId) // slots without a spool live in the review queue
+      .map((u, key) => ({
+        key,
+        spoolId: u.spoolId ?? "",
+        grams: String(u.grams),
+      })),
   );
   const [nextKey, setNextKey] = useState(rows.length);
   const setRow = (key: number, p: Partial<Row>) =>

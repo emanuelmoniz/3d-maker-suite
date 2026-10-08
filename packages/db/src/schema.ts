@@ -276,6 +276,8 @@ export const prints = sqliteTable(
     energyWh: real(),
     energySource: text({ enum: ENERGY_SOURCES }),
     costSnapshot: text({ mode: "json" }),
+    coverUrl: text(),
+    sourceUrl: text(),
     ...imported(),
     ...timestamps,
   },
@@ -292,8 +294,8 @@ export const prints = sqliteTable(
   ],
 );
 
-// One row per filament slot (AMS). spoolId is null when an imported print's spool is unknown;
-// profileId still keeps the material for cost and stats.
+// One row per filament slot (AMS). spoolId is null while an imported slot waits in the review
+// queue, and stays null if the user dismisses it.
 export const printFilamentUsages = sqliteTable(
   "print_filament_usages",
   {
@@ -305,6 +307,10 @@ export const printFilamentUsages = sqliteTable(
     profileId: text().references(() => filamentProfiles.id, { onDelete: "restrict" }),
     grams: real().notNull(),
     slot: integer(),
+    // As reported by an import; a spool is matched on these (or picked by hand in the review queue).
+    material: text(),
+    colorHex: text(),
+    dismissed: integer({ mode: "boolean" }).notNull().default(false),
   },
   (t) => [
     index("print_filament_usages_print_idx").on(t.printId),

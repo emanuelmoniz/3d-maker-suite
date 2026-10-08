@@ -1,5 +1,7 @@
 import {
   apiErrorSchema,
+  type FilamentReviewItem,
+  filamentReviewItemSchema,
   idList,
   listQuery,
   type Page,
@@ -10,20 +12,21 @@ import {
   printInputSchema,
   printPatchSchema,
   printSortFields,
+  reviewAssignSchema,
+  reviewDismissSchema,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
-import { eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, isNull } from "drizzle-orm";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
 import { inIds, listPage, taggedWith } from "../lib/list.ts";
 import { readPreferences } from "../lib/preferences.ts";
-import { setRemaining } from "../lib/spools.ts";
+import { round, setRemaining, takeFromSpool } from "../lib/spools.ts";
 
 const { prints, printFilamentUsages, printers, projects, spools } = schema;
 const params = z.object({ id: z.uuid() });
 const notFound = { 404: apiErrorSchema };
-const round = (g: number) => Math.round(g * 1000) / 1000;
 
 export const printsRoutes =
   (db: Db): FastifyPluginAsyncZod =>
@@ -87,7 +90,9 @@ export const printsRoutes =
       const old = tx
         .select()
         .from(printFilamentUsages)
-        .where(eq(printFilamentUsages.printId, printId))
+        .where(
+          and(eq(printFilamentUsages.printId, printId), isNotNull(printFilamentUsages.spoolId)),
+        )
         .all();
       const net = new Map<string, number>(); // spoolId -> grams to give back (+) or take (-)
       for (const u of old) if (u.spoolId) net.set(u.spoolId, (net.get(u.spoolId) ?? 0) + u.grams);
@@ -103,7 +108,12 @@ export const printsRoutes =
           throw new HttpError(400, "insufficient_filament", "Spool has less filament than used");
         if (round(grams) !== 0) setRemaining(tx, spoolId, "print", remaining, title);
       }
-      tx.delete(printFilamentUsages).where(eq(printFilamentUsages.printId, printId)).run();
+      // Slots without a spool (the review queue) are kept: the edit form doesn't show them.
+      tx.delete(printFilamentUsages)
+        .where(
+          and(eq(printFilamentUsages.printId, printId), isNotNull(printFilamentUsages.spoolId)),
+        )
+        .run();
       if (next.length)
         tx.insert(printFilamentUsages)
           .values(
@@ -117,6 +127,79 @@ export const printsRoutes =
           )
           .run();
     };
+
+    // Imported filament without a spool: assign one (books the ledger) or dismiss it.
+    const waiting = and(
+      isNull(printFilamentUsages.spoolId),
+      eq(printFilamentUsages.dismissed, false),
+    );
+    app.get(
+      "/filament-review",
+      { schema: { response: { 200: z.array(filamentReviewItemSchema) } } },
+      async () =>
+        db
+          .select({
+            usageId: printFilamentUsages.id,
+            printId: prints.id,
+            printTitle: prints.title,
+            startedAt: prints.startedAt,
+            slot: printFilamentUsages.slot,
+            grams: printFilamentUsages.grams,
+            material: printFilamentUsages.material,
+            colorHex: printFilamentUsages.colorHex,
+          })
+          .from(printFilamentUsages)
+          .innerJoin(prints, eq(prints.id, printFilamentUsages.printId))
+          .where(waiting)
+          .orderBy(desc(prints.startedAt), printFilamentUsages.slot)
+          .all() as FilamentReviewItem[],
+    );
+
+    app.post(
+      "/filament-review/:usageId/assign",
+      {
+        schema: {
+          params: z.object({ usageId: z.uuid() }),
+          body: reviewAssignSchema,
+          response: { 204: z.null(), ...notFound },
+        },
+      },
+      async (req, reply) => {
+        const row = db
+          .select({ usage: printFilamentUsages, title: prints.title })
+          .from(printFilamentUsages)
+          .innerJoin(prints, eq(prints.id, printFilamentUsages.printId))
+          .where(and(eq(printFilamentUsages.id, req.params.usageId), waiting))
+          .get();
+        if (!row) throw new HttpError(404, "not_found", "Nothing to review here");
+        db.transaction((tx) => {
+          const spool = tx.select().from(spools).where(eq(spools.id, req.body.spoolId)).get();
+          if (!spool || spool.archivedAt)
+            throw new HttpError(400, "invalid_spool", "Spool not found");
+          const profileId = takeFromSpool(tx, spool.id, row.usage.grams, row.title);
+          if (!profileId)
+            throw new HttpError(400, "insufficient_filament", "Spool has less filament than used");
+          tx.update(printFilamentUsages)
+            .set({ spoolId: spool.id, profileId })
+            .where(eq(printFilamentUsages.id, row.usage.id))
+            .run();
+        });
+        return reply.status(204).send(null);
+      },
+    );
+
+    // "Don't track this": the grams stay on the print, no spool changes.
+    app.post(
+      "/filament-review/dismiss",
+      { schema: { body: reviewDismissSchema, response: { 204: z.null() } } },
+      async (req, reply) => {
+        db.update(printFilamentUsages)
+          .set({ dismissed: true })
+          .where(and(inArray(printFilamentUsages.id, req.body.usageIds), waiting))
+          .run();
+        return reply.status(204).send(null);
+      },
+    );
 
     app.get(
       "/",
