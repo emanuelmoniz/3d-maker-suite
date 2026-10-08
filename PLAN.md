@@ -178,7 +178,7 @@ make the path overridable in settings. Show an import preview before writing.
 
 ## Phase 3 - Projects & costs
 
-### [ ] Step 15 - 3MF parser package
+### [x] Step 15 - 3MF parser package
 **Model:** Sonnet · **Effort:** High
 **Scope:** `packages/3mf`: read the zip and extract per plate: print time, filament grams/meters per slot, filament types and colors, multicolor flag, plate thumbnails, slicer and version, printer model. Works for sliced (Bambu `slice_info.config`) and unsliced 3MF (graceful partial data).
 **Done when:** unit tests pass on fixture files in `packages/3mf/fixtures`.
