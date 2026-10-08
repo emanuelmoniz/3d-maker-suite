@@ -4,14 +4,14 @@ import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { TagList } from "../../components/TagList.tsx";
-import { filamentLabel, usePatchSpool, useProfiles, useSpool } from "../../lib/filament.ts";
+import { filamentLabel, usePatchSpool, useProfile, useSpool } from "../../lib/filament.ts";
 import { formatCurrency, formatDate, formatWeight } from "../../lib/format.ts";
 import { usePreferences } from "../../lib/preferences.ts";
 import { useTagsOf } from "../../lib/tags.ts";
 import { AdjustDialog } from "./AdjustDialog.tsx";
 import { STATUS, Swatch } from "./FilamentPage.tsx";
 
-function Info({ label, children }: { label: string; children: ReactNode }) {
+export function Info({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div>
       <dt className="text-muted">{label}</dt>
@@ -20,15 +20,14 @@ function Info({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
-const linkButton =
+export const linkButton =
   "inline-flex h-9 items-center justify-center rounded-md border border-border bg-surface px-3 font-medium hover:bg-surface-2";
 
 export function SpoolDetailPage() {
   const { t } = useTranslation();
   const { id } = useParams({ strict: false }) as { id: string };
   const { data: spool, isError } = useSpool(id);
-  // ponytail: active profiles only; an archived profile shows as "archived profile"
-  const profile = useProfiles().data?.items.find((p) => p.id === spool?.profileId);
+  const { data: profile } = useProfile(spool?.profileId);
   const currency = usePreferences().data?.values.currency;
   const tagsOf = useTagsOf("spool");
   const patch = usePatchSpool();
@@ -43,7 +42,7 @@ export function SpoolDetailPage() {
   if (!spool) return null;
 
   const none = t("filament:detail.none");
-  const title = profile ? filamentLabel(profile) : t("filament:spools.archivedProfile");
+  const title = filamentLabel(profile);
   const archived = spool.archivedAt !== null;
   const library = spool.sourceSpool?.split(":")[0];
 
@@ -80,6 +79,15 @@ export function SpoolDetailPage() {
           )}
         </h2>
         <dl className="grid gap-3 sm:grid-cols-2">
+          <Info label={t("filament:spools.profile")}>
+            <Link
+              to="/filament/profiles/$id"
+              params={{ id: spool.profileId }}
+              className="font-medium underline"
+            >
+              {title}
+            </Link>
+          </Info>
           <Info label={t("filament:spools.remaining")}>
             {t("filament:spoolImport.remainingOf", {
               remaining: formatWeight(spool.remainingGrams),

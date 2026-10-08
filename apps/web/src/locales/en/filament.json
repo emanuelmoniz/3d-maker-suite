@@ -47,6 +47,7 @@
     "archive": "Archive",
     "add": "Add profile",
     "addTitle": "Add filament profile",
+    "editTitle": "Edit filament profile",
     "save": "Save profile",
     "error": "Couldn't save the profile."
   },
@@ -97,6 +98,12 @@
     "source": "Source",
     "imported": "Imported from {{source}}",
     "manual": "Added by hand"
+  },
+  "profileDetail": {
+    "title": "Profile details",
+    "notFound": "Filament profile not found.",
+    "spools": "Spools",
+    "noSpools": "No spools use this profile yet."
   },
   "spoolImport": {
     "link": "Import from Bambu Studio",

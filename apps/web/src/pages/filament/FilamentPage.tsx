@@ -213,7 +213,13 @@ export function FilamentPage() {
                   cell: (p) => (
                     <span className="flex items-center gap-2">
                       <Swatch hex={p.colorHex} />
-                      <span className="font-medium">{label(p)}</span>
+                      <Link
+                        to="/filament/profiles/$id"
+                        params={{ id: p.id }}
+                        className="font-medium hover:underline"
+                      >
+                        {label(p)}
+                      </Link>
                     </span>
                   ),
                   sortValue: (p) => label(p).toLowerCase(),

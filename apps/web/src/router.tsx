@@ -7,7 +7,8 @@ import { loadNamespace } from "./i18n.ts";
 import { CostsPage } from "./pages/costs/CostsPage.tsx";
 import { FilamentPage } from "./pages/filament/FilamentPage.tsx";
 import { LibraryImportPage } from "./pages/filament/LibraryImportPage.tsx";
-import { ProfileCreatePage } from "./pages/filament/ProfileFormPage.tsx";
+import { ProfileDetailPage } from "./pages/filament/ProfileDetailPage.tsx";
+import { ProfileCreatePage, ProfileEditPage } from "./pages/filament/ProfileFormPage.tsx";
 import { SpoolDetailPage } from "./pages/filament/SpoolDetailPage.tsx";
 import { SpoolCreatePage, SpoolEditPage } from "./pages/filament/SpoolFormPage.tsx";
 import { SpoolImportPage } from "./pages/filament/SpoolImportPage.tsx";
@@ -100,6 +101,8 @@ const routes: AnyRoute[] = [
   ...[
     ["/filament/spools/$id", SpoolDetailPage],
     ["/filament/spools/$id/edit", SpoolEditPage],
+    ["/filament/profiles/$id", ProfileDetailPage],
+    ["/filament/profiles/$id/edit", ProfileEditPage],
   ].map(([path, component]) =>
     createRoute({
       getParentRoute: () => root,
