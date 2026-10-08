@@ -17,6 +17,7 @@ import { PrintCreatePage, PrintEditPage } from "./pages/prints/PrintFormPage.tsx
 import { PrintsPage } from "./pages/prints/PrintsPage.tsx";
 import { SettingsPage } from "./pages/SettingsPage.tsx";
 import { IntegrationCreatePage } from "./pages/settings/IntegrationFormPage.tsx";
+import { IntegrationLoginPage } from "./pages/settings/IntegrationLoginPage.tsx";
 import { IntegrationsPage } from "./pages/settings/IntegrationsPage.tsx";
 import { AppShell } from "./shell/AppShell.tsx";
 import { ALL_ITEMS, SETTINGS_ITEM } from "./shell/nav.ts";
@@ -112,6 +113,7 @@ const routes: AnyRoute[] = [
   ...[
     ["/settings/integrations", IntegrationsPage],
     ["/settings/integrations/new", IntegrationCreatePage],
+    ["/settings/integrations/$id/login", IntegrationLoginPage],
   ].map(([path, component]) =>
     createRoute({
       getParentRoute: () => root,

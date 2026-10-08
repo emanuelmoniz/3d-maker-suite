@@ -3,6 +3,8 @@ import type {
   Integration,
   IntegrationInput,
   IntegrationPatch,
+  LoginRequest,
+  LoginResult,
   SyncRun,
   TestResult,
 } from "@3d-maker-suite/core";
@@ -53,3 +55,10 @@ export const useTestIntegration = (id: string) =>
 
 export const useSyncIntegration = (id: string) =>
   useInvalidating(() => api<SyncRun>("POST", `/api/integrations/${id}/sync`), true);
+
+/** On success the server starts a sync, which can import printers. */
+export const useLogin = (id: string) =>
+  useInvalidating(
+    (v: LoginRequest) => api<LoginResult>("POST", `/api/integrations/${id}/login`, v),
+    true,
+  );

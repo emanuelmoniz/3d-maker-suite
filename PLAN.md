@@ -142,7 +142,7 @@ Do Step 11 of PLAN.md. Build it so adding a vendor = one package implementing th
 core interfaces + registering it. Include a mock adapter used in tests.
 ```
 
-### [ ] Step 12 - Bambu Cloud: login & printers  **[plan mode]**
+### [x] Step 12 - Bambu Cloud: login & printers  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:** Bambu Cloud login (email + password + email verification code / 2FA, region global/China); store the token only, never the password; refresh/expiry handling. Import bound printers (serial, model, name) → link to existing or create printers.
 **Done when:** a real account can log in and printers are imported.

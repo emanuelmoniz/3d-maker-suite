@@ -9,7 +9,7 @@ import {
   type TestResult,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
-import { and, desc, eq, isNull, notInArray } from "drizzle-orm";
+import { and, desc, eq, isNull, notInArray, sql } from "drizzle-orm";
 import type { FastifyBaseLogger } from "fastify";
 import { HttpError } from "../errors.ts";
 import { secretStore } from "./secrets.ts";
@@ -21,6 +21,11 @@ const { alerts, integrations, printers, prints, printFilamentUsages, syncRuns } 
 const OVERLAP_MS = 7 * 24 * 3600 * 1000;
 const TIMEOUT_MS = 5 * 60 * 1000;
 const KEEP_RUNS = 100;
+// Scheduled runs skip errors only the user can fix, and back off after rate limits / blocks.
+const NEEDS_USER = new Set(["auth_required", "auth_expired", "login_failed", "code_invalid"]);
+const BACK_OFF = new Set(["rate_limited", "blocked"]);
+// ponytail: fixed 1 h pause after a rate limit; make it exponential if vendors keep throttling.
+const BACK_OFF_MS = 3600 * 1000;
 
 /**
  * Runs adapters and stores what they return. Dedupe is insert-only on (integrationId, externalId):
@@ -86,13 +91,38 @@ export function createSyncer(
             runLog.warn({ issues: p.error.issues }, "invalid printer from adapter");
             continue;
           }
-          const res = db
-            .insert(printers)
-            .values({ ...p.data, ...imported })
-            .onConflictDoNothing()
-            .run();
-          if (res.changes) created++;
-          else skipped++;
+          const known = db
+            .select({ id: printers.id })
+            .from(printers)
+            .where(and(eq(printers.integrationId, id), eq(printers.externalId, p.data.externalId)))
+            .get();
+          if (known) {
+            skipped++;
+            continue;
+          }
+          // A printer added by hand (same serial) gets linked instead of imported twice.
+          const twin =
+            p.data.serial &&
+            db
+              .select({ id: printers.id })
+              .from(printers)
+              .where(
+                and(
+                  isNull(printers.integrationId),
+                  sql`lower(${printers.serial}) = lower(${p.data.serial})`,
+                ),
+              )
+              .get();
+          if (twin)
+            db.update(printers)
+              .set({ integrationId: id, externalId: p.data.externalId })
+              .where(eq(printers.id, twin.id))
+              .run();
+          else
+            db.insert(printers)
+              .values({ ...p.data, ...imported })
+              .run();
+          created++;
         }
       }
 
@@ -216,14 +246,24 @@ export function createSyncer(
     return saved as SyncRun;
   }
 
-  /** Scheduled job: every enabled integration, one after another. */
+  /** Scheduled job: every enabled integration, one after another (see NEEDS_USER / BACK_OFF). */
   async function runAll() {
     const rows = db
-      .select({ id: integrations.id })
+      .select({ id: integrations.id, lastError: integrations.lastError })
       .from(integrations)
       .where(eq(integrations.enabled, true))
       .all();
-    for (const { id } of rows) {
+    for (const { id, lastError } of rows) {
+      if (lastError && NEEDS_USER.has(lastError)) continue;
+      if (lastError && BACK_OFF.has(lastError)) {
+        const last = db
+          .select({ startedAt: syncRuns.startedAt })
+          .from(syncRuns)
+          .where(eq(syncRuns.integrationId, id))
+          .orderBy(desc(syncRuns.startedAt))
+          .get();
+        if (last && Date.now() - Date.parse(last.startedAt) < BACK_OFF_MS) continue;
+      }
       // A manual run in progress (409) or a deleted row is fine to skip; failures are already stored.
       await run(id, "scheduled").catch(() => {});
     }

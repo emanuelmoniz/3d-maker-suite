@@ -2,9 +2,14 @@ import {
   adapterInfoSchema,
   apiErrorSchema,
   type Integration,
+  IntegrationError,
   integrationInputSchema,
   integrationPatchSchema,
   integrationSchema,
+  type LoginInput,
+  type LoginResult,
+  loginInputSchema,
+  loginResultSchema,
   type SyncRun,
   syncRunSchema,
   testResultSchema,
@@ -20,10 +25,14 @@ import type { Syncer } from "../integrations/sync.ts";
 const { integrations, syncRuns } = schema;
 const params = z.object({ id: z.uuid() });
 const notFound = { 404: apiErrorSchema };
+const LOGIN_TTL_MS = 10 * 60 * 1000;
+const LOGIN_TIMEOUT_MS = 60 * 1000;
 
 export const integrationsRoutes =
   (db: Db, key: Buffer, syncer: Syncer): FastifyPluginAsyncZod =>
   async (app) => {
+    // ponytail: a sign-in waiting for its code lives in memory; a restart means starting over.
+    const pendingLogins = new Map<string, { state: string; expires: number }>();
     const adapterOf = (id: string) => {
       const adapter = syncer.adapters.find((a) => a.id === id);
       if (!adapter) throw new HttpError(400, "unknown_adapter", `Unknown adapter "${id}"`);
@@ -52,6 +61,7 @@ export const integrationsRoutes =
         id: a.id,
         config: z.toJSONSchema(a.configSchema, { io: "input" }),
         secrets: z.toJSONSchema(a.secretsSchema, { io: "input" }),
+        login: !!a.login,
       })),
     );
 
@@ -136,6 +146,62 @@ export const integrationsRoutes =
       "/:id/test",
       { schema: { params, response: { 200: testResultSchema, ...notFound } } },
       async (req) => syncer.test(req.params.id),
+    );
+
+    // Interactive sign-in: email + password, then the code the vendor asks for. Only the resulting
+    // secrets are stored; the password is never kept (and `*.password` is redacted from logs).
+    app.post(
+      "/:id/login",
+      {
+        schema: {
+          params,
+          body: loginInputSchema,
+          response: { 200: loginResultSchema, ...notFound, 409: apiErrorSchema },
+        },
+      },
+      async (req): Promise<LoginResult> => {
+        const row = get(req.params.id);
+        const adapter = adapterOf(row.adapterId);
+        if (!adapter.login)
+          throw new HttpError(400, "login_unsupported", "No sign-in for this adapter");
+        let input: LoginInput;
+        if ("code" in req.body) {
+          const pending = pendingLogins.get(row.id);
+          if (!pending || pending.expires < Date.now())
+            throw new HttpError(409, "login_not_started", "Sign in with email and password first");
+          input = { code: req.body.code, state: pending.state };
+        } else input = req.body;
+        const log = req.log.child({ integrationId: row.id, adapterId: row.adapterId });
+        try {
+          const step = await adapter.login(
+            {
+              config: adapter.configSchema.parse(row.config),
+              log,
+              signal: AbortSignal.timeout(LOGIN_TIMEOUT_MS),
+            },
+            input,
+          );
+          if ("challenge" in step) {
+            pendingLogins.set(row.id, { state: step.state, expires: Date.now() + LOGIN_TTL_MS });
+            return { status: "challenge", challenge: step.challenge };
+          }
+          pendingLogins.delete(row.id);
+          db.transaction(() => {
+            writeSecrets(db, key, row.id, step.secrets);
+            db.update(integrations)
+              .set({ status: "new", lastError: null })
+              .where(eq(integrations.id, row.id))
+              .run();
+          });
+          // Import the printers right away; the card shows "syncing", failures land in the sync log.
+          syncer.run(row.id, "manual").catch(() => {});
+          return { status: "ok" };
+        } catch (e) {
+          if (e instanceof IntegrationError) return { status: "error", code: e.code };
+          log.warn({ err: e }, "sign-in failed");
+          return { status: "error", code: "unknown" };
+        }
+      },
     );
 
     app.post(

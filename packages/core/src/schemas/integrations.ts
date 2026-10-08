@@ -2,6 +2,7 @@ import { z } from "zod";
 import { id, isoDate } from "./entities.ts";
 import {
   INTEGRATION_ERROR_CODES,
+  LOGIN_CHALLENGES,
   PRINT_OUTCOMES,
   SYNC_RUN_STATUSES,
   SYNC_TRIGGERS,
@@ -64,7 +65,21 @@ export const adapterInfoSchema = z.object({
   id: z.string(),
   config: z.record(z.string(), z.unknown()),
   secrets: z.record(z.string(), z.unknown()),
+  /** Secrets come from an interactive sign-in instead of the form. */
+  login: z.boolean(),
 });
+
+/** Step 1 sends email + password, step 2 the code the vendor asked for. */
+export const loginInputSchema = z.union([
+  z.object({ email: z.string().trim().min(1), password: z.string().min(1) }).strict(),
+  z.object({ code: z.string().trim().min(1) }).strict(),
+]);
+
+export const loginResultSchema = z.discriminatedUnion("status", [
+  z.object({ status: z.literal("ok") }),
+  z.object({ status: z.literal("challenge"), challenge: z.enum(LOGIN_CHALLENGES) }),
+  z.object({ status: z.literal("error"), code: z.enum(INTEGRATION_ERROR_CODES) }),
+]);
 
 export const syncRunSchema = z.object({
   id,
@@ -90,3 +105,5 @@ export type IntegrationPatch = z.infer<typeof integrationPatchSchema>;
 export type AdapterInfo = z.infer<typeof adapterInfoSchema>;
 export type SyncRun = z.infer<typeof syncRunSchema>;
 export type TestResult = z.infer<typeof testResultSchema>;
+export type LoginRequest = z.infer<typeof loginInputSchema>;
+export type LoginResult = z.infer<typeof loginResultSchema>;

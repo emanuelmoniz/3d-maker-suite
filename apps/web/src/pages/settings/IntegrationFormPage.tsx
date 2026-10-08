@@ -9,15 +9,17 @@ import { useAdapters, useCreateIntegration } from "../../lib/integrations.ts";
 import { useAdapterName } from "./IntegrationsPage.tsx";
 
 // The adapter's zod schemas arrive as JSON Schema; flat string/number/boolean fields are enough
-// for API-key and URL style vendors. Flows like a 2FA login bring their own page.
-type Field = { name: string; type: string; required: boolean };
+// for API-key and URL style vendors. Adapters with an interactive sign-in (2FA, email codes) get
+// their secrets from IntegrationLoginPage instead.
+type Field = { name: string; type: string; required: boolean; options?: string[] };
 const fieldsOf = (s: AdapterInfo["config"]): Field[] => {
-  const props = (s.properties ?? {}) as Record<string, { type?: string }>;
+  const props = (s.properties ?? {}) as Record<string, { type?: string; enum?: string[] }>;
   const required = (s.required ?? []) as string[];
   return Object.entries(props).map(([name, p]) => ({
     name,
     type: p.type ?? "string",
     required: required.includes(name),
+    options: p.enum,
   }));
 };
 
@@ -40,7 +42,7 @@ export function IntegrationCreatePage() {
   const [adapterId, setAdapterId] = useState("");
   const adapter = adapters.find((a) => a.id === (adapterId || adapters[0]?.id));
   const config = adapter ? fieldsOf(adapter.config) : [];
-  const secrets = adapter ? fieldsOf(adapter.secrets) : [];
+  const secrets = adapter && !adapter.login ? fieldsOf(adapter.secrets) : [];
 
   const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -53,11 +55,16 @@ export function IntegrationCreatePage() {
         config: read(f, "config", config),
         secrets: read(f, "secrets", secrets) as Record<string, string>,
       },
-      { onSuccess: () => navigate({ to: "/settings/integrations" }) },
+      {
+        onSuccess: (row) =>
+          adapter.login
+            ? navigate({ to: "/settings/integrations/$id/login", params: { id: row.id } })
+            : navigate({ to: "/settings/integrations" }),
+      },
     );
   };
 
-  const input = (prefix: "config" | "secrets", { name, type, required }: Field) => (
+  const input = (prefix: "config" | "secrets", { name, type, required, options }: Field) => (
     <FormField
       key={`${adapter?.id}-${prefix}-${name}`}
       label={t(`integrations:adapters.${adapter?.id}.fields.${name}`, { defaultValue: name })}
@@ -66,6 +73,16 @@ export function IntegrationCreatePage() {
       {(p) =>
         type === "boolean" ? (
           <input {...p} type="checkbox" name={`${prefix}.${name}`} className="size-4" />
+        ) : options ? (
+          <select {...p} name={`${prefix}.${name}`} className={inputClass}>
+            {options.map((o) => (
+              <option key={o} value={o}>
+                {t(`integrations:adapters.${adapter?.id}.options.${name}.${o}`, {
+                  defaultValue: o,
+                })}
+              </option>
+            ))}
+          </select>
         ) : (
           <input
             {...p}

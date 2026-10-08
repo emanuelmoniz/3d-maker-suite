@@ -178,6 +178,9 @@ importers:
 
   apps/server:
     dependencies:
+      '@3d-maker-suite/adapter-bambu':
+        specifier: workspace:*
+        version: link:../../packages/adapters/bambu
       '@3d-maker-suite/adapter-mock':
         specifier: workspace:*
         version: link:../../packages/adapters/mock
@@ -270,7 +273,14 @@ importers:
 
   packages/3mf: {}
 
-  packages/adapters/bambu: {}
+  packages/adapters/bambu:
+    dependencies:
+      '@3d-maker-suite/core':
+        specifier: workspace:*
+        version: link:../../core
+      zod:
+        specifier: ^4.6.5
+        version: 4.6.5
 
   packages/adapters/mock:
     dependencies:

@@ -24,11 +24,16 @@ LAN/MQTT (live status, AMS state) comes later, as a separate capability or adapt
 
 ## Risks and mitigations
 - **The API is unofficial** and can change without notice. Mitigation: the adapter is isolated (ADR-0003), DTOs are zod-validated, and failures surface as a `sync_failed` alert instead of crashes.
-- **Auth:** email codes / 2FA and token expiry. Mitigation: the adapter refreshes tokens through `SecretStore`, and maps failures to `auth_required` / `auth_expired` so the UI can ask the user to sign in again.
-- **Rate limits:** incremental sync (`since: lastSyncAt`), a modest job interval, and backoff on `rate_limited`.
+- **Auth:** email codes / 2FA and token expiry. Mitigation: an interactive sign-in (`IntegrationAdapter.login`) stores only the token. Upstream token refresh no longer works (the endpoint only answers 401), so an expired token (about 3 months) maps to `auth_expired` and the UI asks the user to sign in again.
+- **Rate limits and bot protection:** incremental sync (`since: lastSyncAt`), a modest job interval, and a 1 h scheduled-sync pause after `rate_limited` / `blocked` (Cloudflare challenge). Response shapes are zod-checked; a mismatch is reported as `api_changed`.
 - **Region:** global and China endpoints are a config option of the integration.
 - Phase 1 is fully usable without any integration, so an outage never blocks the user.
 
 ## Consequences
 - Requires an internet connection and a Bambu account to sync. Manual entry is always available.
 - Tokens are stored as described in ADR-0005.
+
+## Sources (unofficial API, checked 2026-10)
+- OpenBambuAPI, cloud-http.md: https://github.com/Doridian/OpenBambuAPI/blob/main/cloud-http.md
+- ha-bambulab pybambu (login, email code, TFA + CSRF, bind): https://github.com/greghesp/ha-bambulab/tree/main/custom_components/bambu_lab/pybambu
+- ha-bambulab #2136 (CSRF endpoint is /api/csrf) and #692 (Cloudflare 403 on login)

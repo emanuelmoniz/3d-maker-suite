@@ -1,5 +1,5 @@
 import type { Integration, IntegrationErrorCode, IntegrationStatus } from "@3d-maker-suite/core";
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { Plug, Plus } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -25,11 +25,15 @@ const STATUS: Record<IntegrationStatus, { label: string; tone: string }> = {
   ok: { label: "integrations:status.ok", tone: "bg-ok/15 text-ok" },
   error: { label: "integrations:status.error", tone: "bg-bad/15 text-bad" },
 };
-const ERRORS: Record<IntegrationErrorCode, string> = {
+export const ERRORS: Record<IntegrationErrorCode, string> = {
   auth_required: "integrations:errors.auth_required",
   auth_expired: "integrations:errors.auth_expired",
   rate_limited: "integrations:errors.rate_limited",
   unreachable: "integrations:errors.unreachable",
+  login_failed: "integrations:errors.login_failed",
+  code_invalid: "integrations:errors.code_invalid",
+  blocked: "integrations:errors.blocked",
+  api_changed: "integrations:errors.api_changed",
   unknown: "integrations:errors.unknown",
 };
 const TRIGGERS = { manual: "integrations:runs.manual", scheduled: "integrations:runs.scheduled" };
@@ -87,6 +91,8 @@ export function IntegrationsPage() {
 function IntegrationCard({ integration: i }: { integration: Integration }) {
   const { t } = useTranslation();
   const adapterName = useAdapterName();
+  const navigate = useNavigate();
+  const hasLogin = useAdapters().data?.find((a) => a.id === i.adapterId)?.login;
   const [showLog, setShowLog] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const patch = usePatchIntegration(i.id);
@@ -130,7 +136,21 @@ function IntegrationCard({ integration: i }: { integration: Integration }) {
       )}
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
-        <Button variant="primary" disabled={sync.isPending} onClick={() => sync.mutate()}>
+        {hasLogin && (
+          <Button
+            variant={i.hasSecrets ? "secondary" : "primary"}
+            onClick={() =>
+              navigate({ to: "/settings/integrations/$id/login", params: { id: i.id } })
+            }
+          >
+            {i.hasSecrets ? t("integrations:card.signInAgain") : t("integrations:card.signIn")}
+          </Button>
+        )}
+        <Button
+          variant={hasLogin && !i.hasSecrets ? "secondary" : "primary"}
+          disabled={sync.isPending}
+          onClick={() => sync.mutate()}
+        >
           {t("integrations:card.syncNow")}
         </Button>
         <Button disabled={test.isPending} onClick={() => test.mutate()}>

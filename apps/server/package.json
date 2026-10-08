@@ -9,6 +9,7 @@
     "typecheck": "tsc -p ."
   },
   "dependencies": {
+    "@3d-maker-suite/adapter-bambu": "workspace:*",
     "@3d-maker-suite/adapter-mock": "workspace:*",
     "@3d-maker-suite/core": "workspace:*",
     "@3d-maker-suite/db": "workspace:*",

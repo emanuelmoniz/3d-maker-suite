@@ -1,5 +1,5 @@
 import type { z } from "zod";
-import type { IntegrationErrorCode } from "../schemas/enums.ts";
+import type { IntegrationErrorCode, LoginChallenge } from "../schemas/enums.ts";
 import type { ExternalPrint, ExternalPrinter, TestResult } from "../schemas/integrations.ts";
 
 // The contract a vendor package implements (ADR-0003, docs/architecture.md).
@@ -13,7 +13,17 @@ export interface IntegrationAdapter {
   /** Fields encrypted at rest (ADR-0005). String values only. */
   secretsSchema: z.ZodObject;
   create(ctx: IntegrationContext): IntegrationInstance;
+  /**
+   * Interactive sign-in (password, then an email code or 2FA). Returns the secrets to store, or a
+   * challenge; the server keeps `state` and passes it back with the code. Never store the password.
+   */
+  login?(ctx: Omit<IntegrationContext, "secrets">, input: LoginInput): Promise<LoginStep>;
 }
+
+export type LoginInput = { email: string; password: string } | { code: string; state: string };
+export type LoginStep =
+  | { secrets: Record<string, string> }
+  | { challenge: LoginChallenge; state: string };
 
 export interface IntegrationContext {
   /** Already validated with `configSchema`. */

@@ -17,6 +17,10 @@
     "auth_expired": "Sign-in expired. Connect again.",
     "rate_limited": "The vendor is limiting requests. It will retry later.",
     "unreachable": "The vendor service can't be reached.",
+    "login_failed": "Wrong email or password.",
+    "code_invalid": "That code is wrong or has expired. Check it and try again.",
+    "blocked": "The vendor's servers blocked the request. Wait a while and try again.",
+    "api_changed": "The vendor changed its service and this version can't read it any more. Check for an update of 3D Maker Suite.",
     "unknown": "Something went wrong. See the server log for details."
   },
   "card": {
@@ -29,7 +33,9 @@
     "delete": "Delete",
     "showLog": "Show sync log",
     "hideLog": "Hide sync log",
-    "actionError": "That didn't work. Try again."
+    "actionError": "That didn't work. Try again.",
+    "signIn": "Sign in",
+    "signInAgain": "Sign in again"
   },
   "deleteDialog": {
     "title": "Delete {{name}}?",
@@ -63,6 +69,30 @@
         "label": "Label",
         "token": "Token"
       }
+    },
+    "bambu-cloud": {
+      "name": "Bambu Lab (Bambu Cloud)",
+      "fields": {
+        "region": "Region"
+      },
+      "options": {
+        "region": {
+          "global": "Global",
+          "china": "China"
+        }
+      }
     }
+  },
+  "login": {
+    "title": "Sign in to {{name}}",
+    "email": "Email",
+    "password": "Password",
+    "passwordHint": "Used once to sign in. Only the access token is stored, encrypted on this computer.",
+    "submit": "Sign in",
+    "code": "Verification code",
+    "email_code": "We sent a code to your email. Enter it to finish signing in.",
+    "totp": "Enter the code from your authenticator app.",
+    "verify": "Verify",
+    "error": "Couldn't sign in. Enter your email and password again."
   }
 }

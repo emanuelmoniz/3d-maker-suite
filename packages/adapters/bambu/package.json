@@ -6,5 +6,9 @@
   "main": "src/index.ts",
   "scripts": {
     "typecheck": "tsc -p ."
+  },
+  "dependencies": {
+    "@3d-maker-suite/core": "workspace:*",
+    "zod": "^4.6.5"
   }
 }

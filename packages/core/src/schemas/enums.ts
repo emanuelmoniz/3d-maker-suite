@@ -14,8 +14,14 @@ export const INTEGRATION_ERROR_CODES = [
   "auth_expired",
   "rate_limited",
   "unreachable",
+  "login_failed", // wrong email or password
+  "code_invalid", // wrong or expired verification code
+  "blocked", // anti-bot protection (e.g. a Cloudflare challenge) rejected the request
+  "api_changed", // the vendor's response no longer matches what the adapter expects
   "unknown",
 ] as const;
+// What an interactive sign-in asks for after the password.
+export const LOGIN_CHALLENGES = ["email_code", "totp"] as const;
 // "syncing" is reported while a run is in progress, never stored.
 export const INTEGRATION_STATUSES = ["new", "syncing", "ok", "error"] as const;
 export const SYNC_TRIGGERS = ["manual", "scheduled"] as const;
@@ -30,5 +36,6 @@ export type SpoolStatus = (typeof SPOOL_STATUSES)[number];
 export type WeightEntryKind = (typeof WEIGHT_ENTRY_KINDS)[number];
 export type CommentStatus = (typeof COMMENT_STATUSES)[number];
 export type IntegrationErrorCode = (typeof INTEGRATION_ERROR_CODES)[number];
+export type LoginChallenge = (typeof LOGIN_CHALLENGES)[number];
 export type IntegrationStatus = (typeof INTEGRATION_STATUSES)[number];
 export type SyncTrigger = (typeof SYNC_TRIGGERS)[number];

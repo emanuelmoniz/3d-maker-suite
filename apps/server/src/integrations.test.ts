@@ -1,9 +1,20 @@
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { fixture, type MockState, mockAdapter } from "@3d-maker-suite/adapter-mock";
-import type { ExternalPrint } from "@3d-maker-suite/core";
+import {
+  type ExternalPrint,
+  type IntegrationAdapter,
+  IntegrationError,
+  type IntegrationErrorCode,
+} from "@3d-maker-suite/core";
 import { openDb, schema } from "@3d-maker-suite/db";
 import { eq } from "drizzle-orm";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { z } from "zod";
 import { buildApp } from "./app.ts";
+import { loadKey } from "./integrations/secrets.ts";
+import { createSyncer } from "./integrations/sync.ts";
 
 let db: ReturnType<typeof openDb>;
 let app: Awaited<ReturnType<typeof buildApp>>;
@@ -12,7 +23,22 @@ let state: MockState;
 beforeEach(async () => {
   db = openDb(":memory:");
   state = fixture();
-  app = await buildApp(db, false, "", { adapters: [mockAdapter(state)] });
+  app = await buildApp(db, false, "", { adapters: [mockAdapter(state), loginAdapter()] });
+});
+
+// The mock vendor plus an email-code sign-in: password "pw", then code "123456".
+const loginAdapter = (): IntegrationAdapter => ({
+  ...mockAdapter(state),
+  id: "mock-login",
+  secretsSchema: z.object({ token: z.string().optional() }),
+  login: async (_ctx, input) => {
+    if ("password" in input) {
+      if (input.password !== "pw") throw new IntegrationError("login_failed");
+      return { challenge: "email_code", state: input.email };
+    }
+    if (input.code !== "123456") throw new IntegrationError("code_invalid");
+    return { secrets: { token: `token-for-${input.state}` } };
+  },
 });
 
 const send = (method: "POST" | "PATCH" | "DELETE", url: string, payload?: object) =>
@@ -133,5 +159,101 @@ describe("integrations", () => {
     expect(res.json()).toMatchObject({ name: "Renamed", enabled: false, hasSecrets: true });
     const row = db.select().from(schema.integrations).where(eq(schema.integrations.id, id)).get();
     expect(row?.secrets).not.toContain("new");
+  });
+
+  it("links a hand-added printer with the same serial instead of importing a duplicate", async () => {
+    await send("POST", "/api/printers", {
+      name: "Mine",
+      brand: "Mock",
+      model: "M1",
+      serial: "mock0001",
+    });
+    const { id } = await create();
+    expect(await sync(id)).toMatchObject({ status: "ok", created: 4 });
+    const printers = db.select().from(schema.printers).all();
+    expect(printers).toHaveLength(1);
+    expect(printers[0]).toMatchObject({
+      name: "Mine",
+      origin: "manual",
+      integrationId: id,
+      externalId: "mock-1",
+    });
+    expect(db.select().from(schema.prints).all()).toHaveLength(3);
+    expect(await sync(id)).toMatchObject({ created: 0, skipped: 1 });
+  });
+
+  it("scheduled syncs skip errors the user must fix and back off after rate limits", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "integrations-"));
+    try {
+      app = await buildApp(db, false, dir, { adapters: [mockAdapter(state)] });
+      const syncer = createSyncer(db, [mockAdapter(state)], loadKey(dir), app.log);
+      await create();
+      const runs = () => db.select().from(schema.syncRuns).all().length;
+      const setError = (lastError: IntegrationErrorCode | null) =>
+        db.update(schema.integrations).set({ lastError }).run();
+
+      setError("auth_expired");
+      await syncer.runAll();
+      expect(runs()).toBe(0);
+
+      setError(null);
+      state.fail = "rate_limited";
+      await syncer.runAll();
+      expect(runs()).toBe(1);
+      await syncer.runAll(); // backing off
+      expect(runs()).toBe(1);
+
+      const twoHoursAgo = new Date(Date.now() - 2 * 3600 * 1000).toISOString();
+      db.update(schema.syncRuns).set({ startedAt: twoHoursAgo }).run();
+      await syncer.runAll();
+      expect(runs()).toBe(2);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("sign-in", () => {
+  const login = (id: string, payload: object) =>
+    send("POST", `/api/integrations/${id}/login`, payload);
+
+  it("signs in with a code, stores the token and imports the printers", async () => {
+    const adapters = await get("/api/integrations/adapters");
+    expect(adapters.map((a: { id: string; login: boolean }) => [a.id, a.login])).toEqual([
+      ["mock", false],
+      ["mock-login", true],
+    ]);
+    const created = await send("POST", "/api/integrations", { adapterId: "mock-login", name: "x" });
+    const { id, hasSecrets } = created.json();
+    expect(hasSecrets).toBe(false);
+
+    expect((await login(id, { code: "123456" })).json().error.code).toBe("login_not_started");
+    expect((await login(id, { email: "a@b.c", password: "nope" })).json()).toEqual({
+      status: "error",
+      code: "login_failed",
+    });
+    expect((await login(id, { email: "a@b.c", password: "pw" })).json()).toEqual({
+      status: "challenge",
+      challenge: "email_code",
+    });
+    expect((await login(id, { code: "000000" })).json()).toEqual({
+      status: "error",
+      code: "code_invalid",
+    });
+    expect((await login(id, { code: "123456" })).json()).toEqual({ status: "ok" });
+    // The challenge is used up.
+    expect((await login(id, { code: "123456" })).statusCode).toBe(409);
+
+    await vi.waitFor(() => expect(db.select().from(schema.syncRuns).all()).toHaveLength(1));
+    expect(await get(`/api/integrations/${id}`)).toMatchObject({ hasSecrets: true, status: "ok" });
+    expect(db.select().from(schema.printers).all()).toHaveLength(1);
+    const row = db.select().from(schema.integrations).get();
+    expect(row?.secrets).not.toContain("token-for");
+  });
+
+  it("rejects sign-in for adapters without one", async () => {
+    const { id } = await create();
+    const res = await login(id, { email: "a@b.c", password: "pw" });
+    expect(res.json().error.code).toBe("login_unsupported");
   });
 });
