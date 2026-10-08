@@ -1,5 +1,6 @@
 import type { MaintenanceDueItem, MaintenanceType } from "@3d-maker-suite/core";
-import { Wrench } from "lucide-react";
+import { Link } from "@tanstack/react-router";
+import { Plus, Wrench } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
@@ -8,13 +9,7 @@ import { EmptyState } from "../../components/EmptyState.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { dateInputToIso, formatDate, formatDuration, formatNumber } from "../../lib/format.ts";
-import {
-  useCreateType,
-  useDue,
-  useLogDone,
-  useMaintenanceTypes,
-  usePatchType,
-} from "../../lib/maintenance.ts";
+import { useDue, useLogDone, useMaintenanceTypes, usePatchType } from "../../lib/maintenance.ts";
 import { usePreferences } from "../../lib/preferences.ts";
 
 const STATUS = {
@@ -144,64 +139,6 @@ function LogDialog({ item, onClose }: { item: MaintenanceDueItem | null; onClose
   );
 }
 
-function TypeForm() {
-  const { t } = useTranslation();
-  const create = useCreateType();
-  const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const form = e.currentTarget;
-    const f = new FormData(form);
-    create.mutate(
-      {
-        name: text(f, "name"),
-        description: text(f, "description") || null,
-        intervalSec: num(text(f, "hours"), 3600),
-        intervalPrints: num(text(f, "prints")),
-        intervalDays: num(text(f, "days")),
-        appliesToModel: text(f, "model") || null,
-      },
-      { onSuccess: () => form.reset() },
-    );
-  };
-  const interval = (name: string, label: string) => (
-    <FormField label={t(label)}>
-      {(p) => <input {...p} name={name} type="number" min={1} step={1} className={inputClass} />}
-    </FormField>
-  );
-  return (
-    <form
-      onSubmit={onSubmit}
-      className="grid gap-4 rounded-lg border border-border bg-surface p-4 sm:max-w-md"
-    >
-      <FormField label={t("maintenance:types.name")}>
-        {(p) => <input {...p} name="name" required className={inputClass} />}
-      </FormField>
-      <FormField label={t("maintenance:types.description")}>
-        {(p) => <input {...p} name="description" className={inputClass} />}
-      </FormField>
-      <fieldset className="grid gap-4">
-        <legend className="mb-1 text-muted">{t("maintenance:types.intervalHint")}</legend>
-        {interval("hours", "maintenance:types.hours")}
-        {interval("prints", "maintenance:types.prints")}
-        {interval("days", "maintenance:types.days")}
-      </fieldset>
-      <FormField label={t("maintenance:types.model")} hint={t("maintenance:types.modelHint")}>
-        {(p) => <input {...p} name="model" className={inputClass} />}
-      </FormField>
-      {create.isError && (
-        <p role="alert" className="text-bad">
-          {t("maintenance:types.error")}
-        </p>
-      )}
-      <div>
-        <Button type="submit" variant="primary" disabled={create.isPending}>
-          {t("maintenance:types.add")}
-        </Button>
-      </div>
-    </form>
-  );
-}
-
 export function MaintenancePage() {
   const { t, i18n } = useTranslation();
   const due = useDue();
@@ -299,7 +236,16 @@ export function MaintenancePage() {
         </section>
 
         <section className="grid gap-3">
-          <h2 className="text-base font-semibold">{t("maintenance:types.title")}</h2>
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-base font-semibold">{t("maintenance:types.title")}</h2>
+            <Link
+              to="/maintenance/new"
+              className="inline-flex h-9 items-center gap-2 rounded-md bg-accent px-3 font-medium text-accent-fg hover:opacity-90"
+            >
+              <Plus className="size-4" aria-hidden />
+              {t("maintenance:types.add")}
+            </Link>
+          </div>
           {types.data && (
             <DataTable
               label={t("maintenance:types.table")}
@@ -342,7 +288,6 @@ export function MaintenancePage() {
               ]}
             />
           )}
-          <TypeForm />
         </section>
       </div>
       <LogDialog item={logging} onClose={() => setLogging(null)} />

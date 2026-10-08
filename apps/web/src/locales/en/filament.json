@@ -12,6 +12,8 @@
     "adjust": "Adjust weight",
     "archive": "Archive",
     "add": "Add spool",
+    "addTitle": "Add spool",
+    "save": "Save spool",
     "profile": "Profile",
     "initial": "Initial weight (g)",
     "remainingNow": "Remaining weight (g)",
@@ -40,6 +42,8 @@
     "temps": "{{nozzle}} / {{bed}} °C",
     "archive": "Archive",
     "add": "Add profile",
+    "addTitle": "Add filament profile",
+    "save": "Save profile",
     "error": "Couldn't save the profile."
   },
   "adjust": {

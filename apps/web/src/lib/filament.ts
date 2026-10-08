@@ -65,3 +65,6 @@ export const useAdjustSpool = () =>
       note: v.note,
     }),
   );
+
+export const filamentLabel = (p?: FilamentProfile) =>
+  p ? [p.brand, p.material, p.name].filter(Boolean).join(" ") : "";

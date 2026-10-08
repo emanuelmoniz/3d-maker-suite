@@ -1,0 +1,95 @@
+import { useNavigate } from "@tanstack/react-router";
+import { useTranslation } from "react-i18next";
+import { Button } from "../../components/Button.tsx";
+import { FormField, inputClass } from "../../components/FormField.tsx";
+import { PageHeader } from "../../components/PageHeader.tsx";
+import { useCreateProfile } from "../../lib/filament.ts";
+import { usePreferences } from "../../lib/preferences.ts";
+
+const text = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
+const num = (v: string, scale = 1) => (v ? Math.round(Number(v) * scale) : null);
+const float = (v: string) => (v ? Number(v) : null);
+
+function ProfileForm() {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const currency = usePreferences().data?.values.currency ?? "";
+  const create = useCreateProfile();
+  const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const form = e.currentTarget;
+    const f = new FormData(form);
+    create.mutate(
+      {
+        brand: text(f, "brand"),
+        material: text(f, "material"),
+        name: text(f, "name"),
+        colorHex: text(f, "color"),
+        diameterMm: float(text(f, "diameter")) ?? 1.75,
+        densityGcm3: Number(text(f, "density")),
+        pricePerKg: num(text(f, "price"), 100),
+        nozzleTempC: num(text(f, "nozzle")),
+        bedTempC: num(text(f, "bed")),
+      },
+      { onSuccess: () => navigate({ to: "/filament" }) },
+    );
+  };
+  const field = (name: string, key: string, props: React.ComponentProps<"input"> = {}) => (
+    <FormField label={t(key)}>
+      {(p) => <input {...p} name={name} className={inputClass} {...props} />}
+    </FormField>
+  );
+  return (
+    <form onSubmit={onSubmit} className="grid gap-4 sm:max-w-md">
+      {field("brand", "filament:profiles.brand")}
+      {field("material", "filament:profiles.material", { required: true })}
+      {field("name", "filament:profiles.name")}
+      <FormField label={t("filament:profiles.color")}>
+        {(p) => (
+          <input {...p} name="color" type="color" defaultValue="#808080" className={inputClass} />
+        )}
+      </FormField>
+      {field("diameter", "filament:profiles.diameter", {
+        type: "number",
+        min: 0.1,
+        step: 0.01,
+        defaultValue: 1.75,
+      })}
+      {field("density", "filament:profiles.density", {
+        type: "number",
+        required: true,
+        min: 0.1,
+        step: 0.01,
+        defaultValue: 1.24,
+      })}
+      <FormField label={`${t("filament:profiles.pricePerKg")} (${currency})`}>
+        {(p) => (
+          <input {...p} name="price" type="number" min={0} step={0.01} className={inputClass} />
+        )}
+      </FormField>
+      {field("nozzle", "filament:profiles.nozzleTemp", { type: "number", min: 1, step: 1 })}
+      {field("bed", "filament:profiles.bedTemp", { type: "number", min: 0, step: 1 })}
+      {create.isError && (
+        <p role="alert" className="text-bad">
+          {t("filament:profiles.error")}
+        </p>
+      )}
+      <div className="flex gap-2">
+        <Button type="submit" variant="primary" disabled={create.isPending}>
+          {t("filament:profiles.save")}
+        </Button>
+        <Button onClick={() => history.back()}>{t("common:actions.cancel")}</Button>
+      </div>
+    </form>
+  );
+}
+
+export function ProfileCreatePage() {
+  const { t } = useTranslation();
+  return (
+    <>
+      <PageHeader title={t("filament:profiles.addTitle")} />
+      <ProfileForm />
+    </>
+  );
+}

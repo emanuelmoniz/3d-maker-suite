@@ -42,6 +42,8 @@
     "title": "Maintenance tasks",
     "table": "Maintenance tasks",
     "add": "Add task",
+    "addTitle": "Add maintenance task",
+    "save": "Save task",
     "name": "Name",
     "description": "Description",
     "hours": "Every (print hours)",

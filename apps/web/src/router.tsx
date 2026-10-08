@@ -5,8 +5,11 @@ import { useTranslation } from "react-i18next";
 import { EmptyState } from "./components/EmptyState.tsx";
 import { loadNamespace } from "./i18n.ts";
 import { FilamentPage } from "./pages/filament/FilamentPage.tsx";
+import { ProfileCreatePage } from "./pages/filament/ProfileFormPage.tsx";
+import { SpoolCreatePage } from "./pages/filament/SpoolFormPage.tsx";
 import { ModulePage } from "./pages/ModulePage.tsx";
 import { MaintenancePage } from "./pages/maintenance/MaintenancePage.tsx";
+import { TypeCreatePage } from "./pages/maintenance/TypeFormPage.tsx";
 import { PrinterDetailPage } from "./pages/printers/PrinterDetailPage.tsx";
 import { PrinterCreatePage, PrinterEditPage } from "./pages/printers/PrinterFormPage.tsx";
 import { PrintersPage } from "./pages/printers/PrintersPage.tsx";
@@ -57,6 +60,24 @@ const routes: AnyRoute[] = [
     path: "/maintenance",
     loader: () => loadNamespace("maintenance"),
     component: MaintenancePage,
+  }),
+  createRoute({
+    getParentRoute: () => root,
+    path: "/maintenance/new",
+    loader: () => loadNamespace("maintenance"),
+    component: TypeCreatePage,
+  }),
+  createRoute({
+    getParentRoute: () => root,
+    path: "/filament/spools/new",
+    loader: () => loadNamespace("filament"),
+    component: SpoolCreatePage,
+  }),
+  createRoute({
+    getParentRoute: () => root,
+    path: "/filament/profiles/new",
+    loader: () => loadNamespace("filament"),
+    component: ProfileCreatePage,
   }),
   createRoute({
     getParentRoute: () => root,

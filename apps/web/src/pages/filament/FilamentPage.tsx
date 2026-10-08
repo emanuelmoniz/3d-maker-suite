@@ -1,5 +1,6 @@
-import type { FilamentProfile, Spool } from "@3d-maker-suite/core";
-import { Spool as SpoolIcon } from "lucide-react";
+import type { Spool } from "@3d-maker-suite/core";
+import { Link } from "@tanstack/react-router";
+import { Plus, Spool as SpoolIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
@@ -8,22 +9,15 @@ import { EmptyState } from "../../components/EmptyState.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import {
+  filamentLabel,
   useAdjustSpool,
-  useCreateProfile,
-  useCreateSpool,
   usePatchProfile,
   usePatchSpool,
   useProfiles,
   useSpoolHistory,
   useSpools,
 } from "../../lib/filament.ts";
-import {
-  dateInputToIso,
-  formatCurrency,
-  formatDateTime,
-  formatNumber,
-  formatWeight,
-} from "../../lib/format.ts";
+import { formatCurrency, formatDateTime, formatNumber, formatWeight } from "../../lib/format.ts";
 import { usePreferences } from "../../lib/preferences.ts";
 
 const STATUS = {
@@ -37,11 +31,17 @@ const ENTRY = {
   correction: "filament:adjust.entryKinds.correction",
 } as const;
 const text = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
-const num = (v: string, scale = 1) => (v ? Math.round(Number(v) * scale) : null);
-const float = (v: string) => (v ? Number(v) : null);
 
-const label = (p?: FilamentProfile) =>
-  p ? [p.brand, p.material, p.name].filter(Boolean).join(" ") : "";
+const addClass =
+  "inline-flex h-9 items-center gap-2 rounded-md bg-accent px-3 font-medium text-accent-fg hover:opacity-90";
+const AddLink = ({ to, children }: { to: string; children: string }) => (
+  <Link to={to} className={addClass}>
+    <Plus className="size-4" aria-hidden />
+    {children}
+  </Link>
+);
+
+const label = filamentLabel;
 
 function Swatch({ hex }: { hex: string }) {
   return (
@@ -179,160 +179,6 @@ function AdjustDialog({
   );
 }
 
-function ProfileForm() {
-  const { t } = useTranslation();
-  const currency = usePreferences().data?.values.currency ?? "";
-  const create = useCreateProfile();
-  const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const form = e.currentTarget;
-    const f = new FormData(form);
-    create.mutate(
-      {
-        brand: text(f, "brand"),
-        material: text(f, "material"),
-        name: text(f, "name"),
-        colorHex: text(f, "color"),
-        diameterMm: float(text(f, "diameter")) ?? 1.75,
-        densityGcm3: Number(text(f, "density")),
-        pricePerKg: num(text(f, "price"), 100),
-        nozzleTempC: num(text(f, "nozzle")),
-        bedTempC: num(text(f, "bed")),
-      },
-      { onSuccess: () => form.reset() },
-    );
-  };
-  const field = (name: string, key: string, props: React.ComponentProps<"input"> = {}) => (
-    <FormField label={t(key)}>
-      {(p) => <input {...p} name={name} className={inputClass} {...props} />}
-    </FormField>
-  );
-  return (
-    <form
-      onSubmit={onSubmit}
-      className="grid gap-4 rounded-lg border border-border bg-surface p-4 sm:max-w-md"
-    >
-      {field("brand", "filament:profiles.brand")}
-      {field("material", "filament:profiles.material", { required: true })}
-      {field("name", "filament:profiles.name")}
-      <FormField label={t("filament:profiles.color")}>
-        {(p) => (
-          <input {...p} name="color" type="color" defaultValue="#808080" className={inputClass} />
-        )}
-      </FormField>
-      {field("diameter", "filament:profiles.diameter", {
-        type: "number",
-        min: 0.1,
-        step: 0.01,
-        defaultValue: 1.75,
-      })}
-      {field("density", "filament:profiles.density", {
-        type: "number",
-        required: true,
-        min: 0.1,
-        step: 0.01,
-        defaultValue: 1.24,
-      })}
-      <FormField label={`${t("filament:profiles.pricePerKg")} (${currency})`}>
-        {(p) => (
-          <input {...p} name="price" type="number" min={0} step={0.01} className={inputClass} />
-        )}
-      </FormField>
-      {field("nozzle", "filament:profiles.nozzleTemp", { type: "number", min: 1, step: 1 })}
-      {field("bed", "filament:profiles.bedTemp", { type: "number", min: 0, step: 1 })}
-      {create.isError && (
-        <p role="alert" className="text-bad">
-          {t("filament:profiles.error")}
-        </p>
-      )}
-      <div>
-        <Button type="submit" variant="primary" disabled={create.isPending}>
-          {t("filament:profiles.add")}
-        </Button>
-      </div>
-    </form>
-  );
-}
-
-function SpoolForm({ profiles }: { profiles: FilamentProfile[] }) {
-  const { t } = useTranslation();
-  const create = useCreateSpool();
-  const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const form = e.currentTarget;
-    const f = new FormData(form);
-    const date = (k: string) => (text(f, k) ? dateInputToIso(text(f, k)) : null);
-    create.mutate(
-      {
-        profileId: text(f, "profile"),
-        initialGrams: Number(text(f, "initial")),
-        remainingGrams: float(text(f, "remaining")) ?? undefined,
-        emptyWeightGrams: float(text(f, "empty")),
-        pricePaid: num(text(f, "price"), 100),
-        purchasedAt: date("purchasedAt"),
-        openedAt: date("openedAt"),
-        location: text(f, "location") || null,
-      },
-      { onSuccess: () => form.reset() },
-    );
-  };
-  const field = (
-    name: string,
-    key: string,
-    props: React.ComponentProps<"input"> = {},
-    hint?: string,
-  ) => (
-    <FormField label={t(key)} hint={hint}>
-      {(p) => <input {...p} name={name} className={inputClass} {...props} />}
-    </FormField>
-  );
-  const grams = { type: "number", min: 0, step: 0.1 } as const;
-  return (
-    <form
-      onSubmit={onSubmit}
-      className="grid gap-4 rounded-lg border border-border bg-surface p-4 sm:max-w-md"
-    >
-      <FormField label={t("filament:spools.profile")}>
-        {(p) => (
-          <select {...p} name="profile" required className={inputClass}>
-            {profiles.map((pr) => (
-              <option key={pr.id} value={pr.id}>
-                {label(pr)}
-              </option>
-            ))}
-          </select>
-        )}
-      </FormField>
-      {field("initial", "filament:spools.initial", {
-        ...grams,
-        required: true,
-        defaultValue: 1000,
-      })}
-      {field(
-        "remaining",
-        "filament:spools.remainingNow",
-        grams,
-        t("filament:spools.remainingHint"),
-      )}
-      {field("empty", "filament:spools.emptyWeight", grams)}
-      {field("price", "filament:spools.price", { type: "number", min: 0, step: 0.01 })}
-      {field("purchasedAt", "filament:spools.purchasedAt", { type: "date" })}
-      {field("openedAt", "filament:spools.openedAt", { type: "date" })}
-      {field("location", "filament:spools.locationLabel")}
-      {create.isError && (
-        <p role="alert" className="text-bad">
-          {t("filament:spools.error")}
-        </p>
-      )}
-      <div>
-        <Button type="submit" variant="primary" disabled={create.isPending || !profiles.length}>
-          {t("filament:spools.add")}
-        </Button>
-      </div>
-    </form>
-  );
-}
-
 export function FilamentPage() {
   const { t } = useTranslation();
   const prefs = usePreferences().data?.values;
@@ -358,7 +204,10 @@ export function FilamentPage() {
       )}
       <div className="grid gap-8">
         <section className="grid gap-3">
-          <h2 className="text-base font-semibold">{t("filament:spools.title")}</h2>
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-base font-semibold">{t("filament:spools.title")}</h2>
+            <AddLink to="/filament/spools/new">{t("filament:spools.add")}</AddLink>
+          </div>
           {spools.data && !spools.data.items.length ? (
             <EmptyState
               icon={SpoolIcon}
@@ -433,11 +282,13 @@ export function FilamentPage() {
               />
             )
           )}
-          <SpoolForm profiles={profiles.data?.items ?? []} />
         </section>
 
         <section className="grid gap-3">
-          <h2 className="text-base font-semibold">{t("filament:profiles.title")}</h2>
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-base font-semibold">{t("filament:profiles.title")}</h2>
+            <AddLink to="/filament/profiles/new">{t("filament:profiles.add")}</AddLink>
+          </div>
           {profiles.data && (
             <DataTable
               label={t("filament:profiles.table")}
@@ -491,7 +342,6 @@ export function FilamentPage() {
               ]}
             />
           )}
-          <ProfileForm />
         </section>
       </div>
       <AdjustDialog
