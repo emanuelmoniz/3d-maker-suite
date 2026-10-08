@@ -180,7 +180,6 @@ export const filamentProfiles = sqliteTable(
     brand: text().notNull(),
     material: text().notNull(),
     name: text().notNull(),
-    colorHex: text().notNull(),
     diameterMm: real().notNull().default(1.75),
     densityGcm3: real().notNull(),
     pricePerKg: integer(),
@@ -205,6 +204,7 @@ export const spools = sqliteTable(
     profileId: text()
       .notNull()
       .references(() => filamentProfiles.id, { onDelete: "restrict" }),
+    colorHex: text().notNull().default("#808080"),
     initialGrams: real().notNull(),
     remainingGrams: real().notNull(),
     emptyWeightGrams: real(),

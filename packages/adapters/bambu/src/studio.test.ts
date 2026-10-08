@@ -69,7 +69,6 @@ describe("bambu studio library", () => {
         brand: "Acme",
         material: "PETG",
         name: "My PETG",
-        colorHex: "#ff8800",
         diameterMm: 1.75,
         densityGcm3: 1.24,
         pricePerKg: 2550,
@@ -82,8 +81,8 @@ describe("bambu studio library", () => {
   it("lists system presets once per filament when asked", async () => {
     const items = await read(true);
     const system = items.filter((i) => i.scope === "system");
-    expect(system.map((i) => [i.presetId, i.brand, i.material, i.colorHex])).toEqual([
-      ["system/Acme PLA", "Acme", "PLA", "#808080"],
+    expect(system.map((i) => [i.presetId, i.brand, i.material])).toEqual([
+      ["system/Acme PLA", "Acme", "PLA"],
     ]);
     expect(items).toHaveLength(2);
   });
@@ -131,27 +130,22 @@ describe("bambu studio spools", () => {
     });
     const [a, b, ...rest] = await readStudioSpools(dir);
     expect(rest).toEqual([]);
-    expect(a).toMatchObject({
+    expect(a).toEqual({
       spoolId: "1",
+      colorHex: "#042f56",
       initialGrams: 1000,
       remainingGrams: 252,
       emptyWeightGrams: null,
       status: "in_use",
-      profile: {
-        brand: "Bambu Lab",
-        name: "Bambu PLA Matte",
-        colorHex: "#042f56",
-        densityGcm3: 1.32,
-        nozzleTempC: 220,
-      },
+      // Named like the system preset, so it matches a profile imported from it.
+      profile: { brand: "Bambu Lab", material: "PLA", name: "Bambu PLA Matte" },
     });
-    // No preset with that id: built from the spool itself.
+    // No preset with that id: named from the spool itself.
     expect(b).toMatchObject({
       status: "new",
       emptyWeightGrams: 250,
-      profile: { name: "PLA Matte", material: "PLA", densityGcm3: 1.24, nozzleTempC: null },
+      profile: { brand: "Bambu Lab", material: "PLA", name: "PLA Matte" },
     });
-    expect(a?.profile).not.toHaveProperty("scope");
   });
 
   it("has no spools without an inventory file", async () => {

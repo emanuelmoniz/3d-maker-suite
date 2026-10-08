@@ -6,7 +6,7 @@ import { PageHeader } from "../../components/PageHeader.tsx";
 import { filamentLabel, usePatchProfile, useProfile, useSpools } from "../../lib/filament.ts";
 import { formatCurrency, formatNumber, formatWeight } from "../../lib/format.ts";
 import { usePreferences } from "../../lib/preferences.ts";
-import { STATUS, Swatch } from "./FilamentPage.tsx";
+import { STATUS } from "./FilamentPage.tsx";
 import { Info, linkButton } from "./SpoolDetailPage.tsx";
 
 export function ProfileDetailPage() {
@@ -53,7 +53,6 @@ export function ProfileDetailPage() {
       <div className="grid gap-6">
         <section className="rounded-lg border border-border bg-surface p-4 sm:p-5">
           <h2 className="mb-3 flex items-center gap-2 text-base font-semibold">
-            <Swatch hex={profile.colorHex} />
             {t("filament:profileDetail.title")}
             {archived && (
               <span className="rounded-full bg-surface-2 px-2 py-0.5 text-xs font-medium text-muted">
@@ -65,7 +64,6 @@ export function ProfileDetailPage() {
             <Info label={t("filament:profiles.brand")}>{profile.brand || none}</Info>
             <Info label={t("filament:profiles.material")}>{profile.material}</Info>
             <Info label={t("filament:profiles.name")}>{profile.name || none}</Info>
-            <Info label={t("filament:profiles.color")}>{profile.colorHex}</Info>
             <Info label={t("filament:profiles.diameter")}>{formatNumber(profile.diameterMm)}</Info>
             <Info label={t("filament:profiles.density")}>{formatNumber(profile.densityGcm3)}</Info>
             <Info label={t("filament:profiles.pricePerKg")}>

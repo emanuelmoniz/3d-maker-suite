@@ -45,7 +45,7 @@ export const statsSchema = z.object({
     project: z.array(group),
     outcome: z.array(group),
     /** By filament profile: prints that used it, grams and material cost (other lines are 0). */
-    filament: z.array(group.extend({ colorHex: z.string().nullable() })),
+    filament: z.array(group),
   }),
 });
 

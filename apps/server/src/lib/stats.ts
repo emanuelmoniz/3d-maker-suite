@@ -114,7 +114,6 @@ export function readStats(db: Db, q: StatsQuery): Stats {
       filament: all<Stats["breakdowns"]["filament"][number]>(
         sql`SELECT use.profile_id AS key,
               trim(filament_profiles.brand || ' ' || filament_profiles.material || ' ' || filament_profiles.name) AS label,
-              filament_profiles.color_hex AS colorHex,
               COUNT(DISTINCT use.print_id) AS prints, 0 AS successes, 0 AS seconds, 0 AS energyWh,
               SUM(use.grams) AS grams,
               SUM(CASE WHEN use.price IS NULL THEN use.grams ELSE 0 END) AS unpricedGrams,

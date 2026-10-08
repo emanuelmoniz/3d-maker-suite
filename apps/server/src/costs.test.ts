@@ -29,7 +29,6 @@ describe("costs", () => {
     const profile = (
       await send("POST", "/api/filament/profiles", {
         material: "PLA",
-        colorHex: "#112233",
         densityGcm3: 1.24,
         pricePerKg: 2000,
       })

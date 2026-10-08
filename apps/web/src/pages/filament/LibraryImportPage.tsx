@@ -90,16 +90,7 @@ export function LibraryImportPage() {
                   {
                     id: "name",
                     header: t("filament:library.name"),
-                    cell: (i) => (
-                      <span className="flex items-center gap-2">
-                        <span
-                          aria-hidden="true"
-                          className="inline-block size-4 shrink-0 rounded-full border border-border"
-                          style={{ backgroundColor: i.colorHex }}
-                        />
-                        <span className="font-medium">{i.name}</span>
-                      </span>
-                    ),
+                    cell: (i) => <span className="font-medium">{i.name}</span>,
                     sortValue: (i) => i.name.toLowerCase(),
                   },
                   {

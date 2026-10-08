@@ -22,7 +22,7 @@ beforeEach(() => {
     .get().id;
   profileId = db
     .insert(s.filamentProfiles)
-    .values({ brand: "B", material: "PLA", name: "N", colorHex: "#000000", densityGcm3: 1.24 })
+    .values({ brand: "B", material: "PLA", name: "N", densityGcm3: 1.24 })
     .returning()
     .get().id;
   spoolId = db

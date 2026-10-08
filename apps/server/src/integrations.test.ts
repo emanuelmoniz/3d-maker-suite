@@ -261,10 +261,10 @@ describe("sign-in", () => {
 describe("filament matching of imported prints", () => {
   const spool = async (colorHex = "#ff8800", initialGrams = 1000) => {
     const profile = (
-      await send("POST", "/api/filament/profiles", { material: "PLA", colorHex, densityGcm3: 1.24 })
+      await send("POST", "/api/filament/profiles", { material: "PLA", densityGcm3: 1.24 })
     ).json();
     return (
-      await send("POST", "/api/filament/spools", { profileId: profile.id, initialGrams })
+      await send("POST", "/api/filament/spools", { profileId: profile.id, colorHex, initialGrams })
     ).json();
   };
   const left = async (id: string) => (await get(`/api/filament/spools/${id}`)).remainingGrams;

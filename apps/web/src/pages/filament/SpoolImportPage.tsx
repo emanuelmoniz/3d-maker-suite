@@ -5,8 +5,15 @@ import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
 import { DataTable } from "../../components/DataTable.tsx";
 import { EmptyState } from "../../components/EmptyState.tsx";
+import { inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
-import { useLibrarySources, useLibrarySpoolImport, useLibrarySpools } from "../../lib/filament.ts";
+import {
+  filamentLabel,
+  useLibrarySources,
+  useLibrarySpoolImport,
+  useLibrarySpools,
+  useProfiles,
+} from "../../lib/filament.ts";
 import { formatWeight } from "../../lib/format.ts";
 
 // ponytail: only the first library with an inventory (Bambu Studio); add a picker with a second one.
@@ -15,11 +22,17 @@ export function SpoolImportPage() {
   const navigate = useNavigate();
   const source = useLibrarySources().data?.find((s) => s.spools);
   const [unchecked, setUnchecked] = useState<Set<string>>(new Set());
+  // spoolId -> profile picked by hand; otherwise the suggested match from the server.
+  const [chosen, setChosen] = useState<Record<string, string>>({});
   const preview = useLibrarySpools(source?.id);
+  const profiles = useProfiles().data?.items ?? [];
   const run = useLibrarySpoolImport(source?.id ?? "");
 
   const items = preview.data?.items ?? [];
-  const picked = items.filter((i) => !i.imported && !unchecked.has(i.spoolId));
+  const profileOf = (i: (typeof items)[number]) => chosen[i.spoolId] ?? i.profileId ?? "";
+  // A spool needs a profile to be imported; import never creates one.
+  const pickable = (i: (typeof items)[number]) => !i.imported && !!profileOf(i);
+  const picked = items.filter((i) => pickable(i) && !unchecked.has(i.spoolId));
   const toggle = (id: string) =>
     setUnchecked((s) => {
       const next = new Set(s);
@@ -45,7 +58,11 @@ export function SpoolImportPage() {
         {preview.data && (
           <>
             <p className="text-muted">
-              {t("filament:spoolImport.reading", { dir: preview.data.dir })}
+              {t("filament:spoolImport.reading", { dir: preview.data.dir })}{" "}
+              {t("filament:spoolImport.profileHint")}{" "}
+              <Link to="/filament/import" className="font-medium underline">
+                {t("filament:library.link")}
+              </Link>
             </p>
             {!items.length ? (
               <EmptyState
@@ -66,8 +83,8 @@ export function SpoolImportPage() {
                       <input
                         type="checkbox"
                         aria-label={t("filament:library.pick", { name: i.profile.name })}
-                        disabled={i.imported}
-                        checked={!i.imported && !unchecked.has(i.spoolId)}
+                        disabled={!pickable(i)}
+                        checked={pickable(i) && !unchecked.has(i.spoolId)}
                         onChange={() => toggle(i.spoolId)}
                       />
                     ),
@@ -80,12 +97,38 @@ export function SpoolImportPage() {
                         <span
                           aria-hidden="true"
                           className="inline-block size-4 shrink-0 rounded-full border border-border"
-                          style={{ backgroundColor: i.profile.colorHex }}
+                          style={{ backgroundColor: i.colorHex }}
                         />
                         <span className="font-medium">{i.profile.name}</span>
                       </span>
                     ),
                     sortValue: (i) => i.profile.name.toLowerCase(),
+                  },
+                  {
+                    id: "profile",
+                    header: t("filament:spools.profile"),
+                    cell: (i) =>
+                      i.imported ? (
+                        ""
+                      ) : (
+                        <select
+                          aria-label={t("filament:spoolImport.profileFor", {
+                            name: i.profile.name,
+                          })}
+                          value={profileOf(i)}
+                          onChange={(e) =>
+                            setChosen((c) => ({ ...c, [i.spoolId]: e.target.value }))
+                          }
+                          className={inputClass}
+                        >
+                          <option value="">{t("filament:spoolImport.noProfile")}</option>
+                          {profiles.map((p) => (
+                            <option key={p.id} value={p.id}>
+                              {filamentLabel(p)}
+                            </option>
+                          ))}
+                        </select>
+                      ),
                   },
                   {
                     id: "brand",
@@ -135,7 +178,9 @@ export function SpoolImportPage() {
                 disabled={!picked.length || run.isPending}
                 onClick={() =>
                   run.mutate(
-                    { spoolIds: picked.map((i) => i.spoolId) },
+                    {
+                      spools: picked.map((i) => ({ spoolId: i.spoolId, profileId: profileOf(i) })),
+                    },
                     { onSuccess: () => navigate({ to: "/filament" }) },
                   )
                 }

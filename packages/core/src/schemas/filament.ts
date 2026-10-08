@@ -7,7 +7,6 @@ export const filamentProfileInputSchema = filamentProfileSchema
     brand: true,
     material: true,
     name: true,
-    colorHex: true,
     diameterMm: true,
     densityGcm3: true,
     pricePerKg: true,
@@ -31,6 +30,7 @@ export const filamentProfilePatchSchema = filamentProfileInputSchema
 export const spoolInputSchema = spoolSchema
   .pick({
     profileId: true,
+    colorHex: true,
     initialGrams: true,
     remainingGrams: true,
     emptyWeightGrams: true,
@@ -41,6 +41,7 @@ export const spoolInputSchema = spoolSchema
     status: true,
   })
   .partial({
+    colorHex: true,
     remainingGrams: true,
     emptyWeightGrams: true,
     pricePaid: true,
@@ -77,7 +78,6 @@ export const libraryPresetSchema = filamentProfileSchema
     brand: true,
     material: true,
     name: true,
-    colorHex: true,
     diameterMm: true,
     densityGcm3: true,
     pricePerKg: true,
@@ -119,29 +119,42 @@ export const libraryImportSchema = z.object({
 
 export const libraryImportResultSchema = z.object({ created: z.number().int().nonnegative() });
 
-/** A spool from a slicer's filament inventory, with the profile it belongs to. */
+/** A spool from a slicer's filament inventory. `profile` names the filament, to find its profile. */
 export const librarySpoolSchema = spoolSchema
-  .pick({ initialGrams: true, remainingGrams: true, emptyWeightGrams: true, status: true })
+  .pick({
+    colorHex: true,
+    initialGrams: true,
+    remainingGrams: true,
+    emptyWeightGrams: true,
+    status: true,
+  })
   .extend({
     /** Stable within one library, e.g. Bambu's spool id. */
     spoolId: z.string().min(1),
-    profile: libraryPresetSchema.omit({ presetId: true, scope: true }),
+    profile: filamentProfileSchema.pick({ brand: true, material: true, name: true }),
   });
 
 export const librarySpoolPreviewSchema = z.object({
   dir: z.string(),
-  /** `imported`: this spool was imported before, so it can't be picked again. */
-  items: z.array(librarySpoolSchema.extend({ imported: z.boolean() })),
+  items: z.array(
+    librarySpoolSchema.extend({
+      /** Imported before, so it can't be picked again. */
+      imported: z.boolean(),
+      /** Your profile with the same brand, material and name, if there is one. */
+      profileId: z.string().nullable(),
+    }),
+  ),
 });
 
 export const librarySpoolImportSchema = z.object({
-  /** Spool ids picked in the preview; already imported ones are skipped. */
-  spoolIds: z.array(z.string().min(1)).min(1),
+  /** Picked spools and the profile each goes on; already imported ones are skipped. */
+  spools: z.array(z.object({ spoolId: z.string().min(1), profileId: z.uuid() })).min(1),
 });
 
 export type LibraryPreset = z.infer<typeof libraryPresetSchema>;
 export type LibrarySpool = z.infer<typeof librarySpoolSchema>;
 export type LibrarySpoolPreview = z.infer<typeof librarySpoolPreviewSchema>;
+export type LibrarySpoolImport = z.infer<typeof librarySpoolImportSchema>;
 export type LibraryPreview = z.infer<typeof libraryPreviewSchema>;
 export type LibraryImport = z.infer<typeof libraryImportSchema>;
 export type LibrarySource = z.infer<typeof librarySourceSchema>;

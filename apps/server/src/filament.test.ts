@@ -24,8 +24,7 @@ const profile = async () =>
     await send("POST", "/api/filament/profiles", {
       brand: "Prusament",
       material: "PLA",
-      name: "Galaxy Black",
-      colorHex: "#1a1a1a",
+      name: "Galaxy",
       densityGcm3: 1.24,
     })
   ).json();
@@ -95,7 +94,6 @@ describe("filament library", () => {
     brand: "Acme",
     material: "PLA",
     name: n,
-    colorHex: "#112233",
     diameterMm: 1.75,
     densityGcm3: 1.24,
     pricePerKg: 2000,
@@ -119,11 +117,14 @@ describe("filament library", () => {
         ...(includeSystem ? [preset("S", { scope: "system" })] : []),
       ],
       readSpools: async () =>
-        ["1", "2"].map((spoolId) => {
-          const { presetId: _p, scope: _s, ...profile } = preset("A");
+        [
+          ["1", "#ff0000"],
+          ["2", "#00ff00"],
+        ].map(([spoolId = "", colorHex = ""]) => {
           return {
             spoolId,
-            profile,
+            profile: { brand: "Acme", material: "PLA", name: "A" },
+            colorHex,
             initialGrams: 1000,
             remainingGrams: 250,
             emptyWeightGrams: null,
@@ -174,36 +175,60 @@ describe("filament library", () => {
     await app.inject({
       method: "POST",
       url: "/api/filament/profiles",
-      payload: { brand: "Acme", material: "PLA", name: "B", colorHex: "#112233", densityGcm3: 1.2 },
+      payload: { brand: "Acme", material: "PLA", name: "B", densityGcm3: 1.2 },
     });
     expect(names(await preview())).toEqual(["A:imported", "B:duplicate"]);
     expect((await imp(["user/B"])).json()).toEqual({ created: 0 });
   });
 
-  it("imports spools once, onto a matching or new profile, with an opening ledger entry", async () => {
+  it("imports spools onto the profile you pick, never creating profiles", async () => {
     await setDir(dir);
-    const spools = async () =>
+    const preview = async () =>
       (await app.inject("/api/filament/library/fake/spools"))
         .json()
-        .items.map((i: { spoolId: string; imported: boolean }) => `${i.spoolId}:${i.imported}`);
-    const imp = (ids: string[]) =>
+        .items.map(
+          (i: { spoolId: string; imported: boolean; profileId: string | null }) =>
+            `${i.spoolId}:${i.imported}:${i.profileId}`,
+        );
+    const imp = (spools: { spoolId: string; profileId: string }[]) =>
       app.inject({
         method: "POST",
         url: "/api/filament/library/fake/spools/import",
-        payload: { spoolIds: ids },
+        payload: { spools },
       });
-    expect(await spools()).toEqual(["1:false", "2:false"]);
-    expect((await imp(["1", "2"])).json()).toEqual({ created: 2 });
-    expect((await imp(["1", "2"])).json()).toEqual({ created: 0 });
-    expect(await spools()).toEqual(["1:true", "2:true"]);
+    // No profile named like the spools yet: nothing suggested.
+    expect(await preview()).toEqual(["1:false:null", "2:false:null"]);
 
-    // Both spools share the one profile created for them.
+    // Import the preset; it is suggested (matched on brand, material and name, not colour).
+    await app.inject({
+      method: "POST",
+      url: "/api/filament/library/fake/import",
+      payload: { presetIds: ["user/A"] },
+    });
+    const profileId = db.select().from(schema.filamentProfiles).get()?.id ?? "";
+    expect(await preview()).toEqual([`1:false:${profileId}`, `2:false:${profileId}`]);
+
+    const both = ["1", "2"].map((spoolId) => ({ spoolId, profileId }));
+    expect((await imp(both)).json()).toEqual({ created: 2 });
+    expect((await imp(both)).json()).toEqual({ created: 0 });
+    expect(await preview()).toEqual([`1:true:${profileId}`, `2:true:${profileId}`]);
+
     expect(db.select().from(schema.filamentProfiles).all()).toHaveLength(1);
     const rows = db.select().from(schema.spools).all();
-    expect(rows.map((r) => [r.sourceSpool, r.remainingGrams, r.status])).toEqual([
-      ["fake:1", 250, "in_use"],
-      ["fake:2", 250, "in_use"],
+    expect(rows.map((r) => [r.sourceSpool, r.colorHex, r.remainingGrams, r.status])).toEqual([
+      ["fake:1", "#ff0000", 250, "in_use"],
+      ["fake:2", "#00ff00", 250, "in_use"],
     ]);
     expect(db.select().from(schema.spoolWeightEntries).all()).toHaveLength(2);
+
+    // Archived profiles take no spools.
+    await app.inject({
+      method: "PATCH",
+      url: `/api/filament/profiles/${profileId}`,
+      payload: { archived: true },
+    });
+    db.delete(schema.spoolWeightEntries).run();
+    db.delete(schema.spools).run();
+    expect((await imp(both)).statusCode).toBe(400);
   });
 });

@@ -194,7 +194,7 @@ export function createSyncer(
                     .select({
                       id: spools.id,
                       material: filamentProfiles.material,
-                      colorHex: filamentProfiles.colorHex,
+                      colorHex: spools.colorHex,
                       remainingGrams: spools.remainingGrams,
                       createdAt: spools.createdAt,
                     })

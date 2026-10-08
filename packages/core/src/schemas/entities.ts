@@ -106,7 +106,6 @@ export const filamentProfileSchema = z.object({
   brand: z.string(),
   material: z.string().min(1),
   name: z.string(),
-  colorHex: hexColor,
   diameterMm: z.number().positive(),
   densityGcm3: z.number().positive(),
   pricePerKg: money.nullable(),
@@ -122,6 +121,7 @@ export const filamentProfileSchema = z.object({
 export const spoolSchema = z.object({
   id,
   profileId: id,
+  colorHex: hexColor,
   initialGrams: grams,
   remainingGrams: grams,
   /** Weight of the empty spool, to turn a scale reading into filament left. */

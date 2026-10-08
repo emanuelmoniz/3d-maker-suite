@@ -35,6 +35,7 @@ function SpoolForm({ profiles, spool }: { profiles: FilamentProfile[]; spool?: S
     const date = (k: string) => (text(f, k) ? dateInputToIso(text(f, k)) : null);
     const values = {
       profileId: text(f, "profile"),
+      colorHex: text(f, "color"),
       initialGrams: Number(text(f, "initial")),
       emptyWeightGrams: float(text(f, "empty")),
       pricePaid: num(text(f, "price"), 100),
@@ -91,6 +92,17 @@ function SpoolForm({ profiles, spool }: { profiles: FilamentProfile[]; spool?: S
               </option>
             ))}
           </select>
+        )}
+      </FormField>
+      <FormField label={t("filament:spools.color")}>
+        {(p) => (
+          <input
+            {...p}
+            name="color"
+            type="color"
+            defaultValue={spool?.colorHex ?? "#808080"}
+            className={inputClass}
+          />
         )}
       </FormField>
       {field("initial", "filament:spools.initial", {

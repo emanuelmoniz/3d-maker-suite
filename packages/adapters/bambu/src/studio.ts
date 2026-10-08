@@ -77,7 +77,6 @@ export function toProfile(
 ): Omit<LibraryPreset, "presetId"> | undefined {
   const material = get("filament_type");
   if (!material) return;
-  const color = get("default_filament_colour") ?? get("filament_colour") ?? "";
   const density = num(get("filament_density"));
   const cost = num(get("filament_cost"));
   const nozzle = num(get("nozzle_temperature"));
@@ -87,8 +86,6 @@ export function toProfile(
     brand: get("filament_vendor") ?? "",
     material,
     name: baseName(name),
-    // Bambu writes colours as #RRGGBB or #RRGGBBAA; presets from the slicer may have none.
-    colorHex: /^#[0-9a-f]{6}/i.test(color) ? color.slice(0, 7).toLowerCase() : "#808080",
     diameterMm: num(get("filament_diameter")) || 1.75,
     densityGcm3: density && density > 0 ? density : DEFAULT_DENSITY,
     pricePerKg: cost && cost > 0 ? Math.round(cost * 100) : null, // cost is per kg, in major units
@@ -149,35 +146,25 @@ export async function readStudioSpools(dir: string): Promise<LibrarySpool[]> {
     const spoolId = str(s.spool_id);
     // ponytail: only "active" seen so far; map other statuses once their meaning is known
     if (!spoolId || s.status !== "active") continue;
+    // Bambu writes colours as #RRGGBB or #RRGGBBAA.
     const color = str(s.color_code);
     const colorHex = /^#[0-9a-f]{6}/i.test(color) ? color.slice(0, 7).toLowerCase() : "#808080";
-    const material = str(s.material_type);
+    // Named like the system preset (so it matches a profile imported from it), else the spool's own words.
     const preset = byFilamentId.get(str(s.setting_id));
-    // The matching system preset knows density and temperatures; else what the spool says.
-    const { scope: _scope, ...found } =
-      (preset && toProfile(preset[0], "system", await resolver(preset[1]))) || {};
-    const profile: LibrarySpool["profile"] | undefined =
-      "material" in found
-        ? { ...found, colorHex }
-        : material
-          ? {
-              brand: str(s.brand),
-              material,
-              name: str(s.series) || material,
-              colorHex,
-              diameterMm: grams(s.diameter) || 1.75,
-              densityGcm3: DEFAULT_DENSITY,
-              pricePerKg: null,
-              nozzleTempC: null,
-              bedTempC: null,
-            }
-          : undefined;
-    if (!profile) continue;
+    const found = preset && toProfile(preset[0], "system", await resolver(preset[1]));
+    const material = found?.material ?? str(s.material_type);
+    if (!material) continue;
+    const profile = {
+      brand: found?.brand ?? str(s.brand),
+      material,
+      name: found?.name ?? (str(s.series) || material),
+    };
     const initialGrams = grams(s.initial_weight) || 1000;
     const remainingGrams = Math.min(grams(s.net_weight), initialGrams);
     out.push({
       spoolId,
       profile,
+      colorHex,
       initialGrams,
       remainingGrams,
       emptyWeightGrams: grams(s.spool_weight) || null,

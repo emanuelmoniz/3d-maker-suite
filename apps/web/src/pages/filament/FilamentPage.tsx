@@ -102,7 +102,7 @@ export function FilamentPage() {
                     header: t("filament:spools.filament"),
                     cell: (s) => (
                       <span className="flex items-center gap-2">
-                        <Swatch hex={profileOf.get(s.profileId)?.colorHex ?? "#808080"} />
+                        <Swatch hex={s.colorHex} />
                         <Link
                           to="/filament/spools/$id"
                           params={{ id: s.id }}
@@ -194,16 +194,13 @@ export function FilamentPage() {
                   id: "name",
                   header: t("filament:spools.filament"),
                   cell: (p) => (
-                    <span className="flex items-center gap-2">
-                      <Swatch hex={p.colorHex} />
-                      <Link
-                        to="/filament/profiles/$id"
-                        params={{ id: p.id }}
-                        className="font-medium hover:underline"
-                      >
-                        {label(p)}
-                      </Link>
-                    </span>
+                    <Link
+                      to="/filament/profiles/$id"
+                      params={{ id: p.id }}
+                      className="font-medium hover:underline"
+                    >
+                      {label(p)}
+                    </Link>
                   ),
                   sortValue: (p) => label(p).toLowerCase(),
                 },

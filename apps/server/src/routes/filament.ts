@@ -146,8 +146,8 @@ export const filamentRoutes =
       const dir = libraryDir(lib);
       return { dir, items: await lib.readSpools(dir) };
     };
-    const key = (p: { brand: string; material: string; name: string; colorHex: string }) =>
-      [p.brand, p.material, p.name, p.colorHex].join("|").toLowerCase();
+    const key = (p: { brand: string; material: string; name: string }) =>
+      [p.brand, p.material, p.name].map((v) => v.trim().toLowerCase()).join("|");
 
     app.get("/library", { schema: { response: { 200: z.array(librarySourceSchema) } } }, async () =>
       libraries.map((l) => ({ id: l.id, detectedDir: detect(l), spools: !!l.readSpools })),
@@ -239,9 +239,21 @@ export const filamentRoutes =
         const lib = getLibrary(req.params.id);
         const { dir, items } = await readSpools(lib);
         const imported = importedSpools();
+        // Suggest the active profile with the same brand, material and name; the user can change it.
+        const profiles = new Map<string, string>();
+        for (const p of db
+          .select()
+          .from(filamentProfiles)
+          .where(isNull(filamentProfiles.archivedAt))
+          .all())
+          if (!profiles.has(key(p))) profiles.set(key(p), p.id);
         return {
           dir,
-          items: items.map((s) => ({ ...s, imported: imported.has(sourceSpool(lib, s.spoolId)) })),
+          items: items.map((s) => ({
+            ...s,
+            imported: imported.has(sourceSpool(lib, s.spoolId)),
+            profileId: profiles.get(key(s.profile)) ?? null,
+          })),
         };
       },
     );
@@ -258,27 +270,18 @@ export const filamentRoutes =
       async (req) => {
         const lib = getLibrary(req.params.id);
         const { items } = await readSpools(lib);
-        const picked = new Set(req.body.spoolIds);
+        // spoolId -> the profile the user picked for it. Import never creates profiles.
+        const picked = new Map(req.body.spools.map((p) => [p.spoolId, p.profileId]));
+        for (const profileId of new Set(picked.values()))
+          if (getProfile(profileId).archivedAt)
+            throw new HttpError(400, "profile_archived", "Filament profile is archived");
         const imported = importedSpools();
-        // Spools land on the profile with the same brand, material, name and colour.
-        const profiles = new Map(
-          db
-            .select()
-            .from(filamentProfiles)
-            .where(isNull(filamentProfiles.archivedAt))
-            .all()
-            .map((p) => [key(p), p.id]),
-        );
         let created = 0;
         db.transaction((tx) => {
-          for (const { spoolId, profile, ...s } of items) {
+          for (const { spoolId, profile: _profile, ...s } of items) {
             const source = sourceSpool(lib, spoolId);
-            if (!picked.has(spoolId) || imported.has(source)) continue;
-            let profileId = profiles.get(key(profile));
-            if (!profileId) {
-              profileId = tx.insert(filamentProfiles).values(profile).returning().get().id;
-              profiles.set(key(profile), profileId);
-            }
+            const profileId = picked.get(spoolId);
+            if (!profileId || imported.has(source)) continue;
             createSpool(tx, { ...s, profileId, sourceSpool: source });
             imported.add(source);
             created++;

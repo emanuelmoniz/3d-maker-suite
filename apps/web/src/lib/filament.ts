@@ -5,6 +5,7 @@ import type {
   LibraryImport,
   LibraryPreview,
   LibrarySource,
+  LibrarySpoolImport,
   LibrarySpoolPreview,
   Page,
   Spool,
@@ -121,6 +122,6 @@ export const useLibrarySpools = (id: string | undefined) =>
   });
 
 export const useLibrarySpoolImport = (id: string) =>
-  useInvalidating((v: { spoolIds: string[] }) =>
+  useInvalidating((v: LibrarySpoolImport) =>
     api<{ created: number }>("POST", `/api/filament/library/${id}/spools/import`, v),
   );

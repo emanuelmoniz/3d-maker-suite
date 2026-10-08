@@ -84,35 +84,18 @@ export function seed(db: Db, now = new Date(), { prints: printCount = 40 } = {})
     const profiles = tx
       .insert(s.filamentProfiles)
       .values([
-        {
-          brand: "Bambu",
-          material: "PLA",
-          name: "Basic Black",
-          colorHex: "#1a1a1a",
-          densityGcm3: 1.24,
-          pricePerKg: 2299,
-        },
-        {
-          brand: "Bambu",
-          material: "PLA",
-          name: "Basic White",
-          colorHex: "#f5f5f5",
-          densityGcm3: 1.24,
-          pricePerKg: 2299,
-        },
+        { brand: "Bambu", material: "PLA", name: "Basic", densityGcm3: 1.24, pricePerKg: 2299 },
         {
           brand: "Prusament",
           material: "PETG",
-          name: "Galaxy Black",
-          colorHex: "#2b2b3a",
+          name: "PETG",
           densityGcm3: 1.27,
           pricePerKg: 2999,
         },
         {
           brand: "Polymaker",
           material: "TPU",
-          name: "PolyFlex Red",
-          colorHex: "#c0392b",
+          name: "PolyFlex",
           densityGcm3: 1.22,
           pricePerKg: 3999,
         },
@@ -123,8 +106,17 @@ export function seed(db: Db, now = new Date(), { prints: printCount = 40 } = {})
     const spools = tx
       .insert(s.spools)
       .values(
-        [0, 0, 1, 2, 3].map((p, i) => ({
+        (
+          [
+            [0, "#1a1a1a"],
+            [0, "#1a1a1a"],
+            [0, "#f5f5f5"],
+            [1, "#2b2b3a"],
+            [2, "#c0392b"],
+          ] as const
+        ).map(([p, colorHex], i) => ({
           profileId: at(profiles, p).id,
+          colorHex,
           initialGrams: 1000,
           remainingGrams: 1000,
           pricePaid: at(profiles, p).pricePerKg,

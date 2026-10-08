@@ -120,6 +120,7 @@ export function PrintReviewPage() {
                         <option key={spool.id} value={spool.id}>
                           {t("prints:form.spoolOption", {
                             filament: filamentLabel(profile),
+                            color: spool.colorHex,
                             weight: formatWeight(spool.remainingGrams),
                           })}
                         </option>

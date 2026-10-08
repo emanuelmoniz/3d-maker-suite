@@ -50,8 +50,8 @@ flowchart LR
 | **PrinterComment** | Note on a printer timeline | printerId, body, pinned, status (`open` | `resolved`) |
 | **MaintenanceType** | Reusable maintenance template | name, intervalSec?, intervalPrints?, intervalDays? (the first one reached triggers), appliesToModel? |
 | **MaintenanceTask** | A logged "done" event | printerId, typeId, doneAt, printerRuntimeSecAt, printerPrintsAt, notes? |
-| **FilamentProfile** | A material spec | brand, material (PLA, PETG…), name, colorHex, diameterMm, densityGcm3, pricePerKg? |
-| **Spool** | A physical roll of filament | profileId, initialGrams, remainingGrams, pricePaid, purchasedAt?, openedAt?, location?, archivedAt? |
+| **FilamentProfile** | A material spec (settings only, no colour) | brand, material (PLA, PETG…), name, diameterMm, densityGcm3, pricePerKg? |
+| **Spool** | A physical roll of filament | profileId, colorHex, initialGrams, remainingGrams, pricePaid, purchasedAt?, openedAt?, location?, archivedAt? |
 | **Print** | One print job | printerId, projectId?, title, plate?, startedAt, durationSec, outcome, failureReason?, notes?, energyWh?, energySource? (`'estimated' \| 'measured'`), costSnapshot? |
 | **PrintFilamentUsage** | Filament used by one print, one row per slot (AMS) | printId, spoolId?, profileId?, grams, slot? |
 | **PrintOutcome** | Value type on Print, no table of its own | `'success' \| 'failed' \| 'cancelled'`, plus an optional failureReason |
@@ -180,7 +180,7 @@ type ExternalPrint = {
 
 type ExternalFilamentProfile = {
   externalId: string; brand: string; material: string; name: string;
-  colorHex?: string; diameterMm: number; densityGcm3?: number;
+  diameterMm: number; densityGcm3?: number;
 };
 
 type ExternalProject = { externalId: string; name: string; filePath: string; modifiedAt: string };

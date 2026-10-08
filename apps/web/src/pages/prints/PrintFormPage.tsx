@@ -57,6 +57,7 @@ function PrintForm({ print }: { print?: PrintDetail }) {
     const s = spools.find((x) => x.id === id);
     return t("prints:form.spoolOption", {
       filament: filamentLabel(profiles.find((p) => p.id === s?.profileId)),
+      color: s?.colorHex ?? "",
       weight: formatWeight(s?.remainingGrams ?? 0),
     });
   };

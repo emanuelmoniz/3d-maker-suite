@@ -70,7 +70,7 @@ export function SpoolDetailPage() {
       )}
       <section className="rounded-lg border border-border bg-surface p-4 sm:p-5">
         <h2 className="mb-3 flex items-center gap-2 text-base font-semibold">
-          <Swatch hex={profile?.colorHex ?? "#808080"} />
+          <Swatch hex={spool.colorHex} />
           {t("filament:detail.title")}
           {archived && (
             <span className="rounded-full bg-surface-2 px-2 py-0.5 text-xs font-medium text-muted">
@@ -88,6 +88,7 @@ export function SpoolDetailPage() {
               {title}
             </Link>
           </Info>
+          <Info label={t("filament:spools.color")}>{spool.colorHex}</Info>
           <Info label={t("filament:spools.remaining")}>
             {t("filament:spoolImport.remainingOf", {
               remaining: formatWeight(spool.remainingGrams),

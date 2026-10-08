@@ -27,7 +27,6 @@ function ProfileForm({ profile }: { profile?: FilamentProfile }) {
       brand: text(f, "brand"),
       material: text(f, "material"),
       name: text(f, "name"),
-      colorHex: text(f, "color"),
       diameterMm: float(text(f, "diameter")) ?? 1.75,
       densityGcm3: Number(text(f, "density")),
       pricePerKg: num(text(f, "price"), 100),
@@ -56,17 +55,6 @@ function ProfileForm({ profile }: { profile?: FilamentProfile }) {
         defaultValue: profile?.material,
       })}
       {field("name", "filament:profiles.name", { defaultValue: profile?.name })}
-      <FormField label={t("filament:profiles.color")}>
-        {(p) => (
-          <input
-            {...p}
-            name="color"
-            type="color"
-            defaultValue={profile?.colorHex ?? "#808080"}
-            className={inputClass}
-          />
-        )}
-      </FormField>
       {field("diameter", "filament:profiles.diameter", {
         type: "number",
         min: 0.1,

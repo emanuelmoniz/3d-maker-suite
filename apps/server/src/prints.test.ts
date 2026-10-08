@@ -26,7 +26,6 @@ async function setup() {
   const profile = (
     await send("POST", "/api/filament/profiles", {
       material: "PLA",
-      colorHex: "#112233",
       densityGcm3: 1.24,
     })
   ).json();

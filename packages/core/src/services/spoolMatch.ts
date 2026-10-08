@@ -1,7 +1,7 @@
 export type SpoolCandidate = {
   id: string;
   material: string;
-  /** `#rrggbb` of the spool's filament profile. */
+  /** `#rrggbb` of the spool. */
   colorHex: string;
   remainingGrams: number;
   createdAt: string;

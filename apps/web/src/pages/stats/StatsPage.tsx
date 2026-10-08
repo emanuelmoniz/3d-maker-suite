@@ -47,7 +47,6 @@ const OUTCOMES = {
   cancelled: "prints:outcomes.cancelled",
 } as const;
 type Group = Stats["breakdowns"]["printer"][number];
-type FilamentGroup = Stats["breakdowns"]["filament"][number];
 
 const dayStr = (daysAgo: number) =>
   new Date(Date.now() - daysAgo * 86_400_000).toISOString().slice(0, 10);
@@ -356,18 +355,10 @@ export function StatsPage() {
                 label={t("stats:by.filament")}
                 rows={data.breakdowns.filament}
                 rowKey={(r) => r.key ?? ""}
-                columns={costColumns<FilamentGroup>(t("stats:by.filament"), (r) => (
-                  <span className="flex items-center gap-2">
-                    {r.colorHex && (
-                      <span
-                        aria-hidden
-                        className="size-3 rounded-full border border-border"
-                        style={{ background: r.colorHex }}
-                      />
-                    )}
-                    {r.label ?? t("stats:noFilament")}
-                  </span>
-                ))}
+                columns={costColumns<Group>(
+                  t("stats:by.filament"),
+                  (r) => r.label ?? t("stats:noFilament"),
+                )}
               />
             </div>
           </div>
