@@ -14,7 +14,8 @@
     "projects": "Projects",
     "libraries": "Slicer libraries",
     "integrations": "Integrations",
-    "alerts": "Alerts"
+    "alerts": "Alerts",
+    "backup": "Backup & export"
   },
   "general": {
     "language": "Language",
@@ -76,5 +77,34 @@
   "printers": {
     "label": "Printer states",
     "hint": "One per line. The first is used for new printers. Known names (working, maintenance, inop, retired) are translated."
+  },
+  "backup": {
+    "hint": "A backup holds your database, photos and the key that protects saved logins, so keep the file private. Restoring replaces all current data.",
+    "auto": "Back up automatically every night",
+    "keep": "Automatic backups to keep",
+    "keepHint": "Older automatic backups are deleted. Backups you create yourself are never removed.",
+    "create": "Back up now",
+    "upload": "Upload a backup",
+    "download": "Download",
+    "restore": "Restore",
+    "delete": "Delete",
+    "automatic": "Automatic",
+    "empty": "No backups yet.",
+    "error": "That didn't work. Check that the file is a backup made by this app.",
+    "restaged": "Backup ready. Restart the app to finish restoring; your current data is kept in the pre-restore folder.",
+    "confirmTitle": "Restore this backup?",
+    "confirmBody": "All current data is replaced by the backup when you restart the app.",
+    "exportTitle": "Export data",
+    "exportHint": "One file per module, for spreadsheets or your own scripts.",
+    "tables": {
+      "printers": "Printers",
+      "maintenance": "Maintenance tasks",
+      "maintenanceTypes": "Maintenance types",
+      "filamentProfiles": "Filament profiles",
+      "spools": "Spools",
+      "projects": "Projects",
+      "prints": "Prints",
+      "quotes": "Quotes"
+    }
   }
 }

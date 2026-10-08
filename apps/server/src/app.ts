@@ -13,12 +13,15 @@ import {
   validatorCompiler,
 } from "fastify-type-provider-zod";
 import { evaluateAlerts } from "./alerts/evaluate.ts";
+import { runAutoBackup } from "./backup/backup.ts";
 import { HttpError } from "./errors.ts";
 import { loadKey } from "./integrations/secrets.ts";
 import { createSyncer } from "./integrations/sync.ts";
 import { createProjectScanner } from "./projects/scanner.ts";
 import { alertsRoutes } from "./routes/alerts.ts";
+import { backupsRoutes } from "./routes/backups.ts";
 import { costsRoutes } from "./routes/costs.ts";
+import { exportRoutes } from "./routes/export.ts";
 import { filamentRoutes } from "./routes/filament.ts";
 import { healthRoutes } from "./routes/health.ts";
 import { integrationsRoutes } from "./routes/integrations.ts";
@@ -41,6 +44,8 @@ export async function buildApp(
     syncSchedule?: string;
     /** Cron for the alert check. Also turns on the check after every successful change. */
     alertsSchedule?: string;
+    /** Cron for automatic backups (needs a data dir). */
+    backupSchedule?: string;
     /** Watch the project folders and scan once at startup (off in tests). */
     watchProjects?: boolean;
   } = {},
@@ -98,6 +103,15 @@ export async function buildApp(
   if (opts.watchProjects) app.addHook("onReady", async () => scanner.boot());
   await app.register(tagsRoutes(db), { prefix: "/api/tags" });
   await app.register(collectionsRoutes(db), { prefix: "/api/collections" });
+
+  await app.register(exportRoutes(db), { prefix: "/api/export" });
+  await app.register(backupsRoutes(db, dataDir), { prefix: "/api/backups" });
+  if (opts.backupSchedule && dataDir) {
+    const backup = new Cron(opts.backupSchedule, { protect: true }, () =>
+      runAutoBackup(db, dataDir).catch((err) => app.log.error({ err }, "backup failed")),
+    );
+    app.addHook("onClose", async () => backup.stop());
+  }
 
   await app.register(integrationsRoutes(db, key, syncer), { prefix: "/api/integrations" });
 

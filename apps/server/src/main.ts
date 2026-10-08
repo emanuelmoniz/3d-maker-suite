@@ -4,11 +4,13 @@ import { fileURLToPath } from "node:url";
 import { openDb } from "@3d-maker-suite/db";
 import fastifyStatic from "@fastify/static";
 import { buildApp } from "./app.ts";
+import { applyPendingRestore } from "./backup/backup.ts";
 import { loadConfig } from "./config.ts";
 import { adapters, filamentLibraries } from "./integrations/registry.ts";
 
 const config = loadConfig();
 mkdirSync(config.dataDir, { recursive: true });
+applyPendingRestore(config.dataDir); // before the database opens
 
 const app = await buildApp(
   openDb(join(config.dataDir, "app.sqlite")),
@@ -28,6 +30,7 @@ const app = await buildApp(
     filamentLibraries: filamentLibraries(),
     syncSchedule: "*/15 * * * *",
     alertsSchedule: "0 8 * * *",
+    backupSchedule: "0 3 * * *",
     watchProjects: true,
   },
 );

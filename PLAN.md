@@ -262,7 +262,7 @@ Do Step 22 of PLAN.md. Channels behind a NotificationChannel interface. Dedupe s
 each condition alerts once until it resolves or is snoozed.
 ```
 
-### [ ] Step 23 - Backup & export
+### [x] Step 23 - Backup & export
 **Model:** Sonnet · **Effort:** Low
 **Scope:** One-click full backup (SQLite snapshot + uploaded images as zip), scheduled automatic backups with retention, restore with confirmation, CSV/JSON export per module.
 **Done when:** backup → fresh install → restore gives identical data.

@@ -41,6 +41,9 @@ const shape = {
   printerStates: z.array(z.string().min(1)).min(1),
   failureReasons: z.array(z.string().min(1)),
   dashboardLayout: z.array(dashboardWidgetSchema),
+  /** Daily automatic backup, keeping this many of the newest automatic ones. */
+  backupAuto: z.boolean(),
+  backupKeep: z.number().int().min(1).max(100),
 };
 
 /** User preferences. Each key is one row in `settings`; missing rows fall back to these defaults. */
@@ -83,6 +86,8 @@ export const PREFERENCE_DEFAULTS: z.infer<typeof preferencesSchema> = {
     "Power loss",
     "Other",
   ],
+  backupAuto: true,
+  backupKeep: 7,
   dashboardLayout: [
     widget("statCard", { metric: "prints" }),
     widget("statCard", { metric: "successRate" }),
