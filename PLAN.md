@@ -242,7 +242,7 @@ Do Step 20 of PLAN.md. Aggregate in SQL, not in JS. Add a seed option for 10k pr
 and check query times.
 ```
 
-### [ ] Step 21 - Home dashboard widgets
+### [x] Step 21 - Home dashboard widgets
 **Model:** Sonnet · **Effort:** Medium
 **Scope:** Widget registry (stat card, chart, list): this-month totals, printer states, maintenance due, low spools, recent prints, cost this month, success rate. Add/remove/reorder, saved layout, responsive grid.
 **Done when:** the layout persists; widgets reuse the stats service.

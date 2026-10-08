@@ -1,0 +1,36 @@
+{
+  "customize": "Customize",
+  "done": "Done",
+  "addWidget": "Widget to add",
+  "add": "Add widget",
+  "reset": "Reset layout",
+  "moveUp": "Move earlier",
+  "moveDown": "Move later",
+  "settings": "Widget settings",
+  "remove": "Remove widget",
+  "viewAll": "View all",
+  "empty": "Nothing to show yet.",
+  "emptyLayout": "No widgets. Choose Customize to add some.",
+  "printersNone": "No printers yet.",
+  "maintenanceNone": "Nothing due. All caught up.",
+  "spoolsNone": "No spools are running low.",
+  "printsNone": "No prints logged yet.",
+  "widgets": {
+    "statCard": "Stat",
+    "seriesChart": "Chart over time",
+    "printerStates": "Printers",
+    "maintenanceDue": "Maintenance due",
+    "lowSpools": "Low spools",
+    "recentPrints": "Recent prints"
+  },
+  "fields": {
+    "metric": "Metric",
+    "period": "Period",
+    "limit": "Rows shown"
+  },
+  "periods": {
+    "month": "This month",
+    "week": "Last 7 days",
+    "30": "Last 30 days"
+  }
+}

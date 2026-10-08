@@ -12,6 +12,7 @@ import { ProfileCreatePage, ProfileEditPage } from "./pages/filament/ProfileForm
 import { SpoolDetailPage } from "./pages/filament/SpoolDetailPage.tsx";
 import { SpoolCreatePage, SpoolEditPage } from "./pages/filament/SpoolFormPage.tsx";
 import { SpoolImportPage } from "./pages/filament/SpoolImportPage.tsx";
+import { HomePage } from "./pages/HomePage.tsx";
 import { ModulePage } from "./pages/ModulePage.tsx";
 import { MaintenancePage } from "./pages/maintenance/MaintenancePage.tsx";
 import { TypeCreatePage } from "./pages/maintenance/TypeFormPage.tsx";
@@ -47,6 +48,7 @@ const root = createRootRoute({ component: AppShell, notFoundComponent: NotFound 
 
 // Feature routes load their i18n namespace here (code-split JSON), e.g. loader: () => loadNamespace("printers").
 const built = [
+  "/",
   SETTINGS_ITEM.to,
   "/printers",
   "/maintenance",
@@ -76,6 +78,17 @@ const printerRoute = (path: string, component: () => ReactNode) =>
 // "/printers/new" is declared before "/printers/$id" so it wins the match.
 const routes: AnyRoute[] = [
   ...modules,
+  createRoute({
+    getParentRoute: () => root,
+    path: "/",
+    loader: () =>
+      Promise.all(
+        ["dashboard", "stats", "printers", "maintenance", "filament", "prints", "costs"].map(
+          loadNamespace,
+        ),
+      ),
+    component: HomePage,
+  }),
   printerRoute("/printers", PrintersPage),
   printerRoute("/printers/new", PrinterCreatePage),
   printerRoute("/printers/$id", PrinterDetailPage),

@@ -5,6 +5,13 @@ export const UNIT_SYSTEMS = ["metric", "imperial"] as const;
 export const THEME_MODES = ["light", "dark", "system"] as const;
 export const ACCENT_COLORS = ["teal", "blue", "violet", "rose", "amber"] as const;
 
+/** One widget on the Home dashboard. `type` names a registered web widget; `settings` is its own schema. */
+export const dashboardWidgetSchema = z.object({
+  id: z.string().min(1),
+  type: z.string().min(1),
+  settings: z.record(z.string(), z.json()),
+});
+
 const shape = {
   language: z.enum(LANGUAGES),
   units: z.enum(UNIT_SYSTEMS),
@@ -33,10 +40,17 @@ const shape = {
   maintenanceLeadDays: z.number().int().nonnegative(),
   printerStates: z.array(z.string().min(1)).min(1),
   failureReasons: z.array(z.string().min(1)),
+  dashboardLayout: z.array(dashboardWidgetSchema),
 };
 
 /** User preferences. Each key is one row in `settings`; missing rows fall back to these defaults. */
 export const preferencesSchema = z.object(shape);
+
+const widget = (type: string, settings: Record<string, string | number> = {}) => ({
+  id: type + JSON.stringify(settings),
+  type,
+  settings,
+});
 
 export const PREFERENCE_DEFAULTS: z.infer<typeof preferencesSchema> = {
   language: "en",
@@ -69,6 +83,17 @@ export const PREFERENCE_DEFAULTS: z.infer<typeof preferencesSchema> = {
     "Power loss",
     "Other",
   ],
+  dashboardLayout: [
+    widget("statCard", { metric: "prints" }),
+    widget("statCard", { metric: "successRate" }),
+    widget("statCard", { metric: "cost" }),
+    widget("statCard", { metric: "hours" }),
+    widget("seriesChart", { metric: "prints" }),
+    widget("printerStates"),
+    widget("maintenanceDue"),
+    widget("lowSpools"),
+    widget("recentPrints"),
+  ],
 };
 
 export const preferencesPatchSchema = preferencesSchema.partial().strict();
@@ -79,5 +104,6 @@ export const preferencesResponseSchema = z.object({
   dataDir: z.string(),
 });
 
+export type DashboardWidget = z.infer<typeof dashboardWidgetSchema>;
 export type Preferences = z.infer<typeof preferencesSchema>;
 export type PreferencesPatch = z.infer<typeof preferencesPatchSchema>;
