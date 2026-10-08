@@ -19,6 +19,16 @@ export const usePrints = (tagId = "") =>
       ),
   });
 
+export const usePrintsOfProject = (projectId: string) =>
+  useQuery({
+    queryKey: ["prints", "project", projectId],
+    queryFn: () =>
+      api<Page<PrintDetail>>(
+        "GET",
+        `/api/prints?pageSize=100&sort=-startedAt&projectId=${projectId}`,
+      ),
+  });
+
 export const usePrint = (id: string) =>
   useQuery({
     queryKey: ["prints", id],

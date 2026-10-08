@@ -44,6 +44,8 @@
     "rootsHint": "One folder per line. Watched for new models and 3MF files.",
     "depth": "Folder depth",
     "depthHint": "How many levels below a project folder each project sits. 1 = every subfolder is a project; 2 = look one level deeper, e.g. Category/Project.",
+    "viewerMax": "3D preview size limit (MB)",
+    "viewerMaxHint": "Larger model files show the plate thumbnail instead of loading in the 3D viewer.",
     "slicer": "Slicer executable",
     "slicerHint": "Full path, used to open projects in your slicer."
   },

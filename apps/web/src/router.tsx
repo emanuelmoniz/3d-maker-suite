@@ -17,6 +17,7 @@ import { PrintersPage } from "./pages/printers/PrintersPage.tsx";
 import { PrintCreatePage, PrintEditPage } from "./pages/prints/PrintFormPage.tsx";
 import { PrintReviewPage } from "./pages/prints/PrintReviewPage.tsx";
 import { PrintsPage } from "./pages/prints/PrintsPage.tsx";
+import { ProjectDetailPage } from "./pages/projects/ProjectDetailPage.tsx";
 import { ProjectCreatePage, ProjectEditPage } from "./pages/projects/ProjectFormPage.tsx";
 import { ProjectsPage } from "./pages/projects/ProjectsPage.tsx";
 import { SettingsPage } from "./pages/SettingsPage.tsx";
@@ -118,12 +119,14 @@ const routes: AnyRoute[] = [
   ...[
     ["/projects", ProjectsPage],
     ["/projects/new", ProjectCreatePage],
+    ["/projects/$id", ProjectDetailPage],
     ["/projects/$id/edit", ProjectEditPage],
   ].map(([path, component]) =>
     createRoute({
       getParentRoute: () => root,
       path: path as string,
-      loader: () => loadNamespace("projects"),
+      loader: () =>
+        Promise.all([loadNamespace("projects"), loadNamespace("prints"), loadNamespace("tags")]),
       component: component as () => ReactNode,
     }),
   ),

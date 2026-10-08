@@ -198,7 +198,7 @@ Do Step 16 of PLAN.md. Track which fields are user-edited vs scanned so re-scan 
 updates scanned fields. Scanning runs as a background job with progress in the UI.
 ```
 
-### [ ] Step 17 - Projects UI & 3D preview
+### [x] Step 17 - Projects UI & 3D preview
 **Model:** Sonnet (use frontend-design skill) · **Effort:** Medium
 **Scope:** Grid/list views, filters (tags, collections, multicolor, material), detail page (description, files, plates with print time and filament, linked prints, marketplace link), 3D viewer (3MF/STL, lazy loaded, orbit, plate select), lightweight thumbnails.
 **Done when:** large models don't block the UI; mobile layout works.

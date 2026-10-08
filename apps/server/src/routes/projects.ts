@@ -1,7 +1,10 @@
+import { createReadStream } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { extname, join } from "node:path";
+import { read3mfEntry } from "@3d-maker-suite/3mf";
 import {
   apiErrorSchema,
+  idList,
   type Page,
   type Project,
   pageOf,
@@ -13,15 +16,16 @@ import {
   projectSchema,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
-import { eq, isNull } from "drizzle-orm";
+import { eq, inArray, isNull } from "drizzle-orm";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
-import { listPage } from "../lib/list.ts";
+import { listPage, taggedWith } from "../lib/list.ts";
 import type { ProjectScanner } from "../projects/scanner.ts";
 
-const { projects } = schema;
+const { projects, collectionProjects } = schema;
 const params = z.object({ id: z.uuid() });
+const fileQuery = z.object({ path: z.string().min(1), entry: z.string().optional() });
 const notFound = { 404: apiErrorSchema };
 const IMAGE_TYPES: Record<string, string> = {
   ".png": "image/png",
@@ -29,6 +33,11 @@ const IMAGE_TYPES: Record<string, string> = {
   ".jpeg": "image/jpeg",
   ".webp": "image/webp",
   ".gif": "image/gif",
+};
+const FILE_TYPES: Record<string, string> = {
+  ...IMAGE_TYPES,
+  ".stl": "model/stl",
+  ".3mf": "model/3mf",
 };
 
 // Rows older than the scanner (e.g. demo data) hold other meta; parsing fills the defaults in.
@@ -58,12 +67,31 @@ export const projectsRoutes =
 
     app.get(
       "/",
-      { schema: { querystring: projectListQuery, response: { 200: pageOf(projectSchema) } } },
+      {
+        schema: {
+          querystring: projectListQuery.extend({
+            tagId: idList.optional(),
+            collectionId: idList.optional(),
+          }),
+          response: { 200: pageOf(projectSchema) },
+        },
+      },
       async (req) => {
         const page = listPage(db, projects, req.query, {
           sort: { name: projects.name, createdAt: projects.createdAt },
           dateColumn: projects.createdAt,
-          where: [isNull(projects.archivedAt)],
+          where: [
+            isNull(projects.archivedAt),
+            taggedWith(db, "project", projects.id, req.query.tagId),
+            req.query.collectionId &&
+              inArray(
+                projects.id,
+                db
+                  .select({ id: collectionProjects.projectId })
+                  .from(collectionProjects)
+                  .where(inArray(collectionProjects.collectionId, req.query.collectionId)),
+              ),
+          ],
         });
         return { ...page, items: page.items.map(out) } as Page<Project>;
       },
@@ -119,6 +147,27 @@ export const projectsRoutes =
         return out(row);
       },
     );
+
+    // Serves a model/image listed in meta.files (nothing else is reachable), or, with `entry`,
+    // a plate preview inside that 3MF.
+    app.get("/:id/file", { schema: { params, querystring: fileQuery } }, async (req, reply) => {
+      const { folderPath, meta } = get(req.params.id);
+      const { path, entry } = req.query;
+      const listed = meta.files.some((f) => f.path === path && f.kind !== "doc");
+      const plate = meta.models
+        .find((m) => m.file === path)
+        ?.plates.some((p) => p.thumbnail === entry);
+      if (!folderPath || !listed || (entry && !plate))
+        throw new HttpError(404, "not_found", "File not found");
+      const abs = join(folderPath, path);
+      if (!entry)
+        return reply
+          .type(FILE_TYPES[extname(path).toLowerCase()] ?? "application/octet-stream")
+          .send(createReadStream(abs));
+      const png = await read3mfEntry(abs, entry);
+      if (!png) throw new HttpError(404, "not_found", "File not found");
+      return reply.type("image/png").send(png);
+    });
 
     app.get("/:id/thumbnail", { schema: { params } }, async (req, reply) => {
       const { thumbnailPath } = get(req.params.id);

@@ -27,7 +27,12 @@ const ACCENT_LABELS = {
   amber: "settings:appearance.accents.amber",
 } as const;
 
-type NumKey = "energyCostPerKwh" | "lowSpoolGrams" | "maintenanceLeadDays" | "projectScanDepth";
+type NumKey =
+  | "energyCostPerKwh"
+  | "lowSpoolGrams"
+  | "maintenanceLeadDays"
+  | "projectScanDepth"
+  | "viewerMaxMb";
 
 export function SettingsPage() {
   const { t } = useTranslation();
@@ -53,7 +58,7 @@ export function SettingsPage() {
   const commit = (patch: Partial<Preferences>) => save.mutate(patch);
   const num = (key: NumKey) => ({
     type: "number" as const,
-    min: key === "projectScanDepth" ? 1 : 0,
+    min: key === "projectScanDepth" || key === "viewerMaxMb" ? 1 : 0,
     max: key === "projectScanDepth" ? 5 : undefined,
     step: key === "energyCostPerKwh" ? 0.01 : 1,
     defaultValue: v[key],
@@ -236,6 +241,12 @@ export function SettingsPage() {
           </FormField>
           <FormField label={t("settings:projects.depth")} hint={t("settings:projects.depthHint")}>
             {(p) => <input {...p} className={inputClass} {...num("projectScanDepth")} />}
+          </FormField>
+          <FormField
+            label={t("settings:projects.viewerMax")}
+            hint={t("settings:projects.viewerMaxHint")}
+          >
+            {(p) => <input {...p} className={inputClass} {...num("viewerMaxMb")} />}
           </FormField>
           <FormField label={t("settings:projects.slicer")} hint={t("settings:projects.slicerHint")}>
             {(p) => (

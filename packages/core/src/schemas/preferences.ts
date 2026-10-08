@@ -16,6 +16,8 @@ const shape = {
   projectRoots: z.array(z.string().min(1)),
   /** How many folder levels below a root a project may sit (1 = direct subfolders). */
   projectScanDepth: z.number().int().min(1).max(5),
+  /** Model files bigger than this show the plate thumbnail instead of the 3D viewer. */
+  viewerMaxMb: z.number().positive(),
   slicerPath: z.string(),
   /** Overrides the detected config folder of a slicer library, by library id. */
   libraryPaths: z.record(z.string(), z.string()),
@@ -38,6 +40,7 @@ export const PREFERENCE_DEFAULTS: z.infer<typeof preferencesSchema> = {
   energyCostPerKwh: 0.25,
   projectRoots: [],
   projectScanDepth: 1,
+  viewerMaxMb: 30,
   slicerPath: "",
   libraryPaths: {},
   lowSpoolGrams: 100,

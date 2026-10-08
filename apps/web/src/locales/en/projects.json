@@ -41,5 +41,38 @@
     "editedHint": "Fields you change here are kept when the folder is scanned again.",
     "save": "Save",
     "error": "Couldn't save the project. Check the folder path and the link."
+  },
+  "filters": {
+    "search": "Search projects",
+    "collection": "Filter by collection",
+    "allCollections": "All collections",
+    "material": "Filter by material",
+    "allMaterials": "All materials",
+    "none": "No projects match these filters."
+  },
+  "view": {
+    "label": "View",
+    "grid": "Grid view",
+    "list": "List view"
+  },
+  "viewer": {
+    "loading": "Loading 3D preview…",
+    "label": "3D preview of {{name}}",
+    "failed": "The 3D preview could not be loaded. Showing the thumbnail.",
+    "tooLarge": "This model is {{size}} MB, over the {{limit}} MB 3D preview limit (change it in Settings). Showing the thumbnail.",
+    "unsupported": "This file type has no 3D preview.",
+    "noPreview": "no preview"
+  },
+  "detail": {
+    "notFound": "Project not found.",
+    "source": "Design page",
+    "model": "Model file",
+    "plates": "Plates",
+    "plate": "Plate {{index}}",
+    "notSliced": "Not sliced",
+    "unknownMaterial": "Unknown",
+    "prints": "Prints",
+    "noPrints": "No prints are linked to this project yet.",
+    "files": "Files"
   }
 }

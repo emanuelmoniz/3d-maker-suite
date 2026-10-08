@@ -9,11 +9,16 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "./api.ts";
 
 // ponytail: one page of 100 projects, add pagination controls if libraries get bigger.
-export const useProjects = () =>
-  useQuery({
-    queryKey: ["projects", "list"],
-    queryFn: () => api<Page<Project>>("GET", "/api/projects?pageSize=100&sort=name"),
+// Tag and collection filter on the server; material, multicolor and search on the page.
+export const useProjects = (f: { tagId?: string; collectionId?: string } = {}) => {
+  const q = new URLSearchParams({ pageSize: "100", sort: "name" });
+  if (f.tagId) q.set("tagId", f.tagId);
+  if (f.collectionId) q.set("collectionId", f.collectionId);
+  return useQuery({
+    queryKey: ["projects", "list", f.tagId ?? "", f.collectionId ?? ""],
+    queryFn: () => api<Page<Project>>("GET", `/api/projects?${q}`),
   });
+};
 
 export const useProject = (id: string) =>
   useQuery({
@@ -23,6 +28,10 @@ export const useProject = (id: string) =>
 
 export const projectThumbnailUrl = (p: Pick<Project, "id" | "updatedAt">) =>
   `/api/projects/${p.id}/thumbnail?v=${encodeURIComponent(p.updatedAt)}`;
+
+/** A model/image of a project, or with `entry` a plate preview inside that 3MF. */
+export const projectFileUrl = (id: string, path: string, entry?: string) =>
+  `/api/projects/${id}/file?${new URLSearchParams(entry ? { path, entry } : { path })}`;
 
 export const useCreateProject = () => {
   const qc = useQueryClient();

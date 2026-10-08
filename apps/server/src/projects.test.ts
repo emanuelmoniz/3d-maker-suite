@@ -173,3 +173,57 @@ describe("manual projects", () => {
     expect(res.statusCode).toBe(400);
   });
 });
+
+describe("project files and filters", () => {
+  it("serves only listed model/image files and plate previews", async () => {
+    await sampleTree();
+    await put("Benchy/secret.log", "nope");
+    await setRoots();
+    await scan();
+    const { id, meta } = await byName("Benchy");
+    const file = (q: Record<string, string>) =>
+      app.inject(`/api/projects/${id}/file?${new URLSearchParams(q)}`);
+
+    expect((await file({ path: "benchy.3mf" })).statusCode).toBe(200);
+    expect((await file({ path: "README.md" })).statusCode).toBe(404); // docs are not served
+    expect((await file({ path: "secret.log" })).statusCode).toBe(404); // not a listed kind
+    expect((await file({ path: "../Vase/vase.stl" })).statusCode).toBe(404); // outside the folder
+
+    const entry = meta.models[0].plates[0].thumbnail;
+    const png = await file({ path: "benchy.3mf", entry });
+    expect(png.statusCode).toBe(200);
+    expect(png.headers["content-type"]).toBe("image/png");
+    expect((await file({ path: "benchy.3mf", entry: "Metadata/other.png" })).statusCode).toBe(404);
+  });
+
+  it("filters the list by tag and collection", async () => {
+    await sampleTree();
+    await setRoots();
+    await scan();
+    const [benchy, vase] = [await byName("Benchy"), await byName("Vase")];
+    const tag = (
+      await app.inject({
+        method: "POST",
+        url: "/api/tags",
+        payload: { name: "Gift", color: "#ff0000" },
+      })
+    ).json();
+    await app.inject({
+      method: "PUT",
+      url: `/api/tags/taggings/project/${benchy.id}`,
+      payload: { tagIds: [tag.id] },
+    });
+    const col = (
+      await app.inject({ method: "POST", url: "/api/collections", payload: { name: "Boats" } })
+    ).json();
+    await app.inject({
+      method: "PUT",
+      url: `/api/collections/${col.id}/projects`,
+      payload: { projectIds: [vase.id] },
+    });
+    const names = async (q: string) =>
+      (await app.inject(`/api/projects?${q}`)).json().items.map((p: { name: string }) => p.name);
+    expect(await names(`tagId=${tag.id}`)).toEqual(["Benchy"]);
+    expect(await names(`collectionId=${col.id}`)).toEqual(["Vase"]);
+  });
+});
