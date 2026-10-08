@@ -25,6 +25,7 @@ import { SettingsPage } from "./pages/SettingsPage.tsx";
 import { IntegrationCreatePage } from "./pages/settings/IntegrationFormPage.tsx";
 import { IntegrationLoginPage } from "./pages/settings/IntegrationLoginPage.tsx";
 import { IntegrationsPage } from "./pages/settings/IntegrationsPage.tsx";
+import { StatsPage } from "./pages/stats/StatsPage.tsx";
 import { AppShell } from "./shell/AppShell.tsx";
 import { ALL_ITEMS, SETTINGS_ITEM } from "./shell/nav.ts";
 
@@ -50,6 +51,7 @@ const built = [
   "/prints",
   "/projects",
   "/costs",
+  "/stats",
 ];
 const modules = ALL_ITEMS.filter((i) => !built.includes(i.to)).map((item) =>
   createRoute({
@@ -154,6 +156,18 @@ const routes: AnyRoute[] = [
     path: "/costs",
     loader: () => loadNamespace("costs"),
     component: CostsPage,
+  }),
+  createRoute({
+    getParentRoute: () => root,
+    path: "/stats",
+    loader: () =>
+      Promise.all([
+        loadNamespace("stats"),
+        loadNamespace("prints"),
+        loadNamespace("costs"),
+        loadNamespace("filament"),
+      ]),
+    component: StatsPage,
   }),
   createRoute({
     getParentRoute: () => root,

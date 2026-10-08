@@ -22,8 +22,11 @@ function at<T>(xs: readonly T[], i: number): T {
   return x;
 }
 
-/** Fills an empty DB with demo data. Refuses to touch a DB that already has printers. */
-export function seed(db: Db, now = new Date()) {
+/**
+ * Fills an empty DB with demo data. Refuses to touch a DB that already has printers.
+ * `prints` > 40 spreads that many prints over three years (for load testing).
+ */
+export function seed(db: Db, now = new Date(), { prints: printCount = 40 } = {}) {
   const [{ n } = { n: 0 }] = db.select({ n: count() }).from(s.printers).all();
   if (n > 0) throw new Error("Database is not empty; refusing to seed.");
 
@@ -154,7 +157,8 @@ export function seed(db: Db, now = new Date()) {
     ];
     const reasons = ["Spaghetti", "Bed adhesion", "Nozzle clog", "Layer shift"];
     const prints = [];
-    for (let i = 0; i < 40; i++) {
+    const span = printCount > 40 ? 1095 : 120; // days
+    for (let i = 0; i < printCount; i++) {
       const p = i % printers.length;
       const durationSec = Math.round((0.5 + rand() * 7.5) * 3600);
       const outcome = pick(outcomes);
@@ -167,7 +171,7 @@ export function seed(db: Db, now = new Date()) {
           projectId: rand() < 0.7 ? pick(projects).id : null,
           title: `Demo print ${i + 1}`,
           plate: 1,
-          startedAt: ago(120 - i * 3 + rand()),
+          startedAt: ago(span - (i * span) / printCount + rand()),
           durationSec,
           outcome,
           failureReason: outcome === "success" ? null : pick(reasons),
@@ -230,6 +234,17 @@ export function seed(db: Db, now = new Date()) {
         { tagId: functional.id, entityType: "spool", entityId: at(spools, 3).id },
       ])
       .run();
+    // Load-test runs: tag a tenth of the prints so tag filters have something to chew on.
+    const bulk = prints.filter((_, i) => i % 10 === 5);
+    if (printCount > 40)
+      for (let i = 0; i < bulk.length; i += 500)
+        tx.insert(s.taggings)
+          .values(
+            bulk
+              .slice(i, i + 500)
+              .map((p) => ({ tagId: functional.id, entityType: "print" as const, entityId: p.id })),
+          )
+          .run();
 
     const desk = tx
       .insert(s.collections)

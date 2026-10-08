@@ -18,7 +18,7 @@ const { printers, prints, maintenanceTasks, spools, filamentProfiles } = schema;
 type PrinterRow = typeof printers.$inferSelect;
 
 /** Wear and maintenance per hour for each printer, from the preferences and its history. */
-function printerRates(db: Db, list: PrinterRow[]) {
+export function printerRates(db: Db, list: PrinterRow[]) {
   const prefs = readPreferences(db);
   const runtime = new Map(
     db

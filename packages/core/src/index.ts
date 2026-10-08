@@ -10,6 +10,7 @@ export * from "./schemas/preferences.ts";
 export * from "./schemas/printers.ts";
 export * from "./schemas/prints.ts";
 export * from "./schemas/projects.ts";
+export * from "./schemas/stats.ts";
 export * from "./schemas/tags.ts";
 export * from "./services/cost.ts";
 export * from "./services/maintenanceDue.ts";

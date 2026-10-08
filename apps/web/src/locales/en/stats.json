@@ -1,0 +1,50 @@
+{
+  "loadError": "Couldn't load stats. Is the server running?",
+  "export": "Export CSV",
+  "emptyTitle": "No prints in this view",
+  "emptyBody": "Change the filters or log a print to see numbers here.",
+  "unpriced": "{{weight}} has no price",
+  "noProject": "No project",
+  "noFilament": "Unknown filament",
+  "presets": {
+    "7": "Last 7 days",
+    "30": "Last 30 days",
+    "90": "Last 90 days",
+    "365": "Last year",
+    "all": "All time",
+    "custom": "Custom range"
+  },
+  "filters": {
+    "all": "All",
+    "period": "Period",
+    "printer": "Printer",
+    "spool": "Spool",
+    "profile": "Filament profile",
+    "project": "Project",
+    "tag": "Tag",
+    "outcome": "Outcome"
+  },
+  "metrics": {
+    "prints": "Prints",
+    "successRate": "Success rate",
+    "hours": "Print time",
+    "filament": "Filament",
+    "energy": "Energy",
+    "wear": "Wear and maintenance",
+    "cost": "Total cost",
+    "costPerPrint": "Cost per print"
+  },
+  "series": {
+    "title": "Over time",
+    "metric": "Metric",
+    "bucket": "Group by",
+    "metrics": { "prints": "Prints", "hours": "Print time", "total": "Total cost" },
+    "buckets": { "day": "Day", "week": "Week", "month": "Month" }
+  },
+  "by": {
+    "printer": "Printer",
+    "project": "Project",
+    "outcome": "Outcome",
+    "filament": "Filament"
+  }
+}

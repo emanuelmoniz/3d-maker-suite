@@ -232,7 +232,7 @@ a breakdown (not just a total) in the UI.
 
 ## Phase 4 - Insights, alerts, polish
 
-### [ ] Step 20 - Stats module
+### [x] Step 20 - Stats module
 **Model:** Sonnet · **Effort:** Medium
 **Scope:** Filters: date range (presets + custom), printer, spool, filament profile, project, tag, outcome. Metrics: print count, success rate, print hours, energy (kWh and €), filament (g and €), total cost; time series + breakdowns; CSV export of the current view.
 **Done when:** stats queries are fast with 10k seeded prints.
