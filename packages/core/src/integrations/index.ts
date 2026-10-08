@@ -1,5 +1,6 @@
 import type { z } from "zod";
 import type { IntegrationErrorCode, LoginChallenge } from "../schemas/enums.ts";
+import type { LibraryPreset } from "../schemas/filament.ts";
 import type { ExternalPrint, ExternalPrinter, TestResult } from "../schemas/integrations.ts";
 
 // The contract a vendor package implements (ADR-0003, docs/architecture.md).
@@ -68,6 +69,16 @@ export interface PrintHistorySource {
     since?: string;
     cursor?: string;
   }): Promise<{ items: ExternalPrint[]; nextCursor?: string }>;
+}
+
+/** A slicer's local filament presets. Read-only, no account; the server never writes to it. */
+export interface FilamentLibrary {
+  /** e.g. "bambu-studio". The UI name is the i18n key `filament:library.sources.<id>`. */
+  id: string;
+  /** Config folders where this slicer usually lives on this OS; they may not exist. */
+  defaultDirs(): string[];
+  /** `dir` exists. Unreadable or odd preset files are skipped, not fatal. */
+  read(dir: string, opts: { includeSystem: boolean }): Promise<LibraryPreset[]>;
 }
 
 /** Throw this from an adapter; any other error is reported as "unknown". */

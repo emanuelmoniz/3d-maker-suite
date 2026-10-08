@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { FormField, inputClass } from "../components/FormField.tsx";
 import { PageHeader } from "../components/PageHeader.tsx";
+import { useLibrarySources } from "../lib/filament.ts";
 import { usePreferences, useSavePreferences } from "../lib/preferences.ts";
 import { ACCENTS, setTheme } from "../lib/theme.ts";
 import { ThemeToggle } from "../shell/ThemeToggle.tsx";
@@ -32,6 +33,7 @@ export function SettingsPage() {
   const { t } = useTranslation();
   const { data, isError } = usePreferences();
   const save = useSavePreferences();
+  const sources = useLibrarySources();
 
   if (isError)
     return (
@@ -246,6 +248,34 @@ export function SettingsPage() {
             )}
           </FormField>
         </Section>
+
+        {sources.data && sources.data.length > 0 && (
+          <Section title={t("settings:sections.libraries")}>
+            {sources.data.map((src) => (
+              <FormField
+                key={src.id}
+                label={t(`filament:library.sources.${src.id}`)}
+                hint={t("settings:libraries.hint", { dir: src.detectedDir ?? "–" })}
+              >
+                {(p) => (
+                  <input
+                    {...p}
+                    className={inputClass}
+                    key={`lib-${src.id}-${v.libraryPaths[src.id] ?? ""}`}
+                    defaultValue={v.libraryPaths[src.id] ?? ""}
+                    placeholder={src.detectedDir ?? ""}
+                    onBlur={(e) => {
+                      const path = e.target.value.trim();
+                      if (path === (v.libraryPaths[src.id] ?? "")) return;
+                      const { [src.id]: _old, ...rest } = v.libraryPaths;
+                      commit({ libraryPaths: path ? { ...rest, [src.id]: path } : rest });
+                    }}
+                  />
+                )}
+              </FormField>
+            ))}
+          </Section>
+        )}
 
         <Section title={t("settings:sections.integrations")}>
           <p className="text-muted">{t("settings:integrations.body")}</p>

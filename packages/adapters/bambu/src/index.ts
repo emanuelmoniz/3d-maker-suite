@@ -5,6 +5,9 @@ import {
   type Logger,
 } from "@3d-maker-suite/core";
 import { z } from "zod";
+
+export { bambuStudioLibrary } from "./studio.ts";
+
 import { call, cookie, parse, REGIONS, type Region, URLS } from "./cloud.ts";
 
 const configSchema = z.object({ region: z.enum(REGIONS).default("global") });

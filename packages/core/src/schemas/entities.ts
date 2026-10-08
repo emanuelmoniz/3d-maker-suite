@@ -112,6 +112,8 @@ export const filamentProfileSchema = z.object({
   pricePerKg: money.nullable(),
   nozzleTempC: z.number().int().positive().nullable(),
   bedTempC: z.number().int().nonnegative().nullable(),
+  /** Preset this profile was imported from, `<library>:<preset id>`; null for hand-made ones. */
+  sourcePreset: z.string().nullable(),
   archivedAt: isoDate.nullable(),
   ...imported,
   ...timestamps,

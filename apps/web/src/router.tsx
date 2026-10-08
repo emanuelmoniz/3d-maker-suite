@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { EmptyState } from "./components/EmptyState.tsx";
 import { loadNamespace } from "./i18n.ts";
 import { FilamentPage } from "./pages/filament/FilamentPage.tsx";
+import { LibraryImportPage } from "./pages/filament/LibraryImportPage.tsx";
 import { ProfileCreatePage } from "./pages/filament/ProfileFormPage.tsx";
 import { SpoolCreatePage } from "./pages/filament/SpoolFormPage.tsx";
 import { ModulePage } from "./pages/ModulePage.tsx";
@@ -85,6 +86,12 @@ const routes: AnyRoute[] = [
     path: "/filament/profiles/new",
     loader: () => Promise.all([loadNamespace("filament"), loadNamespace("tags")]),
     component: ProfileCreatePage,
+  }),
+  createRoute({
+    getParentRoute: () => root,
+    path: "/filament/import",
+    loader: () => loadNamespace("filament"),
+    component: LibraryImportPage,
   }),
   createRoute({
     getParentRoute: () => root,

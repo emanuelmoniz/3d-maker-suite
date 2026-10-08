@@ -12,6 +12,7 @@
     "printers": "Printers",
     "prints": "Prints",
     "projects": "Projects",
+    "libraries": "Slicer libraries",
     "integrations": "Integrations",
     "alerts": "Alerts"
   },
@@ -43,6 +44,9 @@
     "rootsHint": "One folder per line. Watched for new models and 3MF files.",
     "slicer": "Slicer executable",
     "slicerHint": "Full path, used to open projects in your slicer."
+  },
+  "libraries": {
+    "hint": "Config folder to read presets from. Leave empty to use the detected one: {{dir}}"
   },
   "integrations": {
     "body": "Connect vendor accounts to import printers and print history.",

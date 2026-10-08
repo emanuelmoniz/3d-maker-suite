@@ -5,7 +5,7 @@ import { openDb } from "@3d-maker-suite/db";
 import fastifyStatic from "@fastify/static";
 import { buildApp } from "./app.ts";
 import { loadConfig } from "./config.ts";
-import { adapters } from "./integrations/registry.ts";
+import { adapters, filamentLibraries } from "./integrations/registry.ts";
 
 const config = loadConfig();
 mkdirSync(config.dataDir, { recursive: true });
@@ -23,7 +23,11 @@ const app = await buildApp(
     ],
   },
   config.dataDir,
-  { adapters: adapters({ mock: config.mockIntegration }), syncSchedule: "*/15 * * * *" },
+  {
+    adapters: adapters({ mock: config.mockIntegration }),
+    filamentLibraries: filamentLibraries(),
+    syncSchedule: "*/15 * * * *",
+  },
 );
 await app.register(fastifyStatic, {
   root: fileURLToPath(new URL("../../web/dist", import.meta.url)),

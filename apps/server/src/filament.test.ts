@@ -1,3 +1,7 @@
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import type { FilamentLibrary } from "@3d-maker-suite/core";
 import { openDb, schema } from "@3d-maker-suite/db";
 import { sum } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -81,5 +85,86 @@ describe("filament", () => {
     expect(
       (await send("PATCH", `/api/filament/spools/${spool.id}`, { remainingGrams: 1 })).statusCode,
     ).toBe(400);
+  });
+});
+
+describe("filament library", () => {
+  const preset = (n: string, extra = {}) => ({
+    presetId: `user/${n}`,
+    scope: "user" as const,
+    brand: "Acme",
+    material: "PLA",
+    name: n,
+    colorHex: "#112233",
+    diameterMm: 1.75,
+    densityGcm3: 1.24,
+    pricePerKg: 2000,
+    nozzleTempC: 220,
+    bedTempC: 55,
+    ...extra,
+  });
+  let dir: string;
+  let app: Awaited<ReturnType<typeof buildApp>>;
+  let db: ReturnType<typeof openDb>;
+
+  beforeEach(async () => {
+    dir = mkdtempSync(join(tmpdir(), "lib-"));
+    db = openDb(":memory:");
+    const library: FilamentLibrary = {
+      id: "fake",
+      defaultDirs: () => [join(dir, "missing")],
+      read: async (_d, { includeSystem }) => [
+        preset("A"),
+        preset("B"),
+        ...(includeSystem ? [preset("S", { scope: "system" })] : []),
+      ],
+    };
+    app = await buildApp(db, false, "", { filamentLibraries: [library] });
+  });
+
+  const preview = async (q = "") =>
+    app.inject({ method: "GET", url: `/api/filament/library/fake/preview${q}` });
+  const setDir = (p: string) =>
+    app.inject({
+      method: "PATCH",
+      url: "/api/preferences",
+      payload: { libraryPaths: { fake: p } },
+    });
+  const names = (r: { json(): unknown }) =>
+    (r.json() as { items: { name: string; status: string }[] }).items.map(
+      (i) => `${i.name}:${i.status}`,
+    );
+
+  it("404s until a config folder exists, then honours the override", async () => {
+    expect((await preview()).statusCode).toBe(404);
+    expect((await preview()).json().error.code).toBe("library_not_found");
+    await setDir(dir);
+    const res = await preview();
+    expect(res.json().dir).toBe(dir);
+    expect(names(res)).toEqual(["A:new", "B:new"]);
+    expect(names(await preview("?includeSystem=true"))).toContain("S:new");
+  });
+
+  it("imports only the picked presets, once, and links them to the source", async () => {
+    await setDir(dir);
+    const imp = (ids: string[]) =>
+      app.inject({
+        method: "POST",
+        url: "/api/filament/library/fake/import",
+        payload: { presetIds: ids },
+      });
+    expect((await imp(["user/A"])).json()).toEqual({ created: 1 });
+    expect((await imp(["user/A"])).json()).toEqual({ created: 0 });
+    expect(db.select().from(schema.filamentProfiles).get()?.sourcePreset).toBe("fake:user/A");
+    expect(names(await preview())).toEqual(["A:imported", "B:new"]);
+
+    // Same filament made by hand counts as a duplicate and is not created again.
+    await app.inject({
+      method: "POST",
+      url: "/api/filament/profiles",
+      payload: { brand: "Acme", material: "PLA", name: "B", colorHex: "#112233", densityGcm3: 1.2 },
+    });
+    expect(names(await preview())).toEqual(["A:imported", "B:duplicate"]);
+    expect((await imp(["user/B"])).json()).toEqual({ created: 0 });
   });
 });

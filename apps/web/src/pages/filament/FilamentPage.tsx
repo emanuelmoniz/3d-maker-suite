@@ -298,7 +298,15 @@ export function FilamentPage() {
         <section className="grid gap-3">
           <div className="flex items-center justify-between gap-3">
             <h2 className="text-base font-semibold">{t("filament:profiles.title")}</h2>
-            <AddLink to="/filament/profiles/new">{t("filament:profiles.add")}</AddLink>
+            <span className="flex gap-2">
+              <Link
+                to="/filament/import"
+                className="inline-flex h-9 items-center rounded-md border border-border bg-surface px-3 font-medium hover:bg-surface-2"
+              >
+                {t("filament:library.link")}
+              </Link>
+              <AddLink to="/filament/profiles/new">{t("filament:profiles.add")}</AddLink>
+            </span>
           </div>
           {profiles.data && (
             <DataTable

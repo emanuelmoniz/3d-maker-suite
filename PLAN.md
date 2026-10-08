@@ -164,7 +164,7 @@ Do Step 13 of PLAN.md. Spool matching must never guess silently: auto-match only
 a unique type+color match, otherwise add it to the review queue in the UI.
 ```
 
-### [ ] Step 14 - Bambu Studio local filament library
+### [x] Step 14 - Bambu Studio local filament library
 **Model:** Sonnet · **Effort:** Medium
 **Scope:** Detect Bambu Studio config folders per OS (Windows/macOS/Linux), read user filament presets (and optionally system presets), import as filament profiles (dedupe, keep link to the source preset).
 **Done when:** import preview → confirm → profiles created.

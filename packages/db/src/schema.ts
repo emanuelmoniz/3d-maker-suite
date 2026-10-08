@@ -185,12 +185,14 @@ export const filamentProfiles = sqliteTable(
     pricePerKg: integer(),
     nozzleTempC: integer(),
     bedTempC: integer(),
+    sourcePreset: text(),
     archivedAt: text(),
     ...imported(),
     ...timestamps,
   },
   (t) => [
     uniqueIndex("filament_profiles_external_uq").on(t.integrationId, t.externalId),
+    uniqueIndex("filament_profiles_source_uq").on(t.sourcePreset),
     check("filament_profiles_origin_ck", oneOf(t.origin, ORIGINS)),
   ],
 );

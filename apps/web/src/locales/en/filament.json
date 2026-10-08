@@ -46,6 +46,30 @@
     "save": "Save profile",
     "error": "Couldn't save the profile."
   },
+  "library": {
+    "link": "Import from slicer",
+    "title": "Import filament from your slicer",
+    "description": "Review the presets found on this PC, pick the ones you want, then import them as filament profiles.",
+    "sources": { "bambu-studio": "Bambu Studio" },
+    "reading": "Reading presets from {{dir}}",
+    "notFound": "Couldn't find the slicer's config folder. Set it in the settings.",
+    "openSettings": "Open settings",
+    "includeSystem": "Include the slicer's built-in presets",
+    "emptyTitle": "No filament presets found",
+    "emptyBody": "Create a filament preset in the slicer, or include the built-in presets.",
+    "table": "Presets to import",
+    "pick": "Import {{name}}",
+    "name": "Preset",
+    "status": "Status",
+    "statuses": {
+      "new": "New",
+      "imported": "Already imported",
+      "duplicate": "Already in your profiles"
+    },
+    "import_one": "Import {{count}} profile",
+    "import_other": "Import {{count}} profiles",
+    "error": "Couldn't import the presets."
+  },
   "adjust": {
     "title": "Adjust weight",
     "summary": "{{filament}} · now {{weight}}",

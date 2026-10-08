@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import type { IntegrationAdapter } from "@3d-maker-suite/core";
+import type { FilamentLibrary, IntegrationAdapter } from "@3d-maker-suite/core";
 import type { Db } from "@3d-maker-suite/db";
 import swagger from "@fastify/swagger";
 import swaggerUi from "@fastify/swagger-ui";
@@ -29,7 +29,11 @@ export async function buildApp(
   db: Db,
   logger: FastifyServerOptions["logger"] = false,
   dataDir = "",
-  opts: { adapters?: IntegrationAdapter[]; syncSchedule?: string } = {},
+  opts: {
+    adapters?: IntegrationAdapter[];
+    filamentLibraries?: FilamentLibrary[];
+    syncSchedule?: string;
+  } = {},
 ) {
   const app = Fastify({ logger });
   app.setValidatorCompiler(validatorCompiler);
@@ -69,7 +73,7 @@ export async function buildApp(
   await app.register(preferencesRoutes(db, dataDir), { prefix: "/api/preferences" });
   await app.register(printersRoutes(db, dataDir), { prefix: "/api/printers" });
   await app.register(maintenanceRoutes(db), { prefix: "/api/maintenance" });
-  await app.register(filamentRoutes(db), { prefix: "/api/filament" });
+  await app.register(filamentRoutes(db, opts.filamentLibraries ?? []), { prefix: "/api/filament" });
   await app.register(printsRoutes(db), { prefix: "/api/prints" });
   await app.register(tagsRoutes(db), { prefix: "/api/tags" });
   await app.register(collectionsRoutes(db), { prefix: "/api/collections" });

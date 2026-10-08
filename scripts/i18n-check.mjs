@@ -32,8 +32,8 @@ for (const f of all.filter((f) => /\.tsx?$/.test(f))) {
     if (namespaces.has(m[1])) used.add(`${m[1]}.${m[2]}`);
 }
 
-// Looked up by id at runtime (`integrations:adapters.<id>.*`), so a new adapter only adds keys.
-const dynamic = ["integrations.adapters."];
+// Looked up by id at runtime (`integrations:adapters.<id>.*`, `filament:library.sources.<id>`), so a new adapter only adds keys.
+const dynamic = ["integrations.adapters.", "filament.library.sources."];
 for (const k of defined) if (dynamic.some((p) => k.startsWith(p))) used.add(k);
 
 const missing = [...used].filter((k) => !defined.has(k));

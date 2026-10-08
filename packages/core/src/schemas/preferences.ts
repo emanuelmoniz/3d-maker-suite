@@ -15,6 +15,8 @@ const shape = {
   energyCostPerKwh: z.number().nonnegative(),
   projectRoots: z.array(z.string().min(1)),
   slicerPath: z.string(),
+  /** Overrides the detected config folder of a slicer library, by library id. */
+  libraryPaths: z.record(z.string(), z.string()),
   lowSpoolGrams: z.number().nonnegative(),
   maintenanceLeadDays: z.number().int().nonnegative(),
   printerStates: z.array(z.string().min(1)).min(1),
@@ -34,6 +36,7 @@ export const PREFERENCE_DEFAULTS: z.infer<typeof preferencesSchema> = {
   energyCostPerKwh: 0.25,
   projectRoots: [],
   slicerPath: "",
+  libraryPaths: {},
   lowSpoolGrams: 100,
   maintenanceLeadDays: 7,
   printerStates: ["working", "maintenance", "inop", "retired"],

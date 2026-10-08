@@ -2,6 +2,9 @@ import type {
   FilamentProfile,
   FilamentProfileInput,
   FilamentProfilePatch,
+  LibraryImport,
+  LibraryPreview,
+  LibrarySource,
   Page,
   Spool,
   SpoolAdjust,
@@ -69,3 +72,27 @@ export const useAdjustSpool = () =>
 
 export const filamentLabel = (p?: FilamentProfile) =>
   p ? [p.brand, p.material, p.name].filter(Boolean).join(" ") : "";
+
+export const useLibrarySources = () =>
+  useQuery({
+    queryKey: ["library", "sources"],
+    queryFn: () => api<LibrarySource[]>("GET", "/api/filament/library"),
+  });
+
+export const useLibraryPreview = (id: string | undefined, includeSystem: boolean) =>
+  useQuery({
+    queryKey: ["library", id, includeSystem],
+    queryFn: () =>
+      api<LibraryPreview>(
+        "GET",
+        `/api/filament/library/${id}/preview?includeSystem=${includeSystem}`,
+      ),
+    enabled: !!id,
+    retry: false,
+    gcTime: 0, // always re-read the folder when the page opens
+  });
+
+export const useLibraryImport = (id: string) =>
+  useInvalidating((v: LibraryImport) =>
+    api<{ created: number }>("POST", `/api/filament/library/${id}/import`, v),
+  );

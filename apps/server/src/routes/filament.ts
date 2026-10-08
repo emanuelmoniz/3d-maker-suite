@@ -1,12 +1,20 @@
+import { existsSync } from "node:fs";
 import {
   apiErrorSchema,
   archivedFilter,
+  type FilamentLibrary,
   type FilamentProfile,
   filamentProfileInputSchema,
   filamentProfilePatchSchema,
   filamentProfileSchema,
   filamentProfileSortFields,
   idList,
+  type LibraryPreview,
+  libraryImportResultSchema,
+  libraryImportSchema,
+  libraryPreviewSchema,
+  libraryQuerySchema,
+  librarySourceSchema,
   listQuery,
   type Page,
   pageOf,
@@ -25,6 +33,7 @@ import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
 import { inIds, listPage, taggedWith } from "../lib/list.ts";
+import { readPreferences } from "../lib/preferences.ts";
 import { setRemaining } from "../lib/spools.ts";
 
 const { filamentProfiles, spools, spoolWeightEntries } = schema;
@@ -34,7 +43,7 @@ const archivedAt = (archived?: boolean) =>
   archived === undefined ? undefined : archived ? new Date().toISOString() : null;
 
 export const filamentRoutes =
-  (db: Db): FastifyPluginAsyncZod =>
+  (db: Db, libraries: FilamentLibrary[] = []): FastifyPluginAsyncZod =>
   async (app) => {
     const getProfile = (id: string) => {
       const row = db.select().from(filamentProfiles).where(eq(filamentProfiles.id, id)).get();
@@ -109,6 +118,87 @@ export const filamentRoutes =
           .where(eq(filamentProfiles.id, req.params.id))
           .returning()
           .get() as FilamentProfile;
+      },
+    );
+
+    // --- Slicer libraries: read a slicer's local presets, preview, then import the picked ones.
+    const getLibrary = (id: string) => {
+      const lib = libraries.find((l) => l.id === id);
+      if (!lib) throw new HttpError(404, "not_found", "Unknown filament library");
+      return lib;
+    };
+    const detect = (lib: FilamentLibrary) => lib.defaultDirs().find((d) => existsSync(d)) ?? null;
+    const readLibrary = async (lib: FilamentLibrary, includeSystem: boolean) => {
+      const dir = readPreferences(db).libraryPaths[lib.id]?.trim() || detect(lib);
+      if (!dir || !existsSync(dir))
+        throw new HttpError(404, "library_not_found", "Slicer config folder not found");
+      return { dir, presets: await lib.read(dir, { includeSystem }) };
+    };
+    const key = (p: { brand: string; material: string; name: string; colorHex: string }) =>
+      [p.brand, p.material, p.name, p.colorHex].join("|").toLowerCase();
+
+    app.get("/library", { schema: { response: { 200: z.array(librarySourceSchema) } } }, async () =>
+      libraries.map((l) => ({ id: l.id, detectedDir: detect(l) })),
+    );
+
+    app.get(
+      "/library/:id/preview",
+      {
+        schema: {
+          params: z.object({ id: z.string() }),
+          querystring: libraryQuerySchema,
+          response: { 200: libraryPreviewSchema, ...notFound },
+        },
+      },
+      async (req): Promise<LibraryPreview> => {
+        const lib = getLibrary(req.params.id);
+        const { dir, presets } = await readLibrary(lib, req.query.includeSystem === "true");
+        const rows = db.select().from(filamentProfiles).all();
+        const imported = new Set(rows.map((r) => r.sourcePreset));
+        const have = new Set(rows.map(key));
+        return {
+          dir,
+          items: presets.map((p) => ({
+            ...p,
+            status: imported.has(`${lib.id}:${p.presetId}`)
+              ? "imported"
+              : have.has(key(p))
+                ? "duplicate"
+                : "new",
+          })),
+        };
+      },
+    );
+
+    app.post(
+      "/library/:id/import",
+      {
+        schema: {
+          params: z.object({ id: z.string() }),
+          body: libraryImportSchema,
+          response: { 200: libraryImportResultSchema, ...notFound },
+        },
+      },
+      async (req) => {
+        const lib = getLibrary(req.params.id);
+        // Re-read instead of trusting the client, so the preview is only a selection.
+        const { presets } = await readLibrary(lib, req.body.includeSystem);
+        const picked = new Set(req.body.presetIds);
+        const rows = db.select().from(filamentProfiles).all();
+        const skip = new Set([...rows.map((r) => r.sourcePreset), ...rows.map(key)]);
+        let created = 0;
+        db.transaction((tx) => {
+          for (const { presetId, scope: _scope, ...p } of presets) {
+            const sourcePreset = `${lib.id}:${presetId}`;
+            if (!picked.has(presetId) || skip.has(sourcePreset) || skip.has(key(p))) continue;
+            tx.insert(filamentProfiles)
+              .values({ ...p, sourcePreset })
+              .run();
+            skip.add(sourcePreset).add(key(p)); // two picked presets can be the same filament
+            created++;
+          }
+        });
+        return { created };
       },
     );
 
