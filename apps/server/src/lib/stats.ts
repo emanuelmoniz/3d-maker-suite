@@ -118,9 +118,9 @@ export function readStats(db: Db, q: StatsQuery): Stats {
               COUNT(DISTINCT use.print_id) AS prints, 0 AS successes, 0 AS seconds, 0 AS energyWh,
               SUM(use.grams) AS grams,
               SUM(CASE WHEN use.price IS NULL THEN use.grams ELSE 0 END) AS unpricedGrams,
-              CAST(ROUND(SUM(use.grams / 1000.0 * use.price)) AS INTEGER) AS material,
+              CAST(ROUND(COALESCE(SUM(use.grams / 1000.0 * use.price), 0)) AS INTEGER) AS material,
               0 AS energy, 0 AS wear, 0 AS maintenance,
-              CAST(ROUND(SUM(use.grams / 1000.0 * use.price)) AS INTEGER) AS total
+              CAST(ROUND(COALESCE(SUM(use.grams / 1000.0 * use.price), 0)) AS INTEGER) AS total
             FROM use LEFT JOIN filament_profiles ON filament_profiles.id = use.profile_id
             GROUP BY key ORDER BY total DESC, grams DESC`,
       ),

@@ -39,6 +39,16 @@ describe("stats", () => {
     expect(stats.breakdowns.printer.reduce((n, r) => n + r.total, 0)).toBe(stats.totals.total);
   });
 
+  it("handles filament without a price", async () => {
+    const { app, db } = await setup();
+    db.update(schema.filamentProfiles).set({ pricePerKg: null }).run();
+    db.update(schema.spools).set({ pricePaid: null }).run();
+    const stats = await get(app);
+    expect(stats.totals).toMatchObject({ material: 0 });
+    expect(stats.totals.unpricedGrams).toBeCloseTo(stats.totals.grams);
+    expect(stats.breakdowns.filament.every((f) => f.total === 0)).toBe(true);
+  });
+
   it("filters by printer, outcome, spool and date, and exports the same view as CSV", async () => {
     const { app, db } = await setup();
     const [printer] = db.select().from(schema.printers).all();
