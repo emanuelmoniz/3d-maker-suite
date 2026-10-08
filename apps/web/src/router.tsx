@@ -9,6 +9,7 @@ import { FilamentPage } from "./pages/filament/FilamentPage.tsx";
 import { LibraryImportPage } from "./pages/filament/LibraryImportPage.tsx";
 import { ProfileCreatePage } from "./pages/filament/ProfileFormPage.tsx";
 import { SpoolCreatePage } from "./pages/filament/SpoolFormPage.tsx";
+import { SpoolImportPage } from "./pages/filament/SpoolImportPage.tsx";
 import { ModulePage } from "./pages/ModulePage.tsx";
 import { MaintenancePage } from "./pages/maintenance/MaintenancePage.tsx";
 import { TypeCreatePage } from "./pages/maintenance/TypeFormPage.tsx";
@@ -100,6 +101,12 @@ const routes: AnyRoute[] = [
     path: "/filament/profiles/new",
     loader: () => Promise.all([loadNamespace("filament"), loadNamespace("tags")]),
     component: ProfileCreatePage,
+  }),
+  createRoute({
+    getParentRoute: () => root,
+    path: "/filament/spools/import",
+    loader: () => loadNamespace("filament"),
+    component: SpoolImportPage,
   }),
   createRoute({
     getParentRoute: () => root,

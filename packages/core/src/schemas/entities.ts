@@ -131,6 +131,8 @@ export const spoolSchema = z.object({
   purchasedAt: isoDate.nullable(),
   openedAt: isoDate.nullable(),
   location: z.string().nullable(),
+  /** Inventory entry this spool was imported from, `<library>:<spool id>`; null for hand-made ones. */
+  sourceSpool: z.string().nullable(),
   archivedAt: isoDate.nullable(),
   ...timestamps,
 });

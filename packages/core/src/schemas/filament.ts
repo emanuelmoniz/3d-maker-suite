@@ -97,6 +97,8 @@ export const librarySourceSchema = z.object({
   id: z.string(),
   /** First default folder that exists on this PC, if any (ignoring the override). */
   detectedDir: z.string().nullable(),
+  /** The library can also list your spools (`readSpools`). */
+  spools: z.boolean(),
 });
 
 export const libraryQuerySchema = z.object({
@@ -117,7 +119,29 @@ export const libraryImportSchema = z.object({
 
 export const libraryImportResultSchema = z.object({ created: z.number().int().nonnegative() });
 
+/** A spool from a slicer's filament inventory, with the profile it belongs to. */
+export const librarySpoolSchema = spoolSchema
+  .pick({ initialGrams: true, remainingGrams: true, emptyWeightGrams: true, status: true })
+  .extend({
+    /** Stable within one library, e.g. Bambu's spool id. */
+    spoolId: z.string().min(1),
+    profile: libraryPresetSchema.omit({ presetId: true, scope: true }),
+  });
+
+export const librarySpoolPreviewSchema = z.object({
+  dir: z.string(),
+  /** `imported`: this spool was imported before, so it can't be picked again. */
+  items: z.array(librarySpoolSchema.extend({ imported: z.boolean() })),
+});
+
+export const librarySpoolImportSchema = z.object({
+  /** Spool ids picked in the preview; already imported ones are skipped. */
+  spoolIds: z.array(z.string().min(1)).min(1),
+});
+
 export type LibraryPreset = z.infer<typeof libraryPresetSchema>;
+export type LibrarySpool = z.infer<typeof librarySpoolSchema>;
+export type LibrarySpoolPreview = z.infer<typeof librarySpoolPreviewSchema>;
 export type LibraryPreview = z.infer<typeof libraryPreviewSchema>;
 export type LibraryImport = z.infer<typeof libraryImportSchema>;
 export type LibrarySource = z.infer<typeof librarySourceSchema>;

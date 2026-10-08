@@ -10,11 +10,14 @@ import {
   filamentProfileSortFields,
   idList,
   type LibraryPreview,
+  type LibrarySpoolPreview,
   libraryImportResultSchema,
   libraryImportSchema,
   libraryPreviewSchema,
   libraryQuerySchema,
   librarySourceSchema,
+  librarySpoolImportSchema,
+  librarySpoolPreviewSchema,
   listQuery,
   type Page,
   pageOf,
@@ -34,7 +37,7 @@ import { z } from "zod";
 import { HttpError } from "../errors.ts";
 import { inIds, listPage, taggedWith } from "../lib/list.ts";
 import { readPreferences } from "../lib/preferences.ts";
-import { setRemaining } from "../lib/spools.ts";
+import { createSpool, setRemaining } from "../lib/spools.ts";
 
 const { filamentProfiles, spools, spoolWeightEntries } = schema;
 const params = z.object({ id: z.uuid() });
@@ -128,17 +131,26 @@ export const filamentRoutes =
       return lib;
     };
     const detect = (lib: FilamentLibrary) => lib.defaultDirs().find((d) => existsSync(d)) ?? null;
-    const readLibrary = async (lib: FilamentLibrary, includeSystem: boolean) => {
+    const libraryDir = (lib: FilamentLibrary) => {
       const dir = readPreferences(db).libraryPaths[lib.id]?.trim() || detect(lib);
       if (!dir || !existsSync(dir))
         throw new HttpError(404, "library_not_found", "Slicer config folder not found");
+      return dir;
+    };
+    const readLibrary = async (lib: FilamentLibrary, includeSystem: boolean) => {
+      const dir = libraryDir(lib);
       return { dir, presets: await lib.read(dir, { includeSystem }) };
+    };
+    const readSpools = async (lib: FilamentLibrary) => {
+      if (!lib.readSpools) throw new HttpError(404, "not_found", "Library has no spools");
+      const dir = libraryDir(lib);
+      return { dir, items: await lib.readSpools(dir) };
     };
     const key = (p: { brand: string; material: string; name: string; colorHex: string }) =>
       [p.brand, p.material, p.name, p.colorHex].join("|").toLowerCase();
 
     app.get("/library", { schema: { response: { 200: z.array(librarySourceSchema) } } }, async () =>
-      libraries.map((l) => ({ id: l.id, detectedDir: detect(l) })),
+      libraries.map((l) => ({ id: l.id, detectedDir: detect(l), spools: !!l.readSpools })),
     );
 
     app.get(
@@ -202,6 +214,80 @@ export const filamentRoutes =
       },
     );
 
+    // Spools from the slicer's filament inventory. Insert-only: re-importing never touches
+    // spools you already have, so their ledger stays yours.
+    const sourceSpool = (lib: FilamentLibrary, spoolId: string) => `${lib.id}:${spoolId}`;
+    const importedSpools = () =>
+      new Set(
+        db
+          .select({ s: spools.sourceSpool })
+          .from(spools)
+          .where(isNotNull(spools.sourceSpool))
+          .all()
+          .map((r) => r.s),
+      );
+
+    app.get(
+      "/library/:id/spools",
+      {
+        schema: {
+          params: z.object({ id: z.string() }),
+          response: { 200: librarySpoolPreviewSchema, ...notFound },
+        },
+      },
+      async (req): Promise<LibrarySpoolPreview> => {
+        const lib = getLibrary(req.params.id);
+        const { dir, items } = await readSpools(lib);
+        const imported = importedSpools();
+        return {
+          dir,
+          items: items.map((s) => ({ ...s, imported: imported.has(sourceSpool(lib, s.spoolId)) })),
+        };
+      },
+    );
+
+    app.post(
+      "/library/:id/spools/import",
+      {
+        schema: {
+          params: z.object({ id: z.string() }),
+          body: librarySpoolImportSchema,
+          response: { 200: libraryImportResultSchema, ...notFound },
+        },
+      },
+      async (req) => {
+        const lib = getLibrary(req.params.id);
+        const { items } = await readSpools(lib);
+        const picked = new Set(req.body.spoolIds);
+        const imported = importedSpools();
+        // Spools land on the profile with the same brand, material, name and colour.
+        const profiles = new Map(
+          db
+            .select()
+            .from(filamentProfiles)
+            .where(isNull(filamentProfiles.archivedAt))
+            .all()
+            .map((p) => [key(p), p.id]),
+        );
+        let created = 0;
+        db.transaction((tx) => {
+          for (const { spoolId, profile, ...s } of items) {
+            const source = sourceSpool(lib, spoolId);
+            if (!picked.has(spoolId) || imported.has(source)) continue;
+            let profileId = profiles.get(key(profile));
+            if (!profileId) {
+              profileId = tx.insert(filamentProfiles).values(profile).returning().get().id;
+              profiles.set(key(profile), profileId);
+            }
+            createSpool(tx, { ...s, profileId, sourceSpool: source });
+            imported.add(source);
+            created++;
+          }
+        });
+        return { created };
+      },
+    );
+
     // --- Spools (physical rolls of a profile)
     app.get(
       "/spools",
@@ -246,23 +332,7 @@ export const filamentRoutes =
         if (getProfile(req.body.profileId).archivedAt)
           throw new HttpError(400, "profile_archived", "Filament profile is archived");
         const remainingGrams = req.body.remainingGrams ?? req.body.initialGrams;
-        const row = db.transaction((tx) => {
-          const spool = tx
-            .insert(spools)
-            .values({ ...req.body, remainingGrams })
-            .returning()
-            .get();
-          // Opening entry, so the ledger sums to the current weight from day one.
-          tx.insert(spoolWeightEntries)
-            .values({
-              spoolId: spool.id,
-              kind: "manual",
-              deltaGrams: remainingGrams,
-              remainingAfter: remainingGrams,
-            })
-            .run();
-          return spool;
-        });
+        const row = createSpool(db, { ...req.body, remainingGrams });
         return reply.status(201).send(row as Spool);
       },
     );

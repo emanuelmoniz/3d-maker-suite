@@ -213,11 +213,13 @@ export const spools = sqliteTable(
     purchasedAt: text(),
     openedAt: text(),
     location: text(),
+    sourceSpool: text(),
     archivedAt: text(),
     ...timestamps,
   },
   (t) => [
     index("spools_profile_idx").on(t.profileId),
+    uniqueIndex("spools_source_uq").on(t.sourceSpool),
     check("spools_status_ck", oneOf(t.status, SPOOL_STATUSES)),
   ],
 );

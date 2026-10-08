@@ -1,6 +1,6 @@
 import type { z } from "zod";
 import type { IntegrationErrorCode, LoginChallenge } from "../schemas/enums.ts";
-import type { LibraryPreset } from "../schemas/filament.ts";
+import type { LibraryPreset, LibrarySpool } from "../schemas/filament.ts";
 import type { ExternalPrint, ExternalPrinter, TestResult } from "../schemas/integrations.ts";
 
 // The contract a vendor package implements (ADR-0003, docs/architecture.md).
@@ -79,6 +79,8 @@ export interface FilamentLibrary {
   defaultDirs(): string[];
   /** `dir` exists. Unreadable or odd preset files are skipped, not fatal. */
   read(dir: string, opts: { includeSystem: boolean }): Promise<LibraryPreset[]>;
+  /** Your spools from the slicer's filament inventory, if it keeps one. A missing inventory is `[]`. */
+  readSpools?(dir: string): Promise<LibrarySpool[]>;
 }
 
 /** Opens a local file in a slicer. The server decides which files are allowed before calling. */

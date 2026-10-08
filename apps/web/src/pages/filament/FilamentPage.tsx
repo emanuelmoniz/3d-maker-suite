@@ -37,6 +37,9 @@ const text = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
 
 const addClass =
   "inline-flex h-9 items-center gap-2 rounded-md bg-accent px-3 font-medium text-accent-fg hover:opacity-90";
+const importClass =
+  "inline-flex h-9 items-center rounded-md border border-border bg-surface px-3 font-medium hover:bg-surface-2";
+
 const AddLink = ({ to, children }: { to: string; children: string }) => (
   <Link to={to} className={addClass}>
     <Plus className="size-4" aria-hidden />
@@ -211,7 +214,12 @@ export function FilamentPage() {
         <section className="grid gap-3">
           <div className="flex items-center justify-between gap-3">
             <h2 className="text-base font-semibold">{t("filament:spools.title")}</h2>
-            <AddLink to="/filament/spools/new">{t("filament:spools.add")}</AddLink>
+            <span className="flex gap-2">
+              <Link to="/filament/spools/import" className={importClass}>
+                {t("filament:spoolImport.link")}
+              </Link>
+              <AddLink to="/filament/spools/new">{t("filament:spools.add")}</AddLink>
+            </span>
           </div>
           <TagFilter value={tagId} onChange={setTagId} />
           {spools.data && !spools.data.items.length && !tagId ? (
@@ -299,10 +307,7 @@ export function FilamentPage() {
           <div className="flex items-center justify-between gap-3">
             <h2 className="text-base font-semibold">{t("filament:profiles.title")}</h2>
             <span className="flex gap-2">
-              <Link
-                to="/filament/import"
-                className="inline-flex h-9 items-center rounded-md border border-border bg-surface px-3 font-medium hover:bg-surface-2"
-              >
+              <Link to="/filament/import" className={importClass}>
                 {t("filament:library.link")}
               </Link>
               <AddLink to="/filament/profiles/new">{t("filament:profiles.add")}</AddLink>

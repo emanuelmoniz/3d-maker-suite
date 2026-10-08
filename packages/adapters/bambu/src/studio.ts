@@ -1,7 +1,7 @@
 import { readdir, readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join, parse } from "node:path";
-import type { FilamentLibrary, LibraryPreset } from "@3d-maker-suite/core";
+import type { FilamentLibrary, LibraryPreset, LibrarySpool } from "@3d-maker-suite/core";
 
 // Bambu Studio keeps presets as JSON under its config folder (checked on Windows against an
 // installed Bambu Studio 2.x; macOS and Linux paths are from Bambu's docs, not tested here):
@@ -97,36 +97,105 @@ export function toProfile(
   };
 }
 
+/** System presets of a Studio folder, loaded lazily, and setting lookup through `inherits`. */
+async function systemPresets(dir: string) {
+  // name -> file for every system preset, for `inherits` lookups.
+  const systemFiles = new Map<string, string>();
+  for (const vendor of await dirs(join(dir, "system")))
+    for (const f of await jsonFiles(join(dir, "system", vendor, "filament"), false))
+      if (!systemFiles.has(parse(f).name)) systemFiles.set(parse(f).name, f);
+
+  const cache = new Map<string, Preset | undefined>();
+  const load = async (file: string) => {
+    if (!cache.has(file)) cache.set(file, await readJson(file));
+    return cache.get(file);
+  };
+  /** Setting lookup through the `inherits` chain, nearest first. */
+  const resolver = async (start: Preset) => {
+    const chain: Preset[] = [start];
+    while (chain.length < 10) {
+      const inherits = chain[chain.length - 1]?.inherits;
+      const file = typeof inherits === "string" ? systemFiles.get(inherits) : undefined;
+      const next = file && (await load(file));
+      if (!next || chain.includes(next)) break;
+      chain.push(next);
+    }
+    return (key: string) => chain.map((c) => first(c[key])).find((v) => v !== undefined);
+  };
+  return { systemFiles, load, resolver };
+}
+
+const str = (v: unknown) => (typeof v === "string" ? v : "");
+const grams = (v: unknown) => (typeof v === "number" && v > 0 ? v : 0);
+
+// Studio's filament inventory: filament_inventory/spools.json, `{ spools: [...] }`. With a
+// signed-in account it mirrors the Bambu Cloud inventory (`cloud_synced`). `net_weight` is
+// the filament left in grams; `setting_id` is the `filament_id` of a system preset.
+export async function readStudioSpools(dir: string): Promise<LibrarySpool[]> {
+  const file = await readJson(join(dir, "filament_inventory", "spools.json"));
+  const entries = Array.isArray(file?.spools) ? (file.spools as Preset[]) : [];
+  if (!entries.length) return [];
+
+  const { systemFiles, load, resolver } = await systemPresets(dir);
+  const byFilamentId = new Map<string, [string, Preset]>();
+  for (const [name, f] of systemFiles) {
+    const p = await load(f);
+    const id = p && first(p.filament_id);
+    if (p && id && !byFilamentId.has(id)) byFilamentId.set(id, [name, p]);
+  }
+
+  const out: LibrarySpool[] = [];
+  for (const s of entries) {
+    const spoolId = str(s.spool_id);
+    // ponytail: only "active" seen so far; map other statuses once their meaning is known
+    if (!spoolId || s.status !== "active") continue;
+    const color = str(s.color_code);
+    const colorHex = /^#[0-9a-f]{6}/i.test(color) ? color.slice(0, 7).toLowerCase() : "#808080";
+    const material = str(s.material_type);
+    const preset = byFilamentId.get(str(s.setting_id));
+    // The matching system preset knows density and temperatures; else what the spool says.
+    const { scope: _scope, ...found } =
+      (preset && toProfile(preset[0], "system", await resolver(preset[1]))) || {};
+    const profile: LibrarySpool["profile"] | undefined =
+      "material" in found
+        ? { ...found, colorHex }
+        : material
+          ? {
+              brand: str(s.brand),
+              material,
+              name: str(s.series) || material,
+              colorHex,
+              diameterMm: grams(s.diameter) || 1.75,
+              densityGcm3: DEFAULT_DENSITY,
+              pricePerKg: null,
+              nozzleTempC: null,
+              bedTempC: null,
+            }
+          : undefined;
+    if (!profile) continue;
+    const initialGrams = grams(s.initial_weight) || 1000;
+    const remainingGrams = Math.min(grams(s.net_weight), initialGrams);
+    out.push({
+      spoolId,
+      profile,
+      initialGrams,
+      remainingGrams,
+      emptyWeightGrams: grams(s.spool_weight) || null,
+      status: remainingGrams <= 0 ? "empty" : remainingGrams >= initialGrams ? "new" : "in_use",
+    });
+  }
+  return out;
+}
+
 export function bambuStudioLibrary(
   defaultDirs: () => string[] = studioDefaultDirs,
 ): FilamentLibrary {
   return {
     id: "bambu-studio",
     defaultDirs,
+    readSpools: readStudioSpools,
     async read(dir, { includeSystem }) {
-      // name -> file for every system preset, for `inherits` lookups.
-      const systemFiles = new Map<string, string>();
-      for (const vendor of await dirs(join(dir, "system")))
-        for (const f of await jsonFiles(join(dir, "system", vendor, "filament"), false))
-          if (!systemFiles.has(parse(f).name)) systemFiles.set(parse(f).name, f);
-
-      const cache = new Map<string, Preset | undefined>();
-      const load = async (file: string) => {
-        if (!cache.has(file)) cache.set(file, await readJson(file));
-        return cache.get(file);
-      };
-      /** Setting lookup through the `inherits` chain, nearest first. */
-      const resolver = async (start: Preset) => {
-        const chain: Preset[] = [start];
-        while (chain.length < 10) {
-          const inherits = chain[chain.length - 1]?.inherits;
-          const file = typeof inherits === "string" ? systemFiles.get(inherits) : undefined;
-          const next = file && (await load(file));
-          if (!next || chain.includes(next)) break;
-          chain.push(next);
-        }
-        return (key: string) => chain.map((c) => first(c[key])).find((v) => v !== undefined);
-      };
+      const { systemFiles, load, resolver } = await systemPresets(dir);
 
       const out = new Map<string, LibraryPreset>();
       const add = (presetId: string, p: Omit<LibraryPreset, "presetId"> | undefined) => {

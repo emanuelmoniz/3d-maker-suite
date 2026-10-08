@@ -82,5 +82,20 @@
     "historyEmpty": "No changes yet.",
     "entryKinds": { "manual": "Manual", "print": "Print", "correction": "Correction" },
     "error": "Couldn't adjust the weight."
+  },
+  "spoolImport": {
+    "link": "Import from Bambu Studio",
+    "title": "Import spools from Bambu Studio",
+    "description": "Review the spools in Bambu Studio's filament inventory, pick the ones you want, then import them. Missing filament profiles are created for you.",
+    "reading": "Reading spools from {{dir}}",
+    "emptyTitle": "No spools found",
+    "emptyBody": "Add spools to Bambu Studio's filament inventory, or sync them from your AMS.",
+    "table": "Spools to import",
+    "filament": "Filament",
+    "remaining": "Remaining",
+    "remainingOf": "{{remaining}} of {{initial}}",
+    "import_one": "Import {{count}} spool",
+    "import_other": "Import {{count}} spools",
+    "error": "Couldn't import the spools."
   }
 }

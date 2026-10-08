@@ -32,6 +32,25 @@ export function setRemaining(
   });
 }
 
+/** Inserts a spool plus its opening ledger entry, so the ledger sums to the weight from day one. */
+export function createSpool(
+  db: Pick<Db, "transaction">,
+  values: typeof spools.$inferInsert & { remainingGrams: number },
+) {
+  return db.transaction((tx) => {
+    const spool = tx.insert(spools).values(values).returning().get();
+    tx.insert(spoolWeightEntries)
+      .values({
+        spoolId: spool.id,
+        kind: "manual",
+        deltaGrams: values.remainingGrams,
+        remainingAfter: values.remainingGrams,
+      })
+      .run();
+    return spool;
+  });
+}
+
 export const round = (g: number) => Math.round(g * 1000) / 1000;
 
 /**

@@ -5,6 +5,7 @@ import type {
   LibraryImport,
   LibraryPreview,
   LibrarySource,
+  LibrarySpoolPreview,
   Page,
   Spool,
   SpoolAdjust,
@@ -95,4 +96,18 @@ export const useLibraryPreview = (id: string | undefined, includeSystem: boolean
 export const useLibraryImport = (id: string) =>
   useInvalidating((v: LibraryImport) =>
     api<{ created: number }>("POST", `/api/filament/library/${id}/import`, v),
+  );
+
+export const useLibrarySpools = (id: string | undefined) =>
+  useQuery({
+    queryKey: ["library", id, "spools"],
+    queryFn: () => api<LibrarySpoolPreview>("GET", `/api/filament/library/${id}/spools`),
+    enabled: !!id,
+    retry: false,
+    gcTime: 0, // always re-read the inventory when the page opens
+  });
+
+export const useLibrarySpoolImport = (id: string) =>
+  useInvalidating((v: { spoolIds: string[] }) =>
+    api<{ created: number }>("POST", `/api/filament/library/${id}/spools/import`, v),
   );

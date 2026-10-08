@@ -118,6 +118,18 @@ describe("filament library", () => {
         preset("B"),
         ...(includeSystem ? [preset("S", { scope: "system" })] : []),
       ],
+      readSpools: async () =>
+        ["1", "2"].map((spoolId) => {
+          const { presetId: _p, scope: _s, ...profile } = preset("A");
+          return {
+            spoolId,
+            profile,
+            initialGrams: 1000,
+            remainingGrams: 250,
+            emptyWeightGrams: null,
+            status: "in_use" as const,
+          };
+        }),
     };
     app = await buildApp(db, false, "", { filamentLibraries: [library] });
   });
@@ -166,5 +178,32 @@ describe("filament library", () => {
     });
     expect(names(await preview())).toEqual(["A:imported", "B:duplicate"]);
     expect((await imp(["user/B"])).json()).toEqual({ created: 0 });
+  });
+
+  it("imports spools once, onto a matching or new profile, with an opening ledger entry", async () => {
+    await setDir(dir);
+    const spools = async () =>
+      (await app.inject("/api/filament/library/fake/spools"))
+        .json()
+        .items.map((i: { spoolId: string; imported: boolean }) => `${i.spoolId}:${i.imported}`);
+    const imp = (ids: string[]) =>
+      app.inject({
+        method: "POST",
+        url: "/api/filament/library/fake/spools/import",
+        payload: { spoolIds: ids },
+      });
+    expect(await spools()).toEqual(["1:false", "2:false"]);
+    expect((await imp(["1", "2"])).json()).toEqual({ created: 2 });
+    expect((await imp(["1", "2"])).json()).toEqual({ created: 0 });
+    expect(await spools()).toEqual(["1:true", "2:true"]);
+
+    // Both spools share the one profile created for them.
+    expect(db.select().from(schema.filamentProfiles).all()).toHaveLength(1);
+    const rows = db.select().from(schema.spools).all();
+    expect(rows.map((r) => [r.sourceSpool, r.remainingGrams, r.status])).toEqual([
+      ["fake:1", 250, "in_use"],
+      ["fake:2", 250, "in_use"],
+    ]);
+    expect(db.select().from(schema.spoolWeightEntries).all()).toHaveLength(2);
   });
 });
