@@ -1,0 +1,219 @@
+import type { EnergySource, PrintOutcome } from "@3d-maker-suite/core";
+import { count, eq } from "drizzle-orm";
+import type { Db } from "./index.ts";
+import * as s from "./schema.ts";
+
+const DAY = 86_400_000;
+
+/** Same numbers on every run (mulberry32). */
+function rng(seed: number) {
+  return () => {
+    seed = (seed + 0x6d2b79f5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/** Index that must exist (keeps `noUncheckedIndexedAccess` happy without `!`). */
+function at<T>(xs: readonly T[], i: number): T {
+  const x = xs[i];
+  if (x === undefined) throw new Error(`seed: no item at ${i}`);
+  return x;
+}
+
+/** Fills an empty DB with demo data. Refuses to touch a DB that already has printers. */
+export function seed(db: Db, now = new Date()) {
+  const [{ n } = { n: 0 }] = db.select({ n: count() }).from(s.printers).all();
+  if (n > 0) throw new Error("Database is not empty; refusing to seed.");
+
+  const rand = rng(42);
+  const pick = <T>(xs: readonly T[]): T => at(xs, Math.floor(rand() * xs.length));
+  const ago = (days: number) => new Date(now.getTime() - days * DAY).toISOString();
+
+  db.transaction((tx) => {
+    tx.insert(s.settings).values({ key: "currency", value: "EUR" }).run();
+
+    const printers = [
+      { name: "Workshop X1C", brand: "Bambu Lab", model: "X1 Carbon", serial: "00M00A000000001" },
+      { name: "Desk P1S", brand: "Bambu Lab", model: "P1S", runtimeOffsetSec: 120 * 3600 },
+    ].map((v) => tx.insert(s.printers).values(v).returning().get());
+    const watts = [140, 120];
+
+    const nozzle = tx
+      .insert(s.maintenanceTypes)
+      .values({ name: "Clean nozzle", intervalPrints: 50 })
+      .returning()
+      .get();
+    const rods = tx
+      .insert(s.maintenanceTypes)
+      .values({ name: "Lubricate rods", intervalSec: 200 * 3600, intervalDays: 90 })
+      .returning()
+      .get();
+
+    const profiles = tx
+      .insert(s.filamentProfiles)
+      .values([
+        {
+          brand: "Bambu",
+          material: "PLA",
+          name: "Basic Black",
+          colorHex: "#1a1a1a",
+          densityGcm3: 1.24,
+          pricePerKg: 2299,
+        },
+        {
+          brand: "Bambu",
+          material: "PLA",
+          name: "Basic White",
+          colorHex: "#f5f5f5",
+          densityGcm3: 1.24,
+          pricePerKg: 2299,
+        },
+        {
+          brand: "Prusament",
+          material: "PETG",
+          name: "Galaxy Black",
+          colorHex: "#2b2b3a",
+          densityGcm3: 1.27,
+          pricePerKg: 2999,
+        },
+        {
+          brand: "Polymaker",
+          material: "TPU",
+          name: "PolyFlex Red",
+          colorHex: "#c0392b",
+          densityGcm3: 1.22,
+          pricePerKg: 3999,
+        },
+      ])
+      .returning()
+      .all();
+
+    const spools = tx
+      .insert(s.spools)
+      .values(
+        [0, 0, 1, 2, 3].map((p, i) => ({
+          profileId: at(profiles, p).id,
+          initialGrams: 1000,
+          remainingGrams: 1000,
+          pricePaid: at(profiles, p).pricePerKg,
+          purchasedAt: ago(150 - i * 10),
+          openedAt: ago(130 - i * 10),
+          location: i < 3 ? "Dry box A" : "Shelf",
+        })),
+      )
+      .returning()
+      .all();
+    const remaining = new Map(spools.map((sp) => [sp.id, sp.initialGrams]));
+
+    const projects = tx
+      .insert(s.projects)
+      .values([
+        { name: "Benchy", filePath: "C:/Models/benchy.3mf", meta: { plates: 1 } },
+        { name: "Cable clips", filePath: "C:/Models/cable-clips.3mf", meta: { plates: 2 } },
+        { name: "Phone stand", sourceUrl: "https://example.com/phone-stand", meta: { plates: 1 } },
+      ])
+      .returning()
+      .all();
+
+    const outcomes: PrintOutcome[] = [
+      "success",
+      "success",
+      "success",
+      "success",
+      "failed",
+      "cancelled",
+    ];
+    const reasons = ["Spaghetti", "Bed adhesion", "Nozzle clog", "Layer shift"];
+    const prints = [];
+    for (let i = 0; i < 40; i++) {
+      const p = i % printers.length;
+      const durationSec = Math.round((0.5 + rand() * 7.5) * 3600);
+      const outcome = pick(outcomes);
+      const energySource: EnergySource = rand() < 0.3 ? "measured" : "estimated";
+      const estimateWh = (at(watts, p) * durationSec) / 3600;
+      const print = tx
+        .insert(s.prints)
+        .values({
+          printerId: at(printers, p).id,
+          projectId: rand() < 0.7 ? pick(projects).id : null,
+          title: `Demo print ${i + 1}`,
+          plate: 1,
+          startedAt: ago(120 - i * 3 + rand()),
+          durationSec,
+          outcome,
+          failureReason: outcome === "success" ? null : pick(reasons),
+          energyWh: Math.round(
+            energySource === "measured" ? estimateWh * (0.85 + rand() * 0.3) : estimateWh,
+          ),
+          energySource,
+        })
+        .returning()
+        .get();
+      prints.push(print);
+
+      // Every 4th print uses two spools (AMS multi-colour).
+      const used = i % 4 === 0 ? [at(spools, 0), at(spools, 2)] : [pick(spools)];
+      for (const [slot, sp] of used.entries()) {
+        const grams = Math.round((durationSec / 3600) * (8 + rand() * 6) * 10) / 10;
+        remaining.set(sp.id, (remaining.get(sp.id) ?? 0) - grams);
+        tx.insert(s.printFilamentUsages)
+          .values({ printId: print.id, spoolId: sp.id, profileId: sp.profileId, grams, slot })
+          .run();
+      }
+    }
+    for (const [id, grams] of remaining) {
+      tx.update(s.spools)
+        .set({ remainingGrams: Math.max(0, Math.round(grams)) })
+        .where(eq(s.spools.id, id))
+        .run();
+    }
+
+    tx.insert(s.maintenanceTasks)
+      .values([
+        {
+          printerId: at(printers, 0).id,
+          typeId: nozzle.id,
+          doneAt: ago(60),
+          printerRuntimeSecAt: 300 * 3600,
+          printerPrintsAt: 10,
+        },
+        {
+          printerId: at(printers, 1).id,
+          typeId: rods.id,
+          doneAt: ago(30),
+          printerRuntimeSecAt: 200 * 3600,
+          printerPrintsAt: 15,
+        },
+      ])
+      .run();
+
+    const functional = tx
+      .insert(s.tags)
+      .values({ name: "Functional", color: "#2e86de" })
+      .returning()
+      .get();
+    const gift = tx.insert(s.tags).values({ name: "Gift", color: "#e67e22" }).returning().get();
+    tx.insert(s.taggings)
+      .values([
+        { tagId: functional.id, entityType: "project", entityId: at(projects, 1).id },
+        { tagId: gift.id, entityType: "project", entityId: at(projects, 2).id },
+        { tagId: gift.id, entityType: "print", entityId: at(prints, 0).id },
+        { tagId: functional.id, entityType: "spool", entityId: at(spools, 3).id },
+      ])
+      .run();
+
+    const desk = tx
+      .insert(s.collections)
+      .values({ name: "Desk upgrades", description: "Things for the office desk" })
+      .returning()
+      .get();
+    tx.insert(s.collectionProjects)
+      .values([
+        { collectionId: desk.id, projectId: at(projects, 2).id, position: 0 },
+        { collectionId: desk.id, projectId: at(projects, 1).id, position: 1 },
+      ])
+      .run();
+  });
+}

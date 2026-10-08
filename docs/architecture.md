@@ -39,18 +39,19 @@ flowchart LR
 - **Money:** integer minor units in one app currency, set in Settings.
 - **Display:** all formatting goes through `Intl` (see ADR-0004).
 - **Imported rows:** any row that can come from an integration has `origin: 'manual' | 'integration'`, `integrationId?` and `externalId?`, with a unique constraint on `(integrationId, externalId)`. That makes sync an idempotent upsert.
-- **Soft archive:** printers and spools get `archivedAt` instead of being deleted, so their history stays intact.
+- **Soft archive:** printers, spools, filament profiles, maintenance types and projects get `archivedAt` instead of being deleted, so their history stays intact. Foreign keys from history rows use `ON DELETE RESTRICT`, so a hard delete fails instead of orphaning stats. Prints are hard-deleted (their filament usages cascade).
+- **Dates in queries:** stored as `toISOString()` text, so range filters compare as strings and use the date indexes (`prints.startedAt`).
 
 ## Domain glossary
 
 | Entity | Meaning | Key fields |
 |---|---|---|
-| **Printer** | A physical machine | name, brand, model, serial?, nozzleDiameterMm, hoursOffset, printsOffset (baseline for a used machine), archivedAt? |
-| **MaintenanceType** | Reusable maintenance template | name, intervalHours?, intervalPrints?, intervalDays? (the first one reached triggers), appliesToModel? |
-| **MaintenanceTask** | A logged "done" event | printerId, typeId, doneAt, printerHoursAt, printerPrintsAt, notes? |
+| **Printer** | A physical machine | name, brand, model, serial?, nozzleDiameterMm, runtimeOffsetSec, printsOffset (baseline for a used machine), archivedAt? |
+| **MaintenanceType** | Reusable maintenance template | name, intervalSec?, intervalPrints?, intervalDays? (the first one reached triggers), appliesToModel? |
+| **MaintenanceTask** | A logged "done" event | printerId, typeId, doneAt, printerRuntimeSecAt, printerPrintsAt, notes? |
 | **FilamentProfile** | A material spec | brand, material (PLA, PETG…), name, colorHex, diameterMm, densityGcm3, pricePerKg? |
 | **Spool** | A physical roll of filament | profileId, initialGrams, remainingGrams, pricePaid, purchasedAt?, openedAt?, location?, archivedAt? |
-| **Print** | One print job | printerId, projectId?, title, plate?, startedAt, durationSec, outcome, failureReason?, notes?, costSnapshot? |
+| **Print** | One print job | printerId, projectId?, title, plate?, startedAt, durationSec, outcome, failureReason?, notes?, energyWh?, energySource? (`'estimated' \| 'measured'`), costSnapshot? |
 | **PrintFilamentUsage** | Filament used by one print, one row per slot (AMS) | printId, spoolId?, profileId?, grams, slot? |
 | **PrintOutcome** | Value type on Print, no table of its own | `'success' \| 'failed' \| 'cancelled'`, plus an optional failureReason |
 | **Project** | A printable model, usually a 3MF file | name, filePath?, sourceUrl?, thumbnailPath?, meta (plates, estimated time and grams per plate) |
@@ -62,11 +63,12 @@ flowchart LR
 Notes:
 
 - **Maintenance "due" is computed, not stored.** It comes from the latest MaintenanceTask for each (printer, type), compared with the printer's current hours, print count and the date.
-- **Printer totals are derived.** Hours and print count are the sum of its Prints plus `hoursOffset`/`printsOffset`.
+- **Printer totals are derived.** Hours and print count are the sum of its Prints plus `runtimeOffsetSec`/`printsOffset`.
 - **Usage keeps the profile.** `PrintFilamentUsage.spoolId` can be null for imported prints where the spool is unknown. `profileId` keeps the material, so cost and stats still work.
 - **Cost is snapshotted.** `costSnapshot` freezes the computed cost when a print is recorded, so later price changes don't rewrite history (cost engine: Step 19).
 - **Alert kinds:** `maintenance_due`, `spool_low`, `sync_failed`, `print_failed`. At most one unresolved alert exists per (kind, entityType, entityId).
-- **Tag storage** (one join table per entity or one polymorphic table) is decided in Step 2.
+- **Tag storage** is one polymorphic table, `taggings(tagId, entityType, entityId)`. It has no FK to the tagged row, so a trigger removes the taggings of deleted prints (spools and projects are only archived).
+- **Print rules** are enforced as DB CHECKs and mirrored in zod: a `success` print has no `failureReason`, and `energyWh` and `energySource` are set together.
 
 ## Entity relations
 

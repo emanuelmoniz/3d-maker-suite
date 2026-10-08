@@ -13,7 +13,10 @@
     "lint": "biome check .",
     "format": "biome check --write .",
     "typecheck": "pnpm -r typecheck",
-    "i18n:check": "node scripts/i18n-check.mjs"
+    "i18n:check": "node scripts/i18n-check.mjs",
+    "db:generate": "pnpm --filter @3d-maker-suite/db exec drizzle-kit generate",
+    "db:migrate": "pnpm --filter @3d-maker-suite/server exec tsx src/db-cli.ts migrate",
+    "db:seed": "pnpm --filter @3d-maker-suite/server exec tsx src/db-cli.ts seed"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.0.0",

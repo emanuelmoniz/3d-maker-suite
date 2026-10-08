@@ -33,7 +33,7 @@ Do Step 1 of PLAN.md. Follow CLAUDE.md layout and stack exactly. Server binds to
 by default (configurable). Keep config minimal; explain any extra dependency in one line.
 ```
 
-### [ ] Step 2 - Domain model & database  **[plan mode]**
+### [x] Step 2 - Domain model & database  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:** Drizzle schema + first migration for all v1 entities from Step 0, plus the settings table, the integration accounts table (encrypted secrets), and tags/collections (polymorphic tagging). zod schemas in core. Seed script with demo data (`pnpm db:seed`).
 **Done when:** migrations run on a fresh DB; schema unit tests pass.
