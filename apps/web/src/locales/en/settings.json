@@ -1,0 +1,51 @@
+{
+  "loadError": "Couldn't load settings. Is the server running?",
+  "saveError": "Couldn't save your last change.",
+  "dataDir": { "label": "Data directory", "hint": "Where the database and files live. Read-only." },
+  "sections": {
+    "general": "General",
+    "appearance": "Appearance",
+    "costs": "Costs",
+    "projects": "Projects",
+    "integrations": "Integrations",
+    "alerts": "Alerts"
+  },
+  "general": {
+    "language": "Language",
+    "units": "Units",
+    "unitsMetric": "Metric (g, mm)",
+    "unitsImperial": "Imperial (oz, in)",
+    "defaultPrinter": "Default printer ID",
+    "defaultPrinterHint": "Pre-selected when you log a print. A picker arrives with the printers module."
+  },
+  "appearance": {
+    "accent": "Accent colour",
+    "accents": {
+      "teal": "Teal",
+      "blue": "Blue",
+      "violet": "Violet",
+      "rose": "Rose",
+      "amber": "Amber"
+    }
+  },
+  "costs": {
+    "currency": "Currency",
+    "currencyHint": "Three-letter ISO code, e.g. EUR.",
+    "energyCost": "Energy cost per kWh"
+  },
+  "projects": {
+    "roots": "Project folders",
+    "rootsHint": "One folder per line. Watched for new models and 3MF files.",
+    "slicer": "Slicer executable",
+    "slicerHint": "Full path, used to open projects in your slicer."
+  },
+  "integrations": {
+    "title": "No integrations yet",
+    "body": "Connect your printers and cloud accounts here once integrations are available."
+  },
+  "alerts": {
+    "hint": "Thresholds are saved now and used when alerts are built.",
+    "lowSpool": "Low spool warning (grams left)",
+    "maintenanceLead": "Maintenance warning (days before due)"
+  }
+}

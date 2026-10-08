@@ -1,0 +1,217 @@
+import type { Preferences } from "@3d-maker-suite/core";
+import { Plug } from "lucide-react";
+import type { ReactNode } from "react";
+import { useTranslation } from "react-i18next";
+import { EmptyState } from "../components/EmptyState.tsx";
+import { FormField, inputClass } from "../components/FormField.tsx";
+import { PageHeader } from "../components/PageHeader.tsx";
+import { usePreferences, useSavePreferences } from "../lib/preferences.ts";
+import { ACCENTS, setTheme } from "../lib/theme.ts";
+import { ThemeToggle } from "../shell/ThemeToggle.tsx";
+
+function Section({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <section className="rounded-lg border border-border bg-surface p-4 sm:p-5">
+      <h2 className="mb-4 text-base font-semibold">{title}</h2>
+      <div className="grid gap-4 sm:max-w-md">{children}</div>
+    </section>
+  );
+}
+
+const ACCENT_LABELS = {
+  teal: "settings:appearance.accents.teal",
+  blue: "settings:appearance.accents.blue",
+  violet: "settings:appearance.accents.violet",
+  rose: "settings:appearance.accents.rose",
+  amber: "settings:appearance.accents.amber",
+} as const;
+
+type NumKey = "energyCostPerKwh" | "lowSpoolGrams" | "maintenanceLeadDays";
+
+export function SettingsPage() {
+  const { t } = useTranslation();
+  const { data, isError } = usePreferences();
+  const save = useSavePreferences();
+
+  if (isError)
+    return (
+      <>
+        <PageHeader title={t("nav:items.settings.label")} />
+        <p role="alert" className="text-bad">
+          {t("settings:loadError")}
+        </p>
+      </>
+    );
+  if (!data) return null;
+  const v = data.values;
+
+  // Text/number inputs commit on blur (uncontrolled, re-keyed by saved value); selects commit on change.
+  const commit = (patch: Partial<Preferences>) => save.mutate(patch);
+  const num = (key: NumKey) => ({
+    type: "number" as const,
+    min: 0,
+    step: key === "energyCostPerKwh" ? 0.01 : 1,
+    defaultValue: v[key],
+    key: `${key}-${v[key]}`,
+    onBlur: (e: { target: HTMLInputElement }) => {
+      const n = e.target.valueAsNumber;
+      if (Number.isFinite(n) && n >= 0 && n !== v[key]) commit({ [key]: n });
+    },
+  });
+
+  return (
+    <>
+      <PageHeader
+        title={t("nav:items.settings.label")}
+        description={t("nav:items.settings.description")}
+      />
+      {save.isError && (
+        <p role="alert" className="mb-4 text-bad">
+          {t("settings:saveError")}
+        </p>
+      )}
+      <div className="grid gap-4">
+        <Section title={t("settings:sections.general")}>
+          <FormField label={t("settings:general.language")}>
+            {(p) => (
+              <select {...p} className={inputClass} value={v.language} onChange={() => {}}>
+                <option value="en">English</option>
+              </select>
+            )}
+          </FormField>
+          <FormField label={t("settings:general.units")}>
+            {(p) => (
+              <select
+                {...p}
+                className={inputClass}
+                value={v.units}
+                onChange={(e) => commit({ units: e.target.value as Preferences["units"] })}
+              >
+                <option value="metric">{t("settings:general.unitsMetric")}</option>
+                <option value="imperial">{t("settings:general.unitsImperial")}</option>
+              </select>
+            )}
+          </FormField>
+          <FormField
+            label={t("settings:general.defaultPrinter")}
+            hint={t("settings:general.defaultPrinterHint")}
+          >
+            {(p) => (
+              <input
+                {...p}
+                className={inputClass}
+                key={`printer-${v.defaultPrinterId}`}
+                defaultValue={v.defaultPrinterId ?? ""}
+                onBlur={(e) => {
+                  const id = e.target.value.trim() || null;
+                  if (id !== v.defaultPrinterId) commit({ defaultPrinterId: id });
+                }}
+              />
+            )}
+          </FormField>
+          <FormField label={t("settings:dataDir.label")} hint={t("settings:dataDir.hint")}>
+            {(p) => <input {...p} className={inputClass} value={data.dataDir} readOnly />}
+          </FormField>
+        </Section>
+
+        <Section title={t("settings:sections.appearance")}>
+          <div className="grid gap-1.5">
+            <span className="font-medium">{t("common:theme.label")}</span>
+            <ThemeToggle className="w-40" />
+          </div>
+          <FormField label={t("settings:appearance.accent")}>
+            {(p) => (
+              <select
+                {...p}
+                className={inputClass}
+                value={v.accent}
+                onChange={(e) => setTheme({ accent: e.target.value as Preferences["accent"] })}
+              >
+                {ACCENTS.map((a) => (
+                  <option key={a} value={a}>
+                    {t(ACCENT_LABELS[a])}
+                  </option>
+                ))}
+              </select>
+            )}
+          </FormField>
+        </Section>
+
+        <Section title={t("settings:sections.costs")}>
+          <FormField label={t("settings:costs.currency")} hint={t("settings:costs.currencyHint")}>
+            {(p) => (
+              <input
+                {...p}
+                className={inputClass}
+                key={`cur-${v.currency}`}
+                defaultValue={v.currency}
+                maxLength={3}
+                onBlur={(e) => {
+                  const c = e.target.value.trim().toUpperCase();
+                  if (/^[A-Z]{3}$/.test(c) && c !== v.currency) commit({ currency: c });
+                  else e.target.value = v.currency;
+                }}
+              />
+            )}
+          </FormField>
+          <FormField label={t("settings:costs.energyCost")}>
+            {(p) => <input {...p} className={inputClass} {...num("energyCostPerKwh")} />}
+          </FormField>
+        </Section>
+
+        <Section title={t("settings:sections.projects")}>
+          <FormField label={t("settings:projects.roots")} hint={t("settings:projects.rootsHint")}>
+            {(p) => (
+              <textarea
+                {...p}
+                className={`${inputClass} h-24 py-2`}
+                key={`roots-${v.projectRoots.join("\n")}`}
+                defaultValue={v.projectRoots.join("\n")}
+                onBlur={(e) => {
+                  const roots = e.target.value
+                    .split("\n")
+                    .map((l) => l.trim())
+                    .filter(Boolean);
+                  if (roots.join("\n") !== v.projectRoots.join("\n"))
+                    commit({ projectRoots: roots });
+                }}
+              />
+            )}
+          </FormField>
+          <FormField label={t("settings:projects.slicer")} hint={t("settings:projects.slicerHint")}>
+            {(p) => (
+              <input
+                {...p}
+                className={inputClass}
+                key={`slicer-${v.slicerPath}`}
+                defaultValue={v.slicerPath}
+                onBlur={(e) => {
+                  const path = e.target.value.trim();
+                  if (path !== v.slicerPath) commit({ slicerPath: path });
+                }}
+              />
+            )}
+          </FormField>
+        </Section>
+
+        <Section title={t("settings:sections.integrations")}>
+          <EmptyState
+            icon={Plug}
+            title={t("settings:integrations.title")}
+            description={t("settings:integrations.body")}
+          />
+        </Section>
+
+        <Section title={t("settings:sections.alerts")}>
+          <p className="text-muted">{t("settings:alerts.hint")}</p>
+          <FormField label={t("settings:alerts.lowSpool")}>
+            {(p) => <input {...p} className={inputClass} {...num("lowSpoolGrams")} />}
+          </FormField>
+          <FormField label={t("settings:alerts.maintenanceLead")}>
+            {(p) => <input {...p} className={inputClass} {...num("maintenanceLeadDays")} />}
+          </FormField>
+        </Section>
+      </div>
+    </>
+  );
+}

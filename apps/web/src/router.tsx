@@ -4,8 +4,9 @@ import { useTranslation } from "react-i18next";
 import { EmptyState } from "./components/EmptyState.tsx";
 import { loadNamespace } from "./i18n.ts";
 import { ModulePage } from "./pages/ModulePage.tsx";
+import { SettingsPage } from "./pages/SettingsPage.tsx";
 import { AppShell } from "./shell/AppShell.tsx";
-import { ALL_ITEMS } from "./shell/nav.ts";
+import { ALL_ITEMS, SETTINGS_ITEM } from "./shell/nav.ts";
 
 function NotFound() {
   const { t } = useTranslation();
@@ -21,7 +22,7 @@ function NotFound() {
 const root = createRootRoute({ component: AppShell, notFoundComponent: NotFound });
 
 // Feature routes load their i18n namespace here (code-split JSON), e.g. loader: () => loadNamespace("printers").
-const modules = ALL_ITEMS.map((item) =>
+const modules = ALL_ITEMS.filter((i) => i !== SETTINGS_ITEM).map((item) =>
   createRoute({
     getParentRoute: () => root,
     path: item.to,
@@ -29,7 +30,15 @@ const modules = ALL_ITEMS.map((item) =>
   }),
 );
 
-const routes: AnyRoute[] = [...modules];
+const routes: AnyRoute[] = [
+  ...modules,
+  createRoute({
+    getParentRoute: () => root,
+    path: SETTINGS_ITEM.to,
+    loader: () => loadNamespace("settings"),
+    component: SettingsPage,
+  }),
+];
 
 if (import.meta.env.DEV) {
   const { DesignPage } = await import("./pages/DesignPage.tsx");

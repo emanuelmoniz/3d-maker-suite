@@ -65,7 +65,7 @@ that is dense enough for data. Show me 2 short style directions (described, not 
 before implementing; I'll pick one.
 ```
 
-### [ ] Step 5 - Configuration module
+### [x] Step 5 - Configuration module
 **Model:** Sonnet · **Effort:** Low
 **Scope:** Settings page + API: language (EN only, selector ready), theme, accent, currency, energy cost (€/kWh), units, default printer, project root folders, slicer executable path, alert thresholds (used later), data directory info.
 **Done when:** settings persist and apply live.

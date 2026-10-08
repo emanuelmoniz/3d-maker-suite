@@ -33,6 +33,22 @@ describe("api", () => {
     expect(missing.json().error.code).toBe("not_found");
   });
 
+  it("preferences: defaults, partial patch, validation", async () => {
+    const get = async () => (await app.inject("/api/preferences")).json();
+    expect((await get()).values).toMatchObject({
+      currency: "EUR",
+      accent: "teal",
+      projectRoots: [],
+    });
+    const patch = (payload: Record<string, unknown>) =>
+      app.inject({ method: "PATCH", url: "/api/preferences", payload });
+    expect((await patch({ currency: "USD", energyCostPerKwh: 0.3 })).statusCode).toBe(200);
+    expect((await patch({ defaultPrinterId: null })).statusCode).toBe(200);
+    expect((await get()).values).toMatchObject({ currency: "USD", energyCostPerKwh: 0.3 });
+    expect((await patch({ currency: "usd" })).statusCode).toBe(400);
+    expect((await patch({ nope: 1 })).statusCode).toBe(400);
+  });
+
   it("settings list paginates and sorts", async () => {
     for (const k of ["a", "b", "c"])
       await app.inject({ method: "PUT", url: `/api/settings/${k}`, payload: { value: k } });

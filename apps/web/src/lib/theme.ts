@@ -30,12 +30,19 @@ function apply() {
   el.dataset.accent = theme.accent;
 }
 
-export function setTheme(patch: Partial<Theme>) {
+/** `persist: false` when the change came from the server. */
+export function setTheme(patch: Partial<Theme>, persist = true) {
   theme = { ...theme, ...patch };
   try {
     localStorage.setItem(KEY, JSON.stringify(theme));
   } catch {}
   apply();
+  if (persist)
+    void fetch("/api/preferences", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ themeMode: theme.mode, accent: theme.accent }),
+    }).catch(() => {}); // localStorage already has it; the next change retries
   for (const l of listeners) l();
 }
 

@@ -11,9 +11,14 @@ import {
 } from "fastify-type-provider-zod";
 import { HttpError } from "./errors.ts";
 import { healthRoutes } from "./routes/health.ts";
+import { preferencesRoutes } from "./routes/preferences.ts";
 import { settingsRoutes } from "./routes/settings.ts";
 
-export async function buildApp(db: Db, logger: FastifyServerOptions["logger"] = false) {
+export async function buildApp(
+  db: Db,
+  logger: FastifyServerOptions["logger"] = false,
+  dataDir = "",
+) {
   const app = Fastify({ logger });
   app.setValidatorCompiler(validatorCompiler);
   app.setSerializerCompiler(serializerCompiler);
@@ -49,5 +54,6 @@ export async function buildApp(db: Db, logger: FastifyServerOptions["logger"] = 
 
   await app.register(healthRoutes);
   await app.register(settingsRoutes(db), { prefix: "/api/settings" });
+  await app.register(preferencesRoutes(db, dataDir), { prefix: "/api/preferences" });
   return app;
 }
