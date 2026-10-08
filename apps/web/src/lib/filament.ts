@@ -112,16 +112,15 @@ export const useLibraryImport = (id: string) =>
     api<{ created: number }>("POST", `/api/filament/library/${id}/import`, v),
   );
 
-export const useLibrarySpools = (id: string | undefined) =>
+export const useInventorySpools = () =>
   useQuery({
-    queryKey: ["library", id, "spools"],
-    queryFn: () => api<LibrarySpoolPreview>("GET", `/api/filament/library/${id}/spools`),
-    enabled: !!id,
+    queryKey: ["inventory"],
+    queryFn: () => api<LibrarySpoolPreview>("GET", "/api/filament/inventory"),
     retry: false,
-    gcTime: 0, // always re-read the inventory when the page opens
+    gcTime: 0, // always re-read the cloud inventory when the page opens
   });
 
-export const useLibrarySpoolImport = (id: string) =>
+export const useInventoryImport = () =>
   useInvalidating((v: LibrarySpoolImport) =>
-    api<{ created: number }>("POST", `/api/filament/library/${id}/spools/import`, v),
+    api<{ created: number }>("POST", "/api/filament/inventory/import", v),
   );

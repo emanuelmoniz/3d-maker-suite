@@ -2,6 +2,7 @@ import {
   type ExternalPrint,
   type IntegrationAdapter,
   IntegrationError,
+  type LibrarySpool,
   type Logger,
 } from "@3d-maker-suite/core";
 import { z } from "zod";
@@ -103,6 +104,44 @@ function toPrint(t: Task, region: Region, log: Logger): ExternalPrint | undefine
   };
 }
 
+// The filament manager of Bambu Studio / Handy. The cloud is the source of truth: Studio's local
+// copy (filament_inventory/spools.json) can drift from it (BambuStudio#10766).
+// Fields per Studio's fila_manager sources; `status` 0 = active, 1 = info needed (both listed).
+const SPOOL_PAGE = 100;
+// No `total` in the response: a short page is the last one.
+const spoolsResponse = z.object({
+  hits: z.array(
+    z.object({
+      id: z.number(),
+      filamentVendor: z.string().nullish(),
+      filamentType: z.string().nullish(),
+      filamentName: z.string().nullish(),
+      color: z.string().nullish(), // #RRGGBBAA
+      netWeight: z.number().nullish(), // grams left
+      totalNetWeight: z.number().nullish(), // grams on a full spool
+    }),
+  ),
+});
+
+export function toSpool(
+  s: z.infer<typeof spoolsResponse>["hits"][number],
+): LibrarySpool | undefined {
+  const material = s.filamentType?.trim();
+  if (!material) return;
+  const color = s.color ?? "";
+  const initialGrams = s.totalNetWeight && s.totalNetWeight > 0 ? s.totalNetWeight : 1000;
+  const remainingGrams = Math.min(Math.max(s.netWeight ?? 0, 0), initialGrams);
+  return {
+    spoolId: String(s.id),
+    profile: { brand: s.filamentVendor ?? "", material, name: s.filamentName || material },
+    colorHex: /^#[0-9a-f]{6}/i.test(color) ? color.slice(0, 7).toLowerCase() : "#808080",
+    initialGrams,
+    remainingGrams,
+    emptyWeightGrams: null, // the cloud doesn't keep the empty spool's weight
+    status: remainingGrams <= 0 ? "empty" : remainingGrams >= initialGrams ? "new" : "in_use",
+  };
+}
+
 type LoginState = { email?: string; tfaKey?: string };
 
 export function bambuCloudAdapter(): IntegrationAdapter {
@@ -199,6 +238,29 @@ export function bambuCloudAdapter(): IntegrationAdapter {
                 .filter((p): p is ExternalPrint => !!p && (!since || p.startedAt >= since)),
               nextCursor: hits.length === PAGE && last && !older ? String(last.id) : undefined,
             };
+          },
+        },
+        spools: {
+          listSpools: async () => {
+            const out: LibrarySpool[] = [];
+            // ponytail: capped at 50 pages (5000 spools) in case paging never ends.
+            for (let page = 0; page < 50; page++) {
+              const query = new URLSearchParams({
+                offset: String(page * SPOOL_PAGE),
+                limit: String(SPOOL_PAGE),
+              });
+              const { hits } = await parse(
+                await authed(`${URLS.spools}?${query}`),
+                spoolsResponse,
+                log,
+              );
+              for (const h of hits) {
+                const s = toSpool(h);
+                if (s) out.push(s);
+              }
+              if (hits.length < SPOOL_PAGE) break;
+            }
+            return out;
           },
         },
       };

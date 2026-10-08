@@ -4,6 +4,7 @@ import {
   type IntegrationAdapter,
   IntegrationError,
   type IntegrationErrorCode,
+  type LibrarySpool,
 } from "@3d-maker-suite/core";
 import { z } from "zod";
 
@@ -13,6 +14,7 @@ import { z } from "zod";
 export type MockState = {
   printers: ExternalPrinter[];
   prints: ExternalPrint[];
+  spools?: LibrarySpool[];
   /** Every call throws this code. */
   fail?: IntegrationErrorCode;
 };
@@ -79,6 +81,12 @@ export function mockAdapter(state: MockState = fixture()): IntegrationAdapter {
               items: all.slice(start, end),
               nextCursor: end < all.length ? String(end) : undefined,
             };
+          },
+        },
+        spools: {
+          listSpools: async () => {
+            await check();
+            return state.spools ?? [];
           },
         },
       };

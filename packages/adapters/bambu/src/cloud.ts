@@ -13,6 +13,7 @@ export const URLS = {
   tfaLogin: "https://bambulab.com/api/sign-in/tfa",
   bind: "https://api.bambulab.com/v1/iot-service/api/user/bind",
   tasks: "https://api.bambulab.com/v1/user-service/my/tasks",
+  spools: "https://api.bambulab.com/v1/design-user-service/my/filament/v2",
 };
 
 const HEADERS = {

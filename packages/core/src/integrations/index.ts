@@ -57,6 +57,7 @@ export interface IntegrationInstance {
   test(): Promise<TestResult>;
   printers?: PrinterInventorySource;
   printHistory?: PrintHistorySource;
+  spools?: SpoolInventorySource;
 }
 
 export interface PrinterInventorySource {
@@ -71,6 +72,11 @@ export interface PrintHistorySource {
   }): Promise<{ items: ExternalPrint[]; nextCursor?: string }>;
 }
 
+/** Your spools as the vendor's account keeps them (e.g. Bambu's filament manager). */
+export interface SpoolInventorySource {
+  listSpools(): Promise<LibrarySpool[]>;
+}
+
 /** A slicer's local filament presets. Read-only, no account; the server never writes to it. */
 export interface FilamentLibrary {
   /** e.g. "bambu-studio". The UI name is the i18n key `filament:library.sources.<id>`. */
@@ -79,8 +85,6 @@ export interface FilamentLibrary {
   defaultDirs(): string[];
   /** `dir` exists. Unreadable or odd preset files are skipped, not fatal. */
   read(dir: string, opts: { includeSystem: boolean }): Promise<LibraryPreset[]>;
-  /** Your spools from the slicer's filament inventory, if it keeps one. A missing inventory is `[]`. */
-  readSpools?(dir: string): Promise<LibrarySpool[]>;
 }
 
 /** Opens a local file in a slicer. The server decides which files are allowed before calling. */

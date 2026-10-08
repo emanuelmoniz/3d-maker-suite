@@ -239,3 +239,39 @@ it("reports an unexpected task shape as api_changed and a missing token as auth_
     "auth_required",
   );
 });
+
+it("lists the cloud filament manager's spools, page by page", async () => {
+  const hit = (id: number, extra = {}) => ({
+    id,
+    filamentVendor: "Bambu Lab",
+    filamentType: "PLA",
+    filamentName: "PLA Basic",
+    color: "#042F56FF",
+    netWeight: 931,
+    totalNetWeight: 1000,
+    status: 0,
+    ...extra,
+  });
+  const page1 = Array.from({ length: 100 }, (_, i) => hit(i + 1));
+  queue(
+    json(200, { hits: page1 }),
+    json(200, {
+      total: 102,
+      hits: [hit(101, { netWeight: null, color: null }), hit(102, { filamentType: "" })],
+    }),
+  );
+  const spools = (await instance("tok").spools?.listSpools()) ?? [];
+  expect(sent(0).url).toContain("/v1/design-user-service/my/filament/v2?offset=0&limit=100");
+  expect(sent(1).url).toContain("offset=100");
+  expect(spools).toHaveLength(101); // no material: skipped
+  expect(spools[0]).toEqual({
+    spoolId: "1",
+    profile: { brand: "Bambu Lab", material: "PLA", name: "PLA Basic" },
+    colorHex: "#042f56",
+    initialGrams: 1000,
+    remainingGrams: 931,
+    emptyWeightGrams: null,
+    status: "in_use",
+  });
+  expect(spools[100]).toMatchObject({ colorHex: "#808080", remainingGrams: 0, status: "empty" });
+});

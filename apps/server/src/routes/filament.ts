@@ -10,6 +10,7 @@ import {
   filamentProfileSortFields,
   idList,
   type LibraryPreview,
+  type LibrarySpool,
   type LibrarySpoolPreview,
   libraryImportResultSchema,
   libraryImportSchema,
@@ -46,7 +47,11 @@ const archivedAt = (archived?: boolean) =>
   archived === undefined ? undefined : archived ? new Date().toISOString() : null;
 
 export const filamentRoutes =
-  (db: Db, libraries: FilamentLibrary[] = []): FastifyPluginAsyncZod =>
+  (
+    db: Db,
+    libraries: FilamentLibrary[] = [],
+    listSpools: () => Promise<LibrarySpool[]> = async () => [],
+  ): FastifyPluginAsyncZod =>
   async (app) => {
     const getProfile = (id: string) => {
       const row = db.select().from(filamentProfiles).where(eq(filamentProfiles.id, id)).get();
@@ -141,16 +146,11 @@ export const filamentRoutes =
       const dir = libraryDir(lib);
       return { dir, presets: await lib.read(dir, { includeSystem }) };
     };
-    const readSpools = async (lib: FilamentLibrary) => {
-      if (!lib.readSpools) throw new HttpError(404, "not_found", "Library has no spools");
-      const dir = libraryDir(lib);
-      return { dir, items: await lib.readSpools(dir) };
-    };
     const key = (p: { brand: string; material: string; name: string }) =>
       [p.brand, p.material, p.name].map((v) => v.trim().toLowerCase()).join("|");
 
     app.get("/library", { schema: { response: { 200: z.array(librarySourceSchema) } } }, async () =>
-      libraries.map((l) => ({ id: l.id, detectedDir: detect(l), spools: !!l.readSpools })),
+      libraries.map((l) => ({ id: l.id, detectedDir: detect(l) })),
     );
 
     app.get(
@@ -214,9 +214,9 @@ export const filamentRoutes =
       },
     );
 
-    // Spools from the slicer's filament inventory. Insert-only: re-importing never touches
-    // spools you already have, so their ledger stays yours.
-    const sourceSpool = (lib: FilamentLibrary, spoolId: string) => `${lib.id}:${spoolId}`;
+    // Spools from an integration's inventory (Bambu Cloud's filament manager), read live.
+    // Insert-only: re-importing never touches spools you already have, so their ledger stays yours.
+    // `spoolId` is already `<adapterId>:<id>` and is stored as `sourceSpool`.
     const importedSpools = () =>
       new Set(
         db
@@ -228,62 +228,61 @@ export const filamentRoutes =
       );
 
     app.get(
-      "/library/:id/spools",
-      {
-        schema: {
-          params: z.object({ id: z.string() }),
-          response: { 200: librarySpoolPreviewSchema, ...notFound },
-        },
-      },
-      async (req): Promise<LibrarySpoolPreview> => {
-        const lib = getLibrary(req.params.id);
-        const { dir, items } = await readSpools(lib);
+      "/inventory",
+      { schema: { response: { 200: librarySpoolPreviewSchema, ...notFound } } },
+      async (): Promise<LibrarySpoolPreview> => {
+        const items = await listSpools();
         const imported = importedSpools();
-        // Suggest the active profile with the same brand, material and name; the user can change it.
-        const profiles = new Map<string, string>();
-        for (const p of db
+        const active = db
           .select()
           .from(filamentProfiles)
           .where(isNull(filamentProfiles.archivedAt))
-          .all())
-          if (!profiles.has(key(p))) profiles.set(key(p), p.id);
+          .all();
+        // Suggest the active profile with the same brand, material and name, else one named like
+        // a slicer preset of it ("PLA Basic" -> "Bambu PLA Basic"). The user can change it.
+        // ponytail: suffix match is a naive heuristic; match on the vendor's filament id if it misfires.
+        const suggest = ({ profile: s }: LibrarySpool) =>
+          (
+            active.find((p) => key(p) === key(s)) ??
+            active.find(
+              (p) =>
+                key({ ...p, name: "" }) === key({ ...s, name: "" }) &&
+                p.name.toLowerCase().endsWith(` ${s.name.trim().toLowerCase()}`),
+            )
+          )?.id ?? null;
         return {
-          dir,
           items: items.map((s) => ({
             ...s,
-            imported: imported.has(sourceSpool(lib, s.spoolId)),
-            profileId: profiles.get(key(s.profile)) ?? null,
+            imported: imported.has(s.spoolId),
+            profileId: suggest(s),
           })),
         };
       },
     );
 
     app.post(
-      "/library/:id/spools/import",
+      "/inventory/import",
       {
         schema: {
-          params: z.object({ id: z.string() }),
           body: librarySpoolImportSchema,
           response: { 200: libraryImportResultSchema, ...notFound },
         },
       },
       async (req) => {
-        const lib = getLibrary(req.params.id);
-        const { items } = await readSpools(lib);
         // spoolId -> the profile the user picked for it. Import never creates profiles.
         const picked = new Map(req.body.spools.map((p) => [p.spoolId, p.profileId]));
         for (const profileId of new Set(picked.values()))
           if (getProfile(profileId).archivedAt)
             throw new HttpError(400, "profile_archived", "Filament profile is archived");
+        const items = await listSpools();
         const imported = importedSpools();
         let created = 0;
         db.transaction((tx) => {
           for (const { spoolId, profile: _profile, ...s } of items) {
-            const source = sourceSpool(lib, spoolId);
             const profileId = picked.get(spoolId);
-            if (!profileId || imported.has(source)) continue;
-            createSpool(tx, { ...s, profileId, sourceSpool: source });
-            imported.add(source);
+            if (!profileId || imported.has(spoolId)) continue;
+            createSpool(tx, { ...s, profileId, sourceSpool: spoolId });
+            imported.add(spoolId);
             created++;
           }
         });

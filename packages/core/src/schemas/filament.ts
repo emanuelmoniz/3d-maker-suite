@@ -97,8 +97,6 @@ export const librarySourceSchema = z.object({
   id: z.string(),
   /** First default folder that exists on this PC, if any (ignoring the override). */
   detectedDir: z.string().nullable(),
-  /** The library can also list your spools (`readSpools`). */
-  spools: z.boolean(),
 });
 
 export const libraryQuerySchema = z.object({
@@ -119,7 +117,7 @@ export const libraryImportSchema = z.object({
 
 export const libraryImportResultSchema = z.object({ created: z.number().int().nonnegative() });
 
-/** A spool from a slicer's filament inventory. `profile` names the filament, to find its profile. */
+/** A spool from an integration's inventory. `profile` names the filament, to find its profile. */
 export const librarySpoolSchema = spoolSchema
   .pick({
     colorHex: true,
@@ -129,13 +127,12 @@ export const librarySpoolSchema = spoolSchema
     status: true,
   })
   .extend({
-    /** Stable within one library, e.g. Bambu's spool id. */
+    /** The vendor's id; the server prefixes it with the adapter id (`bambu-cloud:123`). */
     spoolId: z.string().min(1),
     profile: filamentProfileSchema.pick({ brand: true, material: true, name: true }),
   });
 
 export const librarySpoolPreviewSchema = z.object({
-  dir: z.string(),
   items: z.array(
     librarySpoolSchema.extend({
       /** Imported before, so it can't be picked again. */

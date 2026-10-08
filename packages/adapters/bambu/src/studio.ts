@@ -1,7 +1,7 @@
 import { readdir, readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join, parse } from "node:path";
-import type { FilamentLibrary, LibraryPreset, LibrarySpool } from "@3d-maker-suite/core";
+import type { FilamentLibrary, LibraryPreset } from "@3d-maker-suite/core";
 
 // Bambu Studio keeps presets as JSON under its config folder (checked on Windows against an
 // installed Bambu Studio 2.x; macOS and Linux paths are from Bambu's docs, not tested here):
@@ -122,65 +122,12 @@ async function systemPresets(dir: string) {
   return { systemFiles, load, resolver };
 }
 
-const str = (v: unknown) => (typeof v === "string" ? v : "");
-const grams = (v: unknown) => (typeof v === "number" && v > 0 ? v : 0);
-
-// Studio's filament inventory: filament_inventory/spools.json, `{ spools: [...] }`. With a
-// signed-in account it mirrors the Bambu Cloud inventory (`cloud_synced`). `net_weight` is
-// the filament left in grams; `setting_id` is the `filament_id` of a system preset.
-export async function readStudioSpools(dir: string): Promise<LibrarySpool[]> {
-  const file = await readJson(join(dir, "filament_inventory", "spools.json"));
-  const entries = Array.isArray(file?.spools) ? (file.spools as Preset[]) : [];
-  if (!entries.length) return [];
-
-  const { systemFiles, load, resolver } = await systemPresets(dir);
-  const byFilamentId = new Map<string, [string, Preset]>();
-  for (const [name, f] of systemFiles) {
-    const p = await load(f);
-    const id = p && first(p.filament_id);
-    if (p && id && !byFilamentId.has(id)) byFilamentId.set(id, [name, p]);
-  }
-
-  const out: LibrarySpool[] = [];
-  for (const s of entries) {
-    const spoolId = str(s.spool_id);
-    // ponytail: only "active" seen so far; map other statuses once their meaning is known
-    if (!spoolId || s.status !== "active") continue;
-    // Bambu writes colours as #RRGGBB or #RRGGBBAA.
-    const color = str(s.color_code);
-    const colorHex = /^#[0-9a-f]{6}/i.test(color) ? color.slice(0, 7).toLowerCase() : "#808080";
-    // Named like the system preset (so it matches a profile imported from it), else the spool's own words.
-    const preset = byFilamentId.get(str(s.setting_id));
-    const found = preset && toProfile(preset[0], "system", await resolver(preset[1]));
-    const material = found?.material ?? str(s.material_type);
-    if (!material) continue;
-    const profile = {
-      brand: found?.brand ?? str(s.brand),
-      material,
-      name: found?.name ?? (str(s.series) || material),
-    };
-    const initialGrams = grams(s.initial_weight) || 1000;
-    const remainingGrams = Math.min(grams(s.net_weight), initialGrams);
-    out.push({
-      spoolId,
-      profile,
-      colorHex,
-      initialGrams,
-      remainingGrams,
-      emptyWeightGrams: grams(s.spool_weight) || null,
-      status: remainingGrams <= 0 ? "empty" : remainingGrams >= initialGrams ? "new" : "in_use",
-    });
-  }
-  return out;
-}
-
 export function bambuStudioLibrary(
   defaultDirs: () => string[] = studioDefaultDirs,
 ): FilamentLibrary {
   return {
     id: "bambu-studio",
     defaultDirs,
-    readSpools: readStudioSpools,
     async read(dir, { includeSystem }) {
       const { systemFiles, load, resolver } = await systemPresets(dir);
 

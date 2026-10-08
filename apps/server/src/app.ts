@@ -83,7 +83,12 @@ export async function buildApp(
   await app.register(preferencesRoutes(db, dataDir), { prefix: "/api/preferences" });
   await app.register(printersRoutes(db, dataDir), { prefix: "/api/printers" });
   await app.register(maintenanceRoutes(db), { prefix: "/api/maintenance" });
-  await app.register(filamentRoutes(db, opts.filamentLibraries ?? []), { prefix: "/api/filament" });
+  // Without a data dir (tests) secrets use a throwaway in-memory key.
+  const key = dataDir ? loadKey(dataDir) : randomBytes(32);
+  const syncer = createSyncer(db, opts.adapters ?? [], key, app.log);
+  await app.register(filamentRoutes(db, opts.filamentLibraries ?? [], syncer.listSpools), {
+    prefix: "/api/filament",
+  });
   await app.register(printsRoutes(db), { prefix: "/api/prints" });
   await app.register(costsRoutes(db), { prefix: "/api/costs" });
   await app.register(statsRoutes(db), { prefix: "/api/stats" });
@@ -94,9 +99,6 @@ export async function buildApp(
   await app.register(tagsRoutes(db), { prefix: "/api/tags" });
   await app.register(collectionsRoutes(db), { prefix: "/api/collections" });
 
-  // Without a data dir (tests) secrets use a throwaway in-memory key.
-  const key = dataDir ? loadKey(dataDir) : randomBytes(32);
-  const syncer = createSyncer(db, opts.adapters ?? [], key, app.log);
   await app.register(integrationsRoutes(db, key, syncer), { prefix: "/api/integrations" });
 
   // Runs one at a time, so a condition can't be sent twice by overlapping checks.

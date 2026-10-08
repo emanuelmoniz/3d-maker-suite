@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { bambuStudioLibrary, readStudioSpools, studioDefaultDirs } from "./studio.ts";
+import { bambuStudioLibrary, studioDefaultDirs } from "./studio.ts";
 
 let dir: string;
 beforeEach(() => {
@@ -93,62 +93,5 @@ describe("bambu studio library", () => {
       join("/h", "Library", "Application Support", "BambuStudio"),
     ]);
     expect(studioDefaultDirs("linux", {}, "/h")).toHaveLength(2);
-  });
-});
-
-describe("bambu studio spools", () => {
-  const spool = (id: string, extra = {}) => ({
-    spool_id: id,
-    brand: "Bambu Lab",
-    material_type: "PLA",
-    series: "PLA Matte",
-    setting_id: "GFA01",
-    color_code: "#042F56",
-    diameter: 1.75,
-    initial_weight: 1000.0,
-    net_weight: 252.0,
-    spool_weight: 0.0,
-    status: "active",
-    ...extra,
-  });
-
-  it("reads the inventory, with profile details from the matching system preset", async () => {
-    put(`${sys}/Bambu PLA Matte @base.json`, {
-      name: "Bambu PLA Matte @base",
-      filament_id: "GFA01",
-      filament_type: ["PLA"],
-      filament_vendor: ["Bambu Lab"],
-      filament_density: ["1.32"],
-      nozzle_temperature: ["220"],
-    });
-    put("filament_inventory/spools.json", {
-      spools: [
-        spool("1"),
-        spool("2", { setting_id: "GFX99", net_weight: 1000, spool_weight: 250 }),
-        spool("3", { status: "deleted" }),
-      ],
-    });
-    const [a, b, ...rest] = await readStudioSpools(dir);
-    expect(rest).toEqual([]);
-    expect(a).toEqual({
-      spoolId: "1",
-      colorHex: "#042f56",
-      initialGrams: 1000,
-      remainingGrams: 252,
-      emptyWeightGrams: null,
-      status: "in_use",
-      // Named like the system preset, so it matches a profile imported from it.
-      profile: { brand: "Bambu Lab", material: "PLA", name: "Bambu PLA Matte" },
-    });
-    // No preset with that id: named from the spool itself.
-    expect(b).toMatchObject({
-      status: "new",
-      emptyWeightGrams: 250,
-      profile: { brand: "Bambu Lab", material: "PLA", name: "PLA Matte" },
-    });
-  });
-
-  it("has no spools without an inventory file", async () => {
-    expect(await readStudioSpools(dir)).toEqual([]);
   });
 });

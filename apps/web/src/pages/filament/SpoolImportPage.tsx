@@ -9,24 +9,21 @@ import { inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import {
   filamentLabel,
-  useLibrarySources,
-  useLibrarySpoolImport,
-  useLibrarySpools,
+  useInventoryImport,
+  useInventorySpools,
   useProfiles,
 } from "../../lib/filament.ts";
 import { formatWeight } from "../../lib/format.ts";
 
-// ponytail: only the first library with an inventory (Bambu Studio); add a picker with a second one.
 export function SpoolImportPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const source = useLibrarySources().data?.find((s) => s.spools);
   const [unchecked, setUnchecked] = useState<Set<string>>(new Set());
   // spoolId -> profile picked by hand; otherwise the suggested match from the server.
   const [chosen, setChosen] = useState<Record<string, string>>({});
-  const preview = useLibrarySpools(source?.id);
+  const preview = useInventorySpools();
   const profiles = useProfiles().data?.items ?? [];
-  const run = useLibrarySpoolImport(source?.id ?? "");
+  const run = useInventoryImport();
 
   const items = preview.data?.items ?? [];
   const profileOf = (i: (typeof items)[number]) => chosen[i.spoolId] ?? i.profileId ?? "";
@@ -49,16 +46,15 @@ export function SpoolImportPage() {
       <div className="grid gap-4">
         {preview.isError && (
           <p role="alert" className="text-bad">
-            {t("filament:library.notFound")}{" "}
-            <Link to="/settings" className="font-medium underline">
-              {t("filament:library.openSettings")}
+            {t("filament:spoolImport.loadError")}{" "}
+            <Link to="/settings/integrations" className="font-medium underline">
+              {t("filament:spoolImport.openIntegrations")}
             </Link>
           </p>
         )}
         {preview.data && (
           <>
             <p className="text-muted">
-              {t("filament:spoolImport.reading", { dir: preview.data.dir })}{" "}
               {t("filament:spoolImport.profileHint")}{" "}
               <Link to="/filament/import" className="font-medium underline">
                 {t("filament:library.link")}

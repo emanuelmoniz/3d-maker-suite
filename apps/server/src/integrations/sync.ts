@@ -4,6 +4,8 @@ import {
   type IntegrationAdapter,
   IntegrationError,
   type IntegrationErrorCode,
+  type LibrarySpool,
+  librarySpoolSchema,
   matchSpool,
   type SyncRun,
   type SyncTrigger,
@@ -307,7 +309,31 @@ export function createSyncer(
     }
   }
 
-  return { run, runAll, test, running, adapters };
+  /** Spools of every integration that keeps them, read live; ids become `<adapterId>:<id>`. */
+  async function listSpools(): Promise<LibrarySpool[]> {
+    const signal = AbortSignal.timeout(TIMEOUT_MS);
+    const sources = db
+      .select()
+      .from(integrations)
+      .all()
+      .filter((row) => adapters.some((a) => a.id === row.adapterId))
+      .map((row) => ({ row, source: instanceFor(row, signal).spools }))
+      .filter((s) => !!s.source);
+    if (!sources.length)
+      throw new HttpError(404, "no_spool_source", "No integration keeps a spool inventory");
+    const out: LibrarySpool[] = [];
+    for (const { row, source } of sources) {
+      try {
+        for (const s of (await source?.listSpools()) ?? [])
+          out.push(librarySpoolSchema.parse({ ...s, spoolId: `${row.adapterId}:${s.spoolId}` }));
+      } catch (e) {
+        throw new HttpError(502, codeOf(e), "Couldn't read the spools");
+      }
+    }
+    return out;
+  }
+
+  return { run, runAll, test, listSpools, running, adapters };
 }
 
 export type Syncer = ReturnType<typeof createSyncer>;

@@ -1,6 +1,7 @@
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fixture, type MockState, mockAdapter } from "@3d-maker-suite/adapter-mock";
 import type { FilamentLibrary } from "@3d-maker-suite/core";
 import { openDb, schema } from "@3d-maker-suite/db";
 import { sum } from "drizzle-orm";
@@ -104,9 +105,11 @@ describe("filament library", () => {
   let dir: string;
   let app: Awaited<ReturnType<typeof buildApp>>;
   let db: ReturnType<typeof openDb>;
+  let mock: MockState;
 
   beforeEach(async () => {
     dir = mkdtempSync(join(tmpdir(), "lib-"));
+    mock = fixture();
     db = openDb(":memory:");
     const library: FilamentLibrary = {
       id: "fake",
@@ -116,23 +119,11 @@ describe("filament library", () => {
         preset("B"),
         ...(includeSystem ? [preset("S", { scope: "system" })] : []),
       ],
-      readSpools: async () =>
-        [
-          ["1", "#ff0000"],
-          ["2", "#00ff00"],
-        ].map(([spoolId = "", colorHex = ""]) => {
-          return {
-            spoolId,
-            profile: { brand: "Acme", material: "PLA", name: "A" },
-            colorHex,
-            initialGrams: 1000,
-            remainingGrams: 250,
-            emptyWeightGrams: null,
-            status: "in_use" as const,
-          };
-        }),
     };
-    app = await buildApp(db, false, "", { filamentLibraries: [library] });
+    app = await buildApp(db, false, "", {
+      filamentLibraries: [library],
+      adapters: [mockAdapter(mock)],
+    });
   });
 
   const preview = async (q = "") =>
@@ -181,45 +172,69 @@ describe("filament library", () => {
     expect((await imp(["user/B"])).json()).toEqual({ created: 0 });
   });
 
-  it("imports spools onto the profile you pick, never creating profiles", async () => {
-    await setDir(dir);
+  it("imports spools from the integration's inventory onto the profile you pick", async () => {
     const preview = async () =>
-      (await app.inject("/api/filament/library/fake/spools"))
+      (await app.inject("/api/filament/inventory"))
         .json()
         .items.map(
           (i: { spoolId: string; imported: boolean; profileId: string | null }) =>
             `${i.spoolId}:${i.imported}:${i.profileId}`,
         );
     const imp = (spools: { spoolId: string; profileId: string }[]) =>
-      app.inject({
-        method: "POST",
-        url: "/api/filament/library/fake/spools/import",
-        payload: { spools },
-      });
-    // No profile named like the spools yet: nothing suggested.
-    expect(await preview()).toEqual(["1:false:null", "2:false:null"]);
+      app.inject({ method: "POST", url: "/api/filament/inventory/import", payload: { spools } });
+    // No integration keeps spools yet.
+    expect((await app.inject("/api/filament/inventory")).json().error.code).toBe("no_spool_source");
 
-    // Import the preset; it is suggested (matched on brand, material and name, not colour).
+    mock.spools = [
+      ["1", "#ff0000", "A"],
+      ["2", "#00ff00", "Matte"],
+    ].map(([spoolId = "", colorHex = "", name = ""]) => ({
+      spoolId,
+      profile: { brand: "Acme", material: "PLA", name },
+      colorHex,
+      initialGrams: 1000,
+      remainingGrams: 250,
+      emptyWeightGrams: null,
+      status: "in_use" as const,
+    }));
     await app.inject({
       method: "POST",
-      url: "/api/filament/library/fake/import",
-      payload: { presetIds: ["user/A"] },
+      url: "/api/integrations",
+      payload: { adapterId: "mock", name: "Mock", secrets: { token: "t" } },
     });
-    const profileId = db.select().from(schema.filamentProfiles).get()?.id ?? "";
-    expect(await preview()).toEqual([`1:false:${profileId}`, `2:false:${profileId}`]);
+    // No profile named like the spools yet: nothing suggested.
+    expect(await preview()).toEqual(["mock:1:false:null", "mock:2:false:null"]);
 
-    const both = ["1", "2"].map((spoolId) => ({ spoolId, profileId }));
+    // Suggested on brand, material and name (not colour), or a preset-style name ending in it.
+    const add = async (name: string) =>
+      (
+        await app.inject({
+          method: "POST",
+          url: "/api/filament/profiles",
+          payload: { brand: "Acme", material: "PLA", name, densityGcm3: 1.2 },
+        })
+      ).json().id as string;
+    const profileId = await add("A");
+    const matte = await add("Acme Matte");
+    expect(await preview()).toEqual([`mock:1:false:${profileId}`, `mock:2:false:${matte}`]);
+
+    const both = ["mock:1", "mock:2"].map((spoolId) => ({ spoolId, profileId }));
     expect((await imp(both)).json()).toEqual({ created: 2 });
     expect((await imp(both)).json()).toEqual({ created: 0 });
-    expect(await preview()).toEqual([`1:true:${profileId}`, `2:true:${profileId}`]);
+    expect(await preview()).toEqual([`mock:1:true:${profileId}`, `mock:2:true:${matte}`]);
 
-    expect(db.select().from(schema.filamentProfiles).all()).toHaveLength(1);
     const rows = db.select().from(schema.spools).all();
     expect(rows.map((r) => [r.sourceSpool, r.colorHex, r.remainingGrams, r.status])).toEqual([
-      ["fake:1", "#ff0000", 250, "in_use"],
-      ["fake:2", "#00ff00", 250, "in_use"],
+      ["mock:1", "#ff0000", 250, "in_use"],
+      ["mock:2", "#00ff00", 250, "in_use"],
     ]);
     expect(db.select().from(schema.spoolWeightEntries).all()).toHaveLength(2);
+
+    // Vendor errors come back with their code.
+    mock.fail = "auth_expired";
+    const res = await app.inject("/api/filament/inventory");
+    expect([res.statusCode, res.json().error.code]).toEqual([502, "auth_expired"]);
+    mock.fail = undefined;
 
     // Archived profiles take no spools.
     await app.inject({
