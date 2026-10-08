@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { EmptyState } from "./components/EmptyState.tsx";
 import { loadNamespace } from "./i18n.ts";
+import { CostsPage } from "./pages/costs/CostsPage.tsx";
 import { FilamentPage } from "./pages/filament/FilamentPage.tsx";
 import { LibraryImportPage } from "./pages/filament/LibraryImportPage.tsx";
 import { ProfileCreatePage } from "./pages/filament/ProfileFormPage.tsx";
@@ -41,7 +42,15 @@ function NotFound() {
 const root = createRootRoute({ component: AppShell, notFoundComponent: NotFound });
 
 // Feature routes load their i18n namespace here (code-split JSON), e.g. loader: () => loadNamespace("printers").
-const built = [SETTINGS_ITEM.to, "/printers", "/maintenance", "/filament", "/prints", "/projects"];
+const built = [
+  SETTINGS_ITEM.to,
+  "/printers",
+  "/maintenance",
+  "/filament",
+  "/prints",
+  "/projects",
+  "/costs",
+];
 const modules = ALL_ITEMS.filter((i) => !built.includes(i.to)).map((item) =>
   createRoute({
     getParentRoute: () => root,
@@ -112,7 +121,12 @@ const routes: AnyRoute[] = [
       getParentRoute: () => root,
       path: path as string,
       loader: () =>
-        Promise.all([loadNamespace("prints"), loadNamespace("filament"), loadNamespace("tags")]),
+        Promise.all([
+          loadNamespace("prints"),
+          loadNamespace("filament"),
+          loadNamespace("tags"),
+          loadNamespace("costs"),
+        ]),
       component: component as () => ReactNode,
     }),
   ),
@@ -126,10 +140,21 @@ const routes: AnyRoute[] = [
       getParentRoute: () => root,
       path: path as string,
       loader: () =>
-        Promise.all([loadNamespace("projects"), loadNamespace("prints"), loadNamespace("tags")]),
+        Promise.all([
+          loadNamespace("projects"),
+          loadNamespace("prints"),
+          loadNamespace("tags"),
+          loadNamespace("costs"),
+        ]),
       component: component as () => ReactNode,
     }),
   ),
+  createRoute({
+    getParentRoute: () => root,
+    path: "/costs",
+    loader: () => loadNamespace("costs"),
+    component: CostsPage,
+  }),
   createRoute({
     getParentRoute: () => root,
     path: SETTINGS_ITEM.to,

@@ -14,7 +14,8 @@
       "printer": "Printer",
       "outcome": "Outcome",
       "duration": "Duration",
-      "filament": "Filament"
+      "filament": "Filament",
+      "cost": "Cost"
     }
   },
   "outcomes": { "success": "Success", "failed": "Failed", "cancelled": "Cancelled" },

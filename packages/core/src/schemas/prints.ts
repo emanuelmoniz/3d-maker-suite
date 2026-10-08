@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { costBreakdownSchema } from "./cost.ts";
 import { id, isoDate, printFilamentUsageSchema, printSchema } from "./entities.ts";
 import { PRINT_OUTCOMES } from "./enums.ts";
 
@@ -9,9 +10,9 @@ export const printUsageInputSchema = z.object({
   slot: z.number().int().nonnegative().nullable().optional(),
 });
 
-/** A print with its filament rows. */
+/** A print with its filament rows and its cost (today's prices, see `printCosts` on the server). */
 export const printDetailSchema = printSchema.and(
-  z.object({ usages: z.array(printFilamentUsageSchema) }),
+  z.object({ usages: z.array(printFilamentUsageSchema), cost: costBreakdownSchema }),
 );
 
 const base = z.object({

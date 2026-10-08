@@ -1,4 +1,5 @@
 export * from "./integrations/index.ts";
+export * from "./schemas/cost.ts";
 export * from "./schemas/entities.ts";
 export * from "./schemas/enums.ts";
 export * from "./schemas/filament.ts";
@@ -10,6 +11,7 @@ export * from "./schemas/printers.ts";
 export * from "./schemas/prints.ts";
 export * from "./schemas/projects.ts";
 export * from "./schemas/tags.ts";
+export * from "./services/cost.ts";
 export * from "./services/maintenanceDue.ts";
 export * from "./services/printerStats.ts";
 export * from "./services/spoolMatch.ts";

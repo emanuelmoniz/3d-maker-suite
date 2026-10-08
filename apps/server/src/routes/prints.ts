@@ -20,6 +20,7 @@ import { and, desc, eq, inArray, isNotNull, isNull } from "drizzle-orm";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
+import { printCosts } from "../lib/cost.ts";
 import { inIds, listPage, taggedWith } from "../lib/list.ts";
 import { readPreferences } from "../lib/preferences.ts";
 import { round, setRemaining, takeFromSpool } from "../lib/spools.ts";
@@ -40,7 +41,8 @@ export const printsRoutes =
     const detail = (id: string) => {
       const row = db.select().from(prints).where(eq(prints.id, id)).get();
       if (!row) throw new HttpError(404, "not_found", "Print not found");
-      return { ...row, usages: usagesOf([id]) } as PrintDetail;
+      const usages = usagesOf([id]);
+      return { ...row, usages, cost: printCosts(db, [{ ...row, usages }]).get(id) } as PrintDetail;
     };
 
     const checkRefs = (
@@ -226,12 +228,14 @@ export const printsRoutes =
           ],
         });
         const usages = page.items.length ? usagesOf(page.items.map((p) => p.id)) : [];
+        const items = page.items.map((p) => ({
+          ...p,
+          usages: usages.filter((u) => u.printId === p.id),
+        }));
+        const costs = printCosts(db, items);
         return {
           ...page,
-          items: page.items.map((p) => ({
-            ...p,
-            usages: usages.filter((u) => u.printId === p.id),
-          })),
+          items: items.map((p) => ({ ...p, cost: costs.get(p.id) })),
         } as Page<PrintDetail>;
       },
     );

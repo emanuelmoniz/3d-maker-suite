@@ -29,6 +29,10 @@ const ACCENT_LABELS = {
 
 type NumKey =
   | "energyCostPerKwh"
+  | "printerLifetimeHours"
+  | "laborRatePerHour"
+  | "failureMarginPct"
+  | "markupPct"
   | "lowSpoolGrams"
   | "maintenanceLeadDays"
   | "projectScanDepth"
@@ -60,7 +64,12 @@ export function SettingsPage() {
     type: "number" as const,
     min: key === "projectScanDepth" || key === "viewerMaxMb" ? 1 : 0,
     max: key === "projectScanDepth" ? 5 : undefined,
-    step: key === "energyCostPerKwh" ? 0.01 : 1,
+    step:
+      key === "energyCostPerKwh" || key === "laborRatePerHour"
+        ? 0.01
+        : key.endsWith("Pct")
+          ? 0.1
+          : 1,
     defaultValue: v[key],
     key: `${key}-${v[key]}`,
     onBlur: (e: { target: HTMLInputElement }) => {
@@ -166,6 +175,29 @@ export function SettingsPage() {
           </FormField>
           <FormField label={t("settings:costs.energyCost")}>
             {(p) => <input {...p} className={inputClass} {...num("energyCostPerKwh")} />}
+          </FormField>
+          <FormField label={t("settings:costs.lifetime")} hint={t("settings:costs.lifetimeHint")}>
+            {(p) => <input {...p} className={inputClass} {...num("printerLifetimeHours")} />}
+          </FormField>
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={v.includeMaintenanceCost}
+              onChange={(e) => commit({ includeMaintenanceCost: e.target.checked })}
+            />
+            <span>
+              <span className="font-medium">{t("settings:costs.maintenance")}</span>
+              <span className="block text-muted">{t("settings:costs.maintenanceHint")}</span>
+            </span>
+          </label>
+          <FormField label={t("settings:costs.laborRate")}>
+            {(p) => <input {...p} className={inputClass} {...num("laborRatePerHour")} />}
+          </FormField>
+          <FormField label={t("settings:costs.failureMargin")}>
+            {(p) => <input {...p} className={inputClass} {...num("failureMarginPct")} />}
+          </FormField>
+          <FormField label={t("settings:costs.markup")}>
+            {(p) => <input {...p} className={inputClass} {...num("markupPct")} />}
           </FormField>
         </Section>
 

@@ -399,3 +399,19 @@ export const alerts = sqliteTable(
     check("alerts_kind_ck", oneOf(t.kind, ALERT_KINDS)),
   ],
 );
+
+// Saved pricing-calculator results. `form` is the calculator state; cost/quote are the numbers
+// as quoted, so later price changes don't rewrite an offer already made.
+export const quotes = sqliteTable(
+  "quotes",
+  {
+    id: id(),
+    projectId: text().references(() => projects.id, { onDelete: "set null" }),
+    name: text().notNull(),
+    form: text({ mode: "json" }).notNull(),
+    cost: text({ mode: "json" }).notNull(),
+    quote: text({ mode: "json" }).notNull(),
+    ...timestamps,
+  },
+  (t) => [index("quotes_project_idx").on(t.projectId)],
+);

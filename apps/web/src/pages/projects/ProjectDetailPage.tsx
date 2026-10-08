@@ -1,13 +1,16 @@
-import type { Project } from "@3d-maker-suite/core";
+import { type Project, sumCosts } from "@3d-maker-suite/core";
 import { Link, useParams } from "@tanstack/react-router";
 import type { TFunction } from "i18next";
 import { Box, ExternalLink, FolderOpen } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { CostBreakdown } from "../../components/CostBreakdown.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { TagList } from "../../components/TagList.tsx";
+import { estimatePlate, type Plate, useCostContext } from "../../lib/cost.ts";
 import { cx } from "../../lib/cx.ts";
 import { formatDateTime, formatDuration, formatWeight } from "../../lib/format.ts";
+import { usePreferences } from "../../lib/preferences.ts";
 import { usePrintsOfProject } from "../../lib/prints.ts";
 import {
   projectFileUrl,
@@ -111,6 +114,30 @@ function Plates({
   );
 }
 
+/** What printing a sliced plate would cost, on the default printer (else the first one). */
+function Estimate({ plate }: { plate: Plate }) {
+  const { t } = useTranslation();
+  const ctx = useCostContext().data;
+  const defaultId = usePreferences().data?.values.defaultPrinterId;
+  if (!ctx) return null;
+  const printer = ctx.printers.find((p) => p.id === defaultId) ?? ctx.printers[0];
+  return (
+    <section aria-labelledby="estimate" className="mt-6 max-w-md">
+      <h2 id="estimate" className="mb-1 text-base font-semibold">
+        {t("costs:project.title")}
+      </h2>
+      <p className="mb-2 text-muted">
+        {printer
+          ? t("costs:project.hint", { printer: printer.name })
+          : t("costs:project.hintNoPrinter")}
+      </p>
+      <div className="rounded-lg border border-border bg-surface p-4">
+        <CostBreakdown cost={estimatePlate(plate, printer?.id, ctx)} />
+      </div>
+    </section>
+  );
+}
+
 function LinkedPrints({ id }: { id: string }) {
   const { t } = useTranslation();
   const prints = usePrintsOfProject(id).data?.items ?? [];
@@ -138,6 +165,12 @@ function LinkedPrints({ id }: { id: string }) {
         </ul>
       ) : (
         <p className="text-muted">{t("projects:detail.noPrints")}</p>
+      )}
+      {prints.length > 0 && (
+        <div className="mt-3 max-w-md rounded-lg border border-border bg-surface p-4">
+          <h3 className="mb-2 font-medium">{t("costs:project.printed")}</h3>
+          <CostBreakdown cost={sumCosts(prints.map((p) => p.cost))} />
+        </div>
       )}
     </section>
   );
@@ -287,6 +320,9 @@ export function ProjectDetailPage() {
       </div>
 
       {current && <Plates project={project} file={current.path} plate={plate} onPlate={setPlate} />}
+      {(selected ?? info?.plates.find((p) => p.sliced)) && (
+        <Estimate plate={(selected ?? info?.plates.find((p) => p.sliced)) as Plate} />
+      )}
       <LinkedPrints id={id} />
 
       <section aria-labelledby="files" className="mt-6">

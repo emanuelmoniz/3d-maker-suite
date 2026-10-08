@@ -4,11 +4,13 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
 import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
+import { CostBreakdown } from "../../components/CostBreakdown.tsx";
 import { DataTable } from "../../components/DataTable.tsx";
 import { EmptyState } from "../../components/EmptyState.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { TagFilter } from "../../components/TagFilter.tsx";
 import { TagList } from "../../components/TagList.tsx";
+import { useMoney } from "../../lib/cost.ts";
 import { formatDateTime, formatDuration, formatWeight } from "../../lib/format.ts";
 import { usePrinters } from "../../lib/printers.ts";
 import { useDeletePrint, useFilamentReview, usePrints } from "../../lib/prints.ts";
@@ -22,6 +24,7 @@ const OUTCOMES = {
 
 export function PrintsPage() {
   const { t } = useTranslation();
+  const money = useMoney();
   const [tagId, setTagId] = useState("");
   const { data, isError } = usePrints(tagId);
   const tagsOf = useTagsOf("print");
@@ -148,6 +151,22 @@ export function PrintsPage() {
                 numeric: true,
                 cell: (p) => formatWeight(grams(p)),
                 sortValue: grams,
+              },
+              {
+                id: "cost",
+                header: t("prints:list.columns.cost"),
+                numeric: true,
+                cell: (p) => (
+                  <details className="text-left">
+                    <summary className="cursor-pointer text-right tabular-nums">
+                      {money(p.cost.total)}
+                    </summary>
+                    <div className="mt-2 min-w-48">
+                      <CostBreakdown cost={p.cost} />
+                    </div>
+                  </details>
+                ),
+                sortValue: (p) => p.cost.total,
               },
               {
                 id: "actions",

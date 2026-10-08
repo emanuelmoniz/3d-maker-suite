@@ -16,6 +16,7 @@ import { HttpError } from "./errors.ts";
 import { loadKey } from "./integrations/secrets.ts";
 import { createSyncer } from "./integrations/sync.ts";
 import { createProjectScanner } from "./projects/scanner.ts";
+import { costsRoutes } from "./routes/costs.ts";
 import { filamentRoutes } from "./routes/filament.ts";
 import { healthRoutes } from "./routes/health.ts";
 import { integrationsRoutes } from "./routes/integrations.ts";
@@ -79,6 +80,7 @@ export async function buildApp(
   await app.register(maintenanceRoutes(db), { prefix: "/api/maintenance" });
   await app.register(filamentRoutes(db, opts.filamentLibraries ?? []), { prefix: "/api/filament" });
   await app.register(printsRoutes(db), { prefix: "/api/prints" });
+  await app.register(costsRoutes(db), { prefix: "/api/costs" });
   const scanner = createProjectScanner(db, dataDir, app.log, { watch: opts.watchProjects });
   await app.register(projectsRoutes(db, dataDir, scanner), { prefix: "/api/projects" });
   app.addHook("onClose", () => scanner.close());

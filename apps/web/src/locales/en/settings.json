@@ -37,7 +37,14 @@
   "costs": {
     "currency": "Currency",
     "currencyHint": "Three-letter ISO code, e.g. EUR.",
-    "energyCost": "Energy cost per kWh"
+    "energyCost": "Energy cost per kWh",
+    "lifetime": "Printer lifetime (hours)",
+    "lifetimeHint": "Purchase price is spread over this many hours as printer wear. 0 leaves wear out of costs.",
+    "maintenance": "Include maintenance in costs",
+    "maintenanceHint": "Spreads what you logged on maintenance tasks over the printer's runtime.",
+    "laborRate": "Labor rate per hour (pricing calculator)",
+    "failureMargin": "Failure margin % (pricing calculator)",
+    "markup": "Markup % (pricing calculator)"
   },
   "projects": {
     "roots": "Project folders",

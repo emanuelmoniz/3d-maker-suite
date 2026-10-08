@@ -218,7 +218,7 @@ Do Step 18 of PLAN.md. Only allow launching files inside configured project root
 (path traversal safe). Server-side only; the API returns success/error.
 ```
 
-### [ ] Step 19 - Cost engine & pricing calculator
+### [x] Step 19 - Cost engine & pricing calculator
 **Model:** Sonnet · **Effort:** Medium
 **Scope:** Core cost service: material (grams × spool price/kg), energy (kWh × €/kWh), printer wear (purchase price ÷ expected lifetime hours, optional), maintenance share (optional). Used in prints, projects (estimated from 3MF) and stats. Pricing calculator page: cost + labor (time × rate) + markup % + failure margin %, quantity, saveable quotes per project.
 **Done when:** cost breakdowns show everywhere; unit tests on the calculations.

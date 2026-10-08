@@ -1,0 +1,63 @@
+{
+  "loadError": "Couldn't load cost data. Is the server running?",
+  "unpriced": "{{weight}} of filament has no price, so the material cost is too low. Set a price on the spool or filament profile.",
+  "lines": {
+    "material": "Material",
+    "energy": "Energy",
+    "wear": "Printer wear",
+    "maintenance": "Maintenance",
+    "total": "Total cost"
+  },
+  "cost": { "title": "Production cost" },
+  "quote": {
+    "title": "Price",
+    "unitCost": "Production cost",
+    "labor": "Labor",
+    "failureMargin": "Failure margin",
+    "markup": "Markup",
+    "unitPrice": "Price per piece",
+    "total_one": "Total for {{count}} piece",
+    "total_other": "Total for {{count}} pieces"
+  },
+  "form": {
+    "print": "Print",
+    "project": "Project",
+    "noProject": "No project",
+    "plate": "Sliced plate",
+    "noPlate": "Enter by hand",
+    "plateN": "Plate {{index}}",
+    "printer": "Printer",
+    "noPrinter": "No printer (no wear)",
+    "power": "Power draw (W)",
+    "minutes": "Print time (minutes)",
+    "filament": "Filament",
+    "material": "Material",
+    "grams": "Grams",
+    "pricePerKg": "Price per kg",
+    "addFilament": "Add filament",
+    "removeFilament": "Remove filament",
+    "pricing": "Pricing",
+    "laborHours": "Labor (hours per piece)",
+    "laborRate": "Labor rate per hour",
+    "failureMargin": "Failure margin (%)",
+    "markup": "Markup (%)",
+    "quantity": "Pieces"
+  },
+  "saved": {
+    "title": "Saved quotes",
+    "empty": "No saved quotes yet.",
+    "name": "Quote name",
+    "save": "Save quote",
+    "saveError": "Couldn't save the quote.",
+    "load": "Load",
+    "delete": "Delete",
+    "pieces_one": "{{count}} piece",
+    "pieces_other": "{{count}} pieces"
+  },
+  "project": {
+    "title": "Estimated cost",
+    "printed": "Cost of printed copies",
+    "hint": "From the sliced plate, on {{printer}}, with the average filament price per material.",
+    "hintNoPrinter": "From the sliced plate, with the average filament price per material. Add a printer to include energy and wear."
+  }
+}

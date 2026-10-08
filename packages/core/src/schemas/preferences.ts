@@ -13,6 +13,14 @@ const shape = {
   accent: z.enum(ACCENT_COLORS),
   currency: z.string().regex(/^[A-Z]{3}$/),
   energyCostPerKwh: z.number().nonnegative(),
+  /** Printer wear: purchase price / these hours. 0 leaves wear out of the cost. */
+  printerLifetimeHours: z.number().nonnegative(),
+  /** Spread past maintenance spend over printer runtime and add it to the cost. */
+  includeMaintenanceCost: z.boolean(),
+  /** Pricing calculator defaults. Money in major units, like energyCostPerKwh. */
+  laborRatePerHour: z.number().nonnegative(),
+  failureMarginPct: z.number().nonnegative(),
+  markupPct: z.number().nonnegative(),
   projectRoots: z.array(z.string().min(1)),
   /** How many folder levels below a root a project may sit (1 = direct subfolders). */
   projectScanDepth: z.number().int().min(1).max(5),
@@ -38,6 +46,11 @@ export const PREFERENCE_DEFAULTS: z.infer<typeof preferencesSchema> = {
   accent: "teal",
   currency: "EUR",
   energyCostPerKwh: 0.25,
+  printerLifetimeHours: 0,
+  includeMaintenanceCost: false,
+  laborRatePerHour: 0,
+  failureMarginPct: 5,
+  markupPct: 20,
   projectRoots: [],
   projectScanDepth: 1,
   viewerMaxMb: 30,
