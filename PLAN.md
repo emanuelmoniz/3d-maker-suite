@@ -23,7 +23,7 @@ integration interfaces (TypeScript signatures only, inside the docs) and the ADR
 Keep each ADR under 40 lines. Ask me about anything ambiguous before writing.
 ```
 
-### [ ] Step 1 - Monorepo scaffold
+### [x] Step 1 - Monorepo scaffold
 **Model:** Sonnet · **Effort:** Medium
 **Scope:** pnpm workspaces with the layout from CLAUDE.md; root package `3d-maker-suite`, workspace packages `@3d-maker-suite/*`; TS strict; Biome; Vitest; GitHub Actions (lint, typecheck, test); `.gitignore` includes `BACKLOG.md`, `data/`, `.env`; MIT license; `pnpm start` builds and runs on `http://localhost:4300`; data dir is OS-appropriate (overridable by `APP_DATA_DIR`).
 **Done when:** `pnpm install && pnpm start` serves a "3D Maker Suite" hello page; CI is green.

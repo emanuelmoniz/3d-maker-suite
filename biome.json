@@ -1,0 +1,5 @@
+{
+  "files": { "includes": ["**", "!**/dist", "!**/node_modules", "!.claude", "!pnpm-lock.yaml"] },
+  "formatter": { "indentStyle": "space", "lineWidth": 100 },
+  "javascript": { "formatter": { "quoteStyle": "double" } }
+}
