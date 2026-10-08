@@ -4,6 +4,16 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title></title>
+    <link rel="icon" href="data:," />
+    <script>
+      // Apply theme before first paint to avoid a flash. Keep in sync with src/lib/theme.ts.
+      try {
+        const s = JSON.parse(localStorage.getItem("theme") || "{}");
+        const dark = s.mode === "dark" || (s.mode !== "light" && matchMedia("(prefers-color-scheme: dark)").matches);
+        document.documentElement.dataset.theme = dark ? "dark" : "light";
+        if (s.accent) document.documentElement.dataset.accent = s.accent;
+      } catch {}
+    </script>
   </head>
   <body>
     <div id="root"></div>

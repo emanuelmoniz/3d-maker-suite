@@ -54,7 +54,7 @@ Do Step 3 of PLAN.md. Create reusable helpers for list endpoints (pagination, so
 date-range + entity filters) since stats and lists will need them everywhere.
 ```
 
-### [ ] Step 4 - App shell & design system
+### [x] Step 4 - App shell & design system
 **Model:** Sonnet (use frontend-design skill) · **Effort:** Medium
 **Scope:** Responsive layout (sidebar on desktop, bottom nav on mobile), routes for all modules (placeholders), light/dark/system themes via CSS variables + accent color, i18next setup (EN only, namespaces per module, lazy load), locale-aware formatters (date, number, currency, weight, duration, energy), shared components (DataTable, FilterBar, DateRangePicker, EmptyState, StatCard, ConfirmDialog, FormField), `pnpm i18n:check` script.
 **Done when:** the shell looks modern on 375px / 768px / 1440px; no hard-coded strings.

@@ -1,4 +1,5 @@
-// Compares t("key") usages in apps/web/src with keys in locales/en/*.json.
+// Compares i18n key usages ("ns:key" string literals, or t("key") for common) in apps/web/src
+// with keys in locales/en/*.json. Plural suffixes (_one, _other, ...) count as the base key.
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -9,20 +10,27 @@ const files = (dir) =>
   );
 const all = files(src).map((f) => f.replaceAll("\\", "/"));
 
-const defined = new Set();
+const defined0 = new Set();
 for (const f of all.filter((f) => /locales[/]en[/].+\.json$/.test(f))) {
   const ns = f.replace(/.*[/]/, "").replace(".json", "");
   const walk = (o, p) => {
     for (const [k, v] of Object.entries(o))
-      typeof v === "object" ? walk(v, `${p}.${k}`) : defined.add(`${p}.${k}`);
+      typeof v === "object" ? walk(v, `${p}.${k}`) : defined0.add(`${p}.${k}`);
   };
   walk(JSON.parse(readFileSync(f, "utf8")), ns);
 }
 
+const plural = /_(zero|one|two|few|many|other)$/;
+const defined = new Set([...defined0].map((k) => k.replace(plural, "")));
+const namespaces = new Set([...defined].map((k) => k.split(".")[0]));
+
 const used = new Set();
-for (const f of all.filter((f) => /\.tsx?$/.test(f)))
-  for (const m of readFileSync(f, "utf8").matchAll(/\bt\(\s*["']([\w.:-]+)["']/g))
-    used.add(m[1].includes(":") ? m[1].replace(":", ".") : `common.${m[1]}`);
+for (const f of all.filter((f) => /\.tsx?$/.test(f))) {
+  const code = readFileSync(f, "utf8");
+  for (const m of code.matchAll(/(?<![\w.])t\(\s*["']([\w.]+)["']/g)) used.add(`common.${m[1]}`);
+  for (const m of code.matchAll(/["'`]([a-z]+):([\w.]+)["'`]/g))
+    if (namespaces.has(m[1])) used.add(`${m[1]}.${m[2]}`);
+}
 
 const missing = [...used].filter((k) => !defined.has(k));
 const unused = [...defined].filter((k) => !used.has(k));

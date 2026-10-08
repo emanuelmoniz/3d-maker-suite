@@ -1,0 +1,51 @@
+{
+  "title": "Design system",
+  "description": "Shared components, shown with sample data. Only available in development.",
+  "accent": "Accent color",
+  "accents": {
+    "teal": "Teal",
+    "blue": "Blue",
+    "violet": "Violet",
+    "rose": "Rose",
+    "amber": "Amber"
+  },
+  "stats": {
+    "hours": "Print hours",
+    "filament": "Filament used",
+    "energy": "Energy",
+    "cost": "Cost"
+  },
+  "table": {
+    "label": "Printers",
+    "printer": "Printer",
+    "state": "State",
+    "hours": "Hours",
+    "lastPrint": "Last print",
+    "filament": "Filament"
+  },
+  "states": { "working": "Working", "maintenance": "Maintenance", "inoperative": "Inoperative" },
+  "filters": { "search": "Search printers" },
+  "form": {
+    "name": "Printer name",
+    "nameHint": "Shown across the app.",
+    "nameError": "Enter a name."
+  },
+  "empty": {
+    "title": "No printers yet",
+    "body": "Add your first printer to start tracking prints and maintenance.",
+    "action": "Add printer"
+  },
+  "confirm": {
+    "open": "Delete printer",
+    "title": "Delete this printer?",
+    "body": "Its print history stays, but the printer is removed from the list.",
+    "action": "Delete printer"
+  },
+  "sections": {
+    "stats": "Stat cards",
+    "table": "Data table and filters",
+    "form": "Form field",
+    "empty": "Empty state",
+    "dialog": "Confirm dialog"
+  }
+}

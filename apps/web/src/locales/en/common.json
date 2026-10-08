@@ -1,4 +1,27 @@
 {
   "appName": "3D Maker Suite",
-  "hello": "Your local 3D printing manager is running."
+  "units": { "kwh": "{{value}} kWh" },
+  "actions": {
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "clear": "Clear filters",
+    "more": "More"
+  },
+  "theme": {
+    "label": "Theme",
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System"
+  },
+  "dateRange": { "from": "From", "to": "To" },
+  "table": { "noRows": "No results" },
+  "a11y": { "mainNav": "Main navigation", "skipToContent": "Skip to content" },
+  "notFound": {
+    "title": "Page not found",
+    "body": "This page doesn't exist. Use the menu to get back on track."
+  },
+  "placeholder": {
+    "title": "Coming soon",
+    "body": "This module isn't built yet."
+  }
 }

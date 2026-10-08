@@ -1,0 +1,20 @@
+{
+  "groups": {
+    "overview": "Overview",
+    "equipment": "Equipment",
+    "work": "Work",
+    "insights": "Insights"
+  },
+  "items": {
+    "home": { "label": "Home", "description": "Your workshop at a glance." },
+    "printers": { "label": "Printers", "description": "Machines, status and history." },
+    "maintenance": { "label": "Maintenance", "description": "Tasks, schedules and service log." },
+    "filament": { "label": "Filament", "description": "Spools, materials and stock." },
+    "prints": { "label": "Prints", "description": "Every print and how it went." },
+    "projects": { "label": "Projects", "description": "Models, files and versions." },
+    "costs": { "label": "Costs", "description": "Pricing and what each print costs." },
+    "stats": { "label": "Stats", "description": "Trends in time, material and spend." },
+    "alerts": { "label": "Alerts", "description": "Things that need your attention." },
+    "settings": { "label": "Settings", "description": "Language, theme, units and costs." }
+  }
+}
