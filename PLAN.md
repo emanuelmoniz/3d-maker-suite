@@ -44,7 +44,7 @@ Do Step 2 of PLAN.md using docs/architecture.md. Design for: time-period stats q
 (estimated vs measured flag), soft delete where history matters. Show me the schema plan first.
 ```
 
-### [ ] Step 3 - API skeleton
+### [x] Step 3 - API skeleton
 **Model:** Sonnet · **Effort:** Medium
 **Scope:** Fastify app structure, zod type provider, OpenAPI at `/api/docs`, error format, pagination/filter helpers, health endpoint, request logging, test harness with in-memory SQLite.
 **Done when:** a sample CRUD route (settings) is tested end-to-end in Vitest.
