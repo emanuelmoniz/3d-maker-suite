@@ -30,6 +30,12 @@ export const useSpools = (tagId = "") =>
       api<Page<Spool>>("GET", `/api/filament/spools?pageSize=100${tagId ? `&tagId=${tagId}` : ""}`),
   });
 
+export const useSpool = (id: string) =>
+  useQuery({
+    queryKey: ["filament", "spool", id],
+    queryFn: () => api<Spool>("GET", `/api/filament/spools/${id}`),
+  });
+
 export const useSpoolHistory = (id: string | undefined) =>
   useQuery({
     queryKey: ["filament", "history", id],

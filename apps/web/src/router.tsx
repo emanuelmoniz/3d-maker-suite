@@ -8,7 +8,8 @@ import { CostsPage } from "./pages/costs/CostsPage.tsx";
 import { FilamentPage } from "./pages/filament/FilamentPage.tsx";
 import { LibraryImportPage } from "./pages/filament/LibraryImportPage.tsx";
 import { ProfileCreatePage } from "./pages/filament/ProfileFormPage.tsx";
-import { SpoolCreatePage } from "./pages/filament/SpoolFormPage.tsx";
+import { SpoolDetailPage } from "./pages/filament/SpoolDetailPage.tsx";
+import { SpoolCreatePage, SpoolEditPage } from "./pages/filament/SpoolFormPage.tsx";
 import { SpoolImportPage } from "./pages/filament/SpoolImportPage.tsx";
 import { ModulePage } from "./pages/ModulePage.tsx";
 import { MaintenancePage } from "./pages/maintenance/MaintenancePage.tsx";
@@ -96,6 +97,17 @@ const routes: AnyRoute[] = [
     loader: () => Promise.all([loadNamespace("filament"), loadNamespace("tags")]),
     component: SpoolCreatePage,
   }),
+  ...[
+    ["/filament/spools/$id", SpoolDetailPage],
+    ["/filament/spools/$id/edit", SpoolEditPage],
+  ].map(([path, component]) =>
+    createRoute({
+      getParentRoute: () => root,
+      path: path as string,
+      loader: () => Promise.all([loadNamespace("filament"), loadNamespace("tags")]),
+      component: component as () => ReactNode,
+    }),
+  ),
   createRoute({
     getParentRoute: () => root,
     path: "/filament/profiles/new",
