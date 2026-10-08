@@ -2,6 +2,7 @@ import type {
   Page,
   Project,
   ProjectInput,
+  ProjectOpen,
   ProjectPatch,
   ProjectScanStatus,
 } from "@3d-maker-suite/core";
@@ -69,3 +70,9 @@ export function useScan() {
   });
   return { status: status.data, start };
 }
+
+/** Opens a project folder or one of its models in the OS / the configured slicer (server-side). */
+export const useOpenProject = (id: string) =>
+  useMutation({
+    mutationFn: (v: ProjectOpen) => api("POST", `/api/projects/${id}/open`, v),
+  });

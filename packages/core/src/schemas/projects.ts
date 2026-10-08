@@ -109,6 +109,13 @@ export const projectScanStatusSchema = z.object({
   finishedAt: isoDate.nullable(),
 });
 
+export const projectOpenSchema = z.object({
+  target: z.enum(["slicer", "folder"]),
+  /** Relative to the project folder; must be one of `meta.files`. Slicer only. */
+  file: z.string().min(1).optional(),
+});
+
+export type ProjectOpen = z.infer<typeof projectOpenSchema>;
 export type Project = z.infer<typeof projectSchema>;
 export type ProjectMeta = z.infer<typeof projectMetaSchema>;
 export type ProjectFile = z.infer<typeof projectFileSchema>;

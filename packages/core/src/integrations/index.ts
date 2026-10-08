@@ -81,6 +81,12 @@ export interface FilamentLibrary {
   read(dir: string, opts: { includeSystem: boolean }): Promise<LibraryPreset[]>;
 }
 
+/** Opens a local file in a slicer. The server decides which files are allowed before calling. */
+export interface SlicerLauncher {
+  canOpen(filePath: string): boolean;
+  open(filePath: string): Promise<void>;
+}
+
 /** Throw this from an adapter; any other error is reported as "unknown". */
 export class IntegrationError extends Error {
   constructor(readonly code: IntegrationErrorCode) {

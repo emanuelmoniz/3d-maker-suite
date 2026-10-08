@@ -1,6 +1,7 @@
 import type { Project } from "@3d-maker-suite/core";
 import { Link, useParams } from "@tanstack/react-router";
-import { ExternalLink } from "lucide-react";
+import type { TFunction } from "i18next";
+import { Box, ExternalLink, FolderOpen } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { PageHeader } from "../../components/PageHeader.tsx";
@@ -8,7 +9,12 @@ import { TagList } from "../../components/TagList.tsx";
 import { cx } from "../../lib/cx.ts";
 import { formatDateTime, formatDuration, formatWeight } from "../../lib/format.ts";
 import { usePrintsOfProject } from "../../lib/prints.ts";
-import { projectFileUrl, projectThumbnailUrl, useProject } from "../../lib/projects.ts";
+import {
+  projectFileUrl,
+  projectThumbnailUrl,
+  useOpenProject,
+  useProject,
+} from "../../lib/projects.ts";
 import { useTagsOf } from "../../lib/tags.ts";
 import { ModelPreview } from "./ModelPreview.tsx";
 
@@ -16,6 +22,14 @@ const linkButton =
   "inline-flex h-9 items-center gap-2 rounded-md border border-border bg-surface px-3 font-medium hover:bg-surface-2";
 const VIEWABLE = /\.(3mf|stl)$/i;
 const KB = 1024;
+
+// Static keys so `pnpm i18n:check` sees them; `api()` puts the HTTP status last in the message.
+const openError = (t: TFunction, message: string) =>
+  message.endsWith(": 409")
+    ? t("projects:detail.openFailed.no_slicer")
+    : message.endsWith(": 403")
+      ? t("projects:detail.openFailed.not_allowed")
+      : t("projects:detail.openFailed.launch_failed");
 
 const sizeLabel = (bytes: number) =>
   bytes < KB * KB ? `${Math.round(bytes / KB)} KB` : `${(bytes / KB / KB).toFixed(1)} MB`;
@@ -136,6 +150,7 @@ export function ProjectDetailPage() {
   const tags = useTagsOf("project")(id);
   const [picked, setPicked] = useState<string | null>(null);
   const [plate, setPlate] = useState<number | null>(null);
+  const open = useOpenProject(id);
 
   if (isError)
     return (
@@ -171,12 +186,39 @@ export function ProjectDetailPage() {
                 {t("projects:detail.source")}
               </a>
             )}
+            {project.folderPath && current && (
+              <button
+                type="button"
+                className={linkButton}
+                onClick={() => open.mutate({ target: "slicer", file: current.path })}
+              >
+                <Box className="size-4" aria-hidden />
+                {t("projects:detail.openSlicer")}
+              </button>
+            )}
+            {project.folderPath && (
+              <button
+                type="button"
+                className={linkButton}
+                onClick={() => open.mutate({ target: "folder" })}
+              >
+                <FolderOpen className="size-4" aria-hidden />
+                {t("projects:detail.openFolder")}
+              </button>
+            )}
             <Link to="/projects/$id/edit" params={{ id }} className={linkButton}>
               {t("projects:list.edit")}
             </Link>
           </>
         }
       />
+      <p role="status" className={open.isError ? "text-bad" : "sr-only"}>
+        {open.isError
+          ? openError(t, open.error.message)
+          : open.isSuccess
+            ? t("projects:detail.opened")
+            : ""}
+      </p>
       <div className="grid gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
         <div>
           {current ? (

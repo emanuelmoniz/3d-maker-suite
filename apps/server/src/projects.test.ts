@@ -227,3 +227,34 @@ describe("project files and filters", () => {
     expect(await names(`collectionId=${col.id}`)).toEqual(["Vase"]);
   });
 });
+
+describe("open in slicer / folder", () => {
+  const open = (id: string, payload: object) =>
+    app.inject({ method: "POST", url: `/api/projects/${id}/open`, payload });
+
+  it("only launches inside configured roots, listed files and with a slicer set", async () => {
+    await sampleTree();
+    await setRoots();
+    await scan();
+    const vase = await byName("Vase");
+
+    // No slicer configured yet.
+    expect((await open(vase.id, { target: "slicer", file: "vase.stl" })).statusCode).toBe(409);
+    await app.inject({
+      method: "PATCH",
+      url: "/api/preferences",
+      payload: { slicerPath: process.execPath },
+    });
+    // Traversal and unlisted files are refused.
+    for (const file of ["../Benchy/benchy.3mf", "../../x", "page.url", "nope.stl"])
+      expect((await open(vase.id, { target: "slicer", file })).statusCode).toBe(403);
+    // A listed model starts the program (node exits on the .stl; we only check it launched).
+    expect((await open(vase.id, { target: "slicer", file: "vase.stl" })).json()).toEqual({
+      ok: true,
+    });
+
+    // Roots removed -> the folder is no longer allowed.
+    await app.inject({ method: "PATCH", url: "/api/preferences", payload: { projectRoots: [] } });
+    expect((await open(vase.id, { target: "folder" })).statusCode).toBe(403);
+  });
+});

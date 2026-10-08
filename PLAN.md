@@ -208,7 +208,7 @@ Do Step 17 of PLAN.md. Lazy-load the 3D viewer chunk; fall back to the plate thu
 if the model is too large (configurable size limit).
 ```
 
-### [ ] Step 18 - Open in slicer & links
+### [x] Step 18 - Open in slicer & links
 **Model:** Sonnet · **Effort:** Low
 **Scope:** "Open in Bambu Studio" (spawn the configured slicer path with the file, via the `SlicerLauncher` interface), "Open folder", marketplace link buttons.
 **Done when:** works on Windows, plus macOS/Linux paths documented.

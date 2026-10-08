@@ -11,6 +11,7 @@ import {
   projectInputSchema,
   projectListQuery,
   projectMetaSchema,
+  projectOpenSchema,
   projectPatchSchema,
   projectScanStatusSchema,
   projectSchema,
@@ -20,13 +21,21 @@ import { eq, inArray, isNull } from "drizzle-orm";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
+import { insideRoots, openFolder, slicerLauncher } from "../lib/launcher.ts";
 import { listPage, taggedWith } from "../lib/list.ts";
+import { readPreferences } from "../lib/preferences.ts";
 import type { ProjectScanner } from "../projects/scanner.ts";
 
 const { projects, collectionProjects } = schema;
 const params = z.object({ id: z.uuid() });
 const fileQuery = z.object({ path: z.string().min(1), entry: z.string().optional() });
 const notFound = { 404: apiErrorSchema };
+const errors = {
+  403: apiErrorSchema,
+  404: apiErrorSchema,
+  409: apiErrorSchema,
+  500: apiErrorSchema,
+};
 const IMAGE_TYPES: Record<string, string> = {
   ".png": "image/png",
   ".jpg": "image/jpeg",
@@ -168,6 +177,40 @@ export const projectsRoutes =
       if (!png) throw new HttpError(404, "not_found", "File not found");
       return reply.type("image/png").send(png);
     });
+
+    // Launches a local program, so everything is checked here: the project folder must be inside a
+    // configured root, and a file must be one the scanner listed (nothing the client invents).
+    app.post(
+      "/:id/open",
+      {
+        schema: {
+          params,
+          body: projectOpenSchema,
+          response: { 200: z.object({ ok: z.literal(true) }), ...errors },
+        },
+      },
+      async (req) => {
+        const { folderPath, meta } = get(req.params.id);
+        const { target, file } = req.body;
+        const prefs = readPreferences(db);
+        const dir = folderPath && (await insideRoots(folderPath, prefs.projectRoots));
+        if (!dir)
+          throw new HttpError(403, "not_allowed", "Project folder is not in a project root");
+        try {
+          if (target === "folder") return await openFolder(dir).then(() => ({ ok: true as const }));
+          const listed = file && meta.files.some((f) => f.path === file && f.kind === "model");
+          const abs = listed ? await insideRoots(join(dir, file), [dir]) : null;
+          if (!abs) throw new HttpError(403, "not_allowed", "File is not part of this project");
+          const slicer = slicerLauncher(prefs.slicerPath);
+          if (!slicer.canOpen(abs)) throw new HttpError(409, "no_slicer", "No slicer configured");
+          await slicer.open(abs);
+          return { ok: true as const };
+        } catch (e) {
+          if (e instanceof HttpError) throw e;
+          throw new HttpError(500, "launch_failed", "Could not start the program");
+        }
+      },
+    );
 
     app.get("/:id/thumbnail", { schema: { params } }, async (req, reply) => {
       const { thumbnailPath } = get(req.params.id);
