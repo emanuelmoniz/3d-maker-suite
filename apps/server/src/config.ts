@@ -17,5 +17,7 @@ export function loadConfig(env: Env = process.env) {
     host: env.HOST ?? "127.0.0.1",
     port: Number(env.PORT ?? 4300),
     dataDir: dataDir(env),
+    /** Registers the fake adapter so the Integrations page can be tried without a vendor account. */
+    mockIntegration: env.APP_MOCK_INTEGRATION === "1",
   };
 }

@@ -13,7 +13,7 @@ Bambu Lab is the first vendor (ADR-0006), but users also own Prusa, Creality and
 - Adapters get their config, a scoped `SecretStore`, a logger and an `AbortSignal` through `IntegrationContext`. They never read the DB or the env directly.
 - Adapter errors map to `IntegrationErrorCode` (`auth_required`, `auth_expired`, …), never vendor messages.
 - The registry is a **static list** in the server composition root. There's no dynamic plugin loading.
-- The rule is enforced in Step 1: Biome `noRestrictedImports` blocks imports of `packages/adapters/*` outside the composition root.
+- Biome `noRestrictedImports` blocks imports of `@3d-maker-suite/adapter-*` outside the composition root (`apps/server/src/integrations/registry.ts`).
 
 ## Consequences
 - Adding a vendor means adding one package and registering it, with no core changes unless a new capability is needed.

@@ -178,6 +178,9 @@ importers:
 
   apps/server:
     dependencies:
+      '@3d-maker-suite/adapter-mock':
+        specifier: workspace:*
+        version: link:../../packages/adapters/mock
       '@3d-maker-suite/core':
         specifier: workspace:*
         version: link:../../packages/core
@@ -193,6 +196,9 @@ importers:
       '@fastify/swagger-ui':
         specifier: ^6.1.1
         version: 6.1.1
+      croner:
+        specifier: ^10.0.1
+        version: 10.0.1
       drizzle-orm:
         specifier: ^0.45.3
         version: 0.45.3(@types/better-sqlite3@9.6.0)(better-sqlite3@13.0.3)
@@ -265,6 +271,15 @@ importers:
   packages/3mf: {}
 
   packages/adapters/bambu: {}
+
+  packages/adapters/mock:
+    dependencies:
+      '@3d-maker-suite/core':
+        specifier: workspace:*
+        version: link:../../core
+      zod:
+        specifier: ^4.6.5
+        version: 4.6.5
 
   packages/core:
     dependencies:
@@ -1382,6 +1397,10 @@ packages:
   cookie@1.1.1:
     resolution: {integrity: sha512-ei8Aos7ja0weRpFzJnEA9UHJ/7XQmqglbRwnf2ATjcB9Wq874VKH9kfjjirM6UhU2/E5fFYadylyhFldcqSidQ==}
     engines: {node: '>=18'}
+
+  croner@10.0.1:
+    resolution: {integrity: sha512-ixNtAJndqh173VQ4KodSdJEI6nuioBWI0V1ITNKhZZsO0pEMoDxz539T4FTTbSZ/xIOSuDnzxLVRqBVSvPNE2g==}
+    engines: {node: '>=18.0'}
 
   cross-spawn@7.0.6:
     resolution: {integrity: sha512-uV2QOWP2nWzsy2aMp8aRibhi9dlzF5Hgh5SHaB9OiTGEyDTiJJyx0uy51QXdyWbtAHNua4XJzUKca3OzKUd3vA==}
@@ -3018,6 +3037,8 @@ snapshots:
   cookie-es@3.1.1: {}
 
   cookie@1.1.1: {}
+
+  croner@10.0.1: {}
 
   cross-spawn@7.0.6:
     dependencies:

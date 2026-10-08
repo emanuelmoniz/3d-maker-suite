@@ -1,8 +1,8 @@
 import type { Preferences } from "@3d-maker-suite/core";
+import { Link } from "@tanstack/react-router";
 import { Plug } from "lucide-react";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { EmptyState } from "../components/EmptyState.tsx";
 import { FormField, inputClass } from "../components/FormField.tsx";
 import { PageHeader } from "../components/PageHeader.tsx";
 import { usePreferences, useSavePreferences } from "../lib/preferences.ts";
@@ -248,11 +248,14 @@ export function SettingsPage() {
         </Section>
 
         <Section title={t("settings:sections.integrations")}>
-          <EmptyState
-            icon={Plug}
-            title={t("settings:integrations.title")}
-            description={t("settings:integrations.body")}
-          />
+          <p className="text-muted">{t("settings:integrations.body")}</p>
+          <Link
+            to="/settings/integrations"
+            className="inline-flex items-center gap-2 font-medium text-accent hover:underline"
+          >
+            <Plug className="size-4" aria-hidden />
+            {t("settings:integrations.manage")}
+          </Link>
         </Section>
 
         <Section title={t("settings:sections.alerts")}>

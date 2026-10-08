@@ -2,9 +2,12 @@ import {
   ALERT_KINDS,
   COMMENT_STATUSES,
   ENERGY_SOURCES,
+  INTEGRATION_ERROR_CODES,
   ORIGINS,
   PRINT_OUTCOMES,
   SPOOL_STATUSES,
+  SYNC_RUN_STATUSES,
+  SYNC_TRIGGERS,
   TAGGABLE_TYPES,
   WEIGHT_ENTRY_KINDS,
 } from "@3d-maker-suite/core";
@@ -56,6 +59,30 @@ export const integrations = sqliteTable("integrations", {
   lastError: text(),
   ...timestamps,
 });
+
+// Sync log: one row per run (the server keeps the last 100 per integration).
+export const syncRuns = sqliteTable(
+  "sync_runs",
+  {
+    id: id(),
+    integrationId: text()
+      .notNull()
+      .references(() => integrations.id, { onDelete: "cascade" }),
+    trigger: text({ enum: SYNC_TRIGGERS }).notNull(),
+    startedAt: text().notNull(),
+    finishedAt: text().notNull(),
+    status: text({ enum: SYNC_RUN_STATUSES }).notNull(),
+    errorCode: text({ enum: INTEGRATION_ERROR_CODES }),
+    created: integer().notNull().default(0),
+    skipped: integer().notNull().default(0),
+  },
+  (t) => [
+    index("sync_runs_integration_idx").on(t.integrationId, t.startedAt),
+    check("sync_runs_trigger_ck", oneOf(t.trigger, SYNC_TRIGGERS)),
+    check("sync_runs_status_ck", oneOf(t.status, SYNC_RUN_STATUSES)),
+    check("sync_runs_error_code_ck", oneOf(t.errorCode, INTEGRATION_ERROR_CODES)),
+  ],
+);
 
 // Rows that may come from an integration; sync upserts by (integrationId, externalId).
 const imported = () => ({

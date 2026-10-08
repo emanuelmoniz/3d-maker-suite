@@ -132,7 +132,7 @@ Do Step 10 of PLAN.md using the polymorphic tagging from Step 2. Reusable TagPic
 
 ## Phase 2 - Integrations (Bambu Cloud first)
 
-### [ ] Step 11 - Integration framework  **[plan mode]**
+### [x] Step 11 - Integration framework  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:** Adapter registry, integration accounts (encrypted credentials via a local key file), background sync jobs (croner) with status, last-run time and errors, an Integrations settings page, a dedupe strategy (external id + source), sync log.
 **Done when:** a fake/mock adapter syncs prints end-to-end in tests.

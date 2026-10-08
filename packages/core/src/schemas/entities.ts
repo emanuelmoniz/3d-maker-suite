@@ -3,6 +3,8 @@ import {
   ALERT_KINDS,
   COMMENT_STATUSES,
   ENERGY_SOURCES,
+  INTEGRATION_ERROR_CODES,
+  INTEGRATION_STATUSES,
   ORIGINS,
   PRINT_OUTCOMES,
   SPOOL_STATUSES,
@@ -36,9 +38,9 @@ export const integrationSchema = z.object({
   enabled: z.boolean(),
   config: z.json(),
   hasSecrets: z.boolean(),
-  status: z.string(),
+  status: z.enum(INTEGRATION_STATUSES),
   lastSyncAt: isoDate.nullable(),
-  lastError: z.string().nullable(),
+  lastError: z.enum(INTEGRATION_ERROR_CODES).nullable(),
   ...timestamps,
 });
 

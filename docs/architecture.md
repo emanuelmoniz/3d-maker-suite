@@ -98,7 +98,7 @@ erDiagram
 
 ## Integration interfaces
 
-These live in `packages/core/src/integrations` (Step 11). Rules:
+These live in `packages/core/src/integrations`. Only `printers` and `printHistory` exist in code so far; the other capabilities are added by the steps that use them (14, 16, 18). Rules:
 
 - Adapters **return DTOs and never touch the database.** Core validates the DTOs with zod and upserts them by `(integrationId, externalId)`.
 - Each capability is an optional property on the instance. An adapter implements only what its vendor supports.
@@ -106,14 +106,14 @@ These live in `packages/core/src/integrations` (Step 11). Rules:
 
 ```ts
 interface IntegrationAdapter {
-  id: string;                    // 'bambu-cloud'; UI name is the i18n key `integrations:<id>.name`
-  configSchema: ZodType;         // non-secret settings
-  secretsSchema: ZodType;        // fields encrypted at rest (ADR-0005)
+  id: string;                    // 'bambu-cloud'; UI name is the i18n key `integrations:adapters.<id>.name`
+  configSchema: ZodObject;       // non-secret settings
+  secretsSchema: ZodObject;      // fields encrypted at rest (ADR-0005)
   create(ctx: IntegrationContext): IntegrationInstance;
 }
 
 interface IntegrationContext {
-  config: unknown;               // parsed by the adapter with configSchema
+  config: unknown;               // already parsed with configSchema
   secrets: SecretStore;
   log: Logger;                   // pino child logger, secret paths redacted
   signal: AbortSignal;
@@ -167,7 +167,7 @@ interface MarketplaceLinker {     // pure, no network in v1
 }
 
 type ExternalPrinter = {
-  externalId: string; name: string; model: string;
+  externalId: string; name: string; brand: string; model: string;
   serial?: string; nozzleDiameterMm?: number;
 };
 
@@ -205,9 +205,21 @@ sequenceDiagram
   Ad-->>Job: ExternalPrint[] (+ nextCursor)
   Job->>Core: zod parse, then upsert by (integrationId, externalId)
   Core->>DB: write prints and usages, raise alerts
-  Job->>DB: set lastSyncAt, status = ok
-  Note over Job,DB: On error: status = error code, lastError, raise sync_failed alert
+  Job->>DB: set lastSyncAt, status = ok, resolve sync_failed alert, write sync_runs row
+  Note over Job,DB: On error: status = error, lastError = error code, raise sync_failed alert
 ```
+
+- **Where:** `apps/server/src/integrations/sync.ts`. A croner job runs every enabled integration every 15 minutes; "Sync now" runs one on demand. One run per integration at a time (409 `sync_running`).
+- **Dedupe is insert-only** on `(integrationId, externalId)`: a row that already exists is skipped, never overwritten, so local edits win. Each run re-fetches prints from `lastSyncAt - 7 days`, so prints that finished after the previous run are not missed.
+- **Imported prints** need their printer to be imported by the same integration first; otherwise they are skipped. Filament usages are stored with grams and slot only (spool/profile matching: Step 13).
+- **Sync log:** `sync_runs` keeps the last 100 runs per integration (trigger, result, error code, created/skipped counts).
+- **Deleting an integration** keeps the imported rows (`integrationId` becomes null) and drops its credentials and sync log.
+
+### Adding a vendor
+
+1. Create `packages/adapters/<vendor>` named `@3d-maker-suite/adapter-<vendor>` that exports an `IntegrationAdapter`. Throw `IntegrationError(code)` for known failures. `packages/adapters/mock` is the reference.
+2. Add it to `apps/server/package.json` and to the list in `apps/server/src/integrations/registry.ts`, the only file allowed to import adapters (Biome `noRestrictedImports`).
+3. Add `integrations:adapters.<id>.name` and `.fields.<field>` to `apps/web/src/locales/en/integrations.json`. The setup form is generated from `configSchema` and `secretsSchema`.
 
 ## Runtime layout
 

@@ -16,6 +16,8 @@ import { PrintersPage } from "./pages/printers/PrintersPage.tsx";
 import { PrintCreatePage, PrintEditPage } from "./pages/prints/PrintFormPage.tsx";
 import { PrintsPage } from "./pages/prints/PrintsPage.tsx";
 import { SettingsPage } from "./pages/SettingsPage.tsx";
+import { IntegrationCreatePage } from "./pages/settings/IntegrationFormPage.tsx";
+import { IntegrationsPage } from "./pages/settings/IntegrationsPage.tsx";
 import { AppShell } from "./shell/AppShell.tsx";
 import { ALL_ITEMS, SETTINGS_ITEM } from "./shell/nav.ts";
 
@@ -107,6 +109,17 @@ const routes: AnyRoute[] = [
     loader: () => loadNamespace("settings"),
     component: SettingsPage,
   }),
+  ...[
+    ["/settings/integrations", IntegrationsPage],
+    ["/settings/integrations/new", IntegrationCreatePage],
+  ].map(([path, component]) =>
+    createRoute({
+      getParentRoute: () => root,
+      path: path as string,
+      loader: () => loadNamespace("integrations"),
+      component: component as () => ReactNode,
+    }),
+  ),
 ];
 
 if (import.meta.env.DEV) {

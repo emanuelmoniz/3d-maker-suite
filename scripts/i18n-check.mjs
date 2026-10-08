@@ -32,6 +32,10 @@ for (const f of all.filter((f) => /\.tsx?$/.test(f))) {
     if (namespaces.has(m[1])) used.add(`${m[1]}.${m[2]}`);
 }
 
+// Looked up by id at runtime (`integrations:adapters.<id>.*`), so a new adapter only adds keys.
+const dynamic = ["integrations.adapters."];
+for (const k of defined) if (dynamic.some((p) => k.startsWith(p))) used.add(k);
+
 const missing = [...used].filter((k) => !defined.has(k));
 const unused = [...defined].filter((k) => !used.has(k));
 for (const k of missing) console.error(`missing: ${k}`);

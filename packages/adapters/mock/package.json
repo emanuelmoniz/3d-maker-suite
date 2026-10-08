@@ -1,10 +1,14 @@
 {
-  "name": "@3d-maker-suite/adapter-bambu",
+  "name": "@3d-maker-suite/adapter-mock",
   "version": "0.0.0",
   "private": true,
   "type": "module",
   "main": "src/index.ts",
   "scripts": {
     "typecheck": "tsc -p ."
+  },
+  "dependencies": {
+    "@3d-maker-suite/core": "workspace:*",
+    "zod": "^4.6.5"
   }
 }

@@ -45,8 +45,8 @@
     "slicerHint": "Full path, used to open projects in your slicer."
   },
   "integrations": {
-    "title": "No integrations yet",
-    "body": "Connect your printers and cloud accounts here once integrations are available."
+    "body": "Connect vendor accounts to import printers and print history.",
+    "manage": "Manage integrations"
   },
   "alerts": {
     "hint": "Thresholds are saved now and used when alerts are built.",

@@ -1,6 +1,9 @@
+import { randomBytes } from "node:crypto";
+import type { IntegrationAdapter } from "@3d-maker-suite/core";
 import type { Db } from "@3d-maker-suite/db";
 import swagger from "@fastify/swagger";
 import swaggerUi from "@fastify/swagger-ui";
+import { Cron } from "croner";
 import Fastify, { type FastifyError, type FastifyServerOptions } from "fastify";
 import {
   hasZodFastifySchemaValidationErrors,
@@ -10,8 +13,11 @@ import {
   validatorCompiler,
 } from "fastify-type-provider-zod";
 import { HttpError } from "./errors.ts";
+import { loadKey } from "./integrations/secrets.ts";
+import { createSyncer } from "./integrations/sync.ts";
 import { filamentRoutes } from "./routes/filament.ts";
 import { healthRoutes } from "./routes/health.ts";
+import { integrationsRoutes } from "./routes/integrations.ts";
 import { maintenanceRoutes } from "./routes/maintenance.ts";
 import { preferencesRoutes } from "./routes/preferences.ts";
 import { printersRoutes } from "./routes/printers.ts";
@@ -23,6 +29,7 @@ export async function buildApp(
   db: Db,
   logger: FastifyServerOptions["logger"] = false,
   dataDir = "",
+  opts: { adapters?: IntegrationAdapter[]; syncSchedule?: string } = {},
 ) {
   const app = Fastify({ logger });
   app.setValidatorCompiler(validatorCompiler);
@@ -66,5 +73,14 @@ export async function buildApp(
   await app.register(printsRoutes(db), { prefix: "/api/prints" });
   await app.register(tagsRoutes(db), { prefix: "/api/tags" });
   await app.register(collectionsRoutes(db), { prefix: "/api/collections" });
+
+  // Without a data dir (tests) secrets use a throwaway in-memory key.
+  const key = dataDir ? loadKey(dataDir) : randomBytes(32);
+  const syncer = createSyncer(db, opts.adapters ?? [], key, app.log);
+  await app.register(integrationsRoutes(db, key, syncer), { prefix: "/api/integrations" });
+  if (opts.syncSchedule) {
+    const job = new Cron(opts.syncSchedule, { protect: true }, () => syncer.runAll());
+    app.addHook("onClose", async () => job.stop());
+  }
   return app;
 }

@@ -1,0 +1,68 @@
+{
+  "title": "Integrations",
+  "description": "Import printers and prints from your vendor accounts. Enabled integrations sync every 15 minutes.",
+  "loadError": "Couldn't load integrations. Is the server running?",
+  "add": "Add integration",
+  "emptyTitle": "No integrations yet",
+  "emptyBody": "Connect a vendor account to import your printers and print history automatically.",
+  "noAdapters": "No integrations are available in this version yet.",
+  "status": {
+    "new": "Not synced",
+    "syncing": "Syncing",
+    "ok": "OK",
+    "error": "Error"
+  },
+  "errors": {
+    "auth_required": "Sign-in required. Check the credentials.",
+    "auth_expired": "Sign-in expired. Connect again.",
+    "rate_limited": "The vendor is limiting requests. It will retry later.",
+    "unreachable": "The vendor service can't be reached.",
+    "unknown": "Something went wrong. See the server log for details."
+  },
+  "card": {
+    "lastSync": "Last sync: {{date}}",
+    "never": "Never synced",
+    "enabled": "Sync automatically",
+    "syncNow": "Sync now",
+    "test": "Test connection",
+    "testOk": "Connection works.",
+    "delete": "Delete",
+    "showLog": "Show sync log",
+    "hideLog": "Hide sync log",
+    "actionError": "That didn't work. Try again."
+  },
+  "deleteDialog": {
+    "title": "Delete {{name}}?",
+    "body": "Imported printers and prints stay. The credentials and the sync log are removed."
+  },
+  "runs": {
+    "empty": "No syncs yet.",
+    "started": "Started",
+    "trigger": "Trigger",
+    "result": "Result",
+    "manual": "Manual",
+    "scheduled": "Scheduled",
+    "created_one": "{{count}} imported",
+    "created_other": "{{count}} imported",
+    "skipped_one": "{{count}} already known",
+    "skipped_other": "{{count}} already known"
+  },
+  "form": {
+    "title": "Add integration",
+    "adapter": "Service",
+    "name": "Name",
+    "nameHint": "Shown in this list, e.g. \"Workshop account\".",
+    "secretHint": "Stored encrypted on this computer.",
+    "save": "Add",
+    "error": "Couldn't add the integration. Check the fields."
+  },
+  "adapters": {
+    "mock": {
+      "name": "Demo data (mock)",
+      "fields": {
+        "label": "Label",
+        "token": "Token"
+      }
+    }
+  }
+}

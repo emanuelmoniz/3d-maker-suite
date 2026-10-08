@@ -2,5 +2,28 @@
   "files": { "includes": ["**", "!**/dist", "!**/node_modules", "!.claude", "!pnpm-lock.yaml"] },
   "formatter": { "indentStyle": "space", "lineWidth": 100 },
   "css": { "parser": { "tailwindDirectives": true } },
-  "javascript": { "formatter": { "quoteStyle": "double" } }
+  "javascript": { "formatter": { "quoteStyle": "double" } },
+  "linter": {
+    "rules": {
+      "style": {
+        "noRestrictedImports": {
+          "level": "error",
+          "options": {
+            "patterns": [
+              {
+                "group": ["@3d-maker-suite/adapter-*"],
+                "message": "Vendor adapters are imported only by apps/server/src/integrations/registry.ts (ADR-0003)."
+              }
+            ]
+          }
+        }
+      }
+    }
+  },
+  "overrides": [
+    {
+      "includes": ["apps/server/src/integrations/registry.ts", "apps/server/src/**/*.test.ts"],
+      "linter": { "rules": { "style": { "noRestrictedImports": "off" } } }
+    }
+  ]
 }
