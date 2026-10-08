@@ -1,0 +1,218 @@
+# Architecture
+
+3D Maker Suite is a local-first web app: a Fastify server on the user's PC serves a React SPA and owns a single SQLite database. Vendor integrations (Bambu Lab first) plug in through small capability interfaces defined in core.
+
+Decisions behind this document live in [`docs/adr`](adr/):
+
+| ADR | Decision |
+|---|---|
+| [0001](adr/0001-local-only-run.md) | Run locally, bind to 127.0.0.1, no auth |
+| [0002](adr/0002-sqlite.md) | SQLite via better-sqlite3 + Drizzle |
+| [0003](adr/0003-adapter-pattern.md) | Brand-agnostic core, vendor adapters |
+| [0004](adr/0004-i18n-strategy.md) | i18next, Intl formatting, error codes from the API |
+| [0005](adr/0005-secrets-storage.md) | AES-256-GCM with a local key file |
+| [0006](adr/0006-bambu-cloud-first.md) | Bambu Cloud is the first integration |
+
+## Packages
+
+```mermaid
+flowchart LR
+  web["apps/web<br/>React SPA"] -->|HTTP /api| server["apps/server<br/>Fastify, jobs"]
+  server --> core["packages/core<br/>schemas, services, interfaces"]
+  server --> db["packages/db<br/>Drizzle schema + migrations"]
+  server --> mf["packages/3mf<br/>3MF parser"]
+  server -.->|composition root only| bambu["packages/adapters/bambu"]
+  db --> core
+  bambu --> core
+  web --> core
+```
+
+- `packages/core` imports no vendor code. Neither does `apps/web`, and in `apps/server` only the composition root that builds the adapter registry may import one.
+- `apps/web` imports only zod schemas and types from core. It never imports services.
+- Zod schemas in `packages/core/src/schemas` are the single source of types. API validation, OpenAPI and the frontend all use them.
+
+## Conventions
+
+- **IDs:** `crypto.randomUUID()` as text.
+- **Time:** UTC ISO 8601 strings, shown in the user's locale and time zone.
+- **Units:** mass in grams, length in mm, duration in seconds.
+- **Money:** integer minor units in one app currency, set in Settings.
+- **Display:** all formatting goes through `Intl` (see ADR-0004).
+- **Imported rows:** any row that can come from an integration has `origin: 'manual' | 'integration'`, `integrationId?` and `externalId?`, with a unique constraint on `(integrationId, externalId)`. That makes sync an idempotent upsert.
+- **Soft archive:** printers and spools get `archivedAt` instead of being deleted, so their history stays intact.
+
+## Domain glossary
+
+| Entity | Meaning | Key fields |
+|---|---|---|
+| **Printer** | A physical machine | name, brand, model, serial?, nozzleDiameterMm, hoursOffset, printsOffset (baseline for a used machine), archivedAt? |
+| **MaintenanceType** | Reusable maintenance template | name, intervalHours?, intervalPrints?, intervalDays? (the first one reached triggers), appliesToModel? |
+| **MaintenanceTask** | A logged "done" event | printerId, typeId, doneAt, printerHoursAt, printerPrintsAt, notes? |
+| **FilamentProfile** | A material spec | brand, material (PLA, PETG…), name, colorHex, diameterMm, densityGcm3, pricePerKg? |
+| **Spool** | A physical roll of filament | profileId, initialGrams, remainingGrams, pricePaid, purchasedAt?, openedAt?, location?, archivedAt? |
+| **Print** | One print job | printerId, projectId?, title, plate?, startedAt, durationSec, outcome, failureReason?, notes?, costSnapshot? |
+| **PrintFilamentUsage** | Filament used by one print, one row per slot (AMS) | printId, spoolId?, profileId?, grams, slot? |
+| **PrintOutcome** | Value type on Print, no table of its own | `'success' \| 'failed' \| 'cancelled'`, plus an optional failureReason |
+| **Project** | A printable model, usually a 3MF file | name, filePath?, sourceUrl?, thumbnailPath?, meta (plates, estimated time and grams per plate) |
+| **Tag** | Free-form label | name, color. Many-to-many with Project, Print and Spool |
+| **Collection** | Manual, ordered group of Projects | name, description?. Membership: CollectionProject(collectionId, projectId, position) |
+| **Integration** | A configured adapter instance | adapterId (e.g. `bambu-cloud`), name, enabled, config (JSON, not secret), secrets (encrypted), status, lastSyncAt?, lastError? |
+| **Alert** | A persisted notice raised by a job | kind, entityType, entityId, createdAt, readAt?, resolvedAt? |
+
+Notes:
+
+- **Maintenance "due" is computed, not stored.** It comes from the latest MaintenanceTask for each (printer, type), compared with the printer's current hours, print count and the date.
+- **Printer totals are derived.** Hours and print count are the sum of its Prints plus `hoursOffset`/`printsOffset`.
+- **Usage keeps the profile.** `PrintFilamentUsage.spoolId` can be null for imported prints where the spool is unknown. `profileId` keeps the material, so cost and stats still work.
+- **Cost is snapshotted.** `costSnapshot` freezes the computed cost when a print is recorded, so later price changes don't rewrite history (cost engine: Step 19).
+- **Alert kinds:** `maintenance_due`, `spool_low`, `sync_failed`, `print_failed`. At most one unresolved alert exists per (kind, entityType, entityId).
+- **Tag storage** (one join table per entity or one polymorphic table) is decided in Step 2.
+
+## Entity relations
+
+```mermaid
+erDiagram
+  Printer ||--o{ MaintenanceTask : "has"
+  MaintenanceType ||--o{ MaintenanceTask : "instance of"
+  Printer ||--o{ Print : "runs"
+  Project |o--o{ Print : "printed as"
+  Print ||--|{ PrintFilamentUsage : "uses"
+  Spool |o--o{ PrintFilamentUsage : "consumed from"
+  FilamentProfile |o--o{ PrintFilamentUsage : "material"
+  FilamentProfile ||--o{ Spool : "describes"
+  Collection ||--o{ CollectionProject : "contains"
+  Project ||--o{ CollectionProject : "member of"
+  Tag }o--o{ Project : "labels"
+  Tag }o--o{ Print : "labels"
+  Tag }o--o{ Spool : "labels"
+  Integration |o--o{ Printer : "imports"
+  Integration |o--o{ Print : "imports"
+  Integration |o--o{ FilamentProfile : "imports"
+  Integration |o--o{ Project : "imports"
+```
+
+`Alert` points to any entity through `(entityType, entityId)`. It is left out of the diagram because it has no foreign key.
+
+## Integration interfaces
+
+These live in `packages/core/src/integrations` (Step 11). Rules:
+
+- Adapters **return DTOs and never touch the database.** Core validates the DTOs with zod and upserts them by `(integrationId, externalId)`.
+- Each capability is an optional property on the instance. An adapter implements only what its vendor supports.
+- The DTO types below are the `z.infer` shapes of zod schemas in `packages/core/src/schemas`.
+
+```ts
+interface IntegrationAdapter {
+  id: string;                    // 'bambu-cloud'; UI name is the i18n key `integrations:<id>.name`
+  configSchema: ZodType;         // non-secret settings
+  secretsSchema: ZodType;        // fields encrypted at rest (ADR-0005)
+  create(ctx: IntegrationContext): IntegrationInstance;
+}
+
+interface IntegrationContext {
+  config: unknown;               // parsed by the adapter with configSchema
+  secrets: SecretStore;
+  log: Logger;                   // pino child logger, secret paths redacted
+  signal: AbortSignal;
+}
+
+interface SecretStore {          // scoped to one Integration row
+  get(key: string): Promise<string | undefined>;
+  set(key: string, value: string): Promise<void>;   // e.g. refreshed tokens
+  delete(key: string): Promise<void>;
+}
+
+interface IntegrationInstance {
+  test(): Promise<{ ok: true } | { ok: false; code: IntegrationErrorCode }>;
+  printers?: PrinterInventorySource;
+  printHistory?: PrintHistorySource;
+  filaments?: FilamentLibrarySource;
+  projects?: ProjectSource;
+  slicer?: SlicerLauncher;
+  marketplace?: MarketplaceLinker;
+}
+
+type IntegrationErrorCode =
+  | 'auth_required' | 'auth_expired' | 'rate_limited' | 'unreachable' | 'unknown';
+
+interface PrinterInventorySource {
+  listPrinters(): Promise<ExternalPrinter[]>;
+}
+
+interface PrintHistorySource {
+  listPrints(q: { since?: string; cursor?: string }):
+    Promise<{ items: ExternalPrint[]; nextCursor?: string }>;
+}
+
+interface FilamentLibrarySource {
+  listProfiles(): Promise<ExternalFilamentProfile[]>;
+}
+
+interface ProjectSource {
+  scan(): AsyncIterable<ExternalProject>;
+  watch?(onChange: (e: { type: 'upsert' | 'remove'; externalId: string }) => void): () => void;
+}
+
+interface SlicerLauncher {
+  canOpen(filePath: string): boolean;
+  open(filePath: string): Promise<void>;
+}
+
+interface MarketplaceLinker {     // pure, no network in v1
+  matchUrl(url: string): ListingRef | null;
+  findInProject(meta: ProjectMeta): ListingRef | null;  // e.g. designer URL in 3MF metadata
+}
+
+type ExternalPrinter = {
+  externalId: string; name: string; model: string;
+  serial?: string; nozzleDiameterMm?: number;
+};
+
+type ExternalPrint = {
+  externalId: string; printerExternalId: string; title: string; startedAt: string;
+  durationSec?: number; outcome: PrintOutcome; failureReason?: string;
+  filaments: { slot?: number; material?: string; colorHex?: string; grams: number }[];
+  projectFileName?: string; thumbnailUrl?: string;
+};
+
+type ExternalFilamentProfile = {
+  externalId: string; brand: string; material: string; name: string;
+  colorHex?: string; diameterMm: number; densityGcm3?: number;
+};
+
+type ExternalProject = { externalId: string; name: string; filePath: string; modifiedAt: string };
+
+type ListingRef = { marketplace: string; listingId: string; url: string };
+```
+
+The local-folder `ProjectSource` (3MF folder watcher, Step 16) isn't tied to any vendor. It ships as a built-in source in the server, not as an adapter package.
+
+### Sync flow
+
+```mermaid
+sequenceDiagram
+  participant Job as croner job
+  participant Reg as adapter registry
+  participant Ad as adapter instance
+  participant Core as core services
+  participant DB as SQLite
+  Job->>Reg: instance for Integration row
+  Reg->>Ad: create(ctx with config, secrets, log)
+  Job->>Ad: printHistory.listPrints({ since: lastSyncAt })
+  Ad-->>Job: ExternalPrint[] (+ nextCursor)
+  Job->>Core: zod parse, then upsert by (integrationId, externalId)
+  Core->>DB: write prints and usages, raise alerts
+  Job->>DB: set lastSyncAt, status = ok
+  Note over Job,DB: On error: status = error code, lastError, raise sync_failed alert
+```
+
+## Runtime layout
+
+See ADR-0001. The data directory holds:
+
+```
+app.sqlite        database (WAL mode)
+secret.key        32-byte encryption key, user-only permissions
+thumbnails/       extracted 3MF / print thumbnails
+backups/          VACUUM INTO snapshots
+```
