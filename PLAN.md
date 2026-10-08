@@ -109,7 +109,7 @@ Do Step 8 of PLAN.md. Keep Profile vs Spool separate (many spools per profile).
 Every remaining-weight change is a ledger entry (manual / print / correction).
 ```
 
-### [ ] Step 9 - Prints (manual) & outcome tracking
+### [x] Step 9 - Prints (manual) & outcome tracking
 **Model:** Sonnet · **Effort:** Medium
 **Scope:** Manual print entry: name, printer, project (optional), start/end/duration, one or more spools with grams used, outcome (success / failed / cancelled) + failure reason (configurable list) + notes, energy (estimated from printer W × time, or manual override). Saving deducts filament via the ledger. Source field (`manual` / integration id).
 **Done when:** creating, editing or deleting a print keeps spool weights consistent.

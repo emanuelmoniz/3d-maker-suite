@@ -45,6 +45,7 @@ export function SettingsPage() {
   if (!data) return null;
   const v = data.values;
   const states = v.printerStates.join("\n");
+  const reasons = v.failureReasons.join("\n");
 
   // Text/number inputs commit on blur (uncontrolled, re-keyed by saved value); selects commit on change.
   const commit = (patch: Partial<Preferences>) => save.mutate(patch);
@@ -180,6 +181,31 @@ export function SettingsPage() {
                   if (next.length && next.join("|") !== v.printerStates.join("|"))
                     commit({ printerStates: next });
                   else e.target.value = states;
+                }}
+              />
+            )}
+          </FormField>
+        </Section>
+
+        <Section title={t("settings:sections.prints")}>
+          <FormField label={t("settings:prints.label")} hint={t("settings:prints.hint")}>
+            {(p) => (
+              <textarea
+                {...p}
+                className={`${inputClass} h-24 py-2`}
+                key={`reasons-${reasons}`}
+                defaultValue={reasons}
+                onBlur={(e) => {
+                  const next = [
+                    ...new Set(
+                      e.target.value
+                        .split(/\r?\n/)
+                        .map((l) => l.trim())
+                        .filter(Boolean),
+                    ),
+                  ];
+                  if (next.join("|") !== v.failureReasons.join("|"))
+                    commit({ failureReasons: next });
                 }}
               />
             )}

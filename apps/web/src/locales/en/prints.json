@@ -1,0 +1,50 @@
+{
+  "loadError": "Couldn't load prints. Is the server running?",
+  "list": {
+    "table": "Prints",
+    "emptyTitle": "No prints yet",
+    "emptyBody": "Log a print to track how it went and how much filament it used.",
+    "add": "Add print",
+    "edit": "Edit",
+    "delete": "Delete",
+    "columns": {
+      "title": "Print",
+      "startedAt": "Started",
+      "printer": "Printer",
+      "outcome": "Outcome",
+      "duration": "Duration",
+      "filament": "Filament"
+    }
+  },
+  "outcomes": { "success": "Success", "failed": "Failed", "cancelled": "Cancelled" },
+  "form": {
+    "addTitle": "Add print",
+    "editTitle": "Edit print",
+    "title": "Name",
+    "printer": "Printer",
+    "startedAt": "Started",
+    "hours": "Hours",
+    "minutes": "Minutes",
+    "duration": "Duration",
+    "outcome": "Outcome",
+    "failureReason": "Failure reason",
+    "noReason": "No reason",
+    "notes": "Notes",
+    "energy": "Energy (Wh)",
+    "energyHint": "Leave empty to estimate from the printer's power and the duration.",
+    "filament": "Filament used",
+    "filamentHint": "Failed or cancelled prints still use filament; enter the partial amount.",
+    "spool": "Spool",
+    "grams": "Grams",
+    "addSpool": "Add spool",
+    "removeSpool": "Remove spool",
+    "spoolOption": "{{filament}} · {{weight}} left",
+    "save": "Save print",
+    "error": "Couldn't save the print. Check that every spool has enough filament."
+  },
+  "delete": {
+    "title": "Delete this print?",
+    "body": "“{{title}}” will be removed and its filament returned to the spools.",
+    "confirm": "Delete print"
+  }
+}

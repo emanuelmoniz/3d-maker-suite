@@ -9,7 +9,7 @@ const { spools, spoolWeightEntries } = schema;
  * transaction. Returns the updated spool, or `null` when the weight is unchanged (no entry).
  */
 export function setRemaining(
-  db: Db,
+  db: Pick<Db, "transaction">,
   spoolId: string,
   kind: WeightEntryKind,
   remainingGrams: number,

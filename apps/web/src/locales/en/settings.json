@@ -10,6 +10,7 @@
     "appearance": "Appearance",
     "costs": "Costs",
     "printers": "Printers",
+    "prints": "Prints",
     "projects": "Projects",
     "integrations": "Integrations",
     "alerts": "Alerts"
@@ -51,6 +52,10 @@
     "hint": "Thresholds are saved now and used when alerts are built.",
     "lowSpool": "Low spool warning (grams left)",
     "maintenanceLead": "Maintenance warning (days before due)"
+  },
+  "prints": {
+    "label": "Failure reasons",
+    "hint": "One per line. Offered when a print fails or is cancelled."
   },
   "printers": {
     "label": "Printer states",

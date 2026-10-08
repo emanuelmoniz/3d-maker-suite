@@ -18,6 +18,7 @@ const shape = {
   lowSpoolGrams: z.number().nonnegative(),
   maintenanceLeadDays: z.number().int().nonnegative(),
   printerStates: z.array(z.string().min(1)).min(1),
+  failureReasons: z.array(z.string().min(1)),
 };
 
 /** User preferences. Each key is one row in `settings`; missing rows fall back to these defaults. */
@@ -36,6 +37,16 @@ export const PREFERENCE_DEFAULTS: z.infer<typeof preferencesSchema> = {
   lowSpoolGrams: 100,
   maintenanceLeadDays: 7,
   printerStates: ["working", "maintenance", "inop", "retired"],
+  failureReasons: [
+    "Spaghetti",
+    "Bed adhesion",
+    "Warping",
+    "Layer shift",
+    "Clog",
+    "Filament runout",
+    "Power loss",
+    "Other",
+  ],
 };
 
 export const preferencesPatchSchema = preferencesSchema.partial().strict();
