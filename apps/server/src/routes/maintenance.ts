@@ -1,13 +1,10 @@
 import {
   apiErrorSchema,
-  appliesToPrinter,
   archivedFilter,
   idList,
   listQuery,
-  type MaintenanceDueItem,
   type MaintenanceTask,
   type MaintenanceType,
-  maintenanceDue,
   maintenanceDueItemSchema,
   maintenanceLogSchema,
   maintenanceTaskSchema,
@@ -18,16 +15,16 @@ import {
   maintenanceTypeSortFields,
   type Page,
   pageOf,
-  type UsageSnapshot,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
-import { and, asc, count, eq, isNotNull, isNull, lte, sum } from "drizzle-orm";
+import { eq, isNotNull, isNull } from "drizzle-orm";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
 import { inIds, listPage } from "../lib/list.ts";
+import { dueItems, usageOf } from "../lib/maintenance.ts";
 
-const { maintenanceTypes, maintenanceTasks, printers, prints } = schema;
+const { maintenanceTypes, maintenanceTasks, printers } = schema;
 const params = z.object({ id: z.uuid() });
 const notFound = { 404: apiErrorSchema };
 
@@ -43,20 +40,6 @@ export const maintenanceRoutes =
       const row = db.select().from(printers).where(eq(printers.id, id)).get();
       if (!row) throw new HttpError(404, "not_found", "Printer not found");
       return row;
-    };
-
-    /** Lifetime runtime and print count (offsets + logged prints), optionally up to a date. */
-    const usageOf = (p: typeof printers.$inferSelect, upTo?: string): UsageSnapshot => {
-      const row = db
-        .select({ sec: sum(prints.durationSec), n: count() })
-        .from(prints)
-        .where(and(eq(prints.printerId, p.id), upTo ? lte(prints.startedAt, upTo) : undefined))
-        .get();
-      return {
-        at: upTo ?? new Date().toISOString(),
-        runtimeSec: p.runtimeOffsetSec + Number(row?.sec ?? 0),
-        prints: p.printsOffset + (row?.n ?? 0),
-      };
     };
 
     // --- Types
@@ -149,7 +132,7 @@ export const maintenanceRoutes =
         if (getType(req.body.typeId).archivedAt)
           throw new HttpError(400, "type_archived", "Maintenance type is archived");
         const doneAt = req.body.doneAt ?? new Date().toISOString();
-        const at = usageOf(printer, doneAt);
+        const at = usageOf(db, printer, doneAt);
         const row = db
           .insert(maintenanceTasks)
           .values({
@@ -178,54 +161,7 @@ export const maintenanceRoutes =
         },
       },
       async (req) => {
-        const types = db
-          .select()
-          .from(maintenanceTypes)
-          .where(isNull(maintenanceTypes.archivedAt))
-          .all();
-        const active = db
-          .select()
-          .from(printers)
-          .where(
-            and(
-              isNull(printers.archivedAt),
-              req.query.printerId ? eq(printers.id, req.query.printerId) : undefined,
-            ),
-          )
-          .all();
-        // Oldest first, so the last task seen per printer x type is the latest.
-        const lastDone = new Map<string, typeof maintenanceTasks.$inferSelect>();
-        for (const t of db
-          .select()
-          .from(maintenanceTasks)
-          .orderBy(asc(maintenanceTasks.doneAt))
-          .all())
-          lastDone.set(`${t.printerId}:${t.typeId}`, t);
-
-        const items: MaintenanceDueItem[] = [];
-        for (const p of active) {
-          const now = usageOf(p);
-          for (const type of types) {
-            if (!appliesToPrinter(type.appliesToModel, p.model)) continue;
-            const last = lastDone.get(`${p.id}:${type.id}`);
-            // Never done: counts from purchase (or from when the printer was added).
-            const since: UsageSnapshot = last
-              ? {
-                  at: last.doneAt,
-                  runtimeSec: last.printerRuntimeSecAt,
-                  prints: last.printerPrintsAt,
-                }
-              : { at: p.purchasedAt ?? p.createdAt, runtimeSec: 0, prints: 0 };
-            items.push({
-              printerId: p.id,
-              printerName: p.name,
-              typeId: type.id,
-              typeName: type.name,
-              lastDoneAt: last?.doneAt ?? null,
-              ...maintenanceDue(type, since, now),
-            });
-          }
-        }
+        const items = dueItems(db, req.query.printerId);
         return items
           .filter((i) => req.query.attention === "false" || i.status !== "ok")
           .sort((a, b) => b.progress - a.progress);

@@ -27,6 +27,7 @@ const app = await buildApp(
     adapters: adapters({ mock: config.mockIntegration }),
     filamentLibraries: filamentLibraries(),
     syncSchedule: "*/15 * * * *",
+    alertsSchedule: "0 8 * * *",
     watchProjects: true,
   },
 );

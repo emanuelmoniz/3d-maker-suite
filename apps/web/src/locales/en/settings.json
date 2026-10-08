@@ -64,9 +64,10 @@
     "manage": "Manage integrations"
   },
   "alerts": {
-    "hint": "Thresholds are saved now and used when alerts are built.",
+    "hint": "Alerts appear in the Alerts page. Optionally also send them to a phone or inbox.",
     "lowSpool": "Low spool warning (grams left)",
-    "maintenanceLead": "Maintenance warning (days before due)"
+    "maintenanceLead": "Maintenance warning (days before due)",
+    "channels": "Send alerts elsewhere"
   },
   "prints": {
     "label": "Failure reasons",

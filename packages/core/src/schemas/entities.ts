@@ -218,7 +218,11 @@ export const alertSchema = z.object({
   entityType: z.string(),
   entityId: z.string(),
   createdAt: isoDate,
+  /** Names and numbers for display, captured when the alert was raised. */
+  context: z.record(z.string(), z.union([z.string(), z.number()])),
   readAt: isoDate.nullable(),
+  snoozedUntil: isoDate.nullable(),
+  dismissedAt: isoDate.nullable(),
   resolvedAt: isoDate.nullable(),
 });
 

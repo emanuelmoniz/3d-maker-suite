@@ -2,13 +2,30 @@ import { Link, Outlet } from "@tanstack/react-router";
 import { Ellipsis, Printer } from "lucide-react";
 import { useRef } from "react";
 import { useTranslation } from "react-i18next";
+import { unreadCount, useAlerts } from "../lib/alerts.ts";
 import { cx } from "../lib/cx.ts";
 import { ALL_ITEMS, NAV_GROUPS, type NavItem, SETTINGS_ITEM } from "./nav.ts";
 import { ThemeToggle } from "./ThemeToggle.tsx";
 
 const linkClass =
-  "flex items-center gap-3 rounded-md px-2.5 h-9 text-muted hover:bg-surface-2 hover:text-fg " +
+  "relative flex items-center gap-3 rounded-md px-2.5 h-9 text-muted hover:bg-surface-2 hover:text-fg " +
   "data-[status=active]:bg-accent-soft data-[status=active]:text-accent data-[status=active]:font-medium";
+
+/** Unread-alert count on the Alerts nav item. */
+function Badge({ to }: { to: string }) {
+  const { t } = useTranslation();
+  const count = unreadCount(useAlerts().data);
+  if (to !== "/alerts" || !count) return null;
+  return (
+    <span
+      role="status"
+      aria-label={t("nav:unreadAlerts", { count })}
+      className="ml-auto min-w-5 rounded-full bg-bad px-1.5 text-center text-xs font-medium text-white max-lg:absolute max-lg:right-0.5 max-lg:top-0.5 max-lg:ml-0 max-lg:min-w-4 max-lg:px-1 max-lg:text-[10px]"
+    >
+      {count}
+    </span>
+  );
+}
 
 function SideLink({ item }: { item: NavItem }) {
   const { t } = useTranslation();
@@ -22,6 +39,7 @@ function SideLink({ item }: { item: NavItem }) {
     >
       <Icon className="size-[18px] shrink-0" aria-hidden />
       <span className="hidden lg:inline">{t(item.label)}</span>
+      <Badge to={item.to} />
     </Link>
   );
 }
@@ -100,6 +118,7 @@ function BottomNav() {
             <Link key={i.to} to={i.to} className={linkClass} onClick={() => sheet.current?.close()}>
               <i.icon className="size-[18px]" aria-hidden />
               {t(i.label)}
+              <Badge to={i.to} />
             </Link>
           ))}
         </div>

@@ -246,7 +246,12 @@ export function createSyncer(
         .where(eq(integrations.id, id))
         .run();
       db.insert(alerts)
-        .values({ kind: "sync_failed", entityType: "integration", entityId: id })
+        .values({
+          kind: "sync_failed",
+          entityType: "integration",
+          entityId: id,
+          context: { name: row.name },
+        })
         .onConflictDoNothing()
         .run();
     } finally {

@@ -12,10 +12,12 @@ import {
   serializerCompiler,
   validatorCompiler,
 } from "fastify-type-provider-zod";
+import { evaluateAlerts } from "./alerts/evaluate.ts";
 import { HttpError } from "./errors.ts";
 import { loadKey } from "./integrations/secrets.ts";
 import { createSyncer } from "./integrations/sync.ts";
 import { createProjectScanner } from "./projects/scanner.ts";
+import { alertsRoutes } from "./routes/alerts.ts";
 import { costsRoutes } from "./routes/costs.ts";
 import { filamentRoutes } from "./routes/filament.ts";
 import { healthRoutes } from "./routes/health.ts";
@@ -37,6 +39,8 @@ export async function buildApp(
     adapters?: IntegrationAdapter[];
     filamentLibraries?: FilamentLibrary[];
     syncSchedule?: string;
+    /** Cron for the alert check. Also turns on the check after every successful change. */
+    alertsSchedule?: string;
     /** Watch the project folders and scan once at startup (off in tests). */
     watchProjects?: boolean;
   } = {},
@@ -94,8 +98,29 @@ export async function buildApp(
   const key = dataDir ? loadKey(dataDir) : randomBytes(32);
   const syncer = createSyncer(db, opts.adapters ?? [], key, app.log);
   await app.register(integrationsRoutes(db, key, syncer), { prefix: "/api/integrations" });
+
+  // Runs one at a time, so a condition can't be sent twice by overlapping checks.
+  let queue = Promise.resolve();
+  const evaluate = () =>
+    (queue = queue
+      .then(() => evaluateAlerts(db, key, app.log))
+      .catch((err) => app.log.error({ err }, "alert check failed")));
+  await app.register(alertsRoutes(db, key, evaluate), { prefix: "/api/alerts" });
+  if (opts.alertsSchedule) {
+    const daily = new Cron(opts.alertsSchedule, { protect: true }, evaluate);
+    app.addHook("onClose", async () => daily.stop());
+    app.addHook("onReady", async () => void evaluate());
+    // On-event checks: any change that went through can open or clear an alert.
+    app.addHook("onResponse", async (req, reply) => {
+      if (req.method !== "GET" && reply.statusCode < 400 && !req.url.startsWith("/api/alerts"))
+        void evaluate();
+    });
+  }
   if (opts.syncSchedule) {
-    const job = new Cron(opts.syncSchedule, { protect: true }, () => syncer.runAll());
+    const job = new Cron(opts.syncSchedule, { protect: true }, async () => {
+      await syncer.runAll();
+      await evaluate();
+    });
     app.addHook("onClose", async () => job.stop());
   }
   return app;

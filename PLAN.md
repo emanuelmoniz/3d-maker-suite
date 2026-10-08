@@ -252,7 +252,7 @@ Do Step 21 of PLAN.md. Widgets are self-registering components with a settings s
 so new widgets are easy to add.
 ```
 
-### [ ] Step 22 - Alerts
+### [x] Step 22 - Alerts
 **Model:** Sonnet · **Effort:** Medium
 **Scope:** Rules: spool below X g or %, maintenance due/overdue, warranty ending, sync errors. In-app notification center + badge; optional channels behind an interface: ntfy and email (SMTP). Daily evaluation job + on-event checks; snooze/dismiss.
 **Done when:** alerts fire once (no spam) and clear when resolved.

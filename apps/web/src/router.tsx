@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { EmptyState } from "./components/EmptyState.tsx";
 import { loadNamespace } from "./i18n.ts";
+import { AlertsPage } from "./pages/alerts/AlertsPage.tsx";
 import { CostsPage } from "./pages/costs/CostsPage.tsx";
 import { FilamentPage } from "./pages/filament/FilamentPage.tsx";
 import { LibraryImportPage } from "./pages/filament/LibraryImportPage.tsx";
@@ -57,6 +58,7 @@ const built = [
   "/projects",
   "/costs",
   "/stats",
+  "/alerts",
 ];
 const modules = ALL_ITEMS.filter((i) => !built.includes(i.to)).map((item) =>
   createRoute({
@@ -206,8 +208,14 @@ const routes: AnyRoute[] = [
   }),
   createRoute({
     getParentRoute: () => root,
+    path: "/alerts",
+    loader: () => loadNamespace("alerts"),
+    component: AlertsPage,
+  }),
+  createRoute({
+    getParentRoute: () => root,
     path: SETTINGS_ITEM.to,
-    loader: () => loadNamespace("settings"),
+    loader: () => Promise.all([loadNamespace("settings"), loadNamespace("alerts")]),
     component: SettingsPage,
   }),
   ...[

@@ -9,6 +9,7 @@ import { useLibrarySources } from "../lib/filament.ts";
 import { usePreferences, useSavePreferences } from "../lib/preferences.ts";
 import { ACCENTS, setTheme } from "../lib/theme.ts";
 import { ThemeToggle } from "../shell/ThemeToggle.tsx";
+import { ChannelsSection } from "./alerts/ChannelsSection.tsx";
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -343,6 +344,10 @@ export function SettingsPage() {
           <FormField label={t("settings:alerts.maintenanceLead")}>
             {(p) => <input {...p} className={inputClass} {...num("maintenanceLeadDays")} />}
           </FormField>
+        </Section>
+
+        <Section title={t("settings:alerts.channels")}>
+          <ChannelsSection />
         </Section>
       </div>
     </>

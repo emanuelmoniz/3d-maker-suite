@@ -1,0 +1,50 @@
+{
+  "active": "Needs attention",
+  "snoozedTitle": "Snoozed",
+  "snoozedUntil": "Snoozed until {{date}}",
+  "unread": "Unread",
+  "markRead": "Mark as read",
+  "snooze_one": "Snooze {{count}} day",
+  "snooze_other": "Snooze {{count}} days",
+  "dismiss": "Dismiss",
+  "empty": {
+    "title": "All clear",
+    "body": "Low spools, maintenance due, ending warranties and sync problems show up here."
+  },
+  "kinds": {
+    "spool_low": "{{name}} is down to {{grams}} g",
+    "maintenance_due": "{{task}} is due soon on {{printer}}",
+    "maintenance_overdue": "{{task}} is overdue on {{printer}}",
+    "warranty_ending_one": "Warranty of {{name}} ends in {{count}} day",
+    "warranty_ending_other": "Warranty of {{name}} ends in {{count}} days",
+    "sync_failed": "{{name}} could not sync",
+    "print_failed": "A print failed"
+  },
+  "channels": {
+    "enabled": "Send alerts here",
+    "save": "Save",
+    "test": "Send test",
+    "secretKept": "Saved. Leave empty to keep it.",
+    "status": {
+      "saved": "Saved",
+      "testOk": "Test sent",
+      "testFailed": "Test failed. Check the settings.",
+      "invalid": "Fill in all required fields to turn this on."
+    },
+    "ntfy": {
+      "name": "ntfy",
+      "server": "Server",
+      "topic": "Topic",
+      "token": "Access token (optional)"
+    },
+    "email": {
+      "name": "Email (SMTP)",
+      "host": "SMTP server",
+      "port": "Port",
+      "user": "Username (optional)",
+      "password": "Password",
+      "from": "From address",
+      "to": "To address"
+    }
+  }
+}

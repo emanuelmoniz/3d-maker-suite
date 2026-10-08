@@ -390,8 +390,14 @@ export const alerts = sqliteTable(
     kind: text({ enum: ALERT_KINDS }).notNull(),
     entityType: text().notNull(),
     entityId: text().notNull(),
+    context: text({ mode: "json" }).notNull().$type<Record<string, string | number>>().default({}),
     createdAt: text().notNull().$defaultFn(now),
     readAt: text(),
+    /** When the channels were told; null = still to send. Re-armed when a snooze ends. */
+    notifiedAt: text(),
+    snoozedUntil: text(),
+    /** Hidden until the condition resolves and comes back. */
+    dismissedAt: text(),
     resolvedAt: text(),
   },
   (t) => [

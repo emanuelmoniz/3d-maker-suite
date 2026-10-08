@@ -2,7 +2,13 @@
 export const ORIGINS = ["manual", "integration"] as const;
 export const PRINT_OUTCOMES = ["success", "failed", "cancelled"] as const;
 export const ENERGY_SOURCES = ["estimated", "measured"] as const;
-export const ALERT_KINDS = ["maintenance_due", "spool_low", "sync_failed", "print_failed"] as const;
+export const ALERT_KINDS = [
+  "maintenance_due",
+  "spool_low",
+  "sync_failed",
+  "print_failed",
+  "warranty_ending",
+] as const;
 export const COMMENT_STATUSES = ["open", "resolved"] as const;
 export const SPOOL_STATUSES = ["new", "in_use", "empty"] as const;
 // Why a spool's remaining weight changed. "print" entries are written by prints (Step 9+).

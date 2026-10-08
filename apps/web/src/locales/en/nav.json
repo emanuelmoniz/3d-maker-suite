@@ -5,6 +5,8 @@
     "work": "Work",
     "insights": "Insights"
   },
+  "unreadAlerts_one": "{{count}} unread alert",
+  "unreadAlerts_other": "{{count}} unread alerts",
   "items": {
     "home": { "label": "Home", "description": "Your workshop at a glance." },
     "printers": { "label": "Printers", "description": "Machines, status and history." },

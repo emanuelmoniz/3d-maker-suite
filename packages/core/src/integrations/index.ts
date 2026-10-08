@@ -95,3 +95,24 @@ export class IntegrationError extends Error {
     super(code);
   }
 }
+
+/** What a channel delivers. Plain text; channels don't know about alert kinds. */
+export interface Notification {
+  title: string;
+  body: string;
+}
+
+/** Where alerts go besides the in-app center (ntfy, email, ...). Settings are stored like an integration's. */
+export interface NotificationChannel {
+  /** e.g. "ntfy". The UI name is the i18n key `alerts:channels.<id>.name`. */
+  id: string;
+  /** Non-secret settings, plain JSON. */
+  configSchema: z.ZodObject;
+  /** Fields encrypted at rest (ADR-0005). String values only. */
+  secretsSchema: z.ZodObject;
+  /** Throws on failure. */
+  send(
+    settings: { config: unknown; secrets: Record<string, string> },
+    n: Notification,
+  ): Promise<void>;
+}
