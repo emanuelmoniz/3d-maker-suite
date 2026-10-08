@@ -9,13 +9,7 @@ import { EmptyState } from "../../components/EmptyState.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { TagFilter } from "../../components/TagFilter.tsx";
 import { TagList } from "../../components/TagList.tsx";
-import {
-  filamentLabel,
-  usePatchProfile,
-  usePatchSpool,
-  useProfiles,
-  useSpools,
-} from "../../lib/filament.ts";
+import { filamentLabel, usePatchProfile, useProfiles, useSpools } from "../../lib/filament.ts";
 import { formatCurrency, formatWeight } from "../../lib/format.ts";
 import { usePreferences } from "../../lib/preferences.ts";
 import { useTagsOf } from "../../lib/tags.ts";
@@ -58,7 +52,6 @@ export function FilamentPage() {
   const spools = useSpools(tagId);
   const tagsOf = useTagsOf("spool");
   const patchProfile = usePatchProfile();
-  const patchSpool = usePatchSpool();
   const [adjusting, setAdjusting] = useState<Spool | null>(null);
   const profileOf = new Map(profiles.data?.items.map((p) => [p.id, p]));
   const spoolPrice = (s: Spool) => {
@@ -172,17 +165,7 @@ export function FilamentPage() {
                     id: "action",
                     header: "",
                     cell: (s) => (
-                      <span className="flex gap-1">
-                        <Button onClick={() => setAdjusting(s)}>
-                          {t("filament:spools.adjust")}
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          onClick={() => patchSpool.mutate({ id: s.id, patch: { archived: true } })}
-                        >
-                          {t("filament:spools.archive")}
-                        </Button>
-                      </span>
+                      <Button onClick={() => setAdjusting(s)}>{t("filament:spools.adjust")}</Button>
                     ),
                   },
                 ]}
