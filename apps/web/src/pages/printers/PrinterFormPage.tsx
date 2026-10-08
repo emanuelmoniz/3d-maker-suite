@@ -4,9 +4,11 @@ import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
+import { TagPicker } from "../../components/TagPicker.tsx";
 import { dateInputToIso, isoToDateInput } from "../../lib/format.ts";
 import { usePreferences } from "../../lib/preferences.ts";
 import { useCreatePrinter, usePatchPrinter, usePrinter } from "../../lib/printers.ts";
+import { useTagEditor } from "../../lib/tags.ts";
 import { useStateLabel } from "./StateBadge.tsx";
 
 const text = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
@@ -23,6 +25,7 @@ function PrinterForm({ printer }: { printer?: Printer }) {
   const create = useCreatePrinter();
   const patch = usePatchPrinter(printer?.id ?? "");
   const save = printer ? patch : create;
+  const tags = useTagEditor("printer", printer?.id);
   const states = prefs?.printerStates ?? [];
 
   const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
@@ -41,8 +44,11 @@ function PrinterForm({ printer }: { printer?: Printer }) {
       warrantyNotes: orNull(text(f, "warrantyNotes")),
     };
     save.mutate(body, {
-      onSuccess: (saved) =>
-        navigate({ to: "/printers/$id", params: { id: (saved as Printer).id } }),
+      onSuccess: async (saved) => {
+        const { id } = saved as Printer;
+        await tags.persist(id);
+        navigate({ to: "/printers/$id", params: { id } });
+      },
     });
   };
 
@@ -155,6 +161,7 @@ function PrinterForm({ printer }: { printer?: Printer }) {
           />
         )}
       </FormField>
+      <TagPicker value={tags.value} onChange={tags.onChange} />
       {save.isError && (
         <p role="alert" className="text-bad">
           {t("printers:form.saveError")}

@@ -46,7 +46,8 @@ const printerRoute = (path: string, component: () => ReactNode) =>
   createRoute({
     getParentRoute: () => root,
     path,
-    loader: () => Promise.all([loadNamespace("printers"), loadNamespace("settings")]),
+    loader: () =>
+      Promise.all([loadNamespace("printers"), loadNamespace("settings"), loadNamespace("tags")]),
     component,
   });
 
@@ -72,19 +73,19 @@ const routes: AnyRoute[] = [
   createRoute({
     getParentRoute: () => root,
     path: "/filament/spools/new",
-    loader: () => loadNamespace("filament"),
+    loader: () => Promise.all([loadNamespace("filament"), loadNamespace("tags")]),
     component: SpoolCreatePage,
   }),
   createRoute({
     getParentRoute: () => root,
     path: "/filament/profiles/new",
-    loader: () => loadNamespace("filament"),
+    loader: () => Promise.all([loadNamespace("filament"), loadNamespace("tags")]),
     component: ProfileCreatePage,
   }),
   createRoute({
     getParentRoute: () => root,
     path: "/filament",
-    loader: () => loadNamespace("filament"),
+    loader: () => Promise.all([loadNamespace("filament"), loadNamespace("tags")]),
     component: FilamentPage,
   }),
   ...[
@@ -95,7 +96,8 @@ const routes: AnyRoute[] = [
     createRoute({
       getParentRoute: () => root,
       path: path as string,
-      loader: () => Promise.all([loadNamespace("prints"), loadNamespace("filament")]),
+      loader: () =>
+        Promise.all([loadNamespace("prints"), loadNamespace("filament"), loadNamespace("tags")]),
       component: component as () => ReactNode,
     }),
   ),

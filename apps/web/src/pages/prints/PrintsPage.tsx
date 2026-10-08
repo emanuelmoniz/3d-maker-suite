@@ -7,9 +7,12 @@ import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { DataTable } from "../../components/DataTable.tsx";
 import { EmptyState } from "../../components/EmptyState.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
+import { TagFilter } from "../../components/TagFilter.tsx";
+import { TagList } from "../../components/TagList.tsx";
 import { formatDateTime, formatDuration, formatWeight } from "../../lib/format.ts";
 import { usePrinters } from "../../lib/printers.ts";
 import { useDeletePrint, usePrints } from "../../lib/prints.ts";
+import { useTagsOf } from "../../lib/tags.ts";
 
 const OUTCOMES = {
   success: "prints:outcomes.success",
@@ -19,7 +22,9 @@ const OUTCOMES = {
 
 export function PrintsPage() {
   const { t } = useTranslation();
-  const { data, isError } = usePrints();
+  const [tagId, setTagId] = useState("");
+  const { data, isError } = usePrints(tagId);
+  const tagsOf = useTagsOf("print");
   const printers = usePrinters({ archived: false }).data?.items ?? [];
   const del = useDeletePrint();
   const [toDelete, setToDelete] = useState<{ id: string; title: string } | null>(null);
@@ -46,7 +51,10 @@ export function PrintsPage() {
           {t("prints:loadError")}
         </p>
       )}
-      {data && !data.total ? (
+      <div className="mb-4 flex flex-wrap items-center gap-4">
+        <TagFilter value={tagId} onChange={setTagId} />
+      </div>
+      {data && !data.total && !tagId ? (
         <EmptyState
           icon={Layers}
           title={t("prints:list.emptyTitle")}
@@ -87,6 +95,11 @@ export function PrintsPage() {
                   </span>
                 ),
                 sortValue: (p) => p.outcome,
+              },
+              {
+                id: "tags",
+                header: t("tags:column"),
+                cell: (p) => <TagList tags={tagsOf(p.id)} />,
               },
               {
                 id: "duration",

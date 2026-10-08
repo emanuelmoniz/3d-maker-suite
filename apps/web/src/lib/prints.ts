@@ -3,10 +3,14 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "./api.ts";
 
 // ponytail: one page of 100 prints, add pagination controls if anyone logs more.
-export const usePrints = () =>
+export const usePrints = (tagId = "") =>
   useQuery({
-    queryKey: ["prints", "list"],
-    queryFn: () => api<Page<PrintDetail>>("GET", "/api/prints?pageSize=100&sort=-startedAt"),
+    queryKey: ["prints", "list", tagId],
+    queryFn: () =>
+      api<Page<PrintDetail>>(
+        "GET",
+        `/api/prints?pageSize=100&sort=-startedAt${tagId ? `&tagId=${tagId}` : ""}`,
+      ),
   });
 
 export const usePrint = (id: string) =>

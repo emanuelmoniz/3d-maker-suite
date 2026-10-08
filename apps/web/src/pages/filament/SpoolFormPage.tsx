@@ -4,8 +4,10 @@ import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
+import { TagPicker } from "../../components/TagPicker.tsx";
 import { filamentLabel, useCreateSpool, useProfiles } from "../../lib/filament.ts";
 import { dateInputToIso } from "../../lib/format.ts";
+import { useTagEditor } from "../../lib/tags.ts";
 
 const text = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
 const num = (v: string, scale = 1) => (v ? Math.round(Number(v) * scale) : null);
@@ -15,6 +17,7 @@ function SpoolForm({ profiles }: { profiles: FilamentProfile[] }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const create = useCreateSpool();
+  const tags = useTagEditor("spool");
   const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const form = e.currentTarget;
@@ -31,7 +34,12 @@ function SpoolForm({ profiles }: { profiles: FilamentProfile[] }) {
         openedAt: date("openedAt"),
         location: text(f, "location") || null,
       },
-      { onSuccess: () => navigate({ to: "/filament" }) },
+      {
+        onSuccess: async (saved) => {
+          await tags.persist((saved as { id: string }).id);
+          navigate({ to: "/filament" });
+        },
+      },
     );
   };
   const field = (
@@ -74,6 +82,7 @@ function SpoolForm({ profiles }: { profiles: FilamentProfile[] }) {
       {field("purchasedAt", "filament:spools.purchasedAt", { type: "date" })}
       {field("openedAt", "filament:spools.openedAt", { type: "date" })}
       {field("location", "filament:spools.locationLabel")}
+      <TagPicker value={tags.value} onChange={tags.onChange} />
       {create.isError && (
         <p role="alert" className="text-bad">
           {t("filament:spools.error")}

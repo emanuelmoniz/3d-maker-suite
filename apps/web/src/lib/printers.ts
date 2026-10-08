@@ -19,13 +19,13 @@ const qs = (params: Record<string, string | undefined>) => {
 };
 
 // ponytail: one page of 100 printers, add pagination controls if anyone owns more.
-export const usePrinters = (o: { state?: string; archived: boolean }) =>
+export const usePrinters = (o: { state?: string; archived: boolean; tagId?: string }) =>
   useQuery({
     queryKey: ["printers", "list", o],
     queryFn: () =>
       api<Page<Printer>>(
         "GET",
-        `/api/printers${qs({ state: o.state, archived: String(o.archived), pageSize: "100" })}`,
+        `/api/printers${qs({ state: o.state, tagId: o.tagId, archived: String(o.archived), pageSize: "100" })}`,
       ),
   });
 

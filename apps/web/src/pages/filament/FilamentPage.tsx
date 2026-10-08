@@ -8,6 +8,8 @@ import { DataTable } from "../../components/DataTable.tsx";
 import { EmptyState } from "../../components/EmptyState.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
+import { TagFilter } from "../../components/TagFilter.tsx";
+import { TagList } from "../../components/TagList.tsx";
 import {
   filamentLabel,
   useAdjustSpool,
@@ -19,6 +21,7 @@ import {
 } from "../../lib/filament.ts";
 import { formatCurrency, formatDateTime, formatNumber, formatWeight } from "../../lib/format.ts";
 import { usePreferences } from "../../lib/preferences.ts";
+import { useTagsOf } from "../../lib/tags.ts";
 
 const STATUS = {
   new: "filament:spools.statuses.new",
@@ -183,7 +186,9 @@ export function FilamentPage() {
   const { t } = useTranslation();
   const prefs = usePreferences().data?.values;
   const profiles = useProfiles();
-  const spools = useSpools();
+  const [tagId, setTagId] = useState("");
+  const spools = useSpools(tagId);
+  const tagsOf = useTagsOf("spool");
   const patchProfile = usePatchProfile();
   const patchSpool = usePatchSpool();
   const [adjusting, setAdjusting] = useState<Spool | null>(null);
@@ -208,7 +213,8 @@ export function FilamentPage() {
             <h2 className="text-base font-semibold">{t("filament:spools.title")}</h2>
             <AddLink to="/filament/spools/new">{t("filament:spools.add")}</AddLink>
           </div>
-          {spools.data && !spools.data.items.length ? (
+          <TagFilter value={tagId} onChange={setTagId} />
+          {spools.data && !spools.data.items.length && !tagId ? (
             <EmptyState
               icon={SpoolIcon}
               title={t("filament:spools.emptyTitle")}
@@ -254,6 +260,11 @@ export function FilamentPage() {
                     header: t("filament:spools.status"),
                     cell: (s) => t(STATUS[s.status]),
                     sortValue: (s) => s.status,
+                  },
+                  {
+                    id: "tags",
+                    header: t("tags:column"),
+                    cell: (s) => <TagList tags={tagsOf(s.id)} />,
                   },
                   {
                     id: "location",

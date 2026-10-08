@@ -25,7 +25,7 @@ import { and, desc, eq, isNotNull, isNull } from "drizzle-orm";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
-import { dateRange, inIds, listPage } from "../lib/list.ts";
+import { dateRange, inIds, listPage, taggedWith } from "../lib/list.ts";
 import { readPreferences } from "../lib/preferences.ts";
 
 const { printers, printerComments, prints } = schema;
@@ -64,6 +64,7 @@ export const printersRoutes =
         schema: {
           querystring: listQuery(printerSortFields, {
             state: idList.optional(),
+            tagId: idList.optional(),
             archived: archivedFilter,
           }),
           response: { 200: pageOf(printerSchema) },
@@ -75,6 +76,7 @@ export const printersRoutes =
           dateColumn: printers.createdAt,
           where: [
             inIds(printers.state, req.query.state),
+            taggedWith(db, "printer", printers.id, req.query.tagId),
             req.query.archived === "true"
               ? isNotNull(printers.archivedAt)
               : isNull(printers.archivedAt),

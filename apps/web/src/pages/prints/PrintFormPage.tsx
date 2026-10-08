@@ -6,11 +6,13 @@ import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
+import { TagPicker } from "../../components/TagPicker.tsx";
 import { filamentLabel, useProfiles, useSpools } from "../../lib/filament.ts";
 import { formatWeight } from "../../lib/format.ts";
 import { usePreferences } from "../../lib/preferences.ts";
 import { usePrinters } from "../../lib/printers.ts";
 import { useCreatePrint, usePatchPrint, usePrint } from "../../lib/prints.ts";
+import { useTagEditor } from "../../lib/tags.ts";
 
 const text = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
 const OUTCOMES = {
@@ -37,6 +39,7 @@ function PrintForm({ print }: { print?: PrintDetail }) {
   const create = useCreatePrint();
   const patch = usePatchPrint(print?.id ?? "");
   const save = print ? patch : create;
+  const tags = useTagEditor("print", print?.id);
   const [outcome, setOutcome] = useState<string>(print?.outcome ?? "success");
   const [rows, setRows] = useState<Row[]>(
     (print?.usages ?? []).map((u, key) => ({
@@ -74,7 +77,12 @@ function PrintForm({ print }: { print?: PrintDetail }) {
         .filter((r) => r.spoolId && Number(r.grams) > 0)
         .map((r, slot) => ({ spoolId: r.spoolId, grams: Number(r.grams), slot })),
     };
-    save.mutate(body, { onSuccess: () => navigate({ to: "/prints" }) });
+    save.mutate(body, {
+      onSuccess: async (saved) => {
+        await tags.persist((saved as PrintDetail).id);
+        navigate({ to: "/prints" });
+      },
+    });
   };
 
   const dur = print?.durationSec ?? 0;
@@ -257,6 +265,7 @@ function PrintForm({ print }: { print?: PrintDetail }) {
           />
         )}
       </FormField>
+      <TagPicker value={tags.value} onChange={tags.onChange} />
       <FormField label={t("prints:form.notes")}>
         {(p) => (
           <textarea

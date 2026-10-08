@@ -1,0 +1,12 @@
+{
+  "column": "Tags",
+  "picker": {
+    "label": "Tags",
+    "empty": "No tags yet. Create the first one below.",
+    "color": "Tag color",
+    "newName": "New tag name",
+    "add": "Add tag",
+    "error": "Couldn't create the tag."
+  },
+  "filter": { "label": "Filter by tag", "all": "All tags" }
+}

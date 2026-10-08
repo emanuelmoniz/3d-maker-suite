@@ -6,8 +6,11 @@ import { DataTable } from "../../components/DataTable.tsx";
 import { EmptyState } from "../../components/EmptyState.tsx";
 import { inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
+import { TagFilter } from "../../components/TagFilter.tsx";
+import { TagList } from "../../components/TagList.tsx";
 import { usePreferences } from "../../lib/preferences.ts";
 import { usePrinters } from "../../lib/printers.ts";
+import { useTagsOf } from "../../lib/tags.ts";
 import { StateBadge, useStateLabel } from "./StateBadge.tsx";
 
 const addClass =
@@ -20,7 +23,9 @@ export function PrintersPage() {
   const states = usePreferences().data?.values.printerStates ?? [];
   const [state, setState] = useState("");
   const [archived, setArchived] = useState(false);
-  const { data, isError } = usePrinters({ state: state || undefined, archived });
+  const [tagId, setTagId] = useState("");
+  const { data, isError } = usePrinters({ state: state || undefined, archived, tagId });
+  const tagsOf = useTagsOf("printer");
 
   const add = (
     <Link to="/printers/new" className={addClass}>
@@ -55,6 +60,7 @@ export function PrintersPage() {
             </option>
           ))}
         </select>
+        <TagFilter value={tagId} onChange={setTagId} />
         <label className="flex items-center gap-2">
           <input
             type="checkbox"
@@ -64,7 +70,7 @@ export function PrintersPage() {
           {t("printers:list.showArchived")}
         </label>
       </div>
-      {data && !data.total && !state && !archived ? (
+      {data && !data.total && !state && !archived && !tagId ? (
         <EmptyState
           icon={PrinterIcon}
           title={t("printers:list.emptyTitle")}
@@ -105,6 +111,11 @@ export function PrintersPage() {
                 header: t("printers:list.columns.state"),
                 cell: (p) => <StateBadge state={p.state} />,
                 sortValue: (p) => p.state,
+              },
+              {
+                id: "tags",
+                header: t("tags:column"),
+                cell: (p) => <TagList tags={tagsOf(p.id)} />,
               },
               {
                 id: "power",

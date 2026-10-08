@@ -17,6 +17,7 @@ import { preferencesRoutes } from "./routes/preferences.ts";
 import { printersRoutes } from "./routes/printers.ts";
 import { printsRoutes } from "./routes/prints.ts";
 import { settingsRoutes } from "./routes/settings.ts";
+import { collectionsRoutes, tagsRoutes } from "./routes/tags.ts";
 
 export async function buildApp(
   db: Db,
@@ -63,5 +64,7 @@ export async function buildApp(
   await app.register(maintenanceRoutes(db), { prefix: "/api/maintenance" });
   await app.register(filamentRoutes(db), { prefix: "/api/filament" });
   await app.register(printsRoutes(db), { prefix: "/api/prints" });
+  await app.register(tagsRoutes(db), { prefix: "/api/tags" });
+  await app.register(collectionsRoutes(db), { prefix: "/api/collections" });
   return app;
 }

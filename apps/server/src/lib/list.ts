@@ -1,11 +1,25 @@
-import type { DateRangeQuery, Page, PaginationQuery } from "@3d-maker-suite/core";
-import type { Db } from "@3d-maker-suite/db";
-import { type AnyColumn, and, asc, count, desc, gte, inArray, lt, type SQL } from "drizzle-orm";
+import type { DateRangeQuery, Page, PaginationQuery, TaggableType } from "@3d-maker-suite/core";
+import { type Db, schema } from "@3d-maker-suite/db";
+import { type AnyColumn, and, asc, count, desc, eq, gte, inArray, lt, type SQL } from "drizzle-orm";
 import type { SQLiteTable } from "drizzle-orm/sqlite-core";
+
+const { taggings } = schema;
 
 /** `column IN ids`, or nothing when the filter is absent (drop-in for `where` arrays). */
 export const inIds = (column: AnyColumn, ids?: string[]) =>
   ids ? inArray(column, ids) : undefined;
+
+/** Rows carrying ANY of the tags (`?tagId=a,b`), or nothing when the filter is absent. */
+export const taggedWith = (db: Db, type: TaggableType, idColumn: AnyColumn, tagIds?: string[]) =>
+  tagIds
+    ? inArray(
+        idColumn,
+        db
+          .select({ id: taggings.entityId })
+          .from(taggings)
+          .where(and(eq(taggings.entityType, type), inArray(taggings.tagId, tagIds))),
+      )
+    : undefined;
 
 /** `from <= column < to` on a UTC ISO-string column. Reusable by stats queries. */
 export const dateRange = (column: AnyColumn, { from, to }: DateRangeQuery) =>

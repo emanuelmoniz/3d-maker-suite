@@ -19,10 +19,11 @@ export const useProfiles = () =>
     queryFn: () => api<Page<FilamentProfile>>("GET", "/api/filament/profiles?pageSize=100"),
   });
 
-export const useSpools = () =>
+export const useSpools = (tagId = "") =>
   useQuery({
-    queryKey: ["filament", "spools"],
-    queryFn: () => api<Page<Spool>>("GET", "/api/filament/spools?pageSize=100"),
+    queryKey: ["filament", "spools", tagId],
+    queryFn: () =>
+      api<Page<Spool>>("GET", `/api/filament/spools?pageSize=100${tagId ? `&tagId=${tagId}` : ""}`),
   });
 
 export const useSpoolHistory = (id: string | undefined) =>

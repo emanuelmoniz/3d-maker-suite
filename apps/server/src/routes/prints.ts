@@ -16,7 +16,7 @@ import { eq, inArray } from "drizzle-orm";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
-import { inIds, listPage } from "../lib/list.ts";
+import { inIds, listPage, taggedWith } from "../lib/list.ts";
 import { readPreferences } from "../lib/preferences.ts";
 import { setRemaining } from "../lib/spools.ts";
 
@@ -126,6 +126,7 @@ export const printsRoutes =
             printerId: idList.optional(),
             projectId: idList.optional(),
             outcome: idList.optional(),
+            tagId: idList.optional(),
           }),
           response: { 200: pageOf(printDetailSchema) },
         },
@@ -138,6 +139,7 @@ export const printsRoutes =
             inIds(prints.printerId, req.query.printerId),
             inIds(prints.projectId, req.query.projectId),
             inIds(prints.outcome, req.query.outcome),
+            taggedWith(db, "print", prints.id, req.query.tagId),
           ],
         });
         const usages = page.items.length ? usagesOf(page.items.map((p) => p.id)) : [];

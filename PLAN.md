@@ -119,7 +119,7 @@ Do Step 9 of PLAN.md. Editing or deleting a print must reverse/adjust its ledger
 Failed prints still consume filament (allow partial grams).
 ```
 
-### [ ] Step 10 - Tags & collections
+### [x] Step 10 - Tags & collections
 **Model:** Sonnet · **Effort:** Low
 **Scope:** Tags (name, color) usable on projects, prints, spools and printers; collections of projects (manual ordering). Tag filter in lists.
 **Done when:** tags are filterable everywhere they apply.

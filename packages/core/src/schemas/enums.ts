@@ -7,7 +7,7 @@ export const COMMENT_STATUSES = ["open", "resolved"] as const;
 export const SPOOL_STATUSES = ["new", "in_use", "empty"] as const;
 // Why a spool's remaining weight changed. "print" entries are written by prints (Step 9+).
 export const WEIGHT_ENTRY_KINDS = ["manual", "print", "correction"] as const;
-export const TAGGABLE_TYPES = ["project", "print", "spool"] as const;
+export const TAGGABLE_TYPES = ["project", "print", "spool", "printer"] as const;
 
 export type Origin = (typeof ORIGINS)[number];
 export type PrintOutcome = (typeof PRINT_OUTCOMES)[number];

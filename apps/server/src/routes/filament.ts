@@ -24,7 +24,7 @@ import { desc, eq, isNotNull, isNull, sql } from "drizzle-orm";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
-import { inIds, listPage } from "../lib/list.ts";
+import { inIds, listPage, taggedWith } from "../lib/list.ts";
 import { setRemaining } from "../lib/spools.ts";
 
 const { filamentProfiles, spools, spoolWeightEntries } = schema;
@@ -120,6 +120,7 @@ export const filamentRoutes =
           querystring: listQuery(spoolSortFields, {
             archived: archivedFilter,
             profileId: idList.optional(),
+            tagId: idList.optional(),
           }),
           response: { 200: pageOf(spoolSchema) },
         },
@@ -137,6 +138,7 @@ export const filamentRoutes =
               ? isNotNull(spools.archivedAt)
               : isNull(spools.archivedAt),
             inIds(spools.profileId, req.query.profileId),
+            taggedWith(db, "spool", spools.id, req.query.tagId),
           ],
         }) as Page<Spool>,
     );
