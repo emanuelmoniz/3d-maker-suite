@@ -79,7 +79,7 @@ Projects, Integrations placeholder, Alerts placeholder).
 
 ## Phase 1 - Manual core (fully usable without integrations)
 
-### [ ] Step 6 - Printers
+### [x] Step 6 - Printers
 **Model:** Sonnet · **Effort:** Medium
 **Scope:** CRUD; brand/model (free text, not an enum), serial number, purchase date and price, warranty end and notes, state (working / maintenance / inop / retired - configurable list), normal power (W), pinned notes/comments timeline (e.g. "X axis issue", "part ordered"), photo. Detail page shows total print hours, prints and energy with a period filter (computed from Prints).
 **Done when:** CRUD + detail stats work with seed data; tests pass.

@@ -1,5 +1,12 @@
 import { z } from "zod";
-import { ALERT_KINDS, ENERGY_SOURCES, ORIGINS, PRINT_OUTCOMES, TAGGABLE_TYPES } from "./enums.ts";
+import {
+  ALERT_KINDS,
+  COMMENT_STATUSES,
+  ENERGY_SOURCES,
+  ORIGINS,
+  PRINT_OUTCOMES,
+  TAGGABLE_TYPES,
+} from "./enums.ts";
 
 // Row shapes as stored in the DB (nullable columns are `null`, not `undefined`).
 // Dates are UTC `toISOString()` strings so they sort and range-compare as text.
@@ -42,8 +49,27 @@ export const printerSchema = z.object({
   nozzleDiameterMm: z.number().positive(),
   runtimeOffsetSec: seconds,
   printsOffset: z.number().int().nonnegative(),
+  purchasedAt: isoDate.nullable(),
+  purchasePrice: money.nullable(),
+  warrantyEndsAt: isoDate.nullable(),
+  warrantyNotes: z.string().nullable(),
+  /** One of `Preferences.printerStates`. */
+  state: z.string().min(1),
+  /** Typical draw while printing, used to estimate energy when a print has none. */
+  powerW: z.number().int().nonnegative().nullable(),
+  /** Relative to the data directory. */
+  photoPath: z.string().nullable(),
   archivedAt: isoDate.nullable(),
   ...imported,
+  ...timestamps,
+});
+
+export const printerCommentSchema = z.object({
+  id,
+  printerId: id,
+  body: z.string().min(1),
+  pinned: z.boolean(),
+  status: z.enum(COMMENT_STATUSES),
   ...timestamps,
 });
 
@@ -176,6 +202,7 @@ export const alertSchema = z.object({
 export type Setting = z.infer<typeof settingSchema>;
 export type Integration = z.infer<typeof integrationSchema>;
 export type Printer = z.infer<typeof printerSchema>;
+export type PrinterComment = z.infer<typeof printerCommentSchema>;
 export type MaintenanceType = z.infer<typeof maintenanceTypeSchema>;
 export type MaintenanceTask = z.infer<typeof maintenanceTaskSchema>;
 export type FilamentProfile = z.infer<typeof filamentProfileSchema>;

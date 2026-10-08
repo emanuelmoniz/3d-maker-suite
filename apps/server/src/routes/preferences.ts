@@ -1,33 +1,16 @@
-import {
-  PREFERENCE_DEFAULTS,
-  type Preferences,
-  preferencesPatchSchema,
-  preferencesResponseSchema,
-  preferencesSchema,
-} from "@3d-maker-suite/core";
+import { preferencesPatchSchema, preferencesResponseSchema } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
 import { eq } from "drizzle-orm";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
+import { readPreferences as read } from "../lib/preferences.ts";
 
 const { settings } = schema;
 
 export const preferencesRoutes =
   (db: Db, dataDir: string): FastifyPluginAsyncZod =>
   async (app) => {
-    const read = (): Preferences =>
-      preferencesSchema.parse({
-        ...PREFERENCE_DEFAULTS,
-        ...Object.fromEntries(
-          db
-            .select()
-            .from(settings)
-            .all()
-            .map((r) => [r.key, r.value]),
-        ),
-      });
-
     app.get("/", { schema: { response: { 200: preferencesResponseSchema } } }, async () => ({
-      values: read(),
+      values: read(db),
       dataDir,
     }));
 
@@ -46,7 +29,7 @@ export const preferencesRoutes =
                 .run();
           }
         });
-        return { values: read(), dataDir };
+        return { values: read(db), dataDir };
       },
     );
   };

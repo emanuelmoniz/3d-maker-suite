@@ -1,11 +1,15 @@
 {
   "loadError": "Couldn't load settings. Is the server running?",
   "saveError": "Couldn't save your last change.",
-  "dataDir": { "label": "Data directory", "hint": "Where the database and files live. Read-only." },
+  "dataDir": {
+    "label": "Data directory",
+    "hint": "Where the database and files live. Read-only."
+  },
   "sections": {
     "general": "General",
     "appearance": "Appearance",
     "costs": "Costs",
+    "printers": "Printers",
     "projects": "Projects",
     "integrations": "Integrations",
     "alerts": "Alerts"
@@ -47,5 +51,9 @@
     "hint": "Thresholds are saved now and used when alerts are built.",
     "lowSpool": "Low spool warning (grams left)",
     "maintenanceLead": "Maintenance warning (days before due)"
+  },
+  "printers": {
+    "label": "Printer states",
+    "hint": "One per line. The first is used for new printers. Known names (working, maintenance, inop, retired) are translated."
   }
 }

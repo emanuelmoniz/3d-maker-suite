@@ -15,6 +15,13 @@
       "when": 1791459163304,
       "tag": "0001_taggings_cleanup",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1791469524463,
+      "tag": "0002_printer_details",
+      "breakpoints": true
     }
   ]
 }

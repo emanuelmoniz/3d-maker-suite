@@ -1,5 +1,6 @@
 import {
   ALERT_KINDS,
+  COMMENT_STATUSES,
   ENERGY_SOURCES,
   ORIGINS,
   PRINT_OUTCOMES,
@@ -72,6 +73,14 @@ export const printers = sqliteTable(
     nozzleDiameterMm: real().notNull().default(0.4),
     runtimeOffsetSec: integer().notNull().default(0),
     printsOffset: integer().notNull().default(0),
+    purchasedAt: text(),
+    purchasePrice: integer(),
+    warrantyEndsAt: text(),
+    warrantyNotes: text(),
+    // Validated against the `printerStates` preference by the API, so no CHECK here.
+    state: text().notNull().default("working"),
+    powerW: integer(),
+    photoPath: text(),
     archivedAt: text(),
     ...imported(),
     ...timestamps,
@@ -79,6 +88,25 @@ export const printers = sqliteTable(
   (t) => [
     uniqueIndex("printers_external_uq").on(t.integrationId, t.externalId),
     check("printers_origin_ck", oneOf(t.origin, ORIGINS)),
+  ],
+);
+
+// A timeline: pinned first, then newest first. `status` lets an issue note be closed out.
+export const printerComments = sqliteTable(
+  "printer_comments",
+  {
+    id: id(),
+    printerId: text()
+      .notNull()
+      .references(() => printers.id, { onDelete: "cascade" }),
+    body: text().notNull(),
+    pinned: integer({ mode: "boolean" }).notNull().default(false),
+    status: text({ enum: COMMENT_STATUSES }).notNull().default("open"),
+    ...timestamps,
+  },
+  (t) => [
+    index("printer_comments_printer_idx").on(t.printerId, t.createdAt),
+    check("printer_comments_status_ck", oneOf(t.status, COMMENT_STATUSES)),
   ],
 );
 

@@ -37,3 +37,7 @@ export function formatDuration(seconds: number) {
 /** kWh in. Intl has no kWh unit, so the unit label is a translation. */
 export const formatEnergy = (kwh: number) =>
   i18n.t("common:units.kwh", { value: num({ maximumFractionDigits: 2 }).format(kwh) });
+
+// Date-only form fields are stored as noon UTC so every time zone shows the same calendar day.
+export const dateInputToIso = (d: string) => new Date(`${d}T12:00:00Z`).toISOString();
+export const isoToDateInput = (iso: string | null) => iso?.slice(0, 10) ?? "";

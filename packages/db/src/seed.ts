@@ -34,11 +34,38 @@ export function seed(db: Db, now = new Date()) {
   db.transaction((tx) => {
     tx.insert(s.settings).values({ key: "currency", value: "EUR" }).run();
 
-    const printers = [
-      { name: "Workshop X1C", brand: "Bambu Lab", model: "X1 Carbon", serial: "00M00A000000001" },
-      { name: "Desk P1S", brand: "Bambu Lab", model: "P1S", runtimeOffsetSec: 120 * 3600 },
-    ].map((v) => tx.insert(s.printers).values(v).returning().get());
     const watts = [140, 120];
+    const printers = [
+      {
+        name: "Workshop X1C",
+        brand: "Bambu Lab",
+        model: "X1 Carbon",
+        serial: "00M00A000000001",
+        purchasedAt: ago(400),
+        purchasePrice: 119900,
+        warrantyEndsAt: ago(-330),
+      },
+      {
+        name: "Desk P1S",
+        brand: "Bambu Lab",
+        model: "P1S",
+        runtimeOffsetSec: 120 * 3600,
+        purchasedAt: ago(200),
+        purchasePrice: 59900,
+      },
+    ].map((v, i) =>
+      tx
+        .insert(s.printers)
+        .values({ ...v, powerW: at(watts, i) })
+        .returning()
+        .get(),
+    );
+    tx.insert(s.printerComments)
+      .values([
+        { printerId: at(printers, 0).id, body: "X axis makes a clicking noise", pinned: true },
+        { printerId: at(printers, 0).id, body: "Ordered a new hotend", status: "resolved" },
+      ])
+      .run();
 
     const nozzle = tx
       .insert(s.maintenanceTypes)

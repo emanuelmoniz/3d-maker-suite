@@ -12,6 +12,7 @@ import {
 import { HttpError } from "./errors.ts";
 import { healthRoutes } from "./routes/health.ts";
 import { preferencesRoutes } from "./routes/preferences.ts";
+import { printersRoutes } from "./routes/printers.ts";
 import { settingsRoutes } from "./routes/settings.ts";
 
 export async function buildApp(
@@ -55,5 +56,6 @@ export async function buildApp(
   await app.register(healthRoutes);
   await app.register(settingsRoutes(db), { prefix: "/api/settings" });
   await app.register(preferencesRoutes(db, dataDir), { prefix: "/api/preferences" });
+  await app.register(printersRoutes(db, dataDir), { prefix: "/api/printers" });
   return app;
 }

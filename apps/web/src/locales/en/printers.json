@@ -1,0 +1,87 @@
+{
+  "loadError": "Couldn't load printers. Is the server running?",
+  "state": {
+    "working": "Working",
+    "maintenance": "Maintenance",
+    "inop": "Out of order",
+    "retired": "Retired"
+  },
+  "list": {
+    "add": "Add printer",
+    "table": "Printers",
+    "showArchived": "Show archived",
+    "stateFilter": "State",
+    "allStates": "All states",
+    "emptyTitle": "No printers yet",
+    "emptyBody": "Add your first printer to start tracking prints and maintenance.",
+    "columns": { "name": "Name", "model": "Model", "state": "State", "power": "Power" }
+  },
+  "form": {
+    "addTitle": "Add printer",
+    "editTitle": "Edit printer",
+    "name": "Name",
+    "brand": "Brand",
+    "model": "Model",
+    "serial": "Serial number",
+    "state": "State",
+    "power": "Typical power (W)",
+    "powerHint": "Used to estimate energy for prints without a measurement.",
+    "purchasedAt": "Purchase date",
+    "purchasePrice": "Purchase price",
+    "warrantyEndsAt": "Warranty ends",
+    "warrantyNotes": "Warranty notes",
+    "save": "Save",
+    "saveError": "Couldn't save the printer."
+  },
+  "detail": {
+    "notFound": "This printer doesn't exist.",
+    "edit": "Edit",
+    "archive": "Archive",
+    "restore": "Restore",
+    "archived": "Archived",
+    "archiveTitle": "Archive this printer?",
+    "archiveBody": "It disappears from the list, but its prints and maintenance history are kept. You can restore it later.",
+    "actionError": "That didn't work. Try again.",
+    "photo": {
+      "alt": "Photo of {{name}}",
+      "empty": "No photo",
+      "upload": "Upload photo",
+      "remove": "Remove photo"
+    },
+    "info": {
+      "title": "Details",
+      "serial": "Serial number",
+      "purchased": "Purchased",
+      "price": "Price",
+      "warranty": "Warranty ends",
+      "warrantyNotes": "Warranty notes",
+      "power": "Typical power",
+      "none": "Not set",
+      "powerValue": "{{value}} W"
+    },
+    "stats": {
+      "title": "Usage",
+      "prints": "Prints",
+      "time": "Print time",
+      "energy": "Energy",
+      "successRate": "Success rate",
+      "successHint": "{{success}} succeeded, {{failed}} failed, {{cancelled}} cancelled",
+      "error": "Couldn't load usage."
+    }
+  },
+  "comments": {
+    "title": "Notes",
+    "label": "Add a note",
+    "placeholder": "e.g. X axis clicking, part ordered",
+    "add": "Add note",
+    "empty": "No notes yet.",
+    "pinned": "Pinned",
+    "resolved": "Resolved",
+    "pin": "Pin",
+    "unpin": "Unpin",
+    "resolve": "Mark resolved",
+    "reopen": "Reopen",
+    "delete": "Delete",
+    "error": "Couldn't update notes."
+  }
+}

@@ -46,7 +46,8 @@ flowchart LR
 
 | Entity | Meaning | Key fields |
 |---|---|---|
-| **Printer** | A physical machine | name, brand, model, serial?, nozzleDiameterMm, runtimeOffsetSec, printsOffset (baseline for a used machine), archivedAt? |
+| **Printer** | A physical machine | name, brand, model, serial?, nozzleDiameterMm, runtimeOffsetSec, printsOffset (baseline for a used machine), state (from the `printerStates` setting), powerW?, purchasedAt?, purchasePrice?, warrantyEndsAt?, warrantyNotes?, photoPath?, archivedAt? |
+| **PrinterComment** | Note on a printer timeline | printerId, body, pinned, status (`open` | `resolved`) |
 | **MaintenanceType** | Reusable maintenance template | name, intervalSec?, intervalPrints?, intervalDays? (the first one reached triggers), appliesToModel? |
 | **MaintenanceTask** | A logged "done" event | printerId, typeId, doneAt, printerRuntimeSecAt, printerPrintsAt, notes? |
 | **FilamentProfile** | A material spec | brand, material (PLA, PETG…), name, colorHex, diameterMm, densityGcm3, pricePerKg? |

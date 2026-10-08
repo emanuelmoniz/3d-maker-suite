@@ -17,6 +17,7 @@ const shape = {
   slicerPath: z.string(),
   lowSpoolGrams: z.number().nonnegative(),
   maintenanceLeadDays: z.number().int().nonnegative(),
+  printerStates: z.array(z.string().min(1)).min(1),
 };
 
 /** User preferences. Each key is one row in `settings`; missing rows fall back to these defaults. */
@@ -34,6 +35,7 @@ export const PREFERENCE_DEFAULTS: z.infer<typeof preferencesSchema> = {
   slicerPath: "",
   lowSpoolGrams: 100,
   maintenanceLeadDays: 7,
+  printerStates: ["working", "maintenance", "inop", "retired"],
 };
 
 export const preferencesPatchSchema = preferencesSchema.partial().strict();
