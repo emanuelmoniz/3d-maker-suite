@@ -3,6 +3,7 @@ import type {
   Project,
   ProjectInput,
   ProjectOpen,
+  ProjectPaint,
   ProjectPatch,
   ProjectScanStatus,
 } from "@3d-maker-suite/core";
@@ -33,6 +34,17 @@ export const projectThumbnailUrl = (p: Pick<Project, "id" | "updatedAt">) =>
 /** A model/image of a project, or with `entry` a plate preview inside that 3MF. */
 export const projectFileUrl = (id: string, path: string, entry?: string) =>
   `/api/projects/${id}/file?${new URLSearchParams(entry ? { path, entry } : { path })}`;
+
+/** Painted triangles of a 3MF; optional extra for the viewer, so failures just mean no paint. */
+export const useProjectPaint = (id: string, path: string, enabled: boolean) =>
+  useQuery({
+    queryKey: ["projects", id, "paint", path],
+    queryFn: () =>
+      api<ProjectPaint>("GET", `/api/projects/${id}/paint?${new URLSearchParams({ path })}`),
+    enabled,
+    retry: false,
+    staleTime: Number.POSITIVE_INFINITY,
+  });
 
 export const useCreateProject = () => {
   const qc = useQueryClient();

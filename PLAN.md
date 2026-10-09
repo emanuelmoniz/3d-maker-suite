@@ -1,4 +1,4 @@
-# 3D Maker Suite - Development Plan v1
+# 3D Maker Suite - Development Plan v1.1 (target: 1.1.0-alpha.1)
 Repo: `3d-maker-suite`
 
 How to use:
@@ -10,294 +10,180 @@ Status legend: `[ ]` todo · `[x]` done
 
 ---
 
-## Phase 0 - Foundation
+## Phase 1 - Bugs & quick wins
 
-### [x] Step 0 - Architecture & docs  **[plan mode]**
-**Model:** Opus · **Effort:** High
-**Scope:** Domain glossary (Printer, MaintenanceType, MaintenanceTask, Spool, FilamentProfile, Print, PrintOutcome, Project, Tag, Collection, Integration, Alert). Integration interfaces: `PrintHistorySource`, `PrinterInventorySource`, `FilamentLibrarySource`, `SlicerLauncher`, `ProjectSource`, `MarketplaceLinker`. ADRs for: local-only run, SQLite, adapter pattern, i18n strategy, secrets storage, Bambu Cloud first.
-**Done when:** `docs/adr/0001..000N.md` and `docs/architecture.md` exist, with a diagram in Mermaid.
-**Prompt:**
-```
-Do Step 0 of PLAN.md. Don't write app code yet. Propose the domain model, entity relations,
-integration interfaces (TypeScript signatures only, inside the docs) and the ADRs listed.
-Keep each ADR under 40 lines. Ask me about anything ambiguous before writing.
-```
-
-### [x] Step 1 - Monorepo scaffold
+### [x] Step 1 - 3D preview colors
 **Model:** Sonnet · **Effort:** Medium
-**Scope:** pnpm workspaces with the layout from CLAUDE.md; root package `3d-maker-suite`, workspace packages `@3d-maker-suite/*`; TS strict; Biome; Vitest; GitHub Actions (lint, typecheck, test); `.gitignore` includes `BACKLOG.md`, `data/`, `.env`; MIT license; `pnpm start` builds and runs on `http://localhost:4300`; data dir is OS-appropriate (overridable by `APP_DATA_DIR`).
-**Done when:** `pnpm install && pnpm start` serves a "3D Maker Suite" hello page; CI is green.
+**Scope:** The project 3D viewer (`ModelViewer.tsx`) shows 3MF colors: per object/part extruder → filament color from the 3MF (Bambu `project_settings` / `slice_info` filament colors, core 3MF `basematerials`/`colorgroups`). Per-triangle painted colors (Bambu `paint_color`) if feasible without blocking the UI; otherwise fall back to per-part colors. STL stays single color (accent).
+**Done when:** a multicolor fixture 3MF renders with its filament colors; unit test on the color extraction in `packages/3mf`.
 **Prompt:**
 ```
-Do Step 1 of PLAN.md. Follow CLAUDE.md layout and stack exactly. Server binds to 127.0.0.1
-by default (configurable). Keep config minimal; explain any extra dependency in one line.
+Do Step 1 of PLAN.md. Color extraction belongs in packages/3mf (pure, tested on the
+fixtures), the viewer only applies it. Check how Bambu stores per-part extruder and
+painted colors in the fixtures first; tell me if painted colors are too costly.
 ```
 
-### [x] Step 2 - Domain model & database  **[plan mode]**
-**Model:** Opus · **Effort:** High
-**Scope:** Drizzle schema + first migration for all v1 entities from Step 0, plus the settings table, the integration accounts table (encrypted secrets), and tags/collections (polymorphic tagging). zod schemas in core. Seed script with demo data (`pnpm db:seed`).
-**Done when:** migrations run on a fresh DB; schema unit tests pass.
+### [ ] Step 2 - Back button on detail and edit pages
+**Model:** Haiku · **Effort:** Low
+**Scope:** Shared back link in the page header for every detail (show) and edit/create page, going to the logical parent route (e.g. spool detail → filament list, printer edit → printer detail). i18n label, keyboard accessible, visible on mobile.
+**Done when:** every detail/edit page has it; no hard-coded strings.
 **Prompt:**
 ```
-Do Step 2 of PLAN.md using docs/architecture.md. Design for: time-period stats queries
-(index dates), multi-spool prints, print outcome + failure reason, energy per print
-(estimated vs measured flag), soft delete where history matters. Show me the schema plan first.
+Do Step 2 of PLAN.md. One reusable component, parent route passed explicitly per page
+(no history.back()). Reuse the existing page header if there is one.
 ```
 
-### [x] Step 3 - API skeleton
-**Model:** Sonnet · **Effort:** Medium
-**Scope:** Fastify app structure, zod type provider, OpenAPI at `/api/docs`, error format, pagination/filter helpers, health endpoint, request logging, test harness with in-memory SQLite.
-**Done when:** a sample CRUD route (settings) is tested end-to-end in Vitest.
+### [ ] Step 3 - Configurable server port
+**Model:** Sonnet · **Effort:** Low
+**Scope:** `pnpm start --port <n>` (and `--host`) CLI flags; port/host also editable in Settings (stored in a small config file in the data dir, applied on restart, "restart required" notice). Precedence: CLI flag > env `PORT`/`HOST` > config file > default 4300. Validate range, show the current effective value and its source.
+**Done when:** each source works and precedence is unit-tested in `config.test.ts`.
 **Prompt:**
 ```
-Do Step 3 of PLAN.md. Create reusable helpers for list endpoints (pagination, sort,
-date-range + entity filters) since stats and lists will need them everywhere.
+Do Step 3 of PLAN.md. Extend apps/server/src/config.ts, no new CLI dependency
+(node:util parseArgs). Changing host to non-loopback must keep the password rule.
 ```
 
-### [x] Step 4 - App shell & design system
+### [ ] Step 4 - App name & branding
 **Model:** Sonnet (use frontend-design skill) · **Effort:** Medium
-**Scope:** Responsive layout (sidebar on desktop, bottom nav on mobile), routes for all modules (placeholders), light/dark/system themes via CSS variables + accent color, i18next setup (EN only, namespaces per module, lazy load), locale-aware formatters (date, number, currency, weight, duration, energy), shared components (DataTable, FilterBar, DateRangePicker, EmptyState, StatCard, ConfirmDialog, FormField), `pnpm i18n:check` script.
-**Done when:** the shell looks modern on 375px / 768px / 1440px; no hard-coded strings.
+**Scope:** Settings → Appearance: custom app name (empty = default `common:appName`), logo upload (sidebar/header), favicon upload. Applied live (document title, favicon link). Images stored like printer photos and included in backups. Reset to default.
+**Done when:** name/logo/favicon persist, survive backup/restore, and fall back cleanly.
 **Prompt:**
 ```
-Do Step 4 of PLAN.md. Use the frontend-design skill. Aim for a clean, modern, calm UI
-that is dense enough for data. Show me 2 short style directions (described, not coded)
-before implementing; I'll pick one.
-```
-
-### [x] Step 5 - Configuration module
-**Model:** Sonnet · **Effort:** Low
-**Scope:** Settings page + API: language (EN only, selector ready), theme, accent, currency, energy cost (€/kWh), units, default printer, project root folders, slicer executable path, alert thresholds (used later), data directory info.
-**Done when:** settings persist and apply live.
-**Prompt:**
-```
-Do Step 5 of PLAN.md. Group settings into sections (General, Appearance, Costs,
-Projects, Integrations placeholder, Alerts placeholder).
+Do Step 4 of PLAN.md. Reuse the existing image upload/storage path and its validation
+(type + size). Keep common:appName as the default; the custom name is user data, not i18n.
 ```
 
 ---
 
-## Phase 1 - Manual core (fully usable without integrations)
+## Phase 2 - Tables
 
-### [x] Step 6 - Printers
+### [ ] Step 5 - Table framework: pagination, sort, column filters  **[plan mode]**
+**Model:** Opus · **Effort:** Medium
+**Scope:** Server-side pagination, sorting and per-column filters for list endpoints using `apps/server/src/lib/list.ts`; `DataTable` gets a pager (page size selector), server sort, and a column filter UI (text, select, number/date range); state synced to the URL (TanStack Router search params). Migrate the Prints table as the reference implementation.
+**Done when:** Prints table pages/sorts/filters server-side with 10k seeded prints; URL is shareable; tests pass.
+**Prompt:**
+```
+Do Step 5 of PLAN.md. Extend the existing list helpers instead of adding new ones.
+Filters are declared per column once and drive both the API query schema (zod) and the UI.
+Show me the column-filter API before implementing.
+```
+
+### [ ] Step 6 - Apply the table framework everywhere
 **Model:** Sonnet · **Effort:** Medium
-**Scope:** CRUD; brand/model (free text, not an enum), serial number, purchase date and price, warranty end and notes, state (working / maintenance / inop / retired - configurable list), normal power (W), pinned notes/comments timeline (e.g. "X axis issue", "part ordered"), photo. Detail page shows total print hours, prints and energy with a period filter (computed from Prints).
-**Done when:** CRUD + detail stats work with seed data; tests pass.
+**Scope:** All remaining tables (printers, spools, filament profiles, maintenance, projects list view, alerts, integrations sync log, review queue, …) use pagination, sort and column filters from Step 5. Keep existing tag filters working.
+**Done when:** no unpaginated table left; e2e still green.
 **Prompt:**
 ```
-Do Step 6 of PLAN.md. Comments are a timeline with optional "pinned" flag and status
-(open/resolved). Stats come from a core service so Stats module can reuse it later.
-```
-
-### [x] Step 7 - Maintenance
-**Model:** Sonnet · **Effort:** Medium
-**Scope:** Configurable maintenance types (name, description, interval by print hours and/or print count and/or days, applicable printer models). Schedules per printer, "log maintenance done" (date, notes, cost), next due calculation, overdue/upcoming list.
-**Done when:** due dates update after logging prints or maintenance.
-**Prompt:**
-```
-Do Step 7 of PLAN.md. Due logic lives in core as pure functions with unit tests
-(hours, count, days, whichever comes first).
-```
-
-### [x] Step 8 - Filament & spools
-**Model:** Sonnet · **Effort:** Medium
-**Scope:** Filament profiles (brand, material, color name + hex, diameter, density, price per kg, nozzle/bed temps) and spools (profile, initial weight, remaining weight, empty spool weight, purchase date/price, location, status). Manual weight adjust with history.
-**Done when:** CRUD done; remaining weight history is visible.
-**Prompt:**
-```
-Do Step 8 of PLAN.md. Keep Profile vs Spool separate (many spools per profile).
-Every remaining-weight change is a ledger entry (manual / print / correction).
-```
-
-### [x] Step 9 - Prints (manual) & outcome tracking
-**Model:** Sonnet · **Effort:** Medium
-**Scope:** Manual print entry: name, printer, project (optional), start/end/duration, one or more spools with grams used, outcome (success / failed / cancelled) + failure reason (configurable list) + notes, energy (estimated from printer W × time, or manual override). Saving deducts filament via the ledger. Source field (`manual` / integration id).
-**Done when:** creating, editing or deleting a print keeps spool weights consistent.
-**Prompt:**
-```
-Do Step 9 of PLAN.md. Editing or deleting a print must reverse/adjust its ledger entries.
-Failed prints still consume filament (allow partial grams).
-```
-
-### [x] Step 10 - Tags & collections
-**Model:** Sonnet · **Effort:** Low
-**Scope:** Tags (name, color) usable on projects, prints, spools and printers; collections of projects (manual ordering). Tag filter in lists.
-**Done when:** tags are filterable everywhere they apply.
-**Prompt:**
-```
-Do Step 10 of PLAN.md using the polymorphic tagging from Step 2. Reusable TagPicker component.
+Do Step 6 of PLAN.md. List every table first, then migrate them one by one. Note any
+table where server-side filtering doesn't fit and why.
 ```
 
 ---
 
-## Phase 2 - Integrations (Bambu Cloud first)
+## Phase 3 - Printers & maintenance
 
-### [x] Step 11 - Integration framework  **[plan mode]**
+### [ ] Step 7 - Maintenance types for multiple models and printers
+**Model:** Sonnet · **Effort:** Medium
+**Scope:** Maintenance type `appliesToModel` (single string) → a list of models (picked from existing printer models, free text allowed) and/or a list of specific printers. Schedules apply to the union. Drizzle migration that converts existing data.
+**Done when:** existing types keep their scope after migration; due logic tests cover both kinds.
+**Prompt:**
+```
+Do Step 7 of PLAN.md. New migration only, data copied from appliesToModel. Back up my DB
+before running pnpm dev (it applies migrations to the real DB).
+```
+
+### [ ] Step 8 - Printer models catalog & machine profiles  **[plan mode]**
 **Model:** Opus · **Effort:** High
-**Scope:** Adapter registry, integration accounts (encrypted credentials via a local key file), background sync jobs (croner) with status, last-run time and errors, an Integrations settings page, a dedupe strategy (external id + source), sync log.
-**Done when:** a fake/mock adapter syncs prints end-to-end in tests.
+**Scope:** New entities: PrinterModel (brand, model, image/thumbnail, default power W) and MachineProfile (name, printer model, nozzle diameter, source/link to preset). Printers reference a PrinterModel (existing free-text brand/model migrated); prints can reference a MachineProfile. Manual CRUD for both. Creating a printer from a model pre-fills power and image.
+**Done when:** manual CRUD works, existing printers are migrated to models, schema tests pass.
 **Prompt:**
 ```
-Do Step 11 of PLAN.md. Build it so adding a vendor = one package implementing the
-core interfaces + registering it. Include a mock adapter used in tests.
+Do Step 8 of PLAN.md. Keep it manual-only here; imports come in Step 11. Show me the
+schema and the migration of existing printers' brand/model before writing code.
 ```
 
-### [x] Step 12 - Bambu Cloud: login & printers  **[plan mode]**
+---
+
+## Phase 4 - Integrations hub
+
+### [ ] Step 9 - Integrations hub  **[plan mode]**
 **Model:** Opus · **Effort:** High
-**Scope:** Bambu Cloud login (email + password + email verification code / 2FA, region global/China); store the token only, never the password; refresh/expiry handling. Import bound printers (serial, model, name) → link to existing or create printers.
-**Done when:** a real account can log in and printers are imported.
+**Scope:** One place per integration with feature toggles: cloud account, local slicer config folder, slicer executable, and what to import (printers, machine profiles, filament profiles, prints). Move scattered settings (slicer path, Studio preset path) into it with a migration. Capabilities drive the UI: import buttons only show for enabled features; nothing configured = manual add only; several integrations = one import button each. "Open in slicer" uses the default slicer, with a picker when more than one is configured.
+**Done when:** existing Bambu setups keep working after migration; UI hides/shows actions by capability; tests pass.
 **Prompt:**
 ```
-Do Step 12 of PLAN.md. The Bambu Cloud API is unofficial: first research the current
-community docs (e.g. OpenBambuAPI on GitHub, recent home-assistant bambu integrations)
-using web search, summarise the auth flow and endpoints, then plan. Handle rate limits
-and API changes gracefully (clear error in UI, no crash).
+Do Step 9 of PLAN.md. Capabilities come from the adapter registry (core interfaces),
+the web app never checks vendor names. Show me the settings migration and the
+capability model before implementing.
 ```
 
-### [x] Step 13 - Bambu Cloud: print history sync
+### [ ] Step 10 - Sync by type and date range
 **Model:** Sonnet · **Effort:** High
-**Scope:** Fetch task history → Prints: title, cover image, start/end, duration, printer, status → outcome, filament per AMS slot (type, color, grams), MakerWorld design link when present. Match filament to spools (auto by type + color, else "needs review" queue). Deduct via the ledger. Incremental sync + manual "sync now".
-**Done when:** history imports without duplicates; review queue works.
+**Scope:** Separate sync actions per type (printers, prints, filament/spools when the source provides them) instead of one "sync now"; manual sync takes a date range (presets + custom) for prints. Scheduled sync stays incremental. Sync log shows type and range.
+**Done when:** each type syncs alone; a past date range imports without duplicates.
 **Prompt:**
 ```
-Do Step 13 of PLAN.md. Spool matching must never guess silently: auto-match only on
-a unique type+color match, otherwise add it to the review queue in the UI.
+Do Step 10 of PLAN.md. Check what Bambu Cloud actually exposes for spools/filament
+before adding that type; if it doesn't, say so and skip it.
 ```
 
-### [x] Step 14 - Bambu Studio local filament library
+### [ ] Step 11 - Import printers & machine profiles from Bambu Studio
 **Model:** Sonnet · **Effort:** Medium
-**Scope:** Detect Bambu Studio config folders per OS (Windows/macOS/Linux), read user filament presets (and optionally system presets), import as filament profiles (dedupe, keep link to the source preset).
-**Done when:** import preview → confirm → profiles created.
+**Scope:** From the local Bambu Studio config: printer models (with thumbnails if the install ships them), user + system machine presets → PrinterModel / MachineProfile, and printers from the local config if present. Preview → confirm, dedupe, keep link to the source preset (same flow as the filament library import).
+**Done when:** import preview → confirm creates models/profiles; re-import doesn't duplicate.
 **Prompt:**
 ```
-Do Step 14 of PLAN.md. Verify current Bambu Studio preset paths and JSON format first;
-make the path overridable in settings. Show an import preview before writing.
+Do Step 11 of PLAN.md. Reuse the existing Bambu Studio filament library reader and
+preview flow. Verify the machine preset paths/format and where printer thumbnails live first.
+```
+
+### [ ] Step 12 - OrcaSlicer integration
+**Model:** Sonnet · **Effort:** Medium
+**Scope:** `packages/adapters/orca`: detect OrcaSlicer config per OS, import filament + machine presets, launch OrcaSlicer via `SlicerLauncher`. Shows up in the hub as a second integration (exercises multi-import buttons and the slicer picker).
+**Done when:** Orca presets import and "Open in OrcaSlicer" works on Windows; macOS/Linux paths documented.
+**Prompt:**
+```
+Do Step 12 of PLAN.md. Orca is a Bambu Studio fork: share the preset reader instead of
+copying it (extract a small shared package if adapters can't import each other).
 ```
 
 ---
 
-## Phase 3 - Projects & costs
+## Phase 5 - Release
 
-### [x] Step 15 - 3MF parser package
-**Model:** Sonnet · **Effort:** High
-**Scope:** `packages/3mf`: read the zip and extract per plate: print time, filament grams/meters per slot, filament types and colors, multicolor flag, plate thumbnails, slicer and version, printer model. Works for sliced (Bambu `slice_info.config`) and unsliced 3MF (graceful partial data).
-**Done when:** unit tests pass on fixture files in `packages/3mf/fixtures`.
-**Prompt:**
-```
-Do Step 15 of PLAN.md. Pure package, no app imports, streaming-friendly, typed output.
-I'll drop sample .3mf files into packages/3mf/fixtures; ask me if none are there.
-```
-
-### [x] Step 16 - Project scanner & manual projects
-**Model:** Sonnet · **Effort:** High
-**Scope:** Scan the configured root folders (one folder = one project, configurable depth), watch for changes (chokidar), collect files (3mf/stl/step/images/docs), parse 3MFs, extract a description from README/.md/.txt, detect marketplace URLs (MakerWorld, Printables, Thingiverse) in files or `.url` shortcuts, cover image selection. Manual project creation (folder optional). Re-scan without overwriting user edits.
-**Done when:** scanning a sample tree creates correct projects; edits survive re-scan.
-**Prompt:**
-```
-Do Step 16 of PLAN.md. Track which fields are user-edited vs scanned so re-scan only
-updates scanned fields. Scanning runs as a background job with progress in the UI.
-```
-
-### [x] Step 17 - Projects UI & 3D preview
-**Model:** Sonnet (use frontend-design skill) · **Effort:** Medium
-**Scope:** Grid/list views, filters (tags, collections, multicolor, material), detail page (description, files, plates with print time and filament, linked prints, marketplace link), 3D viewer (3MF/STL, lazy loaded, orbit, plate select), lightweight thumbnails.
-**Done when:** large models don't block the UI; mobile layout works.
-**Prompt:**
-```
-Do Step 17 of PLAN.md. Lazy-load the 3D viewer chunk; fall back to the plate thumbnail
-if the model is too large (configurable size limit).
-```
-
-### [x] Step 18 - Open in slicer & links
-**Model:** Sonnet · **Effort:** Low
-**Scope:** "Open in Bambu Studio" (spawn the configured slicer path with the file, via the `SlicerLauncher` interface), "Open folder", marketplace link buttons.
-**Done when:** works on Windows, plus macOS/Linux paths documented.
-**Prompt:**
-```
-Do Step 18 of PLAN.md. Only allow launching files inside configured project roots
-(path traversal safe). Server-side only; the API returns success/error.
-```
-
-### [x] Step 19 - Cost engine & pricing calculator
-**Model:** Sonnet · **Effort:** Medium
-**Scope:** Core cost service: material (grams × spool price/kg), energy (kWh × €/kWh), printer wear (purchase price ÷ expected lifetime hours, optional), maintenance share (optional). Used in prints, projects (estimated from 3MF) and stats. Pricing calculator page: cost + labor (time × rate) + markup % + failure margin %, quantity, saveable quotes per project.
-**Done when:** cost breakdowns show everywhere; unit tests on the calculations.
-**Prompt:**
-```
-Do Step 19 of PLAN.md. All cost maths in core as pure, tested functions. Show
-a breakdown (not just a total) in the UI.
-```
-
----
-
-## Phase 4 - Insights, alerts, polish
-
-### [x] Step 20 - Stats module
-**Model:** Sonnet · **Effort:** Medium
-**Scope:** Filters: date range (presets + custom), printer, spool, filament profile, project, tag, outcome. Metrics: print count, success rate, print hours, energy (kWh and €), filament (g and €), total cost; time series + breakdowns; CSV export of the current view.
-**Done when:** stats queries are fast with 10k seeded prints.
-**Prompt:**
-```
-Do Step 20 of PLAN.md. Aggregate in SQL, not in JS. Add a seed option for 10k prints
-and check query times.
-```
-
-### [x] Step 21 - Home dashboard widgets
-**Model:** Sonnet · **Effort:** Medium
-**Scope:** Widget registry (stat card, chart, list): this-month totals, printer states, maintenance due, low spools, recent prints, cost this month, success rate. Add/remove/reorder, saved layout, responsive grid.
-**Done when:** the layout persists; widgets reuse the stats service.
-**Prompt:**
-```
-Do Step 21 of PLAN.md. Widgets are self-registering components with a settings schema
-so new widgets are easy to add.
-```
-
-### [x] Step 22 - Alerts
-**Model:** Sonnet · **Effort:** Medium
-**Scope:** Rules: spool below X g or %, maintenance due/overdue, warranty ending, sync errors. In-app notification center + badge; optional channels behind an interface: ntfy and email (SMTP). Daily evaluation job + on-event checks; snooze/dismiss.
-**Done when:** alerts fire once (no spam) and clear when resolved.
-**Prompt:**
-```
-Do Step 22 of PLAN.md. Channels behind a NotificationChannel interface. Dedupe so
-each condition alerts once until it resolves or is snoozed.
-```
-
-### [x] Step 23 - Backup & export
-**Model:** Sonnet · **Effort:** Low
-**Scope:** One-click full backup (SQLite snapshot + uploaded images as zip), scheduled automatic backups with retention, restore with confirmation, CSV/JSON export per module.
-**Done when:** backup → fresh install → restore gives identical data.
-**Prompt:**
-```
-Do Step 23 of PLAN.md. Use SQLite's online backup API (safe while running). Version
-the backup format for future migrations.
-```
-
-### [x] Step 24 - E2E tests & responsive pass
+### [ ] Step 13 - E2E & responsive pass for v1.1
 **Model:** Sonnet (use webapp-testing skill) · **Effort:** Medium
-**Scope:** Playwright: settings, add printer, add spool, manual print deducts filament, project scan, stats filter, backup. Viewport checks at 375/768/1440. Fix what breaks.
-**Done when:** E2E runs in CI.
+**Scope:** Playwright: table paging/filter, back button, branding, maintenance multi-scope, printer model + machine profile CRUD, integrations hub capability toggles. Viewports 375/768/1440. Fix what breaks.
+**Done when:** E2E green in CI.
 **Prompt:**
 ```
-Do Step 24 of PLAN.md. Keep tests independent with a fresh temp data dir each.
+Do Step 13 of PLAN.md. Same fresh-temp-data-dir pattern as the existing suite.
 List UI issues found and fix them in this step.
 ```
 
-### [x] Step 25 - Security & performance review  **[plan mode]**
-**Model:** Opus · **Effort:** Medium
-**Scope:** Secrets handling, path traversal, file uploads, optional password when binding to LAN, dependency audit, bundle size, slow queries.
-**Done when:** findings are fixed or documented as issues.
+### [ ] Step 14 - Docs & v1.1.0-alpha.1 release
+**Model:** Haiku · **Effort:** Low
+**Scope:** README/docs updates (port config, branding, integrations hub, OrcaSlicer), CHANGELOG, version `1.1.0-alpha.1`, release workflow publishes it as a GitHub pre-release.
+**Done when:** tag builds a pre-release; docs match the app.
 **Prompt:**
 ```
-Do Step 25 of PLAN.md. Review only; list findings by severity with file references,
-then fix high/medium ones after I approve.
+Do Step 14 of PLAN.md. Only document what changed since 1.0.0. Check the release
+workflow handles a pre-release tag.
 ```
 
-### [x] Step 26 - Docs & v1.0 release
-**Model:** Haiku · **Effort:** Low
-**Scope:** README (features, screenshots, install, Bambu Cloud setup, FAQ), CONTRIBUTING (incl. "how to add an adapter", "how to add a language"), CHANGELOG, GitHub release workflow, issue templates.
-**Done when:** a new user can install from the README alone.
-**Prompt:**
-```
-Do Step 26 of PLAN.md. Keep the README scannable; put details in docs/. Leave
-screenshot placeholders where I need to add images.
-```
+---
+
+## Backlog mapping
+| Backlog item | Step |
+|---|---|
+| 3D preview colors | 1 |
+| Pagination | 5, 6 |
+| Back button | 2 |
+| Sync by type and date | 10 |
+| App name | 4 |
+| Branding (logo, favicon) | 4 |
+| Maintenance for multiple printers/models | 7 |
+| Server port | 3 |
+| Printers & profiles from Bambu app (+ manual) | 8, 11 |
+| Table filters & sort | 5, 6 |
+| Integrations in one place, multi-slicer | 9, 12 |

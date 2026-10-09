@@ -1,7 +1,7 @@
 import { createReadStream } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { extname, join } from "node:path";
-import { read3mfEntry } from "@3d-maker-suite/3mf";
+import { read3mfEntry, read3mfPaint } from "@3d-maker-suite/3mf";
 import {
   apiErrorSchema,
   idList,
@@ -12,6 +12,7 @@ import {
   projectListQuery,
   projectMetaSchema,
   projectOpenSchema,
+  projectPaintSchema,
   projectPatchSchema,
   projectScanStatusSchema,
   projectSchema,
@@ -177,6 +178,25 @@ export const projectsRoutes =
       if (!png) throw new HttpError(404, "not_found", "File not found");
       return reply.type("image/png").send(png);
     });
+
+    // Painted triangles of one listed 3MF, read on demand because they need the mesh files.
+    app.get(
+      "/:id/paint",
+      {
+        schema: {
+          params,
+          querystring: z.object({ path: z.string().min(1) }),
+          response: { 200: projectPaintSchema, ...notFound },
+        },
+      },
+      async (req) => {
+        const { folderPath, meta } = get(req.params.id);
+        const { path } = req.query;
+        const listed = meta.models.some((m) => m.file === path);
+        if (!folderPath || !listed) throw new HttpError(404, "not_found", "File not found");
+        return read3mfPaint(join(folderPath, path));
+      },
+    );
 
     // Launches a local program, so everything is checked here: the project folder must be inside a
     // configured root, and a file must be one the scanner listed (nothing the client invents).

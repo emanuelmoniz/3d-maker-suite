@@ -256,10 +256,13 @@ export function ProjectDetailPage() {
         <div>
           {current ? (
             <ModelPreview
+              projectId={project.id}
+              path={current.path}
               url={projectFileUrl(project.id, current.path)}
               ext={current.path.slice(current.path.lastIndexOf(".")).toLowerCase()}
               size={current.size}
               objects={selected?.objects ?? []}
+              partColors={info?.partColors ?? []}
               thumbnail={thumbnail}
               name={project.name}
             />

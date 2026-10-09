@@ -41,7 +41,17 @@ export const projectModelSchema = z.object({
   sliced: z.boolean(),
   multicolor: z.boolean(),
   plates: z.array(projectPlateSchema),
+  /** Per build item, per component: part color for the 3D viewer. Older scans lack it. */
+  partColors: z.array(z.array(nullableText)).default([]),
 });
+
+/** Painted triangles of one 3MF for the 3D viewer; same shape as `ThreeMfPaint`. */
+export const projectPaintSchema = z.object({
+  palette: z.array(z.string()),
+  /** Per build item, per component: run-length `[state, count, ...]` over triangles, or null. */
+  parts: z.array(z.array(z.array(z.number().int()).nullable())),
+});
+export type ProjectPaint = z.infer<typeof projectPaintSchema>;
 
 /** What the scanner found. Always rewritten by a re-scan; never user-edited. */
 export const projectMetaSchema = z.object({

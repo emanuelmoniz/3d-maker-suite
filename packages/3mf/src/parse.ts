@@ -36,6 +36,12 @@ export interface ThreeMfInfo {
   sliced: boolean;
   multicolor: boolean;
   plates: ThreeMfPlate[];
+  /**
+   * Part colors for the viewer, in the order three's 3MFLoader builds the scene: one list per
+   * `<build>` item, one entry per component of that item. `#RRGGBB`, or null when the part has no
+   * extruder (or is a modifier). Empty if the file has no Bambu `model_settings`.
+   */
+  partColors: (string | null)[][];
 }
 
 type Node = Record<string, unknown>;
@@ -44,7 +50,16 @@ const xml = new XMLParser({
   ignoreAttributes: false,
   attributeNamePrefix: "@_",
   isArray: (name) =>
-    ["plate", "metadata", "object", "part", "filament", "model_instance"].includes(name),
+    [
+      "plate",
+      "metadata",
+      "object",
+      "part",
+      "filament",
+      "model_instance",
+      "component",
+      "item",
+    ].includes(name),
 });
 
 const arr = (v: unknown): Node[] => (Array.isArray(v) ? (v as Node[]) : []);
@@ -95,6 +110,133 @@ function parseSlicer(head: string | null): ThreeMfInfo["slicer"] {
     : { name: app.slice(0, i), version: app.slice(i + 1) };
 }
 
+interface BuildItem {
+  /** Root `<object>` id, which is also the object id in model_settings. */
+  object: string;
+  components: { id: string; path: string }[];
+}
+
+/**
+ * Build items and their components, in the order three's 3MFLoader builds the scene. The root
+ * model is small for Bambu files (meshes live in 3D/Objects); callers skip non-Bambu files.
+ */
+async function readBuild(zip: Zip): Promise<BuildItem[]> {
+  const text = await readText(zip, "3D/3dmodel.model");
+  let model: Node = {};
+  try {
+    model = text ? (((xml.parse(text) as Node).model as Node) ?? {}) : {};
+  } catch {}
+  const components = new Map<string, BuildItem["components"]>();
+  for (const o of arr((model.resources as Node | undefined)?.object)) {
+    components.set(
+      String(o["@_id"]),
+      arr((o.components as Node | undefined)?.component).map((c) => ({
+        id: String(c["@_objectid"]),
+        path: String(c["@_p:path"] ?? "3D/3dmodel.model").replace(/^\/+/, ""),
+      })),
+    );
+  }
+  return arr((model.build as Node | undefined)?.item).map((item) => ({
+    object: String(item["@_objectid"]),
+    components: components.get(String(item["@_objectid"])) ?? [],
+  }));
+}
+
+/** See `ThreeMfInfo.partColors`. `partSlot` is keyed `objectId/partId`. */
+async function partColors(zip: Zip, partSlot: Map<string, number | null>, filaments: string[]) {
+  if (!partSlot.size) return [];
+  return (await readBuild(zip)).map((item) =>
+    item.components.map((c) => {
+      const slot = partSlot.get(`${item.object}/${c.id}`);
+      return (slot && str(filaments[slot - 1])?.slice(0, 7)) || null;
+    }),
+  );
+}
+
+export interface ThreeMfPaint {
+  /** Filament colors, slot 1 first (`#RRGGBB`). */
+  palette: string[];
+  /**
+   * Same shape as `partColors` (build item, then component). A part whose mesh has painted
+   * triangles holds run-length pairs `[state, count, state, count, ...]` over the mesh's triangles
+   * in file order; state 0 = not painted, n = filament slot n. Null when nothing is painted.
+   */
+  parts: (number[] | null)[][];
+}
+
+/**
+ * Bambu `paint_color` is a nibble stream (last hex char first). Node nibble: low 2 bits = number
+ * of split sides, 0 for a leaf; a leaf's high 2 bits are its state, with 3 meaning "3 + next
+ * nibble". A split node (high 2 bits = special side) is followed by its sides+1 children.
+ * ponytail: a subdivided triangle (about 0.2% of painted ones) gets its dominant state by area
+ * share instead of exact sub-triangles; paint-heavy meshes would need the real subdivision.
+ */
+export function paintState(code: string): number {
+  const nibbles = [...code].reverse().map((c) => Number.parseInt(c, 16));
+  let pos = 0;
+  const next = () => nibbles[pos++] ?? 0;
+  const area = new Map<number, number>();
+  const walk = (share: number) => {
+    const n = next();
+    const sides = n & 3;
+    if (!sides) {
+      const state = n >> 2 === 3 ? 3 + next() : n >> 2;
+      area.set(state, (area.get(state) ?? 0) + share);
+      return;
+    }
+    // 1 side: halves; 2 sides: quarter, quarter, half; 3 sides: quarters.
+    const shares =
+      [
+        [0.5, 0.5],
+        [0.25, 0.25, 0.5],
+        [0.25, 0.25, 0.25, 0.25],
+      ][sides - 1] ?? [];
+    for (const f of shares) walk(share * f);
+  };
+  walk(1);
+  return [...area].reduce((best, e) => (e[1] > best[1] ? e : best), [0, -1])[0];
+}
+
+/** Painted triangles of every part, for the viewer. Reads the mesh files, so call on demand. */
+export async function read3mfPaint(source: ThreeMfSource): Promise<ThreeMfPaint> {
+  const zip = await openZip(source);
+  try {
+    const project = await readJson(zip, "Metadata/project_settings.config");
+    const palette = ((project.filament_colour as string[] | undefined) ?? []).map((c) =>
+      c.slice(0, 7),
+    );
+    const build = await readBuild(zip);
+    const runs = new Map<string, number[] | null>(); // "path#id" -> runs
+    const files = new Map<string, string | null>();
+    for (const c of build.flatMap((i) => i.components)) {
+      if (!files.has(c.path)) files.set(c.path, await readText(zip, c.path));
+      const key = `${c.path}#${c.id}`;
+      if (runs.has(key)) continue;
+      const text = files.get(c.path) ?? "";
+      const start = text.indexOf(`<object id="${c.id}"`);
+      const mesh = start < 0 ? "" : text.slice(start, text.indexOf("</object>", start));
+      let out: number[] | null = null;
+      if (mesh.includes("paint_color=")) {
+        out = [];
+        for (const t of mesh.matchAll(/<triangle [^>]*>/g)) {
+          const code = t[0].match(/paint_color="([0-9A-Fa-f]+)"/)?.[1];
+          const state = code ? paintState(code) : 0;
+          const n = out.length;
+          if (n && out[n - 2] === state) out[n - 1] = (out[n - 1] ?? 0) + 1;
+          else out.push(state, 1);
+        }
+      }
+      runs.set(key, out);
+    }
+    return {
+      palette,
+      parts: build.map((i) => i.components.map((c) => runs.get(`${c.path}#${c.id}`) ?? null)),
+    };
+  } finally {
+    zip.close();
+  }
+}
+
 /**
  * Parse a 3MF (Bambu Studio / Orca style metadata). Only small metadata entries are read;
  * mesh files are never loaded. Missing or malformed parts yield nulls/empty lists, not errors.
@@ -124,16 +266,21 @@ export async function parse3mf(source: ThreeMfSource): Promise<ThreeMfInfo> {
 
     // object id -> name + filament slots used
     const objects = new Map<string, { name: string | null; slots: Set<number> }>();
+    const partSlot = new Map<string, number | null>(); // `objectId/partId` (part id = component objectid) -> slot
     for (const o of arr(settings.object)) {
       const om = meta(o);
       const slots = new Set<number>();
+      const objExtruder = num(om.extruder);
       for (const p of arr(o.part)) {
         const sub = p["@_subtype"];
-        if (sub && sub !== "normal_part") continue;
         const e = num(meta(p).extruder);
+        partSlot.set(
+          `${o["@_id"]}/${p["@_id"]}`,
+          sub && sub !== "normal_part" ? null : (e ?? objExtruder),
+        );
+        if (sub && sub !== "normal_part") continue;
         if (e) slots.add(e);
       }
-      const objExtruder = num(om.extruder);
       if (!slots.size && objExtruder) slots.add(objExtruder);
       objects.set(String(o["@_id"]), { name: str(om.name), slots });
     }
@@ -189,6 +336,7 @@ export async function parse3mf(source: ThreeMfSource): Promise<ThreeMfInfo> {
     for (const p of list) p.multicolor = p.filaments.length > 1;
 
     return {
+      partColors: await partColors(zip, partSlot, colors),
       slicer: parseSlicer(head),
       printerModel: str(project.printer_model),
       nozzleDiameter: num((project.nozzle_diameter as unknown[] | undefined)?.[0]),

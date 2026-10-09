@@ -2,7 +2,7 @@ import { Buffer } from "node:buffer";
 import { fileURLToPath } from "node:url";
 import { crc32 } from "node:zlib";
 import { describe, expect, it } from "vitest";
-import { parse3mf, read3mfEntry } from "./index.ts";
+import { paintState, parse3mf, read3mfEntry, read3mfPaint } from "./index.ts";
 
 const fixture = (name: string) =>
   fileURLToPath(new URL(`../fixtures/${name}.3mf`, import.meta.url));
@@ -65,6 +65,15 @@ describe("parse3mf fixtures (saved without slicing)", () => {
     expect(plate?.filaments[1]?.profile).toBe("Bambu PLA Matte @BBL A1");
     expect(plate?.printTimeSeconds).toBeNull();
     expect(plate?.filaments[0]?.grams).toBeNull();
+  });
+
+  it("maps each part's extruder to its filament color, in loader order", async () => {
+    const { partColors } = await parse3mf(fixture("multi_color"));
+    expect(partColors).toHaveLength(4);
+    for (const parts of partColors) {
+      expect(parts).toEqual(["#FFFFFF", "#0078BF", "#A3D8E1", "#F99963"]);
+    }
+    expect((await parse3mf(fixture("single_color"))).partColors).toEqual([["#FFFFFF"]]);
   });
 
   it("single-color project uses only the assigned slot", async () => {
@@ -161,5 +170,39 @@ describe("parse3mf sliced data", () => {
 
   it("rejects non-zip input", async () => {
     await expect(parse3mf(Buffer.from("not a zip"))).rejects.toThrow();
+  });
+});
+
+describe("painted colors", () => {
+  it("decodes Bambu paint_color nibble streams", () => {
+    expect(paintState("4")).toBe(1);
+    expect(paintState("8")).toBe(2);
+    expect(paintState("0C")).toBe(3);
+    expect(paintState("1C")).toBe(4);
+    // Split in two halves (1 side): leaves "4" then "8" -> stream nibbles 1, 4, 8 -> reversed string.
+    expect(paintState("841")).toBe(1); // equal area: first wins
+    // Split in 3 sides: three quarters of state 2 beat one quarter of state 1.
+    expect(paintState("88843")).toBe(2);
+  });
+
+  it("returns run-length painted triangles per part, null for unpainted parts", async () => {
+    const tri = (c?: string) => `<triangle v1="0" v2="1" v3="2"${c ? ` paint_color="${c}"` : ""}/>`;
+    const mesh = (id: number, tris: string) =>
+      `<object id="${id}"><mesh><vertices/><triangles>${tris}</triangles></mesh></object>`;
+    const zip = zipOf({
+      "3D/3dmodel.model": `<model><resources>
+        <object id="3"><components>
+          <component p:path="/3D/Objects/o.model" objectid="1"/>
+          <component p:path="/3D/Objects/o.model" objectid="2"/>
+        </components></object></resources><build><item objectid="3"/></build></model>`,
+      "3D/Objects/o.model": `<model><resources>${mesh(1, tri("4") + tri("4") + tri() + tri("0C"))}${mesh(2, tri())}</resources></model>`,
+      "Metadata/project_settings.config": JSON.stringify({
+        filament_colour: ["#111111", "#222222", "#33333380"],
+      }),
+    });
+    expect(await read3mfPaint(zip)).toEqual({
+      palette: ["#111111", "#222222", "#333333"],
+      parts: [[[1, 2, 0, 1, 3, 1], null]],
+    });
   });
 });
