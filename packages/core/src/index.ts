@@ -1,5 +1,6 @@
 export * from "./integrations/index.ts";
 export * from "./schemas/alerts.ts";
+export * from "./schemas/catalog.ts";
 export * from "./schemas/cost.ts";
 export * from "./schemas/entities.ts";
 export * from "./schemas/enums.ts";

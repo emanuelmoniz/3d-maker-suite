@@ -39,6 +39,7 @@ flowchart LR
 - **Money:** integer minor units in one app currency, set in Settings.
 - **Display:** all formatting goes through `Intl` (see ADR-0004).
 - **Imported rows:** any row that can come from an integration has `origin: 'manual' | 'integration'`, `integrationId?` and `externalId?`, with a unique constraint on `(integrationId, externalId)`. That makes sync an idempotent upsert.
+- **Catalog:** brands, printer models and machine profiles are hard-deleted, and only while nothing points at them (`ON DELETE RESTRICT`, the API answers 409). Imported printers keep sending brand/model strings; sync finds or creates the catalog rows.
 - **Soft archive:** printers, spools, filament profiles, maintenance types and projects get `archivedAt` instead of being deleted, so their history stays intact. Foreign keys from history rows use `ON DELETE RESTRICT`, so a hard delete fails instead of orphaning stats. Prints are hard-deleted (their filament usages cascade).
 - **Dates in queries:** stored as `toISOString()` text, so range filters compare as strings and use the date indexes (`prints.startedAt`).
 
@@ -46,13 +47,16 @@ flowchart LR
 
 | Entity | Meaning | Key fields |
 |---|---|---|
-| **Printer** | A physical machine | name, brand, model, serial?, nozzleDiameterMm, runtimeOffsetSec, printsOffset (baseline for a used machine), state (from the `printerStates` setting), powerW?, purchasedAt?, purchasePrice?, warrantyEndsAt?, warrantyNotes?, photoPath?, archivedAt? |
+| **Brand** | Printer maker | name (unique, any case), url?, logoPath? |
+| **PrinterModel** | A model of a brand | brandId, model (unique per brand, any case), powerW? (pre-fills new printers), imagePath? (shown for printers without a photo) |
+| **MachineProfile** | Slicer machine preset for a model | name, printerModelId, nozzleDiameterMm, sourcePreset? (`<library>:<preset id>` when imported) |
+| **Printer** | A physical machine | name, modelId, serial?, nozzleDiameterMm, runtimeOffsetSec, printsOffset (baseline for a used machine), state (from the `printerStates` setting), powerW?, purchasedAt?, purchasePrice?, warrantyEndsAt?, warrantyNotes?, photoPath?, archivedAt? |
 | **PrinterComment** | Note on a printer timeline | printerId, body, pinned, status (`open` | `resolved`) |
-| **MaintenanceType** | Reusable maintenance template | name, intervalSec?, intervalPrints?, intervalDays? (the first one reached triggers), appliesToModels[] + appliesToPrinterIds[] (union; empty = all printers) |
+| **MaintenanceType** | Reusable maintenance template | name, intervalSec?, intervalPrints?, intervalDays? (the first one reached triggers), appliesToModelIds[] + appliesToPrinterIds[] (union; empty = all printers) |
 | **MaintenanceTask** | A logged "done" event | printerId, typeId, doneAt, printerRuntimeSecAt, printerPrintsAt, notes? |
 | **FilamentProfile** | A material spec (settings only, no colour) | brand, material (PLA, PETG…), name, diameterMm, densityGcm3, pricePerKg? |
 | **Spool** | A physical roll of filament | profileId, colorHex, initialGrams, remainingGrams, pricePaid, purchasedAt?, openedAt?, location?, archivedAt? |
-| **Print** | One print job | printerId, projectId?, title, plate?, startedAt, durationSec, outcome, failureReason?, notes?, energyWh?, energySource? (`'estimated' \| 'measured'`), costSnapshot? |
+| **Print** | One print job | printerId, projectId?, machineProfileId?, title, plate?, startedAt, durationSec, outcome, failureReason?, notes?, energyWh?, energySource? (`'estimated' \| 'measured'`), costSnapshot? |
 | **PrintFilamentUsage** | Filament used by one print, one row per slot (AMS) | printId, spoolId?, profileId?, grams, slot? |
 | **PrintOutcome** | Value type on Print, no table of its own | `'success' \| 'failed' \| 'cancelled'`, plus an optional failureReason |
 | **Project** | A printable model, usually a 3MF file | name, filePath?, sourceUrl?, thumbnailPath?, meta (plates, estimated time and grams per plate) |

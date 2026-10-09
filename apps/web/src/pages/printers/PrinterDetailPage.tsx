@@ -7,6 +7,7 @@ import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { type DateRange, DateRangePicker } from "../../components/DateRangePicker.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { StatCard } from "../../components/StatCard.tsx";
+import { imageUrl, useModelInfo } from "../../lib/catalog.ts";
 import {
   formatCurrency,
   formatDate,
@@ -49,6 +50,7 @@ export function PrinterDetailPage() {
   const upload = useUploadPhoto(id);
   const removePhoto = useRemovePhoto(id);
   const [confirmArchive, setConfirmArchive] = useState(false);
+  const models = useModelInfo();
 
   if (isError)
     return (
@@ -59,6 +61,13 @@ export function PrinterDetailPage() {
   if (!printer) return null;
 
   const none = t("printers:detail.info.none");
+  const model = models.get(printer.modelId);
+  // No photo of its own: show the model's picture.
+  const photo = printer.photoPath
+    ? photoUrl(printer)
+    : model?.model.imagePath
+      ? imageUrl("printer-models", model.model)
+      : null;
   const s = stats.data;
   const done = s ? s.successCount + s.failedCount + s.cancelledCount : 0;
   const archived = printer.archivedAt !== null;
@@ -68,7 +77,7 @@ export function PrinterDetailPage() {
       <PageHeader
         title={printer.name}
         backTo={{ to: "/printers" }}
-        description={`${printer.brand} ${printer.model}`.trim()}
+        description={model?.label}
         actions={
           <>
             <Link to="/printers/$id/edit" params={{ id }} className={linkButton}>
@@ -106,9 +115,9 @@ export function PrinterDetailPage() {
       <div className="grid gap-4">
         <section className="grid gap-5 rounded-lg border border-border bg-surface p-4 sm:grid-cols-[14rem_1fr] sm:p-5">
           <div className="grid content-start gap-2">
-            {printer.photoPath ? (
+            {photo ? (
               <img
-                src={photoUrl(printer)}
+                src={photo}
                 alt={t("printers:detail.photo.alt", { name: printer.name })}
                 className="aspect-square w-full rounded-md border border-border object-cover"
               />

@@ -7,6 +7,7 @@ import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { CostBreakdown } from "../../components/CostBreakdown.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { TagList } from "../../components/TagList.tsx";
+import { useCatalogItem } from "../../lib/catalog.ts";
 import { filamentLabel, useProfile, useSpool } from "../../lib/filament.ts";
 import { formatDateTime, formatDuration, formatNumber, formatWeight } from "../../lib/format.ts";
 import { usePrinter } from "../../lib/printers.ts";
@@ -26,6 +27,15 @@ function PrinterLink({ id }: { id: string }) {
   const name = usePrinter(id).data?.name;
   return (
     <Link to="/printers/$id" params={{ id }} className={link}>
+      {name}
+    </Link>
+  );
+}
+
+function MachineProfileLink({ id }: { id: string }) {
+  const name = useCatalogItem("machine-profiles", id).data?.name;
+  return (
+    <Link to="/printers/profiles/$id/edit" params={{ id }} className={link}>
       {name}
     </Link>
   );
@@ -115,6 +125,11 @@ export function PrintDetailPage() {
             <Info label={t("prints:detail.project")}>
               {print.projectId ? <ProjectLink id={print.projectId} /> : none}
             </Info>
+            {print.machineProfileId && (
+              <Info label={t("prints:form.machineProfile")}>
+                <MachineProfileLink id={print.machineProfileId} />
+              </Info>
+            )}
             <Info label={t("prints:form.outcome")}>
               <span className={print.outcome === "success" ? undefined : "text-bad"}>
                 {t(OUTCOMES[print.outcome])}

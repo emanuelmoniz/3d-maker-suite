@@ -1,14 +1,17 @@
 import type { Printer, PrinterInput } from "@3d-maker-suite/core";
-import { useNavigate, useParams } from "@tanstack/react-router";
+import { Link, useNavigate, useParams } from "@tanstack/react-router";
+import { useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { TagPicker } from "../../components/TagPicker.tsx";
+import { useModelInfo } from "../../lib/catalog.ts";
 import { dateInputToIso, isoToDateInput } from "../../lib/format.ts";
 import { usePreferences } from "../../lib/preferences.ts";
 import { useCreatePrinter, usePatchPrinter, usePrinter } from "../../lib/printers.ts";
 import { useTagEditor } from "../../lib/tags.ts";
+import { ModelSelect } from "./CatalogForms.tsx";
 import { useStateLabel } from "./StateBadge.tsx";
 
 const text = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
@@ -27,14 +30,15 @@ function PrinterForm({ printer }: { printer?: Printer }) {
   const save = printer ? patch : create;
   const tags = useTagEditor("printer", printer?.id);
   const states = prefs?.printerStates ?? [];
+  const models = useModelInfo();
+  const power = useRef<HTMLInputElement>(null);
 
   const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const f = new FormData(e.currentTarget);
     const body: PrinterInput = {
       name: text(f, "name"),
-      brand: text(f, "brand"),
-      model: text(f, "model"),
+      modelId: text(f, "modelId"),
       serial: orNull(text(f, "serial")),
       state: text(f, "state"),
       powerW: int(text(f, "powerW")),
@@ -59,26 +63,28 @@ function PrinterForm({ printer }: { printer?: Printer }) {
           <input {...p} name="name" required className={inputClass} defaultValue={printer?.name} />
         )}
       </FormField>
-      <FormField label={t("printers:form.brand")}>
-        {(p) => (
-          <input
-            {...p}
-            name="brand"
-            required
-            className={inputClass}
-            defaultValue={printer?.brand}
-          />
-        )}
-      </FormField>
       <FormField label={t("printers:form.model")}>
         {(p) => (
-          <input
-            {...p}
-            name="model"
-            required
-            className={inputClass}
-            defaultValue={printer?.model}
-          />
+          <div className="grid gap-1">
+            <ModelSelect
+              {...p}
+              name="modelId"
+              required
+              defaultValue={printer?.modelId}
+              onChange={(e) => {
+                // A new model's typical power fills Power, unless the user typed one.
+                const watts = models.get(e.target.value)?.model.powerW;
+                if (power.current && !power.current.value && watts != null)
+                  power.current.value = String(watts);
+              }}
+            />
+            <Link
+              to="/printers/models/new"
+              className="justify-self-start text-accent hover:underline"
+            >
+              {t("printers:catalog.models.add")}
+            </Link>
+          </div>
         )}
       </FormField>
       <FormField label={t("printers:form.serial")}>
@@ -107,6 +113,7 @@ function PrinterForm({ printer }: { printer?: Printer }) {
         {(p) => (
           <input
             {...p}
+            ref={power}
             name="powerW"
             type="number"
             min={0}

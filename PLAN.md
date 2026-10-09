@@ -92,7 +92,7 @@ Do Step 7 of PLAN.md. New migration only, data copied from appliesToModel. Back 
 before running pnpm dev (it applies migrations to the real DB).
 ```
 
-### [ ] Step 8 - Printer models catalog & machine profiles  **[plan mode]**
+### [x] Step 8 - Printer models catalog & machine profiles  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:** New entities: PrinterModel (brand, model, image/thumbnail, default power W) and MachineProfile (name, printer model, nozzle diameter, source/link to preset). Printers reference a PrinterModel (existing free-text brand/model migrated); prints can reference a MachineProfile. Manual CRUD for both. Creating a printer from a model pre-fills power and image.
 **Done when:** manual CRUD works, existing printers are migrated to models, schema tests pass.

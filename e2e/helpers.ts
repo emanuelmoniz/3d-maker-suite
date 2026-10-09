@@ -2,11 +2,21 @@ import type { Page } from "@playwright/test";
 
 type Api = <T = unknown>(method: string, path: string, body?: unknown) => Promise<T>;
 
-export const seedPrinter = (api: Api, name = "Test Printer") =>
+/** The "Acme X1" printer model, created on first use. */
+export const seedModel = async (api: Api) => {
+  const found = await api<{ items: { id: string }[] }>(
+    "GET",
+    "/api/printer-models?model=Acme%20X1",
+  );
+  if (found.items[0]) return found.items[0];
+  const brand = await api<{ id: string }>("POST", "/api/brands", { name: "Acme" });
+  return api<{ id: string }>("POST", "/api/printer-models", { brandId: brand.id, model: "X1" });
+};
+
+export const seedPrinter = async (api: Api, name = "Test Printer") =>
   api<{ id: string }>("POST", "/api/printers", {
     name,
-    brand: "Acme",
-    model: "X1",
+    modelId: (await seedModel(api)).id,
     state: "working",
   });
 
@@ -29,6 +39,7 @@ export const ROUTES = [
   "/",
   "/printers",
   "/printers/new",
+  "/printers/models/new",
   "/maintenance",
   "/filament",
   "/filament/spools/new",

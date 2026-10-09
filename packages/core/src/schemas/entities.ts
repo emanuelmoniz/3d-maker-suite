@@ -42,11 +42,40 @@ export const integrationSchema = z.object({
   ...timestamps,
 });
 
+export const brandSchema = z.object({
+  id,
+  name: z.string().min(1),
+  url: z.url().nullable(),
+  /** Relative to the data directory. */
+  logoPath: z.string().nullable(),
+  ...timestamps,
+});
+
+export const printerModelSchema = z.object({
+  id,
+  brandId: id,
+  model: z.string().min(1),
+  /** Pre-fills a new printer's `powerW`. */
+  powerW: z.number().int().nonnegative().nullable(),
+  /** Relative to the data directory. Shown for printers without a photo of their own. */
+  imagePath: z.string().nullable(),
+  ...timestamps,
+});
+
+export const machineProfileSchema = z.object({
+  id,
+  name: z.string().min(1),
+  printerModelId: id,
+  nozzleDiameterMm: z.number().positive(),
+  /** Preset this profile was imported from, `<library>:<preset id>`; null for hand-made ones. */
+  sourcePreset: z.string().nullable(),
+  ...timestamps,
+});
+
 export const printerSchema = z.object({
   id,
   name: z.string().min(1),
-  brand: z.string(),
-  model: z.string(),
+  modelId: id,
   serial: z.string().nullable(),
   nozzleDiameterMm: z.number().positive(),
   runtimeOffsetSec: seconds,
@@ -83,7 +112,7 @@ export const maintenanceTypeSchema = z.object({
   intervalPrints: z.number().int().positive().nullable(),
   intervalDays: z.number().int().positive().nullable(),
   /** Models and/or specific printers it applies to (union); both empty = every printer. */
-  appliesToModels: z.array(z.string().min(1)),
+  appliesToModelIds: z.array(id),
   appliesToPrinterIds: z.array(id),
   archivedAt: isoDate.nullable(),
   ...timestamps,
@@ -155,6 +184,7 @@ export const printSchema = z
     id,
     printerId: id,
     projectId: id.nullable(),
+    machineProfileId: id.nullable(),
     title: z.string().min(1),
     plate: z.number().int().positive().nullable(),
     startedAt: isoDate,
@@ -227,6 +257,9 @@ export const alertSchema = z.object({
 });
 
 export type Integration = z.infer<typeof integrationSchema>;
+export type Brand = z.infer<typeof brandSchema>;
+export type PrinterModel = z.infer<typeof printerModelSchema>;
+export type MachineProfile = z.infer<typeof machineProfileSchema>;
 export type Printer = z.infer<typeof printerSchema>;
 export type PrinterComment = z.infer<typeof printerCommentSchema>;
 export type MaintenanceType = z.infer<typeof maintenanceTypeSchema>;

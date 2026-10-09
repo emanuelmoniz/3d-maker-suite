@@ -1,6 +1,7 @@
 import { openDb, schema } from "@3d-maker-suite/db";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { buildApp } from "./app.ts";
+import { modelIdFor } from "./lib/catalog.ts";
 import { setRemaining } from "./lib/spools.ts";
 
 let db: ReturnType<typeof openDb>;
@@ -102,8 +103,7 @@ describe("alerts", () => {
     const soon = new Date(Date.now() + 10 * 86_400_000).toISOString();
     await send("POST", "/api/printers", {
       name: "P1",
-      brand: "Bambu",
-      model: "P1S",
+      modelId: modelIdFor(db, "Bambu", "P1S"),
       warrantyEndsAt: soon,
     });
     await evaluate();

@@ -7,8 +7,7 @@ import type { ColumnFilter } from "./list.ts";
 export const printerInputSchema = printerSchema
   .pick({
     name: true,
-    brand: true,
-    model: true,
+    modelId: true,
     serial: true,
     nozzleDiameterMm: true,
     purchasedAt: true,

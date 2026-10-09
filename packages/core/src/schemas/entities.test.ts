@@ -5,6 +5,7 @@ const print = {
   id: crypto.randomUUID(),
   printerId: crypto.randomUUID(),
   projectId: null,
+  machineProfileId: null,
   title: "Benchy",
   plate: 1,
   startedAt: "2026-01-01T10:00:00.000Z",

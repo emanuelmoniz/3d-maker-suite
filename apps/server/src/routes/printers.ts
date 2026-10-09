@@ -1,5 +1,3 @@
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
 import {
   apiErrorSchema,
   archivedFilter,
@@ -21,21 +19,20 @@ import {
   summarizePrints,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
-import { and, desc, eq, isNotNull, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, isNotNull, isNull } from "drizzle-orm";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
-import { IMAGE_MAX_BYTES, IMAGE_TYPES, imageType } from "../lib/images.ts";
+import { modelName } from "../lib/catalog.ts";
+import { imageRoutes } from "../lib/images.ts";
 import { dateRange, listPage, taggedWith } from "../lib/list.ts";
 import { readPreferences } from "../lib/preferences.ts";
 
-const { printers, printerComments, prints } = schema;
+const { printers, printerComments, printerModels, prints } = schema;
 const params = z.object({ id: z.uuid() });
-const brandModel = sql`${printers.brand} || ' ' || ${printers.model}`;
+const brandModel = modelName(printers.modelId);
 const commentParams = params.extend({ commentId: z.uuid() });
 const notFound = { 404: apiErrorSchema };
-const PHOTO_TYPES = IMAGE_TYPES;
-const PHOTO_MAX_BYTES = IMAGE_MAX_BYTES;
 
 export const printersRoutes =
   (db: Db, dataDir: string): FastifyPluginAsyncZod =>
@@ -58,7 +55,10 @@ export const printersRoutes =
       if (!row) throw new HttpError(404, "not_found", "Comment not found");
       return row;
     };
-    const photoFile = (path: string) => join(dataDir, path);
+    const checkModel = (modelId?: string) => {
+      if (modelId && !db.select().from(printerModels).where(eq(printerModels.id, modelId)).get())
+        throw new HttpError(400, "invalid_model", "Unknown printer model");
+    };
 
     app.get(
       "/",
@@ -98,6 +98,7 @@ export const printersRoutes =
       { schema: { body: printerInputSchema, response: { 201: printerSchema } } },
       async (req, reply) => {
         checkState(req.body.state);
+        checkModel(req.body.modelId);
         const row = db.insert(printers).values(req.body).returning().get();
         return reply.status(201).send(row as Printer);
       },
@@ -119,6 +120,7 @@ export const printersRoutes =
         get(req.params.id);
         const { archived, ...fields } = req.body;
         checkState(fields.state);
+        checkModel(fields.modelId);
         const archivedAt =
           archived === undefined ? undefined : archived ? new Date().toISOString() : null;
         return db
@@ -233,51 +235,17 @@ export const printersRoutes =
       },
     );
 
-    // --- Photo: raw image body (no multipart dependency), stored under <dataDir>/photos.
-    app.addContentTypeParser(
-      Object.keys(PHOTO_TYPES),
-      { parseAs: "buffer", bodyLimit: PHOTO_MAX_BYTES },
-      (_req, body, done) => done(null, body),
-    );
-
-    app.put(
-      "/:id/photo",
-      { schema: { params, response: { 200: printerSchema, ...notFound } } },
-      async (req) => {
-        const printer = get(req.params.id);
-        const ext = PHOTO_TYPES[req.headers["content-type"] as keyof typeof PHOTO_TYPES];
-        if (!ext || !Buffer.isBuffer(req.body) || !req.body.length)
-          throw new HttpError(415, "unsupported_media_type", "Send a PNG, JPEG or WebP image");
-        const photoPath = `photos/${printer.id}.${ext}`;
-        mkdirSync(join(dataDir, "photos"), { recursive: true });
-        if (printer.photoPath && printer.photoPath !== photoPath)
-          rmSync(photoFile(printer.photoPath), { force: true });
-        writeFileSync(photoFile(photoPath), req.body);
-        return db
+    imageRoutes(app, dataDir, {
+      name: "photo",
+      dir: "photos",
+      response: printerSchema,
+      get: (id) => get(id).photoPath,
+      set: (id, photoPath) =>
+        db
           .update(printers)
           .set({ photoPath })
-          .where(eq(printers.id, printer.id))
+          .where(eq(printers.id, id))
           .returning()
-          .get() as Printer;
-      },
-    );
-
-    app.get("/:id/photo", { schema: { params } }, async (req, reply) => {
-      const { photoPath } = get(req.params.id);
-      if (!photoPath) throw new HttpError(404, "not_found", "Printer has no photo");
-      return reply
-        .type(imageType(photoPath) ?? "application/octet-stream")
-        .send(readFileSync(photoFile(photoPath)));
+          .get() as Printer,
     });
-
-    app.delete(
-      "/:id/photo",
-      { schema: { params, response: { 204: z.null(), ...notFound } } },
-      async (req, reply) => {
-        const { id, photoPath } = get(req.params.id);
-        if (photoPath) rmSync(photoFile(photoPath), { force: true });
-        db.update(printers).set({ photoPath: null }).where(eq(printers.id, id)).run();
-        return reply.status(204).send(null);
-      },
-    );
   };

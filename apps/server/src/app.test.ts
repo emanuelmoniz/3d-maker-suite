@@ -2,7 +2,8 @@ import { idList, listQuery } from "@3d-maker-suite/core";
 import { openDb, schema } from "@3d-maker-suite/db";
 import { beforeEach, describe, expect, it } from "vitest";
 import { buildApp } from "./app.ts";
-import { listPage } from "./lib/list.ts";
+import { modelIdFor } from "./lib/catalog.ts";
+import { inIds, listPage } from "./lib/list.ts";
 
 let db: ReturnType<typeof openDb>;
 let app: Awaited<ReturnType<typeof buildApp>>;
@@ -56,23 +57,29 @@ describe("api", () => {
 describe("listPage filters", () => {
   it("date range + entity filter", () => {
     const { printers } = schema;
+    const [bambu, prusa, other] = [
+      ["bambu", "m"],
+      ["prusa", "m"],
+      ["other", "m"],
+    ].map(([b = "", m = ""]) => modelIdFor(db, b, m));
     db.insert(printers)
       .values([
-        { name: "a", brand: "bambu", model: "m", createdAt: "2026-01-10T00:00:00.000Z" },
-        { name: "b", brand: "bambu", model: "m", createdAt: "2026-02-10T00:00:00.000Z" },
-        { name: "c", brand: "prusa", model: "m", createdAt: "2026-02-20T00:00:00.000Z" },
+        { name: "a", modelId: bambu, createdAt: "2026-01-10T00:00:00.000Z" },
+        { name: "b", modelId: bambu, createdAt: "2026-02-10T00:00:00.000Z" },
+        { name: "c", modelId: prusa, createdAt: "2026-02-20T00:00:00.000Z" },
+        { name: "d", modelId: other, createdAt: "2026-02-20T00:00:00.000Z" },
       ])
       .run();
-    const q = listQuery(["name", "createdAt"], { brand: idList.optional() }).parse({
+    const q = listQuery(["name", "createdAt"], { modelId: idList.optional() }).parse({
       from: "2026-02-01",
       to: "2026-02-20", // date-only `to` includes the whole day
-      brand: "bambu,prusa",
+      modelId: `${bambu},${prusa}`,
       sort: "-name",
     });
     const res = listPage(db, printers, q, {
       sort: { name: printers.name, createdAt: printers.createdAt },
       dateColumn: printers.createdAt,
-      where: [q.brand ? inArrayBrand(q.brand) : undefined],
+      where: [inIds(printers.modelId, q.modelId)],
     });
     expect(res.items.map((p) => p.name)).toEqual(["c", "b"]);
     expect(res.total).toBe(2);
@@ -81,7 +88,7 @@ describe("listPage filters", () => {
   it("column filters on /api/prints", async () => {
     const printer = db
       .insert(schema.printers)
-      .values({ name: "p", brand: "b", model: "m" })
+      .values({ name: "p", modelId: modelIdFor(db, "b", "m") })
       .returning()
       .get();
     const row = (title: string, day: string, durationSec: number, outcome = "success") => ({
@@ -122,11 +129,14 @@ describe("listPage filters", () => {
 
     const printer = await post("/api/printers", {
       name: "A1",
-      brand: "Bambu Lab",
-      model: "A1",
+      modelId: modelIdFor(db, "Bambu Lab", "A1"),
       powerW: 100,
     });
-    await post("/api/printers", { name: "MK4", brand: "Prusa", model: "MK4", powerW: 300 });
+    await post("/api/printers", {
+      name: "MK4",
+      modelId: modelIdFor(db, "Prusa", "MK4"),
+      powerW: 300,
+    });
     expect(await names("/api/printers?model=lab%20a1")).toEqual(["A1"]);
     expect(await names("/api/printers?sort=-model")).toEqual(["MK4", "A1"]);
     expect(await names("/api/printers?powerW=200..")).toEqual(["MK4"]);
@@ -179,7 +189,3 @@ describe("listPage filters", () => {
     expect(await names("/api/projects?lastPrintAt=2026-03-01..2026-03-01")).toEqual(["Vase"]);
   });
 });
-
-import { inIds } from "./lib/list.ts";
-
-const inArrayBrand = (ids: string[]) => inIds(schema.printers.brand, ids);

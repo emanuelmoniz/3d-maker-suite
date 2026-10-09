@@ -15,6 +15,7 @@ import { z } from "zod";
 import { buildApp } from "./app.ts";
 import { loadKey } from "./integrations/secrets.ts";
 import { createSyncer } from "./integrations/sync.ts";
+import { modelIdFor } from "./lib/catalog.ts";
 
 let db: ReturnType<typeof openDb>;
 let app: Awaited<ReturnType<typeof buildApp>>;
@@ -84,12 +85,14 @@ describe("integrations", () => {
 
   it("syncs printers and prints end to end, and re-syncs without duplicates", async () => {
     const { id } = await create();
+    const known = modelIdFor(db, "mock ", "m1"); // the adapter sends "Mock"/"M1": reused, any case
     const run = await sync(id);
     expect(run).toMatchObject({ status: "ok", trigger: "manual", created: 4, skipped: 0 });
 
     const printers = db.select().from(schema.printers).all();
     expect(printers).toHaveLength(1);
-    expect(printers[0]).toMatchObject({ origin: "integration", integrationId: id, brand: "Mock" });
+    expect(printers[0]).toMatchObject({ origin: "integration", integrationId: id, modelId: known });
+    expect(db.select().from(schema.brands).all()).toHaveLength(1);
     const prints = (await get("/api/prints?sort=startedAt")).items;
     expect(prints).toHaveLength(3); // 2 pages from the adapter
     expect(prints[1]).toMatchObject({
@@ -164,8 +167,7 @@ describe("integrations", () => {
   it("links a hand-added printer with the same serial instead of importing a duplicate", async () => {
     await send("POST", "/api/printers", {
       name: "Mine",
-      brand: "Mock",
-      model: "M1",
+      modelId: modelIdFor(db, "Mock", "M1"),
       serial: "mock0001",
     });
     const { id } = await create();

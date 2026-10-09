@@ -5,6 +5,7 @@ import { openDb } from "@3d-maker-suite/db";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { buildApp } from "./app.ts";
 import { applyPendingRestore } from "./backup/backup.ts";
+import { modelIdFor } from "./lib/catalog.ts";
 
 let dir: string;
 const opened: ReturnType<typeof openDb>[] = [];
@@ -31,7 +32,7 @@ describe("backup", () => {
       await a.app.inject({
         method: "POST",
         url: "/api/printers",
-        payload: { name: "P1", brand: "Bambu Lab", model: "P1S" },
+        payload: { name: "P1", modelId: modelIdFor(a.db, "Bambu Lab", "P1S") },
       })
     ).json();
     mkdirSync(join(a.dataDir, "photos"));
@@ -106,12 +107,12 @@ describe("backup", () => {
     await a.app.inject({
       method: "POST",
       url: "/api/printers",
-      payload: { name: 'P "1"', brand: "Bambu Lab", model: "P1S" },
+      payload: { name: 'P "1"', modelId: modelIdFor(a.db, "Bambu Lab", "P1S") },
     });
     await a.app.inject({
       method: "POST",
       url: "/api/printers",
-      payload: { name: "=1+1", brand: "Bambu Lab", model: "P1S" },
+      payload: { name: "=1+1", modelId: modelIdFor(a.db, "Bambu Lab", "P1S") },
     });
     const csv = (await a.app.inject("/api/export/printers")).body;
     expect(csv).toContain('"P ""1"""');

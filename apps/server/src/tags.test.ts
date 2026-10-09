@@ -1,10 +1,13 @@
 import { openDb } from "@3d-maker-suite/db";
 import { beforeEach, describe, expect, it } from "vitest";
 import { buildApp } from "./app.ts";
+import { modelIdFor } from "./lib/catalog.ts";
 
+let db: ReturnType<typeof openDb>;
 let app: Awaited<ReturnType<typeof buildApp>>;
 beforeEach(async () => {
-  app = await buildApp(openDb(":memory:"));
+  db = openDb(":memory:");
+  app = await buildApp(db);
 });
 
 const send = (method: "POST" | "PUT" | "PATCH" | "DELETE", url: string, payload?: object) =>
@@ -22,7 +25,9 @@ describe("tags", () => {
 
   it("tags printers, filters lists by tag, and cascades on tag delete", async () => {
     const mk = async (name: string) =>
-      (await send("POST", "/api/printers", { name, brand: "Bambu Lab", model: "P1S" })).json();
+      (
+        await send("POST", "/api/printers", { name, modelId: modelIdFor(db, "Bambu Lab", "P1S") })
+      ).json();
     const [a, b] = [await mk("A"), await mk("B")];
     const t = await tag("Workhorse");
 
@@ -49,7 +54,9 @@ describe("tags", () => {
     expect(
       (await send("PUT", `/api/tags/taggings/spool/${none}`, { tagIds: [t.id] })).statusCode,
     ).toBe(404);
-    const p = (await send("POST", "/api/printers", { name: "A", brand: "x", model: "y" })).json();
+    const p = (
+      await send("POST", "/api/printers", { name: "A", modelId: modelIdFor(db, "x", "y") })
+    ).json();
     expect(
       (await send("PUT", `/api/tags/taggings/printer/${p.id}`, { tagIds: [none] })).statusCode,
     ).toBe(400);

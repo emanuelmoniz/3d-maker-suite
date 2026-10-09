@@ -92,13 +92,65 @@ const imported = () => ({
   externalId: text(),
 });
 
+// Catalog: brand -> printer model -> machine profile. Hard-deleted; FKs restrict while in use.
+export const brands = sqliteTable(
+  "brands",
+  {
+    id: id(),
+    name: text().notNull(),
+    /** Website (support / store). */
+    url: text(),
+    /** Relative to the data directory (brands/<id>.<ext>). */
+    logoPath: text(),
+    ...timestamps,
+  },
+  (t) => [uniqueIndex("brands_name_uq").on(sql`${t.name} COLLATE NOCASE`)],
+);
+
+export const printerModels = sqliteTable(
+  "printer_models",
+  {
+    id: id(),
+    brandId: text()
+      .notNull()
+      .references(() => brands.id, { onDelete: "restrict" }),
+    model: text().notNull(),
+    /** Pre-fills `printers.powerW` when a printer is created from this model. */
+    powerW: integer(),
+    /** Relative to the data directory (models/<id>.<ext>). */
+    imagePath: text(),
+    ...timestamps,
+  },
+  (t) => [uniqueIndex("printer_models_name_uq").on(t.brandId, sql`${t.model} COLLATE NOCASE`)],
+);
+
+export const machineProfiles = sqliteTable(
+  "machine_profiles",
+  {
+    id: id(),
+    name: text().notNull(),
+    printerModelId: text()
+      .notNull()
+      .references(() => printerModels.id, { onDelete: "restrict" }),
+    nozzleDiameterMm: real().notNull().default(0.4),
+    /** Preset this profile was imported from, `<library>:<preset id>`; null for hand-made ones. */
+    sourcePreset: text(),
+    ...timestamps,
+  },
+  (t) => [
+    index("machine_profiles_model_idx").on(t.printerModelId),
+    uniqueIndex("machine_profiles_source_uq").on(t.sourcePreset),
+  ],
+);
+
 export const printers = sqliteTable(
   "printers",
   {
     id: id(),
     name: text().notNull(),
-    brand: text().notNull(),
-    model: text().notNull(),
+    // Nullable only because SQLite can't ADD a NOT NULL FK column without rebuilding the table
+    // (migration 0017); the API always requires it.
+    modelId: text().references(() => printerModels.id, { onDelete: "restrict" }),
     serial: text(),
     nozzleDiameterMm: real().notNull().default(0.4),
     runtimeOffsetSec: integer().notNull().default(0),
@@ -147,7 +199,7 @@ export const maintenanceTypes = sqliteTable("maintenance_types", {
   intervalSec: integer(),
   intervalPrints: integer(),
   intervalDays: integer(),
-  appliesToModels: text({ mode: "json" }).notNull().$type<string[]>().default([]),
+  appliesToModelIds: text({ mode: "json" }).notNull().$type<string[]>().default([]),
   appliesToPrinterIds: text({ mode: "json" }).notNull().$type<string[]>().default([]),
   archivedAt: text(),
   ...timestamps,
@@ -281,6 +333,7 @@ export const prints = sqliteTable(
       .notNull()
       .references(() => printers.id, { onDelete: "restrict" }),
     projectId: text().references(() => projects.id, { onDelete: "restrict" }),
+    machineProfileId: text().references(() => machineProfiles.id, { onDelete: "restrict" }),
     title: text().notNull(),
     plate: integer(),
     startedAt: text().notNull(),

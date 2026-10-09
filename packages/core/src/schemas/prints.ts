@@ -19,6 +19,7 @@ export const printDetailSchema = printSchema.and(
 const base = z.object({
   printerId: id,
   projectId: id.nullable().optional(),
+  machineProfileId: id.nullable().optional(),
   title: z.string().min(1),
   plate: z.number().int().positive().nullable().optional(),
   startedAt: isoDate,

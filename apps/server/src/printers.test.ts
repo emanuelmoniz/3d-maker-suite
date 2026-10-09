@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { openDb, schema } from "@3d-maker-suite/db";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { buildApp } from "./app.ts";
+import { modelIdFor } from "./lib/catalog.ts";
 
 let db: ReturnType<typeof openDb>;
 let app: Awaited<ReturnType<typeof buildApp>>;
@@ -21,7 +22,7 @@ const create = async (payload: Record<string, unknown> = {}) =>
     await app.inject({
       method: "POST",
       url: "/api/printers",
-      payload: { name: "P1", brand: "Bambu Lab", model: "P1S", ...payload },
+      payload: { name: "P1", modelId: modelIdFor(db, "Bambu Lab", "P1S"), ...payload },
     })
   ).json();
 
@@ -140,5 +141,77 @@ describe("printers", () => {
 
     expect((await app.inject({ method: "DELETE", url })).statusCode).toBe(204);
     expect((await app.inject(url)).statusCode).toBe(404);
+  });
+});
+
+describe("catalog: brands, printer models, machine profiles", () => {
+  const send = async (method: "POST" | "PATCH" | "DELETE", url: string, payload?: object) => {
+    const res = await app.inject({ method, url, payload });
+    return { status: res.statusCode, body: res.statusCode === 204 ? null : res.json() };
+  };
+
+  it("CRUD, unique names, unknown parents, delete only when unused", async () => {
+    const brand = (await send("POST", "/api/brands", { name: "Acme", url: "https://acme.test" }))
+      .body;
+    expect((await send("POST", "/api/brands", { name: "ACME" })).body.error.code).toBe("duplicate");
+    expect((await send("POST", "/api/brands", { name: "B", url: "nope" })).status).toBe(400);
+
+    const missing = crypto.randomUUID();
+    expect(
+      (await send("POST", "/api/printer-models", { brandId: missing, model: "X" })).body.error.code,
+    ).toBe("invalid_reference");
+    const model = (
+      await send("POST", "/api/printer-models", { brandId: brand.id, model: "X1", powerW: 300 })
+    ).body;
+    expect(model).toMatchObject({ powerW: 300, imagePath: null });
+    expect((await app.inject("/api/printer-models?model=acme%20x")).json().total).toBe(1);
+
+    const profile = (
+      await send("POST", "/api/machine-profiles", { name: "Acme X1 0.4", printerModelId: model.id })
+    ).body;
+    expect(profile).toMatchObject({ nozzleDiameterMm: 0.4, sourcePreset: null });
+
+    expect((await create({ modelId: missing })).error.code).toBe("invalid_model");
+    const printer = await create({ modelId: model.id });
+    expect(
+      (
+        await send("POST", "/api/prints", {
+          printerId: printer.id,
+          machineProfileId: missing,
+          title: "t",
+          startedAt: "2026-01-01T00:00:00.000Z",
+          outcome: "success",
+        })
+      ).body.error.code,
+    ).toBe("invalid_machine_profile");
+
+    expect((await send("DELETE", `/api/brands/${brand.id}`)).body.error.code).toBe("in_use");
+    expect((await send("DELETE", `/api/printer-models/${model.id}`)).status).toBe(409);
+    expect((await send("DELETE", `/api/machine-profiles/${profile.id}`)).status).toBe(204);
+    expect((await send("PATCH", `/api/brands/${brand.id}`, { name: "Acme Inc" })).body.name).toBe(
+      "Acme Inc",
+    );
+  });
+
+  it("model image and brand logo", async () => {
+    const brand = (await send("POST", "/api/brands", { name: "Acme" })).body;
+    const model = (await send("POST", "/api/printer-models", { brandId: brand.id, model: "X1" }))
+      .body;
+    const put = (url: string) =>
+      app.inject({
+        method: "PUT",
+        url,
+        headers: { "content-type": "image/webp" },
+        payload: Buffer.from([1, 2, 3]),
+      });
+    expect((await put(`/api/printer-models/${model.id}/image`)).json().imagePath).toBe(
+      `models/${model.id}.webp`,
+    );
+    expect((await put(`/api/brands/${brand.id}/logo`)).json().logoPath).toBe(
+      `brands/${brand.id}.webp`,
+    );
+    expect((await app.inject(`/api/brands/${brand.id}/logo`)).headers["content-type"]).toBe(
+      "image/webp",
+    );
   });
 });

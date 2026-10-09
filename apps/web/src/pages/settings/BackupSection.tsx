@@ -14,6 +14,9 @@ const KEY = ["backups"];
 // i18n keys are written out in full so `pnpm i18n:check` can see them.
 const TABLES = [
   ["printers", "settings:backup.tables.printers"],
+  ["brands", "settings:backup.tables.brands"],
+  ["printer-models", "settings:backup.tables.printerModels"],
+  ["machine-profiles", "settings:backup.tables.machineProfiles"],
   ["maintenance", "settings:backup.tables.maintenance"],
   ["maintenance-types", "settings:backup.tables.maintenanceTypes"],
   ["filament-profiles", "settings:backup.tables.filamentProfiles"],

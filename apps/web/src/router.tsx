@@ -18,6 +18,11 @@ import { ModulePage } from "./pages/ModulePage.tsx";
 import { MaintenancePage } from "./pages/maintenance/MaintenancePage.tsx";
 import { TypeDetailPage } from "./pages/maintenance/TypeDetailPage.tsx";
 import { TypeCreatePage, TypeEditPage } from "./pages/maintenance/TypeFormPage.tsx";
+import {
+  BrandFormPage,
+  MachineProfileFormPage,
+  ModelFormPage,
+} from "./pages/printers/CatalogForms.tsx";
 import { PrinterDetailPage } from "./pages/printers/PrinterDetailPage.tsx";
 import { PrinterCreatePage, PrinterEditPage } from "./pages/printers/PrinterFormPage.tsx";
 import { PrintersPage } from "./pages/printers/PrintersPage.tsx";
@@ -95,6 +100,16 @@ const routes: AnyRoute[] = [
   }),
   printerRoute("/printers", PrintersPage),
   printerRoute("/printers/new", PrinterCreatePage),
+  ...(
+    [
+      ["brands", BrandFormPage],
+      ["models", ModelFormPage],
+      ["profiles", MachineProfileFormPage],
+    ] as const
+  ).flatMap(([kind, page]) => [
+    printerRoute(`/printers/${kind}/new`, page),
+    printerRoute(`/printers/${kind}/$id/edit`, page),
+  ]),
   printerRoute("/printers/$id", PrinterDetailPage),
   printerRoute("/printers/$id/edit", PrinterEditPage),
   createRoute({

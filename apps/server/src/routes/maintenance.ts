@@ -18,16 +18,19 @@ import {
   pageOf,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
-import { eq, isNotNull, isNull } from "drizzle-orm";
+import { eq, isNotNull, isNull, sql } from "drizzle-orm";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
+import { modelName } from "../lib/catalog.ts";
 import { inIds, listPage } from "../lib/list.ts";
 import { dueItems, usageOf } from "../lib/maintenance.ts";
 
 const { maintenanceTypes, maintenanceTasks, printers } = schema;
 const params = z.object({ id: z.uuid() });
 const notFound = { 404: apiErrorSchema };
+// "Brand Model, Brand Model" of the models a type applies to, for sort/filter.
+const modelNames = sql`(SELECT group_concat(${modelName(sql`j.value`)}, ', ') FROM json_each(${maintenanceTypes.appliesToModelIds}) j)`;
 
 export const maintenanceRoutes =
   (db: Db): FastifyPluginAsyncZod =>
@@ -61,12 +64,12 @@ export const maintenanceRoutes =
           sort: {
             name: maintenanceTypes.name,
             createdAt: maintenanceTypes.createdAt,
-            appliesToModels: maintenanceTypes.appliesToModels,
+            appliesToModels: modelNames,
           },
           dateColumn: maintenanceTypes.createdAt,
           filters: {
             name: maintenanceTypes.name,
-            appliesToModels: maintenanceTypes.appliesToModels,
+            appliesToModels: modelNames,
           },
           where: [
             req.query.archived === "true"

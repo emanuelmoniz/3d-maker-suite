@@ -2,6 +2,7 @@ import { Link, useParams } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
+import { useModelInfo } from "../../lib/catalog.ts";
 import { formatNumber } from "../../lib/format.ts";
 import { useMaintenanceType, usePatchType } from "../../lib/maintenance.ts";
 import { usePrinters } from "../../lib/printers.ts";
@@ -13,6 +14,7 @@ export function TypeDetailPage() {
   const { data: type, isError } = useMaintenanceType(id);
   const patch = usePatchType();
   const printers = usePrinters({ archived: false }).data?.items ?? [];
+  const models = useModelInfo();
 
   if (isError)
     return (
@@ -66,8 +68,9 @@ export function TypeDetailPage() {
           <Info label={t("maintenance:types.prints")}>{type.intervalPrints ?? none}</Info>
           <Info label={t("maintenance:types.days")}>{type.intervalDays ?? none}</Info>
           <Info label={t("maintenance:types.model")}>
-            {[...type.appliesToModels, ...printerNames].join(", ") ||
-              t("maintenance:types.allModels")}
+            {[...type.appliesToModelIds.map((m) => models.get(m)?.label ?? ""), ...printerNames]
+              .filter(Boolean)
+              .join(", ") || t("maintenance:types.allModels")}
           </Info>
         </dl>
       </section>

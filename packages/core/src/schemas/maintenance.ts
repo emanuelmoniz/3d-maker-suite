@@ -11,7 +11,7 @@ export const maintenanceTypeInputSchema = maintenanceTypeSchema
     intervalSec: true,
     intervalPrints: true,
     intervalDays: true,
-    appliesToModels: true,
+    appliesToModelIds: true,
     appliesToPrinterIds: true,
   })
   .partial({
@@ -19,7 +19,7 @@ export const maintenanceTypeInputSchema = maintenanceTypeSchema
     intervalSec: true,
     intervalPrints: true,
     intervalDays: true,
-    appliesToModels: true,
+    appliesToModelIds: true,
     appliesToPrinterIds: true,
   });
 export const maintenanceTypePatchSchema = maintenanceTypeInputSchema

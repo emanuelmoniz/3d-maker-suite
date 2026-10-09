@@ -17,7 +17,6 @@
     "addTitle": "Add printer",
     "editTitle": "Edit printer",
     "name": "Name",
-    "brand": "Brand",
     "model": "Model",
     "serial": "Serial number",
     "state": "State",
@@ -80,5 +79,48 @@
     "reopen": "Reopen",
     "delete": "Delete",
     "error": "Couldn't update notes."
+  },
+  "catalog": {
+    "notFound": "This entry doesn't exist.",
+    "delete": "Delete",
+    "deleteTitle": "Delete this entry?",
+    "deleteBody": "This can't be undone. Entries still used by printers, models or prints can't be deleted.",
+    "removeImage": "Remove image",
+    "error": "Couldn't save. Try again.",
+    "duplicate": "An entry with this name already exists.",
+    "inUse": "Still in use, so it can't be deleted.",
+    "mm": "{{value}} mm",
+    "brands": {
+      "title": "Brands",
+      "add": "Add brand",
+      "addTitle": "Add brand",
+      "editTitle": "Edit brand",
+      "name": "Name",
+      "url": "Website",
+      "logo": "Logo"
+    },
+    "models": {
+      "title": "Printer models",
+      "add": "Add model",
+      "addTitle": "Add printer model",
+      "editTitle": "Edit printer model",
+      "brand": "Brand",
+      "model": "Model",
+      "power": "Typical power",
+      "powerHint": "Pre-filled on new printers of this model.",
+      "image": "Image",
+      "noBrands": "Add a brand first."
+    },
+    "profiles": {
+      "title": "Machine profiles",
+      "add": "Add profile",
+      "addTitle": "Add machine profile",
+      "editTitle": "Edit machine profile",
+      "name": "Name",
+      "model": "Printer model",
+      "nozzle": "Nozzle diameter (mm)",
+      "source": "Slicer preset",
+      "sourceHint": "Optional. Filled in when imported from a slicer."
+    }
   }
 }

@@ -77,15 +77,11 @@ export function maintenanceDue(
   };
 }
 
-/** No models and no printers = every printer; otherwise the printer is listed or its model matches. */
+/** No models and no printers = every printer; otherwise the printer or its model is listed. */
 export const appliesToPrinter = (
-  type: { appliesToModels: string[]; appliesToPrinterIds: string[] },
-  printer: { id: string; model: string },
-) => {
-  if (!type.appliesToModels.length && !type.appliesToPrinterIds.length) return true;
-  const model = printer.model.trim().toLowerCase();
-  return (
-    type.appliesToPrinterIds.includes(printer.id) ||
-    type.appliesToModels.some((m) => m.trim().toLowerCase() === model)
-  );
-};
+  type: { appliesToModelIds: string[]; appliesToPrinterIds: string[] },
+  printer: { id: string; modelId: string | null },
+) =>
+  (!type.appliesToModelIds.length && !type.appliesToPrinterIds.length) ||
+  type.appliesToPrinterIds.includes(printer.id) ||
+  (printer.modelId !== null && type.appliesToModelIds.includes(printer.modelId));

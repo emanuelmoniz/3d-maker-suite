@@ -6,13 +6,12 @@ import { DataTable } from "../../components/DataTable.tsx";
 import { EmptyState } from "../../components/EmptyState.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { TagList } from "../../components/TagList.tsx";
+import { useModelInfo } from "../../lib/catalog.ts";
 import { useListPage, useUrlListQuery } from "../../lib/list.ts";
 import { usePreferences } from "../../lib/preferences.ts";
 import { useTags, useTagsOf } from "../../lib/tags.ts";
+import { addClass, Catalog } from "./Catalog.tsx";
 import { StateBadge, useStateLabel } from "./StateBadge.tsx";
-
-const addClass =
-  "inline-flex h-9 items-center gap-2 rounded-md bg-accent px-3 font-medium text-accent-fg hover:opacity-90";
 
 export function PrintersPage() {
   const { t } = useTranslation();
@@ -22,6 +21,7 @@ export function PrintersPage() {
   const { data, isError } = useListPage<Printer>(["printers", "list"], "/api/printers", query);
   const tagsOf = useTagsOf("printer");
   const tags = useTags().data ?? [];
+  const models = useModelInfo();
 
   const add = (
     <Link to="/printers/new" className={addClass}>
@@ -81,7 +81,7 @@ export function PrintersPage() {
               {
                 id: "model",
                 header: t("printers:list.columns.model"),
-                cell: (p) => `${p.brand} ${p.model}`.trim(),
+                cell: (p) => models.get(p.modelId)?.label,
                 sort: "model",
                 filter: "model",
               },
@@ -115,6 +115,7 @@ export function PrintersPage() {
           />
         )
       )}
+      <Catalog />
     </>
   );
 }

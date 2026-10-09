@@ -7,6 +7,7 @@ import { Button } from "../../components/Button.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { TagPicker } from "../../components/TagPicker.tsx";
+import { useMachineProfiles } from "../../lib/catalog.ts";
 import { filamentLabel, useProfiles, useSpools } from "../../lib/filament.ts";
 import { formatWeight } from "../../lib/format.ts";
 import { usePreferences } from "../../lib/preferences.ts";
@@ -41,6 +42,13 @@ function PrintForm({ print }: { print?: PrintDetail }) {
   const save = print ? patch : create;
   const tags = useTagEditor("print", print?.id);
   const [outcome, setOutcome] = useState<string>(print?.outcome ?? "success");
+  // The select starts on the first printer until the user picks one.
+  const [printerId, setPrinterId] = useState(print?.printerId ?? "");
+  const modelId = printers.find((p) => p.id === (printerId || printers[0]?.id))?.modelId;
+  // Profiles for the printer's model, plus the one already saved (even if the model changed).
+  const machineProfiles = (useMachineProfiles().data ?? []).filter(
+    (mp) => mp.printerModelId === modelId || mp.id === print?.machineProfileId,
+  );
   const [rows, setRows] = useState<Row[]>(
     (print?.usages ?? [])
       .filter((u) => u.spoolId) // slots without a spool live in the review queue
@@ -69,6 +77,7 @@ function PrintForm({ print }: { print?: PrintDetail }) {
     const minutes = Number(text(f, "minutes") || 0);
     const body: PrintInput = {
       printerId: text(f, "printer"),
+      machineProfileId: text(f, "machineProfile") || null,
       title: text(f, "title"),
       startedAt: new Date(text(f, "startedAt")).toISOString(),
       durationSec: hours || minutes ? Math.round(hours * 3600 + minutes * 60) : null,
@@ -110,6 +119,7 @@ function PrintForm({ print }: { print?: PrintDetail }) {
             required
             className={inputClass}
             defaultValue={print?.printerId}
+            onChange={(e) => setPrinterId(e.target.value)}
           >
             {printers.map((pr) => (
               <option key={pr.id} value={pr.id}>
@@ -119,6 +129,27 @@ function PrintForm({ print }: { print?: PrintDetail }) {
           </select>
         )}
       </FormField>
+      {machineProfiles.length > 0 && (
+        <FormField label={t("prints:form.machineProfile")}>
+          {(p) => (
+            <select
+              // Options change with the printer; remount so defaultValue applies.
+              key={`${modelId}:${machineProfiles.length}`}
+              {...p}
+              name="machineProfile"
+              className={inputClass}
+              defaultValue={print?.machineProfileId ?? ""}
+            >
+              <option value="" />
+              {machineProfiles.map((mp) => (
+                <option key={mp.id} value={mp.id}>
+                  {mp.name}
+                </option>
+              ))}
+            </select>
+          )}
+        </FormField>
+      )}
       <FormField label={t("prints:form.startedAt")}>
         {(p) => (
           <input

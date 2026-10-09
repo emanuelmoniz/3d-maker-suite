@@ -41,7 +41,8 @@
     "removeSpool": "Remove spool",
     "spoolOption": "{{filament}} {{color}} · {{weight}} left",
     "save": "Save print",
-    "error": "Couldn't save the print. Check that every spool has enough filament."
+    "error": "Couldn't save the print. Check that every spool has enough filament.",
+    "machineProfile": "Machine profile"
   },
   "review": {
     "title": "Filament to review",

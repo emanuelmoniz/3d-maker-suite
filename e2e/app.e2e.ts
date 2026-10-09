@@ -11,14 +11,25 @@ test("settings persist across a reload", async ({ page }) => {
   await expect(page.getByLabel("Currency")).toHaveValue("USD");
 });
 
-test("add a printer", async ({ page }) => {
+test("add a brand, a model and a printer of that model", async ({ page }) => {
   await page.goto("/printers");
+  await page.getByRole("link", { name: "Add brand" }).click();
+  await page.getByLabel("Name", { exact: true }).fill("Bambu Lab");
+  await page.getByRole("button", { name: "Save" }).click();
+
+  await page.getByRole("link", { name: "Add model" }).click();
+  await page.getByLabel("Model", { exact: true }).fill("A1");
+  await page.getByLabel("Typical power (W)").fill("95");
+  await page.getByRole("button", { name: "Save" }).click();
+  await expect(page.getByRole("link", { name: "Bambu Lab A1" })).toBeVisible();
+
   await page.getByRole("link", { name: "Add printer" }).first().click();
   await page.getByLabel("Name", { exact: true }).fill("Bambu A1");
-  await page.getByLabel("Brand").fill("Bambu Lab");
-  await page.getByLabel("Model").fill("A1");
+  await page.getByLabel("Model", { exact: true }).selectOption({ label: "A1" });
+  await expect(page.getByLabel("Typical power (W)")).toHaveValue("95"); // from the model
   await page.getByRole("button", { name: "Save" }).click();
   await expect(page.getByRole("heading", { name: "Bambu A1" })).toBeVisible();
+  await expect(page.getByText("Bambu Lab A1")).toBeVisible();
 });
 
 test("add a spool", async ({ page, app }) => {

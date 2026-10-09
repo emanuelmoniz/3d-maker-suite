@@ -12,6 +12,7 @@ import { DataTable } from "../../components/DataTable.tsx";
 import { EmptyState } from "../../components/EmptyState.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
+import { useModelInfo } from "../../lib/catalog.ts";
 import { dateInputToIso, formatDate, formatDuration, formatNumber } from "../../lib/format.ts";
 import { useListPage, useUrlListQuery } from "../../lib/list.ts";
 import { useDue, useLogDone } from "../../lib/maintenance.ts";
@@ -155,6 +156,7 @@ export function MaintenancePage() {
     query,
   );
   const printers = usePrinters({ archived: false }).data?.items ?? [];
+  const models = useModelInfo();
   const dueText = useDueText();
   const [logging, setLogging] = useState<MaintenanceDueItem | null>(null);
   const list = new Intl.ListFormat(i18n.language, { type: "unit", style: "narrow" });
@@ -313,14 +315,16 @@ export function MaintenancePage() {
                   id: "model",
                   header: t("maintenance:types.model"),
                   cell: (m) =>
-                    m.appliesToModels.length + m.appliesToPrinterIds.length === 0
+                    m.appliesToModelIds.length + m.appliesToPrinterIds.length === 0
                       ? t("maintenance:types.allModels")
                       : [
-                          ...m.appliesToModels,
+                          ...m.appliesToModelIds.map((id) => models.get(id)?.label ?? ""),
                           ...printers
                             .filter((p) => m.appliesToPrinterIds.includes(p.id))
                             .map((p) => p.name),
-                        ].join(", "),
+                        ]
+                          .filter(Boolean)
+                          .join(", "),
                   sort: "appliesToModels",
                   filter: "appliesToModels",
                 },

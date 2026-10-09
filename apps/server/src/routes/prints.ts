@@ -26,7 +26,7 @@ import { listPage, orderBy, taggedWith } from "../lib/list.ts";
 import { readPreferences } from "../lib/preferences.ts";
 import { round, setRemaining, takeFromSpool } from "../lib/spools.ts";
 
-const { prints, printFilamentUsages, printers, projects, spools } = schema;
+const { machineProfiles, prints, printFilamentUsages, printers, projects, spools } = schema;
 const params = z.object({ id: z.uuid() });
 const notFound = { 404: apiErrorSchema };
 
@@ -47,13 +47,23 @@ export const printsRoutes =
     };
 
     const checkRefs = (
-      b: { printerId?: string; projectId?: string | null; failureReason?: string | null },
+      b: {
+        printerId?: string;
+        projectId?: string | null;
+        machineProfileId?: string | null;
+        failureReason?: string | null;
+      },
       was?: string | null,
     ) => {
       if (b.printerId && !db.select().from(printers).where(eq(printers.id, b.printerId)).get())
         throw new HttpError(400, "invalid_printer", "Printer not found");
       if (b.projectId && !db.select().from(projects).where(eq(projects.id, b.projectId)).get())
         throw new HttpError(400, "invalid_project", "Project not found");
+      if (
+        b.machineProfileId &&
+        !db.select().from(machineProfiles).where(eq(machineProfiles.id, b.machineProfileId)).get()
+      )
+        throw new HttpError(400, "invalid_machine_profile", "Machine profile not found");
       if (
         b.failureReason &&
         b.failureReason !== was &&

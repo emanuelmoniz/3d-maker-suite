@@ -38,11 +38,26 @@ export function seed(db: Db, now = new Date(), { prints: printCount = 40 } = {})
     tx.insert(s.settings).values({ key: "currency", value: "EUR" }).run();
 
     const watts = [140, 120];
+    const brandId = tx
+      .insert(s.brands)
+      .values({ name: "Bambu Lab", url: "https://bambulab.com" })
+      .returning()
+      .get().id;
+    const models = ["X1 Carbon", "P1S"].map(
+      (model, i) =>
+        tx
+          .insert(s.printerModels)
+          .values({ brandId, model, powerW: at(watts, i) })
+          .returning()
+          .get().id,
+    );
+    tx.insert(s.machineProfiles)
+      .values({ name: "Bambu Lab X1 Carbon 0.4 nozzle", printerModelId: at(models, 0) })
+      .run();
     const printers = [
       {
         name: "Workshop X1C",
-        brand: "Bambu Lab",
-        model: "X1 Carbon",
+        modelId: at(models, 0),
         serial: "00M00A000000001",
         purchasedAt: ago(400),
         purchasePrice: 119900,
@@ -50,8 +65,7 @@ export function seed(db: Db, now = new Date(), { prints: printCount = 40 } = {})
       },
       {
         name: "Desk P1S",
-        brand: "Bambu Lab",
-        model: "P1S",
+        modelId: at(models, 1),
         runtimeOffsetSec: 120 * 3600,
         purchasedAt: ago(200),
         purchasePrice: 59900,

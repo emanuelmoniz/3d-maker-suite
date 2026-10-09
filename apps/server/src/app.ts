@@ -23,6 +23,7 @@ import { createProjectScanner } from "./projects/scanner.ts";
 import { alertsRoutes } from "./routes/alerts.ts";
 import { backupsRoutes } from "./routes/backups.ts";
 import { brandingRoutes } from "./routes/branding.ts";
+import { brandsRoutes, machineProfilesRoutes, printerModelsRoutes } from "./routes/catalog.ts";
 import { costsRoutes } from "./routes/costs.ts";
 import { exportRoutes } from "./routes/export.ts";
 import { filamentRoutes } from "./routes/filament.ts";
@@ -104,6 +105,9 @@ export async function buildApp(
     });
   await app.register(brandingRoutes(dataDir), { prefix: "/api/branding" });
   await app.register(printersRoutes(db, dataDir), { prefix: "/api/printers" });
+  await app.register(brandsRoutes(db, dataDir), { prefix: "/api/brands" });
+  await app.register(printerModelsRoutes(db, dataDir), { prefix: "/api/printer-models" });
+  await app.register(machineProfilesRoutes(db, dataDir), { prefix: "/api/machine-profiles" });
   await app.register(maintenanceRoutes(db), { prefix: "/api/maintenance" });
   // Without a data dir (tests) secrets use a throwaway in-memory key.
   const key = dataDir ? loadKey(dataDir) : randomBytes(32);

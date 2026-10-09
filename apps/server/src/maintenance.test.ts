@@ -1,6 +1,7 @@
 import { openDb, schema } from "@3d-maker-suite/db";
 import { beforeEach, describe, expect, it } from "vitest";
 import { buildApp } from "./app.ts";
+import { modelIdFor } from "./lib/catalog.ts";
 
 let db: ReturnType<typeof openDb>;
 let app: Awaited<ReturnType<typeof buildApp>>;
@@ -18,7 +19,7 @@ const due = async (q = "") => (await app.inject(`/api/maintenance/due${q}`)).jso
 describe("maintenance", () => {
   it("due dates move with prints and with logged maintenance", async () => {
     const printer = (
-      await post("/api/printers", { name: "P1", brand: "Bambu", model: "P1S" })
+      await post("/api/printers", { name: "P1", modelId: modelIdFor(db, "Bambu", "P1S") })
     ).json();
     const nozzle = (
       await post("/api/maintenance/types", { name: "Clean nozzle", intervalPrints: 10 })
@@ -27,7 +28,7 @@ describe("maintenance", () => {
     await post("/api/maintenance/types", {
       name: "X1 only",
       intervalDays: 30,
-      appliesToModels: ["X1C"],
+      appliesToModelIds: [modelIdFor(db, "Bambu", "X1C")],
     });
 
     const row = async () => (await due()).find((i: { typeId: string }) => i.typeId === nozzle.id);
@@ -64,7 +65,9 @@ describe("maintenance", () => {
   });
 
   it("archive type, unknown ids", async () => {
-    const printer = (await post("/api/printers", { name: "P1", brand: "B", model: "M" })).json();
+    const printer = (
+      await post("/api/printers", { name: "P1", modelId: modelIdFor(db, "B", "M") })
+    ).json();
     const type = (await post("/api/maintenance/types", { name: "T", intervalDays: 7 })).json();
     const patch = await app.inject({
       method: "PATCH",

@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
+import { useModelInfo } from "../../lib/catalog.ts";
 import { useCreateType, useMaintenanceType, usePatchType } from "../../lib/maintenance.ts";
 import { usePrinters } from "../../lib/printers.ts";
 
@@ -17,10 +18,9 @@ function TypeForm({ type }: { type?: MaintenanceType }) {
   const patch = usePatchType();
   const save = type ? patch : create;
   const printers = usePrinters({ archived: false }).data?.items ?? [];
-  // Existing printer models, plus saved ones no printer has (yet).
-  const models = [
-    ...new Set([...printers.map((p) => p.model), ...(type?.appliesToModels ?? [])]),
-  ].sort();
+  const models = [...useModelInfo().entries()].sort(([, a], [, b]) =>
+    a.label.localeCompare(b.label),
+  );
   const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const form = e.currentTarget;
@@ -31,12 +31,7 @@ function TypeForm({ type }: { type?: MaintenanceType }) {
       intervalSec: num(text(f, "hours"), 3600),
       intervalPrints: num(text(f, "prints")),
       intervalDays: num(text(f, "days")),
-      appliesToModels: [
-        ...f.getAll("models").map(String),
-        ...text(f, "otherModels")
-          .split(",")
-          .map((m) => m.trim()),
-      ].filter((m, i, all) => m && all.indexOf(m) === i),
+      appliesToModelIds: f.getAll("models").map(String),
       appliesToPrinterIds: f.getAll("printers").map(String),
     };
     if (type)
@@ -87,23 +82,17 @@ function TypeForm({ type }: { type?: MaintenanceType }) {
       <fieldset className="grid gap-2">
         <legend className="mb-1 text-muted">{t("maintenance:types.model")}</legend>
         <p className="text-muted">{t("maintenance:types.modelHint")}</p>
-        {models.map((m) => (
-          <label key={m} className="flex items-center gap-2">
+        {models.map(([id, m]) => (
+          <label key={id} className="flex items-center gap-2">
             <input
               type="checkbox"
               name="models"
-              value={m}
-              defaultChecked={type?.appliesToModels.includes(m)}
+              value={id}
+              defaultChecked={type?.appliesToModelIds.includes(id)}
             />
-            {m}
+            {m.label}
           </label>
         ))}
-        <FormField
-          label={t("maintenance:types.otherModels")}
-          hint={t("maintenance:types.otherModelsHint")}
-        >
-          {(p) => <input {...p} name="otherModels" className={inputClass} />}
-        </FormField>
       </fieldset>
       {printers.length > 0 && (
         <fieldset className="grid gap-2">

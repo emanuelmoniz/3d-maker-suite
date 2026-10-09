@@ -120,6 +120,20 @@
       "when": 1791535372802,
       "tag": "0016_maintenance_type_scope",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "6",
+      "when": 1791536541973,
+      "tag": "0017_printer_catalog",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "6",
+      "when": 1791536565375,
+      "tag": "0018_printer_catalog_drop_free_text",
+      "breakpoints": true
     }
   ]
 }

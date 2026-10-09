@@ -2,6 +2,7 @@ import { openDb, schema } from "@3d-maker-suite/db";
 import { sum } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import { buildApp } from "./app.ts";
+import { modelIdFor } from "./lib/catalog.ts";
 
 let db: ReturnType<typeof openDb>;
 let app: Awaited<ReturnType<typeof buildApp>>;
@@ -18,8 +19,7 @@ async function setup() {
   const printer = (
     await send("POST", "/api/printers", {
       name: "P1S",
-      brand: "Bambu Lab",
-      model: "P1S",
+      modelId: modelIdFor(db, "Bambu Lab", "P1S"),
       powerW: 100,
     })
   ).json();

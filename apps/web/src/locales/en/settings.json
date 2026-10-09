@@ -122,7 +122,10 @@
       "spools": "Spools",
       "projects": "Projects",
       "prints": "Prints",
-      "quotes": "Quotes"
+      "quotes": "Quotes",
+      "brands": "Brands",
+      "printerModels": "Printer models",
+      "machineProfiles": "Machine profiles"
     }
   },
   "server": {

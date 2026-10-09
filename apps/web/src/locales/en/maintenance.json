@@ -52,8 +52,6 @@
     "intervalHint": "Leave empty to ignore. Whichever limit is reached first makes the task due.",
     "model": "Only for models",
     "modelHint": "Tick models and/or printers below. Leave everything empty to apply to every printer.",
-    "otherModels": "Other models",
-    "otherModelsHint": "Comma-separated, for models you do not own yet.",
     "printers": "Only for printers",
     "allModels": "All printers",
     "interval": "Interval",

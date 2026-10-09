@@ -15,6 +15,7 @@ import { type Db, schema } from "@3d-maker-suite/db";
 import { and, desc, eq, isNull, ne, notInArray, sql } from "drizzle-orm";
 import type { FastifyBaseLogger } from "fastify";
 import { HttpError } from "../errors.ts";
+import { modelIdFor } from "../lib/catalog.ts";
 import { takeFromSpool } from "../lib/spools.ts";
 import { secretStore } from "./secrets.ts";
 
@@ -131,10 +132,12 @@ export function createSyncer(
               .set({ integrationId: id, externalId: p.data.externalId })
               .where(eq(printers.id, twin.id))
               .run();
-          else
+          else {
+            const { brand, model, ...fields } = p.data;
             db.insert(printers)
-              .values({ ...p.data, ...imported })
+              .values({ ...fields, modelId: modelIdFor(db, brand, model), ...imported })
               .run();
+          }
           created++;
         }
       }
