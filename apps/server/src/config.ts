@@ -2,7 +2,14 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
-import { portSchema } from "@3d-maker-suite/core";
+
+// Kept free of workspace imports: apps/web/vite.config.ts loads this file directly.
+const portSchema = {
+  safeParse: (n: unknown) =>
+    Number.isInteger(n) && (n as number) >= 1 && (n as number) <= 65535
+      ? { success: true as const, data: n as number }
+      : { success: false as const, data: undefined },
+};
 
 type Env = Record<string, string | undefined>;
 export type Source = "cli" | "env" | "file" | "default";

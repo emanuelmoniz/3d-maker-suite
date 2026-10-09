@@ -8,7 +8,8 @@ import { dataDir, loadConfig, writeSavedConfig } from "./config.ts";
 
 describe("config", () => {
   it("binds to loopback on 4300 by default", () => {
-    expect(loadConfig({})).toMatchObject({ host: "127.0.0.1", port: 4300 });
+    const APP_DATA_DIR = mkdtempSync(join(tmpdir(), "cfg-"));
+    expect(loadConfig({ APP_DATA_DIR }, [])).toMatchObject({ host: "127.0.0.1", port: 4300 });
   });
   it("APP_DATA_DIR overrides the OS default", () => {
     expect(dataDir({ APP_DATA_DIR: "/x" }, "win32")).toBe("/x");

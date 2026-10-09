@@ -54,6 +54,8 @@ export async function buildApp(
     access?: { host: string; password?: string };
     /** Network settings editable from Settings (needs a data dir). */
     serverConfig?: Config;
+    /** Makes POST /api/server-config/restart available (off in tests). */
+    restart?: () => void;
   } = {},
 ) {
   const app = Fastify({ logger });
@@ -96,7 +98,9 @@ export async function buildApp(
   await app.register(healthRoutes);
   await app.register(preferencesRoutes(db, dataDir), { prefix: "/api/preferences" });
   if (opts.serverConfig)
-    await app.register(serverConfigRoutes(opts.serverConfig), { prefix: "/api/server-config" });
+    await app.register(serverConfigRoutes(opts.serverConfig, opts.restart), {
+      prefix: "/api/server-config",
+    });
   await app.register(printersRoutes(db, dataDir), { prefix: "/api/printers" });
   await app.register(maintenanceRoutes(db), { prefix: "/api/maintenance" });
   // Without a data dir (tests) secrets use a throwaway in-memory key.

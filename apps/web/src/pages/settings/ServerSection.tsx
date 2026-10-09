@@ -1,6 +1,7 @@
 import type { ServerConfigPatch, ServerConfigResponse } from "@3d-maker-suite/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
+import { Button } from "../../components/Button.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { api } from "../../lib/api.ts";
 
@@ -26,12 +27,48 @@ export function ServerSection() {
       api<ServerConfigResponse>("PATCH", "/api/server-config", patch),
     onSuccess: (res) => qc.setQueryData(KEY, res),
   });
+  const restart = useMutation({
+    mutationFn: () => api("POST", "/api/server-config/restart"),
+  });
   if (!data) return null;
   const { effective, saved } = data;
   const pending =
     (saved.host ?? effective.host) !== effective.host ||
     (saved.port ?? effective.port) !== effective.port;
-  const nextHost = saved.host ?? effective.host;
+  // A flag or env var keeps winning after the restart; otherwise the saved value does.
+  const nextHost = ["cli", "env"].includes(effective.hostSource)
+    ? effective.host
+    : (saved.host ?? effective.host);
+  const nextPort = ["cli", "env"].includes(effective.portSource)
+    ? effective.port
+    : (saved.port ?? effective.port);
+
+  const restartAndOpen = () => {
+    const tab = window.open("about:blank", "_blank"); // opened now, on the click, so it isn't blocked
+    const bound = ["0.0.0.0", "::", "[::]"].includes(nextHost);
+    // Behind the Vite dev server (a different port than the API), come back to that same address.
+    const url =
+      location.port !== String(effective.port)
+        ? `${location.origin}/`
+        : `${location.protocol}//${bound ? location.hostname : nextHost}:${nextPort}/`;
+    restart.mutate(undefined, {
+      onSuccess: async () => {
+        for (let i = 0; i < 40; i++) {
+          await new Promise((r) => setTimeout(r, 500));
+          const up = await fetch(`${url}api/health`, { mode: "no-cors" }).then(
+            () => true,
+            () => false,
+          );
+          if (!up) continue;
+          if (tab) tab.location.href = url;
+          else window.open(url, "_blank");
+          return;
+        }
+        tab?.close();
+      },
+      onError: () => tab?.close(),
+    });
+  };
 
   return (
     <div className="grid gap-4">
@@ -92,6 +129,12 @@ export function ServerSection() {
           {t("settings:server.restart")}
         </p>
       )}
+      <div>
+        <Button disabled={restart.isPending || restart.isSuccess} onClick={restartAndOpen}>
+          {t("settings:server.restartButton")}
+        </Button>
+        <p className="mt-1 text-muted">{t("settings:server.restartHint")}</p>
+      </div>
       {save.isError && (
         <p role="alert" className="text-bad">
           {t("settings:saveError")}

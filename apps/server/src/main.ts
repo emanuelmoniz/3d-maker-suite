@@ -1,3 +1,4 @@
+import { spawn } from "node:child_process";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -35,6 +36,15 @@ const app = await buildApp(
     watchProjects: true,
     access: { host: config.host, password: config.password },
     serverConfig: config,
+    // ponytail: respawns itself detached; a supervisor (pm2, systemd) would make this unnecessary.
+    restart: () =>
+      app.close().then(() => {
+        spawn(process.execPath, [...process.execArgv, ...process.argv.slice(1)], {
+          detached: true,
+          stdio: "ignore",
+        }).unref();
+        process.exit(0);
+      }),
   },
 );
 await app.register(fastifyStatic, {

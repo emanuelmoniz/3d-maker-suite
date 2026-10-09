@@ -119,6 +119,8 @@
       "default": "default"
     },
     "restart": "Restart required: the saved values apply the next time the app starts. A flag or environment variable still overrides them.",
-    "passwordNeeded": "Reaching the app from other devices needs the APP_PASSWORD environment variable. Without it, only requests addressed to localhost or this host are accepted."
+    "passwordNeeded": "Reaching the app from other devices needs the APP_PASSWORD environment variable. Without it, only requests addressed to localhost or this host are accepted.",
+    "restartButton": "Restart and open in new tab",
+    "restartHint": "Restarts the app and opens it at the address above. Other tabs lose connection until they are reloaded."
   }
 }
