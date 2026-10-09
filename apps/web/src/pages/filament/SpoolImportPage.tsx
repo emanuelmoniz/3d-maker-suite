@@ -1,4 +1,4 @@
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate, useParams } from "@tanstack/react-router";
 import { Spool } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -14,16 +14,19 @@ import {
   useProfiles,
 } from "../../lib/filament.ts";
 import { formatWeight } from "../../lib/format.ts";
+import { useIntegrations } from "../../lib/integrations.ts";
 
 export function SpoolImportPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const { id } = useParams({ strict: false }) as { id: string };
+  const name = useIntegrations().data?.find((i) => i.id === id)?.name ?? "";
   const [unchecked, setUnchecked] = useState<Set<string>>(new Set());
   // spoolId -> profile picked by hand; otherwise the suggested match from the server.
   const [chosen, setChosen] = useState<Record<string, string>>({});
-  const preview = useInventorySpools();
+  const preview = useInventorySpools(id);
   const profiles = useProfiles().data?.items ?? [];
-  const run = useInventoryImport();
+  const run = useInventoryImport(id);
 
   const items = preview.data?.items ?? [];
   const profileOf = (i: (typeof items)[number]) => chosen[i.spoolId] ?? i.profileId ?? "";
@@ -40,13 +43,13 @@ export function SpoolImportPage() {
   return (
     <>
       <PageHeader
-        title={t("filament:spoolImport.title")}
-        description={t("filament:spoolImport.description")}
+        title={t("filament:spoolImport.title", { name })}
+        description={t("filament:spoolImport.description", { name })}
       />
       <div className="grid gap-4">
         {preview.isError && (
           <p role="alert" className="text-bad">
-            {t("filament:spoolImport.loadError")}{" "}
+            {t("filament:spoolImport.loadError", { name })}{" "}
             <Link to="/settings/integrations" className="font-medium underline">
               {t("filament:spoolImport.openIntegrations")}
             </Link>
@@ -56,8 +59,8 @@ export function SpoolImportPage() {
           <>
             <p className="text-muted">
               {t("filament:spoolImport.profileHint")}{" "}
-              <Link to="/filament/import" className="font-medium underline">
-                {t("filament:library.link")}
+              <Link to="/filament" className="font-medium underline">
+                {t("filament:spoolImport.toProfiles")}
               </Link>
             </p>
             {!items.length ? (

@@ -1,4 +1,4 @@
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate, useParams } from "@tanstack/react-router";
 import { Spool } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -6,7 +6,7 @@ import { Button } from "../../components/Button.tsx";
 import { DataTable } from "../../components/DataTable.tsx";
 import { EmptyState } from "../../components/EmptyState.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
-import { useLibraryImport, useLibraryPreview, useLibrarySources } from "../../lib/filament.ts";
+import { useLibraryImport, useLibraryPreview } from "../../lib/filament.ts";
 import { formatCurrency } from "../../lib/format.ts";
 import { usePreferences } from "../../lib/preferences.ts";
 
@@ -16,16 +16,16 @@ const STATUS = {
   duplicate: "filament:library.statuses.duplicate",
 } as const;
 
-// ponytail: only the first library (Bambu Studio) is offered; add a picker with the second slicer.
+/** Slicer presets of one integration (the FilamentPage shows one link per capable integration). */
 export function LibraryImportPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const currency = usePreferences().data?.values.currency;
-  const source = useLibrarySources().data?.[0];
+  const { id } = useParams({ strict: false }) as { id: string };
   const [includeSystem, setIncludeSystem] = useState(false);
   const [unchecked, setUnchecked] = useState<Set<string>>(new Set());
-  const preview = useLibraryPreview(source?.id, includeSystem);
-  const run = useLibraryImport(source?.id ?? "");
+  const preview = useLibraryPreview(id, includeSystem);
+  const run = useLibraryImport(id);
 
   const items = preview.data?.items ?? [];
   const picked = items.filter((i) => i.status === "new" && !unchecked.has(i.presetId));
@@ -46,8 +46,8 @@ export function LibraryImportPage() {
         {preview.isError && (
           <p role="alert" className="text-bad">
             {t("filament:library.notFound")}{" "}
-            <Link to="/settings" className="font-medium underline">
-              {t("filament:library.openSettings")}
+            <Link to="/settings/integrations" className="font-medium underline">
+              {t("filament:library.openIntegrations")}
             </Link>
           </p>
         )}

@@ -209,9 +209,73 @@ describe("integrations", () => {
       db.update(schema.syncRuns).set({ startedAt: twoHoursAgo }).run();
       await syncer.runAll();
       expect(runs()).toBe(2);
+
+      // Nothing to sync (cloud features off, e.g. slicer only): left alone.
+      state.fail = undefined;
+      db.update(schema.integrations)
+        .set({ disabledFeatures: ["printers", "prints"] })
+        .run();
+      await syncer.runAll();
+      expect(runs()).toBe(2);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
+  });
+});
+
+describe("capabilities", () => {
+  const caps = async (id: string) => (await get(`/api/integrations/${id}`)).capabilities;
+
+  it("are what the adapter supports, switched on and set up", async () => {
+    const { id } = await create();
+    expect(await caps(id)).toEqual(["printers", "prints", "spools"]);
+    const adapters = await get("/api/integrations/adapters");
+    expect(adapters[0]).toMatchObject({
+      id: "mock",
+      capabilities: ["printers", "prints", "spools"],
+    });
+
+    await send("PATCH", `/api/integrations/${id}`, { disabledFeatures: ["prints"] });
+    expect(await caps(id)).toEqual(["printers", "spools"]);
+    await send("PATCH", `/api/integrations/${id}`, { enabled: false });
+    expect(await caps(id)).toEqual([]);
+    expect(
+      (await send("PATCH", `/api/integrations/${id}`, { disabledFeatures: ["nope"] })).statusCode,
+    ).toBe(400);
+  });
+
+  it("account ones need a sign-in when the adapter has one", async () => {
+    const { id } = (
+      await send("POST", "/api/integrations", { adapterId: "mock-login", name: "L" })
+    ).json();
+    expect(await caps(id)).toEqual([]);
+  });
+
+  it("slicer paths: empty means none, and openInSlicer needs a program", async () => {
+    const slicer = { ...mockAdapter(state), id: "slicer", capabilities: ["openInSlicer" as const] };
+    app = await buildApp(db, false, "", { adapters: [slicer] });
+    const { id } = (
+      await send("POST", "/api/integrations", {
+        adapterId: "slicer",
+        name: "S",
+        secrets: { token: "t" },
+      })
+    ).json();
+    expect(await caps(id)).toEqual([]);
+    const set = async (slicerPath: string) =>
+      (await send("PATCH", `/api/integrations/${id}`, { slicerPath })).json();
+    expect(await set(" /bin/slicer ")).toMatchObject({
+      slicerPath: "/bin/slicer",
+      capabilities: ["openInSlicer"],
+    });
+    expect(await set("")).toMatchObject({ slicerPath: null, capabilities: [] });
+  });
+
+  it("sync skips switched-off features", async () => {
+    const { id } = await create();
+    await send("PATCH", `/api/integrations/${id}`, { disabledFeatures: ["prints"] });
+    expect(await sync(id)).toMatchObject({ status: "ok", created: 1 });
+    expect(db.select().from(schema.prints).all()).toHaveLength(0);
   });
 });
 

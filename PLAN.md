@@ -106,7 +106,7 @@ schema and the migration of existing printers' brand/model before writing code.
 
 ## Phase 4 - Integrations hub
 
-### [ ] Step 9 - Integrations hub  **[plan mode]**
+### [x] Step 9 - Integrations hub  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:** One place per integration with feature toggles: cloud account, local slicer config folder, slicer executable, and what to import (printers, machine profiles, filament profiles, prints). Move scattered settings (slicer path, Studio preset path) into it with a migration. Capabilities drive the UI: import buttons only show for enabled features; nothing configured = manual add only; several integrations = one import button each. "Open in slicer" uses the default slicer, with a picker when more than one is configured.
 **Done when:** existing Bambu setups keep working after migration; UI hides/shows actions by capability; tests pass.

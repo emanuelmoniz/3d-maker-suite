@@ -35,9 +35,8 @@ const shape = {
   projectScanDepth: z.number().int().min(1).max(5),
   /** Model files bigger than this show the plate thumbnail instead of the 3D viewer. */
   viewerMaxMb: z.number().positive(),
-  slicerPath: z.string(),
-  /** Overrides the detected config folder of a slicer library, by library id. */
-  libraryPaths: z.record(z.string(), z.string()),
+  /** Integration whose slicer "Open in slicer" uses first. Missing / null = the first one. */
+  defaultSlicerId: z.string().nullable(),
   lowSpoolGrams: z.number().nonnegative(),
   maintenanceLeadDays: z.number().int().nonnegative(),
   printerStates: z.array(z.string().min(1)).min(1),
@@ -74,8 +73,7 @@ export const PREFERENCE_DEFAULTS: z.infer<typeof preferencesSchema> = {
   projectRoots: [],
   projectScanDepth: 1,
   viewerMaxMb: 30,
-  slicerPath: "",
-  libraryPaths: {},
+  defaultSlicerId: null,
   lowSpoolGrams: 100,
   maintenanceLeadDays: 7,
   printerStates: ["working", "maintenance", "inop", "retired"],

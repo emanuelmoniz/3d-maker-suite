@@ -10,6 +10,7 @@ import { z } from "zod";
 export { bambuStudioLibrary } from "./studio.ts";
 
 import { call, cookie, parse, REGIONS, type Region, URLS } from "./cloud.ts";
+import { bambuStudioLibrary } from "./studio.ts";
 
 const configSchema = z.object({ region: z.enum(REGIONS).default("global") });
 // Optional so the integration can exist before the user signs in. The password is never stored,
@@ -146,7 +147,10 @@ type LoginState = { email?: string; tfaKey?: string };
 
 export function bambuCloudAdapter(): IntegrationAdapter {
   return {
+    // The id predates Bambu Studio joining; it stays so stored rows and spool sources keep matching.
     id: "bambu-cloud",
+    capabilities: ["printers", "prints", "spools", "filamentProfiles", "openInSlicer"],
+    library: bambuStudioLibrary(),
     configSchema,
     secretsSchema,
 

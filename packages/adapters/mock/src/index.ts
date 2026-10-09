@@ -49,6 +49,7 @@ export function fixture(): MockState {
 export function mockAdapter(state: MockState = fixture()): IntegrationAdapter {
   return {
     id: "mock",
+    capabilities: ["printers", "prints", "spools"],
     configSchema: z.object({ label: z.string().optional() }),
     secretsSchema: z.object({ token: z.string().min(1) }),
     create: ({ secrets }) => {

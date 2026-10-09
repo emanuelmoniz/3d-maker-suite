@@ -87,9 +87,10 @@
     "openFolder": "Open folder",
     "opened": "Opened.",
     "openFailed": {
-      "no_slicer": "Set your slicer executable in Settings first.",
+      "no_slicer": "Set up a slicer in Settings > Integrations first.",
       "not_allowed": "This file is outside your project folders.",
       "launch_failed": "Could not start the program."
-    }
+    },
+    "slicerPick": "Slicer"
   }
 }

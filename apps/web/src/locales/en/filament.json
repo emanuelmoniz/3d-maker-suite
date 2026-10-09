@@ -28,7 +28,11 @@
     "purchasedAt": "Purchased",
     "openedAt": "Opened",
     "locationLabel": "Location",
-    "statuses": { "new": "New", "in_use": "In use", "empty": "Empty" },
+    "statuses": {
+      "new": "New",
+      "in_use": "In use",
+      "empty": "Empty"
+    },
     "low": "Low",
     "error": "Couldn't save the spool."
   },
@@ -52,13 +56,14 @@
     "error": "Couldn't save the profile."
   },
   "library": {
-    "link": "Import from slicer",
+    "link": "Import profiles from {{name}}",
     "title": "Import filament from your slicer",
     "description": "Review the presets found on this PC, pick the ones you want, then import them as filament profiles.",
-    "sources": { "bambu-studio": "Bambu Studio" },
+    "sources": {
+      "bambu-studio": "Bambu Studio"
+    },
     "reading": "Reading presets from {{dir}}",
-    "notFound": "Couldn't find the slicer's config folder. Set it in the settings.",
-    "openSettings": "Open settings",
+    "notFound": "Couldn't read this integration's slicer presets. Check its config folder in Integrations.",
     "includeSystem": "Include the slicer's built-in presets",
     "emptyTitle": "No filament presets found",
     "emptyBody": "Create a filament preset in the slicer, or include the built-in presets.",
@@ -73,19 +78,27 @@
     },
     "import_one": "Import {{count}} profile",
     "import_other": "Import {{count}} profiles",
-    "error": "Couldn't import the presets."
+    "error": "Couldn't import the presets.",
+    "openIntegrations": "Open integrations"
   },
   "adjust": {
     "title": "Adjust weight",
     "summary": "{{filament}} · now {{weight}}",
     "kind": "Reason",
-    "kinds": { "manual": "Manual weigh-in", "correction": "Correction" },
+    "kinds": {
+      "manual": "Manual weigh-in",
+      "correction": "Correction"
+    },
     "remaining": "New remaining weight (g)",
     "note": "Note",
     "save": "Save",
     "historyTitle": "History",
     "historyEmpty": "No changes yet.",
-    "entryKinds": { "manual": "Manual", "print": "Print", "correction": "Correction" },
+    "entryKinds": {
+      "manual": "Manual",
+      "print": "Print",
+      "correction": "Correction"
+    },
     "error": "Couldn't adjust the weight."
   },
   "detail": {
@@ -106,22 +119,23 @@
     "noSpools": "No spools use this profile yet."
   },
   "spoolImport": {
-    "link": "Import from Bambu Cloud",
-    "title": "Import spools from Bambu Cloud",
-    "description": "Review the spools in your Bambu Lab filament manager, read from Bambu Cloud, choose the profile for each one, then import them.",
+    "link": "Import spools from {{name}}",
+    "title": "Import spools from {{name}}",
+    "description": "Review the spools kept in {{name}}, choose the profile for each one, then import them.",
     "profileHint": "Each spool needs a profile; missing one?",
     "profileFor": "Profile for {{name}}",
     "noProfile": "Choose a profile",
-    "loadError": "Couldn't read your spools from Bambu Cloud. Check that it's connected and signed in.",
+    "loadError": "Couldn't read your spools from {{name}}. Check that it's connected and signed in.",
     "openIntegrations": "Open integrations",
     "emptyTitle": "No spools found",
-    "emptyBody": "Add spools in the filament manager of Bambu Studio or Bambu Handy, or sync them from your AMS.",
+    "emptyBody": "Add spools in your vendor's filament manager, then come back.",
     "table": "Spools to import",
     "filament": "Filament",
     "remaining": "Remaining",
     "remainingOf": "{{remaining}} of {{initial}}",
     "import_one": "Import {{count}} spool",
     "import_other": "Import {{count}} spools",
-    "error": "Couldn't import the spools."
+    "error": "Couldn't import the spools.",
+    "toProfiles": "Add or import profiles"
   }
 }

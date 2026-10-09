@@ -135,6 +135,8 @@ export const projectOpenSchema = z.object({
   target: z.enum(["slicer", "folder"]),
   /** Relative to the project folder; must be one of `meta.files`. Slicer only. */
   file: z.string().min(1).optional(),
+  /** Which integration's slicer; default: `defaultSlicerId`, then the first one. */
+  integrationId: z.uuid().optional(),
 });
 
 export type ProjectOpen = z.infer<typeof projectOpenSchema>;

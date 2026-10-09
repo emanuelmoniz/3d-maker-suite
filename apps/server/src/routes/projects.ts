@@ -4,6 +4,7 @@ import { extname, join } from "node:path";
 import { read3mfEntry, read3mfPaint } from "@3d-maker-suite/3mf";
 import {
   apiErrorSchema,
+  type IntegrationAdapter,
   type Page,
   type Project,
   type ProjectListItem,
@@ -23,6 +24,7 @@ import { eq, inArray, isNull, max, sql } from "drizzle-orm";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
+import { capableRows } from "../integrations/capabilities.ts";
 import { insideRoots, openFolder, slicerLauncher } from "../lib/launcher.ts";
 import { columnFilter, listPage, taggedWith } from "../lib/list.ts";
 import { readPreferences } from "../lib/preferences.ts";
@@ -61,7 +63,12 @@ const out = (row: unknown) => {
 };
 
 export const projectsRoutes =
-  (db: Db, dataDir: string, scanner: ProjectScanner): FastifyPluginAsyncZod =>
+  (
+    db: Db,
+    dataDir: string,
+    scanner: ProjectScanner,
+    adapters: IntegrationAdapter[] = [],
+  ): FastifyPluginAsyncZod =>
   async (app) => {
     const get = (id: string) => {
       const row = db.select().from(projects).where(eq(projects.id, id)).get();
@@ -247,7 +254,7 @@ export const projectsRoutes =
       },
       async (req) => {
         const { folderPath, meta } = get(req.params.id);
-        const { target, file } = req.body;
+        const { target, file, integrationId } = req.body;
         const prefs = readPreferences(db);
         const dir = folderPath && (await insideRoots(folderPath, prefs.projectRoots));
         if (!dir)
@@ -257,7 +264,12 @@ export const projectsRoutes =
           const listed = file && meta.files.some((f) => f.path === file && f.kind === "model");
           const abs = listed ? await insideRoots(join(dir, file), [dir]) : null;
           if (!abs) throw new HttpError(403, "not_allowed", "File is not part of this project");
-          const slicer = slicerLauncher(prefs.slicerPath);
+          // The picked slicer, else the default one, else the first.
+          const slicers = capableRows(db, adapters, "openInSlicer");
+          const pick = integrationId ?? prefs.defaultSlicerId;
+          const chosen =
+            slicers.find((s) => s.row.id === pick) ?? (integrationId ? undefined : slicers[0]);
+          const slicer = slicerLauncher(chosen?.row.slicerPath ?? "");
           if (!slicer.canOpen(abs)) throw new HttpError(409, "no_slicer", "No slicer configured");
           await slicer.open(abs);
           return { ok: true as const };

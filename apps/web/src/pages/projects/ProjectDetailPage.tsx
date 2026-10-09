@@ -10,6 +10,7 @@ import { TagList } from "../../components/TagList.tsx";
 import { estimatePlate, type Plate, useCostContext } from "../../lib/cost.ts";
 import { cx } from "../../lib/cx.ts";
 import { formatDateTime, formatDuration, formatWeight } from "../../lib/format.ts";
+import { useCapable } from "../../lib/integrations.ts";
 import { usePreferences } from "../../lib/preferences.ts";
 import { usePrintsOfProject } from "../../lib/prints.ts";
 import {
@@ -180,6 +181,14 @@ export function ProjectDetailPage() {
   const [picked, setPicked] = useState<string | null>(null);
   const [plate, setPlate] = useState<number | null>(null);
   const open = useOpenProject(id);
+  // The default slicer, or the one picked when several are set up (Settings > Integrations).
+  const slicers = useCapable("openInSlicer");
+  const defaultSlicer = usePreferences().data?.values.defaultSlicerId;
+  const [slicerId, setSlicerId] = useState<string>();
+  const slicer =
+    slicers.find((s) => s.id === slicerId) ??
+    slicers.find((s) => s.id === defaultSlicer) ??
+    slicers[0];
 
   if (isError)
     return (
@@ -216,15 +225,33 @@ export function ProjectDetailPage() {
                 {t("projects:detail.source")}
               </a>
             )}
-            {project.folderPath && current && (
-              <button
-                type="button"
-                className={linkButton}
-                onClick={() => open.mutate({ target: "slicer", file: current.path })}
-              >
-                <Box className="size-4" aria-hidden />
-                {t("projects:detail.openSlicer")}
-              </button>
+            {project.folderPath && current && slicer && (
+              <span className="flex gap-1">
+                {slicers.length > 1 && (
+                  <select
+                    aria-label={t("projects:detail.slicerPick")}
+                    className={linkButton}
+                    value={slicer.id}
+                    onChange={(e) => setSlicerId(e.target.value)}
+                  >
+                    {slicers.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
+                <button
+                  type="button"
+                  className={linkButton}
+                  onClick={() =>
+                    open.mutate({ target: "slicer", file: current.path, integrationId: slicer.id })
+                  }
+                >
+                  <Box className="size-4" aria-hidden />
+                  {t("projects:detail.openSlicer")}
+                </button>
+              </span>
             )}
             {project.folderPath && (
               <button

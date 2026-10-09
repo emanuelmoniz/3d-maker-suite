@@ -162,13 +162,13 @@ const routes: AnyRoute[] = [
   }),
   createRoute({
     getParentRoute: () => root,
-    path: "/filament/spools/import",
+    path: "/filament/spools/import/$id",
     loader: () => loadNamespace("filament"),
     component: SpoolImportPage,
   }),
   createRoute({
     getParentRoute: () => root,
-    path: "/filament/import",
+    path: "/filament/import/$id",
     loader: () => loadNamespace("filament"),
     component: LibraryImportPage,
   }),

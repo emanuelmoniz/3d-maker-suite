@@ -1,5 +1,6 @@
 import type {
   AdapterInfo,
+  Capability,
   Integration,
   IntegrationInput,
   IntegrationPatch,
@@ -23,6 +24,10 @@ export const useIntegrations = () =>
     queryKey: ["integrations", "list"],
     queryFn: () => api<Integration[]>("GET", "/api/integrations"),
   });
+
+/** Integrations that can do `cap` right now. The server decides; the UI never checks vendors. */
+export const useCapable = (cap: Capability) =>
+  (useIntegrations().data ?? []).filter((i) => i.capabilities.includes(cap));
 
 export const useSyncRuns = (id: string, query: Record<string, string>) =>
   useListPage<SyncRun>(["integrations", id, "runs"], `/api/integrations/${id}/runs`, query);

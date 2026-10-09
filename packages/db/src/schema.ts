@@ -55,6 +55,12 @@ export const integrations = sqliteTable("integrations", {
   config: text({ mode: "json" }).notNull().default({}),
   /** AES-256-GCM blob `{ v, iv, tag, data }` (ADR-0005). Never returned by the API. */
   secrets: text(),
+  /** Capabilities the user switched off (missing = on, so new ones start enabled). */
+  disabledFeatures: text({ mode: "json" }).$type<string[]>().notNull().default([]),
+  /** Slicer config folder override; null = detected. */
+  slicerConfigDir: text(),
+  /** Slicer program for "Open in slicer". */
+  slicerPath: text(),
   status: text().notNull().default("new"),
   lastSyncAt: text(),
   lastError: text(),

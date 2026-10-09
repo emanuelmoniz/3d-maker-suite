@@ -1,6 +1,7 @@
 import { z } from "zod";
 import {
   ALERT_KINDS,
+  CAPABILITIES,
   COMMENT_STATUSES,
   ENERGY_SOURCES,
   INTEGRATION_ERROR_CODES,
@@ -36,6 +37,14 @@ export const integrationSchema = z.object({
   enabled: z.boolean(),
   config: z.json(),
   hasSecrets: z.boolean(),
+  /** Capabilities the user switched off. Everything else the adapter supports is on. */
+  disabledFeatures: z.array(z.string()),
+  /** Slicer config folder override; null = the detected one. */
+  slicerConfigDir: z.string().nullable(),
+  /** Slicer program used by "Open in slicer". */
+  slicerPath: z.string().nullable(),
+  /** Supported, switched on and set up: the only thing the UI looks at to offer actions. */
+  capabilities: z.array(z.enum(CAPABILITIES)),
   status: z.enum(INTEGRATION_STATUSES),
   lastSyncAt: isoDate.nullable(),
   lastError: z.enum(INTEGRATION_ERROR_CODES).nullable(),

@@ -2,7 +2,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fixture, type MockState, mockAdapter } from "@3d-maker-suite/adapter-mock";
-import type { FilamentLibrary } from "@3d-maker-suite/core";
+import type { FilamentLibrary, IntegrationAdapter } from "@3d-maker-suite/core";
 import { openDb, schema } from "@3d-maker-suite/db";
 import { sum } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -106,6 +106,7 @@ describe("filament library", () => {
   let app: Awaited<ReturnType<typeof buildApp>>;
   let db: ReturnType<typeof openDb>;
   let mock: MockState;
+  let slicerId: string;
 
   beforeEach(async () => {
     dir = mkdtempSync(join(tmpdir(), "lib-"));
@@ -120,20 +121,30 @@ describe("filament library", () => {
         ...(includeSystem ? [preset("S", { scope: "system" })] : []),
       ],
     };
+    // A slicer-only vendor: presets from a local folder, no account.
+    const slicer = {
+      ...mockAdapter(mock),
+      id: "slicer",
+      capabilities: ["filamentProfiles"],
+      library,
+    };
     app = await buildApp(db, false, "", {
-      filamentLibraries: [library],
-      adapters: [mockAdapter(mock)],
+      adapters: [mockAdapter(mock), slicer as IntegrationAdapter],
     });
+    slicerId = (
+      await app.inject({
+        method: "POST",
+        url: "/api/integrations",
+        payload: { adapterId: "slicer", name: "Slicer", secrets: { token: "t" } },
+      })
+    ).json().id;
   });
 
   const preview = async (q = "") =>
-    app.inject({ method: "GET", url: `/api/filament/library/fake/preview${q}` });
-  const setDir = (p: string) =>
-    app.inject({
-      method: "PATCH",
-      url: "/api/preferences",
-      payload: { libraryPaths: { fake: p } },
-    });
+    app.inject({ method: "GET", url: `/api/filament/library/${slicerId}/preview${q}` });
+  const patchSlicer = (payload: object) =>
+    app.inject({ method: "PATCH", url: `/api/integrations/${slicerId}`, payload });
+  const setDir = (p: string) => patchSlicer({ slicerConfigDir: p });
   const names = (r: { json(): unknown }) =>
     (r.json() as { items: { name: string; status: string }[] }).items.map(
       (i) => `${i.name}:${i.status}`,
@@ -141,12 +152,15 @@ describe("filament library", () => {
 
   it("404s until a config folder exists, then honours the override", async () => {
     expect((await preview()).statusCode).toBe(404);
-    expect((await preview()).json().error.code).toBe("library_not_found");
+    expect((await preview()).json().error.code).toBe("capability_unavailable");
     await setDir(dir);
     const res = await preview();
     expect(res.json().dir).toBe(dir);
     expect(names(res)).toEqual(["A:new", "B:new"]);
     expect(names(await preview("?includeSystem=true"))).toContain("S:new");
+    // Switched off = gone.
+    await patchSlicer({ disabledFeatures: ["filamentProfiles"] });
+    expect((await preview()).statusCode).toBe(404);
   });
 
   it("imports only the picked presets, once, and links them to the source", async () => {
@@ -154,7 +168,7 @@ describe("filament library", () => {
     const imp = (ids: string[]) =>
       app.inject({
         method: "POST",
-        url: "/api/filament/library/fake/import",
+        url: `/api/filament/library/${slicerId}/import`,
         payload: { presetIds: ids },
       });
     expect((await imp(["user/A"])).json()).toEqual({ created: 1 });
@@ -173,17 +187,24 @@ describe("filament library", () => {
   });
 
   it("imports spools from the integration's inventory onto the profile you pick", async () => {
+    let mockId = slicerId;
     const preview = async () =>
-      (await app.inject("/api/filament/inventory"))
+      (await app.inject(`/api/filament/inventory/${mockId}`))
         .json()
         .items.map(
           (i: { spoolId: string; imported: boolean; profileId: string | null }) =>
             `${i.spoolId}:${i.imported}:${i.profileId}`,
         );
     const imp = (spools: { spoolId: string; profileId: string }[]) =>
-      app.inject({ method: "POST", url: "/api/filament/inventory/import", payload: { spools } });
-    // No integration keeps spools yet.
-    expect((await app.inject("/api/filament/inventory")).json().error.code).toBe("no_spool_source");
+      app.inject({
+        method: "POST",
+        url: `/api/filament/inventory/${mockId}/import`,
+        payload: { spools },
+      });
+    // The slicer integration keeps no spools.
+    expect((await app.inject(`/api/filament/inventory/${mockId}`)).json().error.code).toBe(
+      "capability_unavailable",
+    );
 
     mock.spools = [
       ["1", "#ff0000", "A"],
@@ -197,11 +218,13 @@ describe("filament library", () => {
       emptyWeightGrams: null,
       status: "in_use" as const,
     }));
-    await app.inject({
-      method: "POST",
-      url: "/api/integrations",
-      payload: { adapterId: "mock", name: "Mock", secrets: { token: "t" } },
-    });
+    mockId = (
+      await app.inject({
+        method: "POST",
+        url: "/api/integrations",
+        payload: { adapterId: "mock", name: "Mock", secrets: { token: "t" } },
+      })
+    ).json().id;
     // No profile named like the spools yet: nothing suggested.
     expect(await preview()).toEqual(["mock:1:false:null", "mock:2:false:null"]);
 
@@ -232,7 +255,7 @@ describe("filament library", () => {
 
     // Vendor errors come back with their code.
     mock.fail = "auth_expired";
-    const res = await app.inject("/api/filament/inventory");
+    const res = await app.inject(`/api/filament/inventory/${mockId}`);
     expect([res.statusCode, res.json().error.code]).toEqual([502, "auth_expired"]);
     mock.fail = undefined;
 

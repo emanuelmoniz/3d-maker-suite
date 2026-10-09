@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import type { FilamentLibrary, IntegrationAdapter } from "@3d-maker-suite/core";
+import type { IntegrationAdapter } from "@3d-maker-suite/core";
 import type { Db } from "@3d-maker-suite/db";
 import swagger from "@fastify/swagger";
 import swaggerUi from "@fastify/swagger-ui";
@@ -44,7 +44,6 @@ export async function buildApp(
   dataDir = "",
   opts: {
     adapters?: IntegrationAdapter[];
-    filamentLibraries?: FilamentLibrary[];
     syncSchedule?: string;
     /** Cron for the alert check. Also turns on the check after every successful change. */
     alertsSchedule?: string;
@@ -112,14 +111,16 @@ export async function buildApp(
   // Without a data dir (tests) secrets use a throwaway in-memory key.
   const key = dataDir ? loadKey(dataDir) : randomBytes(32);
   const syncer = createSyncer(db, opts.adapters ?? [], key, app.log);
-  await app.register(filamentRoutes(db, opts.filamentLibraries ?? [], syncer.listSpools), {
+  await app.register(filamentRoutes(db, syncer.adapters, syncer.listSpools), {
     prefix: "/api/filament",
   });
   await app.register(printsRoutes(db), { prefix: "/api/prints" });
   await app.register(costsRoutes(db), { prefix: "/api/costs" });
   await app.register(statsRoutes(db), { prefix: "/api/stats" });
   const scanner = createProjectScanner(db, dataDir, app.log, { watch: opts.watchProjects });
-  await app.register(projectsRoutes(db, dataDir, scanner), { prefix: "/api/projects" });
+  await app.register(projectsRoutes(db, dataDir, scanner, syncer.adapters), {
+    prefix: "/api/projects",
+  });
   app.addHook("onClose", () => scanner.close());
   if (opts.watchProjects) app.addHook("onReady", async () => scanner.boot());
   await app.register(tagsRoutes(db), { prefix: "/api/tags" });

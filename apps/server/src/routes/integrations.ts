@@ -24,6 +24,7 @@ import { asc, eq } from "drizzle-orm";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
+import { activeCapabilities, detectedDir } from "../integrations/capabilities.ts";
 import { readSecrets, writeSecrets } from "../integrations/secrets.ts";
 import type { Syncer } from "../integrations/sync.ts";
 import { listPage } from "../lib/list.ts";
@@ -50,12 +51,18 @@ export const integrationsRoutes =
       return r.data;
     };
     // The encrypted column never leaves the server (ADR-0005).
-    const toApi = ({ secrets, ...row }: typeof integrations.$inferSelect) =>
-      ({
+    const toApi = (full: typeof integrations.$inferSelect) => {
+      const { secrets, ...row } = full;
+      return {
         ...row,
         hasSecrets: !!secrets,
         status: syncer.running.has(row.id) ? "syncing" : row.status,
-      }) as Integration;
+        capabilities: activeCapabilities(
+          full,
+          syncer.adapters.find((a) => a.id === row.adapterId),
+        ),
+      } as Integration;
+    };
     const get = (id: string) => {
       const row = db.select().from(integrations).where(eq(integrations.id, id)).get();
       if (!row) throw new HttpError(404, "not_found", "Integration not found");
@@ -68,6 +75,8 @@ export const integrationsRoutes =
         config: z.toJSONSchema(a.configSchema, { io: "input" }),
         secrets: z.toJSONSchema(a.secretsSchema, { io: "input" }),
         login: !!a.login,
+        capabilities: [...a.capabilities],
+        detectedConfigDir: detectedDir(a.library),
       })),
     );
 
@@ -114,12 +123,15 @@ export const integrationsRoutes =
       },
       async (req) => {
         const cur = get(req.params.id);
-        const { config, secrets, ...fields } = req.body;
+        const { config, secrets, slicerConfigDir, slicerPath, ...fields } = req.body;
         const adapter = config || secrets ? adapterOf(cur.adapterId) : undefined;
         db.transaction(() => {
           db.update(integrations)
             .set({
               ...fields,
+              // An empty path means "none" (or "the detected folder").
+              ...(slicerConfigDir !== undefined && { slicerConfigDir: slicerConfigDir || null }),
+              ...(slicerPath !== undefined && { slicerPath: slicerPath || null }),
               ...(config &&
                 adapter && { config: parse(adapter.configSchema, config, "invalid_config") }),
             })

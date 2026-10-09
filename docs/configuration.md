@@ -20,4 +20,4 @@ Then open `http://<your-PC-address>:4300` from the other device and enter the pa
 
 ## In-app settings
 
-The Settings page covers general options, appearance, costs (currency, energy, labour, markup), printers, prints, projects (the folders the app watches), slicer libraries, integrations, alerts, backups and language. The slicer executable is set there too. These are stored in the database, not in environment variables.
+The Settings page covers general options, appearance, costs (currency, energy, labour, markup), printers, prints, projects (the folders the app watches), integrations, alerts, backups and language. Slicer config folders and executables belong to their integration (Settings → Integrations). These are stored in the database, not in environment variables.

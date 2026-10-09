@@ -131,40 +131,47 @@ describe("printer catalog", () => {
   });
 });
 
+/** Migrates up to `lastIdx`, lets `fill` add old-shape rows, then applies the rest. */
+function migrateAcross(lastIdx: number, fill: (sqlite: Database.Database) => void) {
+  const real = fileURLToPath(new URL("../migrations", import.meta.url));
+  const before = mkdtempSync(join(tmpdir(), "mig-"));
+  cpSync(real, before, { recursive: true });
+  const journal = JSON.parse(readFileSync(join(before, "meta/_journal.json"), "utf8"));
+  journal.entries = journal.entries.filter((e: { idx: number }) => e.idx <= lastIdx);
+  writeFileSync(join(before, "meta/_journal.json"), JSON.stringify(journal));
+
+  const sqlite = new Database(":memory:");
+  sqlite.pragma("foreign_keys = ON");
+  const old = drizzle({ client: sqlite, casing: "snake_case" });
+  migrate(old, { migrationsFolder: before });
+  fill(sqlite);
+  migrate(old, { migrationsFolder: real });
+  rmSync(before, { recursive: true, force: true });
+  return drizzle({ client: sqlite, schema: s, casing: "snake_case" });
+}
+
 describe("migration 0017", () => {
   it("moves free-text brand/model into the catalog", () => {
-    const real = fileURLToPath(new URL("../migrations", import.meta.url));
-    const before = mkdtempSync(join(tmpdir(), "mig-"));
-    cpSync(real, before, { recursive: true });
-    const journal = JSON.parse(readFileSync(join(before, "meta/_journal.json"), "utf8"));
-    journal.entries = journal.entries.filter((e: { idx: number }) => e.idx <= 16);
-    writeFileSync(join(before, "meta/_journal.json"), JSON.stringify(journal));
-
-    const sqlite = new Database(":memory:");
-    sqlite.pragma("foreign_keys = ON");
-    const old = drizzle({ client: sqlite, casing: "snake_case" });
-    migrate(old, { migrationsFolder: before });
-    const at = "2026-01-01T00:00:00.000Z";
-    const printer = sqlite.prepare(
-      "INSERT INTO printers (id, name, brand, model, power_w, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
-    );
-    const rows: [string, string, string, number | null][] = [
-      ["a", "Bambu Lab", "P1S", 120],
-      ["b", "bambu lab ", "p1s", 150],
-      ["c", "Bambu Lab", "X1C", null],
-      ["d", "Prusa", "MK4", null],
-      ["e", "", "", null],
-    ];
-    for (const [n, brand, model, w] of rows)
-      printer.run(crypto.randomUUID(), n, brand, model, w, at, at);
-    sqlite
-      .prepare(
-        "INSERT INTO maintenance_types (id, name, applies_to_models, created_at, updated_at) VALUES (?, 'T', ?, ?, ?)",
-      )
-      .run(crypto.randomUUID(), JSON.stringify(["p1s", "Nope"]), at, at);
-
-    migrate(old, { migrationsFolder: real });
-    const now = drizzle({ client: sqlite, schema: s, casing: "snake_case" });
+    const now = migrateAcross(16, (sqlite) => {
+      const at = "2026-01-01T00:00:00.000Z";
+      const printer = sqlite.prepare(
+        "INSERT INTO printers (id, name, brand, model, power_w, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      );
+      const rows: [string, string, string, number | null][] = [
+        ["a", "Bambu Lab", "P1S", 120],
+        ["b", "bambu lab ", "p1s", 150],
+        ["c", "Bambu Lab", "X1C", null],
+        ["d", "Prusa", "MK4", null],
+        ["e", "", "", null],
+      ];
+      for (const [n, brand, model, w] of rows)
+        printer.run(crypto.randomUUID(), n, brand, model, w, at, at);
+      sqlite
+        .prepare(
+          "INSERT INTO maintenance_types (id, name, applies_to_models, created_at, updated_at) VALUES (?, 'T', ?, ?, ?)",
+        )
+        .run(crypto.randomUUID(), JSON.stringify(["p1s", "Nope"]), at, at);
+    });
     const brands = now.select().from(s.brands).all();
     expect(brands.map((b) => b.name).sort()).toEqual(["Bambu Lab", "Prusa", "Unknown"]);
     const models = now.select().from(s.printerModels).all();
@@ -175,7 +182,75 @@ describe("migration 0017", () => {
     expect(printers.every((p) => p.modelId)).toBe(true);
     expect(printers.filter((p) => p.modelId === p1s?.id).map((p) => p.name)).toEqual(["a", "b"]);
     expect(now.select().from(s.maintenanceTypes).get()?.appliesToModelIds).toEqual([p1s?.id]);
-    rmSync(before, { recursive: true, force: true });
+  });
+});
+
+describe("migration 0019", () => {
+  const at = "2026-01-01T00:00:00.000Z";
+  const setting = (sqlite: Database.Database, key: string, value: unknown) =>
+    sqlite
+      .prepare("INSERT INTO settings (key, value) VALUES (?, ?)")
+      .run(key, JSON.stringify(value));
+  const cloud = (sqlite: Database.Database, id: string, createdAt: string) =>
+    sqlite
+      .prepare(
+        "INSERT INTO integrations (id, adapter_id, name, config, created_at, updated_at) VALUES (?, 'bambu-cloud', ?, '{}', ?, ?)",
+      )
+      .run(id, id, createdAt, createdAt);
+  const prefsLeft = (now: ReturnType<typeof migrateAcross>) =>
+    now
+      .select()
+      .from(s.settings)
+      .all()
+      .map((r) => r.key);
+
+  it("moves the slicer paths onto the oldest Bambu integration, all features on", () => {
+    const now = migrateAcross(18, (sqlite) => {
+      cloud(sqlite, "newer", "2026-02-01T00:00:00.000Z");
+      cloud(sqlite, "older", at);
+      setting(sqlite, "slicerPath", "C:/Bambu/bambu-studio.exe");
+      setting(sqlite, "libraryPaths", { "bambu-studio": "D:/Studio" });
+      setting(sqlite, "currency", "USD");
+    });
+    const rows = now.select().from(s.integrations).all();
+    expect(rows).toHaveLength(2);
+    const older = rows.find((r) => r.id === "older");
+    expect(older).toMatchObject({
+      slicerPath: "C:/Bambu/bambu-studio.exe",
+      slicerConfigDir: "D:/Studio",
+      disabledFeatures: [],
+    });
+    expect(rows.find((r) => r.id === "newer")?.slicerPath).toBeNull();
+    expect(prefsLeft(now)).toEqual(["currency"]);
+  });
+
+  it("creates a slicer-only Bambu integration when Studio was used without the cloud", () => {
+    const now = migrateAcross(18, (sqlite) => {
+      setting(sqlite, "slicerPath", "");
+      sqlite
+        .prepare(
+          "INSERT INTO filament_profiles (id, brand, material, name, density_gcm3, source_preset, created_at, updated_at) VALUES (?, 'B', 'PLA', 'N', 1.24, 'bambu-studio:x', ?, ?)",
+        )
+        .run(crypto.randomUUID(), at, at);
+    });
+    const [row] = now.select().from(s.integrations).all();
+    expect(row).toMatchObject({
+      adapterId: "bambu-cloud",
+      enabled: true,
+      slicerPath: null,
+      slicerConfigDir: null,
+      disabledFeatures: ["printers", "prints", "spools"],
+    });
+    expect(row?.id).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+    );
+    expect(prefsLeft(now)).toEqual([]);
+  });
+
+  it("adds nothing when no slicer was set up", () => {
+    const now = migrateAcross(18, (sqlite) => setting(sqlite, "libraryPaths", {}));
+    expect(now.select().from(s.integrations).all()).toEqual([]);
+    expect(prefsLeft(now)).toEqual([]);
   });
 });
 

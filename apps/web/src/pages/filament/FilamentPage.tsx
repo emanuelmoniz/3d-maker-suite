@@ -15,6 +15,7 @@ import { PageHeader } from "../../components/PageHeader.tsx";
 import { TagList } from "../../components/TagList.tsx";
 import { filamentLabel, useProfiles } from "../../lib/filament.ts";
 import { formatCurrency, formatWeight } from "../../lib/format.ts";
+import { useCapable } from "../../lib/integrations.ts";
 import { useListPage, useUrlListQuery } from "../../lib/list.ts";
 import { usePreferences } from "../../lib/preferences.ts";
 import { useTags, useTagsOf } from "../../lib/tags.ts";
@@ -37,6 +38,24 @@ const AddLink = ({ to, children }: { to: string; children: string }) => (
 );
 
 const label = filamentLabel;
+
+/** One import link per integration that can do it; none = add by hand only. */
+function ImportLinks({
+  to,
+  cap,
+  text,
+}: {
+  to: string;
+  cap: "spools" | "filamentProfiles";
+  text: string;
+}) {
+  const { t } = useTranslation();
+  return useCapable(cap).map((i) => (
+    <Link key={i.id} to={to} params={{ id: i.id }} className={importClass}>
+      {t(text, { name: i.name })}
+    </Link>
+  ));
+}
 
 export function Swatch({ hex }: { hex: string }) {
   return (
@@ -89,9 +108,11 @@ export function FilamentPage() {
           <div className="flex items-center justify-between gap-3">
             <h2 className="text-base font-semibold">{t("filament:spools.title")}</h2>
             <span className="flex gap-2">
-              <Link to="/filament/spools/import" className={importClass}>
-                {t("filament:spoolImport.link")}
-              </Link>
+              <ImportLinks
+                to="/filament/spools/import/$id"
+                cap="spools"
+                text="filament:spoolImport.link"
+              />
               <AddLink to="/filament/spools/new">{t("filament:spools.add")}</AddLink>
             </span>
           </div>
@@ -194,9 +215,11 @@ export function FilamentPage() {
           <div className="flex items-center justify-between gap-3">
             <h2 className="text-base font-semibold">{t("filament:profiles.title")}</h2>
             <span className="flex gap-2">
-              <Link to="/filament/import" className={importClass}>
-                {t("filament:library.link")}
-              </Link>
+              <ImportLinks
+                to="/filament/import/$id"
+                cap="filamentProfiles"
+                text="filament:library.link"
+              />
               <AddLink to="/filament/profiles/new">{t("filament:profiles.add")}</AddLink>
             </span>
           </div>

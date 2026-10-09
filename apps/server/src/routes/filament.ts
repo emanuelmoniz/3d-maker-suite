@@ -1,14 +1,13 @@
-import { existsSync } from "node:fs";
 import {
   apiErrorSchema,
   archivedFilter,
-  type FilamentLibrary,
   type FilamentProfile,
   filamentProfileFilters,
   filamentProfileInputSchema,
   filamentProfilePatchSchema,
   filamentProfileSchema,
   filamentProfileSortFields,
+  type IntegrationAdapter,
   idList,
   type LibraryPreview,
   type LibrarySpool,
@@ -17,7 +16,6 @@ import {
   libraryImportSchema,
   libraryPreviewSchema,
   libraryQuerySchema,
-  librarySourceSchema,
   librarySpoolImportSchema,
   librarySpoolPreviewSchema,
   listQuery,
@@ -38,8 +36,8 @@ import { desc, eq, isNotNull, isNull, sql } from "drizzle-orm";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
+import { capableRow, slicerConfigDir } from "../integrations/capabilities.ts";
 import { inIds, listPage, taggedWith } from "../lib/list.ts";
-import { readPreferences } from "../lib/preferences.ts";
 import { createSpool, setRemaining } from "../lib/spools.ts";
 
 const { filamentProfiles, spools, spoolWeightEntries } = schema;
@@ -54,8 +52,8 @@ const archivedAt = (archived?: boolean) =>
 export const filamentRoutes =
   (
     db: Db,
-    libraries: FilamentLibrary[] = [],
-    listSpools: () => Promise<LibrarySpool[]> = async () => [],
+    adapters: IntegrationAdapter[] = [],
+    listSpools: (integrationId: string) => Promise<LibrarySpool[]> = async () => [],
   ): FastifyPluginAsyncZod =>
   async (app) => {
     const getProfile = (id: string) => {
@@ -141,42 +139,32 @@ export const filamentRoutes =
       },
     );
 
-    // --- Slicer libraries: read a slicer's local presets, preview, then import the picked ones.
-    const getLibrary = (id: string) => {
-      const lib = libraries.find((l) => l.id === id);
-      if (!lib) throw new HttpError(404, "not_found", "Unknown filament library");
-      return lib;
-    };
-    const detect = (lib: FilamentLibrary) => lib.defaultDirs().find((d) => existsSync(d)) ?? null;
-    const libraryDir = (lib: FilamentLibrary) => {
-      const dir = readPreferences(db).libraryPaths[lib.id]?.trim() || detect(lib);
-      if (!dir || !existsSync(dir))
+    // --- Slicer libraries: an integration's slicer presets, preview, then import the picked ones.
+    const readLibrary = async (integrationId: string, includeSystem: boolean) => {
+      const { row, adapter } = capableRow(db, adapters, integrationId, "filamentProfiles");
+      const dir = slicerConfigDir(row, adapter);
+      const lib = adapter.library;
+      if (!dir || !lib)
         throw new HttpError(404, "library_not_found", "Slicer config folder not found");
-      return dir;
-    };
-    const readLibrary = async (lib: FilamentLibrary, includeSystem: boolean) => {
-      const dir = libraryDir(lib);
-      return { dir, presets: await lib.read(dir, { includeSystem }) };
+      return { lib, dir, presets: await lib.read(dir, { includeSystem }) };
     };
     const key = (p: { brand: string; material: string; name: string }) =>
       [p.brand, p.material, p.name].map((v) => v.trim().toLowerCase()).join("|");
-
-    app.get("/library", { schema: { response: { 200: z.array(librarySourceSchema) } } }, async () =>
-      libraries.map((l) => ({ id: l.id, detectedDir: detect(l) })),
-    );
 
     app.get(
       "/library/:id/preview",
       {
         schema: {
-          params: z.object({ id: z.string() }),
+          params,
           querystring: libraryQuerySchema,
           response: { 200: libraryPreviewSchema, ...notFound },
         },
       },
       async (req): Promise<LibraryPreview> => {
-        const lib = getLibrary(req.params.id);
-        const { dir, presets } = await readLibrary(lib, req.query.includeSystem === "true");
+        const { lib, dir, presets } = await readLibrary(
+          req.params.id,
+          req.query.includeSystem === "true",
+        );
         const rows = db.select().from(filamentProfiles).all();
         const imported = new Set(rows.map((r) => r.sourcePreset));
         const have = new Set(rows.map(key));
@@ -198,15 +186,14 @@ export const filamentRoutes =
       "/library/:id/import",
       {
         schema: {
-          params: z.object({ id: z.string() }),
+          params,
           body: libraryImportSchema,
           response: { 200: libraryImportResultSchema, ...notFound },
         },
       },
       async (req) => {
-        const lib = getLibrary(req.params.id);
         // Re-read instead of trusting the client, so the preview is only a selection.
-        const { presets } = await readLibrary(lib, req.body.includeSystem);
+        const { lib, presets } = await readLibrary(req.params.id, req.body.includeSystem);
         const picked = new Set(req.body.presetIds);
         const rows = db.select().from(filamentProfiles).all();
         const skip = new Set([...rows.map((r) => r.sourcePreset), ...rows.map(key)]);
@@ -240,10 +227,10 @@ export const filamentRoutes =
       );
 
     app.get(
-      "/inventory",
-      { schema: { response: { 200: librarySpoolPreviewSchema, ...notFound } } },
-      async (): Promise<LibrarySpoolPreview> => {
-        const items = await listSpools();
+      "/inventory/:id",
+      { schema: { params, response: { 200: librarySpoolPreviewSchema, ...notFound } } },
+      async (req): Promise<LibrarySpoolPreview> => {
+        const items = await listSpools(req.params.id);
         const imported = importedSpools();
         const active = db
           .select()
@@ -273,9 +260,10 @@ export const filamentRoutes =
     );
 
     app.post(
-      "/inventory/import",
+      "/inventory/:id/import",
       {
         schema: {
+          params,
           body: librarySpoolImportSchema,
           response: { 200: libraryImportResultSchema, ...notFound },
         },
@@ -286,7 +274,7 @@ export const filamentRoutes =
         for (const profileId of new Set(picked.values()))
           if (getProfile(profileId).archivedAt)
             throw new HttpError(400, "profile_archived", "Filament profile is archived");
-        const items = await listSpools();
+        const items = await listSpools(req.params.id);
         const imported = importedSpools();
         let created = 0;
         db.transaction((tx) => {

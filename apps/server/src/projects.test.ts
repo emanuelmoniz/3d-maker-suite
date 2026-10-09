@@ -1,6 +1,7 @@
 import { cp, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { mockAdapter } from "@3d-maker-suite/adapter-mock";
 import { openDb } from "@3d-maker-suite/db";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { buildApp } from "./app.ts";
@@ -13,7 +14,8 @@ let app: Awaited<ReturnType<typeof buildApp>>;
 beforeEach(async () => {
   dir = await mkdtemp(join(tmpdir(), "projects-"));
   await mkdir(join(dir, "data"));
-  app = await buildApp(openDb(":memory:"), false, join(dir, "data"));
+  const slicer = { ...mockAdapter(), id: "slicer", capabilities: ["openInSlicer" as const] };
+  app = await buildApp(openDb(":memory:"), false, join(dir, "data"), { adapters: [slicer] });
 });
 afterEach(async () => {
   await app.close();
@@ -238,11 +240,19 @@ describe("open in slicer / folder", () => {
     await scan();
     const vase = await byName("Vase");
 
-    // No slicer configured yet.
+    // No slicer configured yet: no integration, then one without a program path.
+    expect((await open(vase.id, { target: "slicer", file: "vase.stl" })).statusCode).toBe(409);
+    const { id } = (
+      await app.inject({
+        method: "POST",
+        url: "/api/integrations",
+        payload: { adapterId: "slicer", name: "Slicer", secrets: { token: "t" } },
+      })
+    ).json();
     expect((await open(vase.id, { target: "slicer", file: "vase.stl" })).statusCode).toBe(409);
     await app.inject({
       method: "PATCH",
-      url: "/api/preferences",
+      url: `/api/integrations/${id}`,
       payload: { slicerPath: process.execPath },
     });
     // Traversal and unlisted files are refused.
@@ -252,6 +262,11 @@ describe("open in slicer / folder", () => {
     expect((await open(vase.id, { target: "slicer", file: "vase.stl" })).json()).toEqual({
       ok: true,
     });
+    // An explicit pick must be a usable slicer.
+    const picked = (integrationId: string) =>
+      open(vase.id, { target: "slicer", file: "vase.stl", integrationId });
+    expect((await picked(id)).statusCode).toBe(200);
+    expect((await picked(crypto.randomUUID())).statusCode).toBe(409);
 
     // Roots removed -> the folder is no longer allowed.
     await app.inject({ method: "PATCH", url: "/api/preferences", payload: { projectRoots: [] } });

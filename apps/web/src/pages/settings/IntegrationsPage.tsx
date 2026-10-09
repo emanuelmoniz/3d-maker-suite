@@ -1,4 +1,6 @@
 import {
+  CAPABILITY_NEEDS,
+  type Capability,
   type Integration,
   type IntegrationErrorCode,
   type IntegrationStatus,
@@ -14,10 +16,12 @@ import { Button } from "../../components/Button.tsx";
 import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { DataTable, type ListQuery } from "../../components/DataTable.tsx";
 import { EmptyState } from "../../components/EmptyState.tsx";
+import { FormField, inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { formatDateTime } from "../../lib/format.ts";
 import {
   useAdapters,
+  useCapable,
   useDeleteIntegration,
   useIntegrations,
   usePatchIntegration,
@@ -25,6 +29,7 @@ import {
   useSyncRuns,
   useTestIntegration,
 } from "../../lib/integrations.ts";
+import { usePreferences, useSavePreferences } from "../../lib/preferences.ts";
 
 // Literal keys so `pnpm i18n:check` sees them.
 const STATUS: Record<IntegrationStatus, { label: string; tone: string }> = {
@@ -43,6 +48,13 @@ export const ERRORS: Record<IntegrationErrorCode, string> = {
   blocked: "integrations:errors.blocked",
   api_changed: "integrations:errors.api_changed",
   unknown: "integrations:errors.unknown",
+};
+const CAPS: Record<Capability, string> = {
+  printers: "integrations:capabilities.printers",
+  prints: "integrations:capabilities.prints",
+  spools: "integrations:capabilities.spools",
+  filamentProfiles: "integrations:capabilities.filamentProfiles",
+  openInSlicer: "integrations:capabilities.openInSlicer",
 };
 const TRIGGERS = { manual: "integrations:runs.manual", scheduled: "integrations:runs.scheduled" };
 const RUN_STATUSES = { ok: "integrations:runs.ok", error: "integrations:runs.error" };
@@ -102,7 +114,12 @@ function IntegrationCard({ integration: i }: { integration: Integration }) {
   const { t } = useTranslation();
   const adapterName = useAdapterName();
   const navigate = useNavigate();
-  const hasLogin = useAdapters().data?.find((a) => a.id === i.adapterId)?.login;
+  const adapter = useAdapters().data?.find((a) => a.id === i.adapterId);
+  const supported = adapter?.capabilities ?? [];
+  const off = supported.filter((c) => i.disabledFeatures.includes(c));
+  // Sign-in, sync and the log only matter while an account feature is switched on.
+  const account = supported.some((c) => CAPABILITY_NEEDS[c] === "account" && !off.includes(c));
+  const hasLogin = account && adapter?.login;
   const [showLog, setShowLog] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const patch = usePatchIntegration(i.id);
@@ -156,19 +173,23 @@ function IntegrationCard({ integration: i }: { integration: Integration }) {
             {i.hasSecrets ? t("integrations:card.signInAgain") : t("integrations:card.signIn")}
           </Button>
         )}
-        <Button
-          variant={hasLogin && !i.hasSecrets ? "secondary" : "primary"}
-          disabled={sync.isPending}
-          onClick={() => sync.mutate()}
-        >
-          {t("integrations:card.syncNow")}
-        </Button>
-        <Button disabled={test.isPending} onClick={() => test.mutate()}>
-          {t("integrations:card.test")}
-        </Button>
-        <Button variant="ghost" aria-expanded={showLog} onClick={() => setShowLog((v) => !v)}>
-          {showLog ? t("integrations:card.hideLog") : t("integrations:card.showLog")}
-        </Button>
+        {account && (
+          <>
+            <Button
+              variant={hasLogin && !i.hasSecrets ? "secondary" : "primary"}
+              disabled={sync.isPending}
+              onClick={() => sync.mutate()}
+            >
+              {t("integrations:card.syncNow")}
+            </Button>
+            <Button disabled={test.isPending} onClick={() => test.mutate()}>
+              {t("integrations:card.test")}
+            </Button>
+            <Button variant="ghost" aria-expanded={showLog} onClick={() => setShowLog((v) => !v)}>
+              {showLog ? t("integrations:card.hideLog") : t("integrations:card.showLog")}
+            </Button>
+          </>
+        )}
         <Button variant="ghost" className="text-bad" onClick={() => setConfirming(true)}>
           {t("integrations:card.delete")}
         </Button>
@@ -183,7 +204,34 @@ function IntegrationCard({ integration: i }: { integration: Integration }) {
         </label>
       </div>
 
-      {showLog && <SyncLog id={i.id} />}
+      {supported.length > 0 && (
+        <fieldset className="mt-4">
+          <legend className="font-medium">{t("integrations:capabilities.title")}</legend>
+          <div className="mt-2 flex flex-wrap gap-x-5 gap-y-2">
+            {supported.map((c) => (
+              <label key={c} className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={!off.includes(c)}
+                  disabled={patch.isPending}
+                  onChange={(e) =>
+                    patch.mutate({
+                      disabledFeatures: e.target.checked ? off.filter((d) => d !== c) : [...off, c],
+                    })
+                  }
+                />
+                {t(CAPS[c])}
+              </label>
+            ))}
+          </div>
+        </fieldset>
+      )}
+
+      {(supported.includes("filamentProfiles") || supported.includes("openInSlicer")) && (
+        <SlicerFields integration={i} detectedDir={adapter?.detectedConfigDir ?? null} />
+      )}
+
+      {account && showLog && <SyncLog id={i.id} />}
 
       <ConfirmDialog
         open={confirming}
@@ -198,6 +246,69 @@ function IntegrationCard({ integration: i }: { integration: Integration }) {
         }}
       />
     </li>
+  );
+}
+
+function SlicerFields({
+  integration: i,
+  detectedDir,
+}: {
+  integration: Integration;
+  detectedDir: string | null;
+}) {
+  const { t } = useTranslation();
+  const patch = usePatchIntegration(i.id);
+  const savePrefs = useSavePreferences();
+  const defaultId = usePreferences().data?.values.defaultSlicerId;
+  const slicers = useCapable("openInSlicer");
+  // The default is the chosen one if it still works, else the first (same rule as the server).
+  const current = slicers.find((s) => s.id === defaultId) ?? slicers[0];
+  const path = (
+    field: "slicerConfigDir" | "slicerPath",
+    label: string,
+    hint: string,
+    placeholder = "",
+  ) => (
+    <FormField label={label} hint={hint}>
+      {(p) => (
+        <input
+          {...p}
+          className={inputClass}
+          key={`${field}-${i[field] ?? ""}`}
+          defaultValue={i[field] ?? ""}
+          placeholder={placeholder}
+          onBlur={(e) => {
+            const v = e.target.value.trim();
+            if (v !== (i[field] ?? "")) patch.mutate({ [field]: v });
+          }}
+        />
+      )}
+    </FormField>
+  );
+  return (
+    <fieldset className="mt-4 grid gap-3">
+      <legend className="mb-2 font-medium">{t("integrations:slicer.title")}</legend>
+      {path(
+        "slicerConfigDir",
+        t("integrations:slicer.configDir"),
+        t("integrations:slicer.configDirHint", { dir: detectedDir ?? "–" }),
+        detectedDir ?? "",
+      )}
+      {path("slicerPath", t("integrations:slicer.path"), t("integrations:slicer.pathHint"))}
+      {slicers.length > 1 &&
+        i.capabilities.includes("openInSlicer") &&
+        (current?.id === i.id ? (
+          <p className="text-muted">{t("integrations:slicer.isDefault")}</p>
+        ) : (
+          <Button
+            className="justify-self-start"
+            disabled={savePrefs.isPending}
+            onClick={() => savePrefs.mutate({ defaultSlicerId: i.id })}
+          >
+            {t("integrations:slicer.makeDefault")}
+          </Button>
+        ))}
+    </fieldset>
   );
 }
 

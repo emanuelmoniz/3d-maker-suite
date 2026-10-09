@@ -1,5 +1,5 @@
 import type { z } from "zod";
-import type { IntegrationErrorCode, LoginChallenge } from "../schemas/enums.ts";
+import type { Capability, IntegrationErrorCode, LoginChallenge } from "../schemas/enums.ts";
 import type { LibraryPreset, LibrarySpool } from "../schemas/filament.ts";
 import type { ExternalPrint, ExternalPrinter, TestResult } from "../schemas/integrations.ts";
 
@@ -9,11 +9,18 @@ import type { ExternalPrint, ExternalPrinter, TestResult } from "../schemas/inte
 export interface IntegrationAdapter {
   /** e.g. "bambu-cloud". The UI name is the i18n key `integrations:adapters.<id>.name`. */
   id: string;
+  /**
+   * What this vendor can do (CAPABILITY_NEEDS says what each one needs). Account capabilities are
+   * backed by `create()`, `filamentProfiles` by `library`; `openInSlicer` only needs a program path.
+   */
+  capabilities: readonly Capability[];
   /** Non-secret settings, stored as plain JSON. */
   configSchema: z.ZodObject;
   /** Fields encrypted at rest (ADR-0005). String values only. */
   secretsSchema: z.ZodObject;
   create(ctx: IntegrationContext): IntegrationInstance;
+  /** The vendor's desktop slicer presets. */
+  library?: FilamentLibrary;
   /**
    * Interactive sign-in (password, then an email code or 2FA). Returns the secrets to store, or a
    * challenge; the server keeps `state` and passes it back with the code. Never store the password.
@@ -52,7 +59,6 @@ export interface Logger {
 }
 
 // Every capability is optional; an adapter implements what its vendor supports.
-// filaments / projects / slicer / marketplace arrive with Steps 14, 16 and 18.
 export interface IntegrationInstance {
   test(): Promise<TestResult>;
   printers?: PrinterInventorySource;

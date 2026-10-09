@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { id, isoDate } from "./entities.ts";
 import {
+  CAPABILITIES,
   INTEGRATION_ERROR_CODES,
   LOGIN_CHALLENGES,
   PRINT_OUTCOMES,
@@ -58,6 +59,9 @@ export const integrationPatchSchema = z
     enabled: z.boolean(),
     config: z.record(z.string(), z.json()),
     secrets: z.record(z.string(), z.string()),
+    disabledFeatures: z.array(z.enum(CAPABILITIES)),
+    slicerConfigDir: z.string().trim().nullable(),
+    slicerPath: z.string().trim().nullable(),
   })
   .partial()
   .strict();
@@ -69,6 +73,10 @@ export const adapterInfoSchema = z.object({
   secrets: z.record(z.string(), z.unknown()),
   /** Secrets come from an interactive sign-in instead of the form. */
   login: z.boolean(),
+  /** Everything the adapter supports (switched on or not). */
+  capabilities: z.array(z.enum(CAPABILITIES)),
+  /** First default slicer config folder that exists on this PC, if the adapter reads one. */
+  detectedConfigDir: z.string().nullable(),
 });
 
 /** Step 1 sends email + password, step 2 the code the vendor asked for. */

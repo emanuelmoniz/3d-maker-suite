@@ -134,6 +134,13 @@
       "when": 1791536565375,
       "tag": "0018_printer_catalog_drop_free_text",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "6",
+      "when": 1791586956362,
+      "tag": "0019_integrations_hub",
+      "breakpoints": true
     }
   ]
 }

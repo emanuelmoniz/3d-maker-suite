@@ -35,6 +35,22 @@ export const LOGIN_CHALLENGES = ["email_code", "totp"] as const;
 export const INTEGRATION_STATUSES = ["new", "syncing", "ok", "error"] as const;
 export const SYNC_TRIGGERS = ["manual", "scheduled"] as const;
 export const SYNC_RUN_STATUSES = ["ok", "error"] as const;
+/** What an integration can do. The adapter declares them, the user switches each one off or on. */
+export const CAPABILITIES = [
+  "printers",
+  "prints",
+  "spools",
+  "filamentProfiles",
+  "openInSlicer",
+] as const;
+/** What a capability needs before it's usable: a signed-in account, a slicer folder or program. */
+export const CAPABILITY_NEEDS = {
+  printers: "account",
+  prints: "account",
+  spools: "account",
+  filamentProfiles: "slicerConfig",
+  openInSlicer: "slicerApp",
+} as const satisfies Record<(typeof CAPABILITIES)[number], string>;
 
 export type Origin = (typeof ORIGINS)[number];
 export type PrintOutcome = (typeof PRINT_OUTCOMES)[number];
@@ -48,3 +64,4 @@ export type IntegrationErrorCode = (typeof INTEGRATION_ERROR_CODES)[number];
 export type LoginChallenge = (typeof LOGIN_CHALLENGES)[number];
 export type IntegrationStatus = (typeof INTEGRATION_STATUSES)[number];
 export type SyncTrigger = (typeof SYNC_TRIGGERS)[number];
+export type Capability = (typeof CAPABILITIES)[number];

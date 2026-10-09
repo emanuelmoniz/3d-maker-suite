@@ -1,6 +1,6 @@
 {
   "title": "Integrations",
-  "description": "Import printers and prints from your vendor accounts. Enabled integrations sync every 15 minutes.",
+  "description": "Accounts, slicers and what to import, per vendor. Enabled integrations with an account sync every 15 minutes.",
   "loadError": "Couldn't load integrations. Is the server running?",
   "add": "Add integration",
   "emptyTitle": "No integrations yet",
@@ -26,7 +26,7 @@
   "card": {
     "lastSync": "Last sync: {{date}}",
     "never": "Never synced",
-    "enabled": "Sync automatically",
+    "enabled": "Enabled",
     "syncNow": "Sync now",
     "test": "Test connection",
     "testOk": "Connection works.",
@@ -74,7 +74,7 @@
       }
     },
     "bambu-cloud": {
-      "name": "Bambu Lab (Bambu Cloud)",
+      "name": "Bambu Lab",
       "fields": {
         "region": "Region"
       },
@@ -97,5 +97,22 @@
     "totp": "Enter the code from your authenticator app.",
     "verify": "Verify",
     "error": "Couldn't sign in. Enter your email and password again."
+  },
+  "capabilities": {
+    "title": "Features",
+    "printers": "Import printers",
+    "prints": "Import print history",
+    "spools": "Import spools",
+    "filamentProfiles": "Import filament profiles from the slicer",
+    "openInSlicer": "Open projects in the slicer"
+  },
+  "slicer": {
+    "title": "Slicer",
+    "configDir": "Config folder",
+    "configDirHint": "Where the slicer keeps its presets. Leave empty to use the detected one: {{dir}}",
+    "path": "Slicer program",
+    "pathHint": "Full path to the slicer executable, used by \"Open in slicer\".",
+    "isDefault": "This is the default slicer.",
+    "makeDefault": "Make default slicer"
   }
 }

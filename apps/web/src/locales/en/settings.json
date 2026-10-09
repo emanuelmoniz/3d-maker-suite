@@ -12,7 +12,6 @@
     "printers": "Printers",
     "prints": "Prints",
     "projects": "Projects",
-    "libraries": "Slicer libraries",
     "integrations": "Integrations",
     "alerts": "Alerts",
     "backup": "Backup & export",
@@ -71,12 +70,7 @@
     "depth": "Folder depth",
     "depthHint": "How many levels below a project folder each project sits. 1 = every subfolder is a project; 2 = look one level deeper, e.g. Category/Project.",
     "viewerMax": "3D preview size limit (MB)",
-    "viewerMaxHint": "Larger model files show the plate thumbnail instead of loading in the 3D viewer.",
-    "slicer": "Slicer executable",
-    "slicerHint": "Full path, used to open projects in your slicer."
-  },
-  "libraries": {
-    "hint": "Config folder to read presets from. Leave empty to use the detected one: {{dir}}"
+    "viewerMaxHint": "Larger model files show the plate thumbnail instead of loading in the 3D viewer."
   },
   "integrations": {
     "body": "Connect vendor accounts to import printers and print history.",

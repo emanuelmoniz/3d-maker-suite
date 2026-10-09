@@ -7,7 +7,7 @@ import fastifyStatic from "@fastify/static";
 import { buildApp } from "./app.ts";
 import { applyPendingRestore } from "./backup/backup.ts";
 import { loadConfig } from "./config.ts";
-import { adapters, filamentLibraries } from "./integrations/registry.ts";
+import { adapters } from "./integrations/registry.ts";
 import { isLoopback } from "./lib/access.ts";
 
 const config = loadConfig();
@@ -29,7 +29,6 @@ const app = await buildApp(
   config.dataDir,
   {
     adapters: adapters({ mock: config.mockIntegration }),
-    filamentLibraries: filamentLibraries(),
     syncSchedule: "*/15 * * * *",
     alertsSchedule: "0 8 * * *",
     backupSchedule: "0 3 * * *",

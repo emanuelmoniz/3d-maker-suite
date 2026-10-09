@@ -17,6 +17,7 @@ import type { FastifyBaseLogger } from "fastify";
 import { HttpError } from "../errors.ts";
 import { modelIdFor } from "../lib/catalog.ts";
 import { takeFromSpool } from "../lib/spools.ts";
+import { capableRow, switchedOn } from "./capabilities.ts";
 import { secretStore } from "./secrets.ts";
 
 const {
@@ -59,10 +60,15 @@ export function createSyncer(
     return row;
   };
 
-  const instanceFor = (row: ReturnType<typeof rowOf>, signal: AbortSignal) => {
+  const adapterOf = (row: ReturnType<typeof rowOf>) => {
     const adapter = adapters.find((a) => a.id === row.adapterId);
     // The adapter is gone (e.g. the mock flag is off): report it like any other failure.
     if (!adapter) throw new IntegrationError("unknown");
+    return adapter;
+  };
+
+  const instanceFor = (row: ReturnType<typeof rowOf>, signal: AbortSignal) => {
+    const adapter = adapterOf(row);
     return adapter.create({
       config: adapter.configSchema.parse(row.config),
       secrets: secretStore(db, key, row.id),
@@ -95,9 +101,10 @@ export function createSyncer(
     try {
       const signal = AbortSignal.timeout(TIMEOUT_MS);
       const instance = instanceFor(row, signal);
+      const on = (cap: "printers" | "prints") => switchedOn(row, adapterOf(row), cap);
       const imported = { origin: "integration" as const, integrationId: id };
 
-      if (instance.printers) {
+      if (instance.printers && on("printers")) {
         for (const raw of await instance.printers.listPrinters()) {
           const p = externalPrinterSchema.safeParse(raw);
           if (!p.success) {
@@ -142,7 +149,7 @@ export function createSyncer(
         }
       }
 
-      if (instance.printHistory) {
+      if (instance.printHistory && on("prints")) {
         const printerIds = new Map(
           db
             .select({ id: printers.id, externalId: printers.externalId })
@@ -289,13 +296,22 @@ export function createSyncer(
     return saved as SyncRun;
   }
 
-  /** Scheduled job: every enabled integration, one after another (see NEEDS_USER / BACK_OFF). */
+  /**
+   * Scheduled job: every enabled integration with something to sync, one after another
+   * (see NEEDS_USER / BACK_OFF). A slicer-only one (cloud features off) is left alone.
+   */
   async function runAll() {
     const rows = db
-      .select({ id: integrations.id, lastError: integrations.lastError })
+      .select()
       .from(integrations)
       .where(eq(integrations.enabled, true))
-      .all();
+      .all()
+      .filter((row) => {
+        const adapter = adapters.find((a) => a.id === row.adapterId);
+        return (
+          !adapter || switchedOn(row, adapter, "printers") || switchedOn(row, adapter, "prints")
+        );
+      });
     for (const { id, lastError } of rows) {
       if (lastError && NEEDS_USER.has(lastError)) continue;
       if (lastError && BACK_OFF.has(lastError)) {
@@ -312,28 +328,18 @@ export function createSyncer(
     }
   }
 
-  /** Spools of every integration that keeps them, read live; ids become `<adapterId>:<id>`. */
-  async function listSpools(): Promise<LibrarySpool[]> {
-    const signal = AbortSignal.timeout(TIMEOUT_MS);
-    const sources = db
-      .select()
-      .from(integrations)
-      .all()
-      .filter((row) => adapters.some((a) => a.id === row.adapterId))
-      .map((row) => ({ row, source: instanceFor(row, signal).spools }))
-      .filter((s) => !!s.source);
-    if (!sources.length)
-      throw new HttpError(404, "no_spool_source", "No integration keeps a spool inventory");
-    const out: LibrarySpool[] = [];
-    for (const { row, source } of sources) {
-      try {
-        for (const s of (await source?.listSpools()) ?? [])
-          out.push(librarySpoolSchema.parse({ ...s, spoolId: `${row.adapterId}:${s.spoolId}` }));
-      } catch (e) {
-        throw new HttpError(502, codeOf(e), "Couldn't read the spools");
-      }
+  /** The spools one integration keeps, read live; ids become `<adapterId>:<id>`. */
+  async function listSpools(integrationId: string): Promise<LibrarySpool[]> {
+    const { row } = capableRow(db, adapters, integrationId, "spools");
+    const source = instanceFor(row, AbortSignal.timeout(TIMEOUT_MS)).spools;
+    if (!source) throw new HttpError(404, "capability_unavailable", "No spool inventory");
+    try {
+      return (await source.listSpools()).map((s) =>
+        librarySpoolSchema.parse({ ...s, spoolId: `${row.adapterId}:${s.spoolId}` }),
+      );
+    } catch (e) {
+      throw new HttpError(502, codeOf(e), "Couldn't read the spools");
     }
-    return out;
   }
 
   return { run, runAll, test, listSpools, running, adapters };
