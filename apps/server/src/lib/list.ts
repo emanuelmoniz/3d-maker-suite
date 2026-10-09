@@ -1,6 +1,19 @@
 import type { DateRangeQuery, Page, PaginationQuery, TaggableType } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
-import { type AnyColumn, and, asc, count, desc, eq, gte, inArray, lt, type SQL } from "drizzle-orm";
+import {
+  type AnyColumn,
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  gte,
+  inArray,
+  lt,
+  lte,
+  type SQL,
+  sql,
+} from "drizzle-orm";
 import type { SQLiteTable } from "drizzle-orm/sqlite-core";
 
 const { taggings } = schema;
@@ -33,11 +46,30 @@ export function orderBy(columns: Record<string, AnyColumn>, sort: string) {
   return (desc_ ? desc : asc)(column);
 }
 
+/** One parsed column filter (see `filterSchema` in core): list -> IN, text -> contains, range -> bounds. */
+export function columnFilter(column: AnyColumn, v: unknown): SQL | undefined {
+  if (v == null) return undefined;
+  if (Array.isArray(v)) return inArray(column, v);
+  if (typeof v === "string") return sql`instr(lower(${column}), lower(${v})) > 0`;
+  if (typeof v === "object" && "min" in v) {
+    const { min, max } = v as { min?: number; max?: number };
+    return and(
+      min != null ? gte(column, min) : undefined,
+      max != null ? lte(column, max) : undefined,
+    );
+  }
+  return dateRange(column, v as DateRangeQuery);
+}
+
 export interface ListOptions {
   /** Sortable fields (API name -> column). The first key is the default, ascending. */
   sort: Record<string, AnyColumn>;
+  /** Overrides the default sort, e.g. "-startedAt". */
+  defaultSort?: string;
   /** Column the `from`/`to` range applies to. Omit if the table has no date filter. */
   dateColumn?: AnyColumn;
+  /** Column filters (query key -> column), parsed by `listQuery`'s column filters. */
+  filters?: Record<string, AnyColumn>;
   /** Entity filters, already built with `inIds`/`eq`; undefined entries are ignored. */
   where?: (SQL | undefined)[];
 }
@@ -49,8 +81,14 @@ export function listPage<T extends SQLiteTable>(
   q: PaginationQuery & DateRangeQuery & { sort?: string },
   o: ListOptions,
 ): Page<T["$inferSelect"]> {
-  const where = and(...(o.where ?? []), o.dateColumn && dateRange(o.dateColumn, q));
-  const defaultSort = Object.keys(o.sort)[0] as string;
+  const where = and(
+    ...(o.where ?? []),
+    o.dateColumn && dateRange(o.dateColumn, q),
+    ...Object.entries(o.filters ?? {}).map(([k, column]) =>
+      columnFilter(column, (q as Record<string, unknown>)[k]),
+    ),
+  );
+  const defaultSort = o.defaultSort ?? (Object.keys(o.sort)[0] as string);
   const items = db
     .select()
     .from(table as SQLiteTable)

@@ -5,18 +5,15 @@ import type {
   PrintInput,
   PrintPatch,
 } from "@3d-maker-suite/core";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "./api.ts";
 
-// ponytail: one page of 100 prints, add pagination controls if anyone logs more.
-export const usePrints = (tagId = "") =>
+/** `query` is the raw list query (page, sort, column filters), e.g. the page's URL search params. */
+export const usePrints = (query: Record<string, string> = {}) =>
   useQuery({
-    queryKey: ["prints", "list", tagId],
-    queryFn: () =>
-      api<Page<PrintDetail>>(
-        "GET",
-        `/api/prints?pageSize=100&sort=-startedAt${tagId ? `&tagId=${tagId}` : ""}`,
-      ),
+    queryKey: ["prints", "list", query],
+    queryFn: () => api<Page<PrintDetail>>("GET", `/api/prints?${new URLSearchParams(query)}`),
+    placeholderData: keepPreviousData,
   });
 
 export const usePrintsOfProject = (projectId: string) =>

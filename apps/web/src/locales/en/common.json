@@ -15,7 +15,21 @@
     "system": "System"
   },
   "dateRange": { "from": "From", "to": "To" },
-  "table": { "noRows": "No results" },
+  "table": {
+    "noRows": "No results",
+    "pagination": "Pagination",
+    "pageSize": "Rows per page",
+    "range": "{{from, number}}–{{to, number}} of {{total, number}}",
+    "previous": "Previous",
+    "next": "Next",
+    "filterBy": "Filter by {{column}}",
+    "filterActive": "Filter by {{column}} (active)",
+    "contains": "Contains",
+    "min": "Min",
+    "max": "Max",
+    "apply": "Apply",
+    "clear": "Clear"
+  },
   "a11y": { "mainNav": "Main navigation", "skipToContent": "Skip to content" },
   "notFound": {
     "title": "Page not found",

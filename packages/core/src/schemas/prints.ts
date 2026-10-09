@@ -2,6 +2,7 @@ import { z } from "zod";
 import { costBreakdownSchema } from "./cost.ts";
 import { id, isoDate, printFilamentUsageSchema, printSchema } from "./entities.ts";
 import { PRINT_OUTCOMES } from "./enums.ts";
+import type { ColumnFilter } from "./list.ts";
 
 /** Filament taken from one spool. The profile is derived from the spool. Failed prints use partial grams. */
 export const printUsageInputSchema = z.object({
@@ -46,7 +47,18 @@ export const printPatchSchema = base
   .strict()
   .refine((p) => p.outcome !== "success" || !p.failureReason, successHasNoReason);
 
-export const printSortFields = ["startedAt", "title"] as const;
+export const printSortFields = ["startedAt", "title", "outcome", "durationSec"] as const;
+
+/** Prints table column filters (see `listQuery`). */
+export const printFilters = {
+  title: { kind: "text" },
+  startedAt: { kind: "date" },
+  printerId: { kind: "select" },
+  projectId: { kind: "select" },
+  outcome: { kind: "select", options: PRINT_OUTCOMES },
+  tagId: { kind: "select" },
+  durationSec: { kind: "number" },
+} as const satisfies Record<string, ColumnFilter>;
 
 export type PrintUsageInput = z.infer<typeof printUsageInputSchema>;
 export type PrintDetail = z.infer<typeof printDetailSchema>;

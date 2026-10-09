@@ -77,6 +77,42 @@ describe("listPage filters", () => {
     expect(res.items.map((p) => p.name)).toEqual(["c", "b"]);
     expect(res.total).toBe(2);
   });
+
+  it("column filters on /api/prints", async () => {
+    const printer = db
+      .insert(schema.printers)
+      .values({ name: "p", brand: "b", model: "m" })
+      .returning()
+      .get();
+    const row = (title: string, day: string, durationSec: number, outcome = "success") => ({
+      printerId: printer.id,
+      title,
+      startedAt: `2026-03-${day}T10:00:00.000Z`,
+      durationSec,
+      outcome: outcome as "success",
+    });
+    db.insert(schema.prints)
+      .values([
+        row("Benchy", "01", 600),
+        row("benchy XL", "10", 3600, "failed"),
+        row("Vase", "20", 7200),
+      ])
+      .run();
+    const titles = async (qs: string) => {
+      const res = (await app.inject(`/api/prints?${qs}`)).json();
+      return [res.total, res.items.map((p: { title: string }) => p.title)];
+    };
+    expect(await titles("")).toEqual([3, ["Vase", "benchy XL", "Benchy"]]); // newest first
+    expect(await titles("title=BENCHY&sort=title")).toEqual([2, ["Benchy", "benchy XL"]]);
+    expect(await titles("outcome=failed")).toEqual([1, ["benchy XL"]]);
+    expect(await titles("durationSec=600..3600&sort=-durationSec")).toEqual([
+      2,
+      ["benchy XL", "Benchy"],
+    ]);
+    expect(await titles("startedAt=2026-03-10..2026-03-20")).toEqual([2, ["Vase", "benchy XL"]]);
+    expect(await titles("pageSize=1&page=3")).toEqual([3, ["Benchy"]]);
+    expect((await app.inject("/api/prints?outcome=nope")).statusCode).toBe(400);
+  });
 });
 
 import { inIds } from "./lib/list.ts";

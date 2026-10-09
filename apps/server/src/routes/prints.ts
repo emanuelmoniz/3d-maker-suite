@@ -2,13 +2,13 @@ import {
   apiErrorSchema,
   type FilamentReviewItem,
   filamentReviewItemSchema,
-  idList,
   listQuery,
   type Page,
   type PrintDetail,
   type PrintUsageInput,
   pageOf,
   printDetailSchema,
+  printFilters,
   printInputSchema,
   printPatchSchema,
   printSortFields,
@@ -21,7 +21,7 @@ import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
 import { printCosts } from "../lib/cost.ts";
-import { inIds, listPage, taggedWith } from "../lib/list.ts";
+import { listPage, taggedWith } from "../lib/list.ts";
 import { readPreferences } from "../lib/preferences.ts";
 import { round, setRemaining, takeFromSpool } from "../lib/spools.ts";
 
@@ -207,25 +207,29 @@ export const printsRoutes =
       "/",
       {
         schema: {
-          querystring: listQuery(printSortFields, {
-            printerId: idList.optional(),
-            projectId: idList.optional(),
-            outcome: idList.optional(),
-            tagId: idList.optional(),
-          }),
+          querystring: listQuery(printSortFields, {}, printFilters),
           response: { 200: pageOf(printDetailSchema) },
         },
       },
       async (req) => {
         const page = listPage(db, prints, req.query, {
-          sort: { startedAt: prints.startedAt, title: prints.title },
+          sort: {
+            startedAt: prints.startedAt,
+            title: prints.title,
+            outcome: prints.outcome,
+            durationSec: prints.durationSec,
+          },
+          defaultSort: "-startedAt",
           dateColumn: prints.startedAt,
-          where: [
-            inIds(prints.printerId, req.query.printerId),
-            inIds(prints.projectId, req.query.projectId),
-            inIds(prints.outcome, req.query.outcome),
-            taggedWith(db, "print", prints.id, req.query.tagId),
-          ],
+          filters: {
+            title: prints.title,
+            startedAt: prints.startedAt,
+            printerId: prints.printerId,
+            projectId: prints.projectId,
+            outcome: prints.outcome,
+            durationSec: prints.durationSec,
+          },
+          where: [taggedWith(db, "print", prints.id, req.query.tagId)],
         });
         const usages = page.items.length ? usagesOf(page.items.map((p) => p.id)) : [];
         const items = page.items.map((p) => ({

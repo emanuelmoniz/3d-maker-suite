@@ -1,20 +1,20 @@
-import { Link } from "@tanstack/react-router";
+import { PRINT_OUTCOMES, printFilters } from "@3d-maker-suite/core";
+import { Link, useNavigate, useSearch } from "@tanstack/react-router";
 import { ExternalLink, Layers, Plus } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
 import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { CostBreakdown } from "../../components/CostBreakdown.tsx";
-import { DataTable } from "../../components/DataTable.tsx";
+import { DataTable, type ListQuery } from "../../components/DataTable.tsx";
 import { EmptyState } from "../../components/EmptyState.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
-import { TagFilter } from "../../components/TagFilter.tsx";
 import { TagList } from "../../components/TagList.tsx";
 import { useMoney } from "../../lib/cost.ts";
 import { formatDateTime, formatDuration, formatWeight } from "../../lib/format.ts";
 import { usePrinters } from "../../lib/printers.ts";
 import { useDeletePrint, useFilamentReview, usePrints } from "../../lib/prints.ts";
-import { useTagsOf } from "../../lib/tags.ts";
+import { useTags, useTagsOf } from "../../lib/tags.ts";
 
 const OUTCOMES = {
   success: "prints:outcomes.success",
@@ -25,9 +25,13 @@ const OUTCOMES = {
 export function PrintsPage() {
   const { t } = useTranslation();
   const money = useMoney();
-  const [tagId, setTagId] = useState("");
-  const { data, isError } = usePrints(tagId);
+  // The URL search params are the API list query, so a link reproduces the same view.
+  const query = useSearch({ strict: false }) as ListQuery;
+  const navigate = useNavigate();
+  const setQuery = (search: ListQuery) => navigate({ to: "/prints", search });
+  const { data, isError } = usePrints(query);
   const tagsOf = useTagsOf("print");
+  const tags = useTags().data ?? [];
   const printers = usePrinters({ archived: false }).data?.items ?? [];
   const waiting = useFilamentReview().data?.length ?? 0;
   const del = useDeletePrint();
@@ -51,8 +55,13 @@ export function PrintsPage() {
         actions={add}
       />
       {isError && (
-        <p role="alert" className="text-bad">
+        <p role="alert" className="flex flex-wrap items-center gap-3 text-bad">
           {t("prints:loadError")}
+          {Object.keys(query).length > 0 && (
+            <Button variant="ghost" onClick={() => setQuery({})}>
+              {t("common:actions.clear")}
+            </Button>
+          )}
         </p>
       )}
       {waiting > 0 && (
@@ -63,10 +72,7 @@ export function PrintsPage() {
           </Link>
         </p>
       )}
-      <div className="mb-4 flex flex-wrap items-center gap-4">
-        <TagFilter value={tagId} onChange={setTagId} />
-      </div>
-      {data && !data.total && !tagId ? (
+      {data && !data.total && !Object.keys(query).length ? (
         <EmptyState
           icon={Layers}
           title={t("prints:list.emptyTitle")}
@@ -79,6 +85,13 @@ export function PrintsPage() {
             label={t("prints:list.table")}
             rows={data.items}
             rowKey={(p) => p.id}
+            server={{
+              query,
+              onQueryChange: setQuery,
+              total: data.total,
+              filters: printFilters,
+              defaultSort: "-startedAt",
+            }}
             columns={[
               {
                 id: "title",
@@ -109,18 +122,22 @@ export function PrintsPage() {
                     )}
                   </span>
                 ),
-                sortValue: (p) => p.title.toLowerCase(),
+                sort: "title",
+                filter: "title",
               },
               {
                 id: "startedAt",
                 header: t("prints:list.columns.startedAt"),
                 cell: (p) => formatDateTime(p.startedAt),
-                sortValue: (p) => p.startedAt,
+                sort: "startedAt",
+                filter: "startedAt",
               },
               {
                 id: "printer",
                 header: t("prints:list.columns.printer"),
                 cell: (p) => printers.find((x) => x.id === p.printerId)?.name ?? "",
+                filter: "printerId",
+                filterOptions: printers.map((x) => ({ value: x.id, label: x.name })),
               },
               {
                 id: "outcome",
@@ -131,26 +148,32 @@ export function PrintsPage() {
                     {p.failureReason && ` · ${p.failureReason}`}
                   </span>
                 ),
-                sortValue: (p) => p.outcome,
+                sort: "outcome",
+                filter: "outcome",
+                filterOptions: PRINT_OUTCOMES.map((o) => ({ value: o, label: t(OUTCOMES[o]) })),
               },
               {
                 id: "tags",
                 header: t("tags:column"),
                 cell: (p) => <TagList tags={tagsOf(p.id)} />,
+                filter: "tagId",
+                filterOptions: tags.map((x) => ({ value: x.id, label: x.name })),
               },
               {
                 id: "duration",
                 header: t("prints:list.columns.duration"),
                 numeric: true,
                 cell: (p) => (p.durationSec == null ? "" : formatDuration(p.durationSec)),
-                sortValue: (p) => p.durationSec ?? 0,
+                sort: "durationSec",
+                filter: "durationSec",
+                filterScale: 60,
+                filterHint: t("prints:list.durationUnit"),
               },
               {
                 id: "filament",
                 header: t("prints:list.columns.filament"),
                 numeric: true,
                 cell: (p) => formatWeight(grams(p)),
-                sortValue: grams,
               },
               {
                 id: "cost",
@@ -166,7 +189,6 @@ export function PrintsPage() {
                     </div>
                   </details>
                 ),
-                sortValue: (p) => p.cost.total,
               },
               {
                 id: "actions",

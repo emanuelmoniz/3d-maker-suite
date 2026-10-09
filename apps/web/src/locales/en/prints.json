@@ -16,7 +16,8 @@
       "duration": "Duration",
       "filament": "Filament",
       "cost": "Cost"
-    }
+    },
+    "durationUnit": "In minutes"
   },
   "outcomes": { "success": "Success", "failed": "Failed", "cancelled": "Cancelled" },
   "form": {

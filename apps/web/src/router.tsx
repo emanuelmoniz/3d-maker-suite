@@ -247,6 +247,12 @@ if (import.meta.env.DEV) {
 export const router = createRouter({
   routeTree: root.addChildren(routes),
   defaultPreload: "intent",
+  // Plain query strings (not JSON): list pages pass their search params straight to the API.
+  parseSearch: (s) => Object.fromEntries(new URLSearchParams(s)),
+  stringifySearch: (o) => {
+    const q = new URLSearchParams(o as Record<string, string>).toString();
+    return q ? `?${q}` : "";
+  },
 });
 
 declare module "@tanstack/react-router" {

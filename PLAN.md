@@ -57,7 +57,7 @@ Do Step 4 of PLAN.md. Reuse the existing image upload/storage path and its valid
 
 ## Phase 2 - Tables
 
-### [ ] Step 5 - Table framework: pagination, sort, column filters  **[plan mode]**
+### [x] Step 5 - Table framework: pagination, sort, column filters  **[plan mode]**
 **Model:** Opus · **Effort:** Medium
 **Scope:** Server-side pagination, sorting and per-column filters for list endpoints using `apps/server/src/lib/list.ts`; `DataTable` gets a pager (page size selector), server sort, and a column filter UI (text, select, number/date range); state synced to the URL (TanStack Router search params). Migrate the Prints table as the reference implementation.
 **Done when:** Prints table pages/sorts/filters server-side with 10k seeded prints; URL is shareable; tests pass.
