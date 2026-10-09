@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
-import { useIntegrations, useLogin } from "../../lib/integrations.ts";
+import { useAdapterName, useIntegrations, useLogin } from "../../lib/integrations.ts";
 import { ERRORS } from "./IntegrationsPage.tsx";
 
 // Literal keys so `pnpm i18n:check` sees them.
@@ -17,6 +17,7 @@ const CHALLENGES: Record<LoginChallenge, string> = {
 /** Email + password, then the code the vendor asks for. The server keeps the pending step. */
 export function IntegrationLoginPage() {
   const { t } = useTranslation();
+  const adapterName = useAdapterName();
   const navigate = useNavigate();
   const { id } = useParams({ strict: false }) as { id: string };
   const integration = useIntegrations().data?.find((i) => i.id === id);
@@ -43,7 +44,9 @@ export function IntegrationLoginPage() {
   return (
     <>
       <PageHeader
-        title={t("integrations:login.title", { name: integration?.name ?? "" })}
+        title={t("integrations:login.title", {
+          name: integration ? adapterName(integration.adapterId) : "",
+        })}
         description={challenge ? t(CHALLENGES[challenge]) : undefined}
         backTo={{ to: "/settings/integrations" }}
       />

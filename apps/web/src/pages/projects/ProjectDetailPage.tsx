@@ -10,7 +10,7 @@ import { TagList } from "../../components/TagList.tsx";
 import { estimatePlate, type Plate, useCostContext } from "../../lib/cost.ts";
 import { cx } from "../../lib/cx.ts";
 import { formatDateTime, formatDuration, formatWeight } from "../../lib/format.ts";
-import { useCapable } from "../../lib/integrations.ts";
+import { useAdapterName, useCapable } from "../../lib/integrations.ts";
 import { usePreferences } from "../../lib/preferences.ts";
 import { usePrintsOfProject } from "../../lib/prints.ts";
 import {
@@ -183,6 +183,7 @@ export function ProjectDetailPage() {
   const open = useOpenProject(id);
   // The default slicer, or the one picked when several are set up (Settings > Integrations).
   const slicers = useCapable("openInSlicer");
+  const adapterName = useAdapterName();
   const defaultSlicer = usePreferences().data?.values.defaultSlicerId;
   const [slicerId, setSlicerId] = useState<string>();
   const slicer =
@@ -236,7 +237,7 @@ export function ProjectDetailPage() {
                   >
                     {slicers.map((s) => (
                       <option key={s.id} value={s.id}>
-                        {s.name}
+                        {adapterName(s.adapterId)}
                       </option>
                     ))}
                   </select>

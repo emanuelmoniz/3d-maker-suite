@@ -46,7 +46,6 @@ export const externalPrintSchema = z.object({
 /** `config` and `secrets` are checked against the adapter's own schemas by the server. */
 export const integrationInputSchema = z.object({
   adapterId: z.string().min(1),
-  name: z.string().min(1),
   enabled: z.boolean().optional(),
   config: z.record(z.string(), z.json()).default({}),
   secrets: z.record(z.string(), z.string()).default({}),
@@ -55,7 +54,6 @@ export const integrationInputSchema = z.object({
 /** Any subset. `secrets` keys that are sent replace the stored ones; others are kept. */
 export const integrationPatchSchema = z
   .object({
-    name: z.string().min(1),
     enabled: z.boolean(),
     config: z.record(z.string(), z.json()),
     secrets: z.record(z.string(), z.string()),

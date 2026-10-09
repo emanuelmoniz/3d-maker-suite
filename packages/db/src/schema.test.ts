@@ -97,7 +97,7 @@ describe("schema", () => {
   it("dedupes imported rows by (integrationId, externalId)", () => {
     const integrationId = db
       .insert(s.integrations)
-      .values({ adapterId: "test", name: "Test" })
+      .values({ adapterId: "test" })
       .returning()
       .get().id;
     const imported = { origin: "integration" as const, integrationId, externalId: "job-1" };

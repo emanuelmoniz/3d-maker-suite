@@ -10,7 +10,8 @@
     "new": "Not synced",
     "syncing": "Syncing",
     "ok": "OK",
-    "error": "Error"
+    "error": "Error",
+    "disabled": "Disabled"
   },
   "errors": {
     "auth_required": "Sign-in required. Check the credentials.",
@@ -35,7 +36,8 @@
     "hideLog": "Hide sync log",
     "actionError": "That didn't work. Try again.",
     "signIn": "Sign in",
-    "signInAgain": "Sign in again"
+    "signInAgain": "Sign in again",
+    "disabledHint": "Switched off: nothing is synced, imported or offered in the app. Tick Enabled to use it and change its settings."
   },
   "deleteDialog": {
     "title": "Delete {{name}}?",
@@ -59,8 +61,6 @@
   "form": {
     "title": "Add integration",
     "adapter": "Service",
-    "name": "Name",
-    "nameHint": "Shown in this list, e.g. \"Workshop account\".",
     "secretHint": "Stored encrypted on this computer.",
     "save": "Add",
     "error": "Couldn't add the integration. Check the fields."

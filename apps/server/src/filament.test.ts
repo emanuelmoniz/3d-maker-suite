@@ -135,7 +135,7 @@ describe("filament library", () => {
       await app.inject({
         method: "POST",
         url: "/api/integrations",
-        payload: { adapterId: "slicer", name: "Slicer", secrets: { token: "t" } },
+        payload: { adapterId: "slicer", secrets: { token: "t" } },
       })
     ).json().id;
   });
@@ -222,7 +222,7 @@ describe("filament library", () => {
       await app.inject({
         method: "POST",
         url: "/api/integrations",
-        payload: { adapterId: "mock", name: "Mock", secrets: { token: "t" } },
+        payload: { adapterId: "mock", secrets: { token: "t" } },
       })
     ).json().id;
     // No profile named like the spools yet: nothing suggested.

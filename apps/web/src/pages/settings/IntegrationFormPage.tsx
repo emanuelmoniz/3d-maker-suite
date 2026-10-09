@@ -5,8 +5,7 @@ import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
-import { useAdapters, useCreateIntegration } from "../../lib/integrations.ts";
-import { useAdapterName } from "./IntegrationsPage.tsx";
+import { useAdapterName, useAdapters, useCreateIntegration } from "../../lib/integrations.ts";
 
 // The adapter's zod schemas arrive as JSON Schema; flat string/number/boolean fields are enough
 // for API-key and URL style vendors. Adapters with an interactive sign-in (2FA, email codes) get
@@ -51,7 +50,6 @@ export function IntegrationCreatePage() {
     create.mutate(
       {
         adapterId: adapter.id,
-        name: String(f.get("name") ?? "").trim(),
         config: read(f, "config", config),
         secrets: read(f, "secrets", secrets) as Record<string, string>,
       },
@@ -115,18 +113,6 @@ export function IntegrationCreatePage() {
                 </option>
               ))}
             </select>
-          )}
-        </FormField>
-        <FormField label={t("integrations:form.name")} hint={t("integrations:form.nameHint")}>
-          {(p) => (
-            <input
-              {...p}
-              name="name"
-              required
-              key={adapter?.id}
-              defaultValue={adapter ? adapterName(adapter.id) : ""}
-              className={inputClass}
-            />
           )}
         </FormField>
         {config.map((field) => input("config", field))}

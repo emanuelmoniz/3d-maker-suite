@@ -74,7 +74,8 @@ function messageOf(kind: AlertKind, c: Ctx): Notification {
     case "warranty_ending":
       return { title: "Warranty ending", body: `${c.name}: ${c.days} days left` };
     case "sync_failed":
-      return { title: "Sync failed", body: `${c.name ?? "Integration"} could not sync` };
+      // `name` only on alerts from before integrations lost their name (0020).
+      return { title: "Sync failed", body: `${c.name ?? "An integration"} could not sync` };
     case "print_failed":
       return { title: "Print failed", body: String(c.title ?? "") };
   }

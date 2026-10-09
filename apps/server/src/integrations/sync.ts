@@ -57,6 +57,8 @@ export function createSyncer(
   const rowOf = (id: string) => {
     const row = db.select().from(integrations).where(eq(integrations.id, id)).get();
     if (!row) throw new HttpError(404, "not_found", "Integration not found");
+    // Disabled = switched off entirely: no sync, no test, no capabilities.
+    if (!row.enabled) throw new HttpError(409, "integration_disabled", "Integration is disabled");
     return row;
   };
 
@@ -262,7 +264,7 @@ export function createSyncer(
           kind: "sync_failed",
           entityType: "integration",
           entityId: id,
-          context: { name: row.name },
+          context: { adapterId: row.adapterId }, // the web shows the adapter's name
         })
         .onConflictDoNothing()
         .run();

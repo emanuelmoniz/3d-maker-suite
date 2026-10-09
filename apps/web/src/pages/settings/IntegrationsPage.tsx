@@ -20,6 +20,7 @@ import { FormField, inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { formatDateTime } from "../../lib/format.ts";
 import {
+  useAdapterName,
   useAdapters,
   useCapable,
   useDeleteIntegration,
@@ -58,12 +59,6 @@ const CAPS: Record<Capability, string> = {
 };
 const TRIGGERS = { manual: "integrations:runs.manual", scheduled: "integrations:runs.scheduled" };
 const RUN_STATUSES = { ok: "integrations:runs.ok", error: "integrations:runs.error" };
-
-/** Vendor names live under `integrations:adapters.<id>` so a new adapter only adds locale keys. */
-export function useAdapterName() {
-  const { t } = useTranslation();
-  return (id: string) => t(`integrations:adapters.${id}.name`, { defaultValue: id });
-}
 
 const addClass =
   "inline-flex h-9 items-center gap-2 rounded-md bg-accent px-3 font-medium text-accent-fg hover:opacity-90";
@@ -117,8 +112,10 @@ function IntegrationCard({ integration: i }: { integration: Integration }) {
   const adapter = useAdapters().data?.find((a) => a.id === i.adapterId);
   const supported = adapter?.capabilities ?? [];
   const off = supported.filter((c) => i.disabledFeatures.includes(c));
-  // Sign-in, sync and the log only matter while an account feature is switched on.
-  const account = supported.some((c) => CAPABILITY_NEEDS[c] === "account" && !off.includes(c));
+  // Disabled = switched off entirely, so only the toggle and Delete stay. Sign-in, sync and the
+  // log only matter while an account feature is switched on.
+  const account =
+    i.enabled && supported.some((c) => CAPABILITY_NEEDS[c] === "account" && !off.includes(c));
   const hasLogin = account && adapter?.login;
   const [showLog, setShowLog] = useState(false);
   const [confirming, setConfirming] = useState(false);
@@ -126,21 +123,23 @@ function IntegrationCard({ integration: i }: { integration: Integration }) {
   const sync = useSyncIntegration(i.id);
   const test = useTestIntegration(i.id);
   const remove = useDeleteIntegration(i.id);
-  const status = STATUS[sync.isPending ? "syncing" : i.status];
+  const status = i.enabled
+    ? STATUS[sync.isPending ? "syncing" : i.status]
+    : { label: "integrations:status.disabled", tone: "bg-surface-2 text-muted" };
   const failed = [patch, sync, remove].some((m) => m.isError);
 
   return (
     <li className="rounded-lg border border-border bg-surface p-4 sm:p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h2 className="truncate text-base font-semibold">{i.name}</h2>
-          <p className="text-muted">{adapterName(i.adapterId)}</p>
+          <h2 className="truncate text-base font-semibold">{adapterName(i.adapterId)}</h2>
         </div>
         <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${status.tone}`}>
           {t(status.label)}
         </span>
       </div>
 
+      {!i.enabled && <p className="mt-3 text-muted">{t("integrations:card.disabledHint")}</p>}
       <p className="mt-3 text-muted">
         {i.lastSyncAt
           ? t("integrations:card.lastSync", { date: formatDateTime(i.lastSyncAt) })
@@ -204,7 +203,7 @@ function IntegrationCard({ integration: i }: { integration: Integration }) {
         </label>
       </div>
 
-      {supported.length > 0 && (
+      {i.enabled && supported.length > 0 && (
         <fieldset className="mt-4">
           <legend className="font-medium">{t("integrations:capabilities.title")}</legend>
           <div className="mt-2 flex flex-wrap gap-x-5 gap-y-2">
@@ -227,15 +226,16 @@ function IntegrationCard({ integration: i }: { integration: Integration }) {
         </fieldset>
       )}
 
-      {(supported.includes("filamentProfiles") || supported.includes("openInSlicer")) && (
-        <SlicerFields integration={i} detectedDir={adapter?.detectedConfigDir ?? null} />
-      )}
+      {i.enabled &&
+        (supported.includes("filamentProfiles") || supported.includes("openInSlicer")) && (
+          <SlicerFields integration={i} detectedDir={adapter?.detectedConfigDir ?? null} />
+        )}
 
       {account && showLog && <SyncLog id={i.id} />}
 
       <ConfirmDialog
         open={confirming}
-        title={t("integrations:deleteDialog.title", { name: i.name })}
+        title={t("integrations:deleteDialog.title", { name: adapterName(i.adapterId) })}
         description={t("integrations:deleteDialog.body")}
         confirmLabel={t("integrations:card.delete")}
         destructive

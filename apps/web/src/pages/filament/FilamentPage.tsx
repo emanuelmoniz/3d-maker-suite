@@ -15,7 +15,7 @@ import { PageHeader } from "../../components/PageHeader.tsx";
 import { TagList } from "../../components/TagList.tsx";
 import { filamentLabel, useProfiles } from "../../lib/filament.ts";
 import { formatCurrency, formatWeight } from "../../lib/format.ts";
-import { useCapable } from "../../lib/integrations.ts";
+import { useAdapterName, useCapable } from "../../lib/integrations.ts";
 import { useListPage, useUrlListQuery } from "../../lib/list.ts";
 import { usePreferences } from "../../lib/preferences.ts";
 import { useTags, useTagsOf } from "../../lib/tags.ts";
@@ -50,9 +50,10 @@ function ImportLinks({
   text: string;
 }) {
   const { t } = useTranslation();
+  const adapterName = useAdapterName();
   return useCapable(cap).map((i) => (
     <Link key={i.id} to={to} params={{ id: i.id }} className={importClass}>
-      {t(text, { name: i.name })}
+      {t(text, { name: adapterName(i.adapterId) })}
     </Link>
   ));
 }

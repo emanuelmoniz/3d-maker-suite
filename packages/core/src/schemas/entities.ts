@@ -33,7 +33,6 @@ const imported = {
 export const integrationSchema = z.object({
   id,
   adapterId: z.string().min(1),
-  name: z.string().min(1),
   enabled: z.boolean(),
   config: z.json(),
   hasSecrets: z.boolean(),

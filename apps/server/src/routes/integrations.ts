@@ -81,7 +81,7 @@ export const integrationsRoutes =
     );
 
     app.get("/", { schema: { response: { 200: z.array(integrationSchema) } } }, async () =>
-      db.select().from(integrations).orderBy(asc(integrations.name)).all().map(toApi),
+      db.select().from(integrations).orderBy(asc(integrations.createdAt)).all().map(toApi),
     );
 
     app.get(
@@ -94,11 +94,10 @@ export const integrationsRoutes =
       "/",
       { schema: { body: integrationInputSchema, response: { 201: integrationSchema } } },
       async (req, reply) => {
-        const { adapterId, name, enabled, config, secrets } = req.body;
+        const { adapterId, enabled, config, secrets } = req.body;
         const adapter = adapterOf(adapterId);
         const values = {
           adapterId,
-          name,
           enabled,
           config: parse(adapter.configSchema, config, "invalid_config"),
         };
@@ -162,7 +161,7 @@ export const integrationsRoutes =
 
     app.post(
       "/:id/test",
-      { schema: { params, response: { 200: testResultSchema, ...notFound } } },
+      { schema: { params, response: { 200: testResultSchema, ...notFound, 409: apiErrorSchema } } },
       async (req) => syncer.test(req.params.id),
     );
 

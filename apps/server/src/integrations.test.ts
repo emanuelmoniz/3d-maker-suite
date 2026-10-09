@@ -51,7 +51,6 @@ const create = async () =>
   (
     await send("POST", "/api/integrations", {
       adapterId: "mock",
-      name: "My mock",
       secrets: { token: "s3cr3t-token" },
     })
   ).json();
@@ -61,7 +60,6 @@ describe("integrations", () => {
   it("stores secrets encrypted and never returns them", async () => {
     const res = await send("POST", "/api/integrations", {
       adapterId: "mock",
-      name: "My mock",
       secrets: { token: "s3cr3t-token" },
     });
     expect(res.statusCode).toBe(201);
@@ -77,7 +75,7 @@ describe("integrations", () => {
 
   it("rejects unknown adapters and invalid config or secrets", async () => {
     const post = (body: object) =>
-      send("POST", "/api/integrations", { adapterId: "mock", name: "x", ...body });
+      send("POST", "/api/integrations", { adapterId: "mock", ...body });
     expect((await post({ adapterId: "nope" })).json().error.code).toBe("unknown_adapter");
     expect((await post({ config: { label: 1 } })).json().error.code).toBe("invalid_config");
     expect((await post({ secrets: {} })).json().error.code).toBe("invalid_secrets");
@@ -152,16 +150,20 @@ describe("integrations", () => {
     expect(db.select().from(schema.syncRuns).all()).toHaveLength(0);
   });
 
-  it("patches name, enabled and secrets", async () => {
+  it("patches enabled and secrets; integrations have no name", async () => {
     const { id } = await create();
     const res = await send("PATCH", `/api/integrations/${id}`, {
-      name: "Renamed",
       enabled: false,
       secrets: { token: "new" },
     });
-    expect(res.json()).toMatchObject({ name: "Renamed", enabled: false, hasSecrets: true });
+    expect(res.json()).toMatchObject({ enabled: false, hasSecrets: true, capabilities: [] });
+    // Disabled = off entirely: no manual sync or test either.
+    expect((await send("POST", `/api/integrations/${id}/sync`)).statusCode).toBe(409);
+    expect((await send("POST", `/api/integrations/${id}/test`)).statusCode).toBe(409);
+    expect(res.json()).not.toHaveProperty("name");
     const row = db.select().from(schema.integrations).where(eq(schema.integrations.id, id)).get();
     expect(row?.secrets).not.toContain("new");
+    expect((await send("PATCH", `/api/integrations/${id}`, { name: "x" })).statusCode).toBe(400);
   });
 
   it("links a hand-added printer with the same serial instead of importing a duplicate", async () => {
@@ -245,9 +247,7 @@ describe("capabilities", () => {
   });
 
   it("account ones need a sign-in when the adapter has one", async () => {
-    const { id } = (
-      await send("POST", "/api/integrations", { adapterId: "mock-login", name: "L" })
-    ).json();
+    const { id } = (await send("POST", "/api/integrations", { adapterId: "mock-login" })).json();
     expect(await caps(id)).toEqual([]);
   });
 
@@ -257,7 +257,6 @@ describe("capabilities", () => {
     const { id } = (
       await send("POST", "/api/integrations", {
         adapterId: "slicer",
-        name: "S",
         secrets: { token: "t" },
       })
     ).json();
@@ -289,7 +288,7 @@ describe("sign-in", () => {
       ["mock", false],
       ["mock-login", true],
     ]);
-    const created = await send("POST", "/api/integrations", { adapterId: "mock-login", name: "x" });
+    const created = await send("POST", "/api/integrations", { adapterId: "mock-login" });
     const { id, hasSecrets } = created.json();
     expect(hasSecrets).toBe(false);
 

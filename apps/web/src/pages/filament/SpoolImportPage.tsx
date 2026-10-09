@@ -14,13 +14,15 @@ import {
   useProfiles,
 } from "../../lib/filament.ts";
 import { formatWeight } from "../../lib/format.ts";
-import { useIntegrations } from "../../lib/integrations.ts";
+import { useAdapterName, useIntegrations } from "../../lib/integrations.ts";
 
 export function SpoolImportPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { id } = useParams({ strict: false }) as { id: string };
-  const name = useIntegrations().data?.find((i) => i.id === id)?.name ?? "";
+  const adapterName = useAdapterName();
+  const adapterId = useIntegrations().data?.find((i) => i.id === id)?.adapterId;
+  const name = adapterId ? adapterName(adapterId) : "";
   const [unchecked, setUnchecked] = useState<Set<string>>(new Set());
   // spoolId -> profile picked by hand; otherwise the suggested match from the server.
   const [chosen, setChosen] = useState<Record<string, string>>({});

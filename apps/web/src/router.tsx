@@ -163,19 +163,24 @@ const routes: AnyRoute[] = [
   createRoute({
     getParentRoute: () => root,
     path: "/filament/spools/import/$id",
-    loader: () => loadNamespace("filament"),
+    loader: () => Promise.all([loadNamespace("filament"), loadNamespace("integrations")]),
     component: SpoolImportPage,
   }),
   createRoute({
     getParentRoute: () => root,
     path: "/filament/import/$id",
-    loader: () => loadNamespace("filament"),
+    loader: () => Promise.all([loadNamespace("filament"), loadNamespace("integrations")]),
     component: LibraryImportPage,
   }),
   createRoute({
     getParentRoute: () => root,
     path: "/filament",
-    loader: () => Promise.all([loadNamespace("filament"), loadNamespace("tags")]),
+    loader: () =>
+      Promise.all([
+        loadNamespace("filament"),
+        loadNamespace("tags"),
+        loadNamespace("integrations"),
+      ]),
     component: FilamentPage,
   }),
   ...[
@@ -210,6 +215,7 @@ const routes: AnyRoute[] = [
       loader: () =>
         Promise.all([
           loadNamespace("projects"),
+          loadNamespace("integrations"),
           loadNamespace("prints"),
           loadNamespace("tags"),
           loadNamespace("costs"),
@@ -238,7 +244,7 @@ const routes: AnyRoute[] = [
   createRoute({
     getParentRoute: () => root,
     path: "/alerts",
-    loader: () => loadNamespace("alerts"),
+    loader: () => Promise.all([loadNamespace("alerts"), loadNamespace("integrations")]),
     component: AlertsPage,
   }),
   createRoute({

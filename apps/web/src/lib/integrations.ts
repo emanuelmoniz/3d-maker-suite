@@ -10,6 +10,7 @@ import type {
   TestResult,
 } from "@3d-maker-suite/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { api } from "./api.ts";
 import { useListPage } from "./list.ts";
 
@@ -24,6 +25,15 @@ export const useIntegrations = () =>
     queryKey: ["integrations", "list"],
     queryFn: () => api<Integration[]>("GET", "/api/integrations"),
   });
+
+/**
+ * What the UI calls an integration: its adapter's name. Vendor names live under
+ * `integrations:adapters.<id>` so a new adapter only adds locale keys (load the namespace).
+ */
+export function useAdapterName() {
+  const { t } = useTranslation();
+  return (id: string) => t(`integrations:adapters.${id}.name`, { defaultValue: id });
+}
 
 /** Integrations that can do `cap` right now. The server decides; the UI never checks vendors. */
 export const useCapable = (cap: Capability) =>

@@ -246,7 +246,7 @@ describe("open in slicer / folder", () => {
       await app.inject({
         method: "POST",
         url: "/api/integrations",
-        payload: { adapterId: "slicer", name: "Slicer", secrets: { token: "t" } },
+        payload: { adapterId: "slicer", secrets: { token: "t" } },
       })
     ).json();
     expect((await open(vase.id, { target: "slicer", file: "vase.stl" })).statusCode).toBe(409);

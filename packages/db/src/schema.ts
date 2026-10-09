@@ -50,7 +50,7 @@ export const settings = sqliteTable("settings", {
 export const integrations = sqliteTable("integrations", {
   id: id(),
   adapterId: text().notNull(),
-  name: text().notNull(),
+  // No name: the UI shows the adapter's name (`integrations:adapters.<id>.name`).
   enabled: integer({ mode: "boolean" }).notNull().default(true),
   config: text({ mode: "json" }).notNull().default({}),
   /** AES-256-GCM blob `{ v, iv, tag, data }` (ADR-0005). Never returned by the API. */

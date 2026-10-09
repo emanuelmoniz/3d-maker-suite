@@ -8,11 +8,13 @@ import { EmptyState } from "../../components/EmptyState.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { useAlertAction, useAlerts } from "../../lib/alerts.ts";
 import { formatDate } from "../../lib/format.ts";
+import { useAdapterName } from "../../lib/integrations.ts";
 
 const link = "font-medium hover:underline";
 
 function Title({ a }: { a: Alert }) {
   const { t } = useTranslation();
+  const adapterName = useAdapterName();
   const c = a.context;
   switch (a.kind) {
     case "spool_low":
@@ -39,7 +41,10 @@ function Title({ a }: { a: Alert }) {
     case "sync_failed":
       return (
         <Link to="/settings/integrations" className={link}>
-          {t("alerts:kinds.sync_failed", { name: c.name ?? "" })}
+          {t("alerts:kinds.sync_failed", {
+            // Alerts from before integrations lost their name still carry `name`.
+            name: c.name ?? (c.adapterId ? adapterName(String(c.adapterId)) : ""),
+          })}
         </Link>
       );
     case "print_failed":
