@@ -7,6 +7,7 @@ import type {
 } from "@3d-maker-suite/core";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "./api.ts";
+import { useListPage } from "./list.ts";
 
 /** `query` is the raw list query (page, sort, column filters), e.g. the page's URL search params. */
 export const usePrints = (query: Record<string, string> = {}) =>
@@ -55,11 +56,8 @@ export const usePatchPrint = (id: string) =>
 export const useDeletePrint = () =>
   useInvalidating((id: string) => api("DELETE", `/api/prints/${id}`));
 
-export const useFilamentReview = () =>
-  useQuery({
-    queryKey: ["prints", "review"],
-    queryFn: () => api<FilamentReviewItem[]>("GET", "/api/prints/filament-review"),
-  });
+export const useFilamentReview = (query: Record<string, string> = {}) =>
+  useListPage<FilamentReviewItem>(["prints", "review"], "/api/prints/filament-review", query);
 
 export const useAssignReview = () =>
   useInvalidating((v: { usageId: string; spoolId: string }) =>

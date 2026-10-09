@@ -6,13 +6,13 @@ import {
   commentInputSchema,
   commentPatchSchema,
   dateRangeQuery,
-  idList,
   listQuery,
   type Page,
   type Printer,
   type PrinterComment,
   pageOf,
   printerCommentSchema,
+  printerFilters,
   printerInputSchema,
   printerPatchSchema,
   printerSchema,
@@ -21,16 +21,17 @@ import {
   summarizePrints,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
-import { and, desc, eq, isNotNull, isNull } from "drizzle-orm";
+import { and, desc, eq, isNotNull, isNull, sql } from "drizzle-orm";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
 import { IMAGE_MAX_BYTES, IMAGE_TYPES, imageType } from "../lib/images.ts";
-import { dateRange, inIds, listPage, taggedWith } from "../lib/list.ts";
+import { dateRange, listPage, taggedWith } from "../lib/list.ts";
 import { readPreferences } from "../lib/preferences.ts";
 
 const { printers, printerComments, prints } = schema;
 const params = z.object({ id: z.uuid() });
+const brandModel = sql`${printers.brand} || ' ' || ${printers.model}`;
 const commentParams = params.extend({ commentId: z.uuid() });
 const notFound = { 404: apiErrorSchema };
 const PHOTO_TYPES = IMAGE_TYPES;
@@ -63,20 +64,27 @@ export const printersRoutes =
       "/",
       {
         schema: {
-          querystring: listQuery(printerSortFields, {
-            state: idList.optional(),
-            tagId: idList.optional(),
-            archived: archivedFilter,
-          }),
+          querystring: listQuery(printerSortFields, { archived: archivedFilter }, printerFilters),
           response: { 200: pageOf(printerSchema) },
         },
       },
       async (req) =>
         listPage(db, printers, req.query, {
-          sort: { name: printers.name, createdAt: printers.createdAt },
+          sort: {
+            name: printers.name,
+            createdAt: printers.createdAt,
+            model: brandModel,
+            state: printers.state,
+            powerW: printers.powerW,
+          },
           dateColumn: printers.createdAt,
+          filters: {
+            name: printers.name,
+            model: brandModel,
+            state: printers.state,
+            powerW: printers.powerW,
+          },
           where: [
-            inIds(printers.state, req.query.state),
             taggedWith(db, "printer", printers.id, req.query.tagId),
             req.query.archived === "true"
               ? isNotNull(printers.archivedAt)

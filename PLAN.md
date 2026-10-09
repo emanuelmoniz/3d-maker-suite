@@ -68,7 +68,7 @@ Filters are declared per column once and drive both the API query schema (zod) a
 Show me the column-filter API before implementing.
 ```
 
-### [ ] Step 6 - Apply the table framework everywhere
+### [x] Step 6 - Apply the table framework everywhere
 **Model:** Sonnet · **Effort:** Medium
 **Scope:** All remaining tables (printers, spools, filament profiles, maintenance, projects list view, alerts, integrations sync log, review queue, …) use pagination, sort and column filters from Step 5. Keep existing tag filters working.
 **Done when:** no unpaginated table left; e2e still green.

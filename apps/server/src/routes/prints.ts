@@ -2,6 +2,7 @@ import {
   apiErrorSchema,
   type FilamentReviewItem,
   filamentReviewItemSchema,
+  filamentReviewSortFields,
   listQuery,
   type Page,
   type PrintDetail,
@@ -16,12 +17,12 @@ import {
   reviewDismissSchema,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
-import { and, desc, eq, inArray, isNotNull, isNull } from "drizzle-orm";
+import { and, count, eq, inArray, isNotNull, isNull } from "drizzle-orm";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
 import { printCosts } from "../lib/cost.ts";
-import { listPage, taggedWith } from "../lib/list.ts";
+import { listPage, orderBy, taggedWith } from "../lib/list.ts";
 import { readPreferences } from "../lib/preferences.ts";
 import { round, setRemaining, takeFromSpool } from "../lib/spools.ts";
 
@@ -137,9 +138,15 @@ export const printsRoutes =
     );
     app.get(
       "/filament-review",
-      { schema: { response: { 200: z.array(filamentReviewItemSchema) } } },
-      async () =>
-        db
+      {
+        schema: {
+          querystring: listQuery(filamentReviewSortFields),
+          response: { 200: pageOf(filamentReviewItemSchema) },
+        },
+      },
+      async (req): Promise<Page<FilamentReviewItem>> => {
+        const { page, pageSize, sort = "-startedAt" } = req.query;
+        const items = db
           .select({
             usageId: printFilamentUsages.id,
             printId: prints.id,
@@ -153,8 +160,16 @@ export const printsRoutes =
           .from(printFilamentUsages)
           .innerJoin(prints, eq(prints.id, printFilamentUsages.printId))
           .where(waiting)
-          .orderBy(desc(prints.startedAt), printFilamentUsages.slot)
-          .all() as FilamentReviewItem[],
+          .orderBy(
+            orderBy({ startedAt: prints.startedAt, grams: printFilamentUsages.grams }, sort),
+            printFilamentUsages.slot,
+          )
+          .limit(pageSize)
+          .offset((page - 1) * pageSize)
+          .all() as FilamentReviewItem[];
+        const total = db.select({ n: count() }).from(printFilamentUsages).where(waiting).get()?.n;
+        return { items, page, pageSize, total: total ?? 0 };
+      },
     );
 
     app.post(

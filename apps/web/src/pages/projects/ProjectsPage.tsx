@@ -4,14 +4,15 @@ import { ExternalLink, FolderKanban, LayoutGrid, List, Plus, ScanSearch } from "
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
-import { DataTable } from "../../components/DataTable.tsx";
+import { DataTable, type ListQuery, Pager } from "../../components/DataTable.tsx";
 import { EmptyState } from "../../components/EmptyState.tsx";
 import { FilterBar } from "../../components/FilterBar.tsx";
 import { inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { TagFilter } from "../../components/TagFilter.tsx";
 import { cx } from "../../lib/cx.ts";
-import { projectThumbnailUrl, useProjects, useScan } from "../../lib/projects.ts";
+import { useListPage, useUrlListQuery } from "../../lib/list.ts";
+import { projectThumbnailUrl, useProjectMaterials, useScan } from "../../lib/projects.ts";
 import { useCollections } from "../../lib/tags.ts";
 
 type View = "grid" | "list";
@@ -99,22 +100,20 @@ function ScanPanel() {
 export function ProjectsPage() {
   const { t } = useTranslation();
   const [view, setView] = useState(storedView);
-  const [search, setSearch] = useState("");
-  const [tagId, setTagId] = useState("");
-  const [collectionId, setCollectionId] = useState("");
-  const [material, setMaterial] = useState("");
-  const [multicolorOnly, setMulticolorOnly] = useState(false);
-  const { data, isError } = useProjects({ tagId, collectionId });
+  // One list query for both views: the filter bar sets filters, the table or pager the rest.
+  const [query, setQuery] = useUrlListQuery();
+  const { data, isError } = useListPage<Project>(["projects", "list"], "/api/projects", query);
   const collections = useCollections().data ?? [];
-  const materials = [...new Set(data?.items.flatMap((p) => p.meta.materials))].sort();
-  const q = search.trim().toLowerCase();
-  const rows = (data?.items ?? []).filter(
-    (p) =>
-      (!q || p.name.toLowerCase().includes(q) || p.description?.toLowerCase().includes(q)) &&
-      (!material || p.meta.materials.includes(material)) &&
-      (!multicolorOnly || p.meta.multicolor),
-  );
-  const filtered = !!(q || tagId || collectionId || material || multicolorOnly);
+  const materials = useProjectMaterials().data ?? [];
+  const set = (patch: ListQuery, keepPage = false) => {
+    const next: ListQuery = { ...query, ...patch };
+    if (!keepPage) delete next.page;
+    for (const k of Object.keys(next)) if (!next[k]?.trim()) delete next[k];
+    setQuery(next);
+  };
+  const { name = "", tagId = "", collectionId = "", material = "", multicolor = "" } = query;
+  const filtered = !!(name || tagId || collectionId || material || multicolor);
+  const rows = data?.items ?? [];
   const pick = (v: View) => {
     setView(v);
     try {
@@ -157,28 +156,23 @@ export function ProjectsPage() {
           <>
             <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
               <FilterBar
-                search={search}
-                onSearchChange={setSearch}
+                search={name}
+                onSearchChange={(v) => set({ name: v })}
                 searchLabel={t("projects:filters.search")}
                 onReset={
                   filtered
-                    ? () => {
-                        setSearch("");
-                        setTagId("");
-                        setCollectionId("");
-                        setMaterial("");
-                        setMulticolorOnly(false);
-                      }
+                    ? () =>
+                        set({ name: "", tagId: "", collectionId: "", material: "", multicolor: "" })
                     : undefined
                 }
               >
-                <TagFilter value={tagId} onChange={setTagId} />
+                <TagFilter value={tagId} onChange={(v) => set({ tagId: v })} />
                 {collections.length > 0 && (
                   <select
                     aria-label={t("projects:filters.collection")}
                     className={`${inputClass} w-auto`}
                     value={collectionId}
-                    onChange={(e) => setCollectionId(e.target.value)}
+                    onChange={(e) => set({ collectionId: e.target.value })}
                   >
                     <option value="">{t("projects:filters.allCollections")}</option>
                     {collections.map((c) => (
@@ -193,7 +187,7 @@ export function ProjectsPage() {
                     aria-label={t("projects:filters.material")}
                     className={`${inputClass} w-auto`}
                     value={material}
-                    onChange={(e) => setMaterial(e.target.value)}
+                    onChange={(e) => set({ material: e.target.value })}
                   >
                     <option value="">{t("projects:filters.allMaterials")}</option>
                     {materials.map((m) => (
@@ -206,8 +200,8 @@ export function ProjectsPage() {
                 <label className="flex items-center gap-2">
                   <input
                     type="checkbox"
-                    checked={multicolorOnly}
-                    onChange={(e) => setMulticolorOnly(e.target.checked)}
+                    checked={multicolor === "true"}
+                    onChange={(e) => set({ multicolor: e.target.checked ? "true" : "" })}
                   />
                   {t("projects:list.multicolor")}
                 </label>
@@ -235,30 +229,34 @@ export function ProjectsPage() {
             {!rows.length ? (
               <p className="text-muted">{t("projects:filters.none")}</p>
             ) : view === "grid" ? (
-              <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-                {rows.map((p) => (
-                  <li key={p.id}>
-                    <Link
-                      to="/projects/$id"
-                      params={{ id: p.id }}
-                      className="block overflow-hidden rounded-lg border border-border bg-surface hover:border-accent"
-                    >
-                      <Thumb p={p} className="aspect-square w-full" />
-                      <span className="block p-2">
-                        <span className="block truncate font-medium">{p.name}</span>
-                        <span className="block truncate text-muted">
-                          {tagline(p, t("projects:list.multicolor")) || "\u00a0"}
+              <div className="flex flex-col gap-3">
+                <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+                  {rows.map((p) => (
+                    <li key={p.id}>
+                      <Link
+                        to="/projects/$id"
+                        params={{ id: p.id }}
+                        className="block overflow-hidden rounded-lg border border-border bg-surface hover:border-accent"
+                      >
+                        <Thumb p={p} className="aspect-square w-full" />
+                        <span className="block p-2">
+                          <span className="block truncate font-medium">{p.name}</span>
+                          <span className="block truncate text-muted">
+                            {tagline(p, t("projects:list.multicolor")) || "\u00a0"}
+                          </span>
                         </span>
-                      </span>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+                <Pager query={query} total={data.total} onChange={set} />
+              </div>
             ) : (
               <DataTable
                 label={t("projects:list.table")}
                 rows={rows}
                 rowKey={(p) => p.id}
+                server={{ query, onQueryChange: setQuery, total: data.total }}
                 columns={[
                   {
                     id: "name",
@@ -282,7 +280,7 @@ export function ProjectsPage() {
                         </span>
                       </span>
                     ),
-                    sortValue: (p) => p.name.toLowerCase(),
+                    sort: "name",
                   },
                   {
                     id: "materials",
@@ -297,7 +295,6 @@ export function ProjectsPage() {
                       p.folderPath
                         ? t("projects:list.files", { count: p.meta.files.length })
                         : t("projects:list.noFolder"),
-                    sortValue: (p) => p.meta.files.length,
                   },
                   {
                     id: "source",
@@ -314,21 +311,6 @@ export function ProjectsPage() {
                           <ExternalLink className="size-4" aria-hidden />
                         </a>
                       ),
-                  },
-                  {
-                    id: "actions",
-                    header: "",
-                    cell: (p) => (
-                      <span className="flex justify-end">
-                        <Link
-                          to="/projects/$id/edit"
-                          params={{ id: p.id }}
-                          className="hover:underline"
-                        >
-                          {t("projects:list.edit")}
-                        </Link>
-                      </span>
-                    ),
                   },
                 ]}
               />

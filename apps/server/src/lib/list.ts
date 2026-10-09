@@ -12,6 +12,7 @@ import {
   lt,
   lte,
   type SQL,
+  type SQLWrapper,
   sql,
 } from "drizzle-orm";
 import type { SQLiteTable } from "drizzle-orm/sqlite-core";
@@ -35,11 +36,11 @@ export const taggedWith = (db: Db, type: TaggableType, idColumn: AnyColumn, tagI
     : undefined;
 
 /** `from <= column < to` on a UTC ISO-string column. Reusable by stats queries. */
-export const dateRange = (column: AnyColumn, { from, to }: DateRangeQuery) =>
+export const dateRange = (column: SQLWrapper, { from, to }: DateRangeQuery) =>
   and(from ? gte(column, from) : undefined, to ? lt(column, to) : undefined);
 
 /** Maps `?sort=-name` onto a whitelisted column map. */
-export function orderBy(columns: Record<string, AnyColumn>, sort: string) {
+export function orderBy(columns: Record<string, SQLWrapper>, sort: string) {
   const desc_ = sort.startsWith("-");
   const column = columns[desc_ ? sort.slice(1) : sort];
   if (!column) throw new Error(`Unknown sort field: ${sort}`);
@@ -47,7 +48,7 @@ export function orderBy(columns: Record<string, AnyColumn>, sort: string) {
 }
 
 /** One parsed column filter (see `filterSchema` in core): list -> IN, text -> contains, range -> bounds. */
-export function columnFilter(column: AnyColumn, v: unknown): SQL | undefined {
+export function columnFilter(column: SQLWrapper, v: unknown): SQL | undefined {
   if (v == null) return undefined;
   if (Array.isArray(v)) return inArray(column, v);
   if (typeof v === "string") return sql`instr(lower(${column}), lower(${v})) > 0`;
@@ -62,14 +63,14 @@ export function columnFilter(column: AnyColumn, v: unknown): SQL | undefined {
 }
 
 export interface ListOptions {
-  /** Sortable fields (API name -> column). The first key is the default, ascending. */
-  sort: Record<string, AnyColumn>;
+  /** Sortable fields (API name -> column or SQL expression). The first key is the default, ascending. */
+  sort: Record<string, SQLWrapper>;
   /** Overrides the default sort, e.g. "-startedAt". */
   defaultSort?: string;
   /** Column the `from`/`to` range applies to. Omit if the table has no date filter. */
   dateColumn?: AnyColumn;
-  /** Column filters (query key -> column), parsed by `listQuery`'s column filters. */
-  filters?: Record<string, AnyColumn>;
+  /** Column filters (query key -> column or SQL expression), parsed by `listQuery`'s column filters. */
+  filters?: Record<string, SQLWrapper>;
   /** Entity filters, already built with `inIds`/`eq`; undefined entries are ignored. */
   where?: (SQL | undefined)[];
 }

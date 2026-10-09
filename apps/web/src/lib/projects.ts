@@ -12,15 +12,18 @@ import { api } from "./api.ts";
 
 // ponytail: one page of 100 projects, add pagination controls if libraries get bigger.
 // Tag and collection filter on the server; material, multicolor and search on the page.
-export const useProjects = (f: { tagId?: string; collectionId?: string } = {}) => {
-  const q = new URLSearchParams({ pageSize: "100", sort: "name" });
-  if (f.tagId) q.set("tagId", f.tagId);
-  if (f.collectionId) q.set("collectionId", f.collectionId);
-  return useQuery({
-    queryKey: ["projects", "list", f.tagId ?? "", f.collectionId ?? ""],
-    queryFn: () => api<Page<Project>>("GET", `/api/projects?${q}`),
+// ponytail: the first 100 projects, for pickers; the projects page pages on the server.
+export const useProjects = () =>
+  useQuery({
+    queryKey: ["projects", "list", "all"],
+    queryFn: () => api<Page<Project>>("GET", "/api/projects?pageSize=100&sort=name"),
   });
-};
+
+export const useProjectMaterials = () =>
+  useQuery({
+    queryKey: ["projects", "materials"],
+    queryFn: () => api<string[]>("GET", "/api/projects/materials"),
+  });
 
 export const useProject = (id: string) =>
   useQuery({

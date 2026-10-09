@@ -4,7 +4,6 @@ import type {
   MaintenanceType,
   MaintenanceTypeInput,
   MaintenanceTypePatch,
-  Page,
 } from "@3d-maker-suite/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "./api.ts";
@@ -15,11 +14,10 @@ export const useDue = () =>
     queryFn: () => api<MaintenanceDueItem[]>("GET", "/api/maintenance/due"),
   });
 
-// ponytail: one page of 100 types, add pagination controls if anyone defines more.
-export const useMaintenanceTypes = () =>
+export const useMaintenanceType = (id: string) =>
   useQuery({
-    queryKey: ["maintenance", "types"],
-    queryFn: () => api<Page<MaintenanceType>>("GET", "/api/maintenance/types?pageSize=100"),
+    queryKey: ["maintenance", "type", id],
+    queryFn: () => api<MaintenanceType>("GET", `/api/maintenance/types/${id}`),
   });
 
 /** Runs a mutation, then refreshes all maintenance data. */

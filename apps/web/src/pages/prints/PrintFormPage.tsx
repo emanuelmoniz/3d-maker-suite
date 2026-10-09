@@ -82,8 +82,10 @@ function PrintForm({ print }: { print?: PrintDetail }) {
     };
     save.mutate(body, {
       onSuccess: async (saved) => {
-        await tags.persist((saved as PrintDetail).id);
-        navigate({ to: "/prints" });
+        const { id } = saved as PrintDetail;
+        await tags.persist(id);
+        if (print) navigate({ to: "/prints/$id", params: { id } });
+        else navigate({ to: "/prints" });
       },
     });
   };
@@ -310,7 +312,10 @@ export function PrintEditPage() {
   const { data } = usePrint(id);
   return (
     <>
-      <PageHeader title={t("prints:form.editTitle")} backTo={{ to: "/prints" }} />
+      <PageHeader
+        title={t("prints:form.editTitle")}
+        backTo={{ to: "/prints/$id", params: { id } }}
+      />
       {/* key: the form is uncontrolled, so remount when the saved print arrives */}
       {data && <PrintForm key={data.updatedAt} print={data} />}
     </>

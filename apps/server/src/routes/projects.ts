@@ -4,7 +4,6 @@ import { extname, join } from "node:path";
 import { read3mfEntry, read3mfPaint } from "@3d-maker-suite/3mf";
 import {
   apiErrorSchema,
-  idList,
   type Page,
   type Project,
   pageOf,
@@ -18,12 +17,12 @@ import {
   projectSchema,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
-import { eq, inArray, isNull } from "drizzle-orm";
+import { eq, inArray, isNull, sql } from "drizzle-orm";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
 import { insideRoots, openFolder, slicerLauncher } from "../lib/launcher.ts";
-import { listPage, taggedWith } from "../lib/list.ts";
+import { columnFilter, listPage, taggedWith } from "../lib/list.ts";
 import { readPreferences } from "../lib/preferences.ts";
 import type { ProjectScanner } from "../projects/scanner.ts";
 
@@ -79,19 +78,21 @@ export const projectsRoutes =
       "/",
       {
         schema: {
-          querystring: projectListQuery.extend({
-            tagId: idList.optional(),
-            collectionId: idList.optional(),
-          }),
+          querystring: projectListQuery,
           response: { 200: pageOf(projectSchema) },
         },
       },
       async (req) => {
+        const { material, multicolor } = req.query;
         const page = listPage(db, projects, req.query, {
           sort: { name: projects.name, createdAt: projects.createdAt },
           dateColumn: projects.createdAt,
+          filters: { name: sql`${projects.name} || ' ' || coalesce(${projects.description}, '')` },
           where: [
             isNull(projects.archivedAt),
+            material &&
+              sql`exists (select 1 from json_each(${projects.meta}, '$.materials') where ${columnFilter(sql`value`, material)})`,
+            multicolor && sql`json_extract(${projects.meta}, '$.multicolor') = 1`,
             taggedWith(db, "project", projects.id, req.query.tagId),
             req.query.collectionId &&
               inArray(
@@ -105,6 +106,15 @@ export const projectsRoutes =
         });
         return { ...page, items: page.items.map(out) } as Page<Project>;
       },
+    );
+
+    /** Every material used by a project, for the material filter. */
+    app.get("/materials", { schema: { response: { 200: z.array(z.string()) } } }, async () =>
+      db
+        .all<{ value: string }>(
+          sql`select distinct value from ${projects}, json_each(${projects.meta}, '$.materials') where ${projects.archivedAt} is null order by value`,
+        )
+        .map((r) => r.value),
     );
 
     app.get(

@@ -16,10 +16,12 @@ import { SpoolImportPage } from "./pages/filament/SpoolImportPage.tsx";
 import { HomePage } from "./pages/HomePage.tsx";
 import { ModulePage } from "./pages/ModulePage.tsx";
 import { MaintenancePage } from "./pages/maintenance/MaintenancePage.tsx";
-import { TypeCreatePage } from "./pages/maintenance/TypeFormPage.tsx";
+import { TypeDetailPage } from "./pages/maintenance/TypeDetailPage.tsx";
+import { TypeCreatePage, TypeEditPage } from "./pages/maintenance/TypeFormPage.tsx";
 import { PrinterDetailPage } from "./pages/printers/PrinterDetailPage.tsx";
 import { PrinterCreatePage, PrinterEditPage } from "./pages/printers/PrinterFormPage.tsx";
 import { PrintersPage } from "./pages/printers/PrintersPage.tsx";
+import { PrintDetailPage } from "./pages/prints/PrintDetailPage.tsx";
 import { PrintCreatePage, PrintEditPage } from "./pages/prints/PrintFormPage.tsx";
 import { PrintReviewPage } from "./pages/prints/PrintReviewPage.tsx";
 import { PrintsPage } from "./pages/prints/PrintsPage.tsx";
@@ -107,6 +109,17 @@ const routes: AnyRoute[] = [
     loader: () => loadNamespace("maintenance"),
     component: TypeCreatePage,
   }),
+  ...[
+    ["/maintenance/types/$id", TypeDetailPage],
+    ["/maintenance/types/$id/edit", TypeEditPage],
+  ].map(([path, component]) =>
+    createRoute({
+      getParentRoute: () => root,
+      path: path as string,
+      loader: () => loadNamespace("maintenance"),
+      component: component as () => ReactNode,
+    }),
+  ),
   createRoute({
     getParentRoute: () => root,
     path: "/filament/spools/new",
@@ -154,6 +167,7 @@ const routes: AnyRoute[] = [
     ["/prints", PrintsPage],
     ["/prints/new", PrintCreatePage],
     ["/prints/review", PrintReviewPage],
+    ["/prints/$id", PrintDetailPage],
     ["/prints/$id/edit", PrintEditPage],
   ].map(([path, component]) =>
     createRoute({

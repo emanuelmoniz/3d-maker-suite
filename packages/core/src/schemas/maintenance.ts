@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { maintenanceDueSchema } from "../services/maintenanceDue.ts";
 import { id, isoDate, maintenanceTaskSchema, maintenanceTypeSchema } from "./entities.ts";
+import type { ColumnFilter } from "./list.ts";
 
 /** Fields the user edits. `PATCH` takes any subset, plus `archived` to archive/restore. */
 export const maintenanceTypeInputSchema = maintenanceTypeSchema
@@ -39,7 +40,11 @@ export const maintenanceDueItemSchema = maintenanceDueSchema.extend({
   lastDoneAt: isoDate.nullable(),
 });
 
-export const maintenanceTypeSortFields = ["name", "createdAt"] as const;
+export const maintenanceTypeSortFields = ["name", "createdAt", "appliesToModel"] as const;
+export const maintenanceTypeFilters = {
+  name: { kind: "text" },
+  appliesToModel: { kind: "text" },
+} as const satisfies Record<string, ColumnFilter>;
 export const maintenanceTaskSortFields = ["doneAt", "createdAt"] as const;
 
 export type MaintenanceTypeInput = z.infer<typeof maintenanceTypeInputSchema>;

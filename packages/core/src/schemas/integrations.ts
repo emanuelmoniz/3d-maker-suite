@@ -7,6 +7,7 @@ import {
   SYNC_RUN_STATUSES,
   SYNC_TRIGGERS,
 } from "./enums.ts";
+import type { ColumnFilter } from "./list.ts";
 
 // DTOs returned by adapters (docs/architecture.md). Core validates them before any DB write.
 const hexColor = z.string().regex(/^#[0-9a-f]{6}$/i);
@@ -93,6 +94,13 @@ export const syncRunSchema = z.object({
   created: z.number().int().nonnegative(),
   skipped: z.number().int().nonnegative(),
 });
+
+export const syncRunSortFields = ["startedAt"] as const;
+export const syncRunFilters = {
+  startedAt: { kind: "date" },
+  trigger: { kind: "select", options: SYNC_TRIGGERS },
+  status: { kind: "select", options: SYNC_RUN_STATUSES },
+} as const satisfies Record<string, ColumnFilter>;
 
 export const testResultSchema = z.union([
   z.object({ ok: z.literal(true) }),

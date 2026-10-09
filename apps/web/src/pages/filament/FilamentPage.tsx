@@ -1,24 +1,23 @@
-import { type Spool, spoolPricePerKg } from "@3d-maker-suite/core";
+import {
+  type FilamentProfile,
+  filamentProfileFilters,
+  SPOOL_STATUSES,
+  type Spool,
+  spoolFilters,
+  spoolPricePerKg,
+} from "@3d-maker-suite/core";
 import { Link } from "@tanstack/react-router";
 import { Plus, Spool as SpoolIcon } from "lucide-react";
-import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Button } from "../../components/Button.tsx";
 import { DataTable } from "../../components/DataTable.tsx";
 import { EmptyState } from "../../components/EmptyState.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
-import { TagFilter } from "../../components/TagFilter.tsx";
 import { TagList } from "../../components/TagList.tsx";
-import {
-  filamentLabel,
-  usePatchProfile,
-  usePatchSpool,
-  useProfiles,
-  useSpools,
-} from "../../lib/filament.ts";
+import { filamentLabel, useProfiles } from "../../lib/filament.ts";
 import { formatCurrency, formatWeight } from "../../lib/format.ts";
+import { useListPage, useUrlListQuery } from "../../lib/list.ts";
 import { usePreferences } from "../../lib/preferences.ts";
-import { useTagsOf } from "../../lib/tags.ts";
+import { useTags, useTagsOf } from "../../lib/tags.ts";
 
 export const STATUS = {
   new: "filament:spools.statuses.new",
@@ -52,13 +51,23 @@ export function Swatch({ hex }: { hex: string }) {
 export function FilamentPage() {
   const { t } = useTranslation();
   const prefs = usePreferences().data?.values;
-  const profiles = useProfiles();
-  const [tagId, setTagId] = useState("");
-  const spools = useSpools(tagId);
+  const [spoolQuery, setSpoolQuery] = useUrlListQuery("spools.");
+  const [profileQuery, setProfileQuery] = useUrlListQuery("profiles.");
+  const spools = useListPage<Spool>(
+    ["filament", "spools", "table"],
+    "/api/filament/spools",
+    spoolQuery,
+  );
+  const profiles = useListPage<FilamentProfile>(
+    ["filament", "profiles", "table"],
+    "/api/filament/profiles",
+    profileQuery,
+  );
+  // ponytail: spool labels and prices come from the first 100 active profiles.
+  const allProfiles = useProfiles().data?.items;
+  const profileOf = new Map(allProfiles?.map((p) => [p.id, p]));
   const tagsOf = useTagsOf("spool");
-  const patchProfile = usePatchProfile();
-  const patchSpool = usePatchSpool();
-  const profileOf = new Map(profiles.data?.items.map((p) => [p.id, p]));
+  const tags = useTags().data ?? [];
   const spoolPrice = (s: Spool) => {
     const perKg = spoolPricePerKg(s, profileOf.get(s.profileId) ?? { pricePerKg: null });
     return perKg === null ? null : (perKg * s.initialGrams) / 1000;
@@ -86,8 +95,7 @@ export function FilamentPage() {
               <AddLink to="/filament/spools/new">{t("filament:spools.add")}</AddLink>
             </span>
           </div>
-          <TagFilter value={tagId} onChange={setTagId} />
-          {spools.data && !spools.data.items.length && !tagId ? (
+          {spools.data && !spools.data.total && !Object.keys(spoolQuery).length ? (
             <EmptyState
               icon={SpoolIcon}
               title={t("filament:spools.emptyTitle")}
@@ -99,6 +107,13 @@ export function FilamentPage() {
                 label={t("filament:spools.table")}
                 rows={spools.data.items}
                 rowKey={(s) => s.id}
+                server={{
+                  query: spoolQuery,
+                  onQueryChange: setSpoolQuery,
+                  total: spools.data.total,
+                  filters: spoolFilters,
+                  archivable: true,
+                }}
                 columns={[
                   {
                     id: "filament",
@@ -115,7 +130,8 @@ export function FilamentPage() {
                         </Link>
                       </span>
                     ),
-                    sortValue: (s) => label(profileOf.get(s.profileId)).toLowerCase(),
+                    sort: "filament",
+                    filter: "filament",
                   },
                   {
                     id: "remaining",
@@ -132,18 +148,23 @@ export function FilamentPage() {
                           )}
                       </>
                     ),
-                    sortValue: (s) => s.remainingGrams,
+                    sort: "remainingGrams",
+                    filter: "remainingGrams",
                   },
                   {
                     id: "status",
                     header: t("filament:spools.status"),
                     cell: (s) => t(STATUS[s.status]),
-                    sortValue: (s) => s.status,
+                    sort: "status",
+                    filter: "status",
+                    filterOptions: SPOOL_STATUSES.map((v) => ({ value: v, label: t(STATUS[v]) })),
                   },
                   {
                     id: "tags",
                     header: t("tags:column"),
                     cell: (s) => <TagList tags={tagsOf(s.id)} />,
+                    filter: "tagId",
+                    filterOptions: tags.map((x) => ({ value: x.id, label: x.name })),
                   },
                   {
                     id: "price",
@@ -162,19 +183,6 @@ export function FilamentPage() {
                         text
                       );
                     },
-                    sortValue: (s) => spoolPrice(s) ?? -1,
-                  },
-                  {
-                    id: "action",
-                    header: "",
-                    cell: (s) => (
-                      <Button
-                        variant="ghost"
-                        onClick={() => patchSpool.mutate({ id: s.id, patch: { archived: true } })}
-                      >
-                        {t("filament:spools.archive")}
-                      </Button>
-                    ),
                   },
                 ]}
               />
@@ -197,6 +205,13 @@ export function FilamentPage() {
               label={t("filament:profiles.table")}
               rows={profiles.data.items}
               rowKey={(p) => p.id}
+              server={{
+                query: profileQuery,
+                onQueryChange: setProfileQuery,
+                total: profiles.data.total,
+                filters: filamentProfileFilters,
+                archivable: true,
+              }}
               columns={[
                 {
                   id: "name",
@@ -210,7 +225,8 @@ export function FilamentPage() {
                       {label(p)}
                     </Link>
                   ),
-                  sortValue: (p) => label(p).toLowerCase(),
+                  sort: "filament",
+                  filter: "filament",
                 },
                 {
                   id: "temps",
@@ -231,19 +247,10 @@ export function FilamentPage() {
                     p.pricePerKg === null
                       ? ""
                       : formatCurrency(p.pricePerKg / 100, prefs?.currency),
-                  sortValue: (p) => p.pricePerKg ?? -1,
-                },
-                {
-                  id: "action",
-                  header: "",
-                  cell: (p) => (
-                    <Button
-                      variant="ghost"
-                      onClick={() => patchProfile.mutate({ id: p.id, patch: { archived: true } })}
-                    >
-                      {t("filament:profiles.archive")}
-                    </Button>
-                  ),
+                  sort: "pricePerKg",
+                  filter: "pricePerKg",
+                  filterScale: 100,
+                  filterHint: prefs?.currency,
                 },
               ]}
             />

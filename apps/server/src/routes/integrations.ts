@@ -8,19 +8,25 @@ import {
   integrationSchema,
   type LoginInput,
   type LoginResult,
+  listQuery,
   loginInputSchema,
   loginResultSchema,
+  type Page,
+  pageOf,
   type SyncRun,
+  syncRunFilters,
   syncRunSchema,
+  syncRunSortFields,
   testResultSchema,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
-import { asc, desc, eq } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
 import { readSecrets, writeSecrets } from "../integrations/secrets.ts";
 import type { Syncer } from "../integrations/sync.ts";
+import { listPage } from "../lib/list.ts";
 
 const { integrations, syncRuns } = schema;
 const params = z.object({ id: z.uuid() });
@@ -212,16 +218,25 @@ export const integrationsRoutes =
 
     app.get(
       "/:id/runs",
-      { schema: { params, response: { 200: z.array(syncRunSchema), ...notFound } } },
+      {
+        schema: {
+          params,
+          querystring: listQuery(syncRunSortFields, {}, syncRunFilters),
+          response: { 200: pageOf(syncRunSchema), ...notFound },
+        },
+      },
       async (req) => {
         get(req.params.id);
-        return db
-          .select()
-          .from(syncRuns)
-          .where(eq(syncRuns.integrationId, req.params.id))
-          .orderBy(desc(syncRuns.startedAt))
-          .limit(50)
-          .all() as SyncRun[];
+        return listPage(db, syncRuns, req.query, {
+          sort: { startedAt: syncRuns.startedAt },
+          defaultSort: "-startedAt",
+          filters: {
+            startedAt: syncRuns.startedAt,
+            trigger: syncRuns.trigger,
+            status: syncRuns.status,
+          },
+          where: [eq(syncRuns.integrationId, req.params.id)],
+        }) as Page<SyncRun>;
       },
     );
   };

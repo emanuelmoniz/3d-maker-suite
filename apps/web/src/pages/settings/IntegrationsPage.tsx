@@ -1,10 +1,18 @@
-import type { Integration, IntegrationErrorCode, IntegrationStatus } from "@3d-maker-suite/core";
+import {
+  type Integration,
+  type IntegrationErrorCode,
+  type IntegrationStatus,
+  SYNC_RUN_STATUSES,
+  SYNC_TRIGGERS,
+  syncRunFilters,
+} from "@3d-maker-suite/core";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { Plug, Plus } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
 import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
+import { DataTable, type ListQuery } from "../../components/DataTable.tsx";
 import { EmptyState } from "../../components/EmptyState.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { formatDateTime } from "../../lib/format.ts";
@@ -37,6 +45,7 @@ export const ERRORS: Record<IntegrationErrorCode, string> = {
   unknown: "integrations:errors.unknown",
 };
 const TRIGGERS = { manual: "integrations:runs.manual", scheduled: "integrations:runs.scheduled" };
+const RUN_STATUSES = { ok: "integrations:runs.ok", error: "integrations:runs.error" };
 
 /** Vendor names live under `integrations:adapters.<id>` so a new adapter only adds locale keys. */
 export function useAdapterName() {
@@ -192,42 +201,61 @@ function IntegrationCard({ integration: i }: { integration: Integration }) {
   );
 }
 
+// Local state, not the URL: every integration card has its own log.
 function SyncLog({ id }: { id: string }) {
   const { t } = useTranslation();
-  const { data } = useSyncRuns(id, true);
+  const [query, setQuery] = useState<ListQuery>({ pageSize: "10" });
+  const { data } = useSyncRuns(id, query);
   if (!data) return null;
-  if (!data.length) return <p className="mt-4 text-muted">{t("integrations:runs.empty")}</p>;
+  if (!data.total && Object.keys(query).length <= 1)
+    return <p className="mt-4 text-muted">{t("integrations:runs.empty")}</p>;
   return (
-    <div className="mt-4 overflow-x-auto">
-      <table className="w-full text-left">
-        <thead className="text-muted">
-          <tr>
-            <th className="py-1 pr-4 font-medium">{t("integrations:runs.started")}</th>
-            <th className="py-1 pr-4 font-medium">{t("integrations:runs.trigger")}</th>
-            <th className="py-1 font-medium">{t("integrations:runs.result")}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {data.map((r) => (
-            <tr key={r.id} className="border-t border-border">
-              <td className="py-1.5 pr-4 whitespace-nowrap">{formatDateTime(r.startedAt)}</td>
-              <td className="py-1.5 pr-4">{t(TRIGGERS[r.trigger])}</td>
-              <td className="py-1.5">
-                {r.errorCode ? (
-                  <span className="text-bad">{t(ERRORS[r.errorCode])}</span>
-                ) : (
-                  <span className="flex flex-wrap gap-x-3">
-                    <span>{t("integrations:runs.created", { count: r.created })}</span>
-                    <span className="text-muted">
-                      {t("integrations:runs.skipped", { count: r.skipped })}
-                    </span>
+    <div className="mt-4">
+      <DataTable
+        label={t("integrations:runs.table")}
+        rows={data.items}
+        rowKey={(r) => r.id}
+        server={{
+          query,
+          onQueryChange: setQuery,
+          total: data.total,
+          filters: syncRunFilters,
+          defaultSort: "-startedAt",
+        }}
+        columns={[
+          {
+            id: "startedAt",
+            header: t("integrations:runs.started"),
+            cell: (r) => formatDateTime(r.startedAt),
+            sort: "startedAt",
+            filter: "startedAt",
+          },
+          {
+            id: "trigger",
+            header: t("integrations:runs.trigger"),
+            cell: (r) => t(TRIGGERS[r.trigger]),
+            filter: "trigger",
+            filterOptions: SYNC_TRIGGERS.map((v) => ({ value: v, label: t(TRIGGERS[v]) })),
+          },
+          {
+            id: "result",
+            header: t("integrations:runs.result"),
+            cell: (r) =>
+              r.errorCode ? (
+                <span className="text-bad">{t(ERRORS[r.errorCode])}</span>
+              ) : (
+                <span className="flex flex-wrap gap-x-3">
+                  <span>{t("integrations:runs.created", { count: r.created })}</span>
+                  <span className="text-muted">
+                    {t("integrations:runs.skipped", { count: r.skipped })}
                   </span>
-                )}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+                </span>
+              ),
+            filter: "status",
+            filterOptions: SYNC_RUN_STATUSES.map((v) => ({ value: v, label: t(RUN_STATUSES[v]) })),
+          },
+        ]}
+      />
     </div>
   );
 }

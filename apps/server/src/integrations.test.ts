@@ -111,7 +111,7 @@ describe("integrations", () => {
     const after = (await get("/api/prints?sort=startedAt")).items;
     expect(after).toHaveLength(4);
     expect(after[0].title).toBe("Renamed");
-    expect(await get(`/api/integrations/${id}/runs`)).toHaveLength(2);
+    expect((await get(`/api/integrations/${id}/runs`)).items).toHaveLength(2);
   });
 
   it("records failures as an error code, raises and resolves a sync_failed alert", async () => {
@@ -268,7 +268,7 @@ describe("filament matching of imported prints", () => {
     ).json();
   };
   const left = async (id: string) => (await get(`/api/filament/spools/${id}`)).remainingGrams;
-  const review = () => get("/api/prints/filament-review");
+  const review = async () => (await get("/api/prints/filament-review")).items;
   // Spools exist from "now", so the mock prints must start after that to be eligible.
   const syncNow = async () => {
     state.prints.forEach((p, i) => {

@@ -113,6 +113,48 @@ describe("listPage filters", () => {
     expect(await titles("pageSize=1&page=3")).toEqual([3, ["Benchy"]]);
     expect((await app.inject("/api/prints?outcome=nope")).statusCode).toBe(400);
   });
+
+  it("expression columns: printers by brand + model, spools by profile label, projects by material", async () => {
+    const post = async (url: string, payload: object) =>
+      (await app.inject({ method: "POST", url, payload })).json();
+    const names = async (url: string, key = "name") =>
+      (await app.inject(url)).json().items.map((x: Record<string, unknown>) => x[key]);
+
+    await post("/api/printers", { name: "A1", brand: "Bambu Lab", model: "A1", powerW: 100 });
+    await post("/api/printers", { name: "MK4", brand: "Prusa", model: "MK4", powerW: 300 });
+    expect(await names("/api/printers?model=lab%20a1")).toEqual(["A1"]);
+    expect(await names("/api/printers?sort=-model")).toEqual(["MK4", "A1"]);
+    expect(await names("/api/printers?powerW=200..")).toEqual(["MK4"]);
+
+    const pla = await post("/api/filament/profiles", {
+      brand: "Acme",
+      material: "PLA",
+      name: "Basic",
+      densityGcm3: 1.24,
+    });
+    const petg = await post("/api/filament/profiles", {
+      brand: "Zed",
+      material: "PETG",
+      name: "",
+      densityGcm3: 1.27,
+    });
+    await post("/api/filament/spools", { profileId: pla.id, initialGrams: 1000 });
+    await post("/api/filament/spools", { profileId: petg.id, initialGrams: 500 });
+    expect(await names("/api/filament/spools?filament=acme%20pla", "initialGrams")).toEqual([1000]);
+    expect(await names("/api/filament/spools?sort=-filament", "initialGrams")).toEqual([500, 1000]);
+    expect(await names("/api/filament/profiles?filament=petg", "brand")).toEqual(["Zed"]);
+
+    db.insert(schema.projects)
+      .values([
+        { name: "Vase", description: "spiral", meta: { materials: ["PLA"], multicolor: false } },
+        { name: "Dragon", meta: { materials: ["PETG", "TPU"], multicolor: true } },
+      ])
+      .run();
+    expect(await names("/api/projects?material=TPU,ASA")).toEqual(["Dragon"]);
+    expect(await names("/api/projects?multicolor=true")).toEqual(["Dragon"]);
+    expect(await names("/api/projects?name=SPIRAL")).toEqual(["Vase"]);
+    expect((await app.inject("/api/projects/materials")).json()).toEqual(["PETG", "PLA", "TPU"]);
+  });
 });
 
 import { inIds } from "./lib/list.ts";

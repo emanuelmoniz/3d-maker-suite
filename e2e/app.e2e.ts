@@ -53,6 +53,24 @@ test("a manual print deducts filament from the spool", async ({ page, app }) => 
   expect(after.remainingGrams).toBe(900);
 });
 
+test("tables link to the show page, which holds Edit; filters live in the URL", async ({
+  page,
+  app,
+}) => {
+  const printer = await seedPrinter(app.api);
+  const base = { printerId: printer.id, startedAt: new Date().toISOString(), usages: [] };
+  await app.api("POST", "/api/prints", { ...base, title: "Benchy", outcome: "success" });
+  await app.api("POST", "/api/prints", { ...base, title: "Vase", outcome: "failed" });
+  await page.goto("/prints?outcome=failed");
+  const table = page.getByRole("table", { name: "Prints" });
+  await expect(table.getByRole("link", { name: "Benchy" })).toHaveCount(0);
+  await expect(table.getByRole("link", { name: "Edit" })).toHaveCount(0);
+  await table.getByRole("link", { name: "Vase" }).click();
+  await expect(page.getByRole("heading", { name: "Vase", level: 1 })).toBeVisible();
+  await page.getByRole("link", { name: "Edit" }).click();
+  await expect(page).toHaveURL(/\/prints\/[^/]+\/edit$/);
+});
+
 test("scanning project folders lists the projects", async ({ page, app }) => {
   const root = app.makeProjectDir("Dragon");
   await app.api("PATCH", "/api/preferences", { projectRoots: [root] });

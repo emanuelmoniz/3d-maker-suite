@@ -38,6 +38,8 @@ type ServerProps = {
   filters?: Record<string, ColumnFilter>;
   /** The API's sort when `query.sort` is absent. */
   defaultSort?: string;
+  /** Adds a "Show archived" switch, sent as `?archived=true`. */
+  archivable?: boolean;
 };
 
 const PAGE_SIZES = [10, 25, 50, 100];
@@ -47,14 +49,12 @@ export function DataTable<T>({
   columns,
   rows,
   rowKey,
-  onRowClick,
   server,
 }: {
   label: string;
   columns: Column<T>[];
   rows: T[];
   rowKey: (row: T) => string;
-  onRowClick?: (row: T) => void;
   /** Paging, sorting and filtering happen on the server; omit to sort the given rows locally. */
   server?: ServerProps;
 }) {
@@ -96,6 +96,16 @@ export function DataTable<T>({
 
   return (
     <div className="flex min-w-0 flex-col gap-3">
+      {server?.archivable && (
+        <label className="flex items-center gap-2 self-end">
+          <input
+            type="checkbox"
+            checked={server.query.archived === "true"}
+            onChange={(e) => update({ archived: e.target.checked ? "true" : "" })}
+          />
+          {t("common:table.showArchived")}
+        </label>
+      )}
       {/* Scrollable on narrow screens, so it must be keyboard-focusable (and named) to be reachable. */}
       <section
         aria-label={label}
@@ -158,14 +168,7 @@ export function DataTable<T>({
           </thead>
           <tbody>
             {sorted.map((row) => (
-              <tr
-                key={rowKey(row)}
-                onClick={onRowClick && (() => onRowClick(row))}
-                className={cx(
-                  "h-9 border-b border-border last:border-0",
-                  onRowClick && "cursor-pointer hover:bg-surface-2",
-                )}
-              >
+              <tr key={rowKey(row)} className="h-9 border-b border-border last:border-0">
                 {columns.map((c) => (
                   <td
                     key={c.id}
@@ -197,8 +200,12 @@ export function DataTable<T>({
           onClear={
             hasFilters
               ? () => {
-                  const { pageSize, sort } = server.query;
-                  server.onQueryChange({ ...(pageSize && { pageSize }), ...(sort && { sort }) });
+                  const { pageSize, sort, archived } = server.query;
+                  server.onQueryChange({
+                    ...(pageSize && { pageSize }),
+                    ...(sort && { sort }),
+                    ...(archived && { archived }),
+                  });
                 }
               : undefined
           }
@@ -208,7 +215,8 @@ export function DataTable<T>({
   );
 }
 
-function Pager({
+/** Page size, range and previous/next. DataTable renders it in server mode; grids reuse it. */
+export function Pager({
   query,
   total,
   onChange,

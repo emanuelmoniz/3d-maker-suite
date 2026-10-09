@@ -4,6 +4,7 @@ import {
   archivedFilter,
   type FilamentLibrary,
   type FilamentProfile,
+  filamentProfileFilters,
   filamentProfileInputSchema,
   filamentProfilePatchSchema,
   filamentProfileSchema,
@@ -25,6 +26,7 @@ import {
   type Spool,
   type SpoolWeightEntry,
   spoolAdjustSchema,
+  spoolFilters,
   spoolInputSchema,
   spoolPatchSchema,
   spoolSchema,
@@ -43,6 +45,9 @@ import { createSpool, setRemaining } from "../lib/spools.ts";
 const { filamentProfiles, spools, spoolWeightEntries } = schema;
 const params = z.object({ id: z.uuid() });
 const notFound = { 404: apiErrorSchema };
+// The label the app shows for a profile ("brand material name"), to sort and filter by.
+const profileLabel = sql`${filamentProfiles.brand} || ' ' || ${filamentProfiles.material} || ' ' || ${filamentProfiles.name}`;
+const spoolLabel = sql`(select ${profileLabel} from ${filamentProfiles} where ${filamentProfiles.id} = ${spools.profileId})`;
 const archivedAt = (archived?: boolean) =>
   archived === undefined ? undefined : archived ? new Date().toISOString() : null;
 
@@ -69,7 +74,11 @@ export const filamentRoutes =
       "/profiles",
       {
         schema: {
-          querystring: listQuery(filamentProfileSortFields, { archived: archivedFilter }),
+          querystring: listQuery(
+            filamentProfileSortFields,
+            { archived: archivedFilter },
+            filamentProfileFilters,
+          ),
           response: { 200: pageOf(filamentProfileSchema) },
         },
       },
@@ -79,8 +88,11 @@ export const filamentRoutes =
             brand: filamentProfiles.brand,
             material: filamentProfiles.material,
             createdAt: filamentProfiles.createdAt,
+            filament: profileLabel,
+            pricePerKg: filamentProfiles.pricePerKg,
           },
           dateColumn: filamentProfiles.createdAt,
+          filters: { filament: profileLabel, pricePerKg: filamentProfiles.pricePerKg },
           where: [
             req.query.archived === "true"
               ? isNotNull(filamentProfiles.archivedAt)
@@ -295,11 +307,11 @@ export const filamentRoutes =
       "/spools",
       {
         schema: {
-          querystring: listQuery(spoolSortFields, {
-            archived: archivedFilter,
-            profileId: idList.optional(),
-            tagId: idList.optional(),
-          }),
+          querystring: listQuery(
+            spoolSortFields,
+            { archived: archivedFilter, profileId: idList.optional() },
+            spoolFilters,
+          ),
           response: { 200: pageOf(spoolSchema) },
         },
       },
@@ -309,8 +321,15 @@ export const filamentRoutes =
             createdAt: spools.createdAt,
             remainingGrams: spools.remainingGrams,
             purchasedAt: spools.purchasedAt,
+            filament: spoolLabel,
+            status: spools.status,
           },
           dateColumn: spools.createdAt,
+          filters: {
+            filament: spoolLabel,
+            remainingGrams: spools.remainingGrams,
+            status: spools.status,
+          },
           where: [
             req.query.archived === "true"
               ? isNotNull(spools.archivedAt)

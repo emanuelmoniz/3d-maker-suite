@@ -1,10 +1,12 @@
+import { SPOOL_STATUSES, type Spool, spoolFilters } from "@3d-maker-suite/core";
 import { Link, useParams } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
 import { DataTable } from "../../components/DataTable.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
-import { filamentLabel, usePatchProfile, useProfile, useSpools } from "../../lib/filament.ts";
+import { filamentLabel, usePatchProfile, useProfile } from "../../lib/filament.ts";
 import { formatCurrency, formatNumber, formatWeight } from "../../lib/format.ts";
+import { useListPage, useUrlListQuery } from "../../lib/list.ts";
 import { usePreferences } from "../../lib/preferences.ts";
 import { STATUS } from "./FilamentPage.tsx";
 import { Info, linkButton } from "./SpoolDetailPage.tsx";
@@ -14,8 +16,11 @@ export function ProfileDetailPage() {
   const { id } = useParams({ strict: false }) as { id: string };
   const { data: profile, isError } = useProfile(id);
   const currency = usePreferences().data?.values.currency;
-  // ponytail: filtered from the first 100 active spools, like the spools table
-  const spools = useSpools().data?.items.filter((s) => s.profileId === id) ?? [];
+  const [query, setQuery] = useUrlListQuery();
+  const spools = useListPage<Spool>(["filament", "spools", "table"], "/api/filament/spools", {
+    ...query,
+    profileId: id,
+  }).data;
   const patch = usePatchProfile();
 
   if (isError)
@@ -87,44 +92,56 @@ export function ProfileDetailPage() {
 
         <section className="grid gap-3">
           <h2 className="text-base font-semibold">{t("filament:profileDetail.spools")}</h2>
-          {!spools.length ? (
+          {spools && !spools.total && !Object.keys(query).length ? (
             <p className="text-muted">{t("filament:profileDetail.noSpools")}</p>
           ) : (
-            <DataTable
-              label={t("filament:profileDetail.spools")}
-              rows={spools}
-              rowKey={(s) => s.id}
-              columns={[
-                {
-                  id: "remaining",
-                  header: t("filament:spools.remaining"),
-                  cell: (s) => (
-                    <Link
-                      to="/filament/spools/$id"
-                      params={{ id: s.id }}
-                      className="font-medium hover:underline"
-                    >
-                      {t("filament:spoolImport.remainingOf", {
-                        remaining: formatWeight(s.remainingGrams),
-                        initial: formatWeight(s.initialGrams),
-                      })}
-                    </Link>
-                  ),
-                  sortValue: (s) => s.remainingGrams,
-                },
-                {
-                  id: "status",
-                  header: t("filament:spools.status"),
-                  cell: (s) => t(STATUS[s.status]),
-                  sortValue: (s) => s.status,
-                },
-                {
-                  id: "location",
-                  header: t("filament:spools.location"),
-                  cell: (s) => s.location ?? "",
-                },
-              ]}
-            />
+            spools && (
+              <DataTable
+                label={t("filament:profileDetail.spools")}
+                rows={spools.items}
+                rowKey={(s) => s.id}
+                server={{
+                  query,
+                  onQueryChange: setQuery,
+                  total: spools.total,
+                  filters: spoolFilters,
+                  archivable: true,
+                }}
+                columns={[
+                  {
+                    id: "remaining",
+                    header: t("filament:spools.remaining"),
+                    cell: (s) => (
+                      <Link
+                        to="/filament/spools/$id"
+                        params={{ id: s.id }}
+                        className="font-medium hover:underline"
+                      >
+                        {t("filament:spoolImport.remainingOf", {
+                          remaining: formatWeight(s.remainingGrams),
+                          initial: formatWeight(s.initialGrams),
+                        })}
+                      </Link>
+                    ),
+                    sort: "remainingGrams",
+                    filter: "remainingGrams",
+                  },
+                  {
+                    id: "status",
+                    header: t("filament:spools.status"),
+                    cell: (s) => t(STATUS[s.status]),
+                    sort: "status",
+                    filter: "status",
+                    filterOptions: SPOOL_STATUSES.map((v) => ({ value: v, label: t(STATUS[v]) })),
+                  },
+                  {
+                    id: "location",
+                    header: t("filament:spools.location"),
+                    cell: (s) => s.location ?? "",
+                  },
+                ]}
+              />
+            )
           )}
         </section>
       </div>

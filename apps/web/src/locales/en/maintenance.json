@@ -60,6 +60,13 @@
     "intervalDays_one": "{{count}} day",
     "intervalDays_other": "{{count}} days",
     "archive": "Archive",
+    "restore": "Restore",
+    "archived": "Archived",
+    "edit": "Edit",
+    "editTitle": "Edit maintenance task",
+    "detailTitle": "Task details",
+    "notFound": "Maintenance task not found.",
+    "none": "Not set",
     "error": "Couldn't save the task."
   }
 }

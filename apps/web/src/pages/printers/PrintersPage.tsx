@@ -1,16 +1,14 @@
-import { Link, useNavigate } from "@tanstack/react-router";
+import { type Printer, printerFilters } from "@3d-maker-suite/core";
+import { Link } from "@tanstack/react-router";
 import { Plus, Printer as PrinterIcon } from "lucide-react";
-import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { DataTable } from "../../components/DataTable.tsx";
 import { EmptyState } from "../../components/EmptyState.tsx";
-import { inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
-import { TagFilter } from "../../components/TagFilter.tsx";
 import { TagList } from "../../components/TagList.tsx";
+import { useListPage, useUrlListQuery } from "../../lib/list.ts";
 import { usePreferences } from "../../lib/preferences.ts";
-import { usePrinters } from "../../lib/printers.ts";
-import { useTagsOf } from "../../lib/tags.ts";
+import { useTags, useTagsOf } from "../../lib/tags.ts";
 import { StateBadge, useStateLabel } from "./StateBadge.tsx";
 
 const addClass =
@@ -18,14 +16,12 @@ const addClass =
 
 export function PrintersPage() {
   const { t } = useTranslation();
-  const navigate = useNavigate();
   const stateLabel = useStateLabel();
   const states = usePreferences().data?.values.printerStates ?? [];
-  const [state, setState] = useState("");
-  const [archived, setArchived] = useState(false);
-  const [tagId, setTagId] = useState("");
-  const { data, isError } = usePrinters({ state: state || undefined, archived, tagId });
+  const [query, setQuery] = useUrlListQuery();
+  const { data, isError } = useListPage<Printer>(["printers", "list"], "/api/printers", query);
   const tagsOf = useTagsOf("printer");
+  const tags = useTags().data ?? [];
 
   const add = (
     <Link to="/printers/new" className={addClass}>
@@ -46,31 +42,7 @@ export function PrintersPage() {
           {t("printers:loadError")}
         </p>
       )}
-      <div className="mb-4 flex flex-wrap items-center gap-4">
-        <select
-          aria-label={t("printers:list.stateFilter")}
-          className={`${inputClass} w-auto`}
-          value={state}
-          onChange={(e) => setState(e.target.value)}
-        >
-          <option value="">{t("printers:list.allStates")}</option>
-          {states.map((s) => (
-            <option key={s} value={s}>
-              {stateLabel(s)}
-            </option>
-          ))}
-        </select>
-        <TagFilter value={tagId} onChange={setTagId} />
-        <label className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            checked={archived}
-            onChange={(e) => setArchived(e.target.checked)}
-          />
-          {t("printers:list.showArchived")}
-        </label>
-      </div>
-      {data && !data.total && !state && !archived && !tagId ? (
+      {data && !data.total && !Object.keys(query).length ? (
         <EmptyState
           icon={PrinterIcon}
           title={t("printers:list.emptyTitle")}
@@ -83,7 +55,13 @@ export function PrintersPage() {
             label={t("printers:list.table")}
             rows={data.items}
             rowKey={(p) => p.id}
-            onRowClick={(p) => navigate({ to: "/printers/$id", params: { id: p.id } })}
+            server={{
+              query,
+              onQueryChange: setQuery,
+              total: data.total,
+              filters: printerFilters,
+              archivable: true,
+            }}
             columns={[
               {
                 id: "name",
@@ -93,29 +71,34 @@ export function PrintersPage() {
                     to="/printers/$id"
                     params={{ id: p.id }}
                     className="font-medium hover:underline"
-                    onClick={(e) => e.stopPropagation()}
                   >
                     {p.name}
                   </Link>
                 ),
-                sortValue: (p) => p.name.toLowerCase(),
+                sort: "name",
+                filter: "name",
               },
               {
                 id: "model",
                 header: t("printers:list.columns.model"),
                 cell: (p) => `${p.brand} ${p.model}`.trim(),
-                sortValue: (p) => `${p.brand} ${p.model}`.toLowerCase(),
+                sort: "model",
+                filter: "model",
               },
               {
                 id: "state",
                 header: t("printers:list.columns.state"),
                 cell: (p) => <StateBadge state={p.state} />,
-                sortValue: (p) => p.state,
+                sort: "state",
+                filter: "state",
+                filterOptions: states.map((s) => ({ value: s, label: stateLabel(s) })),
               },
               {
                 id: "tags",
                 header: t("tags:column"),
                 cell: (p) => <TagList tags={tagsOf(p.id)} />,
+                filter: "tagId",
+                filterOptions: tags.map((x) => ({ value: x.id, label: x.name })),
               },
               {
                 id: "power",
@@ -125,7 +108,8 @@ export function PrintersPage() {
                   p.powerW === null
                     ? ""
                     : t("printers:detail.info.powerValue", { value: p.powerW }),
-                sortValue: (p) => p.powerW ?? 0,
+                sort: "powerW",
+                filter: "powerW",
               },
             ]}
           />

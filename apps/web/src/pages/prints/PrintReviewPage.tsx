@@ -9,12 +9,15 @@ import { inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { filamentLabel, useProfiles, useSpools } from "../../lib/filament.ts";
 import { formatDateTime, formatWeight } from "../../lib/format.ts";
+import { useUrlListQuery } from "../../lib/list.ts";
 import { useAssignReview, useDismissReview, useFilamentReview } from "../../lib/prints.ts";
 
 /** Imported filament that couldn't be matched to exactly one spool: a person decides. */
 export function PrintReviewPage() {
   const { t } = useTranslation();
-  const { data: items, isError } = useFilamentReview();
+  const [query, setQuery] = useUrlListQuery();
+  const { data, isError } = useFilamentReview(query);
+  const items = data?.items;
   const spools = (useSpools().data?.items ?? []).filter(
     (s) => !s.archivedAt && s.status !== "empty",
   );
@@ -48,13 +51,14 @@ export function PrintReviewPage() {
           {t(assign.isError ? "prints:review.assignError" : "prints:review.error")}
         </p>
       )}
-      {items && !items.length ? (
+      {data && !data.total ? (
         <EmptyState
           icon={CheckCircle2}
           title={t("prints:review.emptyTitle")}
           description={t("prints:review.emptyBody")}
         />
       ) : (
+        data &&
         items && (
           <>
             <div className="mb-3 flex justify-end">
@@ -70,16 +74,29 @@ export function PrintReviewPage() {
               label={t("prints:review.table")}
               rows={items}
               rowKey={(i) => i.usageId}
+              server={{
+                query,
+                onQueryChange: setQuery,
+                total: data.total,
+                defaultSort: "-startedAt",
+              }}
               columns={[
                 {
                   id: "print",
                   header: t("prints:review.columns.print"),
                   cell: (i) => (
                     <>
-                      <span className="font-medium">{i.printTitle}</span>
+                      <Link
+                        to="/prints/$id"
+                        params={{ id: i.printId }}
+                        className="font-medium hover:underline"
+                      >
+                        {i.printTitle}
+                      </Link>
                       <span className="block text-muted">{formatDateTime(i.startedAt)}</span>
                     </>
                   ),
+                  sort: "startedAt",
                 },
                 {
                   id: "filament",
@@ -103,7 +120,7 @@ export function PrintReviewPage() {
                   header: t("prints:review.columns.grams"),
                   numeric: true,
                   cell: (i) => formatWeight(i.grams),
-                  sortValue: (i) => i.grams,
+                  sort: "grams",
                 },
                 {
                   id: "spool",

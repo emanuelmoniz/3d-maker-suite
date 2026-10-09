@@ -60,6 +60,8 @@ export const printFilters = {
   durationSec: { kind: "number" },
 } as const satisfies Record<string, ColumnFilter>;
 
+export const filamentReviewSortFields = ["startedAt", "grams"] as const;
+
 export type PrintUsageInput = z.infer<typeof printUsageInputSchema>;
 export type PrintDetail = z.infer<typeof printDetailSchema>;
 export type PrintInput = z.input<typeof printInputSchema>;

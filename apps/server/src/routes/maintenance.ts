@@ -9,6 +9,7 @@ import {
   maintenanceLogSchema,
   maintenanceTaskSchema,
   maintenanceTaskSortFields,
+  maintenanceTypeFilters,
   maintenanceTypeInputSchema,
   maintenanceTypePatchSchema,
   maintenanceTypeSchema,
@@ -47,20 +48,35 @@ export const maintenanceRoutes =
       "/types",
       {
         schema: {
-          querystring: listQuery(maintenanceTypeSortFields, { archived: archivedFilter }),
+          querystring: listQuery(
+            maintenanceTypeSortFields,
+            { archived: archivedFilter },
+            maintenanceTypeFilters,
+          ),
           response: { 200: pageOf(maintenanceTypeSchema) },
         },
       },
       async (req) =>
         listPage(db, maintenanceTypes, req.query, {
-          sort: { name: maintenanceTypes.name, createdAt: maintenanceTypes.createdAt },
+          sort: {
+            name: maintenanceTypes.name,
+            createdAt: maintenanceTypes.createdAt,
+            appliesToModel: maintenanceTypes.appliesToModel,
+          },
           dateColumn: maintenanceTypes.createdAt,
+          filters: { name: maintenanceTypes.name, appliesToModel: maintenanceTypes.appliesToModel },
           where: [
             req.query.archived === "true"
               ? isNotNull(maintenanceTypes.archivedAt)
               : isNull(maintenanceTypes.archivedAt),
           ],
         }) as Page<MaintenanceType>,
+    );
+
+    app.get(
+      "/types/:id",
+      { schema: { params, response: { 200: maintenanceTypeSchema, ...notFound } } },
+      async (req) => getType(req.params.id) as MaintenanceType,
     );
 
     app.post(

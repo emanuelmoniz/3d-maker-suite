@@ -9,9 +9,6 @@
   "list": {
     "add": "Add printer",
     "table": "Printers",
-    "showArchived": "Show archived",
-    "stateFilter": "State",
-    "allStates": "All states",
     "emptyTitle": "No printers yet",
     "emptyBody": "Add your first printer to start tracking prints and maintenance.",
     "columns": { "name": "Name", "model": "Model", "state": "State", "power": "Power" }

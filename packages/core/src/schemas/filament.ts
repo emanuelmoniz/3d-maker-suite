@@ -1,5 +1,7 @@
 import { z } from "zod";
 import { filamentProfileSchema, spoolSchema } from "./entities.ts";
+import { SPOOL_STATUSES } from "./enums.ts";
+import type { ColumnFilter } from "./list.ts";
 
 /** Fields the user edits. `PATCH` takes any subset, plus `archived` to archive/restore. */
 export const filamentProfileInputSchema = filamentProfileSchema
@@ -63,8 +65,33 @@ export const spoolAdjustSchema = z.object({
   note: z.string().min(1).nullable().optional(),
 });
 
-export const filamentProfileSortFields = ["brand", "material", "createdAt"] as const;
-export const spoolSortFields = ["createdAt", "remainingGrams", "purchasedAt"] as const;
+export const filamentProfileSortFields = [
+  "brand",
+  "material",
+  "createdAt",
+  "filament",
+  "pricePerKg",
+] as const;
+export const spoolSortFields = [
+  "createdAt",
+  "remainingGrams",
+  "purchasedAt",
+  "filament",
+  "status",
+] as const;
+
+/** `filament` is the profile label ("brand material name"). */
+export const filamentProfileFilters = {
+  filament: { kind: "text" },
+  pricePerKg: { kind: "number" },
+} as const satisfies Record<string, ColumnFilter>;
+
+export const spoolFilters = {
+  filament: { kind: "text" },
+  remainingGrams: { kind: "number" },
+  status: { kind: "select", options: SPOOL_STATUSES },
+  tagId: { kind: "select" },
+} as const satisfies Record<string, ColumnFilter>;
 
 export type FilamentProfileInput = z.infer<typeof filamentProfileInputSchema>;
 export type FilamentProfilePatch = z.infer<typeof filamentProfilePatchSchema>;

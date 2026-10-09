@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { printerSchema } from "./entities.ts";
 import { COMMENT_STATUSES } from "./enums.ts";
+import type { ColumnFilter } from "./list.ts";
 
 /** Fields the user edits. `PATCH` takes any subset, plus `archived` to archive/restore. */
 export const printerInputSchema = printerSchema
@@ -51,7 +52,16 @@ export const printStatsSchema = z.object({
   energyWh: z.number(),
 });
 
-export const printerSortFields = ["name", "createdAt"] as const;
+export const printerSortFields = ["name", "createdAt", "model", "state", "powerW"] as const;
+
+/** Printers table column filters (see `listQuery`). States are user-defined, so not an enum. */
+export const printerFilters = {
+  name: { kind: "text" },
+  model: { kind: "text" },
+  state: { kind: "select" },
+  tagId: { kind: "select" },
+  powerW: { kind: "number" },
+} as const satisfies Record<string, ColumnFilter>;
 export const archivedFilter = z.enum(["true", "false"]).default("false");
 
 export type PrinterInput = z.infer<typeof printerInputSchema>;

@@ -1,62 +1,94 @@
-import { useNavigate } from "@tanstack/react-router";
+import type { MaintenanceType } from "@3d-maker-suite/core";
+import { useNavigate, useParams } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
-import { useCreateType } from "../../lib/maintenance.ts";
+import { useCreateType, useMaintenanceType, usePatchType } from "../../lib/maintenance.ts";
 
 const text = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
 const num = (v: string, scale = 1) => (v ? Math.round(Number(v) * scale) : null);
 
-function TypeForm() {
+function TypeForm({ type }: { type?: MaintenanceType }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const create = useCreateType();
+  const patch = usePatchType();
+  const save = type ? patch : create;
   const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const form = e.currentTarget;
     const f = new FormData(form);
-    create.mutate(
-      {
-        name: text(f, "name"),
-        description: text(f, "description") || null,
-        intervalSec: num(text(f, "hours"), 3600),
-        intervalPrints: num(text(f, "prints")),
-        intervalDays: num(text(f, "days")),
-        appliesToModel: text(f, "model") || null,
-      },
-      { onSuccess: () => navigate({ to: "/maintenance" }) },
-    );
+    const body = {
+      name: text(f, "name"),
+      description: text(f, "description") || null,
+      intervalSec: num(text(f, "hours"), 3600),
+      intervalPrints: num(text(f, "prints")),
+      intervalDays: num(text(f, "days")),
+      appliesToModel: text(f, "model") || null,
+    };
+    if (type)
+      patch.mutate(
+        { id: type.id, patch: body },
+        { onSuccess: () => navigate({ to: "/maintenance/types/$id", params: { id: type.id } }) },
+      );
+    else create.mutate(body, { onSuccess: () => navigate({ to: "/maintenance" }) });
   };
-  const interval = (name: string, label: string) => (
+  const interval = (name: string, label: string, value: number | null | undefined) => (
     <FormField label={t(label)}>
-      {(p) => <input {...p} name={name} type="number" min={1} step={1} className={inputClass} />}
+      {(p) => (
+        <input
+          {...p}
+          name={name}
+          type="number"
+          min={1}
+          step={name === "hours" ? "any" : 1}
+          defaultValue={value ?? undefined}
+          className={inputClass}
+        />
+      )}
     </FormField>
   );
   return (
     <form onSubmit={onSubmit} className="grid gap-4 sm:max-w-md">
       <FormField label={t("maintenance:types.name")}>
-        {(p) => <input {...p} name="name" required className={inputClass} />}
+        {(p) => (
+          <input {...p} name="name" required defaultValue={type?.name} className={inputClass} />
+        )}
       </FormField>
       <FormField label={t("maintenance:types.description")}>
-        {(p) => <input {...p} name="description" className={inputClass} />}
+        {(p) => (
+          <input
+            {...p}
+            name="description"
+            defaultValue={type?.description ?? undefined}
+            className={inputClass}
+          />
+        )}
       </FormField>
       <fieldset className="grid gap-4">
         <legend className="mb-1 text-muted">{t("maintenance:types.intervalHint")}</legend>
-        {interval("hours", "maintenance:types.hours")}
-        {interval("prints", "maintenance:types.prints")}
-        {interval("days", "maintenance:types.days")}
+        {interval("hours", "maintenance:types.hours", type?.intervalSec && type.intervalSec / 3600)}
+        {interval("prints", "maintenance:types.prints", type?.intervalPrints)}
+        {interval("days", "maintenance:types.days", type?.intervalDays)}
       </fieldset>
       <FormField label={t("maintenance:types.model")} hint={t("maintenance:types.modelHint")}>
-        {(p) => <input {...p} name="model" className={inputClass} />}
+        {(p) => (
+          <input
+            {...p}
+            name="model"
+            defaultValue={type?.appliesToModel ?? undefined}
+            className={inputClass}
+          />
+        )}
       </FormField>
-      {create.isError && (
+      {save.isError && (
         <p role="alert" className="text-bad">
           {t("maintenance:types.error")}
         </p>
       )}
       <div className="flex gap-2">
-        <Button type="submit" variant="primary" disabled={create.isPending}>
+        <Button type="submit" variant="primary" disabled={save.isPending}>
           {t("maintenance:types.save")}
         </Button>
         <Button onClick={() => history.back()}>{t("common:actions.cancel")}</Button>
@@ -71,6 +103,22 @@ export function TypeCreatePage() {
     <>
       <PageHeader title={t("maintenance:types.addTitle")} backTo={{ to: "/maintenance" }} />
       <TypeForm />
+    </>
+  );
+}
+
+export function TypeEditPage() {
+  const { t } = useTranslation();
+  const { id } = useParams({ strict: false }) as { id: string };
+  const { data } = useMaintenanceType(id);
+  return (
+    <>
+      <PageHeader
+        title={t("maintenance:types.editTitle")}
+        backTo={{ to: "/maintenance/types/$id", params: { id } }}
+      />
+      {/* key: the form is uncontrolled, so remount when the saved type arrives */}
+      {data && <TypeForm key={data.updatedAt} type={data} />}
     </>
   );
 }

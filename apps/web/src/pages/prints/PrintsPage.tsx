@@ -1,19 +1,18 @@
 import { PRINT_OUTCOMES, printFilters } from "@3d-maker-suite/core";
-import { Link, useNavigate, useSearch } from "@tanstack/react-router";
+import { Link } from "@tanstack/react-router";
 import { ExternalLink, Layers, Plus } from "lucide-react";
-import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
-import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { CostBreakdown } from "../../components/CostBreakdown.tsx";
-import { DataTable, type ListQuery } from "../../components/DataTable.tsx";
+import { DataTable } from "../../components/DataTable.tsx";
 import { EmptyState } from "../../components/EmptyState.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { TagList } from "../../components/TagList.tsx";
 import { useMoney } from "../../lib/cost.ts";
 import { formatDateTime, formatDuration, formatWeight } from "../../lib/format.ts";
+import { useUrlListQuery } from "../../lib/list.ts";
 import { usePrinters } from "../../lib/printers.ts";
-import { useDeletePrint, useFilamentReview, usePrints } from "../../lib/prints.ts";
+import { useFilamentReview, usePrints } from "../../lib/prints.ts";
 import { useTags, useTagsOf } from "../../lib/tags.ts";
 
 const OUTCOMES = {
@@ -25,17 +24,12 @@ const OUTCOMES = {
 export function PrintsPage() {
   const { t } = useTranslation();
   const money = useMoney();
-  // The URL search params are the API list query, so a link reproduces the same view.
-  const query = useSearch({ strict: false }) as ListQuery;
-  const navigate = useNavigate();
-  const setQuery = (search: ListQuery) => navigate({ to: "/prints", search });
+  const [query, setQuery] = useUrlListQuery();
   const { data, isError } = usePrints(query);
   const tagsOf = useTagsOf("print");
   const tags = useTags().data ?? [];
   const printers = usePrinters({ archived: false }).data?.items ?? [];
-  const waiting = useFilamentReview().data?.length ?? 0;
-  const del = useDeletePrint();
-  const [toDelete, setToDelete] = useState<{ id: string; title: string } | null>(null);
+  const waiting = useFilamentReview({ pageSize: "1" }).data?.total ?? 0;
   const grams = (p: { usages: { grams: number }[] }) => p.usages.reduce((n, u) => n + u.grams, 0);
   const add = (
     <Link
@@ -108,7 +102,13 @@ export function PrintsPage() {
                         onError={(e) => e.currentTarget.remove()}
                       />
                     )}
-                    <span className="font-medium">{p.title}</span>
+                    <Link
+                      to="/prints/$id"
+                      params={{ id: p.id }}
+                      className="font-medium hover:underline"
+                    >
+                      {p.title}
+                    </Link>
                     {p.sourceUrl && (
                       <a
                         href={p.sourceUrl}
@@ -190,35 +190,10 @@ export function PrintsPage() {
                   </details>
                 ),
               },
-              {
-                id: "actions",
-                header: "",
-                cell: (p) => (
-                  <span className="flex items-center justify-end gap-3">
-                    <Link to="/prints/$id/edit" params={{ id: p.id }} className="hover:underline">
-                      {t("prints:list.edit")}
-                    </Link>
-                    <Button variant="ghost" onClick={() => setToDelete(p)}>
-                      {t("prints:list.delete")}
-                    </Button>
-                  </span>
-                ),
-              },
             ]}
           />
         )
       )}
-      <ConfirmDialog
-        open={!!toDelete}
-        destructive
-        title={t("prints:delete.title")}
-        description={t("prints:delete.body", { title: toDelete?.title })}
-        confirmLabel={t("prints:delete.confirm")}
-        onCancel={() => setToDelete(null)}
-        onConfirm={() =>
-          toDelete && del.mutate(toDelete.id, { onSettled: () => setToDelete(null) })
-        }
-      />
     </>
   );
 }

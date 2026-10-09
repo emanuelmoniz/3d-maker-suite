@@ -150,11 +150,7 @@ function LinkedPrints({ id }: { id: string }) {
         <ul className="divide-y divide-border rounded-lg border border-border bg-surface">
           {prints.map((p) => (
             <li key={p.id} className="flex flex-wrap items-center justify-between gap-2 p-3">
-              <Link
-                to="/prints/$id/edit"
-                params={{ id: p.id }}
-                className="font-medium hover:underline"
-              >
+              <Link to="/prints/$id" params={{ id: p.id }} className="font-medium hover:underline">
                 {p.title}
               </Link>
               <span className="text-muted">

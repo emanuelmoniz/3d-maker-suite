@@ -42,6 +42,9 @@
     "body": "Imported printers and prints stay. The credentials and the sync log are removed."
   },
   "runs": {
+    "table": "Sync log",
+    "ok": "Succeeded",
+    "error": "Failed",
     "empty": "No syncs yet.",
     "started": "Started",
     "trigger": "Trigger",

@@ -28,7 +28,8 @@
     "min": "Min",
     "max": "Max",
     "apply": "Apply",
-    "clear": "Clear"
+    "clear": "Clear",
+    "showArchived": "Show archived"
   },
   "a11y": { "mainNav": "Main navigation", "skipToContent": "Skip to content" },
   "notFound": {

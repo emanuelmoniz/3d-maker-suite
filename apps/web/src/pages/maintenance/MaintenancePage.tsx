@@ -1,4 +1,8 @@
-import type { MaintenanceDueItem, MaintenanceType } from "@3d-maker-suite/core";
+import {
+  type MaintenanceDueItem,
+  type MaintenanceType,
+  maintenanceTypeFilters,
+} from "@3d-maker-suite/core";
 import { Link } from "@tanstack/react-router";
 import { Plus, Wrench } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -9,7 +13,8 @@ import { EmptyState } from "../../components/EmptyState.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { dateInputToIso, formatDate, formatDuration, formatNumber } from "../../lib/format.ts";
-import { useDue, useLogDone, useMaintenanceTypes, usePatchType } from "../../lib/maintenance.ts";
+import { useListPage, useUrlListQuery } from "../../lib/list.ts";
+import { useDue, useLogDone } from "../../lib/maintenance.ts";
 import { usePreferences } from "../../lib/preferences.ts";
 
 const STATUS = {
@@ -142,8 +147,12 @@ function LogDialog({ item, onClose }: { item: MaintenanceDueItem | null; onClose
 export function MaintenancePage() {
   const { t, i18n } = useTranslation();
   const due = useDue();
-  const types = useMaintenanceTypes();
-  const patchType = usePatchType();
+  const [query, setQuery] = useUrlListQuery();
+  const types = useListPage<MaintenanceType>(
+    ["maintenance", "types"],
+    "/api/maintenance/types",
+    query,
+  );
   const dueText = useDueText();
   const [logging, setLogging] = useState<MaintenanceDueItem | null>(null);
   const list = new Intl.ListFormat(i18n.language, { type: "unit", style: "narrow" });
@@ -188,13 +197,29 @@ export function MaintenancePage() {
                   {
                     id: "printer",
                     header: t("maintenance:due.columns.printer"),
-                    cell: (i) => i.printerName,
+                    cell: (i) => (
+                      <Link
+                        to="/printers/$id"
+                        params={{ id: i.printerId }}
+                        className="font-medium hover:underline"
+                      >
+                        {i.printerName}
+                      </Link>
+                    ),
                     sortValue: (i) => i.printerName.toLowerCase(),
                   },
                   {
                     id: "task",
                     header: t("maintenance:due.columns.task"),
-                    cell: (i) => <span className="font-medium">{i.typeName}</span>,
+                    cell: (i) => (
+                      <Link
+                        to="/maintenance/types/$id"
+                        params={{ id: i.typeId }}
+                        className="hover:underline"
+                      >
+                        {i.typeName}
+                      </Link>
+                    ),
                     sortValue: (i) => i.typeName.toLowerCase(),
                   },
                   {
@@ -251,17 +276,31 @@ export function MaintenancePage() {
               label={t("maintenance:types.table")}
               rows={types.data.items}
               rowKey={(m) => m.id}
+              server={{
+                query,
+                onQueryChange: setQuery,
+                total: types.data.total,
+                filters: maintenanceTypeFilters,
+                archivable: true,
+              }}
               columns={[
                 {
                   id: "name",
                   header: t("maintenance:types.name"),
                   cell: (m) => (
                     <>
-                      <span className="font-medium">{m.name}</span>
+                      <Link
+                        to="/maintenance/types/$id"
+                        params={{ id: m.id }}
+                        className="font-medium hover:underline"
+                      >
+                        {m.name}
+                      </Link>
                       {m.description && <span className="block text-muted">{m.description}</span>}
                     </>
                   ),
-                  sortValue: (m) => m.name.toLowerCase(),
+                  sort: "name",
+                  filter: "name",
                 },
                 {
                   id: "interval",
@@ -272,18 +311,8 @@ export function MaintenancePage() {
                   id: "model",
                   header: t("maintenance:types.model"),
                   cell: (m) => m.appliesToModel ?? t("maintenance:types.allModels"),
-                },
-                {
-                  id: "action",
-                  header: "",
-                  cell: (m) => (
-                    <Button
-                      variant="ghost"
-                      onClick={() => patchType.mutate({ id: m.id, patch: { archived: true } })}
-                    >
-                      {t("maintenance:types.archive")}
-                    </Button>
-                  ),
+                  sort: "appliesToModel",
+                  filter: "appliesToModel",
                 },
               ]}
             />

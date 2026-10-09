@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { id, isoDate } from "./entities.ts";
 import { ORIGINS, PROJECT_EDITABLE_FIELDS, PROJECT_FILE_KINDS } from "./enums.ts";
-import { listQuery } from "./list.ts";
+import { type ColumnFilter, listQuery } from "./list.ts";
 
 const nullableText = z.string().nullable();
 
@@ -102,7 +102,15 @@ export const projectInputSchema = z.object({
 export const projectPatchSchema = z.object(editable).partial().strict();
 
 export const projectSortFields = ["name", "createdAt"] as const;
-export const projectListQuery = listQuery(projectSortFields);
+/** `name` also searches the description; `material` matches any of the project's materials. */
+export const projectFilters = {
+  name: { kind: "text" },
+  tagId: { kind: "select" },
+  collectionId: { kind: "select" },
+  material: { kind: "select" },
+  multicolor: { kind: "select", options: ["true"] },
+} as const satisfies Record<string, ColumnFilter>;
+export const projectListQuery = listQuery(projectSortFields, {}, projectFilters);
 
 export const projectScanStatusSchema = z.object({
   state: z.enum(["idle", "running"]),

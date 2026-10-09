@@ -10,6 +10,7 @@ import type {
 } from "@3d-maker-suite/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "./api.ts";
+import { useListPage } from "./list.ts";
 
 export const useAdapters = () =>
   useQuery({
@@ -23,12 +24,8 @@ export const useIntegrations = () =>
     queryFn: () => api<Integration[]>("GET", "/api/integrations"),
   });
 
-export const useSyncRuns = (id: string, enabled: boolean) =>
-  useQuery({
-    queryKey: ["integrations", id, "runs"],
-    queryFn: () => api<SyncRun[]>("GET", `/api/integrations/${id}/runs`),
-    enabled,
-  });
+export const useSyncRuns = (id: string, query: Record<string, string>) =>
+  useListPage<SyncRun>(["integrations", id, "runs"], `/api/integrations/${id}/runs`, query);
 
 /** A sync can import printers and prints, so everything is refreshed afterwards. */
 function useInvalidating<V, R = unknown>(fn: (v: V) => Promise<R>, all = false) {

@@ -5,9 +5,7 @@
     "emptyTitle": "No prints yet",
     "emptyBody": "Log a print to track how it went and how much filament it used.",
     "add": "Add print",
-    "edit": "Edit",
     "openDesign": "Open design page",
-    "delete": "Delete",
     "columns": {
       "title": "Print",
       "startedAt": "Started",
@@ -68,5 +66,15 @@
     "title": "Delete this print?",
     "body": "“{{title}}” will be removed and its filament returned to the spools.",
     "confirm": "Delete print"
+  },
+  "detail": {
+    "title": "Print details",
+    "notFound": "Print not found.",
+    "edit": "Edit",
+    "delete": "Delete",
+    "project": "Project",
+    "source": "Design page",
+    "waiting": "Waiting for review",
+    "untracked": "Not tracked"
   }
 }
