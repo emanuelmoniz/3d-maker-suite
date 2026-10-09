@@ -62,6 +62,7 @@ export function IntegrationsPage() {
       <PageHeader
         title={t("integrations:title")}
         description={t("integrations:description")}
+        backTo={{ to: "/settings" }}
         actions={add}
       />
       {isError && (

@@ -45,6 +45,7 @@ export function IntegrationLoginPage() {
       <PageHeader
         title={t("integrations:login.title", { name: integration?.name ?? "" })}
         description={challenge ? t(CHALLENGES[challenge]) : undefined}
+        backTo={{ to: "/settings/integrations" }}
       />
       <form key={challenge ?? "password"} onSubmit={onSubmit} className="grid gap-4 sm:max-w-md">
         {challenge ? (
