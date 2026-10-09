@@ -292,7 +292,7 @@ Do Step 25 of PLAN.md. Review only; list findings by severity with file referenc
 then fix high/medium ones after I approve.
 ```
 
-### [ ] Step 26 - Docs & v1.0 release
+### [x] Step 26 - Docs & v1.0 release
 **Model:** Haiku · **Effort:** Low
 **Scope:** README (features, screenshots, install, Bambu Cloud setup, FAQ), CONTRIBUTING (incl. "how to add an adapter", "how to add a language"), CHANGELOG, GitHub release workflow, issue templates.
 **Done when:** a new user can install from the README alone.
