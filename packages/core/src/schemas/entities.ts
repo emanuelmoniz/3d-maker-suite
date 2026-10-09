@@ -9,6 +9,7 @@ import {
   ORIGINS,
   PRINT_OUTCOMES,
   SPOOL_STATUSES,
+  SYNC_FREQUENCIES,
   TAGGABLE_TYPES,
   WEIGHT_ENTRY_KINDS,
 } from "./enums.ts";
@@ -44,6 +45,8 @@ export const integrationSchema = z.object({
   slicerPath: z.string().nullable(),
   /** Supported, switched on and set up: the only thing the UI looks at to offer actions. */
   capabilities: z.array(z.enum(CAPABILITIES)),
+  /** How often the scheduler syncs this integration; "off" = manual only. */
+  syncFrequency: z.enum(SYNC_FREQUENCIES),
   status: z.enum(INTEGRATION_STATUSES),
   lastSyncAt: isoDate.nullable(),
   lastError: z.enum(INTEGRATION_ERROR_CODES).nullable(),

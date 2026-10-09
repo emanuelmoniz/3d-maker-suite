@@ -6,6 +6,10 @@ import {
   type IntegrationStatus,
   SYNC_RUN_STATUSES,
   SYNC_TRIGGERS,
+  SYNC_TYPES,
+  type SyncFrequency,
+  type SyncRequest,
+  type SyncRun,
   syncRunFilters,
 } from "@3d-maker-suite/core";
 import { Link, useNavigate } from "@tanstack/react-router";
@@ -18,7 +22,7 @@ import { DataTable, type ListQuery } from "../../components/DataTable.tsx";
 import { EmptyState } from "../../components/EmptyState.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
-import { formatDateTime } from "../../lib/format.ts";
+import { formatDate, formatDateTime } from "../../lib/format.ts";
 import {
   useAdapterName,
   useAdapters,
@@ -58,6 +62,26 @@ const CAPS: Record<Capability, string> = {
   openInSlicer: "integrations:capabilities.openInSlicer",
 };
 const TRIGGERS = { manual: "integrations:runs.manual", scheduled: "integrations:runs.scheduled" };
+const TYPES = {
+  printers: "integrations:runs.printers",
+  prints: "integrations:runs.prints",
+};
+const RANGES = {
+  sinceLast: "integrations:sync.ranges.sinceLast",
+  d7: "integrations:sync.ranges.d7",
+  d30: "integrations:sync.ranges.d30",
+  d90: "integrations:sync.ranges.d90",
+  year: "integrations:sync.ranges.year",
+  custom: "integrations:sync.ranges.custom",
+};
+const FREQUENCIES: Record<SyncFrequency, string> = {
+  "15m": "integrations:sync.frequencies.15m",
+  "1h": "integrations:sync.frequencies.1h",
+  "1d": "integrations:sync.frequencies.1d",
+  "1w": "integrations:sync.frequencies.1w",
+  "1M": "integrations:sync.frequencies.1M",
+  off: "integrations:sync.frequencies.off",
+};
 const RUN_STATUSES = { ok: "integrations:runs.ok", error: "integrations:runs.error" };
 
 const addClass =
@@ -174,13 +198,6 @@ function IntegrationCard({ integration: i }: { integration: Integration }) {
         )}
         {account && (
           <>
-            <Button
-              variant={hasLogin && !i.hasSecrets ? "secondary" : "primary"}
-              disabled={sync.isPending}
-              onClick={() => sync.mutate()}
-            >
-              {t("integrations:card.syncNow")}
-            </Button>
             <Button disabled={test.isPending} onClick={() => test.mutate()}>
               {t("integrations:card.test")}
             </Button>
@@ -202,6 +219,10 @@ function IntegrationCard({ integration: i }: { integration: Integration }) {
           {t("integrations:card.enabled")}
         </label>
       </div>
+
+      {account && (
+        <SyncControls integration={i} primary={!(hasLogin && !i.hasSecrets)} sync={sync} />
+      )}
 
       {i.enabled && supported.length > 0 && (
         <fieldset className="mt-4">
@@ -246,6 +267,154 @@ function IntegrationCard({ integration: i }: { integration: Integration }) {
         }}
       />
     </li>
+  );
+}
+
+const startOfDay = (daysAgo: number) => {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() - daysAgo);
+  return d.toISOString();
+};
+
+/** The range for "Sync prints"; empty = continue from the last sync. Custom dates are local days. */
+function rangeFor(range: keyof typeof RANGES, from: string, to: string): Partial<SyncRequest> {
+  if (range === "d7") return { from: startOfDay(7) };
+  if (range === "d30") return { from: startOfDay(30) };
+  if (range === "d90") return { from: startOfDay(90) };
+  if (range === "year") return { from: new Date(new Date().getFullYear(), 0, 1).toISOString() };
+  if (range !== "custom") return {};
+  return {
+    ...(from && { from: new Date(`${from}T00:00:00`).toISOString() }),
+    ...(to && { to: new Date(`${to}T23:59:59.999`).toISOString() }),
+  };
+}
+
+function SyncControls({
+  integration: i,
+  primary,
+  sync,
+}: {
+  integration: Integration;
+  primary: boolean;
+  sync: ReturnType<typeof useSyncIntegration>;
+}) {
+  const { t } = useTranslation();
+  const patch = usePatchIntegration(i.id);
+  const [range, setRange] = useState<keyof typeof RANGES>("sinceLast");
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
+  const printers = i.capabilities.includes("printers");
+  const prints = i.capabilities.includes("prints");
+  const customInvalid = range === "custom" && (!from || (!!to && to < from));
+  const select = <T extends string>(
+    value: T,
+    options: Record<T, string>,
+    onChange: (v: T) => void,
+    p: object,
+    disabled = false,
+  ) => (
+    <select
+      {...p}
+      className={inputClass}
+      value={value}
+      disabled={disabled}
+      onChange={(e) => onChange(e.target.value as T)}
+    >
+      {(Object.keys(options) as T[]).map((k) => (
+        <option key={k} value={k}>
+          {t(options[k])}
+        </option>
+      ))}
+    </select>
+  );
+  return (
+    <fieldset className="mt-4 grid gap-3">
+      <legend className="mb-2 font-medium">{t("integrations:sync.title")}</legend>
+      {patch.isError && (
+        <p role="alert" className="text-bad">
+          {t("integrations:card.actionError")}
+        </p>
+      )}
+      <div className="flex flex-wrap items-center gap-2">
+        {printers && prints && (
+          <Button
+            variant={primary ? "primary" : "secondary"}
+            disabled={sync.isPending}
+            onClick={() => sync.mutate(undefined)}
+          >
+            {t("integrations:card.syncNow")}
+          </Button>
+        )}
+        {printers && (
+          <Button
+            variant={primary && !prints ? "primary" : "secondary"}
+            disabled={sync.isPending}
+            onClick={() => sync.mutate({ type: "printers" })}
+          >
+            {t("integrations:card.syncPrinters")}
+          </Button>
+        )}
+        {prints && (
+          <Button
+            variant={primary && !printers ? "primary" : "secondary"}
+            disabled={sync.isPending || customInvalid}
+            onClick={() => sync.mutate({ type: "prints", ...rangeFor(range, from, to) })}
+          >
+            {t("integrations:card.syncPrints")}
+          </Button>
+        )}
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        {prints && (
+          <FormField label={t("integrations:sync.range")} hint={t("integrations:sync.rangeHint")}>
+            {(p) => select(range, RANGES, setRange, p)}
+          </FormField>
+        )}
+        <FormField
+          label={t("integrations:sync.frequency")}
+          hint={t("integrations:sync.frequencyHint")}
+        >
+          {(p) =>
+            select(
+              i.syncFrequency,
+              FREQUENCIES,
+              (syncFrequency) => patch.mutate({ syncFrequency }),
+              p,
+              patch.isPending,
+            )
+          }
+        </FormField>
+      </div>
+      {prints && range === "custom" && (
+        <div className="grid gap-3 sm:grid-cols-2">
+          <FormField label={t("integrations:sync.from")}>
+            {(p) => (
+              <input
+                {...p}
+                type="date"
+                className={inputClass}
+                value={from}
+                max={to || undefined}
+                onChange={(e) => setFrom(e.target.value)}
+              />
+            )}
+          </FormField>
+          <FormField label={t("integrations:sync.to")}>
+            {(p) => (
+              <input
+                {...p}
+                type="date"
+                className={inputClass}
+                value={to}
+                min={from || undefined}
+                onChange={(e) => setTo(e.target.value)}
+              />
+            )}
+          </FormField>
+        </div>
+      )}
+    </fieldset>
   );
 }
 
@@ -317,6 +486,13 @@ function SyncLog({ id }: { id: string }) {
   const { t } = useTranslation();
   const [query, setQuery] = useState<ListQuery>({ pageSize: "10" });
   const { data } = useSyncRuns(id, query);
+  const rangeLabel = (r: SyncRun) => {
+    const [from, to] = [r.rangeFrom, r.rangeTo].map((d) => (d ? formatDate(d) : ""));
+    if (from && to) return t("integrations:runs.rangeBetween", { from, to });
+    if (from) return t("integrations:runs.rangeFrom", { from });
+    if (to) return t("integrations:runs.rangeTo", { to });
+    return "–";
+  };
   if (!data) return null;
   if (!data.total && Object.keys(query).length <= 1)
     return <p className="mt-4 text-muted">{t("integrations:runs.empty")}</p>;
@@ -340,6 +516,18 @@ function SyncLog({ id }: { id: string }) {
             cell: (r) => formatDateTime(r.startedAt),
             sort: "startedAt",
             filter: "startedAt",
+          },
+          {
+            id: "type",
+            header: t("integrations:runs.type"),
+            cell: (r) => (r.type ? t(TYPES[r.type]) : t("integrations:runs.all")),
+            filter: "type",
+            filterOptions: SYNC_TYPES.map((v) => ({ value: v, label: t(TYPES[v]) })),
+          },
+          {
+            id: "range",
+            header: t("integrations:runs.range"),
+            cell: (r) => rangeLabel(r),
           },
           {
             id: "trigger",

@@ -14,6 +14,7 @@ import {
   type Page,
   pageOf,
   type SyncRun,
+  syncRequestSchema,
   syncRunFilters,
   syncRunSchema,
   syncRunSortFields,
@@ -223,8 +224,14 @@ export const integrationsRoutes =
 
     app.post(
       "/:id/sync",
-      { schema: { params, response: { 200: syncRunSchema, ...notFound, 409: apiErrorSchema } } },
-      async (req) => syncer.run(req.params.id, "manual"),
+      {
+        schema: {
+          params,
+          body: syncRequestSchema.nullish(),
+          response: { 200: syncRunSchema, ...notFound, 409: apiErrorSchema },
+        },
+      },
+      async (req) => syncer.run(req.params.id, "manual", req.body ?? undefined),
     );
 
     app.get(
@@ -243,6 +250,7 @@ export const integrationsRoutes =
           defaultSort: "-startedAt",
           filters: {
             startedAt: syncRuns.startedAt,
+            type: syncRuns.type,
             trigger: syncRuns.trigger,
             status: syncRuns.status,
           },

@@ -73,9 +73,11 @@ export function mockAdapter(state: MockState = fixture()): IntegrationAdapter {
           },
         },
         printHistory: {
-          listPrints: async ({ since, cursor }) => {
+          listPrints: async ({ since, until, cursor }) => {
             await check();
-            const all = state.prints.filter((p) => !since || p.startedAt >= since);
+            const all = state.prints.filter(
+              (p) => (!since || p.startedAt >= since) && (!until || p.startedAt <= until),
+            );
             const start = Number(cursor ?? 0);
             const end = start + PAGE_SIZE;
             return {

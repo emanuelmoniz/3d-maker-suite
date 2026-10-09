@@ -148,6 +148,13 @@
       "when": 1791587831423,
       "tag": "0020_integrations_drop_name",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "6",
+      "when": 1791588499965,
+      "tag": "0021_sync_by_type",
+      "breakpoints": true
     }
   ]
 }

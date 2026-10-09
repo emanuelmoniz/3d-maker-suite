@@ -7,8 +7,10 @@ import {
   PRINT_OUTCOMES,
   type PROJECT_EDITABLE_FIELDS,
   SPOOL_STATUSES,
+  SYNC_FREQUENCIES,
   SYNC_RUN_STATUSES,
   SYNC_TRIGGERS,
+  SYNC_TYPES,
   TAGGABLE_TYPES,
   WEIGHT_ENTRY_KINDS,
 } from "@3d-maker-suite/core";
@@ -61,8 +63,12 @@ export const integrations = sqliteTable("integrations", {
   slicerConfigDir: text(),
   /** Slicer program for "Open in slicer". */
   slicerPath: text(),
+  /** How often the scheduler syncs this one; "off" = manual only. */
+  syncFrequency: text({ enum: SYNC_FREQUENCIES }).notNull().default("15m"),
   status: text().notNull().default("new"),
   lastSyncAt: text(),
+  /** Prints already fetched up to here; the next incremental prints sync starts from it. */
+  lastPrintsSyncAt: text(),
   lastError: text(),
   ...timestamps,
 });
@@ -76,6 +82,11 @@ export const syncRuns = sqliteTable(
       .notNull()
       .references(() => integrations.id, { onDelete: "cascade" }),
     trigger: text({ enum: SYNC_TRIGGERS }).notNull(),
+    /** null on runs from before sync was split by type. */
+    type: text({ enum: SYNC_TYPES }),
+    /** Range of a manual prints sync; null = incremental. */
+    rangeFrom: text(),
+    rangeTo: text(),
     startedAt: text().notNull(),
     finishedAt: text().notNull(),
     status: text({ enum: SYNC_RUN_STATUSES }).notNull(),

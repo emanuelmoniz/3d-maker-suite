@@ -117,9 +117,9 @@ the web app never checks vendor names. Show me the settings migration and the
 capability model before implementing.
 ```
 
-### [ ] Step 10 - Sync by type and date range
+### [x] Step 10 - Sync by type and date range
 **Model:** Sonnet · **Effort:** High
-**Scope:** Separate sync actions per type (printers, prints, filament/spools when the source provides them) instead of one "sync now"; manual sync takes a date range (presets + custom) for prints. Scheduled sync stays incremental. Sync log shows type and range.
+**Scope:** Separate sync actions per type (printers, prints, filament/spools when the source provides them) instead of one "sync now"; manual sync takes a date range (presets + custom) for prints. Scheduled sync stays incremental. Sync log shows type and range. Add option to define frequency 15m, 1h, 1d, 1w, 1M or sugest diferent approach.
 **Done when:** each type syncs alone; a past date range imports without duplicates.
 **Prompt:**
 ```

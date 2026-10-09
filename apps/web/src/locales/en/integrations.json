@@ -28,7 +28,7 @@
     "lastSync": "Last sync: {{date}}",
     "never": "Never synced",
     "enabled": "Enabled",
-    "syncNow": "Sync now",
+    "syncNow": "Sync everything",
     "test": "Test connection",
     "testOk": "Connection works.",
     "delete": "Delete",
@@ -37,7 +37,9 @@
     "actionError": "That didn't work. Try again.",
     "signIn": "Sign in",
     "signInAgain": "Sign in again",
-    "disabledHint": "Switched off: nothing is synced, imported or offered in the app. Tick Enabled to use it and change its settings."
+    "disabledHint": "Switched off: nothing is synced, imported or offered in the app. Tick Enabled to use it and change its settings.",
+    "syncPrinters": "Sync printers",
+    "syncPrints": "Sync prints"
   },
   "deleteDialog": {
     "title": "Delete {{name}}?",
@@ -56,7 +58,15 @@
     "created_one": "{{count}} imported",
     "created_other": "{{count}} imported",
     "skipped_one": "{{count}} already known",
-    "skipped_other": "{{count}} already known"
+    "skipped_other": "{{count}} already known",
+    "type": "Type",
+    "range": "Range",
+    "all": "Everything",
+    "printers": "Printers",
+    "prints": "Prints",
+    "rangeBetween": "{{from}} – {{to}}",
+    "rangeFrom": "From {{from}}",
+    "rangeTo": "Until {{to}}"
   },
   "form": {
     "title": "Add integration",
@@ -114,5 +124,30 @@
     "pathHint": "Full path to the slicer executable, used by \"Open in slicer\".",
     "isDefault": "This is the default slicer.",
     "makeDefault": "Make default slicer"
+  },
+  "sync": {
+    "title": "Sync",
+    "range": "Print history range",
+    "rangeHint": "Used by \"Sync prints\". Prints already imported are skipped.",
+    "from": "From",
+    "to": "To",
+    "frequency": "Automatic sync",
+    "frequencyHint": "Automatic syncs only fetch what's new since the last one.",
+    "ranges": {
+      "sinceLast": "Since the last sync",
+      "d7": "Last 7 days",
+      "d30": "Last 30 days",
+      "d90": "Last 90 days",
+      "year": "This year",
+      "custom": "Custom range"
+    },
+    "frequencies": {
+      "15m": "Every 15 minutes",
+      "1h": "Every hour",
+      "1d": "Every day",
+      "1w": "Every week",
+      "1M": "Every month",
+      "off": "Off (manual only)"
+    }
   }
 }

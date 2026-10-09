@@ -7,6 +7,8 @@ import {
   type LibrarySpool,
   librarySpoolSchema,
   matchSpool,
+  type SyncFrequency,
+  type SyncRequest,
   type SyncRun,
   type SyncTrigger,
   type TestResult,
@@ -35,7 +37,18 @@ const {
 // insert-only dedupe makes the overlap free. Widen if a vendor reports later than that.
 const OVERLAP_MS = 7 * 24 * 3600 * 1000;
 const TIMEOUT_MS = 5 * 60 * 1000;
-const KEEP_RUNS = 100;
+const KEEP_RUNS = 200;
+// The scheduler ticks every 15 minutes (main.ts); an integration runs when its frequency has passed.
+// ponytail: "1M" is 30 days, not a calendar month.
+const FREQUENCY_MS: Record<Exclude<SyncFrequency, "off">, number> = {
+  "15m": 15 * 60 * 1000,
+  "1h": 3600 * 1000,
+  "1d": 24 * 3600 * 1000,
+  "1w": 7 * 24 * 3600 * 1000,
+  "1M": 30 * 24 * 3600 * 1000,
+};
+// Cron fires a little after its slot, so a run isn't "early" by a few seconds of jitter.
+const DUE_SLACK_MS = 60 * 1000;
 // Scheduled runs skip errors only the user can fix, and back off after rate limits / blocks.
 const NEEDS_USER = new Set(["auth_required", "auth_expired", "login_failed", "code_invalid"]);
 const BACK_OFF = new Set(["rate_limited", "blocked"]);
@@ -91,8 +104,15 @@ export function createSyncer(
     }
   }
 
-  async function run(id: string, trigger: SyncTrigger): Promise<SyncRun> {
+  /**
+   * `req.type` limits the run to one type (none = all). A `from`/`to` range (prints only) re-reads
+   * that window instead of continuing from the last run; it never moves the incremental start.
+   */
+  async function run(id: string, trigger: SyncTrigger, req: SyncRequest = {}): Promise<SyncRun> {
     const row = rowOf(id);
+    const known = adapters.find((a) => a.id === row.adapterId);
+    if (req.type && !(known && switchedOn(row, known, req.type)))
+      throw new HttpError(409, "capability_unavailable", `Integration doesn't sync "${req.type}"`);
     if (running.has(id)) throw new HttpError(409, "sync_running", "A sync is already running");
     running.add(id);
     const startedAt = new Date().toISOString();
@@ -103,7 +123,10 @@ export function createSyncer(
     try {
       const signal = AbortSignal.timeout(TIMEOUT_MS);
       const instance = instanceFor(row, signal);
-      const on = (cap: "printers" | "prints") => switchedOn(row, adapterOf(row), cap);
+      const on = (cap: "printers" | "prints") =>
+        (!req.type || req.type === cap) && switchedOn(row, adapterOf(row), cap);
+      const ranged = !!(req.from || req.to);
+      const incremental = !ranged && on("prints") && !!instance.printHistory;
       const imported = { origin: "integration" as const, integrationId: id };
 
       if (instance.printers && on("printers")) {
@@ -160,16 +183,25 @@ export function createSyncer(
             .all()
             .map((p) => [p.externalId, p.id]),
         );
-        const since = row.lastSyncAt
-          ? new Date(Date.parse(row.lastSyncAt) - OVERLAP_MS).toISOString()
-          : undefined;
+        const since = ranged
+          ? req.from
+          : row.lastPrintsSyncAt
+            ? new Date(Date.parse(row.lastPrintsSyncAt) - OVERLAP_MS).toISOString()
+            : undefined;
+        const until = req.to;
         let cursor: string | undefined;
         do {
           signal.throwIfAborted(); // also stops an adapter that never ends its cursor
-          const page = await instance.printHistory.listPrints({ since, cursor });
+          const page = await instance.printHistory.listPrints({ since, until, cursor });
           db.transaction((tx) => {
             for (const raw of page.items) {
               const p = externalPrintSchema.safeParse(raw);
+              // The adapter's `until` is only a hint to stop early; the range is enforced here.
+              if (
+                p.success &&
+                ((until && p.data.startedAt > until) || (since && p.data.startedAt < since))
+              )
+                continue;
               const printerId = p.success && printerIds.get(p.data.printerExternalId);
               if (!p.success || !printerId) {
                 skipped++;
@@ -237,7 +269,14 @@ export function createSyncer(
       }
 
       db.update(integrations)
-        .set({ status: "ok", lastSyncAt: startedAt, lastError: null })
+        .set({
+          status: "ok",
+          lastSyncAt: startedAt,
+          // Only a prints run without a range moves the incremental start (a printers-only or
+          // past-range run must not make the next one skip prints).
+          ...(incremental && { lastPrintsSyncAt: startedAt }),
+          lastError: null,
+        })
         .where(eq(integrations.id, id))
         .run();
       db.update(alerts)
@@ -277,6 +316,9 @@ export function createSyncer(
       .values({
         integrationId: id,
         trigger,
+        type: req.type ?? null,
+        rangeFrom: req.from ?? null,
+        rangeTo: req.to ?? null,
         startedAt,
         finishedAt: new Date().toISOString(),
         status: errorCode ? "error" : "ok",
@@ -314,16 +356,35 @@ export function createSyncer(
           !adapter || switchedOn(row, adapter, "printers") || switchedOn(row, adapter, "prints")
         );
       });
-    for (const { id, lastError } of rows) {
+    for (const { id, lastError, syncFrequency } of rows) {
+      if (syncFrequency === "off") continue;
+      const last = db
+        .select({ startedAt: syncRuns.startedAt })
+        .from(syncRuns)
+        .where(
+          and(
+            eq(syncRuns.integrationId, id),
+            eq(syncRuns.trigger, "scheduled"),
+            eq(syncRuns.status, "ok"),
+          ),
+        )
+        .orderBy(desc(syncRuns.startedAt))
+        .get();
+      // Manual runs don't count (the schedule keeps its rhythm); a failed one is retried next tick.
+      if (
+        last &&
+        Date.now() - Date.parse(last.startedAt) < FREQUENCY_MS[syncFrequency] - DUE_SLACK_MS
+      )
+        continue;
       if (lastError && NEEDS_USER.has(lastError)) continue;
       if (lastError && BACK_OFF.has(lastError)) {
-        const last = db
+        const latest = db
           .select({ startedAt: syncRuns.startedAt })
           .from(syncRuns)
           .where(eq(syncRuns.integrationId, id))
           .orderBy(desc(syncRuns.startedAt))
           .get();
-        if (last && Date.now() - Date.parse(last.startedAt) < BACK_OFF_MS) continue;
+        if (latest && Date.now() - Date.parse(latest.startedAt) < BACK_OFF_MS) continue;
       }
       // A manual run in progress (409) or a deleted row is fine to skip; failures are already stored.
       await run(id, "scheduled").catch(() => {});

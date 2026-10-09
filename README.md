@@ -35,7 +35,7 @@ Then open <http://127.0.0.1:4300>. Full steps and Windows notes: [docs/install.m
 
 ## Connect Bambu Cloud (optional)
 
-Sign in with your Bambu account on the Integrations page. The app syncs printers and print history every 15 minutes. Manual entry works without an account.
+Sign in with your Bambu account on the Integrations page. The app syncs printers and print history every 15 minutes by default (configurable), and you can sync each type or a date range by hand. Manual entry works without an account.
 
 Details, region choice and troubleshooting: [docs/bambu-cloud.md](docs/bambu-cloud.md).
 

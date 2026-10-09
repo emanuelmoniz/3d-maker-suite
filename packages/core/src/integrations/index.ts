@@ -71,9 +71,13 @@ export interface PrinterInventorySource {
 }
 
 export interface PrintHistorySource {
-  /** Finished prints only, started at or after `since`. Page with `nextCursor`. */
+  /**
+   * Finished prints only, started at or after `since` and at or before `until`. Page with
+   * `nextCursor`. The server drops anything outside the range, so `until` is a hint to stop early.
+   */
   listPrints(q: {
     since?: string;
+    until?: string;
     cursor?: string;
   }): Promise<{ items: ExternalPrint[]; nextCursor?: string }>;
 }

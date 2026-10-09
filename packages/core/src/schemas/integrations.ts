@@ -5,8 +5,10 @@ import {
   INTEGRATION_ERROR_CODES,
   LOGIN_CHALLENGES,
   PRINT_OUTCOMES,
+  SYNC_FREQUENCIES,
   SYNC_RUN_STATUSES,
   SYNC_TRIGGERS,
+  SYNC_TYPES,
 } from "./enums.ts";
 import type { ColumnFilter } from "./list.ts";
 
@@ -60,6 +62,7 @@ export const integrationPatchSchema = z
     disabledFeatures: z.array(z.enum(CAPABILITIES)),
     slicerConfigDir: z.string().trim().nullable(),
     slicerPath: z.string().trim().nullable(),
+    syncFrequency: z.enum(SYNC_FREQUENCIES),
   })
   .partial()
   .strict();
@@ -93,6 +96,11 @@ export const syncRunSchema = z.object({
   id,
   integrationId: id,
   trigger: z.enum(SYNC_TRIGGERS),
+  /** null on runs logged before sync was split by type. */
+  type: z.enum(SYNC_TYPES).nullable(),
+  /** The date range a manual prints sync asked for; null = incremental. */
+  rangeFrom: isoDate.nullable(),
+  rangeTo: isoDate.nullable(),
   startedAt: isoDate,
   finishedAt: isoDate,
   status: z.enum(SYNC_RUN_STATUSES),
@@ -101,9 +109,17 @@ export const syncRunSchema = z.object({
   skipped: z.number().int().nonnegative(),
 });
 
+/** Manual sync. No body = everything, incremental. A range only makes sense for prints. */
+export const syncRequestSchema = z
+  .object({ type: z.enum(SYNC_TYPES), from: isoDate, to: isoDate })
+  .partial()
+  .refine((r) => !(r.from || r.to) || r.type === "prints", "A range needs type=prints")
+  .refine((r) => !(r.from && r.to) || r.from <= r.to, "from must not be after to");
+
 export const syncRunSortFields = ["startedAt"] as const;
 export const syncRunFilters = {
   startedAt: { kind: "date" },
+  type: { kind: "select", options: SYNC_TYPES },
   trigger: { kind: "select", options: SYNC_TRIGGERS },
   status: { kind: "select", options: SYNC_RUN_STATUSES },
 } as const satisfies Record<string, ColumnFilter>;
@@ -118,6 +134,7 @@ export type ExternalPrint = z.infer<typeof externalPrintSchema>;
 export type IntegrationInput = z.input<typeof integrationInputSchema>;
 export type IntegrationPatch = z.infer<typeof integrationPatchSchema>;
 export type AdapterInfo = z.infer<typeof adapterInfoSchema>;
+export type SyncRequest = z.infer<typeof syncRequestSchema>;
 export type SyncRun = z.infer<typeof syncRunSchema>;
 export type TestResult = z.infer<typeof testResultSchema>;
 export type LoginRequest = z.infer<typeof loginInputSchema>;

@@ -225,6 +225,95 @@ describe("integrations", () => {
   });
 });
 
+describe("sync by type and date range", () => {
+  const syncWith = async (id: string, body: object) =>
+    (await send("POST", `/api/integrations/${id}/sync`, body)).json();
+  const day = (d: number, end = false) =>
+    new Date(Date.UTC(2026, 0, d, end ? 23 : 0, end ? 59 : 0)).toISOString();
+  const printCount = () => db.select().from(schema.prints).all().length;
+  const watermark = () => db.select().from(schema.integrations).get()?.lastPrintsSyncAt;
+
+  it("syncs one type alone and logs it", async () => {
+    const { id } = await create();
+    expect(await syncWith(id, { type: "printers" })).toMatchObject({
+      status: "ok",
+      type: "printers",
+      created: 1,
+    });
+    expect(printCount()).toBe(0);
+    expect(watermark()).toBeNull(); // a printers-only run must not make prints skip history
+    expect(await syncWith(id, { type: "prints" })).toMatchObject({ type: "prints", created: 3 });
+    expect(watermark()).toBeTruthy();
+    expect((await sync(id)).type).toBeNull(); // no body = everything
+  });
+
+  it("imports a past range without duplicates and leaves the incremental start alone", async () => {
+    const { id } = await create();
+    await syncWith(id, { type: "printers" });
+    const range = { type: "prints", from: day(2), to: day(2, true) };
+    expect(await syncWith(id, range)).toMatchObject({
+      created: 1,
+      rangeFrom: range.from,
+      rangeTo: range.to,
+    });
+    expect(await syncWith(id, range)).toMatchObject({ created: 0, skipped: 1 });
+    expect(await syncWith(id, { type: "prints", from: day(1), to: day(3, true) })).toMatchObject({
+      created: 2,
+      skipped: 1,
+    });
+    expect(printCount()).toBe(3);
+    expect(watermark()).toBeNull();
+  });
+
+  it("rejects ranges for other types, backwards ranges and switched-off types", async () => {
+    const { id } = await create();
+    const code = async (body: object) => await send("POST", `/api/integrations/${id}/sync`, body);
+    expect((await code({ type: "printers", from: day(1) })).statusCode).toBe(400);
+    expect((await code({ from: day(1) })).statusCode).toBe(400);
+    expect((await code({ type: "prints", from: day(3), to: day(1) })).statusCode).toBe(400);
+    await send("PATCH", `/api/integrations/${id}`, { disabledFeatures: ["prints"] });
+    expect((await code({ type: "prints" })).statusCode).toBe(409);
+  });
+
+  it("the scheduler honours each integration's frequency", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "integrations-"));
+    try {
+      app = await buildApp(db, false, dir, { adapters: [mockAdapter(state)] });
+      const syncer = createSyncer(db, [mockAdapter(state)], loadKey(dir), app.log);
+      const { id } = await create();
+      const runs = () => db.select().from(schema.syncRuns).all().length;
+      const setFrequency = (syncFrequency: string) =>
+        send("PATCH", `/api/integrations/${id}`, { syncFrequency });
+      const age = (ms: number) =>
+        db
+          .update(schema.syncRuns)
+          .set({ startedAt: new Date(Date.now() - ms).toISOString() })
+          .run();
+
+      await syncer.runAll();
+      expect(runs()).toBe(1);
+      await syncer.runAll(); // 15m default, just ran
+      expect(runs()).toBe(1);
+
+      await setFrequency("1d");
+      age(2 * 3600 * 1000);
+      await syncer.runAll(); // 2 h ago is not due yet
+      expect(runs()).toBe(1);
+      age(25 * 3600 * 1000);
+      await syncer.runAll();
+      expect(runs()).toBe(2);
+
+      await setFrequency("off");
+      age(30 * 24 * 3600 * 1000);
+      await syncer.runAll();
+      expect(runs()).toBe(2);
+      expect((await setFrequency("fortnightly")).statusCode).toBe(400);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
 describe("capabilities", () => {
   const caps = async (id: string) => (await get(`/api/integrations/${id}`)).capabilities;
 

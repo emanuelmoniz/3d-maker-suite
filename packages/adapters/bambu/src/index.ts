@@ -226,7 +226,7 @@ export function bambuCloudAdapter(): IntegrationAdapter {
         },
         printHistory: {
           // Newest first; `after` is the id of the last task of the previous page.
-          listPrints: async ({ since, cursor }) => {
+          listPrints: async ({ since, until, cursor }) => {
             const query = new URLSearchParams({ limit: String(PAGE) });
             if (cursor) query.set("after", cursor);
             const { hits } = await parse(
@@ -239,7 +239,10 @@ export function bambuCloudAdapter(): IntegrationAdapter {
             return {
               items: hits
                 .map((t) => toPrint(t, region, log))
-                .filter((p): p is ExternalPrint => !!p && (!since || p.startedAt >= since)),
+                .filter(
+                  (p): p is ExternalPrint =>
+                    !!p && (!since || p.startedAt >= since) && (!until || p.startedAt <= until),
+                ),
               nextCursor: hits.length === PAGE && last && !older ? String(last.id) : undefined,
             };
           },

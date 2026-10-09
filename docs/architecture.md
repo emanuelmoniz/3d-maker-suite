@@ -147,7 +147,7 @@ interface PrinterInventorySource {
 }
 
 interface PrintHistorySource {
-  listPrints(q: { since?: string; cursor?: string }):
+  listPrints(q: { since?: string; until?: string; cursor?: string }):
     Promise<{ items: ExternalPrint[]; nextCursor?: string }>;
 }
 
@@ -205,7 +205,7 @@ sequenceDiagram
   participant DB as SQLite
   Job->>Reg: instance for Integration row
   Reg->>Ad: create(ctx with config, secrets, log)
-  Job->>Ad: printHistory.listPrints({ since: lastSyncAt })
+  Job->>Ad: printHistory.listPrints({ since: lastPrintsSyncAt })
   Ad-->>Job: ExternalPrint[] (+ nextCursor)
   Job->>Core: zod parse, then upsert by (integrationId, externalId)
   Core->>DB: write prints and usages, raise alerts
@@ -213,7 +213,7 @@ sequenceDiagram
   Note over Job,DB: On error: status = error, lastError = error code, raise sync_failed alert
 ```
 
-- **Where:** `apps/server/src/integrations/sync.ts`. A croner job runs every enabled integration every 15 minutes; "Sync now" runs one on demand. One run per integration at a time (409 `sync_running`).
+- **Where:** `apps/server/src/integrations/sync.ts`. A croner job ticks every 15 minutes and runs each enabled integration whose own frequency (`15m`, `1h`, `1d`, `1w`, `1M` or `off`) has passed since its last successful scheduled run. A manual run can be limited to one type (`printers` or `prints`); a prints run can take a `from`/`to` range, which re-reads that window without moving the incremental start (`lastPrintsSyncAt`). Each run is logged with its type and range. Spools are not a sync type: importing one needs a filament profile picked per spool, so they keep the preview and confirm flow. One run per integration at a time (409 `sync_running`).
 - **Dedupe is insert-only** on `(integrationId, externalId)`: a row that already exists is skipped, never overwritten, so local edits win. Each run re-fetches prints from `lastSyncAt - 7 days`, so prints that finished after the previous run are not missed.
 - **Imported prints** need their printer to be imported by the same integration first; otherwise they are skipped. Filament usages are stored with grams and slot only (spool/profile matching: Step 13).
 - **Sync log:** `sync_runs` keeps the last 100 runs per integration (trigger, result, error code, created/skipped counts).
