@@ -95,7 +95,7 @@ export function ProjectCreatePage() {
   const { t } = useTranslation();
   return (
     <>
-      <PageHeader title={t("projects:form.addTitle")} />
+      <PageHeader title={t("projects:form.addTitle")} backTo={{ to: "/projects" }} />
       <ProjectForm />
     </>
   );
@@ -107,7 +107,10 @@ export function ProjectEditPage() {
   const { data } = useProject(id);
   return (
     <>
-      <PageHeader title={t("projects:form.editTitle")} />
+      <PageHeader
+        title={t("projects:form.editTitle")}
+        backTo={{ to: "/projects/$id", params: { id } }}
+      />
       {/* key: the form is uncontrolled, so remount when the saved project arrives */}
       {data && <ProjectForm key={data.updatedAt} project={data} />}
     </>

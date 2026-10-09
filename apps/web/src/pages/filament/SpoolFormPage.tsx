@@ -172,7 +172,7 @@ export function SpoolCreatePage() {
   const profiles = useProfiles();
   return (
     <>
-      <PageHeader title={t("filament:spools.addTitle")} />
+      <PageHeader title={t("filament:spools.addTitle")} backTo={{ to: "/filament" }} />
       <SpoolForm profiles={profiles.data?.items ?? []} />
     </>
   );
@@ -185,7 +185,10 @@ export function SpoolEditPage() {
   const { data } = useSpool(id);
   return (
     <>
-      <PageHeader title={t("filament:spools.editTitle")} />
+      <PageHeader
+        title={t("filament:spools.editTitle")}
+        backTo={{ to: "/filament/spools/$id", params: { id } }}
+      />
       {/* key: the form is uncontrolled, so remount when the saved spool arrives */}
       {data && profiles.data && (
         <SpoolForm key={data.updatedAt} profiles={profiles.data.items} spool={data} />

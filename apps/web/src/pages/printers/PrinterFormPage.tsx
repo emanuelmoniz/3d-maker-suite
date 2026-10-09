@@ -181,7 +181,7 @@ export function PrinterCreatePage() {
   const { t } = useTranslation();
   return (
     <>
-      <PageHeader title={t("printers:form.addTitle")} />
+      <PageHeader title={t("printers:form.addTitle")} backTo={{ to: "/printers" }} />
       <PrinterForm />
     </>
   );
@@ -200,7 +200,10 @@ export function PrinterEditPage() {
   if (!data) return null;
   return (
     <>
-      <PageHeader title={t("printers:form.editTitle")} />
+      <PageHeader
+        title={t("printers:form.editTitle")}
+        backTo={{ to: "/printers/$id", params: { id } }}
+      />
       <PrinterForm key={data.updatedAt} printer={data} />
     </>
   );

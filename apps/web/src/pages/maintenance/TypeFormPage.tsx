@@ -69,7 +69,7 @@ export function TypeCreatePage() {
   const { t } = useTranslation();
   return (
     <>
-      <PageHeader title={t("maintenance:types.addTitle")} />
+      <PageHeader title={t("maintenance:types.addTitle")} backTo={{ to: "/maintenance" }} />
       <TypeForm />
     </>
   );

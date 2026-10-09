@@ -112,7 +112,7 @@ export function ProfileCreatePage() {
   const { t } = useTranslation();
   return (
     <>
-      <PageHeader title={t("filament:profiles.addTitle")} />
+      <PageHeader title={t("filament:profiles.addTitle")} backTo={{ to: "/filament" }} />
       <ProfileForm />
     </>
   );
@@ -124,7 +124,10 @@ export function ProfileEditPage() {
   const { data } = useProfile(id);
   return (
     <>
-      <PageHeader title={t("filament:profiles.editTitle")} />
+      <PageHeader
+        title={t("filament:profiles.editTitle")}
+        backTo={{ to: "/filament/profiles/$id", params: { id } }}
+      />
       {/* key: the form is uncontrolled, so remount when the saved profile arrives */}
       {data && <ProfileForm key={data.updatedAt} profile={data} />}
     </>

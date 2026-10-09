@@ -51,6 +51,7 @@ export function SpoolDetailPage() {
       <PageHeader
         title={title}
         description={t(STATUS[spool.status])}
+        backTo={{ to: "/filament" }}
         actions={
           <>
             <Link to="/filament/spools/$id/edit" params={{ id }} className={linkButton}>

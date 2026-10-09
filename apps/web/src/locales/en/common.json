@@ -2,6 +2,7 @@
   "appName": "3D Maker Suite",
   "units": { "kwh": "{{value}} kWh" },
   "actions": {
+    "back": "Back",
     "cancel": "Cancel",
     "confirm": "Confirm",
     "clear": "Clear filters",

@@ -211,6 +211,7 @@ export function ProjectDetailPage() {
     <>
       <PageHeader
         title={project.name}
+        backTo={{ to: "/projects" }}
         actions={
           <>
             {project.sourceUrl && (

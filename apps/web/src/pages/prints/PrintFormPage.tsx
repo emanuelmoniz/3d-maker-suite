@@ -298,7 +298,7 @@ export function PrintCreatePage() {
   const { t } = useTranslation();
   return (
     <>
-      <PageHeader title={t("prints:form.addTitle")} />
+      <PageHeader title={t("prints:form.addTitle")} backTo={{ to: "/prints" }} />
       <PrintForm />
     </>
   );
@@ -310,7 +310,7 @@ export function PrintEditPage() {
   const { data } = usePrint(id);
   return (
     <>
-      <PageHeader title={t("prints:form.editTitle")} />
+      <PageHeader title={t("prints:form.editTitle")} backTo={{ to: "/prints" }} />
       {/* key: the form is uncontrolled, so remount when the saved print arrives */}
       {data && <PrintForm key={data.updatedAt} print={data} />}
     </>

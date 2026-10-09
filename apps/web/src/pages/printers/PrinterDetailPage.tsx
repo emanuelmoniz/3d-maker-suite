@@ -67,6 +67,7 @@ export function PrinterDetailPage() {
     <>
       <PageHeader
         title={printer.name}
+        backTo={{ to: "/printers" }}
         description={`${printer.brand} ${printer.model}`.trim()}
         actions={
           <>

@@ -99,7 +99,7 @@ export function IntegrationCreatePage() {
 
   return (
     <>
-      <PageHeader title={t("integrations:form.title")} />
+      <PageHeader title={t("integrations:form.title")} backTo={{ to: "/settings/integrations" }} />
       <form onSubmit={onSubmit} className="grid gap-4 sm:max-w-md">
         <FormField label={t("integrations:form.adapter")}>
           {(p) => (

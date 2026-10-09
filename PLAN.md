@@ -23,7 +23,7 @@ fixtures), the viewer only applies it. Check how Bambu stores per-part extruder 
 painted colors in the fixtures first; tell me if painted colors are too costly.
 ```
 
-### [ ] Step 2 - Back button on detail and edit pages
+### [x] Step 2 - Back button on detail and edit pages
 **Model:** Haiku · **Effort:** Low
 **Scope:** Shared back link in the page header for every detail (show) and edit/create page, going to the logical parent route (e.g. spool detail → filament list, printer edit → printer detail). i18n label, keyboard accessible, visible on mobile.
 **Done when:** every detail/edit page has it; no hard-coded strings.
