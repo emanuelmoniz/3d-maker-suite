@@ -120,7 +120,12 @@ describe("listPage filters", () => {
     const names = async (url: string, key = "name") =>
       (await app.inject(url)).json().items.map((x: Record<string, unknown>) => x[key]);
 
-    await post("/api/printers", { name: "A1", brand: "Bambu Lab", model: "A1", powerW: 100 });
+    const printer = await post("/api/printers", {
+      name: "A1",
+      brand: "Bambu Lab",
+      model: "A1",
+      powerW: 100,
+    });
     await post("/api/printers", { name: "MK4", brand: "Prusa", model: "MK4", powerW: 300 });
     expect(await names("/api/printers?model=lab%20a1")).toEqual(["A1"]);
     expect(await names("/api/printers?sort=-model")).toEqual(["MK4", "A1"]);
@@ -156,6 +161,22 @@ describe("listPage filters", () => {
     expect(await names("/api/projects?sort=-multicolor")).toEqual(["Dragon", "Vase"]);
     expect(await names("/api/projects?name=SPIRAL")).toEqual(["Vase"]);
     expect((await app.inject("/api/projects/materials")).json()).toEqual(["PETG", "PLA", "TPU"]);
+
+    const [vase] = await names("/api/projects?name=vase", "id");
+    db.insert(schema.prints)
+      .values({
+        printerId: printer.id,
+        projectId: vase,
+        title: "v",
+        startedAt: "2026-03-01T10:00:00.000Z",
+        outcome: "success",
+      })
+      .run();
+    expect(await names("/api/projects?sort=-lastPrintAt", "lastPrintAt")).toEqual([
+      "2026-03-01T10:00:00.000Z",
+      null,
+    ]);
+    expect(await names("/api/projects?lastPrintAt=2026-03-01..2026-03-01")).toEqual(["Vase"]);
   });
 });
 

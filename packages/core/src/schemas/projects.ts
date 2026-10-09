@@ -84,6 +84,9 @@ export const projectSchema = z.object({
   updatedAt: isoDate,
 });
 
+/** A row of the projects list: the project plus when it was last printed (null: never). */
+export const projectListItemSchema = projectSchema.extend({ lastPrintAt: isoDate.nullable() });
+
 const editable = {
   name: z.string().trim().min(1),
   description: z.string().nullable(),
@@ -101,7 +104,7 @@ export const projectInputSchema = z.object({
 /** Any subset. Every field sent becomes user-edited. */
 export const projectPatchSchema = z.object(editable).partial().strict();
 
-export const projectSortFields = ["name", "createdAt", "multicolor"] as const;
+export const projectSortFields = ["name", "createdAt", "multicolor", "lastPrintAt"] as const;
 /** `name` also searches the description; `material` matches any of the project's materials. */
 export const projectFilters = {
   name: { kind: "text" },
@@ -109,6 +112,7 @@ export const projectFilters = {
   collectionId: { kind: "select" },
   material: { kind: "select" },
   multicolor: { kind: "select", options: ["true", "false"] },
+  lastPrintAt: { kind: "date" },
 } as const satisfies Record<string, ColumnFilter>;
 export const projectListQuery = listQuery(projectSortFields, {}, projectFilters);
 
@@ -135,6 +139,7 @@ export const projectOpenSchema = z.object({
 
 export type ProjectOpen = z.infer<typeof projectOpenSchema>;
 export type Project = z.infer<typeof projectSchema>;
+export type ProjectListItem = z.infer<typeof projectListItemSchema>;
 export type ProjectMeta = z.infer<typeof projectMetaSchema>;
 export type ProjectFile = z.infer<typeof projectFileSchema>;
 export type ProjectModel = z.infer<typeof projectModelSchema>;

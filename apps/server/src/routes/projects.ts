@@ -6,8 +6,10 @@ import {
   apiErrorSchema,
   type Page,
   type Project,
+  type ProjectListItem,
   pageOf,
   projectInputSchema,
+  projectListItemSchema,
   projectListQuery,
   projectMetaSchema,
   projectOpenSchema,
@@ -17,7 +19,7 @@ import {
   projectSchema,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
-import { eq, inArray, isNull, sql } from "drizzle-orm";
+import { eq, inArray, isNull, max, sql } from "drizzle-orm";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
@@ -26,11 +28,12 @@ import { columnFilter, listPage, taggedWith } from "../lib/list.ts";
 import { readPreferences } from "../lib/preferences.ts";
 import type { ProjectScanner } from "../projects/scanner.ts";
 
-const { projects, collectionProjects } = schema;
+const { projects, collectionProjects, prints } = schema;
 const params = z.object({ id: z.uuid() });
 const fileQuery = z.object({ path: z.string().min(1), entry: z.string().optional() });
 const notFound = { 404: apiErrorSchema };
 // "true" / "false", to filter and sort by the `?multicolor=` select values.
+const lastPrintAt = sql`(select max(${prints.startedAt}) from ${prints} where ${prints.projectId} = ${projects.id})`;
 const isMulticolor = sql`case when json_extract(${projects.meta}, '$.multicolor') then 'true' else 'false' end`;
 const errors = {
   403: apiErrorSchema,
@@ -81,17 +84,23 @@ export const projectsRoutes =
       {
         schema: {
           querystring: projectListQuery,
-          response: { 200: pageOf(projectSchema) },
+          response: { 200: pageOf(projectListItemSchema) },
         },
       },
       async (req) => {
         const { material } = req.query;
         const page = listPage(db, projects, req.query, {
-          sort: { name: projects.name, createdAt: projects.createdAt, multicolor: isMulticolor },
+          sort: {
+            name: projects.name,
+            createdAt: projects.createdAt,
+            multicolor: isMulticolor,
+            lastPrintAt,
+          },
           dateColumn: projects.createdAt,
           filters: {
             name: sql`${projects.name} || ' ' || coalesce(${projects.description}, '')`,
             multicolor: isMulticolor,
+            lastPrintAt,
           },
           where: [
             isNull(projects.archivedAt),
@@ -108,7 +117,20 @@ export const projectsRoutes =
               ),
           ],
         });
-        return { ...page, items: page.items.map(out) } as Page<Project>;
+        const ids = page.items.map((p) => p.id);
+        const last = new Map(
+          ids.length
+            ? db
+                .select({ id: prints.projectId, at: max(prints.startedAt) })
+                .from(prints)
+                .where(inArray(prints.projectId, ids))
+                .groupBy(prints.projectId)
+                .all()
+                .map((r) => [r.id, r.at])
+            : [],
+        );
+        const items = page.items.map((p) => ({ ...out(p), lastPrintAt: last.get(p.id) ?? null }));
+        return { ...page, items } as Page<ProjectListItem>;
       },
     );
 

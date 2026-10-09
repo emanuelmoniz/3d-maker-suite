@@ -10,7 +10,7 @@ export function TagFilter({ value, onChange }: { value: string; onChange: (id: s
   return (
     <select
       aria-label={t("tags:filter.label")}
-      className={`${inputClass} w-auto`}
+      className={`${inputClass} w-auto!`}
       value={value}
       onChange={(e) => onChange(e.target.value)}
     >

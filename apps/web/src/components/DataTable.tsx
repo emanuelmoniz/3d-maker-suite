@@ -245,7 +245,7 @@ export function Pager({
       <label className="flex items-center gap-2 whitespace-nowrap">
         {t("common:table.pageSize")}
         <select
-          className={`${inputClass} w-auto`}
+          className={`${inputClass} w-auto!`}
           value={pageSize}
           onChange={(e) => onChange({ pageSize: e.target.value })}
         >
@@ -344,7 +344,7 @@ function ColumnFilterButton<T>({
           el.style.top = `${r.bottom + 4}px`;
           el.style.left = `${Math.max(8, Math.min(r.left, document.documentElement.clientWidth - el.offsetWidth - 8))}px`;
         }}
-        className="fixed w-72 max-w-[calc(100vw-1rem)] rounded-lg border border-border bg-surface p-3 text-left font-normal text-fg shadow-lg backdrop:bg-black/20"
+        className="fixed w-80 max-w-[calc(100vw-1rem)] rounded-lg border border-border bg-surface p-3 text-left font-normal text-fg shadow-lg backdrop:bg-black/20"
       >
         {/* Re-mounted when the applied value changes, so the defaults follow the URL. */}
         <form key={value} onSubmit={submit} className="flex flex-col gap-3">

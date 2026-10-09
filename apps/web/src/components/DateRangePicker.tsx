@@ -13,14 +13,14 @@ export function DateRangePicker({
 }) {
   const { t } = useTranslation();
   return (
-    <fieldset className="flex items-center gap-2">
+    <fieldset className="flex min-w-0 items-center gap-2">
       <input
         type="date"
         aria-label={t("common:dateRange.from")}
         value={value.from ?? ""}
         max={value.to || undefined}
         onChange={(e) => onChange({ ...value, from: e.target.value || undefined })}
-        className={`${inputClass} w-auto`}
+        className={`${inputClass} min-w-0 flex-1`}
       />
       <input
         type="date"
@@ -28,7 +28,7 @@ export function DateRangePicker({
         value={value.to ?? ""}
         min={value.from || undefined}
         onChange={(e) => onChange({ ...value, to: e.target.value || undefined })}
-        className={`${inputClass} w-auto`}
+        className={`${inputClass} min-w-0 flex-1`}
       />
     </fieldset>
   );

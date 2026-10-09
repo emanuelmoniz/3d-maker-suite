@@ -1,4 +1,4 @@
-import { type Project, projectFilters } from "@3d-maker-suite/core";
+import { type Project, type ProjectListItem, projectFilters } from "@3d-maker-suite/core";
 import { Link } from "@tanstack/react-router";
 import {
   Check,
@@ -20,6 +20,7 @@ import { PageHeader } from "../../components/PageHeader.tsx";
 import { TagFilter } from "../../components/TagFilter.tsx";
 import { TagList } from "../../components/TagList.tsx";
 import { cx } from "../../lib/cx.ts";
+import { formatDate } from "../../lib/format.ts";
 import { useListPage, useUrlListQuery } from "../../lib/list.ts";
 import { projectThumbnailUrl, useProjectMaterials, useScan } from "../../lib/projects.ts";
 import { useCollections, useTags, useTagsOf } from "../../lib/tags.ts";
@@ -111,7 +112,11 @@ export function ProjectsPage() {
   const [view, setView] = useState(storedView);
   // One list query for both views: the filter bar sets filters, the table or pager the rest.
   const [query, setQuery] = useUrlListQuery();
-  const { data, isError } = useListPage<Project>(["projects", "list"], "/api/projects", query);
+  const { data, isError } = useListPage<ProjectListItem>(
+    ["projects", "list"],
+    "/api/projects",
+    query,
+  );
   const collections = useCollections().data ?? [];
   const materials = useProjectMaterials().data ?? [];
   const tags = useTags().data ?? [];
@@ -168,6 +173,7 @@ export function ProjectsPage() {
             <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
               {view === "grid" ? (
                 <FilterBar
+                  className="flex-1"
                   search={name}
                   onSearchChange={(v) => set({ name: v })}
                   searchLabel={t("projects:filters.search")}
@@ -188,7 +194,7 @@ export function ProjectsPage() {
                   {collections.length > 0 && (
                     <select
                       aria-label={t("projects:filters.collection")}
-                      className={`${inputClass} w-auto`}
+                      className={`${inputClass} w-auto!`}
                       value={collectionId}
                       onChange={(e) => set({ collectionId: e.target.value })}
                     >
@@ -203,7 +209,7 @@ export function ProjectsPage() {
                   {materials.length > 0 && (
                     <select
                       aria-label={t("projects:filters.material")}
-                      className={`${inputClass} w-auto`}
+                      className={`${inputClass} w-auto!`}
                       value={material}
                       onChange={(e) => set({ material: e.target.value })}
                     >
@@ -215,13 +221,32 @@ export function ProjectsPage() {
                       ))}
                     </select>
                   )}
+                  <select
+                    aria-label={t("projects:sort.label")}
+                    className={`${inputClass} w-auto!`}
+                    value={query.sort ?? "name"}
+                    onChange={(e) => set({ sort: e.target.value })}
+                  >
+                    {(
+                      [
+                        ["name", "projects:sort.nameAsc"],
+                        ["-name", "projects:sort.nameDesc"],
+                        ["-lastPrintAt", "projects:sort.lastPrintDesc"],
+                        ["lastPrintAt", "projects:sort.lastPrintAsc"],
+                      ] as const
+                    ).map(([v, key]) => (
+                      <option key={v} value={v}>
+                        {t(key)}
+                      </option>
+                    ))}
+                  </select>
                 </FilterBar>
               ) : (
                 <div className="flex flex-wrap items-center gap-2">
                   {collections.length > 0 && (
                     <select
                       aria-label={t("projects:filters.collection")}
-                      className={`${inputClass} w-auto`}
+                      className={`${inputClass} w-auto!`}
                       value={collectionId}
                       onChange={(e) => set({ collectionId: e.target.value })}
                     >
@@ -345,6 +370,13 @@ export function ProjectsPage() {
                       { value: "true", label: t("projects:list.multicolor") },
                       { value: "false", label: t("projects:list.singleColor") },
                     ],
+                  },
+                  {
+                    id: "lastPrintAt",
+                    header: t("projects:list.columns.lastPrintAt"),
+                    cell: (p) => (p.lastPrintAt ? formatDate(p.lastPrintAt) : ""),
+                    sort: "lastPrintAt",
+                    filter: "lastPrintAt",
                   },
                   {
                     id: "tags",
