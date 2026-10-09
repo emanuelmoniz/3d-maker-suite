@@ -28,8 +28,6 @@ const imported = {
   externalId: z.string().nullable(),
 };
 
-export const settingSchema = z.object({ key: z.string().min(1), value: z.json() });
-
 /** API shape: the encrypted `secrets` column is never exposed, only whether it is set. */
 export const integrationSchema = z.object({
   id,
@@ -226,7 +224,6 @@ export const alertSchema = z.object({
   resolvedAt: isoDate.nullable(),
 });
 
-export type Setting = z.infer<typeof settingSchema>;
 export type Integration = z.infer<typeof integrationSchema>;
 export type Printer = z.infer<typeof printerSchema>;
 export type PrinterComment = z.infer<typeof printerCommentSchema>;

@@ -15,7 +15,9 @@ const TABLES = {
 };
 
 const cell = (v: unknown) => {
-  const s = v == null ? "" : typeof v === "object" ? JSON.stringify(v) : String(v);
+  let s = v == null ? "" : typeof v === "object" ? JSON.stringify(v) : String(v);
+  // Text starting like a formula (e.g. a synced name "=HYPERLINK(...)") would run in Excel.
+  if (typeof v === "string" && /^[=+\-@\t\r]/.test(s)) s = `'${s}`;
   return /[",\r\n]/.test(s) ? `"${s.replaceAll('"', '""')}"` : s;
 };
 

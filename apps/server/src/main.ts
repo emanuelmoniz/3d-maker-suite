@@ -7,6 +7,7 @@ import { buildApp } from "./app.ts";
 import { applyPendingRestore } from "./backup/backup.ts";
 import { loadConfig } from "./config.ts";
 import { adapters, filamentLibraries } from "./integrations/registry.ts";
+import { isLoopback } from "./lib/access.ts";
 
 const config = loadConfig();
 mkdirSync(config.dataDir, { recursive: true });
@@ -32,9 +33,14 @@ const app = await buildApp(
     alertsSchedule: "0 8 * * *",
     backupSchedule: "0 3 * * *",
     watchProjects: true,
+    access: { host: config.host, password: config.password },
   },
 );
 await app.register(fastifyStatic, {
   root: fileURLToPath(new URL("../../web/dist", import.meta.url)),
 });
+if (!isLoopback(config.host) && !config.password)
+  app.log.warn(
+    `Listening on ${config.host} without APP_PASSWORD: only requests addressed to localhost or ${config.host} are accepted. Set APP_PASSWORD to use the app from other devices.`,
+  );
 await app.listen({ host: config.host, port: config.port });

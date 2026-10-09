@@ -282,7 +282,7 @@ Do Step 24 of PLAN.md. Keep tests independent with a fresh temp data dir each.
 List UI issues found and fix them in this step.
 ```
 
-### [ ] Step 25 - Security & performance review  **[plan mode]**
+### [x] Step 25 - Security & performance review  **[plan mode]**
 **Model:** Opus · **Effort:** Medium
 **Scope:** Secrets handling, path traversal, file uploads, optional password when binding to LAN, dependency audit, bundle size, slow queries.
 **Done when:** findings are fixed or documented as issues.

@@ -108,9 +108,15 @@ describe("backup", () => {
       url: "/api/printers",
       payload: { name: 'P "1"', brand: "Bambu Lab", model: "P1S" },
     });
+    await a.app.inject({
+      method: "POST",
+      url: "/api/printers",
+      payload: { name: "=1+1", brand: "Bambu Lab", model: "P1S" },
+    });
     const csv = (await a.app.inject("/api/export/printers")).body;
     expect(csv).toContain('"P ""1"""');
-    expect((await a.app.inject("/api/export/printers?format=json")).json()).toHaveLength(1);
+    expect(csv).toContain(",'=1+1,");
+    expect((await a.app.inject("/api/export/printers?format=json")).json()).toHaveLength(2);
     expect((await a.app.inject("/api/export/integrations")).statusCode).toBe(400);
   });
 });

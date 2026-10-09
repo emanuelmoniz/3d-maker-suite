@@ -16,21 +16,9 @@ describe("api", () => {
   it("health + openapi", async () => {
     expect((await app.inject("/api/health")).json()).toEqual({ status: "ok" });
     const spec = (await app.inject("/api/docs/json")).json();
-    expect(spec.paths["/api/settings/{key}"]).toBeDefined();
-  });
-
-  it("settings CRUD", async () => {
-    const put = (value: unknown) =>
-      app.inject({ method: "PUT", url: "/api/settings/currency", payload: { value } });
-    expect((await put("EUR")).json()).toEqual({ key: "currency", value: "EUR" });
-    expect((await put({ a: 1 })).json().value).toEqual({ a: 1 });
-    expect((await app.inject("/api/settings/currency")).json().value).toEqual({ a: 1 });
-    expect((await app.inject({ method: "DELETE", url: "/api/settings/currency" })).statusCode).toBe(
-      204,
-    );
-    const missing = await app.inject("/api/settings/currency");
-    expect(missing.statusCode).toBe(404);
-    expect(missing.json().error.code).toBe("not_found");
+    expect(spec.paths["/api/printers/{id}"]).toBeDefined();
+    // Raw settings rows hold the encrypted channel secrets; only /api/preferences is exposed.
+    expect(spec.paths["/api/settings/{key}"]).toBeUndefined();
   });
 
   it("preferences: defaults, partial patch, validation", async () => {
@@ -49,16 +37,16 @@ describe("api", () => {
     expect((await patch({ nope: 1 })).statusCode).toBe(400);
   });
 
-  it("settings list paginates and sorts", async () => {
-    for (const k of ["a", "b", "c"])
-      await app.inject({ method: "PUT", url: `/api/settings/${k}`, payload: { value: k } });
-    const res = (await app.inject("/api/settings?pageSize=2&page=2&sort=-key")).json();
+  it("list paginates and sorts", async () => {
+    for (const name of ["a", "b", "c"])
+      await app.inject({ method: "POST", url: "/api/projects", payload: { name } });
+    const res = (await app.inject("/api/projects?pageSize=2&page=2&sort=-name")).json();
     expect(res).toMatchObject({ page: 2, pageSize: 2, total: 3 });
-    expect(res.items.map((i: { key: string }) => i.key)).toEqual(["a"]);
+    expect(res.items.map((i: { name: string }) => i.name)).toEqual(["a"]);
   });
 
   it("uniform validation + not-found errors", async () => {
-    const bad = await app.inject("/api/settings?pageSize=999&sort=nope");
+    const bad = await app.inject("/api/projects?pageSize=999&sort=nope");
     expect(bad.statusCode).toBe(400);
     expect(bad.json().error.code).toBe("validation_error");
     expect((await app.inject("/nope")).json().error.code).toBe("not_found");

@@ -17,6 +17,7 @@ import { runAutoBackup } from "./backup/backup.ts";
 import { HttpError } from "./errors.ts";
 import { loadKey } from "./integrations/secrets.ts";
 import { createSyncer } from "./integrations/sync.ts";
+import { accessGuard } from "./lib/access.ts";
 import { createProjectScanner } from "./projects/scanner.ts";
 import { alertsRoutes } from "./routes/alerts.ts";
 import { backupsRoutes } from "./routes/backups.ts";
@@ -30,7 +31,6 @@ import { preferencesRoutes } from "./routes/preferences.ts";
 import { printersRoutes } from "./routes/printers.ts";
 import { printsRoutes } from "./routes/prints.ts";
 import { projectsRoutes } from "./routes/projects.ts";
-import { settingsRoutes } from "./routes/settings.ts";
 import { statsRoutes } from "./routes/stats.ts";
 import { collectionsRoutes, tagsRoutes } from "./routes/tags.ts";
 
@@ -48,9 +48,12 @@ export async function buildApp(
     backupSchedule?: string;
     /** Watch the project folders and scan once at startup (off in tests). */
     watchProjects?: boolean;
+    /** Bind address and optional password; checked on every request (off in tests). */
+    access?: { host: string; password?: string };
   } = {},
 ) {
   const app = Fastify({ logger });
+  if (opts.access) app.addHook("onRequest", accessGuard(opts.access));
   app.setValidatorCompiler(validatorCompiler);
   app.setSerializerCompiler(serializerCompiler);
 
@@ -87,7 +90,6 @@ export async function buildApp(
   );
 
   await app.register(healthRoutes);
-  await app.register(settingsRoutes(db), { prefix: "/api/settings" });
   await app.register(preferencesRoutes(db, dataDir), { prefix: "/api/preferences" });
   await app.register(printersRoutes(db, dataDir), { prefix: "/api/printers" });
   await app.register(maintenanceRoutes(db), { prefix: "/api/maintenance" });
