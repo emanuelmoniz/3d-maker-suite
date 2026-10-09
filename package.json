@@ -1,6 +1,7 @@
 {
   "name": "3d-maker-suite",
   "private": true,
+  "version": "1.0.0",
   "type": "module",
   "packageManager": "pnpm@12.8.1",
   "engines": {
