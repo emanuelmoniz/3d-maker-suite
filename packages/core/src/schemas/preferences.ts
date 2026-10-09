@@ -18,6 +18,8 @@ const shape = {
   defaultPrinterId: z.string().nullable(),
   themeMode: z.enum(THEME_MODES),
   accent: z.enum(ACCENT_COLORS),
+  /** Custom app name shown in the sidebar and tab title. Empty = the default (`common:appName`). */
+  appName: z.string().trim().max(60),
   currency: z.string().regex(/^[A-Z]{3}$/),
   energyCostPerKwh: z.number().nonnegative(),
   /** Printer wear: purchase price / these hours. 0 leaves wear out of the cost. */
@@ -61,6 +63,7 @@ export const PREFERENCE_DEFAULTS: z.infer<typeof preferencesSchema> = {
   defaultPrinterId: null,
   themeMode: "system",
   accent: "teal",
+  appName: "",
   currency: "EUR",
   energyCostPerKwh: 0.25,
   printerLifetimeHours: 0,

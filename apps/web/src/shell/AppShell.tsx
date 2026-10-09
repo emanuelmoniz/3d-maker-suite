@@ -3,6 +3,7 @@ import { Ellipsis, Printer } from "lucide-react";
 import { useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { unreadCount, useAlerts } from "../lib/alerts.ts";
+import { useApplyBranding, useAppName, useBrandingUrl } from "../lib/branding.ts";
 import { cx } from "../lib/cx.ts";
 import { ALL_ITEMS, NAV_GROUPS, type NavItem, SETTINGS_ITEM } from "./nav.ts";
 import { ThemeToggle } from "./ThemeToggle.tsx";
@@ -45,13 +46,18 @@ function SideLink({ item }: { item: NavItem }) {
 }
 
 function Brand() {
-  const { t } = useTranslation();
+  const name = useAppName();
+  const logo = useBrandingUrl("logo");
   return (
-    <div className="flex items-center gap-2.5 font-semibold">
-      <span className="grid size-8 place-items-center rounded-md bg-accent text-accent-fg">
-        <Printer className="size-[18px]" aria-hidden />
-      </span>
-      <span className="hidden lg:inline">{t("common:appName")}</span>
+    <div className="flex min-w-0 items-center gap-2.5 font-semibold">
+      {logo ? (
+        <img src={logo} alt={name} className="size-8 shrink-0 rounded-md object-contain" />
+      ) : (
+        <span className="grid size-8 shrink-0 place-items-center rounded-md bg-accent text-accent-fg">
+          <Printer className="size-[18px]" aria-hidden />
+        </span>
+      )}
+      <span className="hidden truncate lg:inline">{name}</span>
     </div>
   );
 }
@@ -130,6 +136,7 @@ function BottomNav() {
 
 export function AppShell() {
   const { t } = useTranslation();
+  useApplyBranding();
   return (
     <div className="flex min-h-dvh">
       <a

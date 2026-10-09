@@ -11,6 +11,7 @@ import { ACCENTS, setTheme } from "../lib/theme.ts";
 import { ThemeToggle } from "../shell/ThemeToggle.tsx";
 import { ChannelsSection } from "./alerts/ChannelsSection.tsx";
 import { BackupSection } from "./settings/BackupSection.tsx";
+import { BrandingFields } from "./settings/BrandingFields.tsx";
 import { ServerSection } from "./settings/ServerSection.tsx";
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
@@ -157,6 +158,7 @@ export function SettingsPage() {
               </select>
             )}
           </FormField>
+          <BrandingFields />
         </Section>
 
         <Section title={t("settings:sections.costs")}>

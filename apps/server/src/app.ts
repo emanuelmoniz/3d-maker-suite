@@ -22,6 +22,7 @@ import { accessGuard } from "./lib/access.ts";
 import { createProjectScanner } from "./projects/scanner.ts";
 import { alertsRoutes } from "./routes/alerts.ts";
 import { backupsRoutes } from "./routes/backups.ts";
+import { brandingRoutes } from "./routes/branding.ts";
 import { costsRoutes } from "./routes/costs.ts";
 import { exportRoutes } from "./routes/export.ts";
 import { filamentRoutes } from "./routes/filament.ts";
@@ -101,6 +102,7 @@ export async function buildApp(
     await app.register(serverConfigRoutes(opts.serverConfig, opts.restart), {
       prefix: "/api/server-config",
     });
+  await app.register(brandingRoutes(dataDir), { prefix: "/api/branding" });
   await app.register(printersRoutes(db, dataDir), { prefix: "/api/printers" });
   await app.register(maintenanceRoutes(db), { prefix: "/api/maintenance" });
   // Without a data dir (tests) secrets use a throwaway in-memory key.

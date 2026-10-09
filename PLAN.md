@@ -43,7 +43,7 @@ Do Step 3 of PLAN.md. Extend apps/server/src/config.ts, no new CLI dependency
 (node:util parseArgs). Changing host to non-loopback must keep the password rule.
 ```
 
-### [ ] Step 4 - App name & branding
+### [x] Step 4 - App name & branding
 **Model:** Sonnet (use frontend-design skill) · **Effort:** Medium
 **Scope:** Settings → Appearance: custom app name (empty = default `common:appName`), logo upload (sidebar/header), favicon upload. Applied live (document title, favicon link). Images stored like printer photos and included in backups. Reset to default.
 **Done when:** name/logo/favicon persist, survive backup/restore, and fall back cleanly.

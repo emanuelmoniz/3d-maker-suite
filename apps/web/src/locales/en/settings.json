@@ -26,6 +26,23 @@
     "defaultPrinter": "Default printer ID",
     "defaultPrinterHint": "Pre-selected when you log a print. A picker arrives with the printers module."
   },
+  "branding": {
+    "name": "App name",
+    "nameHint": "Shown in the sidebar and browser tab. Leave empty for the default.",
+    "upload": "Upload image",
+    "reset": "Reset to default",
+    "error": "Couldn't update the image. Use a PNG, JPEG or WebP up to 5 MB.",
+    "logo": {
+      "label": "Logo",
+      "hint": "Replaces the icon in the sidebar.",
+      "alt": "Current logo"
+    },
+    "favicon": {
+      "label": "Favicon",
+      "hint": "The small icon in the browser tab.",
+      "alt": "Current favicon"
+    }
+  },
   "appearance": {
     "accent": "Accent colour",
     "accents": {

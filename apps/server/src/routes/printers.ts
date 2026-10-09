@@ -25,6 +25,7 @@ import { and, desc, eq, isNotNull, isNull } from "drizzle-orm";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
+import { IMAGE_MAX_BYTES, IMAGE_TYPES, imageType } from "../lib/images.ts";
 import { dateRange, inIds, listPage, taggedWith } from "../lib/list.ts";
 import { readPreferences } from "../lib/preferences.ts";
 
@@ -32,8 +33,8 @@ const { printers, printerComments, prints } = schema;
 const params = z.object({ id: z.uuid() });
 const commentParams = params.extend({ commentId: z.uuid() });
 const notFound = { 404: apiErrorSchema };
-const PHOTO_TYPES = { "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp" } as const;
-const PHOTO_MAX_BYTES = 5 * 1024 * 1024;
+const PHOTO_TYPES = IMAGE_TYPES;
+const PHOTO_MAX_BYTES = IMAGE_MAX_BYTES;
 
 export const printersRoutes =
   (db: Db, dataDir: string): FastifyPluginAsyncZod =>
@@ -256,11 +257,8 @@ export const printersRoutes =
     app.get("/:id/photo", { schema: { params } }, async (req, reply) => {
       const { photoPath } = get(req.params.id);
       if (!photoPath) throw new HttpError(404, "not_found", "Printer has no photo");
-      const type = Object.entries(PHOTO_TYPES).find(([, ext]) =>
-        photoPath.endsWith(`.${ext}`),
-      )?.[0];
       return reply
-        .type(type ?? "application/octet-stream")
+        .type(imageType(photoPath) ?? "application/octet-stream")
         .send(readFileSync(photoFile(photoPath)));
     });
 
