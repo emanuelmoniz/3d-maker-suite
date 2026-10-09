@@ -11,8 +11,7 @@
     "columns": {
       "name": "Project",
       "materials": "Materials",
-      "files": "Files",
-      "source": "Source"
+      "files": "Files"
     },
     "multicolor": "Multicolor",
     "files_one": "{{count}} file",

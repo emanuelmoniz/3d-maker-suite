@@ -1,4 +1,4 @@
-import type { Project } from "@3d-maker-suite/core";
+import { type Project, projectFilters } from "@3d-maker-suite/core";
 import { Link } from "@tanstack/react-router";
 import { ExternalLink, FolderKanban, LayoutGrid, List, Plus, ScanSearch } from "lucide-react";
 import { useState } from "react";
@@ -10,10 +10,11 @@ import { FilterBar } from "../../components/FilterBar.tsx";
 import { inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { TagFilter } from "../../components/TagFilter.tsx";
+import { TagList } from "../../components/TagList.tsx";
 import { cx } from "../../lib/cx.ts";
 import { useListPage, useUrlListQuery } from "../../lib/list.ts";
 import { projectThumbnailUrl, useProjectMaterials, useScan } from "../../lib/projects.ts";
-import { useCollections } from "../../lib/tags.ts";
+import { useCollections, useTags, useTagsOf } from "../../lib/tags.ts";
 
 type View = "grid" | "list";
 const VIEW_KEY = "projects.view";
@@ -105,6 +106,8 @@ export function ProjectsPage() {
   const { data, isError } = useListPage<Project>(["projects", "list"], "/api/projects", query);
   const collections = useCollections().data ?? [];
   const materials = useProjectMaterials().data ?? [];
+  const tags = useTags().data ?? [];
+  const tagsOf = useTagsOf("project");
   const set = (patch: ListQuery, keepPage = false) => {
     const next: ListQuery = { ...query, ...patch };
     if (!keepPage) delete next.page;
@@ -155,57 +158,91 @@ export function ProjectsPage() {
         data && (
           <>
             <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-              <FilterBar
-                search={name}
-                onSearchChange={(v) => set({ name: v })}
-                searchLabel={t("projects:filters.search")}
-                onReset={
-                  filtered
-                    ? () =>
-                        set({ name: "", tagId: "", collectionId: "", material: "", multicolor: "" })
-                    : undefined
-                }
-              >
-                <TagFilter value={tagId} onChange={(v) => set({ tagId: v })} />
-                {collections.length > 0 && (
-                  <select
-                    aria-label={t("projects:filters.collection")}
-                    className={`${inputClass} w-auto`}
-                    value={collectionId}
-                    onChange={(e) => set({ collectionId: e.target.value })}
-                  >
-                    <option value="">{t("projects:filters.allCollections")}</option>
-                    {collections.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name}
-                      </option>
-                    ))}
-                  </select>
-                )}
-                {materials.length > 0 && (
-                  <select
-                    aria-label={t("projects:filters.material")}
-                    className={`${inputClass} w-auto`}
-                    value={material}
-                    onChange={(e) => set({ material: e.target.value })}
-                  >
-                    <option value="">{t("projects:filters.allMaterials")}</option>
-                    {materials.map((m) => (
-                      <option key={m} value={m}>
-                        {m}
-                      </option>
-                    ))}
-                  </select>
-                )}
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={multicolor === "true"}
-                    onChange={(e) => set({ multicolor: e.target.checked ? "true" : "" })}
-                  />
-                  {t("projects:list.multicolor")}
-                </label>
-              </FilterBar>
+              {view === "grid" ? (
+                <FilterBar
+                  search={name}
+                  onSearchChange={(v) => set({ name: v })}
+                  searchLabel={t("projects:filters.search")}
+                  onReset={
+                    filtered
+                      ? () =>
+                          set({
+                            name: "",
+                            tagId: "",
+                            collectionId: "",
+                            material: "",
+                            multicolor: "",
+                          })
+                      : undefined
+                  }
+                >
+                  <TagFilter value={tagId} onChange={(v) => set({ tagId: v })} />
+                  {collections.length > 0 && (
+                    <select
+                      aria-label={t("projects:filters.collection")}
+                      className={`${inputClass} w-auto`}
+                      value={collectionId}
+                      onChange={(e) => set({ collectionId: e.target.value })}
+                    >
+                      <option value="">{t("projects:filters.allCollections")}</option>
+                      {collections.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                  {materials.length > 0 && (
+                    <select
+                      aria-label={t("projects:filters.material")}
+                      className={`${inputClass} w-auto`}
+                      value={material}
+                      onChange={(e) => set({ material: e.target.value })}
+                    >
+                      <option value="">{t("projects:filters.allMaterials")}</option>
+                      {materials.map((m) => (
+                        <option key={m} value={m}>
+                          {m}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={multicolor === "true"}
+                      onChange={(e) => set({ multicolor: e.target.checked ? "true" : "" })}
+                    />
+                    {t("projects:list.multicolor")}
+                  </label>
+                </FilterBar>
+              ) : (
+                <div className="flex flex-wrap items-center gap-2">
+                  {collections.length > 0 && (
+                    <select
+                      aria-label={t("projects:filters.collection")}
+                      className={`${inputClass} w-auto`}
+                      value={collectionId}
+                      onChange={(e) => set({ collectionId: e.target.value })}
+                    >
+                      <option value="">{t("projects:filters.allCollections")}</option>
+                      {collections.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={multicolor === "true"}
+                      onChange={(e) => set({ multicolor: e.target.checked ? "true" : "" })}
+                    />
+                    {t("projects:list.multicolor")}
+                  </label>
+                </div>
+              )}
               <fieldset className="m-0 flex gap-1 border-0 p-0">
                 <legend className="sr-only">{t("projects:view.label")}</legend>
                 {(
@@ -226,7 +263,7 @@ export function ProjectsPage() {
                 ))}
               </fieldset>
             </div>
-            {!rows.length ? (
+            {view === "grid" && !rows.length ? (
               <p className="text-muted">{t("projects:filters.none")}</p>
             ) : view === "grid" ? (
               <div className="flex flex-col gap-3">
@@ -256,36 +293,55 @@ export function ProjectsPage() {
                 label={t("projects:list.table")}
                 rows={rows}
                 rowKey={(p) => p.id}
-                server={{ query, onQueryChange: setQuery, total: data.total }}
+                server={{
+                  query,
+                  onQueryChange: setQuery,
+                  total: data.total,
+                  filters: projectFilters,
+                }}
                 columns={[
                   {
                     id: "name",
                     header: t("projects:list.columns.name"),
                     cell: (p) => (
-                      <span className="flex items-center gap-3">
-                        <Thumb p={p} className="size-10 rounded" />
-                        <span>
-                          <Link
-                            to="/projects/$id"
-                            params={{ id: p.id }}
-                            className="block font-medium hover:underline"
+                      <span className="flex items-center gap-2">
+                        <Thumb p={p} className="size-8 rounded" />
+                        <Link
+                          to="/projects/$id"
+                          params={{ id: p.id }}
+                          className="font-medium hover:underline"
+                        >
+                          {p.name}
+                        </Link>
+                        {p.sourceUrl && (
+                          <a
+                            href={p.sourceUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            aria-label={t("projects:list.openSource")}
+                            className="text-muted hover:text-fg"
                           >
-                            {p.name}
-                          </Link>
-                          {p.description && (
-                            <span className="line-clamp-1 block max-w-md text-muted">
-                              {p.description}
-                            </span>
-                          )}
-                        </span>
+                            <ExternalLink className="size-4" aria-hidden />
+                          </a>
+                        )}
                       </span>
                     ),
                     sort: "name",
+                    filter: "name",
                   },
                   {
                     id: "materials",
                     header: t("projects:list.columns.materials"),
                     cell: (p) => tagline(p, t("projects:list.multicolor")),
+                    filter: "material",
+                    filterOptions: materials.map((m) => ({ value: m, label: m })),
+                  },
+                  {
+                    id: "tags",
+                    header: t("tags:column"),
+                    cell: (p) => <TagList tags={tagsOf(p.id)} />,
+                    filter: "tagId",
+                    filterOptions: tags.map((x) => ({ value: x.id, label: x.name })),
                   },
                   {
                     id: "files",
@@ -295,22 +351,6 @@ export function ProjectsPage() {
                       p.folderPath
                         ? t("projects:list.files", { count: p.meta.files.length })
                         : t("projects:list.noFolder"),
-                  },
-                  {
-                    id: "source",
-                    header: t("projects:list.columns.source"),
-                    cell: (p) =>
-                      p.sourceUrl && (
-                        <a
-                          href={p.sourceUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          aria-label={t("projects:list.openSource")}
-                          className="inline-flex text-muted hover:text-fg"
-                        >
-                          <ExternalLink className="size-4" aria-hidden />
-                        </a>
-                      ),
                   },
                 ]}
               />

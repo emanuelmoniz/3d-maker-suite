@@ -26,7 +26,7 @@ export const isHidden = (name: string) => name.startsWith(".") || name === "node
 // ponytail: fixed caps keep a stray huge folder from stalling a scan; make them settings if hit.
 const MAX_DEPTH = 3; // folder levels below the project folder that are looked into
 const MAX_FILES = 1000;
-const MAX_3MF = 10;
+const MAX_3MF = 50; // only metadata is read (zip head + configs), so this stays cheap
 const MAX_TEXT_BYTES = 1024 * 1024;
 const MAX_DESCRIPTION = 2000;
 const COVER_NAME = /^(cover|preview|thumbnail|thumb|main)\b/i;
@@ -114,7 +114,14 @@ export async function scanFolder(dir: string): Promise<FolderScan> {
     .find(Boolean);
 
   const models: ProjectModel[] = [];
-  const threeMfs = all.filter((f) => f.path.toLowerCase().endsWith(".3mf")).slice(0, MAX_3MF);
+  // Over the cap, the newest files win (exports, not old drafts); folder order is kept.
+  const newest = new Set(
+    all
+      .filter((f) => f.path.toLowerCase().endsWith(".3mf"))
+      .sort((a, b) => b.mtimeMs - a.mtimeMs)
+      .slice(0, MAX_3MF),
+  );
+  const threeMfs = all.filter((f) => newest.has(f));
   const infos = new Map<string, Awaited<ReturnType<typeof parse3mf>>>();
   let unreadable = 0;
   for (const f of threeMfs) {
