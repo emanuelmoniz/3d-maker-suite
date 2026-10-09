@@ -82,7 +82,9 @@ export const maintenanceTypeSchema = z.object({
   intervalSec: seconds.positive().nullable(),
   intervalPrints: z.number().int().positive().nullable(),
   intervalDays: z.number().int().positive().nullable(),
-  appliesToModel: z.string().nullable(),
+  /** Models and/or specific printers it applies to (union); both empty = every printer. */
+  appliesToModels: z.array(z.string().min(1)),
+  appliesToPrinterIds: z.array(id),
   archivedAt: isoDate.nullable(),
   ...timestamps,
 });

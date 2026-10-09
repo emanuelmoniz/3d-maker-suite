@@ -11,14 +11,16 @@ export const maintenanceTypeInputSchema = maintenanceTypeSchema
     intervalSec: true,
     intervalPrints: true,
     intervalDays: true,
-    appliesToModel: true,
+    appliesToModels: true,
+    appliesToPrinterIds: true,
   })
   .partial({
     description: true,
     intervalSec: true,
     intervalPrints: true,
     intervalDays: true,
-    appliesToModel: true,
+    appliesToModels: true,
+    appliesToPrinterIds: true,
   });
 export const maintenanceTypePatchSchema = maintenanceTypeInputSchema
   .partial()
@@ -40,10 +42,10 @@ export const maintenanceDueItemSchema = maintenanceDueSchema.extend({
   lastDoneAt: isoDate.nullable(),
 });
 
-export const maintenanceTypeSortFields = ["name", "createdAt", "appliesToModel"] as const;
+export const maintenanceTypeSortFields = ["name", "createdAt", "appliesToModels"] as const;
 export const maintenanceTypeFilters = {
   name: { kind: "text" },
-  appliesToModel: { kind: "text" },
+  appliesToModels: { kind: "text" },
 } as const satisfies Record<string, ColumnFilter>;
 export const maintenanceTaskSortFields = ["doneAt", "createdAt"] as const;
 

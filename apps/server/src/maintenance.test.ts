@@ -27,7 +27,7 @@ describe("maintenance", () => {
     await post("/api/maintenance/types", {
       name: "X1 only",
       intervalDays: 30,
-      appliesToModel: "X1C",
+      appliesToModels: ["X1C"],
     });
 
     const row = async () => (await due()).find((i: { typeId: string }) => i.typeId === nozzle.id);

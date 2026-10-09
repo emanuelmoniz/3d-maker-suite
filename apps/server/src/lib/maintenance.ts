@@ -40,7 +40,7 @@ export function dueItems(db: Db, printerId?: string): MaintenanceDueItem[] {
   for (const p of active) {
     const now = usageOf(db, p);
     for (const type of types) {
-      if (!appliesToPrinter(type.appliesToModel, p.model)) continue;
+      if (!appliesToPrinter(type, p)) continue;
       const last = lastDone.get(`${p.id}:${type.id}`);
       // Never done: counts from purchase (or from when the printer was added).
       const since: UsageSnapshot = last

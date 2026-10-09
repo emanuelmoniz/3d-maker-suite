@@ -48,7 +48,7 @@ flowchart LR
 |---|---|---|
 | **Printer** | A physical machine | name, brand, model, serial?, nozzleDiameterMm, runtimeOffsetSec, printsOffset (baseline for a used machine), state (from the `printerStates` setting), powerW?, purchasedAt?, purchasePrice?, warrantyEndsAt?, warrantyNotes?, photoPath?, archivedAt? |
 | **PrinterComment** | Note on a printer timeline | printerId, body, pinned, status (`open` | `resolved`) |
-| **MaintenanceType** | Reusable maintenance template | name, intervalSec?, intervalPrints?, intervalDays? (the first one reached triggers), appliesToModel? |
+| **MaintenanceType** | Reusable maintenance template | name, intervalSec?, intervalPrints?, intervalDays? (the first one reached triggers), appliesToModels[] + appliesToPrinterIds[] (union; empty = all printers) |
 | **MaintenanceTask** | A logged "done" event | printerId, typeId, doneAt, printerRuntimeSecAt, printerPrintsAt, notes? |
 | **FilamentProfile** | A material spec (settings only, no colour) | brand, material (PLA, PETG…), name, diameterMm, densityGcm3, pricePerKg? |
 | **Spool** | A physical roll of filament | profileId, colorHex, initialGrams, remainingGrams, pricePaid, purchasedAt?, openedAt?, location?, archivedAt? |

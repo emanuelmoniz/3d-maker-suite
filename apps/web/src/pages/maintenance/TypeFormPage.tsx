@@ -5,6 +5,7 @@ import { Button } from "../../components/Button.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { useCreateType, useMaintenanceType, usePatchType } from "../../lib/maintenance.ts";
+import { usePrinters } from "../../lib/printers.ts";
 
 const text = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
 const num = (v: string, scale = 1) => (v ? Math.round(Number(v) * scale) : null);
@@ -15,6 +16,11 @@ function TypeForm({ type }: { type?: MaintenanceType }) {
   const create = useCreateType();
   const patch = usePatchType();
   const save = type ? patch : create;
+  const printers = usePrinters({ archived: false }).data?.items ?? [];
+  // Existing printer models, plus saved ones no printer has (yet).
+  const models = [
+    ...new Set([...printers.map((p) => p.model), ...(type?.appliesToModels ?? [])]),
+  ].sort();
   const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const form = e.currentTarget;
@@ -25,7 +31,13 @@ function TypeForm({ type }: { type?: MaintenanceType }) {
       intervalSec: num(text(f, "hours"), 3600),
       intervalPrints: num(text(f, "prints")),
       intervalDays: num(text(f, "days")),
-      appliesToModel: text(f, "model") || null,
+      appliesToModels: [
+        ...f.getAll("models").map(String),
+        ...text(f, "otherModels")
+          .split(",")
+          .map((m) => m.trim()),
+      ].filter((m, i, all) => m && all.indexOf(m) === i),
+      appliesToPrinterIds: f.getAll("printers").map(String),
     };
     if (type)
       patch.mutate(
@@ -72,16 +84,43 @@ function TypeForm({ type }: { type?: MaintenanceType }) {
         {interval("prints", "maintenance:types.prints", type?.intervalPrints)}
         {interval("days", "maintenance:types.days", type?.intervalDays)}
       </fieldset>
-      <FormField label={t("maintenance:types.model")} hint={t("maintenance:types.modelHint")}>
-        {(p) => (
-          <input
-            {...p}
-            name="model"
-            defaultValue={type?.appliesToModel ?? undefined}
-            className={inputClass}
-          />
-        )}
-      </FormField>
+      <fieldset className="grid gap-2">
+        <legend className="mb-1 text-muted">{t("maintenance:types.model")}</legend>
+        <p className="text-muted">{t("maintenance:types.modelHint")}</p>
+        {models.map((m) => (
+          <label key={m} className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              name="models"
+              value={m}
+              defaultChecked={type?.appliesToModels.includes(m)}
+            />
+            {m}
+          </label>
+        ))}
+        <FormField
+          label={t("maintenance:types.otherModels")}
+          hint={t("maintenance:types.otherModelsHint")}
+        >
+          {(p) => <input {...p} name="otherModels" className={inputClass} />}
+        </FormField>
+      </fieldset>
+      {printers.length > 0 && (
+        <fieldset className="grid gap-2">
+          <legend className="mb-1 text-muted">{t("maintenance:types.printers")}</legend>
+          {printers.map((p) => (
+            <label key={p.id} className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                name="printers"
+                value={p.id}
+                defaultChecked={type?.appliesToPrinterIds.includes(p.id)}
+              />
+              {p.name}
+            </label>
+          ))}
+        </fieldset>
+      )}
       {save.isError && (
         <p role="alert" className="text-bad">
           {t("maintenance:types.error")}

@@ -16,6 +16,7 @@ import { dateInputToIso, formatDate, formatDuration, formatNumber } from "../../
 import { useListPage, useUrlListQuery } from "../../lib/list.ts";
 import { useDue, useLogDone } from "../../lib/maintenance.ts";
 import { usePreferences } from "../../lib/preferences.ts";
+import { usePrinters } from "../../lib/printers.ts";
 
 const STATUS = {
   ok: "maintenance:due.status.ok",
@@ -153,6 +154,7 @@ export function MaintenancePage() {
     "/api/maintenance/types",
     query,
   );
+  const printers = usePrinters({ archived: false }).data?.items ?? [];
   const dueText = useDueText();
   const [logging, setLogging] = useState<MaintenanceDueItem | null>(null);
   const list = new Intl.ListFormat(i18n.language, { type: "unit", style: "narrow" });
@@ -310,9 +312,17 @@ export function MaintenancePage() {
                 {
                   id: "model",
                   header: t("maintenance:types.model"),
-                  cell: (m) => m.appliesToModel ?? t("maintenance:types.allModels"),
-                  sort: "appliesToModel",
-                  filter: "appliesToModel",
+                  cell: (m) =>
+                    m.appliesToModels.length + m.appliesToPrinterIds.length === 0
+                      ? t("maintenance:types.allModels")
+                      : [
+                          ...m.appliesToModels,
+                          ...printers
+                            .filter((p) => m.appliesToPrinterIds.includes(p.id))
+                            .map((p) => p.name),
+                        ].join(", "),
+                  sort: "appliesToModels",
+                  filter: "appliesToModels",
                 },
               ]}
             />

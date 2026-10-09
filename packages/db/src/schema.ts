@@ -147,7 +147,8 @@ export const maintenanceTypes = sqliteTable("maintenance_types", {
   intervalSec: integer(),
   intervalPrints: integer(),
   intervalDays: integer(),
-  appliesToModel: text(),
+  appliesToModels: text({ mode: "json" }).notNull().$type<string[]>().default([]),
+  appliesToPrinterIds: text({ mode: "json" }).notNull().$type<string[]>().default([]),
   archivedAt: text(),
   ...timestamps,
 });

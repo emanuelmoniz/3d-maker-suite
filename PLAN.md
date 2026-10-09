@@ -82,7 +82,7 @@ table where server-side filtering doesn't fit and why.
 
 ## Phase 3 - Printers & maintenance
 
-### [ ] Step 7 - Maintenance types for multiple models and printers
+### [x] Step 7 - Maintenance types for multiple models and printers
 **Model:** Sonnet · **Effort:** Medium
 **Scope:** Maintenance type `appliesToModel` (single string) → a list of models (picked from existing printer models, free text allowed) and/or a list of specific printers. Schedules apply to the union. Drizzle migration that converts existing data.
 **Done when:** existing types keep their scope after migration; due logic tests cover both kinds.

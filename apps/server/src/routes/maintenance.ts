@@ -61,10 +61,13 @@ export const maintenanceRoutes =
           sort: {
             name: maintenanceTypes.name,
             createdAt: maintenanceTypes.createdAt,
-            appliesToModel: maintenanceTypes.appliesToModel,
+            appliesToModels: maintenanceTypes.appliesToModels,
           },
           dateColumn: maintenanceTypes.createdAt,
-          filters: { name: maintenanceTypes.name, appliesToModel: maintenanceTypes.appliesToModel },
+          filters: {
+            name: maintenanceTypes.name,
+            appliesToModels: maintenanceTypes.appliesToModels,
+          },
           where: [
             req.query.archived === "true"
               ? isNotNull(maintenanceTypes.archivedAt)

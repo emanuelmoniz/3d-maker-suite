@@ -59,9 +59,19 @@ describe("maintenanceDue", () => {
 });
 
 describe("appliesToPrinter", () => {
-  it("null = all models, otherwise case-insensitive match", () => {
-    expect(appliesToPrinter(null, "P1S")).toBe(true);
-    expect(appliesToPrinter("p1s", "P1S ")).toBe(true);
-    expect(appliesToPrinter("X1C", "P1S")).toBe(false);
+  const p1s = { id: "a", model: "P1S " };
+  const none = { appliesToModels: [], appliesToPrinterIds: [] };
+  it("empty = all printers", () => {
+    expect(appliesToPrinter(none, p1s)).toBe(true);
+  });
+  it("models match case-insensitively", () => {
+    expect(appliesToPrinter({ ...none, appliesToModels: ["X1C", "p1s"] }, p1s)).toBe(true);
+    expect(appliesToPrinter({ ...none, appliesToModels: ["X1C"] }, p1s)).toBe(false);
+  });
+  it("applies to the union of models and printers", () => {
+    const t = { appliesToModels: ["X1C"], appliesToPrinterIds: ["a"] };
+    expect(appliesToPrinter(t, p1s)).toBe(true);
+    expect(appliesToPrinter(t, { id: "b", model: "X1C" })).toBe(true);
+    expect(appliesToPrinter(t, { id: "b", model: "A1" })).toBe(false);
   });
 });

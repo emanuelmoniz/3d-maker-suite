@@ -4,6 +4,7 @@ import { Button } from "../../components/Button.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { formatNumber } from "../../lib/format.ts";
 import { useMaintenanceType, usePatchType } from "../../lib/maintenance.ts";
+import { usePrinters } from "../../lib/printers.ts";
 import { Info, linkButton } from "../filament/SpoolDetailPage.tsx";
 
 export function TypeDetailPage() {
@@ -11,6 +12,7 @@ export function TypeDetailPage() {
   const { id } = useParams({ strict: false }) as { id: string };
   const { data: type, isError } = useMaintenanceType(id);
   const patch = usePatchType();
+  const printers = usePrinters({ archived: false }).data?.items ?? [];
 
   if (isError)
     return (
@@ -22,6 +24,9 @@ export function TypeDetailPage() {
 
   const none = t("maintenance:types.none");
   const archived = type.archivedAt !== null;
+  const printerNames = printers
+    .filter((p) => type.appliesToPrinterIds.includes(p.id))
+    .map((p) => p.name);
 
   return (
     <>
@@ -61,7 +66,8 @@ export function TypeDetailPage() {
           <Info label={t("maintenance:types.prints")}>{type.intervalPrints ?? none}</Info>
           <Info label={t("maintenance:types.days")}>{type.intervalDays ?? none}</Info>
           <Info label={t("maintenance:types.model")}>
-            {type.appliesToModel ?? t("maintenance:types.allModels")}
+            {[...type.appliesToModels, ...printerNames].join(", ") ||
+              t("maintenance:types.allModels")}
           </Info>
         </dl>
       </section>
