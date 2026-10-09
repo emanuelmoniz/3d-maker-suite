@@ -73,7 +73,7 @@ test("stats can be filtered by outcome", async ({ page, app }) => {
     .first()
     .locator("xpath=..");
   await expect(prints).toContainText("2");
-  await page.getByLabel("Outcome").selectOption("failed");
+  await page.getByRole("combobox", { name: "Outcome" }).selectOption("failed");
   await expect(prints).toContainText("1");
   await expect(prints).not.toContainText("2");
 });
