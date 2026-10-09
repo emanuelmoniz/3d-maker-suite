@@ -101,14 +101,14 @@ export const projectInputSchema = z.object({
 /** Any subset. Every field sent becomes user-edited. */
 export const projectPatchSchema = z.object(editable).partial().strict();
 
-export const projectSortFields = ["name", "createdAt"] as const;
+export const projectSortFields = ["name", "createdAt", "multicolor"] as const;
 /** `name` also searches the description; `material` matches any of the project's materials. */
 export const projectFilters = {
   name: { kind: "text" },
   tagId: { kind: "select" },
   collectionId: { kind: "select" },
   material: { kind: "select" },
-  multicolor: { kind: "select", options: ["true"] },
+  multicolor: { kind: "select", options: ["true", "false"] },
 } as const satisfies Record<string, ColumnFilter>;
 export const projectListQuery = listQuery(projectSortFields, {}, projectFilters);
 

@@ -1,6 +1,14 @@
 import { type Project, projectFilters } from "@3d-maker-suite/core";
 import { Link } from "@tanstack/react-router";
-import { ExternalLink, FolderKanban, LayoutGrid, List, Plus, ScanSearch } from "lucide-react";
+import {
+  Check,
+  ExternalLink,
+  FolderKanban,
+  LayoutGrid,
+  List,
+  Plus,
+  ScanSearch,
+} from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
@@ -207,14 +215,6 @@ export function ProjectsPage() {
                       ))}
                     </select>
                   )}
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={multicolor === "true"}
-                      onChange={(e) => set({ multicolor: e.target.checked ? "true" : "" })}
-                    />
-                    {t("projects:list.multicolor")}
-                  </label>
                 </FilterBar>
               ) : (
                 <div className="flex flex-wrap items-center gap-2">
@@ -233,14 +233,6 @@ export function ProjectsPage() {
                       ))}
                     </select>
                   )}
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={multicolor === "true"}
-                      onChange={(e) => set({ multicolor: e.target.checked ? "true" : "" })}
-                    />
-                    {t("projects:list.multicolor")}
-                  </label>
                 </div>
               )}
               <fieldset className="m-0 flex gap-1 border-0 p-0">
@@ -332,9 +324,27 @@ export function ProjectsPage() {
                   {
                     id: "materials",
                     header: t("projects:list.columns.materials"),
-                    cell: (p) => tagline(p, t("projects:list.multicolor")),
+                    cell: (p) => p.meta.materials.join(" · "),
                     filter: "material",
                     filterOptions: materials.map((m) => ({ value: m, label: m })),
+                  },
+                  {
+                    id: "multicolor",
+                    header: t("projects:list.columns.multicolor"),
+                    cell: (p) =>
+                      p.meta.multicolor && (
+                        <Check
+                          className="size-4 text-accent"
+                          role="img"
+                          aria-label={t("projects:list.multicolor")}
+                        />
+                      ),
+                    sort: "multicolor",
+                    filter: "multicolor",
+                    filterOptions: [
+                      { value: "true", label: t("projects:list.multicolor") },
+                      { value: "false", label: t("projects:list.singleColor") },
+                    ],
                   },
                   {
                     id: "tags",

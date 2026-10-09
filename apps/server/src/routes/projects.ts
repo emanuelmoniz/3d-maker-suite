@@ -30,6 +30,8 @@ const { projects, collectionProjects } = schema;
 const params = z.object({ id: z.uuid() });
 const fileQuery = z.object({ path: z.string().min(1), entry: z.string().optional() });
 const notFound = { 404: apiErrorSchema };
+// "true" / "false", to filter and sort by the `?multicolor=` select values.
+const isMulticolor = sql`case when json_extract(${projects.meta}, '$.multicolor') then 'true' else 'false' end`;
 const errors = {
   403: apiErrorSchema,
   404: apiErrorSchema,
@@ -83,16 +85,18 @@ export const projectsRoutes =
         },
       },
       async (req) => {
-        const { material, multicolor } = req.query;
+        const { material } = req.query;
         const page = listPage(db, projects, req.query, {
-          sort: { name: projects.name, createdAt: projects.createdAt },
+          sort: { name: projects.name, createdAt: projects.createdAt, multicolor: isMulticolor },
           dateColumn: projects.createdAt,
-          filters: { name: sql`${projects.name} || ' ' || coalesce(${projects.description}, '')` },
+          filters: {
+            name: sql`${projects.name} || ' ' || coalesce(${projects.description}, '')`,
+            multicolor: isMulticolor,
+          },
           where: [
             isNull(projects.archivedAt),
             material &&
               sql`exists (select 1 from json_each(${projects.meta}, '$.materials') where ${columnFilter(sql`value`, material)})`,
-            multicolor && sql`json_extract(${projects.meta}, '$.multicolor') = 1`,
             taggedWith(db, "project", projects.id, req.query.tagId),
             req.query.collectionId &&
               inArray(

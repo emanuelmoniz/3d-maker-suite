@@ -152,6 +152,8 @@ describe("listPage filters", () => {
       .run();
     expect(await names("/api/projects?material=TPU,ASA")).toEqual(["Dragon"]);
     expect(await names("/api/projects?multicolor=true")).toEqual(["Dragon"]);
+    expect(await names("/api/projects?multicolor=false")).toEqual(["Vase"]);
+    expect(await names("/api/projects?sort=-multicolor")).toEqual(["Dragon", "Vase"]);
     expect(await names("/api/projects?name=SPIRAL")).toEqual(["Vase"]);
     expect((await app.inject("/api/projects/materials")).json()).toEqual(["PETG", "PLA", "TPU"]);
   });
