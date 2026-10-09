@@ -14,6 +14,7 @@ import {
 } from "fastify-type-provider-zod";
 import { evaluateAlerts } from "./alerts/evaluate.ts";
 import { runAutoBackup } from "./backup/backup.ts";
+import type { Config } from "./config.ts";
 import { HttpError } from "./errors.ts";
 import { loadKey } from "./integrations/secrets.ts";
 import { createSyncer } from "./integrations/sync.ts";
@@ -31,6 +32,7 @@ import { preferencesRoutes } from "./routes/preferences.ts";
 import { printersRoutes } from "./routes/printers.ts";
 import { printsRoutes } from "./routes/prints.ts";
 import { projectsRoutes } from "./routes/projects.ts";
+import { serverConfigRoutes } from "./routes/serverConfig.ts";
 import { statsRoutes } from "./routes/stats.ts";
 import { collectionsRoutes, tagsRoutes } from "./routes/tags.ts";
 
@@ -50,6 +52,8 @@ export async function buildApp(
     watchProjects?: boolean;
     /** Bind address and optional password; checked on every request (off in tests). */
     access?: { host: string; password?: string };
+    /** Network settings editable from Settings (needs a data dir). */
+    serverConfig?: Config;
   } = {},
 ) {
   const app = Fastify({ logger });
@@ -91,6 +95,8 @@ export async function buildApp(
 
   await app.register(healthRoutes);
   await app.register(preferencesRoutes(db, dataDir), { prefix: "/api/preferences" });
+  if (opts.serverConfig)
+    await app.register(serverConfigRoutes(opts.serverConfig), { prefix: "/api/server-config" });
   await app.register(printersRoutes(db, dataDir), { prefix: "/api/printers" });
   await app.register(maintenanceRoutes(db), { prefix: "/api/maintenance" });
   // Without a data dir (tests) secrets use a throwaway in-memory key.

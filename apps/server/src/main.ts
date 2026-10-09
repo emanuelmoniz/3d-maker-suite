@@ -34,6 +34,7 @@ const app = await buildApp(
     backupSchedule: "0 3 * * *",
     watchProjects: true,
     access: { host: config.host, password: config.password },
+    serverConfig: config,
   },
 );
 await app.register(fastifyStatic, {

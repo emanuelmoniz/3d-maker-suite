@@ -15,7 +15,8 @@
     "libraries": "Slicer libraries",
     "integrations": "Integrations",
     "alerts": "Alerts",
-    "backup": "Backup & export"
+    "backup": "Backup & export",
+    "server": "Network"
   },
   "general": {
     "language": "Language",
@@ -106,5 +107,18 @@
       "prints": "Prints",
       "quotes": "Quotes"
     }
+  },
+  "server": {
+    "host": "Host",
+    "port": "Port",
+    "current": "In use: {{value}} ({{source}}). Leave empty to use the default.",
+    "sources": {
+      "cli": "command-line flag",
+      "env": "environment variable",
+      "file": "saved setting",
+      "default": "default"
+    },
+    "restart": "Restart required: the saved values apply the next time the app starts. A flag or environment variable still overrides them.",
+    "passwordNeeded": "Reaching the app from other devices needs the APP_PASSWORD environment variable. Without it, only requests addressed to localhost or this host are accepted."
   }
 }

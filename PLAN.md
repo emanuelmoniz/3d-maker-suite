@@ -33,7 +33,7 @@ Do Step 2 of PLAN.md. One reusable component, parent route passed explicitly per
 (no history.back()). Reuse the existing page header if there is one.
 ```
 
-### [ ] Step 3 - Configurable server port
+### [x] Step 3 - Configurable server port
 **Model:** Sonnet · **Effort:** Low
 **Scope:** `pnpm start --port <n>` (and `--host`) CLI flags; port/host also editable in Settings (stored in a small config file in the data dir, applied on restart, "restart required" notice). Precedence: CLI flag > env `PORT`/`HOST` > config file > default 4300. Validate range, show the current effective value and its source.
 **Done when:** each source works and precedence is unit-tested in `config.test.ts`.

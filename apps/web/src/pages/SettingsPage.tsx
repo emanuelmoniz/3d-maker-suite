@@ -11,6 +11,7 @@ import { ACCENTS, setTheme } from "../lib/theme.ts";
 import { ThemeToggle } from "../shell/ThemeToggle.tsx";
 import { ChannelsSection } from "./alerts/ChannelsSection.tsx";
 import { BackupSection } from "./settings/BackupSection.tsx";
+import { ServerSection } from "./settings/ServerSection.tsx";
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -349,6 +350,10 @@ export function SettingsPage() {
 
         <Section title={t("settings:alerts.channels")}>
           <ChannelsSection />
+        </Section>
+
+        <Section title={t("settings:sections.server")}>
+          <ServerSection />
         </Section>
 
         <Section title={t("settings:sections.backup")}>
