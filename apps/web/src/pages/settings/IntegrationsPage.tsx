@@ -114,9 +114,18 @@ const PREVIEWS: Partial<
   machineProfiles: "/catalog-import/$id/$type",
   filamentBrands: "/catalog-import/$id/$type",
 };
-// Catalog rows need no decision, so these can also run straight from here.
-const CATALOG: Capability[] = ["brands", "printerModels", "machineProfiles", "filamentBrands"];
-const isCatalog = (c: Capability): c is SyncType => CATALOG.includes(c);
+// These can also run straight from here: a run imports the rows that need no decision (catalog
+// rows, spools with one matching profile, presets whose brand and material exist) and leaves the
+// rest pending for the review page.
+const RUN_NOW: Capability[] = [
+  "spools",
+  "brands",
+  "printerModels",
+  "machineProfiles",
+  "filamentBrands",
+  "filamentProfiles",
+];
+const isRunNow = (c: Capability): c is SyncType => RUN_NOW.includes(c);
 const RUN_STATUSES = { ok: "integrations:runs.ok", error: "integrations:runs.error" };
 
 // A control inside a table row keeps clear of the row borders and never shrinks below its text
@@ -389,7 +398,7 @@ function Policies({
     if (!preview) return "–";
     return (
       <span className="flex items-center gap-3">
-        {isCatalog(type) && (
+        {isRunNow(type) && (
           <Button className="my-1" disabled={sync.isPending} onClick={() => sync.mutate({ type })}>
             {t("integrations:policies.syncNow")}
           </Button>
