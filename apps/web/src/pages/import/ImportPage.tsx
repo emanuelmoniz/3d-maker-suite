@@ -114,6 +114,9 @@ export function ImportPage() {
           </label>
         </div>
         <p className="text-muted">{t("import:upload.hint")}</p>
+        <Link to="/import/slicer-zip" className="w-fit font-medium underline">
+          {t("import:zip.link")}
+        </Link>
 
         {(preview.isError || template.isError) && (
           <p role="alert" className="text-bad">

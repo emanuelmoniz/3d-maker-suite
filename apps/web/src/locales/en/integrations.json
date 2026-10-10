@@ -201,7 +201,8 @@
       "model": "Printer model",
       "machine": "Machine profile",
       "filamentBrand": "Filament brand",
-      "material": "Material"
+      "material": "Material",
+      "filamentProfile": "Filament profile"
     },
     "statuses": {
       "new": "New",

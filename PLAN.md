@@ -221,7 +221,7 @@ Do Step 18 of PLAN.md. Only column definitions and matchers: no changes to the r
 screen unless something is missing, and tell me what.
 ```
 
-### [ ] Step 19 - Catalog zip import
+### [x] Step 19 - Catalog zip import
 **Model:** Sonnet · **Effort:** Medium
 **Scope:** Upload a zip of a slicer config folder → extract to a temp folder (`yauzl`, size cap, no paths outside the folder) → run the Step 14/15 local readers on it → review screen. Types: brands, printer models, machine profiles, filament brands, materials, filament profiles. Step 14 preset versioning applies. The import page lists the slicers whose adapter can read a catalog; each adapter gives the folder paths per OS and the page renders the "where to find it, how to zip it" instructions from i18n (web never checks vendor names). Bambu Studio and OrcaSlicer.
 **Done when:** a zip made by following the instructions imports the catalog on a server with no slicer installed; re-import doesn't duplicate; a bad or unknown zip gets a clear error.

@@ -160,5 +160,33 @@
       "filament": "Filament",
       "grams": "Filament used (g)"
     }
+  },
+  "zip": {
+    "link": "Import a slicer catalog from a zip",
+    "title": "Import a slicer catalog from a zip",
+    "description": "For a server with no slicer installed: zip your slicer's config folder on the PC that has it, upload it here and review what it offers.",
+    "slicer": "Slicer",
+    "steps": {
+      "open": "On the PC where {{name}} is installed, open its config folder: Help → Show Configuration Folder.",
+      "folder": "Or find it yourself:",
+      "windows": "Windows: {{folder}} (paste it into the File Explorer address bar)",
+      "mac": "macOS: {{folder}} (Finder → Go → Go to Folder)",
+      "linux": "Linux: {{folder}}",
+      "select": "Select the system and user folders. The rest (cache, logs, plugins) isn't needed.",
+      "zip": "Zip them: Windows – right-click → Send to → Compressed (zipped) folder; macOS – right-click → Compress; Linux – run zip -r slicer.zip system user in that folder.",
+      "upload": "Upload the zip below."
+    },
+    "choose": "Choose zip file",
+    "reading": "Reading the zip…",
+    "review": "Review what the zip offers",
+    "none": "No slicer here can read a catalog from a zip.",
+    "expired": "This upload is gone. Upload the zip again.",
+    "again": "Upload again",
+    "errors": {
+      "invalid_zip": "Couldn't read this file as a zip.",
+      "not_slicer_folder": "This zip doesn't look like a slicer config folder. It needs the system and/or user folders in it.",
+      "zip_too_large": "This zip is too large. Zip only the system and user folders.",
+      "error": "Couldn't upload the zip. Is the server running, and is the file under 100 MB?"
+    }
   }
 }

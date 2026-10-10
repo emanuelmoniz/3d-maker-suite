@@ -102,6 +102,8 @@ export interface FilamentLibrary {
   id: string;
   /** Config folders where this slicer usually lives on this OS; they may not exist. */
   defaultDirs(): string[];
+  /** The config folder per OS as shown to the user (for "zip this folder" instructions). */
+  folders?: { windows: string; mac: string; linux: string };
   /** `dir` exists. Unreadable or odd preset files are skipped, not fatal. */
   read(dir: string, opts: { includeSystem: boolean }): Promise<LibraryPreset[]>;
   /** Vendors' printer models (with thumbnails) and machine presets, system and user ones. */

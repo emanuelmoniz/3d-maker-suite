@@ -14,6 +14,7 @@ const KIND = {
   machine: "integrations:catalogImport.kinds.machine",
   filamentBrand: "integrations:catalogImport.kinds.filamentBrand",
   material: "integrations:catalogImport.kinds.material",
+  filamentProfile: "integrations:catalogImport.kinds.filamentProfile",
 } as const;
 const STATUS = {
   new: "integrations:catalogImport.statuses.new",
@@ -25,6 +26,7 @@ const TITLE = {
   printerModels: "integrations:capabilities.printerModels",
   machineProfiles: "integrations:capabilities.machineProfiles",
   filamentBrands: "integrations:capabilities.filamentBrands",
+  filamentProfiles: "integrations:capabilities.filamentProfiles",
 } as const;
 // Where to go after the import.
 const BACK = {
@@ -32,16 +34,20 @@ const BACK = {
   printerModels: "/printers",
   machineProfiles: "/printers",
   filamentBrands: "/filament",
+  filamentProfiles: "/filament",
 } as const;
 
-/** Preview -> confirm for one catalog type of one slicer integration. */
-export function CatalogImportPage() {
+/** Preview -> confirm for one catalog type of one slicer integration, or of an uploaded zip. */
+export function CatalogImportPage({ zip = false }: { zip?: boolean }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { id, type } = useParams({ strict: false }) as { id: string; type: CatalogType };
+  const base = zip ? "slicer-zip" : "slicer-catalog";
+  // A zip import goes back to the zip, where the other types wait.
+  const back = zip ? `/import/slicer-zip/${id}` : BACK[type];
   const [unchecked, setUnchecked] = useState<Set<string>>(new Set());
-  const preview = useCatalogPreview(id, type);
-  const run = useCatalogImport(id, type);
+  const preview = useCatalogPreview(id, type, base);
+  const run = useCatalogImport(id, type, base);
 
   const items = preview.data?.items ?? [];
   const importable = (s: string) => s !== "imported";
@@ -62,17 +68,22 @@ export function CatalogImportPage() {
       <div className="grid gap-4">
         {preview.isError && (
           <p role="alert" className="text-bad">
-            {t("integrations:catalogImport.notFound")}{" "}
-            <Link to="/settings/integrations" className="font-medium underline">
-              {t("integrations:catalogImport.openIntegrations")}
+            {t(zip ? "import:zip.expired" : "integrations:catalogImport.notFound")}{" "}
+            <Link
+              to={zip ? "/import/slicer-zip" : "/settings/integrations"}
+              className="font-medium underline"
+            >
+              {t(zip ? "import:zip.again" : "integrations:catalogImport.openIntegrations")}
             </Link>
           </p>
         )}
         {preview.data && (
           <>
-            <p className="text-muted">
-              {t("integrations:catalogImport.reading", { dir: preview.data.dir })}
-            </p>
+            {preview.data.dir && (
+              <p className="text-muted">
+                {t("integrations:catalogImport.reading", { dir: preview.data.dir })}
+              </p>
+            )}
             {!items.length ? (
               <EmptyState
                 icon={Layers}
@@ -131,13 +142,13 @@ export function CatalogImportPage() {
                 onClick={() =>
                   run.mutate(
                     { keys: picked.map((i) => i.key) },
-                    { onSuccess: () => navigate({ to: BACK[type] }) },
+                    { onSuccess: () => navigate({ to: back }) },
                   )
                 }
               >
                 {t("integrations:catalogImport.import", { count: picked.length })}
               </Button>
-              <Link to={BACK[type]} className="text-muted hover:underline">
+              <Link to={back} className="text-muted hover:underline">
                 {t("common:actions.cancel")}
               </Link>
             </div>

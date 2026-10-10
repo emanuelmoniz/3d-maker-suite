@@ -43,6 +43,7 @@ import { printsRoutes } from "./routes/prints.ts";
 import { projectsRoutes } from "./routes/projects.ts";
 import { serverConfigRoutes } from "./routes/serverConfig.ts";
 import { slicerCatalogRoutes } from "./routes/slicerCatalog.ts";
+import { slicerZipRoutes } from "./routes/slicerZip.ts";
 import { statsRoutes } from "./routes/stats.ts";
 import { collectionsRoutes, tagsRoutes } from "./routes/tags.ts";
 
@@ -123,6 +124,7 @@ export async function buildApp(
   const syncer = createSyncer(db, opts.adapters ?? [], key, app.log, dataDir);
   await app.register(filamentRoutes(db, syncer), { prefix: "/api/filament" });
   await app.register(slicerCatalogRoutes(db, syncer), { prefix: "/api/slicer-catalog" });
+  await app.register(slicerZipRoutes(db, syncer, dataDir), { prefix: "/api/slicer-zip" });
   await app.register(printsRoutes(db), { prefix: "/api/prints" });
   await app.register(costsRoutes(db), { prefix: "/api/costs" });
   await app.register(statsRoutes(db), { prefix: "/api/stats" });

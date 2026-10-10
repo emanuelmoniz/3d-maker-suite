@@ -20,8 +20,16 @@ export function orcaDefaultDirs(
   ];
 }
 
-export const orcaSlicerLibrary = (defaultDirs: () => string[] = orcaDefaultDirs): FilamentLibrary =>
-  slicerPresetLibrary("orca-slicer", defaultDirs);
+export const orcaSlicerLibrary = (
+  defaultDirs: () => string[] = orcaDefaultDirs,
+): FilamentLibrary => ({
+  ...slicerPresetLibrary("orca-slicer", defaultDirs),
+  folders: {
+    windows: "%APPDATA%\\OrcaSlicer",
+    mac: "~/Library/Application Support/OrcaSlicer",
+    linux: "~/.config/OrcaSlicer",
+  },
+});
 
 // OrcaSlicer on the server's disk: its presets and the program itself. No print history or spools.
 export function orcaSlicerAdapter(): IntegrationAdapter {

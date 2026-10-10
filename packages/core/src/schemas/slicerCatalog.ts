@@ -29,7 +29,17 @@ export const SLICER_CATALOG_TYPES = [
 
 /** `imported` = already in the catalog and the same; `changed` = would be updated (or archived and re-added). */
 export const CATALOG_STATUSES = ["new", "imported", "changed"] as const;
-export const CATALOG_KINDS = ["brand", "model", "machine", "filamentBrand", "material"] as const;
+export const CATALOG_KINDS = [
+  "brand",
+  "model",
+  "machine",
+  "filamentBrand",
+  "material",
+  "filamentProfile",
+] as const;
+
+/** What a zip of a slicer folder can offer: the catalog types plus the filament profiles. */
+export const SLICER_ZIP_TYPES = [...SLICER_CATALOG_TYPES, "filamentProfiles"] as const;
 
 export const catalogItemSchema = z.object({
   /** Stable within one library and type; what the confirmed preview sends back. */
@@ -46,6 +56,14 @@ export const catalogPreviewSchema = z.object({
 
 export const catalogImportSchema = z.object({ keys: z.array(z.string().min(1)).min(1) });
 
+/** A slicer whose config folder can be uploaded as a zip, and where that folder is per OS. */
+export const slicerZipSourceSchema = z.object({
+  id: z.string(),
+  folders: z.object({ windows: z.string(), mac: z.string(), linux: z.string() }),
+});
+export const slicerZipUploadSchema = z.object({ uploadId: z.uuid() });
+
+export type SlicerZipSource = z.infer<typeof slicerZipSourceSchema>;
 export type CatalogModel = z.infer<typeof catalogModelSchema>;
 export type CatalogMachine = z.infer<typeof catalogMachineSchema>;
 export type CatalogItem = z.infer<typeof catalogItemSchema>;

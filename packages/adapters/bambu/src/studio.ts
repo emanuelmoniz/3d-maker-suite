@@ -20,4 +20,11 @@ export function studioDefaultDirs(
 
 export const bambuStudioLibrary = (
   defaultDirs: () => string[] = studioDefaultDirs,
-): FilamentLibrary => slicerPresetLibrary("bambu-studio", defaultDirs);
+): FilamentLibrary => ({
+  ...slicerPresetLibrary("bambu-studio", defaultDirs),
+  folders: {
+    windows: "%APPDATA%\\BambuStudio",
+    mac: "~/Library/Application Support/BambuStudio",
+    linux: "~/.config/BambuStudio",
+  },
+});
