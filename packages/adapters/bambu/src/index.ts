@@ -36,15 +36,18 @@ const bindResponse = z.object({
 });
 // Task history (OpenBambuAPI cloud-http.md). Only what we need is required, so a harmless extra or
 // missing field doesn't break the sync; a missing id/status/time/device is `api_changed`.
-const PAGE = 20;
+const PAGE = 100;
 const tasksResponse = z.object({
+  total: z.number().nullish(),
   hits: z.array(
     z.object({
       id: z.number(),
       title: z.string().nullish(),
       designTitle: z.string().nullish(),
       designId: z.number().nullish(),
-      status: z.number(), // 2 = finished, 3 = failed/aborted; anything else is skipped
+      // 2 = finished, 3 = failed/aborted, 4 = printing now (its endTime is a placeholder a few
+      // seconds after startTime). Only 2 and 3 are imported; a running one comes with a later sync.
+      status: z.number(),
       startTime: z.string(),
       endTime: z.string().nullish(),
       costTime: z.number().nullish(), // the slicer's estimate, not the real duration
@@ -72,7 +75,7 @@ function toPrint(t: Task, region: Region, log: Logger): ExternalPrint | undefine
   const outcome = OUTCOMES[t.status];
   const start = Date.parse(t.startTime);
   if (!outcome || Number.isNaN(start)) {
-    log.debug({ status: t.status }, "bambu task skipped"); // e.g. still printing
+    log.debug({ status: t.status }, "bambu task skipped"); // 4 = still printing
     return;
   }
   const end = t.endTime ? Date.parse(t.endTime) : Number.NaN;
@@ -224,17 +227,21 @@ export function bambuCloudAdapter(): IntegrationAdapter {
             })),
         },
         printHistory: {
-          // Newest first; `after` is the id of the last task of the previous page.
+          // Newest first; the cursor is the offset of the next page. The documented `after=<id>` is
+          // ignored by the API (it answers with page 1 again), `offset` is what pages.
           listPrints: async ({ since, until, cursor }) => {
-            const query = new URLSearchParams({ limit: String(PAGE) });
-            if (cursor) query.set("after", cursor);
-            const { hits } = await parse(
+            const offset = Number(cursor ?? 0);
+            const query = new URLSearchParams({ limit: String(PAGE), offset: String(offset) });
+            const { hits, total } = await parse(
               await authed(`${URLS.tasks}?${query}`),
               tasksResponse,
               log,
             );
             const last = hits.at(-1);
             const older = last && since && Date.parse(last.startTime) < Date.parse(since);
+            const next = offset + hits.length;
+            // `total` when the API sends it, else a short page is the last one.
+            const more = total != null ? next < total : hits.length === PAGE;
             return {
               items: hits
                 .map((t) => toPrint(t, region, log))
@@ -242,7 +249,7 @@ export function bambuCloudAdapter(): IntegrationAdapter {
                   (p): p is ExternalPrint =>
                     !!p && (!since || p.startedAt >= since) && (!until || p.startedAt <= until),
                 ),
-              nextCursor: hits.length === PAGE && last && !older ? String(last.id) : undefined,
+              nextCursor: last && more && !older ? String(next) : undefined,
             };
           },
         },

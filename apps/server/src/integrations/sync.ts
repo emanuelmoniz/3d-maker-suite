@@ -124,8 +124,8 @@ export function createSyncer(
     let skipped = 0;
     let errorCode: IntegrationErrorCode | null = null;
     const runLog = log.child({ integrationId: id });
+    const signal = AbortSignal.timeout(TIMEOUT_MS);
     try {
-      const signal = AbortSignal.timeout(TIMEOUT_MS);
       const instance = instanceFor(row, signal);
       const on = (cap: "printers" | "prints") =>
         (!req.type || req.type === cap) && switchedOn(row, adapterOf(row), cap);
@@ -195,8 +195,11 @@ export function createSyncer(
         const until = req.to;
         let cursor: string | undefined;
         do {
-          signal.throwIfAborted(); // also stops an adapter that never ends its cursor
+          signal.throwIfAborted();
           const page = await instance.printHistory.listPrints({ since, until, cursor });
+          // An adapter stuck on one page would re-read it until the timeout; stop at once instead.
+          if (page.nextCursor && page.nextCursor === cursor)
+            throw new IntegrationError("api_changed");
           db.transaction((tx) => {
             for (const raw of page.items) {
               const p = externalPrintSchema.safeParse(raw);
@@ -295,7 +298,8 @@ export function createSyncer(
         )
         .run();
     } catch (e) {
-      errorCode = codeOf(e);
+      // A run cut off by the timeout is a slow vendor, whatever the interrupted call threw.
+      errorCode = signal.aborted ? "unreachable" : codeOf(e);
       // Only the code is stored; the raw error (possibly a vendor message) goes to the local log.
       runLog.warn({ err: e, code: errorCode }, "sync failed");
       db.update(integrations)

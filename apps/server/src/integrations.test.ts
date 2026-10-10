@@ -406,6 +406,29 @@ describe("capabilities", () => {
     expect(await sync(id)).toMatchObject({ status: "ok", created: 1 });
     expect(db.select().from(schema.prints).all()).toHaveLength(0);
   });
+
+  it("stops an adapter that keeps handing back the same page", async () => {
+    let calls = 0;
+    const stuck: IntegrationAdapter = {
+      ...mockAdapter(state),
+      id: "stuck",
+      create: () => ({
+        test: async () => ({ ok: true }),
+        printHistory: {
+          listPrints: async () => {
+            calls++;
+            return { items: [], nextCursor: "same" };
+          },
+        },
+      }),
+    };
+    app = await buildApp(db, false, "", { adapters: [stuck] });
+    const { id } = (
+      await send("POST", "/api/integrations", { adapterId: "stuck", secrets: { token: "t" } })
+    ).json();
+    expect(await sync(id)).toMatchObject({ status: "error", errorCode: "api_changed" });
+    expect(calls).toBe(2);
+  });
 });
 
 describe("sign-in", () => {

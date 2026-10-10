@@ -214,7 +214,7 @@ it("maps finished tasks with filament per slot, link and cover", async () => {
     ],
     nextCursor: undefined,
   });
-  expect(sent(0).url).toBe("https://api.bambulab.com/v1/user-service/my/tasks?limit=20");
+  expect(sent(0).url).toBe("https://api.bambulab.com/v1/user-service/my/tasks?limit=100&offset=0");
 });
 
 it("scales a failed print by how far it got and skips unfinished tasks", async () => {
@@ -222,7 +222,7 @@ it("scales a failed print by how far it got and skips unfinished tasks", async (
     json(200, {
       hits: [
         task(8, { status: 3, endTime: "2026-05-01T11:00:00Z" }),
-        task(9, { status: 1 }),
+        task(9, { status: 4 }), // printing now
         task(10, { amsDetailMapping: [] }),
       ],
     }),
@@ -237,15 +237,23 @@ it("scales a failed print by how far it got and skips unfinished tasks", async (
   expect(items[1]?.filaments).toEqual([{ grams: 30 }]); // no AMS detail: weight only, no colour
 });
 
-it("pages with the last id until the window is covered", async () => {
-  const full = Array.from({ length: 20 }, (_, i) => task(100 - i));
-  queue(json(200, { hits: full }));
-  expect((await history({ since: "2026-04-01T00:00:00.000Z" }))?.nextCursor).toBe("81");
-  queue(json(200, { hits: full }));
+it("pages by offset until the window or the total is covered", async () => {
+  const full = Array.from({ length: 100 }, (_, i) => task(1000 - i));
+  queue(json(200, { total: 182, hits: full }));
+  expect((await history({ since: "2026-04-01T00:00:00.000Z" }))?.nextCursor).toBe("100");
+  expect(sent(0).url).toContain("offset=0");
+  // The last task is older than the window: nothing further back is needed.
+  queue(json(200, { total: 182, hits: full }));
   expect((await history({ since: "2026-06-01T00:00:00.000Z" }))?.nextCursor).toBeUndefined();
-  queue(json(200, { hits: [] }));
-  await history({ cursor: "81" });
-  expect(sent(2).url).toContain("after=81");
+  // The second page reaches the total. `after` is never sent: the API ignores it.
+  queue(json(200, { total: 182, hits: full.slice(0, 82) }));
+  expect((await history({ cursor: "100" }))?.nextCursor).toBeUndefined();
+  expect(sent(2).url).toContain("offset=100");
+  expect(sent(2).url).not.toContain("after=");
+  // Without a total, a short page is the last one.
+  queue(json(200, { hits: full }), json(200, { hits: full.slice(0, 5) }));
+  expect((await history())?.nextCursor).toBe("100");
+  expect((await history({ cursor: "100" }))?.nextCursor).toBeUndefined();
 });
 
 it("reports an unexpected task shape as api_changed and a missing token as auth_required", async () => {
