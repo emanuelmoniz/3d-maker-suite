@@ -231,7 +231,7 @@ Do Step 19 of PLAN.md. Reuse the local readers as they are (point them at the ex
 folder). Verify the zip instructions on a real Bambu Studio and OrcaSlicer install.
 ```
 
-### [ ] Step 20 - Export & import history
+### [x] Step 20 - Export & import history
 **Model:** Sonnet · **Effort:** Low
 **Scope:** Export spools, printers and prints as the filled template (same columns + id), so a file edited in Excel re-imports and matches by id. New `import_runs` table: source (file / zip / integration), type, file name, date, created / updated / skipped / invalid counts, errors; listed on the import page with the backup taken before each run.
 **Done when:** export → edit → import updates only the edited rows; every apply shows up in the history.

@@ -3,6 +3,7 @@ import {
   CAPABILITIES,
   COMMENT_STATUSES,
   ENERGY_SOURCES,
+  IMPORT_SOURCES,
   INTEGRATION_ERROR_CODES,
   ORIGINS,
   PRINT_OUTCOMES,
@@ -554,4 +555,24 @@ export const quotes = sqliteTable(
     ...timestamps,
   },
   (t) => [index("quotes_project_idx").on(t.projectId)],
+);
+
+// One row per applied import. `backup` is the automatic backup taken just before the run.
+export const importRuns = sqliteTable(
+  "import_runs",
+  {
+    id: id(),
+    source: text().$type<(typeof IMPORT_SOURCES)[number]>().notNull(),
+    type: text().notNull(),
+    fileName: text(),
+    created: integer().notNull(),
+    updated: integer().notNull(),
+    skipped: integer().notNull(),
+    invalid: integer().notNull(),
+    /** JSON `{ row, column, code }[]`, capped. */
+    errors: text({ mode: "json" }).$type<{ row: number; column: string; code: string }[]>(),
+    backup: text(),
+    createdAt: text().notNull().$defaultFn(now),
+  },
+  (t) => [check("import_runs_source_ck", oneOf(t.source, IMPORT_SOURCES))],
 );

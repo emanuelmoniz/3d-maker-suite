@@ -34,6 +34,16 @@
     "format": "What to enter",
     "error": "Couldn't build the template. Is the server running?"
   },
+  "export": {
+    "download": "Export",
+    "filename": "{{name}} export.xlsx"
+  },
+  "history": {
+    "title": "Import history",
+    "run": "{{date}} · {{type}} · {{file}}: {{created}} created, {{updated}} updated, {{skipped}} skipped, {{invalid}} invalid",
+    "backup": "backup {{name}}",
+    "sources": { "file": "file", "zip": "zip", "integration": "integration" }
+  },
   "hints": {
     "text": "Any text.",
     "ref": "A name. Pick one from the list or type a new one; new names are added for you.",

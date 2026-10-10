@@ -22,12 +22,14 @@ import {
   importPreviewQuerySchema,
   importPreviewSchema,
   importResultSchema,
+  importRunSchema,
   importTemplateSchema,
   mergeValues,
   parseRow,
   suggest,
 } from "@3d-maker-suite/core";
-import type { Db } from "@3d-maker-suite/db";
+import { type Db, schema } from "@3d-maker-suite/db";
+import { desc } from "drizzle-orm";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { createBackup } from "../backup/backup.ts";
@@ -64,6 +66,7 @@ const HANDLERS: Record<ImportEntity, ImportHandler> = {
 /** A previewed upload, kept until it is applied: the file's rows by column key, still unparsed. */
 type Stored = {
   entity: ImportEntity;
+  fileName?: string;
   ignoredHeaders: string[];
   rows: { n: number; raw: Record<string, unknown> }[];
 };
@@ -92,7 +95,13 @@ function preview(db: Db, uploadId: string, stored: Stored): ImportPreview {
     valid.map((p) => p.values),
     targets,
   );
-  const matchOf = new Map(valid.map((p, i) => [p.row, matches[i]]));
+  // A row from an export carries its id: that beats the matcher.
+  const matchOf = new Map(
+    valid.map((p, i) => {
+      const id = String(stored.rows.find((r) => r.n === p.row)?.raw.id ?? "").trim();
+      return [p.row, byId.has(id) ? { candidates: [id], targetId: id } : matches[i]];
+    }),
+  );
   return {
     uploadId,
     rows: parsed.map((p) => {
@@ -135,6 +144,30 @@ export const importRoutes =
       },
     );
 
+    // The template filled with what you have, plus an id column so an edited file matches by id.
+    app.post(
+      "/:entity/export",
+      { schema: { params, body: importTemplateSchema } },
+      async (req, reply) => {
+        const { entity } = req.params;
+        const handler = HANDLERS[entity];
+        const rows = handler.targets(db).map((t) => ({ id: t.id, values: t.values }));
+        return reply
+          .header("content-disposition", `attachment; filename="${entity}-export.xlsx"`)
+          .type(XLSX_TYPE)
+          .send(await buildTemplate(IMPORT_COLUMNS[entity], req.body, handler.refs(db), rows));
+      },
+    );
+
+    app.get("/runs", { schema: { response: { 200: z.array(importRunSchema) } } }, async () =>
+      db
+        .select()
+        .from(schema.importRuns)
+        .orderBy(desc(schema.importRuns.createdAt))
+        .limit(50)
+        .all(),
+    );
+
     // Raw file body (.xlsx or .csv by content type). Nothing is written to the database.
     app.post(
       "/:entity/preview",
@@ -160,6 +193,8 @@ export const importRoutes =
         const [head, ...lines] = grid;
         const headers = head?.cells ?? [];
         const keys = headerKeys(IMPORT_COLUMNS[entity], headers, req.query.labels);
+        const idAt = headers.findIndex((h) => String(h).trim().toLowerCase() === "id");
+        if (idAt >= 0) keys[idAt] = "id";
         if (!keys.some(Boolean))
           throw new HttpError(400, "no_columns", "The first row has no known column");
         const rows = lines
@@ -173,6 +208,7 @@ export const importRoutes =
 
         const stored: Stored = {
           entity,
+          fileName: req.query.fileName,
           ignoredHeaders: headers.filter((h, i) => !keys[i] && filled(h)).map(String),
           rows,
         };
@@ -242,6 +278,23 @@ export const importRoutes =
             updated++;
           }
         });
+        const invalid = current.rows.filter((r) => r.status === "invalid");
+        db.insert(schema.importRuns)
+          .values({
+            source: "file",
+            type: entity,
+            fileName: stored.fileName ?? null,
+            created,
+            updated,
+            skipped: current.rows.length - invalid.length - created - updated,
+            invalid: invalid.length,
+            errors: invalid
+              .slice(0, 50)
+              .flatMap((r) => r.errors.map((e) => ({ row: r.row, ...e })))
+              .slice(0, 50),
+            backup: backup.name,
+          })
+          .run();
         rmSync(file, { force: true });
         return { created, updated, backup: backup.name };
       },

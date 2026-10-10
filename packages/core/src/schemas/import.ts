@@ -5,6 +5,7 @@ import { PRINT_OUTCOMES, SPOOL_STATUSES } from "./enums.ts";
 // File imports (XLSX / CSV). The columns of an entity are declared once here and drive the
 // template, the parser, validation and the review table.
 export const IMPORT_ENTITIES = ["spools", "printers", "prints"] as const;
+export const IMPORT_SOURCES = ["file", "zip", "integration"] as const;
 export type ImportEntity = (typeof IMPORT_ENTITIES)[number];
 
 export const IMPORT_COLUMN_TYPES = [
@@ -196,6 +197,7 @@ export const importTemplateSchema = z.object({
 });
 
 export const importPreviewQuerySchema = z.object({
+  fileName: z.string().max(255).optional(),
   /** JSON object of the translated headers, so a file with those headers maps back to keys. */
   labels: z
     .string()
@@ -236,6 +238,21 @@ export const importResultSchema = z.object({
   backup: z.string(),
 });
 
+export const importRunSchema = z.object({
+  id,
+  source: z.enum(IMPORT_SOURCES),
+  type: z.string(),
+  fileName: z.string().nullable(),
+  created: z.number().int(),
+  updated: z.number().int(),
+  skipped: z.number().int(),
+  invalid: z.number().int(),
+  errors: z.array(z.object({ row: z.number(), column: z.string(), code: z.string() })).nullable(),
+  backup: z.string().nullable(),
+  createdAt: z.string(),
+});
+
+export type ImportRun = z.infer<typeof importRunSchema>;
 export type ImportStatus = (typeof IMPORT_STATUSES)[number];
 export type ImportAction = (typeof IMPORT_ACTIONS)[number];
 export type MergePolicy = (typeof MERGE_POLICIES)[number];

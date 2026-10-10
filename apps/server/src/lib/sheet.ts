@@ -50,25 +50,36 @@ export async function buildTemplate(
   columns: readonly ImportColumn[],
   { labels, sheets, instructions }: ImportTemplate,
   refs: Record<string, string[]>,
+  /** Export: existing rows to fill in, with their id in a first column. */
+  rows?: { id: string; values: Record<string, unknown> }[],
 ): Promise<Buffer> {
   const wb = new ExcelJS.Workbook();
   const data = wb.addWorksheet(sheets.data, { views: [{ state: "frozen", ySplit: 1 }] });
   const help = wb.addWorksheet(sheets.instructions);
   const lists = wb.addWorksheet(sheets.lists);
   const label = (c: ImportColumn) => labels[c.key] ?? c.key;
-  data.columns = columns.map((c) => {
-    const header = `${label(c)}${c.required ? " *" : ""}`;
-    // Dates show as ISO; text stays text, so a colour like 000000 isn't turned into 0.
-    const numFmt =
-      c.type === "date"
-        ? "yyyy-mm-dd"
-        : c.type === "datetime"
-          ? "yyyy-mm-dd hh:mm"
-          : c.type === "color"
-            ? "@"
-            : undefined;
-    return { header, width: Math.max(14, header.length + 2), style: numFmt ? { numFmt } : {} };
-  });
+  const exported = (c: ImportColumn, v: unknown) =>
+    c.type === "money" && typeof v === "number" ? v / 100 : v;
+  // The export's id column is the first one, so every other column shifts right.
+  const shift = rows ? 1 : 0;
+  data.columns = [
+    ...(rows ? [{ header: "id", key: "id", width: 38 }] : []),
+    ...columns.map((c) => {
+      const header = `${label(c)}${c.required ? " *" : ""}`;
+      // Dates show as ISO; text stays text, so a colour like 000000 isn't turned into 0.
+      const numFmt =
+        c.type === "date"
+          ? "yyyy-mm-dd"
+          : c.type === "datetime"
+            ? "yyyy-mm-dd hh:mm"
+            : c.type === "color"
+              ? "@"
+              : undefined;
+      return { header, width: Math.max(14, header.length + 2), style: numFmt ? { numFmt } : {} };
+    }),
+  ];
+  for (const r of rows ?? [])
+    data.addRow([r.id, ...columns.map((c) => exported(c, r.values[c.key] ?? null))]);
   data.getRow(1).font = { bold: true };
 
   let listColumn = 0;
@@ -90,7 +101,7 @@ export async function buildTemplate(
       showErrorMessage: !c.ref,
       formulae: [formula],
     };
-    for (let r = 2; r <= ROWS + 1; r++) data.getCell(r, i + 1).dataValidation = validation;
+    for (let r = 2; r <= ROWS + 1; r++) data.getCell(r, i + 1 + shift).dataValidation = validation;
   });
   lists.getRow(1).font = { bold: true };
 

@@ -11,7 +11,8 @@ import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
-import { usePreview, useTemplate } from "../../lib/import.ts";
+import { formatDateTime } from "../../lib/format.ts";
+import { useImportRuns, usePreview, useTemplate } from "../../lib/import.ts";
 import { ReviewTable } from "./ReviewTable.tsx";
 
 // i18n keys are written out in full so `pnpm i18n:check` can see them.
@@ -24,6 +25,11 @@ const ENTITIES: Record<ImportEntity, { label: string; to: string; view: string }
   },
   prints: { label: "import:entities.prints", to: "/prints", view: "import:done.viewPrints" },
 };
+const SOURCES = {
+  file: "import:history.sources.file",
+  zip: "import:history.sources.zip",
+  integration: "import:history.sources.integration",
+} as const;
 const HINTS: Record<ImportColumn["type"], string> = {
   text: "import:hints.text",
   ref: "import:hints.ref",
@@ -42,14 +48,13 @@ export function ImportPage() {
   const [done, setDone] = useState<ImportResult | null>(null);
   const columns: readonly ImportColumn[] = IMPORT_COLUMNS[entity];
   const template = useTemplate(entity);
+  const exportFile = useTemplate(entity, "export");
+  const runs = useImportRuns();
   const preview = usePreview(entity);
   const labels = Object.fromEntries(columns.map((c) => [c.key, t(c.label)]));
   const name = t(ENTITIES[entity].label);
 
-  const downloadTemplate = () =>
-    template.mutate({
-      filename: t("import:template.filename", { name }),
-      body: {
+  const body = {
         labels,
         sheets: {
           data: name,
@@ -66,8 +71,11 @@ export function ImportPage() {
             t(HINTS[c.type], { options: c.options ?? [] }),
           ]),
         ],
-      },
-    });
+  };
+  const downloadTemplate = () =>
+    template.mutate({ filename: t("import:template.filename", { name }), body });
+  const downloadExport = () =>
+    exportFile.mutate({ filename: t("import:export.filename", { name }), body });
 
   return (
     <>
@@ -96,6 +104,9 @@ export function ImportPage() {
           <Button disabled={template.isPending} onClick={downloadTemplate}>
             {t("import:template.download")}
           </Button>
+          <Button disabled={exportFile.isPending} onClick={downloadExport}>
+            {t("import:export.download")}
+          </Button>
           <label className="inline-flex h-9 cursor-pointer items-center rounded-md bg-accent px-3 font-medium text-accent-fg hover:opacity-90 focus-within:outline focus-within:outline-2">
             {t("import:upload.choose")}
             <input
@@ -118,7 +129,7 @@ export function ImportPage() {
           {t("import:zip.link")}
         </Link>
 
-        {(preview.isError || template.isError) && (
+        {(preview.isError || template.isError || exportFile.isError) && (
           <p role="alert" className="text-bad">
             {t(preview.isError ? "import:upload.error" : "import:template.error")}
           </p>
@@ -142,6 +153,27 @@ export function ImportPage() {
               preview.reset();
             }}
           />
+        )}
+        {!!runs.data?.length && (
+          <section className="grid gap-2">
+            <h2 className="font-semibold">{t("import:history.title")}</h2>
+            <ul className="grid gap-1">
+              {runs.data.map((r) => (
+                <li key={r.id} className="text-muted">
+                  {t("import:history.run", {
+                    date: formatDateTime(r.createdAt),
+                    type: t(`import:entities.${r.type}`, { defaultValue: r.type }),
+                    file: r.fileName ?? t(SOURCES[r.source]),
+                    created: r.created,
+                    updated: r.updated,
+                    skipped: r.skipped,
+                    invalid: r.invalid,
+                  })}
+                  {r.backup && ` · ${t("import:history.backup", { name: r.backup })}`}
+                </li>
+              ))}
+            </ul>
+          </section>
         )}
       </div>
     </>
