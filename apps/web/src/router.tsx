@@ -15,6 +15,7 @@ import { SpoolDetailPage } from "./pages/filament/SpoolDetailPage.tsx";
 import { SpoolCreatePage, SpoolEditPage } from "./pages/filament/SpoolFormPage.tsx";
 import { SpoolImportPage } from "./pages/filament/SpoolImportPage.tsx";
 import { HomePage } from "./pages/HomePage.tsx";
+import { ImportPage } from "./pages/import/ImportPage.tsx";
 import { ModulePage } from "./pages/ModulePage.tsx";
 import { MaintenancePage } from "./pages/maintenance/MaintenancePage.tsx";
 import { TypeDetailPage } from "./pages/maintenance/TypeDetailPage.tsx";
@@ -41,7 +42,7 @@ import { IntegrationLoginPage } from "./pages/settings/IntegrationLoginPage.tsx"
 import { IntegrationsPage } from "./pages/settings/IntegrationsPage.tsx";
 import { StatsPage } from "./pages/stats/StatsPage.tsx";
 import { AppShell } from "./shell/AppShell.tsx";
-import { ALL_ITEMS, SETTINGS_ITEM } from "./shell/nav.ts";
+import { ALL_ITEMS, IMPORT_ITEM, SETTINGS_ITEM } from "./shell/nav.ts";
 
 function NotFound() {
   const { t } = useTranslation();
@@ -59,6 +60,7 @@ const root = createRootRoute({ component: AppShell, notFoundComponent: NotFound 
 // Feature routes load their i18n namespace here (code-split JSON), e.g. loader: () => loadNamespace("printers").
 const built = [
   "/",
+  IMPORT_ITEM.to,
   SETTINGS_ITEM.to,
   "/printers",
   "/maintenance",
@@ -275,6 +277,12 @@ const routes: AnyRoute[] = [
     path: "/alerts",
     loader: () => Promise.all([loadNamespace("alerts"), loadNamespace("integrations")]),
     component: AlertsPage,
+  }),
+  createRoute({
+    getParentRoute: () => root,
+    path: IMPORT_ITEM.to,
+    loader: () => loadNamespace("import"),
+    component: ImportPage,
   }),
   createRoute({
     getParentRoute: () => root,

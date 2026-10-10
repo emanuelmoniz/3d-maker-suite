@@ -2,6 +2,7 @@ import {
   Bell,
   Calculator,
   ChartColumn,
+  FileUp,
   FolderKanban,
   House,
   Layers,
@@ -103,6 +104,14 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
   },
 ];
 
+/** Sits just above Settings, outside the groups. */
+export const IMPORT_ITEM: NavItem = {
+  to: "/import",
+  icon: FileUp,
+  label: "nav:items.import.label",
+  description: "nav:items.import.description",
+};
+
 export const SETTINGS_ITEM: NavItem = {
   to: "/settings",
   icon: Settings,
@@ -110,4 +119,4 @@ export const SETTINGS_ITEM: NavItem = {
   description: "nav:items.settings.description",
 };
 
-export const ALL_ITEMS = [...NAV_GROUPS.flatMap((g) => g.items), SETTINGS_ITEM];
+export const ALL_ITEMS = [...NAV_GROUPS.flatMap((g) => g.items), IMPORT_ITEM, SETTINGS_ITEM];

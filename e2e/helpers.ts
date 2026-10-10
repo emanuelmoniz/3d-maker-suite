@@ -49,6 +49,7 @@ export const ROUTES = [
   "/costs",
   "/stats",
   "/alerts",
+  "/import",
   "/settings",
   "/settings/integrations",
 ];

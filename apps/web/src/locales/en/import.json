@@ -1,0 +1,122 @@
+{
+  "title": "Import",
+  "description": "Bring data in from a spreadsheet. You review every row before anything is saved.",
+  "entity": "What to import",
+  "entities": { "spools": "Spools" },
+  "spools": {
+    "columns": {
+      "brand": "Brand",
+      "material": "Material",
+      "profile": "Profile name",
+      "colorHex": "Colour",
+      "initialGrams": "Initial weight (g)",
+      "remainingGrams": "Remaining weight (g)",
+      "emptyWeightGrams": "Empty spool weight (g)",
+      "pricePaid": "Price paid",
+      "purchasedAt": "Purchased",
+      "openedAt": "Opened",
+      "location": "Location",
+      "status": "Status"
+    }
+  },
+  "template": {
+    "download": "Download template",
+    "filename": "{{name}} template.xlsx",
+    "lists": "Lists",
+    "instructions": "Instructions",
+    "intro": "Fill in one row per item on the first sheet, then upload the file on the Import page.",
+    "required": "Columns marked with * are required. Leave a cell empty to keep what you already have.",
+    "column": "Column",
+    "format": "What to enter",
+    "error": "Couldn't build the template. Is the server running?"
+  },
+  "hints": {
+    "text": "Any text.",
+    "ref": "A name. Pick one from the list or type a new one; new names are added for you.",
+    "number": "A number, e.g. 750 or 12.5.",
+    "integer": "A whole number.",
+    "money": "An amount in your currency, e.g. 19.99.",
+    "date": "A date, as YYYY-MM-DD.",
+    "color": "A colour as a hex code, e.g. #ff8800.",
+    "enum": "One of: {{options, list(type: disjunction)}}."
+  },
+  "upload": {
+    "choose": "Upload a file",
+    "hint": "Use the template (.xlsx), or a .csv whose first row holds the column names. Nothing is saved until you confirm.",
+    "error": "Couldn't read that file. Use the template, or a CSV whose first row holds the column names."
+  },
+  "statuses": {
+    "new": "New",
+    "identical": "Identical",
+    "changed": "Changed",
+    "ambiguous": "Ambiguous",
+    "invalid": "Invalid"
+  },
+  "actions": { "create": "Create", "update": "Update", "skip": "Skip" },
+  "policies": {
+    "overwrite": "Overwrite with file values",
+    "fill": "Fill empty fields only"
+  },
+  "bulk": {
+    "autoMatch": "Auto-match: update matched, add new",
+    "allNew": "Import all as new",
+    "onlyNew": "Only new rows",
+    "onlyChanged": "Only changed rows",
+    "updateMatched": "Update matched rows only",
+    "skipAll": "Skip all",
+    "reset": "Reset to suggestions"
+  },
+  "scopes": {
+    "all": "All rows ({{count, number}})",
+    "selected": "Selected rows ({{count, number}})",
+    "filtered": "Filtered rows ({{count, number}})"
+  },
+  "errors": {
+    "required": "Required",
+    "not_a_number": "Not a number",
+    "negative": "Can't be negative",
+    "not_a_date": "Not a date (use YYYY-MM-DD)",
+    "not_a_color": "Not a hex colour",
+    "not_an_option": "Not one of the options"
+  },
+  "missing": {
+    "filamentBrands": "Brands you don't have yet, added when their rows are imported: {{names, list}}.",
+    "filamentMaterials": "Materials you don't have yet, added when their rows are imported: {{names, list}}.",
+    "filamentProfiles": "Filament profiles you don't have yet, added when their rows are imported: {{names, list}}."
+  },
+  "review": {
+    "title": "Review rows",
+    "emptyTitle": "No rows found",
+    "emptyBody": "The file has a header row but nothing below it.",
+    "ignored": "Columns that were ignored: {{names, list}}.",
+    "filter": "Show rows by status",
+    "statusCount": "{{status}} ({{count, number}})",
+    "row": "Row",
+    "status": "Status",
+    "action": "Action",
+    "target": "Update which",
+    "policy": "Merge",
+    "select": "Select row {{row}}",
+    "actionFor": "Action for row {{row}}",
+    "targetFor": "Row to update for row {{row}}",
+    "policyFor": "Merge for row {{row}}",
+    "policyDefault": "Same as above",
+    "pickTarget": "Pick one…",
+    "otherTarget": "Other…",
+    "needsTarget": "Pick the row to update",
+    "duplicateTarget": "Picked for more than one row",
+    "scope": "Apply to",
+    "bulk": "Bulk action",
+    "policyBulk": "When updating",
+    "confirm_one": "Import {{count, number}} row",
+    "confirm_other": "Import {{count, number}} rows",
+    "confirmTitle_one": "Import {{count, number}} row?",
+    "confirmTitle_other": "Import {{count, number}} rows?",
+    "confirmBody": "A backup is taken first. If any row fails, nothing is imported.",
+    "error": "Couldn't import, so nothing was changed. Upload the file again and retry."
+  },
+  "done": {
+    "summary": "Import finished: {{created, number}} created, {{updated, number}} updated.",
+    "viewSpools": "View spools"
+  }
+}

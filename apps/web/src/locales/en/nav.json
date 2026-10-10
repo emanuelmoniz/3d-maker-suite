@@ -17,6 +17,7 @@
     "costs": { "label": "Costs", "description": "Pricing and what each print costs." },
     "stats": { "label": "Stats", "description": "Trends in time, material and spend." },
     "alerts": { "label": "Alerts", "description": "Things that need your attention." },
+    "import": { "label": "Import", "description": "Bring data in from spreadsheets." },
     "settings": { "label": "Settings", "description": "Language, theme, units and costs." }
   }
 }

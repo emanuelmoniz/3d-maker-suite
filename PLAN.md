@@ -181,15 +181,15 @@ Do Step 15 of PLAN.md. Orca is a Bambu Studio fork: share the preset reader inst
 copying it (extract a small shared package if adapters can't import each other).
 ```
 
-### [ ] Step 16 - Orca Cloud integration
+### [ ] Step 16 - Orca Cloud integration  **[ON HOLD - waiting for client_id]**
 **Model:** Sonnet · **Effort:** Medium
-**Scope:** `packages/adapters/orca-cloud`: a `cloud` source. Orca Cloud (OrcaSlicer 2.4+) only syncs the user's own printer, filament and process presets - no devices, spools or prints. So it declares `machineProfiles`, `filamentProfiles` and the `printerModels` / `brands` / `filamentBrands` derived from them. Read-only access (`sync:read`) via OAuth 2.0 Device Authorization Grant (RFC 8628): `POST https://api.orcaslicer.com/oauth/device/code` → user enters the code in Orca Cloud settings → poll `POST /oauth/token` → `GET /api/v1/external/sync/pull?cursor=` returns `upserts` / `deletes` / `next_cursor`. Access token 24h; refresh token 90d and rotates on every use (reusing an old one after ~60s revokes the pairing), so store it atomically. Login page gets a "device code" flow (show code + link, poll). Cursor lives in the Step 13 policy row; reuse Step 14 preset versioning and the Step 15 shared preset parser. Remote deletes archive or are skipped, never hard-delete. API details come from a third-party integration (Bambuddy), not official docs.
-**Blocker:** each app needs its own `client_id` registered with the Orca Cloud team (no public sign-up). Get one before starting, or skip this step.
+**Scope:** `packages/adapters/orca-cloud`: a `cloud` source. Orca Cloud (OrcaSlicer 2.4+) only syncs the user's own printer, filament and process presets - no devices, spools or prints. So it declares `machineProfiles`, `filamentProfiles` and the `printerModels` / `brands` / `filamentBrands` derived from them. Read-only access (`sync:read`) via OAuth 2.0 Device Authorization Grant (RFC 8628): `POST https://api.orcaslicer.com/oauth/device/code` → user enters the code in Orca Cloud settings → poll `POST /oauth/token` → `GET /api/v1/external/sync/pull?cursor=` returns `upserts` / `deletes` / `next_cursor`. Access token 24h; refresh token 90d and rotates on every use (reusing an old one after ~60s revokes the pairing), so store it atomically. Login page gets a "device code" flow (show code + link, poll). Cursor lives in the Step 13 policy row; reuse Step 14 preset versioning and the Step 15 shared preset parser. Remote deletes archive or are skipped, never hard-delete. API details come from third-party integrations (Bambuddy, BamDude, PrintShare), not official docs, and may change. Send an honest User-Agent (`3D-Maker-Suite/<version> (+repo URL)`): Cloudflare in front of the API blocks unusual ones. Read the `client_id` from config (e.g. `ORCA_CLOUD_CLIENT_ID` in a gitignored `.env`), never hard-code it. Don't use the older PKCE route (`/api/v1/sync/*`, localhost-only redirects).
+**Blocker:** each app needs its own public `client_id` (no secret) registered with the Orca Cloud team; there is no public sign-up and no published process. **Status (2026-10-10): requested** via [OrcaSlicer#14028](https://github.com/OrcaSlicer/OrcaSlicer/issues/14028) (maintainer SoftFever said third-party integrations are welcome if users only access their own data; no registration process published yet). Other apps (PrintShare) were still waiting on the same request on 2026-10-06. Step stays on hold until the ID arrives; later steps don't depend on it (Step 22 docs mention Orca Cloud pairing, so write that part last or mark it "coming soon" if still on hold). Also ask the team for the "External App Pairing" developer guide (token lifetimes, rate limits, polling interval) and re-check the API against it before coding.
 **Done when:** pairing works; presets pull incrementally incl. deletes; the refresh token survives a restart.
 **Prompt:**
 ```
 Do Step 16 of PLAN.md. First confirm we have an Orca Cloud client_id and re-check the
-external sync API (source code / Orca docs); if no client_id, stop and tell me.
+external sync API (External App Pairing guide / Orca source); if no client_id, stop and tell me.
 ```
 
 ---
@@ -198,7 +198,7 @@ external sync API (source code / Orca docs); if no client_id, stop and tell me.
 
 Goal of Steps 17-21: one place (sidebar, just above Settings) to bring data in from files. **Files**: XLSX/CSV templates for spools, printers and prints. **Catalog zip**: a zipped slicer config folder, for servers that have no slicer installed. Every import goes through the same review screen: rows are matched against the DB, the user decides per row or in bulk, nothing is written before confirm.
 
-### [ ] Step 17 - Import framework, review screen & spools  **[plan mode]**
+### [x] Step 17 - Import framework, review screen & spools  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:** Columns are declared once per entity (key, type, required, i18n label) in `packages/core/src/schemas/import.ts` and drive the template, the parser, validation and the review columns. Pure matcher per entity in `packages/core/src/services` (same idea as `spoolMatch.ts`). Each preview row gets a status (`new | identical | changed | ambiguous | invalid`), a suggested match, and an action (`create | update → target row | skip`); no match = target left empty for the user.
 Server `routes/import.ts`: template download (XLSX built from the column list, dropdowns filled from the DB, an instructions sheet), preview (raw upload like `routes/backups.ts`), apply (decisions only; the server re-reads the stored upload, as the filament library import does). Apply runs in one transaction after an automatic backup. CSV: detect `,` / `;` / tab and decimal comma.

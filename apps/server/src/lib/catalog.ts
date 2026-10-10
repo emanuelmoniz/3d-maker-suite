@@ -1,5 +1,5 @@
 import { type Db, schema } from "@3d-maker-suite/db";
-import { and, eq, getTableColumns, type SQLWrapper, sql } from "drizzle-orm";
+import { and, eq, getTableColumns, isNull, type SQLWrapper, sql } from "drizzle-orm";
 
 const { brands, printerModels } = schema;
 
@@ -70,3 +70,42 @@ export const profileColumns = {
   brand: profileBrand,
   material: profileMaterial,
 };
+
+/**
+ * Finds the active profile with that brand, material and name (case-insensitive) or creates it,
+ * along with a brand or material you don't have yet. A new profile takes its material's density.
+ */
+export function filamentProfileIdFor(
+  db: Db,
+  p: { brand: string; material: string; name: string },
+): string {
+  const brandId = filamentBrandIdFor(db, p.brand);
+  const materialId = filamentMaterialIdFor(db, p.material);
+  const name = p.name.trim();
+  const found = db
+    .select({ id: filamentProfiles.id })
+    .from(filamentProfiles)
+    .where(
+      and(
+        brandId ? eq(filamentProfiles.brandId, brandId) : isNull(filamentProfiles.brandId),
+        eq(filamentProfiles.materialId, materialId),
+        sql`${filamentProfiles.name} = ${name} COLLATE NOCASE`,
+        isNull(filamentProfiles.archivedAt),
+      ),
+    )
+    .get();
+  if (found) return found.id;
+  const material = db
+    .select({ density: filamentMaterials.densityGcm3 })
+    .from(filamentMaterials)
+    .where(eq(filamentMaterials.id, materialId))
+    .get();
+  return (
+    db
+      .insert(filamentProfiles)
+      // 1.24 (PLA) is what the profile form starts with too.
+      .values({ brandId, materialId, name, densityGcm3: material?.density ?? 1.24 })
+      .returning()
+      .get().id
+  );
+}

@@ -113,6 +113,24 @@ test("create and list a backup", async ({ page }) => {
   await expect(page.getByRole("link", { name: "Download" })).toBeVisible();
 });
 
+test("import spools from a CSV after reviewing the rows", async ({ page }) => {
+  await page.goto("/import");
+  await page.getByLabel("Upload a file").setInputFiles({
+    name: "spools.csv",
+    mimeType: "text/csv",
+    buffer: Buffer.from(
+      "Brand;Material;Initial weight (g);Purchased\nAcme;PLA;750,5;2026-03-04\nAcme;PLA;abc;\n",
+    ),
+  });
+  await expect(page.getByRole("button", { name: "New (1)" })).toBeVisible();
+  await expect(page.getByText("Not a number")).toBeVisible();
+  await page.getByRole("button", { name: "Import 1 row" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Import 1 row" }).click();
+  await expect(page.getByText("Import finished: 1 created, 0 updated.")).toBeVisible();
+  await page.getByRole("link", { name: "View spools" }).click();
+  await expect(page.getByText("750.5").first()).toBeVisible();
+});
+
 test.describe("responsive", () => {
   for (const [name, width, height] of [
     ["mobile", 375, 800],

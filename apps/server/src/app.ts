@@ -34,6 +34,7 @@ import { costsRoutes } from "./routes/costs.ts";
 import { exportRoutes } from "./routes/export.ts";
 import { filamentRoutes } from "./routes/filament.ts";
 import { healthRoutes } from "./routes/health.ts";
+import { importRoutes } from "./routes/import.ts";
 import { integrationsRoutes } from "./routes/integrations.ts";
 import { maintenanceRoutes } from "./routes/maintenance.ts";
 import { preferencesRoutes } from "./routes/preferences.ts";
@@ -136,6 +137,7 @@ export async function buildApp(
 
   await app.register(exportRoutes(db), { prefix: "/api/export" });
   await app.register(backupsRoutes(db, dataDir), { prefix: "/api/backups" });
+  await app.register(importRoutes(db, dataDir), { prefix: "/api/import" });
   if (opts.backupSchedule && dataDir) {
     const backup = new Cron(opts.backupSchedule, { protect: true }, () =>
       runAutoBackup(db, dataDir).catch((err) => app.log.error({ err }, "backup failed")),

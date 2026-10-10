@@ -25,7 +25,8 @@ const defined = new Set([...defined0].map((k) => k.replace(plural, "")));
 const namespaces = new Set([...defined].map((k) => k.split(".")[0]));
 
 const used = new Set();
-for (const f of all.filter((f) => /\.tsx?$/.test(f))) {
+// Labels declared next to the schemas in core (e.g. import columns) count as used too.
+for (const f of [...all, ...files("packages/core/src")].filter((f) => /\.tsx?$/.test(f))) {
   const code = readFileSync(f, "utf8");
   for (const m of code.matchAll(/(?<![\w.])t\(\s*["']([\w.]+)["']/g)) used.add(`common.${m[1]}`);
   for (const m of code.matchAll(/["'`]([a-z]+):([\w.]+)["'`]/g))
