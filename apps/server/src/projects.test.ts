@@ -14,7 +14,12 @@ let app: Awaited<ReturnType<typeof buildApp>>;
 beforeEach(async () => {
   dir = await mkdtemp(join(tmpdir(), "projects-"));
   await mkdir(join(dir, "data"));
-  const slicer = { ...mockAdapter(), id: "slicer", capabilities: ["openInSlicer" as const] };
+  const slicer = {
+    ...mockAdapter(),
+    id: "slicer",
+    kind: "local" as const,
+    capabilities: ["openInSlicer" as const],
+  };
   app = await buildApp(openDb(":memory:"), false, join(dir, "data"), { adapters: [slicer] });
 });
 afterEach(async () => {

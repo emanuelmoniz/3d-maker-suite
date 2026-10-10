@@ -1,8 +1,9 @@
 import {
-  CAPABILITY_NEEDS,
   type Capability,
+  INTEGRATION_KINDS,
   type Integration,
   type IntegrationErrorCode,
+  type IntegrationKind,
   type IntegrationStatus,
   SYNC_RUN_STATUSES,
   SYNC_TRIGGERS,
@@ -42,6 +43,11 @@ const STATUS: Record<IntegrationStatus, { label: string; tone: string }> = {
   syncing: { label: "integrations:status.syncing", tone: "bg-accent-soft text-accent" },
   ok: { label: "integrations:status.ok", tone: "bg-ok/15 text-ok" },
   error: { label: "integrations:status.error", tone: "bg-bad/15 text-bad" },
+  unavailable: { label: "integrations:status.unavailable", tone: "bg-surface-2 text-muted" },
+};
+export const KINDS: Record<IntegrationKind, string> = {
+  cloud: "integrations:kinds.cloud",
+  local: "integrations:kinds.local",
 };
 export const ERRORS: Record<IntegrationErrorCode, string> = {
   auth_required: "integrations:errors.auth_required",
@@ -58,6 +64,10 @@ const CAPS: Record<Capability, string> = {
   printers: "integrations:capabilities.printers",
   prints: "integrations:capabilities.prints",
   spools: "integrations:capabilities.spools",
+  brands: "integrations:capabilities.brands",
+  printerModels: "integrations:capabilities.printerModels",
+  machineProfiles: "integrations:capabilities.machineProfiles",
+  filamentBrands: "integrations:capabilities.filamentBrands",
   filamentProfiles: "integrations:capabilities.filamentProfiles",
   openInSlicer: "integrations:capabilities.openInSlicer",
 };
@@ -112,11 +122,25 @@ export function IntegrationsPage() {
       )}
       {data &&
         (data.length ? (
-          <ul className="grid gap-4">
-            {data.map((i) => (
-              <IntegrationCard key={i.id} integration={i} />
-            ))}
-          </ul>
+          <div className="grid gap-6">
+            {INTEGRATION_KINDS.map((kind) => {
+              const rows = data.filter((i) => i.kind === kind);
+              return (
+                rows.length > 0 && (
+                  <section key={kind} aria-labelledby={`kind-${kind}`}>
+                    <h2 id={`kind-${kind}`} className="mb-3 font-semibold text-muted">
+                      {t(KINDS[kind])}
+                    </h2>
+                    <ul className="grid gap-4">
+                      {rows.map((i) => (
+                        <IntegrationCard key={i.id} integration={i} />
+                      ))}
+                    </ul>
+                  </section>
+                )
+              );
+            })}
+          </div>
         ) : (
           <EmptyState
             icon={Plug}
@@ -137,9 +161,8 @@ function IntegrationCard({ integration: i }: { integration: Integration }) {
   const supported = adapter?.capabilities ?? [];
   const off = supported.filter((c) => i.disabledFeatures.includes(c));
   // Disabled = switched off entirely, so only the toggle and Delete stay. Sign-in, sync and the
-  // log only matter while an account feature is switched on.
-  const account =
-    i.enabled && supported.some((c) => CAPABILITY_NEEDS[c] === "account" && !off.includes(c));
+  // log only matter for an account with something switched on.
+  const account = i.enabled && i.kind === "cloud" && supported.some((c) => !off.includes(c));
   const hasLogin = account && adapter?.login;
   const [showLog, setShowLog] = useState(false);
   const [confirming, setConfirming] = useState(false);
@@ -156,7 +179,7 @@ function IntegrationCard({ integration: i }: { integration: Integration }) {
     <li className="rounded-lg border border-border bg-surface p-4 sm:p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h2 className="truncate text-base font-semibold">{adapterName(i.adapterId)}</h2>
+          <h3 className="truncate text-base font-semibold">{adapterName(i.adapterId)}</h3>
         </div>
         <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${status.tone}`}>
           {t(status.label)}
@@ -164,11 +187,16 @@ function IntegrationCard({ integration: i }: { integration: Integration }) {
       </div>
 
       {!i.enabled && <p className="mt-3 text-muted">{t("integrations:card.disabledHint")}</p>}
-      <p className="mt-3 text-muted">
-        {i.lastSyncAt
-          ? t("integrations:card.lastSync", { date: formatDateTime(i.lastSyncAt) })
-          : t("integrations:card.never")}
-      </p>
+      {i.kind === "cloud" && (
+        <p className="mt-3 text-muted">
+          {i.lastSyncAt
+            ? t("integrations:card.lastSync", { date: formatDateTime(i.lastSyncAt) })
+            : t("integrations:card.never")}
+        </p>
+      )}
+      {i.enabled && i.status === "unavailable" && (
+        <p className="mt-3 text-muted">{t("integrations:card.unavailableHint")}</p>
+      )}
       {i.status === "error" && i.lastError && (
         <p role="alert" className="mt-1 text-bad">
           {t(ERRORS[i.lastError])}
@@ -247,10 +275,13 @@ function IntegrationCard({ integration: i }: { integration: Integration }) {
         </fieldset>
       )}
 
-      {i.enabled &&
-        (supported.includes("filamentProfiles") || supported.includes("openInSlicer")) && (
-          <SlicerFields integration={i} detectedDir={adapter?.detectedConfigDir ?? null} />
-        )}
+      {i.enabled && i.kind === "local" && (
+        <SlicerFields
+          integration={i}
+          detectedDir={adapter?.detectedConfigDir ?? null}
+          program={supported.includes("openInSlicer")}
+        />
+      )}
 
       {account && showLog && <SyncLog id={i.id} />}
 
@@ -421,9 +452,12 @@ function SyncControls({
 function SlicerFields({
   integration: i,
   detectedDir,
+  program,
 }: {
   integration: Integration;
   detectedDir: string | null;
+  /** The adapter can open files in the slicer, so it needs the program's path. */
+  program: boolean;
 }) {
   const { t } = useTranslation();
   const patch = usePatchIntegration(i.id);
@@ -463,7 +497,8 @@ function SlicerFields({
         t("integrations:slicer.configDirHint", { dir: detectedDir ?? "–" }),
         detectedDir ?? "",
       )}
-      {path("slicerPath", t("integrations:slicer.path"), t("integrations:slicer.pathHint"))}
+      {program &&
+        path("slicerPath", t("integrations:slicer.path"), t("integrations:slicer.pathHint"))}
       {slicers.length > 1 &&
         i.capabilities.includes("openInSlicer") &&
         (current?.id === i.id ? (

@@ -3,6 +3,7 @@ import { id, isoDate } from "./entities.ts";
 import {
   CAPABILITIES,
   INTEGRATION_ERROR_CODES,
+  INTEGRATION_KINDS,
   LOGIN_CHALLENGES,
   PRINT_OUTCOMES,
   SYNC_FREQUENCIES,
@@ -70,6 +71,7 @@ export const integrationPatchSchema = z
 /** What the setup form needs: JSON Schemas of the adapter's config and secret fields. */
 export const adapterInfoSchema = z.object({
   id: z.string(),
+  kind: z.enum(INTEGRATION_KINDS),
   config: z.record(z.string(), z.unknown()),
   secrets: z.record(z.string(), z.unknown()),
   /** Secrets come from an interactive sign-in instead of the form. */

@@ -106,14 +106,18 @@ These live in `packages/core/src/integrations`. Only `printers` and `printHistor
 
 - Adapters **return DTOs and never touch the database.** Core validates the DTOs with zod and upserts them by `(integrationId, externalId)`.
 - Each capability is an optional property on the instance. An adapter implements only what its vendor supports.
+- An adapter is one source: `kind: 'cloud'` is an account, `kind: 'local'` a folder and program on the server's disk. A vendor with both ships two adapters (Bambu Cloud and Bambu Studio). The kind says where data comes from, not which types: `capabilities` lists those. A cloud source is usable once signed in, a local one once its folder is found on the server; otherwise the hub shows it as not available.
 - The DTO types below are the `z.infer` shapes of zod schemas in `packages/core/src/schemas`.
 
 ```ts
 interface IntegrationAdapter {
   id: string;                    // 'bambu-cloud'; UI name is the i18n key `integrations:adapters.<id>.name`
+  kind: 'cloud' | 'local';
+  capabilities: Capability[];    // only what this source really provides
   configSchema: ZodObject;       // non-secret settings
   secretsSchema: ZodObject;      // fields encrypted at rest (ADR-0005)
-  create(ctx: IntegrationContext): IntegrationInstance;
+  create?(ctx: IntegrationContext): IntegrationInstance;  // account-backed; a local source has none
+  library?: FilamentLibrary;     // a slicer's presets, read from its config folder
 }
 
 interface IntegrationContext {

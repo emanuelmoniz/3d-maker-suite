@@ -145,6 +145,7 @@ describe("filament library", () => {
     const slicer = {
       ...mockAdapter(mock),
       id: "slicer",
+      kind: "local",
       capabilities: ["filamentProfiles"],
       library,
     };

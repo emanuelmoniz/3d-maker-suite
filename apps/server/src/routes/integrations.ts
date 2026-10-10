@@ -25,7 +25,7 @@ import { asc, eq } from "drizzle-orm";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
-import { activeCapabilities, detectedDir } from "../integrations/capabilities.ts";
+import { activeCapabilities, detectedDir, unavailable } from "../integrations/capabilities.ts";
 import { readSecrets, writeSecrets } from "../integrations/secrets.ts";
 import type { Syncer } from "../integrations/sync.ts";
 import { listPage } from "../lib/list.ts";
@@ -54,14 +54,16 @@ export const integrationsRoutes =
     // The encrypted column never leaves the server (ADR-0005).
     const toApi = (full: typeof integrations.$inferSelect) => {
       const { secrets, ...row } = full;
+      const adapter = syncer.adapters.find((a) => a.id === row.adapterId);
+      // A local source never syncs: it's there or it isn't.
+      const local =
+        adapter?.kind === "local" && (unavailable(full, adapter) ? "unavailable" : "ok");
       return {
         ...row,
+        kind: adapter?.kind ?? "cloud",
         hasSecrets: !!secrets,
-        status: syncer.running.has(row.id) ? "syncing" : row.status,
-        capabilities: activeCapabilities(
-          full,
-          syncer.adapters.find((a) => a.id === row.adapterId),
-        ),
+        status: syncer.running.has(row.id) ? "syncing" : local || row.status,
+        capabilities: activeCapabilities(full, adapter),
       } as Integration;
     };
     const get = (id: string) => {
@@ -73,6 +75,7 @@ export const integrationsRoutes =
     app.get("/adapters", { schema: { response: { 200: z.array(adapterInfoSchema) } } }, async () =>
       syncer.adapters.map((a) => ({
         id: a.id,
+        kind: a.kind,
         config: z.toJSONSchema(a.configSchema, { io: "input" }),
         secrets: z.toJSONSchema(a.secretsSchema, { io: "input" }),
         login: !!a.login,

@@ -139,7 +139,7 @@ Do Step 11 of PLAN.md. Back up the DB before running the migration (dev server a
 Show me the migration SQL before applying it.
 ```
 
-### [ ] Step 12 - Cloud and local sources  **[plan mode]**
+### [x] Step 12 - Cloud and local sources  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:** Adapters declare `kind: cloud | local`; the hub groups integrations under "Cloud" and "Local". `kind` only says where data comes from (account vs folder), not which types: each adapter declares the types it really provides. Type list grows to `printers, prints, spools, brands, printerModels, machineProfiles, filamentBrands, filamentProfiles` plus the `openInSlicer` action. Split Bambu into **Bambu Cloud** (printers, prints, spools) and **Bambu Studio** (filament profiles, open in slicer, catalog types from Step 14); migration splits each existing row in two without losing token, folders or history. Verify whether Bambu Studio keeps spools or print history locally; if not, leave those types out instead of faking them. "Open in slicer" is a feature of the local integration the user can switch on/off; the button shows only when it's on and a slicer program is configured and exists on the server. A local source whose folder isn't found on the server (NAS) shows "Not available on this server"; the config dir can still point at a mounted folder.
 **Done when:** an existing Bambu setup keeps working after the split; a cloud-only deploy shows no local actions; tests pass.
@@ -194,25 +194,83 @@ external sync API (source code / Orca docs); if no client_id, stop and tell me.
 
 ---
 
-## Phase 5 - Release
+## Phase 5 - Import module
 
-### [ ] Step 17 - E2E & responsive pass for v1.1
+Goal of Steps 17-21: one place (sidebar, just above Settings) to bring data in from files. **Files**: XLSX/CSV templates for spools, printers and prints. **Catalog zip**: a zipped slicer config folder, for servers that have no slicer installed. Every import goes through the same review screen: rows are matched against the DB, the user decides per row or in bulk, nothing is written before confirm.
+
+### [ ] Step 17 - Import framework, review screen & spools  **[plan mode]**
+**Model:** Opus · **Effort:** High
+**Scope:** Columns are declared once per entity (key, type, required, i18n label) in `packages/core/src/schemas/import.ts` and drive the template, the parser, validation and the review columns. Pure matcher per entity in `packages/core/src/services` (same idea as `spoolMatch.ts`). Each preview row gets a status (`new | identical | changed | ambiguous | invalid`), a suggested match, and an action (`create | update → target row | skip`); no match = target left empty for the user.
+Server `routes/import.ts`: template download (XLSX built from the column list, dropdowns filled from the DB, an instructions sheet), preview (raw upload like `routes/backups.ts`), apply (decisions only; the server re-reads the stored upload, as the filament library import does). Apply runs in one transaction after an automatic backup. CSV: detect `,` / `;` / tab and decimal comma.
+Web: `/import` page and nav item above Settings. Review table on `DataTable`: per-row action + target picker, diff of changed fields, status filters, totals before confirm. Bulk actions on all / selected / filtered rows: import all as new, auto-match (update matched + add unmatched), only new, only different, update matched only, skip all / reset. Merge policy for updates: overwrite with file values, or fill empty fields only (bulk, overridable per row). Invalid rows are listed with the reason and can't be imported.
+First entity: **spools** (filament profile, brand and material resolved by name, find-or-create as in Step 11).
+**Done when:** a filled spool template previews, a matched row merges into the picked spool, bulk actions work, apply is all-or-nothing and leaves a backup; tests pass.
+**Prompt:**
+```
+Do Step 17 of PLAN.md. One new dependency for XLSX read + write: pick it, give the reason.
+Show me the column definition API, the preview row model and the bulk actions before implementing.
+```
+
+### [ ] Step 18 - Printers & prints from files
+**Model:** Sonnet · **Effort:** Medium
+**Scope:** Add **printers** (match on serial, else name; brand and model find-or-create) and **prints** (match on printer + start time + name; printer, spool and filament resolved by name, an unresolved reference marks the row for the user to pick) to the Step 17 framework: column definitions, matcher, template. Review stays usable with 10k print rows.
+**Done when:** both templates import through the review screen; re-importing the same file shows every row as `identical`; tests pass.
+**Prompt:**
+```
+Do Step 18 of PLAN.md. Only column definitions and matchers: no changes to the review
+screen unless something is missing, and tell me what.
+```
+
+### [ ] Step 19 - Catalog zip import
+**Model:** Sonnet · **Effort:** Medium
+**Scope:** Upload a zip of a slicer config folder → extract to a temp folder (`yauzl`, size cap, no paths outside the folder) → run the Step 14/15 local readers on it → review screen. Types: brands, printer models, machine profiles, filament brands, materials, filament profiles. Step 14 preset versioning applies. The import page lists the slicers whose adapter can read a catalog; each adapter gives the folder paths per OS and the page renders the "where to find it, how to zip it" instructions from i18n (web never checks vendor names). Bambu Studio and OrcaSlicer.
+**Done when:** a zip made by following the instructions imports the catalog on a server with no slicer installed; re-import doesn't duplicate; a bad or unknown zip gets a clear error.
+**Prompt:**
+```
+Do Step 19 of PLAN.md. Reuse the local readers as they are (point them at the extracted
+folder). Verify the zip instructions on a real Bambu Studio and OrcaSlicer install.
+```
+
+### [ ] Step 20 - Export & import history
+**Model:** Sonnet · **Effort:** Low
+**Scope:** Export spools, printers and prints as the filled template (same columns + id), so a file edited in Excel re-imports and matches by id. New `import_runs` table: source (file / zip / integration), type, file name, date, created / updated / skipped / invalid counts, errors; listed on the import page with the backup taken before each run.
+**Done when:** export → edit → import updates only the edited rows; every apply shows up in the history.
+**Prompt:**
+```
+Do Step 20 of PLAN.md. Export reuses the Step 17 column definitions, nothing new per entity.
+```
+
+### [ ] Step 21 - Integration previews on the review screen  **[plan mode]**
+**Model:** Opus · **Effort:** Medium
+**Scope:** The integration preview → confirm flows (filament library, library spools, Step 14 catalog, the Step 13 pending queue) open in the Step 17 review screen and use its matchers, bulk actions and merge policy. Remove the old preview UIs and schemas. Step 13 auto mode keeps its rule, now expressed with the review statuses: import `new` and `identical`, leave the rest pending. Runs are logged in `import_runs`.
+**Done when:** no second preview UI left; integration imports behave as before; tests pass.
+**Prompt:**
+```
+Do Step 21 of PLAN.md. List every existing preview flow and what it would lose or gain
+on the review screen before changing anything.
+```
+
+---
+
+## Phase 6 - Release
+
+### [ ] Step 22 - E2E & responsive pass for v1.1
 **Model:** Sonnet (use webapp-testing skill) · **Effort:** Medium
-**Scope:** Playwright: table paging/filter, back button, branding, maintenance multi-scope, printer model + machine profile CRUD, filament brand + material selects, preset archiving, integrations hub cloud/local grouping and per-type sync policy table. Viewports 375/768/1440. Fix what breaks.
+**Scope:** Playwright: table paging/filter, back button, branding, maintenance multi-scope, printer model + machine profile CRUD, filament brand + material selects, preset archiving, integrations hub cloud/local grouping and per-type sync policy table, import module (template download, XLSX upload → review → bulk action → apply, catalog zip, export round trip). Viewports 375/768/1440. Fix what breaks.
 **Done when:** E2E green in CI.
 **Prompt:**
 ```
-Do Step 17 of PLAN.md. Same fresh-temp-data-dir pattern as the existing suite.
+Do Step 22 of PLAN.md. Same fresh-temp-data-dir pattern as the existing suite.
 List UI issues found and fix them in this step.
 ```
 
-### [ ] Step 18 - Docs & v1.1.0-alpha.1 release
+### [ ] Step 23 - Docs & v1.1.0-alpha.1 release
 **Model:** Haiku · **Effort:** Low
-**Scope:** README/docs updates (port config, branding, integrations hub, NAS vs local deploy, OrcaSlicer, Orca Cloud pairing), CHANGELOG, version `1.1.0-alpha.1`, release workflow publishes it as a GitHub pre-release.
+**Scope:** README/docs updates (port config, branding, integrations hub, NAS vs local deploy, OrcaSlicer, Orca Cloud pairing, import module, per-slicer catalog zip instructions), CHANGELOG, version `1.1.0-alpha.1`, release workflow publishes it as a GitHub pre-release.
 **Done when:** tag builds a pre-release; docs match the app.
 **Prompt:**
 ```
-Do Step 18 of PLAN.md. Only document what changed since 1.0.0. Check the release
+Do Step 23 of PLAN.md. Only document what changed since 1.0.0. Check the release
 workflow handles a pre-release tag.
 ```
 
@@ -235,3 +293,4 @@ workflow handles a pre-release tag.
 | Filament brands table (+ materials) | 11 |
 | Integrations: cloud vs local | 12, 14, 15, 16 |
 | Select what syncs auto vs manual | 13 |
+| Import module (files, catalog zip, review & merge) | 17-21 |

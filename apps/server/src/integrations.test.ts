@@ -340,8 +340,13 @@ describe("capabilities", () => {
     expect(await caps(id)).toEqual([]);
   });
 
-  it("slicer paths: empty means none, and openInSlicer needs a program", async () => {
-    const slicer = { ...mockAdapter(state), id: "slicer", capabilities: ["openInSlicer" as const] };
+  it("slicer paths: empty means none, and openInSlicer needs a program that exists", async () => {
+    const slicer = {
+      ...mockAdapter(state),
+      id: "slicer",
+      kind: "local" as const,
+      capabilities: ["openInSlicer" as const],
+    };
     app = await buildApp(db, false, "", { adapters: [slicer] });
     const { id } = (
       await send("POST", "/api/integrations", {
@@ -352,11 +357,47 @@ describe("capabilities", () => {
     expect(await caps(id)).toEqual([]);
     const set = async (slicerPath: string) =>
       (await send("PATCH", `/api/integrations/${id}`, { slicerPath })).json();
-    expect(await set(" /bin/slicer ")).toMatchObject({
-      slicerPath: "/bin/slicer",
+    expect(await set(` ${process.execPath} `)).toMatchObject({
+      slicerPath: process.execPath,
       capabilities: ["openInSlicer"],
     });
+    expect(await set("/no/such/slicer")).toMatchObject({ capabilities: [] });
     expect(await set("")).toMatchObject({ slicerPath: null, capabilities: [] });
+  });
+
+  it("a local source is ok when its folder is on this server, else unavailable; it never syncs", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "local-"));
+    try {
+      const local: IntegrationAdapter = {
+        id: "local",
+        kind: "local",
+        capabilities: ["filamentProfiles"],
+        configSchema: z.object({}),
+        secretsSchema: z.object({}),
+        library: { id: "local", defaultDirs: () => [join(dir, "missing")], read: async () => [] },
+      };
+      app = await buildApp(db, false, "", { adapters: [mockAdapter(state), local] });
+      const adapters = await get("/api/integrations/adapters");
+      expect(adapters.map((a: { id: string; kind: string }) => [a.id, a.kind])).toEqual([
+        ["mock", "cloud"],
+        ["local", "local"],
+      ]);
+      expect(await create()).toMatchObject({ kind: "cloud", status: "new" });
+
+      const { id, ...created } = (
+        await send("POST", "/api/integrations", { adapterId: "local" })
+      ).json();
+      expect(created).toMatchObject({ kind: "local", status: "unavailable", capabilities: [] });
+      const found = await send("PATCH", `/api/integrations/${id}`, { slicerConfigDir: dir });
+      expect(found.json()).toMatchObject({ status: "ok", capabilities: ["filamentProfiles"] });
+
+      expect((await send("POST", `/api/integrations/${id}/sync`)).statusCode).toBe(409);
+      expect((await send("POST", `/api/integrations/${id}/test`)).statusCode).toBe(409);
+      expect(db.select().from(schema.syncRuns).all()).toEqual([]);
+      expect((await get(`/api/integrations/${id}`)).status).toBe("ok");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 
   it("sync skips switched-off features", async () => {

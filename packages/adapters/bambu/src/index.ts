@@ -147,10 +147,9 @@ type LoginState = { email?: string; tfaKey?: string };
 
 export function bambuCloudAdapter(): IntegrationAdapter {
   return {
-    // The id predates Bambu Studio joining; it stays so stored rows and spool sources keep matching.
     id: "bambu-cloud",
-    capabilities: ["printers", "prints", "spools", "filamentProfiles", "openInSlicer"],
-    library: bambuStudioLibrary(),
+    kind: "cloud",
+    capabilities: ["printers", "prints", "spools"],
     configSchema,
     secretsSchema,
 
@@ -272,5 +271,20 @@ export function bambuCloudAdapter(): IntegrationAdapter {
         },
       };
     },
+  };
+}
+
+// Bambu Studio on the server's disk: its presets and the program itself. It keeps no print history,
+// and its spool list (filament_inventory/spools.json, when there is one) is only a copy of the
+// cloud's, so those two stay with the cloud adapter.
+export function bambuStudioAdapter(): IntegrationAdapter {
+  return {
+    // Same id as the library, which already prefixes imported presets (`bambu-studio:<preset>`).
+    id: "bambu-studio",
+    kind: "local",
+    capabilities: ["filamentProfiles", "openInSlicer"],
+    library: bambuStudioLibrary(),
+    configSchema: z.object({}),
+    secretsSchema: z.object({}),
   };
 }

@@ -1,4 +1,4 @@
-import type { AdapterInfo } from "@3d-maker-suite/core";
+import { type AdapterInfo, INTEGRATION_KINDS } from "@3d-maker-suite/core";
 import { useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -6,6 +6,7 @@ import { Button } from "../../components/Button.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { useAdapterName, useAdapters, useCreateIntegration } from "../../lib/integrations.ts";
+import { KINDS } from "./IntegrationsPage.tsx";
 
 // The adapter's zod schemas arrive as JSON Schema; flat string/number/boolean fields are enough
 // for API-key and URL style vendors. Adapters with an interactive sign-in (2FA, email codes) get
@@ -107,11 +108,20 @@ export function IntegrationCreatePage() {
               value={adapter?.id ?? ""}
               onChange={(e) => setAdapterId(e.target.value)}
             >
-              {adapters.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {adapterName(a.id)}
-                </option>
-              ))}
+              {INTEGRATION_KINDS.map((kind) => {
+                const group = adapters.filter((a) => a.kind === kind);
+                return (
+                  group.length > 0 && (
+                    <optgroup key={kind} label={t(KINDS[kind])}>
+                      {group.map((a) => (
+                        <option key={a.id} value={a.id}>
+                          {adapterName(a.id)}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )
+                );
+              })}
             </select>
           )}
         </FormField>

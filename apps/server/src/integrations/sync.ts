@@ -84,6 +84,7 @@ export function createSyncer(
 
   const instanceFor = (row: ReturnType<typeof rowOf>, signal: AbortSignal) => {
     const adapter = adapterOf(row);
+    if (!adapter.create) throw new HttpError(409, "capability_unavailable", "No account to reach");
     return adapter.create({
       config: adapter.configSchema.parse(row.config),
       secrets: secretStore(db, key, row.id),
@@ -113,6 +114,9 @@ export function createSyncer(
     const known = adapters.find((a) => a.id === row.adapterId);
     if (req.type && !(known && switchedOn(row, known, req.type)))
       throw new HttpError(409, "capability_unavailable", `Integration doesn't sync "${req.type}"`);
+    // A local source has nothing to sync; refuse before the run could be logged as a failure.
+    if (known && !known.create)
+      throw new HttpError(409, "capability_unavailable", "Integration has nothing to sync");
     if (running.has(id)) throw new HttpError(409, "sync_running", "A sync is already running");
     running.add(id);
     const startedAt = new Date().toISOString();

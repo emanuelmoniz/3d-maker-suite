@@ -1,6 +1,6 @@
 import type { IntegrationContext, SecretStore } from "@3d-maker-suite/core";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { bambuCloudAdapter } from "./index.ts";
+import { bambuCloudAdapter, bambuStudioAdapter } from "./index.ts";
 
 // Canned Bambu Cloud responses; each test queues what `fetch` answers, in order.
 const json = (status: number, body: unknown, headers: [string, string][] = []) =>
@@ -48,6 +48,7 @@ const instance = (token?: string, region?: string) => {
     set: async () => {},
     delete: async () => {},
   };
+  if (!adapter.create) throw new Error("no create");
   return adapter.create({ ...ctx(region), secrets } as IntegrationContext);
 };
 const code = (p: Promise<unknown>) =>
@@ -55,6 +56,21 @@ const code = (p: Promise<unknown>) =>
     () => "resolved",
     (e) => e.code,
   );
+
+it("splits cloud and local, each declaring only what it provides", () => {
+  expect([adapter.kind, adapter.capabilities, adapter.library]).toEqual([
+    "cloud",
+    ["printers", "prints", "spools"],
+    undefined,
+  ]);
+  const studio = bambuStudioAdapter();
+  expect([studio.kind, studio.capabilities, studio.create, studio.library?.id]).toEqual([
+    "local",
+    ["filamentProfiles", "openInSlicer"],
+    undefined,
+    "bambu-studio",
+  ]);
+});
 
 it("returns the token when no second step is needed", async () => {
   queue(json(200, { accessToken: "tok", refreshToken: "tok", loginType: "", expiresIn: 1 }));

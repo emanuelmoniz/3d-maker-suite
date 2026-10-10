@@ -5,6 +5,7 @@ import {
   COMMENT_STATUSES,
   ENERGY_SOURCES,
   INTEGRATION_ERROR_CODES,
+  INTEGRATION_KINDS,
   INTEGRATION_STATUSES,
   ORIGINS,
   PRINT_OUTCOMES,
@@ -34,6 +35,8 @@ const imported = {
 export const integrationSchema = z.object({
   id,
   adapterId: z.string().min(1),
+  /** The adapter's kind; the hub groups by it. */
+  kind: z.enum(INTEGRATION_KINDS),
   enabled: z.boolean(),
   config: z.json(),
   hasSecrets: z.boolean(),

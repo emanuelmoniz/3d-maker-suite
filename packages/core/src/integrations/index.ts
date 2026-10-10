@@ -1,5 +1,10 @@
 import type { z } from "zod";
-import type { Capability, IntegrationErrorCode, LoginChallenge } from "../schemas/enums.ts";
+import type {
+  Capability,
+  IntegrationErrorCode,
+  IntegrationKind,
+  LoginChallenge,
+} from "../schemas/enums.ts";
 import type { LibraryPreset, LibrarySpool } from "../schemas/filament.ts";
 import type { ExternalPrint, ExternalPrinter, TestResult } from "../schemas/integrations.ts";
 
@@ -9,16 +14,19 @@ import type { ExternalPrint, ExternalPrinter, TestResult } from "../schemas/inte
 export interface IntegrationAdapter {
   /** e.g. "bambu-cloud". The UI name is the i18n key `integrations:adapters.<id>.name`. */
   id: string;
+  /** An account (`cloud`) or a folder and program on the server (`local`). */
+  kind: IntegrationKind;
   /**
-   * What this vendor can do (CAPABILITY_NEEDS says what each one needs). Account capabilities are
-   * backed by `create()`, `filamentProfiles` by `library`; `openInSlicer` only needs a program path.
+   * Only what this source really provides. A cloud one is usable once signed in, a local one once
+   * its folder is found; `openInSlicer` only needs a program path.
    */
   capabilities: readonly Capability[];
   /** Non-secret settings, stored as plain JSON. */
   configSchema: z.ZodObject;
   /** Fields encrypted at rest (ADR-0005). String values only. */
   secretsSchema: z.ZodObject;
-  create(ctx: IntegrationContext): IntegrationInstance;
+  /** Talks to the vendor's account. A source that only reads a local folder has none. */
+  create?(ctx: IntegrationContext): IntegrationInstance;
   /** The vendor's desktop slicer presets. */
   library?: FilamentLibrary;
   /**

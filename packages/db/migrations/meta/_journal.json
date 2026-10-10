@@ -169,6 +169,13 @@
       "when": 1791591699600,
       "tag": "0023_filament_catalog_drop_free_text",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "6",
+      "when": 1791592850645,
+      "tag": "0024_split_bambu",
+      "breakpoints": true
     }
   ]
 }

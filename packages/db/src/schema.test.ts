@@ -213,15 +213,19 @@ describe("migration 0019", () => {
       setting(sqlite, "libraryPaths", { "bambu-studio": "D:/Studio" });
       setting(sqlite, "currency", "USD");
     });
-    const rows = now.select().from(s.integrations).all();
-    expect(rows).toHaveLength(2);
-    const older = rows.find((r) => r.id === "older");
-    expect(older).toMatchObject({
+    // 0024 then moves them onto each row's Bambu Studio twin (same created_at).
+    const twins = now
+      .select()
+      .from(s.integrations)
+      .all()
+      .filter((r) => r.adapterId === "bambu-studio");
+    expect(twins).toHaveLength(2);
+    expect(twins.find((r) => r.createdAt === at)).toMatchObject({
       slicerPath: "C:/Bambu/bambu-studio.exe",
       slicerConfigDir: "D:/Studio",
       disabledFeatures: [],
     });
-    expect(rows.find((r) => r.id === "newer")?.slicerPath).toBeNull();
+    expect(twins.find((r) => r.createdAt !== at)?.slicerPath).toBeNull();
     expect(prefsLeft(now)).toEqual(["currency"]);
   });
 
@@ -234,13 +238,16 @@ describe("migration 0019", () => {
         )
         .run(crypto.randomUUID(), at, at);
     });
-    const [row] = now.select().from(s.integrations).all();
+    // Created as a Bambu row with the cloud parts off; 0024 makes it the Bambu Studio one.
+    const rows = now.select().from(s.integrations).all();
+    expect(rows).toHaveLength(1);
+    const [row] = rows;
     expect(row).toMatchObject({
-      adapterId: "bambu-cloud",
+      adapterId: "bambu-studio",
       enabled: true,
       slicerPath: null,
       slicerConfigDir: null,
-      disabledFeatures: ["printers", "prints", "spools"],
+      disabledFeatures: [],
     });
     expect(row?.id).toMatch(
       /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
@@ -252,6 +259,95 @@ describe("migration 0019", () => {
     const now = migrateAcross(18, (sqlite) => setting(sqlite, "libraryPaths", {}));
     expect(now.select().from(s.integrations).all()).toEqual([]);
     expect(prefsLeft(now)).toEqual([]);
+  });
+});
+
+describe("migration 0024", () => {
+  const at = "2026-01-01T00:00:00.000Z";
+  const row = (
+    sqlite: Database.Database,
+    id: string,
+    o: { adapter?: string; secrets?: string; off?: string[]; dir?: string; path?: string } = {},
+  ) =>
+    sqlite
+      .prepare(
+        `INSERT INTO integrations (id, adapter_id, config, secrets, disabled_features, slicer_config_dir, slicer_path, created_at, updated_at)
+         VALUES (?, ?, '{"region":"china"}', ?, ?, ?, ?, ?, ?)`,
+      )
+      .run(
+        id,
+        o.adapter ?? "bambu-cloud",
+        o.secrets ?? null,
+        JSON.stringify(o.off ?? []),
+        o.dir ?? null,
+        o.path ?? null,
+        at,
+        at,
+      );
+
+  it("splits a Bambu row: the cloud half keeps id, token and log, the twin gets the folders", () => {
+    const now = migrateAcross(23, (sqlite) => {
+      row(sqlite, "acct", {
+        secrets: "blob",
+        off: ["prints", "openInSlicer"],
+        dir: "D:/Studio",
+        path: "C:/bs.exe",
+      });
+      row(sqlite, "other", { adapter: "mock", off: ["prints"], path: "C:/x.exe" });
+      sqlite
+        .prepare(
+          "INSERT INTO sync_runs (id, integration_id, trigger, started_at, finished_at, status) VALUES ('run', 'acct', 'manual', ?, ?, 'ok')",
+        )
+        .run(at, at);
+      sqlite
+        .prepare("INSERT INTO settings (key, value) VALUES ('defaultSlicerId', ?)")
+        .run(JSON.stringify("acct"));
+    });
+    const rows = now.select().from(s.integrations).all();
+    expect(rows).toHaveLength(3);
+    expect(rows.find((r) => r.id === "acct")).toMatchObject({
+      adapterId: "bambu-cloud",
+      secrets: "blob",
+      config: { region: "china" },
+      disabledFeatures: ["prints"],
+      slicerConfigDir: null,
+      slicerPath: null,
+    });
+    const studio = rows.find((r) => r.adapterId === "bambu-studio");
+    expect(studio).toMatchObject({
+      enabled: true,
+      secrets: null,
+      config: {},
+      disabledFeatures: ["openInSlicer"],
+      slicerConfigDir: "D:/Studio",
+      slicerPath: "C:/bs.exe",
+      createdAt: at,
+    });
+    expect(studio?.id).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+    );
+    expect(now.select().from(s.syncRuns).get()?.integrationId).toBe("acct");
+    expect(now.select().from(s.settings).get()?.value).toBe(studio?.id);
+    expect(rows.find((r) => r.id === "other")).toMatchObject({
+      adapterId: "mock",
+      disabledFeatures: ["prints"],
+      slicerPath: "C:/x.exe",
+    });
+  });
+
+  it("turns a slicer-only Bambu row into Bambu Studio in place", () => {
+    const now = migrateAcross(23, (sqlite) =>
+      row(sqlite, "studio", { off: ["printers", "prints", "spools"], path: "C:/bs.exe" }),
+    );
+    expect(now.select().from(s.integrations).all()).toMatchObject([
+      {
+        id: "studio",
+        adapterId: "bambu-studio",
+        config: {},
+        disabledFeatures: [],
+        slicerPath: "C:/bs.exe",
+      },
+    ]);
   });
 });
 

@@ -6,12 +6,17 @@
   "emptyTitle": "No integrations yet",
   "emptyBody": "Connect a vendor account to import your printers and print history automatically.",
   "noAdapters": "No integrations are available in this version yet.",
+  "kinds": {
+    "cloud": "Cloud",
+    "local": "Local"
+  },
   "status": {
     "new": "Not synced",
     "syncing": "Syncing",
     "ok": "OK",
     "error": "Error",
-    "disabled": "Disabled"
+    "disabled": "Disabled",
+    "unavailable": "Not available on this server"
   },
   "errors": {
     "auth_required": "Sign-in required. Check the credentials.",
@@ -39,7 +44,8 @@
     "signInAgain": "Sign in again",
     "disabledHint": "Switched off: nothing is synced, imported or offered in the app. Tick Enabled to use it and change its settings.",
     "syncPrinters": "Sync printers",
-    "syncPrints": "Sync prints"
+    "syncPrints": "Sync prints",
+    "unavailableHint": "The slicer's config folder wasn't found on this server. If it's on another computer, mount it here and set Config folder to that path."
   },
   "deleteDialog": {
     "title": "Delete {{name}}?",
@@ -84,7 +90,7 @@
       }
     },
     "bambu-cloud": {
-      "name": "Bambu Lab",
+      "name": "Bambu Cloud",
       "fields": {
         "region": "Region"
       },
@@ -94,6 +100,9 @@
           "china": "China"
         }
       }
+    },
+    "bambu-studio": {
+      "name": "Bambu Studio"
     }
   },
   "login": {
@@ -113,6 +122,10 @@
     "printers": "Import printers",
     "prints": "Import print history",
     "spools": "Import spools",
+    "brands": "Import printer brands",
+    "printerModels": "Import printer models",
+    "machineProfiles": "Import machine profiles",
+    "filamentBrands": "Import filament brands",
     "filamentProfiles": "Import filament profiles from the slicer",
     "openInSlicer": "Open projects in the slicer"
   },

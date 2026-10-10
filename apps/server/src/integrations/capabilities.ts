@@ -1,10 +1,5 @@
 import { existsSync } from "node:fs";
-import {
-  CAPABILITY_NEEDS,
-  type Capability,
-  type FilamentLibrary,
-  type IntegrationAdapter,
-} from "@3d-maker-suite/core";
+import type { Capability, FilamentLibrary, IntegrationAdapter } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
 import { asc } from "drizzle-orm";
 import { HttpError } from "../errors.ts";
@@ -24,15 +19,19 @@ export function slicerConfigDir(row: Row, adapter: IntegrationAdapter) {
 /** Supported by the adapter, not switched off, and what it needs is set up. */
 export function activeCapabilities(row: Row, adapter?: IntegrationAdapter): Capability[] {
   if (!row.enabled || !adapter) return [];
-  const met = {
-    account: !adapter.login || !!row.secrets,
-    slicerConfig: !!adapter.library && !!slicerConfigDir(row, adapter),
-    slicerApp: !!row.slicerPath?.trim(),
-  };
+  // A cloud source needs its sign-in and a local one its folder; the action needs the program itself.
+  const source =
+    adapter.kind === "cloud" ? !adapter.login || !!row.secrets : !!slicerConfigDir(row, adapter);
+  const program = row.slicerPath?.trim();
+  const slicerApp = !!program && existsSync(program);
   return adapter.capabilities.filter(
-    (c) => !row.disabledFeatures.includes(c) && met[CAPABILITY_NEEDS[c]],
+    (c) => !row.disabledFeatures.includes(c) && (c === "openInSlicer" ? slicerApp : source),
   );
 }
+
+/** A local source whose folder isn't on this server (e.g. the app runs on a NAS). */
+export const unavailable = (row: Row, adapter: IntegrationAdapter) =>
+  adapter.kind === "local" && !!adapter.library && !slicerConfigDir(row, adapter);
 
 /** Every integration that can do `cap` right now, oldest first. */
 export function capableRows(db: Db, adapters: IntegrationAdapter[], cap: Capability) {

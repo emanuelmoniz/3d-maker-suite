@@ -31,8 +31,9 @@ export const INTEGRATION_ERROR_CODES = [
 ] as const;
 // What an interactive sign-in asks for after the password.
 export const LOGIN_CHALLENGES = ["email_code", "totp"] as const;
-// "syncing" is reported while a run is in progress, never stored.
-export const INTEGRATION_STATUSES = ["new", "syncing", "ok", "error"] as const;
+// "syncing" (a run is in progress) and "unavailable" (a local source's folder isn't on this
+// server) are reported, never stored.
+export const INTEGRATION_STATUSES = ["new", "syncing", "ok", "error", "unavailable"] as const;
 export const SYNC_TRIGGERS = ["manual", "scheduled"] as const;
 export const SYNC_RUN_STATUSES = ["ok", "error"] as const;
 // What one run syncs. Spools aren't a type: importing one needs a filament profile picked per spool,
@@ -40,22 +41,26 @@ export const SYNC_RUN_STATUSES = ["ok", "error"] as const;
 export const SYNC_TYPES = ["printers", "prints"] as const;
 // How often the scheduler syncs one integration ("1M" = 30 days). Ticks every 15 minutes.
 export const SYNC_FREQUENCIES = ["15m", "1h", "1d", "1w", "1M", "off"] as const;
-/** What an integration can do. The adapter declares them, the user switches each one off or on. */
+/**
+ * Where an integration's data comes from: an account, or a folder and program on the server's
+ * disk. It says nothing about which types it has; the adapter's capabilities do.
+ */
+export const INTEGRATION_KINDS = ["cloud", "local"] as const;
+/**
+ * What an integration can do: the data types it provides, plus the `openInSlicer` action. The
+ * adapter declares only what it really has, the user switches each one off or on.
+ */
 export const CAPABILITIES = [
   "printers",
   "prints",
   "spools",
+  "brands",
+  "printerModels",
+  "machineProfiles",
+  "filamentBrands",
   "filamentProfiles",
   "openInSlicer",
 ] as const;
-/** What a capability needs before it's usable: a signed-in account, a slicer folder or program. */
-export const CAPABILITY_NEEDS = {
-  printers: "account",
-  prints: "account",
-  spools: "account",
-  filamentProfiles: "slicerConfig",
-  openInSlicer: "slicerApp",
-} as const satisfies Record<(typeof CAPABILITIES)[number], string>;
 
 export type Origin = (typeof ORIGINS)[number];
 export type PrintOutcome = (typeof PRINT_OUTCOMES)[number];
@@ -68,6 +73,7 @@ export type CommentStatus = (typeof COMMENT_STATUSES)[number];
 export type IntegrationErrorCode = (typeof INTEGRATION_ERROR_CODES)[number];
 export type LoginChallenge = (typeof LOGIN_CHALLENGES)[number];
 export type IntegrationStatus = (typeof INTEGRATION_STATUSES)[number];
+export type IntegrationKind = (typeof INTEGRATION_KINDS)[number];
 export type SyncTrigger = (typeof SYNC_TRIGGERS)[number];
 export type SyncType = (typeof SYNC_TYPES)[number];
 export type SyncFrequency = (typeof SYNC_FREQUENCIES)[number];
