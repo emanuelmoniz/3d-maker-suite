@@ -49,8 +49,8 @@ import { createSpool, setRemaining } from "../lib/spools.ts";
 const { filamentProfiles, spools, spoolWeightEntries } = schema;
 const params = z.object({ id: z.uuid() });
 const notFound = { 404: apiErrorSchema };
-// The label the app shows for a profile ("brand material name"), to sort and filter by.
-const profileLabel = sql`trim(${profileBrand} || ' ' || ${profileMaterial} || ' ' || ${filamentProfiles.name})`;
+// The label the app shows for a profile (its name, else "brand material"), to sort and filter by.
+const profileLabel = sql`coalesce(nullif(${filamentProfiles.name}, ''), trim(${profileBrand} || ' ' || ${profileMaterial}))`;
 const spoolLabel = sql`(select ${profileLabel} from ${filamentProfiles} where ${filamentProfiles.id} = ${spools.profileId})`;
 const archivedAt = (archived?: boolean) =>
   archived === undefined ? undefined : archived ? new Date().toISOString() : null;

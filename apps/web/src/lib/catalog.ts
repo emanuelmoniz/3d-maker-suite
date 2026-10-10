@@ -29,12 +29,19 @@ export const IMAGE_OF = {
   "filament-brands": "logo",
 } as const;
 
-// ponytail: the first 100 of each, for selects and labels. Page them if a catalog grows past that.
+/** Every row of a catalog (the API caps a page at 100), for selects and labels. */
 const useAll = <K extends CatalogKind>(kind: K) =>
   useQuery({
     queryKey: ["catalog", kind, "all"],
-    queryFn: () => api<Page<Row[K]>>("GET", `/api/${kind}?pageSize=100`),
-    select: (p) => p.items,
+    queryFn: async () => {
+      const get = (page: number) =>
+        api<Page<Row[K]>>("GET", `/api/${kind}?pageSize=100&page=${page}`);
+      const first = await get(1);
+      const rest = await Promise.all(
+        Array.from({ length: Math.ceil(first.total / 100) - 1 }, (_, i) => get(i + 2)),
+      );
+      return [first, ...rest].flatMap((p) => p.items);
+    },
   });
 export const useBrands = () => useAll("brands");
 export const usePrinterModels = () => useAll("printer-models");

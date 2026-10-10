@@ -136,6 +136,8 @@ export const maintenanceTypeSchema = z.object({
   id,
   name: z.string().min(1),
   description: z.string().nullable(),
+  /** Link to the documentation / how-to for this task. */
+  docUrl: z.url().nullable(),
   intervalSec: seconds.positive().nullable(),
   intervalPrints: z.number().int().positive().nullable(),
   intervalDays: z.number().int().positive().nullable(),

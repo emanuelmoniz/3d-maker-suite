@@ -8,6 +8,12 @@
     "clear": "Clear filters",
     "more": "More"
   },
+  "picker": {
+    "search": "Search…",
+    "remove": "Remove {{name}}",
+    "none": "No matches",
+    "more": "{{count, number}} more, keep typing to narrow down"
+  },
   "theme": {
     "label": "Theme",
     "light": "Light",

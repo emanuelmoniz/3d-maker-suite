@@ -1,9 +1,11 @@
 import type { MaintenanceType } from "@3d-maker-suite/core";
 import { useNavigate, useParams } from "@tanstack/react-router";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
+import { SearchPicker } from "../../components/SearchPicker.tsx";
 import { useModelInfo } from "../../lib/catalog.ts";
 import { useCreateType, useMaintenanceType, usePatchType } from "../../lib/maintenance.ts";
 import { usePrinters } from "../../lib/printers.ts";
@@ -17,6 +19,8 @@ function TypeForm({ type }: { type?: MaintenanceType }) {
   const create = useCreateType();
   const patch = usePatchType();
   const save = type ? patch : create;
+  const [modelIds, setModelIds] = useState(type?.appliesToModelIds ?? []);
+  const [printerIds, setPrinterIds] = useState(type?.appliesToPrinterIds ?? []);
   const printers = usePrinters({ archived: false }).data?.items ?? [];
   const models = [...useModelInfo().entries()].sort(([, a], [, b]) =>
     a.label.localeCompare(b.label),
@@ -28,11 +32,12 @@ function TypeForm({ type }: { type?: MaintenanceType }) {
     const body = {
       name: text(f, "name"),
       description: text(f, "description") || null,
+      docUrl: text(f, "docUrl") || null,
       intervalSec: num(text(f, "hours"), 3600),
       intervalPrints: num(text(f, "prints")),
       intervalDays: num(text(f, "days")),
-      appliesToModelIds: f.getAll("models").map(String),
-      appliesToPrinterIds: f.getAll("printers").map(String),
+      appliesToModelIds: modelIds,
+      appliesToPrinterIds: printerIds,
     };
     if (type)
       patch.mutate(
@@ -73,43 +78,39 @@ function TypeForm({ type }: { type?: MaintenanceType }) {
           />
         )}
       </FormField>
+      <FormField label={t("maintenance:types.docUrl")}>
+        {(p) => (
+          <input
+            {...p}
+            name="docUrl"
+            type="url"
+            placeholder="https://"
+            defaultValue={type?.docUrl ?? ""}
+            className={inputClass}
+          />
+        )}
+      </FormField>
       <fieldset className="grid gap-4">
         <legend className="mb-1 text-muted">{t("maintenance:types.intervalHint")}</legend>
         {interval("hours", "maintenance:types.hours", type?.intervalSec && type.intervalSec / 3600)}
         {interval("prints", "maintenance:types.prints", type?.intervalPrints)}
         {interval("days", "maintenance:types.days", type?.intervalDays)}
       </fieldset>
-      <fieldset className="grid gap-2">
-        <legend className="mb-1 text-muted">{t("maintenance:types.model")}</legend>
-        <p className="text-muted">{t("maintenance:types.modelHint")}</p>
-        {models.map(([id, m]) => (
-          <label key={id} className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              name="models"
-              value={id}
-              defaultChecked={type?.appliesToModelIds.includes(id)}
-            />
-            {m.label}
-          </label>
-        ))}
-      </fieldset>
+      <SearchPicker
+        label={t("maintenance:types.model")}
+        options={models.map(([id, m]) => ({ id, label: m.label }))}
+        value={modelIds}
+        onChange={setModelIds}
+      />
       {printers.length > 0 && (
-        <fieldset className="grid gap-2">
-          <legend className="mb-1 text-muted">{t("maintenance:types.printers")}</legend>
-          {printers.map((p) => (
-            <label key={p.id} className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                name="printers"
-                value={p.id}
-                defaultChecked={type?.appliesToPrinterIds.includes(p.id)}
-              />
-              {p.name}
-            </label>
-          ))}
-        </fieldset>
+        <SearchPicker
+          label={t("maintenance:types.printers")}
+          options={printers.map((p) => ({ id: p.id, label: p.name }))}
+          value={printerIds}
+          onChange={setPrinterIds}
+        />
       )}
+      <p className="text-muted">{t("maintenance:types.modelHint")}</p>
       {save.isError && (
         <p role="alert" className="text-bad">
           {t("maintenance:types.error")}

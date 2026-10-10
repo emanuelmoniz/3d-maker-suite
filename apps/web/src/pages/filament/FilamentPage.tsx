@@ -6,6 +6,7 @@ import {
   spoolFilters,
   spoolPricePerKg,
 } from "@3d-maker-suite/core";
+import { useQueries } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { Plus, Spool as SpoolIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -14,6 +15,7 @@ import { EmptyState } from "../../components/EmptyState.tsx";
 import { ImportLinks } from "../../components/ImportLinks.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { TagList } from "../../components/TagList.tsx";
+import { api } from "../../lib/api.ts";
 import { useFilamentBrands, useFilamentMaterials } from "../../lib/catalog.ts";
 import { filamentLabel, useProfiles } from "../../lib/filament.ts";
 import { formatCurrency, formatWeight } from "../../lib/format.ts";
@@ -64,9 +66,19 @@ export function FilamentPage() {
     "/api/filament/profiles",
     profileQuery,
   );
-  // ponytail: spool labels and prices come from the first 100 active profiles.
   const allProfiles = useProfiles().data?.items;
   const profileOf = new Map(allProfiles?.map((p) => [p.id, p]));
+  // Spools can point at archived profiles or ones past the first 100: fetch those by id.
+  const missing = [...new Set(spools.data?.items.map((s) => s.profileId))].filter(
+    (id) => allProfiles && !profileOf.has(id),
+  );
+  for (const q of useQueries({
+    queries: missing.map((id) => ({
+      queryKey: ["filament", "profile", id],
+      queryFn: () => api<FilamentProfile>("GET", `/api/filament/profiles/${id}`),
+    })),
+  }))
+    if (q.data) profileOf.set(q.data.id, q.data);
   const brands = useFilamentBrands().data ?? [];
   const materials = useFilamentMaterials().data ?? [];
   const tagsOf = useTagsOf("spool");

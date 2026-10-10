@@ -159,7 +159,7 @@ describe("listPage filters", () => {
     });
     await post("/api/filament/spools", { profileId: pla.id, initialGrams: 1000 });
     await post("/api/filament/spools", { profileId: petg.id, initialGrams: 500 });
-    expect(await names("/api/filament/spools?filament=acme%20pla", "initialGrams")).toEqual([1000]);
+    expect(await names("/api/filament/spools?filament=basic", "initialGrams")).toEqual([1000]);
     expect(await names("/api/filament/spools?sort=-filament", "initialGrams")).toEqual([500, 1000]);
     expect(await names("/api/filament/profiles?filament=petg", "brand")).toEqual(["Zed"]);
 

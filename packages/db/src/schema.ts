@@ -239,6 +239,7 @@ export const maintenanceTypes = sqliteTable("maintenance_types", {
   id: id(),
   name: text().notNull(),
   description: text(),
+  docUrl: text(),
   intervalSec: integer(),
   intervalPrints: integer(),
   intervalDays: integer(),

@@ -8,6 +8,7 @@ export const maintenanceTypeInputSchema = maintenanceTypeSchema
   .pick({
     name: true,
     description: true,
+    docUrl: true,
     intervalSec: true,
     intervalPrints: true,
     intervalDays: true,
@@ -16,6 +17,7 @@ export const maintenanceTypeInputSchema = maintenanceTypeSchema
   })
   .partial({
     description: true,
+    docUrl: true,
     intervalSec: true,
     intervalPrints: true,
     intervalDays: true,

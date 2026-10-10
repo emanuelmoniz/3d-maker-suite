@@ -1,0 +1,1 @@
+ALTER TABLE `maintenance_types` ADD `doc_url` text;

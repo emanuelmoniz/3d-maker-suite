@@ -85,7 +85,7 @@ export const useAdjustSpool = () =>
   );
 
 export const filamentLabel = (p?: FilamentProfile) =>
-  p ? [p.brand, p.material, p.name].filter(Boolean).join(" ") : "";
+  p ? p.name || [p.brand, p.material].filter(Boolean).join(" ") : "";
 
 export const useLibraryPreview = (id: string | undefined, includeSystem: boolean) =>
   useQuery({

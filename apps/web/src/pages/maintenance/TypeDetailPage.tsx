@@ -72,6 +72,13 @@ export function TypeDetailPage() {
               .filter(Boolean)
               .join(", ") || t("maintenance:types.allModels")}
           </Info>
+          {type.docUrl && (
+            <Info label={t("maintenance:types.docUrl")}>
+              <a href={type.docUrl} target="_blank" rel="noreferrer" className="hover:underline">
+                {new URL(type.docUrl).host}
+              </a>
+            </Info>
+          )}
         </dl>
       </section>
     </>
