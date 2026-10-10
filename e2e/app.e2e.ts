@@ -1,5 +1,5 @@
 import { expect, test } from "./fixtures.ts";
-import { hasHorizontalScroll, ROUTES, seedPrinter, seedSpool } from "./helpers.ts";
+import { hasHorizontalScroll, ROUTES, seedPrinter, seedProfile, seedSpool } from "./helpers.ts";
 
 test("settings persist across a reload", async ({ page }) => {
   await page.goto("/settings");
@@ -33,12 +33,7 @@ test("add a brand, a model and a printer of that model", async ({ page }) => {
 });
 
 test("add a spool", async ({ page, app }) => {
-  await app.api("POST", "/api/filament/profiles", {
-    brand: "Acme",
-    material: "PLA",
-    densityGcm3: 1.24,
-    name: "Basic",
-  });
+  await seedProfile(app.api);
   await page.goto("/filament/spools/new");
   await page.getByLabel("Remaining weight (g)").fill("750");
   await page.getByRole("button", { name: "Save spool" }).click();

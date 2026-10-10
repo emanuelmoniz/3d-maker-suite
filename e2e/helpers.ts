@@ -20,13 +20,20 @@ export const seedPrinter = async (api: Api, name = "Test Printer") =>
     state: "working",
   });
 
-export const seedSpool = async (api: Api, grams = 1000) => {
-  const profile = await api<{ id: string }>("POST", "/api/filament/profiles", {
-    brand: "Acme",
-    material: "PLA",
+/** The "Acme PLA Basic" filament profile with its brand and material. Once per test. */
+export const seedProfile = async (api: Api) => {
+  const brand = await api<{ id: string }>("POST", "/api/filament-brands", { name: "Acme" });
+  const material = await api<{ id: string }>("POST", "/api/filament-materials", { name: "PLA" });
+  return api<{ id: string }>("POST", "/api/filament/profiles", {
+    brandId: brand.id,
+    materialId: material.id,
     densityGcm3: 1.24,
     name: "Basic",
   });
+};
+
+export const seedSpool = async (api: Api, grams = 1000) => {
+  const profile = await seedProfile(api);
   return api<{ id: string }>("POST", "/api/filament/spools", {
     profileId: profile.id,
     colorHex: "#ff0000",
