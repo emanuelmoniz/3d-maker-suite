@@ -79,6 +79,7 @@
     "plates": "Plates",
     "plate": "Plate {{index}}",
     "notSliced": "Not sliced",
+    "slicedNoData": "Sliced, but the slicer saved no estimate",
     "unknownMaterial": "Unknown",
     "prints": "Prints",
     "noPrints": "No prints are linked to this project yet.",

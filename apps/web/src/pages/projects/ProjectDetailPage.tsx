@@ -25,6 +25,7 @@ import { ModelPreview } from "./ModelPreview.tsx";
 const linkButton =
   "inline-flex h-9 items-center gap-2 rounded-md border border-border bg-surface px-3 font-medium hover:bg-surface-2";
 const VIEWABLE = /\.(3mf|stl)$/i;
+const SLICED_EXPORT = /\.gcode\.3mf$/i;
 const KB = 1024;
 
 // Static keys so `pnpm i18n:check` sees them; `api()` puts the HTTP status last in the message.
@@ -91,7 +92,9 @@ function Plates({
                       ]
                         .filter(Boolean)
                         .join(" · ")
-                    : t("projects:detail.notSliced")}
+                    : p.slicedOnSave
+                      ? t("projects:detail.slicedNoData")
+                      : t("projects:detail.notSliced")}
                 </span>
                 <span className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
                   {p.filaments.map((f) => (
@@ -199,7 +202,12 @@ export function ProjectDetailPage() {
     );
   if (!project) return null;
 
-  const models = project.meta.files.filter((f) => f.kind === "model");
+  // A sliced export the scanner folded into its project file is not a model of its own.
+  const models = project.meta.files.filter(
+    (f) =>
+      f.kind === "model" &&
+      !(SLICED_EXPORT.test(f.path) && !project.meta.models.some((m) => m.file === f.path)),
+  );
   // Default: the scanner's main file, else the first model.
   const main = models.find((f) => project.filePath?.endsWith(f.path));
   const current = models.find((f) => f.path === picked) ?? main ?? models[0];

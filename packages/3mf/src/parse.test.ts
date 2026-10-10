@@ -168,6 +168,23 @@ describe("parse3mf sliced data", () => {
     ]);
   });
 
+  it("marks plates the slicer sliced but saved no results for", async () => {
+    const plate = (id: number) =>
+      `<plate><metadata key="plater_id" value="${id}"/><metadata key="plater_name" value=""/></plate>`;
+    const info = await parse3mf(
+      zipOf({
+        "Metadata/model_settings.config": `<config>${plate(1)}${plate(2)}</config>`,
+        "Metadata/slice_info.config": "<config><header/></config>",
+        "Metadata/plate_2.json": "{}",
+      }),
+    );
+    expect(info.plates.map((p) => [p.index, p.sliced, p.slicedOnSave])).toEqual([
+      [1, false, false],
+      [2, false, true],
+    ]);
+    expect((await parse3mf(sliced)).plates.every((p) => p.slicedOnSave)).toBe(true);
+  });
+
   it("rejects non-zip input", async () => {
     await expect(parse3mf(Buffer.from("not a zip"))).rejects.toThrow();
   });

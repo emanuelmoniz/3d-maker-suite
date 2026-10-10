@@ -19,6 +19,11 @@ export interface ThreeMfPlate {
   name: string | null;
   /** Has slice results (time and filament usage) for this plate. */
   sliced: boolean;
+  /**
+   * The plate was sliced when the file was saved. Bambu Studio's project save keeps this mark
+   * (`Metadata/plate_N.json`) but drops the results, so this can be true while `sliced` is false.
+   */
+  slicedOnSave: boolean;
   printTimeSeconds: number | null;
   weightGrams: number | null;
   /** Filaments used on this plate. Unsliced: derived from the objects' extruder assignments. */
@@ -293,6 +298,7 @@ export async function parse3mf(source: ThreeMfSource): Promise<ThreeMfInfo> {
           index,
           name: null,
           sliced: false,
+          slicedOnSave: false,
           printTimeSeconds: null,
           weightGrams: null,
           filaments: [],
@@ -333,7 +339,10 @@ export async function parse3mf(source: ThreeMfSource): Promise<ThreeMfInfo> {
     }
 
     const list = [...plates.values()].sort((a, b) => a.index - b.index);
-    for (const p of list) p.multicolor = p.filaments.length > 1;
+    for (const p of list) {
+      p.multicolor = p.filaments.length > 1;
+      p.slicedOnSave = p.sliced || zip.has(`Metadata/plate_${p.index}.json`);
+    }
 
     return {
       partColors: await partColors(zip, partSlot, colors),

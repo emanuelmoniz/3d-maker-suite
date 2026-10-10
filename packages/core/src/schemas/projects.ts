@@ -25,6 +25,8 @@ export const projectPlateSchema = z.object({
   index: z.number().int(),
   name: nullableText,
   sliced: z.boolean(),
+  /** Sliced when saved, even if the slicer kept no results (`sliced` false). Older scans lack it. */
+  slicedOnSave: z.boolean().default(false),
   printTimeSeconds: z.number().nullable(),
   weightGrams: z.number().nullable(),
   filaments: z.array(threeMfFilamentSchema),

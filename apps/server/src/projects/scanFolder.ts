@@ -1,5 +1,5 @@
 import { readdir, readFile, stat } from "node:fs/promises";
-import { extname, join, relative } from "node:path";
+import { extname, join, posix, relative } from "node:path";
 import { parse3mf } from "@3d-maker-suite/3mf";
 import type { ProjectFile, ProjectModel } from "@3d-maker-suite/core";
 
@@ -49,6 +49,51 @@ export interface FolderScan {
 }
 
 const byName = (a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name);
+
+const SLICED_EXPORT = /\.gcode\.3mf$/i;
+const stem = (path: string) => path.replace(/(\.gcode)?\.3mf$/i, "").toLowerCase();
+
+/**
+ * A slicer's project save drops the slice results; its sliced export (`*.gcode.3mf`) has them.
+ * Folds each export into the project 3MF of the same folder whose name starts the export's name
+ * (`foo_plate_2.gcode.3mf` -> `foo.3mf`) and drops it from the list. An export without such a
+ * file stays a model of its own.
+ * ponytail: an export older than later edits to the project file is not detected; compare
+ * modification times if stale numbers show up.
+ */
+export function mergeSlicedExports(models: ProjectModel[]): ProjectModel[] {
+  const merged = new Set<ProjectModel>();
+  for (const ex of models) {
+    if (!SLICED_EXPORT.test(ex.file)) continue;
+    const name = stem(ex.file);
+    const target = models
+      .filter((m) => {
+        const own = stem(m.file);
+        return (
+          !SLICED_EXPORT.test(m.file) &&
+          posix.dirname(m.file) === posix.dirname(ex.file) &&
+          name.startsWith(own) &&
+          !/^[\p{L}\p{N}]/u.test(name.slice(own.length))
+        );
+      })
+      .sort((a, b) => b.file.length - a.file.length)[0];
+    if (!target) continue;
+    for (const sp of ex.plates) {
+      const tp = sp.sliced && target.plates.find((p) => p.index === sp.index);
+      if (!tp) continue;
+      tp.sliced = true;
+      tp.slicedOnSave = true;
+      tp.printTimeSeconds = sp.printTimeSeconds;
+      tp.weightGrams = sp.weightGrams;
+      tp.filaments = sp.filaments;
+      tp.multicolor = sp.multicolor;
+    }
+    target.sliced = target.plates.some((p) => p.sliced);
+    target.multicolor = target.plates.some((p) => p.multicolor);
+    merged.add(ex);
+  }
+  return models.filter((m) => !merged.has(m));
+}
 
 async function collect(root: string) {
   const out: (ProjectFile & { abs: string; mtimeMs: number })[] = [];
@@ -135,8 +180,13 @@ export async function scanFolder(dir: string): Promise<FolderScan> {
   }
 
   // ponytail: the newest 3MF is "the" project file; fall back to the first other model.
+  // A sliced export is only the project file when there is nothing else.
   const modelFiles = all.filter((f) => f.kind === "model");
-  const main = [...threeMfs].sort((a, b) => b.mtimeMs - a.mtimeMs)[0] ?? modelFiles[0] ?? undefined;
+  const projectFiles = threeMfs.filter((f) => !SLICED_EXPORT.test(f.path));
+  const main =
+    [...(projectFiles.length ? projectFiles : threeMfs)].sort((a, b) => b.mtimeMs - a.mtimeMs)[0] ??
+    modelFiles[0] ??
+    undefined;
 
   // Cover: a picture named like a cover, else the main 3MF's plate preview, else any picture.
   const images = all.filter((f) => f.kind === "image");
@@ -152,7 +202,7 @@ export async function scanFolder(dir: string): Promise<FolderScan> {
 
   return {
     files,
-    models,
+    models: mergeSlicedExports(models),
     description,
     sourceUrl: sourceUrl ? tidyUrl(sourceUrl) : null,
     mainFile: main?.abs ?? null,
