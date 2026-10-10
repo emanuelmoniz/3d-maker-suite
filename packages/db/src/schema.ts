@@ -173,11 +173,16 @@ export const machineProfiles = sqliteTable(
     nozzleDiameterMm: real().notNull().default(0.4),
     /** Preset this profile was imported from, `<library>:<preset id>`; null for hand-made ones. */
     sourcePreset: text(),
+    /** An older version of a preset that prints still point at (see `sourcePreset`). */
+    archivedAt: text(),
     ...timestamps,
   },
   (t) => [
     index("machine_profiles_model_idx").on(t.printerModelId),
-    uniqueIndex("machine_profiles_source_uq").on(t.sourcePreset),
+    // Unique only among current rows: an archived version keeps its key.
+    uniqueIndex("machine_profiles_source_uq")
+      .on(t.sourcePreset)
+      .where(sql`${t.archivedAt} IS NULL`),
   ],
 );
 
@@ -315,7 +320,9 @@ export const filamentProfiles = sqliteTable(
     index("filament_profiles_brand_idx").on(t.brandId),
     index("filament_profiles_material_idx").on(t.materialId),
     uniqueIndex("filament_profiles_external_uq").on(t.integrationId, t.externalId),
-    uniqueIndex("filament_profiles_source_uq").on(t.sourcePreset),
+    uniqueIndex("filament_profiles_source_uq")
+      .on(t.sourcePreset)
+      .where(sql`${t.archivedAt} IS NULL`),
     check("filament_profiles_origin_ck", oneOf(t.origin, ORIGINS)),
   ],
 );

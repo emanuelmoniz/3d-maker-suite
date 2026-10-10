@@ -144,8 +144,11 @@ export const libraryPresetSchema = filamentProfileSchema
     scope: z.enum(["user", "system"]),
   });
 
-/** `new` can be imported; `imported` came from this preset before; `duplicate` matches a profile you already have. */
-export const LIBRARY_STATUSES = ["new", "imported", "duplicate"] as const;
+/**
+ * `new` can be imported; `imported` came from this preset before and is the same; `changed` came
+ * from it but the preset is newer; `duplicate` matches a profile you already have.
+ */
+export const LIBRARY_STATUSES = ["new", "imported", "changed", "duplicate"] as const;
 
 export const librarySourceSchema = z.object({
   id: z.string(),

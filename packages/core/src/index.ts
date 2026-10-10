@@ -13,6 +13,7 @@ export * from "./schemas/printers.ts";
 export * from "./schemas/prints.ts";
 export * from "./schemas/projects.ts";
 export * from "./schemas/serverConfig.ts";
+export * from "./schemas/slicerCatalog.ts";
 export * from "./schemas/stats.ts";
 export * from "./schemas/tags.ts";
 export * from "./services/cost.ts";

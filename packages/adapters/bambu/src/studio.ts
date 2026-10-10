@@ -1,12 +1,21 @@
-import { readdir, readFile } from "node:fs/promises";
+import { access, readdir, readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join, parse } from "node:path";
-import type { FilamentLibrary, LibraryPreset } from "@3d-maker-suite/core";
+import type {
+  CatalogMachine,
+  CatalogModel,
+  FilamentLibrary,
+  LibraryPreset,
+} from "@3d-maker-suite/core";
 
 // Bambu Studio keeps presets as JSON under its config folder (checked on Windows against an
 // installed Bambu Studio 2.x; macOS and Linux paths are from Bambu's docs, not tested here):
 //   user/<account id | default>/filament/**/<name>.json   your own presets
 //   system/<vendor>/filament/<name>.json                 shipped ones (BBL, ...)
+//   user/<account | default>/machine/**/<name>.json      your machine presets
+//   system/<vendor>/machine/<name>.json                  shipped ones; `type: machine_model` files are models
+//   system/<vendor>.json                                 vendor index: name, machine_model_list
+//   system/<vendor>/<model name>_cover.png               a model's thumbnail
 // Every value is a one-element array of strings. A preset only holds what differs from its
 // `inherits` parent, so values are resolved up the chain; parents are found by name.
 
@@ -68,6 +77,10 @@ const num = (v: string | undefined) =>
 /** "Bambu PLA Basic @BBL X1C" and "... @BBL A1" are one filament for different printers. */
 const baseName = (n: string) => n.split(" @")[0]?.trim() || n;
 
+// The vendor index names it "Bambulab", which would be a second brand next to the "Bambu Lab" the
+// cloud adapter already creates. ponytail: one entry; add the others as they show up.
+const BRAND_NAMES: Record<string, string> = { BBL: "Bambu Lab" };
+
 const DEFAULT_DENSITY = 1.24; // ponytail: PLA's density when a preset gives none; per-material table if it matters
 
 export function toProfile(
@@ -94,12 +107,12 @@ export function toProfile(
   };
 }
 
-/** System presets of a Studio folder, loaded lazily, and setting lookup through `inherits`. */
-async function systemPresets(dir: string) {
+/** System presets of one kind in a Studio folder, loaded lazily, and setting lookup through `inherits`. */
+async function systemPresets(dir: string, kind: "filament" | "machine") {
   // name -> file for every system preset, for `inherits` lookups.
   const systemFiles = new Map<string, string>();
   for (const vendor of await dirs(join(dir, "system")))
-    for (const f of await jsonFiles(join(dir, "system", vendor, "filament"), false))
+    for (const f of await jsonFiles(join(dir, "system", vendor, kind), false))
       if (!systemFiles.has(parse(f).name)) systemFiles.set(parse(f).name, f);
 
   const cache = new Map<string, Preset | undefined>();
@@ -129,7 +142,7 @@ export function bambuStudioLibrary(
     id: "bambu-studio",
     defaultDirs,
     async read(dir, { includeSystem }) {
-      const { systemFiles, load, resolver } = await systemPresets(dir);
+      const { systemFiles, load, resolver } = await systemPresets(dir, "filament");
 
       const out = new Map<string, LibraryPreset>();
       const add = (presetId: string, p: Omit<LibraryPreset, "presetId"> | undefined) => {
@@ -153,6 +166,65 @@ export function bambuStudioLibrary(
           add(`system/${baseName(name)}`, toProfile(name, "system", await resolver(p)));
         }
       return [...out.values()];
+    },
+
+    async readCatalog(dir) {
+      const models = new Map<string, CatalogModel>(); // by lowercase model name
+      const machines = new Map<string, CatalogMachine>();
+      const { load, resolver, systemFiles } = await systemPresets(dir, "machine");
+      const vendorOf = new Map<string, string>(); // system machine file -> brand
+
+      for (const vendor of await dirs(join(dir, "system"))) {
+        const index = await readJson(join(dir, "system", `${vendor}.json`));
+        const brand = BRAND_NAMES[vendor] ?? first(index?.name) ?? vendor;
+        const list: unknown = index?.machine_model_list;
+        for (const m of Array.isArray(list) ? list : []) {
+          const model = first((m as Preset)?.name);
+          if (!model) continue;
+          const cover = join(dir, "system", vendor, `${model}_cover.png`);
+          const image = await access(cover).then(
+            () => cover,
+            () => null,
+          );
+          models.set(model.toLowerCase(), { brand, model, image });
+        }
+        for (const f of await jsonFiles(join(dir, "system", vendor, "machine"), false))
+          vendorOf.set(f, brand);
+      }
+
+      const add = (
+        presetId: string,
+        scope: CatalogMachine["scope"],
+        name: string,
+        brand: string,
+        get: (k: string) => string | undefined,
+      ) => {
+        const model = get("printer_model");
+        const nozzle = num(get("nozzle_diameter"));
+        if (!model || !nozzle || nozzle <= 0 || machines.has(presetId)) return;
+        if (!models.has(model.toLowerCase()))
+          models.set(model.toLowerCase(), { brand, model, image: null });
+        machines.set(presetId, { presetId, scope, brand, model, name, nozzleDiameterMm: nozzle });
+      };
+
+      // User presets first, like filament ones: the first account that has a name wins.
+      for (const account of await dirs(join(dir, "user")))
+        for (const f of await jsonFiles(join(dir, "user", account, "machine"), true)) {
+          const p = await readJson(f);
+          if (!p) continue;
+          const name = typeof p.name === "string" ? p.name : parse(f).name;
+          const get = await resolver(p);
+          const brand = models.get((get("printer_model") ?? "").toLowerCase())?.brand;
+          if (brand) add(`user/${name}`, "user", name, brand, get);
+        }
+
+      for (const [name, f] of [...systemFiles].sort(([a], [b]) => a.localeCompare(b))) {
+        const p = await load(f);
+        // Only presets you can pick in the slicer (not `fdm_*` bases, models or gcode templates).
+        if (p?.instantiation !== "true" || p.type !== "machine") continue;
+        add(`system/${name}`, "system", name, vendorOf.get(f) ?? "", await resolver(p));
+      }
+      return { models: [...models.values()], machines: [...machines.values()] };
     },
   };
 }

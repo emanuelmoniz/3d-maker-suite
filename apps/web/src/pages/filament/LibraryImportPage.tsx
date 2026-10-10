@@ -13,6 +13,7 @@ import { usePreferences } from "../../lib/preferences.ts";
 const STATUS = {
   new: "filament:library.statuses.new",
   imported: "filament:library.statuses.imported",
+  changed: "filament:library.statuses.changed",
   duplicate: "filament:library.statuses.duplicate",
 } as const;
 
@@ -28,7 +29,8 @@ export function LibraryImportPage() {
   const run = useLibraryImport(id);
 
   const items = preview.data?.items ?? [];
-  const picked = items.filter((i) => i.status === "new" && !unchecked.has(i.presetId));
+  const importable = (s: string) => s === "new" || s === "changed";
+  const picked = items.filter((i) => importable(i.status) && !unchecked.has(i.presetId));
   const toggle = (id: string) =>
     setUnchecked((s) => {
       const next = new Set(s);
@@ -81,8 +83,8 @@ export function LibraryImportPage() {
                       <input
                         type="checkbox"
                         aria-label={t("filament:library.pick", { name: i.name })}
-                        disabled={i.status !== "new"}
-                        checked={i.status === "new" && !unchecked.has(i.presetId)}
+                        disabled={!importable(i.status)}
+                        checked={importable(i.status) && !unchecked.has(i.presetId)}
                         onChange={() => toggle(i.presetId)}
                       />
                     ),

@@ -9,6 +9,7 @@ import {
   type LibrarySpool,
   librarySpoolSchema,
   matchSpool,
+  SLICER_CATALOG_TYPES,
   type SyncFrequency,
   type SyncRequest,
   type SyncRun,
@@ -22,7 +23,8 @@ import { HttpError } from "../errors.ts";
 import { modelIdFor, profileMaterial } from "../lib/catalog.ts";
 import { takeFromSpool } from "../lib/spools.ts";
 import { activeCapabilities, capableRow, policyOf, switchedOn } from "./capabilities.ts";
-import { importPresets, importSpools, readLibrary } from "./imports.ts";
+import { type CatalogType, catalogEntries, importCatalog } from "./catalogImport.ts";
+import { importPresets, importSpools, libraryOf, readLibrary } from "./imports.ts";
 import { secretStore } from "./secrets.ts";
 
 const {
@@ -42,10 +44,13 @@ export type Pick = {
   /** spoolId -> the filament profile it goes on. */
   spools?: Map<string, string>;
   presets?: { ids: Set<string>; includeSystem: boolean };
+  /** Keys of the catalog rows (brands, models, machine profiles, filament brands) to take. */
+  catalog?: Set<string>;
 };
 
 // ponytail: re-fetch a 7-day window so prints that finished after the last run aren't missed;
 // insert-only dedupe makes the overlap free. Widen if a vendor reports later than that.
+const CATALOG_TYPES = new Set<string>(SLICER_CATALOG_TYPES);
 const OVERLAP_MS = 7 * 24 * 3600 * 1000;
 const TIMEOUT_MS = 5 * 60 * 1000;
 const KEEP_RUNS = 200;
@@ -75,6 +80,8 @@ export function createSyncer(
   adapters: IntegrationAdapter[],
   key: Buffer,
   log: FastifyBaseLogger,
+  /** Where model thumbnails are copied to; empty (tests) = none. */
+  dataDir = "",
 ) {
   const running = new Set<string>();
 
@@ -150,6 +157,11 @@ export function createSyncer(
       if (type === "spools") {
         const items = instance ? await readSpools(row, instance) : [];
         ({ created, skipped, pending } = importSpools(db, items, pick.spools));
+      }
+      if (CATALOG_TYPES.has(type)) {
+        const { lib, dir } = libraryOf(db, adapters, id, type);
+        const entries = await catalogEntries(db, lib, dir, type as CatalogType, dataDir);
+        ({ created, skipped, pending } = importCatalog(db, entries, pick.catalog));
       }
       if (type === "filamentProfiles") {
         const { lib, presets } = await readLibrary(

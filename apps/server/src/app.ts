@@ -41,6 +41,7 @@ import { printersRoutes } from "./routes/printers.ts";
 import { printsRoutes } from "./routes/prints.ts";
 import { projectsRoutes } from "./routes/projects.ts";
 import { serverConfigRoutes } from "./routes/serverConfig.ts";
+import { slicerCatalogRoutes } from "./routes/slicerCatalog.ts";
 import { statsRoutes } from "./routes/stats.ts";
 import { collectionsRoutes, tagsRoutes } from "./routes/tags.ts";
 
@@ -118,8 +119,9 @@ export async function buildApp(
   await app.register(maintenanceRoutes(db), { prefix: "/api/maintenance" });
   // Without a data dir (tests) secrets use a throwaway in-memory key.
   const key = dataDir ? loadKey(dataDir) : randomBytes(32);
-  const syncer = createSyncer(db, opts.adapters ?? [], key, app.log);
+  const syncer = createSyncer(db, opts.adapters ?? [], key, app.log, dataDir);
   await app.register(filamentRoutes(db, syncer), { prefix: "/api/filament" });
+  await app.register(slicerCatalogRoutes(db, syncer), { prefix: "/api/slicer-catalog" });
   await app.register(printsRoutes(db), { prefix: "/api/prints" });
   await app.register(costsRoutes(db), { prefix: "/api/costs" });
   await app.register(statsRoutes(db), { prefix: "/api/stats" });

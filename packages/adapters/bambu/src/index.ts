@@ -289,7 +289,15 @@ export function bambuStudioAdapter(): IntegrationAdapter {
     // Same id as the library, which already prefixes imported presets (`bambu-studio:<preset>`).
     id: "bambu-studio",
     kind: "local",
-    capabilities: ["filamentProfiles", "openInSlicer"],
+    // Order = run order: brands, then the models and profiles that point at them.
+    capabilities: [
+      "brands",
+      "printerModels",
+      "machineProfiles",
+      "filamentBrands",
+      "filamentProfiles",
+      "openInSlicer",
+    ],
     library: bambuStudioLibrary(),
     configSchema: z.object({}),
     secretsSchema: z.object({}),

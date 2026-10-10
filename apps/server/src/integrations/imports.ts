@@ -1,12 +1,17 @@
-import type { IntegrationAdapter, LibraryPreset, LibrarySpool } from "@3d-maker-suite/core";
+import type {
+  Capability,
+  IntegrationAdapter,
+  LibraryPreset,
+  LibrarySpool,
+} from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
-import { isNotNull, isNull } from "drizzle-orm";
+import { eq, isNotNull, isNull } from "drizzle-orm";
 import { HttpError } from "../errors.ts";
 import { filamentBrandIdFor, filamentMaterialIdFor, profileColumns } from "../lib/catalog.ts";
 import { createSpool } from "../lib/spools.ts";
 import { capableRow, slicerConfigDir } from "./capabilities.ts";
 
-const { filamentBrands, filamentMaterials, filamentProfiles, spools } = schema;
+const { filamentBrands, filamentMaterials, filamentProfiles, printFilamentUsages, spools } = schema;
 
 // Imports with a preview. With a pick (the confirmed preview) the picked rows are created; without
 // one (a sync run) only the rows that need no decision are. `pending` = what is left to review.
@@ -15,6 +20,20 @@ export type Imported = { created: number; skipped: number; pending: number };
 export const profileKey = (p: { brand: string; material: string; name: string }) =>
   [p.brand, p.material, p.name].map((v) => v.trim().toLowerCase()).join("|");
 
+/** An integration's slicer library and its config folder, if it can do `cap` right now. */
+export function libraryOf(
+  db: Db,
+  adapters: IntegrationAdapter[],
+  integrationId: string,
+  cap: Capability,
+) {
+  const { row, adapter } = capableRow(db, adapters, integrationId, cap);
+  const dir = slicerConfigDir(row, adapter);
+  const lib = adapter.library;
+  if (!dir || !lib) throw new HttpError(404, "library_not_found", "Slicer config folder not found");
+  return { lib, dir };
+}
+
 /** An integration's slicer presets, read from its config folder. */
 export async function readLibrary(
   db: Db,
@@ -22,17 +41,63 @@ export async function readLibrary(
   integrationId: string,
   includeSystem: boolean,
 ) {
-  const { row, adapter } = capableRow(db, adapters, integrationId, "filamentProfiles");
-  const dir = slicerConfigDir(row, adapter);
-  const lib = adapter.library;
-  if (!dir || !lib) throw new HttpError(404, "library_not_found", "Slicer config folder not found");
+  const { lib, dir } = libraryOf(db, adapters, integrationId, "filamentProfiles");
   return { lib, dir, presets: await lib.read(dir, { includeSystem }) };
 }
 
+type ProfileRow = Awaited<ReturnType<typeof profileRows>>[number];
+const profileRows = (db: Db) => db.select(profileColumns).from(filamentProfiles).all();
+
+/** What the catalog already holds, to tell a preset's status. */
+export function profileIndex(db: Db) {
+  const rows = profileRows(db);
+  return {
+    /** Current (not archived) imported rows by `<library>:<preset id>`. */
+    current: new Map(
+      rows.flatMap((r) => (r.sourcePreset && !r.archivedAt ? [[r.sourcePreset, r] as const] : [])),
+    ),
+    /** Every preset ever imported, so one you archived by hand doesn't come back. */
+    seen: new Set(rows.map((r) => r.sourcePreset)),
+    keys: new Set(rows.map(profileKey)),
+  };
+}
+
+// A value the preset doesn't give (null) never counts as a change: it keeps what you entered.
+const differs = (cur: ProfileRow, p: Omit<LibraryPreset, "presetId" | "scope">) =>
+  profileKey(cur) !== profileKey(p) ||
+  cur.diameterMm !== p.diameterMm ||
+  cur.densityGcm3 !== p.densityGcm3 ||
+  (p.pricePerKg !== null && cur.pricePerKg !== p.pricePerKg) ||
+  (p.nozzleTempC !== null && cur.nozzleTempC !== p.nozzleTempC) ||
+  (p.bedTempC !== null && cur.bedTempC !== p.bedTempC);
+
+export function presetStatus(
+  idx: ReturnType<typeof profileIndex>,
+  libraryId: string,
+  p: LibraryPreset,
+): "new" | "imported" | "changed" | "duplicate" {
+  const sourcePreset = `${libraryId}:${p.presetId}`;
+  const cur = idx.current.get(sourcePreset);
+  if (cur) return differs(cur, p) ? "changed" : "imported";
+  if (idx.seen.has(sourcePreset)) return "imported";
+  return idx.keys.has(profileKey(p)) ? "duplicate" : "new";
+}
+
+/** A spool or a print points at it, so prints keep the preset they were made with. */
+const profileInUse = (db: Db, id: string) =>
+  !!db.select({ id: spools.id }).from(spools).where(eq(spools.profileId, id)).get() ||
+  !!db
+    .select({ id: printFilamentUsages.id })
+    .from(printFilamentUsages)
+    .where(eq(printFilamentUsages.profileId, id))
+    .get();
+
 /**
- * Insert-only: a preset already imported, or the same filament made by hand, is skipped. Without
- * a pick only user presets whose brand and material are already in the catalog are imported, so a
- * run never adds a brand or material on its own.
+ * A new preset is created; a hand-made twin is skipped. A changed one updates its row in place, or,
+ * when a spool or print uses the row, archives it and adds the new version (prints keep the preset
+ * they were made with). Presets gone from the source are never deleted. Without a pick only user
+ * presets whose brand and material are already in the catalog are touched, so a run never adds a
+ * brand or material on its own.
  */
 export function importPresets(
   db: Db,
@@ -40,8 +105,7 @@ export function importPresets(
   presets: LibraryPreset[],
   picked?: Set<string>,
 ): Imported {
-  const rows = db.select(profileColumns).from(filamentProfiles).all();
-  const skip = new Set([...rows.map((r) => r.sourcePreset), ...rows.map(profileKey)]);
+  const idx = profileIndex(db);
   const names = (table: typeof filamentBrands | typeof filamentMaterials) =>
     new Set(
       db
@@ -56,10 +120,13 @@ export function importPresets(
     (!p.brand.trim() || brands.has(p.brand.trim().toLowerCase())) &&
     materials.has(p.material.trim().toLowerCase());
   const out = { created: 0, skipped: 0, pending: 0 };
+  // ponytail: an in-place update isn't counted in the sync log; add an `updated` column if asked.
   db.transaction((tx) => {
-    for (const { presetId, scope, ...p } of presets) {
+    for (const preset of presets) {
+      const { presetId, scope, ...p } = preset;
       const sourcePreset = `${libraryId}:${presetId}`;
-      if (skip.has(sourcePreset) || skip.has(profileKey(p))) {
+      const status = presetStatus(idx, libraryId, preset);
+      if (status === "imported" || status === "duplicate") {
         out.skipped++;
         continue;
       }
@@ -69,15 +136,30 @@ export function importPresets(
         continue;
       }
       const { brand, material, ...fields } = p;
+      const cur = idx.current.get(sourcePreset);
+      // A value the preset doesn't give keeps what the existing row had.
+      const values = {
+        ...fields,
+        pricePerKg: fields.pricePerKg ?? cur?.pricePerKg ?? null,
+        nozzleTempC: fields.nozzleTempC ?? cur?.nozzleTempC ?? null,
+        bedTempC: fields.bedTempC ?? cur?.bedTempC ?? null,
+        brandId: filamentBrandIdFor(db, brand),
+        materialId: filamentMaterialIdFor(db, material),
+      };
+      if (cur && !profileInUse(db, cur.id)) {
+        tx.update(filamentProfiles).set(values).where(eq(filamentProfiles.id, cur.id)).run();
+        continue;
+      }
+      if (cur)
+        tx.update(filamentProfiles)
+          .set({ archivedAt: new Date().toISOString() })
+          .where(eq(filamentProfiles.id, cur.id))
+          .run();
       tx.insert(filamentProfiles)
-        .values({
-          ...fields,
-          brandId: filamentBrandIdFor(db, brand),
-          materialId: filamentMaterialIdFor(db, material),
-          sourcePreset,
-        })
+        .values({ ...values, sourcePreset })
         .run();
-      skip.add(sourcePreset).add(profileKey(p)); // two presets can be the same filament
+      idx.seen.add(sourcePreset);
+      idx.keys.add(profileKey(p)); // two presets can be the same filament
       out.created++;
     }
   });

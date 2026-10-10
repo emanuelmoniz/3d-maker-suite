@@ -4,6 +4,7 @@ import {
   filamentCatalogFilters,
 } from "@3d-maker-suite/core";
 import { useTranslation } from "react-i18next";
+import { ImportLinks } from "../../components/ImportLinks.tsx";
 import { imageUrl } from "../../lib/catalog.ts";
 import { editLink, Section, Thumb } from "../printers/Catalog.tsx";
 
@@ -17,6 +18,14 @@ export function FilamentCatalog() {
         kind="filament-brands"
         title={t("filament:catalog.brands.title")}
         add={{ to: "/filament/brands/new", label: t("filament:catalog.brands.add") }}
+        extra={
+          <ImportLinks
+            to="/catalog-import/$id/$type"
+            cap="filamentBrands"
+            params={{ type: "filamentBrands" }}
+            text="integrations:catalogImport.link.filamentBrands"
+          />
+        }
         filters={filamentCatalogFilters}
         columns={[
           {

@@ -74,6 +74,7 @@
     "statuses": {
       "new": "New",
       "imported": "Already imported",
+      "changed": "Changed in the slicer",
       "duplicate": "Already in your profiles"
     },
     "import_one": "Import {{count}} profile",

@@ -95,6 +95,8 @@ export const machineProfileSchema = z.object({
   nozzleDiameterMm: z.number().positive(),
   /** Preset this profile was imported from, `<library>:<preset id>`; null for hand-made ones. */
   sourcePreset: z.string().nullable(),
+  /** An older version of an imported preset that prints still point at; hidden from pickers. */
+  archivedAt: isoDate.nullable(),
   ...timestamps,
 });
 

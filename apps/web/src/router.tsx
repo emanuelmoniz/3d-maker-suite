@@ -24,6 +24,7 @@ import {
   MachineProfileFormPage,
   ModelFormPage,
 } from "./pages/printers/CatalogForms.tsx";
+import { CatalogImportPage } from "./pages/printers/CatalogImportPage.tsx";
 import { PrinterDetailPage } from "./pages/printers/PrinterDetailPage.tsx";
 import { PrinterCreatePage, PrinterEditPage } from "./pages/printers/PrinterFormPage.tsx";
 import { PrintersPage } from "./pages/printers/PrintersPage.tsx";
@@ -181,6 +182,12 @@ const routes: AnyRoute[] = [
     path: "/filament/spools/import/$id",
     loader: () => Promise.all([loadNamespace("filament"), loadNamespace("integrations")]),
     component: SpoolImportPage,
+  }),
+  createRoute({
+    getParentRoute: () => root,
+    path: "/catalog-import/$id/$type",
+    loader: () => loadNamespace("integrations"),
+    component: CatalogImportPage,
   }),
   createRoute({
     getParentRoute: () => root,

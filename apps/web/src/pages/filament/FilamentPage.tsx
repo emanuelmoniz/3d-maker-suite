@@ -11,12 +11,12 @@ import { Plus, Spool as SpoolIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { DataTable } from "../../components/DataTable.tsx";
 import { EmptyState } from "../../components/EmptyState.tsx";
+import { ImportLinks } from "../../components/ImportLinks.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { TagList } from "../../components/TagList.tsx";
 import { useFilamentBrands, useFilamentMaterials } from "../../lib/catalog.ts";
 import { filamentLabel, useProfiles } from "../../lib/filament.ts";
 import { formatCurrency, formatWeight } from "../../lib/format.ts";
-import { useAdapterName, useCapable } from "../../lib/integrations.ts";
 import { useListPage, useUrlListQuery } from "../../lib/list.ts";
 import { usePreferences } from "../../lib/preferences.ts";
 import { useTags, useTagsOf } from "../../lib/tags.ts";
@@ -29,8 +29,6 @@ export const STATUS = {
 } as const;
 const addClass =
   "inline-flex h-9 items-center gap-2 rounded-md bg-accent px-3 font-medium text-accent-fg hover:opacity-90";
-const importClass =
-  "inline-flex h-9 items-center rounded-md border border-border bg-surface px-3 font-medium hover:bg-surface-2";
 
 const AddLink = ({ to, children }: { to: string; children: string }) => (
   <Link to={to} className={addClass}>
@@ -40,25 +38,6 @@ const AddLink = ({ to, children }: { to: string; children: string }) => (
 );
 
 const label = filamentLabel;
-
-/** One import link per integration that can do it; none = add by hand only. */
-function ImportLinks({
-  to,
-  cap,
-  text,
-}: {
-  to: string;
-  cap: "spools" | "filamentProfiles";
-  text: string;
-}) {
-  const { t } = useTranslation();
-  const adapterName = useAdapterName();
-  return useCapable(cap).map((i) => (
-    <Link key={i.id} to={to} params={{ id: i.id }} className={importClass}>
-      {t(text, { name: adapterName(i.adapterId) })}
-    </Link>
-  ));
-}
 
 export function Swatch({ hex }: { hex: string }) {
   return (

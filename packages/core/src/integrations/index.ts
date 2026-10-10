@@ -7,6 +7,7 @@ import type {
 } from "../schemas/enums.ts";
 import type { LibraryPreset, LibrarySpool } from "../schemas/filament.ts";
 import type { ExternalPrint, ExternalPrinter, TestResult } from "../schemas/integrations.ts";
+import type { SlicerCatalog } from "../schemas/slicerCatalog.ts";
 
 // The contract a vendor package implements (ADR-0003, docs/architecture.md).
 // Adapters return DTOs and never touch the database; the server validates and stores them.
@@ -95,7 +96,7 @@ export interface SpoolInventorySource {
   listSpools(): Promise<LibrarySpool[]>;
 }
 
-/** A slicer's local filament presets. Read-only, no account; the server never writes to it. */
+/** A slicer's local presets and catalog. Read-only, no account; the server never writes to it. */
 export interface FilamentLibrary {
   /** e.g. "bambu-studio". The UI name is the i18n key `filament:library.sources.<id>`. */
   id: string;
@@ -103,6 +104,8 @@ export interface FilamentLibrary {
   defaultDirs(): string[];
   /** `dir` exists. Unreadable or odd preset files are skipped, not fatal. */
   read(dir: string, opts: { includeSystem: boolean }): Promise<LibraryPreset[]>;
+  /** Vendors' printer models (with thumbnails) and machine presets, system and user ones. */
+  readCatalog?(dir: string): Promise<SlicerCatalog>;
 }
 
 /** Opens a local file in a slicer. The server decides which files are allowed before calling. */

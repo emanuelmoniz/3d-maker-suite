@@ -1,5 +1,6 @@
 import {
   apiErrorSchema,
+  archivedFilter,
   brandFilters,
   brandInputSchema,
   brandPatchSchema,
@@ -28,7 +29,7 @@ import {
   printerModelSortFields,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
-import { eq, sql } from "drizzle-orm";
+import { eq, isNotNull, isNull, sql } from "drizzle-orm";
 import type { SQLiteColumn, SQLiteTable } from "drizzle-orm/sqlite-core";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
@@ -59,6 +60,8 @@ interface Entity {
   patch: z.ZodType;
   query: z.ZodType;
   list: ListOptions;
+  /** Has an `archivedAt` column: lists hide archived rows unless `?archived=true`. */
+  archivable?: boolean;
   image?: { name: string; dir: string; column: string };
 }
 
@@ -81,9 +84,15 @@ const crud =
       }
     };
 
-    app.get("/", { schema: { querystring: o.query, response: { 200: pageOf(o.row) } } }, (req) =>
-      listPage(db, table, req.query as Parameters<typeof listPage>[2], o.list),
-    );
+    app.get("/", { schema: { querystring: o.query, response: { 200: pageOf(o.row) } } }, (req) => {
+      const q = req.query as Parameters<typeof listPage>[2] & { archived?: string };
+      const col = (table as unknown as typeof machineProfiles).archivedAt;
+      const archived = o.archivable && (q.archived === "true" ? isNotNull(col) : isNull(col));
+      return listPage(db, table, q, {
+        ...o.list,
+        where: [...(o.list.where ?? []), archived || undefined],
+      });
+    });
 
     app.get("/:id", { schema: { params, response: { 200: o.row, ...errors } } }, async (req) => {
       return get(req.params.id);
@@ -198,7 +207,8 @@ export const machineProfilesRoutes = (db: Db, dataDir: string) =>
     row: machineProfileSchema,
     input: machineProfileInputSchema,
     patch: machineProfilePatchSchema,
-    query: listQuery(machineProfileSortFields, {}, machineProfileFilters),
+    query: listQuery(machineProfileSortFields, { archived: archivedFilter }, machineProfileFilters),
+    archivable: true,
     list: {
       sort: {
         name: sql`${machineProfiles.name} COLLATE NOCASE`,

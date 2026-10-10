@@ -159,7 +159,7 @@ Do Step 13 of PLAN.md. Show me the policy table, the migration of existing
 frequency/disabled features, and how auto handles preview-only types before implementing.
 ```
 
-### [ ] Step 14 - Import catalog & machine profiles from local slicer
+### [x] Step 14 - Import catalog & machine profiles from local slicer
 **Model:** Sonnet · **Effort:** Medium
 **Scope:** From the local Bambu Studio config and system DB: vendors → brands, machine models → PrinterModel (thumbnails if the install ships them), user + system machine presets → MachineProfile (`source_preset`), filament vendors → filament brands, filament types → materials, printers from the local config if present. Manual = preview → confirm (same flow as the filament library import); auto (weekly default) matches on the source key.
 **Preset versioning** (machine + filament profiles, incl. the existing filament library import): changed preset + unused row → update in place. Changed preset + row used by a print, spool or printer → mark the row `archived` and add a new row with the latest version, so prints keep the preset they were made with. `source_preset` is unique only among non-archived rows. Archived rows are hidden from pickers/lists by default but still shown on records that use them. Presets missing from the source are never deleted. Brands, models and materials always update in place.

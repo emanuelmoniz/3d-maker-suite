@@ -34,7 +34,13 @@ import { desc, eq, isNotNull, isNull, sql } from "drizzle-orm";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
-import { importedSpools, profileKey, readLibrary, spoolProfiles } from "../integrations/imports.ts";
+import {
+  importedSpools,
+  presetStatus,
+  profileIndex,
+  readLibrary,
+  spoolProfiles,
+} from "../integrations/imports.ts";
 import type { Syncer } from "../integrations/sync.ts";
 import { profileBrand, profileColumns, profileMaterial } from "../lib/catalog.ts";
 import { inIds, listPage, taggedWith } from "../lib/list.ts";
@@ -172,19 +178,10 @@ export const filamentRoutes =
           req.params.id,
           req.query.includeSystem === "true",
         );
-        const rows = db.select(profileColumns).from(filamentProfiles).all();
-        const imported = new Set(rows.map((r) => r.sourcePreset));
-        const have = new Set(rows.map(profileKey));
+        const idx = profileIndex(db);
         return {
           dir,
-          items: presets.map((p) => ({
-            ...p,
-            status: imported.has(`${lib.id}:${p.presetId}`)
-              ? "imported"
-              : have.has(profileKey(p))
-                ? "duplicate"
-                : "new",
-          })),
+          items: presets.map((p) => ({ ...p, status: presetStatus(idx, lib.id, p) })),
         };
       },
     );

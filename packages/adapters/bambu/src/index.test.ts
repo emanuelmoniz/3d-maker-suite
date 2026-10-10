@@ -66,7 +66,14 @@ it("splits cloud and local, each declaring only what it provides", () => {
   const studio = bambuStudioAdapter();
   expect([studio.kind, studio.capabilities, studio.create, studio.library?.id]).toEqual([
     "local",
-    ["filamentProfiles", "openInSlicer"],
+    [
+      "brands",
+      "printerModels",
+      "machineProfiles",
+      "filamentBrands",
+      "filamentProfiles",
+      "openInSlicer",
+    ],
     undefined,
     "bambu-studio",
   ]);

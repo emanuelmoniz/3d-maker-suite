@@ -7,7 +7,7 @@ import { Button } from "../../components/Button.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { TagPicker } from "../../components/TagPicker.tsx";
-import { useMachineProfiles } from "../../lib/catalog.ts";
+import { useCatalogItem, useMachineProfiles } from "../../lib/catalog.ts";
 import { filamentLabel, useProfiles, useSpools } from "../../lib/filament.ts";
 import { formatWeight } from "../../lib/format.ts";
 import { usePreferences } from "../../lib/preferences.ts";
@@ -46,9 +46,12 @@ function PrintForm({ print }: { print?: PrintDetail }) {
   const [printerId, setPrinterId] = useState(print?.printerId ?? "");
   const modelId = printers.find((p) => p.id === (printerId || printers[0]?.id))?.modelId;
   // Profiles for the printer's model, plus the one already saved (even if the model changed).
-  const machineProfiles = (useMachineProfiles().data ?? []).filter(
-    (mp) => mp.printerModelId === modelId || mp.id === print?.machineProfileId,
-  );
+  const saved = useCatalogItem("machine-profiles", print?.machineProfileId ?? undefined).data;
+  const listed = useMachineProfiles().data ?? [];
+  // An archived profile isn't listed, but the print keeps it.
+  const machineProfiles = (
+    saved && !listed.some((mp) => mp.id === saved.id) ? [...listed, saved] : listed
+  ).filter((mp) => mp.printerModelId === modelId || mp.id === print?.machineProfileId);
   const [rows, setRows] = useState<Row[]>(
     (print?.usages ?? [])
       .filter((u) => u.spoolId) // slots without a spool live in the review queue

@@ -95,3 +95,62 @@ describe("bambu studio library", () => {
     expect(studioDefaultDirs("linux", {}, "/h")).toHaveLength(2);
   });
 });
+
+describe("bambu studio catalog", () => {
+  beforeEach(() => {
+    put("system/BBL.json", {
+      name: "Bambulab",
+      machine_model_list: [
+        { name: "Bambu Lab A1", sub_path: "machine/Bambu Lab A1.json" },
+        { name: "Bambu Lab P1S" },
+      ],
+    });
+    put("system/BBL/Bambu Lab A1_cover.png", "png");
+    put("system/BBL/machine/fdm_machine_common.json", {
+      name: "fdm_machine_common",
+      type: "machine",
+      nozzle_diameter: ["0.4"],
+    });
+    put("system/BBL/machine/Bambu Lab A1.json", { name: "Bambu Lab A1", type: "machine_model" });
+    for (const n of ["0.2", "0.4"])
+      put(`system/BBL/machine/Bambu Lab A1 ${n} nozzle.json`, {
+        name: `Bambu Lab A1 ${n} nozzle`,
+        type: "machine",
+        inherits: "fdm_machine_common",
+        instantiation: "true",
+        printer_model: "Bambu Lab A1",
+        nozzle_diameter: [n],
+      });
+    put("system/BBL/machine/Bambu Lab A1 0.4 nozzle template machine_end_gcode.json", {
+      name: "tpl",
+      type: "machine",
+      instantiation: "false",
+    });
+    put("user/123/machine/My A1.json", { name: "My A1", inherits: "Bambu Lab A1 0.4 nozzle" });
+    put("user/123/machine/Mystery.json", {
+      name: "Mystery",
+      printer_model: "Nope",
+      nozzle_diameter: ["0.4"],
+    });
+  });
+
+  it("reads models with thumbnails and the pickable machine presets", async () => {
+    const { models, machines } = (await bambuStudioLibrary().readCatalog?.(dir)) ?? {
+      models: [],
+      machines: [],
+    };
+    expect(models).toEqual([
+      {
+        brand: "Bambu Lab",
+        model: "Bambu Lab A1",
+        image: join(dir, "system/BBL/Bambu Lab A1_cover.png"),
+      },
+      { brand: "Bambu Lab", model: "Bambu Lab P1S", image: null },
+    ]);
+    expect(machines.map((m) => [m.presetId, m.model, m.nozzleDiameterMm])).toEqual([
+      ["user/My A1", "Bambu Lab A1", 0.4], // inherits model and nozzle from its system parent
+      ["system/Bambu Lab A1 0.2 nozzle", "Bambu Lab A1", 0.2],
+      ["system/Bambu Lab A1 0.4 nozzle", "Bambu Lab A1", 0.4],
+    ]);
+  });
+});

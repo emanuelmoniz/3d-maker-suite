@@ -12,6 +12,7 @@ import { Plus } from "lucide-react";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { type Column, DataTable } from "../../components/DataTable.tsx";
+import { ImportLinks } from "../../components/ImportLinks.tsx";
 import {
   type CatalogKind,
   imageUrl,
@@ -34,6 +35,8 @@ export function Section<T extends { id: string }>(props: {
   kind: CatalogKind;
   title: string;
   add: { to: string; label: string };
+  /** Import links, next to the add button. */
+  extra?: ReactNode;
   filters: Record<string, ColumnFilter>;
   columns: Column<T>[];
 }) {
@@ -48,10 +51,13 @@ export function Section<T extends { id: string }>(props: {
     <section className="grid gap-3">
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-base font-semibold">{props.title}</h2>
-        <Link to={props.add.to} className={addClass}>
-          <Plus className="size-4" aria-hidden />
-          {props.add.label}
-        </Link>
+        <span className="flex gap-2">
+          {props.extra}
+          <Link to={props.add.to} className={addClass}>
+            <Plus className="size-4" aria-hidden />
+            {props.add.label}
+          </Link>
+        </span>
       </div>
       {isError && (
         <p role="alert" className="text-bad">
@@ -92,6 +98,14 @@ export function Catalog() {
         kind="brands"
         title={t("printers:catalog.brands.title")}
         add={{ to: "/printers/brands/new", label: t("printers:catalog.brands.add") }}
+        extra={
+          <ImportLinks
+            to="/catalog-import/$id/$type"
+            cap="brands"
+            params={{ type: "brands" }}
+            text="integrations:catalogImport.link.brands"
+          />
+        }
         filters={brandFilters}
         columns={[
           {
@@ -127,6 +141,14 @@ export function Catalog() {
         kind="printer-models"
         title={t("printers:catalog.models.title")}
         add={{ to: "/printers/models/new", label: t("printers:catalog.models.add") }}
+        extra={
+          <ImportLinks
+            to="/catalog-import/$id/$type"
+            cap="printerModels"
+            params={{ type: "printerModels" }}
+            text="integrations:catalogImport.link.printerModels"
+          />
+        }
         filters={printerModelFilters}
         columns={[
           {
@@ -166,6 +188,14 @@ export function Catalog() {
         kind="machine-profiles"
         title={t("printers:catalog.profiles.title")}
         add={{ to: "/printers/profiles/new", label: t("printers:catalog.profiles.add") }}
+        extra={
+          <ImportLinks
+            to="/catalog-import/$id/$type"
+            cap="machineProfiles"
+            params={{ type: "machineProfiles" }}
+            text="integrations:catalogImport.link.machineProfiles"
+          />
+        }
         filters={machineProfileFilters}
         columns={[
           {
