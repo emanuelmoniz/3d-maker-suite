@@ -52,6 +52,7 @@ const tasksResponse = z.object({
       endTime: z.string().nullish(),
       costTime: z.number().nullish(), // the slicer's estimate, not the real duration
       weight: z.number().nullish(),
+      plateIndex: z.number().nullish(), // 1-based plate of the project file
       cover: z.string().nullish(),
       deviceId: z.string(),
       amsDetailMapping: z
@@ -99,6 +100,8 @@ function toPrint(t: Task, region: Region, log: Logger): ExternalPrint | undefine
     externalId: String(t.id),
     printerExternalId: t.deviceId,
     title: t.title || t.designTitle || `Task ${t.id}`,
+    plate:
+      t.plateIndex && Number.isInteger(t.plateIndex) && t.plateIndex > 0 ? t.plateIndex : undefined,
     startedAt: new Date(start).toISOString(),
     durationSec,
     outcome,

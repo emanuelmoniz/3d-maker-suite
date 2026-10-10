@@ -21,5 +21,6 @@ export * from "./services/cost.ts";
 export * from "./services/import.ts";
 export * from "./services/maintenanceDue.ts";
 export * from "./services/printerStats.ts";
+export * from "./services/printMatch.ts";
 export * from "./services/spoolImportMatch.ts";
 export * from "./services/spoolMatch.ts";

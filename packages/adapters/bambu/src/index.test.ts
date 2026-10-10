@@ -224,6 +224,11 @@ it("maps finished tasks with filament per slot, link and cover", async () => {
   expect(sent(0).url).toBe("https://api.bambulab.com/v1/user-service/my/tasks?limit=100&offset=0");
 });
 
+it("keeps the plate number when the cloud sends a usable one", async () => {
+  queue(json(200, { hits: [task(1, { plateIndex: 3 }), task(2, { plateIndex: 0 }), task(3)] }));
+  expect((await history())?.items.map((p) => p.plate)).toEqual([3, undefined, undefined]);
+});
+
 it("scales a failed print by how far it got and skips unfinished tasks", async () => {
   queue(
     json(200, {

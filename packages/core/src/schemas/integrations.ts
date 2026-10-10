@@ -31,6 +31,8 @@ export const externalPrintSchema = z.object({
   externalId: z.string().min(1),
   printerExternalId: z.string().min(1),
   title: z.string().min(1),
+  /** 1-based plate of the project file that was printed, when the vendor says. */
+  plate: z.number().int().positive().optional(),
   startedAt: isoDate,
   durationSec: z.number().int().nonnegative().optional(),
   outcome: z.enum(PRINT_OUTCOMES),

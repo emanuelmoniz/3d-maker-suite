@@ -1,4 +1,4 @@
-import { type Project, sumCosts } from "@3d-maker-suite/core";
+import { bestMatches, type Project, sumCosts } from "@3d-maker-suite/core";
 import { Link, useParams } from "@tanstack/react-router";
 import type { TFunction } from "i18next";
 import { Box, ExternalLink, FolderOpen } from "lucide-react";
@@ -51,8 +51,27 @@ function Plates({
   onPlate: (index: number | null) => void;
 }) {
   const { t } = useTranslation();
+  const prints = usePrintsOfProject(project.id).data?.items ?? [];
   const model = project.meta.models.find((m) => m.file === file);
   if (!model?.plates.length) return null;
+  const threeMfs = project.meta.models;
+  // Stands in for slice results the file doesn't have: the newest good print of this file's plate.
+  const lastPrintLine = (index: number) => {
+    const last = prints.find(
+      (p) =>
+        p.outcome === "success" &&
+        p.durationSec != null &&
+        p.plate === index &&
+        (threeMfs.length === 1 ||
+          bestMatches(p.title, threeMfs, (m) => m.file.split("/").pop() ?? "").includes(model)),
+    );
+    return last?.durationSec != null
+      ? t("projects:detail.lastPrint", {
+          time: formatDuration(last.durationSec),
+          weight: formatWeight(last.usages.reduce((g, u) => g + u.grams, 0)),
+        })
+      : null;
+  };
   return (
     <section aria-labelledby="plates" className="mt-6">
       <h2 id="plates" className="mb-2 text-base font-semibold">
@@ -92,9 +111,10 @@ function Plates({
                       ]
                         .filter(Boolean)
                         .join(" · ")
-                    : p.slicedOnSave
-                      ? t("projects:detail.slicedNoData")
-                      : t("projects:detail.notSliced")}
+                    : (lastPrintLine(p.index) ??
+                      (p.slicedOnSave
+                        ? t("projects:detail.slicedNoData")
+                        : t("projects:detail.notSliced")))}
                 </span>
                 <span className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
                   {p.filaments.map((f) => (

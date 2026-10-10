@@ -22,6 +22,7 @@ import type { FastifyBaseLogger } from "fastify";
 import { HttpError } from "../errors.ts";
 import { modelIdFor, profileMaterial } from "../lib/catalog.ts";
 import { takeFromSpool } from "../lib/spools.ts";
+import { linkPrints } from "../projects/linkPrints.ts";
 import { activeCapabilities, capableRow, policyOf, switchedOn } from "./capabilities.ts";
 import { type CatalogType, catalogEntries, importCatalog } from "./catalogImport.ts";
 import { importPresets, importSpools, libraryOf, readLibrary } from "./imports.ts";
@@ -264,6 +265,7 @@ export function createSyncer(
                   printerId,
                   externalId: d.externalId,
                   title: d.title,
+                  plate: d.plate,
                   startedAt: d.startedAt,
                   durationSec: d.durationSec,
                   outcome: d.outcome,
@@ -275,6 +277,18 @@ export function createSyncer(
                 .returning({ id: prints.id })
                 .get();
               if (!inserted) {
+                // Already imported: only a plate that was never known is filled in.
+                if (d.plate)
+                  tx.update(prints)
+                    .set({ plate: d.plate })
+                    .where(
+                      and(
+                        eq(prints.integrationId, id),
+                        eq(prints.externalId, d.externalId),
+                        isNull(prints.plate),
+                      ),
+                    )
+                    .run();
                 skipped++;
                 continue;
               }
@@ -314,6 +328,7 @@ export function createSyncer(
           });
           cursor = page.nextCursor;
         } while (cursor);
+        linkPrints(db);
       }
 
       // Only a prints run without a range moves the cursor (a past-range run must not make the

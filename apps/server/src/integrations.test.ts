@@ -129,6 +129,33 @@ describe("integrations", () => {
     expect((await get(`/api/integrations/${id}/runs`)).items).toHaveLength(4);
   });
 
+  it("links a print to the project its title names and fills in a plate sent later", async () => {
+    const { id } = await create();
+    const file = (path: string) => ({ path, kind: "model", size: 1 });
+    const project = (name: string, files: string[]) =>
+      db
+        .insert(schema.projects)
+        .values({ name, meta: { files: files.map(file) } })
+        .returning()
+        .get();
+    const boat = project("Boat", ["model/Benchy.3mf"]);
+    project("Box A", ["box.3mf"]);
+    project("Box B", ["box.3mf"]);
+    const [first, second] = state.prints as [ExternalPrint, ExternalPrint];
+    first.title = "benchy_plate_2";
+    second.title = "box"; // two projects have a box.3mf: not linked
+    await sync(id);
+    const row = (p: ExternalPrint) =>
+      db.select().from(schema.prints).where(eq(schema.prints.externalId, p.externalId)).get();
+    expect(row(first)).toMatchObject({ projectId: boat.id, plate: null });
+    expect(row(second)?.projectId).toBeNull();
+
+    for (const p of state.prints) p.startedAt = new Date().toISOString();
+    first.plate = 2;
+    await sync(id);
+    expect(row(first)?.plate).toBe(2);
+  });
+
   it("records failures as an error code, raises and resolves a sync_failed alert", async () => {
     const { id } = await create();
     state.fail = "auth_expired";

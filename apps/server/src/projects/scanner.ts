@@ -13,6 +13,7 @@ import { eq } from "drizzle-orm";
 import type { FastifyBaseLogger } from "fastify";
 import { HttpError } from "../errors.ts";
 import { readPreferences } from "../lib/preferences.ts";
+import { linkPrints } from "./linkPrints.ts";
 import { type Cover, type FolderScan, isHidden, kindOf, scanFolder } from "./scanFolder.ts";
 
 const { projects } = schema;
@@ -174,6 +175,7 @@ export function createProjectScanner(
         }
         state.done++;
       }
+      linkPrints(db);
     } catch (e) {
       log.error({ err: e }, "project scan crashed");
     }
