@@ -127,4 +127,9 @@ export const SETTINGS_ITEM: NavItem = {
   description: "nav:items.settings.description",
 };
 
-export const ALL_ITEMS = [...NAV_GROUPS.flatMap((g) => g.items), IMPORT_ITEM, INTEGRATIONS_ITEM, SETTINGS_ITEM];
+export const ALL_ITEMS = [
+  ...NAV_GROUPS.flatMap((g) => g.items),
+  IMPORT_ITEM,
+  INTEGRATIONS_ITEM,
+  SETTINGS_ITEM,
+];

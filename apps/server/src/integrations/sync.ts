@@ -1,15 +1,19 @@
 import {
+  autoDecisions,
   defaultPolicy,
   externalPrinterSchema,
   externalPrintSchema,
+  type ImportApplyDecision,
   type IntegrationAdapter,
   IntegrationError,
   type IntegrationErrorCode,
   type IntegrationInstance,
   type LibrarySpool,
   librarySpoolSchema,
+  type MergePolicy,
   matchSpool,
-  SLICER_CATALOG_TYPES,
+  REVIEWED_TYPES,
+  type ReviewedType,
   type SyncFrequency,
   type SyncRequest,
   type SyncRun,
@@ -20,13 +24,14 @@ import { type Db, schema } from "@3d-maker-suite/db";
 import { and, desc, eq, isNull, ne, notInArray, sql } from "drizzle-orm";
 import type { FastifyBaseLogger } from "fastify";
 import { HttpError } from "../errors.ts";
+import { createReview, type Stored } from "../import/review.ts";
 import { modelIdFor, profileMaterial } from "../lib/catalog.ts";
 import { takeFromSpool } from "../lib/spools.ts";
 import { linkPrints } from "../projects/linkPrints.ts";
 import { activeCapabilities, capableRow, policyOf, switchedOn } from "./capabilities.ts";
-import { type CatalogType, catalogEntries, importCatalog } from "./catalogImport.ts";
-import { importPresets, importSpools, libraryOf, readLibrary } from "./imports.ts";
+import { libraryOf } from "./imports.ts";
 import { secretStore } from "./secrets.ts";
+import { libraryRows, spoolRows } from "./sourceRows.ts";
 
 const {
   alerts,
@@ -40,18 +45,18 @@ const {
   syncRuns,
 } = schema;
 
-/** The confirmed preview of a manual import: which rows to take (and onto what). */
+/** A confirmed review: the rows it showed and what the user decided for them. */
 export type Pick = {
-  /** spoolId -> the filament profile it goes on. */
-  spools?: Map<string, string>;
-  presets?: { ids: Set<string>; includeSystem: boolean };
-  /** Keys of the catalog rows (brands, models, machine profiles, filament brands) to take. */
-  catalog?: Set<string>;
+  stored: Stored;
+  decisions: ImportApplyDecision[];
+  policy: MergePolicy;
+  /** The backup taken before the confirm. */
+  backup: string;
 };
 
+const REVIEWED = new Set<string>(REVIEWED_TYPES);
 // ponytail: re-fetch a 7-day window so prints that finished after the last run aren't missed;
 // insert-only dedupe makes the overlap free. Widen if a vendor reports later than that.
-const CATALOG_TYPES = new Set<string>(SLICER_CATALOG_TYPES);
 const OVERLAP_MS = 7 * 24 * 3600 * 1000;
 const TIMEOUT_MS = 5 * 60 * 1000;
 const KEEP_RUNS = 200;
@@ -85,6 +90,7 @@ export function createSyncer(
   dataDir = "",
 ) {
   const running = new Set<string>();
+  const review = createReview(db, dataDir);
 
   const rowOf = (id: string) => {
     const row = db.select().from(integrations).where(eq(integrations.id, id)).get();
@@ -126,15 +132,15 @@ export function createSyncer(
 
   /**
    * One run syncs one type. A `from`/`to` range (prints only) re-reads that window instead of
-   * continuing from the cursor, and never moves it. Types with a preview import what `pick` names,
-   * or without one only the rows that need no decision; the rest is counted as pending.
+   * continuing from the cursor, and never moves it. Reviewed types apply what `pick` decided, or
+   * without one only the rows that need no decision; the rest is counted as pending.
    */
   async function run(
     id: string,
     trigger: SyncTrigger,
     req: SyncRequest,
-    pick: Pick = {},
-  ): Promise<SyncRun> {
+    pick?: Pick,
+  ): Promise<SyncRun & { updated: number }> {
     const row = rowOf(id);
     const { type } = req;
     const adapter = adapters.find((a) => a.id === row.adapterId);
@@ -144,6 +150,7 @@ export function createSyncer(
     running.add(id);
     const startedAt = new Date().toISOString();
     let created = 0;
+    let updated = 0;
     let skipped = 0;
     let pending = 0;
     let errorCode: IntegrationErrorCode | null = null;
@@ -155,23 +162,17 @@ export function createSyncer(
       const ranged = !!(req.from || req.to);
       const imported = { origin: "integration" as const, integrationId: id };
 
-      if (type === "spools") {
-        const items = instance ? await readSpools(row, instance) : [];
-        ({ created, skipped, pending } = importSpools(db, items, pick.spools));
-      }
-      if (CATALOG_TYPES.has(type)) {
-        const { lib, dir } = libraryOf(db, adapters, id, type);
-        const entries = await catalogEntries(db, lib, dir, type as CatalogType, dataDir);
-        ({ created, skipped, pending } = importCatalog(db, entries, pick.catalog));
-      }
-      if (type === "filamentProfiles") {
-        const { lib, presets } = await readLibrary(
-          db,
-          adapters,
-          id,
-          pick.presets?.includeSystem ?? false,
+      if (REVIEWED.has(type)) {
+        const stored = pick?.stored ?? (await offered(row, type as ReviewedType, false, instance));
+        const done = review.write(
+          stored,
+          pick?.decisions ?? autoDecisions(review.preview(stored).rows),
+          pick?.policy ?? "overwrite",
+          pick?.backup ?? null,
         );
-        ({ created, skipped, pending } = importPresets(db, lib.id, presets, pick.presets?.ids));
+        ({ created, updated, pending } = done);
+        // The sync log counts what was there already; rows left for review are not "skipped".
+        skipped = Math.max(0, done.skipped - pending);
       }
 
       if (type === "printers" && instance?.printers) {
@@ -407,7 +408,7 @@ export function createSyncer(
     db.delete(syncRuns)
       .where(and(eq(syncRuns.integrationId, id), notInArray(syncRuns.id, keep)))
       .run();
-    return saved as SyncRun;
+    return { ...(saved as SyncRun), updated };
   }
 
   /**
@@ -456,18 +457,37 @@ export function createSyncer(
       librarySpoolSchema.parse({ ...s, spoolId: `${row.adapterId}:${s.spoolId}` }),
     );
 
-  /** For the preview: a vendor failure comes back as a 502 with its code. */
-  async function listSpools(integrationId: string): Promise<LibrarySpool[]> {
-    const { row } = capableRow(db, adapters, integrationId, "spools");
+  /** What one reviewed type of an integration offers right now, as rows for the review. */
+  async function offered(
+    row: ReturnType<typeof rowOf>,
+    type: ReviewedType,
+    includeSystem: boolean,
+    instance?: IntegrationInstance,
+  ): Promise<Stored> {
+    const from = { kind: "integration" as const, integrationId: row.id };
+    if (type === "spools") {
+      const rows = spoolRows(db, instance ? await readSpools(row, instance) : []);
+      return { entity: type, ignoredHeaders: [], from, rows };
+    }
+    const { lib, dir } = libraryOf(db, adapters, row.id, type);
+    const rows = await libraryRows(db, lib, dir, type, { includeSystem, dataDir });
+    return { entity: type, ignoredHeaders: [], from, dir, rows };
+  }
+
+  /** For the review: a vendor failure comes back as a 502 with its code. */
+  async function offer(id: string, type: ReviewedType, includeSystem: boolean): Promise<Stored> {
+    const { row } = capableRow(db, adapters, id, type);
     try {
-      return await readSpools(row, instanceFor(row, AbortSignal.timeout(TIMEOUT_MS)));
+      const instance =
+        type === "spools" ? instanceFor(row, AbortSignal.timeout(TIMEOUT_MS)) : undefined;
+      return await offered(row, type, includeSystem, instance);
     } catch (e) {
       if (e instanceof HttpError) throw e;
-      throw new HttpError(502, codeOf(e), "Couldn't read the spools");
+      throw new HttpError(502, codeOf(e), "Couldn't read the source");
     }
   }
 
-  return { run, runAll, test, listSpools, running, adapters };
+  return { run, runAll, test, offer, running, adapters };
 }
 
 export type Syncer = ReturnType<typeof createSyncer>;

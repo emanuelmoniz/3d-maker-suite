@@ -2,13 +2,19 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fixture, type MockState, mockAdapter } from "@3d-maker-suite/adapter-mock";
-import type { FilamentLibrary, IntegrationAdapter } from "@3d-maker-suite/core";
+import type {
+  FilamentLibrary,
+  ImportPreview,
+  IntegrationAdapter,
+  LibraryPreset,
+} from "@3d-maker-suite/core";
 import { openDb, schema } from "@3d-maker-suite/db";
 import { sum } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import { buildApp } from "./app.ts";
 import { filamentBrandIdFor, filamentMaterialIdFor } from "./lib/catalog.ts";
 import { setRemaining } from "./lib/spools.ts";
+import { reviewer } from "./testReview.ts";
 
 let db: ReturnType<typeof openDb>;
 let app: Awaited<ReturnType<typeof buildApp>>;
@@ -109,7 +115,7 @@ describe("filament brands and materials", () => {
 });
 
 describe("filament library", () => {
-  const preset = (n: string, extra = {}) => ({
+  const preset = (n: string, extra = {}): LibraryPreset => ({
     presetId: `user/${n}`,
     scope: "user" as const,
     brand: "Acme",
@@ -127,17 +133,19 @@ describe("filament library", () => {
   let db: ReturnType<typeof openDb>;
   let mock: MockState;
   let slicerId: string;
+  let presets: LibraryPreset[];
+  const review = reviewer(() => app);
 
   beforeEach(async () => {
     dir = mkdtempSync(join(tmpdir(), "lib-"));
     mock = fixture();
     db = openDb(":memory:");
+    presets = [preset("A"), preset("B")];
     const library: FilamentLibrary = {
       id: "fake",
       defaultDirs: () => [join(dir, "missing")],
       read: async (_d, { includeSystem }) => [
-        preset("A"),
-        preset("B"),
+        ...presets,
         ...(includeSystem ? [preset("S", { scope: "system" })] : []),
       ],
     };
@@ -149,7 +157,7 @@ describe("filament library", () => {
       capabilities: ["filamentProfiles"],
       library,
     };
-    app = await buildApp(db, false, "", {
+    app = await buildApp(db, false, dir, {
       adapters: [mockAdapter(mock), slicer as IntegrationAdapter],
     });
     slicerId = (
@@ -161,27 +169,50 @@ describe("filament library", () => {
     ).json().id;
   });
 
-  const preview = async (q = "") =>
-    app.inject({ method: "GET", url: `/api/filament/library/${slicerId}/preview${q}` });
+  const profilesUrl = (q = "") => `/api/import/integration/${slicerId}/filamentProfiles${q}`;
+  const open = async (url: string) => (await review.open(url)).json() as ImportPreview;
   const patchSlicer = (payload: object) =>
     app.inject({ method: "PATCH", url: `/api/integrations/${slicerId}`, payload });
   const setDir = (p: string) => patchSlicer({ slicerConfigDir: p });
-  const names = (r: { json(): unknown }) =>
-    (r.json() as { items: { name: string; status: string }[] }).items.map(
-      (i) => `${i.name}:${i.status}`,
-    );
+  const addMock = async () =>
+    (
+      await app.inject({
+        method: "POST",
+        url: "/api/integrations",
+        payload: { adapterId: "mock", secrets: { token: "t" } },
+      })
+    ).json().id as string;
+  const addProfile = (name: string) =>
+    db
+      .insert(schema.filamentProfiles)
+      .values({
+        brandId: filamentBrandIdFor(db, "Acme"),
+        materialId: filamentMaterialIdFor(db, "PLA"),
+        name,
+        densityGcm3: 1.2,
+      })
+      .returning()
+      .get().id;
+  const vendorSpool = (spoolId: string, name: string, colorHex = "#ff0000") => ({
+    spoolId,
+    profile: { brand: "Acme", material: "PLA", name },
+    colorHex,
+    initialGrams: 1000,
+    remainingGrams: 250,
+    emptyWeightGrams: null,
+    status: "in_use" as const,
+  });
 
   it("404s until a config folder exists, then honours the override", async () => {
-    expect((await preview()).statusCode).toBe(404);
-    expect((await preview()).json().error.code).toBe("capability_unavailable");
+    const closed = await review.open(profilesUrl());
+    expect([closed.statusCode, closed.json().error.code]).toEqual([404, "capability_unavailable"]);
     await setDir(dir);
-    const res = await preview();
-    expect(res.json().dir).toBe(dir);
-    expect(names(res)).toEqual(["A:new", "B:new"]);
-    expect(names(await preview("?includeSystem=true"))).toContain("S:new");
+    expect((await open(profilesUrl())).dir).toBe(dir);
+    expect(await review.rows(profilesUrl())).toEqual(["A:new", "B:new"]);
+    expect(await review.rows(profilesUrl("?includeSystem=true"))).toContain("S:new");
     // Switched off = gone.
     await patchSlicer({ policies: [{ type: "filamentProfiles", mode: "off" }] });
-    expect((await preview()).statusCode).toBe(404);
+    expect((await review.open(profilesUrl())).statusCode).toBe(404);
   });
 
   const run = (id: string, type: string) =>
@@ -197,7 +228,7 @@ describe("filament library", () => {
     expect(db.select().from(schema.syncRuns).all()).toEqual([]);
     await setDir(dir);
 
-    // "Acme" would be a new brand: that is the user's call, in the preview.
+    // "Acme" would be a new brand: that is the user's call, in the review.
     filamentMaterialIdFor(db, "PLA");
     expect((await run(slicerId, "filamentProfiles")).json()).toMatchObject({
       type: "filamentProfiles",
@@ -205,16 +236,21 @@ describe("filament library", () => {
       created: 0,
     });
     expect(await policy(slicerId, "filamentProfiles")).toMatchObject({ pending: 2 });
+    // A run that wrote nothing leaves the import history alone.
+    expect(db.select().from(schema.importRuns).all()).toEqual([]);
 
     filamentBrandIdFor(db, "acme");
     expect((await run(slicerId, "filamentProfiles")).json()).toMatchObject({ created: 2 });
+    expect(db.select().from(schema.importRuns).all()).toMatchObject([
+      { source: "integration", type: "filamentProfiles", created: 2, backup: null },
+    ]);
     expect((await run(slicerId, "filamentProfiles")).json()).toMatchObject({
       created: 0,
       skipped: 2,
     });
-    expect(names(await preview("?includeSystem=true"))).toEqual([
-      "A:imported",
-      "B:imported",
+    expect(await review.rows(profilesUrl("?includeSystem=true"))).toEqual([
+      "A:identical",
+      "B:identical",
       "S:new",
     ]);
     const after = await policy(slicerId, "filamentProfiles");
@@ -222,36 +258,40 @@ describe("filament library", () => {
     expect(after.lastRunAt).toBeTruthy();
   });
 
+  it("a run updates a changed preset it imported; a twin made by hand waits for review", async () => {
+    await setDir(dir);
+    filamentBrandIdFor(db, "Acme");
+    filamentMaterialIdFor(db, "PLA");
+    await run(slicerId, "filamentProfiles");
+
+    const twin = addProfile("C");
+    presets = [preset("A", { nozzleTempC: 235 }), preset("B"), preset("C")];
+    await run(slicerId, "filamentProfiles");
+    const rows = db.select().from(schema.filamentProfiles).all();
+    expect(rows.find((r) => r.sourcePreset === "fake:user/A")?.nozzleTempC).toBe(235);
+    expect(rows.find((r) => r.id === twin)).toMatchObject({ densityGcm3: 1.2, sourcePreset: null });
+    expect(await policy(slicerId, "filamentProfiles")).toMatchObject({ pending: 1 });
+
+    // In the review the twin is a matched row: updating it links it to the preset.
+    const p = await open(profilesUrl());
+    const row = p.rows.filter((r) => r.values.name === "C");
+    expect(row).toMatchObject([{ status: "changed", targetId: twin, auto: "wait" }]);
+    expect((await review.confirm(p, row)).json()).toMatchObject({ created: 0, updated: 1 });
+    expect(
+      db
+        .select()
+        .from(schema.filamentProfiles)
+        .all()
+        .find((r) => r.id === twin),
+    ).toMatchObject({ densityGcm3: 1.24, sourcePreset: "fake:user/C" });
+    expect(await policy(slicerId, "filamentProfiles")).toMatchObject({ pending: 0 });
+  });
+
   it("a spools run imports only spools with exactly one matching profile; the rest waits", async () => {
-    mock.spools = ["A", "Matte", "Silk"].map((name, i) => ({
-      spoolId: String(i + 1),
-      profile: { brand: "Acme", material: "PLA", name },
-      colorHex: "#ff0000",
-      initialGrams: 1000,
-      remainingGrams: 250,
-      emptyWeightGrams: null,
-      status: "in_use" as const,
-    }));
-    const mockId = (
-      await app.inject({
-        method: "POST",
-        url: "/api/integrations",
-        payload: { adapterId: "mock", secrets: { token: "t" } },
-      })
-    ).json().id;
-    const [one, matte] = ["A", "Acme Matte", "Other Matte"].map(
-      (name) =>
-        db
-          .insert(schema.filamentProfiles)
-          .values({
-            brandId: filamentBrandIdFor(db, "Acme"),
-            materialId: filamentMaterialIdFor(db, "PLA"),
-            name,
-            densityGcm3: 1.2,
-          })
-          .returning()
-          .get().id,
-    );
+    mock.spools = [vendorSpool("1", "A"), vendorSpool("2", "Matte"), vendorSpool("3", "Silk")];
+    const mockId = await addMock();
+    const spoolsUrl = `/api/import/integration/${mockId}/spools`;
+    const [one, matte] = ["A", "Acme Matte", "Other Matte"].map(addProfile);
 
     // "A" has its profile; "Matte" fits two and "Silk" none.
     expect((await run(mockId, "spools")).json()).toMatchObject({
@@ -265,37 +305,78 @@ describe("filament library", () => {
     ]);
     expect(await policy(mockId, "spools")).toMatchObject({ pending: 2 });
 
-    // The preview -> confirm flow takes one of them, and is logged like any run.
-    const confirmed = await app.inject({
-      method: "POST",
-      url: `/api/filament/inventory/${mockId}/import`,
-      payload: { spools: [{ spoolId: "mock:2", profileId: matte }] },
-    });
-    expect(confirmed.json()).toEqual({ created: 1 });
+    // The review suggests the first fit and takes the user's pick; it is logged like any run.
+    const p = await open(spoolsUrl);
+    expect(p.rows.map((r) => [r.status, r.action, r.refs?.profile ?? null, r.auto])).toEqual([
+      ["identical", "skip", null, undefined],
+      ["new", "create", matte, "wait"],
+      ["new", "skip", null, "wait"],
+    ]);
+    expect(p.refOptions?.profile).toHaveLength(3);
+    const confirmed = await review.confirm(p, [p.rows[1] as never]);
+    expect(confirmed.json()).toMatchObject({ created: 1, updated: 0 });
     expect(await policy(mockId, "spools")).toMatchObject({ pending: 1 });
     expect((await run(mockId, "spools")).json()).toMatchObject({ created: 0, skipped: 2 });
     expect((await app.inject(`/api/integrations/${mockId}/runs?type=spools`)).json().total).toBe(3);
+    const logged = db.select().from(schema.importRuns).all();
+    expect(logged).toMatchObject([
+      { source: "integration", type: "spools", created: 1, backup: null },
+      { source: "integration", type: "spools", created: 1 },
+    ]);
+    expect(logged[1]?.backup).toBeTruthy();
 
-    // A vendor failure during the confirm comes back with its code.
+    // A second roll of a filament you already imported is a new spool, not a match.
+    mock.spools.push(vendorSpool("4", "A"));
+    expect((await open(spoolsUrl)).rows[3]).toMatchObject({ status: "new", targetId: null });
+
+    // A vendor failure while opening the review comes back with its code.
     mock.fail = "auth_expired";
-    const failed = await app.inject({
-      method: "POST",
-      url: `/api/filament/inventory/${mockId}/import`,
-      payload: { spools: [{ spoolId: "mock:3", profileId: matte }] },
-    });
+    const failed = await review.open(spoolsUrl);
     expect([failed.statusCode, failed.json().error.code]).toEqual([502, "auth_expired"]);
+  });
+
+  it("offers an imported spool's new vendor weight, and only writes it on request", async () => {
+    mock.spools = [vendorSpool("1", "A")];
+    const mockId = await addMock();
+    addProfile("A");
+    await run(mockId, "spools");
+
+    mock.spools = [{ ...vendorSpool("1", "A"), remainingGrams: 100 }];
+    expect((await run(mockId, "spools")).json()).toMatchObject({ created: 0 });
+    expect(db.select().from(schema.spools).get()?.remainingGrams).toBe(250);
+    expect(await policy(mockId, "spools")).toMatchObject({ pending: 0 });
+
+    const p = await open(`/api/import/integration/${mockId}/spools`);
+    expect(p.rows).toMatchObject([{ status: "changed", action: "skip" }]);
+    expect(p.rows[0]?.auto).toBeUndefined();
+    expect((await review.confirm(p, p.rows, { action: "update" })).json()).toMatchObject({
+      updated: 1,
+    });
+    expect(db.select().from(schema.spools).get()?.remainingGrams).toBe(100);
+    expect(
+      db
+        .select()
+        .from(schema.spoolWeightEntries)
+        .all()
+        .map((e) => [e.kind, e.deltaGrams]),
+    ).toEqual([
+      ["manual", 250],
+      ["correction", -150],
+    ]);
   });
 
   it("imports only the picked presets, once, and links them to the source", async () => {
     await setDir(dir);
-    const imp = (ids: string[]) =>
-      app.inject({
-        method: "POST",
-        url: `/api/filament/library/${slicerId}/import`,
-        payload: { presetIds: ids },
-      });
-    expect((await imp(["user/A"])).json()).toEqual({ created: 1 });
-    expect((await imp(["user/A"])).json()).toEqual({ created: 0 });
+    const only = async (name: string) => {
+      const p = await open(profilesUrl());
+      return review.confirm(
+        p,
+        p.rows.filter((r) => r.values.name === name),
+        { action: "create" },
+      );
+    };
+    expect((await only("A")).json()).toMatchObject({ created: 1, updated: 0 });
+    expect((await only("A")).json()).toMatchObject({ created: 0 });
     expect(db.select().from(schema.filamentProfiles).get()?.sourcePreset).toBe("fake:user/A");
     // Import found-or-created the brand and material once, by name.
     expect(
@@ -312,102 +393,52 @@ describe("filament library", () => {
         .all()
         .map((m) => m.name),
     ).toEqual(["PLA"]);
-    expect(names(await preview())).toEqual(["A:imported", "B:new"]);
+    expect(await review.rows(profilesUrl())).toEqual(["A:identical", "B:new"]);
 
-    // Same filament made by hand counts as a duplicate and is not created again.
-    await app.inject({
-      method: "POST",
-      url: "/api/filament/profiles",
-      payload: {
-        brandId: filamentBrandIdFor(db, "Acme"),
-        materialId: filamentMaterialIdFor(db, "PLA"),
-        name: "B",
-        densityGcm3: 1.2,
-      },
-    });
-    expect(names(await preview())).toEqual(["A:imported", "B:duplicate"]);
-    expect((await imp(["user/B"])).json()).toEqual({ created: 0 });
+    // Same filament made by hand is its twin: matched, and never created again.
+    addProfile("B");
+    expect(await review.rows(profilesUrl())).toEqual(["A:identical", "B:changed"]);
+    expect((await only("B")).json()).toMatchObject({ created: 0 });
+    expect(db.select().from(schema.filamentProfiles).all()).toHaveLength(2);
   });
 
   it("imports spools from the integration's inventory onto the profile you pick", async () => {
-    let mockId = slicerId;
-    const preview = async () =>
-      (await app.inject(`/api/filament/inventory/${mockId}`))
-        .json()
-        .items.map(
-          (i: { spoolId: string; imported: boolean; profileId: string | null }) =>
-            `${i.spoolId}:${i.imported}:${i.profileId}`,
-        );
-    const imp = (spools: { spoolId: string; profileId: string }[]) =>
-      app.inject({
-        method: "POST",
-        url: `/api/filament/inventory/${mockId}/import`,
-        payload: { spools },
-      });
     // The slicer integration keeps no spools.
-    expect((await app.inject(`/api/filament/inventory/${mockId}`)).json().error.code).toBe(
-      "capability_unavailable",
-    );
+    expect(
+      (await review.open(`/api/import/integration/${slicerId}/spools`)).json().error.code,
+    ).toBe("capability_unavailable");
 
-    mock.spools = [
-      ["1", "#ff0000", "A"],
-      ["2", "#00ff00", "Matte"],
-    ].map(([spoolId = "", colorHex = "", name = ""]) => ({
-      spoolId,
-      profile: { brand: "Acme", material: "PLA", name },
-      colorHex,
-      initialGrams: 1000,
-      remainingGrams: 250,
-      emptyWeightGrams: null,
-      status: "in_use" as const,
-    }));
-    mockId = (
-      await app.inject({
-        method: "POST",
-        url: "/api/integrations",
-        payload: { adapterId: "mock", secrets: { token: "t" } },
-      })
-    ).json().id;
-    // No profile named like the spools yet: nothing suggested.
-    expect(await preview()).toEqual(["mock:1:false:null", "mock:2:false:null"]);
+    mock.spools = [vendorSpool("1", "A"), vendorSpool("2", "Matte", "#00ff00")];
+    const mockId = await addMock();
+    const spoolsUrl = `/api/import/integration/${mockId}/spools`;
+    const suggested = async () =>
+      (await open(spoolsUrl)).rows.map((r) => `${r.status}:${r.action}:${r.refs?.profile ?? null}`);
+    // No profile named like the spools yet: nothing suggested, nothing to create.
+    expect(await suggested()).toEqual(["new:skip:null", "new:skip:null"]);
 
     // Suggested on brand, material and name (not colour), or a preset-style name ending in it.
-    const add = async (name: string) =>
-      (
-        await app.inject({
-          method: "POST",
-          url: "/api/filament/profiles",
-          payload: {
-            brandId: filamentBrandIdFor(db, "Acme"),
-            materialId: filamentMaterialIdFor(db, "PLA"),
-            name,
-            densityGcm3: 1.2,
-          },
-        })
-      ).json().id as string;
-    const profileId = await add("A");
-    const matte = await add("Acme Matte");
-    expect(await preview()).toEqual([`mock:1:false:${profileId}`, `mock:2:false:${matte}`]);
+    const profileId = addProfile("A");
+    const matte = addProfile("Acme Matte");
+    expect(await suggested()).toEqual([`new:create:${profileId}`, `new:create:${matte}`]);
 
-    const both = ["mock:1", "mock:2"].map((spoolId) => ({ spoolId, profileId }));
-    expect((await imp(both)).json()).toEqual({ created: 2 });
-    expect((await imp(both)).json()).toEqual({ created: 0 });
-    expect(await preview()).toEqual([`mock:1:true:${profileId}`, `mock:2:true:${matte}`]);
+    const p = await open(spoolsUrl);
+    const both = () =>
+      review.confirm(p, p.rows, { action: "create", refs: { profile: profileId } });
+    expect((await both()).json()).toMatchObject({ created: 2 });
+    // The review was used up.
+    expect((await both()).statusCode).toBe(404);
+    expect(await suggested()).toEqual(["identical:skip:null", "identical:skip:null"]);
 
     const rows = db.select().from(schema.spools).all();
-    expect(rows.map((r) => [r.sourceSpool, r.colorHex, r.remainingGrams, r.status])).toEqual([
-      ["mock:1", "#ff0000", 250, "in_use"],
-      ["mock:2", "#00ff00", 250, "in_use"],
+    expect(
+      rows.map((r) => [r.sourceSpool, r.profileId, r.colorHex, r.remainingGrams, r.status]),
+    ).toEqual([
+      ["mock:1", profileId, "#ff0000", 250, "in_use"],
+      ["mock:2", profileId, "#00ff00", 250, "in_use"],
     ]);
     expect(db.select().from(schema.spoolWeightEntries).all()).toHaveLength(2);
 
-    // Vendor errors come back with their code.
-    mock.fail = "auth_expired";
-    const res = await app.inject(`/api/filament/inventory/${mockId}`);
-    expect([res.statusCode, res.json().error.code]).toEqual([502, "auth_expired"]);
-    mock.fail = undefined;
-
-    // Archived profiles take no spools.
+    // Archived profiles take no spools, and a profile is never created.
     await app.inject({
       method: "PATCH",
       url: `/api/filament/profiles/${profileId}`,
@@ -415,6 +446,12 @@ describe("filament library", () => {
     });
     db.delete(schema.spoolWeightEntries).run();
     db.delete(schema.spools).run();
-    expect((await imp(both)).statusCode).toBe(400);
+    const again = await open(spoolsUrl);
+    const refused = await review.confirm(again, again.rows, {
+      action: "create",
+      refs: { profile: profileId },
+    });
+    expect([refused.statusCode, refused.json().error.code]).toEqual([400, "ref_not_found"]);
+    expect(db.select().from(schema.spools).all()).toEqual([]);
   });
 });

@@ -25,6 +25,17 @@ const ENTITIES: Record<ImportEntity, { label: string; to: string; view: string }
   },
   prints: { label: "import:entities.prints", to: "/prints", view: "import:done.viewPrints" },
 };
+// What a run imported: a file entity, or a type an integration or a zip offers.
+const TYPES: Record<string, string> = {
+  spools: "import:entities.spools",
+  printers: "import:entities.printers",
+  prints: "import:entities.prints",
+  brands: "integrations:capabilities.brands",
+  printerModels: "integrations:capabilities.printerModels",
+  machineProfiles: "integrations:capabilities.machineProfiles",
+  filamentBrands: "integrations:capabilities.filamentBrands",
+  filamentProfiles: "integrations:capabilities.filamentProfiles",
+};
 const SOURCES = {
   file: "import:history.sources.file",
   zip: "import:history.sources.zip",
@@ -55,22 +66,22 @@ export function ImportPage() {
   const name = t(ENTITIES[entity].label);
 
   const body = {
-        labels,
-        sheets: {
-          data: name,
-          lists: t("import:template.lists"),
-          instructions: t("import:template.instructions"),
-        },
-        instructions: [
-          [t("import:template.intro")],
-          [t("import:template.required")],
-          [],
-          [t("import:template.column"), t("import:template.format")],
-          ...columns.map((c) => [
-            `${labels[c.key]}${c.required ? " *" : ""}`,
-            t(HINTS[c.type], { options: c.options ?? [] }),
-          ]),
-        ],
+    labels,
+    sheets: {
+      data: name,
+      lists: t("import:template.lists"),
+      instructions: t("import:template.instructions"),
+    },
+    instructions: [
+      [t("import:template.intro")],
+      [t("import:template.required")],
+      [],
+      [t("import:template.column"), t("import:template.format")],
+      ...columns.map((c) => [
+        `${labels[c.key]}${c.required ? " *" : ""}`,
+        t(HINTS[c.type], { options: c.options ?? [] }),
+      ]),
+    ],
   };
   const downloadTemplate = () =>
     template.mutate({ filename: t("import:template.filename", { name }), body });
@@ -162,14 +173,14 @@ export function ImportPage() {
                 <li key={r.id} className="text-muted">
                   {t("import:history.run", {
                     date: formatDateTime(r.createdAt),
-                    type: t(`import:entities.${r.type}`, { defaultValue: r.type }),
+                    type: t(TYPES[r.type] ?? "", { defaultValue: r.type }),
                     file: r.fileName ?? t(SOURCES[r.source]),
                     created: r.created,
                     updated: r.updated,
                     skipped: r.skipped,
                     invalid: r.invalid,
                   })}
-                  {r.backup && ` · ${t("import:history.backup", { name: r.backup })}`}
+                  {r.backup && ` Â· ${t("import:history.backup", { name: r.backup })}`}
                 </li>
               ))}
             </ul>

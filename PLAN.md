@@ -240,7 +240,7 @@ folder). Verify the zip instructions on a real Bambu Studio and OrcaSlicer insta
 Do Step 20 of PLAN.md. Export reuses the Step 17 column definitions, nothing new per entity.
 ```
 
-### [ ] Step 21 - Integration previews on the review screen  **[plan mode]**
+### [x] Step 21 - Integration previews on the review screen  **[plan mode]**
 **Model:** Opus · **Effort:** Medium
 **Scope:** The integration preview → confirm flows (filament library, library spools, Step 14 catalog, the Step 13 pending queue) open in the Step 17 review screen and use its matchers, bulk actions and merge policy. Remove the old preview UIs and schemas. Step 13 auto mode keeps its rule, now expressed with the review statuses: import `new` and `identical`, leave the rest pending. Runs are logged in `import_runs`.
 **Done when:** no second preview UI left; integration imports behave as before; tests pass.

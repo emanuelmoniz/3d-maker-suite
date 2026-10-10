@@ -2,10 +2,12 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { orcaSlicerAdapter } from "@3d-maker-suite/adapter-orca";
+import type { ImportPreview } from "@3d-maker-suite/core";
 import { openDb, schema } from "@3d-maker-suite/db";
 import { beforeEach, describe, expect, it } from "vitest";
 import yazl from "yazl";
 import { buildApp } from "./app.ts";
+import { reviewer } from "./testReview.ts";
 
 // A tiny OrcaSlicer folder, read by the real shared reader.
 const FILES: Record<string, unknown> = {
@@ -59,21 +61,11 @@ const upload = (body: Buffer, source = "orca-slicer") =>
     headers: { "content-type": "application/zip" },
     payload: body,
   });
+const review = reviewer(() => app);
 const preview = async (id: string, type: string) =>
-  (await app.inject(`/api/slicer-zip/${id}/${type}`)).json().items as {
-    key: string;
-    status: string;
-  }[];
-const importAll = async (id: string, type: string) => {
-  const keys = (await preview(id, type)).filter((i) => i.status !== "imported").map((i) => i.key);
-  return (
-    await app.inject({
-      method: "POST",
-      url: `/api/slicer-zip/${id}/${type}/import`,
-      payload: { keys },
-    })
-  ).json();
-};
+  (await review.open(`/api/slicer-zip/${id}/${type}`)).json() as ImportPreview;
+const importAll = async (id: string, type: string) =>
+  (await review.confirm(await preview(id, type))).json();
 
 describe("slicer zip import", () => {
   it("lists the slicers that can be read from a zip, with their folders", async () => {
@@ -104,7 +96,11 @@ describe("slicer zip import", () => {
         "filamentBrands",
         "filamentProfiles",
       ])
-        expect((await preview(again, type)).every((i) => i.status === "imported")).toBe(true);
+        expect((await preview(again, type)).rows.every((r) => r.status === "identical")).toBe(true);
+      // Each confirmed review is in the import history.
+      const logged = db.select().from(schema.importRuns).all();
+      expect(logged).toHaveLength(5);
+      expect(logged.every((r) => r.source === "zip" && r.backup)).toBe(true);
       expect(db.select().from(schema.machineProfiles).all()).toHaveLength(1);
       expect(db.select().from(schema.filamentProfiles).all()).toHaveLength(2);
       expect(db.select().from(schema.machineProfiles).get()?.sourcePreset).toBe(
@@ -118,7 +114,7 @@ describe("slicer zip import", () => {
     const other = await zipOf({ "photos/a.json": "{}", "notes.txt": "hi" });
     expect((await upload(other)).json().error.code).toBe("not_slicer_folder");
     expect((await upload(await folder(), "nope")).statusCode).toBe(404);
-    expect((await app.inject(`/api/slicer-zip/${crypto.randomUUID()}/brands`)).statusCode).toBe(
+    expect((await review.open(`/api/slicer-zip/${crypto.randomUUID()}/brands`)).statusCode).toBe(
       404,
     );
   });

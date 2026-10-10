@@ -5,6 +5,8 @@ import {
   type IntegrationErrorCode,
   type IntegrationKind,
   type IntegrationStatus,
+  REVIEWED_TYPES,
+  type ReviewedType,
   SYNC_RUN_STATUSES,
   SYNC_TRIGGERS,
   type SyncFrequency,
@@ -12,7 +14,6 @@ import {
   type SyncPolicy,
   type SyncRequest,
   type SyncRun,
-  type SyncType,
   syncRunFilters,
 } from "@3d-maker-suite/core";
 import { Link, useNavigate } from "@tanstack/react-router";
@@ -100,32 +101,11 @@ const ACTION_MODES = {
   off: "integrations:policies.modes.off",
   manual: "integrations:policies.modes.on",
 };
-// Types imported through a preview: where their rows are reviewed and confirmed.
-const PREVIEWS: Partial<
-  Record<
-    Capability,
-    "/filament/spools/import/$id" | "/filament/import/$id" | "/catalog-import/$id/$type"
-  >
-> = {
-  spools: "/filament/spools/import/$id",
-  filamentProfiles: "/filament/import/$id",
-  brands: "/catalog-import/$id/$type",
-  printerModels: "/catalog-import/$id/$type",
-  machineProfiles: "/catalog-import/$id/$type",
-  filamentBrands: "/catalog-import/$id/$type",
-};
-// These can also run straight from here: a run imports the rows that need no decision (catalog
-// rows, spools with one matching profile, presets whose brand and material exist) and leaves the
-// rest pending for the review page.
-const RUN_NOW: Capability[] = [
-  "spools",
-  "brands",
-  "printerModels",
-  "machineProfiles",
-  "filamentBrands",
-  "filamentProfiles",
-];
-const isRunNow = (c: Capability): c is SyncType => RUN_NOW.includes(c);
+// Types whose rows are reviewed and confirmed. They can also run straight from here: a run
+// imports the rows that need no decision (catalog rows, spools with one matching profile, presets
+// whose brand and material exist) and leaves the rest pending for the review page.
+const isReviewed = (c: Capability): c is ReviewedType =>
+  (REVIEWED_TYPES as readonly string[]).includes(c);
 const RUN_STATUSES = { ok: "integrations:runs.ok", error: "integrations:runs.error" };
 
 // A control inside a table row keeps clear of the row borders and never shrinks below its text
@@ -254,9 +234,7 @@ function IntegrationCard({ integration: i }: { integration: Integration }) {
         {hasLogin && (
           <Button
             variant={i.hasSecrets ? "secondary" : "primary"}
-            onClick={() =>
-              navigate({ to: "/integrations/$id/login", params: { id: i.id } })
-            }
+            onClick={() => navigate({ to: "/integrations/$id/login", params: { id: i.id } })}
           >
             {i.hasSecrets ? t("integrations:card.signInAgain") : t("integrations:card.signIn")}
           </Button>
@@ -394,18 +372,15 @@ function Policies({
         </Button>
       );
     const type = p.type;
-    const preview = PREVIEWS[type];
-    if (!preview) return "–";
+    if (!isReviewed(type)) return "–";
     return (
       <span className="flex items-center gap-3">
-        {isRunNow(type) && (
-          <Button className="my-1" disabled={sync.isPending} onClick={() => sync.mutate({ type })}>
-            {t("integrations:policies.syncNow")}
-          </Button>
-        )}
+        <Button className="my-1" disabled={sync.isPending} onClick={() => sync.mutate({ type })}>
+          {t("integrations:policies.syncNow")}
+        </Button>
         <Link
-          to={preview}
-          params={{ id: i.id, type: p.type }}
+          to="/import/$source/$id/$type"
+          params={{ source: "integration", id: i.id, type }}
           className="font-medium text-accent hover:underline"
         >
           {t("integrations:policies.importNow")}

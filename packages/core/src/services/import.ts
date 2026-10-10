@@ -1,5 +1,6 @@
 import type {
   ImportAction,
+  ImportApplyDecision,
   ImportCell,
   ImportColumn,
   ImportErrorCode,
@@ -171,11 +172,47 @@ export function suggest(
     : { status: "identical", action: "skip" };
 }
 
+/**
+ * What a run with nobody watching does with a row from an integration. It takes a `new` row and a
+ * `changed` one that is `linked` to its source (imported from it before), unless the row needs a
+ * person (`held`: it would add a brand, or no single profile fits). `optional` rows are only ever
+ * offered, never waiting. Undefined = nothing to do.
+ */
+export function autoOf(r: {
+  status: ImportStatus;
+  linked: boolean;
+  held: boolean;
+  optional: boolean;
+}): "apply" | "wait" | undefined {
+  if (r.optional || r.status === "invalid" || r.status === "identical") return undefined;
+  const known = r.status === "new" || (r.status === "changed" && r.linked);
+  return known && !r.held ? "apply" : "wait";
+}
+
+/** The decisions of a run with nobody watching: every `apply` row takes its suggestion. */
+export const autoDecisions = (rows: ImportPreviewRow[]): ImportApplyDecision[] =>
+  rows.flatMap((r) =>
+    r.auto === "apply" && r.action !== "skip"
+      ? [
+          {
+            row: r.row,
+            action: r.action,
+            targetId: r.targetId ?? undefined,
+            refs: Object.fromEntries(
+              Object.entries(r.refs ?? {}).flatMap(([k, v]) => (v ? [[k, v]] : [])),
+            ),
+          },
+        ]
+      : [],
+  );
+
 /** What the user decided for a row. `policy` overrides the bulk merge policy. */
 export type ImportDecision = {
   action: ImportAction;
   targetId: string | null;
   policy?: MergePolicy;
+  /** By column key: the picked references. */
+  refs?: Record<string, string | null>;
 };
 
 export const BULK_ACTIONS = [
@@ -193,6 +230,7 @@ export type BulkAction = (typeof BULK_ACTIONS)[number];
 export const suggested = (r: ImportPreviewRow): ImportDecision => ({
   action: r.action,
   targetId: r.targetId,
+  refs: r.refs,
 });
 
 /**

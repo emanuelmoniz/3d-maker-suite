@@ -1,4 +1,4 @@
-import type { Capability, SyncType } from "@3d-maker-suite/core";
+import type { ReviewedType, SyncType } from "@3d-maker-suite/core";
 import { Link } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import { useAdapterName, useCapable, useSyncIntegration } from "../lib/integrations.ts";
@@ -6,24 +6,24 @@ import { useAdapterName, useCapable, useSyncIntegration } from "../lib/integrati
 const importClass =
   "inline-flex h-9 items-center rounded-md border border-border bg-surface px-3 font-medium hover:bg-surface-2";
 
-/** One import link per integration that can do `cap`; none = add by hand only. */
+/** One link to the review per integration that can do `cap`; none = add by hand only. */
 export function ImportLinks({
-  to,
   cap,
   text,
-  params,
 }: {
-  to: string;
-  cap: Capability;
+  cap: ReviewedType;
   /** i18n key; gets `{{name}}` = the integration's name. */
   text: string;
-  /** Route params besides the integration `id`. */
-  params?: Record<string, string>;
 }) {
   const { t } = useTranslation();
   const adapterName = useAdapterName();
   return useCapable(cap).map((i) => (
-    <Link key={i.id} to={to} params={{ ...params, id: i.id }} className={importClass}>
+    <Link
+      key={i.id}
+      to="/import/$source/$id/$type"
+      params={{ source: "integration", id: i.id, type: cap }}
+      className={importClass}
+    >
       {t(text, { name: adapterName(i.adapterId) })}
     </Link>
   ));

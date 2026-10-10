@@ -144,35 +144,11 @@ export const libraryPresetSchema = filamentProfileSchema
     scope: z.enum(["user", "system"]),
   });
 
-/**
- * `new` can be imported; `imported` came from this preset before and is the same; `changed` came
- * from it but the preset is newer; `duplicate` matches a profile you already have.
- */
-export const LIBRARY_STATUSES = ["new", "imported", "changed", "duplicate"] as const;
-
 export const librarySourceSchema = z.object({
   id: z.string(),
   /** First default folder that exists on this PC, if any (ignoring the override). */
   detectedDir: z.string().nullable(),
 });
-
-export const libraryQuerySchema = z.object({
-  includeSystem: z.enum(["true", "false"]).default("false"),
-});
-
-export const libraryPreviewSchema = z.object({
-  /** The folder that was read: the override from settings, else the detected one. */
-  dir: z.string(),
-  items: z.array(libraryPresetSchema.extend({ status: z.enum(LIBRARY_STATUSES) })),
-});
-
-export const libraryImportSchema = z.object({
-  includeSystem: z.boolean().default(false),
-  /** Preset ids picked in the preview; only those still `new` are created. */
-  presetIds: z.array(z.string().min(1)).min(1),
-});
-
-export const libraryImportResultSchema = z.object({ created: z.number().int().nonnegative() });
 
 /** A spool from an integration's inventory. `profile` names the filament, to find its profile. */
 export const librarySpoolSchema = spoolSchema
@@ -189,26 +165,6 @@ export const librarySpoolSchema = spoolSchema
     profile: filamentProfileSchema.pick({ brand: true, material: true, name: true }),
   });
 
-export const librarySpoolPreviewSchema = z.object({
-  items: z.array(
-    librarySpoolSchema.extend({
-      /** Imported before, so it can't be picked again. */
-      imported: z.boolean(),
-      /** Your profile with the same brand, material and name, if there is one. */
-      profileId: z.string().nullable(),
-    }),
-  ),
-});
-
-export const librarySpoolImportSchema = z.object({
-  /** Picked spools and the profile each goes on; already imported ones are skipped. */
-  spools: z.array(z.object({ spoolId: z.string().min(1), profileId: z.uuid() })).min(1),
-});
-
 export type LibraryPreset = z.infer<typeof libraryPresetSchema>;
 export type LibrarySpool = z.infer<typeof librarySpoolSchema>;
-export type LibrarySpoolPreview = z.infer<typeof librarySpoolPreviewSchema>;
-export type LibrarySpoolImport = z.infer<typeof librarySpoolImportSchema>;
-export type LibraryPreview = z.infer<typeof libraryPreviewSchema>;
-export type LibraryImport = z.infer<typeof libraryImportSchema>;
 export type LibrarySource = z.infer<typeof librarySourceSchema>;

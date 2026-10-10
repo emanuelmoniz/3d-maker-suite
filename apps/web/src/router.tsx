@@ -8,15 +8,14 @@ import { AlertsPage } from "./pages/alerts/AlertsPage.tsx";
 import { CostsPage } from "./pages/costs/CostsPage.tsx";
 import { FilamentBrandFormPage, FilamentMaterialFormPage } from "./pages/filament/CatalogForms.tsx";
 import { FilamentPage } from "./pages/filament/FilamentPage.tsx";
-import { LibraryImportPage } from "./pages/filament/LibraryImportPage.tsx";
 import { ProfileDetailPage } from "./pages/filament/ProfileDetailPage.tsx";
 import { ProfileCreatePage, ProfileEditPage } from "./pages/filament/ProfileFormPage.tsx";
 import { SpoolDetailPage } from "./pages/filament/SpoolDetailPage.tsx";
 import { SpoolCreatePage, SpoolEditPage } from "./pages/filament/SpoolFormPage.tsx";
-import { SpoolImportPage } from "./pages/filament/SpoolImportPage.tsx";
 import { HomePage } from "./pages/HomePage.tsx";
 import { ImportPage } from "./pages/import/ImportPage.tsx";
 import { SlicerZipPage } from "./pages/import/SlicerZipPage.tsx";
+import { SourceReviewPage } from "./pages/import/SourceReviewPage.tsx";
 import { ModulePage } from "./pages/ModulePage.tsx";
 import { MaintenancePage } from "./pages/maintenance/MaintenancePage.tsx";
 import { TypeDetailPage } from "./pages/maintenance/TypeDetailPage.tsx";
@@ -26,7 +25,6 @@ import {
   MachineProfileFormPage,
   ModelFormPage,
 } from "./pages/printers/CatalogForms.tsx";
-import { CatalogImportPage } from "./pages/printers/CatalogImportPage.tsx";
 import { PrinterDetailPage } from "./pages/printers/PrinterDetailPage.tsx";
 import { PrinterCreatePage, PrinterEditPage } from "./pages/printers/PrinterFormPage.tsx";
 import { PrintersPage } from "./pages/printers/PrintersPage.tsx";
@@ -186,23 +184,12 @@ const routes: AnyRoute[] = [
     loader: () => Promise.all([loadNamespace("filament"), loadNamespace("tags")]),
     component: ProfileCreatePage,
   }),
+  // The review of what an integration or an uploaded zip (`$source`) offers for one type.
   createRoute({
     getParentRoute: () => root,
-    path: "/filament/spools/import/$id",
-    loader: () => Promise.all([loadNamespace("filament"), loadNamespace("integrations")]),
-    component: SpoolImportPage,
-  }),
-  createRoute({
-    getParentRoute: () => root,
-    path: "/catalog-import/$id/$type",
-    loader: () => loadNamespace("integrations"),
-    component: CatalogImportPage,
-  }),
-  createRoute({
-    getParentRoute: () => root,
-    path: "/slicer-zip/$id/$type",
-    loader: () => loadNamespace("integrations"),
-    component: () => <CatalogImportPage zip />,
+    path: "/import/$source/$id/$type",
+    loader: () => Promise.all([loadNamespace("import"), loadNamespace("integrations")]),
+    component: SourceReviewPage,
   }),
   ...["/import/slicer-zip", "/import/slicer-zip/$id"].map((path) =>
     createRoute({
@@ -217,12 +204,6 @@ const routes: AnyRoute[] = [
       component: SlicerZipPage,
     }),
   ),
-  createRoute({
-    getParentRoute: () => root,
-    path: "/filament/import/$id",
-    loader: () => Promise.all([loadNamespace("filament"), loadNamespace("integrations")]),
-    component: LibraryImportPage,
-  }),
   createRoute({
     getParentRoute: () => root,
     path: "/filament",
@@ -302,7 +283,7 @@ const routes: AnyRoute[] = [
   createRoute({
     getParentRoute: () => root,
     path: IMPORT_ITEM.to,
-    loader: () => loadNamespace("import"),
+    loader: () => Promise.all([loadNamespace("import"), loadNamespace("integrations")]),
     component: ImportPage,
   }),
   createRoute({

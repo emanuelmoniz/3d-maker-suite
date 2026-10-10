@@ -102,8 +102,8 @@ export function SlicerZipPage() {
               {SLICER_ZIP_TYPES.map((type) => (
                 <li key={type}>
                   <Link
-                    to="/slicer-zip/$id/$type"
-                    params={{ id, type }}
+                    to="/import/$source/$id/$type"
+                    params={{ source: "zip", id, type }}
                     className="font-medium underline"
                   >
                     {t(TYPES[type])}

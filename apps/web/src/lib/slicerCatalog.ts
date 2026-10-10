@@ -1,32 +1,6 @@
-import type {
-  CatalogImport,
-  CatalogPreview,
-  SLICER_ZIP_TYPES,
-  SlicerZipSource,
-} from "@3d-maker-suite/core";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { SlicerZipSource } from "@3d-maker-suite/core";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { api } from "./api.ts";
-
-export type CatalogType = (typeof SLICER_ZIP_TYPES)[number];
-/** An integration reads its own folder; an uploaded zip is read like one. */
-export type CatalogBase = "slicer-catalog" | "slicer-zip";
-
-export const useCatalogPreview = (id: string, type: CatalogType, base: CatalogBase) =>
-  useQuery({
-    queryKey: [base, id, type],
-    queryFn: () => api<CatalogPreview>("GET", `/api/${base}/${id}/${type}`),
-    retry: false,
-    gcTime: 0, // always re-read the folder when the page opens
-  });
-
-export const useCatalogImport = (id: string, type: CatalogType, base: CatalogBase) => {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (v: CatalogImport) =>
-      api<{ created: number }>("POST", `/api/${base}/${id}/${type}/import`, v),
-    onSuccess: () => qc.invalidateQueries(),
-  });
-};
 
 export const useZipSources = () =>
   useQuery({

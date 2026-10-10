@@ -2,10 +2,6 @@ import type {
   FilamentProfile,
   FilamentProfileInput,
   FilamentProfilePatch,
-  LibraryImport,
-  LibraryPreview,
-  LibrarySpoolImport,
-  LibrarySpoolPreview,
   Page,
   Spool,
   SpoolAdjust,
@@ -86,34 +82,3 @@ export const useAdjustSpool = () =>
 
 export const filamentLabel = (p?: FilamentProfile) =>
   p ? p.name || [p.brand, p.material].filter(Boolean).join(" ") : "";
-
-export const useLibraryPreview = (id: string | undefined, includeSystem: boolean) =>
-  useQuery({
-    queryKey: ["library", id, includeSystem],
-    queryFn: () =>
-      api<LibraryPreview>(
-        "GET",
-        `/api/filament/library/${id}/preview?includeSystem=${includeSystem}`,
-      ),
-    enabled: !!id,
-    retry: false,
-    gcTime: 0, // always re-read the folder when the page opens
-  });
-
-export const useLibraryImport = (id: string) =>
-  useInvalidating((v: LibraryImport) =>
-    api<{ created: number }>("POST", `/api/filament/library/${id}/import`, v),
-  );
-
-export const useInventorySpools = (id: string) =>
-  useQuery({
-    queryKey: ["inventory", id],
-    queryFn: () => api<LibrarySpoolPreview>("GET", `/api/filament/inventory/${id}`),
-    retry: false,
-    gcTime: 0, // always re-read the cloud inventory when the page opens
-  });
-
-export const useInventoryImport = (id: string) =>
-  useInvalidating((v: LibrarySpoolImport) =>
-    api<{ created: number }>("POST", `/api/filament/inventory/${id}/import`, v),
-  );

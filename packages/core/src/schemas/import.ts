@@ -1,12 +1,19 @@
 import { z } from "zod";
 import { id } from "./entities.ts";
 import { PRINT_OUTCOMES, SPOOL_STATUSES } from "./enums.ts";
+import { SLICER_ZIP_TYPES } from "./slicerCatalog.ts";
 
 // File imports (XLSX / CSV). The columns of an entity are declared once here and drive the
 // template, the parser, validation and the review table.
 export const IMPORT_ENTITIES = ["spools", "printers", "prints"] as const;
+/** Everything the review screen takes: the file entities, plus what an integration or a zip offers. */
+export const REVIEW_ENTITIES = [...IMPORT_ENTITIES, ...SLICER_ZIP_TYPES] as const;
+/** What an integration can offer for review; a run on its own takes only what needs no decision. */
+export const REVIEWED_TYPES = ["spools", ...SLICER_ZIP_TYPES] as const;
 export const IMPORT_SOURCES = ["file", "zip", "integration"] as const;
 export type ImportEntity = (typeof IMPORT_ENTITIES)[number];
+export type ReviewEntity = (typeof REVIEW_ENTITIES)[number];
+export type ReviewedType = (typeof REVIEWED_TYPES)[number];
 
 export const IMPORT_COLUMN_TYPES = [
   "text",
@@ -130,7 +137,110 @@ export const IMPORT_COLUMNS = {
     },
     { key: "grams", type: "number", label: "import:prints.columns.grams" },
   ],
-} as const satisfies Record<ImportEntity, readonly ImportColumn[]>;
+  // A name that is the row's identity is a `ref`, so its spelling alone is never a difference.
+  filamentProfiles: [
+    {
+      key: "brand",
+      type: "ref",
+      ref: "filamentBrands",
+      label: "import:filamentProfiles.columns.brand",
+    },
+    {
+      key: "material",
+      type: "ref",
+      ref: "filamentMaterials",
+      label: "import:filamentProfiles.columns.material",
+      required: true,
+    },
+    {
+      key: "name",
+      type: "ref",
+      ref: "filamentProfiles",
+      label: "import:filamentProfiles.columns.name",
+    },
+    { key: "diameterMm", type: "number", label: "import:filamentProfiles.columns.diameterMm" },
+    {
+      key: "densityGcm3",
+      type: "number",
+      label: "import:filamentProfiles.columns.densityGcm3",
+      required: true,
+    },
+    { key: "pricePerKg", type: "money", label: "import:filamentProfiles.columns.pricePerKg" },
+    { key: "nozzleTempC", type: "integer", label: "import:filamentProfiles.columns.nozzleTempC" },
+    { key: "bedTempC", type: "integer", label: "import:filamentProfiles.columns.bedTempC" },
+  ],
+  brands: [
+    {
+      key: "name",
+      type: "ref",
+      ref: "brands",
+      label: "import:brands.columns.name",
+      required: true,
+    },
+  ],
+  printerModels: [
+    {
+      key: "brand",
+      type: "ref",
+      ref: "brands",
+      label: "import:printerModels.columns.brand",
+      required: true,
+    },
+    {
+      key: "model",
+      type: "ref",
+      ref: "printerModels",
+      label: "import:printerModels.columns.model",
+      required: true,
+    },
+    // "yes" = the source ships a picture; it only ever fills a model that has none.
+    {
+      key: "thumbnail",
+      type: "enum",
+      options: ["yes"],
+      label: "import:printerModels.columns.thumbnail",
+    },
+  ],
+  machineProfiles: [
+    {
+      key: "brand",
+      type: "ref",
+      ref: "brands",
+      label: "import:machineProfiles.columns.brand",
+      required: true,
+    },
+    {
+      key: "model",
+      type: "ref",
+      ref: "printerModels",
+      label: "import:machineProfiles.columns.model",
+      required: true,
+    },
+    { key: "name", type: "text", label: "import:machineProfiles.columns.name", required: true },
+    {
+      key: "nozzleDiameterMm",
+      type: "number",
+      label: "import:machineProfiles.columns.nozzleDiameterMm",
+      required: true,
+    },
+  ],
+  filamentBrands: [
+    {
+      key: "kind",
+      type: "enum",
+      options: ["brand", "material"],
+      label: "import:filamentBrands.columns.kind",
+      required: true,
+    },
+    {
+      key: "name",
+      type: "ref",
+      ref: "filamentBrands",
+      label: "import:filamentBrands.columns.name",
+      required: true,
+    },
+  ],
+} as const satisfies Record<ReviewEntity, readonly ImportColumn[]>;
 
 /**
  * `new`: nothing you have fits; `identical` / `changed`: exactly one row fits; `ambiguous`: several
@@ -169,10 +279,22 @@ export const importPreviewRowSchema = z.object({
   candidates: z.array(id),
   /** The suggested action. */
   action: z.enum(IMPORT_ACTIONS),
+  /** By column key: the existing row suggested for a reference the user picks (null = none fits). */
+  refs: z.record(z.string(), id.nullable()).optional(),
+  /**
+   * Rows from an integration: what a run with nobody watching does. `apply` takes the suggestion,
+   * `wait` leaves the row for a person; absent = neither (nothing to do, or only on request).
+   */
+  auto: z.enum(["apply", "wait"]).optional(),
 });
 
 export const importPreviewSchema = z.object({
   uploadId: z.uuid(),
+  entity: z.enum(REVIEW_ENTITIES),
+  /** The folder an integration read its rows from. */
+  dir: z.string().optional(),
+  /** By column key: the rows a picked reference can be. Creating a row then needs a pick. */
+  refOptions: z.record(z.string(), z.array(z.object({ id, label: z.string() }))).optional(),
   rows: z.array(importPreviewRowSchema),
   /** Existing rows in the same column shape, for the target picker and the diff. */
   targets: z.array(z.object({ id, label: z.string(), values })),
@@ -226,6 +348,8 @@ export const importApplySchema = z.object({
         targetId: id.optional(),
         /** Overrides `policy` for this row. */
         policy: z.enum(MERGE_POLICIES).optional(),
+        /** By column key: the picked references (see `refOptions`). */
+        refs: z.record(z.string(), id).optional(),
       }),
     )
     .min(1),
@@ -264,4 +388,5 @@ export type ImportPreview = z.infer<typeof importPreviewSchema>;
 export type ImportTarget = ImportPreview["targets"][number];
 export type ImportTemplate = z.infer<typeof importTemplateSchema>;
 export type ImportApply = z.infer<typeof importApplySchema>;
+export type ImportApplyDecision = ImportApply["decisions"][number];
 export type ImportResult = z.infer<typeof importResultSchema>;

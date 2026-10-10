@@ -5,6 +5,8 @@ import type {
   ImportResult,
   ImportRun,
   ImportTemplate,
+  ReviewEntity,
+  ReviewedType,
 } from "@3d-maker-suite/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "./api.ts";
@@ -41,12 +43,41 @@ export const usePreview = (entity: ImportEntity) =>
       ),
   });
 
-export const useApply = (entity: ImportEntity) => {
+/**
+ * What an integration (or an uploaded slicer zip) offers for one type, read when the page opens.
+ * It never refetches on its own: a new read is a new review, and the decisions made so far go.
+ */
+export const useSourcePreview = (
+  source: "integration" | "zip",
+  id: string,
+  type: ReviewedType,
+  includeSystem: boolean,
+) =>
+  useQuery({
+    queryKey: ["import-source", source, id, type, includeSystem],
+    queryFn: () =>
+      api<ImportPreview>(
+        "POST",
+        source === "zip"
+          ? `/api/slicer-zip/${id}/${type}`
+          : `/api/import/integration/${id}/${type}?includeSystem=${includeSystem}`,
+      ),
+    retry: false,
+    gcTime: 0,
+    staleTime: Number.POSITIVE_INFINITY,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  });
+
+export const useApply = (entity: ReviewEntity) => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (v: ImportApply) => api<ImportResult>("POST", `/api/import/${entity}/apply`, v),
-    // An import can touch any list (and adds a backup), so everything is refetched.
-    onSuccess: () => qc.invalidateQueries(),
+    // An import can touch any list (and adds a backup), so everything is refetched. Not awaited:
+    // the caller's own `onSuccess` must run before a refetched review replaces the table.
+    onSuccess: () => {
+      qc.invalidateQueries();
+    },
   });
 };
 

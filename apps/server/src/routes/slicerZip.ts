@@ -1,11 +1,8 @@
 import { join } from "node:path";
 import {
   apiErrorSchema,
-  type CatalogPreview,
-  catalogImportSchema,
-  catalogPreviewSchema,
   type FilamentLibrary,
-  libraryImportResultSchema,
+  importPreviewSchema,
   SLICER_ZIP_TYPES,
   type SlicerZipSource,
   slicerZipSourceSchema,
@@ -15,9 +12,9 @@ import type { Db } from "@3d-maker-suite/db";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
-import { type CatalogType, catalogEntries, importCatalog } from "../integrations/catalogImport.ts";
-import { importPresets, presetStatus, profileIndex } from "../integrations/imports.ts";
+import { createReview, type Stored } from "../import/review.ts";
 import { openUpload, unpackSlicerZip } from "../integrations/slicerZip.ts";
+import { libraryRows } from "../integrations/sourceRows.ts";
 import type { Syncer } from "../integrations/sync.ts";
 
 const MAX_UPLOAD = 100 * 1024 ** 2;
@@ -27,11 +24,12 @@ const params = z.object({ id: z.uuid(), type: z.enum(SLICER_ZIP_TYPES) });
 const errors = { 400: apiErrorSchema, 404: apiErrorSchema };
 
 // A slicer's config folder uploaded as a zip, for a server that has no slicer installed: it is
-// unpacked and read by the same readers as the local folder, then previewed and imported per type.
+// unpacked and read by the same readers as the local folder, then reviewed per type like any import.
 export const slicerZipRoutes =
   (db: Db, syncer: Syncer, dataDir: string): FastifyPluginAsyncZod =>
   async (app) => {
     const base = join(dataDir, FOLDER);
+    const review = createReview(db, dataDir);
     const libraries = new Map<string, FilamentLibrary>(
       syncer.adapters.flatMap((a) =>
         a.library?.readCatalog && a.library.folders ? [[a.library.id, a.library] as const] : [],
@@ -78,62 +76,23 @@ export const slicerZipRoutes =
       },
     );
 
-    app.get(
-      "/:id/:type",
-      { schema: { params, response: { 200: catalogPreviewSchema, ...errors } } },
-      async (req): Promise<CatalogPreview> => {
-        const { root, source } = openUpload(base, req.params.id);
-        const lib = libraryOf(source);
-        if (req.params.type !== "filamentProfiles") {
-          const entries = await catalogEntries(db, lib, root, req.params.type as CatalogType, "");
-          return { dir: "", items: entries.map(({ apply: _apply, ...item }) => item) };
-        }
-        const idx = profileIndex(db);
-        const presets = await lib.read(root, { includeSystem: true });
-        return {
-          dir: "",
-          items: presets.map((p) => ({
-            key: p.presetId,
-            kind: "filamentProfile",
-            label: `${p.brand} ${p.name}`.trim(),
-            // A hand-made twin is skipped on import, so it counts as there already.
-            status: ((s) => (s === "duplicate" ? "imported" : s))(presetStatus(idx, lib.id, p)),
-          })),
-        };
-      },
-    );
-
+    // The rows one type of the zip offers, kept for `POST /api/import/:entity/apply`.
     app.post(
-      "/:id/:type/import",
-      {
-        schema: {
-          params,
-          body: catalogImportSchema,
-          response: { 200: libraryImportResultSchema, ...errors },
-        },
-      },
-      // Re-read from the folder, so the preview is only a selection.
+      "/:id/:type",
+      { schema: { params, response: { 200: importPreviewSchema, ...errors } } },
       async (req) => {
-        const { root, source } = openUpload(base, req.params.id);
-        const lib = libraryOf(source);
-        const picked = new Set(req.body.keys);
-        if (req.params.type === "filamentProfiles")
-          return {
-            created: importPresets(
-              db,
-              lib.id,
-              await lib.read(root, { includeSystem: true }),
-              picked,
-            ).created,
-          };
-        const entries = await catalogEntries(
-          db,
-          lib,
-          root,
-          req.params.type as CatalogType,
-          dataDir,
-        );
-        return { created: importCatalog(db, entries, picked).created };
+        const { id, type } = req.params;
+        const { root, source } = openUpload(base, id);
+        const stored: Stored = {
+          entity: type,
+          ignoredHeaders: [],
+          from: { kind: "zip" },
+          rows: await libraryRows(db, libraryOf(source), root, type, {
+            includeSystem: true,
+            dataDir,
+          }),
+        };
+        return { uploadId: review.save(stored), ...review.preview(stored) };
       },
     );
   };

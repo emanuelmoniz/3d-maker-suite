@@ -7,6 +7,8 @@ import {
 } from "../schemas/import.ts";
 import {
   applyBulk,
+  autoDecisions,
+  autoOf,
   type BULK_ACTIONS,
   diffValues,
   headerKeys,
@@ -16,6 +18,7 @@ import {
   parseRow,
   suggest,
 } from "./import.ts";
+import { matchRowsOn } from "./importMatch.ts";
 
 const columns = IMPORT_COLUMNS.spools;
 const col = (key: string) => columns.find((c) => c.key === key) as ImportColumn;
@@ -188,4 +191,68 @@ describe("applyBulk", () => {
     expect(applyBulk(rows, picked, "allNew")[5]).toMatchObject({ targetId: "c" });
     expect(applyBulk(rows, picked, "reset")).toEqual({});
   });
+});
+
+describe("auto mode", () => {
+  const facts = { linked: false, held: false, optional: false };
+
+  it("takes a new row and a changed one from the same source; the rest waits", () => {
+    expect(autoOf({ ...facts, status: "new" })).toBe("apply");
+    expect(autoOf({ ...facts, status: "changed", linked: true })).toBe("apply");
+    // Matched to a row made by hand: a person decides.
+    expect(autoOf({ ...facts, status: "changed" })).toBe("wait");
+    expect(autoOf({ ...facts, status: "ambiguous" })).toBe("wait");
+    // It would add a brand, or no single profile fits.
+    expect(autoOf({ ...facts, status: "new", held: true })).toBe("wait");
+  });
+
+  it("has nothing to do with identical, invalid or only-offered rows", () => {
+    expect(autoOf({ ...facts, status: "identical", linked: true })).toBeUndefined();
+    expect(autoOf({ ...facts, status: "invalid" })).toBeUndefined();
+    expect(autoOf({ ...facts, status: "new", optional: true })).toBeUndefined();
+  });
+
+  it("decides only the rows to apply, with their suggestion", () => {
+    const row = (over: Partial<ImportPreviewRow>): ImportPreviewRow => ({
+      row: 2,
+      values: {},
+      status: "new",
+      errors: [],
+      targetId: null,
+      candidates: [],
+      action: "create",
+      auto: "apply",
+      ...over,
+    });
+    expect(
+      autoDecisions([
+        row({ refs: { profile: "p1" } }),
+        row({ row: 3, status: "changed", action: "update", targetId: "t1" }),
+        row({ row: 4, auto: "wait" }),
+        row({ row: 5, auto: undefined }),
+      ]),
+    ).toEqual([
+      { row: 2, action: "create", targetId: undefined, refs: { profile: "p1" } },
+      { row: 3, action: "update", targetId: "t1", refs: {} },
+    ]);
+  });
+});
+
+it("matchRowsOn fits rows on the named columns, ignoring case", () => {
+  const targets = [
+    { id: "a", label: "a", values: { brand: "Acme", model: "X" } },
+    { id: "b", label: "b", values: { brand: "Acme", model: "Y" } },
+  ];
+  expect(
+    matchRowsOn("brand", "model")(
+      [
+        { brand: "ACME", model: "x" },
+        { brand: "Acme", model: "Z" },
+      ],
+      targets,
+    ),
+  ).toEqual([
+    { candidates: ["a"], targetId: "a" },
+    { candidates: [], targetId: null },
+  ]);
 });

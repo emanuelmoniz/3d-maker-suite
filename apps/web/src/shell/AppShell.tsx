@@ -5,7 +5,14 @@ import { useTranslation } from "react-i18next";
 import { unreadCount, useAlerts } from "../lib/alerts.ts";
 import { useApplyBranding, useAppName, useBrandingUrl } from "../lib/branding.ts";
 import { cx } from "../lib/cx.ts";
-import { ALL_ITEMS, IMPORT_ITEM, INTEGRATIONS_ITEM, NAV_GROUPS, type NavItem, SETTINGS_ITEM } from "./nav.ts";
+import {
+  ALL_ITEMS,
+  IMPORT_ITEM,
+  INTEGRATIONS_ITEM,
+  NAV_GROUPS,
+  type NavItem,
+  SETTINGS_ITEM,
+} from "./nav.ts";
 import { ThemeToggle } from "./ThemeToggle.tsx";
 
 const linkClass =

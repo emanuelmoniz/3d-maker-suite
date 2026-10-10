@@ -104,11 +104,7 @@ export function FilamentPage() {
           <div className="flex items-center justify-between gap-3">
             <h2 className="text-base font-semibold">{t("filament:spools.title")}</h2>
             <span className="flex gap-2">
-              <ImportLinks
-                to="/filament/spools/import/$id"
-                cap="spools"
-                text="filament:spoolImport.link"
-              />
+              <ImportLinks cap="spools" text="filament:spoolImport.link" />
               <AddLink to="/filament/spools/new">{t("filament:spools.add")}</AddLink>
             </span>
           </div>
@@ -211,11 +207,7 @@ export function FilamentPage() {
           <div className="flex items-center justify-between gap-3">
             <h2 className="text-base font-semibold">{t("filament:profiles.title")}</h2>
             <span className="flex gap-2">
-              <ImportLinks
-                to="/filament/import/$id"
-                cap="filamentProfiles"
-                text="filament:library.link"
-              />
+              <ImportLinks cap="filamentProfiles" text="filament:library.link" />
               <AddLink to="/filament/profiles/new">{t("filament:profiles.add")}</AddLink>
             </span>
           </div>

@@ -184,34 +184,7 @@
       "printerModels": "Import models from {{name}}",
       "machineProfiles": "Import machine profiles from {{name}}",
       "filamentBrands": "Import brands and materials from {{name}}"
-    },
-    "description": "Review what your slicer offers, pick the rows you want, then import them. Rows you already have are left alone; changed presets are updated, or archived and re-added when prints use them.",
-    "reading": "Reading from {{dir}}",
-    "notFound": "Couldn't read this integration's slicer folder. Check its config folder in Integrations.",
-    "openIntegrations": "Open integrations",
-    "emptyTitle": "Nothing found",
-    "emptyBody": "The slicer folder has nothing of this type.",
-    "table": "Rows to import",
-    "pick": "Import {{name}}",
-    "name": "Name",
-    "kind": "Kind",
-    "status": "Status",
-    "kinds": {
-      "brand": "Printer brand",
-      "model": "Printer model",
-      "machine": "Machine profile",
-      "filamentBrand": "Filament brand",
-      "material": "Material",
-      "filamentProfile": "Filament profile"
-    },
-    "statuses": {
-      "new": "New",
-      "imported": "Already in your catalog",
-      "changed": "Changed in the slicer"
-    },
-    "import_one": "Import {{count}} row",
-    "import_other": "Import {{count}} rows",
-    "error": "Couldn't import."
+    }
   },
   "printersImport": {
     "link": "Import printers from {{name}}"

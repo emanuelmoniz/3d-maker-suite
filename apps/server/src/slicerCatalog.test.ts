@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { fixture, mockAdapter } from "@3d-maker-suite/adapter-mock";
 import type {
   FilamentLibrary,
+  ImportPreview,
   IntegrationAdapter,
   LibraryPreset,
   SlicerCatalog,
@@ -11,6 +12,7 @@ import type {
 import { openDb, schema } from "@3d-maker-suite/db";
 import { beforeEach, describe, expect, it } from "vitest";
 import { buildApp } from "./app.ts";
+import { reviewer } from "./testReview.ts";
 
 // A slicer with a mutable catalog and presets, to change "in the slicer" between imports.
 const state: { catalog: SlicerCatalog; presets: LibraryPreset[] } = {
@@ -83,26 +85,22 @@ beforeEach(async () => {
   ).json().id;
 });
 
-const preview = async (type: string) =>
-  (await app.inject(`/api/slicer-catalog/${id}/${type}`)).json().items as {
-    key: string;
-    label: string;
-    status: string;
-  }[];
+const review = reviewer(() => app);
+const open = async (type: string) =>
+  (await review.open(`/api/import/integration/${id}/${type}`)).json() as ImportPreview;
 const run = async (type: string) =>
   (
     await app.inject({ method: "POST", url: `/api/integrations/${id}/sync`, payload: { type } })
   ).json();
 
 describe("slicer catalog import", () => {
-  it("previews, imports the picked rows, and a re-import adds nothing", async () => {
-    expect((await preview("brands")).map((i) => `${i.label}:${i.status}`)).toEqual(["Acme:new"]);
-    const imp = await app.inject({
-      method: "POST",
-      url: `/api/slicer-catalog/${id}/brands/import`,
-      payload: { keys: ["acme"] },
-    });
-    expect(imp.json()).toEqual({ created: 1 });
+  it("reviews, imports the confirmed rows, and a re-import adds nothing", async () => {
+    const brands = await open("brands");
+    expect(brands.rows.map((r) => `${r.values.name}:${r.status}`)).toEqual(["Acme:new"]);
+    expect((await review.confirm(brands)).json()).toMatchObject({ created: 1, updated: 0 });
+    expect(db.select().from(schema.importRuns).all()).toMatchObject([
+      { source: "integration", type: "brands", created: 1 },
+    ]);
 
     // Models and machine profiles find the brand, and the thumbnail is copied once.
     expect((await run("printerModels")).created).toBe(1);
@@ -126,7 +124,10 @@ describe("slicer catalog import", () => {
     expect(first?.sourcePreset).toBe("fake:system/Acme X 0.4");
 
     state.catalog.machines = [machine(0.6, "Acme X 0.6")];
-    expect((await preview("machineProfiles"))[0]?.status).toBe("changed");
+    expect((await open("machineProfiles")).rows[0]).toMatchObject({
+      status: "changed",
+      auto: "apply",
+    });
     await run("machineProfiles");
     expect(db.select().from(schema.machineProfiles).all()).toMatchObject([
       { id: first?.id, name: "Acme X 0.6", nozzleDiameterMm: 0.6, archivedAt: null },
@@ -166,32 +167,27 @@ describe("slicer catalog import", () => {
 
   it("a changed filament preset follows the same rule, keeping a price the preset doesn't give", async () => {
     await run("filamentBrands");
-    const imp = (ids: string[]) =>
-      app.inject({
-        method: "POST",
-        url: `/api/filament/library/${id}/import`,
-        payload: { presetIds: ids },
-      });
-    await imp(["user/A"]);
+    // Confirms what the review suggests for the one preset.
+    const imp = async () => review.confirm(await open("filamentProfiles"));
+    await imp();
     const first = db.select().from(schema.filamentProfiles).get();
     db.update(schema.filamentProfiles).set({ pricePerKg: 3500 }).run(); // entered by hand
 
     state.presets = [preset({ nozzleTempC: 230, pricePerKg: null })];
-    const status = async () =>
-      (await app.inject(`/api/filament/library/${id}/preview`)).json().items[0].status;
+    const status = async () => (await open("filamentProfiles")).rows[0]?.status;
     expect(await status()).toBe("changed");
-    await imp(["user/A"]);
+    expect((await imp()).json()).toMatchObject({ created: 0, updated: 1 });
     expect(db.select().from(schema.filamentProfiles).all()).toMatchObject([
       { id: first?.id, nozzleTempC: 230, pricePerKg: 3500, archivedAt: null },
     ]);
-    expect(await status()).toBe("imported");
+    expect(await status()).toBe("identical");
 
     // A spool uses it: the next change archives it and adds a new version.
     db.insert(schema.spools)
       .values({ profileId: first?.id ?? "", initialGrams: 1000, remainingGrams: 1000 })
       .run();
     state.presets = [preset({ nozzleTempC: 240, pricePerKg: null })];
-    await imp(["user/A"]);
+    await imp();
     const rows = db.select().from(schema.filamentProfiles).all();
     expect(rows).toHaveLength(2);
     expect(rows.find((r) => r.id === first?.id)).toMatchObject({ nozzleTempC: 230 });

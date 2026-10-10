@@ -40,7 +40,7 @@
   },
   "history": {
     "title": "Import history",
-    "run": "{{date}} � {{type}} � {{file}}: {{created}} created, {{updated}} updated, {{skipped}} skipped, {{invalid}} invalid",
+    "run": "{{date}} · {{type}} · {{file}}: {{created}} created, {{updated}} updated, {{skipped}} skipped, {{invalid}} invalid",
     "backup": "backup {{name}}",
     "sources": { "file": "file", "zip": "zip", "integration": "integration" }
   },
@@ -136,7 +136,9 @@
     "confirmTitle_one": "Import {{count, number}} row?",
     "confirmTitle_other": "Import {{count, number}} rows?",
     "confirmBody": "A backup is taken first. If any row fails, nothing is imported.",
-    "error": "Couldn't import, so nothing was changed. Upload the file again and retry."
+    "error": "Couldn't import, so nothing was changed. Upload the file again and retry.",
+    "refFor": "{{column}} for row {{row}}",
+    "needsRef": "Pick one you have"
   },
   "done": {
     "summary": "Import finished: {{created, number}} created, {{updated, number}} updated.",
@@ -170,6 +172,59 @@
       "filament": "Filament",
       "grams": "Filament used (g)"
     }
+  },
+  "filamentProfiles": {
+    "columns": {
+      "brand": "Brand",
+      "material": "Material",
+      "name": "Name",
+      "diameterMm": "Diameter (mm)",
+      "densityGcm3": "Density (g/cm³)",
+      "pricePerKg": "Price per kg",
+      "nozzleTempC": "Nozzle (°C)",
+      "bedTempC": "Bed (°C)"
+    }
+  },
+  "brands": {
+    "columns": {
+      "name": "Brand"
+    }
+  },
+  "printerModels": {
+    "columns": {
+      "brand": "Brand",
+      "model": "Model",
+      "thumbnail": "Picture"
+    }
+  },
+  "machineProfiles": {
+    "columns": {
+      "brand": "Brand",
+      "model": "Model",
+      "name": "Name",
+      "nozzleDiameterMm": "Nozzle (mm)"
+    }
+  },
+  "filamentBrands": {
+    "columns": {
+      "kind": "Kind",
+      "name": "Name"
+    }
+  },
+  "options": {
+    "brand": "Brand",
+    "material": "Material",
+    "yes": "Yes"
+  },
+  "source": {
+    "description": "Review what this source offers. Nothing is saved until you confirm.",
+    "reading": "Reading from {{dir}}",
+    "loading": "Reading…",
+    "includeSystem": "Include the slicer's built-in presets",
+    "error": "Couldn't read this from the integration. Check that it is connected and set up in Integrations.",
+    "openIntegrations": "Open integrations",
+    "emptyTitle": "Nothing found",
+    "emptyBody": "The source has nothing of this type, or nothing you don't already have."
   },
   "zip": {
     "link": "Import a slicer catalog from a zip",

@@ -71,18 +71,14 @@ export const profileColumns = {
   material: profileMaterial,
 };
 
-/**
- * Finds the active profile with that brand, material and name (case-insensitive) or creates it,
- * along with a brand or material you don't have yet. A new profile takes its material's density.
- */
-export function filamentProfileIdFor(
+/** The active profile with that brand, material and name (case-insensitive), if there is one. */
+export const findFilamentProfile = (
   db: Db,
-  p: { brand: string; material: string; name: string },
-): string {
-  const brandId = filamentBrandIdFor(db, p.brand);
-  const materialId = filamentMaterialIdFor(db, p.material);
-  const name = p.name.trim();
-  const found = db
+  brandId: string | null,
+  materialId: string,
+  name: string,
+) =>
+  db
     .select({ id: filamentProfiles.id })
     .from(filamentProfiles)
     .where(
@@ -94,6 +90,19 @@ export function filamentProfileIdFor(
       ),
     )
     .get();
+
+/**
+ * Finds the active profile with that brand, material and name (case-insensitive) or creates it,
+ * along with a brand or material you don't have yet. A new profile takes its material's density.
+ */
+export function filamentProfileIdFor(
+  db: Db,
+  p: { brand: string; material: string; name: string },
+): string {
+  const brandId = filamentBrandIdFor(db, p.brand);
+  const materialId = filamentMaterialIdFor(db, p.material);
+  const name = p.name.trim();
+  const found = findFilamentProfile(db, brandId, materialId, name);
   if (found) return found.id;
   const material = db
     .select({ density: filamentMaterials.densityGcm3 })

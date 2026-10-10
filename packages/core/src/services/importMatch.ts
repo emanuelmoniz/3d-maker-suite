@@ -51,6 +51,15 @@ export function matchPrinterRows(rows: ImportValues[], printers: ImportTarget[])
   );
 }
 
+/** Rows fit a target when these columns hold the same names (a brand, a brand + model, ...). */
+export const matchRowsOn =
+  (...keys: string[]) =>
+  (rows: ImportValues[], targets: ImportTarget[]): ImportMatch[] => {
+    const key = (v: ImportValues) => keys.map((k) => lower(v[k])).join("|");
+    const byName = byKey(targets, (t) => key(t.values));
+    return singleFits(rows.map((r) => (byName.get(key(r)) ?? []).map((t) => t.id)));
+  };
+
 const printKey = (v: ImportValues) => `${lower(v.printer)}|${v.startedAt ?? ""}|${lower(v.title)}`;
 
 /** A print fits on its printer, its start time and its title. */

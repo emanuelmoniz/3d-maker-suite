@@ -8,14 +8,6 @@ import {
   filamentProfileSchema,
   filamentProfileSortFields,
   idList,
-  type LibraryPreview,
-  type LibrarySpoolPreview,
-  libraryImportResultSchema,
-  libraryImportSchema,
-  libraryPreviewSchema,
-  libraryQuerySchema,
-  librarySpoolImportSchema,
-  librarySpoolPreviewSchema,
   listQuery,
   type Page,
   pageOf,
@@ -34,14 +26,6 @@ import { desc, eq, isNotNull, isNull, sql } from "drizzle-orm";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
-import {
-  importedSpools,
-  presetStatus,
-  profileIndex,
-  readLibrary,
-  spoolProfiles,
-} from "../integrations/imports.ts";
-import type { Syncer } from "../integrations/sync.ts";
 import { profileBrand, profileColumns, profileMaterial } from "../lib/catalog.ts";
 import { inIds, listPage, taggedWith } from "../lib/list.ts";
 import { createSpool, setRemaining } from "../lib/spools.ts";
@@ -56,13 +40,8 @@ const archivedAt = (archived?: boolean) =>
   archived === undefined ? undefined : archived ? new Date().toISOString() : null;
 
 export const filamentRoutes =
-  (db: Db, syncer: Syncer): FastifyPluginAsyncZod =>
+  (db: Db): FastifyPluginAsyncZod =>
   async (app) => {
-    /** A confirmed preview is a manual run of that type: logged, and its vendor failure a 502. */
-    const imported = (run: Awaited<ReturnType<Syncer["run"]>>) => {
-      if (run.errorCode) throw new HttpError(502, run.errorCode, "Couldn't import");
-      return { created: run.created };
-    };
     const getProfile = (id: string) => {
       const row = db
         .select(profileColumns)
@@ -157,100 +136,6 @@ export const filamentRoutes =
           .where(eq(filamentProfiles.id, req.params.id))
           .run();
         return getProfile(req.params.id) as FilamentProfile;
-      },
-    );
-
-    // --- Slicer libraries: an integration's slicer presets, preview, then import the picked ones.
-
-    app.get(
-      "/library/:id/preview",
-      {
-        schema: {
-          params,
-          querystring: libraryQuerySchema,
-          response: { 200: libraryPreviewSchema, ...notFound },
-        },
-      },
-      async (req): Promise<LibraryPreview> => {
-        const { lib, dir, presets } = await readLibrary(
-          db,
-          syncer.adapters,
-          req.params.id,
-          req.query.includeSystem === "true",
-        );
-        const idx = profileIndex(db);
-        return {
-          dir,
-          items: presets.map((p) => ({ ...p, status: presetStatus(idx, lib.id, p) })),
-        };
-      },
-    );
-
-    app.post(
-      "/library/:id/import",
-      {
-        schema: {
-          params,
-          body: libraryImportSchema,
-          response: { 200: libraryImportResultSchema, ...notFound },
-        },
-      },
-      // The presets are re-read instead of trusting the client, so the preview is only a selection.
-      async (req) =>
-        imported(
-          await syncer.run(
-            req.params.id,
-            "manual",
-            { type: "filamentProfiles" },
-            {
-              presets: {
-                ids: new Set(req.body.presetIds),
-                includeSystem: req.body.includeSystem,
-              },
-            },
-          ),
-        ),
-    );
-
-    // Spools from an integration's inventory (Bambu Cloud's filament manager), read live.
-    // `spoolId` is already `<adapterId>:<id>`.
-
-    app.get(
-      "/inventory/:id",
-      { schema: { params, response: { 200: librarySpoolPreviewSchema, ...notFound } } },
-      async (req): Promise<LibrarySpoolPreview> => {
-        const items = await syncer.listSpools(req.params.id);
-        const have = importedSpools(db);
-        // Suggest the first profile the spool could go on. The user can change it.
-        const profilesFor = spoolProfiles(db);
-        return {
-          items: items.map((s) => ({
-            ...s,
-            imported: have.has(s.spoolId),
-            profileId: profilesFor(s)[0]?.id ?? null,
-          })),
-        };
-      },
-    );
-
-    app.post(
-      "/inventory/:id/import",
-      {
-        schema: {
-          params,
-          body: librarySpoolImportSchema,
-          response: { 200: libraryImportResultSchema, ...notFound },
-        },
-      },
-      async (req) => {
-        // spoolId -> the profile the user picked for it. Import never creates profiles.
-        const picked = new Map(req.body.spools.map((p) => [p.spoolId, p.profileId]));
-        for (const profileId of new Set(picked.values()))
-          if (getProfile(profileId).archivedAt)
-            throw new HttpError(400, "profile_archived", "Filament profile is archived");
-        return imported(
-          await syncer.run(req.params.id, "manual", { type: "spools" }, { spools: picked }),
-        );
       },
     );
 

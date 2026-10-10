@@ -98,14 +98,7 @@ export function Catalog() {
         kind="brands"
         title={t("printers:catalog.brands.title")}
         add={{ to: "/printers/brands/new", label: t("printers:catalog.brands.add") }}
-        extra={
-          <ImportLinks
-            to="/catalog-import/$id/$type"
-            cap="brands"
-            params={{ type: "brands" }}
-            text="integrations:catalogImport.link.brands"
-          />
-        }
+        extra={<ImportLinks cap="brands" text="integrations:catalogImport.link.brands" />}
         filters={brandFilters}
         columns={[
           {
@@ -142,12 +135,7 @@ export function Catalog() {
         title={t("printers:catalog.models.title")}
         add={{ to: "/printers/models/new", label: t("printers:catalog.models.add") }}
         extra={
-          <ImportLinks
-            to="/catalog-import/$id/$type"
-            cap="printerModels"
-            params={{ type: "printerModels" }}
-            text="integrations:catalogImport.link.printerModels"
-          />
+          <ImportLinks cap="printerModels" text="integrations:catalogImport.link.printerModels" />
         }
         filters={printerModelFilters}
         columns={[
@@ -190,9 +178,7 @@ export function Catalog() {
         add={{ to: "/printers/profiles/new", label: t("printers:catalog.profiles.add") }}
         extra={
           <ImportLinks
-            to="/catalog-import/$id/$type"
             cap="machineProfiles"
-            params={{ type: "machineProfiles" }}
             text="integrations:catalogImport.link.machineProfiles"
           />
         }

@@ -19,12 +19,7 @@ export function FilamentCatalog() {
         title={t("filament:catalog.brands.title")}
         add={{ to: "/filament/brands/new", label: t("filament:catalog.brands.add") }}
         extra={
-          <ImportLinks
-            to="/catalog-import/$id/$type"
-            cap="filamentBrands"
-            params={{ type: "filamentBrands" }}
-            text="integrations:catalogImport.link.filamentBrands"
-          />
+          <ImportLinks cap="filamentBrands" text="integrations:catalogImport.link.filamentBrands" />
         }
         filters={filamentCatalogFilters}
         columns={[

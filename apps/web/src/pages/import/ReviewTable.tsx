@@ -9,7 +9,6 @@ import {
   type ImportCell,
   type ImportColumn,
   type ImportDecision,
-  type ImportEntity,
   type ImportErrorCode,
   type ImportPreview,
   type ImportPreviewRow,
@@ -20,6 +19,7 @@ import {
   MERGE_POLICIES,
   type MergePolicy,
   mergeValues,
+  type ReviewEntity,
   suggested,
 } from "@3d-maker-suite/core";
 import { FileSpreadsheet } from "lucide-react";
@@ -78,6 +78,12 @@ const MISSING: Record<string, string> = {
   brands: "import:missing.brands",
   printerModels: "import:missing.printerModels",
 };
+// Values of the columns that aren't typed by the user but named by the app.
+const OPTIONS: Record<string, string> = {
+  brand: "import:options.brand",
+  material: "import:options.material",
+  yes: "import:options.yes",
+};
 const SCOPES = ["all", "selected", "filtered"] as const;
 const SCOPE_LABELS: Record<(typeof SCOPES)[number], string> = {
   all: "import:scopes.all",
@@ -86,7 +92,7 @@ const SCOPE_LABELS: Record<(typeof SCOPES)[number], string> = {
 };
 
 /** What tells two rows with the same name apart in the target picker. */
-const TARGET_DETAILS: Record<ImportEntity, (v: ImportValues) => ImportCell[]> = {
+const TARGET_DETAILS: Partial<Record<ReviewEntity, (v: ImportValues) => ImportCell[]>> = {
   spools: (v) => [
     v.colorHex ?? null,
     typeof v.remainingGrams === "number" ? formatWeight(v.remainingGrams) : null,
@@ -109,7 +115,7 @@ export function ReviewTable({
   onDone,
   onCancel,
 }: {
-  entity: ImportEntity;
+  entity: ReviewEntity;
   preview: ImportPreview;
   onDone: (result: ImportResult) => void;
   onCancel: () => void;
@@ -155,9 +161,14 @@ export function ReviewTable({
     const id = decisionOf(r).targetId;
     pickedCount.set(id, (pickedCount.get(id) ?? 0) + 1);
   }
-  // An update needs a row to go to, and two file rows can't go to the same one.
+  // References the user picks (a spool's filament profile) instead of having them created.
+  const picked = Object.keys(preview.refOptions ?? {});
+  // An update needs a row to go to, and two file rows can't go to the same one; a new row needs
+  // its picks.
   const problem = (r: ImportPreviewRow) => {
     const d = decisionOf(r);
+    if (d.action === "create")
+      return picked.some((k) => !d.refs?.[k]) ? t("import:review.needsRef") : null;
     if (d.action !== "update") return null;
     if (!d.targetId) return t("import:review.needsTarget");
     return (pickedCount.get(d.targetId) ?? 0) > 1 ? t("import:review.duplicateTarget") : null;
@@ -183,10 +194,11 @@ export function ReviewTable({
     if (c.type === "money") return money(Number(v));
     if (c.type === "date") return formatDate(`${v}T12:00:00Z`);
     if (c.type === "datetime") return formatDateTime(String(v));
+    if (c.type === "enum" && OPTIONS[String(v)]) return t(OPTIONS[String(v)] ?? "");
     return typeof v === "number" ? formatNumber(v) : v;
   };
   const targetLabel = (x: ImportTarget) =>
-    [x.label, ...TARGET_DETAILS[entity](x.values)].filter(Boolean).join(" · ");
+    [x.label, ...(TARGET_DETAILS[entity]?.(x.values) ?? [])].filter(Boolean).join(" · ");
 
   const table: Column<ImportPreviewRow>[] = [
     {
@@ -311,6 +323,32 @@ export function ReviewTable({
           const d = decisionOf(r);
           const target = d.action === "update" ? targets.get(d.targetId ?? "") : undefined;
           const value = format(c, r.values[c.key]);
+          const options = preview.refOptions?.[c.key];
+          if (options && d.action === "create")
+            return (
+              <span className="flex items-center gap-2">
+                {value}
+                <select
+                  aria-label={t("import:review.refFor", { column: t(c.label), row: r.row })}
+                  aria-invalid={d.refs?.[c.key] ? undefined : true}
+                  className={`${selectClass} max-w-72`}
+                  value={d.refs?.[c.key] ?? ""}
+                  onChange={(e) =>
+                    decide(r, { refs: { ...d.refs, [c.key]: e.target.value || null } })
+                  }
+                >
+                  <option value="">{t("import:review.pickTarget")}</option>
+                  {options.map((o) => (
+                    <option key={o.id} value={o.id}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+                {!d.refs?.[c.key] && (
+                  <span className="text-bad">{t("import:review.needsRef")}</span>
+                )}
+              </span>
+            );
           if (!target) return value;
           // What this update writes: the old value struck out, the new one next to it.
           const writes = mergeValues(columns, d.policy ?? policy, r.values, target.values);
@@ -513,6 +551,10 @@ export function ReviewTable({
                         action: d.action,
                         targetId: d.action === "update" ? (d.targetId ?? undefined) : undefined,
                         policy: d.policy,
+                        refs:
+                          d.action === "create" && picked.length
+                            ? Object.fromEntries(picked.map((k) => [k, d.refs?.[k] ?? ""]))
+                            : undefined,
                       },
                     ];
               }),
