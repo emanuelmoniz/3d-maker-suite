@@ -7,6 +7,7 @@ import {
   House,
   Layers,
   type LucideIcon,
+  Plug,
   Printer,
   Settings,
   Spool,
@@ -112,6 +113,13 @@ export const IMPORT_ITEM: NavItem = {
   description: "nav:items.import.description",
 };
 
+export const INTEGRATIONS_ITEM: NavItem = {
+  to: "/integrations",
+  icon: Plug,
+  label: "nav:items.integrations.label",
+  description: "nav:items.integrations.description",
+};
+
 export const SETTINGS_ITEM: NavItem = {
   to: "/settings",
   icon: Settings,
@@ -119,4 +127,4 @@ export const SETTINGS_ITEM: NavItem = {
   description: "nav:items.settings.description",
 };
 
-export const ALL_ITEMS = [...NAV_GROUPS.flatMap((g) => g.items), IMPORT_ITEM, SETTINGS_ITEM];
+export const ALL_ITEMS = [...NAV_GROUPS.flatMap((g) => g.items), IMPORT_ITEM, INTEGRATIONS_ITEM, SETTINGS_ITEM];

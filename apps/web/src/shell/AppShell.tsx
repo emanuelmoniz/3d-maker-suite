@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 import { unreadCount, useAlerts } from "../lib/alerts.ts";
 import { useApplyBranding, useAppName, useBrandingUrl } from "../lib/branding.ts";
 import { cx } from "../lib/cx.ts";
-import { ALL_ITEMS, IMPORT_ITEM, NAV_GROUPS, type NavItem, SETTINGS_ITEM } from "./nav.ts";
+import { ALL_ITEMS, IMPORT_ITEM, INTEGRATIONS_ITEM, NAV_GROUPS, type NavItem, SETTINGS_ITEM } from "./nav.ts";
 import { ThemeToggle } from "./ThemeToggle.tsx";
 
 const linkClass =
@@ -83,6 +83,7 @@ function Sidebar() {
       </nav>
       <div className="flex flex-col gap-2 border-t border-border p-2">
         <SideLink item={IMPORT_ITEM} />
+        <SideLink item={INTEGRATIONS_ITEM} />
         <SideLink item={SETTINGS_ITEM} />
         <ThemeToggle className="flex-col lg:flex-row" />
       </div>

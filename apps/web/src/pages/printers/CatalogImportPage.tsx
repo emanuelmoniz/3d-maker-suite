@@ -70,7 +70,7 @@ export function CatalogImportPage({ zip = false }: { zip?: boolean }) {
           <p role="alert" className="text-bad">
             {t(zip ? "import:zip.expired" : "integrations:catalogImport.notFound")}{" "}
             <Link
-              to={zip ? "/import/slicer-zip" : "/settings/integrations"}
+              to={zip ? "/import/slicer-zip" : "/integrations"}
               className="font-medium underline"
             >
               {t(zip ? "import:zip.again" : "integrations:catalogImport.openIntegrations")}

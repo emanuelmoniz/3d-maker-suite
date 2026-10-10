@@ -58,7 +58,7 @@ export const ROUTES = [
   "/alerts",
   "/import",
   "/settings",
-  "/settings/integrations",
+  "/integrations",
 ];
 
 export const hasHorizontalScroll = (page: Page) =>

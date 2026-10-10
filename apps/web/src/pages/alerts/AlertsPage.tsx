@@ -40,7 +40,7 @@ function Title({ a }: { a: Alert }) {
       );
     case "sync_failed":
       return (
-        <Link to="/settings/integrations" className={link}>
+        <Link to="/integrations" className={link}>
           {t("alerts:kinds.sync_failed", {
             // Alerts from before integrations lost their name still carry `name`.
             name: c.name ?? (c.adapterId ? adapterName(String(c.adapterId)) : ""),

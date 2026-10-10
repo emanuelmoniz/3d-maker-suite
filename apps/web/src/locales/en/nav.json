@@ -18,6 +18,7 @@
     "stats": { "label": "Stats", "description": "Trends in time, material and spend." },
     "alerts": { "label": "Alerts", "description": "Things that need your attention." },
     "import": { "label": "Import", "description": "Bring data in from spreadsheets." },
+    "integrations": { "label": "Integrations", "description": "Connect vendor accounts and sync." },
     "settings": { "label": "Settings", "description": "Language, theme, units and costs." }
   }
 }

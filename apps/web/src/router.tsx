@@ -43,7 +43,7 @@ import { IntegrationLoginPage } from "./pages/settings/IntegrationLoginPage.tsx"
 import { IntegrationsPage } from "./pages/settings/IntegrationsPage.tsx";
 import { StatsPage } from "./pages/stats/StatsPage.tsx";
 import { AppShell } from "./shell/AppShell.tsx";
-import { ALL_ITEMS, IMPORT_ITEM, SETTINGS_ITEM } from "./shell/nav.ts";
+import { ALL_ITEMS, IMPORT_ITEM, INTEGRATIONS_ITEM, SETTINGS_ITEM } from "./shell/nav.ts";
 
 function NotFound() {
   const { t } = useTranslation();
@@ -62,6 +62,7 @@ const root = createRootRoute({ component: AppShell, notFoundComponent: NotFound 
 const built = [
   "/",
   IMPORT_ITEM.to,
+  INTEGRATIONS_ITEM.to,
   SETTINGS_ITEM.to,
   "/printers",
   "/maintenance",
@@ -311,9 +312,9 @@ const routes: AnyRoute[] = [
     component: SettingsPage,
   }),
   ...[
-    ["/settings/integrations", IntegrationsPage],
-    ["/settings/integrations/new", IntegrationCreatePage],
-    ["/settings/integrations/$id/login", IntegrationLoginPage],
+    ["/integrations", IntegrationsPage],
+    ["/integrations/new", IntegrationCreatePage],
+    ["/integrations/$id/login", IntegrationLoginPage],
   ].map(([path, component]) =>
     createRoute({
       getParentRoute: () => root,

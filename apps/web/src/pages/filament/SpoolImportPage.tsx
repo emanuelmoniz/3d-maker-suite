@@ -52,7 +52,7 @@ export function SpoolImportPage() {
         {preview.isError && (
           <p role="alert" className="text-bad">
             {t("filament:spoolImport.loadError", { name })}{" "}
-            <Link to="/settings/integrations" className="font-medium underline">
+            <Link to="/integrations" className="font-medium underline">
               {t("filament:spoolImport.openIntegrations")}
             </Link>
           </p>

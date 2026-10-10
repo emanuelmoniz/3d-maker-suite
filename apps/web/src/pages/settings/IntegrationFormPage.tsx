@@ -57,8 +57,8 @@ export function IntegrationCreatePage() {
       {
         onSuccess: (row) =>
           adapter.login
-            ? navigate({ to: "/settings/integrations/$id/login", params: { id: row.id } })
-            : navigate({ to: "/settings/integrations" }),
+            ? navigate({ to: "/integrations/$id/login", params: { id: row.id } })
+            : navigate({ to: "/integrations" }),
       },
     );
   };
@@ -98,7 +98,7 @@ export function IntegrationCreatePage() {
 
   return (
     <>
-      <PageHeader title={t("integrations:form.title")} backTo={{ to: "/settings/integrations" }} />
+      <PageHeader title={t("integrations:form.title")} backTo={{ to: "/integrations" }} />
       <form onSubmit={onSubmit} className="grid gap-4 sm:max-w-md">
         <FormField label={t("integrations:form.adapter")}>
           {(p) => (

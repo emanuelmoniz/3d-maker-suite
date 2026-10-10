@@ -34,7 +34,7 @@ export function IntegrationLoginPage() {
     login.mutate(body, {
       onSuccess: (r) => {
         if (r.status === "challenge") setChallenge(r.challenge);
-        if (r.status === "ok") navigate({ to: "/settings/integrations" });
+        if (r.status === "ok") navigate({ to: "/integrations" });
       },
       // e.g. the pending step expired: start over.
       onError: () => setChallenge(undefined),
@@ -48,7 +48,7 @@ export function IntegrationLoginPage() {
           name: integration ? adapterName(integration.adapterId) : "",
         })}
         description={challenge ? t(CHALLENGES[challenge]) : undefined}
-        backTo={{ to: "/settings/integrations" }}
+        backTo={{ to: "/integrations" }}
       />
       <form key={challenge ?? "password"} onSubmit={onSubmit} className="grid gap-4 sm:max-w-md">
         {challenge ? (
@@ -109,7 +109,7 @@ export function IntegrationLoginPage() {
           <Button type="submit" variant="primary" disabled={login.isPending}>
             {challenge ? t("integrations:login.verify") : t("integrations:login.submit")}
           </Button>
-          <Button onClick={() => navigate({ to: "/settings/integrations" })}>
+          <Button onClick={() => navigate({ to: "/integrations" })}>
             {t("common:actions.cancel")}
           </Button>
         </div>

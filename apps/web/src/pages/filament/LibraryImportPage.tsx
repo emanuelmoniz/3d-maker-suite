@@ -48,7 +48,7 @@ export function LibraryImportPage() {
         {preview.isError && (
           <p role="alert" className="text-bad">
             {t("filament:library.notFound")}{" "}
-            <Link to="/settings/integrations" className="font-medium underline">
+            <Link to="/integrations" className="font-medium underline">
               {t("filament:library.openIntegrations")}
             </Link>
           </p>

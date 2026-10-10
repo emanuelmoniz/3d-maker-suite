@@ -1,6 +1,4 @@
 import type { Preferences } from "@3d-maker-suite/core";
-import { Link } from "@tanstack/react-router";
-import { Plug } from "lucide-react";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { FormField, inputClass } from "../components/FormField.tsx";
@@ -283,17 +281,6 @@ export function SettingsPage() {
           >
             {(p) => <input {...p} className={inputClass} {...num("viewerMaxMb")} />}
           </FormField>
-        </Section>
-
-        <Section title={t("settings:sections.integrations")}>
-          <p className="text-muted">{t("settings:integrations.body")}</p>
-          <Link
-            to="/settings/integrations"
-            className="inline-flex items-center gap-2 font-medium text-accent hover:underline"
-          >
-            <Plug className="size-4" aria-hidden />
-            {t("settings:integrations.manage")}
-          </Link>
         </Section>
 
         <Section title={t("settings:sections.alerts")}>

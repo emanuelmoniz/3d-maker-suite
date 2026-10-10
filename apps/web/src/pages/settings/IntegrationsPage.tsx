@@ -139,7 +139,7 @@ export function IntegrationsPage() {
   const { data, isError } = useIntegrations();
   const canAdd = !!useAdapters().data?.length;
   const add = canAdd && (
-    <Link to="/settings/integrations/new" className={addClass}>
+    <Link to="/integrations/new" className={addClass}>
       <Plus className="size-4" aria-hidden />
       {t("integrations:add")}
     </Link>
@@ -255,7 +255,7 @@ function IntegrationCard({ integration: i }: { integration: Integration }) {
           <Button
             variant={i.hasSecrets ? "secondary" : "primary"}
             onClick={() =>
-              navigate({ to: "/settings/integrations/$id/login", params: { id: i.id } })
+              navigate({ to: "/integrations/$id/login", params: { id: i.id } })
             }
           >
             {i.hasSecrets ? t("integrations:card.signInAgain") : t("integrations:card.signIn")}

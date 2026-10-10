@@ -12,7 +12,6 @@
     "printers": "Printers",
     "prints": "Prints",
     "projects": "Projects",
-    "integrations": "Integrations",
     "alerts": "Alerts",
     "backup": "Backup & export",
     "server": "Network"
@@ -71,10 +70,6 @@
     "depthHint": "How many levels below a project folder each project sits. 1 = every subfolder is a project; 2 = look one level deeper, e.g. Category/Project.",
     "viewerMax": "3D preview size limit (MB)",
     "viewerMaxHint": "Larger model files show the plate thumbnail instead of loading in the 3D viewer."
-  },
-  "integrations": {
-    "body": "Connect vendor accounts to import printers and print history.",
-    "manage": "Manage integrations"
   },
   "alerts": {
     "hint": "Alerts appear in the Alerts page. Optionally also send them to a phone or inbox.",
