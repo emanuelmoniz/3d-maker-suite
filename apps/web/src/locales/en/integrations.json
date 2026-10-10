@@ -208,5 +208,9 @@
     "import_one": "Import {{count}} row",
     "import_other": "Import {{count}} rows",
     "error": "Couldn't import."
-  }
+  },
+  "printersImport": {
+    "link": "Import printers from {{name}}"
+  },
+  "syncError": "Couldn’t import. Check the integration in Settings."
 }

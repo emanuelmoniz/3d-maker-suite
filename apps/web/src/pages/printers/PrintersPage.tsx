@@ -4,6 +4,7 @@ import { Plus, Printer as PrinterIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { DataTable } from "../../components/DataTable.tsx";
 import { EmptyState } from "../../components/EmptyState.tsx";
+import { SyncButtons } from "../../components/ImportLinks.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { TagList } from "../../components/TagList.tsx";
 import { useModelInfo } from "../../lib/catalog.ts";
@@ -24,10 +25,13 @@ export function PrintersPage() {
   const models = useModelInfo();
 
   const add = (
-    <Link to="/printers/new" className={addClass}>
-      <Plus className="size-4" aria-hidden />
-      {t("printers:list.add")}
-    </Link>
+    <span className="flex flex-wrap gap-2">
+      <SyncButtons cap="printers" text="integrations:printersImport.link" />
+      <Link to="/printers/new" className={addClass}>
+        <Plus className="size-4" aria-hidden />
+        {t("printers:list.add")}
+      </Link>
+    </span>
   );
 
   return (

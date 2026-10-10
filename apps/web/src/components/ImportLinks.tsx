@@ -1,7 +1,7 @@
-import type { Capability } from "@3d-maker-suite/core";
+import type { Capability, SyncType } from "@3d-maker-suite/core";
 import { Link } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
-import { useAdapterName, useCapable } from "../lib/integrations.ts";
+import { useAdapterName, useCapable, useSyncIntegration } from "../lib/integrations.ts";
 
 const importClass =
   "inline-flex h-9 items-center rounded-md border border-border bg-surface px-3 font-medium hover:bg-surface-2";
@@ -27,4 +27,37 @@ export function ImportLinks({
       {t(text, { name: adapterName(i.adapterId) })}
     </Link>
   ));
+}
+
+/** Runs a type that needs no review (e.g. printers) straight away; one button per integration. */
+export function SyncButtons({ cap, text }: { cap: SyncType; text: string }) {
+  const { t } = useTranslation();
+  const adapterName = useAdapterName();
+  return useCapable(cap).map((i) => (
+    <SyncButton key={i.id} id={i.id} type={cap}>
+      {t(text, { name: adapterName(i.adapterId) })}
+    </SyncButton>
+  ));
+}
+
+function SyncButton({ id, type, children }: { id: string; type: SyncType; children: string }) {
+  const { t } = useTranslation();
+  const sync = useSyncIntegration(id);
+  return (
+    <>
+      <button
+        type="button"
+        className={importClass}
+        disabled={sync.isPending}
+        onClick={() => sync.mutate({ type })}
+      >
+        {children}
+      </button>
+      {(sync.isError || sync.data?.status === "error") && (
+        <span role="alert" className="self-center text-bad">
+          {t("integrations:syncError")}
+        </span>
+      )}
+    </>
+  );
 }
