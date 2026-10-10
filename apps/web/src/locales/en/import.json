@@ -2,7 +2,11 @@
   "title": "Import",
   "description": "Bring data in from a spreadsheet. You review every row before anything is saved.",
   "entity": "What to import",
-  "entities": { "spools": "Spools" },
+  "entities": {
+    "spools": "Spools",
+    "printers": "Printers",
+    "prints": "Prints"
+  },
   "spools": {
     "columns": {
       "brand": "Brand",
@@ -38,7 +42,8 @@
     "money": "An amount in your currency, e.g. 19.99.",
     "date": "A date, as YYYY-MM-DD.",
     "color": "A colour as a hex code, e.g. #ff8800.",
-    "enum": "One of: {{options, list(type: disjunction)}}."
+    "enum": "One of: {{options, list(type: disjunction)}}.",
+    "datetime": "A date and time, as YYYY-MM-DD HH:MM (UTC unless you add an offset like +01:00)."
   },
   "upload": {
     "choose": "Upload a file",
@@ -52,7 +57,11 @@
     "ambiguous": "Ambiguous",
     "invalid": "Invalid"
   },
-  "actions": { "create": "Create", "update": "Update", "skip": "Skip" },
+  "actions": {
+    "create": "Create",
+    "update": "Update",
+    "skip": "Skip"
+  },
   "policies": {
     "overwrite": "Overwrite with file values",
     "fill": "Fill empty fields only"
@@ -77,12 +86,16 @@
     "negative": "Can't be negative",
     "not_a_date": "Not a date (use YYYY-MM-DD)",
     "not_a_color": "Not a hex colour",
-    "not_an_option": "Not one of the options"
+    "not_an_option": "Not one of the options",
+    "not_a_datetime": "Not a date and time (use YYYY-MM-DD HH:MM)",
+    "unresolved": "Not found, or matches more than one"
   },
   "missing": {
     "filamentBrands": "Brands you don't have yet, added when their rows are imported: {{names, list}}.",
     "filamentMaterials": "Materials you don't have yet, added when their rows are imported: {{names, list}}.",
-    "filamentProfiles": "Filament profiles you don't have yet, added when their rows are imported: {{names, list}}."
+    "filamentProfiles": "Filament profiles you don't have yet, added when their rows are imported: {{names, list}}.",
+    "brands": "Printer brands you don't have yet, added when their rows are imported: {{names, list}}.",
+    "printerModels": "Printer models you don't have yet, added when their rows are imported: {{names, list}}."
   },
   "review": {
     "title": "Review rows",
@@ -117,6 +130,35 @@
   },
   "done": {
     "summary": "Import finished: {{created, number}} created, {{updated, number}} updated.",
-    "viewSpools": "View spools"
+    "viewSpools": "View spools",
+    "viewPrinters": "View printers",
+    "viewPrints": "View prints"
+  },
+  "printers": {
+    "columns": {
+      "name": "Name",
+      "brand": "Brand",
+      "model": "Model",
+      "serial": "Serial number",
+      "nozzleDiameterMm": "Nozzle (mm)",
+      "purchasedAt": "Purchased",
+      "purchasePrice": "Purchase price",
+      "warrantyEndsAt": "Warranty ends",
+      "powerW": "Power (W)"
+    }
+  },
+  "prints": {
+    "columns": {
+      "printer": "Printer",
+      "title": "Name",
+      "startedAt": "Started",
+      "durationSec": "Duration (s)",
+      "outcome": "Outcome",
+      "failureReason": "Failure reason",
+      "notes": "Notes",
+      "spool": "Spool",
+      "filament": "Filament",
+      "grams": "Filament used (g)"
+    }
   }
 }

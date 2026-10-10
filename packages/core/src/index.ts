@@ -19,6 +19,7 @@ export * from "./schemas/stats.ts";
 export * from "./schemas/tags.ts";
 export * from "./services/cost.ts";
 export * from "./services/import.ts";
+export * from "./services/importMatch.ts";
 export * from "./services/maintenanceDue.ts";
 export * from "./services/printerStats.ts";
 export * from "./services/printMatch.ts";

@@ -32,7 +32,7 @@ import { EmptyState } from "../../components/EmptyState.tsx";
 import { inputClass } from "../../components/FormField.tsx";
 import { useMoney } from "../../lib/cost.ts";
 import { cx } from "../../lib/cx.ts";
-import { formatDate, formatNumber, formatWeight } from "../../lib/format.ts";
+import { formatDate, formatDateTime, formatNumber, formatWeight } from "../../lib/format.ts";
 import { useApply } from "../../lib/import.ts";
 
 // i18n keys are written out in full so `pnpm i18n:check` can see them.
@@ -66,13 +66,17 @@ const ERRORS: Record<ImportErrorCode, string> = {
   not_a_number: "import:errors.not_a_number",
   negative: "import:errors.negative",
   not_a_date: "import:errors.not_a_date",
+  not_a_datetime: "import:errors.not_a_datetime",
   not_a_color: "import:errors.not_a_color",
   not_an_option: "import:errors.not_an_option",
+  unresolved: "import:errors.unresolved",
 };
 const MISSING: Record<string, string> = {
   filamentBrands: "import:missing.filamentBrands",
   filamentMaterials: "import:missing.filamentMaterials",
   filamentProfiles: "import:missing.filamentProfiles",
+  brands: "import:missing.brands",
+  printerModels: "import:missing.printerModels",
 };
 const SCOPES = ["all", "selected", "filtered"] as const;
 const SCOPE_LABELS: Record<(typeof SCOPES)[number], string> = {
@@ -88,7 +92,14 @@ const TARGET_DETAILS: Record<ImportEntity, (v: ImportValues) => ImportCell[]> = 
     typeof v.remainingGrams === "number" ? formatWeight(v.remainingGrams) : null,
     v.location ?? null,
   ],
+  printers: (v) => [v.serial ?? null],
+  prints: (v) => [
+    typeof v.startedAt === "string" ? formatDateTime(v.startedAt) : null,
+    v.printer ?? null,
+  ],
 };
+// The table renders this many rows at a time, so a file with thousands of rows stays quick.
+const PAGE_ROWS = 100;
 const ALL_TARGETS = "__all";
 const selectClass = `${inputClass} w-auto! min-w-28`;
 
@@ -116,6 +127,7 @@ export function ReviewTable({
   const [scope, setScope] = useState<(typeof SCOPES)[number]>("all");
   const [bulk, setBulk] = useState<BulkAction>("autoMatch");
   const [confirming, setConfirming] = useState(false);
+  const [page, setPage] = useState(0);
 
   const { rows } = preview;
   const targets = new Map(preview.targets.map((x) => [x.id, x]));
@@ -129,21 +141,26 @@ export function ReviewTable({
   };
 
   const visible = shown.size ? rows.filter((r) => shown.has(r.status)) : rows;
+  const pages = Math.max(1, Math.ceil(visible.length / PAGE_ROWS));
+  const pageAt = Math.min(page, pages - 1);
+  const pageRows = visible.slice(pageAt * PAGE_ROWS, (pageAt + 1) * PAGE_ROWS);
   const inScope = {
     all: rows,
     selected: rows.filter((r) => selected.has(r.row)),
     filtered: visible,
   };
   const updates = rows.filter((r) => decisionOf(r).action === "update");
-  const picked = updates.map((r) => decisionOf(r).targetId);
+  const pickedCount = new Map<string | null, number>();
+  for (const r of updates) {
+    const id = decisionOf(r).targetId;
+    pickedCount.set(id, (pickedCount.get(id) ?? 0) + 1);
+  }
   // An update needs a row to go to, and two file rows can't go to the same one.
   const problem = (r: ImportPreviewRow) => {
     const d = decisionOf(r);
     if (d.action !== "update") return null;
     if (!d.targetId) return t("import:review.needsTarget");
-    return picked.filter((id) => id === d.targetId).length > 1
-      ? t("import:review.duplicateTarget")
-      : null;
+    return (pickedCount.get(d.targetId) ?? 0) > 1 ? t("import:review.duplicateTarget") : null;
   };
   const count = (a: ImportAction) => rows.filter((r) => decisionOf(r).action === a).length;
   const invalid = rows.filter((r) => r.status === "invalid").length;
@@ -165,6 +182,7 @@ export function ReviewTable({
       );
     if (c.type === "money") return money(Number(v));
     if (c.type === "date") return formatDate(`${v}T12:00:00Z`);
+    if (c.type === "datetime") return formatDateTime(String(v));
     return typeof v === "number" ? formatNumber(v) : v;
   };
   const targetLabel = (x: ImportTarget) =>
@@ -345,7 +363,10 @@ export function ReviewTable({
             key={s}
             type="button"
             aria-pressed={shown.has(s)}
-            onClick={() => setShown((f) => toggle(f, s))}
+            onClick={() => {
+              setShown((f) => toggle(f, s));
+              setPage(0);
+            }}
             className="h-8 rounded-full border border-border px-3 hover:bg-surface-2 aria-pressed:border-accent aria-pressed:bg-accent-soft aria-pressed:text-accent"
           >
             {t("import:review.statusCount", {
@@ -410,9 +431,33 @@ export function ReviewTable({
       <DataTable
         label={t("import:review.title")}
         columns={table}
-        rows={visible}
+        rows={pageRows}
         rowKey={(r) => String(r.row)}
       />
+      {pages > 1 && (
+        <nav
+          aria-label={t("common:table.pagination")}
+          className="flex items-center justify-end gap-3 text-muted"
+        >
+          <span aria-live="polite">
+            {t("common:table.range", {
+              from: pageAt * PAGE_ROWS + 1,
+              to: Math.min((pageAt + 1) * PAGE_ROWS, visible.length),
+              total: visible.length,
+            })}
+          </span>
+          <Button variant="ghost" disabled={pageAt <= 0} onClick={() => setPage(pageAt - 1)}>
+            {t("common:table.previous")}
+          </Button>
+          <Button
+            variant="ghost"
+            disabled={pageAt >= pages - 1}
+            onClick={() => setPage(pageAt + 1)}
+          >
+            {t("common:table.next")}
+          </Button>
+        </nav>
+      )}
 
       <dl className="flex flex-wrap gap-x-6 gap-y-1" aria-live="polite">
         {(

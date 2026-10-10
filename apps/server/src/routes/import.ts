@@ -14,6 +14,7 @@ import {
   IMPORT_COLUMNS,
   IMPORT_ENTITIES,
   type ImportEntity,
+  type ImportErrorCode,
   type ImportPreview,
   type ImportTarget,
   type ImportValues,
@@ -31,6 +32,8 @@ import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { createBackup } from "../backup/backup.ts";
 import { HttpError } from "../errors.ts";
+import { printerImport } from "../import/printers.ts";
+import { printImport } from "../import/prints.ts";
 import { spoolImport } from "../import/spools.ts";
 import { buildTemplate, type GridRow, readCsv, readXlsx, XLSX_TYPE } from "../lib/sheet.ts";
 
@@ -47,10 +50,16 @@ type ImportHandler = {
   refs: (db: Db) => Record<string, string[]>;
   /** By `ref`: names in the rows that apply would create. */
   missing: (db: Db, rows: ImportValues[]) => Record<string, string[]>;
+  /** Errors a valid-looking row still has, e.g. a name that must exist and doesn't. */
+  check?: (db: Db, values: ImportValues) => { column: string; code: ImportErrorCode }[];
   create: (db: Db, values: ImportValues) => void;
   update: (db: Db, target: ImportTarget, patch: ImportValues) => void;
 };
-const HANDLERS: Record<ImportEntity, ImportHandler> = { spools: spoolImport };
+const HANDLERS: Record<ImportEntity, ImportHandler> = {
+  spools: spoolImport,
+  printers: printerImport,
+  prints: printImport,
+};
 
 /** A previewed upload, kept until it is applied: the file's rows by column key, still unparsed. */
 type Stored = {
@@ -61,8 +70,8 @@ type Stored = {
 
 const UPLOADS = "imports";
 const MAX_UPLOAD = 10 * 1024 ** 2;
-// ponytail: the review table renders every row; page it before raising this.
-const MAX_ROWS = 5000;
+// The review table pages its rows; the upload limit below is what stops a file first.
+const MAX_ROWS = 20000;
 const DAY = 24 * 60 * 60 * 1000;
 const params = z.object({ entity: z.enum(IMPORT_ENTITIES) });
 const filled = (v: unknown) => v != null && String(v).trim() !== "";
@@ -73,7 +82,11 @@ function preview(db: Db, uploadId: string, stored: Stored): ImportPreview {
   const handler = HANDLERS[stored.entity];
   const targets = handler.targets(db);
   const byId = new Map(targets.map((t) => [t.id, t]));
-  const parsed = stored.rows.map((r) => ({ row: r.n, ...parseRow(columns, r.raw) }));
+  const parsed = stored.rows.map((r) => {
+    const p = parseRow(columns, r.raw);
+    if (!p.errors.length) p.errors.push(...(handler.check?.(db, p.values) ?? []));
+    return { row: r.n, ...p };
+  });
   const valid = parsed.filter((p) => !p.errors.length);
   const matches = handler.match(
     valid.map((p) => p.values),

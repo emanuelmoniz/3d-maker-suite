@@ -211,7 +211,7 @@ Do Step 17 of PLAN.md. One new dependency for XLSX read + write: pick it, give t
 Show me the column definition API, the preview row model and the bulk actions before implementing.
 ```
 
-### [ ] Step 18 - Printers & prints from files
+### [x] Step 18 - Printers & prints from files
 **Model:** Sonnet · **Effort:** Medium
 **Scope:** Add **printers** (match on serial, else name; brand and model find-or-create) and **prints** (match on printer + start time + name; printer, spool and filament resolved by name, an unresolved reference marks the row for the user to pick) to the Step 17 framework: column definitions, matcher, template. Review stays usable with 10k print rows.
 **Done when:** both templates import through the review screen; re-importing the same file shows every row as `identical`; tests pass.

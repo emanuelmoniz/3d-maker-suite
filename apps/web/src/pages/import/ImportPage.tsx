@@ -17,6 +17,12 @@ import { ReviewTable } from "./ReviewTable.tsx";
 // i18n keys are written out in full so `pnpm i18n:check` can see them.
 const ENTITIES: Record<ImportEntity, { label: string; to: string; view: string }> = {
   spools: { label: "import:entities.spools", to: "/filament", view: "import:done.viewSpools" },
+  printers: {
+    label: "import:entities.printers",
+    to: "/printers",
+    view: "import:done.viewPrinters",
+  },
+  prints: { label: "import:entities.prints", to: "/prints", view: "import:done.viewPrints" },
 };
 const HINTS: Record<ImportColumn["type"], string> = {
   text: "import:hints.text",
@@ -25,6 +31,7 @@ const HINTS: Record<ImportColumn["type"], string> = {
   integer: "import:hints.integer",
   money: "import:hints.money",
   date: "import:hints.date",
+  datetime: "import:hints.datetime",
   color: "import:hints.color",
   enum: "import:hints.enum",
 };

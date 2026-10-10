@@ -94,6 +94,21 @@ export function parseCell(
     const day = /^(\d{4}-\d{2}-\d{2})(T|$)/.exec(s)?.[1];
     return day && isDate(day) ? { value: day } : { error: "not_a_date" };
   }
+  if (col.type === "datetime") {
+    // ponytail: a time without a zone is read as UTC, as spreadsheets hand it over; add a
+    // time-zone setting if people type local times.
+    const m = /^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2})(:\d{2})?(\.\d+)?(Z|[+-]\d{2}:?\d{2})?$/.exec(
+      s,
+    );
+    const at =
+      m &&
+      new Date(
+        `${m[1]}T${m[2]}${m[3] ?? ":00"}${m[4] ?? ""}${(m[5] ?? "Z").replace(/(\d{2})(\d{2})$/, "$1:$2")}`,
+      );
+    return at && !Number.isNaN(at.getTime())
+      ? { value: `${at.toISOString().slice(0, 19)}Z` }
+      : { error: "not_a_datetime" };
+  }
   if (col.type === "color")
     return /^#?[0-9a-f]{6}$/i.test(s)
       ? { value: `#${s.replace("#", "").toLowerCase()}` }

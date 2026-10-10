@@ -45,6 +45,22 @@ const names = (db: Db, table: typeof filamentBrands | typeof filamentMaterials) 
     .all()
     .map((r) => r.name);
 
+/** Every spool's label ("Brand Material Profile"), archived ones too. */
+export const spoolLabels = (db: Db) =>
+  new Map(
+    db
+      .select({
+        id: spools.id,
+        brand: profileBrand,
+        material: profileMaterial,
+        name: filamentProfiles.name,
+      })
+      .from(spools)
+      .innerJoin(filamentProfiles, eq(filamentProfiles.id, spools.profileId))
+      .all()
+      .map(({ id, ...p }) => [id, label(p)] as const),
+  );
+
 /** Spools from a file. The profile, its brand and its material are found by name or created. */
 export const spoolImport = {
   /** Active spools, in the shape of the import columns. */

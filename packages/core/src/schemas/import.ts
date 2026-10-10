@@ -1,10 +1,10 @@
 import { z } from "zod";
 import { id } from "./entities.ts";
-import { SPOOL_STATUSES } from "./enums.ts";
+import { PRINT_OUTCOMES, SPOOL_STATUSES } from "./enums.ts";
 
 // File imports (XLSX / CSV). The columns of an entity are declared once here and drive the
 // template, the parser, validation and the review table.
-export const IMPORT_ENTITIES = ["spools"] as const;
+export const IMPORT_ENTITIES = ["spools", "printers", "prints"] as const;
 export type ImportEntity = (typeof IMPORT_ENTITIES)[number];
 
 export const IMPORT_COLUMN_TYPES = [
@@ -13,6 +13,7 @@ export const IMPORT_COLUMN_TYPES = [
   "integer",
   "money",
   "date",
+  "datetime",
   "color",
   "enum",
   "ref",
@@ -21,7 +22,10 @@ export const IMPORT_COLUMN_TYPES = [
 export type ImportColumn = {
   /** Stable id: key in `row.values`, accepted as a file header in any language. */
   key: string;
-  /** `money` is typed in major units and kept in minor units; `date` is kept as `YYYY-MM-DD`. */
+  /**
+   * `money` is typed in major units and kept in minor units; `date` is kept as `YYYY-MM-DD` and
+   * `datetime` as UTC `YYYY-MM-DDTHH:mm:ssZ`.
+   */
   type: (typeof IMPORT_COLUMN_TYPES)[number];
   required?: boolean;
   /** i18n key, written in full so `pnpm i18n:check` sees it. */
@@ -68,6 +72,63 @@ export const IMPORT_COLUMNS = {
       label: "import:spools.columns.status",
     },
   ],
+  printers: [
+    { key: "name", type: "text", label: "import:printers.columns.name", required: true },
+    {
+      key: "brand",
+      type: "ref",
+      ref: "brands",
+      label: "import:printers.columns.brand",
+      required: true,
+    },
+    {
+      key: "model",
+      type: "ref",
+      ref: "printerModels",
+      label: "import:printers.columns.model",
+      required: true,
+    },
+    { key: "serial", type: "text", label: "import:printers.columns.serial" },
+    { key: "nozzleDiameterMm", type: "number", label: "import:printers.columns.nozzleDiameterMm" },
+    { key: "purchasedAt", type: "date", label: "import:printers.columns.purchasedAt" },
+    { key: "purchasePrice", type: "money", label: "import:printers.columns.purchasePrice" },
+    { key: "warrantyEndsAt", type: "date", label: "import:printers.columns.warrantyEndsAt" },
+    { key: "powerW", type: "integer", label: "import:printers.columns.powerW" },
+  ],
+  prints: [
+    {
+      key: "printer",
+      type: "ref",
+      ref: "printers",
+      label: "import:prints.columns.printer",
+      required: true,
+    },
+    { key: "title", type: "text", label: "import:prints.columns.title", required: true },
+    {
+      key: "startedAt",
+      type: "datetime",
+      label: "import:prints.columns.startedAt",
+      required: true,
+    },
+    { key: "durationSec", type: "integer", label: "import:prints.columns.durationSec" },
+    {
+      key: "outcome",
+      type: "enum",
+      options: PRINT_OUTCOMES,
+      label: "import:prints.columns.outcome",
+      required: true,
+    },
+    { key: "failureReason", type: "text", label: "import:prints.columns.failureReason" },
+    { key: "notes", type: "text", label: "import:prints.columns.notes" },
+    { key: "spool", type: "ref", ref: "spools", label: "import:prints.columns.spool" },
+    {
+      key: "filament",
+      type: "ref",
+      ref: "filamentProfiles",
+      label: "import:prints.columns.filament",
+    },
+    { key: "grams", type: "number", label: "import:prints.columns.grams" },
+  ],
 } as const satisfies Record<ImportEntity, readonly ImportColumn[]>;
 
 /**
@@ -83,8 +144,11 @@ export const IMPORT_ERRORS = [
   "not_a_number",
   "negative",
   "not_a_date",
+  "not_a_datetime",
   "not_a_color",
   "not_an_option",
+  /** A name that must already exist (a print's printer) matches nothing, or too much. */
+  "unresolved",
 ] as const;
 
 const cell = z.union([z.string(), z.number(), z.null()]);

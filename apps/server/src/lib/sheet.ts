@@ -59,7 +59,14 @@ export async function buildTemplate(
   data.columns = columns.map((c) => {
     const header = `${label(c)}${c.required ? " *" : ""}`;
     // Dates show as ISO; text stays text, so a colour like 000000 isn't turned into 0.
-    const numFmt = c.type === "date" ? "yyyy-mm-dd" : c.type === "color" ? "@" : undefined;
+    const numFmt =
+      c.type === "date"
+        ? "yyyy-mm-dd"
+        : c.type === "datetime"
+          ? "yyyy-mm-dd hh:mm"
+          : c.type === "color"
+            ? "@"
+            : undefined;
     return { header, width: Math.max(14, header.length + 2), style: numFmt ? { numFmt } : {} };
   });
   data.getRow(1).font = { bold: true };

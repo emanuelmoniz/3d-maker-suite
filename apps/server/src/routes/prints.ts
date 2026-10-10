@@ -6,7 +6,6 @@ import {
   listQuery,
   type Page,
   type PrintDetail,
-  type PrintUsageInput,
   pageOf,
   printDetailSchema,
   printFilters,
@@ -17,14 +16,15 @@ import {
   reviewDismissSchema,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
-import { and, count, eq, inArray, isNotNull, isNull } from "drizzle-orm";
+import { and, count, eq, inArray, isNull } from "drizzle-orm";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
 import { printCosts } from "../lib/cost.ts";
 import { listPage, orderBy, taggedWith } from "../lib/list.ts";
 import { readPreferences } from "../lib/preferences.ts";
-import { round, setRemaining, takeFromSpool } from "../lib/spools.ts";
+import { energyFor, syncUsages } from "../lib/prints.ts";
+import { takeFromSpool } from "../lib/spools.ts";
 
 const { machineProfiles, prints, printFilamentUsages, printers, projects, spools } = schema;
 const params = z.object({ id: z.uuid() });
@@ -74,71 +74,6 @@ export const printsRoutes =
           "invalid_failure_reason",
           `Unknown failure reason "${b.failureReason}"`,
         );
-    };
-
-    // An explicit energy value is "measured". Otherwise estimate from printer power x duration.
-    const energy = (
-      printerId: string,
-      durationSec: number | null,
-      override: number | null | undefined,
-    ) => {
-      if (override != null) return { energyWh: override, energySource: "measured" as const };
-      const powerW = db.select().from(printers).where(eq(printers.id, printerId)).get()?.powerW;
-      return powerW && durationSec
-        ? { energyWh: (powerW * durationSec) / 3600, energySource: "estimated" as const }
-        : { energyWh: null, energySource: null };
-    };
-
-    /**
-     * Replaces a print's filament rows and books the net difference per spool in the ledger
-     * (append-only: an edit or delete adds a "print" entry, it never rewrites history).
-     * Throws inside the caller's transaction, which rolls everything back.
-     */
-    const syncUsages = (
-      tx: Parameters<Parameters<Db["transaction"]>[0]>[0],
-      printId: string,
-      title: string,
-      next: PrintUsageInput[],
-    ) => {
-      const old = tx
-        .select()
-        .from(printFilamentUsages)
-        .where(
-          and(eq(printFilamentUsages.printId, printId), isNotNull(printFilamentUsages.spoolId)),
-        )
-        .all();
-      const net = new Map<string, number>(); // spoolId -> grams to give back (+) or take (-)
-      for (const u of old) if (u.spoolId) net.set(u.spoolId, (net.get(u.spoolId) ?? 0) + u.grams);
-      for (const u of next) net.set(u.spoolId, (net.get(u.spoolId) ?? 0) - u.grams);
-
-      const profileOf = new Map<string, string>();
-      for (const [spoolId, grams] of net) {
-        const spool = tx.select().from(spools).where(eq(spools.id, spoolId)).get();
-        if (!spool) throw new HttpError(400, "invalid_spool", "Spool not found");
-        profileOf.set(spoolId, spool.profileId);
-        const remaining = round(spool.remainingGrams + grams);
-        if (remaining < 0)
-          throw new HttpError(400, "insufficient_filament", "Spool has less filament than used");
-        if (round(grams) !== 0) setRemaining(tx, spoolId, "print", remaining, title);
-      }
-      // Slots without a spool (the review queue) are kept: the edit form doesn't show them.
-      tx.delete(printFilamentUsages)
-        .where(
-          and(eq(printFilamentUsages.printId, printId), isNotNull(printFilamentUsages.spoolId)),
-        )
-        .run();
-      if (next.length)
-        tx.insert(printFilamentUsages)
-          .values(
-            next.map((u) => ({
-              printId,
-              spoolId: u.spoolId,
-              profileId: profileOf.get(u.spoolId),
-              grams: u.grams,
-              slot: u.slot ?? null,
-            })),
-          )
-          .run();
     };
 
     // Imported filament without a spool: assign one (books the ledger) or dismiss it.
@@ -286,7 +221,7 @@ export const printsRoutes =
             .insert(prints)
             .values({
               ...fields,
-              ...energy(fields.printerId, fields.durationSec ?? null, energyWh),
+              ...energyFor(db, fields.printerId, fields.durationSec ?? null, energyWh),
             })
             .returning()
             .get();
@@ -319,7 +254,7 @@ export const printsRoutes =
               // A manual value is kept unless the request replaces it; estimates follow printer/duration.
               ...(energyWh === undefined && cur.energySource === "measured"
                 ? {}
-                : energy(merged.printerId, merged.durationSec, energyWh)),
+                : energyFor(db, merged.printerId, merged.durationSec, energyWh)),
             })
             .where(eq(prints.id, cur.id))
             .run();
