@@ -1,10 +1,26 @@
 import { existsSync } from "node:fs";
-import type { Capability, FilamentLibrary, IntegrationAdapter } from "@3d-maker-suite/core";
+import {
+  type Capability,
+  defaultPolicy,
+  type FilamentLibrary,
+  type IntegrationAdapter,
+} from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
-import { asc } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { HttpError } from "../errors.ts";
 
+const { syncPolicies } = schema;
 type Row = typeof schema.integrations.$inferSelect;
+
+/** One type's sync policy: the stored row, else its default. */
+export function policyOf(db: Db, integrationId: string, type: Capability) {
+  const stored = db
+    .select()
+    .from(syncPolicies)
+    .where(and(eq(syncPolicies.integrationId, integrationId), eq(syncPolicies.type, type)))
+    .get();
+  return stored ?? { type, ...defaultPolicy(type), lastRunAt: null, cursor: null, pending: 0 };
+}
 
 /** First default config folder of the slicer that exists on this PC. */
 export const detectedDir = (lib?: FilamentLibrary) =>
@@ -17,7 +33,7 @@ export function slicerConfigDir(row: Row, adapter: IntegrationAdapter) {
 }
 
 /** Supported by the adapter, not switched off, and what it needs is set up. */
-export function activeCapabilities(row: Row, adapter?: IntegrationAdapter): Capability[] {
+export function activeCapabilities(db: Db, row: Row, adapter?: IntegrationAdapter): Capability[] {
   if (!row.enabled || !adapter) return [];
   // A cloud source needs its sign-in and a local one its folder; the action needs the program itself.
   const source =
@@ -25,7 +41,7 @@ export function activeCapabilities(row: Row, adapter?: IntegrationAdapter): Capa
   const program = row.slicerPath?.trim();
   const slicerApp = !!program && existsSync(program);
   return adapter.capabilities.filter(
-    (c) => !row.disabledFeatures.includes(c) && (c === "openInSlicer" ? slicerApp : source),
+    (c) => policyOf(db, row.id, c).mode !== "off" && (c === "openInSlicer" ? slicerApp : source),
   );
 }
 
@@ -43,7 +59,7 @@ export function capableRows(db: Db, adapters: IntegrationAdapter[], cap: Capabil
     .map((row) => ({ row, adapter: adapters.find((a) => a.id === row.adapterId) }))
     .filter(
       (r): r is { row: Row; adapter: IntegrationAdapter } =>
-        !!r.adapter && activeCapabilities(r.row, r.adapter).includes(cap),
+        !!r.adapter && activeCapabilities(db, r.row, r.adapter).includes(cap),
     );
 }
 
@@ -55,5 +71,5 @@ export function capableRow(db: Db, adapters: IntegrationAdapter[], id: string, c
 }
 
 /** Supported and not switched off, set up or not (sync still reports a missing sign-in). */
-export const switchedOn = (row: Row, adapter: IntegrationAdapter, cap: Capability) =>
-  adapter.capabilities.includes(cap) && !row.disabledFeatures.includes(cap);
+export const switchedOn = (db: Db, row: Row, adapter: IntegrationAdapter, cap: Capability) =>
+  adapter.capabilities.includes(cap) && policyOf(db, row.id, cap).mode !== "off";

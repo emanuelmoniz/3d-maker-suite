@@ -1,6 +1,7 @@
 import {
   adapterInfoSchema,
   apiErrorSchema,
+  defaultPolicy,
   type Integration,
   IntegrationError,
   integrationInputSchema,
@@ -25,12 +26,17 @@ import { asc, eq } from "drizzle-orm";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
-import { activeCapabilities, detectedDir, unavailable } from "../integrations/capabilities.ts";
+import {
+  activeCapabilities,
+  detectedDir,
+  policyOf,
+  unavailable,
+} from "../integrations/capabilities.ts";
 import { readSecrets, writeSecrets } from "../integrations/secrets.ts";
 import type { Syncer } from "../integrations/sync.ts";
 import { listPage } from "../lib/list.ts";
 
-const { integrations, syncRuns } = schema;
+const { integrations, syncPolicies, syncRuns } = schema;
 const params = z.object({ id: z.uuid() });
 const notFound = { 404: apiErrorSchema };
 const LOGIN_TTL_MS = 10 * 60 * 1000;
@@ -63,7 +69,11 @@ export const integrationsRoutes =
         kind: adapter?.kind ?? "cloud",
         hasSecrets: !!secrets,
         status: syncer.running.has(row.id) ? "syncing" : local || row.status,
-        capabilities: activeCapabilities(full, adapter),
+        capabilities: activeCapabilities(db, full, adapter),
+        policies: (adapter?.capabilities ?? []).map((type) => {
+          const { mode, frequency, lastRunAt, pending } = policyOf(db, row.id, type);
+          return { type, mode, frequency, lastRunAt, pending };
+        }),
       } as Integration;
     };
     const get = (id: string) => {
@@ -126,11 +136,28 @@ export const integrationsRoutes =
       },
       async (req) => {
         const cur = get(req.params.id);
-        const { config, secrets, slicerConfigDir, slicerPath, ...fields } = req.body;
-        const adapter = config || secrets ? adapterOf(cur.adapterId) : undefined;
+        const { config, secrets, slicerConfigDir, slicerPath, policies, ...fields } = req.body;
+        const adapter = config || secrets || policies ? adapterOf(cur.adapterId) : undefined;
+        for (const p of policies ?? [])
+          if (
+            !adapter?.capabilities.includes(p.type) ||
+            (p.type === "openInSlicer" && p.mode === "auto")
+          )
+            throw new HttpError(400, "invalid_policy", `No such policy for "${p.type}"`);
         db.transaction(() => {
+          for (const { type, ...set } of policies ?? [])
+            if (Object.keys(set).length)
+              db.insert(syncPolicies)
+                .values({ integrationId: cur.id, type, ...defaultPolicy(type), ...set })
+                .onConflictDoUpdate({
+                  target: [syncPolicies.integrationId, syncPolicies.type],
+                  set,
+                })
+                .run();
           db.update(integrations)
             .set({
+              // Always something to set, also when only policies or secrets change.
+              updatedAt: new Date().toISOString(),
               ...fields,
               // An empty path means "none" (or "the detected folder").
               ...(slicerConfigDir !== undefined && { slicerConfigDir: slicerConfigDir || null }),
@@ -215,7 +242,7 @@ export const integrationsRoutes =
               .run();
           });
           // Import the printers right away; the card shows "syncing", failures land in the sync log.
-          syncer.run(row.id, "manual").catch(() => {});
+          syncer.run(row.id, "manual", { type: "printers" }).catch(() => {});
           return { status: "ok" };
         } catch (e) {
           if (e instanceof IntegrationError) return { status: "error", code: e.code };
@@ -230,11 +257,11 @@ export const integrationsRoutes =
       {
         schema: {
           params,
-          body: syncRequestSchema.nullish(),
+          body: syncRequestSchema,
           response: { 200: syncRunSchema, ...notFound, 409: apiErrorSchema },
         },
       },
-      async (req) => syncer.run(req.params.id, "manual", req.body ?? undefined),
+      async (req) => syncer.run(req.params.id, "manual", req.body),
     );
 
     app.get(

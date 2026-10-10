@@ -11,6 +11,7 @@ import {
   PRINT_OUTCOMES,
   SPOOL_STATUSES,
   SYNC_FREQUENCIES,
+  SYNC_MODES,
   TAGGABLE_TYPES,
   WEIGHT_ENTRY_KINDS,
 } from "./enums.ts";
@@ -31,6 +32,19 @@ const imported = {
   externalId: z.string().nullable(),
 };
 
+/** One type's sync policy, as stored or (no row yet) its default. */
+export const syncPolicySchema = z.object({
+  type: z.enum(CAPABILITIES),
+  /** `openInSlicer` is an action: only `off` or `manual` (= on). */
+  mode: z.enum(SYNC_MODES),
+  /** Only used by `auto`. */
+  frequency: z.enum(SYNC_FREQUENCIES),
+  /** Last successful run of this type, manual or scheduled. */
+  lastRunAt: isoDate.nullable(),
+  /** Rows the last run left for the preview -> confirm flow. */
+  pending: z.number().int().nonnegative(),
+});
+
 /** API shape: the encrypted `secrets` column is never exposed, only whether it is set. */
 export const integrationSchema = z.object({
   id,
@@ -40,16 +54,14 @@ export const integrationSchema = z.object({
   enabled: z.boolean(),
   config: z.json(),
   hasSecrets: z.boolean(),
-  /** Capabilities the user switched off. Everything else the adapter supports is on. */
-  disabledFeatures: z.array(z.string()),
   /** Slicer config folder override; null = the detected one. */
   slicerConfigDir: z.string().nullable(),
   /** Slicer program used by "Open in slicer". */
   slicerPath: z.string().nullable(),
   /** Supported, switched on and set up: the only thing the UI looks at to offer actions. */
   capabilities: z.array(z.enum(CAPABILITIES)),
-  /** How often the scheduler syncs this integration; "off" = manual only. */
-  syncFrequency: z.enum(SYNC_FREQUENCIES),
+  /** One per capability the adapter supports, in its order. */
+  policies: z.array(syncPolicySchema),
   status: z.enum(INTEGRATION_STATUSES),
   lastSyncAt: isoDate.nullable(),
   lastError: z.enum(INTEGRATION_ERROR_CODES).nullable(),

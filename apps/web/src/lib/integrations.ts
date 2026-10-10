@@ -43,7 +43,7 @@ export const useCapable = (cap: Capability) =>
 export const useSyncRuns = (id: string, query: Record<string, string>) =>
   useListPage<SyncRun>(["integrations", id, "runs"], `/api/integrations/${id}/runs`, query);
 
-/** A sync can import printers and prints, so everything is refreshed afterwards. */
+/** A sync can import printers, prints, spools..., so everything is refreshed afterwards. */
 function useInvalidating<V, R = unknown>(fn: (v: V) => Promise<R>, all = false) {
   const qc = useQueryClient();
   return useMutation({
@@ -68,7 +68,7 @@ export const useTestIntegration = (id: string) =>
 
 export const useSyncIntegration = (id: string) =>
   useInvalidating(
-    (req?: SyncRequest) => api<SyncRun>("POST", `/api/integrations/${id}/sync`, req),
+    (req: SyncRequest) => api<SyncRun>("POST", `/api/integrations/${id}/sync`, req),
     true,
   );
 

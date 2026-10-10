@@ -54,7 +54,21 @@ const create = async () =>
       secrets: { token: "s3cr3t-token" },
     })
   ).json();
-const sync = async (id: string) => (await send("POST", `/api/integrations/${id}/sync`)).json();
+const syncType = async (id: string, type: string) =>
+  (await send("POST", `/api/integrations/${id}/sync`, { type })).json();
+/** Printers, then prints (one run each, as the scheduler does); the counts are added up. */
+const sync = async (id: string) => {
+  const printers = await syncType(id, "printers");
+  if (printers.status !== "ok") return printers;
+  const prints = await syncType(id, "prints");
+  return {
+    ...prints,
+    created: printers.created + prints.created,
+    skipped: printers.skipped + prints.skipped,
+  };
+};
+const setPolicy = (id: string, type: string, policy: object) =>
+  send("PATCH", `/api/integrations/${id}`, { policies: [{ type, ...policy }] });
 
 describe("integrations", () => {
   it("stores secrets encrypted and never returns them", async () => {
@@ -112,7 +126,7 @@ describe("integrations", () => {
     const after = (await get("/api/prints?sort=startedAt")).items;
     expect(after).toHaveLength(4);
     expect(after[0].title).toBe("Renamed");
-    expect((await get(`/api/integrations/${id}/runs`)).items).toHaveLength(2);
+    expect((await get(`/api/integrations/${id}/runs`)).items).toHaveLength(4);
   });
 
   it("records failures as an error code, raises and resolves a sync_failed alert", async () => {
@@ -158,7 +172,9 @@ describe("integrations", () => {
     });
     expect(res.json()).toMatchObject({ enabled: false, hasSecrets: true, capabilities: [] });
     // Disabled = off entirely: no manual sync or test either.
-    expect((await send("POST", `/api/integrations/${id}/sync`)).statusCode).toBe(409);
+    expect(
+      (await send("POST", `/api/integrations/${id}/sync`, { type: "printers" })).statusCode,
+    ).toBe(409);
     expect((await send("POST", `/api/integrations/${id}/test`)).statusCode).toBe(409);
     expect(res.json()).not.toHaveProperty("name");
     const row = db.select().from(schema.integrations).where(eq(schema.integrations.id, id)).get();
@@ -191,7 +207,7 @@ describe("integrations", () => {
     try {
       app = await buildApp(db, false, dir, { adapters: [mockAdapter(state)] });
       const syncer = createSyncer(db, [mockAdapter(state)], loadKey(dir), app.log);
-      await create();
+      const { id } = await create();
       const runs = () => db.select().from(schema.syncRuns).all().length;
       const setError = (lastError: IntegrationErrorCode | null) =>
         db.update(schema.integrations).set({ lastError }).run();
@@ -202,7 +218,7 @@ describe("integrations", () => {
 
       setError(null);
       state.fail = "rate_limited";
-      await syncer.runAll();
+      await syncer.runAll(); // the first type fails: the others are left for later
       expect(runs()).toBe(1);
       await syncer.runAll(); // backing off
       expect(runs()).toBe(1);
@@ -212,11 +228,11 @@ describe("integrations", () => {
       await syncer.runAll();
       expect(runs()).toBe(2);
 
-      // Nothing to sync (cloud features off, e.g. slicer only): left alone.
+      // Nothing in auto mode (off or manual): left alone.
       state.fail = undefined;
-      db.update(schema.integrations)
-        .set({ disabledFeatures: ["printers", "prints"] })
-        .run();
+      setError(null);
+      await setPolicy(id, "printers", { mode: "off" });
+      await setPolicy(id, "prints", { mode: "manual" });
       await syncer.runAll();
       expect(runs()).toBe(2);
     } finally {
@@ -231,7 +247,9 @@ describe("sync by type and date range", () => {
   const day = (d: number, end = false) =>
     new Date(Date.UTC(2026, 0, d, end ? 23 : 0, end ? 59 : 0)).toISOString();
   const printCount = () => db.select().from(schema.prints).all().length;
-  const watermark = () => db.select().from(schema.integrations).get()?.lastPrintsSyncAt;
+  const watermark = () =>
+    db.select().from(schema.syncPolicies).where(eq(schema.syncPolicies.type, "prints")).get()
+      ?.cursor ?? null;
 
   it("syncs one type alone and logs it", async () => {
     const { id } = await create();
@@ -244,7 +262,17 @@ describe("sync by type and date range", () => {
     expect(watermark()).toBeNull(); // a printers-only run must not make prints skip history
     expect(await syncWith(id, { type: "prints" })).toMatchObject({ type: "prints", created: 3 });
     expect(watermark()).toBeTruthy();
-    expect((await sync(id)).type).toBeNull(); // no body = everything
+    // One run is one type.
+    expect((await send("POST", `/api/integrations/${id}/sync`)).statusCode).toBe(400);
+    expect(
+      (await get(`/api/integrations/${id}`)).policies.map(
+        (p: { type: string; lastRunAt: string | null }) => [p.type, !!p.lastRunAt],
+      ),
+    ).toEqual([
+      ["printers", true],
+      ["prints", true],
+      ["spools", false],
+    ]);
   });
 
   it("imports a past range without duplicates and leaves the incremental start alone", async () => {
@@ -271,43 +299,54 @@ describe("sync by type and date range", () => {
     expect((await code({ type: "printers", from: day(1) })).statusCode).toBe(400);
     expect((await code({ from: day(1) })).statusCode).toBe(400);
     expect((await code({ type: "prints", from: day(3), to: day(1) })).statusCode).toBe(400);
-    await send("PATCH", `/api/integrations/${id}`, { disabledFeatures: ["prints"] });
+    await setPolicy(id, "prints", { mode: "off" });
     expect((await code({ type: "prints" })).statusCode).toBe(409);
   });
 
-  it("the scheduler honours each integration's frequency", async () => {
+  it("the scheduler runs each auto type at its own frequency", async () => {
     const dir = mkdtempSync(join(tmpdir(), "integrations-"));
     try {
       app = await buildApp(db, false, dir, { adapters: [mockAdapter(state)] });
       const syncer = createSyncer(db, [mockAdapter(state)], loadKey(dir), app.log);
       const { id } = await create();
-      const runs = () => db.select().from(schema.syncRuns).all().length;
-      const setFrequency = (syncFrequency: string) =>
-        send("PATCH", `/api/integrations/${id}`, { syncFrequency });
+      const runs = (type: string) =>
+        db
+          .select()
+          .from(schema.syncRuns)
+          .all()
+          .filter((r) => r.type === type && r.trigger === "scheduled").length;
+      const counts = () => ["printers", "prints", "spools"].map(runs);
+      // Every type last ran `ms` ago.
       const age = (ms: number) =>
         db
-          .update(schema.syncRuns)
-          .set({ startedAt: new Date(Date.now() - ms).toISOString() })
+          .update(schema.syncPolicies)
+          .set({ lastRunAt: new Date(Date.now() - ms).toISOString() })
           .run();
 
-      await syncer.runAll();
-      expect(runs()).toBe(1);
-      await syncer.runAll(); // 15m default, just ran
-      expect(runs()).toBe(1);
+      await syncer.runAll(); // never ran: both auto types are due, spools are manual
+      expect(counts()).toEqual([1, 1, 0]);
+      await syncer.runAll(); // just ran
+      expect(counts()).toEqual([1, 1, 0]);
 
-      await setFrequency("1d");
       age(2 * 3600 * 1000);
-      await syncer.runAll(); // 2 h ago is not due yet
-      expect(runs()).toBe(1);
-      age(25 * 3600 * 1000);
+      await syncer.runAll(); // prints are hourly, printers daily
+      expect(counts()).toEqual([1, 2, 0]);
+      await setPolicy(id, "printers", { frequency: "1h" });
       await syncer.runAll();
-      expect(runs()).toBe(2);
+      expect(counts()).toEqual([2, 2, 0]);
 
-      await setFrequency("off");
+      // A manual run counts too: the type is not due again right after it.
+      age(2 * 3600 * 1000);
+      await syncType(id, "prints");
+      await syncer.runAll();
+      expect(counts()).toEqual([3, 2, 0]);
+
+      await setPolicy(id, "prints", { mode: "manual" });
+      await setPolicy(id, "spools", { mode: "auto", frequency: "1w" });
       age(30 * 24 * 3600 * 1000);
       await syncer.runAll();
-      expect(runs()).toBe(2);
-      expect((await setFrequency("fortnightly")).statusCode).toBe(400);
+      expect(counts()).toEqual([4, 2, 1]);
+      expect((await setPolicy(id, "prints", { frequency: "fortnightly" })).statusCode).toBe(400);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -326,13 +365,22 @@ describe("capabilities", () => {
       capabilities: ["printers", "prints", "spools"],
     });
 
-    await send("PATCH", `/api/integrations/${id}`, { disabledFeatures: ["prints"] });
-    expect(await caps(id)).toEqual(["printers", "spools"]);
+    // Until changed, every type follows its default policy.
+    expect((await get(`/api/integrations/${id}`)).policies).toEqual([
+      { type: "printers", mode: "auto", frequency: "1d", lastRunAt: null, pending: 0 },
+      { type: "prints", mode: "auto", frequency: "1h", lastRunAt: null, pending: 0 },
+      { type: "spools", mode: "manual", frequency: "1d", lastRunAt: null, pending: 0 },
+    ]);
+    const patched = (await setPolicy(id, "prints", { mode: "off" })).json();
+    expect(patched.capabilities).toEqual(["printers", "spools"]);
+    expect(patched.policies[1]).toMatchObject({ type: "prints", mode: "off", frequency: "1h" });
     await send("PATCH", `/api/integrations/${id}`, { enabled: false });
     expect(await caps(id)).toEqual([]);
-    expect(
-      (await send("PATCH", `/api/integrations/${id}`, { disabledFeatures: ["nope"] })).statusCode,
-    ).toBe(400);
+    // Unknown types and ones this adapter doesn't have are refused.
+    expect((await setPolicy(id, "nope", { mode: "off" })).statusCode).toBe(400);
+    expect((await setPolicy(id, "openInSlicer", { mode: "off" })).json().error.code).toBe(
+      "invalid_policy",
+    );
   });
 
   it("account ones need a sign-in when the adapter has one", async () => {
@@ -363,9 +411,13 @@ describe("capabilities", () => {
     });
     expect(await set("/no/such/slicer")).toMatchObject({ capabilities: [] });
     expect(await set("")).toMatchObject({ slicerPath: null, capabilities: [] });
+    // An action is on (manual) or off, never scheduled.
+    expect((await setPolicy(id, "openInSlicer", { mode: "auto" })).statusCode).toBe(400);
+    await set(process.execPath);
+    expect((await setPolicy(id, "openInSlicer", { mode: "off" })).json().capabilities).toEqual([]);
   });
 
-  it("a local source is ok when its folder is on this server, else unavailable; it never syncs", async () => {
+  it("a local source is ok when its folder is on this server, else unavailable; only its own types run", async () => {
     const dir = mkdtempSync(join(tmpdir(), "local-"));
     try {
       const local: IntegrationAdapter = {
@@ -391,9 +443,12 @@ describe("capabilities", () => {
       const found = await send("PATCH", `/api/integrations/${id}`, { slicerConfigDir: dir });
       expect(found.json()).toMatchObject({ status: "ok", capabilities: ["filamentProfiles"] });
 
-      expect((await send("POST", `/api/integrations/${id}/sync`)).statusCode).toBe(409);
+      expect(
+        (await send("POST", `/api/integrations/${id}/sync`, { type: "printers" })).statusCode,
+      ).toBe(409);
       expect((await send("POST", `/api/integrations/${id}/test`)).statusCode).toBe(409);
       expect(db.select().from(schema.syncRuns).all()).toEqual([]);
+      expect(await syncType(id, "filamentProfiles")).toMatchObject({ status: "ok", created: 0 });
       expect((await get(`/api/integrations/${id}`)).status).toBe("ok");
     } finally {
       rmSync(dir, { recursive: true, force: true });
@@ -402,8 +457,9 @@ describe("capabilities", () => {
 
   it("sync skips switched-off features", async () => {
     const { id } = await create();
-    await send("PATCH", `/api/integrations/${id}`, { disabledFeatures: ["prints"] });
-    expect(await sync(id)).toMatchObject({ status: "ok", created: 1 });
+    await setPolicy(id, "prints", { mode: "off" });
+    expect(await syncType(id, "printers")).toMatchObject({ status: "ok", created: 1 });
+    expect((await syncType(id, "prints")).error.code).toBe("capability_unavailable");
     expect(db.select().from(schema.prints).all()).toHaveLength(0);
   });
 

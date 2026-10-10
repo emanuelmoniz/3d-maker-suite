@@ -1,6 +1,6 @@
 {
   "title": "Integrations",
-  "description": "Accounts, slicers and what to import, per vendor. Enabled integrations with an account sync every 15 minutes.",
+  "description": "Accounts, slicers and what to import, per vendor. Each type has its own mode and frequency.",
   "loadError": "Couldn't load integrations. Is the server running?",
   "add": "Add integration",
   "emptyTitle": "No integrations yet",
@@ -33,7 +33,6 @@
     "lastSync": "Last sync: {{date}}",
     "never": "Never synced",
     "enabled": "Enabled",
-    "syncNow": "Sync everything",
     "test": "Test connection",
     "testOk": "Connection works.",
     "delete": "Delete",
@@ -43,8 +42,6 @@
     "signIn": "Sign in",
     "signInAgain": "Sign in again",
     "disabledHint": "Switched off: nothing is synced, imported or offered in the app. Tick Enabled to use it and change its settings.",
-    "syncPrinters": "Sync printers",
-    "syncPrints": "Sync prints",
     "unavailableHint": "The slicer's config folder wasn't found on this server. If it's on another computer, mount it here and set Config folder to that path."
   },
   "deleteDialog": {
@@ -68,8 +65,6 @@
     "type": "Type",
     "range": "Range",
     "all": "Everything",
-    "printers": "Printers",
-    "prints": "Prints",
     "rangeBetween": "{{from}} – {{to}}",
     "rangeFrom": "From {{from}}",
     "rangeTo": "Until {{to}}"
@@ -118,16 +113,37 @@
     "error": "Couldn't sign in. Enter your email and password again."
   },
   "capabilities": {
-    "title": "Features",
-    "printers": "Import printers",
-    "prints": "Import print history",
-    "spools": "Import spools",
-    "brands": "Import printer brands",
-    "printerModels": "Import printer models",
-    "machineProfiles": "Import machine profiles",
-    "filamentBrands": "Import filament brands",
-    "filamentProfiles": "Import filament profiles from the slicer",
+    "printers": "Printers",
+    "prints": "Print history",
+    "spools": "Spools",
+    "brands": "Printer brands",
+    "printerModels": "Printer models",
+    "machineProfiles": "Machine profiles",
+    "filamentBrands": "Filament brands",
+    "filamentProfiles": "Filament profiles",
     "openInSlicer": "Open projects in the slicer"
+  },
+  "policies": {
+    "title": "What to sync",
+    "type": "Type",
+    "mode": "Mode",
+    "frequency": "Frequency",
+    "lastRun": "Last sync",
+    "run": "Run",
+    "never": "Never",
+    "syncNow": "Sync now",
+    "importNow": "Review and import",
+    "pending_one": "{{count}} waiting for review",
+    "pending_other": "{{count}} waiting for review",
+    "modeOf": "Mode: {{type}}",
+    "frequencyOf": "Frequency: {{type}}",
+    "hint": "Automatic runs only import what needs no decision from you. Anything else waits under \"Review and import\".",
+    "modes": {
+      "off": "Off",
+      "manual": "Manual",
+      "auto": "Automatic",
+      "on": "On"
+    }
   },
   "slicer": {
     "title": "Slicer",
@@ -139,13 +155,10 @@
     "makeDefault": "Make default slicer"
   },
   "sync": {
-    "title": "Sync",
     "range": "Print history range",
-    "rangeHint": "Used by \"Sync prints\". Prints already imported are skipped.",
+    "rangeHint": "Used by \"Sync now\" for print history. Prints already imported are skipped.",
     "from": "From",
     "to": "To",
-    "frequency": "Automatic sync",
-    "frequencyHint": "Automatic syncs only fetch what's new since the last one.",
     "ranges": {
       "sinceLast": "Since the last sync",
       "d7": "Last 7 days",
@@ -159,8 +172,7 @@
       "1h": "Every hour",
       "1d": "Every day",
       "1w": "Every week",
-      "1M": "Every month",
-      "off": "Off (manual only)"
+      "1M": "Every month"
     }
   }
 }

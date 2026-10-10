@@ -36,21 +36,12 @@ export const LOGIN_CHALLENGES = ["email_code", "totp"] as const;
 export const INTEGRATION_STATUSES = ["new", "syncing", "ok", "error", "unavailable"] as const;
 export const SYNC_TRIGGERS = ["manual", "scheduled"] as const;
 export const SYNC_RUN_STATUSES = ["ok", "error"] as const;
-// What one run syncs. Spools aren't a type: importing one needs a filament profile picked per spool,
-// so they keep the preview -> confirm flow (GET /filament/inventory/:id).
-export const SYNC_TYPES = ["printers", "prints"] as const;
-// How often the scheduler syncs one integration ("1M" = 30 days). Ticks every 15 minutes.
-export const SYNC_FREQUENCIES = ["15m", "1h", "1d", "1w", "1M", "off"] as const;
 /**
- * Where an integration's data comes from: an account, or a folder and program on the server's
- * disk. It says nothing about which types it has; the adapter's capabilities do.
+ * The data one run syncs or imports. Printers and prints sync on their own; the others need a
+ * choice per row (e.g. the filament profile of a spool), so a run takes only the rows that need
+ * none and the rest waits for the preview -> confirm flow.
  */
-export const INTEGRATION_KINDS = ["cloud", "local"] as const;
-/**
- * What an integration can do: the data types it provides, plus the `openInSlicer` action. The
- * adapter declares only what it really has, the user switches each one off or on.
- */
-export const CAPABILITIES = [
+export const SYNC_TYPES = [
   "printers",
   "prints",
   "spools",
@@ -59,8 +50,21 @@ export const CAPABILITIES = [
   "machineProfiles",
   "filamentBrands",
   "filamentProfiles",
-  "openInSlicer",
 ] as const;
+// Per integration and type: switched off, run by hand only, or run by the scheduler too.
+export const SYNC_MODES = ["off", "manual", "auto"] as const;
+// How often the scheduler runs an `auto` type ("1M" = 30 days). Ticks every 15 minutes.
+export const SYNC_FREQUENCIES = ["15m", "1h", "1d", "1w", "1M"] as const;
+/**
+ * Where an integration's data comes from: an account, or a folder and program on the server's
+ * disk. It says nothing about which types it has; the adapter's capabilities do.
+ */
+export const INTEGRATION_KINDS = ["cloud", "local"] as const;
+/**
+ * What an integration can do: the data types it provides, plus the `openInSlicer` action. The
+ * adapter declares only what it really has, the user sets each one's sync policy (or `off`).
+ */
+export const CAPABILITIES = [...SYNC_TYPES, "openInSlicer"] as const;
 
 export type Origin = (typeof ORIGINS)[number];
 export type PrintOutcome = (typeof PRINT_OUTCOMES)[number];
@@ -76,5 +80,6 @@ export type IntegrationStatus = (typeof INTEGRATION_STATUSES)[number];
 export type IntegrationKind = (typeof INTEGRATION_KINDS)[number];
 export type SyncTrigger = (typeof SYNC_TRIGGERS)[number];
 export type SyncType = (typeof SYNC_TYPES)[number];
+export type SyncMode = (typeof SYNC_MODES)[number];
 export type SyncFrequency = (typeof SYNC_FREQUENCIES)[number];
 export type Capability = (typeof CAPABILITIES)[number];

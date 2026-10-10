@@ -149,7 +149,7 @@ Do Step 12 of PLAN.md. Core stays brand-agnostic, web never checks vendor names.
 Show me the split migration and the new type/kind model before implementing.
 ```
 
-### [ ] Step 13 - Sync policy per type  **[plan mode]**
+### [x] Step 13 - Sync policy per type  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:** New table, one row per integration + type: `mode` (off | manual | auto), `frequency` (15m, 1h, 1d, 1w, 1M), `lastRunAt`, `cursor`. Replaces `sync_frequency`, `last_prints_sync_at` and `disabled_features` (migration carries current values over; `off` = disabled feature). Scheduler keeps its 15m tick and runs each auto type whose frequency has elapsed. Prints stay incremental; manual runs still take a date range. Types that need a preview (spools, profiles, catalog) in auto mode import only new/unambiguous rows; the rest waits for manual preview → confirm, with a pending count in the hub. Hub: per integration a table Type | Mode | Frequency | Last sync | Sync/Import now. Defaults: prints 1h, printers + spools 1d, catalog 1w.
 **Done when:** each type follows its own mode and frequency; existing settings carried over; sync log shows per-type runs; tests pass.

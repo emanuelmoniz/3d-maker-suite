@@ -151,6 +151,16 @@ function migrateAcross(lastIdx: number, fill: (sqlite: Database.Database) => voi
   return drizzle({ client: sqlite, schema: s, casing: "snake_case" });
 }
 
+/** What `disabled_features` held before 0025: the types switched off for one integration. */
+const offTypes = (now: ReturnType<typeof migrateAcross>, integrationId: string) =>
+  now
+    .select()
+    .from(s.syncPolicies)
+    .all()
+    .filter((p) => p.integrationId === integrationId && p.mode === "off")
+    .map((p) => p.type)
+    .sort();
+
 describe("migration 0017", () => {
   it("moves free-text brand/model into the catalog", () => {
     const now = migrateAcross(16, (sqlite) => {
@@ -223,8 +233,8 @@ describe("migration 0019", () => {
     expect(twins.find((r) => r.createdAt === at)).toMatchObject({
       slicerPath: "C:/Bambu/bambu-studio.exe",
       slicerConfigDir: "D:/Studio",
-      disabledFeatures: [],
     });
+    expect(twins.flatMap((r) => offTypes(now, r.id))).toEqual([]);
     expect(twins.find((r) => r.createdAt !== at)?.slicerPath).toBeNull();
     expect(prefsLeft(now)).toEqual(["currency"]);
   });
@@ -247,8 +257,8 @@ describe("migration 0019", () => {
       enabled: true,
       slicerPath: null,
       slicerConfigDir: null,
-      disabledFeatures: [],
     });
+    expect(offTypes(now, row?.id ?? "")).toEqual([]);
     expect(row?.id).toMatch(
       /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
     );
@@ -309,20 +319,20 @@ describe("migration 0024", () => {
       adapterId: "bambu-cloud",
       secrets: "blob",
       config: { region: "china" },
-      disabledFeatures: ["prints"],
       slicerConfigDir: null,
       slicerPath: null,
     });
+    expect(offTypes(now, "acct")).toEqual(["prints"]);
     const studio = rows.find((r) => r.adapterId === "bambu-studio");
     expect(studio).toMatchObject({
       enabled: true,
       secrets: null,
       config: {},
-      disabledFeatures: ["openInSlicer"],
       slicerConfigDir: "D:/Studio",
       slicerPath: "C:/bs.exe",
       createdAt: at,
     });
+    expect(offTypes(now, studio?.id ?? "")).toEqual(["openInSlicer"]);
     expect(studio?.id).toMatch(
       /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
     );
@@ -330,9 +340,9 @@ describe("migration 0024", () => {
     expect(now.select().from(s.settings).get()?.value).toBe(studio?.id);
     expect(rows.find((r) => r.id === "other")).toMatchObject({
       adapterId: "mock",
-      disabledFeatures: ["prints"],
       slicerPath: "C:/x.exe",
     });
+    expect(offTypes(now, "other")).toEqual(["prints"]);
   });
 
   it("turns a slicer-only Bambu row into Bambu Studio in place", () => {
@@ -344,10 +354,47 @@ describe("migration 0024", () => {
         id: "studio",
         adapterId: "bambu-studio",
         config: {},
-        disabledFeatures: [],
         slicerPath: "C:/bs.exe",
       },
     ]);
+    expect(offTypes(now, "studio")).toEqual([]);
+  });
+});
+
+describe("migration 0025", () => {
+  it("carries the frequency, the switched-off features and the prints cursor into sync policies", () => {
+    const at = "2026-01-01T00:00:00.000Z";
+    const synced = "2026-03-01T00:00:00.000Z";
+    const printsAt = "2026-02-01T00:00:00.000Z";
+    const now = migrateAcross(24, (sqlite) => {
+      const row = sqlite.prepare(
+        `INSERT INTO integrations (id, adapter_id, config, disabled_features, sync_frequency, last_sync_at, last_prints_sync_at, created_at, updated_at)
+         VALUES (?, 'mock', '{}', ?, ?, ?, ?, ?, ?)`,
+      );
+      row.run("hourly", JSON.stringify(["prints", "spools"]), "1h", synced, printsAt, at, at);
+      row.run("manual", "[]", "off", null, null, at, at);
+    });
+    const of = (integrationId: string) =>
+      now
+        .select()
+        .from(s.syncPolicies)
+        .all()
+        .filter((p) => p.integrationId === integrationId)
+        .sort((a, b) => a.type.localeCompare(b.type));
+    // The one frequency goes to both; a switched-off type stays off but keeps its cursor.
+    expect(of("hourly")).toMatchObject([
+      { type: "printers", mode: "auto", frequency: "1h", lastRunAt: synced, cursor: null },
+      { type: "prints", mode: "off", frequency: "1h", lastRunAt: printsAt, cursor: printsAt },
+      { type: "spools", mode: "off", frequency: "1d", lastRunAt: null, pending: 0 },
+    ]);
+    // "off" was manual-only: each type gets its default frequency for when it is switched to auto.
+    expect(of("manual")).toMatchObject([
+      { type: "printers", mode: "manual", frequency: "1d", lastRunAt: null },
+      { type: "prints", mode: "manual", frequency: "1h", cursor: null },
+    ]);
+    // Deleting the integration takes its policies along.
+    now.delete(s.integrations).run();
+    expect(now.select().from(s.syncPolicies).all()).toEqual([]);
   });
 });
 

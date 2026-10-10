@@ -25,7 +25,7 @@ The app stores only the access token, encrypted on disk (see [ADR-0005](adr/0005
 - **Print history:** finished prints since the last sync. Prints started from the phone app or while the PC was off are included.
 - **Spools:** the filament manager's spools, matched to your profiles.
 
-Sync runs every 15 minutes by default (change it per integration on the Integrations page, or switch it off). You can also sync printers or prints on their own, and re-import print history for a date range.
+By default print history syncs every hour and printers every day. On the Integrations page each type has its own mode (off, manual, automatic) and frequency, a "Sync now" button, and for print history a date range to re-import. Spools are imported by hand unless you set them to automatic; then only spools with exactly one matching filament profile are imported and the rest waits for you under "Review and import".
 
 ## When it stops working
 

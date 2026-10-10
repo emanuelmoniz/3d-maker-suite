@@ -7,8 +7,9 @@ import {
   type IntegrationStatus,
   SYNC_RUN_STATUSES,
   SYNC_TRIGGERS,
-  SYNC_TYPES,
   type SyncFrequency,
+  type SyncMode,
+  type SyncPolicy,
   type SyncRequest,
   type SyncRun,
   syncRunFilters,
@@ -60,6 +61,7 @@ export const ERRORS: Record<IntegrationErrorCode, string> = {
   api_changed: "integrations:errors.api_changed",
   unknown: "integrations:errors.unknown",
 };
+// Also the Type column of the sync log.
 const CAPS: Record<Capability, string> = {
   printers: "integrations:capabilities.printers",
   prints: "integrations:capabilities.prints",
@@ -72,10 +74,6 @@ const CAPS: Record<Capability, string> = {
   openInSlicer: "integrations:capabilities.openInSlicer",
 };
 const TRIGGERS = { manual: "integrations:runs.manual", scheduled: "integrations:runs.scheduled" };
-const TYPES = {
-  printers: "integrations:runs.printers",
-  prints: "integrations:runs.prints",
-};
 const RANGES = {
   sinceLast: "integrations:sync.ranges.sinceLast",
   d7: "integrations:sync.ranges.d7",
@@ -90,10 +88,29 @@ const FREQUENCIES: Record<SyncFrequency, string> = {
   "1d": "integrations:sync.frequencies.1d",
   "1w": "integrations:sync.frequencies.1w",
   "1M": "integrations:sync.frequencies.1M",
-  off: "integrations:sync.frequencies.off",
+};
+const MODES: Record<SyncMode, string> = {
+  off: "integrations:policies.modes.off",
+  manual: "integrations:policies.modes.manual",
+  auto: "integrations:policies.modes.auto",
+};
+// `openInSlicer` is an action, not data: it is only on or off.
+const ACTION_MODES = {
+  off: "integrations:policies.modes.off",
+  manual: "integrations:policies.modes.on",
+};
+// Types imported through a preview: where their rows are reviewed and confirmed.
+const PREVIEWS: Partial<
+  Record<Capability, "/filament/spools/import/$id" | "/filament/import/$id">
+> = {
+  spools: "/filament/spools/import/$id",
+  filamentProfiles: "/filament/import/$id",
 };
 const RUN_STATUSES = { ok: "integrations:runs.ok", error: "integrations:runs.error" };
 
+// A control inside a table row keeps clear of the row borders and never shrinks below its text
+// (the table scrolls sideways on a phone instead).
+const cellSelect = `${inputClass} my-1 min-w-max`;
 const addClass =
   "inline-flex h-9 items-center gap-2 rounded-md bg-accent px-3 font-medium text-accent-fg hover:opacity-90";
 
@@ -158,11 +175,11 @@ function IntegrationCard({ integration: i }: { integration: Integration }) {
   const adapterName = useAdapterName();
   const navigate = useNavigate();
   const adapter = useAdapters().data?.find((a) => a.id === i.adapterId);
-  const supported = adapter?.capabilities ?? [];
-  const off = supported.filter((c) => i.disabledFeatures.includes(c));
-  // Disabled = switched off entirely, so only the toggle and Delete stay. Sign-in, sync and the
-  // log only matter for an account with something switched on.
-  const account = i.enabled && i.kind === "cloud" && supported.some((c) => !off.includes(c));
+  const on = i.policies.filter((p) => p.mode !== "off");
+  // Disabled = switched off entirely, so only the toggle and Delete stay. Sign-in and the test
+  // only matter for an account with something switched on, the log for anything that syncs.
+  const account = i.enabled && i.kind === "cloud" && on.length > 0;
+  const logged = i.enabled && on.some((p) => p.type !== "openInSlicer");
   const hasLogin = account && adapter?.login;
   const [showLog, setShowLog] = useState(false);
   const [confirming, setConfirming] = useState(false);
@@ -225,14 +242,14 @@ function IntegrationCard({ integration: i }: { integration: Integration }) {
           </Button>
         )}
         {account && (
-          <>
-            <Button disabled={test.isPending} onClick={() => test.mutate()}>
-              {t("integrations:card.test")}
-            </Button>
-            <Button variant="ghost" aria-expanded={showLog} onClick={() => setShowLog((v) => !v)}>
-              {showLog ? t("integrations:card.hideLog") : t("integrations:card.showLog")}
-            </Button>
-          </>
+          <Button disabled={test.isPending} onClick={() => test.mutate()}>
+            {t("integrations:card.test")}
+          </Button>
+        )}
+        {logged && (
+          <Button variant="ghost" aria-expanded={showLog} onClick={() => setShowLog((v) => !v)}>
+            {showLog ? t("integrations:card.hideLog") : t("integrations:card.showLog")}
+          </Button>
         )}
         <Button variant="ghost" className="text-bad" onClick={() => setConfirming(true)}>
           {t("integrations:card.delete")}
@@ -248,42 +265,22 @@ function IntegrationCard({ integration: i }: { integration: Integration }) {
         </label>
       </div>
 
-      {account && (
-        <SyncControls integration={i} primary={!(hasLogin && !i.hasSecrets)} sync={sync} />
-      )}
-
-      {i.enabled && supported.length > 0 && (
-        <fieldset className="mt-4">
-          <legend className="font-medium">{t("integrations:capabilities.title")}</legend>
-          <div className="mt-2 flex flex-wrap gap-x-5 gap-y-2">
-            {supported.map((c) => (
-              <label key={c} className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={!off.includes(c)}
-                  disabled={patch.isPending}
-                  onChange={(e) =>
-                    patch.mutate({
-                      disabledFeatures: e.target.checked ? off.filter((d) => d !== c) : [...off, c],
-                    })
-                  }
-                />
-                {t(CAPS[c])}
-              </label>
-            ))}
-          </div>
-        </fieldset>
-      )}
+      {i.enabled && i.policies.length > 0 && <Policies integration={i} sync={sync} />}
 
       {i.enabled && i.kind === "local" && (
         <SlicerFields
           integration={i}
           detectedDir={adapter?.detectedConfigDir ?? null}
-          program={supported.includes("openInSlicer")}
+          program={i.policies.some((p) => p.type === "openInSlicer")}
         />
       )}
 
-      {account && showLog && <SyncLog id={i.id} />}
+      {logged && showLog && (
+        <SyncLog
+          id={i.id}
+          types={i.policies.map((p) => p.type).filter((c) => c !== "openInSlicer")}
+        />
+      )}
 
       <ConfirmDialog
         open={confirming}
@@ -321,13 +318,12 @@ function rangeFor(range: keyof typeof RANGES, from: string, to: string): Partial
   };
 }
 
-function SyncControls({
+/** One row per type the integration has: its mode, frequency, last sync and "run it now". */
+function Policies({
   integration: i,
-  primary,
   sync,
 }: {
   integration: Integration;
-  primary: boolean;
   sync: ReturnType<typeof useSyncIntegration>;
 }) {
   const { t } = useTranslation();
@@ -335,88 +331,135 @@ function SyncControls({
   const [range, setRange] = useState<keyof typeof RANGES>("sinceLast");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
-  const printers = i.capabilities.includes("printers");
   const prints = i.capabilities.includes("prints");
   const customInvalid = range === "custom" && (!from || (!!to && to < from));
   const select = <T extends string>(
     value: T,
-    options: Record<T, string>,
+    options: Partial<Record<T, string>>,
     onChange: (v: T) => void,
     p: object,
     disabled = false,
   ) => (
     <select
-      {...p}
       className={inputClass}
+      {...p}
       value={value}
       disabled={disabled}
       onChange={(e) => onChange(e.target.value as T)}
     >
       {(Object.keys(options) as T[]).map((k) => (
         <option key={k} value={k}>
-          {t(options[k])}
+          {t(options[k] ?? "")}
         </option>
       ))}
     </select>
   );
+  const run = (p: SyncPolicy) => {
+    // Switched off or not set up (no sign-in, no folder): nothing to run.
+    if (!i.capabilities.includes(p.type)) return "–";
+    if (p.type === "printers" || p.type === "prints")
+      return (
+        <Button
+          className="my-1"
+          disabled={sync.isPending || (p.type === "prints" && customInvalid)}
+          onClick={() =>
+            sync.mutate(
+              p.type === "prints"
+                ? { type: "prints", ...rangeFor(range, from, to) }
+                : { type: "printers" },
+            )
+          }
+        >
+          {t("integrations:policies.syncNow")}
+        </Button>
+      );
+    const preview = PREVIEWS[p.type];
+    if (!preview) return "–";
+    return (
+      <span className="flex items-center gap-3">
+        <Link
+          to={preview}
+          params={{ id: i.id }}
+          className="font-medium text-accent hover:underline"
+        >
+          {t("integrations:policies.importNow")}
+        </Link>
+        {p.pending > 0 && (
+          <span className="text-muted">
+            {t("integrations:policies.pending", { count: p.pending })}
+          </span>
+        )}
+      </span>
+    );
+  };
   return (
-    <fieldset className="mt-4 grid gap-3">
-      <legend className="mb-2 font-medium">{t("integrations:sync.title")}</legend>
+    <div className="mt-4 grid gap-3">
       {patch.isError && (
         <p role="alert" className="text-bad">
           {t("integrations:card.actionError")}
         </p>
       )}
-      <div className="flex flex-wrap items-center gap-2">
-        {printers && prints && (
-          <Button
-            variant={primary ? "primary" : "secondary"}
-            disabled={sync.isPending}
-            onClick={() => sync.mutate(undefined)}
-          >
-            {t("integrations:card.syncNow")}
-          </Button>
-        )}
-        {printers && (
-          <Button
-            variant={primary && !prints ? "primary" : "secondary"}
-            disabled={sync.isPending}
-            onClick={() => sync.mutate({ type: "printers" })}
-          >
-            {t("integrations:card.syncPrinters")}
-          </Button>
-        )}
-        {prints && (
-          <Button
-            variant={primary && !printers ? "primary" : "secondary"}
-            disabled={sync.isPending || customInvalid}
-            onClick={() => sync.mutate({ type: "prints", ...rangeFor(range, from, to) })}
-          >
-            {t("integrations:card.syncPrints")}
-          </Button>
-        )}
-      </div>
-      <div className="grid gap-3 sm:grid-cols-2">
-        {prints && (
+      <DataTable
+        label={t("integrations:policies.title")}
+        rows={i.policies}
+        rowKey={(p) => p.type}
+        columns={[
+          { id: "type", header: t("integrations:policies.type"), cell: (p) => t(CAPS[p.type]) },
+          {
+            id: "mode",
+            header: t("integrations:policies.mode"),
+            cell: (p) =>
+              select(
+                p.mode,
+                p.type === "openInSlicer" ? ACTION_MODES : MODES,
+                (mode) => patch.mutate({ policies: [{ type: p.type, mode }] }),
+                {
+                  className: cellSelect,
+                  "aria-label": t("integrations:policies.modeOf", { type: t(CAPS[p.type]) }),
+                },
+                patch.isPending,
+              ),
+          },
+          {
+            id: "frequency",
+            header: t("integrations:policies.frequency"),
+            cell: (p) =>
+              p.type === "openInSlicer"
+                ? "–"
+                : select(
+                    p.frequency,
+                    FREQUENCIES,
+                    (frequency) => patch.mutate({ policies: [{ type: p.type, frequency }] }),
+                    {
+                      className: cellSelect,
+                      "aria-label": t("integrations:policies.frequencyOf", {
+                        type: t(CAPS[p.type]),
+                      }),
+                    },
+                    patch.isPending || p.mode !== "auto",
+                  ),
+          },
+          {
+            id: "lastRun",
+            header: t("integrations:policies.lastRun"),
+            cell: (p) =>
+              p.type === "openInSlicer"
+                ? "–"
+                : p.lastRunAt
+                  ? formatDateTime(p.lastRunAt)
+                  : t("integrations:policies.never"),
+          },
+          { id: "run", header: t("integrations:policies.run"), cell: run },
+        ]}
+      />
+      <p className="text-muted">{t("integrations:policies.hint")}</p>
+      {prints && (
+        <div className="grid gap-3 sm:grid-cols-2">
           <FormField label={t("integrations:sync.range")} hint={t("integrations:sync.rangeHint")}>
             {(p) => select(range, RANGES, setRange, p)}
           </FormField>
-        )}
-        <FormField
-          label={t("integrations:sync.frequency")}
-          hint={t("integrations:sync.frequencyHint")}
-        >
-          {(p) =>
-            select(
-              i.syncFrequency,
-              FREQUENCIES,
-              (syncFrequency) => patch.mutate({ syncFrequency }),
-              p,
-              patch.isPending,
-            )
-          }
-        </FormField>
-      </div>
+        </div>
+      )}
       {prints && range === "custom" && (
         <div className="grid gap-3 sm:grid-cols-2">
           <FormField label={t("integrations:sync.from")}>
@@ -445,7 +488,7 @@ function SyncControls({
           </FormField>
         </div>
       )}
-    </fieldset>
+    </div>
   );
 }
 
@@ -517,7 +560,7 @@ function SlicerFields({
 }
 
 // Local state, not the URL: every integration card has its own log.
-function SyncLog({ id }: { id: string }) {
+function SyncLog({ id, types }: { id: string; types: SyncRun["type"][] }) {
   const { t } = useTranslation();
   const [query, setQuery] = useState<ListQuery>({ pageSize: "10" });
   const { data } = useSyncRuns(id, query);
@@ -555,9 +598,9 @@ function SyncLog({ id }: { id: string }) {
           {
             id: "type",
             header: t("integrations:runs.type"),
-            cell: (r) => (r.type ? t(TYPES[r.type]) : t("integrations:runs.all")),
+            cell: (r) => (r.type ? t(CAPS[r.type]) : t("integrations:runs.all")),
             filter: "type",
-            filterOptions: SYNC_TYPES.map((v) => ({ value: v, label: t(TYPES[v]) })),
+            filterOptions: types.flatMap((v) => (v ? [{ value: v, label: t(CAPS[v]) }] : [])),
           },
           {
             id: "range",

@@ -119,9 +119,7 @@ export async function buildApp(
   // Without a data dir (tests) secrets use a throwaway in-memory key.
   const key = dataDir ? loadKey(dataDir) : randomBytes(32);
   const syncer = createSyncer(db, opts.adapters ?? [], key, app.log);
-  await app.register(filamentRoutes(db, syncer.adapters, syncer.listSpools), {
-    prefix: "/api/filament",
-  });
+  await app.register(filamentRoutes(db, syncer), { prefix: "/api/filament" });
   await app.register(printsRoutes(db), { prefix: "/api/prints" });
   await app.register(costsRoutes(db), { prefix: "/api/costs" });
   await app.register(statsRoutes(db), { prefix: "/api/stats" });

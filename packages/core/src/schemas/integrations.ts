@@ -1,15 +1,17 @@
 import { z } from "zod";
-import { id, isoDate } from "./entities.ts";
+import { id, isoDate, syncPolicySchema } from "./entities.ts";
 import {
   CAPABILITIES,
+  type Capability,
   INTEGRATION_ERROR_CODES,
   INTEGRATION_KINDS,
   LOGIN_CHALLENGES,
   PRINT_OUTCOMES,
-  SYNC_FREQUENCIES,
   SYNC_RUN_STATUSES,
   SYNC_TRIGGERS,
   SYNC_TYPES,
+  type SyncFrequency,
+  type SyncMode,
 } from "./enums.ts";
 import type { ColumnFilter } from "./list.ts";
 
@@ -60,10 +62,14 @@ export const integrationPatchSchema = z
     enabled: z.boolean(),
     config: z.record(z.string(), z.json()),
     secrets: z.record(z.string(), z.string()),
-    disabledFeatures: z.array(z.enum(CAPABILITIES)),
     slicerConfigDir: z.string().trim().nullable(),
     slicerPath: z.string().trim().nullable(),
-    syncFrequency: z.enum(SYNC_FREQUENCIES),
+    /** Only the listed types change, and only the fields sent. */
+    policies: z.array(
+      syncPolicySchema
+        .pick({ type: true, mode: true, frequency: true })
+        .partial({ mode: true, frequency: true }),
+    ),
   })
   .partial()
   .strict();
@@ -94,6 +100,18 @@ export const loginResultSchema = z.discriminatedUnion("status", [
   z.object({ status: z.literal("error"), code: z.enum(INTEGRATION_ERROR_CODES) }),
 ]);
 
+const WEEKLY: readonly Capability[] = ["brands", "printerModels", "filamentBrands"];
+/**
+ * What a type does until the user changes it (no stored row). Printers and prints sync on their
+ * own; anything with a preview is imported by hand until the user picks `auto`.
+ */
+export const defaultPolicy = (type: Capability): { mode: SyncMode; frequency: SyncFrequency } =>
+  type === "prints"
+    ? { mode: "auto", frequency: "1h" }
+    : type === "printers"
+      ? { mode: "auto", frequency: "1d" }
+      : { mode: "manual", frequency: WEEKLY.includes(type) ? "1w" : "1d" };
+
 export const syncRunSchema = z.object({
   id,
   integrationId: id,
@@ -111,10 +129,9 @@ export const syncRunSchema = z.object({
   skipped: z.number().int().nonnegative(),
 });
 
-/** Manual sync. No body = everything, incremental. A range only makes sense for prints. */
+/** One run = one type. Prints are incremental unless a range is given (prints only). */
 export const syncRequestSchema = z
-  .object({ type: z.enum(SYNC_TYPES), from: isoDate, to: isoDate })
-  .partial()
+  .object({ type: z.enum(SYNC_TYPES), from: isoDate.optional(), to: isoDate.optional() })
   .refine((r) => !(r.from || r.to) || r.type === "prints", "A range needs type=prints")
   .refine((r) => !(r.from && r.to) || r.from <= r.to, "from must not be after to");
 
@@ -138,6 +155,7 @@ export type IntegrationPatch = z.infer<typeof integrationPatchSchema>;
 export type AdapterInfo = z.infer<typeof adapterInfoSchema>;
 export type SyncRequest = z.infer<typeof syncRequestSchema>;
 export type SyncRun = z.infer<typeof syncRunSchema>;
+export type SyncPolicy = z.infer<typeof syncPolicySchema>;
 export type TestResult = z.infer<typeof testResultSchema>;
 export type LoginRequest = z.infer<typeof loginInputSchema>;
 export type LoginResult = z.infer<typeof loginResultSchema>;

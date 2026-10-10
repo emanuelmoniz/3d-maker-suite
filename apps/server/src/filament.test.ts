@@ -180,8 +180,110 @@ describe("filament library", () => {
     expect(names(res)).toEqual(["A:new", "B:new"]);
     expect(names(await preview("?includeSystem=true"))).toContain("S:new");
     // Switched off = gone.
-    await patchSlicer({ disabledFeatures: ["filamentProfiles"] });
+    await patchSlicer({ policies: [{ type: "filamentProfiles", mode: "off" }] });
     expect((await preview()).statusCode).toBe(404);
+  });
+
+  const run = (id: string, type: string) =>
+    app.inject({ method: "POST", url: `/api/integrations/${id}/sync`, payload: { type } });
+  const policy = async (id: string, type: string) =>
+    (await app.inject(`/api/integrations/${id}`))
+      .json()
+      .policies.find((p: { type: string }) => p.type === type);
+
+  it("a profiles run imports only user presets whose brand and material are in the catalog", async () => {
+    // No folder yet: refused, and not logged as a failed run.
+    expect((await run(slicerId, "filamentProfiles")).statusCode).toBe(404);
+    expect(db.select().from(schema.syncRuns).all()).toEqual([]);
+    await setDir(dir);
+
+    // "Acme" would be a new brand: that is the user's call, in the preview.
+    filamentMaterialIdFor(db, "PLA");
+    expect((await run(slicerId, "filamentProfiles")).json()).toMatchObject({
+      type: "filamentProfiles",
+      status: "ok",
+      created: 0,
+    });
+    expect(await policy(slicerId, "filamentProfiles")).toMatchObject({ pending: 2 });
+
+    filamentBrandIdFor(db, "acme");
+    expect((await run(slicerId, "filamentProfiles")).json()).toMatchObject({ created: 2 });
+    expect((await run(slicerId, "filamentProfiles")).json()).toMatchObject({
+      created: 0,
+      skipped: 2,
+    });
+    expect(names(await preview("?includeSystem=true"))).toEqual([
+      "A:imported",
+      "B:imported",
+      "S:new",
+    ]);
+    const after = await policy(slicerId, "filamentProfiles");
+    expect(after).toMatchObject({ mode: "manual", pending: 0 });
+    expect(after.lastRunAt).toBeTruthy();
+  });
+
+  it("a spools run imports only spools with exactly one matching profile; the rest waits", async () => {
+    mock.spools = ["A", "Matte", "Silk"].map((name, i) => ({
+      spoolId: String(i + 1),
+      profile: { brand: "Acme", material: "PLA", name },
+      colorHex: "#ff0000",
+      initialGrams: 1000,
+      remainingGrams: 250,
+      emptyWeightGrams: null,
+      status: "in_use" as const,
+    }));
+    const mockId = (
+      await app.inject({
+        method: "POST",
+        url: "/api/integrations",
+        payload: { adapterId: "mock", secrets: { token: "t" } },
+      })
+    ).json().id;
+    const [one, matte] = ["A", "Acme Matte", "Other Matte"].map(
+      (name) =>
+        db
+          .insert(schema.filamentProfiles)
+          .values({
+            brandId: filamentBrandIdFor(db, "Acme"),
+            materialId: filamentMaterialIdFor(db, "PLA"),
+            name,
+            densityGcm3: 1.2,
+          })
+          .returning()
+          .get().id,
+    );
+
+    // "A" has its profile; "Matte" fits two and "Silk" none.
+    expect((await run(mockId, "spools")).json()).toMatchObject({
+      type: "spools",
+      trigger: "manual",
+      created: 1,
+      skipped: 0,
+    });
+    expect(db.select().from(schema.spools).all()).toMatchObject([
+      { sourceSpool: "mock:1", profileId: one },
+    ]);
+    expect(await policy(mockId, "spools")).toMatchObject({ pending: 2 });
+
+    // The preview -> confirm flow takes one of them, and is logged like any run.
+    const confirmed = await app.inject({
+      method: "POST",
+      url: `/api/filament/inventory/${mockId}/import`,
+      payload: { spools: [{ spoolId: "mock:2", profileId: matte }] },
+    });
+    expect(confirmed.json()).toEqual({ created: 1 });
+    expect(await policy(mockId, "spools")).toMatchObject({ pending: 1 });
+    expect((await run(mockId, "spools")).json()).toMatchObject({ created: 0, skipped: 2 });
+    expect((await app.inject(`/api/integrations/${mockId}/runs?type=spools`)).json().total).toBe(3);
+
+    // A vendor failure during the confirm comes back with its code.
+    mock.fail = "auth_expired";
+    const failed = await app.inject({
+      method: "POST",
+      url: `/api/filament/inventory/${mockId}/import`,
+      payload: { spools: [{ spoolId: "mock:3", profileId: matte }] },
+    });
+    expect([failed.statusCode, failed.json().error.code]).toEqual([502, "auth_expired"]);
   });
 
   it("imports only the picked presets, once, and links them to the source", async () => {

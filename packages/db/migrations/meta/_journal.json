@@ -176,6 +176,13 @@
       "when": 1791592850645,
       "tag": "0024_split_bambu",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "6",
+      "when": 1791595518145,
+      "tag": "0025_sync_policies",
+      "breakpoints": true
     }
   ]
 }

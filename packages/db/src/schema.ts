@@ -1,5 +1,6 @@
 import {
   ALERT_KINDS,
+  CAPABILITIES,
   COMMENT_STATUSES,
   ENERGY_SOURCES,
   INTEGRATION_ERROR_CODES,
@@ -8,6 +9,7 @@ import {
   type PROJECT_EDITABLE_FIELDS,
   SPOOL_STATUSES,
   SYNC_FREQUENCIES,
+  SYNC_MODES,
   SYNC_RUN_STATUSES,
   SYNC_TRIGGERS,
   SYNC_TYPES,
@@ -57,21 +59,40 @@ export const integrations = sqliteTable("integrations", {
   config: text({ mode: "json" }).notNull().default({}),
   /** AES-256-GCM blob `{ v, iv, tag, data }` (ADR-0005). Never returned by the API. */
   secrets: text(),
-  /** Capabilities the user switched off (missing = on, so new ones start enabled). */
-  disabledFeatures: text({ mode: "json" }).$type<string[]>().notNull().default([]),
   /** Slicer config folder override; null = detected. */
   slicerConfigDir: text(),
   /** Slicer program for "Open in slicer". */
   slicerPath: text(),
-  /** How often the scheduler syncs this one; "off" = manual only. */
-  syncFrequency: text({ enum: SYNC_FREQUENCIES }).notNull().default("15m"),
   status: text().notNull().default("new"),
   lastSyncAt: text(),
-  /** Prints already fetched up to here; the next incremental prints sync starts from it. */
-  lastPrintsSyncAt: text(),
   lastError: text(),
   ...timestamps,
 });
+
+// Sync policy per integration + type. Sparse: a type without a row follows core's `defaultPolicy`,
+// so a row appears when the user changes it or its first run finishes.
+export const syncPolicies = sqliteTable(
+  "sync_policies",
+  {
+    integrationId: text()
+      .notNull()
+      .references(() => integrations.id, { onDelete: "cascade" }),
+    type: text({ enum: CAPABILITIES }).notNull(),
+    mode: text({ enum: SYNC_MODES }).notNull(),
+    frequency: text({ enum: SYNC_FREQUENCIES }).notNull(),
+    /** Last successful run of this type (any trigger); the scheduler's "is it due" starts here. */
+    lastRunAt: text(),
+    /** Where the next incremental run starts (prints: fetched up to this date). */
+    cursor: text(),
+    /** Rows the last run left for the preview -> confirm flow. */
+    pending: integer().notNull().default(0),
+  },
+  (t) => [
+    primaryKey({ columns: [t.integrationId, t.type] }),
+    check("sync_policies_mode_ck", oneOf(t.mode, SYNC_MODES)),
+    check("sync_policies_frequency_ck", oneOf(t.frequency, SYNC_FREQUENCIES)),
+  ],
+);
 
 // Sync log: one row per run (the server keeps the last 100 per integration).
 export const syncRuns = sqliteTable(
