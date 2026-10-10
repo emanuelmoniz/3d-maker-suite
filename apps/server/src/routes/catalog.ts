@@ -5,6 +5,15 @@ import {
   brandPatchSchema,
   brandSchema,
   brandSortFields,
+  filamentBrandInputSchema,
+  filamentBrandPatchSchema,
+  filamentBrandSchema,
+  filamentBrandSortFields,
+  filamentCatalogFilters,
+  filamentMaterialInputSchema,
+  filamentMaterialPatchSchema,
+  filamentMaterialSchema,
+  filamentMaterialSortFields,
   listQuery,
   machineProfileFilters,
   machineProfileInputSchema,
@@ -27,7 +36,7 @@ import { HttpError } from "../errors.ts";
 import { imageRoutes } from "../lib/images.ts";
 import { type ListOptions, listPage } from "../lib/list.ts";
 
-const { brands, printerModels, machineProfiles } = schema;
+const { brands, printerModels, machineProfiles, filamentBrands, filamentMaterials } = schema;
 const params = z.object({ id: z.uuid() });
 const errors = { 400: apiErrorSchema, 404: apiErrorSchema, 409: apiErrorSchema };
 
@@ -201,5 +210,40 @@ export const machineProfilesRoutes = (db: Db, dataDir: string) =>
         printerModelId: machineProfiles.printerModelId,
         nozzleDiameterMm: machineProfiles.nozzleDiameterMm,
       },
+    },
+  });
+
+export const filamentBrandsRoutes = (db: Db, dataDir: string) =>
+  crud(db, dataDir, {
+    table: filamentBrands,
+    noun: "Filament brand",
+    row: filamentBrandSchema,
+    input: filamentBrandInputSchema,
+    patch: filamentBrandPatchSchema,
+    query: listQuery(filamentBrandSortFields, {}, filamentCatalogFilters),
+    list: {
+      sort: {
+        name: sql`${filamentBrands.name} COLLATE NOCASE`,
+        createdAt: filamentBrands.createdAt,
+      },
+      filters: { name: filamentBrands.name },
+    },
+    image: { name: "logo", dir: "filament-brands", column: "logoPath" },
+  });
+
+export const filamentMaterialsRoutes = (db: Db, dataDir: string) =>
+  crud(db, dataDir, {
+    table: filamentMaterials,
+    noun: "Filament material",
+    row: filamentMaterialSchema,
+    input: filamentMaterialInputSchema,
+    patch: filamentMaterialPatchSchema,
+    query: listQuery(filamentMaterialSortFields, {}, filamentCatalogFilters),
+    list: {
+      sort: {
+        name: sql`${filamentMaterials.name} COLLATE NOCASE`,
+        createdAt: filamentMaterials.createdAt,
+      },
+      filters: { name: filamentMaterials.name },
     },
   });

@@ -17,7 +17,7 @@ import { type Db, schema } from "@3d-maker-suite/db";
 import { and, desc, eq, isNull, ne, notInArray, sql } from "drizzle-orm";
 import type { FastifyBaseLogger } from "fastify";
 import { HttpError } from "../errors.ts";
-import { modelIdFor } from "../lib/catalog.ts";
+import { modelIdFor, profileMaterial } from "../lib/catalog.ts";
 import { takeFromSpool } from "../lib/spools.ts";
 import { capableRow, switchedOn } from "./capabilities.ts";
 import { secretStore } from "./secrets.ts";
@@ -239,7 +239,7 @@ export function createSyncer(
                   tx
                     .select({
                       id: spools.id,
-                      material: filamentProfiles.material,
+                      material: profileMaterial,
                       colorHex: spools.colorHex,
                       remainingGrams: spools.remainingGrams,
                       createdAt: spools.createdAt,

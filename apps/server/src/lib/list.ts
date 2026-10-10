@@ -71,6 +71,8 @@ export interface ListOptions {
   dateColumn?: AnyColumn;
   /** Column filters (query key -> column or SQL expression), parsed by `listQuery`'s column filters. */
   filters?: Record<string, SQLWrapper>;
+  /** Columns to select instead of the whole row, e.g. the row plus joined names. */
+  select?: Record<string, SQLWrapper>;
   /** Entity filters, already built with `inIds`/`eq`; undefined entries are ignored. */
   where?: (SQL | undefined)[];
 }
@@ -91,7 +93,7 @@ export function listPage<T extends SQLiteTable>(
   );
   const defaultSort = o.defaultSort ?? (Object.keys(o.sort)[0] as string);
   const items = db
-    .select()
+    .select(o.select as never)
     .from(table as SQLiteTable)
     .where(where)
     .orderBy(orderBy(o.sort, q.sort ?? defaultSort))

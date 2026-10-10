@@ -6,6 +6,7 @@ import { EmptyState } from "./components/EmptyState.tsx";
 import { loadNamespace } from "./i18n.ts";
 import { AlertsPage } from "./pages/alerts/AlertsPage.tsx";
 import { CostsPage } from "./pages/costs/CostsPage.tsx";
+import { FilamentBrandFormPage, FilamentMaterialFormPage } from "./pages/filament/CatalogForms.tsx";
 import { FilamentPage } from "./pages/filament/FilamentPage.tsx";
 import { LibraryImportPage } from "./pages/filament/LibraryImportPage.tsx";
 import { ProfileDetailPage } from "./pages/filament/ProfileDetailPage.tsx";
@@ -154,6 +155,21 @@ const routes: AnyRoute[] = [
       component: component as () => ReactNode,
     }),
   ),
+  ...(
+    [
+      ["brands", FilamentBrandFormPage],
+      ["materials", FilamentMaterialFormPage],
+    ] as const
+  ).flatMap(([kind, page]) =>
+    [`/filament/${kind}/new`, `/filament/${kind}/$id/edit`].map((path) =>
+      createRoute({
+        getParentRoute: () => root,
+        path,
+        loader: () => Promise.all([loadNamespace("filament"), loadNamespace("printers")]),
+        component: page,
+      }),
+    ),
+  ),
   createRoute({
     getParentRoute: () => root,
     path: "/filament/profiles/new",
@@ -178,6 +194,7 @@ const routes: AnyRoute[] = [
     loader: () =>
       Promise.all([
         loadNamespace("filament"),
+        loadNamespace("printers"),
         loadNamespace("tags"),
         loadNamespace("integrations"),
       ]),

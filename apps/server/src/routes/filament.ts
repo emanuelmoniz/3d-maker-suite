@@ -37,6 +37,13 @@ import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
 import { capableRow, slicerConfigDir } from "../integrations/capabilities.ts";
+import {
+  filamentBrandIdFor,
+  filamentMaterialIdFor,
+  profileBrand,
+  profileColumns,
+  profileMaterial,
+} from "../lib/catalog.ts";
 import { inIds, listPage, taggedWith } from "../lib/list.ts";
 import { createSpool, setRemaining } from "../lib/spools.ts";
 
@@ -44,7 +51,7 @@ const { filamentProfiles, spools, spoolWeightEntries } = schema;
 const params = z.object({ id: z.uuid() });
 const notFound = { 404: apiErrorSchema };
 // The label the app shows for a profile ("brand material name"), to sort and filter by.
-const profileLabel = sql`${filamentProfiles.brand} || ' ' || ${filamentProfiles.material} || ' ' || ${filamentProfiles.name}`;
+const profileLabel = sql`trim(${profileBrand} || ' ' || ${profileMaterial} || ' ' || ${filamentProfiles.name})`;
 const spoolLabel = sql`(select ${profileLabel} from ${filamentProfiles} where ${filamentProfiles.id} = ${spools.profileId})`;
 const archivedAt = (archived?: boolean) =>
   archived === undefined ? undefined : archived ? new Date().toISOString() : null;
@@ -57,7 +64,11 @@ export const filamentRoutes =
   ): FastifyPluginAsyncZod =>
   async (app) => {
     const getProfile = (id: string) => {
-      const row = db.select().from(filamentProfiles).where(eq(filamentProfiles.id, id)).get();
+      const row = db
+        .select(profileColumns)
+        .from(filamentProfiles)
+        .where(eq(filamentProfiles.id, id))
+        .get();
       if (!row) throw new HttpError(404, "not_found", "Filament profile not found");
       return row;
     };
@@ -82,15 +93,21 @@ export const filamentRoutes =
       },
       async (req) =>
         listPage(db, filamentProfiles, req.query, {
+          select: profileColumns,
           sort: {
-            brand: filamentProfiles.brand,
-            material: filamentProfiles.material,
+            brand: sql`${profileBrand} COLLATE NOCASE`,
+            material: sql`${profileMaterial} COLLATE NOCASE`,
             createdAt: filamentProfiles.createdAt,
             filament: profileLabel,
             pricePerKg: filamentProfiles.pricePerKg,
           },
           dateColumn: filamentProfiles.createdAt,
-          filters: { filament: profileLabel, pricePerKg: filamentProfiles.pricePerKg },
+          filters: {
+            filament: profileLabel,
+            brandId: filamentProfiles.brandId,
+            materialId: filamentProfiles.materialId,
+            pricePerKg: filamentProfiles.pricePerKg,
+          },
           where: [
             req.query.archived === "true"
               ? isNotNull(filamentProfiles.archivedAt)
@@ -101,15 +118,20 @@ export const filamentRoutes =
 
     app.post(
       "/profiles",
-      { schema: { body: filamentProfileInputSchema, response: { 201: filamentProfileSchema } } },
-      async (req, reply) =>
-        reply.status(201).send(
-          db
-            .insert(filamentProfiles)
-            .values({ brand: "", name: "", ...req.body })
-            .returning()
-            .get() as FilamentProfile,
-        ),
+      {
+        schema: {
+          body: filamentProfileInputSchema,
+          response: { 201: filamentProfileSchema, 400: apiErrorSchema },
+        },
+      },
+      async (req, reply) => {
+        const { id } = db
+          .insert(filamentProfiles)
+          .values({ name: "", ...req.body })
+          .returning()
+          .get();
+        return reply.status(201).send(getProfile(id) as FilamentProfile);
+      },
     );
 
     app.get(
@@ -130,12 +152,11 @@ export const filamentRoutes =
       async (req) => {
         getProfile(req.params.id);
         const { archived, ...fields } = req.body;
-        return db
-          .update(filamentProfiles)
+        db.update(filamentProfiles)
           .set({ ...fields, archivedAt: archivedAt(archived) })
           .where(eq(filamentProfiles.id, req.params.id))
-          .returning()
-          .get() as FilamentProfile;
+          .run();
+        return getProfile(req.params.id) as FilamentProfile;
       },
     );
 
@@ -165,7 +186,7 @@ export const filamentRoutes =
           req.params.id,
           req.query.includeSystem === "true",
         );
-        const rows = db.select().from(filamentProfiles).all();
+        const rows = db.select(profileColumns).from(filamentProfiles).all();
         const imported = new Set(rows.map((r) => r.sourcePreset));
         const have = new Set(rows.map(key));
         return {
@@ -195,15 +216,21 @@ export const filamentRoutes =
         // Re-read instead of trusting the client, so the preview is only a selection.
         const { lib, presets } = await readLibrary(req.params.id, req.body.includeSystem);
         const picked = new Set(req.body.presetIds);
-        const rows = db.select().from(filamentProfiles).all();
+        const rows = db.select(profileColumns).from(filamentProfiles).all();
         const skip = new Set([...rows.map((r) => r.sourcePreset), ...rows.map(key)]);
         let created = 0;
         db.transaction((tx) => {
           for (const { presetId, scope: _scope, ...p } of presets) {
             const sourcePreset = `${lib.id}:${presetId}`;
             if (!picked.has(presetId) || skip.has(sourcePreset) || skip.has(key(p))) continue;
+            const { brand, material, ...fields } = p;
             tx.insert(filamentProfiles)
-              .values({ ...p, sourcePreset })
+              .values({
+                ...fields,
+                brandId: filamentBrandIdFor(db, brand),
+                materialId: filamentMaterialIdFor(db, material),
+                sourcePreset,
+              })
               .run();
             skip.add(sourcePreset).add(key(p)); // two picked presets can be the same filament
             created++;
@@ -233,7 +260,7 @@ export const filamentRoutes =
         const items = await listSpools(req.params.id);
         const imported = importedSpools();
         const active = db
-          .select()
+          .select(profileColumns)
           .from(filamentProfiles)
           .where(isNull(filamentProfiles.archivedAt))
           .all();

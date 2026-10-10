@@ -1,6 +1,7 @@
 import type { AlertKind, Notification } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
 import { and, eq, isNull, ne } from "drizzle-orm";
+import { profileBrand, profileMaterial } from "../lib/catalog.ts";
 import { dueItems } from "../lib/maintenance.ts";
 import { readPreferences } from "../lib/preferences.ts";
 import { channels, readChannel, sendVia } from "./channels.ts";
@@ -24,8 +25,8 @@ function conditions(db: Db, now: Date): Found {
     .select({
       id: spools.id,
       grams: spools.remainingGrams,
-      brand: filamentProfiles.brand,
-      material: filamentProfiles.material,
+      brand: profileBrand,
+      material: profileMaterial,
       name: filamentProfiles.name,
     })
     .from(spools)

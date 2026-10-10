@@ -11,6 +11,7 @@ import {
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
 import { inArray, isNull, sum } from "drizzle-orm";
+import { profileColumns } from "./catalog.ts";
 import { readPreferences } from "./preferences.ts";
 
 const { printers, prints, maintenanceTasks, spools, filamentProfiles } = schema;
@@ -56,7 +57,7 @@ export function costContext(db: Db): CostContext {
   const rates = printerRates(db, list);
   const byMaterial = new Map<string, number[]>();
   for (const p of db
-    .select()
+    .select(profileColumns)
     .from(filamentProfiles)
     .where(isNull(filamentProfiles.archivedAt))
     .all()) {
@@ -117,7 +118,11 @@ export function printCosts(db: Db, list: PrintWithUsages[]): Map<string, CostBre
   ];
   const profiles = new Map(
     (profileIds.length
-      ? db.select().from(filamentProfiles).where(inArray(filamentProfiles.id, profileIds)).all()
+      ? db
+          .select(profileColumns)
+          .from(filamentProfiles)
+          .where(inArray(filamentProfiles.id, profileIds))
+          .all()
       : []
     ).map((p) => [p.id, p]),
   );

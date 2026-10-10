@@ -19,6 +19,8 @@ const TABLES = [
   ["machine-profiles", "settings:backup.tables.machineProfiles"],
   ["maintenance", "settings:backup.tables.maintenance"],
   ["maintenance-types", "settings:backup.tables.maintenanceTypes"],
+  ["filament-brands", "settings:backup.tables.filamentBrands"],
+  ["filament-materials", "settings:backup.tables.filamentMaterials"],
   ["filament-profiles", "settings:backup.tables.filamentProfiles"],
   ["spools", "settings:backup.tables.spools"],
   ["projects", "settings:backup.tables.projects"],

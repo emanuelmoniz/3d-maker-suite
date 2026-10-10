@@ -414,8 +414,11 @@ describe("sign-in", () => {
 
 describe("filament matching of imported prints", () => {
   const spool = async (colorHex = "#ff8800", initialGrams = 1000) => {
+    const material =
+      (await get("/api/filament-materials")).items[0] ??
+      (await send("POST", "/api/filament-materials", { name: "PLA" })).json();
     const profile = (
-      await send("POST", "/api/filament/profiles", { material: "PLA", densityGcm3: 1.24 })
+      await send("POST", "/api/filament/profiles", { materialId: material.id, densityGcm3: 1.24 })
     ).json();
     return (
       await send("POST", "/api/filament/spools", { profileId: profile.id, colorHex, initialGrams })

@@ -141,15 +141,19 @@ describe("listPage filters", () => {
     expect(await names("/api/printers?sort=-model")).toEqual(["MK4", "A1"]);
     expect(await names("/api/printers?powerW=200..")).toEqual(["MK4"]);
 
+    const brandA = await post("/api/filament-brands", { name: "Acme" });
+    const brandZ = await post("/api/filament-brands", { name: "Zed" });
+    const matPla = await post("/api/filament-materials", { name: "PLA" });
+    const matPetg = await post("/api/filament-materials", { name: "PETG" });
     const pla = await post("/api/filament/profiles", {
-      brand: "Acme",
-      material: "PLA",
+      brandId: brandA.id,
+      materialId: matPla.id,
       name: "Basic",
       densityGcm3: 1.24,
     });
     const petg = await post("/api/filament/profiles", {
-      brand: "Zed",
-      material: "PETG",
+      brandId: brandZ.id,
+      materialId: matPetg.id,
       name: "",
       densityGcm3: 1.27,
     });

@@ -141,8 +141,30 @@ export const maintenanceTaskSchema = z.object({
   ...timestamps,
 });
 
+export const filamentBrandSchema = z.object({
+  id,
+  name: z.string().min(1),
+  url: z.url().nullable(),
+  /** Relative to the data directory. */
+  logoPath: z.string().nullable(),
+  ...timestamps,
+});
+
+export const filamentMaterialSchema = z.object({
+  id,
+  name: z.string().min(1),
+  /** Pre-fill a new profile of this material. */
+  nozzleTempC: z.number().int().positive().nullable(),
+  bedTempC: z.number().int().nonnegative().nullable(),
+  densityGcm3: z.number().positive().nullable(),
+  ...timestamps,
+});
+
 export const filamentProfileSchema = z.object({
   id,
+  brandId: id.nullable(),
+  materialId: id,
+  /** Names of the brand and material above (empty brand = none), for labels, sort and filters. */
   brand: z.string(),
   material: z.string().min(1),
   name: z.string(),
@@ -275,6 +297,8 @@ export type Printer = z.infer<typeof printerSchema>;
 export type PrinterComment = z.infer<typeof printerCommentSchema>;
 export type MaintenanceType = z.infer<typeof maintenanceTypeSchema>;
 export type MaintenanceTask = z.infer<typeof maintenanceTaskSchema>;
+export type FilamentBrand = z.infer<typeof filamentBrandSchema>;
+export type FilamentMaterial = z.infer<typeof filamentMaterialSchema>;
 export type FilamentProfile = z.infer<typeof filamentProfileSchema>;
 export type Spool = z.infer<typeof spoolSchema>;
 export type SpoolWeightEntry = z.infer<typeof spoolWeightEntrySchema>;

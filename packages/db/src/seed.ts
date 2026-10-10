@@ -95,20 +95,38 @@ export function seed(db: Db, now = new Date(), { prints: printCount = 40 } = {})
       .returning()
       .get();
 
+    const filamentBrandId = Object.fromEntries(
+      ["Bambu", "Prusament", "Polymaker"].map((name) => [
+        name,
+        tx.insert(s.filamentBrands).values({ name }).returning().get().id,
+      ]),
+    );
+    const materialId = Object.fromEntries(
+      ["PLA", "PETG", "TPU"].map((name) => [
+        name,
+        tx.insert(s.filamentMaterials).values({ name }).returning().get().id,
+      ]),
+    );
     const profiles = tx
       .insert(s.filamentProfiles)
       .values([
-        { brand: "Bambu", material: "PLA", name: "Basic", densityGcm3: 1.24, pricePerKg: 2299 },
         {
-          brand: "Prusament",
-          material: "PETG",
+          brandId: filamentBrandId.Bambu,
+          materialId: materialId.PLA,
+          name: "Basic",
+          densityGcm3: 1.24,
+          pricePerKg: 2299,
+        },
+        {
+          brandId: filamentBrandId.Prusament,
+          materialId: materialId.PETG,
           name: "PETG",
           densityGcm3: 1.27,
           pricePerKg: 2999,
         },
         {
-          brand: "Polymaker",
-          material: "TPU",
+          brandId: filamentBrandId.Polymaker,
+          materialId: materialId.TPU,
           name: "PolyFlex",
           densityGcm3: 1.22,
           pricePerKg: 3999,

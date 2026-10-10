@@ -1,11 +1,13 @@
-import type { FilamentProfile } from "@3d-maker-suite/core";
+import type { FilamentMaterial, FilamentProfile } from "@3d-maker-suite/core";
 import { useNavigate, useParams } from "@tanstack/react-router";
+import { useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { useCreateProfile, usePatchProfile, useProfile } from "../../lib/filament.ts";
 import { usePreferences } from "../../lib/preferences.ts";
+import { CatalogSelect } from "./CatalogSelect.tsx";
 
 const text = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
 const num = (v: string, scale = 1) => (v ? Math.round(Number(v) * scale) : null);
@@ -19,13 +21,25 @@ function ProfileForm({ profile }: { profile?: FilamentProfile }) {
   const create = useCreateProfile();
   const patch = usePatchProfile();
   const save = profile ? patch : create;
+  const formRef = useRef<HTMLFormElement>(null);
+  // A new profile starts from the picked material's defaults (the user can still change them).
+  const applyDefaults = (m?: FilamentMaterial) => {
+    const els = formRef.current?.elements;
+    if (profile || !m || !els) return;
+    for (const [name, v] of [
+      ["nozzle", m.nozzleTempC],
+      ["bed", m.bedTempC],
+      ["density", m.densityGcm3],
+    ] as const)
+      if (v !== null) (els.namedItem(name) as HTMLInputElement).value = String(v);
+  };
   const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const form = e.currentTarget;
     const f = new FormData(form);
     const values = {
-      brand: text(f, "brand"),
-      material: text(f, "material"),
+      brandId: text(f, "brandId") || null,
+      materialId: text(f, "materialId"),
       name: text(f, "name"),
       diameterMm: float(text(f, "diameter")) ?? 1.75,
       densityGcm3: Number(text(f, "density")),
@@ -48,12 +62,23 @@ function ProfileForm({ profile }: { profile?: FilamentProfile }) {
     </FormField>
   );
   return (
-    <form onSubmit={onSubmit} className="grid gap-4 sm:max-w-md">
-      {field("brand", "filament:profiles.brand", { defaultValue: profile?.brand })}
-      {field("material", "filament:profiles.material", {
-        required: true,
-        defaultValue: profile?.material,
-      })}
+    <form ref={formRef} onSubmit={onSubmit} className="grid gap-4 sm:max-w-md">
+      <CatalogSelect
+        kind="filament-brands"
+        name="brandId"
+        label={t("filament:profiles.brand")}
+        addLabel={t("filament:catalog.brands.add")}
+        defaultValue={profile?.brandId}
+      />
+      <CatalogSelect
+        kind="filament-materials"
+        name="materialId"
+        label={t("filament:profiles.material")}
+        addLabel={t("filament:catalog.materials.add")}
+        required
+        defaultValue={profile?.materialId}
+        onPick={(m) => applyDefaults(m as FilamentMaterial | undefined)}
+      />
       {field("name", "filament:profiles.name", { defaultValue: profile?.name })}
       {field("diameter", "filament:profiles.diameter", {
         type: "number",

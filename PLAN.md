@@ -127,47 +127,92 @@ Do Step 10 of PLAN.md. Check what Bambu Cloud actually exposes for spools/filame
 before adding that type; if it doesn't, say so and skip it.
 ```
 
-### [ ] Step 11 - Import printers & machine profiles from Bambu Studio
+Goal of Steps 11-16: two kinds of source. **Cloud** (account) brings the user's own printers, spools, prints and/or presets - works on a NAS/server deploy. **Local** (slicer config folder) also brings catalog data (brands, models, machine/filament profiles, materials) - only on a PC that has the slicer. Without either, everything is still added by hand. Each data type has its own sync policy (off / manual / auto + frequency).
+
+### [x] Step 11 - Filament brands & materials
 **Model:** Sonnet · **Effort:** Medium
-**Scope:** From the local Bambu Studio config: printer models (with thumbnails if the install ships them), user + system machine presets → PrinterModel / MachineProfile, and printers from the local config if present. Preview → confirm, dedupe, keep link to the source preset (same flow as the filament library import).
-**Done when:** import preview → confirm creates models/profiles; re-import doesn't duplicate.
+**Scope:** Filament profiles pick brand and material from tables instead of free text. New `filament_brands` (name unique NOCASE, url, logo; separate from printer `brands`) and `filament_materials` (name unique NOCASE, e.g. PLA/PETG, optional default temps + density). Migration fills both from the existing distinct `filament_profiles.brand` / `material` values, then swaps the columns for `brandId` / `materialId`. Filament form: selects with inline "add"; filament list: filter + sort by brand and material; CRUD pages next to printer brands. Library and spool import resolve brand/material by name (find-or-create, like `modelIdFor`).
+**Done when:** existing filament keeps its brand and material after migration; import creates or reuses them; tests pass.
 **Prompt:**
 ```
-Do Step 11 of PLAN.md. Reuse the existing Bambu Studio filament library reader and
-preview flow. Verify the machine preset paths/format and where printer thumbnails live first.
+Do Step 11 of PLAN.md. Back up the DB before running the migration (dev server applies it).
+Show me the migration SQL before applying it.
 ```
 
-### [ ] Step 12 - OrcaSlicer integration
+### [ ] Step 12 - Cloud and local sources  **[plan mode]**
+**Model:** Opus · **Effort:** High
+**Scope:** Adapters declare `kind: cloud | local`; the hub groups integrations under "Cloud" and "Local". `kind` only says where data comes from (account vs folder), not which types: each adapter declares the types it really provides. Type list grows to `printers, prints, spools, brands, printerModels, machineProfiles, filamentBrands, filamentProfiles` plus the `openInSlicer` action. Split Bambu into **Bambu Cloud** (printers, prints, spools) and **Bambu Studio** (filament profiles, open in slicer, catalog types from Step 14); migration splits each existing row in two without losing token, folders or history. Verify whether Bambu Studio keeps spools or print history locally; if not, leave those types out instead of faking them. "Open in slicer" is a feature of the local integration the user can switch on/off; the button shows only when it's on and a slicer program is configured and exists on the server. A local source whose folder isn't found on the server (NAS) shows "Not available on this server"; the config dir can still point at a mounted folder.
+**Done when:** an existing Bambu setup keeps working after the split; a cloud-only deploy shows no local actions; tests pass.
+**Prompt:**
+```
+Do Step 12 of PLAN.md. Core stays brand-agnostic, web never checks vendor names.
+Show me the split migration and the new type/kind model before implementing.
+```
+
+### [ ] Step 13 - Sync policy per type  **[plan mode]**
+**Model:** Opus · **Effort:** High
+**Scope:** New table, one row per integration + type: `mode` (off | manual | auto), `frequency` (15m, 1h, 1d, 1w, 1M), `lastRunAt`, `cursor`. Replaces `sync_frequency`, `last_prints_sync_at` and `disabled_features` (migration carries current values over; `off` = disabled feature). Scheduler keeps its 15m tick and runs each auto type whose frequency has elapsed. Prints stay incremental; manual runs still take a date range. Types that need a preview (spools, profiles, catalog) in auto mode import only new/unambiguous rows; the rest waits for manual preview → confirm, with a pending count in the hub. Hub: per integration a table Type | Mode | Frequency | Last sync | Sync/Import now. Defaults: prints 1h, printers + spools 1d, catalog 1w.
+**Done when:** each type follows its own mode and frequency; existing settings carried over; sync log shows per-type runs; tests pass.
+**Prompt:**
+```
+Do Step 13 of PLAN.md. Show me the policy table, the migration of existing
+frequency/disabled features, and how auto handles preview-only types before implementing.
+```
+
+### [ ] Step 14 - Import catalog & machine profiles from local slicer
 **Model:** Sonnet · **Effort:** Medium
-**Scope:** `packages/adapters/orca`: detect OrcaSlicer config per OS, import filament + machine presets, launch OrcaSlicer via `SlicerLauncher`. Shows up in the hub as a second integration (exercises multi-import buttons and the slicer picker).
+**Scope:** From the local Bambu Studio config and system DB: vendors → brands, machine models → PrinterModel (thumbnails if the install ships them), user + system machine presets → MachineProfile (`source_preset`), filament vendors → filament brands, filament types → materials, printers from the local config if present. Manual = preview → confirm (same flow as the filament library import); auto (weekly default) matches on the source key.
+**Preset versioning** (machine + filament profiles, incl. the existing filament library import): changed preset + unused row → update in place. Changed preset + row used by a print, spool or printer → mark the row `archived` and add a new row with the latest version, so prints keep the preset they were made with. `source_preset` is unique only among non-archived rows. Archived rows are hidden from pickers/lists by default but still shown on records that use them. Presets missing from the source are never deleted. Brands, models and materials always update in place.
+**Done when:** preview → confirm creates the catalog; re-import doesn't duplicate; changed unused preset updates in place; changed used preset archives the old row and adds the new one.
+**Prompt:**
+```
+Do Step 14 of PLAN.md. Reuse the Bambu Studio filament library reader and preview flow.
+Verify machine preset paths/format, the system vendor index, and thumbnail location first.
+List which tables reference machine/filament profiles before writing the archive rule.
+```
+
+### [ ] Step 15 - OrcaSlicer integration (local)
+**Model:** Sonnet · **Effort:** Medium
+**Scope:** `packages/adapters/orca`: a `local` source. Detect OrcaSlicer config per OS, import filament + machine presets and the same catalog types as Bambu Studio, launch OrcaSlicer via `SlicerLauncher`. Orca 2.4+ keeps cloud-synced user presets under `user/<uuid>/` as well as `user/default/`: read both. Shows up in the hub as a second local integration (exercises multi-import buttons and the slicer picker).
 **Done when:** Orca presets import and "Open in OrcaSlicer" works on Windows; macOS/Linux paths documented.
 **Prompt:**
 ```
-Do Step 12 of PLAN.md. Orca is a Bambu Studio fork: share the preset reader instead of
+Do Step 15 of PLAN.md. Orca is a Bambu Studio fork: share the preset reader instead of
 copying it (extract a small shared package if adapters can't import each other).
+```
+
+### [ ] Step 16 - Orca Cloud integration
+**Model:** Sonnet · **Effort:** Medium
+**Scope:** `packages/adapters/orca-cloud`: a `cloud` source. Orca Cloud (OrcaSlicer 2.4+) only syncs the user's own printer, filament and process presets - no devices, spools or prints. So it declares `machineProfiles`, `filamentProfiles` and the `printerModels` / `brands` / `filamentBrands` derived from them. Read-only access (`sync:read`) via OAuth 2.0 Device Authorization Grant (RFC 8628): `POST https://api.orcaslicer.com/oauth/device/code` → user enters the code in Orca Cloud settings → poll `POST /oauth/token` → `GET /api/v1/external/sync/pull?cursor=` returns `upserts` / `deletes` / `next_cursor`. Access token 24h; refresh token 90d and rotates on every use (reusing an old one after ~60s revokes the pairing), so store it atomically. Login page gets a "device code" flow (show code + link, poll). Cursor lives in the Step 13 policy row; reuse Step 14 preset versioning and the Step 15 shared preset parser. Remote deletes archive or are skipped, never hard-delete. API details come from a third-party integration (Bambuddy), not official docs.
+**Blocker:** each app needs its own `client_id` registered with the Orca Cloud team (no public sign-up). Get one before starting, or skip this step.
+**Done when:** pairing works; presets pull incrementally incl. deletes; the refresh token survives a restart.
+**Prompt:**
+```
+Do Step 16 of PLAN.md. First confirm we have an Orca Cloud client_id and re-check the
+external sync API (source code / Orca docs); if no client_id, stop and tell me.
 ```
 
 ---
 
 ## Phase 5 - Release
 
-### [ ] Step 13 - E2E & responsive pass for v1.1
+### [ ] Step 17 - E2E & responsive pass for v1.1
 **Model:** Sonnet (use webapp-testing skill) · **Effort:** Medium
-**Scope:** Playwright: table paging/filter, back button, branding, maintenance multi-scope, printer model + machine profile CRUD, integrations hub capability toggles. Viewports 375/768/1440. Fix what breaks.
+**Scope:** Playwright: table paging/filter, back button, branding, maintenance multi-scope, printer model + machine profile CRUD, filament brand + material selects, preset archiving, integrations hub cloud/local grouping and per-type sync policy table. Viewports 375/768/1440. Fix what breaks.
 **Done when:** E2E green in CI.
 **Prompt:**
 ```
-Do Step 13 of PLAN.md. Same fresh-temp-data-dir pattern as the existing suite.
+Do Step 17 of PLAN.md. Same fresh-temp-data-dir pattern as the existing suite.
 List UI issues found and fix them in this step.
 ```
 
-### [ ] Step 14 - Docs & v1.1.0-alpha.1 release
+### [ ] Step 18 - Docs & v1.1.0-alpha.1 release
 **Model:** Haiku · **Effort:** Low
-**Scope:** README/docs updates (port config, branding, integrations hub, OrcaSlicer), CHANGELOG, version `1.1.0-alpha.1`, release workflow publishes it as a GitHub pre-release.
+**Scope:** README/docs updates (port config, branding, integrations hub, NAS vs local deploy, OrcaSlicer, Orca Cloud pairing), CHANGELOG, version `1.1.0-alpha.1`, release workflow publishes it as a GitHub pre-release.
 **Done when:** tag builds a pre-release; docs match the app.
 **Prompt:**
 ```
-Do Step 14 of PLAN.md. Only document what changed since 1.0.0. Check the release
+Do Step 18 of PLAN.md. Only document what changed since 1.0.0. Check the release
 workflow handles a pre-release tag.
 ```
 
@@ -184,6 +229,9 @@ workflow handles a pre-release tag.
 | Branding (logo, favicon) | 4 |
 | Maintenance for multiple printers/models | 7 |
 | Server port | 3 |
-| Printers & profiles from Bambu app (+ manual) | 8, 11 |
+| Printers & profiles from Bambu app (+ manual) | 8, 14 |
 | Table filters & sort | 5, 6 |
-| Integrations in one place, multi-slicer | 9, 12 |
+| Integrations in one place, multi-slicer | 9, 15 |
+| Filament brands table (+ materials) | 11 |
+| Integrations: cloud vs local | 12, 14, 15, 16 |
+| Select what syncs auto vs manual | 13 |

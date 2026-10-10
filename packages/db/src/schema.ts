@@ -243,12 +243,42 @@ export const maintenanceTasks = sqliteTable(
   (t) => [index("maintenance_tasks_latest_idx").on(t.printerId, t.typeId, t.doneAt)],
 );
 
+export const filamentBrands = sqliteTable(
+  "filament_brands",
+  {
+    id: id(),
+    name: text().notNull(),
+    /** Website (store / product page). */
+    url: text(),
+    /** Relative to the data directory (filament-brands/<id>.<ext>). */
+    logoPath: text(),
+    ...timestamps,
+  },
+  (t) => [uniqueIndex("filament_brands_name_uq").on(sql`${t.name} COLLATE NOCASE`)],
+);
+
+export const filamentMaterials = sqliteTable(
+  "filament_materials",
+  {
+    id: id(),
+    name: text().notNull(),
+    /** Optional defaults that pre-fill a new profile of this material. */
+    nozzleTempC: integer(),
+    bedTempC: integer(),
+    densityGcm3: real(),
+    ...timestamps,
+  },
+  (t) => [uniqueIndex("filament_materials_name_uq").on(sql`${t.name} COLLATE NOCASE`)],
+);
+
 export const filamentProfiles = sqliteTable(
   "filament_profiles",
   {
     id: id(),
-    brand: text().notNull(),
-    material: text().notNull(),
+    /** Null when the brand is unknown (it was optional as free text). */
+    brandId: text().references(() => filamentBrands.id, { onDelete: "restrict" }),
+    /** Nullable only because SQLite can't add a NOT NULL column to a filled table; always set. */
+    materialId: text().references(() => filamentMaterials.id, { onDelete: "restrict" }),
     name: text().notNull(),
     diameterMm: real().notNull().default(1.75),
     densityGcm3: real().notNull(),
@@ -261,6 +291,8 @@ export const filamentProfiles = sqliteTable(
     ...timestamps,
   },
   (t) => [
+    index("filament_profiles_brand_idx").on(t.brandId),
+    index("filament_profiles_material_idx").on(t.materialId),
     uniqueIndex("filament_profiles_external_uq").on(t.integrationId, t.externalId),
     uniqueIndex("filament_profiles_source_uq").on(t.sourcePreset),
     check("filament_profiles_origin_ck", oneOf(t.origin, ORIGINS)),

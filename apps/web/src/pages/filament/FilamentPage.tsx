@@ -13,12 +13,14 @@ import { DataTable } from "../../components/DataTable.tsx";
 import { EmptyState } from "../../components/EmptyState.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { TagList } from "../../components/TagList.tsx";
+import { useFilamentBrands, useFilamentMaterials } from "../../lib/catalog.ts";
 import { filamentLabel, useProfiles } from "../../lib/filament.ts";
 import { formatCurrency, formatWeight } from "../../lib/format.ts";
 import { useAdapterName, useCapable } from "../../lib/integrations.ts";
 import { useListPage, useUrlListQuery } from "../../lib/list.ts";
 import { usePreferences } from "../../lib/preferences.ts";
 import { useTags, useTagsOf } from "../../lib/tags.ts";
+import { FilamentCatalog } from "./Catalog.tsx";
 
 export const STATUS = {
   new: "filament:spools.statuses.new",
@@ -86,6 +88,8 @@ export function FilamentPage() {
   // ponytail: spool labels and prices come from the first 100 active profiles.
   const allProfiles = useProfiles().data?.items;
   const profileOf = new Map(allProfiles?.map((p) => [p.id, p]));
+  const brands = useFilamentBrands().data ?? [];
+  const materials = useFilamentMaterials().data ?? [];
   const tagsOf = useTagsOf("spool");
   const tags = useTags().data ?? [];
   const spoolPrice = (s: Spool) => {
@@ -253,6 +257,22 @@ export function FilamentPage() {
                   filter: "filament",
                 },
                 {
+                  id: "brand",
+                  header: t("filament:profiles.brand"),
+                  cell: (p) => p.brand,
+                  sort: "brand",
+                  filter: "brandId",
+                  filterOptions: brands.map((b) => ({ value: b.id, label: b.name })),
+                },
+                {
+                  id: "material",
+                  header: t("filament:profiles.material"),
+                  cell: (p) => p.material,
+                  sort: "material",
+                  filter: "materialId",
+                  filterOptions: materials.map((m) => ({ value: m.id, label: m.name })),
+                },
+                {
                   id: "temps",
                   header: `${t("filament:profiles.nozzleTemp")} / ${t("filament:profiles.bedTemp")}`,
                   cell: (p) =>
@@ -280,6 +300,7 @@ export function FilamentPage() {
             />
           )}
         </section>
+        <FilamentCatalog />
       </div>
     </>
   );

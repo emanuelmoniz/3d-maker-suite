@@ -119,7 +119,9 @@
       "quotes": "Quotes",
       "brands": "Brands",
       "printerModels": "Printer models",
-      "machineProfiles": "Machine profiles"
+      "machineProfiles": "Machine profiles",
+      "filamentBrands": "Filament brands",
+      "filamentMaterials": "Filament materials"
     }
   },
   "server": {

@@ -137,5 +137,26 @@
     "import_other": "Import {{count}} spools",
     "error": "Couldn't import the spools.",
     "toProfiles": "Add or import profiles"
+  },
+  "catalog": {
+    "choose": "Choose…",
+    "addConfirm": "Add",
+    "brands": {
+      "title": "Filament brands",
+      "add": "Add brand",
+      "addTitle": "Add filament brand",
+      "editTitle": "Edit filament brand",
+      "name": "Name",
+      "url": "Website",
+      "logo": "Logo"
+    },
+    "materials": {
+      "title": "Filament materials",
+      "add": "Add material",
+      "addTitle": "Add filament material",
+      "editTitle": "Edit filament material",
+      "name": "Name",
+      "defaultsHint": "Optional defaults, applied when you pick this material on a new profile."
+    }
   }
 }

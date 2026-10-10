@@ -30,7 +30,7 @@ export function Thumb({ src }: { src: string | null }) {
   return src ? <img src={src} alt="" className="size-6 shrink-0 rounded object-contain" /> : null;
 }
 
-function Section<T extends { id: string }>(props: {
+export function Section<T extends { id: string }>(props: {
   kind: CatalogKind;
   title: string;
   add: { to: string; label: string };
@@ -71,7 +71,7 @@ function Section<T extends { id: string }>(props: {
   );
 }
 
-const editLink = (to: string, id: string, children: ReactNode) => (
+export const editLink = (to: string, id: string, children: ReactNode) => (
   <Link to={to} params={{ id }} className="gap-2 font-medium hover:underline">
     {children}
   </Link>

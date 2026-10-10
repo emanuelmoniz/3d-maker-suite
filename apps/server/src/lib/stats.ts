@@ -113,7 +113,7 @@ export function readStats(db: Db, q: StatsQuery): Stats {
       outcome: grouped(sql`pc.outcome`, sql`pc.outcome`, sql``),
       filament: all<Stats["breakdowns"]["filament"][number]>(
         sql`SELECT use.profile_id AS key,
-              trim(filament_profiles.brand || ' ' || filament_profiles.material || ' ' || filament_profiles.name) AS label,
+              trim(coalesce(fb.name, '') || ' ' || fm.name || ' ' || filament_profiles.name) AS label,
               COUNT(DISTINCT use.print_id) AS prints, 0 AS successes, 0 AS seconds, 0 AS energyWh,
               SUM(use.grams) AS grams,
               SUM(CASE WHEN use.price IS NULL THEN use.grams ELSE 0 END) AS unpricedGrams,
@@ -121,6 +121,8 @@ export function readStats(db: Db, q: StatsQuery): Stats {
               0 AS energy, 0 AS wear, 0 AS maintenance,
               CAST(ROUND(COALESCE(SUM(use.grams / 1000.0 * use.price), 0)) AS INTEGER) AS total
             FROM use LEFT JOIN filament_profiles ON filament_profiles.id = use.profile_id
+            LEFT JOIN filament_brands fb ON fb.id = filament_profiles.brand_id
+            LEFT JOIN filament_materials fm ON fm.id = filament_profiles.material_id
             GROUP BY key ORDER BY total DESC, grams DESC`,
       ),
     },

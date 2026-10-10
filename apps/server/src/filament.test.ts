@@ -7,6 +7,7 @@ import { openDb, schema } from "@3d-maker-suite/db";
 import { sum } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import { buildApp } from "./app.ts";
+import { filamentBrandIdFor, filamentMaterialIdFor } from "./lib/catalog.ts";
 import { setRemaining } from "./lib/spools.ts";
 
 let db: ReturnType<typeof openDb>;
@@ -23,8 +24,8 @@ const send = (method: "POST" | "PATCH", url: string, payload: Record<string, unk
 const profile = async () =>
   (
     await send("POST", "/api/filament/profiles", {
-      brand: "Prusament",
-      material: "PLA",
+      brandId: filamentBrandIdFor(db, "Prusament"),
+      materialId: filamentMaterialIdFor(db, "PLA"),
       name: "Galaxy",
       densityGcm3: 1.24,
     })
@@ -85,6 +86,25 @@ describe("filament", () => {
     expect(
       (await send("PATCH", `/api/filament/spools/${spool.id}`, { remainingGrams: 1 })).statusCode,
     ).toBe(400);
+  });
+});
+
+describe("filament brands and materials", () => {
+  it("are unique by name, case-insensitive, and can't be deleted while a profile uses them", async () => {
+    const p = await profile();
+    expect(p).toMatchObject({ brand: "Prusament", material: "PLA" });
+    expect((await send("POST", "/api/filament-brands", { name: "prusament" })).statusCode).toBe(
+      409,
+    );
+    expect((await send("POST", "/api/filament-materials", { name: "pla" })).statusCode).toBe(409);
+    for (const [kind, id] of [
+      ["brands", p.brandId],
+      ["materials", p.materialId],
+    ])
+      expect(
+        (await app.inject({ method: "DELETE", url: `/api/filament-${kind}/${id}` })).statusCode,
+      ).toBe(409);
+    expect((await app.inject(`/api/filament/profiles?brandId=${p.brandId}`)).json().total).toBe(1);
   });
 });
 
@@ -174,13 +194,33 @@ describe("filament library", () => {
     expect((await imp(["user/A"])).json()).toEqual({ created: 1 });
     expect((await imp(["user/A"])).json()).toEqual({ created: 0 });
     expect(db.select().from(schema.filamentProfiles).get()?.sourcePreset).toBe("fake:user/A");
+    // Import found-or-created the brand and material once, by name.
+    expect(
+      db
+        .select()
+        .from(schema.filamentBrands)
+        .all()
+        .map((b) => b.name),
+    ).toEqual(["Acme"]);
+    expect(
+      db
+        .select()
+        .from(schema.filamentMaterials)
+        .all()
+        .map((m) => m.name),
+    ).toEqual(["PLA"]);
     expect(names(await preview())).toEqual(["A:imported", "B:new"]);
 
     // Same filament made by hand counts as a duplicate and is not created again.
     await app.inject({
       method: "POST",
       url: "/api/filament/profiles",
-      payload: { brand: "Acme", material: "PLA", name: "B", densityGcm3: 1.2 },
+      payload: {
+        brandId: filamentBrandIdFor(db, "Acme"),
+        materialId: filamentMaterialIdFor(db, "PLA"),
+        name: "B",
+        densityGcm3: 1.2,
+      },
     });
     expect(names(await preview())).toEqual(["A:imported", "B:duplicate"]);
     expect((await imp(["user/B"])).json()).toEqual({ created: 0 });
@@ -234,7 +274,12 @@ describe("filament library", () => {
         await app.inject({
           method: "POST",
           url: "/api/filament/profiles",
-          payload: { brand: "Acme", material: "PLA", name, densityGcm3: 1.2 },
+          payload: {
+            brandId: filamentBrandIdFor(db, "Acme"),
+            materialId: filamentMaterialIdFor(db, "PLA"),
+            name,
+            densityGcm3: 1.2,
+          },
         })
       ).json().id as string;
     const profileId = await add("A");

@@ -10,6 +10,8 @@ const TABLES = {
   "machine-profiles": schema.machineProfiles,
   maintenance: schema.maintenanceTasks,
   "maintenance-types": schema.maintenanceTypes,
+  "filament-brands": schema.filamentBrands,
+  "filament-materials": schema.filamentMaterials,
   "filament-profiles": schema.filamentProfiles,
   spools: schema.spools,
   projects: schema.projects,

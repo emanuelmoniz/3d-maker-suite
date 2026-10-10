@@ -23,9 +23,10 @@ async function setup() {
       powerW: 100,
     })
   ).json();
+  const material = (await send("POST", "/api/filament-materials", { name: "PLA" })).json();
   const profile = (
     await send("POST", "/api/filament/profiles", {
-      material: "PLA",
+      materialId: material.id,
       densityGcm3: 1.24,
     })
   ).json();

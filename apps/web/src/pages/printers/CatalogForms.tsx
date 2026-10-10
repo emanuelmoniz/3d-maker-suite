@@ -49,8 +49,10 @@ export function ModelSelect(props: React.ComponentProps<"select">) {
  * Header, save (then image upload), delete and errors for one catalog row. Create when the
  * route has no `$id`. Keys are passed in full so `pnpm i18n:check` sees them.
  */
-function CatalogForm<K extends CatalogKind>(props: {
+export function CatalogForm<K extends CatalogKind>(props: {
   kind: K;
+  /** Where to go after save / delete / back. */
+  backTo?: "/printers" | "/filament";
   titles: [add: string, edit: string];
   imageLabel?: string;
   toBody: (f: FormData) => object;
@@ -65,7 +67,8 @@ function CatalogForm<K extends CatalogKind>(props: {
   const image = useCatalogImage(props.kind as keyof typeof IMAGE_OF);
   const [file, setFile] = useState<File | null>(null);
   const [confirm, setConfirm] = useState(false);
-  const back = () => navigate({ to: "/printers" });
+  const to = props.backTo ?? "/printers";
+  const back = () => navigate({ to });
   const row = item.data;
   const imagePath =
     row && ("logoPath" in row ? row.logoPath : "imagePath" in row ? row.imagePath : null);
@@ -93,7 +96,7 @@ function CatalogForm<K extends CatalogKind>(props: {
     <>
       <PageHeader
         title={t(props.titles[id ? 1 : 0])}
-        backTo={{ to: "/printers" }}
+        backTo={{ to }}
         actions={
           id && <Button onClick={() => setConfirm(true)}>{t("printers:catalog.delete")}</Button>
         }

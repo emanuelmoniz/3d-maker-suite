@@ -22,10 +22,12 @@ const evaluate = () => send("POST", "/api/alerts/evaluate");
 const list = async () => (await app.inject("/api/alerts")).json();
 
 async function lowSpool() {
+  const brand = (await send("POST", "/api/filament-brands", { name: "Prusament" })).json();
+  const material = (await send("POST", "/api/filament-materials", { name: "PLA" })).json();
   const p = (
     await send("POST", "/api/filament/profiles", {
-      brand: "Prusament",
-      material: "PLA",
+      brandId: brand.id,
+      materialId: material.id,
       name: "Galaxy",
       densityGcm3: 1.24,
     })

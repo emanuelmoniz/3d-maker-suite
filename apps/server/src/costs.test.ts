@@ -28,9 +28,10 @@ describe("costs", () => {
         purchasePrice: 50000,
       })
     ).json();
+    const material = (await send("POST", "/api/filament-materials", { name: "PLA" })).json();
     const profile = (
       await send("POST", "/api/filament/profiles", {
-        material: "PLA",
+        materialId: material.id,
         densityGcm3: 1.24,
         pricePerKg: 2000,
       })

@@ -1,11 +1,33 @@
-import type { Brand, MachineProfile, Page, PrinterModel } from "@3d-maker-suite/core";
+import type {
+  Brand,
+  FilamentBrand,
+  FilamentMaterial,
+  MachineProfile,
+  Page,
+  PrinterModel,
+} from "@3d-maker-suite/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "./api.ts";
 
 /** API path segment of each catalog entity, and its image endpoint (if any). */
-export type CatalogKind = "brands" | "printer-models" | "machine-profiles";
-type Row = { brands: Brand; "printer-models": PrinterModel; "machine-profiles": MachineProfile };
-export const IMAGE_OF = { brands: "logo", "printer-models": "image" } as const;
+export type CatalogKind =
+  | "brands"
+  | "printer-models"
+  | "machine-profiles"
+  | "filament-brands"
+  | "filament-materials";
+type Row = {
+  brands: Brand;
+  "printer-models": PrinterModel;
+  "machine-profiles": MachineProfile;
+  "filament-brands": FilamentBrand;
+  "filament-materials": FilamentMaterial;
+};
+export const IMAGE_OF = {
+  brands: "logo",
+  "printer-models": "image",
+  "filament-brands": "logo",
+} as const;
 
 // ponytail: the first 100 of each, for selects and labels. Page them if a catalog grows past that.
 const useAll = <K extends CatalogKind>(kind: K) =>
@@ -17,6 +39,8 @@ const useAll = <K extends CatalogKind>(kind: K) =>
 export const useBrands = () => useAll("brands");
 export const usePrinterModels = () => useAll("printer-models");
 export const useMachineProfiles = () => useAll("machine-profiles");
+export const useFilamentBrands = () => useAll("filament-brands");
+export const useFilamentMaterials = () => useAll("filament-materials");
 
 /** One row; idle without `id` (create forms). */
 export const useCatalogItem = <K extends CatalogKind>(kind: K, id?: string) =>
@@ -38,7 +62,7 @@ export function useModelInfo() {
   );
 }
 
-/** Catalog edits change printer labels too, so both caches are refreshed. */
+/** Catalog edits change printer and filament labels too, so those caches are refreshed. */
 function useInvalidating<V, R = unknown>(fn: (v: V) => Promise<R>) {
   const qc = useQueryClient();
   return useMutation({
@@ -47,6 +71,7 @@ function useInvalidating<V, R = unknown>(fn: (v: V) => Promise<R>) {
       Promise.all([
         qc.invalidateQueries({ queryKey: ["catalog"] }),
         qc.invalidateQueries({ queryKey: ["printers"] }),
+        qc.invalidateQueries({ queryKey: ["filament"] }),
       ]),
   });
 }

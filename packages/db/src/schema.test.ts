@@ -27,9 +27,10 @@ beforeEach(() => {
   brandId = db.insert(s.brands).values({ name: "B" }).returning().get().id;
   modelId = db.insert(s.printerModels).values({ brandId, model: "M" }).returning().get().id;
   printerId = db.insert(s.printers).values({ name: "P", modelId }).returning().get().id;
+  const materialId = db.insert(s.filamentMaterials).values({ name: "PLA" }).returning().get().id;
   profileId = db
     .insert(s.filamentProfiles)
-    .values({ brand: "B", material: "PLA", name: "N", densityGcm3: 1.24 })
+    .values({ materialId, name: "N", densityGcm3: 1.24 })
     .returning()
     .get().id;
   spoolId = db
