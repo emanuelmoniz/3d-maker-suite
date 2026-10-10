@@ -12,6 +12,7 @@ import {
   type SyncPolicy,
   type SyncRequest,
   type SyncRun,
+  type SyncType,
   syncRunFilters,
 } from "@3d-maker-suite/core";
 import { Link, useNavigate } from "@tanstack/react-router";
@@ -101,11 +102,21 @@ const ACTION_MODES = {
 };
 // Types imported through a preview: where their rows are reviewed and confirmed.
 const PREVIEWS: Partial<
-  Record<Capability, "/filament/spools/import/$id" | "/filament/import/$id">
+  Record<
+    Capability,
+    "/filament/spools/import/$id" | "/filament/import/$id" | "/catalog-import/$id/$type"
+  >
 > = {
   spools: "/filament/spools/import/$id",
   filamentProfiles: "/filament/import/$id",
+  brands: "/catalog-import/$id/$type",
+  printerModels: "/catalog-import/$id/$type",
+  machineProfiles: "/catalog-import/$id/$type",
+  filamentBrands: "/catalog-import/$id/$type",
 };
+// Catalog rows need no decision, so these can also run straight from here.
+const CATALOG: Capability[] = ["brands", "printerModels", "machineProfiles", "filamentBrands"];
+const isCatalog = (c: Capability): c is SyncType => CATALOG.includes(c);
 const RUN_STATUSES = { ok: "integrations:runs.ok", error: "integrations:runs.error" };
 
 // A control inside a table row keeps clear of the row borders and never shrinks below its text
@@ -377,9 +388,18 @@ function Policies({
     if (!preview) return "–";
     return (
       <span className="flex items-center gap-3">
+        {isCatalog(p.type) && (
+          <Button
+            className="my-1"
+            disabled={sync.isPending}
+            onClick={() => sync.mutate({ type: p.type })}
+          >
+            {t("integrations:policies.syncNow")}
+          </Button>
+        )}
         <Link
           to={preview}
-          params={{ id: i.id }}
+          params={{ id: i.id, type: p.type }}
           className="font-medium text-accent hover:underline"
         >
           {t("integrations:policies.importNow")}
