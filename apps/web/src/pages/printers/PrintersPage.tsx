@@ -20,6 +20,11 @@ export function PrintersPage() {
   const states = usePreferences().data?.values.printerStates ?? [];
   const [query, setQuery] = useUrlListQuery();
   const { data, isError } = useListPage<Printer>(["printers", "list"], "/api/printers", query);
+  // Archived printers keep the table (and its "Show archived" switch) up, even with no active ones.
+  const archived = useListPage<Printer>(["printers", "list"], "/api/printers", {
+    archived: "true",
+    pageSize: "1",
+  });
   const tagsOf = useTagsOf("printer");
   const tags = useTags().data ?? [];
   const models = useModelInfo();
@@ -46,7 +51,7 @@ export function PrintersPage() {
           {t("printers:loadError")}
         </p>
       )}
-      {data && !data.total && !Object.keys(query).length ? (
+      {data && !data.total && !Object.keys(query).length && archived.data?.total === 0 ? (
         <EmptyState
           icon={PrinterIcon}
           title={t("printers:list.emptyTitle")}
