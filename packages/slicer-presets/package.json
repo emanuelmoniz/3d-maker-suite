@@ -1,5 +1,5 @@
 {
-  "name": "@3d-maker-suite/adapter-bambu",
+  "name": "@3d-maker-suite/slicer-presets",
   "version": "1.0.0",
   "private": true,
   "type": "module",
@@ -8,8 +8,9 @@
     "typecheck": "tsc -p ."
   },
   "dependencies": {
-    "@3d-maker-suite/core": "workspace:*",
-    "@3d-maker-suite/slicer-presets": "workspace:*",
-    "zod": "^4.6.5"
+    "@3d-maker-suite/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5"
   }
 }

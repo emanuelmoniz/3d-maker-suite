@@ -171,7 +171,7 @@ Verify machine preset paths/format, the system vendor index, and thumbnail locat
 List which tables reference machine/filament profiles before writing the archive rule.
 ```
 
-### [ ] Step 15 - OrcaSlicer integration (local)
+### [x] Step 15 - OrcaSlicer integration (local)
 **Model:** Sonnet · **Effort:** Medium
 **Scope:** `packages/adapters/orca`: a `local` source. Detect OrcaSlicer config per OS, import filament + machine presets and the same catalog types as Bambu Studio, launch OrcaSlicer via `SlicerLauncher`. Orca 2.4+ keeps cloud-synced user presets under `user/<uuid>/` as well as `user/default/`: read both. Shows up in the hub as a second local integration (exercises multi-import buttons and the slicer picker).
 **Done when:** Orca presets import and "Open in OrcaSlicer" works on Windows; macOS/Linux paths documented.

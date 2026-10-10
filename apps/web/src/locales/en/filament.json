@@ -60,7 +60,8 @@
     "title": "Import filament from your slicer",
     "description": "Review the presets found on this PC, pick the ones you want, then import them as filament profiles.",
     "sources": {
-      "bambu-studio": "Bambu Studio"
+      "bambu-studio": "Bambu Studio",
+      "orca-slicer": "OrcaSlicer"
     },
     "reading": "Reading presets from {{dir}}",
     "notFound": "Couldn't read this integration's slicer presets. Check its config folder in Integrations.",

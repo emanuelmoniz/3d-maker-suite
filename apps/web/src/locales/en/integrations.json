@@ -98,6 +98,9 @@
     },
     "bambu-studio": {
       "name": "Bambu Studio"
+    },
+    "orca-slicer": {
+      "name": "OrcaSlicer"
     }
   },
   "login": {

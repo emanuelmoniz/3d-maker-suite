@@ -12,6 +12,7 @@
     "@3d-maker-suite/3mf": "workspace:*",
     "@3d-maker-suite/adapter-bambu": "workspace:*",
     "@3d-maker-suite/adapter-mock": "workspace:*",
+    "@3d-maker-suite/adapter-orca": "workspace:*",
     "@3d-maker-suite/core": "workspace:*",
     "@3d-maker-suite/db": "workspace:*",
     "@fastify/static": "^10.1.5",
