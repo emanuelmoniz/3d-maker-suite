@@ -82,7 +82,12 @@ const printerRoute = (path: string, component: () => ReactNode) =>
     getParentRoute: () => root,
     path,
     loader: () =>
-      Promise.all([loadNamespace("printers"), loadNamespace("settings"), loadNamespace("tags")]),
+      Promise.all([
+        loadNamespace("printers"),
+        loadNamespace("settings"),
+        loadNamespace("tags"),
+        loadNamespace("integrations"),
+      ]),
     component,
   });
 
