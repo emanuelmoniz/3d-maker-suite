@@ -384,16 +384,13 @@ function Policies({
           {t("integrations:policies.syncNow")}
         </Button>
       );
-    const preview = PREVIEWS[p.type];
+    const type = p.type;
+    const preview = PREVIEWS[type];
     if (!preview) return "–";
     return (
       <span className="flex items-center gap-3">
-        {isCatalog(p.type) && (
-          <Button
-            className="my-1"
-            disabled={sync.isPending}
-            onClick={() => sync.mutate({ type: p.type })}
-          >
+        {isCatalog(type) && (
+          <Button className="my-1" disabled={sync.isPending} onClick={() => sync.mutate({ type })}>
             {t("integrations:policies.syncNow")}
           </Button>
         )}
