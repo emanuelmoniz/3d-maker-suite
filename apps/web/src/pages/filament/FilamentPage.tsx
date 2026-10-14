@@ -30,7 +30,7 @@ export const STATUS = {
   empty: "filament:spools.statuses.empty",
 } as const;
 const addClass =
-  "inline-flex h-9 items-center gap-2 rounded-md bg-accent px-3 font-medium text-accent-fg hover:opacity-90";
+  "inline-flex h-9 items-center gap-2 whitespace-nowrap rounded-md bg-accent px-3 font-medium text-accent-fg hover:opacity-90";
 
 const AddLink = ({ to, children }: { to: string; children: string }) => (
   <Link to={to} className={addClass}>
@@ -101,9 +101,9 @@ export function FilamentPage() {
       )}
       <div className="grid gap-8">
         <section className="grid gap-3">
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-base font-semibold">{t("filament:spools.title")}</h2>
-            <span className="flex gap-2">
+            <span className="flex flex-wrap gap-2">
               <ImportLinks cap="spools" text="filament:spoolImport.link" />
               <AddLink to="/filament/spools/new">{t("filament:spools.add")}</AddLink>
             </span>
@@ -204,9 +204,9 @@ export function FilamentPage() {
         </section>
 
         <section className="grid gap-3">
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-base font-semibold">{t("filament:profiles.title")}</h2>
-            <span className="flex gap-2">
+            <span className="flex flex-wrap gap-2">
               <ImportLinks cap="filamentProfiles" text="filament:library.link" />
               <AddLink to="/filament/profiles/new">{t("filament:profiles.add")}</AddLink>
             </span>

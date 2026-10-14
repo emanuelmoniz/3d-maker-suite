@@ -89,8 +89,14 @@ export const useSaveCatalog = <K extends CatalogKind>(kind: K, id?: string) =>
     api<Row[K]>(id ? "PATCH" : "POST", id ? `/api/${kind}/${id}` : `/api/${kind}`, v),
   );
 
-export const useDeleteCatalog = (kind: CatalogKind) =>
-  useInvalidating((id: string) => api("DELETE", `/api/${kind}/${id}`));
+export function useDeleteCatalog(kind: CatalogKind) {
+  const qc = useQueryClient();
+  return useInvalidating(async (id: string) => {
+    await api("DELETE", `/api/${kind}/${id}`);
+    // Else the refresh refetches the deleted row and waits out the 404 retries before the page leaves.
+    qc.removeQueries({ queryKey: ["catalog", kind, id] });
+  });
+}
 
 export const useCatalogImage = (kind: keyof typeof IMAGE_OF) =>
   useInvalidating((v: { id: string; file: File | null }) =>

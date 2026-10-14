@@ -31,7 +31,13 @@ export const test = base.extend<{ app: App }>({
     const url = `http://127.0.0.1:${port}`;
     const server: ChildProcess = spawn(process.execPath, ["--import", "tsx", "src/main.ts"], {
       cwd: join(import.meta.dirname, "..", "apps", "server"),
-      env: { ...process.env, APP_DATA_DIR: dataDir, PORT: String(port), HOST: "127.0.0.1" },
+      env: {
+        ...process.env,
+        APP_DATA_DIR: dataDir,
+        PORT: String(port),
+        HOST: "127.0.0.1",
+        APP_MOCK_INTEGRATION: "1", // the cloud source of the integrations hub tests
+      },
       stdio: "ignore",
     });
     for (let i = 0; ; i++) {

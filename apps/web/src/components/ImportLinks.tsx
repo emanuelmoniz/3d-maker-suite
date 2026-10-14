@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { useAdapterName, useCapable, useSyncIntegration } from "../lib/integrations.ts";
 
 const importClass =
-  "inline-flex h-9 items-center rounded-md border border-border bg-surface px-3 font-medium hover:bg-surface-2";
+  "inline-flex h-9 items-center whitespace-nowrap rounded-md border border-border bg-surface px-3 font-medium hover:bg-surface-2";
 
 /** One link to the review per integration that can do `cap`; none = add by hand only. */
 export function ImportLinks({

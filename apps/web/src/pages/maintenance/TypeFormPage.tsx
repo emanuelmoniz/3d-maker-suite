@@ -91,7 +91,7 @@ function TypeForm({ type }: { type?: MaintenanceType }) {
         )}
       </FormField>
       <fieldset className="grid gap-4">
-        <legend className="mb-1 text-muted">{t("maintenance:types.intervalHint")}</legend>
+        <legend className="mb-3 text-muted">{t("maintenance:types.intervalHint")}</legend>
         {interval("hours", "maintenance:types.hours", type?.intervalSec && type.intervalSec / 3600)}
         {interval("prints", "maintenance:types.prints", type?.intervalPrints)}
         {interval("days", "maintenance:types.days", type?.intervalDays)}

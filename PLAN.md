@@ -254,7 +254,7 @@ on the review screen before changing anything.
 
 ## Phase 6 - Release
 
-### [ ] Step 22 - E2E & responsive pass for v1.1
+### [x] Step 22 - E2E & responsive pass for v1.1
 **Model:** Sonnet (use webapp-testing skill) · **Effort:** Medium
 **Scope:** Playwright: table paging/filter, back button, branding, maintenance multi-scope, printer model + machine profile CRUD, filament brand + material selects, preset archiving, integrations hub cloud/local grouping and per-type sync policy table, import module (template download, XLSX upload → review → bulk action → apply, catalog zip, export round trip). Viewports 375/768/1440. Fix what breaks.
 **Done when:** E2E green in CI.

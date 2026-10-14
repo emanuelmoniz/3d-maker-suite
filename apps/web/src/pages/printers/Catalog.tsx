@@ -24,7 +24,7 @@ import { formatNumber } from "../../lib/format.ts";
 import { useListPage, useUrlListQuery } from "../../lib/list.ts";
 
 export const addClass =
-  "inline-flex h-9 items-center gap-2 rounded-md bg-accent px-3 font-medium text-accent-fg hover:opacity-90";
+  "inline-flex h-9 items-center gap-2 whitespace-nowrap rounded-md bg-accent px-3 font-medium text-accent-fg hover:opacity-90";
 
 /** Small square image (logo / model picture), or nothing. */
 export function Thumb({ src }: { src: string | null }) {
@@ -49,9 +49,9 @@ export function Section<T extends { id: string }>(props: {
   );
   return (
     <section className="grid gap-3">
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-base font-semibold">{props.title}</h2>
-        <span className="flex gap-2">
+        <span className="flex flex-wrap gap-2">
           {props.extra}
           <Link to={props.add.to} className={addClass}>
             <Plus className="size-4" aria-hidden />
