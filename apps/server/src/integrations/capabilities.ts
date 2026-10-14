@@ -19,7 +19,16 @@ export function policyOf(db: Db, integrationId: string, type: Capability) {
     .from(syncPolicies)
     .where(and(eq(syncPolicies.integrationId, integrationId), eq(syncPolicies.type, type)))
     .get();
-  return stored ?? { type, ...defaultPolicy(type), lastRunAt: null, cursor: null, pending: 0 };
+  return (
+    stored ?? {
+      type,
+      ...defaultPolicy(type),
+      lastRunAt: null,
+      cursor: null,
+      pending: 0,
+      alert: true,
+    }
+  );
 }
 
 /** First default config folder of the slicer that exists on this PC. */

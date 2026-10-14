@@ -18,8 +18,11 @@
     "warranty_ending_one": "Warranty of {{name}} ends in {{count}} day",
     "warranty_ending_other": "Warranty of {{name}} ends in {{count}} days",
     "sync_failed": "{{name}} could not sync",
-    "print_failed": "A print failed"
+    "print_failed": "A print failed",
+    "sync_pending_one": "{{type}} from {{name}}: {{count}} waits for your review",
+    "sync_pending_other": "{{type}} from {{name}}: {{count}} wait for your review"
   },
+  "review": "Review",
   "channels": {
     "enabled": "Send alerts here",
     "save": "Save",

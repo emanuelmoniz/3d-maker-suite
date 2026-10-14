@@ -1,13 +1,13 @@
 import type { AlertKind, Notification } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
-import { and, eq, isNull, ne } from "drizzle-orm";
+import { and, eq, gt, isNull, ne } from "drizzle-orm";
 import { spoolName } from "../lib/catalog.ts";
 import { dueItems } from "../lib/maintenance.ts";
 import { printerTitle } from "../lib/numbers.ts";
 import { readPreferences } from "../lib/preferences.ts";
 import { channels, readChannel, sendVia } from "./channels.ts";
 
-const { alerts, spools, printers } = schema;
+const { alerts, integrations, spools, printers, syncPolicies } = schema;
 const DAY_MS = 86_400_000;
 // ponytail: fixed lead time, make it a preference if anyone asks.
 const WARRANTY_LEAD_DAYS = 30;
@@ -50,6 +50,27 @@ function conditions(db: Db, now: Date): Found {
         days: Math.ceil((ends - now.getTime()) / DAY_MS),
       });
   }
+
+  // An auto sync left rows for a person (a print no spool matches, a twin preset...).
+  for (const p of db
+    .select({ policy: syncPolicies, adapterId: integrations.adapterId })
+    .from(syncPolicies)
+    .innerJoin(integrations, eq(integrations.id, syncPolicies.integrationId))
+    .where(
+      and(
+        eq(integrations.enabled, true),
+        eq(syncPolicies.mode, "auto"),
+        eq(syncPolicies.alert, true),
+        gt(syncPolicies.pending, 0),
+      ),
+    )
+    .all())
+    add("sync_pending", "integration", `${p.policy.integrationId}:${p.policy.type}`, {
+      integrationId: p.policy.integrationId,
+      adapterId: p.adapterId, // the web shows the adapter's name
+      type: p.policy.type,
+      count: p.policy.pending,
+    });
   return found;
 }
 
@@ -70,6 +91,8 @@ function messageOf(kind: AlertKind, c: Ctx): Notification {
       return { title: "Sync failed", body: `${c.name ?? "An integration"} could not sync` };
     case "print_failed":
       return { title: "Print failed", body: String(c.title ?? "") };
+    case "sync_pending":
+      return { title: "Sync needs review", body: `${c.count} ${c.type} waiting for review` };
   }
 }
 

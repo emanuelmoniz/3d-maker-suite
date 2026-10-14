@@ -119,7 +119,7 @@ Do Step 7 of PLAN.md. Rate logic is a pure, tested core function. Back up the DB
 running the migration.
 ```
 
-### [ ] Step 8 - Sync review alerts
+### [x] Step 8 - Sync review alerts
 **Model:** Sonnet · **Effort:** Medium
 **Scope:** New alert kind `sync_pending`, raised in `apps/server/src/alerts/evaluate.ts` `conditions()` when an enabled integration's type is in auto mode, its alert toggle is on and `sync_policies.pending > 0`. Entity id is `integrationId:type`; the context holds the count, integration and type, and is refreshed without notifying again. The alert resolves when the queue is empty. `AlertsPage` gets an explicit "Review" button to `/import/$source/$id/$type` (source `integration`), and `messageOf` gets a case for the ntfy/email channels. New `alert` boolean on `sync_policies` (default on, fallback in `capabilities.ts`), shown as a column in the hub policies table for review types in auto mode. Migration rebuilds `alerts` for the new kind (like `0014`).
 **Done when:** an auto sync that leaves rows pending raises one alert per integration + type with a working Review button; confirming the review resolves it; turning the toggle off removes it; tests in `alerts.test.ts`.

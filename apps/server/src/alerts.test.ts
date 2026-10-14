@@ -114,6 +114,42 @@ describe("alerts", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
+  it("raises sync_pending while an auto sync leaves rows for review, unless switched off", async () => {
+    const { id } = db.insert(schema.integrations).values({ adapterId: "mock" }).returning().get();
+    const policy = (set: Partial<typeof schema.syncPolicies.$inferInsert>) =>
+      db
+        .insert(schema.syncPolicies)
+        .values({ integrationId: id, type: "prints", mode: "auto", frequency: "1h", ...set })
+        .onConflictDoUpdate({
+          target: [schema.syncPolicies.integrationId, schema.syncPolicies.type],
+          set,
+        })
+        .run();
+    const open = async () => {
+      await evaluate();
+      return (await list()).filter((a: { kind: string }) => a.kind === "sync_pending");
+    };
+
+    policy({ pending: 2 });
+    expect(await open()).toMatchObject([
+      {
+        entityId: `${id}:prints`,
+        context: { integrationId: id, adapterId: "mock", type: "prints", count: 2 },
+      },
+    ]);
+    // A new count refreshes the one alert.
+    policy({ pending: 3 });
+    expect(await open()).toMatchObject([{ context: { count: 3 } }]);
+    // Confirming the review empties the queue.
+    policy({ pending: 0 });
+    expect(await open()).toHaveLength(0);
+    // Off, or a manual type (the user opens the review anyway): no alert.
+    policy({ pending: 1, alert: false });
+    expect(await open()).toHaveLength(0);
+    policy({ alert: true, mode: "manual" });
+    expect(await open()).toHaveLength(0);
+  });
+
   it("never returns channel secrets", async () => {
     await send("PUT", "/api/alerts/channels/email", {
       enabled: false,

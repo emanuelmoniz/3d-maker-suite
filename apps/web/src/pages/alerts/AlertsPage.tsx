@@ -1,4 +1,4 @@
-import type { Alert } from "@3d-maker-suite/core";
+import type { Alert, ReviewedType } from "@3d-maker-suite/core";
 import { Link } from "@tanstack/react-router";
 import { BellOff } from "lucide-react";
 import type { ReactNode } from "react";
@@ -10,8 +10,11 @@ import { SettingsLink } from "../../components/SettingsLink.tsx";
 import { useAlertAction, useAlerts } from "../../lib/alerts.ts";
 import { formatDate } from "../../lib/format.ts";
 import { useAdapterName } from "../../lib/integrations.ts";
+import { TITLE } from "../import/SourceReviewPage.tsx";
 
 const link = "font-medium hover:underline";
+const buttonLink =
+  "inline-flex h-9 items-center rounded-md bg-accent px-3 font-medium text-accent-fg hover:opacity-90";
 
 function Title({ a }: { a: Alert }) {
   const { t } = useTranslation();
@@ -50,6 +53,16 @@ function Title({ a }: { a: Alert }) {
       );
     case "print_failed":
       return <span className="font-medium">{t("alerts:kinds.print_failed")}</span>;
+    case "sync_pending":
+      return (
+        <span className="font-medium">
+          {t("alerts:kinds.sync_pending", {
+            name: adapterName(String(c.adapterId)),
+            type: t(TITLE[c.type as ReviewedType] ?? ""),
+            count: Number(c.count),
+          })}
+        </span>
+      );
   }
 }
 
@@ -74,6 +87,19 @@ function Row({ a, snoozed }: { a: Alert; snoozed?: boolean }) {
         </div>
       </div>
       <div className="flex flex-wrap gap-2">
+        {a.kind === "sync_pending" && (
+          <Link
+            to="/import/$source/$id/$type"
+            params={{
+              source: "integration",
+              id: String(a.context.integrationId),
+              type: String(a.context.type),
+            }}
+            className={buttonLink}
+          >
+            {t("alerts:review")}
+          </Link>
+        )}
         {!a.readAt && !snoozed && (
           <Button onClick={() => run("read")}>{t("alerts:markRead")}</Button>
         )}

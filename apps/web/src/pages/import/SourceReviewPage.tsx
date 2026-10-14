@@ -9,7 +9,7 @@ import { useSourcePreview } from "../../lib/import.ts";
 import { ReviewTable } from "./ReviewTable.tsx";
 
 // i18n keys are written out in full so `pnpm i18n:check` can see them.
-const TITLE: Record<ReviewedType, string> = {
+export const TITLE: Record<ReviewedType, string> = {
   spools: "integrations:capabilities.spools",
   prints: "integrations:capabilities.prints",
   brands: "integrations:capabilities.brands",

@@ -484,9 +484,9 @@ describe("capabilities", () => {
 
     // Until changed, every type follows its default policy.
     expect((await get(`/api/integrations/${id}`)).policies).toEqual([
-      { type: "printers", mode: "auto", frequency: "1d", lastRunAt: null, pending: 0 },
-      { type: "prints", mode: "auto", frequency: "1h", lastRunAt: null, pending: 0 },
-      { type: "spools", mode: "manual", frequency: "1d", lastRunAt: null, pending: 0 },
+      { type: "printers", mode: "auto", frequency: "1d", lastRunAt: null, pending: 0, alert: true },
+      { type: "prints", mode: "auto", frequency: "1h", lastRunAt: null, pending: 0, alert: true },
+      { type: "spools", mode: "manual", frequency: "1d", lastRunAt: null, pending: 0, alert: true },
     ]);
     const patched = (await setPolicy(id, "prints", { mode: "off" })).json();
     expect(patched.capabilities).toEqual(["printers", "spools"]);

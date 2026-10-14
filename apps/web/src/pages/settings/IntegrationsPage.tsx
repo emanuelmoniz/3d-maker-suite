@@ -449,6 +449,25 @@ function Policies({
                   ),
           },
           {
+            // Only an auto run of a reviewed type leaves rows for a person.
+            id: "alert",
+            header: t("integrations:policies.alert"),
+            cell: (p) =>
+              isReviewed(p.type) && p.mode === "auto" ? (
+                <input
+                  type="checkbox"
+                  aria-label={t("integrations:policies.alertOf", { type: t(CAPS[p.type]) })}
+                  checked={p.alert}
+                  disabled={patch.isPending}
+                  onChange={(e) =>
+                    patch.mutate({ policies: [{ type: p.type, alert: e.target.checked }] })
+                  }
+                />
+              ) : (
+                "–"
+              ),
+          },
+          {
             id: "lastRun",
             header: t("integrations:policies.lastRun"),
             cell: (p) =>

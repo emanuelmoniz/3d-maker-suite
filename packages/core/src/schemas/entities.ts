@@ -43,6 +43,8 @@ export const syncPolicySchema = z.object({
   lastRunAt: isoDate.nullable(),
   /** Rows the last run left for the preview -> confirm flow. */
   pending: z.number().int().nonnegative(),
+  /** In `auto` mode: rows left pending raise a `sync_pending` alert. */
+  alert: z.boolean(),
 });
 
 /** API shape: the encrypted `secrets` column is never exposed, only whether it is set. */

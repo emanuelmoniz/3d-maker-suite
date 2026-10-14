@@ -87,6 +87,8 @@ export const syncPolicies = sqliteTable(
     cursor: text(),
     /** Rows the last run left for the preview -> confirm flow. */
     pending: integer().notNull().default(0),
+    /** In `auto` mode: rows left pending raise a `sync_pending` alert. */
+    alert: integer({ mode: "boolean" }).notNull().default(true),
   },
   (t) => [
     primaryKey({ columns: [t.integrationId, t.type] }),
