@@ -84,6 +84,6 @@ export const useDeleteComment = (id: string) =>
     api("DELETE", `/api/printers/${id}/comments/${commentId}`),
   );
 
-/** The name a printer goes by everywhere: "2-Bambu A1". The server builds the same in `printerLabel`. */
+/** The name a printer goes by everywhere: "02-Bambu A1". The server builds the same in `printerLabel`. */
 export const printerName = (t: TFunction, p: Pick<Printer, "number" | "name">) =>
-  t("common:printerName", { number: p.number, name: p.name });
+  t("common:printerName", { number: String(p.number).padStart(2, "0"), name: p.name });

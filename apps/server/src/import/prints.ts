@@ -17,6 +17,8 @@ import {
   freeNumber,
   nextNumber,
   numberCell,
+  PAD,
+  padded,
   printerTitle,
   printTitle,
 } from "../lib/numbers.ts";
@@ -85,16 +87,26 @@ function build(db: Db): Lookups {
     .all();
   return {
     printers: answering(
-      printerRows.map((p) => ({ ...p, keys: [printerTitle(p), String(p.number), p.name] })),
+      printerRows.map((p) => ({
+        ...p,
+        keys: [printerTitle(p), String(p.number), padded(p.number, PAD.printer), p.name],
+      })),
     ),
     projects: answering(
-      projectRows.map((p) => ({ ...p, keys: [p.label, String(p.number), p.name] })),
+      projectRows.map((p) => ({
+        ...p,
+        keys: [p.label, String(p.number), padded(p.number, PAD.project), p.name],
+      })),
     ),
     // A spool answers to its display name or to its number alone.
     spools: group(
       spoolImport
         .targets(db)
-        .flatMap((s) => [[s.label, s.id] as const, [String(s.values.number), s.id] as const]),
+        .flatMap((s) =>
+          [s.label, String(s.values.number), padded(Number(s.values.number), PAD.spool)].map(
+            (k) => [k, s.id] as const,
+          ),
+        ),
     ),
     profiles: group(
       db

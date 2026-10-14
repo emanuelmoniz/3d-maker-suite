@@ -102,7 +102,7 @@ export const machineProfileSchema = z.object({
 
 export const printerSchema = z.object({
   id,
-  /** Short unique number the printer goes by ("2-Bambu A1"). */
+  /** Short unique number the printer goes by ("02-Bambu A1"). */
   number: z.number().int().positive(),
   name: z.string().min(1),
   modelId: id,
@@ -204,7 +204,7 @@ export const filamentProfileSchema = z.object({
 export const spoolSchema = z.object({
   id,
   profileId: id,
-  /** Short unique number the spool goes by ("12-Bambu PLA Matte Scarlet Red"). */
+  /** Short unique number the spool goes by ("012-Bambu PLA Matte Scarlet Red"). */
   number: z.number().int().positive(),
   colorHex: hexColor,
   /** e.g. "Scarlet Red"; the display name falls back to the hex without it. */
@@ -240,7 +240,7 @@ export const spoolWeightEntrySchema = z.object({
 export const printSchema = z
   .object({
     id,
-    /** Short unique number the print goes by ("42-Benchy"). */
+    /** Short unique number the print goes by ("0042-Benchy"). */
     number: z.number().int().positive(),
     printerId: id,
     projectId: id.nullable(),

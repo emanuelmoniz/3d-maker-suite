@@ -69,16 +69,16 @@ export const profileLabel = sql<string>`coalesce(nullif(${filamentProfiles.name}
 
 const { spools, printers, projects, prints } = schema;
 /**
- * A spool's display name, "12-Bambu PLA Matte Scarlet Red" (the hex without a colour name), as the
+ * A spool's display name, "012-Bambu PLA Matte Scarlet Red" (the hex without a colour name), as the
  * web's `spoolName()` builds it in English. Fixed here: import files match spools by it.
  */
-export const spoolName = sql<string>`${spools.number} || '-' || (SELECT ${profileLabel} FROM ${filamentProfiles} WHERE ${filamentProfiles.id} = ${spools.profileId}) || ' ' || coalesce(nullif(${spools.colorName}, ''), ${spools.colorHex})`;
+export const spoolName = sql<string>`printf('%03d', ${spools.number}) || '-' || (SELECT ${profileLabel} FROM ${filamentProfiles} WHERE ${filamentProfiles.id} = ${spools.profileId}) || ' ' || coalesce(nullif(${spools.colorName}, ''), ${spools.colorHex})`;
 
-/** A printer's display name, "2-Bambu A1". Fixed here: import files match printers by it. */
-export const printerLabel = sql<string>`${printers.number} || '-' || ${printers.name}`;
+/** A printer's display name, "02-Bambu A1". Fixed here: import files match printers by it. */
+export const printerLabel = sql<string>`printf('%02d', ${printers.number}) || '-' || ${printers.name}`;
 
-/** A print's display name, "42-Benchy". */
-export const printLabel = sql<string>`${prints.number} || '-' || ${prints.title}`;
+/** A print's display name, "0042-Benchy". */
+export const printLabel = sql<string>`printf('%04d', ${prints.number}) || '-' || ${prints.title}`;
 
 /** A project's display name, "001-aquaterrario" (the number padded like the folders). */
 export const projectLabel = sql<string>`printf('%03d', ${projects.number}) || '-' || ${projects.name}`;

@@ -77,7 +77,7 @@ describe("filament", () => {
         .from(schema.spools)
         .all()
         .map((s) => s.name),
-    ).toEqual(["1-Galaxy #808080", "10-Galaxy Starlight", "11-Galaxy #808080"]);
+    ).toEqual(["001-Galaxy #808080", "010-Galaxy Starlight", "011-Galaxy #808080"]);
   });
 
   it("every remaining-weight change is a ledger entry that sums to the weight", async () => {

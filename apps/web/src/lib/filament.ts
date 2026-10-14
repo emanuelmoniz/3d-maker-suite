@@ -85,12 +85,12 @@ export const filamentLabel = (p?: FilamentProfile) =>
   p ? p.name || [p.brand, p.material].filter(Boolean).join(" ") : "";
 
 /**
- * The name a spool goes by everywhere: "12-Bambu PLA Matte Scarlet Red" (the hex without a colour
+ * The name a spool goes by everywhere: "012-Bambu PLA Matte Scarlet Red" (the hex without a colour
  * name). The server builds the same in `lib/catalog.ts` `spoolName`, for sort, filter and imports.
  */
 export const spoolName = (t: TFunction, s: Spool, p?: FilamentProfile) =>
   t("filament:spools.name", {
-    number: s.number,
+    number: String(s.number).padStart(3, "0"),
     profile: filamentLabel(p),
     color: s.colorName || s.colorHex,
   });

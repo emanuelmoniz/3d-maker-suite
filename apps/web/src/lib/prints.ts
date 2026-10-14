@@ -70,6 +70,6 @@ export const useDismissReview = () =>
     api("POST", "/api/prints/filament-review/dismiss", { usageIds }),
   );
 
-/** The name a print goes by everywhere: "42-Benchy". The server builds the same in `printLabel`. */
+/** The name a print goes by everywhere: "0042-Benchy". The server builds the same in `printLabel`. */
 export const printName = (t: TFunction, p: { number: number; title: string }) =>
-  t("common:printName", { number: p.number, title: p.title });
+  t("common:printName", { number: String(p.number).padStart(4, "0"), title: p.title });

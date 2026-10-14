@@ -41,8 +41,17 @@ export function assertNumberFree(
   if (other) throw new HttpError(409, `${entity}_number_taken`, `Number ${number} is taken`);
 }
 
+/**
+ * Digits each number is padded to for display only ("01-A1", "0042-Benchy"); the DB keeps plain
+ * numbers. The SQL labels in `lib/catalog.ts` and the web's name helpers use the same widths.
+ */
+export const PAD = { spool: 3, printer: 2, project: 3, print: 4 } as const;
+export const padded = (n: number | null, width: number) => String(n).padStart(width, "0");
+
 /** A printer's display name in JS, the same as the `printerLabel` SQL. */
-export const printerTitle = (p: { number: number | null; name: string }) => `${p.number}-${p.name}`;
+export const printerTitle = (p: { number: number | null; name: string }) =>
+  `${padded(p.number, PAD.printer)}-${p.name}`;
 
 /** A print's display name in JS, the same as the `printLabel` SQL. */
-export const printTitle = (p: { number: number | null; title: string }) => `${p.number}-${p.title}`;
+export const printTitle = (p: { number: number | null; title: string }) =>
+  `${padded(p.number, PAD.print)}-${p.title}`;
