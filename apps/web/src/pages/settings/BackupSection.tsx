@@ -96,7 +96,7 @@ export function BackupSection() {
         <Button variant="primary" disabled={create.isPending} onClick={() => create.mutate()}>
           {t("settings:backup.create")}
         </Button>
-        <label className="inline-flex h-9 cursor-pointer items-center rounded-md border border-border bg-surface px-3 font-medium hover:bg-surface-2 focus-within:outline focus-within:outline-2">
+        <label className="inline-flex h-9 cursor-pointer items-center rounded-md border border-border bg-surface px-3 font-medium hover:bg-surface-2 focus-within:outline-2">
           {t("settings:backup.upload")}
           <input
             type="file"

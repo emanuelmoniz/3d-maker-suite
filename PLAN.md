@@ -12,7 +12,7 @@ Status legend: `[ ]` todo · `[x]` done
 
 ## Phase 1 - Bugs
 
-### [ ] Step 1 - Duplicate outline classes
+### [x] Step 1 - Duplicate outline classes
 **Model:** Haiku · **Effort:** Low
 **Scope:** VS Code's Tailwind IntelliSense flags `focus-within:outline focus-within:outline-2` as a conflict. In Tailwind v4, `outline-2` already sets the outline style, so `outline` is redundant. Drop `focus-within:outline` and keep `focus-within:outline-2`, and check that the focus ring still shows. Files: `pages/import/ImportPage.tsx`, `pages/import/SlicerZipPage.tsx`, `pages/printers/PrinterDetailPage.tsx`, `pages/settings/BackupSection.tsx`, `pages/settings/BrandingFields.tsx`.
 **Done when:** no Tailwind conflict warnings left in `apps/web/src`; the file-upload labels still show a focus ring with the keyboard.

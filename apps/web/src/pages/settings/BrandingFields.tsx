@@ -34,9 +34,7 @@ function ImageField({ kind }: { kind: BrandingKind }) {
             className="size-10 rounded-md border border-border object-contain"
           />
         )}
-        <label
-          className={`${linkButton} cursor-pointer focus-within:outline focus-within:outline-2`}
-        >
+        <label className={`${linkButton} cursor-pointer focus-within:outline-2`}>
           {t("settings:branding.upload")}
           <input
             type="file"

@@ -121,7 +121,7 @@ export function ImportPage() {
           <Button disabled={exportFile.isPending} onClick={downloadExport}>
             {t("import:export.download")}
           </Button>
-          <label className="inline-flex h-9 cursor-pointer items-center rounded-md bg-accent px-3 font-medium text-accent-fg hover:opacity-90 focus-within:outline focus-within:outline-2">
+          <label className="inline-flex h-9 cursor-pointer items-center rounded-md bg-accent px-3 font-medium text-accent-fg hover:opacity-90 focus-within:outline-2">
             {t("import:upload.choose")}
             <input
               type="file"

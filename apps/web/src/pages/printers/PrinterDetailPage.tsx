@@ -130,9 +130,7 @@ export function PrinterDetailPage() {
               </div>
             )}
             <div className="flex flex-wrap gap-2">
-              <label
-                className={`${linkButton} cursor-pointer focus-within:outline focus-within:outline-2`}
-              >
+              <label className={`${linkButton} cursor-pointer focus-within:outline-2`}>
                 {t("printers:detail.photo.upload")}
                 <input
                   type="file"
