@@ -25,4 +25,8 @@ jobs:
       - name: Create GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" "3d-maker-suite-${GITHUB_REF_NAME}.zip" --title "$GITHUB_REF_NAME" --generate-notes
+        run: |
+          # Tags with a suffix (v1.1.0-alpha.1, v1.1.0-rc.1) become pre-releases, which are never marked "latest".
+          PRERELEASE=""
+          if [[ "$GITHUB_REF_NAME" == *-* ]]; then PRERELEASE="--prerelease"; fi
+          gh release create "$GITHUB_REF_NAME" "3d-maker-suite-${GITHUB_REF_NAME}.zip" --title "$GITHUB_REF_NAME" --generate-notes $PRERELEASE

@@ -9,13 +9,14 @@ A local-first manager for your 3D printing: printers, maintenance, filament, pro
 
 - **Printers**: inventory, timeline, comments, warranty and purchase info
 - **Maintenance**: reusable tasks, due by hours, prints or days
-- **Filament**: profiles, spools, remaining grams, low-spool alerts
-- **Projects**: 3MF models with plates, thumbnails, tags and collections
-- **Prints**: history with outcome, filament usage per AMS slot, energy
+- **Filament**: brands, materials, profiles, spools, remaining grams, low-spool alerts
+- **Projects**: 3MF models with plates, thumbnails, tags, collections and filament colours
+- **Prints**: history with outcome, filament usage per AMS slot (up to 16 for multicolor), energy
 - **Costs and stats**: cost per print snapshotted at record time, charts by period
-- **Bambu Cloud sync** (optional): printers, print history and filament spools
-- **Backups**: scheduled online SQLite backups, restore, CSV and JSON export
-- **Light and dark themes**, mobile-friendly, keyboard navigable
+- **Integrations** (optional): Bambu Cloud, Bambu Studio and OrcaSlicer, with a sync mode and frequency per data type
+- **Import**: spreadsheets (spools, printers, prints) and slicer catalogs from a zip, reviewed row by row before anything is saved
+- **Backups**: scheduled online SQLite backups, restore, CSV, JSON and spreadsheet export
+- **Light and dark themes**, mobile-friendly, keyboard navigable; set your own app name, logo and favicon
 
 <!-- SCREENSHOT: printers list or project detail -->
 ![Printers screenshot](docs/images/printers.png)
@@ -41,7 +42,7 @@ Details, region choice and troubleshooting: [docs/bambu-cloud.md](docs/bambu-clo
 
 ## Using it from another device
 
-By default the app only answers on this PC. To reach it from your phone or another computer on your network, set `APP_PASSWORD` and `HOST`. See [docs/configuration.md](docs/configuration.md).
+By default the app only answers on this PC. To reach it from your phone or another computer on your network, set `APP_PASSWORD` and `HOST` (or the port and host in Settings → Network). Running it on a NAS? See [docs/install.md](docs/install.md#your-pc-or-a-nas). See [docs/configuration.md](docs/configuration.md).
 
 ## Documentation
 
@@ -50,6 +51,7 @@ By default the app only answers on this PC. To reach it from your phone or anoth
 | Install and first run | [docs/install.md](docs/install.md) |
 | Settings and environment variables | [docs/configuration.md](docs/configuration.md) |
 | Bambu Cloud setup | [docs/bambu-cloud.md](docs/bambu-cloud.md) |
+| Import spreadsheets and slicer catalogs | [docs/import.md](docs/import.md) |
 | Open in slicer | [docs/open-in-slicer.md](docs/open-in-slicer.md) |
 | Backups | [docs/backups.md](docs/backups.md) |
 | FAQ | [docs/faq.md](docs/faq.md) |
@@ -59,7 +61,7 @@ By default the app only answers on this PC. To reach it from your phone or anoth
 
 ## Status
 
-Version 1.0. English only for now; the code is ready for more languages (see [CONTRIBUTING.md](CONTRIBUTING.md)).
+Version 1.1.0-alpha.1 (pre-release). English only for now; the code is ready for more languages (see [CONTRIBUTING.md](CONTRIBUTING.md)).
 
 ## License
 

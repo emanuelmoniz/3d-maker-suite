@@ -52,4 +52,4 @@ Known gap: `common` and `nav` are bundled for English only in `i18n.ts`. Make th
 
 ## Releases
 
-Maintainers tag a version (`git tag v1.0.0 && git push --tags`). The release workflow runs the checks and attaches a source archive to the GitHub release. Add the entry to [CHANGELOG.md](CHANGELOG.md) first.
+Maintainers tag a version (`git tag v1.0.0 && git push --tags`). The release workflow runs the checks and attaches a source archive to the GitHub release. A tag with a suffix, such as `v1.1.0-alpha.1`, is published as a pre-release. Add the entry to [CHANGELOG.md](CHANGELOG.md) first.

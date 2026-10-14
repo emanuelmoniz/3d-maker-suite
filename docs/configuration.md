@@ -2,6 +2,12 @@
 
 Set these environment variables before `pnpm start`. You can also put them in a `.env` file in the project root (it is git-ignored).
 
+`HOST` and `PORT` can also be set in **Settings → Network** and as command-line flags. Precedence: flag, then environment variable, then the saved setting, then the default. For a one-off run with a flag:
+
+```bash
+pnpm --filter @3d-maker-suite/server start -- --port 4400 --host 0.0.0.0
+```
+
 | Variable | Default | What it does |
 |---|---|---|
 | `PORT` | `4300` | HTTP port |
@@ -20,4 +26,10 @@ Then open `http://<your-PC-address>:4300` from the other device and enter the pa
 
 ## In-app settings
 
-The Settings page covers general options, appearance, costs (currency, energy, labour, markup), printers, prints, projects (the folders the app watches), integrations, alerts, backups and language. Slicer config folders and executables belong to their integration (Settings → Integrations). These are stored in the database, not in environment variables.
+The Settings page covers general options, appearance, costs (currency, energy, labour, markup), printers, prints, projects (the folders the app watches), integrations, alerts, backups, language and network.
+
+- **Branding** (Settings → Appearance): the app name, logo and favicon. Leave the name empty for the default.
+- **Network** (Settings → Network): the host and port saved for the next start. **Restart and open in new tab** applies them. The page shows when a command-line flag or environment variable is overriding the saved value.
+- **Integrations** (Settings → Integrations): slicer config folders and executables belong to their integration.
+
+These are stored in the database, not in environment variables.

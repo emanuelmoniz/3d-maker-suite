@@ -264,7 +264,7 @@ Do Step 22 of PLAN.md. Same fresh-temp-data-dir pattern as the existing suite.
 List UI issues found and fix them in this step.
 ```
 
-### [ ] Step 23 - Docs & v1.1.0-alpha.1 release
+### [x] Step 23 - Docs & v1.1.0-alpha.1 release
 **Model:** Haiku · **Effort:** Low
 **Scope:** README/docs updates (port config, branding, integrations hub, NAS vs local deploy, OrcaSlicer, Orca Cloud pairing, import module, per-slicer catalog zip instructions), CHANGELOG, version `1.1.0-alpha.1`, release workflow publishes it as a GitHub pre-release.
 **Done when:** tag builds a pre-release; docs match the app.
