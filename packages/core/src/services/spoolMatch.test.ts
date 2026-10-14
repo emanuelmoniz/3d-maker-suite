@@ -5,15 +5,13 @@ const spool = (id: string, over: Partial<SpoolCandidate> = {}): SpoolCandidate =
   id,
   material: "PLA",
   colorHex: "#ff8800",
-  remainingGrams: 500,
-  createdAt: "2026-01-01T00:00:00.000Z",
+  purchasedAt: "2026-01-01T12:00:00.000Z",
   ...over,
 });
 const slot = {
   material: "pla",
   colorHex: "#FF8800",
-  grams: 20,
-  startedAt: "2026-02-01T00:00:00.000Z",
+  startedAt: "2026-02-01T08:00:00.000Z",
 };
 
 describe("matchSpool", () => {
@@ -23,8 +21,6 @@ describe("matchSpool", () => {
 
   it("returns null instead of picking one of several candidates", () => {
     expect(matchSpool(slot, [spool("a"), spool("b")])).toBeNull();
-    // Even if only one of them could cover the grams.
-    expect(matchSpool(slot, [spool("a"), spool("b", { remainingGrams: 5 })])).toBeNull();
   });
 
   it("returns null without a material or colour, or on a near colour", () => {
@@ -33,8 +29,13 @@ describe("matchSpool", () => {
     expect(matchSpool(slot, [spool("a", { colorHex: "#ff8801" })])).toBeNull();
   });
 
-  it("ignores spools added after the print and refuses a spool with too little left", () => {
-    expect(matchSpool(slot, [spool("a", { createdAt: "2026-03-01T00:00:00.000Z" })])).toBeNull();
-    expect(matchSpool(slot, [spool("a", { remainingGrams: 10 })])).toBeNull();
+  it("ignores spools bought after the print's day; same day or unknown still match", () => {
+    expect(matchSpool(slot, [spool("a", { purchasedAt: "2026-03-01T00:00:00.000Z" })])).toBeNull();
+    expect(matchSpool(slot, [spool("a", { purchasedAt: "2026-02-01T12:00:00.000Z" })])).toBe("a");
+    expect(matchSpool(slot, [spool("a", { purchasedAt: null })])).toBe("a");
+    // A spool bought later doesn't make an older one ambiguous.
+    expect(
+      matchSpool(slot, [spool("a"), spool("b", { purchasedAt: "2026-03-01T00:00:00.000Z" })]),
+    ).toBe("a");
   });
 });

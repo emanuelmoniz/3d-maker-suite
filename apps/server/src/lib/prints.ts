@@ -2,7 +2,7 @@ import type { PrintUsageInput } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
 import { and, eq, isNotNull } from "drizzle-orm";
 import { HttpError } from "../errors.ts";
-import { round, setRemaining } from "./spools.ts";
+import { round, setRemaining, takeFromSpool } from "./spools.ts";
 
 const { printFilamentUsages, printers, spools } = schema;
 
@@ -21,18 +21,40 @@ export const energyFor = (
 };
 
 /**
+ * A print that started before the spool was entered in the app: the weight entered then already
+ * has its filament off, so the print only links the spool and books nothing.
+ */
+export const predates = (startedAt: string, spool: { createdAt: string }) =>
+  startedAt < spool.createdAt;
+
+/**
+ * One imported slot onto a spool: takes the grams through the ledger, or only links an older
+ * print. Returns the spool's profile id, or `null` with nothing booked when the spool holds less.
+ */
+export const bookOrLink = (
+  tx: Pick<Db, "transaction">,
+  spool: { id: string; profileId: string; createdAt: string },
+  grams: number,
+  title: string,
+  startedAt: string,
+) => (predates(startedAt, spool) ? spool.profileId : takeFromSpool(tx, spool.id, grams, title));
+
+/**
  * Replaces a print's filament rows and books the net difference per spool in the ledger
  * (append-only: an edit or delete adds a "print" entry, it never rewrites history).
  * With `ledger` false (a backlog import whose spools are already up to date) the rows are saved
- * but no spool weight is touched.
+ * but no spool weight is touched. With `startedAt`, a spool entered after the print started is
+ * only linked (see `predates`).
  * Throws inside the caller's transaction, which rolls everything back.
  */
 export const syncUsages = (
   tx: Db | Parameters<Parameters<Db["transaction"]>[0]>[0],
   printId: string,
   title: string,
-  next: PrintUsageInput[],
+  /** `material` / `colorHex`: what an import reported for the slot, kept on the row. */
+  next: (PrintUsageInput & { material?: string | null; colorHex?: string | null })[],
   ledger = true,
+  startedAt?: string,
 ) => {
   const old = tx
     .select()
@@ -49,6 +71,7 @@ export const syncUsages = (
     const spool = tx.select().from(spools).where(eq(spools.id, spoolId)).get();
     if (!spool) throw new HttpError(400, "invalid_spool", "Spool not found");
     profileOf.set(spoolId, spool.profileId);
+    if (startedAt && predates(startedAt, spool)) continue;
     const remaining = round(spool.remainingGrams + grams);
     if (remaining < 0)
       throw new HttpError(400, "insufficient_filament", "Spool has less filament than used");
@@ -67,6 +90,8 @@ export const syncUsages = (
           profileId: profileOf.get(u.spoolId),
           grams: u.grams,
           slot: u.slot ?? null,
+          material: u.material ?? null,
+          colorHex: u.colorHex ?? null,
         })),
       )
       .run();

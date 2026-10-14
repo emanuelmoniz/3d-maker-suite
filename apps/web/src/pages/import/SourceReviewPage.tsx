@@ -1,5 +1,5 @@
 import type { ImportResult, ReviewedType } from "@3d-maker-suite/core";
-import { Link, useParams } from "@tanstack/react-router";
+import { Link, useParams, useSearch } from "@tanstack/react-router";
 import { Layers } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -11,6 +11,7 @@ import { ReviewTable } from "./ReviewTable.tsx";
 // i18n keys are written out in full so `pnpm i18n:check` can see them.
 const TITLE: Record<ReviewedType, string> = {
   spools: "integrations:capabilities.spools",
+  prints: "integrations:capabilities.prints",
   brands: "integrations:capabilities.brands",
   printerModels: "integrations:capabilities.printerModels",
   machineProfiles: "integrations:capabilities.machineProfiles",
@@ -26,10 +27,12 @@ export function SourceReviewPage() {
     id: string;
     type: ReviewedType;
   };
+  // Prints: the range picked on the Integrations page (none = since the last sync).
+  const range = useSearch({ strict: false }) as { from?: string; to?: string };
   const zip = source === "zip";
   const [includeSystem, setIncludeSystem] = useState(false);
   const [done, setDone] = useState<ImportResult | null>(null);
-  const preview = useSourcePreview(source, id, type, includeSystem);
+  const preview = useSourcePreview(source, id, type, includeSystem, range);
 
   return (
     <>

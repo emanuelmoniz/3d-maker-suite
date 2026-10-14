@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ImportEntity, ImportPreview } from "@3d-maker-suite/core";
 import { openDb, schema } from "@3d-maker-suite/db";
+import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { buildApp } from "./app.ts";
 import { printImport } from "./import/prints.ts";
@@ -110,8 +111,17 @@ describe("printer import", () => {
   });
 });
 
+/** A spool entered before the prints of the tests (2026-03), so they take from it. */
+const backdate = (spool: { id: string }) => {
+  db.update(schema.spools)
+    .set({ createdAt: "2026-01-01T00:00:00.000Z" })
+    .where(eq(schema.spools.id, spool.id))
+    .run();
+  return spool;
+};
+
 describe("print import", () => {
-  const setup = async () => {
+  const setup = async (entered = true) => {
     await applySuggested("printers", await preview("printers", PRINTERS));
     const profileId = filamentProfileIdFor(db, { brand: "Acme", material: "PLA", name: "Basic" });
     const spool = (
@@ -120,8 +130,8 @@ describe("print import", () => {
         url: "/api/filament/spools",
         payload: { profileId, colorHex: "#000000", initialGrams: 1000 },
       })
-    ).json();
-    return spool as { id: string };
+    ).json() as { id: string };
+    return entered ? backdate(spool) : spool;
   };
   const remaining = (id: string) =>
     db
@@ -147,6 +157,16 @@ describe("print import", () => {
     });
 
     expect(statuses(await preview("prints", FILE))).toEqual(["identical"]);
+  });
+
+  it("only links a spool entered after the print: its weight already has it off", async () => {
+    const spool = await setup(false);
+    await applySuggested("prints", await preview("prints", FILE));
+    expect(db.select().from(schema.printFilamentUsages).get()).toMatchObject({
+      spoolId: spool.id,
+      grams: 12.5,
+    });
+    expect(remaining(spool.id)).toBe(1000);
   });
 
   it("numbers prints, and a row with a number is that print", async () => {
@@ -275,13 +295,15 @@ describe("print import", () => {
         material: "PETG",
         name: "Tough",
       });
-      return (
-        await app.inject({
-          method: "POST",
-          url: "/api/filament/spools",
-          payload: { profileId, colorHex: "#ffffff", initialGrams: 500 },
-        })
-      ).json() as { id: string };
+      return backdate(
+        (
+          await app.inject({
+            method: "POST",
+            url: "/api/filament/spools",
+            payload: { profileId, colorHex: "#ffffff", initialGrams: 500 },
+          })
+        ).json() as { id: string },
+      );
     };
     const row = (extra: string, track = "") =>
       `${HEAD}\nbox,Multi,2026-03-04 10:00,3600,success,001-Basic #000000,10,002-Tough #ffffff,5,${extra},${track}`;

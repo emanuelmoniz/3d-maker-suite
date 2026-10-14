@@ -7,6 +7,7 @@ import type {
   LoginRequest,
   LoginResult,
   SyncRequest,
+  SyncResult,
   SyncRun,
   TestResult,
 } from "@3d-maker-suite/core";
@@ -68,7 +69,7 @@ export const useTestIntegration = (id: string) =>
 
 export const useSyncIntegration = (id: string) =>
   useInvalidating(
-    (req: SyncRequest) => api<SyncRun>("POST", `/api/integrations/${id}/sync`, req),
+    (req: SyncRequest) => api<SyncResult>("POST", `/api/integrations/${id}/sync`, req),
     true,
   );
 

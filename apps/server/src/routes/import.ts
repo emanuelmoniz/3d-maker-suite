@@ -9,6 +9,7 @@ import {
   importResultSchema,
   importRunSchema,
   importTemplateSchema,
+  isoDate,
   REVIEW_ENTITIES,
   REVIEWED_TYPES,
   type ReviewedType,
@@ -134,13 +135,19 @@ export const importRoutes =
       {
         schema: {
           params: z.object({ id: z.uuid(), type: z.enum(REVIEWED_TYPES) }),
-          querystring: z.object({ includeSystem: z.enum(["true", "false"]).default("false") }),
+          querystring: z.object({
+            includeSystem: z.enum(["true", "false"]).default("false"),
+            // Prints only: the dates to read; none = since the last sync.
+            from: isoDate.optional(),
+            to: isoDate.optional(),
+          }),
           response: { 200: importPreviewSchema, 404: apiErrorSchema },
         },
       },
       async (req) => {
         const { id, type } = req.params;
-        const stored = await syncer.offer(id, type, req.query.includeSystem === "true");
+        const { includeSystem, from, to } = req.query;
+        const stored = await syncer.offer(id, type, includeSystem === "true", { from, to });
         return { uploadId: review.save(stored), ...review.preview(stored) };
       },
     );
@@ -169,7 +176,8 @@ export const importRoutes =
             ? await syncer.run(
                 stored.from.integrationId,
                 "manual",
-                { type: stored.entity as ReviewedType },
+                // A review read for a range applies as that range, so it never moves the cursor.
+                { type: stored.entity as ReviewedType, ...stored.range },
                 { stored, decisions, policy, backup },
               )
             : review.write(stored, decisions, policy, backup);

@@ -51,6 +51,8 @@ export type Stored = {
   /** Set when the rows were read from an integration or a zip instead of a file. */
   from?: { kind: "integration"; integrationId: string } | { kind: "zip" };
   dir?: string;
+  /** The date range the rows were read for (prints), so applying them runs the same range. */
+  range?: { from?: string; to?: string };
 };
 
 /** The row a write is for, with the references the user picked for it. */
@@ -276,8 +278,8 @@ export function createReview(db: Db, dataDir: string) {
         })
         .run();
     // What is still there for a person (or the next run) once this one is done.
-    const pending = stored.from ? preview(stored).rows.filter((r) => r.auto).length : 0;
-    return { created, updated, skipped, pending };
+    const left = stored.from ? preview(stored).rows.filter((r) => r.auto) : [];
+    return { created, updated, skipped, pending: left.length, left };
   }
 
   return { handlers, save, load, drop, preview, plan, write };

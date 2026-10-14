@@ -3,14 +3,13 @@ export type SpoolCandidate = {
   material: string;
   /** `#rrggbb` of the spool. */
   colorHex: string;
-  remainingGrams: number;
-  createdAt: string;
+  /** When it was bought, if known. */
+  purchasedAt: string | null;
 };
 
 export type SlotToMatch = {
   material?: string;
   colorHex?: string;
-  grams: number;
   startedAt: string;
 };
 
@@ -19,17 +18,19 @@ const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLow
 /**
  * Picks the spool an imported print used, or `null` when a person has to decide.
  * Never guesses: it needs the vendor's material and colour, and exactly ONE spool with that exact
- * material + colour. Spools added after the print started can't have been used and are ignored.
- * The single match must also hold enough filament, otherwise booking it would fail.
- * Pass active spools only (not archived or empty).
+ * material + colour. A spool bought after the print's day can't have been used and is ignored
+ * (when the app was set up is no clue: spools are often entered long after they were bought).
+ * Pass active spools only (not archived or empty). Whether it holds enough is the booking's call.
  */
 export function matchSpool(slot: SlotToMatch, spools: SpoolCandidate[]): string | null {
   const { material, colorHex } = slot;
   if (!material || !colorHex) return null;
+  const day = slot.startedAt.slice(0, 10);
   const hits = spools.filter(
     (s) =>
-      s.createdAt <= slot.startedAt && same(s.material, material) && same(s.colorHex, colorHex),
+      (!s.purchasedAt || s.purchasedAt.slice(0, 10) <= day) &&
+      same(s.material, material) &&
+      same(s.colorHex, colorHex),
   );
-  const [only] = hits;
-  return hits.length === 1 && only && only.remainingGrams >= slot.grams ? only.id : null;
+  return hits.length === 1 ? (hits[0]?.id ?? null) : null;
 }

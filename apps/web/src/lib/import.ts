@@ -52,16 +52,22 @@ export const useSourcePreview = (
   id: string,
   type: ReviewedType,
   includeSystem: boolean,
+  /** Prints only: the dates to read; none = since the last sync. */
+  range: { from?: string; to?: string } = {},
 ) =>
   useQuery({
-    queryKey: ["import-source", source, id, type, includeSystem],
-    queryFn: () =>
-      api<ImportPreview>(
+    queryKey: ["import-source", source, id, type, includeSystem, range.from, range.to],
+    queryFn: () => {
+      const q = new URLSearchParams({ includeSystem: String(includeSystem) });
+      if (range.from) q.set("from", range.from);
+      if (range.to) q.set("to", range.to);
+      return api<ImportPreview>(
         "POST",
         source === "zip"
           ? `/api/slicer-zip/${id}/${type}`
-          : `/api/import/integration/${id}/${type}?includeSystem=${includeSystem}`,
-      ),
+          : `/api/import/integration/${id}/${type}?${q}`,
+      );
+    },
     retry: false,
     gcTime: 0,
     staleTime: Number.POSITIVE_INFINITY,

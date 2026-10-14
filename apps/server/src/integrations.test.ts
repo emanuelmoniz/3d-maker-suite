@@ -4,28 +4,34 @@ import { join } from "node:path";
 import { fixture, type MockState, mockAdapter } from "@3d-maker-suite/adapter-mock";
 import {
   type ExternalPrint,
+  type ImportPreview,
   type IntegrationAdapter,
   IntegrationError,
   type IntegrationErrorCode,
 } from "@3d-maker-suite/core";
 import { openDb, schema } from "@3d-maker-suite/db";
 import { eq } from "drizzle-orm";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import { buildApp } from "./app.ts";
 import { loadKey } from "./integrations/secrets.ts";
 import { createSyncer } from "./integrations/sync.ts";
 import { modelIdFor } from "./lib/catalog.ts";
+import { reviewer } from "./testReview.ts";
 
 let db: ReturnType<typeof openDb>;
 let app: Awaited<ReturnType<typeof buildApp>>;
 let state: MockState;
+// Reviews keep their rows (and confirms a backup) in the data folder.
+let dataDir: string;
 
 beforeEach(async () => {
   db = openDb(":memory:");
   state = fixture();
-  app = await buildApp(db, false, "", { adapters: [mockAdapter(state), loginAdapter()] });
+  dataDir = mkdtempSync(join(tmpdir(), "integrations-"));
+  app = await buildApp(db, false, dataDir, { adapters: [mockAdapter(state), loginAdapter()] });
 });
+afterEach(() => rmSync(dataDir, { recursive: true, force: true }));
 
 // The mock vendor plus an email-code sign-in: password "pw", then code "123456".
 const loginAdapter = (): IntegrationAdapter => ({
@@ -69,6 +75,25 @@ const sync = async (id: string) => {
 };
 const setPolicy = (id: string, type: string, policy: object) =>
   send("PATCH", `/api/integrations/${id}`, { policies: [{ type, ...policy }] });
+/** A PLA spool; the mock's prints use PLA #ff8800, so one of that colour is their match. */
+const spool = async (colorHex = "#ff8800", initialGrams = 1000) => {
+  const material =
+    (await get("/api/filament-materials")).items[0] ??
+    (await send("POST", "/api/filament-materials", { name: "PLA" })).json();
+  const profile = (
+    await send("POST", "/api/filament/profiles", { materialId: material.id, densityGcm3: 1.24 })
+  ).json();
+  return (
+    await send("POST", "/api/filament/spools", { profileId: profile.id, colorHex, initialGrams })
+  ).json();
+};
+const left = async (id: string) => (await get(`/api/filament/spools/${id}`)).remainingGrams;
+const review = reviewer(() => app);
+const printsReview = async (id: string, q = "") =>
+  (await review.open(`/api/import/integration/${id}/prints${q}`)).json() as ImportPreview;
+const watermark = () =>
+  db.select().from(schema.syncPolicies).where(eq(schema.syncPolicies.type, "prints")).get()
+    ?.cursor ?? null;
 
 describe("integrations", () => {
   it("stores secrets encrypted and never returns them", async () => {
@@ -98,6 +123,8 @@ describe("integrations", () => {
   it("syncs printers and prints end to end, and re-syncs without duplicates", async () => {
     const { id } = await create();
     const known = modelIdFor(db, "mock ", "m1"); // the adapter sends "Mock"/"M1": reused, any case
+    // Entered today, after the January prints: they are its filament but its weight has them off.
+    const s = await spool();
     const run = await sync(id);
     expect(run).toMatchObject({ status: "ok", trigger: "manual", created: 4, skipped: 0 });
 
@@ -114,15 +141,16 @@ describe("integrations", () => {
       failureReason: "Spaghetti",
       printerId: printers[0]?.id,
     });
-    expect(prints[0].usages).toMatchObject([{ grams: 10, slot: 0, spoolId: null }]);
+    expect(prints[0].usages).toMatchObject([{ grams: 10, slot: 0, spoolId: s.id }]);
+    expect(await left(s.id)).toBe(1000);
     expect(await get(`/api/integrations/${id}`)).toMatchObject({ status: "ok", lastError: null });
 
-    // Local edits win: a re-sync skips rows it already imported.
+    // Local edits win: a re-sync leaves out rows it already imported.
     await send("PATCH", `/api/prints/${prints[0].id}`, { title: "Renamed" });
     // Inside the overlap window, so the adapter returns them again.
     for (const p of state.prints) p.startedAt = new Date().toISOString();
     state.prints.push({ ...firstPrint(), externalId: "job-9", title: "New one" });
-    expect(await sync(id)).toMatchObject({ status: "ok", created: 1, skipped: 4 });
+    expect(await sync(id)).toMatchObject({ status: "ok", created: 1, skipped: 1, pending: 0 });
     const after = (await get("/api/prints?sort=startedAt")).items;
     expect(after).toHaveLength(4);
     expect(after[0].title).toBe("Renamed");
@@ -142,6 +170,7 @@ describe("integrations", () => {
     const boat = project("Boat", ["model/Benchy.3mf"]);
     project("Box A", ["box.3mf"]);
     project("Box B", ["box.3mf"]);
+    await spool();
     const [first, second] = state.prints as [ExternalPrint, ExternalPrint];
     first.title = "benchy_plate_2";
     second.title = "box"; // two projects have a box.3mf: not linked
@@ -182,8 +211,14 @@ describe("integrations", () => {
 
   it("skips prints of unknown printers and keeps imported rows when the integration goes", async () => {
     const { id } = await create();
+    await spool();
     firstPrint().printerExternalId = "unknown";
-    expect(await sync(id)).toMatchObject({ created: 3, skipped: 1 });
+    expect(await sync(id)).toMatchObject({ created: 3, pending: 0 });
+    // The review shows why: the printer isn't there.
+    expect((await printsReview(id, "?from=2026-01-01T00:00:00.000Z")).rows[0]).toMatchObject({
+      status: "invalid",
+      errors: [{ column: "printer", code: "unresolved" }],
+    });
 
     expect((await send("DELETE", `/api/integrations/${id}`)).statusCode).toBe(204);
     const prints = db.select().from(schema.prints).all();
@@ -217,6 +252,7 @@ describe("integrations", () => {
       serial: "mock0001",
     });
     const { id } = await create();
+    await spool();
     expect(await sync(id)).toMatchObject({ status: "ok", created: 4 });
     const printers = db.select().from(schema.printers).all();
     expect(printers).toHaveLength(1);
@@ -275,12 +311,10 @@ describe("sync by type and date range", () => {
   const day = (d: number, end = false) =>
     new Date(Date.UTC(2026, 0, d, end ? 23 : 0, end ? 59 : 0)).toISOString();
   const printCount = () => db.select().from(schema.prints).all().length;
-  const watermark = () =>
-    db.select().from(schema.syncPolicies).where(eq(schema.syncPolicies.type, "prints")).get()
-      ?.cursor ?? null;
 
   it("syncs one type alone and logs it", async () => {
     const { id } = await create();
+    await spool();
     expect(await syncWith(id, { type: "printers" })).toMatchObject({
       status: "ok",
       type: "printers",
@@ -305,6 +339,7 @@ describe("sync by type and date range", () => {
 
   it("imports a past range without duplicates and leaves the incremental start alone", async () => {
     const { id } = await create();
+    await spool();
     await syncWith(id, { type: "printers" });
     const range = { type: "prints", from: day(2), to: day(2, true) };
     expect(await syncWith(id, range)).toMatchObject({
@@ -312,13 +347,33 @@ describe("sync by type and date range", () => {
       rangeFrom: range.from,
       rangeTo: range.to,
     });
-    expect(await syncWith(id, range)).toMatchObject({ created: 0, skipped: 1 });
+    expect(await syncWith(id, range)).toMatchObject({ created: 0 });
     expect(await syncWith(id, { type: "prints", from: day(1), to: day(3, true) })).toMatchObject({
       created: 2,
-      skipped: 1,
     });
     expect(printCount()).toBe(3);
     expect(watermark()).toBeNull();
+  });
+
+  it("reviews a range and applies it as that range, so the incremental start stays", async () => {
+    const { id } = await create();
+    await syncWith(id, { type: "printers" });
+    // No spool: every print waits for a person.
+    const q = `?from=${day(1)}&to=${day(2, true)}`;
+    const p = await printsReview(id, q);
+    expect(p.rows.map((r) => [r.values.title, r.status, r.auto])).toEqual([
+      ["Mock print 1", "new", "wait"],
+      ["Mock print 2", "new", "wait"],
+    ]);
+    expect((await review.confirm(p)).json()).toMatchObject({ created: 2 });
+    expect(printCount()).toBe(2);
+    expect(watermark()).toBeNull();
+    // Their slots wait in the filament queue, with the colour the printer reported.
+    expect((await get("/api/prints/filament-review")).items).toMatchObject([
+      { material: "PLA", colorHex: "#ff8800", grams: 20, slot: 0 },
+      { material: "PLA", colorHex: "#ff8800", grams: 10, slot: 0 },
+    ]);
+    expect((await printsReview(id, q)).rows).toEqual([]);
   });
 
   it("rejects ranges for other types, backwards ranges and switched-off types", async () => {
@@ -561,35 +616,27 @@ describe("sign-in", () => {
 });
 
 describe("filament matching of imported prints", () => {
-  const spool = async (colorHex = "#ff8800", initialGrams = 1000) => {
-    const material =
-      (await get("/api/filament-materials")).items[0] ??
-      (await send("POST", "/api/filament-materials", { name: "PLA" })).json();
-    const profile = (
-      await send("POST", "/api/filament/profiles", { materialId: material.id, densityGcm3: 1.24 })
-    ).json();
-    return (
-      await send("POST", "/api/filament/spools", { profileId: profile.id, colorHex, initialGrams })
-    ).json();
-  };
-  const left = async (id: string) => (await get(`/api/filament/spools/${id}`)).remainingGrams;
-  const review = async () => (await get("/api/prints/filament-review")).items;
-  // Spools exist from "now", so the mock prints must start after that to be eligible.
-  const syncNow = async () => {
+  const queue = async () => (await get("/api/prints/filament-review")).items;
+  const printCount = () => db.select().from(schema.prints).all().length;
+  // Spools exist from "now"; prints an hour later take from them (earlier ones only link them).
+  const later = () =>
     state.prints.forEach((p, i) => {
-      p.startedAt = new Date(Date.now() + i * 1000).toISOString();
+      p.startedAt = new Date(Date.now() + 3600 * 1000 + i * 1000).toISOString();
     });
-    return sync((await create()).id);
+  const syncNow = async () => {
+    later();
+    const { id } = await create();
+    return { id, run: await sync(id) };
   };
+  /** Imports every print the review holds, as the user confirming the review screen. */
+  const importHeld = async (id: string) => review.confirm(await printsReview(id));
 
   it("books a unique type + colour match through the ledger, once", async () => {
     const s = await spool();
     await spool("#00ff00"); // other colour: not a candidate
-    const { id } = await create();
-    for (const p of state.prints) p.startedAt = new Date().toISOString();
-    await sync(id);
+    const { id } = await syncNow();
     expect(await left(s.id)).toBe(1000 - 60);
-    expect(await review()).toEqual([]);
+    expect(await queue()).toEqual([]);
     const usage = (await get("/api/prints?sort=startedAt")).items[0].usages[0];
     expect(usage).toMatchObject({
       spoolId: s.id,
@@ -604,27 +651,58 @@ describe("filament matching of imported prints", () => {
     expect(await left(s.id)).toBe(1000 - 60);
   });
 
-  it("queues ambiguous, unknown and too-heavy slots instead of guessing", async () => {
+  it("holds prints whose filament matches no single spool, and keeps the cursor at them", async () => {
     const a = await spool();
     const b = await spool();
-    await syncNow();
+    const { id, run } = await syncNow();
+    expect(run).toMatchObject({ created: 1, pending: 3 }); // the printer only
+    expect(printCount()).toBe(0);
     expect(await left(a.id)).toBe(1000);
     expect(await left(b.id)).toBe(1000);
-    expect(await review()).toHaveLength(3);
+    // To the second, as the review reads the start.
+    expect(Date.parse(watermark() ?? "")).toBe(
+      Math.floor(Date.parse(state.prints[0]?.startedAt ?? "") / 1000) * 1000,
+    );
+    expect((await get(`/api/integrations/${id}`)).policies[1]).toMatchObject({ pending: 3 });
+
+    // The review shows them with no spool; importing them queues their slots.
+    const p = await printsReview(id);
+    expect(p.rows.map((r) => [r.values.spool ?? null, r.values.filament, r.auto])).toEqual([
+      [null, "PLA #ff8800", "wait"],
+      [null, "PLA #ff8800", "wait"],
+      [null, "PLA #ff8800", "wait"],
+    ]);
+    expect((await review.confirm(p)).json()).toMatchObject({ created: 3 });
+    expect(await queue()).toHaveLength(3);
+    expect(await left(a.id)).toBe(1000);
   });
 
-  it("queues a slot that doesn't fit the only matching spool", async () => {
+  it("holds a print that doesn't fit what the only matching spool has left", async () => {
     const s = await spool("#ff8800", 25); // jobs use 10, 20 and 30 g
-    await syncNow();
-    expect((await review()).map((r: { grams: number }) => r.grams).sort()).toEqual([20, 30]);
+    const { run } = await syncNow();
+    expect(run).toMatchObject({ pending: 2 });
+    expect(printCount()).toBe(1);
     expect(await left(s.id)).toBe(15);
+  });
+
+  it("matches waiting slots again once a single spool fits", async () => {
+    const a = await spool();
+    const b = await spool();
+    const { id } = await syncNow();
+    await importHeld(id);
+    expect(await queue()).toHaveLength(3);
+    await send("PATCH", `/api/filament/spools/${b.id}`, { archived: true });
+    await sync(id);
+    expect(await queue()).toEqual([]);
+    expect(await left(a.id)).toBe(1000 - 60);
   });
 
   it("assigns from the queue (ledger) or dismisses, and edits keep waiting slots", async () => {
     const a = await spool();
     await spool();
-    await syncNow();
-    const [first, second, third] = await review();
+    const { id } = await syncNow();
+    await importHeld(id);
+    const [first, second, third] = await queue();
     expect(first.grams).toBe(30); // newest print first
 
     expect(
@@ -639,27 +717,46 @@ describe("filament matching of imported prints", () => {
 
     // Editing the print's spools must not drop the slots still waiting in the queue.
     await send("PATCH", `/api/prints/${second.printId}`, { usages: [] });
-    expect(await review()).toHaveLength(2);
+    expect(await queue()).toHaveLength(2);
 
     await send("POST", "/api/prints/filament-review/dismiss", {
       usageIds: [second.usageId, third.usageId],
     });
-    expect(await review()).toEqual([]);
+    expect(await queue()).toEqual([]);
     expect((await get(`/api/prints/${second.printId}`)).usages).toMatchObject([
       { grams: 20, spoolId: null, dismissed: true },
     ]);
   });
 
+  it("assigning a spool entered after the print only links it", async () => {
+    await spool();
+    await spool();
+    state.prints.forEach((p) => {
+      p.startedAt = new Date(Date.now() - 3600 * 1000).toISOString();
+    });
+    const { id } = await create();
+    await sync(id);
+    await importHeld(id);
+    const s = await spool("#123456", 1);
+    const [item] = await queue();
+    expect(
+      (await send("POST", `/api/prints/filament-review/${item.usageId}/assign`, { spoolId: s.id }))
+        .statusCode,
+    ).toBe(204);
+    expect(await left(s.id)).toBe(1);
+  });
+
   it("refuses to assign more than the spool holds", async () => {
     await spool();
     await spool();
-    await syncNow();
+    const { id } = await syncNow();
+    await importHeld(id);
     const small = await spool("#123456", 1);
-    const [item] = await review();
+    const [item] = await queue();
     const res = await send("POST", `/api/prints/filament-review/${item.usageId}/assign`, {
       spoolId: small.id,
     });
     expect(res.json().error.code).toBe("insufficient_filament");
-    expect(await review()).toHaveLength(3);
+    expect(await queue()).toHaveLength(3);
   });
 });

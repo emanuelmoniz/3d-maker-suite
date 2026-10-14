@@ -25,6 +25,8 @@ The app stores only the access token, encrypted on disk (see [ADR-0005](adr/0005
 - **Print history:** finished prints since the last sync. Prints started from the phone app or while the PC was off are included.
 - **Spools:** the filament manager's spools, matched to your profiles.
 
+Each slot of a print is matched to a spool by material and colour. A match only counts when exactly one active spool fits and it wasn't bought after the print. A print older than the spool's entry in the app gets the spool but takes nothing off it, because the weight you entered already includes it. A print with a slot that matches no single spool is not imported on its own. It waits under "Review and import" for print history, and "Sync now" opens that screen when anything is waiting. Once imported, its open slots go to **Prints → Filament to review**, and they are matched again on every sync.
+
 By default print history syncs every hour and printers every day. On the Integrations page each type has its own mode (off, manual, automatic) and frequency, a "Sync now" button, and for print history a date range to re-import. Spools are imported by hand unless you set them to automatic; then only spools with exactly one matching filament profile are imported and the rest waits for you under "Review and import".
 
 ## When it stops working

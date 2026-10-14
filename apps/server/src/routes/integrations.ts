@@ -16,6 +16,7 @@ import {
   pageOf,
   type SyncRun,
   syncRequestSchema,
+  syncResultSchema,
   syncRunFilters,
   syncRunSchema,
   syncRunSortFields,
@@ -258,7 +259,7 @@ export const integrationsRoutes =
         schema: {
           params,
           body: syncRequestSchema,
-          response: { 200: syncRunSchema, ...notFound, 409: apiErrorSchema },
+          response: { 200: syncResultSchema, ...notFound, 409: apiErrorSchema },
         },
       },
       async (req) => syncer.run(req.params.id, "manual", req.body),

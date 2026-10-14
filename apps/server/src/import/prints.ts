@@ -10,7 +10,7 @@ import {
   printSlotKeys,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, isNotNull, isNull } from "drizzle-orm";
 import { printerLabel, projectLabel } from "../lib/catalog.ts";
 import {
   assertNumberFree,
@@ -180,37 +180,70 @@ function projectFor(db: Db, cell: ImportCell | undefined): string | null {
   return created.id;
 }
 
+/** What an integration reported for a slot; kept on a slot left for the review queue. */
+type Reported = { slot?: number | null; material?: string; colorHex?: string };
+const reportedOf = (row: WriteRow | undefined) => (row?.raw.reported ?? []) as Reported[];
+
 /**
  * Books the print's filament from the file row. A spool the name points to takes the grams
- * through the ledger; a spool or filament that doesn't resolve leaves the grams in the review
- * queue (Step 13) for the user to assign.
+ * through the ledger (only links it for a print older than the spool); a spool or filament that
+ * doesn't resolve leaves the grams in the review queue (Step 13) for the user to assign.
  */
-function useFilament(db: Db, printId: string, title: string, v: ImportValues) {
+function useFilament(
+  db: Db,
+  printId: string,
+  title: string,
+  startedAt: string,
+  v: ImportValues,
+  reported: Reported[] = [],
+) {
   const look = lookups(db);
   db.delete(printFilamentUsages)
     .where(and(eq(printFilamentUsages.printId, printId), isNull(printFilamentUsages.spoolId)))
     .run();
-  const booked: { spoolId: string; grams: number }[] = [];
+  const booked: Parameters<typeof syncUsages>[3] = [];
   const waiting: (typeof printFilamentUsages.$inferInsert)[] = [];
   for (let n = 1; n <= PRINT_MAX_SLOTS; n++) {
     const key = printSlotKeys(n);
     const grams = num(v[key.grams]);
     if (!grams || grams <= 0) continue;
     const spoolId = find(look.spools, v[key.spool]);
-    if (spoolId) booked.push({ spoolId, grams });
-    else if (v[key.spool] || v[key.filament])
+    const said = reported[n - 1];
+    // An integration's slot keeps what the printer reported.
+    const as = said && {
+      slot: said.slot ?? null,
+      material: said.material ?? null,
+      colorHex: said.colorHex?.toLowerCase() ?? null,
+    };
+    if (spoolId) booked.push({ spoolId, grams, ...as });
+    else if (v[key.spool] || v[key.filament] || said)
       waiting.push({
         printId,
         spoolId: null,
         profileId: one(look.profiles, v[key.filament]),
         grams,
         material: str(v[key.filament]) ?? str(v[key.spool]),
+        ...as,
       });
   }
   // "no": the spools are already up to date, so only the print's own rows are written.
-  syncUsages(db, printId, title, booked, lower(v.trackUsage) !== "no");
+  syncUsages(db, printId, title, booked, lower(v.trackUsage) !== "no", startedAt);
   if (waiting.length) db.insert(printFilamentUsages).values(waiting).run();
 }
+
+/** A slot with grams whose spool cell names no spool: a person picks one. */
+const unmatched = (look: Lookups, v: ImportValues) =>
+  Array.from({ length: PRINT_MAX_SLOTS }, (_, i) => printSlotKeys(i + 1)).some(
+    (key) => (num(v[key.grams]) ?? 0) > 0 && !find(look.spools, v[key.spool]),
+  );
+
+/** `<integrationId>:<externalId>`, the source key of a print an integration offers. */
+const sourceOf = (row: WriteRow) => {
+  const at = row.source?.indexOf(":") ?? -1;
+  return row.source && at > 0
+    ? { integrationId: row.source.slice(0, at), externalId: row.source.slice(at + 1) }
+    : null;
+};
 
 const SLOT_KEYS = Array.from({ length: PRINT_MAX_SLOTS }, (_, i) =>
   Object.values(printSlotKeys(i + 1)),
@@ -342,13 +375,40 @@ export const printImport = {
     return errors;
   },
 
-  create(db: Db, v: ImportValues) {
+  /** Prints an integration imported, by `<integrationId>:<externalId>`. */
+  bySource: (db: Db) =>
+    new Map(
+      db
+        .select({
+          id: prints.id,
+          integrationId: prints.integrationId,
+          externalId: prints.externalId,
+        })
+        .from(prints)
+        .where(and(isNotNull(prints.integrationId), isNotNull(prints.externalId)))
+        .all()
+        .map((p) => [`${p.integrationId}:${p.externalId}`, p.id]),
+    ),
+  /** A print you have is yours: the vendor's version of it is not offered as a change. */
+  handsOff: true,
+  /** A run with nobody watching leaves a print whose filament matched no spool for a person. */
+  held: (db: Db) => (v: ImportValues) => unmatched(lookups(db), v),
+
+  create(db: Db, v: ImportValues, src?: WriteRow) {
     const printerId = find(lookups(db).printers, v.printer) ?? "";
     const durationSec = num(v.durationSec);
     const outcome = str(v.outcome) as PrintInput["outcome"];
+    const source = src && sourceOf(src);
     const row = db
       .insert(prints)
       .values({
+        ...(source && {
+          origin: "integration" as const,
+          ...source,
+          plate: num(src.raw.plate as ImportCell),
+          coverUrl: str(src.raw.coverUrl as ImportCell),
+          sourceUrl: str(src.raw.sourceUrl as ImportCell),
+        }),
         // A number another print has ("import as new" of an exported row) gets the next free one.
         number: freeNumber(db, prints, numberCell(v.number)) ?? nextNumber(prints),
         printerId,
@@ -363,7 +423,7 @@ export const printImport = {
       })
       .returning()
       .get();
-    useFilament(db, row.id, row.title, v);
+    useFilament(db, row.id, row.title, row.startedAt, v, reportedOf(src));
   },
 
   /** Writes `patch` (only the values that change) to the print. */
@@ -381,6 +441,9 @@ export const printImport = {
     if (printer !== undefined) set.printerId = printerId;
     if (startedAt != null) set.startedAt = new Date(String(startedAt)).toISOString();
     if ((patch.outcome ?? cur.outcome) === "success") set.failureReason = null;
+    // The same print, added by hand before: from now on it is the integration's.
+    const source = sourceOf(row);
+    if (source && !cur.externalId) Object.assign(set, source, { origin: "integration" });
     // An estimate follows the printer and the duration; a measured value stays.
     if (cur.energySource !== "measured" && (printer !== undefined || "durationSec" in patch))
       Object.assign(
@@ -396,10 +459,13 @@ export const printImport = {
 
     // The file's slots replace the print's; the target values fill the slots the file left empty.
     if (SLOT_KEYS.some((k) => k in patch))
-      useFilament(db, cur.id, String(set.title ?? cur.title), {
-        ...target.values,
-        ...patch,
-        trackUsage: String(row.raw.trackUsage ?? ""),
-      });
+      useFilament(
+        db,
+        cur.id,
+        String(set.title ?? cur.title),
+        String(set.startedAt ?? cur.startedAt),
+        { ...target.values, ...patch, trackUsage: String(row.raw.trackUsage ?? "") },
+        reportedOf(row),
+      );
   },
 };

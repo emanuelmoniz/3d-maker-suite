@@ -131,6 +131,12 @@ export const syncRunSchema = z.object({
   skipped: z.number().int().nonnegative(),
 });
 
+/** A run as "Sync now" gets it back: also the rows it left for a person to review. */
+export const syncResultSchema = syncRunSchema.extend({
+  updated: z.number().int().nonnegative(),
+  pending: z.number().int().nonnegative(),
+});
+
 /** One run = one type. Prints are incremental unless a range is given (prints only). */
 export const syncRequestSchema = z
   .object({ type: z.enum(SYNC_TYPES), from: isoDate.optional(), to: isoDate.optional() })
@@ -157,6 +163,7 @@ export type IntegrationPatch = z.infer<typeof integrationPatchSchema>;
 export type AdapterInfo = z.infer<typeof adapterInfoSchema>;
 export type SyncRequest = z.infer<typeof syncRequestSchema>;
 export type SyncRun = z.infer<typeof syncRunSchema>;
+export type SyncResult = z.infer<typeof syncResultSchema>;
 export type SyncPolicy = z.infer<typeof syncPolicySchema>;
 export type TestResult = z.infer<typeof testResultSchema>;
 export type LoginRequest = z.infer<typeof loginInputSchema>;

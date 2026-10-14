@@ -39,7 +39,7 @@ For each row you choose **Create**, **Update** or **Skip**. For matched rows, pi
 
 ## From an integration
 
-On the **Integrations** page, a type's **Review and import** button opens the same review screen with the rows an integration offers. Automatic runs import only what needs no decision from you; everything else waits there.
+On the **Integrations** page, a type's **Review and import** button opens the same review screen with the rows an integration offers. Automatic runs import only what needs no decision from you; everything else waits there. For print history, a print waits when one of its filaments matches no single spool. The review then reads the date range picked on the Integrations page.
 
 ## Slicer catalog from a zip
 

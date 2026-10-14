@@ -25,8 +25,7 @@ import { printCosts } from "../lib/cost.ts";
 import { listPage, orderBy, taggedWith } from "../lib/list.ts";
 import { assertNumberFree, nextNumber } from "../lib/numbers.ts";
 import { readPreferences } from "../lib/preferences.ts";
-import { energyFor, syncUsages } from "../lib/prints.ts";
-import { takeFromSpool } from "../lib/spools.ts";
+import { bookOrLink, energyFor, syncUsages } from "../lib/prints.ts";
 
 const { machineProfiles, prints, printFilamentUsages, printers, projects, spools } = schema;
 const params = z.object({ id: z.uuid() });
@@ -131,7 +130,7 @@ export const printsRoutes =
       },
       async (req, reply) => {
         const row = db
-          .select({ usage: printFilamentUsages, title: prints.title })
+          .select({ usage: printFilamentUsages, title: prints.title, startedAt: prints.startedAt })
           .from(printFilamentUsages)
           .innerJoin(prints, eq(prints.id, printFilamentUsages.printId))
           .where(and(eq(printFilamentUsages.id, req.params.usageId), waiting))
@@ -141,7 +140,7 @@ export const printsRoutes =
           const spool = tx.select().from(spools).where(eq(spools.id, req.body.spoolId)).get();
           if (!spool || spool.archivedAt)
             throw new HttpError(400, "invalid_spool", "Spool not found");
-          const profileId = takeFromSpool(tx, spool.id, row.usage.grams, row.title);
+          const profileId = bookOrLink(tx, spool, row.usage.grams, row.title, row.startedAt);
           if (!profileId)
             throw new HttpError(400, "insufficient_filament", "Spool has less filament than used");
           tx.update(printFilamentUsages)

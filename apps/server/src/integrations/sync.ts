@@ -1,6 +1,7 @@
 import {
   autoDecisions,
   defaultPolicy,
+  type ExternalPrint,
   externalPrinterSchema,
   externalPrintSchema,
   type ImportApplyDecision,
@@ -16,35 +17,30 @@ import {
   type ReviewedType,
   type SyncFrequency,
   type SyncRequest,
+  type SyncResult,
   type SyncRun,
   type SyncTrigger,
   type TestResult,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
-import { and, desc, eq, isNull, ne, notInArray, sql } from "drizzle-orm";
+import { and, desc, eq, isNull, notInArray, sql } from "drizzle-orm";
 import type { FastifyBaseLogger } from "fastify";
 import { HttpError } from "../errors.ts";
 import { createReview, type Stored } from "../import/review.ts";
-import { modelIdFor, profileMaterial } from "../lib/catalog.ts";
+import { modelIdFor } from "../lib/catalog.ts";
 import { nextNumber } from "../lib/numbers.ts";
-import { takeFromSpool } from "../lib/spools.ts";
+import { bookOrLink } from "../lib/prints.ts";
 import { linkPrints } from "../projects/linkPrints.ts";
 import { activeCapabilities, capableRow, policyOf, switchedOn } from "./capabilities.ts";
 import { libraryOf } from "./imports.ts";
 import { secretStore } from "./secrets.ts";
-import { libraryRows, spoolRows } from "./sourceRows.ts";
+import { activeSpools, libraryRows, printRows, spoolRows } from "./sourceRows.ts";
 
-const {
-  alerts,
-  filamentProfiles,
-  integrations,
-  printers,
-  prints,
-  printFilamentUsages,
-  spools,
-  syncPolicies,
-  syncRuns,
-} = schema;
+const { alerts, integrations, printers, prints, printFilamentUsages, syncPolicies, syncRuns } =
+  schema;
+
+/** The dates a prints read is limited to; none = since the last run. */
+type Range = { from?: string; to?: string };
 
 /** A confirmed review: the rows it showed and what the user decided for them. */
 export type Pick = {
@@ -134,14 +130,15 @@ export function createSyncer(
   /**
    * One run syncs one type. A `from`/`to` range (prints only) re-reads that window instead of
    * continuing from the cursor, and never moves it. Reviewed types apply what `pick` decided, or
-   * without one only the rows that need no decision; the rest is counted as pending.
+   * without one only the rows that need no decision; the rest is counted as pending. Prints are
+   * reviewed too: one whose filament matches no single spool waits for a person.
    */
   async function run(
     id: string,
     trigger: SyncTrigger,
     req: SyncRequest,
     pick?: Pick,
-  ): Promise<SyncRun & { updated: number }> {
+  ): Promise<SyncResult> {
     const row = rowOf(id);
     const { type } = req;
     const adapter = adapters.find((a) => a.id === row.adapterId);
@@ -154,6 +151,7 @@ export function createSyncer(
     let updated = 0;
     let skipped = 0;
     let pending = 0;
+    let oldestLeft: string | undefined;
     let errorCode: IntegrationErrorCode | null = null;
     const runLog = log.child({ integrationId: id });
     const signal = AbortSignal.timeout(TIMEOUT_MS);
@@ -164,7 +162,8 @@ export function createSyncer(
       const imported = { origin: "integration" as const, integrationId: id };
 
       if (REVIEWED.has(type)) {
-        const stored = pick?.stored ?? (await offered(row, type as ReviewedType, false, instance));
+        const stored =
+          pick?.stored ?? (await offered(row, type as ReviewedType, false, instance, req, signal));
         const done = review.write(
           stored,
           pick?.decisions ?? autoDecisions(review.preview(stored).rows),
@@ -174,6 +173,10 @@ export function createSyncer(
         ({ created, updated, pending } = done);
         // The sync log counts what was there already; rows left for review are not "skipped".
         skipped = Math.max(0, done.skipped - pending);
+        // The next run starts at the oldest print left for review, so it is offered again.
+        oldestLeft = done.left
+          .map((r) => String(r.values.startedAt))
+          .reduce<string | undefined>((a, b) => (a && a < b ? a : b), undefined);
       }
 
       if (type === "printers" && instance?.printers) {
@@ -226,116 +229,8 @@ export function createSyncer(
         }
       }
 
-      if (type === "prints" && instance?.printHistory) {
-        const printerIds = new Map(
-          db
-            .select({ id: printers.id, externalId: printers.externalId })
-            .from(printers)
-            .where(eq(printers.integrationId, id))
-            .all()
-            .map((p) => [p.externalId, p.id]),
-        );
-        const from = policyOf(db, id, type).cursor;
-        const since = ranged
-          ? req.from
-          : from
-            ? new Date(Date.parse(from) - OVERLAP_MS).toISOString()
-            : undefined;
-        const until = req.to;
-        let cursor: string | undefined;
-        do {
-          signal.throwIfAborted();
-          const page = await instance.printHistory.listPrints({ since, until, cursor });
-          // An adapter stuck on one page would re-read it until the timeout; stop at once instead.
-          if (page.nextCursor && page.nextCursor === cursor)
-            throw new IntegrationError("api_changed");
-          db.transaction((tx) => {
-            for (const raw of page.items) {
-              const p = externalPrintSchema.safeParse(raw);
-              // The adapter's `until` is only a hint to stop early; the range is enforced here.
-              if (
-                p.success &&
-                ((until && p.data.startedAt > until) || (since && p.data.startedAt < since))
-              )
-                continue;
-              const printerId = p.success && printerIds.get(p.data.printerExternalId);
-              if (!p.success || !printerId) {
-                skipped++;
-                runLog.warn(p.success ? { externalId: p.data.externalId } : {}, "print skipped");
-                continue;
-              }
-              const { filaments, failureReason, ...d } = p.data;
-              const inserted = tx
-                .insert(prints)
-                .values({
-                  ...imported,
-                  number: nextNumber(prints),
-                  printerId,
-                  externalId: d.externalId,
-                  title: d.title,
-                  plate: d.plate,
-                  startedAt: d.startedAt,
-                  durationSec: d.durationSec,
-                  outcome: d.outcome,
-                  failureReason: d.outcome === "success" ? null : failureReason,
-                  coverUrl: d.coverUrl,
-                  sourceUrl: d.sourceUrl,
-                })
-                .onConflictDoNothing()
-                .returning({ id: prints.id })
-                .get();
-              if (!inserted) {
-                // Already imported: only a plate that was never known is filled in.
-                if (d.plate)
-                  tx.update(prints)
-                    .set({ plate: d.plate })
-                    .where(
-                      and(
-                        eq(prints.integrationId, id),
-                        eq(prints.externalId, d.externalId),
-                        isNull(prints.plate),
-                      ),
-                    )
-                    .run();
-                skipped++;
-                continue;
-              }
-              created++;
-              // A slot is booked from a spool only when matchSpool finds exactly one; anything else
-              // stays unassigned (spoolId null) and shows up in the review queue.
-              for (const f of filaments) {
-                const spoolId = matchSpool(
-                  { ...f, startedAt: d.startedAt },
-                  tx
-                    .select({
-                      id: spools.id,
-                      material: profileMaterial,
-                      colorHex: spools.colorHex,
-                      remainingGrams: spools.remainingGrams,
-                      createdAt: spools.createdAt,
-                    })
-                    .from(spools)
-                    .innerJoin(filamentProfiles, eq(filamentProfiles.id, spools.profileId))
-                    .where(and(isNull(spools.archivedAt), ne(spools.status, "empty")))
-                    .all(),
-                );
-                const profileId = spoolId ? takeFromSpool(tx, spoolId, f.grams, d.title) : null;
-                tx.insert(printFilamentUsages)
-                  .values({
-                    printId: inserted.id,
-                    spoolId: profileId ? spoolId : null,
-                    profileId,
-                    grams: f.grams,
-                    slot: f.slot ?? null,
-                    material: f.material,
-                    colorHex: f.colorHex?.toLowerCase(),
-                  })
-                  .run();
-              }
-            }
-          });
-          cursor = page.nextCursor;
-        } while (cursor);
+      if (type === "prints") {
+        rematch();
         linkPrints(db);
       }
 
@@ -344,7 +239,7 @@ export function createSyncer(
       const done = {
         lastRunAt: startedAt,
         pending,
-        ...(type === "prints" && !ranged && { cursor: startedAt }),
+        ...(type === "prints" && !ranged && { cursor: oldestLeft ?? startedAt }),
       };
       db.insert(syncPolicies)
         .values({ integrationId: id, type, ...defaultPolicy(type), ...done })
@@ -415,7 +310,7 @@ export function createSyncer(
     db.delete(syncRuns)
       .where(and(eq(syncRuns.integrationId, id), notInArray(syncRuns.id, keep)))
       .run();
-    return { ...(saved as SyncRun), updated };
+    return { ...(saved as SyncRun), updated, pending };
   }
 
   /**
@@ -464,17 +359,103 @@ export function createSyncer(
       librarySpoolSchema.parse({ ...s, spoolId: `${row.adapterId}:${s.spoolId}` }),
     );
 
+  /**
+   * The vendor's prints in the range, or since the last run (minus an overlap) without one.
+   * A print already imported only gets a plate that was never known.
+   */
+  async function readPrints(
+    id: string,
+    instance: IntegrationInstance,
+    range: Range,
+    signal: AbortSignal,
+  ): Promise<ExternalPrint[]> {
+    if (!instance.printHistory) return [];
+    const last = policyOf(db, id, "prints").cursor;
+    const since =
+      range.from || range.to
+        ? range.from
+        : last
+          ? new Date(Date.parse(last) - OVERLAP_MS).toISOString()
+          : undefined;
+    const until = range.to;
+    const out: ExternalPrint[] = [];
+    let cursor: string | undefined;
+    do {
+      signal.throwIfAborted();
+      const page = await instance.printHistory.listPrints({ since, until, cursor });
+      // An adapter stuck on one page would re-read it until the timeout; stop at once instead.
+      if (page.nextCursor && page.nextCursor === cursor) throw new IntegrationError("api_changed");
+      for (const raw of page.items) {
+        const p = externalPrintSchema.safeParse(raw);
+        if (!p.success) {
+          log.warn({ integrationId: id, issues: p.error.issues }, "invalid print from adapter");
+          continue;
+        }
+        // The adapter's `until` is only a hint to stop early; the range is enforced here.
+        if ((until && p.data.startedAt > until) || (since && p.data.startedAt < since)) continue;
+        out.push(p.data);
+      }
+      cursor = page.nextCursor;
+    } while (cursor);
+    // ponytail: a write while reading, but idempotent and only ever filling a blank.
+    for (const p of out)
+      if (p.plate)
+        db.update(prints)
+          .set({ plate: p.plate })
+          .where(
+            and(
+              eq(prints.integrationId, id),
+              eq(prints.externalId, p.externalId),
+              isNull(prints.plate),
+            ),
+          )
+          .run();
+    return out;
+  }
+
+  /** Slots an earlier run left for the review queue get their spool once exactly one fits. */
+  function rematch() {
+    const active = activeSpools(db);
+    const byId = new Map(active.map((s) => [s.id, s]));
+    const waiting = db
+      .select({ usage: printFilamentUsages, title: prints.title, startedAt: prints.startedAt })
+      .from(printFilamentUsages)
+      .innerJoin(prints, eq(prints.id, printFilamentUsages.printId))
+      .where(and(isNull(printFilamentUsages.spoolId), eq(printFilamentUsages.dismissed, false)))
+      .all();
+    db.transaction((tx) => {
+      for (const { usage: u, title, startedAt } of waiting) {
+        const slot = { material: u.material ?? undefined, colorHex: u.colorHex ?? undefined };
+        const spool = byId.get(matchSpool({ ...slot, startedAt }, active) ?? "");
+        const profileId = spool && bookOrLink(tx, spool, u.grams, title, startedAt);
+        if (spool && profileId)
+          tx.update(printFilamentUsages)
+            .set({ spoolId: spool.id, profileId })
+            .where(eq(printFilamentUsages.id, u.id))
+            .run();
+      }
+    });
+  }
+
   /** What one reviewed type of an integration offers right now, as rows for the review. */
   async function offered(
     row: ReturnType<typeof rowOf>,
     type: ReviewedType,
     includeSystem: boolean,
     instance?: IntegrationInstance,
+    range: Range = {},
+    signal = AbortSignal.timeout(TIMEOUT_MS),
   ): Promise<Stored> {
     const from = { kind: "integration" as const, integrationId: row.id };
     if (type === "spools") {
       const rows = spoolRows(db, instance ? await readSpools(row, instance) : []);
       return { entity: type, ignoredHeaders: [], from, rows };
+    }
+    if (type === "prints") {
+      const items = instance ? await readPrints(row.id, instance, range, signal) : [];
+      const rows = printRows(db, row.id, items);
+      const kept = range.from || range.to ? { from: range.from, to: range.to } : undefined;
+      return { entity: type, ignoredHeaders: [], from, rows, range: kept };
     }
     const { lib, dir } = libraryOf(db, adapters, row.id, type);
     const rows = await libraryRows(db, lib, dir, type, { includeSystem, dataDir });
@@ -482,12 +463,18 @@ export function createSyncer(
   }
 
   /** For the review: a vendor failure comes back as a 502 with its code. */
-  async function offer(id: string, type: ReviewedType, includeSystem: boolean): Promise<Stored> {
+  async function offer(
+    id: string,
+    type: ReviewedType,
+    includeSystem: boolean,
+    range: Range = {},
+  ): Promise<Stored> {
     const { row } = capableRow(db, adapters, id, type);
     try {
+      const signal = AbortSignal.timeout(TIMEOUT_MS);
       const instance =
-        type === "spools" ? instanceFor(row, AbortSignal.timeout(TIMEOUT_MS)) : undefined;
-      return await offered(row, type, includeSystem, instance);
+        type === "spools" || type === "prints" ? instanceFor(row, signal) : undefined;
+      return await offered(row, type, includeSystem, instance, range, signal);
     } catch (e) {
       if (e instanceof HttpError) throw e;
       throw new HttpError(502, codeOf(e), "Couldn't read the source");

@@ -1,12 +1,21 @@
-import type { FilamentLibrary, LibrarySpool, SLICER_ZIP_TYPES } from "@3d-maker-suite/core";
+import {
+  type ExternalPrint,
+  type FilamentLibrary,
+  type LibrarySpool,
+  matchSpool,
+  PRINT_MAX_SLOTS,
+  printSlotKeys,
+  type SLICER_ZIP_TYPES,
+} from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
-import { isNotNull } from "drizzle-orm";
+import { and, eq, isNotNull, isNull, ne } from "drizzle-orm";
 import type { StoredRow } from "../import/review.ts";
 import { spoolImport } from "../import/spools.ts";
-import { profileColumns } from "../lib/catalog.ts";
+import { printerLabel, profileColumns, profileMaterial, spoolName } from "../lib/catalog.ts";
+import { predates } from "../lib/prints.ts";
 import { profileKey } from "./imports.ts";
 
-const { filamentProfiles, spools } = schema;
+const { filamentProfiles, printers, prints, spools } = schema;
 
 export type LibraryType = (typeof SLICER_ZIP_TYPES)[number];
 type Row = Omit<StoredRow, "n">;
@@ -75,6 +84,97 @@ export async function libraryRows(
       source: `${lib.id}:${presetId}`,
       raw,
     })),
+  );
+}
+
+/** The spools an imported print's filament can be matched to (`matchSpool`). */
+export const activeSpools = (db: Db) =>
+  db
+    .select({
+      id: spools.id,
+      profileId: spools.profileId,
+      material: profileMaterial,
+      colorHex: spools.colorHex,
+      purchasedAt: spools.purchasedAt,
+      createdAt: spools.createdAt,
+      remainingGrams: spools.remainingGrams,
+      label: spoolName,
+    })
+    .from(spools)
+    .innerJoin(filamentProfiles, eq(filamentProfiles.id, spools.profileId))
+    .where(and(isNull(spools.archivedAt), ne(spools.status, "empty")))
+    .all();
+
+/**
+ * A vendor's print history, minus the prints already imported, in the prints import columns.
+ * A slot names the one spool `matchSpool` finds; one it can't decide stays empty, which holds the
+ * print for a person. The source key is `<integrationId>:<externalId>`.
+ */
+export function printRows(db: Db, integrationId: string, items: ExternalPrint[]): StoredRow[] {
+  const mine = and(eq(printers.integrationId, integrationId), isNotNull(printers.externalId));
+  const printerOf = new Map(
+    db
+      .select({ externalId: printers.externalId, label: printerLabel })
+      .from(printers)
+      .where(mine)
+      .all()
+      .map((p) => [p.externalId, p.label]),
+  );
+  const known = new Set(
+    db
+      .select({ externalId: prints.externalId })
+      .from(prints)
+      .where(eq(prints.integrationId, integrationId))
+      .all()
+      .map((p) => p.externalId),
+  );
+  const active = activeSpools(db);
+  const byId = new Map(active.map((s) => [s.id, s]));
+  // What each spool still holds once the rows before take theirs: a booking can't overdraw it.
+  const left = new Map(active.map((s) => [s.id, s.remainingGrams]));
+  const pick = (f: ExternalPrint["filaments"][number], startedAt: string) => {
+    const spool = byId.get(matchSpool({ ...f, startedAt }, active) ?? "");
+    if (!spool) return null;
+    if (predates(startedAt, spool)) return spool.label;
+    const after = (left.get(spool.id) ?? 0) - f.grams;
+    if (after < 0) return null;
+    left.set(spool.id, after);
+    return spool.label;
+  };
+  return numbered(
+    items
+      .filter((p) => !known.has(p.externalId))
+      .map(({ filaments, ...p }) => {
+        const slots: Record<string, unknown> = {};
+        for (const [i, f] of filaments.slice(0, PRINT_MAX_SLOTS).entries()) {
+          const key = printSlotKeys(i + 1);
+          slots[key.spool] = pick(f, p.startedAt);
+          // Shown in the review only; the slot keeps what was reported in `reported`.
+          slots[key.filament] = [f.material, f.colorHex].filter(Boolean).join(" ") || null;
+          slots[key.grams] = f.grams;
+        }
+        return {
+          source: `${integrationId}:${p.externalId}`,
+          raw: {
+            // An unknown printer leaves the cell to fail as "unresolved": sync printers first.
+            printer: printerOf.get(p.printerExternalId) ?? p.printerExternalId,
+            title: p.title,
+            startedAt: p.startedAt,
+            durationSec: p.durationSec ?? null,
+            outcome: p.outcome,
+            failureReason: p.outcome === "success" ? null : (p.failureReason ?? null),
+            ...slots,
+            plate: p.plate ?? null,
+            coverUrl: p.coverUrl ?? null,
+            sourceUrl: p.sourceUrl ?? null,
+            reported: filaments.slice(0, PRINT_MAX_SLOTS).map((f) => ({
+              slot: f.slot ?? null,
+              material: f.material,
+              colorHex: f.colorHex,
+            })),
+          },
+        };
+      }),
   );
 }
 

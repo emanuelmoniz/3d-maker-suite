@@ -327,6 +327,7 @@ function Policies({
 }) {
   const { t } = useTranslation();
   const patch = usePatchIntegration(i.id);
+  const navigate = useNavigate();
   const [range, setRange] = useState<keyof typeof RANGES>("sinceLast");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
@@ -356,34 +357,40 @@ function Policies({
   const run = (p: SyncPolicy) => {
     // Switched off or not set up (no sign-in, no folder): nothing to run.
     if (!i.capabilities.includes(p.type)) return "–";
-    if (p.type === "printers" || p.type === "prints")
+    if (p.type === "printers")
       return (
         <Button
           className="my-1"
-          disabled={sync.isPending || (p.type === "prints" && customInvalid)}
-          onClick={() =>
-            sync.mutate(
-              p.type === "prints"
-                ? { type: "prints", ...rangeFor(range, from, to) }
-                : { type: "printers" },
-            )
-          }
+          disabled={sync.isPending}
+          onClick={() => sync.mutate({ type: "printers" })}
         >
           {t("integrations:policies.syncNow")}
         </Button>
       );
     const type = p.type;
     if (!isReviewed(type)) return "–";
+    const dates = type === "prints" ? rangeFor(range, from, to) : {};
+    const review = {
+      to: "/import/$source/$id/$type",
+      params: { source: "integration", id: i.id, type },
+      search: dates as never,
+    } as const;
     return (
       <span className="flex items-center gap-3">
-        <Button className="my-1" disabled={sync.isPending} onClick={() => sync.mutate({ type })}>
+        <Button
+          className="my-1"
+          disabled={sync.isPending || (type === "prints" && customInvalid)}
+          onClick={() =>
+            sync.mutate(
+              { type, ...dates },
+              // Rows were left for a person: take them there.
+              { onSuccess: (r) => void (r.pending > 0 && navigate(review)) },
+            )
+          }
+        >
           {t("integrations:policies.syncNow")}
         </Button>
-        <Link
-          to="/import/$source/$id/$type"
-          params={{ source: "integration", id: i.id, type }}
-          className="font-medium text-accent hover:underline"
-        >
+        <Link {...review} className="font-medium text-accent hover:underline">
           {t("integrations:policies.importNow")}
         </Link>
         {p.pending > 0 && (
