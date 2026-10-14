@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
+import { PathPicker } from "../../components/PathPicker.tsx";
 import { useCreateProject, usePatchProject, useProject } from "../../lib/projects.ts";
 
 const text = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
@@ -15,6 +16,7 @@ function ProjectForm({ project }: { project?: Project }) {
   const create = useCreateProject();
   const patch = usePatchProject(project?.id ?? "");
   const save = project ? patch : create;
+  const [folder, setFolder] = useState("");
   const [link, setLink] = useState(project?.descriptionFile ?? "");
   const docs = (project?.meta.files ?? []).filter(
     (f) => f.kind === "doc" && !/.pdf$/i.test(f.path),
@@ -111,7 +113,23 @@ function ProjectForm({ project }: { project?: Project }) {
         )
       ) : (
         <FormField label={t("projects:form.folder")} hint={t("projects:form.folderHint")}>
-          {(p) => <input {...p} name="folderPath" className={inputClass} />}
+          {(p) => (
+            <div className="flex gap-2">
+              <input
+                {...p}
+                name="folderPath"
+                className={inputClass}
+                value={folder}
+                onChange={(e) => setFolder(e.target.value)}
+              />
+              <PathPicker
+                label={t("projects:form.folder")}
+                mode="folder"
+                initial={folder}
+                onPick={setFolder}
+              />
+            </div>
+          )}
         </FormField>
       )}
       {save.isError && (
