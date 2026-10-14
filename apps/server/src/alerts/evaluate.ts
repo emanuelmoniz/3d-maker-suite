@@ -35,7 +35,7 @@ function conditions(db: Db, now: Date): Found {
     .all())
     if (s.grams <= prefs.lowSpoolGrams)
       add("spool_low", "spool", s.id, {
-        name: [s.brand, s.material, s.name].filter(Boolean).join(" "),
+        name: s.name || [s.brand, s.material].filter(Boolean).join(" "),
         grams: Math.round(s.grams),
       });
 
@@ -100,6 +100,9 @@ export async function evaluateAlerts(
     for (const a of tx.select().from(alerts).where(isNull(alerts.resolvedAt)).all()) {
       // The syncer raises and resolves sync_failed itself; here it only gets its snooze re-armed.
       const hit = a.kind === "sync_failed" || found.has(`${a.kind}|${a.entityType}|${a.entityId}`);
+      const cur = found.get(`${a.kind}|${a.entityType}|${a.entityId}`);
+      // Keep open rows' text fresh (grams drop, wording changes) without re-notifying.
+      if (cur) tx.update(alerts).set({ context: cur.context }).where(eq(alerts.id, a.id)).run();
       if (!hit) tx.update(alerts).set({ resolvedAt: stamp }).where(eq(alerts.id, a.id)).run();
       else if (a.snoozedUntil && a.snoozedUntil <= stamp)
         tx.update(alerts)
