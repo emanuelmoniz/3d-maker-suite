@@ -132,8 +132,13 @@ export function parseRow(columns: readonly ImportColumn[], raw: Record<string, u
   return { values, errors };
 }
 
+// A leading number is the same padded or not: "1-Vase" names what "001-vase" does.
+const unpad = (s: unknown) =>
+  String(s ?? "")
+    .trim()
+    .replace(/^0+(?=\d)/, "");
 const same = (col: ImportColumn, a: ImportCell, b: ImportCell) =>
-  col.type === "ref" ? norm(a) === norm(b) : a === b;
+  col.type === "ref" ? norm(unpad(a)) === norm(unpad(b)) : a === b;
 
 /** Keys whose file value differs from the existing row. An empty file cell is never a difference. */
 export const diffValues = (

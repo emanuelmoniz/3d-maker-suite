@@ -176,9 +176,52 @@ describe("print import", () => {
       .map((r) => r.projectId);
     expect(linked).toEqual([projects[0]?.id, projects[0]?.id]);
     // Known now: by display name, number or name, and nothing is announced.
-    for (const cell of ["005-bucket", "5", "BUCKET"])
+    // A leading number is the identity, padded or not, however the rest is spelled.
+    for (const cell of ["005-bucket", "5", "05", "BUCKET", "5-Bucket Big", "005 whatever"])
       expect((await preview("prints", proj(cell))).missing).toEqual({});
     expect(printImport.refs(db).projects).toEqual(["005-bucket"]);
+  });
+
+  it("announces and creates a new numbered project once, however the rows spell it", async () => {
+    await setup();
+    const csv = [
+      `project,${PRINT_HEAD}`,
+      "135-Boat Test,box,A,2026-03-04 10:00,,success,,",
+      "135 boat,box,B,2026-03-05 10:00,,success,,",
+    ].join("\n");
+    const p = await preview("prints", csv);
+    expect(p.missing).toEqual({ projects: ["135-Boat Test"] });
+    await applySuggested("prints", p);
+    expect(db.select().from(schema.projects).all()).toMatchObject([
+      { number: 135, name: "Boat Test", folderPath: null },
+    ]);
+  });
+
+  it("sees a print as identical however its printer and spool are spelled", async () => {
+    await setup();
+    await applySuggested("prints", await preview("prints", FILE));
+    for (const [printer, spool] of [
+      ["1-Box", "1-Whatever"],
+      ["01", "001"],
+      ["BOX", "1"],
+    ])
+      expect(
+        statuses(
+          await preview(
+            "prints",
+            FILE.replace("box,", `${printer},`).replace("001-Basic #000000", spool ?? ""),
+          ),
+        ),
+      ).toEqual(["identical"]);
+  });
+
+  it("finds a spool by a leading number with any text after it", async () => {
+    const spool = await setup();
+    await applySuggested(
+      "prints",
+      await preview("prints", FILE.replace("001-Basic #000000", "1-Jade White")),
+    );
+    expect(remaining(spool.id)).toBe(987.5);
   });
 
   it("finds a printer by its display name, its number or its name", async () => {

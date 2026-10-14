@@ -9,7 +9,7 @@ import {
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
 import chokidar, { type FSWatcher } from "chokidar";
-import { eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import type { FastifyBaseLogger } from "fastify";
 import { HttpError } from "../errors.ts";
 import { nextNumber } from "../lib/numbers.ts";
@@ -110,9 +110,27 @@ export function createProjectScanner(
     return next;
   }
 
+  /**
+   * A new folder whose prefix number belongs to a project without a folder (e.g. one a prints
+   * import created) becomes that project's folder, so the scan updates it instead of adding a twin.
+   */
+  function adopt(folder: string) {
+    const number = parseFolderName(basename(folder)).number;
+    if (!number) return undefined;
+    return db
+      .update(projects)
+      .set({ folderPath: folder })
+      .where(and(eq(projects.number, number), isNull(projects.folderPath)))
+      .returning()
+      .get();
+  }
+
   /** Creates or updates the project of one folder. `user` fields count as user-edited. */
   async function upsert(folder: string, scan: FolderScan, user: Fields = {}) {
-    const row = db.select().from(projects).where(eq(projects.folderPath, folder)).get();
+    const row =
+      db.select().from(projects).where(eq(projects.folderPath, folder)).get() ??
+      // A folder added by hand with typed fields is a new project, as asked.
+      (Object.keys(user).length ? undefined : adopt(folder));
     const id = row?.id ?? randomUUID();
     const thumbnailPath = await storeCover(id, scan.cover, row?.thumbnailPath ?? null);
     const types = scan.models.flatMap((m) =>

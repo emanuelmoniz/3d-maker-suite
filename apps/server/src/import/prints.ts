@@ -17,8 +17,6 @@ import {
   freeNumber,
   nextNumber,
   numberCell,
-  PAD,
-  padded,
   printerTitle,
   printTitle,
 } from "../lib/numbers.ts";
@@ -51,20 +49,56 @@ const one = (names: Names, name: ImportCell | undefined) => {
   return ids?.length === 1 ? (ids[0] ?? null) : null;
 };
 
+const cellText = (c: ImportCell | undefined) => (c == null ? "" : String(c).trim());
+
 /**
- * Ids by every key a row answers to: its display name, its number alone and its plain name.
- * An archived row only answers to keys no active one has.
+ * The plain number a cell starts with, padded or not: "001-x", "1-x", "01", "1 x" are all 1.
+ * "3D Benchy" has none.
  */
-const answering = (rows: { id: string; keys: string[]; archivedAt: string | null }[]) => {
-  const named = group(
+export const leadingNumber = (c: ImportCell | undefined) => {
+  const m = /^(\d+)(?:[\s._-]|$)/.exec(cellText(c));
+  return m ? Number(m[1]) : null;
+};
+
+/** A row the file can name: by its number (the identity) or by a name; `labels` by id. */
+type Ref = { numbers: Map<number, string>; names: Names; labels: Map<string, string> };
+type RefRow = {
+  id: string;
+  number: number | null;
+  /** The display name first, then other names it answers to. */
+  keys: [string, ...string[]];
+  archivedAt?: string | null;
+};
+
+/** An archived row only answers to names no active one has; numbers are unique anyway. */
+function refOf(rows: RefRow[]): Ref {
+  const names = group(
     rows.filter((r) => !r.archivedAt).flatMap((r) => r.keys.map((k) => [k, r.id] as const)),
   );
   for (const r of rows)
-    if (r.archivedAt) for (const k of r.keys) if (!named.has(lower(k))) named.set(lower(k), [r.id]);
-  return named;
+    if (r.archivedAt) for (const k of r.keys) if (!names.has(lower(k))) names.set(lower(k), [r.id]);
+  const numbers = new Map(
+    rows.flatMap((r) => (r.number == null ? [] : [[r.number, r.id] as const])),
+  );
+  return { numbers, names, labels: new Map(rows.map((r) => [r.id, r.keys[0]])) };
+}
+
+/**
+ * The rows a cell can mean. A leading number that exists wins, whatever text follows it
+ * ("1-Aquaterrario" is project 1 however it is spelled); otherwise the whole cell is a name.
+ */
+const candidates = (ref: Ref, c: ImportCell | undefined): string[] => {
+  const n = leadingNumber(c);
+  const byNumber = n == null ? undefined : ref.numbers.get(n);
+  return byNumber ? [byNumber] : (ref.names.get(lower(c)) ?? []);
+};
+/** The row a cell means; null when it means none or several. */
+const find = (ref: Ref, c: ImportCell | undefined) => {
+  const ids = candidates(ref, c);
+  return ids.length === 1 ? (ids[0] ?? null) : null;
 };
 
-type Lookups = { printers: Names; projects: Names; spools: Names; profiles: Names };
+type Lookups = { printers: Ref; projects: Ref; spools: Ref; profiles: Names };
 function build(db: Db): Lookups {
   const printerRows = db
     .select({
@@ -86,27 +120,15 @@ function build(db: Db): Lookups {
     .from(projects)
     .all();
   return {
-    printers: answering(
-      printerRows.map((p) => ({
-        ...p,
-        keys: [printerTitle(p), String(p.number), padded(p.number, PAD.printer), p.name],
+    printers: refOf(printerRows.map((p) => ({ ...p, keys: [printerTitle(p), p.name] }))),
+    projects: refOf(projectRows.map((p) => ({ ...p, keys: [p.label, p.name] }))),
+    // Active spools only, by number or display name.
+    spools: refOf(
+      spoolImport.targets(db).map((s) => ({
+        id: s.id,
+        number: typeof s.values.number === "number" ? s.values.number : null,
+        keys: [s.label],
       })),
-    ),
-    projects: answering(
-      projectRows.map((p) => ({
-        ...p,
-        keys: [p.label, String(p.number), padded(p.number, PAD.project), p.name],
-      })),
-    ),
-    // A spool answers to its display name or to its number alone.
-    spools: group(
-      spoolImport
-        .targets(db)
-        .flatMap((s) =>
-          [s.label, String(s.values.number), padded(Number(s.values.number), PAD.spool)].map(
-            (k) => [k, s.id] as const,
-          ),
-        ),
     ),
     profiles: group(
       db
@@ -132,8 +154,6 @@ function lookups(db: Db): Lookups {
   return cached.look;
 }
 
-const cellText = (c: ImportCell | undefined) => (c == null ? "" : String(c).trim());
-
 /**
  * The project a cell names, null for an empty cell. One that doesn't exist yet is created without
  * a folder: "5-bucket" is project 5 (if free) "bucket", "Benchy" gets the next free number.
@@ -142,21 +162,22 @@ function projectFor(db: Db, cell: ImportCell | undefined): string | null {
   const text = cellText(cell);
   if (!text) return null;
   const look = lookups(db).projects;
-  const known = look.get(lower(text));
-  if (known) return known.length === 1 ? (known[0] ?? null) : null;
+  const known = candidates(look, text);
+  if (known.length) return known.length === 1 ? (known[0] ?? null) : null;
   const { number, name } = parseFolderName(text);
-  const id = db
+  const created = db
     .insert(projects)
     .values({
       number: freeNumber(db, projects, number || null) ?? nextNumber(projects),
       name,
       editedFields: ["name"],
     })
-    .returning({ id: projects.id })
-    .get().id;
-  // Later rows of the same file naming it get this one, not another.
-  look.set(lower(text), [id]);
-  return id;
+    .returning({ id: projects.id, number: projects.number })
+    .get();
+  // Later rows of the same file naming it (by name or number) get this one, not another.
+  look.names.set(lower(text), [created.id]);
+  if (created.number != null) look.numbers.set(created.number, created.id);
+  return created.id;
 }
 
 /**
@@ -175,7 +196,7 @@ function useFilament(db: Db, printId: string, title: string, v: ImportValues) {
     const key = printSlotKeys(n);
     const grams = num(v[key.grams]);
     if (!grams || grams <= 0) continue;
-    const spoolId = one(look.spools, v[key.spool]);
+    const spoolId = find(look.spools, v[key.spool]);
     if (spoolId) booked.push({ spoolId, grams });
     else if (v[key.spool] || v[key.filament])
       waiting.push({
@@ -211,7 +232,7 @@ export const printImport = {
         .map((p) => [p.id, p.name]),
     );
     return db
-      .select({ print: prints, printer: printers.name, project: projectLabel })
+      .select({ print: prints, printer: printerLabel, project: projectLabel })
       .from(prints)
       .innerJoin(printers, eq(printers.id, prints.printerId))
       .leftJoin(projects, eq(projects.id, prints.projectId))
@@ -244,7 +265,31 @@ export const printImport = {
       });
   },
 
+  /** By printer, start and title, where the printer is the one each spelling means. */
   match: matchPrintRows,
+
+  /**
+   * Each printer, project and spool cell that resolves becomes that row's display name, the
+   * spelling the targets use: "box", "1" and "1-Box" all read "01-Box", so matching and the
+   * diff see one spelling. A cell that doesn't resolve stays as written.
+   */
+  canon(db: Db, v: ImportValues): ImportValues {
+    const look = lookups(db);
+    const label = (ref: Ref, c: ImportCell | undefined) => {
+      const id = find(ref, c);
+      return (id && ref.labels.get(id)) || (c ?? null);
+    };
+    const out: ImportValues = {
+      ...v,
+      printer: label(look.printers, v.printer),
+      project: label(look.projects, v.project),
+    };
+    for (let n = 1; n <= PRINT_MAX_SLOTS; n++) {
+      const key = printSlotKeys(n).spool;
+      out[key] = label(look.spools, v[key]);
+    }
+    return out;
+  },
 
   refs: (db: Db) => ({
     projects: db
@@ -269,24 +314,24 @@ export const printImport = {
   /** A print needs a printer that exists; a project it names is created when missing. */
   missing(db: Db, rows: ImportValues[]): Record<string, string[]> {
     const look = lookups(db).projects;
-    const names = [
-      ...new Map(
-        rows
-          .map((r) => cellText(r.project))
-          .filter((n) => n && !look.has(lower(n)))
-          .map((n) => [lower(n), n]),
-      ).values(),
-    ];
-    return names.length ? { projects: names } : {};
+    // One entry per project to be, as the first row spells it (that row creates it): "135-Boat
+    // Test" and a later "135 boat" are the same new project 135.
+    const first = new Map<string | number, string>();
+    for (const r of rows) {
+      const n = cellText(r.project);
+      const key = leadingNumber(n) ?? lower(n);
+      if (n && !candidates(look, n).length && !first.has(key)) first.set(key, n);
+    }
+    return first.size ? { projects: [...first.values()] } : {};
   },
 
   /** What a file row needs besides valid cells. */
   check(db: Db, v: ImportValues) {
     const errors: { column: string; code: ImportErrorCode }[] = [];
-    if (!one(lookups(db).printers, v.printer))
+    if (!find(lookups(db).printers, v.printer))
       errors.push({ column: "printer", code: "unresolved" });
     // A name several projects answer to can't be told apart (an unknown one is created).
-    if ((lookups(db).projects.get(lower(cellText(v.project)))?.length ?? 0) > 1)
+    if (candidates(lookups(db).projects, v.project).length > 1)
       errors.push({ column: "project", code: "unresolved" });
     // Filament named without grams (or the reverse) is a typo, not data.
     for (let n = 1; n <= PRINT_MAX_SLOTS; n++) {
@@ -298,7 +343,7 @@ export const printImport = {
   },
 
   create(db: Db, v: ImportValues) {
-    const printerId = one(lookups(db).printers, v.printer) ?? "";
+    const printerId = find(lookups(db).printers, v.printer) ?? "";
     const durationSec = num(v.durationSec);
     const outcome = str(v.outcome) as PrintInput["outcome"];
     const row = db
@@ -332,7 +377,7 @@ export const printImport = {
     if ("number" in set) set.number = numberCell(fields.number) ?? undefined;
     assertNumberFree(db, prints, "print", numberCell(fields.number), cur.id);
     if (project !== undefined) set.projectId = projectFor(db, project);
-    const printerId = printer === undefined ? cur.printerId : one(lookups(db).printers, printer);
+    const printerId = printer === undefined ? cur.printerId : find(lookups(db).printers, printer);
     if (printer !== undefined) set.printerId = printerId;
     if (startedAt != null) set.startedAt = new Date(String(startedAt)).toISOString();
     if ((patch.outcome ?? cur.outcome) === "success") set.failureReason = null;

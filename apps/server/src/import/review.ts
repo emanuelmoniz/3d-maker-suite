@@ -65,6 +65,8 @@ export type ImportHandler = {
     rows: ImportValues[],
     targets: ImportTarget[],
   ) => { candidates: string[]; targetId: string | null }[];
+  /** A valid row's ref cells in the spelling the targets use, before matching and diffing. */
+  canon?: (db: Db, values: ImportValues) => ImportValues;
   /** By `ref`: the names the template's dropdowns offer. */
   refs?: (db: Db) => Record<string, string[]>;
   /** By `ref`: names in the rows that apply would create. */
@@ -135,6 +137,7 @@ export function createReview(db: Db, dataDir: string) {
     const parsed = stored.rows.map((r) => {
       const p = parseRow(columns, r.raw);
       if (!p.errors.length) p.errors.push(...(handler.check?.(db, p.values) ?? []));
+      if (!p.errors.length && handler.canon) p.values = handler.canon(db, p.values);
       // A row from an export carries its id, one from an integration its source key: both beat
       // the matcher.
       const id = String(r.raw.id ?? "").trim();

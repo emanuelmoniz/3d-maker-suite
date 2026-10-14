@@ -112,6 +112,21 @@ describe("project scanner", () => {
     expect((await list()).map((p: { number: number }) => p.number)).toEqual([3, 5, 6, 7]);
   });
 
+  it("a numbered folder becomes the folder of a folderless project with its number", async () => {
+    // As a prints import creates it: number 3, no folder.
+    await app.inject({
+      method: "POST",
+      url: "/api/projects",
+      payload: { name: "Boat Test", number: 3 },
+    });
+    await put("003_boat-test/b.stl", "solid");
+    await setRoots();
+    expect(await scan()).toMatchObject({ created: 0, updated: 1, failed: 0 });
+    expect(await list()).toMatchObject([
+      { number: 3, name: "Boat Test", folderPath: join(root(), "003_boat-test") },
+    ]);
+  });
+
   it("honours the scan depth", async () => {
     await sampleTree();
     await setRoots(2);
