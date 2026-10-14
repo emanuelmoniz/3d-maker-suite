@@ -39,7 +39,7 @@ export function ProfileDetailPage() {
     <>
       <PageHeader
         title={filamentLabel(profile)}
-        backTo={{ to: "/filament" }}
+        backTo={{ to: "/filament/settings" }}
         actions={
           <>
             <Link to="/filament/profiles/$id/edit" params={{ id }} className={linkButton}>

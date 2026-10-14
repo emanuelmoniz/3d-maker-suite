@@ -2,6 +2,8 @@ import { useTranslation } from "react-i18next";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { Section } from "../../components/Section.tsx";
 import { ChannelsSection } from "../alerts/ChannelsSection.tsx";
+import { FilamentCatalog, FilamentProfiles } from "../filament/Catalog.tsx";
+import { Catalog } from "../printers/Catalog.tsx";
 import { ConfigPage } from "./ConfigPage.tsx";
 
 export function CostsConfigPage() {
@@ -153,6 +155,60 @@ export function AlertsConfigPage() {
             <ChannelsSection />
           </Section>
         </>
+      )}
+    </ConfigPage>
+  );
+}
+
+export function PrintersConfigPage() {
+  const { t } = useTranslation();
+  return (
+    <ConfigPage module="printers">
+      {({ v, commit }) => {
+        const states = v.printerStates.join("\n");
+        return (
+          <>
+            <Section title={t("settings:sections.printers")}>
+              <FormField label={t("settings:printers.label")} hint={t("settings:printers.hint")}>
+                {(p) => (
+                  <textarea
+                    {...p}
+                    className={`${inputClass} h-24 py-2`}
+                    key={`states-${states}`}
+                    defaultValue={states}
+                    onBlur={(e) => {
+                      const next = [
+                        ...new Set(
+                          e.target.value
+                            .split(/\r?\n/)
+                            .map((l) => l.trim())
+                            .filter(Boolean),
+                        ),
+                      ];
+                      if (next.length && next.join("|") !== v.printerStates.join("|"))
+                        commit({ printerStates: next });
+                      else e.target.value = states;
+                    }}
+                  />
+                )}
+              </FormField>
+            </Section>
+            <Catalog />
+          </>
+        );
+      }}
+    </ConfigPage>
+  );
+}
+
+export function FilamentConfigPage() {
+  return (
+    <ConfigPage module="filament">
+      {() => (
+        <div className="grid gap-8">
+          <FilamentProfiles />
+          <FilamentCatalog />
+        </div>
       )}
     </ConfigPage>
   );

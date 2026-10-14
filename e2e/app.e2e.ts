@@ -14,7 +14,7 @@ test("cost settings persist across a reload", async ({ page }) => {
 });
 
 test("add a brand, a model and a printer of that model", async ({ page }) => {
-  await page.goto("/printers");
+  await page.goto("/printers/settings");
   await page.getByRole("link", { name: "Add brand" }).click();
   await page.getByLabel("Name", { exact: true }).fill("Bambu Lab");
   await page.getByRole("button", { name: "Save" }).click();
@@ -25,6 +25,7 @@ test("add a brand, a model and a printer of that model", async ({ page }) => {
   await page.getByRole("button", { name: "Save" }).click();
   await expect(page.getByRole("link", { name: "Bambu Lab A1" })).toBeVisible();
 
+  await page.goto("/printers");
   await page.getByRole("link", { name: "Add printer" }).first().click();
   await page.getByLabel("Name", { exact: true }).fill("Bambu A1");
   await page.getByLabel("Model", { exact: true }).selectOption({ label: "A1" });

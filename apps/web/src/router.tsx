@@ -39,6 +39,8 @@ import { SettingsPage } from "./pages/SettingsPage.tsx";
 import {
   AlertsConfigPage,
   CostsConfigPage,
+  FilamentConfigPage,
+  PrintersConfigPage,
   PrintsConfigPage,
   ProjectsConfigPage,
 } from "./pages/settings/ConfigPages.tsx";
@@ -290,6 +292,8 @@ const routes: AnyRoute[] = [
   ...(
     [
       ["/costs/settings", CostsConfigPage, ["costs"]],
+      ["/printers/settings", PrintersConfigPage, ["printers", "integrations", "tags"]],
+      ["/filament/settings", FilamentConfigPage, ["filament", "printers", "integrations"]],
       ["/prints/settings", PrintsConfigPage, ["prints"]],
       ["/projects/settings", ProjectsConfigPage, ["projects"]],
       ["/alerts/settings", AlertsConfigPage, ["alerts", "integrations"]],

@@ -60,6 +60,8 @@ export const ROUTES = [
   "/prints/settings",
   "/projects/settings",
   "/alerts/settings",
+  "/printers/settings",
+  "/filament/settings",
   "/import",
   "/settings",
   "/integrations",

@@ -52,7 +52,7 @@ export function ModelSelect(props: React.ComponentProps<"select">) {
 export function CatalogForm<K extends CatalogKind>(props: {
   kind: K;
   /** Where to go after save / delete / back. */
-  backTo?: "/printers" | "/filament";
+  backTo?: "/printers/settings" | "/filament/settings";
   titles: [add: string, edit: string];
   imageLabel?: string;
   toBody: (f: FormData) => object;
@@ -67,7 +67,7 @@ export function CatalogForm<K extends CatalogKind>(props: {
   const image = useCatalogImage(props.kind as keyof typeof IMAGE_OF);
   const [file, setFile] = useState<File | null>(null);
   const [confirm, setConfirm] = useState(false);
-  const to = props.backTo ?? "/printers";
+  const to = props.backTo ?? "/printers/settings";
   const back = () => navigate({ to });
   const row = item.data;
   const imagePath =

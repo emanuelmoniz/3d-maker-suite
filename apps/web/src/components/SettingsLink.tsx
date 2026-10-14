@@ -3,7 +3,11 @@ import { Settings } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 /** Gear button for a module's PageHeader actions; opens the module's config page. */
-export function SettingsLink({ module }: { module: "costs" | "prints" | "projects" | "alerts" }) {
+export function SettingsLink({
+  module,
+}: {
+  module: "costs" | "prints" | "projects" | "alerts" | "printers" | "filament";
+}) {
   const { t } = useTranslation();
   const label = t("common:actions.moduleSettings", { module: t(`nav:items.${module}.label`) });
   return (

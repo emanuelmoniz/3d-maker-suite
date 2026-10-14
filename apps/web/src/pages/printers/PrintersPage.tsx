@@ -6,12 +6,13 @@ import { DataTable } from "../../components/DataTable.tsx";
 import { EmptyState } from "../../components/EmptyState.tsx";
 import { SyncButtons } from "../../components/ImportLinks.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
+import { SettingsLink } from "../../components/SettingsLink.tsx";
 import { TagList } from "../../components/TagList.tsx";
 import { useModelInfo } from "../../lib/catalog.ts";
 import { useListPage, useUrlListQuery } from "../../lib/list.ts";
 import { usePreferences } from "../../lib/preferences.ts";
 import { useTags, useTagsOf } from "../../lib/tags.ts";
-import { addClass, Catalog } from "./Catalog.tsx";
+import { addClass } from "./Catalog.tsx";
 import { StateBadge, useStateLabel } from "./StateBadge.tsx";
 
 export function PrintersPage() {
@@ -44,7 +45,12 @@ export function PrintersPage() {
       <PageHeader
         title={t("nav:items.printers.label")}
         description={t("nav:items.printers.description")}
-        actions={add}
+        actions={
+          <>
+            {add}
+            <SettingsLink module="printers" />
+          </>
+        }
       />
       {isError && (
         <p role="alert" className="text-bad">
@@ -124,7 +130,6 @@ export function PrintersPage() {
           />
         )
       )}
-      <Catalog />
     </>
   );
 }

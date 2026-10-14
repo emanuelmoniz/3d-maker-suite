@@ -34,7 +34,7 @@ const zipOf = (files: Record<string, unknown>) =>
 test("catalog tables page, filter and keep their state in the URL", async ({ page, app }) => {
   for (let i = 1; i <= 30; i++)
     await app.api("POST", "/api/brands", { name: `Brand ${String(i).padStart(2, "0")}` });
-  await page.goto("/printers");
+  await page.goto("/printers/settings");
   const brands = block(page, "Brands");
   await expect(brands.getByText("1–25 of 30")).toBeVisible();
   await brands.getByRole("button", { name: "Next" }).click();
@@ -58,7 +58,7 @@ test("the back link returns to the parent page", async ({ page, app }) => {
   await expect(page).toHaveURL(/\/printers$/);
   await page.goto("/printers/brands/new");
   await page.getByRole("link", { name: "Back" }).click();
-  await expect(page).toHaveURL(/\/printers$/);
+  await expect(page).toHaveURL(/\/printers\/settings$/);
 });
 
 test("branding: app name, logo and favicon", async ({ page }) => {
@@ -145,7 +145,7 @@ test("filament profile: pick or add a brand and a material inline", async ({ pag
   await expect(page.getByLabel("Material", { exact: true })).toHaveValue(/.+/);
   await page.getByLabel("Name", { exact: true }).fill("Tough");
   await page.getByRole("button", { name: "Save profile" }).click();
-  await expect(page).toHaveURL(/\/filament/);
+  await expect(page).toHaveURL(/\/filament\/settings$/);
   const list = await app.api<{ items: { name: string }[] }>("GET", "/api/filament/profiles");
   expect(list.items.map((p) => p.name)).toContain("Tough");
 });
@@ -156,7 +156,7 @@ test("an archived profile leaves the list but stays on its spool", async ({ page
   await page.goto(`/filament/profiles/${items[0]?.id}`);
   await page.getByRole("button", { name: "Archive" }).click();
   await expect(page.getByText("Archived", { exact: true }).first()).toBeVisible();
-  await page.goto("/filament?tab=profiles");
+  await page.goto("/filament/settings");
   await expect(page.getByRole("table", { name: "Filament profiles" })).not.toContainText("Basic");
   await page.goto(`/filament/spools/${spool.id}`);
   await expect(page.getByText("Basic").first()).toBeVisible();

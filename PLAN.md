@@ -43,7 +43,7 @@ Do Step 2 of PLAN.md. Move the existing fields, don't rewrite them. Routes stay 
 router.tsx like the others; one shared gear button and one shared Section component.
 ```
 
-### [ ] Step 3 - Printers & Filament config pages
+### [x] Step 3 - Printers & Filament config pages
 **Model:** Sonnet · **Effort:** Medium
 **Scope:** `/printers/settings`: printer states (from Settings) plus the brands, printer models and machine profiles tables with their import actions (moved from `pages/printers/Catalog.tsx`). `/filament/settings`: filament profiles, filament brands and materials tables with their import actions. The Printers page keeps only the user's printers, and the Filament page keeps only spools. Existing form/detail routes (`/printers/brands/new`, `/filament/profiles/$id`, …) keep their URLs; their back links now point to the config page. Table URL state (prefixed search params) keeps working on the new page.
 **Done when:** the Printers and Filament pages show only user printers and spools; every catalog table and import action is reachable from the config pages; back links are correct; e2e still green.

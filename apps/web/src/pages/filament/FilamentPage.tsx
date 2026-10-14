@@ -1,6 +1,5 @@
 import {
   type FilamentProfile,
-  filamentProfileFilters,
   SPOOL_STATUSES,
   type Spool,
   spoolFilters,
@@ -14,15 +13,14 @@ import { DataTable } from "../../components/DataTable.tsx";
 import { EmptyState } from "../../components/EmptyState.tsx";
 import { ImportLinks } from "../../components/ImportLinks.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
+import { SettingsLink } from "../../components/SettingsLink.tsx";
 import { TagList } from "../../components/TagList.tsx";
 import { api } from "../../lib/api.ts";
-import { useFilamentBrands, useFilamentMaterials } from "../../lib/catalog.ts";
 import { filamentLabel, useProfiles } from "../../lib/filament.ts";
 import { formatCurrency, formatWeight } from "../../lib/format.ts";
 import { useListPage, useUrlListQuery } from "../../lib/list.ts";
 import { usePreferences } from "../../lib/preferences.ts";
 import { useTags, useTagsOf } from "../../lib/tags.ts";
-import { FilamentCatalog } from "./Catalog.tsx";
 
 export const STATUS = {
   new: "filament:spools.statuses.new",
@@ -55,16 +53,10 @@ export function FilamentPage() {
   const { t } = useTranslation();
   const prefs = usePreferences().data?.values;
   const [spoolQuery, setSpoolQuery] = useUrlListQuery("spools.");
-  const [profileQuery, setProfileQuery] = useUrlListQuery("profiles.");
   const spools = useListPage<Spool>(
     ["filament", "spools", "table"],
     "/api/filament/spools",
     spoolQuery,
-  );
-  const profiles = useListPage<FilamentProfile>(
-    ["filament", "profiles", "table"],
-    "/api/filament/profiles",
-    profileQuery,
   );
   const allProfiles = useProfiles().data?.items;
   const profileOf = new Map(allProfiles?.map((p) => [p.id, p]));
@@ -79,8 +71,6 @@ export function FilamentPage() {
     })),
   }))
     if (q.data) profileOf.set(q.data.id, q.data);
-  const brands = useFilamentBrands().data ?? [];
-  const materials = useFilamentMaterials().data ?? [];
   const tagsOf = useTagsOf("spool");
   const tags = useTags().data ?? [];
   const spoolPrice = (s: Spool) => {
@@ -93,8 +83,9 @@ export function FilamentPage() {
       <PageHeader
         title={t("nav:items.filament.label")}
         description={t("nav:items.filament.description")}
+        actions={<SettingsLink module="filament" />}
       />
-      {(profiles.isError || spools.isError) && (
+      {spools.isError && (
         <p role="alert" className="text-bad">
           {t("filament:loadError")}
         </p>
@@ -202,88 +193,6 @@ export function FilamentPage() {
             )
           )}
         </section>
-
-        <section className="grid gap-3">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 className="text-base font-semibold">{t("filament:profiles.title")}</h2>
-            <span className="flex flex-wrap gap-2">
-              <ImportLinks cap="filamentProfiles" text="filament:library.link" />
-              <AddLink to="/filament/profiles/new">{t("filament:profiles.add")}</AddLink>
-            </span>
-          </div>
-          {profiles.data && (
-            <DataTable
-              label={t("filament:profiles.table")}
-              rows={profiles.data.items}
-              rowKey={(p) => p.id}
-              server={{
-                query: profileQuery,
-                onQueryChange: setProfileQuery,
-                total: profiles.data.total,
-                filters: filamentProfileFilters,
-                archivable: true,
-              }}
-              columns={[
-                {
-                  id: "name",
-                  header: t("filament:spools.filament"),
-                  cell: (p) => (
-                    <Link
-                      to="/filament/profiles/$id"
-                      params={{ id: p.id }}
-                      className="font-medium hover:underline"
-                    >
-                      {label(p)}
-                    </Link>
-                  ),
-                  sort: "filament",
-                  filter: "filament",
-                },
-                {
-                  id: "brand",
-                  header: t("filament:profiles.brand"),
-                  cell: (p) => p.brand,
-                  sort: "brand",
-                  filter: "brandId",
-                  filterOptions: brands.map((b) => ({ value: b.id, label: b.name })),
-                },
-                {
-                  id: "material",
-                  header: t("filament:profiles.material"),
-                  cell: (p) => p.material,
-                  sort: "material",
-                  filter: "materialId",
-                  filterOptions: materials.map((m) => ({ value: m.id, label: m.name })),
-                },
-                {
-                  id: "temps",
-                  header: `${t("filament:profiles.nozzleTemp")} / ${t("filament:profiles.bedTemp")}`,
-                  cell: (p) =>
-                    p.nozzleTempC === null && p.bedTempC === null
-                      ? ""
-                      : t("filament:profiles.temps", {
-                          nozzle: p.nozzleTempC ?? "–",
-                          bed: p.bedTempC ?? "–",
-                        }),
-                },
-                {
-                  id: "price",
-                  header: t("filament:profiles.pricePerKg"),
-                  numeric: true,
-                  cell: (p) =>
-                    p.pricePerKg === null
-                      ? ""
-                      : formatCurrency(p.pricePerKg / 100, prefs?.currency),
-                  sort: "pricePerKg",
-                  filter: "pricePerKg",
-                  filterScale: 100,
-                  filterHint: prefs?.currency,
-                },
-              ]}
-            />
-          )}
-        </section>
-        <FilamentCatalog />
       </div>
     </>
   );

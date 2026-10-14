@@ -54,7 +54,7 @@ function ProfileForm({ profile }: { profile?: FilamentProfile }) {
           onSuccess: () => navigate({ to: "/filament/profiles/$id", params: { id: profile.id } }),
         },
       );
-    else create.mutate(values, { onSuccess: () => navigate({ to: "/filament" }) });
+    else create.mutate(values, { onSuccess: () => navigate({ to: "/filament/settings" }) });
   };
   const field = (name: string, key: string, props: React.ComponentProps<"input"> = {}) => (
     <FormField label={t(key)}>
@@ -137,7 +137,7 @@ export function ProfileCreatePage() {
   const { t } = useTranslation();
   return (
     <>
-      <PageHeader title={t("filament:profiles.addTitle")} backTo={{ to: "/filament" }} />
+      <PageHeader title={t("filament:profiles.addTitle")} backTo={{ to: "/filament/settings" }} />
       <ProfileForm />
     </>
   );
