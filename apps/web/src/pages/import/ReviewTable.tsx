@@ -215,10 +215,30 @@ export function ReviewTable({
   const targetLabel = (x: ImportTarget) =>
     [x.label, ...(TARGET_DETAILS[entity]?.(x.values) ?? [])].filter(Boolean).join(" · ");
 
+  // "Select all" works on the rows the status filter shows, on every page.
+  const allSelected = visible.length > 0 && visible.every((r) => selected.has(r.row));
+  const someSelected = visible.some((r) => selected.has(r.row));
   const table: Column<ImportPreviewRow>[] = [
     {
       id: "select",
       header: "",
+      headerCell: (
+        <input
+          type="checkbox"
+          aria-label={t("import:review.selectAll", { count: visible.length })}
+          checked={allSelected}
+          ref={(el) => {
+            if (el) el.indeterminate = someSelected && !allSelected;
+          }}
+          onChange={() =>
+            setSelected((s) => {
+              const next = new Set(s);
+              for (const r of visible) allSelected ? next.delete(r.row) : next.add(r.row);
+              return next;
+            })
+          }
+        />
+      ),
       cell: (r) => (
         <input
           type="checkbox"

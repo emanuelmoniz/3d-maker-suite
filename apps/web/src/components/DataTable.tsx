@@ -10,6 +10,8 @@ import { inputClass } from "./FormField.tsx";
 export type Column<T> = {
   id: string;
   header: string;
+  /** Rendered in the header instead of `header` (e.g. a "select all" checkbox). */
+  headerCell?: ReactNode;
   cell: (row: T) => ReactNode;
   /** Right-aligned for numbers. */
   numeric?: boolean;
@@ -137,21 +139,22 @@ export function DataTable<T>({
                         c.numeric && "flex-row-reverse",
                       )}
                     >
-                      {s ? (
-                        <button
-                          type="button"
-                          onClick={() => toggleSort(c, s)}
-                          className={cx(
-                            "inline-flex h-9 items-center gap-1 hover:text-fg",
-                            c.numeric && "flex-row-reverse",
-                          )}
-                        >
-                          {c.header}
-                          {s.active && <Arrow className="size-3.5" aria-hidden />}
-                        </button>
-                      ) : (
-                        c.header
-                      )}
+                      {c.headerCell ??
+                        (s ? (
+                          <button
+                            type="button"
+                            onClick={() => toggleSort(c, s)}
+                            className={cx(
+                              "inline-flex h-9 items-center gap-1 hover:text-fg",
+                              c.numeric && "flex-row-reverse",
+                            )}
+                          >
+                            {c.header}
+                            {s.active && <Arrow className="size-3.5" aria-hidden />}
+                          </button>
+                        ) : (
+                          c.header
+                        ))}
                       {server && c.filter && spec && (
                         <ColumnFilterButton
                           column={c}

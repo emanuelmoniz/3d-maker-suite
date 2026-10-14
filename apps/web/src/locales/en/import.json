@@ -129,6 +129,8 @@
     "target": "Update which",
     "policy": "Merge",
     "select": "Select row {{row}}",
+    "selectAll_one": "Select the {{count}} row shown",
+    "selectAll_other": "Select all {{count}} rows shown",
     "actionFor": "Action for row {{row}}",
     "targetFor": "Row to update for row {{row}}",
     "policyFor": "Merge for row {{row}}",
