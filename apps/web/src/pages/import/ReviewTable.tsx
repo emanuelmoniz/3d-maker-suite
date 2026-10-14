@@ -83,6 +83,7 @@ const OPTIONS: Record<string, string> = {
   brand: "import:options.brand",
   material: "import:options.material",
   yes: "import:options.yes",
+  no: "import:options.no",
 };
 const SCOPES = ["all", "selected", "filtered"] as const;
 const SCOPE_LABELS: Record<(typeof SCOPES)[number], string> = {
@@ -197,6 +198,15 @@ export function ReviewTable({
     if (c.type === "enum" && OPTIONS[String(v)]) return t(OPTIONS[String(v)] ?? "");
     return typeof v === "number" ? formatNumber(v) : v;
   };
+  // The numbered filament slots and the usage flag only show when the file or a matched row uses them.
+  const inUse = (c: ImportColumn) =>
+    !(c.labelArgs || c.fileOnly) ||
+    rows.some(
+      (r) =>
+        r.values[c.key] != null ||
+        r.errors.some((e) => e.column === c.key) ||
+        r.candidates.some((id) => targets.get(id)?.values[c.key] != null),
+    );
   const targetLabel = (x: ImportTarget) =>
     [x.label, ...(TARGET_DETAILS[entity]?.(x.values) ?? [])].filter(Boolean).join(" · ");
 
@@ -312,10 +322,10 @@ export function ReviewTable({
         );
       },
     },
-    ...columns.map(
+    ...columns.filter(inUse).map(
       (c): Column<ImportPreviewRow> => ({
         id: c.key,
-        header: t(c.label),
+        header: t(c.label, c.labelArgs),
         numeric: c.type === "number" || c.type === "integer" || c.type === "money",
         cell: (r) => {
           const error = r.errors.find((e) => e.column === c.key);
@@ -329,7 +339,10 @@ export function ReviewTable({
               <span className="flex items-center gap-2">
                 {value}
                 <select
-                  aria-label={t("import:review.refFor", { column: t(c.label), row: r.row })}
+                  aria-label={t("import:review.refFor", {
+                    column: t(c.label, c.labelArgs),
+                    row: r.row,
+                  })}
                   aria-invalid={d.refs?.[c.key] ? undefined : true}
                   className={`${selectClass} max-w-72`}
                   value={d.refs?.[c.key] ?? ""}

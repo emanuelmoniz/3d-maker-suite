@@ -23,6 +23,8 @@ export const energyFor = (
 /**
  * Replaces a print's filament rows and books the net difference per spool in the ledger
  * (append-only: an edit or delete adds a "print" entry, it never rewrites history).
+ * With `ledger` false (a backlog import whose spools are already up to date) the rows are saved
+ * but no spool weight is touched.
  * Throws inside the caller's transaction, which rolls everything back.
  */
 export const syncUsages = (
@@ -30,6 +32,7 @@ export const syncUsages = (
   printId: string,
   title: string,
   next: PrintUsageInput[],
+  ledger = true,
 ) => {
   const old = tx
     .select()
@@ -37,8 +40,9 @@ export const syncUsages = (
     .where(and(eq(printFilamentUsages.printId, printId), isNotNull(printFilamentUsages.spoolId)))
     .all();
   const net = new Map<string, number>(); // spoolId -> grams to give back (+) or take (-)
-  for (const u of old) if (u.spoolId) net.set(u.spoolId, (net.get(u.spoolId) ?? 0) + u.grams);
-  for (const u of next) net.set(u.spoolId, (net.get(u.spoolId) ?? 0) - u.grams);
+  if (ledger)
+    for (const u of old) if (u.spoolId) net.set(u.spoolId, (net.get(u.spoolId) ?? 0) + u.grams);
+  for (const u of next) net.set(u.spoolId, (net.get(u.spoolId) ?? 0) - (ledger ? u.grams : 0));
 
   const profileOf = new Map<string, string>();
   for (const [spoolId, grams] of net) {

@@ -62,7 +62,7 @@ export function ImportPage() {
   const exportFile = useTemplate(entity, "export");
   const runs = useImportRuns();
   const preview = usePreview(entity);
-  const labels = Object.fromEntries(columns.map((c) => [c.key, t(c.label)]));
+  const labels = Object.fromEntries(columns.map((c) => [c.key, t(c.label, c.labelArgs)]));
   const name = t(ENTITIES[entity].label);
 
   const body = {
@@ -75,6 +75,9 @@ export function ImportPage() {
     instructions: [
       [t("import:template.intro")],
       [t("import:template.required")],
+      ...(entity === "prints"
+        ? [[t("import:template.multicolor")], [t("import:template.trackUsage")]]
+        : []),
       [],
       [t("import:template.column"), t("import:template.format")],
       ...columns.map((c) => [

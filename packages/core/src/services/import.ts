@@ -142,7 +142,10 @@ export const diffValues = (
   target: ImportValues,
 ) =>
   columns
-    .filter((c) => file[c.key] != null && !same(c, file[c.key] ?? null, target[c.key] ?? null))
+    .filter(
+      (c) =>
+        !c.fileOnly && file[c.key] != null && !same(c, file[c.key] ?? null, target[c.key] ?? null),
+    )
     .map((c) => c.key);
 
 /** The values an update writes: the differences, or under `fill` only those the row lacks. */

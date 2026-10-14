@@ -42,7 +42,43 @@ export type ImportColumn = {
   options?: readonly string[];
   /** `ref`: a name, found or created on apply; the template dropdown lists the ones you have. */
   ref?: string;
+  /** Values for `label`'s interpolation (a numbered column: `{ n: 2 }`). */
+  labelArgs?: Record<string, number>;
+  /** An instruction for the import, not data of the row: it never counts as a difference. */
+  fileOnly?: boolean;
 };
+
+/** A Bambu AMS setup takes up to 16 spools, so a print has up to 16 filament slots. */
+export const PRINT_MAX_SLOTS = 16;
+
+/** The keys of a print's filament slot (1-based). Slot 1 keeps the keys from before there were more. */
+export const printSlotKeys = (n: number) =>
+  n === 1
+    ? { spool: "spool", filament: "filament", grams: "grams" }
+    : { spool: `spool${n}`, filament: `filament${n}`, grams: `grams${n}` };
+
+const printSlotColumns = (n: number): ImportColumn[] => [
+  {
+    key: printSlotKeys(n).spool,
+    type: "ref",
+    ref: "spools",
+    label: "import:prints.columns.spoolN",
+    labelArgs: { n },
+  },
+  {
+    key: printSlotKeys(n).filament,
+    type: "ref",
+    ref: "filamentProfiles",
+    label: "import:prints.columns.filamentN",
+    labelArgs: { n },
+  },
+  {
+    key: printSlotKeys(n).grams,
+    type: "number",
+    label: "import:prints.columns.gramsN",
+    labelArgs: { n },
+  },
+];
 
 export const IMPORT_COLUMNS = {
   spools: [
@@ -136,6 +172,16 @@ export const IMPORT_COLUMNS = {
       label: "import:prints.columns.filament",
     },
     { key: "grams", type: "number", label: "import:prints.columns.grams" },
+    // Slots 2..16: a multicolor print has one spool, filament and weight per color.
+    ...Array.from({ length: PRINT_MAX_SLOTS - 1 }, (_, i) => printSlotColumns(i + 2)).flat(),
+    // "no" saves the print and its filament but leaves the spools' weights alone.
+    {
+      key: "trackUsage",
+      type: "enum",
+      options: ["yes", "no"],
+      label: "import:prints.columns.trackUsage",
+      fileOnly: true,
+    },
   ],
   // A name that is the row's identity is a `ref`, so its spelling alone is never a difference.
   filamentProfiles: [

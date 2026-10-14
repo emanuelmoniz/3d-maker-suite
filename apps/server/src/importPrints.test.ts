@@ -153,6 +153,93 @@ describe("print import", () => {
     ]);
   });
 
+  describe("multicolor", () => {
+    const HEAD = `${PRINT_HEAD},spool2,grams2,spool3,grams3,trackUsage`;
+    const second = async () => {
+      const profileId = filamentProfileIdFor(db, {
+        brand: "Acme",
+        material: "PETG",
+        name: "Tough",
+      });
+      return (
+        await app.inject({
+          method: "POST",
+          url: "/api/filament/spools",
+          payload: { profileId, colorHex: "#ffffff", initialGrams: 500 },
+        })
+      ).json() as { id: string };
+    };
+    const row = (extra: string, track = "") =>
+      `${HEAD}\nbox,Multi,2026-03-04 10:00,3600,success,Acme PLA Basic,10,Acme PETG Tough,5,${extra},${track}`;
+
+    it("books one usage per color and takes each from its own spool", async () => {
+      const a = await setup();
+      const b = await second();
+      const p = await preview("prints", row(","));
+      expect(p.rows[0]).toMatchObject({ status: "new" });
+      await applySuggested("prints", p);
+      expect(db.select().from(schema.printFilamentUsages).all()).toHaveLength(2);
+      expect(remaining(a.id)).toBe(990);
+      expect(remaining(b.id)).toBe(495);
+      expect(statuses(await preview("prints", row(",")))).toEqual(["identical"]);
+    });
+
+    it("saves the usages but leaves the spools alone when track usage is no", async () => {
+      const a = await setup();
+      const b = await second();
+      const p = await preview("prints", row(",", "no"));
+      await applySuggested("prints", p);
+      expect(db.select().from(schema.printFilamentUsages).all()).toHaveLength(2);
+      expect(remaining(a.id)).toBe(1000);
+      expect(remaining(b.id)).toBe(500);
+      // The flag is an instruction, not data: the same file is still identical.
+      expect(statuses(await preview("prints", row(",", "no")))).toEqual(["identical"]);
+    });
+
+    it("updates a print's colors and nets the ledger", async () => {
+      const a = await setup();
+      const b = await second();
+      await applySuggested("prints", await preview("prints", row(",")));
+      const p = await preview("prints", row(",").replace(",5,", ",8,"));
+      expect(p.rows[0]).toMatchObject({ status: "changed", action: "update" });
+      await applySuggested("prints", p);
+      expect(remaining(a.id)).toBe(990);
+      expect(remaining(b.id)).toBe(492);
+    });
+
+    it("sends an unknown color to the review queue and flags a missing weight", async () => {
+      const a = await setup();
+      const p = await preview(
+        "prints",
+        `${HEAD}\nbox,A,2026-03-04 10:00,,success,Acme PLA Basic,10,Mystery,5,,,\nbox,B,2026-03-05 10:00,,success,,,,,Acme PLA Basic,,`,
+      );
+      expect(statuses(p)).toEqual(["new", "invalid"]);
+      expect(p.rows[1]?.errors).toEqual([{ column: "grams3", code: "required" }]);
+      await applySuggested("prints", p);
+      expect(remaining(a.id)).toBe(990);
+      expect(
+        db
+          .select()
+          .from(schema.printFilamentUsages)
+          .all()
+          .filter((u) => !u.spoolId),
+      ).toMatchObject([{ grams: 5, material: "Mystery" }]);
+    });
+
+    it("takes up to 16 colors", async () => {
+      await setup();
+      const slots = Array.from({ length: 16 }, (_, i) => {
+        const n = i + 1;
+        return [n === 1 ? "spool" : `spool${n}`, n === 1 ? "grams" : `grams${n}`];
+      });
+      const csv = `printer,title,startedAt,outcome,${slots.flat().join(",")},spool17\nbox,Rainbow,2026-03-04 10:00,success,${slots.map(() => "Acme PLA Basic,1").join(",")},x`;
+      const p = await preview("prints", csv);
+      expect(p.ignoredHeaders).toEqual(["spool17"]);
+      await applySuggested("prints", p);
+      expect(db.select().from(schema.printFilamentUsages).all()).toHaveLength(16);
+    });
+  });
+
   it("previews 10,000 rows in one go", async () => {
     await setup();
     const rows = Array.from({ length: 10_000 }, (_, i) => {

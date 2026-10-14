@@ -5,11 +5,14 @@ import {
   type ImportValues,
   lower,
   matchPrintRows,
+  PRINT_MAX_SLOTS,
   type PrintInput,
+  printSlotKeys,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
 import { and, eq, isNull } from "drizzle-orm";
 import { energyFor, syncUsages } from "../lib/prints.ts";
+import type { WriteRow } from "./review.ts";
 import { spoolImport, spoolLabels } from "./spools.ts";
 
 const { filamentProfiles, printFilamentUsages, printers, prints } = schema;
@@ -76,24 +79,34 @@ function lookups(db: Db): Lookups {
  */
 function useFilament(db: Db, printId: string, title: string, v: ImportValues) {
   const look = lookups(db);
-  const grams = num(v.grams);
-  const spoolId = one(look.spools, v.spool);
   db.delete(printFilamentUsages)
     .where(and(eq(printFilamentUsages.printId, printId), isNull(printFilamentUsages.spoolId)))
     .run();
-  if (spoolId && grams && grams > 0) return syncUsages(db, printId, title, [{ spoolId, grams }]);
-  syncUsages(db, printId, title, []);
-  if (grams && grams > 0 && (v.spool || v.filament))
-    db.insert(printFilamentUsages)
-      .values({
+  const booked: { spoolId: string; grams: number }[] = [];
+  const waiting: (typeof printFilamentUsages.$inferInsert)[] = [];
+  for (let n = 1; n <= PRINT_MAX_SLOTS; n++) {
+    const key = printSlotKeys(n);
+    const grams = num(v[key.grams]);
+    if (!grams || grams <= 0) continue;
+    const spoolId = one(look.spools, v[key.spool]);
+    if (spoolId) booked.push({ spoolId, grams });
+    else if (v[key.spool] || v[key.filament])
+      waiting.push({
         printId,
         spoolId: null,
-        profileId: one(look.profiles, v.filament),
+        profileId: one(look.profiles, v[key.filament]),
         grams,
-        material: str(v.filament) ?? str(v.spool),
-      })
-      .run();
+        material: str(v[key.filament]) ?? str(v[key.spool]),
+      });
+  }
+  // "no": the spools are already up to date, so only the print's own rows are written.
+  syncUsages(db, printId, title, booked, lower(v.trackUsage) !== "no");
+  if (waiting.length) db.insert(printFilamentUsages).values(waiting).run();
 }
+
+const SLOT_KEYS = Array.from({ length: PRINT_MAX_SLOTS }, (_, i) =>
+  Object.values(printSlotKeys(i + 1)),
+).flat();
 
 /** Prints from a file. The printer must exist; spool and filament can be assigned later. */
 export const printImport = {
@@ -116,9 +129,13 @@ export const printImport = {
       .innerJoin(printers, eq(printers.id, prints.printerId))
       .all()
       .map(({ print: p, printer }) => {
-        // A print with several filament slots shows none: the file has one filament per row.
-        const [only, more] = usages.get(p.id) ?? [];
-        const u = more ? undefined : only;
+        const slots: ImportValues = {};
+        for (const [i, u] of (usages.get(p.id) ?? []).slice(0, PRINT_MAX_SLOTS).entries()) {
+          const key = printSlotKeys(i + 1);
+          slots[key.spool] = (u.spoolId && spools.get(u.spoolId)) || null;
+          slots[key.filament] = (u.profileId && profiles.get(u.profileId)) || null;
+          slots[key.grams] = u.grams;
+        }
         return {
           id: p.id,
           label: p.title,
@@ -130,9 +147,7 @@ export const printImport = {
             outcome: p.outcome,
             failureReason: p.failureReason,
             notes: p.notes,
-            spool: (u?.spoolId && spools.get(u.spoolId)) || null,
-            filament: (u?.profileId && profiles.get(u.profileId)) || null,
-            grams: u?.grams ?? null,
+            ...slots,
           },
         };
       });
@@ -161,8 +176,11 @@ export const printImport = {
     if (!one(lookups(db).printers, v.printer))
       errors.push({ column: "printer", code: "unresolved" });
     // Filament named without grams (or the reverse) is a typo, not data.
-    if ((v.spool || v.filament) && v.grams == null)
-      errors.push({ column: "grams", code: "required" });
+    for (let n = 1; n <= PRINT_MAX_SLOTS; n++) {
+      const key = printSlotKeys(n);
+      if ((v[key.spool] || v[key.filament]) && v[key.grams] == null)
+        errors.push({ column: key.grams, code: "required" });
+    }
     return errors;
   },
 
@@ -188,8 +206,9 @@ export const printImport = {
   },
 
   /** Writes `patch` (only the values that change) to the print. */
-  update(db: Db, target: ImportTarget, patch: ImportValues) {
-    const { printer, startedAt, spool, filament, grams, ...fields } = patch;
+  update(db: Db, target: ImportTarget, patch: ImportValues, row: WriteRow) {
+    const { printer, startedAt, ...rest } = patch;
+    const fields = Object.fromEntries(Object.entries(rest).filter(([k]) => !SLOT_KEYS.includes(k)));
     const cur = db.select().from(prints).where(eq(prints.id, target.id)).get();
     if (!cur) return;
     // The other keys are named like the table's columns.
@@ -211,13 +230,12 @@ export const printImport = {
       );
     if (Object.keys(set).length) db.update(prints).set(set).where(eq(prints.id, cur.id)).run();
 
-    // ponytail: a print with several filament slots keeps them; the file has one per row.
-    const slots = db
-      .select()
-      .from(printFilamentUsages)
-      .where(eq(printFilamentUsages.printId, cur.id))
-      .all();
-    if ([spool, filament, grams].some((x) => x !== undefined) && slots.length <= 1)
-      useFilament(db, cur.id, String(set.title ?? cur.title), { ...target.values, ...patch });
+    // The file's slots replace the print's; the target values fill the slots the file left empty.
+    if (SLOT_KEYS.some((k) => k in patch))
+      useFilament(db, cur.id, String(set.title ?? cur.title), {
+        ...target.values,
+        ...patch,
+        trackUsage: String(row.raw.trackUsage ?? ""),
+      });
   },
 };

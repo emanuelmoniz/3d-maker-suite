@@ -30,6 +30,8 @@
     "instructions": "Instructions",
     "intro": "Fill in one row per item on the first sheet, then upload the file on the Import page.",
     "required": "Columns marked with * are required. Leave a cell empty to keep what you already have.",
+    "multicolor": "A multicolor print uses one Spool, Filament and Filament used (g) per color: the first set, then Spool 2 and so on, up to 16.",
+    "trackUsage": "Track usage: leave empty or enter yes to subtract the filament from your spools. Enter no to save the print and its filament without changing your spools' weights.",
     "column": "Column",
     "format": "What to enter",
     "error": "Couldn't build the template. Is the server running?"
@@ -170,7 +172,11 @@
       "notes": "Notes",
       "spool": "Spool",
       "filament": "Filament",
-      "grams": "Filament used (g)"
+      "grams": "Filament used (g)",
+      "spoolN": "Spool {{n}}",
+      "filamentN": "Filament {{n}}",
+      "gramsN": "Filament {{n}} used (g)",
+      "trackUsage": "Track usage"
     }
   },
   "filamentProfiles": {
@@ -214,7 +220,8 @@
   "options": {
     "brand": "Brand",
     "material": "Material",
-    "yes": "Yes"
+    "yes": "Yes",
+    "no": "No"
   },
   "source": {
     "description": "Review what this source offers. Nothing is saved until you confirm.",
