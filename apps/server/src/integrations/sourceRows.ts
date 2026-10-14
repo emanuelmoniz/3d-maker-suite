@@ -15,7 +15,7 @@ import { printerLabel, profileColumns, profileMaterial, spoolName } from "../lib
 import { predates } from "../lib/prints.ts";
 import { profileKey } from "./imports.ts";
 
-const { filamentProfiles, printers, prints, spools } = schema;
+const { filamentProfiles, printers, printFilamentUsages, prints, spools } = schema;
 
 export type LibraryType = (typeof SLICER_ZIP_TYPES)[number];
 type Row = Omit<StoredRow, "n">;
@@ -97,6 +97,7 @@ export const activeSpools = (db: Db) =>
       colorHex: spools.colorHex,
       purchasedAt: spools.purchasedAt,
       createdAt: spools.createdAt,
+      initialGrams: spools.initialGrams,
       remainingGrams: spools.remainingGrams,
       label: spoolName,
     })
@@ -104,6 +105,39 @@ export const activeSpools = (db: Db) =>
     .innerJoin(filamentProfiles, eq(filamentProfiles.id, spools.profileId))
     .where(and(isNull(spools.archivedAt), ne(spools.status, "empty")))
     .all();
+
+type Use = { printerId: string; slot: number | null; startedAt: string; spoolId: string };
+
+/**
+ * The spools each printer used, for `matchSpool` to tell spools of one colour apart. `add` a spool
+ * picked during the run, so a later print in the same batch follows it.
+ */
+export function spoolHistory(db: Db) {
+  const used = db
+    .select({
+      printerId: prints.printerId,
+      slot: printFilamentUsages.slot,
+      startedAt: prints.startedAt,
+      spoolId: printFilamentUsages.spoolId,
+    })
+    .from(printFilamentUsages)
+    .innerJoin(prints, eq(prints.id, printFilamentUsages.printId))
+    .where(isNotNull(printFilamentUsages.spoolId))
+    .all() as Use[];
+  return {
+    add: (u: Use) => used.push(u),
+    /** The spools `printerId` used before `startedAt`: same AMS slot first, then any; newest first. */
+    before(printerId: string | undefined, slot: number | null | undefined, startedAt: string) {
+      // ponytail: a scan per slot; index by printer if the history ever gets slow.
+      const mine = used
+        .filter((u) => u.printerId === printerId && u.startedAt < startedAt)
+        .sort((a, b) => b.startedAt.localeCompare(a.startedAt));
+      return [...mine.filter((u) => slot != null && u.slot === slot), ...mine].map(
+        (u) => u.spoolId,
+      );
+    },
+  };
+}
 
 /**
  * A vendor's print history, minus the prints already imported, in the prints import columns.
@@ -114,11 +148,11 @@ export function printRows(db: Db, integrationId: string, items: ExternalPrint[])
   const mine = and(eq(printers.integrationId, integrationId), isNotNull(printers.externalId));
   const printerOf = new Map(
     db
-      .select({ externalId: printers.externalId, label: printerLabel })
+      .select({ externalId: printers.externalId, id: printers.id, label: printerLabel })
       .from(printers)
       .where(mine)
       .all()
-      .map((p) => [p.externalId, p.label]),
+      .map((p) => [p.externalId, p]),
   );
   const known = new Set(
     db
@@ -130,51 +164,63 @@ export function printRows(db: Db, integrationId: string, items: ExternalPrint[])
   );
   const active = activeSpools(db);
   const byId = new Map(active.map((s) => [s.id, s]));
+  const history = spoolHistory(db);
   // What each spool still holds once the rows before take theirs: a booking can't overdraw it.
   const left = new Map(active.map((s) => [s.id, s.remainingGrams]));
-  const pick = (f: ExternalPrint["filaments"][number], startedAt: string) => {
-    const spool = byId.get(matchSpool({ ...f, startedAt }, active) ?? "");
+  const pick = (f: ExternalPrint["filaments"][number], startedAt: string, printerId?: string) => {
+    const recent = history.before(printerId, f.slot, startedAt);
+    const spool = byId.get(matchSpool({ ...f, startedAt }, active, recent) ?? "");
     if (!spool) return null;
-    if (predates(startedAt, spool)) return spool.label;
-    const after = (left.get(spool.id) ?? 0) - f.grams;
-    if (after < 0) return null;
-    left.set(spool.id, after);
+    if (!predates(startedAt, spool)) {
+      const after = (left.get(spool.id) ?? 0) - f.grams;
+      if (after < 0) return null;
+      left.set(spool.id, after);
+    }
+    if (printerId) history.add({ printerId, slot: f.slot ?? null, startedAt, spoolId: spool.id });
     return spool.label;
   };
+  const fresh = items.filter((p) => !known.has(p.externalId));
+  // Oldest first, so a print follows the spools picked for the ones before it.
+  const picked = new Map<string, (string | null)[]>();
+  for (const p of [...fresh].sort((a, b) => a.startedAt.localeCompare(b.startedAt))) {
+    const printerId = printerOf.get(p.printerExternalId)?.id;
+    picked.set(
+      p.externalId,
+      p.filaments.slice(0, PRINT_MAX_SLOTS).map((f) => pick(f, p.startedAt, printerId)),
+    );
+  }
   return numbered(
-    items
-      .filter((p) => !known.has(p.externalId))
-      .map(({ filaments, ...p }) => {
-        const slots: Record<string, unknown> = {};
-        for (const [i, f] of filaments.slice(0, PRINT_MAX_SLOTS).entries()) {
-          const key = printSlotKeys(i + 1);
-          slots[key.spool] = pick(f, p.startedAt);
-          // Shown in the review only; the slot keeps what was reported in `reported`.
-          slots[key.filament] = [f.material, f.colorHex].filter(Boolean).join(" ") || null;
-          slots[key.grams] = f.grams;
-        }
-        return {
-          source: `${integrationId}:${p.externalId}`,
-          raw: {
-            // An unknown printer leaves the cell to fail as "unresolved": sync printers first.
-            printer: printerOf.get(p.printerExternalId) ?? p.printerExternalId,
-            title: p.title,
-            startedAt: p.startedAt,
-            durationSec: p.durationSec ?? null,
-            outcome: p.outcome,
-            failureReason: p.outcome === "success" ? null : (p.failureReason ?? null),
-            ...slots,
-            plate: p.plate ?? null,
-            coverUrl: p.coverUrl ?? null,
-            sourceUrl: p.sourceUrl ?? null,
-            reported: filaments.slice(0, PRINT_MAX_SLOTS).map((f) => ({
-              slot: f.slot ?? null,
-              material: f.material,
-              colorHex: f.colorHex,
-            })),
-          },
-        };
-      }),
+    fresh.map(({ filaments, ...p }) => {
+      const slots: Record<string, unknown> = {};
+      for (const [i, f] of filaments.slice(0, PRINT_MAX_SLOTS).entries()) {
+        const key = printSlotKeys(i + 1);
+        slots[key.spool] = picked.get(p.externalId)?.[i] ?? null;
+        // Shown in the review only; the slot keeps what was reported in `reported`.
+        slots[key.filament] = [f.material, f.colorHex].filter(Boolean).join(" ") || null;
+        slots[key.grams] = f.grams;
+      }
+      return {
+        source: `${integrationId}:${p.externalId}`,
+        raw: {
+          // An unknown printer leaves the cell to fail as "unresolved": sync printers first.
+          printer: printerOf.get(p.printerExternalId)?.label ?? p.printerExternalId,
+          title: p.title,
+          startedAt: p.startedAt,
+          durationSec: p.durationSec ?? null,
+          outcome: p.outcome,
+          failureReason: p.outcome === "success" ? null : (p.failureReason ?? null),
+          ...slots,
+          plate: p.plate ?? null,
+          coverUrl: p.coverUrl ?? null,
+          sourceUrl: p.sourceUrl ?? null,
+          reported: filaments.slice(0, PRINT_MAX_SLOTS).map((f) => ({
+            slot: f.slot ?? null,
+            material: f.material,
+            colorHex: f.colorHex,
+          })),
+        },
+      };
+    }),
   );
 }
 

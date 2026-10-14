@@ -731,6 +731,31 @@ describe("filament matching of imported prints", () => {
     expect(await left(a.id)).toBe(1000 - 60);
   });
 
+  it("tells spools of one colour apart by the one the printer used last", async () => {
+    const a = await spool();
+    const b = await spool();
+    const { id } = await syncNow();
+    await importHeld(id);
+    const [newest, middle] = await queue();
+    const assign = (u: { usageId: string }, spoolId: string) =>
+      send("POST", `/api/prints/filament-review/${u.usageId}/assign`, { spoolId });
+    // Both opened now, so only the history tells them apart.
+    await assign(middle, a.id);
+    await assign(newest, b.id);
+    state.prints.push({
+      ...firstPrint(),
+      externalId: "job-9",
+      startedAt: new Date(Date.now() + 2 * 3600 * 1000).toISOString(),
+    });
+    expect(await sync(id)).toMatchObject({ created: 1, pending: 0 });
+    const job9 = (await get("/api/prints?sort=startedAt")).items.find(
+      (p: { externalId: string }) => p.externalId === "job-9",
+    );
+    expect(job9.usages[0].spoolId).toBe(b.id);
+    // The oldest print came before either was used: still a person's call.
+    expect(await queue()).toHaveLength(1);
+  });
+
   it("assigns from the queue (ledger) or dismisses, and edits keep waiting slots", async () => {
     const a = await spool();
     await spool();

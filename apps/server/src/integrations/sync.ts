@@ -34,7 +34,7 @@ import { linkPrints } from "../projects/linkPrints.ts";
 import { activeCapabilities, capableRow, policyOf, switchedOn } from "./capabilities.ts";
 import { libraryOf } from "./imports.ts";
 import { secretStore } from "./secrets.ts";
-import { activeSpools, libraryRows, printRows, spoolRows } from "./sourceRows.ts";
+import { activeSpools, libraryRows, printRows, spoolHistory, spoolRows } from "./sourceRows.ts";
 
 const { alerts, integrations, printers, prints, printFilamentUsages, syncPolicies, syncRuns } =
   schema;
@@ -413,26 +413,37 @@ export function createSyncer(
     return out;
   }
 
-  /** Slots an earlier run left for the review queue get their spool once exactly one fits. */
+  /** Slots an earlier run left for the review queue get their spool once `matchSpool` finds one. */
   function rematch() {
     const active = activeSpools(db);
     const byId = new Map(active.map((s) => [s.id, s]));
+    const history = spoolHistory(db);
     const waiting = db
-      .select({ usage: printFilamentUsages, title: prints.title, startedAt: prints.startedAt })
+      .select({
+        usage: printFilamentUsages,
+        title: prints.title,
+        startedAt: prints.startedAt,
+        printerId: prints.printerId,
+      })
       .from(printFilamentUsages)
       .innerJoin(prints, eq(prints.id, printFilamentUsages.printId))
       .where(and(isNull(printFilamentUsages.spoolId), eq(printFilamentUsages.dismissed, false)))
+      // Oldest first, so a print follows the spools picked for the ones before it.
+      .orderBy(prints.startedAt)
       .all();
     db.transaction((tx) => {
-      for (const { usage: u, title, startedAt } of waiting) {
+      for (const { usage: u, title, startedAt, printerId } of waiting) {
         const slot = { material: u.material ?? undefined, colorHex: u.colorHex ?? undefined };
-        const spool = byId.get(matchSpool({ ...slot, startedAt }, active) ?? "");
+        const recent = history.before(printerId, u.slot, startedAt);
+        const spool = byId.get(matchSpool({ ...slot, startedAt }, active, recent) ?? "");
         const profileId = spool && bookOrLink(tx, spool, u.grams, title, startedAt);
-        if (spool && profileId)
+        if (spool && profileId) {
           tx.update(printFilamentUsages)
             .set({ spoolId: spool.id, profileId })
             .where(eq(printFilamentUsages.id, u.id))
             .run();
+          history.add({ printerId, slot: u.slot, startedAt, spoolId: spool.id });
+        }
       }
     });
   }

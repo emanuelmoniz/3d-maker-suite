@@ -5,6 +5,8 @@ export type SpoolCandidate = {
   colorHex: string;
   /** When it was bought, if known. */
   purchasedAt: string | null;
+  initialGrams: number;
+  remainingGrams: number;
 };
 
 export type SlotToMatch = {
@@ -17,12 +19,18 @@ const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLow
 
 /**
  * Picks the spool an imported print used, or `null` when a person has to decide.
- * Never guesses: it needs the vendor's material and colour, and exactly ONE spool with that exact
- * material + colour. A spool bought after the print's day can't have been used and is ignored
- * (when the app was set up is no clue: spools are often entered long after they were bought).
+ * It needs the vendor's material and colour, and a spool with that exact material + colour. A spool
+ * bought after the print's day can't have been used and is ignored (when the app was set up is no
+ * clue: spools are often entered long after they were bought). Several spools of that colour: the
+ * first of them in `recent` (the spools the printer used before, most likely first: a spool stays
+ * in the AMS until swapped), else the only one already opened; else a person decides.
  * Pass active spools only (not archived or empty). Whether it holds enough is the booking's call.
  */
-export function matchSpool(slot: SlotToMatch, spools: SpoolCandidate[]): string | null {
+export function matchSpool(
+  slot: SlotToMatch,
+  spools: SpoolCandidate[],
+  recent: string[] = [],
+): string | null {
   const { material, colorHex } = slot;
   if (!material || !colorHex) return null;
   const day = slot.startedAt.slice(0, 10);
@@ -32,5 +40,11 @@ export function matchSpool(slot: SlotToMatch, spools: SpoolCandidate[]): string 
       same(s.material, material) &&
       same(s.colorHex, colorHex),
   );
-  return hits.length === 1 ? (hits[0]?.id ?? null) : null;
+  if (hits.length === 1) return hits[0]?.id ?? null;
+  const last = recent.find((id) => hits.some((s) => s.id === id));
+  if (last) return last;
+  // ponytail: "opened" is today's state, not the print's day; an old print may get a spool opened
+  // since. Fine for a sync of recent prints; the review shows it either way.
+  const opened = hits.filter((s) => s.remainingGrams < s.initialGrams);
+  return opened.length === 1 ? (opened[0]?.id ?? null) : null;
 }

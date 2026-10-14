@@ -6,6 +6,8 @@ const spool = (id: string, over: Partial<SpoolCandidate> = {}): SpoolCandidate =
   material: "PLA",
   colorHex: "#ff8800",
   purchasedAt: "2026-01-01T12:00:00.000Z",
+  initialGrams: 1000,
+  remainingGrams: 1000,
   ...over,
 });
 const slot = {
@@ -21,6 +23,19 @@ describe("matchSpool", () => {
 
   it("returns null instead of picking one of several candidates", () => {
     expect(matchSpool(slot, [spool("a"), spool("b")])).toBeNull();
+    const opened = { remainingGrams: 400 };
+    expect(matchSpool(slot, [spool("a", opened), spool("b", opened)])).toBeNull();
+  });
+
+  it("breaks a tie with the spool the printer last used, else the only opened one", () => {
+    const two = [spool("a", { remainingGrams: 400 }), spool("b")];
+    expect(matchSpool(slot, two, ["b", "a"])).toBe("b");
+    // Spools that aren't candidates (other colour, archived) are skipped.
+    expect(matchSpool(slot, two, ["x", "b"])).toBe("b");
+    expect(matchSpool(slot, two, ["x"])).toBe("a");
+    expect(matchSpool(slot, two)).toBe("a");
+    // A single match stays the match, whatever was used last.
+    expect(matchSpool(slot, [spool("a")], ["x"])).toBe("a");
   });
 
   it("returns null without a material or colour, or on a near colour", () => {
