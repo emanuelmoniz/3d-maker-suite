@@ -68,7 +68,7 @@ implementing (reuse launcher.ts insideRoots / the existing auth hook where it fi
 No new dependency.
 ```
 
-### [ ] Step 5 - Projects: add folder button + linked description file
+### [x] Step 5 - Projects: add folder button + linked description file
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - An "Add project" button on the Projects page opens the `PathPicker` in folder mode and creates the project through `scanner.addFolder()`. The existing manual form stays.

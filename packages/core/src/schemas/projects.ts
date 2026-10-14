@@ -68,6 +68,8 @@ export const projectSchema = z.object({
   id,
   name: z.string().min(1),
   description: nullableText,
+  /** Doc in the project folder (relative, `/`) whose text is the description; re-read on scans. */
+  descriptionFile: nullableText,
   /** Absolute. Null for a project that has no folder. */
   folderPath: nullableText,
   /** The main model file (absolute), picked by the scanner. */
@@ -104,7 +106,10 @@ export const projectInputSchema = z.object({
 });
 
 /** Any subset. Every field sent becomes user-edited. */
-export const projectPatchSchema = z.object(editable).partial().strict();
+export const projectPatchSchema = z
+  .object({ ...editable, descriptionFile: nullableText })
+  .partial()
+  .strict();
 
 export const projectSortFields = ["name", "createdAt", "multicolor", "lastPrintAt"] as const;
 /** `name` also searches the description; `material` matches any of the project's materials. */

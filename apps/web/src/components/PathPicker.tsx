@@ -1,6 +1,6 @@
 import type { FsListResponse } from "@3d-maker-suite/core";
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../lib/api.ts";
 import { Button } from "./Button.tsx";
@@ -36,6 +36,7 @@ export function PathPicker({
   ext,
   initial,
   onPick,
+  children,
 }: {
   /** The field's label; titles the dialog and names the button for screen readers. */
   label: string;
@@ -44,6 +45,8 @@ export function PathPicker({
   ext?: (sep: Sep) => string | undefined;
   initial?: string;
   onPick: (path: string) => void;
+  /** Button text; default "Browse…". */
+  children?: ReactNode;
 }) {
   const { t } = useTranslation();
   const ref = useRef<HTMLDialogElement>(null);
@@ -89,7 +92,7 @@ export function PathPicker({
   return (
     <>
       <Button onClick={start} aria-label={t("common:pathPicker.browseFor", { field: label })}>
-        {t("common:pathPicker.browse")}
+        {children ?? t("common:pathPicker.browse")}
       </Button>
       {/* biome-ignore lint/a11y/useKeyWithClickEvents: backdrop click is a pointer shortcut; Escape closes natively */}
       <dialog

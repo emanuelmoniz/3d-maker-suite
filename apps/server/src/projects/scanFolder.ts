@@ -127,7 +127,10 @@ async function readText(abs: string, size: number) {
 const tidyUrl = (u: string) => u.replace(/[.,;:!?]+$/, "");
 
 /** Reads one project folder. Nothing is written; unreadable parts yield nulls, not errors. */
-export async function scanFolder(dir: string): Promise<FolderScan> {
+export async function scanFolder(
+  dir: string,
+  descriptionFile?: string | null,
+): Promise<FolderScan> {
   const all = await collect(dir);
   const files = all.map(({ path, kind, size }) => ({ path, kind, size }));
 
@@ -139,16 +142,9 @@ export async function scanFolder(dir: string): Promise<FolderScan> {
     .sort((a, b) => rank(a) - rank(b) || a.path.localeCompare(b.path));
   const texts = await Promise.all(docs.map((d) => readText(d.abs, d.size)));
 
-  let description: string | null = null;
-  for (const t of texts) {
-    // A leading "# Title" is the name, not the description.
-    description =
-      t
-        .replace(/^(\s*#.*\n)+/, "")
-        .trim()
-        .slice(0, MAX_DESCRIPTION) || null;
-    if (description) break;
-  }
+  // Only a file the user linked becomes the description (it must be a listed doc).
+  const linkedAt = docs.findIndex((d) => d.path === descriptionFile);
+  const description = (texts[linkedAt] ?? "").trim().slice(0, MAX_DESCRIPTION) || null;
 
   // Marketplace link: .url shortcuts win over links mentioned in docs.
   const shortcuts = await Promise.all(

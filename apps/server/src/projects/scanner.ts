@@ -17,7 +17,12 @@ import { linkPrints } from "./linkPrints.ts";
 import { type Cover, type FolderScan, isHidden, kindOf, scanFolder } from "./scanFolder.ts";
 
 const { projects } = schema;
-type Fields = { name?: string; description?: string | null; sourceUrl?: string | null };
+type Fields = {
+  name?: string;
+  description?: string | null;
+  sourceUrl?: string | null;
+  descriptionFile?: string | null;
+};
 
 const WATCH_DEBOUNCE_MS = 3000;
 const THUMB_DIR = "thumbnails";
@@ -130,7 +135,9 @@ export function createProjectScanner(
           folderPath: folder,
           ...scanned,
           ...user,
-          editedFields: PROJECT_EDITABLE_FIELDS.filter((f) => f in user),
+          editedFields: PROJECT_EDITABLE_FIELDS.filter(
+            (f) => f in user && !(f === "description" && user.descriptionFile),
+          ),
           ...always,
         })
         .run();
@@ -139,12 +146,22 @@ export function createProjectScanner(
     const edited = new Set<string>(row.editedFields);
     const next: Record<string, unknown> = { ...always };
     for (const f of PROJECT_EDITABLE_FIELDS) if (!edited.has(f)) next[f] = scanned[f];
+    // A linked file always wins over the stored text.
+    if (row.descriptionFile) next.description = scanned.description;
     const current = row as Record<string, unknown>;
     const changed = Object.entries(next).some(
       ([k, v]) => JSON.stringify(current[k]) !== JSON.stringify(v),
     );
     if (changed) db.update(projects).set(next).where(eq(projects.id, id)).run();
     return changed ? ("updated" as const) : ("unchanged" as const);
+  }
+
+  const linkOf = (folder: string) =>
+    db.select().from(projects).where(eq(projects.folderPath, folder)).get()?.descriptionFile;
+
+  /** Re-reads one project folder now (e.g. after its description file changed). */
+  async function refresh(folder: string) {
+    await upsert(folder, await scanFolder(folder, linkOf(folder)));
   }
 
   async function pass() {
@@ -164,7 +181,7 @@ export function createProjectScanner(
       state.total = folders.size;
       for (const folder of folders) {
         try {
-          const scan = await scanFolder(folder);
+          const scan = await scanFolder(folder, linkOf(folder));
           if (scan.hasModel) {
             const result = await upsert(folder, scan);
             if (result !== "unchanged") state[result]++;
@@ -237,7 +254,7 @@ export function createProjectScanner(
     if (!(await isDir(folder))) throw new HttpError(400, "invalid_folder", "Folder not found");
     if (db.select().from(projects).where(eq(projects.folderPath, folder)).get())
       throw new HttpError(409, "folder_in_use", "A project already uses this folder");
-    await upsert(folder, await scanFolder(folder), user);
+    await upsert(folder, await scanFolder(folder, user.descriptionFile), user);
     return db.select().from(projects).where(eq(projects.folderPath, folder)).get();
   }
 
@@ -245,6 +262,7 @@ export function createProjectScanner(
     status: () => state,
     start,
     addFolder,
+    refresh,
     /** Begins watching and runs a first scan, so changes made while the app was off are found. */
     boot() {
       watch();

@@ -189,15 +189,30 @@ export const projectsRoutes =
         schema: { params, body: projectPatchSchema, response: { 200: projectSchema, ...notFound } },
       },
       async (req) => {
-        const { editedFields } = get(req.params.id);
-        const touched = Object.keys(req.body) as Project["editedFields"];
-        const row = db
-          .update(projects)
-          .set({ ...req.body, editedFields: [...new Set([...editedFields, ...touched])] })
+        const { editedFields, folderPath, meta } = get(req.params.id);
+        const { descriptionFile, ...fields } = req.body;
+        const touched = new Set([...editedFields, ...(Object.keys(fields) as typeof editedFields)]);
+        const set: Partial<typeof projects.$inferInsert> = { ...fields };
+        if (descriptionFile) {
+          // Link a doc the scanner listed; its text becomes the description on the refresh below.
+          const doc = meta.files.some(
+            (f) => f.path === descriptionFile && f.kind === "doc" && !/.pdf$/i.test(f.path),
+          );
+          if (!folderPath || !doc) throw new HttpError(404, "not_found", "File not found");
+          set.descriptionFile = descriptionFile;
+          touched.delete("description");
+          delete set.description;
+        } else if (descriptionFile === null || "description" in fields) {
+          // Typing a description (or choosing "None") ends the link; the text stays as edited.
+          set.descriptionFile = null;
+          touched.add("description");
+        }
+        db.update(projects)
+          .set({ ...set, editedFields: [...touched] })
           .where(eq(projects.id, req.params.id))
-          .returning()
-          .get();
-        return out(row);
+          .run();
+        if (descriptionFile && folderPath) await scanner.refresh(folderPath);
+        return get(req.params.id);
       },
     );
 

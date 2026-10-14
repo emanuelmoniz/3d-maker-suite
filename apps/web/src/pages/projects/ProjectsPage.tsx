@@ -4,6 +4,7 @@ import {
   Check,
   ExternalLink,
   FolderKanban,
+  FolderPlus,
   LayoutGrid,
   List,
   Plus,
@@ -17,13 +18,19 @@ import { EmptyState } from "../../components/EmptyState.tsx";
 import { FilterBar } from "../../components/FilterBar.tsx";
 import { inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
+import { PathPicker } from "../../components/PathPicker.tsx";
 import { SettingsLink } from "../../components/SettingsLink.tsx";
 import { TagFilter } from "../../components/TagFilter.tsx";
 import { TagList } from "../../components/TagList.tsx";
 import { cx } from "../../lib/cx.ts";
 import { formatDate } from "../../lib/format.ts";
 import { useListPage, useUrlListQuery } from "../../lib/list.ts";
-import { projectThumbnailUrl, useProjectMaterials, useScan } from "../../lib/projects.ts";
+import {
+  projectThumbnailUrl,
+  useCreateProject,
+  useProjectMaterials,
+  useScan,
+} from "../../lib/projects.ts";
 import { useCollections, useTags, useTagsOf } from "../../lib/tags.ts";
 
 type View = "grid" | "list";
@@ -108,6 +115,34 @@ function ScanPanel() {
   );
 }
 
+/** Picks a folder on the server's machine and makes a project of it. */
+function AddFolder() {
+  const { t } = useTranslation();
+  const create = useCreateProject();
+  return (
+    <>
+      <PathPicker
+        label={t("projects:list.addFolder")}
+        mode="folder"
+        onPick={(folderPath) =>
+          create.mutate({
+            name: folderPath.split(/[/]/).filter(Boolean).at(-1) ?? folderPath,
+            folderPath,
+          })
+        }
+      >
+        <FolderPlus className="size-4" aria-hidden />
+        {t("projects:list.addFolder")}
+      </PathPicker>
+      {create.isError && (
+        <p role="alert" className="text-bad">
+          {t("projects:list.addFolderError")}
+        </p>
+      )}
+    </>
+  );
+}
+
 export function ProjectsPage() {
   const { t } = useTranslation();
   const [view, setView] = useState(storedView);
@@ -152,6 +187,7 @@ export function ProjectsPage() {
         actions={
           <>
             {add}
+            <AddFolder />
             <SettingsLink module="projects" />
           </>
         }

@@ -1,5 +1,6 @@
 import type { Project } from "@3d-maker-suite/core";
 import { useNavigate, useParams } from "@tanstack/react-router";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
@@ -14,6 +15,10 @@ function ProjectForm({ project }: { project?: Project }) {
   const create = useCreateProject();
   const patch = usePatchProject(project?.id ?? "");
   const save = project ? patch : create;
+  const [link, setLink] = useState(project?.descriptionFile ?? "");
+  const docs = (project?.meta.files ?? []).filter(
+    (f) => f.kind === "doc" && !/.pdf$/i.test(f.path),
+  );
 
   const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -23,16 +28,25 @@ function ProjectForm({ project }: { project?: Project }) {
       description: text(f, "description") || null,
       sourceUrl: text(f, "sourceUrl") || null,
     };
+    const link = text(f, "descriptionFile") || null;
     // On edit only changed fields are sent: each one sent counts as "edited" and survives re-scans.
     const done = { onSuccess: () => navigate({ to: "/projects" }) };
-    if (project)
-      patch.mutate(
-        Object.fromEntries(
-          Object.entries(fields).filter(([k, v]) => v !== project[k as keyof typeof fields]),
-        ),
+    if (project) {
+      const changed: Record<string, unknown> = Object.fromEntries(
+        Object.entries(fields).filter(([k, v]) => v !== project[k as keyof typeof fields]),
+      );
+      // A linked file supplies the text, so the (disabled) textarea is not sent.
+      if (link) delete changed.description;
+      if (link !== project.descriptionFile) changed.descriptionFile = link;
+      patch.mutate(changed, done);
+    } else {
+      // Blank means "let the scan decide": only what was typed is sent, so it is not "edited".
+      const typed = Object.fromEntries(Object.entries(fields).filter(([, v]) => v));
+      create.mutate(
+        { ...typed, name: fields.name, folderPath: text(f, "folderPath") || undefined },
         done,
       );
-    else create.mutate({ ...fields, folderPath: text(f, "folderPath") || undefined }, done);
+    }
   };
 
   return (
@@ -47,11 +61,35 @@ function ProjectForm({ project }: { project?: Project }) {
           <textarea
             {...p}
             name="description"
+            disabled={!!link}
             className={`${inputClass} h-28 py-2`}
             defaultValue={project?.description ?? ""}
           />
         )}
       </FormField>
+      {project?.folderPath && docs.length > 0 && (
+        <FormField
+          label={t("projects:form.descriptionFile")}
+          hint={t("projects:form.descriptionFileHint")}
+        >
+          {(p) => (
+            <select
+              {...p}
+              name="descriptionFile"
+              className={inputClass}
+              value={link}
+              onChange={(e) => setLink(e.target.value)}
+            >
+              <option value="">{t("projects:form.descriptionFileNone")}</option>
+              {docs.map((d) => (
+                <option key={d.path} value={d.path}>
+                  {d.path}
+                </option>
+              ))}
+            </select>
+          )}
+        </FormField>
+      )}
       <FormField label={t("projects:form.sourceUrl")} hint={t("projects:form.sourceUrlHint")}>
         {(p) => (
           <input

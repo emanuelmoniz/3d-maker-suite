@@ -76,7 +76,7 @@ describe("project scanner", () => {
 
     const benchy = await byName("Benchy");
     expect(benchy).toMatchObject({
-      description: "A tiny boat.\nSee https://www.printables.com/model/123-benchy.",
+      description: null, // readme text is not used unless linked
       sourceUrl: "https://www.printables.com/model/123-benchy",
       editedFields: [],
     });
@@ -117,12 +117,38 @@ describe("project scanner", () => {
 
     const after = (await app.inject(`/api/projects/${id}`)).json();
     expect(after.name).toBe("My Benchy");
-    expect(after.description).toBe("Now with a new description.");
+    expect(after.description).toBeNull();
     expect(after.sourceUrl).toBeNull(); // the link left the README
     expect(after.meta.files.map((f: { path: string }) => f.path)).toContain("extra.stl");
 
     // A second, unchanged scan touches nothing.
     expect(await scan()).toMatchObject({ created: 0, updated: 0 });
+  });
+
+  it("links a description file, follows it on re-scan and unlinks on hand edit", async () => {
+    await sampleTree();
+    await setRoots();
+    await scan();
+    const { id } = await byName("Benchy");
+    const patch = (payload: object) =>
+      app.inject({ method: "PATCH", url: `/api/projects/${id}`, payload });
+    const get = async () => (await app.inject(`/api/projects/${id}`)).json();
+
+    expect((await patch({ descriptionFile: "../outside.md" })).statusCode).toBe(404);
+    const linked = (await patch({ descriptionFile: "README.md" })).json();
+    expect(linked.descriptionFile).toBe("README.md");
+    expect(linked.description).toContain("A tiny boat.");
+    expect(linked.editedFields).not.toContain("description");
+
+    await put("Benchy/README.md", "Changed text.");
+    await scan();
+    expect((await get()).description).toBe("Changed text.");
+
+    const hand = (await patch({ description: "Mine" })).json();
+    expect(hand).toMatchObject({ description: "Mine", descriptionFile: null });
+    await put("Benchy/README.md", "Again.");
+    await scan();
+    expect((await get()).description).toBe("Mine");
   });
 
   it("reports roots that do not exist", async () => {

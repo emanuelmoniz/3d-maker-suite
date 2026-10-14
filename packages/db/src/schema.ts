@@ -382,6 +382,8 @@ export const projects = sqliteTable(
     id: id(),
     name: text().notNull(),
     description: text(),
+    // Folder file (relative) whose text is the description; re-read on every scan.
+    descriptionFile: text(),
     // Set when the project comes from a folder (scan or manual); the scan key.
     folderPath: text(),
     filePath: text(),
