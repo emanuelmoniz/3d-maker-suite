@@ -1,4 +1,4 @@
-import type { PrintDetail, PrintInput, Spool } from "@3d-maker-suite/core";
+import { type PrintDetail, type PrintInput, type Spool, usableOn } from "@3d-maker-suite/core";
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
@@ -62,6 +62,17 @@ function PrintForm({ print }: { print?: PrintDetail }) {
       })),
   );
   const [nextKey, setNextKey] = useState(rows.length);
+  const [startedAt, setStartedAt] = useState(
+    toLocalInput(print?.startedAt ?? new Date().toISOString()),
+  );
+  const startedIso = Number.isNaN(Date.parse(startedAt)) ? null : new Date(startedAt).toISOString();
+  // Spools that can take the print: not empty, not opened after it started; plus the slot's own.
+  const spoolsFor = (r: Row) =>
+    spools.filter(
+      (s) =>
+        s.id === r.spoolId ||
+        (!s.archivedAt && s.status !== "empty" && (!startedIso || usableOn(s, startedIso))),
+    );
   const setRow = (key: number, p: Partial<Row>) =>
     setRows((rs) => rs.map((r) => (r.key === key ? { ...r, ...p } : r)));
   const spoolLabel = (s: Spool) =>
@@ -179,7 +190,8 @@ function PrintForm({ print }: { print?: PrintDetail }) {
             type="datetime-local"
             required
             className={inputClass}
-            defaultValue={toLocalInput(print?.startedAt ?? new Date().toISOString())}
+            value={startedAt}
+            onChange={(e) => setStartedAt(e.target.value)}
           />
         )}
       </FormField>
@@ -264,7 +276,7 @@ function PrintForm({ print }: { print?: PrintDetail }) {
                     onChange={(e) => setRow(r.key, { spoolId: e.target.value })}
                   >
                     <option value="" />
-                    {spools.map((s) => (
+                    {spoolsFor(r).map((s) => (
                       <option key={s.id} value={s.id}>
                         {spoolLabel(s)}
                       </option>

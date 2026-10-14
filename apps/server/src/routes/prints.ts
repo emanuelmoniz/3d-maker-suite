@@ -25,7 +25,7 @@ import { printCosts } from "../lib/cost.ts";
 import { listPage, orderBy, taggedWith } from "../lib/list.ts";
 import { assertNumberFree, nextNumber } from "../lib/numbers.ts";
 import { readPreferences } from "../lib/preferences.ts";
-import { bookOrLink, energyFor, syncUsages } from "../lib/prints.ts";
+import { assertOpened, bookOrLink, energyFor, syncUsages } from "../lib/prints.ts";
 
 const { machineProfiles, prints, printFilamentUsages, printers, projects, spools } = schema;
 const params = z.object({ id: z.uuid() });
@@ -270,6 +270,13 @@ export const printsRoutes =
             .where(eq(prints.id, cur.id))
             .run();
           if (usages) syncUsages(tx, cur.id, merged.title, usages);
+          // A new start date can put the print before a spool it keeps was opened.
+          else if (fields.startedAt)
+            for (const u of cur.usages) {
+              const spool =
+                u.spoolId && tx.select().from(spools).where(eq(spools.id, u.spoolId)).get();
+              if (spool) assertOpened(spool, fields.startedAt);
+            }
         });
         return detail(cur.id);
       },

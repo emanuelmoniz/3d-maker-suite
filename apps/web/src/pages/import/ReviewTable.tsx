@@ -70,6 +70,7 @@ const ERRORS: Record<ImportErrorCode, string> = {
   not_a_color: "import:errors.not_a_color",
   not_an_option: "import:errors.not_an_option",
   unresolved: "import:errors.unresolved",
+  not_opened: "import:errors.not_opened",
 };
 const MISSING: Record<string, string> = {
   filamentBrands: "import:missing.filamentBrands",

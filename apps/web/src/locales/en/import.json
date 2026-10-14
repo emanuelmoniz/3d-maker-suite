@@ -106,7 +106,8 @@
     "not_a_color": "Not a hex colour",
     "not_an_option": "Not one of the options",
     "not_a_datetime": "Not a date and time (use YYYY-MM-DD HH:MM)",
-    "unresolved": "Not found, or matches more than one"
+    "unresolved": "Not found, or matches more than one",
+    "not_opened": "This spool was opened after the print started"
   },
   "missing": {
     "filamentBrands": "Brands you don't have yet, added when their rows are imported: {{names, list}}.",

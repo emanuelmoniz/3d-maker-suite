@@ -1,10 +1,10 @@
-import type { PrintUsageInput } from "@3d-maker-suite/core";
+import { type PrintUsageInput, usableOn } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
 import { and, eq, isNotNull } from "drizzle-orm";
 import { HttpError } from "../errors.ts";
 import { round, setRemaining, takeFromSpool } from "./spools.ts";
 
-const { printFilamentUsages, printers, spools } = schema;
+const { printFilamentUsages, printers, prints, spools } = schema;
 
 /** An explicit energy value is "measured". Otherwise estimate from printer power x duration. */
 export const energyFor = (
@@ -27,17 +27,32 @@ export const energyFor = (
 export const predates = (startedAt: string, spool: { createdAt: string }) =>
   startedAt < spool.createdAt;
 
+type Tx = Db | Parameters<Parameters<Db["transaction"]>[0]>[0];
+
+/**
+ * Refuses a print from before the spool was opened. The opening date is only ever the user's: one
+ * filled in from a print would refuse the older prints a later import brings.
+ */
+export function assertOpened(spool: { openedAt: string | null }, startedAt: string) {
+  if (!usableOn(spool, startedAt))
+    throw new HttpError(400, "spool_not_opened", "The spool was opened after the print started");
+}
+
 /**
  * One imported slot onto a spool: takes the grams through the ledger, or only links an older
  * print. Returns the spool's profile id, or `null` with nothing booked when the spool holds less.
+ * Throws for a print from before the spool was opened (`assertOpened`).
  */
 export const bookOrLink = (
-  tx: Pick<Db, "transaction">,
-  spool: { id: string; profileId: string; createdAt: string },
+  tx: Tx,
+  spool: { id: string; profileId: string; createdAt: string; openedAt: string | null },
   grams: number,
   title: string,
   startedAt: string,
-) => (predates(startedAt, spool) ? spool.profileId : takeFromSpool(tx, spool.id, grams, title));
+) => {
+  assertOpened(spool, startedAt);
+  return predates(startedAt, spool) ? spool.profileId : takeFromSpool(tx, spool.id, grams, title);
+};
 
 /**
  * Replaces a print's filament rows and books the net difference per spool in the ledger
@@ -48,7 +63,7 @@ export const bookOrLink = (
  * Throws inside the caller's transaction, which rolls everything back.
  */
 export const syncUsages = (
-  tx: Db | Parameters<Parameters<Db["transaction"]>[0]>[0],
+  tx: Tx,
   printId: string,
   title: string,
   /** `material` / `colorHex`: what an import reported for the slot, kept on the row. */
@@ -67,10 +82,13 @@ export const syncUsages = (
   for (const u of next) net.set(u.spoolId, (net.get(u.spoolId) ?? 0) - (ledger ? u.grams : 0));
 
   const profileOf = new Map<string, string>();
+  const print = tx.select().from(prints).where(eq(prints.id, printId)).get();
+  const using = new Set(next.map((u) => u.spoolId));
   for (const [spoolId, grams] of net) {
     const spool = tx.select().from(spools).where(eq(spools.id, spoolId)).get();
     if (!spool) throw new HttpError(400, "invalid_spool", "Spool not found");
     profileOf.set(spoolId, spool.profileId);
+    if (print && using.has(spoolId)) assertOpened(spool, print.startedAt);
     if (startedAt && predates(startedAt, spool)) continue;
     const remaining = round(spool.remainingGrams + grams);
     if (remaining < 0)

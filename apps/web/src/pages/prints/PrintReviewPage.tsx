@@ -1,3 +1,4 @@
+import { type FilamentReviewItem, usableOn } from "@3d-maker-suite/core";
 import { Link } from "@tanstack/react-router";
 import { CheckCircle2 } from "lucide-react";
 import { useState } from "react";
@@ -30,15 +31,18 @@ export function PrintReviewPage() {
   const assign = useAssignReview();
   const dismiss = useDismissReview();
   const [picked, setPicked] = useState<Record<string, string>>({});
-  // Spools of the reported material first.
-  const optionsFor = (material: string | null) =>
+  // Spools opened by the print's day; the reported material and colour first, then the material.
+  const optionsFor = (i: FilamentReviewItem) =>
     spools
+      .filter((s) => usableOn(s, i.startedAt))
       .map((s) => {
         const profile = profiles.find((p) => p.id === s.profileId);
-        const same = !!material && profile?.material.toLowerCase() === material.toLowerCase();
-        return { spool: s, profile, same };
+        const material =
+          !!i.material && profile?.material.toLowerCase() === i.material.toLowerCase();
+        const color = !!i.colorHex && s.colorHex.toLowerCase() === i.colorHex.toLowerCase();
+        return { spool: s, profile, rank: Number(material) * (color ? 2 : 1) };
       })
-      .sort((a, b) => Number(b.same) - Number(a.same));
+      .sort((a, b) => b.rank - a.rank);
 
   return (
     <>
@@ -140,7 +144,7 @@ export function PrintReviewPage() {
                       onChange={(e) => setPicked((p) => ({ ...p, [i.usageId]: e.target.value }))}
                     >
                       <option value="" />
-                      {optionsFor(i.material).map(({ spool, profile }) => (
+                      {optionsFor(i).map(({ spool, profile }) => (
                         <option key={spool.id} value={spool.id}>
                           {t("prints:form.spoolOption", {
                             name: spoolName(t, spool, profile),

@@ -96,6 +96,7 @@ export const activeSpools = (db: Db) =>
       material: profileMaterial,
       colorHex: spools.colorHex,
       purchasedAt: spools.purchasedAt,
+      openedAt: spools.openedAt,
       createdAt: spools.createdAt,
       initialGrams: spools.initialGrams,
       remainingGrams: spools.remainingGrams,

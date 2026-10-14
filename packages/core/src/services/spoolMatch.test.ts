@@ -1,11 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { matchSpool, type SpoolCandidate } from "./spoolMatch.ts";
+import { matchSpool, type SpoolCandidate, usableOn } from "./spoolMatch.ts";
 
 const spool = (id: string, over: Partial<SpoolCandidate> = {}): SpoolCandidate => ({
   id,
   material: "PLA",
   colorHex: "#ff8800",
   purchasedAt: "2026-01-01T12:00:00.000Z",
+  openedAt: null,
   initialGrams: 1000,
   remainingGrams: 1000,
   ...over,
@@ -52,5 +53,19 @@ describe("matchSpool", () => {
     expect(
       matchSpool(slot, [spool("a"), spool("b", { purchasedAt: "2026-03-01T00:00:00.000Z" })]),
     ).toBe("a");
+  });
+
+  it("ignores spools opened after the print's day", () => {
+    expect(matchSpool(slot, [spool("a", { openedAt: "2026-02-02T12:00:00.000Z" })])).toBeNull();
+    expect(matchSpool(slot, [spool("a", { openedAt: "2026-02-01T12:00:00.000Z" })])).toBe("a");
+  });
+});
+
+describe("usableOn", () => {
+  it("allows the opening day and later, or any day when not opened", () => {
+    const at = "2026-02-01T08:00:00.000Z";
+    expect(usableOn({ openedAt: null }, at)).toBe(true);
+    expect(usableOn({ openedAt: "2026-02-01T12:00:00.000Z" }, at)).toBe(true);
+    expect(usableOn({ openedAt: "2026-02-02T12:00:00.000Z" }, at)).toBe(false);
   });
 });

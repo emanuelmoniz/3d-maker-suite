@@ -287,6 +287,16 @@ describe("print import", () => {
     ]);
   });
 
+  it("rejects a spool opened after the print started", async () => {
+    const spool = await setup();
+    db.update(schema.spools)
+      .set({ openedAt: "2026-03-05T12:00:00.000Z" })
+      .where(eq(schema.spools.id, spool.id))
+      .run();
+    const p = await preview("prints", FILE);
+    expect(p.rows[0]?.errors).toEqual([{ column: "spool", code: "not_opened" }]);
+  });
+
   describe("multicolor", () => {
     const HEAD = `${PRINT_HEAD},spool2,grams2,spool3,grams3,trackUsage`;
     const second = async () => {

@@ -315,6 +315,8 @@ export const IMPORT_ERRORS = [
   "not_an_option",
   /** A name that must already exist (a print's printer) matches nothing, or too much. */
   "unresolved",
+  /** A print's spool was opened after the print started (`usableOn`). */
+  "not_opened",
 ] as const;
 
 const cell = z.union([z.string(), z.number(), z.null()]);

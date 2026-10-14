@@ -140,6 +140,42 @@ describe("prints", () => {
     ).toBe(400);
   });
 
+  it("a spool is in use once printed from, empty at 0 g, and refused to prints before it was opened", async () => {
+    const { printer, b } = await setup();
+    const spool = async () => (await app.inject(`/api/filament/spools/${b.id}`)).json();
+    const body = {
+      printerId: printer.id,
+      title: "All of it",
+      startedAt: "2026-02-01T10:00:00.000Z",
+      outcome: "success",
+    };
+    const print = (
+      await send("POST", "/api/prints", { ...body, usages: [{ spoolId: b.id, grams: 400 }] })
+    ).json();
+    expect(await spool()).toMatchObject({ status: "in_use", remainingGrams: 100, openedAt: null });
+    await send("PATCH", `/api/prints/${print.id}`, { usages: [{ spoolId: b.id, grams: 500 }] });
+    expect(await spool()).toMatchObject({ status: "empty", remainingGrams: 0 });
+    // Giving filament back puts it in use again.
+    await send("PATCH", `/api/prints/${print.id}`, { usages: [{ spoolId: b.id, grams: 100 }] });
+    expect(await spool()).toMatchObject({ status: "in_use", remainingGrams: 400 });
+
+    await send("PATCH", `/api/filament/spools/${b.id}`, { openedAt: "2026-02-01T12:00:00.000Z" });
+    const earlier = { ...body, startedAt: "2026-01-31T23:00:00.000Z" };
+    const res = await send("POST", "/api/prints", {
+      ...earlier,
+      usages: [{ spoolId: b.id, grams: 10 }],
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().error.code).toBe("spool_not_opened");
+    // Moving the print before the opening day is refused too; the same day is fine.
+    const moved = await send("PATCH", `/api/prints/${print.id}`, { startedAt: earlier.startedAt });
+    expect(moved.json().error.code).toBe("spool_not_opened");
+    const sameDay = "2026-02-01T08:00:00.000Z";
+    expect(
+      (await send("PATCH", `/api/prints/${print.id}`, { startedAt: sameDay })).statusCode,
+    ).toBe(200);
+  });
+
   it("manual energy is kept as measured; switching to success drops the reason", async () => {
     const { printer } = await setup();
     const print = (

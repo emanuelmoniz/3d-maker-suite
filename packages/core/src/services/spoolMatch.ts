@@ -5,6 +5,7 @@ export type SpoolCandidate = {
   colorHex: string;
   /** When it was bought, if known. */
   purchasedAt: string | null;
+  openedAt: string | null;
   initialGrams: number;
   remainingGrams: number;
 };
@@ -16,6 +17,14 @@ export type SlotToMatch = {
 };
 
 const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
+
+/**
+ * Whether a print that started at `startedAt` can have used the spool: not before the day it was
+ * opened. By day, as the opening date is entered without a time. A spool not opened yet (no date)
+ * can take any print.
+ */
+export const usableOn = (spool: { openedAt: string | null }, startedAt: string) =>
+  !spool.openedAt || startedAt.slice(0, 10) >= spool.openedAt.slice(0, 10);
 
 /**
  * Picks the spool an imported print used, or `null` when a person has to decide.
@@ -37,6 +46,7 @@ export function matchSpool(
   const hits = spools.filter(
     (s) =>
       (!s.purchasedAt || s.purchasedAt.slice(0, 10) <= day) &&
+      usableOn(s, slot.startedAt) &&
       same(s.material, material) &&
       same(s.colorHex, colorHex),
   );

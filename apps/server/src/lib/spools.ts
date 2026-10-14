@@ -5,9 +5,17 @@ import { nextNumber } from "./numbers.ts";
 
 const { spools, spoolWeightEntries } = schema;
 
+/** The status a new weight gives a spool: empty at 0 g, in use once some is taken or refilled. */
+const statusAt = (spool: typeof spools.$inferSelect, remainingGrams: number) => {
+  if (remainingGrams <= 0) return "empty" as const;
+  if (spool.status === "empty" || remainingGrams < spool.remainingGrams) return "in_use" as const;
+  return spool.status;
+};
+
 /**
- * The only way to change `spools.remainingGrams`: sets it and appends the ledger entry in one
- * transaction. Returns the updated spool, or `null` when the weight is unchanged (no entry).
+ * The only way to change `spools.remainingGrams`: sets it (and the status that follows, see
+ * `statusAt`) and appends the ledger entry in one transaction. Returns the updated spool, or
+ * `null` when the weight is unchanged (no entry).
  */
 export function setRemaining(
   db: Pick<Db, "transaction">,
@@ -26,7 +34,7 @@ export function setRemaining(
       .run();
     return tx
       .update(spools)
-      .set({ remainingGrams })
+      .set({ remainingGrams, status: statusAt(spool, remainingGrams) })
       .where(eq(spools.id, spoolId))
       .returning()
       .get();

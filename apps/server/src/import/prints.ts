@@ -8,6 +8,7 @@ import {
   PRINT_MAX_SLOTS,
   type PrintInput,
   printSlotKeys,
+  usableOn,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
 import { and, eq, isNotNull, isNull } from "drizzle-orm";
@@ -98,8 +99,16 @@ const find = (ref: Ref, c: ImportCell | undefined) => {
   return ids.length === 1 ? (ids[0] ?? null) : null;
 };
 
-type Lookups = { printers: Ref; projects: Ref; spools: Ref; profiles: Names };
+type Lookups = {
+  printers: Ref;
+  projects: Ref;
+  spools: Ref;
+  /** Each spool's opening day, for `usableOn`. */
+  opened: Map<string, string | null>;
+  profiles: Names;
+};
 function build(db: Db): Lookups {
+  const spoolRows = spoolImport.targets(db);
   const printerRows = db
     .select({
       id: printers.id,
@@ -124,12 +133,13 @@ function build(db: Db): Lookups {
     projects: refOf(projectRows.map((p) => ({ ...p, keys: [p.label, p.name] }))),
     // Active spools only, by number or display name.
     spools: refOf(
-      spoolImport.targets(db).map((s) => ({
+      spoolRows.map((s) => ({
         id: s.id,
         number: typeof s.values.number === "number" ? s.values.number : null,
         keys: [s.label],
       })),
     ),
+    opened: new Map(spoolRows.map((s) => [s.id, str(s.values.openedAt)])),
     profiles: group(
       db
         .select({ id: filamentProfiles.id, name: filamentProfiles.name })
@@ -373,6 +383,10 @@ export const printImport = {
       const key = printSlotKeys(n);
       if ((v[key.spool] || v[key.filament]) && v[key.grams] == null)
         errors.push({ column: key.grams, code: "required" });
+      const spoolId = find(lookups(db).spools, v[key.spool]);
+      const openedAt = spoolId && lookups(db).opened.get(spoolId);
+      if (openedAt && !usableOn({ openedAt }, str(v.startedAt) ?? ""))
+        errors.push({ column: key.spool, code: "not_opened" });
     }
     return errors;
   },

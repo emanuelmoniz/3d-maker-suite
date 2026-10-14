@@ -47,6 +47,8 @@ export const printInputSchema = base.refine(
 /** Any subset. Sending `usages` replaces the whole list. */
 export const printPatchSchema = base
   .partial()
+  // Without the default: a patch that leaves `usages` out keeps them.
+  .extend({ usages: base.shape.usages.unwrap().optional() })
   .strict()
   .refine((p) => p.outcome !== "success" || !p.failureReason, successHasNoReason);
 
