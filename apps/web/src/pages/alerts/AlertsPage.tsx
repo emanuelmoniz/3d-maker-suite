@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
 import { EmptyState } from "../../components/EmptyState.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
+import { SettingsLink } from "../../components/SettingsLink.tsx";
 import { useAlertAction, useAlerts } from "../../lib/alerts.ts";
 import { formatDate } from "../../lib/format.ts";
 import { useAdapterName } from "../../lib/integrations.ts";
@@ -110,6 +111,7 @@ export function AlertsPage() {
       <PageHeader
         title={t("nav:items.alerts.label")}
         description={t("nav:items.alerts.description")}
+        actions={<SettingsLink module="alerts" />}
       />
       {data && !data.length && (
         <EmptyState

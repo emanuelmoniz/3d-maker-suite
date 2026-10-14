@@ -36,6 +36,12 @@ import { ProjectDetailPage } from "./pages/projects/ProjectDetailPage.tsx";
 import { ProjectCreatePage, ProjectEditPage } from "./pages/projects/ProjectFormPage.tsx";
 import { ProjectsPage } from "./pages/projects/ProjectsPage.tsx";
 import { SettingsPage } from "./pages/SettingsPage.tsx";
+import {
+  AlertsConfigPage,
+  CostsConfigPage,
+  PrintsConfigPage,
+  ProjectsConfigPage,
+} from "./pages/settings/ConfigPages.tsx";
 import { IntegrationCreatePage } from "./pages/settings/IntegrationFormPage.tsx";
 import { IntegrationLoginPage } from "./pages/settings/IntegrationLoginPage.tsx";
 import { IntegrationsPage } from "./pages/settings/IntegrationsPage.tsx";
@@ -280,6 +286,22 @@ const routes: AnyRoute[] = [
     loader: () => Promise.all([loadNamespace("alerts"), loadNamespace("integrations")]),
     component: AlertsPage,
   }),
+  // Module config pages (gear button in each module header); "settings" holds the field labels.
+  ...(
+    [
+      ["/costs/settings", CostsConfigPage, ["costs"]],
+      ["/prints/settings", PrintsConfigPage, ["prints"]],
+      ["/projects/settings", ProjectsConfigPage, ["projects"]],
+      ["/alerts/settings", AlertsConfigPage, ["alerts", "integrations"]],
+    ] as const
+  ).map(([path, component, ns]) =>
+    createRoute({
+      getParentRoute: () => root,
+      path,
+      loader: () => Promise.all(["settings", ...ns].map(loadNamespace)),
+      component,
+    }),
+  ),
   createRoute({
     getParentRoute: () => root,
     path: IMPORT_ITEM.to,
@@ -289,7 +311,7 @@ const routes: AnyRoute[] = [
   createRoute({
     getParentRoute: () => root,
     path: SETTINGS_ITEM.to,
-    loader: () => Promise.all([loadNamespace("settings"), loadNamespace("alerts")]),
+    loader: () => loadNamespace("settings"),
     component: SettingsPage,
   }),
   ...[

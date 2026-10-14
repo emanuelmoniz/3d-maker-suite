@@ -27,7 +27,7 @@ Do Step 1 of PLAN.md. Grep for any other conflicting Tailwind class pairs while 
 
 Goal of Steps 2-3: each module keeps its own settings and catalog tables on a config page (`/<module>/settings`), opened by a gear button in the module's page header. Global Settings keeps only General, Appearance, Server and Backup. Done early so later steps put new settings in their final place.
 
-### [ ] Step 2 - Config page pattern + Costs, Prints, Projects, Alerts
+### [x] Step 2 - Config page pattern + Costs, Prints, Projects, Alerts
 **Model:** Sonnet · **Effort:** Medium
 **Scope:** The local `Section` in `pages/SettingsPage.tsx` becomes a shared component. One reusable gear link (i18n label, keyboard accessible) goes in the `PageHeader` actions of each module page, opening `/<module>/settings`, which has a back link to the module. Move these fields out of Settings, without changing the schema (same `usePreferences` / `useSavePreferences`):
 - **Costs** (`/costs/settings`): currency, energy cost, printer lifetime hours, include maintenance, labor rate, failure margin, markup.

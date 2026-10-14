@@ -12,6 +12,7 @@ import { Button } from "../../components/Button.tsx";
 import { CostBreakdown, QuoteBreakdownView } from "../../components/CostBreakdown.tsx";
 import { inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
+import { SettingsLink } from "../../components/SettingsLink.tsx";
 import {
   materialPrice,
   useCostContext,
@@ -397,6 +398,7 @@ export function CostsPage() {
       <PageHeader
         title={t("nav:items.costs.label")}
         description={t("nav:items.costs.description")}
+        actions={<SettingsLink module="costs" />}
       />
       {isError && (
         <p role="alert" className="text-bad">

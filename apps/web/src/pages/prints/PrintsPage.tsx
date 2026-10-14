@@ -7,6 +7,7 @@ import { CostBreakdown } from "../../components/CostBreakdown.tsx";
 import { DataTable } from "../../components/DataTable.tsx";
 import { EmptyState } from "../../components/EmptyState.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
+import { SettingsLink } from "../../components/SettingsLink.tsx";
 import { TagList } from "../../components/TagList.tsx";
 import { useMoney } from "../../lib/cost.ts";
 import { formatDateTime, formatDuration, formatWeight } from "../../lib/format.ts";
@@ -46,7 +47,12 @@ export function PrintsPage() {
       <PageHeader
         title={t("nav:items.prints.label")}
         description={t("nav:items.prints.description")}
-        actions={add}
+        actions={
+          <>
+            {add}
+            <SettingsLink module="prints" />
+          </>
+        }
       />
       {isError && (
         <p role="alert" className="flex flex-wrap items-center gap-3 text-bad">

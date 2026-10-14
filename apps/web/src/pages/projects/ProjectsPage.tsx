@@ -17,6 +17,7 @@ import { EmptyState } from "../../components/EmptyState.tsx";
 import { FilterBar } from "../../components/FilterBar.tsx";
 import { inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
+import { SettingsLink } from "../../components/SettingsLink.tsx";
 import { TagFilter } from "../../components/TagFilter.tsx";
 import { TagList } from "../../components/TagList.tsx";
 import { cx } from "../../lib/cx.ts";
@@ -148,7 +149,12 @@ export function ProjectsPage() {
       <PageHeader
         title={t("nav:items.projects.label")}
         description={t("nav:items.projects.description")}
-        actions={add}
+        actions={
+          <>
+            {add}
+            <SettingsLink module="projects" />
+          </>
+        }
       />
       {isError && (
         <p role="alert" className="text-bad">
@@ -162,7 +168,10 @@ export function ProjectsPage() {
           title={t("projects:list.emptyTitle")}
           description={t("projects:list.emptyBody")}
           action={
-            <Link to="/settings" className={`${linkButton} border border-border bg-surface`}>
+            <Link
+              to="/projects/settings"
+              className={`${linkButton} border border-border bg-surface`}
+            >
               {t("projects:list.settings")}
             </Link>
           }

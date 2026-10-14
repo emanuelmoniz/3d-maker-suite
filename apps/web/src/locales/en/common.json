@@ -6,7 +6,8 @@
     "cancel": "Cancel",
     "confirm": "Confirm",
     "clear": "Clear filters",
-    "more": "More"
+    "more": "More",
+    "moduleSettings": "{{module}} settings"
   },
   "picker": {
     "search": "Search…",
