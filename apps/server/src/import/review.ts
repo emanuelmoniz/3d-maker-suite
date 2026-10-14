@@ -82,10 +82,15 @@ export type ImportHandler = {
   exclusive?: boolean;
   /** A row you imported is yours: a change at the source is offered, never suggested. */
   handsOff?: boolean;
-  /** References the user picks instead of having them created, and the suggestion for a row. */
+  /**
+   * References the user picks instead of having them created, and the suggestion for a row; a run
+   * with nobody watching leaves a row it isn't `sure` of for a person. `optional`: a pick may stay
+   * empty, and only the keys a row's suggestion names are picked for it.
+   */
   picks?: (db: Db) => {
     options: Record<string, { id: string; label: string }[]>;
     suggest: (v: ImportValues) => { refs: Record<string, string | null>; sure: boolean };
+    optional?: boolean;
   };
   /** Rows a run with nobody watching leaves for a person. */
   held?: (db: Db) => (v: ImportValues) => boolean;
@@ -166,7 +171,7 @@ export function createReview(db: Db, dataDir: string) {
         if (!sourced) return { ...p, ...m, ...s };
         const yours = !!hit && !!handler.handsOff;
         const pick = hit || p.errors.length ? undefined : picks?.suggest(p.values);
-        const unpicked = !!pick && Object.values(pick.refs).some((v) => !v);
+        const unpicked = !!pick && !picks?.optional && Object.values(pick.refs).some((v) => !v);
         return {
           ...p,
           ...m,
@@ -183,15 +188,17 @@ export function createReview(db: Db, dataDir: string) {
         };
       }),
       targets,
-      // Picked references are never created, so nothing is announced for them.
-      missing: picks
-        ? {}
-        : handler.missing(
-            db,
-            valid.map((p) => p.values),
-          ),
+      // Required picks are never created, so nothing is announced for them.
+      missing:
+        picks && !picks.optional
+          ? {}
+          : handler.missing(
+              db,
+              valid.map((p) => p.values),
+            ),
       ignoredHeaders: stored.ignoredHeaders,
       refOptions: picks?.options,
+      ...(picks?.optional && { refsOptional: true }),
     };
   }
 
@@ -216,10 +223,14 @@ export function createReview(db: Db, dataDir: string) {
           throw new HttpError(400, "duplicate_decision", `Row ${d.row} is used twice`);
         used.add(key);
       }
-      // A picked reference is never created: it has to be one of the offered rows.
+      // A picked reference is never created: it has to be one of the offered rows. An optional
+      // one may be left out.
       if (!target)
         for (const [column, options] of Object.entries(current.refOptions ?? {}))
-          if (!options.some((o) => o.id === d.refs?.[column]))
+          if (
+            !(current.refsOptional && d.refs?.[column] === undefined) &&
+            !options.some((o) => o.id === d.refs?.[column])
+          )
             throw new HttpError(400, "ref_not_found", `Row ${d.row} needs a ${column} you have`);
       return {
         values: row.values,

@@ -196,6 +196,8 @@ function useFilament(
   startedAt: string,
   v: ImportValues,
   reported: Reported[] = [],
+  /** The spools the user picked in the review, by slot spool key; replaces the cells. */
+  picked?: Record<string, string>,
 ) {
   const look = lookups(db);
   db.delete(printFilamentUsages)
@@ -207,7 +209,7 @@ function useFilament(
     const key = printSlotKeys(n);
     const grams = num(v[key.grams]);
     if (!grams || grams <= 0) continue;
-    const spoolId = find(look.spools, v[key.spool]);
+    const spoolId = picked ? (picked[key.spool] ?? null) : find(look.spools, v[key.spool]);
     const said = reported[n - 1];
     // An integration's slot keeps what the printer reported.
     const as = said && {
@@ -391,8 +393,30 @@ export const printImport = {
     ),
   /** A print you have is yours: the vendor's version of it is not offered as a change. */
   handsOff: true,
-  /** A run with nobody watching leaves a print whose filament matched no spool for a person. */
-  held: (db: Db) => (v: ImportValues) => unmatched(lookups(db), v),
+  /**
+   * The spool of each slot with grams, suggested as the one the row names (`printRows` matched it).
+   * One left empty waits in the review queue; a run with nobody watching leaves such a print for a
+   * person.
+   */
+  picks(db: Db) {
+    const spools = spoolImport.targets(db).map((s) => ({ id: s.id, label: s.label }));
+    const options = Object.fromEntries(
+      Array.from({ length: PRINT_MAX_SLOTS }, (_, i) => [printSlotKeys(i + 1).spool, spools]),
+    );
+    return {
+      options,
+      optional: true,
+      suggest(v: ImportValues) {
+        const look = lookups(db);
+        const refs: Record<string, string | null> = {};
+        for (let n = 1; n <= PRINT_MAX_SLOTS; n++) {
+          const key = printSlotKeys(n);
+          if ((num(v[key.grams]) ?? 0) > 0) refs[key.spool] = find(look.spools, v[key.spool]);
+        }
+        return { refs, sure: !unmatched(look, v) };
+      },
+    };
+  },
 
   create(db: Db, v: ImportValues, src?: WriteRow) {
     const printerId = find(lookups(db).printers, v.printer) ?? "";
@@ -423,7 +447,7 @@ export const printImport = {
       })
       .returning()
       .get();
-    useFilament(db, row.id, row.title, row.startedAt, v, reportedOf(src));
+    useFilament(db, row.id, row.title, row.startedAt, v, reportedOf(src), src?.refs);
   },
 
   /** Writes `patch` (only the values that change) to the print. */

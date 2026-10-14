@@ -147,7 +147,8 @@
     "confirmBody": "A backup is taken first. If any row fails, nothing is imported.",
     "error": "Couldn't import, so nothing was changed. Upload the file again and retry.",
     "refFor": "{{column}} for row {{row}}",
-    "needsRef": "Pick one you have"
+    "needsRef": "Pick one you have",
+    "noSpool": "No spool: the grams wait for review"
   },
   "done": {
     "summary": "Import finished: {{created, number}} created, {{updated, number}} updated.",

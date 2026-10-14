@@ -376,6 +376,40 @@ describe("sync by type and date range", () => {
     expect((await printsReview(id, q)).rows).toEqual([]);
   });
 
+  it("holds unmatched prints from a run; the review suggests a spool per slot and books the pick", async () => {
+    const { id } = await create();
+    await syncWith(id, { type: "printers" });
+    // Nobody watching and no spool: nothing is imported, all of it waits.
+    expect(await syncWith(id, { type: "prints" })).toMatchObject({ created: 0, pending: 3 });
+    expect(printCount()).toBe(0);
+
+    const match = await spool();
+    const other = await spool("#000000");
+    const p = await printsReview(id, `?from=${day(1)}&to=${day(2, true)}`);
+    expect(p.refsOptional).toBe(true);
+    expect(p.refOptions?.spool?.map((o) => o.id).sort()).toEqual([match.id, other.id].sort());
+    expect(p.rows.map((r) => [r.action, r.refs])).toEqual([
+      ["create", { spool: match.id }],
+      ["create", { spool: match.id }],
+    ]);
+    const apply = (refs: Record<string, string>[]) =>
+      send("POST", "/api/import/prints/apply", {
+        uploadId: p.uploadId,
+        policy: "overwrite",
+        decisions: p.rows.map((r, i) => ({ row: r.row, action: "create", refs: refs[i] })),
+      });
+    // A pick must be a spool you have; one left out is fine.
+    const unknown = "00000000-0000-4000-8000-000000000000";
+    expect((await apply([{ spool: unknown }, {}])).statusCode).toBe(400);
+    expect((await apply([{ spool: other.id }, {}])).json()).toMatchObject({ created: 2 });
+
+    // The slot left out waits, and is matched again at once: exactly one spool fits it.
+    const prints = (await get("/api/prints?sort=startedAt")).items;
+    expect(
+      prints.map((x: { usages: { spoolId: string | null }[] }) => x.usages[0]?.spoolId),
+    ).toEqual([other.id, match.id]);
+  });
+
   it("rejects ranges for other types, backwards ranges and switched-off types", async () => {
     const { id } = await create();
     const code = async (body: object) => await send("POST", `/api/integrations/${id}/sync`, body);

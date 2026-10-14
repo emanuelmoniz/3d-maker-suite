@@ -163,14 +163,18 @@ export function ReviewTable({
     const id = decisionOf(r).targetId;
     pickedCount.set(id, (pickedCount.get(id) ?? 0) + 1);
   }
-  // References the user picks (a spool's filament profile) instead of having them created.
+  // References the user picks (a spool's filament profile, a print's spools) instead of having
+  // them created. Optional ones (a print's spools) are only picked for the keys the row suggests.
   const picked = Object.keys(preview.refOptions ?? {});
+  const optional = !!preview.refsOptional;
+  const picks = (r: ImportPreviewRow) =>
+    optional ? picked.filter((k) => r.refs && k in r.refs) : picked;
   // An update needs a row to go to, and two file rows can't go to the same one; a new row needs
-  // its picks.
+  // its required picks.
   const problem = (r: ImportPreviewRow) => {
     const d = decisionOf(r);
     if (d.action === "create")
-      return picked.some((k) => !d.refs?.[k]) ? t("import:review.needsRef") : null;
+      return !optional && picked.some((k) => !d.refs?.[k]) ? t("import:review.needsRef") : null;
     if (d.action !== "update") return null;
     if (!d.targetId) return t("import:review.needsTarget");
     return (pickedCount.get(d.targetId) ?? 0) > 1 ? t("import:review.duplicateTarget") : null;
@@ -335,10 +339,11 @@ export function ReviewTable({
           const target = d.action === "update" ? targets.get(d.targetId ?? "") : undefined;
           const value = format(c, r.values[c.key]);
           const options = preview.refOptions?.[c.key];
-          if (options && d.action === "create")
+          if (options && d.action === "create" && picks(r).includes(c.key))
             return (
               <span className="flex items-center gap-2">
-                {value}
+                {/* An optional pick names the row's own value, so the select replaces it. */}
+                {!optional && value}
                 <select
                   aria-label={t("import:review.refFor", {
                     column: t(c.label, c.labelArgs),
@@ -359,7 +364,9 @@ export function ReviewTable({
                   ))}
                 </select>
                 {!d.refs?.[c.key] && (
-                  <span className="text-bad">{t("import:review.needsRef")}</span>
+                  <span className={optional ? "text-warn" : "text-bad"}>
+                    {t(optional ? "import:review.noSpool" : "import:review.needsRef")}
+                  </span>
                 )}
               </span>
             );
@@ -567,7 +574,12 @@ export function ReviewTable({
                         policy: d.policy,
                         refs:
                           d.action === "create" && picked.length
-                            ? Object.fromEntries(picked.map((k) => [k, d.refs?.[k] ?? ""]))
+                            ? Object.fromEntries(
+                                picks(r).flatMap((k) =>
+                                  // An optional pick left empty is left out.
+                                  optional && !d.refs?.[k] ? [] : [[k, d.refs?.[k] ?? ""]],
+                                ),
+                              )
                             : undefined,
                       },
                     ];
