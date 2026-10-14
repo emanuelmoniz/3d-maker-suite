@@ -46,7 +46,11 @@
     "title": "Import history",
     "run": "{{date}} · {{type}} · {{file}}: {{created}} created, {{updated}} updated, {{skipped}} skipped, {{invalid}} invalid",
     "backup": "backup {{name}}",
-    "sources": { "file": "file", "zip": "zip", "integration": "integration" }
+    "sources": {
+      "file": "file",
+      "zip": "zip",
+      "integration": "integration"
+    }
   },
   "hints": {
     "text": "Any text.",
@@ -152,6 +156,7 @@
   },
   "printers": {
     "columns": {
+      "number": "Number",
       "name": "Name",
       "brand": "Brand",
       "model": "Model",

@@ -74,6 +74,7 @@ export function costContext(db: Db): CostContext {
     },
     printers: list.map((p) => ({
       id: p.id,
+      number: p.number as number,
       name: p.name,
       powerW: p.powerW,
       ...(rates.get(p.id) as { wearPerHour: number; maintenancePerHour: number }),

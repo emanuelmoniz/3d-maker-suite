@@ -67,12 +67,18 @@ export const profileMaterial = sql<string>`(SELECT ${filamentMaterials.name} FRO
 /** The label the app shows for a profile: its name, else "brand material". */
 export const profileLabel = sql<string>`coalesce(nullif(${filamentProfiles.name}, ''), trim(${profileBrand} || ' ' || ${profileMaterial}))`;
 
-const { spools } = schema;
+const { spools, printers, projects } = schema;
 /**
  * A spool's display name, "12-Bambu PLA Matte Scarlet Red" (the hex without a colour name), as the
  * web's `spoolName()` builds it in English. Fixed here: import files match spools by it.
  */
 export const spoolName = sql<string>`${spools.number} || '-' || (SELECT ${profileLabel} FROM ${filamentProfiles} WHERE ${filamentProfiles.id} = ${spools.profileId}) || ' ' || coalesce(nullif(${spools.colorName}, ''), ${spools.colorHex})`;
+
+/** A printer's display name, "2-Bambu A1". Fixed here: import files match printers by it. */
+export const printerLabel = sql<string>`${printers.number} || '-' || ${printers.name}`;
+
+/** A project's display name, "001-aquaterrario" (the number padded like the folders). */
+export const projectLabel = sql<string>`printf('%03d', ${projects.number}) || '-' || ${projects.name}`;
 
 /** `select()` map for profiles: the row plus `brand` / `material` names, as the API returns them. */
 export const profileColumns = {

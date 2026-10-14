@@ -6,7 +6,7 @@ import { Button } from "../../components/Button.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { TagPicker } from "../../components/TagPicker.tsx";
-import { useModelInfo } from "../../lib/catalog.ts";
+import { isConflict, useModelInfo } from "../../lib/catalog.ts";
 import { dateInputToIso, isoToDateInput } from "../../lib/format.ts";
 import { usePreferences } from "../../lib/preferences.ts";
 import { useCreatePrinter, usePatchPrinter, usePrinter } from "../../lib/printers.ts";
@@ -37,6 +37,7 @@ function PrinterForm({ printer }: { printer?: Printer }) {
     e.preventDefault();
     const f = new FormData(e.currentTarget);
     const body: PrinterInput = {
+      number: text(f, "number") ? Number(text(f, "number")) : undefined,
       name: text(f, "name"),
       modelId: text(f, "modelId"),
       serial: orNull(text(f, "serial")),
@@ -58,6 +59,22 @@ function PrinterForm({ printer }: { printer?: Printer }) {
 
   return (
     <form onSubmit={onSubmit} className="grid gap-4 sm:max-w-md">
+      <FormField
+        label={t("printers:form.number")}
+        hint={printer ? undefined : t("printers:form.numberHint")}
+      >
+        {(p) => (
+          <input
+            {...p}
+            name="number"
+            type="number"
+            min={1}
+            step={1}
+            className={inputClass}
+            defaultValue={printer?.number}
+          />
+        )}
+      </FormField>
       <FormField label={t("printers:form.name")}>
         {(p) => (
           <input {...p} name="name" required className={inputClass} defaultValue={printer?.name} />
@@ -171,7 +188,7 @@ function PrinterForm({ printer }: { printer?: Printer }) {
       <TagPicker value={tags.value} onChange={tags.onChange} />
       {save.isError && (
         <p role="alert" className="text-bad">
-          {t("printers:form.saveError")}
+          {t(isConflict(save.error) ? "printers:form.numberTaken" : "printers:form.saveError")}
         </p>
       )}
       <div className="flex gap-2">

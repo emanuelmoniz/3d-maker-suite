@@ -82,6 +82,27 @@ describe("printer import", () => {
     expect(names).toEqual(["Office", "Shelf"]);
   });
 
+  it("numbers printers, and a row with a number is that printer", async () => {
+    await applySuggested("printers", await preview("printers", PRINTERS));
+    const numbers = () =>
+      db
+        .select()
+        .from(schema.printers)
+        .all()
+        .map((r) => [r.number, r.name]);
+    expect(numbers()).toEqual([
+      [1, "Box"],
+      [2, "Shelf"],
+    ]);
+    const p = await preview("printers", "number,name,brand,model\n2,Desk,Bambu Lab,P1S");
+    expect(p.rows[0]).toMatchObject({ status: "changed", action: "update" });
+    await applySuggested("printers", p);
+    expect(numbers()).toEqual([
+      [1, "Box"],
+      [2, "Desk"],
+    ]);
+  });
+
   it("doesn't take a printer with another serial for the same name", async () => {
     await applySuggested("printers", await preview("printers", PRINTERS));
     const p = await preview("printers", "name,brand,model,serial\nBox,Bambu Lab,A1,SN2");
@@ -126,6 +147,16 @@ describe("print import", () => {
     });
 
     expect(statuses(await preview("prints", FILE))).toEqual(["identical"]);
+  });
+
+  it("finds a printer by its display name, its number or its name", async () => {
+    await setup();
+    for (const printer of ["1-Box", "1", "box"])
+      expect(statuses(await preview("prints", FILE.replace("box,", `${printer},`)))).toEqual([
+        "new",
+      ]);
+    expect(statuses(await preview("prints", FILE.replace("box,", "9,")))).toEqual(["invalid"]);
+    expect(printImport.refs(db).printers).toEqual(["1-Box", "2-Shelf"]);
   });
 
   it("finds a spool by its number alone, and the template lists spools by display name", async () => {

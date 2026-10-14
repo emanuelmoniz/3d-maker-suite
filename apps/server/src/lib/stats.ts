@@ -1,6 +1,7 @@
 import { type Stats, type StatsQuery, toMinor } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
 import { and, inArray, type SQL, sql } from "drizzle-orm";
+import { printerLabel, projectLabel } from "./catalog.ts";
 import { printerRates } from "./cost.ts";
 import { dateRange, inIds, taggedWith } from "./list.ts";
 import { readPreferences } from "./preferences.ts";
@@ -102,12 +103,12 @@ export function readStats(db: Db, q: StatsQuery): Stats {
     breakdowns: {
       printer: grouped(
         sql`pc.printer_id`,
-        sql`printers.name`,
+        printerLabel,
         sql`JOIN printers ON printers.id = pc.printer_id`,
       ),
       project: grouped(
         sql`pc.project_id`,
-        sql`projects.name`,
+        projectLabel,
         sql`LEFT JOIN projects ON projects.id = pc.project_id`,
       ),
       outcome: grouped(sql`pc.outcome`, sql`pc.outcome`, sql``),

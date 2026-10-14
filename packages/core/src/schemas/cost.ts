@@ -74,6 +74,7 @@ export const costContextSchema = z.object({
   printers: z.array(
     z.object({
       id,
+      number: z.number().int(),
       name: z.string(),
       powerW: z.number().nullable(),
       wearPerHour: z.number(),

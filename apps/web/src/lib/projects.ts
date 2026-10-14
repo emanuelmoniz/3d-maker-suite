@@ -8,6 +8,7 @@ import type {
   ProjectScanStatus,
 } from "@3d-maker-suite/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { TFunction } from "i18next";
 import { api } from "./api.ts";
 
 // ponytail: one page of 100 projects, add pagination controls if libraries get bigger.
@@ -91,3 +92,7 @@ export const useOpenProject = (id: string) =>
   useMutation({
     mutationFn: (v: ProjectOpen) => api("POST", `/api/projects/${id}/open`, v),
   });
+
+/** The name a project goes by everywhere: "001-aquaterrario" (the number padded like the folders). */
+export const projectName = (t: TFunction, p: Pick<Project, "number" | "name">) =>
+  t("common:projectName", { number: String(p.number).padStart(3, "0"), name: p.name });

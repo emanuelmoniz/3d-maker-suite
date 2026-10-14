@@ -16,6 +16,7 @@ import { usePreferences } from "../../lib/preferences.ts";
 import { usePrintsOfProject } from "../../lib/prints.ts";
 import {
   projectFileUrl,
+  projectName,
   projectThumbnailUrl,
   useOpenProject,
   useProject,
@@ -245,7 +246,7 @@ export function ProjectDetailPage() {
   return (
     <>
       <PageHeader
-        title={project.name}
+        title={projectName(t, project)}
         backTo={{ to: "/projects" }}
         actions={
           <>
@@ -324,7 +325,7 @@ export function ProjectDetailPage() {
             thumbnail && (
               <img
                 src={thumbnail}
-                alt={project.name}
+                alt={projectName(t, project)}
                 className="w-full rounded-lg border border-border"
               />
             )

@@ -6,6 +6,7 @@ import { Button } from "../../components/Button.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { PathPicker } from "../../components/PathPicker.tsx";
+import { isConflict } from "../../lib/catalog.ts";
 import { useCreateProject, usePatchProject, useProject } from "../../lib/projects.ts";
 
 const text = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
@@ -25,7 +26,9 @@ function ProjectForm({ project }: { project?: Project }) {
   const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const f = new FormData(e.currentTarget);
+    const number = text(f, "number") ? Number(text(f, "number")) : undefined;
     const fields = {
+      number,
       name: text(f, "name"),
       description: text(f, "description") || null,
       sourceUrl: text(f, "sourceUrl") || null,
@@ -53,6 +56,22 @@ function ProjectForm({ project }: { project?: Project }) {
 
   return (
     <form onSubmit={onSubmit} className="grid gap-4 sm:max-w-md">
+      <FormField
+        label={t("projects:form.number")}
+        hint={project ? undefined : t("projects:form.numberHint")}
+      >
+        {(p) => (
+          <input
+            {...p}
+            name="number"
+            type="number"
+            min={1}
+            step={1}
+            className={inputClass}
+            defaultValue={project?.number}
+          />
+        )}
+      </FormField>
       <FormField label={t("projects:form.name")}>
         {(p) => (
           <input {...p} name="name" required className={inputClass} defaultValue={project?.name} />
@@ -134,7 +153,7 @@ function ProjectForm({ project }: { project?: Project }) {
       )}
       {save.isError && (
         <p role="alert" className="text-bad">
-          {t("projects:form.error")}
+          {t(isConflict(save.error) ? "projects:form.numberTaken" : "projects:form.error")}
         </p>
       )}
       <div className="flex gap-2">

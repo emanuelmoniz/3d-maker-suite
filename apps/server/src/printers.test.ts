@@ -27,6 +27,31 @@ const create = async (payload: Record<string, unknown> = {}) =>
   ).json();
 
 describe("printers", () => {
+  it("get the next free number, or the one given; a taken one is a 409", async () => {
+    expect((await create()).number).toBe(1);
+    expect((await create({ name: "P2", number: 7 })).number).toBe(7);
+    expect((await create({ name: "P3" })).number).toBe(8);
+    const taken = await app.inject({
+      method: "POST",
+      url: "/api/printers",
+      payload: { name: "P4", number: 7, modelId: modelIdFor(db, "Bambu Lab", "P1S") },
+    });
+    expect(taken.statusCode).toBe(409);
+    expect(taken.json().error.code).toBe("printer_number_taken");
+    const first = await create({ name: "P5" });
+    const patch = (number: number) =>
+      app.inject({ method: "PATCH", url: `/api/printers/${first.id}`, payload: { number } });
+    expect((await patch(7)).statusCode).toBe(409);
+    expect((await patch(first.number)).statusCode).toBe(200); // its own number is free
+    expect((await patch(20)).json().number).toBe(20);
+    // The display name leads the filter and the sort.
+    const list = (q: string) => app.inject(`/api/printers${q}`).then((r) => r.json().items);
+    expect(await list("?name=20-p5")).toHaveLength(1);
+    expect((await list("?sort=-name")).map((p: { number: number }) => p.number)).toEqual([
+      20, 8, 7, 1,
+    ]);
+  });
+
   it("CRUD, state validation, archive/restore", async () => {
     const p = await create({ powerW: 120, purchasePrice: 59900 });
     expect(p).toMatchObject({ state: "working", powerW: 120, archivedAt: null });

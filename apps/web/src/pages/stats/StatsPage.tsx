@@ -17,8 +17,8 @@ import {
   formatNumber,
   formatWeight,
 } from "../../lib/format.ts";
-import { usePrinters } from "../../lib/printers.ts";
-import { useProjects } from "../../lib/projects.ts";
+import { printerName, usePrinters } from "../../lib/printers.ts";
+import { projectName, useProjects } from "../../lib/projects.ts";
 import { type StatsFilters, statsQs, useStats } from "../../lib/stats.ts";
 import { useTags } from "../../lib/tags.ts";
 
@@ -205,7 +205,7 @@ export function StatsPage() {
           all={all}
           value={f.printerId}
           onChange={(printerId) => set({ printerId })}
-          options={printers.map((p) => ({ value: p.id, label: p.name }))}
+          options={printers.map((p) => ({ value: p.id, label: printerName(t, p) }))}
         />
         <Select
           label={t("stats:filters.spool")}
@@ -233,7 +233,7 @@ export function StatsPage() {
           all={all}
           value={f.projectId}
           onChange={(projectId) => set({ projectId })}
-          options={projects.map((p) => ({ value: p.id, label: p.name }))}
+          options={projects.map((p) => ({ value: p.id, label: projectName(t, p) }))}
         />
         <Select
           label={t("stats:filters.tag")}

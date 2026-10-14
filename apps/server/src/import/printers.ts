@@ -7,6 +7,13 @@ import {
 import { type Db, schema } from "@3d-maker-suite/db";
 import { eq, isNull } from "drizzle-orm";
 import { modelIdFor } from "../lib/catalog.ts";
+import {
+  assertNumberFree,
+  freeNumber,
+  nextNumber,
+  numberCell,
+  printerTitle,
+} from "../lib/numbers.ts";
 
 const { brands, printerModels, printers } = schema;
 
@@ -43,8 +50,9 @@ export const printerImport = {
       .all()
       .map(({ printer: p, brand, model }) => ({
         id: p.id,
-        label: p.name,
+        label: printerTitle(p),
         values: {
+          number: p.number,
           name: p.name,
           brand,
           model,
@@ -83,6 +91,8 @@ export const printerImport = {
   create(db: Db, v: ImportValues) {
     db.insert(printers)
       .values({
+        // A number another printer has ("import as new" of an exported row) gets the next free one.
+        number: freeNumber(db, printers, numberCell(v.number)) ?? nextNumber(printers),
         name: str(v.name) ?? "",
         modelId: modelIdFor(db, str(v.brand) ?? "", str(v.model) ?? ""),
         serial: str(v.serial),
@@ -100,6 +110,8 @@ export const printerImport = {
     const { brand, model, purchasedAt, warrantyEndsAt, ...fields } = patch;
     // The other keys are named like the table's columns.
     const set: Record<string, unknown> = { ...fields };
+    if ("number" in set) set.number = numberCell(fields.number) ?? undefined;
+    assertNumberFree(db, printers, "printer", numberCell(fields.number), target.id);
     if (purchasedAt != null) set.purchasedAt = noon(purchasedAt);
     if (warrantyEndsAt != null) set.warrantyEndsAt = noon(warrantyEndsAt);
     if (brand !== undefined || model !== undefined) {

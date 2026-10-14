@@ -11,6 +11,7 @@ import { TagList } from "../../components/TagList.tsx";
 import { useModelInfo } from "../../lib/catalog.ts";
 import { useListPage, useUrlListQuery } from "../../lib/list.ts";
 import { usePreferences } from "../../lib/preferences.ts";
+import { printerName } from "../../lib/printers.ts";
 import { useTags, useTagsOf } from "../../lib/tags.ts";
 import { addClass } from "./Catalog.tsx";
 import { StateBadge, useStateLabel } from "./StateBadge.tsx";
@@ -87,7 +88,7 @@ export function PrintersPage() {
                     params={{ id: p.id }}
                     className="font-medium hover:underline"
                   >
-                    {p.name}
+                    {printerName(t, p)}
                   </Link>
                 ),
                 sort: "name",

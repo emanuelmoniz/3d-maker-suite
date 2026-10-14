@@ -1,6 +1,8 @@
 {
   "appName": "3D Maker Suite",
-  "units": { "kwh": "{{value}} kWh" },
+  "units": {
+    "kwh": "{{value}} kWh"
+  },
   "actions": {
     "back": "Back",
     "cancel": "Cancel",
@@ -31,7 +33,10 @@
     "dark": "Dark",
     "system": "System"
   },
-  "dateRange": { "from": "From", "to": "To" },
+  "dateRange": {
+    "from": "From",
+    "to": "To"
+  },
   "table": {
     "noRows": "No results",
     "pagination": "Pagination",
@@ -48,7 +53,10 @@
     "clear": "Clear",
     "showArchived": "Show archived"
   },
-  "a11y": { "mainNav": "Main navigation", "skipToContent": "Skip to content" },
+  "a11y": {
+    "mainNav": "Main navigation",
+    "skipToContent": "Skip to content"
+  },
   "notFound": {
     "title": "Page not found",
     "body": "This page doesn't exist. Use the menu to get back on track."
@@ -56,5 +64,7 @@
   "placeholder": {
     "title": "Coming soon",
     "body": "This module isn't built yet."
-  }
+  },
+  "printerName": "{{number}}-{{name}}",
+  "projectName": "{{number}}-{{name}}"
 }

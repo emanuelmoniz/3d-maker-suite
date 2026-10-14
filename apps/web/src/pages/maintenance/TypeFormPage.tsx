@@ -8,7 +8,7 @@ import { PageHeader } from "../../components/PageHeader.tsx";
 import { SearchPicker } from "../../components/SearchPicker.tsx";
 import { useModelInfo } from "../../lib/catalog.ts";
 import { useCreateType, useMaintenanceType, usePatchType } from "../../lib/maintenance.ts";
-import { usePrinters } from "../../lib/printers.ts";
+import { printerName, usePrinters } from "../../lib/printers.ts";
 
 const text = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
 const num = (v: string, scale = 1) => (v ? Math.round(Number(v) * scale) : null);
@@ -105,7 +105,7 @@ function TypeForm({ type }: { type?: MaintenanceType }) {
       {printers.length > 0 && (
         <SearchPicker
           label={t("maintenance:types.printers")}
-          options={printers.map((p) => ({ id: p.id, label: p.name }))}
+          options={printers.map((p) => ({ id: p.id, label: printerName(t, p) }))}
           value={printerIds}
           onChange={setPrinterIds}
         />

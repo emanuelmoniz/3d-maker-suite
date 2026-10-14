@@ -66,6 +66,8 @@ export const projectMetaSchema = z.object({
 
 export const projectSchema = z.object({
   id,
+  /** Short unique number the project goes by ("001-aquaterrario"); from the folder prefix if any. */
+  number: z.number().int().positive(),
   name: z.string().min(1),
   description: nullableText,
   /** Doc in the project folder (relative, `/`) whose text is the description; re-read on scans. */
@@ -99,6 +101,8 @@ const editable = {
 
 /** Fields given here count as user-edited. `folderPath` must be an existing directory. */
 export const projectInputSchema = z.object({
+  /** Defaults to the next free number. Not a scanned field, so a re-scan never touches it. */
+  number: projectSchema.shape.number.optional(),
   name: editable.name,
   description: editable.description.optional(),
   sourceUrl: editable.sourceUrl.optional(),
@@ -107,7 +111,7 @@ export const projectInputSchema = z.object({
 
 /** Any subset. Every field sent becomes user-edited. */
 export const projectPatchSchema = z
-  .object({ ...editable, descriptionFile: nullableText })
+  .object({ ...editable, descriptionFile: nullableText, number: projectSchema.shape.number })
   .partial()
   .strict();
 

@@ -22,7 +22,8 @@ import {
   useSaveQuote,
 } from "../../lib/cost.ts";
 import { formatDate } from "../../lib/format.ts";
-import { useProjects } from "../../lib/projects.ts";
+import { printerName } from "../../lib/printers.ts";
+import { projectName, useProjects } from "../../lib/projects.ts";
 
 type Row = { label: string; grams: number; price: number | null };
 /** Calculator state. Money is in major units here (what people type), minor units in the maths. */
@@ -147,7 +148,10 @@ function Calculator({ ctx }: { ctx: CostContext }) {
   });
   const row = (i: number, patch: Partial<Row>) =>
     set({ filaments: f.filaments.map((r, j) => (j === i ? { ...r, ...patch } : r)) });
-  const projectName = (id: string | null) => projects.find((p) => p.id === id)?.name;
+  const projectLabel = (id: string | null) => {
+    const p = projects.find((x) => x.id === id);
+    return p && projectName(t, p);
+  };
 
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
@@ -167,7 +171,7 @@ function Calculator({ ctx }: { ctx: CostContext }) {
                 <option value="">{t("costs:form.noProject")}</option>
                 {projects.map((p) => (
                   <option key={p.id} value={p.id}>
-                    {p.name}
+                    {projectName(t, p)}
                   </option>
                 ))}
               </select>
@@ -201,7 +205,7 @@ function Calculator({ ctx }: { ctx: CostContext }) {
                 <option value="">{t("costs:form.noPrinter")}</option>
                 {ctx.printers.map((p) => (
                   <option key={p.id} value={p.id}>
-                    {p.name}
+                    {printerName(t, p)}
                   </option>
                 ))}
               </select>
@@ -363,7 +367,7 @@ function Calculator({ ctx }: { ctx: CostContext }) {
                   </div>
                   <p className="text-muted">
                     {[
-                      projectName(q.projectId),
+                      projectLabel(q.projectId),
                       t("costs:saved.pieces", { count: q.quote.quantity }),
                       formatDate(q.createdAt),
                     ]

@@ -132,10 +132,11 @@ describe("integrations", () => {
   it("links a print to the project its title names and fills in a plate sent later", async () => {
     const { id } = await create();
     const file = (path: string) => ({ path, kind: "model", size: 1 });
+    let n = 0;
     const project = (name: string, files: string[]) =>
       db
         .insert(schema.projects)
-        .values({ name, meta: { files: files.map(file) } })
+        .values({ number: ++n, name, meta: { files: files.map(file) } })
         .returning()
         .get();
     const boat = project("Boat", ["model/Benchy.3mf"]);

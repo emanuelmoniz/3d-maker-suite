@@ -11,7 +11,7 @@ import { useCatalogItem, useMachineProfiles } from "../../lib/catalog.ts";
 import { spoolName, useProfiles, useSpools } from "../../lib/filament.ts";
 import { formatWeight } from "../../lib/format.ts";
 import { usePreferences } from "../../lib/preferences.ts";
-import { usePrinters } from "../../lib/printers.ts";
+import { printerName, usePrinters } from "../../lib/printers.ts";
 import { useCreatePrint, usePatchPrint, usePrint } from "../../lib/prints.ts";
 import { useTagEditor } from "../../lib/tags.ts";
 
@@ -127,7 +127,7 @@ function PrintForm({ print }: { print?: PrintDetail }) {
           >
             {printers.map((pr) => (
               <option key={pr.id} value={pr.id}>
-                {pr.name}
+                {printerName(t, pr)}
               </option>
             ))}
           </select>

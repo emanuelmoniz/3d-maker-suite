@@ -6,6 +6,7 @@ import {
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
 import { and, asc, count, eq, isNull, lte, sum } from "drizzle-orm";
+import { printerTitle } from "./numbers.ts";
 
 const { maintenanceTypes, maintenanceTasks, printers, prints } = schema;
 
@@ -48,7 +49,7 @@ export function dueItems(db: Db, printerId?: string): MaintenanceDueItem[] {
         : { at: p.purchasedAt ?? p.createdAt, runtimeSec: 0, prints: 0 };
       items.push({
         printerId: p.id,
-        printerName: p.name,
+        printerName: printerTitle(p),
         typeId: type.id,
         typeName: type.name,
         lastDoneAt: last?.doneAt ?? null,

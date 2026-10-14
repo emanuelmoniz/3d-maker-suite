@@ -25,8 +25,10 @@ import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
 import { capableRows } from "../integrations/capabilities.ts";
+import { projectLabel } from "../lib/catalog.ts";
 import { insideRoots, openFolder, slicerLauncher } from "../lib/launcher.ts";
 import { columnFilter, listPage, taggedWith } from "../lib/list.ts";
+import { assertNumberFree, nextNumber } from "../lib/numbers.ts";
 import { readPreferences } from "../lib/preferences.ts";
 import type { ProjectScanner } from "../projects/scanner.ts";
 
@@ -98,14 +100,15 @@ export const projectsRoutes =
         const { material } = req.query;
         const page = listPage(db, projects, req.query, {
           sort: {
-            name: projects.name,
+            // The name starts with the number: sorting by it sorts the name as shown.
+            name: projects.number,
             createdAt: projects.createdAt,
             multicolor: isMulticolor,
             lastPrintAt,
           },
           dateColumn: projects.createdAt,
           filters: {
-            name: sql`${projects.name} || ' ' || coalesce(${projects.description}, '')`,
+            name: sql`${projectLabel} || ' ' || coalesce(${projects.description}, '')`,
             multicolor: isMulticolor,
             lastPrintAt,
           },
@@ -165,15 +168,17 @@ export const projectsRoutes =
         },
       },
       async (req, reply) => {
-        const { folderPath, ...fields } = req.body;
+        const { folderPath, number, ...fields } = req.body;
+        assertNumberFree(db, projects, "project", number);
         // Only what the user typed is "edited"; `undefined` means "let the scan decide".
         const given = Object.fromEntries(Object.entries(fields).filter(([, v]) => v !== undefined));
         const row = folderPath
-          ? await scanner.addFolder(folderPath, given)
+          ? await scanner.addFolder(folderPath, { ...given, number })
           : db
               .insert(projects)
               .values({
                 ...given,
+                number: number ?? nextNumber(projects),
                 name: fields.name,
                 editedFields: Object.keys(given) as Project["editedFields"],
               })
@@ -186,13 +191,19 @@ export const projectsRoutes =
     app.patch(
       "/:id",
       {
-        schema: { params, body: projectPatchSchema, response: { 200: projectSchema, ...notFound } },
+        schema: {
+          params,
+          body: projectPatchSchema,
+          response: { 200: projectSchema, 409: apiErrorSchema, ...notFound },
+        },
       },
       async (req) => {
         const { editedFields, folderPath, meta } = get(req.params.id);
-        const { descriptionFile, ...fields } = req.body;
+        const { descriptionFile, number, ...fields } = req.body;
+        assertNumberFree(db, projects, "project", number, req.params.id);
         const touched = new Set([...editedFields, ...(Object.keys(fields) as typeof editedFields)]);
-        const set: Partial<typeof projects.$inferInsert> = { ...fields };
+        // Not a scanned field, so not tracked in `editedFields`.
+        const set: Partial<typeof projects.$inferInsert> = { ...fields, number };
         if (descriptionFile) {
           // Link a doc the scanner listed; its text becomes the description on the refresh below.
           const doc = meta.files.some(

@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import { z } from "zod";
-import { usePrinters } from "../lib/printers.ts";
+import { printerName, usePrinters } from "../lib/printers.ts";
 import { StateBadge } from "../pages/printers/StateBadge.tsx";
 import { defineWidget } from "./registry.ts";
 import { WidgetCard } from "./Widget.tsx";
@@ -33,7 +33,7 @@ defineWidget({
                   params={{ id: p.id }}
                   className="font-medium hover:underline"
                 >
-                  {p.name}
+                  {printerName(t, p)}
                 </Link>
                 <StateBadge state={p.state} />
               </li>

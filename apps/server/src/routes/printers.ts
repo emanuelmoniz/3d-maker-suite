@@ -23,9 +23,10 @@ import { and, desc, eq, isNotNull, isNull } from "drizzle-orm";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
-import { modelName } from "../lib/catalog.ts";
+import { modelName, printerLabel } from "../lib/catalog.ts";
 import { imageRoutes } from "../lib/images.ts";
 import { dateRange, listPage, taggedWith } from "../lib/list.ts";
+import { assertNumberFree, nextNumber } from "../lib/numbers.ts";
 import { readPreferences } from "../lib/preferences.ts";
 
 const { printers, printerComments, printerModels, prints } = schema;
@@ -71,7 +72,8 @@ export const printersRoutes =
       async (req) =>
         listPage(db, printers, req.query, {
           sort: {
-            name: printers.name,
+            // The name starts with the number: sorting by it sorts the name as shown (2 before 10).
+            name: printers.number,
             createdAt: printers.createdAt,
             model: brandModel,
             state: printers.state,
@@ -79,7 +81,7 @@ export const printersRoutes =
           },
           dateColumn: printers.createdAt,
           filters: {
-            name: printers.name,
+            name: printerLabel,
             model: brandModel,
             state: printers.state,
             powerW: printers.powerW,
@@ -95,11 +97,21 @@ export const printersRoutes =
 
     app.post(
       "/",
-      { schema: { body: printerInputSchema, response: { 201: printerSchema } } },
+      {
+        schema: {
+          body: printerInputSchema,
+          response: { 201: printerSchema, 409: apiErrorSchema },
+        },
+      },
       async (req, reply) => {
         checkState(req.body.state);
         checkModel(req.body.modelId);
-        const row = db.insert(printers).values(req.body).returning().get();
+        assertNumberFree(db, printers, "printer", req.body.number);
+        const row = db
+          .insert(printers)
+          .values({ ...req.body, number: req.body.number ?? nextNumber(printers) })
+          .returning()
+          .get();
         return reply.status(201).send(row as Printer);
       },
     );
@@ -114,13 +126,18 @@ export const printersRoutes =
     app.patch(
       "/:id",
       {
-        schema: { params, body: printerPatchSchema, response: { 200: printerSchema, ...notFound } },
+        schema: {
+          params,
+          body: printerPatchSchema,
+          response: { 200: printerSchema, 409: apiErrorSchema, ...notFound },
+        },
       },
       async (req) => {
         get(req.params.id);
         const { archived, ...fields } = req.body;
         checkState(fields.state);
         checkModel(fields.modelId);
+        assertNumberFree(db, printers, "printer", fields.number, req.params.id);
         const archivedAt =
           archived === undefined ? undefined : archived ? new Date().toISOString() : null;
         return db

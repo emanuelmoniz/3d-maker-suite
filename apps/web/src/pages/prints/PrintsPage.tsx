@@ -12,7 +12,7 @@ import { TagList } from "../../components/TagList.tsx";
 import { useMoney } from "../../lib/cost.ts";
 import { formatDateTime, formatDuration, formatWeight } from "../../lib/format.ts";
 import { useUrlListQuery } from "../../lib/list.ts";
-import { usePrinters } from "../../lib/printers.ts";
+import { printerName, usePrinters } from "../../lib/printers.ts";
 import { useFilamentReview, usePrints } from "../../lib/prints.ts";
 import { useTags, useTagsOf } from "../../lib/tags.ts";
 
@@ -141,9 +141,12 @@ export function PrintsPage() {
               {
                 id: "printer",
                 header: t("prints:list.columns.printer"),
-                cell: (p) => printers.find((x) => x.id === p.printerId)?.name ?? "",
+                cell: (p) => {
+                  const printer = printers.find((x) => x.id === p.printerId);
+                  return printer ? printerName(t, printer) : "";
+                },
                 filter: "printerId",
-                filterOptions: printers.map((x) => ({ value: x.id, label: x.name })),
+                filterOptions: printers.map((x) => ({ value: x.id, label: printerName(t, x) })),
               },
               {
                 id: "outcome",

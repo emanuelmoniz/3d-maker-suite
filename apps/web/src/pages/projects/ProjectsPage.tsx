@@ -26,6 +26,7 @@ import { cx } from "../../lib/cx.ts";
 import { formatDate } from "../../lib/format.ts";
 import { useListPage, useUrlListQuery } from "../../lib/list.ts";
 import {
+  projectName,
   projectThumbnailUrl,
   useCreateProject,
   useProjectMaterials,
@@ -339,7 +340,7 @@ export function ProjectsPage() {
                       >
                         <Thumb p={p} className="aspect-square w-full" />
                         <span className="block p-2">
-                          <span className="block truncate font-medium">{p.name}</span>
+                          <span className="block truncate font-medium">{projectName(t, p)}</span>
                           <span className="block truncate text-muted">
                             {tagline(p, t("projects:list.multicolor")) || "\u00a0"}
                           </span>
@@ -373,7 +374,7 @@ export function ProjectsPage() {
                           params={{ id: p.id }}
                           className="font-medium hover:underline"
                         >
-                          {p.name}
+                          {projectName(t, p)}
                         </Link>
                         {p.sourceUrl && (
                           <a

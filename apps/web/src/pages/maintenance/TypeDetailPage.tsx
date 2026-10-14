@@ -5,7 +5,7 @@ import { PageHeader } from "../../components/PageHeader.tsx";
 import { useModelInfo } from "../../lib/catalog.ts";
 import { formatNumber } from "../../lib/format.ts";
 import { useMaintenanceType, usePatchType } from "../../lib/maintenance.ts";
-import { usePrinters } from "../../lib/printers.ts";
+import { printerName, usePrinters } from "../../lib/printers.ts";
 import { Info, linkButton } from "../filament/SpoolDetailPage.tsx";
 
 export function TypeDetailPage() {
@@ -28,7 +28,7 @@ export function TypeDetailPage() {
   const archived = type.archivedAt !== null;
   const printerNames = printers
     .filter((p) => type.appliesToPrinterIds.includes(p.id))
-    .map((p) => p.name);
+    .map((p) => printerName(t, p));
 
   return (
     <>

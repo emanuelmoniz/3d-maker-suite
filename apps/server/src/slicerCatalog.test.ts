@@ -135,7 +135,7 @@ describe("slicer catalog import", () => {
 
     const printer = db
       .insert(schema.printers)
-      .values({ name: "P", modelId: first?.printerModelId })
+      .values({ number: 1, name: "P", modelId: first?.printerModelId })
       .returning()
       .get();
     db.insert(schema.prints)

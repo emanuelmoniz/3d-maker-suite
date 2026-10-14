@@ -1,7 +1,7 @@
 import type { WeightEntryKind } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
-import { and, eq, ne, sql } from "drizzle-orm";
-import { HttpError } from "../errors.ts";
+import { eq } from "drizzle-orm";
+import { nextNumber } from "./numbers.ts";
 
 const { spools, spoolWeightEntries } = schema;
 
@@ -33,17 +33,6 @@ export function setRemaining(
   });
 }
 
-/** Throws a 409 when another spool already has `number`. */
-export function assertNumberFree(db: Db, number: number | null | undefined, exceptId?: string) {
-  if (number == null) return;
-  const other = db
-    .select({ id: spools.id })
-    .from(spools)
-    .where(and(eq(spools.number, number), exceptId ? ne(spools.id, exceptId) : undefined))
-    .get();
-  if (other) throw new HttpError(409, "spool_number_taken", `Spool number ${number} is taken`);
-}
-
 /**
  * Inserts a spool plus its opening ledger entry, so the ledger sums to the weight from day one.
  * Without a number it gets the next one (max + 1).
@@ -57,8 +46,7 @@ export function createSpool(
       .insert(spools)
       .values({
         ...values,
-        number:
-          values.number ?? sql`(SELECT coalesce(max(${spools.number}), 0) + 1 FROM ${spools})`,
+        number: values.number ?? nextNumber(spools),
       })
       .returning()
       .get();

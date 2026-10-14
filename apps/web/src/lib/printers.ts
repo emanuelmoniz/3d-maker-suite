@@ -9,6 +9,7 @@ import type {
   PrintStats,
 } from "@3d-maker-suite/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { TFunction } from "i18next";
 import { api } from "./api.ts";
 
 export type Period = { from?: string; to?: string };
@@ -82,3 +83,7 @@ export const useDeleteComment = (id: string) =>
   useInvalidating((commentId: string) =>
     api("DELETE", `/api/printers/${id}/comments/${commentId}`),
   );
+
+/** The name a printer goes by everywhere: "2-Bambu A1". The server builds the same in `printerLabel`. */
+export const printerName = (t: TFunction, p: Pick<Printer, "number" | "name">) =>
+  t("common:printerName", { number: p.number, name: p.name });

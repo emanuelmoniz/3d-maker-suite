@@ -3,9 +3,13 @@ import { printerSchema } from "./entities.ts";
 import { COMMENT_STATUSES } from "./enums.ts";
 import type { ColumnFilter } from "./list.ts";
 
-/** Fields the user edits. `PATCH` takes any subset, plus `archived` to archive/restore. */
+/**
+ * Fields the user edits. `PATCH` takes any subset, plus `archived` to archive/restore.
+ * `number` defaults to the next free one.
+ */
 export const printerInputSchema = printerSchema
   .pick({
+    number: true,
     name: true,
     modelId: true,
     serial: true,
@@ -18,6 +22,7 @@ export const printerInputSchema = printerSchema
     powerW: true,
   })
   .partial({
+    number: true,
     serial: true,
     nozzleDiameterMm: true,
     purchasedAt: true,

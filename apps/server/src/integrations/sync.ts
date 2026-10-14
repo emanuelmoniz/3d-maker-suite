@@ -26,6 +26,7 @@ import type { FastifyBaseLogger } from "fastify";
 import { HttpError } from "../errors.ts";
 import { createReview, type Stored } from "../import/review.ts";
 import { modelIdFor, profileMaterial } from "../lib/catalog.ts";
+import { nextNumber } from "../lib/numbers.ts";
 import { takeFromSpool } from "../lib/spools.ts";
 import { linkPrints } from "../projects/linkPrints.ts";
 import { activeCapabilities, capableRow, policyOf, switchedOn } from "./capabilities.ts";
@@ -213,7 +214,12 @@ export function createSyncer(
           else {
             const { brand, model, ...fields } = p.data;
             db.insert(printers)
-              .values({ ...fields, modelId: modelIdFor(db, brand, model), ...imported })
+              .values({
+                ...fields,
+                number: nextNumber(printers),
+                modelId: modelIdFor(db, brand, model),
+                ...imported,
+              })
               .run();
           }
           created++;

@@ -192,6 +192,9 @@ export const printers = sqliteTable(
   {
     id: id(),
     name: text().notNull(),
+    // ponytail: nullable only because SQLite can't ADD a NOT NULL column without a constant
+    // default; every insert sets it (nextNumber). Rebuild the table with NOT NULL if a path skips it.
+    number: integer(),
     // Nullable only because SQLite can't ADD a NOT NULL FK column without rebuilding the table
     // (migration 0017); the API always requires it.
     modelId: text().references(() => printerModels.id, { onDelete: "restrict" }),
@@ -213,6 +216,7 @@ export const printers = sqliteTable(
   },
   (t) => [
     uniqueIndex("printers_external_uq").on(t.integrationId, t.externalId),
+    uniqueIndex("printers_number_uq").on(t.number),
     check("printers_origin_ck", oneOf(t.origin, ORIGINS)),
   ],
 );
@@ -385,6 +389,8 @@ export const projects = sqliteTable(
   "projects",
   {
     id: id(),
+    // ponytail: nullable like printers.number; the scanner and routes always set it.
+    number: integer(),
     name: text().notNull(),
     description: text(),
     // Folder file (relative) whose text is the description; re-read on every scan.
@@ -407,6 +413,7 @@ export const projects = sqliteTable(
   (t) => [
     uniqueIndex("projects_external_uq").on(t.integrationId, t.externalId),
     uniqueIndex("projects_folder_uq").on(t.folderPath),
+    uniqueIndex("projects_number_uq").on(t.number),
     check("projects_origin_ck", oneOf(t.origin, ORIGINS)),
   ],
 );

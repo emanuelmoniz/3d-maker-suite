@@ -47,7 +47,10 @@
     "folderHint": "Optional. Full path of a folder with the model files; they are scanned right away.",
     "editedHint": "Fields you change here are kept when the folder is scanned again.",
     "save": "Save",
-    "error": "Couldn't save the project. Check the folder path and the link."
+    "error": "Couldn't save the project. Check the folder path and the link.",
+    "number": "Number",
+    "numberHint": "Leave empty for the folder’s number, or the next free one.",
+    "numberTaken": "Another project already has this number."
   },
   "filters": {
     "search": "Search projects",

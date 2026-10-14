@@ -120,6 +120,8 @@ export const IMPORT_COLUMNS = {
     },
   ],
   printers: [
+    // A printer's number is its identity in a file: a row with one updates that printer.
+    { key: "number", type: "integer", label: "import:printers.columns.number" },
     { key: "name", type: "text", label: "import:printers.columns.name", required: true },
     {
       key: "brand",

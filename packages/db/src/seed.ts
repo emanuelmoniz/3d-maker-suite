@@ -73,7 +73,7 @@ export function seed(db: Db, now = new Date(), { prints: printCount = 40 } = {})
     ].map((v, i) =>
       tx
         .insert(s.printers)
-        .values({ ...v, powerW: at(watts, i) })
+        .values({ ...v, number: i + 1, powerW: at(watts, i) })
         .returning()
         .get(),
     );
@@ -148,6 +148,7 @@ export function seed(db: Db, now = new Date(), { prints: printCount = 40 } = {})
           ] as const
         ).map(([p, colorHex], i) => ({
           profileId: at(profiles, p).id,
+          number: i + 1,
           colorHex,
           initialGrams: 1000,
           remainingGrams: 1000,
@@ -164,9 +165,19 @@ export function seed(db: Db, now = new Date(), { prints: printCount = 40 } = {})
     const projects = tx
       .insert(s.projects)
       .values([
-        { name: "Benchy", filePath: "C:/Models/benchy.3mf", meta: { plates: 1 } },
-        { name: "Cable clips", filePath: "C:/Models/cable-clips.3mf", meta: { plates: 2 } },
-        { name: "Phone stand", sourceUrl: "https://example.com/phone-stand", meta: { plates: 1 } },
+        { number: 1, name: "Benchy", filePath: "C:/Models/benchy.3mf", meta: { plates: 1 } },
+        {
+          number: 2,
+          name: "Cable clips",
+          filePath: "C:/Models/cable-clips.3mf",
+          meta: { plates: 2 },
+        },
+        {
+          number: 3,
+          name: "Phone stand",
+          sourceUrl: "https://example.com/phone-stand",
+          meta: { plates: 1 },
+        },
       ])
       .returning()
       .all();

@@ -10,9 +10,9 @@ import { TagList } from "../../components/TagList.tsx";
 import { useCatalogItem } from "../../lib/catalog.ts";
 import { spoolName, useProfile, useSpool } from "../../lib/filament.ts";
 import { formatDateTime, formatDuration, formatNumber, formatWeight } from "../../lib/format.ts";
-import { usePrinter } from "../../lib/printers.ts";
+import { printerName, usePrinter } from "../../lib/printers.ts";
 import { useDeletePrint, usePrint } from "../../lib/prints.ts";
-import { useProject } from "../../lib/projects.ts";
+import { projectName, useProject } from "../../lib/projects.ts";
 import { useTagsOf } from "../../lib/tags.ts";
 import { Info, linkButton } from "../filament/SpoolDetailPage.tsx";
 
@@ -24,7 +24,9 @@ const OUTCOMES = {
 const link = "font-medium underline";
 
 function PrinterLink({ id }: { id: string }) {
-  const name = usePrinter(id).data?.name;
+  const { t } = useTranslation();
+  const printer = usePrinter(id).data;
+  const name = printer && printerName(t, printer);
   return (
     <Link to="/printers/$id" params={{ id }} className={link}>
       {name}
@@ -42,7 +44,9 @@ function MachineProfileLink({ id }: { id: string }) {
 }
 
 function ProjectLink({ id }: { id: string }) {
-  const name = useProject(id).data?.name;
+  const { t } = useTranslation();
+  const project = useProject(id).data;
+  const name = project && projectName(t, project);
   return (
     <Link to="/projects/$id" params={{ id }} className={link}>
       {name}

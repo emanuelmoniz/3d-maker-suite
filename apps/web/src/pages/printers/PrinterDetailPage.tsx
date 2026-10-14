@@ -18,6 +18,7 @@ import {
 import { usePreferences } from "../../lib/preferences.ts";
 import {
   photoUrl,
+  printerName,
   usePatchPrinter,
   usePrinter,
   usePrinterStats,
@@ -75,7 +76,7 @@ export function PrinterDetailPage() {
   return (
     <>
       <PageHeader
-        title={printer.name}
+        title={printerName(t, printer)}
         backTo={{ to: "/printers" }}
         description={model?.label}
         actions={
@@ -118,7 +119,7 @@ export function PrinterDetailPage() {
             {photo ? (
               <img
                 src={photo}
-                alt={t("printers:detail.photo.alt", { name: printer.name })}
+                alt={t("printers:detail.photo.alt", { name: printerName(t, printer) })}
                 className="aspect-square w-full rounded-md border border-border object-cover"
               />
             ) : (

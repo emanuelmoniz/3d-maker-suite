@@ -88,7 +88,7 @@ describe("listPage filters", () => {
   it("column filters on /api/prints", async () => {
     const printer = db
       .insert(schema.printers)
-      .values({ name: "p", modelId: modelIdFor(db, "b", "m") })
+      .values({ number: 1, name: "p", modelId: modelIdFor(db, "b", "m") })
       .returning()
       .get();
     const row = (title: string, day: string, durationSec: number, outcome = "success") => ({
@@ -169,8 +169,13 @@ describe("listPage filters", () => {
 
     db.insert(schema.projects)
       .values([
-        { name: "Vase", description: "spiral", meta: { materials: ["PLA"], multicolor: false } },
-        { name: "Dragon", meta: { materials: ["PETG", "TPU"], multicolor: true } },
+        {
+          number: 1,
+          name: "Vase",
+          description: "spiral",
+          meta: { materials: ["PLA"], multicolor: false },
+        },
+        { number: 2, name: "Dragon", meta: { materials: ["PETG", "TPU"], multicolor: true } },
       ])
       .run();
     expect(await names("/api/projects?material=TPU,ASA")).toEqual(["Dragon"]);

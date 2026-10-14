@@ -11,6 +11,8 @@ import {
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
 import { and, eq, isNull } from "drizzle-orm";
+import { printerLabel } from "../lib/catalog.ts";
+import { printerTitle } from "../lib/numbers.ts";
 import { energyFor, syncUsages } from "../lib/prints.ts";
 import type { WriteRow } from "./review.ts";
 import { spoolImport, spoolLabels } from "./spools.ts";
@@ -26,7 +28,11 @@ const second = (iso: string) => `${new Date(iso).toISOString().slice(0, 19)}Z`;
 type Names = Map<string, string[]>;
 const group = (pairs: (readonly [string, string])[]): Names => {
   const map: Names = new Map();
-  for (const [name, id] of pairs) map.set(lower(name), [...(map.get(lower(name)) ?? []), id]);
+  for (const [name, id] of pairs) {
+    const ids = map.get(lower(name)) ?? [];
+    // The same row under two of its own keys (name "3", number 3) is still one row.
+    if (!ids.includes(id)) map.set(lower(name), [...ids, id]);
+  }
   return map;
 };
 /** The row a name means; null when it means none or several. */
@@ -38,13 +44,22 @@ const one = (names: Names, name: ImportCell | undefined) => {
 type Lookups = { printers: Names; spools: Names; profiles: Names };
 function build(db: Db): Lookups {
   const all = db
-    .select({ id: printers.id, name: printers.name, archivedAt: printers.archivedAt })
+    .select({
+      id: printers.id,
+      number: printers.number,
+      name: printers.name,
+      archivedAt: printers.archivedAt,
+    })
     .from(printers)
     .all();
-  // An archived printer only answers to a name no active one has.
-  const named = group(all.filter((p) => !p.archivedAt).map((p) => [p.name, p.id] as const));
+  // A printer answers to its display name, its number alone or its plain name. An archived one
+  // only answers to what no active one has.
+  const keys = (p: (typeof all)[number]) =>
+    [printerTitle(p), String(p.number), p.name].map((k) => [k, p.id] as const);
+  const named = group(all.filter((p) => !p.archivedAt).flatMap(keys));
   for (const p of all)
-    if (p.archivedAt && !named.has(lower(p.name))) named.set(lower(p.name), [p.id]);
+    if (p.archivedAt)
+      for (const [k] of keys(p)) if (!named.has(lower(k))) named.set(lower(k), [p.id]);
   return {
     printers: named,
     // A spool answers to its display name or to its number alone.
@@ -162,10 +177,10 @@ export const printImport = {
 
   refs: (db: Db) => ({
     printers: db
-      .select({ name: printers.name })
+      .select({ name: printerLabel })
       .from(printers)
       .where(isNull(printers.archivedAt))
-      .orderBy(printers.name)
+      .orderBy(printers.number)
       .all()
       .map((p) => p.name),
     // In number order, as the targets come.

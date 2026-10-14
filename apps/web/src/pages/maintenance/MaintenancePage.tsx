@@ -17,7 +17,7 @@ import { dateInputToIso, formatDate, formatDuration, formatNumber } from "../../
 import { useListPage, useUrlListQuery } from "../../lib/list.ts";
 import { useDue, useLogDone } from "../../lib/maintenance.ts";
 import { usePreferences } from "../../lib/preferences.ts";
-import { usePrinters } from "../../lib/printers.ts";
+import { printerName, usePrinters } from "../../lib/printers.ts";
 
 const STATUS = {
   ok: "maintenance:due.status.ok",
@@ -321,7 +321,7 @@ export function MaintenancePage() {
                           ...m.appliesToModelIds.map((id) => models.get(id)?.label ?? ""),
                           ...printers
                             .filter((p) => m.appliesToPrinterIds.includes(p.id))
-                            .map((p) => p.name),
+                            .map((p) => printerName(t, p)),
                         ]
                           .filter(Boolean)
                           .join(", "),

@@ -102,6 +102,8 @@ export const machineProfileSchema = z.object({
 
 export const printerSchema = z.object({
   id,
+  /** Short unique number the printer goes by ("2-Bambu A1"). */
+  number: z.number().int().positive(),
   name: z.string().min(1),
   modelId: id,
   serial: z.string().nullable(),

@@ -91,6 +91,27 @@ describe("project scanner", () => {
     expect((await byName("Vase")).sourceUrl).toBe("https://makerworld.com/en/models/99");
   });
 
+  it("numbers projects from the folder prefix, else the next free number; 0 is skipped", async () => {
+    await put("000_template/t.stl", "solid");
+    await put("003_boat/b.stl", "solid");
+    await put("Plain/p.stl", "solid");
+    await put("5 - Vase/v.stl", "solid");
+    await put("003_zcopy/c.stl", "solid"); // 3 is taken, so it gets the next free one
+    await setRoots();
+    expect(await scan()).toMatchObject({ created: 4, failed: 0 });
+    const found = (await list()).map((p: { number: number; name: string }) => [p.number, p.name]);
+    // The first folder of a number goes first, so a duplicate or "Plain" cannot take 5.
+    expect(found).toEqual([
+      [3, "boat"],
+      [5, "Vase"],
+      [6, "zcopy"],
+      [7, "Plain"],
+    ]);
+    // A re-scan renumbers nothing.
+    await scan();
+    expect((await list()).map((p: { number: number }) => p.number)).toEqual([3, 5, 6, 7]);
+  });
+
   it("honours the scan depth", async () => {
     await sampleTree();
     await setRoots(2);
@@ -158,6 +179,24 @@ describe("project scanner", () => {
 });
 
 describe("manual projects", () => {
+  it("get the next free number, or the one given; a taken one is a 409", async () => {
+    const post = (payload: object) => app.inject({ method: "POST", url: "/api/projects", payload });
+    expect((await post({ name: "A" })).json().number).toBe(1);
+    expect((await post({ name: "B", number: 10 })).json().number).toBe(10);
+    expect((await post({ name: "C" })).json().number).toBe(11);
+    const taken = await post({ name: "D", number: 10 });
+    expect(taken.statusCode).toBe(409);
+    expect(taken.json().error.code).toBe("project_number_taken");
+    const a = (await list()).find((p: { name: string }) => p.name === "A");
+    const patch = (payload: object) =>
+      app.inject({ method: "PATCH", url: `/api/projects/${a.id}`, payload });
+    expect((await patch({ number: 10 })).statusCode).toBe(409);
+    const ok = (await patch({ number: 2 })).json();
+    expect(ok).toMatchObject({ number: 2, editedFields: ["name"] });
+    // The display name leads the filter: 011 is "C".
+    expect((await app.inject("/api/projects?name=011-c")).json().items).toHaveLength(1);
+  });
+
   it("can be created without a folder and edited", async () => {
     const res = await app.inject({
       method: "POST",

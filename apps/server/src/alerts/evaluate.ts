@@ -3,6 +3,7 @@ import { type Db, schema } from "@3d-maker-suite/db";
 import { and, eq, isNull, ne } from "drizzle-orm";
 import { spoolName } from "../lib/catalog.ts";
 import { dueItems } from "../lib/maintenance.ts";
+import { printerTitle } from "../lib/numbers.ts";
 import { readPreferences } from "../lib/preferences.ts";
 import { channels, readChannel, sendVia } from "./channels.ts";
 
@@ -45,7 +46,7 @@ function conditions(db: Db, now: Date): Found {
     const ends = p.warrantyEndsAt ? Date.parse(p.warrantyEndsAt) : Number.NaN;
     if (ends >= now.getTime() && ends <= limit)
       add("warranty_ending", "printer", p.id, {
-        name: p.name,
+        name: printerTitle(p),
         days: Math.ceil((ends - now.getTime()) / DAY_MS),
       });
   }

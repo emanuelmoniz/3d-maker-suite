@@ -34,7 +34,8 @@ import {
   spoolName,
 } from "../lib/catalog.ts";
 import { inIds, listPage, taggedWith } from "../lib/list.ts";
-import { assertNumberFree, createSpool, setRemaining } from "../lib/spools.ts";
+import { assertNumberFree } from "../lib/numbers.ts";
+import { createSpool, setRemaining } from "../lib/spools.ts";
 
 const { filamentProfiles, spools, spoolWeightEntries } = schema;
 const params = z.object({ id: z.uuid() });
@@ -198,7 +199,7 @@ export const filamentRoutes =
       async (req, reply) => {
         if (getProfile(req.body.profileId).archivedAt)
           throw new HttpError(400, "profile_archived", "Filament profile is archived");
-        assertNumberFree(db, req.body.number);
+        assertNumberFree(db, spools, "spool", req.body.number);
         const remainingGrams = req.body.remainingGrams ?? req.body.initialGrams;
         const row = createSpool(db, { ...req.body, remainingGrams });
         return reply.status(201).send(row as Spool);
@@ -216,7 +217,7 @@ export const filamentRoutes =
       },
       async (req) => {
         getSpool(req.params.id);
-        assertNumberFree(db, req.body.number, req.params.id);
+        assertNumberFree(db, spools, "spool", req.body.number, req.params.id);
         const { archived, ...fields } = req.body;
         return db
           .update(spools)

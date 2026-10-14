@@ -12,12 +12,15 @@ import chokidar, { type FSWatcher } from "chokidar";
 import { eq } from "drizzle-orm";
 import type { FastifyBaseLogger } from "fastify";
 import { HttpError } from "../errors.ts";
+import { nextNumber } from "../lib/numbers.ts";
 import { readPreferences } from "../lib/preferences.ts";
+import { parseFolderName } from "./folderName.ts";
 import { linkPrints } from "./linkPrints.ts";
 import { type Cover, type FolderScan, isHidden, kindOf, scanFolder } from "./scanFolder.ts";
 
 const { projects } = schema;
 type Fields = {
+  number?: number;
   name?: string;
   description?: string | null;
   sourceUrl?: string | null;
@@ -122,19 +125,26 @@ export function createProjectScanner(
       materials: [...new Set(types.filter((t): t is string => !!t))].sort(),
     };
     const scanned = {
-      name: basename(folder),
+      name: parseFolderName(basename(folder)).name,
       description: scan.description,
       sourceUrl: scan.sourceUrl,
     };
     const always = { filePath: scan.mainFile, thumbnailPath, meta };
 
     if (!row) {
+      // A folder prefix is its number unless another project has it already.
+      const prefix = parseFolderName(basename(folder)).number;
+      const free =
+        prefix != null &&
+        prefix > 0 &&
+        !db.select({ id: projects.id }).from(projects).where(eq(projects.number, prefix)).get();
       db.insert(projects)
         .values({
           id,
           folderPath: folder,
           ...scanned,
           ...user,
+          number: user.number ?? (free ? prefix : nextNumber(projects)),
           editedFields: PROJECT_EDITABLE_FIELDS.filter(
             (f) => f in user && !(f === "description" && user.descriptionFile),
           ),
@@ -179,7 +189,25 @@ export function createProjectScanner(
       }
       state.phase = "scanning";
       state.total = folders.size;
-      for (const folder of folders) {
+      // First claimants of a prefix number go first, so a duplicate or unnumbered folder (which gets
+      // the next free number) never takes a number a later folder owns.
+      const claimed = new Set<number>();
+      const ordered: string[] = [];
+      const later: string[] = [];
+      for (const f of folders) {
+        const n = parseFolderName(basename(f)).number;
+        if (n != null && !claimed.has(n)) {
+          claimed.add(n);
+          ordered.push(f);
+        } else later.push(f);
+      }
+      ordered.push(...later);
+      for (const folder of ordered) {
+        // Number 0 ("000_project-name") marks a template folder: no project.
+        if (parseFolderName(basename(folder)).number === 0) {
+          state.done++;
+          continue;
+        }
         try {
           const scan = await scanFolder(folder, linkOf(folder));
           if (scan.hasModel) {

@@ -9,7 +9,8 @@ import { type Db, schema } from "@3d-maker-suite/db";
 import { and, eq, isNotNull, isNull } from "drizzle-orm";
 import { profileKey, spoolProfiles } from "../integrations/imports.ts";
 import { filamentProfileIdFor, profileBrand, profileMaterial, spoolName } from "../lib/catalog.ts";
-import { assertNumberFree, createSpool, setRemaining } from "../lib/spools.ts";
+import { assertNumberFree, freeNumber, numberCell } from "../lib/numbers.ts";
+import { createSpool, setRemaining } from "../lib/spools.ts";
 import type { WriteRow } from "./review.ts";
 
 const { filamentBrands, filamentMaterials, filamentProfiles, spools } = schema;
@@ -151,11 +152,11 @@ export const spoolImport = {
 
   create(db: Db, v: ImportValues, row: WriteRow) {
     const initialGrams = num(v.initialGrams) ?? 0;
-    assertNumberFree(db, num(v.number));
     createSpool(db, {
       profileId: row.refs?.profile ?? filamentProfileIdFor(db, filament(v)),
       sourceSpool: row.source,
-      number: num(v.number),
+      // A number another spool has ("import as new" of an exported row) gets the next free one.
+      number: freeNumber(db, spools, numberCell(v.number)),
       colorHex: str(v.colorHex) ?? undefined,
       colorName: str(v.colorName),
       initialGrams,
@@ -174,7 +175,8 @@ export const spoolImport = {
     const { brand, material, profile, remainingGrams, purchasedAt, openedAt, ...fields } = patch;
     // The other keys are named like the table's columns.
     const set: Record<string, unknown> = { ...fields };
-    assertNumberFree(db, num(fields.number), target.id);
+    if ("number" in set) set.number = numberCell(fields.number) ?? undefined;
+    assertNumberFree(db, spools, "spool", numberCell(fields.number), target.id);
     if (purchasedAt != null) set.purchasedAt = noon(purchasedAt);
     if (openedAt != null) set.openedAt = noon(openedAt);
     // A vendor names a filament its own way: its spool never moves yours to another profile.

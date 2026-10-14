@@ -11,7 +11,12 @@
     "table": "Printers",
     "emptyTitle": "No printers yet",
     "emptyBody": "Add your first printer to start tracking prints and maintenance.",
-    "columns": { "name": "Name", "model": "Model", "state": "State", "power": "Power" }
+    "columns": {
+      "name": "Name",
+      "model": "Model",
+      "state": "State",
+      "power": "Power"
+    }
   },
   "form": {
     "addTitle": "Add printer",
@@ -27,7 +32,10 @@
     "warrantyEndsAt": "Warranty ends",
     "warrantyNotes": "Warranty notes",
     "save": "Save",
-    "saveError": "Couldn't save the printer."
+    "saveError": "Couldn't save the printer.",
+    "number": "Number",
+    "numberHint": "Leave empty for the next free number.",
+    "numberTaken": "Another printer already has this number."
   },
   "detail": {
     "notFound": "This printer doesn't exist.",
