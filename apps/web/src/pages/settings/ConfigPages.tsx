@@ -30,10 +30,10 @@ export function CostsConfigPage() {
             )}
           </FormField>
           <FormField label={t("settings:costs.energyCost")}>
-            {(p) => <input {...p} className={inputClass} {...num("energyCostPerKwh")} />}
+            {(p) => num("energyCostPerKwh", p)}
           </FormField>
           <FormField label={t("settings:costs.lifetime")} hint={t("settings:costs.lifetimeHint")}>
-            {(p) => <input {...p} className={inputClass} {...num("printerLifetimeHours")} />}
+            {(p) => num("printerLifetimeHours", p)}
           </FormField>
           <label className="flex items-center gap-2">
             <input
@@ -47,14 +47,12 @@ export function CostsConfigPage() {
             </span>
           </label>
           <FormField label={t("settings:costs.laborRate")}>
-            {(p) => <input {...p} className={inputClass} {...num("laborRatePerHour")} />}
+            {(p) => num("laborRatePerHour", p)}
           </FormField>
           <FormField label={t("settings:costs.failureMargin")}>
-            {(p) => <input {...p} className={inputClass} {...num("failureMarginPct")} />}
+            {(p) => num("failureMarginPct", p)}
           </FormField>
-          <FormField label={t("settings:costs.markup")}>
-            {(p) => <input {...p} className={inputClass} {...num("markupPct")} />}
-          </FormField>
+          <FormField label={t("settings:costs.markup")}>{(p) => num("markupPct", p)}</FormField>
         </Section>
       )}
     </ConfigPage>
@@ -134,13 +132,13 @@ export function ProjectsConfigPage() {
             )}
           </FormField>
           <FormField label={t("settings:projects.depth")} hint={t("settings:projects.depthHint")}>
-            {(p) => <input {...p} className={inputClass} {...num("projectScanDepth")} />}
+            {(p) => num("projectScanDepth", p)}
           </FormField>
           <FormField
             label={t("settings:projects.viewerMax")}
             hint={t("settings:projects.viewerMaxHint")}
           >
-            {(p) => <input {...p} className={inputClass} {...num("viewerMaxMb")} />}
+            {(p) => num("viewerMaxMb", p)}
           </FormField>
         </Section>
       )}
@@ -157,10 +155,10 @@ export function AlertsConfigPage() {
           <Section title={t("settings:sections.alerts")}>
             <p className="text-muted">{t("settings:alerts.hint")}</p>
             <FormField label={t("settings:alerts.lowSpool")}>
-              {(p) => <input {...p} className={inputClass} {...num("lowSpoolGrams")} />}
+              {(p) => num("lowSpoolGrams", p)}
             </FormField>
             <FormField label={t("settings:alerts.maintenanceLead")}>
-              {(p) => <input {...p} className={inputClass} {...num("maintenanceLeadDays")} />}
+              {(p) => num("maintenanceLeadDays", p)}
             </FormField>
           </Section>
           <Section title={t("settings:alerts.channels")}>
