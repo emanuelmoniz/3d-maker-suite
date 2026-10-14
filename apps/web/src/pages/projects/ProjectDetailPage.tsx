@@ -5,6 +5,7 @@ import { Box, ExternalLink, FolderOpen } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { CostBreakdown } from "../../components/CostBreakdown.tsx";
+import { Markdown } from "../../components/Markdown.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { TagList } from "../../components/TagList.tsx";
 import { estimatePlate, type Plate, useCostContext } from "../../lib/cost.ts";
@@ -350,7 +351,12 @@ export function ProjectDetailPage() {
           )}
         </div>
         <div className="grid content-start gap-4">
-          {project.description && <p className="whitespace-pre-line">{project.description}</p>}
+          {project.description &&
+            (project.descriptionFile?.toLowerCase().endsWith(".md") ? (
+              <Markdown>{project.description}</Markdown>
+            ) : (
+              <p className="whitespace-pre-line">{project.description}</p>
+            ))}
           {tags.length > 0 && <TagList tags={tags} />}
           {(project.meta.materials.length > 0 || project.meta.multicolor) && (
             <p className="text-muted">
