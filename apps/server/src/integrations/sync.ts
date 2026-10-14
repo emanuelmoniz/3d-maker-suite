@@ -269,6 +269,7 @@ export function createSyncer(
                 .insert(prints)
                 .values({
                   ...imported,
+                  number: nextNumber(prints),
                   printerId,
                   externalId: d.externalId,
                   title: d.title,

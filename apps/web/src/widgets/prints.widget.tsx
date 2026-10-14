@@ -2,7 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import { z } from "zod";
 import { formatDate } from "../lib/format.ts";
-import { usePrints } from "../lib/prints.ts";
+import { printName, usePrints } from "../lib/prints.ts";
 import { defineWidget } from "./registry.ts";
 import { WidgetCard } from "./Widget.tsx";
 
@@ -36,7 +36,7 @@ defineWidget({
             {prints.slice(0, s.limit).map((p) => (
               <li key={p.id} className="flex items-center justify-between gap-2 py-2">
                 <span>
-                  <span className="font-medium">{p.title}</span>{" "}
+                  <span className="font-medium">{printName(t, p)}</span>{" "}
                   <span className="text-muted">{formatDate(p.startedAt)}</span>
                 </span>
                 <span className={TONE[p.outcome]}>{t(OUTCOMES[p.outcome])}</span>

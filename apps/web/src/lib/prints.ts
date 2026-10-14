@@ -6,6 +6,7 @@ import type {
   PrintPatch,
 } from "@3d-maker-suite/core";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { TFunction } from "i18next";
 import { api } from "./api.ts";
 import { useListPage } from "./list.ts";
 
@@ -68,3 +69,7 @@ export const useDismissReview = () =>
   useInvalidating((usageIds: string[]) =>
     api("POST", "/api/prints/filament-review/dismiss", { usageIds }),
   );
+
+/** The name a print goes by everywhere: "42-Benchy". The server builds the same in `printLabel`. */
+export const printName = (t: TFunction, p: { number: number; title: string }) =>
+  t("common:printName", { number: p.number, title: p.title });

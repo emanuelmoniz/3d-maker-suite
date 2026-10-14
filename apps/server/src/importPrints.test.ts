@@ -149,6 +149,38 @@ describe("print import", () => {
     expect(statuses(await preview("prints", FILE))).toEqual(["identical"]);
   });
 
+  it("numbers prints, and a row with a number is that print", async () => {
+    await setup();
+    await applySuggested("prints", await preview("prints", FILE));
+    expect(db.select().from(schema.prints).get()?.number).toBe(1);
+    const renamed = `number,${PRINT_HEAD}\n1,box,Renamed,2026-03-04 10:00,3600,success,1-Basic #000000,12.5`;
+    const p = await preview("prints", renamed);
+    expect(p.rows[0]).toMatchObject({ status: "changed", action: "update" });
+  });
+
+  it("creates a project it doesn't know, without a folder, once per name", async () => {
+    await setup();
+    const row = (cell: string, title = "Benchy") =>
+      `${cell},box,${title},2026-03-04 10:00,3600,success,1-Basic #000000,12.5`;
+    const proj = (cell: string) => `project,${PRINT_HEAD}\n${row(cell)}`;
+    const p = await preview("prints", `${proj("5-bucket")}\n${row("5-bucket", "Other")}`);
+    expect(p.missing).toEqual({ projects: ["5-bucket"] });
+    expect(statuses(p)).toEqual(["new", "new"]);
+    await applySuggested("prints", p);
+    const projects = db.select().from(schema.projects).all();
+    expect(projects).toMatchObject([{ number: 5, name: "bucket", folderPath: null }]);
+    const linked = db
+      .select()
+      .from(schema.prints)
+      .all()
+      .map((r) => r.projectId);
+    expect(linked).toEqual([projects[0]?.id, projects[0]?.id]);
+    // Known now: by display name, number or name, and nothing is announced.
+    for (const cell of ["005-bucket", "5", "BUCKET"])
+      expect((await preview("prints", proj(cell))).missing).toEqual({});
+    expect(printImport.refs(db).projects).toEqual(["005-bucket"]);
+  });
+
   it("finds a printer by its display name, its number or its name", async () => {
     await setup();
     for (const printer of ["1-Box", "1", "box"])

@@ -7,7 +7,7 @@ import { Button } from "../../components/Button.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { TagPicker } from "../../components/TagPicker.tsx";
-import { useCatalogItem, useMachineProfiles } from "../../lib/catalog.ts";
+import { isConflict, useCatalogItem, useMachineProfiles } from "../../lib/catalog.ts";
 import { spoolName, useProfiles, useSpools } from "../../lib/filament.ts";
 import { formatWeight } from "../../lib/format.ts";
 import { usePreferences } from "../../lib/preferences.ts";
@@ -80,6 +80,7 @@ function PrintForm({ print }: { print?: PrintDetail }) {
     const hours = Number(text(f, "hours") || 0);
     const minutes = Number(text(f, "minutes") || 0);
     const body: PrintInput = {
+      number: text(f, "number") ? Number(text(f, "number")) : undefined,
       printerId: text(f, "printer"),
       machineProfileId: text(f, "machineProfile") || null,
       title: text(f, "title"),
@@ -110,6 +111,22 @@ function PrintForm({ print }: { print?: PrintDetail }) {
   ];
   return (
     <form onSubmit={onSubmit} className="grid gap-4 sm:max-w-md">
+      <FormField
+        label={t("prints:form.number")}
+        hint={print ? undefined : t("prints:form.numberHint")}
+      >
+        {(p) => (
+          <input
+            {...p}
+            name="number"
+            type="number"
+            min={1}
+            step={1}
+            className={inputClass}
+            defaultValue={print?.number}
+          />
+        )}
+      </FormField>
       <FormField label={t("prints:form.title")}>
         {(p) => (
           <input {...p} name="title" required className={inputClass} defaultValue={print?.title} />
@@ -318,7 +335,7 @@ function PrintForm({ print }: { print?: PrintDetail }) {
       </FormField>
       {save.isError && (
         <p role="alert" className="text-bad">
-          {t("prints:form.error")}
+          {t(isConflict(save.error) ? "prints:form.numberTaken" : "prints:form.error")}
         </p>
       )}
       <div className="flex gap-2">

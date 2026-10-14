@@ -11,13 +11,21 @@ import {
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
 import { and, eq, isNull } from "drizzle-orm";
-import { printerLabel } from "../lib/catalog.ts";
-import { printerTitle } from "../lib/numbers.ts";
+import { printerLabel, projectLabel } from "../lib/catalog.ts";
+import {
+  assertNumberFree,
+  freeNumber,
+  nextNumber,
+  numberCell,
+  printerTitle,
+  printTitle,
+} from "../lib/numbers.ts";
 import { energyFor, syncUsages } from "../lib/prints.ts";
+import { parseFolderName } from "../projects/folderName.ts";
 import type { WriteRow } from "./review.ts";
 import { spoolImport, spoolLabels } from "./spools.ts";
 
-const { filamentProfiles, printFilamentUsages, printers, prints } = schema;
+const { filamentProfiles, printFilamentUsages, printers, prints, projects } = schema;
 
 const num = (c: ImportCell | undefined) => (typeof c === "number" ? c : null);
 const str = (c: ImportCell | undefined) => (typeof c === "string" ? c : null);
@@ -41,9 +49,22 @@ const one = (names: Names, name: ImportCell | undefined) => {
   return ids?.length === 1 ? (ids[0] ?? null) : null;
 };
 
-type Lookups = { printers: Names; spools: Names; profiles: Names };
+/**
+ * Ids by every key a row answers to: its display name, its number alone and its plain name.
+ * An archived row only answers to keys no active one has.
+ */
+const answering = (rows: { id: string; keys: string[]; archivedAt: string | null }[]) => {
+  const named = group(
+    rows.filter((r) => !r.archivedAt).flatMap((r) => r.keys.map((k) => [k, r.id] as const)),
+  );
+  for (const r of rows)
+    if (r.archivedAt) for (const k of r.keys) if (!named.has(lower(k))) named.set(lower(k), [r.id]);
+  return named;
+};
+
+type Lookups = { printers: Names; projects: Names; spools: Names; profiles: Names };
 function build(db: Db): Lookups {
-  const all = db
+  const printerRows = db
     .select({
       id: printers.id,
       number: printers.number,
@@ -52,16 +73,23 @@ function build(db: Db): Lookups {
     })
     .from(printers)
     .all();
-  // A printer answers to its display name, its number alone or its plain name. An archived one
-  // only answers to what no active one has.
-  const keys = (p: (typeof all)[number]) =>
-    [printerTitle(p), String(p.number), p.name].map((k) => [k, p.id] as const);
-  const named = group(all.filter((p) => !p.archivedAt).flatMap(keys));
-  for (const p of all)
-    if (p.archivedAt)
-      for (const [k] of keys(p)) if (!named.has(lower(k))) named.set(lower(k), [p.id]);
+  const projectRows = db
+    .select({
+      id: projects.id,
+      number: projects.number,
+      name: projects.name,
+      label: projectLabel,
+      archivedAt: projects.archivedAt,
+    })
+    .from(projects)
+    .all();
   return {
-    printers: named,
+    printers: answering(
+      printerRows.map((p) => ({ ...p, keys: [printerTitle(p), String(p.number), p.name] })),
+    ),
+    projects: answering(
+      projectRows.map((p) => ({ ...p, keys: [p.label, String(p.number), p.name] })),
+    ),
     // A spool answers to its display name or to its number alone.
     spools: group(
       spoolImport
@@ -90,6 +118,33 @@ function lookups(db: Db): Lookups {
     });
   }
   return cached.look;
+}
+
+const cellText = (c: ImportCell | undefined) => (c == null ? "" : String(c).trim());
+
+/**
+ * The project a cell names, null for an empty cell. One that doesn't exist yet is created without
+ * a folder: "5-bucket" is project 5 (if free) "bucket", "Benchy" gets the next free number.
+ */
+function projectFor(db: Db, cell: ImportCell | undefined): string | null {
+  const text = cellText(cell);
+  if (!text) return null;
+  const look = lookups(db).projects;
+  const known = look.get(lower(text));
+  if (known) return known.length === 1 ? (known[0] ?? null) : null;
+  const { number, name } = parseFolderName(text);
+  const id = db
+    .insert(projects)
+    .values({
+      number: freeNumber(db, projects, number || null) ?? nextNumber(projects),
+      name,
+      editedFields: ["name"],
+    })
+    .returning({ id: projects.id })
+    .get().id;
+  // Later rows of the same file naming it get this one, not another.
+  look.set(lower(text), [id]);
+  return id;
 }
 
 /**
@@ -144,11 +199,13 @@ export const printImport = {
         .map((p) => [p.id, p.name]),
     );
     return db
-      .select({ print: prints, printer: printers.name })
+      .select({ print: prints, printer: printers.name, project: projectLabel })
       .from(prints)
       .innerJoin(printers, eq(printers.id, prints.printerId))
+      .leftJoin(projects, eq(projects.id, prints.projectId))
+      .orderBy(prints.number)
       .all()
-      .map(({ print: p, printer }) => {
+      .map(({ print: p, printer, project }) => {
         const slots: ImportValues = {};
         for (const [i, u] of (usages.get(p.id) ?? []).slice(0, PRINT_MAX_SLOTS).entries()) {
           const key = printSlotKeys(i + 1);
@@ -158,9 +215,11 @@ export const printImport = {
         }
         return {
           id: p.id,
-          label: p.title,
+          label: printTitle(p),
           values: {
+            number: p.number,
             printer,
+            project,
             title: p.title,
             startedAt: second(p.startedAt),
             durationSec: p.durationSec,
@@ -176,6 +235,13 @@ export const printImport = {
   match: matchPrintRows,
 
   refs: (db: Db) => ({
+    projects: db
+      .select({ name: projectLabel })
+      .from(projects)
+      .where(isNull(projects.archivedAt))
+      .orderBy(projects.number)
+      .all()
+      .map((p) => p.name),
     printers: db
       .select({ name: printerLabel })
       .from(printers)
@@ -188,14 +254,28 @@ export const printImport = {
     filamentProfiles: spoolImport.refs(db).filamentProfiles,
   }),
 
-  /** Nothing is created on the way: a print needs a printer that exists. */
-  missing: (): Record<string, string[]> => ({}),
+  /** A print needs a printer that exists; a project it names is created when missing. */
+  missing(db: Db, rows: ImportValues[]): Record<string, string[]> {
+    const look = lookups(db).projects;
+    const names = [
+      ...new Map(
+        rows
+          .map((r) => cellText(r.project))
+          .filter((n) => n && !look.has(lower(n)))
+          .map((n) => [lower(n), n]),
+      ).values(),
+    ];
+    return names.length ? { projects: names } : {};
+  },
 
   /** What a file row needs besides valid cells. */
   check(db: Db, v: ImportValues) {
     const errors: { column: string; code: ImportErrorCode }[] = [];
     if (!one(lookups(db).printers, v.printer))
       errors.push({ column: "printer", code: "unresolved" });
+    // A name several projects answer to can't be told apart (an unknown one is created).
+    if ((lookups(db).projects.get(lower(cellText(v.project)))?.length ?? 0) > 1)
+      errors.push({ column: "project", code: "unresolved" });
     // Filament named without grams (or the reverse) is a typo, not data.
     for (let n = 1; n <= PRINT_MAX_SLOTS; n++) {
       const key = printSlotKeys(n);
@@ -212,7 +292,10 @@ export const printImport = {
     const row = db
       .insert(prints)
       .values({
+        // A number another print has ("import as new" of an exported row) gets the next free one.
+        number: freeNumber(db, prints, numberCell(v.number)) ?? nextNumber(prints),
         printerId,
+        projectId: projectFor(db, v.project),
         title: str(v.title) ?? "",
         startedAt: new Date(str(v.startedAt) ?? "").toISOString(),
         durationSec,
@@ -228,12 +311,15 @@ export const printImport = {
 
   /** Writes `patch` (only the values that change) to the print. */
   update(db: Db, target: ImportTarget, patch: ImportValues, row: WriteRow) {
-    const { printer, startedAt, ...rest } = patch;
+    const { printer, project, startedAt, ...rest } = patch;
     const fields = Object.fromEntries(Object.entries(rest).filter(([k]) => !SLOT_KEYS.includes(k)));
     const cur = db.select().from(prints).where(eq(prints.id, target.id)).get();
     if (!cur) return;
     // The other keys are named like the table's columns.
     const set: Record<string, unknown> = { ...fields };
+    if ("number" in set) set.number = numberCell(fields.number) ?? undefined;
+    assertNumberFree(db, prints, "print", numberCell(fields.number), cur.id);
+    if (project !== undefined) set.projectId = projectFor(db, project);
     const printerId = printer === undefined ? cur.printerId : one(lookups(db).printers, printer);
     if (printer !== undefined) set.printerId = printerId;
     if (startedAt != null) set.startedAt = new Date(String(startedAt)).toISOString();

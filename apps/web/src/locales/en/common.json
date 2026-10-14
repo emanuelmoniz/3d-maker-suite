@@ -66,5 +66,6 @@
     "body": "This module isn't built yet."
   },
   "printerName": "{{number}}-{{name}}",
-  "projectName": "{{number}}-{{name}}"
+  "projectName": "{{number}}-{{name}}",
+  "printName": "{{number}}-{{title}}"
 }

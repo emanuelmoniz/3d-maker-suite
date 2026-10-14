@@ -91,7 +91,9 @@ describe("listPage filters", () => {
       .values({ number: 1, name: "p", modelId: modelIdFor(db, "b", "m") })
       .returning()
       .get();
+    let n = 0;
     const row = (title: string, day: string, durationSec: number, outcome = "success") => ({
+      number: ++n,
       printerId: printer.id,
       title,
       startedAt: `2026-03-${day}T10:00:00.000Z`,
@@ -188,6 +190,7 @@ describe("listPage filters", () => {
     const [vase] = await names("/api/projects?name=vase", "id");
     db.insert(schema.prints)
       .values({
+        number: 1,
         printerId: printer.id,
         projectId: vase,
         title: "v",

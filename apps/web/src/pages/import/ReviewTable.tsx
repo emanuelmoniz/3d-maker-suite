@@ -77,6 +77,7 @@ const MISSING: Record<string, string> = {
   filamentProfiles: "import:missing.filamentProfiles",
   brands: "import:missing.brands",
   printerModels: "import:missing.printerModels",
+  projects: "import:missing.projects",
 };
 // Values of the columns that aren't typed by the user but named by the app.
 const OPTIONS: Record<string, string> = {

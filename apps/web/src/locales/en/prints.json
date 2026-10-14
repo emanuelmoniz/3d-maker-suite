@@ -17,7 +17,11 @@
     },
     "durationUnit": "In minutes"
   },
-  "outcomes": { "success": "Success", "failed": "Failed", "cancelled": "Cancelled" },
+  "outcomes": {
+    "success": "Success",
+    "failed": "Failed",
+    "cancelled": "Cancelled"
+  },
   "form": {
     "addTitle": "Add print",
     "editTitle": "Edit print",
@@ -42,14 +46,22 @@
     "spoolOption": "{{name}} · {{weight}} left",
     "save": "Save print",
     "error": "Couldn't save the print. Check that every spool has enough filament.",
-    "machineProfile": "Machine profile"
+    "machineProfile": "Machine profile",
+    "number": "Number",
+    "numberHint": "Leave empty for the next free number.",
+    "numberTaken": "Another print already has this number."
   },
   "review": {
     "title": "Filament to review",
     "description": "Imported prints whose spool couldn't be matched to exactly one spool. Nothing is deducted until you pick one.",
     "back": "Back to prints",
     "table": "Filament to review",
-    "columns": { "print": "Print", "filament": "Filament", "grams": "Used", "spool": "Spool" },
+    "columns": {
+      "print": "Print",
+      "filament": "Filament",
+      "grams": "Used",
+      "spool": "Spool"
+    },
     "unknown": "Unknown filament",
     "pick": "Spool for {{title}}",
     "assign": "Assign",

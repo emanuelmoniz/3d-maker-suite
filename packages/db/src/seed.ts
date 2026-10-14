@@ -202,6 +202,7 @@ export function seed(db: Db, now = new Date(), { prints: printCount = 40 } = {})
       const print = tx
         .insert(s.prints)
         .values({
+          number: i + 1,
           printerId: at(printers, p).id,
           projectId: rand() < 0.7 ? pick(projects).id : null,
           title: `Demo print ${i + 1}`,

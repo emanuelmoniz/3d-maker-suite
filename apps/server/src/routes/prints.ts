@@ -20,8 +20,10 @@ import { and, count, eq, inArray, isNull } from "drizzle-orm";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
+import { printLabel } from "../lib/catalog.ts";
 import { printCosts } from "../lib/cost.ts";
 import { listPage, orderBy, taggedWith } from "../lib/list.ts";
+import { assertNumberFree, nextNumber } from "../lib/numbers.ts";
 import { readPreferences } from "../lib/preferences.ts";
 import { energyFor, syncUsages } from "../lib/prints.ts";
 import { takeFromSpool } from "../lib/spools.ts";
@@ -95,6 +97,7 @@ export const printsRoutes =
           .select({
             usageId: printFilamentUsages.id,
             printId: prints.id,
+            printNumber: prints.number,
             printTitle: prints.title,
             startedAt: prints.startedAt,
             slot: printFilamentUsages.slot,
@@ -175,14 +178,15 @@ export const printsRoutes =
         const page = listPage(db, prints, req.query, {
           sort: {
             startedAt: prints.startedAt,
-            title: prints.title,
+            // The name starts with the number: sorting by it sorts the name as shown.
+            title: prints.number,
             outcome: prints.outcome,
             durationSec: prints.durationSec,
           },
           defaultSort: "-startedAt",
           dateColumn: prints.startedAt,
           filters: {
-            title: prints.title,
+            title: printLabel,
             startedAt: prints.startedAt,
             printerId: prints.printerId,
             projectId: prints.projectId,
@@ -212,15 +216,22 @@ export const printsRoutes =
 
     app.post(
       "/",
-      { schema: { body: printInputSchema, response: { 201: printDetailSchema } } },
+      {
+        schema: {
+          body: printInputSchema,
+          response: { 201: printDetailSchema, 409: apiErrorSchema },
+        },
+      },
       async (req, reply) => {
         const { usages, energyWh, ...fields } = req.body;
         checkRefs(fields);
+        assertNumberFree(db, prints, "print", fields.number);
         const id = db.transaction((tx) => {
           const row = tx
             .insert(prints)
             .values({
               ...fields,
+              number: fields.number ?? nextNumber(prints),
               ...energyFor(db, fields.printerId, fields.durationSec ?? null, energyWh),
             })
             .returning()
@@ -238,13 +249,14 @@ export const printsRoutes =
         schema: {
           params,
           body: printPatchSchema,
-          response: { 200: printDetailSchema, ...notFound },
+          response: { 200: printDetailSchema, 409: apiErrorSchema, ...notFound },
         },
       },
       async (req) => {
         const cur = detail(req.params.id);
         const { usages, energyWh, ...fields } = req.body;
         checkRefs(fields, cur.failureReason);
+        assertNumberFree(db, prints, "print", fields.number, cur.id);
         const merged = { ...cur, ...fields };
         db.transaction((tx) => {
           tx.update(prints)

@@ -10,7 +10,12 @@ import { PageHeader } from "../../components/PageHeader.tsx";
 import { spoolName, useProfiles, useSpools } from "../../lib/filament.ts";
 import { formatDateTime, formatWeight } from "../../lib/format.ts";
 import { useUrlListQuery } from "../../lib/list.ts";
-import { useAssignReview, useDismissReview, useFilamentReview } from "../../lib/prints.ts";
+import {
+  printName,
+  useAssignReview,
+  useDismissReview,
+  useFilamentReview,
+} from "../../lib/prints.ts";
 
 /** Imported filament that couldn't be matched to exactly one spool: a person decides. */
 export function PrintReviewPage() {
@@ -91,7 +96,7 @@ export function PrintReviewPage() {
                         params={{ id: i.printId }}
                         className="font-medium hover:underline"
                       >
-                        {i.printTitle}
+                        {printName(t, { number: i.printNumber, title: i.printTitle })}
                       </Link>
                       <span className="block text-muted">{formatDateTime(i.startedAt)}</span>
                     </>
@@ -127,7 +132,9 @@ export function PrintReviewPage() {
                   header: t("prints:review.columns.spool"),
                   cell: (i) => (
                     <select
-                      aria-label={t("prints:review.pick", { title: i.printTitle })}
+                      aria-label={t("prints:review.pick", {
+                        title: printName(t, { number: i.printNumber, title: i.printTitle }),
+                      })}
                       className={inputClass}
                       value={picked[i.usageId] ?? ""}
                       onChange={(e) => setPicked((p) => ({ ...p, [i.usageId]: e.target.value }))}

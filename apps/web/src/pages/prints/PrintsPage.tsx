@@ -13,7 +13,7 @@ import { useMoney } from "../../lib/cost.ts";
 import { formatDateTime, formatDuration, formatWeight } from "../../lib/format.ts";
 import { useUrlListQuery } from "../../lib/list.ts";
 import { printerName, usePrinters } from "../../lib/printers.ts";
-import { useFilamentReview, usePrints } from "../../lib/prints.ts";
+import { printName, useFilamentReview, usePrints } from "../../lib/prints.ts";
 import { useTags, useTagsOf } from "../../lib/tags.ts";
 
 const OUTCOMES = {
@@ -113,7 +113,7 @@ export function PrintsPage() {
                       params={{ id: p.id }}
                       className="font-medium hover:underline"
                     >
-                      {p.title}
+                      {printName(t, p)}
                     </Link>
                     {p.sourceUrl && (
                       <a

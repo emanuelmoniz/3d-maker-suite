@@ -145,6 +145,8 @@ export const IMPORT_COLUMNS = {
     { key: "powerW", type: "integer", label: "import:printers.columns.powerW" },
   ],
   prints: [
+    // A print's number is its identity in a file: a row with one updates that print.
+    { key: "number", type: "integer", label: "import:prints.columns.number" },
     {
       key: "printer",
       type: "ref",
@@ -152,6 +154,8 @@ export const IMPORT_COLUMNS = {
       label: "import:prints.columns.printer",
       required: true,
     },
+    // A project that doesn't exist yet is created, without a folder.
+    { key: "project", type: "ref", ref: "projects", label: "import:prints.columns.project" },
     { key: "title", type: "text", label: "import:prints.columns.title", required: true },
     {
       key: "startedAt",

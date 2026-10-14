@@ -240,6 +240,8 @@ export const spoolWeightEntrySchema = z.object({
 export const printSchema = z
   .object({
     id,
+    /** Short unique number the print goes by ("42-Benchy"). */
+    number: z.number().int().positive(),
     printerId: id,
     projectId: id.nullable(),
     machineProfileId: id.nullable(),

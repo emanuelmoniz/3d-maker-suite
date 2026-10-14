@@ -11,7 +11,7 @@ import { useCatalogItem } from "../../lib/catalog.ts";
 import { spoolName, useProfile, useSpool } from "../../lib/filament.ts";
 import { formatDateTime, formatDuration, formatNumber, formatWeight } from "../../lib/format.ts";
 import { printerName, usePrinter } from "../../lib/printers.ts";
-import { useDeletePrint, usePrint } from "../../lib/prints.ts";
+import { printName, useDeletePrint, usePrint } from "../../lib/prints.ts";
 import { projectName, useProject } from "../../lib/projects.ts";
 import { useTagsOf } from "../../lib/tags.ts";
 import { Info, linkButton } from "../filament/SpoolDetailPage.tsx";
@@ -106,7 +106,7 @@ export function PrintDetailPage() {
   return (
     <>
       <PageHeader
-        title={print.title}
+        title={printName(t, print)}
         description={formatDateTime(print.startedAt)}
         backTo={{ to: "/prints" }}
         actions={
@@ -187,7 +187,7 @@ export function PrintDetailPage() {
         open={deleting}
         destructive
         title={t("prints:delete.title")}
-        description={t("prints:delete.body", { title: print.title })}
+        description={t("prints:delete.body", { title: printName(t, print) })}
         confirmLabel={t("prints:delete.confirm")}
         onCancel={() => setDeleting(false)}
         onConfirm={() => {

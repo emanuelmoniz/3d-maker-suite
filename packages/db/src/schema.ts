@@ -426,6 +426,8 @@ export const prints = sqliteTable(
       .notNull()
       .references(() => printers.id, { onDelete: "restrict" }),
     projectId: text().references(() => projects.id, { onDelete: "restrict" }),
+    // ponytail: nullable like printers.number; every insert sets it (nextNumber).
+    number: integer(),
     machineProfileId: text().references(() => machineProfiles.id, { onDelete: "restrict" }),
     title: text().notNull(),
     plate: integer(),
@@ -447,6 +449,7 @@ export const prints = sqliteTable(
     index("prints_printer_started_idx").on(t.printerId, t.startedAt),
     index("prints_project_idx").on(t.projectId),
     uniqueIndex("prints_external_uq").on(t.integrationId, t.externalId),
+    uniqueIndex("prints_number_uq").on(t.number),
     check("prints_origin_ck", oneOf(t.origin, ORIGINS)),
     check("prints_outcome_ck", oneOf(t.outcome, PRINT_OUTCOMES)),
     check("prints_failure_reason_ck", sql`${t.outcome} <> 'success' OR ${t.failureReason} IS NULL`),

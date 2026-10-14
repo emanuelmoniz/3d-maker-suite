@@ -3,6 +3,7 @@ import { printSchema } from "./entities.ts";
 
 const print = {
   id: crypto.randomUUID(),
+  number: 1,
   printerId: crypto.randomUUID(),
   projectId: null,
   machineProfileId: null,

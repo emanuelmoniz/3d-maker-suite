@@ -113,7 +113,8 @@
     "filamentMaterials": "Materials you don't have yet, added when their rows are imported: {{names, list}}.",
     "filamentProfiles": "Filament profiles you don't have yet, added when their rows are imported: {{names, list}}.",
     "brands": "Printer brands you don't have yet, added when their rows are imported: {{names, list}}.",
-    "printerModels": "Printer models you don't have yet, added when their rows are imported: {{names, list}}."
+    "printerModels": "Printer models you don't have yet, added when their rows are imported: {{names, list}}.",
+    "projects": "Projects you don't have yet, added without a folder when their rows are imported: {{names, list}}."
   },
   "review": {
     "title": "Review rows",
@@ -170,6 +171,7 @@
   },
   "prints": {
     "columns": {
+      "number": "Number",
       "printer": "Printer",
       "title": "Name",
       "startedAt": "Started",
@@ -183,7 +185,8 @@
       "spoolN": "Spool {{n}}",
       "filamentN": "Filament {{n}}",
       "gramsN": "Filament {{n}} used (g)",
-      "trackUsage": "Track usage"
+      "trackUsage": "Track usage",
+      "project": "Project"
     }
   },
   "filamentProfiles": {

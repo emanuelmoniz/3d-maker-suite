@@ -13,7 +13,7 @@ import { cx } from "../../lib/cx.ts";
 import { formatDateTime, formatDuration, formatWeight } from "../../lib/format.ts";
 import { useAdapterName, useCapable } from "../../lib/integrations.ts";
 import { usePreferences } from "../../lib/preferences.ts";
-import { usePrintsOfProject } from "../../lib/prints.ts";
+import { printName, usePrintsOfProject } from "../../lib/prints.ts";
 import {
   projectFileUrl,
   projectName,
@@ -177,7 +177,7 @@ function LinkedPrints({ id }: { id: string }) {
           {prints.map((p) => (
             <li key={p.id} className="flex flex-wrap items-center justify-between gap-2 p-3">
               <Link to="/prints/$id" params={{ id: p.id }} className="font-medium hover:underline">
-                {p.title}
+                {printName(t, p)}
               </Link>
               <span className="text-muted">
                 {t(`prints:outcomes.${p.outcome}`)} · {formatDateTime(p.startedAt)}

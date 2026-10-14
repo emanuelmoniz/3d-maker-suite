@@ -65,8 +65,14 @@ export const matchRowsOn =
 
 const printKey = (v: ImportValues) => `${lower(v.printer)}|${v.startedAt ?? ""}|${lower(v.title)}`;
 
-/** A print fits on its printer, its start time and its title. */
+/** A print fits on its printer, its start time and its title; a row with a number on that alone. */
 export function matchPrintRows(rows: ImportValues[], prints: ImportTarget[]): ImportMatch[] {
   const byPrint = byKey(prints, (t) => printKey(t.values));
-  return singleFits(rows.map((r) => (byPrint.get(printKey(r)) ?? []).map((t) => t.id)));
+  return singleFits(
+    rows.map((r) =>
+      r.number != null
+        ? prints.filter((t) => t.values.number === r.number).map((t) => t.id)
+        : (byPrint.get(printKey(r)) ?? []).map((t) => t.id),
+    ),
+  );
 }

@@ -39,6 +39,32 @@ const remaining = async (id: string) =>
   (await app.inject(`/api/filament/spools/${id}`)).json().remainingGrams;
 
 describe("prints", () => {
+  it("get the next free number, or the one given; a taken one is a 409", async () => {
+    const { printer } = await setup();
+    const post = (title: string, number?: number) =>
+      send("POST", "/api/prints", {
+        number,
+        printerId: printer.id,
+        title,
+        startedAt: "2026-01-01T10:00:00.000Z",
+        outcome: "success",
+      });
+    expect((await post("A")).json().number).toBe(1);
+    expect((await post("B", 10)).json().number).toBe(10);
+    const c = (await post("C")).json();
+    expect(c.number).toBe(11);
+    const taken = await post("D", 10);
+    expect(taken.statusCode).toBe(409);
+    expect(taken.json().error.code).toBe("print_number_taken");
+    expect((await send("PATCH", `/api/prints/${c.id}`, { number: 10 })).statusCode).toBe(409);
+    expect((await send("PATCH", `/api/prints/${c.id}`, { number: 3 })).json().number).toBe(3);
+    // The display name leads the filter and the sort.
+    const list = async (q: string) =>
+      (await app.inject(`/api/prints${q}`)).json().items.map((p: { title: string }) => p.title);
+    expect(await list("?title=3-c")).toEqual(["C"]);
+    expect(await list("?sort=-title")).toEqual(["B", "C", "A"]);
+  });
+
   it("create, edit and delete keep spool weights and the ledger consistent", async () => {
     const { printer, a, b } = await setup();
     const res = await send("POST", "/api/prints", {

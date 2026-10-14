@@ -2,9 +2,9 @@ import { type Db, schema } from "@3d-maker-suite/db";
 import { and, eq, ne, sql } from "drizzle-orm";
 import { HttpError } from "../errors.ts";
 
-const { spools, printers, projects } = schema;
-// ponytail: all three have the same `id` and `number` columns; the casts keep one helper typed.
-type Numbered = typeof spools | typeof printers | typeof projects;
+const { spools, printers, projects, prints } = schema;
+// ponytail: all four have the same `id` and `number` columns; the casts keep one helper typed.
+type Numbered = typeof spools | typeof printers | typeof projects | typeof prints;
 const asSpools = (t: Numbered) => t as typeof spools;
 
 /** An import cell as an entity number: a positive whole number, else null ("use the next free one"). */
@@ -27,7 +27,7 @@ export const freeNumber = (db: Db, table: Numbered, number: number | null) => {
 export function assertNumberFree(
   db: Db,
   table: Numbered,
-  entity: "spool" | "printer" | "project",
+  entity: "spool" | "printer" | "project" | "print",
   number: number | null | undefined,
   exceptId?: string,
 ) {
@@ -43,3 +43,6 @@ export function assertNumberFree(
 
 /** A printer's display name in JS, the same as the `printerLabel` SQL. */
 export const printerTitle = (p: { number: number | null; name: string }) => `${p.number}-${p.name}`;
+
+/** A print's display name in JS, the same as the `printLabel` SQL. */
+export const printTitle = (p: { number: number | null; title: string }) => `${p.number}-${p.title}`;

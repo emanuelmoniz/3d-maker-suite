@@ -17,6 +17,8 @@ export const printDetailSchema = printSchema.and(
 );
 
 const base = z.object({
+  /** Defaults to the next free number. */
+  number: z.number().int().positive().optional(),
   printerId: id,
   projectId: id.nullable().optional(),
   machineProfileId: id.nullable().optional(),
@@ -72,6 +74,7 @@ export type PrintPatch = z.infer<typeof printPatchSchema>;
 export const filamentReviewItemSchema = z.object({
   usageId: id,
   printId: id,
+  printNumber: z.number().int(),
   printTitle: z.string(),
   startedAt: isoDate,
   slot: z.number().int().nonnegative().nullable(),
