@@ -26,6 +26,7 @@ import { DataTable, type ListQuery } from "../../components/DataTable.tsx";
 import { EmptyState } from "../../components/EmptyState.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
+import { PathPicker } from "../../components/PathPicker.tsx";
 import { formatDate, formatDateTime } from "../../lib/format.ts";
 import {
   useAdapterName,
@@ -518,17 +519,27 @@ function SlicerFields({
   ) => (
     <FormField label={label} hint={hint}>
       {(p) => (
-        <input
-          {...p}
-          className={inputClass}
-          key={`${field}-${i[field] ?? ""}`}
-          defaultValue={i[field] ?? ""}
-          placeholder={placeholder}
-          onBlur={(e) => {
-            const v = e.target.value.trim();
-            if (v !== (i[field] ?? "")) patch.mutate({ [field]: v });
-          }}
-        />
+        <div className="flex gap-2">
+          <input
+            {...p}
+            className={inputClass}
+            key={`${field}-${i[field] ?? ""}`}
+            defaultValue={i[field] ?? ""}
+            placeholder={placeholder}
+            onBlur={(e) => {
+              const v = e.target.value.trim();
+              if (v !== (i[field] ?? "")) patch.mutate({ [field]: v });
+            }}
+          />
+          <PathPicker
+            label={label}
+            mode={field === "slicerPath" ? "file" : "folder"}
+            // Only Windows marks programs by extension.
+            ext={field === "slicerPath" ? (sep) => (sep === "\\" ? ".exe" : undefined) : undefined}
+            initial={i[field] || placeholder}
+            onPick={(v) => v !== i[field] && patch.mutate({ [field]: v })}
+          />
+        </div>
       )}
     </FormField>
   );

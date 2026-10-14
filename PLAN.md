@@ -57,7 +57,7 @@ components as they are; list every back link you change.
 
 ## Phase 3 - Pickers & projects
 
-### [ ] Step 4 - In-app path browser  **[plan mode]**
+### [x] Step 4 - In-app path browser  **[plan mode]**
 **Model:** Opus · **Effort:** Medium
 **Scope:** A browser can't give the server a full local path, so the server lists folders instead. `GET /api/fs/list?path=` returns the folders (and, in file mode, files matching an extension filter) under a path. With no path it returns the drives (Windows) or `/` plus the home folder. It returns names and types only, never file contents. It needs the same auth as the rest of the API, and the non-loopback password rule still applies. A `PathPicker` modal in web, with mode `folder | file`, an optional extension filter, breadcrumbs, an "up" button, and keyboard and mobile support. It sits next to the text input, which stays editable. Used for the slicer executable and the slicer config folder (`pages/settings/IntegrationsPage.tsx`) and for project roots (Projects config page).
 **Done when:** each of the three fields can be filled from the picker; the listing endpoint is unit-tested (drives/root, filter, missing path, no content leak); tests pass.

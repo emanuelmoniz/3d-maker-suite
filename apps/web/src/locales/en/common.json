@@ -15,6 +15,16 @@
     "none": "No matches",
     "more": "{{count, number}} more, keep typing to narrow down"
   },
+  "pathPicker": {
+    "browse": "Browse…",
+    "browseFor": "Browse for {{field}}",
+    "location": "Location",
+    "roots": "This computer",
+    "up": "Up",
+    "select": "Select this folder",
+    "empty": "Nothing to show here",
+    "error": "This folder can't be opened."
+  },
   "theme": {
     "label": "Theme",
     "light": "Light",

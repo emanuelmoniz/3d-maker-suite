@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { FormField, inputClass } from "../../components/FormField.tsx";
+import { PathPicker } from "../../components/PathPicker.tsx";
 import { Section } from "../../components/Section.tsx";
 import { ChannelsSection } from "../alerts/ChannelsSection.tsx";
 import { FilamentCatalog, FilamentProfiles } from "../filament/Catalog.tsx";
@@ -105,20 +106,31 @@ export function ProjectsConfigPage() {
         <Section title={t("settings:sections.projects")}>
           <FormField label={t("settings:projects.roots")} hint={t("settings:projects.rootsHint")}>
             {(p) => (
-              <textarea
-                {...p}
-                className={`${inputClass} h-24 py-2`}
-                key={`roots-${v.projectRoots.join("\n")}`}
-                defaultValue={v.projectRoots.join("\n")}
-                onBlur={(e) => {
-                  const roots = e.target.value
-                    .split("\n")
-                    .map((l) => l.trim())
-                    .filter(Boolean);
-                  if (roots.join("\n") !== v.projectRoots.join("\n"))
-                    commit({ projectRoots: roots });
-                }}
-              />
+              <div className="flex items-start gap-2">
+                <textarea
+                  {...p}
+                  className={`${inputClass} h-24 py-2`}
+                  key={`roots-${v.projectRoots.join("\n")}`}
+                  defaultValue={v.projectRoots.join("\n")}
+                  onBlur={(e) => {
+                    const roots = e.target.value
+                      .split("\n")
+                      .map((l) => l.trim())
+                      .filter(Boolean);
+                    if (roots.join("\n") !== v.projectRoots.join("\n"))
+                      commit({ projectRoots: roots });
+                  }}
+                />
+                <PathPicker
+                  label={t("settings:projects.roots")}
+                  mode="folder"
+                  initial={v.projectRoots.at(-1)}
+                  onPick={(dir) =>
+                    !v.projectRoots.includes(dir) &&
+                    commit({ projectRoots: [...v.projectRoots, dir] })
+                  }
+                />
+              </div>
             )}
           </FormField>
           <FormField label={t("settings:projects.depth")} hint={t("settings:projects.depthHint")}>

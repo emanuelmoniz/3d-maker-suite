@@ -33,6 +33,7 @@ import {
 import { costsRoutes } from "./routes/costs.ts";
 import { exportRoutes } from "./routes/export.ts";
 import { filamentRoutes } from "./routes/filament.ts";
+import { fsRoutes } from "./routes/fs.ts";
 import { healthRoutes } from "./routes/health.ts";
 import { importRoutes } from "./routes/import.ts";
 import { integrationsRoutes } from "./routes/integrations.ts";
@@ -110,6 +111,7 @@ export async function buildApp(
     await app.register(serverConfigRoutes(opts.serverConfig, opts.restart), {
       prefix: "/api/server-config",
     });
+  await app.register(fsRoutes(), { prefix: "/api/fs" });
   await app.register(brandingRoutes(dataDir), { prefix: "/api/branding" });
   await app.register(printersRoutes(db, dataDir), { prefix: "/api/printers" });
   await app.register(brandsRoutes(db, dataDir), { prefix: "/api/brands" });
