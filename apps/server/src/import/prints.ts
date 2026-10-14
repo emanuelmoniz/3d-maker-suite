@@ -47,7 +47,12 @@ function build(db: Db): Lookups {
     if (p.archivedAt && !named.has(lower(p.name))) named.set(lower(p.name), [p.id]);
   return {
     printers: named,
-    spools: group(spoolImport.targets(db).map((s) => [s.label, s.id] as const)),
+    // A spool answers to its display name or to its number alone.
+    spools: group(
+      spoolImport
+        .targets(db)
+        .flatMap((s) => [[s.label, s.id] as const, [String(s.values.number), s.id] as const]),
+    ),
     profiles: group(
       db
         .select({ id: filamentProfiles.id, name: filamentProfiles.name })
@@ -163,7 +168,8 @@ export const printImport = {
       .orderBy(printers.name)
       .all()
       .map((p) => p.name),
-    spools: [...new Set(spoolImport.targets(db).map((s) => s.label))].sort(),
+    // In number order, as the targets come.
+    spools: spoolImport.targets(db).map((s) => s.label),
     filamentProfiles: spoolImport.refs(db).filamentProfiles,
   }),
 

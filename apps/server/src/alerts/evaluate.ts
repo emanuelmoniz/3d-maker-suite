@@ -1,12 +1,12 @@
 import type { AlertKind, Notification } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
 import { and, eq, isNull, ne } from "drizzle-orm";
-import { profileBrand, profileMaterial } from "../lib/catalog.ts";
+import { spoolName } from "../lib/catalog.ts";
 import { dueItems } from "../lib/maintenance.ts";
 import { readPreferences } from "../lib/preferences.ts";
 import { channels, readChannel, sendVia } from "./channels.ts";
 
-const { alerts, spools, filamentProfiles, printers } = schema;
+const { alerts, spools, printers } = schema;
 const DAY_MS = 86_400_000;
 // ponytail: fixed lead time, make it a preference if anyone asks.
 const WARRANTY_LEAD_DAYS = 30;
@@ -22,22 +22,12 @@ function conditions(db: Db, now: Date): Found {
     found.set(`${kind}|${entityType}|${entityId}`, { kind, entityType, entityId, context });
 
   for (const s of db
-    .select({
-      id: spools.id,
-      grams: spools.remainingGrams,
-      brand: profileBrand,
-      material: profileMaterial,
-      name: filamentProfiles.name,
-    })
+    .select({ id: spools.id, grams: spools.remainingGrams, name: spoolName })
     .from(spools)
-    .innerJoin(filamentProfiles, eq(filamentProfiles.id, spools.profileId))
     .where(and(isNull(spools.archivedAt), ne(spools.status, "empty")))
     .all())
     if (s.grams <= prefs.lowSpoolGrams)
-      add("spool_low", "spool", s.id, {
-        name: s.name || [s.brand, s.material].filter(Boolean).join(" "),
-        grams: Math.round(s.grams),
-      });
+      add("spool_low", "spool", s.id, { name: s.name, grams: Math.round(s.grams) });
 
   for (const d of dueItems(db))
     if (

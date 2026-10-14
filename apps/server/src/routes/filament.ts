@@ -26,16 +26,19 @@ import { desc, eq, isNotNull, isNull, sql } from "drizzle-orm";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
-import { profileBrand, profileColumns, profileMaterial } from "../lib/catalog.ts";
+import {
+  profileBrand,
+  profileColumns,
+  profileLabel,
+  profileMaterial,
+  spoolName,
+} from "../lib/catalog.ts";
 import { inIds, listPage, taggedWith } from "../lib/list.ts";
-import { createSpool, setRemaining } from "../lib/spools.ts";
+import { assertNumberFree, createSpool, setRemaining } from "../lib/spools.ts";
 
 const { filamentProfiles, spools, spoolWeightEntries } = schema;
 const params = z.object({ id: z.uuid() });
 const notFound = { 404: apiErrorSchema };
-// The label the app shows for a profile (its name, else "brand material"), to sort and filter by.
-const profileLabel = sql`coalesce(nullif(${filamentProfiles.name}, ''), trim(${profileBrand} || ' ' || ${profileMaterial}))`;
-const spoolLabel = sql`(select ${profileLabel} from ${filamentProfiles} where ${filamentProfiles.id} = ${spools.profileId})`;
 const archivedAt = (archived?: boolean) =>
   archived === undefined ? undefined : archived ? new Date().toISOString() : null;
 
@@ -158,12 +161,13 @@ export const filamentRoutes =
             createdAt: spools.createdAt,
             remainingGrams: spools.remainingGrams,
             purchasedAt: spools.purchasedAt,
-            filament: spoolLabel,
+            // The name starts with the number: sorting by it sorts the name as shown (2 before 10).
+            filament: spools.number,
             status: spools.status,
           },
           dateColumn: spools.createdAt,
           filters: {
-            filament: spoolLabel,
+            filament: spoolName,
             remainingGrams: spools.remainingGrams,
             status: spools.status,
           },
@@ -185,10 +189,16 @@ export const filamentRoutes =
 
     app.post(
       "/spools",
-      { schema: { body: spoolInputSchema, response: { 201: spoolSchema, ...notFound } } },
+      {
+        schema: {
+          body: spoolInputSchema,
+          response: { 201: spoolSchema, 409: apiErrorSchema, ...notFound },
+        },
+      },
       async (req, reply) => {
         if (getProfile(req.body.profileId).archivedAt)
           throw new HttpError(400, "profile_archived", "Filament profile is archived");
+        assertNumberFree(db, req.body.number);
         const remainingGrams = req.body.remainingGrams ?? req.body.initialGrams;
         const row = createSpool(db, { ...req.body, remainingGrams });
         return reply.status(201).send(row as Spool);
@@ -201,11 +211,12 @@ export const filamentRoutes =
         schema: {
           params,
           body: spoolPatchSchema,
-          response: { 200: spoolSchema, ...notFound },
+          response: { 200: spoolSchema, 409: apiErrorSchema, ...notFound },
         },
       },
       async (req) => {
         getSpool(req.params.id);
+        assertNumberFree(db, req.body.number, req.params.id);
         const { archived, ...fields } = req.body;
         return db
           .update(spools)

@@ -8,8 +8,8 @@ import {
 import { type Db, schema } from "@3d-maker-suite/db";
 import { and, eq, isNotNull, isNull } from "drizzle-orm";
 import { profileKey, spoolProfiles } from "../integrations/imports.ts";
-import { filamentProfileIdFor, profileBrand, profileMaterial } from "../lib/catalog.ts";
-import { createSpool, setRemaining } from "../lib/spools.ts";
+import { filamentProfileIdFor, profileBrand, profileMaterial, spoolName } from "../lib/catalog.ts";
+import { assertNumberFree, createSpool, setRemaining } from "../lib/spools.ts";
 import type { WriteRow } from "./review.ts";
 
 const { filamentBrands, filamentMaterials, filamentProfiles, spools } = schema;
@@ -25,6 +25,7 @@ const filament = (v: ImportValues) => ({
   material: str(v.material) ?? "",
   name: str(v.profile) ?? "",
 });
+/** A profile's label in import files: "Brand Material Profile". */
 const label = (p: { brand: string; material: string; name: string }) =>
   [p.brand, p.material, p.name].filter(Boolean).join(" ");
 /** One spelling per name, the first one seen. */
@@ -46,20 +47,14 @@ const names = (db: Db, table: typeof filamentBrands | typeof filamentMaterials) 
     .all()
     .map((r) => r.name);
 
-/** Every spool's label ("Brand Material Profile"), archived ones too. */
+/** Every spool's display name, archived ones too. */
 export const spoolLabels = (db: Db) =>
   new Map(
     db
-      .select({
-        id: spools.id,
-        brand: profileBrand,
-        material: profileMaterial,
-        name: filamentProfiles.name,
-      })
+      .select({ id: spools.id, name: spoolName })
       .from(spools)
-      .innerJoin(filamentProfiles, eq(filamentProfiles.id, spools.profileId))
       .all()
-      .map(({ id, ...p }) => [id, label(p)] as const),
+      .map((s) => [s.id, s.name] as const),
   );
 
 /**
@@ -72,6 +67,7 @@ export const spoolImport = {
     db
       .select({
         spool: spools,
+        label: spoolName,
         brand: profileBrand,
         material: profileMaterial,
         name: filamentProfiles.name,
@@ -79,15 +75,18 @@ export const spoolImport = {
       .from(spools)
       .innerJoin(filamentProfiles, eq(filamentProfiles.id, spools.profileId))
       .where(isNull(spools.archivedAt))
+      .orderBy(spools.number)
       .all()
-      .map(({ spool: s, ...p }) => ({
+      .map(({ spool: s, label, ...p }) => ({
         id: s.id,
-        label: label(p),
+        label,
         values: {
+          number: s.number,
           brand: p.brand || null,
           material: p.material,
           profile: p.name || null,
           colorHex: s.colorHex.toLowerCase(),
+          colorName: s.colorName,
           initialGrams: s.initialGrams,
           remainingGrams: s.remainingGrams,
           emptyWeightGrams: s.emptyWeightGrams,
@@ -152,10 +151,13 @@ export const spoolImport = {
 
   create(db: Db, v: ImportValues, row: WriteRow) {
     const initialGrams = num(v.initialGrams) ?? 0;
+    assertNumberFree(db, num(v.number));
     createSpool(db, {
       profileId: row.refs?.profile ?? filamentProfileIdFor(db, filament(v)),
       sourceSpool: row.source,
+      number: num(v.number),
       colorHex: str(v.colorHex) ?? undefined,
+      colorName: str(v.colorName),
       initialGrams,
       remainingGrams: num(v.remainingGrams) ?? initialGrams,
       emptyWeightGrams: num(v.emptyWeightGrams),
@@ -172,6 +174,7 @@ export const spoolImport = {
     const { brand, material, profile, remainingGrams, purchasedAt, openedAt, ...fields } = patch;
     // The other keys are named like the table's columns.
     const set: Record<string, unknown> = { ...fields };
+    assertNumberFree(db, num(fields.number), target.id);
     if (purchasedAt != null) set.purchasedAt = noon(purchasedAt);
     if (openedAt != null) set.openedAt = noon(openedAt);
     // A vendor names a filament its own way: its spool never moves yours to another profile.

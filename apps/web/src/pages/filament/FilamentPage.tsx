@@ -16,7 +16,7 @@ import { PageHeader } from "../../components/PageHeader.tsx";
 import { SettingsLink } from "../../components/SettingsLink.tsx";
 import { TagList } from "../../components/TagList.tsx";
 import { api } from "../../lib/api.ts";
-import { filamentLabel, useProfiles } from "../../lib/filament.ts";
+import { spoolName, useProfiles } from "../../lib/filament.ts";
 import { formatCurrency, formatWeight } from "../../lib/format.ts";
 import { useListPage, useUrlListQuery } from "../../lib/list.ts";
 import { usePreferences } from "../../lib/preferences.ts";
@@ -36,8 +36,6 @@ const AddLink = ({ to, children }: { to: string; children: string }) => (
     {children}
   </Link>
 );
-
-const label = filamentLabel;
 
 export function Swatch({ hex }: { hex: string }) {
   return (
@@ -130,7 +128,7 @@ export function FilamentPage() {
                           params={{ id: s.id }}
                           className="font-medium hover:underline"
                         >
-                          {label(profileOf.get(s.profileId))}
+                          {spoolName(t, s, profileOf.get(s.profileId))}
                         </Link>
                       </span>
                     ),

@@ -1,4 +1,4 @@
-import type { PrintDetail, PrintInput } from "@3d-maker-suite/core";
+import type { PrintDetail, PrintInput, Spool } from "@3d-maker-suite/core";
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
@@ -8,7 +8,7 @@ import { FormField, inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { TagPicker } from "../../components/TagPicker.tsx";
 import { useCatalogItem, useMachineProfiles } from "../../lib/catalog.ts";
-import { filamentLabel, useProfiles, useSpools } from "../../lib/filament.ts";
+import { spoolName, useProfiles, useSpools } from "../../lib/filament.ts";
 import { formatWeight } from "../../lib/format.ts";
 import { usePreferences } from "../../lib/preferences.ts";
 import { usePrinters } from "../../lib/printers.ts";
@@ -64,14 +64,15 @@ function PrintForm({ print }: { print?: PrintDetail }) {
   const [nextKey, setNextKey] = useState(rows.length);
   const setRow = (key: number, p: Partial<Row>) =>
     setRows((rs) => rs.map((r) => (r.key === key ? { ...r, ...p } : r)));
-  const spoolLabel = (id: string) => {
-    const s = spools.find((x) => x.id === id);
-    return t("prints:form.spoolOption", {
-      filament: filamentLabel(profiles.find((p) => p.id === s?.profileId)),
-      color: s?.colorHex ?? "",
-      weight: formatWeight(s?.remainingGrams ?? 0),
+  const spoolLabel = (s: Spool) =>
+    t("prints:form.spoolOption", {
+      name: spoolName(
+        t,
+        s,
+        profiles.find((p) => p.id === s.profileId),
+      ),
+      weight: formatWeight(s.remainingGrams),
     });
-  };
 
   const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -248,7 +249,7 @@ function PrintForm({ print }: { print?: PrintDetail }) {
                     <option value="" />
                     {spools.map((s) => (
                       <option key={s.id} value={s.id}>
-                        {spoolLabel(s.id)}
+                        {spoolLabel(s)}
                       </option>
                     ))}
                   </select>

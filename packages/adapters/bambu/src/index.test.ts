@@ -1,6 +1,9 @@
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { IntegrationContext, SecretStore } from "@3d-maker-suite/core";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { bambuCloudAdapter, bambuStudioAdapter } from "./index.ts";
+import { bambuCloudAdapter, bambuStudioAdapter, readColorNames, toSpool } from "./index.ts";
 
 // Canned Bambu Cloud responses; each test queues what `fetch` answers, in order.
 const json = (status: number, body: unknown, headers: [string, string][] = []) =>
@@ -34,7 +37,20 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 const log = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() };
-const adapter = bambuCloudAdapter();
+// A Bambu Studio folder with two colour names, so tests never read the real install.
+const studioDir = mkdtempSync(join(tmpdir(), "bambu-studio-"));
+mkdirSync(join(studioDir, "system", "BBL", "filament"), { recursive: true });
+writeFileSync(
+  join(studioDir, "system", "BBL", "filament", "filaments_color_codes.json"),
+  JSON.stringify({
+    data: [
+      { fila_type: "PLA Basic", fila_color: ["#042F56FF"], fila_color_name: { en: "Cobalt Blue" } },
+      { fila_type: "PLA Matte", fila_color: ["#042F56FF"], fila_color_name: { en: "Navy" } },
+      { fila_type: "PLA Matte", fila_color: ["#DE4343FF"], fila_color_name: { en: "Scarlet Red" } },
+    ],
+  }),
+);
+const adapter = bambuCloudAdapter(() => [join(studioDir, "missing"), studioDir]);
 const ctx = (region = "global") => ({
   config: adapter.configSchema.parse({ region }),
   log,
@@ -304,10 +320,32 @@ it("lists the cloud filament manager's spools, page by page", async () => {
     spoolId: "1",
     profile: { brand: "Bambu Lab", material: "PLA", name: "PLA Basic" },
     colorHex: "#042f56",
+    colorName: "Cobalt Blue",
     initialGrams: 1000,
     remainingGrams: 931,
     emptyWeightGrams: null,
     status: "in_use",
   });
-  expect(spools[100]).toMatchObject({ colorHex: "#808080", remainingGrams: 0, status: "empty" });
+  expect(spools[100]).toMatchObject({
+    colorHex: "#808080",
+    colorName: null,
+    remainingGrams: 0,
+    status: "empty",
+  });
+});
+
+it("names a spool's colour from Bambu Studio's colour codes", async () => {
+  const names = await readColorNames([studioDir]);
+  const hit = (filamentName: string, color: string) => ({
+    id: 1,
+    filamentType: "PLA",
+    filamentName,
+    color,
+  });
+  // The filament type decides when a hex has several names; one name is enough on its own.
+  expect(toSpool(hit("PLA Matte", "#042F56FF"), names)?.colorName).toBe("Navy");
+  expect(toSpool(hit("PLA Silk", "#DE4343FF"), names)?.colorName).toBe("Scarlet Red");
+  expect(toSpool(hit("PLA Silk", "#042F56FF"), names)?.colorName).toBeNull();
+  expect(toSpool(hit("PLA Matte", "#123456FF"), names)?.colorName).toBeNull();
+  expect(await readColorNames([join(studioDir, "missing")])).toEqual(new Map());
 });

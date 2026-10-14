@@ -5,6 +5,7 @@ import { Button } from "../../components/Button.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { TagPicker } from "../../components/TagPicker.tsx";
+import { isConflict } from "../../lib/catalog.ts";
 import {
   filamentLabel,
   useCreateSpool,
@@ -35,7 +36,9 @@ function SpoolForm({ profiles, spool }: { profiles: FilamentProfile[]; spool?: S
     const date = (k: string) => (text(f, k) ? dateInputToIso(text(f, k)) : null);
     const values = {
       profileId: text(f, "profile"),
+      number: num(text(f, "number")) ?? undefined,
       colorHex: text(f, "color"),
+      colorName: text(f, "colorName") || null,
       initialGrams: Number(text(f, "initial")),
       emptyWeightGrams: float(text(f, "empty")),
       pricePaid: num(text(f, "price"), 100),
@@ -74,6 +77,12 @@ function SpoolForm({ profiles, spool }: { profiles: FilamentProfile[]; spool?: S
   const grams = { type: "number", min: 0, step: 0.1 } as const;
   return (
     <form onSubmit={onSubmit} className="grid gap-4 sm:max-w-md">
+      {field(
+        "number",
+        "filament:spools.number",
+        { type: "number", min: 1, step: 1, defaultValue: spool?.number },
+        spool ? undefined : t("filament:spools.numberHint"),
+      )}
       <FormField label={t("filament:spools.profile")}>
         {(p) => (
           <select
@@ -105,6 +114,7 @@ function SpoolForm({ profiles, spool }: { profiles: FilamentProfile[]; spool?: S
           />
         )}
       </FormField>
+      {field("colorName", "filament:spools.colorName", { defaultValue: spool?.colorName ?? "" })}
       {field("initial", "filament:spools.initial", {
         ...grams,
         required: true,
@@ -154,7 +164,7 @@ function SpoolForm({ profiles, spool }: { profiles: FilamentProfile[]; spool?: S
       <TagPicker value={tags.value} onChange={tags.onChange} />
       {save.isError && (
         <p role="alert" className="text-bad">
-          {t("filament:spools.error")}
+          {t(isConflict(save.error) ? "filament:spools.numberTaken" : "filament:spools.error")}
         </p>
       )}
       <div className="flex gap-2">

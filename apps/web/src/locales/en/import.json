@@ -9,10 +9,12 @@
   },
   "spools": {
     "columns": {
+      "number": "Number",
       "brand": "Brand",
       "material": "Material",
       "profile": "Profile name",
       "colorHex": "Colour",
+      "colorName": "Colour name",
       "initialGrams": "Initial weight (g)",
       "remainingGrams": "Remaining weight (g)",
       "emptyWeightGrams": "Empty spool weight (g)",

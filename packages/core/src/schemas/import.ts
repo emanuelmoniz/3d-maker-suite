@@ -82,6 +82,8 @@ const printSlotColumns = (n: number): ImportColumn[] => [
 
 export const IMPORT_COLUMNS = {
   spools: [
+    // A spool's number is its identity in a file: a row with one updates that spool.
+    { key: "number", type: "integer", label: "import:spools.columns.number" },
     { key: "brand", type: "ref", ref: "filamentBrands", label: "import:spools.columns.brand" },
     {
       key: "material",
@@ -97,6 +99,7 @@ export const IMPORT_COLUMNS = {
       label: "import:spools.columns.profile",
     },
     { key: "colorHex", type: "color", label: "import:spools.columns.colorHex" },
+    { key: "colorName", type: "text", label: "import:spools.columns.colorName" },
     {
       key: "initialGrams",
       type: "number",

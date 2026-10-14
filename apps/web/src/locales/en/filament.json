@@ -34,7 +34,12 @@
       "empty": "Empty"
     },
     "low": "Low",
-    "error": "Couldn't save the spool."
+    "error": "Couldn't save the spool.",
+    "name": "{{number}}-{{profile}} {{color}}",
+    "number": "Number",
+    "numberHint": "Leave empty for the next free number.",
+    "numberTaken": "Another spool already has this number.",
+    "colorName": "Color name"
   },
   "profiles": {
     "title": "Profiles",

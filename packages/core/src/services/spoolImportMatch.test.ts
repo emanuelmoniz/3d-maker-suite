@@ -35,6 +35,13 @@ describe("matchSpoolRows", () => {
     expect(matchSpoolRows([values({ colorHex: null })], spools)[0]?.candidates).toEqual(["a", "b"]);
   });
 
+  it("a row with a number fits that spool only, whatever its filament", () => {
+    const spools = [spool("a", { number: 1 }), spool("b", { number: 2, material: "PETG" })];
+    expect(matchSpoolRows([values({ number: 2 })], spools)).toEqual([
+      { candidates: ["b"], targetId: "b" },
+    ]);
+  });
+
   it("doesn't give one spool to two file rows", () => {
     expect(matchSpoolRows([values(), values()], [spool("a")])).toEqual([
       { candidates: ["a"], targetId: null },

@@ -12,7 +12,7 @@ import { openDb, schema } from "@3d-maker-suite/db";
 import { sum } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import { buildApp } from "./app.ts";
-import { filamentBrandIdFor, filamentMaterialIdFor } from "./lib/catalog.ts";
+import { filamentBrandIdFor, filamentMaterialIdFor, spoolName } from "./lib/catalog.ts";
 import { setRemaining } from "./lib/spools.ts";
 import { reviewer } from "./testReview.ts";
 
@@ -51,6 +51,33 @@ describe("filament", () => {
     await send("PATCH", `/api/filament/profiles/${p.id}`, { archived: true });
     const res = await send("POST", "/api/filament/spools", { profileId: p.id, initialGrams: 1000 });
     expect(res.statusCode).toBe(400);
+  });
+
+  it("spools get the next free number; a taken one is refused", async () => {
+    const p = await profile();
+    const post = (over = {}) =>
+      send("POST", "/api/filament/spools", { profileId: p.id, initialGrams: 1000, ...over });
+    const a = (await post()).json();
+    const b = (await post({ number: 10, colorName: "Starlight" })).json();
+    const c = (await post()).json();
+    expect([a.number, b.number, c.number]).toEqual([1, 10, 11]);
+    expect((await post({ number: 10 })).json()).toMatchObject({
+      error: { code: "spool_number_taken" },
+    });
+    expect((await send("PATCH", `/api/filament/spools/${a.id}`, { number: 11 })).statusCode).toBe(
+      409,
+    );
+    // Its own number is not "taken".
+    expect((await send("PATCH", `/api/filament/spools/${a.id}`, { number: 1 })).statusCode).toBe(
+      200,
+    );
+    expect(
+      db
+        .select({ name: spoolName })
+        .from(schema.spools)
+        .all()
+        .map((s) => s.name),
+    ).toEqual(["1-Galaxy #808080", "10-Galaxy Starlight", "11-Galaxy #808080"]);
   });
 
   it("every remaining-weight change is a ledger entry that sums to the weight", async () => {

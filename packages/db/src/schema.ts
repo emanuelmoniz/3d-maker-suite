@@ -336,7 +336,11 @@ export const spools = sqliteTable(
     profileId: text()
       .notNull()
       .references(() => filamentProfiles.id, { onDelete: "restrict" }),
+    // ponytail: nullable only because SQLite can't ADD a NOT NULL column without a constant
+    // default; createSpool always sets it. Rebuild the table with NOT NULL if a path ever skips it.
+    number: integer(),
     colorHex: text().notNull().default("#808080"),
+    colorName: text(),
     initialGrams: real().notNull(),
     remainingGrams: real().notNull(),
     emptyWeightGrams: real(),
@@ -352,6 +356,7 @@ export const spools = sqliteTable(
   (t) => [
     index("spools_profile_idx").on(t.profileId),
     uniqueIndex("spools_source_uq").on(t.sourceSpool),
+    uniqueIndex("spools_number_uq").on(t.number),
     check("spools_status_ck", oneOf(t.status, SPOOL_STATUSES)),
   ],
 );

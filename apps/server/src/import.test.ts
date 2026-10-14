@@ -76,7 +76,8 @@ describe("import", () => {
     expect(res.headers["content-type"]).toBe(XLSX_TYPE);
     type Sheet = ExcelJS.Worksheet;
     const [data, help, lists] = wb.worksheets as [Sheet, Sheet, Sheet];
-    expect((data.getRow(1).values as string[]).slice(1, 4)).toEqual([
+    expect((data.getRow(1).values as string[]).slice(1, 5)).toEqual([
+      "number label",
       "brand label",
       "material label *",
       "profile label",
@@ -93,6 +94,35 @@ describe("import", () => {
     expect(brand.showErrorMessage).toBeFalsy();
     expect(lists.getColumn(1).values).toEqual([undefined, "brand label", "Acme"]);
     expect(help.getCell("A1").value).toBe("How to fill this in");
+  });
+
+  it("a row with a spool's number updates that spool, a new number creates one", async () => {
+    const black = await spool("#000000");
+    await spool("#000000");
+    const p = await csv(
+      "number,material,initialGrams,colorName\n1,PLA,1000,Jet Black\n7,PLA,1000,Jade",
+    );
+    expect(p.rows.map((r) => [r.status, r.targetId])).toEqual([
+      ["changed", black.id],
+      ["new", null],
+    ]);
+    const done = await apply({
+      uploadId: p.uploadId,
+      policy: "overwrite",
+      decisions: [
+        { row: 2, action: "update", targetId: black.id },
+        { row: 3, action: "create" },
+      ],
+    });
+    expect(done.json()).toMatchObject({ created: 1, updated: 1 });
+    expect(await getSpool(black.id)).toMatchObject({ number: 1, colorName: "Jet Black" });
+    expect(
+      db
+        .select()
+        .from(schema.spools)
+        .all()
+        .map((s) => [s.number, s.colorName]),
+    ).toContainEqual([7, "Jade"]);
   });
 
   it("a filled template previews, a matched row merges into the picked spool", async () => {

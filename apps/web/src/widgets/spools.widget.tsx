@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import { z } from "zod";
-import { filamentLabel, useProfiles, useSpools } from "../lib/filament.ts";
+import { spoolName, useProfiles, useSpools } from "../lib/filament.ts";
 import { formatWeight } from "../lib/format.ts";
 import { usePreferences } from "../lib/preferences.ts";
 import { defineWidget } from "./registry.ts";
@@ -43,7 +43,11 @@ defineWidget({
                     className="size-3 rounded-full border border-border"
                     style={{ background: x.colorHex }}
                   />
-                  {filamentLabel(profiles.find((p) => p.id === x.profileId))}
+                  {spoolName(
+                    t,
+                    x,
+                    profiles.find((p) => p.id === x.profileId),
+                  )}
                 </Link>
                 <span className="text-warn">{formatWeight(x.remainingGrams)}</span>
               </li>

@@ -161,6 +161,10 @@ describe("listPage filters", () => {
     await post("/api/filament/spools", { profileId: petg.id, initialGrams: 500 });
     expect(await names("/api/filament/spools?filament=basic", "initialGrams")).toEqual([1000]);
     expect(await names("/api/filament/spools?sort=-filament", "initialGrams")).toEqual([500, 1000]);
+    // The spool's display name: "2-Zed PETG #808080".
+    expect(await names("/api/filament/spools?filament=2-zed%20petg%20%23808080", "number")).toEqual(
+      [2],
+    );
     expect(await names("/api/filament/profiles?filament=petg", "brand")).toEqual(["Zed"]);
 
     db.insert(schema.projects)

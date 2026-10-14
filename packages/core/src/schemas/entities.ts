@@ -202,7 +202,11 @@ export const filamentProfileSchema = z.object({
 export const spoolSchema = z.object({
   id,
   profileId: id,
+  /** Short unique number the spool goes by ("12-Bambu PLA Matte Scarlet Red"). */
+  number: z.number().int().positive(),
   colorHex: hexColor,
+  /** e.g. "Scarlet Red"; the display name falls back to the hex without it. */
+  colorName: z.string().trim().min(1).nullable(),
   initialGrams: grams,
   remainingGrams: grams,
   /** Weight of the empty spool, to turn a scale reading into filament left. */

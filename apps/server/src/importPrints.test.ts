@@ -5,6 +5,7 @@ import type { ImportEntity, ImportPreview } from "@3d-maker-suite/core";
 import { openDb, schema } from "@3d-maker-suite/db";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { buildApp } from "./app.ts";
+import { printImport } from "./import/prints.ts";
 import { filamentProfileIdFor } from "./lib/catalog.ts";
 
 let dataDir: string;
@@ -107,7 +108,7 @@ describe("print import", () => {
       .from(schema.spools)
       .all()
       .find((s) => s.id === id)?.remainingGrams;
-  const FILE = `${PRINT_HEAD}\nbox,Benchy,2026-03-04 10:00,3600,success,Acme PLA Basic,12.5`;
+  const FILE = `${PRINT_HEAD}\nbox,Benchy,2026-03-04 10:00,3600,success,1-Basic #000000,12.5`;
 
   it("books the print and its filament, and a second import changes nothing", async () => {
     const spool = await setup();
@@ -127,6 +128,13 @@ describe("print import", () => {
     expect(statuses(await preview("prints", FILE))).toEqual(["identical"]);
   });
 
+  it("finds a spool by its number alone, and the template lists spools by display name", async () => {
+    const spool = await setup();
+    await applySuggested("prints", await preview("prints", FILE.replace("1-Basic #000000", "1")));
+    expect(remaining(spool.id)).toBe(987.5);
+    expect(printImport.refs(db).spools).toEqual(["1-Basic #000000"]);
+  });
+
   it("a changed duration updates the print and leaves the spool alone", async () => {
     const spool = await setup();
     await applySuggested("prints", await preview("prints", FILE));
@@ -141,7 +149,7 @@ describe("print import", () => {
     await setup();
     const p = await preview(
       "prints",
-      `${PRINT_HEAD}\nNope,A,2026-03-04 10:00,,success,,\nbox,B,2026-03-05 10:00,,failed,Mystery spool,5\nbox,C,2026-03-06 10:00,,success,Acme PLA Basic,`,
+      `${PRINT_HEAD}\nNope,A,2026-03-04 10:00,,success,,\nbox,B,2026-03-05 10:00,,failed,Mystery spool,5\nbox,C,2026-03-06 10:00,,success,1-Basic #000000,`,
     );
     expect(statuses(p)).toEqual(["invalid", "new", "invalid"]);
     expect(p.rows[0]?.errors).toEqual([{ column: "printer", code: "unresolved" }]);
@@ -170,7 +178,7 @@ describe("print import", () => {
       ).json() as { id: string };
     };
     const row = (extra: string, track = "") =>
-      `${HEAD}\nbox,Multi,2026-03-04 10:00,3600,success,Acme PLA Basic,10,Acme PETG Tough,5,${extra},${track}`;
+      `${HEAD}\nbox,Multi,2026-03-04 10:00,3600,success,1-Basic #000000,10,2-Tough #ffffff,5,${extra},${track}`;
 
     it("books one usage per color and takes each from its own spool", async () => {
       const a = await setup();
@@ -211,7 +219,7 @@ describe("print import", () => {
       const a = await setup();
       const p = await preview(
         "prints",
-        `${HEAD}\nbox,A,2026-03-04 10:00,,success,Acme PLA Basic,10,Mystery,5,,,\nbox,B,2026-03-05 10:00,,success,,,,,Acme PLA Basic,,`,
+        `${HEAD}\nbox,A,2026-03-04 10:00,,success,1-Basic #000000,10,Mystery,5,,,\nbox,B,2026-03-05 10:00,,success,,,,,1-Basic #000000,,`,
       );
       expect(statuses(p)).toEqual(["new", "invalid"]);
       expect(p.rows[1]?.errors).toEqual([{ column: "grams3", code: "required" }]);
@@ -232,7 +240,7 @@ describe("print import", () => {
         const n = i + 1;
         return [n === 1 ? "spool" : `spool${n}`, n === 1 ? "grams" : `grams${n}`];
       });
-      const csv = `printer,title,startedAt,outcome,${slots.flat().join(",")},spool17\nbox,Rainbow,2026-03-04 10:00,success,${slots.map(() => "Acme PLA Basic,1").join(",")},x`;
+      const csv = `printer,title,startedAt,outcome,${slots.flat().join(",")},spool17\nbox,Rainbow,2026-03-04 10:00,success,${slots.map(() => "1-Basic #000000,1").join(",")},x`;
       const p = await preview("prints", csv);
       expect(p.ignoredHeaders).toEqual(["spool17"]);
       await applySuggested("prints", p);

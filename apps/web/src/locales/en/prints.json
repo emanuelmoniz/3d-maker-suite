@@ -39,7 +39,7 @@
     "grams": "Grams",
     "addSpool": "Add spool",
     "removeSpool": "Remove spool",
-    "spoolOption": "{{filament}} {{color}} · {{weight}} left",
+    "spoolOption": "{{name}} · {{weight}} left",
     "save": "Save print",
     "error": "Couldn't save the print. Check that every spool has enough filament.",
     "machineProfile": "Machine profile"

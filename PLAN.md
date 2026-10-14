@@ -87,7 +87,7 @@ Show me the migration and how many existing descriptions it would clear before a
 
 ## Phase 4 - Data
 
-### [ ] Step 6 - Spool number, color name & display name  **[plan mode]**
+### [x] Step 6 - Spool number, color name & display name  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:** Two new spool fields and one display name used everywhere.
 - **Number:** `number` (integer, unique, editable). Migration numbers existing spools 1..n by creation date. New spools get max + 1 automatically, whether added by hand, by cloud sync, or by import when the file leaves it empty. Editing to a number that is taken gives a clear validation error.

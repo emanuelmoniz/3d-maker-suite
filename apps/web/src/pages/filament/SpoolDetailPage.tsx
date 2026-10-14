@@ -4,7 +4,13 @@ import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { TagList } from "../../components/TagList.tsx";
-import { filamentLabel, usePatchSpool, useProfile, useSpool } from "../../lib/filament.ts";
+import {
+  filamentLabel,
+  spoolName,
+  usePatchSpool,
+  useProfile,
+  useSpool,
+} from "../../lib/filament.ts";
 import { formatCurrency, formatDate, formatWeight } from "../../lib/format.ts";
 import { usePreferences } from "../../lib/preferences.ts";
 import { useTagsOf } from "../../lib/tags.ts";
@@ -42,7 +48,7 @@ export function SpoolDetailPage() {
   if (!spool) return null;
 
   const none = t("filament:detail.none");
-  const title = filamentLabel(profile);
+  const title = spoolName(t, spool, profile);
   const archived = spool.archivedAt !== null;
   const library = spool.sourceSpool?.split(":")[0];
 
@@ -80,15 +86,17 @@ export function SpoolDetailPage() {
           )}
         </h2>
         <dl className="grid gap-3 sm:grid-cols-2">
+          <Info label={t("filament:spools.number")}>{spool.number}</Info>
           <Info label={t("filament:spools.profile")}>
             <Link
               to="/filament/profiles/$id"
               params={{ id: spool.profileId }}
               className="font-medium underline"
             >
-              {title}
+              {filamentLabel(profile)}
             </Link>
           </Info>
+          <Info label={t("filament:spools.colorName")}>{spool.colorName ?? none}</Info>
           <Info label={t("filament:spools.color")}>{spool.colorHex}</Info>
           <Info label={t("filament:spools.remaining")}>
             {t("filament:spoolImport.remainingOf", {

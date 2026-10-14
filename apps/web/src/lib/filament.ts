@@ -10,6 +10,7 @@ import type {
   SpoolWeightEntry,
 } from "@3d-maker-suite/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { TFunction } from "i18next";
 import { api } from "./api.ts";
 
 // ponytail: one page of 100 rows each, add pagination controls if anyone owns more.
@@ -82,3 +83,14 @@ export const useAdjustSpool = () =>
 
 export const filamentLabel = (p?: FilamentProfile) =>
   p ? p.name || [p.brand, p.material].filter(Boolean).join(" ") : "";
+
+/**
+ * The name a spool goes by everywhere: "12-Bambu PLA Matte Scarlet Red" (the hex without a colour
+ * name). The server builds the same in `lib/catalog.ts` `spoolName`, for sort, filter and imports.
+ */
+export const spoolName = (t: TFunction, s: Spool, p?: FilamentProfile) =>
+  t("filament:spools.name", {
+    number: s.number,
+    profile: filamentLabel(p),
+    color: s.colorName || s.colorHex,
+  });

@@ -64,6 +64,16 @@ export function filamentMaterialIdFor(db: Db, name: string): string {
 export const profileBrand = sql<string>`coalesce((SELECT ${filamentBrands.name} FROM ${filamentBrands} WHERE ${filamentBrands.id} = ${filamentProfiles.brandId}), '')`;
 export const profileMaterial = sql<string>`(SELECT ${filamentMaterials.name} FROM ${filamentMaterials} WHERE ${filamentMaterials.id} = ${filamentProfiles.materialId})`;
 
+/** The label the app shows for a profile: its name, else "brand material". */
+export const profileLabel = sql<string>`coalesce(nullif(${filamentProfiles.name}, ''), trim(${profileBrand} || ' ' || ${profileMaterial}))`;
+
+const { spools } = schema;
+/**
+ * A spool's display name, "12-Bambu PLA Matte Scarlet Red" (the hex without a colour name), as the
+ * web's `spoolName()` builds it in English. Fixed here: import files match spools by it.
+ */
+export const spoolName = sql<string>`${spools.number} || '-' || (SELECT ${profileLabel} FROM ${filamentProfiles} WHERE ${filamentProfiles.id} = ${spools.profileId}) || ' ' || coalesce(nullif(${spools.colorName}, ''), ${spools.colorHex})`;
+
 /** `select()` map for profiles: the row plus `brand` / `material` names, as the API returns them. */
 export const profileColumns = {
   ...getTableColumns(filamentProfiles),

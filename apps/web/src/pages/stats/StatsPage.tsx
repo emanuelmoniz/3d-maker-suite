@@ -9,7 +9,7 @@ import { inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { StatCard } from "../../components/StatCard.tsx";
 import { useMoney } from "../../lib/cost.ts";
-import { filamentLabel, useProfiles, useSpools } from "../../lib/filament.ts";
+import { filamentLabel, spoolName, useProfiles, useSpools } from "../../lib/filament.ts";
 import {
   formatDate,
   formatDuration,
@@ -214,7 +214,11 @@ export function StatsPage() {
           onChange={(spoolId) => set({ spoolId })}
           options={spools.map((s) => ({
             value: s.id,
-            label: filamentLabel(profiles.find((p) => p.id === s.profileId)),
+            label: spoolName(
+              t,
+              s,
+              profiles.find((p) => p.id === s.profileId),
+            ),
           }))}
         />
         <Select

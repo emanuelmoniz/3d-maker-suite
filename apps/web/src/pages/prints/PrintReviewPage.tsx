@@ -7,7 +7,7 @@ import { DataTable } from "../../components/DataTable.tsx";
 import { EmptyState } from "../../components/EmptyState.tsx";
 import { inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
-import { filamentLabel, useProfiles, useSpools } from "../../lib/filament.ts";
+import { spoolName, useProfiles, useSpools } from "../../lib/filament.ts";
 import { formatDateTime, formatWeight } from "../../lib/format.ts";
 import { useUrlListQuery } from "../../lib/list.ts";
 import { useAssignReview, useDismissReview, useFilamentReview } from "../../lib/prints.ts";
@@ -136,8 +136,7 @@ export function PrintReviewPage() {
                       {optionsFor(i.material).map(({ spool, profile }) => (
                         <option key={spool.id} value={spool.id}>
                           {t("prints:form.spoolOption", {
-                            filament: filamentLabel(profile),
-                            color: spool.colorHex,
+                            name: spoolName(t, spool, profile),
                             weight: formatWeight(spool.remainingGrams),
                           })}
                         </option>

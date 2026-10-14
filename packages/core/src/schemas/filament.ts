@@ -49,11 +49,16 @@ export const filamentProfilePatchSchema = filamentProfileInputSchema
   .extend({ archived: z.boolean().optional() })
   .strict();
 
-/** `remainingGrams` defaults to `initialGrams` (a new spool). Afterwards only `adjust` changes it. */
+/**
+ * `remainingGrams` defaults to `initialGrams` (a new spool). Afterwards only `adjust` changes it.
+ * `number` defaults to the next free one.
+ */
 export const spoolInputSchema = spoolSchema
   .pick({
     profileId: true,
+    number: true,
     colorHex: true,
+    colorName: true,
     initialGrams: true,
     remainingGrams: true,
     emptyWeightGrams: true,
@@ -64,7 +69,9 @@ export const spoolInputSchema = spoolSchema
     status: true,
   })
   .partial({
+    number: true,
     colorHex: true,
+    colorName: true,
     remainingGrams: true,
     emptyWeightGrams: true,
     pricePaid: true,
@@ -154,11 +161,13 @@ export const librarySourceSchema = z.object({
 export const librarySpoolSchema = spoolSchema
   .pick({
     colorHex: true,
+    colorName: true,
     initialGrams: true,
     remainingGrams: true,
     emptyWeightGrams: true,
     status: true,
   })
+  .partial({ colorName: true })
   .extend({
     /** The vendor's id; the server prefixes it with the adapter id (`bambu-cloud:123`). */
     spoolId: z.string().min(1),

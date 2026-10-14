@@ -1,3 +1,5 @@
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 import {
   type ExternalPrint,
   type IntegrationAdapter,
@@ -10,7 +12,7 @@ import { z } from "zod";
 export { bambuStudioLibrary } from "./studio.ts";
 
 import { call, cookie, parse, REGIONS, type Region, URLS } from "./cloud.ts";
-import { bambuStudioLibrary } from "./studio.ts";
+import { bambuStudioLibrary, studioDefaultDirs } from "./studio.ts";
 
 const configSchema = z.object({ region: z.enum(REGIONS).default("global") });
 // Optional so the integration can exist before the user signs in. The password is never stored,
@@ -130,18 +132,57 @@ const spoolsResponse = z.object({
   ),
 });
 
+/** Colour names by "filament type|#rrggbb", and by "#rrggbb" alone where a hex has one name. */
+type ColorNames = Map<string, string>;
+type ColorCode = { fila_type?: string; fila_color?: string[]; fila_color_name?: { en?: string } };
+
+/**
+ * Bambu Studio's colour names (system/BBL/filament/filaments_color_codes.json, which Studio keeps
+ * up to date), in English. The cloud's spools only carry a hex. No file = no names.
+ */
+export async function readColorNames(dirs: string[]): Promise<ColorNames> {
+  for (const dir of dirs) {
+    let data: ColorCode[];
+    try {
+      const file = join(dir, "system", "BBL", "filament", "filaments_color_codes.json");
+      data = JSON.parse(await readFile(file, "utf8")).data;
+      if (!Array.isArray(data)) continue;
+    } catch {
+      continue;
+    }
+    const names: ColorNames = new Map();
+    const byHex = new Map<string, Set<string>>();
+    for (const c of data) {
+      const name = c.fila_color_name?.en?.trim();
+      // ponytail: single-colour entries only; a gradient spool keeps its hex.
+      const hex = c.fila_color?.length === 1 ? c.fila_color[0]?.slice(0, 7).toLowerCase() : "";
+      if (!name || !hex || !c.fila_type) continue;
+      names.set(`${c.fila_type.toLowerCase()}|${hex}`, name);
+      byHex.set(hex, (byHex.get(hex) ?? new Set()).add(name));
+    }
+    for (const [hex, set] of byHex) if (set.size === 1) names.set(hex, [...set][0] ?? "");
+    return names;
+  }
+  return new Map();
+}
+
 export function toSpool(
   s: z.infer<typeof spoolsResponse>["hits"][number],
+  colorNames: ColorNames = new Map(),
 ): LibrarySpool | undefined {
   const material = s.filamentType?.trim();
   if (!material) return;
   const color = s.color ?? "";
+  const colorHex = /^#[0-9a-f]{6}/i.test(color) ? color.slice(0, 7).toLowerCase() : "#808080";
+  const name = s.filamentName || material;
   const initialGrams = s.totalNetWeight && s.totalNetWeight > 0 ? s.totalNetWeight : 1000;
   const remainingGrams = Math.min(Math.max(s.netWeight ?? 0, 0), initialGrams);
   return {
     spoolId: String(s.id),
-    profile: { brand: s.filamentVendor ?? "", material, name: s.filamentName || material },
-    colorHex: /^#[0-9a-f]{6}/i.test(color) ? color.slice(0, 7).toLowerCase() : "#808080",
+    profile: { brand: s.filamentVendor ?? "", material, name },
+    colorHex,
+    colorName:
+      colorNames.get(`${name.toLowerCase()}|${colorHex}`) ?? colorNames.get(colorHex) ?? null,
     initialGrams,
     remainingGrams,
     emptyWeightGrams: null, // the cloud doesn't keep the empty spool's weight
@@ -151,7 +192,8 @@ export function toSpool(
 
 type LoginState = { email?: string; tfaKey?: string };
 
-export function bambuCloudAdapter(): IntegrationAdapter {
+/** `colorDirs`: Bambu Studio folders to read colour names from. */
+export function bambuCloudAdapter(colorDirs = studioDefaultDirs): IntegrationAdapter {
   return {
     id: "bambu-cloud",
     kind: "cloud",
@@ -259,6 +301,7 @@ export function bambuCloudAdapter(): IntegrationAdapter {
         spools: {
           listSpools: async () => {
             const out: LibrarySpool[] = [];
+            const colorNames = await readColorNames(colorDirs());
             // ponytail: capped at 50 pages (5000 spools) in case paging never ends.
             for (let page = 0; page < 50; page++) {
               const query = new URLSearchParams({
@@ -271,7 +314,7 @@ export function bambuCloudAdapter(): IntegrationAdapter {
                 log,
               );
               for (const h of hits) {
-                const s = toSpool(h);
+                const s = toSpool(h, colorNames);
                 if (s) out.push(s);
               }
               if (hits.length < SPOOL_PAGE) break;
