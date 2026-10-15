@@ -20,7 +20,7 @@ import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { createBackup } from "../backup/backup.ts";
 import { HttpError } from "../errors.ts";
-import { createReview, type Stored, untracked } from "../import/review.ts";
+import { createReview, type Stored } from "../import/review.ts";
 import type { Syncer } from "../integrations/sync.ts";
 import { buildTemplate, type GridRow, readCsv, readXlsx, XLSX_TYPE } from "../lib/sheet.ts";
 
@@ -164,11 +164,10 @@ export const importRoutes =
         },
       },
       async (req) => {
-        const { uploadId, decisions, policy, trackUsage } = req.body;
-        const loaded = review.load(uploadId);
-        if (!loaded || loaded.entity !== req.params.entity)
+        const { uploadId, decisions, policy } = req.body;
+        const stored = review.load(uploadId);
+        if (!stored || stored.entity !== req.params.entity)
           throw new HttpError(404, "upload_not_found", "Upload not found; preview the file again");
-        const stored = trackUsage === false ? untracked(loaded) : loaded;
         review.plan(stored, decisions, policy);
         const backup = (await createBackup(db, dataDir, true)).name;
         // A confirmed review of an integration is a manual run of that type, in its sync log too.

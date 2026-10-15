@@ -221,6 +221,8 @@ export type ImportDecision = {
   policy?: MergePolicy;
   /** By column key: the picked references. */
   refs?: Record<string, string | null>;
+  /** Prints: take the filament from the spools (unset: what the row's `trackUsage` says). */
+  trackUsage?: boolean;
 };
 
 export const BULK_ACTIONS = [

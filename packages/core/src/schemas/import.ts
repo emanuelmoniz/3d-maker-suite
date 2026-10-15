@@ -429,11 +429,14 @@ export const importApplySchema = z.object({
         policy: z.enum(MERGE_POLICIES).optional(),
         /** By column key: the picked references (see `refOptions`). */
         refs: z.record(z.string(), id).optional(),
+        /**
+         * Prints: false saves the print and its filament without taking it from the spools;
+         * replaces the row's `trackUsage`.
+         */
+        trackUsage: z.boolean().optional(),
       }),
     )
     .min(1),
-  /** Prints: false saves them without taking their filament from the spools (`trackUsage` "no"). */
-  trackUsage: z.boolean().optional(),
 });
 
 export const importResultSchema = z.object({

@@ -257,11 +257,18 @@ export function createReview(db: Db, dataDir: string) {
             !options.some((o) => o.id === d.refs?.[column])
           )
             throw new HttpError(400, "ref_not_found", `Row ${d.row} needs a ${column} you have`);
+      // A print's tick replaces the row's track-usage cell (`useFilament` reads it).
+      const track =
+        stored.entity !== "prints" || d.trackUsage === undefined
+          ? undefined
+          : d.trackUsage
+            ? "yes"
+            : "no";
       return {
-        values: row.values,
+        values: track ? { ...row.values, trackUsage: track } : row.values,
         target,
         policy: d.policy ?? policy,
-        row: { ...from, refs: d.refs },
+        row: { ...from, refs: d.refs, ...(track && { raw: { ...from.raw, trackUsage: track } }) },
       };
     });
     return { current, ops };

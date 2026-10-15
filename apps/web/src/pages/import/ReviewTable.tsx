@@ -115,6 +115,7 @@ const TARGET_DETAILS: Partial<Record<ReviewEntity, (v: ImportValues) => ImportCe
 const PAGE_ROWS = 100;
 const ALL_TARGETS = "__all";
 const NEW_SPOOL = "__new";
+const TRACK = "trackUsage";
 /**
  * What a print's slot says about its filament, for a spool added from its picker: a file names a
  * profile, an integration reports material and colour ("PLA #ff8800").
@@ -153,8 +154,6 @@ export function ReviewTable({
   const [bulk, setBulk] = useState<BulkAction>("autoMatch");
   const [confirming, setConfirming] = useState(false);
   const [page, setPage] = useState(0);
-  // Prints: false saves them without taking their filament from the spools.
-  const [trackUsage, setTrackUsage] = useState(true);
   // The spool picker a new spool is being added for, and the spools added so far.
   const [adding, setAdding] = useState<{ row: ImportPreviewRow; key: string } | null>(null);
   const [added, setAdded] = useState<NonNullable<ImportPreview["refOptions"]>[string]>([]);
@@ -163,6 +162,8 @@ export function ReviewTable({
   const { rows } = preview;
   const targets = new Map(preview.targets.map((x) => [x.id, x]));
   const decisionOf = (r: ImportPreviewRow) => decisions[r.row] ?? suggested(r);
+  // A print takes its filament from the spools unless the row says "no" or the user unticks it.
+  const tracks = (r: ImportPreviewRow) => decisionOf(r).trackUsage ?? r.values[TRACK] !== "no";
   const decide = (r: ImportPreviewRow, patch: Partial<ImportDecision>) =>
     setDecisions((d) => ({ ...d, [r.row]: { ...(d[r.row] ?? suggested(r)), ...patch } }));
   const toggle = <T,>(set: Set<T>, v: T) => {
@@ -237,8 +238,10 @@ export function ReviewTable({
     if (c.type === "enum" && OPTIONS[String(v)]) return t(OPTIONS[String(v)] ?? "");
     return typeof v === "number" ? formatNumber(v) : v;
   };
-  // The numbered filament slots and the usage flag only show when the file or a matched row uses them.
+  // The numbered filament slots and the usage flag only show when the file or a matched row uses
+  // them; a print's usage tick always shows.
   const inUse = (c: ImportColumn) =>
+    c.key === TRACK ||
     !(c.labelArgs || c.fileOnly) ||
     rows.some(
       (r) =>
@@ -390,6 +393,17 @@ export function ReviewTable({
           const error = r.errors.find((e) => e.column === c.key);
           if (error) return <span className="text-bad">{t(ERRORS[error.code])}</span>;
           const d = decisionOf(r);
+          if (c.key === TRACK)
+            return d.action === "skip" ? (
+              ""
+            ) : (
+              <input
+                type="checkbox"
+                aria-label={t("import:review.trackUsageFor", { row: r.row })}
+                checked={tracks(r)}
+                onChange={(e) => decide(r, { trackUsage: e.target.checked })}
+              />
+            );
           const target = d.action === "update" ? targets.get(d.targetId ?? "") : undefined;
           const value = format(c, r.values[c.key]);
           const options = preview.refOptions?.[c.key];
@@ -606,20 +620,6 @@ export function ReviewTable({
           {t("import:review.error")}
         </p>
       )}
-      {entity === "prints" && (
-        <label className="flex items-start gap-2">
-          <input
-            type="checkbox"
-            className="mt-1"
-            checked={trackUsage}
-            onChange={(e) => setTrackUsage(e.target.checked)}
-          />
-          <span>
-            <span className="font-medium">{t("import:review.trackUsage")}</span>
-            <span className="block text-muted">{t("import:review.trackUsageHint")}</span>
-          </span>
-        </label>
-      )}
       <div className="flex items-center gap-3">
         <Button
           variant="primary"
@@ -644,7 +644,6 @@ export function ReviewTable({
             {
               uploadId: preview.uploadId,
               policy,
-              ...(!trackUsage && { trackUsage: false }),
               decisions: rows.flatMap((r) => {
                 const d = decisionOf(r);
                 return d.action === "skip"
@@ -655,6 +654,7 @@ export function ReviewTable({
                         action: d.action,
                         targetId: d.action === "update" ? (d.targetId ?? undefined) : undefined,
                         policy: d.policy,
+                        ...(entity === "prints" && { trackUsage: tracks(r) }),
                         refs:
                           d.action === "create" && picked.length
                             ? Object.fromEntries(

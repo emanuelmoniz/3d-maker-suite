@@ -740,7 +740,7 @@ describe("filament matching of imported prints", () => {
     expect(usage).toMatchObject({ spoolId: s.id, grams: 10 });
   });
 
-  it("a review confirmed without tracking saves the prints and leaves the weights", async () => {
+  it("a review row ticked off saves its print and leaves the weight alone", async () => {
     const a = await spool();
     await spool();
     const { id } = await syncNow();
@@ -748,11 +748,16 @@ describe("filament matching of imported prints", () => {
     const res = await send("POST", "/api/import/prints/apply", {
       uploadId: p.uploadId,
       policy: "overwrite",
-      trackUsage: false,
-      decisions: p.rows.map((r) => ({ row: r.row, action: "create", refs: { spool: a.id } })),
+      decisions: p.rows.map((r) => ({
+        row: r.row,
+        action: "create",
+        refs: { spool: a.id },
+        // The 10 g print isn't tracked; the 20 g and 30 g ones are.
+        trackUsage: r.values.grams !== 10,
+      })),
     });
     expect(res.json()).toMatchObject({ created: 3 });
-    expect(await left(a.id)).toBe(1000);
+    expect(await left(a.id)).toBe(1000 - 50);
     expect(await queue()).toEqual([]);
   });
 

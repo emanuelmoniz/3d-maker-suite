@@ -154,8 +154,7 @@
     "noSpool": "No spool: the grams wait for review",
     "checkSpool": "Picked from several spools of this colour: check it",
     "addSpool": "Add new spool…",
-    "trackUsage": "Take the filament from the spools",
-    "trackUsageHint": "Untick to save the prints and their filament without changing the spools' weights, e.g. for prints your spools already account for."
+    "trackUsageFor": "Take the filament of row {{row}} from the spools"
   },
   "done": {
     "summary": "Import finished: {{created, number}} created, {{updated, number}} updated.",

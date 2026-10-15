@@ -41,7 +41,7 @@ Each filament slot of a new print has a spool picker:
 - The spools that fit the slot are listed first: the same material and colour the printer reported, or the filament profile the file names.
 - A spool opened after the print started is not offered, and neither is an empty one. The app refuses such a spool anywhere: in the review, the print form and the filament review queue.
 - **Add new spool…** at the end of the list adds a spool without leaving the review and picks it.
-- **Take the filament from the spools** (on by default): untick it to save the prints and their filament without changing the spools' weights, for example for prints your spools already account for.
+- **Track usage** is a tick on every print row, from a file or an integration. It starts from the file's *Track usage* cell (ticked unless it says `no`; ticked for an integration). Untick a row to save that print and its filament without changing the spools' weights, for example for prints your spools already account for.
 
 A spool is marked **Empty** as soon as its remaining weight reaches 0 g, and **In use** once filament is taken from it.
 
