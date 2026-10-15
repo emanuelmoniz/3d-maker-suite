@@ -2,7 +2,7 @@ import {
   type ExternalPrint,
   type FilamentLibrary,
   type LibrarySpool,
-  matchSpool,
+  matchPrint,
   PRINT_MAX_SLOTS,
   printSlotKeys,
   type SLICER_ZIP_TYPES,
@@ -92,9 +92,11 @@ export const activeSpools = (db: Db) =>
   db
     .select({
       id: spools.id,
+      number: spools.number,
       profileId: spools.profileId,
       material: profileMaterial,
       colorHex: spools.colorHex,
+      status: spools.status,
       purchasedAt: spools.purchasedAt,
       openedAt: spools.openedAt,
       createdAt: spools.createdAt,
@@ -142,8 +144,9 @@ export function spoolHistory(db: Db) {
 
 /**
  * A vendor's print history, minus the prints already imported, in the prints import columns.
- * A slot names the one spool `matchSpool` finds; one it can't decide stays empty, which holds the
- * print for a person. The source key is `<integrationId>:<externalId>`.
+ * A slot names the spool `matchPrint` picks; one picked from several is listed in `unsure`, and
+ * one with no spool stays empty. Either holds the print for a person. The source key is
+ * `<integrationId>:<externalId>`.
  */
 export function printRows(db: Db, integrationId: string, items: ExternalPrint[]): StoredRow[] {
   const mine = and(eq(printers.integrationId, integrationId), isNotNull(printers.externalId));
@@ -163,39 +166,50 @@ export function printRows(db: Db, integrationId: string, items: ExternalPrint[])
       .all()
       .map((p) => p.externalId),
   );
-  const active = activeSpools(db);
+  // Copies: `remainingGrams` becomes what each spool still holds once the rows before take theirs,
+  // so a booking can't overdraw it.
+  const active = activeSpools(db).map((s) => ({ ...s }));
   const byId = new Map(active.map((s) => [s.id, s]));
   const history = spoolHistory(db);
-  // What each spool still holds once the rows before take theirs: a booking can't overdraw it.
-  const left = new Map(active.map((s) => [s.id, s.remainingGrams]));
-  const pick = (f: ExternalPrint["filaments"][number], startedAt: string, printerId?: string) => {
-    const recent = history.before(printerId, f.slot, startedAt);
-    const spool = byId.get(matchSpool({ ...f, startedAt }, active, recent) ?? "");
-    if (!spool) return null;
-    if (!predates(startedAt, spool)) {
-      const after = (left.get(spool.id) ?? 0) - f.grams;
-      if (after < 0) return null;
-      left.set(spool.id, after);
-    }
-    if (printerId) history.add({ printerId, slot: f.slot ?? null, startedAt, spoolId: spool.id });
-    return spool.label;
-  };
   const fresh = items.filter((p) => !known.has(p.externalId));
   // Oldest first, so a print follows the spools picked for the ones before it.
-  const picked = new Map<string, (string | null)[]>();
+  const picked = new Map<string, { label: string | null; sure: boolean }[]>();
   for (const p of [...fresh].sort((a, b) => a.startedAt.localeCompare(b.startedAt))) {
     const printerId = printerOf.get(p.printerExternalId)?.id;
+    const slots = p.filaments
+      .slice(0, PRINT_MAX_SLOTS)
+      .map((f) => ({ ...f, startedAt: p.startedAt }));
+    const matches = matchPrint(slots, active, (slot) =>
+      history.before(printerId, slot, p.startedAt),
+    );
     picked.set(
       p.externalId,
-      p.filaments.slice(0, PRINT_MAX_SLOTS).map((f) => pick(f, p.startedAt, printerId)),
+      matches.map((m, i) => {
+        const spool = byId.get(m.id ?? "");
+        const f = slots[i];
+        if (!spool || !f) return { label: null, sure: false };
+        if (!predates(p.startedAt, spool)) spool.remainingGrams -= f.grams;
+        if (printerId)
+          history.add({
+            printerId,
+            slot: f.slot ?? null,
+            startedAt: p.startedAt,
+            spoolId: spool.id,
+          });
+        return { label: spool.label, sure: m.sure };
+      }),
     );
   }
   return numbered(
     fresh.map(({ filaments, ...p }) => {
       const slots: Record<string, unknown> = {};
+      // Slots picked from several spools: shown for a person to check, and held by an auto run.
+      const unsure: string[] = [];
       for (const [i, f] of filaments.slice(0, PRINT_MAX_SLOTS).entries()) {
         const key = printSlotKeys(i + 1);
-        slots[key.spool] = picked.get(p.externalId)?.[i] ?? null;
+        const pick = picked.get(p.externalId)?.[i];
+        slots[key.spool] = pick?.label ?? null;
+        if (pick?.label && !pick.sure) unsure.push(key.spool);
         // Shown in the review only; the slot keeps what was reported in `reported`.
         slots[key.filament] = [f.material, f.colorHex].filter(Boolean).join(" ") || null;
         slots[key.grams] = f.grams;
@@ -219,6 +233,7 @@ export function printRows(db: Db, integrationId: string, items: ExternalPrint[])
             material: f.material,
             colorHex: f.colorHex,
           })),
+          ...(unsure.length && { unsure }),
         },
       };
     }),

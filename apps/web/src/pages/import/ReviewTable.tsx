@@ -360,6 +360,11 @@ export function ReviewTable({
           const target = d.action === "update" ? targets.get(d.targetId ?? "") : undefined;
           const value = format(c, r.values[c.key]);
           const options = preview.refOptions?.[c.key];
+          // A suggestion picked from several, until the user picks another.
+          const unsure =
+            !!d.refs?.[c.key] &&
+            d.refs[c.key] === r.refs?.[c.key] &&
+            !!r.refsUnsure?.includes(c.key);
           if (options && d.action === "create" && picks(r).includes(c.key))
             return (
               <span className="flex items-center gap-2">
@@ -371,7 +376,10 @@ export function ReviewTable({
                     row: r.row,
                   })}
                   aria-invalid={d.refs?.[c.key] ? undefined : true}
-                  className={`${selectClass} max-w-72`}
+                  className={cx(
+                    `${selectClass} max-w-72`,
+                    unsure && "border-warn ring-1 ring-warn",
+                  )}
                   value={d.refs?.[c.key] ?? ""}
                   onChange={(e) =>
                     decide(r, { refs: { ...d.refs, [c.key]: e.target.value || null } })
@@ -389,6 +397,7 @@ export function ReviewTable({
                     {t(optional ? "import:review.noSpool" : "import:review.needsRef")}
                   </span>
                 )}
+                {unsure && <span className="text-warn">{t("import:review.checkSpool")}</span>}
               </span>
             );
           if (!target) return value;

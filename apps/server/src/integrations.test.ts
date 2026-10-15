@@ -685,7 +685,7 @@ describe("filament matching of imported prints", () => {
     expect(await left(s.id)).toBe(1000 - 60);
   });
 
-  it("holds prints whose filament matches no single spool, and keeps the cursor at them", async () => {
+  it("holds prints picked from several spools of one colour, and keeps the cursor at them", async () => {
     const a = await spool();
     const b = await spool();
     const { id, run } = await syncNow();
@@ -699,7 +699,23 @@ describe("filament matching of imported prints", () => {
     );
     expect((await get(`/api/integrations/${id}`)).policies[1]).toMatchObject({ pending: 3 });
 
-    // The review shows them with no spool; importing them queues their slots.
+    // The review suggests the oldest, to be checked; confirming books it.
+    const p = await printsReview(id);
+    expect(p.rows.map((r) => [r.refs?.spool, r.refsUnsure, r.auto])).toEqual([
+      [a.id, ["spool"], "wait"],
+      [a.id, ["spool"], "wait"],
+      [a.id, ["spool"], "wait"],
+    ]);
+    expect((await review.confirm(p)).json()).toMatchObject({ created: 3 });
+    expect(await queue()).toEqual([]);
+    expect(await left(a.id)).toBe(1000 - 60);
+    expect(await left(b.id)).toBe(1000);
+  });
+
+  it("holds a print with no spool of its colour, and queues its slot when imported", async () => {
+    await spool("#00ff00");
+    const { id, run } = await syncNow();
+    expect(run).toMatchObject({ pending: 3 });
     const p = await printsReview(id);
     expect(p.rows.map((r) => [r.values.spool ?? null, r.values.filament, r.auto])).toEqual([
       [null, "PLA #ff8800", "wait"],
@@ -708,7 +724,6 @@ describe("filament matching of imported prints", () => {
     ]);
     expect((await review.confirm(p)).json()).toMatchObject({ created: 3 });
     expect(await queue()).toHaveLength(3);
-    expect(await left(a.id)).toBe(1000);
   });
 
   it("holds a print that doesn't fit what the only matching spool has left", async () => {
@@ -719,11 +734,13 @@ describe("filament matching of imported prints", () => {
     expect(await left(s.id)).toBe(15);
   });
 
-  it("matches waiting slots again once a single spool fits", async () => {
-    const a = await spool();
-    const b = await spool();
+  it("matches waiting slots again once a single spool fits, never on a guess", async () => {
     const { id } = await syncNow();
     await importHeld(id);
+    expect(await queue()).toHaveLength(3);
+    const a = await spool();
+    const b = await spool();
+    await sync(id);
     expect(await queue()).toHaveLength(3);
     await send("PATCH", `/api/filament/spools/${b.id}`, { archived: true });
     await sync(id);
@@ -734,31 +751,25 @@ describe("filament matching of imported prints", () => {
   it("tells spools of one colour apart by the one the printer used last", async () => {
     const a = await spool();
     const b = await spool();
+    // Both in use, so the oldest would be the first one entered (a): only the history says b.
+    await send("PATCH", `/api/filament/spools/${a.id}`, { status: "in_use" });
     const { id } = await syncNow();
-    await importHeld(id);
-    const [newest, middle] = await queue();
-    const assign = (u: { usageId: string }, spoolId: string) =>
-      send("POST", `/api/prints/filament-review/${u.usageId}/assign`, { spoolId });
-    // Both opened now, so only the history tells them apart.
-    await assign(middle, a.id);
-    await assign(newest, b.id);
+    const p = await printsReview(id);
+    await review.confirm(p, p.rows, { refs: { spool: b.id } });
+    expect(await left(b.id)).toBe(1000 - 60);
     state.prints.push({
       ...firstPrint(),
       externalId: "job-9",
       startedAt: new Date(Date.now() + 2 * 3600 * 1000).toISOString(),
     });
-    expect(await sync(id)).toMatchObject({ created: 1, pending: 0 });
-    const job9 = (await get("/api/prints?sort=startedAt")).items.find(
-      (p: { externalId: string }) => p.externalId === "job-9",
-    );
-    expect(job9.usages[0].spoolId).toBe(b.id);
-    // The oldest print came before either was used: still a person's call.
-    expect(await queue()).toHaveLength(1);
+    // Still a guess, so held for a person.
+    expect(await sync(id)).toMatchObject({ created: 0, pending: 1 });
+    const next = await printsReview(id);
+    expect(next.rows.map((r) => [r.refs?.spool, r.refsUnsure])).toEqual([[b.id, ["spool"]]]);
   });
 
   it("assigns from the queue (ledger) or dismisses, and edits keep waiting slots", async () => {
-    const a = await spool();
-    await spool();
+    const a = await spool("#00ff00"); // no match: every slot waits
     const { id } = await syncNow();
     await importHeld(id);
     const [first, second, third] = await queue();
@@ -788,8 +799,6 @@ describe("filament matching of imported prints", () => {
   });
 
   it("assigning a spool entered after the print only links it", async () => {
-    await spool();
-    await spool();
     state.prints.forEach((p) => {
       p.startedAt = new Date(Date.now() - 3600 * 1000).toISOString();
     });
@@ -806,8 +815,6 @@ describe("filament matching of imported prints", () => {
   });
 
   it("refuses to assign more than the spool holds", async () => {
-    await spool();
-    await spool();
     const { id } = await syncNow();
     await importHeld(id);
     const small = await spool("#123456", 1);

@@ -12,7 +12,7 @@ import {
   type LibrarySpool,
   librarySpoolSchema,
   type MergePolicy,
-  matchSpool,
+  matchPrint,
   REVIEWED_TYPES,
   type ReviewedType,
   type SyncFrequency,
@@ -29,7 +29,7 @@ import { HttpError } from "../errors.ts";
 import { createReview, type Stored } from "../import/review.ts";
 import { modelIdFor } from "../lib/catalog.ts";
 import { nextNumber } from "../lib/numbers.ts";
-import { bookOrLink } from "../lib/prints.ts";
+import { bookOrLink, predates } from "../lib/prints.ts";
 import { linkPrints } from "../projects/linkPrints.ts";
 import { activeCapabilities, capableRow, policyOf, switchedOn } from "./capabilities.ts";
 import { libraryOf } from "./imports.ts";
@@ -413,9 +413,13 @@ export function createSyncer(
     return out;
   }
 
-  /** Slots an earlier run left for the review queue get their spool once `matchSpool` finds one. */
+  /**
+   * Slots an earlier run left for the review queue get their spool once `matchPrint` is sure of
+   * one; a guess among several stays for a person.
+   */
   function rematch() {
-    const active = activeSpools(db);
+    // Copies: the weights follow the bookings below.
+    const active = activeSpools(db).map((s) => ({ ...s }));
     const byId = new Map(active.map((s) => [s.id, s]));
     const history = spoolHistory(db);
     const waiting = db
@@ -429,15 +433,32 @@ export function createSyncer(
       .innerJoin(prints, eq(prints.id, printFilamentUsages.printId))
       .where(and(isNull(printFilamentUsages.spoolId), eq(printFilamentUsages.dismissed, false)))
       // Oldest first, so a print follows the spools picked for the ones before it.
-      .orderBy(prints.startedAt)
+      .orderBy(prints.startedAt, printFilamentUsages.slot)
       .all();
+    const byPrint = new Map<string, typeof waiting>();
+    for (const w of waiting)
+      byPrint.set(w.usage.printId, [...(byPrint.get(w.usage.printId) ?? []), w]);
     db.transaction((tx) => {
-      for (const { usage: u, title, startedAt, printerId } of waiting) {
-        const slot = { material: u.material ?? undefined, colorHex: u.colorHex ?? undefined };
-        const recent = history.before(printerId, u.slot, startedAt);
-        const spool = byId.get(matchSpool({ ...slot, startedAt }, active, recent) ?? "");
-        const profileId = spool && bookOrLink(tx, spool, u.grams, title, startedAt);
-        if (spool && profileId) {
+      for (const rows of byPrint.values()) {
+        const first = rows[0];
+        if (!first) continue;
+        const { title, startedAt, printerId } = first;
+        const slots = rows.map(({ usage: u }) => ({
+          material: u.material ?? undefined,
+          colorHex: u.colorHex ?? undefined,
+          grams: u.grams,
+          slot: u.slot,
+          startedAt,
+        }));
+        const matches = matchPrint(slots, active, (slot) =>
+          history.before(printerId, slot, startedAt),
+        );
+        for (const [i, { usage: u }] of rows.entries()) {
+          const m = matches[i];
+          const spool = m?.sure ? byId.get(m.id ?? "") : undefined;
+          const profileId = spool && bookOrLink(tx, spool, u.grams, title, startedAt);
+          if (!spool || !profileId) continue;
+          if (!predates(startedAt, spool)) spool.remainingGrams -= u.grams;
           tx.update(printFilamentUsages)
             .set({ spoolId: spool.id, profileId })
             .where(eq(printFilamentUsages.id, u.id))

@@ -89,7 +89,11 @@ export type ImportHandler = {
    */
   picks?: (db: Db) => {
     options: Record<string, { id: string; label: string }[]>;
-    suggest: (v: ImportValues) => { refs: Record<string, string | null>; sure: boolean };
+    /** `raw` is the stored row; `unsure` names the suggested refs a person should check. */
+    suggest: (
+      v: ImportValues,
+      raw: StoredRow["raw"],
+    ) => { refs: Record<string, string | null>; sure: boolean; unsure?: string[] };
     optional?: boolean;
   };
   /** Rows a run with nobody watching leaves for a person. */
@@ -149,7 +153,7 @@ export function createReview(db: Db, dataDir: string) {
       // the matcher.
       const id = String(r.raw.id ?? "").trim();
       const hit = byId.has(id) ? id : (r.source && bySource.get(r.source)) || null;
-      return { optional: !!r.optional, hit, row: r.n, ...p };
+      return { optional: !!r.optional, hit, raw: r.raw, row: r.n, ...p };
     });
     const valid = parsed.filter((p) => !p.errors.length);
     const open = valid.filter((p) => !p.hit);
@@ -162,7 +166,7 @@ export function createReview(db: Db, dataDir: string) {
     return {
       entity: stored.entity,
       dir: stored.dir,
-      rows: parsed.map(({ optional, hit, ...p }) => {
+      rows: parsed.map(({ optional, hit, raw, ...p }) => {
         const m = hit
           ? { candidates: [hit], targetId: hit }
           : (matchOf.get(p.row) ?? { candidates: [], targetId: null });
@@ -170,7 +174,7 @@ export function createReview(db: Db, dataDir: string) {
         const s = suggest(columns, p, { candidates: m.candidates, target });
         if (!sourced) return { ...p, ...m, ...s };
         const yours = !!hit && !!handler.handsOff;
-        const pick = hit || p.errors.length ? undefined : picks?.suggest(p.values);
+        const pick = hit || p.errors.length ? undefined : picks?.suggest(p.values, raw);
         const unpicked = !!pick && !picks?.optional && Object.values(pick.refs).some((v) => !v);
         return {
           ...p,
@@ -178,6 +182,7 @@ export function createReview(db: Db, dataDir: string) {
           ...s,
           ...((yours || (unpicked && s.action === "create")) && { action: "skip" as const }),
           ...(pick && { refs: pick.refs }),
+          ...(pick?.unsure?.length && { refsUnsure: pick.unsure }),
           auto: autoOf({
             status: s.status,
             // Without a source key the name is the identity, so a match is the row itself.

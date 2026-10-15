@@ -338,6 +338,8 @@ export const importPreviewRowSchema = z.object({
   action: z.enum(IMPORT_ACTIONS),
   /** By column key: the existing row suggested for a reference the user picks (null = none fits). */
   refs: z.record(z.string(), id.nullable()).optional(),
+  /** Keys of `refs` picked from several that fit (e.g. two spools of one colour): to check. */
+  refsUnsure: z.array(z.string()).optional(),
   /**
    * Rows from an integration: what a run with nobody watching does. `apply` takes the suggestion,
    * `wait` leaves the row for a person; absent = neither (nothing to do, or only on request).

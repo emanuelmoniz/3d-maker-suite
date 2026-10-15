@@ -1,11 +1,15 @@
 export type SpoolCandidate = {
   id: string;
+  number: number | null;
   material: string;
   /** `#rrggbb` of the spool. */
   colorHex: string;
+  status: "new" | "in_use" | "empty";
   /** When it was bought, if known. */
   purchasedAt: string | null;
   openedAt: string | null;
+  /** When it was entered in the app: an older print only links it, so needs none of its grams. */
+  createdAt: string;
   initialGrams: number;
   remainingGrams: number;
 };
@@ -13,8 +17,12 @@ export type SpoolCandidate = {
 export type SlotToMatch = {
   material?: string;
   colorHex?: string;
+  grams: number;
   startedAt: string;
 };
+
+/** The spool picked for a slot; `sure` = the only one that fits, else a person should check it. */
+export type SpoolMatch = { id: string | null; sure: boolean };
 
 const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
 
@@ -26,35 +34,66 @@ const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLow
 export const usableOn = (spool: { openedAt: string | null }, startedAt: string) =>
   !spool.openedAt || startedAt.slice(0, 10) >= spool.openedAt.slice(0, 10);
 
+const opened = (s: SpoolCandidate) => s.status === "in_use" || s.remainingGrams < s.initialGrams;
+/** Missing dates last. */
+const byDate = (a: string | null, b: string | null) =>
+  a === b ? 0 : !a ? 1 : !b ? -1 : a.localeCompare(b);
+/** The oldest first: opened before new, then by opening date, purchase date and number. */
+const oldest = (a: SpoolCandidate, b: SpoolCandidate) =>
+  Number(opened(b)) - Number(opened(a)) ||
+  byDate(a.openedAt, b.openedAt) ||
+  byDate(a.purchasedAt, b.purchasedAt) ||
+  (a.number ?? Number.MAX_SAFE_INTEGER) - (b.number ?? Number.MAX_SAFE_INTEGER);
+
 /**
- * Picks the spool an imported print used, or `null` when a person has to decide.
- * It needs the vendor's material and colour, and a spool with that exact material + colour. A spool
- * bought after the print's day can't have been used and is ignored (when the app was set up is no
- * clue: spools are often entered long after they were bought). Several spools of that colour: the
- * first of them in `recent` (the spools the printer used before, most likely first: a spool stays
- * in the AMS until swapped), else the only one already opened; else a person decides.
- * Pass active spools only (not archived or empty). Whether it holds enough is the booking's call.
+ * Picks the spool an imported print's slot used. It needs the vendor's material and colour, and a
+ * spool with that exact material + colour that was there on the print's day (not bought or opened
+ * later) and holds the slot's grams (a print older than the spool's entry in the app only links
+ * it). One such spool is a sure match. Several: the first of them in `recent` (the spools the
+ * printer used before, most likely first: a spool stays in the AMS until swapped), else the oldest;
+ * not sure, so a person checks it. Pass active spools only (not archived or empty).
  */
 export function matchSpool(
   slot: SlotToMatch,
   spools: SpoolCandidate[],
   recent: string[] = [],
-): string | null {
-  const { material, colorHex } = slot;
-  if (!material || !colorHex) return null;
-  const day = slot.startedAt.slice(0, 10);
+): SpoolMatch {
+  const { material, colorHex, startedAt } = slot;
+  if (!material || !colorHex) return { id: null, sure: false };
+  const day = startedAt.slice(0, 10);
   const hits = spools.filter(
     (s) =>
       (!s.purchasedAt || s.purchasedAt.slice(0, 10) <= day) &&
-      usableOn(s, slot.startedAt) &&
+      usableOn(s, startedAt) &&
+      (startedAt < s.createdAt || s.remainingGrams >= slot.grams) &&
       same(s.material, material) &&
       same(s.colorHex, colorHex),
   );
-  if (hits.length === 1) return hits[0]?.id ?? null;
+  if (hits.length === 1) return { id: hits[0]?.id ?? null, sure: true };
   const last = recent.find((id) => hits.some((s) => s.id === id));
-  if (last) return last;
-  // ponytail: "opened" is today's state, not the print's day; an old print may get a spool opened
-  // since. Fine for a sync of recent prints; the review shows it either way.
-  const opened = hits.filter((s) => s.remainingGrams < s.initialGrams);
-  return opened.length === 1 ? (opened[0]?.id ?? null) : null;
+  return { id: last ?? [...hits].sort(oldest)[0]?.id ?? null, sure: false };
+}
+
+/**
+ * `matchSpool` for every slot of one print. A spool goes to one slot only. Two slots of the same
+ * material + colour are two spools (the AMS switched to a second roll when the first ran out), so
+ * none of them is sure. `recent` gives the printer's recent spools for a slot (its AMS position).
+ */
+export function matchPrint(
+  slots: (SlotToMatch & { slot?: number | null })[],
+  spools: SpoolCandidate[],
+  recent: (slot: number | null | undefined) => string[] = () => [],
+): SpoolMatch[] {
+  const taken = new Set<string>();
+  const key = (s: SlotToMatch) => `${s.material?.toLowerCase()}|${s.colorHex?.toLowerCase()}`;
+  return slots.map((s, i) => {
+    const m = matchSpool(
+      s,
+      spools.filter((c) => !taken.has(c.id)),
+      recent(s.slot),
+    );
+    if (m.id) taken.add(m.id);
+    const twin = slots.some((o, j) => j !== i && key(o) === key(s));
+    return twin ? { ...m, sure: false } : m;
+  });
 }

@@ -409,8 +409,8 @@ export const printImport = {
   handsOff: true,
   /**
    * The spool of each slot with grams, suggested as the one the row names (`printRows` matched it).
-   * One left empty waits in the review queue; a run with nobody watching leaves such a print for a
-   * person.
+   * One left empty waits in the review queue. A run with nobody watching leaves such a print for a
+   * person, and one with a spool picked from several (`raw.unsure`) too.
    */
   picks(db: Db) {
     const spools = spoolImport.targets(db).map((s) => ({ id: s.id, label: s.label }));
@@ -420,14 +420,15 @@ export const printImport = {
     return {
       options,
       optional: true,
-      suggest(v: ImportValues) {
+      suggest(v: ImportValues, raw: Record<string, unknown>) {
         const look = lookups(db);
         const refs: Record<string, string | null> = {};
         for (let n = 1; n <= PRINT_MAX_SLOTS; n++) {
           const key = printSlotKeys(n);
           if ((num(v[key.grams]) ?? 0) > 0) refs[key.spool] = find(look.spools, v[key.spool]);
         }
-        return { refs, sure: !unmatched(look, v) };
+        const unsure = ((raw.unsure ?? []) as string[]).filter((k) => refs[k]);
+        return { refs, sure: !unmatched(look, v) && !unsure.length, unsure };
       },
     };
   },
