@@ -22,7 +22,7 @@ Runs locally on the user's PC (no Docker for now). Public GitHub repo. Brand-agn
 - pnpm workspaces monorepo, TypeScript (strict), Node 22 LTS
 - Server: Fastify, zod, @fastify/swagger, Drizzle ORM + better-sqlite3, croner (jobs), pino (logs)
 - Web: React + Vite, TanStack Router + TanStack Query, Tailwind + shadcn/ui, i18next, Recharts, @react-three/fiber + drei (3D)
-- Files: yauzl + fast-xml-parser (3MF), chokidar (folder watching)
+- Files: yauzl + fast-xml-parser (3MF), node:fs recursive watch (folder watching)
 - Quality: Biome, Vitest, Playwright, GitHub Actions
 
 ## Layout

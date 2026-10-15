@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { type FSWatcher, watch as fsWatch } from "node:fs";
 import { copyFile, mkdir, readdir, rm, stat, writeFile } from "node:fs/promises";
 import { basename, extname, join, resolve } from "node:path";
 import { read3mfEntry } from "@3d-maker-suite/3mf";
@@ -8,7 +9,6 @@ import {
   type ProjectScanStatus,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
-import chokidar, { type FSWatcher } from "chokidar";
 import { and, eq, isNull } from "drizzle-orm";
 import type { FastifyBaseLogger } from "fastify";
 import { HttpError } from "../errors.ts";
@@ -29,8 +29,6 @@ type Fields = {
 
 const WATCH_DEBOUNCE_MS = 3000;
 const THUMB_DIR = "thumbnails";
-// Watch this many levels below the scan depth: enough to see files inside a project folder.
-const WATCH_EXTRA_DEPTH = 3;
 
 const idle = (): ProjectScanStatus => ({
   state: "idle",
@@ -67,7 +65,7 @@ export function createProjectScanner(
 ) {
   let state = idle();
   let again = false;
-  let watcher: FSWatcher | undefined;
+  const watchers: FSWatcher[] = [];
   let watching = "";
   let timer: NodeJS.Timeout | undefined;
 
@@ -269,29 +267,28 @@ export function createProjectScanner(
   /** (Re)points the folder watcher at the current roots. Called after every scan. */
   function watch() {
     if (!opts.watch) return;
-    const { projectRoots, projectScanDepth } = readPreferences(db);
-    const key = JSON.stringify([projectRoots, projectScanDepth]);
+    const { projectRoots } = readPreferences(db);
+    const key = JSON.stringify(projectRoots);
     if (key === watching) return;
     watching = key;
-    void watcher?.close();
-    watcher = undefined;
-    if (!projectRoots.length) return;
-    // ponytail: any change triggers a full re-scan after a quiet period; scan only the touched
-    // folder if big libraries make that slow.
-    watcher = chokidar
-      .watch(
-        projectRoots.map((r) => resolve(r)),
-        {
-          ignoreInitial: true,
-          depth: projectScanDepth + WATCH_EXTRA_DEPTH,
-          ignored: (p) => isHidden(basename(p)),
-        },
-      )
-      .on("all", () => {
-        clearTimeout(timer);
-        timer = setTimeout(start, WATCH_DEBOUNCE_MS);
-      })
-      .on("error", (err) => log.warn({ err }, "project watcher error"));
+    for (const w of watchers.splice(0)) w.close();
+    // ponytail: one recursive OS watch per root, so Windows holds a handle only on the root and
+    // folders below it stay renamable (a watch per folder locks every folder above one). No depth limit, which costs
+    // nothing in CPU; the roots themselves stay locked. Any change triggers a full re-scan after a
+    // quiet period; scan only the touched folder if big libraries make that slow.
+    for (const r of projectRoots) {
+      try {
+        const w = fsWatch(resolve(r), { recursive: true }, (_, file) => {
+          if (file?.split(/[\\/]/).some(isHidden)) return;
+          clearTimeout(timer);
+          timer = setTimeout(start, WATCH_DEBOUNCE_MS);
+        });
+        w.on("error", (err) => log.warn({ err, root: r }, "project watcher error"));
+        watchers.push(w);
+      } catch (err) {
+        log.warn({ err, root: r }, "project root not watched");
+      }
+    }
   }
 
   /** Manual project backed by a folder; the given fields are user-edited from the start. */
@@ -316,7 +313,7 @@ export function createProjectScanner(
     },
     close: async () => {
       clearTimeout(timer);
-      await watcher?.close();
+      for (const w of watchers.splice(0)) w.close();
     },
   };
 }

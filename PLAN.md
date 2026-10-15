@@ -32,7 +32,7 @@ Do Step 2 of PLAN.md. Screenshot the current customize mode at 375/768/1440 firs
 then fix and screenshot again.
 ```
 
-### [ ] Step 3 - Project folders locked while the server runs  **[plan mode]**
+### [x] Step 3 - Project folders locked while the server runs  **[plan mode]**
 **Model:** Opus · **Effort:** Medium
 **Scope:** With the server running, a folder added under a project root can't be renamed in Windows Explorer. Likely cause: chokidar's `fs.watch` keeps a handle open on every watched folder (`projects/scanner.ts` `watch()`). Confirm the cause, then pick the fix (e.g. polling with a sensible interval on Windows, watching only the roots, or a lower depth) and weigh CPU cost against how fast changes are seen.
 **Done when:** a watched folder can be renamed while the server runs, and the rename still triggers a rescan; the trade-off is noted in a `ponytail:` comment; tests pass.
