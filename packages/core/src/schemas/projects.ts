@@ -45,6 +45,8 @@ export const projectModelSchema = z.object({
   plates: z.array(projectPlateSchema),
   /** Per build item, per component: part color for the 3D viewer. Older scans lack it. */
   partColors: z.array(z.array(nullableText)).default([]),
+  /** The MakerWorld model the file came from; links prints of it. Older scans lack it. */
+  designTitle: nullableText.default(null),
 });
 
 /** Painted triangles of one 3MF for the 3D viewer; same shape as `ThreeMfPaint`. */

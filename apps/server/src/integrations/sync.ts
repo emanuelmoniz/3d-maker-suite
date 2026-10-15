@@ -365,7 +365,8 @@ export function createSyncer(
 
   /**
    * The vendor's prints in the range, or since the last run (minus an overlap) without one.
-   * A print already imported only gets a plate that was never known.
+   * A print already imported only gets a plate that was never known, and its model's name for a
+   * title that is still the print profile's.
    */
   async function readPrints(
     id: string,
@@ -401,19 +402,22 @@ export function createSyncer(
       }
       cursor = page.nextCursor;
     } while (cursor);
-    // ponytail: a write while reading, but idempotent and only ever filling a blank.
-    for (const p of out)
+    // ponytail: a write while reading, but idempotent and only ever filling a blank or replacing
+    // the vendor's own old title.
+    for (const p of out) {
+      const same = and(eq(prints.integrationId, id), eq(prints.externalId, p.externalId));
       if (p.plate)
         db.update(prints)
           .set({ plate: p.plate })
-          .where(
-            and(
-              eq(prints.integrationId, id),
-              eq(prints.externalId, p.externalId),
-              isNull(prints.plate),
-            ),
-          )
+          .where(and(same, isNull(prints.plate)))
           .run();
+      // Imported when the title was the profile's name; one the user renamed stays theirs.
+      if (p.profileTitle)
+        db.update(prints)
+          .set({ title: p.title })
+          .where(and(same, eq(prints.title, p.profileTitle)))
+          .run();
+    }
     return out;
   }
 

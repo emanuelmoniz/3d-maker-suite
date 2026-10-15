@@ -110,6 +110,19 @@ describe("parse3mf fixtures (saved without slicing)", () => {
     ]);
   });
 
+  it("reads the MakerWorld model title, unescaped even when escaped twice", async () => {
+    const head = (title: string) =>
+      zipOf({
+        "3D/3dmodel.model": `<model><metadata name="Title">${title}</metadata><metadata name="Application">BambuStudio-02.00.00.00</metadata><resources/></model>`,
+      });
+    expect((await parse3mf(head("Flip7 &amp; Variants"))).designTitle).toBe("Flip7 & Variants");
+    expect((await parse3mf(head("Inserto &amp;amp;quot;Azul&amp;amp;quot;"))).designTitle).toBe(
+      'Inserto "Azul"',
+    );
+    expect((await parse3mf(head(""))).designTitle).toBeNull();
+    expect((await parse3mf(fixture("single_color"))).designTitle).toBeNull();
+  });
+
   it("accepts a Uint8Array", async () => {
     const { readFile } = await import("node:fs/promises");
     const info = await parse3mf(await readFile(fixture("single_color")));

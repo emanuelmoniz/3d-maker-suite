@@ -31,6 +31,11 @@ export const externalPrintSchema = z.object({
   externalId: z.string().min(1),
   printerExternalId: z.string().min(1),
   title: z.string().min(1),
+  /**
+   * A print of a published model is titled after the model; this is the print profile's name the
+   * vendor titled it with before ("0.2mm layer, 2 walls, 15% infill").
+   */
+  profileTitle: z.string().min(1).optional(),
   /** 1-based plate of the project file that was printed, when the vendor says. */
   plate: z.number().int().positive().optional(),
   startedAt: isoDate,

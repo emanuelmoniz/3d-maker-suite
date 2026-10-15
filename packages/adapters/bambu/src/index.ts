@@ -98,10 +98,13 @@ function toPrint(t: Task, region: Region, log: Logger): ExternalPrint | undefine
   const filaments =
     mapped.length || !t.weight ? mapped : [{ grams: Math.round(t.weight * done * 100) / 100 }];
   const host = region === "china" ? "makerworld.com.cn" : "makerworld.com";
+  // A MakerWorld print's `title` is its profile's name; the model's name says what was printed.
+  const design = t.designId ? t.designTitle?.trim() : undefined;
   return {
     externalId: String(t.id),
     printerExternalId: t.deviceId,
-    title: t.title || t.designTitle || `Task ${t.id}`,
+    title: design || t.title || t.designTitle || `Task ${t.id}`,
+    profileTitle: (design && t.title) || undefined,
     plate:
       t.plateIndex && Number.isInteger(t.plateIndex) && t.plateIndex > 0 ? t.plateIndex : undefined,
     startedAt: new Date(start).toISOString(),

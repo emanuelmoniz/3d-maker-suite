@@ -185,6 +185,49 @@ describe("integrations", () => {
     expect(row(first)?.plate).toBe(2);
   });
 
+  it("links by the MakerWorld model a 3MF came from, or the folder a file is in", async () => {
+    const { id } = await create();
+    let n = 0;
+    const project = (files: string[], designs: (string | null)[] = []) =>
+      db
+        .insert(schema.projects)
+        .values({
+          number: ++n,
+          name: `p${n}`,
+          meta: {
+            files: files.map((path) => ({ path, kind: "model", size: 1 })),
+            models: files.map((file, i) => ({ file, designTitle: designs[i] ?? null })),
+          },
+        })
+        .returning()
+        .get();
+    const azul = project(["03_model/azul.3mf"], ["Azul Tile Pour Box"]);
+    project(["a.3mf"], ["Codenames Grid"]);
+    project(["b.3mf"], ["Codenames Grid"]);
+    const rack = project(["03_model/spice-rack-parametric/printables/spice_rack_rotation.3mf"]);
+    await spool();
+    const profile = "0.2mm layer, 2 walls, 15% infill";
+    const [a, b, c] = state.prints as [ExternalPrint, ExternalPrint, ExternalPrint];
+    // Imported before the adapter titled prints after their model: the profile's name only.
+    Object.assign(a, { title: profile });
+    Object.assign(b, { title: "codenames grid" }); // two projects have that model: not linked
+    Object.assign(c, { title: "spice-rack-parametric_rd_v2_Plate 3" });
+    await sync(id);
+    const row = (p: ExternalPrint) =>
+      db.select().from(schema.prints).where(eq(schema.prints.externalId, p.externalId)).get();
+    expect(row(a)?.projectId).toBeNull();
+    expect(row(b)?.projectId).toBeNull();
+    expect(row(c)?.projectId).toBe(rack.id);
+
+    // A later read brings the model's name: the title follows and the print links.
+    for (const p of state.prints) p.startedAt = new Date().toISOString();
+    Object.assign(a, { title: "Azul Tile Pour Box", profileTitle: profile });
+    Object.assign(b, { title: "Codenames Grid", profileTitle: "renamed by hand" });
+    await sync(id);
+    expect(row(a)).toMatchObject({ title: "Azul Tile Pour Box", projectId: azul.id });
+    expect(row(b)?.title).toBe("codenames grid");
+  });
+
   it("records failures as an error code, raises and resolves a sync_failed alert", async () => {
     const { id } = await create();
     state.fail = "auth_expired";

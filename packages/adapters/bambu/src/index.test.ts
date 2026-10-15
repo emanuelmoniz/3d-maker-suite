@@ -240,6 +240,24 @@ it("maps finished tasks with filament per slot, link and cover", async () => {
   expect(sent(0).url).toBe("https://api.bambulab.com/v1/user-service/my/tasks?limit=100&offset=0");
 });
 
+it("titles a MakerWorld print after the model and keeps the profile's name", async () => {
+  const profile = "0.2mm layer, 2 walls, 15% infill";
+  queue(
+    json(200, {
+      hits: [
+        task(1, { title: profile, designTitle: "Azul Tile Pour Box" }),
+        task(2, { title: "own_file_plate_1", designId: null, designTitle: "ignored" }),
+        task(3, { title: profile, designTitle: "" }),
+      ],
+    }),
+  );
+  expect((await history())?.items.map((p) => [p.title, p.profileTitle])).toEqual([
+    ["Azul Tile Pour Box", profile],
+    ["own_file_plate_1", undefined],
+    [profile, undefined],
+  ]);
+});
+
 it("keeps the plate number when the cloud sends a usable one", async () => {
   queue(json(200, { hits: [task(1, { plateIndex: 3 }), task(2, { plateIndex: 0 }), task(3)] }));
   expect((await history())?.items.map((p) => p.plate)).toEqual([3, undefined, undefined]);

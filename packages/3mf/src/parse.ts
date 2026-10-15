@@ -47,6 +47,11 @@ export interface ThreeMfInfo {
    * extruder (or is a modifier). Empty if the file has no Bambu `model_settings`.
    */
   partColors: (string | null)[][];
+  /**
+   * The MakerWorld model the file was downloaded from (its `Title` metadata), as the cloud names
+   * a print of it (`designTitle`). Null for a file of your own.
+   */
+  designTitle: string | null;
 }
 
 type Node = Record<string, unknown>;
@@ -113,6 +118,29 @@ function parseSlicer(head: string | null): ThreeMfInfo["slicer"] {
   return i < 0
     ? { name: app, version: null }
     : { name: app.slice(0, i), version: app.slice(i + 1) };
+}
+
+const ENTITIES: Record<string, string> = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'" };
+/** XML text to plain text. MakerWorld escapes some titles twice (`&amp;quot;`), so until stable. */
+function xmlText(s: string) {
+  let out = s;
+  for (let prev = ""; prev !== out; ) {
+    prev = out;
+    out = out.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (m, e: string) =>
+      e[0] === "#"
+        ? String.fromCodePoint(
+            Number.parseInt(e.slice(e[1] === "x" ? 2 : 1), e[1] === "x" ? 16 : 10),
+          )
+        : (ENTITIES[e.toLowerCase()] ?? m),
+    );
+  }
+  return out;
+}
+
+/** `<metadata name="Title">â€¦</metadata>` of the model head. */
+function headMeta(head: string | null, name: string) {
+  const v = head?.match(new RegExp(`<metadata\\s+name="${name}"[^>]*>([^<]*)<`))?.[1];
+  return v ? xmlText(v).trim() || null : null;
 }
 
 interface BuildItem {
@@ -352,6 +380,7 @@ export async function parse3mf(source: ThreeMfSource): Promise<ThreeMfInfo> {
       sliced: list.some((p) => p.sliced),
       multicolor: list.some((p) => p.multicolor),
       plates: list,
+      designTitle: headMeta(head, "Title"),
     };
   } finally {
     zip.close();

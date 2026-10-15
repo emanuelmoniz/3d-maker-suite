@@ -1,6 +1,7 @@
 const MIN_NAME = 3;
 
-const key = (s: string) =>
+/** A title or file name as matching sees it: lowercase words, no extension or punctuation. */
+export const printKey = (s: string) =>
   s
     .toLowerCase()
     .replace(/(\.gcode)?\.3mf$/, "")
@@ -15,9 +16,9 @@ const key = (s: string) =>
  * the caller's to decide. `nameOf` gives a file name without its folder.
  */
 export function bestMatches<T>(title: string, items: T[], nameOf: (item: T) => string): T[] {
-  const t = key(title);
+  const t = printKey(title);
   const hits = items
-    .map((item) => ({ item, name: key(nameOf(item)) }))
+    .map((item) => ({ item, name: printKey(nameOf(item)) }))
     .filter(({ name }) => name.length >= MIN_NAME && (t === name || t.startsWith(`${name} `)));
   const longest = hits.reduce((n, h) => Math.max(n, h.name.length), 0);
   return hits.filter((h) => h.name.length === longest).map((h) => h.item);
