@@ -96,7 +96,11 @@
     "archived": "Archived",
     "source": "Source",
     "imported": "Imported from {{source}}",
-    "manual": "Added by hand"
+    "manual": "Added by hand",
+    "projects": "Projects",
+    "projectsNone": "No project has used this spool yet.",
+    "prints": "Prints",
+    "printsNone": "No print has used this spool yet."
   },
   "profileDetail": {
     "title": "Profile details",

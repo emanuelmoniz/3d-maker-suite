@@ -2,6 +2,7 @@ import { type PrintUsageInput, usableOn } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
 import { and, eq, isNotNull } from "drizzle-orm";
 import { HttpError } from "../errors.ts";
+import { spoolName } from "./catalog.ts";
 import { round, setRemaining, takeFromSpool } from "./spools.ts";
 
 const { printFilamentUsages, printers, prints, spools } = schema;
@@ -21,6 +22,20 @@ export const energyFor = (
 };
 
 type Tx = Db | Parameters<Parameters<Db["transaction"]>[0]>[0];
+
+/** The refusal for a print that needs more than the spool holds; names the spool to find it. */
+export function shortOf(tx: Tx, spoolId: string, title: string, grams: number) {
+  const row = tx
+    .select({ name: spoolName, left: spools.remainingGrams })
+    .from(spools)
+    .where(eq(spools.id, spoolId))
+    .get();
+  return new HttpError(
+    400,
+    "insufficient_filament",
+    `Spool ${row?.name ?? spoolId} has ${round(row?.left ?? 0)} g left, but "${title}" needs ${round(grams)} g`,
+  );
+}
 
 /**
  * Refuses a print from before the spool was opened. The opening date is only ever the user's: one
@@ -81,8 +96,7 @@ export const syncUsages = (
     profileOf.set(spoolId, spool.profileId);
     if (print && using.has(spoolId)) assertOpened(spool, print.startedAt);
     const remaining = round(spool.remainingGrams + grams);
-    if (remaining < 0)
-      throw new HttpError(400, "insufficient_filament", "Spool has less filament than used");
+    if (remaining < 0) throw shortOf(tx, spoolId, title, -grams);
     if (round(grams) !== 0) setRemaining(tx, spoolId, "print", remaining, title);
   }
   // Slots without a spool (the review queue) are kept: the edit form doesn't show them.

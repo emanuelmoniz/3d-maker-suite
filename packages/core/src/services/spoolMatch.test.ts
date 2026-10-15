@@ -118,4 +118,15 @@ describe("usableOn", () => {
     expect(usableOn({ openedAt: "2026-02-01T12:00:00.000Z" }, at)).toBe(true);
     expect(usableOn({ openedAt: "2026-02-02T12:00:00.000Z" }, at)).toBe(false);
   });
+
+  it("counts the day where the print happened: 00:31 on the opening day is that day", () => {
+    // Built in local time, so it is 23:31 UTC the day before wherever the zone is ahead of UTC.
+    const early = new Date(2026, 8, 5, 0, 31).toISOString();
+    const opened = { openedAt: "2026-09-05T12:00:00.000Z" };
+    expect(usableOn(opened, early)).toBe(true);
+    expect(usableOn(opened, new Date(2026, 8, 4, 23, 59).toISOString())).toBe(false);
+    // The same goes for the purchase day when matching.
+    const bought = spool("a", { purchasedAt: "2026-09-05T12:00:00.000Z" });
+    expect(matchSpool({ ...slot, startedAt: early }, [bought]).id).toBe("a");
+  });
 });

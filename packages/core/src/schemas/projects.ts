@@ -121,6 +121,8 @@ export const projectFilters = {
   name: { kind: "text" },
   tagId: { kind: "select" },
   collectionId: { kind: "select" },
+  /** Projects with a print that took filament from the spool (set by the spool page). */
+  spoolId: { kind: "select" },
   material: { kind: "select" },
   multicolor: { kind: "select", options: ["true", "false"] },
   lastPrintAt: { kind: "date" },

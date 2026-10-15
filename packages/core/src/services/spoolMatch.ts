@@ -32,7 +32,19 @@ const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLow
  * can take any print.
  */
 export const usableOn = (spool: { openedAt: string | null }, startedAt: string) =>
-  !spool.openedAt || startedAt.slice(0, 10) >= spool.openedAt.slice(0, 10);
+  !spool.openedAt || localDay(startedAt) >= spool.openedAt.slice(0, 10);
+
+/**
+ * The calendar day a moment falls on where the user lives (`YYYY-MM-DD`). A date typed without a
+ * time is stored at noon UTC, so its first 10 characters are the day as typed; a print's start
+ * is a real moment, and 00:31 on the 5th in Lisbon is still the 4th in UTC.
+ */
+export const localDay = (iso: string) => {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso.slice(0, 10);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+};
 
 const opened = (s: SpoolCandidate) => s.status === "in_use" || s.remainingGrams < s.initialGrams;
 /** Missing dates last. */
@@ -59,7 +71,7 @@ export function matchSpool(
 ): SpoolMatch {
   const { material, colorHex, startedAt } = slot;
   if (!material || !colorHex) return { id: null, sure: false };
-  const day = startedAt.slice(0, 10);
+  const day = localDay(startedAt);
   const hits = spools.filter(
     (s) =>
       (!s.purchasedAt || s.purchasedAt.slice(0, 10) <= day) &&

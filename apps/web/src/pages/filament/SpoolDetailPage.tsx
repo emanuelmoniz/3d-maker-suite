@@ -1,3 +1,4 @@
+import type { ProjectListItem } from "@3d-maker-suite/core";
 import { Link, useParams } from "@tanstack/react-router";
 import { type ReactNode, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -12,8 +13,12 @@ import {
   useSpool,
 } from "../../lib/filament.ts";
 import { formatCurrency, formatDate, formatWeight } from "../../lib/format.ts";
+import { useListPage, useUrlListQuery } from "../../lib/list.ts";
 import { usePreferences } from "../../lib/preferences.ts";
+import { usePrints } from "../../lib/prints.ts";
 import { useTagsOf } from "../../lib/tags.ts";
+import { PrintsTable } from "../prints/PrintsPage.tsx";
+import { ProjectsTable } from "../projects/ProjectsPage.tsx";
 import { AdjustDialog } from "./AdjustDialog.tsx";
 import { STATUS, Swatch } from "./FilamentPage.tsx";
 
@@ -28,6 +33,45 @@ export function Info({ label, children }: { label: string; children: ReactNode }
 
 export const linkButton =
   "inline-flex h-9 items-center justify-center rounded-md border border-border bg-surface px-3 font-medium hover:bg-surface-2";
+
+/** The projects and prints that took filament from this spool, as the main lists show them. */
+function SpoolUse({ spoolId }: { spoolId: string }) {
+  const { t } = useTranslation();
+  const [projectQuery, setProjectQuery] = useUrlListQuery("projects.");
+  const [printQuery, setPrintQuery] = useUrlListQuery("prints.");
+  const projects = useListPage<ProjectListItem>(["projects", "list", "spool"], "/api/projects", {
+    ...projectQuery,
+    spoolId,
+  });
+  const prints = usePrints({ ...printQuery, spoolId });
+  return (
+    <>
+      <section className="mt-6">
+        <h2 className="mb-3 text-base font-semibold">{t("filament:detail.projects")}</h2>
+        {projects.data &&
+          (projects.data.total || Object.keys(projectQuery).length ? (
+            <ProjectsTable
+              rows={projects.data.items}
+              total={projects.data.total}
+              query={projectQuery}
+              onQueryChange={setProjectQuery}
+            />
+          ) : (
+            <p className="text-muted">{t("filament:detail.projectsNone")}</p>
+          ))}
+      </section>
+      <section className="mt-6">
+        <h2 className="mb-3 text-base font-semibold">{t("filament:detail.prints")}</h2>
+        {prints.data &&
+          (prints.data.total || Object.keys(printQuery).length ? (
+            <PrintsTable data={prints.data} query={printQuery} onQueryChange={setPrintQuery} />
+          ) : (
+            <p className="text-muted">{t("filament:detail.printsNone")}</p>
+          ))}
+      </section>
+    </>
+  );
+}
 
 export function SpoolDetailPage() {
   const { t } = useTranslation();
@@ -127,6 +171,7 @@ export function SpoolDetailPage() {
           </Info>
         </dl>
       </section>
+      <SpoolUse spoolId={id} />
       <AdjustDialog
         spool={adjusting ? spool : null}
         title={title}

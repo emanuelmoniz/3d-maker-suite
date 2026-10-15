@@ -53,6 +53,26 @@ describe("filament", () => {
     expect(res.statusCode).toBe(400);
   });
 
+  it("changing the initial weight moves the remaining weight with it", async () => {
+    const p = await profile();
+    const s = (
+      await send("POST", "/api/filament/spools", {
+        profileId: p.id,
+        initialGrams: 1000,
+        remainingGrams: 88,
+      })
+    ).json();
+    const up = (await send("PATCH", `/api/filament/spools/${s.id}`, { initialGrams: 1200 })).json();
+    expect(up).toMatchObject({ initialGrams: 1200, remainingGrams: 288 });
+    const down = (
+      await send("PATCH", `/api/filament/spools/${s.id}`, { initialGrams: 100 })
+    ).json();
+    expect(down.remainingGrams).toBe(0);
+    // Another field leaves the weight alone.
+    const same = (await send("PATCH", `/api/filament/spools/${s.id}`, { location: "A" })).json();
+    expect(same.remainingGrams).toBe(0);
+  });
+
   it("spools get the next free number; a taken one is refused", async () => {
     const p = await profile();
     const post = (over = {}) =>

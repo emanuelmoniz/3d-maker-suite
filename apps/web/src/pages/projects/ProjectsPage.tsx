@@ -144,6 +144,116 @@ function AddFolder() {
   );
 }
 
+/** The projects list as a table: the main list and any other list of projects share it. */
+export function ProjectsTable({
+  rows,
+  total,
+  query,
+  onQueryChange,
+}: {
+  rows: ProjectListItem[];
+  total: number;
+  query: ListQuery;
+  onQueryChange: (q: ListQuery) => void;
+}) {
+  const { t } = useTranslation();
+  const materials = useProjectMaterials().data ?? [];
+  const tags = useTags().data ?? [];
+  const tagsOf = useTagsOf("project");
+  return (
+    <DataTable
+      label={t("projects:list.table")}
+      rows={rows}
+      rowKey={(p) => p.id}
+      server={{
+        query,
+        onQueryChange,
+        total,
+        filters: projectFilters,
+      }}
+      columns={[
+        {
+          id: "name",
+          header: t("projects:list.columns.name"),
+          cell: (p) => (
+            <span className="flex items-center gap-2">
+              <Thumb p={p} className="size-8 rounded" />
+              <Link
+                to="/projects/$id"
+                params={{ id: p.id }}
+                className="font-medium hover:underline"
+              >
+                {projectName(t, p)}
+              </Link>
+              {p.sourceUrl && (
+                <a
+                  href={p.sourceUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  aria-label={t("projects:list.openSource")}
+                  className="text-muted hover:text-fg"
+                >
+                  <ExternalLink className="size-4" aria-hidden />
+                </a>
+              )}
+            </span>
+          ),
+          sort: "name",
+          filter: "name",
+        },
+        {
+          id: "materials",
+          header: t("projects:list.columns.materials"),
+          cell: (p) => p.meta.materials.join(" · "),
+          filter: "material",
+          filterOptions: materials.map((m) => ({ value: m, label: m })),
+        },
+        {
+          id: "multicolor",
+          header: t("projects:list.columns.multicolor"),
+          cell: (p) =>
+            p.meta.multicolor && (
+              <Check
+                className="size-4 text-accent"
+                role="img"
+                aria-label={t("projects:list.multicolor")}
+              />
+            ),
+          sort: "multicolor",
+          filter: "multicolor",
+          filterOptions: [
+            { value: "true", label: t("projects:list.multicolor") },
+            { value: "false", label: t("projects:list.singleColor") },
+          ],
+        },
+        {
+          id: "lastPrintAt",
+          header: t("projects:list.columns.lastPrintAt"),
+          cell: (p) => (p.lastPrintAt ? formatDate(p.lastPrintAt) : ""),
+          sort: "lastPrintAt",
+          filter: "lastPrintAt",
+        },
+        {
+          id: "tags",
+          header: t("tags:column"),
+          cell: (p) => <TagList tags={tagsOf(p.id)} />,
+          filter: "tagId",
+          filterOptions: tags.map((x) => ({ value: x.id, label: x.name })),
+        },
+        {
+          id: "files",
+          header: t("projects:list.columns.files"),
+          numeric: true,
+          cell: (p) =>
+            p.folderPath
+              ? t("projects:list.files", { count: p.meta.files.length })
+              : t("projects:list.noFolder"),
+        },
+      ]}
+    />
+  );
+}
+
 export function ProjectsPage() {
   const { t } = useTranslation();
   const [view, setView] = useState(storedView);
@@ -156,8 +266,6 @@ export function ProjectsPage() {
   );
   const collections = useCollections().data ?? [];
   const materials = useProjectMaterials().data ?? [];
-  const tags = useTags().data ?? [];
-  const tagsOf = useTagsOf("project");
   const set = (patch: ListQuery, keepPage = false) => {
     const next: ListQuery = { ...query, ...patch };
     if (!keepPage) delete next.page;
@@ -352,95 +460,11 @@ export function ProjectsPage() {
                 <Pager query={query} total={data.total} onChange={set} />
               </div>
             ) : (
-              <DataTable
-                label={t("projects:list.table")}
+              <ProjectsTable
                 rows={rows}
-                rowKey={(p) => p.id}
-                server={{
-                  query,
-                  onQueryChange: setQuery,
-                  total: data.total,
-                  filters: projectFilters,
-                }}
-                columns={[
-                  {
-                    id: "name",
-                    header: t("projects:list.columns.name"),
-                    cell: (p) => (
-                      <span className="flex items-center gap-2">
-                        <Thumb p={p} className="size-8 rounded" />
-                        <Link
-                          to="/projects/$id"
-                          params={{ id: p.id }}
-                          className="font-medium hover:underline"
-                        >
-                          {projectName(t, p)}
-                        </Link>
-                        {p.sourceUrl && (
-                          <a
-                            href={p.sourceUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                            aria-label={t("projects:list.openSource")}
-                            className="text-muted hover:text-fg"
-                          >
-                            <ExternalLink className="size-4" aria-hidden />
-                          </a>
-                        )}
-                      </span>
-                    ),
-                    sort: "name",
-                    filter: "name",
-                  },
-                  {
-                    id: "materials",
-                    header: t("projects:list.columns.materials"),
-                    cell: (p) => p.meta.materials.join(" · "),
-                    filter: "material",
-                    filterOptions: materials.map((m) => ({ value: m, label: m })),
-                  },
-                  {
-                    id: "multicolor",
-                    header: t("projects:list.columns.multicolor"),
-                    cell: (p) =>
-                      p.meta.multicolor && (
-                        <Check
-                          className="size-4 text-accent"
-                          role="img"
-                          aria-label={t("projects:list.multicolor")}
-                        />
-                      ),
-                    sort: "multicolor",
-                    filter: "multicolor",
-                    filterOptions: [
-                      { value: "true", label: t("projects:list.multicolor") },
-                      { value: "false", label: t("projects:list.singleColor") },
-                    ],
-                  },
-                  {
-                    id: "lastPrintAt",
-                    header: t("projects:list.columns.lastPrintAt"),
-                    cell: (p) => (p.lastPrintAt ? formatDate(p.lastPrintAt) : ""),
-                    sort: "lastPrintAt",
-                    filter: "lastPrintAt",
-                  },
-                  {
-                    id: "tags",
-                    header: t("tags:column"),
-                    cell: (p) => <TagList tags={tagsOf(p.id)} />,
-                    filter: "tagId",
-                    filterOptions: tags.map((x) => ({ value: x.id, label: x.name })),
-                  },
-                  {
-                    id: "files",
-                    header: t("projects:list.columns.files"),
-                    numeric: true,
-                    cell: (p) =>
-                      p.folderPath
-                        ? t("projects:list.files", { count: p.meta.files.length })
-                        : t("projects:list.noFolder"),
-                  },
-                ]}
+                total={data.total}
+                query={query}
+                onQueryChange={setQuery}
               />
             )}
           </>

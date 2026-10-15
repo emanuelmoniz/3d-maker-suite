@@ -23,6 +23,7 @@ import {
   printSlotKeys,
   type ReviewEntity,
   suggested,
+  usableOn,
 } from "@3d-maker-suite/core";
 import { FileSpreadsheet } from "lucide-react";
 import { type ReactNode, useState } from "react";
@@ -32,6 +33,7 @@ import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { type Column, DataTable } from "../../components/DataTable.tsx";
 import { EmptyState } from "../../components/EmptyState.tsx";
 import { inputClass } from "../../components/FormField.tsx";
+import { ApiError } from "../../lib/api.ts";
 import { useMoney } from "../../lib/cost.ts";
 import { cx } from "../../lib/cx.ts";
 import { spoolName, useProfiles } from "../../lib/filament.ts";
@@ -197,10 +199,12 @@ export function ReviewTable({
   // empty, is only listed when it is the pick already.
   const optionsFor = (r: ImportPreviewRow, key: string, current: string | null | undefined) => {
     const first = new Set(r.refsFirst?.[key]);
-    const day = String(r.values.startedAt ?? "").slice(0, 10);
+    const started = String(r.values.startedAt ?? "");
     return [...(preview.refOptions?.[key] ?? []), ...added]
       .filter(
-        (o) => o.id === current || (!o.empty && (!o.from || !day || day >= o.from.slice(0, 10))),
+        (o) =>
+          o.id === current ||
+          (!o.empty && (!started || usableOn({ openedAt: o.from ?? null }, started))),
       )
       .sort((a, b) => Number(first.has(b.id)) - Number(first.has(a.id)));
   };
@@ -618,6 +622,14 @@ export function ReviewTable({
       {apply.isError && (
         <p role="alert" className="text-bad">
           {t("import:review.error")}
+          {apply.error instanceof ApiError && (
+            <span className="block text-sm">
+              {t("import:review.errorDetail", {
+                detail: apply.error.detail ?? apply.error.message,
+                code: apply.error.code ?? "",
+              })}
+            </span>
+          )}
         </p>
       )}
       <div className="flex items-center gap-3">

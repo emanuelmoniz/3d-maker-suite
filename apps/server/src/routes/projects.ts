@@ -32,7 +32,7 @@ import { assertNumberFree, nextNumber } from "../lib/numbers.ts";
 import { readPreferences } from "../lib/preferences.ts";
 import type { ProjectScanner } from "../projects/scanner.ts";
 
-const { projects, collectionProjects, prints } = schema;
+const { projects, collectionProjects, printFilamentUsages, prints } = schema;
 const params = z.object({ id: z.uuid() });
 const fileQuery = z.object({ path: z.string().min(1), entry: z.string().optional() });
 const notFound = { 404: apiErrorSchema };
@@ -117,6 +117,15 @@ export const projectsRoutes =
             material &&
               sql`exists (select 1 from json_each(${projects.meta}, '$.materials') where ${columnFilter(sql`value`, material)})`,
             taggedWith(db, "project", projects.id, req.query.tagId),
+            req.query.spoolId &&
+              inArray(
+                projects.id,
+                db
+                  .select({ id: prints.projectId })
+                  .from(prints)
+                  .innerJoin(printFilamentUsages, eq(printFilamentUsages.printId, prints.id))
+                  .where(inArray(printFilamentUsages.spoolId, req.query.spoolId)),
+              ),
             req.query.collectionId &&
               inArray(
                 projects.id,

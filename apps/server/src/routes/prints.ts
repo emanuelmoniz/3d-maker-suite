@@ -25,7 +25,7 @@ import { printCosts } from "../lib/cost.ts";
 import { listPage, orderBy, taggedWith } from "../lib/list.ts";
 import { assertNumberFree, nextNumber } from "../lib/numbers.ts";
 import { readPreferences } from "../lib/preferences.ts";
-import { assertOpened, bookOrLink, energyFor, syncUsages } from "../lib/prints.ts";
+import { assertOpened, bookOrLink, energyFor, shortOf, syncUsages } from "../lib/prints.ts";
 
 const { machineProfiles, prints, printFilamentUsages, printers, projects, spools } = schema;
 const params = z.object({ id: z.uuid() });
@@ -141,8 +141,7 @@ export const printsRoutes =
           if (!spool || spool.archivedAt)
             throw new HttpError(400, "invalid_spool", "Spool not found");
           const profileId = bookOrLink(tx, spool, row.usage.grams, row.title, row.startedAt);
-          if (!profileId)
-            throw new HttpError(400, "insufficient_filament", "Spool has less filament than used");
+          if (!profileId) throw shortOf(tx, spool.id, row.title, row.usage.grams);
           tx.update(printFilamentUsages)
             .set({ spoolId: spool.id, profileId })
             .where(eq(printFilamentUsages.id, row.usage.id))
@@ -192,7 +191,17 @@ export const printsRoutes =
             outcome: prints.outcome,
             durationSec: prints.durationSec,
           },
-          where: [taggedWith(db, "print", prints.id, req.query.tagId)],
+          where: [
+            taggedWith(db, "print", prints.id, req.query.tagId),
+            req.query.spoolId &&
+              inArray(
+                prints.id,
+                db
+                  .select({ id: printFilamentUsages.printId })
+                  .from(printFilamentUsages)
+                  .where(inArray(printFilamentUsages.spoolId, req.query.spoolId)),
+              ),
+          ],
         });
         const usages = page.items.length ? usagesOf(page.items.map((p) => p.id)) : [];
         const items = page.items.map((p) => ({

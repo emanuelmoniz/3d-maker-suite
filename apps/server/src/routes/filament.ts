@@ -35,7 +35,7 @@ import {
 } from "../lib/catalog.ts";
 import { inIds, listPage, taggedWith } from "../lib/list.ts";
 import { assertNumberFree } from "../lib/numbers.ts";
-import { createSpool, setRemaining } from "../lib/spools.ts";
+import { createSpool, round, setRemaining } from "../lib/spools.ts";
 
 const { filamentProfiles, spools, spoolWeightEntries } = schema;
 const params = z.object({ id: z.uuid() });
@@ -216,15 +216,28 @@ export const filamentRoutes =
         },
       },
       async (req) => {
-        getSpool(req.params.id);
+        const before = getSpool(req.params.id);
         assertNumberFree(db, spools, "spool", req.body.number, req.params.id);
         const { archived, ...fields } = req.body;
-        return db
-          .update(spools)
-          .set({ ...fields, archivedAt: archivedAt(archived) })
-          .where(eq(spools.id, req.params.id))
-          .returning()
-          .get() as Spool;
+        return db.transaction((tx) => {
+          const row = tx
+            .update(spools)
+            .set({ ...fields, archivedAt: archivedAt(archived) })
+            .where(eq(spools.id, req.params.id))
+            .returning()
+            .get();
+          // A spool that started with more (or less) has that much more (or less) left now.
+          const delta = row.initialGrams - before.initialGrams;
+          if (!delta) return row as Spool;
+          const moved = setRemaining(
+            tx,
+            row.id,
+            "manual",
+            Math.max(0, round(row.remainingGrams + delta)),
+            "Initial weight changed",
+          );
+          return (moved ?? row) as Spool;
+        });
       },
     );
 

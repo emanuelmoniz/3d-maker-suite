@@ -62,6 +62,8 @@ export const printFilters = {
   projectId: { kind: "select" },
   outcome: { kind: "select", options: PRINT_OUTCOMES },
   tagId: { kind: "select" },
+  /** Prints that took filament from the spool (no column: the spool page sets it). */
+  spoolId: { kind: "select" },
   durationSec: { kind: "number" },
 } as const satisfies Record<string, ColumnFilter>;
 

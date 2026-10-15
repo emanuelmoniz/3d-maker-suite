@@ -181,6 +181,13 @@ export const importRoutes =
                 { stored, decisions, policy, backup },
               )
             : review.write(stored, decisions, policy, backup);
+        // A failed run comes back as a result, not a throw: the person must still see it failed.
+        if ("errorCode" in done && done.errorCode)
+          throw new HttpError(
+            502,
+            "sync_failed",
+            `The import failed (${done.errorCode}); see the server log`,
+          );
         review.drop(uploadId);
         return { created: done.created, updated: done.updated, backup };
       },

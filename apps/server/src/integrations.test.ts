@@ -814,6 +814,11 @@ describe("filament matching of imported prints", () => {
         .statusCode,
     ).toBe(204);
     expect(await left(a.id)).toBe(970);
+    // The spool's own lists: the prints that used it, and the projects of those.
+    expect(
+      (await get(`/api/prints?spoolId=${a.id}`)).items.map((p: { id: string }) => p.id),
+    ).toEqual([first.printId]);
+    expect((await app.inject(`/api/projects?spoolId=${a.id}`)).statusCode).toBe(200);
     expect(
       (await send("POST", `/api/prints/filament-review/${first.usageId}/assign`, { spoolId: a.id }))
         .statusCode,
@@ -840,7 +845,10 @@ describe("filament matching of imported prints", () => {
     const res = await send("POST", `/api/prints/filament-review/${item.usageId}/assign`, {
       spoolId: small.id,
     });
-    expect(res.json().error.code).toBe("insufficient_filament");
+    expect(res.json().error).toMatchObject({
+      code: "insufficient_filament",
+      message: expect.stringMatching(/Spool \d{3}-.* has 1 g left, but ".*" needs \d+(\.\d+)? g/),
+    });
     expect(await queue()).toHaveLength(3);
   });
 });
