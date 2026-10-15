@@ -372,8 +372,11 @@ export const importPreviewSchema = z.object({
       ),
     )
     .optional(),
-  /** A pick may stay empty (a print's spool slot): only the row's `refs` keys are offered. */
-  refsOptional: z.boolean().optional(),
+  /**
+   * A row is offered the picks its `refs` name. These keys may stay empty (a print's spool slots);
+   * any other offered pick is needed to create the row (a print's project).
+   */
+  refsOptional: z.array(z.string()).optional(),
   rows: z.array(importPreviewRowSchema),
   /** Existing rows in the same column shape, for the target picker and the diff. */
   targets: z.array(z.object({ id, label: z.string(), values })),

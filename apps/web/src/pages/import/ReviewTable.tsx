@@ -189,12 +189,14 @@ export function ReviewTable({
     const id = decisionOf(r).targetId;
     pickedCount.set(id, (pickedCount.get(id) ?? 0) + 1);
   }
-  // References the user picks (a spool's filament profile, a print's spools) instead of having
-  // them created. Optional ones (a print's spools) are only picked for the keys the row suggests.
+  // References the user picks (a spool's filament profile, a print's project and spools) instead
+  // of having them created: the ones the row's suggestion names. Optional ones (a print's spools)
+  // may stay empty; any other is needed to create the row.
   const picked = Object.keys(preview.refOptions ?? {});
-  const optional = !!preview.refsOptional;
-  const picks = (r: ImportPreviewRow) =>
-    optional ? picked.filter((k) => r.refs && k in r.refs) : picked;
+  const optional = new Set(preview.refsOptional);
+  const picks = (r: ImportPreviewRow) => picked.filter((k) => r.refs && k in r.refs);
+  const missingPick = (r: ImportPreviewRow, k: string) =>
+    !optional.has(k) && !decisionOf(r).refs?.[k];
   // A row's options: the ones that fit it first. A spool opened after the print started, or
   // empty, is only listed when it is the pick already.
   const optionsFor = (r: ImportPreviewRow, key: string, current: string | null | undefined) => {
@@ -213,7 +215,7 @@ export function ReviewTable({
   const problem = (r: ImportPreviewRow) => {
     const d = decisionOf(r);
     if (d.action === "create")
-      return !optional && picked.some((k) => !d.refs?.[k]) ? t("import:review.needsRef") : null;
+      return picks(r).some((k) => missingPick(r, k)) ? t("import:review.needsRef") : null;
     if (d.action !== "update") return null;
     if (!d.targetId) return t("import:review.needsTarget");
     return (pickedCount.get(d.targetId) ?? 0) > 1 ? t("import:review.duplicateTarget") : null;
@@ -420,13 +422,13 @@ export function ReviewTable({
             return (
               <span className="flex items-center gap-2">
                 {/* An optional pick names the row's own value, so the select replaces it. */}
-                {!optional && value}
+                {!optional.has(c.key) && value}
                 <select
                   aria-label={t("import:review.refFor", {
                     column: t(c.label, c.labelArgs),
                     row: r.row,
                   })}
-                  aria-invalid={d.refs?.[c.key] ? undefined : true}
+                  aria-invalid={missingPick(r, c.key) || undefined}
                   className={cx(
                     `${selectClass} max-w-72`,
                     unsure && "border-warn ring-1 ring-warn",
@@ -449,8 +451,8 @@ export function ReviewTable({
                   )}
                 </select>
                 {!d.refs?.[c.key] && (
-                  <span className={optional ? "text-warn" : "text-bad"}>
-                    {t(optional ? "import:review.noSpool" : "import:review.needsRef")}
+                  <span className={optional.has(c.key) ? "text-warn" : "text-bad"}>
+                    {t(optional.has(c.key) ? "import:review.noSpool" : "import:review.needsRef")}
                   </span>
                 )}
                 {unsure && <span className="text-warn">{t("import:review.checkSpool")}</span>}
@@ -672,7 +674,7 @@ export function ReviewTable({
                             ? Object.fromEntries(
                                 picks(r).flatMap((k) =>
                                   // An optional pick left empty is left out.
-                                  optional && !d.refs?.[k] ? [] : [[k, d.refs?.[k] ?? ""]],
+                                  optional.has(k) && !d.refs?.[k] ? [] : [[k, d.refs?.[k] ?? ""]],
                                 ),
                               )
                             : undefined,

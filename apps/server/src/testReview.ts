@@ -10,7 +10,10 @@ export const reviewer = (app: () => App) => ({
     ((await app().inject({ method: "POST", url })).json() as ImportPreview).rows.map(
       (r) => `${r.values.name ?? r.values.profile}:${r.status}`,
     ),
-  /** Confirms the suggested action of `rows` (default: every row not suggested to skip). */
+  /**
+   * Confirms the suggested action and picks of `rows` (default: every row not suggested to skip);
+   * `over.refs` changes the picks it names, as a person changing one picker.
+   */
   confirm: (
     p: ImportPreview,
     rows: ImportPreviewRow[] = p.rows.filter((r) => r.action !== "skip"),
@@ -26,11 +29,12 @@ export const reviewer = (app: () => App) => ({
           row: r.row,
           action: over.action ?? (r.action === "update" ? "update" : "create"),
           targetId: r.targetId ?? undefined,
-          refs:
-            over.refs ??
-            Object.fromEntries(
+          refs: {
+            ...Object.fromEntries(
               Object.entries(r.refs ?? {}).flatMap(([k, v]) => (v ? [[k, v]] : [])),
             ),
+            ...over.refs,
+          },
         })),
       },
     }),

@@ -84,8 +84,8 @@ export type ImportHandler = {
   handsOff?: boolean;
   /**
    * References the user picks instead of having them created, and the suggestion for a row; a run
-   * with nobody watching leaves a row it isn't `sure` of for a person. `optional`: a pick may stay
-   * empty, and only the keys a row's suggestion names are picked for it.
+   * with nobody watching leaves a row it isn't `sure` of for a person. A row is offered the keys
+   * its suggestion's `refs` name; the `optional` ones may stay empty.
    */
   picks?: (db: Db) => {
     options: Record<string, { id: string; label: string; from?: string; empty?: boolean }[]>;
@@ -102,7 +102,7 @@ export type ImportHandler = {
       unsure?: string[];
       first?: Record<string, string[]>;
     };
-    optional?: boolean;
+    optional?: string[];
   };
   /** Rows from a file get the `picks` too (a print's spools), not only rows from a source. */
   filePicks?: boolean;
@@ -196,6 +196,8 @@ export function createReview(db: Db, dataDir: string) {
         };
         if (!sourced) return { ...p, ...m, ...s, ...picked };
         const yours = !!hit && !!handler.handsOff;
+        // A row that has only required picks is skipped until picked (a vendor's spool); one with
+        // optional ones too stays a create, so a missing required pick shows (a print's project).
         const unpicked = !!pick && !picks?.optional && Object.values(pick.refs).some((v) => !v);
         return {
           ...p,
@@ -223,7 +225,7 @@ export function createReview(db: Db, dataDir: string) {
             ),
       ignoredHeaders: stored.ignoredHeaders,
       refOptions: picks?.options,
-      ...(picks?.optional && { refsOptional: true }),
+      ...(picks?.optional && { refsOptional: picks.optional }),
     };
   }
 
@@ -249,14 +251,15 @@ export function createReview(db: Db, dataDir: string) {
         used.add(key);
       }
       // A picked reference is never created: it has to be one of the offered rows. An optional
-      // one may be left out.
+      // one may be left out, and one the row isn't offered is never asked for.
       if (!target)
-        for (const [column, options] of Object.entries(current.refOptions ?? {}))
-          if (
-            !(current.refsOptional && d.refs?.[column] === undefined) &&
-            !options.some((o) => o.id === d.refs?.[column])
-          )
+        for (const [column, options] of Object.entries(current.refOptions ?? {})) {
+          const asked = !!row.refs && column in row.refs;
+          const optional = current.refsOptional?.includes(column);
+          if (d.refs?.[column] === undefined && (!asked || optional)) continue;
+          if (!options.some((o) => o.id === d.refs?.[column]))
             throw new HttpError(400, "ref_not_found", `Row ${d.row} needs a ${column} you have`);
+        }
       // A print's tick replaces the row's track-usage cell (`useFilament` reads it).
       const track =
         stored.entity !== "prints" || d.trackUsage === undefined

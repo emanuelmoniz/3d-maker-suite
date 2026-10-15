@@ -30,6 +30,14 @@ beforeEach(async () => {
   state = fixture();
   dataDir = mkdtempSync(join(tmpdir(), "integrations-"));
   app = await buildApp(db, false, dataDir, { adapters: [mockAdapter(state), loginAdapter()] });
+  // The mock's prints ("Mock print 1") are of this project's file, so a run can import them.
+  db.insert(schema.projects)
+    .values({
+      number: 900,
+      name: "mock",
+      meta: { files: [{ path: "Mock print.3mf", kind: "model", size: 1 }] },
+    })
+    .run();
 });
 afterEach(() => rmSync(dataDir, { recursive: true, force: true }));
 
@@ -51,6 +59,8 @@ const loginAdapter = (): IntegrationAdapter => ({
 const send = (method: "POST" | "PATCH" | "DELETE", url: string, payload?: object) =>
   app.inject({ method, url, payload });
 const firstPrint = () => state.prints[0] as ExternalPrint;
+const mockProject = () =>
+  db.select().from(schema.projects).where(eq(schema.projects.number, 900)).get()?.id ?? "";
 const get = async (url: string) => (await app.inject(url)).json();
 
 const create = async () =>
@@ -148,7 +158,7 @@ describe("integrations", () => {
     await send("PATCH", `/api/prints/${prints[0].id}`, { title: "Renamed" });
     // Inside the overlap window, so the adapter returns them again.
     for (const p of state.prints) p.startedAt = new Date().toISOString();
-    state.prints.push({ ...firstPrint(), externalId: "job-9", title: "New one" });
+    state.prints.push({ ...firstPrint(), externalId: "job-9", title: "Mock print 9" });
     expect(await sync(id)).toMatchObject({ status: "ok", created: 1, skipped: 1, pending: 0 });
     const after = (await get("/api/prints?sort=startedAt")).items;
     expect(after).toHaveLength(4);
@@ -172,12 +182,12 @@ describe("integrations", () => {
     await spool();
     const [first, second] = state.prints as [ExternalPrint, ExternalPrint];
     first.title = "benchy_plate_2";
-    second.title = "box"; // two projects have a box.3mf: not linked
-    await sync(id);
+    second.title = "box"; // two projects have a box.3mf: it waits for a person to pick one
+    expect(await sync(id)).toMatchObject({ pending: 1 });
     const row = (p: ExternalPrint) =>
       db.select().from(schema.prints).where(eq(schema.prints.externalId, p.externalId)).get();
     expect(row(first)).toMatchObject({ projectId: boat.id, plate: null });
-    expect(row(second)?.projectId).toBeNull();
+    expect(row(second)).toBeUndefined();
 
     for (const p of state.prints) p.startedAt = new Date().toISOString();
     first.plate = 2;
@@ -206,26 +216,42 @@ describe("integrations", () => {
     project(["b.3mf"], ["Codenames Grid"]);
     const rack = project(["03_model/spice-rack-parametric/printables/spice_rack_rotation.3mf"]);
     await spool();
+    await syncType(id, "printers");
     const profile = "0.2mm layer, 2 walls, 15% infill";
     const [a, b, c] = state.prints as [ExternalPrint, ExternalPrint, ExternalPrint];
-    // Imported before the adapter titled prints after their model: the profile's name only.
-    Object.assign(a, { title: profile });
-    Object.assign(b, { title: "codenames grid" }); // two projects have that model: not linked
+    // Imported before the adapter titled prints after their model (and before a print needed a
+    // project): the profile's name only; `b` renamed by hand since.
+    const printerId = db.select().from(schema.printers).get()?.id ?? "";
+    for (const [p, title] of [
+      [a, profile],
+      [b, "my codenames"],
+    ] as const)
+      db.insert(schema.prints)
+        .values({
+          number: Number(p.externalId.replace(/\D/g, "")),
+          printerId,
+          title,
+          startedAt: p.startedAt,
+          outcome: "success",
+          origin: "integration",
+          integrationId: id,
+          externalId: p.externalId,
+        })
+        .run();
+    Object.assign(a, { title: "Azul Tile Pour Box", profileTitle: profile });
+    Object.assign(b, { title: "Codenames Grid", profileTitle: profile });
     Object.assign(c, { title: "spice-rack-parametric_rd_v2_Plate 3" });
-    await sync(id);
+    await syncType(id, "prints");
     const row = (p: ExternalPrint) =>
       db.select().from(schema.prints).where(eq(schema.prints.externalId, p.externalId)).get();
-    expect(row(a)?.projectId).toBeNull();
-    expect(row(b)?.projectId).toBeNull();
+    // The title follows the model and the print links; one renamed by hand stays as it is.
+    expect(row(a)).toMatchObject({ title: "Azul Tile Pour Box", projectId: azul.id });
+    expect(row(b)).toMatchObject({ title: "my codenames", projectId: null });
     expect(row(c)?.projectId).toBe(rack.id);
 
-    // A later read brings the model's name: the title follows and the print links.
-    for (const p of state.prints) p.startedAt = new Date().toISOString();
-    Object.assign(a, { title: "Azul Tile Pour Box", profileTitle: profile });
-    Object.assign(b, { title: "Codenames Grid", profileTitle: "renamed by hand" });
-    await sync(id);
-    expect(row(a)).toMatchObject({ title: "Azul Tile Pour Box", projectId: azul.id });
-    expect(row(b)?.title).toBe("codenames grid");
+    // A new print of a model two projects have waits for a person to pick one.
+    state.prints.push({ ...b, externalId: "job-8", startedAt: new Date().toISOString() });
+    expect(await syncType(id, "prints")).toMatchObject({ created: 0, pending: 1 });
   });
 
   it("records failures as an error code, raises and resolves a sync_failed alert", async () => {
@@ -428,11 +454,12 @@ describe("sync by type and date range", () => {
     const match = await spool();
     const other = await spool("#000000");
     const p = await printsReview(id, `?from=${day(1)}&to=${day(2, true)}`);
-    expect(p.refsOptional).toBe(true);
+    expect(p.refsOptional).toContain("spool");
     expect(p.refOptions?.spool?.map((o) => o.id).sort()).toEqual([match.id, other.id].sort());
+    const project = mockProject();
     expect(p.rows.map((r) => [r.action, r.refs])).toEqual([
-      ["create", { spool: match.id }],
-      ["create", { spool: match.id }],
+      ["create", { project, spool: match.id }],
+      ["create", { project, spool: match.id }],
     ]);
     const apply = (refs: Record<string, string>[]) =>
       send("POST", "/api/import/prints/apply", {
@@ -440,10 +467,13 @@ describe("sync by type and date range", () => {
         policy: "overwrite",
         decisions: p.rows.map((r, i) => ({ row: r.row, action: "create", refs: refs[i] })),
       });
-    // A pick must be a spool you have; one left out is fine.
+    // A pick must be a spool you have; one left out is fine. The project can't be left out.
     const unknown = "00000000-0000-4000-8000-000000000000";
-    expect((await apply([{ spool: unknown }, {}])).statusCode).toBe(400);
-    expect((await apply([{ spool: other.id }, {}])).json()).toMatchObject({ created: 2 });
+    expect((await apply([{ project, spool: unknown }, { project }])).statusCode).toBe(400);
+    expect((await apply([{ project, spool: other.id }, {}])).statusCode).toBe(400);
+    expect((await apply([{ project, spool: other.id }, { project }])).json()).toMatchObject({
+      created: 2,
+    });
 
     // The slot left out waits, and is matched again at once: exactly one spool fits it.
     const prints = (await get("/api/prints?sort=startedAt")).items;
@@ -793,7 +823,7 @@ describe("filament matching of imported prints", () => {
       decisions: p.rows.map((r) => ({
         row: r.row,
         action: "create",
-        refs: { spool: a.id },
+        refs: { project: mockProject(), spool: a.id },
         // The 10 g print isn't tracked; the 20 g and 30 g ones are.
         trackUsage: r.values.grams !== 10,
       })),

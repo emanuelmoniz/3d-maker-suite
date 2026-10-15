@@ -23,6 +23,7 @@ import {
 } from "../lib/numbers.ts";
 import { energyFor, syncUsages } from "../lib/prints.ts";
 import { parseFolderName } from "../projects/folderName.ts";
+import { projectMatcher } from "../projects/linkPrints.ts";
 import type { WriteRow } from "./review.ts";
 import { spoolImport, spoolLabels } from "./spools.ts";
 
@@ -408,10 +409,20 @@ export const printImport = {
   handsOff: true,
   /**
    * The spool of each slot with grams, suggested as the one the row names (`printRows` matched it).
-   * One left empty waits in the review queue. A run with nobody watching leaves such a print for a
-   * person, and one with a spool picked from several (`raw.unsure`) too.
+   * One left empty waits in the review queue. A row whose project cell is empty (every vendor's
+   * print) needs a project, suggested as the one its title names (`projectMatcher`); a cell that
+   * names one, even one to create, is the row's project. A run with nobody watching leaves a print
+   * without a project or a spool for a person, and one with a spool picked from several
+   * (`raw.unsure`) too.
    */
   picks(db: Db) {
+    const projectOf = projectMatcher(db);
+    const projectOptions = db
+      .select({ id: projects.id, label: projectLabel })
+      .from(projects)
+      .where(isNull(projects.archivedAt))
+      .orderBy(projects.number)
+      .all();
     const targets = spoolImport.targets(db);
     const spools = targets.map((s) => ({
       id: s.id,
@@ -419,17 +430,20 @@ export const printImport = {
       from: str(s.values.openedAt) ?? undefined,
       empty: s.values.status === "empty" || undefined,
     }));
-    const options = Object.fromEntries(
-      Array.from({ length: PRINT_MAX_SLOTS }, (_, i) => [printSlotKeys(i + 1).spool, spools]),
-    );
+    const spoolKeys = Array.from({ length: PRINT_MAX_SLOTS }, (_, i) => printSlotKeys(i + 1).spool);
+    const options = {
+      project: projectOptions,
+      ...Object.fromEntries(spoolKeys.map((k) => [k, spools])),
+    };
     const same = (a: ImportCell | undefined, b: string | undefined) => !!b && lower(a) === lower(b);
     return {
       options,
-      optional: true,
+      optional: spoolKeys,
       suggest(v: ImportValues, raw: Record<string, unknown>) {
         const look = lookups(db);
         const reported = (raw.reported ?? []) as Reported[];
         const refs: Record<string, string | null> = {};
+        if (!cellText(v.project)) refs.project = projectOf(str(v.title) ?? "");
         const first: Record<string, string[]> = {};
         for (let n = 1; n <= PRINT_MAX_SLOTS; n++) {
           const key = printSlotKeys(n);
@@ -450,7 +464,8 @@ export const printImport = {
           first[key.spool] = targets.filter(fits).map((s) => s.id);
         }
         const unsure = ((raw.unsure ?? []) as string[]).filter((k) => refs[k]);
-        return { refs, sure: !unmatched(look, v) && !unsure.length, unsure, first };
+        const sure = !unmatched(look, v) && !unsure.length && refs.project !== null;
+        return { refs, sure, unsure, first };
       },
     };
   },
@@ -474,7 +489,7 @@ export const printImport = {
         // A number another print has ("import as new" of an exported row) gets the next free one.
         number: freeNumber(db, prints, numberCell(v.number)) ?? nextNumber(prints),
         printerId,
-        projectId: projectFor(db, v.project),
+        projectId: src?.refs?.project ?? projectFor(db, v.project),
         title: str(v.title) ?? "",
         startedAt: new Date(str(v.startedAt) ?? "").toISOString(),
         durationSec,

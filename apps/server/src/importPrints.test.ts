@@ -33,7 +33,14 @@ const preview = async (entity: ImportEntity, csv: string) =>
       payload: csv,
     })
   ).json() as ImportPreview;
-/** Applies the suggested action of every row that isn't skipped or invalid. */
+/** The project a person picks for a print the file names none for. */
+const someProject = () =>
+  db.select().from(schema.projects).get()?.id ??
+  db.insert(schema.projects).values({ number: 999, name: "misc" }).returning().get().id;
+/**
+ * Applies the suggested action of every row that isn't skipped or invalid, with the suggested
+ * picks; a print that needs a project gets one, as a person would pick it.
+ */
 const applySuggested = async (entity: ImportEntity, p: ImportPreview) =>
   app.inject({
     method: "POST",
@@ -47,6 +54,14 @@ const applySuggested = async (entity: ImportEntity, p: ImportPreview) =>
           row: r.row,
           action: r.action,
           targetId: r.action === "update" ? (r.targetId ?? undefined) : undefined,
+          refs:
+            r.action === "create" && r.refs
+              ? Object.fromEntries(
+                  Object.entries(r.refs)
+                    .map(([k, v]) => [k, k === "project" ? (v ?? someProject()) : v])
+                    .filter(([, v]) => v),
+                )
+              : undefined,
         })),
     },
   });
@@ -293,12 +308,60 @@ describe("print import", () => {
       "prints",
       `${PRINT_HEAD},filament\nbox,A,2026-03-04 10:00,,success,001-Basic #000000,5,\nbox,B,2026-03-05 10:00,,success,,5,Basic`,
     );
-    expect(p.refsOptional).toBe(true);
+    expect(p.refsOptional).toContain("spool");
     expect(p.refOptions?.spool?.map((o) => o.id)).toEqual([spool.id]);
+    // No project cell and no project file named "A": a person picks one.
     expect(p.rows.map((r) => [r.refs, r.refsFirst])).toEqual([
-      [{ spool: spool.id }, { spool: [spool.id] }],
-      [{ spool: null }, { spool: [spool.id] }],
+      [{ project: null, spool: spool.id }, { spool: [spool.id] }],
+      [{ project: null, spool: null }, { spool: [spool.id] }],
     ]);
+  });
+
+  it("needs a project for every print: the file's, the one its title names, or a pick", async () => {
+    await setup();
+    const benchy = db
+      .insert(schema.projects)
+      .values({
+        number: 7,
+        name: "boat",
+        meta: { files: [{ path: "Benchy.3mf", kind: "model", size: 1 }] },
+      })
+      .returning()
+      .get();
+    const p = await preview(
+      "prints",
+      `project,${PRINT_HEAD}\n,box,Benchy_plate_1,2026-03-04 10:00,,success,,\n,box,Cube,2026-03-05 10:00,,success,,\n9-new,box,Ball,2026-03-06 10:00,,success,,`,
+    );
+    expect(p.refsOptional).not.toContain("project");
+    expect(p.refOptions?.project?.map((o) => o.id)).toEqual([benchy.id]);
+    // A cell that names a project (even one to create) is the row's project: nothing to pick.
+    expect(p.rows.map((r) => r.refs)).toEqual([{ project: benchy.id }, { project: null }, {}]);
+    const [a, b, c] = p.rows.map((r) => r.row);
+    const apply = (cube?: string) =>
+      app.inject({
+        method: "POST",
+        url: "/api/import/prints/apply",
+        payload: {
+          uploadId: p.uploadId,
+          policy: "overwrite",
+          decisions: [
+            { row: a, action: "create", refs: { project: benchy.id } },
+            { row: b, action: "create", refs: cube ? { project: cube } : {} },
+            { row: c, action: "create" },
+          ],
+        },
+      });
+    expect((await apply()).json().error.code).toBe("ref_not_found");
+    expect((await apply(benchy.id)).json()).toMatchObject({ created: 3 });
+    const projectOf = Object.fromEntries(
+      db
+        .select({ title: schema.prints.title, project: schema.projects.name })
+        .from(schema.prints)
+        .innerJoin(schema.projects, eq(schema.projects.id, schema.prints.projectId))
+        .all()
+        .map((r) => [r.title, r.project]),
+    );
+    expect(projectOf).toEqual({ Benchy_plate_1: "boat", Cube: "boat", Ball: "new" });
   });
 
   it("rejects a spool opened after the print started", async () => {
