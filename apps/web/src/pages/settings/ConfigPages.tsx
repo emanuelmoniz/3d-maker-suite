@@ -63,10 +63,13 @@ export function PrintsConfigPage() {
   const { t } = useTranslation();
   return (
     <ConfigPage module="prints">
-      {({ v, commit }) => {
+      {({ v, commit, num }) => {
         const reasons = v.failureReasons.join("\n");
         return (
           <Section title={t("settings:sections.prints")}>
+            <FormField label={t("settings:prints.pace")} hint={t("settings:prints.paceHint")}>
+              {(p) => num("gramsPerHour", p)}
+            </FormField>
             <FormField label={t("settings:prints.label")} hint={t("settings:prints.hint")}>
               {(p) => (
                 <textarea

@@ -1,0 +1,1 @@
+ALTER TABLE `prints` ADD `duration_estimated` integer DEFAULT false NOT NULL;

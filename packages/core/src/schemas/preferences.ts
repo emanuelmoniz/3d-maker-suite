@@ -24,6 +24,8 @@ const shape = {
   energyCostPerKwh: z.number().nonnegative(),
   /** Printer wear: purchase price / these hours. 0 leaves wear out of the cost. */
   printerLifetimeHours: z.number().nonnegative(),
+  /** Pace for estimating a duration when no print of yours has both grams and a duration. */
+  gramsPerHour: z.number().positive(),
   /** Spread past maintenance spend over printer runtime and add it to the cost. */
   includeMaintenanceCost: z.boolean(),
   /** Pricing calculator defaults. Money in major units, like energyCostPerKwh. */
@@ -66,6 +68,7 @@ export const PREFERENCE_DEFAULTS: z.infer<typeof preferencesSchema> = {
   currency: "EUR",
   energyCostPerKwh: 0.25,
   printerLifetimeHours: 0,
+  gramsPerHour: 15,
   includeMaintenanceCost: false,
   laborRatePerHour: 0,
   failureMarginPct: 5,

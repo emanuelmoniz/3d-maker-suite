@@ -286,6 +286,31 @@ describe("print import", () => {
     expect(remaining(spool.id)).toBe(987.5);
   });
 
+  it("estimates a missing duration from the grams, costs it, and a real duration clears it", async () => {
+    await setup();
+    const file = `${PRINT_HEAD}
+box,Benchy,2026-03-04 10:00,,success,001-Basic #000000,15`;
+    expect((await applySuggested("prints", await preview("prints", file))).json()).toMatchObject({
+      created: 1,
+    });
+    // No prints with both values yet: the 15 g/h preference, so 15 g is an hour on 150 W.
+    const row = () => db.select().from(schema.prints).get();
+    expect(row()).toMatchObject({
+      durationSec: 3600,
+      durationEstimated: true,
+      energyWh: 150,
+      energySource: "estimated",
+    });
+    const url = `/api/prints/${row()?.id}`;
+    const get = async () => (await app.inject({ method: "GET", url })).json();
+    expect((await get()).cost.energy).toBeGreaterThan(0);
+    // Saving the estimate unchanged keeps the flag.
+    await app.inject({ method: "PATCH", url, payload: { durationSec: 3600 } });
+    expect(row()?.durationEstimated).toBe(true);
+    await app.inject({ method: "PATCH", url, payload: { durationSec: 7200 } });
+    expect(row()).toMatchObject({ durationSec: 7200, durationEstimated: false, energyWh: 300 });
+  });
+
   it("rejects an unknown printer and sends an unknown spool to the filament review queue", async () => {
     await setup();
     const p = await preview(

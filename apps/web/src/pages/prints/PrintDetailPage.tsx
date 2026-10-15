@@ -9,12 +9,13 @@ import { PageHeader } from "../../components/PageHeader.tsx";
 import { TagList } from "../../components/TagList.tsx";
 import { useCatalogItem } from "../../lib/catalog.ts";
 import { spoolName, useProfile, useSpool } from "../../lib/filament.ts";
-import { formatDateTime, formatDuration, formatNumber, formatWeight } from "../../lib/format.ts";
+import { formatDateTime, formatNumber, formatWeight } from "../../lib/format.ts";
 import { printerName, usePrinter } from "../../lib/printers.ts";
 import { printName, useDeletePrint, usePrint } from "../../lib/prints.ts";
 import { projectName, useProject } from "../../lib/projects.ts";
 import { useTagsOf } from "../../lib/tags.ts";
 import { Info, linkButton } from "../filament/SpoolDetailPage.tsx";
+import { Duration } from "./Duration.tsx";
 
 const OUTCOMES = {
   success: "prints:outcomes.success",
@@ -142,7 +143,11 @@ export function PrintDetailPage() {
               </span>
             </Info>
             <Info label={t("prints:form.duration")}>
-              {print.durationSec == null ? none : formatDuration(print.durationSec)}
+              {print.durationSec == null ? (
+                none
+              ) : (
+                <Duration print={{ ...print, durationSec: print.durationSec }} />
+              )}
             </Info>
             <Info label={t("prints:form.energy")}>
               {print.energyWh == null ? none : formatNumber(print.energyWh)}

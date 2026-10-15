@@ -9,6 +9,7 @@ import { usePreferences, useSavePreferences } from "../../lib/preferences.ts";
 export type NumKey =
   | "energyCostPerKwh"
   | "printerLifetimeHours"
+  | "gramsPerHour"
   | "laborRatePerHour"
   | "failureMarginPct"
   | "markupPct"
@@ -58,7 +59,7 @@ export function ConfigPage({
       {...field}
       className={inputClass}
       type="number"
-      min={key === "projectScanDepth" || key === "viewerMaxMb" ? 1 : 0}
+      min={key === "projectScanDepth" || key === "viewerMaxMb" || key === "gramsPerHour" ? 1 : 0}
       max={key === "projectScanDepth" ? 5 : undefined}
       step={
         key === "energyCostPerKwh" || key === "laborRatePerHour"

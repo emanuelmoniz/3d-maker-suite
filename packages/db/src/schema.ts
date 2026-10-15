@@ -437,6 +437,7 @@ export const prints = sqliteTable(
     plate: integer(),
     startedAt: text().notNull(),
     durationSec: integer(),
+    durationEstimated: integer({ mode: "boolean" }).notNull().default(false),
     outcome: text({ enum: PRINT_OUTCOMES }).notNull(),
     failureReason: text(),
     notes: text(),

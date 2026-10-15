@@ -253,6 +253,8 @@ export const printSchema = z
     plate: z.number().int().positive().nullable(),
     startedAt: isoDate,
     durationSec: seconds.nullable(),
+    /** Worked out from the grams (see `estimateDurationSec`); a real duration clears it. */
+    durationEstimated: z.boolean(),
     outcome: z.enum(PRINT_OUTCOMES),
     failureReason: z.string().min(1).nullable(),
     notes: z.string().nullable(),

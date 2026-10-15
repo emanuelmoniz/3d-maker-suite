@@ -22,6 +22,8 @@
     "failed": "Failed",
     "cancelled": "Cancelled"
   },
+  "estimated": "~{{value}}",
+  "estimatedTip": "Estimated from the filament used. Enter the real duration to replace it.",
   "form": {
     "addTitle": "Add print",
     "editTitle": "Edit print",

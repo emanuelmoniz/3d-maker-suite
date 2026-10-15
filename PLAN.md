@@ -109,7 +109,7 @@ matched or written to a template. Show me the migration (numbering + colorName) 
 display-name helper before implementing. Back up the DB before running the migration.
 ```
 
-### [ ] Step 7 - Estimated print duration
+### [x] Step 7 - Estimated print duration
 **Model:** Sonnet · **Effort:** Medium
 **Scope:** When a print has filament grams but no duration (file import and sync), estimate the duration as grams ÷ grams per hour. The rate comes from the user's own prints that have both values: the same printer if it has at least N such prints, else all prints, else a new `gramsPerHour` preference (Prints config page, sensible default). Pure function in `packages/core/src/services`. Stored with a `durationEstimated` flag (migration). It is shown as "~1h 20m" with an "estimated" tooltip, and cleared when a real duration is entered. Energy, wear and maintenance costs then work for these prints (`computeCost` / `energyFor` unchanged).
 **Done when:** an imported print without a duration gets an estimated one and a full cost; entering a real duration clears the flag; unit tests on the rate fallback chain; tests pass.

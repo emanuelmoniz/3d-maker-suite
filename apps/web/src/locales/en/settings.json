@@ -78,6 +78,8 @@
     "channels": "Send alerts elsewhere"
   },
   "prints": {
+    "pace": "Printing pace (g/h)",
+    "paceHint": "Estimates a duration for imported prints that have grams but no time: your own prints' pace when there are enough of them, else this.",
     "label": "Failure reasons",
     "hint": "One per line. Offered when a print fails or is cancelled."
   },

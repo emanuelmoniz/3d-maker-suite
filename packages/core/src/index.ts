@@ -19,6 +19,7 @@ export * from "./schemas/slicerCatalog.ts";
 export * from "./schemas/stats.ts";
 export * from "./schemas/tags.ts";
 export * from "./services/cost.ts";
+export * from "./services/duration.ts";
 export * from "./services/import.ts";
 export * from "./services/importMatch.ts";
 export * from "./services/maintenanceDue.ts";

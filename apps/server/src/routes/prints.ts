@@ -270,6 +270,9 @@ export const printsRoutes =
           tx.update(prints)
             .set({
               ...fields,
+              // A duration someone typed in (or cleared) is real.
+              ...(fields.durationSec !== undefined &&
+                fields.durationSec !== cur.durationSec && { durationEstimated: false }),
               failureReason: merged.outcome === "success" ? null : merged.failureReason,
               // A manual value is kept unless the request replaces it; estimates follow printer/duration.
               ...(energyWh === undefined && cur.energySource === "measured"

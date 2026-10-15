@@ -10,11 +10,12 @@ import { PageHeader } from "../../components/PageHeader.tsx";
 import { SettingsLink } from "../../components/SettingsLink.tsx";
 import { TagList } from "../../components/TagList.tsx";
 import { useMoney } from "../../lib/cost.ts";
-import { formatDateTime, formatDuration, formatWeight } from "../../lib/format.ts";
+import { formatDateTime, formatWeight } from "../../lib/format.ts";
 import { useUrlListQuery } from "../../lib/list.ts";
 import { printerName, usePrinters } from "../../lib/printers.ts";
 import { printName, useFilamentReview, usePrints } from "../../lib/prints.ts";
 import { useTags, useTagsOf } from "../../lib/tags.ts";
+import { Duration } from "./Duration.tsx";
 
 const OUTCOMES = {
   success: "prints:outcomes.success",
@@ -126,7 +127,8 @@ export function PrintsTable({
           id: "duration",
           header: t("prints:list.columns.duration"),
           numeric: true,
-          cell: (p) => (p.durationSec == null ? "" : formatDuration(p.durationSec)),
+          cell: (p) =>
+            p.durationSec == null ? "" : <Duration print={{ ...p, durationSec: p.durationSec }} />,
           sort: "durationSec",
           filter: "durationSec",
           filterScale: 60,

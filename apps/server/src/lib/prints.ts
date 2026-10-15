@@ -1,8 +1,14 @@
-import { type PrintUsageInput, usableOn } from "@3d-maker-suite/core";
+import {
+  estimateDurationSec,
+  gramsPerHour,
+  type PrintUsageInput,
+  usableOn,
+} from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
-import { and, eq, isNotNull } from "drizzle-orm";
+import { and, eq, gt, isNotNull, sum } from "drizzle-orm";
 import { HttpError } from "../errors.ts";
 import { spoolName } from "./catalog.ts";
+import { readPreferences } from "./preferences.ts";
 import { round, setRemaining, takeFromSpool } from "./spools.ts";
 
 const { printFilamentUsages, printers, prints, spools } = schema;
@@ -20,6 +26,31 @@ export const energyFor = (
     ? { energyWh: (powerW * durationSec) / 3600, energySource: "estimated" as const }
     : { energyWh: null, energySource: null };
 };
+
+/**
+ * A duration for a print that has grams but none: its grams at the pace of your own prints
+ * (`gramsPerHour`). Estimates are never learned from.
+ */
+// ponytail: reads every timed print per call; cache per import run if bulk imports get slow.
+export function estimatedDuration(db: Db, printerId: string, grams: number) {
+  const samples = db
+    .select({
+      printerId: prints.printerId,
+      durationSec: prints.durationSec,
+      grams: sum(printFilamentUsages.grams).mapWith(Number),
+    })
+    .from(prints)
+    .innerJoin(printFilamentUsages, eq(printFilamentUsages.printId, prints.id))
+    .where(and(gt(prints.durationSec, 0), eq(prints.durationEstimated, false)))
+    .groupBy(prints.id)
+    .all();
+  const pace = gramsPerHour(
+    samples.map((s) => ({ ...s, durationSec: s.durationSec ?? 0 })),
+    printerId,
+    readPreferences(db).gramsPerHour,
+  );
+  return estimateDurationSec(grams, pace);
+}
 
 type Tx = Db | Parameters<Parameters<Db["transaction"]>[0]>[0];
 

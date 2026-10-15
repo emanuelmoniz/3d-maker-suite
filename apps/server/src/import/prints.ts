@@ -21,7 +21,7 @@ import {
   printerTitle,
   printTitle,
 } from "../lib/numbers.ts";
-import { energyFor, syncUsages } from "../lib/prints.ts";
+import { energyFor, estimatedDuration, syncUsages } from "../lib/prints.ts";
 import { parseFolderName } from "../projects/folderName.ts";
 import { projectMatcher } from "../projects/linkPrints.ts";
 import type { WriteRow } from "./review.ts";
@@ -473,7 +473,12 @@ export const printImport = {
 
   create(db: Db, v: ImportValues, src?: WriteRow) {
     const printerId = find(lookups(db).printers, v.printer) ?? "";
-    const durationSec = num(v.durationSec);
+    const grams = Array.from({ length: PRINT_MAX_SLOTS }, (_, i) =>
+      Math.max(0, num(v[printSlotKeys(i + 1).grams]) ?? 0),
+    ).reduce((a, b) => a + b, 0);
+    const given = num(v.durationSec);
+    const estimated = given == null && grams > 0;
+    const durationSec = estimated ? estimatedDuration(db, printerId, grams) : given;
     const outcome = str(v.outcome) as PrintInput["outcome"];
     const source = src && sourceOf(src);
     const row = db
@@ -493,6 +498,7 @@ export const printImport = {
         title: str(v.title) ?? "",
         startedAt: new Date(str(v.startedAt) ?? "").toISOString(),
         durationSec,
+        durationEstimated: estimated,
         outcome,
         failureReason: outcome === "success" ? null : str(v.failureReason),
         notes: str(v.notes),
@@ -521,14 +527,19 @@ export const printImport = {
     // The same print, added by hand before: from now on it is the integration's.
     const source = sourceOf(row);
     if (source && !cur.externalId) Object.assign(set, source, { origin: "integration" });
+    // A file without a duration doesn't wipe an estimate; a real one replaces it.
+    if ("durationSec" in patch)
+      if (cur.durationEstimated && num(patch.durationSec) == null) delete set.durationSec;
+      else set.durationEstimated = false;
+    const newDuration = "durationSec" in set;
     // An estimate follows the printer and the duration; a measured value stays.
-    if (cur.energySource !== "measured" && (printer !== undefined || "durationSec" in patch))
+    if (cur.energySource !== "measured" && (printer !== undefined || newDuration))
       Object.assign(
         set,
         energyFor(
           db,
           printerId ?? cur.printerId,
-          "durationSec" in patch ? num(patch.durationSec) : cur.durationSec,
+          newDuration ? num(patch.durationSec) : cur.durationSec,
           null,
         ),
       );
