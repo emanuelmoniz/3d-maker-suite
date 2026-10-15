@@ -126,7 +126,7 @@ Do Step 9 of PLAN.md. One shared BackLink with a fallback route; list every plac
 Do Step 10 of PLAN.md.
 ```
 
-### [ ] Step 11 - Project page layout
+### [x] Step 11 - Project page layout
 **Model:** Sonnet (use webapp-testing skill) · **Effort:** Medium
 **Scope:** On the project detail page: move the description below the plates section. Put the prints table and the cost table next to the preview, above the 3 existing info blocks. Stack them on mobile.
 **Done when:** the new layout works at 375/768/1440; e2e still green.

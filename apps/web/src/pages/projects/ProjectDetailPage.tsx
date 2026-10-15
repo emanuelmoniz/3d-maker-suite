@@ -351,13 +351,11 @@ export function ProjectDetailPage() {
             </label>
           )}
         </div>
-        <div className="grid content-start gap-4">
-          {project.description &&
-            (project.descriptionFile?.toLowerCase().endsWith(".md") ? (
-              <Markdown>{project.description}</Markdown>
-            ) : (
-              <p className="whitespace-pre-line">{project.description}</p>
-            ))}
+        <div className="grid content-start gap-4 [&>section]:mt-0">
+          <LinkedPrints id={id} />
+          {(selected ?? info?.plates.find((p) => p.sliced)) && (
+            <Estimate plate={(selected ?? info?.plates.find((p) => p.sliced)) as Plate} />
+          )}
           {tags.length > 0 && <TagList tags={tags} />}
           {(project.meta.materials.length > 0 || project.meta.multicolor) && (
             <p className="text-muted">
@@ -383,10 +381,15 @@ export function ProjectDetailPage() {
       </div>
 
       {current && <Plates project={project} file={current.path} plate={plate} onPlate={setPlate} />}
-      {(selected ?? info?.plates.find((p) => p.sliced)) && (
-        <Estimate plate={(selected ?? info?.plates.find((p) => p.sliced)) as Plate} />
+      {project.description && (
+        <div className="mt-6">
+          {project.descriptionFile?.toLowerCase().endsWith(".md") ? (
+            <Markdown>{project.description}</Markdown>
+          ) : (
+            <p className="whitespace-pre-line">{project.description}</p>
+          )}
+        </div>
       )}
-      <LinkedPrints id={id} />
 
       <section aria-labelledby="files" className="mt-6">
         <h2 id="files" className="mb-2 text-base font-semibold">
