@@ -85,7 +85,7 @@ Do Step 6 of PLAN.md. Show me how one-shot alerts fit next to the condition-base
 evaluate.ts before implementing. Back up the DB before running the migration.
 ```
 
-### [ ] Step 7 - Pick the project when importing prints (check)
+### [x] Step 7 - Pick the project when importing prints (check)
 **Model:** Sonnet · **Effort:** Low
 **Scope:** Check that the review of a print import (file and cloud) lets the user pick or change the project of each row (`import/prints.ts` `projectMatcher`, ReviewTable). It looks done already; fill any gap (e.g. cloud review, bulk "set project for selected rows" if missing).
 **Done when:** both file and cloud reviews let the user set a project per row; report what was already there; tests pass.
