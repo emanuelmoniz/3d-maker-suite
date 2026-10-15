@@ -159,14 +159,14 @@ describe("print import", () => {
     expect(statuses(await preview("prints", FILE))).toEqual(["identical"]);
   });
 
-  it("only links a spool entered after the print: its weight already has it off", async () => {
+  it("takes the grams from a spool entered after the print", async () => {
     const spool = await setup(false);
     await applySuggested("prints", await preview("prints", FILE));
     expect(db.select().from(schema.printFilamentUsages).get()).toMatchObject({
       spoolId: spool.id,
       grams: 12.5,
     });
-    expect(remaining(spool.id)).toBe(1000);
+    expect(remaining(spool.id)).toBe(987.5);
   });
 
   it("numbers prints, and a row with a number is that print", async () => {

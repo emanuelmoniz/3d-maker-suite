@@ -203,7 +203,6 @@ function useFilament(
   db: Db,
   printId: string,
   title: string,
-  startedAt: string,
   v: ImportValues,
   reported: Reported[] = [],
   /** The spools the user picked in the review, by slot spool key; replaces the cells. */
@@ -239,7 +238,7 @@ function useFilament(
       });
   }
   // "no": the spools are already up to date, so only the print's own rows are written.
-  syncUsages(db, printId, title, booked, lower(v.trackUsage) !== "no", startedAt);
+  syncUsages(db, printId, title, booked, lower(v.trackUsage) !== "no");
   if (waiting.length) db.insert(printFilamentUsages).values(waiting).run();
 }
 
@@ -486,7 +485,7 @@ export const printImport = {
       })
       .returning()
       .get();
-    useFilament(db, row.id, row.title, row.startedAt, v, reportedOf(src), src?.refs);
+    useFilament(db, row.id, row.title, v, reportedOf(src), src?.refs);
   },
 
   /** Writes `patch` (only the values that change) to the print. */
@@ -526,7 +525,6 @@ export const printImport = {
         db,
         cur.id,
         String(set.title ?? cur.title),
-        String(set.startedAt ?? cur.startedAt),
         { ...target.values, ...patch, trackUsage: String(row.raw.trackUsage ?? "") },
         reportedOf(row),
       );

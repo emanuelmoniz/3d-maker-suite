@@ -29,7 +29,7 @@ import { HttpError } from "../errors.ts";
 import { createReview, type Stored, untracked } from "../import/review.ts";
 import { modelIdFor } from "../lib/catalog.ts";
 import { nextNumber } from "../lib/numbers.ts";
-import { bookOrLink, predates } from "../lib/prints.ts";
+import { bookOrLink } from "../lib/prints.ts";
 import { linkPrints } from "../projects/linkPrints.ts";
 import { activeCapabilities, capableRow, policyOf, switchedOn } from "./capabilities.ts";
 import { libraryOf } from "./imports.ts";
@@ -462,7 +462,7 @@ export function createSyncer(
           const spool = m?.sure ? byId.get(m.id ?? "") : undefined;
           const profileId = spool && bookOrLink(tx, spool, u.grams, title, startedAt);
           if (!spool || !profileId) continue;
-          if (!predates(startedAt, spool)) spool.remainingGrams -= u.grams;
+          spool.remainingGrams -= u.grams;
           tx.update(printFilamentUsages)
             .set({ spoolId: spool.id, profileId })
             .where(eq(printFilamentUsages.id, u.id))

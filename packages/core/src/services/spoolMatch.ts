@@ -48,8 +48,7 @@ const oldest = (a: SpoolCandidate, b: SpoolCandidate) =>
 /**
  * Picks the spool an imported print's slot used. It needs the vendor's material and colour, and a
  * spool with that exact material + colour that was there on the print's day (not bought or opened
- * later) and holds the slot's grams (a print older than the spool's entry in the app only links
- * it). One such spool is a sure match. Several: the first of them in `recent` (the spools the
+ * later) and holds the slot's grams. One such spool is a sure match. Several: the first of them in `recent` (the spools the
  * printer used before, most likely first: a spool stays in the AMS until swapped), else the oldest;
  * not sure, so a person checks it. Pass active spools only (not archived or empty).
  */
@@ -65,7 +64,7 @@ export function matchSpool(
     (s) =>
       (!s.purchasedAt || s.purchasedAt.slice(0, 10) <= day) &&
       usableOn(s, startedAt) &&
-      (startedAt < s.createdAt || s.remainingGrams >= slot.grams) &&
+      s.remainingGrams >= slot.grams &&
       same(s.material, material) &&
       same(s.colorHex, colorHex),
   );

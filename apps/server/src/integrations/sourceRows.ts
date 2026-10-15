@@ -12,7 +12,6 @@ import { and, eq, isNotNull, isNull, ne } from "drizzle-orm";
 import type { StoredRow } from "../import/review.ts";
 import { spoolImport } from "../import/spools.ts";
 import { printerLabel, profileColumns, profileMaterial, spoolName } from "../lib/catalog.ts";
-import { predates } from "../lib/prints.ts";
 import { profileKey } from "./imports.ts";
 
 const { filamentProfiles, printers, printFilamentUsages, prints, spools } = schema;
@@ -188,7 +187,7 @@ export function printRows(db: Db, integrationId: string, items: ExternalPrint[])
         const spool = byId.get(m.id ?? "");
         const f = slots[i];
         if (!spool || !f) return { label: null, sure: false };
-        if (!predates(p.startedAt, spool)) spool.remainingGrams -= f.grams;
+        spool.remainingGrams -= f.grams;
         if (printerId)
           history.add({
             printerId,

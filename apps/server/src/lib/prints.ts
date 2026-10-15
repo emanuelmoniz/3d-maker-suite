@@ -20,13 +20,6 @@ export const energyFor = (
     : { energyWh: null, energySource: null };
 };
 
-/**
- * A print that started before the spool was entered in the app: the weight entered then already
- * has its filament off, so the print only links the spool and books nothing.
- */
-export const predates = (startedAt: string, spool: { createdAt: string }) =>
-  startedAt < spool.createdAt;
-
 type Tx = Db | Parameters<Parameters<Db["transaction"]>[0]>[0];
 
 /**
@@ -39,27 +32,26 @@ export function assertOpened(spool: { openedAt: string | null }, startedAt: stri
 }
 
 /**
- * One imported slot onto a spool: takes the grams through the ledger, or only links an older
- * print. Returns the spool's profile id, or `null` with nothing booked when the spool holds less.
+ * One imported slot onto a spool: takes the grams through the ledger. Returns the spool's profile
+ * id, or `null` with nothing booked when the spool holds less.
  * Throws for a print from before the spool was opened (`assertOpened`).
  */
 export const bookOrLink = (
   tx: Tx,
-  spool: { id: string; profileId: string; createdAt: string; openedAt: string | null },
+  spool: { id: string; openedAt: string | null },
   grams: number,
   title: string,
   startedAt: string,
 ) => {
   assertOpened(spool, startedAt);
-  return predates(startedAt, spool) ? spool.profileId : takeFromSpool(tx, spool.id, grams, title);
+  return takeFromSpool(tx, spool.id, grams, title);
 };
 
 /**
  * Replaces a print's filament rows and books the net difference per spool in the ledger
  * (append-only: an edit or delete adds a "print" entry, it never rewrites history).
  * With `ledger` false (a backlog import whose spools are already up to date) the rows are saved
- * but no spool weight is touched. With `startedAt`, a spool entered after the print started is
- * only linked (see `predates`).
+ * but no spool weight is touched.
  * Throws inside the caller's transaction, which rolls everything back.
  */
 export const syncUsages = (
@@ -69,7 +61,6 @@ export const syncUsages = (
   /** `material` / `colorHex`: what an import reported for the slot, kept on the row. */
   next: (PrintUsageInput & { material?: string | null; colorHex?: string | null })[],
   ledger = true,
-  startedAt?: string,
 ) => {
   const old = tx
     .select()
@@ -89,7 +80,6 @@ export const syncUsages = (
     if (!spool) throw new HttpError(400, "invalid_spool", "Spool not found");
     profileOf.set(spoolId, spool.profileId);
     if (print && using.has(spoolId)) assertOpened(spool, print.startedAt);
-    if (startedAt && predates(startedAt, spool)) continue;
     const remaining = round(spool.remainingGrams + grams);
     if (remaining < 0)
       throw new HttpError(400, "insufficient_filament", "Spool has less filament than used");

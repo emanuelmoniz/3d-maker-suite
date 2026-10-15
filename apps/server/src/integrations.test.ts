@@ -123,7 +123,6 @@ describe("integrations", () => {
   it("syncs printers and prints end to end, and re-syncs without duplicates", async () => {
     const { id } = await create();
     const known = modelIdFor(db, "mock ", "m1"); // the adapter sends "Mock"/"M1": reused, any case
-    // Entered today, after the January prints: they are its filament but its weight has them off.
     const s = await spool();
     const run = await sync(id);
     expect(run).toMatchObject({ status: "ok", trigger: "manual", created: 4, skipped: 0 });
@@ -142,7 +141,7 @@ describe("integrations", () => {
       printerId: printers[0]?.id,
     });
     expect(prints[0].usages).toMatchObject([{ grams: 10, slot: 0, spoolId: s.id }]);
-    expect(await left(s.id)).toBe(1000);
+    expect(await left(s.id)).toBe(940);
     expect(await get(`/api/integrations/${id}`)).toMatchObject({ status: "ok", lastError: null });
 
     // Local edits win: a re-sync leaves out rows it already imported.
@@ -831,22 +830,6 @@ describe("filament matching of imported prints", () => {
     expect((await get(`/api/prints/${second.printId}`)).usages).toMatchObject([
       { grams: 20, spoolId: null, dismissed: true },
     ]);
-  });
-
-  it("assigning a spool entered after the print only links it", async () => {
-    state.prints.forEach((p) => {
-      p.startedAt = new Date(Date.now() - 3600 * 1000).toISOString();
-    });
-    const { id } = await create();
-    await sync(id);
-    await importHeld(id);
-    const s = await spool("#123456", 1);
-    const [item] = await queue();
-    expect(
-      (await send("POST", `/api/prints/filament-review/${item.usageId}/assign`, { spoolId: s.id }))
-        .statusCode,
-    ).toBe(204);
-    expect(await left(s.id)).toBe(1);
   });
 
   it("refuses to assign more than the spool holds", async () => {

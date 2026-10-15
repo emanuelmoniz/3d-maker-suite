@@ -83,13 +83,10 @@ describe("matchSpool", () => {
     expect(matchSpool(slot, [spool("a"), spool("b", { purchasedAt: later })])).toEqual(sure("a"));
   });
 
-  it("needs a spool that holds the grams, unless the print predates the spool's entry", () => {
+  it("needs a spool that holds the grams", () => {
     const low = spool("a", { remainingGrams: 40 });
     expect(matchSpool(slot, [low])).toEqual(guess(null));
     expect(matchSpool(slot, [low, spool("b")])).toEqual(sure("b"));
-    expect(matchSpool(slot, [{ ...low, createdAt: "2026-03-01T00:00:00.000Z" }])).toEqual(
-      sure("a"),
-    );
   });
 });
 
