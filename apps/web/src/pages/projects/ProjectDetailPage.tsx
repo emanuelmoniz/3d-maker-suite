@@ -188,13 +188,19 @@ function LinkedPrints({ id }: { id: string }) {
       ) : (
         <p className="text-muted">{t("projects:detail.noPrints")}</p>
       )}
-      {prints.length > 0 && (
-        <div className="mt-3 max-w-md rounded-lg border border-border bg-surface p-4">
-          <h3 className="mb-2 font-medium">{t("costs:project.printed")}</h3>
-          <CostBreakdown cost={sumCosts(prints.map((p) => p.cost))} />
-        </div>
-      )}
     </section>
+  );
+}
+
+function PrintedCost({ id }: { id: string }) {
+  const { t } = useTranslation();
+  const prints = usePrintsOfProject(id).data?.items ?? [];
+  if (!prints.length) return null;
+  return (
+    <div className="max-w-md rounded-lg border border-border bg-surface p-4">
+      <h3 className="mb-2 font-medium">{t("costs:project.printed")}</h3>
+      <CostBreakdown cost={sumCosts(prints.map((p) => p.cost))} />
+    </div>
   );
 }
 
@@ -352,7 +358,7 @@ export function ProjectDetailPage() {
           )}
         </div>
         <div className="grid content-start gap-4 [&>section]:mt-0">
-          <LinkedPrints id={id} />
+          <PrintedCost id={id} />
           {(selected ?? info?.plates.find((p) => p.sliced)) && (
             <Estimate plate={(selected ?? info?.plates.find((p) => p.sliced)) as Plate} />
           )}
@@ -390,6 +396,8 @@ export function ProjectDetailPage() {
           )}
         </div>
       )}
+
+      <LinkedPrints id={id} />
 
       <section aria-labelledby="files" className="mt-6">
         <h2 id="files" className="mb-2 text-base font-semibold">
