@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Page } from "@playwright/test";
 import { expect, test } from "./fixtures.ts";
-import { hasHorizontalScroll, seedPrinter, seedProfile, seedSpool } from "./helpers.ts";
+import { hasHorizontalScroll, pick, seedPrinter, seedProfile, seedSpool } from "./helpers.ts";
 
 // yazl is the server's dependency (it reads the zips); the tests only borrow it to build one.
 const yazl = createRequire(join(import.meta.dirname, "..", "apps", "server", "package.json"))(
@@ -110,14 +110,14 @@ test("maintenance task for models and a specific printer shows on each matching 
 test("printer model and machine profile: create, edit and delete", async ({ page, app }) => {
   await app.api("POST", "/api/brands", { name: "Acme" });
   await page.goto("/printers/models/new");
-  await page.getByLabel("Brand").selectOption({ label: "Acme" });
+  await pick(page.getByLabel("Brand"), "Acme");
   await page.getByLabel("Model", { exact: true }).fill("Q1");
   await page.getByRole("button", { name: "Save" }).click();
   await expect(block(page, "Printer models").getByRole("link", { name: "Acme Q1" })).toBeVisible();
 
   await page.getByRole("link", { name: "Add profile" }).click();
   await page.getByLabel("Name", { exact: true }).fill("Q1 0.4");
-  await page.getByLabel("Printer model").selectOption({ label: "Q1" });
+  await pick(page.getByLabel("Printer model"), "Q1");
   await page.getByLabel("Nozzle diameter (mm)").fill("0.4");
   await page.getByRole("button", { name: "Save" }).click();
   const profiles = block(page, "Machine profiles");
@@ -138,7 +138,7 @@ test("printer model and machine profile: create, edit and delete", async ({ page
 test("filament profile: pick or add a brand and a material inline", async ({ page, app }) => {
   await app.api("POST", "/api/filament-brands", { name: "Acme" });
   await page.goto("/filament/profiles/new");
-  await page.getByLabel("Brand", { exact: true }).selectOption({ label: "Acme" });
+  await pick(page.getByLabel("Brand", { exact: true }), "Acme");
   await page.getByRole("button", { name: "Add material" }).click();
   await page.getByLabel("Add material").fill("PETG");
   await page.getByRole("button", { name: "Add", exact: true }).click();
@@ -177,13 +177,13 @@ test("integrations hub groups cloud and local and edits the per-type policy", as
   await expect(page.getByRole("heading", { name: "Cloud", level: 2 })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Local", level: 2 })).toBeVisible();
   const mode = page.getByLabel("Mode: Print history");
-  await mode.selectOption("manual");
+  await pick(mode, "Manual");
   await expect(page.getByLabel("Frequency: Print history")).toBeDisabled();
-  await mode.selectOption("auto");
+  await pick(mode, "Automatic");
   await expect(page.getByLabel("Frequency: Print history")).toBeEnabled();
   await page.reload();
-  await expect(page.getByLabel("Mode: Print history")).toHaveValue("auto");
-  await page.getByLabel("Mode: Print history").selectOption("off");
+  await expect(page.getByLabel("Mode: Print history")).toHaveValue("Automatic");
+  await pick(page.getByLabel("Mode: Print history"), "Off");
   await expect(page.getByLabel("Frequency: Print history")).toBeDisabled();
 });
 
@@ -211,10 +211,10 @@ test("import: template download, XLSX upload, bulk action, apply and export roun
   await expect(page.getByRole("button", { name: "Identical (1)" })).toBeVisible();
 
   // Same file, but bulk: import everything as new.
-  await page
-    .getByRole("group", { name: "Bulk operations" })
-    .getByRole("combobox", { name: "Action" })
-    .selectOption({ label: "Import all as new" });
+  await pick(
+    page.getByRole("group", { name: "Bulk operations" }).getByRole("combobox", { name: "Action" }),
+    "Import all as new",
+  );
   await page.getByRole("button", { name: "Apply", exact: true }).click();
   await page.getByRole("button", { name: "Import 1 row" }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Import 1 row" }).click();

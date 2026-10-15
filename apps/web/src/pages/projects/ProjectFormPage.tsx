@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "@tanstack/react-router";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
+import { Combobox } from "../../components/Combobox.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { PathPicker } from "../../components/PathPicker.tsx";
@@ -94,20 +95,16 @@ function ProjectForm({ project }: { project?: Project }) {
           hint={t("projects:form.descriptionFileHint")}
         >
           {(p) => (
-            <select
+            <Combobox
               {...p}
               name="descriptionFile"
-              className={inputClass}
               value={link}
-              onChange={(e) => setLink(e.target.value)}
-            >
-              <option value="">{t("projects:form.descriptionFileNone")}</option>
-              {docs.map((d) => (
-                <option key={d.path} value={d.path}>
-                  {d.path}
-                </option>
-              ))}
-            </select>
+              onChange={setLink}
+              options={[
+                { value: "", label: t("projects:form.descriptionFileNone") },
+                ...docs.map((d) => ({ value: d.path, label: d.path })),
+              ]}
+            />
           )}
         </FormField>
       )}

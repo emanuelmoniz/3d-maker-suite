@@ -1,4 +1,4 @@
-import type { Page } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
 
 type Api = <T = unknown>(method: string, path: string, body?: unknown) => Promise<T>;
 
@@ -70,6 +70,16 @@ export const ROUTES = [
   "/settings",
   "/integrations",
 ];
+
+/** Picks an option in a Combobox: by its exact label, or by position (0 is the first option). */
+export const pick = async (combo: Locator, option: string | number) => {
+  await combo.click();
+  const options = combo.page().getByRole("option");
+  await (typeof option === "number"
+    ? options.nth(option)
+    : options.getByText(option, { exact: true })
+  ).click();
+};
 
 export const hasHorizontalScroll = (page: Page) =>
   page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);

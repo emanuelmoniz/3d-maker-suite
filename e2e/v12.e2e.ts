@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Page } from "@playwright/test";
 import { expect, test } from "./fixtures.ts";
-import { hasHorizontalScroll, seedPrinter, seedProfile, seedProject } from "./helpers.ts";
+import { hasHorizontalScroll, pick, seedPrinter, seedProfile, seedProject } from "./helpers.ts";
 
 // exceljs is the server's dependency; the tests only borrow it to read a template.
 const ExcelJS = createRequire(join(import.meta.dirname, "..", "apps", "server", "package.json"))(
@@ -28,7 +28,7 @@ test("every module page has a gear that opens its config page and links back", a
     await page.getByRole("link", { name: `${module} settings` }).click();
     await expect(page).toHaveURL(new RegExp(`/${module.toLowerCase()}/settings$`));
     await page.getByRole("link", { name: "Back" }).click();
-    await expect(page).toHaveURL(new RegExp(`/${module.toLowerCase()}$`));
+    await expect(page).toHaveURL(new RegExp(`/${module.toLowerCase()}(\\?|$)`));
   }
 });
 
@@ -128,14 +128,14 @@ test("projects: add a project from a folder, link a description file, edit by ha
   expect(project?.description ?? "").toBe(""); // the scanner no longer fills it from the README
 
   await page.goto(`/projects/${project?.id}/edit`);
-  await page.getByLabel("Description file").selectOption("notes.md");
+  await pick(page.getByLabel("Description file"), "notes.md");
   await page.getByRole("button", { name: "Save" }).click();
   await page.goto(`/projects/${project?.id}`);
   await expect(page.getByText("Hello")).toBeVisible();
   await expect(page.locator("strong", { hasText: "world" })).toBeVisible();
 
   await page.goto(`/projects/${project?.id}/edit`);
-  await page.getByLabel("Description file").selectOption({ label: "None" });
+  await pick(page.getByLabel("Description file"), "None");
   await page.getByLabel("Description", { exact: true }).fill("By hand");
   await page.getByRole("button", { name: "Save" }).click();
   const after = await app.api<{ description: string; descriptionFile: string | null }>(
@@ -203,10 +203,10 @@ test("estimated duration: button fills it, list shows ~, a real value clears it"
   await seedProject(app.api);
   await page.goto("/prints/new");
   await page.getByLabel("Name", { exact: true }).fill("Estimated");
-  await page.getByLabel("Project").selectOption({ index: 1 });
+  await pick(page.getByLabel("Project"), 1);
   await expect(page.getByRole("button", { name: "Estimate from filament" })).toBeDisabled();
   await page.getByRole("button", { name: "Add spool" }).click();
-  await page.getByLabel("Spool", { exact: true }).selectOption({ index: 1 });
+  await pick(page.getByLabel("Spool", { exact: true }), 1);
   await page.getByLabel("Grams").fill("60");
   await page.getByRole("button", { name: "Estimate from filament" }).click();
   await expect(page.getByLabel("Hours")).not.toHaveValue("");

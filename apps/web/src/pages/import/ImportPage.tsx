@@ -9,7 +9,8 @@ import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
-import { FormField, inputClass } from "../../components/FormField.tsx";
+import { Combobox } from "../../components/Combobox.tsx";
+import { FormField } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { formatDateTime } from "../../lib/format.ts";
 import { useImportRuns, usePreview, useTemplate } from "../../lib/import.ts";
@@ -98,21 +99,15 @@ export function ImportPage() {
         <div className="flex flex-wrap items-end gap-3">
           <FormField label={t("import:entity")}>
             {(p) => (
-              <select
+              <Combobox
                 {...p}
-                className={inputClass}
                 value={entity}
-                onChange={(e) => {
-                  setEntity(e.target.value as ImportEntity);
+                onChange={(v) => {
+                  setEntity(v as ImportEntity);
                   preview.reset();
                 }}
-              >
-                {IMPORT_ENTITIES.map((e) => (
-                  <option key={e} value={e}>
-                    {t(ENTITIES[e].label)}
-                  </option>
-                ))}
-              </select>
+                options={IMPORT_ENTITIES.map((e) => ({ value: e, label: t(ENTITIES[e].label) }))}
+              />
             )}
           </FormField>
           <Button disabled={template.isPending} onClick={downloadTemplate}>

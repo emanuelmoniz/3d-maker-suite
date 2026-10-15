@@ -29,6 +29,7 @@ import { FileSpreadsheet } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
+import { Combobox } from "../../components/Combobox.tsx";
 import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { type Column, DataTable } from "../../components/DataTable.tsx";
 import { EmptyState } from "../../components/EmptyState.tsx";
@@ -344,19 +345,14 @@ export function ReviewTable({
       id: "action",
       header: t("import:review.action"),
       cell: (r) => (
-        <select
+        <Combobox
           aria-label={t("import:review.actionFor", { row: r.row })}
           className={selectClass}
           disabled={r.status === "invalid"}
           value={decisionOf(r).action}
-          onChange={(e) => decide(r, { action: e.target.value as ImportAction })}
-        >
-          {IMPORT_ACTIONS.map((a) => (
-            <option key={a} value={a}>
-              {t(ACTIONS[a])}
-            </option>
-          ))}
-        </select>
+          onChange={(v) => decide(r, { action: v as ImportAction })}
+          options={IMPORT_ACTIONS.map((a) => ({ value: a, label: t(ACTIONS[a]) }))}
+        />
       ),
     },
     {
@@ -372,25 +368,22 @@ export function ReviewTable({
         const issue = problem(r);
         return (
           <span className="flex items-center gap-2">
-            <select
+            <Combobox
               aria-label={t("import:review.targetFor", { row: r.row })}
               aria-invalid={issue ? true : undefined}
               className={`${selectClass} max-w-72`}
               value={d.targetId ?? ""}
-              onChange={(e) =>
-                e.target.value === ALL_TARGETS
+              onChange={(v) =>
+                v === ALL_TARGETS
                   ? setWide((w) => toggle(w, r.row))
-                  : decide(r, { targetId: e.target.value || null })
+                  : decide(r, { targetId: v || null })
               }
-            >
-              <option value="">{t("import:review.pickTarget")}</option>
-              {options.map((x) => (
-                <option key={x.id} value={x.id}>
-                  {targetLabel(x)}
-                </option>
-              ))}
-              {!all && <option value={ALL_TARGETS}>{t("import:review.otherTarget")}</option>}
-            </select>
+              options={[
+                { value: "", label: t("import:review.pickTarget") },
+                ...options.map((x) => ({ value: x.id, label: targetLabel(x) })),
+                ...(all ? [] : [{ value: ALL_TARGETS, label: t("import:review.otherTarget") }]),
+              ]}
+            />
             {issue && <span className="text-bad">{issue}</span>}
           </span>
         );
@@ -404,21 +397,16 @@ export function ReviewTable({
         return d.action !== "update" ? (
           ""
         ) : (
-          <select
+          <Combobox
             aria-label={t("import:review.policyFor", { row: r.row })}
             className={selectClass}
             value={d.policy ?? ""}
-            onChange={(e) =>
-              decide(r, { policy: (e.target.value || undefined) as MergePolicy | undefined })
-            }
-          >
-            <option value="">{t("import:review.policyDefault")}</option>
-            {MERGE_POLICIES.map((p) => (
-              <option key={p} value={p}>
-                {t(POLICIES[p])}
-              </option>
-            ))}
-          </select>
+            onChange={(v) => decide(r, { policy: (v || undefined) as MergePolicy | undefined })}
+            options={[
+              { value: "", label: t("import:review.policyDefault") },
+              ...MERGE_POLICIES.map((p) => ({ value: p, label: t(POLICIES[p]) })),
+            ]}
+          />
         );
       },
     },
@@ -453,9 +441,9 @@ export function ReviewTable({
           if (options && d.action === "create" && picks(r).includes(c.key))
             return (
               <span className="flex items-center gap-2">
-                {/* An optional pick names the row's own value, so the select replaces it. */}
+                {/* An optional pick names the row's own value, so the picker replaces it. */}
                 {!optional.has(c.key) && value}
-                <select
+                <Combobox
                   aria-label={t("import:review.refFor", {
                     column: t(c.label, c.labelArgs),
                     row: r.row,
@@ -466,22 +454,22 @@ export function ReviewTable({
                     unsure && "border-warn ring-1 ring-warn",
                   )}
                   value={d.refs?.[c.key] ?? ""}
-                  onChange={(e) =>
-                    e.target.value === NEW_SPOOL
+                  onChange={(v) =>
+                    v === NEW_SPOOL
                       ? setAdding({ row: r, key: c.key })
-                      : decide(r, { refs: { ...d.refs, [c.key]: e.target.value || null } })
+                      : decide(r, { refs: { ...d.refs, [c.key]: v || null } })
                   }
-                >
-                  <option value="">{t("import:review.pickTarget")}</option>
-                  {optionsFor(r, c.key, d.refs?.[c.key]).map((o) => (
-                    <option key={o.id} value={o.id}>
-                      {o.label}
-                    </option>
-                  ))}
-                  {c.ref === "spools" && (
-                    <option value={NEW_SPOOL}>{t("import:review.addSpool")}</option>
-                  )}
-                </select>
+                  options={[
+                    { value: "", label: t("import:review.pickTarget") },
+                    ...optionsFor(r, c.key, d.refs?.[c.key]).map((o) => ({
+                      value: o.id,
+                      label: o.label,
+                    })),
+                    ...(c.ref === "spools"
+                      ? [{ value: NEW_SPOOL, label: t("import:review.addSpool") }]
+                      : []),
+                  ]}
+                />
                 {!d.refs?.[c.key] && (
                   <span className={optional.has(c.key) ? "text-warn" : "text-bad"}>
                     {t(optional.has(c.key) ? "import:review.noSpool" : "import:review.needsRef")}
@@ -560,78 +548,71 @@ export function ReviewTable({
         <legend className="px-1 font-semibold">{t("import:review.bulkTitle")}</legend>
         <label className="flex flex-col gap-1.5">
           <span className="font-medium">{t("import:review.scope")}</span>
-          <select
+          <Combobox
             className={selectClass}
             value={scope}
-            onChange={(e) => setScope(e.target.value as typeof scope)}
-          >
-            {SCOPES.map((s) => (
-              <option key={s} value={s}>
-                {t(SCOPE_LABELS[s], { count: inScope[s].length })}
-              </option>
-            ))}
-          </select>
+            onChange={(v) => setScope(v as typeof scope)}
+            options={SCOPES.map((s) => ({
+              value: s,
+              label: t(SCOPE_LABELS[s], { count: inScope[s].length }),
+            }))}
+          />
         </label>
         <label className="flex flex-col gap-1.5">
           <span className="font-medium">{t("import:review.bulk")}</span>
-          <select
+          <Combobox
             className={selectClass}
             value={bulk}
-            onChange={(e) => setBulk(e.target.value as BulkAction | "")}
-          >
-            <option value="">{t("import:review.noChange")}</option>
-            {BULK_ACTIONS.map((b) => (
-              <option key={b} value={b}>
-                {t(BULK[b])}
-              </option>
-            ))}
-          </select>
+            onChange={(v) => setBulk(v as BulkAction | "")}
+            options={[
+              { value: "", label: t("import:review.noChange") },
+              ...BULK_ACTIONS.map((b) => ({ value: b, label: t(BULK[b]) })),
+            ]}
+          />
         </label>
         {prints && (
           <>
             <label className="flex flex-col gap-1.5">
               <span className="font-medium">{t("import:review.projectBulkPick")}</span>
-              <select
+              <Combobox
                 className={selectClass}
                 value={project}
-                onChange={(e) => setProject(e.target.value)}
-              >
-                <option value="">{t("import:review.noChange")}</option>
-                {(preview.refOptions?.project ?? []).map((o) => (
-                  <option key={o.id} value={o.id}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
+                onChange={setProject}
+                options={[
+                  { value: "", label: t("import:review.noChange") },
+                  ...(preview.refOptions?.project ?? []).map((o) => ({
+                    value: o.id,
+                    label: o.label,
+                  })),
+                ]}
+              />
             </label>
             <label className="flex flex-col gap-1.5">
               <span className="font-medium">{t("import:review.spoolBulkPick")}</span>
-              <select
+              <Combobox
                 className={selectClass}
                 value={spool}
-                onChange={(e) => setSpool(e.target.value)}
-              >
-                <option value="">{t("import:review.noChange")}</option>
-                {(preview.refOptions?.[printSlotKeys(1).spool] ?? [])
-                  .filter((o) => !o.empty)
-                  .map((o) => (
-                    <option key={o.id} value={o.id}>
-                      {o.label}
-                    </option>
-                  ))}
-              </select>
+                onChange={setSpool}
+                options={[
+                  { value: "", label: t("import:review.noChange") },
+                  ...(preview.refOptions?.[printSlotKeys(1).spool] ?? [])
+                    .filter((o) => !o.empty)
+                    .map((o) => ({ value: o.id, label: o.label })),
+                ]}
+              />
             </label>
             <label className="flex flex-col gap-1.5">
               <span className="font-medium">{t("import:review.trackBulk")}</span>
-              <select
+              <Combobox
                 className={selectClass}
                 value={track}
-                onChange={(e) => setTrack(e.target.value as typeof track)}
-              >
-                <option value="">{t("import:review.noChange")}</option>
-                <option value="on">{t("import:review.trackOn")}</option>
-                <option value="off">{t("import:review.trackOff")}</option>
-              </select>
+                onChange={(v) => setTrack(v as typeof track)}
+                options={[
+                  { value: "", label: t("import:review.noChange") },
+                  { value: "on", label: t("import:review.trackOn") },
+                  { value: "off", label: t("import:review.trackOff") },
+                ]}
+              />
             </label>
           </>
         )}
@@ -640,17 +621,12 @@ export function ReviewTable({
         </Button>
         <label className="flex flex-col gap-1.5 sm:ml-auto">
           <span className="font-medium">{t("import:review.policyBulk")}</span>
-          <select
+          <Combobox
             className={selectClass}
             value={policy}
-            onChange={(e) => setPolicy(e.target.value as MergePolicy)}
-          >
-            {MERGE_POLICIES.map((p) => (
-              <option key={p} value={p}>
-                {t(POLICIES[p])}
-              </option>
-            ))}
-          </select>
+            onChange={(v) => setPolicy(v as MergePolicy)}
+            options={MERGE_POLICIES.map((p) => ({ value: p, label: t(POLICIES[p]) }))}
+          />
         </label>
       </fieldset>
 

@@ -21,6 +21,7 @@ import { Plug, Plus } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
+import { Combobox } from "../../components/Combobox.tsx";
 import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { DataTable, type ListQuery } from "../../components/DataTable.tsx";
 import { EmptyState } from "../../components/EmptyState.tsx";
@@ -337,22 +338,16 @@ function Policies({
     value: T,
     options: Partial<Record<T, string>>,
     onChange: (v: T) => void,
-    p: object,
+    p: { id?: string; className?: string; "aria-label"?: string; "aria-describedby"?: string },
     disabled = false,
   ) => (
-    <select
-      className={inputClass}
+    <Combobox
       {...p}
       value={value}
       disabled={disabled}
-      onChange={(e) => onChange(e.target.value as T)}
-    >
-      {(Object.keys(options) as T[]).map((k) => (
-        <option key={k} value={k}>
-          {t(options[k] ?? "")}
-        </option>
-      ))}
-    </select>
+      onChange={(v) => onChange(v as T)}
+      options={(Object.keys(options) as T[]).map((k) => ({ value: k, label: t(options[k] ?? "") }))}
+    />
   );
   const run = (p: SyncPolicy) => {
     // Switched off or not set up (no sign-in, no folder): nothing to run.

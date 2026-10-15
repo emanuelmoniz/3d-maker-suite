@@ -13,6 +13,7 @@ import {
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
+import { Combobox } from "../../components/Combobox.tsx";
 import { DataTable, type ListQuery, Pager } from "../../components/DataTable.tsx";
 import { EmptyState } from "../../components/EmptyState.tsx";
 import { FilterBar } from "../../components/FilterBar.tsx";
@@ -350,71 +351,57 @@ export function ProjectsPage() {
                 >
                   <TagFilter value={tagId} onChange={(v) => set({ tagId: v })} />
                   {collections.length > 0 && (
-                    <select
+                    <Combobox
                       aria-label={t("projects:filters.collection")}
                       className={`${inputClass} w-auto!`}
                       value={collectionId}
-                      onChange={(e) => set({ collectionId: e.target.value })}
-                    >
-                      <option value="">{t("projects:filters.allCollections")}</option>
-                      {collections.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.name}
-                        </option>
-                      ))}
-                    </select>
+                      onChange={(v) => set({ collectionId: v })}
+                      options={[
+                        { value: "", label: t("projects:filters.allCollections") },
+                        ...collections.map((c) => ({ value: c.id, label: c.name })),
+                      ]}
+                    />
                   )}
                   {materials.length > 0 && (
-                    <select
+                    <Combobox
                       aria-label={t("projects:filters.material")}
                       className={`${inputClass} w-auto!`}
                       value={material}
-                      onChange={(e) => set({ material: e.target.value })}
-                    >
-                      <option value="">{t("projects:filters.allMaterials")}</option>
-                      {materials.map((m) => (
-                        <option key={m} value={m}>
-                          {m}
-                        </option>
-                      ))}
-                    </select>
+                      onChange={(v) => set({ material: v })}
+                      options={[
+                        { value: "", label: t("projects:filters.allMaterials") },
+                        ...materials.map((m) => ({ value: m, label: m })),
+                      ]}
+                    />
                   )}
-                  <select
+                  <Combobox
                     aria-label={t("projects:sort.label")}
                     className={`${inputClass} w-auto!`}
                     value={query.sort ?? "-name"}
-                    onChange={(e) => set({ sort: e.target.value })}
-                  >
-                    {(
+                    onChange={(v) => set({ sort: v })}
+                    options={(
                       [
                         ["name", "projects:sort.nameAsc"],
                         ["-name", "projects:sort.nameDesc"],
                         ["-lastPrintAt", "projects:sort.lastPrintDesc"],
                         ["lastPrintAt", "projects:sort.lastPrintAsc"],
                       ] as const
-                    ).map(([v, key]) => (
-                      <option key={v} value={v}>
-                        {t(key)}
-                      </option>
-                    ))}
-                  </select>
+                    ).map(([v, key]) => ({ value: v, label: t(key) }))}
+                  />
                 </FilterBar>
               ) : (
                 <div className="flex flex-wrap items-center gap-2">
                   {collections.length > 0 && (
-                    <select
+                    <Combobox
                       aria-label={t("projects:filters.collection")}
                       className={`${inputClass} w-auto!`}
                       value={collectionId}
-                      onChange={(e) => set({ collectionId: e.target.value })}
-                    >
-                      <option value="">{t("projects:filters.allCollections")}</option>
-                      {collections.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.name}
-                        </option>
-                      ))}
-                    </select>
+                      onChange={(v) => set({ collectionId: v })}
+                      options={[
+                        { value: "", label: t("projects:filters.allCollections") },
+                        ...collections.map((c) => ({ value: c.id, label: c.name })),
+                      ]}
+                    />
                   )}
                 </div>
               )}

@@ -2,6 +2,7 @@ import { useNavigate, useParams } from "@tanstack/react-router";
 import { type ReactNode, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
+import { Combobox } from "../../components/Combobox.tsx";
 import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
@@ -22,26 +23,24 @@ const text = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
 const orNull = (v: string) => v || null;
 const int = (v: string) => (v ? Math.round(Number(v)) : null);
 
-/** Printer model `<select>`, grouped by brand. */
-export function ModelSelect(props: React.ComponentProps<"select">) {
+/** Printer model picker, grouped by brand. */
+export function ModelSelect(props: Omit<React.ComponentProps<typeof Combobox>, "options">) {
   const brands = useBrands().data ?? [];
   const info = [...useModelInfo().values()];
   return (
-    // Remount once the options arrive: an uncontrolled select only applies defaultValue on mount.
-    <select key={info.length} {...props} className={inputClass}>
-      <option value="" />
-      {brands.map((b) => (
-        <optgroup key={b.id} label={b.name}>
-          {info
+    // Remount once the options arrive: an uncontrolled picker only applies defaultValue on mount.
+    <Combobox
+      key={info.length}
+      {...props}
+      options={[
+        { value: "", label: "" },
+        ...brands.flatMap((b) =>
+          info
             .filter((i) => i.model.brandId === b.id)
-            .map(({ model: m }) => (
-              <option key={m.id} value={m.id}>
-                {m.model}
-              </option>
-            ))}
-        </optgroup>
-      ))}
-    </select>
+            .map(({ model: m }) => ({ value: m.id, label: m.model, group: b.name })),
+        ),
+      ]}
+    />
   );
 }
 
@@ -220,20 +219,14 @@ export function ModelFormPage() {
             hint={brands.length ? undefined : t("printers:catalog.models.noBrands")}
           >
             {(p) => (
-              <select
+              <Combobox
                 key={brands.length}
                 {...p}
                 name="brandId"
                 required
-                className={inputClass}
                 defaultValue={m?.brandId}
-              >
-                {brands.map((b) => (
-                  <option key={b.id} value={b.id}>
-                    {b.name}
-                  </option>
-                ))}
-              </select>
+                options={brands.map((b) => ({ value: b.id, label: b.name }))}
+              />
             )}
           </FormField>
           <FormField label={t("printers:catalog.models.model")}>

@@ -1,5 +1,6 @@
 import { DATE_FORMATS, type Preferences } from "@3d-maker-suite/core";
 import { useTranslation } from "react-i18next";
+import { Combobox } from "../components/Combobox.tsx";
 import { FormField, inputClass } from "../components/FormField.tsx";
 import { PageHeader } from "../components/PageHeader.tsx";
 import { Section } from "../components/Section.tsx";
@@ -53,55 +54,43 @@ export function SettingsPage() {
         <Section title={t("settings:sections.general")}>
           <FormField label={t("settings:general.language")}>
             {(p) => (
-              <select {...p} className={inputClass} value={v.language} onChange={() => {}}>
-                <option value="en">English</option>
-              </select>
+              <Combobox {...p} value={v.language} options={[{ value: "en", label: "English" }]} />
             )}
           </FormField>
           <FormField label={t("settings:general.units")}>
             {(p) => (
-              <select
+              <Combobox
                 {...p}
-                className={inputClass}
                 value={v.units}
-                onChange={(e) => commit({ units: e.target.value as Preferences["units"] })}
-              >
-                <option value="metric">{t("settings:general.unitsMetric")}</option>
-                <option value="imperial">{t("settings:general.unitsImperial")}</option>
-              </select>
+                onChange={(x) => commit({ units: x as Preferences["units"] })}
+                options={[
+                  { value: "metric", label: t("settings:general.unitsMetric") },
+                  { value: "imperial", label: t("settings:general.unitsImperial") },
+                ]}
+              />
             )}
           </FormField>
           <FormField label={t("settings:general.dateFormat")}>
             {(p) => (
-              <select
+              <Combobox
                 {...p}
-                className={inputClass}
                 value={v.dateFormat}
-                onChange={(e) =>
-                  commit({ dateFormat: e.target.value as Preferences["dateFormat"] })
-                }
-              >
-                {DATE_FORMATS.map((f) => (
-                  <option key={f} value={f}>
-                    {f}
-                  </option>
-                ))}
-              </select>
+                onChange={(x) => commit({ dateFormat: x as Preferences["dateFormat"] })}
+                options={DATE_FORMATS.map((f) => ({ value: f, label: f }))}
+              />
             )}
           </FormField>
           <FormField label={t("settings:general.timeFormat")}>
             {(p) => (
-              <select
+              <Combobox
                 {...p}
-                className={inputClass}
                 value={v.timeFormat}
-                onChange={(e) =>
-                  commit({ timeFormat: e.target.value as Preferences["timeFormat"] })
-                }
-              >
-                <option value="24h">{t("settings:general.time24h")}</option>
-                <option value="12h">{t("settings:general.time12h")}</option>
-              </select>
+                onChange={(x) => commit({ timeFormat: x as Preferences["timeFormat"] })}
+                options={[
+                  { value: "24h", label: t("settings:general.time24h") },
+                  { value: "12h", label: t("settings:general.time12h") },
+                ]}
+              />
             )}
           </FormField>
           <FormField label={t("settings:dataDir.label")} hint={t("settings:dataDir.hint")}>
@@ -116,18 +105,12 @@ export function SettingsPage() {
           </div>
           <FormField label={t("settings:appearance.accent")}>
             {(p) => (
-              <select
+              <Combobox
                 {...p}
-                className={inputClass}
                 value={v.accent}
-                onChange={(e) => setTheme({ accent: e.target.value as Preferences["accent"] })}
-              >
-                {ACCENTS.map((a) => (
-                  <option key={a} value={a}>
-                    {t(ACCENT_LABELS[a])}
-                  </option>
-                ))}
-              </select>
+                onChange={(x) => setTheme({ accent: x as Preferences["accent"] })}
+                options={ACCENTS.map((a) => ({ value: a, label: t(ACCENT_LABELS[a]) }))}
+              />
             )}
           </FormField>
           <BrandingFields />

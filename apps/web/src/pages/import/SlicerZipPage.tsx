@@ -2,7 +2,8 @@ import { SLICER_ZIP_TYPES } from "@3d-maker-suite/core";
 import { Link, useNavigate, useParams } from "@tanstack/react-router";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { FormField, inputClass } from "../../components/FormField.tsx";
+import { Combobox } from "../../components/Combobox.tsx";
+import { FormField } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { useZipSources, useZipUpload } from "../../lib/slicerCatalog.ts";
 
@@ -39,18 +40,15 @@ export function SlicerZipPage() {
           <>
             <FormField label={t("import:zip.slicer")}>
               {(p) => (
-                <select
+                <Combobox
                   {...p}
-                  className={inputClass}
                   value={source.id}
-                  onChange={(e) => setPicked(e.target.value)}
-                >
-                  {sources.data?.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {t(`filament:library.sources.${s.id}`)}
-                    </option>
-                  ))}
-                </select>
+                  onChange={setPicked}
+                  options={(sources.data ?? []).map((s) => ({
+                    value: s.id,
+                    label: t(`filament:library.sources.${s.id}`),
+                  }))}
+                />
               )}
             </FormField>
             <ol className="grid list-decimal gap-2 pl-5">

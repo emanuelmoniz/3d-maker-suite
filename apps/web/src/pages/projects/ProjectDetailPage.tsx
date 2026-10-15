@@ -4,6 +4,7 @@ import type { TFunction } from "i18next";
 import { Box, ExternalLink, FolderOpen } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Combobox } from "../../components/Combobox.tsx";
 import { CostBreakdown } from "../../components/CostBreakdown.tsx";
 import { Markdown } from "../../components/Markdown.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
@@ -265,18 +266,13 @@ export function ProjectDetailPage() {
             {project.folderPath && current && slicer && (
               <span className="flex gap-1">
                 {slicers.length > 1 && (
-                  <select
+                  <Combobox
                     aria-label={t("projects:detail.slicerPick")}
                     className={linkButton}
                     value={slicer.id}
-                    onChange={(e) => setSlicerId(e.target.value)}
-                  >
-                    {slicers.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {adapterName(s.adapterId)}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={setSlicerId}
+                    options={slicers.map((s) => ({ value: s.id, label: adapterName(s.adapterId) }))}
+                  />
                 )}
                 <button
                   type="button"
@@ -339,21 +335,20 @@ export function ProjectDetailPage() {
           {models.length > 1 && (
             <label className="mt-2 flex flex-wrap items-center gap-2">
               <span className="text-muted">{t("projects:detail.model")}</span>
-              <select
+              <Combobox
                 className="h-9 max-w-full rounded-md border border-border bg-surface px-2"
-                value={current?.path}
-                onChange={(e) => {
-                  setPicked(e.target.value);
+                value={current?.path ?? ""}
+                onChange={(v) => {
+                  setPicked(v);
                   setPlate(null);
                 }}
-              >
-                {models.map((f) => (
-                  <option key={f.path} value={f.path}>
-                    {f.path}
-                    {VIEWABLE.test(f.path) ? "" : ` (${t("projects:viewer.noPreview")})`}
-                  </option>
-                ))}
-              </select>
+                options={models.map((f) => ({
+                  value: f.path,
+                  label: VIEWABLE.test(f.path)
+                    ? f.path
+                    : `${f.path} (${t("projects:viewer.noPreview")})`,
+                }))}
+              />
             </label>
           )}
         </div>

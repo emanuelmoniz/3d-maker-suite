@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from "@tanstack/react-router";
 import { useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
+import { Combobox } from "../../components/Combobox.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { TagPicker } from "../../components/TagPicker.tsx";
@@ -88,9 +89,9 @@ function PrinterForm({ printer }: { printer?: Printer }) {
               name="modelId"
               required
               defaultValue={printer?.modelId}
-              onChange={(e) => {
+              onChange={(v) => {
                 // A new model's typical power fills Power, unless the user typed one.
-                const watts = models.get(e.target.value)?.model.powerW;
+                const watts = models.get(v)?.model.powerW;
                 if (power.current && !power.current.value && watts != null)
                   power.current.value = String(watts);
               }}
@@ -111,19 +112,16 @@ function PrinterForm({ printer }: { printer?: Printer }) {
       </FormField>
       <FormField label={t("printers:form.state")}>
         {(p) => (
-          <select
+          <Combobox
             {...p}
             name="state"
-            className={inputClass}
             defaultValue={printer?.state ?? states[0]}
-          >
-            {/* a state since removed from Settings stays selectable on printers that have it */}
-            {[...new Set([...states, ...(printer ? [printer.state] : [])])].map((s) => (
-              <option key={s} value={s}>
-                {stateLabel(s)}
-              </option>
-            ))}
-          </select>
+            // a state since removed from Settings stays selectable on printers that have it
+            options={[...new Set([...states, ...(printer ? [printer.state] : [])])].map((s) => ({
+              value: s,
+              label: stateLabel(s),
+            }))}
+          />
         )}
       </FormField>
       <FormField label={t("printers:form.power")} hint={t("printers:form.powerHint")}>

@@ -3,7 +3,9 @@ import { ArrowDown, ArrowUp, Filter } from "lucide-react";
 import { type FormEvent, type ReactNode, useId, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { cx } from "../lib/cx.ts";
+import { placePopover } from "../lib/placePopover.ts";
 import { Button } from "./Button.tsx";
+import { Combobox } from "./Combobox.tsx";
 import { DateRangePicker } from "./DateRangePicker.tsx";
 import { inputClass } from "./FormField.tsx";
 
@@ -247,17 +249,12 @@ export function Pager({
       )}
       <label className="flex items-center gap-2 whitespace-nowrap">
         {t("common:table.pageSize")}
-        <select
+        <Combobox
           className={`${inputClass} w-auto!`}
-          value={pageSize}
-          onChange={(e) => onChange({ pageSize: e.target.value })}
-        >
-          {PAGE_SIZES.map((n) => (
-            <option key={n} value={n}>
-              {n}
-            </option>
-          ))}
-        </select>
+          value={String(pageSize)}
+          onChange={(v) => onChange({ pageSize: v })}
+          options={PAGE_SIZES.map((n) => ({ value: String(n), label: String(n) }))}
+        />
       </label>
       <span aria-live="polite">
         {t("common:table.range", {
@@ -340,12 +337,8 @@ function ColumnFilterButton<T>({
         onToggle={(e) => {
           if (e.newState !== "open") return;
           setDates({ from: a, to: b });
-          // Below its header button, kept on screen (no CSS anchor positioning in every browser yet).
-          const r = document.querySelector(`[popovertarget="${id}"]`)?.getBoundingClientRect();
-          const el = e.currentTarget;
-          if (!r) return;
-          el.style.top = `${Math.max(8, Math.min(r.bottom + 4, window.innerHeight - el.offsetHeight - 8))}px`;
-          el.style.left = `${Math.max(8, Math.min(r.left, document.documentElement.clientWidth - el.offsetWidth - 8))}px`;
+          const anchor = document.querySelector(`[popovertarget="${id}"]`);
+          if (anchor) placePopover(anchor, e.currentTarget);
         }}
         className="fixed w-80 max-w-[calc(100vw-1rem)] rounded-lg border border-border bg-surface p-3 text-left font-normal text-fg shadow-lg backdrop:bg-black/20"
       >

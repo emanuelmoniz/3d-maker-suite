@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { useTags } from "../lib/tags.ts";
+import { Combobox } from "./Combobox.tsx";
 import { inputClass } from "./FormField.tsx";
 
 /** List filter: one tag or all. Renders nothing until at least one tag exists. */
@@ -8,18 +9,15 @@ export function TagFilter({ value, onChange }: { value: string; onChange: (id: s
   const tags = useTags().data ?? [];
   if (!tags.length) return null;
   return (
-    <select
+    <Combobox
       aria-label={t("tags:filter.label")}
       className={`${inputClass} w-auto!`}
       value={value}
-      onChange={(e) => onChange(e.target.value)}
-    >
-      <option value="">{t("tags:filter.all")}</option>
-      {tags.map((tag) => (
-        <option key={tag.id} value={tag.id}>
-          {tag.name}
-        </option>
-      ))}
-    </select>
+      onChange={onChange}
+      options={[
+        { value: "", label: t("tags:filter.all") },
+        ...tags.map((tag) => ({ value: tag.id, label: tag.name })),
+      ]}
+    />
   );
 }

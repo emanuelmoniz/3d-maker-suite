@@ -3,6 +3,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
+import { Combobox } from "../../components/Combobox.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { useAdapterName, useAdapters, useCreateIntegration } from "../../lib/integrations.ts";
@@ -73,15 +74,16 @@ export function IntegrationCreatePage() {
         type === "boolean" ? (
           <input {...p} type="checkbox" name={`${prefix}.${name}`} className="size-4" />
         ) : options ? (
-          <select {...p} name={`${prefix}.${name}`} className={inputClass}>
-            {options.map((o) => (
-              <option key={o} value={o}>
-                {t(`integrations:adapters.${adapter?.id}.options.${name}.${o}`, {
-                  defaultValue: o,
-                })}
-              </option>
-            ))}
-          </select>
+          <Combobox
+            {...p}
+            name={`${prefix}.${name}`}
+            options={options.map((o) => ({
+              value: o,
+              label: t(`integrations:adapters.${adapter?.id}.options.${name}.${o}`, {
+                defaultValue: o,
+              }),
+            }))}
+          />
         ) : (
           <input
             {...p}
@@ -102,27 +104,16 @@ export function IntegrationCreatePage() {
       <form onSubmit={onSubmit} className="grid gap-4 sm:max-w-md">
         <FormField label={t("integrations:form.adapter")}>
           {(p) => (
-            <select
+            <Combobox
               {...p}
-              className={inputClass}
               value={adapter?.id ?? ""}
-              onChange={(e) => setAdapterId(e.target.value)}
-            >
-              {INTEGRATION_KINDS.map((kind) => {
-                const group = adapters.filter((a) => a.kind === kind);
-                return (
-                  group.length > 0 && (
-                    <optgroup key={kind} label={t(KINDS[kind])}>
-                      {group.map((a) => (
-                        <option key={a.id} value={a.id}>
-                          {adapterName(a.id)}
-                        </option>
-                      ))}
-                    </optgroup>
-                  )
-                );
-              })}
-            </select>
+              onChange={setAdapterId}
+              options={INTEGRATION_KINDS.flatMap((kind) =>
+                adapters
+                  .filter((a) => a.kind === kind)
+                  .map((a) => ({ value: a.id, label: adapterName(a.id), group: t(KINDS[kind]) })),
+              )}
+            />
           )}
         </FormField>
         {config.map((field) => input("config", field))}

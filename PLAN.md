@@ -136,7 +136,7 @@ Do Step 11 of PLAN.md. Screenshot before and after at the 3 viewports. Move the
 existing sections, don't rewrite them.
 ```
 
-### [ ] Step 12 - Searchable selects everywhere  **[plan mode]**
+### [x] Step 12 - Searchable selects everywhere  **[plan mode]**
 **Model:** Opus · **Effort:** Medium
 **Scope:** One shared single-select combobox with typing to filter: ARIA combobox pattern, full keyboard support, mobile friendly, i18n "no results", works inside forms and native dialogs. No new dependency (`SearchPicker` is the multi-select reference). Replace all native `<select>` (~49 in 21 files), including short enum lists.
 **Done when:** no native `<select>` left in `apps/web/src`; every dropdown filters as you type; keyboard and screen-reader behaviour checked; e2e updated and green.

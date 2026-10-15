@@ -2,6 +2,7 @@ import type { FilamentBrand, FilamentMaterial } from "@3d-maker-suite/core";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
+import { Combobox } from "../../components/Combobox.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import {
   isConflict,
@@ -13,7 +14,7 @@ import {
 type Kind = "filament-brands" | "filament-materials";
 type Row = FilamentBrand | FilamentMaterial;
 
-/** A brand / material `<select>` with an inline "add new", for the filament profile form. */
+/** A brand / material picker with an inline "add new", for the filament profile form. */
 export function CatalogSelect<K extends Kind>(props: {
   kind: K;
   name: string;
@@ -51,21 +52,17 @@ export function CatalogSelect<K extends Kind>(props: {
     <div className="grid gap-2">
       <FormField label={props.label}>
         {(p) => (
-          <select
+          <Combobox
             {...p}
             name={props.name}
             required={props.required}
-            className={inputClass}
             value={rows.some((r) => r.id === value) ? value : ""}
-            onChange={(e) => pick(e.target.value)}
-          >
-            <option value="">{props.required ? t("filament:catalog.choose") : ""}</option>
-            {rows.map((r) => (
-              <option key={r.id} value={r.id}>
-                {r.name}
-              </option>
-            ))}
-          </select>
+            onChange={pick}
+            options={[
+              { value: "", label: props.required ? t("filament:catalog.choose") : "" },
+              ...rows.map((r) => ({ value: r.id, label: r.name })),
+            ]}
+          />
         )}
       </FormField>
       {adding ? (

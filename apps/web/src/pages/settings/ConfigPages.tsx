@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next";
+import { Combobox } from "../../components/Combobox.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { PathPicker } from "../../components/PathPicker.tsx";
 import { Section } from "../../components/Section.tsx";
@@ -189,19 +190,15 @@ export function PrintersConfigPage() {
                 hint={t("settings:printers.defaultHint")}
               >
                 {(p) => (
-                  <select
+                  <Combobox
                     {...p}
-                    className={inputClass}
                     value={v.defaultPrinterId ?? ""}
-                    onChange={(e) => commit({ defaultPrinterId: e.target.value || null })}
-                  >
-                    <option value="">{t("settings:printers.defaultNone")}</option>
-                    {printers.map((pr) => (
-                      <option key={pr.id} value={pr.id}>
-                        {pr.name}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={(x) => commit({ defaultPrinterId: x || null })}
+                    options={[
+                      { value: "", label: t("settings:printers.defaultNone") },
+                      ...printers.map((pr) => ({ value: pr.id, label: pr.name })),
+                    ]}
+                  />
                 )}
               </FormField>
               <FormField label={t("settings:printers.label")} hint={t("settings:printers.hint")}>

@@ -2,6 +2,7 @@ import type { Spool } from "@3d-maker-suite/core";
 import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
+import { Combobox } from "../../components/Combobox.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { useAdjustSpool, useSpoolHistory } from "../../lib/filament.ts";
 import { formatDateTime, formatNumber, formatWeight } from "../../lib/format.ts";
@@ -74,10 +75,14 @@ export function AdjustDialog({
             </div>
             <FormField label={t("filament:adjust.kind")}>
               {(p) => (
-                <select {...p} name="kind" className={inputClass}>
-                  <option value="manual">{t("filament:adjust.kinds.manual")}</option>
-                  <option value="correction">{t("filament:adjust.kinds.correction")}</option>
-                </select>
+                <Combobox
+                  {...p}
+                  name="kind"
+                  options={[
+                    { value: "manual", label: t("filament:adjust.kinds.manual") },
+                    { value: "correction", label: t("filament:adjust.kinds.correction") },
+                  ]}
+                />
               )}
             </FormField>
             <FormField label={t("filament:adjust.remaining")}>

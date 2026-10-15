@@ -9,6 +9,7 @@ import { Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
+import { Combobox } from "../../components/Combobox.tsx";
 import { CostBreakdown, QuoteBreakdownView } from "../../components/CostBreakdown.tsx";
 import { inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
@@ -163,52 +164,43 @@ function Calculator({ ctx }: { ctx: CostContext }) {
           <div className="grid gap-4 sm:grid-cols-2">
             <label className="grid gap-1.5">
               <span className="font-medium">{t("costs:form.project")}</span>
-              <select
-                className={inputClass}
+              <Combobox
                 value={f.projectId}
-                onChange={(e) => set({ projectId: e.target.value, plate: "" })}
-              >
-                <option value="">{t("costs:form.noProject")}</option>
-                {projects.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {projectName(t, p)}
-                  </option>
-                ))}
-              </select>
+                onChange={(v) => set({ projectId: v, plate: "" })}
+                options={[
+                  { value: "", label: t("costs:form.noProject") },
+                  ...projects.map((p) => ({ value: p.id, label: projectName(t, p) })),
+                ]}
+              />
             </label>
             <label className="grid gap-1.5">
               <span className="font-medium">{t("costs:form.plate")}</span>
-              <select
-                className={inputClass}
+              <Combobox
                 value={f.plate}
                 disabled={!plates.length}
-                onChange={(e) => pickPlate(e.target.value)}
-              >
-                <option value="">{t("costs:form.noPlate")}</option>
-                {plates.map(({ file, pl }) => (
-                  <option key={`${file}#${pl.index}`} value={`${file}#${pl.index}`}>
-                    {file} · {pl.name ?? t("costs:form.plateN", { index: pl.index })}
-                  </option>
-                ))}
-              </select>
+                onChange={pickPlate}
+                options={[
+                  { value: "", label: t("costs:form.noPlate") },
+                  ...plates.map(({ file, pl }) => ({
+                    value: `${file}#${pl.index}`,
+                    label: `${file} · ${pl.name ?? t("costs:form.plateN", { index: pl.index })}`,
+                  })),
+                ]}
+              />
             </label>
             <label className="grid gap-1.5">
               <span className="font-medium">{t("costs:form.printer")}</span>
-              <select
-                className={inputClass}
+              <Combobox
                 value={f.printerId}
-                onChange={(e) => {
-                  const p = ctx.printers.find((x) => x.id === e.target.value);
-                  set({ printerId: e.target.value, powerW: p?.powerW ?? f.powerW });
+                onChange={(v) => {
+                  const p = ctx.printers.find((x) => x.id === v);
+                  set({ printerId: v, powerW: p?.powerW ?? f.powerW });
                 }}
-              >
-                <option value="">{t("costs:form.noPrinter")}</option>
-                {ctx.printers.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {printerName(t, p)}
-                  </option>
-                ))}
-              </select>
+                options={[
+                  { value: "", label: t("costs:form.noPrinter") },
+                  ...ctx.printers.map((p) => ({ value: p.id, label: printerName(t, p) })),
+                ]}
+              />
             </label>
             <Num
               label={t("costs:form.power")}

@@ -6,6 +6,12 @@
   "javascript": { "formatter": { "quoteStyle": "double" } },
   "linter": {
     "rules": {
+      "a11y": {
+        "noLabelWithoutControl": {
+          "level": "error",
+          "options": { "inputComponents": ["Combobox"] }
+        }
+      },
       "style": {
         "noRestrictedImports": {
           "level": "error",

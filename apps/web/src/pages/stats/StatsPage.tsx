@@ -2,6 +2,7 @@ import type { Stats, StatsMetrics } from "@3d-maker-suite/core";
 import { ChartColumn, Download } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Combobox } from "../../components/Combobox.tsx";
 import { DataTable } from "../../components/DataTable.tsx";
 import { DateRangePicker } from "../../components/DateRangePicker.tsx";
 import { EmptyState } from "../../components/EmptyState.tsx";
@@ -65,19 +66,13 @@ function Select({
   options: { value: string; label: string }[];
 }) {
   return (
-    <select
+    <Combobox
       aria-label={label}
       className={`${inputClass} w-auto!`}
       value={value}
-      onChange={(e) => onChange(e.target.value)}
-    >
-      <option value="">{all}</option>
-      {options.map((o) => (
-        <option key={o.value} value={o.value}>
-          {o.label}
-        </option>
-      ))}
-    </select>
+      onChange={onChange}
+      options={[{ value: "", label: all }, ...options]}
+    />
   );
 }
 
@@ -182,18 +177,16 @@ export function StatsPage() {
       )}
 
       <search className="mb-5 flex flex-wrap items-center gap-2">
-        <select
+        <Combobox
           aria-label={t("stats:filters.period")}
           className={`${inputClass} w-auto!`}
           value={preset}
-          onChange={(e) => pickPreset(e.target.value as keyof typeof PRESETS)}
-        >
-          {(Object.keys(PRESETS) as (keyof typeof PRESETS)[]).map((p) => (
-            <option key={p} value={p}>
-              {t(PRESETS[p])}
-            </option>
-          ))}
-        </select>
+          onChange={(v) => pickPreset(v as keyof typeof PRESETS)}
+          options={(Object.keys(PRESETS) as (keyof typeof PRESETS)[]).map((p) => ({
+            value: p,
+            label: t(PRESETS[p]),
+          }))}
+        />
         {preset === "custom" && (
           <DateRangePicker
             value={{ from: f.from || undefined, to: f.to || undefined }}
@@ -295,30 +288,26 @@ export function StatsPage() {
                 <h2 id="stats-series" className="mr-auto text-base font-semibold">
                   {t("stats:series.title")}
                 </h2>
-                <select
+                <Combobox
                   aria-label={t("stats:series.metric")}
                   className={`${inputClass} w-auto!`}
                   value={metric}
-                  onChange={(e) => setMetric(e.target.value as keyof typeof METRICS)}
-                >
-                  {(Object.keys(METRICS) as (keyof typeof METRICS)[]).map((m) => (
-                    <option key={m} value={m}>
-                      {t(METRICS[m])}
-                    </option>
-                  ))}
-                </select>
-                <select
+                  onChange={(v) => setMetric(v as keyof typeof METRICS)}
+                  options={(Object.keys(METRICS) as (keyof typeof METRICS)[]).map((m) => ({
+                    value: m,
+                    label: t(METRICS[m]),
+                  }))}
+                />
+                <Combobox
                   aria-label={t("stats:series.bucket")}
                   className={`${inputClass} w-auto!`}
                   value={f.bucket}
-                  onChange={(e) => set({ bucket: e.target.value as StatsFilters["bucket"] })}
-                >
-                  {(Object.keys(BUCKETS) as (keyof typeof BUCKETS)[]).map((b) => (
-                    <option key={b} value={b}>
-                      {t(BUCKETS[b])}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(v) => set({ bucket: v as StatsFilters["bucket"] })}
+                  options={(Object.keys(BUCKETS) as (keyof typeof BUCKETS)[]).map((b) => ({
+                    value: b,
+                    label: t(BUCKETS[b]),
+                  }))}
+                />
               </div>
               <ul className="flex h-40 items-end gap-px overflow-x-auto rounded-lg border border-border bg-surface p-3">
                 {data.series.map((r) => (

@@ -2,6 +2,7 @@ import { type FilamentProfile, SPOOL_STATUSES, type Spool } from "@3d-maker-suit
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
+import { Combobox } from "../../components/Combobox.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { TagPicker } from "../../components/TagPicker.tsx";
@@ -106,22 +107,18 @@ export function SpoolForm({
       )}
       <FormField label={t("filament:spools.profile")}>
         {(p) => (
-          <select
+          <Combobox
             {...p}
             name="profile"
             required
             defaultValue={spool?.profileId ?? profileId}
-            className={inputClass}
-          >
-            {spool && !profiles.some((pr) => pr.id === spool.profileId) && (
-              <option value={spool.profileId}>{t("filament:spools.archivedProfile")}</option>
-            )}
-            {profiles.map((pr) => (
-              <option key={pr.id} value={pr.id}>
-                {filamentLabel(pr)}
-              </option>
-            ))}
-          </select>
+            options={[
+              ...(spool && !profiles.some((pr) => pr.id === spool.profileId)
+                ? [{ value: spool.profileId, label: t("filament:spools.archivedProfile") }]
+                : []),
+              ...profiles.map((pr) => ({ value: pr.id, label: filamentLabel(pr) })),
+            ]}
+          />
         )}
       </FormField>
       <FormField label={t("filament:spools.color")}>
@@ -144,13 +141,12 @@ export function SpoolForm({
       {spool ? (
         <FormField label={t("filament:spools.status")}>
           {(p) => (
-            <select {...p} name="status" defaultValue={spool.status} className={inputClass}>
-              {SPOOL_STATUSES.map((s) => (
-                <option key={s} value={s}>
-                  {t(STATUS[s])}
-                </option>
-              ))}
-            </select>
+            <Combobox
+              {...p}
+              name="status"
+              defaultValue={spool.status}
+              options={SPOOL_STATUSES.map((s) => ({ value: s, label: t(STATUS[s]) }))}
+            />
           )}
         </FormField>
       ) : (

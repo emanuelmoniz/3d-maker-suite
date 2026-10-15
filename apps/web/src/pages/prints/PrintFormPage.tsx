@@ -4,6 +4,7 @@ import { Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
+import { Combobox } from "../../components/Combobox.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { TagPicker } from "../../components/TagPicker.tsx";
@@ -157,63 +158,47 @@ function PrintForm({ print }: { print?: PrintDetail }) {
       </FormField>
       <FormField label={t("prints:form.printer")}>
         {(p) => (
-          <select
+          <Combobox
             {...p}
             name="printer"
             required
-            className={inputClass}
             defaultValue={print?.printerId}
-            onChange={(e) => setPrinterId(e.target.value)}
-          >
-            {printers.map((pr) => (
-              <option key={pr.id} value={pr.id}>
-                {printerName(t, pr)}
-              </option>
-            ))}
-          </select>
+            onChange={setPrinterId}
+            options={printers.map((pr) => ({ value: pr.id, label: printerName(t, pr) }))}
+          />
         )}
       </FormField>
       <FormField label={t("prints:form.project")}>
         {(p) => (
-          <select
+          <Combobox
             // Options arrive after the form: remount so defaultValue applies.
             key={projects.length}
             {...p}
             name="project"
             // A new print needs one; an old one may be saved while it has none yet.
             required={!print}
-            className={inputClass}
             defaultValue={print?.projectId ?? ""}
-          >
-            <option value="">
-              {t(print ? "prints:form.noProject" : "prints:form.pickProject")}
-            </option>
-            {projects.map((pr) => (
-              <option key={pr.id} value={pr.id}>
-                {projectName(t, pr)}
-              </option>
-            ))}
-          </select>
+            options={[
+              { value: "", label: t(print ? "prints:form.noProject" : "prints:form.pickProject") },
+              ...projects.map((pr) => ({ value: pr.id, label: projectName(t, pr) })),
+            ]}
+          />
         )}
       </FormField>
       {machineProfiles.length > 0 && (
         <FormField label={t("prints:form.machineProfile")}>
           {(p) => (
-            <select
+            <Combobox
               // Options change with the printer; remount so defaultValue applies.
               key={`${modelId}:${machineProfiles.length}`}
               {...p}
               name="machineProfile"
-              className={inputClass}
               defaultValue={print?.machineProfileId ?? ""}
-            >
-              <option value="" />
-              {machineProfiles.map((mp) => (
-                <option key={mp.id} value={mp.id}>
-                  {mp.name}
-                </option>
-              ))}
-            </select>
+              options={[
+                { value: "", label: "" },
+                ...machineProfiles.map((mp) => ({ value: mp.id, label: mp.name })),
+              ]}
+            />
           )}
         </FormField>
       )}
@@ -232,36 +217,26 @@ function PrintForm({ print }: { print?: PrintDetail }) {
       </FormField>
       <FormField label={t("prints:form.outcome")}>
         {(p) => (
-          <select
+          <Combobox
             {...p}
-            className={inputClass}
             value={outcome}
-            onChange={(e) => setOutcome(e.target.value)}
-          >
-            {Object.entries(OUTCOMES).map(([k, key]) => (
-              <option key={k} value={k}>
-                {t(key)}
-              </option>
-            ))}
-          </select>
+            onChange={setOutcome}
+            options={Object.entries(OUTCOMES).map(([k, key]) => ({ value: k, label: t(key) }))}
+          />
         )}
       </FormField>
       {outcome !== "success" && (
         <FormField label={t("prints:form.failureReason")}>
           {(p) => (
-            <select
+            <Combobox
               {...p}
               name="failureReason"
-              className={inputClass}
               defaultValue={print?.failureReason ?? ""}
-            >
-              <option value="">{t("prints:form.noReason")}</option>
-              {reasonOptions.map((r) => (
-                <option key={r} value={r}>
-                  {r}
-                </option>
-              ))}
-            </select>
+              options={[
+                { value: "", label: t("prints:form.noReason") },
+                ...reasonOptions.map((r) => ({ value: r, label: r })),
+              ]}
+            />
           )}
         </FormField>
       )}
@@ -273,20 +248,16 @@ function PrintForm({ print }: { print?: PrintDetail }) {
             <div className="min-w-0 flex-1">
               <FormField label={t("prints:form.spool")}>
                 {(p) => (
-                  <select
+                  <Combobox
                     {...p}
                     required
-                    className={inputClass}
                     value={r.spoolId}
-                    onChange={(e) => setRow(r.key, { spoolId: e.target.value })}
-                  >
-                    <option value="" />
-                    {spoolsFor(r).map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {spoolLabel(s)}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={(v) => setRow(r.key, { spoolId: v })}
+                    options={[
+                      { value: "", label: "" },
+                      ...spoolsFor(r).map((s) => ({ value: s.id, label: spoolLabel(s) })),
+                    ]}
+                  />
                 )}
               </FormField>
             </div>

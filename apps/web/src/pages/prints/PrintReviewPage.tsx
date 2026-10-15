@@ -4,9 +4,9 @@ import { CheckCircle2 } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
+import { Combobox } from "../../components/Combobox.tsx";
 import { DataTable } from "../../components/DataTable.tsx";
 import { EmptyState } from "../../components/EmptyState.tsx";
-import { inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { spoolName, useProfiles, useSpools } from "../../lib/filament.ts";
 import { formatDateTime, formatWeight } from "../../lib/format.ts";
@@ -138,24 +138,23 @@ export function PrintReviewPage() {
                   id: "spool",
                   header: t("prints:review.columns.spool"),
                   cell: (i) => (
-                    <select
+                    <Combobox
                       aria-label={t("prints:review.pick", {
                         title: printName(t, { number: i.printNumber, title: i.printTitle }),
                       })}
-                      className={inputClass}
                       value={picked[i.usageId] ?? ""}
-                      onChange={(e) => setPicked((p) => ({ ...p, [i.usageId]: e.target.value }))}
-                    >
-                      <option value="" />
-                      {optionsFor(i).map(({ spool, profile }) => (
-                        <option key={spool.id} value={spool.id}>
-                          {t("prints:form.spoolOption", {
+                      onChange={(v) => setPicked((p) => ({ ...p, [i.usageId]: v }))}
+                      options={[
+                        { value: "", label: "" },
+                        ...optionsFor(i).map(({ spool, profile }) => ({
+                          value: spool.id,
+                          label: t("prints:form.spoolOption", {
                             name: spoolName(t, spool, profile),
                             weight: formatWeight(spool.remainingGrams),
-                          })}
-                        </option>
-                      ))}
-                    </select>
+                          }),
+                        })),
+                      ]}
+                    />
                   ),
                 },
                 {

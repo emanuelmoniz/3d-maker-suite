@@ -1,6 +1,7 @@
 import { expect, test } from "./fixtures.ts";
 import {
   hasHorizontalScroll,
+  pick,
   ROUTES,
   seedPrinter,
   seedProfile,
@@ -35,7 +36,7 @@ test("add a brand, a model and a printer of that model", async ({ page }) => {
   await page.goto("/printers");
   await page.getByRole("link", { name: "Add printer" }).first().click();
   await page.getByLabel("Name", { exact: true }).fill("Bambu A1");
-  await page.getByLabel("Model", { exact: true }).selectOption({ label: "A1" });
+  await pick(page.getByLabel("Model", { exact: true }), "A1");
   await expect(page.getByLabel("Typical power (W)")).toHaveValue("95"); // from the model
   await page.getByRole("button", { name: "Save" }).click();
   await expect(page.getByRole("heading", { name: "Bambu A1" })).toBeVisible();
@@ -47,7 +48,7 @@ test("add a spool", async ({ page, app }) => {
   await page.goto("/filament/spools/new");
   await page.getByLabel("Remaining weight (g)").fill("750");
   await page.getByRole("button", { name: "Save spool" }).click();
-  await expect(page).toHaveURL(/\/filament$/);
+  await expect(page).toHaveURL(/\/filament(\?|$)/);
   await expect(page.getByText("750").first()).toBeVisible();
 });
 
@@ -57,9 +58,9 @@ test("a manual print deducts filament from the spool", async ({ page, app }) => 
   await seedProject(app.api);
   await page.goto("/prints/new");
   await page.getByLabel("Name", { exact: true }).fill("Benchy");
-  await page.getByLabel("Project").selectOption({ index: 1 });
+  await pick(page.getByLabel("Project"), 1);
   await page.getByRole("button", { name: "Add spool" }).click();
-  await page.getByLabel("Spool", { exact: true }).selectOption({ index: 1 });
+  await pick(page.getByLabel("Spool", { exact: true }), 1);
   await page.getByLabel("Grams").fill("100");
   await page.getByRole("button", { name: "Save print" }).click();
   await expect(page).toHaveURL(/\/prints$/);
@@ -109,7 +110,7 @@ test("stats can be filtered by outcome", async ({ page, app }) => {
     .first()
     .locator("xpath=..");
   await expect(prints).toContainText("2");
-  await page.getByRole("combobox", { name: "Outcome" }).selectOption("failed");
+  await pick(page.getByRole("combobox", { name: "Outcome" }), "Failed");
   await expect(prints).toContainText("1");
   await expect(prints).not.toContainText("2");
 });

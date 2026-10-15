@@ -3,6 +3,7 @@ import { ArrowDown, ArrowUp, Check, Pencil, Settings2, X } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../components/Button.tsx";
+import { Combobox } from "../components/Combobox.tsx";
 import { inputClass } from "../components/FormField.tsx";
 import { PageHeader } from "../components/PageHeader.tsx";
 import { usePreferences, useSavePreferences } from "../lib/preferences.ts";
@@ -35,18 +36,13 @@ function SettingsForm({
               {t(f.label)}
             </label>
             {f.kind === "select" ? (
-              <select
+              <Combobox
                 id={id}
                 className={`${inputClass} w-auto!`}
-                value={current[f.key]}
-                onChange={(e) => onChange({ ...current, [f.key]: e.target.value })}
-              >
-                {f.options.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {t(o.label)}
-                  </option>
-                ))}
-              </select>
+                value={String(current[f.key])}
+                onChange={(v) => onChange({ ...current, [f.key]: v })}
+                options={f.options.map((o) => ({ value: String(o.value), label: t(o.label) }))}
+              />
             ) : (
               <input
                 id={id}
@@ -107,18 +103,13 @@ export function HomePage() {
 
       {editing && (
         <div className="mb-4 flex flex-wrap items-center gap-2">
-          <select
+          <Combobox
             aria-label={t("dashboard:addWidget")}
             className={`${inputClass} w-auto!`}
             value={toAdd}
-            onChange={(e) => setToAdd(e.target.value)}
-          >
-            {allWidgets().map((w) => (
-              <option key={w.type} value={w.type}>
-                {t(w.title)}
-              </option>
-            ))}
-          </select>
+            onChange={setToAdd}
+            options={allWidgets().map((w) => ({ value: w.type, label: t(w.title) }))}
+          />
           <Button
             onClick={() => {
               const def = getWidget(toAdd);
