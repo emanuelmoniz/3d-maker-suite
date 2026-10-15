@@ -230,57 +230,6 @@ function PrintForm({ print }: { print?: PrintDetail }) {
           />
         )}
       </FormField>
-      <fieldset className="grid grid-cols-2 gap-4" onInput={() => setEstimated(false)}>
-        <legend className="mb-1.5 font-medium">{t("prints:form.duration")}</legend>
-        <FormField label={t("prints:form.hours")}>
-          {(p) => (
-            <input
-              {...p}
-              name="hours"
-              type="number"
-              min={0}
-              step={1}
-              className={inputClass}
-              defaultValue={hasDur ? Math.floor(dur / 3600) : ""}
-            />
-          )}
-        </FormField>
-        <FormField label={t("prints:form.minutes")}>
-          {(p) => (
-            <input
-              {...p}
-              name="minutes"
-              type="number"
-              min={0}
-              max={59}
-              step={1}
-              className={inputClass}
-              defaultValue={hasDur ? Math.floor((dur % 3600) / 60) : ""}
-            />
-          )}
-        </FormField>
-        <Button
-          type="button"
-          variant="secondary"
-          className="col-span-2 justify-self-start"
-          disabled={!totalGrams}
-          title={totalGrams ? undefined : t("prints:form.estimateNeedsFilament")}
-          onClick={async (e) => {
-            const form = e.currentTarget.form;
-            const sec = await estimateDuration(printerId || printers[0]?.id || "", totalGrams);
-            const set = (name: string, v: number) => {
-              const el = form?.elements.namedItem(name);
-              if (el instanceof HTMLInputElement) el.value = String(v);
-            };
-            const min = Math.round(sec / 60);
-            set("hours", Math.floor(min / 60));
-            set("minutes", min % 60);
-            setEstimated(true);
-          }}
-        >
-          {t("prints:form.estimate")}
-        </Button>
-      </fieldset>
       <FormField label={t("prints:form.outcome")}>
         {(p) => (
           <select
@@ -376,6 +325,57 @@ function PrintForm({ print }: { print?: PrintDetail }) {
             {t("prints:form.addSpool")}
           </Button>
         </div>
+      </fieldset>
+      <fieldset className="grid grid-cols-2 gap-4" onInput={() => setEstimated(false)}>
+        <legend className="mb-1.5 font-medium">{t("prints:form.duration")}</legend>
+        <FormField label={t("prints:form.hours")}>
+          {(p) => (
+            <input
+              {...p}
+              name="hours"
+              type="number"
+              min={0}
+              step={1}
+              className={inputClass}
+              defaultValue={hasDur ? Math.floor(dur / 3600) : ""}
+            />
+          )}
+        </FormField>
+        <FormField label={t("prints:form.minutes")}>
+          {(p) => (
+            <input
+              {...p}
+              name="minutes"
+              type="number"
+              min={0}
+              max={59}
+              step={1}
+              className={inputClass}
+              defaultValue={hasDur ? Math.floor((dur % 3600) / 60) : ""}
+            />
+          )}
+        </FormField>
+        <Button
+          type="button"
+          variant="secondary"
+          className="col-span-2 justify-self-start"
+          disabled={!totalGrams}
+          title={totalGrams ? undefined : t("prints:form.estimateNeedsFilament")}
+          onClick={async (e) => {
+            const form = e.currentTarget.form;
+            const sec = await estimateDuration(printerId || printers[0]?.id || "", totalGrams);
+            const set = (name: string, v: number) => {
+              const el = form?.elements.namedItem(name);
+              if (el instanceof HTMLInputElement) el.value = String(v);
+            };
+            const min = Math.round(sec / 60);
+            set("hours", Math.floor(min / 60));
+            set("minutes", min % 60);
+            setEstimated(true);
+          }}
+        >
+          {t("prints:form.estimate")}
+        </Button>
       </fieldset>
       <FormField label={t("prints:form.energy")} hint={t("prints:form.energyHint")}>
         {(p) => (
