@@ -26,7 +26,7 @@ import { useTagsOf } from "../../lib/tags.ts";
 import { ModelPreview } from "./ModelPreview.tsx";
 
 const linkButton =
-  "inline-flex h-9 items-center gap-2 rounded-md border border-border bg-surface px-3 font-medium hover:bg-surface-2";
+  "inline-flex h-9 items-center gap-2 whitespace-nowrap rounded-md border border-border bg-surface px-3 font-medium hover:bg-surface-2";
 const VIEWABLE = /\.(3mf|stl)$/i;
 const SLICED_EXPORT = /\.gcode\.3mf$/i;
 const KB = 1024;
@@ -310,7 +310,7 @@ export function ProjectDetailPage() {
             : ""}
       </p>
       <div className="grid gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-        <div>
+        <div className="min-w-0">
           {current ? (
             <ModelPreview
               projectId={project.id}
@@ -352,7 +352,7 @@ export function ProjectDetailPage() {
             </label>
           )}
         </div>
-        <div className="grid content-start gap-4 [&>section]:mt-0">
+        <div className="grid min-w-0 content-start gap-4 [&>section]:mt-0">
           <PrintedCost id={id} />
           {(selected ?? info?.plates.find((p) => p.sliced)) && (
             <Estimate plate={(selected ?? info?.plates.find((p) => p.sliced)) as Plate} />

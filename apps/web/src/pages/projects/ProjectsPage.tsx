@@ -65,7 +65,7 @@ function Thumb({ p, className }: { p: Project; className: string }) {
 }
 
 const linkButton =
-  "inline-flex h-9 items-center gap-2 rounded-md px-3 font-medium hover:opacity-90";
+  "inline-flex h-9 items-center gap-2 whitespace-nowrap rounded-md px-3 font-medium hover:opacity-90";
 
 function ScanPanel() {
   const { t } = useTranslation();

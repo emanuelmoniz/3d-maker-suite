@@ -241,6 +241,7 @@ const routes: AnyRoute[] = [
           loadNamespace("filament"),
           loadNamespace("tags"),
           loadNamespace("costs"),
+          loadNamespace("integrations"), // the Sync from cloud button on the list
         ]),
       component: component as () => ReactNode,
     }),

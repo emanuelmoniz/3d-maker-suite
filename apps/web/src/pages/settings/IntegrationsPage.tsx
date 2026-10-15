@@ -114,7 +114,7 @@ const RUN_STATUSES = { ok: "integrations:runs.ok", error: "integrations:runs.err
 // (the table scrolls sideways on a phone instead).
 const cellSelect = `${inputClass} my-1 min-w-max`;
 const addClass =
-  "inline-flex h-9 items-center gap-2 rounded-md bg-accent px-3 font-medium text-accent-fg hover:opacity-90";
+  "inline-flex h-9 items-center gap-2 whitespace-nowrap rounded-md bg-accent px-3 font-medium text-accent-fg hover:opacity-90";
 
 export function IntegrationsPage() {
   const { t } = useTranslation();

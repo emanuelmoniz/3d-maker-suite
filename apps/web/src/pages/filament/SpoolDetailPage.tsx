@@ -32,7 +32,7 @@ export function Info({ label, children }: { label: string; children: ReactNode }
 }
 
 export const linkButton =
-  "inline-flex h-9 items-center justify-center rounded-md border border-border bg-surface px-3 font-medium hover:bg-surface-2";
+  "inline-flex h-9 items-center justify-center whitespace-nowrap rounded-md border border-border bg-surface px-3 font-medium hover:bg-surface-2";
 
 /** The projects and prints that took filament from this spool, as the main lists show them. */
 function SpoolUse({ spoolId }: { spoolId: string }) {

@@ -65,7 +65,7 @@ export function SlicerZipPage() {
               <li>{t("import:zip.steps.zip")}</li>
               <li>{t("import:zip.steps.upload")}</li>
             </ol>
-            <label className="inline-flex h-9 w-fit cursor-pointer items-center rounded-md bg-accent px-3 font-medium text-accent-fg hover:opacity-90 focus-within:outline-2">
+            <label className="inline-flex h-9 w-fit cursor-pointer items-center whitespace-nowrap rounded-md bg-accent px-3 font-medium text-accent-fg hover:opacity-90 focus-within:outline-2">
               {t("import:zip.choose")}
               <input
                 type="file"

@@ -20,14 +20,14 @@ export function PageHeader({
         <BackLink
           to={backTo.to}
           params={backTo.params}
-          className="order-first -mb-1 flex w-full items-center gap-1 text-muted hover:text-fg"
+          className="order-first -mb-1 flex min-h-10 w-full items-center gap-1 text-muted hover:text-fg md:min-h-6"
         />
       )}
       <div>
         <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
         {description && <p className="mt-0.5 text-muted">{description}</p>}
       </div>
-      {actions && <div className="flex gap-2">{actions}</div>}
+      {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
     </header>
   );
 }

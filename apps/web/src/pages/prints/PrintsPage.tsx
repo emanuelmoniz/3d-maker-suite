@@ -169,7 +169,7 @@ export function PrintsPage() {
   const add = (
     <Link
       to="/prints/new"
-      className="inline-flex h-9 items-center gap-2 rounded-md bg-accent px-3 font-medium text-accent-fg hover:opacity-90"
+      className="inline-flex h-9 items-center gap-2 whitespace-nowrap rounded-md bg-accent px-3 font-medium text-accent-fg hover:opacity-90"
     >
       <Plus className="size-4" aria-hidden />
       {t("prints:list.add")}

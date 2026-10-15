@@ -15,7 +15,7 @@ import { CAPS, ERRORS } from "../settings/IntegrationsPage.tsx";
 
 const link = "font-medium hover:underline";
 const buttonLink =
-  "inline-flex h-9 items-center rounded-md bg-accent px-3 font-medium text-accent-fg hover:opacity-90";
+  "inline-flex h-9 items-center whitespace-nowrap rounded-md bg-accent px-3 font-medium text-accent-fg hover:opacity-90";
 
 function Title({ a }: { a: Alert }) {
   const { t } = useTranslation();

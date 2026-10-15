@@ -150,7 +150,7 @@ then replace the selects file by file. No new dependency.
 
 ## Phase 4 - Release
 
-### [ ] Step 13 - E2E & responsive pass for v1.3
+### [x] Step 13 - E2E & responsive pass for v1.3
 **Model:** Sonnet (use webapp-testing skill) · **Effort:** Medium
 **Scope:** Playwright coverage for two-decimal grams, home customize mode, import numbering order, sync buttons, sync alerts, date/time format setting, back button, filament default filter, project page layout, and searchable selects. Viewports 375/768/1440. Fix what breaks.
 **Done when:** E2E green in CI.
