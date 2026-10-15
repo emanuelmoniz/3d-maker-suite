@@ -1,4 +1,4 @@
-# 3D Maker Suite - Development Plan v1.2 (target: 1.2.0-alpha.1)
+# 3D Maker Suite - Development Plan v1.3 (target: 1.3.0-alpha.1)
 Repo: `3d-maker-suite`
 
 How to use:
@@ -12,159 +12,162 @@ Status legend: `[ ]` todo · `[x]` done
 
 ## Phase 1 - Bugs
 
-### [x] Step 1 - Duplicate outline classes
-**Model:** Haiku · **Effort:** Low
-**Scope:** VS Code's Tailwind IntelliSense flags `focus-within:outline focus-within:outline-2` as a conflict. In Tailwind v4, `outline-2` already sets the outline style, so `outline` is redundant. Drop `focus-within:outline` and keep `focus-within:outline-2`, and check that the focus ring still shows. Files: `pages/import/ImportPage.tsx`, `pages/import/SlicerZipPage.tsx`, `pages/printers/PrinterDetailPage.tsx`, `pages/settings/BackupSection.tsx`, `pages/settings/BrandingFields.tsx`.
-**Done when:** no Tailwind conflict warnings left in `apps/web/src`; the file-upload labels still show a focus ring with the keyboard.
+### [ ] Step 1 - Two-decimal filament grams
+**Model:** Sonnet · **Effort:** Low
+**Scope:** The print edit form rounds filament usage to whole grams, but the DB keeps decimals. Allow 2 decimals (`step="0.01"`, and zod/parse not rounding) on the print form and anywhere else grams or other decimal quantities are entered: spool form, adjust dialog, review table, import parsing. Show them with locale-aware number formatting.
+**Done when:** 12.34 g saves and shows again as 12.34 on the print form and every other grams input; tests pass.
 **Prompt:**
 ```
-Do Step 1 of PLAN.md. Grep for any other conflicting Tailwind class pairs while you're there.
+Do Step 1 of PLAN.md. Grep every number input and zod number schema for grams/weights
+first and list them, then fix them all the same way.
 ```
 
----
-
-## Phase 2 - Configuration pages
-
-Goal of Steps 2-3: each module keeps its own settings and catalog tables on a config page (`/<module>/settings`), opened by a gear button in the module's page header. Global Settings keeps only General, Appearance, Server and Backup. Done early so later steps put new settings in their final place.
-
-### [x] Step 2 - Config page pattern + Costs, Prints, Projects, Alerts
-**Model:** Sonnet · **Effort:** Medium
-**Scope:** The local `Section` in `pages/SettingsPage.tsx` becomes a shared component. One reusable gear link (i18n label, keyboard accessible) goes in the `PageHeader` actions of each module page, opening `/<module>/settings`, which has a back link to the module. Move these fields out of Settings, without changing the schema (same `usePreferences` / `useSavePreferences`):
-- **Costs** (`/costs/settings`): currency, energy cost, printer lifetime hours, include maintenance, labor rate, failure margin, markup.
-- **Prints** (`/prints/settings`): failure reasons.
-- **Projects** (`/projects/settings`): project roots, scan depth, viewer max MB.
-- **Alerts** (`/alerts/settings`): low-spool grams, maintenance lead days, alert channels (`ChannelsSection`).
-
-The Projects empty state that links to `/settings` now links to `/projects/settings`.
-**Done when:** each field is edited on its config page only; Settings shows General, Appearance, Server and Backup; e2e still green.
-**Prompt:**
-```
-Do Step 2 of PLAN.md. Move the existing fields, don't rewrite them. Routes stay in
-router.tsx like the others; one shared gear button and one shared Section component.
-```
-
-### [x] Step 3 - Printers & Filament config pages
-**Model:** Sonnet · **Effort:** Medium
-**Scope:** `/printers/settings`: printer states (from Settings) plus the brands, printer models and machine profiles tables with their import actions (moved from `pages/printers/Catalog.tsx`). `/filament/settings`: filament profiles, filament brands and materials tables with their import actions. The Printers page keeps only the user's printers, and the Filament page keeps only spools. Existing form/detail routes (`/printers/brands/new`, `/filament/profiles/$id`, …) keep their URLs; their back links now point to the config page. Table URL state (prefixed search params) keeps working on the new page.
-**Done when:** the Printers and Filament pages show only user printers and spools; every catalog table and import action is reachable from the config pages; back links are correct; e2e still green.
-**Prompt:**
-```
-Do Step 3 of PLAN.md. Use the gear button and Section from Step 2. Move the catalog
-components as they are; list every back link you change.
-```
-
----
-
-## Phase 3 - Pickers & projects
-
-### [x] Step 4 - In-app path browser  **[plan mode]**
-**Model:** Opus · **Effort:** Medium
-**Scope:** A browser can't give the server a full local path, so the server lists folders instead. `GET /api/fs/list?path=` returns the folders (and, in file mode, files matching an extension filter) under a path. With no path it returns the drives (Windows) or `/` plus the home folder. It returns names and types only, never file contents. It needs the same auth as the rest of the API, and the non-loopback password rule still applies. A `PathPicker` modal in web, with mode `folder | file`, an optional extension filter, breadcrumbs, an "up" button, and keyboard and mobile support. It sits next to the text input, which stays editable. Used for the slicer executable and the slicer config folder (`pages/settings/IntegrationsPage.tsx`) and for project roots (Projects config page).
-**Done when:** each of the three fields can be filled from the picker; the listing endpoint is unit-tested (drives/root, filter, missing path, no content leak); tests pass.
-**Prompt:**
-```
-Do Step 4 of PLAN.md. Show me the endpoint contract and its security rules before
-implementing (reuse launcher.ts insideRoots / the existing auth hook where it fits).
-No new dependency.
-```
-
-### [x] Step 5 - Projects: add folder button + linked description file
-**Model:** Sonnet · **Effort:** Medium
-**Scope:**
-- An "Add project" button on the Projects page opens the `PathPicker` in folder mode and creates the project through `scanner.addFolder()`. The existing manual form stays.
-- The description is empty by default: the scanner (`apps/server/src/projects/scanFolder.ts`) stops filling it from readme/.md/.txt. New `descriptionFile` column (Drizzle migration). The project form offers the folder's .md/.txt files (default "None"). A linked file's text becomes the description and is re-read on every rescan. Editing the description by hand clears the link. The source-URL auto-detection stays.
-- Migration: descriptions that came from the scanner and were never edited (not in `editedFields`) are cleared.
-- Fix: `ProjectFormPage` sends `null` for blank description/sourceUrl, which the server counts as user-edited. Blank must mean "not edited".
-
-**Done when:** a new project has no description; linking a file shows its text and follows file changes on rescan; editing by hand unlinks; the add-folder button creates a project; tests pass.
-**Prompt:**
-```
-Do Step 5 of PLAN.md. Back up the DB before running pnpm dev (it applies migrations).
-Show me the migration and how many existing descriptions it would clear before applying it.
-```
-
----
-
-## Phase 4 - Data
-
-### [x] Step 6 - Spool number, color name & display name  **[plan mode]**
-**Model:** Opus · **Effort:** High
-**Scope:** Two new spool fields and one display name used everywhere.
-- **Number:** `number` (integer, unique, editable). Migration numbers existing spools 1..n by creation date. New spools get max + 1 automatically, whether added by hand, by cloud sync, or by import when the file leaves it empty. Editing to a number that is taken gives a clear validation error.
-- **Color name:** optional `colorName` (e.g. "Scarlet Red"), on the spool form, detail and import/export columns. Sources:
-  1. Check a raw Bambu Cloud spool response for a color name. The adapter's zod schema currently drops unknown fields.
-  2. Otherwise map hex → name from Bambu Studio's `filaments_color_codes.json` (or equivalent), if the local install ships it.
-  3. Manual entry always works.
-- **Display name:** "{number}-{profile label} {colorName}" (e.g. "1-Bambu PLA Matte Scarlet Red"), with the hex as fallback when there's no color name, built by an i18n pattern, not by string concatenation. Use one helper in web and one SQL expression on the server:
-  - web: `lib/filament.ts` `filamentLabel()`, the local `spoolLabel` in `PrintFormPage`, spool widget, stats, print detail and review;
-  - server: `spoolLabel` in `routes/filament.ts` (sort/filter) and `label()` / `spoolLabels()` in `import/spools.ts`.
-- **Import templates:** the spool lists in the XLSX templates (e.g. the spool dropdown in the prints template) use the new display name. Prints import resolves a spool by its display name or by its number alone. The spool template and export get the `number` column, so an edited export re-imports and matches by number.
-
-**Done when:** existing spools are numbered; new spools from any source get the next number; a synced Bambu spool shows "N-Bambu PLA Matte Scarlet Red" (or the hex fallback); every spool name in the app and in the templates comes from the shared helper; prints import resolves spools by name or number; tests pass.
-**Prompt:**
-```
-Do Step 6 of PLAN.md. First verify where a color name can come from (raw Bambu Cloud
-response, Bambu Studio color codes file) and list every place a spool name is rendered,
-matched or written to a template. Show me the migration (numbering + colorName) and the
-display-name helper before implementing. Back up the DB before running the migration.
-```
-
-### [x] Step 7 - Estimated print duration
-**Model:** Sonnet · **Effort:** Medium
-**Scope:** When a print has filament grams but no duration (file import and sync), estimate the duration as grams ÷ grams per hour. The rate comes from the user's own prints that have both values: the same printer if it has at least N such prints, else all prints, else a new `gramsPerHour` preference (Prints config page, sensible default). Pure function in `packages/core/src/services`. Stored with a `durationEstimated` flag (migration). It is shown as "~1h 20m" with an "estimated" tooltip, and cleared when a real duration is entered. Energy, wear and maintenance costs then work for these prints (`computeCost` / `energyFor` unchanged).
-**Done when:** an imported print without a duration gets an estimated one and a full cost; entering a real duration clears the flag; unit tests on the rate fallback chain; tests pass.
-**Prompt:**
-```
-Do Step 7 of PLAN.md. Rate logic is a pure, tested core function. Back up the DB before
-running the migration.
-```
-
-### [x] Step 8 - Sync review alerts
-**Model:** Sonnet · **Effort:** Medium
-**Scope:** New alert kind `sync_pending`, raised in `apps/server/src/alerts/evaluate.ts` `conditions()` when an enabled integration's type is in auto mode, its alert toggle is on and `sync_policies.pending > 0`. Entity id is `integrationId:type`; the context holds the count, integration and type, and is refreshed without notifying again. The alert resolves when the queue is empty. `AlertsPage` gets an explicit "Review" button to `/import/$source/$id/$type` (source `integration`), and `messageOf` gets a case for the ntfy/email channels. New `alert` boolean on `sync_policies` (default on, fallback in `capabilities.ts`), shown as a column in the hub policies table for review types in auto mode. Migration rebuilds `alerts` for the new kind (like `0014`).
-**Done when:** an auto sync that leaves rows pending raises one alert per integration + type with a working Review button; confirming the review resolves it; turning the toggle off removes it; tests in `alerts.test.ts`.
-**Prompt:**
-```
-Do Step 8 of PLAN.md. No change to the syncer: the alert is derived from
-sync_policies.pending. Back up the DB before running the migration.
-```
-
-### [x] Step 8.1 - Spool lifecycle + "not before opening" guard
-**Model:** Opus · **Effort:** Medium
-**Scope:** Shared core rule `usableOn(spool, startedAt)`: a spool with an `openedAt` can't be used by a print from an earlier day. `setRemaining` sets the status: at 0 g → `empty`, refilled from empty → `in_use`, first take from `new` → `in_use`. `openedAt` is never filled in from a print (that would refuse older prints a later import brings). Server guard `spool_not_opened` (400) in `syncUsages` / `bookOrLink`; file import `check()` error `not_opened` (and an error for an empty spool). Data migration marks spools at ≤ 0 g as empty. Print form and review queue only offer non-empty spools that are `usableOn`. The review queue lists material + colour matches first.
-**Done when:** using a spool's last grams marks it empty; a print before the opening date can't take that spool (UI hides it, API rejects it); tests pass.
-
-### [x] Step 8.2 - Spool matcher rules + unsure (yellow) matches
-**Model:** Opus · **Effort:** High
-**Scope:** `matchSpool` returns `{ id, sure }`. It filters by material + colour, `usableOn`, purchase date and capacity (`remainingGrams >= grams`, skipped for prints older than the spool record). One fit is sure. Several fits: AMS-slot history first, then the oldest opened (in_use before new, `openedAt`, `purchasedAt`, number), and the pick is unsure. `matchPrint` gives same-colour slots of one print distinct spools, all unsure. `printRows` stores unsure keys in `raw.unsure`. `rematch` applies sure matches only. The preview row gets `refsUnsure`, and an unsure pick is not `sure`, so an auto sync holds it and `sync_pending` fires. ReviewTable shows unsure picks in yellow.
-**Done when:** unit tests cover each rule; an auto sync holds an unsure print and raises the alert; tests pass.
-
-### [x] Step 8.3 - Review UX: file spool pickers, ordering, add spool, track toggle
-**Model:** Opus · **Effort:** Medium
-**Scope:** Prints imported from a file get spool pickers in the review, filled from the file's spool cell (no auto-match). Spool options carry `from` (`openedAt`) and are hidden for rows that started earlier. Matching spools (reported material + colour, or the file's profile) come first. An "Add new spool…" option (ReviewTable) and button (review queue) open `SpoolForm` in a native dialog and select the new spool. Cloud prints review: a "Track filament usage" checkbox (`trackUsage` in the apply body). New `sync_policies.trackUsage` column (migration) for auto syncs. Docs in `docs/import.md`.
-**Done when:** a file import review shows the pickers; a new spool added from the review is selected; a cloud import with tracking off leaves weights unchanged; tests pass.
-
----
-
-## Phase 5 - Release
-
-### [x] Step 9 - E2E & responsive pass for v1.2
+### [ ] Step 2 - Home page customize mode layout
 **Model:** Sonnet (use webapp-testing skill) · **Effort:** Medium
-**Scope:** Playwright coverage for the config pages and gear buttons, the path picker (slicer exe, config folder, project roots), add project from folder, linked description file, spool numbering and display names (UI + import template), estimated duration, and the sync_pending alert with its Review button and toggle. Viewports 375/768/1440. Fix what breaks.
+**Scope:** In customize mode, the widget controls are too small and overlap the widget row above. Rework the controls: proper touch-target size (≥ 40px), no overlap at 375/768/1440, keyboard accessible, i18n labels.
+**Done when:** screenshots at the 3 viewports show no overlap; the controls work with the keyboard; e2e still green.
+**Prompt:**
+```
+Do Step 2 of PLAN.md. Screenshot the current customize mode at 375/768/1440 first,
+then fix and screenshot again.
+```
+
+### [ ] Step 3 - Project folders locked while the server runs  **[plan mode]**
+**Model:** Opus · **Effort:** Medium
+**Scope:** With the server running, a folder added under a project root can't be renamed in Windows Explorer. Likely cause: chokidar's `fs.watch` keeps a handle open on every watched folder (`projects/scanner.ts` `watch()`). Confirm the cause, then pick the fix (e.g. polling with a sensible interval on Windows, watching only the roots, or a lower depth) and weigh CPU cost against how fast changes are seen.
+**Done when:** a watched folder can be renamed while the server runs, and the rename still triggers a rescan; the trade-off is noted in a `ponytail:` comment; tests pass.
+**Prompt:**
+```
+Do Step 3 of PLAN.md. Reproduce first (script or manual steps), explain the root cause,
+and show the options with their trade-offs before changing anything. No new dependency.
+```
+
+### [ ] Step 4 - Print import numbering oldest-first + renumber  **[plan mode]**
+**Model:** Opus · **Effort:** High
+**Scope:**
+- Import (file and cloud): prints without a number in the file are numbered in date order, oldest first. When a month is imported, its latest print gets the highest number. Today it's the reverse.
+- Spool matching runs in the same order (oldest to newest), so remaining grams and `usableOn` follow time.
+- Data migration: renumber existing prints by `startedAt`, **keeping numbers that came from a file**. Find how to tell those prints apart (import raw, editedFields, …). If that can't be known, stop and ask.
+
+**Done when:** importing a month gives ascending numbers by date; matching consumes spools in date order; the migration's before/after is shown and approved; tests cover the ordering; tests pass.
+**Prompt:**
+```
+Do Step 4 of PLAN.md. Find where import numbering and match order are decided, and how a
+file-given number can be told apart. Show me the renumber migration and a before/after
+count before applying it. Back up the DB before running pnpm dev.
+```
+
+---
+
+## Phase 2 - Sync
+
+### [ ] Step 5 - "Sync from cloud" buttons
+**Model:** Sonnet · **Effort:** Low
+**Scope:** Rename the Printers page "Import from cloud" to "Sync from cloud" (i18n key and label). Add the same button to the Prints and Filament pages, each running that module's sync type through the existing sync endpoint. Hidden or disabled with a hint when no integration supports the type.
+**Done when:** all three pages show "Sync from cloud" and run their sync; i18n:check passes; tests pass.
+**Prompt:**
+```
+Do Step 5 of PLAN.md. Reuse the Printers button and its endpoint; one shared component
+if the three are the same.
+```
+
+### [ ] Step 6 - Sync result alerts  **[plan mode]**
+**Model:** Opus · **Effort:** Medium
+**Scope:**
+- New one-shot alert kinds: `sync_success` (sync finished with new content: counts in the context) and `sync_error` (sync failed: error code, never secrets). A sync that adds nothing raises no alert. These alerts are dismissible on the Alerts page and are sent to the alert channels (ntfy/email via `messageOf`).
+- "Missing match" stays the existing `sync_pending` alert. Its ntfy/email message gets a working link to the per-type review page (`/import/integration/$id/$type`), built from the server's base URL.
+- Respect the per-policy `alert` toggle. Migration rebuilds `alerts` for the new kinds (like `0014`).
+
+**Done when:** a sync with new rows raises success; a failing sync raises error; an empty sync raises nothing; the pending notification links to the review; tests in `alerts.test.ts`; tests pass.
+**Prompt:**
+```
+Do Step 6 of PLAN.md. Show me how one-shot alerts fit next to the condition-based
+evaluate.ts before implementing. Back up the DB before running the migration.
+```
+
+### [ ] Step 7 - Pick the project when importing prints (check)
+**Model:** Sonnet · **Effort:** Low
+**Scope:** Check that the review of a print import (file and cloud) lets the user pick or change the project of each row (`import/prints.ts` `projectMatcher`, ReviewTable). It looks done already; fill any gap (e.g. cloud review, bulk "set project for selected rows" if missing).
+**Done when:** both file and cloud reviews let the user set a project per row; report what was already there; tests pass.
+**Prompt:**
+```
+Do Step 7 of PLAN.md. Verify first and tell me what is already done before changing anything.
+```
+
+---
+
+## Phase 3 - UI & UX
+
+### [ ] Step 8 - Date and time format setting
+**Model:** Sonnet · **Effort:** Medium
+**Scope:** General settings get a date format (default `YYYY/MM/DD`, plus a few common ones) and a time format (default 24h, or 12h). One web helper formats every date/time in the app (tables, forms display, charts, alerts) and is built on `Intl`, so it stays locale-aware. New preference fields; native date inputs stay native.
+**Done when:** changing the setting changes every displayed date/time; defaults are YYYY/MM/DD and 24h; no other date formatting is left; tests pass.
+**Prompt:**
+```
+Do Step 8 of PLAN.md. Grep every toLocale*/Intl.DateTimeFormat/date-format call first
+and route them all through one helper.
+```
+
+### [ ] Step 9 - Back button = browser back
+**Model:** Sonnet · **Effort:** Low
+**Scope:** Every page back link goes to the previous page (`history.back()` through the router). Fall back to the current fixed route when there is no in-app history (deep link, new tab). One shared back component.
+**Done when:** back returns to the page you came from (e.g. a spool opened from a print goes back to the print); a deep link still has a working back; e2e still green.
+**Prompt:**
+```
+Do Step 9 of PLAN.md. One shared BackLink with a fallback route; list every place you replace.
+```
+
+### [ ] Step 10 - Filament page default filter
+**Model:** Haiku · **Effort:** Low
+**Scope:** The Filament page opens filtered to status `new` + `in_use`, sorted by spool number. The user can still clear the filter, and URL search params still override the default.
+**Done when:** a fresh visit shows only new and in-use spools sorted by number; clearing the filter shows all; tests pass.
+**Prompt:**
+```
+Do Step 10 of PLAN.md.
+```
+
+### [ ] Step 11 - Project page layout
+**Model:** Sonnet (use webapp-testing skill) · **Effort:** Medium
+**Scope:** On the project detail page: move the description below the plates section. Put the prints table and the cost table next to the preview, above the 3 existing info blocks. Stack them on mobile.
+**Done when:** the new layout works at 375/768/1440; e2e still green.
+**Prompt:**
+```
+Do Step 11 of PLAN.md. Screenshot before and after at the 3 viewports. Move the
+existing sections, don't rewrite them.
+```
+
+### [ ] Step 12 - Searchable selects everywhere  **[plan mode]**
+**Model:** Opus · **Effort:** Medium
+**Scope:** One shared single-select combobox with typing to filter: ARIA combobox pattern, full keyboard support, mobile friendly, i18n "no results", works inside forms and native dialogs. No new dependency (`SearchPicker` is the multi-select reference). Replace all native `<select>` (~49 in 21 files), including short enum lists.
+**Done when:** no native `<select>` left in `apps/web/src`; every dropdown filters as you type; keyboard and screen-reader behaviour checked; e2e updated and green.
+**Prompt:**
+```
+Do Step 12 of PLAN.md. Show me the component API and its keyboard/ARIA behaviour first,
+then replace the selects file by file. No new dependency.
+```
+
+---
+
+## Phase 4 - Release
+
+### [ ] Step 13 - E2E & responsive pass for v1.3
+**Model:** Sonnet (use webapp-testing skill) · **Effort:** Medium
+**Scope:** Playwright coverage for two-decimal grams, home customize mode, import numbering order, sync buttons, sync alerts, date/time format setting, back button, filament default filter, project page layout, and searchable selects. Viewports 375/768/1440. Fix what breaks.
 **Done when:** E2E green in CI.
 **Prompt:**
 ```
-Do Step 9 of PLAN.md. Same fresh-temp-data-dir pattern as the existing suite.
+Do Step 13 of PLAN.md. Same fresh-temp-data-dir pattern as the existing suite.
 List UI issues found and fix them in this step.
 ```
 
-### [x] Step 10 - Docs & v1.2.0-alpha.1 release
+### [ ] Step 14 - Docs, push & v1.3.0-alpha.1 release
 **Model:** Haiku · **Effort:** Low
-**Scope:** README/docs updates (module config pages, path picker and its security note, project description files, spool numbers and color names, estimated durations, sync alerts), CHANGELOG, version `1.2.0-alpha.1`, release workflow publishes it as a GitHub pre-release.
-**Done when:** tag builds a pre-release; docs match the app.
+**Scope:** README/docs updates (sync buttons and alerts, print numbering rule, date/time setting, searchable selects, Windows folder note if any), CHANGELOG, version `1.3.0-alpha.1`. Commit, push `main`, create and push tag `v1.3.0-alpha.1`. The release workflow then publishes it as a GitHub pre-release; check that the workflow run succeeds (`gh run watch`) and the pre-release exists (`gh release view`).
+**Done when:** `main` and the tag are pushed; the release workflow is green; the GitHub pre-release exists; docs match the app.
 **Prompt:**
 ```
-Do Step 10 of PLAN.md. Only document what changed since 1.1.0-alpha.1.
+Do Step 14 of PLAN.md. Only document what changed since 1.2.0-alpha.1. Then push main,
+push the v1.3.0-alpha.1 tag and confirm the pre-release is published.
 ```
 
 ---
@@ -172,16 +175,16 @@ Do Step 10 of PLAN.md. Only document what changed since 1.1.0-alpha.1.
 ## Backlog mapping
 | Backlog item | Step |
 |---|---|
-| ImportPage duplicate Tailwind outline classes | 1 |
-| Costs / prints / projects / alerts configuration pages | 2 |
-| Printers configuration page (settings + brands/models/profiles tables) | 3 |
-| Filament configuration page (brands/profiles/materials tables) | 3 |
-| Slicer exe location picker | 4 |
-| Slicer config path picker | 4 |
-| Add project folder from projects page | 4, 5 |
-| Project description empty by default, pick an .md file | 5 |
-| Spool sequential number (editable) + auto number | 6 |
-| Spool color name | 6 |
-| Spool names in the import template | 6 |
-| Duration estimate from filament usage | 7 |
-| Integrations sync alert + enable/disable per type and integration | 8 |
+| prints edit form (2 decimals) | 1 |
+| customize home page | 2 |
+| files and folders captive from server | 3 |
+| print import numbering | 4 |
+| sync button in printers / prints / filaments | 5 |
+| integrations alerts | 6 |
+| alerts regarding matching spool (review link) | 6 |
+| allow user to match project when importing prints | 7 |
+| date time format in settings | 8 |
+| back button behavior | 9 |
+| filaments page | 10 |
+| project page refactor | 11 |
+| dropdowns search | 12 |
