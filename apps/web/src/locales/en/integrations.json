@@ -190,6 +190,6 @@
       "filamentBrands": "Import brands and materials from {{name}}"
     }
   },
-  "syncFromCloud": "Sync from cloud",
+  "syncFrom": "Sync from {{name}}",
   "syncError": "Couldn’t sync. Check the integration in Settings."
 }
