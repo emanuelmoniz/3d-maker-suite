@@ -88,14 +88,24 @@ export type ImportHandler = {
    * empty, and only the keys a row's suggestion names are picked for it.
    */
   picks?: (db: Db) => {
-    options: Record<string, { id: string; label: string }[]>;
-    /** `raw` is the stored row; `unsure` names the suggested refs a person should check. */
+    options: Record<string, { id: string; label: string; from?: string; empty?: boolean }[]>;
+    /**
+     * `raw` is the stored row; `unsure` names the suggested refs a person should check, `first`
+     * the options that fit each ref best.
+     */
     suggest: (
       v: ImportValues,
       raw: StoredRow["raw"],
-    ) => { refs: Record<string, string | null>; sure: boolean; unsure?: string[] };
+    ) => {
+      refs: Record<string, string | null>;
+      sure: boolean;
+      unsure?: string[];
+      first?: Record<string, string[]>;
+    };
     optional?: boolean;
   };
+  /** Rows from a file get the `picks` too (a print's spools), not only rows from a source. */
+  filePicks?: boolean;
   /** Rows a run with nobody watching leaves for a person. */
   held?: (db: Db) => (v: ImportValues) => boolean;
   /** Returns false when the row was there already and nothing was added. */
@@ -105,6 +115,12 @@ export type ImportHandler = {
 
 const UPLOADS = "imports";
 const DAY = 24 * 60 * 60 * 1000;
+
+/** Prints saved with their filament but none of it taken from the spools (`trackUsage` "no"). */
+export const untracked = (stored: Stored): Stored =>
+  stored.entity === "prints"
+    ? { ...stored, rows: stored.rows.map((r) => ({ ...r, raw: { ...r.raw, trackUsage: "no" } })) }
+    : stored;
 
 /** Preview and apply for every reviewed import, whatever the rows came from. */
 export function createReview(db: Db, dataDir: string) {
@@ -143,7 +159,7 @@ export function createReview(db: Db, dataDir: string) {
     const byId = new Map(targets.map((t) => [t.id, t]));
     const sourced = !!stored.from;
     const bySource = (sourced && handler.bySource?.(db)) || new Map<string, string>();
-    const picks = sourced ? handler.picks?.(db) : undefined;
+    const picks = sourced || handler.filePicks ? handler.picks?.(db) : undefined;
     const held = sourced ? handler.held?.(db) : undefined;
     const parsed = stored.rows.map((r) => {
       const p = parseRow(columns, r.raw);
@@ -172,17 +188,21 @@ export function createReview(db: Db, dataDir: string) {
           : (matchOf.get(p.row) ?? { candidates: [], targetId: null });
         const target = (m.targetId && byId.get(m.targetId)?.values) || null;
         const s = suggest(columns, p, { candidates: m.candidates, target });
-        if (!sourced) return { ...p, ...m, ...s };
-        const yours = !!hit && !!handler.handsOff;
         const pick = hit || p.errors.length ? undefined : picks?.suggest(p.values, raw);
+        const picked = pick && {
+          refs: pick.refs,
+          ...(pick.unsure?.length && { refsUnsure: pick.unsure }),
+          ...(pick.first && { refsFirst: pick.first }),
+        };
+        if (!sourced) return { ...p, ...m, ...s, ...picked };
+        const yours = !!hit && !!handler.handsOff;
         const unpicked = !!pick && !picks?.optional && Object.values(pick.refs).some((v) => !v);
         return {
           ...p,
           ...m,
           ...s,
           ...((yours || (unpicked && s.action === "create")) && { action: "skip" as const }),
-          ...(pick && { refs: pick.refs }),
-          ...(pick?.unsure?.length && { refsUnsure: pick.unsure }),
+          ...picked,
           auto: autoOf({
             status: s.status,
             // Without a source key the name is the identity, so a match is the row itself.

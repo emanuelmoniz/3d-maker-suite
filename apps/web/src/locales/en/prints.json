@@ -66,6 +66,7 @@
     "pick": "Spool for {{title}}",
     "assign": "Assign",
     "skip": "Don't track",
+    "addSpool": "Add new spool",
     "skipAll": "Don't track any of these",
     "emptyTitle": "Nothing to review",
     "emptyBody": "Every imported print is matched to a spool.",

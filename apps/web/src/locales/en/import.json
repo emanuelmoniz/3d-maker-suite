@@ -152,7 +152,10 @@
     "refFor": "{{column}} for row {{row}}",
     "needsRef": "Pick one you have",
     "noSpool": "No spool: the grams wait for review",
-    "checkSpool": "Picked from several spools of this colour: check it"
+    "checkSpool": "Picked from several spools of this colour: check it",
+    "addSpool": "Add new spool…",
+    "trackUsage": "Take the filament from the spools",
+    "trackUsageHint": "Untick to save the prints and their filament without changing the spools' weights, e.g. for prints your spools already account for."
   },
   "done": {
     "summary": "Import finished: {{created, number}} created, {{updated, number}} updated.",

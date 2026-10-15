@@ -45,6 +45,8 @@ export const syncPolicySchema = z.object({
   pending: z.number().int().nonnegative(),
   /** In `auto` mode: rows left pending raise a `sync_pending` alert. */
   alert: z.boolean(),
+  /** Prints in `auto` mode: take the filament from the spools (off: link them only). */
+  trackUsage: z.boolean(),
 });
 
 /** API shape: the encrypted `secrets` column is never exposed, only whether it is set. */

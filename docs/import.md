@@ -33,13 +33,33 @@ After upload, every row gets a status:
 
 For each row you choose **Create**, **Update** or **Skip**. For matched rows, pick a policy: **Overwrite with file values** or **Fill empty fields only**. The bulk actions apply to all, selected or filtered rows (for example *Auto-match: update matched, add new*, or *Skip all*). Reset to suggestions brings back the app's choices.
 
+### Spools of new prints
+
+Each filament slot of a new print has a spool picker:
+
+- From a file, the picker starts on the spool the row names. A slot without one stays empty: its grams wait on the **Filament to review** page (linked from **Prints**), where **Add new spool** works too.
+- The spools that fit the slot are listed first: the same material and colour the printer reported, or the filament profile the file names.
+- A spool opened after the print started is not offered, and neither is an empty one. The app refuses such a spool anywhere: in the review, the print form and the filament review queue.
+- **Add new spool…** at the end of the list adds a spool without leaving the review and picks it.
+- **Take the filament from the spools** (on by default): untick it to save the prints and their filament without changing the spools' weights, for example for prints your spools already account for.
+
+A spool is marked **Empty** as soon as its remaining weight reaches 0 g, and **In use** once filament is taken from it.
+
 ## Import history
 
 **Import history** on the page lists every import: when it ran, the file or source, and how many rows were created, updated, skipped or invalid. Before an import saves anything, the app takes a backup and names it in the history, so you can restore it from [Backups](backups.md).
 
 ## From an integration
 
-On the **Integrations** page, a type's **Review and import** button opens the same review screen with the rows an integration offers. Automatic runs import only what needs no decision from you; everything else waits there. For print history, a print waits when one of its filaments matches no single spool. The review then reads the date range picked on the Integrations page.
+On the **Integrations** page, a type's **Review and import** button opens the same review screen with the rows an integration offers. Automatic runs import only what needs no decision from you; everything else waits there. The review then reads the date range picked on the Integrations page.
+
+For print history, each filament is matched to a spool of the same material and colour that was opened by the print's day and still holds the grams used:
+
+- **One spool fits:** it is picked, and the print is imported without asking.
+- **Several fit:** the app picks the one this printer last used in that AMS slot, else the oldest (in use before new, then by opened date, purchase date and number). The pick shows in yellow ("check it"), and the print waits for you. The same goes for two slots of one colour in one print (the AMS switched to a second roll): each gets its own spool, in yellow.
+- **None fits:** the slot shows no spool, and the print waits for you.
+
+Prints that wait raise a **Sync needs review** alert when the type's alert is on. The **Track usage** setting of print history on the Integrations page decides whether syncs that run without a review (scheduled or **Sync now**) take the filament from the spools; when off, prints are imported with their spools linked and the weights unchanged.
 
 ## Slicer catalog from a zip
 

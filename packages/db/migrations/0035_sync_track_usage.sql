@@ -1,0 +1,1 @@
+ALTER TABLE `sync_policies` ADD `track_usage` integer DEFAULT true NOT NULL;

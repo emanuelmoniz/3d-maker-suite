@@ -413,25 +413,49 @@ export const printImport = {
    * person, and one with a spool picked from several (`raw.unsure`) too.
    */
   picks(db: Db) {
-    const spools = spoolImport.targets(db).map((s) => ({ id: s.id, label: s.label }));
+    const targets = spoolImport.targets(db);
+    const spools = targets.map((s) => ({
+      id: s.id,
+      label: s.label,
+      from: str(s.values.openedAt) ?? undefined,
+      empty: s.values.status === "empty" || undefined,
+    }));
     const options = Object.fromEntries(
       Array.from({ length: PRINT_MAX_SLOTS }, (_, i) => [printSlotKeys(i + 1).spool, spools]),
     );
+    const same = (a: ImportCell | undefined, b: string | undefined) => !!b && lower(a) === lower(b);
     return {
       options,
       optional: true,
       suggest(v: ImportValues, raw: Record<string, unknown>) {
         const look = lookups(db);
+        const reported = (raw.reported ?? []) as Reported[];
         const refs: Record<string, string | null> = {};
+        const first: Record<string, string[]> = {};
         for (let n = 1; n <= PRINT_MAX_SLOTS; n++) {
           const key = printSlotKeys(n);
-          if ((num(v[key.grams]) ?? 0) > 0) refs[key.spool] = find(look.spools, v[key.spool]);
+          if ((num(v[key.grams]) ?? 0) <= 0) continue;
+          refs[key.spool] = find(look.spools, v[key.spool]);
+          // What the printer reported for the slot, else the filament the file names, else the
+          // filament and colour of the spool it names.
+          const said = reported[n - 1];
+          const named = targets.find((s) => s.id === refs[key.spool])?.values;
+          const fits = (s: ImportTarget) =>
+            said
+              ? same(s.values.material, said.material) && same(s.values.colorHex, said.colorHex)
+              : v[key.filament]
+                ? same(s.values.profile, str(v[key.filament]) ?? undefined)
+                : !!named &&
+                  same(s.values.profile, str(named.profile) ?? undefined) &&
+                  same(s.values.colorHex, str(named.colorHex) ?? undefined);
+          first[key.spool] = targets.filter(fits).map((s) => s.id);
         }
         const unsure = ((raw.unsure ?? []) as string[]).filter((k) => refs[k]);
-        return { refs, sure: !unmatched(look, v) && !unsure.length, unsure };
+        return { refs, sure: !unmatched(look, v) && !unsure.length, unsure, first };
       },
     };
   },
+  filePicks: true,
 
   create(db: Db, v: ImportValues, src?: WriteRow) {
     const printerId = find(lookups(db).printers, v.printer) ?? "";

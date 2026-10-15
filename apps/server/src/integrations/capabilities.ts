@@ -27,6 +27,7 @@ export function policyOf(db: Db, integrationId: string, type: Capability) {
       cursor: null,
       pending: 0,
       alert: true,
+      trackUsage: true,
     }
   );
 }

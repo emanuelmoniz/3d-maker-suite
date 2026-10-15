@@ -483,10 +483,11 @@ describe("capabilities", () => {
     });
 
     // Until changed, every type follows its default policy.
+    const defaults = { lastRunAt: null, pending: 0, alert: true, trackUsage: true };
     expect((await get(`/api/integrations/${id}`)).policies).toEqual([
-      { type: "printers", mode: "auto", frequency: "1d", lastRunAt: null, pending: 0, alert: true },
-      { type: "prints", mode: "auto", frequency: "1h", lastRunAt: null, pending: 0, alert: true },
-      { type: "spools", mode: "manual", frequency: "1d", lastRunAt: null, pending: 0, alert: true },
+      { type: "printers", mode: "auto", frequency: "1d", ...defaults },
+      { type: "prints", mode: "auto", frequency: "1h", ...defaults },
+      { type: "spools", mode: "manual", frequency: "1d", ...defaults },
     ]);
     const patched = (await setPolicy(id, "prints", { mode: "off" })).json();
     expect(patched.capabilities).toEqual(["printers", "spools"]);
@@ -724,6 +725,35 @@ describe("filament matching of imported prints", () => {
     ]);
     expect((await review.confirm(p)).json()).toMatchObject({ created: 3 });
     expect(await queue()).toHaveLength(3);
+  });
+
+  it("only links the spools when the policy says not to track usage", async () => {
+    const s = await spool();
+    later();
+    const { id } = await create();
+    await setPolicy(id, "prints", { trackUsage: false });
+    expect((await get(`/api/integrations/${id}`)).policies[1]).toMatchObject({ trackUsage: false });
+    await sync(id);
+    expect(printCount()).toBe(3);
+    expect(await left(s.id)).toBe(1000);
+    const usage = (await get("/api/prints?sort=startedAt")).items[0].usages[0];
+    expect(usage).toMatchObject({ spoolId: s.id, grams: 10 });
+  });
+
+  it("a review confirmed without tracking saves the prints and leaves the weights", async () => {
+    const a = await spool();
+    await spool();
+    const { id } = await syncNow();
+    const p = await printsReview(id);
+    const res = await send("POST", "/api/import/prints/apply", {
+      uploadId: p.uploadId,
+      policy: "overwrite",
+      trackUsage: false,
+      decisions: p.rows.map((r) => ({ row: r.row, action: "create", refs: { spool: a.id } })),
+    });
+    expect(res.json()).toMatchObject({ created: 3 });
+    expect(await left(a.id)).toBe(1000);
+    expect(await queue()).toEqual([]);
   });
 
   it("holds a print that doesn't fit what the only matching spool has left", async () => {

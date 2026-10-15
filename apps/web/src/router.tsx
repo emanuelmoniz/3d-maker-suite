@@ -196,7 +196,8 @@ const routes: AnyRoute[] = [
   createRoute({
     getParentRoute: () => root,
     path: "/import/$source/$id/$type",
-    loader: () => Promise.all([loadNamespace("import"), loadNamespace("integrations")]),
+    // filament + tags: a print's review can add a spool (NewSpoolDialog).
+    loader: () => Promise.all(["import", "integrations", "filament", "tags"].map(loadNamespace)),
     component: SourceReviewPage,
   }),
   ...["/import/slicer-zip", "/import/slicer-zip/$id"].map((path) =>
@@ -309,7 +310,8 @@ const routes: AnyRoute[] = [
   createRoute({
     getParentRoute: () => root,
     path: IMPORT_ITEM.to,
-    loader: () => Promise.all([loadNamespace("import"), loadNamespace("integrations")]),
+    // filament + tags: a print's review can add a spool (NewSpoolDialog).
+    loader: () => Promise.all(["import", "integrations", "filament", "tags"].map(loadNamespace)),
     component: ImportPage,
   }),
   createRoute({

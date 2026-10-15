@@ -287,6 +287,20 @@ describe("print import", () => {
     ]);
   });
 
+  it("offers spool picks for a file: the spool it names, its filament's spools first", async () => {
+    const spool = await setup();
+    const p = await preview(
+      "prints",
+      `${PRINT_HEAD},filament\nbox,A,2026-03-04 10:00,,success,001-Basic #000000,5,\nbox,B,2026-03-05 10:00,,success,,5,Basic`,
+    );
+    expect(p.refsOptional).toBe(true);
+    expect(p.refOptions?.spool?.map((o) => o.id)).toEqual([spool.id]);
+    expect(p.rows.map((r) => [r.refs, r.refsFirst])).toEqual([
+      [{ spool: spool.id }, { spool: [spool.id] }],
+      [{ spool: null }, { spool: [spool.id] }],
+    ]);
+  });
+
   it("rejects a spool opened after the print started", async () => {
     const spool = await setup();
     db.update(schema.spools)

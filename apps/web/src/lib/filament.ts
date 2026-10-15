@@ -13,18 +13,27 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { TFunction } from "i18next";
 import { api } from "./api.ts";
 
-// ponytail: one page of 100 rows each, add pagination controls if anyone owns more.
+/** Every page of a list (the API caps a page at 100), as one page: for selects and labels. */
+async function allOf<T>(url: string): Promise<Page<T>> {
+  const get = (page: number) => api<Page<T>>("GET", `${url}&pageSize=100&page=${page}`);
+  const first = await get(1);
+  const rest = await Promise.all(
+    Array.from({ length: Math.ceil(first.total / 100) - 1 }, (_, i) => get(i + 2)),
+  );
+  return { ...first, items: [first, ...rest].flatMap((p) => p.items) };
+}
+
+// A slicer's catalog brings hundreds of profiles: a select must offer them all.
 export const useProfiles = () =>
   useQuery({
     queryKey: ["filament", "profiles"],
-    queryFn: () => api<Page<FilamentProfile>>("GET", "/api/filament/profiles?pageSize=100"),
+    queryFn: () => allOf<FilamentProfile>("/api/filament/profiles?"),
   });
 
 export const useSpools = (tagId = "") =>
   useQuery({
     queryKey: ["filament", "spools", tagId],
-    queryFn: () =>
-      api<Page<Spool>>("GET", `/api/filament/spools?pageSize=100${tagId ? `&tagId=${tagId}` : ""}`),
+    queryFn: () => allOf<Spool>(`/api/filament/spools?${tagId ? `tagId=${tagId}` : ""}`),
   });
 
 export const useProfile = (id: string | undefined) =>

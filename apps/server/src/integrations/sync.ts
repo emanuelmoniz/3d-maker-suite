@@ -26,7 +26,7 @@ import { type Db, schema } from "@3d-maker-suite/db";
 import { and, desc, eq, isNull, notInArray, sql } from "drizzle-orm";
 import type { FastifyBaseLogger } from "fastify";
 import { HttpError } from "../errors.ts";
-import { createReview, type Stored } from "../import/review.ts";
+import { createReview, type Stored, untracked } from "../import/review.ts";
 import { modelIdFor } from "../lib/catalog.ts";
 import { nextNumber } from "../lib/numbers.ts";
 import { bookOrLink, predates } from "../lib/prints.ts";
@@ -162,8 +162,12 @@ export function createSyncer(
       const imported = { origin: "integration" as const, integrationId: id };
 
       if (REVIEWED.has(type)) {
-        const stored =
-          pick?.stored ?? (await offered(row, type as ReviewedType, false, instance, req, signal));
+        const offer = async () => {
+          const rows = await offered(row, type as ReviewedType, false, instance, req, signal);
+          // A run with nobody watching follows the policy; a confirmed review decided already.
+          return policyOf(db, id, type).trackUsage ? rows : untracked(rows);
+        };
+        const stored = pick?.stored ?? (await offer());
         const done = review.write(
           stored,
           pick?.decisions ?? autoDecisions(review.preview(stored).rows),

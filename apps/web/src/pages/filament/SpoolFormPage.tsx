@@ -21,8 +21,26 @@ const text = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
 const num = (v: string, scale = 1) => (v ? Math.round(Number(v) * scale) : null);
 const float = (v: string) => (v ? Number(v) : null);
 
-/** Create, or edit `spool`. The remaining weight only changes through "Adjust weight". */
-function SpoolForm({ profiles, spool }: { profiles: FilamentProfile[]; spool?: Spool }) {
+/**
+ * Create, or edit `spool`. The remaining weight only changes through "Adjust weight". With
+ * `onSaved` (a dialog) it hands the saved spool back instead of leaving the page.
+ */
+export function SpoolForm({
+  profiles,
+  spool,
+  colorHex,
+  profileId,
+  onSaved,
+  onCancel = () => history.back(),
+}: {
+  profiles: FilamentProfile[];
+  spool?: Spool;
+  /** The new spool's colour and profile to start from. */
+  colorHex?: string;
+  profileId?: string;
+  onSaved?: (spool: Spool) => void;
+  onCancel?: () => void;
+}) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const create = useCreateSpool();
@@ -46,9 +64,12 @@ function SpoolForm({ profiles, spool }: { profiles: FilamentProfile[]; spool?: S
       openedAt: date("openedAt"),
       location: text(f, "location") || null,
     };
-    const done = async (id: string) => {
-      await tags.persist(id);
-      navigate(spool ? { to: "/filament/spools/$id", params: { id } } : { to: "/filament" });
+    const done = async (saved: Spool) => {
+      await tags.persist(saved.id);
+      if (onSaved) return onSaved(saved);
+      navigate(
+        spool ? { to: "/filament/spools/$id", params: { id: saved.id } } : { to: "/filament" },
+      );
     };
     if (spool)
       patch.mutate(
@@ -56,12 +77,12 @@ function SpoolForm({ profiles, spool }: { profiles: FilamentProfile[]; spool?: S
           id: spool.id,
           patch: { ...values, status: text(f, "status") as Spool["status"] },
         },
-        { onSuccess: () => done(spool.id) },
+        { onSuccess: (saved) => done(saved as Spool) },
       );
     else
       create.mutate(
         { ...values, remainingGrams: float(text(f, "remaining")) ?? undefined },
-        { onSuccess: (saved) => done((saved as { id: string }).id) },
+        { onSuccess: (saved) => done(saved as Spool) },
       );
   };
   const field = (
@@ -89,7 +110,7 @@ function SpoolForm({ profiles, spool }: { profiles: FilamentProfile[]; spool?: S
             {...p}
             name="profile"
             required
-            defaultValue={spool?.profileId}
+            defaultValue={spool?.profileId ?? profileId}
             className={inputClass}
           >
             {spool && !profiles.some((pr) => pr.id === spool.profileId) && (
@@ -109,7 +130,7 @@ function SpoolForm({ profiles, spool }: { profiles: FilamentProfile[]; spool?: S
             {...p}
             name="color"
             type="color"
-            defaultValue={spool?.colorHex ?? "#808080"}
+            defaultValue={spool?.colorHex ?? colorHex ?? "#808080"}
             className={inputClass}
           />
         )}
@@ -171,7 +192,7 @@ function SpoolForm({ profiles, spool }: { profiles: FilamentProfile[]; spool?: S
         <Button type="submit" variant="primary" disabled={save.isPending || !profiles.length}>
           {t("filament:spools.save")}
         </Button>
-        <Button onClick={() => history.back()}>{t("common:actions.cancel")}</Button>
+        <Button onClick={onCancel}>{t("common:actions.cancel")}</Button>
       </div>
     </form>
   );

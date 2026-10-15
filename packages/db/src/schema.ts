@@ -89,6 +89,8 @@ export const syncPolicies = sqliteTable(
     pending: integer().notNull().default(0),
     /** In `auto` mode: rows left pending raise a `sync_pending` alert. */
     alert: integer({ mode: "boolean" }).notNull().default(true),
+    /** Prints in `auto` mode: take the filament from the spools (off: link them only). */
+    trackUsage: integer({ mode: "boolean" }).notNull().default(true),
   },
   (t) => [
     primaryKey({ columns: [t.integrationId, t.type] }),

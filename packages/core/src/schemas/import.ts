@@ -340,6 +340,8 @@ export const importPreviewRowSchema = z.object({
   refs: z.record(z.string(), id.nullable()).optional(),
   /** Keys of `refs` picked from several that fit (e.g. two spools of one colour): to check. */
   refsUnsure: z.array(z.string()).optional(),
+  /** By key of `refs`: the options that fit the row (a slot's material + colour), listed first. */
+  refsFirst: z.record(z.string(), z.array(id)).optional(),
   /**
    * Rows from an integration: what a run with nobody watching does. `apply` takes the suggestion,
    * `wait` leaves the row for a person; absent = neither (nothing to do, or only on request).
@@ -352,8 +354,24 @@ export const importPreviewSchema = z.object({
   entity: z.enum(REVIEW_ENTITIES),
   /** The folder an integration read its rows from. */
   dir: z.string().optional(),
-  /** By column key: the rows a picked reference can be. Creating a row then needs a pick. */
-  refOptions: z.record(z.string(), z.array(z.object({ id, label: z.string() }))).optional(),
+  /**
+   * By column key: the rows a picked reference can be. Creating a row then needs a pick. A spool
+   * says when it was opened (`from`, offered for rows from that day on) and if it is `empty`
+   * (offered only to a row that names it).
+   */
+  refOptions: z
+    .record(
+      z.string(),
+      z.array(
+        z.object({
+          id,
+          label: z.string(),
+          from: z.string().optional(),
+          empty: z.boolean().optional(),
+        }),
+      ),
+    )
+    .optional(),
   /** A pick may stay empty (a print's spool slot): only the row's `refs` keys are offered. */
   refsOptional: z.boolean().optional(),
   rows: z.array(importPreviewRowSchema),
@@ -414,6 +432,8 @@ export const importApplySchema = z.object({
       }),
     )
     .min(1),
+  /** Prints: false saves them without taking their filament from the spools (`trackUsage` "no"). */
+  trackUsage: z.boolean().optional(),
 });
 
 export const importResultSchema = z.object({

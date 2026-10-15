@@ -69,8 +69,8 @@ export const integrationPatchSchema = z
     /** Only the listed types change, and only the fields sent. */
     policies: z.array(
       syncPolicySchema
-        .pick({ type: true, mode: true, frequency: true, alert: true })
-        .partial({ mode: true, frequency: true, alert: true }),
+        .pick({ type: true, mode: true, frequency: true, alert: true, trackUsage: true })
+        .partial({ mode: true, frequency: true, alert: true, trackUsage: true }),
     ),
   })
   .partial()

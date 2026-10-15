@@ -19,6 +19,8 @@ import {
   MERGE_POLICIES,
   type MergePolicy,
   mergeValues,
+  PRINT_MAX_SLOTS,
+  printSlotKeys,
   type ReviewEntity,
   suggested,
 } from "@3d-maker-suite/core";
@@ -32,8 +34,10 @@ import { EmptyState } from "../../components/EmptyState.tsx";
 import { inputClass } from "../../components/FormField.tsx";
 import { useMoney } from "../../lib/cost.ts";
 import { cx } from "../../lib/cx.ts";
+import { spoolName, useProfiles } from "../../lib/filament.ts";
 import { formatDate, formatDateTime, formatNumber, formatWeight } from "../../lib/format.ts";
 import { useApply } from "../../lib/import.ts";
+import { NewSpoolDialog } from "../filament/NewSpoolDialog.tsx";
 
 // i18n keys are written out in full so `pnpm i18n:check` can see them.
 const STATUSES: Record<ImportStatus, string> = {
@@ -110,6 +114,18 @@ const TARGET_DETAILS: Partial<Record<ReviewEntity, (v: ImportValues) => ImportCe
 // The table renders this many rows at a time, so a file with thousands of rows stays quick.
 const PAGE_ROWS = 100;
 const ALL_TARGETS = "__all";
+const NEW_SPOOL = "__new";
+/**
+ * What a print's slot says about its filament, for a spool added from its picker: a file names a
+ * profile, an integration reports material and colour ("PLA #ff8800").
+ */
+const slotFilament = (r: ImportPreviewRow, spoolKey: string) => {
+  const n = Array.from({ length: PRINT_MAX_SLOTS }, (_, i) => i + 1).find(
+    (i) => printSlotKeys(i).spool === spoolKey,
+  );
+  const filament = n ? String(r.values[printSlotKeys(n).filament] ?? "") : "";
+  return { filament, colorHex: /#[0-9a-f]{6}\b/i.exec(filament)?.[0].toLowerCase() };
+};
 const selectClass = `${inputClass} w-auto! min-w-28`;
 
 export function ReviewTable({
@@ -137,6 +153,12 @@ export function ReviewTable({
   const [bulk, setBulk] = useState<BulkAction>("autoMatch");
   const [confirming, setConfirming] = useState(false);
   const [page, setPage] = useState(0);
+  // Prints: false saves them without taking their filament from the spools.
+  const [trackUsage, setTrackUsage] = useState(true);
+  // The spool picker a new spool is being added for, and the spools added so far.
+  const [adding, setAdding] = useState<{ row: ImportPreviewRow; key: string } | null>(null);
+  const [added, setAdded] = useState<NonNullable<ImportPreview["refOptions"]>[string]>([]);
+  const profiles = useProfiles().data?.items ?? [];
 
   const { rows } = preview;
   const targets = new Map(preview.targets.map((x) => [x.id, x]));
@@ -170,6 +192,17 @@ export function ReviewTable({
   const optional = !!preview.refsOptional;
   const picks = (r: ImportPreviewRow) =>
     optional ? picked.filter((k) => r.refs && k in r.refs) : picked;
+  // A row's options: the ones that fit it first. A spool opened after the print started, or
+  // empty, is only listed when it is the pick already.
+  const optionsFor = (r: ImportPreviewRow, key: string, current: string | null | undefined) => {
+    const first = new Set(r.refsFirst?.[key]);
+    const day = String(r.values.startedAt ?? "").slice(0, 10);
+    return [...(preview.refOptions?.[key] ?? []), ...added]
+      .filter(
+        (o) => o.id === current || (!o.empty && (!o.from || !day || day >= o.from.slice(0, 10))),
+      )
+      .sort((a, b) => Number(first.has(b.id)) - Number(first.has(a.id)));
+  };
   // An update needs a row to go to, and two file rows can't go to the same one; a new row needs
   // its required picks.
   const problem = (r: ImportPreviewRow) => {
@@ -382,15 +415,20 @@ export function ReviewTable({
                   )}
                   value={d.refs?.[c.key] ?? ""}
                   onChange={(e) =>
-                    decide(r, { refs: { ...d.refs, [c.key]: e.target.value || null } })
+                    e.target.value === NEW_SPOOL
+                      ? setAdding({ row: r, key: c.key })
+                      : decide(r, { refs: { ...d.refs, [c.key]: e.target.value || null } })
                   }
                 >
                   <option value="">{t("import:review.pickTarget")}</option>
-                  {options.map((o) => (
+                  {optionsFor(r, c.key, d.refs?.[c.key]).map((o) => (
                     <option key={o.id} value={o.id}>
                       {o.label}
                     </option>
                   ))}
+                  {c.ref === "spools" && (
+                    <option value={NEW_SPOOL}>{t("import:review.addSpool")}</option>
+                  )}
                 </select>
                 {!d.refs?.[c.key] && (
                   <span className={optional ? "text-warn" : "text-bad"}>
@@ -568,6 +606,20 @@ export function ReviewTable({
           {t("import:review.error")}
         </p>
       )}
+      {entity === "prints" && (
+        <label className="flex items-start gap-2">
+          <input
+            type="checkbox"
+            className="mt-1"
+            checked={trackUsage}
+            onChange={(e) => setTrackUsage(e.target.checked)}
+          />
+          <span>
+            <span className="font-medium">{t("import:review.trackUsage")}</span>
+            <span className="block text-muted">{t("import:review.trackUsageHint")}</span>
+          </span>
+        </label>
+      )}
       <div className="flex items-center gap-3">
         <Button
           variant="primary"
@@ -592,6 +644,7 @@ export function ReviewTable({
             {
               uploadId: preview.uploadId,
               policy,
+              ...(!trackUsage && { trackUsage: false }),
               decisions: rows.flatMap((r) => {
                 const d = decisionOf(r);
                 return d.action === "skip"
@@ -617,6 +670,21 @@ export function ReviewTable({
             },
             { onSuccess: onDone },
           );
+        }}
+      />
+      <NewSpoolDialog
+        open={adding && slotFilament(adding.row, adding.key)}
+        onClose={() => setAdding(null)}
+        onSaved={(s) => {
+          if (!adding) return;
+          const label = spoolName(
+            t,
+            s,
+            profiles.find((p) => p.id === s.profileId),
+          );
+          setAdded((a) => [...a, { id: s.id, label }]);
+          const { row, key } = adding;
+          decide(row, { refs: { ...decisionOf(row).refs, [key]: s.id } });
         }}
       />
     </section>

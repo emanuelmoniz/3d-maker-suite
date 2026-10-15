@@ -17,6 +17,7 @@ import {
   useDismissReview,
   useFilamentReview,
 } from "../../lib/prints.ts";
+import { NewSpoolDialog } from "../filament/NewSpoolDialog.tsx";
 
 /** Imported filament that couldn't be matched to exactly one spool: a person decides. */
 export function PrintReviewPage() {
@@ -31,6 +32,8 @@ export function PrintReviewPage() {
   const assign = useAssignReview();
   const dismiss = useDismissReview();
   const [picked, setPicked] = useState<Record<string, string>>({});
+  // The slot a new spool is being added for.
+  const [adding, setAdding] = useState<FilamentReviewItem | null>(null);
   // Spools opened by the print's day; the reported material and colour first, then the material.
   const optionsFor = (i: FilamentReviewItem) =>
     spools
@@ -169,6 +172,9 @@ export function PrintReviewPage() {
                       >
                         {t("prints:review.assign")}
                       </Button>
+                      <Button variant="ghost" onClick={() => setAdding(i)}>
+                        {t("prints:review.addSpool")}
+                      </Button>
                       <Button
                         variant="ghost"
                         disabled={dismiss.isPending}
@@ -184,6 +190,16 @@ export function PrintReviewPage() {
           </>
         )
       )}
+      <NewSpoolDialog
+        open={
+          adding && {
+            colorHex: adding.colorHex ?? undefined,
+            filament: adding.material ?? undefined,
+          }
+        }
+        onClose={() => setAdding(null)}
+        onSaved={(s) => adding && setPicked((p) => ({ ...p, [adding.usageId]: s.id }))}
+      />
     </>
   );
 }

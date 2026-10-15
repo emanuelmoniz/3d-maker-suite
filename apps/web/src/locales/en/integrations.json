@@ -142,6 +142,8 @@
     "frequencyOf": "Frequency: {{type}}",
     "alert": "Alert",
     "alertOf": "Alert when {{type}} wait for review",
+    "trackUsage": "Track usage",
+    "trackUsageOf": "Take the filament of synced {{type}} from the spools",
     "hint": "Automatic runs only import what needs no decision from you. Anything else waits under \"Review and import\".",
     "modes": {
       "off": "Off",
