@@ -104,23 +104,6 @@ export function SettingsPage() {
               </select>
             )}
           </FormField>
-          <FormField
-            label={t("settings:general.defaultPrinter")}
-            hint={t("settings:general.defaultPrinterHint")}
-          >
-            {(p) => (
-              <input
-                {...p}
-                className={inputClass}
-                key={`printer-${v.defaultPrinterId}`}
-                defaultValue={v.defaultPrinterId ?? ""}
-                onBlur={(e) => {
-                  const id = e.target.value.trim() || null;
-                  if (id !== v.defaultPrinterId) commit({ defaultPrinterId: id });
-                }}
-              />
-            )}
-          </FormField>
           <FormField label={t("settings:dataDir.label")} hint={t("settings:dataDir.hint")}>
             {(p) => <input {...p} className={inputClass} value={data.dataDir} readOnly />}
           </FormField>

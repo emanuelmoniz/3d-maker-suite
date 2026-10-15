@@ -2,6 +2,7 @@ import { useTranslation } from "react-i18next";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { PathPicker } from "../../components/PathPicker.tsx";
 import { Section } from "../../components/Section.tsx";
+import { usePrinters } from "../../lib/printers.ts";
 import { ChannelsSection } from "../alerts/ChannelsSection.tsx";
 import { FilamentCatalog, FilamentProfiles } from "../filament/Catalog.tsx";
 import { Catalog } from "../printers/Catalog.tsx";
@@ -175,6 +176,7 @@ export function AlertsConfigPage() {
 
 export function PrintersConfigPage() {
   const { t } = useTranslation();
+  const printers = usePrinters({ archived: false }).data?.items ?? [];
   return (
     <ConfigPage module="printers">
       {({ v, commit }) => {
@@ -182,6 +184,26 @@ export function PrintersConfigPage() {
         return (
           <>
             <Section title={t("settings:sections.printers")}>
+              <FormField
+                label={t("settings:printers.default")}
+                hint={t("settings:printers.defaultHint")}
+              >
+                {(p) => (
+                  <select
+                    {...p}
+                    className={inputClass}
+                    value={v.defaultPrinterId ?? ""}
+                    onChange={(e) => commit({ defaultPrinterId: e.target.value || null })}
+                  >
+                    <option value="">{t("settings:printers.defaultNone")}</option>
+                    {printers.map((pr) => (
+                      <option key={pr.id} value={pr.id}>
+                        {pr.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </FormField>
               <FormField label={t("settings:printers.label")} hint={t("settings:printers.hint")}>
                 {(p) => (
                   <textarea

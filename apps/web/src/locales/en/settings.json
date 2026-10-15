@@ -24,9 +24,7 @@
     "dateFormat": "Date format",
     "timeFormat": "Time format",
     "time24h": "24-hour (14:30)",
-    "time12h": "12-hour (2:30 PM)",
-    "defaultPrinter": "Default printer ID",
-    "defaultPrinterHint": "Pre-selected when you log a print. A picker arrives with the printers module."
+    "time12h": "12-hour (2:30 PM)"
   },
   "branding": {
     "name": "App name",
@@ -88,6 +86,9 @@
     "hint": "One per line. Offered when a print fails or is cancelled."
   },
   "printers": {
+    "default": "Default printer",
+    "defaultHint": "Used for the cost estimate on a project page (its wear, maintenance and energy figures). Pick another printer there any time. Without one, the first printer is used.",
+    "defaultNone": "First printer",
     "label": "Printer states",
     "hint": "One per line. The first is used for new printers. Known names (working, maintenance, inop, retired) are translated."
   },
