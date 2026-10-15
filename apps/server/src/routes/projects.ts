@@ -106,6 +106,7 @@ export const projectsRoutes =
             multicolor: isMulticolor,
             lastPrintAt,
           },
+          defaultSort: "-name",
           dateColumn: projects.createdAt,
           filters: {
             name: sql`${projectLabel} || ' ' || coalesce(${projects.description}, '')`,

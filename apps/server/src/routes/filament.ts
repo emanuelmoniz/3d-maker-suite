@@ -166,6 +166,7 @@ export const filamentRoutes =
             filament: spools.number,
             status: spools.status,
           },
+          defaultSort: "filament",
           dateColumn: spools.createdAt,
           filters: {
             filament: spoolName,

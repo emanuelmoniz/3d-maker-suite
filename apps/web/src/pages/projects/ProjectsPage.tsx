@@ -173,6 +173,7 @@ export function ProjectsTable({
         onQueryChange,
         total,
         filters: projectFilters,
+        defaultSort: "-name",
       }}
       columns={[
         {
@@ -381,7 +382,7 @@ export function ProjectsPage() {
                   <select
                     aria-label={t("projects:sort.label")}
                     className={`${inputClass} w-auto!`}
-                    value={query.sort ?? "name"}
+                    value={query.sort ?? "-name"}
                     onChange={(e) => set({ sort: e.target.value })}
                   >
                     {(

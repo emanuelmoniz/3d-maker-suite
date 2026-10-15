@@ -188,7 +188,7 @@ export const printsRoutes =
             outcome: prints.outcome,
             durationSec: prints.durationSec,
           },
-          defaultSort: "-startedAt",
+          defaultSort: "-title",
           dateColumn: prints.startedAt,
           filters: {
             title: printLabel,

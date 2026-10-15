@@ -50,7 +50,7 @@ export function PrintsTable({
         onQueryChange,
         total: data.total,
         filters: printFilters,
-        defaultSort: "-startedAt",
+        defaultSort: "-title",
       }}
       columns={[
         {

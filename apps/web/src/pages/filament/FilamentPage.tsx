@@ -8,6 +8,7 @@ import {
 import { useQueries } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { Plus, Spool as SpoolIcon } from "lucide-react";
+import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { DataTable } from "../../components/DataTable.tsx";
 import { EmptyState } from "../../components/EmptyState.tsx";
@@ -51,6 +52,10 @@ export function FilamentPage() {
   const { t } = useTranslation();
   const prefs = usePreferences().data?.values;
   const [spoolQuery, setSpoolQuery] = useUrlListQuery("spools.");
+  // A fresh visit starts on the spools in play; clearing the filter later shows all.
+  useEffect(() => {
+    if (!Object.keys(spoolQuery).length) setSpoolQuery({ status: "new,in_use" });
+  }, []);
   const spools = useListPage<Spool>(
     ["filament", "spools", "table"],
     "/api/filament/spools",
@@ -114,6 +119,7 @@ export function FilamentPage() {
                   onQueryChange: setSpoolQuery,
                   total: spools.data.total,
                   filters: spoolFilters,
+                  defaultSort: "filament",
                   archivable: true,
                 }}
                 columns={[

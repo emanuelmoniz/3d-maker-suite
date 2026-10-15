@@ -117,7 +117,7 @@ and route them all through one helper.
 Do Step 9 of PLAN.md. One shared BackLink with a fallback route; list every place you replace.
 ```
 
-### [ ] Step 10 - Filament page default filter
+### [x] Step 10 - Filament page default filter
 **Model:** Haiku · **Effort:** Low
 **Scope:** The Filament page opens filtered to status `new` + `in_use`, sorted by spool number. The user can still clear the filter, and URL search params still override the default.
 **Done when:** a fresh visit shows only new and in-use spools sorted by number; clearing the filter shows all; tests pass.
