@@ -193,6 +193,36 @@ describe("print import", () => {
     expect(p.rows[0]).toMatchObject({ status: "changed", action: "update" });
   });
 
+  it("numbers and books a file listed newest first in date order", async () => {
+    const spool = await setup();
+    const row = (title: string, at: string) =>
+      `box,${title},${at},3600,success,001-Basic #000000,10`;
+    const file = [
+      PRINT_HEAD,
+      row("Third", "2026-03-06 10:00"),
+      row("Second", "2026-03-05 10:00"),
+      row("First", "2026-03-04 10:00"),
+    ].join("\n");
+    await applySuggested("prints", await preview("prints", file));
+    const byNumber = db.select().from(schema.prints).orderBy(schema.prints.number).all();
+    expect(byNumber.map((p) => [p.number, p.title])).toEqual([
+      [1, "First"],
+      [2, "Second"],
+      [3, "Third"],
+    ]);
+    const ledger = db
+      .select()
+      .from(schema.spoolWeightEntries)
+      .where(eq(schema.spoolWeightEntries.spoolId, spool.id))
+      .all()
+      .filter((e) => e.kind === "print");
+    expect(ledger.map((e) => [e.note, e.remainingAfter])).toEqual([
+      ["First", 990],
+      ["Second", 980],
+      ["Third", 970],
+    ]);
+  });
+
   it("creates a project it doesn't know, without a folder, once per name", async () => {
     await setup();
     const row = (cell: string, title = "Benchy") =>

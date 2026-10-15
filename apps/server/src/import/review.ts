@@ -290,6 +290,12 @@ export function createReview(db: Db, dataDir: string) {
     const columns = IMPORT_COLUMNS[stored.entity];
     const handler = handlers[stored.entity];
     const { current, ops } = plan(stored, decisions, policy);
+    // Prints oldest first, whatever order the file or the vendor lists them in: numbers and spool
+    // bookings follow time. Same start keeps the row order.
+    if (stored.entity === "prints") {
+      const at = (op: (typeof ops)[number]) => Date.parse(String(op.values.startedAt));
+      ops.sort((a, b) => at(a) - at(b));
+    }
     let created = 0;
     let updated = 0;
     db.transaction(() => {

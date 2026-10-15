@@ -42,7 +42,7 @@ Do Step 3 of PLAN.md. Reproduce first (script or manual steps), explain the root
 and show the options with their trade-offs before changing anything. No new dependency.
 ```
 
-### [ ] Step 4 - Print import numbering oldest-first + renumber  **[plan mode]**
+### [x] Step 4 - Print import numbering oldest-first + renumber  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:**
 - Import (file and cloud): prints without a number in the file are numbered in date order, oldest first. When a month is imported, its latest print gets the highest number. Today it's the reverse.
