@@ -1,5 +1,12 @@
 import { expect, test } from "./fixtures.ts";
-import { hasHorizontalScroll, ROUTES, seedPrinter, seedProfile, seedSpool } from "./helpers.ts";
+import {
+  hasHorizontalScroll,
+  ROUTES,
+  seedPrinter,
+  seedProfile,
+  seedProject,
+  seedSpool,
+} from "./helpers.ts";
 
 test("cost settings persist across a reload", async ({ page }) => {
   await page.goto("/costs");
@@ -47,8 +54,10 @@ test("add a spool", async ({ page, app }) => {
 test("a manual print deducts filament from the spool", async ({ page, app }) => {
   await seedPrinter(app.api);
   const spool = await seedSpool(app.api, 1000);
+  await seedProject(app.api);
   await page.goto("/prints/new");
   await page.getByLabel("Name", { exact: true }).fill("Benchy");
+  await page.getByLabel("Project").selectOption({ index: 1 });
   await page.getByRole("button", { name: "Add spool" }).click();
   await page.getByLabel("Spool", { exact: true }).selectOption({ index: 1 });
   await page.getByLabel("Grams").fill("100");

@@ -97,7 +97,7 @@ export function TagPicker({
           }}
           className={inputClass}
         />
-        <Button onClick={add} disabled={!name.trim() || create.isPending}>
+        <Button className="shrink-0" onClick={add} disabled={!name.trim() || create.isPending}>
           <Plus className="size-4" aria-hidden />
           {t("tags:picker.add")}
         </Button>

@@ -25,6 +25,7 @@ import { TagList } from "../../components/TagList.tsx";
 import { cx } from "../../lib/cx.ts";
 import { formatDate } from "../../lib/format.ts";
 import { useListPage, useUrlListQuery } from "../../lib/list.ts";
+import { usePreferences } from "../../lib/preferences.ts";
 import {
   projectName,
   projectThumbnailUrl,
@@ -120,11 +121,13 @@ function ScanPanel() {
 function AddFolder() {
   const { t } = useTranslation();
   const create = useCreateProject();
+  const roots = usePreferences().data?.values.projectRoots;
   return (
     <>
       <PathPicker
         label={t("projects:list.addFolder")}
         mode="folder"
+        initial={roots?.at(-1)}
         onPick={(folderPath) =>
           create.mutate({
             name: folderPath.split(/[/]/).filter(Boolean).at(-1) ?? folderPath,
@@ -448,7 +451,9 @@ export function ProjectsPage() {
                       >
                         <Thumb p={p} className="aspect-square w-full" />
                         <span className="block p-2">
-                          <span className="block truncate font-medium">{projectName(t, p)}</span>
+                          <span className="line-clamp-2 min-h-[2lh] font-medium">
+                            {projectName(t, p)}
+                          </span>
                           <span className="block truncate text-muted">
                             {tagline(p, t("projects:list.multicolor")) || "\u00a0"}
                           </span>

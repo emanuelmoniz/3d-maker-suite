@@ -20,6 +20,10 @@ export const seedPrinter = async (api: Api, name = "Test Printer") =>
     state: "working",
   });
 
+/** A project without a folder; a new print has to pick one. */
+export const seedProject = (api: Api, name = "Test Project") =>
+  api<{ id: string }>("POST", "/api/projects", { name });
+
 /** The "Acme PLA Basic" filament profile with its brand and material. Once per test. */
 export const seedProfile = async (api: Api) => {
   const brand = await api<{ id: string }>("POST", "/api/filament-brands", { name: "Acme" });

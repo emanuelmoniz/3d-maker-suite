@@ -148,7 +148,7 @@ sync_policies.pending. Back up the DB before running the migration.
 
 ## Phase 5 - Release
 
-### [ ] Step 9 - E2E & responsive pass for v1.2
+### [x] Step 9 - E2E & responsive pass for v1.2
 **Model:** Sonnet (use webapp-testing skill) · **Effort:** Medium
 **Scope:** Playwright coverage for the config pages and gear buttons, the path picker (slicer exe, config folder, project roots), add project from folder, linked description file, spool numbering and display names (UI + import template), estimated duration, and the sync_pending alert with its Review button and toggle. Viewports 375/768/1440. Fix what breaks.
 **Done when:** E2E green in CI.

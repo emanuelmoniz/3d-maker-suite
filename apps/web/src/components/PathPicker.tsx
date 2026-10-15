@@ -117,7 +117,11 @@ export function PathPicker({
           </Button>
           <ol className="flex min-w-0 flex-wrap items-center gap-1 text-sm">
             <li>
-              <button type="button" className="underline" onClick={() => setPath(null)}>
+              <button
+                type="button"
+                className="inline-flex min-h-8 items-center px-1 underline"
+                onClick={() => setPath(null)}
+              >
                 {t("common:pathPicker.roots")}
               </button>
             </li>
@@ -126,7 +130,11 @@ export function PathPicker({
               crumbs(data.path, sep).map((c) => (
                 <li key={c.path} className="flex items-center gap-1 break-all">
                   <span aria-hidden="true">›</span>
-                  <button type="button" className="underline" onClick={() => setPath(c.path)}>
+                  <button
+                    type="button"
+                    className="inline-flex min-h-8 items-center px-1 underline"
+                    onClick={() => setPath(c.path)}
+                  >
                     {c.label}
                   </button>
                 </li>
@@ -148,7 +156,7 @@ export function PathPicker({
               <li key={e.path}>
                 <button
                   type="button"
-                  className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-surface-2 focus-visible:bg-surface-2"
+                  className="flex w-full items-center gap-2 px-3 py-3 text-left hover:bg-surface-2 focus-visible:bg-surface-2"
                   onClick={() => (e.type === "dir" ? setPath(e.path) : pick(e.path))}
                 >
                   <span aria-hidden="true">{e.type === "dir" ? "📁" : "📄"}</span>
