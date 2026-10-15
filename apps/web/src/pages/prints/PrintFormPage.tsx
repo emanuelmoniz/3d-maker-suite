@@ -12,7 +12,7 @@ import { spoolName, useProfiles, useSpools } from "../../lib/filament.ts";
 import { formatWeight } from "../../lib/format.ts";
 import { usePreferences } from "../../lib/preferences.ts";
 import { printerName, usePrinters } from "../../lib/printers.ts";
-import { useCreatePrint, usePatchPrint, usePrint } from "../../lib/prints.ts";
+import { estimateDuration, useCreatePrint, usePatchPrint, usePrint } from "../../lib/prints.ts";
 import { projectName, useProject, useProjects } from "../../lib/projects.ts";
 import { useTagEditor } from "../../lib/tags.ts";
 
@@ -69,6 +69,7 @@ function PrintForm({ print }: { print?: PrintDetail }) {
         grams: String(u.grams),
       })),
   );
+  const [estimated, setEstimated] = useState(print?.durationEstimated ?? false);
   const [nextKey, setNextKey] = useState(rows.length);
   const [startedAt, setStartedAt] = useState(
     toLocalInput(print?.startedAt ?? new Date().toISOString()),
@@ -106,6 +107,7 @@ function PrintForm({ print }: { print?: PrintDetail }) {
       title: text(f, "title"),
       startedAt: new Date(text(f, "startedAt")).toISOString(),
       durationSec: hours || minutes ? Math.round(hours * 3600 + minutes * 60) : null,
+      durationEstimated: estimated && !!(hours || minutes),
       outcome: outcome as PrintInput["outcome"],
       failureReason: outcome === "success" ? null : text(f, "failureReason") || null,
       notes: text(f, "notes") || null,
@@ -124,6 +126,7 @@ function PrintForm({ print }: { print?: PrintDetail }) {
     });
   };
 
+  const totalGrams = rows.reduce((sum, r) => sum + (Number(r.grams) > 0 ? Number(r.grams) : 0), 0);
   const dur = print?.durationSec ?? 0;
   const hasDur = print?.durationSec != null;
   const reasonOptions = [
@@ -227,7 +230,7 @@ function PrintForm({ print }: { print?: PrintDetail }) {
           />
         )}
       </FormField>
-      <fieldset className="grid grid-cols-2 gap-4">
+      <fieldset className="grid grid-cols-2 gap-4" onInput={() => setEstimated(false)}>
         <legend className="mb-1.5 font-medium">{t("prints:form.duration")}</legend>
         <FormField label={t("prints:form.hours")}>
           {(p) => (
@@ -256,6 +259,27 @@ function PrintForm({ print }: { print?: PrintDetail }) {
             />
           )}
         </FormField>
+        <Button
+          type="button"
+          variant="secondary"
+          className="col-span-2 justify-self-start"
+          disabled={!totalGrams}
+          title={totalGrams ? undefined : t("prints:form.estimateNeedsFilament")}
+          onClick={async (e) => {
+            const form = e.currentTarget.form;
+            const sec = await estimateDuration(printerId || printers[0]?.id || "", totalGrams);
+            const set = (name: string, v: number) => {
+              const el = form?.elements.namedItem(name);
+              if (el instanceof HTMLInputElement) el.value = String(v);
+            };
+            const min = Math.round(sec / 60);
+            set("hours", Math.floor(min / 60));
+            set("minutes", min % 60);
+            setEstimated(true);
+          }}
+        >
+          {t("prints:form.estimate")}
+        </Button>
       </fieldset>
       <FormField label={t("prints:form.outcome")}>
         {(p) => (

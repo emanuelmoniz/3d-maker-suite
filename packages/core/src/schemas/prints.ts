@@ -26,6 +26,8 @@ const base = z.object({
   plate: z.number().int().positive().nullable().optional(),
   startedAt: isoDate,
   durationSec: z.number().int().nonnegative().nullable().optional(),
+  /** The duration came from the estimate button; otherwise a changed duration is a real one. */
+  durationEstimated: z.boolean().optional(),
   outcome: z.enum(PRINT_OUTCOMES),
   failureReason: z.string().min(1).nullable().optional(),
   notes: z.string().nullable().optional(),

@@ -25,7 +25,14 @@ import { printCosts } from "../lib/cost.ts";
 import { listPage, orderBy, taggedWith } from "../lib/list.ts";
 import { assertNumberFree, nextNumber } from "../lib/numbers.ts";
 import { readPreferences } from "../lib/preferences.ts";
-import { assertOpened, bookOrLink, energyFor, shortOf, syncUsages } from "../lib/prints.ts";
+import {
+  assertOpened,
+  bookOrLink,
+  energyFor,
+  estimatedDuration,
+  shortOf,
+  syncUsages,
+} from "../lib/prints.ts";
 
 const { machineProfiles, prints, printFilamentUsages, printers, projects, spools } = schema;
 const params = z.object({ id: z.uuid() });
@@ -217,6 +224,19 @@ export const printsRoutes =
     );
 
     app.get(
+      "/estimate-duration",
+      {
+        schema: {
+          querystring: z.object({ printerId: z.uuid(), grams: z.coerce.number().positive() }),
+          response: { 200: z.object({ durationSec: z.number().int() }) },
+        },
+      },
+      async (req) => ({
+        durationSec: estimatedDuration(db, req.query.printerId, req.query.grams),
+      }),
+    );
+
+    app.get(
       "/:id",
       { schema: { params, response: { 200: printDetailSchema, ...notFound } } },
       async (req) => detail(req.params.id),
@@ -271,7 +291,8 @@ export const printsRoutes =
             .set({
               ...fields,
               // A duration someone typed in (or cleared) is real.
-              ...(fields.durationSec !== undefined &&
+              ...(fields.durationEstimated === undefined &&
+                fields.durationSec !== undefined &&
                 fields.durationSec !== cur.durationSec && { durationEstimated: false }),
               failureReason: merged.outcome === "success" ? null : merged.failureReason,
               // A manual value is kept unless the request replaces it; estimates follow printer/duration.

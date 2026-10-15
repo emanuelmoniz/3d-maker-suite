@@ -28,6 +28,12 @@ export const usePrintsOfProject = (projectId: string) =>
       ),
   });
 
+export const estimateDuration = (printerId: string, grams: number) =>
+  api<{ durationSec: number }>(
+    "GET",
+    `/api/prints/estimate-duration?${new URLSearchParams({ printerId, grams: String(grams) })}`,
+  ).then((r) => r.durationSec);
+
 export const usePrint = (id: string) =>
   useQuery({
     queryKey: ["prints", id],

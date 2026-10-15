@@ -25,6 +25,8 @@
   "estimated": "~{{value}}",
   "estimatedTip": "Estimated from the filament used. Enter the real duration to replace it.",
   "form": {
+    "estimate": "Estimate from filament",
+    "estimateNeedsFilament": "Add the filament used first",
     "addTitle": "Add print",
     "editTitle": "Edit print",
     "title": "Name",

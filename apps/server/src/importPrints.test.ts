@@ -304,6 +304,16 @@ box,Benchy,2026-03-04 10:00,,success,001-Basic #000000,15`;
     const url = `/api/prints/${row()?.id}`;
     const get = async () => (await app.inject({ method: "GET", url })).json();
     expect((await get()).cost.energy).toBeGreaterThan(0);
+    // The form's estimate button, and a manual print saved with its result.
+    const printerId = row()?.printerId;
+    expect(
+      (
+        await app.inject({
+          method: "GET",
+          url: `/api/prints/estimate-duration?printerId=${printerId}&grams=30`,
+        })
+      ).json(),
+    ).toEqual({ durationSec: 7200 });
     // Saving the estimate unchanged keeps the flag.
     await app.inject({ method: "PATCH", url, payload: { durationSec: 3600 } });
     expect(row()?.durationEstimated).toBe(true);
