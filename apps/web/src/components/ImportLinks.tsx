@@ -30,12 +30,11 @@ export function ImportLinks({
 }
 
 /** Runs a type that needs no review (e.g. printers) straight away; one button per integration. */
-export function SyncButtons({ cap, text }: { cap: SyncType; text: string }) {
+export function SyncButtons({ cap }: { cap: SyncType }) {
   const { t } = useTranslation();
-  const adapterName = useAdapterName();
   return useCapable(cap).map((i) => (
     <SyncButton key={i.id} id={i.id} type={cap}>
-      {t(text, { name: adapterName(i.adapterId) })}
+      {t("integrations:syncFromCloud")}
     </SyncButton>
   ));
 }

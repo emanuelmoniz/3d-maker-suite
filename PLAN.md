@@ -61,7 +61,7 @@ count before applying it. Back up the DB before running pnpm dev.
 
 ## Phase 2 - Sync
 
-### [ ] Step 5 - "Sync from cloud" buttons
+### [x] Step 5 - "Sync from cloud" buttons
 **Model:** Sonnet · **Effort:** Low
 **Scope:** Rename the Printers page "Import from cloud" to "Sync from cloud" (i18n key and label). Add the same button to the Prints and Filament pages, each running that module's sync type through the existing sync endpoint. Hidden or disabled with a hint when no integration supports the type.
 **Done when:** all three pages show "Sync from cloud" and run their sync; i18n:check passes; tests pass.

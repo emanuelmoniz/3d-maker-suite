@@ -33,7 +33,7 @@ export function PrintersPage() {
 
   const add = (
     <span className="flex flex-wrap gap-2">
-      <SyncButtons cap="printers" text="integrations:printersImport.link" />
+      <SyncButtons cap="printers" />
       <Link to="/printers/new" className={addClass}>
         <Plus className="size-4" aria-hidden />
         {t("printers:list.add")}
