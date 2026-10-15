@@ -22,7 +22,7 @@ Do Step 1 of PLAN.md. Grep every number input and zod number schema for grams/we
 first and list them, then fix them all the same way.
 ```
 
-### [ ] Step 2 - Home page customize mode layout
+### [x] Step 2 - Home page customize mode layout
 **Model:** Sonnet (use webapp-testing skill) · **Effort:** Medium
 **Scope:** In customize mode, the widget controls are too small and overlap the widget row above. Rework the controls: proper touch-target size (≥ 40px), no overlap at 375/768/1440, keyboard accessible, i18n labels.
 **Done when:** screenshots at the 3 viewports show no overlap; the controls work with the keyboard; e2e still green.

@@ -152,15 +152,15 @@ export function HomePage() {
           const def = getWidget(item.type);
           if (!def && !editing) return null;
           return (
-            <div key={item.id} className={SPAN[def?.span ?? 1]}>
+            <div key={item.id} className={`flex flex-col ${SPAN[def?.span ?? 1]}`}>
               {editing && (
-                <div className="mb-1 flex items-center gap-1">
+                <div className="mb-2 flex items-center gap-1">
                   <span className="mr-auto truncate font-medium">
                     {def ? t(def.title) : item.type}
                   </span>
                   <Button
                     variant="ghost"
-                    className="size-8 px-0"
+                    className="h-10! w-10 px-0"
                     aria-label={t("dashboard:moveUp")}
                     disabled={i === 0}
                     onClick={() => move(i, -1)}
@@ -169,7 +169,7 @@ export function HomePage() {
                   </Button>
                   <Button
                     variant="ghost"
-                    className="size-8 px-0"
+                    className="h-10! w-10 px-0"
                     aria-label={t("dashboard:moveDown")}
                     disabled={i === layout.length - 1}
                     onClick={() => move(i, 1)}
@@ -179,7 +179,7 @@ export function HomePage() {
                   {def?.fields.length ? (
                     <Button
                       variant="ghost"
-                      className="size-8 px-0"
+                      className="h-10! w-10 px-0"
                       aria-label={t("dashboard:settings")}
                       aria-expanded={open === item.id}
                       onClick={() => setOpen(open === item.id ? null : item.id)}
@@ -189,7 +189,7 @@ export function HomePage() {
                   ) : null}
                   <Button
                     variant="ghost"
-                    className="size-8 px-0"
+                    className="h-10! w-10 px-0"
                     aria-label={t("dashboard:remove")}
                     onClick={() => store(layout.filter((x) => x.id !== item.id))}
                   >
@@ -206,7 +206,11 @@ export function HomePage() {
                   }
                 />
               )}
-              {def && <def.Component settings={resolve(def, item.settings)} />}
+              {def && (
+                <div className="min-h-0 flex-1 [&>*]:h-full">
+                  <def.Component settings={resolve(def, item.settings)} />
+                </div>
+              )}
             </div>
           );
         })}
