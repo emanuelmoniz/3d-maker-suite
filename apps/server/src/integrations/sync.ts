@@ -253,17 +253,6 @@ export function createSyncer(
         .set({ status: "ok", lastSyncAt: startedAt, lastError: null })
         .where(eq(integrations.id, id))
         .run();
-      db.update(alerts)
-        .set({ resolvedAt: new Date().toISOString() })
-        .where(
-          and(
-            eq(alerts.kind, "sync_failed"),
-            eq(alerts.entityType, "integration"),
-            eq(alerts.entityId, id),
-            isNull(alerts.resolvedAt),
-          ),
-        )
-        .run();
     } catch (e) {
       // Not set up (e.g. no slicer folder) is the caller's problem, not a failed run.
       if (e instanceof HttpError) throw e;
@@ -275,19 +264,16 @@ export function createSyncer(
         .set({ status: "error", lastError: errorCode })
         .where(eq(integrations.id, id))
         .run();
-      db.insert(alerts)
-        .values({
-          kind: "sync_failed",
-          entityType: "integration",
-          entityId: id,
-          context: { adapterId: row.adapterId }, // the web shows the adapter's name
-        })
-        .onConflictDoNothing()
-        .run();
     } finally {
       running.delete(id);
     }
 
+    const previous = db
+      .select({ status: syncRuns.status })
+      .from(syncRuns)
+      .where(and(eq(syncRuns.integrationId, id), eq(syncRuns.type, type)))
+      .orderBy(desc(syncRuns.startedAt))
+      .get();
     const saved = db
       .insert(syncRuns)
       .values({
@@ -305,6 +291,23 @@ export function createSyncer(
       })
       .returning()
       .get();
+    // A sync's result is an alert; a confirmed review (`pick`) isn't, the person is looking at it.
+    // A type that keeps failing alerts once, until a run goes through again.
+    if (!pick && policyOf(db, id, type).alert) {
+      const about = { integrationId: id, adapterId: row.adapterId, type };
+      const context = errorCode
+        ? previous?.status !== "error" && { ...about, code: errorCode }
+        : created + updated > 0 && { ...about, created, updated };
+      if (context)
+        db.insert(alerts)
+          .values({
+            kind: errorCode ? "sync_error" : "sync_success",
+            entityType: "sync_run",
+            entityId: saved.id,
+            context,
+          })
+          .run();
+    }
     const keep = db
       .select({ id: syncRuns.id })
       .from(syncRuns)

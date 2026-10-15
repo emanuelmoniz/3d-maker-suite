@@ -19,6 +19,7 @@ const ntfy: NotificationChannel = {
           ? n.title
           : `=?UTF-8?B?${Buffer.from(n.title).toString("base64")}?=`,
         ...(secrets.token ? { authorization: `Bearer ${secrets.token}` } : {}),
+        ...(n.url ? { click: n.url } : {}),
       },
       body: n.body,
       signal: AbortSignal.timeout(10_000),
@@ -46,7 +47,12 @@ const email: NotificationChannel = {
       auth: c.user ? { user: c.user, pass: secrets.password } : undefined,
       connectionTimeout: 10_000,
     });
-    await transport.sendMail({ from: c.from, to: c.to, subject: n.title, text: n.body });
+    await transport.sendMail({
+      from: c.from,
+      to: c.to,
+      subject: n.title,
+      text: n.url ? `${n.body}\n\n${n.url}` : n.body,
+    });
   },
 };
 

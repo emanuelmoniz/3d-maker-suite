@@ -12,6 +12,14 @@ const DAY_MS = 86_400_000;
 // ponytail: fixed lead time, make it a preference if anyone asks.
 const WARRANTY_LEAD_DAYS = 30;
 
+/**
+ * Events, not conditions: raised once by whoever saw them happen (the syncer), keyed by the event
+ * (a sync run), so the open-row index never merges two. Evaluate only notifies them and re-arms
+ * their snooze; they stay until dismissed.
+ * ponytail: dismissed ones are never pruned; delete old dismissed rows if the table grows.
+ */
+const ONE_SHOT = new Set<AlertKind>(["sync_success", "sync_error", "print_failed"]);
+
 type Ctx = Record<string, string | number>;
 type Found = Map<string, { kind: AlertKind; entityType: string; entityId: string; context: Ctx }>;
 
@@ -75,7 +83,7 @@ function conditions(db: Db, now: Date): Found {
 }
 
 // Server-side text for outside channels; the app itself translates by kind + context.
-function messageOf(kind: AlertKind, c: Ctx): Notification {
+function messageOf(kind: AlertKind, c: Ctx, baseUrl?: string): Notification {
   switch (kind) {
     case "spool_low":
       return { title: "Spool running low", body: `${c.name}: ${c.grams} g left` };
@@ -92,7 +100,15 @@ function messageOf(kind: AlertKind, c: Ctx): Notification {
     case "print_failed":
       return { title: "Print failed", body: String(c.title ?? "") };
     case "sync_pending":
-      return { title: "Sync needs review", body: `${c.count} ${c.type} waiting for review` };
+      return {
+        title: "Sync needs review",
+        body: `${c.count} ${c.type} waiting for review`,
+        url: baseUrl && `${baseUrl}/import/integration/${c.integrationId}/${c.type}`,
+      };
+    case "sync_success":
+      return { title: "Sync finished", body: `${c.type}: ${c.created} new, ${c.updated} updated` };
+    case "sync_error":
+      return { title: "Sync failed", body: `${c.type} could not sync (${c.code})` };
   }
 }
 
@@ -105,6 +121,8 @@ export async function evaluateAlerts(
   db: Db,
   key: Buffer,
   log: { warn: (o: object, m: string) => void },
+  /** The app's address for links in notifications; none = no links. */
+  baseUrl?: string,
   now = new Date(),
 ) {
   const stamp = now.toISOString();
@@ -112,8 +130,8 @@ export async function evaluateAlerts(
 
   db.transaction((tx) => {
     for (const a of tx.select().from(alerts).where(isNull(alerts.resolvedAt)).all()) {
-      // The syncer raises and resolves sync_failed itself; here it only gets its snooze re-armed.
-      const hit = a.kind === "sync_failed" || found.has(`${a.kind}|${a.entityType}|${a.entityId}`);
+      // Old `sync_failed` rows (before sync_error) match nothing and resolve here.
+      const hit = ONE_SHOT.has(a.kind) || found.has(`${a.kind}|${a.entityType}|${a.entityId}`);
       const cur = found.get(`${a.kind}|${a.entityType}|${a.entityId}`);
       // Keep open rows' text fresh (grams drop, wording changes) without re-notifying.
       if (cur) tx.update(alerts).set({ context: cur.context }).where(eq(alerts.id, a.id)).run();
@@ -143,7 +161,7 @@ export async function evaluateAlerts(
   for (const a of pending) {
     // Mark first: a slow channel must not let a concurrent run send the same alert twice.
     db.update(alerts).set({ notifiedAt: stamp }).where(eq(alerts.id, a.id)).run();
-    const n = messageOf(a.kind, a.context);
+    const n = messageOf(a.kind, a.context, baseUrl);
     for (const c of targets)
       try {
         await sendVia(db, key, c.id, n);

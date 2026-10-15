@@ -1,4 +1,5 @@
 import { randomBytes } from "node:crypto";
+import { hostname } from "node:os";
 import type { IntegrationAdapter } from "@3d-maker-suite/core";
 import type { Db } from "@3d-maker-suite/db";
 import swagger from "@fastify/swagger";
@@ -151,9 +152,13 @@ export async function buildApp(
 
   // Runs one at a time, so a condition can't be sent twice by overlapping checks.
   let queue = Promise.resolve();
+  const net = opts.serverConfig;
+  // Links in notifications; a wildcard host is reached by the machine's name.
+  const baseUrl =
+    net && `http://${["0.0.0.0", "::"].includes(net.host) ? hostname() : net.host}:${net.port}`;
   const evaluate = () =>
     (queue = queue
-      .then(() => evaluateAlerts(db, key, app.log))
+      .then(() => evaluateAlerts(db, key, app.log, baseUrl))
       .catch((err) => app.log.error({ err }, "alert check failed")));
   await app.register(alertsRoutes(db, key, evaluate), { prefix: "/api/alerts" });
   if (opts.alertsSchedule) {

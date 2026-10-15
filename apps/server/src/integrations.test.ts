@@ -254,7 +254,7 @@ describe("integrations", () => {
     expect(await syncType(id, "prints")).toMatchObject({ created: 0, pending: 1 });
   });
 
-  it("records failures as an error code, raises and resolves a sync_failed alert", async () => {
+  it("records failures as an error code and raises one sync_error per failing streak", async () => {
     const { id } = await create();
     state.fail = "auth_expired";
     expect(await sync(id)).toMatchObject({ status: "error", errorCode: "auth_expired" });
@@ -269,12 +269,13 @@ describe("integrations", () => {
         .select()
         .from(schema.alerts)
         .all()
-        .filter((a) => a.kind === "sync_failed" && a.entityId === id && !a.resolvedAt);
+        .filter((a) => a.kind === "sync_error" && a.context.integrationId === id);
     expect(open()).toHaveLength(1);
 
     state.fail = undefined;
     expect(await sync(id)).toMatchObject({ status: "ok" });
-    expect(open()).toHaveLength(0);
+    // An event, not a condition: it stays until dismissed.
+    expect(open()).toHaveLength(1);
   });
 
   it("skips prints of unknown printers and keeps imported rows when the integration goes", async () => {

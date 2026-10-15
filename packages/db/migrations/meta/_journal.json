@@ -267,6 +267,13 @@
       "when": 1792075718902,
       "tag": "0037_print_renumber",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "6",
+      "when": 1792078970124,
+      "tag": "0038_sync_result_alerts",
+      "breakpoints": true
     }
   ]
 }

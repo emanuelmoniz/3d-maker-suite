@@ -127,6 +127,8 @@ export class IntegrationError extends Error {
 export interface Notification {
   title: string;
   body: string;
+  /** Where to act on it in the app, absolute. */
+  url?: string;
 }
 
 /** Where alerts go besides the in-app center (ntfy, email, ...). Settings are stored like an integration's. */

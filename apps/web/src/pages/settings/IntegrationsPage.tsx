@@ -65,7 +65,7 @@ export const ERRORS: Record<IntegrationErrorCode, string> = {
   unknown: "integrations:errors.unknown",
 };
 // Also the Type column of the sync log.
-const CAPS: Record<Capability, string> = {
+export const CAPS: Record<Capability, string> = {
   printers: "integrations:capabilities.printers",
   prints: "integrations:capabilities.prints",
   spools: "integrations:capabilities.spools",

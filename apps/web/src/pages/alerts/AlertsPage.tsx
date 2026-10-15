@@ -1,4 +1,4 @@
-import type { Alert, ReviewedType } from "@3d-maker-suite/core";
+import type { Alert, Capability, IntegrationErrorCode, ReviewedType } from "@3d-maker-suite/core";
 import { Link } from "@tanstack/react-router";
 import { BellOff } from "lucide-react";
 import type { ReactNode } from "react";
@@ -11,6 +11,7 @@ import { useAlertAction, useAlerts } from "../../lib/alerts.ts";
 import { formatDate } from "../../lib/format.ts";
 import { useAdapterName } from "../../lib/integrations.ts";
 import { TITLE } from "../import/SourceReviewPage.tsx";
+import { CAPS, ERRORS } from "../settings/IntegrationsPage.tsx";
 
 const link = "font-medium hover:underline";
 const buttonLink =
@@ -62,6 +63,27 @@ function Title({ a }: { a: Alert }) {
             count: Number(c.count),
           })}
         </span>
+      );
+    case "sync_success":
+      return (
+        <Link to="/integrations" className={link}>
+          {t("alerts:kinds.sync_success", {
+            name: adapterName(String(c.adapterId)),
+            type: t(CAPS[c.type as Capability] ?? ""),
+            count: Number(c.created),
+            updated: c.updated,
+          })}
+        </Link>
+      );
+    case "sync_error":
+      return (
+        <Link to="/integrations" className={link}>
+          {t("alerts:kinds.sync_error", {
+            name: adapterName(String(c.adapterId)),
+            type: t(CAPS[c.type as Capability] ?? ""),
+            reason: t(ERRORS[c.code as IntegrationErrorCode] ?? ERRORS.unknown),
+          })}
+        </Link>
       );
   }
 }

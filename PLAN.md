@@ -71,7 +71,7 @@ Do Step 5 of PLAN.md. Reuse the Printers button and its endpoint; one shared com
 if the three are the same.
 ```
 
-### [ ] Step 6 - Sync result alerts  **[plan mode]**
+### [x] Step 6 - Sync result alerts  **[plan mode]**
 **Model:** Opus · **Effort:** Medium
 **Scope:**
 - New one-shot alert kinds: `sync_success` (sync finished with new content: counts in the context) and `sync_error` (sync failed: error code, never secrets). A sync that adds nothing raises no alert. These alerts are dismissible on the Alerts page and are sent to the alert channels (ntfy/email via `messageOf`).

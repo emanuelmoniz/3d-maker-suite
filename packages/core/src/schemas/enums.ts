@@ -9,6 +9,8 @@ export const ALERT_KINDS = [
   "print_failed",
   "warranty_ending",
   "sync_pending",
+  "sync_success",
+  "sync_error",
 ] as const;
 export const COMMENT_STATUSES = ["open", "resolved"] as const;
 export const SPOOL_STATUSES = ["new", "in_use", "empty"] as const;
