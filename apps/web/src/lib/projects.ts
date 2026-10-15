@@ -13,11 +13,21 @@ import { api } from "./api.ts";
 
 // ponytail: one page of 100 projects, add pagination controls if libraries get bigger.
 // Tag and collection filter on the server; material, multicolor and search on the page.
-// ponytail: the first 100 projects, for pickers; the projects page pages on the server.
+// Every project, for pickers (page by page, the API's limit); the projects page pages on the server.
 export const useProjects = () =>
   useQuery({
     queryKey: ["projects", "list", "all"],
-    queryFn: () => api<Page<Project>>("GET", "/api/projects?pageSize=100&sort=name"),
+    queryFn: async () => {
+      const items: Project[] = [];
+      for (let page = 1; ; page++) {
+        const p = await api<Page<Project>>(
+          "GET",
+          `/api/projects?pageSize=100&sort=name&page=${page}`,
+        );
+        items.push(...p.items);
+        if (!p.items.length || items.length >= p.total) return { ...p, items };
+      }
+    },
   });
 
 export const useProjectMaterials = () =>
@@ -30,6 +40,7 @@ export const useProject = (id: string) =>
   useQuery({
     queryKey: ["projects", id],
     queryFn: () => api<Project>("GET", `/api/projects/${id}`),
+    enabled: !!id,
   });
 
 export const projectThumbnailUrl = (p: Pick<Project, "id" | "updatedAt">) =>

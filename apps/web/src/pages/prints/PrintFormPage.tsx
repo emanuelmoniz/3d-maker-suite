@@ -13,6 +13,7 @@ import { formatWeight } from "../../lib/format.ts";
 import { usePreferences } from "../../lib/preferences.ts";
 import { printerName, usePrinters } from "../../lib/printers.ts";
 import { useCreatePrint, usePatchPrint, usePrint } from "../../lib/prints.ts";
+import { projectName, useProject, useProjects } from "../../lib/projects.ts";
 import { useTagEditor } from "../../lib/tags.ts";
 
 const text = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
@@ -34,6 +35,13 @@ function PrintForm({ print }: { print?: PrintDetail }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const printers = usePrinters({ archived: false }).data?.items ?? [];
+  // Active projects by number, plus the print's own: the list leaves an archived one out, and
+  // saving without it would unlink the print.
+  const active = useProjects().data?.items ?? [];
+  const own = useProject(print?.projectId ?? "").data;
+  const projects = [...active, ...(own && !active.some((p) => p.id === own.id) ? [own] : [])].sort(
+    (a, b) => a.number - b.number,
+  );
   const spools = useSpools().data?.items ?? [];
   const profiles = useProfiles().data?.items ?? [];
   const reasons = usePreferences().data?.values.failureReasons ?? [];
@@ -93,6 +101,7 @@ function PrintForm({ print }: { print?: PrintDetail }) {
     const body: PrintInput = {
       number: text(f, "number") ? Number(text(f, "number")) : undefined,
       printerId: text(f, "printer"),
+      projectId: text(f, "project") || null,
       machineProfileId: text(f, "machineProfile") || null,
       title: text(f, "title"),
       startedAt: new Date(text(f, "startedAt")).toISOString(),
@@ -156,6 +165,29 @@ function PrintForm({ print }: { print?: PrintDetail }) {
             {printers.map((pr) => (
               <option key={pr.id} value={pr.id}>
                 {printerName(t, pr)}
+              </option>
+            ))}
+          </select>
+        )}
+      </FormField>
+      <FormField label={t("prints:form.project")}>
+        {(p) => (
+          <select
+            // Options arrive after the form: remount so defaultValue applies.
+            key={projects.length}
+            {...p}
+            name="project"
+            // A new print needs one; an old one may be saved while it has none yet.
+            required={!print}
+            className={inputClass}
+            defaultValue={print?.projectId ?? ""}
+          >
+            <option value="">
+              {t(print ? "prints:form.noProject" : "prints:form.pickProject")}
+            </option>
+            {projects.map((pr) => (
+              <option key={pr.id} value={pr.id}>
+                {projectName(t, pr)}
               </option>
             ))}
           </select>
