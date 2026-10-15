@@ -108,7 +108,7 @@ Do Step 8 of PLAN.md. Grep every toLocale*/Intl.DateTimeFormat/date-format call 
 and route them all through one helper.
 ```
 
-### [ ] Step 9 - Back button = browser back
+### [x] Step 9 - Back button = browser back
 **Model:** Sonnet · **Effort:** Low
 **Scope:** Every page back link goes to the previous page (`history.back()` through the router). Fall back to the current fixed route when there is no in-app history (deep link, new tab). One shared back component.
 **Done when:** back returns to the page you came from (e.g. a spool opened from a print goes back to the print); a deep link still has a working back; e2e still green.
