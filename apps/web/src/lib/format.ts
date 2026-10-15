@@ -21,7 +21,7 @@ export const formatDateTime = (d: Date | string | number) =>
 export const formatWeight = (grams: number) =>
   Math.abs(grams) >= 1000
     ? num({ style: "unit", unit: "kilogram", maximumFractionDigits: 2 }).format(grams / 1000)
-    : num({ style: "unit", unit: "gram", maximumFractionDigits: 1 }).format(grams);
+    : num({ style: "unit", unit: "gram", maximumFractionDigits: 2 }).format(grams);
 
 /** Seconds in, "2h 5m" out (narrow unit style). Under a minute shows seconds. */
 export function formatDuration(seconds: number) {

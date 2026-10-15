@@ -117,7 +117,7 @@ function Calculator({ ctx }: { ctx: CostContext }) {
         .filter((x) => x.grams != null)
         .map((x) => ({
           label: x.type ?? "",
-          grams: Math.round((x.grams as number) * 10) / 10,
+          grams: Math.round((x.grams as number) * 100) / 100,
           price: (materialPrice(ctx, x.type) ?? 0) / 100 || null,
         })),
     });
@@ -240,7 +240,7 @@ function Calculator({ ctx }: { ctx: CostContext }) {
                 <Num
                   label={t("costs:form.grams")}
                   value={r.grams}
-                  step={0.1}
+                  step={0.01}
                   onChange={(n) => row(i, { grams: n ?? 0 })}
                 />
                 <Num

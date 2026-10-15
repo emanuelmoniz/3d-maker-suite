@@ -95,7 +95,7 @@ export function SpoolForm({
       {(p) => <input {...p} name={name} className={inputClass} {...props} />}
     </FormField>
   );
-  const grams = { type: "number", min: 0, step: 0.1 } as const;
+  const grams = { type: "number", min: 0, step: 0.01 } as const;
   return (
     <form onSubmit={onSubmit} className="grid gap-4 sm:max-w-md">
       {field(

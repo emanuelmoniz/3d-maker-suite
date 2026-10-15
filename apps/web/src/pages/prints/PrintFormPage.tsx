@@ -297,8 +297,8 @@ function PrintForm({ print }: { print?: PrintDetail }) {
                     {...p}
                     required
                     type="number"
-                    min={0.1}
-                    step={0.1}
+                    min={0.01}
+                    step={0.01}
                     className={inputClass}
                     value={r.grams}
                     onChange={(e) => setRow(r.key, { grams: e.target.value })}

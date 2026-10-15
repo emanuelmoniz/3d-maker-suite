@@ -12,7 +12,7 @@ Status legend: `[ ]` todo · `[x]` done
 
 ## Phase 1 - Bugs
 
-### [ ] Step 1 - Two-decimal filament grams
+### [x] Step 1 - Two-decimal filament grams
 **Model:** Sonnet · **Effort:** Low
 **Scope:** The print edit form rounds filament usage to whole grams, but the DB keeps decimals. Allow 2 decimals (`step="0.01"`, and zod/parse not rounding) on the print form and anywhere else grams or other decimal quantities are entered: spool form, adjust dialog, review table, import parsing. Show them with locale-aware number formatting.
 **Done when:** 12.34 g saves and shows again as 12.34 on the print form and every other grams input; tests pass.

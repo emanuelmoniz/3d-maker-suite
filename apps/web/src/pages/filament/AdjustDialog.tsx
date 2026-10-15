@@ -88,7 +88,7 @@ export function AdjustDialog({
                   type="number"
                   required
                   min={0}
-                  step={0.1}
+                  step={0.01}
                   defaultValue={spool.remainingGrams}
                   className={inputClass}
                 />
@@ -124,7 +124,7 @@ export function AdjustDialog({
                   </span>
                   <span className="tabular-nums">
                     {e.deltaGrams > 0 ? "+" : ""}
-                    {formatNumber(e.deltaGrams, { maximumFractionDigits: 1 })} g
+                    {formatNumber(e.deltaGrams, { maximumFractionDigits: 2 })} g
                     <span className="block text-xs text-muted">
                       {formatWeight(e.remainingAfter)}
                     </span>
