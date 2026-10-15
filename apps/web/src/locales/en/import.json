@@ -155,7 +155,12 @@
     "noSpool": "No spool: the grams wait for review",
     "checkSpool": "Picked from several spools of this colour: check it",
     "addSpool": "Add new spool…",
-    "trackUsageFor": "Take the filament of row {{row}} from the spools"
+    "trackUsageFor": "Take the filament of row {{row}} from the spools",
+    "projectBulk": "Set project",
+    "projectBulkPick": "Project for the rows",
+    "trackBulk": "Filament usage",
+    "trackOn": "Take from spools",
+    "trackOff": "Don't take from spools"
   },
   "done": {
     "summary": "Import finished: {{created, number}} created, {{updated, number}} updated.",

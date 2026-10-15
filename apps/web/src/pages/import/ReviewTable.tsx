@@ -168,6 +168,25 @@ export function ReviewTable({
   const tracks = (r: ImportPreviewRow) => decisionOf(r).trackUsage ?? r.values[TRACK] !== "no";
   const decide = (r: ImportPreviewRow, patch: Partial<ImportDecision>) =>
     setDecisions((d) => ({ ...d, [r.row]: { ...(d[r.row] ?? suggested(r)), ...patch } }));
+  const [project, setProject] = useState("");
+  // The bulk project goes to the scope's rows that are created and take a project pick.
+  const setProjectBulk = () =>
+    setDecisions((d) => {
+      const next = { ...d };
+      for (const r of inScope[scope]) {
+        const cur = next[r.row] ?? suggested(r);
+        if (cur.action === "create" && r.refs && "project" in r.refs)
+          next[r.row] = { ...cur, refs: { ...cur.refs, project } };
+      }
+      return next;
+    });
+  const trackBulk = (on: boolean) =>
+    setDecisions((d) => {
+      const next = { ...d };
+      for (const r of inScope[scope])
+        next[r.row] = { ...(next[r.row] ?? suggested(r)), trackUsage: on };
+      return next;
+    });
   const toggle = <T,>(set: Set<T>, v: T) => {
     const next = new Set(set);
     if (!next.delete(v)) next.add(v);
@@ -574,6 +593,40 @@ export function ReviewTable({
           </select>
         </label>
       </div>
+
+      {entity === "prints" && (
+        <div className="flex flex-wrap items-end gap-3 rounded-lg border border-border bg-surface p-3">
+          <label className="flex flex-col gap-1.5">
+            <span className="font-medium">{t("import:review.projectBulkPick")}</span>
+            <select
+              className={selectClass}
+              value={project}
+              onChange={(e) => setProject(e.target.value)}
+            >
+              <option value="">{t("import:review.needsRef")}</option>
+              {(preview.refOptions?.project ?? []).map((o) => (
+                <option key={o.id} value={o.id}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <Button disabled={!project || !inScope[scope].length} onClick={setProjectBulk}>
+            {t("import:review.projectBulk")}
+          </Button>
+          <span className="font-medium sm:ml-auto">{t("import:review.trackBulk")}</span>
+          <Button variant="ghost" disabled={!inScope[scope].length} onClick={() => trackBulk(true)}>
+            {t("import:review.trackOn")}
+          </Button>
+          <Button
+            variant="ghost"
+            disabled={!inScope[scope].length}
+            onClick={() => trackBulk(false)}
+          >
+            {t("import:review.trackOff")}
+          </Button>
+        </div>
+      )}
 
       <DataTable
         label={t("import:review.title")}
