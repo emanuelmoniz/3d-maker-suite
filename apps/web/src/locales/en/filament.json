@@ -109,7 +109,6 @@
     "noSpools": "No spools use this profile yet."
   },
   "spoolImport": {
-    "link": "Import spools from {{name}}",
     "remainingOf": "{{remaining}} of {{initial}}"
   },
   "catalog": {
