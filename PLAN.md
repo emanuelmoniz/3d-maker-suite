@@ -98,7 +98,7 @@ Do Step 7 of PLAN.md. Verify first and tell me what is already done before chang
 
 ## Phase 3 - UI & UX
 
-### [ ] Step 8 - Date and time format setting
+### [x] Step 8 - Date and time format setting
 **Model:** Sonnet · **Effort:** Medium
 **Scope:** General settings get a date format (default `YYYY/MM/DD`, plus a few common ones) and a time format (default 24h, or 12h). One web helper formats every date/time in the app (tables, forms display, charts, alerts) and is built on `Intl`, so it stays locale-aware. New preference fields; native date inputs stay native.
 **Done when:** changing the setting changes every displayed date/time; defaults are YYYY/MM/DD and 24h; no other date formatting is left; tests pass.

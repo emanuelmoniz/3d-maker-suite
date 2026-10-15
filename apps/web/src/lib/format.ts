@@ -1,3 +1,4 @@
+import { type DateFormat, PREFERENCE_DEFAULTS, type TimeFormat } from "@3d-maker-suite/core";
 import i18n from "../i18n.ts";
 
 // Values are stored in base units (UTC ISO dates, grams, seconds, kWh) and formatted at render time.
@@ -9,13 +10,35 @@ export const formatNumber = (n: number, opts?: Intl.NumberFormatOptions) => num(
 export const formatCurrency = (amount: number, currency = "EUR") =>
   num({ style: "currency", currency }).format(amount);
 
-export const formatDate = (d: Date | string | number) =>
-  new Intl.DateTimeFormat(locale(), { dateStyle: "medium" }).format(new Date(d));
+// The only place dates are formatted. AppShell pushes the saved preferences in and remounts on change.
+let dateFormat: DateFormat = PREFERENCE_DEFAULTS.dateFormat;
+let timeFormat: TimeFormat = PREFERENCE_DEFAULTS.timeFormat;
+export function setDateTimePrefs(p: { dateFormat: DateFormat; timeFormat: TimeFormat }) {
+  dateFormat = p.dateFormat;
+  timeFormat = p.timeFormat;
+}
 
-export const formatDateTime = (d: Date | string | number) =>
-  new Intl.DateTimeFormat(locale(), { dateStyle: "medium", timeStyle: "short" }).format(
-    new Date(d),
-  );
+export const formatDate = (d: Date | string | number) => {
+  const parts = new Intl.DateTimeFormat(locale(), {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date(d));
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
+  return dateFormat
+    .replace("YYYY", get("year"))
+    .replace("MM", get("month"))
+    .replace("DD", get("day"));
+};
+
+export const formatTime = (d: Date | string | number) =>
+  new Intl.DateTimeFormat(locale(), {
+    hour: timeFormat === "24h" ? "2-digit" : "numeric",
+    minute: "2-digit",
+    hourCycle: timeFormat === "24h" ? "h23" : "h12",
+  }).format(new Date(d));
+
+export const formatDateTime = (d: Date | string | number) => `${formatDate(d)} ${formatTime(d)}`;
 
 /** Grams in, "850 g" or "1.2 kg" out. */
 export const formatWeight = (grams: number) =>

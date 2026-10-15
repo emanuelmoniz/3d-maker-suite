@@ -5,6 +5,8 @@ import { useTranslation } from "react-i18next";
 import { unreadCount, useAlerts } from "../lib/alerts.ts";
 import { useApplyBranding, useAppName, useBrandingUrl } from "../lib/branding.ts";
 import { cx } from "../lib/cx.ts";
+import { setDateTimePrefs } from "../lib/format.ts";
+import { usePreferences } from "../lib/preferences.ts";
 import {
   ALL_ITEMS,
   IMPORT_ITEM,
@@ -146,6 +148,8 @@ function BottomNav() {
 export function AppShell() {
   const { t } = useTranslation();
   useApplyBranding();
+  const prefs = usePreferences().data?.values;
+  if (prefs) setDateTimePrefs(prefs);
   return (
     <div className="flex min-h-dvh">
       <a
@@ -155,7 +159,11 @@ export function AppShell() {
         {t("common:a11y.skipToContent")}
       </a>
       <Sidebar />
-      <main id="main" className={cx("min-w-0 flex-1 px-4 pb-24 pt-5 md:px-8 md:pb-10 md:pt-8")}>
+      <main
+        id="main"
+        key={`${prefs?.dateFormat}${prefs?.timeFormat}`}
+        className={cx("min-w-0 flex-1 px-4 pb-24 pt-5 md:px-8 md:pb-10 md:pt-8")}
+      >
         <div className="mx-auto max-w-6xl">
           <Outlet />
         </div>

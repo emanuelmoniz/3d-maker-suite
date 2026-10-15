@@ -1,4 +1,4 @@
-import type { Preferences } from "@3d-maker-suite/core";
+import { DATE_FORMATS, type Preferences } from "@3d-maker-suite/core";
 import { useTranslation } from "react-i18next";
 import { FormField, inputClass } from "../components/FormField.tsx";
 import { PageHeader } from "../components/PageHeader.tsx";
@@ -68,6 +68,39 @@ export function SettingsPage() {
               >
                 <option value="metric">{t("settings:general.unitsMetric")}</option>
                 <option value="imperial">{t("settings:general.unitsImperial")}</option>
+              </select>
+            )}
+          </FormField>
+          <FormField label={t("settings:general.dateFormat")}>
+            {(p) => (
+              <select
+                {...p}
+                className={inputClass}
+                value={v.dateFormat}
+                onChange={(e) =>
+                  commit({ dateFormat: e.target.value as Preferences["dateFormat"] })
+                }
+              >
+                {DATE_FORMATS.map((f) => (
+                  <option key={f} value={f}>
+                    {f}
+                  </option>
+                ))}
+              </select>
+            )}
+          </FormField>
+          <FormField label={t("settings:general.timeFormat")}>
+            {(p) => (
+              <select
+                {...p}
+                className={inputClass}
+                value={v.timeFormat}
+                onChange={(e) =>
+                  commit({ timeFormat: e.target.value as Preferences["timeFormat"] })
+                }
+              >
+                <option value="24h">{t("settings:general.time24h")}</option>
+                <option value="12h">{t("settings:general.time12h")}</option>
               </select>
             )}
           </FormField>

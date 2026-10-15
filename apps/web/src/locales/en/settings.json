@@ -21,6 +21,10 @@
     "units": "Units",
     "unitsMetric": "Metric (g, mm)",
     "unitsImperial": "Imperial (oz, in)",
+    "dateFormat": "Date format",
+    "timeFormat": "Time format",
+    "time24h": "24-hour (14:30)",
+    "time12h": "12-hour (2:30 PM)",
     "defaultPrinter": "Default printer ID",
     "defaultPrinterHint": "Pre-selected when you log a print. A picker arrives with the printers module."
   },

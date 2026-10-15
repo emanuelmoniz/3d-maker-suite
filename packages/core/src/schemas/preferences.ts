@@ -4,6 +4,16 @@ export const LANGUAGES = ["en"] as const;
 export const UNIT_SYSTEMS = ["metric", "imperial"] as const;
 export const THEME_MODES = ["light", "dark", "system"] as const;
 export const ACCENT_COLORS = ["teal", "blue", "violet", "rose", "amber"] as const;
+export const DATE_FORMATS = [
+  "YYYY/MM/DD",
+  "YYYY-MM-DD",
+  "DD/MM/YYYY",
+  "MM/DD/YYYY",
+  "DD.MM.YYYY",
+] as const;
+export const TIME_FORMATS = ["24h", "12h"] as const;
+export type DateFormat = (typeof DATE_FORMATS)[number];
+export type TimeFormat = (typeof TIME_FORMATS)[number];
 
 /** One widget on the Home dashboard. `type` names a registered web widget; `settings` is its own schema. */
 export const dashboardWidgetSchema = z.object({
@@ -16,6 +26,8 @@ const shape = {
   language: z.enum(LANGUAGES),
   units: z.enum(UNIT_SYSTEMS),
   defaultPrinterId: z.string().nullable(),
+  dateFormat: z.enum(DATE_FORMATS),
+  timeFormat: z.enum(TIME_FORMATS),
   themeMode: z.enum(THEME_MODES),
   accent: z.enum(ACCENT_COLORS),
   /** Custom app name shown in the sidebar and tab title. Empty = the default (`common:appName`). */
@@ -62,6 +74,8 @@ export const PREFERENCE_DEFAULTS: z.infer<typeof preferencesSchema> = {
   language: "en",
   units: "metric",
   defaultPrinterId: null,
+  dateFormat: "YYYY/MM/DD",
+  timeFormat: "24h",
   themeMode: "system",
   accent: "teal",
   appName: "",
