@@ -2,6 +2,35 @@
 
 All notable changes are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.2.0-alpha.1] - 2026-10-15
+
+### Added
+- Settings module pages for costs, prints, projects, printers, filament and alerts, with gear buttons on each page
+- Path picker in Settings to choose the slicer executable, config folders and project roots
+- Projects: add a project from a folder, and link a `.md` or `.txt` file as its description (`.md` is rendered as markdown)
+- Projects: pick the project on the print form
+- Filament: spool number and colour name, with a display name built from them; numbers are unique and padded in display names
+- Printers and projects get a unique, editable number and display name
+- Spool numbers and colour names in the spreadsheet import
+- Prints import creates print numbers and requires a project for every imported print
+- Estimated print duration when a print has grams but no time, plus an "Estimate from filament" button on the print form
+- `sync_pending` alert for rows an automatic sync leaves for your review, with a Review button and a toggle
+- Review synced prints and match spools added later; pick the spool per slot in the sync review
+- Spool pickers for file prints in the import review, add a spool from the review, and a track-usage tick per print row
+
+### Changed
+- Spools go empty at 0 g and refuse prints from before they were opened
+- Spools are matched by capacity and age; guesses are flagged for review
+- Filament usage always takes grams from the spool, including for prints older than it
+- Spool page lists its prints and projects; clearer filament errors
+- MakerWorld prints link to projects by the model title in the 3MF
+- Duration section sits after filament on the print form
+
+### Fixed
+- Import matches references by their number, padded or not
+- Duplicate file-upload label focus outline removed
+- Responsive layout fixes found by the end-to-end pass at 375, 768 and 1440 px
+
 ## [1.1.0-alpha.1] - 2026-10-14
 
 ### Added

@@ -26,7 +26,9 @@ Then open `http://<your-PC-address>:4300` from the other device and enter the pa
 
 ## In-app settings
 
-The Settings page covers general options, appearance, costs (currency, energy, labour, markup), printers, prints, projects (the folders the app watches), integrations, alerts, backups, language and network.
+The Settings page covers general options, appearance, costs (currency, energy, labour, markup), printers, prints, projects (the folders the app watches), integrations, alerts, backups, language and network. Each module has its own config page, opened from the gear button on that module.
+
+- **Path picker** (slicer executable, slicer config folders, project roots): browses the folders on the machine running the server and lists names only. It never opens or reads a file while you browse. It is not limited to the project roots, because that is how you choose them. Only use it on a server you trust, and set `APP_PASSWORD` before exposing the app beyond this PC.
 
 - **Branding** (Settings → Appearance): the app name, logo and favicon. Leave the name empty for the default.
 - **Network** (Settings → Network): the host and port saved for the next start. **Restart and open in new tab** applies them. The page shows when a command-line flag or environment variable is overriding the saved value.

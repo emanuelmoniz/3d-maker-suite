@@ -158,7 +158,7 @@ Do Step 9 of PLAN.md. Same fresh-temp-data-dir pattern as the existing suite.
 List UI issues found and fix them in this step.
 ```
 
-### [ ] Step 10 - Docs & v1.2.0-alpha.1 release
+### [x] Step 10 - Docs & v1.2.0-alpha.1 release
 **Model:** Haiku · **Effort:** Low
 **Scope:** README/docs updates (module config pages, path picker and its security note, project description files, spool numbers and color names, estimated durations, sync alerts), CHANGELOG, version `1.2.0-alpha.1`, release workflow publishes it as a GitHub pre-release.
 **Done when:** tag builds a pre-release; docs match the app.

@@ -9,9 +9,9 @@ A local-first manager for your 3D printing: printers, maintenance, filament, pro
 
 - **Printers**: inventory, timeline, comments, warranty and purchase info
 - **Maintenance**: reusable tasks, due by hours, prints or days
-- **Filament**: brands, materials, profiles, spools, remaining grams, low-spool alerts
-- **Projects**: 3MF models with plates, thumbnails, tags, collections and filament colours
-- **Prints**: history with outcome, filament usage per AMS slot (up to 16 for multicolor), energy
+- **Filament**: brands, materials, profiles, spools with numbers and colour names, remaining grams, low-spool alerts
+- **Projects**: 3MF models with plates, thumbnails, tags, collections, filament colours, and a description from a linked `.md` or `.txt` file
+- **Prints**: history with outcome, filament usage per AMS slot (up to 16 for multicolor), energy, and an estimated duration when only the grams are known
 - **Costs and stats**: cost per print snapshotted at record time, charts by period
 - **Integrations** (optional): Bambu Cloud, Bambu Studio and OrcaSlicer, with a sync mode and frequency per data type
 - **Import**: spreadsheets (spools, printers, prints) and slicer catalogs from a zip, reviewed row by row before anything is saved
@@ -36,7 +36,7 @@ Then open <http://127.0.0.1:4300>. Full steps and Windows notes: [docs/install.m
 
 ## Connect Bambu Cloud (optional)
 
-Sign in with your Bambu account on the Integrations page. The app syncs print history every hour and printers every day by default (mode and frequency are set per type), and you can sync each type or a date range by hand. Manual entry works without an account.
+Sign in with your Bambu account on the Integrations page. The app syncs print history every hour and printers every day by default (mode and frequency are set per type), and you can sync each type or a date range by hand. Prints an automatic sync cannot match to one spool wait for your review, with a **Sync needs review** alert. Manual entry works without an account.
 
 Details, region choice and troubleshooting: [docs/bambu-cloud.md](docs/bambu-cloud.md).
 
@@ -61,7 +61,7 @@ By default the app only answers on this PC. To reach it from your phone or anoth
 
 ## Status
 
-Version 1.1.0-alpha.1 (pre-release). English only for now; the code is ready for more languages (see [CONTRIBUTING.md](CONTRIBUTING.md)).
+Version 1.2.0-alpha.1 (pre-release). English only for now; the code is ready for more languages (see [CONTRIBUTING.md](CONTRIBUTING.md)).
 
 ## License
 

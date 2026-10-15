@@ -43,7 +43,13 @@ Each filament slot of a new print has a spool picker:
 - **Add new spool…** at the end of the list adds a spool without leaving the review and picks it.
 - **Track usage** is a tick on every print row, from a file or an integration. It starts from the file's *Track usage* cell (ticked unless it says `no`; ticked for an integration). Untick a row to save that print and its filament without changing the spools' weights, for example for prints your spools already account for.
 
-A spool is marked **Empty** as soon as its remaining weight reaches 0 g, and **In use** once filament is taken from it.
+A spool is marked **Empty** as soon as its remaining weight reaches 0 g, and **In use** once filament is taken from it. Spools have a **Number** (unique; leave it empty for the next free one) and an optional colour name. The spool's display name is built from them.
+
+Printers and projects get a unique number and display name too. Imported prints get their own print numbers, and every imported print needs a project.
+
+## Estimated durations
+
+A print that has grams but no duration gets an estimated duration: its grams divided by the printer's average grams-per-hour from its past prints (a preset default applies until there are some). The print is marked as estimated. A real duration, from a file or an integration, replaces the estimate. On the print form, **Estimate from filament** fills the duration the same way.
 
 ## Import history
 
