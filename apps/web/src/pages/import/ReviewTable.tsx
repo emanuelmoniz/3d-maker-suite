@@ -169,6 +169,7 @@ export function ReviewTable({
   const decide = (r: ImportPreviewRow, patch: Partial<ImportDecision>) =>
     setDecisions((d) => ({ ...d, [r.row]: { ...(d[r.row] ?? suggested(r)), ...patch } }));
   const [project, setProject] = useState("");
+  const [spool, setSpool] = useState("");
   // The bulk project goes to the scope's rows that are created and take a project pick.
   const setProjectBulk = () =>
     setDecisions((d) => {
@@ -177,6 +178,24 @@ export function ReviewTable({
         const cur = next[r.row] ?? suggested(r);
         if (cur.action === "create" && r.refs && "project" in r.refs)
           next[r.row] = { ...cur, refs: { ...cur.refs, project } };
+      }
+      return next;
+    });
+  // The bulk spool goes to created rows with one spool slot, when the spool fits the print.
+  const setSpoolBulk = () =>
+    setDecisions((d) => {
+      const next = { ...d };
+      for (const r of inScope[scope]) {
+        const cur = next[r.row] ?? suggested(r);
+        const slots = picks(r).filter((k) => k !== "project");
+        const key = slots[0];
+        if (
+          cur.action === "create" &&
+          key &&
+          slots.length === 1 &&
+          optionsFor(r, key, null).some((o) => o.id === spool)
+        )
+          next[r.row] = { ...cur, refs: { ...cur.refs, [key]: spool } };
       }
       return next;
     });
@@ -613,6 +632,26 @@ export function ReviewTable({
           </label>
           <Button disabled={!project || !inScope[scope].length} onClick={setProjectBulk}>
             {t("import:review.projectBulk")}
+          </Button>
+          <label className="flex flex-col gap-1.5">
+            <span className="font-medium">{t("import:review.spoolBulkPick")}</span>
+            <select
+              className={selectClass}
+              value={spool}
+              onChange={(e) => setSpool(e.target.value)}
+            >
+              <option value="">{t("import:review.needsRef")}</option>
+              {(preview.refOptions?.[printSlotKeys(1).spool] ?? [])
+                .filter((o) => !o.empty)
+                .map((o) => (
+                  <option key={o.id} value={o.id}>
+                    {o.label}
+                  </option>
+                ))}
+            </select>
+          </label>
+          <Button disabled={!spool || !inScope[scope].length} onClick={setSpoolBulk}>
+            {t("import:review.spoolBulk")}
           </Button>
           <span className="font-medium sm:ml-auto">{t("import:review.trackBulk")}</span>
           <Button variant="ghost" disabled={!inScope[scope].length} onClick={() => trackBulk(true)}>

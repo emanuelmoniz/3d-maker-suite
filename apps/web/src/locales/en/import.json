@@ -158,6 +158,8 @@
     "trackUsageFor": "Take the filament of row {{row}} from the spools",
     "projectBulk": "Set project",
     "projectBulkPick": "Project for the rows",
+    "spoolBulk": "Set spool",
+    "spoolBulkPick": "Spool for the rows",
     "trackBulk": "Filament usage",
     "trackOn": "Take from spools",
     "trackOff": "Don't take from spools"
