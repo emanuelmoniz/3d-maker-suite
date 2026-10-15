@@ -344,7 +344,7 @@ function ColumnFilterButton<T>({
           const r = document.querySelector(`[popovertarget="${id}"]`)?.getBoundingClientRect();
           const el = e.currentTarget;
           if (!r) return;
-          el.style.top = `${r.bottom + 4}px`;
+          el.style.top = `${Math.max(8, Math.min(r.bottom + 4, window.innerHeight - el.offsetHeight - 8))}px`;
           el.style.left = `${Math.max(8, Math.min(r.left, document.documentElement.clientWidth - el.offsetWidth - 8))}px`;
         }}
         className="fixed w-80 max-w-[calc(100vw-1rem)] rounded-lg border border-border bg-surface p-3 text-left font-normal text-fg shadow-lg backdrop:bg-black/20"

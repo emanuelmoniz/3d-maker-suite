@@ -211,7 +211,10 @@ test("import: template download, XLSX upload, bulk action, apply and export roun
   await expect(page.getByRole("button", { name: "Identical (1)" })).toBeVisible();
 
   // Same file, but bulk: import everything as new.
-  await page.getByLabel("Bulk action").selectOption({ label: "Import all as new" });
+  await page
+    .getByRole("group", { name: "Bulk operations" })
+    .getByRole("combobox", { name: "Action" })
+    .selectOption({ label: "Import all as new" });
   await page.getByRole("button", { name: "Apply", exact: true }).click();
   await page.getByRole("button", { name: "Import 1 row" }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Import 1 row" }).click();
