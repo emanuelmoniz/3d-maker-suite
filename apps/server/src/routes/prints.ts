@@ -16,7 +16,7 @@ import {
   reviewDismissSchema,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
-import { and, count, eq, inArray, isNull } from "drizzle-orm";
+import { and, count, eq, inArray, isNull, sql } from "drizzle-orm";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
@@ -185,6 +185,8 @@ export const printsRoutes =
             startedAt: prints.startedAt,
             // The name starts with the number: sorting by it sorts the name as shown.
             title: prints.number,
+            // By the project's number, so "no project" sorts first.
+            project: sql`(select ${projects.number} from ${projects} where ${projects.id} = ${prints.projectId})`,
             outcome: prints.outcome,
             durationSec: prints.durationSec,
           },

@@ -34,7 +34,7 @@ table routes through, not page by page.
 Do Step 2 of PLAN.md.
 ```
 
-### [ ] Step 3 - Project column on the Prints page
+### [x] Step 3 - Project column on the Prints page
 **Model:** Haiku · **Effort:** Low
 **Scope:** The Prints table gets a "Project" column, first on the left, sortable and filterable like the other columns, linking to the project. Empty when the print has no project.
 **Done when:** the column shows, sorts, filters and links; e2e; tests pass.

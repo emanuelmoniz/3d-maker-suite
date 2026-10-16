@@ -54,7 +54,7 @@ export const printPatchSchema = base
   .strict()
   .refine((p) => p.outcome !== "success" || !p.failureReason, successHasNoReason);
 
-export const printSortFields = ["startedAt", "title", "outcome", "durationSec"] as const;
+export const printSortFields = ["startedAt", "title", "project", "outcome", "durationSec"] as const;
 
 /** Prints table column filters (see `listQuery`). */
 export const printFilters = {

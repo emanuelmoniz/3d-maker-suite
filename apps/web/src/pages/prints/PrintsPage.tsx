@@ -15,6 +15,7 @@ import { formatDateTime, formatWeight } from "../../lib/format.ts";
 import { useUrlListQuery } from "../../lib/list.ts";
 import { printerName, usePrinters } from "../../lib/printers.ts";
 import { printName, useFilamentReview, usePrints } from "../../lib/prints.ts";
+import { projectName, useProjects } from "../../lib/projects.ts";
 import { useTags, useTagsOf } from "../../lib/tags.ts";
 import { Duration } from "./Duration.tsx";
 
@@ -39,6 +40,7 @@ export function PrintsTable({
   const tagsOf = useTagsOf("print");
   const tags = useTags().data ?? [];
   const printers = usePrinters({ archived: false }).data?.items ?? [];
+  const projects = useProjects().data?.items ?? [];
   const grams = (p: { usages: { grams: number }[] }) => p.usages.reduce((n, u) => n + u.grams, 0);
   return (
     <DataTable
@@ -53,6 +55,23 @@ export function PrintsTable({
         defaultSort: "-title",
       }}
       columns={[
+        {
+          id: "project",
+          header: t("prints:list.columns.project"),
+          cell: (p) => {
+            const project = projects.find((x) => x.id === p.projectId);
+            return project ? (
+              <Link to="/projects/$id" params={{ id: project.id }} className="hover:underline">
+                {projectName(t, project)}
+              </Link>
+            ) : (
+              ""
+            );
+          },
+          sort: "project",
+          filter: "projectId",
+          filterOptions: projects.map((x) => ({ value: x.id, label: projectName(t, x) })),
+        },
         {
           id: "title",
           header: t("prints:list.columns.title"),
