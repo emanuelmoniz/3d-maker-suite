@@ -2,6 +2,28 @@
 
 All notable changes are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.3.0-alpha.1] - 2026-10-16
+
+### Added
+- Sync from Bambu Cloud button on the Printers, Prints and Filament pages, for that page's data type
+- Sync result alerts: new and updated rows, rows waiting for review, or an error
+- Date and time format preferences in Settings → General (24- or 12-hour clock)
+- Bulk set spool and bulk set project and usage tracking for print rows in the import review, in one panel with one Apply
+- Searchable dropdowns replace every native select
+- Default printer is a dropdown on the printers config page
+- Filament default filter, and default sort orders on the lists
+
+### Changed
+- Projects: prints and printed-copies cost sit beside the preview, the description below the plates, and the prints list above the files
+- Imported prints are numbered oldest first; cloud prints are renumbered on sync
+- Back links go back in history, with a fixed route as the fallback
+
+### Fixed
+- Two-decimal grams accepted on every weight input
+- Customize mode on the home page: controls no longer overlap widgets, touch targets are 40px
+- Project folders stay renamable while the server runs
+- Column filter popover stays on screen
+
 ## [1.2.0-alpha.1] - 2026-10-15
 
 ### Added

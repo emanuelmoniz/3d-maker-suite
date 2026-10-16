@@ -160,7 +160,7 @@ Do Step 13 of PLAN.md. Same fresh-temp-data-dir pattern as the existing suite.
 List UI issues found and fix them in this step.
 ```
 
-### [ ] Step 14 - Docs, push & v1.3.0-alpha.1 release
+### [x] Step 14 - Docs, push & v1.3.0-alpha.1 release
 **Model:** Haiku · **Effort:** Low
 **Scope:** README/docs updates (sync buttons and alerts, print numbering rule, date/time setting, searchable selects, Windows folder note if any), CHANGELOG, version `1.3.0-alpha.1`. Commit, push `main`, create and push tag `v1.3.0-alpha.1`. The release workflow then publishes it as a GitHub pre-release; check that the workflow run succeeds (`gh run watch`) and the pre-release exists (`gh release view`).
 **Done when:** `main` and the tag are pushed; the release workflow is green; the GitHub pre-release exists; docs match the app.
