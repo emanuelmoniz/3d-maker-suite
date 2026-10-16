@@ -3,7 +3,7 @@ import { ChartColumn, Download } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Combobox } from "../../components/Combobox.tsx";
-import { DataTable } from "../../components/DataTable.tsx";
+import { DataTable, type ListQuery } from "../../components/DataTable.tsx";
 import { DateRangePicker } from "../../components/DateRangePicker.tsx";
 import { EmptyState } from "../../components/EmptyState.tsx";
 import { inputClass } from "../../components/FormField.tsx";
@@ -79,9 +79,10 @@ function Select({
 export function StatsPage() {
   const { t } = useTranslation();
   const money = useMoney();
-  const [preset, setPreset] = useState<keyof typeof PRESETS>("90");
+  // All time by default, so print time matches the printer page.
+  const [preset, setPreset] = useState<keyof typeof PRESETS>("all");
   const [f, setF] = useState<StatsFilters>({
-    from: dayStr(90),
+    from: "",
     to: "",
     printerId: "",
     spoolId: "",
@@ -89,8 +90,11 @@ export function StatsPage() {
     projectId: "",
     tagId: "",
     outcome: "",
-    bucket: "week",
+    bucket: "month",
   });
+  // The long tables start at 10 rows; the pager shows more.
+  const [projectQuery, setProjectQuery] = useState<ListQuery>({ pageSize: "10" });
+  const [filamentQuery, setFilamentQuery] = useState<ListQuery>({ pageSize: "10" });
   const [metric, setMetric] = useState<keyof typeof METRICS>("prints");
   const set = (patch: Partial<StatsFilters>) => setF((cur) => ({ ...cur, ...patch }));
   const { data, isError } = useStats(f);
@@ -272,7 +276,15 @@ export function StatsPage() {
             <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
               <StatCard label={t("stats:metrics.prints")} value={formatNumber(tot.prints)} />
               <StatCard label={t("stats:metrics.successRate")} value={rate(tot)} />
-              <StatCard label={t("stats:metrics.hours")} value={formatDuration(tot.seconds)} />
+              <StatCard
+                label={t("stats:metrics.hours")}
+                value={formatDuration(tot.seconds)}
+                hint={
+                  tot.estimatedSeconds > 0
+                    ? t("stats:estimated", { duration: formatDuration(tot.estimatedSeconds) })
+                    : undefined
+                }
+              />
               <StatCard
                 label={t("stats:metrics.filament")}
                 value={formatWeight(tot.grams)}
@@ -332,9 +344,15 @@ export function StatsPage() {
                   />
                 ))}
               </ul>
+              {data.series.length > 0 && (
+                <p className="mt-1 flex justify-between text-sm text-muted">
+                  <span>{formatDate(data.series[0]?.key ?? "")}</span>
+                  <span>{formatDate(data.series.at(-1)?.key ?? "")}</span>
+                </p>
+              )}
             </section>
 
-            <div className="grid gap-6 xl:grid-cols-2">
+            <div className="grid gap-6 2xl:grid-cols-2">
               <DataTable
                 label={t("stats:by.printer")}
                 rows={data.breakdowns.printer}
@@ -342,30 +360,32 @@ export function StatsPage() {
                 columns={costColumns<Group>(t("stats:by.printer"), (r) => r.label ?? "")}
               />
               <DataTable
-                label={t("stats:by.project")}
-                rows={data.breakdowns.project}
-                rowKey={(r) => r.key ?? ""}
-                columns={costColumns<Group>(
-                  t("stats:by.project"),
-                  (r) => r.label ?? t("stats:noProject"),
-                )}
-              />
-              <DataTable
                 label={t("stats:by.outcome")}
                 rows={data.breakdowns.outcome}
                 rowKey={(r) => r.key ?? ""}
                 columns={costColumns<Group>(t("stats:by.outcome"), (r) => outcomeLabel(r.key))}
               />
-              <DataTable
-                label={t("stats:by.filament")}
-                rows={data.breakdowns.filament}
-                rowKey={(r) => r.key ?? ""}
-                columns={costColumns<Group>(
-                  t("stats:by.filament"),
-                  (r) => r.label ?? t("stats:noFilament"),
-                )}
-              />
             </div>
+            <DataTable
+              label={t("stats:by.project")}
+              rows={data.breakdowns.project}
+              rowKey={(r) => r.key ?? ""}
+              client={{ query: projectQuery, onQueryChange: setProjectQuery }}
+              columns={costColumns<Group>(
+                t("stats:by.project"),
+                (r) => r.label ?? t("stats:noProject"),
+              )}
+            />
+            <DataTable
+              label={t("stats:by.filament")}
+              rows={data.breakdowns.filament}
+              rowKey={(r) => r.key ?? ""}
+              client={{ query: filamentQuery, onQueryChange: setFilamentQuery }}
+              columns={costColumns<Group>(
+                t("stats:by.filament"),
+                (r) => r.label ?? t("stats:noFilament"),
+              )}
+            />
           </div>
         )
       )}

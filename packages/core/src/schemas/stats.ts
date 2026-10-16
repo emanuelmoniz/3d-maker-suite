@@ -21,6 +21,8 @@ export const statsMetricsSchema = z.object({
   prints: z.number().int(),
   successes: z.number().int(),
   seconds: z.number().int(),
+  /** The part of `seconds` worked out from the grams (`durationEstimated`). */
+  estimatedSeconds: z.number().int(),
   energyWh: z.number(),
   grams: z.number(),
   unpricedGrams: z.number(),
@@ -38,13 +40,19 @@ const group = statsMetricsSchema.extend({
 
 export const statsSchema = z.object({
   totals: statsMetricsSchema,
-  /** One row per day/week/month that has prints; `key` is the bucket's first day (UTC). */
+  /**
+   * One row per day/week/month from the first print to the last, empty ones as zeros; `key` is
+   * the bucket's first day (UTC).
+   */
   series: z.array(statsMetricsSchema.extend({ key: z.string() })),
   breakdowns: z.object({
     printer: z.array(group),
     project: z.array(group),
     outcome: z.array(group),
-    /** By filament profile: prints that used it, grams and material cost (other lines are 0). */
+    /**
+     * By filament profile + colour. A print's time, energy, wear and maintenance are split over its
+     * filaments by grams, so the rows add up to the totals (give or take a cent of rounding).
+     */
     filament: z.array(group),
   }),
 });

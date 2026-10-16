@@ -115,6 +115,40 @@ test("stats can be filtered by outcome", async ({ page, app }) => {
   await expect(prints).not.toContainText("2");
 });
 
+test("stats open on all time, with coloured filament rows and a bounded projects table", async ({
+  page,
+  app,
+}) => {
+  const printer = await seedPrinter(app.api);
+  const spool = await seedSpool(app.api);
+  for (let i = 1; i <= 12; i++) {
+    const project = await seedProject(app.api, `Project ${i}`);
+    await app.api("POST", "/api/prints", {
+      printerId: printer.id,
+      projectId: project.id,
+      title: `Print ${i}`,
+      outcome: "success",
+      // The first one is older than any preset but "All time".
+      startedAt: new Date(Date.now() - (i === 1 ? 800 : i) * 86_400_000).toISOString(),
+      durationSec: 3600,
+      usages: [{ spoolId: spool.id, grams: 10 }],
+    });
+  }
+  await page.goto("/stats");
+  const prints = page
+    .locator("main")
+    .getByText("Prints", { exact: true })
+    .first()
+    .locator("xpath=..");
+  await expect(prints).toContainText("12");
+  const filament = page.getByRole("table", { name: "Filament" });
+  await expect(filament.getByRole("row", { name: /Basic #ff0000/ })).toContainText("12h");
+  const projects = page.getByRole("table", { name: "Project" });
+  await expect(projects.locator("tbody tr")).toHaveCount(10);
+  await page.getByRole("button", { name: "Next" }).first().click();
+  await expect(projects.locator("tbody tr")).toHaveCount(2);
+});
+
 test("create and list a backup", async ({ page }) => {
   await page.goto("/settings");
   await page.getByRole("button", { name: "Back up now" }).click();

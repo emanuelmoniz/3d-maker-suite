@@ -80,7 +80,7 @@ Do Step 6 of PLAN.md. Verify first and tell me where estimated prints are missin
 changing anything. Back up the DB before running the backfill.
 ```
 
-### [ ] Step 7 - Stats page review  **[plan mode]**
+### [x] Step 7 - Stats page review  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:** The stats page data looks wrong. Review every number and table on it against the DB. Known issues: print time; filament print time (the filament breakdown hard-codes `seconds` to 0); filament names without their color; the projects table is too long. Also check the other breakdowns, totals vs series, filters, CSV and cost lines. Propose fixes and layout changes (e.g. top N with "show all") and wait for approval.
 **Done when:** each number is checked against a SQL query on a copy of the real DB and the result is in the summary; the approved changes are done; filament labels include the color; the projects table is bounded; tests in `stats.test.ts`; e2e; tests pass.

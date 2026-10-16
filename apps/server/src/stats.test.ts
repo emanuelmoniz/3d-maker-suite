@@ -46,7 +46,67 @@ describe("stats", () => {
     const stats = await get(app);
     expect(stats.totals).toMatchObject({ material: 0 });
     expect(stats.totals.unpricedGrams).toBeCloseTo(stats.totals.grams);
-    expect(stats.breakdowns.filament.every((f) => f.total === 0)).toBe(true);
+    expect(stats.breakdowns.filament.every((f) => f.material === 0)).toBe(true);
+  });
+
+  it("splits each print over its filaments by grams, one row per profile and colour", async () => {
+    const { app } = await setup();
+    const stats = await get(app);
+    const rows = stats.breakdowns.filament;
+    const sum = (pick: (r: (typeof rows)[number]) => number) =>
+      rows.reduce((n, r) => n + pick(r), 0);
+    // Seed: profile 0 comes in #1a1a1a (two spools) and #f5f5f5; profiles 1 and 2 in one colour each.
+    expect(rows).toHaveLength(4);
+    expect(rows.map((r) => r.label)).toEqual(
+      expect.arrayContaining([
+        expect.stringMatching(/#1a1a1a$/),
+        expect.stringMatching(/#f5f5f5$/),
+      ]),
+    );
+    // Each row rounds on its own: at most a second / a cent per row away from the totals.
+    expect(Math.abs(sum((r) => r.seconds) - stats.totals.seconds)).toBeLessThanOrEqual(rows.length);
+    expect(Math.abs(sum((r) => r.total) - stats.totals.total)).toBeLessThanOrEqual(rows.length * 3);
+    expect(sum((r) => r.grams)).toBeCloseTo(stats.totals.grams);
+    expect(sum((r) => r.successes)).toBeGreaterThanOrEqual(stats.totals.successes);
+  });
+
+  it("counts only the filtered spool's share of its prints", async () => {
+    const { app, db } = await setup();
+    // Seed: spool 3 (#f5f5f5) shares every 4th print with spool 1.
+    const spool = db.select().from(schema.spools).where(eq(schema.spools.number, 3)).get();
+    const used = db
+      .select()
+      .from(schema.printFilamentUsages)
+      .where(eq(schema.printFilamentUsages.spoolId, spool?.id ?? ""))
+      .all();
+    const whole = db
+      .select()
+      .from(schema.prints)
+      .all()
+      .filter((p) => used.some((u) => u.printId === p.id))
+      .reduce((n, p) => n + (p.durationSec ?? 0), 0);
+    const stats = await get(app, `?spoolId=${spool?.id}`);
+    expect(stats.totals.prints).toBe(used.length);
+    expect(stats.totals.grams).toBeCloseTo(used.reduce((n, u) => n + u.grams, 0));
+    expect(stats.totals.seconds).toBeGreaterThan(0);
+    expect(stats.totals.seconds).toBeLessThan(whole);
+    expect(stats.breakdowns.filament).toHaveLength(1);
+    expect(stats.breakdowns.filament[0]?.seconds).toBeCloseTo(stats.totals.seconds, -1);
+  });
+
+  it("fills empty buckets and reports the estimated part of the time", async () => {
+    const { app, db } = await setup();
+    const [first] = db.select().from(schema.prints).all();
+    db.update(schema.prints)
+      .set({ durationEstimated: true })
+      .where(eq(schema.prints.id, first?.id ?? ""))
+      .run();
+    const stats = await get(app, "?bucket=day");
+    const keys = stats.series.map((r) => r.key);
+    const days = (Date.parse(keys.at(-1) ?? "") - Date.parse(keys[0] ?? "")) / 86_400_000;
+    expect(keys).toHaveLength(days + 1);
+    expect(stats.series.some((r) => r.prints === 0)).toBe(true);
+    expect(stats.totals.estimatedSeconds).toBe(first?.durationSec);
   });
 
   it("filters by printer, outcome, spool and date, and exports the same view as CSV", async () => {
@@ -61,7 +121,9 @@ describe("stats", () => {
 
     const bySpool = await get(app, `?spoolId=${spool?.id}`);
     expect(bySpool.totals.prints).toBeLessThan((await get(app)).totals.prints);
-    expect(bySpool.breakdowns.filament.map((f) => f.key)).toContain(spool?.profileId);
+    expect(bySpool.breakdowns.filament.map((f) => f.key)).toEqual([
+      `${spool?.profileId}|${spool?.colorHex}`,
+    ]);
 
     expect((await get(app, "?from=2030-01-01")).totals).toMatchObject({ prints: 0, total: 0 });
 

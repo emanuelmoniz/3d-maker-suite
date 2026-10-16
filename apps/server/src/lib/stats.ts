@@ -1,7 +1,7 @@
 import { type Stats, type StatsQuery, toMinor } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
 import { and, inArray, type SQL, sql } from "drizzle-orm";
-import { printerLabel, projectLabel } from "./catalog.ts";
+import { printerLabel, profileLabel, projectLabel } from "./catalog.ts";
 import { printerRates } from "./cost.ts";
 import { dateRange, inIds, taggedWith } from "./list.ts";
 import { readPreferences } from "./preferences.ts";
@@ -14,6 +14,7 @@ const metrics = sql.raw(`
   COUNT(*) AS prints,
   COALESCE(SUM(outcome = 'success'), 0) AS successes,
   COALESCE(SUM(sec), 0) AS seconds,
+  COALESCE(SUM(est_sec), 0) AS estimatedSeconds,
   COALESCE(SUM(wh), 0) AS energyWh,
   COALESCE(SUM(grams), 0) AS grams,
   COALESCE(SUM(unpriced), 0) AS unpricedGrams,
@@ -54,13 +55,28 @@ export function readStats(db: Db, q: StatsQuery): Stats {
     using(usages.profileId, q.profileId),
   );
 
+  // With a spool/profile filter only the matching usages count: their grams, and their share (by
+  // grams) of the print's time, energy, wear and maintenance. Without one every usage is a hit.
+  const list = (ids: string[]) =>
+    sql.join(
+      ids.map((id) => sql`${id}`),
+      sql`, `,
+    );
+  const hit = and(
+    q.spoolId && sql`us.spool_id IN (${list(q.spoolId)})`,
+    q.profileId && sql`COALESCE(us.profile_id, sp.profile_id) IN (${list(q.profileId)})`,
+  );
   const cte = sql`
     WITH rate(printer_id, wear, maint) AS (VALUES ('', 0, 0), ${rateRows}),
     sel AS (SELECT prints.id FROM prints WHERE ${where ?? sql`1`}),
     use AS (
       SELECT us.print_id, us.grams, COALESCE(us.profile_id, sp.profile_id) AS profile_id,
+        COALESCE(NULLIF(sp.color_name, ''), sp.color_hex, us.color_hex) AS color,
         CASE WHEN sp.price_paid IS NOT NULL AND sp.initial_grams > 0
-          THEN sp.price_paid * 1000.0 / sp.initial_grams ELSE fp.price_per_kg END AS price
+          THEN sp.price_paid * 1000.0 / sp.initial_grams ELSE fp.price_per_kg END AS price,
+        COALESCE(us.grams / NULLIF(SUM(us.grams) OVER (PARTITION BY us.print_id), 0),
+          1.0 / COUNT(*) OVER (PARTITION BY us.print_id)) AS w,
+        ${hit ?? sql`1`} AS hit
       FROM print_filament_usages us
       LEFT JOIN spools sp ON sp.id = us.spool_id
       LEFT JOIN filament_profiles fp ON fp.id = COALESCE(us.profile_id, sp.profile_id)
@@ -68,24 +84,32 @@ export function readStats(db: Db, q: StatsQuery): Stats {
     fil AS (
       SELECT print_id, SUM(grams) AS grams,
         SUM(CASE WHEN price IS NULL THEN grams ELSE 0 END) AS unpriced,
-        SUM(grams / 1000.0 * price) AS material
-      FROM use GROUP BY print_id),
-    pc AS (
-      SELECT prints.id, prints.started_at, prints.printer_id, prints.project_id, prints.outcome,
-        COALESCE(prints.duration_sec, 0) AS sec,
-        COALESCE(prints.energy_wh, printers.power_w * prints.duration_sec / 3600.0, 0) AS wh,
-        COALESCE(fil.grams, 0) AS grams,
-        COALESCE(fil.unpriced, 0) AS unpriced,
-        CAST(ROUND(COALESCE(fil.material, 0)) AS INTEGER) AS material,
-        CAST(ROUND(COALESCE(prints.energy_wh, printers.power_w * prints.duration_sec / 3600.0, 0)
-          / 1000.0 * ${toMinor(prefs.energyCostPerKwh)}) AS INTEGER) AS energy,
-        CAST(ROUND(COALESCE(prints.duration_sec, 0) / 3600.0 * rate.wear) AS INTEGER) AS wear,
-        CAST(ROUND(COALESCE(prints.duration_sec, 0) / 3600.0 * rate.maint) AS INTEGER) AS maint
+        SUM(grams / 1000.0 * price) AS material,
+        SUM(w) AS share
+      FROM use WHERE hit GROUP BY print_id),
+    base AS (
+      SELECT prints.*, ${hit ? sql`COALESCE(fil.share, 0)` : sql`1`} AS share,
+        COALESCE(prints.energy_wh, printers.power_w * prints.duration_sec / 3600.0, 0) AS wh0,
+        COALESCE(fil.grams, 0) AS fil_grams, COALESCE(fil.unpriced, 0) AS fil_unpriced,
+        COALESCE(fil.material, 0) AS fil_material, rate.wear AS wear_rate, rate.maint AS maint_rate
       FROM sel
       JOIN prints ON prints.id = sel.id
       JOIN printers ON printers.id = prints.printer_id
       JOIN rate ON rate.printer_id = prints.printer_id
-      LEFT JOIN fil ON fil.print_id = prints.id)`;
+      LEFT JOIN fil ON fil.print_id = prints.id),
+    pc AS (
+      SELECT id, started_at, printer_id, project_id, outcome, share,
+        CAST(ROUND(COALESCE(duration_sec, 0) * share) AS INTEGER) AS sec,
+        CASE WHEN duration_estimated THEN CAST(ROUND(COALESCE(duration_sec, 0) * share) AS INTEGER)
+          ELSE 0 END AS est_sec,
+        wh0 * share AS wh,
+        fil_grams AS grams,
+        fil_unpriced AS unpriced,
+        CAST(ROUND(fil_material) AS INTEGER) AS material,
+        CAST(ROUND(wh0 * share / 1000.0 * ${toMinor(prefs.energyCostPerKwh)}) AS INTEGER) AS energy,
+        CAST(ROUND(COALESCE(duration_sec, 0) * share / 3600.0 * wear_rate) AS INTEGER) AS wear,
+        CAST(ROUND(COALESCE(duration_sec, 0) * share / 3600.0 * maint_rate) AS INTEGER) AS maint
+      FROM base)`;
 
   const all = <T>(select: SQL) => db.all<T>(sql`${cte} ${select}`);
   const grouped = (key: SQL, label: SQL, join: SQL) =>
@@ -97,8 +121,11 @@ export function readStats(db: Db, q: StatsQuery): Stats {
   const [totals] = all<Stats["totals"]>(sql`SELECT ${metrics} FROM pc`);
   return {
     totals: totals as Stats["totals"],
-    series: all<Stats["series"][number]>(
-      sql`SELECT ${sql.raw(BUCKET[q.bucket])} AS key, ${metrics} FROM pc GROUP BY key ORDER BY key`,
+    series: fillGaps(
+      all<Stats["series"][number]>(
+        sql`SELECT ${sql.raw(BUCKET[q.bucket])} AS key, ${metrics} FROM pc GROUP BY key ORDER BY key`,
+      ),
+      q.bucket,
     ),
     breakdowns: {
       printer: grouped(
@@ -112,22 +139,66 @@ export function readStats(db: Db, q: StatsQuery): Stats {
         sql`LEFT JOIN projects ON projects.id = pc.project_id`,
       ),
       outcome: grouped(sql`pc.outcome`, sql`pc.outcome`, sql``),
+      // Each usage takes its grams' part (w / share) of the print's already filtered lines.
       filament: all<Stats["breakdowns"]["filament"][number]>(
-        sql`SELECT use.profile_id AS key,
-              trim(coalesce(fb.name, '') || ' ' || fm.name || ' ' || filament_profiles.name) AS label,
-              COUNT(DISTINCT use.print_id) AS prints, 0 AS successes, 0 AS seconds, 0 AS energyWh,
-              SUM(use.grams) AS grams,
-              SUM(CASE WHEN use.price IS NULL THEN use.grams ELSE 0 END) AS unpricedGrams,
-              CAST(ROUND(COALESCE(SUM(use.grams / 1000.0 * use.price), 0)) AS INTEGER) AS material,
-              0 AS energy, 0 AS wear, 0 AS maintenance,
-              CAST(ROUND(COALESCE(SUM(use.grams / 1000.0 * use.price), 0)) AS INTEGER) AS total
-            FROM use LEFT JOIN filament_profiles ON filament_profiles.id = use.profile_id
-            LEFT JOIN filament_brands fb ON fb.id = filament_profiles.brand_id
-            LEFT JOIN filament_materials fm ON fm.id = filament_profiles.material_id
-            GROUP BY key ORDER BY total DESC, grams DESC`,
+        sql`SELECT *, material + energy + wear + maintenance AS total FROM (
+              SELECT use.profile_id || '|' || COALESCE(use.color, '') AS key,
+                trim(COALESCE(${profileLabel}, '') || ' ' || COALESCE(use.color, '')) AS label,
+                COUNT(DISTINCT use.print_id) AS prints,
+                COUNT(DISTINCT CASE WHEN pc.outcome = 'success' THEN pc.id END) AS successes,
+                CAST(ROUND(SUM(pc.sec * use.w / pc.share)) AS INTEGER) AS seconds,
+                CAST(ROUND(SUM(pc.est_sec * use.w / pc.share)) AS INTEGER) AS estimatedSeconds,
+                SUM(pc.wh * use.w / pc.share) AS energyWh,
+                SUM(use.grams) AS grams,
+                SUM(CASE WHEN use.price IS NULL THEN use.grams ELSE 0 END) AS unpricedGrams,
+                CAST(ROUND(COALESCE(SUM(use.grams / 1000.0 * use.price), 0)) AS INTEGER) AS material,
+                CAST(ROUND(SUM(pc.energy * use.w / pc.share)) AS INTEGER) AS energy,
+                CAST(ROUND(SUM(pc.wear * use.w / pc.share)) AS INTEGER) AS wear,
+                CAST(ROUND(SUM(pc.maint * use.w / pc.share)) AS INTEGER) AS maintenance
+              FROM use JOIN pc ON pc.id = use.print_id
+              LEFT JOIN filament_profiles ON filament_profiles.id = use.profile_id
+              WHERE use.hit
+              GROUP BY key)
+            ORDER BY total DESC, grams DESC`,
       ),
     },
   };
+}
+
+const ZERO = {
+  prints: 0,
+  successes: 0,
+  seconds: 0,
+  estimatedSeconds: 0,
+  energyWh: 0,
+  grams: 0,
+  unpricedGrams: 0,
+  material: 0,
+  energy: 0,
+  wear: 0,
+  maintenance: 0,
+  total: 0,
+};
+
+/** The bucket after `key` (a yyyy-mm-dd first day, UTC). */
+function nextBucket(key: string, bucket: StatsQuery["bucket"]) {
+  const d = new Date(`${key}T00:00:00Z`);
+  if (bucket === "month") d.setUTCMonth(d.getUTCMonth() + 1);
+  else d.setUTCDate(d.getUTCDate() + (bucket === "week" ? 7 : 1));
+  return d.toISOString().slice(0, 10);
+}
+
+/** Adds zero rows for the empty buckets between the first and the last, so time stays to scale. */
+function fillGaps(rows: Stats["series"], bucket: StatsQuery["bucket"]): Stats["series"] {
+  const out: Stats["series"] = [];
+  for (const r of rows) {
+    const prev = out.at(-1);
+    if (prev)
+      for (let k = nextBucket(prev.key, bucket); k < r.key; k = nextBucket(k, bucket))
+        out.push({ ...ZERO, key: k });
+    out.push(r);
+  }
+  return out;
 }
 
 const csv = (v: string | number) =>

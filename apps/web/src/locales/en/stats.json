@@ -4,6 +4,7 @@
   "emptyTitle": "No prints in this view",
   "emptyBody": "Change the filters or log a print to see numbers here.",
   "unpriced": "{{weight}} has no price",
+  "estimated": "{{duration}} estimated",
   "noProject": "No project",
   "noFilament": "Unknown filament",
   "presets": {
