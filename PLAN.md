@@ -1,4 +1,4 @@
-# 3D Maker Suite - Development Plan v1.3 (target: 1.3.0-alpha.1)
+# 3D Maker Suite - Development Plan v1.3 (target: 1.3.0)
 Repo: `3d-maker-suite`
 
 How to use:
@@ -160,14 +160,14 @@ Do Step 13 of PLAN.md. Same fresh-temp-data-dir pattern as the existing suite.
 List UI issues found and fix them in this step.
 ```
 
-### [x] Step 14 - Docs, push & v1.3.0-alpha.1 release
+### [x] Step 14 - Docs, push & v1.3.0 release
 **Model:** Haiku · **Effort:** Low
-**Scope:** README/docs updates (sync buttons and alerts, print numbering rule, date/time setting, searchable selects, Windows folder note if any), CHANGELOG, version `1.3.0-alpha.1`. Commit, push `main`, create and push tag `v1.3.0-alpha.1`. The release workflow then publishes it as a GitHub pre-release; check that the workflow run succeeds (`gh run watch`) and the pre-release exists (`gh release view`).
+**Scope:** README/docs updates (sync buttons and alerts, print numbering rule, date/time setting, searchable selects, Windows folder note if any), CHANGELOG, version `1.3.0`. Commit, push `main`, create and push tag `v1.3.0`. The release workflow then publishes it as the latest release; check that the workflow run succeeds (`gh run watch`) and the release exists (`gh release view v1.3.0`).
 **Done when:** `main` and the tag are pushed; the release workflow is green; the GitHub pre-release exists; docs match the app.
 **Prompt:**
 ```
 Do Step 14 of PLAN.md. Only document what changed since 1.2.0-alpha.1. Then push main,
-push the v1.3.0-alpha.1 tag and confirm the pre-release is published.
+push the v1.3.0 tag and confirm the release is published.
 ```
 
 ---
