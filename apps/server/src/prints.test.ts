@@ -197,4 +197,26 @@ describe("prints", () => {
     const reset = (await send("PATCH", `/api/prints/${print.id}`, { energyWh: null })).json();
     expect(reset).toMatchObject({ energySource: "estimated" });
   });
+
+  it("a print with grams and no duration gets an estimate; a typed duration replaces it", async () => {
+    const { printer, a } = await setup();
+    const base = {
+      printerId: printer.id,
+      title: "E",
+      startedAt: "2026-01-01T10:00:00.000Z",
+      outcome: "success",
+    };
+    const made = (
+      await send("POST", "/api/prints", { ...base, usages: [{ spoolId: a.id, grams: 50 }] })
+    ).json();
+    expect(made.durationSec).toBeGreaterThan(0);
+    expect(made).toMatchObject({ durationEstimated: true, energySource: "estimated" });
+    const real = (await send("PATCH", `/api/prints/${made.id}`, { durationSec: 600 })).json();
+    expect(real).toMatchObject({ durationSec: 600, durationEstimated: false });
+    const cleared = (await send("PATCH", `/api/prints/${made.id}`, { durationSec: null })).json();
+    expect(cleared).toMatchObject({ durationEstimated: true });
+    expect(cleared.durationSec).toBeGreaterThan(0);
+    const none = (await send("POST", "/api/prints", base)).json();
+    expect(none).toMatchObject({ durationSec: null, durationEstimated: false });
+  });
 });

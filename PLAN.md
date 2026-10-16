@@ -70,7 +70,7 @@ Do Step 5 of PLAN.md. Reuse the e2e fixtures for the demo data. No new dependenc
 
 ## Phase 2 - Stats
 
-### [ ] Step 6 - Estimated durations count everywhere
+### [x] Step 6 - Estimated durations count everywhere
 **Model:** Sonnet · **Effort:** Medium
 **Scope:** Prints with an estimated duration must count in stats, printer usage hours, maintenance runtime and costs. The server sums already seem to use `duration_sec` whatever `durationEstimated` is, so first find where estimated prints are really missing: e.g. prints with grams but no duration from before estimation existed, or prints added by hand (only the import estimates today). Fix the gap: estimate on manual create/edit too, and backfill existing prints, keeping `durationEstimated` true so a real duration still replaces it.
 **Done when:** the summary lists what was already counted and what wasn't; a print with grams and no duration gets an estimate however it's created; the backfill's before/after count is shown and approved; tests pass.

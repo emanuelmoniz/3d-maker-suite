@@ -55,6 +55,21 @@ export const printsRoutes =
       return { ...row, usages, cost: printCosts(db, [{ ...row, usages }]).get(id) } as PrintDetail;
     };
 
+    /** A print with grams and no duration gets an estimate; a real duration replaces it later. */
+    const withEstimate = (
+      print: { durationSec?: number | null },
+      printerId: string,
+      usages: { grams: number }[],
+    ) => {
+      const grams = usages.reduce((t, u) => t + u.grams, 0);
+      return print.durationSec || grams <= 0
+        ? {}
+        : {
+            durationSec: estimatedDuration(db, printerId, grams),
+            durationEstimated: true,
+          };
+    };
+
     const checkRefs = (
       b: {
         printerId?: string;
@@ -277,6 +292,7 @@ export const printsRoutes =
         const { usages, energyWh, ...fields } = req.body;
         checkRefs(fields);
         assertNumberFree(db, prints, "print", fields.number);
+        Object.assign(fields, withEstimate(fields, fields.printerId, usages));
         const id = db.transaction((tx) => {
           const row = tx
             .insert(prints)
@@ -308,6 +324,14 @@ export const printsRoutes =
         const { usages, energyWh, ...fields } = req.body;
         checkRefs(fields, cur.failureReason);
         assertNumberFree(db, prints, "print", fields.number, cur.id);
+        Object.assign(
+          fields,
+          withEstimate(
+            { ...cur, ...fields },
+            fields.printerId ?? cur.printerId,
+            usages ?? cur.usages,
+          ),
+        );
         const merged = { ...cur, ...fields };
         db.transaction((tx) => {
           tx.update(prints)
