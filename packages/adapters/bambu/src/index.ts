@@ -55,7 +55,6 @@ const tasksResponse = z.object({
       costTime: z.number().nullish(), // the slicer's estimate, not the real duration
       weight: z.number().nullish(),
       plateIndex: z.number().nullish(), // 1-based plate of the project file
-      cover: z.string().nullish(),
       deviceId: z.string(),
       amsDetailMapping: z
         .array(
@@ -111,7 +110,6 @@ function toPrint(t: Task, region: Region, log: Logger): ExternalPrint | undefine
     durationSec,
     outcome,
     filaments,
-    coverUrl: t.cover || undefined,
     sourceUrl: t.designId ? `https://${host}/models/${t.designId}` : undefined,
   };
 }

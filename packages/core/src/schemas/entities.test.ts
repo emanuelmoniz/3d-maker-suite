@@ -18,7 +18,6 @@ const print = {
   energyWh: 120,
   energySource: "estimated",
   costSnapshot: null,
-  coverUrl: null,
   sourceUrl: null,
   origin: "manual",
   integrationId: null,

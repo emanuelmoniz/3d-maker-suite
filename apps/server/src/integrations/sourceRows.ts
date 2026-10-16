@@ -225,7 +225,6 @@ export function printRows(db: Db, integrationId: string, items: ExternalPrint[])
           failureReason: p.outcome === "success" ? null : (p.failureReason ?? null),
           ...slots,
           plate: p.plate ?? null,
-          coverUrl: p.coverUrl ?? null,
           sourceUrl: p.sourceUrl ?? null,
           reported: filaments.slice(0, PRINT_MAX_SLOTS).map((f) => ({
             slot: f.slot ?? null,

@@ -204,7 +204,6 @@ const task = (id: number, over: Record<string, unknown> = {}) => ({
   endTime: "2026-05-01T12:00:00Z",
   costTime: 7200,
   weight: 30,
-  cover: "https://cdn.example/c.png",
   deviceId: "01P00A000000001",
   amsDetailMapping: [
     { ams: 0, filamentType: "PLA", sourceColor: "000000FF", targetColor: "FF8800FF", weight: 20 },
@@ -215,7 +214,7 @@ const task = (id: number, over: Record<string, unknown> = {}) => ({
 const history = (q: { since?: string; cursor?: string } = {}, region?: string) =>
   instance("tok", region).printHistory?.listPrints(q);
 
-it("maps finished tasks with filament per slot, link and cover", async () => {
+it("maps finished tasks with filament per slot, and link", async () => {
   queue(json(200, { total: 1, hits: [task(7)] }));
   const page = await history();
   expect(page).toEqual({
@@ -231,7 +230,6 @@ it("maps finished tasks with filament per slot, link and cover", async () => {
           { slot: 0, material: "PLA", colorHex: "#FF8800", grams: 20 },
           { slot: 1, material: "PETG", colorHex: "#FFFFFF", grams: 10 },
         ],
-        coverUrl: "https://cdn.example/c.png",
         sourceUrl: "https://makerworld.com/models/42",
       },
     ],

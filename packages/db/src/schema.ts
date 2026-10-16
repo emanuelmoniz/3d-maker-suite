@@ -444,7 +444,6 @@ export const prints = sqliteTable(
     energyWh: real(),
     energySource: text({ enum: ENERGY_SOURCES }),
     costSnapshot: text({ mode: "json" }),
-    coverUrl: text(),
     sourceUrl: text(),
     ...imported(),
     ...timestamps,

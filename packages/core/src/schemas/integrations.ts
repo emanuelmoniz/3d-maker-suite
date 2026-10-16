@@ -50,8 +50,7 @@ export const externalPrintSchema = z.object({
       grams: z.number().nonnegative(),
     }),
   ),
-  /** Cover image and design page (e.g. MakerWorld). Plain strings: stored and shown, never fetched. */
-  coverUrl: z.string().optional(),
+  /** Design page (e.g. MakerWorld). A plain string: stored and shown, never fetched. */
   sourceUrl: z.string().optional(),
 });
 

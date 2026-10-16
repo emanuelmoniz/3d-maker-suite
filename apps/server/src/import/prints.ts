@@ -488,7 +488,6 @@ export const printImport = {
           origin: "integration" as const,
           ...source,
           plate: num(src.raw.plate as ImportCell),
-          coverUrl: str(src.raw.coverUrl as ImportCell),
           sourceUrl: str(src.raw.sourceUrl as ImportCell),
         }),
         // A number another print has ("import as new" of an exported row) gets the next free one.

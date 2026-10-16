@@ -261,8 +261,7 @@ export const printSchema = z
     energyWh: z.number().nonnegative().nullable(),
     energySource: z.enum(ENERGY_SOURCES).nullable(),
     costSnapshot: z.json().nullable(),
-    /** Imported prints: cover image and design page (e.g. MakerWorld), when the vendor gives them. */
-    coverUrl: z.string().nullable(),
+    /** Imported prints: the design page (e.g. MakerWorld), when the vendor gives it. */
     sourceUrl: z.string().nullable(),
     ...imported,
     ...timestamps,

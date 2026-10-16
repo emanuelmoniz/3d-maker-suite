@@ -274,6 +274,13 @@
       "when": 1792078970124,
       "tag": "0038_sync_result_alerts",
       "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "6",
+      "when": 1792160843368,
+      "tag": "0039_drop_print_cover",
+      "breakpoints": true
     }
   ]
 }

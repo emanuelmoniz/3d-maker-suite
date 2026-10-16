@@ -1,0 +1,1 @@
+ALTER TABLE `prints` DROP COLUMN `cover_url`;

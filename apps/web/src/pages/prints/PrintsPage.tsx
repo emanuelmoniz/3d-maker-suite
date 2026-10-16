@@ -77,16 +77,6 @@ export function PrintsTable({
           header: t("prints:list.columns.title"),
           cell: (p) => (
             <span className="flex items-center gap-2">
-              {p.coverUrl && (
-                <img
-                  src={p.coverUrl}
-                  alt=""
-                  loading="lazy"
-                  referrerPolicy="no-referrer"
-                  className="size-8 rounded object-cover"
-                  onError={(e) => e.currentTarget.remove()}
-                />
-              )}
               <Link to="/prints/$id" params={{ id: p.id }} className="font-medium hover:underline">
                 {printName(t, p)}
               </Link>
