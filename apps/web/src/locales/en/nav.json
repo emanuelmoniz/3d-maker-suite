@@ -3,6 +3,7 @@
     "overview": "Overview",
     "equipment": "Equipment",
     "work": "Work",
+    "accounting": "Accounting",
     "insights": "Insights"
   },
   "unreadAlerts_one": "{{count}} unread alert",

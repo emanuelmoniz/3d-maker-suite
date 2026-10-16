@@ -25,7 +25,7 @@ Do Step 1 of PLAN.md. Reproduce first and explain the root cause. Fix it where e
 table routes through, not page by page.
 ```
 
-### [ ] Step 2 - Sidebar: Accounting section, Projects before Prints
+### [x] Step 2 - Sidebar: Accounting section, Projects before Prints
 **Model:** Haiku · **Effort:** Low
 **Scope:** New sidebar group "Accounting" (i18n) after Work. Costs moves into it; Clients and Orders join it in their own steps. In Work, Projects comes before Prints. The mobile bottom bar and "More" follow the same order.
 **Done when:** the sidebar reads Overview · Equipment · Work (Projects, Prints) · Accounting (Costs) · Insights; i18n:check passes; e2e green.

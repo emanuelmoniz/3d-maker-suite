@@ -66,18 +66,23 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
     label: "nav:groups.work",
     items: [
       {
+        to: "/projects",
+        icon: FolderKanban,
+        label: "nav:items.projects.label",
+        description: "nav:items.projects.description",
+      },
+      {
         to: "/prints",
         icon: Layers,
         label: "nav:items.prints.label",
         description: "nav:items.prints.description",
         primary: true,
       },
-      {
-        to: "/projects",
-        icon: FolderKanban,
-        label: "nav:items.projects.label",
-        description: "nav:items.projects.description",
-      },
+    ],
+  },
+  {
+    label: "nav:groups.accounting",
+    items: [
       {
         to: "/costs",
         icon: Calculator,
