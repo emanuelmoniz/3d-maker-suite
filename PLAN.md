@@ -15,7 +15,7 @@ Status legend: `[ ]` todo · `[x]` done
 
 ## Phase 1 - Bugs & quick fixes
 
-### [ ] Step 1 - Tables keep their scroll position
+### [x] Step 1 - Tables keep their scroll position
 **Model:** Sonnet · **Effort:** Low
 **Scope:** Sorting or searching a table scrolls the page back to the top. The page must stay where it is. Find the root cause (likely the router resetting scroll when the list's search params change) and fix it once in the shared list/table code, so every table gets it.
 **Done when:** sorting, filtering and searching any table keep the scroll position; going to another page still starts at the top; e2e covers one long table; tests pass.

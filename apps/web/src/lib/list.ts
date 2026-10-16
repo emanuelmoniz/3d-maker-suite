@@ -34,6 +34,8 @@ export function useUrlListQuery(prefix = ""): [ListQuery, (q: ListQuery) => void
       } as never,
       // Filtering and paging don't stack up history entries; Back leaves the list.
       replace: true,
+      // The router scrolls to the top on every navigation unless told not to; same page, same spot.
+      resetScroll: false,
     });
   return [query, setQuery];
 }
