@@ -1,6 +1,6 @@
 import type { Stats, StatsMetrics } from "@3d-maker-suite/core";
 import { ChartColumn, Download } from "lucide-react";
-import { type ReactNode, useState } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Combobox } from "../../components/Combobox.tsx";
 import { DataTable } from "../../components/DataTable.tsx";
@@ -121,14 +121,21 @@ export function StatsPage() {
   const max = Math.max(1, ...(data?.series.map(value) ?? []));
   const rate = (m: StatsMetrics) =>
     m.prints ? `${Math.round((m.successes / m.prints) * 100)}%` : "–";
-  const costColumns = <R extends Group>(name: string, label: (r: R) => ReactNode) => [
-    { id: "name", header: name, cell: label },
+  const costColumns = <R extends Group>(name: string, label: (r: R) => string) => [
+    {
+      id: "name",
+      header: name,
+      cell: label,
+      sortValue: (r: R) => label(r).toLowerCase(),
+      filterValue: label,
+    },
     {
       id: "prints",
       header: t("stats:metrics.prints"),
       numeric: true,
       cell: (r: R) => formatNumber(r.prints),
       sortValue: (r: R) => r.prints,
+      filterValue: (r: R) => r.prints,
     },
     {
       id: "hours",
@@ -136,6 +143,9 @@ export function StatsPage() {
       numeric: true,
       cell: (r: R) => formatDuration(r.seconds),
       sortValue: (r: R) => r.seconds,
+      filterValue: (r: R) => r.seconds,
+      filterScale: 3600,
+      filterHint: t("stats:hoursUnit"),
     },
     {
       id: "filament",
@@ -143,6 +153,7 @@ export function StatsPage() {
       numeric: true,
       cell: (r: R) => formatWeight(r.grams),
       sortValue: (r: R) => r.grams,
+      filterValue: (r: R) => r.grams,
     },
     {
       id: "total",
@@ -150,6 +161,7 @@ export function StatsPage() {
       numeric: true,
       cell: (r: R) => money(r.total),
       sortValue: (r: R) => r.total,
+      filterValue: (r: R) => r.total,
     },
   ];
   const outcomeLabel = (k: string | null) => t(OUTCOMES[k as keyof typeof OUTCOMES]);
@@ -327,7 +339,7 @@ export function StatsPage() {
                 label={t("stats:by.printer")}
                 rows={data.breakdowns.printer}
                 rowKey={(r) => r.key ?? ""}
-                columns={costColumns<Group>(t("stats:by.printer"), (r) => r.label)}
+                columns={costColumns<Group>(t("stats:by.printer"), (r) => r.label ?? "")}
               />
               <DataTable
                 label={t("stats:by.project")}

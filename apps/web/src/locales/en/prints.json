@@ -66,6 +66,7 @@
     "table": "Filament to review",
     "columns": {
       "print": "Print",
+      "started": "Started",
       "filament": "Filament",
       "grams": "Used",
       "spool": "Spool"

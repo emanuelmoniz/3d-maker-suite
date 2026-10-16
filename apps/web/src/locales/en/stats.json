@@ -24,6 +24,7 @@
     "tag": "Tag",
     "outcome": "Outcome"
   },
+  "hoursUnit": "In hours",
   "metrics": {
     "prints": "Prints",
     "successRate": "Success rate",

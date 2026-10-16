@@ -442,6 +442,10 @@ describe("sync by type and date range", () => {
       { material: "PLA", colorHex: "#ff8800", grams: 20, slot: 0 },
       { material: "PLA", colorHex: "#ff8800", grams: 10, slot: 0 },
     ]);
+    // The queue sorts and filters like the other tables, and its total follows the filter.
+    const sorted = await get("/api/prints/filament-review?sort=grams&grams=15..");
+    expect(sorted).toMatchObject({ total: 1, items: [{ grams: 20 }] });
+    expect((await get("/api/prints/filament-review?printTitle=nope")).total).toBe(0);
     expect((await printsReview(id, q)).rows).toEqual([]);
   });
 

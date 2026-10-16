@@ -24,6 +24,7 @@ const STATUS = {
   upcoming: "maintenance:due.status.upcoming",
   overdue: "maintenance:due.status.overdue",
 } as const;
+const DUE_STATUSES = ["overdue", "upcoming", "ok"] as const;
 const TONE = {
   ok: "bg-ok/15 text-ok",
   upcoming: "bg-warn/15 text-warn",
@@ -211,6 +212,7 @@ export function MaintenancePage() {
                       </Link>
                     ),
                     sortValue: (i) => i.printerName.toLowerCase(),
+                    filterValue: (i) => i.printerName,
                   },
                   {
                     id: "task",
@@ -225,6 +227,7 @@ export function MaintenancePage() {
                       </Link>
                     ),
                     sortValue: (i) => i.typeName.toLowerCase(),
+                    filterValue: (i) => i.typeName,
                   },
                   {
                     id: "last",
@@ -250,6 +253,8 @@ export function MaintenancePage() {
                       </span>
                     ),
                     sortValue: (i) => -i.progress,
+                    filterValue: (i) => i.status,
+                    filterOptions: DUE_STATUSES.map((v) => ({ value: v, label: t(STATUS[v]) })),
                   },
                   {
                     id: "action",

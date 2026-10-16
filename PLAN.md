@@ -43,7 +43,7 @@ Do Step 2 of PLAN.md.
 Do Step 3 of PLAN.md. Reuse the project label helper the other pages use.
 ```
 
-### [ ] Step 4 - Sort and filter on every table
+### [x] Step 4 - Sort and filter on every table
 **Model:** Sonnet · **Effort:** Medium
 **Scope:** The review tables (print review queue, import review `ReviewTable` / `SourceReviewPage`) get the same sort and filters as the other tables. Audit every table in `apps/web/src` for sort, filter and search, and fix every gap through the shared `DataTable` / `FilterBar`, not with per-table code.
 **Done when:** the audit list (table → what it had → what was added) is in the summary; every table sorts and filters; e2e for the review tables; tests pass.

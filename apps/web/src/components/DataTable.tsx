@@ -1,6 +1,6 @@
 import type { ColumnFilter } from "@3d-maker-suite/core";
 import { ArrowDown, ArrowUp, Filter } from "lucide-react";
-import { type FormEvent, type ReactNode, useId, useMemo, useState } from "react";
+import { type FormEvent, type ReactNode, useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { cx } from "../lib/cx.ts";
 import { placePopover } from "../lib/placePopover.ts";
@@ -19,6 +19,11 @@ export type Column<T> = {
   numeric?: boolean;
   /** Client mode: provide to make the column sortable. */
   sortValue?: (row: T) => string | number;
+  /**
+   * Client mode: provide to make the column filterable. A number filter for a `numeric` column
+   * (in the same units as `filterScale`), a select with `filterOptions`, else "contains".
+   */
+  filterValue?: (row: T) => string | number;
   /** Server mode: API sort field. */
   sort?: string;
   /** Server mode: key in the table's `filters` declaration. */
@@ -48,55 +53,90 @@ type ServerProps = {
 
 const PAGE_SIZES = [10, 25, 50, 100];
 
+const filterKey = <T,>(c: Column<T>, server: boolean) =>
+  server ? c.filter : c.filterValue && c.id;
+const sortKey = <T,>(c: Column<T>, server: boolean) => (server ? c.sort : c.sortValue && c.id);
+
+/** Client mode: the rows a list query shows (column filters, then sort), before paging. */
+export function viewOf<T>(columns: Column<T>[], rows: T[], query: ListQuery): T[] {
+  let out = rows;
+  for (const c of columns) {
+    const f = query[c.id];
+    const value = c.filterValue;
+    if (!f || !value) continue;
+    if (c.numeric) {
+      const [min, max] = f.split("..").map((x) => (x ? Number(x) : undefined));
+      out = out.filter((r) => {
+        const v = Number(value(r));
+        return (min == null || v >= min) && (max == null || v <= max);
+      });
+    } else if (c.filterOptions) {
+      const picked = f.split(",");
+      out = out.filter((r) => picked.includes(String(value(r))));
+    } else {
+      out = out.filter((r) => String(value(r)).toLowerCase().includes(f.toLowerCase()));
+    }
+  }
+  const dir = query.sort?.startsWith("-") ? -1 : 1;
+  const sortValue = columns.find((c) => c.id === query.sort?.replace(/^-/, ""))?.sortValue;
+  if (!sortValue) return out;
+  return [...out].sort((a, b) =>
+    sortValue(a) < sortValue(b) ? -dir : sortValue(a) > sortValue(b) ? dir : 0,
+  );
+}
 export function DataTable<T>({
   label,
   columns,
   rows,
   rowKey,
   server,
+  client,
 }: {
   label: string;
   columns: Column<T>[];
   rows: T[];
   rowKey: (row: T) => string;
-  /** Paging, sorting and filtering happen on the server; omit to sort the given rows locally. */
+  /** Paging, sorting and filtering happen on the server; omit to do them on the given rows. */
   server?: ServerProps;
+  /** Client mode: keep the list query yourself (e.g. to act on the rows it shows); see `viewOf`. */
+  client?: { query: ListQuery; onQueryChange: (q: ListQuery) => void };
 }) {
   const { t } = useTranslation();
-  const [localSort, setLocalSort] = useState<{ id: string; dir: 1 | -1 } | null>(null);
-  const sorted = useMemo(() => {
-    const value = columns.find((c) => c.id === localSort?.id)?.sortValue;
-    if (server || !localSort || !value) return rows;
-    return [...rows].sort((a, b) =>
-      value(a) < value(b) ? -localSort.dir : value(a) > value(b) ? localSort.dir : 0,
-    );
-  }, [rows, columns, localSort, server]);
+  const [ownQuery, setOwnQuery] = useState<ListQuery>({});
+  const query = server?.query ?? client?.query ?? ownQuery;
+  const setQuery = server?.onQueryChange ?? client?.onQueryChange ?? setOwnQuery;
+  const view = server ? rows : viewOf(columns, rows, query);
+  const total = server ? server.total : view.length;
+  const size = Number(query.pageSize) || 25; // the API default
+  const sorted = server
+    ? rows
+    : view.slice(((Number(query.page) || 1) - 1) * size, (Number(query.page) || 1) * size);
 
   // Changing anything but the page goes back to page 1.
   const update = (patch: ListQuery, keepPage = false) => {
-    if (!server) return;
-    const next: ListQuery = { ...server.query, ...patch };
+    const next: ListQuery = { ...query, ...patch };
     if (!keepPage) delete next.page;
     for (const k of Object.keys(next)) if (!next[k]) delete next[k];
-    server.onQueryChange(next);
+    setQuery(next);
   };
 
-  const serverSort = server && (server.query.sort ?? server.defaultSort ?? "");
+  const currentSort = query.sort ?? server?.defaultSort ?? "";
   const sortOf = (c: Column<T>): { active: boolean; dir: 1 | -1 } | null => {
-    if (server) {
-      if (!c.sort) return null;
-      const desc = serverSort?.startsWith("-") ?? false;
-      return { active: serverSort?.replace(/^-/, "") === c.sort, dir: desc ? -1 : 1 };
-    }
-    if (!c.sortValue) return null;
-    return { active: localSort?.id === c.id, dir: localSort?.dir ?? 1 };
+    const key = sortKey(c, !!server);
+    if (!key) return null;
+    return {
+      active: currentSort.replace(/^-/, "") === key,
+      dir: currentSort.startsWith("-") ? -1 : 1,
+    };
   };
   const toggleSort = (c: Column<T>, s: { active: boolean; dir: 1 | -1 }) => {
-    const dir = s.active && s.dir === 1 ? -1 : 1;
-    if (server && c.sort) update({ sort: dir === 1 ? c.sort : `-${c.sort}` });
-    else setLocalSort({ id: c.id, dir });
+    const key = sortKey(c, !!server);
+    if (key) update({ sort: s.active && s.dir === 1 ? `-${key}` : key });
   };
-  const hasFilters = server && columns.some((c) => c.filter && server.query[c.filter]);
+  const hasFilters = columns.some((c) => {
+    const key = filterKey(c, !!server);
+    return key && query[key];
+  });
 
   return (
     <div className="flex min-w-0 flex-col gap-3">
@@ -124,7 +164,12 @@ export function DataTable<T>({
               {columns.map((c) => {
                 const s = sortOf(c);
                 const Arrow = s?.dir === -1 ? ArrowDown : ArrowUp;
-                const spec = c.filter ? server?.filters?.[c.filter] : undefined;
+                const key = filterKey(c, !!server);
+                const spec: ColumnFilter | undefined = !key
+                  ? undefined
+                  : server
+                    ? server.filters?.[key]
+                    : { kind: c.numeric ? "number" : c.filterOptions ? "select" : "text" };
                 return (
                   <th
                     key={c.id}
@@ -157,12 +202,12 @@ export function DataTable<T>({
                         ) : (
                           c.header
                         ))}
-                      {server && c.filter && spec && (
+                      {key && spec && (
                         <ColumnFilterButton
                           column={c}
                           spec={spec}
-                          value={server.query[c.filter] ?? ""}
-                          onChange={(v) => c.filter && update({ [c.filter]: v })}
+                          value={query[key] ?? ""}
+                          onChange={(v) => update({ [key]: v })}
                         />
                       )}
                     </span>
@@ -197,16 +242,16 @@ export function DataTable<T>({
           </tbody>
         </table>
       </section>
-      {server && (
+      {(server || total > 10 || hasFilters) && (
         <Pager
-          query={server.query}
-          total={server.total}
+          query={query}
+          total={total}
           onChange={update}
           onClear={
             hasFilters
               ? () => {
-                  const { pageSize, sort, archived } = server.query;
-                  server.onQueryChange({
+                  const { pageSize, sort, archived } = query;
+                  setQuery({
                     ...(pageSize && { pageSize }),
                     ...(sort && { sort }),
                     ...(archived && { archived }),

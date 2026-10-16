@@ -31,7 +31,7 @@ import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
 import { Combobox } from "../../components/Combobox.tsx";
 import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
-import { type Column, DataTable } from "../../components/DataTable.tsx";
+import { type Column, DataTable, type ListQuery, viewOf } from "../../components/DataTable.tsx";
 import { EmptyState } from "../../components/EmptyState.tsx";
 import { inputClass } from "../../components/FormField.tsx";
 import { ApiError } from "../../lib/api.ts";
@@ -114,8 +114,6 @@ const TARGET_DETAILS: Partial<Record<ReviewEntity, (v: ImportValues) => ImportCe
     v.printer ?? null,
   ],
 };
-// The table renders this many rows at a time, so a file with thousands of rows stays quick.
-const PAGE_ROWS = 100;
 const ALL_TARGETS = "__all";
 const NEW_SPOOL = "__new";
 const TRACK = "trackUsage";
@@ -156,7 +154,7 @@ export function ReviewTable({
   const [scope, setScope] = useState<(typeof SCOPES)[number]>("all");
   const [bulk, setBulk] = useState<BulkAction | "">("");
   const [confirming, setConfirming] = useState(false);
-  const [page, setPage] = useState(0);
+  const [tableQuery, setTableQuery] = useState<ListQuery>({});
   // The spool picker a new spool is being added for, and the spools added so far.
   const [adding, setAdding] = useState<{ row: ImportPreviewRow; key: string } | null>(null);
   const [added, setAdded] = useState<NonNullable<ImportPreview["refOptions"]>[string]>([]);
@@ -207,15 +205,7 @@ export function ReviewTable({
     return next;
   };
 
-  const visible = shown.size ? rows.filter((r) => shown.has(r.status)) : rows;
-  const pages = Math.max(1, Math.ceil(visible.length / PAGE_ROWS));
-  const pageAt = Math.min(page, pages - 1);
-  const pageRows = visible.slice(pageAt * PAGE_ROWS, (pageAt + 1) * PAGE_ROWS);
-  const inScope = {
-    all: rows,
-    selected: rows.filter((r) => selected.has(r.row)),
-    filtered: visible,
-  };
+  const byStatus = shown.size ? rows.filter((r) => shown.has(r.status)) : rows;
   const updates = rows.filter((r) => decisionOf(r).action === "update");
   const pickedCount = new Map<string | null, number>();
   for (const r of updates) {
@@ -291,45 +281,18 @@ export function ReviewTable({
   const targetLabel = (x: ImportTarget) =>
     [x.label, ...(TARGET_DETAILS[entity]?.(x.values) ?? [])].filter(Boolean).join(" · ");
 
-  // "Select all" works on the rows the status filter shows, on every page.
-  const allSelected = visible.length > 0 && visible.every((r) => selected.has(r.row));
-  const someSelected = visible.some((r) => selected.has(r.row));
-  const table: Column<ImportPreviewRow>[] = [
-    {
-      id: "select",
-      header: "",
-      headerCell: (
-        <input
-          type="checkbox"
-          aria-label={t("import:review.selectAll", { count: visible.length })}
-          checked={allSelected}
-          ref={(el) => {
-            if (el) el.indeterminate = someSelected && !allSelected;
-          }}
-          onChange={() =>
-            setSelected((s) => {
-              const next = new Set(s);
-              for (const r of visible) allSelected ? next.delete(r.row) : next.add(r.row);
-              return next;
-            })
-          }
-        />
-      ),
-      cell: (r) => (
-        <input
-          type="checkbox"
-          aria-label={t("import:review.select", { row: r.row })}
-          checked={selected.has(r.row)}
-          onChange={() => setSelected((s) => toggle(s, r.row))}
-        />
-      ),
-    },
+  const targetName = (r: ImportPreviewRow) => {
+    const d = decisionOf(r);
+    return d.action === "update" ? (targets.get(d.targetId ?? "")?.label ?? "") : "";
+  };
+  const dataColumns: Column<ImportPreviewRow>[] = [
     {
       id: "row",
       header: t("import:review.row"),
       numeric: true,
       cell: (r) => r.row,
       sortValue: (r) => r.row,
+      filterValue: (r) => r.row,
     },
     {
       id: "status",
@@ -354,6 +317,9 @@ export function ReviewTable({
           options={IMPORT_ACTIONS.map((a) => ({ value: a, label: t(ACTIONS[a]) }))}
         />
       ),
+      sortValue: (r) => IMPORT_ACTIONS.indexOf(decisionOf(r).action),
+      filterValue: (r) => decisionOf(r).action,
+      filterOptions: IMPORT_ACTIONS.map((a) => ({ value: a, label: t(ACTIONS[a]) })),
     },
     {
       id: "target",
@@ -388,6 +354,8 @@ export function ReviewTable({
           </span>
         );
       },
+      sortValue: targetName,
+      filterValue: targetName,
     },
     {
       id: "policy",
@@ -415,6 +383,8 @@ export function ReviewTable({
         id: c.key,
         header: t(c.label, c.labelArgs),
         numeric: c.type === "number" || c.type === "integer" || c.type === "money",
+        sortValue: (r) => r.values[c.key] ?? "",
+        filterValue: (r) => r.values[c.key] ?? "",
         cell: (r) => {
           const error = r.errors.find((e) => e.column === c.key);
           if (error) return <span className="text-bad">{t(ERRORS[error.code])}</span>;
@@ -495,6 +465,48 @@ export function ReviewTable({
       }),
     ),
   ];
+  // Filters and sort cover every row, then it is paged: "select all" and the "filtered" scope
+  // act on the rows the status chips and the column filters leave.
+  const visible = viewOf(dataColumns, byStatus, tableQuery);
+  const inScope = {
+    all: rows,
+    selected: rows.filter((r) => selected.has(r.row)),
+    filtered: visible,
+  };
+  const allSelected = visible.length > 0 && visible.every((r) => selected.has(r.row));
+  const someSelected = visible.some((r) => selected.has(r.row));
+  const table: Column<ImportPreviewRow>[] = [
+    {
+      id: "select",
+      header: "",
+      headerCell: (
+        <input
+          type="checkbox"
+          aria-label={t("import:review.selectAll", { count: visible.length })}
+          checked={allSelected}
+          ref={(el) => {
+            if (el) el.indeterminate = someSelected && !allSelected;
+          }}
+          onChange={() =>
+            setSelected((s) => {
+              const next = new Set(s);
+              for (const r of visible) allSelected ? next.delete(r.row) : next.add(r.row);
+              return next;
+            })
+          }
+        />
+      ),
+      cell: (r) => (
+        <input
+          type="checkbox"
+          aria-label={t("import:review.select", { row: r.row })}
+          checked={selected.has(r.row)}
+          onChange={() => setSelected((s) => toggle(s, r.row))}
+        />
+      ),
+    },
+    ...dataColumns,
+  ];
 
   if (!rows.length)
     return (
@@ -532,7 +544,7 @@ export function ReviewTable({
             aria-pressed={shown.has(s)}
             onClick={() => {
               setShown((f) => toggle(f, s));
-              setPage(0);
+              setTableQuery(({ page: _, ...q }) => q);
             }}
             className="h-8 rounded-full border border-border px-3 hover:bg-surface-2 aria-pressed:border-accent aria-pressed:bg-accent-soft aria-pressed:text-accent"
           >
@@ -633,33 +645,10 @@ export function ReviewTable({
       <DataTable
         label={t("import:review.title")}
         columns={table}
-        rows={pageRows}
+        rows={byStatus}
         rowKey={(r) => String(r.row)}
+        client={{ query: tableQuery, onQueryChange: setTableQuery }}
       />
-      {pages > 1 && (
-        <nav
-          aria-label={t("common:table.pagination")}
-          className="flex items-center justify-end gap-3 text-muted"
-        >
-          <span aria-live="polite">
-            {t("common:table.range", {
-              from: pageAt * PAGE_ROWS + 1,
-              to: Math.min((pageAt + 1) * PAGE_ROWS, visible.length),
-              total: visible.length,
-            })}
-          </span>
-          <Button variant="ghost" disabled={pageAt <= 0} onClick={() => setPage(pageAt - 1)}>
-            {t("common:table.previous")}
-          </Button>
-          <Button
-            variant="ghost"
-            disabled={pageAt >= pages - 1}
-            onClick={() => setPage(pageAt + 1)}
-          >
-            {t("common:table.next")}
-          </Button>
-        </nav>
-      )}
 
       <dl className="flex flex-wrap gap-x-6 gap-y-1" aria-live="polite">
         {(

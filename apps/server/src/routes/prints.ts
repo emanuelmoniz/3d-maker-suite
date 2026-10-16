@@ -1,6 +1,7 @@
 import {
   apiErrorSchema,
   type FilamentReviewItem,
+  filamentReviewFilters,
   filamentReviewItemSchema,
   filamentReviewSortFields,
   listQuery,
@@ -22,7 +23,7 @@ import { z } from "zod";
 import { HttpError } from "../errors.ts";
 import { printLabel } from "../lib/catalog.ts";
 import { printCosts } from "../lib/cost.ts";
-import { listPage, orderBy, taggedWith } from "../lib/list.ts";
+import { columnFilter, listPage, orderBy, taggedWith } from "../lib/list.ts";
 import { assertNumberFree, nextNumber } from "../lib/numbers.ts";
 import { readPreferences } from "../lib/preferences.ts";
 import {
@@ -93,12 +94,19 @@ export const printsRoutes =
       "/filament-review",
       {
         schema: {
-          querystring: listQuery(filamentReviewSortFields),
+          querystring: listQuery(filamentReviewSortFields, {}, filamentReviewFilters),
           response: { 200: pageOf(filamentReviewItemSchema) },
         },
       },
       async (req): Promise<Page<FilamentReviewItem>> => {
-        const { page, pageSize, sort = "-startedAt" } = req.query;
+        const { page, pageSize, sort = "-startedAt", ...f } = req.query;
+        const where = and(
+          waiting,
+          columnFilter(prints.title, f.printTitle),
+          columnFilter(prints.startedAt, f.startedAt),
+          columnFilter(printFilamentUsages.material, f.material),
+          columnFilter(printFilamentUsages.grams, f.grams),
+        );
         const items = db
           .select({
             usageId: printFilamentUsages.id,
@@ -113,15 +121,28 @@ export const printsRoutes =
           })
           .from(printFilamentUsages)
           .innerJoin(prints, eq(prints.id, printFilamentUsages.printId))
-          .where(waiting)
+          .where(where)
           .orderBy(
-            orderBy({ startedAt: prints.startedAt, grams: printFilamentUsages.grams }, sort),
+            orderBy(
+              {
+                startedAt: prints.startedAt,
+                grams: printFilamentUsages.grams,
+                printTitle: prints.title,
+                material: printFilamentUsages.material,
+              },
+              sort,
+            ),
             printFilamentUsages.slot,
           )
           .limit(pageSize)
           .offset((page - 1) * pageSize)
           .all() as FilamentReviewItem[];
-        const total = db.select({ n: count() }).from(printFilamentUsages).where(waiting).get()?.n;
+        const total = db
+          .select({ n: count() })
+          .from(printFilamentUsages)
+          .innerJoin(prints, eq(prints.id, printFilamentUsages.printId))
+          .where(where)
+          .get()?.n;
         return { items, page, pageSize, total: total ?? 0 };
       },
     );

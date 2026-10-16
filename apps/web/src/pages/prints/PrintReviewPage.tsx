@@ -1,4 +1,4 @@
-import { type FilamentReviewItem, usableOn } from "@3d-maker-suite/core";
+import { type FilamentReviewItem, filamentReviewFilters, usableOn } from "@3d-maker-suite/core";
 import { Link } from "@tanstack/react-router";
 import { CheckCircle2 } from "lucide-react";
 import { useState } from "react";
@@ -25,6 +25,8 @@ export function PrintReviewPage() {
   const [query, setQuery] = useUrlListQuery();
   const { data, isError } = useFilamentReview(query);
   const items = data?.items;
+  // An empty result under a filter is not "all done": the table stays, with its Clear button.
+  const filtered = Object.keys(filamentReviewFilters).some((k) => query[k]);
   const spools = (useSpools().data?.items ?? []).filter(
     (s) => !s.archivedAt && s.status !== "empty",
   );
@@ -63,7 +65,7 @@ export function PrintReviewPage() {
           {t(assign.isError ? "prints:review.assignError" : "prints:review.error")}
         </p>
       )}
-      {data && !data.total ? (
+      {data && !data.total && !filtered ? (
         <EmptyState
           icon={CheckCircle2}
           title={t("prints:review.emptyTitle")}
@@ -90,6 +92,7 @@ export function PrintReviewPage() {
                 query,
                 onQueryChange: setQuery,
                 total: data.total,
+                filters: filamentReviewFilters,
                 defaultSort: "-startedAt",
               }}
               columns={[
@@ -97,18 +100,23 @@ export function PrintReviewPage() {
                   id: "print",
                   header: t("prints:review.columns.print"),
                   cell: (i) => (
-                    <>
-                      <Link
-                        to="/prints/$id"
-                        params={{ id: i.printId }}
-                        className="font-medium hover:underline"
-                      >
-                        {printName(t, { number: i.printNumber, title: i.printTitle })}
-                      </Link>
-                      <span className="block text-muted">{formatDateTime(i.startedAt)}</span>
-                    </>
+                    <Link
+                      to="/prints/$id"
+                      params={{ id: i.printId }}
+                      className="font-medium hover:underline"
+                    >
+                      {printName(t, { number: i.printNumber, title: i.printTitle })}
+                    </Link>
                   ),
+                  sort: "printTitle",
+                  filter: "printTitle",
+                },
+                {
+                  id: "startedAt",
+                  header: t("prints:review.columns.started"),
+                  cell: (i) => formatDateTime(i.startedAt),
                   sort: "startedAt",
+                  filter: "startedAt",
                 },
                 {
                   id: "filament",
@@ -126,6 +134,8 @@ export function PrintReviewPage() {
                         t("prints:review.unknown")}
                     </span>
                   ),
+                  sort: "material",
+                  filter: "material",
                 },
                 {
                   id: "grams",
@@ -133,6 +143,7 @@ export function PrintReviewPage() {
                   numeric: true,
                   cell: (i) => formatWeight(i.grams),
                   sort: "grams",
+                  filter: "grams",
                 },
                 {
                   id: "spool",
