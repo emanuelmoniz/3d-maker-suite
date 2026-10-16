@@ -40,6 +40,7 @@ docs/              ADRs (docs/adr), user docs
 - `pnpm dev` - server + web in watch mode
 - `pnpm start` - production build, one command for end users
 - `pnpm test` / `pnpm test:e2e`
+- `pnpm screenshots` - regenerates `docs/images/*.png` for the README (not part of e2e or CI)
 - `pnpm lint` / `pnpm format`
 - `pnpm db:generate` / `pnpm db:migrate`
 - `pnpm i18n:check` - missing/unused translation keys
@@ -48,6 +49,7 @@ docs/              ADRs (docs/adr), user docs
 - Work is driven by `PLAN.md`. Read **only the current step** in it, not the whole file.
 - **Never read `BACKLOG.md`** unless the user asks; it's the user's private notes (gitignored).
 - Finish a step = tests pass, lint passes, `pnpm i18n:check` passes, tick the step checkbox in `PLAN.md`, one conventional commit (`feat(printers): ...`).
+- If a step visibly changes a page that has a README screenshot, re-run `pnpm screenshots` and commit the images in `docs/images`.
 - If something is out of scope for the current step, note it in the summary instead of doing it.
 - Prefer Context7 MCP for library docs over guessing APIs.
 - Keep summaries short: what changed, how to verify, any open questions.

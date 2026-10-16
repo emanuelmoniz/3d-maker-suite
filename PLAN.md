@@ -53,7 +53,7 @@ Do Step 4 of PLAN.md. List every table and what it supports first, then fix the 
 through DataTable.
 ```
 
-### [ ] Step 5 - README screenshots
+### [x] Step 5 - README screenshots
 **Model:** Sonnet (use webapp-testing skill) · **Effort:** Medium
 **Scope:**
 - `pnpm screenshots`: a Playwright script that starts on a fresh temp data dir with demo data (same pattern as the e2e suite) and writes `docs/images/*.png`, light theme, 1280px wide: dashboard, printers, project detail, prints, filament, stats, costs.

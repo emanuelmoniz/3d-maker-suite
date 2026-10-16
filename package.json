@@ -18,7 +18,8 @@
     "i18n:check": "node scripts/i18n-check.mjs",
     "db:generate": "pnpm --filter @3d-maker-suite/db exec drizzle-kit generate",
     "db:migrate": "pnpm --filter @3d-maker-suite/server exec tsx src/db-cli.ts migrate",
-    "db:seed": "pnpm --filter @3d-maker-suite/server exec tsx src/db-cli.ts seed"
+    "db:seed": "pnpm --filter @3d-maker-suite/server exec tsx src/db-cli.ts seed",
+    "screenshots": "pnpm --filter @3d-maker-suite/web build && playwright test -c playwright.screenshots.config.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.0.0",

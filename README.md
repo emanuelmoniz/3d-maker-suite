@@ -2,7 +2,6 @@
 
 A local-first manager for your 3D printing: printers, maintenance, filament, projects, prints, costs and stats. Runs on your own PC. Your data stays in a SQLite file on your disk.
 
-<!-- SCREENSHOT: dashboard (light theme), 1280px wide -->
 ![Dashboard screenshot](docs/images/dashboard.png)
 
 ## Features
@@ -18,8 +17,11 @@ A local-first manager for your 3D printing: printers, maintenance, filament, pro
 - **Backups**: scheduled online SQLite backups, restore, CSV, JSON and spreadsheet export
 - **Light and dark themes**, mobile-friendly, keyboard navigable, searchable dropdowns; set your own app name, logo, favicon, date and time format
 
-<!-- SCREENSHOT: printers list or project detail -->
-![Printers screenshot](docs/images/printers.png)
+| | |
+|---|---|
+| ![Printers](docs/images/printers.png) | ![Project detail](docs/images/project.png) |
+| ![Prints](docs/images/prints.png) | ![Filament](docs/images/filament.png) |
+| ![Stats](docs/images/stats.png) | ![Costs](docs/images/costs.png) |
 
 ## Install
 
