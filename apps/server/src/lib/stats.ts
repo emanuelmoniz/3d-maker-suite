@@ -38,33 +38,35 @@ export function readStats(db: Db, q: StatsQuery): Stats {
     [...rates].map(([id, r]) => sql`(${id}, ${r.wearPerHour}, ${r.maintenancePerHour})`),
     sql`, `,
   );
-  const using = (column: typeof usages.spoolId | typeof usages.profileId, ids?: string[]) =>
-    ids
-      ? inArray(
-          prints.id,
-          db.select({ id: usages.printId }).from(usages).where(inArray(column, ids)),
-        )
-      : undefined;
+  const list = (ids: string[]) =>
+    sql.join(
+      ids.map((id) => sql`${id}`),
+      sql`, `,
+    );
+  // A usage's material is its profile's (the spool's profile when the usage has none).
+  const usageMaterial = sql`(SELECT fp.material_id FROM filament_profiles fp
+    WHERE fp.id = COALESCE(us.profile_id, (SELECT sp.profile_id FROM spools sp WHERE sp.id = us.spool_id)))`;
   const where: SQL | undefined = and(
     dateRange(prints.startedAt, q),
     inIds(prints.printerId, q.printerId),
     inIds(prints.projectId, q.projectId),
     inIds(prints.outcome, q.outcome),
     taggedWith(db, "print", prints.id, q.tagId),
-    using(usages.spoolId, q.spoolId),
-    using(usages.profileId, q.profileId),
+    q.spoolId &&
+      inArray(
+        prints.id,
+        db.select({ id: usages.printId }).from(usages).where(inArray(usages.spoolId, q.spoolId)),
+      ),
+    q.materialId &&
+      sql`${prints.id} IN (SELECT us.print_id FROM print_filament_usages us
+        WHERE ${usageMaterial} IN (${list(q.materialId)}))`,
   );
 
-  // With a spool/profile filter only the matching usages count: their grams, and their share (by
+  // With a spool/material filter only the matching usages count: their grams, and their share (by
   // grams) of the print's time, energy, wear and maintenance. Without one every usage is a hit.
-  const list = (ids: string[]) =>
-    sql.join(
-      ids.map((id) => sql`${id}`),
-      sql`, `,
-    );
   const hit = and(
     q.spoolId && sql`us.spool_id IN (${list(q.spoolId)})`,
-    q.profileId && sql`COALESCE(us.profile_id, sp.profile_id) IN (${list(q.profileId)})`,
+    q.materialId && sql`${usageMaterial} IN (${list(q.materialId)})`,
   );
   const cte = sql`
     WITH rate(printer_id, wear, maint) AS (VALUES ('', 0, 0), ${rateRows}),

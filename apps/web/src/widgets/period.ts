@@ -36,7 +36,7 @@ export function statsFor(period: (typeof PERIODS)[number], bucket: StatsFilters[
     to: "",
     printerId: "",
     spoolId: "",
-    profileId: "",
+    materialId: "",
     projectId: "",
     tagId: "",
     outcome: "",

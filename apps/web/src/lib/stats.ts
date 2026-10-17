@@ -8,7 +8,7 @@ export type StatsFilters = {
   to: string;
   printerId: string;
   spoolId: string;
-  profileId: string;
+  materialId: string;
   projectId: string;
   tagId: string;
   outcome: string;

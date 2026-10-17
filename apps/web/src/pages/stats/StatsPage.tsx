@@ -1,6 +1,6 @@
 import type { Stats, StatsMetrics } from "@3d-maker-suite/core";
 import { ChartColumn, Download } from "lucide-react";
-import { useState } from "react";
+import { type ReactNode, useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Combobox } from "../../components/Combobox.tsx";
 import { DataTable, type ListQuery } from "../../components/DataTable.tsx";
@@ -10,7 +10,7 @@ import { inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { StatCard } from "../../components/StatCard.tsx";
 import { useMoney } from "../../lib/cost.ts";
-import { filamentLabel, spoolName, useProfiles, useSpools } from "../../lib/filament.ts";
+import { spoolName, useProfiles, useSpools } from "../../lib/filament.ts";
 import {
   formatDate,
   formatDuration,
@@ -52,6 +52,19 @@ type Group = Stats["breakdowns"]["printer"][number];
 const dayStr = (daysAgo: number) =>
   new Date(Date.now() - daysAgo * 86_400_000).toISOString().slice(0, 10);
 
+/** A filter with its name above it. */
+function Field({ label, children }: { label: string; children: (id: string) => ReactNode }) {
+  const id = useId();
+  return (
+    <div className="flex flex-col gap-1">
+      <label htmlFor={id} className="text-sm text-muted">
+        {label}
+      </label>
+      {children(id)}
+    </div>
+  );
+}
+
 function Select({
   label,
   value,
@@ -66,13 +79,18 @@ function Select({
   options: { value: string; label: string }[];
 }) {
   return (
-    <Combobox
-      aria-label={label}
-      className={`${inputClass} w-auto!`}
-      value={value}
-      onChange={onChange}
-      options={[{ value: "", label: all }, ...options]}
-    />
+    <Field label={label}>
+      {(id) => (
+        <Combobox
+          id={id}
+          aria-label={label}
+          className={`${inputClass} w-auto!`}
+          value={value}
+          onChange={onChange}
+          options={[{ value: "", label: all }, ...options]}
+        />
+      )}
+    </Field>
   );
 }
 
@@ -86,7 +104,7 @@ export function StatsPage() {
     to: "",
     printerId: "",
     spoolId: "",
-    profileId: "",
+    materialId: "",
     projectId: "",
     tagId: "",
     outcome: "",
@@ -102,6 +120,17 @@ export function StatsPage() {
   const printers = usePrinters({ archived: false }).data?.items ?? [];
   const spools = useSpools().data?.items ?? [];
   const profiles = useProfiles().data?.items ?? [];
+  // Only the materials of your spools, not the whole catalog (presets bring dozens).
+  const materials = [
+    ...new Map(
+      spools.flatMap((s) => {
+        const p = profiles.find((x) => x.id === s.profileId);
+        return p?.materialId ? [[p.materialId, p.material] as const] : [];
+      }),
+    ),
+  ]
+    .map(([value, label]) => ({ value, label }))
+    .sort((a, b) => a.label.localeCompare(b.label));
   const projects = useProjects().data?.items ?? [];
   const tags = useTags().data ?? [];
   const all = t("stats:filters.all");
@@ -192,22 +221,30 @@ export function StatsPage() {
         </p>
       )}
 
-      <search className="mb-5 flex flex-wrap items-center gap-2">
-        <Combobox
-          aria-label={t("stats:filters.period")}
-          className={`${inputClass} w-auto!`}
-          value={preset}
-          onChange={(v) => pickPreset(v as keyof typeof PRESETS)}
-          options={(Object.keys(PRESETS) as (keyof typeof PRESETS)[]).map((p) => ({
-            value: p,
-            label: t(PRESETS[p]),
-          }))}
-        />
+      <search className="mb-5 flex flex-wrap items-end gap-2">
+        <Field label={t("stats:filters.period")}>
+          {(id) => (
+            <Combobox
+              id={id}
+              aria-label={t("stats:filters.period")}
+              className={`${inputClass} w-auto!`}
+              value={preset}
+              onChange={(v) => pickPreset(v as keyof typeof PRESETS)}
+              options={(Object.keys(PRESETS) as (keyof typeof PRESETS)[]).map((p) => ({
+                value: p,
+                label: t(PRESETS[p]),
+              }))}
+            />
+          )}
+        </Field>
         {preset === "custom" && (
-          <DateRangePicker
-            value={{ from: f.from || undefined, to: f.to || undefined }}
-            onChange={(r) => set({ from: r.from ?? "", to: r.to ?? "" })}
-          />
+          <div className="flex flex-col gap-1">
+            <span className="text-sm text-muted">{t("stats:presets.custom")}</span>
+            <DateRangePicker
+              value={{ from: f.from || undefined, to: f.to || undefined }}
+              onChange={(r) => set({ from: r.from ?? "", to: r.to ?? "" })}
+            />
+          </div>
         )}
         <Select
           label={t("stats:filters.printer")}
@@ -231,11 +268,11 @@ export function StatsPage() {
           }))}
         />
         <Select
-          label={t("stats:filters.profile")}
+          label={t("stats:filters.material")}
           all={all}
-          value={f.profileId}
-          onChange={(profileId) => set({ profileId })}
-          options={profiles.map((p) => ({ value: p.id, label: filamentLabel(p) }))}
+          value={f.materialId}
+          onChange={(materialId) => set({ materialId })}
+          options={materials}
         />
         <Select
           label={t("stats:filters.project")}
@@ -244,13 +281,15 @@ export function StatsPage() {
           onChange={(projectId) => set({ projectId })}
           options={projects.map((p) => ({ value: p.id, label: projectName(t, p) }))}
         />
-        <Select
-          label={t("stats:filters.tag")}
-          all={all}
-          value={f.tagId}
-          onChange={(tagId) => set({ tagId })}
-          options={tags.map((x) => ({ value: x.id, label: x.name }))}
-        />
+        {tags.length > 0 && (
+          <Select
+            label={t("stats:filters.tag")}
+            all={all}
+            value={f.tagId}
+            onChange={(tagId) => set({ tagId })}
+            options={tags.map((x) => ({ value: x.id, label: x.name }))}
+          />
+        )}
         <Select
           label={t("stats:filters.outcome")}
           all={all}
@@ -308,30 +347,40 @@ export function StatsPage() {
             </div>
 
             <section aria-labelledby="stats-series">
-              <div className="mb-2 flex flex-wrap items-center gap-2">
+              <div className="mb-2 flex flex-wrap items-end gap-2">
                 <h2 id="stats-series" className="mr-auto text-base font-semibold">
                   {t("stats:series.title")}
                 </h2>
-                <Combobox
-                  aria-label={t("stats:series.metric")}
-                  className={`${inputClass} w-auto!`}
-                  value={metric}
-                  onChange={(v) => setMetric(v as keyof typeof METRICS)}
-                  options={(Object.keys(METRICS) as (keyof typeof METRICS)[]).map((m) => ({
-                    value: m,
-                    label: t(METRICS[m]),
-                  }))}
-                />
-                <Combobox
-                  aria-label={t("stats:series.bucket")}
-                  className={`${inputClass} w-auto!`}
-                  value={f.bucket}
-                  onChange={(v) => set({ bucket: v as StatsFilters["bucket"] })}
-                  options={(Object.keys(BUCKETS) as (keyof typeof BUCKETS)[]).map((b) => ({
-                    value: b,
-                    label: t(BUCKETS[b]),
-                  }))}
-                />
+                <Field label={t("stats:series.metric")}>
+                  {(id) => (
+                    <Combobox
+                      id={id}
+                      aria-label={t("stats:series.metric")}
+                      className={`${inputClass} w-auto!`}
+                      value={metric}
+                      onChange={(v) => setMetric(v as keyof typeof METRICS)}
+                      options={(Object.keys(METRICS) as (keyof typeof METRICS)[]).map((m) => ({
+                        value: m,
+                        label: t(METRICS[m]),
+                      }))}
+                    />
+                  )}
+                </Field>
+                <Field label={t("stats:series.bucket")}>
+                  {(id) => (
+                    <Combobox
+                      id={id}
+                      aria-label={t("stats:series.bucket")}
+                      className={`${inputClass} w-auto!`}
+                      value={f.bucket}
+                      onChange={(v) => set({ bucket: v as StatsFilters["bucket"] })}
+                      options={(Object.keys(BUCKETS) as (keyof typeof BUCKETS)[]).map((b) => ({
+                        value: b,
+                        label: t(BUCKETS[b]),
+                      }))}
+                    />
+                  )}
+                </Field>
               </div>
               <ul className="flex h-40 items-end gap-px overflow-x-auto rounded-lg border border-border bg-surface p-3">
                 {data.series.map((r) => (

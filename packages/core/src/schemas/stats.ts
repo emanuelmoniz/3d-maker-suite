@@ -10,7 +10,8 @@ export const statsQuerySchema = dateRangeQuery.extend({
   outcome: idList.optional(),
   tagId: idList.optional(),
   spoolId: idList.optional(),
-  profileId: idList.optional(),
+  /** Filament material (PLA, PETG...): prints that used it, counting only that material's share. */
+  materialId: idList.optional(),
   bucket: z.enum(STATS_BUCKETS).default("day"),
 });
 

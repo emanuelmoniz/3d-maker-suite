@@ -147,6 +147,12 @@ test("stats open on all time, with coloured filament rows and a bounded projects
   await expect(projects.locator("tbody tr")).toHaveCount(10);
   await page.getByRole("button", { name: "Next" }).first().click();
   await expect(projects.locator("tbody tr")).toHaveCount(2);
+
+  // Filters have visible labels; Tag only shows once there are tags.
+  await expect(page.getByText("Material", { exact: true })).toBeVisible();
+  await expect(page.getByLabel("Tag", { exact: true })).toHaveCount(0);
+  await pick(page.getByLabel("Material", { exact: true }), "PLA");
+  await expect(prints).toContainText("12");
 });
 
 test("create and list a backup", async ({ page }) => {

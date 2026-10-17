@@ -20,7 +20,7 @@
     "period": "Period",
     "printer": "Printer",
     "spool": "Spool",
-    "profile": "Filament profile",
+    "material": "Material",
     "project": "Project",
     "tag": "Tag",
     "outcome": "Outcome"

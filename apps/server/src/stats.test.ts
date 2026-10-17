@@ -94,6 +94,25 @@ describe("stats", () => {
     expect(stats.breakdowns.filament[0]?.seconds).toBeCloseTo(stats.totals.seconds, -1);
   });
 
+  it("filters by material, counting only that material's grams", async () => {
+    const { app, db } = await setup();
+    const profiles = db.select().from(schema.filamentProfiles).all();
+    const material = profiles[0]?.materialId ?? "";
+    const ofMaterial = new Set(profiles.filter((p) => p.materialId === material).map((p) => p.id));
+    const used = db
+      .select()
+      .from(schema.printFilamentUsages)
+      .all()
+      .filter((u) => ofMaterial.has(u.profileId ?? ""));
+    const stats = await get(app, `?materialId=${material}`);
+    expect(stats.totals.prints).toBe(new Set(used.map((u) => u.printId)).size);
+    expect(stats.totals.grams).toBeCloseTo(used.reduce((n, u) => n + u.grams, 0));
+    expect(stats.totals.grams).toBeLessThan((await get(app)).totals.grams);
+    expect(stats.breakdowns.filament.every((f) => ofMaterial.has(f.key?.split("|")[0] ?? ""))).toBe(
+      true,
+    );
+  });
+
   it("fills empty buckets and reports the estimated part of the time", async () => {
     const { app, db } = await setup();
     const [first] = db.select().from(schema.prints).all();
