@@ -275,6 +275,16 @@ export function StatsPage() {
           options={materials}
         />
         <Select
+          label={t("stats:filters.outcome")}
+          all={all}
+          value={f.outcome}
+          onChange={(outcome) => set({ outcome })}
+          options={(Object.keys(OUTCOMES) as (keyof typeof OUTCOMES)[]).map((o) => ({
+            value: o,
+            label: t(OUTCOMES[o]),
+          }))}
+        />
+        <Select
           label={t("stats:filters.project")}
           all={all}
           value={f.projectId}
@@ -290,16 +300,6 @@ export function StatsPage() {
             options={tags.map((x) => ({ value: x.id, label: x.name }))}
           />
         )}
-        <Select
-          label={t("stats:filters.outcome")}
-          all={all}
-          value={f.outcome}
-          onChange={(outcome) => set({ outcome })}
-          options={(Object.keys(OUTCOMES) as (keyof typeof OUTCOMES)[]).map((o) => ({
-            value: o,
-            label: t(OUTCOMES[o]),
-          }))}
-        />
       </search>
 
       {data && tot && !tot.prints ? (
