@@ -31,9 +31,8 @@ export function SourceReviewPage() {
   // Prints: the range picked on the Integrations page (none = since the last sync).
   const range = useSearch({ strict: false }) as { from?: string; to?: string };
   const zip = source === "zip";
-  const [includeSystem, setIncludeSystem] = useState(false);
   const [done, setDone] = useState<ImportResult | null>(null);
-  const preview = useSourcePreview(source, id, type, includeSystem, range);
+  const preview = useSourcePreview(source, id, type, range);
 
   return (
     <>
@@ -57,16 +56,6 @@ export function SourceReviewPage() {
         )}
         {preview.data?.dir && (
           <p className="text-muted">{t("import:source.reading", { dir: preview.data.dir })}</p>
-        )}
-        {!zip && type === "filamentProfiles" && (
-          <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={includeSystem}
-              onChange={(e) => setIncludeSystem(e.target.checked)}
-            />
-            {t("import:source.includeSystem")}
-          </label>
         )}
         {preview.isFetching && <p role="status">{t("import:source.loading")}</p>}
         {done && (

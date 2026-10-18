@@ -51,14 +51,13 @@ export const useSourcePreview = (
   source: "integration" | "zip",
   id: string,
   type: ReviewedType,
-  includeSystem: boolean,
   /** Prints only: the dates to read; none = since the last sync. */
   range: { from?: string; to?: string } = {},
 ) =>
   useQuery({
-    queryKey: ["import-source", source, id, type, includeSystem, range.from, range.to],
+    queryKey: ["import-source", source, id, type, range.from, range.to],
     queryFn: () => {
-      const q = new URLSearchParams({ includeSystem: String(includeSystem) });
+      const q = new URLSearchParams();
       if (range.from) q.set("from", range.from);
       if (range.to) q.set("to", range.to);
       return api<ImportPreview>(

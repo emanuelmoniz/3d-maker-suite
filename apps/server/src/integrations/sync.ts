@@ -163,7 +163,7 @@ export function createSyncer(
 
       if (REVIEWED.has(type)) {
         const offer = async () => {
-          const rows = await offered(row, type as ReviewedType, false, instance, req, signal);
+          const rows = await offered(row, type as ReviewedType, instance, req, signal);
           // A run with nobody watching follows the policy; a confirmed review decided already.
           return policyOf(db, id, type).trackUsage ? rows : untracked(rows);
         };
@@ -484,7 +484,6 @@ export function createSyncer(
   async function offered(
     row: ReturnType<typeof rowOf>,
     type: ReviewedType,
-    includeSystem: boolean,
     instance?: IntegrationInstance,
     range: Range = {},
     signal = AbortSignal.timeout(TIMEOUT_MS),
@@ -501,23 +500,18 @@ export function createSyncer(
       return { entity: type, ignoredHeaders: [], from, rows, range: kept };
     }
     const { lib, dir } = libraryOf(db, adapters, row.id, type);
-    const rows = await libraryRows(db, lib, dir, type, { includeSystem, dataDir });
+    const rows = await libraryRows(db, lib, dir, type, { dataDir });
     return { entity: type, ignoredHeaders: [], from, dir, rows };
   }
 
   /** For the review: a vendor failure comes back as a 502 with its code. */
-  async function offer(
-    id: string,
-    type: ReviewedType,
-    includeSystem: boolean,
-    range: Range = {},
-  ): Promise<Stored> {
+  async function offer(id: string, type: ReviewedType, range: Range = {}): Promise<Stored> {
     const { row } = capableRow(db, adapters, id, type);
     try {
       const signal = AbortSignal.timeout(TIMEOUT_MS);
       const instance =
         type === "spools" || type === "prints" ? instanceFor(row, signal) : undefined;
-      return await offered(row, type, includeSystem, instance, range, signal);
+      return await offered(row, type, instance, range, signal);
     } catch (e) {
       if (e instanceof HttpError) throw e;
       throw new HttpError(502, codeOf(e), "Couldn't read the source");

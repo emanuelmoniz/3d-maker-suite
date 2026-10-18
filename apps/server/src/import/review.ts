@@ -38,8 +38,6 @@ export type StoredRow = {
   source?: string;
   /** A picture on this server to copy along (a printer model's thumbnail). */
   image?: string | null;
-  /** Only offered, never waiting for review (a slicer's built-in preset). */
-  optional?: boolean;
 };
 
 /** Rows kept from the preview until they are applied. */
@@ -170,7 +168,7 @@ export function createReview(db: Db, dataDir: string) {
       // the matcher.
       const id = String(r.raw.id ?? "").trim();
       const hit = byId.has(id) ? id : (r.source && bySource.get(r.source)) || null;
-      return { optional: !!r.optional, hit, raw: r.raw, row: r.n, ...p };
+      return { hit, raw: r.raw, row: r.n, ...p };
     });
     const valid = parsed.filter((p) => !p.errors.length);
     const open = valid.filter((p) => !p.hit);
@@ -183,7 +181,7 @@ export function createReview(db: Db, dataDir: string) {
     return {
       entity: stored.entity,
       dir: stored.dir,
-      rows: parsed.map(({ optional, hit, raw, ...p }) => {
+      rows: parsed.map(({ hit, raw, ...p }) => {
         const m = hit
           ? { candidates: [hit], targetId: hit }
           : (matchOf.get(p.row) ?? { candidates: [], targetId: null });
@@ -211,7 +209,7 @@ export function createReview(db: Db, dataDir: string) {
             // Without a source key the name is the identity, so a match is the row itself.
             linked: !!hit || (!handler.bySource && !!m.targetId),
             held: !!held?.(p.values) || (!!pick && !pick.sure),
-            optional: optional || yours,
+            optional: yours,
           }),
         };
       }),

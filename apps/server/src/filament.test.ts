@@ -255,8 +255,7 @@ describe("filament library", () => {
     expect([closed.statusCode, closed.json().error.code]).toEqual([404, "capability_unavailable"]);
     await setDir(dir);
     expect((await open(profilesUrl())).dir).toBe(dir);
-    expect(await review.rows(profilesUrl())).toEqual(["A:new", "B:new"]);
-    expect(await review.rows(profilesUrl("?includeSystem=true"))).toContain("S:new");
+    expect(await review.rows(profilesUrl())).toEqual(["A:new", "B:new", "S:new"]);
     // Switched off = gone.
     await patchSlicer({ policies: [{ type: "filamentProfiles", mode: "off" }] });
     expect((await review.open(profilesUrl())).statusCode).toBe(404);
@@ -269,7 +268,7 @@ describe("filament library", () => {
       .json()
       .policies.find((p: { type: string }) => p.type === type);
 
-  it("a profiles run imports only user presets whose brand and material are in the catalog", async () => {
+  it("a profiles run imports user and built-in presets whose brand and material are in the catalog", async () => {
     // No folder yet: refused, and not logged as a failed run.
     expect((await run(slicerId, "filamentProfiles")).statusCode).toBe(404);
     expect(db.select().from(schema.syncRuns).all()).toEqual([]);
@@ -282,24 +281,20 @@ describe("filament library", () => {
       status: "ok",
       created: 0,
     });
-    expect(await policy(slicerId, "filamentProfiles")).toMatchObject({ pending: 2 });
+    expect(await policy(slicerId, "filamentProfiles")).toMatchObject({ pending: 3 });
     // A run that wrote nothing leaves the import history alone.
     expect(db.select().from(schema.importRuns).all()).toEqual([]);
 
     filamentBrandIdFor(db, "acme");
-    expect((await run(slicerId, "filamentProfiles")).json()).toMatchObject({ created: 2 });
+    expect((await run(slicerId, "filamentProfiles")).json()).toMatchObject({ created: 3 });
     expect(db.select().from(schema.importRuns).all()).toMatchObject([
-      { source: "integration", type: "filamentProfiles", created: 2, backup: null },
+      { source: "integration", type: "filamentProfiles", created: 3, backup: null },
     ]);
     expect((await run(slicerId, "filamentProfiles")).json()).toMatchObject({
       created: 0,
-      skipped: 2,
+      skipped: 3,
     });
-    expect(await review.rows(profilesUrl("?includeSystem=true"))).toEqual([
-      "A:identical",
-      "B:identical",
-      "S:new",
-    ]);
+    expect(await review.rows(profilesUrl())).toEqual(["A:identical", "B:identical", "S:identical"]);
     const after = await policy(slicerId, "filamentProfiles");
     expect(after).toMatchObject({ mode: "manual", pending: 0 });
     expect(after.lastRunAt).toBeTruthy();
@@ -440,11 +435,11 @@ describe("filament library", () => {
         .all()
         .map((m) => m.name),
     ).toEqual(["PLA"]);
-    expect(await review.rows(profilesUrl())).toEqual(["A:identical", "B:new"]);
+    expect(await review.rows(profilesUrl())).toEqual(["A:identical", "B:new", "S:new"]);
 
     // Same filament made by hand is its twin: matched, and never created again.
     addProfile("B");
-    expect(await review.rows(profilesUrl())).toEqual(["A:identical", "B:changed"]);
+    expect(await review.rows(profilesUrl())).toEqual(["A:identical", "B:changed", "S:new"]);
     expect((await only("B")).json()).toMatchObject({ created: 0 });
     expect(db.select().from(schema.filamentProfiles).all()).toHaveLength(2);
   });

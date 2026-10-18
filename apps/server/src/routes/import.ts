@@ -136,7 +136,6 @@ export const importRoutes =
         schema: {
           params: z.object({ id: z.uuid(), type: z.enum(REVIEWED_TYPES) }),
           querystring: z.object({
-            includeSystem: z.enum(["true", "false"]).default("false"),
             // Prints only: the dates to read; none = since the last sync.
             from: isoDate.optional(),
             to: isoDate.optional(),
@@ -146,8 +145,8 @@ export const importRoutes =
       },
       async (req) => {
         const { id, type } = req.params;
-        const { includeSystem, from, to } = req.query;
-        const stored = await syncer.offer(id, type, includeSystem === "true", { from, to });
+        const { from, to } = req.query;
+        const stored = await syncer.offer(id, type, { from, to });
         return { uploadId: review.save(stored), ...review.preview(stored) };
       },
     );

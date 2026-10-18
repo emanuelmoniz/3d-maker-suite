@@ -29,13 +29,16 @@ const names = (values: string[]) => [
   ).values(),
 ];
 
-/** What a slicer's folder offers for one type. Thumbnails are only offered when `dataDir` can take them. */
+/**
+ * What a slicer's folder offers for one type, built-in presets included: a sync imports them all,
+ * whatever the type. Thumbnails are only offered when `dataDir` can take them.
+ */
 export async function libraryRows(
   db: Db,
   lib: FilamentLibrary,
   dir: string,
   type: LibraryType,
-  opts: { includeSystem: boolean; dataDir: string },
+  opts: { dataDir: string },
 ): Promise<StoredRow[]> {
   if (type === "filamentBrands") {
     // Filament vendors -> filament brands, filament types -> materials, from the filament presets.
@@ -55,19 +58,18 @@ export async function libraryRows(
     const goneKeys = new Set(gone.map(profileKey));
     for (const p of active) goneKeys.delete(profileKey(p));
     return numbered(
-      (await lib.read(dir, { includeSystem: opts.includeSystem })).flatMap((preset) => {
-        const { presetId, scope, pricePerKg, ...p } = preset;
+      (await lib.read(dir, { includeSystem: true })).flatMap((preset) => {
+        const { presetId, scope: _scope, pricePerKg, ...p } = preset;
         const source = `${lib.id}:${presetId}`;
         if (!current.has(source) && (goneSources.has(source) || goneKeys.has(profileKey(p))))
           return [];
         // The price column is typed in major units, like a file's.
         const price = pricePerKg === null ? null : pricePerKg / 100;
-        return [{ source, optional: scope === "system", raw: { ...p, pricePerKg: price } }];
+        return [{ source, raw: { ...p, pricePerKg: price } }];
       }),
     );
   }
   const c = (await lib.readCatalog?.(dir)) ?? { models: [], machines: [], processes: [] };
-  // Like machine presets, built-in ones are imported by a sync too (unlike filament presets).
   if (type === "printProfiles")
     return numbered(
       c.processes.map(({ presetId, scope: _scope, ...raw }) => ({

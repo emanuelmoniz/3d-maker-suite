@@ -283,7 +283,6 @@
     "description": "Review what this source offers. Nothing is saved until you confirm.",
     "reading": "Reading from {{dir}}",
     "loading": "Reading…",
-    "includeSystem": "Include the slicer's built-in presets",
     "error": "Couldn't read this from the integration. Check that it is connected and set up in Integrations.",
     "openIntegrations": "Open integrations",
     "emptyTitle": "Nothing found",
