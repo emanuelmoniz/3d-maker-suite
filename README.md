@@ -1,17 +1,18 @@
 # 3D Maker Suite
 
-A local-first manager for your 3D printing: printers, maintenance, filament, projects, prints, costs and stats. Runs on your own PC. Your data stays in a SQLite file on your disk.
+A local-first manager for your 3D printing: printers, accessories, maintenance, filament, projects, prints, costs and stats. Runs on your own PC. Your data stays in a SQLite file on your disk.
 
 ![Dashboard screenshot](docs/images/dashboard.png)
 
 ## Features
 
-- **Printers**: inventory, timeline, comments, warranty and purchase info
-- **Maintenance**: reusable tasks, due by hours, prints or days
+- **Printers**: inventory, timeline, comments, warranty and purchase info, lifetime and maintenance cost
+- **Accessories**: install on a printer with dates, usage, photos, tags, maintenance and cost
+- **Maintenance**: reusable tasks for printers and accessories, due by hours, prints or days
 - **Filament**: brands, materials, profiles, spools with numbers and colour names, remaining grams, low-spool alerts
 - **Projects**: 3MF models with plates, thumbnails, tags, collections, filament colours, and a description from a linked `.md` or `.txt` file
 - **Prints**: history with outcome, filament usage per AMS slot (up to 16 for multicolor), energy, and an estimated duration when only the grams are known
-- **Costs and stats**: cost per print snapshotted at record time, charts by period
+- **Costs and stats**: cost per print snapshotted at record time (printer, counted accessories, filament, energy, labour), charts by period, filters by material and outcome
 - **Integrations** (optional): Bambu Cloud, Bambu Studio and OrcaSlicer, with a sync mode and frequency per data type
 - **Import**: spreadsheets (spools, printers, prints) and slicer catalogs from a zip, reviewed row by row before anything is saved
 - **Backups**: scheduled online SQLite backups, restore, CSV, JSON and spreadsheet export
@@ -63,7 +64,7 @@ By default the app only answers on this PC. To reach it from your phone or anoth
 
 ## Status
 
-Version 1.3.0. English only for now; the code is ready for more languages (see [CONTRIBUTING.md](CONTRIBUTING.md)).
+Version 2.0.0-alpha.1 (pre-release). English only for now; the code is ready for more languages (see [CONTRIBUTING.md](CONTRIBUTING.md)).
 
 ## License
 

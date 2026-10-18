@@ -2,6 +2,32 @@
 
 All notable changes are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [2.0.0-alpha.1] - 2026-10-18
+
+### Added
+- Accessories: data, pages and install history (put on or remove from a printer, with past periods), photos, tags, notes, typical power
+- Accessory usage: prints of the printer it was on while installed, shown on the accessory page and in the accessories table
+- Maintenance for accessories: types target a printer or an accessory, tasks point at one of them, and due status and alerts include both
+- Lifetime hours and "include maintenance cost" per printer and accessory, with the Costs defaults as fallback; accessories also have "count in costs"
+- Costs settings: a Printers section (count printers in costs, lifetime, maintenance) and accessory defaults
+- A print pays for its printer plus every counted accessory installed on it when it started
+- Printers: "count in costs" switch, and prints and print time columns in the printers table
+- Printer and accessory import from a file, with the same cost columns and review
+- Stats: material filter, outcome filter, and labels on every filter and chart control
+- Estimated duration when a print is created or edited with grams and no duration
+
+### Changed
+- Stats: filament rows are split by grams, so rows add up to the totals; the filament filter counts only that filament's grams and share of time and costs
+- Stats: the page opens on All time by month; series fill empty buckets so the chart and CSV keep a true time axis
+- Every table can sort and filter; the project column sits on the prints table
+- Sidebar: Accounting group, with Projects before Prints
+- Covers are removed from prints; the Bambu cover mapping goes with them
+
+### Fixed
+- Lists keep their scroll position after search, sort and filter
+- Stats project filter lists the highest number first
+- Maintenance due table no longer crashes on types without a days interval
+
 ## [1.3.0] - 2026-10-16
 
 ### Added

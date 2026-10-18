@@ -135,7 +135,7 @@ Do Step 10 of PLAN.md. Show me how printerRates and the stats rate CTE handle ra
 depend on the print date before implementing. Back up the DB before editing schema.ts.
 ```
 
-### [ ] Step 11 - Docs, push & v2.0.0-alpha.1
+### [x] Step 11 - Docs, push & v2.0.0-alpha.1
 **Model:** Haiku · **Effort:** Low
 **Scope:** README/docs updates for Steps 1-10 (accessories, stats, cost settings), CHANGELOG, version `2.0.0-alpha.1`. Commit, push `main`, create and push tag `v2.0.0-alpha.1`. The release workflow publishes it as a pre-release; check that the run succeeds (`gh run watch`) and the release exists (`gh release view v2.0.0-alpha.1`).
 **Done when:** `main` and the tag are pushed; the workflow is green; the pre-release exists; docs match the app.
