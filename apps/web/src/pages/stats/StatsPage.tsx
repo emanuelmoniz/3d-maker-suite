@@ -289,7 +289,9 @@ export function StatsPage() {
           all={all}
           value={f.projectId}
           onChange={(projectId) => set({ projectId })}
-          options={projects.map((p) => ({ value: p.id, label: projectName(t, p) }))}
+          options={[...projects]
+            .sort((a, b) => b.number - a.number)
+            .map((p) => ({ value: p.id, label: projectName(t, p) }))}
         />
         {tags.length > 0 && (
           <Select
