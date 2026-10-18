@@ -67,11 +67,11 @@ export async function libraryRows(
     );
   }
   const c = (await lib.readCatalog?.(dir)) ?? { models: [], machines: [], processes: [] };
+  // Like machine presets, built-in ones are imported by a sync too (unlike filament presets).
   if (type === "printProfiles")
     return numbered(
-      c.processes.map(({ presetId, scope, ...raw }) => ({
+      c.processes.map(({ presetId, scope: _scope, ...raw }) => ({
         source: `${lib.id}:${presetId}`,
-        optional: scope === "system",
         raw,
       })),
     );

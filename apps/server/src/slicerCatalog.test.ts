@@ -186,13 +186,13 @@ describe("slicer catalog import", () => {
     expect((await app.inject(`/api/machine-profiles/${first?.id}`)).json().archivedAt).toBeTruthy();
   });
 
-  it("imports print profiles, with or without a known printer, and updates them in place", async () => {
+  it("a sync imports print profiles, built-in or not, with or without a known printer, and updates them in place", async () => {
     const preview = await open("printProfiles");
     expect(preview.rows.map((r) => [r.values.name, r.status])).toEqual([
       ["0.20mm Standard @Acme X", "new"],
       ["Loose", "new"],
     ]);
-    expect((await review.confirm(preview)).json()).toMatchObject({ created: 2 });
+    expect(await run("printProfiles")).toMatchObject({ created: 2, skipped: 0 });
     const rows = db.select().from(schema.printProfiles).all();
     const model = db.select().from(schema.printerModels).get();
     expect(rows).toMatchObject([
