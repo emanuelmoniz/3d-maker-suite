@@ -62,7 +62,21 @@ export const printStatsSchema = z.object({
   energyWh: z.number(),
 });
 
-export const printerSortFields = ["name", "createdAt", "model", "state", "powerW"] as const;
+/** A row of the printers list: the printer plus its lifetime usage (offsets + logged prints). */
+export const printerRowSchema = printerSchema.extend({
+  runtimeSec: z.number().int().nonnegative(),
+  prints: z.number().int().nonnegative(),
+});
+
+export const printerSortFields = [
+  "name",
+  "createdAt",
+  "model",
+  "state",
+  "powerW",
+  "runtimeSec",
+  "prints",
+] as const;
 
 /** Printers table column filters (see `listQuery`). States are user-defined, so not an enum. */
 export const printerFilters = {
@@ -71,9 +85,11 @@ export const printerFilters = {
   state: { kind: "select" },
   tagId: { kind: "select" },
   powerW: { kind: "number" },
+  prints: { kind: "number" },
 } as const satisfies Record<string, ColumnFilter>;
 export const archivedFilter = z.enum(["true", "false"]).default("false");
 
+export type PrinterRow = z.infer<typeof printerRowSchema>;
 export type PrinterInput = z.infer<typeof printerInputSchema>;
 export type PrinterPatch = z.infer<typeof printerPatchSchema>;
 export type CommentInput = z.infer<typeof commentInputSchema>;

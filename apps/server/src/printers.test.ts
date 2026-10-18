@@ -111,6 +111,17 @@ describe("printers", () => {
       totalSec: 7200,
       energyWh: 200,
     });
+
+    // The list shows lifetime usage: offsets plus logged prints; sortable and filterable.
+    const old = await create({ name: "Old" });
+    db.update(schema.printers).set({ printsOffset: 5, runtimeOffsetSec: 3600 }).run();
+    const list = async (q: string) => (await app.inject(`/api/printers${q}`)).json().items;
+    expect(await list("?sort=-prints")).toMatchObject([
+      { id: p.id, prints: 7, runtimeSec: 3600 + 10800 },
+      { id: old.id, prints: 5, runtimeSec: 3600 },
+    ]);
+    expect((await list("?sort=runtimeSec"))[0].id).toBe(old.id);
+    expect(await list("?prints=6..10")).toMatchObject([{ id: p.id }]);
   });
 
   it("comments: pinned first, status, delete", async () => {

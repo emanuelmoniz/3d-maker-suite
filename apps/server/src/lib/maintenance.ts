@@ -25,6 +25,17 @@ export const usageOf = (db: Db, p: typeof printers.$inferSelect, upTo?: string):
   };
 };
 
+/** `usageOf` as SQL for a select (list sort/filter). Qualified: "id" in the subquery is the print's. */
+export const printerUsageColumns = () => {
+  const of = (column: string) => sql.raw(`"printers"."${column}"`);
+  const logged = (what: SQL) =>
+    sql<number>`(SELECT coalesce(${what}, 0) FROM prints p WHERE p.printer_id = ${of("id")})`;
+  return {
+    runtimeSec: sql<number>`${of("runtime_offset_sec")} + ${logged(sql`sum(p.duration_sec)`)}`,
+    prints: sql<number>`${of("prints_offset")} + ${logged(sql`count(*)`)}`,
+  };
+};
+
 /**
  * Prints of the printer an accessory was on, started inside an install period `[installedAt,
  * removedAt)`. Periods never overlap, so a print matches at most one. Aliased plain SQL: the

@@ -1,7 +1,7 @@
 import {
   type Accessory,
   accessoryFilters,
-  type Printer,
+  type PrinterRow,
   printerFilters,
 } from "@3d-maker-suite/core";
 import { Link } from "@tanstack/react-router";
@@ -28,9 +28,9 @@ export function PrintersPage() {
   const stateLabel = useStateLabel();
   const states = usePreferences().data?.values.printerStates ?? [];
   const [query, setQuery] = useUrlListQuery();
-  const { data, isError } = useListPage<Printer>(["printers", "list"], "/api/printers", query);
+  const { data, isError } = useListPage<PrinterRow>(["printers", "list"], "/api/printers", query);
   // Archived printers keep the table (and its "Show archived" switch) up, even with no active ones.
-  const archived = useListPage<Printer>(["printers", "list"], "/api/printers", {
+  const archived = useListPage<PrinterRow>(["printers", "list"], "/api/printers", {
     archived: "true",
     pageSize: "1",
   });
@@ -122,6 +122,21 @@ export function PrintersPage() {
                 cell: (p) => <TagList tags={tagsOf(p.id)} />,
                 filter: "tagId",
                 filterOptions: tags.map((x) => ({ value: x.id, label: x.name })),
+              },
+              {
+                id: "prints",
+                header: t("printers:detail.stats.prints"),
+                numeric: true,
+                cell: (p) => formatNumber(p.prints),
+                sort: "prints",
+                filter: "prints",
+              },
+              {
+                id: "runtime",
+                header: t("printers:detail.stats.time"),
+                numeric: true,
+                cell: (p) => formatDuration(p.runtimeSec),
+                sort: "runtimeSec",
               },
               {
                 id: "power",

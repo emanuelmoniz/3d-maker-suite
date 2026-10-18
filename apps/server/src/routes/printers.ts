@@ -5,18 +5,20 @@ import {
   listQuery,
   type Page,
   type Printer,
+  type PrinterRow,
   pageOf,
   printerCommentSchema,
   printerFilters,
   printerInputSchema,
   printerPatchSchema,
+  printerRowSchema,
   printerSchema,
   printerSortFields,
   printStatsSchema,
   summarizePrints,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
-import { and, eq, isNotNull, isNull } from "drizzle-orm";
+import { and, eq, getTableColumns, isNotNull, isNull } from "drizzle-orm";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
@@ -24,12 +26,14 @@ import { modelName, printerLabel } from "../lib/catalog.ts";
 import { commentRoutes } from "../lib/comments.ts";
 import { imageRoutes } from "../lib/images.ts";
 import { dateRange, listPage, taggedWith } from "../lib/list.ts";
+import { printerUsageColumns } from "../lib/maintenance.ts";
 import { assertNumberFree, nextNumber } from "../lib/numbers.ts";
 import { readPreferences } from "../lib/preferences.ts";
 
 const { printers, printerComments, printerModels, prints, accessoryInstalls } = schema;
 const params = z.object({ id: z.uuid() });
 const brandModel = modelName(printers.modelId);
+const usage = printerUsageColumns();
 const notFound = { 404: apiErrorSchema };
 
 export const printersRoutes =
@@ -64,11 +68,12 @@ export const printersRoutes =
       {
         schema: {
           querystring: listQuery(printerSortFields, { archived: archivedFilter }, printerFilters),
-          response: { 200: pageOf(printerSchema) },
+          response: { 200: pageOf(printerRowSchema) },
         },
       },
       async (req) =>
         listPage(db, printers, req.query, {
+          select: { ...getTableColumns(printers), ...usage },
           sort: {
             // The name starts with the number: sorting by it sorts the name as shown (2 before 10).
             name: printers.number,
@@ -76,6 +81,8 @@ export const printersRoutes =
             model: brandModel,
             state: printers.state,
             powerW: printers.powerW,
+            runtimeSec: usage.runtimeSec,
+            prints: usage.prints,
           },
           dateColumn: printers.createdAt,
           filters: {
@@ -83,6 +90,7 @@ export const printersRoutes =
             model: brandModel,
             state: printers.state,
             powerW: printers.powerW,
+            prints: usage.prints,
           },
           where: [
             taggedWith(db, "printer", printers.id, req.query.tagId),
@@ -90,7 +98,7 @@ export const printersRoutes =
               ? isNotNull(printers.archivedAt)
               : isNull(printers.archivedAt),
           ],
-        }) as Page<Printer>,
+        }) as Page<PrinterRow>,
     );
 
     app.post(
