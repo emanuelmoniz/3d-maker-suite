@@ -288,6 +288,13 @@
       "when": 1792338240912,
       "tag": "0040_accessories",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "6",
+      "when": 1792339643538,
+      "tag": "0041_accessory_photos_tags",
+      "breakpoints": true
     }
   ]
 }

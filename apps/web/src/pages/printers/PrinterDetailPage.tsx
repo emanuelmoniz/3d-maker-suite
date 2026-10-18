@@ -7,7 +7,7 @@ import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { type DateRange, DateRangePicker } from "../../components/DateRangePicker.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { StatCard } from "../../components/StatCard.tsx";
-import { imageUrl, useModelInfo } from "../../lib/catalog.ts";
+import { imageUrl, isConflict, useModelInfo } from "../../lib/catalog.ts";
 import {
   formatCurrency,
   formatDate,
@@ -40,6 +40,61 @@ export function Info({ label, children }: { label: string; children: ReactNode }
 
 export const linkButton =
   "inline-flex h-9 items-center justify-center whitespace-nowrap rounded-md border border-border bg-surface px-3 font-medium hover:bg-surface-2";
+
+/** Photo with upload/remove, for printers and accessories. `own` = it has a photo of its own to remove. */
+export function Photo({
+  src,
+  alt,
+  own,
+  onUpload,
+  onRemove,
+}: {
+  src: string | null;
+  alt: string;
+  own: boolean;
+  onUpload: (file: File) => void;
+  onRemove: () => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <div className="grid content-start gap-2">
+      {src ? (
+        <img
+          src={src}
+          alt={alt}
+          className="aspect-square w-full rounded-md border border-border object-cover"
+        />
+      ) : (
+        <div className="grid aspect-square w-full place-items-center rounded-md border border-dashed border-border text-muted">
+          <span className="grid justify-items-center gap-1">
+            <ImageOff className="size-6" aria-hidden />
+            {t("printers:detail.photo.empty")}
+          </span>
+        </div>
+      )}
+      <div className="flex flex-wrap gap-2">
+        <label className={`${linkButton} cursor-pointer focus-within:outline-2`}>
+          {t("printers:detail.photo.upload")}
+          <input
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            className="sr-only"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) onUpload(file);
+              e.target.value = "";
+            }}
+          />
+        </label>
+        {own && (
+          <Button variant="ghost" onClick={onRemove}>
+            {t("printers:detail.photo.remove")}
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export function PrinterDetailPage() {
   const { t } = useTranslation();
@@ -110,48 +165,23 @@ export function PrinterDetailPage() {
       />
       {(patch.isError || upload.isError || removePhoto.isError) && (
         <p role="alert" className="mb-4 text-bad">
-          {t("printers:detail.actionError")}
+          {t(
+            isConflict(patch.error)
+              ? "printers:detail.hasAccessories"
+              : "printers:detail.actionError",
+          )}
         </p>
       )}
 
       <div className="grid gap-4">
         <section className="grid gap-5 rounded-lg border border-border bg-surface p-4 sm:grid-cols-[14rem_1fr] sm:p-5">
-          <div className="grid content-start gap-2">
-            {photo ? (
-              <img
-                src={photo}
-                alt={t("printers:detail.photo.alt", { name: printerName(t, printer) })}
-                className="aspect-square w-full rounded-md border border-border object-cover"
-              />
-            ) : (
-              <div className="grid aspect-square w-full place-items-center rounded-md border border-dashed border-border text-muted">
-                <span className="grid justify-items-center gap-1">
-                  <ImageOff className="size-6" aria-hidden />
-                  {t("printers:detail.photo.empty")}
-                </span>
-              </div>
-            )}
-            <div className="flex flex-wrap gap-2">
-              <label className={`${linkButton} cursor-pointer focus-within:outline-2`}>
-                {t("printers:detail.photo.upload")}
-                <input
-                  type="file"
-                  accept="image/png,image/jpeg,image/webp"
-                  className="sr-only"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) upload.mutate(file);
-                    e.target.value = "";
-                  }}
-                />
-              </label>
-              {printer.photoPath && (
-                <Button variant="ghost" onClick={() => removePhoto.mutate()}>
-                  {t("printers:detail.photo.remove")}
-                </Button>
-              )}
-            </div>
-          </div>
+          <Photo
+            src={photo}
+            alt={t("printers:detail.photo.alt", { name: printerName(t, printer) })}
+            own={printer.photoPath !== null}
+            onUpload={(file) => upload.mutate(file)}
+            onRemove={() => removePhoto.mutate()}
+          />
           <div>
             <h2 className="mb-3 flex items-center gap-2 text-base font-semibold">
               {t("printers:detail.info.title")}

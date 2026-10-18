@@ -6,6 +6,7 @@ import { Button } from "../../components/Button.tsx";
 import { Combobox } from "../../components/Combobox.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
+import { TagPicker } from "../../components/TagPicker.tsx";
 import {
   useAccessory,
   useAccessoryTypes,
@@ -15,6 +16,7 @@ import {
 import { isConflict } from "../../lib/catalog.ts";
 import { dateInputToIso, isoToDateInput } from "../../lib/format.ts";
 import { usePreferences } from "../../lib/preferences.ts";
+import { useTagEditor } from "../../lib/tags.ts";
 import { useStateLabel } from "./StateBadge.tsx";
 
 const text = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
@@ -33,6 +35,7 @@ function AccessoryForm({ accessory }: { accessory?: Accessory }) {
   const states = prefs?.printerStates ?? [];
   const types = useAccessoryTypes().data ?? [];
   const typeList = useId();
+  const tags = useTagEditor("accessory", accessory?.id);
 
   const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -51,8 +54,11 @@ function AccessoryForm({ accessory }: { accessory?: Accessory }) {
       warrantyNotes: orNull(text(f, "warrantyNotes")),
     };
     save.mutate(body, {
-      onSuccess: (saved) =>
-        navigate({ to: "/printers/accessories/$id", params: { id: (saved as Accessory).id } }),
+      onSuccess: async (saved) => {
+        const { id } = saved as Accessory;
+        await tags.persist(id);
+        navigate({ to: "/printers/accessories/$id", params: { id } });
+      },
     });
   };
 
@@ -175,6 +181,7 @@ function AccessoryForm({ accessory }: { accessory?: Accessory }) {
           />
         )}
       </FormField>
+      <TagPicker value={tags.value} onChange={tags.onChange} />
       {save.isError && (
         <p role="alert" className="text-bad">
           {t(

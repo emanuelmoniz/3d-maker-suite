@@ -116,7 +116,7 @@ export async function buildApp(
   await app.register(fsRoutes(), { prefix: "/api/fs" });
   await app.register(brandingRoutes(dataDir), { prefix: "/api/branding" });
   await app.register(printersRoutes(db, dataDir), { prefix: "/api/printers" });
-  await app.register(accessoriesRoutes(db), { prefix: "/api/accessories" });
+  await app.register(accessoriesRoutes(db, dataDir), { prefix: "/api/accessories" });
   await app.register(brandsRoutes(db, dataDir), { prefix: "/api/brands" });
   await app.register(filamentBrandsRoutes(db, dataDir), { prefix: "/api/filament-brands" });
   await app.register(filamentMaterialsRoutes(db, dataDir), { prefix: "/api/filament-materials" });

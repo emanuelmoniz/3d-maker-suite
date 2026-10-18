@@ -9,8 +9,8 @@ test("accessories: create, install, remove, install again, delete a record", asy
 
   await page.goto("/printers");
   await page.getByRole("link", { name: "Add accessory" }).click();
-  await page.getByLabel("Name").fill("AMS Unit");
-  await page.getByLabel("Type").fill("AMS");
+  await page.getByLabel("Name", { exact: true }).fill("AMS Unit");
+  await page.getByLabel("Type", { exact: true }).fill("AMS");
   await page.getByRole("button", { name: "Save" }).click();
   await expect(page.getByRole("heading", { name: "01-AMS Unit" })).toBeVisible();
 
@@ -39,10 +39,27 @@ test("accessories: create, install, remove, install again, delete a record", asy
   await dialog.getByRole("button", { name: "Add" }).click();
   await expect(row).toBeVisible();
 
+  // Still on it: archiving the printer is refused.
+  await page.getByRole("button", { name: "Archive" }).click();
+  await dialog.getByRole("button", { name: "Archive" }).click();
+  await expect(page.getByRole("alert")).toContainText("Remove its accessories first");
+
   await row.click();
   const history = page.getByRole("listitem").filter({ hasText: "01-Test Printer" });
   await expect(history).toHaveCount(2);
   await history.last().getByRole("button", { name: "Delete record" }).click();
   await dialog.getByRole("button", { name: "Delete record" }).click();
   await expect(history).toHaveCount(1);
+
+  // From the accessory page: take it off, then record a past period.
+  await page.getByRole("button", { name: "Remove from printer" }).click();
+  await dialog.getByLabel("Removed on").fill("2026-01-25");
+  await dialog.getByRole("button", { name: "Remove" }).click();
+  await expect(page.getByText("Not installed")).toBeVisible();
+  await page.getByRole("button", { name: "Put on a printer" }).click();
+  await dialog.getByLabel("Installed on").fill("2026-01-01");
+  await dialog.getByLabel("Removed on").fill("2026-01-05");
+  await dialog.getByRole("button", { name: "Add" }).click();
+  await expect(history).toHaveCount(2);
+  await expect(page.getByText("Not installed")).toBeVisible();
 });

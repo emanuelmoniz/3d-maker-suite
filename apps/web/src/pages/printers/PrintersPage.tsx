@@ -151,6 +151,8 @@ function AccessoriesTable() {
   const { data } = useListPage<Accessory>(["accessories", "list"], "/api/accessories", query);
   const printers = usePrinters({ archived: false }).data?.items ?? [];
   const printerOf = new Map(printers.map((p) => [p.id, p]));
+  const tagsOf = useTagsOf("accessory");
+  const tags = useTags().data ?? [];
 
   return (
     <section className="mt-8">
@@ -206,6 +208,13 @@ function AccessoriesTable() {
                 sort: "state",
                 filter: "state",
                 filterOptions: states.map((s) => ({ value: s, label: stateLabel(s) })),
+              },
+              {
+                id: "tags",
+                header: t("tags:column"),
+                cell: (a) => <TagList tags={tagsOf(a.id)} />,
+                filter: "tagId",
+                filterOptions: tags.map((x) => ({ value: x.id, label: x.name })),
               },
               {
                 id: "printer",

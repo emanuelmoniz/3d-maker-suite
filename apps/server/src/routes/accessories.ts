@@ -37,7 +37,8 @@ import { z } from "zod";
 import { HttpError } from "../errors.ts";
 import { printerLabel } from "../lib/catalog.ts";
 import { commentRoutes } from "../lib/comments.ts";
-import { listPage } from "../lib/list.ts";
+import { imageRoutes } from "../lib/images.ts";
+import { listPage, taggedWith } from "../lib/list.ts";
 import { assertNumberFree, nextNumber } from "../lib/numbers.ts";
 import { readPreferences } from "../lib/preferences.ts";
 
@@ -68,7 +69,7 @@ const installColumns = {
 };
 
 export const accessoriesRoutes =
-  (db: Db): FastifyPluginAsyncZod =>
+  (db: Db, dataDir: string): FastifyPluginAsyncZod =>
   async (app) => {
     const get = (id: string) => {
       const row = db.select(withPrinter).from(accessories).where(eq(accessories.id, id)).get();
@@ -162,6 +163,7 @@ export const accessoriesRoutes =
             printerId: currentPrinter,
           },
           where: [
+            taggedWith(db, "accessory", accessories.id, req.query.tagId),
             req.query.archived === "true"
               ? isNotNull(accessories.archivedAt)
               : isNull(accessories.archivedAt),
@@ -269,13 +271,13 @@ export const accessoriesRoutes =
       },
       async (req, reply) => {
         get(req.params.id);
-        const { printerId, installedAt } = req.body;
+        const { printerId, installedAt, removedAt = null } = req.body;
         if (!db.select().from(printers).where(eq(printers.id, printerId)).get())
           throw new HttpError(400, "invalid_printer", "Unknown printer");
-        assertNoOverlap(req.params.id, installedAt, null);
+        assertNoOverlap(req.params.id, installedAt, removedAt);
         const { id } = db
           .insert(installs)
-          .values({ accessoryId: req.params.id, printerId, installedAt })
+          .values({ accessoryId: req.params.id, printerId, installedAt, removedAt })
           .returning()
           .get();
         return reply.status(201).send(getFull(id));
@@ -317,6 +319,17 @@ export const accessoriesRoutes =
         return reply.status(204).send(null);
       },
     );
+
+    imageRoutes(app, dataDir, {
+      name: "photo",
+      dir: "photos",
+      response: accessorySchema,
+      get: (id) => get(id).photoPath,
+      set: (id, photoPath) => {
+        db.update(accessories).set({ photoPath }).where(eq(accessories.id, id)).run();
+        return get(id);
+      },
+    });
 
     commentRoutes(app, db, {
       table: accessoryComments,

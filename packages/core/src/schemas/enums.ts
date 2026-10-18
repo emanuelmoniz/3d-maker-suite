@@ -19,7 +19,7 @@ export const WEIGHT_ENTRY_KINDS = ["manual", "print", "correction"] as const;
 // Project fields the user can edit. A re-scan only rewrites the ones NOT listed in `editedFields`.
 export const PROJECT_EDITABLE_FIELDS = ["name", "description", "sourceUrl"] as const;
 export const PROJECT_FILE_KINDS = ["model", "image", "doc", "shortcut"] as const;
-export const TAGGABLE_TYPES = ["project", "print", "spool", "printer"] as const;
+export const TAGGABLE_TYPES = ["project", "print", "spool", "printer", "accessory"] as const;
 // Adapter errors are mapped to these; vendor messages never reach the API (ADR-0003).
 export const INTEGRATION_ERROR_CODES = [
   "auth_required",

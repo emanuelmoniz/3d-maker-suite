@@ -27,7 +27,7 @@ import { dateRange, listPage, taggedWith } from "../lib/list.ts";
 import { assertNumberFree, nextNumber } from "../lib/numbers.ts";
 import { readPreferences } from "../lib/preferences.ts";
 
-const { printers, printerComments, printerModels, prints } = schema;
+const { printers, printerComments, printerModels, prints, accessoryInstalls } = schema;
 const params = z.object({ id: z.uuid() });
 const brandModel = modelName(printers.modelId);
 const notFound = { 404: apiErrorSchema };
@@ -47,6 +47,16 @@ export const printersRoutes =
     const checkModel = (modelId?: string) => {
       if (modelId && !db.select().from(printerModels).where(eq(printerModels.id, modelId)).get())
         throw new HttpError(400, "invalid_model", "Unknown printer model");
+    };
+    // Like accessories: nothing stays installed on an archived printer.
+    const assertNoAccessories = (id: string) => {
+      const installed = db
+        .select({ id: accessoryInstalls.id })
+        .from(accessoryInstalls)
+        .where(and(eq(accessoryInstalls.printerId, id), isNull(accessoryInstalls.removedAt)))
+        .get();
+      if (installed)
+        throw new HttpError(409, "printer_has_accessories", "Remove its accessories first");
     };
 
     app.get(
@@ -126,6 +136,7 @@ export const printersRoutes =
         checkState(fields.state);
         checkModel(fields.modelId);
         assertNumberFree(db, printers, "printer", fields.number, req.params.id);
+        if (archived) assertNoAccessories(req.params.id);
         const archivedAt =
           archived === undefined ? undefined : archived ? new Date().toISOString() : null;
         return db
@@ -140,9 +151,10 @@ export const printersRoutes =
     // Printers have history (prints, maintenance), so deleting means archiving.
     app.delete(
       "/:id",
-      { schema: { params, response: { 204: z.null(), ...notFound } } },
+      { schema: { params, response: { 204: z.null(), 409: apiErrorSchema, ...notFound } } },
       async (req, reply) => {
         get(req.params.id);
+        assertNoAccessories(req.params.id);
         db.update(printers)
           .set({ archivedAt: new Date().toISOString() })
           .where(eq(printers.id, req.params.id))

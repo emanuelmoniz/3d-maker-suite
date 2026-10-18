@@ -59,8 +59,18 @@ export const useInstall = () =>
     api("POST", `/api/accessories/${v.accessoryId}/installs`, {
       printerId: v.printerId,
       installedAt: v.installedAt,
+      removedAt: v.removedAt,
     }),
   );
+
+export const useUploadAccessoryPhoto = (id: string) =>
+  useInvalidating((file: File) => api<Accessory>("PUT", `/api/accessories/${id}/photo`, file));
+
+export const useRemoveAccessoryPhoto = (id: string) =>
+  useInvalidating(() => api("DELETE", `/api/accessories/${id}/photo`));
+
+export const accessoryPhotoUrl = (a: Accessory) =>
+  `/api/accessories/${a.id}/photo?v=${a.updatedAt}`;
 
 /** Takes the accessory off its printer: closes the open install. */
 export const useRemoveInstall = () =>

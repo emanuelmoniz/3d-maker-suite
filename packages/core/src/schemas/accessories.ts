@@ -32,11 +32,10 @@ export const accessoryPatchSchema = accessoryInputSchema
   .extend({ archived: z.boolean().optional() })
   .strict();
 
-/** Put an accessory on a printer. */
-export const installInputSchema = accessoryInstallSchema.pick({
-  printerId: true,
-  installedAt: true,
-});
+/** Put an accessory on a printer; with `removedAt`, record a past period. */
+export const installInputSchema = accessoryInstallSchema
+  .pick({ printerId: true, installedAt: true, removedAt: true })
+  .partial({ removedAt: true });
 /** Take it off (or correct the removal date). */
 export const installPatchSchema = z.object({ removedAt: accessoryInstallSchema.shape.installedAt });
 
@@ -48,6 +47,7 @@ export const accessoryFilters = {
   type: { kind: "text" },
   state: { kind: "select" },
   printerId: { kind: "select" },
+  tagId: { kind: "select" },
 } as const satisfies Record<string, ColumnFilter>;
 
 export type AccessoryInput = z.infer<typeof accessoryInputSchema>;

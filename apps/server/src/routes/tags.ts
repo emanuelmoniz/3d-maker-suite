@@ -23,11 +23,26 @@ import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
 
-const { tags, taggings, collections, collectionProjects, projects, prints, spools, printers } =
-  schema;
+const {
+  tags,
+  taggings,
+  collections,
+  collectionProjects,
+  projects,
+  prints,
+  spools,
+  printers,
+  accessories,
+} = schema;
 const params = z.object({ id: z.uuid() });
 const notFound = { 404: apiErrorSchema };
-const tables = { project: projects, print: prints, spool: spools, printer: printers } as const;
+const tables = {
+  project: projects,
+  print: prints,
+  spool: spools,
+  printer: printers,
+  accessory: accessories,
+} as const;
 
 const isUnique = (e: unknown) => String((e as Error).message).includes("UNIQUE");
 

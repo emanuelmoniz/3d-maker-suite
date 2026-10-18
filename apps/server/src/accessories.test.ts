@@ -17,7 +17,7 @@ beforeEach(async () => {
 });
 afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
-const req = (method: "GET" | "POST" | "PATCH" | "DELETE", url: string, payload?: object) =>
+const req = (method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE", url: string, payload?: object) =>
   app.inject({ method, url, payload });
 const create = async (payload: Record<string, unknown> = {}) =>
   (await req("POST", "/api/accessories", { name: "AMS", type: "AMS", ...payload })).json();
@@ -89,6 +89,49 @@ describe("accessories", () => {
     expect((await req("GET", base)).json()).toHaveLength(1);
     expect((await install(p1.id, 1)).statusCode).toBe(409); // still covers the 15th-20th
     expect((await install(p1.id, 21)).statusCode).toBe(201);
+  });
+
+  it("a past period in one go; a printer with an accessory on it can't be archived", async () => {
+    const a = await create();
+    const p = await printer("A");
+    const base = `/api/accessories/${a.id}/installs`;
+    const past = (from: number, to: number) =>
+      req("POST", base, { printerId: p.id, installedAt: day(from), removedAt: day(to) });
+    expect((await past(1, 5)).json()).toMatchObject({ removedAt: day(5) });
+    expect((await past(3, 8)).json().error.code).toBe("install_overlap");
+    expect((await past(9, 8)).statusCode).toBe(400);
+    expect((await req("GET", `/api/accessories/${a.id}`)).json().printerId).toBeNull();
+    expect((await req("PATCH", `/api/printers/${p.id}`, { archived: true })).statusCode).toBe(200);
+    await req("PATCH", `/api/printers/${p.id}`, { archived: false });
+
+    const open = (await req("POST", base, { printerId: p.id, installedAt: day(10) })).json();
+    const archive = await req("PATCH", `/api/printers/${p.id}`, { archived: true });
+    expect(archive.json().error.code).toBe("printer_has_accessories");
+    expect((await req("DELETE", `/api/printers/${p.id}`)).statusCode).toBe(409);
+    await req("PATCH", `${base}/${open.id}`, { removedAt: day(11) });
+    expect((await req("DELETE", `/api/printers/${p.id}`)).statusCode).toBe(204);
+  });
+
+  it("photo and tags", async () => {
+    const a = await create();
+    const put = await app.inject({
+      method: "PUT",
+      url: `/api/accessories/${a.id}/photo`,
+      headers: { "content-type": "image/png" },
+      payload: Buffer.from([137, 80, 78, 71]),
+    });
+    expect(put.json().photoPath).toBe(`photos/${a.id}.png`);
+    expect((await req("GET", `/api/accessories/${a.id}/photo`)).statusCode).toBe(200);
+    expect((await req("DELETE", `/api/accessories/${a.id}/photo`)).statusCode).toBe(204);
+    expect((await req("GET", `/api/accessories/${a.id}`)).json().photoPath).toBeNull();
+
+    await create({ name: "Other" });
+    const tag = (await req("POST", "/api/tags", { name: "Spare", color: "#ff0000" })).json();
+    expect(
+      (await req("PUT", `/api/tags/taggings/accessory/${a.id}`, { tagIds: [tag.id] })).statusCode,
+    ).toBeLessThan(300);
+    const items = (await req("GET", `/api/accessories?tagId=${tag.id}`)).json().items;
+    expect(items.map((x: { id: string }) => x.id)).toEqual([a.id]);
   });
 
   it("notes timeline", async () => {
