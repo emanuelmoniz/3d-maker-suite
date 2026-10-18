@@ -83,6 +83,43 @@ describe("alerts", () => {
     expect(db.select().from(schema.alerts).all()).toHaveLength(2);
   });
 
+  it("accessory maintenance raises an alert that logging it resolves", async () => {
+    const p = (
+      await send("POST", "/api/printers", { name: "P1", modelId: modelIdFor(db, "Bambu", "P1S") })
+    ).json();
+    const ams = (await send("POST", "/api/accessories", { name: "AMS", type: "AMS" })).json();
+    await send("POST", `/api/accessories/${ams.id}/installs`, {
+      printerId: p.id,
+      installedAt: "2026-01-01T00:00:00.000Z",
+    });
+    const type = (
+      await send("POST", "/api/maintenance/types", {
+        name: "Rollers",
+        target: "accessory",
+        intervalPrints: 1,
+      })
+    ).json();
+    db.insert(schema.prints)
+      .values({
+        printerId: p.id,
+        title: "t",
+        outcome: "success",
+        startedAt: "2026-01-02T00:00:00.000Z",
+      })
+      .run();
+    await evaluate();
+    expect(await list()).toMatchObject([
+      {
+        kind: "maintenance_due",
+        entityId: `${ams.id}:${type.id}`,
+        context: { printer: "01-AMS", task: "Rollers", overdue: 1 },
+      },
+    ]);
+    await send("POST", "/api/maintenance/tasks", { accessoryId: ams.id, typeId: type.id });
+    await evaluate();
+    expect(await list()).toHaveLength(0);
+  });
+
   it("snooze hides and silences until it ends; dismiss stays quiet until resolved", async () => {
     await send("PUT", "/api/alerts/channels/ntfy", {
       enabled: true,

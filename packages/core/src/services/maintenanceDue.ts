@@ -79,9 +79,20 @@ export function maintenanceDue(
 
 /** No models and no printers = every printer; otherwise the printer or its model is listed. */
 export const appliesToPrinter = (
-  type: { appliesToModelIds: string[]; appliesToPrinterIds: string[] },
+  type: { target: string; appliesToModelIds: string[]; appliesToPrinterIds: string[] },
   printer: { id: string; modelId: string | null },
 ) =>
-  (!type.appliesToModelIds.length && !type.appliesToPrinterIds.length) ||
-  type.appliesToPrinterIds.includes(printer.id) ||
-  (printer.modelId !== null && type.appliesToModelIds.includes(printer.modelId));
+  type.target === "printer" &&
+  ((!type.appliesToModelIds.length && !type.appliesToPrinterIds.length) ||
+    type.appliesToPrinterIds.includes(printer.id) ||
+    (printer.modelId !== null && type.appliesToModelIds.includes(printer.modelId)));
+
+/** Same for accessories, with their (free-text) type in place of the model. */
+export const appliesToAccessory = (
+  type: { target: string; appliesToAccessoryTypes: string[]; appliesToAccessoryIds: string[] },
+  accessory: { id: string; type: string },
+) =>
+  type.target === "accessory" &&
+  ((!type.appliesToAccessoryTypes.length && !type.appliesToAccessoryIds.length) ||
+    type.appliesToAccessoryIds.includes(accessory.id) ||
+    type.appliesToAccessoryTypes.includes(accessory.type));

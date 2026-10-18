@@ -7,6 +7,7 @@ import {
   INTEGRATION_ERROR_CODES,
   INTEGRATION_KINDS,
   INTEGRATION_STATUSES,
+  MAINTENANCE_TARGETS,
   ORIGINS,
   PRINT_OUTCOMES,
   SPOOL_STATUSES,
@@ -161,6 +162,9 @@ export const accessorySchema = z.object({
   printerId: id.nullable(),
   installId: id.nullable(),
   installedAt: isoDate.nullable(),
+  /** Usage: prints of the printers it was on, inside its install periods. Not columns. */
+  runtimeSec: seconds,
+  prints: z.number().int().nonnegative(),
   ...timestamps,
 });
 
@@ -189,16 +193,23 @@ export const maintenanceTypeSchema = z.object({
   intervalSec: seconds.positive().nullable(),
   intervalPrints: z.number().int().positive().nullable(),
   intervalDays: z.number().int().positive().nullable(),
+  /** Printers or accessories, never both. */
+  target: z.enum(MAINTENANCE_TARGETS),
   /** Models and/or specific printers it applies to (union); both empty = every printer. */
   appliesToModelIds: z.array(id),
   appliesToPrinterIds: z.array(id),
+  /** Same for accessories: their (free-text) types and/or specific ones. */
+  appliesToAccessoryTypes: z.array(z.string().min(1)),
+  appliesToAccessoryIds: z.array(id),
   archivedAt: isoDate.nullable(),
   ...timestamps,
 });
 
 export const maintenanceTaskSchema = z.object({
   id,
-  printerId: id,
+  /** Exactly one of them, the type's target. */
+  printerId: id.nullable(),
+  accessoryId: id.nullable(),
   typeId: id,
   doneAt: isoDate,
   printerRuntimeSecAt: seconds,

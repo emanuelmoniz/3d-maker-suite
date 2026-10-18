@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { appliesToPrinter, maintenanceDue } from "./maintenanceDue.ts";
+import { appliesToAccessory, appliesToPrinter, maintenanceDue } from "./maintenanceDue.ts";
 
 const none = { intervalSec: null, intervalPrints: null, intervalDays: null };
 const since = { at: "2026-01-01T00:00:00.000Z", runtimeSec: 1000, prints: 10 };
@@ -60,19 +60,37 @@ describe("maintenanceDue", () => {
 
 describe("appliesToPrinter", () => {
   const p1s = { id: "a", modelId: "p1s" };
-  const none = { appliesToModelIds: [], appliesToPrinterIds: [] };
+  const none = { target: "printer", appliesToModelIds: [], appliesToPrinterIds: [] };
   it("empty = all printers", () => {
     expect(appliesToPrinter(none, p1s)).toBe(true);
+  });
+  it("never to printers when it targets accessories", () => {
+    expect(appliesToPrinter({ ...none, target: "accessory" }, p1s)).toBe(false);
   });
   it("matches the printer's model", () => {
     expect(appliesToPrinter({ ...none, appliesToModelIds: ["x1c", "p1s"] }, p1s)).toBe(true);
     expect(appliesToPrinter({ ...none, appliesToModelIds: ["x1c"] }, p1s)).toBe(false);
   });
   it("applies to the union of models and printers", () => {
-    const t = { appliesToModelIds: ["x1c"], appliesToPrinterIds: ["a"] };
+    const t = { ...none, appliesToModelIds: ["x1c"], appliesToPrinterIds: ["a"] };
     expect(appliesToPrinter(t, p1s)).toBe(true);
     expect(appliesToPrinter(t, { id: "b", modelId: "x1c" })).toBe(true);
     expect(appliesToPrinter(t, { id: "b", modelId: "a1" })).toBe(false);
     expect(appliesToPrinter(t, { id: "b", modelId: null })).toBe(false);
+  });
+});
+
+describe("appliesToAccessory", () => {
+  const ams = { id: "a", type: "AMS" };
+  const none = { target: "accessory", appliesToAccessoryTypes: [], appliesToAccessoryIds: [] };
+  it("empty = all accessories, never when it targets printers", () => {
+    expect(appliesToAccessory(none, ams)).toBe(true);
+    expect(appliesToAccessory({ ...none, target: "printer" }, ams)).toBe(false);
+  });
+  it("applies to the union of types and accessories", () => {
+    const t = { ...none, appliesToAccessoryTypes: ["Hotend"], appliesToAccessoryIds: ["a"] };
+    expect(appliesToAccessory(t, ams)).toBe(true);
+    expect(appliesToAccessory(t, { id: "b", type: "Hotend" })).toBe(true);
+    expect(appliesToAccessory(t, { id: "b", type: "AMS" })).toBe(false);
   });
 });

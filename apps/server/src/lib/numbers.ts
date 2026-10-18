@@ -57,6 +57,10 @@ export const padded = (n: number | null, width: number) => String(n).padStart(wi
 export const printerTitle = (p: { number: number | null; name: string }) =>
   `${padded(p.number, PAD.printer)}-${p.name}`;
 
+/** An accessory's display name in JS, the same as the `accessoryLabel` SQL. */
+export const accessoryTitle = (a: { number: number; name: string }) =>
+  `${padded(a.number, PAD.accessory)}-${a.name}`;
+
 /** A print's display name in JS, the same as the `printLabel` SQL. */
 export const printTitle = (p: { number: number | null; title: string }) =>
   `${padded(p.number, PAD.print)}-${p.title}`;

@@ -108,7 +108,7 @@ Do Step 8 of PLAN.md. Show me the tables, constraints and pages first. Reuse the
 form and detail patterns. Back up the DB before editing schema.ts.
 ```
 
-### [ ] Step 9 - Accessory usage and maintenance  **[plan mode]**
+### [x] Step 9 - Accessory usage and maintenance  **[plan mode]**
 **Model:** Opus · **Effort:** Medium
 **Scope:**
 - Accessory usage = the prints (time and count) of the printer it was on, inside each install period. Shown on the accessory page and in the accessories table.

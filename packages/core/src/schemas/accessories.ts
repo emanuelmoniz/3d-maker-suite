@@ -47,6 +47,8 @@ export const accessorySortFields = [
   "state",
   "printer",
   "powerW",
+  "runtimeSec",
+  "prints",
   "createdAt",
 ] as const;
 
@@ -58,6 +60,7 @@ export const accessoryFilters = {
   printerId: { kind: "select" },
   tagId: { kind: "select" },
   powerW: { kind: "number" },
+  prints: { kind: "number" },
 } as const satisfies Record<string, ColumnFilter>;
 
 export type AccessoryInput = z.infer<typeof accessoryInputSchema>;

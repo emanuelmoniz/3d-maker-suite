@@ -43,8 +43,9 @@ function conditions(db: Db, now: Date): Found {
       d.status !== "ok" ||
       (d.remainingDays !== null && d.remainingDays <= prefs.maintenanceLeadDays)
     )
-      add("maintenance_due", "maintenance", `${d.printerId}:${d.typeId}`, {
-        printer: d.printerName,
+      // Printer or accessory (uuids never clash); `printer` is the target's name for either.
+      add("maintenance_due", "maintenance", `${d.targetId}:${d.typeId}`, {
+        printer: d.targetName,
         task: d.typeName,
         overdue: d.progress >= 1 ? 1 : 0,
       });

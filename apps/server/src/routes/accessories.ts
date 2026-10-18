@@ -39,6 +39,7 @@ import { printerLabel } from "../lib/catalog.ts";
 import { commentRoutes } from "../lib/comments.ts";
 import { imageRoutes } from "../lib/images.ts";
 import { listPage, taggedWith } from "../lib/list.ts";
+import { accessoryUsageColumns } from "../lib/maintenance.ts";
 import { assertNumberFree, nextNumber } from "../lib/numbers.ts";
 import { readPreferences } from "../lib/preferences.ts";
 
@@ -57,11 +58,13 @@ const openInstall = (column: AnyColumn) =>
     string | null
   >`(SELECT ${column} FROM ${installs} WHERE ${installs.accessoryId} = ${outerId} AND ${installs.removedAt} IS NULL)`;
 const currentPrinter = openInstall(installs.printerId);
+const usage = accessoryUsageColumns(outerId);
 const withPrinter = {
   ...getTableColumns(accessories),
   printerId: currentPrinter,
   installId: openInstall(installs.id),
   installedAt: openInstall(installs.installedAt),
+  ...usage,
 };
 const installColumns = {
   ...getTableColumns(installs),
@@ -154,6 +157,8 @@ export const accessoriesRoutes =
             state: accessories.state,
             printer: sql`(SELECT ${printerLabel} FROM ${printers} WHERE ${printers.id} = ${currentPrinter})`,
             powerW: accessories.powerW,
+            runtimeSec: usage.runtimeSec,
+            prints: usage.prints,
             createdAt: accessories.createdAt,
           },
           dateColumn: accessories.createdAt,
@@ -163,6 +168,7 @@ export const accessoriesRoutes =
             state: accessories.state,
             printerId: currentPrinter,
             powerW: accessories.powerW,
+            prints: usage.prints,
           },
           where: [
             taggedWith(db, "accessory", accessories.id, req.query.tagId),

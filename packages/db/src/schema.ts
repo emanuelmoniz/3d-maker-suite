@@ -5,6 +5,7 @@ import {
   ENERGY_SOURCES,
   IMPORT_SOURCES,
   INTEGRATION_ERROR_CODES,
+  MAINTENANCE_TARGETS,
   ORIGINS,
   PRINT_OUTCOMES,
   type PROJECT_EDITABLE_FIELDS,
@@ -322,8 +323,16 @@ export const maintenanceTypes = sqliteTable("maintenance_types", {
   intervalSec: integer(),
   intervalPrints: integer(),
   intervalDays: integer(),
+  /**
+   * Printers or accessories, never both. No CHECK: adding one rebuilds a table tasks point at;
+   * the API's enum guards it.
+   */
+  target: text({ enum: MAINTENANCE_TARGETS }).notNull().default("printer"),
   appliesToModelIds: text({ mode: "json" }).notNull().$type<string[]>().default([]),
   appliesToPrinterIds: text({ mode: "json" }).notNull().$type<string[]>().default([]),
+  /** Accessory types (free text, "AMS") play the role of models; both empty = every accessory. */
+  appliesToAccessoryTypes: text({ mode: "json" }).notNull().$type<string[]>().default([]),
+  appliesToAccessoryIds: text({ mode: "json" }).notNull().$type<string[]>().default([]),
   archivedAt: text(),
   ...timestamps,
 });
@@ -332,13 +341,14 @@ export const maintenanceTasks = sqliteTable(
   "maintenance_tasks",
   {
     id: id(),
-    printerId: text()
-      .notNull()
-      .references(() => printers.id, { onDelete: "restrict" }),
+    // Exactly one target, the type's.
+    printerId: text().references(() => printers.id, { onDelete: "restrict" }),
+    accessoryId: text().references(() => accessories.id, { onDelete: "restrict" }),
     typeId: text()
       .notNull()
       .references(() => maintenanceTypes.id, { onDelete: "restrict" }),
     doneAt: text().notNull(),
+    /** Usage of the target (printer or accessory) when done. */
     printerRuntimeSecAt: integer().notNull(),
     printerPrintsAt: integer().notNull(),
     notes: text(),
@@ -346,7 +356,14 @@ export const maintenanceTasks = sqliteTable(
     cost: integer(),
     ...timestamps,
   },
-  (t) => [index("maintenance_tasks_latest_idx").on(t.printerId, t.typeId, t.doneAt)],
+  (t) => [
+    index("maintenance_tasks_latest_idx").on(t.printerId, t.typeId, t.doneAt),
+    index("maintenance_tasks_accessory_idx").on(t.accessoryId, t.typeId, t.doneAt),
+    check(
+      "maintenance_tasks_target_ck",
+      sql`(${t.printerId} IS NULL) <> (${t.accessoryId} IS NULL)`,
+    ),
+  ],
 );
 
 export const filamentBrands = sqliteTable(

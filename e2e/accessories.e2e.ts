@@ -63,3 +63,48 @@ test("accessories: create, install, remove, install again, delete a record", asy
   await expect(history).toHaveCount(2);
   await expect(page.getByText("Not installed")).toBeVisible();
 });
+
+test("accessory usage and maintenance: due from its prints, logging resets it", async ({
+  page,
+  app,
+}) => {
+  const printer = await seedPrinter(app.api);
+  const ams = await app.api<{ id: string }>("POST", "/api/accessories", {
+    name: "AMS Unit",
+    type: "AMS",
+  });
+  await app.api("POST", `/api/accessories/${ams.id}/installs`, {
+    printerId: printer.id,
+    installedAt: "2026-01-01T00:00:00.000Z",
+  });
+  for (const day of [2, 3])
+    await app.api("POST", "/api/prints", {
+      title: `Day ${day}`,
+      printerId: printer.id,
+      startedAt: new Date(Date.UTC(2026, 0, day)).toISOString(),
+      durationSec: 3600,
+      outcome: "success",
+      usages: [],
+    });
+
+  await page.goto(`/printers/accessories/${ams.id}`);
+  await expect(page.getByRole("definition").filter({ hasText: /^2h$/ })).toBeVisible();
+
+  await page.goto("/maintenance/new");
+  await page.getByLabel("Name", { exact: true }).fill("Clean rollers");
+  await page.getByLabel("Every (prints)").fill("2");
+  await page.getByLabel("Accessories").check();
+  await page.getByLabel("Only for accessory types").fill("AM");
+  await page.getByRole("button", { name: "AMS" }).click();
+  await page.getByRole("button", { name: "Save task" }).click();
+  await expect(page).toHaveURL(/\/maintenance$/);
+
+  const row = page
+    .getByRole("table", { name: "Maintenance due" })
+    .getByRole("row")
+    .filter({ hasText: "01-AMS Unit" });
+  await expect(row).toContainText("Overdue");
+  await row.getByRole("button", { name: "Log done" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Save" }).click();
+  await expect(row).toContainText("OK");
+});

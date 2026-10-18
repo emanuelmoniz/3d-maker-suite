@@ -24,13 +24,16 @@ import { z } from "zod";
 import { HttpError } from "../errors.ts";
 import { modelName } from "../lib/catalog.ts";
 import { inIds, listPage } from "../lib/list.ts";
-import { dueItems, usageOf } from "../lib/maintenance.ts";
+import { accessoryUsageOf, dueItems, usageOf } from "../lib/maintenance.ts";
 
-const { maintenanceTypes, maintenanceTasks, printers } = schema;
+const { accessories, maintenanceTypes, maintenanceTasks, printers } = schema;
 const params = z.object({ id: z.uuid() });
 const notFound = { 404: apiErrorSchema };
-// "Brand Model, Brand Model" of the models a type applies to, for sort/filter.
-const modelNames = sql`(SELECT group_concat(${modelName(sql`j.value`)}, ', ') FROM json_each(${maintenanceTypes.appliesToModelIds}) j)`;
+// "Brand Model, Brand Model" of the models a type applies to (accessory types for accessory
+// types), for sort/filter.
+const modelNames = sql`CASE WHEN ${maintenanceTypes.target} = 'accessory'
+  THEN (SELECT group_concat(j.value, ', ') FROM json_each(${maintenanceTypes.appliesToAccessoryTypes}) j)
+  ELSE (SELECT group_concat(${modelName(sql`j.value`)}, ', ') FROM json_each(${maintenanceTypes.appliesToModelIds}) j) END`;
 
 export const maintenanceRoutes =
   (db: Db): FastifyPluginAsyncZod =>
@@ -43,6 +46,11 @@ export const maintenanceRoutes =
     const getPrinter = (id: string) => {
       const row = db.select().from(printers).where(eq(printers.id, id)).get();
       if (!row) throw new HttpError(404, "not_found", "Printer not found");
+      return row;
+    };
+    const getAccessory = (id: string) => {
+      const row = db.select().from(accessories).where(eq(accessories.id, id)).get();
+      if (!row) throw new HttpError(404, "not_found", "Accessory not found");
       return row;
     };
 
@@ -125,6 +133,7 @@ export const maintenanceRoutes =
         schema: {
           querystring: listQuery(maintenanceTaskSortFields, {
             printerId: idList.optional(),
+            accessoryId: idList.optional(),
             typeId: idList.optional(),
           }),
           response: { 200: pageOf(maintenanceTaskSchema) },
@@ -136,6 +145,7 @@ export const maintenanceRoutes =
           dateColumn: maintenanceTasks.doneAt,
           where: [
             inIds(maintenanceTasks.printerId, req.query.printerId),
+            inIds(maintenanceTasks.accessoryId, req.query.accessoryId),
             inIds(maintenanceTasks.typeId, req.query.typeId),
           ],
         }) as Page<MaintenanceTask>,
@@ -150,11 +160,18 @@ export const maintenanceRoutes =
         },
       },
       async (req, reply) => {
-        const printer = getPrinter(req.body.printerId);
-        if (getType(req.body.typeId).archivedAt)
+        const { printerId, accessoryId } = req.body;
+        const printer = printerId ? getPrinter(printerId) : null;
+        if (!printer) getAccessory(accessoryId as string);
+        const type = getType(req.body.typeId);
+        if (type.archivedAt)
           throw new HttpError(400, "type_archived", "Maintenance type is archived");
+        if (type.target !== (printer ? "printer" : "accessory"))
+          throw new HttpError(400, "wrong_target", `This maintenance type is for ${type.target}s`);
         const doneAt = req.body.doneAt ?? new Date().toISOString();
-        const at = usageOf(db, printer, doneAt);
+        const at = printer
+          ? usageOf(db, printer, doneAt)
+          : accessoryUsageOf(db, accessoryId as string, doneAt);
         const row = db
           .insert(maintenanceTasks)
           .values({
@@ -169,13 +186,14 @@ export const maintenanceRoutes =
       },
     );
 
-    // --- Due: every active printer x applicable type, most urgent first.
+    // --- Due: every active printer and accessory x applicable type, most urgent first.
     app.get(
       "/due",
       {
         schema: {
           querystring: z.object({
             printerId: z.uuid().optional(),
+            accessoryId: z.uuid().optional(),
             /** `true` keeps only upcoming and overdue items. */
             attention: z.enum(["true", "false"]).default("false"),
           }),
@@ -183,7 +201,8 @@ export const maintenanceRoutes =
         },
       },
       async (req) => {
-        const items = dueItems(db, req.query.printerId);
+        const { printerId, accessoryId } = req.query;
+        const items = dueItems(db, { printerId, accessoryId });
         return items
           .filter((i) => req.query.attention === "false" || i.status !== "ok")
           .sort((a, b) => b.progress - a.progress);

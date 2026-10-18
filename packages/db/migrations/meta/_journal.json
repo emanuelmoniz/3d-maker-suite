@@ -302,6 +302,13 @@
       "when": 1792340207286,
       "tag": "0042_accessory_power",
       "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "6",
+      "when": 1792342312031,
+      "tag": "0043_accessory_maintenance",
+      "breakpoints": true
     }
   ]
 }

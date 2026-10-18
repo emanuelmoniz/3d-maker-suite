@@ -15,6 +15,7 @@ import { SettingsLink } from "../../components/SettingsLink.tsx";
 import { TagList } from "../../components/TagList.tsx";
 import { accessoryName } from "../../lib/accessories.ts";
 import { useModelInfo } from "../../lib/catalog.ts";
+import { formatDuration, formatNumber } from "../../lib/format.ts";
 import { useListPage, useUrlListQuery } from "../../lib/list.ts";
 import { usePreferences } from "../../lib/preferences.ts";
 import { printerName, usePrinters } from "../../lib/printers.ts";
@@ -232,6 +233,21 @@ function AccessoriesTable() {
                 sort: "printer",
                 filter: "printerId",
                 filterOptions: printers.map((p) => ({ value: p.id, label: printerName(t, p) })),
+              },
+              {
+                id: "prints",
+                header: t("printers:detail.stats.prints"),
+                numeric: true,
+                cell: (a) => formatNumber(a.prints),
+                sort: "prints",
+                filter: "prints",
+              },
+              {
+                id: "runtime",
+                header: t("printers:detail.stats.time"),
+                numeric: true,
+                cell: (a) => formatDuration(a.runtimeSec),
+                sort: "runtimeSec",
               },
               {
                 id: "power",

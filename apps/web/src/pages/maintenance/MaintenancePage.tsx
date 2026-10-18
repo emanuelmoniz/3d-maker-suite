@@ -12,12 +12,10 @@ import { DataTable } from "../../components/DataTable.tsx";
 import { EmptyState } from "../../components/EmptyState.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
-import { useModelInfo } from "../../lib/catalog.ts";
 import { dateInputToIso, formatDate, formatDuration, formatNumber } from "../../lib/format.ts";
 import { useListPage, useUrlListQuery } from "../../lib/list.ts";
-import { useDue, useLogDone } from "../../lib/maintenance.ts";
+import { useAppliesTo, useDue, useLogDone } from "../../lib/maintenance.ts";
 import { usePreferences } from "../../lib/preferences.ts";
-import { printerName, usePrinters } from "../../lib/printers.ts";
 
 const STATUS = {
   ok: "maintenance:due.status.ok",
@@ -39,7 +37,8 @@ function useDueText() {
     const late = i.status === "overdue";
     const sec = formatDuration(i.remainingSec ?? 0);
     const prints = Math.abs(i.remainingPrints ?? 0);
-    const date = formatDate(i.dueAt ?? "");
+    // Only types with a days interval have a due date; formatting null throws.
+    const date = i.dueAt && formatDate(i.dueAt);
     switch (i.dueBy) {
       case "hours":
         return late
@@ -79,7 +78,7 @@ function LogDialog({ item, onClose }: { item: MaintenanceDueItem | null; onClose
     const date = text(f, "doneAt");
     log.mutate(
       {
-        printerId: item.printerId,
+        [item.target === "printer" ? "printerId" : "accessoryId"]: item.targetId,
         typeId: item.typeId,
         // today keeps the exact time, so prints made earlier today still count
         doneAt:
@@ -103,11 +102,11 @@ function LogDialog({ item, onClose }: { item: MaintenanceDueItem | null; onClose
       className="m-auto w-[min(92vw,26rem)] rounded-lg border border-border bg-surface p-5 text-fg"
     >
       {item && (
-        <form key={`${item.printerId}:${item.typeId}`} onSubmit={onSubmit} className="grid gap-4">
+        <form key={`${item.targetId}:${item.typeId}`} onSubmit={onSubmit} className="grid gap-4">
           <div>
             <h2 className="text-base font-semibold">{t("maintenance:log.title")}</h2>
             <p className="mt-1 text-muted">
-              {t("maintenance:log.summary", { task: item.typeName, printer: item.printerName })}
+              {t("maintenance:log.summary", { task: item.typeName, printer: item.targetName })}
             </p>
           </div>
           <FormField label={t("maintenance:log.date")}>
@@ -156,8 +155,7 @@ export function MaintenancePage() {
     "/api/maintenance/types",
     query,
   );
-  const printers = usePrinters({ archived: false }).data?.items ?? [];
-  const models = useModelInfo();
+  const appliesTo = useAppliesTo();
   const dueText = useDueText();
   const [logging, setLogging] = useState<MaintenanceDueItem | null>(null);
   const list = new Intl.ListFormat(i18n.language, { type: "unit", style: "narrow" });
@@ -197,22 +195,22 @@ export function MaintenancePage() {
               <DataTable
                 label={t("maintenance:due.table")}
                 rows={due.data}
-                rowKey={(i) => `${i.printerId}:${i.typeId}`}
+                rowKey={(i) => `${i.targetId}:${i.typeId}`}
                 columns={[
                   {
                     id: "printer",
                     header: t("maintenance:due.columns.printer"),
                     cell: (i) => (
                       <Link
-                        to="/printers/$id"
-                        params={{ id: i.printerId }}
+                        to={i.target === "printer" ? "/printers/$id" : "/printers/accessories/$id"}
+                        params={{ id: i.targetId }}
                         className="font-medium hover:underline"
                       >
-                        {i.printerName}
+                        {i.targetName}
                       </Link>
                     ),
-                    sortValue: (i) => i.printerName.toLowerCase(),
-                    filterValue: (i) => i.printerName,
+                    sortValue: (i) => i.targetName.toLowerCase(),
+                    filterValue: (i) => i.targetName,
                   },
                   {
                     id: "task",
@@ -318,18 +316,8 @@ export function MaintenancePage() {
                 },
                 {
                   id: "model",
-                  header: t("maintenance:types.model"),
-                  cell: (m) =>
-                    m.appliesToModelIds.length + m.appliesToPrinterIds.length === 0
-                      ? t("maintenance:types.allModels")
-                      : [
-                          ...m.appliesToModelIds.map((id) => models.get(id)?.label ?? ""),
-                          ...printers
-                            .filter((p) => m.appliesToPrinterIds.includes(p.id))
-                            .map((p) => printerName(t, p)),
-                        ]
-                          .filter(Boolean)
-                          .join(", "),
+                  header: t("maintenance:types.appliesTo"),
+                  cell: appliesTo,
                   sort: "appliesToModels",
                   filter: "appliesToModels",
                 },

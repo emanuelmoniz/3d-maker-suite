@@ -20,6 +20,7 @@ export const WEIGHT_ENTRY_KINDS = ["manual", "print", "correction"] as const;
 export const PROJECT_EDITABLE_FIELDS = ["name", "description", "sourceUrl"] as const;
 export const PROJECT_FILE_KINDS = ["model", "image", "doc", "shortcut"] as const;
 export const TAGGABLE_TYPES = ["project", "print", "spool", "printer", "accessory"] as const;
+export const MAINTENANCE_TARGETS = ["printer", "accessory"] as const;
 // Adapter errors are mapped to these; vendor messages never reach the API (ADR-0003).
 export const INTEGRATION_ERROR_CODES = [
   "auth_required",
@@ -74,6 +75,7 @@ export type PrintOutcome = (typeof PRINT_OUTCOMES)[number];
 export type EnergySource = (typeof ENERGY_SOURCES)[number];
 export type AlertKind = (typeof ALERT_KINDS)[number];
 export type TaggableType = (typeof TAGGABLE_TYPES)[number];
+export type MaintenanceTarget = (typeof MAINTENANCE_TARGETS)[number];
 export type SpoolStatus = (typeof SPOOL_STATUSES)[number];
 export type WeightEntryKind = (typeof WEIGHT_ENTRY_KINDS)[number];
 export type CommentStatus = (typeof COMMENT_STATUSES)[number];

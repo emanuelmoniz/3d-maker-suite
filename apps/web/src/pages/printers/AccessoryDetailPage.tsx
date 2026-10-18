@@ -16,7 +16,7 @@ import {
   useUploadAccessoryPhoto,
 } from "../../lib/accessories.ts";
 import { isConflict } from "../../lib/catalog.ts";
-import { formatCurrency, formatDate } from "../../lib/format.ts";
+import { formatCurrency, formatDate, formatDuration, formatNumber } from "../../lib/format.ts";
 import { usePreferences } from "../../lib/preferences.ts";
 import { printerName, usePrinters } from "../../lib/printers.ts";
 import { Comments } from "./Comments.tsx";
@@ -142,6 +142,13 @@ export function AccessoryDetailPage() {
                 )}
               </Info>
               <Info label={t("printers:detail.info.serial")}>{accessory.serial ?? none}</Info>
+              {/* Usage: the prints of the printers it was on, while it was on them. */}
+              <Info label={t("printers:detail.stats.prints")}>
+                {formatNumber(accessory.prints)}
+              </Info>
+              <Info label={t("printers:detail.stats.time")}>
+                {formatDuration(accessory.runtimeSec)}
+              </Info>
               <Info label={t("printers:detail.info.power")}>
                 {accessory.powerW === null
                   ? none

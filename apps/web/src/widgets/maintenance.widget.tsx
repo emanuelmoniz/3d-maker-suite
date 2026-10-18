@@ -33,12 +33,12 @@ defineWidget({
           <ul className="divide-y divide-border">
             {due.slice(0, s.limit).map((i) => (
               <li
-                key={`${i.printerId}${i.typeId}`}
+                key={`${i.targetId}${i.typeId}`}
                 className="flex items-center justify-between gap-2 py-2"
               >
                 <span>
                   <span className="font-medium">{i.typeName}</span>{" "}
-                  <span className="text-muted">{i.printerName}</span>
+                  <span className="text-muted">{i.targetName}</span>
                 </span>
                 <span className={i.status === "overdue" ? "text-bad" : "text-warn"}>
                   {t(STATUS[i.status])}

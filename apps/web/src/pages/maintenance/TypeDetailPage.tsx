@@ -2,10 +2,8 @@ import { Link, useParams } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
-import { useModelInfo } from "../../lib/catalog.ts";
 import { formatNumber } from "../../lib/format.ts";
-import { useMaintenanceType, usePatchType } from "../../lib/maintenance.ts";
-import { printerName, usePrinters } from "../../lib/printers.ts";
+import { useAppliesTo, useMaintenanceType, usePatchType } from "../../lib/maintenance.ts";
 import { Info, linkButton } from "../filament/SpoolDetailPage.tsx";
 
 export function TypeDetailPage() {
@@ -13,8 +11,7 @@ export function TypeDetailPage() {
   const { id } = useParams({ strict: false }) as { id: string };
   const { data: type, isError } = useMaintenanceType(id);
   const patch = usePatchType();
-  const printers = usePrinters({ archived: false }).data?.items ?? [];
-  const models = useModelInfo();
+  const appliesTo = useAppliesTo();
 
   if (isError)
     return (
@@ -26,9 +23,6 @@ export function TypeDetailPage() {
 
   const none = t("maintenance:types.none");
   const archived = type.archivedAt !== null;
-  const printerNames = printers
-    .filter((p) => type.appliesToPrinterIds.includes(p.id))
-    .map((p) => printerName(t, p));
 
   return (
     <>
@@ -67,11 +61,7 @@ export function TypeDetailPage() {
           </Info>
           <Info label={t("maintenance:types.prints")}>{type.intervalPrints ?? none}</Info>
           <Info label={t("maintenance:types.days")}>{type.intervalDays ?? none}</Info>
-          <Info label={t("maintenance:types.model")}>
-            {[...type.appliesToModelIds.map((m) => models.get(m)?.label ?? ""), ...printerNames]
-              .filter(Boolean)
-              .join(", ") || t("maintenance:types.allModels")}
-          </Info>
+          <Info label={t("maintenance:types.appliesTo")}>{appliesTo(type)}</Info>
           {type.docUrl && (
             <Info label={t("maintenance:types.docUrl")}>
               <a href={type.docUrl} target="_blank" rel="noreferrer" className="hover:underline">
