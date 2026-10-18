@@ -52,7 +52,7 @@ export function deviceRates(db: Db) {
       .all(),
   );
 
-  // Every printer has a row, zero when printers don't count: the stats SQL joins on it.
+  // Every printer has a row, zero when it doesn't count: the stats SQL joins on it.
   const printerRates = new Map<string, Rate>(
     db
       .select()
@@ -60,7 +60,7 @@ export function deviceRates(db: Db) {
       .all()
       .map((p) => [
         p.id,
-        prefs.printerCountInCosts
+        (p.countInCosts ?? prefs.printerCountInCosts)
           ? {
               wearPerHour: wearPerHour(
                 p.purchasePrice,

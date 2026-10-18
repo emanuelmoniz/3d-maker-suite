@@ -26,7 +26,7 @@ import { type Db, schema } from "@3d-maker-suite/db";
 import { HttpError } from "../errors.ts";
 import { catalogImport } from "./catalog.ts";
 import { filamentProfileImport } from "./filamentProfiles.ts";
-import { printerImport } from "./printers.ts";
+import { accessoryImport, printerImport } from "./printers.ts";
 import { printImport } from "./prints.ts";
 import { spoolImport } from "./spools.ts";
 
@@ -130,6 +130,7 @@ export function createReview(db: Db, dataDir: string) {
   const handlers: Record<ReviewEntity, ImportHandler> = {
     spools: spoolImport,
     printers: printerImport,
+    accessories: accessoryImport,
     prints: printImport,
     filamentProfiles: filamentProfileImport,
     ...catalogImport(dataDir),

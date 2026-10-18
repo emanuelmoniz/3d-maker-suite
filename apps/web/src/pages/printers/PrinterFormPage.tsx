@@ -49,7 +49,7 @@ function PrinterForm({ printer }: { printer?: Printer }) {
       purchasePrice: int(text(f, "purchasePrice"), 100),
       warrantyEndsAt: date(text(f, "warrantyEndsAt")),
       warrantyNotes: orNull(text(f, "warrantyNotes")),
-      ...readCostFields(f, "printer"),
+      ...readCostFields(f),
     };
     save.mutate(body, {
       onSuccess: async (saved) => {

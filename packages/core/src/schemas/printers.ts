@@ -22,6 +22,7 @@ export const printerInputSchema = printerSchema
     powerW: true,
     lifetimeHours: true,
     includeMaintenanceCost: true,
+    countInCosts: true,
   })
   .partial({
     number: true,
@@ -35,6 +36,7 @@ export const printerInputSchema = printerSchema
     powerW: true,
     lifetimeHours: true,
     includeMaintenanceCost: true,
+    countInCosts: true,
   });
 export const printerPatchSchema = printerInputSchema
   .partial()

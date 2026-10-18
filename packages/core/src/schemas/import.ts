@@ -5,7 +5,7 @@ import { SLICER_ZIP_TYPES } from "./slicerCatalog.ts";
 
 // File imports (XLSX / CSV). The columns of an entity are declared once here and drive the
 // template, the parser, validation and the review table.
-export const IMPORT_ENTITIES = ["spools", "printers", "prints"] as const;
+export const IMPORT_ENTITIES = ["spools", "printers", "accessories", "prints"] as const;
 /** Everything the review screen takes: the file entities, plus what an integration or a zip offers. */
 export const REVIEW_ENTITIES = [...IMPORT_ENTITIES, ...SLICER_ZIP_TYPES] as const;
 /** What an integration can offer for review; a run on its own takes only what needs no decision. */
@@ -144,12 +144,42 @@ export const IMPORT_COLUMNS = {
     { key: "warrantyEndsAt", type: "date", label: "import:printers.columns.warrantyEndsAt" },
     { key: "powerW", type: "integer", label: "import:printers.columns.powerW" },
     // Cost settings; empty on a new printer = the Costs default.
+    {
+      key: "countInCosts",
+      type: "enum",
+      options: ["yes", "no"],
+      label: "import:printers.columns.countInCosts",
+    },
     { key: "lifetimeHours", type: "integer", label: "import:printers.columns.lifetimeHours" },
     {
       key: "includeMaintenanceCost",
       type: "enum",
       options: ["yes", "no"],
       label: "import:printers.columns.includeMaintenanceCost",
+    },
+  ],
+  accessories: [
+    // Like printers: the number is its identity in a file.
+    { key: "number", type: "integer", label: "import:accessories.columns.number" },
+    { key: "name", type: "text", label: "import:accessories.columns.name", required: true },
+    { key: "type", type: "text", label: "import:accessories.columns.type", required: true },
+    { key: "serial", type: "text", label: "import:accessories.columns.serial" },
+    { key: "purchasedAt", type: "date", label: "import:accessories.columns.purchasedAt" },
+    { key: "purchasePrice", type: "money", label: "import:accessories.columns.purchasePrice" },
+    { key: "warrantyEndsAt", type: "date", label: "import:accessories.columns.warrantyEndsAt" },
+    { key: "powerW", type: "integer", label: "import:accessories.columns.powerW" },
+    {
+      key: "countInCosts",
+      type: "enum",
+      options: ["yes", "no"],
+      label: "import:accessories.columns.countInCosts",
+    },
+    { key: "lifetimeHours", type: "integer", label: "import:accessories.columns.lifetimeHours" },
+    {
+      key: "includeMaintenanceCost",
+      type: "enum",
+      options: ["yes", "no"],
+      label: "import:accessories.columns.includeMaintenanceCost",
     },
   ],
   prints: [

@@ -100,7 +100,8 @@
     "maintenance": "Include maintenance in costs",
     "maintenanceHint": "Spreads what you logged on maintenance tasks over the runtime.",
     "count": "Count in costs",
-    "countHint": "Prints made while it was on a printer pay its wear and maintenance."
+    "countHint": "Prints made while it was on a printer pay its wear and maintenance.",
+    "countHintPrinter": "Off leaves this printer's wear and maintenance out of costs. Its accessories follow their own setting."
   },
   "accessories": {
     "title": "Accessories",

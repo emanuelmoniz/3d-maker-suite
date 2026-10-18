@@ -54,7 +54,7 @@ function AccessoryForm({ accessory }: { accessory?: Accessory }) {
         : null,
       warrantyEndsAt: date(text(f, "warrantyEndsAt")),
       warrantyNotes: orNull(text(f, "warrantyNotes")),
-      ...readCostFields(f, "accessory"),
+      ...readCostFields(f),
     };
     save.mutate(body, {
       onSuccess: async (saved) => {

@@ -5,6 +5,7 @@
   "entities": {
     "spools": "Spools",
     "printers": "Printers",
+    "accessories": "Accessories",
     "prints": "Prints"
   },
   "spools": {
@@ -34,7 +35,8 @@
     "required": "Columns marked with * are required. Leave a cell empty to keep what you already have.",
     "multicolor": "A multicolor print uses one Spool, Filament and Filament used (g) per color: the first set, then Spool 2 and so on, up to 16.",
     "trackUsage": "Track usage: leave empty or enter yes to subtract the filament from your spools. Enter no to save the print and its filament without changing your spools' weights.",
-    "printerCosts": "Lifetime (hours) and Include maintenance: leave empty on a new printer to use the defaults from Costs settings.",
+    "costs": "Count in costs, Lifetime (hours) and Include maintenance: leave empty on a new row to use the defaults from Costs settings.",
+    "accessoryInstalls": "The printer an accessory is on isn't part of the file: install it from the accessory's page.",
     "column": "Column",
     "format": "What to enter",
     "error": "Couldn't build the template. Is the server running?"
@@ -169,6 +171,7 @@
     "summary": "Import finished: {{created, number}} created, {{updated, number}} updated.",
     "viewSpools": "View spools",
     "viewPrinters": "View printers",
+    "viewAccessories": "View accessories",
     "viewPrints": "View prints"
   },
   "printers": {
@@ -183,6 +186,22 @@
       "purchasePrice": "Purchase price",
       "warrantyEndsAt": "Warranty ends",
       "powerW": "Power (W)",
+      "countInCosts": "Count in costs",
+      "lifetimeHours": "Lifetime (hours)",
+      "includeMaintenanceCost": "Include maintenance"
+    }
+  },
+  "accessories": {
+    "columns": {
+      "number": "Number",
+      "name": "Name",
+      "type": "Type",
+      "serial": "Serial number",
+      "purchasedAt": "Purchased",
+      "purchasePrice": "Purchase price",
+      "warrantyEndsAt": "Warranty ends",
+      "powerW": "Power (W)",
+      "countInCosts": "Count in costs",
       "lifetimeHours": "Lifetime (hours)",
       "includeMaintenanceCost": "Include maintenance"
     }

@@ -7,10 +7,10 @@ type Kind = "printer" | "accessory";
 type Values = {
   lifetimeHours: number | null;
   includeMaintenanceCost: boolean | null;
-  countInCosts?: boolean | null;
+  countInCosts: boolean | null;
 };
 
-/** The Costs settings a printer or accessory falls back to. Printers' "count" has no override. */
+/** The Costs settings a printer or accessory falls back to. */
 function useCostDefaults(kind: Kind) {
   const p = usePreferences().data?.values;
   return kind === "printer"
@@ -29,16 +29,16 @@ function useCostDefaults(kind: Kind) {
 const bool = (v: string) => (v === "" ? null : v === "true");
 
 /** The form's cost settings; empty = the Costs default. */
-export function readCostFields(f: FormData, kind: Kind): Values {
+export function readCostFields(f: FormData): Values {
   const hours = String(f.get("lifetimeHours") ?? "").trim();
   return {
     lifetimeHours: hours ? Math.round(Number(hours)) : null,
     includeMaintenanceCost: bool(String(f.get("includeMaintenanceCost") ?? "")),
-    ...(kind === "accessory" ? { countInCosts: bool(String(f.get("countInCosts") ?? "")) } : {}),
+    countInCosts: bool(String(f.get("countInCosts") ?? "")),
   };
 }
 
-/** Lifetime, maintenance (and for accessories "count in costs"), each defaulting to Settings > Costs. */
+/** Count in costs, lifetime and maintenance, each defaulting to Settings > Costs. */
 export function CostFields({ values, kind }: { values?: Values; kind: Kind }) {
   const { t } = useTranslation();
   const defaults = useCostDefaults(kind);
@@ -58,11 +58,14 @@ export function CostFields({ values, kind }: { values?: Values; kind: Kind }) {
   return (
     <fieldset className="grid gap-4">
       <legend className="mb-2 font-semibold">{t("printers:costs.title")}</legend>
-      {kind === "accessory" && (
-        <FormField label={t("printers:costs.count")} hint={t("printers:costs.countHint")}>
-          {select("countInCosts", defaults.countInCosts)}
-        </FormField>
-      )}
+      <FormField
+        label={t("printers:costs.count")}
+        hint={t(
+          kind === "printer" ? "printers:costs.countHintPrinter" : "printers:costs.countHint",
+        )}
+      >
+        {select("countInCosts", defaults.countInCosts)}
+      </FormField>
       <FormField label={t("printers:costs.lifetime")} hint={t("printers:costs.lifetimeHint")}>
         {(p) => (
           <input

@@ -8,6 +8,7 @@ import { type Db, schema } from "@3d-maker-suite/db";
 import { eq, isNull } from "drizzle-orm";
 import { modelIdFor } from "../lib/catalog.ts";
 import {
+  accessoryTitle,
   assertNumberFree,
   freeNumber,
   nextNumber,
@@ -15,7 +16,7 @@ import {
   printerTitle,
 } from "../lib/numbers.ts";
 
-const { brands, printerModels, printers } = schema;
+const { brands, printerModels, printers, accessories } = schema;
 
 const num = (c: ImportCell | undefined) => (typeof c === "number" ? c : null);
 const str = (c: ImportCell | undefined) => (typeof c === "string" ? c : null);
@@ -30,6 +31,35 @@ const lower = (list: string[]) => new Set(list.map((n) => n.toLowerCase()));
 const distinct = (names: string[]) => [
   ...new Map(names.filter(Boolean).map((n) => [n.toLowerCase(), n])).values(),
 ];
+
+/** The cost settings of a printer or accessory, as import cells. */
+const costValues = (d: {
+  countInCosts: boolean | null;
+  lifetimeHours: number | null;
+  includeMaintenanceCost: boolean | null;
+}) => ({
+  countInCosts: yesNo(d.countInCosts),
+  lifetimeHours: d.lifetimeHours,
+  includeMaintenanceCost: yesNo(d.includeMaintenanceCost),
+});
+/** The same cells as columns; empty = the Costs default. */
+const costColumns = (v: ImportValues) => ({
+  countInCosts: bool(v.countInCosts),
+  lifetimeHours: num(v.lifetimeHours),
+  includeMaintenanceCost: bool(v.includeMaintenanceCost),
+});
+
+/** A printer's or accessory's `patch` as columns (keys are named like them), cells converted. */
+function patchColumns(patch: ImportValues) {
+  const { purchasedAt, warrantyEndsAt, ...fields } = patch;
+  const set: Record<string, unknown> = { ...fields };
+  if ("number" in set) set.number = numberCell(fields.number) ?? undefined;
+  if (purchasedAt != null) set.purchasedAt = noon(purchasedAt);
+  if (warrantyEndsAt != null) set.warrantyEndsAt = noon(warrantyEndsAt);
+  for (const k of ["countInCosts", "includeMaintenanceCost"])
+    if (k in set) set[k] = bool(fields[k]);
+  return set;
+}
 
 const brandNames = (db: Db) => db.select({ name: brands.name }).from(brands).all();
 const modelRows = (db: Db) =>
@@ -64,8 +94,7 @@ export const printerImport = {
           purchasePrice: p.purchasePrice,
           warrantyEndsAt: day(p.warrantyEndsAt),
           powerW: p.powerW,
-          lifetimeHours: p.lifetimeHours,
-          includeMaintenanceCost: yesNo(p.includeMaintenanceCost),
+          ...costValues(p),
         },
       })),
 
@@ -105,28 +134,77 @@ export const printerImport = {
         purchasePrice: num(v.purchasePrice),
         warrantyEndsAt: noon(v.warrantyEndsAt),
         powerW: num(v.powerW),
-        lifetimeHours: num(v.lifetimeHours),
-        includeMaintenanceCost: bool(v.includeMaintenanceCost),
+        ...costColumns(v),
       })
       .run();
   },
 
   /** Writes `patch` (only the values that change) to the printer. */
   update(db: Db, target: ImportTarget, patch: ImportValues) {
-    const { brand, model, purchasedAt, warrantyEndsAt, ...fields } = patch;
-    // The other keys are named like the table's columns.
-    const set: Record<string, unknown> = { ...fields };
-    if ("number" in set) set.number = numberCell(fields.number) ?? undefined;
-    assertNumberFree(db, printers, "printer", numberCell(fields.number), target.id);
-    if (purchasedAt != null) set.purchasedAt = noon(purchasedAt);
-    if (warrantyEndsAt != null) set.warrantyEndsAt = noon(warrantyEndsAt);
-    if ("includeMaintenanceCost" in set)
-      set.includeMaintenanceCost = bool(fields.includeMaintenanceCost);
+    const { brand, model, ...rest } = patch;
+    const set = patchColumns(rest);
+    assertNumberFree(db, printers, "printer", numberCell(patch.number), target.id);
     if (brand !== undefined || model !== undefined) {
       const v = { ...target.values, ...patch };
       set.modelId = modelIdFor(db, str(v.brand) ?? "", str(v.model) ?? "");
     }
     if (Object.keys(set).length)
       db.update(printers).set(set).where(eq(printers.id, target.id)).run();
+  },
+};
+
+/**
+ * Accessories from a file, matched like printers (number, else serial, else name). Which printer
+ * an accessory is on stays on its page: installs are periods, not a cell.
+ */
+export const accessoryImport = {
+  /** Active accessories, in the shape of the import columns. */
+  targets: (db: Db): ImportTarget[] =>
+    db
+      .select()
+      .from(accessories)
+      .where(isNull(accessories.archivedAt))
+      .all()
+      .map((a) => ({
+        id: a.id,
+        label: accessoryTitle(a),
+        values: {
+          number: a.number,
+          name: a.name,
+          type: a.type,
+          serial: a.serial,
+          purchasedAt: day(a.purchasedAt),
+          purchasePrice: a.purchasePrice,
+          warrantyEndsAt: day(a.warrantyEndsAt),
+          powerW: a.powerW,
+          ...costValues(a),
+        },
+      })),
+
+  match: matchPrinterRows,
+
+  missing: () => ({}),
+
+  create(db: Db, v: ImportValues) {
+    db.insert(accessories)
+      .values({
+        number: freeNumber(db, accessories, numberCell(v.number)) ?? nextNumber(accessories),
+        name: str(v.name) ?? "",
+        type: str(v.type) ?? "",
+        serial: str(v.serial),
+        purchasedAt: noon(v.purchasedAt),
+        purchasePrice: num(v.purchasePrice),
+        warrantyEndsAt: noon(v.warrantyEndsAt),
+        powerW: num(v.powerW),
+        ...costColumns(v),
+      })
+      .run();
+  },
+
+  update(db: Db, target: ImportTarget, patch: ImportValues) {
+    const set = patchColumns(patch);
+    assertNumberFree(db, accessories, "accessory", numberCell(patch.number), target.id);
+    if (Object.keys(set).length)
+      db.update(accessories).set(set).where(eq(accessories.id, target.id)).run();
   },
 };

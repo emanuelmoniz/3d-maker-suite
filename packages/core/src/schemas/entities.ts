@@ -127,6 +127,8 @@ export const printerSchema = z.object({
   lifetimeHours: z.number().int().nonnegative().nullable(),
   /** Null = `Preferences.includeMaintenanceCost`. */
   includeMaintenanceCost: z.boolean().nullable(),
+  /** Off: adds no wear or maintenance. Null = `Preferences.printerCountInCosts`. */
+  countInCosts: z.boolean().nullable(),
   /** Relative to the data directory. */
   photoPath: z.string().nullable(),
   archivedAt: isoDate.nullable(),

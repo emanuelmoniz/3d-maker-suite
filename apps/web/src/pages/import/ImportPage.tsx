@@ -24,12 +24,18 @@ const ENTITIES: Record<ImportEntity, { label: string; to: string; view: string }
     to: "/printers",
     view: "import:done.viewPrinters",
   },
+  accessories: {
+    label: "import:entities.accessories",
+    to: "/printers",
+    view: "import:done.viewAccessories",
+  },
   prints: { label: "import:entities.prints", to: "/prints", view: "import:done.viewPrints" },
 };
 // What a run imported: a file entity, or a type an integration or a zip offers.
 const TYPES: Record<string, string> = {
   spools: "import:entities.spools",
   printers: "import:entities.printers",
+  accessories: "import:entities.accessories",
   prints: "import:entities.prints",
   brands: "integrations:capabilities.brands",
   printerModels: "integrations:capabilities.printerModels",
@@ -79,8 +85,10 @@ export function ImportPage() {
       ...(entity === "prints"
         ? [[t("import:template.multicolor")], [t("import:template.trackUsage")]]
         : entity === "printers"
-          ? [[t("import:template.printerCosts")]]
-          : []),
+          ? [[t("import:template.costs")]]
+          : entity === "accessories"
+            ? [[t("import:template.costs")], [t("import:template.accessoryInstalls")]]
+            : []),
       [],
       [t("import:template.column"), t("import:template.format")],
       ...columns.map((c) => [

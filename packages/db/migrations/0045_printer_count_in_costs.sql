@@ -1,0 +1,1 @@
+ALTER TABLE `printers` ADD `count_in_costs` integer;

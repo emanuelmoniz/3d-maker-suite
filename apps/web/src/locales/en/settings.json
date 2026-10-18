@@ -63,7 +63,7 @@
     "maintenanceHint": "Spreads what you logged on maintenance tasks over the printer's runtime. Each printer can override it.",
     "printers": "Printers",
     "printerCount": "Count printers in costs",
-    "printerCountHint": "Off leaves printer wear and maintenance out of every cost. Accessories follow their own setting.",
+    "printerCountHint": "Off leaves printer wear and maintenance out of costs. Each printer can override it; accessories follow their own setting.",
     "accessories": "Accessories",
     "accessoryCount": "Count accessories in costs",
     "accessoryCountHint": "Prints made while an accessory was on the printer pay its wear and maintenance too.",

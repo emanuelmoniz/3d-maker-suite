@@ -316,6 +316,13 @@
       "when": 1792344153208,
       "tag": "0044_device_costs",
       "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "6",
+      "when": 1792345466677,
+      "tag": "0045_printer_count_in_costs",
+      "breakpoints": true
     }
   ]
 }

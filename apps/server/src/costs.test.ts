@@ -134,6 +134,9 @@ describe("costs", () => {
     const stats = (await app.inject("/api/stats")).json();
     // Jan: lid; Feb: lid + AMS; Mar: lid + hotend.
     expect(stats.totals).toMatchObject({ prints: 3, wear: 100 + 200 + 120 });
+    // The printer's own setting beats the default: back in at 50/h.
+    await send("PATCH", `/api/printers/${printer.id}`, { countInCosts: true });
+    expect(await ctx()).toMatchObject({ wearPerHour: 170 });
   });
 
   it("saves, lists and deletes quotes", async () => {

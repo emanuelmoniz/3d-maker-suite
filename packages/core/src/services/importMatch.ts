@@ -35,7 +35,7 @@ function byKey(targets: ImportTarget[], key: (t: ImportTarget) => string) {
 /**
  * A printer fits on its serial number; a file row without one (or with one you don't have) falls
  * back to the name, unless that printer has a different serial. A row with a number fits the
- * printer with that number only. Pass active printers only.
+ * printer with that number only. Pass active printers only. Accessories match the same way.
  */
 export function matchPrinterRows(rows: ImportValues[], printers: ImportTarget[]): ImportMatch[] {
   const bySerial = byKey(printers, (t) => lower(t.values.serial));
