@@ -20,6 +20,7 @@ import { formatCurrency, formatDate, formatDuration, formatNumber } from "../../
 import { usePreferences } from "../../lib/preferences.ts";
 import { printerName, usePrinters } from "../../lib/printers.ts";
 import { Comments } from "./Comments.tsx";
+import { useCostInfo } from "./CostFields.tsx";
 import { InstallDialog, RemoveDialog } from "./InstallDialogs.tsx";
 import { Info, linkButton, Photo } from "./PrinterDetailPage.tsx";
 import { StateBadge } from "./StateBadge.tsx";
@@ -39,6 +40,7 @@ export function AccessoryDetailPage() {
   const upload = useUploadAccessoryPhoto(id);
   const removePhoto = useRemoveAccessoryPhoto(id);
   const printers = usePrinters({ archived: false }).data?.items ?? [];
+  const costInfo = useCostInfo(accessory, "accessory");
 
   if (isError)
     return (
@@ -168,6 +170,11 @@ export function AccessoryDetailPage() {
               <Info label={t("printers:detail.info.warrantyNotes")}>
                 {accessory.warrantyNotes ?? none}
               </Info>
+              {costInfo.map((r) => (
+                <Info key={r.label} label={r.label}>
+                  {r.value}
+                </Info>
+              ))}
             </dl>
           </div>
         </section>

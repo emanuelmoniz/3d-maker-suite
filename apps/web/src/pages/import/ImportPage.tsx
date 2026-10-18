@@ -78,7 +78,9 @@ export function ImportPage() {
       [t("import:template.required")],
       ...(entity === "prints"
         ? [[t("import:template.multicolor")], [t("import:template.trackUsage")]]
-        : []),
+        : entity === "printers"
+          ? [[t("import:template.printerCosts")]]
+          : []),
       [],
       [t("import:template.column"), t("import:template.format")],
       ...columns.map((c) => [

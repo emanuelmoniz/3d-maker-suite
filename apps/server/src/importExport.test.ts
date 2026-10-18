@@ -35,7 +35,8 @@ const labels = {
 };
 
 it("export → edit → import updates only the edited row and is logged", async () => {
-  const csv = "name,brand,model\nA,Bambu Lab,X1C\nB,Bambu Lab,X1C\n";
+  const csv =
+    "name,brand,model,lifetimeHours,includeMaintenanceCost\nA,Bambu Lab,X1C,1500,no\nB,Bambu Lab,X1C,,\n";
   const first = (
     await post("/api/import/printers/preview", csv, "text/csv")
   ).json() as ImportPreview;
@@ -44,6 +45,12 @@ it("export → edit → import updates only the edited row and is logged", async
     policy: "overwrite",
     decisions: first.rows.map((r) => ({ row: r.row, action: "create" })),
   });
+  // Cost settings: set on A, empty (= the Costs defaults) on B.
+  const made = (await app.inject({ url: "/api/printers?sort=name" })).json().items;
+  expect(made).toMatchObject([
+    { name: "A", lifetimeHours: 1500, includeMaintenanceCost: false },
+    { name: "B", lifetimeHours: null, includeMaintenanceCost: null },
+  ]);
 
   const ex = await post("/api/import/printers/export", labels);
   expect(ex.statusCode, ex.body).toBe(200);

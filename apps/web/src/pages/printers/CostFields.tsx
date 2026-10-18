@@ -1,28 +1,47 @@
 import { useTranslation } from "react-i18next";
 import { FormField, inputClass } from "../../components/FormField.tsx";
+import { formatNumber } from "../../lib/format.ts";
+import { usePreferences } from "../../lib/preferences.ts";
 
+type Kind = "printer" | "accessory";
 type Values = {
   lifetimeHours: number | null;
   includeMaintenanceCost: boolean | null;
   countInCosts?: boolean | null;
 };
-type Defaults = { lifetimeHours: number; includeMaintenanceCost: boolean; countInCosts?: boolean };
+
+/** The Costs settings a printer or accessory falls back to. Printers' "count" has no override. */
+function useCostDefaults(kind: Kind) {
+  const p = usePreferences().data?.values;
+  return kind === "printer"
+    ? {
+        lifetimeHours: p?.printerLifetimeHours ?? 0,
+        includeMaintenanceCost: p?.includeMaintenanceCost ?? false,
+        countInCosts: p?.printerCountInCosts ?? true,
+      }
+    : {
+        lifetimeHours: p?.accessoryLifetimeHours ?? 0,
+        includeMaintenanceCost: p?.accessoryIncludeMaintenanceCost ?? false,
+        countInCosts: p?.accessoryCountInCosts ?? true,
+      };
+}
 
 const bool = (v: string) => (v === "" ? null : v === "true");
 
-/** The form's cost settings; empty = the Costs default. `countInCosts` only when `defaults` has it. */
-export function readCostFields(f: FormData, withCount: boolean): Values {
+/** The form's cost settings; empty = the Costs default. */
+export function readCostFields(f: FormData, kind: Kind): Values {
   const hours = String(f.get("lifetimeHours") ?? "").trim();
   return {
     lifetimeHours: hours ? Math.round(Number(hours)) : null,
     includeMaintenanceCost: bool(String(f.get("includeMaintenanceCost") ?? "")),
-    ...(withCount ? { countInCosts: bool(String(f.get("countInCosts") ?? "")) } : {}),
+    ...(kind === "accessory" ? { countInCosts: bool(String(f.get("countInCosts") ?? "")) } : {}),
   };
 }
 
 /** Lifetime, maintenance (and for accessories "count in costs"), each defaulting to Settings > Costs. */
-export function CostFields({ values, defaults }: { values?: Values; defaults: Defaults }) {
+export function CostFields({ values, kind }: { values?: Values; kind: Kind }) {
   const { t } = useTranslation();
+  const defaults = useCostDefaults(kind);
   const onOff = (v: boolean) => t(v ? "printers:costs.on" : "printers:costs.off");
   const select = (name: "includeMaintenanceCost" | "countInCosts", def: boolean) => (p: object) => (
     <select
@@ -39,7 +58,7 @@ export function CostFields({ values, defaults }: { values?: Values; defaults: De
   return (
     <fieldset className="grid gap-4">
       <legend className="mb-2 font-semibold">{t("printers:costs.title")}</legend>
-      {defaults.countInCosts !== undefined && (
+      {kind === "accessory" && (
         <FormField label={t("printers:costs.count")} hint={t("printers:costs.countHint")}>
           {select("countInCosts", defaults.countInCosts)}
         </FormField>
@@ -53,7 +72,9 @@ export function CostFields({ values, defaults }: { values?: Values; defaults: De
             min={0}
             step={1}
             className={inputClass}
-            placeholder={t("printers:costs.default", { value: defaults.lifetimeHours })}
+            placeholder={t("printers:costs.default", {
+              value: formatNumber(defaults.lifetimeHours),
+            })}
             defaultValue={values?.lifetimeHours ?? ""}
           />
         )}
@@ -63,4 +84,31 @@ export function CostFields({ values, defaults }: { values?: Values; defaults: De
       </FormField>
     </fieldset>
   );
+}
+
+/** Rows for a detail page: each value, or "Default (…)" with the Costs setting it falls back to. */
+export function useCostInfo(
+  values: Values | undefined,
+  kind: Kind,
+): { label: string; value: string }[] {
+  const { t } = useTranslation();
+  const defaults = useCostDefaults(kind);
+  const onOff = (v: boolean) => t(v ? "printers:costs.on" : "printers:costs.off");
+  const hours = (h: number) => t("printers:costs.hours", { value: formatNumber(h) });
+  const show = <T,>(own: T | null | undefined, def: T, text: (v: T) => string) =>
+    own == null ? t("printers:costs.default", { value: text(def) }) : text(own);
+  return [
+    {
+      label: t("printers:costs.count"),
+      value: show(values?.countInCosts, defaults.countInCosts, onOff),
+    },
+    {
+      label: t("printers:costs.lifetime"),
+      value: show(values?.lifetimeHours, defaults.lifetimeHours, hours),
+    },
+    {
+      label: t("printers:costs.maintenance"),
+      value: show(values?.includeMaintenanceCost, defaults.includeMaintenanceCost, onOff),
+    },
+  ];
 }

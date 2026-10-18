@@ -10,6 +10,7 @@ import { Catalog } from "../printers/Catalog.tsx";
 import { type ConfigCtx, ConfigPage } from "./ConfigPage.tsx";
 
 type BoolKey =
+  | "printerCountInCosts"
   | "includeMaintenanceCost"
   | "accessoryIncludeMaintenanceCost"
   | "accessoryCountInCosts";
@@ -58,6 +59,21 @@ export function CostsConfigPage() {
               <FormField label={t("settings:costs.energyCost")}>
                 {(p) => num("energyCostPerKwh", p)}
               </FormField>
+              <FormField label={t("settings:costs.laborRate")}>
+                {(p) => num("laborRatePerHour", p)}
+              </FormField>
+              <FormField label={t("settings:costs.failureMargin")}>
+                {(p) => num("failureMarginPct", p)}
+              </FormField>
+              <FormField label={t("settings:costs.markup")}>{(p) => num("markupPct", p)}</FormField>
+            </Section>
+            <Section title={t("settings:costs.printers")}>
+              {check(
+                ctx,
+                "printerCountInCosts",
+                t("settings:costs.printerCount"),
+                t("settings:costs.printerCountHint"),
+              )}
               <FormField
                 label={t("settings:costs.lifetime")}
                 hint={t("settings:costs.lifetimeHint")}
@@ -70,13 +86,6 @@ export function CostsConfigPage() {
                 t("settings:costs.maintenance"),
                 t("settings:costs.maintenanceHint"),
               )}
-              <FormField label={t("settings:costs.laborRate")}>
-                {(p) => num("laborRatePerHour", p)}
-              </FormField>
-              <FormField label={t("settings:costs.failureMargin")}>
-                {(p) => num("failureMarginPct", p)}
-              </FormField>
-              <FormField label={t("settings:costs.markup")}>{(p) => num("markupPct", p)}</FormField>
             </Section>
             <Section title={t("settings:costs.accessories")}>
               {check(

@@ -40,6 +40,8 @@ const shape = {
   gramsPerHour: z.number().positive(),
   /** Spread past maintenance spend over printer runtime and add it to the cost. Per-printer override. */
   includeMaintenanceCost: z.boolean(),
+  /** Off: printers add no wear or maintenance (their accessories still can). */
+  printerCountInCosts: z.boolean(),
   /** Same three for accessories, which add to the prints made while they were on a printer. */
   accessoryLifetimeHours: z.number().nonnegative(),
   accessoryIncludeMaintenanceCost: z.boolean(),
@@ -88,6 +90,7 @@ export const PREFERENCE_DEFAULTS: z.infer<typeof preferencesSchema> = {
   printerLifetimeHours: 0,
   gramsPerHour: 15,
   includeMaintenanceCost: false,
+  printerCountInCosts: true,
   accessoryLifetimeHours: 0,
   accessoryIncludeMaintenanceCost: false,
   accessoryCountInCosts: true,

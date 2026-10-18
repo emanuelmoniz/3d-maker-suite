@@ -49,7 +49,7 @@ function PrinterForm({ printer }: { printer?: Printer }) {
       purchasePrice: int(text(f, "purchasePrice"), 100),
       warrantyEndsAt: date(text(f, "warrantyEndsAt")),
       warrantyNotes: orNull(text(f, "warrantyNotes")),
-      ...readCostFields(f, false),
+      ...readCostFields(f, "printer"),
     };
     save.mutate(body, {
       onSuccess: async (saved) => {
@@ -164,13 +164,7 @@ function PrinterForm({ printer }: { printer?: Printer }) {
           />
         )}
       </FormField>
-      <CostFields
-        values={printer}
-        defaults={{
-          lifetimeHours: prefs?.printerLifetimeHours ?? 0,
-          includeMaintenanceCost: prefs?.includeMaintenanceCost ?? false,
-        }}
-      />
+      <CostFields values={printer} kind="printer" />
       <FormField label={t("printers:form.warrantyEndsAt")}>
         {(p) => (
           <input

@@ -26,6 +26,7 @@ import {
   useUploadPhoto,
 } from "../../lib/printers.ts";
 import { Comments } from "./Comments.tsx";
+import { useCostInfo } from "./CostFields.tsx";
 import { PrinterAccessories } from "./PrinterAccessories.tsx";
 import { StateBadge } from "./StateBadge.tsx";
 
@@ -108,6 +109,7 @@ export function PrinterDetailPage() {
   const removePhoto = useRemovePhoto(id);
   const [confirmArchive, setConfirmArchive] = useState(false);
   const models = useModelInfo();
+  const costInfo = useCostInfo(printer, "printer");
 
   if (isError)
     return (
@@ -213,6 +215,11 @@ export function PrinterDetailPage() {
               <Info label={t("printers:detail.info.warrantyNotes")}>
                 {printer.warrantyNotes ?? none}
               </Info>
+              {costInfo.map((r) => (
+                <Info key={r.label} label={r.label}>
+                  {r.value}
+                </Info>
+              ))}
             </dl>
           </div>
         </section>

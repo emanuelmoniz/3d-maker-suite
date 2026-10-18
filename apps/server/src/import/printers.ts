@@ -23,6 +23,8 @@ const str = (c: ImportCell | undefined) => (typeof c === "string" ? c : null);
 const noon = (c: ImportCell | undefined) =>
   typeof c === "string" ? new Date(`${c}T12:00:00Z`).toISOString() : null;
 const day = (iso: string | null) => iso?.slice(0, 10) ?? null;
+const yesNo = (b: boolean | null) => (b == null ? null : b ? "yes" : "no");
+const bool = (c: ImportCell | undefined) => (c === "yes" ? true : c === "no" ? false : null);
 const lower = (list: string[]) => new Set(list.map((n) => n.toLowerCase()));
 /** One spelling per name, the first one seen. */
 const distinct = (names: string[]) => [
@@ -62,6 +64,8 @@ export const printerImport = {
           purchasePrice: p.purchasePrice,
           warrantyEndsAt: day(p.warrantyEndsAt),
           powerW: p.powerW,
+          lifetimeHours: p.lifetimeHours,
+          includeMaintenanceCost: yesNo(p.includeMaintenanceCost),
         },
       })),
 
@@ -101,6 +105,8 @@ export const printerImport = {
         purchasePrice: num(v.purchasePrice),
         warrantyEndsAt: noon(v.warrantyEndsAt),
         powerW: num(v.powerW),
+        lifetimeHours: num(v.lifetimeHours),
+        includeMaintenanceCost: bool(v.includeMaintenanceCost),
       })
       .run();
   },
@@ -114,6 +120,8 @@ export const printerImport = {
     assertNumberFree(db, printers, "printer", numberCell(fields.number), target.id);
     if (purchasedAt != null) set.purchasedAt = noon(purchasedAt);
     if (warrantyEndsAt != null) set.warrantyEndsAt = noon(warrantyEndsAt);
+    if ("includeMaintenanceCost" in set)
+      set.includeMaintenanceCost = bool(fields.includeMaintenanceCost);
     if (brand !== undefined || model !== undefined) {
       const v = { ...target.values, ...patch };
       set.modelId = modelIdFor(db, str(v.brand) ?? "", str(v.model) ?? "");

@@ -54,7 +54,7 @@ function AccessoryForm({ accessory }: { accessory?: Accessory }) {
         : null,
       warrantyEndsAt: date(text(f, "warrantyEndsAt")),
       warrantyNotes: orNull(text(f, "warrantyNotes")),
-      ...readCostFields(f, true),
+      ...readCostFields(f, "accessory"),
     };
     save.mutate(body, {
       onSuccess: async (saved) => {
@@ -176,14 +176,7 @@ function AccessoryForm({ accessory }: { accessory?: Accessory }) {
           />
         )}
       </FormField>
-      <CostFields
-        values={accessory}
-        defaults={{
-          lifetimeHours: prefs?.accessoryLifetimeHours ?? 0,
-          includeMaintenanceCost: prefs?.accessoryIncludeMaintenanceCost ?? false,
-          countInCosts: prefs?.accessoryCountInCosts ?? true,
-        }}
-      />
+      <CostFields values={accessory} kind="accessory" />
       <FormField label={t("printers:form.warrantyEndsAt")}>
         {(p) => (
           <input

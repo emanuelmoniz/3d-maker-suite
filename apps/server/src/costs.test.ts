@@ -128,6 +128,12 @@ describe("costs", () => {
     await send("PATCH", `/api/printers/${printer.id}`, { lifetimeHours: null });
     await send("PATCH", `/api/accessories/${lid.id}`, { countInCosts: null });
     expect(await ctx()).toMatchObject({ wearPerHour: 170 });
+    // Printers left out of costs: only the accessories remain, and stats still count every print.
+    await send("PATCH", "/api/preferences", { printerCountInCosts: false });
+    expect(await ctx()).toMatchObject({ wearPerHour: 120 });
+    const stats = (await app.inject("/api/stats")).json();
+    // Jan: lid; Feb: lid + AMS; Mar: lid + hotend.
+    expect(stats.totals).toMatchObject({ prints: 3, wear: 100 + 200 + 120 });
   });
 
   it("saves, lists and deletes quotes", async () => {

@@ -94,6 +94,7 @@
     "default": "Default ({{value}})",
     "on": "On",
     "off": "Off",
+    "hours": "{{value}} h",
     "lifetime": "Lifetime (hours)",
     "lifetimeHint": "Purchase price is spread over these hours as wear. 0 leaves wear out; empty uses the default from Costs settings.",
     "maintenance": "Include maintenance in costs",

@@ -143,6 +143,14 @@ export const IMPORT_COLUMNS = {
     { key: "purchasePrice", type: "money", label: "import:printers.columns.purchasePrice" },
     { key: "warrantyEndsAt", type: "date", label: "import:printers.columns.warrantyEndsAt" },
     { key: "powerW", type: "integer", label: "import:printers.columns.powerW" },
+    // Cost settings; empty on a new printer = the Costs default.
+    { key: "lifetimeHours", type: "integer", label: "import:printers.columns.lifetimeHours" },
+    {
+      key: "includeMaintenanceCost",
+      type: "enum",
+      options: ["yes", "no"],
+      label: "import:printers.columns.includeMaintenanceCost",
+    },
   ],
   prints: [
     // A print's number is its identity in a file: a row with one updates that print.
