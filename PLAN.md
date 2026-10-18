@@ -149,7 +149,7 @@ tag and confirm the pre-release is published.
 
 ## Phase 4 - Slicing
 
-### [ ] Step 12 - Slicing spike + ADR  **[plan mode]**
+### [x] Step 12 - Slicing spike + ADR  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:** Bambu Studio doesn't keep slice results in a saved project, so time and grams per plate must come from slicing. Find out if and how the slicers on the server's PC (Bambu Studio, OrcaSlicer) can slice a 3MF headless: CLI flags to pick plates, machine/process/filament presets (the ones the slicer adapters already read), where to read time and grams from (the 3MF parser already reads `slice_info`), run time, failure modes. Design: a `slice` capability in `packages/core/src/integrations` implemented by the slicer adapters (core stays brand-agnostic), one slice at a time as a job, results cached by file hash + settings.
 **Done when:** `docs/adr/0007-slicing.md` records the decision and the rejected options; a throwaway script slices one plate of a fixture on this PC and prints time and grams. If headless slicing isn't feasible, stop and ask (fallback: time and grams typed per plate).
