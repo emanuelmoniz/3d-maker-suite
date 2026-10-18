@@ -254,7 +254,8 @@ describe("stats", () => {
       const ms = performance.now() - t0;
       times.push(`${name}: ${ms.toFixed(0)} ms`);
       expect(stats.totals).toBeDefined();
-      expect(ms).toBeLessThan(500);
+      // ponytail: wall-clock budget for shared CI runners (local ~300 ms, CI saw ~725 ms); catches order-of-magnitude regressions only
+      expect(ms).toBeLessThan(1500);
     }
     expect((await get(app)).totals.prints).toBe(10_000);
     expect((await get(app, `?tagId=${tag?.id}`)).totals.prints).toBeGreaterThan(900);
