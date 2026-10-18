@@ -1,6 +1,11 @@
 import { copyFileSync, mkdirSync } from "node:fs";
 import { extname, join } from "node:path";
-import { type ImportTarget, type ImportValues, matchRowsOn } from "@3d-maker-suite/core";
+import {
+  type ImportTarget,
+  type ImportValues,
+  matchRowsOn,
+  modelLabel,
+} from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
 import { and, eq, isNotNull, isNull } from "drizzle-orm";
 import { filamentBrandIdFor, filamentMaterialIdFor, modelIdFor } from "../lib/catalog.ts";
@@ -75,7 +80,7 @@ export function catalogImport(dataDir: string) {
           .all()
           .map(({ model: m, brand }) => ({
             id: m.id,
-            label: `${brand} ${m.model}`,
+            label: modelLabel(brand, m.model),
             values: { brand, model: m.model, thumbnail: m.imagePath ? "yes" : null },
           })),
       match: matchRowsOn("brand", "model"),

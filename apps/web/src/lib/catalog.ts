@@ -1,11 +1,12 @@
-import type {
-  Brand,
-  FilamentBrand,
-  FilamentMaterial,
-  MachineProfile,
-  Page,
-  PrinterModel,
-  PrintProfile,
+import {
+  type Brand,
+  type FilamentBrand,
+  type FilamentMaterial,
+  type MachineProfile,
+  modelLabel,
+  type Page,
+  type PrinterModel,
+  type PrintProfile,
 } from "@3d-maker-suite/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "./api.ts";
@@ -68,7 +69,7 @@ export function useModelInfo() {
   return new Map(
     models.map((m) => {
       const brand = brands.get(m.brandId);
-      return [m.id, { model: m, brand, label: `${brand?.name ?? ""} ${m.model}`.trim() }];
+      return [m.id, { model: m, brand, label: modelLabel(brand?.name, m.model) }];
     }),
   );
 }

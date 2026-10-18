@@ -201,6 +201,10 @@ describe("catalog: brands, printer models, machine profiles", () => {
     ).body;
     expect(model).toMatchObject({ powerW: 300, imagePath: null });
     expect((await app.inject("/api/printer-models?model=acme%20x")).json().total).toBe(1);
+    // A model named with its brand, as slicers do, isn't searched as "Acme Acme X2".
+    await send("POST", "/api/printer-models", { brandId: brand.id, model: "Acme X2" });
+    expect((await app.inject("/api/printer-models?model=acme%20x2")).json().total).toBe(1);
+    expect((await app.inject("/api/printer-models?model=acme%20acme")).json().total).toBe(0);
 
     const profile = (
       await send("POST", "/api/machine-profiles", { name: "Acme X1 0.4", printerModelId: model.id })

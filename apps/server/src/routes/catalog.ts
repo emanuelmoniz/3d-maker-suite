@@ -39,6 +39,7 @@ import type { SQLiteColumn, SQLiteTable } from "drizzle-orm/sqlite-core";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
+import { brandModel } from "../lib/catalog.ts";
 import { imageRoutes } from "../lib/images.ts";
 import { type ListOptions, listPage } from "../lib/list.ts";
 
@@ -193,12 +194,12 @@ export const printerModelsRoutes = (db: Db, dataDir: string) =>
     query: listQuery(printerModelSortFields, {}, printerModelFilters),
     list: {
       sort: {
-        model: sql`${brandOf} || ' ' || ${printerModels.model} COLLATE NOCASE`,
+        model: sql`${brandModel(brandOf, printerModels.model)} COLLATE NOCASE`,
         createdAt: printerModels.createdAt,
         powerW: printerModels.powerW,
       },
       filters: {
-        model: sql`${brandOf} || ' ' || ${printerModels.model}`,
+        model: brandModel(brandOf, printerModels.model),
         brandId: printerModels.brandId,
         powerW: printerModels.powerW,
       },

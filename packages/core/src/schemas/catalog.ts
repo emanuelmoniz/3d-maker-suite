@@ -7,6 +7,18 @@ import {
 } from "./entities.ts";
 import type { ColumnFilter } from "./list.ts";
 
+/**
+ * "Brand Model", or just the model when it already starts with the brand: slicers name their
+ * models "Bambu Lab A1", which would read "Bambu Lab Bambu Lab A1". Same rule as `modelName` (SQL).
+ */
+export function modelLabel(brand: string | null | undefined, model: string): string {
+  const b = brand?.trim() ?? "";
+  const m = model.trim();
+  if (!b) return m;
+  const lower = m.toLowerCase();
+  return lower === b.toLowerCase() || lower.startsWith(`${b.toLowerCase()} `) ? m : `${b} ${m}`;
+}
+
 // Brand -> printer model -> machine profile. Fields the user edits; `PATCH` takes any subset.
 export const brandInputSchema = brandSchema.pick({ name: true, url: true }).partial({ url: true });
 export const brandPatchSchema = brandInputSchema.partial().strict();

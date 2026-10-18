@@ -3,9 +3,14 @@ import { and, eq, getTableColumns, isNull, type SQLWrapper, sql } from "drizzle-
 
 const { brands, printerModels } = schema;
 
+/** `modelLabel` in SQL: "Brand Model", or the model alone when it already starts with the brand. */
+export const brandModel = (brand: SQLWrapper, model: SQLWrapper) =>
+  sql`CASE WHEN lower(${model}) = lower(${brand}) OR lower(substr(${model}, 1, length(${brand}) + 1)) = lower(${brand}) || ' '
+    THEN ${model} ELSE ${brand} || ' ' || ${model} END`;
+
 /** "Brand Model" of the printer model `modelId` points at (for sort/filter on other tables). */
 export const modelName = (modelId: SQLWrapper) =>
-  sql`(SELECT ${brands.name} || ' ' || ${printerModels.model} FROM ${printerModels}
+  sql`(SELECT ${brandModel(brands.name, printerModels.model)} FROM ${printerModels}
     JOIN ${brands} ON ${brands.id} = ${printerModels.brandId} WHERE ${printerModels.id} = ${modelId})`;
 
 /** Finds (case-insensitive) or creates the brand and model, for imported printers. */
