@@ -18,6 +18,9 @@ export const accessoryInputSchema = accessorySchema
     warrantyNotes: true,
     state: true,
     powerW: true,
+    lifetimeHours: true,
+    includeMaintenanceCost: true,
+    countInCosts: true,
   })
   .partial({
     number: true,
@@ -28,6 +31,9 @@ export const accessoryInputSchema = accessorySchema
     warrantyNotes: true,
     state: true,
     powerW: true,
+    lifetimeHours: true,
+    includeMaintenanceCost: true,
+    countInCosts: true,
   });
 export const accessoryPatchSchema = accessoryInputSchema
   .partial()

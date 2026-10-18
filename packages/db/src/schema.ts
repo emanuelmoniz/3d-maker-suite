@@ -214,6 +214,9 @@ export const printers = sqliteTable(
     // Validated against the `printerStates` preference by the API, so no CHECK here.
     state: text().notNull().default("working"),
     powerW: integer(),
+    // Cost settings; null = the Costs default (`printerLifetimeHours`, `includeMaintenanceCost`).
+    lifetimeHours: integer(),
+    includeMaintenanceCost: integer({ mode: "boolean" }),
     photoPath: text(),
     archivedAt: text(),
     ...imported(),
@@ -262,6 +265,10 @@ export const accessories = sqliteTable(
     // One of the `printerStates` preference, checked by the API like printers.
     state: text().notNull().default("working"),
     powerW: integer(),
+    // Cost settings; null = the Costs default (`accessoryLifetimeHours`, …).
+    lifetimeHours: integer(),
+    includeMaintenanceCost: integer({ mode: "boolean" }),
+    countInCosts: integer({ mode: "boolean" }),
     photoPath: text(),
     archivedAt: text(),
     ...timestamps,

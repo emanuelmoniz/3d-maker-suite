@@ -7,9 +7,12 @@ const minor = z.number().int(); // minor currency units
 export const costBreakdownSchema = z.object({
   material: minor,
   energy: minor,
-  /** Printer purchase price spread over its lifetime hours. 0 when not configured. */
+  /**
+   * Purchase price spread over lifetime hours: the printer's, plus each counted accessory's on it
+   * when the print started. 0 when not configured.
+   */
   wear: minor,
-  /** Past maintenance spend spread over the printer's runtime. 0 when not enabled. */
+  /** Past maintenance spend spread over runtime, same devices as `wear`. 0 when not enabled. */
   maintenance: minor,
   total: minor,
   /** Filament grams that have no price, so `material` is understated. */

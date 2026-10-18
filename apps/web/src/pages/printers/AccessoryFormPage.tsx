@@ -17,6 +17,7 @@ import { isConflict } from "../../lib/catalog.ts";
 import { dateInputToIso, isoToDateInput } from "../../lib/format.ts";
 import { usePreferences } from "../../lib/preferences.ts";
 import { useTagEditor } from "../../lib/tags.ts";
+import { CostFields, readCostFields } from "./CostFields.tsx";
 import { useStateLabel } from "./StateBadge.tsx";
 
 const text = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
@@ -53,6 +54,7 @@ function AccessoryForm({ accessory }: { accessory?: Accessory }) {
         : null,
       warrantyEndsAt: date(text(f, "warrantyEndsAt")),
       warrantyNotes: orNull(text(f, "warrantyNotes")),
+      ...readCostFields(f, true),
     };
     save.mutate(body, {
       onSuccess: async (saved) => {
@@ -174,6 +176,14 @@ function AccessoryForm({ accessory }: { accessory?: Accessory }) {
           />
         )}
       </FormField>
+      <CostFields
+        values={accessory}
+        defaults={{
+          lifetimeHours: prefs?.accessoryLifetimeHours ?? 0,
+          includeMaintenanceCost: prefs?.accessoryIncludeMaintenanceCost ?? false,
+          countInCosts: prefs?.accessoryCountInCosts ?? true,
+        }}
+      />
       <FormField label={t("printers:form.warrantyEndsAt")}>
         {(p) => (
           <input

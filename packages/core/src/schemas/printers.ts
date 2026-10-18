@@ -20,6 +20,8 @@ export const printerInputSchema = printerSchema
     warrantyNotes: true,
     state: true,
     powerW: true,
+    lifetimeHours: true,
+    includeMaintenanceCost: true,
   })
   .partial({
     number: true,
@@ -31,6 +33,8 @@ export const printerInputSchema = printerSchema
     warrantyNotes: true,
     state: true,
     powerW: true,
+    lifetimeHours: true,
+    includeMaintenanceCost: true,
   });
 export const printerPatchSchema = printerInputSchema
   .partial()

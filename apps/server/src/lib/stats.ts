@@ -2,11 +2,11 @@ import { type Stats, type StatsQuery, toMinor } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
 import { and, inArray, type SQL, sql } from "drizzle-orm";
 import { printerLabel, profileLabel, projectLabel } from "./catalog.ts";
-import { printerRates } from "./cost.ts";
+import { deviceRates, type Rate } from "./cost.ts";
 import { dateRange, inIds, taggedWith } from "./list.ts";
 import { readPreferences } from "./preferences.ts";
 
-const { prints, printers, printFilamentUsages: usages } = schema;
+const { prints, printFilamentUsages: usages } = schema;
 
 // Same cost rules as `printCosts` (lib/cost.ts), but computed by SQLite: one row per print with
 // each line rounded on its own, then summed per group. Nothing is loaded into JS but the result.
@@ -33,11 +33,16 @@ const BUCKET = {
 
 export function readStats(db: Db, q: StatsQuery): Stats {
   const prefs = readPreferences(db);
-  const rates = printerRates(db, db.select().from(printers).all());
-  const rateRows = sql.join(
-    [...rates].map(([id, r]) => sql`(${id}, ${r.wearPerHour}, ${r.maintenancePerHour})`),
-    sql`, `,
-  );
+  const rates = deviceRates(db);
+  // `('', 0, 0)` keeps VALUES valid when a map is empty.
+  const rateRows = (m: Map<string, Rate>) =>
+    sql.join(
+      [
+        sql`('', 0, 0)`,
+        ...[...m].map(([id, r]) => sql`(${id}, ${r.wearPerHour}, ${r.maintenancePerHour})`),
+      ],
+      sql`, `,
+    );
   const list = (ids: string[]) =>
     sql.join(
       ids.map((id) => sql`${id}`),
@@ -68,9 +73,19 @@ export function readStats(db: Db, q: StatsQuery): Stats {
     q.spoolId && sql`us.spool_id IN (${list(q.spoolId)})`,
     q.materialId && sql`${usageMaterial} IN (${list(q.materialId)})`,
   );
+  // A print's wear/maintenance rate: its printer's plus the counted accessories' on it when it
+  // started (`rateAt` in lib/cost.ts).
   const cte = sql`
-    WITH rate(printer_id, wear, maint) AS (VALUES ('', 0, 0), ${rateRows}),
+    WITH rate(printer_id, wear, maint) AS (VALUES ${rateRows(rates.printers)}),
+    acc(accessory_id, wear, maint) AS (VALUES ${rateRows(rates.accessories)}),
     sel AS (SELECT prints.id FROM prints WHERE ${where ?? sql`1`}),
+    ar AS (
+      SELECT p.id, SUM(acc.wear) AS wear, SUM(acc.maint) AS maint
+      FROM sel JOIN prints p ON p.id = sel.id
+      JOIN accessory_installs i ON i.printer_id = p.printer_id AND p.started_at >= i.installed_at
+        AND (i.removed_at IS NULL OR p.started_at < i.removed_at)
+      JOIN acc ON acc.accessory_id = i.accessory_id
+      GROUP BY p.id),
     use AS (
       SELECT us.print_id, us.grams, COALESCE(us.profile_id, sp.profile_id) AS profile_id,
         COALESCE(NULLIF(sp.color_name, ''), sp.color_hex, us.color_hex) AS color,
@@ -93,11 +108,13 @@ export function readStats(db: Db, q: StatsQuery): Stats {
       SELECT prints.*, ${hit ? sql`COALESCE(fil.share, 0)` : sql`1`} AS share,
         COALESCE(prints.energy_wh, printers.power_w * prints.duration_sec / 3600.0, 0) AS wh0,
         COALESCE(fil.grams, 0) AS fil_grams, COALESCE(fil.unpriced, 0) AS fil_unpriced,
-        COALESCE(fil.material, 0) AS fil_material, rate.wear AS wear_rate, rate.maint AS maint_rate
+        COALESCE(fil.material, 0) AS fil_material,
+        rate.wear + COALESCE(ar.wear, 0) AS wear_rate, rate.maint + COALESCE(ar.maint, 0) AS maint_rate
       FROM sel
       JOIN prints ON prints.id = sel.id
       JOIN printers ON printers.id = prints.printer_id
       JOIN rate ON rate.printer_id = prints.printer_id
+      LEFT JOIN ar ON ar.id = prints.id
       LEFT JOIN fil ON fil.print_id = prints.id),
     pc AS (
       SELECT id, started_at, printer_id, project_id, outcome, share,

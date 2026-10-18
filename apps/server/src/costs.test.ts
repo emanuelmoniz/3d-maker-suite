@@ -78,6 +78,58 @@ describe("costs", () => {
     expect(ctx.materialPrices).toEqual({ PLA: 2000 });
   });
 
+  it("device settings override the defaults; accessories count inside their install periods", async () => {
+    await send("PATCH", "/api/preferences", {
+      printerLifetimeHours: 1000,
+      accessoryLifetimeHours: 100,
+    });
+    // 50000 over its own 500 h, not the default 1000: 100 per hour.
+    const printer = (
+      await send("POST", "/api/printers", {
+        name: "P1S",
+        modelId: modelIdFor(db, "Bambu Lab", "P1S"),
+        purchasePrice: 50000,
+        lifetimeHours: 500,
+      })
+    ).json();
+    const accessory = async (body: object) =>
+      (await send("POST", "/api/accessories", { type: "AMS", ...body })).json();
+    const install = (a: { id: string }, installedAt: string, removedAt?: string) =>
+      send("POST", `/api/accessories/${a.id}/installs`, {
+        printerId: printer.id,
+        installedAt,
+        removedAt,
+      });
+    const ams = await accessory({ name: "AMS", purchasePrice: 10000 }); // default 100 h: 100/h
+    const lid = await accessory({ name: "Lid", purchasePrice: 10000, countInCosts: false });
+    const hotend = await accessory({ name: "Hotend", purchasePrice: 20000, lifetimeHours: 1000 });
+    await install(lid, "2026-01-01T00:00:00.000Z");
+    await install(ams, "2026-02-01T00:00:00.000Z", "2026-03-01T00:00:00.000Z");
+    await install(hotend, "2026-03-01T00:00:00.000Z"); // 20/h, still on
+
+    const wear = async (startedAt: string) =>
+      (
+        await send("POST", "/api/prints", {
+          printerId: printer.id,
+          title: startedAt,
+          startedAt,
+          durationSec: 3600,
+          outcome: "success",
+          usages: [],
+        })
+      ).json().cost.wear;
+    expect(await wear("2026-01-15T00:00:00.000Z")).toBe(100); // lid not counted
+    expect(await wear("2026-02-15T00:00:00.000Z")).toBe(200); // + AMS
+    expect(await wear("2026-03-01T00:00:00.000Z")).toBe(120); // AMS off that day, hotend on
+
+    const ctx = async () => (await app.inject("/api/costs/context")).json().printers[0];
+    expect(await ctx()).toMatchObject({ wearPerHour: 120 });
+    // Back to the defaults: printer 50/h, and the lid counts (100/h).
+    await send("PATCH", `/api/printers/${printer.id}`, { lifetimeHours: null });
+    await send("PATCH", `/api/accessories/${lid.id}`, { countInCosts: null });
+    expect(await ctx()).toMatchObject({ wearPerHour: 170 });
+  });
+
   it("saves, lists and deletes quotes", async () => {
     const body = {
       name: "Vase x3",

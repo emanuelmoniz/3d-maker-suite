@@ -13,6 +13,7 @@ import { usePreferences } from "../../lib/preferences.ts";
 import { useCreatePrinter, usePatchPrinter, usePrinter } from "../../lib/printers.ts";
 import { useTagEditor } from "../../lib/tags.ts";
 import { ModelSelect } from "./CatalogForms.tsx";
+import { CostFields, readCostFields } from "./CostFields.tsx";
 import { useStateLabel } from "./StateBadge.tsx";
 
 const text = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
@@ -48,6 +49,7 @@ function PrinterForm({ printer }: { printer?: Printer }) {
       purchasePrice: int(text(f, "purchasePrice"), 100),
       warrantyEndsAt: date(text(f, "warrantyEndsAt")),
       warrantyNotes: orNull(text(f, "warrantyNotes")),
+      ...readCostFields(f, false),
     };
     save.mutate(body, {
       onSuccess: async (saved) => {
@@ -162,6 +164,13 @@ function PrinterForm({ printer }: { printer?: Printer }) {
           />
         )}
       </FormField>
+      <CostFields
+        values={printer}
+        defaults={{
+          lifetimeHours: prefs?.printerLifetimeHours ?? 0,
+          includeMaintenanceCost: prefs?.includeMaintenanceCost ?? false,
+        }}
+      />
       <FormField label={t("printers:form.warrantyEndsAt")}>
         {(p) => (
           <input

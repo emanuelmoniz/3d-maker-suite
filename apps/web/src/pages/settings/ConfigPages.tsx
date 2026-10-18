@@ -7,56 +7,100 @@ import { usePrinters } from "../../lib/printers.ts";
 import { ChannelsSection } from "../alerts/ChannelsSection.tsx";
 import { FilamentCatalog, FilamentProfiles } from "../filament/Catalog.tsx";
 import { Catalog } from "../printers/Catalog.tsx";
-import { ConfigPage } from "./ConfigPage.tsx";
+import { type ConfigCtx, ConfigPage } from "./ConfigPage.tsx";
+
+type BoolKey =
+  | "includeMaintenanceCost"
+  | "accessoryIncludeMaintenanceCost"
+  | "accessoryCountInCosts";
 
 export function CostsConfigPage() {
   const { t } = useTranslation();
+  const check = ({ v, commit }: ConfigCtx, key: BoolKey, label: string, hint: string) => (
+    <label className="flex items-center gap-2">
+      <input
+        type="checkbox"
+        checked={v[key]}
+        onChange={(e) => commit({ [key]: e.target.checked })}
+      />
+      <span>
+        <span className="font-medium">{label}</span>
+        <span className="block text-muted">{hint}</span>
+      </span>
+    </label>
+  );
   return (
     <ConfigPage module="costs">
-      {({ v, commit, num }) => (
-        <Section title={t("settings:sections.costs")}>
-          <FormField label={t("settings:costs.currency")} hint={t("settings:costs.currencyHint")}>
-            {(p) => (
-              <input
-                {...p}
-                className={inputClass}
-                key={`cur-${v.currency}`}
-                defaultValue={v.currency}
-                maxLength={3}
-                onBlur={(e) => {
-                  const c = e.target.value.trim().toUpperCase();
-                  if (/^[A-Z]{3}$/.test(c) && c !== v.currency) commit({ currency: c });
-                  else e.target.value = v.currency;
-                }}
-              />
-            )}
-          </FormField>
-          <FormField label={t("settings:costs.energyCost")}>
-            {(p) => num("energyCostPerKwh", p)}
-          </FormField>
-          <FormField label={t("settings:costs.lifetime")} hint={t("settings:costs.lifetimeHint")}>
-            {(p) => num("printerLifetimeHours", p)}
-          </FormField>
-          <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={v.includeMaintenanceCost}
-              onChange={(e) => commit({ includeMaintenanceCost: e.target.checked })}
-            />
-            <span>
-              <span className="font-medium">{t("settings:costs.maintenance")}</span>
-              <span className="block text-muted">{t("settings:costs.maintenanceHint")}</span>
-            </span>
-          </label>
-          <FormField label={t("settings:costs.laborRate")}>
-            {(p) => num("laborRatePerHour", p)}
-          </FormField>
-          <FormField label={t("settings:costs.failureMargin")}>
-            {(p) => num("failureMarginPct", p)}
-          </FormField>
-          <FormField label={t("settings:costs.markup")}>{(p) => num("markupPct", p)}</FormField>
-        </Section>
-      )}
+      {(ctx) => {
+        const { v, commit, num } = ctx;
+        return (
+          <>
+            <Section title={t("settings:sections.costs")}>
+              <FormField
+                label={t("settings:costs.currency")}
+                hint={t("settings:costs.currencyHint")}
+              >
+                {(p) => (
+                  <input
+                    {...p}
+                    className={inputClass}
+                    key={`cur-${v.currency}`}
+                    defaultValue={v.currency}
+                    maxLength={3}
+                    onBlur={(e) => {
+                      const c = e.target.value.trim().toUpperCase();
+                      if (/^[A-Z]{3}$/.test(c) && c !== v.currency) commit({ currency: c });
+                      else e.target.value = v.currency;
+                    }}
+                  />
+                )}
+              </FormField>
+              <FormField label={t("settings:costs.energyCost")}>
+                {(p) => num("energyCostPerKwh", p)}
+              </FormField>
+              <FormField
+                label={t("settings:costs.lifetime")}
+                hint={t("settings:costs.lifetimeHint")}
+              >
+                {(p) => num("printerLifetimeHours", p)}
+              </FormField>
+              {check(
+                ctx,
+                "includeMaintenanceCost",
+                t("settings:costs.maintenance"),
+                t("settings:costs.maintenanceHint"),
+              )}
+              <FormField label={t("settings:costs.laborRate")}>
+                {(p) => num("laborRatePerHour", p)}
+              </FormField>
+              <FormField label={t("settings:costs.failureMargin")}>
+                {(p) => num("failureMarginPct", p)}
+              </FormField>
+              <FormField label={t("settings:costs.markup")}>{(p) => num("markupPct", p)}</FormField>
+            </Section>
+            <Section title={t("settings:costs.accessories")}>
+              {check(
+                ctx,
+                "accessoryCountInCosts",
+                t("settings:costs.accessoryCount"),
+                t("settings:costs.accessoryCountHint"),
+              )}
+              <FormField
+                label={t("settings:costs.accessoryLifetime")}
+                hint={t("settings:costs.accessoryLifetimeHint")}
+              >
+                {(p) => num("accessoryLifetimeHours", p)}
+              </FormField>
+              {check(
+                ctx,
+                "accessoryIncludeMaintenanceCost",
+                t("settings:costs.maintenance"),
+                t("settings:costs.accessoryMaintenanceHint"),
+              )}
+            </Section>
+          </>
+        );
+      }}
     </ConfigPage>
   );
 }

@@ -121,7 +121,7 @@ Do Step 9 of PLAN.md. Show me how maintenance types and tasks get an accessory t
 (schema + maintenanceDue) before implementing. Back up the DB before editing schema.ts.
 ```
 
-### [ ] Step 10 - Lifetime and maintenance cost per printer and accessory  **[plan mode]**
+### [x] Step 10 - Lifetime and maintenance cost per printer and accessory  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:**
 - Printer and accessory settings get: lifetime hours and "include maintenance cost". Accessories also get "count in costs". Empty means "use the default".

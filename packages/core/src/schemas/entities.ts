@@ -123,6 +123,10 @@ export const printerSchema = z.object({
   state: z.string().min(1),
   /** Typical draw while printing, used to estimate energy when a print has none. */
   powerW: z.number().int().nonnegative().nullable(),
+  /** Wear: purchase price / these hours. Null = `Preferences.printerLifetimeHours`. */
+  lifetimeHours: z.number().int().nonnegative().nullable(),
+  /** Null = `Preferences.includeMaintenanceCost`. */
+  includeMaintenanceCost: z.boolean().nullable(),
   /** Relative to the data directory. */
   photoPath: z.string().nullable(),
   archivedAt: isoDate.nullable(),
@@ -155,6 +159,11 @@ export const accessorySchema = z.object({
   state: z.string().min(1),
   /** Typical draw while in use. */
   powerW: z.number().int().nonnegative().nullable(),
+  /** Cost settings like the printer's; null = the `accessory*` preference. */
+  lifetimeHours: z.number().int().nonnegative().nullable(),
+  includeMaintenanceCost: z.boolean().nullable(),
+  /** Adds its wear and maintenance to prints of the printer it was on. */
+  countInCosts: z.boolean().nullable(),
   /** Relative to the data directory. */
   photoPath: z.string().nullable(),
   archivedAt: isoDate.nullable(),

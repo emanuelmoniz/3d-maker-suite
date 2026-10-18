@@ -309,6 +309,13 @@
       "when": 1792342312031,
       "tag": "0043_accessory_maintenance",
       "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "6",
+      "when": 1792344153208,
+      "tag": "0044_device_costs",
+      "breakpoints": true
     }
   ]
 }

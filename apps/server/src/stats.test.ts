@@ -1,4 +1,4 @@
-import type { PrintDetail, Stats } from "@3d-maker-suite/core";
+import { type CostContext, computeCost, type PrintDetail, type Stats } from "@3d-maker-suite/core";
 import { openDb, schema, seed } from "@3d-maker-suite/db";
 import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
@@ -37,6 +37,87 @@ describe("stats", () => {
     expect(stats.totals.grams).toBeCloseTo(sum((p) => p.usages.reduce((n, u) => n + u.grams, 0)));
     expect(stats.series.reduce((n, r) => n + r.prints, 0)).toBe(list.length);
     expect(stats.breakdowns.printer.reduce((n, r) => n + r.total, 0)).toBe(stats.totals.total);
+  });
+
+  it("print costs, stats and the calculator agree on device and accessory rates", async () => {
+    const { app, db } = await setup();
+    const day = (n: number) => new Date(NOW.getTime() - n * 86_400_000).toISOString();
+    const [x1, p1s] = db.select().from(schema.printers).orderBy(schema.printers.number).all();
+    if (!x1 || !p1s) throw new Error("seed");
+    db.insert(schema.settings)
+      .values([
+        { key: "includeMaintenanceCost", value: true },
+        { key: "accessoryLifetimeHours", value: 300 },
+        { key: "accessoryIncludeMaintenanceCost", value: true },
+      ])
+      .run();
+    db.update(schema.printers)
+      .set({ lifetimeHours: 8000, includeMaintenanceCost: false })
+      .where(eq(schema.printers.id, x1.id))
+      .run();
+    const [ams, hotend, lid] = db
+      .insert(schema.accessories)
+      .values([
+        { number: 1, name: "AMS", type: "AMS", purchasePrice: 34900 },
+        { number: 2, name: "Hotend", type: "Hotend", purchasePrice: 2999, lifetimeHours: 500 },
+        { number: 3, name: "Lid", type: "Lid", purchasePrice: 5000, countInCosts: false },
+      ])
+      .returning()
+      .all();
+    if (!ams || !hotend || !lid) throw new Error("insert");
+    db.insert(schema.accessoryInstalls)
+      .values([
+        { accessoryId: ams.id, printerId: x1.id, installedAt: day(100), removedAt: day(70) },
+        { accessoryId: ams.id, printerId: p1s.id, installedAt: day(60) },
+        { accessoryId: hotend.id, printerId: p1s.id, installedAt: day(90) },
+        { accessoryId: lid.id, printerId: p1s.id, installedAt: day(120) },
+      ])
+      .run();
+    const typeId = db.select().from(schema.maintenanceTypes).get()?.id ?? "";
+    const task = { typeId, printerRuntimeSecAt: 0, printerPrintsAt: 0 };
+    db.insert(schema.maintenanceTasks)
+      .values([
+        { ...task, accessoryId: hotend.id, doneAt: day(10), cost: 1500 },
+        { ...task, printerId: p1s.id, doneAt: day(5), cost: 4000 },
+      ])
+      .run();
+
+    const list = (await app.inject("/api/prints?pageSize=100")).json().items as PrintDetail[];
+    const sum = (pick: (p: PrintDetail) => number) => list.reduce((n, p) => n + pick(p), 0);
+    expect((await get(app)).totals).toMatchObject({
+      material: sum((p) => p.cost.material),
+      energy: sum((p) => p.cost.energy),
+      wear: sum((p) => p.cost.wear),
+      maintenance: sum((p) => p.cost.maintenance),
+      total: sum((p) => p.cost.total),
+    });
+
+    // The AMS counts on the X1C only inside its period there; the X1C's maintenance is off.
+    const hours = (p?: PrintDetail) => (p?.durationSec ?? 0) / 3600;
+    const x1Prints = list.filter((p) => p.printerId === x1.id);
+    const inside = x1Prints.find((p) => p.startedAt >= day(100) && p.startedAt < day(70));
+    const after = x1Prints.find((p) => p.startedAt >= day(70));
+    expect(inside?.cost.wear).toBe(Math.round(hours(inside) * (34900 / 300 + 119900 / 8000)));
+    expect(after?.cost).toMatchObject({
+      wear: Math.round(hours(after) * (119900 / 8000)),
+      maintenance: 0,
+    });
+
+    // The calculator uses what is on the P1S now (AMS + hotend, not the lid): its newest print,
+    // made with the same set, costs the same.
+    const ctx = (await app.inject("/api/costs/context")).json() as CostContext;
+    const rate = ctx.printers.find((p) => p.id === p1s.id);
+    const newest = list
+      .filter((p) => p.printerId === p1s.id)
+      .sort((a, b) => b.startedAt.localeCompare(a.startedAt))[0];
+    if (!rate || !newest) throw new Error("missing");
+    expect(rate.maintenancePerHour).toBeGreaterThan(0);
+    expect(
+      computeCost(
+        { durationSec: newest.durationSec, energyWh: newest.energyWh, filaments: [] },
+        { energyPerKwh: ctx.rates.energyPerKwh, ...rate },
+      ),
+    ).toMatchObject({ wear: newest.cost.wear, maintenance: newest.cost.maintenance });
   });
 
   it("handles filament without a price", async () => {

@@ -9,6 +9,7 @@ import { usePreferences, useSavePreferences } from "../../lib/preferences.ts";
 export type NumKey =
   | "energyCostPerKwh"
   | "printerLifetimeHours"
+  | "accessoryLifetimeHours"
   | "gramsPerHour"
   | "laborRatePerHour"
   | "failureMarginPct"

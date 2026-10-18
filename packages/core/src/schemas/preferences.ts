@@ -34,12 +34,16 @@ const shape = {
   appName: z.string().trim().max(60),
   currency: z.string().regex(/^[A-Z]{3}$/),
   energyCostPerKwh: z.number().nonnegative(),
-  /** Printer wear: purchase price / these hours. 0 leaves wear out of the cost. */
+  /** Printer wear: purchase price / these hours. 0 leaves wear out of the cost. Per-printer override. */
   printerLifetimeHours: z.number().nonnegative(),
   /** Pace for estimating a duration when no print of yours has both grams and a duration. */
   gramsPerHour: z.number().positive(),
-  /** Spread past maintenance spend over printer runtime and add it to the cost. */
+  /** Spread past maintenance spend over printer runtime and add it to the cost. Per-printer override. */
   includeMaintenanceCost: z.boolean(),
+  /** Same three for accessories, which add to the prints made while they were on a printer. */
+  accessoryLifetimeHours: z.number().nonnegative(),
+  accessoryIncludeMaintenanceCost: z.boolean(),
+  accessoryCountInCosts: z.boolean(),
   /** Pricing calculator defaults. Money in major units, like energyCostPerKwh. */
   laborRatePerHour: z.number().nonnegative(),
   failureMarginPct: z.number().nonnegative(),
@@ -84,6 +88,9 @@ export const PREFERENCE_DEFAULTS: z.infer<typeof preferencesSchema> = {
   printerLifetimeHours: 0,
   gramsPerHour: 15,
   includeMaintenanceCost: false,
+  accessoryLifetimeHours: 0,
+  accessoryIncludeMaintenanceCost: false,
+  accessoryCountInCosts: true,
   laborRatePerHour: 0,
   failureMarginPct: 5,
   markupPct: 20,
