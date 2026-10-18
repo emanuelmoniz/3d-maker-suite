@@ -105,6 +105,20 @@ export const machineProfileSchema = z.object({
   ...timestamps,
 });
 
+/** A slicer process preset: layer height, walls, infill, supports, speeds. */
+export const printProfileSchema = z.object({
+  id,
+  name: z.string().min(1),
+  /** The printer model it is made for; null when the preset names none we know. */
+  printerModelId: id.nullable(),
+  nozzleDiameterMm: z.number().positive().nullable(),
+  layerHeightMm: z.number().positive().nullable(),
+  /** Preset this profile was imported from, `<library>:<preset id>`; null for hand-made ones. */
+  sourcePreset: z.string().nullable(),
+  archivedAt: isoDate.nullable(),
+  ...timestamps,
+});
+
 export const printerSchema = z.object({
   id,
   /** Short unique number the printer goes by ("02-Bambu A1"). */
@@ -129,6 +143,8 @@ export const printerSchema = z.object({
   includeMaintenanceCost: z.boolean().nullable(),
   /** Off: adds no wear or maintenance. Null = `Preferences.printerCountInCosts`. */
   countInCosts: z.boolean().nullable(),
+  /** Default print profile for slicing a project's plates on this printer. */
+  printProfileId: id.nullable(),
   /** Relative to the data directory. */
   photoPath: z.string().nullable(),
   archivedAt: isoDate.nullable(),
@@ -389,6 +405,7 @@ export type Integration = z.infer<typeof integrationSchema>;
 export type Brand = z.infer<typeof brandSchema>;
 export type PrinterModel = z.infer<typeof printerModelSchema>;
 export type MachineProfile = z.infer<typeof machineProfileSchema>;
+export type PrintProfile = z.infer<typeof printProfileSchema>;
 export type Printer = z.infer<typeof printerSchema>;
 export type PrinterComment = z.infer<typeof printerCommentSchema>;
 export type Accessory = z.infer<typeof accessorySchema>;

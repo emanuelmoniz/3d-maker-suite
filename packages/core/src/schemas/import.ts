@@ -317,6 +317,23 @@ export const IMPORT_COLUMNS = {
       required: true,
     },
   ],
+  // Brand and model are optional: a process preset can name no printer we know.
+  printProfiles: [
+    { key: "brand", type: "ref", ref: "brands", label: "import:printProfiles.columns.brand" },
+    {
+      key: "model",
+      type: "ref",
+      ref: "printerModels",
+      label: "import:printProfiles.columns.model",
+    },
+    { key: "name", type: "text", label: "import:printProfiles.columns.name", required: true },
+    {
+      key: "nozzleDiameterMm",
+      type: "number",
+      label: "import:printProfiles.columns.nozzleDiameterMm",
+    },
+    { key: "layerHeightMm", type: "number", label: "import:printProfiles.columns.layerHeightMm" },
+  ],
   filamentBrands: [
     {
       key: "kind",

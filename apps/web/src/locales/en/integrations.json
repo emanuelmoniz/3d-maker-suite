@@ -122,6 +122,7 @@
     "brands": "Printer brands",
     "printerModels": "Printer models",
     "machineProfiles": "Machine profiles",
+    "printProfiles": "Print profiles",
     "filamentBrands": "Filament brands",
     "filamentProfiles": "Filament profiles",
     "openInSlicer": "Open projects in the slicer"
@@ -187,6 +188,7 @@
       "brands": "Import brands from {{name}}",
       "printerModels": "Import models from {{name}}",
       "machineProfiles": "Import machine profiles from {{name}}",
+      "printProfiles": "Import print profiles from {{name}}",
       "filamentBrands": "Import brands and materials from {{name}}"
     }
   },

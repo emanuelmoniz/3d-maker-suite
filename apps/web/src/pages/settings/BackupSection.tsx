@@ -17,6 +17,7 @@ const TABLES = [
   ["brands", "settings:backup.tables.brands"],
   ["printer-models", "settings:backup.tables.printerModels"],
   ["machine-profiles", "settings:backup.tables.machineProfiles"],
+  ["print-profiles", "settings:backup.tables.printProfiles"],
   ["maintenance", "settings:backup.tables.maintenance"],
   ["maintenance-types", "settings:backup.tables.maintenanceTypes"],
   ["filament-brands", "settings:backup.tables.filamentBrands"],

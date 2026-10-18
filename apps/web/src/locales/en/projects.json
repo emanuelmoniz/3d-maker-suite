@@ -102,5 +102,27 @@
       "launch_failed": "Could not start the program."
     },
     "slicerPick": "Slicer"
+  },
+  "slicing": {
+    "title": "Slicing setup",
+    "hint": "Pick the plates one print of this project takes, and the print profile and filaments for each.",
+    "noFiles": "This project has no 3MF files.",
+    "platesPicked_one": "{{count}} of {{total}} plate",
+    "platesPicked_other": "{{count}} of {{total}} plates",
+    "printProfile": "Print profile",
+    "printProfileOf": "Print profile for {{plate}}",
+    "defaultProfile": "Default ({{name}})",
+    "fromFile": "As saved in the file",
+    "forThisPrinter": "For this file's printer",
+    "otherProfiles": "Other print profiles",
+    "slot": "Slot {{slot}} · {{material}}",
+    "filamentOf": "Filament for {{plate}}, slot {{slot}}",
+    "state": {
+      "outdated": "The file changed since this setup was saved",
+      "missing": "Not in the file any more"
+    },
+    "save": "Save setup",
+    "saved": "Saved.",
+    "saveFailed": "Could not save the setup."
   }
 }

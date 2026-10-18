@@ -10,6 +10,7 @@ const TABLES = {
   brands: schema.brands,
   "printer-models": schema.printerModels,
   "machine-profiles": schema.machineProfiles,
+  "print-profiles": schema.printProfiles,
   maintenance: schema.maintenanceTasks,
   "maintenance-types": schema.maintenanceTypes,
   "filament-brands": schema.filamentBrands,

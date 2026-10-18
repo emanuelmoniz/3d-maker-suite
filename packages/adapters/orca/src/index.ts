@@ -40,6 +40,7 @@ export function orcaSlicerAdapter(): IntegrationAdapter {
       "brands",
       "printerModels",
       "machineProfiles",
+      "printProfiles",
       "filamentBrands",
       "filamentProfiles",
       "openInSlicer",

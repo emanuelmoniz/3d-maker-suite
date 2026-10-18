@@ -8,10 +8,24 @@ import { printerImport } from "./printers.ts";
 import type { ImportHandler, WriteRow } from "./review.ts";
 import { num, str } from "./spools.ts";
 
-const { brands, filamentBrands, filamentMaterials, machineProfiles, printerModels, prints } =
-  schema;
+const {
+  brands,
+  filamentBrands,
+  filamentMaterials,
+  machineProfiles,
+  printerModels,
+  printProfiles,
+  prints,
+} = schema;
 
 const modelOf = (db: Db, v: ImportValues) => modelIdFor(db, str(v.brand) ?? "", str(v.model) ?? "");
+const hasModel = (v: ImportValues) => !!str(v.brand) && !!str(v.model);
+const printProfileValues = (db: Db, v: ImportValues) => ({
+  name: str(v.name) ?? "",
+  printerModelId: hasModel(v) ? modelOf(db, v) : null,
+  nozzleDiameterMm: num(v.nozzleDiameterMm),
+  layerHeightMm: num(v.layerHeightMm),
+});
 
 /**
  * What a slicer ships besides filament: printer brands, printer models, machine profiles, and
@@ -144,6 +158,57 @@ export function catalogImport(dataDir: string) {
           .run();
         db.insert(machineProfiles)
           .values({ ...values, sourcePreset: cur.sourcePreset })
+          .run();
+      },
+    },
+
+    // Brand and model are optional: a process preset can name no printer we know.
+    printProfiles: {
+      targets: (db) =>
+        db
+          .select({ profile: printProfiles, model: printerModels.model, brand: brands.name })
+          .from(printProfiles)
+          .leftJoin(printerModels, eq(printerModels.id, printProfiles.printerModelId))
+          .leftJoin(brands, eq(brands.id, printerModels.brandId))
+          .where(isNull(printProfiles.archivedAt))
+          .all()
+          .map(({ profile: p, model, brand }) => ({
+            id: p.id,
+            label: p.name,
+            values: {
+              brand,
+              model,
+              name: p.name,
+              nozzleDiameterMm: p.nozzleDiameterMm,
+              layerHeightMm: p.layerHeightMm,
+            },
+          })),
+      match: matchRowsOn("brand", "model", "name"),
+      bySource: (db) =>
+        new Map(
+          db
+            .select({ source: printProfiles.sourcePreset, id: printProfiles.id })
+            .from(printProfiles)
+            .where(and(isNotNull(printProfiles.sourcePreset), isNull(printProfiles.archivedAt)))
+            .all()
+            .map((r) => [r.source ?? "", r.id] as const),
+        ),
+      missing: (db, rows) => printerImport.missing(db, rows.filter(hasModel)),
+      create: (db, v, row) =>
+        db
+          .insert(printProfiles)
+          .values({ ...printProfileValues(db, v), sourcePreset: row.source })
+          .run(),
+      // No print points at a print profile, so it is always updated in place.
+      update(db: Db, target: ImportTarget, patch: ImportValues, row: WriteRow) {
+        const cur = db.select().from(printProfiles).where(eq(printProfiles.id, target.id)).get();
+        if (!cur) return;
+        db.update(printProfiles)
+          .set({
+            ...printProfileValues(db, { ...target.values, ...patch }),
+            sourcePreset: cur.sourcePreset ?? row.source,
+          })
+          .where(eq(printProfiles.id, cur.id))
           .run();
       },
     },

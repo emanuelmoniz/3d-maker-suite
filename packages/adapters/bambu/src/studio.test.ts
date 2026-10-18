@@ -153,4 +153,38 @@ describe("bambu studio catalog", () => {
       ["system/Bambu Lab A1 0.4 nozzle", "Bambu Lab A1", 0.4],
     ]);
   });
+
+  it("reads process presets with layer height and the first compatible machine", async () => {
+    put("system/BBL/process/fdm_process_0.20.json", {
+      name: "fdm_process_0.20",
+      layer_height: "0.2",
+    });
+    put("system/BBL/process/0.20mm Standard @BBL A1.json", {
+      name: "0.20mm Standard @BBL A1",
+      type: "process",
+      inherits: "fdm_process_0.20",
+      instantiation: "true",
+      compatible_printers: ["Unknown printer", "Bambu Lab A1 0.4 nozzle"],
+    });
+    put("user/123/process/My strong.json", {
+      name: "My strong",
+      inherits: "0.20mm Standard @BBL A1",
+      sparse_infill_density: ["40%"],
+    });
+    put("user/123/process/Loose.json", { name: "Loose", layer_height: ["0.28"] });
+    const { processes } = (await bambuStudioLibrary().readCatalog?.(dir)) ?? { processes: [] };
+    expect(processes).toEqual([
+      expect.objectContaining({ presetId: "user/Loose", model: null, layerHeightMm: 0.28 }),
+      {
+        presetId: "user/My strong",
+        scope: "user",
+        name: "My strong",
+        brand: "Bambu Lab",
+        model: "Bambu Lab A1",
+        nozzleDiameterMm: 0.4,
+        layerHeightMm: 0.2,
+      },
+      expect.objectContaining({ presetId: "system/0.20mm Standard @BBL A1", scope: "system" }),
+    ]);
+  });
 });

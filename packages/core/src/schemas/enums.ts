@@ -52,6 +52,7 @@ export const SYNC_TYPES = [
   "brands",
   "printerModels",
   "machineProfiles",
+  "printProfiles",
   "filamentBrands",
   "filamentProfiles",
 ] as const;

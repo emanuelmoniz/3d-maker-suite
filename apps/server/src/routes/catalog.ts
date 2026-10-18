@@ -27,6 +27,11 @@ import {
   printerModelPatchSchema,
   printerModelSchema,
   printerModelSortFields,
+  printProfileFilters,
+  printProfileInputSchema,
+  printProfilePatchSchema,
+  printProfileSchema,
+  printProfileSortFields,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
 import { eq, isNotNull, isNull, sql } from "drizzle-orm";
@@ -37,7 +42,8 @@ import { HttpError } from "../errors.ts";
 import { imageRoutes } from "../lib/images.ts";
 import { type ListOptions, listPage } from "../lib/list.ts";
 
-const { brands, printerModels, machineProfiles, filamentBrands, filamentMaterials } = schema;
+const { brands, printerModels, machineProfiles, printProfiles, filamentBrands, filamentMaterials } =
+  schema;
 const params = z.object({ id: z.uuid() });
 const errors = { 400: apiErrorSchema, 404: apiErrorSchema, 409: apiErrorSchema };
 
@@ -219,6 +225,31 @@ export const machineProfilesRoutes = (db: Db, dataDir: string) =>
         name: machineProfiles.name,
         printerModelId: machineProfiles.printerModelId,
         nozzleDiameterMm: machineProfiles.nozzleDiameterMm,
+      },
+    },
+  });
+
+export const printProfilesRoutes = (db: Db, dataDir: string) =>
+  crud(db, dataDir, {
+    table: printProfiles,
+    noun: "Print profile",
+    row: printProfileSchema,
+    input: printProfileInputSchema,
+    patch: printProfilePatchSchema,
+    query: listQuery(printProfileSortFields, { archived: archivedFilter }, printProfileFilters),
+    archivable: true,
+    list: {
+      sort: {
+        name: sql`${printProfiles.name} COLLATE NOCASE`,
+        createdAt: printProfiles.createdAt,
+        nozzleDiameterMm: printProfiles.nozzleDiameterMm,
+        layerHeightMm: printProfiles.layerHeightMm,
+      },
+      filters: {
+        name: printProfiles.name,
+        printerModelId: printProfiles.printerModelId,
+        nozzleDiameterMm: printProfiles.nozzleDiameterMm,
+        layerHeightMm: printProfiles.layerHeightMm,
       },
     },
   });

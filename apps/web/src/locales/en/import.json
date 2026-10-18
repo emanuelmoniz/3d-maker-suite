@@ -258,6 +258,15 @@
       "nozzleDiameterMm": "Nozzle (mm)"
     }
   },
+  "printProfiles": {
+    "columns": {
+      "brand": "Brand",
+      "model": "Model",
+      "name": "Name",
+      "nozzleDiameterMm": "Nozzle (mm)",
+      "layerHeightMm": "Layer height (mm)"
+    }
+  },
   "filamentBrands": {
     "columns": {
       "kind": "Kind",

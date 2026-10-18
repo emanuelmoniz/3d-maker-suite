@@ -12,6 +12,7 @@ const TYPES = {
   brands: "integrations:capabilities.brands",
   printerModels: "integrations:capabilities.printerModels",
   machineProfiles: "integrations:capabilities.machineProfiles",
+  printProfiles: "integrations:capabilities.printProfiles",
   filamentBrands: "integrations:capabilities.filamentBrands",
   filamentProfiles: "integrations:capabilities.filamentProfiles",
 } as const;

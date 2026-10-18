@@ -30,7 +30,8 @@ import { printerUsageColumns } from "../lib/maintenance.ts";
 import { assertNumberFree, nextNumber } from "../lib/numbers.ts";
 import { readPreferences } from "../lib/preferences.ts";
 
-const { printers, printerComments, printerModels, prints, accessoryInstalls } = schema;
+const { printers, printerComments, printerModels, printProfiles, prints, accessoryInstalls } =
+  schema;
 const params = z.object({ id: z.uuid() });
 const brandModel = modelName(printers.modelId);
 const usage = printerUsageColumns();
@@ -51,6 +52,10 @@ export const printersRoutes =
     const checkModel = (modelId?: string) => {
       if (modelId && !db.select().from(printerModels).where(eq(printerModels.id, modelId)).get())
         throw new HttpError(400, "invalid_model", "Unknown printer model");
+    };
+    const checkPrintProfile = (id?: string | null) => {
+      if (id && !db.select().from(printProfiles).where(eq(printProfiles.id, id)).get())
+        throw new HttpError(400, "invalid_reference", "Unknown print profile");
     };
     // Like accessories: nothing stays installed on an archived printer.
     const assertNoAccessories = (id: string) => {
@@ -112,6 +117,7 @@ export const printersRoutes =
       async (req, reply) => {
         checkState(req.body.state);
         checkModel(req.body.modelId);
+        checkPrintProfile(req.body.printProfileId);
         assertNumberFree(db, printers, "printer", req.body.number);
         const row = db
           .insert(printers)
@@ -143,6 +149,7 @@ export const printersRoutes =
         const { archived, ...fields } = req.body;
         checkState(fields.state);
         checkModel(fields.modelId);
+        checkPrintProfile(fields.printProfileId);
         assertNumberFree(db, printers, "printer", fields.number, req.params.id);
         if (archived) assertNoAccessories(req.params.id);
         const archivedAt =

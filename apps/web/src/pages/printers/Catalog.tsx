@@ -5,7 +5,9 @@ import {
   type MachineProfile,
   machineProfileFilters,
   type PrinterModel,
+  type PrintProfile,
   printerModelFilters,
+  printProfileFilters,
 } from "@3d-maker-suite/core";
 import { Link } from "@tanstack/react-router";
 import { Plus } from "lucide-react";
@@ -83,7 +85,7 @@ export const editLink = (to: string, id: string, children: ReactNode) => (
   </Link>
 );
 
-/** Brands, printer models and machine profiles, below the printers table. */
+/** Brands, printer models, machine profiles and print profiles, below the printers table. */
 export function Catalog() {
   const { t } = useTranslation();
   const brands = useBrands().data ?? [];
@@ -208,6 +210,56 @@ export function Catalog() {
             cell: (p) => t("printers:catalog.mm", { value: formatNumber(p.nozzleDiameterMm) }),
             sort: "nozzleDiameterMm",
             filter: "nozzleDiameterMm",
+          },
+        ]}
+      />
+      <Section<PrintProfile>
+        kind="print-profiles"
+        title={t("printers:catalog.printProfiles.title")}
+        add={{ to: "/printers/print-profiles/new", label: t("printers:catalog.printProfiles.add") }}
+        extra={
+          <ImportLinks cap="printProfiles" text="integrations:catalogImport.link.printProfiles" />
+        }
+        filters={printProfileFilters}
+        columns={[
+          {
+            id: "name",
+            header: t("printers:catalog.printProfiles.name"),
+            cell: (p) => editLink("/printers/print-profiles/$id/edit", p.id, p.name),
+            sort: "name",
+            filter: "name",
+          },
+          {
+            id: "model",
+            header: t("printers:catalog.printProfiles.model"),
+            cell: (p) => (p.printerModelId ? info.get(p.printerModelId)?.label : none),
+            filter: "printerModelId",
+            filterOptions: models.map((m) => ({
+              value: m.id,
+              label: info.get(m.id)?.label ?? m.model,
+            })),
+          },
+          {
+            id: "nozzle",
+            header: t("printers:catalog.printProfiles.nozzle"),
+            numeric: true,
+            cell: (p) =>
+              p.nozzleDiameterMm === null
+                ? none
+                : t("printers:catalog.mm", { value: formatNumber(p.nozzleDiameterMm) }),
+            sort: "nozzleDiameterMm",
+            filter: "nozzleDiameterMm",
+          },
+          {
+            id: "layer",
+            header: t("printers:catalog.printProfiles.layer"),
+            numeric: true,
+            cell: (p) =>
+              p.layerHeightMm === null
+                ? none
+                : t("printers:catalog.mm", { value: formatNumber(p.layerHeightMm) }),
+            sort: "layerHeightMm",
+            filter: "layerHeightMm",
           },
         ]}
       />

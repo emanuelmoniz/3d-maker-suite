@@ -20,10 +20,25 @@ export const catalogMachineSchema = z.object({
   nozzleDiameterMm: z.number().positive(),
 });
 
+/**
+ * A process preset ("0.20mm Standard @BBL X1C"). `model` and nozzle come from the first machine
+ * in its `compatible_printers`; null when it lists none the reader knows.
+ */
+export const catalogProcessSchema = z.object({
+  presetId: z.string().min(1),
+  scope: z.enum(["user", "system"]),
+  name: z.string().min(1),
+  brand: z.string().nullable(),
+  model: z.string().nullable(),
+  nozzleDiameterMm: z.number().positive().nullable(),
+  layerHeightMm: z.number().positive().nullable(),
+});
+
 export const SLICER_CATALOG_TYPES = [
   "brands",
   "printerModels",
   "machineProfiles",
+  "printProfiles",
   "filamentBrands",
 ] as const;
 
@@ -40,4 +55,9 @@ export const slicerZipUploadSchema = z.object({ uploadId: z.uuid() });
 export type SlicerZipSource = z.infer<typeof slicerZipSourceSchema>;
 export type CatalogModel = z.infer<typeof catalogModelSchema>;
 export type CatalogMachine = z.infer<typeof catalogMachineSchema>;
-export type SlicerCatalog = { models: CatalogModel[]; machines: CatalogMachine[] };
+export type CatalogProcess = z.infer<typeof catalogProcessSchema>;
+export type SlicerCatalog = {
+  models: CatalogModel[];
+  machines: CatalogMachine[];
+  processes: CatalogProcess[];
+};

@@ -1,19 +1,23 @@
-import { bestMatches, type Project, sumCosts } from "@3d-maker-suite/core";
+import { bestMatches, type PlateSetupInput, type Project, sumCosts } from "@3d-maker-suite/core";
 import { Link, useParams } from "@tanstack/react-router";
 import type { TFunction } from "i18next";
 import { Box, ExternalLink, FolderOpen } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Button } from "../../components/Button.tsx";
 import { Combobox } from "../../components/Combobox.tsx";
 import { CostBreakdown } from "../../components/CostBreakdown.tsx";
 import { Markdown } from "../../components/Markdown.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
+import { plateKey, SliceSetup } from "../../components/SliceSetup.tsx";
 import { TagList } from "../../components/TagList.tsx";
+import { usePrintProfiles } from "../../lib/catalog.ts";
 import { estimatePlate, type Plate, useCostContext } from "../../lib/cost.ts";
 import { cx } from "../../lib/cx.ts";
 import { formatDateTime, formatDuration, formatWeight } from "../../lib/format.ts";
 import { useAdapterName, useCapable } from "../../lib/integrations.ts";
 import { usePreferences } from "../../lib/preferences.ts";
+import { usePrinters } from "../../lib/printers.ts";
 import { printName, usePrintsOfProject } from "../../lib/prints.ts";
 import {
   projectFileUrl,
@@ -21,6 +25,8 @@ import {
   projectThumbnailUrl,
   useOpenProject,
   useProject,
+  useProjectSlicing,
+  useSaveProjectSlicing,
 } from "../../lib/projects.ts";
 import { useTagsOf } from "../../lib/tags.ts";
 import { ModelPreview } from "./ModelPreview.tsx";
@@ -160,6 +166,60 @@ function Estimate({ plate }: { plate: Plate }) {
       </p>
       <div className="rounded-lg border border-border bg-surface p-4">
         <CostBreakdown cost={estimatePlate(plate, printer?.id, ctx)} />
+      </div>
+    </section>
+  );
+}
+
+/** Which plates a print of the project takes, with the print profile and filaments per plate. */
+function SlicingSetup({ project }: { project: Project }) {
+  const { t } = useTranslation();
+  const saved = useProjectSlicing(project.id).data;
+  const save = useSaveProjectSlicing(project.id);
+  const [draft, setDraft] = useState<PlateSetupInput[] | null>(null);
+  const defaultId = usePreferences().data?.values.defaultPrinterId;
+  const printers = usePrinters({ archived: false }).data?.items ?? [];
+  const printer = printers.find((p) => p.id === defaultId) ?? printers[0];
+  const defaultProfile = usePrintProfiles().data?.find((p) => p.id === printer?.printProfileId);
+  if (!project.meta.models.length || !saved) return null;
+  const stored = saved.plates.map(({ state: _state, ...p }) => p);
+  const value = draft ?? stored;
+  const dirty = draft !== null && JSON.stringify(draft) !== JSON.stringify(stored);
+  return (
+    <section aria-labelledby="slicing" className="mt-6">
+      <h2 id="slicing" className="mb-1 text-base font-semibold">
+        {t("projects:slicing.title")}
+      </h2>
+      <p className="mb-2 text-muted">{t("projects:slicing.hint")}</p>
+      <SliceSetup
+        files={project.meta.models.map((m) => ({
+          path: m.file,
+          label: m.file,
+          plates: m.plates,
+          printerModel: m.printerModel,
+          thumbnailUrl: (entry) => projectFileUrl(project.id, m.file, entry),
+        }))}
+        value={value}
+        onChange={setDraft}
+        states={Object.fromEntries(saved.plates.map((p) => [plateKey(p), p.state]))}
+        defaultPrintProfile={defaultProfile ?? null}
+        disabled={save.isPending}
+      />
+      <div className="mt-3 flex flex-wrap items-center gap-3">
+        <Button
+          variant="primary"
+          disabled={!dirty || save.isPending}
+          onClick={() => save.mutate({ plates: value }, { onSuccess: () => setDraft(null) })}
+        >
+          {t("projects:slicing.save")}
+        </Button>
+        <p role="status" className={save.isError ? "text-bad" : "text-muted"}>
+          {save.isError
+            ? t("projects:slicing.saveFailed")
+            : save.isSuccess && !dirty
+              ? t("projects:slicing.saved")
+              : ""}
+        </p>
       </div>
     </section>
   );
@@ -382,6 +442,7 @@ export function ProjectDetailPage() {
       </div>
 
       {current && <Plates project={project} file={current.path} plate={plate} onPlate={setPlate} />}
+      <SlicingSetup project={project} />
       {project.description && (
         <div className="mt-6">
           {project.descriptionFile?.toLowerCase().endsWith(".md") ? (

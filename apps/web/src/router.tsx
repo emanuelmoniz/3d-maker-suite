@@ -26,6 +26,7 @@ import {
   BrandFormPage,
   MachineProfileFormPage,
   ModelFormPage,
+  PrintProfileFormPage,
 } from "./pages/printers/CatalogForms.tsx";
 import { PrinterDetailPage } from "./pages/printers/PrinterDetailPage.tsx";
 import { PrinterCreatePage, PrinterEditPage } from "./pages/printers/PrinterFormPage.tsx";
@@ -124,6 +125,7 @@ const routes: AnyRoute[] = [
       ["brands", BrandFormPage],
       ["models", ModelFormPage],
       ["profiles", MachineProfileFormPage],
+      ["print-profiles", PrintProfileFormPage],
     ] as const
   ).flatMap(([kind, page]) => [
     printerRoute(`/printers/${kind}/new`, page),

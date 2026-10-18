@@ -66,7 +66,15 @@ export async function libraryRows(
       }),
     );
   }
-  const c = (await lib.readCatalog?.(dir)) ?? { models: [], machines: [] };
+  const c = (await lib.readCatalog?.(dir)) ?? { models: [], machines: [], processes: [] };
+  if (type === "printProfiles")
+    return numbered(
+      c.processes.map(({ presetId, scope, ...raw }) => ({
+        source: `${lib.id}:${presetId}`,
+        optional: scope === "system",
+        raw,
+      })),
+    );
   if (type === "brands")
     return numbered(
       names([...c.models, ...c.machines].map((m) => m.brand)).map((name) => ({ raw: { name } })),

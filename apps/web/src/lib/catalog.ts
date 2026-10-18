@@ -5,6 +5,7 @@ import type {
   MachineProfile,
   Page,
   PrinterModel,
+  PrintProfile,
 } from "@3d-maker-suite/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "./api.ts";
@@ -14,12 +15,14 @@ export type CatalogKind =
   | "brands"
   | "printer-models"
   | "machine-profiles"
+  | "print-profiles"
   | "filament-brands"
   | "filament-materials";
 type Row = {
   brands: Brand;
   "printer-models": PrinterModel;
   "machine-profiles": MachineProfile;
+  "print-profiles": PrintProfile;
   "filament-brands": FilamentBrand;
   "filament-materials": FilamentMaterial;
 };
@@ -46,6 +49,7 @@ const useAll = <K extends CatalogKind>(kind: K) =>
 export const useBrands = () => useAll("brands");
 export const usePrinterModels = () => useAll("printer-models");
 export const useMachineProfiles = () => useAll("machine-profiles");
+export const usePrintProfiles = () => useAll("print-profiles");
 export const useFilamentBrands = () => useAll("filament-brands");
 export const useFilamentMaterials = () => useAll("filament-materials");
 

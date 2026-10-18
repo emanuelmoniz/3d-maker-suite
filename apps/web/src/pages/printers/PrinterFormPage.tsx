@@ -1,13 +1,13 @@
-import type { Printer, PrinterInput } from "@3d-maker-suite/core";
+import type { Printer, PrinterInput, PrintProfile } from "@3d-maker-suite/core";
 import { Link, useNavigate, useParams } from "@tanstack/react-router";
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
 import { Combobox } from "../../components/Combobox.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { TagPicker } from "../../components/TagPicker.tsx";
-import { isConflict, useModelInfo } from "../../lib/catalog.ts";
+import { isConflict, useModelInfo, usePrintProfiles } from "../../lib/catalog.ts";
 import { dateInputToIso, isoToDateInput } from "../../lib/format.ts";
 import { usePreferences } from "../../lib/preferences.ts";
 import { useCreatePrinter, usePatchPrinter, usePrinter } from "../../lib/printers.ts";
@@ -34,6 +34,9 @@ function PrinterForm({ printer }: { printer?: Printer }) {
   const states = prefs?.printerStates ?? [];
   const models = useModelInfo();
   const power = useRef<HTMLInputElement>(null);
+  const [modelId, setModelId] = useState(printer?.modelId);
+  const printProfiles = usePrintProfiles().data ?? [];
+  const forModel = (p: PrintProfile) => !!modelId && p.printerModelId === modelId;
 
   const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -49,6 +52,7 @@ function PrinterForm({ printer }: { printer?: Printer }) {
       purchasePrice: int(text(f, "purchasePrice"), 100),
       warrantyEndsAt: date(text(f, "warrantyEndsAt")),
       warrantyNotes: orNull(text(f, "warrantyNotes")),
+      printProfileId: orNull(text(f, "printProfileId")),
       ...readCostFields(f),
     };
     save.mutate(body, {
@@ -92,6 +96,7 @@ function PrinterForm({ printer }: { printer?: Printer }) {
               required
               defaultValue={printer?.modelId}
               onChange={(v) => {
+                setModelId(v);
                 // A new model's typical power fills Power, unless the user typed one.
                 const watts = models.get(v)?.model.powerW;
                 if (power.current && !power.current.value && watts != null)
@@ -105,6 +110,30 @@ function PrinterForm({ printer }: { printer?: Printer }) {
               {t("printers:catalog.models.add")}
             </Link>
           </div>
+        )}
+      </FormField>
+      <FormField label={t("printers:form.printProfile")} hint={t("printers:form.printProfileHint")}>
+        {(p) => (
+          <Combobox
+            // Remount once the options arrive: an uncontrolled picker only applies defaultValue on mount.
+            key={printProfiles.length}
+            {...p}
+            name="printProfileId"
+            defaultValue={printer?.printProfileId ?? ""}
+            options={[
+              { value: "", label: t("printers:form.printProfileNone") },
+              ...[
+                ...printProfiles.filter(forModel),
+                ...printProfiles.filter((x) => !forModel(x)),
+              ].map((x) => ({
+                value: x.id,
+                label: x.name,
+                group: forModel(x)
+                  ? t("printers:form.printProfileForModel")
+                  : t("printers:form.printProfileOther"),
+              })),
+            ]}
+          />
         )}
       </FormField>
       <FormField label={t("printers:form.serial")}>

@@ -315,3 +315,79 @@ export function MachineProfileFormPage() {
     </CatalogForm>
   );
 }
+
+const optNumber = (v: string) => (v ? Number(v) : null);
+
+export function PrintProfileFormPage() {
+  const { t } = useTranslation();
+  return (
+    <CatalogForm
+      kind="print-profiles"
+      titles={[
+        "printers:catalog.printProfiles.addTitle",
+        "printers:catalog.printProfiles.editTitle",
+      ]}
+      toBody={(f) => ({
+        name: text(f, "name"),
+        printerModelId: orNull(text(f, "printerModelId")),
+        nozzleDiameterMm: optNumber(text(f, "nozzle")),
+        layerHeightMm: optNumber(text(f, "layer")),
+        sourcePreset: orNull(text(f, "sourcePreset")),
+      })}
+    >
+      {(pp) => (
+        <>
+          <FormField label={t("printers:catalog.printProfiles.name")}>
+            {(p) => (
+              <input {...p} name="name" required className={inputClass} defaultValue={pp?.name} />
+            )}
+          </FormField>
+          <FormField label={t("printers:catalog.printProfiles.model")}>
+            {(p) => (
+              <ModelSelect {...p} name="printerModelId" defaultValue={pp?.printerModelId ?? ""} />
+            )}
+          </FormField>
+          <FormField label={t("printers:catalog.printProfiles.nozzle")}>
+            {(p) => (
+              <input
+                {...p}
+                name="nozzle"
+                type="number"
+                min={0.1}
+                step={0.05}
+                className={inputClass}
+                defaultValue={pp?.nozzleDiameterMm ?? ""}
+              />
+            )}
+          </FormField>
+          <FormField label={t("printers:catalog.printProfiles.layer")}>
+            {(p) => (
+              <input
+                {...p}
+                name="layer"
+                type="number"
+                min={0.01}
+                step={0.01}
+                className={inputClass}
+                defaultValue={pp?.layerHeightMm ?? ""}
+              />
+            )}
+          </FormField>
+          <FormField
+            label={t("printers:catalog.profiles.source")}
+            hint={t("printers:catalog.profiles.sourceHint")}
+          >
+            {(p) => (
+              <input
+                {...p}
+                name="sourcePreset"
+                className={inputClass}
+                defaultValue={pp?.sourcePreset ?? ""}
+              />
+            )}
+          </FormField>
+        </>
+      )}
+    </CatalogForm>
+  );
+}

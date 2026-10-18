@@ -398,6 +398,53 @@ describe("migration 0025", () => {
   });
 });
 
+describe("migration 0046", () => {
+  it("adds print profiles; deleting one unsets printers and plates; a project takes its plates", () => {
+    const at = "2026-01-01T00:00:00.000Z";
+    const now = migrateAcross(45, (sqlite) => {
+      sqlite
+        .prepare("INSERT INTO brands (id, name, created_at, updated_at) VALUES ('b', 'B', ?, ?)")
+        .run(at, at);
+      sqlite
+        .prepare(
+          "INSERT INTO printer_models (id, brand_id, model, created_at, updated_at) VALUES ('m', 'b', 'M', ?, ?)",
+        )
+        .run(at, at);
+      sqlite
+        .prepare(
+          "INSERT INTO printers (id, name, model_id, created_at, updated_at) VALUES ('p', 'P', 'm', ?, ?)",
+        )
+        .run(at, at);
+    });
+    expect(now.select().from(s.printers).get()?.printProfileId).toBeNull();
+
+    const profile = now
+      .insert(s.printProfiles)
+      .values({ name: "0.20mm Standard" })
+      .returning()
+      .get();
+    now.update(s.printers).set({ printProfileId: profile.id }).run();
+    const project = now.insert(s.projects).values({ name: "X" }).returning().get();
+    const plate = { file: "a.3mf", fileSize: 1, fileMtimeMs: 1, fileSha256: "h" };
+    now
+      .insert(s.projectSlicePlates)
+      .values({ ...plate, projectId: project.id, plate: 1, printProfileId: profile.id })
+      .run();
+    expect(() =>
+      now
+        .insert(s.projectSlicePlates)
+        .values({ ...plate, projectId: project.id, plate: 1 })
+        .run(),
+    ).toThrow(/UNIQUE/);
+
+    now.delete(s.printProfiles).run();
+    expect(now.select().from(s.printers).get()?.printProfileId).toBeNull();
+    expect(now.select().from(s.projectSlicePlates).get()?.printProfileId).toBeNull();
+    now.delete(s.projects).run();
+    expect(now.select().from(s.projectSlicePlates).all()).toEqual([]);
+  });
+});
+
 describe("seed", () => {
   it("fills an empty DB once", () => {
     const empty = openDb(":memory:");

@@ -159,7 +159,7 @@ Do Step 12 of PLAN.md. Use Context7 / the slicers' docs and try the CLI on this 
 No app code yet: only the ADR and a proof script.
 ```
 
-### [ ] Step 13 - Project slicing setup  **[plan mode]**
+### [x] Step 13 - Project slicing setup  **[plan mode]**
 **Model:** Opus · **Effort:** Medium
 **Scope:** On the project page the user picks the printable 3MF files, then per file the plates to count, and per plate the filament(s) (filament profiles) and the print profile. The print profile defaults to the default printer's (`defaultPrinterId`) and can be changed per plate. Saved per project. One shared component, reused by the quote calculator in Step 18.
 **Done when:** the setup saves and reloads; defaults come from the default printer; a file changed on disk marks its plates as outdated; e2e; tests pass.

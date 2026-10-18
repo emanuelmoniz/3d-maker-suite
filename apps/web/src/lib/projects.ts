@@ -6,6 +6,8 @@ import type {
   ProjectPaint,
   ProjectPatch,
   ProjectScanStatus,
+  ProjectSlicing,
+  ProjectSlicingInput,
 } from "@3d-maker-suite/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { TFunction } from "i18next";
@@ -74,6 +76,23 @@ export const usePatchProject = (id: string) => {
   return useMutation({
     mutationFn: (v: ProjectPatch) => api<Project>("PATCH", `/api/projects/${id}`, v),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["projects"] }),
+  });
+};
+
+/** The plates a project prints, with each plate's state (`outdated` when the file changed). */
+export const useProjectSlicing = (id: string) =>
+  useQuery({
+    queryKey: ["projects", id, "slicing"],
+    queryFn: () => api<ProjectSlicing>("GET", `/api/projects/${id}/slicing`),
+    enabled: !!id,
+  });
+
+export const useSaveProjectSlicing = (id: string) => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: ProjectSlicingInput) =>
+      api<ProjectSlicing>("PUT", `/api/projects/${id}/slicing`, v),
+    onSuccess: (data) => qc.setQueryData(["projects", id, "slicing"], data),
   });
 };
 

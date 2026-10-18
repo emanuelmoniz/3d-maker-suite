@@ -31,6 +31,7 @@ import {
   filamentMaterialsRoutes,
   machineProfilesRoutes,
   printerModelsRoutes,
+  printProfilesRoutes,
 } from "./routes/catalog.ts";
 import { costsRoutes } from "./routes/costs.ts";
 import { exportRoutes } from "./routes/export.ts";
@@ -43,6 +44,7 @@ import { maintenanceRoutes } from "./routes/maintenance.ts";
 import { preferencesRoutes } from "./routes/preferences.ts";
 import { printersRoutes } from "./routes/printers.ts";
 import { printsRoutes } from "./routes/prints.ts";
+import { projectSlicingRoutes } from "./routes/projectSlicing.ts";
 import { projectsRoutes } from "./routes/projects.ts";
 import { serverConfigRoutes } from "./routes/serverConfig.ts";
 import { slicerZipRoutes } from "./routes/slicerZip.ts";
@@ -122,6 +124,7 @@ export async function buildApp(
   await app.register(filamentMaterialsRoutes(db, dataDir), { prefix: "/api/filament-materials" });
   await app.register(printerModelsRoutes(db, dataDir), { prefix: "/api/printer-models" });
   await app.register(machineProfilesRoutes(db, dataDir), { prefix: "/api/machine-profiles" });
+  await app.register(printProfilesRoutes(db, dataDir), { prefix: "/api/print-profiles" });
   await app.register(maintenanceRoutes(db), { prefix: "/api/maintenance" });
   // Without a data dir (tests) secrets use a throwaway in-memory key.
   const key = dataDir ? loadKey(dataDir) : randomBytes(32);
@@ -135,6 +138,7 @@ export async function buildApp(
   await app.register(projectsRoutes(db, dataDir, scanner, syncer.adapters), {
     prefix: "/api/projects",
   });
+  await app.register(projectSlicingRoutes(db), { prefix: "/api/projects" });
   app.addHook("onClose", () => scanner.close());
   if (opts.watchProjects) app.addHook("onReady", async () => scanner.boot());
   await app.register(tagsRoutes(db), { prefix: "/api/tags" });

@@ -86,6 +86,7 @@ it("splits cloud and local, each declaring only what it provides", () => {
       "brands",
       "printerModels",
       "machineProfiles",
+      "printProfiles",
       "filamentBrands",
       "filamentProfiles",
       "openInSlicer",

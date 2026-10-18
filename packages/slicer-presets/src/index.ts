@@ -3,6 +3,7 @@ import { join, parse } from "node:path";
 import type {
   CatalogMachine,
   CatalogModel,
+  CatalogProcess,
   FilamentLibrary,
   LibraryPreset,
 } from "@3d-maker-suite/core";
@@ -13,6 +14,7 @@ import type {
 //   system/<vendor>/filament/**/<name>.json             shipped ones (BBL, ...); Orca nests them by brand
 //   user/<account | default>/machine/**/<name>.json      your machine presets
 //   system/<vendor>/machine/<name>.json                  shipped ones; `type: machine_model` files are models
+//   user/<account | default>/process/**/<name>.json      your process (print) presets; system/<vendor>/process too
 //   system/<vendor>.json                                 vendor index: name, machine_model_list
 //   system/<vendor>/<model name>_cover.png               a model's thumbnail
 // Every value is a one-element array of strings. A preset only holds what differs from its
@@ -93,7 +95,7 @@ export function toProfile(
 }
 
 /** System presets of one kind in a Studio folder, loaded lazily, and setting lookup through `inherits`. */
-async function systemPresets(dir: string, kind: "filament" | "machine") {
+async function systemPresets(dir: string, kind: "filament" | "machine" | "process") {
   // name -> file for every system preset, for `inherits` lookups.
   const systemFiles = new Map<string, string>();
   for (const vendor of await dirs(join(dir, "system")))
@@ -115,7 +117,11 @@ async function systemPresets(dir: string, kind: "filament" | "machine") {
       if (!next || chain.includes(next)) break;
       chain.push(next);
     }
-    return (key: string) => chain.map((c) => first(c[key])).find((v) => v !== undefined);
+    const get = (key: string) => chain.map((c) => first(c[key])).find((v) => v !== undefined);
+    /** The nearest non-empty list setting (`compatible_printers`). */
+    const list = (key: string): string[] =>
+      (chain.map((c) => c[key]).find((v) => Array.isArray(v) && v.length) as string[]) ?? [];
+    return Object.assign(get, { list });
   };
   return { systemFiles, load, resolver };
 }
@@ -207,7 +213,51 @@ export function slicerPresetLibrary(id: string, defaultDirs: () => string[]): Fi
         if (p?.instantiation !== "true" || p.type !== "machine") continue;
         add(`system/${name}`, "system", name, vendorOf.get(f) ?? "", await resolver(p));
       }
-      return { models: [...models.values()], machines: [...machines.values()] };
+
+      // Process presets. Model and nozzle come from the first compatible machine we read.
+      // ponytail: first machine only; a process for several models lands on the first one's.
+      const machineByName = new Map([...machines.values()].map((m) => [m.name, m]));
+      const proc = await systemPresets(dir, "process");
+      const processes = new Map<string, CatalogProcess>();
+      const addProcess = (
+        presetId: string,
+        scope: CatalogProcess["scope"],
+        name: string,
+        get: Awaited<ReturnType<typeof proc.resolver>>,
+      ) => {
+        if (processes.has(presetId)) return;
+        const m = get
+          .list("compatible_printers")
+          .map((n) => machineByName.get(n))
+          .find(Boolean);
+        const layer = num(get("layer_height"));
+        processes.set(presetId, {
+          presetId,
+          scope,
+          name,
+          brand: m?.brand ?? null,
+          model: m?.model ?? null,
+          nozzleDiameterMm: m?.nozzleDiameterMm ?? null,
+          layerHeightMm: layer && layer > 0 ? layer : null,
+        });
+      };
+      for (const account of await dirs(join(dir, "user")))
+        for (const f of await jsonFiles(join(dir, "user", account, "process"), true)) {
+          const p = await readJson(f);
+          if (!p) continue;
+          const name = typeof p.name === "string" ? p.name : parse(f).name;
+          addProcess(`user/${name}`, "user", name, await proc.resolver(p));
+        }
+      for (const [name, f] of [...proc.systemFiles].sort(([a], [b]) => a.localeCompare(b))) {
+        const p = await proc.load(f);
+        if (p?.instantiation !== "true") continue;
+        addProcess(`system/${name}`, "system", name, await proc.resolver(p));
+      }
+      return {
+        models: [...models.values()],
+        machines: [...machines.values()],
+        processes: [...processes.values()],
+      };
     },
   };
 }

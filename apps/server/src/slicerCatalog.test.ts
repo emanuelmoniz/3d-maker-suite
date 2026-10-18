@@ -53,6 +53,26 @@ beforeEach(async () => {
   state.catalog = {
     models: [{ brand: "Acme", model: "Acme X", image: cover }],
     machines: [machine()],
+    processes: [
+      {
+        presetId: "system/0.20mm Standard @Acme X",
+        scope: "system",
+        name: "0.20mm Standard @Acme X",
+        brand: "Acme",
+        model: "Acme X",
+        nozzleDiameterMm: 0.4,
+        layerHeightMm: 0.2,
+      },
+      {
+        presetId: "user/Loose",
+        scope: "user",
+        name: "Loose",
+        brand: null,
+        model: null,
+        nozzleDiameterMm: null,
+        layerHeightMm: 0.28,
+      },
+    ],
   };
   state.presets = [preset()];
   const library: FilamentLibrary = {
@@ -69,6 +89,7 @@ beforeEach(async () => {
       "brands",
       "printerModels",
       "machineProfiles",
+      "printProfiles",
       "filamentBrands",
       "filamentProfiles",
     ],
@@ -163,6 +184,29 @@ describe("slicer catalog import", () => {
     const list = (await app.inject("/api/machine-profiles")).json();
     expect(list.items.map((m: { name: string }) => m.name)).toEqual(["Acme X 0.8"]);
     expect((await app.inject(`/api/machine-profiles/${first?.id}`)).json().archivedAt).toBeTruthy();
+  });
+
+  it("imports print profiles, with or without a known printer, and updates them in place", async () => {
+    const preview = await open("printProfiles");
+    expect(preview.rows.map((r) => [r.values.name, r.status])).toEqual([
+      ["0.20mm Standard @Acme X", "new"],
+      ["Loose", "new"],
+    ]);
+    expect((await review.confirm(preview)).json()).toMatchObject({ created: 2 });
+    const rows = db.select().from(schema.printProfiles).all();
+    const model = db.select().from(schema.printerModels).get();
+    expect(rows).toMatchObject([
+      { name: "0.20mm Standard @Acme X", printerModelId: model?.id, layerHeightMm: 0.2 },
+      { name: "Loose", printerModelId: null, sourcePreset: "fake:user/Loose" },
+    ]);
+
+    state.catalog.processes = state.catalog.processes
+      .filter((p) => p.name === "Loose")
+      .map((p) => ({ ...p, layerHeightMm: 0.32 }));
+    await run("printProfiles");
+    expect(db.select().from(schema.printProfiles).all()).toHaveLength(2);
+    const loose = (await app.inject("/api/print-profiles?name=Loose")).json();
+    expect(loose.items).toMatchObject([{ id: rows[1]?.id, layerHeightMm: 0.32 }]);
   });
 
   it("a changed filament preset follows the same rule, keeping a price the preset doesn't give", async () => {

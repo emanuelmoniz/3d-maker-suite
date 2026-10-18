@@ -131,6 +131,7 @@
       "brands": "Brands",
       "printerModels": "Printer models",
       "machineProfiles": "Machine profiles",
+      "printProfiles": "Print profiles",
       "filamentBrands": "Filament brands",
       "filamentMaterials": "Filament materials"
     }

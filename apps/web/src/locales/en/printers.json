@@ -23,6 +23,11 @@
     "editTitle": "Edit printer",
     "name": "Name",
     "model": "Model",
+    "printProfile": "Default print profile",
+    "printProfileHint": "Used for project plates that don't pick their own, when this is the default printer.",
+    "printProfileNone": "None (as saved in the file)",
+    "printProfileForModel": "For this model",
+    "printProfileOther": "Other print profiles",
     "serial": "Serial number",
     "state": "State",
     "power": "Typical power (W)",
@@ -206,6 +211,16 @@
       "nozzle": "Nozzle diameter (mm)",
       "source": "Slicer preset",
       "sourceHint": "Optional. Filled in when imported from a slicer."
+    },
+    "printProfiles": {
+      "title": "Print profiles",
+      "add": "Add print profile",
+      "addTitle": "Add print profile",
+      "editTitle": "Edit print profile",
+      "name": "Name",
+      "model": "Printer model",
+      "nozzle": "Nozzle diameter (mm)",
+      "layer": "Layer height (mm)"
     }
   }
 }

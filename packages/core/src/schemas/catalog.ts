@@ -1,5 +1,10 @@
 import type { z } from "zod";
-import { brandSchema, machineProfileSchema, printerModelSchema } from "./entities.ts";
+import {
+  brandSchema,
+  machineProfileSchema,
+  printerModelSchema,
+  printProfileSchema,
+} from "./entities.ts";
 import type { ColumnFilter } from "./list.ts";
 
 // Brand -> printer model -> machine profile. Fields the user edits; `PATCH` takes any subset.
@@ -15,6 +20,22 @@ export const machineProfileInputSchema = machineProfileSchema
   .pick({ name: true, printerModelId: true, nozzleDiameterMm: true, sourcePreset: true })
   .partial({ nozzleDiameterMm: true, sourcePreset: true });
 export const machineProfilePatchSchema = machineProfileInputSchema.partial().strict();
+
+export const printProfileInputSchema = printProfileSchema
+  .pick({
+    name: true,
+    printerModelId: true,
+    nozzleDiameterMm: true,
+    layerHeightMm: true,
+    sourcePreset: true,
+  })
+  .partial({
+    printerModelId: true,
+    nozzleDiameterMm: true,
+    layerHeightMm: true,
+    sourcePreset: true,
+  });
+export const printProfilePatchSchema = printProfileInputSchema.partial().strict();
 
 export const brandSortFields = ["name", "createdAt"] as const;
 export const brandFilters = { name: { kind: "text" } } as const satisfies Record<
@@ -34,6 +55,18 @@ export const machineProfileFilters = {
   printerModelId: { kind: "select" },
   nozzleDiameterMm: { kind: "number" },
 } as const satisfies Record<string, ColumnFilter>;
+export const printProfileSortFields = [
+  "name",
+  "createdAt",
+  "nozzleDiameterMm",
+  "layerHeightMm",
+] as const;
+export const printProfileFilters = {
+  name: { kind: "text" },
+  printerModelId: { kind: "select" },
+  nozzleDiameterMm: { kind: "number" },
+  layerHeightMm: { kind: "number" },
+} as const satisfies Record<string, ColumnFilter>;
 
 export type BrandInput = z.infer<typeof brandInputSchema>;
 export type BrandPatch = z.infer<typeof brandPatchSchema>;
@@ -41,3 +74,5 @@ export type PrinterModelInput = z.infer<typeof printerModelInputSchema>;
 export type PrinterModelPatch = z.infer<typeof printerModelPatchSchema>;
 export type MachineProfileInput = z.infer<typeof machineProfileInputSchema>;
 export type MachineProfilePatch = z.infer<typeof machineProfilePatchSchema>;
+export type PrintProfileInput = z.infer<typeof printProfileInputSchema>;
+export type PrintProfilePatch = z.infer<typeof printProfilePatchSchema>;

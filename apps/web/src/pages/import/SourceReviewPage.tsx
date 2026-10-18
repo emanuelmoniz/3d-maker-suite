@@ -15,6 +15,7 @@ export const TITLE: Record<ReviewedType, string> = {
   brands: "integrations:capabilities.brands",
   printerModels: "integrations:capabilities.printerModels",
   machineProfiles: "integrations:capabilities.machineProfiles",
+  printProfiles: "integrations:capabilities.printProfiles",
   filamentBrands: "integrations:capabilities.filamentBrands",
   filamentProfiles: "integrations:capabilities.filamentProfiles",
 };

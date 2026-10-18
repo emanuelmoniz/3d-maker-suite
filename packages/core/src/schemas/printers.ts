@@ -23,8 +23,10 @@ export const printerInputSchema = printerSchema
     lifetimeHours: true,
     includeMaintenanceCost: true,
     countInCosts: true,
+    printProfileId: true,
   })
   .partial({
+    printProfileId: true,
     number: true,
     serial: true,
     nozzleDiameterMm: true,

@@ -192,6 +192,26 @@ export const machineProfiles = sqliteTable(
   ],
 );
 
+// A slicer process preset. Model and nozzle are null when the preset names no printer we know.
+export const printProfiles = sqliteTable(
+  "print_profiles",
+  {
+    id: id(),
+    name: text().notNull(),
+    printerModelId: text().references(() => printerModels.id, { onDelete: "restrict" }),
+    nozzleDiameterMm: real(),
+    layerHeightMm: real(),
+    /** Preset this profile was imported from, `<library>:<preset id>`; null for hand-made ones. */
+    sourcePreset: text(),
+    archivedAt: text(),
+    ...timestamps,
+  },
+  (t) => [
+    index("print_profiles_model_idx").on(t.printerModelId),
+    uniqueIndex("print_profiles_source_uq").on(t.sourcePreset).where(sql`${t.archivedAt} IS NULL`),
+  ],
+);
+
 export const printers = sqliteTable(
   "printers",
   {
@@ -219,6 +239,10 @@ export const printers = sqliteTable(
     lifetimeHours: integer(),
     includeMaintenanceCost: integer({ mode: "boolean" }),
     countInCosts: integer({ mode: "boolean" }),
+    // Default print profile for slicing on this printer.
+    printProfileId: text().references((): AnySQLiteColumn => printProfiles.id, {
+      onDelete: "set null",
+    }),
     photoPath: text(),
     archivedAt: text(),
     ...imported(),
@@ -516,6 +540,30 @@ export const projects = sqliteTable(
     uniqueIndex("projects_number_uq").on(t.number),
     check("projects_origin_ck", oneOf(t.origin, ORIGINS)),
   ],
+);
+
+// The plates a project prints, one row each; a 3MF is picked when it has a row. The file's
+// size/mtime/sha256 at save time tell a later read whether it changed on disk.
+export const projectSlicePlates = sqliteTable(
+  "project_slice_plates",
+  {
+    id: id(),
+    projectId: text()
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    /** Relative to the project folder, `/` separators. */
+    file: text().notNull(),
+    plate: integer().notNull(),
+    // Null = the default printer's profile, else the 3MF's own.
+    printProfileId: text().references(() => printProfiles.id, { onDelete: "set null" }),
+    // Filament profile id per slot; null = the 3MF's own. Not FKs: a deleted profile reads as null.
+    filaments: text({ mode: "json" }).$type<(string | null)[]>().notNull().default([]),
+    fileSize: integer().notNull(),
+    fileMtimeMs: real().notNull(),
+    fileSha256: text().notNull(),
+    ...timestamps,
+  },
+  (t) => [uniqueIndex("project_slice_plates_uq").on(t.projectId, t.file, t.plate)],
 );
 
 export const prints = sqliteTable(
