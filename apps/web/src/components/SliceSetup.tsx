@@ -5,7 +5,7 @@ import type {
   PrintProfile,
   ProjectModel,
 } from "@3d-maker-suite/core";
-import { useId } from "react";
+import { type ReactNode, useId } from "react";
 import { useTranslation } from "react-i18next";
 import { useModelInfo, usePrintProfiles } from "../lib/catalog.ts";
 import { useProfiles } from "../lib/filament.ts";
@@ -33,6 +33,8 @@ export type SliceSetupProps = {
   /** What a plate without its own print profile uses ("Default (…)"). */
   defaultPrintProfile: Pick<PrintProfile, "id" | "name"> | null;
   disabled?: boolean;
+  /** Extra line under a picked plate's name (e.g. its slice result), by `plateKey`. */
+  plateInfo?: (key: string) => ReactNode;
 };
 
 export const plateKey = (p: { file: string; plate: number }) => `${p.file}#${p.plate}`;
@@ -66,6 +68,7 @@ export function SliceSetup({
   states = {},
   defaultPrintProfile,
   disabled,
+  plateInfo,
 }: SliceSetupProps) {
   const { t } = useTranslation();
   const uid = useId();
@@ -193,6 +196,7 @@ export function SliceSetup({
                                 : t("projects:slicing.state.missing")}
                             </span>
                           )}
+                          {setup && plateInfo?.(key)}
                         </span>
                       </label>
                       {setup && (

@@ -31,6 +31,7 @@ export const INTEGRATION_ERROR_CODES = [
   "code_invalid", // wrong or expired verification code
   "blocked", // anti-bot protection (e.g. a Cloudflare challenge) rejected the request
   "api_changed", // the vendor's response no longer matches what the adapter expects
+  "slice_failed", // the slicer refused or crashed; its own text is the detail
   "unknown",
 ] as const;
 // What an interactive sign-in asks for after the password.
@@ -66,10 +67,15 @@ export const SYNC_FREQUENCIES = ["15m", "1h", "1d", "1w", "1M"] as const;
  */
 export const INTEGRATION_KINDS = ["cloud", "local"] as const;
 /**
- * What an integration can do: the data types it provides, plus the `openInSlicer` action. The
- * adapter declares only what it really has, the user sets each one's sync policy (or `off`).
+ * What an integration can do: the data types it provides, plus the `openInSlicer` and `slice`
+ * actions. The adapter declares only what it really has, the user sets each one's sync policy
+ * (or `off`).
  */
-export const CAPABILITIES = [...SYNC_TYPES, "openInSlicer"] as const;
+export const CAPABILITIES = [...SYNC_TYPES, "openInSlicer", "slice"] as const;
+/** Actions are only on (`manual`) or `off`, and need the slicer program. */
+export const ACTIONS = ["openInSlicer", "slice"] as const;
+export const isAction = (c: string): c is (typeof ACTIONS)[number] =>
+  (ACTIONS as readonly string[]).includes(c);
 
 export type Origin = (typeof ORIGINS)[number];
 export type PrintOutcome = (typeof PRINT_OUTCOMES)[number];

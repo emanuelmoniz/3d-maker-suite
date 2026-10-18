@@ -90,6 +90,7 @@ it("splits cloud and local, each declaring only what it provides", () => {
       "filamentBrands",
       "filamentProfiles",
       "openInSlicer",
+      "slice",
     ],
     undefined,
     "bambu-studio",

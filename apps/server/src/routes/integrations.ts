@@ -7,6 +7,7 @@ import {
   integrationInputSchema,
   integrationPatchSchema,
   integrationSchema,
+  isAction,
   type LoginInput,
   type LoginResult,
   listQuery,
@@ -144,10 +145,7 @@ export const integrationsRoutes =
         const { config, secrets, slicerConfigDir, slicerPath, policies, ...fields } = req.body;
         const adapter = config || secrets || policies ? adapterOf(cur.adapterId) : undefined;
         for (const p of policies ?? [])
-          if (
-            !adapter?.capabilities.includes(p.type) ||
-            (p.type === "openInSlicer" && p.mode === "auto")
-          )
+          if (!adapter?.capabilities.includes(p.type) || (isAction(p.type) && p.mode === "auto"))
             throw new HttpError(400, "invalid_policy", `No such policy for "${p.type}"`);
         db.transaction(() => {
           for (const { type, ...set } of policies ?? [])

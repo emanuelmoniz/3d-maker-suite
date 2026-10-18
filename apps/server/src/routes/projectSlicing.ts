@@ -1,11 +1,9 @@
-import { createHash } from "node:crypto";
-import { createReadStream } from "node:fs";
-import { stat } from "node:fs/promises";
 import { join } from "node:path";
-import { pipeline } from "node:stream/promises";
+import type { IntegrationAdapter } from "@3d-maker-suite/core";
 import {
   apiErrorSchema,
   type PlateState,
+  type ProjectSlicing,
   projectMetaSchema,
   projectSlicingInputSchema,
   projectSlicingSchema,
@@ -15,37 +13,33 @@ import { eq, inArray } from "drizzle-orm";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
+import { type Fingerprint, fingerprint, stateOf } from "../projects/fingerprint.ts";
+import {
+  effectivePrintProfile,
+  type SliceQueue,
+  sliceIntegration,
+} from "../projects/sliceQueue.ts";
 
 const { filamentProfiles, printProfiles, projectSlicePlates, projects } = schema;
 const params = z.object({ id: z.uuid() });
+type Row = typeof projectSlicePlates.$inferSelect;
 
-type Fingerprint = { fileSize: number; fileMtimeMs: number; fileSha256: string };
+/** The result columns a saved-again plate keeps when its file and profiles didn't change. */
+const resultOf = (r: Row) => ({
+  fileSize: r.fileSize,
+  fileMtimeMs: r.fileMtimeMs,
+  fileSha256: r.fileSha256,
+  slicedAt: r.slicedAt,
+  slicedPrintProfileId: r.slicedPrintProfileId,
+  printTimeSeconds: r.printTimeSeconds,
+  weightGrams: r.weightGrams,
+  slicedFilaments: r.slicedFilaments,
+  sliceError: r.sliceError,
+});
 
-/** Size, mtime and sha256 of a file; null when it can't be read. */
-async function fingerprint(abs: string): Promise<Fingerprint | null> {
-  try {
-    const s = await stat(abs);
-    const hash = createHash("sha256");
-    await pipeline(createReadStream(abs), hash);
-    return { fileSize: s.size, fileMtimeMs: s.mtimeMs, fileSha256: hash.digest("hex") };
-  } catch {
-    return null;
-  }
-}
-
-/** Unchanged when size and mtime match; else only when the bytes still hash the same. */
-async function stateOf(abs: string, saved: Fingerprint): Promise<PlateState> {
-  const s = await stat(abs).catch(() => null);
-  if (!s) return "missing";
-  if (s.size === saved.fileSize && s.mtimeMs === saved.fileMtimeMs) return "ok";
-  // ponytail: re-hashes on every read once the mtime moved; store the new mtime if that gets slow.
-  const now = await fingerprint(abs);
-  return !now ? "missing" : now.fileSha256 === saved.fileSha256 ? "ok" : "outdated";
-}
-
-/** GET / PUT the plates a project prints (see `projectSlicingSchema`). */
+/** GET / PUT the plates a project prints (see `projectSlicingSchema`), and slice them. */
 export const projectSlicingRoutes =
-  (db: Db): FastifyPluginAsyncZod =>
+  (db: Db, adapters: IntegrationAdapter[], queue: SliceQueue): FastifyPluginAsyncZod =>
   async (app) => {
     const project = (id: string) => {
       const row = db.select().from(projects).where(eq(projects.id, id)).get();
@@ -53,42 +47,66 @@ export const projectSlicingRoutes =
       return { folderPath: row.folderPath, meta: projectMetaSchema.parse(row.meta) };
     };
 
+    async function read(id: string): Promise<ProjectSlicing> {
+      const { folderPath, meta } = project(id);
+      const rows = db
+        .select()
+        .from(projectSlicePlates)
+        .where(eq(projectSlicePlates.projectId, id))
+        .orderBy(projectSlicePlates.file, projectSlicePlates.plate)
+        .all();
+      const effective = effectivePrintProfile(db);
+      // Taken with the rows, before any await: a job that ends meanwhile has already written them.
+      const jobs = rows.map((r) => queue.state({ projectId: id, file: r.file, plate: r.plate }));
+      // One stat (and at most one hash) per file, however many plates it has.
+      const states = new Map<string, Promise<PlateState>>();
+      const fileState = (r: Row) => {
+        if (!folderPath || !meta.models.some((m) => m.file === r.file))
+          return Promise.resolve<PlateState>("missing");
+        if (!states.has(r.file)) states.set(r.file, stateOf(join(folderPath, r.file), r));
+        return states.get(r.file) as Promise<PlateState>;
+      };
+      return {
+        canSlice: !!sliceIntegration(db, adapters),
+        plates: await Promise.all(
+          rows.map(async (r, i) => {
+            const inFile = meta.models
+              .find((m) => m.file === r.file)
+              ?.plates.some((p) => p.index === r.plate);
+            const state = inFile ? await fileState(r) : ("missing" as const);
+            const result =
+              r.slicedAt && r.printTimeSeconds != null && r.weightGrams != null
+                ? {
+                    printTimeSeconds: r.printTimeSeconds,
+                    weightGrams: r.weightGrams,
+                    filaments: r.slicedFilaments ?? [],
+                    slicedAt: r.slicedAt,
+                  }
+                : null;
+            return {
+              file: r.file,
+              plate: r.plate,
+              printProfileId: r.printProfileId,
+              filaments: r.filaments,
+              state,
+              result,
+              error: r.sliceError,
+              needsSlicing:
+                state !== "missing" &&
+                (!result ||
+                  state === "outdated" ||
+                  r.slicedPrintProfileId !== effective(r.printProfileId)),
+              job: jobs[i] ?? null,
+            };
+          }),
+        ),
+      };
+    }
+
     app.get(
       "/:id/slicing",
       { schema: { params, response: { 200: projectSlicingSchema, 404: apiErrorSchema } } },
-      async (req) => {
-        const { folderPath, meta } = project(req.params.id);
-        const rows = db
-          .select()
-          .from(projectSlicePlates)
-          .where(eq(projectSlicePlates.projectId, req.params.id))
-          .orderBy(projectSlicePlates.file, projectSlicePlates.plate)
-          .all();
-        // One stat (and at most one hash) per file, however many plates it has.
-        const states = new Map<string, Promise<PlateState>>();
-        const fileState = (r: (typeof rows)[number]) => {
-          if (!folderPath || !meta.models.some((m) => m.file === r.file))
-            return Promise.resolve<PlateState>("missing");
-          if (!states.has(r.file)) states.set(r.file, stateOf(join(folderPath, r.file), r));
-          return states.get(r.file) as Promise<PlateState>;
-        };
-        return {
-          plates: await Promise.all(
-            rows.map(async (r) => {
-              const inFile = meta.models
-                .find((m) => m.file === r.file)
-                ?.plates.some((p) => p.index === r.plate);
-              return {
-                file: r.file,
-                plate: r.plate,
-                printProfileId: r.printProfileId,
-                filaments: r.filaments,
-                state: inFile ? await fileState(r) : ("missing" as const),
-              };
-            }),
-          ),
-        };
-      },
+      async (req) => read(req.params.id),
     );
 
     app.put(
@@ -132,21 +150,55 @@ export const projectSlicingRoutes =
           fingerprints.set(f, fp);
         }
         db.transaction((tx) => {
+          const old = tx
+            .select()
+            .from(projectSlicePlates)
+            .where(eq(projectSlicePlates.projectId, req.params.id))
+            .all();
           tx.delete(projectSlicePlates)
             .where(eq(projectSlicePlates.projectId, req.params.id))
             .run();
           if (plates.length)
             tx.insert(projectSlicePlates)
               .values(
-                plates.map((p) => ({
-                  ...p,
-                  ...(fingerprints.get(p.file) as Fingerprint),
-                  projectId: req.params.id,
-                })),
+                plates.map((p) => {
+                  const fp = fingerprints.get(p.file) as Fingerprint;
+                  // Same file bytes and profiles: the last slice still holds.
+                  const was = old.find(
+                    (o) =>
+                      o.file === p.file &&
+                      o.plate === p.plate &&
+                      o.fileSha256 === fp.fileSha256 &&
+                      o.printProfileId === p.printProfileId &&
+                      JSON.stringify(o.filaments) === JSON.stringify(p.filaments),
+                  );
+                  return { ...p, ...fp, ...(was && resultOf(was)), projectId: req.params.id };
+                }),
               )
               .run();
         });
-        return { plates: plates.map((p) => ({ ...p, state: "ok" as const })) };
+        return read(req.params.id);
+      },
+    );
+
+    // Queues every plate that needs it (never sliced, file or profiles changed) and returns at once.
+    app.post(
+      "/:id/slicing/run",
+      {
+        schema: {
+          params,
+          response: { 202: projectSlicingSchema, 404: apiErrorSchema, 409: apiErrorSchema },
+        },
+      },
+      async (req, reply) => {
+        const now = await read(req.params.id);
+        if (!now.canSlice) throw new HttpError(409, "no_slicer", "No slicer set up");
+        queue.add(
+          now.plates
+            .filter((p) => p.needsSlicing && !p.job)
+            .map((p) => ({ projectId: req.params.id, file: p.file, plate: p.plate })),
+        );
+        return reply.status(202).send(await read(req.params.id));
       },
     );
   };

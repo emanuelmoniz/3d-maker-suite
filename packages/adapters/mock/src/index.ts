@@ -5,6 +5,8 @@ import {
   IntegrationError,
   type IntegrationErrorCode,
   type LibrarySpool,
+  type SliceRequest,
+  type SliceResult,
 } from "@3d-maker-suite/core";
 import { z } from "zod";
 
@@ -17,7 +19,30 @@ export type MockState = {
   spools?: LibrarySpool[];
   /** Every call throws this code. */
   fail?: IntegrationErrorCode;
+  /** The fake slicer fails with this text. */
+  sliceError?: string;
+  /** Every slice request, for tests. */
+  sliced?: SliceRequest[];
 };
+
+/**
+ * The fake slicer's numbers: plate N takes N hours; each slot gets 10 g, +5 g with a filament
+ * preset picked, +50% with a process preset picked. Plain enough to assert on in tests.
+ */
+export function fakeSlice(req: SliceRequest): SliceResult {
+  const factor = req.process ? 1.5 : 1;
+  const slots = Math.max(1, req.filaments?.length ?? 0);
+  const filaments = Array.from({ length: slots }, (_, i) => ({
+    slot: i + 1,
+    grams: (req.filaments?.[i] ? 15 : 10) * factor,
+    material: "PLA",
+  }));
+  return {
+    printTimeSeconds: 3600 * req.plate * factor,
+    weightGrams: filaments.reduce((g, f) => g + f.grams, 0),
+    filaments,
+  };
+}
 
 export const PAGE_SIZE = 2;
 
@@ -50,8 +75,16 @@ export function mockAdapter(state: MockState = fixture()): IntegrationAdapter {
   return {
     id: "mock",
     kind: "cloud",
-    capabilities: ["printers", "prints", "spools"],
+    capabilities: ["printers", "prints", "spools", "slice"],
     configSchema: z.object({ label: z.string().optional() }),
+    // No real program runs; the integration still needs a `slicerPath` that exists (any file).
+    slicer: {
+      slice: async (_program, _configDir, req) => {
+        state.sliced = [...(state.sliced ?? []), req];
+        if (state.sliceError) throw new IntegrationError("slice_failed", state.sliceError);
+        return fakeSlice(req);
+      },
+    },
     secretsSchema: z.object({ token: z.string().min(1) }),
     create: ({ secrets }) => {
       const check = async () => {

@@ -169,7 +169,7 @@ Do Step 13 of PLAN.md. Show me the tables and the component API first. Back up t
 before editing schema.ts.
 ```
 
-### [ ] Step 14 - Slice, store results, project cost estimate
+### [x] Step 14 - Slice, store results, project cost estimate
 **Model:** Opus · **Effort:** Medium
 **Scope:**
 - "Slice" on the project runs the Step 12 capability for each selected plate: a background job with progress and errors per plate that never blocks the server. Time and grams per plate are stored with the setup.

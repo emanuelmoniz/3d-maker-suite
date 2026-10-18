@@ -27,6 +27,7 @@
     "code_invalid": "That code is wrong or has expired. Check it and try again.",
     "blocked": "The vendor's servers blocked the request. Wait a while and try again.",
     "api_changed": "The vendor changed its service and this version can't read it any more. Check for an update of 3D Maker Suite.",
+    "slice_failed": "The slicer couldn't slice the file.",
     "unknown": "Something went wrong. See the server log for details."
   },
   "card": {
@@ -125,7 +126,8 @@
     "printProfiles": "Print profiles",
     "filamentBrands": "Filament brands",
     "filamentProfiles": "Filament profiles",
-    "openInSlicer": "Open projects in the slicer"
+    "openInSlicer": "Open projects in the slicer",
+    "slice": "Slice projects (time and grams)"
   },
   "policies": {
     "title": "What to sync",

@@ -20,9 +20,11 @@ import type {
 // Every value is a one-element array of strings. A preset only holds what differs from its
 // `inherits` parent, so values are resolved up the chain; parents are found by name.
 
+export { cliSlicer } from "./slice.ts";
+
 type Preset = Record<string, unknown>;
 
-const jsonFiles = async (dir: string, deep: boolean): Promise<string[]> => {
+export const jsonFiles = async (dir: string, deep: boolean): Promise<string[]> => {
   const entries = await readdir(dir, { withFileTypes: true }).catch(() => []);
   const nested = await Promise.all(
     entries.map(async (e) =>
@@ -38,12 +40,12 @@ const jsonFiles = async (dir: string, deep: boolean): Promise<string[]> => {
   return nested.flat();
 };
 
-const dirs = async (dir: string) =>
+export const dirs = async (dir: string) =>
   (await readdir(dir, { withFileTypes: true }).catch(() => []))
     .filter((e) => e.isDirectory())
     .map((e) => e.name);
 
-const readJson = async (file: string): Promise<Preset | undefined> => {
+export const readJson = async (file: string): Promise<Preset | undefined> => {
   try {
     const j: unknown = JSON.parse(await readFile(file, "utf8"));
     return j && typeof j === "object" ? (j as Preset) : undefined;
@@ -62,7 +64,7 @@ const num = (v: string | undefined) =>
   v === undefined || Number.isNaN(Number(v)) ? undefined : Number(v);
 
 /** "Bambu PLA Basic @BBL X1C" and "... @BBL A1" are one filament for different printers. */
-const baseName = (n: string) => n.split(" @")[0]?.trim() || n;
+export const baseName = (n: string) => n.split(" @")[0]?.trim() || n;
 
 // The vendor index names it "Bambulab", which would be a second brand next to the "Bambu Lab" the
 // cloud adapter already creates. ponytail: one entry; add the others as they show up.
@@ -95,7 +97,7 @@ export function toProfile(
 }
 
 /** System presets of one kind in a Studio folder, loaded lazily, and setting lookup through `inherits`. */
-async function systemPresets(dir: string, kind: "filament" | "machine" | "process") {
+export async function systemPresets(dir: string, kind: "filament" | "machine" | "process") {
   // name -> file for every system preset, for `inherits` lookups.
   const systemFiles = new Map<string, string>();
   for (const vendor of await dirs(join(dir, "system")))

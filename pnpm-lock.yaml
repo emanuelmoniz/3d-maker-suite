@@ -398,6 +398,9 @@ importers:
 
   packages/slicer-presets:
     dependencies:
+      '@3d-maker-suite/3mf':
+        specifier: workspace:*
+        version: link:../3mf
       '@3d-maker-suite/core':
         specifier: workspace:*
         version: link:../core

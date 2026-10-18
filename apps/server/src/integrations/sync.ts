@@ -9,6 +9,7 @@ import {
   IntegrationError,
   type IntegrationErrorCode,
   type IntegrationInstance,
+  isAction,
   type LibrarySpool,
   librarySpoolSchema,
   type MergePolicy,
@@ -341,7 +342,7 @@ export function createSyncer(
       const adapter = adapters.find((a) => a.id === row.adapterId);
       // Adapter order: printers come before the prints that point at them.
       for (const type of activeCapabilities(db, row, adapter)) {
-        if (type === "openInSlicer") continue;
+        if (isAction(type)) continue;
         const { mode, frequency, lastRunAt } = policyOf(db, id, type);
         // A failed run leaves `lastRunAt` alone, so it is retried on the next tick.
         if (

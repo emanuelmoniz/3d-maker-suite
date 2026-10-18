@@ -11,6 +11,7 @@ import { z } from "zod";
 
 export { bambuStudioLibrary } from "./studio.ts";
 
+import { cliSlicer } from "@3d-maker-suite/slicer-presets";
 import { call, cookie, parse, REGIONS, type Region, URLS } from "./cloud.ts";
 import { bambuStudioLibrary, studioDefaultDirs } from "./studio.ts";
 
@@ -345,8 +346,10 @@ export function bambuStudioAdapter(): IntegrationAdapter {
       "filamentBrands",
       "filamentProfiles",
       "openInSlicer",
+      "slice",
     ],
     library: bambuStudioLibrary(),
+    slicer: cliSlicer(),
     configSchema: z.object({}),
     secretsSchema: z.object({}),
   };

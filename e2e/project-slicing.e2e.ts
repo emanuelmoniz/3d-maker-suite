@@ -60,3 +60,51 @@ test("project slicing setup: defaults from the default printer, saves, reloads, 
     section.getByText("The file changed since this setup was saved").first(),
   ).toBeVisible();
 });
+
+test("slicing a project with the mock slicer: results, estimate, list filter, re-slice", async ({
+  page,
+  app,
+}) => {
+  const root = join(app.dataDir, "models");
+  mkdirSync(join(root, "Benchy"), { recursive: true });
+  const file = join(root, "Benchy", "benchy.3mf");
+  copyFileSync(join(import.meta.dirname, "../packages/3mf/fixtures/multi_color.3mf"), file);
+  await app.api("PATCH", "/api/preferences", { projectRoots: [root] });
+  const project = await app.api<{ id: string }>("POST", "/api/projects", {
+    name: "Benchy",
+    folderPath: join(root, "Benchy"),
+  });
+  // The mock slicer never runs its program, but slicing needs one that exists.
+  const mock = await app.api<{ id: string }>("POST", "/api/integrations", {
+    adapterId: "mock",
+    secrets: { token: "t" },
+  });
+  await app.api("PATCH", `/api/integrations/${mock.id}`, { slicerPath: process.execPath });
+
+  await page.goto(`/projects/${project.id}`);
+  const section = page.getByRole("region", { name: "Slicing setup" });
+  await section.getByRole("checkbox", { name: /benchy\.3mf/ }).check();
+  const slice = section.getByRole("button", { name: "Slice" });
+  await expect(slice).toBeDisabled(); // save first
+  await section.getByRole("button", { name: "Save setup" }).click();
+  await expect(section.getByText("Needs slicing").first()).toBeVisible();
+
+  await slice.click();
+  // Plate 1 of the fixture: 1 h, 10 g per slot (see `fakeSlice`).
+  await expect(section.getByText(/^1h · \d+ g$/).first()).toBeVisible();
+  await expect(section.getByText("Every plate is sliced and up to date.")).toBeVisible();
+  await expect(slice).toBeDisabled();
+  await expect(page.getByRole("heading", { name: "Estimated cost of one print" })).toBeVisible();
+
+  await page.goto("/projects?slicing=done");
+  await expect(page.getByRole("link", { name: /Benchy/ }).first()).toBeVisible();
+  await page.goto("/projects?slicing=needed");
+  await expect(page.getByText("No projects match these filters.")).toBeVisible();
+
+  // The file changes on disk: that plate needs slicing again.
+  appendFileSync(file, "changed");
+  await page.goto(`/projects/${project.id}`);
+  await expect(slice).toBeEnabled();
+  await slice.click();
+  await expect(section.getByText("Every plate is sliced and up to date.")).toBeVisible();
+});

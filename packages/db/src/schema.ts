@@ -561,6 +561,18 @@ export const projectSlicePlates = sqliteTable(
     fileSize: integer().notNull(),
     fileMtimeMs: real().notNull(),
     fileSha256: text().notNull(),
+    // Last slice, of the file as fingerprinted above; null = never sliced. Cleared when the
+    // profiles change, kept (with the fingerprint) when the setup is saved unchanged.
+    slicedAt: text(),
+    /** The print profile it was sliced with, after the default printer's was filled in. */
+    slicedPrintProfileId: text(),
+    printTimeSeconds: integer(),
+    weightGrams: real(),
+    slicedFilaments: text({ mode: "json" }).$type<
+      { slot: number; grams: number; material: string | null }[]
+    >(),
+    /** Why the last slice failed (the slicer's own text); cleared by a successful one. */
+    sliceError: text(),
     ...timestamps,
   },
   (t) => [uniqueIndex("project_slice_plates_uq").on(t.projectId, t.file, t.plate)],

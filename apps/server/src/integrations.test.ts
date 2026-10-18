@@ -403,6 +403,7 @@ describe("sync by type and date range", () => {
       ["printers", true],
       ["prints", true],
       ["spools", false],
+      ["slice", false],
     ]);
   });
 
@@ -552,11 +553,12 @@ describe("capabilities", () => {
 
   it("are what the adapter supports, switched on and set up", async () => {
     const { id } = await create();
+    // `slice` also needs a slicer program.
     expect(await caps(id)).toEqual(["printers", "prints", "spools"]);
     const adapters = await get("/api/integrations/adapters");
     expect(adapters[0]).toMatchObject({
       id: "mock",
-      capabilities: ["printers", "prints", "spools"],
+      capabilities: ["printers", "prints", "spools", "slice"],
     });
 
     // Until changed, every type follows its default policy.
@@ -565,6 +567,7 @@ describe("capabilities", () => {
       { type: "printers", mode: "auto", frequency: "1d", ...defaults },
       { type: "prints", mode: "auto", frequency: "1h", ...defaults },
       { type: "spools", mode: "manual", frequency: "1d", ...defaults },
+      { type: "slice", mode: "manual", frequency: "1d", ...defaults },
     ]);
     const patched = (await setPolicy(id, "prints", { mode: "off" })).json();
     expect(patched.capabilities).toEqual(["printers", "spools"]);

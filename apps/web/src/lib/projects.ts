@@ -79,13 +79,34 @@ export const usePatchProject = (id: string) => {
   });
 };
 
-/** The plates a project prints, with each plate's state (`outdated` when the file changed). */
-export const useProjectSlicing = (id: string) =>
-  useQuery({
+/**
+ * The plates a project prints, with each plate's state (`outdated` when the file changed) and
+ * last slice. Polls while plates are being sliced; when that ends, the project list is refreshed.
+ */
+export const useProjectSlicing = (id: string) => {
+  const qc = useQueryClient();
+  return useQuery({
     queryKey: ["projects", id, "slicing"],
-    queryFn: () => api<ProjectSlicing>("GET", `/api/projects/${id}/slicing`),
+    queryFn: async () => {
+      const next = await api<ProjectSlicing>("GET", `/api/projects/${id}/slicing`);
+      const was = qc.getQueryData<ProjectSlicing>(["projects", id, "slicing"]);
+      if (was?.plates.some((p) => p.job) && !next.plates.some((p) => p.job))
+        void qc.invalidateQueries({ queryKey: ["projects", "list"] });
+      return next;
+    },
     enabled: !!id,
+    refetchInterval: (q) => (q.state.data?.plates.some((p) => p.job) ? 1000 : false),
   });
+};
+
+/** Queues the plates that need slicing; progress comes from `useProjectSlicing`. */
+export const useSliceProject = (id: string) => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api<ProjectSlicing>("POST", `/api/projects/${id}/slicing/run`),
+    onSuccess: (data) => qc.setQueryData(["projects", id, "slicing"], data),
+  });
+};
 
 export const useSaveProjectSlicing = (id: string) => {
   const qc = useQueryClient();

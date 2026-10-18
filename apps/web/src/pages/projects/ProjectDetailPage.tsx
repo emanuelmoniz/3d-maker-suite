@@ -1,4 +1,10 @@
-import { bestMatches, type PlateSetupInput, type Project, sumCosts } from "@3d-maker-suite/core";
+import {
+  bestMatches,
+  type PlateSetup,
+  type PlateSetupInput,
+  type Project,
+  sumCosts,
+} from "@3d-maker-suite/core";
 import { Link, useParams } from "@tanstack/react-router";
 import type { TFunction } from "i18next";
 import { Box, ExternalLink, FolderOpen } from "lucide-react";
@@ -12,8 +18,9 @@ import { PageHeader } from "../../components/PageHeader.tsx";
 import { plateKey, SliceSetup } from "../../components/SliceSetup.tsx";
 import { TagList } from "../../components/TagList.tsx";
 import { usePrintProfiles } from "../../lib/catalog.ts";
-import { estimatePlate, type Plate, useCostContext } from "../../lib/cost.ts";
+import { estimatePlate, estimateSlicedPlates, type Plate, useCostContext } from "../../lib/cost.ts";
 import { cx } from "../../lib/cx.ts";
+import { useProfiles } from "../../lib/filament.ts";
 import { formatDateTime, formatDuration, formatWeight } from "../../lib/format.ts";
 import { useAdapterName, useCapable } from "../../lib/integrations.ts";
 import { usePreferences } from "../../lib/preferences.ts";
@@ -27,6 +34,7 @@ import {
   useProject,
   useProjectSlicing,
   useSaveProjectSlicing,
+  useSliceProject,
 } from "../../lib/projects.ts";
 import { useTagsOf } from "../../lib/tags.ts";
 import { ModelPreview } from "./ModelPreview.tsx";
@@ -171,20 +179,87 @@ function Estimate({ plate }: { plate: Plate }) {
   );
 }
 
+// Static keys so `pnpm i18n:check` sees them. Stored as `code` or `code: <the slicer's text>`.
+const SLICE_ERRORS: Record<string, string> = {
+  no_slicer: "projects:slicing.error.no_slicer",
+  not_allowed: "projects:slicing.error.not_allowed",
+  no_preset: "projects:slicing.error.no_preset",
+  slice_failed: "projects:slicing.error.slice_failed",
+};
+const sliceError = (t: TFunction, error: string) => {
+  const at = error.indexOf(": ");
+  const [code, detail] = at < 0 ? [error, ""] : [error.slice(0, at), error.slice(at + 2)];
+  const key = SLICE_ERRORS[code];
+  return key && (detail || code !== "slice_failed")
+    ? t(key, { detail })
+    : t("projects:slicing.error.unknown");
+};
+
+/** Under a picked plate: queued / slicing, the last result, or why it failed. */
+function PlateSlice({ plate: p }: { plate: PlateSetup }) {
+  const { t } = useTranslation();
+  if (p.job)
+    return (
+      <span className="block text-sm text-muted">
+        {p.job === "running" ? t("projects:slicing.running") : t("projects:slicing.queued")}
+      </span>
+    );
+  return (
+    <>
+      {p.result && (
+        <span className="block text-sm text-muted">
+          {t("projects:slicing.result", {
+            time: formatDuration(p.result.printTimeSeconds),
+            weight: formatWeight(p.result.weightGrams),
+          })}
+        </span>
+      )}
+      {p.error ? (
+        <span className="block text-sm text-bad">{sliceError(t, p.error)}</span>
+      ) : (
+        p.needsSlicing &&
+        p.state === "ok" && (
+          <span className="block text-sm text-warn">{t("projects:slicing.needsSlicing")}</span>
+        )
+      )}
+    </>
+  );
+}
+
 /** Which plates a print of the project takes, with the print profile and filaments per plate. */
 function SlicingSetup({ project }: { project: Project }) {
   const { t } = useTranslation();
   const saved = useProjectSlicing(project.id).data;
   const save = useSaveProjectSlicing(project.id);
+  const slice = useSliceProject(project.id);
   const [draft, setDraft] = useState<PlateSetupInput[] | null>(null);
   const defaultId = usePreferences().data?.values.defaultPrinterId;
   const printers = usePrinters({ archived: false }).data?.items ?? [];
   const printer = printers.find((p) => p.id === defaultId) ?? printers[0];
   const defaultProfile = usePrintProfiles().data?.find((p) => p.id === printer?.printProfileId);
   if (!project.meta.models.length || !saved) return null;
-  const stored = saved.plates.map(({ state: _state, ...p }) => p);
+  const stored = saved.plates.map(({ file, plate, printProfileId, filaments }) => ({
+    file,
+    plate,
+    printProfileId,
+    filaments,
+  }));
   const value = draft ?? stored;
   const dirty = draft !== null && JSON.stringify(draft) !== JSON.stringify(stored);
+  const byKey = new Map(saved.plates.map((p) => [plateKey(p), p]));
+  const left = saved.plates.filter((p) => p.job).length;
+  const toSlice = saved.plates.filter((p) => p.needsSlicing).length;
+  const sliceStatus = !saved.canSlice
+    ? t("projects:slicing.noSlicer")
+    : dirty
+      ? t("projects:slicing.saveFirst")
+      : left
+        ? t("projects:slicing.progress", { count: left })
+        : slice.isError
+          ? t("projects:slicing.startFailed")
+          : saved.plates.length && !toSlice
+            ? t("projects:slicing.upToDate")
+            : t("projects:slicing.sliceHint");
   return (
     <section aria-labelledby="slicing" className="mt-6">
       <h2 id="slicing" className="mb-1 text-base font-semibold">
@@ -204,6 +279,10 @@ function SlicingSetup({ project }: { project: Project }) {
         states={Object.fromEntries(saved.plates.map((p) => [plateKey(p), p.state]))}
         defaultPrintProfile={defaultProfile ?? null}
         disabled={save.isPending}
+        plateInfo={(key) => {
+          const p = byKey.get(key);
+          return p && <PlateSlice plate={p} />;
+        }}
       />
       <div className="mt-3 flex flex-wrap items-center gap-3">
         <Button
@@ -219,6 +298,17 @@ function SlicingSetup({ project }: { project: Project }) {
             : save.isSuccess && !dirty
               ? t("projects:slicing.saved")
               : ""}
+        </p>
+      </div>
+      <div className="mt-3 flex flex-wrap items-center gap-3">
+        <Button
+          disabled={!saved.canSlice || dirty || !!left || !toSlice || slice.isPending}
+          onClick={() => slice.mutate()}
+        >
+          {t("projects:slicing.slice")}
+        </Button>
+        <p aria-live="polite" className={slice.isError ? "text-bad" : "text-muted"}>
+          {sliceStatus}
         </p>
       </div>
     </section>
@@ -250,6 +340,35 @@ function LinkedPrints({ id }: { id: string }) {
         <p className="text-muted">{t("projects:detail.noPrints")}</p>
       )}
     </section>
+  );
+}
+
+/** One print of the whole project, from its sliced plates, on the default printer. */
+function SlicedEstimate({ id }: { id: string }) {
+  const { t } = useTranslation();
+  const plates = useProjectSlicing(id).data?.plates ?? [];
+  const ctx = useCostContext().data;
+  const defaultId = usePreferences().data?.values.defaultPrinterId;
+  const profiles = useProfiles().data?.items ?? [];
+  const sliced = plates.filter((p) => p.result).length;
+  if (!ctx || !sliced) return null;
+  const printer = ctx.printers.find((p) => p.id === defaultId) ?? ctx.printers[0];
+  const price = (pid: string) => profiles.find((p) => p.id === pid)?.pricePerKg ?? null;
+  return (
+    <div className="max-w-md rounded-lg border border-border bg-surface p-4">
+      <h3 className="mb-1 font-medium">{t("costs:project.onePrint")}</h3>
+      <p className="mb-2 text-muted">
+        {printer
+          ? t("costs:project.onePrintHint", { printer: printer.name })
+          : t("costs:project.onePrintHintNoPrinter")}
+      </p>
+      {sliced < plates.length && (
+        <p className="mb-2 text-warn">
+          {t("costs:project.partial", { sliced, total: plates.length })}
+        </p>
+      )}
+      <CostBreakdown cost={estimateSlicedPlates(plates, printer?.id, ctx, price)} />
+    </div>
   );
 }
 
@@ -413,6 +532,7 @@ export function ProjectDetailPage() {
           )}
         </div>
         <div className="grid min-w-0 content-start gap-4 [&>section]:mt-0">
+          <SlicedEstimate id={id} />
           <PrintedCost id={id} />
           {(selected ?? info?.plates.find((p) => p.sliced)) && (
             <Estimate plate={(selected ?? info?.plates.find((p) => p.sliced)) as Plate} />

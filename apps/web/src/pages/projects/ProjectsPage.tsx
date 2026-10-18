@@ -232,6 +232,24 @@ export function ProjectsTable({
           ],
         },
         {
+          id: "slicing",
+          header: t("projects:list.columns.slicing"),
+          cell: (p) =>
+            p.slicing === "needed" ? (
+              <span className="text-warn">{t("projects:list.slicing.needed")}</span>
+            ) : p.slicing === "done" ? (
+              t("projects:list.slicing.done")
+            ) : (
+              ""
+            ),
+          filter: "slicing",
+          filterOptions: [
+            { value: "needed", label: t("projects:list.slicing.needed") },
+            { value: "done", label: t("projects:list.slicing.done") },
+            { value: "none", label: t("projects:list.slicing.none") },
+          ],
+        },
+        {
           id: "lastPrintAt",
           header: t("projects:list.columns.lastPrintAt"),
           cell: (p) => (p.lastPrintAt ? formatDate(p.lastPrintAt) : ""),
@@ -277,8 +295,15 @@ export function ProjectsPage() {
     for (const k of Object.keys(next)) if (!next[k]?.trim()) delete next[k];
     setQuery(next);
   };
-  const { name = "", tagId = "", collectionId = "", material = "", multicolor = "" } = query;
-  const filtered = !!(name || tagId || collectionId || material || multicolor);
+  const {
+    name = "",
+    tagId = "",
+    collectionId = "",
+    material = "",
+    multicolor = "",
+    slicing = "",
+  } = query;
+  const filtered = !!(name || tagId || collectionId || material || multicolor || slicing);
   const rows = data?.items ?? [];
   const pick = (v: View) => {
     setView(v);
@@ -345,6 +370,7 @@ export function ProjectsPage() {
                             collectionId: "",
                             material: "",
                             multicolor: "",
+                            slicing: "",
                           })
                       : undefined
                   }
@@ -374,6 +400,17 @@ export function ProjectsPage() {
                       ]}
                     />
                   )}
+                  <Combobox
+                    aria-label={t("projects:filters.slicing")}
+                    className={`${inputClass} w-auto!`}
+                    value={slicing}
+                    onChange={(v) => set({ slicing: v })}
+                    options={[
+                      { value: "", label: t("projects:filters.allSlicing") },
+                      { value: "needed", label: t("projects:list.slicing.needed") },
+                      { value: "done", label: t("projects:list.slicing.done") },
+                    ]}
+                  />
                   <Combobox
                     aria-label={t("projects:sort.label")}
                     className={`${inputClass} w-auto!`}

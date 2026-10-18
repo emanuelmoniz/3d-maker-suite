@@ -31,14 +31,39 @@ import { columnFilter, listPage, taggedWith } from "../lib/list.ts";
 import { assertNumberFree, nextNumber } from "../lib/numbers.ts";
 import { readPreferences } from "../lib/preferences.ts";
 import type { ProjectScanner } from "../projects/scanner.ts";
+import { effectivePrintProfile } from "../projects/sliceQueue.ts";
 
-const { projects, collectionProjects, printFilamentUsages, prints } = schema;
+const {
+  projects,
+  collectionProjects,
+  printFilamentUsages,
+  prints,
+  projectSlicePlates: plates,
+} = schema;
 const params = z.object({ id: z.uuid() });
 const fileQuery = z.object({ path: z.string().min(1), entry: z.string().optional() });
 const notFound = { 404: apiErrorSchema };
 // "true" / "false", to filter and sort by the `?multicolor=` select values.
 const lastPrintAt = sql`(select max(${prints.startedAt}) from ${prints} where ${prints.projectId} = ${projects.id})`;
 const isMulticolor = sql`case when json_extract(${projects.meta}, '$.multicolor') then 'true' else 'false' end`;
+/**
+ * `PROJECT_SLICING` of a project: a plate never sliced, sliced with other profiles than now, or
+ * whose file the last scan saw at another size makes it "needed". ponytail: size only, the project
+ * page hashes; a same-size edit shows there first. Store the scanned mtime if that misleads.
+ */
+// Qualified: bare "id" / "meta" inside the subqueries would be the plate's.
+const projectId = sql`${projects}.${sql.identifier("id")}`;
+const projectMeta = sql`${projects}.${sql.identifier("meta")}`;
+const slicingOf = (defaultProfileId: string | null) => sql<ProjectListItem["slicing"]>`case
+  when not exists (select 1 from ${plates} where ${plates.projectId} = ${projectId}) then 'none'
+  when exists (select 1 from ${plates} where ${plates.projectId} = ${projectId} and (
+    ${plates.slicedAt} is null
+    or ${plates.slicedPrintProfileId} is not coalesce(${plates.printProfileId}, ${defaultProfileId})
+    or exists (select 1 from json_each(${projectMeta}, '$.files') f
+      where json_extract(f.value, '$.path') = ${plates.file}
+        and json_extract(f.value, '$.size') != ${plates.fileSize})
+  )) then 'needed'
+  else 'done' end`;
 const errors = {
   403: apiErrorSchema,
   404: apiErrorSchema,
@@ -98,6 +123,7 @@ export const projectsRoutes =
       },
       async (req) => {
         const { material } = req.query;
+        const slicing = slicingOf(effectivePrintProfile(db)(null));
         const page = listPage(db, projects, req.query, {
           sort: {
             // The name starts with the number: sorting by it sorts the name as shown.
@@ -112,6 +138,7 @@ export const projectsRoutes =
             name: sql`${projectLabel} || ' ' || coalesce(${projects.description}, '')`,
             multicolor: isMulticolor,
             lastPrintAt,
+            slicing,
           },
           where: [
             isNull(projects.archivedAt),
@@ -149,7 +176,21 @@ export const projectsRoutes =
                 .map((r) => [r.id, r.at])
             : [],
         );
-        const items = page.items.map((p) => ({ ...out(p), lastPrintAt: last.get(p.id) ?? null }));
+        const slicingById = new Map(
+          ids.length
+            ? db
+                .select({ id: projects.id, slicing })
+                .from(projects)
+                .where(inArray(projects.id, ids))
+                .all()
+                .map((r) => [r.id, r.slicing])
+            : [],
+        );
+        const items = page.items.map((p) => ({
+          ...out(p),
+          lastPrintAt: last.get(p.id) ?? null,
+          slicing: slicingById.get(p.id) ?? "none",
+        }));
         return { ...page, items } as Page<ProjectListItem>;
       },
     );

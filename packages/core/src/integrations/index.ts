@@ -30,6 +30,8 @@ export interface IntegrationAdapter {
   create?(ctx: IntegrationContext): IntegrationInstance;
   /** The vendor's desktop slicer presets. */
   library?: FilamentLibrary;
+  /** Slices a 3MF plate with the vendor's slicer program (ADR-0007). Needs the `slice` capability. */
+  slicer?: Slicer;
   /**
    * Interactive sign-in (password, then an email code or 2FA). Returns the secrets to store, or a
    * challenge; the server keeps `state` and passes it back with the code. Never store the password.
@@ -110,6 +112,34 @@ export interface FilamentLibrary {
   readCatalog?(dir: string): Promise<SlicerCatalog>;
 }
 
+/** One plate to slice. Preset ids are as the library names them (`system/<name>`, `user/<name>`). */
+export interface SliceRequest {
+  /** Absolute path, already checked to be inside a project root. */
+  file: string;
+  /** 1-based. */
+  plate: number;
+  /** Process preset; unset = keep the 3MF's. */
+  process?: string;
+  /** Filament preset per slot (index 0 = slot 1); null = keep the 3MF's. */
+  filaments?: (string | null)[];
+}
+
+export interface SliceResult {
+  printTimeSeconds: number;
+  weightGrams: number;
+  filaments: { slot: number; grams: number; material: string | null }[];
+}
+
+/** Throws `IntegrationError("slice_failed", <the slicer's text>)` when the slicer refuses or crashes. */
+export interface Slicer {
+  slice(
+    program: string,
+    configDir: string,
+    req: SliceRequest,
+    signal: AbortSignal,
+  ): Promise<SliceResult>;
+}
+
 /** Opens a local file in a slicer. The server decides which files are allowed before calling. */
 export interface SlicerLauncher {
   canOpen(filePath: string): boolean;
@@ -118,8 +148,13 @@ export interface SlicerLauncher {
 
 /** Throw this from an adapter; any other error is reported as "unknown". */
 export class IntegrationError extends Error {
-  constructor(readonly code: IntegrationErrorCode) {
-    super(code);
+  /** `detail`: the vendor's own text, shown as-is where it helps (e.g. why a slice failed). */
+  readonly code: IntegrationErrorCode;
+  readonly detail?: string;
+  constructor(code: IntegrationErrorCode, detail?: string) {
+    super(detail ? `${code}: ${detail}` : code);
+    this.code = code;
+    this.detail = detail;
   }
 }
 

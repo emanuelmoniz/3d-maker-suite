@@ -2,6 +2,7 @@ import { z } from "zod";
 import { id, isoDate } from "./entities.ts";
 import { ORIGINS, PROJECT_EDITABLE_FIELDS, PROJECT_FILE_KINDS } from "./enums.ts";
 import { type ColumnFilter, listQuery } from "./list.ts";
+import { PROJECT_SLICING } from "./projectSlicing.ts";
 
 const nullableText = z.string().nullable();
 
@@ -93,7 +94,10 @@ export const projectSchema = z.object({
 });
 
 /** A row of the projects list: the project plus when it was last printed (null: never). */
-export const projectListItemSchema = projectSchema.extend({ lastPrintAt: isoDate.nullable() });
+export const projectListItemSchema = projectSchema.extend({
+  lastPrintAt: isoDate.nullable(),
+  slicing: z.enum(PROJECT_SLICING),
+});
 
 const editable = {
   name: z.string().trim().min(1),
@@ -128,6 +132,8 @@ export const projectFilters = {
   material: { kind: "select" },
   multicolor: { kind: "select", options: ["true", "false"] },
   lastPrintAt: { kind: "date" },
+  /** See `PROJECT_SLICING`. The file check here is by size only; the project page hashes. */
+  slicing: { kind: "select", options: PROJECT_SLICING },
 } as const satisfies Record<string, ColumnFilter>;
 export const projectListQuery = listQuery(projectSortFields, {}, projectFilters);
 

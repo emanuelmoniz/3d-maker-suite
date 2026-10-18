@@ -8,6 +8,7 @@
     "typecheck": "tsc -p ."
   },
   "dependencies": {
+    "@3d-maker-suite/3mf": "workspace:*",
     "@3d-maker-suite/core": "workspace:*"
   },
   "devDependencies": {

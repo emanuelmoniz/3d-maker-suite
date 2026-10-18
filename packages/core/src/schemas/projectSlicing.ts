@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { id } from "./entities.ts";
+import { id, isoDate } from "./entities.ts";
 import { PRINT_MAX_SLOTS } from "./import.ts";
 
 // What a project prints: the plates picked per 3MF file, and per plate the print profile and the
@@ -28,10 +28,38 @@ export const projectSlicingInputSchema = z.object({
     ),
 });
 
-export const plateSetupSchema = plateSetupInputSchema.extend({ state: z.enum(PLATE_STATES) });
-export const projectSlicingSchema = z.object({ plates: z.array(plateSetupSchema) });
+/** The last slice of a plate. Grams per slot; `material` is the 3MF's type for the slot. */
+export const sliceResultSchema = z.object({
+  printTimeSeconds: z.number().int().nonnegative(),
+  weightGrams: z.number().nonnegative(),
+  filaments: z.array(
+    z.object({ slot: z.number().int(), grams: z.number(), material: z.string().nullable() }),
+  ),
+  slicedAt: isoDate,
+});
+
+export const plateSetupSchema = plateSetupInputSchema.extend({
+  state: z.enum(PLATE_STATES),
+  /** Kept when outdated, so the estimate still shows; `needsSlicing` says it is stale. */
+  result: sliceResultSchema.nullable(),
+  /** Why the last slice failed, in the slicer's words (not translated). */
+  error: z.string().nullable(),
+  /** Never sliced, the file changed, or the profiles (incl. the default printer's) changed. */
+  needsSlicing: z.boolean(),
+  /** In the slice queue right now. */
+  job: z.enum(["queued", "running"]).nullable(),
+});
+export const projectSlicingSchema = z.object({
+  plates: z.array(plateSetupSchema),
+  /** A slicer is set up (an integration with `slice` switched on). */
+  canSlice: z.boolean(),
+});
+
+/** A project in the list: no plates picked, some need slicing, or all sliced and current. */
+export const PROJECT_SLICING = ["none", "needed", "done"] as const;
 
 export type PlateState = (typeof PLATE_STATES)[number];
+export type SliceResultInfo = z.infer<typeof sliceResultSchema>;
 export type PlateSetupInput = z.infer<typeof plateSetupInputSchema>;
 export type PlateSetup = z.infer<typeof plateSetupSchema>;
 export type ProjectSlicingInput = z.infer<typeof projectSlicingInputSchema>;

@@ -21,6 +21,7 @@ import { loadKey } from "./integrations/secrets.ts";
 import { createSyncer } from "./integrations/sync.ts";
 import { accessGuard } from "./lib/access.ts";
 import { createProjectScanner } from "./projects/scanner.ts";
+import { createSliceQueue } from "./projects/sliceQueue.ts";
 import { accessoriesRoutes } from "./routes/accessories.ts";
 import { alertsRoutes } from "./routes/alerts.ts";
 import { backupsRoutes } from "./routes/backups.ts";
@@ -138,8 +139,14 @@ export async function buildApp(
   await app.register(projectsRoutes(db, dataDir, scanner, syncer.adapters), {
     prefix: "/api/projects",
   });
-  await app.register(projectSlicingRoutes(db), { prefix: "/api/projects" });
-  app.addHook("onClose", () => scanner.close());
+  const sliceQueue = createSliceQueue(db, syncer.adapters, app.log);
+  await app.register(projectSlicingRoutes(db, syncer.adapters, sliceQueue), {
+    prefix: "/api/projects",
+  });
+  app.addHook("onClose", () => {
+    sliceQueue.close();
+    return scanner.close();
+  });
   if (opts.watchProjects) app.addHook("onReady", async () => scanner.boot());
   await app.register(tagsRoutes(db), { prefix: "/api/tags" });
   await app.register(collectionsRoutes(db), { prefix: "/api/collections" });

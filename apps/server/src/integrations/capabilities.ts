@@ -4,6 +4,7 @@ import {
   defaultPolicy,
   type FilamentLibrary,
   type IntegrationAdapter,
+  isAction,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
 import { and, asc, eq } from "drizzle-orm";
@@ -45,13 +46,16 @@ export function slicerConfigDir(row: Row, adapter: IntegrationAdapter) {
 /** Supported by the adapter, not switched off, and what it needs is set up. */
 export function activeCapabilities(db: Db, row: Row, adapter?: IntegrationAdapter): Capability[] {
   if (!row.enabled || !adapter) return [];
-  // A cloud source needs its sign-in and a local one its folder; the action needs the program itself.
+  // A cloud source needs its sign-in and a local one its folder; an action needs the program
+  // itself, and slicing the source too (its presets).
   const source =
     adapter.kind === "cloud" ? !adapter.login || !!row.secrets : !!slicerConfigDir(row, adapter);
   const program = row.slicerPath?.trim();
   const slicerApp = !!program && existsSync(program);
   return adapter.capabilities.filter(
-    (c) => policyOf(db, row.id, c).mode !== "off" && (c === "openInSlicer" ? slicerApp : source),
+    (c) =>
+      policyOf(db, row.id, c).mode !== "off" &&
+      (isAction(c) ? slicerApp && (c === "openInSlicer" || source) : source),
   );
 }
 

@@ -5,6 +5,7 @@ import {
   type IntegrationErrorCode,
   type IntegrationKind,
   type IntegrationStatus,
+  isAction,
   REVIEWED_TYPES,
   type ReviewedType,
   SYNC_RUN_STATUSES,
@@ -63,6 +64,7 @@ export const ERRORS: Record<IntegrationErrorCode, string> = {
   code_invalid: "integrations:errors.code_invalid",
   blocked: "integrations:errors.blocked",
   api_changed: "integrations:errors.api_changed",
+  slice_failed: "integrations:errors.slice_failed",
   unknown: "integrations:errors.unknown",
 };
 // Also the Type column of the sync log.
@@ -77,6 +79,7 @@ export const CAPS: Record<Capability, string> = {
   filamentBrands: "integrations:capabilities.filamentBrands",
   filamentProfiles: "integrations:capabilities.filamentProfiles",
   openInSlicer: "integrations:capabilities.openInSlicer",
+  slice: "integrations:capabilities.slice",
 };
 const TRIGGERS = { manual: "integrations:runs.manual", scheduled: "integrations:runs.scheduled" };
 const RANGES = {
@@ -99,7 +102,7 @@ const MODES: Record<SyncMode, string> = {
   manual: "integrations:policies.modes.manual",
   auto: "integrations:policies.modes.auto",
 };
-// `openInSlicer` is an action, not data: it is only on or off.
+// Actions (`openInSlicer`, `slice`) are not data: they are only on or off.
 const ACTION_MODES = {
   off: "integrations:policies.modes.off",
   manual: "integrations:policies.modes.on",
@@ -182,7 +185,7 @@ function IntegrationCard({ integration: i }: { integration: Integration }) {
   // Disabled = switched off entirely, so only the toggle and Delete stay. Sign-in and the test
   // only matter for an account with something switched on, the log for anything that syncs.
   const account = i.enabled && i.kind === "cloud" && on.length > 0;
-  const logged = i.enabled && on.some((p) => p.type !== "openInSlicer");
+  const logged = i.enabled && on.some((p) => !isAction(p.type));
   const hasLogin = account && adapter?.login;
   const [showLog, setShowLog] = useState(false);
   const [confirming, setConfirming] = useState(false);
@@ -272,15 +275,12 @@ function IntegrationCard({ integration: i }: { integration: Integration }) {
         <SlicerFields
           integration={i}
           detectedDir={adapter?.detectedConfigDir ?? null}
-          program={i.policies.some((p) => p.type === "openInSlicer")}
+          program={i.policies.some((p) => isAction(p.type))}
         />
       )}
 
       {logged && showLog && (
-        <SyncLog
-          id={i.id}
-          types={i.policies.map((p) => p.type).filter((c) => c !== "openInSlicer")}
-        />
+        <SyncLog id={i.id} types={i.policies.map((p) => p.type).filter((c) => !isAction(c))} />
       )}
 
       <ConfirmDialog
@@ -416,7 +416,7 @@ function Policies({
             cell: (p) =>
               select(
                 p.mode,
-                p.type === "openInSlicer" ? ACTION_MODES : MODES,
+                isAction(p.type) ? ACTION_MODES : MODES,
                 (mode) => patch.mutate({ policies: [{ type: p.type, mode }] }),
                 {
                   className: cellSelect,
@@ -429,7 +429,7 @@ function Policies({
             id: "frequency",
             header: t("integrations:policies.frequency"),
             cell: (p) =>
-              p.type === "openInSlicer"
+              isAction(p.type)
                 ? "–"
                 : select(
                     p.frequency,
@@ -486,7 +486,7 @@ function Policies({
             id: "lastRun",
             header: t("integrations:policies.lastRun"),
             cell: (p) =>
-              p.type === "openInSlicer"
+              isAction(p.type)
                 ? "–"
                 : p.lastRunAt
                   ? formatDateTime(p.lastRunAt)
