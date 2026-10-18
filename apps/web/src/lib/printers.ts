@@ -65,24 +65,35 @@ export const useRemovePhoto = (id: string) =>
 
 export const photoUrl = (p: Printer) => `/api/printers/${p.id}/photo?v=${p.updatedAt}`;
 
-export const useComments = (id: string) =>
+// Notes of any entity with a timeline; `base` is its API path, "/api/printers/<id>" or
+// "/api/accessories/<id>". The query key follows it: ["printers", <id>, "comments"].
+export type Note = Pick<PrinterComment, "id" | "body" | "pinned" | "status" | "createdAt">;
+const commentsKey = (base: string) => [...base.split("/").slice(2), "comments"];
+
+export const useComments = (base: string) =>
   useQuery({
-    queryKey: ["printers", id, "comments"],
-    queryFn: () => api<PrinterComment[]>("GET", `/api/printers/${id}/comments`),
+    queryKey: commentsKey(base),
+    queryFn: () => api<Note[]>("GET", `${base}/comments`),
   });
 
-export const useAddComment = (id: string) =>
-  useInvalidating((v: CommentInput) => api("POST", `/api/printers/${id}/comments`, v));
+function useCommentMutation<V>(base: string, fn: (v: V) => Promise<unknown>) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: fn,
+    onSuccess: () => qc.invalidateQueries({ queryKey: commentsKey(base) }),
+  });
+}
 
-export const usePatchComment = (id: string) =>
-  useInvalidating((v: { commentId: string; patch: CommentPatch }) =>
-    api("PATCH", `/api/printers/${id}/comments/${v.commentId}`, v.patch),
+export const useAddComment = (base: string) =>
+  useCommentMutation(base, (v: CommentInput) => api("POST", `${base}/comments`, v));
+
+export const usePatchComment = (base: string) =>
+  useCommentMutation(base, (v: { commentId: string; patch: CommentPatch }) =>
+    api("PATCH", `${base}/comments/${v.commentId}`, v.patch),
   );
 
-export const useDeleteComment = (id: string) =>
-  useInvalidating((commentId: string) =>
-    api("DELETE", `/api/printers/${id}/comments/${commentId}`),
-  );
+export const useDeleteComment = (base: string) =>
+  useCommentMutation(base, (commentId: string) => api("DELETE", `${base}/comments/${commentId}`));
 
 /** The name a printer goes by everywhere: "02-Bambu A1". The server builds the same in `printerLabel`. */
 export const printerName = (t: TFunction, p: Pick<Printer, "number" | "name">) =>

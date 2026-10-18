@@ -5,6 +5,8 @@ import { z } from "zod";
 // Integrations (encrypted tokens) and internal tables are deliberately not exportable.
 const TABLES = {
   printers: schema.printers,
+  accessories: schema.accessories,
+  "accessory-installs": schema.accessoryInstalls,
   brands: schema.brands,
   "printer-models": schema.printerModels,
   "machine-profiles": schema.machineProfiles,

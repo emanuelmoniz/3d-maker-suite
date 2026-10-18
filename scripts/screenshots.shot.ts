@@ -6,6 +6,15 @@ const IMAGES = "docs/images";
 test("README screenshots", async ({ page, app }) => {
   const printer = await seedPrinter(app.api, "Workshop X1");
   await seedPrinter(app.api, "Desk Mini");
+  const ams = await app.api<{ id: string }>("POST", "/api/accessories", {
+    name: "AMS",
+    type: "AMS",
+  });
+  await app.api("POST", `/api/accessories/${ams.id}/installs`, {
+    printerId: printer.id,
+    installedAt: new Date().toISOString(),
+  });
+  await app.api("POST", "/api/accessories", { name: "Spare hotend 0.6", type: "Hotend" });
   const profile = await seedProfile(app.api);
   const spools = [];
   for (const [colorHex, colorName] of [

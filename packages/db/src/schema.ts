@@ -244,6 +244,74 @@ export const printerComments = sqliteTable(
   ],
 );
 
+// AMS, hotend, enclosure, …: printer-like info, on one printer at a time (`accessoryInstalls`).
+export const accessories = sqliteTable(
+  "accessories",
+  {
+    id: id(),
+    number: integer().notNull(),
+    name: text().notNull(),
+    /** Free text; the form suggests the types already used. */
+    type: text().notNull(),
+    serial: text(),
+    purchasedAt: text(),
+    purchasePrice: integer(),
+    warrantyEndsAt: text(),
+    warrantyNotes: text(),
+    // One of the `printerStates` preference, checked by the API like printers.
+    state: text().notNull().default("working"),
+    archivedAt: text(),
+    ...timestamps,
+  },
+  (t) => [uniqueIndex("accessories_number_uq").on(t.number)],
+);
+
+// Same timeline as `printerComments`.
+export const accessoryComments = sqliteTable(
+  "accessory_comments",
+  {
+    id: id(),
+    accessoryId: text()
+      .notNull()
+      .references(() => accessories.id, { onDelete: "cascade" }),
+    body: text().notNull(),
+    pinned: integer({ mode: "boolean" }).notNull().default(false),
+    status: text({ enum: COMMENT_STATUSES }).notNull().default("open"),
+    ...timestamps,
+  },
+  (t) => [
+    index("accessory_comments_accessory_idx").on(t.accessoryId, t.createdAt),
+    check("accessory_comments_status_ck", oneOf(t.status, COMMENT_STATUSES)),
+  ],
+);
+
+// Periods `[installedAt, removedAt)` of an accessory on a printer; removedAt null = still on it.
+// The API refuses overlapping periods; the DB holds at most one open period per accessory.
+export const accessoryInstalls = sqliteTable(
+  "accessory_installs",
+  {
+    id: id(),
+    accessoryId: text()
+      .notNull()
+      .references(() => accessories.id, { onDelete: "cascade" }),
+    printerId: text()
+      .notNull()
+      .references(() => printers.id, { onDelete: "restrict" }),
+    installedAt: text().notNull(),
+    removedAt: text(),
+    ...timestamps,
+  },
+  (t) => [
+    index("accessory_installs_accessory_idx").on(t.accessoryId, t.installedAt),
+    index("accessory_installs_printer_idx").on(t.printerId),
+    uniqueIndex("accessory_installs_open_uq").on(t.accessoryId).where(sql`${t.removedAt} IS NULL`),
+    check(
+      "accessory_installs_dates_ck",
+      sql`${t.removedAt} IS NULL OR ${t.removedAt} >= ${t.installedAt}`,
+    ),
+  ],
+);
+
 export const maintenanceTypes = sqliteTable("maintenance_types", {
   id: id(),
   name: text().notNull(),

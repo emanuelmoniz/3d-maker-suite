@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { type ReactNode, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "./Button.tsx";
 
@@ -11,6 +11,7 @@ export function ConfirmDialog({
   destructive,
   onConfirm,
   onCancel,
+  children,
 }: {
   open: boolean;
   title: string;
@@ -19,6 +20,8 @@ export function ConfirmDialog({
   destructive?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
+  /** Extra fields (e.g. a date) between the description and the buttons. */
+  children?: ReactNode;
 }) {
   const { t } = useTranslation();
   const ref = useRef<HTMLDialogElement>(null);
@@ -41,6 +44,7 @@ export function ConfirmDialog({
     >
       <h2 className="text-base font-semibold">{title}</h2>
       <p className="mt-2 text-muted">{description}</p>
+      {children && <div className="mt-4 grid gap-3">{children}</div>}
       <div className="mt-5 flex justify-end gap-2">
         <Button onClick={onCancel}>{t("common:actions.cancel")}</Button>
         <Button variant={destructive ? "danger" : "primary"} onClick={onConfirm}>

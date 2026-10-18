@@ -21,6 +21,7 @@ import { loadKey } from "./integrations/secrets.ts";
 import { createSyncer } from "./integrations/sync.ts";
 import { accessGuard } from "./lib/access.ts";
 import { createProjectScanner } from "./projects/scanner.ts";
+import { accessoriesRoutes } from "./routes/accessories.ts";
 import { alertsRoutes } from "./routes/alerts.ts";
 import { backupsRoutes } from "./routes/backups.ts";
 import { brandingRoutes } from "./routes/branding.ts";
@@ -115,6 +116,7 @@ export async function buildApp(
   await app.register(fsRoutes(), { prefix: "/api/fs" });
   await app.register(brandingRoutes(dataDir), { prefix: "/api/branding" });
   await app.register(printersRoutes(db, dataDir), { prefix: "/api/printers" });
+  await app.register(accessoriesRoutes(db), { prefix: "/api/accessories" });
   await app.register(brandsRoutes(db, dataDir), { prefix: "/api/brands" });
   await app.register(filamentBrandsRoutes(db, dataDir), { prefix: "/api/filament-brands" });
   await app.register(filamentMaterialsRoutes(db, dataDir), { prefix: "/api/filament-materials" });

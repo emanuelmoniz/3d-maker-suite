@@ -94,7 +94,7 @@ computed and what is wrong, with proposed changes, before changing anything.
 
 ## Phase 3 - Accessories
 
-### [ ] Step 8 - Accessories: data and pages  **[plan mode]**
+### [x] Step 8 - Accessories: data and pages  **[plan mode]**
 **Model:** Opus · **Effort:** Medium
 **Scope:**
 - An accessory (AMS, AMS lite, hotend, enclosure, …) has printer-like info: number (like printers and spools), name, type, serial, purchase date and price, warranty end and notes, state, notes, archived. Propose free-text type vs a small catalog.

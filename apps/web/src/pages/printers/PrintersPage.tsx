@@ -1,4 +1,9 @@
-import { type Printer, printerFilters } from "@3d-maker-suite/core";
+import {
+  type Accessory,
+  accessoryFilters,
+  type Printer,
+  printerFilters,
+} from "@3d-maker-suite/core";
 import { Link } from "@tanstack/react-router";
 import { Plus, Printer as PrinterIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -8,10 +13,11 @@ import { SyncButtons } from "../../components/ImportLinks.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { SettingsLink } from "../../components/SettingsLink.tsx";
 import { TagList } from "../../components/TagList.tsx";
+import { accessoryName } from "../../lib/accessories.ts";
 import { useModelInfo } from "../../lib/catalog.ts";
 import { useListPage, useUrlListQuery } from "../../lib/list.ts";
 import { usePreferences } from "../../lib/preferences.ts";
-import { printerName } from "../../lib/printers.ts";
+import { printerName, usePrinters } from "../../lib/printers.ts";
 import { useTags, useTagsOf } from "../../lib/tags.ts";
 import { addClass } from "./Catalog.tsx";
 import { StateBadge, useStateLabel } from "./StateBadge.tsx";
@@ -131,6 +137,97 @@ export function PrintersPage() {
           />
         )
       )}
+      <AccessoriesTable />
     </>
+  );
+}
+
+/** Below the printers: every accessory and the printer it is on. */
+function AccessoriesTable() {
+  const { t } = useTranslation();
+  const stateLabel = useStateLabel();
+  const states = usePreferences().data?.values.printerStates ?? [];
+  const [query, setQuery] = useUrlListQuery("accessories.");
+  const { data } = useListPage<Accessory>(["accessories", "list"], "/api/accessories", query);
+  const printers = usePrinters({ archived: false }).data?.items ?? [];
+  const printerOf = new Map(printers.map((p) => [p.id, p]));
+
+  return (
+    <section className="mt-8">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-lg font-semibold">{t("printers:accessories.title")}</h2>
+        <Link to="/printers/accessories/new" className={addClass}>
+          <Plus className="size-4" aria-hidden />
+          {t("printers:accessories.add")}
+        </Link>
+      </div>
+      {data && !data.total && !Object.keys(query).length ? (
+        <p className="text-muted">{t("printers:accessories.empty")}</p>
+      ) : (
+        data && (
+          <DataTable
+            label={t("printers:accessories.table")}
+            rows={data.items}
+            rowKey={(a) => a.id}
+            server={{
+              query,
+              onQueryChange: setQuery,
+              total: data.total,
+              filters: accessoryFilters,
+              archivable: true,
+            }}
+            columns={[
+              {
+                id: "name",
+                header: t("printers:accessories.columns.name"),
+                cell: (a) => (
+                  <Link
+                    to="/printers/accessories/$id"
+                    params={{ id: a.id }}
+                    className="font-medium hover:underline"
+                  >
+                    {accessoryName(t, a)}
+                  </Link>
+                ),
+                sort: "name",
+                filter: "name",
+              },
+              {
+                id: "type",
+                header: t("printers:accessories.columns.type"),
+                cell: (a) => a.type,
+                sort: "type",
+                filter: "type",
+              },
+              {
+                id: "state",
+                header: t("printers:accessories.columns.state"),
+                cell: (a) => <StateBadge state={a.state} />,
+                sort: "state",
+                filter: "state",
+                filterOptions: states.map((s) => ({ value: s, label: stateLabel(s) })),
+              },
+              {
+                id: "printer",
+                header: t("printers:accessories.columns.printer"),
+                cell: (a) => {
+                  const p = a.printerId && printerOf.get(a.printerId);
+                  return (
+                    p && (
+                      <Link to="/printers/$id" params={{ id: p.id }} className="hover:underline">
+                        {printerName(t, p)}
+                      </Link>
+                    )
+                  );
+                },
+                sort: "printer",
+                filter: "printerId",
+                filterOptions: printers.map((p) => ({ value: p.id, label: printerName(t, p) })),
+              },
+            ]}
+          />
+        )
+      )}
+    </section>
   );
 }

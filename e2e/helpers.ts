@@ -51,6 +51,7 @@ export const ROUTES = [
   "/printers",
   "/printers/new",
   "/printers/models/new",
+  "/printers/accessories/new",
   "/maintenance",
   "/filament",
   "/filament/spools/new",

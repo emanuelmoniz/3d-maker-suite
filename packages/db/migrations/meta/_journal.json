@@ -281,6 +281,13 @@
       "when": 1792160843368,
       "tag": "0039_drop_print_cover",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "6",
+      "when": 1792338240912,
+      "tag": "0040_accessories",
+      "breakpoints": true
     }
   ]
 }

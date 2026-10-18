@@ -19,7 +19,8 @@ export const useListPage = <T>(key: readonly unknown[], path: string, query: Lis
 export function useUrlListQuery(prefix = ""): [ListQuery, (q: ListQuery) => void] {
   const search = useSearch({ strict: false }) as ListQuery;
   const navigate = useNavigate();
-  const mine = (k: string) => k.startsWith(prefix);
+  // No prefix: the page's main table, which leaves the prefixed tables' params alone.
+  const mine = (k: string) => (prefix ? k.startsWith(prefix) : !k.includes("."));
   const query = Object.fromEntries(
     Object.entries(search)
       .filter(([k]) => mine(k))

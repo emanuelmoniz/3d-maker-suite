@@ -138,6 +138,44 @@ export const printerCommentSchema = z.object({
   ...timestamps,
 });
 
+export const accessorySchema = z.object({
+  id,
+  /** Short unique number the accessory goes by ("01-AMS"). */
+  number: z.number().int().positive(),
+  name: z.string().min(1),
+  /** Free text ("AMS", "Hotend", …). */
+  type: z.string().min(1),
+  serial: z.string().nullable(),
+  purchasedAt: isoDate.nullable(),
+  purchasePrice: money.nullable(),
+  warrantyEndsAt: isoDate.nullable(),
+  warrantyNotes: z.string().nullable(),
+  /** One of `Preferences.printerStates`. */
+  state: z.string().min(1),
+  archivedAt: isoDate.nullable(),
+  /** Its open install (printer it is on now), else null. Not columns. */
+  printerId: id.nullable(),
+  installId: id.nullable(),
+  installedAt: isoDate.nullable(),
+  ...timestamps,
+});
+
+export const accessoryCommentSchema = printerCommentSchema
+  .omit({ printerId: true })
+  .extend({ accessoryId: id });
+
+/** One period of an accessory on a printer, `[installedAt, removedAt)`; removedAt null = on it now. */
+export const accessoryInstallSchema = z.object({
+  id,
+  accessoryId: id,
+  printerId: id,
+  installedAt: isoDate,
+  removedAt: isoDate.nullable(),
+  /** "02-Bambu A1", for the history list. Not a column. */
+  printerLabel: z.string(),
+  ...timestamps,
+});
+
 export const maintenanceTypeSchema = z.object({
   id,
   name: z.string().min(1),
@@ -327,6 +365,9 @@ export type PrinterModel = z.infer<typeof printerModelSchema>;
 export type MachineProfile = z.infer<typeof machineProfileSchema>;
 export type Printer = z.infer<typeof printerSchema>;
 export type PrinterComment = z.infer<typeof printerCommentSchema>;
+export type Accessory = z.infer<typeof accessorySchema>;
+export type AccessoryComment = z.infer<typeof accessoryCommentSchema>;
+export type AccessoryInstall = z.infer<typeof accessoryInstallSchema>;
 export type MaintenanceType = z.infer<typeof maintenanceTypeSchema>;
 export type MaintenanceTask = z.infer<typeof maintenanceTaskSchema>;
 export type FilamentBrand = z.infer<typeof filamentBrandSchema>;

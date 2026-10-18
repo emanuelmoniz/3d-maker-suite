@@ -20,6 +20,8 @@ import { ModulePage } from "./pages/ModulePage.tsx";
 import { MaintenancePage } from "./pages/maintenance/MaintenancePage.tsx";
 import { TypeDetailPage } from "./pages/maintenance/TypeDetailPage.tsx";
 import { TypeCreatePage, TypeEditPage } from "./pages/maintenance/TypeFormPage.tsx";
+import { AccessoryDetailPage } from "./pages/printers/AccessoryDetailPage.tsx";
+import { AccessoryCreatePage, AccessoryEditPage } from "./pages/printers/AccessoryFormPage.tsx";
 import {
   BrandFormPage,
   MachineProfileFormPage,
@@ -127,6 +129,9 @@ const routes: AnyRoute[] = [
     printerRoute(`/printers/${kind}/new`, page),
     printerRoute(`/printers/${kind}/$id/edit`, page),
   ]),
+  printerRoute("/printers/accessories/new", AccessoryCreatePage),
+  printerRoute("/printers/accessories/$id", AccessoryDetailPage),
+  printerRoute("/printers/accessories/$id/edit", AccessoryEditPage),
   printerRoute("/printers/$id", PrinterDetailPage),
   printerRoute("/printers/$id/edit", PrinterEditPage),
   createRoute({

@@ -88,6 +88,62 @@
     "delete": "Delete",
     "error": "Couldn't update notes."
   },
+  "accessories": {
+    "title": "Accessories",
+    "add": "Add accessory",
+    "table": "Accessories",
+    "empty": "No accessories yet. AMS units, hotends, enclosures and the like go here.",
+    "columns": {
+      "name": "Name",
+      "type": "Type",
+      "state": "State",
+      "printer": "Printer"
+    },
+    "form": {
+      "addTitle": "Add accessory",
+      "editTitle": "Edit accessory",
+      "type": "Type",
+      "typeHint": "e.g. AMS, Hotend, Enclosure",
+      "saveError": "Couldn't save the accessory.",
+      "numberTaken": "Another accessory already has this number."
+    },
+    "detail": {
+      "notFound": "This accessory doesn't exist.",
+      "archiveTitle": "Archive this accessory?",
+      "archiveBody": "It disappears from the list, but its install history is kept. You can restore it later.",
+      "installedError": "Remove it from its printer first.",
+      "printer": "On printer",
+      "notInstalled": "Not installed"
+    },
+    "history": {
+      "title": "Install history",
+      "empty": "Never installed.",
+      "period": "{{from}} – {{to}}",
+      "current": "now",
+      "delete": "Delete record",
+      "deleteTitle": "Delete this record?",
+      "deleteBody": "The install period is removed from the history. This can't be undone."
+    },
+    "onPrinter": {
+      "empty": "No accessories on this printer.",
+      "since": "Since {{date}}",
+      "install": "Add accessory",
+      "installTitle": "Add an accessory",
+      "installBody": "Pick an accessory that isn't on a printer, and the day it was installed.",
+      "installConfirm": "Add",
+      "noneFree": "Every accessory is on a printer. Create a new one first.",
+      "accessory": "Accessory",
+      "installedAt": "Installed on",
+      "remove": "Remove",
+      "removeLabel": "Remove {{name}}",
+      "removeTitle": "Remove {{name}}?",
+      "removeBody": "It stays in the history with this removal date.",
+      "removedAt": "Removed on",
+      "overlap": "It was on a printer during that period. Pick another date.",
+      "badDates": "The removal can't be before the install.",
+      "error": "That didn't work. Try again."
+    }
+  },
   "catalog": {
     "notFound": "This entry doesn't exist.",
     "delete": "Delete",

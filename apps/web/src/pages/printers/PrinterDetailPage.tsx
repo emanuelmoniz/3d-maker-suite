@@ -26,9 +26,10 @@ import {
   useUploadPhoto,
 } from "../../lib/printers.ts";
 import { Comments } from "./Comments.tsx";
+import { PrinterAccessories } from "./PrinterAccessories.tsx";
 import { StateBadge } from "./StateBadge.tsx";
 
-function Info({ label, children }: { label: string; children: ReactNode }) {
+export function Info({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div>
       <dt className="text-muted">{label}</dt>
@@ -37,7 +38,7 @@ function Info({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
-const linkButton =
+export const linkButton =
   "inline-flex h-9 items-center justify-center whitespace-nowrap rounded-md border border-border bg-surface px-3 font-medium hover:bg-surface-2";
 
 export function PrinterDetailPage() {
@@ -223,7 +224,9 @@ export function PrinterDetailPage() {
           )}
         </section>
 
-        <Comments printerId={id} />
+        <PrinterAccessories printerId={id} />
+
+        <Comments base={`/api/printers/${id}`} />
       </div>
     </>
   );

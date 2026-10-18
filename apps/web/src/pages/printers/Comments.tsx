@@ -1,4 +1,3 @@
-import type { PrinterComment } from "@3d-maker-suite/core";
 import { CircleCheck, Pin, PinOff, RotateCcw, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
@@ -6,24 +5,25 @@ import { FormField, inputClass } from "../../components/FormField.tsx";
 import { cx } from "../../lib/cx.ts";
 import { formatDateTime } from "../../lib/format.ts";
 import {
+  type Note,
   useAddComment,
   useComments,
   useDeleteComment,
   usePatchComment,
 } from "../../lib/printers.ts";
 
-/** Notes timeline for one printer: pinned first, then newest first (the API orders it). */
-export function Comments({ printerId }: { printerId: string }) {
+/** Notes timeline of a printer or accessory (`base` = its API path), pinned first, then newest first. */
+export function Comments({ base }: { base: string }) {
   const { t } = useTranslation();
-  const { data } = useComments(printerId);
-  const add = useAddComment(printerId);
-  const patch = usePatchComment(printerId);
-  const remove = useDeleteComment(printerId);
+  const { data } = useComments(base);
+  const add = useAddComment(base);
+  const patch = usePatchComment(base);
+  const remove = useDeleteComment(base);
   const failed = add.isError || patch.isError || remove.isError;
 
-  const row = (c: PrinterComment) => {
+  const row = (c: Note) => {
     const resolved = c.status === "resolved";
-    const toggle = (p: { pinned?: boolean; status?: PrinterComment["status"] }) =>
+    const toggle = (p: { pinned?: boolean; status?: Note["status"] }) =>
       patch.mutate({ commentId: c.id, patch: p });
     return (
       <li
