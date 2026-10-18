@@ -153,6 +153,7 @@ export const accessoriesRoutes =
             type: accessories.type,
             state: accessories.state,
             printer: sql`(SELECT ${printerLabel} FROM ${printers} WHERE ${printers.id} = ${currentPrinter})`,
+            powerW: accessories.powerW,
             createdAt: accessories.createdAt,
           },
           dateColumn: accessories.createdAt,
@@ -161,6 +162,7 @@ export const accessoriesRoutes =
             type: accessories.type,
             state: accessories.state,
             printerId: currentPrinter,
+            powerW: accessories.powerW,
           },
           where: [
             taggedWith(db, "accessory", accessories.id, req.query.tagId),

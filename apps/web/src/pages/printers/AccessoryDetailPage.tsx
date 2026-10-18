@@ -142,6 +142,11 @@ export function AccessoryDetailPage() {
                 )}
               </Info>
               <Info label={t("printers:detail.info.serial")}>{accessory.serial ?? none}</Info>
+              <Info label={t("printers:detail.info.power")}>
+                {accessory.powerW === null
+                  ? none
+                  : t("printers:detail.info.powerValue", { value: accessory.powerW })}
+              </Info>
               <Info label={t("printers:detail.info.purchased")}>
                 {accessory.purchasedAt ? formatDate(accessory.purchasedAt) : none}
               </Info>

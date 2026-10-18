@@ -295,6 +295,13 @@
       "when": 1792339643538,
       "tag": "0041_accessory_photos_tags",
       "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "6",
+      "when": 1792340207286,
+      "tag": "0042_accessory_power",
+      "breakpoints": true
     }
   ]
 }

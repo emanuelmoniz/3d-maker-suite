@@ -152,6 +152,8 @@ export const accessorySchema = z.object({
   warrantyNotes: z.string().nullable(),
   /** One of `Preferences.printerStates`. */
   state: z.string().min(1),
+  /** Typical draw while in use. */
+  powerW: z.number().int().nonnegative().nullable(),
   /** Relative to the data directory. */
   photoPath: z.string().nullable(),
   archivedAt: isoDate.nullable(),

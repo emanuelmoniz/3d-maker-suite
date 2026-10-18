@@ -43,6 +43,9 @@ describe("accessories", () => {
     );
     expect((await req("GET", "/api/accessories/types")).json()).toEqual(["AMS", "Hotend"]);
     expect((await req("GET", "/api/accessories?name=01-ams")).json().items).toHaveLength(1);
+    expect((await req("PATCH", `/api/accessories/${a.id}`, { powerW: 25 })).json().powerW).toBe(25);
+    expect((await req("GET", "/api/accessories?powerW=20..30")).json().items).toHaveLength(1);
+    expect((await req("GET", "/api/accessories?sort=-powerW")).json().items[0].id).toBe(a.id);
 
     expect((await req("DELETE", `/api/accessories/${a.id}`)).statusCode).toBe(204);
     expect((await req("GET", "/api/accessories")).json().total).toBe(1);

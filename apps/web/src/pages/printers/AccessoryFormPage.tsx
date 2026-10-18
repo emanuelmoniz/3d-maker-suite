@@ -46,6 +46,7 @@ function AccessoryForm({ accessory }: { accessory?: Accessory }) {
       type: text(f, "type"),
       serial: orNull(text(f, "serial")),
       state: text(f, "state"),
+      powerW: text(f, "powerW") ? Math.round(Number(text(f, "powerW"))) : null,
       purchasedAt: date(text(f, "purchasedAt")),
       purchasePrice: text(f, "purchasePrice")
         ? Math.round(Number(text(f, "purchasePrice")) * 100)
@@ -133,6 +134,19 @@ function AccessoryForm({ accessory }: { accessory?: Accessory }) {
             options={[...new Set([...states, ...(accessory ? [accessory.state] : [])])].map(
               (s) => ({ value: s, label: stateLabel(s) }),
             )}
+          />
+        )}
+      </FormField>
+      <FormField label={t("printers:form.power")}>
+        {(p) => (
+          <input
+            {...p}
+            name="powerW"
+            type="number"
+            min={0}
+            step={1}
+            className={inputClass}
+            defaultValue={accessory?.powerW ?? ""}
           />
         )}
       </FormField>

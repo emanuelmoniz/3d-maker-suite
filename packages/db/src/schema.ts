@@ -260,6 +260,7 @@ export const accessories = sqliteTable(
     warrantyNotes: text(),
     // One of the `printerStates` preference, checked by the API like printers.
     state: text().notNull().default("working"),
+    powerW: integer(),
     photoPath: text(),
     archivedAt: text(),
     ...timestamps,

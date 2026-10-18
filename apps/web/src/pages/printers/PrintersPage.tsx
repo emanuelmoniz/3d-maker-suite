@@ -233,6 +233,17 @@ function AccessoriesTable() {
                 filter: "printerId",
                 filterOptions: printers.map((p) => ({ value: p.id, label: printerName(t, p) })),
               },
+              {
+                id: "power",
+                header: t("printers:list.columns.power"),
+                numeric: true,
+                cell: (a) =>
+                  a.powerW === null
+                    ? ""
+                    : t("printers:detail.info.powerValue", { value: a.powerW }),
+                sort: "powerW",
+                filter: "powerW",
+              },
             ]}
           />
         )

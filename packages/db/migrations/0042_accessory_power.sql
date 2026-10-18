@@ -1,0 +1,1 @@
+ALTER TABLE `accessories` ADD `power_w` integer;

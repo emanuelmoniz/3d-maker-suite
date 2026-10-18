@@ -17,6 +17,7 @@ export const accessoryInputSchema = accessorySchema
     warrantyEndsAt: true,
     warrantyNotes: true,
     state: true,
+    powerW: true,
   })
   .partial({
     number: true,
@@ -26,6 +27,7 @@ export const accessoryInputSchema = accessorySchema
     warrantyEndsAt: true,
     warrantyNotes: true,
     state: true,
+    powerW: true,
   });
 export const accessoryPatchSchema = accessoryInputSchema
   .partial()
@@ -39,7 +41,14 @@ export const installInputSchema = accessoryInstallSchema
 /** Take it off (or correct the removal date). */
 export const installPatchSchema = z.object({ removedAt: accessoryInstallSchema.shape.installedAt });
 
-export const accessorySortFields = ["name", "type", "state", "printer", "createdAt"] as const;
+export const accessorySortFields = [
+  "name",
+  "type",
+  "state",
+  "printer",
+  "powerW",
+  "createdAt",
+] as const;
 
 /** Accessories table column filters (see `listQuery`). */
 export const accessoryFilters = {
@@ -48,6 +57,7 @@ export const accessoryFilters = {
   state: { kind: "select" },
   printerId: { kind: "select" },
   tagId: { kind: "select" },
+  powerW: { kind: "number" },
 } as const satisfies Record<string, ColumnFilter>;
 
 export type AccessoryInput = z.infer<typeof accessoryInputSchema>;
