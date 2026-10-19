@@ -63,12 +63,12 @@ test("orders: create, statuses, prints from both sides, project and client pages
   // Listed on its project's and its client's pages.
   await page.goto(`/projects/${lamp.id}`);
   await expect(
-    page.getByRole("table", { name: "Orders" }).getByRole("link", { name: "Order 001" }),
+    page.getByRole("table", { name: "Orders" }).getByRole("link", { name: "001", exact: true }),
   ).toBeVisible();
   await page.getByRole("table", { name: "Orders" }).getByRole("link", { name: "Ana" }).click();
   await expect(page.getByRole("heading", { name: "Ana" })).toBeVisible();
   await expect(
-    page.getByRole("table", { name: "Orders" }).getByRole("link", { name: "Order 001" }),
+    page.getByRole("table", { name: "Orders" }).getByRole("link", { name: "001", exact: true }),
   ).toBeVisible();
 });
 

@@ -59,7 +59,8 @@ export function OrdersTable({
           header: t("orders:list.columns.number"),
           cell: (o) => (
             <Link to="/orders/$id" params={{ id: o.id }} className="font-medium hover:underline">
-              {orderName(t, o)}
+              {/* The column header already says "Order". */}
+              {String(o.number).padStart(3, "0")}
             </Link>
           ),
           sort: "number",
