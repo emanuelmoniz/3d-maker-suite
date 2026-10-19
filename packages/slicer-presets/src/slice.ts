@@ -97,9 +97,15 @@ export function cliSlicer(timeoutMs = TIMEOUT_MS): Slicer {
       const out = await mkdtemp(join(tmpdir(), "3dms-slice-"));
       try {
         const args = ["--slice", String(req.plate), "--outputdir", out, "--export-3mf", "out.3mf"];
-        const wantsFilament = req.filaments?.some(Boolean);
         const own = await presetsOf(req.file);
-        const machine = own.machine;
+        // Another printer than the file's: its machine preset, and the file's printer edits don't
+        // apply. ponytail: system presets only (ADR-0007: the CLI refuses user machine presets).
+        const [machineScope, otherMachine] = req.machine?.split(/\/(.*)/) ?? [];
+        if (req.machine && (machineScope !== "system" || !req.process))
+          throw failed(`Can't slice for printer preset ${req.machine}`);
+        const machine = otherMachine ?? own.machine;
+        // Every slot needs a filament made for another printer, so then all are passed.
+        const wantsFilament = req.filaments?.some(Boolean) || !!otherMachine;
 
         if (req.process) {
           const machines = await systemPresets(configDir, "machine");
@@ -125,7 +131,7 @@ export function cliSlicer(timeoutMs = TIMEOUT_MS): Slicer {
             machineCopy,
             JSON.stringify({
               ...(await machines.flatten(machinePreset, machineFile)),
-              ...own.machineEdits,
+              ...(otherMachine ? {} : own.machineEdits),
             }),
           );
           const procCopy = join(out, "process.json");
@@ -140,7 +146,8 @@ export function cliSlicer(timeoutMs = TIMEOUT_MS): Slicer {
           args.push("--load-settings", `${machineCopy};${procCopy}`);
         }
 
-        if (wantsFilament && req.filaments) {
+        if (wantsFilament) {
+          const picked = req.filaments ?? [];
           const fils = await systemPresets(configDir, "filament");
           /** System ids drop the " @BBL A1" suffix: the variant made for this machine, else any. */
           const variantOf = async (base: string) => {
@@ -158,18 +165,20 @@ export function cliSlicer(timeoutMs = TIMEOUT_MS): Slicer {
           // Every slot gets a file: with fewer than the project has, the CLI turns the prime tower
           // off (purges then go elsewhere and the grams are wrong). Unpicked slots keep the 3MF's.
           const files: string[] = [];
-          const slots = Math.max(req.filaments.length, own.filaments.length);
+          const slots = Math.max(picked.length, own.filaments.length);
           for (let i = 0; i < slots; i++) {
-            const id = req.filaments[i];
+            const id = picked[i];
             const [scope, name = ""] = id ? id.split(/\/(.*)/) : ["file", own.filaments[i] ?? ""];
             const file =
               scope === "user"
                 ? await userFile(configDir, "filament", name)
                 : scope === "system"
                   ? await variantOf(name)
-                  : (fils.systemFiles.get(name) ??
-                    (await userFile(configDir, "filament", name)) ??
-                    (await variantOf(baseName(name))));
+                  : otherMachine
+                    ? await variantOf(baseName(name)) // the file's is made for its own printer
+                    : (fils.systemFiles.get(name) ??
+                      (await userFile(configDir, "filament", name)) ??
+                      (await variantOf(baseName(name))));
             const preset = file && (await readJson(file));
             if (!preset) throw failed(`Filament preset not found: ${name}`);
             const copy = join(out, `filament_${files.length + 1}.json`);

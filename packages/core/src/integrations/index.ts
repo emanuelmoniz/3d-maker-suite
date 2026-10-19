@@ -118,6 +118,11 @@ export interface SliceRequest {
   file: string;
   /** 1-based. */
   plate: number;
+  /**
+   * Machine preset of another printer than the 3MF's; unset = keep the 3MF's. Comes with a
+   * `process`, since the file's own is made for its printer.
+   */
+  machine?: string;
   /** Process preset; unset = keep the 3MF's. */
   process?: string;
   /** Filament preset per slot (index 0 = slot 1); null = keep the 3MF's. */

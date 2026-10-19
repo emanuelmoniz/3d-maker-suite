@@ -62,8 +62,11 @@
     "hint": "From the sliced plate, on {{printer}}, with the average filament price per material.",
     "hintNoPrinter": "From the sliced plate, with the average filament price per material. Add a printer to include energy and wear.",
     "onePrint": "Estimated cost of one print",
-    "onePrintHint": "From the sliced plates, on {{printer}}, with the chosen filaments' prices (else the average per material).",
-    "onePrintHintNoPrinter": "From the sliced plates, with the chosen filaments' prices (else the average per material). Add a printer to include energy and wear.",
-    "partial": "{{sliced}} of {{total}} plates are sliced; the estimate only counts those."
+    "onePrintHint": "From the sliced plates, on {{printer}}, with the chosen spools' or filaments' prices (else the average per material).",
+    "onePrintHintNoPrinter": "From the sliced plates, with the chosen spools' or filaments' prices (else the average per material). Add a printer to include energy and wear.",
+    "partial": "{{sliced}} of {{total}} plates are sliced; the estimate only counts those.",
+    "onePrintHintPrinters": "From the sliced plates, each on its own printer, with the chosen spools' or filaments' prices (else the average per material).",
+    "spoolUsage": "{{spool}} – usage {{weight}}",
+    "materialUsage": "Total {{material}} usage {{weight}}"
   }
 }

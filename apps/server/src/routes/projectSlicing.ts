@@ -14,13 +14,9 @@ import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
 import { type Fingerprint, fingerprint, stateOf } from "../projects/fingerprint.ts";
-import {
-  effectivePrintProfile,
-  type SliceQueue,
-  sliceIntegration,
-} from "../projects/sliceQueue.ts";
+import { plateResolver, type SliceQueue, sliceIntegration } from "../projects/sliceQueue.ts";
 
-const { filamentProfiles, printProfiles, projectSlicePlates, projects } = schema;
+const { filamentProfiles, printers, printProfiles, projectSlicePlates, projects, spools } = schema;
 const params = z.object({ id: z.uuid() });
 type Row = typeof projectSlicePlates.$inferSelect;
 
@@ -55,7 +51,7 @@ export const projectSlicingRoutes =
         .where(eq(projectSlicePlates.projectId, id))
         .orderBy(projectSlicePlates.file, projectSlicePlates.plate)
         .all();
-      const effective = effectivePrintProfile(db);
+      const resolve = plateResolver(db);
       // Taken with the rows, before any await: a job that ends meanwhile has already written them.
       const jobs = rows.map((r) => queue.state({ projectId: id, file: r.file, plate: r.plate }));
       // One stat (and at most one hash) per file, however many plates it has.
@@ -83,19 +79,24 @@ export const projectSlicingRoutes =
                     slicedAt: r.slicedAt,
                   }
                 : null;
+            const { profileId } = resolve(
+              r,
+              meta.models.find((m) => m.file === r.file),
+            );
             return {
               file: r.file,
               plate: r.plate,
+              printerId: r.printerId,
               printProfileId: r.printProfileId,
+              useDefaultPrintProfile: r.useDefaultPrintProfile,
               filaments: r.filaments,
+              spools: r.spools,
               state,
               result,
               error: r.sliceError,
               needsSlicing:
                 state !== "missing" &&
-                (!result ||
-                  state === "outdated" ||
-                  r.slicedPrintProfileId !== effective(r.printProfileId)),
+                (!result || state === "outdated" || r.slicedPrintProfileId !== profileId),
               job: jobs[i] ?? null,
             };
           }),
@@ -125,7 +126,10 @@ export const projectSlicingRoutes =
         for (const p of plates)
           if (!meta.models.find((m) => m.file === p.file)?.plates.some((x) => x.index === p.plate))
             throw new HttpError(400, "invalid_reference", `Unknown plate ${p.plate} of ${p.file}`);
-        const known = (table: typeof printProfiles | typeof filamentProfiles, ids: string[]) =>
+        const known = (
+          table: typeof printProfiles | typeof filamentProfiles | typeof printers,
+          ids: string[],
+        ) =>
           new Set(
             ids.length
               ? db
@@ -142,6 +146,46 @@ export const projectSlicingRoutes =
         const filaments = known(filamentProfiles, filamentIds);
         if (printIds.some((i) => !prints.has(i)) || filamentIds.some((i) => !filaments.has(i)))
           throw new HttpError(400, "invalid_reference", "Unknown profile");
+        const printerIds = plates.flatMap((p) => (p.printerId ? [p.printerId] : []));
+        const printerSet = known(printers, printerIds);
+        if (printerIds.some((i) => !printerSet.has(i)))
+          throw new HttpError(400, "invalid_reference", "Unknown printer");
+        const spoolIds = [
+          ...new Set(plates.flatMap((p) => p.spools.filter((s): s is string => !!s))),
+        ];
+        const spoolProfile = new Map(
+          spoolIds.length
+            ? db
+                .select({ id: spools.id, profileId: spools.profileId })
+                .from(spools)
+                .where(inArray(spools.id, spoolIds))
+                .all()
+                .map((s) => [s.id, s.profileId])
+            : [],
+        );
+        if (spoolIds.some((i) => !spoolProfile.has(i)))
+          throw new HttpError(400, "invalid_reference", "Unknown spool");
+
+        // Stored fully resolved, so the projects list can tell in SQL what a plate slices with:
+        // the printer filled in, a printer that isn't the file's on its default profile, and a
+        // picked spool's profile in `filaments`.
+        const resolve = plateResolver(db);
+        const stored = plates.map((p) => {
+          const model = meta.models.find((m) => m.file === p.file);
+          const { printer, fits } = resolve(p, model);
+          const filaments = [...p.filaments];
+          p.spools.forEach((s, i) => {
+            if (!s) return;
+            while (filaments.length <= i) filaments.push(null);
+            filaments[i] = spoolProfile.get(s) ?? null;
+          });
+          return {
+            ...p,
+            printerId: printer?.id ?? null,
+            useDefaultPrintProfile: !p.printProfileId && (p.useDefaultPrintProfile || !fits),
+            filaments,
+          };
+        });
 
         const fingerprints = new Map<string, Fingerprint>();
         for (const f of new Set(plates.map((p) => p.file))) {
@@ -158,17 +202,18 @@ export const projectSlicingRoutes =
           tx.delete(projectSlicePlates)
             .where(eq(projectSlicePlates.projectId, req.params.id))
             .run();
-          if (plates.length)
+          if (stored.length)
             tx.insert(projectSlicePlates)
               .values(
-                plates.map((p) => {
+                stored.map((p) => {
                   const fp = fingerprints.get(p.file) as Fingerprint;
-                  // Same file bytes and profiles: the last slice still holds.
+                  // Same file bytes, printer and profiles: the last slice still holds.
                   const was = old.find(
                     (o) =>
                       o.file === p.file &&
                       o.plate === p.plate &&
                       o.fileSha256 === fp.fileSha256 &&
+                      o.printerId === p.printerId &&
                       o.printProfileId === p.printProfileId &&
                       JSON.stringify(o.filaments) === JSON.stringify(p.filaments),
                   );

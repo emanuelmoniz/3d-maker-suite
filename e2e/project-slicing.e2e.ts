@@ -1,7 +1,7 @@
 import { appendFileSync, copyFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { expect, test } from "./fixtures.ts";
-import { pick, seedModel, seedProfile } from "./helpers.ts";
+import { pick, seedModel, seedProfile, seedSpool } from "./helpers.ts";
 
 type Plate = { index: number; name: string | null };
 
@@ -27,7 +27,7 @@ test("project slicing setup: defaults from the default printer, saves, reloads, 
     name: "0.20mm Standard",
     printerModelId: model.id,
   });
-  await app.api("POST", "/api/print-profiles", { name: "0.12mm Fine" });
+  await app.api("POST", "/api/print-profiles", { name: "0.12mm Fine", printerModelId: model.id });
   const printer = await app.api<{ id: string }>("POST", "/api/printers", {
     name: "Main",
     modelId: model.id,
@@ -41,7 +41,11 @@ test("project slicing setup: defaults from the default printer, saves, reloads, 
   const section = page.getByRole("region", { name: "Slicing setup" });
   await section.getByRole("checkbox", { name: /benchy\.3mf/ }).check();
   const printProfile = section.getByRole("combobox", { name: `Print profile for ${plateName}` });
-  await expect(printProfile).toHaveValue("Default (0.20mm Standard)");
+  // "Acme X1" isn't the A1 the file was made for: its default profile, and only its profiles.
+  await expect(section.getByRole("combobox", { name: `Printer for ${plateName}` })).toHaveValue(
+    /Main/,
+  );
+  await expect(printProfile).toHaveValue("Printer default (0.20mm Standard)");
 
   await pick(printProfile, "0.12mm Fine");
   const slot1 = section.getByRole("combobox", { name: `Filament for ${plateName}, slot 1` });
@@ -80,10 +84,17 @@ test("slicing a project with the mock slicer: results, estimate, list filter, re
     secrets: { token: "t" },
   });
   await app.api("PATCH", `/api/integrations/${mock.id}`, { slicerPath: process.execPath });
+  await seedSpool(app.api);
 
   await page.goto(`/projects/${project.id}`);
   const section = page.getByRole("region", { name: "Slicing setup" });
   await section.getByRole("checkbox", { name: /benchy\.3mf/ }).check();
+  // No printer: the file's own print profile, named after the 3MF's preset.
+  await expect(section.getByRole("combobox", { name: /^Print profile for/ })).toHaveValue(
+    "As saved in the file (0.20mm Standard @BBL A1)",
+  );
+  // Slot 1 from the spool (the first entry after "As saved in the file").
+  await pick(section.getByRole("combobox", { name: /, slot 1$/ }), 1);
   const slice = section.getByRole("button", { name: "Slice" });
   await expect(slice).toBeDisabled(); // save first
   await section.getByRole("button", { name: "Save setup" }).click();
@@ -95,6 +106,8 @@ test("slicing a project with the mock slicer: results, estimate, list filter, re
   await expect(section.getByText("Every plate is sliced and up to date.")).toBeVisible();
   await expect(slice).toBeDisabled();
   await expect(page.getByRole("heading", { name: "Estimated cost of one print" })).toBeVisible();
+  await expect(page.getByText(/^001-Basic #ff0000 – usage \d+ g$/)).toBeVisible();
+  await expect(page.getByText(/^Total PLA usage \d+ g$/)).toBeVisible();
 
   await page.goto("/projects?slicing=done");
   await expect(page.getByRole("link", { name: /Benchy/ }).first()).toBeVisible();

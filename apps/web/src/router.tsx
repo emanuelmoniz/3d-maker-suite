@@ -269,6 +269,7 @@ const routes: AnyRoute[] = [
           loadNamespace("prints"),
           loadNamespace("tags"),
           loadNamespace("costs"),
+          loadNamespace("filament"), // spool names in the slicing setup
         ]),
       component: component as () => ReactNode,
     }),

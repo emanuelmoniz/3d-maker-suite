@@ -40,6 +40,8 @@ export const projectModelSchema = z.object({
   file: z.string(),
   slicer: z.object({ name: z.string(), version: nullableText }).nullable(),
   printerModel: nullableText,
+  /** The print preset the file was saved with. Older scans lack it. */
+  printProfile: nullableText.default(null),
   nozzleDiameter: z.number().nullable(),
   sliced: z.boolean(),
   multicolor: z.boolean(),

@@ -1,12 +1,17 @@
 import {
+  type CostBreakdown,
   type CostContext,
   type CostRates,
   computeCost,
   estimateEnergyWh,
+  type FilamentProfile,
   type PlateSetup,
   type ProjectModel,
   type Quote,
   type QuoteInput,
+  type Spool,
+  spoolPricePerKg,
+  sumCosts,
 } from "@3d-maker-suite/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "./api.ts";
@@ -74,33 +79,57 @@ export function estimatePlate(plate: Plate, printerId: string | undefined, ctx: 
   );
 }
 
+export type SlicedEstimate = {
+  cost: CostBreakdown;
+  /** Grams per picked spool, over all plates, in the order first used. */
+  spools: { spool: Spool; grams: number }[];
+  /** Grams per material (upper case), spools or not. */
+  materials: { material: string; grams: number }[];
+};
+
 /**
- * One print of a project: its sliced plates back to back on one printer. A slot costs its chosen
- * filament profile's price, else the average for the material the slicer reports.
+ * One print of a project: its sliced plates, each on its own printer (else `fallbackPrinterId`).
+ * A slot costs its spool's price, else its filament profile's, else the material's average; its
+ * material is the spool's or profile's, else the one the slicer reports.
  */
 export function estimateSlicedPlates(
   plates: PlateSetup[],
-  printerId: string | undefined,
   ctx: CostContext,
-  profilePrice: (profileId: string) => number | null,
-) {
-  const { printer, rates } = printerRates(printerId, ctx);
-  const sliced = plates.flatMap((p) => (p.result ? [{ ...p, result: p.result }] : []));
-  const seconds = sliced.reduce((s, p) => s + p.result.printTimeSeconds, 0);
-  return computeCost(
-    {
-      durationSec: seconds,
-      energyWh: estimateEnergyWh(printer?.powerW ?? null, seconds),
-      filaments: sliced.flatMap((p) =>
-        p.result.filaments.map((f) => {
-          const chosen = p.filaments[f.slot - 1];
-          return {
-            grams: f.grams,
-            pricePerKg: (chosen && profilePrice(chosen)) || materialPrice(ctx, f.material),
-          };
-        }),
+  catalog: { spools: Spool[]; profiles: FilamentProfile[]; fallbackPrinterId?: string },
+): SlicedEstimate {
+  const spools = new Map<string, { spool: Spool; grams: number }>();
+  const materials = new Map<string, number>();
+  const costs = plates.flatMap((p) => {
+    if (!p.result) return [];
+    const { printer, rates } = printerRates(p.printerId ?? catalog.fallbackPrinterId, ctx);
+    const seconds = p.result.printTimeSeconds;
+    const filaments = p.result.filaments.map((f) => {
+      const spool = catalog.spools.find((s) => s.id === p.spools[f.slot - 1]);
+      const profileId = spool?.profileId ?? p.filaments[f.slot - 1];
+      const profile = catalog.profiles.find((x) => x.id === profileId);
+      const material = (profile?.material ?? f.material ?? "").toUpperCase();
+      if (spool) {
+        const seen = spools.get(spool.id) ?? { spool, grams: 0 };
+        spools.set(spool.id, { spool, grams: seen.grams + f.grams });
+      }
+      if (material) materials.set(material, (materials.get(material) ?? 0) + f.grams);
+      const own = profile && (spool ? spoolPricePerKg(spool, profile) : profile.pricePerKg);
+      return { grams: f.grams, pricePerKg: own ?? materialPrice(ctx, material) };
+    });
+    return [
+      computeCost(
+        {
+          durationSec: seconds,
+          energyWh: estimateEnergyWh(printer?.powerW ?? null, seconds),
+          filaments,
+        },
+        rates,
       ),
-    },
-    rates,
-  );
+    ];
+  });
+  return {
+    cost: sumCosts(costs),
+    spools: [...spools.values()],
+    materials: [...materials].map(([material, grams]) => ({ material, grams })),
+  };
 }

@@ -119,10 +119,8 @@
     "platesPicked_other": "{{count}} of {{total}} plates",
     "printProfile": "Print profile",
     "printProfileOf": "Print profile for {{plate}}",
-    "defaultProfile": "Default ({{name}})",
     "fromFile": "As saved in the file",
     "forThisPrinter": "For this file's printer",
-    "otherProfiles": "Other print profiles",
     "slot": "Slot {{slot}} · {{material}}",
     "filamentOf": "Filament for {{plate}}, slot {{slot}}",
     "state": {
@@ -149,7 +147,17 @@
       "not_allowed": "This file is outside your project folders.",
       "no_preset": "The print profile “{{detail}}” isn't one of the slicer's presets. Import it from the slicer, or pick another.",
       "slice_failed": "The slicer failed: {{detail}}",
-      "unknown": "The slicer failed. See the server log."
-    }
+      "unknown": "The slicer failed. See the server log.",
+      "no_machine_preset": "No printer preset for “{{detail}}”. Import its model's printer presets from the slicer (Settings > Integrations).",
+      "no_printer_profile": "The printer “{{detail}}” has no default print profile. Pick a print profile for this plate, or set one on the printer."
+    },
+    "printer": "Printer",
+    "printerOf": "Printer for {{plate}}",
+    "fromFileProfile": "As saved in the file ({{name}})",
+    "printerDefault": "Printer default ({{name}})",
+    "printerDefaultNone": "Printer default (none set)",
+    "spoolsGroup": "Spools",
+    "profilesGroup": "Filament profiles",
+    "spoolOption": "{{name}} · {{weight}} left"
   }
 }

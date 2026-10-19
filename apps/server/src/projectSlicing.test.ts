@@ -61,7 +61,17 @@ describe("project slicing setup", () => {
     const plate = { file: "benchy.3mf", plate: 1, printProfileId: profile.id, filaments: [null] };
     expect((await put([plate])).statusCode).toBe(200);
     expect((await app.inject(`/api/projects/${id}/slicing`)).json().plates).toEqual([
-      { ...plate, state: "ok", result: null, error: null, needsSlicing: true, job: null },
+      {
+        ...plate,
+        printerId: null, // no printers yet
+        useDefaultPrintProfile: false,
+        spools: [],
+        state: "ok",
+        result: null,
+        error: null,
+        needsSlicing: true,
+        job: null,
+      },
     ]);
 
     // Touched but the same bytes: still ok. Changed bytes: outdated. Gone: missing.
@@ -190,6 +200,103 @@ describe("slicing a project (mock slicer)", () => {
       error: "slice_failed: Nothing to be sliced (-50)",
       needsSlicing: true,
     });
+  });
+
+  it("slices for the plate's printer: the file's own settings, its default, or another model", async () => {
+    const post = async (url: string, payload: object) =>
+      (await app.inject({ method: "POST", url, payload })).json();
+    const brand = await post("/api/brands", { name: "Bambu Lab" });
+    // The fixture was saved for a "Bambu Lab A1" with a 0.4 mm nozzle.
+    const a1 = await post("/api/printer-models", { brandId: brand.id, model: "A1" });
+    const p1s = await post("/api/printer-models", { brandId: brand.id, model: "P1S" });
+    const std = await post("/api/print-profiles", {
+      name: "0.20 A1",
+      sourcePreset: "mock:system/0.20 A1",
+    });
+    const x1c = await post("/api/print-profiles", {
+      name: "0.20 X1C",
+      sourcePreset: "mock:system/0.20 X1C",
+    });
+    const mine = await post("/api/printers", {
+      name: "Mine",
+      modelId: a1.id,
+      state: "working",
+      printProfileId: std.id,
+    });
+    const other = await post("/api/printers", {
+      name: "Other",
+      modelId: p1s.id,
+      state: "working",
+      printProfileId: x1c.id,
+    });
+    const plate = { file: "benchy.3mf", plate: 1, printProfileId: null, filaments: [] };
+    const last = () => mock.sliced?.at(-1);
+
+    // No printer given: the one that fits the file. No profile: the file's own settings.
+    await put([plate]);
+    expect((await settled()).plates[0]).toMatchObject({ printerId: mine.id, needsSlicing: true });
+    await run();
+    await settled();
+    expect(last()?.process).toBeUndefined();
+    expect(last()?.machine).toBeUndefined();
+
+    // The printer's default profile.
+    await put([{ ...plate, printerId: mine.id, useDefaultPrintProfile: true }]);
+    await run();
+    await settled();
+    expect(last()).toMatchObject({ process: "system/0.20 A1" });
+
+    // Another model: its default profile, always, and its machine preset, which is missing yet.
+    await put([{ ...plate, printerId: other.id }]);
+    let s = await settled();
+    expect(s.plates[0]).toMatchObject({ useDefaultPrintProfile: true, result: null });
+    await run();
+    s = await settled();
+    expect(s.plates[0].error).toBe("no_machine_preset: Other");
+    await post("/api/machine-profiles", {
+      name: "Bambu Lab P1S 0.4 nozzle",
+      printerModelId: p1s.id,
+      sourcePreset: "mock:system/Bambu Lab P1S 0.4 nozzle",
+    });
+    await run();
+    s = await settled();
+    expect(s.plates[0]).toMatchObject({ error: null, needsSlicing: false });
+    expect(last()).toMatchObject({
+      machine: "system/Bambu Lab P1S 0.4 nozzle",
+      process: "system/0.20 X1C",
+    });
+    expect(await listSlicing("?slicing=done")).toHaveLength(1);
+
+    // Back to the first printer: a different slice, so the result is gone.
+    await put([{ ...plate, printerId: mine.id }]);
+    expect((await settled()).plates[0]).toMatchObject({ result: null, needsSlicing: true });
+  });
+
+  it("takes a spool's profile for its slot and keeps the slice when the spool changes", async () => {
+    const post = async (url: string, payload: object) =>
+      (await app.inject({ method: "POST", url, payload })).json();
+    const brand = await post("/api/filament-brands", { name: "Acme" });
+    const material = await post("/api/filament-materials", { name: "PLA" });
+    const profile = await post("/api/filament/profiles", {
+      brandId: brand.id,
+      materialId: material.id,
+      densityGcm3: 1.24,
+      name: "Basic",
+    });
+    const spool = (colorHex: string) =>
+      post("/api/filament/spools", { profileId: profile.id, colorHex, initialGrams: 1000 });
+    const red = await spool("#ff0000");
+    const blue = await spool("#0000ff");
+    const plate = { file: "benchy.3mf", plate: 1, printProfileId: null, filaments: [] };
+
+    expect((await put([{ ...plate, spools: [crypto.randomUUID()] }])).statusCode).toBe(400);
+    const saved = (await put([{ ...plate, spools: [red.id] }])).json();
+    expect(saved.plates[0]).toMatchObject({ spools: [red.id], filaments: [profile.id] });
+    await run();
+    await settled();
+    // Same profile, another spool: only the price changes, so no new slice.
+    await put([{ ...plate, spools: [blue.id] }]);
+    expect((await settled()).plates[0]).toMatchObject({ needsSlicing: false, spools: [blue.id] });
   });
 
   it("answers 409 without a slicer", async () => {

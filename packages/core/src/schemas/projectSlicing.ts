@@ -1,9 +1,10 @@
 import { z } from "zod";
+import { modelLabel } from "./catalog.ts";
 import { id, isoDate } from "./entities.ts";
 import { PRINT_MAX_SLOTS } from "./import.ts";
 
-// What a project prints: the plates picked per 3MF file, and per plate the print profile and the
-// filament profile per slot. Slicing (Step 14) turns this into time and grams per plate.
+// What a project prints: the plates picked per 3MF file, and per plate the printer, the print
+// profile and the filament (spool or profile) per slot. Slicing turns this into time and grams.
 
 /** `outdated`: the file changed on disk since the setup was saved. `missing`: file or plate is gone. */
 export const PLATE_STATES = ["ok", "outdated", "missing"] as const;
@@ -13,10 +14,18 @@ export const plateSetupInputSchema = z.object({
   file: z.string().min(1),
   /** 1-based, as `projectPlateSchema.index`. */
   plate: z.number().int().positive(),
-  /** Null = the default printer's print profile, else the one saved in the 3MF. */
+  /** The printer it slices for: its machine preset and cost rates. Null = `defaultSlicePrinter`. */
+  printerId: id.nullable().default(null),
+  /**
+   * The print profile. Null with `useDefaultPrintProfile` = the printer's default profile; null
+   * without = the one saved in the 3MF (only when the printer fits the file, see `printerFitsFile`).
+   */
   printProfileId: id.nullable(),
+  useDefaultPrintProfile: z.boolean().default(false),
   /** Filament profile per slot (index 0 = slot 1); null = the one saved in the 3MF. */
   filaments: z.array(id.nullable()).max(PRINT_MAX_SLOTS),
+  /** Spool per slot, for its price; the server fills `filaments` with its profile. */
+  spools: z.array(id.nullable()).max(PRINT_MAX_SLOTS).default([]),
 });
 
 export const projectSlicingInputSchema = z.object({
@@ -54,6 +63,31 @@ export const projectSlicingSchema = z.object({
   /** A slicer is set up (an integration with `slice` switched on). */
   canSlice: z.boolean(),
 });
+
+type SlicePrinter = { id: string; model: string; brand?: string | null; nozzleDiameterMm: number };
+type SliceFile = { printerModel: string | null; nozzleDiameter: number | null };
+
+/** The printer is the 3MF's: same model (and nozzle, when the file says), so its own settings fit. */
+export function printerFitsFile(printer: SlicePrinter, file: SliceFile): boolean {
+  const want = file.printerModel?.trim().toLowerCase();
+  if (!want) return false;
+  const names = [printer.model, modelLabel(printer.brand, printer.model)];
+  return (
+    names.some((n) => n.trim().toLowerCase() === want) &&
+    (file.nozzleDiameter == null || Math.abs(printer.nozzleDiameterMm - file.nozzleDiameter) < 1e-3)
+  );
+}
+
+/** A new plate's printer: one that fits the file (the default printer first), else the default. */
+export function defaultSlicePrinter<P extends SlicePrinter>(
+  printers: P[],
+  defaultPrinterId: string | null | undefined,
+  file: SliceFile,
+): P | undefined {
+  const fits = printers.filter((p) => printerFitsFile(p, file));
+  const preferred = (list: P[]) => list.find((p) => p.id === defaultPrinterId) ?? list[0];
+  return preferred(fits) ?? preferred(printers);
+}
 
 /** A project in the list: no plates picked, some need slicing, or all sliced and current. */
 export const PROJECT_SLICING = ["none", "needed", "done"] as const;

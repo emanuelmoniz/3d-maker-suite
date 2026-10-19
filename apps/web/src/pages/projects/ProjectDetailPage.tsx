@@ -17,14 +17,12 @@ import { Markdown } from "../../components/Markdown.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { plateKey, SliceSetup } from "../../components/SliceSetup.tsx";
 import { TagList } from "../../components/TagList.tsx";
-import { usePrintProfiles } from "../../lib/catalog.ts";
 import { estimatePlate, estimateSlicedPlates, type Plate, useCostContext } from "../../lib/cost.ts";
 import { cx } from "../../lib/cx.ts";
-import { useProfiles } from "../../lib/filament.ts";
+import { spoolName, useProfiles, useSpools } from "../../lib/filament.ts";
 import { formatDateTime, formatDuration, formatWeight } from "../../lib/format.ts";
 import { useAdapterName, useCapable } from "../../lib/integrations.ts";
 import { usePreferences } from "../../lib/preferences.ts";
-import { usePrinters } from "../../lib/printers.ts";
 import { printName, usePrintsOfProject } from "../../lib/prints.ts";
 import {
   projectFileUrl,
@@ -184,6 +182,8 @@ const SLICE_ERRORS: Record<string, string> = {
   no_slicer: "projects:slicing.error.no_slicer",
   not_allowed: "projects:slicing.error.not_allowed",
   no_preset: "projects:slicing.error.no_preset",
+  no_machine_preset: "projects:slicing.error.no_machine_preset",
+  no_printer_profile: "projects:slicing.error.no_printer_profile",
   slice_failed: "projects:slicing.error.slice_failed",
 };
 const sliceError = (t: TFunction, error: string) => {
@@ -234,15 +234,15 @@ function SlicingSetup({ project }: { project: Project }) {
   const slice = useSliceProject(project.id);
   const [draft, setDraft] = useState<PlateSetupInput[] | null>(null);
   const defaultId = usePreferences().data?.values.defaultPrinterId;
-  const printers = usePrinters({ archived: false }).data?.items ?? [];
-  const printer = printers.find((p) => p.id === defaultId) ?? printers[0];
-  const defaultProfile = usePrintProfiles().data?.find((p) => p.id === printer?.printProfileId);
   if (!project.meta.models.length || !saved) return null;
-  const stored = saved.plates.map(({ file, plate, printProfileId, filaments }) => ({
-    file,
-    plate,
-    printProfileId,
-    filaments,
+  const stored = saved.plates.map((p) => ({
+    file: p.file,
+    plate: p.plate,
+    printerId: p.printerId,
+    printProfileId: p.printProfileId,
+    useDefaultPrintProfile: p.useDefaultPrintProfile,
+    filaments: p.filaments,
+    spools: p.spools,
   }));
   const value = draft ?? stored;
   const dirty = draft !== null && JSON.stringify(draft) !== JSON.stringify(stored);
@@ -272,12 +272,14 @@ function SlicingSetup({ project }: { project: Project }) {
           label: m.file,
           plates: m.plates,
           printerModel: m.printerModel,
+          nozzleDiameter: m.nozzleDiameter,
+          printProfile: m.printProfile,
           thumbnailUrl: (entry) => projectFileUrl(project.id, m.file, entry),
         }))}
         value={value}
         onChange={setDraft}
         states={Object.fromEntries(saved.plates.map((p) => [plateKey(p), p.state]))}
-        defaultPrintProfile={defaultProfile ?? null}
+        defaultPrinterId={defaultId}
         disabled={save.isPending}
         plateInfo={(key) => {
           const p = byKey.get(key);
@@ -350,24 +352,49 @@ function SlicedEstimate({ id }: { id: string }) {
   const ctx = useCostContext().data;
   const defaultId = usePreferences().data?.values.defaultPrinterId;
   const profiles = useProfiles().data?.items ?? [];
+  const spools = useSpools().data?.items ?? [];
   const sliced = plates.filter((p) => p.result).length;
   if (!ctx || !sliced) return null;
-  const printer = ctx.printers.find((p) => p.id === defaultId) ?? ctx.printers[0];
-  const price = (pid: string) => profiles.find((p) => p.id === pid)?.pricePerKg ?? null;
+  const fallback = ctx.printers.find((p) => p.id === defaultId) ?? ctx.printers[0];
+  const used = new Set(plates.filter((p) => p.result).map((p) => p.printerId ?? fallback?.id));
+  const printer = used.size === 1 ? ctx.printers.find((p) => used.has(p.id)) : undefined;
+  const estimate = estimateSlicedPlates(plates, ctx, {
+    spools,
+    profiles,
+    fallbackPrinterId: fallback?.id,
+  });
+  const profileOf = (id: string) => profiles.find((p) => p.id === id);
   return (
     <div className="max-w-md rounded-lg border border-border bg-surface p-4">
       <h3 className="mb-1 font-medium">{t("costs:project.onePrint")}</h3>
       <p className="mb-2 text-muted">
         {printer
           ? t("costs:project.onePrintHint", { printer: printer.name })
-          : t("costs:project.onePrintHintNoPrinter")}
+          : used.size > 1
+            ? t("costs:project.onePrintHintPrinters")
+            : t("costs:project.onePrintHintNoPrinter")}
       </p>
       {sliced < plates.length && (
         <p className="mb-2 text-warn">
           {t("costs:project.partial", { sliced, total: plates.length })}
         </p>
       )}
-      <CostBreakdown cost={estimateSlicedPlates(plates, printer?.id, ctx, price)} />
+      <ul className="mb-3 space-y-1">
+        {estimate.spools.map(({ spool, grams }) => (
+          <li key={spool.id}>
+            {t("costs:project.spoolUsage", {
+              spool: spoolName(t, spool, profileOf(spool.profileId)),
+              weight: formatWeight(grams),
+            })}
+          </li>
+        ))}
+        {estimate.materials.map(({ material, grams }) => (
+          <li key={material} className="font-medium">
+            {t("costs:project.materialUsage", { material, weight: formatWeight(grams) })}
+          </li>
+        ))}
+      </ul>
+      <CostBreakdown cost={estimate.cost} />
     </div>
   );
 }

@@ -1,14 +1,17 @@
-import type {
-  FilamentProfile,
-  PlateSetupInput,
-  PlateState,
-  PrintProfile,
-  ProjectModel,
+import {
+  defaultSlicePrinter,
+  type FilamentProfile,
+  type PlateSetupInput,
+  type PlateState,
+  type ProjectModel,
+  printerFitsFile,
 } from "@3d-maker-suite/core";
 import { type ReactNode, useId } from "react";
 import { useTranslation } from "react-i18next";
 import { useModelInfo, usePrintProfiles } from "../lib/catalog.ts";
-import { useProfiles } from "../lib/filament.ts";
+import { spoolName, useProfiles, useSpools } from "../lib/filament.ts";
+import { formatWeight } from "../lib/format.ts";
+import { printerName, usePrinters } from "../lib/printers.ts";
 import { Combobox, type ComboOption } from "./Combobox.tsx";
 
 type Plate = ProjectModel["plates"][number];
@@ -18,8 +21,11 @@ export type SliceSetupFile = {
   path: string;
   label: string;
   plates: Plate[];
-  /** The printer model the 3MF was made for; its print profiles are listed first. */
+  /** The printer the 3MF was made for: a printer of that model (and nozzle) slices it as saved. */
   printerModel?: string | null;
+  nozzleDiameter?: number | null;
+  /** The print preset the 3MF was saved with, for the "as saved in the file" option. */
+  printProfile?: string | null;
   thumbnailUrl?: (thumbnail: string) => string;
 };
 
@@ -30,8 +36,8 @@ export type SliceSetupProps = {
   onChange: (next: PlateSetupInput[]) => void;
   /** By `plateKey`; from the server, so a changed file shows. */
   states?: Record<string, PlateState>;
-  /** What a plate without its own print profile uses ("Default (…)"). */
-  defaultPrintProfile: Pick<PrintProfile, "id" | "name"> | null;
+  /** Preferred for new plates when it fits the file, and when no printer does. */
+  defaultPrinterId: string | null | undefined;
   disabled?: boolean;
   /** Extra line under a picked plate's name (e.g. its slice result), by `plateKey`. */
   plateInfo?: (key: string) => ReactNode;
@@ -66,15 +72,32 @@ export function SliceSetup({
   value,
   onChange,
   states = {},
-  defaultPrintProfile,
+  defaultPrinterId,
   disabled,
   plateInfo,
 }: SliceSetupProps) {
   const { t } = useTranslation();
   const uid = useId();
   const printProfiles = usePrintProfiles().data ?? [];
-  const filaments = useProfiles().data?.items.filter((p) => !p.archivedAt) ?? [];
+  const allProfiles = useProfiles().data?.items ?? [];
+  const filaments = allProfiles.filter((p) => !p.archivedAt);
+  const spools = useSpools().data?.items ?? [];
   const models = useModelInfo();
+  // Printers with what `printerFitsFile` compares: the model's name and brand, and the nozzle.
+  const printers = (usePrinters({ archived: false }).data?.items ?? []).map((p) => {
+    const info = models.get(p.modelId ?? "");
+    return { ...p, model: info?.model.model ?? "", brand: info?.brand?.name ?? null };
+  });
+  type SlicePrinter = (typeof printers)[number];
+  const fileInfo = (f: SliceSetupFile) => ({
+    printerModel: f.printerModel ?? null,
+    nozzleDiameter: f.nozzleDiameter ?? null,
+  });
+  const printerOf = (f: SliceSetupFile, v: PlateSetupInput) =>
+    printers.find((p) => p.id === v.printerId) ??
+    defaultSlicePrinter(printers, defaultPrinterId, fileInfo(f));
+  const fitsFile = (f: SliceSetupFile, printer?: SlicePrinter) =>
+    !printer || printerFitsFile(printer, fileInfo(f));
   const byKey = new Map(value.map((v) => [plateKey(v), v]));
   const order = (next: PlateSetupInput[]) => {
     const rank = new Map(
@@ -84,55 +107,124 @@ export function SliceSetup({
     );
     return [...next].sort((a, b) => (rank.get(plateKey(a)) ?? 0) - (rank.get(plateKey(b)) ?? 0));
   };
-  const add = (file: string, plates: Plate[]) =>
-    plates.map((p) => ({
-      file,
+  // New plates: the printer that fits the file, the file's settings when it does, else its default.
+  const add = (f: SliceSetupFile, plates: Plate[]): PlateSetupInput[] => {
+    const printer = defaultSlicePrinter(printers, defaultPrinterId, fileInfo(f));
+    return plates.map((p) => ({
+      file: f.path,
       plate: p.index,
+      printerId: printer?.id ?? null,
       printProfileId: null,
+      useDefaultPrintProfile: !fitsFile(f, printer),
       filaments: defaultFilaments(p, filaments),
+      spools: [],
     }));
+  };
   const setFile = (f: SliceSetupFile, on: boolean) =>
     onChange(
       order([
         ...value.filter((v) => v.file !== f.path),
-        ...(on ? add(f.path, f.plates).map((v) => byKey.get(plateKey(v)) ?? v) : []),
+        ...(on ? add(f, f.plates).map((v) => byKey.get(plateKey(v)) ?? v) : []),
       ]),
     );
   const setPlate = (f: SliceSetupFile, p: Plate, on: boolean) =>
     onChange(
       order([
         ...value.filter((v) => plateKey(v) !== plateKey({ file: f.path, plate: p.index })),
-        ...(on ? add(f.path, [p]) : []),
+        ...(on ? add(f, [p]) : []),
       ]),
     );
   const patch = (key: string, change: Partial<PlateSetupInput>) =>
     onChange(value.map((v) => (plateKey(v) === key ? { ...v, ...change } : v)));
 
-  const printOptions = (printerModel?: string | null): ComboOption[] => {
-    const fits = (p: PrintProfile) =>
-      !!printerModel &&
-      models.get(p.printerModelId ?? "")?.model.model.toLowerCase() === printerModel.toLowerCase();
-    const option = (p: PrintProfile, group: string) => ({ value: p.id, label: p.name, group });
+  const printerOptions: ComboOption[] = printers.map((p) => ({
+    value: p.id,
+    label: printerName(t, p),
+  }));
+  // The printer decides: the file's own settings (only on the file's printer), the printer's
+  // default profile, then the profiles of its model (all of them without a printer).
+  const printOptions = (f: SliceSetupFile, v: PlateSetupInput): ComboOption[] => {
+    const printer = printerOf(f, v);
+    const ownDefault = printProfiles.find((p) => p.id === printer?.printProfileId);
+    const listed = printProfiles.filter(
+      (p) => !printer || p.printerModelId === printer.modelId || p.id === v.printProfileId,
+    );
     return [
-      {
-        value: "",
-        label: defaultPrintProfile
-          ? t("projects:slicing.defaultProfile", { name: defaultPrintProfile.name })
-          : t("projects:slicing.fromFile"),
-      },
-      ...printProfiles.filter(fits).map((p) => option(p, t("projects:slicing.forThisPrinter"))),
-      ...printProfiles
-        .filter((p) => !fits(p))
-        .map((p) => option(p, t("projects:slicing.otherProfiles"))),
+      ...(fitsFile(f, printer)
+        ? [
+            {
+              value: "",
+              label: f.printProfile
+                ? t("projects:slicing.fromFileProfile", { name: f.printProfile })
+                : t("projects:slicing.fromFile"),
+            },
+          ]
+        : []),
+      ...(printer
+        ? [
+            {
+              value: "default",
+              label: ownDefault
+                ? t("projects:slicing.printerDefault", { name: ownDefault.name })
+                : t("projects:slicing.printerDefaultNone"),
+            },
+          ]
+        : []),
+      ...listed.map((p) => ({
+        value: p.id,
+        label: p.name,
+        group: t("projects:slicing.forThisPrinter"),
+      })),
     ];
   };
-  const filamentOptions: ComboOption[] = [
+  const printValue = (v: PlateSetupInput) =>
+    v.printProfileId ?? (v.useDefaultPrintProfile ? "default" : "");
+  const setPrintProfile = (key: string, value: string) =>
+    patch(key, {
+      printProfileId: value === "" || value === "default" ? null : value,
+      useDefaultPrintProfile: value === "default",
+    });
+  const setPrinter = (f: SliceSetupFile, key: string, id: string) => {
+    const printer = printers.find((p) => p.id === id);
+    patch(key, {
+      printerId: id,
+      printProfileId: null,
+      useDefaultPrintProfile: !fitsFile(f, printer),
+    });
+  };
+
+  const profileOf = (id: string) => allProfiles.find((p) => p.id === id);
+  // Spools you can print from (and the one picked, whatever its state), then profiles.
+  const filamentOptions = (picked: (string | null)[]): ComboOption[] => [
     { value: "", label: t("projects:slicing.fromFile") },
+    ...spools
+      .filter((s) => (!s.archivedAt && s.status !== "empty") || picked.includes(s.id))
+      .map((s) => ({
+        value: `spool:${s.id}`,
+        label: t("projects:slicing.spoolOption", {
+          name: spoolName(t, s, profileOf(s.profileId)),
+          weight: formatWeight(s.remainingGrams),
+        }),
+        group: t("projects:slicing.spoolsGroup"),
+      })),
     ...filaments.map((p) => ({
       value: p.id,
       label: p.name || [p.brand, p.material].filter(Boolean).join(" "),
+      group: t("projects:slicing.profilesGroup"),
     })),
   ];
+  const setFilament = (key: string, v: PlateSetupInput, slot: number, value: string) => {
+    const filamentsNext = [...v.filaments];
+    const spoolsNext = [...v.spools];
+    while (filamentsNext.length < slot) filamentsNext.push(null);
+    while (spoolsNext.length < slot) spoolsNext.push(null);
+    const spool = value.startsWith("spool:")
+      ? spools.find((s) => s.id === value.slice(6))
+      : undefined;
+    spoolsNext[slot - 1] = spool?.id ?? null;
+    filamentsNext[slot - 1] = spool ? spool.profileId : value || null;
+    patch(key, { filaments: filamentsNext, spools: spoolsNext });
+  };
 
   if (!files.length) return <p className="text-muted">{t("projects:slicing.noFiles")}</p>;
   return (
@@ -203,14 +295,26 @@ export function SliceSetup({
                         <div className="grid min-w-0 flex-1 gap-2 sm:grid-cols-2">
                           <div>
                             <span aria-hidden className="mb-1 block text-sm text-muted">
+                              {t("projects:slicing.printer")}
+                            </span>
+                            <Combobox
+                              aria-label={t("projects:slicing.printerOf", { plate: name })}
+                              options={printerOptions}
+                              value={printerOf(f, setup)?.id ?? ""}
+                              disabled={disabled || !printers.length}
+                              onChange={(v) => setPrinter(f, key, v)}
+                            />
+                          </div>
+                          <div>
+                            <span aria-hidden className="mb-1 block text-sm text-muted">
                               {t("projects:slicing.printProfile")}
                             </span>
                             <Combobox
                               aria-label={t("projects:slicing.printProfileOf", { plate: name })}
-                              options={printOptions(f.printerModel)}
-                              value={setup.printProfileId ?? ""}
+                              options={printOptions(f, setup)}
+                              value={printValue(setup)}
                               disabled={disabled}
-                              onChange={(v) => patch(key, { printProfileId: v || null })}
+                              onChange={(v) => setPrintProfile(key, v)}
                             />
                           </div>
                           {p.filaments.map((slot) => (
@@ -236,15 +340,14 @@ export function SliceSetup({
                                   plate: name,
                                   slot: slot.slot,
                                 })}
-                                options={filamentOptions}
-                                value={setup.filaments[slot.slot - 1] ?? ""}
+                                options={filamentOptions(setup.spools)}
+                                value={
+                                  setup.spools[slot.slot - 1]
+                                    ? `spool:${setup.spools[slot.slot - 1]}`
+                                    : (setup.filaments[slot.slot - 1] ?? "")
+                                }
                                 disabled={disabled}
-                                onChange={(v) => {
-                                  const next = [...setup.filaments];
-                                  while (next.length < slot.slot) next.push(null);
-                                  next[slot.slot - 1] = v || null;
-                                  patch(key, { filaments: next });
-                                }}
+                                onChange={(v) => setFilament(key, setup, slot.slot, v)}
                               />
                             </div>
                           ))}

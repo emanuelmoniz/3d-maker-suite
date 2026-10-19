@@ -156,6 +156,11 @@ describe("parse3mf fixtures (saved without slicing)", () => {
     expect(info.plates[0]?.filaments.map((f) => f.slot)).toEqual([1, 2, 3, 4]);
   });
 
+  it("reads the print preset the file was saved with", async () => {
+    expect((await parse3mf(fixture("multi_color"))).printProfile).toBe("0.20mm Standard @BBL A1");
+    expect((await parse3mf(fixture("unsliced"))).printProfile).toBeNull();
+  });
+
   it("accepts a Uint8Array", async () => {
     const { readFile } = await import("node:fs/promises");
     const info = await parse3mf(await readFile(fixture("single_color")));

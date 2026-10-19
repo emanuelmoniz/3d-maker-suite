@@ -31,13 +31,13 @@ import { columnFilter, listPage, taggedWith } from "../lib/list.ts";
 import { assertNumberFree, nextNumber } from "../lib/numbers.ts";
 import { readPreferences } from "../lib/preferences.ts";
 import type { ProjectScanner } from "../projects/scanner.ts";
-import { effectivePrintProfile } from "../projects/sliceQueue.ts";
 
 const {
   projects,
   collectionProjects,
   printFilamentUsages,
   prints,
+  printers,
   projectSlicePlates: plates,
 } = schema;
 const params = z.object({ id: z.uuid() });
@@ -54,11 +54,13 @@ const isMulticolor = sql`case when json_extract(${projects.meta}, '$.multicolor'
 // Qualified: bare "id" / "meta" inside the subqueries would be the plate's.
 const projectId = sql`${projects}.${sql.identifier("id")}`;
 const projectMeta = sql`${projects}.${sql.identifier("meta")}`;
-const slicingOf = (defaultProfileId: string | null) => sql<ProjectListItem["slicing"]>`case
+// The print profile a plate slices with, as `plateResolver` (the PUT stores plates resolved).
+const plateProfile = sql`coalesce(${plates.printProfileId}, case when ${plates.useDefaultPrintProfile} then (select p.${sql.identifier("print_profile_id")} from ${printers} p where p.${sql.identifier("id")} = ${plates.printerId}) end)`;
+const slicing = sql<ProjectListItem["slicing"]>`case
   when not exists (select 1 from ${plates} where ${plates.projectId} = ${projectId}) then 'none'
   when exists (select 1 from ${plates} where ${plates.projectId} = ${projectId} and (
     ${plates.slicedAt} is null
-    or ${plates.slicedPrintProfileId} is not coalesce(${plates.printProfileId}, ${defaultProfileId})
+    or ${plates.slicedPrintProfileId} is not ${plateProfile}
     or exists (select 1 from json_each(${projectMeta}, '$.files') f
       where json_extract(f.value, '$.path') = ${plates.file}
         and json_extract(f.value, '$.size') != ${plates.fileSize})
@@ -123,7 +125,6 @@ export const projectsRoutes =
       },
       async (req) => {
         const { material } = req.query;
-        const slicing = slicingOf(effectivePrintProfile(db)(null));
         const page = listPage(db, projects, req.query, {
           sort: {
             // The name starts with the number: sorting by it sorts the name as shown.

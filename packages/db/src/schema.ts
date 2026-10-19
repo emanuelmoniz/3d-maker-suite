@@ -554,10 +554,15 @@ export const projectSlicePlates = sqliteTable(
     /** Relative to the project folder, `/` separators. */
     file: text().notNull(),
     plate: integer().notNull(),
-    // Null = the default printer's profile, else the 3MF's own.
+    /** The printer it slices for (machine preset and cost rates); null = picked by the server. */
+    printerId: text().references((): AnySQLiteColumn => printers.id, { onDelete: "set null" }),
+    // Null = the printer's default profile with `useDefaultPrintProfile`, else the 3MF's own.
     printProfileId: text().references(() => printProfiles.id, { onDelete: "set null" }),
+    useDefaultPrintProfile: integer({ mode: "boolean" }).notNull().default(false),
     // Filament profile id per slot; null = the 3MF's own. Not FKs: a deleted profile reads as null.
     filaments: text({ mode: "json" }).$type<(string | null)[]>().notNull().default([]),
+    /** Spool id per slot, for its price; its profile is also in `filaments`. Not FKs, as above. */
+    spools: text({ mode: "json" }).$type<(string | null)[]>().notNull().default([]),
     fileSize: integer().notNull(),
     fileMtimeMs: real().notNull(),
     fileSha256: text().notNull(),
