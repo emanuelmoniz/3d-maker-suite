@@ -142,6 +142,20 @@ describe("parse3mf fixtures (saved without slicing)", () => {
     expect(info.plates[0]?.multicolor).toBe(true);
   });
 
+  it("counts painted filaments as slots of the plate, even a sliver of a split triangle", async () => {
+    // Codes: "8" = slot 2; "1C" = slot 4 (3 + next nibble); "0C01" = split in two, slot 0 and 3.
+    const tri = (code?: string) =>
+      `<triangle v1="0" v2="1" v3="2"${code ? ` paint_color="${code}"` : ""}/>`;
+    const info = await parse3mf(
+      zipOf({
+        "3D/3dmodel.model": `<model><resources><object id="1"><components><component p:path="/3D/Objects/o.model" objectid="2"/></components></object></resources><build><item objectid="1"/></build></model>`,
+        "3D/Objects/o.model": `<model><resources><object id="2"><mesh><triangles>${tri()}${tri("8")}${tri("8")}${tri("1C")}${tri("0C01")}</triangles></mesh></object></resources></model>`,
+        "Metadata/model_settings.config": `<config><object id="1"><metadata key="extruder" value="1"/><part id="2" subtype="normal_part"/></object><plate><metadata key="plater_id" value="1"/><model_instance><metadata key="object_id" value="1"/></model_instance></plate></config>`,
+      }),
+    );
+    expect(info.plates[0]?.filaments.map((f) => f.slot)).toEqual([1, 2, 3, 4]);
+  });
+
   it("accepts a Uint8Array", async () => {
     const { readFile } = await import("node:fs/promises");
     const info = await parse3mf(await readFile(fixture("single_color")));

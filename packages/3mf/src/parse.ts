@@ -176,9 +176,9 @@ async function readBuild(zip: Zip): Promise<BuildItem[]> {
 }
 
 /** See `ThreeMfInfo.partColors`. `partSlot` is keyed `objectId/partId`. */
-async function partColors(zip: Zip, partSlot: Map<string, number | null>, filaments: string[]) {
+function partColors(build: BuildItem[], partSlot: Map<string, number | null>, filaments: string[]) {
   if (!partSlot.size) return [];
-  return (await readBuild(zip)).map((item) =>
+  return build.map((item) =>
     item.components.map((c) => {
       const slot = partSlot.get(`${item.object}/${c.id}`);
       return (slot && str(filaments[slot - 1])?.slice(0, 7)) || null;
@@ -230,6 +230,41 @@ export function paintState(code: string): number {
   return [...area].reduce((best, e) => (e[1] > best[1] ? e : best), [0, -1])[0];
 }
 
+/** Every state in a `paint_color` code, however small its share (see `paintState`). */
+function paintStates(code: string, into: Set<number>) {
+  const nibbles = [...code].reverse().map((c) => Number.parseInt(c, 16));
+  let pos = 0;
+  const next = () => nibbles[pos++] ?? 0;
+  const walk = () => {
+    const n = next();
+    const sides = n & 3;
+    if (!sides) into.add(n >> 2 === 3 ? 3 + next() : n >> 2);
+    else for (let i = 0; i <= sides; i++) walk();
+  };
+  walk();
+}
+
+/**
+ * Filament slots painted on each part (`path#id`). Reads the mesh files, but decodes each distinct
+ * code once. State 0 (not painted) is left out: those triangles print in the part's filament.
+ */
+async function paintedSlots(zip: Zip, build: BuildItem[]) {
+  const out = new Map<string, Set<number>>();
+  for (const path of new Set(build.flatMap((i) => i.components.map((c) => c.path)))) {
+    const text = await readText(zip, path);
+    if (!text?.includes("paint_color=")) continue;
+    for (const obj of text.matchAll(/<object id="([^"]+)"[\s\S]*?<\/object>/g)) {
+      const codes = new Set<string>();
+      for (const m of obj[0].matchAll(/paint_color="([0-9A-Fa-f]+)"/g)) codes.add(m[1] as string);
+      const slots = new Set<number>();
+      for (const c of codes) paintStates(c, slots);
+      slots.delete(0);
+      if (slots.size) out.set(`${path}#${obj[1]}`, slots);
+    }
+  }
+  return out;
+}
+
 /** Painted triangles of every part, for the viewer. Reads the mesh files, so call on demand. */
 export async function read3mfPaint(source: ThreeMfSource): Promise<ThreeMfPaint> {
   const zip = await openZip(source);
@@ -271,8 +306,8 @@ export async function read3mfPaint(source: ThreeMfSource): Promise<ThreeMfPaint>
 }
 
 /**
- * Parse a 3MF (Bambu Studio / Orca style metadata). Only small metadata entries are read;
- * mesh files are never loaded. Missing or malformed parts yield nulls/empty lists, not errors.
+ * Parse a 3MF (Bambu Studio / Orca style metadata). Reads the metadata entries, and the mesh
+ * files only when they hold painted colours (their slots count for the plate). Missing or malformed parts yield nulls/empty lists, not errors.
  * Throws only if the source is not a readable zip.
  */
 export async function parse3mf(source: ThreeMfSource): Promise<ThreeMfInfo> {
@@ -322,6 +357,16 @@ export async function parse3mf(source: ThreeMfSource): Promise<ThreeMfInfo> {
       if (!slots.size && objExtruder) slots.add(objExtruder);
       objects.set(String(o["@_id"]), { name: str(om.name), slots });
     }
+
+    // Painted triangles print in their own filaments (on printed parts; modifiers aren't printed).
+    const build = await readBuild(zip);
+    const painted = await paintedSlots(zip, build);
+    for (const item of build)
+      for (const c of item.components) {
+        const slots = painted.get(`${c.path}#${c.id}`);
+        if (!slots || partSlot.get(`${item.object}/${c.id}`) === null) continue;
+        for (const s of slots) objects.get(item.object)?.slots.add(s);
+      }
 
     const plates = new Map<number, ThreeMfPlate>();
     const plateFor = (index: number) => {
@@ -378,7 +423,7 @@ export async function parse3mf(source: ThreeMfSource): Promise<ThreeMfInfo> {
     }
 
     return {
-      partColors: await partColors(zip, partSlot, colors),
+      partColors: partColors(build, partSlot, colors),
       slicer: parseSlicer(head),
       printerModel: str(project.printer_model),
       nozzleDiameter: num((project.nozzle_diameter as unknown[] | undefined)?.[0]),
