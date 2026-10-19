@@ -425,3 +425,15 @@ export type Tagging = z.infer<typeof taggingSchema>;
 export type Collection = z.infer<typeof collectionSchema>;
 export type CollectionProject = z.infer<typeof collectionProjectSchema>;
 export type Alert = z.infer<typeof alertSchema>;
+
+export const clientSchema = z.object({
+  id,
+  name: z.string().min(1),
+  mobile: z.string().min(1),
+  /** VAT, mobile and email are unique when filled (email ignoring case). */
+  vat: z.string().nullable(),
+  email: z.string().nullable(),
+  address: z.string().nullable(),
+  notes: z.string().nullable(),
+  ...timestamps,
+});

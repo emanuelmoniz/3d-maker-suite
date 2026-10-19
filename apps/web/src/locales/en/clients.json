@@ -1,0 +1,33 @@
+{
+  "loadError": "Couldn't load clients. Is the server running?",
+  "list": {
+    "table": "Clients",
+    "add": "Add client",
+    "emptyTitle": "No clients yet",
+    "emptyBody": "Add the people and companies you print for.",
+    "columns": { "name": "Name", "mobile": "Mobile", "vat": "VAT", "email": "Email" }
+  },
+  "detail": {
+    "title": "Details",
+    "edit": "Edit",
+    "notFound": "Client not found.",
+    "none": "-"
+  },
+  "form": {
+    "addTitle": "Add client",
+    "editTitle": "Edit client",
+    "name": "Name",
+    "mobile": "Mobile",
+    "vat": "VAT",
+    "email": "Email",
+    "address": "Address",
+    "notes": "Notes",
+    "save": "Save",
+    "saveError": "Couldn't save the client.",
+    "taken": {
+      "vat": "Another client has this VAT.",
+      "mobile": "Another client has this mobile.",
+      "email": "Another client has this email."
+    }
+  }
+}

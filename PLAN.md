@@ -197,7 +197,7 @@ push the tag and confirm the pre-release is published.
 
 ## Phase 5 - Accounting
 
-### [ ] Step 16 - Clients
+### [x] Step 16 - Clients
 **Model:** Sonnet · **Effort:** Medium
 **Scope:** Clients module under Accounting: list, client page and form. Name and mobile are mandatory; VAT, email, address and notes are optional. VAT, mobile and email are unique when filled (email case-insensitive). The client page's quotes and orders tables come with Steps 17 and 19.
 **Done when:** clients can be created and edited; a duplicate shows an error on its field (i18n); e2e; tests pass.

@@ -758,3 +758,26 @@ export const importRuns = sqliteTable(
   },
   (t) => [check("import_runs_source_ck", oneOf(t.source, IMPORT_SOURCES))],
 );
+
+// Who quotes and orders are for. VAT, mobile and email are unique when filled (email ignoring
+// case); the API stores empty ones as null and maps a violation to `client_<field>_taken`.
+export const clients = sqliteTable(
+  "clients",
+  {
+    id: id(),
+    name: text().notNull(),
+    mobile: text().notNull(),
+    vat: text(),
+    email: text(),
+    address: text(),
+    notes: text(),
+    ...timestamps,
+  },
+  (t) => [
+    uniqueIndex("clients_vat_uq").on(t.vat).where(sql`${t.vat} IS NOT NULL`),
+    uniqueIndex("clients_mobile_uq").on(t.mobile),
+    uniqueIndex("clients_email_uq")
+      .on(sql`${t.email} COLLATE NOCASE`)
+      .where(sql`${t.email} IS NOT NULL`),
+  ],
+);

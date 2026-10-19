@@ -351,6 +351,13 @@
       "when": 1792409931406,
       "tag": "0049_big_fenris",
       "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "6",
+      "when": 1792416137222,
+      "tag": "0050_clients",
+      "breakpoints": true
     }
   ]
 }

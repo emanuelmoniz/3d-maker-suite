@@ -5,6 +5,9 @@ import { useTranslation } from "react-i18next";
 import { EmptyState } from "./components/EmptyState.tsx";
 import { loadNamespace } from "./i18n.ts";
 import { AlertsPage } from "./pages/alerts/AlertsPage.tsx";
+import { ClientDetailPage } from "./pages/clients/ClientDetailPage.tsx";
+import { ClientCreatePage, ClientEditPage } from "./pages/clients/ClientFormPage.tsx";
+import { ClientsPage } from "./pages/clients/ClientsPage.tsx";
 import { CostsPage } from "./pages/costs/CostsPage.tsx";
 import { FilamentBrandFormPage, FilamentMaterialFormPage } from "./pages/filament/CatalogForms.tsx";
 import { FilamentPage } from "./pages/filament/FilamentPage.tsx";
@@ -79,6 +82,7 @@ const built = [
   "/prints",
   "/projects",
   "/costs",
+  "/clients",
   "/stats",
   "/alerts",
 ];
@@ -280,6 +284,20 @@ const routes: AnyRoute[] = [
     loader: () => loadNamespace("costs"),
     component: CostsPage,
   }),
+  // "/clients/new" is declared before "/clients/$id" so it wins the match.
+  ...[
+    ["/clients", ClientsPage],
+    ["/clients/new", ClientCreatePage],
+    ["/clients/$id", ClientDetailPage],
+    ["/clients/$id/edit", ClientEditPage],
+  ].map(([path, component]) =>
+    createRoute({
+      getParentRoute: () => root,
+      path: path as string,
+      loader: () => loadNamespace("clients"),
+      component: component as () => ReactNode,
+    }),
+  ),
   createRoute({
     getParentRoute: () => root,
     path: "/stats",

@@ -11,6 +11,7 @@ import {
   Printer,
   Settings,
   Spool,
+  Users,
   Wrench,
 } from "lucide-react";
 
@@ -88,6 +89,12 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
         icon: Calculator,
         label: "nav:items.costs.label",
         description: "nav:items.costs.description",
+      },
+      {
+        to: "/clients",
+        icon: Users,
+        label: "nav:items.clients.label",
+        description: "nav:items.clients.description",
       },
     ],
   },
