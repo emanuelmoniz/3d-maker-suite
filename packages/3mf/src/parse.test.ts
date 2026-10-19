@@ -123,6 +123,25 @@ describe("parse3mf fixtures (saved without slicing)", () => {
     expect((await parse3mf(fixture("single_color"))).designTitle).toBeNull();
   });
 
+  it("counts a modifier's own filament as a slot of the plate, not a negative part's", async () => {
+    const part = (id: number, subtype: string, extruder?: number) =>
+      `<part id="${id}" subtype="${subtype}">${extruder ? `<metadata key="extruder" value="${extruder}"/>` : ""}</part>`;
+    const info = await parse3mf(
+      zipOf({
+        "3D/3dmodel.model": "<model><resources/></model>",
+        "Metadata/project_settings.config": JSON.stringify({
+          filament_type: ["PLA", "PLA", "PETG", "PLA"],
+        }),
+        "Metadata/model_settings.config": `<config><object id="1"><metadata key="extruder" value="1"/>${part(2, "normal_part")}${part(3, "modifier_part", 3)}${part(4, "modifier_part")}${part(5, "negative_part", 4)}</object><plate><metadata key="plater_id" value="1"/><model_instance><metadata key="object_id" value="1"/></model_instance></plate></config>`,
+      }),
+    );
+    expect(info.plates[0]?.filaments.map((f) => [f.slot, f.type])).toEqual([
+      [1, "PLA"],
+      [3, "PETG"],
+    ]);
+    expect(info.plates[0]?.multicolor).toBe(true);
+  });
+
   it("accepts a Uint8Array", async () => {
     const { readFile } = await import("node:fs/promises");
     const info = await parse3mf(await readFile(fixture("single_color")));

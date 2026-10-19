@@ -311,8 +311,13 @@ export async function parse3mf(source: ThreeMfSource): Promise<ThreeMfInfo> {
           `${o["@_id"]}/${p["@_id"]}`,
           sub && sub !== "normal_part" ? null : (e ?? objExtruder),
         );
+        // A modifier with its own filament prints what it overlaps in that colour (e.g. embossed
+        // text); negative parts and support blockers/enforcers print nothing.
+        if (sub === "modifier_part" && e) slots.add(e);
         if (sub && sub !== "normal_part") continue;
-        if (e) slots.add(e);
+        // A part without its own filament prints in the object's (as `partSlot` above).
+        const slot = e ?? objExtruder;
+        if (slot) slots.add(slot);
       }
       if (!slots.size && objExtruder) slots.add(objExtruder);
       objects.set(String(o["@_id"]), { name: str(om.name), slots });
