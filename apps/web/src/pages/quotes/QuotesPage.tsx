@@ -15,7 +15,6 @@ export function QuotesPage() {
         description={t("nav:items.quotes.description")}
         actions={
           <>
-            <SettingsLink module="quotes" />
             <Link
               to="/quotes/new"
               className="inline-flex h-9 items-center gap-2 whitespace-nowrap rounded-md bg-accent px-3 font-medium text-accent-fg hover:opacity-90"
@@ -23,6 +22,7 @@ export function QuotesPage() {
               <Plus className="size-4" aria-hidden />
               {t("costs:saved.new")}
             </Link>
+            <SettingsLink module="quotes" />
           </>
         }
       />
