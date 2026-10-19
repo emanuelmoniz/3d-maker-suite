@@ -43,6 +43,7 @@ import { healthRoutes } from "./routes/health.ts";
 import { importRoutes } from "./routes/import.ts";
 import { integrationsRoutes } from "./routes/integrations.ts";
 import { maintenanceRoutes } from "./routes/maintenance.ts";
+import { ordersRoutes } from "./routes/orders.ts";
 import { preferencesRoutes } from "./routes/preferences.ts";
 import { printersRoutes } from "./routes/printers.ts";
 import { printsRoutes } from "./routes/prints.ts";
@@ -122,6 +123,7 @@ export async function buildApp(
   await app.register(printersRoutes(db, dataDir), { prefix: "/api/printers" });
   await app.register(accessoriesRoutes(db, dataDir), { prefix: "/api/accessories" });
   await app.register(clientsRoutes(db), { prefix: "/api/clients" });
+  await app.register(ordersRoutes(db), { prefix: "/api/orders" });
   await app.register(brandsRoutes(db, dataDir), { prefix: "/api/brands" });
   await app.register(filamentBrandsRoutes(db, dataDir), { prefix: "/api/filament-brands" });
   await app.register(filamentMaterialsRoutes(db, dataDir), { prefix: "/api/filament-materials" });

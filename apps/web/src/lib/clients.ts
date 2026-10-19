@@ -8,7 +8,11 @@ export const useClients = (query: ListQuery) =>
   useListPage<Client>(["clients", "list"], "/api/clients", query);
 
 export const useClient = (id: string) =>
-  useQuery({ queryKey: ["clients", id], queryFn: () => api<Client>("GET", `/api/clients/${id}`) });
+  useQuery({
+    queryKey: ["clients", id],
+    queryFn: () => api<Client>("GET", `/api/clients/${id}`),
+    enabled: !!id,
+  });
 
 /** Create (no `id`) or patch, then refresh everything client-related. */
 export function useSaveClient(id?: string) {

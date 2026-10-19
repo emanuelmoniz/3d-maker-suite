@@ -11,11 +11,13 @@ import { TagPicker } from "../../components/TagPicker.tsx";
 import { isConflict, useCatalogItem, useMachineProfiles } from "../../lib/catalog.ts";
 import { spoolName, useProfiles, useSpools } from "../../lib/filament.ts";
 import { formatWeight } from "../../lib/format.ts";
+import { orderName, useOrders } from "../../lib/orders.ts";
 import { usePreferences } from "../../lib/preferences.ts";
 import { printerName, usePrinters } from "../../lib/printers.ts";
 import { estimateDuration, useCreatePrint, usePatchPrint, usePrint } from "../../lib/prints.ts";
 import { projectName, useProject, useProjects } from "../../lib/projects.ts";
 import { useTagEditor } from "../../lib/tags.ts";
+import { useProjectLeftPrompt } from "../orders/ProjectLeftPrompt.tsx";
 
 const text = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
 const OUTCOMES = {
@@ -43,6 +45,9 @@ function PrintForm({ print }: { print?: PrintDetail }) {
   const projects = [...active, ...(own && !active.some((p) => p.id === own.id) ? [own] : [])].sort(
     (a, b) => a.number - b.number,
   );
+  // ponytail: the newest 100 orders; a search if anyone keeps more open.
+  const orders = useOrders({ pageSize: "100" }).data?.items ?? [];
+  const projectLeft = useProjectLeftPrompt();
   const spools = useSpools().data?.items ?? [];
   const profiles = useProfiles().data?.items ?? [];
   const reasons = usePreferences().data?.values.failureReasons ?? [];
@@ -95,7 +100,7 @@ function PrintForm({ print }: { print?: PrintDetail }) {
       weight: formatWeight(s.remainingGrams),
     });
 
-  const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const f = new FormData(e.currentTarget);
     const hours = Number(text(f, "hours") || 0);
@@ -104,6 +109,7 @@ function PrintForm({ print }: { print?: PrintDetail }) {
       number: text(f, "number") ? Number(text(f, "number")) : undefined,
       printerId: text(f, "printer"),
       projectId: text(f, "project") || null,
+      orderId: text(f, "order") || null,
       machineProfileId: text(f, "machineProfile") || null,
       title: text(f, "title"),
       startedAt: new Date(text(f, "startedAt")).toISOString(),
@@ -117,14 +123,22 @@ function PrintForm({ print }: { print?: PrintDetail }) {
         .filter((r) => r.spoolId && Number(r.grams) > 0)
         .map((r, slot) => ({ spoolId: r.spoolId, grams: Number(r.grams), slot })),
     };
-    save.mutate(body, {
-      onSuccess: async (saved) => {
-        const { id } = saved as PrintDetail;
-        await tags.persist(id);
-        if (print) navigate({ to: "/prints/$id", params: { id } });
-        else navigate({ to: "/prints" });
-      },
-    });
+    // It leaves its order, or takes its project out of it: maybe the project goes too.
+    const left =
+      print?.orderId && (body.orderId !== print.orderId || body.projectId !== print.projectId)
+        ? { orderId: print.orderId, projectId: print.projectId }
+        : null;
+    const drop = left
+      ? await projectLeft.confirm(left.orderId, left.projectId, print?.id ?? "")
+      : false;
+    // mutateAsync, not mutate's callbacks: saving an edit remounts this form (see PrintEditPage),
+    // which would drop them.
+    const saved = (await save.mutateAsync(body).catch(() => null)) as PrintDetail | null;
+    if (!saved) return;
+    await tags.persist(saved.id);
+    if (drop && left?.projectId) await projectLeft.drop(left.orderId, left.projectId);
+    if (print) navigate({ to: "/prints/$id", params: { id: saved.id } });
+    else navigate({ to: "/prints" });
   };
 
   const totalGrams = rows.reduce((sum, r) => sum + (Number(r.grams) > 0 ? Number(r.grams) : 0), 0);
@@ -181,6 +195,21 @@ function PrintForm({ print }: { print?: PrintDetail }) {
             options={[
               { value: "", label: t(print ? "prints:form.noProject" : "prints:form.pickProject") },
               ...projects.map((pr) => ({ value: pr.id, label: projectName(t, pr) })),
+            ]}
+          />
+        )}
+      </FormField>
+      <FormField label={t("orders:printOrder.label")} hint={t("orders:printOrder.hint")}>
+        {(p) => (
+          <Combobox
+            // Options arrive after the form: remount so defaultValue applies.
+            key={orders.length}
+            {...p}
+            name="order"
+            defaultValue={print?.orderId ?? ""}
+            options={[
+              { value: "", label: t("orders:printOrder.none") },
+              ...orders.map((o) => ({ value: o.id, label: orderName(t, o) })),
             ]}
           />
         )}
@@ -383,6 +412,7 @@ function PrintForm({ print }: { print?: PrintDetail }) {
         </Button>
         <Button onClick={() => history.back()}>{t("common:actions.cancel")}</Button>
       </div>
+      {projectLeft.dialog}
     </form>
   );
 }

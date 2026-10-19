@@ -19,6 +19,7 @@
       "label": "Quotes",
       "description": "Prices for clients, from what each print costs."
     },
+    "orders": { "label": "Orders", "description": "Work agreed with clients and what it cost." },
     "clients": { "label": "Clients", "description": "People and companies you print for." },
     "stats": { "label": "Stats", "description": "Trends in time, material and spend." },
     "alerts": { "label": "Alerts", "description": "Things that need your attention." },

@@ -40,7 +40,10 @@ export const usePrint = (id: string) =>
     queryFn: () => api<PrintDetail>("GET", `/api/prints/${id}`),
   });
 
-/** Runs a mutation, then refreshes prints and spools (weights change with every print). */
+/**
+ * Runs a mutation, then refreshes prints and spools (weights change with every print) and orders
+ * (their prints' cost, and a linked print can add a project to its order).
+ */
 function useInvalidating<V, R = unknown>(fn: (v: V) => Promise<R>) {
   const qc = useQueryClient();
   return useMutation({
@@ -48,6 +51,7 @@ function useInvalidating<V, R = unknown>(fn: (v: V) => Promise<R>) {
     onSuccess: () =>
       Promise.all([
         qc.invalidateQueries({ queryKey: ["prints"] }),
+        qc.invalidateQueries({ queryKey: ["orders"] }),
         qc.invalidateQueries({ queryKey: ["filament"] }),
         qc.invalidateQueries({ queryKey: ["printers"] }),
       ]),

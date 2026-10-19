@@ -35,7 +35,16 @@ import {
   syncUsages,
 } from "../lib/prints.ts";
 
-const { machineProfiles, prints, printFilamentUsages, printers, projects, spools } = schema;
+const {
+  machineProfiles,
+  orderProjects,
+  orders,
+  prints,
+  printFilamentUsages,
+  printers,
+  projects,
+  spools,
+} = schema;
 const params = z.object({ id: z.uuid() });
 const notFound = { 404: apiErrorSchema };
 
@@ -74,15 +83,20 @@ export const printsRoutes =
       b: {
         printerId?: string;
         projectId?: string | null;
+        orderId?: string | null;
         machineProfileId?: string | null;
         failureReason?: string | null;
       },
       was?: string | null,
     ) => {
+      if (b.orderId && !b.projectId)
+        throw new HttpError(400, "print_project_required", "A print in an order needs a project");
       if (b.printerId && !db.select().from(printers).where(eq(printers.id, b.printerId)).get())
         throw new HttpError(400, "invalid_printer", "Printer not found");
       if (b.projectId && !db.select().from(projects).where(eq(projects.id, b.projectId)).get())
         throw new HttpError(400, "invalid_project", "Project not found");
+      if (b.orderId && !db.select().from(orders).where(eq(orders.id, b.orderId)).get())
+        throw new HttpError(400, "invalid_order", "Order not found");
       if (
         b.machineProfileId &&
         !db.select().from(machineProfiles).where(eq(machineProfiles.id, b.machineProfileId)).get()
@@ -98,6 +112,18 @@ export const printsRoutes =
           "invalid_failure_reason",
           `Unknown failure reason "${b.failureReason}"`,
         );
+    };
+
+    /** A print's project becomes one of its order's projects, if it wasn't already. */
+    const joinOrder = (
+      tx: Pick<Db, "insert">,
+      p: { orderId?: string | null; projectId?: string | null },
+    ) => {
+      if (p.orderId && p.projectId)
+        tx.insert(orderProjects)
+          .values({ orderId: p.orderId, projectId: p.projectId })
+          .onConflictDoNothing()
+          .run();
     };
 
     // Imported filament without a spool: assign one (books the ledger) or dismiss it.
@@ -233,6 +259,7 @@ export const printsRoutes =
             startedAt: prints.startedAt,
             printerId: prints.printerId,
             projectId: prints.projectId,
+            orderId: prints.orderId,
             outcome: prints.outcome,
             durationSec: prints.durationSec,
           },
@@ -304,6 +331,7 @@ export const printsRoutes =
             .returning()
             .get();
           syncUsages(tx, row.id, row.title, usages);
+          joinOrder(tx, row);
           return row.id;
         });
         return reply.status(201).send(detail(id));
@@ -322,7 +350,7 @@ export const printsRoutes =
       async (req) => {
         const cur = detail(req.params.id);
         const { usages, energyWh, ...fields } = req.body;
-        checkRefs(fields, cur.failureReason);
+        checkRefs({ ...cur, ...fields }, cur.failureReason);
         assertNumberFree(db, prints, "print", fields.number, cur.id);
         Object.assign(
           fields,
@@ -349,6 +377,7 @@ export const printsRoutes =
             })
             .where(eq(prints.id, cur.id))
             .run();
+          joinOrder(tx, merged);
           if (usages) syncUsages(tx, cur.id, merged.title, usages);
           // A new start date can put the print before a spool it keeps was opened.
           else if (fields.startedAt)

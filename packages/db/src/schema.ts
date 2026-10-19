@@ -591,6 +591,8 @@ export const prints = sqliteTable(
       .notNull()
       .references(() => printers.id, { onDelete: "restrict" }),
     projectId: text().references(() => projects.id, { onDelete: "restrict" }),
+    /** The order it was printed for; its project is one of the order's (the API keeps that true). */
+    orderId: text().references((): AnySQLiteColumn => orders.id, { onDelete: "set null" }),
     // ponytail: nullable like printers.number; every insert sets it (nextNumber).
     number: integer(),
     machineProfileId: text().references(() => machineProfiles.id, { onDelete: "restrict" }),
@@ -613,6 +615,7 @@ export const prints = sqliteTable(
     index("prints_started_idx").on(t.startedAt),
     index("prints_printer_started_idx").on(t.printerId, t.startedAt),
     index("prints_project_idx").on(t.projectId),
+    index("prints_order_idx").on(t.orderId),
     uniqueIndex("prints_external_uq").on(t.integrationId, t.externalId),
     uniqueIndex("prints_number_uq").on(t.number),
     check("prints_origin_ck", oneOf(t.origin, ORIGINS)),
@@ -787,5 +790,43 @@ export const clients = sqliteTable(
     uniqueIndex("clients_email_uq")
       .on(sql`${t.email} COLLATE NOCASE`)
       .where(sql`${t.email} IS NOT NULL`),
+  ],
+);
+
+// Work agreed with a client (or none). `status` is one of the `orderStatuses` preference, checked
+// by the API like printers.state. An order has one or more projects (API-enforced).
+export const orders = sqliteTable(
+  "orders",
+  {
+    id: id(),
+    number: integer().notNull(),
+    clientId: text().references(() => clients.id, { onDelete: "set null" }),
+    quoteId: text().references(() => quotes.id, { onDelete: "set null" }),
+    price: integer().notNull(),
+    status: text().notNull(),
+    notes: text(),
+    ...timestamps,
+  },
+  (t) => [
+    uniqueIndex("orders_number_uq").on(t.number),
+    index("orders_client_idx").on(t.clientId),
+    index("orders_quote_idx").on(t.quoteId),
+    check("orders_price_ck", sql`${t.price} >= 0`),
+  ],
+);
+
+export const orderProjects = sqliteTable(
+  "order_projects",
+  {
+    orderId: text()
+      .notNull()
+      .references(() => orders.id, { onDelete: "cascade" }),
+    projectId: text()
+      .notNull()
+      .references(() => projects.id, { onDelete: "restrict" }),
+  },
+  (t) => [
+    primaryKey({ columns: [t.orderId, t.projectId] }),
+    index("order_projects_project_idx").on(t.projectId),
   ],
 );

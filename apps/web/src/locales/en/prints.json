@@ -14,7 +14,8 @@
       "outcome": "Outcome",
       "duration": "Duration",
       "filament": "Filament",
-      "cost": "Cost"
+      "cost": "Cost",
+      "actions": "Actions"
     },
     "durationUnit": "In minutes"
   },

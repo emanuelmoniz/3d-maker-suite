@@ -21,6 +21,8 @@ const base = z.object({
   number: z.number().int().positive().optional(),
   printerId: id,
   projectId: id.nullable().optional(),
+  /** Needs a project; the server adds the project to the order when it isn't one of its own. */
+  orderId: id.nullable().optional(),
   machineProfileId: id.nullable().optional(),
   title: z.string().min(1),
   plate: z.number().int().positive().nullable().optional(),
@@ -62,6 +64,8 @@ export const printFilters = {
   startedAt: { kind: "date" },
   printerId: { kind: "select" },
   projectId: { kind: "select" },
+  /** No column: the order page sets it. */
+  orderId: { kind: "select" },
   outcome: { kind: "select", options: PRINT_OUTCOMES },
   tagId: { kind: "select" },
   /** Prints that took filament from the spool (no column: the spool page sets it). */

@@ -234,7 +234,6 @@ export function PrintersConfigPage() {
   return (
     <ConfigPage module="printers">
       {({ v, commit }) => {
-        const states = v.printerStates.join("\n");
         return (
           <>
             <Section title={t("settings:sections.printers")}>
@@ -256,24 +255,10 @@ export function PrintersConfigPage() {
               </FormField>
               <FormField label={t("settings:printers.label")} hint={t("settings:printers.hint")}>
                 {(p) => (
-                  <textarea
+                  <LinesInput
                     {...p}
-                    className={`${inputClass} h-24 py-2`}
-                    key={`states-${states}`}
-                    defaultValue={states}
-                    onBlur={(e) => {
-                      const next = [
-                        ...new Set(
-                          e.target.value
-                            .split(/\r?\n/)
-                            .map((l) => l.trim())
-                            .filter(Boolean),
-                        ),
-                      ];
-                      if (next.length && next.join("|") !== v.printerStates.join("|"))
-                        commit({ printerStates: next });
-                      else e.target.value = states;
-                    }}
+                    lines={v.printerStates}
+                    onCommit={(printerStates) => commit({ printerStates })}
                   />
                 )}
               </FormField>
@@ -282,6 +267,62 @@ export function PrintersConfigPage() {
           </>
         );
       }}
+    </ConfigPage>
+  );
+}
+
+/** One value per line, saved on blur; blank lines and repeats dropped, never left empty. */
+function LinesInput({
+  lines,
+  onCommit,
+  ...p
+}: {
+  lines: string[];
+  onCommit: (lines: string[]) => void;
+  id: string;
+  "aria-describedby"?: string;
+  "aria-invalid"?: true;
+}) {
+  const text = lines.join("\n");
+  return (
+    <textarea
+      {...p}
+      className={`${inputClass} h-24 py-2`}
+      key={text}
+      defaultValue={text}
+      onBlur={(e) => {
+        const next = [
+          ...new Set(
+            e.target.value
+              .split(/\r?\n/)
+              .map((l) => l.trim())
+              .filter(Boolean),
+          ),
+        ];
+        if (next.length && next.join("|") !== lines.join("|")) onCommit(next);
+        else e.target.value = text;
+      }}
+    />
+  );
+}
+
+export function OrdersConfigPage() {
+  const { t } = useTranslation();
+  return (
+    <ConfigPage module="orders">
+      {({ v, commit }) => (
+        <Section title={t("settings:sections.orders")}>
+          <FormField label={t("settings:orders.label")} hint={t("settings:orders.hint")}>
+            {(p) => (
+              <LinesInput
+                {...p}
+                lines={v.orderStatuses}
+                onCommit={(orderStatuses) => commit({ orderStatuses })}
+              />
+            )}
+          </FormField>
+        </Section>
+      )}
     </ConfigPage>
   );
 }

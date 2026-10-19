@@ -61,6 +61,8 @@ const shape = {
   maintenanceLeadDays: z.number().int().nonnegative(),
   printerStates: z.array(z.string().min(1)).min(1),
   failureReasons: z.array(z.string().min(1)),
+  /** An order's statuses, in order; a new order starts at the first. */
+  orderStatuses: z.array(z.string().min(1)).min(1),
   dashboardLayout: z.array(dashboardWidgetSchema),
   /** Daily automatic backup, keeping this many of the newest automatic ones. */
   backupAuto: z.boolean(),
@@ -104,6 +106,7 @@ export const PREFERENCE_DEFAULTS: z.infer<typeof preferencesSchema> = {
   lowSpoolGrams: 100,
   maintenanceLeadDays: 7,
   printerStates: ["working", "maintenance", "inop", "retired"],
+  orderStatuses: ["accepted", "in_progress", "done", "canceled"],
   failureReasons: [
     "Spaghetti",
     "Bed adhesion",

@@ -1,6 +1,7 @@
 import { type Page, PRINT_OUTCOMES, type PrintDetail, printFilters } from "@3d-maker-suite/core";
 import { Link } from "@tanstack/react-router";
 import { ExternalLink, Layers, Plus } from "lucide-react";
+import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
 import { CostBreakdown } from "../../components/CostBreakdown.tsx";
@@ -25,15 +26,18 @@ const OUTCOMES = {
   cancelled: "prints:outcomes.cancelled",
 } as const;
 
-/** The prints table: the main list and any other list of prints (a spool's) share it. */
+/** The prints table: the main list and any other list of prints (a spool's, an order's) share it. */
 export function PrintsTable({
   data,
   query,
   onQueryChange,
+  actions,
 }: {
   data: Page<PrintDetail>;
   query: ListQuery;
   onQueryChange: (q: ListQuery) => void;
+  /** A last column of row buttons. */
+  actions?: (p: PrintDetail) => ReactNode;
 }) {
   const { t } = useTranslation();
   const money = useMoney();
@@ -165,6 +169,9 @@ export function PrintsTable({
             </details>
           ),
         },
+        ...(actions
+          ? [{ id: "actions", header: t("prints:list.columns.actions"), cell: actions }]
+          : []),
       ]}
     />
   );

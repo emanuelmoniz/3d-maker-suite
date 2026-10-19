@@ -6,6 +6,7 @@ const print = {
   number: 1,
   printerId: crypto.randomUUID(),
   projectId: null,
+  orderId: null,
   machineProfileId: null,
   title: "Benchy",
   plate: 1,

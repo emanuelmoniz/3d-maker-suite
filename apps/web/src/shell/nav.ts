@@ -2,6 +2,7 @@ import {
   Bell,
   Calculator,
   ChartColumn,
+  ClipboardList,
   FileUp,
   FolderKanban,
   House,
@@ -89,6 +90,12 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
         icon: Calculator,
         label: "nav:items.quotes.label",
         description: "nav:items.quotes.description",
+      },
+      {
+        to: "/orders",
+        icon: ClipboardList,
+        label: "nav:items.orders.label",
+        description: "nav:items.orders.description",
       },
       {
         to: "/clients",

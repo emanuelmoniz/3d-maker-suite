@@ -10,6 +10,7 @@ import { TagList } from "../../components/TagList.tsx";
 import { useCatalogItem } from "../../lib/catalog.ts";
 import { spoolName, useProfile, useSpool } from "../../lib/filament.ts";
 import { formatDateTime, formatNumber, formatWeight } from "../../lib/format.ts";
+import { orderName, useOrder } from "../../lib/orders.ts";
 import { printerName, usePrinter } from "../../lib/printers.ts";
 import { printName, useDeletePrint, usePrint } from "../../lib/prints.ts";
 import { projectName, useProject } from "../../lib/projects.ts";
@@ -51,6 +52,16 @@ function ProjectLink({ id }: { id: string }) {
   return (
     <Link to="/projects/$id" params={{ id }} className={link}>
       {name}
+    </Link>
+  );
+}
+
+function OrderLink({ id }: { id: string }) {
+  const { t } = useTranslation();
+  const order = useOrder(id).data;
+  return (
+    <Link to="/orders/$id" params={{ id }} className={link}>
+      {order && orderName(t, order)}
     </Link>
   );
 }
@@ -131,6 +142,11 @@ export function PrintDetailPage() {
             <Info label={t("prints:detail.project")}>
               {print.projectId ? <ProjectLink id={print.projectId} /> : none}
             </Info>
+            {print.orderId && (
+              <Info label={t("orders:printOrder.label")}>
+                <OrderLink id={print.orderId} />
+              </Info>
+            )}
             {print.machineProfileId && (
               <Info label={t("prints:form.machineProfile")}>
                 <MachineProfileLink id={print.machineProfileId} />

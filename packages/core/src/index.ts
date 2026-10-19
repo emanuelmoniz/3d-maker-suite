@@ -12,6 +12,7 @@ export * from "./schemas/import.ts";
 export * from "./schemas/integrations.ts";
 export * from "./schemas/list.ts";
 export * from "./schemas/maintenance.ts";
+export * from "./schemas/orders.ts";
 export * from "./schemas/preferences.ts";
 export * from "./schemas/printers.ts";
 export * from "./schemas/prints.ts";

@@ -31,7 +31,7 @@ export function ConfigPage({
   module,
   children,
 }: {
-  module: "quotes" | "prints" | "projects" | "alerts" | "printers" | "filament";
+  module: "quotes" | "orders" | "prints" | "projects" | "alerts" | "printers" | "filament";
   children: (ctx: ConfigCtx) => ReactNode;
 }) {
   const { t } = useTranslation();

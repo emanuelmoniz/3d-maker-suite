@@ -328,6 +328,8 @@ export const printSchema = z
     number: z.number().int().positive(),
     printerId: id,
     projectId: id.nullable(),
+    /** The order it was printed for; its project is one of the order's. */
+    orderId: id.nullable(),
     machineProfileId: id.nullable(),
     title: z.string().min(1),
     plate: z.number().int().positive().nullable(),

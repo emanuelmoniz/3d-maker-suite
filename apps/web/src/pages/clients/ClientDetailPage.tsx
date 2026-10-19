@@ -3,9 +3,9 @@ import { useTranslation } from "react-i18next";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { useClient } from "../../lib/clients.ts";
 import { Info, linkButton } from "../filament/SpoolDetailPage.tsx";
+import { OrdersTable } from "../orders/OrdersTable.tsx";
 import { QuotesTable } from "../quotes/QuotesTable.tsx";
 
-// The orders table joins this page with the orders step.
 export function ClientDetailPage() {
   const { t } = useTranslation();
   const { id } = useParams({ strict: false }) as { id: string };
@@ -44,6 +44,7 @@ export function ClientDetailPage() {
         </dl>
       </section>
       <QuotesTable fixed={{ clientId: id }} title={t("costs:saved.title")} />
+      <OrdersTable fixed={{ clientId: id }} title={t("orders:list.table")} />
     </>
   );
 }

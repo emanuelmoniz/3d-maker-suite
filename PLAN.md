@@ -236,7 +236,7 @@ Do Step 18 of PLAN.md. Show me the new form state and how it maps to computeCost
 quote before rewriting CostsPage.
 ```
 
-### [ ] Step 19 - Orders  **[plan mode]**
+### [x] Step 19 - Orders  **[plan mode]**
 **Model:** Opus · **Effort:** Medium
 **Scope:** Orders module under Accounting. An order has a number, a client, a project (mandatory), a quote (optional), a price, a status (accepted, in progress, done, canceled) and notes. A print can belong to one order (optional; set from the print form and from the order page). The order page shows its prints and their cost (`printCosts`) next to the price. Project page and client page get an orders table.
 **Done when:** the schema is approved; orders can be created, edited and moved through the statuses; linked prints show their cost; project and client pages list their orders; e2e; tests pass.

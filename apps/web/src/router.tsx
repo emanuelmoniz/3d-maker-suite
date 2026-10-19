@@ -28,6 +28,9 @@ import { ModulePage } from "./pages/ModulePage.tsx";
 import { MaintenancePage } from "./pages/maintenance/MaintenancePage.tsx";
 import { TypeDetailPage } from "./pages/maintenance/TypeDetailPage.tsx";
 import { TypeCreatePage, TypeEditPage } from "./pages/maintenance/TypeFormPage.tsx";
+import { OrderDetailPage } from "./pages/orders/OrderDetailPage.tsx";
+import { OrderCreatePage, OrderEditPage } from "./pages/orders/OrderFormPage.tsx";
+import { OrdersPage } from "./pages/orders/OrdersPage.tsx";
 import { AccessoryDetailPage } from "./pages/printers/AccessoryDetailPage.tsx";
 import { AccessoryCreatePage, AccessoryEditPage } from "./pages/printers/AccessoryFormPage.tsx";
 import {
@@ -53,6 +56,7 @@ import {
   AlertsConfigPage,
   CostsConfigPage,
   FilamentConfigPage,
+  OrdersConfigPage,
   PrintersConfigPage,
   PrintsConfigPage,
   ProjectsConfigPage,
@@ -89,6 +93,7 @@ const built = [
   "/prints",
   "/projects",
   "/quotes",
+  "/orders",
   "/clients",
   "/stats",
   "/alerts",
@@ -259,6 +264,7 @@ const routes: AnyRoute[] = [
           loadNamespace("filament"),
           loadNamespace("tags"),
           loadNamespace("costs"),
+          loadNamespace("orders"), // the print's order
           loadNamespace("integrations"), // the Sync from cloud button on the list
         ]),
       component: component as () => ReactNode,
@@ -280,6 +286,7 @@ const routes: AnyRoute[] = [
           loadNamespace("prints"),
           loadNamespace("tags"),
           loadNamespace("costs"),
+          loadNamespace("orders"),
           loadNamespace("filament"), // spool names in the slicing setup
         ]),
       component: component as () => ReactNode,
@@ -318,6 +325,22 @@ const routes: AnyRoute[] = [
       throw redirect({ to: "/quotes/settings" });
     },
   }),
+  // "/orders/new" is declared before "/orders/$id" so it wins the match.
+  ...[
+    ["/orders", OrdersPage],
+    ["/orders/new", OrderCreatePage],
+    ["/orders/$id", OrderDetailPage],
+    ["/orders/$id/edit", OrderEditPage],
+  ].map(([path, component]) =>
+    createRoute({
+      getParentRoute: () => root,
+      path: path as string,
+      // "prints", "tags", "costs": the order's prints table; "clients": the new client dialog.
+      loader: () =>
+        Promise.all(["orders", "clients", "costs", "prints", "tags"].map(loadNamespace)),
+      component: component as () => ReactNode,
+    }),
+  ),
   // "/clients/new" is declared before "/clients/$id" so it wins the match.
   ...[
     ["/clients", ClientsPage],
@@ -328,7 +351,7 @@ const routes: AnyRoute[] = [
     createRoute({
       getParentRoute: () => root,
       path: path as string,
-      loader: () => Promise.all([loadNamespace("clients"), loadNamespace("costs")]),
+      loader: () => Promise.all(["clients", "costs", "orders"].map(loadNamespace)),
       component: component as () => ReactNode,
     }),
   ),
@@ -354,6 +377,7 @@ const routes: AnyRoute[] = [
   ...(
     [
       ["/quotes/settings", CostsConfigPage, ["costs"]],
+      ["/orders/settings", OrdersConfigPage, ["orders"]],
       ["/printers/settings", PrintersConfigPage, ["printers", "integrations", "tags"]],
       ["/filament/settings", FilamentConfigPage, ["filament", "printers", "integrations"]],
       ["/prints/settings", PrintsConfigPage, ["prints"]],

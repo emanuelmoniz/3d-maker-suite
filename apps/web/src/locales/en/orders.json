@@ -1,0 +1,75 @@
+{
+  "statuses": {
+    "accepted": "Accepted",
+    "in_progress": "In progress",
+    "done": "Done",
+    "canceled": "Canceled"
+  },
+  "list": {
+    "table": "Orders",
+    "add": "New order",
+    "empty": "No orders yet.",
+    "columns": {
+      "number": "Order",
+      "client": "Client",
+      "projects": "Projects",
+      "status": "Status",
+      "price": "Price",
+      "createdAt": "Created",
+      "actions": "Actions"
+    }
+  },
+  "detail": {
+    "edit": "Edit",
+    "notFound": "Order not found.",
+    "none": "-",
+    "price": "Price",
+    "printsCost_one": "Cost of {{count}} print",
+    "printsCost_other": "Cost of {{count}} prints",
+    "margin": "Margin",
+    "prints": "Prints",
+    "printsNone": "No prints in this order yet.",
+    "pickPrint": "A print of this order's projects",
+    "addPrint": "Add print",
+    "removePrint": "Remove {{name}} from the order"
+  },
+  "form": {
+    "addTitle": "New order",
+    "editTitle": "Edit order",
+    "number": "Number",
+    "numberHint": "Leave empty for the next free number.",
+    "numberTaken": "Another order has this number.",
+    "quote": "Quote",
+    "noQuote": "No quote",
+    "client": "Client",
+    "noClient": "No client",
+    "newClient": "New client",
+    "projects": "Projects",
+    "projectsHint": "At least one. Adding a print of another project to the order adds that project too.",
+    "addProject": "Add a project",
+    "removeProject": "Remove {{name}}",
+    "projectInUse": "A project you removed still has prints in this order. Remove those prints first.",
+    "needsProject": "Add at least one project to save the order.",
+    "price": "Price",
+    "status": "Status",
+    "notes": "Notes",
+    "save": "Save",
+    "saveError": "Couldn't save the order."
+  },
+  "delete": {
+    "title": "Delete order?",
+    "body": "{{name}} will be deleted. Its prints stay, without an order.",
+    "confirm": "Delete",
+    "named": "Delete {{name}}"
+  },
+  "projectLeft": {
+    "title": "Remove the project too?",
+    "body": "{{order}} has no prints of {{project}} left. Remove {{project}} from the order?",
+    "remove": "Remove project"
+  },
+  "printOrder": {
+    "label": "Order",
+    "none": "No order",
+    "hint": "Picking an order adds this print's project to it."
+  }
+}
