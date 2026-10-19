@@ -4,20 +4,50 @@ import { useTranslation } from "react-i18next";
 import { useMoney } from "../lib/cost.ts";
 import { formatWeight } from "../lib/format.ts";
 
-function Rows({ rows }: { rows: { label: string; value: number; strong?: boolean }[] }) {
+type Row = { label: string; value: number; strong?: boolean; rule?: boolean };
+
+/** Label / value rows; `strong` rows are bold, with a rule above unless `rule` is false. */
+function Rows({ rows, format }: { rows: Row[]; format?: (value: number) => string }) {
   const money = useMoney();
+  const show = format ?? money;
   return (
     <dl className="grid grid-cols-[1fr_auto] gap-x-6 gap-y-1">
       {rows.map((r) => (
         <div
           key={r.label}
-          className={`col-span-2 grid grid-cols-subgrid ${r.strong ? "border-t border-border pt-1 font-semibold" : ""}`}
+          className={`col-span-2 grid grid-cols-subgrid ${r.strong ? "font-semibold" : ""} ${r.strong && r.rule !== false ? "border-t border-border pt-1" : ""}`}
         >
           <dt className={r.strong ? undefined : "text-muted"}>{r.label}</dt>
-          <dd className="text-right tabular-nums">{money(r.value)}</dd>
+          <dd className="text-right tabular-nums">{show(r.value)}</dd>
         </div>
       ))}
     </dl>
+  );
+}
+
+/** Filament used: grams per spool, then the total per material (rows like `CostBreakdown`). */
+export function UsageBreakdown({
+  spools,
+  materials,
+}: {
+  spools: { label: string; grams: number }[];
+  materials: { material: string; grams: number }[];
+}) {
+  const { t } = useTranslation();
+  return (
+    <Rows
+      format={formatWeight}
+      rows={[
+        ...spools.map((s) => ({ label: s.label, value: s.grams })),
+        ...materials.map((m, i) => ({
+          label: t("costs:project.materialTotal", { material: m.material }),
+          value: m.grams,
+          strong: true,
+          // One rule under the spools; none without spools or between materials.
+          rule: i === 0 && spools.length > 0,
+        })),
+      ]}
+    />
   );
 }
 

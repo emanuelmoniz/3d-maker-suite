@@ -66,7 +66,6 @@
     "onePrintHintNoPrinter": "From the sliced plates, with the chosen spools' or filaments' prices (else the average per material). Add a printer to include energy and wear.",
     "partial": "{{sliced}} of {{total}} plates are sliced; the estimate only counts those.",
     "onePrintHintPrinters": "From the sliced plates, each on its own printer, with the chosen spools' or filaments' prices (else the average per material).",
-    "spoolUsage": "{{spool}} – usage {{weight}}",
-    "materialUsage": "Total {{material}} usage {{weight}}"
+    "materialTotal": "Total {{material}}"
   }
 }

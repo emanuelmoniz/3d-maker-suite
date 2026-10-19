@@ -12,7 +12,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
 import { Combobox } from "../../components/Combobox.tsx";
-import { CostBreakdown } from "../../components/CostBreakdown.tsx";
+import { CostBreakdown, UsageBreakdown } from "../../components/CostBreakdown.tsx";
 import { Markdown } from "../../components/Markdown.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { plateKey, SliceSetup } from "../../components/SliceSetup.tsx";
@@ -379,22 +379,16 @@ function SlicedEstimate({ id }: { id: string }) {
           {t("costs:project.partial", { sliced, total: plates.length })}
         </p>
       )}
-      <ul className="mb-3 space-y-1">
-        {estimate.spools.map(({ spool, grams }) => (
-          <li key={spool.id}>
-            {t("costs:project.spoolUsage", {
-              spool: spoolName(t, spool, profileOf(spool.profileId)),
-              weight: formatWeight(grams),
-            })}
-          </li>
-        ))}
-        {estimate.materials.map(({ material, grams }) => (
-          <li key={material} className="font-medium">
-            {t("costs:project.materialUsage", { material, weight: formatWeight(grams) })}
-          </li>
-        ))}
-      </ul>
-      <CostBreakdown cost={estimate.cost} />
+      <div className="grid gap-3">
+        <UsageBreakdown
+          spools={estimate.spools.map(({ spool, grams }) => ({
+            label: spoolName(t, spool, profileOf(spool.profileId)),
+            grams,
+          }))}
+          materials={estimate.materials}
+        />
+        <CostBreakdown cost={estimate.cost} />
+      </div>
     </div>
   );
 }
