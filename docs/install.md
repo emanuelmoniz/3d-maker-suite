@@ -28,6 +28,7 @@ The app runs on the computer that stores the data, which is your PC by default. 
 | Start | `pnpm start` | `pnpm start` with Node 22 on the NAS |
 | Reach it from | this PC only (`127.0.0.1`) | other devices (`HOST=0.0.0.0` and `APP_PASSWORD`, see [configuration.md](configuration.md#access-from-other-devices)) |
 | Open in slicer | works when the slicer is installed on the server | hidden: no slicer runs on the server |
+| Slicing projects | works when Bambu Studio is installed on the server and its **Slicer program** is set | not available: no slicer runs on the server; type time and grams per plate instead |
 | Local slicer presets | read from the slicer's config folder on the server | not available unless that folder is on the server; otherwise [import a catalog zip](import.md#slicer-catalog-from-a-zip) |
 | Project folders | folders on the server | folders the server can see, so mount network shares on it |
 | Bambu Cloud | works | works |

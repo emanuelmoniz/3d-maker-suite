@@ -2,6 +2,24 @@
 
 All notable changes are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [2.0.0-alpha.2] - 2026-10-19
+
+### Added
+- Projects: slicing per plate with print profiles and filament per slot, run by Bambu Studio on the server's PC (set its **Slicer program** in Integrations); results are stored and cached until the file, presets or slicer change
+- Projects: estimated cost of one complete print from the sliced (or typed) time and grams per plate, next to the printed-copies cost
+- Projects: "Slicing" column and filter (not set up, needs slicing, sliced)
+- Projects: printer per plate, the 3MF's own print profile, and spools per slot
+
+### Changed
+- Projects: filament usage is listed in rows, like the cost breakdown
+
+### Fixed
+- Painted filaments and a modifier's filament count as slots of their plate
+- Slicing keeps the 3MF's own setting changes on top of the chosen print profile, and passes complete presets so purges and the prime tower count
+- Clearing a plate's results when its presets were incomplete
+- A printer or filament sync also imports built-in print profiles and filament presets
+- Printer model labels don't repeat the brand
+
 ## [2.0.0-alpha.1] - 2026-10-18
 
 ### Added

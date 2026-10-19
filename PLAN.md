@@ -183,7 +183,7 @@ Do Step 14 of PLAN.md. Add a fake slicer to the mock adapter so tests and e2e do
 a real slicer.
 ```
 
-### [ ] Step 15 - Docs, push & v2.0.0-alpha.2
+### [x] Step 15 - Docs, push & v2.0.0-alpha.2
 **Model:** Haiku · **Effort:** Low
 **Scope:** README/docs for slicing (requirements: which slicer must be installed, where to set its path), CHANGELOG, version `2.0.0-alpha.2`. Commit, push `main`, create and push tag `v2.0.0-alpha.2`; check the workflow run and the pre-release.
 **Done when:** `main` and the tag are pushed; the workflow is green; the pre-release exists; docs match the app.

@@ -33,6 +33,6 @@ The Settings page covers general options, appearance, costs (currency, energy, l
 - **Date and time format** (Settings → General): the date format and 24- or 12-hour clock used across the app.
 - **Branding** (Settings → Appearance): the app name, logo and favicon. Leave the name empty for the default.
 - **Network** (Settings → Network): the host and port saved for the next start. **Restart and open in new tab** applies them. The page shows when a command-line flag or environment variable is overriding the saved value.
-- **Integrations** (Settings → Integrations): slicer config folders and executables belong to their integration.
+- **Integrations** (Settings → Integrations): slicer config folders and programs belong to their integration. Slicing projects uses the **Slicer program** of the Bambu Studio integration.
 
 These are stored in the database, not in environment variables.
