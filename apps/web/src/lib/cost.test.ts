@@ -1,6 +1,6 @@
 import type { CostContext, FilamentProfile, PlateSetup, Spool } from "@3d-maker-suite/core";
 import { expect, test } from "vitest";
-import { estimateSlicedPlates } from "./cost.ts";
+import { estimateSlicedPlates, keepResults } from "./cost.ts";
 
 const ctx: CostContext = {
   rates: { energyPerKwh: 0 },
@@ -61,4 +61,21 @@ test("prices each slot by spool, then profile, then material average, on each pl
     { material: "PLA", grams: 200 },
     { material: "PETG", grams: 100 },
   ]);
+});
+
+test("a quote plate keeps its slice while it slices the same, and loses it when not", () => {
+  const setup = {
+    file: "a.3mf",
+    plate: 1,
+    printerId: "dear",
+    printProfileId: null,
+    useDefaultPrintProfile: false,
+    filaments: ["pla"],
+    spools: [],
+  };
+  const sliced = { ...setup, result: plate({}, [[1, 10, "PLA"]]).result };
+  // Another spool of the same profile: same slice. Another profile or a new plate: none.
+  expect(keepResults([{ ...setup, spools: ["red"] }], [sliced])[0]?.result).toBe(sliced.result);
+  expect(keepResults([{ ...setup, printProfileId: "fine" }], [sliced])[0]?.result).toBeNull();
+  expect(keepResults([{ ...setup, plate: 2 }], [sliced])[0]?.result).toBeNull();
 });

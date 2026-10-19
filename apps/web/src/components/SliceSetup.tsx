@@ -1,16 +1,18 @@
 import {
   defaultSlicePrinter,
   type FilamentProfile,
+  type PlateSetup,
   type PlateSetupInput,
   type PlateState,
   type ProjectModel,
   printerFitsFile,
 } from "@3d-maker-suite/core";
+import type { TFunction } from "i18next";
 import { type ReactNode, useId } from "react";
 import { useTranslation } from "react-i18next";
 import { useModelInfo, usePrintProfiles } from "../lib/catalog.ts";
 import { spoolName, useProfiles, useSpools } from "../lib/filament.ts";
-import { formatWeight } from "../lib/format.ts";
+import { formatDuration, formatWeight } from "../lib/format.ts";
 import { printerName, usePrinters } from "../lib/printers.ts";
 import { Combobox, type ComboOption } from "./Combobox.tsx";
 
@@ -44,6 +46,59 @@ export type SliceSetupProps = {
 };
 
 export const plateKey = (p: { file: string; plate: number }) => `${p.file}#${p.plate}`;
+
+// Static keys so `pnpm i18n:check` sees them. Stored as `code` or `code: <the slicer's text>`.
+const SLICE_ERRORS: Record<string, string> = {
+  no_slicer: "projects:slicing.error.no_slicer",
+  not_allowed: "projects:slicing.error.not_allowed",
+  no_preset: "projects:slicing.error.no_preset",
+  no_machine_preset: "projects:slicing.error.no_machine_preset",
+  no_printer_profile: "projects:slicing.error.no_printer_profile",
+  slice_failed: "projects:slicing.error.slice_failed",
+};
+const sliceError = (t: TFunction, error: string) => {
+  const at = error.indexOf(": ");
+  const [code, detail] = at < 0 ? [error, ""] : [error.slice(0, at), error.slice(at + 2)];
+  const key = SLICE_ERRORS[code];
+  return key && (detail || code !== "slice_failed")
+    ? t(key, { detail })
+    : t("projects:slicing.error.unknown");
+};
+
+/** Under a picked plate: queued / slicing, the last result, or why it failed. */
+export function PlateSlice({
+  plate: p,
+}: {
+  plate: Pick<PlateSetup, "job" | "result" | "error" | "needsSlicing"> & { state?: PlateState };
+}) {
+  const { t } = useTranslation();
+  if (p.job)
+    return (
+      <span className="block text-sm text-muted">
+        {p.job === "running" ? t("projects:slicing.running") : t("projects:slicing.queued")}
+      </span>
+    );
+  return (
+    <>
+      {p.result && (
+        <span className="block text-sm text-muted">
+          {t("projects:slicing.result", {
+            time: formatDuration(p.result.printTimeSeconds),
+            weight: formatWeight(p.result.weightGrams),
+          })}
+        </span>
+      )}
+      {p.error ? (
+        <span className="block text-sm text-bad">{sliceError(t, p.error)}</span>
+      ) : (
+        p.needsSlicing &&
+        (p.state ?? "ok") === "ok" && (
+          <span className="block text-sm text-warn">{t("projects:slicing.needsSlicing")}</span>
+        )
+      )}
+    </>
+  );
+}
 
 const baseName = (n: string) => n.split(" @")[0]?.trim().toLowerCase() ?? "";
 

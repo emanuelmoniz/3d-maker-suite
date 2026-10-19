@@ -135,13 +135,15 @@ export async function buildApp(
   await app.register(filamentRoutes(db), { prefix: "/api/filament" });
   await app.register(slicerZipRoutes(db, syncer, dataDir), { prefix: "/api/slicer-zip" });
   await app.register(printsRoutes(db), { prefix: "/api/prints" });
-  await app.register(costsRoutes(db), { prefix: "/api/costs" });
+  const sliceQueue = createSliceQueue(app.log);
+  await app.register(costsRoutes(db, dataDir, syncer.adapters, sliceQueue), {
+    prefix: "/api/costs",
+  });
   await app.register(statsRoutes(db), { prefix: "/api/stats" });
   const scanner = createProjectScanner(db, dataDir, app.log, { watch: opts.watchProjects });
   await app.register(projectsRoutes(db, dataDir, scanner, syncer.adapters), {
     prefix: "/api/projects",
   });
-  const sliceQueue = createSliceQueue(db, syncer.adapters, app.log);
   await app.register(projectSlicingRoutes(db, syncer.adapters, sliceQueue), {
     prefix: "/api/projects",
   });

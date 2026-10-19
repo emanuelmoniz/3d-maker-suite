@@ -1,6 +1,8 @@
 import { z } from "zod";
 import { id, isoDate } from "./entities.ts";
 import type { ColumnFilter } from "./list.ts";
+import { plateSetupInputSchema, sliceResultSchema } from "./projectSlicing.ts";
+import { projectModelSchema } from "./projects.ts";
 
 const minor = z.number().int(); // minor currency units
 
@@ -27,6 +29,7 @@ export const costRatesSchema = z.object({
   maintenancePerHour: z.number().nonnegative(),
 });
 
+/** `quantity` is the number of prints; labour and the failure margin are per print. */
 export const quoteSettingsSchema = z.object({
   laborHours: z.number().nonnegative(),
   /** Minor units per hour. */
@@ -37,13 +40,14 @@ export const quoteSettingsSchema = z.object({
 });
 
 export const quoteBreakdownSchema = z.object({
-  /** Production cost of one piece (material, energy, wear, maintenance). */
+  /** Production cost of one print (material, energy, wear, maintenance). */
   unitCost: minor,
   labor: minor,
   failureMargin: minor,
   subtotal: minor,
   markup: minor,
   unitPrice: minor,
+  /** Prints (called "pieces" before Step 18; the key stays for saved quotes). */
   quantity: z.number().int().positive(),
   total: minor,
 });
@@ -119,6 +123,39 @@ export const costContextSchema = z.object({
   materialPrices: z.record(z.string(), z.number()),
 });
 
+/** `upload:<sha256>`: a 3MF uploaded to the calculator, as a plate's `file`. */
+export const QUOTE_UPLOAD_PREFIX = "upload:";
+
+/** A 3MF uploaded to the calculator; `model.file` is `upload:<id>`. */
+export const quoteUploadSchema = z.object({
+  /** sha256 of the file. */
+  id: z.string().regex(/^[0-9a-f]{64}$/),
+  name: z.string(),
+  model: projectModelSchema,
+});
+
+/**
+ * Plates for a quote: a project's (`file` relative to its folder) or uploaded ones. `run` queues
+ * those without a result; without it, only reports.
+ */
+export const quoteSliceInputSchema = z.object({
+  projectId: id.nullable(),
+  plates: z.array(plateSetupInputSchema),
+  run: z.boolean().default(false),
+});
+export const quoteSliceSchema = z.object({
+  canSlice: z.boolean(),
+  plates: z.array(
+    z.object({
+      file: z.string(),
+      plate: z.number().int(),
+      job: z.enum(["queued", "running"]).nullable(),
+      result: sliceResultSchema.nullable(),
+      error: z.string().nullable(),
+    }),
+  ),
+});
+
 export type CostBreakdown = z.infer<typeof costBreakdownSchema>;
 export type CostRates = z.infer<typeof costRatesSchema>;
 export type QuoteSettings = z.infer<typeof quoteSettingsSchema>;
@@ -127,3 +164,6 @@ export type Quote = z.infer<typeof quoteSchema>;
 export type QuoteInput = z.input<typeof quoteInputSchema>;
 export type QuotePatch = z.input<typeof quotePatchSchema>;
 export type CostContext = z.infer<typeof costContextSchema>;
+export type QuoteUpload = z.infer<typeof quoteUploadSchema>;
+export type QuoteSliceInput = z.input<typeof quoteSliceInputSchema>;
+export type QuoteSlice = z.infer<typeof quoteSliceSchema>;

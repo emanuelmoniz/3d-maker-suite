@@ -281,7 +281,11 @@ const routes: AnyRoute[] = [
   createRoute({
     getParentRoute: () => root,
     path: "/costs",
-    loader: () => Promise.all([loadNamespace("costs"), loadNamespace("clients")]),
+    loader: () =>
+      Promise.all(
+        // "projects" and "filament": the slicing setup's labels and spool names.
+        ["costs", "clients", "projects", "filament"].map(loadNamespace),
+      ),
     component: CostsPage,
   }),
   // "/clients/new" is declared before "/clients/$id" so it wins the match.

@@ -20,7 +20,7 @@ test("quotes: numbered, client made on the costs page, open and edit, shown on p
 
   await page.getByRole("combobox", { name: "Project", exact: true }).click();
   await page.getByRole("option", { name: "001-Lamp" }).click();
-  await page.getByLabel("Pieces").fill("3");
+  await page.getByLabel("Prints").fill("3");
   await page.getByLabel("Quote name").fill("Desk lamp");
   await page.getByLabel("Notes").fill("Matte black");
   await page.getByRole("button", { name: "Save quote" }).click();
@@ -43,7 +43,7 @@ test("quotes: numbered, client made on the costs page, open and edit, shown on p
   await table.getByRole("link", { name: "001-Desk lamp" }).click();
   await expect(page.getByText("Editing 001-Desk lamp")).toBeVisible();
   await expect(page.getByLabel("Notes")).toHaveValue("Matte white");
-  await expect(page.getByLabel("Pieces")).toHaveValue("3");
+  await expect(page.getByLabel("Prints")).toHaveValue("3");
 
   await page.getByRole("button", { name: "Delete 002-Desk lamp v2" }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Delete" }).click();

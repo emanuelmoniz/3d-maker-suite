@@ -75,8 +75,8 @@ export const sumCosts = (list: CostBreakdown[]): CostBreakdown =>
   );
 
 /**
- * Price for a customer. Per piece: production cost + labor, plus the failure margin on that,
- * plus the markup on the lot. The total is the piece price times the quantity.
+ * Price for a customer. Per print (every plate of the quote once): production cost + labor, plus
+ * the failure margin on that, plus the markup on the lot. The total is that times the prints.
  */
 export function computeQuote(unitCost: number, s: QuoteSettings): QuoteBreakdown {
   const labor = Math.round(s.laborHours * s.laborRatePerHour);

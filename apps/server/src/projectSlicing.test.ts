@@ -1,4 +1,4 @@
-import { appendFile, cp, mkdir, mkdtemp, rm, utimes } from "node:fs/promises";
+import { appendFile, cp, mkdir, mkdtemp, readFile, rm, utimes } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fixture, type MockState, mockAdapter } from "@3d-maker-suite/adapter-mock";
@@ -297,6 +297,67 @@ describe("slicing a project (mock slicer)", () => {
     // Same profile, another spool: only the price changes, so no new slice.
     await put([{ ...plate, spools: [blue.id] }]);
     expect((await settled()).plates[0]).toMatchObject({ needsSlicing: false, spools: [blue.id] });
+  });
+
+  it("slices a quote's plates: a project's with another profile and an uploaded 3MF", async () => {
+    const upload = (name: string, body: Buffer | string) =>
+      app.inject({
+        method: "POST",
+        url: `/api/costs/files?name=${encodeURIComponent(name)}`,
+        headers: { "content-type": "application/octet-stream" },
+        payload: body,
+      });
+    const bytes = await readFile(join(fixtures, "single_color.3mf"));
+    expect((await upload("model.stl", bytes)).statusCode).toBe(400);
+    expect((await upload("broken.3mf", "not a zip")).statusCode).toBe(400);
+    const up = await upload("Vase.3mf", bytes);
+    expect(up.statusCode).toBe(201);
+    const { id: fileId, model } = up.json();
+    expect(model.file).toBe(`upload:${fileId}`);
+    expect(model.plates.length).toBeGreaterThan(0);
+    // The same bytes again: the same file.
+    expect((await upload("Copy.3mf", bytes)).json().id).toBe(fileId);
+
+    const preset = (
+      await app.inject({
+        method: "POST",
+        url: "/api/print-profiles",
+        payload: { name: "Fine", sourcePreset: "mock:system/Fine" },
+      })
+    ).json();
+    const plates = [
+      { file: "benchy.3mf", plate: 1, printProfileId: preset.id, filaments: [] },
+      { file: model.file, plate: 1, printProfileId: null, filaments: [] },
+    ];
+    const slice = async (run: boolean, body: object = { projectId: id, plates }) =>
+      app.inject({ method: "POST", url: "/api/costs/slice", payload: { ...body, run } });
+
+    // Reporting only: nothing sliced yet, nothing queued.
+    expect((await slice(false)).json().plates).toMatchObject([
+      { job: null, result: null },
+      { job: null, result: null },
+    ]);
+    await slice(true);
+    let s = (await slice(false)).json();
+    for (let i = 0; i < 200 && s.plates.some((p: { job: unknown }) => p.job); i++) {
+      await new Promise((r) => setTimeout(r, 10));
+      s = (await slice(false)).json();
+    }
+    expect(s.canSlice).toBe(true);
+    expect(s.plates[0]).toMatchObject({ error: null, result: { printTimeSeconds: 5400 } });
+    expect(s.plates[1]).toMatchObject({ error: null, result: { printTimeSeconds: 3600 } });
+    expect(mock.sliced?.[0]).toMatchObject({ process: "system/Fine" });
+    // Asked again: the same result, no new slice. The project's own setup is untouched.
+    await slice(true);
+    expect(mock.sliced).toHaveLength(2);
+    expect((await app.inject(`/api/projects/${id}/slicing`)).json().plates).toEqual([]);
+
+    // Without a project only uploads; nothing outside them is read.
+    expect((await slice(false, { projectId: null, plates: [plates[1]] })).statusCode).toBe(200);
+    expect((await slice(false, { projectId: null, plates: [plates[0]] })).statusCode).toBe(400);
+    const bad = { ...plates[1], file: "upload:../../secret" };
+    expect((await slice(false, { projectId: null, plates: [bad] })).statusCode).toBe(400);
+    expect((await app.inject(`/api/costs/files/${fileId}?entry=nope.png`)).statusCode).toBe(404);
   });
 
   it("answers 409 without a slicer", async () => {

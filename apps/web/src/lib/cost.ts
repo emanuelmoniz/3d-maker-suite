@@ -6,10 +6,15 @@ import {
   estimateEnergyWh,
   type FilamentProfile,
   type PlateSetup,
+  type PlateSetupInput,
   type ProjectModel,
   type Quote,
   type QuoteInput,
   type QuotePatch,
+  type QuoteSlice,
+  type QuoteSliceInput,
+  type QuoteUpload,
+  type SliceResultInfo,
   type Spool,
   spoolPricePerKg,
   sumCosts,
@@ -56,6 +61,40 @@ export const usePatchQuote = () =>
 export const useDeleteQuote = () =>
   useQuoteMutation((id: string) => api("DELETE", `/api/costs/quotes/${id}`));
 
+/** Uploads a .3mf for the calculator (outside any project). */
+export const useUploadQuoteFile = () =>
+  useMutation({
+    mutationFn: (file: File) =>
+      api<QuoteUpload>(
+        "POST",
+        `/api/costs/files?${new URLSearchParams({ name: file.name })}`,
+        new Blob([file], { type: "application/octet-stream" }),
+      ),
+  });
+
+/** A plate preview inside an uploaded 3MF. */
+export const quoteFileUrl = (id: string, entry: string) =>
+  `/api/costs/files/${id}?${new URLSearchParams({ entry })}`;
+
+/** The calculator plates' slices (results, errors, jobs). Polls while some are being sliced. */
+export const useQuoteSlice = (body: Omit<QuoteSliceInput, "run">) =>
+  useQuery({
+    queryKey: ["costs", "slice", body],
+    queryFn: () => api<QuoteSlice>("POST", "/api/costs/slice", { ...body, run: false }),
+    enabled: body.plates.length > 0,
+    refetchInterval: (q) => (q.state.data?.plates.some((p) => p.job) ? 1000 : false),
+  });
+
+/** Queues the plates without a result; progress comes from `useQuoteSlice`. */
+export const useRunQuoteSlice = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: Omit<QuoteSliceInput, "run">) =>
+      api<QuoteSlice>("POST", "/api/costs/slice", { ...body, run: true }),
+    onSuccess: (data, body) => qc.setQueryData(["costs", "slice", body], data),
+  });
+};
+
 /** The name a quote goes by everywhere: "001-Vase". The server builds the same in `quoteLabel`. */
 export const quoteName = (t: TFunction, q: Pick<Quote, "number" | "name">) =>
   t("common:quoteName", { number: String(q.number).padStart(3, "0"), name: q.name });
@@ -97,6 +136,21 @@ export function estimatePlate(plate: Plate, printerId: string | undefined, ctx: 
   );
 }
 
+/** A plate on a quote: its slicing setup, and its slice once there is one. */
+export type QuotePlate = PlateSetupInput & { result: SliceResultInfo | null };
+
+// What a slice depends on; a spool of the same profile only changes the price.
+const slicedWith = (p: PlateSetupInput) =>
+  JSON.stringify([p.printerId, p.printProfileId, p.useDefaultPrintProfile, p.filaments]);
+
+/** The plates as `SliceSetup` left them; each keeps its slice if it still slices the same. */
+export function keepResults(next: PlateSetupInput[], prev: QuotePlate[]): QuotePlate[] {
+  return next.map((v) => {
+    const was = prev.find((p) => p.file === v.file && p.plate === v.plate);
+    return { ...v, result: was && slicedWith(was) === slicedWith(v) ? was.result : null };
+  });
+}
+
 export type SlicedEstimate = {
   cost: CostBreakdown;
   /** Grams per picked spool, over all plates, in the order first used. */
@@ -111,7 +165,7 @@ export type SlicedEstimate = {
  * material is the spool's or profile's, else the one the slicer reports.
  */
 export function estimateSlicedPlates(
-  plates: PlateSetup[],
+  plates: Pick<PlateSetup, "printerId" | "result" | "spools" | "filaments">[],
   ctx: CostContext,
   catalog: { spools: Spool[]; profiles: FilamentProfile[]; fallbackPrinterId?: string },
 ): SlicedEstimate {

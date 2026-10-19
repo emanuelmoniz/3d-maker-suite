@@ -14,7 +14,13 @@ import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
 import { type Fingerprint, fingerprint, stateOf } from "../projects/fingerprint.ts";
-import { plateResolver, type SliceQueue, sliceIntegration } from "../projects/sliceQueue.ts";
+import {
+  plateResolver,
+  projectJobKey,
+  projectSliceJob,
+  type SliceQueue,
+  sliceIntegration,
+} from "../projects/sliceQueue.ts";
 
 const { filamentProfiles, printers, printProfiles, projectSlicePlates, projects, spools } = schema;
 const params = z.object({ id: z.uuid() });
@@ -53,7 +59,9 @@ export const projectSlicingRoutes =
         .all();
       const resolve = plateResolver(db);
       // Taken with the rows, before any await: a job that ends meanwhile has already written them.
-      const jobs = rows.map((r) => queue.state({ projectId: id, file: r.file, plate: r.plate }));
+      const jobs = rows.map((r) =>
+        queue.state(projectJobKey({ projectId: id, file: r.file, plate: r.plate })),
+      );
       // One stat (and at most one hash) per file, however many plates it has.
       const states = new Map<string, Promise<PlateState>>();
       const fileState = (r: Row) => {
@@ -241,7 +249,13 @@ export const projectSlicingRoutes =
         queue.add(
           now.plates
             .filter((p) => p.needsSlicing && !p.job)
-            .map((p) => ({ projectId: req.params.id, file: p.file, plate: p.plate })),
+            .map((p) =>
+              projectSliceJob(db, adapters, app.log, {
+                projectId: req.params.id,
+                file: p.file,
+                plate: p.plate,
+              }),
+            ),
         );
         return reply.status(202).send(await read(req.params.id));
       },

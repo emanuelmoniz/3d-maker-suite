@@ -3,11 +3,16 @@ import {
   computeCost,
   computeQuote,
   estimateEnergyWh,
+  type ProjectSlicing,
+  QUOTE_UPLOAD_PREFIX,
   type Quote,
+  type QuoteUpload,
+  sumCosts,
   toMinor,
 } from "@3d-maker-suite/core";
+import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useSearch } from "@tanstack/react-router";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Upload } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
@@ -16,51 +21,92 @@ import { CostBreakdown, QuoteBreakdownView } from "../../components/CostBreakdow
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { SettingsLink } from "../../components/SettingsLink.tsx";
+import { PlateSlice, plateKey, SliceSetup } from "../../components/SliceSetup.tsx";
+import { api } from "../../lib/api.ts";
 import { useClients } from "../../lib/clients.ts";
 import {
-  materialPrice,
+  estimateSlicedPlates,
+  keepResults,
+  type QuotePlate,
+  quoteFileUrl,
   quoteName,
   useCostContext,
   usePatchQuote,
   useQuote,
+  useQuoteSlice,
+  useRunQuoteSlice,
   useSaveQuote,
+  useUploadQuoteFile,
 } from "../../lib/cost.ts";
+import { useProfiles, useSpools } from "../../lib/filament.ts";
+import { usePreferences } from "../../lib/preferences.ts";
 import { printerName } from "../../lib/printers.ts";
-import { projectName, useProjects } from "../../lib/projects.ts";
+import { projectFileUrl, projectName, useProjects } from "../../lib/projects.ts";
 import { NewClientDialog } from "../clients/NewClientDialog.tsx";
 import { QuotesTable } from "./QuotesTable.tsx";
 
 type Row = { label: string; grams: number; price: number | null };
-/** Calculator state. Money is in major units here (what people type), minor units in the maths. */
+/**
+ * Calculator state, saved as the quote's `form`. Money is in major units here (what people type),
+ * minor units in the maths. One print = every plate once, plus the part typed in by hand.
+ */
 type Form = {
-  printerId: string;
   projectId: string;
-  plate: string; // "<3mf file>#<plate index>" or ""
+  /** 3MFs added to this quote; their plates' `file` is `upload:<id>`. */
+  uploads: QuoteUpload[];
+  /** Plates of the project's or the uploaded 3MFs, with their slice once sliced. */
+  plates: QuotePlate[];
+  // Typed in by hand and added to the plates (all a quote had before Step 18).
+  printerId: string;
   powerW: number;
   minutes: number;
   filaments: Row[];
+  /** Prints. */
+  quantity: number;
+  /** Per print. */
   laborHours: number;
   laborRate: number;
   failureMarginPct: number;
   markupPct: number;
-  quantity: number;
 };
 
 const emptyRow = (): Row => ({ label: "", grams: 0, price: null });
 
 const initial = (ctx: CostContext): Form => ({
-  printerId: "",
   projectId: "",
-  plate: "",
+  uploads: [],
+  plates: [],
+  printerId: "",
   powerW: 0,
   minutes: 0,
   filaments: [emptyRow()],
+  quantity: 1,
   laborHours: 0,
   laborRate: ctx.quoteDefaults.laborRatePerHour / 100,
   failureMarginPct: ctx.quoteDefaults.failureMarginPct,
   markupPct: ctx.quoteDefaults.markupPct,
-  quantity: 1,
 });
+
+/** A saved form over the defaults; quotes from before Step 18 lack the plates and had `plate`. */
+function restore(ctx: CostContext, saved: Quote["form"] | undefined): Form {
+  const { plate: _old, ...rest } = (saved ?? {}) as Partial<Form> & { plate?: unknown };
+  return { ...initial(ctx), ...rest };
+}
+
+/** A project's saved setup as quote plates; a slice counts only while it's current. */
+const fromProject = (s: ProjectSlicing): QuotePlate[] =>
+  s.plates.map((p) => ({
+    file: p.file,
+    plate: p.plate,
+    printerId: p.printerId,
+    printProfileId: p.printProfileId,
+    useDefaultPrintProfile: p.useDefaultPrintProfile,
+    filaments: p.filaments,
+    spools: p.spools,
+    result: p.needsSlicing ? null : p.result,
+  }));
+
+const isUpload = (file: string) => file.startsWith(QUOTE_UPLOAD_PREFIX);
 
 function Num({
   label,
@@ -104,42 +150,87 @@ function Calculator({ ctx, editing }: { ctx: CostContext; editing?: Quote }) {
   const clients = useClients({ pageSize: "100" }).data?.items ?? [];
   const save = useSaveQuote();
   const patch = usePatchQuote();
-  const [f, setF] = useState<Form>(() => ({
-    ...initial(ctx),
-    ...(editing?.form as Partial<Form> | undefined),
-  }));
+  const qc = useQueryClient();
+  const upload = useUploadQuoteFile();
+  const runSlice = useRunQuoteSlice();
+  const profiles = useProfiles().data?.items ?? [];
+  const spools = useSpools().data?.items ?? [];
+  const defaultPrinterId = usePreferences().data?.values.defaultPrinterId;
+  const [f, setF] = useState<Form>(() => restore(ctx, editing?.form));
   const [name, setName] = useState(editing?.name ?? "");
   const [notes, setNotes] = useState(editing?.notes ?? "");
   const [clientId, setClientId] = useState(editing?.clientId ?? "");
   const [newClient, setNewClient] = useState(false);
+  // Without an id the key is dropped: `quote: undefined` would end up as "?quote=undefined".
   const open = (id?: string) =>
-    navigate({ to: "/costs", search: ((s: object) => ({ ...s, quote: id })) as never });
+    navigate({
+      to: "/costs",
+      search: (({ quote: _, ...s }: { quote?: string }) => (id ? { ...s, quote: id } : s)) as never,
+    });
   const set = (patch: Partial<Form>) => setF((cur) => ({ ...cur, ...patch }));
   const printer = ctx.printers.find((p) => p.id === f.printerId);
+  const project = projects.find((p) => p.id === f.projectId);
 
-  const plates = projects
-    .filter((p) => p.id === f.projectId)
-    .flatMap((p) => p.meta.models.flatMap((m) => m.plates.map((pl) => ({ file: m.file, pl }))))
-    .filter((x) => x.pl.sliced);
-
-  const pickPlate = (key: string) => {
-    const hit = plates.find((x) => `${x.file}#${x.pl.index}` === key);
-    if (!hit) return set({ plate: "" });
-    set({
-      plate: key,
-      minutes: Math.round((hit.pl.printTimeSeconds ?? 0) / 60),
-      filaments: hit.pl.filaments
-        .filter((x) => x.grams != null)
-        .map((x) => ({
-          label: x.type ?? "",
-          grams: Math.round((x.grams as number) * 100) / 100,
-          price: (materialPrice(ctx, x.type) ?? 0) / 100 || null,
-        })),
-    });
+  // Slices made here are merged in as they come, and saved with the plates.
+  const toSlice = {
+    projectId: f.projectId || null,
+    plates: f.plates.filter((p) => !p.result).map(({ result: _, ...setup }) => setup),
   };
+  const slice = useQuoteSlice(toSlice);
+  const sliceOf = (p: { file: string; plate: number }) =>
+    slice.data?.plates.find((s) => plateKey(s) === plateKey(p));
+  const plates: QuotePlate[] = f.plates.map((p) => ({
+    ...p,
+    result: p.result ?? sliceOf(p)?.result ?? null,
+  }));
+  const left = toSlice.plates.filter((p) => sliceOf(p)?.job).length;
+  const unsliced = plates.filter((p) => !p.result).length;
 
+  // A project brings its saved setup (plates, printers, profiles, filaments) and its slices.
+  const pickProject = (id: string) => {
+    setF((cur) => ({
+      ...cur,
+      projectId: id,
+      plates: cur.plates.filter((p) => isUpload(p.file)),
+      minutes: 0,
+      filaments: [emptyRow()],
+    }));
+    if (!id) return;
+    void qc
+      .fetchQuery({
+        queryKey: ["projects", id, "slicing"],
+        queryFn: () => api<ProjectSlicing>("GET", `/api/projects/${id}/slicing`),
+      })
+      .then((s) =>
+        setF((cur) =>
+          cur.projectId === id ? { ...cur, plates: [...fromProject(s), ...cur.plates] } : cur,
+        ),
+      );
+  };
+  const addFiles = async (files: FileList) => {
+    for (const file of Array.from(files)) {
+      const u = await upload.mutateAsync(file).catch(() => null);
+      if (u)
+        setF((cur) =>
+          cur.uploads.some((x) => x.id === u.id) ? cur : { ...cur, uploads: [...cur.uploads, u] },
+        );
+    }
+  };
+  const removeUpload = (u: QuoteUpload) =>
+    set({
+      uploads: f.uploads.filter((x) => x.id !== u.id),
+      plates: plates.filter((p) => p.file !== u.model.file),
+    });
+
+  // One print: every plate on its own printer, plus the part typed in.
+  const fallback = ctx.printers.find((p) => p.id === defaultPrinterId) ?? ctx.printers[0];
+  const platesCost = estimateSlicedPlates(plates, ctx, {
+    spools,
+    profiles,
+    fallbackPrinterId: fallback?.id,
+  }).cost;
   const durationSec = f.minutes * 60;
-  const cost = computeCost(
+  const typedCost = computeCost(
     {
       durationSec,
       energyWh: estimateEnergyWh(f.powerW, durationSec),
@@ -154,6 +245,7 @@ function Calculator({ ctx, editing }: { ctx: CostContext; editing?: Quote }) {
       maintenancePerHour: printer?.maintenancePerHour ?? 0,
     },
   );
+  const cost = sumCosts([platesCost, typedCost]);
   const quote = computeQuote(cost.total, {
     laborHours: f.laborHours,
     laborRatePerHour: toMinor(f.laborRate),
@@ -168,10 +260,20 @@ function Calculator({ ctx, editing }: { ctx: CostContext; editing?: Quote }) {
     notes,
     clientId: clientId || null,
     projectId: f.projectId || null,
-    form: f,
+    form: { ...f, plates },
     cost,
     quote,
   };
+  const sliceStatus =
+    slice.data && !slice.data.canSlice
+      ? t("projects:slicing.noSlicer")
+      : left
+        ? t("projects:slicing.progress", { count: left })
+        : runSlice.isError
+          ? t("projects:slicing.startFailed")
+          : plates.length && !unsliced
+            ? t("projects:slicing.upToDate")
+            : t("costs:form.sliceHint");
   const saveNew = () => save.mutate(body, { onSuccess: (q) => open(q.id) });
 
   return (
@@ -186,28 +288,120 @@ function Calculator({ ctx, editing }: { ctx: CostContext; editing?: Quote }) {
               <span className="font-medium">{t("costs:form.project")}</span>
               <Combobox
                 value={f.projectId}
-                onChange={(v) => set({ projectId: v, plate: "" })}
+                onChange={pickProject}
                 options={[
                   { value: "", label: t("costs:form.noProject") },
                   ...projects.map((p) => ({ value: p.id, label: projectName(t, p) })),
                 ]}
               />
             </label>
-            <label className="grid gap-1.5">
-              <span className="font-medium">{t("costs:form.plate")}</span>
-              <Combobox
-                value={f.plate}
-                disabled={!plates.length}
-                onChange={pickPlate}
-                options={[
-                  { value: "", label: t("costs:form.noPlate") },
-                  ...plates.map(({ file, pl }) => ({
-                    value: `${file}#${pl.index}`,
-                    label: `${file} · ${pl.name ?? t("costs:form.plateN", { index: pl.index })}`,
-                  })),
-                ]}
+            <Num
+              label={t("costs:form.quantity")}
+              value={f.quantity}
+              onChange={(n) => set({ quantity: n ?? 1 })}
+            />
+          </div>
+
+          <h3 className="font-medium">{t("costs:form.plates")}</h3>
+          <p className="-mt-2 text-muted">{t("costs:form.platesHint")}</p>
+          {f.uploads.length > 0 && (
+            <ul className="grid gap-1">
+              {f.uploads.map((u) => (
+                <li key={u.id} className="flex items-center justify-between gap-2">
+                  <span className="min-w-0 break-all">{u.name}</span>
+                  <Button
+                    variant="ghost"
+                    aria-label={t("costs:form.removeFile", { name: u.name })}
+                    onClick={() => removeUpload(u)}
+                  >
+                    <Trash2 className="size-4" aria-hidden />
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          )}
+          {(project?.meta.models.length || f.uploads.length) > 0 && (
+            <SliceSetup
+              files={[
+                ...(project?.meta.models ?? []).map((m) => ({
+                  path: m.file,
+                  label: m.file,
+                  plates: m.plates,
+                  printerModel: m.printerModel,
+                  nozzleDiameter: m.nozzleDiameter,
+                  printProfile: m.printProfile,
+                  thumbnailUrl: (entry: string) => projectFileUrl(project?.id ?? "", m.file, entry),
+                })),
+                ...f.uploads.map((u) => ({
+                  path: u.model.file,
+                  label: u.name,
+                  plates: u.model.plates,
+                  printerModel: u.model.printerModel,
+                  nozzleDiameter: u.model.nozzleDiameter,
+                  printProfile: u.model.printProfile,
+                  thumbnailUrl: (entry: string) => quoteFileUrl(u.id, entry),
+                })),
+              ]}
+              value={plates}
+              onChange={(next) => set({ plates: keepResults(next, plates) })}
+              defaultPrinterId={defaultPrinterId}
+              plateInfo={(key) => {
+                const p = plates.find((x) => plateKey(x) === key);
+                const s = p && sliceOf(p);
+                return (
+                  p && (
+                    <PlateSlice
+                      plate={{
+                        job: p.result ? null : (s?.job ?? null),
+                        result: p.result,
+                        error: p.result ? null : (s?.error ?? null),
+                        needsSlicing: !p.result,
+                      }}
+                    />
+                  )
+                );
+              }}
+            />
+          )}
+          <div className="flex flex-wrap items-center gap-3">
+            <label
+              className={`inline-flex h-9 cursor-pointer items-center gap-2 rounded-md border border-border bg-surface px-3 font-medium hover:bg-surface-2 focus-within:ring-2 focus-within:ring-accent ${upload.isPending ? "opacity-60" : ""}`}
+            >
+              <Upload className="size-4" aria-hidden />
+              {upload.isPending ? t("costs:form.uploading") : t("costs:form.addFile")}
+              <input
+                type="file"
+                accept=".3mf"
+                multiple
+                className="sr-only"
+                disabled={upload.isPending}
+                onChange={(e) => {
+                  if (e.target.files?.length) void addFiles(e.target.files);
+                  e.target.value = "";
+                }}
               />
             </label>
+            <Button
+              disabled={!unsliced || !!left || runSlice.isPending || slice.data?.canSlice === false}
+              onClick={() => runSlice.mutate(toSlice)}
+            >
+              {t("projects:slicing.slice")}
+            </Button>
+            {plates.length > 0 && (
+              <p aria-live="polite" className={runSlice.isError ? "text-bad" : "text-muted"}>
+                {sliceStatus}
+              </p>
+            )}
+          </div>
+          {upload.isError && (
+            <p role="alert" className="text-bad">
+              {t("costs:form.uploadFailed")}
+            </p>
+          )}
+
+          <h3 className="font-medium">{t("costs:form.typed")}</h3>
+          <p className="-mt-2 text-muted">{t("costs:form.typedHint")}</p>
+          <div className="grid gap-4 sm:grid-cols-2">
             <label className="grid gap-1.5">
               <span className="font-medium">{t("costs:form.printer")}</span>
               <Combobox
@@ -234,7 +428,7 @@ function Calculator({ ctx, editing }: { ctx: CostContext; editing?: Quote }) {
             />
           </div>
 
-          <h3 className="font-medium">{t("costs:form.filament")}</h3>
+          <h4 className="font-medium">{t("costs:form.filament")}</h4>
           <ul className="grid gap-3">
             {f.filaments.map((r, i) => (
               <li
@@ -308,11 +502,6 @@ function Calculator({ ctx, editing }: { ctx: CostContext; editing?: Quote }) {
               label={t("costs:form.markup")}
               value={f.markupPct}
               onChange={(n) => set({ markupPct: n ?? 0 })}
-            />
-            <Num
-              label={t("costs:form.quantity")}
-              value={f.quantity}
-              onChange={(n) => set({ quantity: n ?? 1 })}
             />
           </div>
         </section>

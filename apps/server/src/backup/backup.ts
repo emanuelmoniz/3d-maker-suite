@@ -20,12 +20,13 @@ import { readPreferences } from "../lib/preferences.ts";
  *   manifest.json   { format, app, createdAt }
  *   app.sqlite      consistent snapshot (SQLite online backup)
  *   secret.key      encrypts the integration tokens inside app.sqlite
- *   photos/ thumbnails/   files the database points at
+ *   photos/ thumbnails/ quote-files/   files the database points at
  * Bump FORMAT when the layout changes and add the step to UPGRADES (runs on a staged restore).
  */
 export const FORMAT = 1;
 const APP = "3d-maker-suite";
-const DIRS = ["photos", "thumbnails"];
+// A new folder needs no FORMAT bump: older backups just don't have it.
+const DIRS = ["photos", "thumbnails", "quote-files"];
 const FILES = ["app.sqlite", "secret.key"];
 /** format N → function that turns the staged files of format N into format N+1. */
 const UPGRADES: Record<number, (stagedDir: string) => void> = {};

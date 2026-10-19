@@ -1,10 +1,4 @@
-import {
-  bestMatches,
-  type PlateSetup,
-  type PlateSetupInput,
-  type Project,
-  sumCosts,
-} from "@3d-maker-suite/core";
+import { bestMatches, type PlateSetupInput, type Project, sumCosts } from "@3d-maker-suite/core";
 import { Link, useParams } from "@tanstack/react-router";
 import type { TFunction } from "i18next";
 import { Box, ExternalLink, FolderOpen } from "lucide-react";
@@ -15,7 +9,7 @@ import { Combobox } from "../../components/Combobox.tsx";
 import { CostBreakdown, UsageBreakdown } from "../../components/CostBreakdown.tsx";
 import { Markdown } from "../../components/Markdown.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
-import { plateKey, SliceSetup } from "../../components/SliceSetup.tsx";
+import { PlateSlice, plateKey, SliceSetup } from "../../components/SliceSetup.tsx";
 import { TagList } from "../../components/TagList.tsx";
 import { estimatePlate, estimateSlicedPlates, type Plate, useCostContext } from "../../lib/cost.ts";
 import { cx } from "../../lib/cx.ts";
@@ -175,55 +169,6 @@ function Estimate({ plate }: { plate: Plate }) {
         <CostBreakdown cost={estimatePlate(plate, printer?.id, ctx)} />
       </div>
     </section>
-  );
-}
-
-// Static keys so `pnpm i18n:check` sees them. Stored as `code` or `code: <the slicer's text>`.
-const SLICE_ERRORS: Record<string, string> = {
-  no_slicer: "projects:slicing.error.no_slicer",
-  not_allowed: "projects:slicing.error.not_allowed",
-  no_preset: "projects:slicing.error.no_preset",
-  no_machine_preset: "projects:slicing.error.no_machine_preset",
-  no_printer_profile: "projects:slicing.error.no_printer_profile",
-  slice_failed: "projects:slicing.error.slice_failed",
-};
-const sliceError = (t: TFunction, error: string) => {
-  const at = error.indexOf(": ");
-  const [code, detail] = at < 0 ? [error, ""] : [error.slice(0, at), error.slice(at + 2)];
-  const key = SLICE_ERRORS[code];
-  return key && (detail || code !== "slice_failed")
-    ? t(key, { detail })
-    : t("projects:slicing.error.unknown");
-};
-
-/** Under a picked plate: queued / slicing, the last result, or why it failed. */
-function PlateSlice({ plate: p }: { plate: PlateSetup }) {
-  const { t } = useTranslation();
-  if (p.job)
-    return (
-      <span className="block text-sm text-muted">
-        {p.job === "running" ? t("projects:slicing.running") : t("projects:slicing.queued")}
-      </span>
-    );
-  return (
-    <>
-      {p.result && (
-        <span className="block text-sm text-muted">
-          {t("projects:slicing.result", {
-            time: formatDuration(p.result.printTimeSeconds),
-            weight: formatWeight(p.result.weightGrams),
-          })}
-        </span>
-      )}
-      {p.error ? (
-        <span className="block text-sm text-bad">{sliceError(t, p.error)}</span>
-      ) : (
-        p.needsSlicing &&
-        p.state === "ok" && (
-          <span className="block text-sm text-warn">{t("projects:slicing.needsSlicing")}</span>
-        )
-      )}
-    </>
   );
 }
 

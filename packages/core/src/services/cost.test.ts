@@ -73,7 +73,7 @@ describe("computeCost", () => {
 });
 
 describe("computeQuote", () => {
-  it("adds labor, failure margin and markup in order, times quantity", () => {
+  it("adds labor, failure margin and markup per print, times the prints", () => {
     const q = computeQuote(400, {
       laborHours: 0.5,
       laborRatePerHour: 1000,
@@ -92,6 +92,29 @@ describe("computeQuote", () => {
       quantity: 3,
       total: 3564,
     });
+  });
+
+  it("prices one print of every plate (each on its own printer) plus the typed-in part", () => {
+    const plateA = computeCost(
+      { durationSec: 3600, energyWh: 100, filaments: [{ grams: 100, pricePerKg: 2000 }] },
+      rates,
+    );
+    const plateB = computeCost(
+      { durationSec: 1800, energyWh: null, filaments: [{ grams: 20, pricePerKg: null }] },
+      { energyPerKwh: 25, wearPerHour: 0, maintenancePerHour: 0 },
+    );
+    const typed = computeCost({ durationSec: 0, energyWh: null, filaments: [] }, rates);
+    const onePrint = sumCosts([plateA, plateB, typed]);
+    expect(onePrint).toMatchObject({ total: plateA.total, unpricedGrams: 20 });
+    const q = computeQuote(onePrint.total, {
+      laborHours: 1,
+      laborRatePerHour: 1000,
+      failureMarginPct: 0,
+      markupPct: 0,
+      quantity: 4,
+    });
+    // Labour is per print, so it counts once per print.
+    expect(q.total).toBe(4 * (onePrint.total + 1000));
   });
 
   it("with no extras the price is the cost", () => {

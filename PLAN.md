@@ -222,7 +222,7 @@ Do Step 17 of PLAN.md. Show me the migration and where the tables go first. Back
 before editing schema.ts.
 ```
 
-### [ ] Step 18 - Quote calculator rework  **[plan mode]**
+### [x] Step 18 - Quote calculator rework  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:**
 - Picking a project fills every field from it, all editable: its printable files and plates from Step 13 are preselected; the user can add or remove 3MF files (only `.3mf`) and plates, override the print profile, and pick materials from the filament profiles list (defaults from the project, editable in place). Same slicing component and service as projects.

@@ -17,17 +17,23 @@
     "labor": "Labor",
     "failureMargin": "Failure margin",
     "markup": "Markup",
-    "unitPrice": "Price per piece",
-    "total_one": "Total for {{count}} piece",
-    "total_other": "Total for {{count}} pieces"
+    "unitPrice": "Price per print",
+    "total_one": "Total for {{count}} print",
+    "total_other": "Total for {{count}} prints"
   },
   "form": {
     "print": "Print",
     "project": "Project",
     "noProject": "No project",
-    "plate": "Sliced plate",
-    "noPlate": "Enter by hand",
-    "plateN": "Plate {{index}}",
+    "plates": "Plates",
+    "platesHint": "Pick the plates one print takes, and the printer, print profile and filaments for each. A project brings its own setup.",
+    "addFile": "Add .3mf files",
+    "uploading": "Uploading…",
+    "uploadFailed": "Couldn't read that file. Only .3mf files can be added.",
+    "removeFile": "Remove {{name}}",
+    "sliceHint": "Slices the plates that have no time and weight yet, with the slicer on this computer.",
+    "typed": "Typed in",
+    "typedHint": "Added to the plates above. Without plates, this is the whole print.",
     "printer": "Printer",
     "noPrinter": "No printer (no wear)",
     "power": "Power draw (W)",
@@ -39,11 +45,11 @@
     "addFilament": "Add filament",
     "removeFilament": "Remove filament",
     "pricing": "Pricing",
-    "laborHours": "Labor (hours per piece)",
+    "laborHours": "Labor (hours per print)",
     "laborRate": "Labor rate per hour",
     "failureMargin": "Failure margin (%)",
     "markup": "Markup (%)",
-    "quantity": "Pieces"
+    "quantity": "Prints"
   },
   "saved": {
     "title": "Saved quotes",
@@ -70,7 +76,7 @@
       "client": "Client",
       "project": "Project",
       "createdAt": "Created",
-      "quantity": "Pieces",
+      "quantity": "Prints",
       "total": "Total",
       "actions": "Actions"
     }
