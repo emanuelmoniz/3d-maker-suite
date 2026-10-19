@@ -2,7 +2,15 @@
 
 The **Import** page brings data in from spreadsheets. Nothing is saved until you review the rows and confirm. Integrations (Bambu Cloud, Bambu Studio, OrcaSlicer) import through the same review screen when a sync needs your decision.
 
-You can import **spools**, **printers** and **prints**. Filament brands, materials and profiles, and printer brands and models, are added for you when the rows that need them are imported.
+You can import **spools**, **printers**, **prints**, **clients**, **quotes** and **orders**. Filament brands, materials and profiles, and printer brands and models, are added for you when the rows that need them are imported.
+
+## Clients, quotes and orders
+
+- **Clients** are matched by mobile, else email, else VAT number.
+- **Quotes** are typed-in prints (a unit cost per print plus the pricing columns). The client and project must already exist, referenced by name or number.
+- **Orders** reference a client, a quote and one or more projects. Separate several projects with `;`. The status must be one of the order statuses.
+
+An unknown client, quote or project is an invalid row, and the message says which reference is missing. Create the client or project first, then import again.
 
 ## Spreadsheet template
 

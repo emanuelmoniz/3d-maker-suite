@@ -2,6 +2,20 @@
 
 All notable changes are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [2.0.0-alpha.3] - 2026-10-19
+
+### Added
+- Accounting: **Clients** with name and mobile (required), VAT, email, address and notes; VAT, mobile and email must be unique
+- Quotes: numbered like the other modules, with notes, an optional client and an optional project; a list on the Costs page and tables on project and client pages
+- Quote calculator reworked: picking a project fills the quote from it (printable files, plates, print profile and filament), all editable; without a project everything is manual and optional
+- Orders: a number, a client, a project, an optional quote, a price, a status (accepted, in progress, done, canceled) and notes; a print can belong to one order, and the order page shows its prints and their cost
+- Orders can be created from a quote; project and client pages list their orders
+- Import and export of clients, quotes and orders from the file import, with a template and review like prints
+
+### Changed
+- "Pieces" on quotes becomes "Prints" and moves to the print section; labour hours are per print
+- Sidebar: quotes, orders and clients sit in the Accounting group
+
 ## [2.0.0-alpha.2] - 2026-10-19
 
 ### Added

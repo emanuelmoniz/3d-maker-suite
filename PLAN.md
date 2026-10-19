@@ -255,7 +255,7 @@ editing schema.ts.
 Do Step 20 of PLAN.md. Follow how the prints import type is built, end to end.
 ```
 
-### [ ] Step 21 - Docs, push & v2.0.0-alpha.3
+### [x] Step 21 - Docs, push & v2.0.0-alpha.3
 **Model:** Haiku · **Effort:** Low
 **Scope:** README/docs for clients, quotes, orders and their import, CHANGELOG, version `2.0.0-alpha.3`. Commit, push `main`, create and push tag `v2.0.0-alpha.3`; check the workflow run and the pre-release.
 **Done when:** `main` and the tag are pushed; the workflow is green; the pre-release exists; docs match the app.

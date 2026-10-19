@@ -12,9 +12,12 @@ A local-first manager for your 3D printing: printers, accessories, maintenance, 
 - **Filament**: brands, materials, profiles, spools with numbers and colour names, remaining grams, low-spool alerts
 - **Projects**: 3MF models with plates, thumbnails, tags, collections, filament colours, a description from a linked `.md` or `.txt` file, and slicing per plate (Bambu Studio) for an estimated cost of one complete print
 - **Prints**: history with outcome, filament usage per AMS slot (up to 16 for multicolor), energy, and an estimated duration when only the grams are known
+- **Clients**: people and companies you print for, with unique VAT, mobile and email
+- **Quotes**: numbered quotes from a project or typed in, with notes, client and markup on cost
+- **Orders**: work agreed with a client, from a quote or on its own, with a status, a price and the cost of its linked prints
 - **Costs and stats**: cost per print snapshotted at record time (printer, counted accessories, filament, energy, labour), charts by period, filters by material and outcome
 - **Integrations** (optional): Bambu Cloud, Bambu Studio and OrcaSlicer, with a sync mode and frequency per data type
-- **Import**: spreadsheets (spools, printers, prints) and slicer catalogs from a zip, reviewed row by row before anything is saved
+- **Import**: spreadsheets (spools, printers, prints, clients, quotes, orders) and slicer catalogs from a zip, reviewed row by row before anything is saved
 - **Backups**: scheduled online SQLite backups, restore, CSV, JSON and spreadsheet export
 - **Light and dark themes**, mobile-friendly, keyboard navigable, searchable dropdowns; set your own app name, logo, favicon, date and time format
 
@@ -64,7 +67,7 @@ By default the app only answers on this PC. To reach it from your phone or anoth
 
 ## Status
 
-Version 2.0.0-alpha.2 (pre-release). English only for now; the code is ready for more languages (see [CONTRIBUTING.md](CONTRIBUTING.md)).
+Version 2.0.0-alpha.3 (pre-release). English only for now; the code is ready for more languages (see [CONTRIBUTING.md](CONTRIBUTING.md)).
 
 ## License
 
