@@ -27,6 +27,9 @@ const TABLES = [
   ["projects", "settings:backup.tables.projects"],
   ["prints", "settings:backup.tables.prints"],
   ["quotes", "settings:backup.tables.quotes"],
+  ["clients", "settings:backup.tables.clients"],
+  ["orders", "settings:backup.tables.orders"],
+  ["order-projects", "settings:backup.tables.orderProjects"],
 ] as const;
 
 const megabytes = (bytes: number) =>

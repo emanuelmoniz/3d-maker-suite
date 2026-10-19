@@ -20,6 +20,9 @@ const TABLES = {
   projects: schema.projects,
   prints: schema.prints,
   quotes: schema.quotes,
+  clients: schema.clients,
+  orders: schema.orders,
+  "order-projects": schema.orderProjects,
 };
 
 const cell = (v: unknown) => {
