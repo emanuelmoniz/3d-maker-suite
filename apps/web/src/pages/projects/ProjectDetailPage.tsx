@@ -35,6 +35,7 @@ import {
   useSliceProject,
 } from "../../lib/projects.ts";
 import { useTagsOf } from "../../lib/tags.ts";
+import { QuotesTable } from "../costs/QuotesTable.tsx";
 import { ModelPreview } from "./ModelPreview.tsx";
 
 const linkButton =
@@ -595,6 +596,7 @@ export function ProjectDetailPage() {
       )}
 
       <LinkedPrints id={id} />
+      <QuotesTable fixed={{ projectId: id }} title={t("costs:saved.title")} />
 
       <section aria-labelledby="files" className="mt-6">
         <h2 id="files" className="mb-2 text-base font-semibold">

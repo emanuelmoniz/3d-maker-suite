@@ -2,14 +2,15 @@ import { type Db, schema } from "@3d-maker-suite/db";
 import { and, eq, ne, sql } from "drizzle-orm";
 import { HttpError } from "../errors.ts";
 
-const { spools, printers, projects, prints, accessories } = schema;
-// ponytail: all five have the same `id` and `number` columns; the casts keep one helper typed.
+const { spools, printers, projects, prints, accessories, quotes } = schema;
+// ponytail: all six have the same `id` and `number` columns; the casts keep one helper typed.
 type Numbered =
   | typeof spools
   | typeof printers
   | typeof projects
   | typeof prints
-  | typeof accessories;
+  | typeof accessories
+  | typeof quotes;
 const asSpools = (t: Numbered) => t as typeof spools;
 
 /** An import cell as an entity number: a positive whole number, else null ("use the next free one"). */
@@ -32,7 +33,7 @@ export const freeNumber = (db: Db, table: Numbered, number: number | null) => {
 export function assertNumberFree(
   db: Db,
   table: Numbered,
-  entity: "spool" | "printer" | "project" | "print" | "accessory",
+  entity: "spool" | "printer" | "project" | "print" | "accessory" | "quote",
   number: number | null | undefined,
   exceptId?: string,
 ) {
@@ -50,7 +51,7 @@ export function assertNumberFree(
  * Digits each number is padded to for display only ("01-A1", "0042-Benchy"); the DB keeps plain
  * numbers. The SQL labels in `lib/catalog.ts` and the web's name helpers use the same widths.
  */
-export const PAD = { spool: 3, printer: 2, project: 3, print: 4, accessory: 2 } as const;
+export const PAD = { spool: 3, printer: 2, project: 3, print: 4, accessory: 2, quote: 3 } as const;
 export const padded = (n: number | null, width: number) => String(n).padStart(width, "0");
 
 /** A printer's display name in JS, the same as the `printerLabel` SQL. */

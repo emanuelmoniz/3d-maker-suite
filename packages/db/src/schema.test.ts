@@ -445,6 +445,29 @@ describe("migration 0046", () => {
   });
 });
 
+describe("migration 0051", () => {
+  it("numbers existing quotes 1..n by creation date", () => {
+    const now = migrateAcross(50, (sqlite) => {
+      const quote = sqlite.prepare(
+        "INSERT INTO quotes (id, name, form, cost, quote, created_at, updated_at) VALUES (?, ?, '{}', '{}', '{}', ?, ?)",
+      );
+      for (const [name, day] of [
+        ["b", "02"],
+        ["c", "03"],
+        ["a", "01"],
+      ])
+        quote.run(crypto.randomUUID(), name, `2026-01-${day}T00:00:00.000Z`, "x");
+    });
+    const rows = now.select().from(s.quotes).all();
+    expect(rows.map((q) => [q.name, q.number]).sort()).toEqual([
+      ["a", 1],
+      ["b", 2],
+      ["c", 3],
+    ]);
+    expect(rows.every((q) => q.clientId === null && q.notes === null)).toBe(true);
+  });
+});
+
 describe("seed", () => {
   it("fills an empty DB once", () => {
     const empty = openDb(":memory:");

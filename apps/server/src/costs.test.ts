@@ -139,7 +139,7 @@ describe("costs", () => {
     expect(await ctx()).toMatchObject({ wearPerHour: 170 });
   });
 
-  it("saves, lists and deletes quotes", async () => {
+  it("saves, numbers, lists, patches and deletes quotes", async () => {
     const body = {
       name: "Vase x3",
       form: { grams: 120 },
@@ -155,14 +155,56 @@ describe("costs", () => {
         total: 6,
       },
     };
-    const res = await send("POST", "/api/costs/quotes", body);
+    const list = async (q = "") => (await app.inject(`/api/costs/quotes${q}`)).json();
+    const res = await send("POST", "/api/costs/quotes", { ...body, notes: "  " });
     expect(res.statusCode).toBe(201);
-    expect((await app.inject("/api/costs/quotes")).json()).toHaveLength(1);
+    expect(res.json()).toMatchObject({ number: 1, notes: null, clientId: null });
+    expect((await list()).total).toBe(1);
     expect(
       (await send("POST", "/api/costs/quotes", { ...body, projectId: crypto.randomUUID() }))
         .statusCode,
     ).toBe(400);
+    expect(
+      (await send("POST", "/api/costs/quotes", { ...body, clientId: crypto.randomUUID() }))
+        .statusCode,
+    ).toBe(400);
+    const taken = await send("POST", "/api/costs/quotes", { ...body, number: 1 });
+    expect([taken.statusCode, taken.json().error.code]).toEqual([409, "quote_number_taken"]);
+
+    const client = (await send("POST", "/api/clients", { name: "Ana", mobile: "911" })).json();
+    const project = (await send("POST", "/api/projects", { name: "Lamp" })).json();
+    const big = { ...body.quote, total: 99 };
+    const second = (
+      await send("POST", "/api/costs/quotes", {
+        ...body,
+        name: "Lamp",
+        clientId: client.id,
+        projectId: project.id,
+        quote: big,
+      })
+    ).json();
+    expect(second.number).toBe(2);
+    expect((await list(`?clientId=${client.id}`)).items.map((q: { id: string }) => q.id)).toEqual([
+      second.id,
+    ]);
+    expect((await list(`?projectId=${project.id}`)).total).toBe(1);
+    expect((await list("?name=002-la")).total).toBe(1);
+    expect((await list("?sort=-total")).items[0].id).toBe(second.id);
+    expect((await list("?sort=total")).items[0].id).toBe(res.json().id);
+    expect((await list("?sort=client")).total).toBe(2);
+    expect((await list("?sort=project")).total).toBe(2);
+
+    const patched = await send("PATCH", `/api/costs/quotes/${res.json().id}`, {
+      notes: "Rush",
+      clientId: client.id,
+    });
+    expect(patched.json()).toMatchObject({ notes: "Rush", clientId: client.id, number: 1 });
+    expect((await list(`?clientId=${client.id}`)).total).toBe(2);
+    expect(
+      (await send("PATCH", `/api/costs/quotes/${res.json().id}`, { number: 2 })).statusCode,
+    ).toBe(409);
+
     expect((await send("DELETE", `/api/costs/quotes/${res.json().id}`)).statusCode).toBe(204);
-    expect((await app.inject("/api/costs/quotes")).json()).toEqual([]);
+    expect((await list()).total).toBe(1);
   });
 });

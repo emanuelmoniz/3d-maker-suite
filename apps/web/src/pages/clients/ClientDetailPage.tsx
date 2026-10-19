@@ -2,9 +2,10 @@ import { Link, useParams } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { useClient } from "../../lib/clients.ts";
+import { QuotesTable } from "../costs/QuotesTable.tsx";
 import { Info, linkButton } from "../filament/SpoolDetailPage.tsx";
 
-// The quotes and orders tables join this page with the quotes and orders steps.
+// The orders table joins this page with the orders step.
 export function ClientDetailPage() {
   const { t } = useTranslation();
   const { id } = useParams({ strict: false }) as { id: string };
@@ -42,6 +43,7 @@ export function ClientDetailPage() {
           </Info>
         </dl>
       </section>
+      <QuotesTable fixed={{ clientId: id }} title={t("costs:saved.title")} />
     </>
   );
 }

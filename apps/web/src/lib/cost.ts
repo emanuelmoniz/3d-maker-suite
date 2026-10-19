@@ -9,13 +9,17 @@ import {
   type ProjectModel,
   type Quote,
   type QuoteInput,
+  type QuotePatch,
   type Spool,
   spoolPricePerKg,
   sumCosts,
 } from "@3d-maker-suite/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { TFunction } from "i18next";
+import type { ListQuery } from "../components/DataTable.tsx";
 import { api } from "./api.ts";
 import { formatCurrency } from "./format.ts";
+import { useListPage } from "./list.ts";
 import { usePreferences } from "./preferences.ts";
 
 export const useCostContext = () =>
@@ -24,13 +28,18 @@ export const useCostContext = () =>
     queryFn: () => api<CostContext>("GET", "/api/costs/context"),
   });
 
-export const useQuotes = () =>
+/** `query` is the table's list query plus any fixed filter (`clientId`, `projectId`). */
+export const useQuotes = (query: ListQuery) =>
+  useListPage<Quote>(["costs", "quotes", "list"], "/api/costs/quotes", query);
+
+export const useQuote = (id: string | undefined) =>
   useQuery({
-    queryKey: ["costs", "quotes"],
-    queryFn: () => api<Quote[]>("GET", "/api/costs/quotes"),
+    queryKey: ["costs", "quotes", id],
+    queryFn: () => api<Quote>("GET", `/api/costs/quotes/${id}`),
+    enabled: !!id,
   });
 
-function useQuoteMutation<V>(fn: (v: V) => Promise<unknown>) {
+function useQuoteMutation<V, R = unknown>(fn: (v: V) => Promise<R>) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: fn,
@@ -39,8 +48,17 @@ function useQuoteMutation<V>(fn: (v: V) => Promise<unknown>) {
 }
 export const useSaveQuote = () =>
   useQuoteMutation((v: QuoteInput) => api<Quote>("POST", "/api/costs/quotes", v));
+export const usePatchQuote = () =>
+  useQuoteMutation((v: QuotePatch & { id: string }) => {
+    const { id, ...patch } = v;
+    return api<Quote>("PATCH", `/api/costs/quotes/${id}`, patch);
+  });
 export const useDeleteQuote = () =>
   useQuoteMutation((id: string) => api("DELETE", `/api/costs/quotes/${id}`));
+
+/** The name a quote goes by everywhere: "001-Vase". The server builds the same in `quoteLabel`. */
+export const quoteName = (t: TFunction, q: Pick<Quote, "number" | "name">) =>
+  t("common:quoteName", { number: String(q.number).padStart(3, "0"), name: q.name });
 
 /** Formats minor units in the configured currency. */
 export function useMoney() {

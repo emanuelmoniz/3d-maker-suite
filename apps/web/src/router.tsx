@@ -281,7 +281,7 @@ const routes: AnyRoute[] = [
   createRoute({
     getParentRoute: () => root,
     path: "/costs",
-    loader: () => loadNamespace("costs"),
+    loader: () => Promise.all([loadNamespace("costs"), loadNamespace("clients")]),
     component: CostsPage,
   }),
   // "/clients/new" is declared before "/clients/$id" so it wins the match.
@@ -294,7 +294,7 @@ const routes: AnyRoute[] = [
     createRoute({
       getParentRoute: () => root,
       path: path as string,
-      loader: () => loadNamespace("clients"),
+      loader: () => Promise.all([loadNamespace("clients"), loadNamespace("costs")]),
       component: component as () => ReactNode,
     }),
   ),

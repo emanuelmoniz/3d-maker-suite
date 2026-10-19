@@ -207,7 +207,7 @@ Do Step 16 of PLAN.md. Uniqueness as partial unique indexes in the DB, mapped to
 errors by the API. Back up the DB before editing schema.ts.
 ```
 
-### [ ] Step 17 - Saved quotes: numbering, client, notes, tables  **[plan mode]**
+### [x] Step 17 - Saved quotes: numbering, client, notes, tables  **[plan mode]**
 **Model:** Opus · **Effort:** Medium
 **Scope:**
 - Quotes get a number like printers, prints, projects and spools, and show everywhere with the app's naming convention (number + the name the user chose).

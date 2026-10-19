@@ -3,28 +3,32 @@ import {
   computeCost,
   computeQuote,
   estimateEnergyWh,
+  type Quote,
   toMinor,
 } from "@3d-maker-suite/core";
+import { useNavigate, useSearch } from "@tanstack/react-router";
 import { Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
 import { Combobox } from "../../components/Combobox.tsx";
 import { CostBreakdown, QuoteBreakdownView } from "../../components/CostBreakdown.tsx";
-import { inputClass } from "../../components/FormField.tsx";
+import { FormField, inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { SettingsLink } from "../../components/SettingsLink.tsx";
+import { useClients } from "../../lib/clients.ts";
 import {
   materialPrice,
+  quoteName,
   useCostContext,
-  useDeleteQuote,
-  useMoney,
-  useQuotes,
+  usePatchQuote,
+  useQuote,
   useSaveQuote,
 } from "../../lib/cost.ts";
-import { formatDate } from "../../lib/format.ts";
 import { printerName } from "../../lib/printers.ts";
 import { projectName, useProjects } from "../../lib/projects.ts";
+import { NewClientDialog } from "../clients/NewClientDialog.tsx";
+import { QuotesTable } from "./QuotesTable.tsx";
 
 type Row = { label: string; grams: number; price: number | null };
 /** Calculator state. Money is in major units here (what people type), minor units in the maths. */
@@ -91,15 +95,25 @@ function Num({
 
 const panel = "grid gap-4 rounded-lg border border-border bg-surface p-4";
 
-function Calculator({ ctx }: { ctx: CostContext }) {
+/** `editing`: the saved quote opened from a table (`/costs?quote=<id>`), restored as saved. */
+function Calculator({ ctx, editing }: { ctx: CostContext; editing?: Quote }) {
   const { t } = useTranslation();
-  const money = useMoney();
+  const navigate = useNavigate();
   const projects = useProjects().data?.items ?? [];
-  const quotes = useQuotes().data ?? [];
+  // ponytail: first 100 clients in the picker (it searches them); a server search if anyone has more.
+  const clients = useClients({ pageSize: "100" }).data?.items ?? [];
   const save = useSaveQuote();
-  const del = useDeleteQuote();
-  const [f, setF] = useState(() => initial(ctx));
-  const [name, setName] = useState("");
+  const patch = usePatchQuote();
+  const [f, setF] = useState<Form>(() => ({
+    ...initial(ctx),
+    ...(editing?.form as Partial<Form> | undefined),
+  }));
+  const [name, setName] = useState(editing?.name ?? "");
+  const [notes, setNotes] = useState(editing?.notes ?? "");
+  const [clientId, setClientId] = useState(editing?.clientId ?? "");
+  const [newClient, setNewClient] = useState(false);
+  const open = (id?: string) =>
+    navigate({ to: "/costs", search: ((s: object) => ({ ...s, quote: id })) as never });
   const set = (patch: Partial<Form>) => setF((cur) => ({ ...cur, ...patch }));
   const printer = ctx.printers.find((p) => p.id === f.printerId);
 
@@ -149,10 +163,16 @@ function Calculator({ ctx }: { ctx: CostContext }) {
   });
   const row = (i: number, patch: Partial<Row>) =>
     set({ filaments: f.filaments.map((r, j) => (j === i ? { ...r, ...patch } : r)) });
-  const projectLabel = (id: string | null) => {
-    const p = projects.find((x) => x.id === id);
-    return p && projectName(t, p);
+  const body = {
+    name,
+    notes,
+    clientId: clientId || null,
+    projectId: f.projectId || null,
+    form: f,
+    cost,
+    quote,
   };
+  const saveNew = () => save.mutate(body, { onSuccess: (q) => open(q.id) });
 
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
@@ -317,69 +337,89 @@ function Calculator({ ctx }: { ctx: CostContext }) {
           </h2>
           <QuoteBreakdownView quote={quote} />
           <form
-            className="mt-4 flex flex-wrap gap-2"
+            className="mt-4 grid gap-3"
             onSubmit={(e) => {
               e.preventDefault();
-              save.mutate(
-                { name, projectId: f.projectId || null, form: f, cost, quote },
-                { onSuccess: () => setName("") },
-              );
+              if (editing) patch.mutate({ id: editing.id, ...body });
+              else saveNew();
             }}
           >
-            <input
-              className={`${inputClass} min-w-0 flex-1`}
-              aria-label={t("costs:saved.name")}
-              placeholder={t("costs:saved.name")}
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
-            />
-            <Button type="submit" variant="primary" disabled={save.isPending}>
-              {t("costs:saved.save")}
-            </Button>
+            {editing && (
+              <p className="flex flex-wrap items-center justify-between gap-2 text-muted">
+                {t("costs:saved.editing", { name: quoteName(t, editing) })}
+                <Button variant="ghost" onClick={() => open(undefined)}>
+                  {t("costs:saved.new")}
+                </Button>
+              </p>
+            )}
+            <FormField label={t("costs:saved.name")}>
+              {(p) => (
+                <input
+                  {...p}
+                  className={inputClass}
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  required
+                />
+              )}
+            </FormField>
+            <FormField label={t("costs:saved.client")}>
+              {(p) => (
+                <div className="flex gap-2">
+                  <div className="min-w-0 flex-1">
+                    <Combobox
+                      {...p}
+                      value={clientId}
+                      onChange={setClientId}
+                      options={[
+                        { value: "", label: t("costs:saved.noClient") },
+                        ...clients.map((c) => ({ value: c.id, label: c.name })),
+                      ]}
+                    />
+                  </div>
+                  <Button onClick={() => setNewClient(true)}>
+                    <Plus className="size-4" aria-hidden />
+                    {t("costs:saved.newClient")}
+                  </Button>
+                </div>
+              )}
+            </FormField>
+            <FormField label={t("costs:saved.notes")}>
+              {(p) => (
+                <textarea
+                  {...p}
+                  className={`${inputClass} h-20 py-2`}
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                />
+              )}
+            </FormField>
+            <div className="flex flex-wrap gap-2">
+              <Button type="submit" variant="primary" disabled={save.isPending || patch.isPending}>
+                {t(editing ? "costs:saved.update" : "costs:saved.save")}
+              </Button>
+              {editing && (
+                <Button disabled={save.isPending || !name.trim()} onClick={saveNew}>
+                  {t("costs:saved.saveAsNew")}
+                </Button>
+              )}
+            </div>
+            {patch.isSuccess && (
+              <p role="status" className="text-muted">
+                {t("costs:saved.updated")}
+              </p>
+            )}
           </form>
-          {save.isError && (
+          {(save.isError || patch.isError) && (
             <p role="alert" className="mt-2 text-bad">
               {t("costs:saved.saveError")}
             </p>
           )}
-        </section>
-
-        <section aria-labelledby="c-saved">
-          <h2 id="c-saved" className="mb-2 text-base font-semibold">
-            {t("costs:saved.title")}
-          </h2>
-          {quotes.length ? (
-            <ul className="divide-y divide-border rounded-lg border border-border bg-surface">
-              {quotes.map((q) => (
-                <li key={q.id} className="grid gap-1 p-3">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <span className="font-medium">{q.name}</span>
-                    <span className="tabular-nums">{money(q.quote.total)}</span>
-                  </div>
-                  <p className="text-muted">
-                    {[
-                      projectLabel(q.projectId),
-                      t("costs:saved.pieces", { count: q.quote.quantity }),
-                      formatDate(q.createdAt),
-                    ]
-                      .filter(Boolean)
-                      .join(" · ")}
-                  </p>
-                  <div className="flex gap-2">
-                    <Button onClick={() => setF({ ...initial(ctx), ...(q.form as Partial<Form>) })}>
-                      {t("costs:saved.load")}
-                    </Button>
-                    <Button variant="ghost" onClick={() => del.mutate(q.id)}>
-                      {t("costs:saved.delete")}
-                    </Button>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-muted">{t("costs:saved.empty")}</p>
-          )}
+          <NewClientDialog
+            open={newClient}
+            onClose={() => setNewClient(false)}
+            onSaved={(c) => setClientId(c.id)}
+          />
         </section>
       </div>
     </div>
@@ -389,6 +429,8 @@ function Calculator({ ctx }: { ctx: CostContext }) {
 export function CostsPage() {
   const { t } = useTranslation();
   const { data, isError } = useCostContext();
+  const { quote: quoteId } = useSearch({ strict: false }) as { quote?: string };
+  const opened = useQuote(quoteId);
   return (
     <>
       <PageHeader
@@ -401,7 +443,21 @@ export function CostsPage() {
           {t("costs:loadError")}
         </p>
       )}
-      {data && <Calculator ctx={data} />}
+      {opened.isError && (
+        <p role="alert" className="mb-4 text-bad">
+          {t("costs:saved.notFound")}
+        </p>
+      )}
+      {/* Remounts with the opened quote's values (or blank for a new one). */}
+      {data && (!quoteId || opened.data || opened.isError) && (
+        <Calculator key={opened.data?.id ?? "new"} ctx={data} editing={opened.data} />
+      )}
+      <section aria-labelledby="c-saved" className="mt-6">
+        <h2 id="c-saved" className="mb-2 text-base font-semibold">
+          {t("costs:saved.title")}
+        </h2>
+        <QuotesTable />
+      </section>
     </>
   );
 }

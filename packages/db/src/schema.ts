@@ -729,14 +729,22 @@ export const quotes = sqliteTable(
   "quotes",
   {
     id: id(),
+    // Nullable in SQL only (added to a filled table, see 0051); the API always sets it.
+    number: integer(),
     projectId: text().references(() => projects.id, { onDelete: "set null" }),
+    clientId: text().references((): AnySQLiteColumn => clients.id, { onDelete: "set null" }),
     name: text().notNull(),
+    notes: text(),
     form: text({ mode: "json" }).notNull(),
     cost: text({ mode: "json" }).notNull(),
     quote: text({ mode: "json" }).notNull(),
     ...timestamps,
   },
-  (t) => [index("quotes_project_idx").on(t.projectId)],
+  (t) => [
+    index("quotes_project_idx").on(t.projectId),
+    index("quotes_client_idx").on(t.clientId),
+    uniqueIndex("quotes_number_uq").on(t.number),
+  ],
 );
 
 // One row per applied import. `backup` is the automatic backup taken just before the run.

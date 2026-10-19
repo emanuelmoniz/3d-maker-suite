@@ -14,7 +14,16 @@ const TAKEN = {
   client_email_taken: ["email", "clients:form.taken.email"],
 } as const;
 
-function ClientForm({ client }: { client?: Client }) {
+/** Create (no `client`) or edit. With `onSaved` (a dialog) it hands the client back instead of leaving the page. */
+export function ClientForm({
+  client,
+  onSaved,
+  onCancel = () => history.back(),
+}: {
+  client?: Client;
+  onSaved?: (client: Client) => void;
+  onCancel?: () => void;
+}) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const save = useSaveClient(client?.id);
@@ -26,7 +35,8 @@ function ClientForm({ client }: { client?: Client }) {
     e.preventDefault();
     const body = Object.fromEntries(new FormData(e.currentTarget)) as Record<string, string>;
     save.mutate(body as never, {
-      onSuccess: (saved) => navigate({ to: "/clients/$id", params: { id: saved.id } }),
+      onSuccess: (saved) =>
+        onSaved ? onSaved(saved) : navigate({ to: "/clients/$id", params: { id: saved.id } }),
     });
   };
 
@@ -83,7 +93,7 @@ function ClientForm({ client }: { client?: Client }) {
         <Button type="submit" variant="primary" disabled={save.isPending}>
           {t("clients:form.save")}
         </Button>
-        <Button onClick={() => history.back()}>{t("common:actions.cancel")}</Button>
+        <Button onClick={onCancel}>{t("common:actions.cancel")}</Button>
       </div>
     </form>
   );

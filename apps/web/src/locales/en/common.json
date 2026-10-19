@@ -68,5 +68,6 @@
   "printerName": "{{number}}-{{name}}",
   "accessoryName": "{{number}}-{{name}}",
   "projectName": "{{number}}-{{name}}",
-  "printName": "{{number}}-{{title}}"
+  "printName": "{{number}}-{{title}}",
+  "quoteName": "{{number}}-{{name}}"
 }
