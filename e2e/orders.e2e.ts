@@ -88,3 +88,38 @@ test("orders: statuses come from the orders settings", async ({ page, app }) => 
   await page.reload();
   await expect(page.getByLabel("Status")).toHaveValue("shipped");
 });
+
+test("orders: create order from a quote fills client, project and price", async ({ page, app }) => {
+  const project = await seedProject(app.api, "Lamp");
+  const client = await app.api<{ id: string }>("POST", "/api/clients", {
+    name: "Ana",
+    mobile: "911",
+  });
+  const q = await app.api<{ id: string }>("POST", "/api/costs/quotes", {
+    name: "Lamp",
+    projectId: project.id,
+    clientId: client.id,
+    form: { minutes: 60, filaments: [], quantity: 1 },
+    cost: { material: 0, energy: 0, wear: 0, maintenance: 0, total: 0, unpricedGrams: 0 },
+    quote: {
+      unitCost: 0,
+      labor: 0,
+      failureMargin: 0,
+      subtotal: 0,
+      markup: 0,
+      unitPrice: 12345,
+      quantity: 1,
+      total: 12345,
+    },
+  });
+
+  await page.goto(`/quotes/${q.id}`);
+  await page.getByRole("link", { name: "Create order" }).click();
+  await expect(page.getByLabel("Quote")).toHaveValue("001-Lamp");
+  await expect(page.getByLabel("Client")).toHaveValue("Ana");
+  await expect(page.getByRole("listitem").filter({ hasText: "001-Lamp" })).toBeVisible();
+  await expect(page.getByLabel("Price")).toHaveValue("123.45");
+  await page.getByRole("button", { name: "Save" }).click();
+  await expect(page.getByRole("heading", { name: "Order 001" })).toBeVisible();
+  await expect(page.locator("dl").getByRole("link", { name: "001-Lamp" })).toHaveCount(2);
+});

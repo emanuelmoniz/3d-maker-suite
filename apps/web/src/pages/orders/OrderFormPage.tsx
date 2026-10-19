@@ -1,5 +1,5 @@
-import type { OrderDetail } from "@3d-maker-suite/core";
-import { useNavigate, useParams } from "@tanstack/react-router";
+import type { OrderDetail, Quote } from "@3d-maker-suite/core";
+import { useNavigate, useParams, useSearch } from "@tanstack/react-router";
 import { Plus, X } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -9,14 +9,14 @@ import { FormField, inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { ApiError } from "../../lib/api.ts";
 import { useClients } from "../../lib/clients.ts";
-import { quoteName, useQuotes } from "../../lib/cost.ts";
+import { quoteName, useQuote, useQuotes } from "../../lib/cost.ts";
 import { useOrder, useOrderStatusLabel, useSaveOrder } from "../../lib/orders.ts";
 import { usePreferences } from "../../lib/preferences.ts";
 import { projectName, useProjects } from "../../lib/projects.ts";
 import { NewClientDialog } from "../clients/NewClientDialog.tsx";
 
-/** Create (no `order`) or edit. */
-function OrderForm({ order }: { order?: OrderDetail }) {
+/** Create (no `order`, optionally from a `quote`) or edit. */
+function OrderForm({ order, quote }: { order?: OrderDetail; quote?: Quote }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const save = useSaveOrder(order?.id);
@@ -24,12 +24,17 @@ function OrderForm({ order }: { order?: OrderDetail }) {
   const statuses = usePreferences().data?.values.orderStatuses ?? [];
   // ponytail: first 100 clients and quotes in the pickers, as QuotesTable.
   const clients = useClients({ pageSize: "100" }).data?.items ?? [];
-  const quotes = useQuotes({ pageSize: "100" }).data?.items ?? [];
+  const listed = useQuotes({ pageSize: "100" }).data?.items ?? [];
+  const quotes = quote && !listed.some((q) => q.id === quote.id) ? [quote, ...listed] : listed;
   const projects = useProjects().data?.items ?? [];
-  const [clientId, setClientId] = useState(order?.clientId ?? "");
-  const [quoteId, setQuoteId] = useState(order?.quoteId ?? "");
-  const [projectIds, setProjectIds] = useState(order?.projectIds ?? []);
-  const [price, setPrice] = useState(order ? String(order.price / 100) : "");
+  const [clientId, setClientId] = useState(order?.clientId ?? quote?.clientId ?? "");
+  const [quoteId, setQuoteId] = useState(order?.quoteId ?? quote?.id ?? "");
+  const [projectIds, setProjectIds] = useState(
+    order?.projectIds ?? (quote?.projectId ? [quote.projectId] : []),
+  );
+  const [price, setPrice] = useState(
+    order ? String(order.price / 100) : quote ? String(quote.quote.total / 100) : "",
+  );
   const [newClient, setNewClient] = useState(false);
   const code = save.error instanceof ApiError ? save.error.code : undefined;
 
@@ -225,12 +230,16 @@ function OrderForm({ order }: { order?: OrderDetail }) {
   );
 }
 
+/** `?quoteId=` starts the order from that quote (the quote page's "Create order"). */
 export function OrderCreatePage() {
   const { t } = useTranslation();
+  const { quoteId } = useSearch({ strict: false }) as { quoteId?: string };
+  const quote = useQuote(quoteId);
   return (
     <>
       <PageHeader title={t("orders:form.addTitle")} backTo={{ to: "/orders" }} />
-      <OrderForm />
+      {/* Waits for the quote: the form takes its values once, when it mounts. */}
+      {(!quoteId || !quote.isPending) && <OrderForm quote={quote.data} />}
     </>
   );
 }

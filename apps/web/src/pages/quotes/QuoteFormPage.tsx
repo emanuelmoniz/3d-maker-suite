@@ -11,8 +11,8 @@ import {
   toMinor,
 } from "@3d-maker-suite/core";
 import { useQueryClient } from "@tanstack/react-query";
-import { useNavigate, useParams } from "@tanstack/react-router";
-import { Plus, Trash2, Upload } from "lucide-react";
+import { Link, type LinkProps, useNavigate, useParams } from "@tanstack/react-router";
+import { ClipboardList, Plus, Trash2, Upload } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
@@ -669,7 +669,19 @@ export function QuoteEditPage() {
     );
   return (
     <>
-      <PageHeader title={quote.data ? quoteName(t, quote.data) : ""} backTo={{ to: "/quotes" }} />
+      <PageHeader
+        title={quote.data ? quoteName(t, quote.data) : ""}
+        backTo={{ to: "/quotes" }}
+        actions={
+          <Link
+            to={`/orders/new?${new URLSearchParams({ quoteId: id })}` as LinkProps["to"]}
+            className="inline-flex h-9 items-center gap-2 whitespace-nowrap rounded-md border border-border bg-surface px-3 font-medium hover:bg-surface-2"
+          >
+            <ClipboardList className="size-4" aria-hidden />
+            {t("costs:saved.createOrder")}
+          </Link>
+        }
+      />
       {ctx.isError && <LoadError />}
       {/* Remounts with each opened quote's saved values. */}
       {ctx.data && quote.data && (

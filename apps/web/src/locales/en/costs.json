@@ -60,6 +60,7 @@
     "client": "Client",
     "noClient": "No client",
     "newClient": "New client",
+    "createOrder": "Create order",
     "save": "Save quote",
     "update": "Save changes",
     "saveAsNew": "Save as new",
