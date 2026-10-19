@@ -98,34 +98,72 @@ export function toProfile(
 
 /** System presets of one kind in a Studio folder, loaded lazily, and setting lookup through `inherits`. */
 export async function systemPresets(dir: string, kind: "filament" | "machine" | "process") {
-  // name -> file for every system preset, for `inherits` lookups.
+  // name -> file for every system preset (the first vendor's), and every vendor's file per name:
+  // bases like `fdm_machine_common` exist once per vendor, with different values.
   const systemFiles = new Map<string, string>();
+  const allFiles = new Map<string, string[]>();
+  const vendorOf = new Map<string, string>();
   for (const vendor of await dirs(join(dir, "system")))
-    for (const f of await jsonFiles(join(dir, "system", vendor, kind), true))
-      if (!systemFiles.has(parse(f).name)) systemFiles.set(parse(f).name, f);
+    for (const f of await jsonFiles(join(dir, "system", vendor, kind), true)) {
+      const name = parse(f).name;
+      if (!systemFiles.has(name)) systemFiles.set(name, f);
+      allFiles.set(name, [...(allFiles.get(name) ?? []), f]);
+      vendorOf.set(f, vendor);
+    }
+  /** A preset by name, from the vendor of `near` when it has one. */
+  const find = (name: unknown, near?: string) => {
+    if (typeof name !== "string") return;
+    const files = allFiles.get(name) ?? [];
+    const vendor = near && vendorOf.get(near);
+    return files.find((f) => vendorOf.get(f) === vendor) ?? files[0];
+  };
 
   const cache = new Map<string, Preset | undefined>();
   const load = async (file: string) => {
     if (!cache.has(file)) cache.set(file, await readJson(file));
     return cache.get(file);
   };
-  /** Setting lookup through the `inherits` chain, nearest first. */
-  const resolver = async (start: Preset) => {
-    const chain: Preset[] = [start];
+  /** The preset and its `inherits` parents with their files, nearest first. */
+  const chainOf = async (start: Preset, startFile?: string) => {
+    const chain = [{ preset: start, file: startFile }];
     while (chain.length < 10) {
-      const inherits = chain[chain.length - 1]?.inherits;
-      const file = typeof inherits === "string" ? systemFiles.get(inherits) : undefined;
+      const last = chain[chain.length - 1];
+      const file = find(last?.preset.inherits, last?.file);
       const next = file && (await load(file));
-      if (!next || chain.includes(next)) break;
-      chain.push(next);
+      if (!next || chain.some((c) => c.preset === next)) break;
+      chain.push({ preset: next, file });
     }
+    return chain;
+  };
+  /**
+   * Every setting filled in, as one preset that stands on its own: parents (`inherits`) first,
+   * then each one's `include`d templates (e.g. a printer's start and filament change G-code), then
+   * its own values. The slicer CLI follows neither for a preset file it is given.
+   */
+  const flatten = async (start: Preset, startFile?: string): Promise<Preset> => {
+    const out: Preset = {};
+    for (const { preset, file } of (await chainOf(start, startFile)).reverse()) {
+      const includes = Array.isArray(preset.include) ? preset.include : [];
+      for (const name of includes) {
+        const f = find(name, file);
+        const { name: _n, instantiation: _i, ...values } = (f && (await load(f))) || {};
+        Object.assign(out, values);
+      }
+      Object.assign(out, preset);
+    }
+    const { inherits: _, include: __, ...flat } = out;
+    return flat;
+  };
+  /** Setting lookup through the `inherits` chain, nearest first. */
+  const resolver = async (start: Preset, startFile?: string) => {
+    const chain = (await chainOf(start, startFile)).map((c) => c.preset);
     const get = (key: string) => chain.map((c) => first(c[key])).find((v) => v !== undefined);
     /** The nearest non-empty list setting (`compatible_printers`). */
     const list = (key: string): string[] =>
       (chain.map((c) => c[key]).find((v) => Array.isArray(v) && v.length) as string[]) ?? [];
     return Object.assign(get, { list });
   };
-  return { systemFiles, load, resolver };
+  return { systemFiles, load, resolver, flatten };
 }
 
 export function slicerPresetLibrary(id: string, defaultDirs: () => string[]): FilamentLibrary {
@@ -154,7 +192,7 @@ export function slicerPresetLibrary(id: string, defaultDirs: () => string[]): Fi
           const p = await load(f);
           // Only presets you can pick in the slicer (not the abstract `fdm_*` / `@base` ones).
           if (p?.instantiation !== "true") continue;
-          add(`system/${baseName(name)}`, toProfile(name, "system", await resolver(p)));
+          add(`system/${baseName(name)}`, toProfile(name, "system", await resolver(p, f)));
         }
       return [...out.values()];
     },
@@ -213,7 +251,7 @@ export function slicerPresetLibrary(id: string, defaultDirs: () => string[]): Fi
         const p = await load(f);
         // Only presets you can pick in the slicer (not `fdm_*` bases, models or gcode templates).
         if (p?.instantiation !== "true" || p.type !== "machine") continue;
-        add(`system/${name}`, "system", name, vendorOf.get(f) ?? "", await resolver(p));
+        add(`system/${name}`, "system", name, vendorOf.get(f) ?? "", await resolver(p, f));
       }
 
       // Process presets. Model and nozzle come from the first compatible machine we read.
@@ -253,7 +291,7 @@ export function slicerPresetLibrary(id: string, defaultDirs: () => string[]): Fi
       for (const [name, f] of [...proc.systemFiles].sort(([a], [b]) => a.localeCompare(b))) {
         const p = await proc.load(f);
         if (p?.instantiation !== "true") continue;
-        addProcess(`system/${name}`, "system", name, await proc.resolver(p));
+        addProcess(`system/${name}`, "system", name, await proc.resolver(p, f));
       }
       return {
         models: [...models.values()],

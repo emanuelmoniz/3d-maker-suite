@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { existsSync } from "node:fs";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, parse } from "node:path";
@@ -12,18 +13,20 @@ import { baseName, dirs, jsonFiles, readJson, systemPresets } from "./index.ts";
 // come from `result.json`; the exe prints nothing and its exit code isn't reliable.
 
 const TIMEOUT_MS = 10 * 60_000;
+const LINGER_MS = 3000;
 
 const failed = (why: string) => new IntegrationError("slice_failed", why);
 
-/** The 3MF's own machine preset name (`printer_settings_id`), if any. */
-async function machineOf(file: string): Promise<string | undefined> {
+/** The 3MF's own machine preset name and filament preset name per slot. */
+async function presetsOf(file: string): Promise<{ machine?: string; filaments: string[] }> {
   const raw = await read3mfEntry(file, "Metadata/project_settings.config").catch(() => null);
-  if (!raw) return;
   try {
-    const id = JSON.parse(new TextDecoder().decode(raw)).printer_settings_id;
-    return typeof id === "string" && id ? id : undefined;
+    const j = raw ? JSON.parse(new TextDecoder().decode(raw)) : {};
+    const machine = typeof j.printer_settings_id === "string" ? j.printer_settings_id : "";
+    const filaments = Array.isArray(j.filament_settings_id) ? j.filament_settings_id : [];
+    return { machine: machine || undefined, filaments: filaments.map(String) };
   } catch {
-    return;
+    return { filaments: [] };
   }
 }
 
@@ -36,11 +39,26 @@ async function userFile(dir: string, kind: string, name: string) {
     }
 }
 
+/**
+ * Runs the slicer until it exits, or until it wrote `result.json` and then lingers: some results
+ * (e.g. PLA and PETG on one plate) leave it waiting on a warning box nobody can see, after the
+ * work is done. It gets a few seconds to exit on its own, then it's killed.
+ */
 const run = (program: string, args: string[], cwd: string, signal: AbortSignal) =>
   new Promise<void>((ok, fail) => {
     const child = spawn(program, args, { cwd, signal, windowsHide: true, stdio: "ignore" });
-    child.once("error", fail);
-    child.once("exit", () => ok());
+    let doneAt = 0;
+    const poll = setInterval(() => {
+      if (!doneAt && existsSync(join(cwd, "result.json"))) doneAt = Date.now();
+      if (doneAt && Date.now() - doneAt > LINGER_MS) child.kill();
+    }, 500);
+    const end = (e?: Error) => {
+      clearInterval(poll);
+      if (e) fail(e);
+      else ok();
+    };
+    child.once("error", end);
+    child.once("exit", () => end());
   });
 
 export function cliSlicer(timeoutMs = TIMEOUT_MS): Slicer {
@@ -50,7 +68,8 @@ export function cliSlicer(timeoutMs = TIMEOUT_MS): Slicer {
       try {
         const args = ["--slice", String(req.plate), "--outputdir", out, "--export-3mf", "out.3mf"];
         const wantsFilament = req.filaments?.some(Boolean);
-        const machine = req.process || wantsFilament ? await machineOf(req.file) : undefined;
+        const own = req.process || wantsFilament ? await presetsOf(req.file) : { filaments: [] };
+        const machine = own.machine;
 
         if (req.process) {
           const machines = await systemPresets(configDir, "machine");
@@ -65,41 +84,62 @@ export function cliSlicer(timeoutMs = TIMEOUT_MS): Slicer {
               ? procs.systemFiles.get(name)
               : await userFile(configDir, "process", name);
           const proc = procFile && (await readJson(procFile));
+          const machinePreset = await machines.load(machineFile);
           if (!proc) throw failed(`Print preset not found: ${name}`);
-          const copy = join(out, "process.json");
-          await writeFile(copy, JSON.stringify({ ...proc, compatible_printers: [machine] }));
-          args.push("--load-settings", `${machineFile};${copy}`);
+          if (!machinePreset) throw failed(`Printer preset unreadable: ${machine}`);
+          // Flattened copies: the CLI ignores `inherits` (e.g. the A1's filament change G-code
+          // with its purge lives in a parent, so purges went missing from the grams).
+          const machineCopy = join(out, "machine.json");
+          await writeFile(
+            machineCopy,
+            JSON.stringify(await machines.flatten(machinePreset, machineFile)),
+          );
+          const procCopy = join(out, "process.json");
+          await writeFile(
+            procCopy,
+            JSON.stringify({
+              ...(await procs.flatten(proc, procFile)),
+              compatible_printers: [machine],
+            }),
+          );
+          args.push("--load-settings", `${machineCopy};${procCopy}`);
         }
 
         if (wantsFilament && req.filaments) {
           const fils = await systemPresets(configDir, "filament");
+          /** System ids drop the " @BBL A1" suffix: the variant made for this machine, else any. */
+          const variantOf = async (base: string) => {
+            let found: string | undefined;
+            for (const [n, f] of fils.systemFiles) {
+              if (baseName(n) !== base) continue;
+              const p = await fils.load(f);
+              if (p?.instantiation !== "true") continue;
+              found ??= f;
+              const fits = (await fils.resolver(p, f)).list("compatible_printers");
+              if (machine && fits.includes(machine)) return f;
+            }
+            return found;
+          };
+          // Every slot gets a file: with fewer than the project has, the CLI turns the prime tower
+          // off (purges then go elsewhere and the grams are wrong). Unpicked slots keep the 3MF's.
           const files: string[] = [];
-          for (const id of req.filaments) {
-            if (!id) {
-              files.push("");
-              continue;
-            }
-            const [scope, name = ""] = id.split(/\/(.*)/);
-            let file: string | undefined;
-            if (scope === "user") file = await userFile(configDir, "filament", name);
-            else {
-              // System ids drop the " @BBL A1" suffix: take the variant made for this machine.
-              const variants = [...fils.systemFiles].filter(([n]) => baseName(n) === name);
-              for (const [, f] of variants) {
-                const p = await fils.load(f);
-                if (p?.instantiation !== "true") continue;
-                file ??= f;
-                if (
-                  machine &&
-                  (await fils.resolver(p)).list("compatible_printers").includes(machine)
-                ) {
-                  file = f;
-                  break;
-                }
-              }
-            }
-            if (!file) throw failed(`Filament preset not found: ${name}`);
-            files.push(file);
+          const slots = Math.max(req.filaments.length, own.filaments.length);
+          for (let i = 0; i < slots; i++) {
+            const id = req.filaments[i];
+            const [scope, name = ""] = id ? id.split(/\/(.*)/) : ["file", own.filaments[i] ?? ""];
+            const file =
+              scope === "user"
+                ? await userFile(configDir, "filament", name)
+                : scope === "system"
+                  ? await variantOf(name)
+                  : (fils.systemFiles.get(name) ??
+                    (await userFile(configDir, "filament", name)) ??
+                    (await variantOf(baseName(name))));
+            const preset = file && (await readJson(file));
+            if (!preset) throw failed(`Filament preset not found: ${name}`);
+            const copy = join(out, `filament_${files.length + 1}.json`);
+            await writeFile(copy, JSON.stringify(await fils.flatten(preset, file)));
+            files.push(copy);
           }
           args.push("--load-filaments", files.join(";"));
         }
