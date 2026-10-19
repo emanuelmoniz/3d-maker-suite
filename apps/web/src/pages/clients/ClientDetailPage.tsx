@@ -2,8 +2,8 @@ import { Link, useParams } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { useClient } from "../../lib/clients.ts";
-import { QuotesTable } from "../costs/QuotesTable.tsx";
 import { Info, linkButton } from "../filament/SpoolDetailPage.tsx";
+import { QuotesTable } from "../quotes/QuotesTable.tsx";
 
 // The orders table joins this page with the orders step.
 export function ClientDetailPage() {

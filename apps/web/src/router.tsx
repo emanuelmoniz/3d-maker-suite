@@ -1,4 +1,10 @@
-import { type AnyRoute, createRootRoute, createRoute, createRouter } from "@tanstack/react-router";
+import {
+  type AnyRoute,
+  createRootRoute,
+  createRoute,
+  createRouter,
+  redirect,
+} from "@tanstack/react-router";
 import { SearchX } from "lucide-react";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
@@ -8,7 +14,6 @@ import { AlertsPage } from "./pages/alerts/AlertsPage.tsx";
 import { ClientDetailPage } from "./pages/clients/ClientDetailPage.tsx";
 import { ClientCreatePage, ClientEditPage } from "./pages/clients/ClientFormPage.tsx";
 import { ClientsPage } from "./pages/clients/ClientsPage.tsx";
-import { CostsPage } from "./pages/costs/CostsPage.tsx";
 import { FilamentBrandFormPage, FilamentMaterialFormPage } from "./pages/filament/CatalogForms.tsx";
 import { FilamentPage } from "./pages/filament/FilamentPage.tsx";
 import { ProfileDetailPage } from "./pages/filament/ProfileDetailPage.tsx";
@@ -41,6 +46,8 @@ import { PrintsPage } from "./pages/prints/PrintsPage.tsx";
 import { ProjectDetailPage } from "./pages/projects/ProjectDetailPage.tsx";
 import { ProjectCreatePage, ProjectEditPage } from "./pages/projects/ProjectFormPage.tsx";
 import { ProjectsPage } from "./pages/projects/ProjectsPage.tsx";
+import { QuoteCreatePage, QuoteEditPage } from "./pages/quotes/QuoteFormPage.tsx";
+import { QuotesPage } from "./pages/quotes/QuotesPage.tsx";
 import { SettingsPage } from "./pages/SettingsPage.tsx";
 import {
   AlertsConfigPage,
@@ -81,7 +88,7 @@ const built = [
   "/filament",
   "/prints",
   "/projects",
-  "/costs",
+  "/quotes",
   "/clients",
   "/stats",
   "/alerts",
@@ -278,15 +285,38 @@ const routes: AnyRoute[] = [
       component: component as () => ReactNode,
     }),
   ),
+  // "/quotes/new" is declared before "/quotes/$id" so it wins the match.
+  ...[
+    ["/quotes", QuotesPage],
+    ["/quotes/new", QuoteCreatePage],
+    ["/quotes/$id", QuoteEditPage],
+  ].map(([path, component]) =>
+    createRoute({
+      getParentRoute: () => root,
+      path: path as string,
+      loader: () =>
+        Promise.all(
+          // "projects" and "filament": the slicing setup's labels and spool names.
+          ["costs", "clients", "projects", "filament"].map(loadNamespace),
+        ),
+      component: component as () => ReactNode,
+    }),
+  ),
+  // The page was "Costs" before; old links and bookmarks still land.
   createRoute({
     getParentRoute: () => root,
     path: "/costs",
-    loader: () =>
-      Promise.all(
-        // "projects" and "filament": the slicing setup's labels and spool names.
-        ["costs", "clients", "projects", "filament"].map(loadNamespace),
-      ),
-    component: CostsPage,
+    beforeLoad: ({ search }) => {
+      const id = (search as { quote?: string }).quote;
+      throw id ? redirect({ to: "/quotes/$id", params: { id } }) : redirect({ to: "/quotes" });
+    },
+  }),
+  createRoute({
+    getParentRoute: () => root,
+    path: "/costs/settings",
+    beforeLoad: () => {
+      throw redirect({ to: "/quotes/settings" });
+    },
   }),
   // "/clients/new" is declared before "/clients/$id" so it wins the match.
   ...[
@@ -323,7 +353,7 @@ const routes: AnyRoute[] = [
   // Module config pages (gear button in each module header); "settings" holds the field labels.
   ...(
     [
-      ["/costs/settings", CostsConfigPage, ["costs"]],
+      ["/quotes/settings", CostsConfigPage, ["costs"]],
       ["/printers/settings", PrintersConfigPage, ["printers", "integrations", "tags"]],
       ["/filament/settings", FilamentConfigPage, ["filament", "printers", "integrations"]],
       ["/prints/settings", PrintsConfigPage, ["prints"]],

@@ -15,7 +15,10 @@
     "filament": { "label": "Filament", "description": "Spools, materials and stock." },
     "prints": { "label": "Prints", "description": "Every print and how it went." },
     "projects": { "label": "Projects", "description": "Models, files and versions." },
-    "costs": { "label": "Costs", "description": "Pricing and what each print costs." },
+    "quotes": {
+      "label": "Quotes",
+      "description": "Prices for clients, from what each print costs."
+    },
     "clients": { "label": "Clients", "description": "People and companies you print for." },
     "stats": { "label": "Stats", "description": "Trends in time, material and spend." },
     "alerts": { "label": "Alerts", "description": "Things that need your attention." },

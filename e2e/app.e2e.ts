@@ -10,9 +10,9 @@ import {
 } from "./helpers.ts";
 
 test("cost settings persist across a reload", async ({ page }) => {
-  await page.goto("/costs");
-  await page.getByRole("link", { name: "Costs settings" }).click();
-  await expect(page).toHaveURL(/\/costs\/settings$/);
+  await page.goto("/quotes");
+  await page.getByRole("link", { name: "Quotes settings" }).click();
+  await expect(page).toHaveURL(/\/quotes\/settings$/);
   const currency = page.getByLabel("Currency");
   await currency.fill("usd");
   await currency.blur();

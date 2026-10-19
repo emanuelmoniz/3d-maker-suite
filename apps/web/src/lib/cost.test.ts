@@ -1,6 +1,6 @@
 import type { CostContext, FilamentProfile, PlateSetup, Spool } from "@3d-maker-suite/core";
 import { expect, test } from "vitest";
-import { estimateSlicedPlates, keepResults } from "./cost.ts";
+import { changePlates, estimateSlicedPlates, keepResults } from "./cost.ts";
 
 const ctx: CostContext = {
   rates: { energyPerKwh: 0 },
@@ -78,4 +78,30 @@ test("a quote plate keeps its slice while it slices the same, and loses it when 
   expect(keepResults([{ ...setup, spools: ["red"] }], [sliced])[0]?.result).toBe(sliced.result);
   expect(keepResults([{ ...setup, printProfileId: "fine" }], [sliced])[0]?.result).toBeNull();
   expect(keepResults([{ ...setup, plate: 2 }], [sliced])[0]?.result).toBeNull();
+});
+
+test("a plate ticked again gets back its own setup and slice, not the defaults", () => {
+  const saved = {
+    file: "a.3mf",
+    plate: 1,
+    printerId: "dear",
+    printProfileId: null,
+    useDefaultPrintProfile: false,
+    filaments: ["pla", null],
+    spools: ["red", null],
+    result: plate({}, [[1, 10, "PLA"]]).result,
+  };
+  // What SliceSetup builds for a freshly ticked plate: filaments by name, no spools.
+  const defaults = { ...saved, filaments: ["other"], spools: [] };
+  const { result: _, ...fresh } = defaults;
+  const [back] = changePlates([fresh], [], [saved]);
+  expect(back).toEqual(saved);
+  // The whole file ticked again: only the plates it had come back.
+  const other = { ...fresh, plate: 2 };
+  expect(changePlates([fresh, other], [], [saved])).toEqual([saved]);
+  // A file never picked before: every plate it ticks.
+  expect(changePlates([fresh, other], [], [])).toHaveLength(2);
+  // Still ticked and then changed: the change stays, and the slice goes.
+  const [changed] = changePlates([{ ...fresh, filaments: ["other"] }], [saved], [saved]);
+  expect(changed).toMatchObject({ filaments: ["other"], result: null });
 });

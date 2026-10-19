@@ -81,16 +81,16 @@ describe("computeQuote", () => {
       markupPct: 20,
       quantity: 3,
     });
-    // labor 500, base 900, failure 90, subtotal 990, markup 198
+    // labor 500, base 900, failure 90, subtotal 990; markup only on the production cost: 80
     expect(q).toEqual({
       unitCost: 400,
       labor: 500,
       failureMargin: 90,
       subtotal: 990,
-      markup: 198,
-      unitPrice: 1188,
+      markup: 80,
+      unitPrice: 1070,
       quantity: 3,
-      total: 3564,
+      total: 3210,
     });
   });
 

@@ -6,7 +6,7 @@ import { useTranslation } from "react-i18next";
 export function SettingsLink({
   module,
 }: {
-  module: "costs" | "prints" | "projects" | "alerts" | "printers" | "filament";
+  module: "quotes" | "prints" | "projects" | "alerts" | "printers" | "filament";
 }) {
   const { t } = useTranslation();
   const label = t("common:actions.moduleSettings", { module: t(`nav:items.${module}.label`) });

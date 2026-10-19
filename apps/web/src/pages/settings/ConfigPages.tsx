@@ -31,7 +31,7 @@ export function CostsConfigPage() {
     </label>
   );
   return (
-    <ConfigPage module="costs">
+    <ConfigPage module="quotes">
       {(ctx) => {
         const { v, commit, num } = ctx;
         return (

@@ -26,7 +26,7 @@ import {
   type SliceResultInfo,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
-import { eq, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
@@ -44,7 +44,7 @@ import {
   slicePlate,
 } from "../projects/sliceQueue.ts";
 
-const { quotes, projects, clients } = schema;
+const { quotes, projects, clients, projectSlicePlates } = schema;
 /** "001-Vase", the same as the web's `quoteName`. */
 const quoteLabel = sql<string>`printf('%03d', ${quotes.number}) || '-' || ${quotes.name}`;
 const params = z.object({ id: z.uuid() });
@@ -182,6 +182,39 @@ export const costsRoutes =
           // Same file (size, mtime) and the same printer and profiles once resolved: same slice.
           const { printer, profileId } = resolve(p, model);
           const key = `quote:${JSON.stringify([abs, s.size, s.mtimeMs, p.plate, printer?.id ?? null, profileId, p.filaments])}`;
+          // The project's own slice when it sliced exactly this: the slicer's time estimate moves by
+          // a few seconds between runs of the same input, so slicing again would not match it.
+          const own =
+            project && !upload
+              ? db
+                  .select()
+                  .from(projectSlicePlates)
+                  .where(
+                    and(
+                      eq(projectSlicePlates.projectId, project.id),
+                      eq(projectSlicePlates.file, p.file),
+                      eq(projectSlicePlates.plate, p.plate),
+                    ),
+                  )
+                  .get()
+              : undefined;
+          const ownResult =
+            own?.slicedAt &&
+            own.printTimeSeconds != null &&
+            own.weightGrams != null &&
+            own.fileSize === s.size &&
+            own.fileMtimeMs === s.mtimeMs &&
+            own.printerId === (printer?.id ?? null) &&
+            own.slicedPrintProfileId === profileId &&
+            JSON.stringify(own.filaments) === JSON.stringify(p.filaments)
+              ? {
+                  printTimeSeconds: own.printTimeSeconds,
+                  weightGrams: own.weightGrams,
+                  filaments: own.slicedFilaments ?? [],
+                  slicedAt: own.slicedAt,
+                }
+              : null;
+          if (ownResult) sliced.set(key, { result: ownResult, error: null });
           let done = sliced.get(key);
           // Run: slices what has no result yet, failed ones again.
           if (run && !done?.result) {

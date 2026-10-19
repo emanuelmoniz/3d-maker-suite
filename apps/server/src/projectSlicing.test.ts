@@ -360,6 +360,30 @@ describe("slicing a project (mock slicer)", () => {
     expect((await app.inject(`/api/costs/files/${fileId}?entry=nope.png`)).statusCode).toBe(404);
   });
 
+  it("gives a quote the project's own slice when its setup is the project's", async () => {
+    await put([{ file: "benchy.3mf", plate: 1, printProfileId: null, filaments: [] }]);
+    await run();
+    const [saved] = (await settled()).plates;
+    expect(mock.sliced).toHaveLength(1);
+    const plate = {
+      file: saved.file,
+      plate: saved.plate,
+      printerId: saved.printerId,
+      printProfileId: saved.printProfileId,
+      useDefaultPrintProfile: saved.useDefaultPrintProfile,
+      filaments: saved.filaments,
+      spools: saved.spools,
+    };
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/costs/slice",
+      payload: { projectId: id, plates: [plate], run: true },
+    });
+    expect(res.json().plates[0]).toMatchObject({ job: null, error: null, result: saved.result });
+    // No new slice: the slicer's estimate can move a little between runs of the same input.
+    expect(mock.sliced).toHaveLength(1);
+  });
+
   it("answers 409 without a slicer", async () => {
     const list = (await app.inject("/api/integrations")).json();
     for (const i of list) await app.inject({ method: "DELETE", url: `/api/integrations/${i.id}` });

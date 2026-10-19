@@ -23,7 +23,7 @@ const makeTree = (name: string, folders: string[], files: string[] = []) => {
 };
 
 test("every module page has a gear that opens its config page and links back", async ({ page }) => {
-  for (const module of ["Costs", "Prints", "Projects", "Alerts", "Printers", "Filament"]) {
+  for (const module of ["Quotes", "Prints", "Projects", "Alerts", "Printers", "Filament"]) {
     await page.goto(`/${module.toLowerCase()}`);
     await page.getByRole("link", { name: `${module} settings` }).click();
     await expect(page).toHaveURL(new RegExp(`/${module.toLowerCase()}/settings$`));
@@ -33,10 +33,10 @@ test("every module page has a gear that opens its config page and links back", a
 });
 
 test("the gear is reachable and activated from the keyboard", async ({ page }) => {
-  await page.goto("/costs");
-  await page.getByRole("link", { name: "Costs settings" }).focus();
+  await page.goto("/quotes");
+  await page.getByRole("link", { name: "Quotes settings" }).focus();
   await page.keyboard.press("Enter");
-  await expect(page).toHaveURL(/\/costs\/settings$/);
+  await expect(page).toHaveURL(/\/quotes\/settings$/);
 });
 
 test("config pages: printers and filament hold the catalogs, the module pages don't", async ({
@@ -274,7 +274,7 @@ test.describe("v1.2 pages fit every viewport", () => {
       await page.setViewportSize({ width, height: 900 });
       const bad: string[] = [];
       for (const route of [
-        "/costs/settings",
+        "/quotes/settings",
         "/prints/settings",
         "/projects/settings",
         "/alerts/settings",

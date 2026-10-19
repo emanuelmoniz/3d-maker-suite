@@ -29,7 +29,7 @@ import {
   useSliceProject,
 } from "../../lib/projects.ts";
 import { useTagsOf } from "../../lib/tags.ts";
-import { QuotesTable } from "../costs/QuotesTable.tsx";
+import { QuotesTable } from "../quotes/QuotesTable.tsx";
 import { ModelPreview } from "./ModelPreview.tsx";
 
 const linkButton =

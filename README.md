@@ -1,6 +1,6 @@
 # 3D Maker Suite
 
-A local-first manager for your 3D printing: printers, accessories, maintenance, filament, projects, prints, costs and stats. Runs on your own PC. Your data stays in a SQLite file on your disk.
+A local-first manager for your 3D printing: printers, accessories, maintenance, filament, projects, prints, costs, quotes and stats. Runs on your own PC. Your data stays in a SQLite file on your disk.
 
 ![Dashboard screenshot](docs/images/dashboard.png)
 
@@ -22,7 +22,7 @@ A local-first manager for your 3D printing: printers, accessories, maintenance, 
 |---|---|
 | ![Printers](docs/images/printers.png) | ![Project detail](docs/images/project.png) |
 | ![Prints](docs/images/prints.png) | ![Filament](docs/images/filament.png) |
-| ![Stats](docs/images/stats.png) | ![Costs](docs/images/costs.png) |
+| ![Stats](docs/images/stats.png) | ![Quotes](docs/images/quotes.png) |
 
 ## Install
 

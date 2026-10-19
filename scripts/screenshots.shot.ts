@@ -57,7 +57,7 @@ test("README screenshots", async ({ page, app }) => {
     ["prints", "/prints"],
     ["filament", "/filament"],
     ["stats", "/stats"],
-    ["costs", "/costs"],
+    ["quotes", "/quotes/new"],
   ];
   for (const [name, path, open] of shots) {
     await page.goto(path);

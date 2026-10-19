@@ -143,12 +143,34 @@ export type QuotePlate = PlateSetupInput & { result: SliceResultInfo | null };
 const slicedWith = (p: PlateSetupInput) =>
   JSON.stringify([p.printerId, p.printProfileId, p.useDefaultPrintProfile, p.filaments]);
 
+const samePlate = (a: { file: string; plate: number }) => (b: { file: string; plate: number }) =>
+  a.file === b.file && a.plate === b.plate;
+
 /** The plates as `SliceSetup` left them; each keeps its slice if it still slices the same. */
 export function keepResults(next: PlateSetupInput[], prev: QuotePlate[]): QuotePlate[] {
   return next.map((v) => {
-    const was = prev.find((p) => p.file === v.file && p.plate === v.plate);
+    const was = prev.find(samePlate(v));
     return { ...v, result: was && slicedWith(was) === slicedWith(v) ? was.result : null };
   });
+}
+
+/**
+ * The quote's plates after a change in `SliceSetup`. A plate ticked again gets back the setup it
+ * had (`remembered`: plates unticked here, then the project's saved setup) instead of the
+ * defaults, so it keeps its slice; a file ticked again gets back the plates it had, not all of
+ * them. Every plate keeps its slice while it slices the same.
+ */
+export function changePlates(
+  next: PlateSetupInput[],
+  current: QuotePlate[],
+  remembered: QuotePlate[],
+): QuotePlate[] {
+  const backAgain = (file: string) =>
+    !current.some((p) => p.file === file) && remembered.some((p) => p.file === file);
+  const restored = next
+    .filter((v) => !backAgain(v.file) || remembered.some(samePlate(v)))
+    .map((v) => (current.some(samePlate(v)) ? v : (remembered.find(samePlate(v)) ?? v)));
+  return keepResults(restored, [...current, ...remembered]);
 }
 
 export type SlicedEstimate = {

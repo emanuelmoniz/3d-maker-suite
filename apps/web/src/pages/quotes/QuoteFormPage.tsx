@@ -3,15 +3,15 @@ import {
   computeCost,
   computeQuote,
   estimateEnergyWh,
+  type PlateSetupInput,
   type ProjectSlicing,
   QUOTE_UPLOAD_PREFIX,
   type Quote,
   type QuoteUpload,
-  sumCosts,
   toMinor,
 } from "@3d-maker-suite/core";
 import { useQueryClient } from "@tanstack/react-query";
-import { useNavigate, useSearch } from "@tanstack/react-router";
+import { useNavigate, useParams } from "@tanstack/react-router";
 import { Plus, Trash2, Upload } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -20,13 +20,12 @@ import { Combobox } from "../../components/Combobox.tsx";
 import { CostBreakdown, QuoteBreakdownView } from "../../components/CostBreakdown.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
-import { SettingsLink } from "../../components/SettingsLink.tsx";
 import { PlateSlice, plateKey, SliceSetup } from "../../components/SliceSetup.tsx";
 import { api } from "../../lib/api.ts";
 import { useClients } from "../../lib/clients.ts";
 import {
+  changePlates,
   estimateSlicedPlates,
-  keepResults,
   type QuotePlate,
   quoteFileUrl,
   quoteName,
@@ -41,9 +40,8 @@ import {
 import { useProfiles, useSpools } from "../../lib/filament.ts";
 import { usePreferences } from "../../lib/preferences.ts";
 import { printerName } from "../../lib/printers.ts";
-import { projectFileUrl, projectName, useProjects } from "../../lib/projects.ts";
+import { projectFileUrl, projectName, useProjectSlicing, useProjects } from "../../lib/projects.ts";
 import { NewClientDialog } from "../clients/NewClientDialog.tsx";
-import { QuotesTable } from "./QuotesTable.tsx";
 
 type Row = { label: string; grams: number; price: number | null };
 /**
@@ -141,8 +139,101 @@ function Num({
 
 const panel = "grid gap-4 rounded-lg border border-border bg-surface p-4";
 
-/** `editing`: the saved quote opened from a table (`/costs?quote=<id>`), restored as saved. */
-function Calculator({ ctx, editing }: { ctx: CostContext; editing?: Quote }) {
+/** One print typed in by hand: only while the quote has no files. */
+function ByHand({
+  ctx,
+  f,
+  set,
+}: {
+  ctx: CostContext;
+  f: Form;
+  set: (patch: Partial<Form>) => void;
+}) {
+  const { t } = useTranslation();
+  const row = (i: number, patch: Partial<Row>) =>
+    set({ filaments: f.filaments.map((r, j) => (j === i ? { ...r, ...patch } : r)) });
+  return (
+    <>
+      <h3 className="font-medium">{t("costs:form.byHand")}</h3>
+      <p className="-mt-2 text-muted">{t("costs:form.byHandHint")}</p>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <label className="grid gap-1.5">
+          <span className="font-medium">{t("costs:form.printer")}</span>
+          <Combobox
+            value={f.printerId}
+            onChange={(v) => {
+              const p = ctx.printers.find((x) => x.id === v);
+              set({ printerId: v, powerW: p?.powerW ?? f.powerW });
+            }}
+            options={[
+              { value: "", label: t("costs:form.noPrinter") },
+              ...ctx.printers.map((p) => ({ value: p.id, label: printerName(t, p) })),
+            ]}
+          />
+        </label>
+        <Num
+          label={t("costs:form.power")}
+          value={f.powerW}
+          onChange={(n) => set({ powerW: n ?? 0 })}
+        />
+        <Num
+          label={t("costs:form.minutes")}
+          value={f.minutes}
+          onChange={(n) => set({ minutes: n ?? 0 })}
+        />
+      </div>
+
+      <h4 className="font-medium">{t("costs:form.filament")}</h4>
+      <ul className="grid gap-3">
+        {f.filaments.map((r, i) => (
+          <li
+            key={i}
+            className="grid grid-cols-2 items-end gap-3 sm:grid-cols-[1fr_7rem_8rem_auto]"
+          >
+            <label className="col-span-2 grid gap-1.5 sm:col-span-1">
+              <span className="font-medium">{t("costs:form.material")}</span>
+              <input
+                className={inputClass}
+                value={r.label}
+                onChange={(e) => row(i, { label: e.target.value })}
+              />
+            </label>
+            <Num
+              label={t("costs:form.grams")}
+              value={r.grams}
+              step={0.01}
+              onChange={(n) => row(i, { grams: n ?? 0 })}
+            />
+            <Num
+              label={t("costs:form.pricePerKg")}
+              value={r.price}
+              step={0.01}
+              nullable
+              onChange={(n) => row(i, { price: n })}
+            />
+            <Button
+              variant="ghost"
+              aria-label={t("costs:form.removeFilament")}
+              disabled={f.filaments.length === 1}
+              onClick={() => set({ filaments: f.filaments.filter((_, j) => j !== i) })}
+            >
+              <Trash2 className="size-4" aria-hidden />
+            </Button>
+          </li>
+        ))}
+      </ul>
+      <div>
+        <Button onClick={() => set({ filaments: [...f.filaments, emptyRow()] })}>
+          <Plus className="size-4" aria-hidden />
+          {t("costs:form.addFilament")}
+        </Button>
+      </div>
+    </>
+  );
+}
+
+/** A new quote, or `editing` (its page, `/quotes/<id>`) restored as saved. */
+function QuoteForm({ ctx, editing }: { ctx: CostContext; editing?: Quote }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const projects = useProjects().data?.items ?? [];
@@ -161,15 +252,14 @@ function Calculator({ ctx, editing }: { ctx: CostContext; editing?: Quote }) {
   const [notes, setNotes] = useState(editing?.notes ?? "");
   const [clientId, setClientId] = useState(editing?.clientId ?? "");
   const [newClient, setNewClient] = useState(false);
-  // Without an id the key is dropped: `quote: undefined` would end up as "?quote=undefined".
-  const open = (id?: string) =>
-    navigate({
-      to: "/costs",
-      search: (({ quote: _, ...s }: { quote?: string }) => (id ? { ...s, quote: id } : s)) as never,
-    });
+  // Plates unticked here, so ticking one again brings its setup (and slice) back.
+  const [unticked, setUnticked] = useState<QuotePlate[]>([]);
+  // Replaces the page, so Back still leads to the list after a save.
+  const open = (id: string) => navigate({ to: "/quotes/$id", params: { id }, replace: true });
   const set = (patch: Partial<Form>) => setF((cur) => ({ ...cur, ...patch }));
   const printer = ctx.printers.find((p) => p.id === f.printerId);
   const project = projects.find((p) => p.id === f.projectId);
+  const projectSetup = useProjectSlicing(f.projectId).data;
 
   // Slices made here are merged in as they come, and saved with the plates.
   const toSlice = {
@@ -185,6 +275,15 @@ function Calculator({ ctx, editing }: { ctx: CostContext; editing?: Quote }) {
   }));
   const left = toSlice.plates.filter((p) => sliceOf(p)?.job).length;
   const unsliced = plates.filter((p) => !p.result).length;
+  // Files picked (a project's plates, or uploads): they are the print. Else it's typed in.
+  const byHand = !plates.length && !f.uploads.length;
+  const changePicked = (next: PlateSetupInput[]) => {
+    const keys = new Set(next.map(plateKey));
+    const gone = plates.filter((p) => !keys.has(plateKey(p)));
+    const remembered = [...gone, ...unticked, ...(projectSetup ? fromProject(projectSetup) : [])];
+    setUnticked([...gone, ...unticked]);
+    set({ plates: changePlates(next, plates, remembered) });
+  };
 
   // A project brings its saved setup (plates, printers, profiles, filaments) and its slices.
   const pickProject = (id: string) => {
@@ -192,8 +291,6 @@ function Calculator({ ctx, editing }: { ctx: CostContext; editing?: Quote }) {
       ...cur,
       projectId: id,
       plates: cur.plates.filter((p) => isUpload(p.file)),
-      minutes: 0,
-      filaments: [emptyRow()],
     }));
     if (!id) return;
     void qc
@@ -222,7 +319,7 @@ function Calculator({ ctx, editing }: { ctx: CostContext; editing?: Quote }) {
       plates: plates.filter((p) => p.file !== u.model.file),
     });
 
-  // One print: every plate on its own printer, plus the part typed in.
+  // One print: every plate on its own printer, or the print typed in when there are no files.
   const fallback = ctx.printers.find((p) => p.id === defaultPrinterId) ?? ctx.printers[0];
   const platesCost = estimateSlicedPlates(plates, ctx, {
     spools,
@@ -245,7 +342,7 @@ function Calculator({ ctx, editing }: { ctx: CostContext; editing?: Quote }) {
       maintenancePerHour: printer?.maintenancePerHour ?? 0,
     },
   );
-  const cost = sumCosts([platesCost, typedCost]);
+  const cost = byHand ? typedCost : platesCost;
   const quote = computeQuote(cost.total, {
     laborHours: f.laborHours,
     laborRatePerHour: toMinor(f.laborRate),
@@ -253,8 +350,6 @@ function Calculator({ ctx, editing }: { ctx: CostContext; editing?: Quote }) {
     markupPct: f.markupPct,
     quantity: Math.max(1, Math.round(f.quantity)),
   });
-  const row = (i: number, patch: Partial<Row>) =>
-    set({ filaments: f.filaments.map((r, j) => (j === i ? { ...r, ...patch } : r)) });
   const body = {
     name,
     notes,
@@ -343,7 +438,7 @@ function Calculator({ ctx, editing }: { ctx: CostContext; editing?: Quote }) {
                 })),
               ]}
               value={plates}
-              onChange={(next) => set({ plates: keepResults(next, plates) })}
+              onChange={changePicked}
               defaultPrinterId={defaultPrinterId}
               plateInfo={(key) => {
                 const p = plates.find((x) => plateKey(x) === key);
@@ -399,80 +494,11 @@ function Calculator({ ctx, editing }: { ctx: CostContext; editing?: Quote }) {
             </p>
           )}
 
-          <h3 className="font-medium">{t("costs:form.typed")}</h3>
-          <p className="-mt-2 text-muted">{t("costs:form.typedHint")}</p>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <label className="grid gap-1.5">
-              <span className="font-medium">{t("costs:form.printer")}</span>
-              <Combobox
-                value={f.printerId}
-                onChange={(v) => {
-                  const p = ctx.printers.find((x) => x.id === v);
-                  set({ printerId: v, powerW: p?.powerW ?? f.powerW });
-                }}
-                options={[
-                  { value: "", label: t("costs:form.noPrinter") },
-                  ...ctx.printers.map((p) => ({ value: p.id, label: printerName(t, p) })),
-                ]}
-              />
-            </label>
-            <Num
-              label={t("costs:form.power")}
-              value={f.powerW}
-              onChange={(n) => set({ powerW: n ?? 0 })}
-            />
-            <Num
-              label={t("costs:form.minutes")}
-              value={f.minutes}
-              onChange={(n) => set({ minutes: n ?? 0 })}
-            />
-          </div>
-
-          <h4 className="font-medium">{t("costs:form.filament")}</h4>
-          <ul className="grid gap-3">
-            {f.filaments.map((r, i) => (
-              <li
-                key={i}
-                className="grid grid-cols-2 items-end gap-3 sm:grid-cols-[1fr_7rem_8rem_auto]"
-              >
-                <label className="col-span-2 grid gap-1.5 sm:col-span-1">
-                  <span className="font-medium">{t("costs:form.material")}</span>
-                  <input
-                    className={inputClass}
-                    value={r.label}
-                    onChange={(e) => row(i, { label: e.target.value })}
-                  />
-                </label>
-                <Num
-                  label={t("costs:form.grams")}
-                  value={r.grams}
-                  step={0.01}
-                  onChange={(n) => row(i, { grams: n ?? 0 })}
-                />
-                <Num
-                  label={t("costs:form.pricePerKg")}
-                  value={r.price}
-                  step={0.01}
-                  nullable
-                  onChange={(n) => row(i, { price: n })}
-                />
-                <Button
-                  variant="ghost"
-                  aria-label={t("costs:form.removeFilament")}
-                  disabled={f.filaments.length === 1}
-                  onClick={() => set({ filaments: f.filaments.filter((_, j) => j !== i) })}
-                >
-                  <Trash2 className="size-4" aria-hidden />
-                </Button>
-              </li>
-            ))}
-          </ul>
-          <div>
-            <Button onClick={() => set({ filaments: [...f.filaments, emptyRow()] })}>
-              <Plus className="size-4" aria-hidden />
-              {t("costs:form.addFilament")}
-            </Button>
-          </div>
+          {byHand ? (
+            <ByHand ctx={ctx} f={f} set={set} />
+          ) : (
+            <p className="text-muted">{t("costs:form.byHandHidden")}</p>
+          )}
         </section>
 
         <section aria-labelledby="c-price" className={panel}>
@@ -506,7 +532,6 @@ function Calculator({ ctx, editing }: { ctx: CostContext; editing?: Quote }) {
           </div>
         </section>
       </div>
-
       <div className="grid content-start gap-6">
         <section
           aria-labelledby="c-cost"
@@ -533,14 +558,6 @@ function Calculator({ ctx, editing }: { ctx: CostContext; editing?: Quote }) {
               else saveNew();
             }}
           >
-            {editing && (
-              <p className="flex flex-wrap items-center justify-between gap-2 text-muted">
-                {t("costs:saved.editing", { name: quoteName(t, editing) })}
-                <Button variant="ghost" onClick={() => open(undefined)}>
-                  {t("costs:saved.new")}
-                </Button>
-              </p>
-            )}
             <FormField label={t("costs:saved.name")}>
               {(p) => (
                 <input
@@ -615,38 +632,49 @@ function Calculator({ ctx, editing }: { ctx: CostContext; editing?: Quote }) {
   );
 }
 
-export function CostsPage() {
+function LoadError() {
+  const { t } = useTranslation();
+  return (
+    <p role="alert" className="text-bad">
+      {t("costs:loadError")}
+    </p>
+  );
+}
+
+export function QuoteCreatePage() {
   const { t } = useTranslation();
   const { data, isError } = useCostContext();
-  const { quote: quoteId } = useSearch({ strict: false }) as { quote?: string };
-  const opened = useQuote(quoteId);
   return (
     <>
-      <PageHeader
-        title={t("nav:items.costs.label")}
-        description={t("nav:items.costs.description")}
-        actions={<SettingsLink module="costs" />}
-      />
-      {isError && (
+      <PageHeader title={t("costs:saved.new")} backTo={{ to: "/quotes" }} />
+      {isError && <LoadError />}
+      {data && <QuoteForm ctx={data} />}
+    </>
+  );
+}
+
+export function QuoteEditPage() {
+  const { t } = useTranslation();
+  const { id } = useParams({ strict: false }) as { id: string };
+  const ctx = useCostContext();
+  const quote = useQuote(id);
+  if (quote.isError)
+    return (
+      <>
+        <PageHeader title={t("nav:items.quotes.label")} backTo={{ to: "/quotes" }} />
         <p role="alert" className="text-bad">
-          {t("costs:loadError")}
-        </p>
-      )}
-      {opened.isError && (
-        <p role="alert" className="mb-4 text-bad">
           {t("costs:saved.notFound")}
         </p>
+      </>
+    );
+  return (
+    <>
+      <PageHeader title={quote.data ? quoteName(t, quote.data) : ""} backTo={{ to: "/quotes" }} />
+      {ctx.isError && <LoadError />}
+      {/* Remounts with each opened quote's saved values. */}
+      {ctx.data && quote.data && (
+        <QuoteForm key={quote.data.id} ctx={ctx.data} editing={quote.data} />
       )}
-      {/* Remounts with the opened quote's values (or blank for a new one). */}
-      {data && (!quoteId || opened.data || opened.isError) && (
-        <Calculator key={opened.data?.id ?? "new"} ctx={data} editing={opened.data} />
-      )}
-      <section aria-labelledby="c-saved" className="mt-6">
-        <h2 id="c-saved" className="mb-2 text-base font-semibold">
-          {t("costs:saved.title")}
-        </h2>
-        <QuotesTable />
-      </section>
     </>
   );
 }

@@ -72,7 +72,7 @@
     "accessoryMaintenanceHint": "Spreads what you logged on an accessory's maintenance tasks over its runtime.",
     "laborRate": "Labor rate per hour (pricing calculator)",
     "failureMargin": "Failure margin % (pricing calculator)",
-    "markup": "Markup % (pricing calculator)"
+    "markup": "Markup % on production cost (quotes)"
   },
   "projects": {
     "roots": "Project folders",

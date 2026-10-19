@@ -13,8 +13,8 @@ import { useUrlListQuery } from "../../lib/list.ts";
 import { projectName, useProjects } from "../../lib/projects.ts";
 
 /**
- * Saved quotes: all of them on the costs page, or one client's / project's (`fixed`). The name
- * opens the quote in the calculator. Its URL params are prefixed so it sits beside other tables.
+ * Saved quotes: all of them on the quotes page, or one client's / project's (`fixed`). The name
+ * opens the quote's page. Its URL params are prefixed so it sits beside other tables.
  */
 export function QuotesTable({
   fixed,
@@ -54,12 +54,7 @@ export function QuotesTable({
           id: "name",
           header: t("costs:saved.columns.name"),
           cell: (q) => (
-            <Link
-              to="/costs"
-              // keeps the table's own params when it's the costs page's
-              search={((s: object) => ({ ...s, quote: q.id })) as never}
-              className="font-medium hover:underline"
-            >
+            <Link to="/quotes/$id" params={{ id: q.id }} className="font-medium hover:underline">
               {quoteName(t, q)}
             </Link>
           ),

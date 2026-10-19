@@ -57,17 +57,29 @@ test("quote from a project: filled, profile changed, sliced, file added, saved, 
     })
     .toBe(true);
 
-  await page.goto("/costs");
+  await page.goto("/quotes/new");
   const cost = page.getByRole("region", { name: "Production cost" });
   const energy = cost.getByRole("definition").nth(1);
+  const file = page.getByRole("checkbox", { name: /benchy\.3mf/ });
+  await expect(page.getByLabel("Print time (minutes)")).toBeVisible();
   await pick(page.getByRole("combobox", { name: "Project", exact: true }), "001-Benchy");
-  await expect(page.getByRole("checkbox", { name: /benchy\.3mf/ })).toBeChecked();
+  await expect(file).toBeChecked();
   await expect(page.getByText(/^1h · \d+ g$/).first()).toBeVisible();
+  await expect(energy).toHaveText(/1[.,]00/);
+  // Plates picked: they are the print, so nothing is typed in by hand.
+  await expect(page.getByLabel("Print time (minutes)")).toBeHidden();
+
+  // Unticked and ticked again, unchanged: the project's setup and slice come back.
+  await file.uncheck();
+  await expect(page.getByLabel("Print time (minutes)")).toBeVisible();
+  await file.check();
+  await expect(page.getByText(/^1h · \d+ g$/).first()).toBeVisible();
+  await expect(page.getByText("Needs slicing", { exact: true })).toHaveCount(0);
   await expect(energy).toHaveText(/1[.,]00/);
 
   // Another print profile: that plate needs slicing again, and slices 1.5 h.
   await pick(page.getByRole("combobox", { name: /^Print profile for/ }).first(), "Fine");
-  await expect(page.getByText("Needs slicing").first()).toBeVisible();
+  await expect(page.getByText("Needs slicing", { exact: true }).first()).toBeVisible();
   await expect(energy).toHaveText(/0[.,]00/);
   await page.getByRole("button", { name: "Slice" }).click();
   await expect(page.getByText("Every plate is sliced and up to date.")).toBeVisible();
@@ -87,19 +99,18 @@ test("quote from a project: filled, profile changed, sliced, file added, saved, 
   await page.getByLabel("Prints").fill("2");
   await page.getByLabel("Quote name").fill("Benchy x2");
   await page.getByRole("button", { name: "Save quote" }).click();
-  await expect(page.getByText("Editing 001-Benchy x2")).toBeVisible();
+  const heading = page.getByRole("heading", { name: "001-Benchy x2", level: 1 });
+  await expect(heading).toBeVisible();
   const price = page.getByRole("region", { name: "Price" }).locator("dl");
   const saved = { cost: await cost.textContent(), price: await price.textContent() };
 
-  // A new quote, then the saved one again: the same numbers, without slicing again.
-  await page.getByRole("button", { name: "New quote" }).click();
-  await expect(page).toHaveURL(/\/costs$/);
-  await expect(energy).toHaveText(/0[.,]00/);
+  // The list, then the saved quote again: the same numbers, without slicing again.
+  await page.getByRole("link", { name: "Back" }).click();
   await page
     .getByRole("table", { name: "Saved quotes" })
     .getByRole("link", { name: "001-Benchy x2" })
     .click();
-  await expect(page.getByText("Editing 001-Benchy x2")).toBeVisible();
+  await expect(heading).toBeVisible();
   await expect(page.getByLabel("Prints")).toHaveValue("2");
   await expect(cost).toHaveText(saved.cost ?? "");
   await expect(price).toHaveText(saved.price ?? "");
@@ -107,17 +118,19 @@ test("quote from a project: filled, profile changed, sliced, file added, saved, 
 });
 
 test("quote with nothing picked: saves and reopens", async ({ page }) => {
-  await page.goto("/costs");
+  await page.goto("/quotes/new");
   await page.getByLabel("Quote name").fill("Blank");
   await page.getByRole("button", { name: "Save quote" }).click();
-  await expect(page.getByText("Editing 001-Blank")).toBeVisible();
-  await page.getByRole("button", { name: "New quote" }).click();
+  const heading = page.getByRole("heading", { name: "001-Blank", level: 1 });
+  await expect(heading).toBeVisible();
+  await page.getByRole("link", { name: "Back" }).click();
   await page
     .getByRole("table", { name: "Saved quotes" })
     .getByRole("link", { name: "001-Blank" })
     .click();
-  await expect(page.getByText("Editing 001-Blank")).toBeVisible();
+  await expect(heading).toBeVisible();
   await expect(page.getByLabel("Prints")).toHaveValue("1");
+  await expect(page.getByLabel("Print time (minutes)")).toBeVisible();
 });
 
 test("a quote saved before plates opens with its numbers", async ({ page, app }) => {
@@ -152,8 +165,10 @@ test("a quote saved before plates opens with its numbers", async ({ page, app })
     cost,
     quote,
   });
+  // Old links (the page was "Costs") land on the quote too.
   await page.goto(`/costs?quote=${q.id}`);
-  await expect(page.getByText("Editing 001-Old")).toBeVisible();
+  await expect(page).toHaveURL(new RegExp(`/quotes/${q.id}$`));
+  await expect(page.getByRole("heading", { name: "001-Old", level: 1 })).toBeVisible();
   await expect(page.getByLabel("Prints")).toHaveValue("3");
   await expect(page.getByLabel("Print time (minutes)")).toHaveValue("60");
   const price = page.getByRole("region", { name: "Price" });

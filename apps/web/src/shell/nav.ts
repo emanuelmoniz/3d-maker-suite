@@ -85,10 +85,10 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
     label: "nav:groups.accounting",
     items: [
       {
-        to: "/costs",
+        to: "/quotes",
         icon: Calculator,
-        label: "nav:items.costs.label",
-        description: "nav:items.costs.description",
+        label: "nav:items.quotes.label",
+        description: "nav:items.quotes.description",
       },
       {
         to: "/clients",
