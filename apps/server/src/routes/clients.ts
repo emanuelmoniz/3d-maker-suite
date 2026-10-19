@@ -1,6 +1,5 @@
 import {
   apiErrorSchema,
-  CLIENT_UNIQUE_FIELDS,
   type Client,
   clientFilters,
   clientInputSchema,
@@ -15,23 +14,12 @@ import { eq } from "drizzle-orm";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
+import { unique } from "../lib/clients.ts";
 import { listPage } from "../lib/list.ts";
 
 const { clients } = schema;
 const params = z.object({ id: z.uuid() });
 const notFound = { 404: apiErrorSchema };
-
-/** Runs a write; a clash with a unique index becomes a 409 `client_<field>_taken`. */
-function unique<T>(write: () => T): T {
-  try {
-    return write();
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : "";
-    const field = CLIENT_UNIQUE_FIELDS.find((f) => msg.startsWith("UNIQUE") && msg.includes(f));
-    if (!field) throw e;
-    throw new HttpError(409, `client_${field}_taken`, `Another client has this ${field}`);
-  }
-}
 
 export const clientsRoutes =
   (db: Db): FastifyPluginAsyncZod =>

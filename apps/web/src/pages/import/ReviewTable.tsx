@@ -76,6 +76,7 @@ const ERRORS: Record<ImportErrorCode, string> = {
   not_a_datetime: "import:errors.not_a_datetime",
   not_a_color: "import:errors.not_a_color",
   not_an_option: "import:errors.not_an_option",
+  not_an_email: "import:errors.not_an_email",
   unresolved: "import:errors.unresolved",
   not_opened: "import:errors.not_opened",
 };

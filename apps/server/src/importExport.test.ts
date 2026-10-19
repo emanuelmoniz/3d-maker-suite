@@ -123,3 +123,107 @@ it("imports accessories: create, export round trip, update by number", async () 
   expect((await apply(p)).json()).toMatchObject({ updated: 1 });
   expect((await list())[1]).toMatchObject({ number: 2, countInCosts: false });
 });
+
+/** Previews a CSV, applies what the review suggests and returns the preview. */
+async function load(entity: string, csv: string) {
+  const p = (await post(`/api/import/${entity}/preview`, csv, "text/csv")).json() as ImportPreview;
+  const rows = p.rows.filter((r) => r.action !== "skip");
+  if (rows.length)
+    expect(
+      (
+        await post(`/api/import/${entity}/apply`, {
+          uploadId: p.uploadId,
+          policy: "overwrite",
+          decisions: rows.map((r) => ({
+            row: r.row,
+            action: r.action,
+            ...(r.targetId && { targetId: r.targetId }),
+          })),
+        })
+      ).statusCode,
+    ).toBe(200);
+  return p;
+}
+const get = async (url: string) => (await app.inject({ url })).json();
+/** The export of an entity, read back as the CSV a person would save from it. */
+const exported = async (entity: string) => {
+  const rows = await readXlsx((await post(`/api/import/${entity}/export`, labels)).rawPayload);
+  return rows.map((r) => r.cells.join(",")).join("\n");
+};
+
+it("imports clients by mobile, email or VAT, and the export comes back identical", async () => {
+  await load("clients", "name,mobile,email,vat\nAna,911,ana@x.pt,1\nBruno,922,,2\n");
+  expect((await get("/api/clients?sort=name")).items).toMatchObject([
+    { name: "Ana", mobile: "911", email: "ana@x.pt" },
+    { name: "Bruno", mobile: "922", email: null },
+  ]);
+  const again = await load("clients", await exported("clients"));
+  expect(again.rows.map((r) => r.status)).toEqual(["identical", "identical"]);
+
+  // The same mobile with a new name is that client, renamed; a bad email is an invalid row.
+  const p = await load("clients", "name,mobile\nAna Silva,911\n");
+  expect(p.rows[0]).toMatchObject({ status: "changed", action: "update" });
+  expect((await get("/api/clients?sort=name")).items[0]).toMatchObject({ name: "Ana Silva" });
+  const bad = await load("clients", "name,mobile,email\nCarla,933,nope\n");
+  expect(bad.rows[0]).toMatchObject({ status: "invalid", errors: [{ column: "email" }] });
+});
+
+it("imports quotes and orders, refusing references that don't exist, and round-trips", async () => {
+  await load("clients", "name,mobile\nAna,911\n");
+  const [box, lid] = await Promise.all(
+    ["Box", "Lid"].map(async (name) => (await post("/api/projects", { name })).json()),
+  );
+  expect([box.number, lid.number]).toEqual([1, 2]);
+
+  // A quote is a typed-in print: unit cost 10.00, 2 prints, 10% markup → 11.00 each.
+  const q = await load(
+    "quotes",
+    "number,name,client,project,unitCost,quantity,failureMarginPct,markupPct\n7,Vase,Ana,1-Box,10,2,0,10\n" +
+      "8,Ghost,Nobody,,5,1,0,0\n",
+  );
+  expect(q.rows[1]).toMatchObject({ status: "invalid", errors: [{ column: "client" }] });
+  const quotes = (await get("/api/costs/quotes")).items;
+  expect(quotes).toHaveLength(1);
+  expect(quotes[0]).toMatchObject({
+    number: 7,
+    name: "Vase",
+    projectId: box.id,
+    quote: { unitCost: 1000, unitPrice: 1100, quantity: 2, total: 2200 },
+    form: { quantity: 2, markupPct: 10, filaments: [{ grams: 1000, price: 10 }] },
+  });
+  expect((await load("quotes", await exported("quotes"))).rows[0]?.status).toBe("identical");
+
+  // A changed price is worked out again; the quote keeps its number.
+  await load("quotes", "number,name,unitCost\n7,Vase,20\n");
+  expect((await get("/api/costs/quotes")).items[0]).toMatchObject({
+    number: 7,
+    quote: { unitCost: 2000, unitPrice: 2200, total: 4400 },
+  });
+
+  // An order names its client, quote and projects (several, `;` apart); unknown ones are invalid.
+  const o = await load(
+    "orders",
+    "number,client,quote,project,price,status\n" +
+      "3,Ana,7,1-Box; 2-Lid,50,done\n" +
+      "4,Ana,99,Box,10,\n" +
+      "5,Ana,,Box,10,lost\n" +
+      "6,Ana,,Nope,10,\n",
+  );
+  expect(o.rows.map((r) => r.status)).toEqual(["new", "invalid", "invalid", "invalid"]);
+  expect(o.rows.slice(1).map((r) => r.errors[0]?.column)).toEqual(["quote", "status", "project"]);
+  const orders = (await get("/api/orders")).items;
+  expect(orders).toHaveLength(1);
+  expect(orders[0]).toMatchObject({
+    number: 3,
+    clientId: (await get("/api/clients")).items[0].id,
+    quoteId: quotes[0].id,
+    price: 5000,
+    status: "done",
+  });
+  expect([...orders[0].projectIds].sort()).toEqual([box.id, lid.id].sort());
+  expect((await load("orders", await exported("orders"))).rows[0]?.status).toBe("identical");
+
+  // The order moves to another project.
+  await load("orders", "number,project,price\n3,2-Lid,50\n");
+  expect((await get("/api/orders")).items[0].projectIds).toEqual([lid.id]);
+});

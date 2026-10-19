@@ -5,7 +5,15 @@ import { SLICER_ZIP_TYPES } from "./slicerCatalog.ts";
 
 // File imports (XLSX / CSV). The columns of an entity are declared once here and drive the
 // template, the parser, validation and the review table.
-export const IMPORT_ENTITIES = ["spools", "printers", "accessories", "prints"] as const;
+export const IMPORT_ENTITIES = [
+  "spools",
+  "printers",
+  "accessories",
+  "prints",
+  "clients",
+  "quotes",
+  "orders",
+] as const;
 /** Everything the review screen takes: the file entities, plus what an integration or a zip offers. */
 export const REVIEW_ENTITIES = [...IMPORT_ENTITIES, ...SLICER_ZIP_TYPES] as const;
 /** What an integration can offer for review; a run on its own takes only what needs no decision. */
@@ -230,6 +238,51 @@ export const IMPORT_COLUMNS = {
       fileOnly: true,
     },
   ],
+  // A client is its mobile (unique), else its email or VAT number; there is no number.
+  clients: [
+    { key: "name", type: "text", label: "import:clients.columns.name", required: true },
+    { key: "mobile", type: "text", label: "import:clients.columns.mobile", required: true },
+    { key: "vat", type: "text", label: "import:clients.columns.vat" },
+    { key: "email", type: "text", label: "import:clients.columns.email" },
+    { key: "address", type: "text", label: "import:clients.columns.address" },
+    { key: "notes", type: "text", label: "import:clients.columns.notes" },
+  ],
+  // A quote from a file is a typed-in print: the production cost of one print, then the pricing.
+  // Empty settings on a new quote = the Costs defaults. Client and project must exist.
+  quotes: [
+    { key: "number", type: "integer", label: "import:quotes.columns.number" },
+    { key: "name", type: "text", label: "import:quotes.columns.name", required: true },
+    { key: "client", type: "ref", ref: "clients", label: "import:quotes.columns.client" },
+    { key: "project", type: "ref", ref: "projects", label: "import:quotes.columns.project" },
+    { key: "unitCost", type: "money", label: "import:quotes.columns.unitCost", required: true },
+    { key: "quantity", type: "integer", label: "import:quotes.columns.quantity" },
+    { key: "laborHours", type: "number", label: "import:quotes.columns.laborHours" },
+    { key: "laborRate", type: "money", label: "import:quotes.columns.laborRate" },
+    {
+      key: "failureMarginPct",
+      type: "number",
+      label: "import:quotes.columns.failureMarginPct",
+    },
+    { key: "markupPct", type: "number", label: "import:quotes.columns.markupPct" },
+    { key: "notes", type: "text", label: "import:quotes.columns.notes" },
+  ],
+  // Client, quote and projects must exist; `project` holds one or more, separated by ";".
+  orders: [
+    { key: "number", type: "integer", label: "import:orders.columns.number" },
+    { key: "client", type: "ref", ref: "clients", label: "import:orders.columns.client" },
+    { key: "quote", type: "ref", ref: "quotes", label: "import:orders.columns.quote" },
+    {
+      key: "project",
+      type: "ref",
+      ref: "projects",
+      label: "import:orders.columns.project",
+      required: true,
+    },
+    { key: "price", type: "money", label: "import:orders.columns.price", required: true },
+    // One of the order statuses of the preferences; empty on a new order = the first.
+    { key: "status", type: "text", label: "import:orders.columns.status" },
+    { key: "notes", type: "text", label: "import:orders.columns.notes" },
+  ],
   // A name that is the row's identity is a `ref`, so its spelling alone is never a difference.
   filamentProfiles: [
     {
@@ -368,6 +421,7 @@ export const IMPORT_ERRORS = [
   "not_a_datetime",
   "not_a_color",
   "not_an_option",
+  "not_an_email",
   /** A name that must already exist (a print's printer) matches nothing, or too much. */
   "unresolved",
   /** A print's spool was opened after the print started (`usableOn`). */

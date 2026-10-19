@@ -76,3 +76,33 @@ export function matchPrintRows(rows: ImportValues[], prints: ImportTarget[]): Im
     ),
   );
 }
+
+/** A client fits on its mobile, else its email, else its VAT number; a name alone is no identity. */
+export function matchClientRows(rows: ImportValues[], clients: ImportTarget[]): ImportMatch[] {
+  const keys = ["mobile", "email", "vat"].map(
+    (k) => [k, byKey(clients, (t) => lower(t.values[k]))] as const,
+  );
+  return singleFits(
+    rows.map((r) => {
+      for (const [k, by] of keys) {
+        const hit = lower(r[k]) ? by.get(lower(r[k])) : undefined;
+        if (hit) return hit.map((t) => t.id);
+      }
+      return [];
+    }),
+  );
+}
+
+/** A quote or an order with a number fits that number; a quote without one fits its name. */
+export const matchNumberedRows =
+  (nameKey?: string) =>
+  (rows: ImportValues[], targets: ImportTarget[]): ImportMatch[] => {
+    const byName = nameKey ? byKey(targets, (t) => lower(t.values[nameKey])) : null;
+    return singleFits(
+      rows.map((r) =>
+        r.number != null
+          ? targets.filter((t) => t.values.number === r.number).map((t) => t.id)
+          : (byName?.get(lower(r[nameKey as string])) ?? []).map((t) => t.id),
+      ),
+    );
+  };

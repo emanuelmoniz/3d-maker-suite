@@ -63,8 +63,8 @@ export const leadingNumber = (c: ImportCell | undefined) => {
 };
 
 /** A row the file can name: by its number (the identity) or by a name; `labels` by id. */
-type Ref = { numbers: Map<number, string>; names: Names; labels: Map<string, string> };
-type RefRow = {
+export type Ref = { numbers: Map<number, string>; names: Names; labels: Map<string, string> };
+export type RefRow = {
   id: string;
   number: number | null;
   /** The display name first, then other names it answers to. */
@@ -73,7 +73,7 @@ type RefRow = {
 };
 
 /** An archived row only answers to names no active one has; numbers are unique anyway. */
-function refOf(rows: RefRow[]): Ref {
+export function refOf(rows: RefRow[]): Ref {
   const names = group(
     rows.filter((r) => !r.archivedAt).flatMap((r) => r.keys.map((k) => [k, r.id] as const)),
   );
@@ -89,16 +89,32 @@ function refOf(rows: RefRow[]): Ref {
  * The rows a cell can mean. A leading number that exists wins, whatever text follows it
  * ("1-Aquaterrario" is project 1 however it is spelled); otherwise the whole cell is a name.
  */
-const candidates = (ref: Ref, c: ImportCell | undefined): string[] => {
+export const candidates = (ref: Ref, c: ImportCell | undefined): string[] => {
   const n = leadingNumber(c);
   const byNumber = n == null ? undefined : ref.numbers.get(n);
   return byNumber ? [byNumber] : (ref.names.get(lower(c)) ?? []);
 };
 /** The row a cell means; null when it means none or several. */
-const find = (ref: Ref, c: ImportCell | undefined) => {
+export const find = (ref: Ref, c: ImportCell | undefined) => {
   const ids = candidates(ref, c);
   return ids.length === 1 ? (ids[0] ?? null) : null;
 };
+
+/** Projects by number, display name or name. */
+export const projectRef = (db: Db) =>
+  refOf(
+    db
+      .select({
+        id: projects.id,
+        number: projects.number,
+        name: projects.name,
+        label: projectLabel,
+        archivedAt: projects.archivedAt,
+      })
+      .from(projects)
+      .all()
+      .map((p) => ({ ...p, keys: [p.label, p.name] })),
+  );
 
 type Lookups = {
   printers: Ref;
@@ -119,19 +135,9 @@ function build(db: Db): Lookups {
     })
     .from(printers)
     .all();
-  const projectRows = db
-    .select({
-      id: projects.id,
-      number: projects.number,
-      name: projects.name,
-      label: projectLabel,
-      archivedAt: projects.archivedAt,
-    })
-    .from(projects)
-    .all();
   return {
     printers: refOf(printerRows.map((p) => ({ ...p, keys: [printerTitle(p), p.name] }))),
-    projects: refOf(projectRows.map((p) => ({ ...p, keys: [p.label, p.name] }))),
+    projects: projectRef(db),
     // Active spools only, by number or display name.
     spools: refOf(
       spoolRows.map((s) => ({

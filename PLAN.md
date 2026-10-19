@@ -246,7 +246,7 @@ Do Step 19 of PLAN.md. Show me the tables and the order page first. Back up the 
 editing schema.ts.
 ```
 
-### [ ] Step 20 - Import quotes and orders (file)
+### [x] Step 20 - Import quotes and orders (file)
 **Model:** Sonnet · **Effort:** Medium
 **Scope:** Quotes and orders become types of the existing file import (template, parsing, review, apply), like prints. Client, project and quote are referenced the way prints reference printers (number or name); an unknown reference is an invalid row. If export is paired with import types, add the export too.
 **Done when:** a template round-trips; bad references show in the review; tests in `importExport.test.ts`; e2e; tests pass.

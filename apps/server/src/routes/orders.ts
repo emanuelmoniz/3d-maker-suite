@@ -13,13 +13,14 @@ import {
   pageOf,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
-import { and, eq, inArray, notInArray, sql } from "drizzle-orm";
+import { eq, inArray, sql } from "drizzle-orm";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
 import { printCosts } from "../lib/cost.ts";
 import { listPage } from "../lib/list.ts";
 import { assertNumberFree, nextNumber } from "../lib/numbers.ts";
+import { setProjects } from "../lib/orders.ts";
 import { readPreferences } from "../lib/preferences.ts";
 
 const { orders, orderProjects, clients, quotes, projects, prints, printFilamentUsages } = schema;
@@ -86,29 +87,6 @@ export const ordersRoutes =
         throw new HttpError(400, "invalid_project", "Project not found");
       if (b.status !== undefined && !readPreferences(db).orderStatuses.includes(b.status))
         throw new HttpError(400, "invalid_status", `Unknown order status "${b.status}"`);
-    };
-
-    /** Replaces the order's projects; refuses to drop one its prints still belong to. */
-    const setProjects = (
-      tx: Pick<Db, "select" | "insert" | "delete">,
-      id: string,
-      ids: string[],
-    ) => {
-      const inUse = tx
-        .select({ id: prints.id })
-        .from(prints)
-        .where(and(eq(prints.orderId, id), notInArray(prints.projectId, ids)))
-        .get();
-      if (inUse)
-        throw new HttpError(
-          409,
-          "order_project_in_use",
-          "The order has prints of a project being removed",
-        );
-      tx.delete(orderProjects).where(eq(orderProjects.orderId, id)).run();
-      tx.insert(orderProjects)
-        .values(ids.map((projectId) => ({ orderId: id, projectId })))
-        .run();
     };
 
     app.get(

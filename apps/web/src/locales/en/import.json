@@ -6,7 +6,10 @@
     "spools": "Spools",
     "printers": "Printers",
     "accessories": "Accessories",
-    "prints": "Prints"
+    "prints": "Prints",
+    "clients": "Clients",
+    "quotes": "Quotes",
+    "orders": "Orders"
   },
   "spools": {
     "columns": {
@@ -36,6 +39,9 @@
     "multicolor": "A multicolor print uses one Spool, Filament and Filament used (g) per color: the first set, then Spool 2 and so on, up to 16.",
     "trackUsage": "Track usage: leave empty or enter yes to subtract the filament from your spools. Enter no to save the print and its filament without changing your spools' weights.",
     "costs": "Count in costs, Lifetime (hours) and Include maintenance: leave empty on a new row to use the defaults from Costs settings.",
+    "clientMatch": "A client is found by its Mobile, else its Email, else its VAT number. A new Mobile, Email or VAT number can't be one another client has.",
+    "quoteCost": "A quote here is a typed-in print: Unit cost is what one print costs to make. Leave Quantity, Labor and the percentages empty on a new quote to use the defaults from Costs settings. Client and Project must already exist.",
+    "orderProjects": "Client, Quote and Project must already exist. Name several projects in the Project cell separated by ; (for example 1-Box; 2-Lid). Status is one of your order statuses, empty on a new order is the first one.",
     "accessoryInstalls": "The printer an accessory is on isn't part of the file: install it from the accessory's page.",
     "column": "Column",
     "format": "What to enter",
@@ -110,6 +116,7 @@
     "not_an_option": "Not one of the options",
     "not_a_datetime": "Not a date and time (use YYYY-MM-DD HH:MM)",
     "unresolved": "Not found, or matches more than one",
+    "not_an_email": "Not an email address",
     "not_opened": "This spool was opened after the print started"
   },
   "missing": {
@@ -172,7 +179,10 @@
     "viewSpools": "View spools",
     "viewPrinters": "View printers",
     "viewAccessories": "View accessories",
-    "viewPrints": "View prints"
+    "viewPrints": "View prints",
+    "viewClients": "View clients",
+    "viewQuotes": "View quotes",
+    "viewOrders": "View orders"
   },
   "printers": {
     "columns": {
@@ -189,6 +199,42 @@
       "countInCosts": "Count in costs",
       "lifetimeHours": "Lifetime (hours)",
       "includeMaintenanceCost": "Include maintenance"
+    }
+  },
+  "clients": {
+    "columns": {
+      "name": "Name",
+      "mobile": "Mobile",
+      "vat": "VAT number",
+      "email": "Email",
+      "address": "Address",
+      "notes": "Notes"
+    }
+  },
+  "quotes": {
+    "columns": {
+      "number": "Number",
+      "name": "Name",
+      "client": "Client",
+      "project": "Project",
+      "unitCost": "Unit cost",
+      "quantity": "Quantity",
+      "laborHours": "Labor hours",
+      "laborRate": "Labor rate per hour",
+      "failureMarginPct": "Failure margin (%)",
+      "markupPct": "Markup (%)",
+      "notes": "Notes"
+    }
+  },
+  "orders": {
+    "columns": {
+      "number": "Number",
+      "client": "Client",
+      "quote": "Quote",
+      "project": "Project",
+      "price": "Price",
+      "status": "Status",
+      "notes": "Notes"
     }
   },
   "accessories": {

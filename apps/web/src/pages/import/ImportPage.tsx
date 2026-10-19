@@ -30,6 +30,9 @@ const ENTITIES: Record<ImportEntity, { label: string; to: string; view: string }
     view: "import:done.viewAccessories",
   },
   prints: { label: "import:entities.prints", to: "/prints", view: "import:done.viewPrints" },
+  clients: { label: "import:entities.clients", to: "/clients", view: "import:done.viewClients" },
+  quotes: { label: "import:entities.quotes", to: "/quotes", view: "import:done.viewQuotes" },
+  orders: { label: "import:entities.orders", to: "/orders", view: "import:done.viewOrders" },
 };
 // What a run imported: a file entity, or a type an integration or a zip offers.
 const TYPES: Record<string, string> = {
@@ -37,6 +40,9 @@ const TYPES: Record<string, string> = {
   printers: "import:entities.printers",
   accessories: "import:entities.accessories",
   prints: "import:entities.prints",
+  clients: "import:entities.clients",
+  quotes: "import:entities.quotes",
+  orders: "import:entities.orders",
   brands: "integrations:capabilities.brands",
   printerModels: "integrations:capabilities.printerModels",
   machineProfiles: "integrations:capabilities.machineProfiles",
@@ -89,7 +95,13 @@ export function ImportPage() {
           ? [[t("import:template.costs")]]
           : entity === "accessories"
             ? [[t("import:template.costs")], [t("import:template.accessoryInstalls")]]
-            : []),
+            : entity === "clients"
+              ? [[t("import:template.clientMatch")]]
+              : entity === "quotes"
+                ? [[t("import:template.quoteCost")]]
+                : entity === "orders"
+                  ? [[t("import:template.orderProjects")]]
+                  : []),
       [],
       [t("import:template.column"), t("import:template.format")],
       ...columns.map((c) => [
