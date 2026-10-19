@@ -17,17 +17,47 @@ const LINGER_MS = 3000;
 
 const failed = (why: string) => new IntegrationError("slice_failed", why);
 
-/** The 3MF's own machine preset name and filament preset name per slot. */
-async function presetsOf(file: string): Promise<{ machine?: string; filaments: string[] }> {
+type Settings = Record<string, unknown>;
+type Own = {
+  machine?: string;
+  /** Filament preset name per slot. */
+  filaments: string[];
+  /** What the 3MF changed from its presets, ready to put on top of a preset. */
+  processEdits: Settings;
+  machineEdits: Settings;
+  filamentEdits: (slot: number) => Settings;
+};
+
+/**
+ * The 3MF's own presets and its changes to them. `different_settings_to_system` lists the
+ * changed keys per preset: the process first, then one entry per filament slot, the printer last.
+ */
+export async function presetsOf(file: string): Promise<Own> {
   const raw = await read3mfEntry(file, "Metadata/project_settings.config").catch(() => null);
+  let j: Settings = {};
   try {
-    const j = raw ? JSON.parse(new TextDecoder().decode(raw)) : {};
-    const machine = typeof j.printer_settings_id === "string" ? j.printer_settings_id : "";
-    const filaments = Array.isArray(j.filament_settings_id) ? j.filament_settings_id : [];
-    return { machine: machine || undefined, filaments: filaments.map(String) };
-  } catch {
-    return { filaments: [] };
-  }
+    j = raw ? JSON.parse(new TextDecoder().decode(raw)) : {};
+  } catch {}
+  const list = (v: unknown) => (Array.isArray(v) ? v.map(String) : []);
+  const filaments = list(j.filament_settings_id);
+  const changed = list(j.different_settings_to_system).map((s) => s.split(";").filter(Boolean));
+  const pick = (keys: string[] = []) =>
+    Object.fromEntries(keys.filter((k) => k in j).map((k) => [k, j[k]]));
+  return {
+    machine:
+      typeof j.printer_settings_id === "string" ? j.printer_settings_id || undefined : undefined,
+    filaments,
+    processEdits: pick(changed[0]),
+    machineEdits: changed.length > 1 ? pick(changed.at(-1)) : {},
+    // Filament values are one per slot; keys laid out otherwise are left to the preset.
+    filamentEdits: (slot) =>
+      Object.fromEntries(
+        (changed[slot + 1] ?? []).flatMap((k) => {
+          const v = j[k];
+          return Array.isArray(v) && v.length === filaments.length ? [[k, [v[slot]]]] : [];
+        }),
+      ),
+  };
 }
 
 /** A user preset's file by its name, in any account folder. */
@@ -68,7 +98,7 @@ export function cliSlicer(timeoutMs = TIMEOUT_MS): Slicer {
       try {
         const args = ["--slice", String(req.plate), "--outputdir", out, "--export-3mf", "out.3mf"];
         const wantsFilament = req.filaments?.some(Boolean);
-        const own = req.process || wantsFilament ? await presetsOf(req.file) : { filaments: [] };
+        const own = await presetsOf(req.file);
         const machine = own.machine;
 
         if (req.process) {
@@ -88,17 +118,22 @@ export function cliSlicer(timeoutMs = TIMEOUT_MS): Slicer {
           if (!proc) throw failed(`Print preset not found: ${name}`);
           if (!machinePreset) throw failed(`Printer preset unreadable: ${machine}`);
           // Flattened copies: the CLI ignores `inherits` (e.g. the A1's filament change G-code
-          // with its purge lives in a parent, so purges went missing from the grams).
+          // with its purge lives in a parent, so purges went missing from the grams). The file's
+          // own edits go on top, as Bambu Studio's "transfer changes" (e.g. supports switched on).
           const machineCopy = join(out, "machine.json");
           await writeFile(
             machineCopy,
-            JSON.stringify(await machines.flatten(machinePreset, machineFile)),
+            JSON.stringify({
+              ...(await machines.flatten(machinePreset, machineFile)),
+              ...own.machineEdits,
+            }),
           );
           const procCopy = join(out, "process.json");
           await writeFile(
             procCopy,
             JSON.stringify({
               ...(await procs.flatten(proc, procFile)),
+              ...own.processEdits,
               compatible_printers: [machine],
             }),
           );
@@ -138,7 +173,11 @@ export function cliSlicer(timeoutMs = TIMEOUT_MS): Slicer {
             const preset = file && (await readJson(file));
             if (!preset) throw failed(`Filament preset not found: ${name}`);
             const copy = join(out, `filament_${files.length + 1}.json`);
-            await writeFile(copy, JSON.stringify(await fils.flatten(preset, file)));
+            const edits = id ? {} : own.filamentEdits(i);
+            await writeFile(
+              copy,
+              JSON.stringify({ ...(await fils.flatten(preset, file)), ...edits }),
+            );
             files.push(copy);
           }
           args.push("--load-filaments", files.join(";"));

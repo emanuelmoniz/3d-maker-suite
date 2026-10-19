@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { systemPresets } from "./index.ts";
+import { presetsOf } from "./slice.ts";
 
 let dir: string;
 beforeEach(() => {
@@ -53,5 +54,22 @@ describe("flatten", () => {
       change_filament_gcode: "a1 purge",
     });
     expect((await machines.resolver((await machines.load(a1)) ?? {}, a1))("bed")).toBe("bbl");
+  });
+});
+
+describe("presetsOf", () => {
+  it("reads the 3MF's presets and the settings it changed from them", async () => {
+    const own = await presetsOf(join(import.meta.dirname, "../../3mf/fixtures/multi_color.3mf"));
+    expect(own.machine).toBe("Bambu Lab A1 0.4 nozzle");
+    expect(own.filaments).toHaveLength(4);
+    expect(own.processEdits).toEqual({
+      interface_shells: "1",
+      skeleton_infill_density: "8%",
+      skin_infill_density: "8%",
+      sparse_infill_density: "8%",
+      top_one_wall_type: "not apply",
+    });
+    expect(own.machineEdits).toEqual({});
+    expect(own.filamentEdits(0)).toEqual({});
   });
 });
