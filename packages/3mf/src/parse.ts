@@ -253,7 +253,9 @@ function paintStates(code: string, into: Set<number>) {
 async function paintedSlots(zip: Zip, build: BuildItem[]) {
   const out = new Map<string, Set<number>>();
   for (const path of new Set(build.flatMap((i) => i.components.map((c) => c.path)))) {
-    const text = await readText(zip, path);
+    // ponytail: a mesh over the zip's size cap skips its paint info (colour slots) rather than
+    // failing the whole file; raise the cap or stream the scan if such files need exact slots.
+    const text = await readText(zip, path).catch(() => null);
     if (!text?.includes("paint_color=")) continue;
     for (const obj of text.matchAll(/<object id="([^"]+)"[\s\S]*?<\/object>/g)) {
       const codes = new Set<string>();

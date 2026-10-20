@@ -4,7 +4,8 @@ import yauzl from "yauzl";
 
 export type ThreeMfSource = string | Uint8Array;
 
-const MAX_ENTRY_BYTES = 64 * 1024 * 1024;
+// Dense meshes reach ~110 MB; each entry is held in memory (buffer + string) while parsed.
+const MAX_ENTRY_BYTES = 256 * 1024 * 1024;
 
 export interface Zip {
   has(name: string): boolean;
