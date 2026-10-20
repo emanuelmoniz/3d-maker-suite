@@ -55,6 +55,8 @@ const shape = {
   projectScanDepth: z.number().int().min(1).max(5),
   /** Model files bigger than this show the plate thumbnail instead of the 3D viewer. */
   viewerMaxMb: z.number().positive(),
+  /** Largest file one upload into a project folder may be. */
+  projectUploadMaxMb: z.number().positive(),
   /** Integration whose slicer "Open in slicer" uses first. Missing / null = the first one. */
   defaultSlicerId: z.string().nullable(),
   lowSpoolGrams: z.number().nonnegative(),
@@ -102,6 +104,7 @@ export const PREFERENCE_DEFAULTS: z.infer<typeof preferencesSchema> = {
   projectRoots: [],
   projectScanDepth: 1,
   viewerMaxMb: 30,
+  projectUploadMaxMb: 1024,
   defaultSlicerId: null,
   lowSpoolGrams: 100,
   maintenanceLeadDays: 7,

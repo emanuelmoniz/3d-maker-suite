@@ -8,6 +8,7 @@ import type {
   ProjectScanStatus,
   ProjectSlicing,
   ProjectSlicingInput,
+  ProjectTrash,
 } from "@3d-maker-suite/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { TFunction } from "i18next";
@@ -68,6 +69,21 @@ export const useCreateProject = () => {
   return useMutation({
     mutationFn: (v: ProjectInput) => api<Project>("POST", "/api/projects", v),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["projects"] }),
+  });
+};
+
+/** Deleted project files waiting in the roots' trash folders. */
+export const useProjectTrash = () =>
+  useQuery({
+    queryKey: ["projects", "trash"],
+    queryFn: () => api<ProjectTrash>("GET", "/api/projects/trash"),
+  });
+
+export const useEmptyProjectTrash = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api("DELETE", "/api/projects/trash"),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["projects", "trash"] }),
   });
 };
 

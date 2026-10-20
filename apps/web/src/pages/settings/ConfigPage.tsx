@@ -17,7 +17,8 @@ export type NumKey =
   | "lowSpoolGrams"
   | "maintenanceLeadDays"
   | "projectScanDepth"
-  | "viewerMaxMb";
+  | "viewerMaxMb"
+  | "projectUploadMaxMb";
 
 export type ConfigCtx = {
   v: Preferences;
@@ -60,7 +61,14 @@ export function ConfigPage({
       {...field}
       className={inputClass}
       type="number"
-      min={key === "projectScanDepth" || key === "viewerMaxMb" || key === "gramsPerHour" ? 1 : 0}
+      min={
+        key === "projectScanDepth" ||
+        key === "viewerMaxMb" ||
+        key === "projectUploadMaxMb" ||
+        key === "gramsPerHour"
+          ? 1
+          : 0
+      }
       max={key === "projectScanDepth" ? 5 : undefined}
       step={
         key === "energyCostPerKwh" || key === "laborRatePerHour"

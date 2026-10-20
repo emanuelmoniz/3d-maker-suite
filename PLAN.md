@@ -269,7 +269,7 @@ push the tag and confirm the pre-release is published.
 
 ## Phase 6 - Project files & release
 
-### [ ] Step 22 - Project files API  **[plan mode]**
+### [x] Step 22 - Project files API  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:** The app may run on a server whose disk the user can't open in Explorer, so every file action must work from the browser.
 - New project: create its folder inside a configured project root (the user picks the root when there is more than one). The roots stay watched as today.

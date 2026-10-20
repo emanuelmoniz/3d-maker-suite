@@ -12,11 +12,52 @@ const ERRORS: Record<string, [number, string, string]> = {
   ENOTDIR: [400, "not_a_directory", "Not a folder"],
   EACCES: [403, "path_denied", "Access denied"],
   EPERM: [403, "path_denied", "Access denied"],
+  EBUSY: [409, "path_busy", "The file is in use"],
+  EEXIST: [409, "path_exists", "A file or folder with this name exists"],
+  ENOTEMPTY: [409, "path_exists", "A file or folder with this name exists"],
+  EINVAL: [400, "invalid_path", "Invalid path"],
 };
-const fsError = (err: NodeJS.ErrnoException) => {
+/** Known OS errors as HTTP errors; anything else stays a 500. */
+export const fsError = (err: NodeJS.ErrnoException) => {
   const known = err.code && ERRORS[err.code];
   return known ? new HttpError(...known) : err;
 };
+
+export type DirEntry = {
+  name: string;
+  abs: string;
+  type: "dir" | "file";
+  /** A symlink (or Windows junction); type, size and date are its target's. */
+  link: boolean;
+  size: number;
+  mtime: Date;
+};
+
+/** Folders and files of `dir`, folders first then by name; broken links and other kinds left out. */
+export async function readEntries(dir: string): Promise<DirEntry[]> {
+  const dirents = await readdir(dir, { withFileTypes: true }).catch((e) =>
+    Promise.reject(fsError(e)),
+  );
+  const entries = await Promise.all(
+    dirents.map(async (d) => {
+      const abs = join(dir, d.name);
+      const link = d.isSymbolicLink();
+      // A locked system file (e.g. pagefile.sys) can't be stat'ed but is still listed.
+      const s = (await stat(abs).catch(() => null)) ?? (link ? null : d);
+      if (!s || !(s.isDirectory() || s.isFile())) return null;
+      const type: DirEntry["type"] = s.isDirectory() ? "dir" : "file";
+      const { size = 0, mtime = new Date(0) } = "mtime" in s ? s : {};
+      return { name: d.name, abs, type, link, size, mtime };
+    }),
+  );
+  return entries
+    .filter((e) => e !== null)
+    .sort(
+      (a, b) =>
+        (a.type === b.type ? 0 : a.type === "dir" ? -1 : 1) ||
+        a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" }),
+    );
+}
 
 async function roots(): Promise<Entry[]> {
   if (process.platform !== "win32")
@@ -52,38 +93,18 @@ export const fsRoutes = (): FastifyPluginAsyncZod => async (app) => {
 
       // Same normalisation as insideRoots: `..` and symlinks resolve before listing.
       const real = await realpath(resolve(path)).catch((e) => Promise.reject(fsError(e)));
-      const dirents = await readdir(real, { withFileTypes: true }).catch((e) =>
-        Promise.reject(fsError(e)),
-      );
       const exts = ext
         ?.split(",")
         .map((e) => e.trim().toLowerCase())
         .filter(Boolean);
 
-      const entries: Entry[] = [];
-      for (const d of dirents) {
-        const full = join(real, d.name);
-        let dir = d.isDirectory();
-        let file = d.isFile();
-        if (d.isSymbolicLink()) {
-          const s = await stat(full).catch(() => null);
-          if (!s) continue; // broken link
-          dir = s.isDirectory();
-          file = s.isFile();
-        }
-        if (dir) entries.push({ name: d.name, path: full, type: "dir" });
-        else if (
-          file &&
-          mode === "file" &&
-          (!exts?.length || exts.includes(extname(d.name).toLowerCase()))
+      const entries: Entry[] = (await readEntries(real))
+        .filter(
+          (e) =>
+            e.type === "dir" ||
+            (mode === "file" && (!exts?.length || exts.includes(extname(e.name).toLowerCase()))),
         )
-          entries.push({ name: d.name, path: full, type: "file" });
-      }
-      entries.sort(
-        (a, b) =>
-          (a.type === b.type ? 0 : a.type === "dir" ? -1 : 1) ||
-          a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" }),
-      );
+        .map((e) => ({ name: e.name, path: e.abs, type: e.type }));
       const parent = dirname(real);
       return { path: real, parent: parent === real ? null : parent, sep, entries };
     },

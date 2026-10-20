@@ -5,7 +5,7 @@ import { Button } from "../../components/Button.tsx";
 import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { api } from "../../lib/api.ts";
-import { formatDateTime, formatNumber } from "../../lib/format.ts";
+import { formatDateTime, formatMegabytes } from "../../lib/format.ts";
 import { usePreferences, useSavePreferences } from "../../lib/preferences.ts";
 
 type Backup = { name: string; size: number; createdAt: string; auto: boolean };
@@ -31,9 +31,6 @@ const TABLES = [
   ["orders", "settings:backup.tables.orders"],
   ["order-projects", "settings:backup.tables.orderProjects"],
 ] as const;
-
-const megabytes = (bytes: number) =>
-  `${formatNumber(bytes / 1024 ** 2, { maximumFractionDigits: 1 })} MB`;
 
 export function BackupSection() {
   const { t } = useTranslation();
@@ -133,7 +130,7 @@ export function BackupSection() {
               <div className="min-w-0 flex-1">
                 <div className="font-medium">{formatDateTime(b.createdAt)}</div>
                 <div className="text-muted">
-                  {megabytes(b.size)}
+                  {formatMegabytes(b.size)}
                   {b.auto ? ` · ${t("settings:backup.automatic")}` : ""}
                 </div>
               </div>

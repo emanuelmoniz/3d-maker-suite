@@ -107,15 +107,26 @@ const editable = {
   sourceUrl: z.httpUrl().nullable(),
 };
 
-/** Fields given here count as user-edited. `folderPath` must be an existing directory. */
-export const projectInputSchema = z.object({
-  /** Defaults to the next free number. Not a scanned field, so a re-scan never touches it. */
-  number: projectSchema.shape.number.optional(),
-  name: editable.name,
-  description: editable.description.optional(),
-  sourceUrl: editable.sourceUrl.optional(),
-  folderPath: z.string().min(1).optional(),
-});
+/**
+ * Fields given here count as user-edited. `folderPath` must be an existing directory;
+ * `createFolder` makes `<root>/<number>_<name>` instead (`root` may be left out with one root).
+ */
+export const projectInputSchema = z
+  .object({
+    /** Defaults to the next free number. Not a scanned field, so a re-scan never touches it. */
+    number: projectSchema.shape.number.optional(),
+    name: editable.name,
+    description: editable.description.optional(),
+    sourceUrl: editable.sourceUrl.optional(),
+    folderPath: z.string().min(1).optional(),
+    createFolder: z.boolean().optional(),
+    /** One of the configured `projectRoots`. */
+    root: z.string().min(1).optional(),
+  })
+  .refine((p) => !(p.createFolder && p.folderPath), {
+    message: "Give folderPath or createFolder, not both",
+    path: ["createFolder"],
+  });
 
 /** Any subset. Every field sent becomes user-edited. */
 export const projectPatchSchema = z

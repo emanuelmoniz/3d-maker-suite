@@ -1,9 +1,14 @@
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Button } from "../../components/Button.tsx";
 import { Combobox } from "../../components/Combobox.tsx";
+import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { PathPicker } from "../../components/PathPicker.tsx";
 import { Section } from "../../components/Section.tsx";
+import { formatMegabytes } from "../../lib/format.ts";
 import { usePrinters } from "../../lib/printers.ts";
+import { useEmptyProjectTrash, useProjectTrash } from "../../lib/projects.ts";
 import { ChannelsSection } from "../alerts/ChannelsSection.tsx";
 import { FilamentCatalog, FilamentProfiles } from "../filament/Catalog.tsx";
 import { Catalog } from "../printers/Catalog.tsx";
@@ -198,9 +203,65 @@ export function ProjectsConfigPage() {
           >
             {(p) => num("viewerMaxMb", p)}
           </FormField>
+          <FormField
+            label={t("settings:projects.uploadMax")}
+            hint={t("settings:projects.uploadMaxHint")}
+          >
+            {(p) => num("projectUploadMaxMb", p)}
+          </FormField>
+          <ProjectTrash />
         </Section>
       )}
     </ConfigPage>
+  );
+}
+
+/** Deleted project files wait in a trash folder inside each project folder root until emptied here. */
+function ProjectTrash() {
+  const { t } = useTranslation();
+  const trash = useProjectTrash().data;
+  const empty = useEmptyProjectTrash();
+  const [confirming, setConfirming] = useState(false);
+  return (
+    <div className="grid gap-1">
+      <span className="font-medium">{t("settings:projects.trash")}</span>
+      <span className="text-muted">{t("settings:projects.trashHint")}</span>
+      <div className="flex flex-wrap items-center gap-3">
+        <span aria-live="polite">
+          {trash &&
+            (trash.items
+              ? t("settings:projects.trashSize", {
+                  count: trash.items,
+                  size: formatMegabytes(trash.bytes),
+                })
+              : t("settings:projects.trashNone"))}
+        </span>
+        <Button
+          variant="danger"
+          disabled={!trash?.items || empty.isPending}
+          onClick={() => setConfirming(true)}
+        >
+          {t("settings:projects.trashEmpty")}
+        </Button>
+      </div>
+      {empty.isError && (
+        <p role="alert" className="text-bad">
+          {t("settings:projects.trashError")}
+        </p>
+      )}
+      <ConfirmDialog
+        open={confirming}
+        title={t("settings:projects.trashConfirmTitle")}
+        description={t("settings:projects.trashConfirm")}
+        confirmLabel={t("settings:projects.trashEmpty")}
+        destructive
+        onCancel={() => setConfirming(false)}
+        onConfirm={() => {
+          setConfirming(false);
+          empty.mutate();
+        }}
+      />
+    </div>
   );
 }
 

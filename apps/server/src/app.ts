@@ -47,6 +47,7 @@ import { ordersRoutes } from "./routes/orders.ts";
 import { preferencesRoutes } from "./routes/preferences.ts";
 import { printersRoutes } from "./routes/printers.ts";
 import { printsRoutes } from "./routes/prints.ts";
+import { projectFilesRoutes } from "./routes/projectFiles.ts";
 import { projectSlicingRoutes } from "./routes/projectSlicing.ts";
 import { projectsRoutes } from "./routes/projects.ts";
 import { serverConfigRoutes } from "./routes/serverConfig.ts";
@@ -146,6 +147,7 @@ export async function buildApp(
   await app.register(projectsRoutes(db, dataDir, scanner, syncer.adapters), {
     prefix: "/api/projects",
   });
+  await app.register(projectFilesRoutes(db, scanner), { prefix: "/api/projects" });
   await app.register(projectSlicingRoutes(db, syncer.adapters, sliceQueue), {
     prefix: "/api/projects",
   });

@@ -81,7 +81,18 @@
     "depth": "Folder depth",
     "depthHint": "How many levels below a project folder each project sits. 1 = every subfolder is a project; 2 = look one level deeper, e.g. Category/Project.",
     "viewerMax": "3D preview size limit (MB)",
-    "viewerMaxHint": "Larger model files show the plate thumbnail instead of loading in the 3D viewer."
+    "viewerMaxHint": "Larger model files show the plate thumbnail instead of loading in the 3D viewer.",
+    "uploadMax": "Upload size limit (MB)",
+    "uploadMaxHint": "Largest file that can be uploaded into a project folder.",
+    "trash": "Deleted project files",
+    "trashHint": "Files deleted in the app go to a hidden trash folder in their project folder root until you empty it.",
+    "trashSize_one": "{{count}} deleted item, {{size}}",
+    "trashSize_other": "{{count}} deleted items, {{size}}",
+    "trashNone": "The trash is empty.",
+    "trashEmpty": "Empty trash",
+    "trashConfirmTitle": "Empty the trash?",
+    "trashConfirm": "The deleted files are removed for good. This can't be undone.",
+    "trashError": "Couldn't empty the trash. A file in it may be in use."
   },
   "alerts": {
     "hint": "Alerts appear in the Alerts page. Optionally also send them to a phone or inbox.",
