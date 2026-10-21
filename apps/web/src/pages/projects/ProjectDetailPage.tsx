@@ -35,6 +35,8 @@ const linkButton =
   "inline-flex h-9 items-center gap-2 whitespace-nowrap rounded-md border border-border bg-surface px-3 font-medium hover:bg-surface-2";
 const VIEWABLE = /\.(3mf|stl)$/i;
 const SLICED_EXPORT = /\.gcode\.3mf$/i;
+// The last two folders of the project's path, e.g. projects\140_jewellery-box-generator.
+const folderLabel = (path: string) => path.split(/[\\/]/).filter(Boolean).slice(-2).join("\\");
 
 // Static keys so `pnpm i18n:check` sees them; `api()` puts the HTTP status last in the message.
 const openError = (t: TFunction, message: string) =>
@@ -421,7 +423,9 @@ export function ProjectDetailPage() {
           </>
         }
       />
-      {project.folderPath && <p className="break-all text-muted">{project.folderPath}</p>}
+      {project.folderPath && (
+        <p className="-mt-3 mb-4 break-all text-muted">{folderLabel(project.folderPath)}</p>
+      )}
       <p role="status" className={open.isError ? "text-bad" : "sr-only"}>
         {open.isError
           ? openError(t, open.error.message)
