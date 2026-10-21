@@ -114,7 +114,7 @@
     "plates": "Plates",
     "plate": "Plate {{index}}",
     "description": "Project info",
-    "setUpSlicing": "Set up slicing",
+    "setUpSlicing": "Set up print",
     "slicing": "Slicing…",
     "sliceOutdated": "outdated",
     "notSliced": "Not sliced",
