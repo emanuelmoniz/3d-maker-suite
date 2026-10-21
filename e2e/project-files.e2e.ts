@@ -32,6 +32,10 @@ for (const viewport of VIEWPORTS) {
 
     const files = page.getByRole("region", { name: "Files" });
     const confirm = (name: string) => page.getByRole("dialog").getByRole("button", { name });
+    // Sections start closed: open with the keyboard.
+    await expect(files.getByRole("button", { name: "New folder", exact: true })).toBeHidden();
+    await files.locator("summary").focus();
+    await page.keyboard.press("Enter");
 
     // Upload by picker.
     await files
@@ -110,6 +114,7 @@ test("project files: a name that is not allowed shows an error", async ({ page, 
   });
   await page.goto(`/projects/${p.id}`);
   const files = page.getByRole("region", { name: "Files" });
+  await files.getByRole("heading", { name: "Files" }).click();
   await files.getByRole("button", { name: "New folder", exact: true }).click();
   await page.getByRole("dialog").getByLabel("Name").fill("a:b");
   await page.getByRole("dialog").getByRole("button", { name: "Create" }).click();
@@ -129,6 +134,7 @@ test("project files: select items and move or remove them in bulk", async ({ pag
   });
   await page.goto(`/projects/${p.id}`);
   const files = page.getByRole("region", { name: "Files" });
+  await files.getByRole("heading", { name: "Files" }).click();
   const dialog = page.getByRole("dialog");
   const move = files.getByRole("button", { name: "Move", exact: true });
   const remove = files.getByRole("button", { name: "Remove", exact: true });

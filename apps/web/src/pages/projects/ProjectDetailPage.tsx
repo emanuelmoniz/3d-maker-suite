@@ -4,6 +4,7 @@ import type { TFunction } from "i18next";
 import { Box, ExternalLink, FolderOpen } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Collapsible } from "../../components/Collapsible.tsx";
 import { Combobox } from "../../components/Combobox.tsx";
 import { CostBreakdown, UsageBreakdown } from "../../components/CostBreakdown.tsx";
 import { Markdown } from "../../components/Markdown.tsx";
@@ -93,10 +94,7 @@ function Plates({
       : null;
   };
   return (
-    <section aria-labelledby="plates" className="mt-6">
-      <h2 id="plates" className="mb-2 text-base font-semibold">
-        {t("projects:detail.plates")}
-      </h2>
+    <Collapsible title={t("projects:detail.plates")}>
       <ul className="grid gap-2 sm:grid-cols-2">
         {model.plates.length > 1 && (
           <li>
@@ -215,7 +213,7 @@ function Plates({
           );
         })}
       </ul>
-    </section>
+    </Collapsible>
   );
 }
 
@@ -223,10 +221,7 @@ function LinkedPrints({ id }: { id: string }) {
   const { t } = useTranslation();
   const prints = usePrintsOfProject(id).data?.items ?? [];
   return (
-    <section aria-labelledby="prints" className="mt-6">
-      <h2 id="prints" className="mb-2 text-base font-semibold">
-        {t("projects:detail.prints")}
-      </h2>
+    <Collapsible title={t("projects:detail.prints")}>
       {prints.length ? (
         <ul className="divide-y divide-border rounded-lg border border-border bg-surface">
           {prints.map((p) => (
@@ -243,7 +238,7 @@ function LinkedPrints({ id }: { id: string }) {
       ) : (
         <p className="text-muted">{t("projects:detail.noPrints")}</p>
       )}
-    </section>
+    </Collapsible>
   );
 }
 

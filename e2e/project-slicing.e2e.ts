@@ -109,6 +109,7 @@ test("slicing a project with the mock slicer: results, estimate, list filter, re
   // The project page shows the results: on the plate cards and in the estimate.
   await page.goto(`/projects/${project.id}`);
   const plates = page.getByRole("region", { name: "Plates" });
+  await plates.getByRole("heading", { name: "Plates" }).click();
   await expect(plates.getByText(/^1h · \d+ g$/).first()).toBeVisible();
   await expect(plates.getByText("Not sliced")).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "Estimated cost of one print" })).toBeVisible();

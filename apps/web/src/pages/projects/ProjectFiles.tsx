@@ -14,6 +14,7 @@ import {
 import { type DragEvent, type ReactNode, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
+import { Collapsible } from "../../components/Collapsible.tsx";
 import { Combobox } from "../../components/Combobox.tsx";
 import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
@@ -250,12 +251,9 @@ export function ProjectFiles({ project }: { project: Project }) {
 
   if (!project.folderPath)
     return (
-      <section aria-labelledby="files" className="mt-6">
-        <h2 id="files" className="mb-2 text-base font-semibold">
-          {t("projects:detail.files")}
-        </h2>
+      <Collapsible title={t("projects:detail.files")}>
         <p className="text-muted">{t("projects:list.noFolder")}</p>
-      </section>
+      </Collapsible>
     );
 
   const errorText = (e: unknown) =>
@@ -397,8 +395,8 @@ export function ProjectFiles({ project }: { project: Project }) {
   }[ask?.kind ?? "folder"];
 
   return (
-    <section
-      aria-labelledby="files"
+    <Collapsible
+      title={t("projects:detail.files")}
       className={`mt-6 rounded-lg ${over ? "outline outline-2 outline-accent" : ""}`}
       onDragOver={(e) => {
         e.preventDefault();
@@ -411,10 +409,7 @@ export function ProjectFiles({ project }: { project: Project }) {
         onFiles("", e.dataTransfer.files);
       }}
     >
-      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-        <h2 id="files" className="text-base font-semibold">
-          {t("projects:detail.files")}
-        </h2>
+      <div className="mb-2 flex flex-wrap items-center justify-end gap-2">
         <div className="flex gap-2">
           <Button onClick={() => picker.current?.click()}>
             <Upload className="size-4" aria-hidden />
@@ -549,6 +544,6 @@ export function ProjectFiles({ project }: { project: Project }) {
           setConflict(null);
         }}
       />
-    </section>
+    </Collapsible>
   );
 }

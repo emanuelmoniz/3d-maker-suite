@@ -88,6 +88,7 @@ test("project files: row buttons are 40px tap targets on a phone", async ({ page
   await page.getByRole("button", { name: "Save" }).click();
   await expect(page.getByRole("heading", { name: "Vase" })).toBeVisible();
   const files = page.getByRole("region", { name: "Files" });
+  await files.getByRole("heading", { name: "Files" }).click();
   await files
     .locator('input[type="file"]')
     .first()

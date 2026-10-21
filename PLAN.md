@@ -89,7 +89,7 @@ Do Step 5 of PLAN.md. Reuse printerStats; tell me the success rate definition yo
 Do Step 6 of PLAN.md.
 ```
 
-### [ ] Step 7 - Collapsible sections
+### [x] Step 7 - Collapsible sections
 **Model:** Sonnet · **Effort:** Low
 **Scope:** One generic collapsible section component in `apps/web/src/components` (native `<details>`/`<summary>` unless there's a reason not to), closed by default, keyboard accessible. On the project page, Plates, Print setup, Prints and Files use it.
 **Done when:** the four sections start closed and open with mouse and keyboard; e2e opens one; tests pass.
