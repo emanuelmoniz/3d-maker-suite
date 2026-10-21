@@ -1,7 +1,8 @@
 import type { CostBreakdown as Cost, QuoteBreakdown } from "@3d-maker-suite/core";
 import { TriangleAlert } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { useMoney } from "../lib/cost.ts";
+import { type SlicedEstimate, useMoney } from "../lib/cost.ts";
+import { spoolName, useProfiles } from "../lib/filament.ts";
 import { formatWeight } from "../lib/format.ts";
 
 type Row = { label: string; value: number; strong?: boolean; rule?: boolean };
@@ -25,29 +26,52 @@ function Rows({ rows, format }: { rows: Row[]; format?: (value: number) => strin
   );
 }
 
-/** Filament used: grams per spool, then the total per material (rows like `CostBreakdown`). */
-export function UsageBreakdown({
-  spools,
-  materials,
+/** "Material usage": grams per spool, then the total per material. Nothing when there is none. */
+export function MaterialUsage({
+  estimate,
 }: {
-  spools: { label: string; grams: number }[];
-  materials: { material: string; grams: number }[];
+  estimate: Pick<SlicedEstimate, "spools" | "materials">;
 }) {
   const { t } = useTranslation();
+  const profiles = useProfiles().data?.items ?? [];
+  const { spools, materials } = estimate;
+  if (!spools.length && !materials.length) return null;
   return (
-    <Rows
-      format={formatWeight}
-      rows={[
-        ...spools.map((s) => ({ label: s.label, value: s.grams })),
-        ...materials.map((m, i) => ({
-          label: t("costs:project.materialTotal", { material: m.material }),
-          value: m.grams,
-          strong: true,
-          // One rule under the spools; none without spools or between materials.
-          rule: i === 0 && spools.length > 0,
-        })),
-      ]}
-    />
+    <section className="grid gap-2">
+      <h4 className="font-medium">{t("costs:usage.title")}</h4>
+      <Rows
+        format={formatWeight}
+        rows={[
+          ...spools.map((s) => ({
+            label: spoolName(
+              t,
+              s.spool,
+              profiles.find((p) => p.id === s.spool.profileId),
+            ),
+            value: s.grams,
+          })),
+          ...materials.map((m, i) => ({
+            label: t("costs:project.materialTotal", { material: m.material }),
+            value: m.grams,
+            strong: true,
+            // One rule under the spools; none without spools or between materials.
+            rule: i === 0 && spools.length > 0,
+          })),
+        ]}
+      />
+    </section>
+  );
+}
+
+/** "Aggregated cost": the cost lines of one print, with how the material is priced. */
+export function ProductionCost({ cost }: { cost: Cost }) {
+  const { t } = useTranslation();
+  return (
+    <section className="grid gap-2">
+      <h4 className="font-medium">{t("costs:aggregated.title")}</h4>
+      <p className="text-muted">{t("costs:aggregated.hint")}</p>
+      <CostBreakdown cost={cost} />
+    </section>
   );
 }
 

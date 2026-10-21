@@ -6,16 +6,17 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Collapsible } from "../../components/Collapsible.tsx";
 import { Combobox } from "../../components/Combobox.tsx";
-import { CostBreakdown, UsageBreakdown } from "../../components/CostBreakdown.tsx";
+import { CostBreakdown, MaterialUsage, ProductionCost } from "../../components/CostBreakdown.tsx";
 import { Markdown } from "../../components/Markdown.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { TagList } from "../../components/TagList.tsx";
 import { estimateSlicedPlates, useCostContext } from "../../lib/cost.ts";
 import { cx } from "../../lib/cx.ts";
-import { spoolName, useProfiles, useSpools } from "../../lib/filament.ts";
+import { useProfiles, useSpools } from "../../lib/filament.ts";
 import { formatDateTime, formatDuration, formatWeight } from "../../lib/format.ts";
 import { useAdapterName, useCapable } from "../../lib/integrations.ts";
 import { usePreferences } from "../../lib/preferences.ts";
+import { printerName } from "../../lib/printers.ts";
 import { printName, usePrintsOfProject } from "../../lib/prints.ts";
 import {
   projectDocResolver,
@@ -302,13 +303,12 @@ function SlicedEstimate({ project }: { project: Project }) {
     profiles,
     fallbackPrinterId: fallback?.id,
   });
-  const profileOf = (id: string) => profiles.find((p) => p.id === id);
   return (
     <div className="max-w-md rounded-lg border border-border bg-surface p-4">
       <h3 className="mb-1 font-medium">{t("costs:project.onePrint")}</h3>
       <p className="mb-2 text-muted">
         {printer
-          ? t("costs:project.onePrintHint", { printer: printer.name })
+          ? t("costs:project.onePrintHint", { printer: printerName(t, printer) })
           : used.size > 1
             ? t("costs:project.onePrintHintPrinters")
             : t("costs:project.onePrintHintNoPrinter")}
@@ -319,14 +319,8 @@ function SlicedEstimate({ project }: { project: Project }) {
         </p>
       )}
       <div className="grid gap-3">
-        <UsageBreakdown
-          spools={estimate.spools.map(({ spool, grams }) => ({
-            label: spoolName(t, spool, profileOf(spool.profileId)),
-            grams,
-          }))}
-          materials={estimate.materials}
-        />
-        <CostBreakdown cost={estimate.cost} />
+        <MaterialUsage estimate={estimate} />
+        <ProductionCost cost={estimate.cost} />
       </div>
       <div className="mt-3">{setUp}</div>
     </div>

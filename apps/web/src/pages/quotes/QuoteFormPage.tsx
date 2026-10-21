@@ -17,7 +17,11 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
 import { Combobox } from "../../components/Combobox.tsx";
-import { CostBreakdown, QuoteBreakdownView } from "../../components/CostBreakdown.tsx";
+import {
+  MaterialUsage,
+  ProductionCost,
+  QuoteBreakdownView,
+} from "../../components/CostBreakdown.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { PlateSlice, plateKey, SliceSetup } from "../../components/SliceSetup.tsx";
@@ -321,11 +325,19 @@ function QuoteForm({ ctx, editing }: { ctx: CostContext; editing?: Quote }) {
 
   // One print: every plate on its own printer, or the print typed in when there are no files.
   const fallback = ctx.printers.find((p) => p.id === defaultPrinterId) ?? ctx.printers[0];
-  const platesCost = estimateSlicedPlates(plates, ctx, {
+  const sliced = estimateSlicedPlates(plates, ctx, {
     spools,
     profiles,
     fallbackPrinterId: fallback?.id,
-  }).cost;
+  });
+  const platesCost = sliced.cost;
+  const typedGrams = new Map<string, number>();
+  for (const r of f.filaments)
+    if (r.label && r.grams > 0)
+      typedGrams.set(r.label.toUpperCase(), (typedGrams.get(r.label.toUpperCase()) ?? 0) + r.grams);
+  const usage = byHand
+    ? { spools: [], materials: [...typedGrams].map(([material, grams]) => ({ material, grams })) }
+    : sliced;
   const durationSec = f.minutes * 60;
   const typedCost = computeCost(
     {
@@ -538,9 +550,12 @@ function QuoteForm({ ctx, editing }: { ctx: CostContext; editing?: Quote }) {
           className="rounded-lg border border-border bg-surface p-4"
         >
           <h2 id="c-cost" className="mb-2 text-base font-semibold">
-            {t("costs:cost.title")}
+            {t("costs:project.onePrint")}
           </h2>
-          <CostBreakdown cost={cost} />
+          <div className="grid gap-3">
+            <MaterialUsage estimate={usage} />
+            <ProductionCost cost={cost} />
+          </div>
         </section>
         <section
           aria-labelledby="c-quote"
