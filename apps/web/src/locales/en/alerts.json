@@ -9,7 +9,6 @@
   "postpone_one": "Postpone {{count}} day",
   "postpone_other": "Postpone {{count}} days",
   "dismiss": "Dismiss",
-  "open": "Open alert",
   "view": {
     "title": "Alert",
     "notFound": "This alert no longer exists.",

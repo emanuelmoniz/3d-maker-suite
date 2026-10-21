@@ -18,7 +18,7 @@ test("maintenance alert: open it, mark as done, the alert resolves", async ({ pa
   await page
     .getByRole("listitem")
     .filter({ hasText: /Clean nozzle/ })
-    .getByRole("link", { name: "Open alert" })
+    .getByRole("link", { name: /Clean nozzle/ })
     .click();
 
   await expect(page.getByRole("heading", { name: "Alert" })).toBeVisible();
@@ -40,7 +40,7 @@ test("maintenance alert: postpone hides it from the list", async ({ page, app })
     warnLeadDays: 10,
   });
   await page.goto("/alerts");
-  await page.getByRole("link", { name: "Open alert" }).click();
+  await page.getByRole("link", { name: /Clean nozzle/ }).click();
   await page.getByRole("button", { name: "Postpone 7 days" }).click();
   await expect(page).toHaveURL(/\/alerts$/);
   await expect(page.getByRole("heading", { name: "Snoozed" })).toBeVisible();
@@ -53,7 +53,7 @@ test("integration alert: a sync's log and a link to the integration", async ({ p
   });
   await app.api("POST", `/api/integrations/${id}/sync`, { type: "printers" });
   await page.goto("/alerts");
-  await page.getByRole("link", { name: "Open alert" }).click();
+  await page.getByRole("link", { name: /new, \d+ updated/ }).click();
   await expect(page.getByText(/^New: /)).toBeVisible();
   await expect(page.getByRole("link", { name: "Open integration" })).toBeVisible();
 });

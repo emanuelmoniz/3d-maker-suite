@@ -49,65 +49,78 @@ const link = "font-medium hover:underline";
 export const buttonLink =
   "inline-flex h-9 items-center whitespace-nowrap rounded-md bg-accent px-3 font-medium text-accent-fg hover:opacity-90";
 
-export function Title({ a }: { a: Alert }) {
+/** The alert's sentence. In the list it opens the alert; in the alert's own view, what it is about. */
+export function Title({ a, inList }: { a: Alert; inList?: boolean }) {
   const { t } = useTranslation();
   const adapterName = useAdapterName();
   const c = a.context;
+  const type = t(CAPS[c.type as Capability] ?? "");
+  const text = {
+    spool_low: () =>
+      t("alerts:kinds.spool_low", { name: c.name, grams: formatWeight(Number(c.grams)) }),
+    maintenance_due: () =>
+      t(
+        a.severity === "error"
+          ? "alerts:kinds.maintenance_overdue"
+          : "alerts:kinds.maintenance_due",
+        { task: c.task, printer: c.printer },
+      ),
+    warranty_ending: () =>
+      t("alerts:kinds.warranty_ending", { name: c.name, count: Number(c.days) }),
+    sync_pending: () =>
+      t("alerts:kinds.sync_pending", {
+        name: adapterName(String(c.adapterId)),
+        type: t(TITLE[c.type as ReviewedType] ?? ""),
+        count: Number(c.count),
+      }),
+    sync_success: () =>
+      t("alerts:kinds.sync_success", {
+        name: adapterName(String(c.adapterId)),
+        type,
+        count: Number(c.created),
+        updated: c.updated,
+      }),
+    sync_error: () =>
+      t("alerts:kinds.sync_error", {
+        name: adapterName(String(c.adapterId)),
+        type,
+        reason: t(ERRORS[c.code as IntegrationErrorCode] ?? ERRORS.unknown),
+      }),
+  }[a.kind]();
+  if (inList)
+    return (
+      <Link to="/alerts/$id" params={{ id: a.id }} className={link}>
+        {text}
+      </Link>
+    );
   switch (a.kind) {
     case "spool_low":
       return (
         <Link to="/filament/spools/$id" params={{ id: a.entityId }} className={link}>
-          {t("alerts:kinds.spool_low", { name: c.name, grams: formatWeight(Number(c.grams)) })}
-        </Link>
-      );
-    case "maintenance_due":
-      return (
-        <Link to="/maintenance" className={link}>
-          {t(
-            a.severity === "error"
-              ? "alerts:kinds.maintenance_overdue"
-              : "alerts:kinds.maintenance_due",
-            { task: c.task, printer: c.printer },
-          )}
+          {text}
         </Link>
       );
     case "warranty_ending":
       return (
         <Link to="/printers/$id" params={{ id: a.entityId }} className={link}>
-          {t("alerts:kinds.warranty_ending", { name: c.name, count: Number(c.days) })}
+          {text}
         </Link>
       );
-    case "sync_pending":
+    case "maintenance_due":
       return (
-        <span className="font-medium">
-          {t("alerts:kinds.sync_pending", {
-            name: adapterName(String(c.adapterId)),
-            type: t(TITLE[c.type as ReviewedType] ?? ""),
-            count: Number(c.count),
-          })}
-        </span>
+        <Link to="/maintenance" className={link}>
+          {text}
+        </Link>
       );
     case "sync_success":
-      return (
-        <Link to="/integrations" className={link}>
-          {t("alerts:kinds.sync_success", {
-            name: adapterName(String(c.adapterId)),
-            type: t(CAPS[c.type as Capability] ?? ""),
-            count: Number(c.created),
-            updated: c.updated,
-          })}
-        </Link>
-      );
     case "sync_error":
       return (
         <Link to="/integrations" className={link}>
-          {t("alerts:kinds.sync_error", {
-            name: adapterName(String(c.adapterId)),
-            type: t(CAPS[c.type as Capability] ?? ""),
-            reason: t(ERRORS[c.code as IntegrationErrorCode] ?? ERRORS.unknown),
-          })}
+          {text}
         </Link>
       );
+    default:
+      return <span className="font-medium">{text}</span>;
   }
 }
 
@@ -194,7 +207,7 @@ function Row({ a, snoozed }: { a: Alert; snoozed?: boolean }) {
           aria-label={t(s.label)}
         />
         <div className="min-w-0">
-          <Title a={a} />
+          <Title a={a} inList />
           <p className="text-muted">
             {t("alerts:meta", {
               module: t(MODULE[a.module]),
@@ -220,9 +233,6 @@ function Row({ a, snoozed }: { a: Alert; snoozed?: boolean }) {
             {t("alerts:review")}
           </Link>
         )}
-        <Link to="/alerts/$id" params={{ id: a.id }} className={buttonLink}>
-          {t("alerts:open")}
-        </Link>
         <AlertButtons a={a} snoozed={snoozed} />
       </div>
     </li>
