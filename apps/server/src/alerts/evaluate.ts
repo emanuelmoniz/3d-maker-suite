@@ -30,28 +30,32 @@ const WARRANTY_LEAD_DAYS = 30;
 const ONE_SHOT = new Set<AlertKind>(["sync_success", "sync_error"]);
 
 /**
- * Overdue is an error; before that, a warning once a lead set on the type is reached (a type
- * without one keeps the old rule: "upcoming", or within the global lead days). Each can be off:
+ * Overdue is an error; before that, a warning once a lead is reached: the type's own, else the
+ * default from Settings per unit (a type with none of its own also warns when "upcoming"). Each can be off:
  * an overdue item with its error off stays a warning, and none at all if that is off too.
  */
 function maintenanceSeverity(
   d: MaintenanceDueItem,
   t: typeof maintenanceTypes.$inferSelect | undefined,
-  defaultLeadDays: number,
+  prefs: {
+    maintenanceLeadDays: number;
+    maintenanceLeadHours: number;
+    maintenanceLeadPrints: number;
+  },
 ): AlertSeverity | null {
   const warn = t?.warnEnabled !== false;
   if (d.progress >= 1) return t?.errorEnabled !== false ? "error" : warn ? "warning" : null;
   if (!warn) return null;
   const set = t && [t.warnLeadDays, t.warnLeadHours, t.warnLeadPrints].some((v) => v != null);
-  const hit = set
-    ? (t.warnLeadDays != null && d.remainingDays !== null && d.remainingDays <= t.warnLeadDays) ||
-      (t.warnLeadHours != null &&
-        d.remainingSec !== null &&
-        d.remainingSec <= t.warnLeadHours * 3600) ||
-      (t.warnLeadPrints != null &&
-        d.remainingPrints !== null &&
-        d.remainingPrints <= t.warnLeadPrints)
-    : d.status !== "ok" || (d.remainingDays !== null && d.remainingDays <= defaultLeadDays);
+  // Per unit: the type's lead, else the Settings default (hours and prints: 0 = none).
+  const days = t?.warnLeadDays ?? prefs.maintenanceLeadDays;
+  const hours = t?.warnLeadHours ?? prefs.maintenanceLeadHours;
+  const prints = t?.warnLeadPrints ?? prefs.maintenanceLeadPrints;
+  const hit =
+    (!set && d.status !== "ok") ||
+    (d.remainingDays !== null && d.remainingDays <= days) ||
+    (hours > 0 && d.remainingSec !== null && d.remainingSec <= hours * 3600) ||
+    (prints > 0 && d.remainingPrints !== null && d.remainingPrints <= prints);
   return hit ? "warning" : null;
 }
 
@@ -110,7 +114,7 @@ function conditions(db: Db, now: Date): Found {
       .map((t) => [t.id, t]),
   );
   for (const d of dueItems(db)) {
-    const severity = maintenanceSeverity(d, types.get(d.typeId), prefs.maintenanceLeadDays);
+    const severity = maintenanceSeverity(d, types.get(d.typeId), prefs);
     if (severity) {
       // Printer or accessory (uuids never clash); `printer` is the target's name for either.
       const key = `${d.targetId}:${d.typeId}`;

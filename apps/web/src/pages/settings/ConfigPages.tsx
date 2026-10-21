@@ -285,6 +285,12 @@ export function AlertsConfigPage() {
             <FormField label={t("settings:alerts.maintenanceLead")}>
               {(p) => num("maintenanceLeadDays", p)}
             </FormField>
+            <FormField label={t("settings:alerts.maintenanceLeadHours")}>
+              {(p) => num("maintenanceLeadHours", p)}
+            </FormField>
+            <FormField label={t("settings:alerts.maintenanceLeadPrints")}>
+              {(p) => num("maintenanceLeadPrints", p)}
+            </FormField>
           </Section>
           <Section title={t("settings:alerts.channels")}>
             <ChannelsSection />

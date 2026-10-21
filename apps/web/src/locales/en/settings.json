@@ -100,6 +100,8 @@
     "hint": "Alerts appear in the Alerts page. Optionally also send them to a phone or inbox.",
     "lowSpool": "Low spool warning (grams left)",
     "maintenanceLead": "Maintenance warning (days before due)",
+    "maintenanceLeadHours": "Maintenance warning (print hours before due, 0 = none)",
+    "maintenanceLeadPrints": "Maintenance warning (prints before due, 0 = none)",
     "channels": "Send alerts elsewhere"
   },
   "prints": {

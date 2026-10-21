@@ -16,6 +16,8 @@ export type NumKey =
   | "markupPct"
   | "lowSpoolGrams"
   | "maintenanceLeadDays"
+  | "maintenanceLeadHours"
+  | "maintenanceLeadPrints"
   | "projectScanDepth"
   | "projectScanMaxFiles"
   | "viewerMaxMb"

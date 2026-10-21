@@ -63,6 +63,9 @@ const shape = {
   defaultSlicerId: z.string().nullable(),
   lowSpoolGrams: z.number().nonnegative(),
   maintenanceLeadDays: z.number().int().nonnegative(),
+  /** Default warning leads in print hours / prints before due; 0 = none. */
+  maintenanceLeadHours: z.number().int().nonnegative(),
+  maintenanceLeadPrints: z.number().int().nonnegative(),
   printerStates: z.array(z.string().min(1)).min(1),
   failureReasons: z.array(z.string().min(1)),
   /** An order's statuses, in order; a new order starts at the first. */
@@ -111,6 +114,8 @@ export const PREFERENCE_DEFAULTS: z.infer<typeof preferencesSchema> = {
   defaultSlicerId: null,
   lowSpoolGrams: 100,
   maintenanceLeadDays: 7,
+  maintenanceLeadHours: 0,
+  maintenanceLeadPrints: 0,
   printerStates: ["working", "maintenance", "inop", "retired"],
   orderStatuses: ["accepted", "in_progress", "done", "canceled"],
   failureReasons: [

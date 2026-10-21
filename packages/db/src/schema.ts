@@ -363,7 +363,7 @@ export const maintenanceTypes = sqliteTable("maintenance_types", {
   intervalSec: integer(),
   intervalPrints: integer(),
   intervalDays: integer(),
-  // Alert settings; null = the default (`maintenanceLeadDays`, both alerts on).
+  // Alert settings; null = the default (`maintenanceLead*`, both alerts on).
   warnLeadDays: integer(),
   warnLeadHours: integer(),
   warnLeadPrints: integer(),

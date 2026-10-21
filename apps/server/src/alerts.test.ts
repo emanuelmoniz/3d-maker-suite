@@ -149,6 +149,13 @@ describe("alerts", () => {
     // Empty = the default.
     await set({ errorEnabled: null, warnLeadPrints: null });
     expect(await sev()).toBe("error");
+    // The Settings default for prints applies to a type without its own lead.
+    printed(95);
+    await set({ warnEnabled: null });
+    expect(await sev()).toBe("warning");
+    printed(30);
+    await send("PATCH", "/api/preferences", { maintenanceLeadPrints: 80 });
+    expect(await sev()).toBe("warning");
   });
 
   it("accessory maintenance raises an alert that logging it resolves", async () => {

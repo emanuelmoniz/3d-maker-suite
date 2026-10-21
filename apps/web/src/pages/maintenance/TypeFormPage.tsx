@@ -121,7 +121,11 @@ function TypeForm({ type }: { type?: MaintenanceType }) {
       </fieldset>
       <fieldset className="grid gap-4">
         <legend className="mb-3 text-muted">
-          {t("maintenance:types.alertsHint", { days: prefs?.maintenanceLeadDays })}
+          {t("maintenance:types.alertsHint", {
+            days: prefs?.maintenanceLeadDays,
+            hours: prefs?.maintenanceLeadHours,
+            prints: prefs?.maintenanceLeadPrints,
+          })}
         </legend>
         {interval("leadDays", "maintenance:types.leadDays", type?.warnLeadDays, 0)}
         {interval("leadHours", "maintenance:types.leadHours", type?.warnLeadHours, 0)}
