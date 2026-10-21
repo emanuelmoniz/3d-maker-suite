@@ -176,7 +176,7 @@ test("import spools from a CSV after reviewing the rows", async ({ page }) => {
   await page.getByRole("dialog").getByRole("button", { name: "Import 1 row" }).click();
   await expect(page.getByText("Import finished: 1 created, 0 updated.")).toBeVisible();
   await page.getByRole("link", { name: "View spools" }).click();
-  await expect(page.getByText("750.5").first()).toBeVisible();
+  await expect(page.getByText("751 g").first()).toBeVisible();
 });
 
 test.describe("responsive", () => {
