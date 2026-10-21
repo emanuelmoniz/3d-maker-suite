@@ -243,7 +243,7 @@ Do Step 18 of PLAN.md. Show me how a changed file is classified (same plates / c
 setup) before implementing.
 ```
 
-### [ ] Step 19 - Docs, push & v3.0.0-alpha.3
+### [x] Step 19 - Docs, push & v3.0.0-alpha.3
 **Model:** Haiku · **Effort:** Low
 **Scope:** README/docs for the accessory-install and project imports and auto slicing, CHANGELOG, version `3.0.0-alpha.3`. Commit, push `main`, create and push tag `v3.0.0-alpha.3`; check the workflow run and the pre-release.
 **Done when:** `main` and the tag are pushed; the workflow is green; the pre-release exists; docs match the app.

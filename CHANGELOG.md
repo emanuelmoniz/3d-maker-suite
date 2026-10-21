@@ -4,9 +4,12 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+## [3.0.0-alpha.3] - 2026-10-21
+
 ### Added
 - Import: accessory installs from a file (template, export, review). Accessory and printer are found by number or name; unknown references and overlapping periods show as invalid rows
 - Import: projects from a file (template, export, review). Each row can take a folder picked inside the project folders, a folder the app creates, or none; the prints each project gets are shown and can be changed before the import
+- Projects: auto slice per project folder (on by default, overridable per project in its print setup). When a sliced file changes, its outdated plates are sliced again with their saved setup; a changed setup raises a warning instead of guessing
 
 ## [3.0.0-alpha.2] - 2026-10-21
 

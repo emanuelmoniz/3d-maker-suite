@@ -11,14 +11,14 @@ A local-first manager for your 3D printing: printers, accessories, maintenance, 
 - **Maintenance**: reusable tasks for printers and accessories, due by hours, prints or days
 - **Filament**: brands, materials, profiles, spools with numbers and colour names, remaining grams, low-spool alerts
 - **Alerts**: one list of what needs attention (low spools, maintenance, warranties, sync results), with severity, read, snooze and dismiss, a history table, and optional ntfy or email channels; each task chooses what it raises
-- **Projects**: 3MF models with plates, thumbnails, tags, collections, filament colours, files you can upload, move and remove in folders, a chosen 3D preview file, an image gallery with a cover, a markdown description (linked `.md` or `.txt` file, with an editor), and slicing per plate (Bambu Studio) for an estimated cost of one complete print
+- **Projects**: 3MF models with plates, thumbnails, tags, collections, filament colours, files you can upload, move and remove in folders, a chosen 3D preview file, an image gallery with a cover, a markdown description (linked `.md` or `.txt` file, with an editor), and slicing per plate (Bambu Studio, or automatically when a sliced file changes) for an estimated cost of one complete print
 - **Prints**: history with outcome, filament usage per AMS slot (up to 16 for multicolor), energy, and an estimated duration when only the grams are known
 - **Clients**: people and companies you print for, with unique VAT, mobile and email
 - **Quotes**: numbered quotes from a project or typed in, with notes, client and markup on cost
 - **Orders**: work agreed with a client, from a quote or on its own, with a status, a price and the cost of its linked prints
 - **Costs and stats**: cost per print snapshotted at record time (printer, counted accessories, filament, energy, labour), charts by period, filters by material and outcome
 - **Integrations** (optional): Bambu Cloud, Bambu Studio and OrcaSlicer, with a sync mode and frequency per data type
-- **Import**: spreadsheets (spools, printers, prints, clients, quotes, orders) and slicer catalogs from a zip, reviewed row by row before anything is saved
+- **Import**: spreadsheets (spools, printers, accessories, accessory installs, projects, prints, clients, quotes, orders) and slicer catalogs from a zip, reviewed row by row before anything is saved
 - **Backups**: scheduled online SQLite backups, restore, CSV, JSON and spreadsheet export
 - **Light and dark themes**, mobile-friendly, keyboard navigable, searchable dropdowns; set your own app name, logo, favicon, date and time format
 
