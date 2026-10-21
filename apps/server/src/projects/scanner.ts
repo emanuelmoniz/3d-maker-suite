@@ -133,12 +133,24 @@ export function createProjectScanner(
       // A folder added by hand with typed fields is a new project, as asked.
       (Object.keys(user).length ? undefined : adopt(folder));
     const id = row?.id ?? randomUUID();
-    // A chosen cover that is gone falls back to the scanner's pick.
-    const chosen = row?.coverFile;
-    const cover: Cover | null =
-      chosen && scan.files.some((f) => f.kind === "image" && f.path === chosen)
-        ? { kind: "image", abs: join(folder, ...chosen.split("/")) }
-        : scan.cover;
+    // Gallery picks and a chosen cover that are gone from the folder are dropped; the cover then
+    // falls back to the scanner's pick. ponytail: an image past the scan's MAX_FILES cap counts
+    // as gone too; check the disk instead of the list if folders that big show up.
+    const listed = new Set(scan.files.filter((f) => f.kind === "image").map((f) => f.path));
+    const coverFile = row?.coverFile && listed.has(row.coverFile) ? row.coverFile : null;
+    const gallery = row && {
+      folders: (
+        await Promise.all(
+          row.gallery.folders.map(async (d) =>
+            d === "" || (await isDir(join(folder, ...d.split("/")))) ? d : null,
+          ),
+        )
+      ).filter((d): d is string => d !== null),
+      images: row.gallery.images.filter((p) => listed.has(p)),
+    };
+    const cover: Cover | null = coverFile
+      ? { kind: "image", abs: join(folder, ...coverFile.split("/")) }
+      : scan.cover;
     const thumbnailPath = await storeCover(id, cover, row?.thumbnailPath ?? null);
     const types = scan.models.flatMap((m) =>
       m.plates.flatMap((p) => p.filaments.map((f) => f.type)),
@@ -180,7 +192,7 @@ export function createProjectScanner(
       return "created" as const;
     }
     const edited = new Set<string>(row.editedFields);
-    const next: Record<string, unknown> = { ...always };
+    const next: Record<string, unknown> = { ...always, gallery, coverFile };
     // A chosen preview file that is gone falls back to the scanner's pick.
     const previewKept = scan.files.some(
       (f) => f.kind === "model" && join(folder, ...f.path.split("/")) === row.filePath,

@@ -318,6 +318,24 @@ describe("gallery", () => {
     expect(await thumb()).toBe("jpg-cover");
   });
 
+  it("drops picks removed outside the app on the next scan", async () => {
+    await mkdirApi("old");
+    await upload("old/c.png", "png-c");
+    await upload("model.stl", "solid");
+    await patch({
+      gallery: { folders: ["", "pics", "old"], images: ["pics/a.png", "cover.jpg"] },
+      coverFile: "pics/a.png",
+    });
+    await rm(join(folder, "pics", "a.png"));
+    await rm(join(folder, "old"), { recursive: true });
+    await scan();
+    expect(await project()).toMatchObject({
+      gallery: { folders: ["", "pics"], images: ["cover.jpg"] },
+      coverFile: null,
+    });
+    expect(await thumb()).toBe("jpg-cover");
+  });
+
   it("refuses paths outside the project, links and non-images", async () => {
     for (const path of ["../x.png", "/etc/x.png", "C:\\x.png", ".hidden.png", "a/../../x.png"]) {
       for (const payload of [
