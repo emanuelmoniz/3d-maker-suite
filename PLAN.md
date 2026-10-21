@@ -266,7 +266,7 @@ push the tag and confirm the pre-release is published.
 Do Step 20 of PLAN.md. List the UI issues found and fix them in this step.
 ```
 
-### [ ] Step 21 - Docs, push & v3.0.0 release
+### [x] Step 21 - Docs, push & v3.0.0 release
 **Model:** Haiku · **Effort:** Low
 **Scope:** README/docs (anything missed), CHANGELOG, version `3.0.0`. Commit, push `main`, create and push tag `v3.0.0`. The release workflow publishes it as the latest release; check the run (`gh run watch`) and the release (`gh release view v3.0.0`).
 **Done when:** `main` and the tag are pushed; the workflow is green; the release is the latest; docs match the app.

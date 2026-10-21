@@ -4,6 +4,11 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+## [3.0.0] - 2026-10-21
+
+### Fixed
+- Stats: a long project name no longer pushes the filters off a phone screen
+
 ## [3.0.0-alpha.3] - 2026-10-21
 
 ### Added
