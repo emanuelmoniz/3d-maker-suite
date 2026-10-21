@@ -1,7 +1,7 @@
 import { readdir, readFile, stat } from "node:fs/promises";
 import { extname, join, posix, relative } from "node:path";
 import { parse3mf } from "@3d-maker-suite/3mf";
-import type { ProjectFile, ProjectModel } from "@3d-maker-suite/core";
+import { PREFERENCE_DEFAULTS, type ProjectFile, type ProjectModel } from "@3d-maker-suite/core";
 
 type Kind = ProjectFile["kind"];
 
@@ -25,8 +25,8 @@ export const kindOf = (name: string): Kind | undefined => KINDS[extname(name).to
 export const isHidden = (name: string) => name.startsWith(".") || name === "node_modules";
 
 // ponytail: fixed caps keep a stray huge folder from stalling a scan; make them settings if hit.
+// (The file cap is one already: `projectScanMaxFiles`.)
 const MAX_DEPTH = 3; // folder levels below the project folder that are looked into
-const MAX_FILES = 1000;
 const MAX_3MF = 50; // only metadata is read (zip head + configs), so this stays cheap
 const MAX_TEXT_BYTES = 1024 * 1024;
 const MAX_DESCRIPTION = 100_000;
@@ -96,12 +96,12 @@ export function mergeSlicedExports(models: ProjectModel[]): ProjectModel[] {
   return models.filter((m) => !merged.has(m));
 }
 
-async function collect(root: string) {
+async function collect(root: string, maxFiles: number) {
   const out: (ProjectFile & { abs: string; mtimeMs: number })[] = [];
   async function walk(dir: string, level: number) {
     const entries = await readdir(dir, { withFileTypes: true }).catch(() => []);
     for (const e of entries.sort(byName)) {
-      if (out.length >= MAX_FILES) return;
+      if (out.length >= maxFiles) return;
       if (isHidden(e.name)) continue;
       const abs = join(dir, e.name);
       if (e.isDirectory()) {
@@ -131,8 +131,10 @@ const tidyUrl = (u: string) => u.replace(/[.,;:!?]+$/, "");
 export async function scanFolder(
   dir: string,
   descriptionFile?: string | null,
+  /** Files listed at most; the rest of the folder is not looked at. */
+  maxFiles = PREFERENCE_DEFAULTS.projectScanMaxFiles,
 ): Promise<FolderScan> {
-  const all = await collect(dir);
+  const all = await collect(dir, maxFiles);
   const files = all.map(({ path, kind, size }) => ({ path, kind, size }));
 
   // Docs: README first, then other .md, then .txt. PDFs are listed but not read.

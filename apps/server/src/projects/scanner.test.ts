@@ -10,7 +10,7 @@ vi.mock("./scanFolder.ts", async (orig) => {
   const mod = await orig<typeof import("./scanFolder.ts")>();
   return {
     ...mod,
-    scanFolder: (folder: string, ...rest: [string?]) => {
+    scanFolder: (folder: string, ...rest: [(string | null)?, number?]) => {
       scanned.push(folder);
       return mod.scanFolder(folder, ...rest);
     },

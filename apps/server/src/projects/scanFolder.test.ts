@@ -62,3 +62,16 @@ describe("sliced exports", () => {
     }
   });
 });
+
+describe("scanFolder file limit", () => {
+  it("lists at most maxFiles files, in name order", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "scan-"));
+    try {
+      for (const n of ["a", "b", "c"]) await writeFile(join(dir, `${n}.png`), "x");
+      expect((await scanFolder(dir, null, 2)).files.map((f) => f.path)).toEqual(["a.png", "b.png"]);
+      expect((await scanFolder(dir)).files).toHaveLength(3);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+});

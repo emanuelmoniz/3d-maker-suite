@@ -198,6 +198,12 @@ export function ProjectsConfigPage() {
             {(p) => num("projectScanDepth", p)}
           </FormField>
           <FormField
+            label={t("settings:projects.maxFiles")}
+            hint={t("settings:projects.maxFilesHint")}
+          >
+            {(p) => num("projectScanMaxFiles", p)}
+          </FormField>
+          <FormField
             label={t("settings:projects.viewerMax")}
             hint={t("settings:projects.viewerMaxHint")}
           >

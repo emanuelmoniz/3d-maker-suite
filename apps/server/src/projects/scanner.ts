@@ -134,8 +134,8 @@ export function createProjectScanner(
       (Object.keys(user).length ? undefined : adopt(folder));
     const id = row?.id ?? randomUUID();
     // Gallery picks and a chosen cover that are gone from the folder are dropped; the cover then
-    // falls back to the scanner's pick. ponytail: an image past the scan's MAX_FILES cap counts
-    // as gone too; check the disk instead of the list if folders that big show up.
+    // falls back to the scanner's pick. An image past the `projectScanMaxFiles` cap counts as
+    // gone too (the setting's hint says so).
     const listed = new Set(scan.files.filter((f) => f.kind === "image").map((f) => f.path));
     const coverFile = row?.coverFile && listed.has(row.coverFile) ? row.coverFile : null;
     const gallery = row && {
@@ -211,19 +211,21 @@ export function createProjectScanner(
 
   const linkOf = (folder: string) =>
     db.select().from(projects).where(eq(projects.folderPath, folder)).get()?.descriptionFile;
+  const read = (folder: string, link = linkOf(folder)) =>
+    scanFolder(folder, link, readPreferences(db).projectScanMaxFiles);
 
   /** Re-reads one project folder now (e.g. after its description file changed). */
   async function refresh(folder: string) {
     // The app's own write already fired the watcher; events up to now need no second scan.
     refreshedAt.set(folder, Date.now());
-    await upsert(folder, await scanFolder(folder, linkOf(folder)));
+    await upsert(folder, await read(folder));
   }
 
   /** Scans one discovered folder; a template folder or one without a model is no project. */
   async function scanOne(folder: string) {
     // Number 0 ("000_project-name") marks a template folder: no project.
     if (parseFolderName(basename(folder)).number === 0) return "unchanged" as const;
-    const scan = await scanFolder(folder, linkOf(folder));
+    const scan = await read(folder);
     return scan.hasModel ? await upsert(folder, scan) : ("unchanged" as const);
   }
 
@@ -359,7 +361,7 @@ export function createProjectScanner(
     if (!(await isDir(folder))) throw new HttpError(400, "invalid_folder", "Folder not found");
     if (db.select().from(projects).where(eq(projects.folderPath, folder)).get())
       throw new HttpError(409, "folder_in_use", "A project already uses this folder");
-    await upsert(folder, await scanFolder(folder, user.descriptionFile), user);
+    await upsert(folder, await read(folder, user.descriptionFile), user);
     return db.select().from(projects).where(eq(projects.folderPath, folder)).get();
   }
 

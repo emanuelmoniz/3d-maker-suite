@@ -80,6 +80,8 @@
     "rootsHint": "One folder per line. Watched for new models and 3MF files.",
     "depth": "Folder depth",
     "depthHint": "How many levels below a project folder each project sits. 1 = every subfolder is a project; 2 = look one level deeper, e.g. Category/Project.",
+    "maxFiles": "Files per project",
+    "maxFilesHint": "The most files a scan lists in one project folder. Files past the limit can't be picked as preview, description or gallery image, and gallery picks past it are removed on the next scan. A higher limit makes scans slower and the project list heavier to load, because every listed file is stored with its project. Raise it only for folders that really hold more files.",
     "viewerMax": "3D preview size limit (MB)",
     "viewerMaxHint": "Larger model files show the plate thumbnail instead of loading in the 3D viewer.",
     "uploadMax": "Upload size limit (MB)",

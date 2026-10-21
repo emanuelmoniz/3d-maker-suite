@@ -53,6 +53,8 @@ const shape = {
   projectRoots: z.array(z.string().min(1)),
   /** How many folder levels below a root a project may sit (1 = direct subfolders). */
   projectScanDepth: z.number().int().min(1).max(5),
+  /** Files a scan lists per project folder at most; the rest can't be picked or shown. */
+  projectScanMaxFiles: z.number().int().min(100).max(100_000),
   /** Model files bigger than this show the plate thumbnail instead of the 3D viewer. */
   viewerMaxMb: z.number().positive(),
   /** Largest file one upload into a project folder may be. */
@@ -103,6 +105,7 @@ export const PREFERENCE_DEFAULTS: z.infer<typeof preferencesSchema> = {
   markupPct: 20,
   projectRoots: [],
   projectScanDepth: 1,
+  projectScanMaxFiles: 1000,
   viewerMaxMb: 30,
   projectUploadMaxMb: 1024,
   defaultSlicerId: null,
