@@ -1,5 +1,5 @@
 import type { PlateSetupInput, Project } from "@3d-maker-suite/core";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
 import { PlateSlice, plateKey, SliceSetup } from "../../components/SliceSetup.tsx";
@@ -19,7 +19,12 @@ export function SlicingSetup({ project }: { project: Project }) {
   const slice = useSliceProject(project.id);
   const [draft, setDraft] = useState<PlateSetupInput[] | null>(null);
   const defaultId = usePreferences().data?.values.defaultPrinterId;
-  if (!project.meta.models.length || !saved) return null;
+  const ready = project.meta.models.length > 0 && !!saved;
+  // The section appears after its data loads, too late for the browser's own jump to #slicing.
+  useEffect(() => {
+    if (ready && location.hash === "#slicing") document.getElementById("slicing")?.scrollIntoView();
+  }, [ready]);
+  if (!ready || !saved) return null;
   const stored = saved.plates.map((p) => ({
     file: p.file,
     plate: p.plate,

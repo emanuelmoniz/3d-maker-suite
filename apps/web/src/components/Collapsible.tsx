@@ -6,17 +6,19 @@ export function Collapsible({
   title,
   children,
   className = "mt-6",
+  defaultOpen = false,
   ...rest
 }: {
   title: string;
   children: ReactNode;
   className?: string;
+  defaultOpen?: boolean;
 } & Omit<React.HTMLAttributes<HTMLElement>, "title">) {
   const id = useId();
   return (
     <section aria-labelledby={id} className={className} {...rest}>
-      <details className="group">
-        <summary className="flex cursor-pointer list-none items-center gap-1 rounded [&::-webkit-details-marker]:hidden">
+      <details className="group" open={defaultOpen || undefined}>
+        <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-lg border border-border bg-surface px-3 hover:bg-surface-2 group-open:mb-2 [&::-webkit-details-marker]:hidden">
           <ChevronRight
             className="size-4 shrink-0 transition-transform group-open:rotate-90"
             aria-hidden
@@ -25,7 +27,7 @@ export function Collapsible({
             {title}
           </h2>
         </summary>
-        <div className="mt-2">{children}</div>
+        <div>{children}</div>
       </details>
     </section>
   );

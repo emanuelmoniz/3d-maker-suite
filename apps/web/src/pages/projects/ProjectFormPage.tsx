@@ -243,9 +243,7 @@ export function ProjectEditPage() {
       {data && isFetchedAfterMount && (
         <>
           <ProjectForm key={data.id} project={data} />
-          <div id="slicing">
-            <SlicingSetup project={data} />
-          </div>
+          <SlicingSetup project={data} />
         </>
       )}
     </>

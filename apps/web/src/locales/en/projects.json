@@ -115,6 +115,7 @@
     "plate": "Plate {{index}}",
     "description": "Project info",
     "setUpSlicing": "Set up print",
+    "setUpHint": "No estimate yet. Set up and slice the print to see it.",
     "slicing": "Slicing…",
     "sliceOutdated": "outdated",
     "notSliced": "Not sliced",

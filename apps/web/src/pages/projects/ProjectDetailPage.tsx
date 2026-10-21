@@ -280,7 +280,20 @@ function SlicedEstimate({ project }: { project: Project }) {
   const profiles = useProfiles().data?.items ?? [];
   const spools = useSpools().data?.items ?? [];
   const sliced = plates.filter((p) => p.result).length;
-  if (!ctx || !sliced) return null;
+  if (!ctx) return null;
+  const setUp = (
+    <Link to="/projects/$id/edit" params={{ id: project.id }} hash="slicing" className={linkButton}>
+      {t("projects:detail.setUpSlicing")}
+    </Link>
+  );
+  if (!sliced)
+    return project.meta.models.length ? (
+      <div className="max-w-md rounded-lg border border-border bg-surface p-4">
+        <h3 className="mb-1 font-medium">{t("costs:project.onePrint")}</h3>
+        <p className="mb-2 text-muted">{t("projects:detail.setUpHint")}</p>
+        {setUp}
+      </div>
+    ) : null;
   const fallback = ctx.printers.find((p) => p.id === defaultId) ?? ctx.printers[0];
   const used = new Set(plates.filter((p) => p.result).map((p) => p.printerId ?? fallback?.id));
   const printer = used.size === 1 ? ctx.printers.find((p) => used.has(p.id)) : undefined;
@@ -315,6 +328,7 @@ function SlicedEstimate({ project }: { project: Project }) {
         />
         <CostBreakdown cost={estimate.cost} />
       </div>
+      <div className="mt-3">{setUp}</div>
     </div>
   );
 }
@@ -491,18 +505,8 @@ export function ProjectDetailPage() {
       </div>
 
       {current && <Plates project={project} file={current.path} plate={plate} onPlate={setPlate} />}
-      {project.meta.models.length > 0 && (
-        <p className="mt-4">
-          <Link to="/projects/$id/edit" params={{ id }} hash="slicing" className={linkButton}>
-            {t("projects:detail.setUpSlicing")}
-          </Link>
-        </p>
-      )}
       {project.description && (
-        <section aria-labelledby="description" className="mt-6">
-          <h2 id="description" className="mb-2 text-base font-semibold">
-            {t("projects:detail.description")}
-          </h2>
+        <Collapsible title={t("projects:detail.description")} defaultOpen>
           <div className="rounded-lg border border-border bg-surface p-4">
             {project.descriptionFile?.toLowerCase().endsWith(".txt") ? (
               <p className="whitespace-pre-line">{project.description}</p>
@@ -512,7 +516,7 @@ export function ProjectDetailPage() {
               </Markdown>
             )}
           </div>
-        </section>
+        </Collapsible>
       )}
 
       <LinkedPrints id={id} />
