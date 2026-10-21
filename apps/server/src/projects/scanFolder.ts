@@ -28,7 +28,7 @@ const MAX_DEPTH = 3; // folder levels below the project folder that are looked i
 const MAX_FILES = 1000;
 const MAX_3MF = 50; // only metadata is read (zip head + configs), so this stays cheap
 const MAX_TEXT_BYTES = 1024 * 1024;
-const MAX_DESCRIPTION = 2000;
+const MAX_DESCRIPTION = 100_000;
 const COVER_NAME = /^(cover|preview|thumbnail|thumb|main)\b/i;
 const MARKETPLACE_URL =
   /https?:\/\/(?:www\.)?(?:makerworld\.com|printables\.com|thingiverse\.com)\/[^\s)<>"'\]]*/i;

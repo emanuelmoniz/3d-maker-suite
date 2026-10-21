@@ -30,6 +30,11 @@ export interface ThreeMfPlate {
   filaments: ThreeMfFilament[];
   multicolor: boolean;
   objects: string[];
+  /**
+   * The plate's `<build>` items, as indexes into the build list: the order three's 3MFLoader adds
+   * them to its scene, so the viewer can show one plate. Object names can't be used for that.
+   */
+  items: number[];
   /** Zip entry path of the plate preview PNG; read it with `read3mfEntry`. */
   thumbnail: string | null;
 }
@@ -386,6 +391,7 @@ export async function parse3mf(source: ThreeMfSource): Promise<ThreeMfInfo> {
           filaments: [],
           multicolor: false,
           objects: [],
+          items: [],
           thumbnail: null,
         };
         plates.set(index, p);
@@ -401,7 +407,10 @@ export async function parse3mf(source: ThreeMfSource): Promise<ThreeMfInfo> {
       p.thumbnail = zip.has(thumb) ? thumb : null;
       const slots = new Set<number>();
       for (const inst of arr(pl.model_instance)) {
-        const o = objects.get(String(meta(inst).object_id));
+        const id = String(meta(inst).object_id);
+        const item = build.findIndex((b) => b.object === id);
+        if (item >= 0 && !p.items.includes(item)) p.items.push(item);
+        const o = objects.get(id);
         if (!o) continue;
         if (o.name) p.objects.push(o.name);
         for (const s of o.slots) slots.add(s);

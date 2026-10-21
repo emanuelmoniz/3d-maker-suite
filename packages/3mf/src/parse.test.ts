@@ -56,6 +56,7 @@ describe("parse3mf fixtures (saved without slicing)", () => {
     const [plate] = info.plates;
     expect(info.plates).toHaveLength(1);
     expect(plate?.objects).toEqual(["design_05", "design_06", "design_07", "design_08"]);
+    expect([...(plate?.items ?? [])].sort()).toEqual([0, 1, 2, 3]);
     expect(plate?.filaments.map((f) => [f.slot, f.type, f.color])).toEqual([
       [1, "PLA", "#FFFFFF"],
       [2, "PLA", "#0078BF"],
@@ -82,6 +83,7 @@ describe("parse3mf fixtures (saved without slicing)", () => {
     expect(info.multicolor).toBe(false);
     expect(info.plates[0]?.filaments.map((f) => f.slot)).toEqual([4]);
     expect(info.plates[0]?.objects).toEqual(["091_filipe-lid.stl"]);
+    expect(info.plates[0]?.items).toEqual([0]);
   });
 
   it("returns plate thumbnails as readable PNG entries", async () => {

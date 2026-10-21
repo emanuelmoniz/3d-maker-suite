@@ -27,7 +27,7 @@ export function ModelPreview({
   url,
   ext,
   size,
-  objects,
+  items,
   partColors,
   thumbnail,
   name,
@@ -37,7 +37,8 @@ export function ModelPreview({
   url: string;
   ext: string;
   size: number;
-  objects: string[];
+  /** Build items of the plate shown; empty = the whole file. */
+  items: number[];
   partColors: (string | null)[][];
   thumbnail: string | null;
   name: string;
@@ -78,7 +79,7 @@ export function ModelPreview({
           <ModelViewer
             url={url}
             kind={kind}
-            objects={objects}
+            items={items}
             partColors={partColors}
             painted={paint.data}
             label={t("projects:viewer.label", { name })}

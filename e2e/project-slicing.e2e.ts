@@ -37,7 +37,7 @@ test("project slicing setup: defaults from the default printer, saves, reloads, 
   await app.api("PATCH", "/api/preferences", { defaultPrinterId: printer.id });
   await seedProfile(app.api);
 
-  await page.goto(`/projects/${project.id}`);
+  await page.goto(`/projects/${project.id}/edit`);
   const section = page.getByRole("region", { name: "Slicing setup" });
   await section.getByRole("checkbox", { name: /benchy\.3mf/ }).check();
   const printProfile = section.getByRole("combobox", { name: `Print profile for ${plateName}` });
@@ -86,7 +86,7 @@ test("slicing a project with the mock slicer: results, estimate, list filter, re
   await app.api("PATCH", `/api/integrations/${mock.id}`, { slicerPath: process.execPath });
   await seedSpool(app.api);
 
-  await page.goto(`/projects/${project.id}`);
+  await page.goto(`/projects/${project.id}/edit`);
   const section = page.getByRole("region", { name: "Slicing setup" });
   await section.getByRole("checkbox", { name: /benchy\.3mf/ }).check();
   // No printer: the file's own print profile, named after the 3MF's preset.
@@ -105,6 +105,12 @@ test("slicing a project with the mock slicer: results, estimate, list filter, re
   await expect(section.getByText(/^1h · \d+ g$/).first()).toBeVisible();
   await expect(section.getByText("Every plate is sliced and up to date.")).toBeVisible();
   await expect(slice).toBeDisabled();
+
+  // The project page shows the results: on the plate cards and in the estimate.
+  await page.goto(`/projects/${project.id}`);
+  const plates = page.getByRole("region", { name: "Plates" });
+  await expect(plates.getByText(/^1h · \d+ g$/).first()).toBeVisible();
+  await expect(plates.getByText("Not sliced")).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "Estimated cost of one print" })).toBeVisible();
   await expect(page.getByRole("term").filter({ hasText: /^001-Basic #ff0000$/ })).toBeVisible();
   await expect(page.getByRole("term").filter({ hasText: /^Total PLA$/ })).toBeVisible();
@@ -116,7 +122,7 @@ test("slicing a project with the mock slicer: results, estimate, list filter, re
 
   // The file changes on disk: that plate needs slicing again.
   appendFileSync(file, "changed");
-  await page.goto(`/projects/${project.id}`);
+  await page.goto(`/projects/${project.id}/edit`);
   await expect(slice).toBeEnabled();
   await slice.click();
   await expect(section.getByText("Every plate is sliced and up to date.")).toBeVisible();

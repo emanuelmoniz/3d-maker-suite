@@ -5,20 +5,19 @@ import { BufferAttribute, Color, type Mesh, MeshStandardMaterial, type Object3D 
 import { ThreeMFLoader } from "three/examples/jsm/loaders/3MFLoader.js";
 import { STLLoader } from "three/examples/jsm/loaders/STLLoader.js";
 
-/** Shows only the objects of one plate; if no object name matches, everything stays visible. */
-function showOnly(root: Object3D, names: string[]) {
-  const wanted = new Set(names);
-  let hits = 0;
-  root.traverse((o) => {
-    if (wanted.has(o.name)) hits++;
-  });
-  const walk = (o: Object3D, inside: boolean): boolean => {
-    const within = inside || wanted.has(o.name);
-    const child = o.children.map((c) => walk(c, within)).some(Boolean);
-    o.visible = !hits || within || child;
-    return o.visible;
-  };
-  walk(root, false);
+/**
+ * One plate's build items (the loader adds one child per item); none = all. A copy holding only
+ * those, not hidden siblings: `Bounds` measures hidden objects too, so the camera would fit them.
+ * Clones share geometry and materials, so this is cheap.
+ */
+function plateOf(root: Object3D, items: number[]) {
+  if (!items.length) return root;
+  const view = root.clone(false);
+  for (const i of items) {
+    const child = root.children[i];
+    if (child) view.add(child.clone());
+  }
+  return view;
 }
 
 type Painted = { palette: string[]; parts: (number[] | null)[][] };
@@ -76,33 +75,34 @@ function Stl({ url }: { url: string }) {
 
 function ThreeMf({
   url,
-  objects,
+  items,
   partColors,
   painted,
 }: {
   url: string;
-  objects: string[];
+  items: number[];
   partColors: (string | null)[][];
   painted?: Painted;
 }) {
   const group = useLoader(ThreeMFLoader, url);
   useMemo(() => paint(group, partColors, painted), [group, partColors, painted]);
-  useMemo(() => showOnly(group, objects), [group, objects]);
-  return <primitive object={group} />;
+  // After painting (hooks run in order), so the copies share the painted materials.
+  const view = useMemo(() => plateOf(group, items), [group, items, partColors, painted]);
+  return <primitive object={view} />;
 }
 
 /** Lazy chunk: three.js and loaders live only here. Slicer models are Z-up, three.js is Y-up. */
 export default function ModelViewer({
   url,
   kind,
-  objects,
+  items,
   partColors,
   painted,
   label,
 }: {
   url: string;
   kind: "3mf" | "stl";
-  objects: string[];
+  items: number[];
   partColors: (string | null)[][];
   painted?: Painted;
   label: string;
@@ -116,12 +116,13 @@ export default function ModelViewer({
     >
       <hemisphereLight args={["#ffffff", "#667085", 1.6]} />
       <directionalLight position={[100, 150, 200]} intensity={2} />
-      <Bounds fit clip observe margin={1.3}>
+      {/* key: refit the camera to the plate shown */}
+      <Bounds key={items.join()} fit clip observe margin={1.3}>
         <group rotation={[-Math.PI / 2, 0, 0]}>
           {kind === "stl" ? (
             <Stl url={url} />
           ) : (
-            <ThreeMf url={url} objects={objects} partColors={partColors} painted={painted} />
+            <ThreeMf url={url} items={items} partColors={partColors} painted={painted} />
           )}
         </group>
       </Bounds>

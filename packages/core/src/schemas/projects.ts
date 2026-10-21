@@ -33,6 +33,8 @@ export const projectPlateSchema = z.object({
   filaments: z.array(threeMfFilamentSchema),
   multicolor: z.boolean(),
   objects: z.array(z.string()),
+  /** Build item indexes of the plate, for the 3D viewer. Older scans lack it. */
+  items: z.array(z.number().int()).default([]),
   thumbnail: nullableText,
 });
 export const projectModelSchema = z.object({

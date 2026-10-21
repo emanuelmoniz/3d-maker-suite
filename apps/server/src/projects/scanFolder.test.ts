@@ -15,6 +15,7 @@ const plate = (index: number, seconds: number | null = null): ProjectModel["plat
   filaments: [],
   multicolor: false,
   objects: [],
+  items: [],
   thumbnail: null,
 });
 const model = (file: string, plates: ProjectModel["plates"]): ProjectModel => ({

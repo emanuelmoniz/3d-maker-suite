@@ -1,15 +1,13 @@
-import { bestMatches, type PlateSetupInput, type Project, sumCosts } from "@3d-maker-suite/core";
+import { bestMatches, type Project, sumCosts } from "@3d-maker-suite/core";
 import { Link, useParams } from "@tanstack/react-router";
 import type { TFunction } from "i18next";
 import { Box, ExternalLink, FolderOpen } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Button } from "../../components/Button.tsx";
 import { Combobox } from "../../components/Combobox.tsx";
 import { CostBreakdown, UsageBreakdown } from "../../components/CostBreakdown.tsx";
 import { Markdown } from "../../components/Markdown.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
-import { PlateSlice, plateKey, SliceSetup } from "../../components/SliceSetup.tsx";
 import { TagList } from "../../components/TagList.tsx";
 import { estimatePlate, estimateSlicedPlates, type Plate, useCostContext } from "../../lib/cost.ts";
 import { cx } from "../../lib/cx.ts";
@@ -25,8 +23,6 @@ import {
   useOpenProject,
   useProject,
   useProjectSlicing,
-  useSaveProjectSlicing,
-  useSliceProject,
 } from "../../lib/projects.ts";
 import { useTagsOf } from "../../lib/tags.ts";
 import { OrdersTable } from "../orders/OrdersTable.tsx";
@@ -60,6 +56,8 @@ function Plates({
 }) {
   const { t } = useTranslation();
   const prints = usePrintsOfProject(project.id).data?.items ?? [];
+  // The app's own slices of this file's plates (the 3MF's slice data wins when it has some).
+  const setups = useProjectSlicing(project.id).data?.plates ?? [];
   const model = project.meta.models.find((m) => m.file === file);
   if (!model?.plates.length) return null;
   const threeMfs = project.meta.models;
@@ -86,61 +84,79 @@ function Plates({
         {t("projects:detail.plates")}
       </h2>
       <ul className="grid gap-2 sm:grid-cols-2">
-        {model.plates.map((p) => (
-          <li key={p.index}>
-            <button
-              type="button"
-              aria-pressed={plate === p.index}
-              onClick={() => onPlate(plate === p.index ? null : p.index)}
-              className={cx(
-                "flex w-full gap-3 rounded-lg border bg-surface p-2 text-left hover:bg-surface-2",
-                plate === p.index ? "border-accent" : "border-border",
-              )}
-            >
-              {p.thumbnail ? (
-                <img
-                  src={projectFileUrl(project.id, file, p.thumbnail)}
-                  alt=""
-                  loading="lazy"
-                  className="size-20 shrink-0 rounded bg-surface-2 object-contain"
-                />
-              ) : (
-                <span className="size-20 shrink-0 rounded bg-surface-2" />
-              )}
-              <span className="min-w-0">
-                <span className="block font-medium">
-                  {p.name ?? t("projects:detail.plate", { index: p.index })}
+        {model.plates.map((p) => {
+          const setup = setups.find((s) => s.file === file && s.plate === p.index);
+          const result = p.sliced ? null : setup?.result;
+          const grams = (slot: number) =>
+            p.filaments.find((f) => f.slot === slot)?.grams ??
+            result?.filaments.find((f) => f.slot === slot)?.grams ??
+            null;
+          return (
+            <li key={p.index}>
+              <button
+                type="button"
+                aria-pressed={plate === p.index}
+                onClick={() => onPlate(plate === p.index ? null : p.index)}
+                className={cx(
+                  "flex w-full gap-3 rounded-lg border bg-surface p-2 text-left hover:bg-surface-2",
+                  plate === p.index ? "border-accent" : "border-border",
+                )}
+              >
+                {p.thumbnail ? (
+                  <img
+                    src={projectFileUrl(project.id, file, p.thumbnail)}
+                    alt=""
+                    loading="lazy"
+                    className="size-20 shrink-0 rounded bg-surface-2 object-contain"
+                  />
+                ) : (
+                  <span className="size-20 shrink-0 rounded bg-surface-2" />
+                )}
+                <span className="min-w-0">
+                  <span className="block font-medium">
+                    {p.name ?? t("projects:detail.plate", { index: p.index })}
+                  </span>
+                  <span className="block text-muted">
+                    {p.sliced && p.printTimeSeconds != null
+                      ? [
+                          formatDuration(p.printTimeSeconds),
+                          p.weightGrams != null && formatWeight(p.weightGrams),
+                        ]
+                          .filter(Boolean)
+                          .join(" · ")
+                      : !p.sliced && setup?.job
+                        ? t("projects:detail.slicing")
+                        : result
+                          ? [
+                              formatDuration(result.printTimeSeconds),
+                              formatWeight(result.weightGrams),
+                              setup?.needsSlicing && t("projects:detail.sliceOutdated"),
+                            ]
+                              .filter(Boolean)
+                              .join(" · ")
+                          : (lastPrintLine(p.index) ??
+                            (p.slicedOnSave
+                              ? t("projects:detail.slicedNoData")
+                              : t("projects:detail.notSliced")))}
+                  </span>
+                  <span className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
+                    {p.filaments.map((f) => (
+                      <span key={f.slot} className="inline-flex items-center gap-1 text-xs">
+                        <span
+                          aria-hidden
+                          className="size-3 rounded-full border border-border"
+                          style={{ backgroundColor: f.color?.slice(0, 7) ?? "transparent" }}
+                        />
+                        {f.type ?? t("projects:detail.unknownMaterial")}
+                        {grams(f.slot) != null && ` ${formatWeight(grams(f.slot) as number)}`}
+                      </span>
+                    ))}
+                  </span>
                 </span>
-                <span className="block text-muted">
-                  {p.sliced && p.printTimeSeconds != null
-                    ? [
-                        formatDuration(p.printTimeSeconds),
-                        p.weightGrams != null && formatWeight(p.weightGrams),
-                      ]
-                        .filter(Boolean)
-                        .join(" · ")
-                    : (lastPrintLine(p.index) ??
-                      (p.slicedOnSave
-                        ? t("projects:detail.slicedNoData")
-                        : t("projects:detail.notSliced")))}
-                </span>
-                <span className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
-                  {p.filaments.map((f) => (
-                    <span key={f.slot} className="inline-flex items-center gap-1 text-xs">
-                      <span
-                        aria-hidden
-                        className="size-3 rounded-full border border-border"
-                        style={{ backgroundColor: f.color?.slice(0, 7) ?? "transparent" }}
-                      />
-                      {f.type ?? t("projects:detail.unknownMaterial")}
-                      {f.grams != null && ` ${formatWeight(f.grams)}`}
-                    </span>
-                  ))}
-                </span>
-              </span>
-            </button>
-          </li>
-        ))}
+              </button>
+            </li>
+          );
+        })}
       </ul>
     </section>
   );
@@ -165,97 +181,6 @@ function Estimate({ plate }: { plate: Plate }) {
       </p>
       <div className="rounded-lg border border-border bg-surface p-4">
         <CostBreakdown cost={estimatePlate(plate, printer?.id, ctx)} />
-      </div>
-    </section>
-  );
-}
-
-/** Which plates a print of the project takes, with the print profile and filaments per plate. */
-function SlicingSetup({ project }: { project: Project }) {
-  const { t } = useTranslation();
-  const saved = useProjectSlicing(project.id).data;
-  const save = useSaveProjectSlicing(project.id);
-  const slice = useSliceProject(project.id);
-  const [draft, setDraft] = useState<PlateSetupInput[] | null>(null);
-  const defaultId = usePreferences().data?.values.defaultPrinterId;
-  if (!project.meta.models.length || !saved) return null;
-  const stored = saved.plates.map((p) => ({
-    file: p.file,
-    plate: p.plate,
-    printerId: p.printerId,
-    printProfileId: p.printProfileId,
-    useDefaultPrintProfile: p.useDefaultPrintProfile,
-    filaments: p.filaments,
-    spools: p.spools,
-  }));
-  const value = draft ?? stored;
-  const dirty = draft !== null && JSON.stringify(draft) !== JSON.stringify(stored);
-  const byKey = new Map(saved.plates.map((p) => [plateKey(p), p]));
-  const left = saved.plates.filter((p) => p.job).length;
-  const toSlice = saved.plates.filter((p) => p.needsSlicing).length;
-  const sliceStatus = !saved.canSlice
-    ? t("projects:slicing.noSlicer")
-    : dirty
-      ? t("projects:slicing.saveFirst")
-      : left
-        ? t("projects:slicing.progress", { count: left })
-        : slice.isError
-          ? t("projects:slicing.startFailed")
-          : saved.plates.length && !toSlice
-            ? t("projects:slicing.upToDate")
-            : t("projects:slicing.sliceHint");
-  return (
-    <section aria-labelledby="slicing" className="mt-6">
-      <h2 id="slicing" className="mb-1 text-base font-semibold">
-        {t("projects:slicing.title")}
-      </h2>
-      <p className="mb-2 text-muted">{t("projects:slicing.hint")}</p>
-      <SliceSetup
-        files={project.meta.models.map((m) => ({
-          path: m.file,
-          label: m.file,
-          plates: m.plates,
-          printerModel: m.printerModel,
-          nozzleDiameter: m.nozzleDiameter,
-          printProfile: m.printProfile,
-          thumbnailUrl: (entry) => projectFileUrl(project.id, m.file, entry),
-        }))}
-        value={value}
-        onChange={setDraft}
-        states={Object.fromEntries(saved.plates.map((p) => [plateKey(p), p.state]))}
-        defaultPrinterId={defaultId}
-        disabled={save.isPending}
-        plateInfo={(key) => {
-          const p = byKey.get(key);
-          return p && <PlateSlice plate={p} />;
-        }}
-      />
-      <div className="mt-3 flex flex-wrap items-center gap-3">
-        <Button
-          variant="primary"
-          disabled={!dirty || save.isPending}
-          onClick={() => save.mutate({ plates: value }, { onSuccess: () => setDraft(null) })}
-        >
-          {t("projects:slicing.save")}
-        </Button>
-        <p role="status" className={save.isError ? "text-bad" : "text-muted"}>
-          {save.isError
-            ? t("projects:slicing.saveFailed")
-            : save.isSuccess && !dirty
-              ? t("projects:slicing.saved")
-              : ""}
-        </p>
-      </div>
-      <div className="mt-3 flex flex-wrap items-center gap-3">
-        <Button
-          disabled={!saved.canSlice || dirty || !!left || !toSlice || slice.isPending}
-          onClick={() => slice.mutate()}
-        >
-          {t("projects:slicing.slice")}
-        </Button>
-        <p aria-live="polite" className={slice.isError ? "text-bad" : "text-muted"}>
-          {sliceStatus}
-        </p>
       </div>
     </section>
   );
@@ -355,7 +280,8 @@ export function ProjectDetailPage() {
   const { data: project, isError } = useProject(id);
   const tags = useTagsOf("project")(id);
   const [picked, setPicked] = useState<string | null>(null);
-  const [plate, setPlate] = useState<number | null>(null);
+  // undefined: not picked yet (a file with several plates opens on its first); null: whole file.
+  const [pickedPlate, setPlate] = useState<number | null>();
   const open = useOpenProject(id);
   // The default slicer, or the one picked when several are set up (Settings > Integrations).
   const slicers = useCapable("openInSlicer");
@@ -385,6 +311,12 @@ export function ProjectDetailPage() {
   const main = models.find((f) => project.filePath?.replaceAll("\\", "/").endsWith(`/${f.path}`));
   const current = models.find((f) => f.path === picked) ?? main ?? models[0];
   const info = project.meta.models.find((m) => m.file === current?.path);
+  const plate =
+    pickedPlate !== undefined
+      ? pickedPlate
+      : info && info.plates.length > 1
+        ? (info.plates[0]?.index ?? null)
+        : null;
   const selected = info?.plates.find((p) => p.index === plate) ?? null;
   const thumb = selected?.thumbnail ?? info?.plates.find((p) => p.thumbnail)?.thumbnail;
   const thumbnail =
@@ -462,7 +394,7 @@ export function ProjectDetailPage() {
               url={projectFileUrl(project.id, current.path)}
               ext={current.path.slice(current.path.lastIndexOf(".")).toLowerCase()}
               size={current.size}
-              objects={selected?.objects ?? []}
+              items={selected?.items ?? []}
               partColors={info?.partColors ?? []}
               thumbnail={thumbnail}
               name={project.name}
@@ -484,7 +416,7 @@ export function ProjectDetailPage() {
                 value={current?.path ?? ""}
                 onChange={(v) => {
                   setPicked(v);
-                  setPlate(null);
+                  setPlate(undefined);
                 }}
                 options={models.map((f) => ({
                   value: f.path,
@@ -499,8 +431,13 @@ export function ProjectDetailPage() {
         <div className="grid min-w-0 content-start gap-4 [&>section]:mt-0">
           <SlicedEstimate id={id} />
           <PrintedCost id={id} />
-          {(selected ?? info?.plates.find((p) => p.sliced)) && (
-            <Estimate plate={(selected ?? info?.plates.find((p) => p.sliced)) as Plate} />
+          {/* Only plates the 3MF has slice data for; the app's own slices are in SlicedEstimate. */}
+          {((selected?.sliced && selected) || info?.plates.find((p) => p.sliced)) && (
+            <Estimate
+              plate={
+                ((selected?.sliced && selected) || info?.plates.find((p) => p.sliced)) as Plate
+              }
+            />
           )}
           {tags.length > 0 && <TagList tags={tags} />}
           {(project.meta.materials.length > 0 || project.meta.multicolor) && (
@@ -527,15 +464,26 @@ export function ProjectDetailPage() {
       </div>
 
       {current && <Plates project={project} file={current.path} plate={plate} onPlate={setPlate} />}
-      <SlicingSetup project={project} />
+      {project.meta.models.length > 0 && (
+        <p className="mt-4">
+          <Link to="/projects/$id/edit" params={{ id }} hash="slicing" className={linkButton}>
+            {t("projects:detail.setUpSlicing")}
+          </Link>
+        </p>
+      )}
       {project.description && (
-        <div className="mt-6">
-          {project.descriptionFile?.toLowerCase().endsWith(".md") ? (
-            <Markdown>{project.description}</Markdown>
-          ) : (
-            <p className="whitespace-pre-line">{project.description}</p>
-          )}
-        </div>
+        <section aria-labelledby="description" className="mt-6">
+          <h2 id="description" className="mb-2 text-base font-semibold">
+            {t("projects:detail.description")}
+          </h2>
+          <div className="rounded-lg border border-border bg-surface p-4">
+            {project.descriptionFile?.toLowerCase().endsWith(".txt") ? (
+              <p className="whitespace-pre-line">{project.description}</p>
+            ) : (
+              <Markdown>{project.description}</Markdown>
+            )}
+          </div>
+        </section>
       )}
 
       <LinkedPrints id={id} />

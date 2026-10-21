@@ -1,6 +1,6 @@
 import ReactMarkdown, { type Components } from "react-markdown";
 
-// Raw HTML is not rendered (react-markdown's default). Relative images can't be served, so they
+// Raw HTML (and HTML comments) is left out, not shown as text. Relative images can't be served, so they
 // are dropped; links open in a new tab.
 const components: Components = {
   h1: (p) => <h3 className="text-lg font-semibold" {...p} />,
@@ -21,7 +21,9 @@ const components: Components = {
 export function Markdown({ children }: { children: string }) {
   return (
     <div className="grid gap-2">
-      <ReactMarkdown components={components}>{children}</ReactMarkdown>
+      <ReactMarkdown components={components} skipHtml>
+        {children}
+      </ReactMarkdown>
     </div>
   );
 }

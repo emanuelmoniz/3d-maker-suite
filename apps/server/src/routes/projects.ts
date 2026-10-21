@@ -85,6 +85,9 @@ const FILE_TYPES: Record<string, string> = {
   ...IMAGE_TYPES,
   ".stl": "model/stl",
   ".3mf": "model/3mf",
+  ".md": "text/markdown; charset=utf-8",
+  ".txt": "text/plain; charset=utf-8",
+  ".pdf": "application/pdf",
 };
 
 // Rows older than the scanner (e.g. demo data) hold other meta; parsing fills the defaults in.
@@ -325,12 +328,12 @@ export const projectsRoutes =
       },
     );
 
-    // Serves a model/image listed in meta.files (nothing else is reachable), or, with `entry`,
-    // a plate preview inside that 3MF.
+    // Serves a file listed in meta.files (nothing else is reachable), or, with `entry`, a plate
+    // preview inside that 3MF.
     app.get("/:id/file", { schema: { params, querystring: fileQuery } }, async (req, reply) => {
       const { folderPath, meta } = get(req.params.id);
       const { path, entry } = req.query;
-      const listed = meta.files.some((f) => f.path === path && f.kind !== "doc");
+      const listed = meta.files.some((f) => f.path === path && f.kind !== "shortcut");
       const plate = meta.models
         .find((m) => m.file === path)
         ?.plates.some((p) => p.thumbnail === entry);

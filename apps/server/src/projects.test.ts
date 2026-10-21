@@ -303,7 +303,7 @@ describe("manual projects", () => {
 });
 
 describe("project files and filters", () => {
-  it("serves only listed model/image files and plate previews", async () => {
+  it("serves only listed model/image/doc files and plate previews", async () => {
     await sampleTree();
     await put("Benchy/secret.log", "nope");
     await setRoots();
@@ -313,7 +313,11 @@ describe("project files and filters", () => {
       app.inject(`/api/projects/${id}/file?${new URLSearchParams(q)}`);
 
     expect((await file({ path: "benchy.3mf" })).statusCode).toBe(200);
-    expect((await file({ path: "README.md" })).statusCode).toBe(404); // docs are not served
+    // Docs too, so the description editor can load a file before it is linked.
+    const readme = await file({ path: "README.md" });
+    expect(readme.statusCode).toBe(200);
+    expect(readme.headers["content-type"]).toBe("text/markdown; charset=utf-8");
+    expect(readme.body).toContain("A tiny boat.");
     expect((await file({ path: "secret.log" })).statusCode).toBe(404); // not a listed kind
     expect((await file({ path: "../Vase/vase.stl" })).statusCode).toBe(404); // outside the folder
 

@@ -5,13 +5,14 @@ import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
 import { Combobox } from "../../components/Combobox.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
-import { Markdown } from "../../components/Markdown.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { PathPicker } from "../../components/PathPicker.tsx";
 import { isConflict } from "../../lib/catalog.ts";
 import { usePreferences } from "../../lib/preferences.ts";
 import { uploadProjectFile } from "../../lib/projectFiles.ts";
 import { useCreateProject, usePatchProject, useProject } from "../../lib/projects.ts";
+import { DescriptionEditor, type DescriptionState } from "./DescriptionEditor.tsx";
+import { SlicingSetup } from "./SlicingSetup.tsx";
 
 const text = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
 
@@ -26,17 +27,13 @@ function ProjectForm({ project }: { project?: Project }) {
   // Blank folder path + a root: make the folder there (the first root unless picked).
   const [root, setRoot] = useState<string>();
   const createIn = project || folder.trim() ? "" : (root ?? roots[0] ?? "");
-  const saved = project?.descriptionFile ?? "";
-  const [link, setLink] = useState(saved);
-  const [desc, setDesc] = useState(project?.description ?? "");
+  const [description, setDescription] = useState<DescriptionState>({
+    link: project?.descriptionFile ?? "",
+    text: project?.description ?? "",
+    original: project?.description ?? "",
+  });
   const [writeFailed, setWriteFailed] = useState(false);
   const files = project?.meta.files ?? [];
-  const mdDocs = files.filter((f) => f.kind === "doc" && /\.md$/i.test(f.path)).map((f) => f.path);
-  // The saved link stays pickable even if it is not .md; README.md is made on save when new.
-  const docPaths = [...new Set([...(saved ? [saved] : []), ...mdDocs])];
-  const isNewFile = !!link && !docPaths.includes(link);
-  // Picking another existing file shows its text only after saving, so don't edit (or write) it now.
-  const loading = !!link && link !== saved && !isNewFile;
   const models = files.filter((f) => f.kind === "model");
   const initialPreview = project?.editedFields.includes("filePath")
     ? (models.find((m) => project.filePath?.replaceAll("\\", "/").endsWith(`/${m.path}`))?.path ??
@@ -51,11 +48,10 @@ function ProjectForm({ project }: { project?: Project }) {
     const fields = {
       number,
       name: text(f, "name"),
-      description: desc.trim() || null,
+      description: description.text.trim() || null,
       sourceUrl: text(f, "sourceUrl") || null,
     };
-    // A new file is only made when there is text for it.
-    const file = isNewFile && !desc.trim() ? null : link || null;
+    const file = description.link || null;
     // On edit only changed fields are sent: each one sent counts as "edited" and survives re-scans.
     const done = {
       onSuccess: () => navigate({ to: "/projects/$id", params: { id: project?.id ?? "" } }),
@@ -74,11 +70,17 @@ function ProjectForm({ project }: { project?: Project }) {
       if (file) delete changed.description;
       if (file !== project.descriptionFile) changed.descriptionFile = file;
       if (preview !== initialPreview) changed.previewFile = preview || null;
-      const write = file && !loading && (isNewFile || desc.trim() !== (project.description ?? ""));
-      if (write) {
+      if (file && description.text !== description.original) {
         try {
-          // Replaces an existing file; the server re-scans, so the description follows.
-          await uploadProjectFile(project.id, file, new File([desc], file), !isNewFile, () => {});
+          // Replaces the file; the server re-scans, so the description follows.
+          const name = file.split("/").pop() ?? file;
+          await uploadProjectFile(
+            project.id,
+            file,
+            new File([description.text], name),
+            true,
+            () => {},
+          );
         } catch {
           return setWriteFailed(true);
         }
@@ -102,7 +104,7 @@ function ProjectForm({ project }: { project?: Project }) {
   };
 
   return (
-    <form onSubmit={onSubmit} className="grid gap-4 sm:max-w-md">
+    <form onSubmit={onSubmit} className="grid gap-4 sm:*:max-w-md">
       <FormField
         label={t("projects:form.number")}
         hint={project ? undefined : t("projects:form.numberHint")}
@@ -124,51 +126,7 @@ function ProjectForm({ project }: { project?: Project }) {
           <input {...p} name="name" required className={inputClass} defaultValue={project?.name} />
         )}
       </FormField>
-      <FormField label={t("projects:form.description")}>
-        {(p) => (
-          <textarea
-            {...p}
-            disabled={loading}
-            className={`${inputClass} h-40 py-2 font-mono`}
-            value={loading ? "" : desc}
-            onChange={(e) => setDesc(e.target.value)}
-          />
-        )}
-      </FormField>
-      {link.toLowerCase().endsWith(".md") && !loading && desc.trim() && (
-        <section aria-label={t("projects:form.descriptionPreview")}>
-          <h2 className="mb-1 text-muted">{t("projects:form.descriptionPreview")}</h2>
-          <div className="rounded-md border border-border p-3">
-            <Markdown>{desc}</Markdown>
-          </div>
-        </section>
-      )}
-      {project?.folderPath && (
-        <FormField
-          label={t("projects:form.descriptionFile")}
-          hint={t("projects:form.descriptionFileHint")}
-        >
-          {(p) => (
-            <Combobox
-              {...p}
-              value={link}
-              onChange={setLink}
-              options={[
-                { value: "", label: t("projects:form.descriptionFileNone") },
-                ...docPaths.map((d) => ({ value: d, label: d })),
-                ...(docPaths.includes("README.md")
-                  ? []
-                  : [
-                      {
-                        value: "README.md",
-                        label: t("projects:form.descriptionFileNew", { name: "README.md" }),
-                      },
-                    ]),
-              ]}
-            />
-          )}
-        </FormField>
-      )}
+      <DescriptionEditor project={project} value={description} onChange={setDescription} />
       {models.length > 0 && (
         <FormField label={t("projects:form.previewFile")} hint={t("projects:form.previewFileHint")}>
           {(p) => (
@@ -273,15 +231,23 @@ export function ProjectCreatePage() {
 export function ProjectEditPage() {
   const { t } = useTranslation();
   const { id } = useParams({ strict: false }) as { id: string };
-  const { data } = useProject(id);
+  const { data, isFetchedAfterMount } = useProject(id);
   return (
     <>
       <PageHeader
         title={t("projects:form.editTitle")}
         backTo={{ to: "/projects/$id", params: { id } }}
       />
-      {/* key: the form is uncontrolled, so remount when the saved project arrives */}
-      {data && <ProjectForm key={data.updatedAt} project={data} />}
+      {/* Waits for fresh data: the form keeps its own state, and a background re-scan (e.g. after
+          "New file…") must not reset what was typed. */}
+      {data && isFetchedAfterMount && (
+        <>
+          <ProjectForm key={data.id} project={data} />
+          <div id="slicing">
+            <SlicingSetup project={data} />
+          </div>
+        </>
+      )}
     </>
   );
 }

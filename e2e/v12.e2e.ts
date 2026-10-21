@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -129,8 +129,14 @@ test("projects: add a project from a folder, link a description file, edit by ha
 
   await page.goto(`/projects/${project?.id}/edit`);
   await pick(page.getByLabel("Description file"), "notes.md");
+  // The file's text shows at once, in the editor and the preview.
+  await expect(page.getByLabel("Description", { exact: true })).toHaveValue("Hello **world**\n");
+  await expect(
+    page.getByRole("region", { name: "Preview" }).locator("strong", { hasText: "world" }),
+  ).toBeVisible();
   await page.getByRole("button", { name: "Save" }).click();
   await page.goto(`/projects/${project?.id}`);
+  await expect(page.getByRole("heading", { name: "Description" })).toBeVisible();
   await expect(page.getByText("Hello")).toBeVisible();
   await expect(page.locator("strong", { hasText: "world" })).toBeVisible();
 
@@ -153,7 +159,7 @@ test("projects: the description editor writes the .md file and the preview file 
   const dir = join(parent, "Gadget");
   mkdirSync(join(dir, "sub"));
   writeFileSync(join(dir, "sub", "extra.stl"), "solid");
-  rmSync(join(dir, "README.md")); // so the editor has to create it
+  rmSync(join(dir, "README.md")); // so "New file…" suggests README.md
   await app.api("PATCH", "/api/preferences", { projectRoots: [parent] });
   await app.api("POST", "/api/projects/scan");
   await expect
@@ -163,8 +169,19 @@ test("projects: the description editor writes the .md file and the preview file 
   const id = items[0]?.id;
 
   await page.goto(`/projects/${id}/edit`);
-  await pick(page.getByLabel("Description file"), "README.md (new)");
-  await page.getByLabel("Description", { exact: true }).fill("# Gadget\n\nMade **fast**");
+  const editor = page.getByLabel("Description", { exact: true });
+  await editor.fill("# Gadget");
+  await pick(page.getByLabel("Description file"), "New file…");
+  const create = dialog(page);
+  await expect(create.getByLabel("File name")).toHaveValue("README.md");
+  await create.getByLabel("File name").fill("notes");
+  await pick(create.getByLabel("Folder"), "sub");
+  await create.getByRole("button", { name: "Create file" }).click();
+  // Made with the text so far, and picked.
+  await expect(page.getByLabel("Description file")).toHaveValue("sub/notes.md");
+  expect(readFileSync(join(dir, "sub", "notes.md"), "utf8")).toBe("# Gadget");
+
+  await editor.fill("# Gadget\n\nMade **fast**");
   await expect(page.locator("strong", { hasText: "fast" })).toBeVisible(); // live preview
   await pick(page.getByLabel("Preview file"), "sub/extra.stl");
   await page.getByRole("button", { name: "Save" }).click();
@@ -173,8 +190,7 @@ test("projects: the description editor writes the .md file and the preview file 
   await page.goto(`/projects/${id}/edit`);
   await expect(page.getByLabel("Preview file")).toHaveValue("sub/extra.stl"); // survives a reload
 
-  await expect.poll(() => existsSync(join(dir, "README.md"))).toBe(true);
-  expect(readFileSync(join(dir, "README.md"), "utf8")).toBe("# Gadget\n\nMade **fast**");
+  expect(readFileSync(join(dir, "sub", "notes.md"), "utf8")).toBe("# Gadget\n\nMade **fast**");
   await app.api("POST", "/api/projects/scan");
   const after = await app.api<{ description: string; filePath: string }>(
     "GET",
