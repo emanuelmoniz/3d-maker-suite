@@ -35,10 +35,18 @@ const linkButton =
   "inline-flex h-9 items-center gap-2 whitespace-nowrap rounded-md border border-border bg-surface px-3 font-medium hover:bg-surface-2";
 const VIEWABLE = /\.(3mf|stl)$/i;
 const SLICED_EXPORT = /\.gcode\.3mf$/i;
-// The last two folders of the project's path, joined with the separator the path itself uses.
-const folderLabel = (path: string) => {
+// The project folder, or with a configured root above it, the path from that root's folder down.
+const folderLabel = (path: string, roots: string[]) => {
+  const parts = (p: string) => p.split(/[\\/]/).filter(Boolean);
   const sep = path.includes("\\") ? "\\" : "/";
-  return path.split(/[\\/]/).filter(Boolean).slice(-2).join(sep);
+  const own = parts(path);
+  const root = roots
+    .map(parts)
+    .filter(
+      (r) => r.length < own.length && r.every((d, i) => d.toLowerCase() === own[i]?.toLowerCase()),
+    )
+    .sort((x, y) => y.length - x.length)[0];
+  return (root ? own.slice(root.length - 1) : own.slice(-1)).join(sep);
 };
 
 // Static keys so `pnpm i18n:check` sees them; `api()` puts the HTTP status last in the message.
@@ -336,6 +344,7 @@ export function ProjectDetailPage() {
   const [picked, setPicked] = useState<string | null>(null);
   // null: the whole file ("View all").
   const [plate, setPlate] = useState<number | null>(null);
+  const roots = usePreferences().data?.values.projectRoots ?? [];
   const open = useOpenProject(id);
   // The default slicer, or the one picked when several are set up (Settings > Integrations).
   const slicers = useCapable("openInSlicer");
@@ -427,7 +436,7 @@ export function ProjectDetailPage() {
         }
       />
       {project.folderPath && (
-        <p className="-mt-3 mb-4 break-all text-muted">{folderLabel(project.folderPath)}</p>
+        <p className="-mt-3 mb-4 break-all text-muted">{folderLabel(project.folderPath, roots)}</p>
       )}
       <p role="status" className={open.isError ? "text-bad" : "sr-only"}>
         {open.isError
