@@ -147,13 +147,13 @@ export function FilamentPage() {
                     numeric: true,
                     cell: (s) => (
                       <>
-                        {formatWeight(s.remainingGrams)}
                         {s.remainingGrams <= (prefs?.lowSpoolGrams ?? 0) &&
                           s.status !== "empty" && (
-                            <span className="ml-2 rounded-full bg-warn/15 px-2 py-0.5 text-xs font-medium text-warn">
+                            <span className="mr-2 rounded-full bg-warn/15 px-2 py-0.5 text-xs font-medium text-warn">
                               {t("filament:spools.low")}
                             </span>
                           )}
+                        {formatWeight(s.remainingGrams)}
                       </>
                     ),
                     sort: "remainingGrams",
