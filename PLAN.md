@@ -234,7 +234,7 @@ reuses linkPrints first.
 **Scope:**
 - Auto slice per project folder root (a checkbox per root in the Project folders list, on by default; the list replaces the textarea and has a remove button per root), overridden per project in its Print setup (folder default / on / off). When the scanner sees that a sliced file changed, the outdated plates are sliced again with their saved setup, through the existing slice job (one at a time, never blocking the server).
 - If the change alters the setup (plates added or removed, a plate with new filament slots), don't guess: raise a warning alert (Step 12 manager) linking to the project's Print setup, and slice only the plates that are still valid. An auto slice that fails raises an error alert.
-- Runs on the Step 1 single-folder scan, so one change slices one project.
+- Runs on the Step 1 single-folder scan, so one change slices one project, and on full scans (the Scan button and startup), so changes made while the app was off are sliced too.
 
 **Done when:** changing a fixture file re-slices only its outdated plates (mock slicer); a new plate or slot raises one warning and no wrong slice; a failed auto slice raises one error; auto slice off = today's behaviour; tests; e2e with the mock adapter; tests pass.
 **Prompt:**

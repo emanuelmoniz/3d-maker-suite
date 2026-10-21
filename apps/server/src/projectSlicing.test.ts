@@ -429,6 +429,14 @@ describe("slicing a project (mock slicer)", () => {
       expect(await alerts()).toEqual([]);
     });
 
+    it("re-slices on a full scan too (the Scan button, and at startup)", async () => {
+      await sliced();
+      await cp(join(fixtures, "single_color.3mf"), file);
+      await app.inject({ method: "POST", url: "/api/projects/scan" });
+      await until(async () => (mock.sliced?.length ?? 0) > 1);
+      expect(mock.sliced).toHaveLength(2);
+    });
+
     it("raises one warning and slices nothing when a plate uses a new slot", async () => {
       await sliced(3);
       await change("single_color");

@@ -64,8 +64,8 @@ export function createProjectScanner(
   log: FastifyBaseLogger,
   opts: {
     watch?: boolean;
-    /** After a single-folder scan of a known project, with its meta from before (auto slicing). */
-    onRefresh?: (projectId: string, before: ProjectMeta) => Promise<void>;
+    /** After any scan of a known project (full or one folder), with its meta from before (auto slicing). */
+    onScanned?: (projectId: string, before: ProjectMeta) => Promise<void>;
   } = {},
 ) {
   let state = idle();
@@ -211,6 +211,11 @@ export function createProjectScanner(
       ([k, v]) => JSON.stringify(current[k]) !== JSON.stringify(v),
     );
     if (changed) db.update(projects).set(next).where(eq(projects.id, id)).run();
+    // Even when nothing stored changed: a 3MF can change its bytes and keep its plates.
+    // Never awaited: slicing work must not hold up the scan (or the request that asked for it).
+    opts
+      .onScanned?.(id, projectMetaSchema.parse(row.meta))
+      .catch((err) => log.warn({ err, folder }, "auto slice failed"));
     return changed ? ("updated" as const) : ("unchanged" as const);
   }
 
@@ -223,13 +228,7 @@ export function createProjectScanner(
   async function refresh(folder: string) {
     // The app's own write already fired the watcher; events up to now need no second scan.
     refreshedAt.set(folder, Date.now());
-    const row = db.select().from(projects).where(eq(projects.folderPath, folder)).get();
     await upsert(folder, await read(folder));
-    // Never awaited: slicing work must not hold up the scan (or the request that asked for it).
-    if (row && opts.onRefresh)
-      opts
-        .onRefresh(row.id, projectMetaSchema.parse(row.meta))
-        .catch((err) => log.warn({ err, folder }, "auto slice failed"));
   }
 
   /** Scans one discovered folder; a template folder or one without a model is no project. */

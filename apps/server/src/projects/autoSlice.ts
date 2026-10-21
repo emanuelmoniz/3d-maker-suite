@@ -40,7 +40,7 @@ export function classify(
 }
 
 /**
- * After a single-folder scan: re-slices the outdated plates of each changed 3MF with their saved
+ * After a scan (full, at startup, or of one folder): re-slices the outdated plates of each changed 3MF with their saved
  * setup, when the project (else its root) has auto slicing on. A changed setup or a failed slice
  * raises an alert keyed by the file's new bytes, so each change alerts once.
  */

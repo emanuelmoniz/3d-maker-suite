@@ -146,7 +146,7 @@ export async function buildApp(
   await app.register(statsRoutes(db), { prefix: "/api/stats" });
   const scanner = createProjectScanner(db, dataDir, app.log, {
     watch: opts.watchProjects,
-    onRefresh: (id, before) => autoSlice(db, syncer.adapters, sliceQueue, app.log, id, before),
+    onScanned: (id, before) => autoSlice(db, syncer.adapters, sliceQueue, app.log, id, before),
   });
   await app.register(projectsRoutes(db, dataDir, scanner, syncer.adapters), {
     prefix: "/api/projects",

@@ -37,7 +37,7 @@ An alert was a `kind` plus the entity it is about and a few display values. How 
 Open alerts keep their id and their read, snooze, dismiss and notified state, so nothing is sent again. Existing alerts get `detail = null`, because old runs have no log.
 
 ## Auto slicing events (migration 0058)
-After a single-folder scan, auto slicing raises events in the new `projects` module. Like the sync events, they are one-shot and stay until dismissed. Each is keyed by the file's new bytes, so scanning the same change again doesn't repeat it, while a new change is new.
+After a scan of a project (full, at startup or of one folder), auto slicing raises events in the new `projects` module. Like the sync events, they are one-shot and stay until dismissed. Each is keyed by the file's new bytes, so scanning the same change again doesn't repeat it, while a new change is new.
 
 | Kind | Severity | Entity id | Task |
 |---|---|---|---|
