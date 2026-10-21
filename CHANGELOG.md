@@ -2,6 +2,28 @@
 
 All notable changes are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [3.0.0-alpha.1] - 2026-10-21
+
+### Added
+- Projects: image gallery above the project info; pick images from the project folder, choose the cover, and open them in a viewer
+- Projects: "Files per project" limit in Settings; a scan lists at most that many files per folder
+- Projects: Plates, Prints, Files and the description are collapsible sections
+- Projects: material usage and production cost components, shared by the project and quote pages
+- Printers: success rate column and an hours filter in the printers table
+- Tables: searchable choice filters on every table
+
+### Changed
+- Filament: default order by remaining weight, grams shown as whole grams everywhere
+- Projects: "Set up slicing" is now "Set up print"; the project page layout and labels were reworked, and the folder label shows the project's last two folders
+- Settings: config tables sort by brand and model; accessories can be exported; "Track usage" is hidden when there are no prints
+- Quote page shows which printer its cost is for
+
+### Fixed
+- Folder scan does one pass per request, and the watcher scans only the folder that changed
+- Scan drops gallery picks whose files were removed outside the app
+- Folder labels use the path's own separator and run from the project root down
+- Low-spool tag sits left of the remaining weight
+
 ## [2.0.0] - 2026-10-21
 
 ### Added

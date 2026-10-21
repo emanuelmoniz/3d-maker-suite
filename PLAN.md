@@ -134,7 +134,7 @@ Back up the DB before editing schema.ts.
 Do Step 10 of PLAN.md. Screenshot at the 3 viewports when done.
 ```
 
-### [ ] Step 11 - Docs, push & v3.0.0-alpha.1
+### [x] Step 11 - Docs, push & v3.0.0-alpha.1
 **Model:** Haiku · **Effort:** Low
 **Scope:** README/docs for Steps 1-10, CHANGELOG, version `3.0.0-alpha.1`. Refresh `pnpm screenshots` (project page changed). Commit, push `main`, create and push tag `v3.0.0-alpha.1`. The release workflow publishes it as a pre-release; check that the run succeeds (`gh run watch`) and the release exists (`gh release view v3.0.0-alpha.1`).
 **Done when:** `main` and the tag are pushed; the workflow is green; the pre-release exists; docs match the app.
