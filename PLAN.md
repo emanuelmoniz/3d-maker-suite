@@ -205,7 +205,7 @@ push the tag and confirm the pre-release is published.
 
 ## Phase 4 - Imports & auto slicing
 
-### [ ] Step 16 - Import accessory installs (file)
+### [x] Step 16 - Import accessory installs (file)
 **Model:** Sonnet · **Effort:** Medium
 **Scope:** Accessory installs become a file import type (template, parsing, review, apply), like prints. Accessory and printer are referenced by number or name; an unknown reference or an overlapping period is an invalid row (same rule as the API).
 **Done when:** a template round-trips with the export; bad references and overlaps show in the review; tests in `importExport.test.ts`; e2e; tests pass.

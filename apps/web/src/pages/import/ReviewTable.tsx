@@ -79,6 +79,8 @@ const ERRORS: Record<ImportErrorCode, string> = {
   not_an_email: "import:errors.not_an_email",
   unresolved: "import:errors.unresolved",
   not_opened: "import:errors.not_opened",
+  before_install: "import:errors.before_install",
+  overlap: "import:errors.overlap",
 };
 const MISSING: Record<string, string> = {
   filamentBrands: "import:missing.filamentBrands",

@@ -2,7 +2,11 @@
 
 The **Import** page brings data in from spreadsheets. Nothing is saved until you review the rows and confirm. Integrations (Bambu Cloud, Bambu Studio, OrcaSlicer) import through the same review screen when a sync needs your decision.
 
-You can import **spools**, **printers**, **prints**, **clients**, **quotes** and **orders**. Filament brands, materials and profiles, and printer brands and models, are added for you when the rows that need them are imported.
+You can import **spools**, **printers**, **accessories**, **accessory installs**, **prints**, **clients**, **quotes** and **orders**. Filament brands, materials and profiles, and printer brands and models, are added for you when the rows that need them are imported.
+
+## Accessory installs
+
+One row per period an accessory is on a printer. **Accessory** and **Printer** must already exist, by number or name (for example `1-AMS`). **Installed** is required; leave **Removed** empty while it is still on the printer. A row is the same install when its accessory, printer and install day match, so exporting, editing and importing again updates the removal day. A removal before the install, or a period that overlaps another install of the accessory, is an invalid row (the same rule as the accessory page).
 
 ## Clients, quotes and orders
 

@@ -24,12 +24,8 @@ import {
   desc,
   eq,
   getTableColumns,
-  gt,
   isNotNull,
   isNull,
-  lt,
-  ne,
-  or,
   sql,
 } from "drizzle-orm";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
@@ -38,6 +34,7 @@ import { HttpError } from "../errors.ts";
 import { printerLabel } from "../lib/catalog.ts";
 import { commentRoutes } from "../lib/comments.ts";
 import { imageRoutes } from "../lib/images.ts";
+import { assertPeriod } from "../lib/installs.ts";
 import { listPage, taggedWith } from "../lib/list.ts";
 import { accessoryUsageColumns } from "../lib/maintenance.ts";
 import { assertNumberFree, nextNumber } from "../lib/numbers.ts";
@@ -104,30 +101,12 @@ export const accessoriesRoutes =
       if (!row) throw new HttpError(404, "not_found", "Install record not found");
       return row;
     };
-    /** Refuses a period `[start, end)` (end null = still on) that overlaps another of the accessory. */
     const assertNoOverlap = (
       accessoryId: string,
       start: string,
       end: string | null,
       exceptId?: string,
-    ) => {
-      if (end !== null && end < start)
-        throw new HttpError(400, "invalid_dates", "Removal is before the install");
-      const other = db
-        .select({ id: installs.id })
-        .from(installs)
-        .where(
-          and(
-            eq(installs.accessoryId, accessoryId),
-            exceptId ? ne(installs.id, exceptId) : undefined,
-            end === null ? undefined : lt(installs.installedAt, end),
-            or(isNull(installs.removedAt), gt(installs.removedAt, start)),
-          ),
-        )
-        .get();
-      if (other)
-        throw new HttpError(409, "install_overlap", "It is on a printer during that period");
-    };
+    ) => assertPeriod(db, accessoryId, start, end, exceptId);
     const getFull = (installId: string) =>
       db
         .select(installColumns)

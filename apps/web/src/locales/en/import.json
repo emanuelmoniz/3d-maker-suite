@@ -6,6 +6,7 @@
     "spools": "Spools",
     "printers": "Printers",
     "accessories": "Accessories",
+    "accessoryInstalls": "Accessory installs",
     "prints": "Prints",
     "clients": "Clients",
     "quotes": "Quotes",
@@ -42,7 +43,7 @@
     "clientMatch": "A client is found by its Mobile, else its Email, else its VAT number. A new Mobile, Email or VAT number can't be one another client has.",
     "quoteCost": "A quote here is a typed-in print: Unit cost is what one print costs to make. Leave Quantity, Labor and the percentages empty on a new quote to use the defaults from Costs settings. Client and Project must already exist.",
     "orderProjects": "Client, Quote and Project must already exist. Name several projects in the Project cell separated by ; (for example 1-Box; 2-Lid). Status is one of your order statuses, empty on a new order is the first one.",
-    "accessoryInstalls": "The printer an accessory is on isn't part of the file: install it from the accessory's page.",
+    "accessoryInstalls": "One row per period an accessory is on a printer. Accessory and Printer must already exist, by number or name (for example 1-AMS). Leave Removed empty if it is still on the printer. An accessory can't be on two printers at once.",
     "column": "Column",
     "format": "What to enter",
     "error": "Couldn't build the template. Is the server running?"
@@ -117,7 +118,9 @@
     "not_a_datetime": "Not a date and time (use YYYY-MM-DD HH:MM)",
     "unresolved": "Not found, or matches more than one",
     "not_an_email": "Not an email address",
-    "not_opened": "This spool was opened after the print started"
+    "not_opened": "This spool was opened after the print started",
+    "before_install": "Removal is before the install",
+    "overlap": "The accessory is on a printer during that period"
   },
   "missing": {
     "filamentBrands": "Brands you don't have yet, added when their rows are imported: {{names, list}}.",
@@ -250,6 +253,14 @@
       "countInCosts": "Count in costs",
       "lifetimeHours": "Lifetime (hours)",
       "includeMaintenanceCost": "Include maintenance"
+    }
+  },
+  "accessoryInstalls": {
+    "columns": {
+      "accessory": "Accessory",
+      "printer": "Printer",
+      "installedAt": "Installed",
+      "removedAt": "Removed"
     }
   },
   "prints": {

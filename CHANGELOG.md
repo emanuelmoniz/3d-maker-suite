@@ -2,6 +2,11 @@
 
 All notable changes are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Added
+- Import: accessory installs from a file (template, export, review). Accessory and printer are found by number or name; unknown references and overlapping periods show as invalid rows
+
 ## [3.0.0-alpha.2] - 2026-10-21
 
 ### Added

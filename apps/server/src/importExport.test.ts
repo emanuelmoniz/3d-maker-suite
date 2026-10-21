@@ -227,3 +227,43 @@ it("imports quotes and orders, refusing references that don't exist, and round-t
   await load("orders", "number,project,price\n3,2-Lid,50\n");
   expect((await get("/api/orders")).items[0].projectIds).toEqual([lid.id]);
 });
+
+it("imports accessory installs: round trip, bad references and overlaps are invalid rows", async () => {
+  await load("printers", "name,brand,model\nA,Bambu Lab,X1C\nB,Bambu Lab,X1C\n");
+  await load("accessories", "name,type\nAMS,AMS\n");
+  const head = "accessory,printer,installedAt,removedAt\n";
+  const first = await load(
+    "accessoryInstalls",
+    `${head}1-AMS,1-A,2026-01-01,2026-02-01\nams,B,2026-03-01,\n`,
+  );
+  expect(first.rows.map((r) => r.status)).toEqual(["new", "new"]);
+  const accessory = (await get("/api/accessories")).items[0];
+  const installs = await get(`/api/accessories/${accessory.id}/installs`);
+  expect(installs).toMatchObject([
+    { printerLabel: "02-B", removedAt: null },
+    { printerLabel: "01-A", removedAt: "2026-02-01T12:00:00.000Z" },
+  ]);
+
+  // What the export writes comes back identical (the open install overlaps nothing but itself).
+  const again = await load("accessoryInstalls", await exported("accessoryInstalls"));
+  expect(again.rows.map((r) => r.status)).toEqual(["identical", "identical"]);
+
+  const bad = await load(
+    "accessoryInstalls",
+    `${head}Nobody,A,2026-05-01,\nAMS,Nobody,2026-05-01,\nAMS,A,2026-01-15,2026-01-20\nAMS,A,2026-04-01,2026-03-01\nAMS,A,2026-06-01,\n`,
+  );
+  expect(bad.rows.map((r) => r.errors)).toEqual([
+    [{ column: "accessory", code: "unresolved" }],
+    [{ column: "printer", code: "unresolved" }],
+    [{ column: "installedAt", code: "overlap" }],
+    [{ column: "removedAt", code: "before_install" }],
+    [{ column: "installedAt", code: "overlap" }],
+  ]);
+
+  // The open install gets its removal day: an update, matched on accessory, printer and day.
+  const closed = await load("accessoryInstalls", `${head}AMS,B,2026-03-01,2026-04-01\n`);
+  expect(closed.rows[0]).toMatchObject({ status: "changed", action: "update" });
+  expect((await get(`/api/accessories/${accessory.id}/installs`))[0]).toMatchObject({
+    removedAt: "2026-04-01T12:00:00.000Z",
+  });
+});

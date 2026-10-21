@@ -27,6 +27,7 @@ import { HttpError } from "../errors.ts";
 import { catalogImport } from "./catalog.ts";
 import { clientImport, orderImport, quoteImport } from "./commerce.ts";
 import { filamentProfileImport } from "./filamentProfiles.ts";
+import { installImport } from "./installs.ts";
 import { accessoryImport, printerImport } from "./printers.ts";
 import { printImport } from "./prints.ts";
 import { spoolImport } from "./spools.ts";
@@ -130,6 +131,7 @@ export function createReview(db: Db, dataDir: string) {
     spools: spoolImport,
     printers: printerImport,
     accessories: accessoryImport,
+    accessoryInstalls: installImport,
     prints: printImport,
     clients: clientImport,
     quotes: quoteImport,

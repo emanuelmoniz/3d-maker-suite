@@ -9,6 +9,7 @@ export const IMPORT_ENTITIES = [
   "spools",
   "printers",
   "accessories",
+  "accessoryInstalls",
   "prints",
   "clients",
   "quotes",
@@ -189,6 +190,31 @@ export const IMPORT_COLUMNS = {
       options: ["yes", "no"],
       label: "import:accessories.columns.includeMaintenanceCost",
     },
+  ],
+  // An install has no number: it is its accessory, printer and install day. Both must exist.
+  accessoryInstalls: [
+    {
+      key: "accessory",
+      type: "ref",
+      ref: "accessories",
+      label: "import:accessoryInstalls.columns.accessory",
+      required: true,
+    },
+    {
+      key: "printer",
+      type: "ref",
+      ref: "printers",
+      label: "import:accessoryInstalls.columns.printer",
+      required: true,
+    },
+    {
+      key: "installedAt",
+      type: "date",
+      label: "import:accessoryInstalls.columns.installedAt",
+      required: true,
+    },
+    // Empty = still on the printer.
+    { key: "removedAt", type: "date", label: "import:accessoryInstalls.columns.removedAt" },
   ],
   prints: [
     // A print's number is its identity in a file: a row with one updates that print.
@@ -426,6 +452,10 @@ export const IMPORT_ERRORS = [
   "unresolved",
   /** A print's spool was opened after the print started (`usableOn`). */
   "not_opened",
+  /** An install's removal is before its install day. */
+  "before_install",
+  /** The accessory is on a printer during that period already. */
+  "overlap",
 ] as const;
 
 const cell = z.union([z.string(), z.number(), z.null()]);
