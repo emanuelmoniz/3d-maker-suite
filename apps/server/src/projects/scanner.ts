@@ -144,8 +144,9 @@ export function createProjectScanner(
       name: parseFolderName(basename(folder)).name,
       description: scan.description,
       sourceUrl: scan.sourceUrl,
+      filePath: scan.mainFile,
     };
-    const always = { filePath: scan.mainFile, thumbnailPath, meta };
+    const always = { thumbnailPath, meta };
 
     if (!row) {
       // A folder prefix is its number unless another project has it already.
@@ -171,7 +172,12 @@ export function createProjectScanner(
     }
     const edited = new Set<string>(row.editedFields);
     const next: Record<string, unknown> = { ...always };
-    for (const f of PROJECT_EDITABLE_FIELDS) if (!edited.has(f)) next[f] = scanned[f];
+    // A chosen preview file that is gone falls back to the scanner's pick.
+    const previewKept = scan.files.some(
+      (f) => f.kind === "model" && join(folder, ...f.path.split("/")) === row.filePath,
+    );
+    for (const f of PROJECT_EDITABLE_FIELDS)
+      if (!edited.has(f) || (f === "filePath" && !previewKept)) next[f] = scanned[f];
     // A linked file always wins over the stored text.
     if (row.descriptionFile) next.description = scanned.description;
     const current = row as Record<string, unknown>;

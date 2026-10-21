@@ -289,7 +289,7 @@ export const projectsRoutes =
       },
       async (req) => {
         const { editedFields, folderPath, meta } = get(req.params.id);
-        const { descriptionFile, number, ...fields } = req.body;
+        const { descriptionFile, previewFile, number, ...fields } = req.body;
         assertNumberFree(db, projects, "project", number, req.params.id);
         const touched = new Set([...editedFields, ...(Object.keys(fields) as typeof editedFields)]);
         // Not a scanned field, so not tracked in `editedFields`.
@@ -308,11 +308,19 @@ export const projectsRoutes =
           set.descriptionFile = null;
           touched.add("description");
         }
+        if (previewFile) {
+          // Stored absolute like the scanner's pick; it must be a model the scanner listed.
+          const model = meta.files.some((f) => f.path === previewFile && f.kind === "model");
+          if (!folderPath || !model) throw new HttpError(404, "not_found", "File not found");
+          set.filePath = join(folderPath, ...previewFile.split("/"));
+          touched.add("filePath");
+        } else if (previewFile === null) touched.delete("filePath");
         db.update(projects)
           .set({ ...set, editedFields: [...touched] })
           .where(eq(projects.id, req.params.id))
           .run();
-        if (descriptionFile && folderPath) await scanner.refresh(folderPath);
+        if ((descriptionFile || previewFile === null) && folderPath)
+          await scanner.refresh(folderPath);
         return get(req.params.id);
       },
     );

@@ -5,10 +5,12 @@ import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
 import { Combobox } from "../../components/Combobox.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
+import { Markdown } from "../../components/Markdown.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { PathPicker } from "../../components/PathPicker.tsx";
 import { isConflict } from "../../lib/catalog.ts";
 import { usePreferences } from "../../lib/preferences.ts";
+import { uploadProjectFile } from "../../lib/projectFiles.ts";
 import { useCreateProject, usePatchProject, useProject } from "../../lib/projects.ts";
 
 const text = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
@@ -24,22 +26,35 @@ function ProjectForm({ project }: { project?: Project }) {
   // Blank folder path + a root: make the folder there (the first root unless picked).
   const [root, setRoot] = useState<string>();
   const createIn = project || folder.trim() ? "" : (root ?? roots[0] ?? "");
-  const [link, setLink] = useState(project?.descriptionFile ?? "");
-  const docs = (project?.meta.files ?? []).filter(
-    (f) => f.kind === "doc" && !/.pdf$/i.test(f.path),
-  );
+  const saved = project?.descriptionFile ?? "";
+  const [link, setLink] = useState(saved);
+  const [desc, setDesc] = useState(project?.description ?? "");
+  const [writeFailed, setWriteFailed] = useState(false);
+  const files = project?.meta.files ?? [];
+  const mdDocs = files.filter((f) => f.kind === "doc" && /\.md$/i.test(f.path)).map((f) => f.path);
+  // The saved link stays pickable even if it is not .md; README.md is made on save when new.
+  const docPaths = [...new Set([...(saved ? [saved] : []), ...mdDocs])];
+  const isNewFile = !!link && !docPaths.includes(link);
+  // Picking another existing file shows its text only after saving, so don't edit (or write) it now.
+  const loading = !!link && link !== saved && !isNewFile;
+  const models = files.filter((f) => f.kind === "model");
+  const initialPreview = project?.editedFields.includes("filePath")
+    ? (models.find((m) => project.filePath?.endsWith(m.path))?.path ?? "")
+    : "";
+  const [preview, setPreview] = useState(initialPreview);
 
-  const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const f = new FormData(e.currentTarget);
     const number = text(f, "number") ? Number(text(f, "number")) : undefined;
     const fields = {
       number,
       name: text(f, "name"),
-      description: text(f, "description") || null,
+      description: desc.trim() || null,
       sourceUrl: text(f, "sourceUrl") || null,
     };
-    const link = text(f, "descriptionFile") || null;
+    // A new file is only made when there is text for it.
+    const file = isNewFile && !desc.trim() ? null : link || null;
     // On edit only changed fields are sent: each one sent counts as "edited" and survives re-scans.
     const done = { onSuccess: () => navigate({ to: "/projects" }) };
     const created = {
@@ -52,9 +67,20 @@ function ProjectForm({ project }: { project?: Project }) {
       const changed: Record<string, unknown> = Object.fromEntries(
         Object.entries(fields).filter(([k, v]) => v !== project[k as keyof typeof fields]),
       );
-      // A linked file supplies the text, so the (disabled) textarea is not sent.
-      if (link) delete changed.description;
-      if (link !== project.descriptionFile) changed.descriptionFile = link;
+      // A linked file supplies the text: editing it writes the file instead of the description.
+      if (file) delete changed.description;
+      if (file !== project.descriptionFile) changed.descriptionFile = file;
+      if (preview !== initialPreview) changed.previewFile = preview || null;
+      const write = file && !loading && (isNewFile || desc.trim() !== (project.description ?? ""));
+      if (write) {
+        try {
+          // Replaces an existing file; the server re-scans, so the description follows.
+          await uploadProjectFile(project.id, file, new File([desc], file), !isNewFile, () => {});
+        } catch {
+          return setWriteFailed(true);
+        }
+        setWriteFailed(false);
+      }
       patch.mutate(changed, done);
     } else {
       // Blank means "let the scan decide": only what was typed is sent, so it is not "edited".
@@ -99,14 +125,22 @@ function ProjectForm({ project }: { project?: Project }) {
         {(p) => (
           <textarea
             {...p}
-            name="description"
-            disabled={!!link}
-            className={`${inputClass} h-28 py-2`}
-            defaultValue={project?.description ?? ""}
+            disabled={loading}
+            className={`${inputClass} h-40 py-2 font-mono`}
+            value={loading ? "" : desc}
+            onChange={(e) => setDesc(e.target.value)}
           />
         )}
       </FormField>
-      {project?.folderPath && docs.length > 0 && (
+      {link.toLowerCase().endsWith(".md") && !loading && desc.trim() && (
+        <section aria-label={t("projects:form.descriptionPreview")}>
+          <h2 className="mb-1 text-muted">{t("projects:form.descriptionPreview")}</h2>
+          <div className="rounded-md border border-border p-3">
+            <Markdown>{desc}</Markdown>
+          </div>
+        </section>
+      )}
+      {project?.folderPath && (
         <FormField
           label={t("projects:form.descriptionFile")}
           hint={t("projects:form.descriptionFileHint")}
@@ -114,12 +148,34 @@ function ProjectForm({ project }: { project?: Project }) {
           {(p) => (
             <Combobox
               {...p}
-              name="descriptionFile"
               value={link}
               onChange={setLink}
               options={[
                 { value: "", label: t("projects:form.descriptionFileNone") },
-                ...docs.map((d) => ({ value: d.path, label: d.path })),
+                ...docPaths.map((d) => ({ value: d, label: d })),
+                ...(docPaths.includes("README.md")
+                  ? []
+                  : [
+                      {
+                        value: "README.md",
+                        label: t("projects:form.descriptionFileNew", { name: "README.md" }),
+                      },
+                    ]),
+              ]}
+            />
+          )}
+        </FormField>
+      )}
+      {models.length > 0 && (
+        <FormField label={t("projects:form.previewFile")} hint={t("projects:form.previewFileHint")}>
+          {(p) => (
+            <Combobox
+              {...p}
+              value={preview}
+              onChange={setPreview}
+              options={[
+                { value: "", label: t("projects:form.previewFileAuto") },
+                ...models.map((m) => ({ value: m.path, label: m.path })),
               ]}
             />
           )}
@@ -180,9 +236,15 @@ function ProjectForm({ project }: { project?: Project }) {
           )}
         </FormField>
       )}
-      {save.isError && (
+      {(save.isError || writeFailed) && (
         <p role="alert" className="text-bad">
-          {t(isConflict(save.error) ? "projects:form.numberTaken" : "projects:form.error")}
+          {t(
+            save.isError && isConflict(save.error)
+              ? "projects:form.numberTaken"
+              : writeFailed
+                ? "projects:form.writeError"
+                : "projects:form.error",
+          )}
         </p>
       )}
       <div className="flex gap-2">

@@ -295,7 +295,7 @@ Do Step 23 of PLAN.md. Screenshot at the 3 viewports when done. Reuse PathPicker
 ConfirmDialog and DataTable where they fit.
 ```
 
-### [ ] Step 24 - Project description editor and preview file
+### [x] Step 24 - Project description editor and preview file
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - The user marks which file is the default for the 3D preview (today the scanner picks `filePath`); a re-scan keeps the choice (`editedFields`).

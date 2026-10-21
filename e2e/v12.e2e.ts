@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -143,6 +143,40 @@ test("projects: add a project from a folder, link a description file, edit by ha
     `/api/projects/${project?.id}`,
   );
   expect(after).toMatchObject({ description: "By hand", descriptionFile: null });
+});
+
+test("projects: the description editor writes the .md file and the preview file choice sticks", async ({
+  page,
+  app,
+}) => {
+  const parent = app.makeProjectDir("Gadget");
+  const dir = join(parent, "Gadget");
+  writeFileSync(join(dir, "extra.stl"), "solid");
+  rmSync(join(dir, "README.md")); // so the editor has to create it
+  await app.api("PATCH", "/api/preferences", { projectRoots: [parent] });
+  await app.api("POST", "/api/projects/scan");
+  await expect
+    .poll(async () => (await app.api<{ items: unknown[] }>("GET", "/api/projects")).items.length)
+    .toBe(1);
+  const { items } = await app.api<{ items: { id: string }[] }>("GET", "/api/projects");
+  const id = items[0]?.id;
+
+  await page.goto(`/projects/${id}/edit`);
+  await pick(page.getByLabel("Description file"), "README.md (new)");
+  await page.getByLabel("Description", { exact: true }).fill("# Gadget\n\nMade **fast**");
+  await expect(page.locator("strong", { hasText: "fast" })).toBeVisible(); // live preview
+  await pick(page.getByLabel("Preview file"), "extra.stl");
+  await page.getByRole("button", { name: "Save" }).click();
+
+  await expect.poll(() => existsSync(join(dir, "README.md"))).toBe(true);
+  expect(readFileSync(join(dir, "README.md"), "utf8")).toBe("# Gadget\n\nMade **fast**");
+  await app.api("POST", "/api/projects/scan");
+  const after = await app.api<{ description: string; filePath: string }>(
+    "GET",
+    `/api/projects/${id}`,
+  );
+  expect(after.description).toBe("# Gadget\n\nMade **fast**");
+  expect(after.filePath).toBe(join(dir, "extra.stl"));
 });
 
 test("spools: automatic numbers, taken numbers are refused, color name shows in the name", async ({

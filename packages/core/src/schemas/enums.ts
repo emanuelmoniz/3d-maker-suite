@@ -17,7 +17,7 @@ export const SPOOL_STATUSES = ["new", "in_use", "empty"] as const;
 // Why a spool's remaining weight changed. "print" entries are written by prints (Step 9+).
 export const WEIGHT_ENTRY_KINDS = ["manual", "print", "correction"] as const;
 // Project fields the user can edit. A re-scan only rewrites the ones NOT listed in `editedFields`.
-export const PROJECT_EDITABLE_FIELDS = ["name", "description", "sourceUrl"] as const;
+export const PROJECT_EDITABLE_FIELDS = ["name", "description", "sourceUrl", "filePath"] as const;
 export const PROJECT_FILE_KINDS = ["model", "image", "doc", "shortcut"] as const;
 export const TAGGABLE_TYPES = ["project", "print", "spool", "printer", "accessory"] as const;
 export const MAINTENANCE_TARGETS = ["printer", "accessory"] as const;

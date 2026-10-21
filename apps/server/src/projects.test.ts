@@ -1,6 +1,6 @@
 import { cp, mkdir, mkdtemp, rename, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { mockAdapter } from "@3d-maker-suite/adapter-mock";
 import { openDb } from "@3d-maker-suite/db";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -199,6 +199,33 @@ describe("project scanner", () => {
     await put("Benchy/README.md", "Again.");
     await scan();
     expect((await get()).description).toBe("Mine");
+  });
+
+  it("keeps a chosen preview file across re-scans until it is gone or reset", async () => {
+    await put("Boat/a.stl", "solid");
+    await put("Boat/b.stl", "solid");
+    await setRoots();
+    await scan();
+    const { id, filePath } = await byName("Boat");
+    const patch = (payload: object) =>
+      app.inject({ method: "PATCH", url: `/api/projects/${id}`, payload });
+    const get = async () => (await app.inject(`/api/projects/${id}`)).json();
+    const other = join(root(), "Boat", filePath.endsWith("a.stl") ? "b.stl" : "a.stl");
+
+    expect((await patch({ previewFile: "../x.stl" })).statusCode).toBe(404);
+    expect((await patch({ previewFile: "missing.stl" })).statusCode).toBe(404);
+    const picked = (await patch({ previewFile: basename(other) })).json();
+    expect(picked).toMatchObject({ filePath: other, editedFields: ["filePath"] });
+    await scan();
+    expect((await get()).filePath).toBe(other);
+
+    await rm(other);
+    await scan();
+    expect((await get()).filePath).toBe(filePath);
+
+    await put(basename(other) === "a.stl" ? "Boat/a.stl" : "Boat/b.stl", "solid");
+    await patch({ previewFile: basename(other) });
+    expect((await patch({ previewFile: null })).json().editedFields).toEqual([]);
   });
 
   it("reports roots that do not exist", async () => {

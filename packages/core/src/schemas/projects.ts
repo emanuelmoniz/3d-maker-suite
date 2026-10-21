@@ -130,7 +130,13 @@ export const projectInputSchema = z
 
 /** Any subset. Every field sent becomes user-edited. */
 export const projectPatchSchema = z
-  .object({ ...editable, descriptionFile: nullableText, number: projectSchema.shape.number })
+  .object({
+    ...editable,
+    descriptionFile: nullableText,
+    /** Model in the project folder (relative, `/`) shown first; null goes back to the scanner's pick. */
+    previewFile: nullableText,
+    number: projectSchema.shape.number,
+  })
   .partial()
   .strict();
 
