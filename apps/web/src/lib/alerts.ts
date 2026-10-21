@@ -36,6 +36,15 @@ export function useAlertAction() {
   });
 }
 
+/** Runs the server's check now (something was fixed), then refreshes the alerts. */
+export function useEvaluateAlerts() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api("POST", "/api/alerts/evaluate"),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ALERTS }),
+  });
+}
+
 export const useChannels = () =>
   useQuery({
     queryKey: ["alerts", "channels"],

@@ -1,0 +1,127 @@
+import type { Alert, Capability } from "@3d-maker-suite/core";
+import { Link, useNavigate, useParams } from "@tanstack/react-router";
+import type { TFunction } from "i18next";
+import { useState } from "react";
+import { useTranslation } from "react-i18next";
+import { Button } from "../../components/Button.tsx";
+import { PageHeader } from "../../components/PageHeader.tsx";
+import { useAlertDetail, useEvaluateAlerts } from "../../lib/alerts.ts";
+import { formatDateTime } from "../../lib/format.ts";
+import { useDue } from "../../lib/maintenance.ts";
+import { LogDialog } from "../maintenance/MaintenancePage.tsx";
+import { CAPS } from "../settings/IntegrationsPage.tsx";
+import { AlertButtons, buttonLink, LogList, MODULE, SEVERITY, Title } from "./AlertsPage.tsx";
+
+/** What the alert is about, in words: the maintenance type, the sync type, the spool or printer. */
+function taskOf(a: Alert, t: TFunction) {
+  const c = a.context;
+  if (a.kind === "maintenance_due") return String(c.task);
+  if (a.kind.startsWith("sync_")) return t(CAPS[c.type as Capability] ?? "");
+  return String(c.name);
+}
+
+function status(a: Alert, t: TFunction) {
+  if (a.resolvedAt) return t("alerts:view.resolved", { date: formatDateTime(a.resolvedAt) });
+  if (a.dismissedAt) return t("alerts:view.dismissed");
+  if (a.snoozedUntil && Date.parse(a.snoozedUntil) > Date.now())
+    return t("alerts:snoozedUntil", { date: formatDateTime(a.snoozedUntil) });
+  return t(a.readAt ? "alerts:view.read" : "alerts:unread");
+}
+
+export function AlertDetailPage() {
+  const { t } = useTranslation();
+  const { id } = useParams({ from: "/alerts/$id" });
+  const navigate = useNavigate();
+  const { data: a, isError } = useAlertDetail(id, true);
+  const due = useDue();
+  const evaluate = useEvaluateAlerts();
+  const [logging, setLogging] = useState(false);
+  const header = <PageHeader title={t("alerts:view.title")} backTo={{ to: "/alerts" }} />;
+  if (isError) {
+    return (
+      <>
+        {header}
+        <p role="alert" className="text-bad">
+          {t("alerts:view.notFound")}
+        </p>
+      </>
+    );
+  }
+  if (!a) return header;
+
+  const s = SEVERITY[a.severity];
+  const item =
+    a.kind === "maintenance_due"
+      ? due.data?.find((i) => `${i.targetId}:${i.typeId}` === a.entityId)
+      : undefined;
+  const open = !a.resolvedAt && !a.dismissedAt;
+  const rows: [string, string][] = [
+    [t("alerts:view.severity"), t(s.label)],
+    [t("alerts:view.module"), t(MODULE[a.module])],
+    [t("alerts:view.task"), taskOf(a, t)],
+    [t("alerts:view.raised"), formatDateTime(a.createdAt)],
+    [t("alerts:view.status"), status(a, t)],
+  ];
+  return (
+    <>
+      {header}
+      <section className="grid max-w-2xl gap-4 rounded-lg border border-border bg-surface p-4">
+        <div className="flex items-start gap-2">
+          <s.icon className={`mt-0.5 size-4 shrink-0 ${s.color}`} aria-hidden />
+          <Title a={a} />
+        </div>
+        <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
+          {rows.map(([k, v]) => (
+            <div key={k} className="contents">
+              <dt className="text-muted">{k}</dt>
+              <dd>{v}</dd>
+            </div>
+          ))}
+        </dl>
+        {a.detail && (
+          <div>
+            <h2 className="font-semibold">{t("alerts:details")}</h2>
+            <LogList log={a.detail.log} />
+          </div>
+        )}
+        {open && (
+          <div className="flex flex-wrap gap-2">
+            {item && <Button onClick={() => setLogging(true)}>{t("alerts:view.markDone")}</Button>}
+            {a.kind === "sync_pending" && (
+              <Link
+                to="/import/$source/$id/$type"
+                params={{
+                  source: "integration",
+                  id: String(a.context.integrationId),
+                  type: String(a.context.type),
+                }}
+                className={buttonLink}
+              >
+                {t("alerts:review")}
+              </Link>
+            )}
+            {(a.kind === "sync_error" || a.kind === "sync_success") && (
+              <Link to="/integrations" className={buttonLink}>
+                {t("alerts:view.openIntegration")}
+              </Link>
+            )}
+            <AlertButtons
+              a={a}
+              postpone={a.kind === "maintenance_due"}
+              snoozed={!!a.snoozedUntil && Date.parse(a.snoozedUntil) > Date.now()}
+              onHidden={() => navigate({ to: "/alerts" })}
+            />
+          </div>
+        )}
+      </section>
+      <LogDialog
+        item={logging ? (item ?? null) : null}
+        onClose={() => {
+          setLogging(false);
+          // Done clears the condition; the check resolves the alert right away.
+          evaluate.mutate();
+        }}
+      />
+    </>
+  );
+}

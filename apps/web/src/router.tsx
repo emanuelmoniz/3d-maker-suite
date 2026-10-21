@@ -10,6 +10,7 @@ import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { EmptyState } from "./components/EmptyState.tsx";
 import { loadNamespace } from "./i18n.ts";
+import { AlertDetailPage } from "./pages/alerts/AlertDetailPage.tsx";
 import { AlertsPage } from "./pages/alerts/AlertsPage.tsx";
 import { ClientDetailPage } from "./pages/clients/ClientDetailPage.tsx";
 import { ClientCreatePage, ClientEditPage } from "./pages/clients/ClientFormPage.tsx";
@@ -392,6 +393,13 @@ const routes: AnyRoute[] = [
       component,
     }),
   ),
+  // After "/alerts/settings" so that wins the match.
+  createRoute({
+    getParentRoute: () => root,
+    path: "/alerts/$id",
+    loader: () => Promise.all(["alerts", "integrations", "maintenance"].map(loadNamespace)),
+    component: AlertDetailPage,
+  }),
   createRoute({
     getParentRoute: () => root,
     path: IMPORT_ITEM.to,

@@ -21,12 +21,12 @@ import { useAdapterName } from "../../lib/integrations.ts";
 import { TITLE } from "../import/SourceReviewPage.tsx";
 import { CAPS, ERRORS } from "../settings/IntegrationsPage.tsx";
 
-const SEVERITY: Record<AlertSeverity, { icon: LucideIcon; color: string; label: string }> = {
+export const SEVERITY: Record<AlertSeverity, { icon: LucideIcon; color: string; label: string }> = {
   error: { icon: CircleAlert, color: "text-bad", label: "alerts:severity.error" },
   warning: { icon: TriangleAlert, color: "text-warn", label: "alerts:severity.warning" },
   success: { icon: CircleCheck, color: "text-ok", label: "alerts:severity.success" },
 };
-const MODULE: Record<AlertModule, string> = {
+export const MODULE: Record<AlertModule, string> = {
   filament: "nav:items.filament.label",
   maintenance: "nav:items.maintenance.label",
   printers: "nav:items.printers.label",
@@ -46,10 +46,10 @@ const LEFT: Record<NonNullable<SyncLogEntry["reason"]>, string> = {
 };
 
 const link = "font-medium hover:underline";
-const buttonLink =
+export const buttonLink =
   "inline-flex h-9 items-center whitespace-nowrap rounded-md bg-accent px-3 font-medium text-accent-fg hover:opacity-90";
 
-function Title({ a }: { a: Alert }) {
+export function Title({ a }: { a: Alert }) {
   const { t } = useTranslation();
   const adapterName = useAdapterName();
   const c = a.context;
@@ -111,6 +111,24 @@ function Title({ a }: { a: Alert }) {
   }
 }
 
+export function LogList({ log }: { log: SyncLogEntry[] }) {
+  const { t } = useTranslation();
+  return (
+    <ul className="mt-1 space-y-0.5 text-muted">
+      {log.map((e, i) => (
+        // Log lines have no id and never reorder.
+        <li key={i} className={e.event === "failed" ? "text-bad" : undefined}>
+          {t(e.event === "left" ? LEFT[e.reason ?? "review"] : LOG[e.event], {
+            label: e.label ?? t("alerts:log.noName"),
+            count: e.count,
+            reason: t(ERRORS[e.code ?? "unknown"]),
+          })}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 /** A sync run's log, loaded when opened. */
 function Detail({ id }: { id: string }) {
   const { t } = useTranslation();
@@ -119,27 +137,47 @@ function Detail({ id }: { id: string }) {
   return (
     <details className="mt-1" onToggle={(e) => setOpen(e.currentTarget.open)}>
       <summary className="cursor-pointer text-muted hover:text-text">{t("alerts:details")}</summary>
-      <ul className="mt-1 space-y-0.5 text-muted">
-        {data?.detail?.log.map((e, i) => (
-          // Log lines have no id and never reorder.
-          <li key={i} className={e.event === "failed" ? "text-bad" : undefined}>
-            {t(e.event === "left" ? LEFT[e.reason ?? "review"] : LOG[e.event], {
-              label: e.label ?? t("alerts:log.noName"),
-              count: e.count,
-              reason: t(ERRORS[e.code ?? "unknown"]),
-            })}
-          </li>
-        ))}
-      </ul>
+      {data?.detail && <LogList log={data.detail.log} />}
     </details>
+  );
+}
+
+/** Read, snooze and dismiss: the same on the list and in the alert's own view. */
+export function AlertButtons({
+  a,
+  snoozed,
+  postpone,
+  onHidden,
+}: {
+  a: Alert;
+  snoozed?: boolean;
+  /** Snooze is worded "postpone" (maintenance). */
+  postpone?: boolean;
+  /** After a snooze or dismiss took the alert off the list. */
+  onHidden?: () => void;
+}) {
+  const { t } = useTranslation();
+  const act = useAlertAction();
+  const run = (action: Parameters<typeof act.mutate>[0]["action"]) =>
+    act.mutate({ id: a.id, action }, { onSuccess: action === "read" ? undefined : onHidden });
+  const snooze = (days: number) => (
+    <Button key={days} onClick={() => run({ snooze: days })}>
+      {t(postpone ? "alerts:postpone" : "alerts:snooze", { count: days })}
+    </Button>
+  );
+  return (
+    <>
+      {!a.readAt && !snoozed && <Button onClick={() => run("read")}>{t("alerts:markRead")}</Button>}
+      {!snoozed && [1, 7].map(snooze)}
+      <Button variant="ghost" onClick={() => run("dismiss")}>
+        {t("alerts:dismiss")}
+      </Button>
+    </>
   );
 }
 
 function Row({ a, snoozed }: { a: Alert; snoozed?: boolean }) {
   const { t } = useTranslation();
-  const act = useAlertAction();
-  const run = (action: Parameters<typeof act.mutate>[0]["action"]) =>
-    act.mutate({ id: a.id, action });
   const s = SEVERITY[a.severity];
   return (
     <li className="flex flex-wrap items-center justify-between gap-2 py-3">
@@ -182,18 +220,10 @@ function Row({ a, snoozed }: { a: Alert; snoozed?: boolean }) {
             {t("alerts:review")}
           </Link>
         )}
-        {!a.readAt && !snoozed && (
-          <Button onClick={() => run("read")}>{t("alerts:markRead")}</Button>
-        )}
-        {!snoozed && (
-          <>
-            <Button onClick={() => run({ snooze: 1 })}>{t("alerts:snooze", { count: 1 })}</Button>
-            <Button onClick={() => run({ snooze: 7 })}>{t("alerts:snooze", { count: 7 })}</Button>
-          </>
-        )}
-        <Button variant="ghost" onClick={() => run("dismiss")}>
-          {t("alerts:dismiss")}
-        </Button>
+        <Link to="/alerts/$id" params={{ id: a.id }} className={buttonLink}>
+          {t("alerts:open")}
+        </Link>
+        <AlertButtons a={a} snoozed={snoozed} />
       </div>
     </li>
   );

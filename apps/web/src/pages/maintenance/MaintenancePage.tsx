@@ -59,7 +59,13 @@ function useDueText() {
 }
 
 /** Modal form to log a task as done. Native <dialog> like ConfirmDialog. */
-function LogDialog({ item, onClose }: { item: MaintenanceDueItem | null; onClose: () => void }) {
+export function LogDialog({
+  item,
+  onClose,
+}: {
+  item: MaintenanceDueItem | null;
+  onClose: () => void;
+}) {
   const { t } = useTranslation();
   const ref = useRef<HTMLDialogElement>(null);
   const currency = usePreferences().data?.values.currency ?? "";

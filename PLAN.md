@@ -178,7 +178,7 @@ before implementing. Back up the DB before editing schema.ts.
 Do Step 13 of PLAN.md. Reuse the "empty = default" pattern from the v2 cost settings.
 ```
 
-### [ ] Step 14 - Alert view, actions and notifications
+### [x] Step 14 - Alert view, actions and notifications
 **Model:** Sonnet (use frontend-design skill) · **Effort:** Medium
 **Scope:**
 - "Open alert" on the alerts page opens a detail view: module, task, severity, the full detail (sync log, prints without a spool match, …) and the actions that fit. Maintenance: mark as done, postpone. Integrations: open the review on a warning, open the integration page on an error.

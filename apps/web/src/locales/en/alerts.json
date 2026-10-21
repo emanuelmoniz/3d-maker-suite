@@ -6,7 +6,24 @@
   "markRead": "Mark as read",
   "snooze_one": "Snooze {{count}} day",
   "snooze_other": "Snooze {{count}} days",
+  "postpone_one": "Postpone {{count}} day",
+  "postpone_other": "Postpone {{count}} days",
   "dismiss": "Dismiss",
+  "open": "Open alert",
+  "view": {
+    "title": "Alert",
+    "notFound": "This alert no longer exists.",
+    "severity": "Severity",
+    "module": "Module",
+    "task": "Task",
+    "raised": "Raised",
+    "status": "Status",
+    "read": "Read",
+    "dismissed": "Dismissed",
+    "resolved": "Resolved on {{date}}",
+    "markDone": "Mark as done",
+    "openIntegration": "Open integration"
+  },
   "empty": {
     "title": "All clear",
     "body": "Low spools, maintenance due, ending warranties and sync problems show up here."

@@ -5,6 +5,7 @@ import { fixture, mockAdapter } from "@3d-maker-suite/adapter-mock";
 import { openDb, schema } from "@3d-maker-suite/db";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { ntfyBody } from "./alerts/channels.ts";
 import { buildApp } from "./app.ts";
 import type { Config } from "./config.ts";
 import { modelIdFor } from "./lib/catalog.ts";
@@ -59,6 +60,18 @@ async function lowSpool() {
 }
 
 describe("alerts", () => {
+  it("ntfy gets a short form: a few detail lines, within its size limit", () => {
+    const detail = Array.from({ length: 8 }, (_, i) => `line ${i}`);
+    expect(ntfyBody({ title: "t", body: "b", detail }).split("\n")).toEqual([
+      "b",
+      ...detail.slice(0, 5),
+      "…+3",
+    ]);
+    const huge = ntfyBody({ title: "t", body: "ã".repeat(5000) });
+    expect(Buffer.byteLength(huge)).toBeLessThanOrEqual(4000);
+    expect(huge).not.toContain("�");
+  });
+
   it("alerts once per condition, resolves when it clears, comes back as a new alert", async () => {
     await send("PUT", "/api/alerts/channels/ntfy", {
       enabled: true,
@@ -306,8 +319,9 @@ describe("alerts", () => {
         hasDetail: false,
       },
     ]);
-    // The notification opens the review; a wildcard host is reached by the machine's name.
-    expect(clicks()).toEqual([`http://${hostname()}:4300/import/integration/${id}/prints`]);
+    // The notification opens the alert; a wildcard host is reached by the machine's name.
+    const [{ id: alertId }] = await list();
+    expect(clicks()).toEqual([`http://${hostname()}:4300/alerts/${alertId}`]);
     // A new count refreshes the one alert.
     policy({ pending: 3 });
     expect(await open()).toMatchObject([{ context: { count: 3 } }]);
@@ -368,6 +382,9 @@ describe("alerts", () => {
         log: [{ event: "created", label: expect.any(String) }],
       });
       expect(fetchMock).toHaveBeenCalledTimes(1);
+      // The notification names severity and module, then the log.
+      const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+      expect(init.body).toMatch(/^Success · Integrations\nprinters: 1 new, 0 updated\nNew: /);
       // Nothing new: no alert.
       await sync("printers");
       expect(await results()).toHaveLength(1);

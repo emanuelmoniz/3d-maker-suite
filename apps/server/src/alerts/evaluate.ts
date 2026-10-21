@@ -5,6 +5,7 @@ import type {
   AlertSeverity,
   MaintenanceDueItem,
   Notification,
+  SyncLogEntry,
   SyncType,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
@@ -187,7 +188,7 @@ function conditions(db: Db, now: Date): Found {
 }
 
 // Server-side text for outside channels; the app itself translates by kind + context.
-function messageOf(a: typeof alerts.$inferSelect, baseUrl?: string): Notification {
+function textOf(a: typeof alerts.$inferSelect): { title: string; body: string } {
   const c = a.context;
   switch (a.kind) {
     case "spool_low":
@@ -200,16 +201,43 @@ function messageOf(a: typeof alerts.$inferSelect, baseUrl?: string): Notificatio
     case "warranty_ending":
       return { title: "Warranty ending", body: `${c.name}: ${c.days} days left` };
     case "sync_pending":
-      return {
-        title: "Sync needs review",
-        body: `${c.count} ${c.type} waiting for review`,
-        url: baseUrl && `${baseUrl}/import/integration/${c.integrationId}/${c.type}`,
-      };
+      return { title: "Sync needs review", body: `${c.count} ${c.type} waiting for review` };
     case "sync_success":
       return { title: "Sync finished", body: `${c.type}: ${c.created} new, ${c.updated} updated` };
     case "sync_error":
       return { title: "Sync failed", body: `${c.type} could not sync (${c.code})` };
   }
+}
+
+const cap = (s: string) => s[0]?.toUpperCase() + s.slice(1);
+
+function lineOf(e: SyncLogEntry): string {
+  const label = e.label ?? "(no name)";
+  switch (e.event) {
+    case "created":
+      return `New: ${label}`;
+    case "updated":
+      return `Updated: ${label}`;
+    case "invalid":
+      return `Could not be read: ${label}`;
+    case "left":
+      return `Waits for you: ${label}`;
+    case "failed":
+      return `Failed: ${e.code ?? "unknown"}`;
+    case "truncated":
+      return `…and ${e.count} more`;
+  }
+}
+
+/** Severity, module and the human task come first, then the detail, then the link to the alert. */
+function messageOf(a: typeof alerts.$inferSelect, baseUrl?: string): Notification {
+  const { title, body } = textOf(a);
+  return {
+    title,
+    body: `${cap(a.severity)} · ${cap(a.module)}\n${body}`,
+    ...(a.detail?.log.length && { detail: a.detail.log.map(lineOf) }),
+    ...(baseUrl && { url: `${baseUrl}/alerts/${a.id}` }),
+  };
 }
 
 /**

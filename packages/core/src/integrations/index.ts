@@ -167,6 +167,8 @@ export class IntegrationError extends Error {
 export interface Notification {
   title: string;
   body: string;
+  /** The full detail, one line each (a sync log). A channel with little room shows the first few. */
+  detail?: string[];
   /** Where to act on it in the app, absolute. */
   url?: string;
 }

@@ -5,6 +5,21 @@ import nodemailer from "nodemailer";
 import { z } from "zod";
 import { decrypt, encrypt, type Secrets } from "../integrations/secrets.ts";
 
+// ntfy refuses messages over 4096 bytes; the short form keeps a few detail lines.
+const NTFY_LINES = 5;
+const NTFY_BYTES = 4000;
+
+export function ntfyBody(n: Notification) {
+  const more = (n.detail?.length ?? 0) - NTFY_LINES;
+  const text = [
+    n.body,
+    ...(n.detail?.slice(0, NTFY_LINES) ?? []),
+    ...(more > 0 ? [`…+${more}`] : []),
+  ];
+  // Cut by bytes, not characters; a split multi-byte character at the end is dropped.
+  return Buffer.from(text.join("\n")).subarray(0, NTFY_BYTES).toString().replace(/�$/, "");
+}
+
 const ntfy: NotificationChannel = {
   id: "ntfy",
   configSchema: z.object({ server: z.url(), topic: z.string().min(1) }),
@@ -21,7 +36,7 @@ const ntfy: NotificationChannel = {
         ...(secrets.token ? { authorization: `Bearer ${secrets.token}` } : {}),
         ...(n.url ? { click: n.url } : {}),
       },
-      body: n.body,
+      body: ntfyBody(n),
       signal: AbortSignal.timeout(10_000),
     });
     if (!res.ok) throw new Error(`ntfy responded ${res.status}`);
@@ -51,7 +66,7 @@ const email: NotificationChannel = {
       from: c.from,
       to: c.to,
       subject: n.title,
-      text: n.url ? `${n.body}\n\n${n.url}` : n.body,
+      text: [n.body, n.detail?.join("\n"), n.url].filter(Boolean).join("\n\n"),
     });
   },
 };
