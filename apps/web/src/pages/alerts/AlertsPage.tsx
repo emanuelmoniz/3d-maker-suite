@@ -255,9 +255,11 @@ function Row({ a }: { a: Alert }) {
 
 function Group({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <section className="mb-6 rounded-lg border border-border bg-surface px-4 py-2">
-      <h2 className="pt-2 text-base font-semibold">{title}</h2>
-      <ul className="divide-y divide-border">{children}</ul>
+    <section className="mb-6 grid gap-3">
+      <h2 className="text-base font-semibold">{title}</h2>
+      <ul className="divide-y divide-border rounded-lg border border-border bg-surface px-4">
+        {children}
+      </ul>
     </section>
   );
 }
