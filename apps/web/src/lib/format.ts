@@ -40,11 +40,9 @@ export const formatTime = (d: Date | string | number) =>
 
 export const formatDateTime = (d: Date | string | number) => `${formatDate(d)} ${formatTime(d)}`;
 
-/** Grams in, "850 g" or "1.2 kg" out. */
+/** Grams in, whole grams out: "850 g", "1,250 g". Never kg, never decimals. */
 export const formatWeight = (grams: number) =>
-  Math.abs(grams) >= 1000
-    ? num({ style: "unit", unit: "kilogram", maximumFractionDigits: 2 }).format(grams / 1000)
-    : num({ style: "unit", unit: "gram", maximumFractionDigits: 2 }).format(grams);
+  num({ style: "unit", unit: "gram", maximumFractionDigits: 0 }).format(grams);
 
 /** Bytes in, "12.3 MB" out. */
 export const formatMegabytes = (bytes: number) =>

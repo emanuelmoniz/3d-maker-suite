@@ -8,7 +8,7 @@ import { EmptyState } from "../../components/EmptyState.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { SettingsLink } from "../../components/SettingsLink.tsx";
 import { useAlertAction, useAlerts } from "../../lib/alerts.ts";
-import { formatDate } from "../../lib/format.ts";
+import { formatDate, formatWeight } from "../../lib/format.ts";
 import { useAdapterName } from "../../lib/integrations.ts";
 import { TITLE } from "../import/SourceReviewPage.tsx";
 import { CAPS, ERRORS } from "../settings/IntegrationsPage.tsx";
@@ -25,7 +25,7 @@ function Title({ a }: { a: Alert }) {
     case "spool_low":
       return (
         <Link to="/filament/spools/$id" params={{ id: a.entityId }} className={link}>
-          {t("alerts:kinds.spool_low", { name: c.name, grams: c.grams })}
+          {t("alerts:kinds.spool_low", { name: c.name, grams: formatWeight(Number(c.grams)) })}
         </Link>
       );
     case "maintenance_due":

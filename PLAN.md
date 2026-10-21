@@ -26,7 +26,7 @@ Do Step 1 of PLAN.md. Reproduce and explain the double run first. Keep one recur
 per root; only change what a change event triggers.
 ```
 
-### [ ] Step 2 - Filament: default order and whole grams everywhere
+### [x] Step 2 - Filament: default order and whole grams everywhere
 **Model:** Haiku · **Effort:** Low
 **Scope:**
 - Filament page: sorted by remaining weight by default, lowest first.

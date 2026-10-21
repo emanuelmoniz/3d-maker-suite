@@ -64,7 +64,7 @@ export function shortOf(tx: Tx, spoolId: string, title: string, grams: number) {
   return new HttpError(
     400,
     "insufficient_filament",
-    `Spool ${row?.name ?? spoolId} has ${round(row?.left ?? 0)} g left, but "${title}" needs ${round(grams)} g`,
+    `Spool ${row?.name ?? spoolId} has ${Math.round(row?.left ?? 0)} g left, but "${title}" needs ${Math.round(grams)} g`,
   );
 }
 

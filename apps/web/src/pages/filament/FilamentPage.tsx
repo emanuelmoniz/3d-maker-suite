@@ -119,7 +119,7 @@ export function FilamentPage() {
                   onQueryChange: setSpoolQuery,
                   total: spools.data.total,
                   filters: spoolFilters,
-                  defaultSort: "filament",
+                  defaultSort: "remainingGrams",
                   archivable: true,
                 }}
                 columns={[

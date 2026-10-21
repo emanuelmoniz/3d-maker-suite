@@ -11,8 +11,8 @@ import {
 
 test("formats base units for the en locale", () => {
   expect(formatWeight(850)).toBe("850 g");
-  expect(formatWeight(12.34)).toBe("12.34 g");
-  expect(formatWeight(1250)).toBe("1.25 kg");
+  expect(formatWeight(12.34)).toBe("12 g");
+  expect(formatWeight(1250)).toBe("1,250 g");
   expect(formatDuration(7500)).toBe("2h 5m");
   expect(formatDuration(45)).toBe("45s");
   expect(formatDuration(7200)).toBe("2h");

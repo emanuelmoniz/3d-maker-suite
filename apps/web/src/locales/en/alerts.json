@@ -12,7 +12,7 @@
     "body": "Low spools, maintenance due, ending warranties and sync problems show up here."
   },
   "kinds": {
-    "spool_low": "{{name}} is down to {{grams}} g",
+    "spool_low": "{{name}} is down to {{grams}}",
     "maintenance_due": "{{task}} is due soon on {{printer}}",
     "maintenance_overdue": "{{task}} is overdue on {{printer}}",
     "warranty_ending_one": "Warranty of {{name}} ends in {{count}} day",
