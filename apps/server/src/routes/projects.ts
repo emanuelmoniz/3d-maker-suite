@@ -292,11 +292,12 @@ export const projectsRoutes =
       },
       async (req) => {
         const { editedFields, folderPath, meta } = get(req.params.id);
-        const { descriptionFile, previewFile, number, gallery, coverFile, ...fields } = req.body;
+        const { descriptionFile, previewFile, number, gallery, coverFile, autoSlice, ...fields } =
+          req.body;
         assertNumberFree(db, projects, "project", number, req.params.id);
         const touched = new Set([...editedFields, ...(Object.keys(fields) as typeof editedFields)]);
-        // Not a scanned field, so not tracked in `editedFields`.
-        const set: Partial<typeof projects.$inferInsert> = { ...fields, number };
+        // Not scanned fields, so not tracked in `editedFields`.
+        const set: Partial<typeof projects.$inferInsert> = { ...fields, number, autoSlice };
         if (descriptionFile) {
           // Link a doc the scanner listed; its text becomes the description on the refresh below.
           const doc = meta.files.some(

@@ -384,6 +384,113 @@ describe("slicing a project (mock slicer)", () => {
     expect(mock.sliced).toHaveLength(1);
   });
 
+  describe("slicing again when the file changes", () => {
+    /** Slices plate 1 with a setup for `slots` slots, so a 4-slot file fits it or not. */
+    async function sliced(slots = 4) {
+      await put([
+        { file: "benchy.3mf", plate: 1, printProfileId: null, filaments: Array(slots).fill(null) },
+      ]);
+      await run();
+      await settled();
+      expect(mock.sliced).toHaveLength(1);
+    }
+    /** Replaces the file with another fixture and has the project's folder scanned again. */
+    async function change(name: string) {
+      if (name) await cp(join(fixtures, `${name}.3mf`), file);
+      await app.inject({
+        method: "PATCH",
+        url: `/api/projects/${id}`,
+        payload: { previewFile: null },
+      });
+    }
+    const alerts = async () =>
+      (await app.inject("/api/alerts"))
+        .json()
+        .filter((a: { module: string }) => a.module === "projects");
+    /** Waits for the auto slice that runs after the scan, then for its jobs. */
+    async function until(done: () => Promise<boolean>, tries = 200) {
+      for (let i = 0; i < tries && !(await done()); i++)
+        await new Promise((r) => setTimeout(r, 10));
+      return settled();
+    }
+    /** Gives an auto slice that should not happen the time to show up anyway. */
+    const quiet = () => until(async () => false, 20);
+
+    it("re-slices a changed file with the same plates and slots, and only once", async () => {
+      await sliced();
+      await change(""); // same bytes: nothing to do
+      await change("single_color");
+      const s = await until(async () => (mock.sliced?.length ?? 0) > 1);
+      expect(mock.sliced).toHaveLength(2);
+      expect(s.plates[0]).toMatchObject({ state: "ok", needsSlicing: false });
+      await change("");
+      await quiet();
+      expect(mock.sliced).toHaveLength(2);
+      expect(await alerts()).toEqual([]);
+    });
+
+    it("raises one warning and slices nothing when a plate uses a new slot", async () => {
+      await sliced(3);
+      await change("single_color");
+      await until(async () => (await alerts()).length > 0);
+      await change(""); // the same change, scanned again: no second alert
+      const s = await quiet();
+      expect(mock.sliced).toHaveLength(1);
+      expect(s.plates[0]).toMatchObject({ state: "outdated" });
+      expect(await alerts()).toMatchObject([
+        {
+          kind: "slice_setup_changed",
+          severity: "warning",
+          context: { projectId: id, name: "Benchy", file: "benchy.3mf" },
+        },
+      ]);
+      // Another change is news again.
+      await change("unsliced");
+      await until(async () => (await alerts()).length > 1);
+      expect(await alerts()).toHaveLength(2);
+    });
+
+    it("raises an error when the auto slice fails", async () => {
+      await sliced();
+      mock.sliceError = "Nothing to be sliced (-50)";
+      await change("single_color");
+      await until(async () => (await alerts()).length > 0);
+      expect(await alerts()).toMatchObject([
+        { kind: "slice_failed", severity: "error", context: { plate: 1, code: "slice_failed" } },
+      ]);
+    });
+
+    it("follows the project's choice, else its root's", async () => {
+      await sliced();
+      const prefs = (autoSliceOffRoots: string[]) =>
+        app.inject({ method: "PATCH", url: "/api/preferences", payload: { autoSliceOffRoots } });
+      const choose = (autoSlice: boolean | null) =>
+        app.inject({ method: "PATCH", url: `/api/projects/${id}`, payload: { autoSlice } });
+
+      // Root ticked off: nothing.
+      await prefs([join(dir, "models")]);
+      await change("single_color");
+      await quiet();
+      expect(mock.sliced).toHaveLength(1);
+      // The project says on: sliced, though its root is off.
+      expect((await choose(true)).json().autoSlice).toBe(true);
+      await change("unsliced");
+      await until(async () => (mock.sliced?.length ?? 0) > 1);
+      expect(mock.sliced).toHaveLength(2);
+      // Root on again, the project says off: nothing.
+      await prefs([]);
+      await choose(false);
+      await change("multi_color");
+      await quiet();
+      expect(mock.sliced).toHaveLength(2);
+      // Back to the root's say: sliced.
+      expect((await choose(null)).json().autoSlice).toBe(null);
+      await change("single_color");
+      await until(async () => (mock.sliced?.length ?? 0) > 2);
+      expect(mock.sliced).toHaveLength(3);
+    });
+  });
+
   it("answers 409 without a slicer", async () => {
     const list = (await app.inject("/api/integrations")).json();
     for (const i of list) await app.inject({ method: "DELETE", url: `/api/integrations/${i.id}` });

@@ -146,6 +146,16 @@ export function AlertDetailPage() {
                 {t("alerts:view.openIntegration")}
               </Link>
             )}
+            {a.kind.startsWith("slice_") && (
+              <Link
+                to="/projects/$id/edit"
+                params={{ id: String(a.context.projectId) }}
+                hash="slicing"
+                className={buttonLink}
+              >
+                {t("alerts:view.openPrintSetup")}
+              </Link>
+            )}
             <AlertButtons
               a={a}
               postpone={a.kind === "maintenance_due"}

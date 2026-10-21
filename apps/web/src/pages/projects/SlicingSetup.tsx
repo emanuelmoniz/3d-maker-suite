@@ -2,10 +2,12 @@ import type { PlateSetupInput, Project } from "@3d-maker-suite/core";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
+import { FormField, inputClass } from "../../components/FormField.tsx";
 import { PlateSlice, plateKey, SliceSetup } from "../../components/SliceSetup.tsx";
 import { usePreferences } from "../../lib/preferences.ts";
 import {
   projectFileUrl,
+  usePatchProject,
   useProjectSlicing,
   useSaveProjectSlicing,
   useSliceProject,
@@ -18,7 +20,14 @@ export function SlicingSetup({ project }: { project: Project }) {
   const save = useSaveProjectSlicing(project.id);
   const slice = useSliceProject(project.id);
   const [draft, setDraft] = useState<PlateSetupInput[] | null>(null);
-  const defaultId = usePreferences().data?.values.defaultPrinterId;
+  const patch = usePatchProject(project.id);
+  const prefs = usePreferences().data?.values;
+  const defaultId = prefs?.defaultPrinterId;
+  // What "Folder default" means here: on unless the project sits in a root ticked off.
+  const folder = project.folderPath ?? "";
+  const rootOn = !prefs?.autoSliceOffRoots.some(
+    (r) => folder.startsWith(r) && /^([\\/]|$)/.test(folder.slice(r.replace(/[\\/]$/, "").length)),
+  );
   const ready = project.meta.models.length > 0 && !!saved;
   // The section appears after its data loads, too late for the browser's own jump to #slicing.
   useEffect(() => {
@@ -56,6 +65,34 @@ export function SlicingSetup({ project }: { project: Project }) {
         {t("projects:slicing.title")}
       </h2>
       <p className="mb-2 text-muted">{t("projects:slicing.hint")}</p>
+      <div className="mb-3 max-w-sm">
+        <FormField
+          label={t("projects:slicing.autoSlice")}
+          hint={t("projects:slicing.autoSliceHint")}
+        >
+          {(p) => (
+            <select
+              {...p}
+              className={inputClass}
+              value={project.autoSlice == null ? "" : project.autoSlice ? "on" : "off"}
+              disabled={patch.isPending}
+              onChange={(e) =>
+                patch.mutate({ autoSlice: e.target.value ? e.target.value === "on" : null })
+              }
+            >
+              <option value="">
+                {t(
+                  rootOn
+                    ? "projects:slicing.autoSliceFolderOn"
+                    : "projects:slicing.autoSliceFolderOff",
+                )}
+              </option>
+              <option value="on">{t("projects:slicing.autoSliceOn")}</option>
+              <option value="off">{t("projects:slicing.autoSliceOff")}</option>
+            </select>
+          )}
+        </FormField>
+      </div>
       <SliceSetup
         files={project.meta.models.map((m) => ({
           path: m.file,

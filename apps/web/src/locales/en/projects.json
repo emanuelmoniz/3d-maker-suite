@@ -163,6 +163,12 @@
   "slicing": {
     "title": "Print setup",
     "hint": "Pick the plates one print of this project takes, and the print profile and filaments for each.",
+    "autoSlice": "Slice again when the file changes",
+    "autoSliceHint": "Re-slices the sliced plates with this setup when their 3MF changes. If the change adds or removes plates or filament slots, you get an alert instead.",
+    "autoSliceFolderOn": "As the project folder says (on)",
+    "autoSliceFolderOff": "As the project folder says (off)",
+    "autoSliceOn": "On",
+    "autoSliceOff": "Off",
     "noFiles": "This project has no 3MF files.",
     "platesPicked_one": "{{count}} of {{total}} plate",
     "platesPicked_other": "{{count}} of {{total}} plates",

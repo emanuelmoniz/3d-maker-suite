@@ -79,7 +79,8 @@ export const ROUTES = [
 /** Picks an option in a Combobox: by its exact label, or by position (0 is the first option). */
 export const pick = async (combo: Locator, option: string | number) => {
   await combo.click();
-  const options = combo.page().getByRole("option");
+  // The open listbox's options, not those of native selects on the page.
+  const options = combo.page().getByRole("listbox").getByRole("option");
   await (typeof option === "number"
     ? options.nth(option)
     : options.getByText(option, { exact: true })

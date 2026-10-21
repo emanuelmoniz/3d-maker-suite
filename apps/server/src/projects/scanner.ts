@@ -7,6 +7,7 @@ import {
   PROJECT_EDITABLE_FIELDS,
   type ProjectMeta,
   type ProjectScanStatus,
+  projectMetaSchema,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
 import { and, eq, isNull } from "drizzle-orm";
@@ -61,7 +62,11 @@ export function createProjectScanner(
   db: Db,
   dataDir: string,
   log: FastifyBaseLogger,
-  opts: { watch?: boolean } = {},
+  opts: {
+    watch?: boolean;
+    /** After a single-folder scan of a known project, with its meta from before (auto slicing). */
+    onRefresh?: (projectId: string, before: ProjectMeta) => Promise<void>;
+  } = {},
 ) {
   let state = idle();
   const pending = new Map<string, { root: string; at: number }>();
@@ -218,7 +223,13 @@ export function createProjectScanner(
   async function refresh(folder: string) {
     // The app's own write already fired the watcher; events up to now need no second scan.
     refreshedAt.set(folder, Date.now());
+    const row = db.select().from(projects).where(eq(projects.folderPath, folder)).get();
     await upsert(folder, await read(folder));
+    // Never awaited: slicing work must not hold up the scan (or the request that asked for it).
+    if (row && opts.onRefresh)
+      opts
+        .onRefresh(row.id, projectMetaSchema.parse(row.meta))
+        .catch((err) => log.warn({ err, folder }, "auto slice failed"));
   }
 
   /** Scans one discovered folder; a template folder or one without a model is no project. */

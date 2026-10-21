@@ -98,6 +98,8 @@ export const projectSchema = z.object({
   meta: projectMetaSchema,
   /** Fields the user changed; a re-scan leaves them alone. */
   editedFields: z.array(z.enum(PROJECT_EDITABLE_FIELDS)),
+  /** Slice again when a sliced file changes; null = as its project root says. */
+  autoSlice: z.boolean().nullable(),
   archivedAt: isoDate.nullable(),
   origin: z.enum(ORIGINS),
   integrationId: id.nullable(),
@@ -149,6 +151,7 @@ export const projectPatchSchema = z
     number: projectSchema.shape.number,
     gallery: projectGallerySchema,
     coverFile: nullableText,
+    autoSlice: projectSchema.shape.autoSlice,
   })
   .partial()
   .strict();

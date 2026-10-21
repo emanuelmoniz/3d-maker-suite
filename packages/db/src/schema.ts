@@ -553,6 +553,8 @@ export const projects = sqliteTable(
       .$type<(typeof PROJECT_EDITABLE_FIELDS)[number][]>()
       .notNull()
       .default([]),
+    // Slice again when a sliced file changes; null = as its project root says.
+    autoSlice: integer({ mode: "boolean" }),
     archivedAt: text(),
     ...imported(),
     ...timestamps,

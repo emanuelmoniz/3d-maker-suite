@@ -42,6 +42,7 @@ export const MODULE: Record<AlertModule, string> = {
   maintenance: "nav:items.maintenance.label",
   printers: "nav:items.printers.label",
   integrations: "nav:items.integrations.label",
+  projects: "nav:items.projects.label",
 };
 const LOG: Record<Exclude<SyncLogEntry["event"], "left">, string> = {
   created: "alerts:log.created",
@@ -94,6 +95,10 @@ export function Title({ a, inList }: { a: Alert; inList?: boolean }) {
         type,
         reason: t(ERRORS[c.code as IntegrationErrorCode] ?? ERRORS.unknown),
       }),
+    slice_setup_changed: () =>
+      t("alerts:kinds.slice_setup_changed", { name: c.name, file: c.file }),
+    slice_failed: () =>
+      t("alerts:kinds.slice_failed", { name: c.name, file: c.file, plate: c.plate }),
   }[a.kind]();
   if (inList)
     return (
@@ -124,6 +129,18 @@ export function Title({ a, inList }: { a: Alert; inList?: boolean }) {
     case "sync_error":
       return (
         <Link to="/integrations" className={link}>
+          {text}
+        </Link>
+      );
+    case "slice_setup_changed":
+    case "slice_failed":
+      return (
+        <Link
+          to="/projects/$id/edit"
+          params={{ id: String(c.projectId) }}
+          hash="slicing"
+          className={link}
+        >
           {text}
         </Link>
       );
@@ -271,6 +288,8 @@ const KIND_NAMES: Record<AlertKind, string> = {
   sync_pending: "alerts:kindNames.sync_pending",
   sync_success: "alerts:kindNames.sync_success",
   sync_error: "alerts:kindNames.sync_error",
+  slice_setup_changed: "alerts:kindNames.slice_setup_changed",
+  slice_failed: "alerts:kindNames.slice_failed",
 };
 const STATUS: Record<AlertStatus, string> = {
   snoozed: "alerts:status.snoozed",

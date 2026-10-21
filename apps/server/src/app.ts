@@ -20,6 +20,7 @@ import { HttpError } from "./errors.ts";
 import { loadKey } from "./integrations/secrets.ts";
 import { createSyncer } from "./integrations/sync.ts";
 import { accessGuard } from "./lib/access.ts";
+import { autoSlice } from "./projects/autoSlice.ts";
 import { createProjectScanner } from "./projects/scanner.ts";
 import { createSliceQueue } from "./projects/sliceQueue.ts";
 import { accessoriesRoutes } from "./routes/accessories.ts";
@@ -143,7 +144,10 @@ export async function buildApp(
     prefix: "/api/costs",
   });
   await app.register(statsRoutes(db), { prefix: "/api/stats" });
-  const scanner = createProjectScanner(db, dataDir, app.log, { watch: opts.watchProjects });
+  const scanner = createProjectScanner(db, dataDir, app.log, {
+    watch: opts.watchProjects,
+    onRefresh: (id, before) => autoSlice(db, syncer.adapters, sliceQueue, app.log, id, before),
+  });
   await app.register(projectsRoutes(db, dataDir, scanner, syncer.adapters), {
     prefix: "/api/projects",
   });

@@ -51,6 +51,8 @@ const shape = {
   failureMarginPct: z.number().nonnegative(),
   markupPct: z.number().nonnegative(),
   projectRoots: z.array(z.string().min(1)),
+  /** Roots whose projects don't slice again when a file changes (unless a project says so). */
+  autoSliceOffRoots: z.array(z.string().min(1)),
   /** How many folder levels below a root a project may sit (1 = direct subfolders). */
   projectScanDepth: z.number().int().min(1).max(5),
   /** Files a scan lists per project folder at most; the rest can't be picked or shown. */
@@ -107,6 +109,7 @@ export const PREFERENCE_DEFAULTS: z.infer<typeof preferencesSchema> = {
   failureMarginPct: 5,
   markupPct: 20,
   projectRoots: [],
+  autoSliceOffRoots: [],
   projectScanDepth: 1,
   projectScanMaxFiles: 1000,
   viewerMaxMb: 30,

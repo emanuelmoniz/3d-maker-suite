@@ -1,3 +1,4 @@
+import { Trash2 } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
@@ -165,35 +166,7 @@ export function ProjectsConfigPage() {
     <ConfigPage module="projects">
       {({ v, commit, num }) => (
         <Section title={t("settings:sections.projects")}>
-          <FormField label={t("settings:projects.roots")} hint={t("settings:projects.rootsHint")}>
-            {(p) => (
-              <div className="flex items-start gap-2">
-                <textarea
-                  {...p}
-                  className={`${inputClass} h-24 py-2`}
-                  key={`roots-${v.projectRoots.join("\n")}`}
-                  defaultValue={v.projectRoots.join("\n")}
-                  onBlur={(e) => {
-                    const roots = e.target.value
-                      .split("\n")
-                      .map((l) => l.trim())
-                      .filter(Boolean);
-                    if (roots.join("\n") !== v.projectRoots.join("\n"))
-                      commit({ projectRoots: roots });
-                  }}
-                />
-                <PathPicker
-                  label={t("settings:projects.roots")}
-                  mode="folder"
-                  initial={v.projectRoots.at(-1)}
-                  onPick={(dir) =>
-                    !v.projectRoots.includes(dir) &&
-                    commit({ projectRoots: [...v.projectRoots, dir] })
-                  }
-                />
-              </div>
-            )}
-          </FormField>
+          <ProjectRoots v={v} commit={commit} />
           <FormField label={t("settings:projects.depth")} hint={t("settings:projects.depthHint")}>
             {(p) => num("projectScanDepth", p)}
           </FormField>
@@ -219,6 +192,85 @@ export function ProjectsConfigPage() {
         </Section>
       )}
     </ConfigPage>
+  );
+}
+
+/** The project folder roots, each with its auto slice switch and a remove button. */
+function ProjectRoots({ v, commit }: Pick<ConfigCtx, "v" | "commit">) {
+  const { t } = useTranslation();
+  const [typed, setTyped] = useState("");
+  const off = v.autoSliceOffRoots;
+  const add = (dir: string) => {
+    const d = dir.trim();
+    if (d && !v.projectRoots.includes(d)) commit({ projectRoots: [...v.projectRoots, d] });
+  };
+  return (
+    <fieldset className="grid gap-2">
+      <legend className="mb-1 font-medium">{t("settings:projects.roots")}</legend>
+      <p className="text-muted">{t("settings:projects.rootsHint")}</p>
+      {v.projectRoots.length > 0 && (
+        <ul className="divide-y divide-border rounded-md border border-border">
+          {v.projectRoots.map((r) => (
+            <li key={r} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-1 pr-1 pl-3">
+              <span className="min-w-0 flex-1 break-all">{r}</span>
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={!off.includes(r)}
+                  aria-label={t("settings:projects.autoSliceFor", { path: r })}
+                  onChange={(e) =>
+                    commit({
+                      autoSliceOffRoots: e.target.checked
+                        ? off.filter((x) => x !== r)
+                        : [...off, r],
+                    })
+                  }
+                />
+                <span aria-hidden>{t("settings:projects.autoSlice")}</span>
+              </label>
+              <Button
+                variant="ghost"
+                aria-label={t("settings:projects.removeRoot", { path: r })}
+                onClick={() =>
+                  commit({
+                    projectRoots: v.projectRoots.filter((x) => x !== r),
+                    autoSliceOffRoots: off.filter((x) => x !== r),
+                  })
+                }
+              >
+                <Trash2 className="size-4" aria-hidden />
+              </Button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <form
+        className="flex items-start gap-2"
+        onSubmit={(e) => {
+          e.preventDefault();
+          add(typed);
+          setTyped("");
+        }}
+      >
+        <input
+          className={inputClass}
+          value={typed}
+          onChange={(e) => setTyped(e.target.value)}
+          aria-label={t("settings:projects.newRoot")}
+          placeholder={t("settings:projects.newRoot")}
+        />
+        <Button type="submit" disabled={!typed.trim()}>
+          {t("settings:projects.addRoot")}
+        </Button>
+        <PathPicker
+          label={t("settings:projects.roots")}
+          mode="folder"
+          initial={v.projectRoots.at(-1)}
+          onPick={add}
+        />
+      </form>
+      <p className="text-muted">{t("settings:projects.autoSliceHint")}</p>
+    </fieldset>
   );
 }
 

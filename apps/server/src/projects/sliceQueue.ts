@@ -174,12 +174,16 @@ export function sliceErrorText(e: unknown, log: FastifyBaseLogger, context: obje
   return "slice_failed";
 }
 
-/** Slices a plate of a project's setup; its result or error goes to its `project_slice_plates` row. */
+/**
+ * Slices a plate of a project's setup; its result or error goes to its `project_slice_plates` row.
+ * `onError` hears a stored error (auto slices raise an alert with it).
+ */
 export function projectSliceJob(
   db: Db,
   adapters: IntegrationAdapter[],
   log: FastifyBaseLogger,
   job: ProjectPlate,
+  onError?: (error: string) => void,
 ): SliceJob {
   return {
     key: projectJobKey(job),
@@ -231,6 +235,7 @@ export function projectSliceJob(
         .set({ ...done, sliceError: error })
         .where(eq(projectSlicePlates.id, now.id))
         .run();
+      if (error) onError?.(error);
     },
   };
 }

@@ -28,7 +28,13 @@ const WARRANTY_LEAD_DAYS = 30;
  * their snooze; they stay until dismissed.
  * ponytail: dismissed ones are never pruned; delete old dismissed rows if the table grows.
  */
-const ONE_SHOT = new Set<AlertKind>(["sync_success", "sync_error"]);
+const ONE_SHOT = new Set<AlertKind>([
+  "sync_success",
+  "sync_error",
+  // Raised by auto slicing, keyed by the file's new bytes.
+  "slice_setup_changed",
+  "slice_failed",
+]);
 
 /**
  * Overdue is an error; before that, a warning once a lead is reached: the type's own, else the
@@ -206,6 +212,16 @@ function textOf(a: typeof alerts.$inferSelect): { title: string; body: string } 
       return { title: "Sync finished", body: `${c.type}: ${c.created} new, ${c.updated} updated` };
     case "sync_error":
       return { title: "Sync failed", body: `${c.type} could not sync (${c.code})` };
+    case "slice_setup_changed":
+      return {
+        title: "Print setup needs a look",
+        body: `${c.name}: ${c.file} changed its plates or filament slots`,
+      };
+    case "slice_failed":
+      return {
+        title: "Auto slice failed",
+        body: `${c.name}: plate ${c.plate} of ${c.file} could not be sliced (${c.code})`,
+      };
   }
 }
 

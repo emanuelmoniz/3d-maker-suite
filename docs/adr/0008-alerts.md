@@ -36,6 +36,14 @@ An alert was a `kind` plus the entity it is about and a few display values. How 
 
 Open alerts keep their id and their read, snooze, dismiss and notified state, so nothing is sent again. Existing alerts get `detail = null`, because old runs have no log.
 
+## Auto slicing events (migration 0058)
+After a single-folder scan, auto slicing raises events in the new `projects` module. Like the sync events, they are one-shot and stay until dismissed. Each is keyed by the file's new bytes, so scanning the same change again doesn't repeat it, while a new change is new.
+
+| Kind | Severity | Entity id | Task |
+|---|---|---|---|
+| `slice_setup_changed` (plates added or removed, or a plate uses a slot its setup doesn't map) | warning | `<projectId>:<file>:<sha256>` | `project:<projectId>` |
+| `slice_failed` (an auto slice failed) | error | `<projectId>:<file>:<plate>:<sha256>` | `project:<projectId>` |
+
 ## Rejected options
 - **Severity derived from the kind, not stored.** It breaks for kinds that change severity and for Step 13, where a task chooses its severities. Queries such as "all errors" would need the mapping in SQL.
 - **Drop `kind` and keep only module + severity + task.** The app and the channels still need to know which sentence to say, and that is what `kind` is.

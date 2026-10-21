@@ -73,7 +73,8 @@ test("slicing a project with the mock slicer: results, estimate, list filter, re
   mkdirSync(join(root, "Benchy"), { recursive: true });
   const file = join(root, "Benchy", "benchy.3mf");
   copyFileSync(join(import.meta.dirname, "../packages/3mf/fixtures/multi_color.3mf"), file);
-  await app.api("PATCH", "/api/preferences", { projectRoots: [root] });
+  // Auto slicing off: this test slices by hand (auto-slice.e2e.ts covers the other way).
+  await app.api("PATCH", "/api/preferences", { projectRoots: [root], autoSliceOffRoots: [root] });
   const project = await app.api<{ id: string }>("POST", "/api/projects", {
     name: "Benchy",
     folderPath: join(root, "Benchy"),
