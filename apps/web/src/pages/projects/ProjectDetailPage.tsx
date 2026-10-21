@@ -35,8 +35,11 @@ const linkButton =
   "inline-flex h-9 items-center gap-2 whitespace-nowrap rounded-md border border-border bg-surface px-3 font-medium hover:bg-surface-2";
 const VIEWABLE = /\.(3mf|stl)$/i;
 const SLICED_EXPORT = /\.gcode\.3mf$/i;
-// The last two folders of the project's path, e.g. projects\140_jewellery-box-generator.
-const folderLabel = (path: string) => path.split(/[\\/]/).filter(Boolean).slice(-2).join("\\");
+// The last two folders of the project's path, joined with the separator the path itself uses.
+const folderLabel = (path: string) => {
+  const sep = path.includes("\\") ? "\\" : "/";
+  return path.split(/[\\/]/).filter(Boolean).slice(-2).join(sep);
+};
 
 // Static keys so `pnpm i18n:check` sees them; `api()` puts the HTTP status last in the message.
 const openError = (t: TFunction, message: string) =>
