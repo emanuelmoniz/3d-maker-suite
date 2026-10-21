@@ -137,6 +137,8 @@
     "exportHint": "One file per module, for spreadsheets or your own scripts.",
     "tables": {
       "printers": "Printers",
+      "accessories": "Accessories",
+      "accessoryInstalls": "Accessory installs",
       "maintenance": "Maintenance tasks",
       "maintenanceTypes": "Maintenance types",
       "filamentProfiles": "Filament profiles",

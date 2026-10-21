@@ -160,6 +160,7 @@ export function Catalog() {
             id: "brand",
             header: t("printers:catalog.models.brand"),
             cell: (m) => brandOf.get(m.brandId)?.name,
+            sort: "brand",
             filter: "brandId",
             filterOptions: brands.map((b) => ({ value: b.id, label: b.name })),
           },
@@ -197,6 +198,7 @@ export function Catalog() {
             id: "model",
             header: t("printers:catalog.profiles.model"),
             cell: (p) => info.get(p.printerModelId)?.label,
+            sort: "model",
             filter: "printerModelId",
             filterOptions: models.map((m) => ({
               value: m.id,

@@ -39,7 +39,7 @@ per root; only change what a change event triggers.
 Do Step 2 of PLAN.md. Grep every weight formatter first and route them all through one.
 ```
 
-### [ ] Step 3 - Small table fixes: config sorting, Track usage, accessory exports
+### [x] Step 3 - Small table fixes: config sorting, Track usage, accessory exports
 **Model:** Haiku · **Effort:** Low
 **Scope:**
 - Printers config page: the Printer models table sorts by brand, and the Machine profiles table sorts by printer model.

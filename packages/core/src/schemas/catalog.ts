@@ -55,13 +55,13 @@ export const brandFilters = { name: { kind: "text" } } as const satisfies Record
   ColumnFilter
 >;
 /** `model` sorts and filters on "Brand Model". */
-export const printerModelSortFields = ["model", "createdAt", "powerW"] as const;
+export const printerModelSortFields = ["model", "brand", "createdAt", "powerW"] as const;
 export const printerModelFilters = {
   model: { kind: "text" },
   brandId: { kind: "select" },
   powerW: { kind: "number" },
 } as const satisfies Record<string, ColumnFilter>;
-export const machineProfileSortFields = ["name", "createdAt", "nozzleDiameterMm"] as const;
+export const machineProfileSortFields = ["name", "model", "createdAt", "nozzleDiameterMm"] as const;
 export const machineProfileFilters = {
   name: { kind: "text" },
   printerModelId: { kind: "select" },

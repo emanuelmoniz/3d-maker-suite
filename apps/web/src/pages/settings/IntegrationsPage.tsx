@@ -463,25 +463,34 @@ function Policies({
                 "–"
               ),
           },
-          {
-            // Runs without a review (scheduled, "sync now"); a review asks on its own.
-            id: "trackUsage",
-            header: t("integrations:policies.trackUsage"),
-            cell: (p) =>
-              p.type === "prints" && p.mode !== "off" ? (
-                <input
-                  type="checkbox"
-                  aria-label={t("integrations:policies.trackUsageOf", { type: t(CAPS[p.type]) })}
-                  checked={p.trackUsage}
-                  disabled={patch.isPending}
-                  onChange={(e) =>
-                    patch.mutate({ policies: [{ type: p.type, trackUsage: e.target.checked }] })
-                  }
-                />
-              ) : (
-                "–"
-              ),
-          },
+          // Runs without a review (scheduled, "sync now"); a review asks on its own.
+          // Only integrations that sync prints have a print policy to track.
+          ...(i.policies.some((p) => p.type === "prints")
+            ? [
+                {
+                  id: "trackUsage",
+                  header: t("integrations:policies.trackUsage"),
+                  cell: (p: (typeof i.policies)[number]) =>
+                    p.type === "prints" && p.mode !== "off" ? (
+                      <input
+                        type="checkbox"
+                        aria-label={t("integrations:policies.trackUsageOf", {
+                          type: t(CAPS[p.type]),
+                        })}
+                        checked={p.trackUsage}
+                        disabled={patch.isPending}
+                        onChange={(e) =>
+                          patch.mutate({
+                            policies: [{ type: p.type, trackUsage: e.target.checked }],
+                          })
+                        }
+                      />
+                    ) : (
+                      "–"
+                    ),
+                },
+              ]
+            : []),
           {
             id: "lastRun",
             header: t("integrations:policies.lastRun"),
