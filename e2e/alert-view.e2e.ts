@@ -26,6 +26,10 @@ test("maintenance alert: open it, mark as done, the alert resolves", async ({ pa
   await expect(page.locator("dd", { hasText: /^Maintenance$/ })).toBeVisible();
   await expect(page.locator("dd", { hasText: /^Clean nozzle$/ })).toBeVisible();
 
+  await expect(page.getByRole("link", { name: "View task" })).toHaveAttribute(
+    "href",
+    /\/maintenance\/types\//,
+  );
   await page.getByRole("button", { name: "Mark as done" }).click();
   await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.getByText(/^Resolved on/)).toBeVisible();
@@ -109,10 +113,18 @@ test("spool alert: short title, the weight in the alert, a way to the spool", as
     remainingGrams: 28,
   });
   await page.goto("/alerts");
-  await expect(page.getByRole("link", { name: /low$/ })).toBeVisible();
+  await expect(page.getByRole("link", { name: /is low$/ })).toBeVisible();
   await expect(page.getByText(/down to/)).toHaveCount(0);
-  await page.getByRole("link", { name: /low$/ }).click();
+  await page.getByRole("link", { name: /is low$/ }).click();
   await expect(page.getByText(/is now down to 28 g/)).toBeVisible();
+  await page.getByRole("button", { name: "Dismiss" }).click();
+  await page
+    .getByRole("row")
+    .getByRole("link", { name: /is low$/ })
+    .click();
+  await expect(page.locator("dd", { hasText: /^Dismissed$/ })).toBeVisible();
+  await page.getByRole("button", { name: "Restore alert" }).click();
+  await expect(page.locator("dd", { hasText: /^Read$/ })).toBeVisible();
   await page.getByRole("link", { name: "View spool" }).click();
   await expect(page).toHaveURL(new RegExp(`/filament/spools/${spool.id}$`));
 });

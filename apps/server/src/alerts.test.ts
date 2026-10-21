@@ -312,6 +312,9 @@ describe("alerts", () => {
 
     await patch({ action: "dismiss" });
     expect(await history()).toMatchObject({ total: 1, items: [{ status: "dismissed" }] });
+    expect((await patch({ action: "undismiss" })).dismissedAt).toBeNull();
+    expect((await history()).total).toBe(0);
+    await patch({ action: "dismiss" });
     expect((await history("?module=printers")).total).toBe(0);
     expect((await history("?status=dismissed&sort=-createdAt")).total).toBe(1);
   });

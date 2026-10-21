@@ -132,6 +132,7 @@ export const alertsRoutes =
           read: { readAt: stamp },
           unread: { readAt: null },
           unsnooze: { snoozedUntil: null },
+          undismiss: { dismissedAt: null },
           dismiss: { readAt: stamp, dismissedAt: stamp },
           snooze: {
             readAt: stamp,

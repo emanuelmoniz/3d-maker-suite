@@ -118,6 +118,15 @@ export function AlertDetailPage() {
                 {t("alerts:view.viewSpool")}
               </Link>
             )}
+            {a.kind === "maintenance_due" && (
+              <Link
+                to="/maintenance/types/$id"
+                params={{ id: a.entityId.split(":")[1] ?? "" }}
+                className={buttonLink}
+              >
+                {t("alerts:view.viewTask")}
+              </Link>
+            )}
             {item && <Button onClick={() => setLogging(true)}>{t("alerts:view.markDone")}</Button>}
             {a.kind === "sync_pending" && (
               <Link
@@ -143,6 +152,13 @@ export function AlertDetailPage() {
               snoozed={!!a.snoozedUntil && Date.parse(a.snoozedUntil) > Date.now()}
               onHidden={() => navigate({ to: "/alerts" })}
             />
+          </div>
+        )}
+        {a.dismissedAt && !a.resolvedAt && (
+          <div>
+            <Button onClick={() => act.mutate({ id: a.id, action: "undismiss" })}>
+              {t("alerts:view.undismiss")}
+            </Button>
           </div>
         )}
       </section>

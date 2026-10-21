@@ -16,6 +16,8 @@ export const alertActionSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("read") }),
   /** Back to unread: the badge counts it again, and a read success returns to "needs attention". */
   z.object({ action: z.literal("unread") }),
+  /** Take a dismissed alert back: it needs attention again while the condition holds. */
+  z.object({ action: z.literal("undismiss") }),
   /** End a snooze early. */
   z.object({ action: z.literal("unsnooze") }),
   /** Hide until the condition resolves and comes back. */

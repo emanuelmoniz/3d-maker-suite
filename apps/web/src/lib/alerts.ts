@@ -44,7 +44,7 @@ export function useAlertAction() {
   return useMutation({
     mutationFn: (v: {
       id: string;
-      action: "read" | "unread" | "unsnooze" | "dismiss" | { snooze: number };
+      action: "read" | "unread" | "unsnooze" | "undismiss" | "dismiss" | { snooze: number };
     }) =>
       api("PATCH", `/api/alerts/${v.id}`, {
         action: typeof v.action === "string" ? v.action : "snooze",
