@@ -114,3 +114,44 @@ test("project files: a name that is not allowed shows an error", async ({ page, 
   await page.getByRole("dialog").getByRole("button", { name: "Create" }).click();
   await expect(files.getByRole("alert")).toBeVisible();
 });
+
+test("project files: select items and move or remove them in bulk", async ({ page, app }) => {
+  const root = join(app.dataDir, "root");
+  const dir = join(root, "001_Bulk");
+  mkdirSync(join(dir, "dest"), { recursive: true });
+  for (const f of ["a.txt", "b.txt", "c.txt"]) writeFileSync(join(dir, f), f);
+  writeFileSync(join(dir, "dest", "c.txt"), "already there");
+  await app.api("PATCH", "/api/preferences", { projectRoots: [root] });
+  const p = await app.api<{ id: string }>("POST", "/api/projects", {
+    name: "Bulk",
+    folderPath: dir,
+  });
+  await page.goto(`/projects/${p.id}`);
+  const files = page.getByRole("region", { name: "Files" });
+  const dialog = page.getByRole("dialog");
+  const move = files.getByRole("button", { name: "Move", exact: true });
+  const remove = files.getByRole("button", { name: "Remove", exact: true });
+  await expect(move).toBeDisabled();
+  await expect(remove).toBeDisabled();
+
+  // Move a and c into dest: c already exists there, so only a moves and c stays selected.
+  await files.getByRole("checkbox", { name: "Select a.txt" }).check();
+  await files.getByRole("checkbox", { name: "Select c.txt" }).check();
+  await expect(files.getByText("2 selected")).toBeVisible();
+  await move.click();
+  await pick(dialog.getByRole("combobox", { name: "Destination folder" }), "dest");
+  await dialog.getByRole("button", { name: "Move", exact: true }).click();
+  await expect(files.getByRole("alert")).toContainText("1 item could not be changed");
+  expect(existsSync(join(dir, "dest", "a.txt"))).toBe(true);
+  expect(readFileSync(join(dir, "dest", "c.txt"), "utf8")).toBe("already there");
+  await expect(files.getByText("1 selected")).toBeVisible();
+
+  // Select all, remove everything.
+  await files.getByRole("checkbox", { name: "Select all" }).check();
+  await remove.click();
+  await expect(page.getByRole("heading", { name: "Remove 3 items?" })).toBeVisible();
+  await dialog.getByRole("button", { name: "Delete" }).click();
+  await expect(files.getByText("b.txt")).toHaveCount(0);
+  expect(existsSync(join(dir, "b.txt"))).toBe(false);
+  expect(existsSync(join(dir, "dest"))).toBe(false);
+});

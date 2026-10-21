@@ -32,13 +32,16 @@ const clean = (p: string) => p.trim().replace(/^\/+|\/+$/g, "");
 
 type Ask =
   | { kind: "folder"; dir: string }
-  | { kind: "rename" | "move" | "delete"; entry: ProjectFileEntry };
+  | { kind: "rename" | "move" | "delete"; entry: ProjectFileEntry }
+  | { kind: "bulkMove" | "bulkDelete"; paths: string[] };
 type Transfer = { key: number; name: string; fraction: number };
 type Ctx = {
   projectId: string;
   onFiles: (dir: string, files: FileList | File[]) => void;
   onReplace: (path: string, file: File) => void;
   ask: (a: Ask) => void;
+  selected: Set<string>;
+  toggle: (path: string) => void;
 };
 
 /** A hidden file input that a button opens; keeps the picker keyboard reachable through the button. */
@@ -112,6 +115,13 @@ function Row({ entry, depth, ctx }: { entry: ProjectFileEntry; depth: number; ct
         style={{ paddingLeft: `${0.5 + depth * 1.25}rem` }}
         className={`flex flex-wrap items-center gap-x-2 py-1 pr-2 ${over ? "bg-surface-2 outline outline-accent" : ""}`}
       >
+        <input
+          type="checkbox"
+          className="size-5 shrink-0 accent-[var(--accent)]"
+          aria-label={t("projects:files.select", n)}
+          checked={ctx.selected.has(entry.path)}
+          onChange={() => ctx.toggle(entry.path)}
+        />
         {dir ? (
           <button
             type="button"
@@ -221,7 +231,9 @@ export function ProjectFiles({ project }: { project: Project }) {
   const picker = useRef<HTMLInputElement>(null);
   const seq = useRef(0);
   const [ask, setAsk] = useState<Ask | null>(null);
-  const folders = useProjectFolders(id, ask?.kind === "move");
+  const folders = useProjectFolders(id, ask?.kind === "move" || ask?.kind === "bulkMove");
+  const top = useProjectFolder(id, "").data?.entries ?? [];
+  const [selected, setSelected] = useState<Set<string>>(new Set());
   const [value, setValue] = useState("");
   const [uploads, setUploads] = useState<Transfer[]>([]);
   const [over, setOver] = useState(false);
@@ -277,19 +289,59 @@ export function ProjectFiles({ project }: { project: Project }) {
     actions.done();
   };
 
+  const toggle = (path: string) =>
+    setSelected((s) => {
+      const next = new Set(s);
+      if (!next.delete(path)) next.add(path);
+      return next;
+    });
+  // Selecting a folder covers its contents, so drop selected paths that sit inside another one.
+  const picked = [...selected].filter(
+    (p) => ![...selected].some((o) => o !== p && p.startsWith(`${o}/`)),
+  );
+  // "All" is the top level: every folder in it comes with what it holds.
+  const allSelected = top.length > 0 && top.every((e) => selected.has(e.path));
+  const toggleAll = () => setSelected(allSelected ? new Set() : new Set(top.map((e) => e.path)));
+
   const close = () => setAsk(null);
   const submit = () => {
     if (!ask) return;
     const v = clean(value);
     const cb = {
-      onSuccess: close,
+      onSuccess: () => {
+        close();
+        setSelected(new Set());
+      },
       onError: (e: unknown) => {
         close();
         setFailed(errorText(e));
       },
     };
     setFailed(null);
-    if (ask.kind === "delete") actions.remove.mutate(ask.entry.path, cb);
+    if ("paths" in ask) {
+      // One by one; whatever fails (e.g. the name exists there) stays selected and is reported.
+      void (async () => {
+        const left = new Set<string>();
+        let error: unknown;
+        for (const from of ask.paths) {
+          try {
+            if (ask.kind === "bulkDelete") await actions.remove.mutateAsync(from);
+            else
+              await actions.move.mutateAsync({
+                from,
+                to: join(v, from.slice(from.lastIndexOf("/") + 1)),
+              });
+          } catch (e) {
+            left.add(from);
+            error = e;
+          }
+        }
+        close();
+        setSelected(left);
+        if (left.size)
+          setFailed(`${t("projects:files.bulkFailed", { count: left.size })} ${errorText(error)}`);
+      })();
+    } else if (ask.kind === "delete") actions.remove.mutate(ask.entry.path, cb);
     else if (ask.kind === "folder") {
       if (v) actions.mkdir.mutate(join(ask.dir, v), cb);
     } else if (ask.kind === "rename") {
@@ -301,6 +353,10 @@ export function ProjectFiles({ project }: { project: Project }) {
     setAsk(a);
   };
   const name = ask && "entry" in ask ? ask.entry.name : "";
+  const count = ask && "paths" in ask ? ask.paths.length : 0;
+  // Folders a move can go to: not into a moved folder or below it.
+  const moving =
+    ask?.kind === "move" ? [ask.entry.path] : ask?.kind === "bulkMove" ? ask.paths : [];
   // Static keys so `pnpm i18n:check` sees them.
   const text = {
     folder: [
@@ -320,6 +376,16 @@ export function ProjectFiles({ project }: { project: Project }) {
     ],
     delete: [
       t("projects:files.deleteTitle", { name }),
+      t("projects:files.deleteHint"),
+      t("projects:files.deleteAction"),
+    ],
+    bulkMove: [
+      t("projects:files.bulkMoveTitle", { count }),
+      t("projects:files.moveHint"),
+      t("projects:files.moveAction"),
+    ],
+    bulkDelete: [
+      t("projects:files.bulkDeleteTitle", { count }),
       t("projects:files.deleteHint"),
       t("projects:files.deleteAction"),
     ],
@@ -380,24 +446,58 @@ export function ProjectFiles({ project }: { project: Project }) {
           {failed}
         </p>
       )}
+      <div className="mb-2 flex flex-wrap items-center gap-2">
+        <label className="mr-auto flex min-h-9 items-center gap-2">
+          <input
+            type="checkbox"
+            className="size-5 accent-[var(--accent)]"
+            checked={allSelected}
+            disabled={!top.length}
+            onChange={toggleAll}
+          />
+          {t("projects:files.selectAll")}
+        </label>
+        <span className="text-muted" aria-live="polite">
+          {t("projects:files.selected", { count: picked.length })}
+        </span>
+        <Button disabled={!picked.length} onClick={() => open({ kind: "bulkMove", paths: picked })}>
+          <FolderInput className="size-4" aria-hidden />
+          {t("projects:files.bulkMove")}
+        </Button>
+        <Button
+          disabled={!picked.length}
+          onClick={() => open({ kind: "bulkDelete", paths: picked })}
+        >
+          <Trash2 className="size-4" aria-hidden />
+          {t("projects:files.bulkDelete")}
+        </Button>
+      </div>
       <div className="rounded-lg border border-border bg-surface">
-        <Children path="" depth={0} ctx={{ projectId: id, onFiles, onReplace, ask: open }} />
+        <Children
+          path=""
+          depth={0}
+          ctx={{ projectId: id, onFiles, onReplace, ask: open, selected, toggle }}
+        />
       </div>
       <ConfirmDialog
         open={!!ask}
         title={text[0] as string}
         description={text[1] as string}
         confirmLabel={text[2] as string}
-        destructive={ask?.kind === "delete"}
+        destructive={ask?.kind === "delete" || ask?.kind === "bulkDelete"}
         onConfirm={submit}
         onCancel={close}
       >
-        {ask && ask.kind !== "delete" && (
+        {ask && ask.kind !== "delete" && ask.kind !== "bulkDelete" && (
           <FormField
-            label={t(ask.kind === "move" ? "projects:files.destination" : "projects:files.name")}
+            label={t(
+              ask.kind === "move" || ask.kind === "bulkMove"
+                ? "projects:files.destination"
+                : "projects:files.name",
+            )}
           >
             {(p) =>
-              ask.kind === "move" ? (
+              ask.kind === "move" || ask.kind === "bulkMove" ? (
                 <Combobox
                   {...p}
                   value={value}
@@ -406,7 +506,7 @@ export function ProjectFiles({ project }: { project: Project }) {
                     { value: "", label: t("projects:files.projectFolder") },
                     ...(folders.data ?? [])
                       // Not into itself or below it.
-                      .filter((f) => f !== ask.entry.path && !f.startsWith(`${ask.entry.path}/`))
+                      .filter((f) => !moving.some((m) => f === m || f.startsWith(`${m}/`)))
                       .map((f) => ({ value: f, label: f })),
                   ]}
                 />
