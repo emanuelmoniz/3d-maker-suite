@@ -75,6 +75,8 @@ export type ImportHandler = {
   missing: (db: Db, rows: ImportValues[]) => Record<string, string[]>;
   /** Errors a valid-looking row still has, e.g. a name that must exist and doesn't. */
   check?: (db: Db, values: ImportValues) => { column: string; code: ImportErrorCode }[];
+  /** Per valid row, in order: errors it has because of the other rows of the file. */
+  checkFile?: (db: Db, rows: ImportValues[]) => { column: string; code: ImportErrorCode }[][];
   // The rest is for rows with a `source` (from an integration or a zip).
   /** The existing row each source key was imported as. A hit beats the matcher. */
   bySource?: (db: Db) => Map<string, string>;
@@ -176,6 +178,16 @@ export function createReview(db: Db, dataDir: string) {
       const hit = byId.has(id) ? id : (r.source && bySource.get(r.source)) || null;
       return { hit, raw: r.raw, row: r.n, ...p };
     });
+    // Errors rows have only together (an install overlapping another row of the file).
+    const clean = parsed.filter((p) => !p.errors.length);
+    handler
+      .checkFile?.(
+        db,
+        clean.map((p) => p.values),
+      )
+      .forEach((errors, i) => {
+        clean[i]?.errors.push(...errors);
+      });
     const valid = parsed.filter((p) => !p.errors.length);
     const open = valid.filter((p) => !p.hit);
     const linked = new Set(bySource.values());

@@ -125,8 +125,23 @@ export const installImport = {
     return errors;
   },
 
-  // ponytail: two rows of one file that overlap each other pass the review and fail the apply
-  // (all or nothing); check them against each other in `check` if that turns out to hurt.
+  /** A row that overlaps an earlier row of the file for the same accessory is invalid. */
+  checkFile(db: Db, rows: ImportValues[]) {
+    const look = lookups(db);
+    const taken = new Map<string, [string, string | null][]>();
+    return rows.map((v) => {
+      const accessoryId = find(look.accessories, v.accessory);
+      const start = noon(v.installedAt);
+      if (!accessoryId || !start) return [];
+      const end = noon(v.removedAt);
+      const periods = taken.get(accessoryId) ?? [];
+      if (periods.some(([s, e]) => start < (e ?? "￿") && s < (end ?? "￿")))
+        return [{ column: "installedAt", code: "overlap" as const }];
+      taken.set(accessoryId, [...periods, [start, end]]);
+      return [];
+    });
+  },
+
   create(db: Db, v: ImportValues) {
     const look = lookups(db);
     const accessoryId = find(look.accessories, v.accessory) ?? "";

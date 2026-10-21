@@ -217,7 +217,7 @@ Do Step 16 of PLAN.md. Follow how the prints import type is built, end to end.
 ### [ ] Step 17 - Import projects (file)  **[plan mode]**
 **Model:** Opus · **Effort:** Medium
 **Scope:**
-- Projects become a file import type. A row with no folder (or a folder that doesn't exist) creates a project with no folder.
+- Projects become a file import type. A row with no folder (or a folder that doesn't exist) is highlighted given the option to user select a specific folder (if already contents, alert user and ask if wants to update project info with file info) or user select create folder option and app create folder with user folder name input or system create a folder with the a naming convention if user dont fill the folder name when create is selected.
 - In the review the user can map a folder to each row (reuse `PathPicker`, within the project roots) and see or change which prints get linked.
 - Prints are linked automatically with the same matching `linkPrints` uses; the user can add or remove prints in the review.
 - A row whose folder already belongs to a project is an update or an invalid row (propose which).

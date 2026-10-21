@@ -260,6 +260,16 @@ it("imports accessory installs: round trip, bad references and overlaps are inva
     [{ column: "installedAt", code: "overlap" }],
   ]);
 
+  // Rows of one file that overlap each other: the later one is invalid.
+  const twice = await load(
+    "accessoryInstalls",
+    `${head}AMS,A,2025-07-01,2025-07-10
+AMS,B,2025-07-05,2025-07-08
+AMS,B,2025-07-10,2025-07-12
+`,
+  );
+  expect(twice.rows.map((r) => r.status)).toEqual(["new", "invalid", "new"]);
+
   // The open install gets its removal day: an update, matched on accessory, printer and day.
   const closed = await load("accessoryInstalls", `${head}AMS,B,2026-03-01,2026-04-01\n`);
   expect(closed.rows[0]).toMatchObject({ status: "changed", action: "update" });
