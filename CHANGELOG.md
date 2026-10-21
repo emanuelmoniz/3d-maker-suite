@@ -2,6 +2,19 @@
 
 All notable changes are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [2.0.0] - 2026-10-21
+
+### Added
+- Projects: manage the files in a project folder: upload, create folders, move (pick the destination among the folders), bulk move and remove
+- Projects: choose the default 3D preview file, kept when the folder is re-scanned
+- Projects: description editor with a markdown preview; saving writes the linked `.md` file
+- Projects: "View all" shows a mosaic of the plate previews, plus one cost estimate for the whole print
+
+### Fixed
+- 3MF files with large meshes are parsed instead of dropped
+- Preview choice works with Windows paths and returns to the project after saving
+- Plate preview, description editor and slicing work on the edit page
+
 ## [2.0.0-alpha.3] - 2026-10-19
 
 ### Added

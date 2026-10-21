@@ -318,7 +318,7 @@ changing anything.
 Do Step 25 of PLAN.md. List the UI issues found and fix them in this step.
 ```
 
-### [ ] Step 26 - Docs, push & v2.0.0 release
+### [x] Step 26 - Docs, push & v2.0.0 release
 **Model:** Haiku · **Effort:** Low
 **Scope:** README/docs (project files, description editor, anything missed), CHANGELOG, version `2.0.0`. Commit, push `main`, create and push tag `v2.0.0`. The release workflow publishes it as the latest release; check the run (`gh run watch`) and the release (`gh release view v2.0.0`).
 **Done when:** `main` and the tag are pushed; the workflow is green; the release is the latest; docs match the app.
