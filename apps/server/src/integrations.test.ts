@@ -15,6 +15,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import { buildApp } from "./app.ts";
 import { loadKey } from "./integrations/secrets.ts";
+import { spoolRows } from "./integrations/sourceRows.ts";
 import { createSyncer } from "./integrations/sync.ts";
 import { modelIdFor } from "./lib/catalog.ts";
 import { reviewer } from "./testReview.ts";
@@ -554,23 +555,23 @@ describe("capabilities", () => {
   it("are what the adapter supports, switched on and set up", async () => {
     const { id } = await create();
     // `slice` also needs a slicer program.
-    expect(await caps(id)).toEqual(["printers", "prints", "spools"]);
+    expect(await caps(id)).toEqual(["printers", "prints"]);
     const adapters = await get("/api/integrations/adapters");
     expect(adapters[0]).toMatchObject({
       id: "mock",
       capabilities: ["printers", "prints", "spools", "slice"],
     });
 
-    // Until changed, every type follows its default policy.
+    // Until changed, every type follows its default policy; spools start off on a new integration.
     const defaults = { lastRunAt: null, pending: 0, alertSeverities: null, trackUsage: true };
     expect((await get(`/api/integrations/${id}`)).policies).toEqual([
       { type: "printers", mode: "auto", frequency: "1d", ...defaults },
       { type: "prints", mode: "auto", frequency: "1h", ...defaults },
-      { type: "spools", mode: "manual", frequency: "1d", ...defaults },
+      { type: "spools", mode: "off", frequency: "1d", ...defaults },
       { type: "slice", mode: "manual", frequency: "1d", ...defaults },
     ]);
     const patched = (await setPolicy(id, "prints", { mode: "off" })).json();
-    expect(patched.capabilities).toEqual(["printers", "spools"]);
+    expect(patched.capabilities).toEqual(["printers"]);
     expect(patched.policies[1]).toMatchObject({ type: "prints", mode: "off", frequency: "1h" });
     await send("PATCH", `/api/integrations/${id}`, { enabled: false });
     expect(await caps(id)).toEqual([]);
@@ -579,6 +580,19 @@ describe("capabilities", () => {
     expect((await setPolicy(id, "openInSlicer", { mode: "off" })).json().error.code).toBe(
       "invalid_policy",
     );
+  });
+
+  it("keep the setting of integrations added before spools started off", async () => {
+    const { id } = await create();
+    db.delete(schema.syncPolicies).where(eq(schema.syncPolicies.integrationId, id)).run();
+    expect(await caps(id)).toEqual(["printers", "prints", "spools"]);
+    const spools = (await get(`/api/integrations/${id}`)).policies[2];
+    expect(spools).toMatchObject({ type: "spools", mode: "manual", trackUsage: true });
+    await setPolicy(id, "spools", { trackUsage: false });
+    expect((await get(`/api/integrations/${id}`)).policies[2]).toMatchObject({
+      mode: "manual",
+      trackUsage: false,
+    });
   });
 
   it("account ones need a sign-in when the adapter has one", async () => {
@@ -931,5 +945,29 @@ describe("filament matching of imported prints", () => {
       message: expect.stringMatching(/Spool \d{3}-.* has 1 g left, but ".*" needs \d+(\.\d+)? g/),
     });
     expect(await queue()).toHaveLength(3);
+  });
+});
+
+describe("spool rows from a vendor", () => {
+  const vendor = (spoolId: string) => ({
+    spoolId,
+    profile: { brand: "", material: "PLA", name: "PLA" },
+    colorHex: "#ff8800",
+    colorName: null,
+    initialGrams: 1000,
+    remainingGrams: 400,
+    emptyWeightGrams: null,
+    status: "in_use" as const,
+  });
+
+  it("leave the weight of a spool you have alone when usage isn't tracked", async () => {
+    const s = await spool();
+    db.update(schema.spools).set({ sourceSpool: "mock:1" }).where(eq(schema.spools.id, s.id)).run();
+    const items = [vendor("mock:1"), vendor("mock:2")];
+    const weights = (track: boolean) =>
+      spoolRows(db, items, track).map((r) => r.raw.remainingGrams);
+    expect(weights(true)).toEqual([400, 400]);
+    // A new spool still starts with the vendor's weight.
+    expect(weights(false)).toEqual([undefined, 400]);
   });
 });

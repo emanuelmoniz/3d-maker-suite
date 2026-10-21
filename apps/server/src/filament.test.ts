@@ -221,14 +221,22 @@ describe("filament library", () => {
   const patchSlicer = (payload: object) =>
     app.inject({ method: "PATCH", url: `/api/integrations/${slicerId}`, payload });
   const setDir = (p: string) => patchSlicer({ slicerConfigDir: p });
-  const addMock = async () =>
-    (
+  // Spools sync starts off on a new integration; these tests use it.
+  const addMock = async () => {
+    const id = (
       await app.inject({
         method: "POST",
         url: "/api/integrations",
         payload: { adapterId: "mock", secrets: { token: "t" } },
       })
     ).json().id as string;
+    await app.inject({
+      method: "PATCH",
+      url: `/api/integrations/${id}`,
+      payload: { policies: [{ type: "spools", mode: "manual" }] },
+    });
+    return id;
+  };
   const addProfile = (name: string) =>
     db
       .insert(schema.filamentProfiles)

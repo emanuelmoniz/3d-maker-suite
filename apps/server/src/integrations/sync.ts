@@ -529,7 +529,8 @@ export function createSyncer(
   ): Promise<Stored> {
     const from = { kind: "integration" as const, integrationId: row.id };
     if (type === "spools") {
-      const rows = spoolRows(db, instance ? await readSpools(row, instance) : []);
+      const track = policyOf(db, row.id, "spools").trackUsage;
+      const rows = spoolRows(db, instance ? await readSpools(row, instance) : [], track);
       return { entity: type, ignoredHeaders: [], from, rows };
     }
     if (type === "prints") {

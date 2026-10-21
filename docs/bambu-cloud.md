@@ -29,6 +29,20 @@ Each slot of a print is matched to a spool by material and colour. A match only 
 
 By default print history syncs every hour and printers every day. On the Integrations page each type has its own mode (off, manual, automatic) and frequency, a "Sync now" button, and for print history a date range to re-import. The Printers, Prints and Filament pages each have a **Sync from Bambu Cloud** button for their own type. Each sync reports its result as an alert: new and updated rows, rows waiting for review, or an error. Spools are imported by hand unless you set them to automatic; then only spools with exactly one matching filament profile are imported and the rest waits for you under "Review and import".
 
+## Spools: why they are off by default
+
+Spools sync is **off** when you add the integration (integrations added earlier keep their setting). Turn it on under **Integrations → Sync** if you want it.
+
+The remaining weight Bambu reports is an estimate, not a measurement:
+
+- The AMS has no scale. It counts the filament it feeds out and the turns of the spool, and works out the rest from the spool's size ([how the printer knows](https://forum.bambulab.com/t/how-does-the-printer-know-how-much-filament-is-left-on-the-spool/18200?page=3), [estimation guidelines](https://forum.bambulab.com/t/ams-filament-estimation-guide-lines/238750)).
+- It is only close for Bambu spools. Third-party spools differ in diameter, width and winding, and have no RFID tag ([non-Bambu filament](https://forum.bambulab.com/t/ams-estimate-remaining-filament-for-non-bambu-filaments/2404), [calculating the remains](https://forum.bambulab.com/t/calculating-the-remains-on-a-spool/123429)).
+- The Filament Manager sometimes stops updating, or goes back to 1000 g, also with Bambu spools ([AMS 2 Pro not updating](https://forum.bambulab.com/t/filament-manager-recognising-but-not-updating-ams2-pro/255257), [Filament Manager problem](https://forum.bambulab.com/t/problem-with-filament-manager-at-bambu-lab-studio/256589)).
+- Studio's local copy can differ from the cloud (BambuStudio#10766).
+- Tools like [SimplyPrint](https://simplyprint.io/features/filament-management/nfc/bambu-lab) take usage from the prints for spools without RFID.
+
+**Track usage on spools** (on by default once spools sync is on) replaces the weight of spools you already have with Bambu's. Switch it off to keep the weight your prints took off: spools sync then only adds and links spools. Tracking usage from both prints and spools at the same time is not recommended. The weight is overwritten or counted twice, and the Integrations page warns you.
+
 ## When it stops working
 
 | Message | Meaning | What to do |

@@ -29,7 +29,7 @@ Status legend: `[ ]` todo · `[x]` done
 Do Step 1 of PLAN.md.
 ```
 
-### [ ] Step 2 - Bambu Cloud spools sync: off by default, double tracking warning
+### [x] Step 2 - Bambu Cloud spools sync: off by default, double tracking warning
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - Spool usage tracking from Bambu Cloud is unreliable. First find out why: search online for official Bambu Lab threads / wiki / known issues (AMS remaining %, RFID vs third-party spools, cloud data lag) and check our own sync code. Document the findings with links in `docs/bambu-cloud.md`.

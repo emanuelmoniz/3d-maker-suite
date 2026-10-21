@@ -404,6 +404,9 @@ function Policies({
       </span>
     );
   };
+  const tracking = (type: string) =>
+    i.policies.some((p) => p.type === type && p.mode !== "off" && p.trackUsage);
+  const doubleTracking = tracking("prints") && tracking("spools");
   return (
     <div className="mt-4 grid gap-3">
       {patch.isError && (
@@ -496,18 +499,21 @@ function Policies({
           },
           // Runs without a review (scheduled, "sync now"); a review asks on its own.
           // Only integrations that sync prints have a print policy to track.
-          ...(i.policies.some((p) => p.type === "prints")
+          ...(i.policies.some((p) => p.type === "prints" || p.type === "spools")
             ? [
                 {
                   id: "trackUsage",
                   header: t("integrations:policies.trackUsage"),
                   cell: (p: (typeof i.policies)[number]) =>
-                    p.type === "prints" && p.mode !== "off" ? (
+                    (p.type === "prints" || p.type === "spools") && p.mode !== "off" ? (
                       <input
                         type="checkbox"
-                        aria-label={t("integrations:policies.trackUsageOf", {
-                          type: t(CAPS[p.type]),
-                        })}
+                        aria-label={t(
+                          p.type === "spools"
+                            ? "integrations:policies.trackUsageSpools"
+                            : "integrations:policies.trackUsageOf",
+                          { type: t(CAPS[p.type]) },
+                        )}
                         checked={p.trackUsage}
                         disabled={patch.isPending}
                         onChange={(e) =>
@@ -536,6 +542,11 @@ function Policies({
         ]}
       />
       <p className="text-muted">{t("integrations:policies.hint")}</p>
+      {doubleTracking && (
+        <p role="status" className="text-warn">
+          {t("integrations:policies.doubleTracking")}
+        </p>
+      )}
       {prints && (
         <div className="grid gap-3 sm:grid-cols-2">
           <FormField label={t("integrations:sync.range")} hint={t("integrations:sync.rangeHint")}>

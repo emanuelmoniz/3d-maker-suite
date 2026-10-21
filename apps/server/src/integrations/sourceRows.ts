@@ -249,7 +249,7 @@ export function printRows(db: Db, integrationId: string, items: ExternalPrint[])
 }
 
 /** A vendor's spools. `spoolId` is already `<adapterId>:<id>`. */
-export function spoolRows(db: Db, items: LibrarySpool[]): StoredRow[] {
+export function spoolRows(db: Db, items: LibrarySpool[], trackUsage = true): StoredRow[] {
   const imported = new Set(
     db
       .select({ s: spools.sourceSpool })
@@ -270,7 +270,12 @@ export function spoolRows(db: Db, items: LibrarySpool[]): StoredRow[] {
         const filament = mine
           ? { brand: mine.brand, material: mine.material, profile: mine.profile }
           : { brand: profile.brand, material: profile.material, profile: profile.name };
-        return { source: spoolId, raw: { ...filament, ...s } };
+        // Not tracking: a spool you have keeps its weight (a new one starts with the vendor's).
+        const { remainingGrams, ...rest } = s;
+        return {
+          source: spoolId,
+          raw: { ...filament, ...rest, ...(trackUsage || !mine ? { remainingGrams } : {}) },
+        };
       }),
   );
 }

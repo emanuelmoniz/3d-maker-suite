@@ -152,6 +152,8 @@
     "alertOf": "Alert on {{severity}}: {{type}}",
     "trackUsage": "Track usage",
     "trackUsageOf": "Take the filament of synced {{type}} from the spools",
+    "trackUsageSpools": "Take the remaining weight of synced spools from the vendor",
+    "doubleTracking": "Tracking usage from both prints and spools at the same time is not recommended: the same filament can be counted twice, or the vendor's estimate can overwrite the weight your prints took off.",
     "hint": "Automatic runs only import what needs no decision from you. Anything else waits under \"Review and import\".",
     "modes": {
       "off": "Off",
