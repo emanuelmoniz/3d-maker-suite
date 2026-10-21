@@ -12,22 +12,32 @@ export function SearchPicker({
   options,
   value,
   onChange,
+  browse,
 }: {
   label: string;
   hint?: string;
   options: { id: string; label: string }[];
   value: string[];
   onChange: (ids: string[]) => void;
+  /** List the options as soon as the box is focused, not only once something is typed. */
+  browse?: boolean;
 }) {
   const { t } = useTranslation();
   const [q, setQ] = useState("");
+  const [focused, setFocused] = useState(false);
   const needle = q.trim().toLowerCase();
-  const matches = (needle ? options : []).filter(
+  const listed = !!needle || (!!browse && focused);
+  const matches = (listed ? options : []).filter(
     (o) => !value.includes(o.id) && o.label.toLowerCase().includes(needle),
   );
   const selected = value.flatMap((id) => options.find((o) => o.id === id) ?? []);
   return (
-    <div className="grid gap-2">
+    // biome-ignore lint/a11y/noStaticElementInteractions: focus tracking only; the controls inside are the interactive ones
+    <div
+      className="grid gap-2"
+      onFocus={() => setFocused(true)}
+      onBlur={(e) => e.currentTarget.contains(e.relatedTarget) || setFocused(false)}
+    >
       <FormField label={label} hint={hint}>
         {(p) => (
           <input
@@ -57,8 +67,12 @@ export function SearchPicker({
           ))}
         </ul>
       )}
-      {needle && (
-        <ul className="grid max-h-56 overflow-y-auto rounded-md border border-border">
+      {listed && (
+        // Keeps the box focused while an option is clicked (Safari does not focus buttons).
+        <ul
+          className="grid max-h-56 overflow-y-auto rounded-md border border-border"
+          onMouseDown={(e) => e.preventDefault()}
+        >
           {matches.slice(0, MAX_RESULTS).map((o) => (
             <li key={o.id}>
               <button

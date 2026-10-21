@@ -10,7 +10,12 @@ import { PathPicker } from "../../components/PathPicker.tsx";
 import { isConflict } from "../../lib/catalog.ts";
 import { usePreferences } from "../../lib/preferences.ts";
 import { uploadProjectFile } from "../../lib/projectFiles.ts";
-import { useCreateProject, usePatchProject, useProject } from "../../lib/projects.ts";
+import {
+  galleryImages,
+  useCreateProject,
+  usePatchProject,
+  useProject,
+} from "../../lib/projects.ts";
 import { DescriptionEditor, type DescriptionState } from "./DescriptionEditor.tsx";
 import { GalleryPicker } from "./GalleryPicker.tsx";
 import { SlicingSetup } from "./SlicingSetup.tsx";
@@ -42,7 +47,10 @@ function ProjectForm({ project }: { project?: Project }) {
     : "";
   const [preview, setPreview] = useState(initialPreview);
   const images = files.filter((f) => f.kind === "image");
-  const [gallery, setGallery] = useState(project?.gallery ?? { folders: [], images: [] });
+  // The picker works on single images: folder picks saved by an older version become their images.
+  const [gallery, setGallery] = useState(() =>
+    project ? galleryImages(project).map((f) => f.path) : [],
+  );
   const [cover, setCover] = useState(project?.coverFile ?? "");
 
   const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -74,7 +82,8 @@ function ProjectForm({ project }: { project?: Project }) {
       if (file) delete changed.description;
       if (file !== project.descriptionFile) changed.descriptionFile = file;
       if (preview !== initialPreview) changed.previewFile = preview || null;
-      if (JSON.stringify(gallery) !== JSON.stringify(project.gallery)) changed.gallery = gallery;
+      if (JSON.stringify(gallery) !== JSON.stringify(galleryImages(project).map((f) => f.path)))
+        changed.gallery = { folders: [], images: gallery };
       if ((cover || null) !== project.coverFile) changed.coverFile = cover || null;
       if (file && description.text !== description.original) {
         try {
