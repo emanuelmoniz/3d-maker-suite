@@ -38,7 +38,7 @@ test("project slicing setup: defaults from the default printer, saves, reloads, 
   await seedProfile(app.api);
 
   await page.goto(`/projects/${project.id}/edit`);
-  const section = page.getByRole("region", { name: "Slicing setup" });
+  const section = page.getByRole("region", { name: "Print setup" });
   await section.getByRole("checkbox", { name: /benchy\.3mf/ }).check();
   const printProfile = section.getByRole("combobox", { name: `Print profile for ${plateName}` });
   // "Acme X1" isn't the A1 the file was made for: its default profile, and only its profiles.
@@ -87,7 +87,7 @@ test("slicing a project with the mock slicer: results, estimate, list filter, re
   await seedSpool(app.api);
 
   await page.goto(`/projects/${project.id}/edit`);
-  const section = page.getByRole("region", { name: "Slicing setup" });
+  const section = page.getByRole("region", { name: "Print setup" });
   await section.getByRole("checkbox", { name: /benchy\.3mf/ }).check();
   // No printer: the file's own print profile, named after the 3MF's preset.
   await expect(section.getByRole("combobox", { name: /^Print profile for/ })).toHaveValue(

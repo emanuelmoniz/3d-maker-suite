@@ -75,7 +75,7 @@ Do Step 5 of PLAN.md. Reuse printerStats; tell me the success rate definition yo
 
 ## Phase 2 - Project page
 
-### [ ] Step 6 - Project page layout and labels
+### [x] Step 6 - Project page layout and labels
 **Model:** Haiku · **Effort:** Low
 **Scope:**
 - Remove the line "PLA · Multicolor - BambuStudio … · Bambu Lab A1 · 0.4 mm" from the project page.

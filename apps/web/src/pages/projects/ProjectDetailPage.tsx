@@ -421,6 +421,7 @@ export function ProjectDetailPage() {
           </>
         }
       />
+      {project.folderPath && <p className="break-all text-muted">{project.folderPath}</p>}
       <p role="status" className={open.isError ? "text-bad" : "sr-only"}>
         {open.isError
           ? openError(t, open.error.message)
@@ -475,26 +476,6 @@ export function ProjectDetailPage() {
           <SlicedEstimate project={project} />
           <PrintedCost id={id} />
           {tags.length > 0 && <TagList tags={tags} />}
-          {(project.meta.materials.length > 0 || project.meta.multicolor) && (
-            <p className="text-muted">
-              {[
-                ...project.meta.materials,
-                ...(project.meta.multicolor ? [t("projects:list.multicolor")] : []),
-              ].join(" · ")}
-            </p>
-          )}
-          {info && (
-            <p className="text-muted">
-              {[
-                info.slicer && `${info.slicer.name} ${info.slicer.version ?? ""}`.trim(),
-                info.printerModel,
-                info.nozzleDiameter != null && `${info.nozzleDiameter} mm`,
-              ]
-                .filter(Boolean)
-                .join(" · ")}
-            </p>
-          )}
-          {project.folderPath && <p className="break-all text-muted">{project.folderPath}</p>}
         </div>
       </div>
 

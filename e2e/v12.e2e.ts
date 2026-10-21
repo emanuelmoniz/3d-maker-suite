@@ -136,13 +136,13 @@ test("projects: add a project from a folder, link a description file, edit by ha
   await page.goto(`/projects/${project?.id}/edit`);
   await pick(page.getByLabel("Description file"), "notes.md");
   // The file's text shows at once, in the editor and the preview.
-  await expect(page.getByLabel("Description", { exact: true })).toHaveValue(notes);
+  await expect(page.getByLabel("Project info", { exact: true })).toHaveValue(notes);
   await expect(
     page.getByRole("region", { name: "Preview" }).locator("strong", { hasText: "world" }),
   ).toBeVisible();
   await page.getByRole("button", { name: "Save" }).click();
   await page.goto(`/projects/${project?.id}`);
-  await expect(page.getByRole("heading", { name: "Description" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Project info" })).toBeVisible();
   await expect(page.getByText("Hello")).toBeVisible();
   // Tables and images next to the file (served from the project folder).
   await expect(page.getByRole("table")).toContainText("1");
@@ -153,7 +153,7 @@ test("projects: add a project from a folder, link a description file, edit by ha
 
   await page.goto(`/projects/${project?.id}/edit`);
   await pick(page.getByLabel("Description file"), "None");
-  await page.getByLabel("Description", { exact: true }).fill("By hand");
+  await page.getByLabel("Project info", { exact: true }).fill("By hand");
   await page.getByRole("button", { name: "Save" }).click();
   const after = await app.api<{ description: string; descriptionFile: string | null }>(
     "GET",
@@ -180,7 +180,7 @@ test("projects: the description editor writes the .md file and the preview file 
   const id = items[0]?.id;
 
   await page.goto(`/projects/${id}/edit`);
-  const editor = page.getByLabel("Description", { exact: true });
+  const editor = page.getByLabel("Project info", { exact: true });
   await editor.fill("# Gadget");
   await pick(page.getByLabel("Description file"), "New file…");
   const create = dialog(page);

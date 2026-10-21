@@ -43,7 +43,7 @@
     "addTitle": "New project",
     "editTitle": "Edit project",
     "name": "Name",
-    "description": "Description",
+    "description": "Project info",
     "sourceUrl": "Design page",
     "sourceUrlHint": "A MakerWorld, Printables or Thingiverse link, or any web address.",
     "descriptionFile": "Description file",
@@ -113,7 +113,7 @@
     "model": "Model file",
     "plates": "Plates",
     "plate": "Plate {{index}}",
-    "description": "Description",
+    "description": "Project info",
     "setUpSlicing": "Set up slicing",
     "slicing": "Slicing…",
     "sliceOutdated": "outdated",
@@ -138,7 +138,7 @@
     "viewAllHint_other": "All {{count}} plates"
   },
   "slicing": {
-    "title": "Slicing setup",
+    "title": "Print setup",
     "hint": "Pick the plates one print of this project takes, and the print profile and filaments for each.",
     "noFiles": "This project has no 3MF files.",
     "platesPicked_one": "{{count}} of {{total}} plate",
