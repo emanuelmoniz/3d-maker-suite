@@ -13,7 +13,7 @@
   },
   "aggregated": {
     "title": "Aggregated cost",
-    "hint": "Material cost calculated from spools or filaments selected in set up print or an average if no selection made."
+    "hint": "Material cost calculated from spools or filaments selected in Print setup or an average if no selection made."
   },
   "quote": {
     "title": "Price",
@@ -26,7 +26,7 @@
     "total_other": "Total for {{count}} prints"
   },
   "form": {
-    "print": "Print",
+    "print": "Print Setup",
     "project": "Project",
     "noProject": "No project",
     "plates": "Files and plates",
@@ -89,10 +89,10 @@
   "project": {
     "printed": "Cost of printed copies",
     "onePrint": "Production cost of one print",
-    "onePrintHint": "From set up print settings, using {{printer}}.",
+    "onePrintHint": "According to print setup settings, using {{printer}}.",
     "onePrintHintNoPrinter": "From the sliced plates, with the chosen spools' or filaments' prices (else the average per material). Add a printer to include energy and wear.",
     "partial": "{{sliced}} of {{total}} plates are sliced; the estimate only counts those.",
-    "onePrintHintPrinters": "From the sliced plates, each on its own printer, with the chosen spools' or filaments' prices (else the average per material).",
+    "onePrintHintPrinters": "According to print setup settings, using multiple printers.",
     "materialTotal": "Total {{material}}"
   }
 }

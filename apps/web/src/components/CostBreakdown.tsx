@@ -73,7 +73,7 @@ export function PrinterHint({
   used: (string | undefined)[];
 }) {
   const { t } = useTranslation();
-  const ids = new Set(used);
+  const ids = new Set(used.filter((id): id is string => Boolean(id)));
   const printer = ids.size === 1 ? printers.find((p) => ids.has(p.id)) : undefined;
   return (
     <p className="text-muted">
