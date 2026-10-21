@@ -1,4 +1,6 @@
 import {
+  ALERT_SEVERITIES,
+  type AlertSeverity,
   type Capability,
   INTEGRATION_KINDS,
   type Integration,
@@ -110,6 +112,11 @@ const ACTION_MODES = {
 // Types whose rows are reviewed and confirmed. They can also run straight from here: a run
 // imports the rows that need no decision (catalog rows, spools with one matching profile, presets
 // whose brand and material exist) and leaves the rest pending for the review page.
+const SEVERITY = {
+  error: "integrations:policies.alertSeverity.error",
+  warning: "integrations:policies.alertSeverity.warning",
+  success: "integrations:policies.alertSeverity.success",
+} as const satisfies Record<AlertSeverity, string>;
 const isReviewed = (c: Capability): c is ReviewedType =>
   (REVIEWED_TYPES as readonly string[]).includes(c);
 const RUN_STATUSES = { ok: "integrations:runs.ok", error: "integrations:runs.error" };
@@ -445,22 +452,46 @@ function Policies({
                   ),
           },
           {
-            // Only an auto run of a reviewed type leaves rows for a person.
+            // Empty (null) = all three; picking all three again goes back to it.
             id: "alert",
             header: t("integrations:policies.alert"),
             cell: (p) =>
-              isReviewed(p.type) && p.mode === "auto" ? (
-                <input
-                  type="checkbox"
-                  aria-label={t("integrations:policies.alertOf", { type: t(CAPS[p.type]) })}
-                  checked={p.alert}
-                  disabled={patch.isPending}
-                  onChange={(e) =>
-                    patch.mutate({ policies: [{ type: p.type, alert: e.target.checked }] })
-                  }
-                />
-              ) : (
+              isAction(p.type) || p.mode === "off" ? (
                 "–"
+              ) : (
+                <div className="flex flex-wrap gap-x-3">
+                  {ALERT_SEVERITIES.map((s) => {
+                    const picked = (x: AlertSeverity) => p.alertSeverities?.includes(x) ?? true;
+                    return (
+                      <label key={s} className="flex items-center gap-1">
+                        <input
+                          type="checkbox"
+                          aria-label={t("integrations:policies.alertOf", {
+                            severity: t(SEVERITY[s]),
+                            type: t(CAPS[p.type]),
+                          })}
+                          checked={picked(s)}
+                          disabled={patch.isPending}
+                          onChange={() => {
+                            const next = ALERT_SEVERITIES.filter((x) =>
+                              x === s ? !picked(s) : picked(x),
+                            );
+                            patch.mutate({
+                              policies: [
+                                {
+                                  type: p.type,
+                                  alertSeverities:
+                                    next.length === ALERT_SEVERITIES.length ? null : next,
+                                },
+                              ],
+                            });
+                          }}
+                        />
+                        {t(SEVERITY[s])}
+                      </label>
+                    );
+                  })}
+                </div>
               ),
           },
           // Runs without a review (scheduled, "sync now"); a review asks on its own.

@@ -34,7 +34,13 @@ import { modelIdFor } from "../lib/catalog.ts";
 import { nextNumber } from "../lib/numbers.ts";
 import { bookOrLink } from "../lib/prints.ts";
 import { linkPrints } from "../projects/linkPrints.ts";
-import { activeCapabilities, capableRow, policyOf, switchedOn } from "./capabilities.ts";
+import {
+  activeCapabilities,
+  capableRow,
+  policyOf,
+  raisesSeverity,
+  switchedOn,
+} from "./capabilities.ts";
 import { libraryOf } from "./imports.ts";
 import { secretStore } from "./secrets.ts";
 import { activeSpools, libraryRows, printRows, spoolHistory, spoolRows } from "./sourceRows.ts";
@@ -322,7 +328,8 @@ export function createSyncer(
       .get();
     // A sync's result is an alert; a confirmed review (`pick`) isn't, the person is looking at it.
     // A type that keeps failing alerts once, until a run goes through again.
-    if (!pick && policyOf(db, id, type).alert) {
+    const severity = errorCode ? "error" : "success";
+    if (!pick && raisesSeverity(policyOf(db, id, type), severity)) {
       const about = { integrationId: id, adapterId: row.adapterId, type };
       const context = errorCode
         ? previous?.status !== "error" && { ...about, code: errorCode }
@@ -330,7 +337,7 @@ export function createSyncer(
       if (context)
         raise(db, {
           kind: errorCode ? "sync_error" : "sync_success",
-          severity: errorCode ? "error" : "success",
+          severity,
           module: "integrations",
           task: `sync:${id}:${type}`,
           entityType: "sync_run",

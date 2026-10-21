@@ -15,6 +15,7 @@ import {
   useSpool,
 } from "../../lib/filament.ts";
 import { dateInputToIso, isoToDateInput } from "../../lib/format.ts";
+import { usePreferences } from "../../lib/preferences.ts";
 import { useTagEditor } from "../../lib/tags.ts";
 import { STATUS } from "./FilamentPage.tsx";
 
@@ -48,6 +49,7 @@ export function SpoolForm({
   const patch = usePatchSpool();
   const save = spool ? patch : create;
   const tags = useTagEditor("spool", spool?.id);
+  const prefs = usePreferences().data?.values;
   const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const form = e.currentTarget;
@@ -60,6 +62,9 @@ export function SpoolForm({
       colorName: text(f, "colorName") || null,
       initialGrams: Number(text(f, "initial")),
       emptyWeightGrams: float(text(f, "empty")),
+      lowGrams: float(text(f, "lowGrams")),
+      // On is the default, so only "off" is stored.
+      lowAlert: f.has("lowAlert") ? null : false,
       pricePaid: num(text(f, "price"), 100),
       purchasedAt: date("purchasedAt"),
       openedAt: date("openedAt"),
@@ -161,6 +166,16 @@ export function SpoolForm({
         ...grams,
         defaultValue: spool?.emptyWeightGrams ?? undefined,
       })}
+      {field(
+        "lowGrams",
+        "filament:spools.lowGrams",
+        { ...grams, defaultValue: spool?.lowGrams ?? undefined },
+        t("filament:spools.lowGramsHint", { grams: prefs?.lowSpoolGrams }),
+      )}
+      <label className="flex items-center gap-2">
+        <input type="checkbox" name="lowAlert" defaultChecked={spool?.lowAlert !== false} />
+        {t("filament:spools.lowAlert")}
+      </label>
       {field("price", "filament:spools.price", {
         type: "number",
         min: 0,

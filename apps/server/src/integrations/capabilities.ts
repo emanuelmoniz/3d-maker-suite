@@ -1,5 +1,6 @@
 import { existsSync } from "node:fs";
 import {
+  type AlertSeverity,
   type Capability,
   defaultPolicy,
   type FilamentLibrary,
@@ -27,11 +28,15 @@ export function policyOf(db: Db, integrationId: string, type: Capability) {
       lastRunAt: null,
       cursor: null,
       pending: 0,
-      alert: true,
+      alertSeverities: null,
       trackUsage: true,
     }
   );
 }
+
+/** Does the policy raise this severity? Empty (null) = all of them. */
+export const raisesSeverity = (p: { alertSeverities: AlertSeverity[] | null }, s: AlertSeverity) =>
+  !p.alertSeverities || p.alertSeverities.includes(s);
 
 /** First default config folder of the slicer that exists on this PC. */
 export const detectedDir = (lib?: FilamentLibrary) =>

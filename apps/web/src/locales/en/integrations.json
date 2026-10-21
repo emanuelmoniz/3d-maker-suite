@@ -143,8 +143,13 @@
     "pending_other": "{{count}} waiting for review",
     "modeOf": "Mode: {{type}}",
     "frequencyOf": "Frequency: {{type}}",
-    "alert": "Alert",
-    "alertOf": "Alert when {{type}} wait for review",
+    "alert": "Alerts",
+    "alertSeverity": {
+      "error": "Error",
+      "warning": "Review",
+      "success": "Success"
+    },
+    "alertOf": "Alert on {{severity}}: {{type}}",
     "trackUsage": "Track usage",
     "trackUsageOf": "Take the filament of synced {{type}} from the spools",
     "hint": "Automatic runs only import what needs no decision from you. Anything else waits under \"Review and import\".",

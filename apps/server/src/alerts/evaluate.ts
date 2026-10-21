@@ -3,18 +3,20 @@ import type {
   AlertKind,
   AlertModule,
   AlertSeverity,
+  MaintenanceDueItem,
   Notification,
   SyncType,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
 import { and, desc, eq, gt, isNull, ne } from "drizzle-orm";
+import { raisesSeverity } from "../integrations/capabilities.ts";
 import { spoolName } from "../lib/catalog.ts";
 import { dueItems } from "../lib/maintenance.ts";
 import { printerTitle } from "../lib/numbers.ts";
 import { readPreferences } from "../lib/preferences.ts";
 import { channels, readChannel, sendVia } from "./channels.ts";
 
-const { alerts, integrations, spools, printers, syncPolicies, syncRuns } = schema;
+const { alerts, integrations, maintenanceTypes, spools, printers, syncPolicies, syncRuns } = schema;
 const DAY_MS = 86_400_000;
 // ponytail: fixed lead time, make it a preference if anyone asks.
 const WARRANTY_LEAD_DAYS = 30;
@@ -26,6 +28,32 @@ const WARRANTY_LEAD_DAYS = 30;
  * ponytail: dismissed ones are never pruned; delete old dismissed rows if the table grows.
  */
 const ONE_SHOT = new Set<AlertKind>(["sync_success", "sync_error"]);
+
+/**
+ * Overdue is an error; before that, a warning once a lead set on the type is reached (a type
+ * without one keeps the old rule: "upcoming", or within the global lead days). Each can be off:
+ * an overdue item with its error off stays a warning, and none at all if that is off too.
+ */
+function maintenanceSeverity(
+  d: MaintenanceDueItem,
+  t: typeof maintenanceTypes.$inferSelect | undefined,
+  defaultLeadDays: number,
+): AlertSeverity | null {
+  const warn = t?.warnEnabled !== false;
+  if (d.progress >= 1) return t?.errorEnabled !== false ? "error" : warn ? "warning" : null;
+  if (!warn) return null;
+  const set = t && [t.warnLeadDays, t.warnLeadHours, t.warnLeadPrints].some((v) => v != null);
+  const hit = set
+    ? (t.warnLeadDays != null && d.remainingDays !== null && d.remainingDays <= t.warnLeadDays) ||
+      (t.warnLeadHours != null &&
+        d.remainingSec !== null &&
+        d.remainingSec <= t.warnLeadHours * 3600) ||
+      (t.warnLeadPrints != null &&
+        d.remainingPrints !== null &&
+        d.remainingPrints <= t.warnLeadPrints)
+    : d.status !== "ok" || (d.remainingDays !== null && d.remainingDays <= defaultLeadDays);
+  return hit ? "warning" : null;
+}
 
 type Ctx = Record<string, string | number>;
 /** An alert as its source raises it (ADR-0008). */
@@ -53,11 +81,17 @@ function conditions(db: Db, now: Date): Found {
   const add = (a: Raised) => found.set(`${a.kind}|${a.entityType}|${a.entityId}`, a);
 
   for (const s of db
-    .select({ id: spools.id, grams: spools.remainingGrams, name: spoolName })
+    .select({
+      id: spools.id,
+      grams: spools.remainingGrams,
+      lowGrams: spools.lowGrams,
+      lowAlert: spools.lowAlert,
+      name: spoolName,
+    })
     .from(spools)
     .where(and(isNull(spools.archivedAt), ne(spools.status, "empty")))
     .all())
-    if (s.grams <= prefs.lowSpoolGrams)
+    if (s.lowAlert !== false && s.grams <= (s.lowGrams ?? prefs.lowSpoolGrams))
       add({
         kind: "spool_low",
         severity: "warning",
@@ -68,17 +102,22 @@ function conditions(db: Db, now: Date): Found {
         context: { name: s.name, grams: Math.round(s.grams) },
       });
 
-  for (const d of dueItems(db))
-    if (
-      d.status !== "ok" ||
-      (d.remainingDays !== null && d.remainingDays <= prefs.maintenanceLeadDays)
-    ) {
+  const types = new Map(
+    db
+      .select()
+      .from(maintenanceTypes)
+      .all()
+      .map((t) => [t.id, t]),
+  );
+  for (const d of dueItems(db)) {
+    const severity = maintenanceSeverity(d, types.get(d.typeId), prefs.maintenanceLeadDays);
+    if (severity) {
       // Printer or accessory (uuids never clash); `printer` is the target's name for either.
       const key = `${d.targetId}:${d.typeId}`;
       add({
         kind: "maintenance_due",
         // Overdue is an error; the open alert turns into one in place, without a new notification.
-        severity: d.progress >= 1 ? "error" : "warning",
+        severity,
         module: "maintenance",
         task: `maintenance:${key}`,
         entityType: "maintenance",
@@ -86,6 +125,7 @@ function conditions(db: Db, now: Date): Found {
         context: { printer: d.targetName, task: d.typeName },
       });
     }
+  }
 
   const limit = now.getTime() + WARRANTY_LEAD_DAYS * DAY_MS;
   for (const p of db.select().from(printers).where(isNull(printers.archivedAt)).all()) {
@@ -111,11 +151,11 @@ function conditions(db: Db, now: Date): Found {
       and(
         eq(integrations.enabled, true),
         eq(syncPolicies.mode, "auto"),
-        eq(syncPolicies.alert, true),
         gt(syncPolicies.pending, 0),
       ),
     )
     .all()) {
+    if (!raisesSeverity(p.policy, "warning")) continue;
     const { integrationId, type, pending } = p.policy;
     const key = `${integrationId}:${type}`;
     // The rows themselves come from the latest run's log; kept as is when it has none (it failed).

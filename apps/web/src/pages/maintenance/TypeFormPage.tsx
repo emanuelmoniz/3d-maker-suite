@@ -9,6 +9,7 @@ import { SearchPicker } from "../../components/SearchPicker.tsx";
 import { accessoryName, useAccessories, useAccessoryTypes } from "../../lib/accessories.ts";
 import { useModelInfo } from "../../lib/catalog.ts";
 import { useCreateType, useMaintenanceType, usePatchType } from "../../lib/maintenance.ts";
+import { usePreferences } from "../../lib/preferences.ts";
 import { printerName, usePrinters } from "../../lib/printers.ts";
 
 const text = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
@@ -29,6 +30,7 @@ function TypeForm({ type }: { type?: MaintenanceType }) {
   const [printerIds, setPrinterIds] = useState(type?.appliesToPrinterIds ?? []);
   const [accessoryTypes, setAccessoryTypes] = useState(type?.appliesToAccessoryTypes ?? []);
   const [accessoryIds, setAccessoryIds] = useState(type?.appliesToAccessoryIds ?? []);
+  const prefs = usePreferences().data?.values;
   const printers = usePrinters({ archived: false }).data?.items ?? [];
   const accessories = useAccessories().data?.items ?? [];
   const types = useAccessoryTypes().data ?? [];
@@ -47,6 +49,12 @@ function TypeForm({ type }: { type?: MaintenanceType }) {
       intervalSec: num(text(f, "hours"), 3600),
       intervalPrints: num(text(f, "prints")),
       intervalDays: num(text(f, "days")),
+      warnLeadDays: num(text(f, "leadDays")),
+      warnLeadHours: num(text(f, "leadHours")),
+      warnLeadPrints: num(text(f, "leadPrints")),
+      // On is the default, so only "off" is stored.
+      warnEnabled: f.has("warnEnabled") ? null : false,
+      errorEnabled: f.has("errorEnabled") ? null : false,
       target,
       // The other target's lists are cleared, so a switched type keeps no stale scope.
       appliesToModelIds: forPrinters ? modelIds : [],
@@ -61,14 +69,14 @@ function TypeForm({ type }: { type?: MaintenanceType }) {
       );
     else create.mutate(body, { onSuccess: () => navigate({ to: "/maintenance" }) });
   };
-  const interval = (name: string, label: string, value: number | null | undefined) => (
+  const interval = (name: string, label: string, value: number | null | undefined, min = 1) => (
     <FormField label={t(label)}>
       {(p) => (
         <input
           {...p}
           name={name}
           type="number"
-          min={1}
+          min={min}
           step={name === "hours" ? "any" : 1}
           defaultValue={value ?? undefined}
           className={inputClass}
@@ -110,6 +118,26 @@ function TypeForm({ type }: { type?: MaintenanceType }) {
         {interval("hours", "maintenance:types.hours", type?.intervalSec && type.intervalSec / 3600)}
         {interval("prints", "maintenance:types.prints", type?.intervalPrints)}
         {interval("days", "maintenance:types.days", type?.intervalDays)}
+      </fieldset>
+      <fieldset className="grid gap-4">
+        <legend className="mb-3 text-muted">
+          {t("maintenance:types.alertsHint", { days: prefs?.maintenanceLeadDays })}
+        </legend>
+        {interval("leadDays", "maintenance:types.leadDays", type?.warnLeadDays, 0)}
+        {interval("leadHours", "maintenance:types.leadHours", type?.warnLeadHours, 0)}
+        {interval("leadPrints", "maintenance:types.leadPrints", type?.warnLeadPrints, 0)}
+        <label className="flex items-center gap-2">
+          <input type="checkbox" name="warnEnabled" defaultChecked={type?.warnEnabled !== false} />
+          {t("maintenance:types.warnEnabled")}
+        </label>
+        <label className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            name="errorEnabled"
+            defaultChecked={type?.errorEnabled !== false}
+          />
+          {t("maintenance:types.errorEnabled")}
+        </label>
       </fieldset>
       <fieldset className="flex flex-wrap gap-4">
         <legend className="mb-2 font-medium">{t("maintenance:types.target")}</legend>

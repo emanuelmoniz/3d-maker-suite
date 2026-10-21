@@ -164,7 +164,7 @@ Do Step 12 of PLAN.md. Show me the ADR draft, the schema and how each existing k
 before implementing. Back up the DB before editing schema.ts.
 ```
 
-### [ ] Step 13 - Alert settings per task
+### [x] Step 13 - Alert settings per task
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - Maintenance: per maintenance type, a warning X days (or hours/prints) before due and an error when overdue, each one on or off. The global `maintenanceLeadDays` becomes the default.

@@ -3,6 +3,7 @@ import { hostname, tmpdir } from "node:os";
 import { join } from "node:path";
 import { fixture, mockAdapter } from "@3d-maker-suite/adapter-mock";
 import { openDb, schema } from "@3d-maker-suite/db";
+import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { buildApp } from "./app.ts";
 import type { Config } from "./config.ts";
@@ -90,6 +91,64 @@ describe("alerts", () => {
     expect(await list()).toHaveLength(1);
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(db.select().from(schema.alerts).all()).toHaveLength(2);
+  });
+
+  it("a spool's own weight and switch replace the default; empty follows it", async () => {
+    const id = await lowSpool();
+    const low = async () => {
+      await evaluate();
+      return (await list()).filter((a: { kind: string }) => a.kind === "spool_low").length;
+    };
+    expect(await low()).toBe(1);
+    // Below the default but above its own limit: no alert.
+    await send("PATCH", `/api/filament/spools/${id}`, { lowGrams: 20 });
+    expect(await low()).toBe(0);
+    await send("PATCH", `/api/filament/spools/${id}`, { lowGrams: 80 });
+    expect(await low()).toBe(1);
+    await send("PATCH", `/api/filament/spools/${id}`, { lowAlert: false });
+    expect(await low()).toBe(0);
+    // Empty = the default again.
+    await send("PATCH", `/api/filament/spools/${id}`, { lowGrams: null, lowAlert: null });
+    expect(await low()).toBe(1);
+  });
+
+  it("a maintenance type's lead and switches decide warning and error", async () => {
+    const p = (
+      await send("POST", "/api/printers", { name: "P1", modelId: modelIdFor(db, "Bambu", "P1S") })
+    ).json();
+    const type = (
+      await send("POST", "/api/maintenance/types", { name: "Nozzle", intervalPrints: 100 })
+    ).json();
+    const printed = (n: number) =>
+      db.update(schema.printers).set({ printsOffset: n }).where(eq(schema.printers.id, p.id)).run();
+    const sev = async () => {
+      await evaluate();
+      return (await list()).find((a: { kind: string }) => a.kind === "maintenance_due")?.severity;
+    };
+    const set = (body: Record<string, unknown>) =>
+      send("PATCH", `/api/maintenance/types/${type.id}`, body);
+
+    // Default rule: nothing until "upcoming".
+    printed(50);
+    expect(await sev()).toBeUndefined();
+    // A lead of 60 prints warns 10 prints in; the default rule no longer applies.
+    await set({ warnLeadPrints: 60 });
+    printed(30);
+    expect(await sev()).toBeUndefined();
+    printed(50);
+    expect(await sev()).toBe("warning");
+    await set({ warnEnabled: false });
+    expect(await sev()).toBeUndefined();
+    // Overdue: an error, unless that is off (then the warning, if on).
+    printed(100);
+    expect(await sev()).toBe("error");
+    await set({ errorEnabled: false });
+    expect(await sev()).toBeUndefined();
+    await set({ warnEnabled: null });
+    expect(await sev()).toBe("warning");
+    // Empty = the default.
+    await set({ errorEnabled: null, warnLeadPrints: null });
+    expect(await sev()).toBe("error");
   });
 
   it("accessory maintenance raises an alert that logging it resolves", async () => {
@@ -249,9 +308,9 @@ describe("alerts", () => {
     policy({ pending: 0 });
     expect(await open()).toHaveLength(0);
     // Off, or a manual type (the user opens the review anyway): no alert.
-    policy({ pending: 1, alert: false });
+    policy({ pending: 1, alertSeverities: [] });
     expect(await open()).toHaveLength(0);
-    policy({ alert: true, mode: "manual" });
+    policy({ alertSeverities: null, mode: "manual" });
     expect(await open()).toHaveLength(0);
   });
 
@@ -328,12 +387,21 @@ describe("alerts", () => {
 
       // Switched off for the type: no alert.
       await send("PATCH", `/api/integrations/${id}`, {
-        policies: [{ type: "printers", alert: false }],
+        policies: [{ type: "printers", alertSeverities: [] }],
       });
       state.fail = "blocked";
       await sync("printers");
       expect(await results()).toHaveLength(3);
       state.fail = undefined;
+
+      // Only the severities picked are raised: success yes, error no.
+      await send("PATCH", `/api/integrations/${id}`, {
+        policies: [{ type: "printers", alertSeverities: ["success"] }],
+      });
+      state.fail = "unreachable";
+      await sync("printers");
+      state.fail = undefined;
+      expect(await results()).toHaveLength(3);
 
       // A confirmed review imports rows but is no sync result.
       const review = reviewer(() => app);

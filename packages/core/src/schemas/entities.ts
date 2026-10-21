@@ -46,8 +46,8 @@ export const syncPolicySchema = z.object({
   lastRunAt: isoDate.nullable(),
   /** Rows the last run left for the preview -> confirm flow. */
   pending: z.number().int().nonnegative(),
-  /** In `auto` mode: rows left pending raise a `sync_pending` alert. */
-  alert: z.boolean(),
+  /** Severities this task raises (error: failed run, warning: rows left pending, success). Null = all. */
+  alertSeverities: z.array(z.enum(ALERT_SEVERITIES)).nullable(),
   /** Prints in `auto` mode: take the filament from the spools (off: link them only). */
   trackUsage: z.boolean(),
 });
@@ -222,6 +222,12 @@ export const maintenanceTypeSchema = z.object({
   intervalSec: seconds.positive().nullable(),
   intervalPrints: z.number().int().positive().nullable(),
   intervalDays: z.number().int().positive().nullable(),
+  /** Alert settings; null = the default (Settings' lead days, both alerts on). */
+  warnLeadDays: z.number().int().nonnegative().nullable(),
+  warnLeadHours: z.number().int().nonnegative().nullable(),
+  warnLeadPrints: z.number().int().nonnegative().nullable(),
+  warnEnabled: z.boolean().nullable(),
+  errorEnabled: z.boolean().nullable(),
   /** Printers or accessories, never both. */
   target: z.enum(MAINTENANCE_TARGETS),
   /** Models and/or specific printers it applies to (union); both empty = every printer. */
@@ -306,6 +312,9 @@ export const spoolSchema = z.object({
   location: z.string().nullable(),
   /** Inventory entry this spool was imported from, `<library>:<spool id>`; null for hand-made ones. */
   sourceSpool: z.string().nullable(),
+  /** Low-weight alert; null = the default (`lowSpoolGrams`, on). */
+  lowGrams: grams.nullable(),
+  lowAlert: z.boolean().nullable(),
   archivedAt: isoDate.nullable(),
   ...timestamps,
 });

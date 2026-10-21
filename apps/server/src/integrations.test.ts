@@ -562,7 +562,7 @@ describe("capabilities", () => {
     });
 
     // Until changed, every type follows its default policy.
-    const defaults = { lastRunAt: null, pending: 0, alert: true, trackUsage: true };
+    const defaults = { lastRunAt: null, pending: 0, alertSeverities: null, trackUsage: true };
     expect((await get(`/api/integrations/${id}`)).policies).toEqual([
       { type: "printers", mode: "auto", frequency: "1d", ...defaults },
       { type: "prints", mode: "auto", frequency: "1h", ...defaults },

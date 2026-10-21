@@ -3,6 +3,7 @@ import {
   ALERT_MODULES,
   ALERT_SEVERITIES,
   type AlertDetail,
+  type AlertSeverity,
   CAPABILITIES,
   COMMENT_STATUSES,
   ENERGY_SOURCES,
@@ -92,8 +93,8 @@ export const syncPolicies = sqliteTable(
     cursor: text(),
     /** Rows the last run left for the preview -> confirm flow. */
     pending: integer().notNull().default(0),
-    /** In `auto` mode: rows left pending raise a `sync_pending` alert. */
-    alert: integer({ mode: "boolean" }).notNull().default(true),
+    /** Severities this task raises (pending rows = warning); null = all three, the default. */
+    alertSeverities: text({ mode: "json" }).$type<AlertSeverity[]>(),
     /** Prints in `auto` mode: take the filament from the spools (off: link them only). */
     trackUsage: integer({ mode: "boolean" }).notNull().default(true),
   },
@@ -362,6 +363,12 @@ export const maintenanceTypes = sqliteTable("maintenance_types", {
   intervalSec: integer(),
   intervalPrints: integer(),
   intervalDays: integer(),
+  // Alert settings; null = the default (`maintenanceLeadDays`, both alerts on).
+  warnLeadDays: integer(),
+  warnLeadHours: integer(),
+  warnLeadPrints: integer(),
+  warnEnabled: integer({ mode: "boolean" }),
+  errorEnabled: integer({ mode: "boolean" }),
   /**
    * Printers or accessories, never both. No CHECK: adding one rebuilds a table tasks point at;
    * the API's enum guards it.
@@ -484,6 +491,9 @@ export const spools = sqliteTable(
     openedAt: text(),
     location: text(),
     sourceSpool: text(),
+    // Low-weight alert; null = the default (`lowSpoolGrams`, on).
+    lowGrams: real(),
+    lowAlert: integer({ mode: "boolean" }),
     archivedAt: text(),
     ...timestamps,
   },

@@ -67,6 +67,8 @@ export const spoolInputSchema = spoolSchema
     openedAt: true,
     location: true,
     status: true,
+    lowGrams: true,
+    lowAlert: true,
   })
   .partial({
     number: true,
@@ -79,6 +81,8 @@ export const spoolInputSchema = spoolSchema
     openedAt: true,
     location: true,
     status: true,
+    lowGrams: true,
+    lowAlert: true,
   });
 export const spoolPatchSchema = spoolInputSchema
   .omit({ remainingGrams: true })

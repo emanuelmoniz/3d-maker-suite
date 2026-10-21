@@ -73,12 +73,12 @@ export const integrationsRoutes =
         status: syncer.running.has(row.id) ? "syncing" : local || row.status,
         capabilities: activeCapabilities(db, full, adapter),
         policies: (adapter?.capabilities ?? []).map((type) => {
-          const { mode, frequency, lastRunAt, pending, alert, trackUsage } = policyOf(
+          const { mode, frequency, lastRunAt, pending, alertSeverities, trackUsage } = policyOf(
             db,
             row.id,
             type,
           );
-          return { type, mode, frequency, lastRunAt, pending, alert, trackUsage };
+          return { type, mode, frequency, lastRunAt, pending, alertSeverities, trackUsage };
         }),
       } as Integration;
     };
