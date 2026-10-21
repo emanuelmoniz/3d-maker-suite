@@ -67,6 +67,17 @@ export function AlertDetailPage() {
     [t("alerts:view.severity"), t(s.label)],
     [t("alerts:view.module"), t(MODULE[a.module])],
     [t("alerts:view.task"), taskOf(a, t)],
+    ...(a.kind === "sync_success"
+      ? ([
+          [
+            t("alerts:view.result"),
+            t("alerts:view.syncResult", {
+              count: Number(a.context.created),
+              updated: a.context.updated,
+            }),
+          ],
+        ] as [string, string][])
+      : []),
     [t("alerts:view.raised"), formatDateTime(a.createdAt)],
     [t("alerts:view.status"), status(a, t)],
   ];

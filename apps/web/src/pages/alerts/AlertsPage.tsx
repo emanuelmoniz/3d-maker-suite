@@ -88,8 +88,6 @@ export function Title({ a, inList }: { a: Alert; inList?: boolean }) {
       t("alerts:kinds.sync_success", {
         name: adapterName(String(c.adapterId)),
         type,
-        count: Number(c.created),
-        updated: c.updated,
       }),
     sync_error: () =>
       t("alerts:kinds.sync_error", {
@@ -367,10 +365,6 @@ function History() {
                 a.status === "snoozed" ? (
                   <Button onClick={() => act.mutate({ id: a.id, action: "unsnooze" })}>
                     {t("alerts:removeSnooze")}
-                  </Button>
-                ) : a.status === "read" ? (
-                  <Button onClick={() => act.mutate({ id: a.id, action: "unread" })}>
-                    {t("alerts:markUnread")}
                   </Button>
                 ) : null,
             },

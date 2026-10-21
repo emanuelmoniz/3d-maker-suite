@@ -22,6 +22,9 @@
     "dismissed": "Dismissed",
     "resolved": "Resolved on {{date}}",
     "markDone": "Mark as done",
+    "syncResult_one": "{{count}} new, {{updated}} updated",
+    "syncResult_other": "{{count}} new, {{updated}} updated",
+    "result": "Result",
     "openIntegration": "Open integration"
   },
   "empty": {
@@ -62,8 +65,7 @@
     "warranty_ending_other": "Warranty of {{name}} ends in {{count}} days",
     "sync_pending_one": "{{type}} from {{name}}: {{count}} waits for your review",
     "sync_pending_other": "{{type}} from {{name}}: {{count}} wait for your review",
-    "sync_success_one": "{{type}} from {{name}}: {{count}} new, {{updated}} updated",
-    "sync_success_other": "{{type}} from {{name}}: {{count}} new, {{updated}} updated",
+    "sync_success": "{{type}} from {{name}} synced",
     "sync_error": "{{type}} from {{name}} could not sync: {{reason}}"
   },
   "severity": { "error": "Error", "warning": "Warning", "success": "Success" },

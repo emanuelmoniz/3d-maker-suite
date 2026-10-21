@@ -59,5 +59,5 @@ test("integrations: a task raises only the severities picked", async ({ page, ap
 
   await app.api("POST", `/api/integrations/${id}/sync`, { type: "printers" });
   await page.goto("/alerts");
-  await expect(alertRows(page, /new, \d+ updated/)).toHaveCount(0);
+  await expect(alertRows(page, /synced/)).toHaveCount(0);
 });

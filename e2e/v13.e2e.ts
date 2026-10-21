@@ -178,7 +178,7 @@ test("sync alerts: a sync with new rows raises sync_success, dismissible", async
     .getByRole("listitem")
     .filter({ hasText: /Demo data/ })
     .filter({
-      hasText: /new, \d+ updated/,
+      hasText: /synced/,
     });
   await expect(row).toHaveCount(1);
   await row.getByRole("button", { name: /Dismiss/ }).click();

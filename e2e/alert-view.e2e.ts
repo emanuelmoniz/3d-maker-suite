@@ -59,8 +59,10 @@ test("integration alert: a sync's log and a link to the integration", async ({ p
   });
   await app.api("POST", `/api/integrations/${id}/sync`, { type: "printers" });
   await page.goto("/alerts");
-  await page.getByRole("link", { name: /new, \d+ updated/ }).click();
+  await page.getByRole("link", { name: /synced/ }).click();
   await expect(page.getByText(/^New: /)).toBeVisible();
+  // The counts are in the alert, not in its title.
+  await expect(page.locator("dd", { hasText: /^\d+ new, \d+ updated$/ })).toBeVisible();
   await expect(page.getByRole("link", { name: "Open integration" })).toBeVisible();
 });
 
@@ -76,7 +78,7 @@ test("success alert: opening reads it, a read success moves to the history, unre
   await page.goto("/alerts");
   await expect(page.getByTitle("Unread")).toBeVisible();
 
-  await page.getByRole("link", { name: /new, \d+ updated/ }).click();
+  await page.getByRole("link", { name: /synced/ }).click();
   await expect(page.locator("dd", { hasText: /^Read$/ })).toBeVisible();
   // Unread sticks: opening does not read it again.
   await page.getByRole("button", { name: "Mark as unread" }).click();
@@ -86,9 +88,13 @@ test("success alert: opening reads it, a read success moves to the history, unre
 
   await page.goto("/alerts");
   await expect(page.getByRole("heading", { name: "All clear" })).toBeVisible();
-  const row = page.getByRole("row").filter({ hasText: /new, \d+ updated/ });
+  const row = page.getByRole("row").filter({ hasText: /synced/ });
   await expect(row.getByRole("cell", { name: "Read", exact: true })).toBeVisible();
-  await row.getByRole("button", { name: "Mark as unread" }).click();
+  // The table has no read button: unread is done from the alert itself.
+  await expect(row.getByRole("button")).toHaveCount(0);
+  await row.getByRole("link").click();
+  await page.getByRole("button", { name: "Mark as unread" }).click();
+  await page.goto("/alerts");
   await expect(page.getByRole("heading", { name: "Needs attention" })).toBeVisible();
-  await expect(page.getByRole("row").filter({ hasText: /new, \d+ updated/ })).toHaveCount(0);
+  await expect(page.getByRole("row").filter({ hasText: /synced/ })).toHaveCount(0);
 });
