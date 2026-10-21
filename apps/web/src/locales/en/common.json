@@ -11,6 +11,15 @@
     "more": "More",
     "moduleSettings": "{{module}} settings"
   },
+  "viewer": {
+    "close": "Close",
+    "previous": "Previous image",
+    "next": "Next image",
+    "zoomIn": "Zoom in",
+    "zoomOut": "Zoom out",
+    "reset": "Reset zoom",
+    "position": "{{index, number}} / {{count, number}}"
+  },
   "picker": {
     "search": "Search…",
     "remove": "Remove {{name}}",

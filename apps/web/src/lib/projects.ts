@@ -57,6 +57,18 @@ export const projectFileUrl = (id: string, path: string, entry?: string) =>
 export const projectImageUrl = (id: string, path: string) =>
   `/api/projects/${id}/files/image?${new URLSearchParams({ path })}`;
 
+/** Is this image in the gallery's folders (a "" folder is the whole project, others cover below)? */
+export const inGalleryFolder = (gallery: Project["gallery"], path: string) =>
+  gallery.folders.some((d) => d === "" || path.startsWith(`${d}/`));
+
+/** The gallery's images: those under its folders plus the single picks, in file order. */
+export const galleryImages = (p: Pick<Project, "gallery" | "meta">) =>
+  p.meta.files.filter(
+    (f) =>
+      f.kind === "image" &&
+      (inGalleryFolder(p.gallery, f.path) || p.gallery.images.includes(f.path)),
+  );
+
 /**
  * For `Markdown`: a relative link or image in a project doc (`docPath`, relative to the project
  * folder; null = the folder itself) becomes the served file. Null when the path leaves the folder

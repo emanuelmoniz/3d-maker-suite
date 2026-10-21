@@ -149,22 +149,13 @@ function ProjectForm({ project }: { project?: Project }) {
         </FormField>
       )}
       {project?.folderPath && images.length > 0 && (
-        <>
-          <GalleryPicker project={project} value={gallery} onChange={setGallery} />
-          <FormField label={t("projects:form.cover")} hint={t("projects:form.coverHint")}>
-            {(p) => (
-              <Combobox
-                {...p}
-                value={cover}
-                onChange={setCover}
-                options={[
-                  { value: "", label: t("projects:form.coverAuto") },
-                  ...images.map((f) => ({ value: f.path, label: f.path })),
-                ]}
-              />
-            )}
-          </FormField>
-        </>
+        <GalleryPicker
+          project={project}
+          value={gallery}
+          cover={cover}
+          onChange={setGallery}
+          onCover={setCover}
+        />
       )}
       <FormField label={t("projects:form.sourceUrl")} hint={t("projects:form.sourceUrlHint")}>
         {(p) => (

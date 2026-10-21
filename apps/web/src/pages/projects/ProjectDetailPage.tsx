@@ -36,6 +36,7 @@ import { OrdersTable } from "../orders/OrdersTable.tsx";
 import { QuotesTable } from "../quotes/QuotesTable.tsx";
 import { ModelPreview } from "./ModelPreview.tsx";
 import { ProjectFiles } from "./ProjectFiles.tsx";
+import { ProjectGallery } from "./ProjectGallery.tsx";
 
 const linkButton =
   "inline-flex h-9 items-center gap-2 whitespace-nowrap rounded-md border border-border bg-surface px-3 font-medium hover:bg-surface-2";
@@ -512,6 +513,7 @@ export function ProjectDetailPage() {
         </Collapsible>
       )}
 
+      <ProjectGallery project={project} />
       <LinkedPrints id={id} />
       <QuotesTable fixed={{ projectId: id }} title={t("costs:saved.title")} />
       <OrdersTable fixed={{ projectId: id }} title={t("orders:list.table")} />

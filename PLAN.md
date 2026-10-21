@@ -125,9 +125,9 @@ Do Step 9 of PLAN.md. Show me the schema, the routes and how SVGs are served saf
 Back up the DB before editing schema.ts.
 ```
 
-### [ ] Step 10 - Project image gallery: viewer
+### [x] Step 10 - Project image gallery: viewer
 **Model:** Sonnet (use frontend-design and webapp-testing skills) · **Effort:** Medium
-**Scope:** A gallery section on the project page (collapsible, from Step 7). Clicking an image opens a full-screen modal with zoom (wheel, pinch, buttons) and pan (drag, touch), next/previous, and escape to close. Mobile friendly, keyboard accessible, i18n, no new dependency unless the reason holds.
+**Scope:** A gallery section on the project page (collapsible, from Step 7). Clicking an image opens a full-screen modal with zoom (wheel, pinch, buttons) and pan (drag, touch), next/previous, and escape to close. Mobile friendly, keyboard accessible, i18n, no new dependency unless the reason holds. redesing image galery setings in project edit page. add search functions, user can preview files with the modal, in short a more friendly design to be easier to pick images and manage them.
 **Done when:** it works with mouse, keyboard and touch at 375/768/1440 (screenshots); e2e; tests pass.
 **Prompt:**
 ```
