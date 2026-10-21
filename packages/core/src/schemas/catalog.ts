@@ -69,6 +69,7 @@ export const machineProfileFilters = {
 } as const satisfies Record<string, ColumnFilter>;
 export const printProfileSortFields = [
   "name",
+  "model",
   "createdAt",
   "nozzleDiameterMm",
   "layerHeightMm",

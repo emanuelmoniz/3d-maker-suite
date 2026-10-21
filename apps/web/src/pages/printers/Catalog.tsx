@@ -235,6 +235,7 @@ export function Catalog() {
             id: "model",
             header: t("printers:catalog.printProfiles.model"),
             cell: (p) => (p.printerModelId ? info.get(p.printerModelId)?.label : none),
+            sort: "model",
             filter: "printerModelId",
             filterOptions: models.map((m) => ({
               value: m.id,

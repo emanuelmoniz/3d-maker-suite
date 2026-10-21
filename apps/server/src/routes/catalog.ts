@@ -244,6 +244,7 @@ export const printProfilesRoutes = (db: Db, dataDir: string) =>
     list: {
       sort: {
         name: sql`${printProfiles.name} COLLATE NOCASE`,
+        model: modelName(printProfiles.printerModelId),
         createdAt: printProfiles.createdAt,
         nozzleDiameterMm: printProfiles.nozzleDiameterMm,
         layerHeightMm: printProfiles.layerHeightMm,
