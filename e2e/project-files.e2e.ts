@@ -70,7 +70,10 @@ for (const viewport of VIEWPORTS) {
     expect(existsSync(join(folder, "parts"))).toBe(true);
 
     await files.getByRole("button", { name: "Move notes.txt" }).click();
-    await page.getByRole("dialog").getByLabel("Destination folder").fill("parts");
+    await pick(
+      page.getByRole("dialog").getByRole("combobox", { name: "Destination folder" }),
+      "parts",
+    );
     await confirm("Move").click();
     await expect.poll(() => existsSync(join(folder, "parts", "notes.txt"))).toBe(true);
 

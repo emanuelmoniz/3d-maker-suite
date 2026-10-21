@@ -14,14 +14,16 @@ import {
 import { type DragEvent, type ReactNode, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
+import { Combobox } from "../../components/Combobox.tsx";
 import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
-import { inputClass } from "../../components/FormField.tsx";
+import { FormField, inputClass } from "../../components/FormField.tsx";
 import { ApiError } from "../../lib/api.ts";
 import { formatSize } from "../../lib/format.ts";
 import {
   uploadProjectFile,
   useProjectFileActions,
   useProjectFolder,
+  useProjectFolders,
 } from "../../lib/projectFiles.ts";
 
 const join = (dir: string, name: string) => (dir ? `${dir}/${name}` : name);
@@ -219,6 +221,7 @@ export function ProjectFiles({ project }: { project: Project }) {
   const picker = useRef<HTMLInputElement>(null);
   const seq = useRef(0);
   const [ask, setAsk] = useState<Ask | null>(null);
+  const folders = useProjectFolders(id, ask?.kind === "move");
   const [value, setValue] = useState("");
   const [uploads, setUploads] = useState<Transfer[]>([]);
   const [over, setOver] = useState(false);
@@ -390,23 +393,40 @@ export function ProjectFiles({ project }: { project: Project }) {
         onCancel={close}
       >
         {ask && ask.kind !== "delete" && (
-          <label className="grid gap-1.5">
-            <span className="font-medium">
-              {t(ask.kind === "move" ? "projects:files.destination" : "projects:files.name")}
-            </span>
-            <input
-              className={inputClass}
-              value={value}
-              // biome-ignore lint/a11y/noAutofocus: the dialog exists only to fill this field
-              autoFocus
-              onChange={(e) => setValue(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key !== "Enter") return;
-                e.preventDefault();
-                submit();
-              }}
-            />
-          </label>
+          <FormField
+            label={t(ask.kind === "move" ? "projects:files.destination" : "projects:files.name")}
+          >
+            {(p) =>
+              ask.kind === "move" ? (
+                <Combobox
+                  {...p}
+                  value={value}
+                  onChange={setValue}
+                  options={[
+                    { value: "", label: t("projects:files.projectFolder") },
+                    ...(folders.data ?? [])
+                      // Not into itself or below it.
+                      .filter((f) => f !== ask.entry.path && !f.startsWith(`${ask.entry.path}/`))
+                      .map((f) => ({ value: f, label: f })),
+                  ]}
+                />
+              ) : (
+                <input
+                  {...p}
+                  className={inputClass}
+                  value={value}
+                  // biome-ignore lint/a11y/noAutofocus: the dialog exists only to fill this field
+                  autoFocus
+                  onChange={(e) => setValue(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key !== "Enter") return;
+                    e.preventDefault();
+                    submit();
+                  }}
+                />
+              )
+            }
+          </FormField>
         )}
       </ConfirmDialog>
       <ConfirmDialog

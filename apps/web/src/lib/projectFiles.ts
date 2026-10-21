@@ -13,6 +13,28 @@ export const useProjectFolder = (id: string, path: string, enabled = true) =>
     enabled,
   });
 
+/** Every folder path in the project, for the move picker. Walks the tree one level at a time. */
+export const useProjectFolders = (id: string, enabled: boolean) =>
+  useQuery({
+    queryKey: ["projects", id, "folders"],
+    enabled,
+    // Always fresh: a dialog opened after a change must see it.
+    staleTime: 0,
+    queryFn: async () => {
+      const out: string[] = [];
+      const queue = [""];
+      for (let dir = queue.shift(); dir !== undefined; dir = queue.shift()) {
+        const { entries } = await api<ProjectFilesList>("GET", `${base(id)}?${q({ path: dir })}`);
+        for (const e of entries)
+          if (e.type === "dir") {
+            out.push(e.path);
+            queue.push(e.path);
+          }
+      }
+      return out;
+    },
+  });
+
 /** Every change re-scans the project on the server, so refetch the folders and the project. */
 export const useProjectFileActions = (id: string) => {
   const qc = useQueryClient();
