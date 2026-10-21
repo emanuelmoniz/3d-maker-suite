@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -111,7 +111,13 @@ test("projects: add a project from a folder, link a description file, edit by ha
   app,
 }) => {
   const parent = app.makeProjectDir("Bracket");
-  writeFileSync(join(parent, "Bracket", "notes.md"), "Hello **world**\n");
+  const notes = "Hello **world**\n\n| A | B |\n|---|---|\n| 1 | 2 |\n\n![Pic](img/pic.png)\n";
+  writeFileSync(join(parent, "Bracket", "notes.md"), notes);
+  mkdirSync(join(parent, "Bracket", "img"));
+  copyFileSync(
+    join(import.meta.dirname, "../docs/images/dashboard.png"),
+    join(parent, "Bracket", "img", "pic.png"),
+  );
   await app.api("PATCH", "/api/preferences", { projectRoots: [parent] });
 
   await page.goto("/projects");
@@ -130,7 +136,7 @@ test("projects: add a project from a folder, link a description file, edit by ha
   await page.goto(`/projects/${project?.id}/edit`);
   await pick(page.getByLabel("Description file"), "notes.md");
   // The file's text shows at once, in the editor and the preview.
-  await expect(page.getByLabel("Description", { exact: true })).toHaveValue("Hello **world**\n");
+  await expect(page.getByLabel("Description", { exact: true })).toHaveValue(notes);
   await expect(
     page.getByRole("region", { name: "Preview" }).locator("strong", { hasText: "world" }),
   ).toBeVisible();
@@ -138,6 +144,11 @@ test("projects: add a project from a folder, link a description file, edit by ha
   await page.goto(`/projects/${project?.id}`);
   await expect(page.getByRole("heading", { name: "Description" })).toBeVisible();
   await expect(page.getByText("Hello")).toBeVisible();
+  // Tables and images next to the file (served from the project folder).
+  await expect(page.getByRole("table")).toContainText("1");
+  const pic = page.getByRole("img", { name: "Pic" });
+  await expect(pic).toHaveAttribute("src", /\/file\?path=img%2Fpic\.png/);
+  await expect.poll(() => pic.evaluate((i: HTMLImageElement) => i.naturalWidth)).toBeGreaterThan(0);
   await expect(page.locator("strong", { hasText: "world" })).toBeVisible();
 
   await page.goto(`/projects/${project?.id}/edit`);

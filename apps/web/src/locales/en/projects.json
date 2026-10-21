@@ -132,7 +132,10 @@
       "not_allowed": "This file is outside your project folders.",
       "launch_failed": "Could not start the program."
     },
-    "slicerPick": "Slicer"
+    "slicerPick": "Slicer",
+    "viewAll": "View all",
+    "viewAllHint_one": "{{count}} plate",
+    "viewAllHint_other": "All {{count}} plates"
   },
   "slicing": {
     "title": "Slicing setup",

@@ -8,7 +8,7 @@ import { Markdown } from "../../components/Markdown.tsx";
 import { isConflict } from "../../lib/catalog.ts";
 import { cx } from "../../lib/cx.ts";
 import { uploadProjectFile, useProjectFolders } from "../../lib/projectFiles.ts";
-import { projectFileUrl } from "../../lib/projects.ts";
+import { projectDocResolver, projectFileUrl } from "../../lib/projects.ts";
 
 const NEW = "\u0000new";
 const tab =
@@ -170,7 +170,9 @@ export function DescriptionEditor({
               ) : plain ? (
                 <p className="whitespace-pre-line">{value.text}</p>
               ) : (
-                <Markdown>{value.text}</Markdown>
+                <Markdown resolve={project && projectDocResolver(project, value.link || null)}>
+                  {value.text}
+                </Markdown>
               )}
             </section>
           </div>

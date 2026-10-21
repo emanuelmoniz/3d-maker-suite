@@ -53,6 +53,35 @@ export const projectThumbnailUrl = (p: Pick<Project, "id" | "updatedAt">) =>
 export const projectFileUrl = (id: string, path: string, entry?: string) =>
   `/api/projects/${id}/file?${new URLSearchParams(entry ? { path, entry } : { path })}`;
 
+/**
+ * For `Markdown`: a relative link or image in a project doc (`docPath`, relative to the project
+ * folder; null = the folder itself) becomes the served file. Null when the path leaves the folder
+ * or is not a listed file (an image link must point at an image).
+ */
+export const projectDocResolver =
+  (project: Pick<Project, "id" | "meta">, docPath: string | null) =>
+  (src: string, kind: "image" | "link"): string | null => {
+    const base = docPath?.includes("/")
+      ? docPath.slice(0, docPath.lastIndexOf("/")).split("/")
+      : [];
+    const parts = src.startsWith("/") ? [] : [...base];
+    let path: string;
+    try {
+      path = decodeURI(src.split(/[?#]/)[0] ?? "");
+    } catch {
+      return null;
+    }
+    for (const seg of path.split("/")) {
+      if (!seg || seg === ".") continue;
+      if (seg !== "..") parts.push(seg);
+      else if (!parts.pop()) return null;
+    }
+    const rel = parts.join("/");
+    const file = project.meta.files.find((f) => f.path === rel);
+    if (!file || (kind === "image" && file.kind !== "image")) return null;
+    return projectFileUrl(project.id, rel);
+  };
+
 /** Painted triangles of a 3MF; optional extra for the viewer, so failures just mean no paint. */
 export const useProjectPaint = (id: string, path: string, enabled: boolean) =>
   useQuery({

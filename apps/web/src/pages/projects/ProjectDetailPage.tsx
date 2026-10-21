@@ -9,7 +9,7 @@ import { CostBreakdown, UsageBreakdown } from "../../components/CostBreakdown.ts
 import { Markdown } from "../../components/Markdown.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { TagList } from "../../components/TagList.tsx";
-import { estimatePlate, estimateSlicedPlates, type Plate, useCostContext } from "../../lib/cost.ts";
+import { estimateSlicedPlates, useCostContext } from "../../lib/cost.ts";
 import { cx } from "../../lib/cx.ts";
 import { spoolName, useProfiles, useSpools } from "../../lib/filament.ts";
 import { formatDateTime, formatDuration, formatWeight } from "../../lib/format.ts";
@@ -17,6 +17,7 @@ import { useAdapterName, useCapable } from "../../lib/integrations.ts";
 import { usePreferences } from "../../lib/preferences.ts";
 import { printName, usePrintsOfProject } from "../../lib/prints.ts";
 import {
+  projectDocResolver,
   projectFileUrl,
   projectName,
   projectThumbnailUrl,
@@ -84,6 +85,36 @@ function Plates({
         {t("projects:detail.plates")}
       </h2>
       <ul className="grid gap-2 sm:grid-cols-2">
+        {model.plates.length > 1 && (
+          <li>
+            <button
+              type="button"
+              aria-pressed={plate === null}
+              onClick={() => onPlate(null)}
+              className={cx(
+                "flex w-full gap-3 rounded-lg border bg-surface p-2 text-left hover:bg-surface-2",
+                plate === null ? "border-accent" : "border-border",
+              )}
+            >
+              {project.thumbnailPath ? (
+                <img
+                  src={projectThumbnailUrl(project)}
+                  alt=""
+                  loading="lazy"
+                  className="size-20 shrink-0 rounded bg-surface-2 object-contain"
+                />
+              ) : (
+                <span className="size-20 shrink-0 rounded bg-surface-2" />
+              )}
+              <span className="min-w-0">
+                <span className="block font-medium">{t("projects:detail.viewAll")}</span>
+                <span className="block text-muted">
+                  {t("projects:detail.viewAllHint", { count: model.plates.length })}
+                </span>
+              </span>
+            </button>
+          </li>
+        )}
         {model.plates.map((p) => {
           const setup = setups.find((s) => s.file === file && s.plate === p.index);
           const result = p.sliced ? null : setup?.result;
@@ -162,30 +193,6 @@ function Plates({
   );
 }
 
-/** What printing a sliced plate would cost, on the default printer (else the first one). */
-function Estimate({ plate }: { plate: Plate }) {
-  const { t } = useTranslation();
-  const ctx = useCostContext().data;
-  const defaultId = usePreferences().data?.values.defaultPrinterId;
-  if (!ctx) return null;
-  const printer = ctx.printers.find((p) => p.id === defaultId) ?? ctx.printers[0];
-  return (
-    <section aria-labelledby="estimate" className="mt-6 max-w-md">
-      <h2 id="estimate" className="mb-1 text-base font-semibold">
-        {t("costs:project.title")}
-      </h2>
-      <p className="mb-2 text-muted">
-        {printer
-          ? t("costs:project.hint", { printer: printer.name })
-          : t("costs:project.hintNoPrinter")}
-      </p>
-      <div className="rounded-lg border border-border bg-surface p-4">
-        <CostBreakdown cost={estimatePlate(plate, printer?.id, ctx)} />
-      </div>
-    </section>
-  );
-}
-
 function LinkedPrints({ id }: { id: string }) {
   const { t } = useTranslation();
   const prints = usePrintsOfProject(id).data?.items ?? [];
@@ -214,10 +221,39 @@ function LinkedPrints({ id }: { id: string }) {
   );
 }
 
-/** One print of the whole project, from its sliced plates, on the default printer. */
-function SlicedEstimate({ id }: { id: string }) {
+/**
+ * The slice data a 3MF was saved with, as app slices without a setup: the fallback when the app
+ * sliced nothing yet. Files with no sliced plate are left out.
+ */
+const savedSlices = (project: Project) =>
+  project.meta.models
+    .filter((m) => m.plates.some((p) => p.sliced))
+    .flatMap((m) =>
+      m.plates.map((p) => ({
+        printerId: null,
+        spools: [],
+        filaments: [],
+        result:
+          p.sliced && p.printTimeSeconds != null
+            ? {
+                printTimeSeconds: p.printTimeSeconds,
+                weightGrams: p.weightGrams ?? 0,
+                filaments: p.filaments.map((f) => ({
+                  slot: f.slot,
+                  grams: f.grams ?? 0,
+                  material: f.type,
+                })),
+                slicedAt: project.updatedAt,
+              }
+            : null,
+      })),
+    );
+
+/** One print of the whole project, from its sliced plates (else the 3MF's), on the default printer. */
+function SlicedEstimate({ project }: { project: Project }) {
   const { t } = useTranslation();
-  const plates = useProjectSlicing(id).data?.plates ?? [];
+  const own = useProjectSlicing(project.id).data?.plates ?? [];
+  const plates = own.some((p) => p.result) ? own : savedSlices(project);
   const ctx = useCostContext().data;
   const defaultId = usePreferences().data?.values.defaultPrinterId;
   const profiles = useProfiles().data?.items ?? [];
@@ -280,8 +316,8 @@ export function ProjectDetailPage() {
   const { data: project, isError } = useProject(id);
   const tags = useTagsOf("project")(id);
   const [picked, setPicked] = useState<string | null>(null);
-  // undefined: not picked yet (a file with several plates opens on its first); null: whole file.
-  const [pickedPlate, setPlate] = useState<number | null>();
+  // null: the whole file ("View all").
+  const [plate, setPlate] = useState<number | null>(null);
   const open = useOpenProject(id);
   // The default slicer, or the one picked when several are set up (Settings > Integrations).
   const slicers = useCapable("openInSlicer");
@@ -311,12 +347,6 @@ export function ProjectDetailPage() {
   const main = models.find((f) => project.filePath?.replaceAll("\\", "/").endsWith(`/${f.path}`));
   const current = models.find((f) => f.path === picked) ?? main ?? models[0];
   const info = project.meta.models.find((m) => m.file === current?.path);
-  const plate =
-    pickedPlate !== undefined
-      ? pickedPlate
-      : info && info.plates.length > 1
-        ? (info.plates[0]?.index ?? null)
-        : null;
   const selected = info?.plates.find((p) => p.index === plate) ?? null;
   const thumb = selected?.thumbnail ?? info?.plates.find((p) => p.thumbnail)?.thumbnail;
   const thumbnail =
@@ -416,7 +446,7 @@ export function ProjectDetailPage() {
                 value={current?.path ?? ""}
                 onChange={(v) => {
                   setPicked(v);
-                  setPlate(undefined);
+                  setPlate(null);
                 }}
                 options={models.map((f) => ({
                   value: f.path,
@@ -429,16 +459,8 @@ export function ProjectDetailPage() {
           )}
         </div>
         <div className="grid min-w-0 content-start gap-4 [&>section]:mt-0">
-          <SlicedEstimate id={id} />
+          <SlicedEstimate project={project} />
           <PrintedCost id={id} />
-          {/* Only plates the 3MF has slice data for; the app's own slices are in SlicedEstimate. */}
-          {((selected?.sliced && selected) || info?.plates.find((p) => p.sliced)) && (
-            <Estimate
-              plate={
-                ((selected?.sliced && selected) || info?.plates.find((p) => p.sliced)) as Plate
-              }
-            />
-          )}
           {tags.length > 0 && <TagList tags={tags} />}
           {(project.meta.materials.length > 0 || project.meta.multicolor) && (
             <p className="text-muted">
@@ -480,7 +502,9 @@ export function ProjectDetailPage() {
             {project.descriptionFile?.toLowerCase().endsWith(".txt") ? (
               <p className="whitespace-pre-line">{project.description}</p>
             ) : (
-              <Markdown>{project.description}</Markdown>
+              <Markdown resolve={projectDocResolver(project, project.descriptionFile)}>
+                {project.description}
+              </Markdown>
             )}
           </div>
         </section>
