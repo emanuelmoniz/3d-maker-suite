@@ -10,3 +10,4 @@ secret.key
 BACKLOG.md
 test-results/
 playwright-report/
+.playwright-mcp/
