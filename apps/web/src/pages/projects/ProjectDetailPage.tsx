@@ -96,16 +96,29 @@ function Plates({
                 plate === null ? "border-accent" : "border-border",
               )}
             >
-              {project.thumbnailPath ? (
-                <img
-                  src={projectThumbnailUrl(project)}
-                  alt=""
-                  loading="lazy"
-                  className="size-20 shrink-0 rounded bg-surface-2 object-contain"
-                />
-              ) : (
-                <span className="size-20 shrink-0 rounded bg-surface-2" />
-              )}
+              {/* A mosaic of the plate previews (up to 9). */}
+              <span
+                className={cx(
+                  "grid size-20 shrink-0 gap-px overflow-hidden rounded bg-surface-2",
+                  model.plates.length > 4 ? "grid-cols-3" : "grid-cols-2",
+                )}
+              >
+                {model.plates
+                  .slice(0, 9)
+                  .map((p) =>
+                    p.thumbnail ? (
+                      <img
+                        key={p.index}
+                        src={projectFileUrl(project.id, file, p.thumbnail)}
+                        alt=""
+                        loading="lazy"
+                        className="size-full object-contain"
+                      />
+                    ) : (
+                      <span key={p.index} />
+                    ),
+                  )}
+              </span>
               <span className="min-w-0">
                 <span className="block font-medium">{t("projects:detail.viewAll")}</span>
                 <span className="block text-muted">
