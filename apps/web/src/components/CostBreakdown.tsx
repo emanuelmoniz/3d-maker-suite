@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { type SlicedEstimate, useMoney } from "../lib/cost.ts";
 import { spoolName, useProfiles } from "../lib/filament.ts";
 import { formatWeight } from "../lib/format.ts";
+import { printerName } from "../lib/printers.ts";
 
 type Row = { label: string; value: number; strong?: boolean; rule?: boolean };
 
@@ -60,6 +61,28 @@ export function MaterialUsage({
         ]}
       />
     </section>
+  );
+}
+
+/** Which printer(s) the estimate was made on; `used` holds one id per sliced plate. */
+export function PrinterHint({
+  printers,
+  used,
+}: {
+  printers: { id: string; number: number; name: string }[];
+  used: (string | undefined)[];
+}) {
+  const { t } = useTranslation();
+  const ids = new Set(used);
+  const printer = ids.size === 1 ? printers.find((p) => ids.has(p.id)) : undefined;
+  return (
+    <p className="text-muted">
+      {printer
+        ? t("costs:project.onePrintHint", { printer: printerName(t, printer) })
+        : ids.size > 1
+          ? t("costs:project.onePrintHintPrinters")
+          : t("costs:project.onePrintHintNoPrinter")}
+    </p>
   );
 }
 

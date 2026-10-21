@@ -6,7 +6,12 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Collapsible } from "../../components/Collapsible.tsx";
 import { Combobox } from "../../components/Combobox.tsx";
-import { CostBreakdown, MaterialUsage, ProductionCost } from "../../components/CostBreakdown.tsx";
+import {
+  CostBreakdown,
+  MaterialUsage,
+  PrinterHint,
+  ProductionCost,
+} from "../../components/CostBreakdown.tsx";
 import { Markdown } from "../../components/Markdown.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { TagList } from "../../components/TagList.tsx";
@@ -16,7 +21,6 @@ import { useProfiles, useSpools } from "../../lib/filament.ts";
 import { formatDateTime, formatDuration, formatWeight } from "../../lib/format.ts";
 import { useAdapterName, useCapable } from "../../lib/integrations.ts";
 import { usePreferences } from "../../lib/preferences.ts";
-import { printerName } from "../../lib/printers.ts";
 import { printName, usePrintsOfProject } from "../../lib/prints.ts";
 import {
   projectDocResolver,
@@ -297,7 +301,6 @@ function SlicedEstimate({ project }: { project: Project }) {
     ) : null;
   const fallback = ctx.printers.find((p) => p.id === defaultId) ?? ctx.printers[0];
   const used = new Set(plates.filter((p) => p.result).map((p) => p.printerId ?? fallback?.id));
-  const printer = used.size === 1 ? ctx.printers.find((p) => used.has(p.id)) : undefined;
   const estimate = estimateSlicedPlates(plates, ctx, {
     spools,
     profiles,
@@ -306,13 +309,9 @@ function SlicedEstimate({ project }: { project: Project }) {
   return (
     <div className="max-w-md rounded-lg border border-border bg-surface p-4">
       <h3 className="mb-1 font-medium">{t("costs:project.onePrint")}</h3>
-      <p className="mb-2 text-muted">
-        {printer
-          ? t("costs:project.onePrintHint", { printer: printerName(t, printer) })
-          : used.size > 1
-            ? t("costs:project.onePrintHintPrinters")
-            : t("costs:project.onePrintHintNoPrinter")}
-      </p>
+      <div className="mb-2">
+        <PrinterHint printers={ctx.printers} used={[...used]} />
+      </div>
       {sliced < plates.length && (
         <p className="mb-2 text-warn">
           {t("costs:project.partial", { sliced, total: plates.length })}

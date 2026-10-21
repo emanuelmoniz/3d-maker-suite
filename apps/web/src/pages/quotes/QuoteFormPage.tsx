@@ -19,6 +19,7 @@ import { Button } from "../../components/Button.tsx";
 import { Combobox } from "../../components/Combobox.tsx";
 import {
   MaterialUsage,
+  PrinterHint,
   ProductionCost,
   QuoteBreakdownView,
 } from "../../components/CostBreakdown.tsx";
@@ -552,6 +553,16 @@ function QuoteForm({ ctx, editing }: { ctx: CostContext; editing?: Quote }) {
           <h2 id="c-cost" className="mb-2 text-base font-semibold">
             {t("costs:project.onePrint")}
           </h2>
+          <div className="mb-2">
+            <PrinterHint
+              printers={ctx.printers}
+              used={
+                byHand
+                  ? [f.printerId || undefined]
+                  : plates.filter((p) => p.result).map((p) => p.printerId ?? fallback?.id)
+              }
+            />
+          </div>
           <div className="grid gap-3">
             <MaterialUsage estimate={usage} />
             <ProductionCost cost={cost} />
