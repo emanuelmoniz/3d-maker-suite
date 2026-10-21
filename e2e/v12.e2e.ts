@@ -151,7 +151,8 @@ test("projects: the description editor writes the .md file and the preview file 
 }) => {
   const parent = app.makeProjectDir("Gadget");
   const dir = join(parent, "Gadget");
-  writeFileSync(join(dir, "extra.stl"), "solid");
+  mkdirSync(join(dir, "sub"));
+  writeFileSync(join(dir, "sub", "extra.stl"), "solid");
   rmSync(join(dir, "README.md")); // so the editor has to create it
   await app.api("PATCH", "/api/preferences", { projectRoots: [parent] });
   await app.api("POST", "/api/projects/scan");
@@ -165,8 +166,12 @@ test("projects: the description editor writes the .md file and the preview file 
   await pick(page.getByLabel("Description file"), "README.md (new)");
   await page.getByLabel("Description", { exact: true }).fill("# Gadget\n\nMade **fast**");
   await expect(page.locator("strong", { hasText: "fast" })).toBeVisible(); // live preview
-  await pick(page.getByLabel("Preview file"), "extra.stl");
+  await pick(page.getByLabel("Preview file"), "sub/extra.stl");
   await page.getByRole("button", { name: "Save" }).click();
+
+  await expect(page).toHaveURL(new RegExp(`/projects/${id}$`));
+  await page.goto(`/projects/${id}/edit`);
+  await expect(page.getByLabel("Preview file")).toHaveValue("sub/extra.stl"); // survives a reload
 
   await expect.poll(() => existsSync(join(dir, "README.md"))).toBe(true);
   expect(readFileSync(join(dir, "README.md"), "utf8")).toBe("# Gadget\n\nMade **fast**");
@@ -176,7 +181,7 @@ test("projects: the description editor writes the .md file and the preview file 
     `/api/projects/${id}`,
   );
   expect(after.description).toBe("# Gadget\n\nMade **fast**");
-  expect(after.filePath).toBe(join(dir, "extra.stl"));
+  expect(after.filePath).toBe(join(dir, "sub", "extra.stl"));
 });
 
 test("spools: automatic numbers, taken numbers are refused, color name shows in the name", async ({

@@ -39,7 +39,8 @@ function ProjectForm({ project }: { project?: Project }) {
   const loading = !!link && link !== saved && !isNewFile;
   const models = files.filter((f) => f.kind === "model");
   const initialPreview = project?.editedFields.includes("filePath")
-    ? (models.find((m) => project.filePath?.endsWith(m.path))?.path ?? "")
+    ? (models.find((m) => project.filePath?.replaceAll("\\", "/").endsWith(`/${m.path}`))?.path ??
+      "")
     : "";
   const [preview, setPreview] = useState(initialPreview);
 
@@ -56,7 +57,9 @@ function ProjectForm({ project }: { project?: Project }) {
     // A new file is only made when there is text for it.
     const file = isNewFile && !desc.trim() ? null : link || null;
     // On edit only changed fields are sent: each one sent counts as "edited" and survives re-scans.
-    const done = { onSuccess: () => navigate({ to: "/projects" }) };
+    const done = {
+      onSuccess: () => navigate({ to: "/projects/$id", params: { id: project?.id ?? "" } }),
+    };
     const created = {
       onSuccess: (p: Project) =>
         p.folderPath
