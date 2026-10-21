@@ -499,6 +499,7 @@ export function ProjectDetailPage() {
       </div>
 
       {current && <Plates project={project} file={current.path} plate={plate} onPlate={setPlate} />}
+      <ProjectGallery project={project} />
       {project.description && (
         <Collapsible title={t("projects:detail.description")} defaultOpen>
           <div className="rounded-lg border border-border bg-surface p-4">
@@ -513,7 +514,6 @@ export function ProjectDetailPage() {
         </Collapsible>
       )}
 
-      <ProjectGallery project={project} />
       <LinkedPrints id={id} />
       <QuotesTable fixed={{ projectId: id }} title={t("costs:saved.title")} />
       <OrdersTable fixed={{ projectId: id }} title={t("orders:list.table")} />
