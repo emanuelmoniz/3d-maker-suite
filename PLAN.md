@@ -148,7 +148,7 @@ tag and confirm the pre-release is published.
 
 ## Phase 3 - Alerts
 
-### [ ] Step 12 - Alert manager: severities, sources, details  **[plan mode]**
+### [x] Step 12 - Alert manager: severities, sources, details  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:** Today `alerts/evaluate.ts` has one kind per case, global settings (`lowSpoolGrams`, `maintenanceLeadDays`) and one `alert` flag per sync policy. The new model:
 - Every alert has a **severity** (`error` · `warning` · `success`), a **module** (maintenance, integrations, filament, printers, …), a **task** (e.g. "Bambu Cloud · prints sync", the maintenance name, the spool) and a **detail** payload (e.g. the full sync log, the prints no spool matched).

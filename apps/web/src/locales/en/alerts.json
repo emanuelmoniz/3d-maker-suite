@@ -17,13 +17,28 @@
     "maintenance_overdue": "{{task}} is overdue on {{printer}}",
     "warranty_ending_one": "Warranty of {{name}} ends in {{count}} day",
     "warranty_ending_other": "Warranty of {{name}} ends in {{count}} days",
-    "sync_failed": "{{name}} could not sync",
-    "print_failed": "A print failed",
     "sync_pending_one": "{{type}} from {{name}}: {{count}} waits for your review",
     "sync_pending_other": "{{type}} from {{name}}: {{count}} wait for your review",
     "sync_success_one": "{{type}} from {{name}}: {{count}} new, {{updated}} updated",
     "sync_success_other": "{{type}} from {{name}}: {{count}} new, {{updated}} updated",
     "sync_error": "{{type}} from {{name}} could not sync: {{reason}}"
+  },
+  "severity": { "error": "Error", "warning": "Warning", "success": "Success" },
+  "meta": "{{module}} · {{date}}",
+  "details": "Details",
+  "log": {
+    "created": "New: {{label}}",
+    "updated": "Updated: {{label}}",
+    "invalid": "Could not be read: {{label}}",
+    "left": {
+      "pick": "Waits for you: {{label}} (nothing fits, pick one)",
+      "unsure": "Waits for you: {{label}} (several fit, check the pick)",
+      "review": "Waits for you: {{label}}"
+    },
+    "failed": "Failed: {{reason}}",
+    "truncated_one": "…and {{count}} more line",
+    "truncated_other": "…and {{count}} more lines",
+    "noName": "(no name)"
   },
   "review": "Review",
   "channels": {

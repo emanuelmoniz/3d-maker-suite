@@ -72,7 +72,7 @@ Notes:
 - **Printer totals are derived.** Hours and print count are the sum of its Prints plus `runtimeOffsetSec`/`printsOffset`.
 - **Usage keeps the profile.** `PrintFilamentUsage.spoolId` can be null for imported prints where the spool is unknown. `profileId` keeps the material, so cost and stats still work.
 - **Cost is snapshotted.** `costSnapshot` freezes the computed cost when a print is recorded, so later price changes don't rewrite history (cost engine: Step 19).
-- **Alert kinds:** `maintenance_due`, `spool_low`, `sync_failed`, `print_failed`. At most one unresolved alert exists per (kind, entityType, entityId).
+- **Alerts** (ADR-0008) have a kind (the message), a severity (`error`, `warning`, `success`), a module, a task (what raised it) and an optional detail (a sync run's log). At most one unresolved alert exists per (kind, entityType, entityId).
 - **Tag storage** is one polymorphic table, `taggings(tagId, entityType, entityId)`. It has no FK to the tagged row, so a trigger removes the taggings of deleted prints (spools and projects are only archived).
 - **Print rules** are enforced as DB CHECKs and mirrored in zod: a `success` print has no `failureReason`, and `energyWh` and `energySource` are set together.
 
@@ -214,8 +214,8 @@ sequenceDiagram
   Ad-->>Job: ExternalPrint[] (+ nextCursor)
   Job->>Core: zod parse, then upsert by (integrationId, externalId)
   Core->>DB: write prints and usages, raise alerts
-  Job->>DB: set lastSyncAt, status = ok, resolve sync_failed alert, write sync_runs row
-  Note over Job,DB: On error: status = error, lastError = error code, raise sync_failed alert
+  Job->>DB: set lastSyncAt, status = ok, write sync_runs row with its log, raise sync_success alert
+  Note over Job,DB: On error: status = error, lastError = error code, raise sync_error alert
 ```
 
 - **Where:** `apps/server/src/integrations/sync.ts`. One run syncs one type. Each integration + type has a policy in `sync_policies`: `mode` (`off`, `manual`, `auto`), `frequency` (`15m`, `1h`, `1d`, `1w`, `1M`), `lastRunAt`, `cursor` and `pending`. Rows are sparse: a type without one follows `defaultPolicy` in `packages/core` (prints auto 1h, printers auto 1d, everything with a preview manual). A croner job ticks every 15 minutes and runs each set-up `auto` type whose frequency has passed since its last successful run, manual or scheduled. A prints run can take a `from`/`to` range, which re-reads that window without moving the incremental start (the prints `cursor`). Each run is logged with its type and range. One run per integration at a time (409 `sync_running`).

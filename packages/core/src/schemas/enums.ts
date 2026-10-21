@@ -2,16 +2,17 @@
 export const ORIGINS = ["manual", "integration"] as const;
 export const PRINT_OUTCOMES = ["success", "failed", "cancelled"] as const;
 export const ENERGY_SOURCES = ["estimated", "measured"] as const;
+// The kind is the message; severity, module and task say how bad and what raised it (ADR-0008).
 export const ALERT_KINDS = [
   "maintenance_due",
   "spool_low",
-  "sync_failed",
-  "print_failed",
   "warranty_ending",
   "sync_pending",
   "sync_success",
   "sync_error",
 ] as const;
+export const ALERT_SEVERITIES = ["error", "warning", "success"] as const;
+export const ALERT_MODULES = ["filament", "maintenance", "printers", "integrations"] as const;
 export const COMMENT_STATUSES = ["open", "resolved"] as const;
 export const SPOOL_STATUSES = ["new", "in_use", "empty"] as const;
 // Why a spool's remaining weight changed. "print" entries are written by prints (Step 9+).
@@ -41,6 +42,17 @@ export const LOGIN_CHALLENGES = ["email_code", "totp"] as const;
 export const INTEGRATION_STATUSES = ["new", "syncing", "ok", "error", "unavailable"] as const;
 export const SYNC_TRIGGERS = ["manual", "scheduled"] as const;
 export const SYNC_RUN_STATUSES = ["ok", "error"] as const;
+// What one line of a run's log says (ADR-0008). `truncated` ends a log cut at its cap.
+export const SYNC_LOG_EVENTS = [
+  "created",
+  "updated",
+  "invalid",
+  "left",
+  "failed",
+  "truncated",
+] as const;
+// Why a row was left for review: a pick nothing fits, a pick made from several, or just a look.
+export const SYNC_LEFT_REASONS = ["pick", "unsure", "review"] as const;
 /**
  * The data one run syncs or imports. Printers and prints sync on their own; the others need a
  * choice per row (e.g. the filament profile of a spool), so a run takes only the rows that need
@@ -81,6 +93,8 @@ export type Origin = (typeof ORIGINS)[number];
 export type PrintOutcome = (typeof PRINT_OUTCOMES)[number];
 export type EnergySource = (typeof ENERGY_SOURCES)[number];
 export type AlertKind = (typeof ALERT_KINDS)[number];
+export type AlertSeverity = (typeof ALERT_SEVERITIES)[number];
+export type AlertModule = (typeof ALERT_MODULES)[number];
 export type TaggableType = (typeof TAGGABLE_TYPES)[number];
 export type MaintenanceTarget = (typeof MAINTENANCE_TARGETS)[number];
 export type SpoolStatus = (typeof SPOOL_STATUSES)[number];

@@ -1,17 +1,49 @@
-import type { Alert, Capability, IntegrationErrorCode, ReviewedType } from "@3d-maker-suite/core";
+import type {
+  Alert,
+  AlertModule,
+  AlertSeverity,
+  Capability,
+  IntegrationErrorCode,
+  ReviewedType,
+  SyncLogEntry,
+} from "@3d-maker-suite/core";
 import { Link } from "@tanstack/react-router";
-import { BellOff } from "lucide-react";
-import type { ReactNode } from "react";
+import { BellOff, CircleAlert, CircleCheck, type LucideIcon, TriangleAlert } from "lucide-react";
+import { type ReactNode, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
 import { EmptyState } from "../../components/EmptyState.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { SettingsLink } from "../../components/SettingsLink.tsx";
-import { useAlertAction, useAlerts } from "../../lib/alerts.ts";
+import { useAlertAction, useAlertDetail, useAlerts } from "../../lib/alerts.ts";
 import { formatDate, formatWeight } from "../../lib/format.ts";
 import { useAdapterName } from "../../lib/integrations.ts";
 import { TITLE } from "../import/SourceReviewPage.tsx";
 import { CAPS, ERRORS } from "../settings/IntegrationsPage.tsx";
+
+const SEVERITY: Record<AlertSeverity, { icon: LucideIcon; color: string; label: string }> = {
+  error: { icon: CircleAlert, color: "text-bad", label: "alerts:severity.error" },
+  warning: { icon: TriangleAlert, color: "text-warn", label: "alerts:severity.warning" },
+  success: { icon: CircleCheck, color: "text-ok", label: "alerts:severity.success" },
+};
+const MODULE: Record<AlertModule, string> = {
+  filament: "nav:items.filament.label",
+  maintenance: "nav:items.maintenance.label",
+  printers: "nav:items.printers.label",
+  integrations: "nav:items.integrations.label",
+};
+const LOG: Record<Exclude<SyncLogEntry["event"], "left">, string> = {
+  created: "alerts:log.created",
+  updated: "alerts:log.updated",
+  invalid: "alerts:log.invalid",
+  failed: "alerts:log.failed",
+  truncated: "alerts:log.truncated",
+};
+const LEFT: Record<NonNullable<SyncLogEntry["reason"]>, string> = {
+  pick: "alerts:log.left.pick",
+  unsure: "alerts:log.left.unsure",
+  review: "alerts:log.left.review",
+};
 
 const link = "font-medium hover:underline";
 const buttonLink =
@@ -31,10 +63,12 @@ function Title({ a }: { a: Alert }) {
     case "maintenance_due":
       return (
         <Link to="/maintenance" className={link}>
-          {t(c.overdue ? "alerts:kinds.maintenance_overdue" : "alerts:kinds.maintenance_due", {
-            task: c.task,
-            printer: c.printer,
-          })}
+          {t(
+            a.severity === "error"
+              ? "alerts:kinds.maintenance_overdue"
+              : "alerts:kinds.maintenance_due",
+            { task: c.task, printer: c.printer },
+          )}
         </Link>
       );
     case "warranty_ending":
@@ -43,17 +77,6 @@ function Title({ a }: { a: Alert }) {
           {t("alerts:kinds.warranty_ending", { name: c.name, count: Number(c.days) })}
         </Link>
       );
-    case "sync_failed":
-      return (
-        <Link to="/integrations" className={link}>
-          {t("alerts:kinds.sync_failed", {
-            // Alerts from before integrations lost their name still carry `name`.
-            name: c.name ?? (c.adapterId ? adapterName(String(c.adapterId)) : ""),
-          })}
-        </Link>
-      );
-    case "print_failed":
-      return <span className="font-medium">{t("alerts:kinds.print_failed")}</span>;
     case "sync_pending":
       return (
         <span className="font-medium">
@@ -88,24 +111,61 @@ function Title({ a }: { a: Alert }) {
   }
 }
 
+/** A sync run's log, loaded when opened. */
+function Detail({ id }: { id: string }) {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
+  const { data } = useAlertDetail(id, open);
+  return (
+    <details className="mt-1" onToggle={(e) => setOpen(e.currentTarget.open)}>
+      <summary className="cursor-pointer text-muted hover:text-text">{t("alerts:details")}</summary>
+      <ul className="mt-1 space-y-0.5 text-muted">
+        {data?.detail?.log.map((e, i) => (
+          // Log lines have no id and never reorder.
+          <li key={i} className={e.event === "failed" ? "text-bad" : undefined}>
+            {t(e.event === "left" ? LEFT[e.reason ?? "review"] : LOG[e.event], {
+              label: e.label ?? t("alerts:log.noName"),
+              count: e.count,
+              reason: t(ERRORS[e.code ?? "unknown"]),
+            })}
+          </li>
+        ))}
+      </ul>
+    </details>
+  );
+}
+
 function Row({ a, snoozed }: { a: Alert; snoozed?: boolean }) {
   const { t } = useTranslation();
   const act = useAlertAction();
   const run = (action: Parameters<typeof act.mutate>[0]["action"]) =>
     act.mutate({ id: a.id, action });
+  const s = SEVERITY[a.severity];
   return (
     <li className="flex flex-wrap items-center justify-between gap-2 py-3">
-      <div className="flex min-w-0 items-center gap-2">
+      <div className="flex min-w-0 items-start gap-2">
         {!a.readAt && !snoozed && (
-          <span className="size-2 shrink-0 rounded-full bg-accent" title={t("alerts:unread")} />
+          <span
+            className="mt-2 size-2 shrink-0 rounded-full bg-accent"
+            title={t("alerts:unread")}
+          />
         )}
+        <s.icon
+          className={`mt-0.5 size-4 shrink-0 ${s.color}`}
+          role="img"
+          aria-label={t(s.label)}
+        />
         <div className="min-w-0">
           <Title a={a} />
           <p className="text-muted">
-            {snoozed
-              ? t("alerts:snoozedUntil", { date: formatDate(a.snoozedUntil ?? "") })
-              : formatDate(a.createdAt)}
+            {t("alerts:meta", {
+              module: t(MODULE[a.module]),
+              date: snoozed
+                ? t("alerts:snoozedUntil", { date: formatDate(a.snoozedUntil ?? "") })
+                : formatDate(a.createdAt),
+            })}
           </p>
+          {a.hasDetail && <Detail id={a.id} />}
         </div>
       </div>
       <div className="flex flex-wrap gap-2">

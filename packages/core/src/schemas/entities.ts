@@ -1,6 +1,8 @@
 import { z } from "zod";
 import {
   ALERT_KINDS,
+  ALERT_MODULES,
+  ALERT_SEVERITIES,
   CAPABILITIES,
   COMMENT_STATUSES,
   ENERGY_SOURCES,
@@ -392,6 +394,10 @@ export const collectionProjectSchema = z.object({
 export const alertSchema = z.object({
   id,
   kind: z.enum(ALERT_KINDS),
+  severity: z.enum(ALERT_SEVERITIES),
+  module: z.enum(ALERT_MODULES),
+  /** What raised it: `spool:<id>`, `maintenance:<target>:<type>`, `printer:<id>`, `sync:<integration>:<type>`. */
+  task: z.string(),
   entityType: z.string(),
   entityId: z.string(),
   createdAt: isoDate,
@@ -401,6 +407,8 @@ export const alertSchema = z.object({
   snoozedUntil: isoDate.nullable(),
   dismissedAt: isoDate.nullable(),
   resolvedAt: isoDate.nullable(),
+  /** There is a detail (`GET /api/alerts/:id`); the list leaves it out. */
+  hasDetail: z.boolean(),
 });
 
 export type Integration = z.infer<typeof integrationSchema>;

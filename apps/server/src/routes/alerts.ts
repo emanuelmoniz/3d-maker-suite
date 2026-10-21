@@ -1,13 +1,15 @@
 import {
   type Alert,
+  type AlertWithDetail,
   alertActionSchema,
   alertSchema,
+  alertWithDetailSchema,
   apiErrorSchema,
   channelInputSchema,
   channelSettingsSchema,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
-import { desc, eq, isNull } from "drizzle-orm";
+import { and, desc, eq, getTableColumns, isNull, sql } from "drizzle-orm";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { channels, readChannel, sendVia, writeChannel } from "../alerts/channels.ts";
@@ -28,17 +30,26 @@ export const alertsRoutes =
     };
 
     /** Open alerts, dismissed ones left out. The app splits active from snoozed. */
+    app.get("/", { schema: { response: { 200: z.array(alertSchema) } } }, async () => {
+      // The detail (a sync log) stays here: the app polls this list every minute.
+      const { detail: _, ...columns } = getTableColumns(alerts);
+      return db
+        .select({ ...columns, hasDetail: sql<number>`${alerts.detail} IS NOT NULL` })
+        .from(alerts)
+        .where(and(isNull(alerts.resolvedAt), isNull(alerts.dismissedAt)))
+        .orderBy(desc(alerts.createdAt))
+        .all()
+        .map((a) => ({ ...a, hasDetail: !!a.hasDetail })) as Alert[];
+    });
+
     app.get(
-      "/",
-      { schema: { response: { 200: z.array(alertSchema) } } },
-      async () =>
-        db
-          .select()
-          .from(alerts)
-          .where(isNull(alerts.resolvedAt))
-          .orderBy(desc(alerts.createdAt))
-          .all()
-          .filter((a) => !a.dismissedAt) as Alert[],
+      "/:id",
+      { schema: { params, response: { 200: alertWithDetailSchema, ...notFound } } },
+      async (req) => {
+        const row = db.select().from(alerts).where(eq(alerts.id, req.params.id)).get();
+        if (!row) throw new HttpError(404, "not_found", "Alert not found");
+        return { ...row, hasDetail: !!row.detail } as AlertWithDetail;
+      },
     );
 
     app.post("/evaluate", { schema: { response: { 204: z.null() } } }, async (_req, reply) => {
@@ -68,7 +79,8 @@ export const alertsRoutes =
           .returning()
           .get();
         if (!row) throw new HttpError(404, "not_found", "Alert not found");
-        return row as Alert;
+        const { detail, ...rest } = row;
+        return { ...rest, hasDetail: !!detail } as Alert;
       },
     );
 

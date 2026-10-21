@@ -1,13 +1,20 @@
-import type { AlertKind, Notification } from "@3d-maker-suite/core";
+import type {
+  AlertDetail,
+  AlertKind,
+  AlertModule,
+  AlertSeverity,
+  Notification,
+  SyncType,
+} from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
-import { and, eq, gt, isNull, ne } from "drizzle-orm";
+import { and, desc, eq, gt, isNull, ne } from "drizzle-orm";
 import { spoolName } from "../lib/catalog.ts";
 import { dueItems } from "../lib/maintenance.ts";
 import { printerTitle } from "../lib/numbers.ts";
 import { readPreferences } from "../lib/preferences.ts";
 import { channels, readChannel, sendVia } from "./channels.ts";
 
-const { alerts, integrations, spools, printers, syncPolicies } = schema;
+const { alerts, integrations, spools, printers, syncPolicies, syncRuns } = schema;
 const DAY_MS = 86_400_000;
 // ponytail: fixed lead time, make it a preference if anyone asks.
 const WARRANTY_LEAD_DAYS = 30;
@@ -18,17 +25,32 @@ const WARRANTY_LEAD_DAYS = 30;
  * their snooze; they stay until dismissed.
  * ponytail: dismissed ones are never pruned; delete old dismissed rows if the table grows.
  */
-const ONE_SHOT = new Set<AlertKind>(["sync_success", "sync_error", "print_failed"]);
+const ONE_SHOT = new Set<AlertKind>(["sync_success", "sync_error"]);
 
 type Ctx = Record<string, string | number>;
-type Found = Map<string, { kind: AlertKind; entityType: string; entityId: string; context: Ctx }>;
+/** An alert as its source raises it (ADR-0008). */
+export type Raised = {
+  kind: AlertKind;
+  severity: AlertSeverity;
+  module: AlertModule;
+  /** Stable key of what raised it: `spool:<id>`, `sync:<integration>:<type>`... */
+  task: string;
+  entityType: string;
+  entityId: string;
+  context: Ctx;
+  /** Unset = keep what the open alert has. */
+  detail?: AlertDetail;
+};
+type Found = Map<string, Raised>;
+
+/** Events (a sync run's result) are raised here once; conditions come from `evaluateAlerts`. */
+export const raise = (db: Db, a: Raised) => db.insert(alerts).values(a).onConflictDoNothing().run();
 
 /** Everything that is wrong right now, keyed like the alerts table's open-row unique index. */
 function conditions(db: Db, now: Date): Found {
   const prefs = readPreferences(db);
   const found: Found = new Map();
-  const add = (kind: AlertKind, entityType: string, entityId: string, context: Ctx) =>
-    found.set(`${kind}|${entityType}|${entityId}`, { kind, entityType, entityId, context });
+  const add = (a: Raised) => found.set(`${a.kind}|${a.entityType}|${a.entityId}`, a);
 
   for (const s of db
     .select({ id: spools.id, grams: spools.remainingGrams, name: spoolName })
@@ -36,27 +58,47 @@ function conditions(db: Db, now: Date): Found {
     .where(and(isNull(spools.archivedAt), ne(spools.status, "empty")))
     .all())
     if (s.grams <= prefs.lowSpoolGrams)
-      add("spool_low", "spool", s.id, { name: s.name, grams: Math.round(s.grams) });
+      add({
+        kind: "spool_low",
+        severity: "warning",
+        module: "filament",
+        task: `spool:${s.id}`,
+        entityType: "spool",
+        entityId: s.id,
+        context: { name: s.name, grams: Math.round(s.grams) },
+      });
 
   for (const d of dueItems(db))
     if (
       d.status !== "ok" ||
       (d.remainingDays !== null && d.remainingDays <= prefs.maintenanceLeadDays)
-    )
+    ) {
       // Printer or accessory (uuids never clash); `printer` is the target's name for either.
-      add("maintenance_due", "maintenance", `${d.targetId}:${d.typeId}`, {
-        printer: d.targetName,
-        task: d.typeName,
-        overdue: d.progress >= 1 ? 1 : 0,
+      const key = `${d.targetId}:${d.typeId}`;
+      add({
+        kind: "maintenance_due",
+        // Overdue is an error; the open alert turns into one in place, without a new notification.
+        severity: d.progress >= 1 ? "error" : "warning",
+        module: "maintenance",
+        task: `maintenance:${key}`,
+        entityType: "maintenance",
+        entityId: key,
+        context: { printer: d.targetName, task: d.typeName },
       });
+    }
 
   const limit = now.getTime() + WARRANTY_LEAD_DAYS * DAY_MS;
   for (const p of db.select().from(printers).where(isNull(printers.archivedAt)).all()) {
     const ends = p.warrantyEndsAt ? Date.parse(p.warrantyEndsAt) : Number.NaN;
     if (ends >= now.getTime() && ends <= limit)
-      add("warranty_ending", "printer", p.id, {
-        name: printerTitle(p),
-        days: Math.ceil((ends - now.getTime()) / DAY_MS),
+      add({
+        kind: "warranty_ending",
+        severity: "warning",
+        module: "printers",
+        task: `printer:${p.id}`,
+        entityType: "printer",
+        entityId: p.id,
+        context: { name: printerTitle(p), days: Math.ceil((ends - now.getTime()) / DAY_MS) },
       });
   }
 
@@ -73,33 +115,46 @@ function conditions(db: Db, now: Date): Found {
         gt(syncPolicies.pending, 0),
       ),
     )
-    .all())
-    add("sync_pending", "integration", `${p.policy.integrationId}:${p.policy.type}`, {
-      integrationId: p.policy.integrationId,
-      adapterId: p.adapterId, // the web shows the adapter's name
-      type: p.policy.type,
-      count: p.policy.pending,
+    .all()) {
+    const { integrationId, type, pending } = p.policy;
+    const key = `${integrationId}:${type}`;
+    // The rows themselves come from the latest run's log; kept as is when it has none (it failed).
+    const run = db
+      .select({ id: syncRuns.id, log: syncRuns.log })
+      .from(syncRuns)
+      // Only a sync type has rows pending.
+      .where(and(eq(syncRuns.integrationId, integrationId), eq(syncRuns.type, type as SyncType)))
+      .orderBy(desc(syncRuns.startedAt))
+      .get();
+    const left = run?.log.filter((e) => e.event === "left") ?? [];
+    add({
+      kind: "sync_pending",
+      severity: "warning",
+      module: "integrations",
+      task: `sync:${key}`,
+      entityType: "integration",
+      entityId: key,
+      // `adapterId`: the web shows the adapter's name.
+      context: { integrationId, adapterId: p.adapterId, type, count: pending },
+      ...(run && left.length && { detail: { runId: run.id, log: left } }),
     });
+  }
   return found;
 }
 
 // Server-side text for outside channels; the app itself translates by kind + context.
-function messageOf(kind: AlertKind, c: Ctx, baseUrl?: string): Notification {
-  switch (kind) {
+function messageOf(a: typeof alerts.$inferSelect, baseUrl?: string): Notification {
+  const c = a.context;
+  switch (a.kind) {
     case "spool_low":
       return { title: "Spool running low", body: `${c.name}: ${c.grams} g left` };
     case "maintenance_due":
       return {
-        title: c.overdue ? "Maintenance overdue" : "Maintenance due soon",
+        title: a.severity === "error" ? "Maintenance overdue" : "Maintenance due soon",
         body: `${c.task} on ${c.printer}`,
       };
     case "warranty_ending":
       return { title: "Warranty ending", body: `${c.name}: ${c.days} days left` };
-    case "sync_failed":
-      // `name` only on alerts from before integrations lost their name (0020).
-      return { title: "Sync failed", body: `${c.name ?? "An integration"} could not sync` };
-    case "print_failed":
-      return { title: "Print failed", body: String(c.title ?? "") };
     case "sync_pending":
       return {
         title: "Sync needs review",
@@ -131,11 +186,18 @@ export async function evaluateAlerts(
 
   db.transaction((tx) => {
     for (const a of tx.select().from(alerts).where(isNull(alerts.resolvedAt)).all()) {
-      // Old `sync_failed` rows (before sync_error) match nothing and resolve here.
       const hit = ONE_SHOT.has(a.kind) || found.has(`${a.kind}|${a.entityType}|${a.entityId}`);
       const cur = found.get(`${a.kind}|${a.entityType}|${a.entityId}`);
-      // Keep open rows' text fresh (grams drop, wording changes) without re-notifying.
-      if (cur) tx.update(alerts).set({ context: cur.context }).where(eq(alerts.id, a.id)).run();
+      // Keep open rows fresh (grams drop, due soon turns overdue) without re-notifying.
+      if (cur)
+        tx.update(alerts)
+          .set({
+            context: cur.context,
+            severity: cur.severity,
+            ...(cur.detail && { detail: cur.detail }),
+          })
+          .where(eq(alerts.id, a.id))
+          .run();
       if (!hit) tx.update(alerts).set({ resolvedAt: stamp }).where(eq(alerts.id, a.id)).run();
       else if (a.snoozedUntil && a.snoozedUntil <= stamp)
         tx.update(alerts)
@@ -162,7 +224,7 @@ export async function evaluateAlerts(
   for (const a of pending) {
     // Mark first: a slow channel must not let a concurrent run send the same alert twice.
     db.update(alerts).set({ notifiedAt: stamp }).where(eq(alerts.id, a.id)).run();
-    const n = messageOf(a.kind, a.context, baseUrl);
+    const n = messageOf(a, baseUrl);
     for (const c of targets)
       try {
         await sendVia(db, key, c.id, n);

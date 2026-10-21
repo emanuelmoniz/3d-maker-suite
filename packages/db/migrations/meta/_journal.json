@@ -379,6 +379,13 @@
       "when": 1792589355636,
       "tag": "0053_project_gallery",
       "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "6",
+      "when": 1792594304299,
+      "tag": "0054_alert_manager",
+      "breakpoints": true
     }
   ]
 }

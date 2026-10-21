@@ -7,6 +7,8 @@ import {
   INTEGRATION_KINDS,
   LOGIN_CHALLENGES,
   PRINT_OUTCOMES,
+  SYNC_LEFT_REASONS,
+  SYNC_LOG_EVENTS,
   SYNC_RUN_STATUSES,
   SYNC_TRIGGERS,
   SYNC_TYPES,
@@ -135,6 +137,19 @@ export const syncRunSchema = z.object({
   skipped: z.number().int().nonnegative(),
 });
 
+/** One line of a run's log. Codes and row names only, never a raw or vendor error (ADR-0008). */
+export const syncLogEntrySchema = z.object({
+  event: z.enum(SYNC_LOG_EVENTS),
+  /** The row's title or name as the source sent it. */
+  label: z.string().optional(),
+  /** `left`: why it waits for a person. */
+  reason: z.enum(SYNC_LEFT_REASONS).optional(),
+  /** `failed`: why. */
+  code: z.enum(INTEGRATION_ERROR_CODES).optional(),
+  /** `truncated`: how many lines were cut. */
+  count: z.number().int().positive().optional(),
+});
+
 /** A run as "Sync now" gets it back: also the rows it left for a person to review. */
 export const syncResultSchema = syncRunSchema.extend({
   updated: z.number().int().nonnegative(),
@@ -167,6 +182,7 @@ export type IntegrationPatch = z.infer<typeof integrationPatchSchema>;
 export type AdapterInfo = z.infer<typeof adapterInfoSchema>;
 export type SyncRequest = z.infer<typeof syncRequestSchema>;
 export type SyncRun = z.infer<typeof syncRunSchema>;
+export type SyncLogEntry = z.infer<typeof syncLogEntrySchema>;
 export type SyncResult = z.infer<typeof syncResultSchema>;
 export type SyncPolicy = z.infer<typeof syncPolicySchema>;
 export type TestResult = z.infer<typeof testResultSchema>;

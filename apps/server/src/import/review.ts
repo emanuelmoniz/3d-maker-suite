@@ -299,20 +299,23 @@ export function createReview(db: Db, dataDir: string) {
       const at = (op: (typeof ops)[number]) => Date.parse(String(op.values.startedAt));
       ops.sort((a, b) => at(a) - at(b));
     }
-    let created = 0;
-    let updated = 0;
+    // The rows written, for a sync run's log.
+    const written: { event: "created" | "updated"; values: (typeof ops)[number]["values"] }[] = [];
     db.transaction(() => {
       for (const op of ops) {
         if (!op.target) {
-          if (handler.create(db, op.values, op.row) !== false) created++;
+          if (handler.create(db, op.values, op.row) !== false)
+            written.push({ event: "created", values: op.values });
           continue;
         }
         const patch = mergeValues(columns, op.policy, op.values, op.target.values);
         if (!Object.keys(patch).length) continue;
         handler.update(db, op.target, patch, op.row);
-        updated++;
+        written.push({ event: "updated", values: op.values });
       }
     });
+    const created = written.filter((w) => w.event === "created").length;
+    const updated = written.length - created;
     const invalid = current.rows.filter((r) => r.status === "invalid");
     const skipped = current.rows.length - invalid.length - created - updated;
     if (backup || created || updated)
@@ -334,7 +337,7 @@ export function createReview(db: Db, dataDir: string) {
         .run();
     // What is still there for a person (or the next run) once this one is done.
     const left = stored.from ? preview(stored).rows.filter((r) => r.auto) : [];
-    return { created, updated, skipped, pending: left.length, left };
+    return { created, updated, skipped, pending: left.length, left, written, invalid };
   }
 
   return { handlers, save, load, drop, preview, plan, write };

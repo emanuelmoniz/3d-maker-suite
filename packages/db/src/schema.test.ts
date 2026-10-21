@@ -87,7 +87,14 @@ describe("schema", () => {
   });
 
   it("allows one unresolved alert per entity", () => {
-    const alert = { kind: "spool_low" as const, entityType: "spool", entityId: spoolId };
+    const alert = {
+      kind: "spool_low" as const,
+      severity: "warning" as const,
+      module: "filament" as const,
+      task: `spool:${spoolId}`,
+      entityType: "spool",
+      entityId: spoolId,
+    };
     const first = db.insert(s.alerts).values(alert).returning().get();
     expect(() => db.insert(s.alerts).values(alert).run()).toThrow(/UNIQUE/);
 
@@ -465,6 +472,95 @@ describe("migration 0051", () => {
       ["c", 3],
     ]);
     expect(rows.every((q) => q.clientId === null && q.notes === null)).toBe(true);
+  });
+});
+
+describe("migration 0054", () => {
+  it("gives every alert a severity, module and task; open ones keep their state", () => {
+    const at = "2026-10-01T00:00:00.000Z";
+    const sync = { integrationId: "i1", adapterId: "mock", type: "prints" };
+    const old: [string, string, string, object, string | null][] = [
+      ["maintenance_due", "maintenance", "p1:t1", { printer: "P", task: "T", overdue: 1 }, null],
+      ["maintenance_due", "maintenance", "p1:t2", { printer: "P", task: "U", overdue: 0 }, null],
+      ["spool_low", "spool", "s1", { name: "S", grams: 20 }, null],
+      ["warranty_ending", "printer", "p1", { name: "P", days: 3 }, null],
+      ["sync_pending", "integration", "i1:spools", { ...sync, type: "spools", count: 2 }, null],
+      ["sync_success", "sync_run", "r1", { ...sync, created: 1, updated: 0 }, null],
+      ["sync_error", "sync_run", "r2", { ...sync, code: "unreachable" }, null],
+      ["sync_failed", "integration", "i1", {}, null],
+      ["sync_failed", "integration", "i1", {}, at],
+      ["print_failed", "print", "x", {}, null],
+    ];
+    const now = migrateAcross(53, (sqlite) => {
+      const insert = sqlite.prepare(
+        "INSERT INTO alerts (id, kind, entity_type, entity_id, context, created_at, read_at, notified_at, snoozed_until, resolved_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      );
+      for (const [kind, type, entity, context, resolved] of old)
+        insert.run(
+          crypto.randomUUID(),
+          kind,
+          type,
+          entity,
+          JSON.stringify(context),
+          at,
+          at,
+          at,
+          at,
+          resolved,
+        );
+    });
+    const rows = now.select().from(s.alerts).all();
+    const by = (entityId: string) =>
+      rows
+        .filter((r) => r.entityId === entityId)
+        .map(({ kind, severity, module, task, context }) => ({
+          kind,
+          severity,
+          module,
+          task,
+          context,
+        }));
+
+    expect(by("p1:t1")).toEqual([
+      {
+        kind: "maintenance_due",
+        severity: "error",
+        module: "maintenance",
+        task: "maintenance:p1:t1",
+        context: { printer: "P", task: "T" },
+      },
+    ]);
+    expect(by("p1:t2")[0]).toMatchObject({ severity: "warning" });
+    expect(by("s1")[0]).toMatchObject({
+      severity: "warning",
+      module: "filament",
+      task: "spool:s1",
+    });
+    expect(by("p1")[0]).toMatchObject({
+      severity: "warning",
+      module: "printers",
+      task: "printer:p1",
+    });
+    expect(by("i1:spools")[0]).toMatchObject({ severity: "warning", task: "sync:i1:spools" });
+    expect(by("r1")[0]).toMatchObject({
+      severity: "success",
+      module: "integrations",
+      task: "sync:i1:prints",
+    });
+    expect(by("r2")[0]).toMatchObject({ severity: "error", task: "sync:i1:prints" });
+    // Old sync_failed: a resolved sync_error. print_failed was never raised: gone.
+    expect(rows.filter((r) => r.entityId === "i1").map((r) => [r.kind, !!r.resolvedAt])).toEqual([
+      ["sync_error", true],
+      ["sync_error", true],
+    ]);
+    expect(rows.some((r) => r.entityId === "x")).toBe(false);
+    // Open alerts keep their state, so nothing is sent again; none has a detail yet.
+    const open = rows.filter((r) => !r.resolvedAt);
+    expect(open).toHaveLength(7);
+    expect(open.every((r) => r.readAt === at && r.notifiedAt === at && r.snoozedUntil === at)).toBe(
+      true,
+    );
+    expect(rows.every((r) => r.detail === null)).toBe(true);
   });
 });
 

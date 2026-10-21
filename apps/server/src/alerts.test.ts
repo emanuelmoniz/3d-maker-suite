@@ -37,6 +37,7 @@ const clicks = () =>
     ([, init]) => (init.headers as Record<string, string>).click,
   );
 const list = async () => (await app.inject("/api/alerts")).json();
+const detail = async (id: string) => (await app.inject(`/api/alerts/${id}`)).json().detail;
 
 async function lowSpool() {
   const brand = (await send("POST", "/api/filament-brands", { name: "Prusament" })).json();
@@ -68,7 +69,15 @@ describe("alerts", () => {
     await evaluate();
     await evaluate();
     expect(await list()).toMatchObject([
-      { kind: "spool_low", entityId: id, context: { grams: 50 } },
+      {
+        kind: "spool_low",
+        severity: "warning",
+        module: "filament",
+        task: `spool:${id}`,
+        entityId: id,
+        context: { grams: 50 },
+        hasDetail: false,
+      },
     ]);
     expect(fetchMock).toHaveBeenCalledTimes(1);
 
@@ -111,13 +120,45 @@ describe("alerts", () => {
     expect(await list()).toMatchObject([
       {
         kind: "maintenance_due",
+        severity: "error",
+        module: "maintenance",
+        task: `maintenance:${ams.id}:${type.id}`,
         entityId: `${ams.id}:${type.id}`,
-        context: { printer: "01-AMS", task: "Rollers", overdue: 1 },
+        context: { printer: "01-AMS", task: "Rollers" },
       },
     ]);
     await send("POST", "/api/maintenance/tasks", { accessoryId: ams.id, typeId: type.id });
     await evaluate();
     expect(await list()).toHaveLength(0);
+  });
+
+  it("maintenance due soon is a warning that turns into an error in place, notified once", async () => {
+    await ntfyOn();
+    const p = (
+      await send("POST", "/api/printers", { name: "P1", modelId: modelIdFor(db, "Bambu", "P1S") })
+    ).json();
+    await send("POST", "/api/maintenance/types", { name: "Nozzle", intervalPrints: 10 });
+    const printed = (n: number) =>
+      db
+        .insert(schema.prints)
+        .values(
+          Array.from({ length: n }, (_, i) => ({
+            printerId: p.id,
+            title: `t${i}`,
+            outcome: "success" as const,
+            startedAt: `2026-01-0${(i % 9) + 1}T00:00:00.000Z`,
+          })),
+        )
+        .run();
+
+    printed(9);
+    await evaluate();
+    const [soon] = await list();
+    expect(soon).toMatchObject({ kind: "maintenance_due", severity: "warning" });
+    printed(1);
+    await evaluate();
+    expect(await list()).toMatchObject([{ id: soon.id, severity: "error" }]);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it("snooze hides and silences until it ends; dismiss stays quiet until resolved", async () => {
@@ -163,7 +204,9 @@ describe("alerts", () => {
       warrantyEndsAt: soon,
     });
     await evaluate();
-    expect(await list()).toMatchObject([{ kind: "warranty_ending", context: { days: 10 } }]);
+    expect(await list()).toMatchObject([
+      { kind: "warranty_ending", severity: "warning", module: "printers", context: { days: 10 } },
+    ]);
     await evaluate();
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
@@ -188,8 +231,13 @@ describe("alerts", () => {
     policy({ pending: 2 });
     expect(await open()).toMatchObject([
       {
+        severity: "warning",
+        module: "integrations",
+        task: `sync:${id}:prints`,
         entityId: `${id}:prints`,
         context: { integrationId: id, adapterId: "mock", type: "prints", count: 2 },
+        // No run logged what was left.
+        hasDetail: false,
       },
     ]);
     // The notification opens the review; a wildcard host is reached by the machine's name.
@@ -231,19 +279,28 @@ describe("alerts", () => {
       };
 
       await sync("printers");
-      expect(await results()).toMatchObject([
-        {
-          kind: "sync_success",
-          entityType: "sync_run",
-          context: {
-            integrationId: id,
-            adapterId: "mock",
-            type: "printers",
-            created: 1,
-            updated: 0,
-          },
+      const [success] = await results();
+      expect(success).toMatchObject({
+        kind: "sync_success",
+        severity: "success",
+        module: "integrations",
+        task: `sync:${id}:printers`,
+        entityType: "sync_run",
+        context: {
+          integrationId: id,
+          adapterId: "mock",
+          type: "printers",
+          created: 1,
+          updated: 0,
         },
-      ]);
+        hasDetail: true,
+      });
+      expect(success).not.toHaveProperty("detail");
+      // The detail is the run's log, by row.
+      expect(await detail(success.id)).toEqual({
+        runId: success.entityId,
+        log: [{ event: "created", label: expect.any(String) }],
+      });
       expect(fetchMock).toHaveBeenCalledTimes(1);
       // Nothing new: no alert.
       await sync("printers");
@@ -255,9 +312,13 @@ describe("alerts", () => {
       await sync("printers");
       const errors = async () =>
         (await results()).filter((a: { kind: string }) => a.kind === "sync_error");
-      expect(await errors()).toMatchObject([
-        { context: { type: "printers", code: "unreachable" } },
-      ]);
+      const [error] = await errors();
+      expect(error).toMatchObject({
+        severity: "error",
+        task: `sync:${id}:printers`,
+        context: { type: "printers", code: "unreachable" },
+      });
+      expect((await detail(error.id)).log).toEqual([{ event: "failed", code: "unreachable" }]);
       state.fail = undefined;
       await sync("printers");
       state.fail = "unreachable";
@@ -289,6 +350,32 @@ describe("alerts", () => {
         await send("PATCH", `/api/alerts/${a.id}`, { action: "dismiss" });
       expect(await results()).toHaveLength(0);
       expect(fetchMock).toHaveBeenCalledTimes(calls);
+    } finally {
+      rmSync(dataDir, { recursive: true, force: true });
+    }
+  });
+
+  it("a pending review shows the rows the last run left, without secrets", async () => {
+    const dataDir = mkdtempSync(join(tmpdir(), "alerts-"));
+    app = await buildApp(db, false, dataDir, { adapters: [mockAdapter(fixture())] });
+    try {
+      const { id } = (
+        await send("POST", "/api/integrations", {
+          adapterId: "mock",
+          secrets: { token: "tk_secret_42" },
+        })
+      ).json();
+      // No spool fits the mock's filament, so its prints wait for a pick.
+      await send("POST", `/api/integrations/${id}/sync`, { type: "printers" });
+      await send("POST", `/api/integrations/${id}/sync`, { type: "prints" });
+      await evaluate();
+      const pending = (await list()).find((a: { kind: string }) => a.kind === "sync_pending");
+      expect(pending).toMatchObject({ severity: "warning", hasDetail: true });
+      const res = await app.inject(`/api/alerts/${pending.id}`);
+      expect(res.body).not.toContain("tk_secret_42");
+      const { log } = res.json().detail;
+      expect(log.length).toBe(pending.context.count);
+      expect(log[0]).toMatchObject({ event: "left", label: "Mock print 1", reason: "pick" });
     } finally {
       rmSync(dataDir, { recursive: true, force: true });
     }

@@ -1,5 +1,8 @@
 import {
   ALERT_KINDS,
+  ALERT_MODULES,
+  ALERT_SEVERITIES,
+  type AlertDetail,
   CAPABILITIES,
   COMMENT_STATUSES,
   ENERGY_SOURCES,
@@ -15,6 +18,7 @@ import {
   SYNC_RUN_STATUSES,
   SYNC_TRIGGERS,
   SYNC_TYPES,
+  type SyncLogEntry,
   TAGGABLE_TYPES,
   WEIGHT_ENTRY_KINDS,
 } from "@3d-maker-suite/core";
@@ -120,6 +124,8 @@ export const syncRuns = sqliteTable(
     errorCode: text({ enum: INTEGRATION_ERROR_CODES }),
     created: integer().notNull().default(0),
     skipped: integer().notNull().default(0),
+    /** What the run did, row by row (bounded, ADR-0008). Empty on runs before 0054. */
+    log: text({ mode: "json" }).notNull().$type<SyncLogEntry[]>().default([]),
   },
   (t) => [
     index("sync_runs_integration_idx").on(t.integrationId, t.startedAt),
@@ -713,9 +719,15 @@ export const alerts = sqliteTable(
   {
     id: id(),
     kind: text({ enum: ALERT_KINDS }).notNull(),
+    severity: text({ enum: ALERT_SEVERITIES }).notNull(),
+    module: text({ enum: ALERT_MODULES }).notNull(),
+    /** What raised it (ADR-0008): `spool:<id>`, `maintenance:<target>:<type>`, `printer:<id>`, `sync:<integration>:<type>`. */
+    task: text().notNull(),
     entityType: text().notNull(),
     entityId: text().notNull(),
     context: text({ mode: "json" }).notNull().$type<Record<string, string | number>>().default({}),
+    /** The expanded view (a sync log); null = nothing more to show. */
+    detail: text({ mode: "json" }).$type<AlertDetail>(),
     createdAt: text().notNull().$defaultFn(now),
     readAt: text(),
     /** When the channels were told; null = still to send. Re-armed when a snooze ends. */
@@ -730,6 +742,8 @@ export const alerts = sqliteTable(
       .on(t.kind, t.entityType, t.entityId)
       .where(sql`${t.resolvedAt} IS NULL`),
     check("alerts_kind_ck", oneOf(t.kind, ALERT_KINDS)),
+    check("alerts_severity_ck", oneOf(t.severity, ALERT_SEVERITIES)),
+    check("alerts_module_ck", oneOf(t.module, ALERT_MODULES)),
   ],
 );
 

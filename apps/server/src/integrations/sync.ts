@@ -17,6 +17,7 @@ import {
   REVIEWED_TYPES,
   type ReviewedType,
   type SyncFrequency,
+  type SyncLogEntry,
   type SyncRequest,
   type SyncResult,
   type SyncRun,
@@ -26,6 +27,7 @@ import {
 import { type Db, schema } from "@3d-maker-suite/db";
 import { and, desc, eq, isNull, notInArray, sql } from "drizzle-orm";
 import type { FastifyBaseLogger } from "fastify";
+import { raise } from "../alerts/evaluate.ts";
 import { HttpError } from "../errors.ts";
 import { createReview, type Stored, untracked } from "../import/review.ts";
 import { modelIdFor } from "../lib/catalog.ts";
@@ -37,8 +39,7 @@ import { libraryOf } from "./imports.ts";
 import { secretStore } from "./secrets.ts";
 import { activeSpools, libraryRows, printRows, spoolHistory, spoolRows } from "./sourceRows.ts";
 
-const { alerts, integrations, printers, prints, printFilamentUsages, syncPolicies, syncRuns } =
-  schema;
+const { integrations, printers, prints, printFilamentUsages, syncPolicies, syncRuns } = schema;
 
 /** The dates a prints read is limited to; none = since the last run. */
 type Range = { from?: string; to?: string };
@@ -58,6 +59,13 @@ const REVIEWED = new Set<string>(REVIEWED_TYPES);
 const OVERLAP_MS = 7 * 24 * 3600 * 1000;
 const TIMEOUT_MS = 5 * 60 * 1000;
 const KEEP_RUNS = 200;
+// Lines per run log; the rest is counted in one `truncated` line (ADR-0008).
+const MAX_LOG = 200;
+// ponytail: a row's name for the log is its title or name column; per-entity labels if one shows blank.
+const labelOf = (v: Record<string, unknown>) => {
+  const s = String(v.title ?? v.name ?? v.model ?? "");
+  return s ? { label: s } : {};
+};
 // The scheduler ticks every 15 minutes (main.ts); an `auto` type runs when its frequency has passed.
 // ponytail: "1M" is 30 days, not a calendar month.
 const FREQUENCY_MS: Record<SyncFrequency, number> = {
@@ -155,6 +163,10 @@ export function createSyncer(
     let oldestLeft: string | undefined;
     let errorCode: IntegrationErrorCode | null = null;
     const runLog = log.child({ integrationId: id });
+    // What the run did, for its alert. Codes and row names only; raw errors go to `runLog`.
+    const lines: SyncLogEntry[] = [];
+    let cut = 0;
+    const note = (e: SyncLogEntry) => (lines.length < MAX_LOG ? lines.push(e) : cut++);
     const signal = AbortSignal.timeout(TIMEOUT_MS);
     try {
       // Only an account has an instance; a local source is read from its folder.
@@ -176,6 +188,18 @@ export function createSyncer(
           pick?.backup ?? null,
         );
         ({ created, updated, pending } = done);
+        for (const w of done.written) note({ event: w.event, ...labelOf(w.values) });
+        for (const r of done.invalid) note({ event: "invalid", ...labelOf(r.values) });
+        for (const r of done.left)
+          note({
+            event: "left",
+            ...labelOf(r.values),
+            reason: Object.values(r.refs ?? {}).some((v) => !v)
+              ? "pick"
+              : r.refsUnsure?.length
+                ? "unsure"
+                : "review",
+          });
         // The sync log counts what was there already; rows left for review are not "skipped".
         skipped = Math.max(0, done.skipped - pending);
         // The next run starts at the oldest print left for review, so it is offered again.
@@ -190,6 +214,7 @@ export function createSyncer(
           if (!p.success) {
             skipped++;
             runLog.warn({ issues: p.error.issues }, "invalid printer from adapter");
+            note({ event: "invalid", ...labelOf(raw as Record<string, unknown>) });
             continue;
           }
           const known = db
@@ -231,6 +256,7 @@ export function createSyncer(
               .run();
           }
           created++;
+          note({ event: "created", label: p.data.name });
         }
       }
 
@@ -261,6 +287,7 @@ export function createSyncer(
       errorCode = signal.aborted ? "unreachable" : codeOf(e);
       // Only the code is stored; the raw error (possibly a vendor message) goes to the local log.
       runLog.warn({ err: e, code: errorCode }, "sync failed");
+      note({ event: "failed", code: errorCode });
       db.update(integrations)
         .set({ status: "error", lastError: errorCode })
         .where(eq(integrations.id, id))
@@ -289,6 +316,7 @@ export function createSyncer(
         errorCode,
         created,
         skipped,
+        log: cut ? [...lines, { event: "truncated", count: cut }] : lines,
       })
       .returning()
       .get();
@@ -300,14 +328,17 @@ export function createSyncer(
         ? previous?.status !== "error" && { ...about, code: errorCode }
         : created + updated > 0 && { ...about, created, updated };
       if (context)
-        db.insert(alerts)
-          .values({
-            kind: errorCode ? "sync_error" : "sync_success",
-            entityType: "sync_run",
-            entityId: saved.id,
-            context,
-          })
-          .run();
+        raise(db, {
+          kind: errorCode ? "sync_error" : "sync_success",
+          severity: errorCode ? "error" : "success",
+          module: "integrations",
+          task: `sync:${id}:${type}`,
+          entityType: "sync_run",
+          entityId: saved.id,
+          context,
+          // A copy: runs get pruned, the alert stays until dismissed.
+          detail: { runId: saved.id, log: saved.log },
+        });
     }
     const keep = db
       .select({ id: syncRuns.id })

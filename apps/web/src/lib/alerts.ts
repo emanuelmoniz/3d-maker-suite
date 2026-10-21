@@ -1,4 +1,4 @@
-import type { Alert, ChannelInput, ChannelSettings } from "@3d-maker-suite/core";
+import type { Alert, AlertWithDetail, ChannelInput, ChannelSettings } from "@3d-maker-suite/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "./api.ts";
 
@@ -9,6 +9,14 @@ export const useAlerts = () =>
     queryKey: ALERTS,
     queryFn: () => api<Alert[]>("GET", "/api/alerts"),
     refetchInterval: 60_000,
+  });
+
+/** One alert with its detail (a sync log); loaded when the details are opened. */
+export const useAlertDetail = (id: string, enabled: boolean) =>
+  useQuery({
+    queryKey: [...ALERTS, id],
+    queryFn: () => api<AlertWithDetail>("GET", `/api/alerts/${id}`),
+    enabled,
   });
 
 /** What the badge counts: alerts nobody has looked at, not snoozed. */
