@@ -257,7 +257,7 @@ push the tag and confirm the pre-release is published.
 
 ## Phase 5 - Release
 
-### [ ] Step 20 - Responsive pass & screenshots for v3
+### [x] Step 20 - Responsive pass & screenshots for v3
 **Model:** Sonnet (use webapp-testing skill) · **Effort:** Medium
 **Scope:** Run the whole e2e suite at 375/768/1440 and fix what breaks. Fill e2e gaps left by earlier steps. Refresh the README screenshots with `pnpm screenshots`.
 **Done when:** E2E green in CI; screenshots match the app.

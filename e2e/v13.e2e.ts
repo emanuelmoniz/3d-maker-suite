@@ -352,7 +352,11 @@ test.describe("layout sweep", () => {
     test(`no control hangs off the screen at ${name}`, async ({ page, app }) => {
       const printer = await seedPrinter(app.api);
       const spool = await seedSpool(app.api);
-      const project = await seedProject(app.api);
+      // A long name stretches every project select (the stats filter once overflowed).
+      const project = await seedProject(
+        app.api,
+        "A very long project name that goes on and on and on for testing wrapping",
+      );
       await seedCloud(app);
       await app.api("POST", "/api/prints", {
         title: "Sweep",
