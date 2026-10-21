@@ -32,12 +32,12 @@ import { useTagsOf } from "../../lib/tags.ts";
 import { OrdersTable } from "../orders/OrdersTable.tsx";
 import { QuotesTable } from "../quotes/QuotesTable.tsx";
 import { ModelPreview } from "./ModelPreview.tsx";
+import { ProjectFiles } from "./ProjectFiles.tsx";
 
 const linkButton =
   "inline-flex h-9 items-center gap-2 whitespace-nowrap rounded-md border border-border bg-surface px-3 font-medium hover:bg-surface-2";
 const VIEWABLE = /\.(3mf|stl)$/i;
 const SLICED_EXPORT = /\.gcode\.3mf$/i;
-const KB = 1024;
 
 // Static keys so `pnpm i18n:check` sees them; `api()` puts the HTTP status last in the message.
 const openError = (t: TFunction, message: string) =>
@@ -46,9 +46,6 @@ const openError = (t: TFunction, message: string) =>
     : message.endsWith(": 403")
       ? t("projects:detail.openFailed.not_allowed")
       : t("projects:detail.openFailed.launch_failed");
-
-const sizeLabel = (bytes: number) =>
-  bytes < KB * KB ? `${Math.round(bytes / KB)} KB` : `${(bytes / KB / KB).toFixed(1)} MB`;
 
 function Plates({
   project,
@@ -545,23 +542,7 @@ export function ProjectDetailPage() {
       <QuotesTable fixed={{ projectId: id }} title={t("costs:saved.title")} />
       <OrdersTable fixed={{ projectId: id }} title={t("orders:list.table")} />
 
-      <section aria-labelledby="files" className="mt-6">
-        <h2 id="files" className="mb-2 text-base font-semibold">
-          {t("projects:detail.files")}
-        </h2>
-        {project.meta.files.length ? (
-          <ul className="divide-y divide-border rounded-lg border border-border bg-surface">
-            {project.meta.files.map((f) => (
-              <li key={f.path} className="flex justify-between gap-3 p-2 px-3">
-                <span className="break-all">{f.path}</span>
-                <span className="shrink-0 text-muted">{sizeLabel(f.size)}</span>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="text-muted">{t("projects:list.noFolder")}</p>
-        )}
-      </section>
+      <ProjectFiles project={project} />
     </>
   );
 }

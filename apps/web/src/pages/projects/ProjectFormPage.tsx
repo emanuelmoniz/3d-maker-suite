@@ -8,6 +8,7 @@ import { FormField, inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { PathPicker } from "../../components/PathPicker.tsx";
 import { isConflict } from "../../lib/catalog.ts";
+import { usePreferences } from "../../lib/preferences.ts";
 import { useCreateProject, usePatchProject, useProject } from "../../lib/projects.ts";
 
 const text = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
@@ -19,6 +20,10 @@ function ProjectForm({ project }: { project?: Project }) {
   const patch = usePatchProject(project?.id ?? "");
   const save = project ? patch : create;
   const [folder, setFolder] = useState("");
+  const roots = usePreferences().data?.values.projectRoots ?? [];
+  // Blank folder path + a root: make the folder there (the first root unless picked).
+  const [root, setRoot] = useState<string>();
+  const createIn = project || folder.trim() ? "" : (root ?? roots[0] ?? "");
   const [link, setLink] = useState(project?.descriptionFile ?? "");
   const docs = (project?.meta.files ?? []).filter(
     (f) => f.kind === "doc" && !/.pdf$/i.test(f.path),
@@ -37,6 +42,12 @@ function ProjectForm({ project }: { project?: Project }) {
     const link = text(f, "descriptionFile") || null;
     // On edit only changed fields are sent: each one sent counts as "edited" and survives re-scans.
     const done = { onSuccess: () => navigate({ to: "/projects" }) };
+    const created = {
+      onSuccess: (p: Project) =>
+        p.folderPath
+          ? navigate({ to: "/projects/$id", params: { id: p.id } })
+          : navigate({ to: "/projects" }),
+    };
     if (project) {
       const changed: Record<string, unknown> = Object.fromEntries(
         Object.entries(fields).filter(([k, v]) => v !== project[k as keyof typeof fields]),
@@ -48,9 +59,15 @@ function ProjectForm({ project }: { project?: Project }) {
     } else {
       // Blank means "let the scan decide": only what was typed is sent, so it is not "edited".
       const typed = Object.fromEntries(Object.entries(fields).filter(([, v]) => v));
+      const folderPath = text(f, "folderPath") || undefined;
       create.mutate(
-        { ...typed, name: fields.name, folderPath: text(f, "folderPath") || undefined },
-        done,
+        {
+          ...typed,
+          name: fields.name,
+          folderPath,
+          ...(!folderPath && createIn ? { createFolder: true, root: createIn } : {}),
+        },
+        created,
       );
     }
   };
@@ -145,6 +162,21 @@ function ProjectForm({ project }: { project?: Project }) {
                 onPick={setFolder}
               />
             </div>
+          )}
+        </FormField>
+      )}
+      {!project && !folder.trim() && roots.length > 0 && (
+        <FormField label={t("projects:form.createIn")} hint={t("projects:form.createInHint")}>
+          {(p) => (
+            <Combobox
+              {...p}
+              value={createIn}
+              onChange={setRoot}
+              options={[
+                ...roots.map((r) => ({ value: r, label: r })),
+                { value: "", label: t("projects:form.createInNone") },
+              ]}
+            />
           )}
         </FormField>
       )}

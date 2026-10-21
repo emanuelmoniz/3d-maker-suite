@@ -50,6 +50,12 @@ export const formatWeight = (grams: number) =>
 export const formatMegabytes = (bytes: number) =>
   num({ style: "unit", unit: "megabyte", maximumFractionDigits: 1 }).format(bytes / 1024 ** 2);
 
+/** Bytes in, "340 kB" or "12.3 MB" out. */
+export const formatSize = (bytes: number) =>
+  bytes < 1024 ** 2
+    ? num({ style: "unit", unit: "kilobyte", maximumFractionDigits: 0 }).format(bytes / 1024)
+    : formatMegabytes(bytes);
+
 /** Seconds in, "2h 5m" out (narrow unit style). Under a minute shows seconds. */
 export function formatDuration(seconds: number) {
   const unit = (value: number, u: "hour" | "minute" | "second") =>

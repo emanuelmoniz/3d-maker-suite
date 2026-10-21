@@ -56,7 +56,10 @@
     "error": "Couldn't save the project. Check the folder path and the link.",
     "number": "Number",
     "numberHint": "Leave empty for the folder’s number, or the next free one.",
-    "numberTaken": "Another project already has this number."
+    "numberTaken": "Another project already has this number.",
+    "createIn": "Create the project folder in",
+    "createInNone": "No folder",
+    "createInHint": "A folder named after the project is made there. Upload its files on the next page."
   },
   "filters": {
     "search": "Search projects",
@@ -159,5 +162,39 @@
     "spoolsGroup": "Spools",
     "profilesGroup": "Filament profiles",
     "spoolOption": "{{name}} · {{weight}} left"
+  },
+  "files": {
+    "upload": "Upload files",
+    "newFolder": "New folder",
+    "dropHint": "Drop files here to upload them, or onto a folder to upload into it.",
+    "uploadTo": "Upload into {{name}}",
+    "newFolderIn": "New folder in {{name}}",
+    "replace": "Replace {{name}}",
+    "rename": "Rename {{name}}",
+    "move": "Move {{name}}",
+    "delete": "Delete {{name}}",
+    "empty": "Empty folder",
+    "loadError": "Couldn't read this folder.",
+    "uploading": "Uploading {{name}}…",
+    "name": "Name",
+    "destination": "Destination folder",
+    "createAction": "Create",
+    "renameAction": "Rename",
+    "moveAction": "Move",
+    "deleteAction": "Delete",
+    "folderTitle": "New folder",
+    "folderHint": "Folder names can't contain \\ or : or start with a dot.",
+    "renameTitle": "Rename {{name}}",
+    "renameHint": "Pick a name that isn't used in this folder.",
+    "moveTitle": "Move {{name}}",
+    "moveHint": "A folder inside this project, like models/v2. Leave empty for the project folder.",
+    "deleteTitle": "Delete {{name}}?",
+    "deleteHint": "It moves to the trash folder of the project root. Empty it in Settings > Projects.",
+    "replaceTitle": "Replace existing file?",
+    "replaceHint": "{{name}} already exists. Uploading replaces it.",
+    "replaceAction": "Replace",
+    "exists": "A file or folder with this name already exists.",
+    "tooLarge": "The file is over the upload limit (Settings > Projects).",
+    "error": "That didn't work. Check the name and try again."
   }
 }

@@ -285,7 +285,7 @@ Do Step 22 of PLAN.md. Show me the routes, the path guard and the upload approac
 implementing. Reuse routes/fs.ts and the scanner where they fit.
 ```
 
-### [ ] Step 23 - Project files UI
+### [x] Step 23 - Project files UI
 **Model:** Sonnet (use webapp-testing skill) · **Effort:** Medium
 **Scope:** Project page: a Files section with the project folder as a tree. Create, rename, move and delete folders and files; upload by picker and drag & drop with progress; replace a file. Delete asks for confirmation. Projects page: "New project" asks for the root (when more than one), creates the folder and opens the project to upload into. Keyboard accessible, mobile friendly, i18n.
 **Done when:** every action works from the UI at 375/768/1440; e2e on a temp root; tests pass.
