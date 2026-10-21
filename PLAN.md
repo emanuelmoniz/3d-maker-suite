@@ -191,7 +191,7 @@ Do Step 13 of PLAN.md. Reuse the "empty = default" pattern from the v2 cost sett
 Do Step 14 of PLAN.md. Reuse the existing alert actions (read, dismiss, snooze) where they fit.
 ```
 
-### [ ] Step 15 - Docs, push & v3.0.0-alpha.2
+### [x] Step 15 - Docs, push & v3.0.0-alpha.2
 **Model:** Haiku · **Effort:** Low
 **Scope:** README/docs for the alert manager, per-task settings and the alert view, CHANGELOG, version `3.0.0-alpha.2`. Commit, push `main`, create and push tag `v3.0.0-alpha.2`; check the workflow run and the pre-release.
 **Done when:** `main` and the tag are pushed; the workflow is green; the pre-release exists; docs match the app.

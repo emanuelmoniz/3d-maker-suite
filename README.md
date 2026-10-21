@@ -10,6 +10,7 @@ A local-first manager for your 3D printing: printers, accessories, maintenance, 
 - **Accessories**: install on a printer with dates, usage, photos, tags, maintenance and cost
 - **Maintenance**: reusable tasks for printers and accessories, due by hours, prints or days
 - **Filament**: brands, materials, profiles, spools with numbers and colour names, remaining grams, low-spool alerts
+- **Alerts**: one list of what needs attention (low spools, maintenance, warranties, sync results), with severity, read, snooze and dismiss, a history table, and optional ntfy or email channels; each task chooses what it raises
 - **Projects**: 3MF models with plates, thumbnails, tags, collections, filament colours, files you can upload, move and remove in folders, a chosen 3D preview file, an image gallery with a cover, a markdown description (linked `.md` or `.txt` file, with an editor), and slicing per plate (Bambu Studio) for an estimated cost of one complete print
 - **Prints**: history with outcome, filament usage per AMS slot (up to 16 for multicolor), energy, and an estimated duration when only the grams are known
 - **Clients**: people and companies you print for, with unique VAT, mobile and email

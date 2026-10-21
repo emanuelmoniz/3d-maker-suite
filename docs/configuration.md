@@ -16,6 +16,13 @@ pnpm --filter @3d-maker-suite/server start -- --port 4400 --host 0.0.0.0
 | `APP_PASSWORD` | unset | HTTP Basic password. Required when `HOST` is not a loopback address. Any user name works. |
 | `APP_MOCK_INTEGRATION` | unset | Set to `1` to add a fake integration for trying the Integrations page without an account |
 
+## Alerts
+
+The alerts page lists what needs attention. Each alert has a severity (error, warning, success), its module and the task that raised it. Open an alert to see its details, mark it read or unread, snooze it, dismiss it, or jump to its spool, task or integration. Dismissed and snoozed alerts move to the history table on the same page.
+
+- **Per task** (Settings → Alerts): maintenance types set their own warning lead (days, hours or prints) and switch the warning and the overdue error on or off. Spools set the weight below which they are low and whether the low-spool alert is on. Each sync type chooses which of error, review and success it raises.
+- **Channels** (Settings → Alerts): send alerts to an ntfy topic or by email (SMTP). The access token and SMTP password are stored encrypted and never shown again; leave them empty to keep them. **Send test** checks a channel before you rely on it.
+
 ## Access from other devices
 
 ```bash

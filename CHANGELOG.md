@@ -2,6 +2,19 @@
 
 All notable changes are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [3.0.0-alpha.2] - 2026-10-21
+
+### Added
+- Alerts: one "Needs attention" list with severity, module and the task that raised each alert; the alert name opens its view
+- Alerts: view with details (sync log), mark as read or unread, snooze, dismiss or restore, and actions to open the spool, task or integration
+- Alerts: history table of snoozed, read, dismissed and resolved alerts, with filters and sort
+- Alerts: per-task settings. Maintenance types set their own warning lead (days, hours or prints) and on/off switches; spools set a low weight; each sync type picks which of error, review and success it raises
+- Alerts: ntfy and email (SMTP) channels with a test send; secrets are encrypted and never shown again
+- Alerts: a warning for maintenance in print hours and prints by default
+
+### Changed
+- Alerts: live counts in the alert view, not in its title; the spool-low title is shorter and shows the weight
+
 ## [3.0.0-alpha.1] - 2026-10-21
 
 ### Added
