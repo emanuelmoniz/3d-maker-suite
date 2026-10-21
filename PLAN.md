@@ -16,9 +16,9 @@ Status legend: `[ ]` todo · `[x]` done
 
 ## Phase 1 - Bugs & quick fixes
 
-### [ ] Step 1 - Folder scan: one pass, only the changed project
+### [x] Step 1 - Folder scan: one pass, only the changed project
 **Model:** Sonnet · **Effort:** Medium
-**Scope:** Pressing "Scan" seems to run twice, and every change on disk re-scans all projects. First confirm both: `start()` queues one more full pass when a request arrives during a scan, and the watcher in `scanner.ts` calls `start` for any change under a root. Fix: one click runs one pass. A watched change only re-scans the project folder it is in (map the changed path to its folder using `projectScanDepth`, then `refresh` it). A path under no known folder (a new folder) runs a discover on its root, not a full re-scan. A full scan stays available from the button. Writes made by the app itself (uploads, description editor) must not trigger a second scan of the same folder. The Windows folder-lock fix still holds.
+**Scope:** Pressing "Scan" seems to run twice, and every change on disk re-scans all projects. First confirm both: `start()` queues one more full pass when a request arrives during a scan, and the watcher in `scanner.ts` calls `start` for any change under a root. Fix: one click runs one pass. A watched change only re-scans the project folder it is in (map the changed path to its folder using `projectScanDepth`, then `refresh` it). A path under no known folder (a new folder) runs a discover on its root, not a full re-scan. A full scan stays available from the button. Writes made by the app itself (uploads, description editor) must not trigger a second scan of the same folder. The Windows folder-lock fix still holds. Check if full scan run when server start, it should.
 **Done when:** the summary explains why it ran twice; one click = one pass; changing a file in one project only scans that project (test with two folders); a new folder is picked up; tests pass.
 **Prompt:**
 ```

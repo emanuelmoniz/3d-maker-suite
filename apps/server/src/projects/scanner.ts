@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { type FSWatcher, watch as fsWatch } from "node:fs";
 import { copyFile, mkdir, readdir, rm, stat, writeFile } from "node:fs/promises";
-import { basename, extname, join, resolve } from "node:path";
+import { basename, extname, join, resolve, sep } from "node:path";
 import { read3mfEntry } from "@3d-maker-suite/3mf";
 import {
   PROJECT_EDITABLE_FIELDS,
@@ -64,7 +64,8 @@ export function createProjectScanner(
   opts: { watch?: boolean } = {},
 ) {
   let state = idle();
-  let again = false;
+  const pending = new Map<string, { root: string; at: number }>();
+  const refreshedAt = new Map<string, number>();
   const watchers: FSWatcher[] = [];
   let watching = "";
   let timer: NodeJS.Timeout | undefined;
@@ -193,7 +194,17 @@ export function createProjectScanner(
 
   /** Re-reads one project folder now (e.g. after its description file changed). */
   async function refresh(folder: string) {
+    // The app's own write already fired the watcher; events up to now need no second scan.
+    refreshedAt.set(folder, Date.now());
     await upsert(folder, await scanFolder(folder, linkOf(folder)));
+  }
+
+  /** Scans one discovered folder; a template folder or one without a model is no project. */
+  async function scanOne(folder: string) {
+    // Number 0 ("000_project-name") marks a template folder: no project.
+    if (parseFolderName(basename(folder)).number === 0) return "unchanged" as const;
+    const scan = await scanFolder(folder, linkOf(folder));
+    return scan.hasModel ? await upsert(folder, scan) : ("unchanged" as const);
   }
 
   async function pass() {
@@ -225,17 +236,9 @@ export function createProjectScanner(
       }
       ordered.push(...later);
       for (const folder of ordered) {
-        // Number 0 ("000_project-name") marks a template folder: no project.
-        if (parseFolderName(basename(folder)).number === 0) {
-          state.done++;
-          continue;
-        }
         try {
-          const scan = await scanFolder(folder, linkOf(folder));
-          if (scan.hasModel) {
-            const result = await upsert(folder, scan);
-            if (result !== "unchanged") state[result]++;
-          }
+          const result = await scanOne(folder);
+          if (result !== "unchanged") state[result]++;
         } catch (e) {
           state.failed++;
           log.warn({ err: e, folder }, "project scan failed");
@@ -250,24 +253,55 @@ export function createProjectScanner(
 
   async function run() {
     try {
-      do {
-        again = false;
-        await pass();
-      } while (again);
+      await pass();
     } finally {
       state = { ...state, state: "idle", phase: null, finishedAt: new Date().toISOString() };
       watch();
     }
   }
 
-  /** Starts a background scan; a request during a scan queues one more pass. */
+  /** Starts a full background scan: one request, one pass (a request during a scan joins it). */
   function start() {
-    if (state.state === "running") again = true;
-    else {
+    if (state.state !== "running") {
       state = running();
+      // The pass sees everything on disk now, so changes seen so far need no scan of their own.
+      pending.clear();
       void run();
     }
     return state;
+  }
+
+  /** Scans what the watcher saw: the touched project folders, plus a discover for new folders. */
+  async function flush() {
+    if (state.state === "running") {
+      timer = setTimeout(flush, WATCH_DEBOUNCE_MS);
+      return;
+    }
+    const batch = [...pending];
+    pending.clear();
+    const known = db
+      .select({ path: projects.folderPath })
+      .from(projects)
+      .all()
+      .flatMap((r) => (r.path ? [r.path] : []));
+    const folders = new Set<string>();
+    const roots = new Set<string>();
+    for (const [path, { root, at }] of batch) {
+      const folder = known.find((f) => path === f || path.startsWith(f + sep));
+      if (!folder || !(await isDir(folder))) roots.add(root);
+      else if (at > (refreshedAt.get(folder) ?? 0)) folders.add(folder);
+    }
+    try {
+      for (const folder of folders) await refresh(folder);
+      const { projectScanDepth } = readPreferences(db);
+      let created = false;
+      for (const root of roots)
+        for (const folder of await discover(root, projectScanDepth))
+          if (!known.includes(folder) && (await scanOne(folder)) === "created") created = true;
+      if (created) linkPrints(db);
+    } catch (err) {
+      log.warn({ err }, "project change scan failed");
+    }
   }
 
   /** (Re)points the folder watcher at the current roots. Called after every scan. */
@@ -280,14 +314,16 @@ export function createProjectScanner(
     for (const w of watchers.splice(0)) w.close();
     // ponytail: one recursive OS watch per root, so Windows holds a handle only on the root and
     // folders below it stay renamable (a watch per folder locks every folder above one). No depth limit, which costs
-    // nothing in CPU; the roots themselves stay locked. Any change triggers a full re-scan after a
-    // quiet period; scan only the touched folder if big libraries make that slow.
+    // nothing in CPU; the roots themselves stay locked. After a quiet period, a change scans only
+    // the project folder it is in (a new folder: a discover on its root).
     for (const r of projectRoots) {
       try {
-        const w = fsWatch(resolve(r), { recursive: true }, (_, file) => {
+        const root = resolve(r);
+        const w = fsWatch(root, { recursive: true }, (_, file) => {
           if (file?.split(/[\\/]/).some(isHidden)) return;
+          pending.set(file ? resolve(root, file) : root, { root, at: Date.now() });
           clearTimeout(timer);
-          timer = setTimeout(start, WATCH_DEBOUNCE_MS);
+          timer = setTimeout(flush, WATCH_DEBOUNCE_MS);
         });
         w.on("error", (err) => log.warn({ err, root: r }, "project watcher error"));
         watchers.push(w);
@@ -319,6 +355,7 @@ export function createProjectScanner(
     },
     close: async () => {
       clearTimeout(timer);
+      pending.clear();
       for (const w of watchers.splice(0)) w.close();
     },
   };
