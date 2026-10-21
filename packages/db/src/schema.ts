@@ -746,6 +746,8 @@ export const alerts = sqliteTable(
     /** Hidden until the condition resolves and comes back. */
     dismissedAt: text(),
     resolvedAt: text(),
+    /** The last status change (read, snooze, dismiss, resolve); null = never touched. */
+    updatedAt: text(),
   },
   (t) => [
     uniqueIndex("alerts_open_uq")

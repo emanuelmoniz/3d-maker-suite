@@ -270,10 +270,14 @@ export async function evaluateAlerts(
           })
           .where(eq(alerts.id, a.id))
           .run();
-      if (!hit) tx.update(alerts).set({ resolvedAt: stamp }).where(eq(alerts.id, a.id)).run();
+      if (!hit)
+        tx.update(alerts)
+          .set({ resolvedAt: stamp, updatedAt: stamp })
+          .where(eq(alerts.id, a.id))
+          .run();
       else if (a.snoozedUntil && a.snoozedUntil <= stamp)
         tx.update(alerts)
-          .set({ snoozedUntil: null, notifiedAt: null, readAt: null })
+          .set({ snoozedUntil: null, notifiedAt: null, readAt: null, updatedAt: stamp })
           .where(eq(alerts.id, a.id))
           .run();
     }

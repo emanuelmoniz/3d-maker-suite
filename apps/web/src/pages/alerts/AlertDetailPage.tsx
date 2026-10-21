@@ -1,11 +1,11 @@
 import type { Alert, Capability } from "@3d-maker-suite/core";
 import { Link, useNavigate, useParams } from "@tanstack/react-router";
 import type { TFunction } from "i18next";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
-import { useAlertDetail, useEvaluateAlerts } from "../../lib/alerts.ts";
+import { useAlertAction, useAlertDetail, useEvaluateAlerts } from "../../lib/alerts.ts";
 import { formatDateTime } from "../../lib/format.ts";
 import { useDue } from "../../lib/maintenance.ts";
 import { LogDialog } from "../maintenance/MaintenancePage.tsx";
@@ -36,6 +36,14 @@ export function AlertDetailPage() {
   const due = useDue();
   const evaluate = useEvaluateAlerts();
   const [logging, setLogging] = useState(false);
+  // Opening an alert reads it, once: marking it unread afterwards must stick.
+  const act = useAlertAction();
+  const opened = useRef<string>(undefined);
+  useEffect(() => {
+    if (!a || opened.current === a.id) return;
+    opened.current = a.id;
+    if (!a.readAt && !a.resolvedAt && !a.dismissedAt) act.mutate({ id: a.id, action: "read" });
+  }, [a, act.mutate]);
   const header = <PageHeader title={t("alerts:view.title")} backTo={{ to: "/alerts" }} />;
   if (isError) {
     return (

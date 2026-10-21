@@ -1,6 +1,14 @@
-import type { Alert, AlertWithDetail, ChannelInput, ChannelSettings } from "@3d-maker-suite/core";
+import type {
+  Alert,
+  AlertHistoryItem,
+  AlertWithDetail,
+  ChannelInput,
+  ChannelSettings,
+} from "@3d-maker-suite/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { ListQuery } from "../components/DataTable.tsx";
 import { api } from "./api.ts";
+import { useListPage } from "./list.ts";
 
 const ALERTS = ["alerts"];
 
@@ -19,6 +27,13 @@ export const useAlertDetail = (id: string, enabled: boolean) =>
     enabled,
   });
 
+/** What the list shows under "needs attention": not snoozed, and not a success that was read. */
+export const needsAttention = (a: Alert, now = Date.now()) =>
+  !(a.snoozedUntil && Date.parse(a.snoozedUntil) > now) && !(a.severity === "success" && a.readAt);
+
+export const useAlertHistory = (query: ListQuery) =>
+  useListPage<AlertHistoryItem>([...ALERTS, "history"], "/api/alerts/history", query);
+
 /** What the badge counts: alerts nobody has looked at, not snoozed. */
 export const unreadCount = (alerts: Alert[] | undefined, now = Date.now()) =>
   (alerts ?? []).filter((a) => !a.readAt && !(a.snoozedUntil && Date.parse(a.snoozedUntil) > now))
@@ -27,7 +42,10 @@ export const unreadCount = (alerts: Alert[] | undefined, now = Date.now()) =>
 export function useAlertAction() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (v: { id: string; action: "read" | "dismiss" | { snooze: number } }) =>
+    mutationFn: (v: {
+      id: string;
+      action: "read" | "unread" | "unsnooze" | "dismiss" | { snooze: number };
+    }) =>
       api("PATCH", `/api/alerts/${v.id}`, {
         action: typeof v.action === "string" ? v.action : "snooze",
         days: typeof v.action === "string" ? undefined : v.action.snooze,

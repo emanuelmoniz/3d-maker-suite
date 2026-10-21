@@ -1,19 +1,25 @@
 import {
   type Alert,
+  type AlertHistoryItem,
   type AlertWithDetail,
   alertActionSchema,
+  alertHistoryItemSchema,
+  alertHistoryQuery,
   alertSchema,
   alertWithDetailSchema,
   apiErrorSchema,
   channelInputSchema,
   channelSettingsSchema,
+  type Page,
+  pageOf,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
-import { and, desc, eq, getTableColumns, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, getTableColumns, isNull, or, sql } from "drizzle-orm";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { channels, readChannel, sendVia, writeChannel } from "../alerts/channels.ts";
 import { HttpError } from "../errors.ts";
+import { listPage } from "../lib/list.ts";
 
 const { alerts } = schema;
 const params = z.object({ id: z.uuid() });
@@ -42,6 +48,64 @@ export const alertsRoutes =
         .map((a) => ({ ...a, hasDetail: !!a.hasDetail })) as Alert[];
     });
 
+    /**
+     * Alerts that no longer need attention: resolved, dismissed, snoozed, or a success that was read.
+     * The mirror of what the app shows under "needs attention".
+     */
+    app.get(
+      "/history",
+      {
+        schema: {
+          querystring: alertHistoryQuery,
+          response: { 200: pageOf(alertHistoryItemSchema) },
+        },
+      },
+      async (req) => {
+        const now = new Date().toISOString();
+        const snoozed = sql`${alerts.snoozedUntil} > ${now}`;
+        const status = sql<string>`CASE
+          WHEN ${alerts.resolvedAt} IS NOT NULL THEN 'resolved'
+          WHEN ${alerts.dismissedAt} IS NOT NULL THEN 'dismissed'
+          WHEN ${snoozed} THEN 'snoozed'
+          ELSE 'read' END`;
+        const updatedAt = sql<string>`COALESCE(${alerts.updatedAt}, ${alerts.createdAt})`;
+        const { detail: _, ...columns } = getTableColumns(alerts);
+        const page = listPage(db, alerts, req.query, {
+          sort: {
+            updatedAt,
+            createdAt: alerts.createdAt,
+            module: alerts.module,
+            severity: alerts.severity,
+            status,
+          },
+          defaultSort: "-updatedAt",
+          select: {
+            ...columns,
+            updatedAt,
+            status,
+            hasDetail: sql<number>`${alerts.detail} IS NOT NULL`,
+          },
+          where: [
+            or(
+              sql`${alerts.resolvedAt} IS NOT NULL`,
+              sql`${alerts.dismissedAt} IS NOT NULL`,
+              snoozed,
+              sql`${alerts.severity} = 'success' AND ${alerts.readAt} IS NOT NULL`,
+            ),
+          ],
+          filters: {
+            kind: alerts.kind,
+            module: alerts.module,
+            severity: alerts.severity,
+            status,
+            createdAt: alerts.createdAt,
+            updatedAt,
+          },
+        }) as unknown as Page<Omit<AlertHistoryItem, "hasDetail"> & { hasDetail: number }>;
+        return { ...page, items: page.items.map((a) => ({ ...a, hasDetail: !!a.hasDetail })) };
+      },
+    );
+
     app.get(
       "/:id",
       { schema: { params, response: { 200: alertWithDetailSchema, ...notFound } } },
@@ -62,19 +126,23 @@ export const alertsRoutes =
       { schema: { params, body: alertActionSchema, response: { 200: alertSchema, ...notFound } } },
       async (req) => {
         const now = new Date();
+        const stamp = now.toISOString();
         const a = req.body;
-        const set =
-          a.action === "read"
-            ? { readAt: now.toISOString() }
-            : a.action === "dismiss"
-              ? { readAt: now.toISOString(), dismissedAt: now.toISOString() }
-              : {
-                  readAt: now.toISOString(),
-                  snoozedUntil: new Date(now.getTime() + a.days * 86_400_000).toISOString(),
-                };
+        const set = {
+          read: { readAt: stamp },
+          unread: { readAt: null },
+          unsnooze: { snoozedUntil: null },
+          dismiss: { readAt: stamp, dismissedAt: stamp },
+          snooze: {
+            readAt: stamp,
+            snoozedUntil: new Date(
+              now.getTime() + (a.action === "snooze" ? a.days : 0) * 86_400_000,
+            ).toISOString(),
+          },
+        }[a.action];
         const row = db
           .update(alerts)
-          .set(set)
+          .set({ ...set, updatedAt: stamp })
           .where(eq(alerts.id, req.params.id))
           .returning()
           .get();

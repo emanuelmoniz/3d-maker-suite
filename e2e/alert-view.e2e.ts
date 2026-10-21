@@ -43,7 +43,13 @@ test("maintenance alert: postpone hides it from the list", async ({ page, app })
   await page.getByRole("link", { name: /Clean nozzle/ }).click();
   await page.getByRole("button", { name: "Postpone 7 days" }).click();
   await expect(page).toHaveURL(/\/alerts$/);
-  await expect(page.getByRole("heading", { name: "Snoozed" })).toBeVisible();
+  // Snoozed alerts leave "needs attention" and wait in the history; the snooze can be removed.
+  await expect(page.getByRole("heading", { name: "Needs attention" })).toHaveCount(0);
+  const row = page.getByRole("row").filter({ hasText: /Clean nozzle/ });
+  await expect(row.getByRole("cell", { name: "Snoozed" })).toBeVisible();
+  await row.getByRole("button", { name: "Remove snooze" }).click();
+  await expect(page.getByRole("heading", { name: "Needs attention" })).toBeVisible();
+  await expect(page.getByRole("row").filter({ hasText: /Clean nozzle/ })).toHaveCount(0);
 });
 
 test("integration alert: a sync's log and a link to the integration", async ({ page, app }) => {
@@ -56,4 +62,33 @@ test("integration alert: a sync's log and a link to the integration", async ({ p
   await page.getByRole("link", { name: /new, \d+ updated/ }).click();
   await expect(page.getByText(/^New: /)).toBeVisible();
   await expect(page.getByRole("link", { name: "Open integration" })).toBeVisible();
+});
+
+test("success alert: opening reads it, a read success moves to the history, unread brings it back", async ({
+  page,
+  app,
+}) => {
+  const { id } = await app.api<{ id: string }>("POST", "/api/integrations", {
+    adapterId: "mock",
+    secrets: { token: "t" },
+  });
+  await app.api("POST", `/api/integrations/${id}/sync`, { type: "printers" });
+  await page.goto("/alerts");
+  await expect(page.getByTitle("Unread")).toBeVisible();
+
+  await page.getByRole("link", { name: /new, \d+ updated/ }).click();
+  await expect(page.locator("dd", { hasText: /^Read$/ })).toBeVisible();
+  // Unread sticks: opening does not read it again.
+  await page.getByRole("button", { name: "Mark as unread" }).click();
+  await expect(page.locator("dd", { hasText: /^Unread$/ })).toBeVisible();
+  await page.getByRole("button", { name: "Mark as read" }).click();
+  await expect(page.locator("dd", { hasText: /^Read$/ })).toBeVisible();
+
+  await page.goto("/alerts");
+  await expect(page.getByRole("heading", { name: "All clear" })).toBeVisible();
+  const row = page.getByRole("row").filter({ hasText: /new, \d+ updated/ });
+  await expect(row.getByRole("cell", { name: "Read", exact: true })).toBeVisible();
+  await row.getByRole("button", { name: "Mark as unread" }).click();
+  await expect(page.getByRole("heading", { name: "Needs attention" })).toBeVisible();
+  await expect(page.getByRole("row").filter({ hasText: /new, \d+ updated/ })).toHaveCount(0);
 });

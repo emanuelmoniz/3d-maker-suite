@@ -416,6 +416,8 @@ export const alertSchema = z.object({
   snoozedUntil: isoDate.nullable(),
   dismissedAt: isoDate.nullable(),
   resolvedAt: isoDate.nullable(),
+  /** The last status change (read, snooze, dismiss, resolve); null = never touched. */
+  updatedAt: isoDate.nullable(),
   /** There is a detail (`GET /api/alerts/:id`); the list leaves it out. */
   hasDetail: z.boolean(),
 });

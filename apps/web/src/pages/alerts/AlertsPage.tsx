@@ -1,23 +1,34 @@
-import type {
-  Alert,
-  AlertModule,
-  AlertSeverity,
-  Capability,
-  IntegrationErrorCode,
-  ReviewedType,
-  SyncLogEntry,
+import {
+  type Alert,
+  type AlertKind,
+  type AlertModule,
+  type AlertSeverity,
+  type AlertStatus,
+  alertHistoryFilters,
+  type Capability,
+  type IntegrationErrorCode,
+  type ReviewedType,
+  type SyncLogEntry,
 } from "@3d-maker-suite/core";
 import { Link } from "@tanstack/react-router";
 import { BellOff, CircleAlert, CircleCheck, type LucideIcon, TriangleAlert } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
+import { DataTable } from "../../components/DataTable.tsx";
 import { EmptyState } from "../../components/EmptyState.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { SettingsLink } from "../../components/SettingsLink.tsx";
-import { useAlertAction, useAlertDetail, useAlerts } from "../../lib/alerts.ts";
+import {
+  needsAttention,
+  useAlertAction,
+  useAlertDetail,
+  useAlertHistory,
+  useAlerts,
+} from "../../lib/alerts.ts";
 import { formatDateTime, formatWeight } from "../../lib/format.ts";
 import { useAdapterName } from "../../lib/integrations.ts";
+import { useUrlListQuery } from "../../lib/list.ts";
 import { TITLE } from "../import/SourceReviewPage.tsx";
 import { CAPS, ERRORS } from "../settings/IntegrationsPage.tsx";
 
@@ -155,7 +166,7 @@ function Detail({ id }: { id: string }) {
   );
 }
 
-/** Read, snooze and dismiss: the same on the list and in the alert's own view. */
+/** Read or unread, snooze (or remove it) and dismiss: the same on the list and in the alert's own view. */
 export function AlertButtons({
   a,
   snoozed,
@@ -172,7 +183,10 @@ export function AlertButtons({
   const { t } = useTranslation();
   const act = useAlertAction();
   const run = (action: Parameters<typeof act.mutate>[0]["action"]) =>
-    act.mutate({ id: a.id, action }, { onSuccess: action === "read" ? undefined : onHidden });
+    act.mutate(
+      { id: a.id, action },
+      { onSuccess: action === "dismiss" || typeof action === "object" ? onHidden : undefined },
+    );
   const snooze = (days: number) => (
     <Button key={days} onClick={() => run({ snooze: days })}>
       {t(postpone ? "alerts:postpone" : "alerts:snooze", { count: days })}
@@ -180,8 +194,16 @@ export function AlertButtons({
   );
   return (
     <>
-      {!a.readAt && !snoozed && <Button onClick={() => run("read")}>{t("alerts:markRead")}</Button>}
-      {!snoozed && [1, 7].map(snooze)}
+      {snoozed ? (
+        <Button onClick={() => run("unsnooze")}>{t("alerts:removeSnooze")}</Button>
+      ) : (
+        <>
+          <Button onClick={() => run(a.readAt ? "unread" : "read")}>
+            {t(a.readAt ? "alerts:markUnread" : "alerts:markRead")}
+          </Button>
+          {[1, 7].map(snooze)}
+        </>
+      )}
       <Button variant="ghost" onClick={() => run("dismiss")}>
         {t("alerts:dismiss")}
       </Button>
@@ -189,13 +211,13 @@ export function AlertButtons({
   );
 }
 
-function Row({ a, snoozed }: { a: Alert; snoozed?: boolean }) {
+function Row({ a }: { a: Alert }) {
   const { t } = useTranslation();
   const s = SEVERITY[a.severity];
   return (
     <li className="flex flex-wrap items-center justify-between gap-2 py-3">
       <div className="flex min-w-0 items-start gap-2">
-        {!a.readAt && !snoozed && (
+        {!a.readAt && (
           <span
             className="mt-2 size-2 shrink-0 rounded-full bg-accent"
             title={t("alerts:unread")}
@@ -209,12 +231,7 @@ function Row({ a, snoozed }: { a: Alert; snoozed?: boolean }) {
         <div className="min-w-0">
           <Title a={a} inList />
           <p className="text-muted">
-            {t("alerts:meta", {
-              module: t(MODULE[a.module]),
-              date: snoozed
-                ? t("alerts:snoozedUntil", { date: formatDateTime(a.snoozedUntil ?? "") })
-                : formatDateTime(a.createdAt),
-            })}
+            {t("alerts:meta", { module: t(MODULE[a.module]), date: formatDateTime(a.createdAt) })}
           </p>
           {a.hasDetail && <Detail id={a.id} />}
         </div>
@@ -233,7 +250,7 @@ function Row({ a, snoozed }: { a: Alert; snoozed?: boolean }) {
             {t("alerts:review")}
           </Link>
         )}
-        <AlertButtons a={a} snoozed={snoozed} />
+        <AlertButtons a={a} />
       </div>
     </li>
   );
@@ -248,12 +265,127 @@ function Group({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
+const KIND_NAMES: Record<AlertKind, string> = {
+  spool_low: "alerts:kindNames.spool_low",
+  maintenance_due: "alerts:kindNames.maintenance_due",
+  warranty_ending: "alerts:kindNames.warranty_ending",
+  sync_pending: "alerts:kindNames.sync_pending",
+  sync_success: "alerts:kindNames.sync_success",
+  sync_error: "alerts:kindNames.sync_error",
+};
+const STATUS: Record<AlertStatus, string> = {
+  snoozed: "alerts:status.snoozed",
+  read: "alerts:status.read",
+  dismissed: "alerts:status.dismissed",
+  resolved: "alerts:status.resolved",
+};
+const SEVERITY_NAMES = Object.fromEntries(
+  Object.entries(SEVERITY).map(([k, v]) => [k, v.label]),
+) as Record<AlertSeverity, string>;
+
+/** Everything that no longer needs attention, as a table. */
+function History() {
+  const { t } = useTranslation();
+  const act = useAlertAction();
+  const [query, setQuery] = useUrlListQuery();
+  const { data } = useAlertHistory(query);
+  const options = <K extends string>(map: Record<K, string>) =>
+    (Object.keys(map) as K[]).map((value) => ({ value, label: t(map[value]) }));
+  return (
+    <section className="grid gap-3">
+      <h2 className="text-base font-semibold">{t("alerts:history.title")}</h2>
+      {data && (
+        <DataTable
+          label={t("alerts:history.table")}
+          rows={data.items}
+          rowKey={(a) => a.id}
+          server={{
+            query,
+            onQueryChange: setQuery,
+            total: data.total,
+            filters: alertHistoryFilters,
+            defaultSort: "-updatedAt",
+          }}
+          columns={[
+            {
+              id: "alert",
+              header: t("alerts:history.columns.alert"),
+              cell: (a) => <Title a={a} inList />,
+              filter: "kind",
+              filterOptions: options(KIND_NAMES),
+            },
+            {
+              id: "module",
+              header: t("alerts:history.columns.module"),
+              cell: (a) => t(MODULE[a.module]),
+              sort: "module",
+              filter: "module",
+              filterOptions: options(MODULE),
+            },
+            {
+              id: "severity",
+              header: t("alerts:history.columns.severity"),
+              cell: (a) => {
+                const s = SEVERITY[a.severity];
+                return (
+                  <span className={`inline-flex items-center gap-1.5 ${s.color}`}>
+                    <s.icon className="size-4" aria-hidden />
+                    {t(s.label)}
+                  </span>
+                );
+              },
+              sort: "severity",
+              filter: "severity",
+              filterOptions: options(SEVERITY_NAMES),
+            },
+            {
+              id: "createdAt",
+              header: t("alerts:history.columns.raised"),
+              cell: (a) => formatDateTime(a.createdAt),
+              sort: "createdAt",
+              filter: "createdAt",
+            },
+            {
+              id: "status",
+              header: t("alerts:history.columns.status"),
+              cell: (a) => t(STATUS[a.status]),
+              sort: "status",
+              filter: "status",
+              filterOptions: options(STATUS),
+            },
+            {
+              id: "updatedAt",
+              header: t("alerts:history.columns.updated"),
+              cell: (a) => formatDateTime(a.updatedAt),
+              sort: "updatedAt",
+              filter: "updatedAt",
+            },
+            {
+              id: "action",
+              header: "",
+              cell: (a) =>
+                a.status === "snoozed" ? (
+                  <Button onClick={() => act.mutate({ id: a.id, action: "unsnooze" })}>
+                    {t("alerts:removeSnooze")}
+                  </Button>
+                ) : a.status === "read" ? (
+                  <Button onClick={() => act.mutate({ id: a.id, action: "unread" })}>
+                    {t("alerts:markUnread")}
+                  </Button>
+                ) : null,
+            },
+          ]}
+        />
+      )}
+    </section>
+  );
+}
+
 export function AlertsPage() {
   const { t } = useTranslation();
   const { data } = useAlerts();
   const now = Date.now();
-  const snoozed = (data ?? []).filter((a) => a.snoozedUntil && Date.parse(a.snoozedUntil) > now);
-  const active = (data ?? []).filter((a) => !snoozed.includes(a));
+  const active = (data ?? []).filter((a) => needsAttention(a, now));
   return (
     <>
       <PageHeader
@@ -261,12 +393,14 @@ export function AlertsPage() {
         description={t("nav:items.alerts.description")}
         actions={<SettingsLink module="alerts" />}
       />
-      {data && !data.length && (
-        <EmptyState
-          icon={BellOff}
-          title={t("alerts:empty.title")}
-          description={t("alerts:empty.body")}
-        />
+      {data && !active.length && (
+        <div className="mb-6">
+          <EmptyState
+            icon={BellOff}
+            title={t("alerts:empty.title")}
+            description={t("alerts:empty.body")}
+          />
+        </div>
       )}
       {active.length > 0 && (
         <Group title={t("alerts:active")}>
@@ -275,13 +409,7 @@ export function AlertsPage() {
           ))}
         </Group>
       )}
-      {snoozed.length > 0 && (
-        <Group title={t("alerts:snoozedTitle")}>
-          {snoozed.map((a) => (
-            <Row key={a.id} a={a} snoozed />
-          ))}
-        </Group>
-      )}
+      <History />
     </>
   );
 }

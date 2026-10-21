@@ -269,6 +269,53 @@ describe("alerts", () => {
     expect(id).toBeTruthy();
   });
 
+  it("read, unread and snooze can be undone; history holds what no longer needs attention", async () => {
+    await lowSpool();
+    await evaluate();
+    const [{ id }] = await list();
+    const patch = async (body: Record<string, unknown>) =>
+      (await send("PATCH", `/api/alerts/${id}`, body)).json();
+    const history = async (q = "") => (await app.inject(`/api/alerts/history${q}`)).json();
+
+    // A warning that was read still needs attention.
+    expect(await patch({ action: "read" })).toMatchObject({ readAt: expect.any(String) });
+    expect((await patch({ action: "unread" })).readAt).toBeNull();
+    expect((await history()).total).toBe(0);
+
+    // Snoozed: out of "needs attention", into history; removing the snooze brings it back.
+    const snoozed = await patch({ action: "snooze", days: 1 });
+    expect(snoozed.updatedAt).toEqual(expect.any(String));
+    expect(await history()).toMatchObject({
+      total: 1,
+      items: [{ id, status: "snoozed", hasDetail: false, updatedAt: snoozed.updatedAt }],
+    });
+    expect((await patch({ action: "unsnooze" })).snoozedUntil).toBeNull();
+    expect((await history()).total).toBe(0);
+
+    // A read success leaves "needs attention"; unread puts it back. Dismissed and resolved too.
+    const [success] = db
+      .insert(schema.alerts)
+      .values({
+        kind: "sync_success",
+        severity: "success",
+        module: "integrations",
+        task: "sync:x:prints",
+        entityType: "sync_run",
+        entityId: "run-1",
+        readAt: "2026-01-01T00:00:00.000Z",
+      })
+      .returning()
+      .all();
+    expect(await history("?status=read")).toMatchObject({ total: 1, items: [{ id: success?.id }] });
+    await send("PATCH", `/api/alerts/${success?.id}`, { action: "unread" });
+    expect((await history()).total).toBe(0);
+
+    await patch({ action: "dismiss" });
+    expect(await history()).toMatchObject({ total: 1, items: [{ status: "dismissed" }] });
+    expect((await history("?module=printers")).total).toBe(0);
+    expect((await history("?status=dismissed&sort=-createdAt")).total).toBe(1);
+  });
+
   it("raises warranty alerts; a failing channel does not block the others or the app", async () => {
     await send("PUT", "/api/alerts/channels/ntfy", {
       enabled: true,

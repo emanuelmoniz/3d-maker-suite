@@ -1,9 +1,10 @@
 {
   "active": "Needs attention",
-  "snoozedTitle": "Snoozed",
   "snoozedUntil": "Snoozed until {{date}}",
   "unread": "Unread",
   "markRead": "Mark as read",
+  "markUnread": "Mark as unread",
+  "removeSnooze": "Remove snooze",
   "snooze_one": "Snooze {{count}} day",
   "snooze_other": "Snooze {{count}} days",
   "postpone_one": "Postpone {{count}} day",
@@ -26,6 +27,32 @@
   "empty": {
     "title": "All clear",
     "body": "Low spools, maintenance due, ending warranties and sync problems show up here."
+  },
+  "kindNames": {
+    "spool_low": "Spool running low",
+    "maintenance_due": "Maintenance",
+    "warranty_ending": "Warranty ending",
+    "sync_pending": "Sync needs review",
+    "sync_success": "Sync finished",
+    "sync_error": "Sync failed"
+  },
+  "status": {
+    "snoozed": "Snoozed",
+    "read": "Read",
+    "dismissed": "Dismissed",
+    "resolved": "Resolved"
+  },
+  "history": {
+    "title": "Alerts history",
+    "table": "Alerts history",
+    "columns": {
+      "alert": "Alert",
+      "module": "Module",
+      "severity": "Severity",
+      "raised": "Raised",
+      "status": "Status",
+      "updated": "Last update"
+    }
   },
   "kinds": {
     "spool_low": "{{name}} is down to {{grams}}",
