@@ -223,6 +223,10 @@ export type ImportDecision = {
   refs?: Record<string, string | null>;
   /** Prints: take the filament from the spools (unset: what the row's `trackUsage` says). */
   trackUsage?: boolean;
+  /** Projects: see `importApplySchema`. */
+  folder?: ImportApplyDecision["folder"];
+  fromFolder?: boolean;
+  prints?: string[];
 };
 
 export const BULK_ACTIONS = [

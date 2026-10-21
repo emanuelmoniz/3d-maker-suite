@@ -26,6 +26,12 @@ const crumbs = (path: string, sep: Sep) => {
   }));
 };
 
+/** `p` is below `root` (not the root itself). Case is ignored: the server checks for real. */
+const below = (p: string, root: string, sep: Sep) => {
+  const r = root.replace(/[\\/]+$/, "").toLowerCase();
+  return p.toLowerCase().startsWith(r + sep);
+};
+
 /**
  * "Browse…" button + modal that lists folders on the server's machine, because a browser can't
  * hand over a full local path. The text input next to it stays the source of truth.
@@ -35,6 +41,7 @@ export function PathPicker({
   mode,
   ext,
   initial,
+  within,
   onPick,
   children,
 }: {
@@ -44,6 +51,8 @@ export function PathPicker({
   /** Extension filter for file mode; gets the server's separator so it can differ per OS. */
   ext?: (sep: Sep) => string | undefined;
   initial?: string;
+  /** Only folders below these (the project roots): they are the top level, and can't be picked. */
+  within?: string[];
   onPick: (path: string) => void;
   /** Button text; default "Browse…". */
   children?: ReactNode;
@@ -68,7 +77,19 @@ export function PathPicker({
     enabled: open && !!path && !!sep,
     retry: false,
   });
-  const data = path ? dir.data : roots.data;
+  const top =
+    within && roots.data
+      ? {
+          ...roots.data,
+          entries: within.map((r) => ({ name: r, path: r, type: "dir" as const })),
+        }
+      : roots.data;
+  const data = path ? dir.data : top;
+  // Inside `within`: going up from a root goes to the roots, and only folders below one are picked.
+  const atRoot = !!within && !!path && !within.some((r) => sep && below(path, r, sep));
+  const pickable =
+    !!dir.data?.path &&
+    (!within || within.some((r) => sep && dir.data?.path && below(dir.data.path, r, sep)));
 
   useEffect(() => {
     const d = ref.current;
@@ -111,7 +132,7 @@ export function PathPicker({
             variant="ghost"
             className="shrink-0"
             disabled={!path}
-            onClick={() => setPath(dir.data?.parent ?? null)}
+            onClick={() => setPath(atRoot ? null : (dir.data?.parent ?? null))}
           >
             {t("common:pathPicker.up")}
           </Button>
@@ -127,18 +148,28 @@ export function PathPicker({
             </li>
             {data?.path &&
               sep &&
-              crumbs(data.path, sep).map((c) => (
-                <li key={c.path} className="flex items-center gap-1 break-all">
-                  <span aria-hidden="true">›</span>
-                  <button
-                    type="button"
-                    className="inline-flex min-h-8 items-center px-1 underline"
-                    onClick={() => setPath(c.path)}
-                  >
-                    {c.label}
-                  </button>
-                </li>
-              ))}
+              crumbs(data.path, sep)
+                .filter(
+                  (c) =>
+                    !within ||
+                    within.some(
+                      (r) =>
+                        below(c.path, r, sep) ||
+                        c.path.toLowerCase() === r.replace(/[\\/]+$/, "").toLowerCase(),
+                    ),
+                )
+                .map((c) => (
+                  <li key={c.path} className="flex items-center gap-1 break-all">
+                    <span aria-hidden="true">›</span>
+                    <button
+                      type="button"
+                      className="inline-flex min-h-8 items-center px-1 underline"
+                      onClick={() => setPath(c.path)}
+                    >
+                      {c.label}
+                    </button>
+                  </li>
+                ))}
           </ol>
         </nav>
         {path && dir.isError ? (
@@ -171,7 +202,7 @@ export function PathPicker({
           {mode === "folder" && (
             <Button
               variant="primary"
-              disabled={!dir.data?.path || !path}
+              disabled={!pickable || !path}
               onClick={() => dir.data?.path && pick(dir.data.path)}
             >
               {t("common:pathPicker.select")}

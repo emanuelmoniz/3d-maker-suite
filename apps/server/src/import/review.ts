@@ -14,6 +14,7 @@ import {
   type ImportApplyDecision,
   type ImportErrorCode,
   type ImportPreview,
+  type ImportPreviewRow,
   type ImportTarget,
   type ImportValues,
   type MergePolicy,
@@ -30,6 +31,7 @@ import { filamentProfileImport } from "./filamentProfiles.ts";
 import { installImport } from "./installs.ts";
 import { accessoryImport, printerImport } from "./printers.ts";
 import { printImport } from "./prints.ts";
+import { projectImport } from "./projects.ts";
 import { spoolImport } from "./spools.ts";
 
 /** One row to review: a file's line, or what an integration or a zip offers, still unparsed. */
@@ -56,7 +58,12 @@ export type Stored = {
 };
 
 /** The row a write is for, with the references the user picked for it. */
-export type WriteRow = StoredRow & { refs?: Record<string, string> };
+export type WriteRow = StoredRow & {
+  refs?: Record<string, string>;
+  /** Projects: see `importApplySchema`. */
+  fromFolder?: boolean;
+  prints?: string[];
+};
 
 /** What an entity adds to the review: its existing rows, its matcher and its writes. */
 export type ImportHandler = {
@@ -77,6 +84,8 @@ export type ImportHandler = {
   check?: (db: Db, values: ImportValues) => { column: string; code: ImportErrorCode }[];
   /** Per valid row, in order: errors it has because of the other rows of the file. */
   checkFile?: (db: Db, rows: ImportValues[]) => { column: string; code: ImportErrorCode }[][];
+  /** What the review shows about a valid row besides its values (a project's missing folder). */
+  flags?: (db: Db, values: ImportValues) => Partial<ImportPreviewRow>;
   // The rest is for rows with a `source` (from an integration or a zip).
   /** The existing row each source key was imported as. A hit beats the matcher. */
   bySource?: (db: Db) => Map<string, string>;
@@ -110,7 +119,7 @@ export type ImportHandler = {
   filePicks?: boolean;
   /** Rows a run with nobody watching leaves for a person. */
   held?: (db: Db) => (v: ImportValues) => boolean;
-  /** Returns false when the row was there already and nothing was added. */
+  /** Returns false when the row was there already and nothing was added; may return the new id. */
   create: (db: Db, values: ImportValues, row: WriteRow) => unknown;
   update: (db: Db, target: ImportTarget, patch: ImportValues, row: WriteRow) => void;
 };
@@ -134,6 +143,7 @@ export function createReview(db: Db, dataDir: string) {
     printers: printerImport,
     accessories: accessoryImport,
     accessoryInstalls: installImport,
+    projects: projectImport,
     prints: printImport,
     clients: clientImport,
     quotes: quoteImport,
@@ -211,7 +221,8 @@ export function createReview(db: Db, dataDir: string) {
           ...(pick.unsure?.length && { refsUnsure: pick.unsure }),
           ...(pick.first && { refsFirst: pick.first }),
         };
-        if (!sourced) return { ...p, ...m, ...s, ...picked };
+        const flags = !p.errors.length && handler.flags?.(db, p.values);
+        if (!sourced) return { ...p, ...m, ...s, ...picked, ...flags };
         const yours = !!hit && !!handler.handsOff;
         // A row that has only required picks is skipped until picked (a vendor's spool); one with
         // optional ones too stays a create, so a missing required pick shows (a print's project).
@@ -248,6 +259,7 @@ export function createReview(db: Db, dataDir: string) {
 
   /** The writes the decisions ask for. Anything wrong rejects them all. */
   function plan(stored: Stored, decisions: ImportApplyDecision[], policy: MergePolicy) {
+    const handler = handlers[stored.entity];
     const current = preview(stored);
     const rows = new Map(current.rows.map((r) => [r.row, r]));
     const targets = new Map(current.targets.map((t) => [t.id, t]));
@@ -284,11 +296,27 @@ export function createReview(db: Db, dataDir: string) {
           : d.trackUsage
             ? "yes"
             : "no";
+      let values = track ? { ...row.values, trackUsage: track } : row.values;
+      // A project's folder picked in the review replaces its cell and is checked like one. One to
+      // create has no path until the route made it, just before the write.
+      if (stored.entity === "projects" && d.folder !== undefined) {
+        values = { ...values, folder: d.folder && "path" in d.folder ? d.folder.path : null };
+        if (handler.canon) values = handler.canon(db, values);
+        const [error] = handler.check?.(db, values) ?? [];
+        if (error)
+          throw new HttpError(400, "invalid_row", `Row ${d.row}: ${error.column} ${error.code}`);
+      }
       return {
-        values: track ? { ...row.values, trackUsage: track } : row.values,
+        values,
         target,
         policy: d.policy ?? policy,
-        row: { ...from, refs: d.refs, ...(track && { raw: { ...from.raw, trackUsage: track } }) },
+        row: {
+          ...from,
+          refs: d.refs,
+          fromFolder: d.fromFolder,
+          prints: d.prints,
+          ...(track && { raw: { ...from.raw, trackUsage: track } }),
+        },
       };
     });
     return { current, ops };
@@ -313,19 +341,32 @@ export function createReview(db: Db, dataDir: string) {
       const at = (op: (typeof ops)[number]) => Date.parse(String(op.values.startedAt));
       ops.sort((a, b) => at(a) - at(b));
     }
-    // The rows written, for a sync run's log.
-    const written: { event: "created" | "updated"; values: (typeof ops)[number]["values"] }[] = [];
+    // The rows written, for a sync run's log and a projects import's follow-up (by file row).
+    const written: {
+      event: "created" | "updated";
+      values: (typeof ops)[number]["values"];
+      row: number;
+      id?: string;
+    }[] = [];
     db.transaction(() => {
       for (const op of ops) {
+        const row = op.row.n;
         if (!op.target) {
-          if (handler.create(db, op.values, op.row) !== false)
-            written.push({ event: "created", values: op.values });
+          const made = handler.create(db, op.values, op.row);
+          if (made !== false)
+            written.push({
+              event: "created",
+              values: op.values,
+              row,
+              ...(typeof made === "string" && { id: made }),
+            });
           continue;
         }
         const patch = mergeValues(columns, op.policy, op.values, op.target.values);
-        if (!Object.keys(patch).length) continue;
+        // Prints picked in the review, or names taken from the folder, are a change of their own.
+        if (!Object.keys(patch).length && !op.row.prints && !op.row.fromFolder) continue;
         handler.update(db, op.target, patch, op.row);
-        written.push({ event: "updated", values: op.values });
+        written.push({ event: "updated", values: op.values, row, id: op.target.id });
       }
     });
     const created = written.filter((w) => w.event === "created").length;

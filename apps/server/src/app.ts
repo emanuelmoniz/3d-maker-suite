@@ -161,7 +161,7 @@ export async function buildApp(
 
   await app.register(exportRoutes(db), { prefix: "/api/export" });
   await app.register(backupsRoutes(db, dataDir), { prefix: "/api/backups" });
-  await app.register(importRoutes(db, dataDir, syncer), { prefix: "/api/import" });
+  await app.register(importRoutes(db, dataDir, syncer, scanner), { prefix: "/api/import" });
   if (opts.backupSchedule && dataDir) {
     const backup = new Cron(opts.backupSchedule, { protect: true }, () =>
       runAutoBackup(db, dataDir).catch((err) => app.log.error({ err }, "backup failed")),

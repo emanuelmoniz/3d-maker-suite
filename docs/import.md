@@ -2,11 +2,23 @@
 
 The **Import** page brings data in from spreadsheets. Nothing is saved until you review the rows and confirm. Integrations (Bambu Cloud, Bambu Studio, OrcaSlicer) import through the same review screen when a sync needs your decision.
 
-You can import **spools**, **printers**, **accessories**, **accessory installs**, **prints**, **clients**, **quotes** and **orders**. Filament brands, materials and profiles, and printer brands and models, are added for you when the rows that need them are imported.
+You can import **spools**, **printers**, **accessories**, **accessory installs**, **projects**, **prints**, **clients**, **quotes** and **orders**. Filament brands, materials and profiles, and printer brands and models, are added for you when the rows that need them are imported.
 
 ## Accessory installs
 
 One row per period an accessory is on a printer. **Accessory** and **Printer** must already exist, by number or name (for example `1-AMS`). **Installed** is required; leave **Removed** empty while it is still on the printer. A row is the same install when its accessory, printer and install day match, so exporting, editing and importing again updates the removal day. A removal before the install, or a period that overlaps another install of the accessory, is an invalid row (the same rule as the accessory page).
+
+## Projects
+
+A row with a **Number** updates that project; without one it is a new project. **Folder** is the full path of the project's folder, inside one of your project folders (Settings → Projects). A folder outside them, or one that already belongs to another project (or to an earlier row of the file), is an invalid row.
+
+In the review, a row without a folder, or whose folder isn't there, is highlighted. For each row you can:
+
+- **Choose…** a folder inside your project folders. If it already has files, you can take the project's name, description and link from the folder instead of the file.
+- **Create folder**: the app makes it when you import. Leave the name empty to name it by number and name (`012_Vase`).
+- **No folder**: the project is saved without one.
+
+After the import each folder is scanned (files, cover, materials). **Prints** shows the prints each project gets: the ones it has, plus imported prints whose title names one of its files, the same way a folder scan links them. Open it to add or remove prints; a project whose prints you changed gets exactly those.
 
 ## Clients, quotes and orders
 

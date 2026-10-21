@@ -1,6 +1,6 @@
 import { createReadStream } from "node:fs";
-import { mkdir, readFile, rmdir } from "node:fs/promises";
-import { extname, join, resolve } from "node:path";
+import { readFile, rmdir } from "node:fs/promises";
+import { extname, join } from "node:path";
 import { read3mfEntry, read3mfPaint } from "@3d-maker-suite/3mf";
 import {
   apiErrorSchema,
@@ -29,11 +29,11 @@ import { capableRows } from "../integrations/capabilities.ts";
 import { projectLabel } from "../lib/catalog.ts";
 import { insideRoots, openFolder, slicerLauncher } from "../lib/launcher.ts";
 import { columnFilter, listPage, taggedWith } from "../lib/list.ts";
-import { assertNumberFree, nextNumber, PAD, padded } from "../lib/numbers.ts";
+import { assertNumberFree, nextNumber } from "../lib/numbers.ts";
 import { readPreferences } from "../lib/preferences.ts";
-import { projectPath, safeName, segments, validName } from "../projects/paths.ts";
+import { folderName, newProjectFolder } from "../projects/newFolder.ts";
+import { projectPath, segments } from "../projects/paths.ts";
 import type { ProjectScanner } from "../projects/scanner.ts";
-import { fsError } from "./fs.ts";
 
 const {
   projects,
@@ -123,31 +123,6 @@ export const projectsRoutes =
     adapters: IntegrationAdapter[] = [],
   ): FastifyPluginAsyncZod =>
   async (app) => {
-    /**
-     * Makes `<root>/<001>_<name>` for a new project. `root` must be a configured root; it may be left
-     * out when there is only one. The name keeps its spaces, so the scan reads the same name back.
-     */
-    async function newProjectFolder(root: string | undefined, number: number, name: string) {
-      const roots = readPreferences(db).projectRoots;
-      if (!roots.length) throw new HttpError(409, "no_project_root", "No project folder is set up");
-      if (!root && roots.length > 1)
-        throw new HttpError(400, "root_required", "Choose the project folder to create it in");
-      const chosen = root ? roots.find((r) => resolve(r) === resolve(root)) : roots[0];
-      const real = chosen && (await insideRoots(chosen, [chosen]));
-      if (!real) throw new HttpError(400, "invalid_root", "Not a configured project folder");
-      const base = `${padded(number, PAD.project)}_${safeName(name)}`;
-      if (!validName(base)) throw new HttpError(400, "invalid_name", "Name can't be a folder name");
-      const folder = join(real, base);
-      await mkdir(folder).catch((e) =>
-        Promise.reject(
-          e.code === "EEXIST"
-            ? new HttpError(409, "folder_exists", "The folder exists")
-            : fsError(e),
-        ),
-      );
-      return folder;
-    }
-
     const get = (id: string) => {
       const row = db.select().from(projects).where(eq(projects.id, id)).get();
       if (!row) throw new HttpError(404, "not_found", "Project not found");
@@ -275,7 +250,7 @@ export const projectsRoutes =
         const given = Object.fromEntries(Object.entries(fields).filter(([, v]) => v !== undefined));
         if (createFolder) {
           const n = number ?? db.get<{ n: number }>(sql`select ${nextNumber(projects)} as n`).n;
-          const folder = await newProjectFolder(root, n, fields.name);
+          const folder = await newProjectFolder(db, root, folderName(n, fields.name));
           try {
             const row = await scanner.addFolder(folder, { ...given, number: n });
             return reply.status(201).send(out(row));

@@ -1,8 +1,9 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ImportPreview, ImportRun } from "@3d-maker-suite/core";
-import { openDb } from "@3d-maker-suite/db";
+import { openDb, schema } from "@3d-maker-suite/db";
+import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, expect, it } from "vitest";
 import { buildApp } from "./app.ts";
 import { readXlsx } from "./lib/sheet.ts";
@@ -276,4 +277,126 @@ AMS,B,2025-07-10,2025-07-12
   expect((await get(`/api/accessories/${accessory.id}/installs`))[0]).toMatchObject({
     removedAt: "2026-04-01T12:00:00.000Z",
   });
+});
+
+it("imports projects: folders picked, made or none, prints linked like the scan links them", async () => {
+  const root = join(dataDir, "models");
+  const folder = (name: string, file?: string) => {
+    mkdirSync(join(root, name), { recursive: true });
+    if (file) writeFileSync(join(root, name, file), "not a real 3mf");
+    return join(root, name);
+  };
+  await app.inject({ method: "PATCH", url: "/api/preferences", payload: { projectRoots: [root] } });
+  const spice = folder("007_spice", "spice_rack.3mf");
+  const cup = folder("cup", "cup.3mf");
+  await load("printers", "name,brand,model\nA,Bambu Lab,X1C\n");
+  const printerId = (await get("/api/printers")).items[0].id;
+  const print = (title: string) =>
+    db
+      .insert(schema.prints)
+      .values({
+        printerId,
+        title,
+        origin: "integration",
+        outcome: "success",
+        startedAt: "2026-01-02T00:00:00.000Z",
+      })
+      .returning()
+      .get();
+  const rack = print("spice_rack_plate_1");
+  const cups = [print("cup_plate_1"), print("cup_plate_2")];
+
+  const head = "number,name,description,folder\n";
+  const p = (await post(
+    "/api/import/projects/preview",
+    `${head},Spice,,${spice}\n,Cup,Mugs,${cup}\n,Lamp,,${join(root, "lamp")}\n,Vase,,\n,Out,,${dataDir}\n`,
+    "text/csv",
+  ).then((r) => r.json())) as ImportPreview;
+  // A folder outside the roots is invalid; one that isn't there is offered to pick or make.
+  expect(p.rows.map((r) => r.status)).toEqual(["new", "new", "new", "new", "invalid"]);
+  expect(p.rows[4]?.errors).toEqual([{ column: "folder", code: "outside_roots" }]);
+  expect(p.rows.map((r) => !!r.folderMissing)).toEqual([false, false, true, false, false]);
+
+  // The prints each row would get, the same matching linkPrints does.
+  const offer = (
+    await post("/api/import/projects/prints", {
+      rows: p.rows.slice(0, 4).map((r) => ({ row: r.row, folder: r.values.folder })),
+    })
+  ).json();
+  expect(offer.suggested).toEqual({
+    "2": [rack.id],
+    "3": cups.map((c) => c.id),
+    "4": [],
+    "5": [],
+  });
+
+  const res = await post("/api/import/projects/apply", {
+    uploadId: p.uploadId,
+    policy: "overwrite",
+    decisions: [
+      // Spice: linked automatically after its scan.
+      { row: 2, action: "create" },
+      // Cup: one of its prints removed in the review stays without a project.
+      { row: 3, action: "create", prints: [cups[0]?.id] },
+      // Lamp: its folder made by the app, named by the convention.
+      { row: 4, action: "create", folder: { create: true } },
+      // Vase: a folder made with the name typed in the review.
+      { row: 5, action: "create", folder: { create: true, name: "My vase" } },
+    ],
+  });
+  expect(res.statusCode, res.body).toBe(200);
+  expect(res.json()).toMatchObject({ created: 4 });
+  const list = (await get("/api/projects?sort=name")).items;
+  expect(
+    list.map((x: { number: number; name: string; folderPath: string | null }) => [
+      x.number,
+      x.name,
+      x.folderPath,
+    ]),
+  ).toEqual([
+    [7, "Spice", spice],
+    [8, "Cup", cup],
+    [9, "Lamp", join(root, "009_Lamp")],
+    [10, "Vase", join(root, "My vase")],
+  ]);
+  expect(existsSync(join(root, "009_Lamp"))).toBe(true);
+  const projectOf = (id: string) =>
+    db.select().from(schema.prints).where(eq(schema.prints.id, id)).get()?.projectId;
+  expect(projectOf(rack.id)).toBe(list[0].id);
+  expect(cups.map((c) => projectOf(c.id))).toEqual([list[1].id, null]);
+  // The scan read the folder in: its file is listed.
+  expect((await get(`/api/projects/${list[0].id}`)).meta.files).toMatchObject([
+    { path: "spice_rack.3mf" },
+  ]);
+
+  // The export comes back identical; a folder of another project is an invalid row.
+  const again = await post("/api/import/projects/preview", await exported("projects"), "text/csv");
+  expect((again.json() as ImportPreview).rows.map((r) => r.status)).toEqual([
+    "identical",
+    "identical",
+    "identical",
+    "identical",
+  ]);
+  const taken = (await post(
+    "/api/import/projects/preview",
+    `${head},Other,,${spice}\n8,Cup,,${spice}\n`,
+    "text/csv",
+  ).then((r) => r.json())) as ImportPreview;
+  expect(taken.rows.map((r) => r.errors)).toEqual([
+    [{ column: "folder", code: "folder_in_use" }],
+    [{ column: "folder", code: "folder_in_use" }],
+  ]);
+
+  // From the folder: the scan names the project, not the file.
+  const named = (await post(
+    "/api/import/projects/preview",
+    `${head}8,Typed,,${cup}\n`,
+    "text/csv",
+  ).then((r) => r.json())) as ImportPreview;
+  await post("/api/import/projects/apply", {
+    uploadId: named.uploadId,
+    policy: "overwrite",
+    decisions: [{ row: 2, action: "update", targetId: list[1].id, fromFolder: true }],
+  });
+  expect((await get(`/api/projects/${list[1].id}`)).name).toBe("cup");
 });

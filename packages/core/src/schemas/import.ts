@@ -10,6 +10,7 @@ export const IMPORT_ENTITIES = [
   "printers",
   "accessories",
   "accessoryInstalls",
+  "projects",
   "prints",
   "clients",
   "quotes",
@@ -215,6 +216,15 @@ export const IMPORT_COLUMNS = {
     },
     // Empty = still on the printer.
     { key: "removedAt", type: "date", label: "import:accessoryInstalls.columns.removedAt" },
+  ],
+  // The number is its identity in a file. The folder is a full path inside a project root; the
+  // scan fills in the rest (files, cover, materials) after the apply.
+  projects: [
+    { key: "number", type: "integer", label: "import:projects.columns.number" },
+    { key: "name", type: "text", label: "import:projects.columns.name", required: true },
+    { key: "description", type: "text", label: "import:projects.columns.description" },
+    { key: "sourceUrl", type: "text", label: "import:projects.columns.sourceUrl" },
+    { key: "folder", type: "text", label: "import:projects.columns.folder" },
   ],
   prints: [
     // A print's number is its identity in a file: a row with one updates that print.
@@ -456,6 +466,10 @@ export const IMPORT_ERRORS = [
   "before_install",
   /** The accessory is on a printer during that period already. */
   "overlap",
+  /** A project's folder isn't inside a project root. */
+  "outside_roots",
+  /** Another project (or an earlier row of the file) has that folder. */
+  "folder_in_use",
 ] as const;
 
 const cell = z.union([z.string(), z.number(), z.null()]);
@@ -486,6 +500,8 @@ export const importPreviewRowSchema = z.object({
    * `wait` leaves the row for a person; absent = neither (nothing to do, or only on request).
    */
   auto: z.enum(["apply", "wait"]).optional(),
+  /** Projects: the row names a folder that doesn't exist (yet). */
+  folderMissing: z.boolean().optional(),
 });
 
 export const importPreviewSchema = z.object({
@@ -576,9 +592,46 @@ export const importApplySchema = z.object({
          * replaces the row's `trackUsage`.
          */
         trackUsage: z.boolean().optional(),
+        /**
+         * Projects: replaces the row's folder. A picked folder, one to make inside a project root
+         * (`name` empty = `<number>_<name>`, `root` needed with several roots), or null for none.
+         */
+        folder: z
+          .union([
+            z.object({ path: z.string().min(1) }),
+            z.object({
+              create: z.literal(true),
+              name: z.string().max(200).optional(),
+              root: z.string().min(1).optional(),
+            }),
+          ])
+          .nullable()
+          .optional(),
+        /** Projects: name, description and link come from the folder's scan, not the file. */
+        fromFolder: z.boolean().optional(),
+        /** Projects: exactly these prints are the project's; absent = linked automatically. */
+        prints: z.array(id).max(10000).optional(),
       }),
     )
     .min(1),
+});
+
+export const importProjectPrintsSchema = z.object({
+  rows: z
+    .array(
+      z.object({
+        row: z.number().int().positive(),
+        targetId: id.nullable().optional(),
+        folder: z.string().nullable().optional(),
+      }),
+    )
+    .max(20000),
+});
+export const importProjectPrintsResponseSchema = z.object({
+  /** By file row: the prints the project gets, as linking would give them after the import. */
+  suggested: z.record(z.string(), z.array(id)),
+  /** Every print, for adding one by hand. */
+  prints: z.array(z.object({ id, label: z.string() })),
 });
 
 export const importResultSchema = z.object({

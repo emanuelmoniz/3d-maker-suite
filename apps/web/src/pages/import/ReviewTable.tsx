@@ -40,7 +40,9 @@ import { cx } from "../../lib/cx.ts";
 import { spoolName, useProfiles } from "../../lib/filament.ts";
 import { formatDate, formatDateTime, formatNumber, formatWeight } from "../../lib/format.ts";
 import { useApply } from "../../lib/import.ts";
+import { usePreferences } from "../../lib/preferences.ts";
 import { NewSpoolDialog } from "../filament/NewSpoolDialog.tsx";
+import { FolderCell, folderOf, PrintsCell, useProjectPrints } from "./ProjectCells.tsx";
 
 // i18n keys are written out in full so `pnpm i18n:check` can see them.
 const STATUSES: Record<ImportStatus, string> = {
@@ -81,6 +83,8 @@ const ERRORS: Record<ImportErrorCode, string> = {
   not_opened: "import:errors.not_opened",
   before_install: "import:errors.before_install",
   overlap: "import:errors.overlap",
+  outside_roots: "import:errors.outside_roots",
+  folder_in_use: "import:errors.folder_in_use",
 };
 const MISSING: Record<string, string> = {
   filamentBrands: "import:missing.filamentBrands",
@@ -174,6 +178,20 @@ export function ReviewTable({
   const [spool, setSpool] = useState("");
   const [track, setTrack] = useState<"" | "on" | "off">("");
   const prints = entity === "prints";
+  // Projects: a folder and the prints per row, besides the file's columns.
+  const projects = entity === "projects";
+  const roots = usePreferences().data?.values.projectRoots ?? [];
+  const projectPrints = useProjectPrints(preview, projects);
+  const decideFolder = (r: ImportPreviewRow, patch: Partial<ImportDecision>) => {
+    const d = { ...decisionOf(r), ...patch };
+    decide(r, patch);
+    if (folderOf(r, decisionOf(r)) !== folderOf(r, d))
+      void projectPrints.refresh({
+        row: r.row,
+        targetId: d.action === "update" ? d.targetId : null,
+        folder: folderOf(r, d),
+      });
+  };
   const anyBulk = !!bulk || (prints && !!(project || spool || track));
   // One Apply: the action first (so "All new" + a project works in one go), then the prints
   // picks. A project or spool only goes to a created row that takes it; a spool only to a row
@@ -404,6 +422,16 @@ export function ReviewTable({
               />
             );
           const target = d.action === "update" ? targets.get(d.targetId ?? "") : undefined;
+          if (projects && c.key === "folder" && d.action !== "skip")
+            return (
+              <FolderCell
+                row={r}
+                decision={d}
+                roots={roots}
+                targetFolder={(target?.values.folder as string | null | undefined) ?? null}
+                onChange={(patch) => decideFolder(r, patch)}
+              />
+            );
           const value = format(c, r.values[c.key]);
           const options = preview.refOptions?.[c.key];
           // A suggestion picked from several, until the user picks another.
@@ -467,6 +495,27 @@ export function ReviewTable({
         },
       }),
     ),
+    ...(projects
+      ? [
+          {
+            id: "prints",
+            header: t("import:projects.printsColumn"),
+            cell: (r: ImportPreviewRow) => {
+              const d = decisionOf(r);
+              return d.action === "skip" ? (
+                ""
+              ) : (
+                <PrintsCell
+                  row={r.row}
+                  ids={d.prints ?? projectPrints.of(r.row)}
+                  options={projectPrints.options}
+                  onChange={(ids) => decide(r, { prints: ids })}
+                />
+              );
+            },
+          },
+        ]
+      : []),
   ];
   // Filters and sort cover every row, then it is paged: "select all" and the "filtered" scope
   // act on the rows the status chips and the column filters leave.
@@ -716,6 +765,11 @@ export function ReviewTable({
                         targetId: d.action === "update" ? (d.targetId ?? undefined) : undefined,
                         policy: d.policy,
                         ...(entity === "prints" && { trackUsage: tracks(r) }),
+                        ...(projects && {
+                          folder: d.folder,
+                          fromFolder: d.fromFolder,
+                          prints: d.prints,
+                        }),
                         refs:
                           d.action === "create" && picked.length
                             ? Object.fromEntries(

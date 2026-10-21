@@ -34,6 +34,11 @@ const ENTITIES: Record<ImportEntity, { label: string; to: string; view: string }
     to: "/printers",
     view: "import:done.viewAccessories",
   },
+  projects: {
+    label: "import:entities.projects",
+    to: "/projects",
+    view: "import:done.viewProjects",
+  },
   prints: { label: "import:entities.prints", to: "/prints", view: "import:done.viewPrints" },
   clients: { label: "import:entities.clients", to: "/clients", view: "import:done.viewClients" },
   quotes: { label: "import:entities.quotes", to: "/quotes", view: "import:done.viewQuotes" },
@@ -45,6 +50,7 @@ const TYPES: Record<string, string> = {
   printers: "import:entities.printers",
   accessories: "import:entities.accessories",
   accessoryInstalls: "import:entities.accessoryInstalls",
+  projects: "import:entities.projects",
   prints: "import:entities.prints",
   clients: "import:entities.clients",
   quotes: "import:entities.quotes",
@@ -103,13 +109,15 @@ export function ImportPage() {
             ? [[t("import:template.costs")]]
             : entity === "accessoryInstalls"
               ? [[t("import:template.accessoryInstalls")]]
-              : entity === "clients"
-                ? [[t("import:template.clientMatch")]]
-                : entity === "quotes"
-                  ? [[t("import:template.quoteCost")]]
-                  : entity === "orders"
-                    ? [[t("import:template.orderProjects")]]
-                    : []),
+              : entity === "projects"
+                ? [[t("import:template.projects")]]
+                : entity === "clients"
+                  ? [[t("import:template.clientMatch")]]
+                  : entity === "quotes"
+                    ? [[t("import:template.quoteCost")]]
+                    : entity === "orders"
+                      ? [[t("import:template.orderProjects")]]
+                      : []),
       [],
       [t("import:template.column"), t("import:template.format")],
       ...columns.map((c) => [

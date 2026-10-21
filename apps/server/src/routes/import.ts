@@ -1,11 +1,17 @@
+import { existsSync } from "node:fs";
+import { rmdir } from "node:fs/promises";
+import { basename, resolve } from "node:path";
 import {
   apiErrorSchema,
   headerKeys,
   IMPORT_COLUMNS,
   IMPORT_ENTITIES,
+  type ImportApplyDecision,
   importApplySchema,
   importPreviewQuerySchema,
   importPreviewSchema,
+  importProjectPrintsResponseSchema,
+  importProjectPrintsSchema,
   importResultSchema,
   importRunSchema,
   importTemplateSchema,
@@ -22,7 +28,16 @@ import { createBackup } from "../backup/backup.ts";
 import { HttpError } from "../errors.ts";
 import { createReview, type Stored } from "../import/review.ts";
 import type { Syncer } from "../integrations/sync.ts";
+import { insideRoots } from "../lib/launcher.ts";
+import { numberCell, printTitle } from "../lib/numbers.ts";
+import { readPreferences } from "../lib/preferences.ts";
 import { buildTemplate, type GridRow, readCsv, readXlsx, XLSX_TYPE } from "../lib/sheet.ts";
+import { parseFolderName } from "../projects/folderName.ts";
+import { linkPrints, type MatchProject, suggestPrints } from "../projects/linkPrints.ts";
+import { folderName, newProjectFolder } from "../projects/newFolder.ts";
+import { safeName } from "../projects/paths.ts";
+import { scanFolder } from "../projects/scanFolder.ts";
+import type { ProjectScanner } from "../projects/scanner.ts";
 
 const MAX_UPLOAD = 10 * 1024 ** 2;
 // The review table pages its rows; the upload limit below is what stops a file first.
@@ -31,7 +46,7 @@ const params = z.object({ entity: z.enum(IMPORT_ENTITIES) });
 const filled = (v: unknown) => v != null && String(v).trim() !== "";
 
 export const importRoutes =
-  (db: Db, dataDir: string, syncer: Syncer): FastifyPluginAsyncZod =>
+  (db: Db, dataDir: string, syncer: Syncer, scanner: ProjectScanner): FastifyPluginAsyncZod =>
   async (app) => {
     const review = createReview(db, dataDir);
 
@@ -153,33 +168,172 @@ export const importRoutes =
 
     // Decisions only: the rows come from the stored preview and are validated and matched again.
     // Anything wrong rejects the whole request; the writes are one transaction after a backup.
+    /**
+     * Makes the project folders the review asked for and returns the decisions with their paths.
+     * A folder named by the convention takes the number the row's insert will take: its own when
+     * free, else its folder's prefix when free, else the next one (as `projectImport.create`).
+     */
+    async function makeFolders(stored: Stored, decisions: ImportApplyDecision[], made: string[]) {
+      if (!decisions.some((d) => d.folder && "create" in d.folder)) return decisions;
+      const current = review.preview(stored);
+      const rows = new Map(current.rows.map((r) => [r.row, r.values]));
+      const targets = new Map(current.targets.map((t) => [t.id, t.values]));
+      const taken = new Set(
+        db
+          .select({ n: schema.projects.number })
+          .from(schema.projects)
+          .all()
+          .map((p) => p.n ?? 0),
+      );
+      const out: ImportApplyDecision[] = [];
+      for (const d of decisions) {
+        const v = rows.get(d.row) ?? {};
+        let number = numberCell(targets.get(d.targetId ?? "")?.number);
+        if (d.action === "create") {
+          const path =
+            d.folder === undefined
+              ? v.folder
+              : d.folder && "path" in d.folder
+                ? d.folder.path
+                : null;
+          const prefix = path ? parseFolderName(basename(String(path))).number : null;
+          number = [numberCell(v.number), prefix].find((n) => n && !taken.has(n)) ?? null;
+          number ??= Math.max(0, ...taken) + 1;
+          taken.add(number);
+        }
+        if (!d.folder || !("create" in d.folder)) {
+          out.push(d);
+          continue;
+        }
+        const name = d.folder.name?.trim();
+        const base = name ? safeName(name) : folderName(number ?? 0, String(v.name ?? ""));
+        const path = await newProjectFolder(db, d.folder.root, base);
+        made.push(path);
+        out.push({ ...d, folder: { path } });
+      }
+      return out;
+    }
+
+    // What a project of the review will have for prints: the ones it has, plus the ones linking
+    // gives it once the rows are stored with these folders. Folders outside the roots aren't read.
+    app.post(
+      "/projects/prints",
+      {
+        schema: {
+          body: importProjectPrintsSchema,
+          response: { 200: importProjectPrintsResponseSchema },
+        },
+      },
+      async (req) => {
+        const { projectRoots, projectScanMaxFiles } = readPreferences(db);
+        const stored = new Map(
+          db
+            .select({
+              id: schema.projects.id,
+              folder: schema.projects.folderPath,
+              meta: schema.projects.meta,
+            })
+            .from(schema.projects)
+            .all()
+            .map((p) => [p.id, p]),
+        );
+        const rows: (MatchProject & { row: number })[] = [];
+        for (const r of req.body.rows) {
+          const cur = r.targetId ? stored.get(r.targetId) : undefined;
+          const folder = r.folder ? resolve(r.folder) : null;
+          const read =
+            folder && folder !== cur?.folder && (await insideRoots(folder, projectRoots))
+              ? await scanFolder(folder, null, projectScanMaxFiles)
+              : null;
+          rows.push({
+            row: r.row,
+            id: r.targetId ?? `row:${r.row}`,
+            meta: read
+              ? { files: read.files, models: read.models }
+              : ((cur && folder === cur.folder ? cur.meta : {}) as MatchProject["meta"]),
+          });
+        }
+        const suggested = suggestPrints(db, rows);
+        return {
+          suggested: Object.fromEntries(rows.map((r) => [r.row, suggested.get(r.id) ?? []])),
+          // ponytail: every print, for the add box; page it if a library outgrows a few MB.
+          prints: db
+            .select({
+              id: schema.prints.id,
+              number: schema.prints.number,
+              title: schema.prints.title,
+            })
+            .from(schema.prints)
+            .orderBy(desc(schema.prints.number))
+            .all()
+            .map((p) => ({ id: p.id, label: printTitle(p) })),
+        };
+      },
+    );
+
     app.post(
       "/:entity/apply",
       {
         schema: {
           params: z.object({ entity: z.enum(REVIEW_ENTITIES) }),
           body: importApplySchema,
-          response: { 200: importResultSchema, 400: apiErrorSchema, 404: apiErrorSchema },
+          response: {
+            200: importResultSchema,
+            400: apiErrorSchema,
+            404: apiErrorSchema,
+            409: apiErrorSchema,
+          },
         },
       },
       async (req) => {
-        const { uploadId, decisions, policy } = req.body;
+        const { uploadId, policy } = req.body;
+        let { decisions } = req.body;
         const stored = review.load(uploadId);
         if (!stored || stored.entity !== req.params.entity)
           throw new HttpError(404, "upload_not_found", "Upload not found; preview the file again");
         review.plan(stored, decisions, policy);
+        // Projects: the folders to make are made now, and removed again if the write fails.
+        const made: string[] = [];
+        if (stored.entity === "projects") {
+          try {
+            decisions = await makeFolders(stored, decisions, made);
+            review.plan(stored, decisions, policy);
+          } catch (e) {
+            await Promise.all(made.map((f) => rmdir(f).catch(() => {})));
+            throw e;
+          }
+        }
         const backup = (await createBackup(db, dataDir, true)).name;
         // A confirmed review of an integration is a manual run of that type, in its sync log too.
-        const done =
-          stored.from?.kind === "integration"
-            ? await syncer.run(
-                stored.from.integrationId,
-                "manual",
-                // A review read for a range applies as that range, so it never moves the cursor.
-                { type: stored.entity as ReviewedType, ...stored.range },
-                { stored, decisions, policy, backup },
-              )
-            : review.write(stored, decisions, policy, backup);
+        let done: Awaited<ReturnType<typeof syncer.run>> | ReturnType<typeof review.write>;
+        try {
+          done =
+            stored.from?.kind === "integration"
+              ? await syncer.run(
+                  stored.from.integrationId,
+                  "manual",
+                  // A review read for a range applies as that range, so it never moves the cursor.
+                  { type: stored.entity as ReviewedType, ...stored.range },
+                  { stored, decisions, policy, backup },
+                )
+              : review.write(stored, decisions, policy, backup);
+        } catch (e) {
+          await Promise.all(made.map((f) => rmdir(f).catch(() => {})));
+          throw e;
+        }
+        // Projects: the scan reads each folder in (files, cover, names not given), then prints are
+        // linked the way the scanner links them, except for projects whose prints were picked.
+        if (stored.entity === "projects" && "written" in done) {
+          const picked = new Set(decisions.filter((d) => d.prints).map((d) => d.row));
+          for (const w of done.written) {
+            const folder = w.values.folder;
+            if (typeof folder === "string" && existsSync(folder)) await scanner.refresh(folder);
+          }
+          linkPrints(
+            db,
+            new Set(done.written.flatMap((w) => (w.id && picked.has(w.row) ? [w.id] : []))),
+          );
+        }
         // A failed run comes back as a result, not a throw: the person must still see it failed.
         if ("errorCode" in done && done.errorCode)
           throw new HttpError(

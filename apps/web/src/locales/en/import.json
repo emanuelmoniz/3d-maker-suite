@@ -7,6 +7,7 @@
     "printers": "Printers",
     "accessories": "Accessories",
     "accessoryInstalls": "Accessory installs",
+    "projects": "Projects",
     "prints": "Prints",
     "clients": "Clients",
     "quotes": "Quotes",
@@ -44,6 +45,7 @@
     "quoteCost": "A quote here is a typed-in print: Unit cost is what one print costs to make. Leave Quantity, Labor and the percentages empty on a new quote to use the defaults from Costs settings. Client and Project must already exist.",
     "orderProjects": "Client, Quote and Project must already exist. Name several projects in the Project cell separated by ; (for example 1-Box; 2-Lid). Status is one of your order statuses, empty on a new order is the first one.",
     "accessoryInstalls": "One row per period an accessory is on a printer. Accessory and Printer must already exist, by number or name (for example 1-AMS). Leave Removed empty if it is still on the printer. An accessory can't be on two printers at once.",
+    "projects": "A row with a Number updates that project. Folder is the full path of the project's folder inside one of your project folders (Settings); leave it empty to pick or create one in the review. A folder can belong to one project only. Prints are linked to each project after the import, the same way a folder scan links them, and you can change them in the review.",
     "column": "Column",
     "format": "What to enter",
     "error": "Couldn't build the template. Is the server running?"
@@ -120,7 +122,9 @@
     "not_an_email": "Not an email address",
     "not_opened": "This spool was opened after the print started",
     "before_install": "Removal is before the install",
-    "overlap": "The accessory is on a printer during that period"
+    "overlap": "The accessory is on a printer during that period",
+    "outside_roots": "Not inside one of your project folders",
+    "folder_in_use": "Another project, or an earlier row, has this folder"
   },
   "missing": {
     "filamentBrands": "Brands you don't have yet, added when their rows are imported: {{names, list}}.",
@@ -182,6 +186,7 @@
     "viewSpools": "View spools",
     "viewPrinters": "View printers",
     "viewAccessories": "View accessories",
+    "viewProjects": "View projects",
     "viewPrints": "View prints",
     "viewClients": "View clients",
     "viewQuotes": "View quotes",
@@ -262,6 +267,38 @@
       "installedAt": "Installed",
       "removedAt": "Removed"
     }
+  },
+  "projects": {
+    "columns": {
+      "number": "Number",
+      "name": "Name",
+      "description": "Description",
+      "sourceUrl": "Link",
+      "folder": "Folder"
+    },
+    "noFolder": "No folder",
+    "missing": "Not found: {{path}}",
+    "toCreate": "New folder “{{name}}”",
+    "toCreateNamed": "New folder, named by number and name",
+    "pick": "Choose…",
+    "pickFor": "Folder for row {{row}}",
+    "create": "Create folder",
+    "none": "No folder",
+    "createTitle": "Create a folder",
+    "createBody": "The folder is made when you import. Leave the name empty to name it by the project's number and name, like 012_Vase.",
+    "folderName": "Folder name",
+    "folderNameHint": "Optional",
+    "root": "In",
+    "hasFiles": "This folder already has files.",
+    "fromFolder": "Take the name, description and link from the folder",
+    "printsColumn": "Prints",
+    "prints_one": "{{count, number}} print",
+    "prints_other": "{{count, number}} prints",
+    "printsFor_one": "{{count, number}} print for row {{row}}: change",
+    "printsFor_other": "{{count, number}} prints for row {{row}}: change",
+    "printsTitle": "Prints of row {{row}}",
+    "printsBody": "These prints get this project. The list starts with the ones it has and the ones linked by name, the same way a folder scan links them.",
+    "printsLabel": "Add a print"
   },
   "prints": {
     "columns": {
