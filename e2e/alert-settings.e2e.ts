@@ -14,19 +14,19 @@ test("filament: a spool's own low weight replaces the default; empty follows it"
     remainingGrams: 50,
   });
   await page.goto("/alerts");
-  await expect(alertRows(page, /is down to/)).toHaveCount(1);
+  await expect(alertRows(page, / low/)).toHaveCount(1);
 
   await page.goto(`/filament/spools/${spool.id}/edit`);
   await page.getByLabel("Low weight warning (g)").fill("20");
   await page.getByRole("button", { name: "Save spool" }).click();
   await page.goto("/alerts");
-  await expect(alertRows(page, /is down to/)).toHaveCount(0);
+  await expect(alertRows(page, / low/)).toHaveCount(0);
 
   await page.goto(`/filament/spools/${spool.id}/edit`);
   await page.getByLabel("Low weight warning (g)").fill("");
   await page.getByRole("button", { name: "Save spool" }).click();
   await page.goto("/alerts");
-  await expect(alertRows(page, /is down to/)).toHaveCount(1);
+  await expect(alertRows(page, / low/)).toHaveCount(1);
 });
 
 test("maintenance: a type's warning can be switched off", async ({ page, app }) => {

@@ -6,7 +6,7 @@ import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { useAlertAction, useAlertDetail, useEvaluateAlerts } from "../../lib/alerts.ts";
-import { formatDateTime } from "../../lib/format.ts";
+import { formatDateTime, formatWeight } from "../../lib/format.ts";
 import { useDue } from "../../lib/maintenance.ts";
 import { LogDialog } from "../maintenance/MaintenancePage.tsx";
 import { CAPS } from "../settings/IntegrationsPage.tsx";
@@ -97,6 +97,14 @@ export function AlertDetailPage() {
             </div>
           ))}
         </dl>
+        {a.kind === "spool_low" && (
+          <p>
+            {t("alerts:view.spoolDetail", {
+              name: a.context.name,
+              grams: formatWeight(Number(a.context.grams)),
+            })}
+          </p>
+        )}
         {a.detail && (
           <div>
             <h2 className="font-semibold">{t("alerts:details")}</h2>
@@ -105,6 +113,11 @@ export function AlertDetailPage() {
         )}
         {open && (
           <div className="flex flex-wrap gap-2">
+            {a.kind === "spool_low" && (
+              <Link to="/filament/spools/$id" params={{ id: a.entityId }} className={buttonLink}>
+                {t("alerts:view.viewSpool")}
+              </Link>
+            )}
             {item && <Button onClick={() => setLogging(true)}>{t("alerts:view.markDone")}</Button>}
             {a.kind === "sync_pending" && (
               <Link

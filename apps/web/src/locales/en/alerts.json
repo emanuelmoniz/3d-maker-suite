@@ -22,6 +22,8 @@
     "dismissed": "Dismissed",
     "resolved": "Resolved on {{date}}",
     "markDone": "Mark as done",
+    "spoolDetail": "The spool {{name}} is now down to {{grams}}.",
+    "viewSpool": "View spool",
     "syncResult_one": "{{count}} new, {{updated}} updated",
     "syncResult_other": "{{count}} new, {{updated}} updated",
     "result": "Result",
@@ -58,7 +60,7 @@
     }
   },
   "kinds": {
-    "spool_low": "{{name}} is down to {{grams}}",
+    "spool_low": "{{name}} low",
     "maintenance_due": "{{task}} is due soon on {{printer}}",
     "maintenance_overdue": "{{task}} is overdue on {{printer}}",
     "warranty_ending_one": "Warranty of {{name}} ends in {{count}} day",

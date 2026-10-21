@@ -26,7 +26,7 @@ import {
   useAlertHistory,
   useAlerts,
 } from "../../lib/alerts.ts";
-import { formatDateTime, formatWeight } from "../../lib/format.ts";
+import { formatDateTime } from "../../lib/format.ts";
 import { useAdapterName } from "../../lib/integrations.ts";
 import { useUrlListQuery } from "../../lib/list.ts";
 import { TITLE } from "../import/SourceReviewPage.tsx";
@@ -67,8 +67,7 @@ export function Title({ a, inList }: { a: Alert; inList?: boolean }) {
   const c = a.context;
   const type = t(CAPS[c.type as Capability] ?? "");
   const text = {
-    spool_low: () =>
-      t("alerts:kinds.spool_low", { name: c.name, grams: formatWeight(Number(c.grams)) }),
+    spool_low: () => t("alerts:kinds.spool_low", { name: c.name }),
     maintenance_due: () =>
       t(
         a.severity === "error"

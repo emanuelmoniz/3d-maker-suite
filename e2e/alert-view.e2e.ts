@@ -1,5 +1,5 @@
 import { expect, test } from "./fixtures.ts";
-import { seedModel, seedPrinter } from "./helpers.ts";
+import { seedModel, seedPrinter, seedSpool } from "./helpers.ts";
 
 test("maintenance alert: open it, mark as done, the alert resolves", async ({ page, app }) => {
   // Bought 8 days ago: 2 of 10 days left is inside the 5-day lead, a task done today is not.
@@ -97,4 +97,22 @@ test("success alert: opening reads it, a read success moves to the history, unre
   await page.goto("/alerts");
   await expect(page.getByRole("heading", { name: "Needs attention" })).toBeVisible();
   await expect(page.getByRole("row").filter({ hasText: /synced/ })).toHaveCount(0);
+});
+
+test("spool alert: short title, the weight in the alert, a way to the spool", async ({
+  page,
+  app,
+}) => {
+  const spool = await seedSpool(app.api);
+  await app.api("POST", `/api/filament/spools/${spool.id}/adjust`, {
+    kind: "manual",
+    remainingGrams: 28,
+  });
+  await page.goto("/alerts");
+  await expect(page.getByRole("link", { name: /low$/ })).toBeVisible();
+  await expect(page.getByText(/down to/)).toHaveCount(0);
+  await page.getByRole("link", { name: /low$/ }).click();
+  await expect(page.getByText(/is now down to 28 g/)).toBeVisible();
+  await page.getByRole("link", { name: "View spool" }).click();
+  await expect(page).toHaveURL(new RegExp(`/filament/spools/${spool.id}$`));
 });
