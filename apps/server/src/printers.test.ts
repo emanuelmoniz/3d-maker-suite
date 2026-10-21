@@ -122,6 +122,14 @@ describe("printers", () => {
     ]);
     expect((await list("?sort=runtimeSec"))[0].id).toBe(old.id);
     expect(await list("?prints=6..10")).toMatchObject([{ id: p.id }]);
+
+    // Success rate = successes / logged prints (as the printer page); null without prints.
+    expect(await list("?sort=-successRate")).toMatchObject([
+      { id: p.id, successRate: 50 },
+      { id: old.id, successRate: null },
+    ]);
+    expect(await list("?successRate=40..60")).toMatchObject([{ id: p.id }]);
+    expect(await list(`?runtimeSec=10000..`)).toMatchObject([{ id: p.id }]);
   });
 
   it("comments: pinned first, status, delete", async () => {

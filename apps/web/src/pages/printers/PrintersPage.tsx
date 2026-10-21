@@ -137,6 +137,21 @@ export function PrintersPage() {
                 numeric: true,
                 cell: (p) => formatDuration(p.runtimeSec),
                 sort: "runtimeSec",
+                filter: "runtimeSec",
+                filterScale: 3600,
+                filterHint: t("stats:hoursUnit"),
+              },
+              {
+                id: "successRate",
+                header: t("printers:detail.stats.successRate"),
+                numeric: true,
+                cell: (p) =>
+                  p.successRate === null
+                    ? ""
+                    : formatNumber(p.successRate / 100, { style: "percent" }),
+                sort: "successRate",
+                filter: "successRate",
+                filterHint: "%",
               },
               {
                 id: "power",

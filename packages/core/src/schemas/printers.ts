@@ -68,6 +68,7 @@ export const printStatsSchema = z.object({
 export const printerRowSchema = printerSchema.extend({
   runtimeSec: z.number().int().nonnegative(),
   prints: z.number().int().nonnegative(),
+  successRate: z.number().int().min(0).max(100).nullable(),
 });
 
 export const printerSortFields = [
@@ -78,6 +79,7 @@ export const printerSortFields = [
   "powerW",
   "runtimeSec",
   "prints",
+  "successRate",
 ] as const;
 
 /** Printers table column filters (see `listQuery`). States are user-defined, so not an enum. */
@@ -88,6 +90,8 @@ export const printerFilters = {
   tagId: { kind: "select" },
   powerW: { kind: "number" },
   prints: { kind: "number" },
+  runtimeSec: { kind: "number" },
+  successRate: { kind: "number" },
 } as const satisfies Record<string, ColumnFilter>;
 export const archivedFilter = z.enum(["true", "false"]).default("false");
 

@@ -62,7 +62,7 @@ Do Step 4 of PLAN.md. List every choice filter first, then fix it in the shared 
 component.
 ```
 
-### [ ] Step 5 - Printers table: prints, hours, success rate
+### [x] Step 5 - Printers table: prints, hours, success rate
 **Model:** Sonnet · **Effort:** Low
 **Scope:** The printers table gets three columns: number of prints, print hours and success rate. All three sort and filter like the other columns. Reuse `printerStats` from core and the same duration rules as stats (estimated durations count). Define the success rate (e.g. successful / prints with an outcome, canceled left out) and state it in the summary.
 **Done when:** the numbers match the printer page and stats for the same printer; the columns sort; tests pass.

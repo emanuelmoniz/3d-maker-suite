@@ -88,6 +88,7 @@ export const printersRoutes =
             powerW: printers.powerW,
             runtimeSec: usage.runtimeSec,
             prints: usage.prints,
+            successRate: usage.successRate,
           },
           dateColumn: printers.createdAt,
           filters: {
@@ -96,6 +97,8 @@ export const printersRoutes =
             state: printers.state,
             powerW: printers.powerW,
             prints: usage.prints,
+            runtimeSec: usage.runtimeSec,
+            successRate: usage.successRate,
           },
           where: [
             taggedWith(db, "printer", printers.id, req.query.tagId),

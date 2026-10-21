@@ -33,6 +33,10 @@ export const printerUsageColumns = () => {
   return {
     runtimeSec: sql<number>`${of("runtime_offset_sec")} + ${logged(sql`sum(p.duration_sec)`)}`,
     prints: sql<number>`${of("prints_offset")} + ${logged(sql`count(*)`)}`,
+    // Whole percent of logged prints that succeeded (same as printer page and stats); null without prints.
+    successRate: sql<
+      number | null
+    >`(SELECT round(100.0 * sum(p.outcome = 'success') / count(*)) FROM prints p WHERE p.printer_id = ${of("id")})`,
   };
 };
 
