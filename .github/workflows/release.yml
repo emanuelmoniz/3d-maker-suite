@@ -9,6 +9,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Check the tag is on the right branch
+        run: |
+          # Stable tags (vX.Y.Z) must be on main; pre-release tags (vX.Y.Z-*) must be on dev.
+          BRANCH=main
+          if [[ "$GITHUB_REF_NAME" == *-* ]]; then BRANCH=dev; fi
+          git fetch --no-tags origin "$BRANCH"
+          if ! git merge-base --is-ancestor HEAD "origin/$BRANCH"; then
+            echo "::error::$GITHUB_REF_NAME must be on $BRANCH, but its commit is not on origin/$BRANCH"
+            exit 1
+          fi
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:

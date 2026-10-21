@@ -16,7 +16,7 @@ Status legend: `[ ]` todo · `[x]` done
 
 ## Phase 1 - Release channels & quick fixes
 
-### [ ] Step 1 - Dev branch and release channels
+### [x] Step 1 - Dev branch and release channels
 **Model:** Haiku · **Effort:** Low
 **Scope:**
 - Create `dev` from `main` and push it. CI runs on pushes and PRs to `main` and `dev`.

@@ -49,6 +49,7 @@ docs/              ADRs (docs/adr), user docs
 - Work is driven by `PLAN.md`. Read **only the current step** in it, not the whole file.
 - **Never read `BACKLOG.md`** unless the user asks; it's the user's private notes (gitignored).
 - Finish a step = tests pass, lint passes, `pnpm i18n:check` passes, tick the step checkbox in `PLAN.md`, one conventional commit (`feat(printers): ...`).
+- Branches: steps commit to `dev`, not `main`. A stable release = fast-forward `main` to `dev` and tag `vX.Y.Z` on `main`. Pre-releases tag `vX.Y.Z-alpha.N` on `dev`. The release workflow fails if a tag is on the wrong branch.
 - If a step visibly changes a page that has a README screenshot, re-run `pnpm screenshots` and commit the images in `docs/images`.
 - If something is out of scope for the current step, note it in the summary instead of doing it.
 - Prefer Context7 MCP for library docs over guessing APIs.
