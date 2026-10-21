@@ -4,6 +4,7 @@ import type { Page } from "@playwright/test";
 import { expect, test } from "./fixtures.ts";
 import {
   hasHorizontalScroll,
+  offScreen,
   pick,
   seedPrinter,
   seedProfile,
@@ -345,32 +346,6 @@ test.describe("searchable selects fit every viewport", () => {
     });
   }
 });
-
-/** Visible controls that hang off the right edge (outside anything that scrolls on its own). */
-const offScreen = (page: Page) =>
-  page.evaluate(() => {
-    const vw = document.documentElement.clientWidth;
-    const scrolls = (el: Element | null) => {
-      for (; el && el !== document.body; el = el.parentElement) {
-        const o = getComputedStyle(el).overflowX;
-        if ((o === "auto" || o === "scroll") && el.scrollWidth > el.clientWidth) return true;
-      }
-      return false;
-    };
-    return [
-      ...document.querySelectorAll<HTMLElement>(
-        "a[href], button, input:not([type=hidden]), [role=combobox]",
-      ),
-    ]
-      .filter((el) => {
-        const r = el.getBoundingClientRect();
-        return r.width > 0 && r.right > vw + 1 && !el.closest(".sr-only") && !scrolls(el);
-      })
-      .map(
-        (el) =>
-          `${el.tagName.toLowerCase()} "${(el.getAttribute("aria-label") ?? el.textContent ?? "").trim().slice(0, 30)}"`,
-      );
-  });
 
 test.describe("layout sweep", () => {
   for (const [name, width, height] of VIEWPORTS) {

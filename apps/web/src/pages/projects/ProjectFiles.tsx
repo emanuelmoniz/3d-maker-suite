@@ -79,7 +79,12 @@ function IconButton({
   children: ReactNode;
 }) {
   return (
-    <Button variant="ghost" className="size-9 px-0" aria-label={label} onClick={onClick}>
+    <Button
+      variant="ghost"
+      className="h-10 w-10 px-0 sm:h-9 sm:w-9"
+      aria-label={label}
+      onClick={onClick}
+    >
       {children}
     </Button>
   );

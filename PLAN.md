@@ -309,7 +309,7 @@ Do Step 24 of PLAN.md. Tell me what the description file field already does befo
 changing anything.
 ```
 
-### [ ] Step 25 - Responsive pass & screenshots for v2
+### [x] Step 25 - Responsive pass & screenshots for v2
 **Model:** Sonnet (use webapp-testing skill) · **Effort:** Medium
 **Scope:** Run the whole e2e suite at 375/768/1440 and fix what breaks. Fill e2e gaps left by earlier steps. Refresh the README screenshots with `pnpm screenshots`.
 **Done when:** E2E green in CI; screenshots match the app.

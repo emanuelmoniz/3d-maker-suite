@@ -88,3 +88,29 @@ export const pick = async (combo: Locator, option: string | number) => {
 
 export const hasHorizontalScroll = (page: Page) =>
   page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
+
+/** Visible controls that hang off the right edge (outside anything that scrolls on its own). */
+export const offScreen = (page: Page) =>
+  page.evaluate(() => {
+    const vw = document.documentElement.clientWidth;
+    const scrolls = (el: Element | null) => {
+      for (; el && el !== document.body; el = el.parentElement) {
+        const o = getComputedStyle(el).overflowX;
+        if ((o === "auto" || o === "scroll") && el.scrollWidth > el.clientWidth) return true;
+      }
+      return false;
+    };
+    return [
+      ...document.querySelectorAll<HTMLElement>(
+        "a[href], button, input:not([type=hidden]), [role=combobox]",
+      ),
+    ]
+      .filter((el) => {
+        const r = el.getBoundingClientRect();
+        return r.width > 0 && r.right > vw + 1 && !el.closest(".sr-only") && !scrolls(el);
+      })
+      .map(
+        (el) =>
+          `${el.tagName.toLowerCase()} "${(el.getAttribute("aria-label") ?? el.textContent ?? "").trim().slice(0, 30)}"`,
+      );
+  });

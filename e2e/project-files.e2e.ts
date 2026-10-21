@@ -54,6 +54,7 @@ for (const viewport of VIEWPORTS) {
     await files.locator('input[type="file"]').first().setInputFiles(again);
     await confirm("Replace").click();
     await expect.poll(() => readFileSync(join(folder, "notes.txt"), "utf8")).toBe("v2");
+    await page.waitForLoadState("networkidle");
 
     // Replace from the row.
     await files
