@@ -71,6 +71,12 @@ export const projectMetaSchema = z.object({
   multicolor: z.boolean().default(false),
 });
 
+/** Gallery picks, relative to the project folder (`/`); `""` in `folders` is the folder itself. */
+export const projectGallerySchema = z.object({
+  folders: z.array(z.string()),
+  images: z.array(z.string()),
+});
+
 export const projectSchema = z.object({
   id,
   /** Short unique number the project goes by ("001-aquaterrario"); from the folder prefix if any. */
@@ -86,6 +92,9 @@ export const projectSchema = z.object({
   sourceUrl: z.httpUrl().nullable(),
   /** Relative to the data directory; serve it with `GET /api/projects/:id/thumbnail`. */
   thumbnailPath: nullableText,
+  gallery: projectGallerySchema,
+  /** Image (relative, `/`) chosen as the cover; null: the scanner picks. */
+  coverFile: nullableText,
   meta: projectMetaSchema,
   /** Fields the user changed; a re-scan leaves them alone. */
   editedFields: z.array(z.enum(PROJECT_EDITABLE_FIELDS)),
@@ -138,9 +147,20 @@ export const projectPatchSchema = z
     /** Model in the project folder (relative, `/`) shown first; null goes back to the scanner's pick. */
     previewFile: nullableText,
     number: projectSchema.shape.number,
+    gallery: projectGallerySchema,
+    coverFile: nullableText,
   })
   .partial()
   .strict();
+
+/** The listed images the gallery picks show: chosen ones and those under a chosen folder. */
+export const galleryImages = (p: Pick<Project, "gallery" | "meta">): ProjectFile[] =>
+  p.meta.files.filter(
+    (f) =>
+      f.kind === "image" &&
+      (p.gallery.images.includes(f.path) ||
+        p.gallery.folders.some((d) => d === "" || f.path.startsWith(`${d}/`))),
+  );
 
 export const projectSortFields = ["name", "createdAt", "multicolor", "lastPrintAt"] as const;
 /** `name` also searches the description; `material` matches any of the project's materials. */

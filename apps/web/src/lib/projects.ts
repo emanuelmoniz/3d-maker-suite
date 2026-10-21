@@ -53,6 +53,10 @@ export const projectThumbnailUrl = (p: Pick<Project, "id" | "updatedAt">) =>
 export const projectFileUrl = (id: string, path: string, entry?: string) =>
   `/api/projects/${id}/file?${new URLSearchParams(entry ? { path, entry } : { path })}`;
 
+/** An image in the project folder (gallery), served through the folder's path guard. */
+export const projectImageUrl = (id: string, path: string) =>
+  `/api/projects/${id}/files/image?${new URLSearchParams({ path })}`;
+
 /**
  * For `Markdown`: a relative link or image in a project doc (`docPath`, relative to the project
  * folder; null = the folder itself) becomes the served file. Null when the path leaves the folder

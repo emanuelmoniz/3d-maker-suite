@@ -21,6 +21,7 @@ import {
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
 import { eq, inArray, isNull, max, sql } from "drizzle-orm";
+import type { FastifyReply } from "fastify";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
@@ -30,7 +31,7 @@ import { insideRoots, openFolder, slicerLauncher } from "../lib/launcher.ts";
 import { columnFilter, listPage, taggedWith } from "../lib/list.ts";
 import { assertNumberFree, nextNumber, PAD, padded } from "../lib/numbers.ts";
 import { readPreferences } from "../lib/preferences.ts";
-import { safeName, validName } from "../projects/paths.ts";
+import { projectPath, safeName, segments, validName } from "../projects/paths.ts";
 import type { ProjectScanner } from "../projects/scanner.ts";
 import { fsError } from "./fs.ts";
 
@@ -74,13 +75,31 @@ const errors = {
   409: apiErrorSchema,
   500: apiErrorSchema,
 };
-const IMAGE_TYPES: Record<string, string> = {
+export const IMAGE_TYPES: Record<string, string> = {
   ".png": "image/png",
   ".jpg": "image/jpeg",
   ".jpeg": "image/jpeg",
   ".webp": "image/webp",
   ".gif": "image/gif",
+  ".svg": "image/svg+xml",
 };
+
+/**
+ * Sets an image's type. An SVG also gets a sandboxing CSP: opened on its own (not through `<img>`,
+ * which never runs scripts) it can't run scripts, load anything or reach the app's origin.
+ */
+export const imageReply = (reply: FastifyReply, path: string) => {
+  const ext = extname(path).toLowerCase();
+  if (ext === ".svg")
+    reply.header(
+      "Content-Security-Policy",
+      "default-src 'none'; style-src 'unsafe-inline'; img-src data:; sandbox",
+    );
+  return reply
+    .header("X-Content-Type-Options", "nosniff")
+    .type(IMAGE_TYPES[ext] ?? "application/octet-stream");
+};
+
 const FILE_TYPES: Record<string, string> = {
   ...IMAGE_TYPES,
   ".stl": "model/stl",
@@ -287,12 +306,18 @@ export const projectsRoutes =
         schema: {
           params,
           body: projectPatchSchema,
-          response: { 200: projectSchema, 409: apiErrorSchema, ...notFound },
+          response: {
+            200: projectSchema,
+            400: apiErrorSchema,
+            403: apiErrorSchema,
+            409: apiErrorSchema,
+            ...notFound,
+          },
         },
       },
       async (req) => {
         const { editedFields, folderPath, meta } = get(req.params.id);
-        const { descriptionFile, previewFile, number, ...fields } = req.body;
+        const { descriptionFile, previewFile, number, gallery, coverFile, ...fields } = req.body;
         assertNumberFree(db, projects, "project", number, req.params.id);
         const touched = new Set([...editedFields, ...(Object.keys(fields) as typeof editedFields)]);
         // Not a scanned field, so not tracked in `editedFields`.
@@ -318,11 +343,35 @@ export const projectsRoutes =
           set.filePath = join(folderPath, ...previewFile.split("/"));
           touched.add("filePath");
         } else if (previewFile === null) touched.delete("filePath");
+        if (gallery || coverFile) {
+          // Not scanned fields either: the scanner never writes them, so they survive re-scans.
+          // Every path is project-relative; images must be listed, folders pass the path guard.
+          if (!folderPath) throw new HttpError(404, "no_folder", "Project has no folder");
+          const dir = await insideRoots(folderPath, readPreferences(db).projectRoots);
+          if (!dir)
+            throw new HttpError(403, "not_allowed", "Project folder is not in a project root");
+          const image = (rel: string) => {
+            segments(rel);
+            if (!meta.files.some((f) => f.path === rel && f.kind === "image"))
+              throw new HttpError(404, "not_found", "File not found");
+          };
+          for (const rel of gallery?.images ?? []) image(rel);
+          if (coverFile) image(coverFile);
+          for (const rel of gallery?.folders ?? [])
+            if (!(await projectPath(dir, rel, "existing")).isDir)
+              throw new HttpError(400, "not_a_directory", "Not a folder");
+        }
+        if (gallery)
+          set.gallery = {
+            folders: [...new Set(gallery.folders)],
+            images: [...new Set(gallery.images)],
+          };
+        if (coverFile !== undefined) set.coverFile = coverFile;
         db.update(projects)
           .set({ ...set, editedFields: [...touched] })
           .where(eq(projects.id, req.params.id))
           .run();
-        if ((descriptionFile || previewFile === null) && folderPath)
+        if ((descriptionFile || previewFile === null || coverFile !== undefined) && folderPath)
           await scanner.refresh(folderPath);
         return get(req.params.id);
       },
@@ -340,10 +389,12 @@ export const projectsRoutes =
       if (!folderPath || !listed || (entry && !plate))
         throw new HttpError(404, "not_found", "File not found");
       const abs = join(folderPath, path);
-      if (!entry)
-        return reply
-          .type(FILE_TYPES[extname(path).toLowerCase()] ?? "application/octet-stream")
-          .send(createReadStream(abs));
+      if (!entry) {
+        const ext = extname(path).toLowerCase();
+        if (IMAGE_TYPES[ext]) imageReply(reply, path);
+        else reply.type(FILE_TYPES[ext] ?? "application/octet-stream");
+        return reply.send(createReadStream(abs));
+      }
       const png = await read3mfEntry(abs, entry);
       if (!png) throw new HttpError(404, "not_found", "File not found");
       return reply.type("image/png").send(png);
@@ -410,8 +461,6 @@ export const projectsRoutes =
     app.get("/:id/thumbnail", { schema: { params } }, async (req, reply) => {
       const { thumbnailPath } = get(req.params.id);
       if (!thumbnailPath) throw new HttpError(404, "not_found", "Project has no thumbnail");
-      return reply
-        .type(IMAGE_TYPES[extname(thumbnailPath)] ?? "application/octet-stream")
-        .send(await readFile(join(dataDir, thumbnailPath)));
+      return imageReply(reply, thumbnailPath).send(await readFile(join(dataDir, thumbnailPath)));
     });
   };

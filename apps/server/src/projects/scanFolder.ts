@@ -15,6 +15,7 @@ const KINDS: Record<string, Kind> = {
   ".jpeg": "image",
   ".webp": "image",
   ".gif": "image",
+  ".svg": "image",
   ".md": "doc",
   ".txt": "doc",
   ".pdf": "doc",

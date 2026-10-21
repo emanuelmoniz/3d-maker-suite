@@ -111,7 +111,7 @@ Do Step 7 of PLAN.md.
 Do Step 8 of PLAN.md. Show me the two component APIs and how both pages feed them first.
 ```
 
-### [ ] Step 9 - Project image gallery: data and edit page  **[plan mode]**
+### [x] Step 9 - Project image gallery: data and edit page  **[plan mode]**
 **Model:** Opus · **Effort:** Medium
 **Scope:**
 - On the edit page the user chooses the gallery images: one or more folders (all their images show) and/or single images, inside the project folder. Formats: SVG, PNG, JPEG.

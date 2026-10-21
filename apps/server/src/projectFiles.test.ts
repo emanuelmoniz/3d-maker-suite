@@ -260,6 +260,105 @@ describe("files", () => {
   });
 });
 
+describe("gallery", () => {
+  const patch = (payload: object) =>
+    app.inject({ method: "PATCH", url: `/api/projects/${id}`, payload });
+  const image = (path: string) =>
+    app.inject(`/api/projects/${id}/files/image?${new URLSearchParams({ path })}`);
+  const thumb = async () => (await app.inject(`/api/projects/${id}/thumbnail`)).body;
+
+  beforeEach(async () => {
+    await mkdirApi("pics");
+    await upload("pics/a.png", "png-a");
+    await upload("pics/b.svg", "<svg/>");
+    await upload("cover.jpg", "jpg-cover");
+    await upload("notes.txt", "x");
+  });
+
+  it("saves folders, images and the cover, keeps them on a re-scan, and serves the cover", async () => {
+    // Named like a cover, so the scanner picks it.
+    expect(await thumb()).toBe("jpg-cover");
+    const res = await patch({
+      gallery: { folders: ["pics"], images: ["cover.jpg", "cover.jpg"] },
+      coverFile: "pics/a.png",
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({
+      gallery: { folders: ["pics"], images: ["cover.jpg"] },
+      coverFile: "pics/a.png",
+    });
+    expect(await thumb()).toBe("png-a");
+    await upload("model.stl", "solid");
+    await scan();
+    expect(await project()).toMatchObject({
+      gallery: { folders: ["pics"], images: ["cover.jpg"] },
+      coverFile: "pics/a.png",
+    });
+    expect(await thumb()).toBe("png-a");
+    // Back to the scanner's pick.
+    await patch({ coverFile: null });
+    expect(await thumb()).toBe("jpg-cover");
+  });
+
+  it("follows moves and drops deleted picks", async () => {
+    await patch({
+      gallery: { folders: ["pics"], images: ["pics/a.png"] },
+      coverFile: "pics/a.png",
+    });
+    await move("pics", "photos");
+    expect(await project()).toMatchObject({
+      gallery: { folders: ["photos"], images: ["photos/a.png"] },
+      coverFile: "photos/a.png",
+    });
+    await del("photos");
+    expect(await project()).toMatchObject({
+      gallery: { folders: [], images: [] },
+      coverFile: null,
+    });
+    expect(await thumb()).toBe("jpg-cover");
+  });
+
+  it("refuses paths outside the project, links and non-images", async () => {
+    for (const path of ["../x.png", "/etc/x.png", "C:\\x.png", ".hidden.png", "a/../../x.png"]) {
+      for (const payload of [
+        { gallery: { folders: [path], images: [] } },
+        { gallery: { folders: [], images: [path] } },
+        { coverFile: path },
+      ])
+        expect((await patch(payload)).statusCode, path).toBe(400);
+      expect((await image(path)).statusCode, path).toBe(400);
+    }
+    await symlink(outside(), join(folder, "link"), "junction");
+    expect((await patch({ gallery: { folders: ["link"], images: [] } })).statusCode).toBe(403);
+    expect((await image("link/secret.txt")).statusCode).toBe(403);
+    // Only listed images, only existing folders.
+    expect((await patch({ coverFile: "notes.txt" })).statusCode).toBe(404);
+    expect((await patch({ gallery: { folders: [], images: ["missing.png"] } })).statusCode).toBe(
+      404,
+    );
+    expect((await patch({ gallery: { folders: ["cover.jpg"], images: [] } })).statusCode).toBe(400);
+    expect((await image("notes.txt")).statusCode).toBe(404);
+    expect((await image("pics")).statusCode).toBe(404);
+    expect((await project()).gallery).toEqual({ folders: [], images: [] });
+  });
+
+  it("serves SVGs so they can't run scripts", async () => {
+    for (const res of [
+      await image("pics/b.svg"),
+      await app.inject(`/api/projects/${id}/file?path=pics%2Fb.svg`),
+    ]) {
+      expect(res.statusCode).toBe(200);
+      expect(res.headers["content-type"]).toBe("image/svg+xml");
+      expect(res.headers["content-security-policy"]).toContain("sandbox");
+      expect(res.headers["content-security-policy"]).toContain("default-src 'none'");
+      expect(res.headers["x-content-type-options"]).toBe("nosniff");
+    }
+    const png = await image("pics/a.png");
+    expect(png.body).toBe("png-a");
+    expect(png.headers["content-security-policy"]).toBeUndefined();
+  });
+});
+
 describe("scanner", () => {
   it("picks up every change right away", async () => {
     const paths = async () =>

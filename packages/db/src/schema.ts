@@ -519,6 +519,13 @@ export const projects = sqliteTable(
     description: text(),
     // Folder file (relative) whose text is the description; re-read on every scan.
     descriptionFile: text(),
+    // Gallery picks, relative to the folder (`/`): every image in `folders` (and below) plus `images`.
+    gallery: text({ mode: "json" })
+      .$type<{ folders: string[]; images: string[] }>()
+      .notNull()
+      .default({ folders: [], images: [] }),
+    // Image (relative) the user chose as the cover; the scan's own pick when null or gone.
+    coverFile: text(),
     // Set when the project comes from a folder (scan or manual); the scan key.
     folderPath: text(),
     filePath: text(),

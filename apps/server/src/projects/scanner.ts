@@ -95,7 +95,9 @@ export function createProjectScanner(
       next = `${THUMB_DIR}/${id}${ext}`;
       const dest = join(dataDir, next);
       const [src, have] = await Promise.all([stat(cover.abs), stat(dest).catch(() => null)]);
-      if (!have || have.mtimeMs < src.mtimeMs) {
+      // An image is small and may be another file of the same extension (a new cover), so it is
+      // always copied; a 3MF preview is extracted only when the file changed.
+      if (!have || cover.kind === "image" || have.mtimeMs < src.mtimeMs) {
         await mkdir(join(dataDir, THUMB_DIR), { recursive: true });
         if (cover.kind === "image") await copyFile(cover.abs, dest);
         else {
@@ -131,7 +133,13 @@ export function createProjectScanner(
       // A folder added by hand with typed fields is a new project, as asked.
       (Object.keys(user).length ? undefined : adopt(folder));
     const id = row?.id ?? randomUUID();
-    const thumbnailPath = await storeCover(id, scan.cover, row?.thumbnailPath ?? null);
+    // A chosen cover that is gone falls back to the scanner's pick.
+    const chosen = row?.coverFile;
+    const cover: Cover | null =
+      chosen && scan.files.some((f) => f.kind === "image" && f.path === chosen)
+        ? { kind: "image", abs: join(folder, ...chosen.split("/")) }
+        : scan.cover;
+    const thumbnailPath = await storeCover(id, cover, row?.thumbnailPath ?? null);
     const types = scan.models.flatMap((m) =>
       m.plates.flatMap((p) => p.filaments.map((f) => f.type)),
     );

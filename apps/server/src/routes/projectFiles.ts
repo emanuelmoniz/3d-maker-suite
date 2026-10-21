@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
-import { createWriteStream } from "node:fs";
+import { createReadStream, createWriteStream } from "node:fs";
 import { mkdir, readdir, rename, rm, stat } from "node:fs/promises";
-import { basename, dirname, join } from "node:path";
+import { basename, dirname, extname, join } from "node:path";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import {
@@ -26,6 +26,7 @@ import { projectPath, segments } from "../projects/paths.ts";
 import { isHidden } from "../projects/scanFolder.ts";
 import type { ProjectScanner } from "../projects/scanner.ts";
 import { fsError, readEntries } from "./fs.ts";
+import { IMAGE_TYPES, imageReply } from "./projects.ts";
 
 const { projects } = schema;
 const params = z.object({ id: z.uuid() });
@@ -89,17 +90,23 @@ export const projectFilesRoutes =
       return { row, folderPath: row.folderPath, dir };
     }
 
-    /** Keeps a linked description file linked after a move (null: it was deleted). */
+    /** Keeps the description link, cover and gallery picks after a move (null: deleted). */
     async function changed(
       p: Awaited<ReturnType<typeof project>>,
       from?: string,
       to?: string | null,
     ) {
-      const link = p.row.descriptionFile;
-      if (link && from !== undefined && to !== undefined) {
-        const next = repath(link, from, to);
-        if (next !== link)
-          db.update(projects).set({ descriptionFile: next }).where(eq(projects.id, p.row.id)).run();
+      if (from !== undefined && to !== undefined) {
+        const { descriptionFile, coverFile, gallery } = p.row;
+        const move = (path: string | null) => path && repath(path, from, to);
+        const moveAll = (paths: string[]) => paths.map(move).filter((x): x is string => x !== null);
+        const next = {
+          descriptionFile: move(descriptionFile),
+          coverFile: move(coverFile),
+          gallery: { folders: moveAll(gallery.folders), images: moveAll(gallery.images) },
+        };
+        if (JSON.stringify(next) !== JSON.stringify({ descriptionFile, coverFile, gallery }))
+          db.update(projects).set(next).where(eq(projects.id, p.row.id)).run();
       }
       await scanner.refresh(p.folderPath);
     }
@@ -128,6 +135,20 @@ export const projectFilesRoutes =
             modifiedAt: e.mtime.toISOString(),
           }));
         return { path: rel, entries };
+      },
+    );
+
+    // One image of the folder (gallery), through the path guard; nothing but images is served.
+    app.get(
+      "/:id/files/image",
+      { schema: { params, querystring: projectFilePathQuery, response: errors } },
+      async (req, reply) => {
+        const { dir } = await project(req.params.id);
+        const { path } = req.query;
+        const { abs, isDir } = await projectPath(dir, path, "existing");
+        if (isDir || !IMAGE_TYPES[extname(path).toLowerCase()])
+          throw new HttpError(404, "not_found", "Image not found");
+        return imageReply(reply, path).send(createReadStream(abs));
       },
     );
 
