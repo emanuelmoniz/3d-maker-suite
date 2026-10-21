@@ -112,7 +112,9 @@ test("slicing a project with the mock slicer: results, estimate, list filter, re
   await plates.getByRole("heading", { name: "Plates" }).click();
   await expect(plates.getByText(/^1h · \d+ g$/).first()).toBeVisible();
   await expect(plates.getByText("Not sliced")).toHaveCount(0);
-  await expect(page.getByRole("heading", { name: "Estimated cost of one print" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Production cost of one print" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Material usage" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Aggregated cost" })).toBeVisible();
   await expect(page.getByRole("term").filter({ hasText: /^001-Basic #ff0000$/ })).toBeVisible();
   await expect(page.getByRole("term").filter({ hasText: /^Total PLA$/ })).toBeVisible();
 

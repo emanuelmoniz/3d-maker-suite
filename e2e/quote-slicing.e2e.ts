@@ -57,15 +57,25 @@ test("quote from a project: filled, profile changed, sliced, file added, saved, 
     })
     .toBe(true);
 
+  // What the project page shows for one print: the quote made from it must match.
+  const block = (title: string) =>
+    page.locator("section.grid").filter({ has: page.getByRole("heading", { name: title }) });
+  await page.goto(`/projects/${project.id}`);
+  const projectUsage = await block("Material usage").textContent();
+  const projectCost = await block("Aggregated cost").textContent();
+  expect(projectUsage).toContain("Total PLA");
+
   await page.goto("/quotes/new");
-  const cost = page.getByRole("region", { name: "Production cost" });
-  const energy = cost.getByRole("definition").nth(1);
+  const cost = page.getByRole("region", { name: "Production cost of one print" });
+  const energy = cost.getByText("Energy", { exact: true }).locator("xpath=following-sibling::dd");
   const file = page.getByRole("checkbox", { name: /benchy\.3mf/ });
   await expect(page.getByLabel("Print time (minutes)")).toBeVisible();
   await pick(page.getByRole("combobox", { name: "Project", exact: true }), "001-Benchy");
   await expect(file).toBeChecked();
   await expect(page.getByText(/^1h · \d+ g$/).first()).toBeVisible();
   await expect(energy).toHaveText(/1[.,]00/);
+  await expect(block("Material usage")).toHaveText(projectUsage ?? "");
+  await expect(block("Aggregated cost")).toHaveText(projectCost ?? "");
   // Plates picked: they are the print, so nothing is typed in by hand.
   await expect(page.getByLabel("Print time (minutes)")).toBeHidden();
 

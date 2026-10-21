@@ -98,7 +98,7 @@ Do Step 6 of PLAN.md.
 Do Step 7 of PLAN.md.
 ```
 
-### [ ] Step 8 - Material usage and production cost components
+### [x] Step 8 - Material usage and production cost components
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - The project page and the quote calculator use the same component for the estimated cost of one print, renamed to "Production cost of one print" on both pages.
