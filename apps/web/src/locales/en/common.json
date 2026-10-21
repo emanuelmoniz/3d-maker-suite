@@ -47,6 +47,7 @@
     "filterBy": "Filter by {{column}}",
     "filterActive": "Filter by {{column}} (active)",
     "contains": "Contains",
+    "searchOptions": "Search {{column}}",
     "min": "Min",
     "max": "Max",
     "apply": "Apply",

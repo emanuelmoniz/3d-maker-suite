@@ -337,6 +337,12 @@ function ColumnFilterButton<T>({
   const scale = column.filterScale ?? 1;
   const [a = "", b = ""] = value.split("..");
   const [dates, setDates] = useState({ from: a, to: b });
+  const [q, setQ] = useState("");
+  const checkboxes = (from: Element) => [
+    ...(from
+      .closest("form")
+      ?.querySelectorAll<HTMLInputElement>("fieldset label:not([hidden]) input") ?? []),
+  ];
 
   const submit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -382,6 +388,7 @@ function ColumnFilterButton<T>({
         onToggle={(e) => {
           if (e.newState !== "open") return;
           setDates({ from: a, to: b });
+          setQ("");
           const anchor = document.querySelector(`[popovertarget="${id}"]`);
           if (anchor) placePopover(anchor, e.currentTarget);
         }}
@@ -401,20 +408,57 @@ function ColumnFilterButton<T>({
             />
           )}
           {spec.kind === "select" && (
-            <fieldset className="flex max-h-60 flex-col gap-1 overflow-y-auto">
-              <legend className="sr-only">{column.header}</legend>
-              {options.map((o) => (
-                <label key={o.value} className="flex min-h-8 items-center gap-2">
-                  <input
-                    type="checkbox"
-                    name="v"
-                    value={o.value}
-                    defaultChecked={selected.includes(o.value)}
-                  />
-                  {o.label}
-                </label>
-              ))}
-            </fieldset>
+            <>
+              <input
+                type="search"
+                aria-label={t("common:table.searchOptions", { column: column.header })}
+                placeholder={t("common:table.searchOptions", { column: column.header })}
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "ArrowDown") {
+                    e.preventDefault();
+                    checkboxes(e.currentTarget)[0]?.focus();
+                  }
+                }}
+                className={inputClass}
+              />
+              {/* Non-matches are hidden, not unmounted, so their checked state still reaches FormData. */}
+              <fieldset
+                className="flex max-h-60 flex-col gap-1 overflow-y-auto"
+                onKeyDown={(e) => {
+                  const d = e.key === "ArrowDown" ? 1 : e.key === "ArrowUp" ? -1 : 0;
+                  if (!d || !(e.target instanceof HTMLInputElement)) return;
+                  e.preventDefault();
+                  const boxes = checkboxes(e.currentTarget);
+                  const next = boxes[boxes.indexOf(e.target) + d];
+                  if (next) next.focus();
+                  else if (d < 0) e.currentTarget.parentElement?.querySelector("input")?.focus();
+                }}
+              >
+                <legend className="sr-only">{column.header}</legend>
+                {options.map((o) => (
+                  <label
+                    key={o.value}
+                    hidden={!o.label.toLowerCase().includes(q.trim().toLowerCase())}
+                    className="flex min-h-8 items-center gap-2 [[hidden]]:hidden"
+                  >
+                    <input
+                      type="checkbox"
+                      name="v"
+                      value={o.value}
+                      defaultChecked={selected.includes(o.value)}
+                    />
+                    {o.label}
+                  </label>
+                ))}
+                {!options.some((o) => o.label.toLowerCase().includes(q.trim().toLowerCase())) && (
+                  <p role="status" className="text-muted">
+                    {t("common:picker.none")}
+                  </p>
+                )}
+              </fieldset>
+            </>
           )}
           {spec.kind === "number" && (
             <fieldset className="flex flex-col gap-1">

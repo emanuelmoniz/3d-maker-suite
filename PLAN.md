@@ -52,7 +52,7 @@ Do Step 2 of PLAN.md. Grep every weight formatter first and route them all throu
 Do Step 3 of PLAN.md.
 ```
 
-### [ ] Step 4 - Searchable choice filters on every table
+### [x] Step 4 - Searchable choice filters on every table
 **Model:** Sonnet · **Effort:** Medium
 **Scope:** Every multiple-choice filter in every table can be searched as you type, so the user doesn't scroll through every option. Known cases: printer model in the Print profiles and Machine profiles tables, and brand in the Printer models table. Do it once in the shared `FilterBar` / `DataTable` filter, not per table. Keyboard accessible, mobile friendly, no new dependency.
 **Done when:** the summary lists every table with a choice filter; all of them search as you type; the keyboard works (type, arrows, enter, escape); e2e on one table; tests pass.

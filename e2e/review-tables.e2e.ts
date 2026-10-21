@@ -74,3 +74,29 @@ test("import review: sort, filter and page cover every row", async ({ page }) =>
   await page.getByRole("button", { name: "Clear filters" }).click();
   await expect(page.getByText("1–25 of 30")).toBeVisible();
 });
+
+test("choice filters search as you type and work from the keyboard", async ({ page }) => {
+  await page.goto("/import");
+  await page.getByLabel("Upload a file").setInputFiles({
+    name: "spools.csv",
+    mimeType: "text/csv",
+    buffer: Buffer.from("Brand;Material;Initial weight (g)\nAcme;PLA;100"),
+  });
+  const head = page.getByRole("columnheader").filter({ hasText: "Action" });
+  await head.getByRole("button", { name: /^Filter by/ }).click();
+  const search = head.getByRole("searchbox", { name: "Search Action" });
+  await search.fill("sk");
+  await expect(head.getByLabel("Skip")).toBeVisible();
+  await expect(head.getByLabel("Create")).toBeHidden();
+  await search.fill("zzz");
+  await expect(head.getByText("No matches")).toBeVisible();
+  await search.fill("cre");
+  await search.press("ArrowDown");
+  await expect(head.getByLabel("Create")).toBeFocused();
+  await page.keyboard.press("Space");
+  await page.keyboard.press("Enter"); // submits the form: applies the filter
+  await expect(page.getByText("1–1 of 1")).toBeVisible();
+  await head.getByRole("button", { name: /^Filter active|^Filter by/ }).click();
+  await page.keyboard.press("Escape");
+  await expect(head.getByRole("searchbox")).toBeHidden();
+});
