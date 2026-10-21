@@ -16,7 +16,7 @@ import { EmptyState } from "../../components/EmptyState.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { SettingsLink } from "../../components/SettingsLink.tsx";
 import { useAlertAction, useAlertDetail, useAlerts } from "../../lib/alerts.ts";
-import { formatDate, formatWeight } from "../../lib/format.ts";
+import { formatDateTime, formatWeight } from "../../lib/format.ts";
 import { useAdapterName } from "../../lib/integrations.ts";
 import { TITLE } from "../import/SourceReviewPage.tsx";
 import { CAPS, ERRORS } from "../settings/IntegrationsPage.tsx";
@@ -161,8 +161,8 @@ function Row({ a, snoozed }: { a: Alert; snoozed?: boolean }) {
             {t("alerts:meta", {
               module: t(MODULE[a.module]),
               date: snoozed
-                ? t("alerts:snoozedUntil", { date: formatDate(a.snoozedUntil ?? "") })
-                : formatDate(a.createdAt),
+                ? t("alerts:snoozedUntil", { date: formatDateTime(a.snoozedUntil ?? "") })
+                : formatDateTime(a.createdAt),
             })}
           </p>
           {a.hasDetail && <Detail id={a.id} />}
