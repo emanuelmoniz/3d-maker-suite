@@ -10,6 +10,9 @@ import { loadConfig } from "./config.ts";
 import { adapters } from "./integrations/registry.ts";
 import { isLoopback } from "./lib/access.ts";
 
+/** Exit code that asks the launcher for a restart (RESTART in scripts/update.mjs). */
+const RESTART = 75;
+
 const config = loadConfig();
 mkdirSync(config.dataDir, { recursive: true });
 applyPendingRestore(config.dataDir); // before the database opens
@@ -20,17 +23,20 @@ const app = await buildApp(openDb(join(config.dataDir, "app.sqlite")), true, con
   alertsSchedule: "0 8 * * *",
   backupSchedule: "0 3 * * *",
   logRetentionSchedule: "0 * * * *",
+  updateCheckSchedule: "0 9 * * *",
   watchProjects: true,
   access: { host: config.host, password: config.password },
   serverConfig: config,
-  // ponytail: respawns itself detached; a supervisor (pm2, systemd) would make this unnecessary.
+  // Under `pnpm start` the launcher (scripts/start.mjs) starts it again, applying a pending update.
+  // ponytail: without it, respawns itself detached; a supervisor (pm2, systemd) would make this unnecessary.
   restart: () =>
     app.close().then(() => {
-      spawn(process.execPath, [...process.execArgv, ...process.argv.slice(1)], {
-        detached: true,
-        stdio: "ignore",
-      }).unref();
-      process.exit(0);
+      if (!process.env.APP_LAUNCHER)
+        spawn(process.execPath, [...process.execArgv, ...process.argv.slice(1)], {
+          detached: true,
+          stdio: "ignore",
+        }).unref();
+      process.exit(process.env.APP_LAUNCHER ? RESTART : 0);
     }),
 });
 await app.register(fastifyStatic, {

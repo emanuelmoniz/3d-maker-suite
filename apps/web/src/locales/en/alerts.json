@@ -34,7 +34,7 @@
   },
   "empty": {
     "title": "All clear",
-    "body": "Low spools, maintenance due, ending warranties, sync problems and auto slicing problems show up here."
+    "body": "Low spools, maintenance due, ending warranties, sync problems, auto slicing problems and new versions show up here."
   },
   "kindNames": {
     "spool_low": "Spool running low",
@@ -44,7 +44,8 @@
     "sync_success": "Sync finished",
     "sync_error": "Sync failed",
     "slice_setup_changed": "Print setup changed",
-    "slice_failed": "Auto slice failed"
+    "slice_failed": "Auto slice failed",
+    "update_available": "Update available"
   },
   "status": {
     "snoozed": "Snoozed",
@@ -75,9 +76,14 @@
     "sync_success": "{{type}} from {{name}} synced",
     "sync_error": "{{type}} from {{name}} could not sync: {{reason}}",
     "slice_setup_changed": "{{file}} in {{name}} changed its plates or filament slots: check the print setup",
-    "slice_failed": "Plate {{plate}} of {{file}} in {{name}} could not be sliced again"
+    "slice_failed": "Plate {{plate}} of {{file}} in {{name}} could not be sliced again",
+    "update_available": "Version {{version}} is available"
   },
-  "severity": { "error": "Error", "warning": "Warning", "success": "Success" },
+  "severity": {
+    "error": "Error",
+    "warning": "Warning",
+    "success": "Success"
+  },
   "meta": "{{module}} · {{date}}",
   "details": "Details",
   "log": {
@@ -121,5 +127,6 @@
       "from": "From address",
       "to": "To address"
     }
-  }
+  },
+  "system": "System"
 }

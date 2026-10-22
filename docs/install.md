@@ -39,7 +39,7 @@ If `corepack enable` fails with a permissions error, use `sudo corepack enable` 
 
 ## First run
 
-`pnpm start` builds the web app, applies database migrations and starts the server. Open <http://127.0.0.1:4300>. Stop it with `Ctrl+C`; run `pnpm start` again to launch it later.
+`pnpm start` builds the web app, applies database migrations and starts the server. Open <http://127.0.0.1:4300>. Stop it with `Ctrl+C`; run `pnpm start` again to launch it later. Keep the terminal open while you use the app: updates and restarts from Settings happen in it.
 
 ## Docker
 
@@ -83,17 +83,31 @@ The folder holds `app.sqlite`, the encryption key for stored tokens (`secret.key
 
 ## Updating
 
+The clone starts on `main`, which is always the latest stable release. The app checks GitHub once a day and shows a banner when a new version is out. Open **Settings → About & updates** and click **Update**:
+
+1. The app backs up your data and downloads the release.
+2. It restarts. In the terminal you see it switch versions, install and build; this usually takes under a minute. The page reloads by itself.
+3. If anything fails, it goes back to the version you had and tells you why.
+
+Every update keeps its backup, and the last 5 updates can be undone there with **Roll back to …**. A rollback restores the backup made before that update, so anything changed since is lost.
+
+**Update channel:** *Stable* gets releases only. *Dev* also gets pre-releases (`-alpha.N`); use it only to test what comes next.
+
+This needs the app started with `pnpm start` from a git clone with no local changes. Otherwise Settings shows the commands to run by hand. In the app's folder, stop the app and run (with the version you want):
+
 ```bash
-git pull
+git fetch --tags
+git checkout v4.0.0
 pnpm install
 pnpm start
 ```
 
-For Docker, see above. New database migrations are applied automatically on start. Make a backup first (see [backups.md](backups.md)).
+For Docker, see above. New database migrations are applied automatically on start. How it works: [ADR-0009](adr/0009-updates.md).
 
 ## Troubleshooting
 
 - **Port already in use:** set another port with `PORT=4400 pnpm start` (PowerShell: `$env:PORT=4400; pnpm start`). In Docker, change the left side of `4300:4300`.
 - **`better-sqlite3` fails to install:** use Node 22 LTS; on Linux install the build tools above.
 - **Page is blank after an update:** hard-reload the page (`Ctrl+F5`, macOS `Cmd+Shift+R`).
+- **Install or update fails on Windows:** we recommend cloning outside OneDrive, Dropbox or other synced folders (sync clients can lock files while `pnpm install` replaces them), and into a short path such as `C:\apps\3d-maker-suite` (very long paths break `pnpm`).
 - **Nothing loads from a phone:** see [configuration.md](configuration.md#access-from-other-devices).

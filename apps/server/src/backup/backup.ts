@@ -48,10 +48,18 @@ function addDir(zip: yazl.ZipFile, abs: string, rel: string) {
   }
 }
 
-/** Snapshots the live database (safe while the app runs) and zips it with the data files. */
-export async function createBackup(db: Db, dataDir: string, auto = false): Promise<BackupInfo> {
+/**
+ * Snapshots the live database (safe while the app runs) and zips it with the data files.
+ * `auto` ones are pruned by retention; `update` ones by the update history (ADR-0009).
+ */
+export async function createBackup(
+  db: Db,
+  dataDir: string,
+  kind: "backup" | "auto" | "update" = "backup",
+): Promise<BackupInfo> {
   const createdAt = new Date().toISOString();
-  const name = `${auto ? "auto" : "backup"}-${createdAt.replace(/\D/g, "").slice(0, 14)}.zip`;
+  const auto = kind === "auto";
+  const name = `${kind}-${createdAt.replace(/\D/g, "").slice(0, 14)}.zip`;
   const dir = backupsDir(dataDir);
   await mkdir(dir, { recursive: true });
   const snapshot = join(dir, `${name}.sqlite.tmp`);
@@ -98,7 +106,7 @@ export function listBackups(dataDir: string): BackupInfo[] {
 export async function runAutoBackup(db: Db, dataDir: string) {
   const prefs = readPreferences(db);
   if (!prefs.backupAuto) return;
-  await createBackup(db, dataDir, true);
+  await createBackup(db, dataDir, "auto");
   for (const old of listBackups(dataDir)
     .filter((b) => b.auto)
     .slice(prefs.backupKeep))
@@ -146,8 +154,11 @@ async function extract(file: string, dest: string) {
 
 export class BackupError extends Error {}
 
+/** Where a restore waits for the next start. */
+export const stagedDir = (dataDir: string) => join(dataDir, STAGED);
+
 export const discardStaged = (dataDir: string) =>
-  rmSync(join(dataDir, STAGED), { recursive: true, force: true });
+  rmSync(stagedDir(dataDir), { recursive: true, force: true });
 
 /**
  * Unpacks and validates a backup into `<dataDir>/restore-pending`; it replaces the live data at the

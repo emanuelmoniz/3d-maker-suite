@@ -340,7 +340,7 @@ export const importRoutes =
             throw e;
           }
         }
-        const backup = (await createBackup(db, dataDir, true)).name;
+        const backup = (await createBackup(db, dataDir, "auto")).name;
         // A confirmed review of an integration is a manual run of that type, in its sync log too.
         let done: Awaited<ReturnType<typeof syncer.run>> | ReturnType<typeof review.write>;
         try {

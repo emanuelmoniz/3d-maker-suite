@@ -1,12 +1,13 @@
 import { Link, Outlet } from "@tanstack/react-router";
-import { Ellipsis, Printer } from "lucide-react";
+import { Ellipsis, Printer, Sparkles, X } from "lucide-react";
 import { useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { unreadCount, useAlerts } from "../lib/alerts.ts";
+import { unreadCount, useAlertAction, useAlerts } from "../lib/alerts.ts";
 import { useApplyBranding, useAppName, useBrandingUrl } from "../lib/branding.ts";
 import { cx } from "../lib/cx.ts";
 import { setDateTimePrefs } from "../lib/format.ts";
 import { usePreferences } from "../lib/preferences.ts";
+import { useUpdates } from "../lib/updates.ts";
 import {
   ALL_ITEMS,
   IMPORT_ITEM,
@@ -72,12 +73,46 @@ function Brand() {
   );
 }
 
+/** A new release, while its alert is open and not snoozed; dismissing hides it (ADR-0009). */
+function UpdateBanner() {
+  const { t } = useTranslation();
+  const act = useAlertAction();
+  const a = useAlerts().data?.find(
+    (x) =>
+      x.kind === "update_available" && !(x.snoozedUntil && Date.parse(x.snoozedUntil) > Date.now()),
+  );
+  if (!a) return null;
+  return (
+    <div
+      role="status"
+      className="mb-5 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border border-accent/40 bg-accent-soft px-4 py-2.5"
+    >
+      <Sparkles className="size-4 shrink-0 text-accent" aria-hidden />
+      <span className="min-w-0 flex-1 font-medium">
+        {t("alerts:kinds.update_available", { version: a.context.version })}
+      </span>
+      <Link to="/settings" hash="updates" className="font-medium text-accent hover:underline">
+        {t("settings:updates.see")}
+      </Link>
+      <button
+        type="button"
+        className="rounded-md p-1 text-muted hover:bg-surface-2 hover:text-fg"
+        aria-label={t("alerts:dismiss")}
+        onClick={() => act.mutate({ id: a.id, action: "dismiss" })}
+      >
+        <X className="size-4" aria-hidden />
+      </button>
+    </div>
+  );
+}
+
 /** The Logs item is in the menu only while logging is on. */
 const useLogsShown = () => !!usePreferences().data?.values.logActive;
 
 function Sidebar() {
   const { t } = useTranslation();
   const logsShown = useLogsShown();
+  const version = useUpdates().data?.version;
   return (
     <aside className="sticky top-0 hidden h-dvh w-14 shrink-0 flex-col border-r border-border bg-surface md:flex lg:w-56">
       <div className="flex h-14 items-center px-3 lg:px-4">
@@ -101,6 +136,11 @@ function Sidebar() {
         {logsShown && <SideLink item={LOGS_ITEM} />}
         <SideLink item={SETTINGS_ITEM} />
         <ThemeToggle className="flex-col lg:flex-row" />
+        {version && (
+          <p className="hidden px-2.5 text-xs text-muted lg:block">
+            {t("common:version", { version })}
+          </p>
+        )}
       </div>
     </aside>
   );
@@ -172,6 +212,7 @@ export function AppShell() {
         className={cx("min-w-0 flex-1 px-4 pb-24 pt-5 md:px-8 md:pb-10 md:pt-8")}
       >
         <div className="mx-auto max-w-6xl">
+          <UpdateBanner />
           <Outlet />
         </div>
       </main>

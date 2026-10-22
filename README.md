@@ -42,6 +42,8 @@ pnpm start
 
 Then open <http://127.0.0.1:4300>. Steps for Windows, macOS, Linux and Docker (NAS): [docs/install.md](docs/install.md).
 
+To update, use **Settings → About & updates → Update**: the app backs up, installs the new release, restarts, and lets you roll back ([details](docs/install.md#updating)).
+
 ## Connect Bambu Cloud (optional)
 
 Sign in with your Bambu account on the Integrations page. The app syncs print history every hour and printers every day by default (mode and frequency are set per type), and you can sync each type or a date range by hand. Prints an automatic sync cannot match to one spool wait for your review, with a **Sync needs review** alert. Manual entry works without an account.

@@ -80,5 +80,6 @@
   "projectName": "{{number}}-{{name}}",
   "printName": "{{number}}-{{title}}",
   "quoteName": "{{number}}-{{name}}",
-  "orderName": "Order {{number}}"
+  "orderName": "Order {{number}}",
+  "version": "Version {{version}}"
 }

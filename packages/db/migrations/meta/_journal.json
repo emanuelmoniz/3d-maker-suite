@@ -428,6 +428,13 @@
       "when": 1792667504508,
       "tag": "0060_logs",
       "breakpoints": true
+    },
+    {
+      "idx": 61,
+      "version": "6",
+      "when": 1792671920145,
+      "tag": "0061_update_alerts",
+      "breakpoints": true
     }
   ]
 }

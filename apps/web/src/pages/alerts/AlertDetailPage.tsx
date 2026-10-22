@@ -17,6 +17,7 @@ function taskOf(a: Alert, t: TFunction) {
   const c = a.context;
   if (a.kind === "maintenance_due") return String(c.task);
   if (a.kind.startsWith("sync_")) return t(CAPS[c.type as Capability] ?? "");
+  if (a.kind === "update_available") return String(c.version);
   return String(c.name);
 }
 

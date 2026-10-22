@@ -7,6 +7,7 @@ import { Section } from "../components/Section.tsx";
 import { usePreferences, useSavePreferences } from "../lib/preferences.ts";
 import { ACCENTS, setTheme } from "../lib/theme.ts";
 import { ThemeToggle } from "../shell/ThemeToggle.tsx";
+import { AboutSection } from "./settings/AboutSection.tsx";
 import { BackupSection } from "./settings/BackupSection.tsx";
 import { BrandingFields } from "./settings/BrandingFields.tsx";
 import { LogSection } from "./settings/LogSection.tsx";
@@ -127,6 +128,10 @@ export function SettingsPage() {
 
         <Section title={t("settings:sections.logs")}>
           <LogSection />
+        </Section>
+
+        <Section title={t("settings:sections.about")} id="updates">
+          <AboutSection />
         </Section>
       </div>
     </>

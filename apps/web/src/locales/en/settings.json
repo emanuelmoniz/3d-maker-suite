@@ -16,7 +16,8 @@
     "alerts": "Alerts",
     "backup": "Backup & export",
     "server": "Network",
-    "logs": "Logs"
+    "logs": "Logs",
+    "about": "About & updates"
   },
   "general": {
     "language": "Language",
@@ -174,5 +175,51 @@
     "daysHint": "Older entries are removed every hour.",
     "max": "Maximum entries",
     "maxHint": "The oldest entries beyond this are removed every hour."
+  },
+  "updates": {
+    "channel": "Update channel",
+    "channelHint": "Stable gets releases only. Dev also gets pre-releases, for testers.",
+    "stable": "Stable",
+    "dev": "Dev (pre-releases)",
+    "available": "Version {{version}} is available.",
+    "notes": "What’s new",
+    "upToDate": "You have the latest version.",
+    "checkFailed": "Could not reach GitHub to check for updates.",
+    "checkedAt": "Last checked {{date}}",
+    "checkNow": "Check now",
+    "update": "Update to {{version}}",
+    "see": "See update",
+    "manualGit": "This install can’t update itself. In the app’s folder, stop the app and run:",
+    "manualDocker": "Docker installs update by pulling the new image. Next to your docker-compose.yml, run:",
+    "phases": {
+      "preparing": "Making a backup and downloading the update…",
+      "installing": "Installing. The app restarts and is back in about a minute; this page reloads by itself.",
+      "slow": "This is taking long. Check the terminal where the app runs."
+    },
+    "wentBack": "Updating to {{version}} failed while {{step}}. You are still on {{current}}; the Logs and the terminal say more.",
+    "failed": "failed while {{step}}",
+    "steps": {
+      "checkout": "switching versions",
+      "node": "checking Node.js: it needs Node.js {{node}} or newer",
+      "install": "installing dependencies",
+      "build": "building the app"
+    },
+    "history": "Update history",
+    "updated": "Updated {{from}} → {{to}}",
+    "rolledBack": "Rolled back {{from}} → {{to}}",
+    "rollBack": "Roll back",
+    "rollBackTo": "Roll back to {{version}}",
+    "confirmUpdate": "Update to {{version}}?",
+    "confirmUpdateBody": "A backup is made first. The app then restarts, and is away for about a minute while it installs. If anything fails, it goes back to this version.",
+    "confirmRollBack": "Roll back to {{version}}?",
+    "confirmRollBackBody": "The app goes back to that version and restores the backup made before the update. Everything changed since {{date}} is lost.",
+    "errors": {
+      "dirty": "The app’s folder has local changes, so it can’t switch versions. Undo them (git status shows them) and try again.",
+      "busy": "An update is already running.",
+      "fetch_failed": "Could not download the update. Check the internet connection.",
+      "git_failed": "git did not run. Is it installed?",
+      "invalid_backup": "The backup for this version can’t be read.",
+      "unknown": "The update could not start."
+    }
   }
 }

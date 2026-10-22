@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { UPDATE_CHANNELS } from "./enums.ts";
 import { LOG_LEVELS, LOG_MODULES } from "./logs.ts";
 
 export const LANGUAGES = ["en"] as const;
@@ -115,6 +116,8 @@ const shape = {
   /** Pruned hourly: older lines first, then the oldest beyond the max. */
   logRetentionDays: z.number().int().min(1).max(365),
   logMaxEntries: z.number().int().min(100).max(1_000_000),
+  /** stable: releases from `main`; dev: pre-releases from `dev` too (ADR-0009). */
+  updateChannel: z.enum(UPDATE_CHANNELS),
 };
 
 /** User preferences. Each key is one row in `settings`; missing rows fall back to these defaults. */
@@ -175,6 +178,7 @@ export const PREFERENCE_DEFAULTS: z.infer<typeof preferencesSchema> = {
   logModules: [...LOG_MODULES],
   logRetentionDays: 14,
   logMaxEntries: 10_000,
+  updateChannel: "stable",
   dashboardLayout: [
     widget("statCard", { metric: "prints" }),
     widget("statCard", { metric: "successRate" }),

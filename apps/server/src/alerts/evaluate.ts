@@ -34,6 +34,8 @@ const ONE_SHOT = new Set<AlertKind>([
   // Raised by auto slicing, keyed by the file's new bytes.
   "slice_setup_changed",
   "slice_failed",
+  // Raised by the update check, one per release; resolved by it (updates/updates.ts).
+  "update_available",
 ]);
 
 /**
@@ -222,6 +224,8 @@ function textOf(a: typeof alerts.$inferSelect): { title: string; body: string } 
         title: "Auto slice failed",
         body: `${c.name}: plate ${c.plate} of ${c.file} could not be sliced (${c.code})`,
       };
+    case "update_available":
+      return { title: "Update available", body: `Version ${c.version} is out` };
   }
 }
 

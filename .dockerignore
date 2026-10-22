@@ -11,3 +11,4 @@ secret.key
 .env*
 *.sqlite*
 BACKLOG.md
+.update

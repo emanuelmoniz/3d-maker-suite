@@ -230,7 +230,7 @@ push the tag and confirm the pre-release is published.
 Do Step 13 of PLAN.md. You may append to BACKLOG.md Ideas / modules for this step only.
 ```
 
-### [ ] Step 14 - Versioning and one-click updates  **[plan mode]**
+### [x] Step 14 - Versioning and one-click updates  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:**
 - The app shows its version (Settings → About and the sidebar footer), read from the root `package.json`.
@@ -258,13 +258,22 @@ Do Step 15 of PLAN.md. Only document what changed since 4.0.0-alpha.2. Then push
 push the tag and confirm the pre-release and image are published.
 ```
 
+### [ ] Step 15b - Real update test: alpha.3 → alpha.4 and back
+**Model:** Sonnet · **Effort:** Medium
+**Scope:** Prove the updater against GitHub before friends rely on it (ADR-0009). Tag `v4.0.0-alpha.4` on `dev` with a trivial, visible change (CHANGELOG line, version bump). On a clean Windows machine and a clean macOS machine, each with a fresh clone at `v4.0.0-alpha.3` started with `pnpm start` on the Dev channel: Check now → Update to alpha.4 → confirm the version, the `update-` backup and the history → add a row → Roll back to alpha.3 → confirm the row is gone and the version is alpha.3. Fix anything found and note it in the CHANGELOG.
+**Done when:** update and rollback worked on both machines from GitHub; any fixes are committed and released in alpha.4 (or alpha.5, repeating the test).
+**Prompt:**
+```
+Do Step 15b of PLAN.md. Guide me through the test on each machine, then fix what we find.
+```
+
 ---
 
 ## Phase 5 - Release
 
 ### [ ] Step 16 - Responsive pass & screenshots of every module
 **Model:** Sonnet (use webapp-testing skill) · **Effort:** Medium
-**Scope:** Run the whole e2e suite at 375/768/1440 and fix what breaks. `pnpm screenshots` covers every module, Settings, Integrations and every detail page (module settings pages left out). Seed one project fully (plates, print setup, prints, gallery images, costs) so the project detail screenshot has data. Add the new screenshots to the README.
+**Scope:** Run the whole e2e suite at 375/768/1440 and fix what breaks. `pnpm screenshots` covers every module, Settings, Integrations and every detail page (module settings pages left out). Seed one project fully (plates, print setup, prints, gallery images, costs) so the project detail screenshot has data. Add the new screenshots to the README. Docs: "Start at login" in `docs/install.md` (Windows Task Scheduler, macOS launchd, Linux systemd user unit, each running `pnpm start` in the app's folder), so friends don't have to keep a terminal open.
 **Done when:** E2E green in CI; screenshots exist for every module and detail page and match the app.
 **Prompt:**
 ```
@@ -274,10 +283,10 @@ Do Step 16 of PLAN.md. List the UI issues found and fix them in this step.
 ### [ ] Step 17 - Docs, push & v4.0.0 release
 **Model:** Haiku · **Effort:** Low
 **Scope:** README/docs (anything missed), CHANGELOG, version `4.0.0`. Commit on `dev`, fast-forward `main` to `dev`, push both, create and push tag `v4.0.0` on `main`. Check the run (`gh run watch`), the release (`gh release view v4.0.0`) and the `:latest` image.
-**Done when:** `main`, `dev` and the tag are pushed; the workflow is green; the release is the latest; the image is published; docs match the app.
+**Done when:** `main`, `dev` and the tag are pushed; the workflow is green; the release is the latest; the image is published; docs match the app; updating a fresh clone of the previous release to `v4.0.0` from Settings works.
 **Prompt:**
 ```
-Do Step 17 of PLAN.md. Only document what changed since 4.0.0-alpha.3. Then merge dev into
+Do Step 17 of PLAN.md. Only document what changed since the last 4.0.0 pre-release. Then merge dev into
 main, push, push the v4.0.0 tag and confirm the release and image are published.
 ```
 

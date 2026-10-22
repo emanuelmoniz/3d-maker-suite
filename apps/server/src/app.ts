@@ -57,6 +57,8 @@ import { serverConfigRoutes } from "./routes/serverConfig.ts";
 import { slicerZipRoutes } from "./routes/slicerZip.ts";
 import { statsRoutes } from "./routes/stats.ts";
 import { collectionsRoutes, tagsRoutes } from "./routes/tags.ts";
+import { updatesRoutes } from "./routes/updates.ts";
+import { createUpdater } from "./updates/updates.ts";
 
 export async function buildApp(
   db: Db,
@@ -77,8 +79,12 @@ export async function buildApp(
     access?: { host: string; password?: string };
     /** Network settings editable from Settings (needs a data dir). */
     serverConfig?: Config;
-    /** Makes POST /api/server-config/restart available (off in tests). */
+    /** Makes POST /api/server-config/restart available, and lets an update restart (off in tests). */
     restart?: () => void;
+    /** Cron for the update check; also checks a minute after start (ADR-0009). */
+    updateCheckSchedule?: string;
+    /** Test seam for the updater (install type, version, releases). */
+    updater?: Parameters<typeof createUpdater>[3];
   } = {},
 ) {
   // Any logger also feeds the `logs` table (Settings -> Logs decides what is kept).
@@ -264,6 +270,20 @@ export async function buildApp(
       await evaluate();
     });
     app.addHook("onClose", async () => job.stop());
+  }
+
+  const updater = createUpdater(db, dataDir, logFor("system"), opts.updater);
+  await app.register(updatesRoutes(updater, opts.restart), { prefix: "/api/updates" });
+  if (opts.updateCheckSchedule) {
+    // A new release raises an alert; evaluate sends it to the channels.
+    const check = () => updater.check().then(evaluate);
+    const daily = new Cron(opts.updateCheckSchedule, { protect: true }, check);
+    // Not at once: a server started for a moment (tests, a restart loop) never asks GitHub.
+    const first = setTimeout(check, 60_000).unref();
+    app.addHook("onClose", async () => {
+      daily.stop();
+      clearTimeout(first);
+    });
   }
   return app;
 }

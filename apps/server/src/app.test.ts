@@ -15,7 +15,10 @@ beforeEach(async () => {
 
 describe("api", () => {
   it("health + openapi", async () => {
-    expect((await app.inject("/api/health")).json()).toEqual({ status: "ok" });
+    expect((await app.inject("/api/health")).json()).toEqual({
+      status: "ok",
+      version: expect.stringMatching(/^\d+\.\d+\.\d+/),
+    });
     const spec = (await app.inject("/api/docs/json")).json();
     expect(spec.paths["/api/printers/{id}"]).toBeDefined();
     // Raw settings rows hold the encrypted channel secrets; only /api/preferences is exposed.

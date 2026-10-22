@@ -11,3 +11,4 @@ BACKLOG.md
 test-results/
 playwright-report/
 .playwright-mcp/
+.update/

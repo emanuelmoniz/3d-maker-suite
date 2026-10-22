@@ -43,6 +43,7 @@ export const MODULE: Record<AlertModule, string> = {
   printers: "nav:items.printers.label",
   integrations: "nav:items.integrations.label",
   projects: "nav:items.projects.label",
+  system: "alerts:system",
 };
 const LOG: Record<Exclude<SyncLogEntry["event"], "left">, string> = {
   created: "alerts:log.created",
@@ -99,6 +100,7 @@ export function Title({ a, inList }: { a: Alert; inList?: boolean }) {
       t("alerts:kinds.slice_setup_changed", { name: c.name, file: c.file }),
     slice_failed: () =>
       t("alerts:kinds.slice_failed", { name: c.name, file: c.file, plate: c.plate }),
+    update_available: () => t("alerts:kinds.update_available", { version: c.version }),
   }[a.kind]();
   if (inList)
     return (
@@ -141,6 +143,12 @@ export function Title({ a, inList }: { a: Alert; inList?: boolean }) {
           hash="slicing"
           className={link}
         >
+          {text}
+        </Link>
+      );
+    case "update_available":
+      return (
+        <Link to="/settings" hash="updates" className={link}>
           {text}
         </Link>
       );
@@ -290,6 +298,7 @@ const KIND_NAMES: Record<AlertKind, string> = {
   sync_error: "alerts:kindNames.sync_error",
   slice_setup_changed: "alerts:kindNames.slice_setup_changed",
   slice_failed: "alerts:kindNames.slice_failed",
+  update_available: "alerts:kindNames.update_available",
 };
 const STATUS: Record<AlertStatus, string> = {
   snoozed: "alerts:status.snoozed",
