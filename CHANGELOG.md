@@ -4,6 +4,16 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+## [4.0.0] - 2026-10-22
+
+### Added
+- Install: a "Start at login" guide for Windows (Task Scheduler), macOS (launchd) and Linux (systemd user unit)
+- README: more screenshots of every module and detail page
+
+### Changed
+- Responsive pass: the app is checked at 375, 768 and 1440 px wide, with the sidebar footer spaced for touch
+- Spool page: its translations load with the projects and prints it shows
+
 ## [4.0.0-alpha.4] - 2026-10-22
 
 ### Changed

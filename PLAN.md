@@ -280,7 +280,7 @@ Do Step 15b of PLAN.md. Guide me through the test on each machine, then fix what
 Do Step 16 of PLAN.md. List the UI issues found and fix them in this step.
 ```
 
-### [ ] Step 17 - Docs, push & v4.0.0 release
+### [x] Step 17 - Docs, push & v4.0.0 release
 **Model:** Haiku · **Effort:** Low
 **Scope:** README/docs (anything missed), CHANGELOG, version `4.0.0`. Commit on `dev`, fast-forward `main` to `dev`, push both, create and push tag `v4.0.0` on `main`. Check the run (`gh run watch`), the release (`gh release view v4.0.0`) and the `:latest` image.
 **Done when:** `main`, `dev` and the tag are pushed; the workflow is green; the release is the latest; the image is published; docs match the app; updating a fresh clone of the previous release to `v4.0.0` from Settings works.
