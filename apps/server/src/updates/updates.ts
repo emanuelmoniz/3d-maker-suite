@@ -8,6 +8,7 @@ import {
   type InstallType,
   pickRelease,
   RELEASE_TAG,
+  REPO_URL,
   type Release,
   type UpdateHistoryEntry,
   type UpdatesResponse,
@@ -30,7 +31,7 @@ import { readPreferences } from "../lib/preferences.ts";
 /** The repo (or image) root: its package.json is the app's version; .update/ talks to the launcher. */
 export const ROOT = fileURLToPath(new URL("../../../../", import.meta.url));
 export const VERSION: string = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")).version;
-const RELEASES = "https://api.github.com/repos/emanuelmoniz/3d-maker-suite/releases?per_page=30";
+const RELEASES = `${REPO_URL.replace("github.com/", "api.github.com/repos/")}/releases?per_page=30`;
 // ponytail: fixed; make it a preference if anyone asks.
 const KEEP = 5;
 

@@ -1,7 +1,8 @@
+import { REPO_URL, SITE_URL } from "@3d-maker-suite/core";
 import { Link, Outlet } from "@tanstack/react-router";
 import { Ellipsis, Printer, Sparkles, X } from "lucide-react";
 import { useRef } from "react";
-import { useTranslation } from "react-i18next";
+import { Trans, useTranslation } from "react-i18next";
 import { unreadCount, useAlertAction, useAlerts } from "../lib/alerts.ts";
 import { useApplyBranding, useAppName, useBrandingUrl } from "../lib/branding.ts";
 import { cx } from "../lib/cx.ts";
@@ -113,7 +114,6 @@ const useLogsShown = () => !!usePreferences().data?.values.logActive;
 function Sidebar() {
   const { t } = useTranslation();
   const logsShown = useLogsShown();
-  const version = useUpdates().data?.version;
   return (
     <aside className="sticky top-0 hidden h-dvh w-14 shrink-0 flex-col border-r border-border bg-surface md:flex lg:w-56">
       <div className="flex h-14 items-center px-3 lg:px-4">
@@ -137,13 +137,40 @@ function Sidebar() {
         {logsShown && <SideLink item={LOGS_ITEM} />}
         <SideLink item={SETTINGS_ITEM} />
         <ThemeToggle className="mt-1.5 flex-col lg:flex-row" />
-        {version && (
-          <p className="hidden px-2.5 text-xs text-muted lg:block">
-            {t("common:version", { version })}
-          </p>
-        )}
       </div>
     </aside>
+  );
+}
+
+/** Year, version and links at the foot of every page; the links open in a new tab. */
+function Footer() {
+  const { t } = useTranslation();
+  const version = useUpdates().data?.version;
+  const link = "font-medium text-accent hover:underline";
+  return (
+    <footer className="mt-10 border-t border-border pt-4 text-sm text-muted">
+      <Trans
+        t={t}
+        i18nKey="common:footer.line"
+        values={{
+          year: new Date().getFullYear(),
+          version: version ?? "",
+          stage: version?.includes("-") ? t("common:footer.preRelease") : t("common:footer.stable"),
+        }}
+        components={{
+          site: (
+            <a href={SITE_URL} target="_blank" rel="noreferrer" className={link}>
+              {t("common:footer.site")}
+            </a>
+          ),
+          github: (
+            <a href={REPO_URL} target="_blank" rel="noreferrer" className={link}>
+              {t("common:footer.github")}
+            </a>
+          ),
+        }}
+      />
+    </footer>
   );
 }
 
@@ -210,11 +237,14 @@ export function AppShell() {
       <main
         id="main"
         key={`${prefs?.dateFormat}${prefs?.timeFormat}`}
-        className={cx("min-w-0 flex-1 px-4 pb-24 pt-5 md:px-8 md:pb-10 md:pt-8")}
+        className={cx("flex min-w-0 flex-1 flex-col px-4 pb-24 pt-5 md:px-8 md:pb-10 md:pt-8")}
       >
-        <div className="mx-auto max-w-6xl">
+        <div className="mx-auto w-full max-w-6xl flex-1">
           <UpdateBanner />
           <Outlet />
+        </div>
+        <div className="mx-auto w-full max-w-6xl">
+          <Footer />
         </div>
       </main>
       <BottomNav />

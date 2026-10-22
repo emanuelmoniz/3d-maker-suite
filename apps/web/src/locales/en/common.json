@@ -82,6 +82,13 @@
   "quoteName": "{{number}}-{{name}}",
   "orderName": "Order {{number}}",
   "version": "Version {{version}}",
+  "footer": {
+    "line": "{{year}} | v{{version}} - {{stage}} | by <site/> | <github/>",
+    "site": "AZSeashell",
+    "github": "GitHub",
+    "stable": "Stable",
+    "preRelease": "Pre-Release"
+  },
   "updateBanner": {
     "available": "Version {{version}} is available",
     "see": "See update",

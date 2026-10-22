@@ -38,7 +38,7 @@ Status legend: `[ ]` todo · `[x]` done
 Do Step 1 of PLAN.md. Reproduce the overflow at 412 and 440 first, then fix it.
 ```
 
-### [ ] Step 2 - Footer
+### [x] Step 2 - Footer
 **Model:** Haiku · **Effort:** Low
 **Scope:**
 - A footer at the bottom of the main content zone: `2026 | v4.1.0 - Stable | by AZSeashell | GitHub`. "AZSeashell" links to https://azseashell.com, "GitHub" to the repo.
