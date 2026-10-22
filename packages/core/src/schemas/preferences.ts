@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { LOG_LEVELS, LOG_MODULES } from "./logs.ts";
 
 export const LANGUAGES = ["en"] as const;
 export const UNIT_SYSTEMS = ["metric", "imperial"] as const;
@@ -107,6 +108,13 @@ const shape = {
   /** Daily automatic backup, keeping this many of the newest automatic ones. */
   backupAuto: z.boolean(),
   backupKeep: z.number().int().min(1).max(100),
+  /** Off: nothing is written to the `logs` table and the Logs page leaves the menu. */
+  logActive: z.boolean(),
+  logLevels: z.array(z.enum(LOG_LEVELS)),
+  logModules: z.array(z.enum(LOG_MODULES)),
+  /** Pruned hourly: older lines first, then the oldest beyond the max. */
+  logRetentionDays: z.number().int().min(1).max(365),
+  logMaxEntries: z.number().int().min(100).max(1_000_000),
 };
 
 /** User preferences. Each key is one row in `settings`; missing rows fall back to these defaults. */
@@ -162,6 +170,11 @@ export const PREFERENCE_DEFAULTS: z.infer<typeof preferencesSchema> = {
   ],
   backupAuto: true,
   backupKeep: 7,
+  logActive: false,
+  logLevels: ["info", "success", "warn", "error"],
+  logModules: [...LOG_MODULES],
+  logRetentionDays: 14,
+  logMaxEntries: 10_000,
   dashboardLayout: [
     widget("statCard", { metric: "prints" }),
     widget("statCard", { metric: "successRate" }),

@@ -9,6 +9,7 @@ import {
   ENERGY_SOURCES,
   IMPORT_SOURCES,
   INTEGRATION_ERROR_CODES,
+  LOG_LEVELS,
   MAINTENANCE_TARGETS,
   ORIGINS,
   PRINT_OUTCOMES,
@@ -864,4 +865,21 @@ export const orderProjects = sqliteTable(
     primaryKey({ columns: [t.orderId, t.projectId] }),
     index("order_projects_project_idx").on(t.projectId),
   ],
+);
+
+/** App log lines, fed from pino (apps/server/src/lib/logSink.ts) and pruned hourly. */
+export const logs = sqliteTable(
+  "logs",
+  {
+    // rowid, not a uuid: high volume, never referenced, gives insert order for free.
+    id: integer().primaryKey(),
+    time: text().notNull(),
+    level: text({ enum: LOG_LEVELS }).notNull(),
+    /** One of LOG_MODULES; no CHECK, so adding a module needs no table rebuild. */
+    module: text().notNull(),
+    message: text().notNull(),
+    /** The rest of the pino line (err, url, status, ids), already redacted. */
+    detail: text({ mode: "json" }).$type<Record<string, unknown>>(),
+  },
+  (t) => [index("logs_time_idx").on(t.time), check("logs_level_ck", oneOf(t.level, LOG_LEVELS))],
 );

@@ -11,6 +11,7 @@ import {
   ALL_ITEMS,
   IMPORT_ITEM,
   INTEGRATIONS_ITEM,
+  LOGS_ITEM,
   NAV_GROUPS,
   type NavItem,
   SETTINGS_ITEM,
@@ -71,8 +72,12 @@ function Brand() {
   );
 }
 
+/** The Logs item is in the menu only while logging is on. */
+const useLogsShown = () => !!usePreferences().data?.values.logActive;
+
 function Sidebar() {
   const { t } = useTranslation();
+  const logsShown = useLogsShown();
   return (
     <aside className="sticky top-0 hidden h-dvh w-14 shrink-0 flex-col border-r border-border bg-surface md:flex lg:w-56">
       <div className="flex h-14 items-center px-3 lg:px-4">
@@ -93,6 +98,7 @@ function Sidebar() {
       <div className="flex flex-col gap-2 border-t border-border p-2">
         <SideLink item={IMPORT_ITEM} />
         <SideLink item={INTEGRATIONS_ITEM} />
+        {logsShown && <SideLink item={LOGS_ITEM} />}
         <SideLink item={SETTINGS_ITEM} />
         <ThemeToggle className="flex-col lg:flex-row" />
       </div>
@@ -104,7 +110,8 @@ function BottomNav() {
   const { t } = useTranslation();
   const sheet = useRef<HTMLDialogElement>(null);
   const primary = ALL_ITEMS.filter((i) => i.primary);
-  const more = ALL_ITEMS.filter((i) => !i.primary);
+  const logsShown = useLogsShown();
+  const more = ALL_ITEMS.filter((i) => !i.primary && (logsShown || i !== LOGS_ITEM));
   const tab =
     "flex flex-1 flex-col items-center justify-center gap-0.5 text-xs text-muted data-[status=active]:text-accent";
   return (

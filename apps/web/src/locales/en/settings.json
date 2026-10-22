@@ -15,7 +15,8 @@
     "projects": "Projects",
     "alerts": "Alerts",
     "backup": "Backup & export",
-    "server": "Network"
+    "server": "Network",
+    "logs": "Logs"
   },
   "general": {
     "language": "Language",
@@ -163,5 +164,15 @@
     "passwordNeeded": "Reaching the app from other devices needs the APP_PASSWORD environment variable. Without it, only requests addressed to localhost or this host are accepted.",
     "restartButton": "Restart and open in new tab",
     "restartHint": "Restarts the app and opens it at the address above. Other tabs lose connection until they are reloaded."
+  },
+  "logs": {
+    "hint": "Keeps a record of what the app does in its database, for troubleshooting. Credentials are never written.",
+    "active": "Log active",
+    "levels": "Levels to keep",
+    "modules": "Modules to log",
+    "days": "Keep for (days)",
+    "daysHint": "Older entries are removed every hour.",
+    "max": "Maximum entries",
+    "maxHint": "The oldest entries beyond this are removed every hour."
   }
 }

@@ -14,38 +14,25 @@ const config = loadConfig();
 mkdirSync(config.dataDir, { recursive: true });
 applyPendingRestore(config.dataDir); // before the database opens
 
-const app = await buildApp(
-  openDb(join(config.dataDir, "app.sqlite")),
-  {
-    // Never log credentials (secrets rule in CLAUDE.md, ADR-0005).
-    redact: [
-      "req.headers.authorization",
-      "req.headers.cookie",
-      "*.secrets",
-      "*.token",
-      "*.password",
-    ],
-  },
-  config.dataDir,
-  {
-    adapters: adapters({ mock: config.mockIntegration }),
-    syncSchedule: "*/15 * * * *",
-    alertsSchedule: "0 8 * * *",
-    backupSchedule: "0 3 * * *",
-    watchProjects: true,
-    access: { host: config.host, password: config.password },
-    serverConfig: config,
-    // ponytail: respawns itself detached; a supervisor (pm2, systemd) would make this unnecessary.
-    restart: () =>
-      app.close().then(() => {
-        spawn(process.execPath, [...process.execArgv, ...process.argv.slice(1)], {
-          detached: true,
-          stdio: "ignore",
-        }).unref();
-        process.exit(0);
-      }),
-  },
-);
+const app = await buildApp(openDb(join(config.dataDir, "app.sqlite")), true, config.dataDir, {
+  adapters: adapters({ mock: config.mockIntegration }),
+  syncSchedule: "*/15 * * * *",
+  alertsSchedule: "0 8 * * *",
+  backupSchedule: "0 3 * * *",
+  logRetentionSchedule: "0 * * * *",
+  watchProjects: true,
+  access: { host: config.host, password: config.password },
+  serverConfig: config,
+  // ponytail: respawns itself detached; a supervisor (pm2, systemd) would make this unnecessary.
+  restart: () =>
+    app.close().then(() => {
+      spawn(process.execPath, [...process.execArgv, ...process.argv.slice(1)], {
+        detached: true,
+        stdio: "ignore",
+      }).unref();
+      process.exit(0);
+    }),
+});
 await app.register(fastifyStatic, {
   root: fileURLToPath(new URL("../../web/dist", import.meta.url)),
 });

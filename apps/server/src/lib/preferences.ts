@@ -1,10 +1,16 @@
 import { PREFERENCE_DEFAULTS, type Preferences, preferencesSchema } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
 
+// ponytail: pnpm names the running script; `pnpm dev` logs by default, `pnpm start` doesn't.
+const DEFAULTS = {
+  ...PREFERENCE_DEFAULTS,
+  logActive: process.env.npm_lifecycle_event === "dev",
+};
+
 /** Stored rows over the defaults. */
 export const readPreferences = (db: Db): Preferences =>
   preferencesSchema.parse({
-    ...PREFERENCE_DEFAULTS,
+    ...DEFAULTS,
     ...Object.fromEntries(
       db
         .select()

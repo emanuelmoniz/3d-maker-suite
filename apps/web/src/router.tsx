@@ -25,6 +25,7 @@ import { HomePage } from "./pages/HomePage.tsx";
 import { ImportPage } from "./pages/import/ImportPage.tsx";
 import { SlicerZipPage } from "./pages/import/SlicerZipPage.tsx";
 import { SourceReviewPage } from "./pages/import/SourceReviewPage.tsx";
+import { LogsPage } from "./pages/LogsPage.tsx";
 import { ModulePage } from "./pages/ModulePage.tsx";
 import { MaintenancePage } from "./pages/maintenance/MaintenancePage.tsx";
 import { TypeDetailPage } from "./pages/maintenance/TypeDetailPage.tsx";
@@ -67,7 +68,13 @@ import { IntegrationLoginPage } from "./pages/settings/IntegrationLoginPage.tsx"
 import { IntegrationsPage } from "./pages/settings/IntegrationsPage.tsx";
 import { StatsPage } from "./pages/stats/StatsPage.tsx";
 import { AppShell } from "./shell/AppShell.tsx";
-import { ALL_ITEMS, IMPORT_ITEM, INTEGRATIONS_ITEM, SETTINGS_ITEM } from "./shell/nav.ts";
+import {
+  ALL_ITEMS,
+  IMPORT_ITEM,
+  INTEGRATIONS_ITEM,
+  LOGS_ITEM,
+  SETTINGS_ITEM,
+} from "./shell/nav.ts";
 
 function NotFound() {
   const { t } = useTranslation();
@@ -88,6 +95,7 @@ const built = [
   IMPORT_ITEM.to,
   INTEGRATIONS_ITEM.to,
   SETTINGS_ITEM.to,
+  LOGS_ITEM.to,
   "/printers",
   "/maintenance",
   "/filament",
@@ -410,8 +418,14 @@ const routes: AnyRoute[] = [
   createRoute({
     getParentRoute: () => root,
     path: SETTINGS_ITEM.to,
-    loader: () => loadNamespace("settings"),
+    loader: () => Promise.all(["settings", "logs"].map(loadNamespace)),
     component: SettingsPage,
+  }),
+  createRoute({
+    getParentRoute: () => root,
+    path: LOGS_ITEM.to,
+    loader: () => loadNamespace("logs"),
+    component: LogsPage,
   }),
   ...[
     ["/integrations", IntegrationsPage],

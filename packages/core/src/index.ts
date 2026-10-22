@@ -11,6 +11,7 @@ export * from "./schemas/fs.ts";
 export * from "./schemas/import.ts";
 export * from "./schemas/integrations.ts";
 export * from "./schemas/list.ts";
+export * from "./schemas/logs.ts";
 export * from "./schemas/maintenance.ts";
 export * from "./schemas/orders.ts";
 export * from "./schemas/preferences.ts";

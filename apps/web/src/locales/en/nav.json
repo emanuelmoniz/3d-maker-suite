@@ -28,6 +28,7 @@
       "description": "Bring data in from spreadsheets, or take it out."
     },
     "integrations": { "label": "Integrations", "description": "Connect vendor accounts and sync." },
+    "logs": { "label": "Logs", "description": "What the app did, by module and level." },
     "settings": { "label": "Settings", "description": "Language, theme, units and costs." }
   }
 }

@@ -5,11 +5,17 @@ import type { ListQuery } from "../components/DataTable.tsx";
 import { api } from "./api.ts";
 
 /** One page of a list endpoint. `key` is the invalidation prefix, e.g. ["printers", "list"]. */
-export const useListPage = <T>(key: readonly unknown[], path: string, query: ListQuery) =>
+export const useListPage = <T>(
+  key: readonly unknown[],
+  path: string,
+  query: ListQuery,
+  refetchInterval?: number,
+) =>
   useQuery({
     queryKey: [...key, query],
     queryFn: () => api<Page<T>>("GET", `${path}?${new URLSearchParams(query)}`),
     placeholderData: keepPreviousData,
+    refetchInterval,
   });
 
 /**

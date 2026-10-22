@@ -9,6 +9,7 @@ import { ACCENTS, setTheme } from "../lib/theme.ts";
 import { ThemeToggle } from "../shell/ThemeToggle.tsx";
 import { BackupSection } from "./settings/BackupSection.tsx";
 import { BrandingFields } from "./settings/BrandingFields.tsx";
+import { LogSection } from "./settings/LogSection.tsx";
 import { ServerSection } from "./settings/ServerSection.tsx";
 
 const ACCENT_LABELS = {
@@ -122,6 +123,10 @@ export function SettingsPage() {
 
         <Section title={t("settings:sections.backup")}>
           <BackupSection />
+        </Section>
+
+        <Section title={t("settings:sections.logs")}>
+          <LogSection />
         </Section>
       </div>
     </>

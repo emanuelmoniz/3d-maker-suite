@@ -10,6 +10,7 @@ import {
   type LucideIcon,
   Plug,
   Printer,
+  ScrollText,
   Settings,
   Spool,
   Users,
@@ -139,6 +140,14 @@ export const INTEGRATIONS_ITEM: NavItem = {
   description: "nav:items.integrations.description",
 };
 
+/** Only in the menu while logging is on (Settings -> Logs). */
+export const LOGS_ITEM: NavItem = {
+  to: "/logs",
+  icon: ScrollText,
+  label: "nav:items.logs.label",
+  description: "nav:items.logs.description",
+};
+
 export const SETTINGS_ITEM: NavItem = {
   to: "/settings",
   icon: Settings,
@@ -150,5 +159,6 @@ export const ALL_ITEMS = [
   ...NAV_GROUPS.flatMap((g) => g.items),
   IMPORT_ITEM,
   INTEGRATIONS_ITEM,
+  LOGS_ITEM,
   SETTINGS_ITEM,
 ];

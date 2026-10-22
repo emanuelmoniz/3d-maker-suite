@@ -1,0 +1,41 @@
+{
+  "table": "Logs",
+  "loadError": "Couldn't load the logs.",
+  "inactive": "Logging is off. Turn it on in Settings to record new entries.",
+  "emptyTitle": "No log entries",
+  "emptyBody": "Entries appear here as the app works.",
+  "clear": "Clear logs",
+  "clearTitle": "Clear all logs?",
+  "clearConfirm": "Every log entry is deleted. This can't be undone.",
+  "columns": {
+    "time": "Time",
+    "level": "Level",
+    "module": "Module",
+    "message": "Message"
+  },
+  "levels": {
+    "debug": "Debug",
+    "info": "Info",
+    "success": "Success",
+    "warn": "Warning",
+    "error": "Error"
+  },
+  "modules": {
+    "system": "System",
+    "printers": "Printers",
+    "accessories": "Accessories",
+    "maintenance": "Maintenance",
+    "filament": "Filament",
+    "projects": "Projects",
+    "prints": "Prints",
+    "quotes": "Quotes",
+    "orders": "Orders",
+    "clients": "Clients",
+    "stats": "Stats",
+    "alerts": "Alerts",
+    "import": "Import",
+    "integrations": "Integrations",
+    "backups": "Backups",
+    "settings": "Settings"
+  }
+}

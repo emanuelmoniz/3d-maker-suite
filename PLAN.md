@@ -186,7 +186,7 @@ Hours are converted to and from the `*Sec` columns. Runtime/prints at, left empt
 Do Step 10 of PLAN.md. Follow the Step 9 import types.
 ```
 
-### [ ] Step 11 - Log module  **[plan mode]**
+### [x] Step 11 - Log module  **[plan mode]**
 **Model:** Opus · **Effort:** Medium
 **Scope:**
 - Logs are stored in a SQLite `logs` table (Drizzle migration) with time, type (`debug` · `info` · `success` · `warn` · `error`, more if useful), module, message and an optional detail. Never secrets.

@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { hostname } from "node:os";
-import type { IntegrationAdapter } from "@3d-maker-suite/core";
+import type { IntegrationAdapter, LogModule } from "@3d-maker-suite/core";
 import type { Db } from "@3d-maker-suite/db";
 import swagger from "@fastify/swagger";
 import swaggerUi from "@fastify/swagger-ui";
@@ -20,6 +20,8 @@ import { HttpError } from "./errors.ts";
 import { loadKey } from "./integrations/secrets.ts";
 import { createSyncer } from "./integrations/sync.ts";
 import { accessGuard } from "./lib/access.ts";
+import { CUSTOM_LEVELS, createLogSink, moduleOf, pruneLogs, success } from "./lib/logSink.ts";
+import { readPreferences } from "./lib/preferences.ts";
 import { autoSlice } from "./projects/autoSlice.ts";
 import { createProjectScanner } from "./projects/scanner.ts";
 import { createSliceQueue } from "./projects/sliceQueue.ts";
@@ -42,6 +44,7 @@ import { fsRoutes } from "./routes/fs.ts";
 import { healthRoutes } from "./routes/health.ts";
 import { importRoutes } from "./routes/import.ts";
 import { integrationsRoutes } from "./routes/integrations.ts";
+import { logsRoutes } from "./routes/logs.ts";
 import { maintenanceRoutes } from "./routes/maintenance.ts";
 import { ordersRoutes } from "./routes/orders.ts";
 import { preferencesRoutes } from "./routes/preferences.ts";
@@ -66,6 +69,8 @@ export async function buildApp(
     alertsSchedule?: string;
     /** Cron for automatic backups (needs a data dir). */
     backupSchedule?: string;
+    /** Cron for pruning the `logs` table; also prunes once at startup. */
+    logRetentionSchedule?: string;
     /** Watch the project folders and scan once at startup (off in tests). */
     watchProjects?: boolean;
     /** Bind address and optional password; checked on every request (off in tests). */
@@ -76,7 +81,41 @@ export async function buildApp(
     restart?: () => void;
   } = {},
 ) {
-  const app = Fastify({ logger });
+  // Any logger also feeds the `logs` table (Settings -> Logs decides what is kept).
+  const loggerOpts = logger === true ? {} : logger;
+  const sink = loggerOpts && createLogSink(db, loggerOpts.stream ?? process.stdout);
+  const app = Fastify({
+    logger: sink && {
+      // Never log credentials (secrets rule in CLAUDE.md, ADR-0005); this covers the table too.
+      redact: [
+        "req.headers.authorization",
+        "req.headers.cookie",
+        "*.secrets",
+        "*.token",
+        "*.password",
+      ],
+      ...loggerOpts,
+      level: "debug",
+      customLevels: CUSTOM_LEVELS,
+      stream: sink,
+    },
+    // Replaced by the one line per API call below.
+    disableRequestLogging: true,
+    childLoggerFactory: (log, bindings, o, raw) =>
+      log.child({ ...bindings, module: moduleOf(raw.url ?? "") }, o),
+  });
+  if (sink) sink.configure(readPreferences(db));
+  app.addHook("onResponse", async (req, reply) => {
+    // The Logs page polls itself; static files and the SPA shell aren't worth a line.
+    if (!req.url.startsWith("/api/") || req.url.startsWith("/api/logs")) return;
+    const s = reply.statusCode;
+    const line = `${req.method} ${req.url} ${s}`;
+    const ms = { ms: Math.round(reply.elapsedTime) };
+    if (s >= 500) return; // the error handler logged it
+    if (s >= 400) req.log.warn(ms, line);
+    else if (req.method === "GET") req.log.debug(ms, line);
+    else req.log.info(ms, line);
+  });
   if (opts.access) app.addHook("onRequest", accessGuard(opts.access));
   app.setValidatorCompiler(validatorCompiler);
   app.setSerializerCompiler(serializerCompiler);
@@ -114,7 +153,27 @@ export async function buildApp(
   );
 
   await app.register(healthRoutes);
-  await app.register(preferencesRoutes(db, dataDir), { prefix: "/api/preferences" });
+  await app.register(
+    preferencesRoutes(db, dataDir, (v) => {
+      if (sink) sink.configure(v);
+    }),
+    { prefix: "/api/preferences" },
+  );
+  await app.register(logsRoutes(db), { prefix: "/api/logs" });
+  if (opts.logRetentionSchedule) {
+    const prune = () => {
+      try {
+        pruneLogs(db, readPreferences(db));
+      } catch (err) {
+        app.log.error({ err }, "log pruning failed");
+      }
+    };
+    const job = new Cron(opts.logRetentionSchedule, { protect: true }, prune);
+    app.addHook("onReady", async () => prune());
+    app.addHook("onClose", async () => job.stop());
+  }
+  // Background work has no URL, so it names its module here.
+  const logFor = (module: LogModule) => app.log.child({ module });
   if (opts.serverConfig)
     await app.register(serverConfigRoutes(opts.serverConfig, opts.restart), {
       prefix: "/api/server-config",
@@ -134,18 +193,19 @@ export async function buildApp(
   await app.register(maintenanceRoutes(db), { prefix: "/api/maintenance" });
   // Without a data dir (tests) secrets use a throwaway in-memory key.
   const key = dataDir ? loadKey(dataDir) : randomBytes(32);
-  const syncer = createSyncer(db, opts.adapters ?? [], key, app.log, dataDir);
+  const syncer = createSyncer(db, opts.adapters ?? [], key, logFor("integrations"), dataDir);
   await app.register(filamentRoutes(db), { prefix: "/api/filament" });
   await app.register(slicerZipRoutes(db, syncer, dataDir), { prefix: "/api/slicer-zip" });
   await app.register(printsRoutes(db), { prefix: "/api/prints" });
-  const sliceQueue = createSliceQueue(app.log);
+  const projectsLog = logFor("projects");
+  const sliceQueue = createSliceQueue(projectsLog);
   await app.register(costsRoutes(db, dataDir, syncer.adapters, sliceQueue), {
     prefix: "/api/costs",
   });
   await app.register(statsRoutes(db), { prefix: "/api/stats" });
-  const scanner = createProjectScanner(db, dataDir, app.log, {
+  const scanner = createProjectScanner(db, dataDir, projectsLog, {
     watch: opts.watchProjects,
-    onScanned: (id, before) => autoSlice(db, syncer.adapters, sliceQueue, app.log, id, before),
+    onScanned: (id, before) => autoSlice(db, syncer.adapters, sliceQueue, projectsLog, id, before),
   });
   await app.register(projectsRoutes(db, dataDir, scanner, syncer.adapters), {
     prefix: "/api/projects",
@@ -165,8 +225,11 @@ export async function buildApp(
   await app.register(backupsRoutes(db, dataDir), { prefix: "/api/backups" });
   await app.register(importRoutes(db, dataDir, syncer, scanner), { prefix: "/api/import" });
   if (opts.backupSchedule && dataDir) {
+    const log = logFor("backups");
     const backup = new Cron(opts.backupSchedule, { protect: true }, () =>
-      runAutoBackup(db, dataDir).catch((err) => app.log.error({ err }, "backup failed")),
+      runAutoBackup(db, dataDir)
+        .then(() => success(log, {}, "automatic backup done"))
+        .catch((err) => log.error({ err }, "backup failed")),
     );
     app.addHook("onClose", async () => backup.stop());
   }
@@ -179,10 +242,11 @@ export async function buildApp(
   // Links in notifications; a wildcard host is reached by the machine's name.
   const baseUrl =
     net && `http://${["0.0.0.0", "::"].includes(net.host) ? hostname() : net.host}:${net.port}`;
+  const alertsLog = logFor("alerts");
   const evaluate = () =>
     (queue = queue
-      .then(() => evaluateAlerts(db, key, app.log, baseUrl))
-      .catch((err) => app.log.error({ err }, "alert check failed")));
+      .then(() => evaluateAlerts(db, key, alertsLog, baseUrl))
+      .catch((err) => alertsLog.error({ err }, "alert check failed")));
   await app.register(alertsRoutes(db, key, evaluate), { prefix: "/api/alerts" });
   if (opts.alertsSchedule) {
     const daily = new Cron(opts.alertsSchedule, { protect: true }, evaluate);

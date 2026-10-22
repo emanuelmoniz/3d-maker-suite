@@ -31,6 +31,7 @@ import { raise } from "../alerts/evaluate.ts";
 import { HttpError } from "../errors.ts";
 import { createReview, type Stored, untracked } from "../import/review.ts";
 import { modelIdFor } from "../lib/catalog.ts";
+import { success } from "../lib/logSink.ts";
 import { nextNumber } from "../lib/numbers.ts";
 import { bookOrLink } from "../lib/prints.ts";
 import { linkPrints } from "../projects/linkPrints.ts";
@@ -326,6 +327,7 @@ export function createSyncer(
       })
       .returning()
       .get();
+    if (!errorCode) success(runLog, { type, trigger, created, skipped }, "sync done");
     // A sync's result is an alert; a confirmed review (`pick`) isn't, the person is looking at it.
     // A type that keeps failing alerts once, until a run goes through again.
     const severity = errorCode ? "error" : "success";

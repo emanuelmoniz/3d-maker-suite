@@ -13,6 +13,7 @@ import { and, eq, inArray, isNull } from "drizzle-orm";
 import type { FastifyBaseLogger } from "fastify";
 import { capableRows, slicerConfigDir } from "../integrations/capabilities.ts";
 import { insideRoots } from "../lib/launcher.ts";
+import { success } from "../lib/logSink.ts";
 import { readPreferences, rootPaths } from "../lib/preferences.ts";
 import { fingerprint } from "./fingerprint.ts";
 
@@ -233,6 +234,7 @@ export function projectSliceJob(
         .where(eq(projectSlicePlates.id, now.id))
         .run();
       if (error) onError?.(error);
+      else success(log, { job }, "plate sliced");
     },
   };
 }
