@@ -32,14 +32,16 @@ export function SpoolForm({
   spool,
   colorHex,
   profileId,
+  openedAt,
   onSaved,
   onCancel = () => history.back(),
 }: {
   profiles: FilamentProfile[];
   spool?: Spool;
-  /** The new spool's colour and profile to start from. */
+  /** The new spool's colour, profile and opening day to start from. */
   colorHex?: string;
   profileId?: string;
+  openedAt?: string;
   onSaved?: (spool: Spool) => void;
   onCancel?: () => void;
 }) {
@@ -188,7 +190,7 @@ export function SpoolForm({
       })}
       {field("openedAt", "filament:spools.openedAt", {
         type: "date",
-        defaultValue: isoToDateInput(spool?.openedAt ?? null),
+        defaultValue: isoToDateInput(spool?.openedAt ?? openedAt ?? null),
       })}
       {field("location", "filament:spools.locationLabel", {
         defaultValue: spool?.location ?? "",

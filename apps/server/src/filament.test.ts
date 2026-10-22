@@ -385,6 +385,54 @@ describe("filament library", () => {
     expect([failed.statusCode, failed.json().error.code]).toEqual([502, "auth_expired"]);
   });
 
+  it("offers a spool or a profile you archived as a skip; a run leaves it, an update restores it", async () => {
+    mock.spools = [vendorSpool("1", "A")];
+    const mockId = await addMock();
+    addProfile("A");
+    await run(mockId, "spools");
+    const spoolId = db.select().from(schema.spools).get()?.id;
+    await app.inject({
+      method: "PATCH",
+      url: `/api/filament/spools/${spoolId}`,
+      payload: { archived: true },
+    });
+    expect((await run(mockId, "spools")).json()).toMatchObject({ created: 0, pending: 0 });
+    const p = await open(`/api/import/integration/${mockId}/spools`);
+    expect(p.rows).toMatchObject([{ status: "identical", action: "skip", targetId: spoolId }]);
+    expect(p.rows[0]?.auto).toBeUndefined();
+    expect(p.targets.find((t) => t.id === spoolId)?.archived).toBe(true);
+    expect((await review.confirm(p, p.rows, { action: "update" })).json()).toMatchObject({
+      updated: 1,
+    });
+    expect(db.select().from(schema.spools).all()).toMatchObject([
+      { id: spoolId, archivedAt: null },
+    ]);
+
+    await setDir(dir);
+    filamentBrandIdFor(db, "Acme");
+    filamentMaterialIdFor(db, "PLA");
+    await run(slicerId, "filamentProfiles");
+    const profile = () =>
+      db
+        .select()
+        .from(schema.filamentProfiles)
+        .all()
+        .find((x) => x.name === "B");
+    const b = profile();
+    await app.inject({
+      method: "PATCH",
+      url: `/api/filament/profiles/${b?.id}`,
+      payload: { archived: true },
+    });
+    expect((await run(slicerId, "filamentProfiles")).json()).toMatchObject({ created: 0 });
+    const q = await open(profilesUrl());
+    const row = q.rows.find((r) => r.values.name === "B");
+    expect(row).toMatchObject({ status: "identical", action: "skip", targetId: b?.id });
+    expect(row?.auto).toBeUndefined();
+    await review.confirm(q, row ? [row] : [], { action: "update" });
+    expect(profile()).toMatchObject({ id: b?.id, archivedAt: null });
+  });
+
   it("offers an imported spool's new vendor weight, and only writes it on request", async () => {
     mock.spools = [vendorSpool("1", "A")];
     const mockId = await addMock();

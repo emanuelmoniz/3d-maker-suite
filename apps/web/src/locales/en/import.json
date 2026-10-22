@@ -118,7 +118,7 @@
     "skip": "Skip"
   },
   "policies": {
-    "overwrite": "Overwrite with file values",
+    "overwrite": "Overwrite with incoming values",
     "fill": "Fill empty fields only"
   },
   "bulk": {
@@ -171,6 +171,7 @@
     "status": "Status",
     "action": "Action",
     "target": "Update which",
+    "archivedTarget": "archived, an update restores it",
     "policy": "Merge",
     "select": "Select row {{row}}",
     "selectAll_one": "Select the {{count}} row shown",
@@ -178,7 +179,7 @@
     "actionFor": "Action for row {{row}}",
     "targetFor": "Row to update for row {{row}}",
     "policyFor": "Merge for row {{row}}",
-    "policyDefault": "Same as above",
+    "policyDefault": "As in “When updating”",
     "pickTarget": "Pick one…",
     "otherTarget": "Other…",
     "needsTarget": "Pick the row to update",
@@ -466,7 +467,7 @@
     "error": "Couldn't read this from the integration. Check that it is connected and set up in Integrations.",
     "openIntegrations": "Open integrations",
     "emptyTitle": "Nothing found",
-    "emptyBody": "The source has nothing of this type, or nothing you don't already have."
+    "emptyBody": "The source has nothing of this type."
   },
   "zip": {
     "cardTitle": "Printer and filament profiles from a slicer",

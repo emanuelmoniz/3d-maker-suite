@@ -58,46 +58,70 @@ export const spoolLabels = (db: Db) =>
       .map((s) => [s.id, s.name] as const),
   );
 
+/** Active spools, or the vendor's spools you archived, in the shape of the import columns. */
+const spoolTargets = (db: Db, archived = false): ImportTarget[] =>
+  db
+    .select({
+      spool: spools,
+      label: spoolName,
+      brand: profileBrand,
+      material: profileMaterial,
+      name: filamentProfiles.name,
+    })
+    .from(spools)
+    .innerJoin(filamentProfiles, eq(filamentProfiles.id, spools.profileId))
+    .where(
+      archived
+        ? and(isNotNull(spools.archivedAt), isNotNull(spools.sourceSpool))
+        : isNull(spools.archivedAt),
+    )
+    .orderBy(spools.number)
+    .all()
+    .map(({ spool: s, label, ...p }) => ({
+      id: s.id,
+      label,
+      ...(archived && { archived: true }),
+      values: {
+        number: s.number,
+        brand: p.brand || null,
+        material: p.material,
+        profile: p.name || null,
+        colorHex: s.colorHex.toLowerCase(),
+        colorName: s.colorName,
+        initialGrams: s.initialGrams,
+        remainingGrams: s.remainingGrams,
+        emptyWeightGrams: s.emptyWeightGrams,
+        pricePaid: s.pricePaid,
+        purchasedAt: day(s.purchasedAt),
+        openedAt: day(s.openedAt),
+        location: s.location,
+        status: s.status,
+      },
+    }));
+
+/** Spools imported from a vendor, by `sourceSpool`: the active ones, or the archived ones. */
+const spoolsBySource = (db: Db, archived = false) =>
+  new Map(
+    db
+      .select({ source: spools.sourceSpool, id: spools.id })
+      .from(spools)
+      .where(
+        and(
+          isNotNull(spools.sourceSpool),
+          archived ? isNotNull(spools.archivedAt) : isNull(spools.archivedAt),
+        ),
+      )
+      .all()
+      .map((r) => [r.source ?? "", r.id] as const),
+  );
+
 /**
  * Spools from a file: the profile, its brand and its material are found by name or created.
  * Spools from an integration go on a profile the user picks, and a profile is never created.
  */
 export const spoolImport = {
   /** Active spools, in the shape of the import columns. */
-  targets: (db: Db): ImportTarget[] =>
-    db
-      .select({
-        spool: spools,
-        label: spoolName,
-        brand: profileBrand,
-        material: profileMaterial,
-        name: filamentProfiles.name,
-      })
-      .from(spools)
-      .innerJoin(filamentProfiles, eq(filamentProfiles.id, spools.profileId))
-      .where(isNull(spools.archivedAt))
-      .orderBy(spools.number)
-      .all()
-      .map(({ spool: s, label, ...p }) => ({
-        id: s.id,
-        label,
-        values: {
-          number: s.number,
-          brand: p.brand || null,
-          material: p.material,
-          profile: p.name || null,
-          colorHex: s.colorHex.toLowerCase(),
-          colorName: s.colorName,
-          initialGrams: s.initialGrams,
-          remainingGrams: s.remainingGrams,
-          emptyWeightGrams: s.emptyWeightGrams,
-          pricePaid: s.pricePaid,
-          purchasedAt: day(s.purchasedAt),
-          openedAt: day(s.openedAt),
-          location: s.location,
-          status: s.status,
-        },
-      })),
+  targets: (db: Db) => spoolTargets(db),
 
   match: matchSpoolRows,
 
@@ -126,15 +150,15 @@ export const spoolImport = {
     };
   },
 
-  bySource: (db: Db) =>
-    new Map(
-      db
-        .select({ source: spools.sourceSpool, id: spools.id })
-        .from(spools)
-        .where(and(isNotNull(spools.sourceSpool), isNull(spools.archivedAt)))
-        .all()
-        .map((r) => [r.source ?? "", r.id] as const),
-    ),
+  bySource: (db: Db) => spoolsBySource(db),
+  /** A vendor's spool you archived comes back by its source key. */
+  archived(db: Db) {
+    const bySource = spoolsBySource(db, true);
+    return {
+      targets: spoolTargets(db, true),
+      of: (source: string | undefined) => (source && bySource.get(source)) || null,
+    };
+  },
   exclusive: true,
   handsOff: true,
 
@@ -152,6 +176,9 @@ export const spoolImport = {
 
   create(db: Db, v: ImportValues, row: WriteRow) {
     const initialGrams = num(v.initialGrams) ?? 0;
+    // Imported as new: the vendor's spool is this one now, not the one linked before.
+    if (row.source)
+      db.update(spools).set({ sourceSpool: null }).where(eq(spools.sourceSpool, row.source)).run();
     createSpool(db, {
       profileId: row.refs?.profile ?? filamentProfileIdFor(db, filament(v)),
       sourceSpool: row.source,
@@ -177,6 +204,7 @@ export const spoolImport = {
     const set: Record<string, unknown> = { ...fields };
     if ("number" in set) set.number = numberCell(fields.number) ?? undefined;
     assertNumberFree(db, spools, "spool", numberCell(fields.number), target.id);
+    if (target.archived) set.archivedAt = null;
     if (purchasedAt != null) set.purchasedAt = noon(purchasedAt);
     if (openedAt != null) set.openedAt = noon(openedAt);
     // A vendor names a filament its own way: its spool never moves yours to another profile.

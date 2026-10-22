@@ -155,12 +155,12 @@ describe("integrations", () => {
     expect(await left(s.id)).toBe(940);
     expect(await get(`/api/integrations/${id}`)).toMatchObject({ status: "ok", lastError: null });
 
-    // Local edits win: a re-sync leaves out rows it already imported.
+    // Local edits win: a re-sync skips the rows it already imported.
     await send("PATCH", `/api/prints/${prints[0].id}`, { title: "Renamed" });
     // Inside the overlap window, so the adapter returns them again.
     for (const p of state.prints) p.startedAt = new Date().toISOString();
     state.prints.push({ ...firstPrint(), externalId: "job-9", title: "Mock print 9" });
-    expect(await sync(id)).toMatchObject({ status: "ok", created: 1, skipped: 1, pending: 0 });
+    expect(await sync(id)).toMatchObject({ status: "ok", created: 1, skipped: 4, pending: 0 });
     const after = (await get("/api/prints?sort=startedAt")).items;
     expect(after).toHaveLength(4);
     expect(after[0].title).toBe("Renamed");
@@ -448,7 +448,14 @@ describe("sync by type and date range", () => {
     const sorted = await get("/api/prints/filament-review?sort=grams&grams=15..");
     expect(sorted).toMatchObject({ total: 1, items: [{ grams: 20 }] });
     expect((await get("/api/prints/filament-review?printTitle=nope")).total).toBe(0);
-    expect((await printsReview(id, q)).rows).toEqual([]);
+    // The range comes back whole: the prints already imported, skipped and unchanged.
+    const again = await printsReview(id, q);
+    expect(again.rows).toMatchObject([
+      { status: "identical", action: "skip" },
+      { status: "identical", action: "skip" },
+    ]);
+    // A slot waiting for a spool shows what the printer reported, to add the spool from.
+    expect(again.targets.map((x) => x.values.filament)).toEqual(["PLA #ff8800", "PLA #ff8800"]);
   });
 
   it("holds unmatched prints from a run; the review suggests a spool per slot and books the pick", async () => {
@@ -487,6 +494,32 @@ describe("sync by type and date range", () => {
     expect(
       prints.map((x: { usages: { spoolId: string | null }[] }) => x.usages[0]?.spoolId),
     ).toEqual([other.id, match.id]);
+
+    // A print you have comes back as a skip; an update moves its slot to another spool by name,
+    // and the slot keeps what the printer reported.
+    const again = await printsReview(id, `?from=${day(1)}&to=${day(2, true)}`);
+    const row = again.rows.find((r) => r.targetId === prints[0].id);
+    expect(row).toMatchObject({ status: "identical", action: "skip" });
+    const [usage] = prints[0].usages;
+    const moved = await send("POST", "/api/import/prints/apply", {
+      uploadId: again.uploadId,
+      policy: "overwrite",
+      decisions: [
+        {
+          row: row?.row,
+          action: "update",
+          targetId: row?.targetId,
+          values: {
+            spool: again.refOptions?.spool?.find((o) => o.id === match.id)?.label,
+            grams: usage.grams,
+          },
+        },
+      ],
+    });
+    expect(moved.json()).toMatchObject({ updated: 1 });
+    expect((await get(`/api/prints/${prints[0].id}`)).usages).toMatchObject([
+      { spoolId: match.id, slot: usage.slot, colorHex: usage.colorHex },
+    ]);
   });
 
   it("rejects ranges for other types, backwards ranges and switched-off types", async () => {
@@ -894,7 +927,8 @@ describe("filament matching of imported prints", () => {
     // Still a guess, so held for a person.
     expect(await sync(id)).toMatchObject({ created: 0, pending: 1 });
     const next = await printsReview(id);
-    expect(next.rows.map((r) => [r.refs?.spool, r.refsUnsure])).toEqual([[b.id, ["spool"]]]);
+    const fresh = next.rows.filter((r) => r.status === "new");
+    expect(fresh.map((r) => [r.refs?.spool, r.refsUnsure])).toEqual([[b.id, ["spool"]]]);
   });
 
   it("assigns from the queue (ledger) or dismisses, and edits keep waiting slots", async () => {

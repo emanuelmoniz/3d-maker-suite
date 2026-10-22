@@ -128,16 +128,26 @@ const TARGET_DETAILS: Partial<Record<ReviewEntity, (v: ImportValues) => ImportCe
 const ALL_TARGETS = "__all";
 const NEW_SPOOL = "__new";
 const TRACK = "trackUsage";
+/** The slot of a print's spool column; undefined for any other column. */
+const slotOf = (key: string) =>
+  Array.from({ length: PRINT_MAX_SLOTS }, (_, i) => i + 1).find(
+    (i) => printSlotKeys(i).spool === key,
+  );
 /**
  * What a print's slot says about its filament, for a spool added from its picker: a file names a
- * profile, an integration reports material and colour ("PLA #ff8800").
+ * profile, an integration reports material and colour ("PLA #ff8800"). The row's cells first,
+ * then the print it updates (one you have). The spool was open by the time the print started.
  */
-const slotFilament = (r: ImportPreviewRow, spoolKey: string) => {
-  const n = Array.from({ length: PRINT_MAX_SLOTS }, (_, i) => i + 1).find(
-    (i) => printSlotKeys(i).spool === spoolKey,
-  );
-  const filament = n ? String(r.values[printSlotKeys(n).filament] ?? "") : "";
-  return { filament, colorHex: /#[0-9a-f]{6}\b/i.exec(filament)?.[0].toLowerCase() };
+const slotFilament = (r: ImportPreviewRow, spoolKey: string, target?: ImportTarget) => {
+  const n = slotOf(spoolKey);
+  const of = (k: string) => r.values[k] ?? target?.values[k] ?? null;
+  const filament = n ? String(of(printSlotKeys(n).filament) ?? "") : "";
+  const started = of("startedAt");
+  return {
+    filament,
+    colorHex: /#[0-9a-f]{6}\b/i.exec(filament)?.[0].toLowerCase(),
+    openedAt: typeof started === "string" ? started : undefined,
+  };
 };
 const selectClass = `${inputClass} w-auto! min-w-28`;
 
@@ -191,6 +201,11 @@ export function ReviewTable({
       ? { value: null, error: p.error, edited: true }
       : { value: p.value, error: undefined, edited: true };
   };
+  /** A cell now, or the value of the row it updates when the row has none. */
+  const valueNow = (r: ImportPreviewRow, key: string, target?: ImportTarget) => {
+    const col = columns.find((c) => c.key === key);
+    return (col && cellOf(r, col).value) ?? target?.values[key] ?? null;
+  };
   const valuesOf = (r: ImportPreviewRow): ImportValues =>
     edits[r.row] ? Object.fromEntries(columns.map((c) => [c.key, cellOf(r, c).value])) : r.values;
   // Server-only errors (a name that must exist) come back on apply once a cell is edited.
@@ -206,6 +221,16 @@ export function ReviewTable({
   const tracks = (r: ImportPreviewRow) => decisionOf(r).trackUsage ?? r.values[TRACK] !== "no";
   const decide = (r: ImportPreviewRow, patch: Partial<ImportDecision>) =>
     setDecisions((d) => ({ ...d, [r.row]: { ...(d[r.row] ?? suggested(r)), ...patch } }));
+  /**
+   * An update's spool, picked by name as an edit of the cell. A row without the slot's grams (a
+   * print you have) takes the print's, so the slot stays whole.
+   */
+  const pickSpool = (r: ImportPreviewRow, key: string, label: string, target: ImportTarget) => {
+    editCell(r, key, label);
+    const grams = printSlotKeys(slotOf(key) ?? 1).grams;
+    if (r.values[grams] == null && target.values[grams] != null)
+      editCell(r, grams, String(target.values[grams]));
+  };
   const [project, setProject] = useState("");
   const [spool, setSpool] = useState("");
   const [track, setTrack] = useState<"" | "on" | "off">("");
@@ -326,15 +351,22 @@ export function ReviewTable({
   };
   // The numbered filament slots and the usage flag only show when the file or a matched row uses
   // them; a print's usage tick always shows.
-  const inUse = (c: ImportColumn) =>
-    c.key === TRACK ||
-    !(c.labelArgs || c.fileOnly) ||
+  const has = (key: string) =>
     rows.some(
       (r) =>
-        r.values[c.key] != null ||
-        r.errors.some((e) => e.column === c.key) ||
-        r.candidates.some((id) => targets.get(id)?.values[c.key] != null),
+        r.values[key] != null ||
+        r.errors.some((e) => e.column === key) ||
+        r.candidates.some((id) => targets.get(id)?.values[key] != null),
     );
+  // A slot's spool and filament show whenever its grams do, so an empty one can be picked.
+  const slotGrams = (key: string) => {
+    const n = Array.from({ length: PRINT_MAX_SLOTS }, (_, i) => i + 1).find((i) =>
+      Object.values(printSlotKeys(i)).includes(key),
+    );
+    return n ? printSlotKeys(n).grams : key;
+  };
+  const inUse = (c: ImportColumn) =>
+    c.key === TRACK || !(c.labelArgs || c.fileOnly) || has(c.key) || has(slotGrams(c.key));
   // A file's columns in its order, plus what the review needs that it may not have: a print's
   // usage tick, a project's folder and the references a row picks.
   const fileKeys = preview.columns;
@@ -349,7 +381,13 @@ export function ReviewTable({
       ]
     : columns.filter(inUse);
   const targetLabel = (x: ImportTarget) =>
-    [x.label, ...(TARGET_DETAILS[entity]?.(x.values) ?? [])].filter(Boolean).join(" · ");
+    [
+      x.label,
+      ...(TARGET_DETAILS[entity]?.(x.values) ?? []),
+      x.archived && t("import:review.archivedTarget"),
+    ]
+      .filter(Boolean)
+      .join(" · ");
 
   const targetName = (r: ImportPreviewRow) => {
     const d = decisionOf(r);
@@ -398,9 +436,10 @@ export function ReviewTable({
         const d = decisionOf(r);
         if (d.action !== "update") return "";
         const all = wide.has(r.row) || !r.candidates.length;
-        const options = all
-          ? preview.targets
-          : preview.targets.filter((x) => r.candidates.includes(x.id) || x.id === d.targetId);
+        // One you archived is only offered to the row that brought it back.
+        const options = preview.targets.filter(
+          (x) => r.candidates.includes(x.id) || x.id === d.targetId || (all && !x.archived),
+        );
         const issue = problem(r);
         return (
           <span className="flex items-center gap-2">
@@ -503,6 +542,47 @@ export function ReviewTable({
             !!d.refs?.[c.key] &&
             d.refs[c.key] === r.refs?.[c.key] &&
             !!r.refsUnsure?.includes(c.key);
+          const slot = prints && c.ref === "spools" ? slotOf(c.key) : undefined;
+          // An update picks a slot's spool too; one with grams and no spool is a warning.
+          if (
+            slot &&
+            options &&
+            target &&
+            Number(valueNow(r, printSlotKeys(slot).grams, target)) > 0
+          ) {
+            const label = String(valueNow(r, c.key, target) ?? "");
+            const names = optionsFor(r, c.key, null).map((o) => o.label);
+            return (
+              <span className="flex items-center gap-2">
+                <Combobox
+                  aria-label={t("import:review.refFor", {
+                    column: t(c.label, c.labelArgs),
+                    row: r.row,
+                  })}
+                  className={cx(
+                    `${selectClass} max-w-72`,
+                    !label && "border-warn ring-1 ring-warn",
+                  )}
+                  value={label}
+                  onChange={(v) =>
+                    v === NEW_SPOOL
+                      ? setAdding({ row: r, key: c.key })
+                      : v && pickSpool(r, c.key, v, target)
+                  }
+                  options={[
+                    ...(label ? [] : [{ value: "", label: t("import:review.pickTarget") }]),
+                    ...(label && !names.includes(label) ? [label] : []).map((n) => ({
+                      value: n,
+                      label: n,
+                    })),
+                    ...names.map((n) => ({ value: n, label: n })),
+                    { value: NEW_SPOOL, label: t("import:review.addSpool") },
+                  ]}
+                />
+                {!label && <span className="text-warn">{t("import:review.noSpool")}</span>}
+              </span>
+            );
+          }
           if (options && d.action === "create" && picks(r).includes(c.key))
             return (
               <span className="flex items-center gap-2">
@@ -516,7 +596,8 @@ export function ReviewTable({
                   aria-invalid={missingPick(r, c.key) || undefined}
                   className={cx(
                     `${selectClass} max-w-72`,
-                    unsure && "border-warn ring-1 ring-warn",
+                    (unsure || (optional.has(c.key) && !d.refs?.[c.key])) &&
+                      "border-warn ring-1 ring-warn",
                   )}
                   value={d.refs?.[c.key] ?? ""}
                   onChange={(v) =>
@@ -892,7 +973,16 @@ export function ReviewTable({
         }}
       />
       <NewSpoolDialog
-        open={adding && slotFilament(adding.row, adding.key)}
+        open={
+          adding &&
+          slotFilament(
+            adding.row,
+            adding.key,
+            targets.get(
+              (decisionOf(adding.row).action === "update" && decisionOf(adding.row).targetId) || "",
+            ),
+          )
+        }
         onClose={() => setAdding(null)}
         onSaved={(s) => {
           if (!adding) return;
@@ -903,7 +993,10 @@ export function ReviewTable({
           );
           setAdded((a) => [...a, { id: s.id, label }]);
           const { row, key } = adding;
-          decide(row, { refs: { ...decisionOf(row).refs, [key]: s.id } });
+          const d = decisionOf(row);
+          const target = d.action === "update" && targets.get(d.targetId ?? "");
+          if (target) pickSpool(row, key, label, target);
+          else decide(row, { refs: { ...d.refs, [key]: s.id } });
         }}
       />
     </section>

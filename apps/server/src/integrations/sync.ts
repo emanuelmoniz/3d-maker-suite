@@ -542,7 +542,7 @@ export function createSyncer(
       return { entity: type, ignoredHeaders: [], from, rows, range: kept };
     }
     const { lib, dir } = libraryOf(db, adapters, row.id, type);
-    const rows = await libraryRows(db, lib, dir, type, { dataDir });
+    const rows = await libraryRows(lib, dir, type, { dataDir });
     return { entity: type, ignoredHeaders: [], from, dir, rows };
   }
 

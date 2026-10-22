@@ -11,8 +11,7 @@ import { type Db, schema } from "@3d-maker-suite/db";
 import { and, eq, isNotNull, isNull, ne } from "drizzle-orm";
 import type { StoredRow } from "../import/review.ts";
 import { spoolImport } from "../import/spools.ts";
-import { printerLabel, profileColumns, profileMaterial, spoolName } from "../lib/catalog.ts";
-import { profileKey } from "./imports.ts";
+import { printerLabel, profileMaterial, spoolName } from "../lib/catalog.ts";
 
 const { filamentProfiles, printers, printFilamentUsages, prints, spools } = schema;
 
@@ -34,7 +33,6 @@ const names = (values: string[]) => [
  * whatever the type. Thumbnails are only offered when `dataDir` can take them.
  */
 export async function libraryRows(
-  db: Db,
   lib: FilamentLibrary,
   dir: string,
   type: LibraryType,
@@ -46,27 +44,16 @@ export async function libraryRows(
     const key = type === "filamentBrands" ? "brand" : "material";
     return numbered(names(presets.map((p) => p[key])).map((name) => ({ raw: { name } })));
   }
-  if (type === "filamentProfiles") {
-    const have = db.select(profileColumns).from(filamentProfiles).all();
-    const active = have.filter((p) => !p.archivedAt);
-    const current = new Set(active.map((p) => p.sourcePreset));
-    // A profile you archived by hand doesn't come back, whether it was imported or its twin.
-    const gone = have.filter((p) => p.archivedAt);
-    const goneSources = new Set(gone.map((p) => p.sourcePreset));
-    const goneKeys = new Set(gone.map(profileKey));
-    for (const p of active) goneKeys.delete(profileKey(p));
+  if (type === "filamentProfiles")
+    // A profile you archived comes back as a skip (`filamentProfileImport.archived`).
     return numbered(
-      (await lib.read(dir, { includeSystem: true })).flatMap((preset) => {
+      (await lib.read(dir, { includeSystem: true })).map((preset) => {
         const { presetId, scope: _scope, pricePerKg, ...p } = preset;
-        const source = `${lib.id}:${presetId}`;
-        if (!current.has(source) && (goneSources.has(source) || goneKeys.has(profileKey(p))))
-          return [];
         // The price column is typed in major units, like a file's.
         const price = pricePerKg === null ? null : pricePerKg / 100;
-        return [{ source, raw: { ...p, pricePerKg: price } }];
+        return { source: `${lib.id}:${presetId}`, raw: { ...p, pricePerKg: price } };
       }),
     );
-  }
   const c = (await lib.readCatalog?.(dir)) ?? { models: [], machines: [], processes: [] };
   if (type === "printProfiles")
     return numbered(
@@ -150,10 +137,10 @@ export function spoolHistory(db: Db) {
 }
 
 /**
- * A vendor's print history, minus the prints already imported, in the prints import columns.
- * A slot names the spool `matchPrint` picks; one picked from several is listed in `unsure`, and
- * one with no spool stays empty. Either holds the print for a person. The source key is
- * `<integrationId>:<externalId>`.
+ * A vendor's print history in the prints import columns, the prints already imported included
+ * (the review skips them; a person may update one). A new print's slot names the spool
+ * `matchPrint` picks; one picked from several is listed in `unsure`, and one with no spool stays
+ * empty. Either holds the print for a person. The source key is `<integrationId>:<externalId>`.
  */
 export function printRows(db: Db, integrationId: string, items: ExternalPrint[]): StoredRow[] {
   const mine = and(eq(printers.integrationId, integrationId), isNotNull(printers.externalId));
@@ -208,11 +195,13 @@ export function printRows(db: Db, integrationId: string, items: ExternalPrint[])
     );
   }
   return numbered(
-    fresh.map(({ filaments, ...p }) => {
+    items.map(({ filaments, ...p }) => {
       const slots: Record<string, unknown> = {};
       // Slots picked from several spools: shown for a person to check, and held by an auto run.
       const unsure: string[] = [];
-      for (const [i, f] of filaments.slice(0, PRINT_MAX_SLOTS).entries()) {
+      // A print you have keeps its filament: its slots are left out, so an update never rebooks them.
+      const own = known.has(p.externalId) ? [] : filaments;
+      for (const [i, f] of own.slice(0, PRINT_MAX_SLOTS).entries()) {
         const key = printSlotKeys(i + 1);
         const pick = picked.get(p.externalId)?.[i];
         slots[key.spool] = pick?.label ?? null;
@@ -234,7 +223,7 @@ export function printRows(db: Db, integrationId: string, items: ExternalPrint[])
           ...slots,
           plate: p.plate ?? null,
           sourceUrl: p.sourceUrl ?? null,
-          reported: filaments.slice(0, PRINT_MAX_SLOTS).map((f) => ({
+          reported: own.slice(0, PRINT_MAX_SLOTS).map((f) => ({
             slot: f.slot ?? null,
             material: f.material,
             colorHex: f.colorHex,
@@ -248,32 +237,23 @@ export function printRows(db: Db, integrationId: string, items: ExternalPrint[])
 
 /** A vendor's spools. `spoolId` is already `<adapterId>:<id>`. */
 export function spoolRows(db: Db, items: LibrarySpool[], trackUsage = true): StoredRow[] {
-  const imported = new Set(
-    db
-      .select({ s: spools.sourceSpool })
-      .from(spools)
-      .where(isNotNull(spools.sourceSpool))
-      .all()
-      .map((r) => r.s),
-  );
+  // A spool you archived counts as yours too: it comes back as a skip (`spoolImport.archived`).
+  const gone = spoolImport.archived(db);
   const linked = spoolImport.bySource(db);
-  const yours = new Map(spoolImport.targets(db).map((t) => [t.id, t.values]));
+  const yours = new Map([...spoolImport.targets(db), ...gone.targets].map((t) => [t.id, t.values]));
   return numbered(
-    items
-      // A spool you imported and then archived doesn't come back.
-      .filter((s) => linked.has(s.spoolId) || !imported.has(s.spoolId))
-      .map(({ spoolId, profile, ...s }) => {
-        // A spool you have keeps its own filament: the vendor's name for it is not a difference.
-        const mine = yours.get(linked.get(spoolId) ?? "");
-        const filament = mine
-          ? { brand: mine.brand, material: mine.material, profile: mine.profile }
-          : { brand: profile.brand, material: profile.material, profile: profile.name };
-        // Not tracking: a spool you have keeps its weight (a new one starts with the vendor's).
-        const { remainingGrams, ...rest } = s;
-        return {
-          source: spoolId,
-          raw: { ...filament, ...rest, ...(trackUsage || !mine ? { remainingGrams } : {}) },
-        };
-      }),
+    items.map(({ spoolId, profile, ...s }) => {
+      // A spool you have keeps its own filament: the vendor's name for it is not a difference.
+      const mine = yours.get(linked.get(spoolId) ?? gone.of(spoolId) ?? "");
+      const filament = mine
+        ? { brand: mine.brand, material: mine.material, profile: mine.profile }
+        : { brand: profile.brand, material: profile.material, profile: profile.name };
+      // Not tracking: a spool you have keeps its weight (a new one starts with the vendor's).
+      const { remainingGrams, ...rest } = s;
+      return {
+        source: spoolId,
+        raw: { ...filament, ...rest, ...(trackUsage || !mine ? { remainingGrams } : {}) },
+      };
+    }),
   );
 }

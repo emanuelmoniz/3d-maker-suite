@@ -658,8 +658,11 @@ export const importPreviewSchema = z.object({
    */
   refsOptional: z.array(z.string()).optional(),
   rows: z.array(importPreviewRowSchema),
-  /** Existing rows in the same column shape, for the target picker and the diff. */
-  targets: z.array(z.object({ id, label: z.string(), values })),
+  /**
+   * Existing rows in the same column shape, for the target picker and the diff. `archived`: one
+   * you archived that a source row brought back; an update restores it.
+   */
+  targets: z.array(z.object({ id, label: z.string(), values, archived: z.boolean().optional() })),
   /** By `ref`: names in the file you don't have yet. Apply creates them. */
   missing: z.record(z.string(), z.array(z.string())),
   /** File columns that match no column of the entity. */

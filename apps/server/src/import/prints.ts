@@ -295,7 +295,11 @@ export const printImport = {
         for (const [i, u] of (usages.get(p.id) ?? []).slice(0, PRINT_MAX_SLOTS).entries()) {
           const key = printSlotKeys(i + 1);
           slots[key.spool] = (u.spoolId && spools.get(u.spoolId)) || null;
-          slots[key.filament] = (u.profileId && profiles.get(u.profileId)) || null;
+          // A slot without a profile: what the printer reported ("PLA #ff8800"), as a row shows it.
+          slots[key.filament] =
+            (u.profileId && profiles.get(u.profileId)) ||
+            [u.material, u.colorHex].filter(Boolean).join(" ") ||
+            null;
           slots[key.grams] = u.grams;
         }
         return {
@@ -555,13 +559,31 @@ export const printImport = {
     if (Object.keys(set).length) db.update(prints).set(set).where(eq(prints.id, cur.id)).run();
 
     // The file's slots replace the print's; the target values fill the slots the file left empty.
+    // A row that reports none (a print you have) keeps what the print's slots reported, in their
+    // order, as the target values list them.
+    const reported = reportedOf(row);
     if (SLOT_KEYS.some((k) => k in patch))
       useFilament(
         db,
         cur.id,
         String(set.title ?? cur.title),
         { ...target.values, ...patch, trackUsage: String(row.raw.trackUsage ?? "") },
-        reportedOf(row),
+        reported.length
+          ? reported
+          : db
+              .select({
+                slot: printFilamentUsages.slot,
+                material: printFilamentUsages.material,
+                colorHex: printFilamentUsages.colorHex,
+              })
+              .from(printFilamentUsages)
+              .where(eq(printFilamentUsages.printId, cur.id))
+              .all()
+              .map((u) => ({
+                slot: u.slot,
+                material: u.material ?? undefined,
+                colorHex: u.colorHex ?? undefined,
+              })),
       );
   },
 };

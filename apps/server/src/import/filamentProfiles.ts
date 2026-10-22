@@ -7,6 +7,7 @@ import {
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
 import { and, eq, isNotNull, isNull } from "drizzle-orm";
+import { profileKey } from "../integrations/imports.ts";
 import {
   filamentBrandIdFor,
   filamentMaterialIdFor,
@@ -36,33 +37,39 @@ const inUse = (db: Db, id: string) =>
     .where(eq(printFilamentUsages.profileId, id))
     .get();
 
+const profileRows = (db: Db, archived: boolean) =>
+  db
+    .select(profileColumns)
+    .from(filamentProfiles)
+    .where(archived ? isNotNull(filamentProfiles.archivedAt) : isNull(filamentProfiles.archivedAt))
+    .orderBy(profileColumns.brand, profileColumns.material, filamentProfiles.name)
+    .all();
+
+/** Active profiles, or archived ones, in the shape of the import columns. */
+const profileTargets = (db: Db, archived = false): ImportTarget[] =>
+  profileRows(db, archived).map((p) => ({
+    id: p.id,
+    label: [p.brand, p.material, p.name].filter(Boolean).join(" "),
+    ...(archived && { archived: true }),
+    values: {
+      brand: p.brand || null,
+      material: p.material,
+      name: p.name || null,
+      diameterMm: p.diameterMm,
+      densityGcm3: p.densityGcm3,
+      pricePerKg: p.pricePerKg,
+      nozzleTempC: p.nozzleTempC,
+      bedTempC: p.bedTempC,
+    },
+  }));
+
 /**
  * Filament profiles from a slicer's presets or a file. A preset's brand and material are found by
  * name or created; a file names ones you have.
  */
 export const filamentProfileImport = {
   /** Active profiles, in the shape of the import columns. */
-  targets: (db: Db): ImportTarget[] =>
-    db
-      .select(profileColumns)
-      .from(filamentProfiles)
-      .where(isNull(filamentProfiles.archivedAt))
-      .orderBy(profileColumns.brand, profileColumns.material, filamentProfiles.name)
-      .all()
-      .map((p) => ({
-        id: p.id,
-        label: [p.brand, p.material, p.name].filter(Boolean).join(" "),
-        values: {
-          brand: p.brand || null,
-          material: p.material,
-          name: p.name || null,
-          diameterMm: p.diameterMm,
-          densityGcm3: p.densityGcm3,
-          pricePerKg: p.pricePerKg,
-          nozzleTempC: p.nozzleTempC,
-          bedTempC: p.bedTempC,
-        },
-      })),
+  targets: (db: Db) => profileTargets(db),
 
   // A profile made by hand with the same brand, material and name is the preset's twin.
   match: matchRowsOn("brand", "material", "name"),
@@ -76,6 +83,32 @@ export const filamentProfileImport = {
         .all()
         .map((r) => [r.source ?? "", r.id] as const),
     ),
+
+  /**
+   * A preset whose profile you archived comes back by its source key; one you never imported, by
+   * the brand, material and name of one you archived that no active profile has.
+   */
+  archived(db: Db) {
+    const gone = profileRows(db, true);
+    const active = new Set(profileRows(db, false).map(profileKey));
+    const bySource = new Map(gone.flatMap((p) => (p.sourcePreset ? [[p.sourcePreset, p.id]] : [])));
+    const byKey = new Map(
+      gone.filter((p) => !active.has(profileKey(p))).map((p) => [profileKey(p), p.id]),
+    );
+    return {
+      targets: profileTargets(db, true),
+      of: (source: string | undefined, v: ImportValues) =>
+        (source && bySource.get(source)) ||
+        byKey.get(
+          profileKey({
+            brand: str(v.brand) ?? "",
+            material: str(v.material) ?? "",
+            name: str(v.name) ?? "",
+          }),
+        ) ||
+        null,
+    };
+  },
 
   refs: spoolImport.refs,
 
@@ -142,7 +175,10 @@ export const filamentProfileImport = {
     const set: Record<string, unknown> = { ...fields };
     if (brand != null) set.brandId = filamentBrandIdFor(db, String(brand));
     if (material != null) set.materialId = filamentMaterialIdFor(db, String(material));
-    if (!(row.source && cur.sourcePreset === row.source && inUse(db, cur.id))) {
+    if (target.archived) set.archivedAt = null;
+    // Nothing to change (one you archived coming back) is never a new version.
+    const changes = Object.keys(patch).length > 0;
+    if (!(changes && row.source && cur.sourcePreset === row.source && inUse(db, cur.id))) {
       // A twin made by hand is linked to the preset, so the next run knows it.
       db.update(filamentProfiles)
         .set({ ...set, sourcePreset: cur.sourcePreset ?? row.source })

@@ -105,6 +105,14 @@ export type ImportHandler = {
   /** A row you imported is yours: a change at the source is offered, never suggested. */
   handsOff?: boolean;
   /**
+   * Rows you archived (`archived: true`) and the one a source row is, if any: the row is offered
+   * as a skip against it, never written by a run, and an update restores it.
+   */
+  archived?: (db: Db) => {
+    targets: ImportTarget[];
+    of: (source: string | undefined, values: ImportValues) => string | null;
+  };
+  /**
    * References the user picks instead of having them created, and the suggestion for a row; a run
    * with nobody watching leaves a row it isn't `sure` of for a person. A row is offered the keys
    * its suggestion's `refs` name; the `optional` ones may stay empty.
@@ -216,8 +224,9 @@ export function createReview(db: Db, dataDir: string) {
     const columns = IMPORT_COLUMNS[stored.entity];
     const handler = handlers[stored.entity];
     const targets = handler.targets(db);
-    const byId = new Map(targets.map((t) => [t.id, t]));
     const sourced = !!stored.from;
+    const gone = (sourced && handler.archived?.(db)) || undefined;
+    const byId = new Map([...targets, ...(gone?.targets ?? [])].map((t) => [t.id, t]));
     const bySource = (sourced && handler.bySource?.(db)) || new Map<string, string>();
     const picks = sourced || handler.filePicks ? handler.picks?.(db) : undefined;
     const held = sourced ? handler.held?.(db) : undefined;
@@ -229,7 +238,9 @@ export function createReview(db: Db, dataDir: string) {
       // the matcher.
       const id = String(r.raw.id ?? "").trim();
       const hit = byId.has(id) ? id : (r.source && bySource.get(r.source)) || null;
-      return { hit, raw: r.raw, row: r.n, ...p };
+      // One you archived is the row only when nothing you have is.
+      const archived = (!hit && !p.errors.length && gone?.of(r.source, p.values)) || null;
+      return { hit: hit ?? archived, archived: !!archived, raw: r.raw, row: r.n, ...p };
     });
     // Only the columns (and the id) go to the review, not what a vendor's row carries besides.
     const cells = (raw: StoredRow["raw"]) =>
@@ -257,7 +268,7 @@ export function createReview(db: Db, dataDir: string) {
     return {
       entity: stored.entity,
       dir: stored.dir,
-      rows: parsed.map(({ hit, raw, ...p }) => {
+      rows: parsed.map(({ hit, archived, raw, ...p }) => {
         const m = hit
           ? { candidates: [hit], targetId: hit }
           : (matchOf.get(p.row) ?? { candidates: [], targetId: null });
@@ -271,7 +282,7 @@ export function createReview(db: Db, dataDir: string) {
         };
         const flags = !p.errors.length && handler.flags?.(db, p.values);
         if (!sourced) return { ...p, raw: cells(raw), ...m, ...s, ...picked, ...flags };
-        const yours = !!hit && !!handler.handsOff;
+        const yours = (!!hit && !!handler.handsOff) || archived;
         // A row that has only required picks is skipped until picked (a vendor's spool); one with
         // optional ones too stays a create, so a missing required pick shows (a print's project).
         const unpicked = !!pick && !picks?.optional && Object.values(pick.refs).some((v) => !v);
@@ -291,7 +302,7 @@ export function createReview(db: Db, dataDir: string) {
           }),
         };
       }),
-      targets,
+      targets: [...targets, ...(gone?.targets ?? [])],
       // Required picks are never created, so nothing is announced for them.
       missing:
         picks && !picks.optional
@@ -421,8 +432,15 @@ export function createReview(db: Db, dataDir: string) {
           continue;
         }
         const patch = mergeValues(columns, op.policy, op.values, op.target.values);
-        // Prints picked in the review, or names taken from the folder, are a change of their own.
-        if (!Object.keys(patch).length && !op.row.prints && !op.row.fromFolder) continue;
+        // Prints picked in the review, names taken from the folder, or a row you archived coming
+        // back are a change of their own.
+        if (
+          !Object.keys(patch).length &&
+          !op.row.prints &&
+          !op.row.fromFolder &&
+          !op.target.archived
+        )
+          continue;
         handler.update(db, op.target, patch, op.row);
         written.push({ event: "updated", values: op.values, row, id: op.target.id });
       }

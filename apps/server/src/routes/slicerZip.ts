@@ -87,7 +87,7 @@ export const slicerZipRoutes =
           entity: type,
           ignoredHeaders: [],
           from: { kind: "zip" },
-          rows: await libraryRows(db, libraryOf(source), root, type, { dataDir }),
+          rows: await libraryRows(libraryOf(source), root, type, { dataDir }),
         };
         return { uploadId: review.save(stored), ...review.preview(stored) };
       },
