@@ -99,7 +99,7 @@ projectScanDepth / autoSliceOffRoots and the watcher change first.
 Do Step 6 of PLAN.md. Screenshot at the 3 viewports when done.
 ```
 
-### [ ] Step 7 - Docs, push & v4.0.0-alpha.1
+### [x] Step 7 - Docs, push & v4.0.0-alpha.1
 **Model:** Haiku · **Effort:** Low
 **Scope:** README/docs for Steps 1-6, CHANGELOG, version `4.0.0-alpha.1`. Refresh `pnpm screenshots` (project page changed). Commit, push `dev`, create and push tag `v4.0.0-alpha.1` on `dev`. Check the run (`gh run watch`) and the pre-release (`gh release view v4.0.0-alpha.1`).
 **Done when:** `dev` and the tag are pushed; the workflow is green; the pre-release exists; docs match the app.

@@ -4,6 +4,21 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+## [4.0.0-alpha.1] - 2026-10-22
+
+### Added
+- Projects: each project folder root has its own project depth, files depth and auto slice, set when adding the root and in Settings → Projects. Files depth "All" (the default) lists and watches every level; the files-per-project limit stays as a safety cap
+- Projects: project info can be a Markdown file in the project folder, loaded and saved back from the app; a new file can be created from the text typed so far
+- Projects: the gallery shows a square viewer with previous and next buttons, touch swipe and a thumbnail strip that scrolls with buttons or touch; the cover comes first
+- Integrations: a usage toggle for synced spools ("Take the remaining weight of synced spools from the vendor") and a warning when prints and spools would both track usage
+
+### Changed
+- Projects: one Save on the edit page; the sections are collapsible cards, and the print setup has a deep link
+- Projects: the project folder settings use the full width, with the hints in three columns
+- Stats: charts share one bar chart with value axes on both sides and a tooltip with the date and value
+- Integrations: spools sync is off for newly added Bambu Cloud integrations; existing ones keep their setting
+- CI: pushes to `dev` run the checks, and release tags must be on `main` (stable) or `dev` (pre-release)
+
 ## [3.0.0] - 2026-10-21
 
 ### Fixed

@@ -33,7 +33,7 @@ Then open `http://<your-PC-address>:4300` from the other device and enter the pa
 
 ## In-app settings
 
-The Settings page covers general options, appearance, costs (currency, energy, labour, markup, and the printer and accessory defaults), printers, accessories, prints, projects (the folders the app watches, auto slice per folder and the files-per-project limit), integrations, alerts, backups, language and network. Each module has its own config page, opened from the gear button on that module.
+The Settings page covers general options, appearance, costs (currency, energy, labour, markup, and the printer and accessory defaults), printers, accessories, prints, projects (the folders the app watches, with project depth, files depth and auto slice per folder, and the files-per-project limit), integrations, alerts, backups, language and network. Each module has its own config page, opened from the gear button on that module.
 
 - **Path picker** (slicer executable, slicer config folders, project roots): browses the folders on the machine running the server and lists names only. It never opens or reads a file while you browse. It is not limited to the project roots, because that is how you choose them. Only use it on a server you trust, and set `APP_PASSWORD` before exposing the app beyond this PC.
 
