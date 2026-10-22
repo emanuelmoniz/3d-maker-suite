@@ -4,6 +4,18 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+## [4.0.0-alpha.2] - 2026-10-22
+
+### Added
+- Import: 19 import types, each also exported in the same format: maintenance types, maintenance, order projects, printer and filament catalogs (brands, models, profiles, materials)
+- Import: one format for template and export; the review cells are editable in place, with an undo for each edited cell
+- Import | Export: one page with the import and export sections, a slicer zip card and how-to instructions
+- Logs: a log module fed from the app's logger, with settings for levels, modules, retention and maximum entries, and a Logs page (off by default) with filters and sorting
+
+### Changed
+- Import | Export: export moved out of Settings; backups keep their own section
+- Import: the import history is no longer kept
+
 ## [4.0.0-alpha.1] - 2026-10-22
 
 ### Added

@@ -202,7 +202,7 @@ Do Step 11 of PLAN.md. Show me the schema, how logs reach the table and the rete
 first. Back up the DB before editing schema.ts.
 ```
 
-### [ ] Step 12 - Docs, push & v4.0.0-alpha.2
+### [x] Step 12 - Docs, push & v4.0.0-alpha.2
 **Model:** Haiku · **Effort:** Low
 **Scope:** README/docs for the Import | Export page, the new import types and the log module, CHANGELOG, version `4.0.0-alpha.2`. Commit, push `dev`, create and push tag `v4.0.0-alpha.2` on `dev`; check the workflow run and the pre-release.
 **Done when:** `dev` and the tag are pushed; the workflow is green; the pre-release exists; docs match the app.
