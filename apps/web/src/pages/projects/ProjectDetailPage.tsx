@@ -477,10 +477,10 @@ export function ProjectDetailPage() {
             )}
           </div>
           {models.length > 1 && (
-            <label className="flex flex-wrap items-center gap-2">
+            <label className="flex items-center gap-2">
               <span className="text-muted">{t("projects:detail.model")}</span>
               <Combobox
-                className="h-9 max-w-full rounded-md border border-border bg-surface px-2"
+                className="h-9 min-w-0 flex-1 rounded-md border border-border bg-surface px-2"
                 value={current?.path ?? ""}
                 onChange={(v) => {
                   setPicked(v);
