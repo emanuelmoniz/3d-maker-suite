@@ -1,7 +1,7 @@
 import { appendFileSync, copyFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { expect, test } from "./fixtures.ts";
-import { pick, seedModel, seedProfile, seedSpool } from "./helpers.ts";
+import { openSections, pick, seedModel, seedProfile, seedSpool } from "./helpers.ts";
 
 type Plate = { index: number; name: string | null };
 
@@ -38,6 +38,7 @@ test("project slicing setup: defaults from the default printer, saves, reloads, 
   await seedProfile(app.api);
 
   await page.goto(`/projects/${project.id}/edit`);
+  await openSections(page, "Print setup");
   const section = page.getByRole("region", { name: "Print setup" });
   await section.getByRole("checkbox", { name: /benchy\.3mf/ }).check();
   const printProfile = section.getByRole("combobox", { name: `Print profile for ${plateName}` });
@@ -50,19 +51,27 @@ test("project slicing setup: defaults from the default printer, saves, reloads, 
   await pick(printProfile, "0.12mm Fine");
   const slot1 = section.getByRole("combobox", { name: `Filament for ${plateName}, slot 1` });
   await pick(slot1, "Basic");
-  await section.getByRole("button", { name: "Save setup" }).click();
-  await expect(section.getByRole("status")).toHaveText("Saved.");
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(page).toHaveURL(new RegExp(`/projects/${project.id}$`));
 
-  await page.reload();
+  await page.goto(`/projects/${project.id}/edit`);
+  await openSections(page, "Print setup");
   await expect(printProfile).toHaveValue("0.12mm Fine");
   await expect(slot1).toHaveValue("Basic");
   await expect(section.getByText("The file changed since this setup was saved")).toHaveCount(0);
 
   appendFileSync(file, "changed");
   await page.reload();
+  await openSections(page, "Print setup");
   await expect(
     section.getByText("The file changed since this setup was saved").first(),
   ).toBeVisible();
+
+  // Deep link: the project page opens the edit page at Print setup, already open; the rest is closed.
+  await page.goto(`/projects/${project.id}`);
+  await page.getByRole("link", { name: "Print setup" }).click();
+  await expect(section.getByRole("checkbox", { name: /benchy\.3mf/ })).toBeVisible();
+  await expect(page.getByRole("textbox", { name: "Name" })).toBeHidden();
 });
 
 test("slicing a project with the mock slicer: results, estimate, list filter, re-slice", async ({
@@ -88,6 +97,7 @@ test("slicing a project with the mock slicer: results, estimate, list filter, re
   await seedSpool(app.api);
 
   await page.goto(`/projects/${project.id}/edit`);
+  await openSections(page, "Print setup");
   const section = page.getByRole("region", { name: "Print setup" });
   await section.getByRole("checkbox", { name: /benchy\.3mf/ }).check();
   // No printer: the file's own print profile, named after the 3MF's preset.
@@ -97,10 +107,7 @@ test("slicing a project with the mock slicer: results, estimate, list filter, re
   // Slot 1 from the spool (the first entry after "As saved in the file").
   await pick(section.getByRole("combobox", { name: /, slot 1$/ }), 1);
   const slice = section.getByRole("button", { name: "Slice" });
-  await expect(slice).toBeDisabled(); // save first
-  await section.getByRole("button", { name: "Save setup" }).click();
-  await expect(section.getByText("Needs slicing").first()).toBeVisible();
-
+  await expect(slice).toBeEnabled(); // an unsaved setup: Slice saves it first
   await slice.click();
   // Plate 1 of the fixture: 1 h, 10 g per slot (see `fakeSlice`).
   await expect(section.getByText(/^1h · \d+ g$/).first()).toBeVisible();
@@ -127,6 +134,7 @@ test("slicing a project with the mock slicer: results, estimate, list filter, re
   // The file changes on disk: that plate needs slicing again.
   appendFileSync(file, "changed");
   await page.goto(`/projects/${project.id}/edit`);
+  await openSections(page, "Print setup");
   await expect(slice).toBeEnabled();
   await slice.click();
   await expect(section.getByText("Every plate is sliced and up to date.")).toBeVisible();

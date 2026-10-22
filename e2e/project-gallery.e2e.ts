@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, test } from "./fixtures.ts";
-import { hasHorizontalScroll } from "./helpers.ts";
+import { hasHorizontalScroll, openSections } from "./helpers.ts";
 
 const VIEWPORTS = [
   { width: 375, height: 800 },
@@ -33,6 +33,7 @@ for (const viewport of VIEWPORTS) {
 
     // Edit page: search, add to the selected section (it leaves the available list), preview both.
     await page.goto(`/projects/${id}/edit`);
+    await openSections(page, "Preview and gallery");
     const selected = page.getByRole("region", { name: /^Selected images/ });
     const available = page.getByRole("region", { name: /^Available images/ });
     await expect(selected.getByText("No images selected yet")).toBeVisible();

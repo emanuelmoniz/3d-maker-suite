@@ -115,3 +115,8 @@ export const offScreen = (page: Page) =>
           `${el.tagName.toLowerCase()} "${(el.getAttribute("aria-label") ?? el.textContent ?? "").trim().slice(0, 30)}"`,
       );
   });
+
+/** Opens the collapsible cards of the project edit page (they start closed). */
+export const openSections = async (page: Page, ...names: string[]) => {
+  for (const name of names) await page.getByRole("heading", { name, exact: true }).click();
+};

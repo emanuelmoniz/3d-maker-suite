@@ -1,5 +1,5 @@
 import type { PlateSetupInput, Project } from "@3d-maker-suite/core";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
@@ -13,28 +13,12 @@ import {
   useSliceProject,
 } from "../../lib/projects.ts";
 
-/** Which plates a print of the project takes, with the print profile and filaments per plate. */
-export function SlicingSetup({ project }: { project: Project }) {
-  const { t } = useTranslation();
-  const saved = useProjectSlicing(project.id).data;
-  const save = useSaveProjectSlicing(project.id);
-  const slice = useSliceProject(project.id);
+/** The print setup draft, owned by the edit form so its one Save button covers it too. */
+export function useSlicingDraft(id: string) {
+  const saved = useProjectSlicing(id).data;
+  const save = useSaveProjectSlicing(id);
   const [draft, setDraft] = useState<PlateSetupInput[] | null>(null);
-  const patch = usePatchProject(project.id);
-  const prefs = usePreferences().data?.values;
-  const defaultId = prefs?.defaultPrinterId;
-  // What "Folder default" means here: on unless the project sits in a root ticked off.
-  const folder = project.folderPath ?? "";
-  const rootOn = !prefs?.autoSliceOffRoots.some(
-    (r) => folder.startsWith(r) && /^([\\/]|$)/.test(folder.slice(r.replace(/[\\/]$/, "").length)),
-  );
-  const ready = project.meta.models.length > 0 && !!saved;
-  // The section appears after its data loads, too late for the browser's own jump to #slicing.
-  useEffect(() => {
-    if (ready && location.hash === "#slicing") document.getElementById("slicing")?.scrollIntoView();
-  }, [ready]);
-  if (!ready || !saved) return null;
-  const stored = saved.plates.map((p) => ({
+  const stored: PlateSetupInput[] = (saved?.plates ?? []).map((p) => ({
     file: p.file,
     plate: p.plate,
     printerId: p.printerId,
@@ -43,27 +27,46 @@ export function SlicingSetup({ project }: { project: Project }) {
     filaments: p.filaments,
     spools: p.spools,
   }));
-  const value = draft ?? stored;
   const dirty = draft !== null && JSON.stringify(draft) !== JSON.stringify(stored);
+  /** Saves a changed draft; resolves once it is stored (or at once when nothing changed). */
+  const flush = async () => {
+    if (!dirty || !draft) return;
+    await save.mutateAsync({ plates: draft });
+    setDraft(null);
+  };
+  return { saved, save, stored, draft, setDraft, dirty, flush, value: draft ?? stored };
+}
+export type SlicingDraft = ReturnType<typeof useSlicingDraft>;
+
+/** Which plates a print of the project takes, with the print profile and filaments per plate. */
+export function SlicingSetup({ project, setup }: { project: Project; setup: SlicingDraft }) {
+  const { t } = useTranslation();
+  const { saved, save, setDraft, dirty, value } = setup;
+  const slice = useSliceProject(project.id);
+  const busy = slice.isPending || save.isPending;
+  const patch = usePatchProject(project.id);
+  const prefs = usePreferences().data?.values;
+  const defaultId = prefs?.defaultPrinterId;
+  // What "Folder default" means here: on unless the project sits in a root ticked off.
+  const folder = project.folderPath ?? "";
+  const rootOn = !prefs?.autoSliceOffRoots.some(
+    (r) => folder.startsWith(r) && /^([\\/]|$)/.test(folder.slice(r.replace(/[\\/]$/, "").length)),
+  );
+  if (!project.meta.models.length || !saved) return null;
   const byKey = new Map(saved.plates.map((p) => [plateKey(p), p]));
   const left = saved.plates.filter((p) => p.job).length;
   const toSlice = saved.plates.filter((p) => p.needsSlicing).length;
   const sliceStatus = !saved.canSlice
     ? t("projects:slicing.noSlicer")
-    : dirty
-      ? t("projects:slicing.saveFirst")
-      : left
-        ? t("projects:slicing.progress", { count: left })
-        : slice.isError
-          ? t("projects:slicing.startFailed")
-          : saved.plates.length && !toSlice
-            ? t("projects:slicing.upToDate")
-            : t("projects:slicing.sliceHint");
+    : left
+      ? t("projects:slicing.progress", { count: left })
+      : slice.isError
+        ? t("projects:slicing.startFailed")
+        : saved.plates.length && !toSlice
+          ? t("projects:slicing.upToDate")
+          : t("projects:slicing.sliceHint");
   return (
-    <section aria-labelledby="slicing" className="mt-6">
-      <h2 id="slicing" className="mb-1 text-base font-semibold">
-        {t("projects:slicing.title")}
-      </h2>
+    <>
       <p className="mb-2 text-muted">{t("projects:slicing.hint")}</p>
       <div className="mb-3 max-w-sm">
         <FormField
@@ -115,31 +118,22 @@ export function SlicingSetup({ project }: { project: Project }) {
       />
       <div className="mt-3 flex flex-wrap items-center gap-3">
         <Button
-          variant="primary"
-          disabled={!dirty || save.isPending}
-          onClick={() => save.mutate({ plates: value }, { onSuccess: () => setDraft(null) })}
-        >
-          {t("projects:slicing.save")}
-        </Button>
-        <p role="status" className={save.isError ? "text-bad" : "text-muted"}>
-          {save.isError
-            ? t("projects:slicing.saveFailed")
-            : save.isSuccess && !dirty
-              ? t("projects:slicing.saved")
-              : ""}
-        </p>
-      </div>
-      <div className="mt-3 flex flex-wrap items-center gap-3">
-        <Button
-          disabled={!saved.canSlice || dirty || !!left || !toSlice || slice.isPending}
-          onClick={() => slice.mutate()}
+          disabled={!saved.canSlice || !!left || (!dirty && !toSlice) || busy}
+          onClick={async () => {
+            try {
+              await setup.flush();
+            } catch {
+              return; // save.isError shows below
+            }
+            slice.mutate();
+          }}
         >
           {t("projects:slicing.slice")}
         </Button>
-        <p aria-live="polite" className={slice.isError ? "text-bad" : "text-muted"}>
-          {sliceStatus}
+        <p aria-live="polite" className={slice.isError || save.isError ? "text-bad" : "text-muted"}>
+          {save.isError ? t("projects:slicing.saveFailed") : sliceStatus}
         </p>
       </div>
-    </section>
+    </>
   );
 }

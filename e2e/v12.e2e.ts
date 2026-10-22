@@ -4,7 +4,14 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Page } from "@playwright/test";
 import { expect, test } from "./fixtures.ts";
-import { hasHorizontalScroll, pick, seedPrinter, seedProfile, seedProject } from "./helpers.ts";
+import {
+  hasHorizontalScroll,
+  openSections,
+  pick,
+  seedPrinter,
+  seedProfile,
+  seedProject,
+} from "./helpers.ts";
 
 // exceljs is the server's dependency; the tests only borrow it to read a template.
 const ExcelJS = createRequire(join(import.meta.dirname, "..", "apps", "server", "package.json"))(
@@ -134,6 +141,7 @@ test("projects: add a project from a folder, link a description file, edit by ha
   expect(project?.description ?? "").toBe(""); // the scanner no longer fills it from the README
 
   await page.goto(`/projects/${project?.id}/edit`);
+  await openSections(page, "Description");
   await pick(page.getByLabel("Description file"), "notes.md");
   // The file's text shows at once, in the editor and the preview.
   await expect(page.getByLabel("Project info", { exact: true })).toHaveValue(notes);
@@ -152,6 +160,7 @@ test("projects: add a project from a folder, link a description file, edit by ha
   await expect(page.locator("strong", { hasText: "world" })).toBeVisible();
 
   await page.goto(`/projects/${project?.id}/edit`);
+  await openSections(page, "Description");
   await pick(page.getByLabel("Description file"), "None");
   await page.getByLabel("Project info", { exact: true }).fill("By hand");
   await page.getByRole("button", { name: "Save" }).click();
@@ -180,6 +189,7 @@ test("projects: the description editor writes the .md file and the preview file 
   const id = items[0]?.id;
 
   await page.goto(`/projects/${id}/edit`);
+  await openSections(page, "Description", "Preview and gallery");
   const editor = page.getByLabel("Project info", { exact: true });
   await editor.fill("# Gadget");
   await pick(page.getByLabel("Description file"), "New file…");
@@ -199,6 +209,7 @@ test("projects: the description editor writes the .md file and the preview file 
 
   await expect(page).toHaveURL(new RegExp(`/projects/${id}$`));
   await page.goto(`/projects/${id}/edit`);
+  await openSections(page, "Preview and gallery");
   await expect(page.getByLabel("Preview file")).toHaveValue("sub/extra.stl"); // survives a reload
 
   expect(readFileSync(join(dir, "sub", "notes.md"), "utf8")).toBe("# Gadget\n\nMade **fast**");

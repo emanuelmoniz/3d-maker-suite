@@ -42,6 +42,9 @@
   "form": {
     "addTitle": "New project",
     "editTitle": "Edit project",
+    "sectionDetails": "Details",
+    "sectionDescription": "Description",
+    "sectionImages": "Preview and gallery",
     "name": "Name",
     "description": "Project info",
     "sourceUrl": "Design page",
@@ -182,13 +185,10 @@
       "outdated": "The file changed since this setup was saved",
       "missing": "Not in the file any more"
     },
-    "save": "Save setup",
-    "saved": "Saved.",
     "saveFailed": "Could not save the setup.",
     "slice": "Slice",
     "sliceHint": "Slices the plates that were never sliced or changed since, with the slicer on this computer.",
     "noSlicer": "Set up a slicer in Settings > Integrations to slice.",
-    "saveFirst": "Save the setup before slicing.",
     "upToDate": "Every plate is sliced and up to date.",
     "progress_one": "Slicing… {{count}} plate left.",
     "progress_other": "Slicing… {{count}} plates left.",

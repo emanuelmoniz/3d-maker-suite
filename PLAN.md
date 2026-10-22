@@ -51,10 +51,11 @@ Do Step 2 of PLAN.md. Research and explain the usage problem before changing cod
 Do Step 3 of PLAN.md. Show me the options with a short mock or screenshot each first.
 ```
 
-### [ ] Step 4 - Project edit page: one save, collapsible cards, deep link
+### [x] Step 4 - Project edit page: one save, collapsible cards, deep link
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - One "Save" button on the edit page. The "Save setup" button goes. "Slice" saves the print setup only, then slices.
+- Save button also save print setup even if cahnges maded and not sliced.
 - Every settings section of the edit page is a collapsible card (reuse the v3 collapsible component used on the project page), closed by default.
 - "Print setup" in the "Production cost of one print" card on the project page opens the edit page at the Print setup section, already open.
 

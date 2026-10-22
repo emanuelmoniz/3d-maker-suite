@@ -1,8 +1,9 @@
 import type { Project } from "@3d-maker-suite/core";
 import { useNavigate, useParams } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
+import { Collapsible } from "../../components/Collapsible.tsx";
 import { Combobox } from "../../components/Combobox.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
@@ -18,9 +19,29 @@ import {
 } from "../../lib/projects.ts";
 import { DescriptionEditor, type DescriptionState } from "./DescriptionEditor.tsx";
 import { GalleryPicker } from "./GalleryPicker.tsx";
-import { SlicingSetup } from "./SlicingSetup.tsx";
+import { SlicingSetup, useSlicingDraft } from "./SlicingSetup.tsx";
 
 const text = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
+
+/** A collapsible card on the edit page; on the add page the fields just sit on it. */
+function Section({
+  title,
+  edit,
+  children,
+}: {
+  title: string;
+  edit: boolean;
+  children: React.ReactNode;
+}) {
+  const fields = <div className="grid gap-4 sm:max-w-md">{children}</div>;
+  return edit ? (
+    <Collapsible title={title} className="">
+      {fields}
+    </Collapsible>
+  ) : (
+    fields
+  );
+}
 
 function ProjectForm({ project }: { project?: Project }) {
   const { t } = useTranslation();
@@ -28,6 +49,12 @@ function ProjectForm({ project }: { project?: Project }) {
   const create = useCreateProject();
   const patch = usePatchProject(project?.id ?? "");
   const save = project ? patch : create;
+  const setup = useSlicingDraft(project?.id ?? "");
+  const [setupFailed, setSetupFailed] = useState(false);
+  // Deep link from the project page: the form mounts after its data loads, too late for the browser's jump.
+  useEffect(() => {
+    if (location.hash === "#slicing") document.getElementById("slicing")?.scrollIntoView();
+  }, []);
   const [folder, setFolder] = useState("");
   const roots = usePreferences().data?.values.projectRoots ?? [];
   // Blank folder path + a root: make the folder there (the first root unless picked).
@@ -101,6 +128,13 @@ function ProjectForm({ project }: { project?: Project }) {
         }
         setWriteFailed(false);
       }
+      // The print setup is saved with the rest, even if it was never sliced.
+      try {
+        await setup.flush();
+        setSetupFailed(false);
+      } catch {
+        return setSetupFailed(true);
+      }
       patch.mutate(changed, done);
     } else {
       // Blank means "let the scan decide": only what was typed is sent, so it is not "edited".
@@ -119,116 +153,145 @@ function ProjectForm({ project }: { project?: Project }) {
   };
 
   return (
-    <form onSubmit={onSubmit} className="grid gap-4 sm:*:max-w-md">
-      <FormField
-        label={t("projects:form.number")}
-        hint={project ? undefined : t("projects:form.numberHint")}
-      >
-        {(p) => (
-          <input
-            {...p}
-            name="number"
-            type="number"
-            min={1}
-            step={1}
-            className={inputClass}
-            defaultValue={project?.number}
-          />
-        )}
-      </FormField>
-      <FormField label={t("projects:form.name")}>
-        {(p) => (
-          <input {...p} name="name" required className={inputClass} defaultValue={project?.name} />
-        )}
-      </FormField>
-      <DescriptionEditor project={project} value={description} onChange={setDescription} />
-      {models.length > 0 && (
-        <FormField label={t("projects:form.previewFile")} hint={t("projects:form.previewFileHint")}>
+    <form onSubmit={onSubmit} className="grid gap-4">
+      <Section title={t("projects:form.sectionDetails")} edit={!!project}>
+        <FormField
+          label={t("projects:form.number")}
+          hint={project ? undefined : t("projects:form.numberHint")}
+        >
           {(p) => (
-            <Combobox
+            <input
               {...p}
-              value={preview}
-              onChange={setPreview}
-              options={[
-                { value: "", label: t("projects:form.previewFileAuto") },
-                ...models.map((m) => ({ value: m.path, label: m.path })),
-              ]}
+              name="number"
+              type="number"
+              min={1}
+              step={1}
+              className={inputClass}
+              defaultValue={project?.number}
             />
           )}
         </FormField>
-      )}
-      {project?.folderPath && images.length > 0 && (
-        <GalleryPicker
-          project={project}
-          value={gallery}
-          cover={cover}
-          onChange={setGallery}
-          onCover={setCover}
-        />
-      )}
-      <FormField label={t("projects:form.sourceUrl")} hint={t("projects:form.sourceUrlHint")}>
-        {(p) => (
-          <input
-            {...p}
-            name="sourceUrl"
-            type="url"
-            className={inputClass}
-            defaultValue={project?.sourceUrl ?? ""}
-          />
-        )}
-      </FormField>
-      {project ? (
-        project.folderPath && (
-          <FormField label={t("projects:form.folder")} hint={t("projects:form.editedHint")}>
+        <FormField label={t("projects:form.name")}>
+          {(p) => (
+            <input
+              {...p}
+              name="name"
+              required
+              className={inputClass}
+              defaultValue={project?.name}
+            />
+          )}
+        </FormField>
+        <FormField label={t("projects:form.sourceUrl")} hint={t("projects:form.sourceUrlHint")}>
+          {(p) => (
+            <input
+              {...p}
+              name="sourceUrl"
+              type="url"
+              className={inputClass}
+              defaultValue={project?.sourceUrl ?? ""}
+            />
+          )}
+        </FormField>
+        {project ? (
+          project.folderPath && (
+            <FormField label={t("projects:form.folder")} hint={t("projects:form.editedHint")}>
+              {(p) => (
+                <input {...p} readOnly className={inputClass} value={project.folderPath ?? ""} />
+              )}
+            </FormField>
+          )
+        ) : (
+          <FormField label={t("projects:form.folder")} hint={t("projects:form.folderHint")}>
             {(p) => (
-              <input {...p} readOnly className={inputClass} value={project.folderPath ?? ""} />
+              <div className="flex gap-2">
+                <input
+                  {...p}
+                  name="folderPath"
+                  className={inputClass}
+                  value={folder}
+                  onChange={(e) => setFolder(e.target.value)}
+                />
+                <PathPicker
+                  label={t("projects:form.folder")}
+                  mode="folder"
+                  initial={folder}
+                  onPick={setFolder}
+                />
+              </div>
             )}
           </FormField>
-        )
-      ) : (
-        <FormField label={t("projects:form.folder")} hint={t("projects:form.folderHint")}>
-          {(p) => (
-            <div className="flex gap-2">
-              <input
+        )}
+        {!project && !folder.trim() && roots.length > 0 && (
+          <FormField label={t("projects:form.createIn")} hint={t("projects:form.createInHint")}>
+            {(p) => (
+              <Combobox
                 {...p}
-                name="folderPath"
-                className={inputClass}
-                value={folder}
-                onChange={(e) => setFolder(e.target.value)}
+                value={createIn}
+                onChange={setRoot}
+                options={[
+                  ...roots.map((r) => ({ value: r, label: r })),
+                  { value: "", label: t("projects:form.createInNone") },
+                ]}
               />
-              <PathPicker
-                label={t("projects:form.folder")}
-                mode="folder"
-                initial={folder}
-                onPick={setFolder}
-              />
-            </div>
+            )}
+          </FormField>
+        )}
+      </Section>
+      <Section title={t("projects:form.sectionDescription")} edit={!!project}>
+        <DescriptionEditor project={project} value={description} onChange={setDescription} />
+      </Section>
+      {(models.length > 0 || (project?.folderPath && images.length > 0)) && (
+        <Section title={t("projects:form.sectionImages")} edit={!!project}>
+          {models.length > 0 && (
+            <FormField
+              label={t("projects:form.previewFile")}
+              hint={t("projects:form.previewFileHint")}
+            >
+              {(p) => (
+                <Combobox
+                  {...p}
+                  value={preview}
+                  onChange={setPreview}
+                  options={[
+                    { value: "", label: t("projects:form.previewFileAuto") },
+                    ...models.map((m) => ({ value: m.path, label: m.path })),
+                  ]}
+                />
+              )}
+            </FormField>
           )}
-        </FormField>
-      )}
-      {!project && !folder.trim() && roots.length > 0 && (
-        <FormField label={t("projects:form.createIn")} hint={t("projects:form.createInHint")}>
-          {(p) => (
-            <Combobox
-              {...p}
-              value={createIn}
-              onChange={setRoot}
-              options={[
-                ...roots.map((r) => ({ value: r, label: r })),
-                { value: "", label: t("projects:form.createInNone") },
-              ]}
+          {project?.folderPath && images.length > 0 && (
+            <GalleryPicker
+              project={project}
+              value={gallery}
+              cover={cover}
+              onChange={setGallery}
+              onCover={setCover}
             />
           )}
-        </FormField>
+        </Section>
       )}
-      {(save.isError || writeFailed) && (
+      {project && (
+        <Collapsible
+          id="slicing"
+          title={t("projects:slicing.title")}
+          className=""
+          defaultOpen={location.hash === "#slicing"}
+        >
+          <SlicingSetup project={project} setup={setup} />
+        </Collapsible>
+      )}
+      {(save.isError || writeFailed || setupFailed) && (
         <p role="alert" className="text-bad">
           {t(
             save.isError && isConflict(save.error)
               ? "projects:form.numberTaken"
-              : writeFailed
-                ? "projects:form.writeError"
-                : "projects:form.error",
+              : setupFailed
+                ? "projects:slicing.saveFailed"
+                : writeFailed
+                  ? "projects:form.writeError"
+                  : "projects:form.error",
           )}
         </p>
       )}
@@ -264,12 +327,7 @@ export function ProjectEditPage() {
       />
       {/* Waits for fresh data: the form keeps its own state, and a background re-scan (e.g. after
           "New file…") must not reset what was typed. */}
-      {data && isFetchedAfterMount && (
-        <>
-          <ProjectForm key={data.id} project={data} />
-          <SlicingSetup project={data} />
-        </>
-      )}
+      {data && isFetchedAfterMount && <ProjectForm key={data.id} project={data} />}
     </>
   );
 }
