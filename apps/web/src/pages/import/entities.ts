@@ -33,6 +33,21 @@ export const ENTITIES: Record<ImportEntity, { label: string; to: string; view: s
   clients: { label: "import:entities.clients", to: "/clients", view: "import:done.viewClients" },
   quotes: { label: "import:entities.quotes", to: "/quotes", view: "import:done.viewQuotes" },
   orders: { label: "import:entities.orders", to: "/orders", view: "import:done.viewOrders" },
+  maintenanceTypes: {
+    label: "import:entities.maintenanceTypes",
+    to: "/maintenance",
+    view: "import:done.viewMaintenance",
+  },
+  maintenance: {
+    label: "import:entities.maintenance",
+    to: "/maintenance",
+    view: "import:done.viewMaintenance",
+  },
+  orderProjects: {
+    label: "import:entities.orderProjects",
+    to: "/orders",
+    view: "import:done.viewOrders",
+  },
   brands: { label: "import:entities.brands", to: "/printers", view: "import:done.viewCatalog" },
   printerModels: {
     label: "import:entities.printerModels",
@@ -87,6 +102,9 @@ const NOTES: Partial<Record<ImportEntity, string[][]>> = {
   clients: [["import:template.clientMatch"]],
   quotes: [["import:template.quoteCost"]],
   orders: [["import:template.orderProjects"]],
+  maintenanceTypes: [["import:template.maintenanceTypes"]],
+  maintenance: [["import:template.maintenance"]],
+  orderProjects: [["import:template.orderLinks"]],
   printerModels: [["import:template.catalogRefs"], ["import:template.modelPicture"]],
   machineProfiles: [["import:template.catalogRefs"]],
   printProfiles: [["import:template.catalogRefs"]],

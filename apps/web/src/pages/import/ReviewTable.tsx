@@ -85,6 +85,7 @@ const ERRORS: Record<ImportErrorCode, string> = {
   not_opened: "import:errors.not_opened",
   before_install: "import:errors.before_install",
   overlap: "import:errors.overlap",
+  wrong_target: "import:errors.wrong_target",
   outside_roots: "import:errors.outside_roots",
   folder_in_use: "import:errors.folder_in_use",
 };
@@ -100,6 +101,8 @@ const MISSING: Record<string, string> = {
 const OPTIONS: Record<string, string> = {
   yes: "import:options.yes",
   no: "import:options.no",
+  printer: "import:options.printer",
+  accessory: "import:options.accessory",
 };
 const SCOPES = ["all", "selected", "filtered"] as const;
 const SCOPE_LABELS: Record<(typeof SCOPES)[number], string> = {

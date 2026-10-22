@@ -168,7 +168,7 @@ Do Step 9 of PLAN.md. Follow how the spools import type is built, end to end, in
 Step 8b format.
 ```
 
-### [ ] Step 10 - Import maintenance and order projects
+### [x] Step 10 - Import maintenance and order projects
 **Model:** Sonnet · **Effort:** Medium
 **Scope:** Maintenance types, maintenance (tasks / history) and order projects become file import types, same pattern as Step 9. Printer, accessory, type, order and project are referenced by number or name; an unknown reference is an invalid row. New handlers in `apps/server/src/import/maintenance.ts` and `orderProjects.ts`.
 

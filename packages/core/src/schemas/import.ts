@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { id } from "./entities.ts";
-import { PRINT_OUTCOMES, SPOOL_STATUSES } from "./enums.ts";
+import { MAINTENANCE_TARGETS, PRINT_OUTCOMES, SPOOL_STATUSES } from "./enums.ts";
 import { SLICER_ZIP_TYPES } from "./slicerCatalog.ts";
 
 // File imports (XLSX / CSV). The columns of an entity are declared once here and drive the
@@ -15,6 +15,9 @@ export const IMPORT_ENTITIES = [
   "clients",
   "quotes",
   "orders",
+  "maintenanceTypes",
+  "maintenance",
+  "orderProjects",
   ...SLICER_ZIP_TYPES,
 ] as const;
 /** Everything the review screen takes: every file entity; an integration or a zip offers some. */
@@ -320,6 +323,111 @@ export const IMPORT_COLUMNS = {
     { key: "status", type: "text", label: "import:orders.columns.status" },
     { key: "notes", type: "text", label: "import:orders.columns.notes" },
   ],
+  maintenanceTypes: [
+    {
+      key: "name",
+      type: "ref",
+      ref: "maintenanceTypes",
+      label: "import:maintenanceTypes.columns.name",
+      required: true,
+    },
+    {
+      key: "target",
+      type: "enum",
+      options: MAINTENANCE_TARGETS,
+      label: "import:maintenanceTypes.columns.target",
+      required: true,
+    },
+    { key: "description", type: "text", label: "import:maintenanceTypes.columns.description" },
+    { key: "docUrl", type: "text", label: "import:maintenanceTypes.columns.docUrl" },
+    { key: "intervalDays", type: "integer", label: "import:maintenanceTypes.columns.intervalDays" },
+    {
+      key: "intervalHours",
+      type: "number",
+      label: "import:maintenanceTypes.columns.intervalHours",
+    },
+    {
+      key: "intervalPrints",
+      type: "integer",
+      label: "import:maintenanceTypes.columns.intervalPrints",
+    },
+    { key: "warnLeadDays", type: "integer", label: "import:maintenanceTypes.columns.warnLeadDays" },
+    {
+      key: "warnLeadHours",
+      type: "integer",
+      label: "import:maintenanceTypes.columns.warnLeadHours",
+    },
+    {
+      key: "warnLeadPrints",
+      type: "integer",
+      label: "import:maintenanceTypes.columns.warnLeadPrints",
+    },
+    // Empty = the default of the maintenance settings.
+    {
+      key: "warnEnabled",
+      type: "enum",
+      options: ["yes", "no"],
+      label: "import:maintenanceTypes.columns.warnEnabled",
+    },
+    {
+      key: "errorEnabled",
+      type: "enum",
+      options: ["yes", "no"],
+      label: "import:maintenanceTypes.columns.errorEnabled",
+    },
+    // `;` lists of names: models ("Bambu Lab X1C"), printers and accessories (by number or name).
+    { key: "models", type: "text", label: "import:maintenanceTypes.columns.models" },
+    { key: "printers", type: "text", label: "import:maintenanceTypes.columns.printers" },
+    {
+      key: "accessoryTypes",
+      type: "text",
+      label: "import:maintenanceTypes.columns.accessoryTypes",
+    },
+    { key: "accessories", type: "text", label: "import:maintenanceTypes.columns.accessories" },
+  ],
+  // A task is its type, its printer or accessory and the time it was done.
+  maintenance: [
+    {
+      key: "type",
+      type: "ref",
+      ref: "maintenanceTypes",
+      label: "import:maintenance.columns.type",
+      required: true,
+    },
+    {
+      key: "printer",
+      type: "ref",
+      ref: "printers",
+      label: "import:maintenance.columns.printer",
+    },
+    {
+      key: "accessory",
+      type: "ref",
+      ref: "accessories",
+      label: "import:maintenance.columns.accessory",
+    },
+    {
+      key: "doneAt",
+      type: "datetime",
+      label: "import:maintenance.columns.doneAt",
+      required: true,
+    },
+    // Empty = the target's usage at that time, as the API works it out.
+    { key: "runtimeHoursAt", type: "number", label: "import:maintenance.columns.runtimeHoursAt" },
+    { key: "printsAt", type: "integer", label: "import:maintenance.columns.printsAt" },
+    { key: "cost", type: "money", label: "import:maintenance.columns.cost" },
+    { key: "notes", type: "text", label: "import:maintenance.columns.notes" },
+  ],
+  orderProjects: [
+    { key: "order", type: "integer", label: "import:orderProjects.columns.order", required: true },
+    {
+      key: "project",
+      type: "ref",
+      ref: "projects",
+      label: "import:orderProjects.columns.project",
+      required: true,
+    },
+  ],
   // A name that is the row's identity is a `ref`, so its spelling alone is never a difference.
   filamentProfiles: [
     {
@@ -473,6 +581,8 @@ export const IMPORT_ERRORS = [
   "before_install",
   /** The accessory is on a printer during that period already. */
   "overlap",
+  /** A maintenance row needs exactly one printer or accessory, the one its type is for. */
+  "wrong_target",
   /** A project's folder isn't inside a project root. */
   "outside_roots",
   /** Another project (or an earlier row of the file) has that folder. */

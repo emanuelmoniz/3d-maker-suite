@@ -460,6 +460,11 @@ async function seedAll() {
     "brand,model,name,layerHeightMm\nBambu Lab,X1C,0.20mm Standard,0.2\n",
   );
   await load("filamentBrands", "name,url\nPolymaker,https://polymaker.com\n");
+  await load(
+    "maintenanceTypes",
+    "name,target,intervalHours,warnEnabled,printers\nNozzle,printer,100.5,no,1-A\n",
+  );
+  await load("maintenance", "type,printer,doneAt,cost\nNozzle,1-A,2026-02-01T10:00:00Z,4.5\n");
 }
 
 const XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
@@ -540,6 +545,86 @@ it("catalog types: an edited export updates the row, a reference you don't have 
   expect(await invalid("filamentProfiles", "brand,material,densityGcm3\nNope,PLA,1.24\n")).toEqual([
     [{ column: "brand", code: "unresolved" }],
   ]);
+});
+
+it("maintenance types, maintenance and order projects: updates, and wrong targets or references are invalid", async () => {
+  await seedAll();
+  await load("accessories", "name,type\nHub,Hub\n");
+  const [type] = await download("maintenanceTypes", "export", "json");
+  expect(type).toMatchObject({ intervalHours: 100.5, warnEnabled: "no", printers: "01-A" });
+  expect((await get("/api/maintenance/types")).items[0]).toMatchObject({
+    intervalSec: 361800,
+    warnEnabled: false,
+    appliesToPrinterIds: [(await get("/api/printers")).items[0].id],
+  });
+
+  const edits = {
+    maintenanceTypes: { intervalHours: 200, models: "Bambu Lab X1C" },
+    maintenance: { notes: "Cleaned", printsAt: 7 },
+  } as const;
+  for (const [entity, edit] of Object.entries(edits) as [ImportEntity, object][]) {
+    const [row] = await download(entity, "export", "json");
+    const p = (
+      await post(`/api/import/${entity}/preview`, [{ ...row, ...edit }])
+    ).json() as ImportPreview;
+    expect(
+      p.rows.map((r) => r.status),
+      entity,
+    ).toEqual(["changed"]);
+    await post(`/api/import/${entity}/apply`, {
+      uploadId: p.uploadId,
+      policy: "overwrite",
+      decisions: [{ row: 2, action: "update", targetId: row.id }],
+    });
+    expect(await download(entity, "export", "json"), entity).toEqual([{ ...row, ...edit }]);
+  }
+  expect((await get("/api/maintenance/tasks")).items[0]).toMatchObject({
+    printerRuntimeSecAt: 3600, // the seeded print, as the API works it out
+    printerPrintsAt: 7,
+    cost: 450,
+  });
+
+  const invalid = async (entity: ImportEntity, csv: string) =>
+    (
+      (await post(`/api/import/${entity}/preview`, csv, "text/csv")).json() as ImportPreview
+    ).rows.map((r) => r.errors);
+  const task = "type,printer,accessory,doneAt\n";
+  expect(
+    await invalid(
+      "maintenance",
+      `${task}Nozzle,,1-Hub,2026-02-02T10:00:00Z\nNozzle,1-A,1-Hub,2026-02-02T10:00:00Z\nNozzle,,,2026-02-02T10:00:00Z\n` +
+        "Nope,1-A,,2026-02-02T10:00:00Z\nNozzle,9-Z,,2026-02-02T10:00:00Z\n",
+    ),
+  ).toEqual([
+    [{ column: "accessory", code: "wrong_target" }],
+    [{ column: "accessory", code: "wrong_target" }],
+    [{ column: "printer", code: "wrong_target" }],
+    [{ column: "type", code: "unresolved" }],
+    [{ column: "printer", code: "unresolved" }],
+  ]);
+  expect(await invalid("maintenanceTypes", "name,target,models\nX,printer,Nope Z\n")).toEqual([
+    [{ column: "models", code: "unresolved" }],
+  ]);
+
+  // An order's project moves; a project that doesn't exist, or an order, is invalid.
+  const [box] = (await get("/api/projects")).items;
+  const lid = (await post("/api/projects", { name: "Lid" })).json();
+  expect(await invalid("orderProjects", "order,project\n9,Box\n3,Nope\n")).toEqual([
+    [{ column: "order", code: "unresolved" }],
+    [{ column: "project", code: "unresolved" }],
+  ]);
+  const [link] = await download("orderProjects", "export", "json");
+  const p = (
+    await post("/api/import/orderProjects/preview", [{ ...link, project: "2-Lid" }])
+  ).json() as ImportPreview;
+  expect(p.rows.map((r) => r.status)).toEqual(["changed"]);
+  await post("/api/import/orderProjects/apply", {
+    uploadId: p.uploadId,
+    policy: "overwrite",
+    decisions: [{ row: 2, action: "update", targetId: link.id }],
+  });
+  expect((await get("/api/orders")).items[0].projectIds).toEqual([lid.id]);
+  expect(box.id).not.toBe(lid.id);
 });
 
 it("writes the template as the export's headers without the id", async () => {

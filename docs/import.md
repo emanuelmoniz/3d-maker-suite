@@ -2,11 +2,27 @@
 
 The **Import** page brings data in from spreadsheets. Nothing is saved until you review the rows and confirm. Integrations (Bambu Cloud, Bambu Studio, OrcaSlicer) import through the same review screen when a sync needs your decision.
 
-You can import **spools**, **printers**, **accessories**, **accessory installs**, **projects**, **prints**, **clients**, **quotes** and **orders**. Filament brands, materials and profiles, and printer brands and models, are added for you when the rows that need them are imported.
+You can import 19 types, and every one can also be exported in the same format (Import | Export page):
+
+- **Your things:** spools, printers, accessories, accessory installs, projects, prints.
+- **Money:** clients, quotes, orders, order projects.
+- **Maintenance:** maintenance types and maintenance (the history).
+- **Printer catalog:** brands, printer models, machine profiles, print profiles.
+- **Filament catalog:** filament brands, filament materials, filament profiles.
+
+A file names the brands, models and materials a row needs, and they must already exist (import them first, or add them in the catalog); a slicer zip or an integration creates them for you.
 
 ## Accessory installs
 
 One row per period an accessory is on a printer. **Accessory** and **Printer** must already exist, by number or name (for example `1-AMS`). **Installed** is required; leave **Removed** empty while it is still on the printer. A row is the same install when its accessory, printer and install day match, so exporting, editing and importing again updates the removal day. A removal before the install, or a period that overlaps another install of the accessory, is an invalid row (the same rule as the accessory page).
+
+## Maintenance
+
+- **Maintenance types**: **Name** and **Target** (printer or accessory) are required. **Every** and **Warn before** are given in days, hours and prints; leave one empty to not use it. **Warn alert** and **Due alert** are yes or no (empty uses the maintenance settings). **Models** (for example `Bambu Lab X1C`), **Printers**, **Accessory types** and **Accessories** are lists separated by `;`; leave them all empty for every printer or accessory. A type is found by its name.
+- **Maintenance**: one row per maintenance done. **Type** and **Done** (date and time) are required, plus the **Printer** or the **Accessory** the type is for, exactly one. A row is the same task when its type, printer or accessory and time match. **Runtime at (h)** and **Prints at** left empty take what the printer or accessory had at that time, as logging maintenance does.
+- **Order projects**: one row per project of an order: the **Order** number and the **Project** (number or name). Changing the project of a row moves the link, unless the order has prints of the project it leaves.
+
+An unknown type, printer, accessory, order or project, or a printer where the type is for accessories (and the other way round), is an invalid row.
 
 ## Projects
 
