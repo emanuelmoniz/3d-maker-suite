@@ -153,6 +153,7 @@ describe("applyBulk", () => {
       targetId,
       candidates: [],
       values: {},
+      raw: {},
       errors: [],
       action: status === "new" ? "create" : status === "changed" ? "update" : "skip",
     }) satisfies ImportPreviewRow;
@@ -216,6 +217,7 @@ describe("auto mode", () => {
     const row = (over: Partial<ImportPreviewRow>): ImportPreviewRow => ({
       row: 2,
       values: {},
+      raw: {},
       status: "new",
       errors: [],
       targetId: null,

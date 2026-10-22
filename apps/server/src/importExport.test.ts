@@ -1,10 +1,17 @@
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { type ImportPreview, type ImportRun, projectRoot } from "@3d-maker-suite/core";
+import {
+  IMPORT_COLUMNS,
+  IMPORT_ENTITIES,
+  type ImportEntity,
+  type ImportPreview,
+  type ImportRun,
+  projectRoot,
+} from "@3d-maker-suite/core";
 import { openDb, schema } from "@3d-maker-suite/db";
 import { eq } from "drizzle-orm";
-import { afterEach, beforeEach, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { buildApp } from "./app.ts";
 import { readXlsx } from "./lib/sheet.ts";
 
@@ -136,24 +143,34 @@ it("imports accessories: create, export round trip, update by number", async () 
   expect((await list())[1]).toMatchObject({ number: 2, countInCosts: false });
 });
 
-/** Previews a CSV, applies what the review suggests and returns the preview. */
+/**
+ * Previews a CSV, applies what the review suggests and returns the preview. A print that needs a
+ * project gets the first one, as a person would pick it.
+ */
 async function load(entity: string, csv: string) {
   const p = (await post(`/api/import/${entity}/preview`, csv, "text/csv")).json() as ImportPreview;
   const rows = p.rows.filter((r) => r.action !== "skip");
-  if (rows.length)
-    expect(
-      (
-        await post(`/api/import/${entity}/apply`, {
-          uploadId: p.uploadId,
-          policy: "overwrite",
-          decisions: rows.map((r) => ({
-            row: r.row,
-            action: r.action,
-            ...(r.targetId && { targetId: r.targetId }),
-          })),
-        })
-      ).statusCode,
-    ).toBe(200);
+  const firstProject = () => db.select().from(schema.projects).get()?.id;
+  if (rows.length) {
+    const res = await post(`/api/import/${entity}/apply`, {
+      uploadId: p.uploadId,
+      policy: "overwrite",
+      decisions: rows.map((r) => ({
+        row: r.row,
+        action: r.action,
+        ...(r.targetId && { targetId: r.targetId }),
+        ...(r.action === "create" &&
+          r.refs && {
+            refs: Object.fromEntries(
+              Object.entries(r.refs)
+                .map(([k, v]) => [k, k === "project" ? (v ?? firstProject()) : v])
+                .filter(([, v]) => v),
+            ),
+          }),
+      })),
+    });
+    expect(res.statusCode, res.body).toBe(200);
+  }
   return p;
 }
 const get = async (url: string) => (await app.inject({ url })).json();
@@ -414,4 +431,145 @@ it("imports projects: folders picked, made or none, prints linked like the scan 
     decisions: [{ row: 2, action: "update", targetId: list[1].id, fromFolder: true }],
   });
   expect((await get(`/api/projects/${list[1].id}`)).name).toBe("cup");
+});
+
+/** One row of every file type, each naming the ones before it. */
+async function seedAll() {
+  await load("printers", "name,brand,model\nA,Bambu Lab,X1C\n");
+  await load("accessories", "name,type,purchasePrice,purchasedAt\nAMS,AMS,349.5,2026-01-01\n");
+  await load("accessoryInstalls", "accessory,printer,installedAt\n1-AMS,1-A,2026-01-02\n");
+  await load(
+    "spools",
+    'material,initialGrams,colorHex,colorName,pricePaid\nPLA,1000,#ff8800,"Orange, bright",19.9\n',
+  );
+  await load("projects", "name,description\nBox,=not a formula\n");
+  await load(
+    "prints",
+    "printer,project,title,startedAt,outcome,durationSec\n1-A,1-Box,Benchy,2026-01-02 10:00,success,3600\n",
+  );
+  await load("clients", "name,mobile,email\nAna,911,ana@x.pt\n");
+  await load(
+    "quotes",
+    "number,name,client,project,unitCost,quantity,failureMarginPct,markupPct\n7,Vase,Ana,1-Box,10.5,2,0,10\n",
+  );
+  await load("orders", "number,client,quote,project,price,status\n3,Ana,7,1-Box,50,done\n");
+}
+
+const XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+const TYPES = { xlsx: XLSX, csv: "text/csv", json: "application/json" } as const;
+/** Translated headers, so the files are read back by label, not key. */
+const labelled = (entity: ImportEntity) => ({
+  ...labels,
+  labels: Object.fromEntries(IMPORT_COLUMNS[entity].map((c) => [c.key, `Label ${c.key}`])),
+});
+const download = async (entity: ImportEntity, kind: string, format: keyof typeof TYPES) => {
+  const res = await post(`/api/import/${entity}/${kind}?format=${format}`, labelled(entity));
+  expect(res.statusCode, res.body).toBe(200);
+  return format === "json" ? res.json() : format === "csv" ? res.body : res.rawPayload;
+};
+
+it.each(Object.keys(TYPES) as (keyof typeof TYPES)[])(
+  "export → import is identical for every type (%s)",
+  async (format) => {
+    await seedAll();
+    for (const entity of IMPORT_ENTITIES) {
+      const file = await download(entity, "export", format);
+      const q = `labels=${encodeURIComponent(JSON.stringify(labelled(entity).labels))}`;
+      const res = await post(`/api/import/${entity}/preview?${q}`, file, TYPES[format]);
+      expect(res.statusCode, `${entity}: ${res.body}`).toBe(200);
+      const p = res.json() as ImportPreview;
+      expect(p.ignoredHeaders, entity).toEqual([]);
+      expect(p.columns?.[0], entity).toBe("id");
+      expect(
+        p.rows.map((r) => [r.status, r.errors]),
+        entity,
+      ).toEqual([["identical", []]]);
+    }
+  },
+);
+
+it("writes the template as the export's headers without the id", async () => {
+  await seedAll();
+  const head = (csv: string) =>
+    csv
+      .replace(/^\uFEFF/, "")
+      .split("\r\n")[0]
+      ?.split(",");
+  for (const entity of IMPORT_ENTITIES) {
+    const exportHead = head(await download(entity, "export", "csv")) ?? [];
+    expect(exportHead[0]).toBe("id");
+    expect(head(await download(entity, "template", "csv"))).toEqual(exportHead.slice(1));
+    expect(await download(entity, "template", "json")).toEqual([]);
+    const [xlsxHead] = await readXlsx(await download(entity, "template", "xlsx"));
+    expect(xlsxHead?.cells).toEqual(exportHead.slice(1));
+  }
+  // Text that reads like a formula is quoted in a CSV, and comes back as it was.
+  expect(await download("projects", "export", "csv")).toContain(",'=not a formula,");
+});
+
+describe("cells edited in the review", () => {
+  const preview = async (csv: string) =>
+    (await post("/api/import/accessories/preview", csv, "text/csv")).json() as ImportPreview;
+  const apply = (p: ImportPreview, decisions: object[]) =>
+    post("/api/import/accessories/apply", { uploadId: p.uploadId, policy: "overwrite", decisions });
+  const names = () =>
+    db
+      .select()
+      .from(schema.accessories)
+      .all()
+      .map((a) => [a.number, a.name, a.purchasePrice]);
+
+  it("fix an invalid row, and an edited row keeps the row it updates", async () => {
+    await load("accessories", "name,type\nAMS,AMS\nHub,Hub\n");
+    const p = await preview("number,name,type,purchasePrice\n,,Hotend,abc\n,AMS,AMS,\n");
+    expect(p.rows[0]).toMatchObject({ status: "invalid", raw: { purchasePrice: "abc" } });
+    const hub = db.select().from(schema.accessories).all()[1];
+    const res = await apply(p, [
+      { row: 2, action: "create", values: { name: "Hotend", purchasePrice: "12,50" } },
+      // The matcher says AMS; the user's pick (Hub) stays, and the edit is written to it.
+      { row: 3, action: "update", targetId: hub?.id, values: { name: "Hub 2" } },
+    ]);
+    expect(res.statusCode, res.body).toBe(200);
+    expect(res.json()).toMatchObject({ created: 1, updated: 1 });
+    expect(names()).toEqual([
+      [1, "AMS", null],
+      [2, "Hub 2", null],
+      [3, "Hotend", 1250],
+    ]);
+  });
+
+  it("rejects a bad edit, an identity edit on an update and an unknown column", async () => {
+    await load("accessories", "name,type\nAMS,AMS\n");
+    const p = await preview("number,name,type\n1,AMS,AMS\n,Hub,Hub\n");
+    const target = p.rows[0]?.targetId;
+    const rejected = async (decision: object) => {
+      const res = await apply(p, [decision]);
+      expect(res.statusCode).toBe(400);
+      return res.json().error.code;
+    };
+    expect(await rejected({ row: 3, action: "create", values: { purchasePrice: "abc" } })).toBe(
+      "invalid_row",
+    );
+    expect(await rejected({ row: 3, action: "create", values: { name: null } })).toBe(
+      "invalid_row",
+    );
+    expect(
+      await rejected({ row: 2, action: "update", targetId: target, values: { number: 9 } }),
+    ).toBe("identity_locked");
+    expect(await rejected({ row: 3, action: "create", values: { id: "x" } })).toBe(
+      "identity_locked",
+    );
+    expect(await rejected({ row: 3, action: "create", values: { nope: "x" } })).toBe(
+      "unknown_column",
+    );
+    expect(names()).toEqual([[1, "AMS", null]]);
+    // A new row may take the number it is given.
+    expect(
+      (await apply(p, [{ row: 3, action: "create", values: { number: 5 } }])).json(),
+    ).toMatchObject({ created: 1 });
+    expect(names()).toEqual([
+      [1, "AMS", null],
+      [5, "Hub", null],
+    ]);
+  });
 });

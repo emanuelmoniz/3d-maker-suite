@@ -36,8 +36,49 @@ export function readCsv(file: Buffer): GridRow[] {
     // ponytail: Excel's plain "CSV" on Windows isn't UTF-8; sniff the code page if 1252 misreads.
     text = new TextDecoder("windows-1252").decode(file);
   }
-  return parseCsv(text).map((cells, i) => ({ n: i + 1, cells }));
+  // The quote `csvCell` puts before a formula-like text goes again.
+  return parseCsv(text).map((cells, i) => ({
+    n: i + 1,
+    cells: cells.map((c) => (/^'[=+\-@\t\r]/.test(c) ? c.slice(1) : c)),
+  }));
 }
+
+/** A column's header in every format: its translated label, `*` when required. */
+const header = (c: ImportColumn, labels: Record<string, string>) =>
+  `${labels[c.key] ?? c.key}${c.required ? " *" : ""}`;
+/** A stored value as a file holds it: money in major units. */
+const fileValue = (c: ImportColumn, v: unknown) =>
+  c.type === "money" && typeof v === "number" ? v / 100 : (v ?? null);
+
+/** Existing rows to write into an export, with their id in a first column. */
+type ExportRows = { id: string; values: Record<string, unknown> }[];
+
+const csvCell = (v: unknown) => {
+  let s = v == null ? "" : String(v);
+  // Text starting like a formula (e.g. a synced name "=HYPERLINK(...)") would run in Excel.
+  if (typeof v === "string" && /^[=+\-@\t\r]/.test(s)) s = `'${s}`;
+  return /[",\r\n]/.test(s) ? `"${s.replaceAll('"', '""')}"` : s;
+};
+
+/** The template (or, with `rows`, the export) as CSV, with a BOM so Excel reads UTF-8. */
+export function buildCsv(
+  columns: readonly ImportColumn[],
+  labels: Record<string, string>,
+  rows?: ExportRows,
+) {
+  const lines = [
+    [...(rows ? ["id"] : []), ...columns.map((c) => header(c, labels))],
+    ...(rows ?? []).map((r) => [r.id, ...columns.map((c) => fileValue(c, r.values[c.key]))]),
+  ];
+  return `﻿${lines.map((l) => l.map(csvCell).join(",")).join("\r\n")}\r\n`;
+}
+
+/** The template (`[]`) or the export as JSON: objects by column key. */
+export const buildJson = (columns: readonly ImportColumn[], rows: ExportRows = []) =>
+  rows.map((r) => ({
+    id: r.id,
+    ...Object.fromEntries(columns.map((c) => [c.key, fileValue(c, r.values[c.key])])),
+  }));
 
 /** Rows of the data sheet that get dropdowns. */
 const ROWS = 1000;
@@ -51,21 +92,19 @@ export async function buildTemplate(
   { labels, sheets, instructions }: ImportTemplate,
   refs: Record<string, string[]>,
   /** Export: existing rows to fill in, with their id in a first column. */
-  rows?: { id: string; values: Record<string, unknown> }[],
+  rows?: ExportRows,
 ): Promise<Buffer> {
   const wb = new ExcelJS.Workbook();
   const data = wb.addWorksheet(sheets.data, { views: [{ state: "frozen", ySplit: 1 }] });
   const help = wb.addWorksheet(sheets.instructions);
   const lists = wb.addWorksheet(sheets.lists);
   const label = (c: ImportColumn) => labels[c.key] ?? c.key;
-  const exported = (c: ImportColumn, v: unknown) =>
-    c.type === "money" && typeof v === "number" ? v / 100 : v;
   // The export's id column is the first one, so every other column shifts right.
   const shift = rows ? 1 : 0;
   data.columns = [
     ...(rows ? [{ header: "id", key: "id", width: 38 }] : []),
     ...columns.map((c) => {
-      const header = `${label(c)}${c.required ? " *" : ""}`;
+      const head = header(c, labels);
       // Dates show as ISO; text stays text, so a colour like 000000 isn't turned into 0.
       const numFmt =
         c.type === "date"
@@ -75,11 +114,15 @@ export async function buildTemplate(
             : c.type === "color"
               ? "@"
               : undefined;
-      return { header, width: Math.max(14, header.length + 2), style: numFmt ? { numFmt } : {} };
+      return {
+        header: head,
+        width: Math.max(14, head.length + 2),
+        style: numFmt ? { numFmt } : {},
+      };
     }),
   ];
   for (const r of rows ?? [])
-    data.addRow([r.id, ...columns.map((c) => exported(c, r.values[c.key] ?? null))]);
+    data.addRow([r.id, ...columns.map((c) => fileValue(c, r.values[c.key]))]);
   data.getRow(1).font = { bold: true };
 
   let listColumn = 0;

@@ -1,4 +1,9 @@
-import { IMPORT_ENTITIES, type ImportEntity, type ImportResult } from "@3d-maker-suite/core";
+import {
+  IMPORT_ENTITIES,
+  type ImportEntity,
+  type ImportResult,
+  type SheetFormat,
+} from "@3d-maker-suite/core";
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -7,7 +12,7 @@ import { Combobox } from "../../components/Combobox.tsx";
 import { FormField } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { usePreview, useTemplate } from "../../lib/import.ts";
-import { ExportSection } from "./ExportSection.tsx";
+import { ExportSection, FormatField } from "./ExportSection.tsx";
 import { ENTITIES, templateBody } from "./entities.ts";
 import { ReviewTable } from "./ReviewTable.tsx";
 
@@ -15,6 +20,7 @@ export function ImportPage() {
   const { t } = useTranslation();
   const [entity, setEntity] = useState<ImportEntity>("spools");
   const [done, setDone] = useState<ImportResult | null>(null);
+  const [format, setFormat] = useState<SheetFormat>("xlsx");
   const template = useTemplate(entity);
   const preview = usePreview(entity);
   const body = templateBody(entity, t);
@@ -50,10 +56,15 @@ export function ImportPage() {
                     />
                   )}
                 </FormField>
+                <FormatField value={format} onChange={setFormat} />
                 <Button
                   disabled={template.isPending}
                   onClick={() =>
-                    template.mutate({ filename: t("import:template.filename", { name }), body })
+                    template.mutate({
+                      filename: t("import:template.filename", { name, ext: format }),
+                      body,
+                      format,
+                    })
                   }
                 >
                   {t("import:template.download")}

@@ -55,6 +55,8 @@ export type Stored = {
   dir?: string;
   /** The date range the rows were read for (prints), so applying them runs the same range. */
   range?: { from?: string; to?: string };
+  /** A file's column keys in its order. */
+  columns?: string[];
 };
 
 /** The row a write is for, with the references the user picked for it. */
@@ -133,6 +135,35 @@ export const untracked = (stored: Stored): Stored =>
     ? { ...stored, rows: stored.rows.map((r) => ({ ...r, raw: { ...r.raw, trackUsage: "no" } })) }
     : stored;
 
+/** A stored cell as the review shows it: text or a number. */
+const shown = (v: unknown) =>
+  v == null || typeof v === "string" || typeof v === "number" ? (v ?? null) : String(v);
+
+/**
+ * The rows with the cells edited in the review in place of the file's. The identity of a row
+ * that updates (its number, any row's id) is never edited: that would be another row.
+ */
+export function edited(stored: Stored, decisions: ImportApplyDecision[]): Stored {
+  const keys = new Set(IMPORT_COLUMNS[stored.entity].map((c) => c.key));
+  const edits = new Map<number, ImportValues>();
+  for (const d of decisions) {
+    if (!d.values) continue;
+    for (const k of Object.keys(d.values)) {
+      if (k === "id" || (k === "number" && d.action === "update"))
+        throw new HttpError(400, "identity_locked", `Row ${d.row}: ${k} can't be changed`);
+      if (!keys.has(k)) throw new HttpError(400, "unknown_column", `Row ${d.row}: no column ${k}`);
+    }
+    edits.set(d.row, d.values);
+  }
+  if (!edits.size) return stored;
+  return {
+    ...stored,
+    rows: stored.rows.map((r) =>
+      edits.has(r.n) ? { ...r, raw: { ...r.raw, ...edits.get(r.n) } } : r,
+    ),
+  };
+}
+
 /** Preview and apply for every reviewed import, whatever the rows came from. */
 export function createReview(db: Db, dataDir: string) {
   const dir = join(dataDir, UPLOADS);
@@ -188,6 +219,11 @@ export function createReview(db: Db, dataDir: string) {
       const hit = byId.has(id) ? id : (r.source && bySource.get(r.source)) || null;
       return { hit, raw: r.raw, row: r.n, ...p };
     });
+    // Only the columns (and the id) go to the review, not what a vendor's row carries besides.
+    const cells = (raw: StoredRow["raw"]) =>
+      Object.fromEntries(
+        ["id", ...columns.map((c) => c.key)].flatMap((k) => (k in raw ? [[k, shown(raw[k])]] : [])),
+      );
     // Errors rows have only together (an install overlapping another row of the file).
     const clean = parsed.filter((p) => !p.errors.length);
     handler
@@ -222,13 +258,14 @@ export function createReview(db: Db, dataDir: string) {
           ...(pick.first && { refsFirst: pick.first }),
         };
         const flags = !p.errors.length && handler.flags?.(db, p.values);
-        if (!sourced) return { ...p, ...m, ...s, ...picked, ...flags };
+        if (!sourced) return { ...p, raw: cells(raw), ...m, ...s, ...picked, ...flags };
         const yours = !!hit && !!handler.handsOff;
         // A row that has only required picks is skipped until picked (a vendor's spool); one with
         // optional ones too stays a create, so a missing required pick shows (a print's project).
         const unpicked = !!pick && !picks?.optional && Object.values(pick.refs).some((v) => !v);
         return {
           ...p,
+          raw: cells(raw),
           ...m,
           ...s,
           ...((yours || (unpicked && s.action === "create")) && { action: "skip" as const }),
@@ -252,14 +289,18 @@ export function createReview(db: Db, dataDir: string) {
               valid.map((p) => p.values),
             ),
       ignoredHeaders: stored.ignoredHeaders,
+      columns: stored.columns,
+      refNames: handler.refs?.(db) ?? {},
       refOptions: picks?.options,
       ...(picks?.optional && { refsOptional: picks.optional }),
     };
   }
 
   /** The writes the decisions ask for. Anything wrong rejects them all. */
-  function plan(stored: Stored, decisions: ImportApplyDecision[], policy: MergePolicy) {
-    const handler = handlers[stored.entity];
+  function plan(original: Stored, decisions: ImportApplyDecision[], policy: MergePolicy) {
+    const handler = handlers[original.entity];
+    // Edited rows are read, checked and canonised again. The target stays the decision's.
+    const stored = edited(original, decisions);
     const current = preview(stored);
     const rows = new Map(current.rows.map((r) => [r.row, r]));
     const targets = new Map(current.targets.map((t) => [t.id, t]));
@@ -268,8 +309,13 @@ export function createReview(db: Db, dataDir: string) {
     const ops = decisions.map((d) => {
       const row = rows.get(d.row);
       const from = source.get(d.row);
-      if (!row || !from || row.status === "invalid")
-        throw new HttpError(400, "invalid_row", `Row ${d.row} can't be imported`);
+      const [error] = row?.errors ?? [];
+      if (!row || !from || error)
+        throw new HttpError(
+          400,
+          "invalid_row",
+          `Row ${d.row} can't be imported${error ? `: ${error.column} ${error.code}` : ""}`,
+        );
       const target = d.action === "update" ? targets.get(d.targetId ?? "") : undefined;
       if (d.action === "update" && !target)
         throw new HttpError(400, "target_not_found", `Row ${d.row} has no row to update`);

@@ -127,7 +127,7 @@ and confirm the pre-release is published.
 Do Step 8 of PLAN.md.
 ```
 
-### [ ] Step 8b - One file format for template and export, editable review  **[plan mode]**
+### [x] Step 8b - One file format for template and export, editable review  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:**
 - Template = export: same columns and labels, the export adds an `id` column. Formats XLSX, CSV and JSON, picked with a format select after "What to export" (and for the template). JSON uses column keys (`[]` for a template); CSV uses the translated labels. Import accepts all three, headers by key or label (`headerKeys`).

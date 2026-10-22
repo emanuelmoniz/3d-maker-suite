@@ -6,6 +6,7 @@ import type {
   ImportTemplate,
   ReviewEntity,
   ReviewedType,
+  SheetFormat,
 } from "@3d-maker-suite/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "./api.ts";
@@ -15,8 +16,8 @@ const XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 /** Builds the template on the server (translated texts go along) and saves it as `filename`. */
 export const useTemplate = (entity: ImportEntity, kind: "template" | "export" = "template") =>
   useMutation({
-    mutationFn: async (v: { filename: string; body: ImportTemplate }) => {
-      const res = await fetch(`/api/import/${entity}/${kind}`, {
+    mutationFn: async (v: { filename: string; body: ImportTemplate; format: SheetFormat }) => {
+      const res = await fetch(`/api/import/${entity}/${kind}?format=${v.format}`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(v.body),

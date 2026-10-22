@@ -101,23 +101,4 @@ describe("backup", () => {
     expect(res.statusCode).toBe(400);
     expect(res.json().error.message).toMatch(/newer version/);
   });
-
-  it("exports CSV and JSON", async () => {
-    const a = await mk("a");
-    await a.app.inject({
-      method: "POST",
-      url: "/api/printers",
-      payload: { name: 'P "1"', modelId: modelIdFor(a.db, "Bambu Lab", "P1S") },
-    });
-    await a.app.inject({
-      method: "POST",
-      url: "/api/printers",
-      payload: { name: "=1+1", modelId: modelIdFor(a.db, "Bambu Lab", "P1S") },
-    });
-    const csv = (await a.app.inject("/api/export/printers")).body;
-    expect(csv).toContain('"P ""1"""');
-    expect(csv).toContain(",'=1+1,");
-    expect((await a.app.inject("/api/export/printers?format=json")).json()).toHaveLength(2);
-    expect((await a.app.inject("/api/export/integrations")).statusCode).toBe(400);
-  });
 });

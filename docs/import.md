@@ -31,9 +31,9 @@ An unknown client, quote or project is an invalid row, and the message says whic
 ## Spreadsheet template
 
 1. Open **Import** and choose what to import (spools, printers or prints).
-2. Click **Download template**. It is an `.xlsx` file with one sheet of columns, a **Lists** sheet with the allowed values, and an **Instructions** sheet.
-3. Fill in one row per item on the first sheet. Columns marked `*` are required. Leave a cell empty to keep what the app already has.
-4. Upload the file (or a `.csv` or `.json` whose first row holds the column names).
+2. Pick a **Format** and click **Download template**. The `.xlsx` has one sheet of columns, a **Lists** sheet with the allowed values, and an **Instructions** sheet. The `.csv` is the header row alone; the `.json` is an empty list (`[]`) of objects named by the column keys.
+3. Fill in one row per item. Columns marked `*` are required. Leave a cell empty to keep what the app already has.
+4. Upload the file. Headers are read by their name in the template or by the column key.
 
 Notes on the columns:
 
@@ -41,7 +41,7 @@ Notes on the columns:
 - **Track usage:** leave empty or enter `yes` to subtract the filament from your spools. Enter `no` to save the print and its filament without changing the spools' weights.
 - **Names:** for brand, material and profile columns, pick an existing name or type a new one.
 
-To get your data back out, use **Export** on the same page. It downloads one `.xlsx` per module, ready to edit and re-import. The **Export** section of the page also has a CSV and a JSON file for every module: the data as stored, for other tools. Use the spreadsheet export if you want to import it back.
+To get your data back out, use **Export** on the same page, as `.xlsx`, `.csv` or `.json`. An export is the template with your rows in it, plus an `id` column, so it can be edited and imported again: a row with an id updates that item. Money is in your currency's units (not cents), names stand for references, and dates are ISO (`2026-03-04`). For a full copy of everything, take a [backup](backups.md).
 
 Data in another app or file? Pick the type, download its template, copy your data into it and upload it. Files you exported earlier can be uploaded as they are.
 
@@ -55,7 +55,9 @@ After upload, every row gets a status:
 | Identical | Already in the app with the same values; nothing to do |
 | Changed | Matches an existing item with different values |
 | Ambiguous | Matches more than one existing item; pick one |
-| Invalid | A value is missing or wrong (the message says which); fix the file and upload again |
+| Invalid | A value is missing or wrong (the message says which); fix the cell in the review, or the file |
+
+The review shows the file's columns in the file's order. Click a cell to edit it, with an input for its kind: text, a number (`12,5` or `12.5`), a date, a date and time (in your local time), a list of options, a name (one you have, or a new one) or a colour. Enter or leaving the cell keeps the edit, Escape drops it. An edited cell has a bar on its left and an undo button. A value that can't be read shows its error as you type; a fixed invalid row can then be created or updated. The **Id**, and the **Number** of a row that updates, can't be edited. The edits are checked again when you import, and any error stops the whole import.
 
 For each row you choose **Create**, **Update** or **Skip**. For matched rows, pick a policy: **Overwrite with file values** or **Fill empty fields only**. The bulk actions apply to all, selected or filtered rows (for example *Auto-match: update matched, add new*, or *Skip all*). Reset to suggestions brings back the app's choices.
 

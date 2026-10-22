@@ -37,7 +37,6 @@ import {
 } from "./routes/catalog.ts";
 import { clientsRoutes } from "./routes/clients.ts";
 import { costsRoutes } from "./routes/costs.ts";
-import { exportRoutes } from "./routes/export.ts";
 import { filamentRoutes } from "./routes/filament.ts";
 import { fsRoutes } from "./routes/fs.ts";
 import { healthRoutes } from "./routes/health.ts";
@@ -163,7 +162,6 @@ export async function buildApp(
   await app.register(tagsRoutes(db), { prefix: "/api/tags" });
   await app.register(collectionsRoutes(db), { prefix: "/api/collections" });
 
-  await app.register(exportRoutes(db), { prefix: "/api/export" });
   await app.register(backupsRoutes(db, dataDir), { prefix: "/api/backups" });
   await app.register(importRoutes(db, dataDir, syncer, scanner), { prefix: "/api/import" });
   if (opts.backupSchedule && dataDir) {

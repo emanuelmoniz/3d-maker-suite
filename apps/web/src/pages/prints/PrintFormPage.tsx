@@ -10,7 +10,7 @@ import { PageHeader } from "../../components/PageHeader.tsx";
 import { TagPicker } from "../../components/TagPicker.tsx";
 import { isConflict, useCatalogItem, useMachineProfiles } from "../../lib/catalog.ts";
 import { spoolName, useProfiles, useSpools } from "../../lib/filament.ts";
-import { formatWeight } from "../../lib/format.ts";
+import { formatWeight, toLocalInput } from "../../lib/format.ts";
 import { orderName, useOrders } from "../../lib/orders.ts";
 import { usePreferences } from "../../lib/preferences.ts";
 import { printerName, usePrinters } from "../../lib/printers.ts";
@@ -25,12 +25,6 @@ const OUTCOMES = {
   failed: "prints:outcomes.failed",
   cancelled: "prints:outcomes.cancelled",
 } as const;
-
-// <input type="datetime-local"> works in local time; the API stores UTC.
-const toLocalInput = (iso: string) => {
-  const d = new Date(iso);
-  return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
-};
 
 type Row = { key: number; spoolId: string; grams: string };
 

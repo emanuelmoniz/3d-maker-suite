@@ -480,6 +480,8 @@ export const importPreviewRowSchema = z.object({
   /** Line in the file (the header is 1); decisions refer to it. */
   row: z.number().int().positive(),
   values,
+  /** The row's cells as the file has them (plus `id`), so the review can show and edit them. */
+  raw: values,
   status: z.enum(IMPORT_STATUSES),
   /** Why the row is `invalid`. */
   errors: z.array(z.object({ column: z.string(), code: z.enum(IMPORT_ERRORS) })),
@@ -539,7 +541,15 @@ export const importPreviewSchema = z.object({
   missing: z.record(z.string(), z.array(z.string())),
   /** File columns that match no column of the entity. */
   ignoredHeaders: z.array(z.string()),
+  /** A file's column keys in the file's order (`id` included); absent when no file was read. */
+  columns: z.array(z.string()).optional(),
+  /** By `ref`: the names you have, offered when a cell is edited. */
+  refNames: z.record(z.string(), z.array(z.string())),
 });
+
+/** What the template and the export are written as. */
+export const SHEET_FORMATS = ["xlsx", "csv", "json"] as const;
+export type SheetFormat = (typeof SHEET_FORMATS)[number];
 
 /** Translated header per column key. The server has no translations, so the web sends them. */
 const labels = z.record(z.string(), z.string());
@@ -611,6 +621,12 @@ export const importApplySchema = z.object({
         fromFolder: z.boolean().optional(),
         /** Projects: exactly these prints are the project's; absent = linked automatically. */
         prints: z.array(id).max(10000).optional(),
+        /**
+         * Cells edited in the review, by column key, as a file cell would hold them. They replace
+         * the row's cells and the row is validated again; `id` and `number` can't change on an
+         * update.
+         */
+        values: values.optional(),
       }),
     )
     .min(1),

@@ -72,3 +72,9 @@ export const formatEnergy = (kwh: number) =>
 // Date-only form fields are stored as noon UTC so every time zone shows the same calendar day.
 export const dateInputToIso = (d: string) => new Date(`${d}T12:00:00Z`).toISOString();
 export const isoToDateInput = (iso: string | null) => iso?.slice(0, 10) ?? "";
+
+// <input type="datetime-local"> works in local time; the API stores UTC.
+export const toLocalInput = (iso: string) => {
+  const d = new Date(iso);
+  return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+};

@@ -20,6 +20,7 @@ import {
   REVIEWED_TYPES,
   type ReviewedType,
   rootOf,
+  SHEET_FORMATS,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
 import { desc } from "drizzle-orm";
@@ -27,12 +28,20 @@ import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { createBackup } from "../backup/backup.ts";
 import { HttpError } from "../errors.ts";
-import { createReview, type Stored } from "../import/review.ts";
+import { createReview, edited, type Stored } from "../import/review.ts";
 import type { Syncer } from "../integrations/sync.ts";
 import { insideRoots } from "../lib/launcher.ts";
 import { numberCell, printTitle } from "../lib/numbers.ts";
 import { readPreferences } from "../lib/preferences.ts";
-import { buildTemplate, type GridRow, readCsv, readXlsx, XLSX_TYPE } from "../lib/sheet.ts";
+import {
+  buildCsv,
+  buildJson,
+  buildTemplate,
+  type GridRow,
+  readCsv,
+  readXlsx,
+  XLSX_TYPE,
+} from "../lib/sheet.ts";
 import { parseFolderName } from "../projects/folderName.ts";
 import { linkPrints, type MatchProject, suggestPrints } from "../projects/linkPrints.ts";
 import { folderName, newProjectFolder } from "../projects/newFolder.ts";
@@ -69,36 +78,40 @@ export const importRoutes =
       (_req, body, done) => done(null, body),
     );
 
-    // The web sends the translated headers and instructions: the server has no translations.
-    app.post(
-      "/:entity/template",
-      { schema: { params, body: importTemplateSchema } },
-      async (req, reply) => {
-        const { entity } = req.params;
-        const refs = review.handlers[entity].refs?.(db) ?? {};
-        return reply
-          .header("content-disposition", `attachment; filename="${entity}-template.xlsx"`)
-          .type(XLSX_TYPE)
-          .send(await buildTemplate(IMPORT_COLUMNS[entity], req.body, refs));
-      },
-    );
-
-    // The template filled with what you have, plus an id column so an edited file matches by id.
-    app.post(
-      "/:entity/export",
-      { schema: { params, body: importTemplateSchema } },
-      async (req, reply) => {
-        const { entity } = req.params;
-        const handler = review.handlers[entity];
-        const rows = handler.targets(db).map((t) => ({ id: t.id, values: t.values }));
-        return reply
-          .header("content-disposition", `attachment; filename="${entity}-export.xlsx"`)
-          .type(XLSX_TYPE)
-          .send(
-            await buildTemplate(IMPORT_COLUMNS[entity], req.body, handler.refs?.(db) ?? {}, rows),
-          );
-      },
-    );
+    // The web sends the translated headers and instructions: the server has no translations. The
+    // export is the template filled with what you have, plus an id column so an edited file
+    // matches by id.
+    for (const kind of ["template", "export"] as const)
+      app.post(
+        `/:entity/${kind}`,
+        {
+          schema: {
+            params,
+            querystring: z.object({ format: z.enum(SHEET_FORMATS).default("xlsx") }),
+            body: importTemplateSchema,
+          },
+        },
+        async (req, reply) => {
+          const { entity } = req.params;
+          const { format } = req.query;
+          const handler = review.handlers[entity];
+          const columns = IMPORT_COLUMNS[entity];
+          const rows =
+            kind === "export"
+              ? handler.targets(db).map((t) => ({ id: t.id, values: t.values }))
+              : undefined;
+          reply.header("content-disposition", `attachment; filename="${entity}-${kind}.${format}"`);
+          if (format === "json")
+            return reply.type("application/json").send(buildJson(columns, rows));
+          if (format === "csv")
+            return reply
+              .type("text/csv; charset=utf-8")
+              .send(buildCsv(columns, req.body.labels, rows));
+          return reply
+            .type(XLSX_TYPE)
+            .send(await buildTemplate(columns, req.body, handler.refs?.(db) ?? {}, rows));
+        },
+      );
 
     app.get("/runs", { schema: { response: { 200: z.array(importRunSchema) } } }, async () =>
       db
@@ -155,6 +168,7 @@ export const importRoutes =
           fileName: req.query.fileName,
           ignoredHeaders: headers.filter((h, i) => !keys[i] && filled(h)).map(String),
           rows,
+          columns: [...new Set(keys.filter((k) => k !== null))],
         };
         return { uploadId: review.save(stored), ...review.preview(stored) };
       },
@@ -191,7 +205,7 @@ export const importRoutes =
      */
     async function makeFolders(stored: Stored, decisions: ImportApplyDecision[], made: string[]) {
       if (!decisions.some((d) => d.folder && "create" in d.folder)) return decisions;
-      const current = review.preview(stored);
+      const current = review.preview(edited(stored, decisions));
       const rows = new Map(current.rows.map((r) => [r.row, r.values]));
       const targets = new Map(current.targets.map((t) => [t.id, t.values]));
       const taken = new Set(

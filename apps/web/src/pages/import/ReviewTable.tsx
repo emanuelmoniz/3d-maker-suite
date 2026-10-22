@@ -20,12 +20,13 @@ import {
   type MergePolicy,
   mergeValues,
   PRINT_MAX_SLOTS,
+  parseCell,
   printSlotKeys,
   type ReviewEntity,
   suggested,
   usableOn,
 } from "@3d-maker-suite/core";
-import { FileSpreadsheet } from "lucide-react";
+import { FileSpreadsheet, Lock } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
@@ -42,6 +43,7 @@ import { formatDate, formatDateTime, formatNumber, formatWeight } from "../../li
 import { useApply } from "../../lib/import.ts";
 import { usePreferences } from "../../lib/preferences.ts";
 import { NewSpoolDialog } from "../filament/NewSpoolDialog.tsx";
+import { cellText, EditCell } from "./EditCell.tsx";
 import { FolderCell, folderOf, PrintsCell, useProjectPrints } from "./ProjectCells.tsx";
 
 // i18n keys are written out in full so `pnpm i18n:check` can see them.
@@ -166,10 +168,38 @@ export function ReviewTable({
   const [adding, setAdding] = useState<{ row: ImportPreviewRow; key: string } | null>(null);
   const [added, setAdded] = useState<NonNullable<ImportPreview["refOptions"]>[string]>([]);
   const profiles = useProfiles().data?.items ?? [];
+  // Cells edited in the review, by row, as a file cell would hold them. Kept apart from the
+  // decisions, so a bulk reset doesn't drop them.
+  const [edits, setEdits] = useState<Record<number, ImportValues>>({});
 
   const { rows } = preview;
   const targets = new Map(preview.targets.map((x) => [x.id, x]));
   const decisionOf = (r: ImportPreviewRow) => decisions[r.row] ?? suggested(r);
+  /** A cell now: the file's value and error, or the edit read like a file cell. */
+  const cellOf = (r: ImportPreviewRow, c: ImportColumn) => {
+    const e = edits[r.row];
+    if (!e || !(c.key in e))
+      return {
+        value: r.values[c.key] ?? null,
+        error: r.errors.find((x) => x.column === c.key)?.code,
+        edited: false,
+      };
+    const p = parseCell(c, e[c.key]);
+    return "error" in p
+      ? { value: null, error: p.error, edited: true }
+      : { value: p.value, error: undefined, edited: true };
+  };
+  const valuesOf = (r: ImportPreviewRow): ImportValues =>
+    edits[r.row] ? Object.fromEntries(columns.map((c) => [c.key, cellOf(r, c).value])) : r.values;
+  // Server-only errors (a name that must exist) come back on apply once a cell is edited.
+  const broken = (r: ImportPreviewRow) => columns.some((c) => cellOf(r, c).error);
+  const editCell = (r: ImportPreviewRow, key: string, text: string | null | undefined) =>
+    setEdits((all) => {
+      const { [key]: _, ...rest } = all[r.row] ?? {};
+      const row = text === undefined ? rest : { ...rest, [key]: text };
+      const { [r.row]: __, ...others } = all;
+      return Object.keys(row).length ? { ...others, [r.row]: row } : others;
+    });
   // A print takes its filament from the spools unless the row says "no" or the user unticks it.
   const tracks = (r: ImportPreviewRow) => decisionOf(r).trackUsage ?? r.values[TRACK] !== "no";
   const decide = (r: ImportPreviewRow, patch: Partial<ImportDecision>) =>
@@ -197,7 +227,10 @@ export function ReviewTable({
   // picks. A project or spool only goes to a created row that takes it; a spool only to a row
   // with one spool slot that the spool fits.
   const applyAll = () => {
-    const rowsIn = inScope[scope];
+    // A row the edits fixed is a new one to the bulk actions.
+    const rowsIn = inScope[scope].map((r) =>
+      r.status === "invalid" && !broken(r) ? { ...r, status: "new" as const } : r,
+    );
     const next = bulk ? applyBulk(rowsIn, decisions, bulk) : { ...decisions };
     if (prints)
       for (const r of rowsIn) {
@@ -258,6 +291,7 @@ export function ReviewTable({
   // its required picks.
   const problem = (r: ImportPreviewRow) => {
     const d = decisionOf(r);
+    if (d.action !== "skip" && broken(r)) return t("import:review.fixCells");
     if (d.action === "create")
       return picks(r).some((k) => missingPick(r, k)) ? t("import:review.needsRef") : null;
     if (d.action !== "update") return null;
@@ -299,6 +333,19 @@ export function ReviewTable({
         r.errors.some((e) => e.column === c.key) ||
         r.candidates.some((id) => targets.get(id)?.values[c.key] != null),
     );
+  // A file's columns in its order, plus what the review needs that it may not have: a print's
+  // usage tick, a project's folder and the references a row picks.
+  const fileKeys = preview.columns;
+  const needed = (c: ImportColumn) =>
+    (prints && c.key === TRACK) ||
+    (projects && c.key === "folder") ||
+    rows.some((r) => r.refs && c.key in r.refs);
+  const shownColumns = fileKeys
+    ? [
+        ...fileKeys.flatMap((k) => columns.filter((c) => c.key === k)),
+        ...columns.filter((c) => !fileKeys.includes(c.key) && needed(c)),
+      ]
+    : columns.filter(inUse);
   const targetLabel = (x: ImportTarget) =>
     [x.label, ...(TARGET_DETAILS[entity]?.(x.values) ?? [])].filter(Boolean).join(" · ");
 
@@ -332,7 +379,7 @@ export function ReviewTable({
         <Combobox
           aria-label={t("import:review.actionFor", { row: r.row })}
           className={selectClass}
-          disabled={r.status === "invalid"}
+          disabled={broken(r)}
           value={decisionOf(r).action}
           onChange={(v) => decide(r, { action: v as ImportAction })}
           options={IMPORT_ACTIONS.map((a) => ({ value: a, label: t(ACTIONS[a]) }))}
@@ -399,16 +446,30 @@ export function ReviewTable({
         );
       },
     },
-    ...columns.filter(inUse).map(
+    ...(fileKeys?.includes("id")
+      ? [
+          {
+            id: "id",
+            header: t("import:review.id"),
+            cell: (r: ImportPreviewRow) => {
+              const id = String(r.raw.id ?? "");
+              return (
+                <span title={id} className="font-mono text-muted">
+                  {id.slice(0, 8)}
+                </span>
+              );
+            },
+          },
+        ]
+      : []),
+    ...shownColumns.map(
       (c): Column<ImportPreviewRow> => ({
         id: c.key,
         header: t(c.label, c.labelArgs),
         numeric: c.type === "number" || c.type === "integer" || c.type === "money",
-        sortValue: (r) => r.values[c.key] ?? "",
-        filterValue: (r) => r.values[c.key] ?? "",
+        sortValue: (r) => cellOf(r, c).value ?? "",
+        filterValue: (r) => cellOf(r, c).value ?? "",
         cell: (r) => {
-          const error = r.errors.find((e) => e.column === c.key);
-          if (error) return <span className="text-bad">{t(ERRORS[error.code])}</span>;
           const d = decisionOf(r);
           if (c.key === TRACK)
             return d.action === "skip" ? (
@@ -432,7 +493,8 @@ export function ReviewTable({
                 onChange={(patch) => decideFolder(r, patch)}
               />
             );
-          const value = format(c, r.values[c.key]);
+          const now = cellOf(r, c);
+          const value = format(c, now.value);
           const options = preview.refOptions?.[c.key];
           // A suggestion picked from several, until the user picks another.
           const unsure =
@@ -479,18 +541,51 @@ export function ReviewTable({
                 {unsure && <span className="text-warn">{t("import:review.checkSpool")}</span>}
               </span>
             );
-          if (!target) return value;
+          const edit = edits[r.row]?.[c.key];
+          // A cell in error shows what the file (or the edit) says, to fix it.
+          const shown = now.error ? String((now.edited ? edit : r.raw[c.key]) ?? "") : value;
+          const editor = (view: ReactNode) =>
+            // The number is the row an update writes to: it can't change.
+            c.key === "number" && d.action === "update" ? (
+              <span className="inline-flex items-center gap-1">
+                {view}
+                <Lock aria-hidden="true" className="size-3.5 text-muted" />
+              </span>
+            ) : (
+              <EditCell
+                col={c}
+                label={t(c.label, c.labelArgs)}
+                row={r.row}
+                text={
+                  now.edited
+                    ? String(edit ?? "")
+                    : now.error
+                      ? String(r.raw[c.key] ?? "")
+                      : cellText(c, now.value)
+                }
+                edited={now.edited}
+                error={now.error && t(ERRORS[now.error])}
+                names={c.ref ? preview.refNames[c.ref] : undefined}
+                optionLabel={(o) => (OPTIONS[o] ? t(OPTIONS[o] ?? "") : o)}
+                errorText={(code) => t(ERRORS[code])}
+                onCommit={(text) => editCell(r, c.key, text)}
+                onReset={() => editCell(r, c.key, undefined)}
+              >
+                {view}
+              </EditCell>
+            );
+          if (!target || now.error) return editor(shown);
           // What this update writes: the old value struck out, the new one next to it.
-          const writes = mergeValues(columns, d.policy ?? policy, r.values, target.values);
+          const writes = mergeValues(columns, d.policy ?? policy, valuesOf(r), target.values);
           return c.key in writes ? (
             <span className="inline-flex items-center gap-2">
               {target.values[c.key] != null && (
                 <del className="text-muted">{format(c, target.values[c.key])}</del>
               )}
-              <ins className="font-medium text-accent no-underline">{value}</ins>
+              {editor(<ins className="font-medium text-accent no-underline">{value}</ins>)}
             </span>
           ) : (
-            <span className="text-muted">{format(c, target.values[c.key])}</span>
+            editor(<span className="text-muted">{format(c, target.values[c.key])}</span>)
           );
         },
       }),
@@ -764,6 +859,7 @@ export function ReviewTable({
                         action: d.action,
                         targetId: d.action === "update" ? (d.targetId ?? undefined) : undefined,
                         policy: d.policy,
+                        values: edits[r.row],
                         ...(entity === "prints" && { trackUsage: tracks(r) }),
                         ...(projects && {
                           folder: d.folder,

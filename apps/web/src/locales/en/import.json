@@ -12,31 +12,14 @@
     "title": "Export",
     "hint": "Take your data out, to keep, edit or use elsewhere.",
     "sheetTitle": "Spreadsheet",
-    "sheetHint": "An .xlsx with the same columns as the import template. Edit it and upload it again to update your data.",
-    "sheetWhat": "What to export",
-    "rawTitle": "All data, as CSV or JSON",
-    "rawHint": "Everything in a module as stored, for other tools and your own scripts. Use the spreadsheet above if you want to import it back.",
-    "tables": {
-      "printers": "Printers",
-      "accessories": "Accessories",
-      "accessoryInstalls": "Accessory installs",
-      "maintenance": "Maintenance tasks",
-      "maintenanceTypes": "Maintenance types",
-      "filamentProfiles": "Filament profiles",
-      "spools": "Spools",
-      "projects": "Projects",
-      "prints": "Prints",
-      "quotes": "Quotes",
-      "clients": "Clients",
-      "orders": "Orders",
-      "orderProjects": "Order projects",
-      "brands": "Brands",
-      "printerModels": "Printer models",
-      "machineProfiles": "Machine profiles",
-      "printProfiles": "Print profiles",
-      "filamentBrands": "Filament brands",
-      "filamentMaterials": "Filament materials"
-    }
+    "sheetHint": "The same columns as the import template, plus an id. Edit it and upload it again to update your data. A full copy of everything is a backup (Settings).",
+    "sheetWhat": "What to export"
+  },
+  "formats": {
+    "label": "Format",
+    "xlsx": "Excel (.xlsx)",
+    "csv": "CSV (.csv)",
+    "json": "JSON (.json)"
   },
   "entity": "What to import",
   "entities": {
@@ -70,7 +53,7 @@
   },
   "template": {
     "download": "Download template",
-    "filename": "{{name}} template.xlsx",
+    "filename": "{{name}} template.{{ext}}",
     "lists": "Lists",
     "instructions": "Instructions",
     "intro": "Fill in one row per item on the first sheet, then upload the file on the Import page.",
@@ -89,7 +72,7 @@
   },
   "export": {
     "download": "Export",
-    "filename": "{{name}} export.xlsx"
+    "filename": "{{name}} export.{{ext}}"
   },
   "hints": {
     "text": "Any text.",
@@ -206,7 +189,16 @@
     "spoolBulkPick": "Spool assign",
     "trackBulk": "Track usage",
     "trackOn": "Take from spools",
-    "trackOff": "Don't take from spools"
+    "trackOff": "Don't take from spools",
+    "id": "Id",
+    "editCell": "Edit {{column}}, row {{row}}",
+    "cellFor": "{{column}}, row {{row}}",
+    "resetCell": "Undo the edit of {{column}}, row {{row}}",
+    "clearCell": "Clear {{column}}, row {{row}}",
+    "edited": "(edited)",
+    "fixCells": "Fix the cells marked in red",
+    "newName": "new",
+    "empty": "Empty"
   },
   "done": {
     "summary": "Import finished: {{created, number}} created, {{updated, number}} updated.",
