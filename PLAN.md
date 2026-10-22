@@ -23,7 +23,7 @@ Status legend: `[ ]` todo · `[x]` done
 
 ## Phase 1 - Fixes
 
-### [ ] Step 1 - Mobile overflow on the project page
+### [x] Step 1 - Mobile overflow on the project page
 **Model:** Sonnet (use webapp-testing skill) · **Effort:** Medium
 **Scope:**
 - Bug: on phones in portrait (iPhone 16 Pro Max 440px, Pixel 9 Pro 412px) the project page overflows to the right and the bottom nav is not pinned (you have to scroll to see it).

@@ -97,3 +97,10 @@ dialog::backdrop {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* A grid with no column template sizes its children to their content; let them shrink instead. */
+@layer base {
+  .grid > * {
+    min-width: 0;
+  }
+}

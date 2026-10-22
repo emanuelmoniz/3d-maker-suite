@@ -1,46 +1,9 @@
 import { copyFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { deflateSync } from "node:zlib";
 import { expect, test } from "../e2e/fixtures.ts";
-import { roots, seedPrinter, seedProfile } from "../e2e/helpers.ts";
+import { png, roots, seedPrinter, seedProfile } from "../e2e/helpers.ts";
 
 const IMAGES = "docs/images";
-
-/** A w×h gradient PNG, so the gallery has something to show. */
-const png = (hue: number) => {
-  const [w, h] = [320, 240];
-  const raw = Buffer.alloc((w * 3 + 1) * h);
-  for (let y = 0; y < h; y++)
-    for (let x = 0; x < w; x++) {
-      const o = y * (w * 3 + 1) + 1 + x * 3;
-      raw[o] = (hue + x) % 256;
-      raw[o + 1] = (hue * 2 + y) % 256;
-      raw[o + 2] = (hue * 3 + x + y) % 256;
-    }
-  const chunk = (type: string, data: Buffer) => {
-    const out = Buffer.alloc(12 + data.length);
-    out.writeUInt32BE(data.length, 0);
-    out.write(type, 4, "latin1");
-    data.copy(out, 8);
-    let c = ~0;
-    for (const b of out.subarray(4, 8 + data.length)) {
-      c ^= b;
-      for (let k = 0; k < 8; k++) c = (c >>> 1) ^ (0xedb88320 & -(c & 1));
-    }
-    out.writeInt32BE(~c, 8 + data.length);
-    return out;
-  };
-  const head = Buffer.alloc(13);
-  head.writeUInt32BE(w, 0);
-  head.writeUInt32BE(h, 4);
-  head.set([8, 2, 0, 0, 0], 8);
-  return Buffer.concat([
-    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
-    chunk("IHDR", head),
-    chunk("IDAT", deflateSync(raw)),
-    chunk("IEND", Buffer.alloc(0)),
-  ]);
-};
 
 test("README screenshots", async ({ page, app }) => {
   test.setTimeout(180_000);

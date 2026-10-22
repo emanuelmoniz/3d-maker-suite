@@ -74,7 +74,7 @@ function components(resolve?: MarkdownResolve): Components {
 
 export function Markdown({ children, resolve }: { children: string; resolve?: MarkdownResolve }) {
   return (
-    <div className="grid min-w-0 gap-2">
+    <div className="grid min-w-0 gap-2 [overflow-wrap:anywhere]">
       <ReactMarkdown components={components(resolve)} remarkPlugins={[remarkGfm]} skipHtml>
         {children}
       </ReactMarkdown>

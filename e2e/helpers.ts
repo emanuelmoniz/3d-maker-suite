@@ -1,3 +1,6 @@
+import { mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { deflateSync } from "node:zlib";
 import type { Locator, Page } from "@playwright/test";
 
 type Api = <T = unknown>(method: string, path: string, body?: unknown) => Promise<T>;
@@ -123,4 +126,70 @@ export const offScreen = (page: Page) =>
 /** Opens the collapsible cards of the project edit page (they start closed). */
 export const openSections = async (page: Page, ...names: string[]) => {
   for (const name of names) await page.getByRole("heading", { name, exact: true }).click();
+};
+
+/** A w×h gradient PNG, so the gallery has something to show. */
+export const png = (hue: number) => {
+  const [w, h] = [320, 240];
+  const raw = Buffer.alloc((w * 3 + 1) * h);
+  for (let y = 0; y < h; y++)
+    for (let x = 0; x < w; x++) {
+      const o = y * (w * 3 + 1) + 1 + x * 3;
+      raw[o] = (hue + x) % 256;
+      raw[o + 1] = (hue * 2 + y) % 256;
+      raw[o + 2] = (hue * 3 + x + y) % 256;
+    }
+  const chunk = (type: string, data: Buffer) => {
+    const out = Buffer.alloc(12 + data.length);
+    out.writeUInt32BE(data.length, 0);
+    out.write(type, 4, "latin1");
+    data.copy(out, 8);
+    let c = ~0;
+    for (const b of out.subarray(4, 8 + data.length)) {
+      c ^= b;
+      for (let k = 0; k < 8; k++) c = (c >>> 1) ^ (0xedb88320 & -(c & 1));
+    }
+    out.writeInt32BE(~c, 8 + data.length);
+    return out;
+  };
+  const head = Buffer.alloc(13);
+  head.writeUInt32BE(w, 0);
+  head.writeUInt32BE(h, 4);
+  head.set([8, 2, 0, 0, 0], 8);
+  return Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    chunk("IHDR", head),
+    chunk("IDAT", deflateSync(raw)),
+    chunk("IEND", Buffer.alloc(0)),
+  ]);
+};
+
+/** A project with a long name, 8 gallery images and a description that stresses the layout: a 200-char URL, a table and a code block. */
+export const seedRichProject = async (api: Api, dataDir: string) => {
+  const root = join(dataDir, "models");
+  const dir = join(root, "Rich");
+  mkdirSync(dir, { recursive: true });
+  const images = Array.from({ length: 8 }, (_, i) => `image-${i + 1}.png`);
+  for (const [i, n] of images.entries()) writeFileSync(join(dir, n), png(30 * i + 20));
+  await api("PATCH", "/api/preferences", { projectRoots: roots(root) });
+  const project = await api<{ id: string }>("POST", "/api/projects", {
+    name: "A project with a very long name that keeps going and going until it cannot fit a phone",
+    folderPath: dir,
+  });
+  const description = [
+    `https://example.com/${"long-path-segment/".repeat(12)}`,
+    "",
+    "| Part | Material | Weight | Print time | Notes |",
+    "| --- | --- | --- | --- | --- |",
+    "| Body | PLA | 120 g | 4 h | A long note that needs room to breathe on a narrow screen |",
+    "",
+    "```",
+    `const line = "${"x".repeat(120)}";`,
+    "```",
+  ].join("\n");
+  await api("PATCH", `/api/projects/${project.id}`, {
+    description,
+    gallery: { folders: [], images },
+  });
+  return project;
 };
