@@ -127,20 +127,60 @@ and confirm the pre-release is published.
 Do Step 8 of PLAN.md.
 ```
 
-### [ ] Step 9 - Import catalogs: brands, models, profiles, filament catalog  **[plan mode]**
-**Model:** Opus · **Effort:** Medium
-**Scope:** Brands, printer models, machine profiles, print profiles, filament brands, filament materials and filament profiles become file import types (template, parsing, review, apply), like spools. References by number or name, same rules as the API. The slicer zip import for profiles stays as it is.
-**Done when:** the column sets and identity rules are approved; each template round-trips with its export; bad references show in the review; tests in `importExport.test.ts`; e2e on one type; tests pass.
+### [ ] Step 8b - One file format for template and export, editable review  **[plan mode]**
+**Model:** Opus · **Effort:** High
+**Scope:**
+- Template = export: same columns and labels, the export adds an `id` column. Formats XLSX, CSV and JSON, picked with a format select after "What to export" (and for the template). JSON uses column keys (`[]` for a template); CSV uses the translated labels. Import accepts all three, headers by key or label (`headerKeys`).
+- The raw dump goes: `routes/export.ts` (`/api/export/:table`) and the "All data, as CSV or JSON" list. Backups still hold everything.
+- Server: `/:entity/template` and `/:entity/export` take `?format=xlsx|csv|json`. CSV cells formatted like the xlsx export (money in major units, refs by name, ISO dates, formula-escape, BOM).
+- Review = the file: columns of `IMPORT_COLUMNS[entity]` in file order with the template labels (+ Id when the file has it).
+- Every value cell is editable, with an input per column type: text, number (decimal comma ok), date/datetime, enum select, ref combobox (or a new name, as in a file), colour. Id/Number are read-only on rows that update. Edited cells get a marker and a reset. Live validation with core `parseCell`.
+- Apply: a decision takes `values` (raw cells). `review.ts` `plan()` overlays them on the stored row and runs `parseRow → check → canon` again. Any error rejects the apply (as today). `id`/`number` on an update → `identity_locked`. No re-match: the row keeps its target. An invalid row fixed by edits can be created or updated.
+- The user still chooses every row (Create / Update / Skip, bulk actions).
+
+**Done when:** export → re-import is all Identical in each format for the 9 current types; a template has the export's headers minus `id`; edits save, bad edits and identity edits are rejected (tests in `import.test.ts` / `importExport.test.ts`); e2e: export CSV → upload → edit a cell → import; i18n:check passes; tests pass.
 **Prompt:**
 ```
-Do Step 9 of PLAN.md. Show me the columns and identity rule per type first. Follow how the
-spools import type is built, end to end.
+Do Step 8b of PLAN.md. Show me the review table cell editing (one mock per column type)
+and the apply `values` contract first.
+```
+
+### [ ] Step 9 - Import catalogs: brands, models, profiles, filament catalog
+**Model:** Opus · **Effort:** Medium
+**Scope:** Brands, printer models, machine profiles, print profiles, filament brands, filament materials and filament profiles become file import types in the Step 8b format (template/export in XLSX/CSV/JSON, editable review). The handlers in `apps/server/src/import/catalog.ts` and `filamentProfiles.ts` already exist (slicer zip and integrations). Add them to `IMPORT_ENTITIES`, give them real `update`s (brands and filament brands are no-ops today), `refs` for template dropdowns and `targets` for export. References by number or name, same rules as the API.
+
+| Type | Columns | Identity |
+|---|---|---|
+| Brands | Name* | name |
+| Printer models | Brand*, Model* | brand + model |
+| Machine profiles | Brand*, Model*, Name*, Nozzle (mm) | brand + model + name |
+| Print profiles | + Layer height (mm) | brand + model + name |
+| Filament brands | Name*, Website | name |
+| Filament materials | Name*, Nozzle (°C), Bed (°C), Density (g/cm³) | name |
+| Filament profiles | as today | brand + material + name |
+
+Filament materials split out of `filamentBrands` (no more `kind` column). The slicer zip / integration source (`integrations/sourceRows.ts`) offers materials as `filamentMaterials`, and the zip page lists it. The slicer zip import otherwise stays as it is.
+
+**Done when:** each type round-trips with its export in every format (export → re-import Identical → edit → Update); a bad reference shows as invalid in the review; `slicerCatalog.test.ts` still passes; tests in `importExport.test.ts`; e2e on brands; tests pass.
+**Prompt:**
+```
+Do Step 9 of PLAN.md. Follow how the spools import type is built, end to end, in the
+Step 8b format.
 ```
 
 ### [ ] Step 10 - Import maintenance and order projects
 **Model:** Sonnet · **Effort:** Medium
-**Scope:** Maintenance types, maintenance (tasks / history) and order projects become file import types, same pattern as Step 9. Printer, type, order and project are referenced by number or name; an unknown reference is an invalid row.
-**Done when:** each template round-trips with its export; tests in `importExport.test.ts`; e2e on one type; every exported type can now be imported; tests pass.
+**Scope:** Maintenance types, maintenance (tasks / history) and order projects become file import types, same pattern as Step 9. Printer, accessory, type, order and project are referenced by number or name; an unknown reference is an invalid row. New handlers in `apps/server/src/import/maintenance.ts` and `orderProjects.ts`.
+
+| Type | Columns | Identity |
+|---|---|---|
+| Maintenance types | Name*, Target* (printer/accessory), Description, Link, Every (days / hours / prints), Warn before (days / hours / prints), Warn alert (yes/no), Due alert (yes/no), Models, Printers, Accessory types, Accessories (`;` lists) | name |
+| Maintenance | Type*, Printer, Accessory (exactly one, the type's target), Done* (date and time), Runtime at (h), Prints at, Cost, Notes | type + printer/accessory + done |
+| Order projects | Order* (number), Project* (number or name) | order + project |
+
+Hours are converted to and from the `*Sec` columns. Runtime/prints at, left empty, take the target's usage at that time, as the API does.
+
+**Done when:** each template round-trips with its export in every format; a wrong target or unknown reference is invalid; tests in `importExport.test.ts`; e2e on maintenance; all 19 export types can now be imported; docs/import.md lists the 19 types; tests pass.
 **Prompt:**
 ```
 Do Step 10 of PLAN.md. Follow the Step 9 import types.
