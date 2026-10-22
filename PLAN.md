@@ -248,7 +248,7 @@ Do Step 14 of PLAN.md. Show me the ADR draft first: update flow, restart, rollba
 what you'd change in this plan for friends installing it.
 ```
 
-### [ ] Step 15 - Docs, push & v4.0.0-alpha.3
+### [x] Step 15 - Docs, push & v4.0.0-alpha.3
 **Model:** Haiku · **Effort:** Low
 **Scope:** README/docs for install (all OS and Docker), versioning and updates, CHANGELOG, version `4.0.0-alpha.3`. Commit, push `dev`, create and push tag `v4.0.0-alpha.3` on `dev`; check the workflow run, the pre-release and the `:dev` image.
 **Done when:** `dev` and the tag are pushed; the workflow is green; the pre-release and image exist; docs match the app.

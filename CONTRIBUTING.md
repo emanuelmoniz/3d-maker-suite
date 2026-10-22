@@ -52,4 +52,9 @@ Known gap: `common` and `nav` are bundled for English only in `i18n.ts`. Make th
 
 ## Releases
 
-Maintainers tag a version (`git tag v1.0.0 && git push --tags`). The release workflow runs the checks and attaches a source archive to the GitHub release. A tag with a suffix, such as `v1.1.0-alpha.1`, is published as a pre-release. Add the entry to [CHANGELOG.md](CHANGELOG.md) first.
+Maintainers tag a version after adding its entry to [CHANGELOG.md](CHANGELOG.md) and bumping the version in the root `package.json`, `apps/server` and `apps/web`.
+
+- **Stable** (`vX.Y.Z`) is tagged on `main`. Fast-forward `main` to `dev` first.
+- **Pre-release** (`vX.Y.Z-alpha.N`) is tagged on `dev`.
+
+The release workflow runs the checks, attaches a source archive to the GitHub release (a suffixed tag is marked as a pre-release) and publishes the Docker image to `ghcr.io/emanuelmoniz/3d-maker-suite`. It fails if a tag is on the wrong branch. The in-app update check reads these releases: stable users see only stable ones, dev users see pre-releases too (see [ADR-0009](docs/adr/0009-updates.md)).

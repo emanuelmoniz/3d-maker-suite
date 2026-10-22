@@ -4,6 +4,25 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+## [4.0.0-alpha.3] - 2026-10-22
+
+### Added
+- Install: a guide for Windows, macOS, Linux and Docker, with the commands for each and how to check the data folder
+- Docker: a `Dockerfile`, a `docker-compose.yml` example with a data volume, a read-only project folder mount and `APP_PASSWORD`; the release workflow publishes `ghcr.io/emanuelmoniz/3d-maker-suite` (`:X.Y.Z` and `:latest`, or `:X.Y.Z-alpha.N` and `:dev`)
+- Settings → About & updates: the app version, an update channel (Stable, or Dev for pre-releases), **Check now**, and the update history
+- Updates: the app checks GitHub daily for a newer release and shows a banner and an alert; **Update** backs up your data, switches to the release, installs, builds and restarts, with the progress shown on the page
+- Rollback: each update keeps its backup; **Roll back** returns to the version before it, restoring that backup (the last 5 updates are kept)
+- Docker and non-git installs are told the exact commands to update instead of getting an Update button
+
+### Changed
+- `pnpm start` runs a small launcher that restarts the server when it asks for it, and applies an update or rollback in between. If an update fails, the previous version starts again and the reason is shown
+- Restart from Settings → Network works under the launcher; without it, the previous restart method still applies
+- Backups made before an update are named `update-…` and kept with their update
+- `GET /api/health` also returns the app version
+
+### Fixed
+- The update banner showed raw text keys on pages other than Settings
+
 ## [4.0.0-alpha.2] - 2026-10-22
 
 ### Added
