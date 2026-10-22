@@ -143,7 +143,11 @@ test("import: prints without a number are numbered oldest first", async ({ page,
 });
 
 test("Sync from cloud: printers, prints and filament pages", async ({ page, app }) => {
-  await seedCloud(app);
+  const id = await seedCloud(app);
+  // Spools sync starts off, and the filament page only offers a sync once it is on.
+  await app.api("PATCH", `/api/integrations/${id}`, {
+    policies: [{ type: "spools", mode: "manual", frequency: "1d" }],
+  });
   for (const route of ["/printers", "/prints", "/filament"]) {
     await page.goto(route);
     // Prints and filament also get a review link with the same words, so any match will do.
