@@ -27,13 +27,15 @@ const text = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
 function Section({
   title,
   edit,
+  wide,
   children,
 }: {
   title: string;
   edit: boolean;
+  wide?: boolean;
   children: React.ReactNode;
 }) {
-  const fields = <div className="grid gap-4 sm:max-w-md">{children}</div>;
+  const fields = <div className={`grid gap-4${wide ? "" : " sm:max-w-md"}`}>{children}</div>;
   return edit ? (
     <Collapsible title={title} className="">
       {fields}
@@ -238,7 +240,7 @@ function ProjectForm({ project }: { project?: Project }) {
           </FormField>
         )}
       </Section>
-      <Section title={t("projects:form.sectionDescription")} edit={!!project}>
+      <Section title={t("projects:form.sectionDescription")} edit={!!project} wide>
         <DescriptionEditor project={project} value={description} onChange={setDescription} />
       </Section>
       {(models.length > 0 || (project?.folderPath && images.length > 0)) && (

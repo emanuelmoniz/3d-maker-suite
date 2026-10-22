@@ -99,7 +99,7 @@ export function DescriptionEditor({
 
   const plain = value.link.toLowerCase().endsWith(".txt");
   return (
-    <div className="grid gap-4 sm:max-w-none!">
+    <div className="grid gap-4">
       {project?.folderPath && (
         <div className="sm:max-w-md">
           <FormField
@@ -123,44 +123,44 @@ export function DescriptionEditor({
         </div>
       )}
       <div className="grid gap-1">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <label htmlFor={editorId} className="font-medium">
+        {/* Side by side from lg up; tabs below that. */}
+        <div className="flex gap-1 lg:hidden">
+          <button
+            type="button"
+            className={tab}
+            aria-pressed={view === "write"}
+            onClick={() => setView("write")}
+          >
+            {t("projects:form.descriptionWrite")}
+          </button>
+          <button
+            type="button"
+            className={tab}
+            aria-pressed={view === "preview"}
+            onClick={() => setView("preview")}
+          >
+            {t("projects:form.descriptionPreview")}
+          </button>
+        </div>
+        <div className="grid gap-x-3 lg:grid-cols-2">
+          <label htmlFor={editorId} className="hidden font-medium lg:block">
             {t("projects:form.description")}
           </label>
-          {/* Side by side from lg up; tabs below that. */}
-          <div className="flex gap-1 lg:hidden">
-            <button
-              type="button"
-              className={tab}
-              aria-pressed={view === "write"}
-              onClick={() => setView("write")}
-            >
-              {t("projects:form.descriptionWrite")}
-            </button>
-            <button
-              type="button"
-              className={tab}
-              aria-pressed={view === "preview"}
-              onClick={() => setView("preview")}
-            >
-              {t("projects:form.descriptionPreview")}
-            </button>
-          </div>
-        </div>
-        <div className="grid gap-3 lg:grid-cols-2">
+          <h3 className="hidden font-medium lg:block">{t("projects:form.descriptionPreview")}</h3>
           <textarea
             id={editorId}
+            aria-label={t("projects:form.description")}
             disabled={loading}
             className={cx(
               inputClass,
-              "h-96 resize-y py-2 font-mono",
+              "mt-1 h-96 resize-y py-2 font-mono",
               view === "preview" && "hidden lg:block",
             )}
             value={value.text}
             placeholder={loading ? t("projects:form.descriptionLoading") : undefined}
             onChange={(e) => onChange({ ...value, text: e.target.value })}
           />
-          <div className={cx("relative min-h-96", view === "write" && "hidden lg:block")}>
+          <div className={cx("relative mt-1 min-h-96", view === "write" && "hidden lg:block")}>
             <section
               aria-label={t("projects:form.descriptionPreview")}
               className="h-96 overflow-auto rounded-md border border-border p-3 lg:absolute lg:inset-0 lg:h-auto"

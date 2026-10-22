@@ -141,10 +141,10 @@ test("projects: add a project from a folder, link a description file, edit by ha
   expect(project?.description ?? "").toBe(""); // the scanner no longer fills it from the README
 
   await page.goto(`/projects/${project?.id}/edit`);
-  await openSections(page, "Description");
-  await pick(page.getByLabel("Description file"), "notes.md");
+  await openSections(page, "Project info");
+  await pick(page.getByLabel("Project info file"), "notes.md");
   // The file's text shows at once, in the editor and the preview.
-  await expect(page.getByLabel("Project info", { exact: true })).toHaveValue(notes);
+  await expect(page.getByLabel("Editor", { exact: true })).toHaveValue(notes);
   await expect(
     page.getByRole("region", { name: "Preview" }).locator("strong", { hasText: "world" }),
   ).toBeVisible();
@@ -160,9 +160,9 @@ test("projects: add a project from a folder, link a description file, edit by ha
   await expect(page.locator("strong", { hasText: "world" })).toBeVisible();
 
   await page.goto(`/projects/${project?.id}/edit`);
-  await openSections(page, "Description");
-  await pick(page.getByLabel("Description file"), "None");
-  await page.getByLabel("Project info", { exact: true }).fill("By hand");
+  await openSections(page, "Project info");
+  await pick(page.getByLabel("Project info file"), "None");
+  await page.getByLabel("Editor", { exact: true }).fill("By hand");
   await page.getByRole("button", { name: "Save" }).click();
   const after = await app.api<{ description: string; descriptionFile: string | null }>(
     "GET",
@@ -189,17 +189,17 @@ test("projects: the description editor writes the .md file and the preview file 
   const id = items[0]?.id;
 
   await page.goto(`/projects/${id}/edit`);
-  await openSections(page, "Description", "Preview and gallery");
-  const editor = page.getByLabel("Project info", { exact: true });
+  await openSections(page, "Project info", "Preview and gallery");
+  const editor = page.getByLabel("Editor", { exact: true });
   await editor.fill("# Gadget");
-  await pick(page.getByLabel("Description file"), "New file…");
+  await pick(page.getByLabel("Project info file"), "New file…");
   const create = dialog(page);
   await expect(create.getByLabel("File name")).toHaveValue("README.md");
   await create.getByLabel("File name").fill("notes");
   await pick(create.getByLabel("Folder"), "sub");
   await create.getByRole("button", { name: "Create file" }).click();
   // Made with the text so far, and picked.
-  await expect(page.getByLabel("Description file")).toHaveValue("sub/notes.md");
+  await expect(page.getByLabel("Project info file")).toHaveValue("sub/notes.md");
   expect(readFileSync(join(dir, "sub", "notes.md"), "utf8")).toBe("# Gadget");
 
   await editor.fill("# Gadget\n\nMade **fast**");
