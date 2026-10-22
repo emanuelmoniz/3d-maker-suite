@@ -67,8 +67,9 @@ for (const viewport of VIEWPORTS) {
 
     // Detail page: section opens by keyboard, viewer navigates, zooms and closes.
     const gallery = page.getByRole("region", { name: "Gallery (2)" });
-    await gallery.locator("summary").focus();
-    await page.keyboard.press("Enter");
+    await gallery.getByRole("button", { name: "Next image" }).click();
+    await gallery.getByRole("button", { name: "Show front.png" }).click();
+    await expect(gallery.getByRole("button", { name: "Open front.png" })).toBeVisible();
     await gallery.getByRole("button", { name: "Open front.png" }).click();
     const viewer = page.getByRole("dialog", { name: "front.png" });
     await expect(viewer).toBeVisible();
@@ -76,7 +77,10 @@ for (const viewport of VIEWPORTS) {
     await expect(page.getByRole("dialog", { name: "side.png" })).toBeVisible();
     await page.keyboard.press("+");
     await expect(page.getByRole("button", { name: "Reset zoom" })).toBeEnabled();
-    await page.getByRole("button", { name: "Previous image" }).click();
+    await page
+      .getByRole("dialog", { name: "side.png" })
+      .getByRole("button", { name: "Previous image" })
+      .click();
     await expect(page.getByRole("dialog", { name: "front.png" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Reset zoom" })).toBeDisabled();
     await page.screenshot({ path: `test-results/gallery-viewer-${viewport.width}.png` });

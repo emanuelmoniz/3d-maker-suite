@@ -84,7 +84,7 @@ Do Step 5 of PLAN.md. Show me the new roots setting shape, the migration from pr
 projectScanDepth / autoSliceOffRoots and the watcher change first.
 ```
 
-### [ ] Step 6 - Project gallery redesign
+### [x] Step 6 - Project gallery redesign
 **Model:** Sonnet (use frontend-design and webapp-testing skills) · **Effort:** Medium
 **Scope:**
 - The gallery is no longer a collapsible section: it sits above the "Production cost of one print" card, in the right column.

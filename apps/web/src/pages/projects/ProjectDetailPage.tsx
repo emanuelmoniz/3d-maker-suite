@@ -491,7 +491,8 @@ export function ProjectDetailPage() {
             </label>
           )}
         </div>
-        <div className="grid min-w-0 content-start gap-4 [&>section]:mt-0">
+        <div className="order-first grid min-w-0 content-start gap-4 lg:order-0 [&>section]:mt-0">
+          <ProjectGallery project={project} />
           <SlicedEstimate project={project} />
           <PrintedCost id={id} />
           {tags.length > 0 && <TagList tags={tags} />}
@@ -499,7 +500,6 @@ export function ProjectDetailPage() {
       </div>
 
       {current && <Plates project={project} file={current.path} plate={plate} onPlate={setPlate} />}
-      <ProjectGallery project={project} />
       {project.description && (
         <Collapsible title={t("projects:detail.description")} defaultOpen>
           <div className="rounded-lg border border-border bg-surface p-4">
