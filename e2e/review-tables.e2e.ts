@@ -27,7 +27,8 @@ test("print review: sort and filter the queue, an empty result keeps the table",
   // The auto run holds the prints for review; importing them leaves their filament in the queue.
   await seedProject(app.api);
   await page.goto(`/import/integration/${id}/prints`);
-  await pick(page.getByRole("combobox", { name: "Project selection" }), 1);
+  // 0 is "No change", 1 "No project", 2 the project.
+  await pick(page.getByRole("combobox", { name: "Project selection" }), 2);
   await page.getByRole("button", { name: "Apply", exact: true }).click();
   await page.getByRole("button", { name: /^Import \d+ rows?$/ }).click();
   await page
@@ -50,6 +51,41 @@ test("print review: sort and filter the queue, an empty result keeps the table",
   await expect(page.getByText("No results")).toBeVisible();
   await page.getByRole("button", { name: "Clear filters" }).click();
   await expect(rows).toHaveCount(4);
+});
+
+test("print review: held prints can be imported with no project (calibration prints)", async ({
+  page,
+  app,
+}) => {
+  const { id } = await app.api<{ id: string }>("POST", "/api/integrations", {
+    adapterId: "mock",
+    secrets: { token: "t" },
+  });
+  await app.api("PATCH", `/api/integrations/${id}`, {
+    policies: [{ type: "prints", mode: "auto", frequency: "1h" }],
+  });
+  await app.api("POST", `/api/integrations/${id}/sync`, { type: "printers" });
+  await app.api("POST", `/api/integrations/${id}/sync`, { type: "prints" });
+  await seedProject(app.api);
+
+  // No project matches their titles, so the run held them: each one asks for a project.
+  await page.goto(`/import/integration/${id}/prints`);
+  await expect(page.getByText("Pick a project, or No project").first()).toBeVisible();
+  await pick(
+    page.getByRole("combobox", { name: "Project selection" }),
+    "No project (e.g. a calibration print)",
+  );
+  await page.getByRole("button", { name: "Apply", exact: true }).click();
+  await expect(page.getByText("Pick a project, or No project")).toHaveCount(0);
+  await page.getByRole("button", { name: /^Import \d+ rows?$/ }).click();
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: /^Import \d+ rows?$/ })
+    .click();
+  await expect(page.getByText(/^Import finished/)).toBeVisible();
+  const prints = await app.api<{ items: { projectId: string | null }[] }>("GET", "/api/prints");
+  expect(prints.items.length).toBe(3);
+  expect(prints.items.every((p) => p.projectId === null)).toBe(true);
 });
 
 test("import review: sort, filter and page cover every row", async ({ page }) => {

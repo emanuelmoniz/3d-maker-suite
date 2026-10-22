@@ -370,6 +370,9 @@ export const printsRoutes =
                 fields.durationSec !== undefined &&
                 fields.durationSec !== cur.durationSec && { durationEstimated: false }),
               failureReason: merged.outcome === "success" ? null : merged.failureReason,
+              // Taking the project off by hand is on purpose: linking by title leaves it alone.
+              ...(fields.projectId !== undefined &&
+                fields.projectId !== cur.projectId && { noProject: fields.projectId === null }),
               // A manual value is kept unless the request replaces it; estimates follow printer/duration.
               ...(energyWh === undefined && cur.energySource === "measured"
                 ? {}

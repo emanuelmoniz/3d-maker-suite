@@ -55,19 +55,19 @@ export function projectMatcher(
   };
 }
 
-/** Imported prints without a project: the ones linking looks at. */
+/** Imported prints without a project, unless that is on purpose: the ones linking looks at. */
 const unlinked = (db: Db) =>
   db
     .select({ id: prints.id, title: prints.title })
     .from(prints)
-    .where(and(eq(prints.origin, "integration"), isNull(prints.projectId)))
+    .where(
+      and(eq(prints.origin, "integration"), isNull(prints.projectId), eq(prints.noProject, false)),
+    )
     .all();
 
 /**
  * Gives imported prints that have no project the one `projectMatcher` finds. Returns how many
  * prints were linked. Projects in `fixed` had their prints picked by hand: they get none here.
- * ponytail: a print unlinked by hand is linked again while its title still matches; add a
- * "no project" marker if that becomes a problem.
  */
 export function linkPrints(db: Db, fixed: ReadonlySet<string> = new Set()): number {
   const match = projectMatcher(db);

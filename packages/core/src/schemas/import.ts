@@ -62,6 +62,12 @@ export type ImportColumn = {
   fileOnly?: boolean;
 };
 
+/**
+ * The project pick that means "this print has no project" (a calibration print): never linked to
+ * one by its title later. The nil uuid, as picks are ids.
+ */
+export const NO_PROJECT = "00000000-0000-0000-0000-000000000000";
+
 /** A Bambu AMS setup takes up to 16 spools, so a print has up to 16 filament slots. */
 export const PRINT_MAX_SLOTS = 16;
 

@@ -58,7 +58,7 @@ flowchart LR
 | **MaintenanceTask** | A logged "done" event | printerId, typeId, doneAt, printerRuntimeSecAt, printerPrintsAt, notes? |
 | **FilamentProfile** | A material spec (settings only, no colour) | brand, material (PLA, PETG…), name, diameterMm, densityGcm3, pricePerKg? |
 | **Spool** | A physical roll of filament | profileId, colorHex, initialGrams, remainingGrams, pricePaid, purchasedAt?, openedAt?, location?, archivedAt? |
-| **Print** | One print job | printerId, projectId?, machineProfileId?, title, plate?, startedAt, durationSec, outcome, failureReason?, notes?, energyWh?, energySource? (`'estimated' \| 'measured'`), costSnapshot? |
+| **Print** | One print job | printerId, projectId?, noProject (no project on purpose), machineProfileId?, title, plate?, startedAt, durationSec, outcome, failureReason?, notes?, energyWh?, energySource? (`'estimated' \| 'measured'`), costSnapshot? |
 | **PrintFilamentUsage** | Filament used by one print, one row per slot (AMS) | printId, spoolId?, profileId?, grams, slot? |
 | **PrintOutcome** | Value type on Print, no table of its own | `'success' \| 'failed' \| 'cancelled'`, plus an optional failureReason |
 | **Project** | A printable model, usually a 3MF file | name, filePath?, sourceUrl?, thumbnailPath?, meta (plates, estimated time and grams per plate) |

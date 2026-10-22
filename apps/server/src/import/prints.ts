@@ -5,6 +5,7 @@ import {
   type ImportValues,
   lower,
   matchPrintRows,
+  NO_PROJECT,
   PRINT_MAX_SLOTS,
   type PrintInput,
   printSlotKeys,
@@ -416,10 +417,10 @@ export const printImport = {
   /**
    * The spool of each slot with grams, suggested as the one the row names (`printRows` matched it).
    * One left empty waits in the review queue. A row whose project cell is empty (every vendor's
-   * print) needs a project, suggested as the one its title names (`projectMatcher`); a cell that
-   * names one, even one to create, is the row's project. A run with nobody watching leaves a print
-   * without a project or a spool for a person, and one with a spool picked from several
-   * (`raw.unsure`) too.
+   * print) needs a project or NO_PROJECT, suggested as the project its title names
+   * (`projectMatcher`); a cell that names one, even one to create, is the row's project. A run with
+   * nobody watching leaves a print without a project or a spool for a person (NO_PROJECT is never
+   * suggested), and one with a spool picked from several (`raw.unsure`) too.
    */
   picks(db: Db) {
     const projectOf = projectMatcher(db);
@@ -438,7 +439,8 @@ export const printImport = {
     }));
     const spoolKeys = Array.from({ length: PRINT_MAX_SLOTS }, (_, i) => printSlotKeys(i + 1).spool);
     const options = {
-      project: projectOptions,
+      // The review shows NO_PROJECT in the user's language.
+      project: [{ id: NO_PROJECT, label: "" }, ...projectOptions],
       ...Object.fromEntries(spoolKeys.map((k) => [k, spools])),
     };
     const same = (a: ImportCell | undefined, b: string | undefined) => !!b && lower(a) === lower(b);
@@ -487,6 +489,7 @@ export const printImport = {
     const durationSec = estimated ? estimatedDuration(db, printerId, grams) : given;
     const outcome = str(v.outcome) as PrintInput["outcome"];
     const source = src && sourceOf(src);
+    const noProject = src?.refs?.project === NO_PROJECT;
     const row = db
       .insert(prints)
       .values({
@@ -499,7 +502,8 @@ export const printImport = {
         // A number another print has ("import as new" of an exported row) gets the next free one.
         number: freeNumber(db, prints, numberCell(v.number)) ?? nextNumber(prints),
         printerId,
-        projectId: src?.refs?.project ?? projectFor(db, v.project),
+        projectId: noProject ? null : (src?.refs?.project ?? projectFor(db, v.project)),
+        noProject,
         title: str(v.title) ?? "",
         startedAt: new Date(str(v.startedAt) ?? "").toISOString(),
         durationSec,

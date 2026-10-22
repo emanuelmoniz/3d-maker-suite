@@ -617,6 +617,8 @@ export const prints = sqliteTable(
       .notNull()
       .references(() => printers.id, { onDelete: "restrict" }),
     projectId: text().references(() => projects.id, { onDelete: "restrict" }),
+    /** No project on purpose (a calibration print): linking by title leaves it alone. */
+    noProject: integer({ mode: "boolean" }).notNull().default(false),
     /** The order it was printed for; its project is one of the order's (the API keeps that true). */
     orderId: text().references((): AnySQLiteColumn => orders.id, { onDelete: "set null" }),
     // ponytail: nullable like printers.number; every insert sets it (nextNumber).

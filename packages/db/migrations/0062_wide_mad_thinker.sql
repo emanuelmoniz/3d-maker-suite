@@ -1,0 +1,1 @@
+ALTER TABLE `prints` ADD `no_project` integer DEFAULT false NOT NULL;

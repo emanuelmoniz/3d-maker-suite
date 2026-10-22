@@ -19,6 +19,7 @@ import {
   MERGE_POLICIES,
   type MergePolicy,
   mergeValues,
+  NO_PROJECT,
   PRINT_MAX_SLOTS,
   parseCell,
   printSlotKeys,
@@ -527,7 +528,7 @@ export function ReviewTable({
                     { value: "", label: t("import:review.pickTarget") },
                     ...optionsFor(r, c.key, d.refs?.[c.key]).map((o) => ({
                       value: o.id,
-                      label: o.label,
+                      label: o.id === NO_PROJECT ? t("import:review.noProject") : o.label,
                     })),
                     ...(c.ref === "spools"
                       ? [{ value: NEW_SPOOL, label: t("import:review.addSpool") }]
@@ -536,7 +537,13 @@ export function ReviewTable({
                 />
                 {!d.refs?.[c.key] && (
                   <span className={optional.has(c.key) ? "text-warn" : "text-bad"}>
-                    {t(optional.has(c.key) ? "import:review.noSpool" : "import:review.needsRef")}
+                    {t(
+                      optional.has(c.key)
+                        ? "import:review.noSpool"
+                        : c.key === "project"
+                          ? "import:review.needsProject"
+                          : "import:review.needsRef",
+                    )}
                   </span>
                 )}
                 {unsure && <span className="text-warn">{t("import:review.checkSpool")}</span>}
@@ -742,7 +749,7 @@ export function ReviewTable({
                   { value: "", label: t("import:review.noChange") },
                   ...(preview.refOptions?.project ?? []).map((o) => ({
                     value: o.id,
-                    label: o.label,
+                    label: o.id === NO_PROJECT ? t("import:review.noProject") : o.label,
                   })),
                 ]}
               />

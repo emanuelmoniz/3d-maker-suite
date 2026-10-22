@@ -197,6 +197,8 @@
     "errorDetail": "{{detail}} ({{code}})",
     "refFor": "{{column}} for row {{row}}",
     "needsRef": "Pick one you have",
+    "needsProject": "Pick a project, or No project",
+    "noProject": "No project (e.g. a calibration print)",
     "noSpool": "No spool: the grams wait for review",
     "checkSpool": "Picked from several spools of this colour: check it",
     "addSpool": "Add new spool…",

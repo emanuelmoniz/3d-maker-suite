@@ -89,7 +89,7 @@ Each filament slot of a new print has a spool picker:
 
 A spool is marked **Empty** as soon as its remaining weight reaches 0 g, and **In use** once filament is taken from it. Spools have a **Number** (unique; leave it empty for the next free one) and an optional colour name. The spool's display name is built from them.
 
-Printers and projects get a unique number and display name too. Imported prints get their own print numbers, and every imported print needs a project. Numbers follow the order of the print's date, oldest first, and an integration import renumbers the cloud prints the same way.
+Printers and projects get a unique number and display name too. Imported prints get their own print numbers, and every imported print needs a project or **No project** (a calibration print, say: its filament is still tracked). A synced print whose title matches no project waits in the review for you to pick one of the two; a print with No project is never linked to a project by its title later. Numbers follow the order of the print's date, oldest first, and an integration import renumbers the cloud prints the same way.
 
 ## Estimated durations
 

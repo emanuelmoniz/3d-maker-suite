@@ -1,13 +1,14 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { ImportEntity, ImportPreview } from "@3d-maker-suite/core";
+import { type ImportEntity, type ImportPreview, NO_PROJECT } from "@3d-maker-suite/core";
 import { openDb, schema } from "@3d-maker-suite/db";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { buildApp } from "./app.ts";
 import { printImport } from "./import/prints.ts";
 import { filamentProfileIdFor } from "./lib/catalog.ts";
+import { linkPrints } from "./projects/linkPrints.ts";
 
 let dataDir: string;
 let db: ReturnType<typeof openDb>;
@@ -398,7 +399,7 @@ box,Benchy,2026-03-04 10:00,,success,001-Basic #000000,15`;
       `project,${PRINT_HEAD}\n,box,Benchy_plate_1,2026-03-04 10:00,,success,,\n,box,Cube,2026-03-05 10:00,,success,,\n9-new,box,Ball,2026-03-06 10:00,,success,,`,
     );
     expect(p.refsOptional).not.toContain("project");
-    expect(p.refOptions?.project?.map((o) => o.id)).toEqual([benchy.id]);
+    expect(p.refOptions?.project?.map((o) => o.id)).toEqual([NO_PROJECT, benchy.id]);
     // A cell that names a project (even one to create) is the row's project: nothing to pick.
     expect(p.rows.map((r) => r.refs)).toEqual([{ project: benchy.id }, { project: null }, {}]);
     const [a, b, c] = p.rows.map((r) => r.row);
@@ -427,6 +428,47 @@ box,Benchy,2026-03-04 10:00,,success,001-Basic #000000,15`;
         .map((r) => [r.title, r.project]),
     );
     expect(projectOf).toEqual({ Benchy_plate_1: "boat", Cube: "boat", Ball: "new" });
+  });
+
+  it("a print can have no project on purpose: a title match never links it later", async () => {
+    await setup();
+    const p = await preview(
+      "prints",
+      `project,${PRINT_HEAD}\n,box,Calibration,2026-03-04 10:00,,success,,`,
+    );
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/import/prints/apply",
+      payload: {
+        uploadId: p.uploadId,
+        policy: "overwrite",
+        decisions: [{ row: p.rows[0]?.row, action: "create", refs: { project: NO_PROJECT } }],
+      },
+    });
+    expect(res.json()).toMatchObject({ created: 1 });
+    const print = () => db.select().from(schema.prints).get();
+    expect(print()).toMatchObject({ projectId: null, noProject: true });
+
+    // As an integration's print: a project whose file is named like its title shows up.
+    db.update(schema.prints).set({ origin: "integration" }).run();
+    const cal = db
+      .insert(schema.projects)
+      .values({
+        number: 5,
+        name: "cal",
+        meta: { files: [{ path: "Calibration.3mf", kind: "model", size: 1 }] },
+      })
+      .returning()
+      .get();
+    expect(linkPrints(db)).toBe(0);
+
+    // Picking a project by hand ends it; taking the project off again is on purpose again.
+    const patch = (projectId: string | null) =>
+      app.inject({ method: "PATCH", url: `/api/prints/${print()?.id}`, payload: { projectId } });
+    expect((await patch(cal.id)).statusCode).toBe(200);
+    expect(print()).toMatchObject({ projectId: cal.id, noProject: false });
+    await patch(null);
+    expect(print()).toMatchObject({ projectId: null, noProject: true });
   });
 
   it("rejects a spool opened after the print started", async () => {
