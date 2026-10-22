@@ -29,6 +29,24 @@ A local-first manager for your 3D printing: printers, accessories, maintenance, 
 | ![Prints](docs/images/prints.png) | ![Filament](docs/images/filament.png) |
 | ![Stats](docs/images/stats.png) | ![Quotes](docs/images/quotes.png) |
 
+<details>
+<summary>More screenshots</summary>
+
+| | |
+|---|---|
+| ![Printer](docs/images/printer.png) | ![Accessory](docs/images/accessory.png) |
+| ![Maintenance](docs/images/maintenance.png) | ![Maintenance task](docs/images/maintenance-type.png) |
+| ![Spool](docs/images/spool.png) | ![Filament profile](docs/images/filament-profile.png) |
+| ![Print](docs/images/print.png) | ![Projects](docs/images/projects.png) |
+| ![Quotes](docs/images/quotes.png) | ![Quote](docs/images/quote.png) |
+| ![Orders](docs/images/orders.png) | ![Order](docs/images/order.png) |
+| ![Clients](docs/images/clients.png) | ![Client](docs/images/client.png) |
+| ![Alerts](docs/images/alerts.png) | ![Alert](docs/images/alert.png) |
+| ![Import and export](docs/images/import.png) | ![Integrations](docs/images/integrations.png) |
+| ![Settings](docs/images/settings.png) | ![New quote](docs/images/quote-new.png) |
+
+</details>
+
 ## Install
 
 Requirements: **Node.js 22 LTS** and **pnpm**.

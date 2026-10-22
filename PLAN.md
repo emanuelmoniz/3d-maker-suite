@@ -271,7 +271,7 @@ Do Step 15b of PLAN.md. Guide me through the test on each machine, then fix what
 
 ## Phase 5 - Release
 
-### [ ] Step 16 - Responsive pass & screenshots of every module
+### [x] Step 16 - Responsive pass & screenshots of every module
 **Model:** Sonnet (use webapp-testing skill) · **Effort:** Medium
 **Scope:** Run the whole e2e suite at 375/768/1440 and fix what breaks. `pnpm screenshots` covers every module, Settings, Integrations and every detail page (module settings pages left out). Seed one project fully (plates, print setup, prints, gallery images, costs) so the project detail screenshot has data. Add the new screenshots to the README. Docs: "Start at login" in `docs/install.md` (Windows Task Scheduler, macOS launchd, Linux systemd user unit, each running `pnpm start` in the app's folder), so friends don't have to keep a terminal open.
 **Done when:** E2E green in CI; screenshots exist for every module and detail page and match the app.

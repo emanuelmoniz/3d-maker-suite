@@ -41,6 +41,62 @@ If `corepack enable` fails with a permissions error, use `sudo corepack enable` 
 
 `pnpm start` builds the web app, applies database migrations and starts the server. Open <http://127.0.0.1:4300>. Stop it with `Ctrl+C`; run `pnpm start` again to launch it later. Keep the terminal open while you use the app: updates and restarts from Settings happen in it.
 
+## Start at login
+
+So you don't have to keep a terminal open, let your system run `pnpm start` in the app's folder when you log in. `pnpm start` restarts itself after an update, so Settings → **Update** keeps working. Replace `C:\Apps\3d-maker-suite` or `/home/you/3d-maker-suite` with where you cloned it, and find `pnpm` with `where pnpm` (Windows) or `which pnpm`.
+
+### Windows (Task Scheduler)
+
+In PowerShell, once:
+
+```powershell
+$action = New-ScheduledTaskAction -Execute "cmd.exe" -Argument "/c pnpm start" -WorkingDirectory "C:\Apps\3d-maker-suite"
+$trigger = New-ScheduledTaskTrigger -AtLogOn
+Register-ScheduledTask -TaskName "3D Maker Suite" -Action $action -Trigger $trigger
+```
+
+Start it now with `Start-ScheduledTask "3D Maker Suite"`; remove it with `Unregister-ScheduledTask "3D Maker Suite"`. The window stays hidden; stop the app from Task Manager (the `node` process) or with `Stop-ScheduledTask "3D Maker Suite"`.
+
+### macOS (launchd)
+
+Save as `~/Library/LaunchAgents/com.3dmakersuite.plist` (use the full path of `pnpm` in the first `string`):
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.3dmakersuite</string>
+  <key>ProgramArguments</key><array><string>/opt/homebrew/bin/pnpm</string><string>start</string></array>
+  <key>WorkingDirectory</key><string>/Users/you/3d-maker-suite</string>
+  <key>EnvironmentVariables</key><dict><key>PATH</key><string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string></dict>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+</dict>
+</plist>
+```
+
+Then `launchctl load ~/Library/LaunchAgents/com.3dmakersuite.plist`. Stop it with `launchctl unload` and the same path.
+
+### Linux (systemd user unit)
+
+Save as `~/.config/systemd/user/3d-maker-suite.service`:
+
+```ini
+[Unit]
+Description=3D Maker Suite
+
+[Service]
+WorkingDirectory=%h/3d-maker-suite
+ExecStart=/usr/bin/env pnpm start
+Restart=on-failure
+
+[Install]
+WantedBy=default.target
+```
+
+Then `systemctl --user daemon-reload && systemctl --user enable --now 3d-maker-suite`. Logs: `journalctl --user -u 3d-maker-suite`. To start it at boot without logging in: `sudo loginctl enable-linger $USER`. If `pnpm` isn't found, put its full path in `ExecStart` (`which pnpm`).
+
 ## Docker
 
 Use this on a NAS or home server that is always on. You need Docker with Compose; you don't need Node.

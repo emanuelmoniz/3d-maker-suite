@@ -131,12 +131,12 @@ function Sidebar() {
           </div>
         ))}
       </nav>
-      <div className="flex flex-col gap-2 border-t border-border p-2">
+      <div className="flex flex-col gap-0.5 border-t border-border p-2">
         <SideLink item={IMPORT_ITEM} />
         <SideLink item={INTEGRATIONS_ITEM} />
         {logsShown && <SideLink item={LOGS_ITEM} />}
         <SideLink item={SETTINGS_ITEM} />
-        <ThemeToggle className="flex-col lg:flex-row" />
+        <ThemeToggle className="mt-1.5 flex-col lg:flex-row" />
         {version && (
           <p className="hidden px-2.5 text-xs text-muted lg:block">
             {t("common:version", { version })}

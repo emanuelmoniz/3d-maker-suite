@@ -199,7 +199,11 @@ const routes: AnyRoute[] = [
     createRoute({
       getParentRoute: () => root,
       path: path as string,
-      loader: () => Promise.all([loadNamespace("filament"), loadNamespace("tags")]),
+      loader: () =>
+        Promise.all(
+          // The spool page lists its projects and prints.
+          ["filament", "tags", "projects", "prints"].map(loadNamespace),
+        ),
       component: component as () => ReactNode,
     }),
   ),
