@@ -166,27 +166,30 @@ export function ProjectsConfigPage() {
   return (
     <ConfigPage module="projects">
       {({ v, commit, num }) => (
-        <Section title={t("settings:sections.projects")}>
+        <Section title={t("settings:sections.projects")} wide>
           <ProjectRoots v={v} commit={commit} />
-          <FormField
-            label={t("settings:projects.maxFiles")}
-            hint={t("settings:projects.maxFilesHint")}
-          >
-            {(p) => num("projectScanMaxFiles", p)}
-          </FormField>
-          <FormField
-            label={t("settings:projects.viewerMax")}
-            hint={t("settings:projects.viewerMaxHint")}
-          >
-            {(p) => num("viewerMaxMb", p)}
-          </FormField>
-          <FormField
-            label={t("settings:projects.uploadMax")}
-            hint={t("settings:projects.uploadMaxHint")}
-          >
-            {(p) => num("projectUploadMaxMb", p)}
-          </FormField>
-          <ProjectTrash />
+          {/* The usual narrow column of a settings card; only the roots use the full width. */}
+          <div className="grid gap-4 sm:max-w-md">
+            <FormField
+              label={t("settings:projects.maxFiles")}
+              hint={t("settings:projects.maxFilesHint")}
+            >
+              {(p) => num("projectScanMaxFiles", p)}
+            </FormField>
+            <FormField
+              label={t("settings:projects.viewerMax")}
+              hint={t("settings:projects.viewerMaxHint")}
+            >
+              {(p) => num("viewerMaxMb", p)}
+            </FormField>
+            <FormField
+              label={t("settings:projects.uploadMax")}
+              hint={t("settings:projects.uploadMaxHint")}
+            >
+              {(p) => num("projectUploadMaxMb", p)}
+            </FormField>
+            <ProjectTrash />
+          </div>
         </Section>
       )}
     </ConfigPage>
@@ -327,9 +330,11 @@ function ProjectRoots({ v, commit }: Pick<ConfigCtx, "v" | "commit">) {
           onPick={add}
         />
       </form>
-      <p className="text-muted">{t("settings:projects.projectDepthHint")}</p>
-      <p className="text-muted">{t("settings:projects.filesDepthHint")}</p>
-      <p className="text-muted">{t("settings:projects.autoSliceHint")}</p>
+      <div className="grid gap-2 text-muted lg:grid-cols-3 lg:gap-6">
+        <p>{t("settings:projects.projectDepthHint")}</p>
+        <p>{t("settings:projects.filesDepthHint")}</p>
+        <p>{t("settings:projects.autoSliceHint")}</p>
+      </div>
     </fieldset>
   );
 }
