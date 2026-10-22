@@ -6,6 +6,7 @@ import {
   hasHorizontalScroll,
   offScreen,
   pick,
+  roots,
   seedPrinter,
   seedProfile,
   seedProject,
@@ -287,7 +288,7 @@ test.describe("project page layout", () => {
         ),
         "solid x\nendsolid x\n",
       );
-      await app.api("PATCH", "/api/preferences", { projectRoots: [root] });
+      await app.api("PATCH", "/api/preferences", { projectRoots: roots(root) });
       await page.goto("/projects");
       await page.getByRole("button", { name: "Scan folders" }).click();
       await expect(page.getByText("benchy").first()).toBeVisible();

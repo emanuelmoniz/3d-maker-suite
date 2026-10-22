@@ -347,7 +347,7 @@ export function ProjectDetailPage() {
   const [picked, setPicked] = useState<string | null>(null);
   // null: the whole file ("View all").
   const [plate, setPlate] = useState<number | null>(null);
-  const roots = usePreferences().data?.values.projectRoots ?? [];
+  const roots = usePreferences().data?.values.projectRoots.map((r) => r.path) ?? [];
   const open = useOpenProject(id);
   // The default slicer, or the one picked when several are set up (Settings > Integrations).
   const slicers = useCapable("openInSlicer");

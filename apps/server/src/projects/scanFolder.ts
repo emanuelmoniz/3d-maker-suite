@@ -25,8 +25,7 @@ export const kindOf = (name: string): Kind | undefined => KINDS[extname(name).to
 export const isHidden = (name: string) => name.startsWith(".") || name === "node_modules";
 
 // ponytail: fixed caps keep a stray huge folder from stalling a scan; make them settings if hit.
-// (The file cap is one already: `projectScanMaxFiles`.)
-const MAX_DEPTH = 3; // folder levels below the project folder that are looked into
+// (The file cap and depth are ones already: `projectScanMaxFiles`, a root's `filesDepth`.)
 const MAX_3MF = 50; // only metadata is read (zip head + configs), so this stays cheap
 const MAX_TEXT_BYTES = 1024 * 1024;
 const MAX_DESCRIPTION = 100_000;
@@ -96,7 +95,7 @@ export function mergeSlicedExports(models: ProjectModel[]): ProjectModel[] {
   return models.filter((m) => !merged.has(m));
 }
 
-async function collect(root: string, maxFiles: number) {
+async function collect(root: string, maxFiles: number, filesDepth: number | null) {
   const out: (ProjectFile & { abs: string; mtimeMs: number })[] = [];
   async function walk(dir: string, level: number) {
     const entries = await readdir(dir, { withFileTypes: true }).catch(() => []);
@@ -105,7 +104,7 @@ async function collect(root: string, maxFiles: number) {
       if (isHidden(e.name)) continue;
       const abs = join(dir, e.name);
       if (e.isDirectory()) {
-        if (level < MAX_DEPTH) await walk(abs, level + 1);
+        if (filesDepth == null || level < filesDepth) await walk(abs, level + 1);
         continue;
       }
       const kind = e.isFile() ? kindOf(e.name) : undefined;
@@ -133,8 +132,10 @@ export async function scanFolder(
   descriptionFile?: string | null,
   /** Files listed at most; the rest of the folder is not looked at. */
   maxFiles = PREFERENCE_DEFAULTS.projectScanMaxFiles,
+  /** Subfolder levels looked into; null = all. */
+  filesDepth: number | null = null,
 ): Promise<FolderScan> {
-  const all = await collect(dir, maxFiles);
+  const all = await collect(dir, maxFiles, filesDepth);
   const files = all.map(({ path, kind, size }) => ({ path, kind, size }));
 
   // Docs: README first, then other .md, then .txt. PDFs are listed but not read.

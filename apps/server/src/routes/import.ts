@@ -19,6 +19,7 @@ import {
   REVIEW_ENTITIES,
   REVIEWED_TYPES,
   type ReviewedType,
+  rootOf,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
 import { desc } from "drizzle-orm";
@@ -226,6 +227,8 @@ export const importRoutes =
       },
       async (req) => {
         const { projectRoots, projectScanMaxFiles } = readPreferences(db);
+        const paths = projectRoots.map((r) => r.path);
+        const resolved = projectRoots.map((r) => ({ ...r, path: resolve(r.path) }));
         const stored = new Map(
           db
             .select({
@@ -242,8 +245,13 @@ export const importRoutes =
           const cur = r.targetId ? stored.get(r.targetId) : undefined;
           const folder = r.folder ? resolve(r.folder) : null;
           const read =
-            folder && folder !== cur?.folder && (await insideRoots(folder, projectRoots))
-              ? await scanFolder(folder, null, projectScanMaxFiles)
+            folder && folder !== cur?.folder && (await insideRoots(folder, paths))
+              ? await scanFolder(
+                  folder,
+                  null,
+                  projectScanMaxFiles,
+                  rootOf(folder, resolved)?.filesDepth ?? null,
+                )
               : null;
           rows.push({
             row: r.row,

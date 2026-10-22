@@ -55,8 +55,13 @@ export async function autoSlice(
   const project = db.select().from(projects).where(eq(projects.id, projectId)).get();
   const folder = project?.folderPath;
   if (!project || !folder || !sliceIntegration(db, adapters)) return;
+  const off = readPreferences(db).projectRoots.filter((r) => !r.autoSlice);
   const on =
-    project.autoSlice ?? !(await insideRoots(folder, readPreferences(db).autoSliceOffRoots));
+    project.autoSlice ??
+    !(await insideRoots(
+      folder,
+      off.map((r) => r.path),
+    ));
   if (!on) return;
   const after = projectMetaSchema.parse(project.meta);
   const rows = db

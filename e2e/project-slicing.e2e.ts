@@ -1,7 +1,7 @@
 import { appendFileSync, copyFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { expect, test } from "./fixtures.ts";
-import { openSections, pick, seedModel, seedProfile, seedSpool } from "./helpers.ts";
+import { openSections, pick, roots, seedModel, seedProfile, seedSpool } from "./helpers.ts";
 
 type Plate = { index: number; name: string | null };
 
@@ -13,7 +13,7 @@ test("project slicing setup: defaults from the default printer, saves, reloads, 
   mkdirSync(join(root, "Benchy"), { recursive: true });
   const file = join(root, "Benchy", "benchy.3mf");
   copyFileSync(join(import.meta.dirname, "../packages/3mf/fixtures/multi_color.3mf"), file);
-  await app.api("PATCH", "/api/preferences", { projectRoots: [root] });
+  await app.api("PATCH", "/api/preferences", { projectRoots: roots(root) });
   const project = await app.api<{ id: string; meta: { models: { plates: Plate[] }[] } }>(
     "POST",
     "/api/projects",
@@ -83,7 +83,9 @@ test("slicing a project with the mock slicer: results, estimate, list filter, re
   const file = join(root, "Benchy", "benchy.3mf");
   copyFileSync(join(import.meta.dirname, "../packages/3mf/fixtures/multi_color.3mf"), file);
   // Auto slicing off: this test slices by hand (auto-slice.e2e.ts covers the other way).
-  await app.api("PATCH", "/api/preferences", { projectRoots: [root], autoSliceOffRoots: [root] });
+  await app.api("PATCH", "/api/preferences", {
+    projectRoots: [{ ...roots(root)[0], autoSlice: false }],
+  });
   const project = await app.api<{ id: string }>("POST", "/api/projects", {
     name: "Benchy",
     folderPath: join(root, "Benchy"),

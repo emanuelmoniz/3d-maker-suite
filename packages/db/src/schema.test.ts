@@ -564,6 +564,42 @@ describe("migration 0054", () => {
   });
 });
 
+describe("migration 0059", () => {
+  const prefs = (fill: (set: (key: string, value: unknown) => void) => void) =>
+    Object.fromEntries(
+      migrateAcross(58, (sqlite) => {
+        const insert = sqlite.prepare("INSERT INTO settings (key, value) VALUES (?, ?)");
+        fill((key, value) => insert.run(key, JSON.stringify(value)));
+      })
+        .select()
+        .from(s.settings)
+        .all()
+        .map((r) => [r.key, r.value]),
+    );
+
+  it("moves the depth and auto slice onto each root, files depth all", () => {
+    expect(
+      prefs((set) => {
+        set("projectRoots", ["C:\\a", "/b"]);
+        set("projectScanDepth", 2);
+        set("autoSliceOffRoots", ["/b", "/gone"]);
+      }),
+    ).toEqual({
+      projectRoots: [
+        { path: "C:\\a", projectDepth: 2, filesDepth: null, autoSlice: true },
+        { path: "/b", projectDepth: 2, filesDepth: null, autoSlice: false },
+      ],
+    });
+  });
+
+  it("uses depth 1 when none was saved", () => {
+    expect(prefs((set) => set("projectRoots", ["/a"]))).toEqual({
+      projectRoots: [{ path: "/a", projectDepth: 1, filesDepth: null, autoSlice: true }],
+    });
+    expect(prefs((set) => set("projectRoots", []))).toEqual({ projectRoots: [] });
+  });
+});
+
 describe("seed", () => {
   it("fills an empty DB once", () => {
     const empty = openDb(":memory:");

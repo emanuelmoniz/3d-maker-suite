@@ -13,7 +13,7 @@ import { and, eq, inArray, isNull } from "drizzle-orm";
 import type { FastifyBaseLogger } from "fastify";
 import { capableRows, slicerConfigDir } from "../integrations/capabilities.ts";
 import { insideRoots } from "../lib/launcher.ts";
-import { readPreferences } from "../lib/preferences.ts";
+import { readPreferences, rootPaths } from "../lib/preferences.ts";
 import { fingerprint } from "./fingerprint.ts";
 
 const { brands, filamentProfiles, machineProfiles, printerModels, printers } = schema;
@@ -203,10 +203,7 @@ export function projectSliceJob(
         const model = meta.models.find((m) => m.file === job.file);
         const abs =
           model && project?.folderPath
-            ? await insideRoots(
-                join(project.folderPath, job.file),
-                readPreferences(db).projectRoots,
-              )
+            ? await insideRoots(join(project.folderPath, job.file), rootPaths(db))
             : null;
         if (!abs) return fail("not_allowed");
         const out = await slicePlate(db, adapters, { ...row, abs, model }, signal);

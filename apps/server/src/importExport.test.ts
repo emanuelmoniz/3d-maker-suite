@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { ImportPreview, ImportRun } from "@3d-maker-suite/core";
+import { type ImportPreview, type ImportRun, projectRoot } from "@3d-maker-suite/core";
 import { openDb, schema } from "@3d-maker-suite/db";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, expect, it } from "vitest";
@@ -286,7 +286,11 @@ it("imports projects: folders picked, made or none, prints linked like the scan 
     if (file) writeFileSync(join(root, name, file), "not a real 3mf");
     return join(root, name);
   };
-  await app.inject({ method: "PATCH", url: "/api/preferences", payload: { projectRoots: [root] } });
+  await app.inject({
+    method: "PATCH",
+    url: "/api/preferences",
+    payload: { projectRoots: [projectRoot(root)] },
+  });
   const spice = folder("007_spice", "spice_rack.3mf");
   const cup = folder("cup", "cup.3mf");
   await load("printers", "name,brand,model\nA,Bambu Lab,X1C\n");

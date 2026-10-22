@@ -1,23 +1,23 @@
 import { copyFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { expect, test } from "./fixtures.ts";
+import { roots } from "./helpers.ts";
 
 type Slicing = { plates: { state: string; result: { slicedAt: string } | null; job: unknown }[] };
 const fixture = (name: string) => join(import.meta.dirname, `../packages/3mf/fixtures/${name}.3mf`);
 
-test("project folders: auto slice per folder, and removing one", async ({ page, app }) => {
+test("project folders: depths and auto slice per folder, and removing one", async ({
+  page,
+  app,
+}) => {
   const a = join(app.dataDir, "models");
   const b = join(app.dataDir, "archive");
   mkdirSync(a);
   mkdirSync(b);
-  await app.api("PATCH", "/api/preferences", { projectRoots: [a, b] });
-  const prefs = async () =>
-    (
-      await app.api<{ values: { projectRoots: string[]; autoSliceOffRoots: string[] } }>(
-        "GET",
-        "/api/preferences",
-      )
-    ).values;
+  await app.api("PATCH", "/api/preferences", { projectRoots: roots(a, b) });
+  const saved = async () =>
+    (await app.api<{ values: { projectRoots: unknown[] } }>("GET", "/api/preferences")).values
+      .projectRoots;
 
   await page.goto("/projects/settings");
   const auto = page.getByRole("checkbox", { name: `Auto slice projects in ${b}` });
@@ -26,15 +26,23 @@ test("project folders: auto slice per folder, and removing one", async ({ page, 
   // Controlled by the saved value: it unticks once the save is back.
   await auto.click();
   await expect(auto).not.toBeChecked();
-  await expect.poll(async () => (await prefs()).autoSliceOffRoots).toEqual([b]);
+  await page.getByRole("combobox", { name: `Project depth for ${a}` }).selectOption("2");
+  await expect.poll(saved).toEqual([
+    { ...roots(a)[0], projectDepth: 2 },
+    { ...roots(b)[0], autoSlice: false },
+  ]);
 
   await page.getByRole("button", { name: `Remove ${b}` }).click();
   await expect(auto).toHaveCount(0);
-  expect(await prefs()).toMatchObject({ projectRoots: [a], autoSliceOffRoots: [] });
+  await expect.poll(saved).toEqual([{ ...roots(a)[0], projectDepth: 2 }]);
 
+  // Depths are set when adding; the row then shows them.
   await page.getByRole("textbox", { name: "Folder path" }).fill(b);
+  await page.getByRole("combobox", { name: "Files depth", exact: true }).selectOption("1");
   await page.getByRole("button", { name: "Add", exact: true }).click();
   await expect(auto).toBeChecked();
+  await expect(page.getByRole("combobox", { name: `Files depth for ${b}` })).toHaveValue("1");
+  expect((await saved())[1]).toEqual({ ...roots(b)[0], filesDepth: 1 });
 });
 
 test("a changed file slices again; a new slot raises an alert that opens the print setup", async ({
@@ -45,7 +53,7 @@ test("a changed file slices again; a new slot raises an alert that opens the pri
   mkdirSync(join(root, "Benchy"), { recursive: true });
   const file = join(root, "Benchy", "benchy.3mf");
   copyFileSync(fixture("multi_color"), file);
-  await app.api("PATCH", "/api/preferences", { projectRoots: [root] });
+  await app.api("PATCH", "/api/preferences", { projectRoots: roots(root) });
   const project = await app.api<{ id: string }>("POST", "/api/projects", {
     name: "Benchy",
     folderPath: join(root, "Benchy"),

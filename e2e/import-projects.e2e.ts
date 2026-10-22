@@ -1,13 +1,13 @@
 import { join } from "node:path";
 import { expect, test } from "./fixtures.ts";
-import { pick, seedPrinter } from "./helpers.ts";
+import { pick, roots, seedPrinter } from "./helpers.ts";
 
 test("import projects: pick a folder, create one, add a print in the review", async ({
   page,
   app,
 }) => {
   const root = app.makeProjectDir("cup");
-  await app.api("PATCH", "/api/preferences", { projectRoots: [root] });
+  await app.api("PATCH", "/api/preferences", { projectRoots: roots(root) });
   const printer = await seedPrinter(app.api);
   const benchy = await app.api<{ id: string }>("POST", "/api/prints", {
     printerId: printer.id,

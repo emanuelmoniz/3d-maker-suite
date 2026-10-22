@@ -21,7 +21,7 @@ import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
 import { insideRoots } from "../lib/launcher.ts";
-import { readPreferences } from "../lib/preferences.ts";
+import { readPreferences, rootPaths } from "../lib/preferences.ts";
 import { projectPath, segments } from "../projects/paths.ts";
 import { isHidden } from "../projects/scanFolder.ts";
 import type { ProjectScanner } from "../projects/scanner.ts";
@@ -69,7 +69,7 @@ export const projectFilesRoutes =
       done(null, payload),
     );
 
-    const roots = () => readPreferences(db).projectRoots;
+    const roots = () => rootPaths(db);
 
     /** The real path of the configured root holding `folder`. */
     async function rootOf(folder: string) {

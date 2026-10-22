@@ -69,7 +69,7 @@ Do Step 4 of PLAN.md.
 
 ## Phase 2 - Projects
 
-### [ ] Step 5 - Folder settings per root: project depth and files depth  **[plan mode]**
+### [x] Step 5 - Folder settings per root: project depth and files depth  **[plan mode]**
 **Model:** Opus · **Effort:** Medium
 **Scope:**
 - Today `projectScanDepth` is global: a project sits at most N levels below a root (1 = `root/project`, 2 = `root/category/project`), and a folder holding a model file is a project even above that depth. Confirm this in the summary.

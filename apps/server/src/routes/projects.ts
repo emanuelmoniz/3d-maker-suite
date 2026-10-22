@@ -30,7 +30,7 @@ import { projectLabel } from "../lib/catalog.ts";
 import { insideRoots, openFolder, slicerLauncher } from "../lib/launcher.ts";
 import { columnFilter, listPage, taggedWith } from "../lib/list.ts";
 import { assertNumberFree, nextNumber } from "../lib/numbers.ts";
-import { readPreferences } from "../lib/preferences.ts";
+import { readPreferences, rootPaths } from "../lib/preferences.ts";
 import { folderName, newProjectFolder } from "../projects/newFolder.ts";
 import { projectPath, segments } from "../projects/paths.ts";
 import type { ProjectScanner } from "../projects/scanner.ts";
@@ -323,7 +323,7 @@ export const projectsRoutes =
           // Not scanned fields either: the scanner never writes them, so they survive re-scans.
           // Every path is project-relative; images must be listed, folders pass the path guard.
           if (!folderPath) throw new HttpError(404, "no_folder", "Project has no folder");
-          const dir = await insideRoots(folderPath, readPreferences(db).projectRoots);
+          const dir = await insideRoots(folderPath, rootPaths(db));
           if (!dir)
             throw new HttpError(403, "not_allowed", "Project folder is not in a project root");
           const image = (rel: string) => {
@@ -410,7 +410,7 @@ export const projectsRoutes =
         const { folderPath, meta } = get(req.params.id);
         const { target, file, integrationId } = req.body;
         const prefs = readPreferences(db);
-        const dir = folderPath && (await insideRoots(folderPath, prefs.projectRoots));
+        const dir = folderPath && (await insideRoots(folderPath, rootPaths(db)));
         if (!dir)
           throw new HttpError(403, "not_allowed", "Project folder is not in a project root");
         try {

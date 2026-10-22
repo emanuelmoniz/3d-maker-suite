@@ -18,7 +18,6 @@ export type NumKey =
   | "maintenanceLeadDays"
   | "maintenanceLeadHours"
   | "maintenanceLeadPrints"
-  | "projectScanDepth"
   | "projectScanMaxFiles"
   | "viewerMaxMb"
   | "projectUploadMaxMb";
@@ -67,14 +66,11 @@ export function ConfigPage({
       min={
         key === "projectScanMaxFiles"
           ? 100
-          : key === "projectScanDepth" ||
-              key === "viewerMaxMb" ||
-              key === "projectUploadMaxMb" ||
-              key === "gramsPerHour"
+          : key === "viewerMaxMb" || key === "projectUploadMaxMb" || key === "gramsPerHour"
             ? 1
             : 0
       }
-      max={key === "projectScanDepth" ? 5 : key === "projectScanMaxFiles" ? 100_000 : undefined}
+      max={key === "projectScanMaxFiles" ? 100_000 : undefined}
       step={
         key === "energyCostPerKwh" || key === "laborRatePerHour"
           ? 0.01

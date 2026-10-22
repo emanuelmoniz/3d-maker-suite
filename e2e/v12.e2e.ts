@@ -8,6 +8,7 @@ import {
   hasHorizontalScroll,
   openSections,
   pick,
+  roots,
   seedPrinter,
   seedProfile,
   seedProject,
@@ -64,7 +65,7 @@ test("path picker: project roots are filled by browsing, keyboard included", asy
   app,
 }) => {
   const root = makeTree("pick", ["alpha", "beta"]);
-  await app.api("PATCH", "/api/preferences", { projectRoots: [root] });
+  await app.api("PATCH", "/api/preferences", { projectRoots: roots(root) });
   await page.goto("/projects/settings");
   await page.getByRole("button", { name: /^Browse for/ }).click();
   await expect(dialog(page).getByRole("button", { name: "alpha" })).toBeVisible();
@@ -76,10 +77,10 @@ test("path picker: project roots are filled by browsing, keyboard included", asy
   await expect
     .poll(
       async () =>
-        (await app.api<{ values: { projectRoots: string[] } }>("GET", "/api/preferences")).values
+        (await app.api<{ values: { projectRoots: unknown[] } }>("GET", "/api/preferences")).values
           .projectRoots,
     )
-    .toEqual([root, join(root, "alpha")]);
+    .toEqual(roots(root, join(root, "alpha")));
   // Escape closes without choosing.
   await page.getByRole("button", { name: /^Browse for/ }).click();
   await page.keyboard.press("Escape");
@@ -125,7 +126,7 @@ test("projects: add a project from a folder, link a description file, edit by ha
     join(import.meta.dirname, "../docs/images/dashboard.png"),
     join(parent, "Bracket", "img", "pic.png"),
   );
-  await app.api("PATCH", "/api/preferences", { projectRoots: [parent] });
+  await app.api("PATCH", "/api/preferences", { projectRoots: roots(parent) });
 
   await page.goto("/projects");
   await page.getByRole("button", { name: "Browse for Add folder" }).click();
@@ -180,7 +181,7 @@ test("projects: the description editor writes the .md file and the preview file 
   mkdirSync(join(dir, "sub"));
   writeFileSync(join(dir, "sub", "extra.stl"), "solid");
   rmSync(join(dir, "README.md")); // so "New file…" suggests README.md
-  await app.api("PATCH", "/api/preferences", { projectRoots: [parent] });
+  await app.api("PATCH", "/api/preferences", { projectRoots: roots(parent) });
   await app.api("POST", "/api/projects/scan");
   await expect
     .poll(async () => (await app.api<{ items: unknown[] }>("GET", "/api/projects")).items.length)

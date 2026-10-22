@@ -1,4 +1,4 @@
-import type { PlateSetupInput, Project } from "@3d-maker-suite/core";
+import { type PlateSetupInput, type Project, rootOf } from "@3d-maker-suite/core";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
@@ -48,10 +48,7 @@ export function SlicingSetup({ project, setup }: { project: Project; setup: Slic
   const prefs = usePreferences().data?.values;
   const defaultId = prefs?.defaultPrinterId;
   // What "Folder default" means here: on unless the project sits in a root ticked off.
-  const folder = project.folderPath ?? "";
-  const rootOn = !prefs?.autoSliceOffRoots.some(
-    (r) => folder.startsWith(r) && /^([\\/]|$)/.test(folder.slice(r.replace(/[\\/]$/, "").length)),
-  );
+  const rootOn = rootOf(project.folderPath ?? "", prefs?.projectRoots ?? [])?.autoSlice ?? true;
   if (!project.meta.models.length || !saved) return null;
   const byKey = new Map(saved.plates.map((p) => [plateKey(p), p]));
   const left = saved.plates.filter((p) => p.job).length;

@@ -4,7 +4,7 @@ import type { Db } from "@3d-maker-suite/db";
 import { HttpError } from "../errors.ts";
 import { insideRoots } from "../lib/launcher.ts";
 import { PAD, padded } from "../lib/numbers.ts";
-import { readPreferences } from "../lib/preferences.ts";
+import { rootPaths } from "../lib/preferences.ts";
 import { fsError } from "../routes/fs.ts";
 import { safeName, validName } from "./paths.ts";
 
@@ -17,7 +17,7 @@ export const folderName = (number: number, name: string) =>
  * when there is only one.
  */
 export async function newProjectFolder(db: Db, root: string | undefined, base: string) {
-  const roots = readPreferences(db).projectRoots;
+  const roots = rootPaths(db);
   if (!roots.length) throw new HttpError(409, "no_project_root", "No project folder is set up");
   if (!root && roots.length > 1)
     throw new HttpError(400, "root_required", "Choose the project folder to create it in");

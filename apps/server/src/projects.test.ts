@@ -2,6 +2,7 @@ import { cp, mkdir, mkdtemp, rename, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { mockAdapter } from "@3d-maker-suite/adapter-mock";
+import { type ProjectRoot, projectRoot } from "@3d-maker-suite/core";
 import { openDb } from "@3d-maker-suite/db";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { buildApp } from "./app.ts";
@@ -32,11 +33,11 @@ const put = async (path: string, content: string | Buffer) => {
   await mkdir(join(root(), path, ".."), { recursive: true });
   await writeFile(join(root(), path), content);
 };
-const setRoots = (projectScanDepth = 1) =>
+const setRoots = (projectDepth = 1) =>
   app.inject({
     method: "PATCH",
     url: "/api/preferences",
-    payload: { projectRoots: [root()], projectScanDepth },
+    payload: { projectRoots: [projectRoot(root(), { projectDepth })] },
   });
 
 async function scan() {
@@ -146,6 +147,44 @@ describe("project scanner", () => {
     await setRoots(2);
     await scan();
     expect((await list()).map((p: { name: string }) => p.name)).toContain("Ears");
+  });
+
+  it("each root has its own project depth", async () => {
+    await sampleTree();
+    const other = join(dir, "other");
+    await mkdir(join(other, "Shelf", "Lamp"), { recursive: true });
+    await writeFile(join(other, "Shelf", "Lamp", "lamp.stl"), "solid");
+    const roots: ProjectRoot[] = [projectRoot(root()), projectRoot(other, { projectDepth: 2 })];
+    await app.inject({
+      method: "PATCH",
+      url: "/api/preferences",
+      payload: { projectRoots: roots },
+    });
+    await scan();
+    // Depth 1: Cat is the project (Ears inside it). Depth 2: Lamp, not Shelf.
+    const names = (await list()).map((p: { name: string }) => p.name);
+    expect(names).toEqual(expect.arrayContaining(["Cat", "Lamp"]));
+    expect(names).not.toContain("Ears");
+    expect(names).not.toContain("Shelf");
+  });
+
+  it("lists files down to the root's files depth", async () => {
+    await sampleTree();
+    await put("Benchy/a/b/deep.png", "png");
+    const filesDepth = async (depth: number | null) => {
+      await app.inject({
+        method: "PATCH",
+        url: "/api/preferences",
+        payload: { projectRoots: [projectRoot(root(), { filesDepth: depth })] },
+      });
+      await scan();
+      return (await byName("Benchy")).meta.files.map((f: { path: string }) => f.path);
+    };
+    expect(await filesDepth(null)).toEqual(expect.arrayContaining(["a/b/deep.png"]));
+    const one = await filesDepth(1);
+    expect(one).toContain("images/cover.png");
+    expect(one).not.toContain("a/b/deep.png");
+    expect(await filesDepth(0)).not.toContain("images/cover.png");
   });
 
   it("re-scan keeps edited fields and refreshes the rest", async () => {

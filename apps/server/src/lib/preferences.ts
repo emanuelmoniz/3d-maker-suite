@@ -13,3 +13,6 @@ export const readPreferences = (db: Db): Preferences =>
         .map((r) => [r.key, r.value]),
     ),
   });
+
+/** The project root folders, as configured (not resolved). */
+export const rootPaths = (db: Db) => readPreferences(db).projectRoots.map((r) => r.path);

@@ -1,13 +1,15 @@
 import { randomUUID } from "node:crypto";
 import { type FSWatcher, watch as fsWatch } from "node:fs";
 import { copyFile, mkdir, readdir, rm, stat, writeFile } from "node:fs/promises";
-import { basename, extname, join, resolve, sep } from "node:path";
+import { basename, extname, join, relative, resolve, sep } from "node:path";
 import { read3mfEntry } from "@3d-maker-suite/3mf";
 import {
   PROJECT_EDITABLE_FIELDS,
   type ProjectMeta,
+  type ProjectRoot,
   type ProjectScanStatus,
   projectMetaSchema,
+  rootOf,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
 import { and, eq, isNull } from "drizzle-orm";
@@ -52,6 +54,8 @@ const running = (): ProjectScanStatus => ({
 });
 
 const isDir = async (p: string) => (await stat(p).catch(() => null))?.isDirectory() ?? false;
+/** Folder levels between `from` and `to` (a file right in `from` = 0). */
+const levels = (from: string, to: string) => relative(from, to).split(/[\\/]/).length - 1;
 
 /**
  * Finds project folders under the roots and stores what is inside them. Re-scans only rewrite
@@ -69,7 +73,7 @@ export function createProjectScanner(
   } = {},
 ) {
   let state = idle();
-  const pending = new Map<string, { root: string; at: number }>();
+  const pending = new Map<string, { root: ProjectRoot; at: number }>();
   const refreshedAt = new Map<string, number>();
   const watchers: FSWatcher[] = [];
   let watching = "";
@@ -219,10 +223,17 @@ export function createProjectScanner(
     return changed ? ("updated" as const) : ("unchanged" as const);
   }
 
+  /** The roots with resolved paths, as project folders store them. */
+  const roots = (prefs = readPreferences(db)) =>
+    prefs.projectRoots.map((r) => ({ ...r, path: resolve(r.path) }));
   const linkOf = (folder: string) =>
     db.select().from(projects).where(eq(projects.folderPath, folder)).get()?.descriptionFile;
-  const read = (folder: string, link = linkOf(folder)) =>
-    scanFolder(folder, link, readPreferences(db).projectScanMaxFiles);
+  const read = (folder: string, link = linkOf(folder)) => {
+    const prefs = readPreferences(db);
+    // A folder outside every root (added by hand) lists everything.
+    const depth = rootOf(folder, roots(prefs))?.filesDepth ?? null;
+    return scanFolder(folder, link, prefs.projectScanMaxFiles, depth);
+  };
 
   /** Re-reads one project folder now (e.g. after its description file changed). */
   async function refresh(folder: string) {
@@ -245,12 +256,12 @@ export function createProjectScanner(
     try {
       const folders = new Set<string>();
       for (const r of prefs.projectRoots) {
-        const root = resolve(r);
+        const root = resolve(r.path);
         if (!(await isDir(root))) {
-          state.missingRoots.push(r);
+          state.missingRoots.push(r.path);
           continue;
         }
-        for (const f of await discover(root, prefs.projectScanDepth)) folders.add(f);
+        for (const f of await discover(root, r.projectDepth)) folders.add(f);
       }
       state.phase = "scanning";
       state.total = folders.size;
@@ -317,18 +328,24 @@ export function createProjectScanner(
       .all()
       .flatMap((r) => (r.path ? [r.path] : []));
     const folders = new Set<string>();
-    const roots = new Set<string>();
+    const touched = new Set<ProjectRoot>();
     for (const [path, { root, at }] of batch) {
       const folder = known.find((f) => path === f || path.startsWith(f + sep));
-      if (!folder || !(await isDir(folder))) roots.add(root);
+      if (!folder || !(await isDir(folder))) touched.add(root);
+      // Deeper than the root's files depth: not listed, so nothing to rescan. A folder's event
+      // (e.g. a file written in it) is about its contents, one level further down.
+      else if (
+        root.filesDepth != null &&
+        levels(folder, path) + ((await isDir(path)) ? 1 : 0) > root.filesDepth
+      )
+        continue;
       else if (at > (refreshedAt.get(folder) ?? 0)) folders.add(folder);
     }
     try {
       for (const folder of folders) await refresh(folder);
-      const { projectScanDepth } = readPreferences(db);
       let created = false;
-      for (const root of roots)
-        for (const folder of await discover(root, projectScanDepth))
+      for (const root of touched)
+        for (const folder of await discover(root.path, root.projectDepth))
           if (!known.includes(folder) && (await scanOne(folder)) === "created") created = true;
       if (created) linkPrints(db);
     } catch (err) {
@@ -339,28 +356,32 @@ export function createProjectScanner(
   /** (Re)points the folder watcher at the current roots. Called after every scan. */
   function watch() {
     if (!opts.watch) return;
-    const { projectRoots } = readPreferences(db);
-    const key = JSON.stringify(projectRoots);
+    const all = roots();
+    // Depths are in the key too: the callbacks below hold the values they were made with.
+    const key = JSON.stringify(all);
     if (key === watching) return;
     watching = key;
     for (const w of watchers.splice(0)) w.close();
     // ponytail: one recursive OS watch per root, so Windows holds a handle only on the root and
-    // folders below it stay renamable (a watch per folder locks every folder above one). No depth limit, which costs
-    // nothing in CPU; the roots themselves stay locked. After a quiet period, a change scans only
-    // the project folder it is in (a new folder: a discover on its root).
-    for (const r of projectRoots) {
+    // folders below it stay renamable (a watch per folder locks every folder above one). The OS
+    // watch has no depth limit, which costs nothing in CPU; events deeper than a project's files
+    // can be are dropped here, the exact files depth is checked in `flush`. The roots themselves
+    // stay locked. After a quiet period, a change scans only the project folder it is in (a new
+    // folder: a discover on its root).
+    for (const root of all) {
+      const deepest = root.filesDepth == null ? Infinity : root.projectDepth + root.filesDepth;
       try {
-        const root = resolve(r);
-        const w = fsWatch(root, { recursive: true }, (_, file) => {
-          if (file?.split(/[\\/]/).some(isHidden)) return;
-          pending.set(file ? resolve(root, file) : root, { root, at: Date.now() });
+        const w = fsWatch(root.path, { recursive: true }, (_, file) => {
+          const parts = file?.split(/[\\/]/) ?? [];
+          if (parts.some(isHidden) || parts.length - 1 > deepest) return;
+          pending.set(file ? resolve(root.path, file) : root.path, { root, at: Date.now() });
           clearTimeout(timer);
           timer = setTimeout(flush, WATCH_DEBOUNCE_MS);
         });
-        w.on("error", (err) => log.warn({ err, root: r }, "project watcher error"));
+        w.on("error", (err) => log.warn({ err, root: root.path }, "project watcher error"));
         watchers.push(w);
       } catch (err) {
-        log.warn({ err, root: r }, "project root not watched");
+        log.warn({ err, root: root.path }, "project root not watched");
       }
     }
   }

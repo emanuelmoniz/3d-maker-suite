@@ -3,6 +3,7 @@ import { mkdir, mkdtemp, readFile, rename, rm, symlink, writeFile } from "node:f
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Readable } from "node:stream";
+import { projectRoot } from "@3d-maker-suite/core";
 import { openDb } from "@3d-maker-suite/db";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { buildApp } from "./app.ts";
@@ -45,7 +46,7 @@ async function scan() {
 
 async function boot(opts: { watchProjects?: boolean } = {}) {
   app = await buildApp(openDb(":memory:"), false, join(dir, "data"), opts);
-  await setPrefs({ projectRoots: [root()] });
+  await setPrefs({ projectRoots: [projectRoot(root())] });
   const res = await create({ name: "Boat Test", createFolder: true });
   expect(res.statusCode).toBe(201);
   ({ id, folderPath: folder } = res.json());
@@ -75,7 +76,7 @@ describe("new project folder", () => {
   it("needs a configured root, picked when there are several", async () => {
     const second = join(dir, "more");
     await mkdir(second);
-    await setPrefs({ projectRoots: [root(), second] });
+    await setPrefs({ projectRoots: [projectRoot(root()), projectRoot(second)] });
     expect((await create({ name: "A", createFolder: true })).json().error.code).toBe(
       "root_required",
     );
@@ -138,7 +139,7 @@ describe("path guard", () => {
 
   it("refuses every route once the project folder is no longer in a root", async () => {
     await upload("a.txt", "x");
-    await setPrefs({ projectRoots: [outside()] });
+    await setPrefs({ projectRoots: [projectRoot(outside())] });
     for (const res of [
       await files(),
       await upload("b.txt", "x"),

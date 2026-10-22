@@ -2,6 +2,10 @@ import type { Locator, Page } from "@playwright/test";
 
 type Api = <T = unknown>(method: string, path: string, body?: unknown) => Promise<T>;
 
+/** `projectRoots` preference value: each path with the default settings (as `projectRoot` in core). */
+export const roots = (...paths: string[]) =>
+  paths.map((path) => ({ path, projectDepth: 1, filesDepth: null, autoSlice: true }));
+
 /** The "Acme X1" printer model, created on first use. */
 export const seedModel = async (api: Api) => {
   const found = await api<{ items: { id: string }[] }>(

@@ -3,6 +3,7 @@ import {
   hasHorizontalScroll,
   pick,
   ROUTES,
+  roots,
   seedPrinter,
   seedProfile,
   seedProject,
@@ -92,7 +93,7 @@ test("tables link to the show page, which holds Edit; filters live in the URL", 
 
 test("scanning project folders lists the projects", async ({ page, app }) => {
   const root = app.makeProjectDir("Dragon");
-  await app.api("PATCH", "/api/preferences", { projectRoots: [root] });
+  await app.api("PATCH", "/api/preferences", { projectRoots: roots(root) });
   await page.goto("/projects");
   await page.getByRole("button", { name: "Scan folders" }).click();
   await expect(page.getByText("Dragon").first()).toBeVisible();

@@ -12,7 +12,7 @@ import { type Db, schema } from "@3d-maker-suite/db";
 import { and, eq, inArray, isNotNull, isNull, notInArray } from "drizzle-orm";
 import { projectLabel } from "../lib/catalog.ts";
 import { assertNumberFree, freeNumber, nextNumber, numberCell } from "../lib/numbers.ts";
-import { readPreferences } from "../lib/preferences.ts";
+import { rootPaths } from "../lib/preferences.ts";
 import { parseFolderName } from "../projects/folderName.ts";
 import type { WriteRow } from "./review.ts";
 
@@ -59,7 +59,7 @@ function build(db: Db): Look {
         .all()
         .map((p) => [pathKey(p.folder ?? ""), p]),
     ),
-    roots: readPreferences(db).projectRoots,
+    roots: rootPaths(db),
   };
 }
 // A preview or an apply runs in one synchronous stretch (see `lookups` in prints.ts).

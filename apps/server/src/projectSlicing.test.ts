@@ -2,6 +2,7 @@ import { appendFile, cp, mkdir, mkdtemp, readFile, rm, utimes } from "node:fs/pr
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fixture, type MockState, mockAdapter } from "@3d-maker-suite/adapter-mock";
+import { projectRoot } from "@3d-maker-suite/core";
 import { openDb } from "@3d-maker-suite/db";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { buildApp } from "./app.ts";
@@ -27,7 +28,7 @@ beforeEach(async () => {
   await app.inject({
     method: "PATCH",
     url: "/api/preferences",
-    payload: { projectRoots: [join(dir, "models")] },
+    payload: { projectRoots: [projectRoot(join(dir, "models"))] },
   });
   id = (
     await app.inject({
@@ -470,13 +471,17 @@ describe("slicing a project (mock slicer)", () => {
 
     it("follows the project's choice, else its root's", async () => {
       await sliced();
-      const prefs = (autoSliceOffRoots: string[]) =>
-        app.inject({ method: "PATCH", url: "/api/preferences", payload: { autoSliceOffRoots } });
+      const rootOn = (autoSlice: boolean) =>
+        app.inject({
+          method: "PATCH",
+          url: "/api/preferences",
+          payload: { projectRoots: [projectRoot(join(dir, "models"), { autoSlice })] },
+        });
       const choose = (autoSlice: boolean | null) =>
         app.inject({ method: "PATCH", url: `/api/projects/${id}`, payload: { autoSlice } });
 
       // Root ticked off: nothing.
-      await prefs([join(dir, "models")]);
+      await rootOn(false);
       await change("single_color");
       await quiet();
       expect(mock.sliced).toHaveLength(1);
@@ -486,7 +491,7 @@ describe("slicing a project (mock slicer)", () => {
       await until(async () => (mock.sliced?.length ?? 0) > 1);
       expect(mock.sliced).toHaveLength(2);
       // Root on again, the project says off: nothing.
-      await prefs([]);
+      await rootOn(true);
       await choose(false);
       await change("multi_color");
       await quiet();

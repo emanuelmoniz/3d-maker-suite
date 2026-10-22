@@ -1,6 +1,7 @@
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { projectRoot } from "@3d-maker-suite/core";
 import { openDb } from "@3d-maker-suite/db";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { buildApp } from "../app.ts";
@@ -10,7 +11,7 @@ vi.mock("./scanFolder.ts", async (orig) => {
   const mod = await orig<typeof import("./scanFolder.ts")>();
   return {
     ...mod,
-    scanFolder: (folder: string, ...rest: [(string | null)?, number?]) => {
+    scanFolder: (folder: string, ...rest: [(string | null)?, number?, (number | null)?]) => {
       scanned.push(folder);
       return mod.scanFolder(folder, ...rest);
     },
@@ -38,11 +39,12 @@ beforeEach(async () => {
   await mkdir(join(dir, "data"));
   await put("A/a.stl");
   await put("B/b.stl");
+  await mkdir(join(root(), "A", "x", "y"), { recursive: true });
   app = await buildApp(openDb(":memory:"), false, join(dir, "data"), { watchProjects: true });
   await app.inject({
     method: "PATCH",
     url: "/api/preferences",
-    payload: { projectRoots: [root()] },
+    payload: { projectRoots: [projectRoot(root(), { filesDepth: 1 })] },
   });
   await app.inject({ method: "POST", url: "/api/projects/scan" });
   await idle();
@@ -68,6 +70,15 @@ describe("project watcher", () => {
     await settle();
     expect(scanned).toEqual([join(root(), "A")]);
   }, 15_000);
+
+  it("a change deeper than the root's files depth scans nothing", async () => {
+    await put("A/x/y/deep.stl"); // files depth 1: A/x is listed, A/x/y is not
+    await settle();
+    expect(scanned).toEqual([]);
+    await put("A/x/ok.stl");
+    await settle();
+    expect(scanned).toEqual([join(root(), "A")]);
+  }, 20_000);
 
   it("a new folder is picked up without re-scanning the others", async () => {
     await put("C/c.stl");

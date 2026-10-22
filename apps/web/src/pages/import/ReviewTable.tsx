@@ -180,7 +180,7 @@ export function ReviewTable({
   const prints = entity === "prints";
   // Projects: a folder and the prints per row, besides the file's columns.
   const projects = entity === "projects";
-  const roots = usePreferences().data?.values.projectRoots ?? [];
+  const roots = usePreferences().data?.values.projectRoots.map((r) => r.path) ?? [];
   const projectPrints = useProjectPrints(preview, projects);
   const decideFolder = (r: ImportPreviewRow, patch: Partial<ImportDecision>) => {
     const d = { ...decisionOf(r), ...patch };

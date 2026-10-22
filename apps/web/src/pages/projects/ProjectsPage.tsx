@@ -128,7 +128,7 @@ function AddFolder() {
       <PathPicker
         label={t("projects:list.addFolder")}
         mode="folder"
-        initial={roots?.at(-1)}
+        initial={roots?.at(-1)?.path}
         onPick={(folderPath) =>
           create.mutate({
             name: folderPath.split(/[/]/).filter(Boolean).at(-1) ?? folderPath,

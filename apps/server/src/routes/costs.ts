@@ -35,7 +35,7 @@ import { costContext } from "../lib/cost.ts";
 import { insideRoots } from "../lib/launcher.ts";
 import { listPage } from "../lib/list.ts";
 import { assertNumberFree, nextNumber } from "../lib/numbers.ts";
-import { readPreferences } from "../lib/preferences.ts";
+import { rootPaths } from "../lib/preferences.ts";
 import {
   plateResolver,
   type SliceQueue,
@@ -158,7 +158,7 @@ export const costsRoutes =
           : undefined;
         if (projectId && !project) throw new HttpError(400, "invalid_project", "Project not found");
         const meta = projectMetaSchema.parse(project?.meta ?? {});
-        const { projectRoots } = readPreferences(db);
+        const projectRoots = rootPaths(db);
         const resolve = plateResolver(db);
         const out: QuoteSlice["plates"] = [];
         for (const p of plates) {

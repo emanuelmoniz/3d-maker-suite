@@ -58,7 +58,7 @@ function ProjectForm({ project }: { project?: Project }) {
     if (location.hash === "#slicing") document.getElementById("slicing")?.scrollIntoView();
   }, []);
   const [folder, setFolder] = useState("");
-  const roots = usePreferences().data?.values.projectRoots ?? [];
+  const roots = usePreferences().data?.values.projectRoots.map((r) => r.path) ?? [];
   // Blank folder path + a root: make the folder there (the first root unless picked).
   const [root, setRoot] = useState<string>();
   const createIn = project || folder.trim() ? "" : (root ?? roots[0] ?? "");

@@ -1,3 +1,4 @@
+import { PROJECT_ROOT_DEFAULTS, type ProjectRoot, projectRoot } from "@3d-maker-suite/core";
 import { Trash2 } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -7,7 +8,7 @@ import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { PathPicker } from "../../components/PathPicker.tsx";
 import { Section } from "../../components/Section.tsx";
-import { formatMegabytes } from "../../lib/format.ts";
+import { formatMegabytes, formatNumber } from "../../lib/format.ts";
 import { usePrinters } from "../../lib/printers.ts";
 import { useEmptyProjectTrash, useProjectTrash } from "../../lib/projects.ts";
 import { ChannelsSection } from "../alerts/ChannelsSection.tsx";
@@ -167,9 +168,6 @@ export function ProjectsConfigPage() {
       {({ v, commit, num }) => (
         <Section title={t("settings:sections.projects")}>
           <ProjectRoots v={v} commit={commit} />
-          <FormField label={t("settings:projects.depth")} hint={t("settings:projects.depthHint")}>
-            {(p) => num("projectScanDepth", p)}
-          </FormField>
           <FormField
             label={t("settings:projects.maxFiles")}
             hint={t("settings:projects.maxFilesHint")}
@@ -195,48 +193,107 @@ export function ProjectsConfigPage() {
   );
 }
 
-/** The project folder roots, each with its auto slice switch and a remove button. */
+type Depths = Pick<ProjectRoot, "projectDepth" | "filesDepth">;
+const PROJECT_DEPTHS = [1, 2, 3, 4, 5];
+const FILES_DEPTHS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+
+/** The project and files depth of one root (`path`), or of the root being added. */
+function DepthFields({
+  value,
+  path,
+  onChange,
+}: {
+  value: Depths;
+  path?: string;
+  onChange: (d: Depths) => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <>
+      <label className="flex items-center gap-2">
+        <span aria-hidden>{t("settings:projects.projectDepth")}</span>
+        <select
+          className={`${inputClass} w-auto!`}
+          aria-label={
+            path
+              ? t("settings:projects.projectDepthFor", { path })
+              : t("settings:projects.projectDepth")
+          }
+          value={value.projectDepth}
+          onChange={(e) => onChange({ ...value, projectDepth: Number(e.target.value) })}
+        >
+          {PROJECT_DEPTHS.map((n) => (
+            <option key={n} value={n}>
+              {formatNumber(n)}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="flex items-center gap-2">
+        <span aria-hidden>{t("settings:projects.filesDepth")}</span>
+        <select
+          className={`${inputClass} w-auto!`}
+          aria-label={
+            path
+              ? t("settings:projects.filesDepthFor", { path })
+              : t("settings:projects.filesDepth")
+          }
+          value={value.filesDepth ?? ""}
+          onChange={(e) =>
+            onChange({
+              ...value,
+              filesDepth: e.target.value === "" ? null : Number(e.target.value),
+            })
+          }
+        >
+          <option value="">{t("settings:projects.filesDepthAll")}</option>
+          {FILES_DEPTHS.map((n) => (
+            <option key={n} value={n}>
+              {formatNumber(n)}
+            </option>
+          ))}
+        </select>
+      </label>
+    </>
+  );
+}
+
+/** The project folder roots, each with its depths, auto slice switch and a remove button. */
 function ProjectRoots({ v, commit }: Pick<ConfigCtx, "v" | "commit">) {
   const { t } = useTranslation();
   const [typed, setTyped] = useState("");
-  const off = v.autoSliceOffRoots;
+  const [depths, setDepths] = useState<Depths>(PROJECT_ROOT_DEFAULTS);
+  const roots = v.projectRoots;
   const add = (dir: string) => {
     const d = dir.trim();
-    if (d && !v.projectRoots.includes(d)) commit({ projectRoots: [...v.projectRoots, d] });
+    if (d && !roots.some((r) => r.path === d))
+      commit({ projectRoots: [...roots, projectRoot(d, depths)] });
   };
+  const change = (path: string, patch: Partial<ProjectRoot>) =>
+    commit({ projectRoots: roots.map((r) => (r.path === path ? { ...r, ...patch } : r)) });
   return (
     <fieldset className="grid gap-2">
       <legend className="mb-1 font-medium">{t("settings:projects.roots")}</legend>
       <p className="text-muted">{t("settings:projects.rootsHint")}</p>
-      {v.projectRoots.length > 0 && (
+      {roots.length > 0 && (
         <ul className="divide-y divide-border rounded-md border border-border">
-          {v.projectRoots.map((r) => (
-            <li key={r} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-1 pr-1 pl-3">
-              <span className="min-w-0 flex-1 break-all">{r}</span>
+          {roots.map((r) => (
+            <li key={r.path} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-1 pr-1 pl-3">
+              <span className="min-w-0 basis-full break-all sm:flex-1 sm:basis-auto">{r.path}</span>
+              <DepthFields value={r} path={r.path} onChange={(d) => change(r.path, d)} />
               <label className="flex items-center gap-2">
                 <input
                   type="checkbox"
-                  checked={!off.includes(r)}
-                  aria-label={t("settings:projects.autoSliceFor", { path: r })}
-                  onChange={(e) =>
-                    commit({
-                      autoSliceOffRoots: e.target.checked
-                        ? off.filter((x) => x !== r)
-                        : [...off, r],
-                    })
-                  }
+                  checked={r.autoSlice}
+                  aria-label={t("settings:projects.autoSliceFor", { path: r.path })}
+                  onChange={(e) => change(r.path, { autoSlice: e.target.checked })}
                 />
                 <span aria-hidden>{t("settings:projects.autoSlice")}</span>
               </label>
               <Button
                 variant="ghost"
-                aria-label={t("settings:projects.removeRoot", { path: r })}
-                onClick={() =>
-                  commit({
-                    projectRoots: v.projectRoots.filter((x) => x !== r),
-                    autoSliceOffRoots: off.filter((x) => x !== r),
-                  })
-                }
+                aria-label={t("settings:projects.removeRoot", { path: r.path })}
+                onClick={() => commit({ projectRoots: roots.filter((x) => x.path !== r.path) })}
               >
                 <Trash2 className="size-4" aria-hidden />
               </Button>
@@ -245,7 +302,7 @@ function ProjectRoots({ v, commit }: Pick<ConfigCtx, "v" | "commit">) {
         </ul>
       )}
       <form
-        className="flex items-start gap-2"
+        className="flex flex-wrap items-center gap-2"
         onSubmit={(e) => {
           e.preventDefault();
           add(typed);
@@ -253,22 +310,25 @@ function ProjectRoots({ v, commit }: Pick<ConfigCtx, "v" | "commit">) {
         }}
       >
         <input
-          className={inputClass}
+          className={`${inputClass} min-w-0 basis-full sm:flex-1 sm:basis-auto`}
           value={typed}
           onChange={(e) => setTyped(e.target.value)}
           aria-label={t("settings:projects.newRoot")}
           placeholder={t("settings:projects.newRoot")}
         />
+        <DepthFields value={depths} onChange={setDepths} />
         <Button type="submit" disabled={!typed.trim()}>
           {t("settings:projects.addRoot")}
         </Button>
         <PathPicker
           label={t("settings:projects.roots")}
           mode="folder"
-          initial={v.projectRoots.at(-1)}
+          initial={roots.at(-1)?.path}
           onPick={add}
         />
       </form>
+      <p className="text-muted">{t("settings:projects.projectDepthHint")}</p>
+      <p className="text-muted">{t("settings:projects.filesDepthHint")}</p>
       <p className="text-muted">{t("settings:projects.autoSliceHint")}</p>
     </fieldset>
   );
