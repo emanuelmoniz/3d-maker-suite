@@ -29,6 +29,7 @@ import {
 import { formatDateTime } from "../../lib/format.ts";
 import { useAdapterName } from "../../lib/integrations.ts";
 import { useUrlListQuery } from "../../lib/list.ts";
+import { SYNC_TARGETS } from "../../lib/syncTargets.ts";
 import { TITLE } from "../import/SourceReviewPage.tsx";
 import { CAPS, ERRORS } from "../settings/IntegrationsPage.tsx";
 
@@ -61,6 +62,21 @@ const LEFT: Record<NonNullable<SyncLogEntry["reason"]>, string> = {
 const link = "font-medium hover:underline";
 export const buttonLink =
   "inline-flex h-9 items-center whitespace-nowrap rounded-md bg-accent px-3 font-medium text-accent-fg hover:opacity-90";
+
+/** The integration's card on the integrations page. */
+export const integrationHash = (a: Alert) => `integration-${a.context.integrationId}`;
+
+/** A finished sync's call to action: the module or catalog section it filled. */
+export function SyncTargetLink({ a }: { a: Alert }) {
+  const { t } = useTranslation();
+  const target = SYNC_TARGETS[a.context.type as Capability];
+  if (a.kind !== "sync_success" || !target) return null;
+  return (
+    <Link to={target.to} hash={target.hash} className={buttonLink}>
+      {t(target.label)}
+    </Link>
+  );
+}
 
 /** The alert's sentence. In the list it opens the alert; in the alert's own view, what it is about. */
 export function Title({ a, inList }: { a: Alert; inList?: boolean }) {
@@ -130,7 +146,7 @@ export function Title({ a, inList }: { a: Alert; inList?: boolean }) {
     case "sync_success":
     case "sync_error":
       return (
-        <Link to="/integrations" className={link}>
+        <Link to="/integrations" hash={integrationHash(a)} className={link}>
           {text}
         </Link>
       );
@@ -272,6 +288,7 @@ function Row({ a }: { a: Alert }) {
             {t("alerts:review")}
           </Link>
         )}
+        <SyncTargetLink a={a} />
         <AlertButtons a={a} />
       </div>
     </li>

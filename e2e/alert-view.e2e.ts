@@ -128,3 +128,31 @@ test("spool alert: short title, the weight in the alert, a way to the spool", as
   await page.getByRole("link", { name: "View spool" }).click();
   await expect(page).toHaveURL(new RegExp(`/filament/spools/${spool.id}$`));
 });
+
+test("sync success alert: a button to the synced module, and to the integration card", async ({
+  page,
+  app,
+}) => {
+  const { id } = await app.api<{ id: string }>("POST", "/api/integrations", {
+    adapterId: "mock",
+    secrets: { token: "t" },
+  });
+  await app.api("POST", `/api/integrations/${id}/sync`, { type: "printers" });
+  await page.goto("/alerts");
+  await page
+    .getByRole("listitem")
+    .filter({ hasText: /synced/ })
+    .getByRole("link", { name: "View printers" })
+    .click();
+  await expect(page).toHaveURL(/\/printers$/);
+
+  await page.goto("/alerts");
+  await page.getByRole("link", { name: /synced/ }).click();
+  await expect(page.getByRole("link", { name: "View printers" })).toHaveAttribute(
+    "href",
+    "/printers",
+  );
+  await page.getByRole("link", { name: "Open integration" }).click();
+  await expect(page).toHaveURL(new RegExp(`/integrations#integration-${id}$`));
+  await expect(page.locator(`#integration-${id}`)).toBeInViewport();
+});

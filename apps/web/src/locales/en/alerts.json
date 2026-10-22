@@ -30,6 +30,18 @@
     "syncResult_other": "{{count}} new, {{updated}} updated",
     "result": "Result",
     "openIntegration": "Open integration",
+    "sync": {
+      "printers": "View printers",
+      "prints": "View prints",
+      "spools": "View spools",
+      "brands": "View brands",
+      "printerModels": "View printer models",
+      "machineProfiles": "View machine profiles",
+      "printProfiles": "View print profiles",
+      "filamentBrands": "View filament brands",
+      "filamentMaterials": "View filament materials",
+      "filamentProfiles": "View filament profiles"
+    },
     "openPrintSetup": "Open print setup"
   },
   "empty": {

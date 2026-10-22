@@ -10,7 +10,16 @@ import { formatDateTime, formatWeight } from "../../lib/format.ts";
 import { useDue } from "../../lib/maintenance.ts";
 import { LogDialog } from "../maintenance/MaintenancePage.tsx";
 import { CAPS } from "../settings/IntegrationsPage.tsx";
-import { AlertButtons, buttonLink, LogList, MODULE, SEVERITY, Title } from "./AlertsPage.tsx";
+import {
+  AlertButtons,
+  buttonLink,
+  integrationHash,
+  LogList,
+  MODULE,
+  SEVERITY,
+  SyncTargetLink,
+  Title,
+} from "./AlertsPage.tsx";
 
 /** What the alert is about, in words: the maintenance type, the sync type, the spool or printer. */
 function taskOf(a: Alert, t: TFunction) {
@@ -142,8 +151,9 @@ export function AlertDetailPage() {
                 {t("alerts:review")}
               </Link>
             )}
+            <SyncTargetLink a={a} />
             {(a.kind === "sync_error" || a.kind === "sync_success") && (
-              <Link to="/integrations" className={buttonLink}>
+              <Link to="/integrations" hash={integrationHash(a)} className={buttonLink}>
                 {t("alerts:view.openIntegration")}
               </Link>
             )}

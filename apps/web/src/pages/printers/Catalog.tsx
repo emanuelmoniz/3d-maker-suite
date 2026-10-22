@@ -50,7 +50,7 @@ export function Section<T extends { id: string }>(props: {
     query,
   );
   return (
-    <section className="grid gap-3">
+    <section id={props.kind} className="grid scroll-mt-4 gap-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-base font-semibold">{props.title}</h2>
         <span className="flex flex-wrap gap-2">

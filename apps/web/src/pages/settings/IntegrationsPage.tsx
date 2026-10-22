@@ -207,7 +207,10 @@ function IntegrationCard({ integration: i }: { integration: Integration }) {
   const failed = [patch, sync, remove].some((m) => m.isError);
 
   return (
-    <li className="rounded-lg border border-border bg-surface p-4 sm:p-5">
+    <li
+      id={`integration-${i.id}`}
+      className="scroll-mt-4 rounded-lg border border-border bg-surface p-4 sm:p-5"
+    >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <h3 className="truncate text-base font-semibold">{adapterName(i.adapterId)}</h3>

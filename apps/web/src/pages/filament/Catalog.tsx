@@ -116,7 +116,7 @@ export function FilamentProfiles() {
           {t("filament:loadError")}
         </p>
       )}
-      <section className="grid gap-3">
+      <section id="filament-profiles" className="grid scroll-mt-4 gap-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-base font-semibold">{t("filament:profiles.title")}</h2>
           <span className="flex flex-wrap gap-2">

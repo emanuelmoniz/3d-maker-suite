@@ -54,7 +54,7 @@ Do Step 1 of PLAN.md. Reproduce the overflow at 412 and 440 first, then fix it.
 Do Step 2 of PLAN.md.
 ```
 
-### [ ] Step 3 - Sync success alerts: call to action is the module
+### [x] Step 3 - Sync success alerts: call to action is the module
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - `sync_success` alerts get a CTA to the synced module: prints → "View prints" (`/prints`), spools → "View spools" (`/filament`), printers → "View printers" (`/printers`), catalog types → their section in `/printers/settings` (brands, printer models, machine profiles, print profiles) or `/filament/settings` (filament brands, materials, profiles).
