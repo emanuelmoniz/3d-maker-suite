@@ -40,6 +40,22 @@ export const formatTime = (d: Date | string | number) =>
 
 export const formatDateTime = (d: Date | string | number) => `${formatDate(d)} ${formatTime(d)}`;
 
+const STEPS: [Intl.RelativeTimeFormatUnit, number][] = [
+  ["year", 365 * 86400],
+  ["month", 30 * 86400],
+  ["week", 7 * 86400],
+  ["day", 86400],
+  ["hour", 3600],
+  ["minute", 60],
+];
+/** "5 min. ago", "yesterday", "in 2 hr.": the largest whole unit, "now" under a minute. */
+export function formatRelative(d: Date | string | number, now = Date.now()) {
+  const s = (new Date(d).getTime() - now) / 1000;
+  const [unit, size] = STEPS.find(([, size]) => Math.abs(s) >= size) ?? ["second", 1];
+  const rtf = new Intl.RelativeTimeFormat(locale(), { numeric: "auto", style: "short" });
+  return rtf.format(unit === "second" ? 0 : Math.trunc(s / size), unit);
+}
+
 /** Grams in, whole grams out: "850 g", "1,250 g". Never kg, never decimals. */
 export const formatWeight = (grams: number) =>
   num({ style: "unit", unit: "gram", maximumFractionDigits: 0 }).format(grams);

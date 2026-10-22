@@ -167,6 +167,33 @@ describe("integrations", () => {
     expect((await get(`/api/integrations/${id}/runs`)).items).toHaveLength(4);
   });
 
+  it("a review without a range offers the prints since the last sync, and older ones never imported", async () => {
+    const { id } = await create();
+    await spool();
+    await sync(id);
+    // Before the last sync: imported ones stay out, one never imported comes back however old.
+    const before = new Date(Date.now() - 3600 * 1000).toISOString();
+    for (const p of state.prints) p.startedAt = before;
+    const old = new Date(Date.UTC(2020, 0, 1)).toISOString();
+    state.prints.push({
+      ...firstPrint(),
+      externalId: "job-7",
+      title: "Mock print 7",
+      startedAt: old,
+    });
+    const later = new Date(Date.now() + 60 * 1000).toISOString();
+    state.prints.push(
+      { ...firstPrint(), externalId: "job-8", title: "Mock print 8", startedAt: before },
+      { ...firstPrint(), externalId: "job-9", title: "Mock print 9", startedAt: later },
+    );
+    const p = await printsReview(id);
+    expect(p.rows.map((r) => [r.values.title, r.status])).toEqual([
+      ["Mock print 7", "new"],
+      ["Mock print 8", "new"],
+      ["Mock print 9", "new"],
+    ]);
+  });
+
   it("links a print to the project its title names and fills in a plate sent later", async () => {
     const { id } = await create();
     const file = (path: string) => ({ path, kind: "model", size: 1 });
@@ -426,6 +453,31 @@ describe("sync by type and date range", () => {
     expect(watermark()).toBeNull();
   });
 
+  it("a range run that leaves a print for review moves the cursor back to it, never on", async () => {
+    const { id } = await create();
+    await spool();
+    await sync(id);
+    const synced = watermark();
+    // No spool of its colour, so it waits; it started before the last sync.
+    const startedAt = new Date(Date.UTC(2026, 0, 2, 12)).toISOString();
+    const filaments = firstPrint().filaments.map((f) => ({ ...f, colorHex: "#00ff00" }));
+    state.prints.push({ ...firstPrint(), externalId: "job-9", startedAt, filaments });
+    expect(await syncWith(id, { type: "prints", from: day(2), to: day(2, true) })).toMatchObject({
+      pending: 1,
+    });
+    const at = (iso: unknown) => Date.parse(String(iso));
+    expect(at(synced)).toBeGreaterThan(at(startedAt));
+    expect(at(watermark())).toBe(at(startedAt));
+    // "Since the last sync" offers it again.
+    const p = await printsReview(id);
+    expect(p.rows.filter((r) => r.status === "new").map((r) => at(r.values.startedAt))).toEqual([
+      at(startedAt),
+    ]);
+    // A range run that leaves nothing doesn't move it on.
+    await syncWith(id, { type: "prints", from: day(1), to: day(1, true) });
+    expect(at(watermark())).toBe(at(startedAt));
+  });
+
   it("reviews a range and applies it as that range, so the incremental start stays", async () => {
     const { id } = await create();
     await syncWith(id, { type: "printers" });
@@ -588,23 +640,23 @@ describe("capabilities", () => {
   it("are what the adapter supports, switched on and set up", async () => {
     const { id } = await create();
     // `slice` also needs a slicer program.
-    expect(await caps(id)).toEqual(["printers", "prints"]);
+    expect(await caps(id)).toEqual(["printers", "prints", "spools"]);
     const adapters = await get("/api/integrations/adapters");
     expect(adapters[0]).toMatchObject({
       id: "mock",
       capabilities: ["printers", "prints", "spools", "slice"],
     });
 
-    // Until changed, every type follows its default policy; spools start off on a new integration.
+    // Until changed, every type follows its default policy; spools start untracked on a new one.
     const defaults = { lastRunAt: null, pending: 0, alertSeverities: null, trackUsage: true };
     expect((await get(`/api/integrations/${id}`)).policies).toEqual([
       { type: "printers", mode: "auto", frequency: "1d", ...defaults },
       { type: "prints", mode: "auto", frequency: "1h", ...defaults },
-      { type: "spools", mode: "off", frequency: "1d", ...defaults },
+      { type: "spools", mode: "manual", frequency: "1d", ...defaults, trackUsage: false },
       { type: "slice", mode: "manual", frequency: "1d", ...defaults },
     ]);
     const patched = (await setPolicy(id, "prints", { mode: "off" })).json();
-    expect(patched.capabilities).toEqual(["printers"]);
+    expect(patched.capabilities).toEqual(["printers", "spools"]);
     expect(patched.policies[1]).toMatchObject({ type: "prints", mode: "off", frequency: "1h" });
     await send("PATCH", `/api/integrations/${id}`, { enabled: false });
     expect(await caps(id)).toEqual([]);

@@ -349,7 +349,7 @@ export const importRoutes =
               ? await syncer.run(
                   stored.from.integrationId,
                   "manual",
-                  // A review read for a range applies as that range, so it never moves the cursor.
+                  // A review read for a range applies as that range: it never moves the cursor on.
                   { type: stored.entity as ReviewedType, ...stored.range },
                   { stored, decisions, policy, backup },
                 )

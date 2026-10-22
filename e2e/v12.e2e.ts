@@ -329,6 +329,7 @@ test("sync_pending alert: raised by an auto sync, Review opens the queue, toggle
   await expect(page).toHaveURL(new RegExp(`/import/integration/${id}/prints$`));
 
   await page.goto("/integrations");
+  await page.getByRole("button", { name: "Settings: Print history" }).click();
   const toggle = page.getByLabel("Alert on Review: Print history");
   await toggle.click(); // saved on the server first, so the box flips after the round trip
   await expect(toggle).not.toBeChecked();

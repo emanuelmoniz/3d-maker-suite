@@ -52,6 +52,7 @@ test("integrations: a task raises only the severities picked", async ({ page, ap
     secrets: { token: "t" },
   });
   await page.goto("/integrations");
+  await page.getByRole("button", { name: "Settings: Printers" }).click();
   await page.getByRole("checkbox", { name: /Alert on Success: Printers/ }).click(); // saved first, so the box flips after the round trip
   await expect(
     page.getByRole("checkbox", { name: /Alert on Success: Printers/ }),

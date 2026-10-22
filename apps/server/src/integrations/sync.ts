@@ -272,13 +272,19 @@ export function createSyncer(
         linkPrints(db);
       }
 
-      // Only a prints run without a range moves the cursor (a past-range run must not make the
-      // next one skip prints).
-      const done = {
-        lastRunAt: startedAt,
-        pending,
-        ...(type === "prints" && !ranged && { cursor: oldestLeft ?? startedAt }),
-      };
+      // Only a prints run without a range moves the cursor on (a past-range run must not make the
+      // next one skip prints). Any run moves it back to a print it left for review, so the next
+      // run and "since the last sync" offer that print again.
+      const was = policyOf(db, id, "prints").cursor;
+      const cursor =
+        type !== "prints"
+          ? null
+          : !ranged
+            ? (oldestLeft ?? startedAt)
+            : was && oldestLeft && Date.parse(oldestLeft) < Date.parse(was)
+              ? oldestLeft
+              : null;
+      const done = { lastRunAt: startedAt, pending, ...(cursor && { cursor }) };
       db.insert(syncPolicies)
         .values({ integrationId: id, type, ...defaultPolicy(type), ...done })
         .onConflictDoUpdate({ target: [syncPolicies.integrationId, syncPolicies.type], set: done })
@@ -409,6 +415,8 @@ export function createSyncer(
 
   /**
    * The vendor's prints in the range, or since the last run (minus an overlap) without one.
+   * A review without a range reads the whole history but keeps, before the last run, only prints
+   * never imported (left for review, or missed): nothing already done shows up again.
    * A print already imported only gets a plate that was never known, and its model's name for a
    * title that is still the print profile's.
    */
@@ -417,15 +425,17 @@ export function createSyncer(
     instance: IntegrationInstance,
     range: Range,
     signal: AbortSignal,
+    review = false,
   ): Promise<ExternalPrint[]> {
     if (!instance.printHistory) return [];
     const last = policyOf(db, id, "prints").cursor;
     const since =
       range.from || range.to
         ? range.from
-        : last
+        : last && !review
           ? new Date(Date.parse(last) - OVERLAP_MS).toISOString()
           : undefined;
+    // ponytail: a review pages through the whole history; fine for a person's print count.
     const until = range.to;
     const out: ExternalPrint[] = [];
     let cursor: string | undefined;
@@ -462,7 +472,18 @@ export function createSyncer(
           .where(and(same, eq(prints.title, p.profileTitle)))
           .run();
     }
-    return out;
+    if (!review || range.from || range.to || !last) return out;
+    const imported = new Set(
+      db
+        .select({ externalId: prints.externalId })
+        .from(prints)
+        .where(eq(prints.integrationId, id))
+        .all()
+        .map((p) => p.externalId),
+    );
+    return out.filter(
+      (p) => Date.parse(p.startedAt) >= Date.parse(last) || !imported.has(p.externalId),
+    );
   }
 
   /**
@@ -528,6 +549,7 @@ export function createSyncer(
     instance?: IntegrationInstance,
     range: Range = {},
     signal = AbortSignal.timeout(TIMEOUT_MS),
+    review = false,
   ): Promise<Stored> {
     const from = { kind: "integration" as const, integrationId: row.id };
     if (type === "spools") {
@@ -536,7 +558,7 @@ export function createSyncer(
       return { entity: type, ignoredHeaders: [], from, rows };
     }
     if (type === "prints") {
-      const items = instance ? await readPrints(row.id, instance, range, signal) : [];
+      const items = instance ? await readPrints(row.id, instance, range, signal, review) : [];
       const rows = printRows(db, row.id, items);
       const kept = range.from || range.to ? { from: range.from, to: range.to } : undefined;
       return { entity: type, ignoredHeaders: [], from, rows, range: kept };
@@ -553,7 +575,7 @@ export function createSyncer(
       const signal = AbortSignal.timeout(TIMEOUT_MS);
       const instance =
         type === "spools" || type === "prints" ? instanceFor(row, signal) : undefined;
-      return await offered(row, type, instance, range, signal);
+      return await offered(row, type, instance, range, signal, true);
     } catch (e) {
       if (e instanceof HttpError) throw e;
       throw new HttpError(502, codeOf(e), "Couldn't read the source");

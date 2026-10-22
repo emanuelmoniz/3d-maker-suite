@@ -176,15 +176,26 @@ test("integrations hub groups cloud and local and edits the per-type policy", as
   await page.goto("/integrations");
   await expect(page.getByRole("heading", { name: "Cloud", level: 2 })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Local", level: 2 })).toBeVisible();
-  const mode = page.getByLabel("Mode: Print history");
-  await pick(mode, "Manual");
-  await expect(page.getByLabel("Frequency: Print history")).toBeDisabled();
-  await pick(mode, "Automatic");
-  await expect(page.getByLabel("Frequency: Print history")).toBeEnabled();
+  const auto = page.getByRole("switch", { name: "Auto sync: Print history" });
+  const frequency = page.getByLabel("Frequency: Print history");
+  const settings = page.getByRole("button", { name: "Settings: Print history" });
+  // The switch flips after the server saves it, and its input is sr-only under the drawn track.
+  const flip = () => auto.click({ force: true });
+  await settings.click();
+  await expect(frequency).toBeVisible();
+  await flip();
+  await expect(auto).not.toBeChecked();
+  await expect(frequency).toBeHidden();
+  await flip();
+  await expect(frequency).toBeVisible();
   await page.reload();
-  await expect(page.getByLabel("Mode: Print history")).toHaveValue("Automatic");
-  await pick(page.getByLabel("Mode: Print history"), "Off");
-  await expect(page.getByLabel("Frequency: Print history")).toBeDisabled();
+  await settings.click();
+  await expect(auto).toBeChecked();
+  await flip();
+  await expect(auto).not.toBeChecked();
+  await page.reload();
+  await settings.click();
+  await expect(auto).not.toBeChecked();
 });
 
 test("import: template download, XLSX upload, bulk action, apply and export round trip", async ({

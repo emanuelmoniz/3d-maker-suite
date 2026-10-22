@@ -125,15 +125,15 @@ export const integrationsRoutes =
         const id = db.transaction(() => {
           const row = db.insert(integrations).values(values).returning().get();
           writeSecrets(db, key, row.id, plain as Record<string, string>);
-          // Spool weights from a vendor are estimates: off until you opt in. Without a row a
-          // type follows `defaultPolicy`, so integrations added before keep their setting.
+          // Spool weights from a vendor are estimates: not tracked until you opt in. Without a
+          // row a type follows `defaultPolicy`, so integrations added before keep their setting.
           if (adapter.capabilities.includes("spools"))
             db.insert(syncPolicies)
               .values({
                 integrationId: row.id,
                 type: "spools",
                 ...defaultPolicy("spools"),
-                mode: "off",
+                trackUsage: false,
               })
               .run();
           return row.id;

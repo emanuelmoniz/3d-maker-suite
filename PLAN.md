@@ -114,11 +114,11 @@ Do Step 5 of PLAN.md. Show me the endpoints, the folderState rules and the UI st
 Do Step 6 of PLAN.md.
 ```
 
-### [ ] Step 7 - Integrations page redesign 2: sync rows  **[plan mode]**
+### [x] Step 7 - Integrations page redesign 2: sync rows  **[plan mode]**
 **Model:** Opus (use frontend-design skill) · **Effort:** High
-**Scope:** UI only, no functionality change.
+**Scope:** UI, plus one change agreed during the step: data types lose **Off** (manual is the base, Auto is a switch; migration 0064 turns off data types into manual, off spools untracked; new cloud spools start manual and untracked). Actions keep Off | On.
 - Sync types grouped: **Devices & prints** and **Catalog** (actions like slice / open in slicer in their own small group).
-- A compact row per type: name, **Off | Manual | Auto** segmented control (native radios; actions Off | On), last sync, Sync now, to-review count. An expandable part per row: frequency (only when Auto), alert checkboxes (error / review / success), track usage, the prints history range and the double-tracking warning next to prints/spools.
+- A compact row per type: name, **Auto / Manual** badge, last sync, Sync now, **Manual import** (yellow, with "⚠ N to review", when a run left rows). An expandable part per row: a **Sync** section (Auto switch, frequency only when Auto, alert checkboxes), the history range (prints), track usage (prints/spools). The double-tracking warning sits under Devices & prints.
 - Mobile: each row is two lines (name + last sync + Sync now / mode), expands in place, no sideways scroll.
 
 ```
@@ -140,6 +140,19 @@ Do Step 6 of PLAN.md.
 ```
 Do Step 7 of PLAN.md. Show me a desktop and a mobile mock of a Bambu Cloud and a Bambu
 Studio card first.
+```
+
+### [ ] Step 7b - Manual import for cloud printers  **[plan mode]**
+**Model:** Opus · **Effort:** Medium
+**Scope:** printers become a reviewed type, so the Printers row gets **Manual import** like prints and spools.
+- `printers` in `REVIEWED_TYPES`; a `printerRows` builder in `integrations/sourceRows.ts` from the adapter's `listPrinters()`.
+- The printers import keeps `integrationId` / `externalId`, and links a hand-added printer with the same serial instead of creating a twin (what the direct sync in `integrations/sync.ts` does today). The direct printers path in the sync goes away; a run takes the rows that need no decision, like the other reviewed types.
+- Start after the import/review work in progress is committed (it changes `sourceRows.ts` and `import/review.ts`).
+
+**Done when:** Manual import on Printers opens the review with the cloud's printers; a sync still creates and links printers as before; server tests for twin linking and re-sync; e2e for the row; tests pass.
+**Prompt:**
+```
+Do Step 7b of PLAN.md.
 ```
 
 ### [ ] Step 8 - Docs, push & v4.1.0-alpha.1

@@ -233,7 +233,7 @@ describe("filament library", () => {
     await app.inject({
       method: "PATCH",
       url: `/api/integrations/${id}`,
-      payload: { policies: [{ type: "spools", mode: "manual" }] },
+      payload: { policies: [{ type: "spools", mode: "manual", trackUsage: true }] },
     });
     return id;
   };

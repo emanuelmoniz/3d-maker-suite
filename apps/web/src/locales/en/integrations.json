@@ -134,18 +134,25 @@
     "slice": "Slice projects (time and grams)"
   },
   "policies": {
-    "title": "What to sync",
-    "type": "Type",
-    "mode": "Mode",
+    "groups": {
+      "devices": "Devices & prints",
+      "catalog": "Catalog",
+      "actions": "Slicer actions"
+    },
+    "modes": {
+      "auto": "Auto",
+      "manual": "Manual"
+    },
+    "auto": "Auto",
+    "autoOf": "Auto sync: {{type}}",
+    "detailsOf": "Settings: {{type}}",
     "frequency": "Frequency",
     "lastRun": "Last sync",
-    "run": "Run",
     "never": "Never",
     "syncNow": "Sync now",
-    "importNow": "Review and import",
-    "pending_one": "{{count}} waiting for review",
-    "pending_other": "{{count}} waiting for review",
-    "modeOf": "Mode: {{type}}",
+    "importNow": "Manual import",
+    "pending_one": "{{count}} to review",
+    "pending_other": "{{count}} to review",
     "frequencyOf": "Frequency: {{type}}",
     "alert": "Alerts",
     "alertSeverity": {
@@ -158,13 +165,7 @@
     "trackUsageOf": "Take the filament of synced {{type}} from the spools",
     "trackUsageSpools": "Take the remaining weight of synced spools from the vendor",
     "doubleTracking": "Tracking usage from both prints and spools at the same time is not recommended: the same filament can be counted twice, or the vendor's estimate can overwrite the weight your prints took off.",
-    "hint": "Automatic runs only import what needs no decision from you. Anything else waits under \"Review and import\".",
-    "modes": {
-      "off": "Off",
-      "manual": "Manual",
-      "auto": "Automatic",
-      "on": "On"
-    }
+    "hint": "Automatic runs only import what needs no decision from you. Anything else waits under \"Manual import\"."
   },
   "slicer": {
     "title": "Slicer",
@@ -176,8 +177,8 @@
     "makeDefault": "Make default slicer"
   },
   "sync": {
-    "range": "Print history range",
-    "rangeHint": "Used by \"Sync now\" for print history. Prints already imported are skipped.",
+    "range": "History range",
+    "rangeHint": "Used by \"Sync now\" and \"Manual import\".",
     "from": "From",
     "to": "To",
     "ranges": {

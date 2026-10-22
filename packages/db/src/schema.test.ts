@@ -139,22 +139,33 @@ describe("printer catalog", () => {
   });
 });
 
-/** Migrates up to `lastIdx`, lets `fill` add old-shape rows, then applies the rest. */
-function migrateAcross(lastIdx: number, fill: (sqlite: Database.Database) => void) {
+/**
+ * Migrates up to `lastIdx`, lets `fill` add old-shape rows, then applies the rest (up to
+ * `untilIdx`, for a test whose rows a later migration changes again).
+ */
+function migrateAcross(
+  lastIdx: number,
+  fill: (sqlite: Database.Database) => void,
+  untilIdx = Number.POSITIVE_INFINITY,
+) {
   const real = fileURLToPath(new URL("../migrations", import.meta.url));
-  const before = mkdtempSync(join(tmpdir(), "mig-"));
-  cpSync(real, before, { recursive: true });
-  const journal = JSON.parse(readFileSync(join(before, "meta/_journal.json"), "utf8"));
-  journal.entries = journal.entries.filter((e: { idx: number }) => e.idx <= lastIdx);
-  writeFileSync(join(before, "meta/_journal.json"), JSON.stringify(journal));
+  const upTo = (idx: number) => {
+    const dir = mkdtempSync(join(tmpdir(), "mig-"));
+    cpSync(real, dir, { recursive: true });
+    const journal = JSON.parse(readFileSync(join(dir, "meta/_journal.json"), "utf8"));
+    journal.entries = journal.entries.filter((e: { idx: number }) => e.idx <= idx);
+    writeFileSync(join(dir, "meta/_journal.json"), JSON.stringify(journal));
+    return dir;
+  };
+  const [before, after] = [upTo(lastIdx), upTo(untilIdx)];
 
   const sqlite = new Database(":memory:");
   sqlite.pragma("foreign_keys = ON");
   const old = drizzle({ client: sqlite, casing: "snake_case" });
   migrate(old, { migrationsFolder: before });
   fill(sqlite);
-  migrate(old, { migrationsFolder: real });
-  rmSync(before, { recursive: true, force: true });
+  migrate(old, { migrationsFolder: after });
+  for (const dir of [before, after]) rmSync(dir, { recursive: true, force: true });
   return drizzle({ client: sqlite, schema: s, casing: "snake_case" });
 }
 
@@ -303,23 +314,27 @@ describe("migration 0024", () => {
       );
 
   it("splits a Bambu row: the cloud half keeps id, token and log, the twin gets the folders", () => {
-    const now = migrateAcross(23, (sqlite) => {
-      row(sqlite, "acct", {
-        secrets: "blob",
-        off: ["prints", "openInSlicer"],
-        dir: "D:/Studio",
-        path: "C:/bs.exe",
-      });
-      row(sqlite, "other", { adapter: "mock", off: ["prints"], path: "C:/x.exe" });
-      sqlite
-        .prepare(
-          "INSERT INTO sync_runs (id, integration_id, trigger, started_at, finished_at, status) VALUES ('run', 'acct', 'manual', ?, ?, 'ok')",
-        )
-        .run(at, at);
-      sqlite
-        .prepare("INSERT INTO settings (key, value) VALUES ('defaultSlicerId', ?)")
-        .run(JSON.stringify("acct"));
-    });
+    const now = migrateAcross(
+      23,
+      (sqlite) => {
+        row(sqlite, "acct", {
+          secrets: "blob",
+          off: ["prints", "openInSlicer"],
+          dir: "D:/Studio",
+          path: "C:/bs.exe",
+        });
+        row(sqlite, "other", { adapter: "mock", off: ["prints"], path: "C:/x.exe" });
+        sqlite
+          .prepare(
+            "INSERT INTO sync_runs (id, integration_id, trigger, started_at, finished_at, status) VALUES ('run', 'acct', 'manual', ?, ?, 'ok')",
+          )
+          .run(at, at);
+        sqlite
+          .prepare("INSERT INTO settings (key, value) VALUES ('defaultSlicerId', ?)")
+          .run(JSON.stringify("acct"));
+      },
+      63, // 0064 turns off data types into manual
+    );
     const rows = now.select().from(s.integrations).all();
     expect(rows).toHaveLength(3);
     expect(rows.find((r) => r.id === "acct")).toMatchObject({
@@ -373,14 +388,18 @@ describe("migration 0025", () => {
     const at = "2026-01-01T00:00:00.000Z";
     const synced = "2026-03-01T00:00:00.000Z";
     const printsAt = "2026-02-01T00:00:00.000Z";
-    const now = migrateAcross(24, (sqlite) => {
-      const row = sqlite.prepare(
-        `INSERT INTO integrations (id, adapter_id, config, disabled_features, sync_frequency, last_sync_at, last_prints_sync_at, created_at, updated_at)
+    const now = migrateAcross(
+      24,
+      (sqlite) => {
+        const row = sqlite.prepare(
+          `INSERT INTO integrations (id, adapter_id, config, disabled_features, sync_frequency, last_sync_at, last_prints_sync_at, created_at, updated_at)
          VALUES (?, 'mock', '{}', ?, ?, ?, ?, ?, ?)`,
-      );
-      row.run("hourly", JSON.stringify(["prints", "spools"]), "1h", synced, printsAt, at, at);
-      row.run("manual", "[]", "off", null, null, at, at);
-    });
+        );
+        row.run("hourly", JSON.stringify(["prints", "spools"]), "1h", synced, printsAt, at, at);
+        row.run("manual", "[]", "off", null, null, at, at);
+      },
+      63,
+    );
     const of = (integrationId: string) =>
       now
         .select()
@@ -402,6 +421,40 @@ describe("migration 0025", () => {
     // Deleting the integration takes its policies along.
     now.delete(s.integrations).run();
     expect(now.select().from(s.syncPolicies).all()).toEqual([]);
+  });
+});
+
+describe("migration 0064", () => {
+  it("turns off data types into manual, spools untracked; actions keep off", () => {
+    const at = "2026-01-01T00:00:00.000Z";
+    const now = migrateAcross(63, (sqlite) => {
+      sqlite
+        .prepare(
+          "INSERT INTO integrations (id, adapter_id, config, created_at, updated_at) VALUES ('i', 'mock', '{}', ?, ?)",
+        )
+        .run(at, at);
+      const policy = sqlite.prepare(
+        "INSERT INTO sync_policies (integration_id, type, mode, frequency) VALUES ('i', ?, ?, '1d')",
+      );
+      for (const [type, mode] of [
+        ["printers", "auto"],
+        ["prints", "off"],
+        ["spools", "off"],
+        ["slice", "off"],
+      ])
+        policy.run(type, mode);
+    });
+    const policies = now
+      .select()
+      .from(s.syncPolicies)
+      .all()
+      .map(({ type, mode, trackUsage }) => ({ type, mode, trackUsage }));
+    expect(policies).toEqual([
+      { type: "printers", mode: "auto", trackUsage: true },
+      { type: "prints", mode: "manual", trackUsage: true },
+      { type: "spools", mode: "manual", trackUsage: false },
+      { type: "slice", mode: "off", trackUsage: true },
+    ]);
   });
 });
 
