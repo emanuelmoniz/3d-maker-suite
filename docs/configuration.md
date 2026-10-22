@@ -1,6 +1,6 @@
 # Configuration
 
-Set these environment variables before `pnpm start`. You can also put them in a `.env` file in the project root (it is git-ignored).
+Set these environment variables before `pnpm start` (in Docker, under `environment:` in the compose file). You can also put them in a `.env` file in the project root (it is git-ignored).
 
 `HOST` and `PORT` can also be set in **Settings → Network** and as command-line flags. Precedence: flag, then environment variable, then the saved setting, then the default. For a one-off run with a flag:
 

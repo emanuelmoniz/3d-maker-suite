@@ -216,7 +216,7 @@ push the tag and confirm the pre-release is published.
 
 ## Phase 4 - Install & updates
 
-### [ ] Step 13 - Install on Windows, macOS, Linux and Docker
+### [x] Step 13 - Install on Windows, macOS, Linux and Docker
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - Review every install instruction (README, `docs/install.md`, `docs/configuration.md`) and make it easy for Windows, macOS and Linux (macOS is supported: check its paths and steps).

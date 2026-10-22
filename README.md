@@ -40,7 +40,7 @@ pnpm install
 pnpm start
 ```
 
-Then open <http://127.0.0.1:4300>. Full steps and Windows notes: [docs/install.md](docs/install.md).
+Then open <http://127.0.0.1:4300>. Steps for Windows, macOS, Linux and Docker (NAS): [docs/install.md](docs/install.md).
 
 ## Connect Bambu Cloud (optional)
 
@@ -50,7 +50,7 @@ Details, region choice and troubleshooting: [docs/bambu-cloud.md](docs/bambu-clo
 
 ## Using it from another device
 
-By default the app only answers on this PC. To reach it from your phone or another computer on your network, set `APP_PASSWORD` and `HOST` (or the port and host in Settings → Network). Running it on a NAS? See [docs/install.md](docs/install.md#your-pc-or-a-nas). See [docs/configuration.md](docs/configuration.md).
+By default the app only answers on this PC. To reach it from your phone or another computer on your network, set `APP_PASSWORD` and `HOST` (or the port and host in Settings → Network). Running it on a NAS? See [docs/install.md](docs/install.md#docker). See [docs/configuration.md](docs/configuration.md).
 
 ## Documentation
 

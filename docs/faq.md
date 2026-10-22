@@ -13,7 +13,7 @@ Bambu asks for an email code or 2FA code on new sign-ins. Enter the code in the 
 Yes, add them manually. Other vendors can be added as adapters (see [CONTRIBUTING.md](../CONTRIBUTING.md)).
 
 **Is there a Docker image?**
-Not yet. It runs directly with Node.js.
+Yes: `ghcr.io/emanuelmoniz/3d-maker-suite`. See [Docker in install.md](install.md#docker) for the compose file and what does not work on a NAS.
 
 **Will my old costs change when I change a filament price?**
 No. Each print stores its cost when it is recorded.

@@ -7,7 +7,7 @@ Local-first manager for 3D printing: printers, maintenance, filament, projects, 
 - Workspace package scope: `@3d-maker-suite/*` (e.g. `@3d-maker-suite/core`)
 - i18n key for the app name: `common:appName` (never hard-code the name in components)
 
-Runs locally on the user's PC (no Docker for now). Public GitHub repo. Brand-agnostic core; Bambu Lab is the first integration (Bambu Cloud first).
+Runs locally on the user's PC (Windows, macOS, Linux) or in Docker on a NAS or server. Public GitHub repo. Brand-agnostic core; Bambu Lab is the first integration (Bambu Cloud first).
 
 ## Golden rules
 - **Core is brand-agnostic.** `packages/core` and `apps/*` never import from a vendor adapter. Vendors live only in `packages/adapters/<vendor>` and implement interfaces from `packages/core/src/integrations`.
