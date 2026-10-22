@@ -116,7 +116,10 @@ export function ProjectGallery({ project }: { project: Project }) {
       </div>
       {count > 1 && (
         <div className="relative">
-          <ul ref={strip} className="flex snap-x gap-2 overflow-x-auto">
+          <ul
+            ref={strip}
+            className="flex snap-x gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          >
             {images.map((img, i) => (
               <li key={img.label} className="snap-start">
                 <button
