@@ -244,24 +244,26 @@ function ProjectForm({ project }: { project?: Project }) {
         <DescriptionEditor project={project} value={description} onChange={setDescription} />
       </Section>
       {(models.length > 0 || (project?.folderPath && images.length > 0)) && (
-        <Section title={t("projects:form.sectionImages")} edit={!!project}>
+        <Section title={t("projects:form.sectionImages")} edit={!!project} wide>
           {models.length > 0 && (
-            <FormField
-              label={t("projects:form.previewFile")}
-              hint={t("projects:form.previewFileHint")}
-            >
-              {(p) => (
-                <Combobox
-                  {...p}
-                  value={preview}
-                  onChange={setPreview}
-                  options={[
-                    { value: "", label: t("projects:form.previewFileAuto") },
-                    ...models.map((m) => ({ value: m.path, label: m.path })),
-                  ]}
-                />
-              )}
-            </FormField>
+            <div className="sm:max-w-md">
+              <FormField
+                label={t("projects:form.previewFile")}
+                hint={t("projects:form.previewFileHint")}
+              >
+                {(p) => (
+                  <Combobox
+                    {...p}
+                    value={preview}
+                    onChange={setPreview}
+                    options={[
+                      { value: "", label: t("projects:form.previewFileAuto") },
+                      ...models.map((m) => ({ value: m.path, label: m.path })),
+                    ]}
+                  />
+                )}
+              </FormField>
+            </div>
           )}
           {project?.folderPath && images.length > 0 && (
             <GalleryPicker
