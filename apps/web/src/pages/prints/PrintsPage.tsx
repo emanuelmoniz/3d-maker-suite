@@ -1,4 +1,10 @@
-import { type Page, PRINT_OUTCOMES, type PrintDetail, printFilters } from "@3d-maker-suite/core";
+import {
+  NO_PROJECT,
+  type Page,
+  PRINT_OUTCOMES,
+  type PrintDetail,
+  printFilters,
+} from "@3d-maker-suite/core";
 import { Link } from "@tanstack/react-router";
 import { ExternalLink, Layers, Plus } from "lucide-react";
 import type { ReactNode } from "react";
@@ -63,6 +69,8 @@ export function PrintsTable({
           id: "project",
           header: t("prints:list.columns.project"),
           cell: (p) => {
+            if (!p.projectId)
+              return <span className="text-muted">{t("prints:list.noProject")}</span>;
             const project = projects.find((x) => x.id === p.projectId);
             return project ? (
               <Link to="/projects/$id" params={{ id: project.id }} className="hover:underline">
@@ -74,7 +82,10 @@ export function PrintsTable({
           },
           sort: "project",
           filter: "projectId",
-          filterOptions: projects.map((x) => ({ value: x.id, label: projectName(t, x) })),
+          filterOptions: [
+            { value: NO_PROJECT, label: t("prints:list.noProject") },
+            ...projects.map((x) => ({ value: x.id, label: projectName(t, x) })),
+          ],
         },
         {
           id: "title",

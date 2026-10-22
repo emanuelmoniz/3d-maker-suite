@@ -5,6 +5,7 @@ import {
   filamentReviewItemSchema,
   filamentReviewSortFields,
   listQuery,
+  NO_PROJECT,
   type Page,
   type PrintDetail,
   pageOf,
@@ -258,7 +259,8 @@ export const printsRoutes =
             title: printLabel,
             startedAt: prints.startedAt,
             printerId: prints.printerId,
-            projectId: prints.projectId,
+            // NO_PROJECT picks the prints without one.
+            projectId: sql`coalesce(${prints.projectId}, ${NO_PROJECT})`,
             orderId: prints.orderId,
             outcome: prints.outcome,
             durationSec: prints.durationSec,

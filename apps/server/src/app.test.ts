@@ -1,5 +1,6 @@
-import { idList, listQuery } from "@3d-maker-suite/core";
+import { idList, listQuery, NO_PROJECT } from "@3d-maker-suite/core";
 import { openDb, schema } from "@3d-maker-suite/db";
+import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import { buildApp } from "./app.ts";
 import { modelIdFor } from "./lib/catalog.ts";
@@ -124,6 +125,15 @@ describe("listPage filters", () => {
     expect(await titles("startedAt=2026-03-10..2026-03-20")).toEqual([2, ["Vase", "benchy XL"]]);
     expect(await titles("pageSize=1&page=3")).toEqual([3, ["Benchy"]]);
     expect((await app.inject("/api/prints?outcome=nope")).statusCode).toBe(400);
+    // NO_PROJECT is the prints without one, alone or with projects.
+    const boat = db.insert(schema.projects).values({ number: 1, name: "boat" }).returning().get();
+    db.update(schema.prints)
+      .set({ projectId: boat.id })
+      .where(eq(schema.prints.title, "Benchy"))
+      .run();
+    expect(await titles(`projectId=${NO_PROJECT}`)).toEqual([2, ["Vase", "benchy XL"]]);
+    expect(await titles(`projectId=${boat.id}`)).toEqual([1, ["Benchy"]]);
+    expect((await titles(`projectId=${NO_PROJECT},${boat.id}`))[0]).toBe(3);
   });
 
   it("expression columns: printers by brand + model, spools by profile label, projects by material", async () => {

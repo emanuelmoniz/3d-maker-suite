@@ -2,6 +2,7 @@
   "loadError": "Couldn't load prints. Is the server running?",
   "list": {
     "table": "Prints",
+    "noProject": "No project",
     "emptyTitle": "No prints yet",
     "emptyBody": "Log a print to track how it went and how much filament it used.",
     "add": "Add print",
