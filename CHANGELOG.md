@@ -4,6 +4,11 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+## [4.0.0-alpha.4] - 2026-10-22
+
+### Changed
+- Version bump to test updating from and rolling back to alpha.3 on real machines
+
 ## [4.0.0-alpha.3] - 2026-10-22
 
 ### Added
