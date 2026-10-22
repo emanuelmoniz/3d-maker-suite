@@ -81,5 +81,10 @@
   "printName": "{{number}}-{{title}}",
   "quoteName": "{{number}}-{{name}}",
   "orderName": "Order {{number}}",
-  "version": "Version {{version}}"
+  "version": "Version {{version}}",
+  "updateBanner": {
+    "available": "Version {{version}} is available",
+    "see": "See update",
+    "dismiss": "Dismiss"
+  }
 }

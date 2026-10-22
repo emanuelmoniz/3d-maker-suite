@@ -73,7 +73,8 @@ function Brand() {
   );
 }
 
-/** A new release, while its alert is open and not snoozed; dismissing hides it (ADR-0009). */
+/** A new release, while its alert is open and not snoozed; dismissing hides it (ADR-0009).
+ * The shell only has `common` and `nav` loaded, so its strings live in `common`. */
 function UpdateBanner() {
   const { t } = useTranslation();
   const act = useAlertAction();
@@ -89,15 +90,15 @@ function UpdateBanner() {
     >
       <Sparkles className="size-4 shrink-0 text-accent" aria-hidden />
       <span className="min-w-0 flex-1 font-medium">
-        {t("alerts:kinds.update_available", { version: a.context.version })}
+        {t("common:updateBanner.available", { version: a.context.version })}
       </span>
       <Link to="/settings" hash="updates" className="font-medium text-accent hover:underline">
-        {t("settings:updates.see")}
+        {t("common:updateBanner.see")}
       </Link>
       <button
         type="button"
         className="rounded-md p-1 text-muted hover:bg-surface-2 hover:text-fg"
-        aria-label={t("alerts:dismiss")}
+        aria-label={t("common:updateBanner.dismiss")}
         onClick={() => act.mutate({ id: a.id, action: "dismiss" })}
       >
         <X className="size-4" aria-hidden />

@@ -44,3 +44,37 @@ test("updates: version in the footer and About; Docker gets the command, git the
   await expect(about.getByRole("button", { name: "Update to 99.0.0" })).toBeVisible();
   await expect(about.getByText("docker compose pull")).toHaveCount(0);
 });
+
+test("updates: the banner reads on any page and leads to Settings", async ({ page }) => {
+  // The shell renders before a page loads its own translations: start where Settings isn't loaded.
+  await page.route("**/api/alerts", (r) =>
+    r.fulfill({
+      json: [
+        {
+          id: "a1",
+          kind: "update_available",
+          severity: "success",
+          module: "system",
+          task: "update",
+          entityType: "release",
+          entityId: "v99.0.0",
+          context: { version: "99.0.0" },
+          createdAt: new Date().toISOString(),
+          readAt: null,
+          notifiedAt: null,
+          snoozedUntil: null,
+          dismissedAt: null,
+          resolvedAt: null,
+          updatedAt: null,
+          hasDetail: false,
+        },
+      ],
+    }),
+  );
+  await page.goto("/");
+  const banner = page.getByRole("status").filter({ hasText: "Version 99.0.0 is available" });
+  await expect(banner).toBeVisible();
+  await banner.getByRole("link", { name: "See update" }).click();
+  await expect(page).toHaveURL(/\/settings#updates$/);
+  await expect(page.locator("#updates")).toBeVisible();
+});

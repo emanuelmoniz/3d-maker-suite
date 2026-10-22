@@ -188,7 +188,6 @@
     "checkedAt": "Last checked {{date}}",
     "checkNow": "Check now",
     "update": "Update to {{version}}",
-    "see": "See update",
     "manualGit": "This install can’t update itself. In the app’s folder, stop the app and run:",
     "manualDocker": "Docker installs update by pulling the new image. Next to your docker-compose.yml, run:",
     "phases": {
