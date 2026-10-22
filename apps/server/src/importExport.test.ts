@@ -35,6 +35,17 @@ const labels = {
   labels: {},
 };
 
+it("reads a JSON list of objects like a sheet", async () => {
+  const p = (
+    await post("/api/import/printers/preview?fileName=p.json", [
+      { name: "J1", brand: "Bambu Lab", model: "X1C", lifetimeHours: 900 },
+      { name: "J2", brand: "Bambu Lab", model: "X1C" },
+    ])
+  ).json() as ImportPreview;
+  expect(p.rows).toHaveLength(2);
+  expect(p.rows.map((r) => r.status)).toEqual(["new", "new"]);
+});
+
 it("export → edit → import updates only the edited row and is logged", async () => {
   const csv =
     "name,brand,model,lifetimeHours,includeMaintenanceCost\nA,Bambu Lab,X1C,1500,no\nB,Bambu Lab,X1C,,\n";

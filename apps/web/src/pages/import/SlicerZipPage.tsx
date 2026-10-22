@@ -35,67 +35,76 @@ export function SlicerZipPage() {
 
   return (
     <>
-      <PageHeader title={t("import:zip.title")} description={t("import:zip.description")} />
-      <div className="grid max-w-3xl gap-5">
+      <PageHeader
+        title={t("import:zip.title")}
+        description={t("import:zip.description")}
+        backTo={{ to: "/import" }}
+      />
+      <div className="grid max-w-3xl gap-4">
         {source && (
           <>
-            <FormField label={t("import:zip.slicer")}>
-              {(p) => (
-                <Combobox
-                  {...p}
-                  value={source.id}
-                  onChange={setPicked}
-                  options={(sources.data ?? []).map((s) => ({
-                    value: s.id,
-                    label: t(`filament:library.sources.${s.id}`),
-                  }))}
+            <section className="grid gap-3 rounded-lg border border-border bg-surface p-4">
+              <h2 className="font-medium">{t("import:zip.stepsTitle")}</h2>
+              <FormField label={t("import:zip.slicer")}>
+                {(p) => (
+                  <Combobox
+                    {...p}
+                    value={source.id}
+                    onChange={setPicked}
+                    options={(sources.data ?? []).map((s) => ({
+                      value: s.id,
+                      label: t(`filament:library.sources.${s.id}`),
+                    }))}
+                  />
+                )}
+              </FormField>
+              <ol className="grid list-decimal gap-2 pl-5">
+                <li>{t("import:zip.steps.open", { name })}</li>
+                <li>
+                  {t("import:zip.steps.folder")}
+                  <ul className="list-disc pl-5 text-muted">
+                    <li>{t("import:zip.steps.windows", { folder: source.folders.windows })}</li>
+                    <li>{t("import:zip.steps.mac", { folder: source.folders.mac })}</li>
+                    <li>{t("import:zip.steps.linux", { folder: source.folders.linux })}</li>
+                  </ul>
+                </li>
+                <li>{t("import:zip.steps.select")}</li>
+                <li>{t("import:zip.steps.zip")}</li>
+              </ol>
+            </section>
+            <section className="grid gap-2 rounded-lg border border-border bg-surface p-4">
+              <h2 className="font-medium">{t("import:zip.uploadTitle")}</h2>
+              <label className="inline-flex h-9 w-fit cursor-pointer items-center whitespace-nowrap rounded-md bg-accent px-3 font-medium text-accent-fg hover:opacity-90 focus-within:outline-2">
+                {t("import:zip.choose")}
+                <input
+                  type="file"
+                  accept=".zip,application/zip"
+                  className="sr-only"
+                  disabled={upload.isPending}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file)
+                      upload.mutate(file, {
+                        onSuccess: (uploadId) =>
+                          navigate({ to: "/import/slicer-zip/$id", params: { id: uploadId } }),
+                      });
+                    e.target.value = "";
+                  }}
                 />
+              </label>
+              {upload.isPending && <p role="status">{t("import:zip.reading")}</p>}
+              {upload.isError && (
+                <p role="alert" className="text-bad">
+                  {t(ERRORS[upload.error.message] ?? "import:zip.errors.error")}
+                </p>
               )}
-            </FormField>
-            <ol className="grid list-decimal gap-2 pl-5">
-              <li>{t("import:zip.steps.open", { name })}</li>
-              <li>
-                {t("import:zip.steps.folder")}
-                <ul className="list-disc pl-5 text-muted">
-                  <li>{t("import:zip.steps.windows", { folder: source.folders.windows })}</li>
-                  <li>{t("import:zip.steps.mac", { folder: source.folders.mac })}</li>
-                  <li>{t("import:zip.steps.linux", { folder: source.folders.linux })}</li>
-                </ul>
-              </li>
-              <li>{t("import:zip.steps.select")}</li>
-              <li>{t("import:zip.steps.zip")}</li>
-              <li>{t("import:zip.steps.upload")}</li>
-            </ol>
-            <label className="inline-flex h-9 w-fit cursor-pointer items-center whitespace-nowrap rounded-md bg-accent px-3 font-medium text-accent-fg hover:opacity-90 focus-within:outline-2">
-              {t("import:zip.choose")}
-              <input
-                type="file"
-                accept=".zip,application/zip"
-                className="sr-only"
-                disabled={upload.isPending}
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file)
-                    upload.mutate(file, {
-                      onSuccess: (uploadId) =>
-                        navigate({ to: "/import/slicer-zip/$id", params: { id: uploadId } }),
-                    });
-                  e.target.value = "";
-                }}
-              />
-            </label>
-            {upload.isPending && <p role="status">{t("import:zip.reading")}</p>}
-            {upload.isError && (
-              <p role="alert" className="text-bad">
-                {t(ERRORS[upload.error.message] ?? "import:zip.errors.error")}
-              </p>
-            )}
+            </section>
           </>
         )}
         {sources.data && !source && <p className="text-muted">{t("import:zip.none")}</p>}
 
         {id && (
-          <section className="grid gap-2">
+          <section className="grid gap-2 rounded-lg border border-border bg-surface p-4">
             <h2 className="font-medium">{t("import:zip.review")}</h2>
             <ul className="grid gap-1">
               {SLICER_ZIP_TYPES.map((type) => (

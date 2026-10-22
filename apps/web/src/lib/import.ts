@@ -3,7 +3,6 @@ import type {
   ImportEntity,
   ImportPreview,
   ImportResult,
-  ImportRun,
   ImportTemplate,
   ReviewEntity,
   ReviewedType,
@@ -39,7 +38,13 @@ export const usePreview = (entity: ImportEntity) =>
         "POST",
         `/api/import/${entity}/preview?labels=${encodeURIComponent(JSON.stringify(v.labels))}&fileName=${encodeURIComponent(v.file.name)}`,
         // The browser's own type for a .csv depends on the OS, so the extension decides.
-        new Blob([v.file], { type: /\.csv$/i.test(v.file.name) ? "text/csv" : XLSX }),
+        new Blob([v.file], {
+          type: /\.csv$/i.test(v.file.name)
+            ? "text/csv"
+            : /\.json$/i.test(v.file.name)
+              ? "application/json"
+              : XLSX,
+        }),
       ),
   });
 
@@ -85,9 +90,3 @@ export const useApply = (entity: ReviewEntity) => {
     },
   });
 };
-
-export const useImportRuns = () =>
-  useQuery({
-    queryKey: ["import-runs"],
-    queryFn: () => api<ImportRun[]>("GET", "/api/import/runs"),
-  });

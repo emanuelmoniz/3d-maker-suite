@@ -46,6 +46,18 @@ const MAX_ROWS = 20000;
 const params = z.object({ entity: z.enum(IMPORT_ENTITIES) });
 const filled = (v: unknown) => v != null && String(v).trim() !== "";
 
+/** A JSON file (a list of objects) as a sheet: the keys in first-seen order are the header row. */
+function jsonGrid(body: unknown): GridRow[] | null {
+  if (!Array.isArray(body)) return null;
+  const items = body.filter((o) => o && typeof o === "object" && !Array.isArray(o));
+  const keys = [...new Set(items.flatMap((o) => Object.keys(o)))];
+  const cell = (v: unknown) => (v != null && typeof v === "object" ? JSON.stringify(v) : v);
+  return [
+    { n: 1, cells: keys },
+    ...items.map((o, i) => ({ n: i + 2, cells: keys.map((k) => cell(o[k]) ?? null) })),
+  ] as GridRow[];
+}
+
 export const importRoutes =
   (db: Db, dataDir: string, syncer: Syncer, scanner: ProjectScanner): FastifyPluginAsyncZod =>
   async (app) => {
@@ -109,13 +121,16 @@ export const importRoutes =
       },
       async (req) => {
         const { entity } = req.params;
-        if (!Buffer.isBuffer(req.body) || !req.body.length)
-          throw new HttpError(415, "unsupported_media_type", "Send an .xlsx or .csv file");
+        const json = jsonGrid(req.body);
+        if (!json && (!Buffer.isBuffer(req.body) || !req.body.length))
+          throw new HttpError(415, "unsupported_media_type", "Send an .xlsx, .csv or .json file");
         let grid: GridRow[];
         try {
-          grid = req.headers["content-type"]?.startsWith("text/csv")
-            ? readCsv(req.body)
-            : await readXlsx(req.body);
+          grid =
+            json ??
+            (req.headers["content-type"]?.startsWith("text/csv")
+              ? readCsv(req.body as Buffer)
+              : await readXlsx(req.body as Buffer));
         } catch {
           throw new HttpError(400, "invalid_file", "Couldn't read the file");
         }

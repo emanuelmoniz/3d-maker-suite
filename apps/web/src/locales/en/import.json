@@ -1,14 +1,21 @@
 {
   "title": "Import | Export",
   "description": "Bring data in from a spreadsheet, or take it out. You review every row before anything is saved.",
-  "howTo": {
-    "title": "How to bring your data in",
-    "other": "Your data is in another app or a file: pick what to import, download its template, copy your data into the template, then upload it.",
-    "earlier": "Files you exported from here earlier can be uploaded as they are."
+  "import": {
+    "title": "Import",
+    "hint": "Data in another app or file? Download the template for what you want to import, copy your data into it, then upload it. Files you exported here earlier can be uploaded as they are.",
+    "step1": "1. Choose what to import",
+    "step1Hint": "The template lists the columns and what to enter in each.",
+    "step2": "2. Upload your file"
   },
   "exportAll": {
-    "title": "Export all data",
-    "hint": "One file per module, for spreadsheets or your own scripts.",
+    "title": "Export",
+    "hint": "Take your data out, to keep, edit or use elsewhere.",
+    "sheetTitle": "Spreadsheet",
+    "sheetHint": "An .xlsx with the same columns as the import template. Edit it and upload it again to update your data.",
+    "sheetWhat": "What to export",
+    "rawTitle": "All data, as CSV or JSON",
+    "rawHint": "Everything in a module as stored, for other tools and your own scripts. Use the spreadsheet above if you want to import it back.",
     "tables": {
       "printers": "Printers",
       "accessories": "Accessories",
@@ -84,16 +91,6 @@
     "download": "Export",
     "filename": "{{name}} export.xlsx"
   },
-  "history": {
-    "title": "Import history",
-    "run": "{{date}} · {{type}} · {{file}}: {{created}} created, {{updated}} updated, {{skipped}} skipped, {{invalid}} invalid",
-    "backup": "backup {{name}}",
-    "sources": {
-      "file": "file",
-      "zip": "zip",
-      "integration": "integration"
-    }
-  },
   "hints": {
     "text": "Any text.",
     "ref": "A name. Pick one from the list or type a new one; new names are added for you.",
@@ -107,8 +104,8 @@
   },
   "upload": {
     "choose": "Upload a file",
-    "hint": "Use the template (.xlsx), or a .csv whose first row holds the column names. Nothing is saved until you confirm.",
-    "error": "Couldn't read that file. Use the template, or a CSV whose first row holds the column names."
+    "hint": "An .xlsx (the template), a .csv whose first row holds the column names, or a .json list of objects named like the columns. Nothing is saved until you confirm.",
+    "error": "Couldn't read that file. Use the template, a CSV whose first row holds the column names, or a JSON list."
   },
   "statuses": {
     "new": "New",
@@ -413,9 +410,13 @@
     "emptyBody": "The source has nothing of this type, or nothing you don't already have."
   },
   "zip": {
-    "link": "Import a slicer catalog from a zip",
-    "title": "Import a slicer catalog from a zip",
-    "description": "For a server with no slicer installed: zip your slicer's config folder on the PC that has it, upload it here and review what it offers.",
+    "cardTitle": "Printer and filament profiles from a slicer",
+    "cardHint": "Running on a server with no slicer installed? Zip your slicer's config folder on the PC that has it and import its brands, printers and filament profiles from the zip.",
+    "link": "Import from a slicer zip",
+    "title": "Import from a slicer zip",
+    "description": "Zip your slicer's config folder on the PC that has it, upload it here and review what it offers. Nothing is saved until you confirm.",
+    "stepsTitle": "How to get the zip",
+    "uploadTitle": "Upload the zip",
     "slicer": "Slicer",
     "steps": {
       "open": "On the PC where {{name}} is installed, open its config folder: Help → Show Configuration Folder.",
@@ -424,8 +425,7 @@
       "mac": "macOS: {{folder}} (Finder → Go → Go to Folder)",
       "linux": "Linux: {{folder}}",
       "select": "Select the system and user folders. The rest (cache, logs, plugins) isn't needed.",
-      "zip": "Zip them: Windows – right-click → Send to → Compressed (zipped) folder; macOS – right-click → Compress; Linux – run zip -r slicer.zip system user in that folder.",
-      "upload": "Upload the zip below."
+      "zip": "Zip them: Windows – right-click → Send to → Compressed (zipped) folder; macOS – right-click → Compress; Linux – run zip -r slicer.zip system user in that folder."
     },
     "choose": "Choose zip file",
     "reading": "Reading the zip…",

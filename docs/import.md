@@ -33,7 +33,7 @@ An unknown client, quote or project is an invalid row, and the message says whic
 1. Open **Import** and choose what to import (spools, printers or prints).
 2. Click **Download template**. It is an `.xlsx` file with one sheet of columns, a **Lists** sheet with the allowed values, and an **Instructions** sheet.
 3. Fill in one row per item on the first sheet. Columns marked `*` are required. Leave a cell empty to keep what the app already has.
-4. Upload the file (or a `.csv` whose first row holds the column names).
+4. Upload the file (or a `.csv` or `.json` whose first row holds the column names).
 
 Notes on the columns:
 
@@ -41,7 +41,7 @@ Notes on the columns:
 - **Track usage:** leave empty or enter `yes` to subtract the filament from your spools. Enter `no` to save the print and its filament without changing the spools' weights.
 - **Names:** for brand, material and profile columns, pick an existing name or type a new one.
 
-To get your data back out, use **Export** on the same page. It downloads one `.xlsx` per module, ready to edit and re-import. **Export all data**, at the bottom of the page, has a CSV and a JSON file for every module.
+To get your data back out, use **Export** on the same page. It downloads one `.xlsx` per module, ready to edit and re-import. The **Export** section of the page also has a CSV and a JSON file for every module: the data as stored, for other tools. Use the spreadsheet export if you want to import it back.
 
 Data in another app or file? Pick the type, download its template, copy your data into it and upload it. Files you exported earlier can be uploaded as they are.
 
@@ -77,9 +77,9 @@ Printers and projects get a unique number and display name too. Imported prints 
 
 A print that has grams but no duration gets an estimated duration: its grams divided by the printer's average grams-per-hour from its past prints (a preset default applies until there are some). The print is marked as estimated. A real duration, from a file or an integration, replaces the estimate. On the print form, **Estimate from filament** fills the duration the same way.
 
-## Import history
+## Backups before an import
 
-**Import history** on the page lists every import: when it ran, the file or source, and how many rows were created, updated, skipped or invalid. Before an import saves anything, the app takes a backup and names it in the history, so you can restore it from [Backups](backups.md).
+Before an import saves anything, the app takes a backup, so you can restore it from [Backups](backups.md).
 
 ## From an integration
 
@@ -95,7 +95,7 @@ Prints that wait raise a **Sync needs review** alert when the type's alert is on
 
 ## Slicer catalog from a zip
 
-For a server with no slicer installed (a NAS, for example), you can import the filament and machine profiles from your slicer's config folder. Zip the folder on the PC where the slicer is installed, then upload the zip on **Import → Import a slicer catalog from a zip**.
+For a server with no slicer installed (a NAS, for example), you can import the filament and machine profiles from your slicer's config folder. Zip the folder on the PC where the slicer is installed, then upload the zip on **Import → Import from a slicer zip**.
 
 1. Open the slicer's config folder: in Bambu Studio or OrcaSlicer, **Help → Show Configuration Folder**. Or find it yourself:
    - Windows: `%APPDATA%\BambuStudio` or `%APPDATA%\OrcaSlicer` (paste it into the File Explorer address bar)

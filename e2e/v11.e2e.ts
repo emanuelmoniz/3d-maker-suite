@@ -193,7 +193,7 @@ test("import: template download, XLSX upload, bulk action, apply and export roun
 }) => {
   await seedSpool(app.api, 800);
   await page.goto("/import");
-  await expect(page.getByRole("heading", { name: "Export all data" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Export", exact: true })).toBeVisible();
   const [template] = await Promise.all([
     page.waitForEvent("download"),
     page.getByRole("button", { name: "Download template" }).click(),
@@ -220,7 +220,6 @@ test("import: template download, XLSX upload, bulk action, apply and export roun
   await page.getByRole("button", { name: "Import 1 row" }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Import 1 row" }).click();
   await expect(page.getByText("Import finished: 1 created, 0 updated.")).toBeVisible();
-  await expect(page.getByText(/Import history/)).toBeVisible();
   const spools = await app.api<{ items: unknown[] }>("GET", "/api/filament/spools");
   expect(spools.items).toHaveLength(2);
 });
