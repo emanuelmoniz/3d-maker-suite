@@ -2,6 +2,7 @@ import type { Stats, StatsMetrics } from "@3d-maker-suite/core";
 import { ChartColumn, Download } from "lucide-react";
 import { type ReactNode, useId, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { BarSeries } from "../../components/BarSeries.tsx";
 import { Combobox } from "../../components/Combobox.tsx";
 import { DataTable, type ListQuery } from "../../components/DataTable.tsx";
 import { DateRangePicker } from "../../components/DateRangePicker.tsx";
@@ -11,13 +12,7 @@ import { PageHeader } from "../../components/PageHeader.tsx";
 import { StatCard } from "../../components/StatCard.tsx";
 import { useMoney } from "../../lib/cost.ts";
 import { spoolName, useProfiles, useSpools } from "../../lib/filament.ts";
-import {
-  formatDate,
-  formatDuration,
-  formatEnergy,
-  formatNumber,
-  formatWeight,
-} from "../../lib/format.ts";
+import { formatDuration, formatEnergy, formatNumber, formatWeight } from "../../lib/format.ts";
 import { printerName, usePrinters } from "../../lib/printers.ts";
 import { projectName, useProjects } from "../../lib/projects.ts";
 import { type StatsFilters, statsQs, useStats } from "../../lib/stats.ts";
@@ -141,17 +136,7 @@ export function StatsPage() {
     set({ from: p === "all" ? "" : dayStr(Number(p)), to: "" });
   };
 
-  const value = (m: StatsMetrics) =>
-    metric === "prints" ? m.prints : metric === "hours" ? m.seconds / 3600 : m.total / 100;
-  const shown = (m: StatsMetrics) =>
-    metric === "prints"
-      ? formatNumber(m.prints)
-      : metric === "hours"
-        ? formatDuration(m.seconds)
-        : money(m.total);
-
   const tot = data?.totals;
-  const max = Math.max(1, ...(data?.series.map(value) ?? []));
   const rate = (m: StatsMetrics) =>
     m.prints ? `${Math.round((m.successes / m.prints) * 100)}%` : "–";
   const costColumns = <R extends Group>(name: string, label: (r: R) => string) => [
@@ -384,23 +369,9 @@ export function StatsPage() {
                   )}
                 </Field>
               </div>
-              <ul className="flex h-40 items-end gap-px overflow-x-auto rounded-lg border border-border bg-surface p-3">
-                {data.series.map((r) => (
-                  <li
-                    key={r.key}
-                    title={`${formatDate(r.key)}: ${shown(r)}`}
-                    aria-label={`${formatDate(r.key)}: ${shown(r)}`}
-                    className="min-w-1 flex-1 rounded-t bg-accent"
-                    style={{ height: `${Math.max(2, (value(r) / max) * 100)}%` }}
-                  />
-                ))}
-              </ul>
-              {data.series.length > 0 && (
-                <p className="mt-1 flex justify-between text-sm text-muted">
-                  <span>{formatDate(data.series[0]?.key ?? "")}</span>
-                  <span>{formatDate(data.series.at(-1)?.key ?? "")}</span>
-                </p>
-              )}
+              <div className="rounded-lg border border-border bg-surface p-3">
+                <BarSeries series={data.series} metric={metric} height={240} />
+              </div>
             </section>
 
             <div className="grid gap-6 2xl:grid-cols-2">

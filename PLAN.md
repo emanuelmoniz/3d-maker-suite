@@ -42,7 +42,7 @@ Do Step 1 of PLAN.md.
 Do Step 2 of PLAN.md. Research and explain the usage problem before changing code.
 ```
 
-### [ ] Step 3 - Bar chart widget: dates and values
+### [x] Step 3 - Bar chart widget: dates and values
 **Model:** Sonnet (use dataviz skill) · **Effort:** Medium
 **Scope:** The bar chart widget on Home and Stats shows more about each bar: its date (period) and value, readable at a glance and on touch. Propose 2-3 options first (e.g. value labels on bars, clearer date ticks, tooltip with date + formatted value, average line), then build the chosen one once in the shared widget. Locale-aware dates/numbers, i18n, light/dark, Recharts only.
 **Done when:** the options are approved; both pages use the same widget; it reads well at 375 and 1440 (screenshots); tests pass.
