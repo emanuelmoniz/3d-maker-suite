@@ -6,7 +6,7 @@ import { Button } from "../../components/Button.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { useAdapterName, useIntegrations, useLogin } from "../../lib/integrations.ts";
-import { ERRORS } from "./IntegrationsPage.tsx";
+import { ERRORS } from "./integrationLabels.ts";
 
 // Literal keys so `pnpm i18n:check` sees them.
 const CHALLENGES: Record<LoginChallenge, string> = {

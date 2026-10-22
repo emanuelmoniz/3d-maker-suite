@@ -99,6 +99,7 @@ test("path picker: the slicer program and config folder come from the picker", a
     slicerConfigDir: dir,
   });
   await page.goto("/integrations");
+  await page.getByText("Slicer", { exact: true }).click(); // closed by default
 
   await page.getByRole("button", { name: "Browse for Slicer program" }).click();
   await dialog(page).getByRole("button", { name: "new.exe" }).click();

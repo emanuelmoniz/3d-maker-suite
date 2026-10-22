@@ -100,7 +100,7 @@ Do Step 4 of PLAN.md. Check the scanner code for every rule you document.
 Do Step 5 of PLAN.md. Show me the endpoints, the folderState rules and the UI states first.
 ```
 
-### [ ] Step 6 - Integrations page redesign 1: card frame
+### [x] Step 6 - Integrations page redesign 1: card frame
 **Model:** Sonnet (use frontend-design skill) · **Effort:** Medium
 **Scope:** UI only, no functionality change.
 - Two small components on native elements: `Switch` (`<input type="checkbox" role="switch">`) and `Menu` (`<details>`, keyboard accessible).

@@ -31,7 +31,7 @@ import { useAdapterName } from "../../lib/integrations.ts";
 import { useUrlListQuery } from "../../lib/list.ts";
 import { SYNC_TARGETS } from "../../lib/syncTargets.ts";
 import { TITLE } from "../import/SourceReviewPage.tsx";
-import { CAPS, ERRORS } from "../settings/IntegrationsPage.tsx";
+import { CAPS, ERRORS } from "../settings/integrationLabels.ts";
 
 export const SEVERITY: Record<AlertSeverity, { icon: LucideIcon; color: string; label: string }> = {
   error: { icon: CircleAlert, color: "text-bad", label: "alerts:severity.error" },

@@ -9,7 +9,7 @@ import { useAlertAction, useAlertDetail, useEvaluateAlerts } from "../../lib/ale
 import { formatDateTime, formatWeight } from "../../lib/format.ts";
 import { useDue } from "../../lib/maintenance.ts";
 import { LogDialog } from "../maintenance/MaintenancePage.tsx";
-import { CAPS } from "../settings/IntegrationsPage.tsx";
+import { CAPS } from "../settings/integrationLabels.ts";
 import {
   AlertButtons,
   buttonLink,

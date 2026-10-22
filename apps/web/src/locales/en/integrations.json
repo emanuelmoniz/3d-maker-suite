@@ -37,13 +37,16 @@
     "test": "Test connection",
     "testOk": "Connection works.",
     "delete": "Delete",
-    "showLog": "Show sync log",
-    "hideLog": "Hide sync log",
     "actionError": "That didn't work. Try again.",
     "signIn": "Sign in",
     "signInAgain": "Sign in again",
     "disabledHint": "Switched off: nothing is synced, imported or offered in the app. Tick Enabled to use it and change its settings.",
-    "unavailableHint": "The slicer's config folder wasn't found on this server. If it's on another computer, mount it here and set Config folder to that path."
+    "unavailableHint": "The slicer's config folder wasn't found on this server. If it's on another computer, mount it here and set Config folder to that path.",
+    "menu": "More actions for {{name}}",
+    "messages_one": "{{count}} message",
+    "messages_other": "{{count}} messages",
+    "sync": "Sync",
+    "log": "Log"
   },
   "deleteDialog": {
     "title": "Delete {{name}}?",

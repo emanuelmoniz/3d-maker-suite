@@ -7,7 +7,7 @@ import { Combobox } from "../../components/Combobox.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { useAdapterName, useAdapters, useCreateIntegration } from "../../lib/integrations.ts";
-import { KINDS } from "./IntegrationsPage.tsx";
+import { KINDS } from "./integrationLabels.ts";
 
 // The adapter's zod schemas arrive as JSON Schema; flat string/number/boolean fields are enough
 // for API-key and URL style vendors. Adapters with an interactive sign-in (2FA, email codes) get
