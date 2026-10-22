@@ -87,7 +87,7 @@ const NOTES: Partial<Record<ImportEntity, string[][]>> = {
   clients: [["import:template.clientMatch"]],
   quotes: [["import:template.quoteCost"]],
   orders: [["import:template.orderProjects"]],
-  printerModels: [["import:template.catalogRefs"]],
+  printerModels: [["import:template.catalogRefs"], ["import:template.modelPicture"]],
   machineProfiles: [["import:template.catalogRefs"]],
   printProfiles: [["import:template.catalogRefs"]],
   filamentProfiles: [["import:template.catalogRefs"]],

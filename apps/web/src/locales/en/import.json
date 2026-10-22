@@ -76,7 +76,8 @@
     "column": "Column",
     "format": "What to enter",
     "error": "Couldn't build the template. Is the server running?",
-    "catalogRefs": "Brands, printer models and filament materials must already exist: import them first, or add them in the catalog."
+    "catalogRefs": "Brands, printer models and filament materials must already exist: import them first, or add them in the catalog.",
+    "modelPicture": "Picture shows \"yes\" when a model has a picture. It is for information only: leave it as it is or empty. A file can't add a picture; add one on the model's page, or import the model from a slicer, which fills a missing picture."
   },
   "export": {
     "download": "Export",
