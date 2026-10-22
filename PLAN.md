@@ -258,7 +258,7 @@ Do Step 15 of PLAN.md. Only document what changed since 4.0.0-alpha.2. Then push
 push the tag and confirm the pre-release and image are published.
 ```
 
-### [ ] Step 15b - Real update test: alpha.3 → alpha.4 and back
+### [x] Step 15b - Real update test: alpha.3 → alpha.4 and back
 **Model:** Sonnet · **Effort:** Medium
 **Scope:** Prove the updater against GitHub before friends rely on it (ADR-0009). Tag `v4.0.0-alpha.4` on `dev` with a trivial, visible change (CHANGELOG line, version bump). On a clean Windows machine and a clean macOS machine, each with a fresh clone at `v4.0.0-alpha.3` started with `pnpm start` on the Dev channel: Check now → Update to alpha.4 → confirm the version, the `update-` backup and the history → add a row → Roll back to alpha.3 → confirm the row is gone and the version is alpha.3. Fix anything found and note it in the CHANGELOG.
 **Done when:** update and rollback worked on both machines from GitHub; any fixes are committed and released in alpha.4 (or alpha.5, repeating the test).
