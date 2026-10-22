@@ -91,6 +91,7 @@ beforeEach(async () => {
       "machineProfiles",
       "printProfiles",
       "filamentBrands",
+      "filamentMaterials",
       "filamentProfiles",
     ],
     library,
@@ -129,14 +130,22 @@ describe("slicer catalog import", () => {
     const model = db.select().from(schema.printerModels).get();
     expect(model?.imagePath).toBe(`models/${model?.id}.png`);
     expect(existsSync(join(dataDir, model?.imagePath ?? ""))).toBe(true);
-    expect((await run("filamentBrands")).created).toBe(2); // brand "Acme" + material "PLA"
+    expect((await run("filamentBrands")).created).toBe(1); // "Acme"
+    expect((await run("filamentMaterials")).created).toBe(1); // "PLA"
 
-    for (const type of ["brands", "printerModels", "machineProfiles", "filamentBrands"])
+    for (const type of [
+      "brands",
+      "printerModels",
+      "machineProfiles",
+      "filamentBrands",
+      "filamentMaterials",
+    ])
       expect(await run(type)).toMatchObject({ created: 0, status: "ok" });
     expect(db.select().from(schema.brands).all()).toHaveLength(1);
     expect(db.select().from(schema.printerModels).all()).toHaveLength(1);
     expect(db.select().from(schema.machineProfiles).all()).toHaveLength(1);
     expect(db.select().from(schema.filamentBrands).all()).toHaveLength(1);
+    expect(db.select().from(schema.filamentMaterials).all()).toHaveLength(1);
   });
 
   it("a changed unused machine preset updates in place; a used one is archived and re-added", async () => {
@@ -211,6 +220,7 @@ describe("slicer catalog import", () => {
 
   it("a changed filament preset follows the same rule, keeping a price the preset doesn't give", async () => {
     await run("filamentBrands");
+    await run("filamentMaterials");
     // Confirms what the review suggests for the one preset.
     const imp = async () => review.confirm(await open("filamentProfiles"));
     await imp();

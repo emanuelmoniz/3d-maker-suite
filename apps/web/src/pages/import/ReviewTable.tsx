@@ -98,8 +98,6 @@ const MISSING: Record<string, string> = {
 };
 // Values of the columns that aren't typed by the user but named by the app.
 const OPTIONS: Record<string, string> = {
-  brand: "import:options.brand",
-  material: "import:options.material",
   yes: "import:options.yes",
   no: "import:options.no",
 };

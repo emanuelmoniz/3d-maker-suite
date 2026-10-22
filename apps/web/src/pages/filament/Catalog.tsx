@@ -65,6 +65,12 @@ export function FilamentCatalog() {
         kind="filament-materials"
         title={t("filament:catalog.materials.title")}
         add={{ to: "/filament/materials/new", label: t("filament:catalog.materials.add") }}
+        extra={
+          <ImportLinks
+            cap="filamentMaterials"
+            text="integrations:catalogImport.link.filamentMaterials"
+          />
+        }
         filters={filamentCatalogFilters}
         columns={[
           {

@@ -33,6 +33,37 @@ export const ENTITIES: Record<ImportEntity, { label: string; to: string; view: s
   clients: { label: "import:entities.clients", to: "/clients", view: "import:done.viewClients" },
   quotes: { label: "import:entities.quotes", to: "/quotes", view: "import:done.viewQuotes" },
   orders: { label: "import:entities.orders", to: "/orders", view: "import:done.viewOrders" },
+  brands: { label: "import:entities.brands", to: "/printers", view: "import:done.viewCatalog" },
+  printerModels: {
+    label: "import:entities.printerModels",
+    to: "/printers",
+    view: "import:done.viewCatalog",
+  },
+  machineProfiles: {
+    label: "import:entities.machineProfiles",
+    to: "/printers",
+    view: "import:done.viewCatalog",
+  },
+  printProfiles: {
+    label: "import:entities.printProfiles",
+    to: "/printers",
+    view: "import:done.viewCatalog",
+  },
+  filamentBrands: {
+    label: "import:entities.filamentBrands",
+    to: "/filament",
+    view: "import:done.viewFilamentCatalog",
+  },
+  filamentMaterials: {
+    label: "import:entities.filamentMaterials",
+    to: "/filament",
+    view: "import:done.viewFilamentCatalog",
+  },
+  filamentProfiles: {
+    label: "import:entities.filamentProfiles",
+    to: "/filament",
+    view: "import:done.viewFilamentCatalog",
+  },
 };
 
 const HINTS: Record<ImportColumn["type"], string> = {
@@ -56,6 +87,10 @@ const NOTES: Partial<Record<ImportEntity, string[][]>> = {
   clients: [["import:template.clientMatch"]],
   quotes: [["import:template.quoteCost"]],
   orders: [["import:template.orderProjects"]],
+  printerModels: [["import:template.catalogRefs"]],
+  machineProfiles: [["import:template.catalogRefs"]],
+  printProfiles: [["import:template.catalogRefs"]],
+  filamentProfiles: [["import:template.catalogRefs"]],
 };
 
 /** The translated headers and instruction sheet the server puts in a template, export or review. */

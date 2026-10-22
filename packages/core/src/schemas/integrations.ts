@@ -108,7 +108,12 @@ export const loginResultSchema = z.discriminatedUnion("status", [
   z.object({ status: z.literal("error"), code: z.enum(INTEGRATION_ERROR_CODES) }),
 ]);
 
-const WEEKLY: readonly Capability[] = ["brands", "printerModels", "filamentBrands"];
+const WEEKLY: readonly Capability[] = [
+  "brands",
+  "printerModels",
+  "filamentBrands",
+  "filamentMaterials",
+];
 /**
  * What a type does until the user changes it (no stored row). Printers and prints sync on their
  * own; anything with a preview is imported by hand until the user picks `auto`.

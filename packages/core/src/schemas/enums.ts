@@ -75,6 +75,7 @@ export const SYNC_TYPES = [
   "machineProfiles",
   "printProfiles",
   "filamentBrands",
+  "filamentMaterials",
   "filamentProfiles",
 ] as const;
 // Per integration and type: switched off, run by hand only, or run by the scheduler too.

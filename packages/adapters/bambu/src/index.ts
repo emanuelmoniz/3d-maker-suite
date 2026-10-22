@@ -344,6 +344,7 @@ export function bambuStudioAdapter(): IntegrationAdapter {
       "machineProfiles",
       "printProfiles",
       "filamentBrands",
+      "filamentMaterials",
       "filamentProfiles",
       "openInSlicer",
       "slice",

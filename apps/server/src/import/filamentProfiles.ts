@@ -1,4 +1,10 @@
-import { type ImportTarget, type ImportValues, lower, matchRowsOn } from "@3d-maker-suite/core";
+import {
+  type ImportErrorCode,
+  type ImportTarget,
+  type ImportValues,
+  lower,
+  matchRowsOn,
+} from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
 import { and, eq, isNotNull, isNull } from "drizzle-orm";
 import {
@@ -8,7 +14,7 @@ import {
   profileColumns,
 } from "../lib/catalog.ts";
 import type { WriteRow } from "./review.ts";
-import { distinct, num, str } from "./spools.ts";
+import { distinct, num, spoolImport, str } from "./spools.ts";
 
 const { filamentBrands, filamentMaterials, filamentProfiles, printFilamentUsages, spools } = schema;
 
@@ -30,7 +36,10 @@ const inUse = (db: Db, id: string) =>
     .where(eq(printFilamentUsages.profileId, id))
     .get();
 
-/** Filament profiles from a slicer's presets. The brand and material are found by name or created. */
+/**
+ * Filament profiles from a slicer's presets or a file. A preset's brand and material are found by
+ * name or created; a file names ones you have.
+ */
 export const filamentProfileImport = {
   /** Active profiles, in the shape of the import columns. */
   targets: (db: Db): ImportTarget[] =>
@@ -38,6 +47,7 @@ export const filamentProfileImport = {
       .select(profileColumns)
       .from(filamentProfiles)
       .where(isNull(filamentProfiles.archivedAt))
+      .orderBy(profileColumns.brand, profileColumns.material, filamentProfiles.name)
       .all()
       .map((p) => ({
         id: p.id,
@@ -66,6 +76,18 @@ export const filamentProfileImport = {
         .all()
         .map((r) => [r.source ?? "", r.id] as const),
     ),
+
+  refs: spoolImport.refs,
+
+  check(db: Db, v: ImportValues, file: boolean) {
+    const errors: { column: string; code: ImportErrorCode }[] = [];
+    if (!file) return errors;
+    if (v.brand && !names(db, filamentBrands).has(lower(v.brand)))
+      errors.push({ column: "brand", code: "unresolved" });
+    if (!names(db, filamentMaterials).has(lower(v.material)))
+      errors.push({ column: "material", code: "unresolved" });
+    return errors;
+  },
 
   /** Brands and materials the rows name that aren't there yet. */
   missing(db: Db, rows: ImportValues[]) {

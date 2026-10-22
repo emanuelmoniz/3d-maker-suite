@@ -125,6 +125,7 @@
     "machineProfiles": "Machine profiles",
     "printProfiles": "Print profiles",
     "filamentBrands": "Filament brands",
+    "filamentMaterials": "Filament materials",
     "filamentProfiles": "Filament profiles",
     "openInSlicer": "Open projects in the slicer",
     "slice": "Slice projects (time and grams)"
@@ -198,7 +199,8 @@
       "printerModels": "Import models from {{name}}",
       "machineProfiles": "Import machine profiles from {{name}}",
       "printProfiles": "Import print profiles from {{name}}",
-      "filamentBrands": "Import brands and materials from {{name}}"
+      "filamentBrands": "Import filament brands from {{name}}",
+      "filamentMaterials": "Import materials from {{name}}"
     }
   },
   "syncFrom": "Sync from {{name}}",

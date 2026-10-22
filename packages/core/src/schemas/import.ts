@@ -15,9 +15,10 @@ export const IMPORT_ENTITIES = [
   "clients",
   "quotes",
   "orders",
+  ...SLICER_ZIP_TYPES,
 ] as const;
-/** Everything the review screen takes: the file entities, plus what an integration or a zip offers. */
-export const REVIEW_ENTITIES = [...IMPORT_ENTITIES, ...SLICER_ZIP_TYPES] as const;
+/** Everything the review screen takes: every file entity; an integration or a zip offers some. */
+export const REVIEW_ENTITIES = IMPORT_ENTITIES;
 /** What an integration can offer for review; a run on its own takes only what needs no decision. */
 export const REVIEWED_TYPES = ["spools", "prints", ...SLICER_ZIP_TYPES] as const;
 export const IMPORT_SOURCES = ["file", "zip", "integration"] as const;
@@ -425,19 +426,25 @@ export const IMPORT_COLUMNS = {
   ],
   filamentBrands: [
     {
-      key: "kind",
-      type: "enum",
-      options: ["brand", "material"],
-      label: "import:filamentBrands.columns.kind",
-      required: true,
-    },
-    {
       key: "name",
       type: "ref",
       ref: "filamentBrands",
       label: "import:filamentBrands.columns.name",
       required: true,
     },
+    { key: "url", type: "text", label: "import:filamentBrands.columns.url" },
+  ],
+  filamentMaterials: [
+    {
+      key: "name",
+      type: "ref",
+      ref: "filamentMaterials",
+      label: "import:filamentMaterials.columns.name",
+      required: true,
+    },
+    { key: "nozzleTempC", type: "integer", label: "import:filamentMaterials.columns.nozzleTempC" },
+    { key: "bedTempC", type: "integer", label: "import:filamentMaterials.columns.bedTempC" },
+    { key: "densityGcm3", type: "number", label: "import:filamentMaterials.columns.densityGcm3" },
   ],
 } as const satisfies Record<ReviewEntity, readonly ImportColumn[]>;
 

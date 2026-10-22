@@ -83,7 +83,13 @@ describe("slicer zip import", () => {
       expect(res.statusCode).toBe(200);
       const id = res.json().uploadId;
 
-      for (const type of ["brands", "printerModels", "machineProfiles", "filamentBrands"])
+      for (const type of [
+        "brands",
+        "printerModels",
+        "machineProfiles",
+        "filamentBrands",
+        "filamentMaterials",
+      ])
         expect((await importAll(id, type)).created).toBeGreaterThan(0);
       expect((await importAll(id, "filamentProfiles")).created).toBe(2);
 
@@ -94,12 +100,13 @@ describe("slicer zip import", () => {
         "printerModels",
         "machineProfiles",
         "filamentBrands",
+        "filamentMaterials",
         "filamentProfiles",
       ])
         expect((await preview(again, type)).rows.every((r) => r.status === "identical")).toBe(true);
       // Each confirmed review is in the import history.
       const logged = db.select().from(schema.importRuns).all();
-      expect(logged).toHaveLength(5);
+      expect(logged).toHaveLength(6);
       expect(logged.every((r) => r.source === "zip" && r.backup)).toBe(true);
       expect(db.select().from(schema.machineProfiles).all()).toHaveLength(1);
       expect(db.select().from(schema.filamentProfiles).all()).toHaveLength(2);

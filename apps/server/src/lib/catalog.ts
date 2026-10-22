@@ -40,6 +40,31 @@ export function modelIdFor(db: Db, brand: string, model: string): string {
 
 const { filamentBrands, filamentMaterials, filamentProfiles } = schema;
 
+/** The id of the row with that name (case-insensitive), if there is one. Never creates it. */
+export const idByName = (
+  db: Db,
+  table: typeof brands | typeof filamentBrands | typeof filamentMaterials,
+  name: string,
+) =>
+  db
+    .select({ id: table.id })
+    .from(table)
+    .where(sql`${table.name} = ${name.trim()} COLLATE NOCASE`)
+    .get()?.id;
+
+/** The id of the brand's model with that name (case-insensitive), if there is one. */
+export const modelIdOf = (db: Db, brandId: string, model: string) =>
+  db
+    .select({ id: printerModels.id })
+    .from(printerModels)
+    .where(
+      and(
+        eq(printerModels.brandId, brandId),
+        sql`${printerModels.model} = ${model.trim()} COLLATE NOCASE`,
+      ),
+    )
+    .get()?.id;
+
 /** Finds (case-insensitive) or creates a filament brand; empty = no brand. */
 export function filamentBrandIdFor(db: Db, name: string): string | null {
   const trimmed = name.trim();

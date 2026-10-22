@@ -1,6 +1,7 @@
 import { copyFileSync, mkdirSync } from "node:fs";
 import { extname, join } from "node:path";
 import {
+  type ImportErrorCode,
   type ImportTarget,
   type ImportValues,
   matchRowsOn,
@@ -8,10 +9,11 @@ import {
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
 import { and, eq, isNotNull, isNull } from "drizzle-orm";
-import { filamentBrandIdFor, filamentMaterialIdFor, modelIdFor } from "../lib/catalog.ts";
+import { HttpError } from "../errors.ts";
+import { idByName, modelIdFor, modelIdOf } from "../lib/catalog.ts";
 import { printerImport } from "./printers.ts";
 import type { ImportHandler, WriteRow } from "./review.ts";
-import { num, str } from "./spools.ts";
+import { names, num, str } from "./spools.ts";
 
 const {
   brands,
@@ -23,6 +25,8 @@ const {
   prints,
 } = schema;
 
+type RowError = { column: string; code: ImportErrorCode };
+
 const modelOf = (db: Db, v: ImportValues) => modelIdFor(db, str(v.brand) ?? "", str(v.model) ?? "");
 const hasModel = (v: ImportValues) => !!str(v.brand) && !!str(v.model);
 const printProfileValues = (db: Db, v: ImportValues) => ({
@@ -32,10 +36,42 @@ const printProfileValues = (db: Db, v: ImportValues) => ({
   layerHeightMm: num(v.layerHeightMm),
 });
 
+/** A file names a printer model you have, as the API takes only one you have. */
+function modelErrors(db: Db, v: ImportValues): RowError[] {
+  const brandId = idByName(db, brands, str(v.brand) ?? "");
+  if (!brandId) return [{ column: "brand", code: "unresolved" }];
+  return modelIdOf(db, brandId, str(v.model) ?? "")
+    ? []
+    : [{ column: "model", code: "unresolved" }];
+}
+
+/** Writes `set` (keys named like the table's columns); a name another row has is a 409, like the API's. */
+function save(
+  db: Db,
+  table: typeof brands | typeof printerModels | typeof filamentBrands | typeof filamentMaterials,
+  id: string,
+  set: Record<string, unknown>,
+) {
+  if (!Object.keys(set).length) return;
+  try {
+    // Loosely typed on purpose: one write for four tables.
+    const t = table as typeof brands;
+    db.update(t)
+      .set(set as never)
+      .where(eq(t.id, id))
+      .run();
+  } catch (e) {
+    if (String((e as Error).message).includes("UNIQUE"))
+      throw new HttpError(409, "duplicate", "This name already exists");
+    throw e;
+  }
+}
+
 /**
- * What a slicer ships besides filament: printer brands, printer models, machine profiles, and
- * filament brands + materials. Rows are matched on their names. `dataDir` is where model
- * thumbnails are copied to; empty (tests) = none.
+ * What a slicer ships besides filament (printer brands, printer models, machine and print
+ * profiles, filament brands and materials), and the same types from a file. Rows are matched on
+ * their names. A file names parents you have (a model's brand); a slicer's are created. `dataDir`
+ * is where model thumbnails are copied to; empty (tests) = none.
  */
 export function catalogImport(dataDir: string) {
   /** The thumbnail fills a missing image, never replaces one you chose. */
@@ -59,16 +95,20 @@ export function catalogImport(dataDir: string) {
         db
           .select()
           .from(brands)
+          .orderBy(brands.name)
           .all()
           .map((b) => ({ id: b.id, label: b.name, values: { name: b.name } })),
       match: matchRowsOn("name"),
+      refs: (db) => ({ brands: printerImport.refs(db).brands }),
       missing: () => ({}),
       create: (db, v) =>
         db
           .insert(brands)
           .values({ name: str(v.name) ?? "" })
-          .run(),
-      update: () => {},
+          .onConflictDoNothing()
+          .returning({ id: brands.id })
+          .get()?.id ?? false,
+      update: (db, target, patch) => save(db, brands, target.id, patch),
     },
 
     printerModels: {
@@ -77,6 +117,7 @@ export function catalogImport(dataDir: string) {
           .select({ model: printerModels, brand: brands.name })
           .from(printerModels)
           .innerJoin(brands, eq(brands.id, printerModels.brandId))
+          .orderBy(brands.name, printerModels.model)
           .all()
           .map(({ model: m, brand }) => ({
             id: m.id,
@@ -84,9 +125,19 @@ export function catalogImport(dataDir: string) {
             values: { brand, model: m.model, thumbnail: m.imagePath ? "yes" : null },
           })),
       match: matchRowsOn("brand", "model"),
+      refs: printerImport.refs,
+      check: (db, v, file) =>
+        file && !idByName(db, brands, str(v.brand) ?? "")
+          ? [{ column: "brand", code: "unresolved" }]
+          : [],
       missing: (db, rows) => ({ brands: printerImport.missing(db, rows).brands }),
       create: (db, v, row) => thumbnail(db, modelOf(db, v), row.image),
       update: (db, target, patch, row) => {
+        const { brand, model } = patch;
+        save(db, printerModels, target.id, {
+          ...(brand != null && { brandId: idByName(db, brands, String(brand)) }),
+          ...(model != null && { model: String(model).trim() }),
+        });
         if (patch.thumbnail) thumbnail(db, target.id, row.image);
       },
     },
@@ -99,6 +150,7 @@ export function catalogImport(dataDir: string) {
           .innerJoin(printerModels, eq(printerModels.id, machineProfiles.printerModelId))
           .innerJoin(brands, eq(brands.id, printerModels.brandId))
           .where(isNull(machineProfiles.archivedAt))
+          .orderBy(brands.name, printerModels.model, machineProfiles.name)
           .all()
           .map(({ profile: p, model, brand }) => ({
             id: p.id,
@@ -106,6 +158,8 @@ export function catalogImport(dataDir: string) {
             values: { brand, model, name: p.name, nozzleDiameterMm: p.nozzleDiameterMm },
           })),
       match: matchRowsOn("brand", "model", "name"),
+      refs: printerImport.refs,
+      check: (db, v, file) => (file ? modelErrors(db, v) : []),
       bySource: (db) =>
         new Map(
           db
@@ -176,6 +230,7 @@ export function catalogImport(dataDir: string) {
           .leftJoin(printerModels, eq(printerModels.id, printProfiles.printerModelId))
           .leftJoin(brands, eq(brands.id, printerModels.brandId))
           .where(isNull(printProfiles.archivedAt))
+          .orderBy(printProfiles.name)
           .all()
           .map(({ profile: p, model, brand }) => ({
             id: p.id,
@@ -189,6 +244,9 @@ export function catalogImport(dataDir: string) {
             },
           })),
       match: matchRowsOn("brand", "model", "name"),
+      refs: printerImport.refs,
+      // A brand or a model in a file: both, and a model you have.
+      check: (db, v, file) => (file && (str(v.brand) || str(v.model)) ? modelErrors(db, v) : []),
       bySource: (db) =>
         new Map(
           db
@@ -218,27 +276,61 @@ export function catalogImport(dataDir: string) {
       },
     },
 
-    // Filament vendors and filament types in one list, told apart by `kind`.
+    // The keys of `patch` are named like the table's columns.
     filamentBrands: {
-      targets: (db) => [
-        ...db
+      targets: (db) =>
+        db
           .select()
           .from(filamentBrands)
+          .orderBy(filamentBrands.name)
           .all()
-          .map((b) => ({ id: b.id, label: b.name, values: { kind: "brand", name: b.name } })),
-        ...db
-          .select()
-          .from(filamentMaterials)
-          .all()
-          .map((m) => ({ id: m.id, label: m.name, values: { kind: "material", name: m.name } })),
-      ],
-      match: matchRowsOn("kind", "name"),
+          .map((b) => ({ id: b.id, label: b.name, values: { name: b.name, url: b.url } })),
+      match: matchRowsOn("name"),
+      refs: (db) => ({ filamentBrands: names(db, filamentBrands) }),
       missing: () => ({}),
       create: (db, v) =>
-        v.kind === "brand"
-          ? filamentBrandIdFor(db, str(v.name) ?? "")
-          : filamentMaterialIdFor(db, str(v.name) ?? ""),
-      update: () => {},
+        db
+          .insert(filamentBrands)
+          .values({ name: str(v.name) ?? "", url: str(v.url) })
+          .onConflictDoNothing()
+          .returning({ id: filamentBrands.id })
+          .get()?.id ?? false,
+      update: (db, target, patch) => save(db, filamentBrands, target.id, patch),
+    },
+
+    filamentMaterials: {
+      targets: (db) =>
+        db
+          .select()
+          .from(filamentMaterials)
+          .orderBy(filamentMaterials.name)
+          .all()
+          .map((m) => ({
+            id: m.id,
+            label: m.name,
+            values: {
+              name: m.name,
+              nozzleTempC: m.nozzleTempC,
+              bedTempC: m.bedTempC,
+              densityGcm3: m.densityGcm3,
+            },
+          })),
+      match: matchRowsOn("name"),
+      refs: (db) => ({ filamentMaterials: names(db, filamentMaterials) }),
+      missing: () => ({}),
+      create: (db, v) =>
+        db
+          .insert(filamentMaterials)
+          .values({
+            name: str(v.name) ?? "",
+            nozzleTempC: num(v.nozzleTempC),
+            bedTempC: num(v.bedTempC),
+            densityGcm3: num(v.densityGcm3),
+          })
+          .onConflictDoNothing()
+          .returning({ id: filamentMaterials.id })
+          .get()?.id ?? false,
+      update: (db, target, patch) => save(db, filamentMaterials, target.id, patch),
     },
   } satisfies Record<string, ImportHandler>;
 }

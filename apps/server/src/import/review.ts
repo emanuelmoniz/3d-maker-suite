@@ -82,8 +82,15 @@ export type ImportHandler = {
   refs?: (db: Db) => Record<string, string[]>;
   /** By `ref`: names in the rows that apply would create. */
   missing: (db: Db, rows: ImportValues[]) => Record<string, string[]>;
-  /** Errors a valid-looking row still has, e.g. a name that must exist and doesn't. */
-  check?: (db: Db, values: ImportValues) => { column: string; code: ImportErrorCode }[];
+  /**
+   * Errors a valid-looking row still has, e.g. a name that must exist and doesn't. `file`: the row
+   * is from a file, not from an integration or a zip.
+   */
+  check?: (
+    db: Db,
+    values: ImportValues,
+    file: boolean,
+  ) => { column: string; code: ImportErrorCode }[];
   /** Per valid row, in order: errors it has because of the other rows of the file. */
   checkFile?: (db: Db, rows: ImportValues[]) => { column: string; code: ImportErrorCode }[][];
   /** What the review shows about a valid row besides its values (a project's missing folder). */
@@ -211,7 +218,7 @@ export function createReview(db: Db, dataDir: string) {
     const held = sourced ? handler.held?.(db) : undefined;
     const parsed = stored.rows.map((r) => {
       const p = parseRow(columns, r.raw);
-      if (!p.errors.length) p.errors.push(...(handler.check?.(db, p.values) ?? []));
+      if (!p.errors.length) p.errors.push(...(handler.check?.(db, p.values, !sourced) ?? []));
       if (!p.errors.length && handler.canon) p.values = handler.canon(db, p.values);
       // A row from an export carries its id, one from an integration its source key: both beat
       // the matcher.
@@ -348,7 +355,7 @@ export function createReview(db: Db, dataDir: string) {
       if (stored.entity === "projects" && d.folder !== undefined) {
         values = { ...values, folder: d.folder && "path" in d.folder ? d.folder.path : null };
         if (handler.canon) values = handler.canon(db, values);
-        const [error] = handler.check?.(db, values) ?? [];
+        const [error] = handler.check?.(db, values, !stored.from) ?? [];
         if (error)
           throw new HttpError(400, "invalid_row", `Row ${d.row}: ${error.column} ${error.code}`);
       }

@@ -79,6 +79,7 @@ export const CAPS: Record<Capability, string> = {
   machineProfiles: "integrations:capabilities.machineProfiles",
   printProfiles: "integrations:capabilities.printProfiles",
   filamentBrands: "integrations:capabilities.filamentBrands",
+  filamentMaterials: "integrations:capabilities.filamentMaterials",
   filamentProfiles: "integrations:capabilities.filamentProfiles",
   openInSlicer: "integrations:capabilities.openInSlicer",
   slice: "integrations:capabilities.slice",

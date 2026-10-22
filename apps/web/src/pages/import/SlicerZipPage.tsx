@@ -14,6 +14,7 @@ const TYPES = {
   machineProfiles: "integrations:capabilities.machineProfiles",
   printProfiles: "integrations:capabilities.printProfiles",
   filamentBrands: "integrations:capabilities.filamentBrands",
+  filamentMaterials: "integrations:capabilities.filamentMaterials",
   filamentProfiles: "integrations:capabilities.filamentProfiles",
 } as const;
 const ERRORS: Record<string, string> = {

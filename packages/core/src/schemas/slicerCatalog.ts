@@ -40,6 +40,7 @@ export const SLICER_CATALOG_TYPES = [
   "machineProfiles",
   "printProfiles",
   "filamentBrands",
+  "filamentMaterials",
 ] as const;
 
 /** What a zip of a slicer folder can offer: the catalog types plus the filament profiles. */

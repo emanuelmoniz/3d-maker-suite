@@ -31,7 +31,14 @@
     "prints": "Prints",
     "clients": "Clients",
     "quotes": "Quotes",
-    "orders": "Orders"
+    "orders": "Orders",
+    "brands": "Brands",
+    "printerModels": "Printer models",
+    "machineProfiles": "Machine profiles",
+    "printProfiles": "Print profiles",
+    "filamentBrands": "Filament brands",
+    "filamentMaterials": "Filament materials",
+    "filamentProfiles": "Filament profiles"
   },
   "spools": {
     "columns": {
@@ -68,7 +75,8 @@
     "projects": "A row with a Number updates that project. Folder is the full path of the project's folder inside one of your project folders (Settings); leave it empty to pick or create one in the review. A folder can belong to one project only. Prints are linked to each project after the import, the same way a folder scan links them, and you can change them in the review.",
     "column": "Column",
     "format": "What to enter",
-    "error": "Couldn't build the template. Is the server running?"
+    "error": "Couldn't build the template. Is the server running?",
+    "catalogRefs": "Brands, printer models and filament materials must already exist: import them first, or add them in the catalog."
   },
   "export": {
     "download": "Export",
@@ -209,7 +217,9 @@
     "viewPrints": "View prints",
     "viewClients": "View clients",
     "viewQuotes": "View quotes",
-    "viewOrders": "View orders"
+    "viewOrders": "View orders",
+    "viewCatalog": "View the printer catalog",
+    "viewFilamentCatalog": "View the filament catalog"
   },
   "printers": {
     "columns": {
@@ -353,7 +363,7 @@
   },
   "brands": {
     "columns": {
-      "name": "Brand"
+      "name": "Name"
     }
   },
   "printerModels": {
@@ -382,13 +392,19 @@
   },
   "filamentBrands": {
     "columns": {
-      "kind": "Kind",
-      "name": "Name"
+      "name": "Name",
+      "url": "Website"
+    }
+  },
+  "filamentMaterials": {
+    "columns": {
+      "name": "Name",
+      "nozzleTempC": "Nozzle (°C)",
+      "bedTempC": "Bed (°C)",
+      "densityGcm3": "Density (g/cm³)"
     }
   },
   "options": {
-    "brand": "Brand",
-    "material": "Material",
     "yes": "Yes",
     "no": "No"
   },

@@ -40,13 +40,11 @@ export async function libraryRows(
   type: LibraryType,
   opts: { dataDir: string },
 ): Promise<StoredRow[]> {
-  if (type === "filamentBrands") {
+  if (type === "filamentBrands" || type === "filamentMaterials") {
     // Filament vendors -> filament brands, filament types -> materials, from the filament presets.
     const presets = await lib.read(dir, { includeSystem: true });
-    return numbered([
-      ...names(presets.map((p) => p.brand)).map((name) => ({ raw: { kind: "brand", name } })),
-      ...names(presets.map((p) => p.material)).map((name) => ({ raw: { kind: "material", name } })),
-    ]);
+    const key = type === "filamentBrands" ? "brand" : "material";
+    return numbered(names(presets.map((p) => p[key])).map((name) => ({ raw: { name } })));
   }
   if (type === "filamentProfiles") {
     const have = db.select(profileColumns).from(filamentProfiles).all();

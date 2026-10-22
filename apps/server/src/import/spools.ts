@@ -40,7 +40,7 @@ const activeProfiles = (db: Db) =>
     .from(filamentProfiles)
     .where(isNull(filamentProfiles.archivedAt))
     .all();
-const names = (db: Db, table: typeof filamentBrands | typeof filamentMaterials) =>
+export const names = (db: Db, table: typeof filamentBrands | typeof filamentMaterials) =>
   db
     .select({ name: table.name })
     .from(table)

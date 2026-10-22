@@ -453,6 +453,13 @@ async function seedAll() {
     "number,name,client,project,unitCost,quantity,failureMarginPct,markupPct\n7,Vase,Ana,1-Box,10.5,2,0,10\n",
   );
   await load("orders", "number,client,quote,project,price,status\n3,Ana,7,1-Box,50,done\n");
+  // The printer and the spool made the brand, model, filament material and profile.
+  await load("machineProfiles", "brand,model,name,nozzleDiameterMm\nBambu Lab,X1C,X1C 0.4,0.4\n");
+  await load(
+    "printProfiles",
+    "brand,model,name,layerHeightMm\nBambu Lab,X1C,0.20mm Standard,0.2\n",
+  );
+  await load("filamentBrands", "name,url\nPolymaker,https://polymaker.com\n");
 }
 
 const XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
@@ -487,6 +494,53 @@ it.each(Object.keys(TYPES) as (keyof typeof TYPES)[])(
     }
   },
 );
+
+it("catalog types: an edited export updates the row, a reference you don't have is invalid", async () => {
+  await seedAll();
+  const edits = {
+    brands: { name: "Bambu" },
+    printerModels: { model: "X1 Carbon" },
+    machineProfiles: { nozzleDiameterMm: 0.6 },
+    printProfiles: { layerHeightMm: 0.28 },
+    filamentBrands: { url: "https://polymaker.eu" },
+    filamentMaterials: { densityGcm3: 1.25 },
+    filamentProfiles: { nozzleTempC: 215 },
+  } as const;
+  for (const [entity, edit] of Object.entries(edits) as [ImportEntity, object][]) {
+    const [row] = await download(entity, "export", "json");
+    const p = (
+      await post(`/api/import/${entity}/preview`, [{ ...row, ...edit }])
+    ).json() as ImportPreview;
+    expect(
+      p.rows.map((r) => [r.status, r.targetId]),
+      entity,
+    ).toEqual([["changed", row.id]]);
+    const res = await post(`/api/import/${entity}/apply`, {
+      uploadId: p.uploadId,
+      policy: "overwrite",
+      decisions: [{ row: 2, action: "update", targetId: row.id }],
+    });
+    expect(res.json(), entity).toMatchObject({ updated: 1 });
+    expect(await download(entity, "export", "json"), entity).toEqual([{ ...row, ...edit }]);
+  }
+
+  const invalid = async (entity: ImportEntity, csv: string) =>
+    (
+      (await post(`/api/import/${entity}/preview`, csv, "text/csv")).json() as ImportPreview
+    ).rows.map((r) => r.errors);
+  expect(await invalid("printerModels", "brand,model\nNope,Z1\n")).toEqual([
+    [{ column: "brand", code: "unresolved" }],
+  ]);
+  expect(
+    await invalid("machineProfiles", "brand,model,name,nozzleDiameterMm\nBambu,Z1,Z1 0.4,0.4\n"),
+  ).toEqual([[{ column: "model", code: "unresolved" }]]);
+  expect(await invalid("printProfiles", "model,name\nX1 Carbon,Fast\n")).toEqual([
+    [{ column: "brand", code: "unresolved" }],
+  ]);
+  expect(await invalid("filamentProfiles", "brand,material,densityGcm3\nNope,PLA,1.24\n")).toEqual([
+    [{ column: "brand", code: "unresolved" }],
+  ]);
+});
 
 it("writes the template as the export's headers without the id", async () => {
   await seedAll();

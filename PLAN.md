@@ -145,7 +145,7 @@ Do Step 8b of PLAN.md. Show me the review table cell editing (one mock per colum
 and the apply `values` contract first.
 ```
 
-### [ ] Step 9 - Import catalogs: brands, models, profiles, filament catalog
+### [x] Step 9 - Import catalogs: brands, models, profiles, filament catalog
 **Model:** Opus · **Effort:** Medium
 **Scope:** Brands, printer models, machine profiles, print profiles, filament brands, filament materials and filament profiles become file import types in the Step 8b format (template/export in XLSX/CSV/JSON, editable review). The handlers in `apps/server/src/import/catalog.ts` and `filamentProfiles.ts` already exist (slicer zip and integrations). Add them to `IMPORT_ENTITIES`, give them real `update`s (brands and filament brands are no-ops today), `refs` for template dropdowns and `targets` for export. References by number or name, same rules as the API.
 
