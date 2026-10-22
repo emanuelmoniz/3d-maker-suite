@@ -11,6 +11,8 @@ export const projectFileSchema = z.object({
   path: z.string(),
   kind: z.enum(PROJECT_FILE_KINDS),
   size: z.number().int().nonnegative(),
+  /** Last change (ms since epoch). Older scans lack it. */
+  mtime: z.number().optional(),
 });
 
 // Same shape as `ThreeMfInfo` from @3d-maker-suite/3mf; core does not depend on that package.

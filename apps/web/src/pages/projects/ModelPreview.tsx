@@ -59,7 +59,8 @@ export function ModelPreview({
       <p role="status">{note}</p>
     </div>
   );
-  const box = "aspect-[4/3] w-full overflow-hidden rounded-lg border border-border bg-surface-2";
+  const box =
+    "aspect-[4/3] w-full overflow-hidden lg:absolute lg:inset-0 lg:aspect-auto rounded-lg border border-border bg-surface-2";
 
   if (limit === undefined || paint.isLoading) return <div className={box} />;
   if (!kind) return <div className={box}>{still(t("projects:viewer.unsupported"))}</div>;

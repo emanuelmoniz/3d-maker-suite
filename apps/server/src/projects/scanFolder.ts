@@ -136,7 +136,7 @@ export async function scanFolder(
   filesDepth: number | null = null,
 ): Promise<FolderScan> {
   const all = await collect(dir, maxFiles, filesDepth);
-  const files = all.map(({ path, kind, size }) => ({ path, kind, size }));
+  const files = all.map(({ path, kind, size, mtimeMs }) => ({ path, kind, size, mtime: mtimeMs }));
 
   // Docs: README first, then other .md, then .txt. PDFs are listed but not read.
   const rank = (f: { path: string }) =>

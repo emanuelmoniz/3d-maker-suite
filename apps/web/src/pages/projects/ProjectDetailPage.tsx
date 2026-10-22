@@ -23,6 +23,7 @@ import { useAdapterName, useCapable } from "../../lib/integrations.ts";
 import { usePreferences } from "../../lib/preferences.ts";
 import { printName, usePrintsOfProject } from "../../lib/prints.ts";
 import {
+  galleryImages,
   projectDocResolver,
   projectFileUrl,
   projectName,
@@ -294,7 +295,7 @@ function SlicedEstimate({ project }: { project: Project }) {
   );
   if (!sliced)
     return project.meta.models.length ? (
-      <div className="max-w-md rounded-lg border border-border bg-surface p-4">
+      <div className="rounded-lg border border-border bg-surface p-4">
         <h3 className="mb-1 font-medium">{t("costs:project.onePrint")}</h3>
         <p className="mb-2 text-muted">{t("projects:detail.setUpHint")}</p>
         {setUp}
@@ -308,7 +309,7 @@ function SlicedEstimate({ project }: { project: Project }) {
     fallbackPrinterId: fallback?.id,
   });
   return (
-    <div className="max-w-md rounded-lg border border-border bg-surface p-4">
+    <div className="rounded-lg border border-border bg-surface p-4">
       <h3 className="mb-1 font-medium">{t("costs:project.onePrint")}</h3>
       <div className="mb-2">
         <PrinterHint printers={ctx.printers} used={[...used]} />
@@ -332,7 +333,7 @@ function PrintedCost({ id }: { id: string }) {
   const prints = usePrintsOfProject(id).data?.items ?? [];
   if (!prints.length) return null;
   return (
-    <div className="max-w-md rounded-lg border border-border bg-surface p-4">
+    <div className="rounded-lg border border-border bg-surface p-4">
       <h3 className="mb-2 font-medium">{t("costs:project.printed")}</h3>
       <CostBreakdown cost={sumCosts(prints.map((p) => p.cost))} />
     </div>
@@ -368,6 +369,7 @@ export function ProjectDetailPage() {
   if (!project) return null;
 
   // A sliced export the scanner folded into its project file is not a model of its own.
+  const hasGallery = galleryImages(project).length > 0;
   const models = project.meta.files.filter(
     (f) =>
       f.kind === "model" &&
@@ -448,31 +450,34 @@ export function ProjectDetailPage() {
             ? t("projects:detail.opened")
             : ""}
       </p>
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-        <div className="min-w-0">
-          {current ? (
-            <ModelPreview
-              projectId={project.id}
-              path={current.path}
-              url={projectFileUrl(project.id, current.path)}
-              ext={current.path.slice(current.path.lastIndexOf(".")).toLowerCase()}
-              size={current.size}
-              items={selected?.items ?? []}
-              partColors={info?.partColors ?? []}
-              thumbnail={thumbnail}
-              name={project.name}
-            />
-          ) : (
-            thumbnail && (
-              <img
-                src={thumbnail}
-                alt={projectName(t, project)}
-                className="w-full rounded-lg border border-border"
+      <div className="grid gap-6 lg:grid-cols-2">
+        {hasGallery && <ProjectGallery project={project} />}
+        <div className="flex min-w-0 flex-col gap-2">
+          <div className="relative lg:min-h-[28rem] lg:flex-1">
+            {current ? (
+              <ModelPreview
+                projectId={project.id}
+                path={current.path}
+                url={projectFileUrl(project.id, current.path)}
+                ext={current.path.slice(current.path.lastIndexOf(".")).toLowerCase()}
+                size={current.size}
+                items={selected?.items ?? []}
+                partColors={info?.partColors ?? []}
+                thumbnail={thumbnail}
+                name={project.name}
               />
-            )
-          )}
+            ) : (
+              thumbnail && (
+                <img
+                  src={thumbnail}
+                  alt={projectName(t, project)}
+                  className="w-full rounded-lg border border-border"
+                />
+              )
+            )}
+          </div>
           {models.length > 1 && (
-            <label className="mt-2 flex flex-wrap items-center gap-2">
+            <label className="flex flex-wrap items-center gap-2">
               <span className="text-muted">{t("projects:detail.model")}</span>
               <Combobox
                 className="h-9 max-w-full rounded-md border border-border bg-surface px-2"
@@ -491,15 +496,25 @@ export function ProjectDetailPage() {
             </label>
           )}
         </div>
-        <div className="order-first grid min-w-0 content-start gap-4 lg:order-0 [&>section]:mt-0">
-          <ProjectGallery project={project} />
-          <SlicedEstimate project={project} />
-          <PrintedCost id={id} />
-          {tags.length > 0 && <TagList tags={tags} />}
-        </div>
+        {!hasGallery && (
+          <div className="grid min-w-0 content-start gap-4 [&>section]:mt-0">
+            <SlicedEstimate project={project} />
+            <PrintedCost id={id} />
+            {tags.length > 0 && <TagList tags={tags} />}
+          </div>
+        )}
       </div>
 
       {current && <Plates project={project} file={current.path} plate={plate} onPlate={setPlate} />}
+      {hasGallery && (
+        <>
+          <div className="mt-6 grid items-start gap-6 lg:grid-cols-2">
+            <SlicedEstimate project={project} />
+            <PrintedCost id={id} />
+          </div>
+          {tags.length > 0 && <TagList tags={tags} />}
+        </>
+      )}
       {project.description && (
         <Collapsible title={t("projects:detail.description")} defaultOpen>
           <div className="rounded-lg border border-border bg-surface p-4">
