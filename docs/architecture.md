@@ -13,6 +13,7 @@ Decisions behind this document live in [`docs/adr`](adr/):
 | [0005](adr/0005-secrets-storage.md) | AES-256-GCM with a local key file |
 | [0006](adr/0006-bambu-cloud-first.md) | Bambu Cloud is the first integration |
 | [0007](adr/0007-slicing.md) | Slice with the installed slicer's CLI (Bambu Studio first) |
+| [0010](adr/0010-stay-on-sqlite.md) | Stay on SQLite, no external database servers |
 
 ## Packages
 

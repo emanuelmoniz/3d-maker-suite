@@ -166,7 +166,7 @@ export function ProjectsConfigPage() {
   return (
     <ConfigPage module="projects">
       {({ v, commit, num }) => (
-        <Section title={t("settings:sections.projects")} wide>
+        <Section title={t("settings:sections.projects")} wide help="docs/projects.md">
           <ProjectRoots v={v} commit={commit} />
           {/* The usual narrow column of a settings card; only the roots use the full width. */}
           <div className="grid gap-4 sm:max-w-md">

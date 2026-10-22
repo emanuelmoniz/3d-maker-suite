@@ -68,7 +68,7 @@ Do Step 2 of PLAN.md.
 Do Step 3 of PLAN.md.
 ```
 
-### [ ] Step 4 - Projects docs and the external DB decision
+### [x] Step 4 - Projects docs and the external DB decision
 **Model:** Sonnet · **Effort:** Low
 **Scope:**
 - `docs/projects.md`: recommended folder structure; `NNN_name` prefix (project number); `000_` template folders; adoption of folderless projects by number; project depth, files depth and auto slice per root; examples with several roots (e.g. own designs `Category/Project` depth 2, downloads depth 1, an archive on a NAS share); trash folder; renaming a folder; Docker bind mounts.
