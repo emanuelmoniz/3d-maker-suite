@@ -6,6 +6,7 @@ import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import {
   apiErrorSchema,
+  PROJECT_TRASH_DIR,
   projectFileMoveSchema,
   projectFilePathQuery,
   projectFilePathSchema,
@@ -38,7 +39,7 @@ const errors = {
   413: apiErrorSchema,
 };
 /** Hidden, so the scanner and the watcher skip it. One per project root, same volume as the files. */
-export const TRASH_DIR = ".3d-maker-suite-trash";
+export const TRASH_DIR = PROJECT_TRASH_DIR;
 const MB = 1024 * 1024;
 
 const tooLarge = (maxMb: number) =>

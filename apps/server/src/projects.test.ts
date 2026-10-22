@@ -4,8 +4,10 @@ import { basename, join } from "node:path";
 import { mockAdapter } from "@3d-maker-suite/adapter-mock";
 import { type ProjectRoot, projectRoot } from "@3d-maker-suite/core";
 import { openDb, schema } from "@3d-maker-suite/db";
+import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { buildApp } from "./app.ts";
+import { modelIdFor } from "./lib/catalog.ts";
 
 const fixtures = join(import.meta.dirname, "../../../packages/3mf/fixtures");
 
@@ -353,8 +355,21 @@ describe("project folder: create, link, unlink, missing", () => {
   const detail = async (id: string) => (await app.inject(`/api/projects/${id}`)).json();
   const folder = (id: string, payload: object) =>
     app.inject({ method: "POST", url: `/api/projects/${id}/folder`, payload });
-  const unlink = (id: string) =>
-    app.inject({ method: "DELETE", url: `/api/projects/${id}/folder` });
+  const unlink = (id: string, files: "trash" | "keep" = "trash") =>
+    app.inject({ method: "DELETE", url: `/api/projects/${id}/folder?files=${files}` });
+  const plateOf = (projectId: string) =>
+    db
+      .insert(schema.projectSlicePlates)
+      .values({
+        projectId,
+        file: "benchy.3mf",
+        plate: 1,
+        fileSize: 1,
+        fileMtimeMs: 1,
+        fileSha256: "x",
+      })
+      .run();
+  const plates = () => db.select().from(schema.projectSlicePlates).all();
 
   it("creates NNN_name in the root, or in the one picked when there are several", async () => {
     const p = await create();
@@ -400,33 +415,76 @@ describe("project folder: create, link, unlink, missing", () => {
     expect([taken.statusCode, taken.json().error.code]).toEqual([409, "folder_in_use"]);
   });
 
-  it("unlinks: the project forgets its files and slices, the files stay on disk", async () => {
+  it("unlink to the trash: the folder moves to its root's trash, the project forgets it", async () => {
     await sampleTree();
     await setRoots();
     const p = await create();
     await folder(p.id, { path: join(root(), "Benchy") });
-    const { projectSlicePlates: plates } = schema;
-    db.insert(plates)
-      .values({
-        projectId: p.id,
-        file: "benchy.3mf",
-        plate: 1,
-        fileSize: 1,
-        fileMtimeMs: 1,
-        fileSha256: "x",
-      })
-      .run();
-    const res = await unlink(p.id);
-    expect(db.select().from(plates).all()).toEqual([]);
+    plateOf(p.id);
+    const res = await unlink(p.id, "trash");
     expect(res.statusCode).toBe(200);
     expect(res.json()).toMatchObject({
       folderPath: null,
+      unlinkedFolder: null,
       filePath: null,
       folderState: null,
       meta: { files: [], models: [] },
     });
-    expect((await stat(join(root(), "Benchy", "benchy.3mf"))).isFile()).toBe(true);
+    expect(plates()).toEqual([]);
+    const { trashedTo } = res.json();
+    expect(trashedTo).toMatch(/[\\/]\.3d-maker-suite-trash[\\/].+_Benchy$/);
+    expect((await stat(join(trashedTo, "benchy.3mf"))).isFile()).toBe(true);
+    await expect(stat(join(root(), "Benchy"))).rejects.toThrow();
     expect((await unlink(p.id)).statusCode).toBe(404);
+  });
+
+  it("unlink and keep: scans skip the folder, linking it again keeps everything", async () => {
+    await sampleTree();
+    await setRoots();
+    await scan();
+    const benchy = await byName("Benchy");
+    plateOf(benchy.id);
+    const res = await unlink(benchy.id, "keep");
+    expect(res.json()).toMatchObject({
+      folderPath: null,
+      unlinkedFolder: join(root(), "Benchy"),
+      folderState: null,
+    });
+    expect(res.json().trashedTo).toBeUndefined();
+    // Nothing moved, nothing forgotten; a scan neither re-adopts it nor makes a twin.
+    expect((await stat(join(root(), "Benchy", "benchy.3mf"))).isFile()).toBe(true);
+    expect(res.json().meta.files.length).toBeGreaterThan(0);
+    await scan();
+    expect((await list()).filter((p: { name: string }) => p.name === "Benchy")).toHaveLength(1);
+    expect((await byName("Benchy")).folderPath).toBeNull();
+
+    const again = await folder(benchy.id, { path: join(root(), "Benchy") });
+    expect(again.json()).toMatchObject({ folderState: "ok", unlinkedFolder: null });
+    expect(plates()).toHaveLength(1);
+  });
+
+  it("switching folders lets go of the current one as asked; another folder starts clean", async () => {
+    await sampleTree();
+    await setRoots();
+    await scan();
+    const benchy = await byName("Benchy");
+    plateOf(benchy.id);
+    // No model in it, so no project has it yet.
+    const notes = join(root(), "Notes");
+    expect((await folder(benchy.id, { path: notes })).json().error.code).toBe("has_folder");
+
+    const res = await folder(benchy.id, { path: notes, previous: "keep" });
+    expect(res.json()).toMatchObject({
+      folderPath: notes,
+      unlinkedFolder: join(root(), "Benchy"),
+      folderState: "ok",
+    });
+    expect(plates()).toEqual([]);
+    // The kept folder is still skipped: no new project for it.
+    await scan();
+    expect((await list()).map((p: { folderPath: string | null }) => p.folderPath)).not.toContain(
+      join(root(), "Benchy"),
+    );
   });
 
   it("a deleted folder is missing; another can be linked or the folder made again", async () => {
@@ -441,6 +499,48 @@ describe("project folder: create, link, unlink, missing", () => {
       folderPath: join(root(), `${String(vase.number).padStart(3, "0")}_Vase`),
       folderState: "ok",
     });
+  });
+
+  it("deletes a project without prints; its folder too, only when no file is left in it", async () => {
+    await mkdir(root(), { recursive: true });
+    await setRoots();
+    const del = (id: string) => app.inject({ method: "DELETE", url: `/api/projects/${id}` });
+    const code = async (id: string) => (await del(id)).json().error.code;
+
+    // A folder with a file stays, and so does its project.
+    const p = await create("Boat");
+    const dirOf = (await folder(p.id, {})).json().folderPath;
+    await put(`${basename(dirOf)}/hull.stl`, "solid");
+    expect(await code(p.id)).toBe("folder_has_files");
+    // Empty folders and OS clutter don't count: the folder goes with the project.
+    await rm(join(dirOf, "hull.stl"));
+    await put(`${basename(dirOf)}/parts/desktop.ini`, "x");
+    expect((await del(p.id)).statusCode).toBe(204);
+    expect((await app.inject(`/api/projects/${p.id}`)).statusCode).toBe(404);
+    await expect(stat(dirOf)).rejects.toThrow();
+
+    // A print keeps its project; a project without a folder just goes.
+    const q = await create("Printed");
+    const printer = db
+      .insert(schema.printers)
+      .values({ number: 1, name: "p", modelId: modelIdFor(db, "b", "m") })
+      .returning()
+      .get();
+    const print = db
+      .insert(schema.prints)
+      .values({
+        number: 1,
+        printerId: printer.id,
+        projectId: q.id,
+        title: "x",
+        startedAt: "2026-03-01T10:00:00.000Z",
+        outcome: "success",
+      })
+      .returning()
+      .get();
+    expect(await code(q.id)).toBe("project_has_prints");
+    db.delete(schema.prints).where(eq(schema.prints.id, print.id)).run();
+    expect((await del(q.id)).statusCode).toBe(204);
   });
 
   it("a renamed numbered folder stays the same project, not a twin", async () => {

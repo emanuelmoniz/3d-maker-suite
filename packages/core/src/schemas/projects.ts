@@ -89,6 +89,8 @@ export const projectSchema = z.object({
   descriptionFile: nullableText,
   /** Absolute. Null for a project that has no folder. */
   folderPath: nullableText,
+  /** The folder it was unlinked from and kept: scans skip it; linking it again keeps everything. */
+  unlinkedFolder: nullableText,
   /** The main model file (absolute), picked by the scanner. */
   filePath: nullableText,
   sourceUrl: z.httpUrl().nullable(),
@@ -151,16 +153,36 @@ export const projectInputSchema = z
     path: ["createFolder"],
   });
 
+/** Each project root's trash folder: deleted files and trashed project folders. Scans skip it. */
+export const PROJECT_TRASH_DIR = ".3d-maker-suite-trash";
+
 /**
- * Gives a project without a folder (or whose folder is missing) one: `path` links an existing
- * folder inside a root; without it, `<root>/<number>_<name>` is made (`root` may be left out with one root).
+ * What happens to the folder a project leaves: "trash" moves it to its root's trash folder,
+ * "keep" leaves it as it is (scans skip it; linking it again later keeps everything).
+ */
+export const PROJECT_FOLDER_RELEASE = ["trash", "keep"] as const;
+export const projectUnlinkQuery = z.object({ files: z.enum(PROJECT_FOLDER_RELEASE) });
+
+/**
+ * Gives a project a folder: `path` links an existing folder inside a root; without it,
+ * `<root>/<number>_<name>` is made (`root` may be left out with one root). A project whose folder
+ * is there needs `previous`: what happens to that one.
  */
 export const projectFolderSchema = z
-  .object({ path: z.string().min(1).optional(), root: z.string().min(1).optional() })
+  .object({
+    path: z.string().min(1).optional(),
+    root: z.string().min(1).optional(),
+    previous: z.enum(PROJECT_FOLDER_RELEASE).optional(),
+  })
   .refine((p) => !(p.path && p.root), {
     message: "Give path or root, not both",
     path: ["root"],
   });
+
+/** Unlink and folder changes: where a trashed folder went. */
+export const projectFolderResultSchema = projectDetailSchema.extend({
+  trashedTo: z.string().optional(),
+});
 
 /** Any subset. Every field sent becomes user-edited. */
 export const projectPatchSchema = z
@@ -229,6 +251,8 @@ export type ProjectOpen = z.infer<typeof projectOpenSchema>;
 export type Project = z.infer<typeof projectSchema>;
 export type ProjectDetail = z.infer<typeof projectDetailSchema>;
 export type ProjectFolderInput = z.infer<typeof projectFolderSchema>;
+export type ProjectFolderRelease = (typeof PROJECT_FOLDER_RELEASE)[number];
+export type ProjectFolderResult = z.infer<typeof projectFolderResultSchema>;
 export type ProjectListItem = z.infer<typeof projectListItemSchema>;
 export type ProjectMeta = z.infer<typeof projectMetaSchema>;
 export type ProjectFile = z.infer<typeof projectFileSchema>;

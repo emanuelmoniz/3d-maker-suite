@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, test } from "./fixtures.ts";
-import { roots } from "./helpers.ts";
+import { roots, seedPrinter } from "./helpers.ts";
 
 test("project folder: create and unlink on the edit page", async ({ page, app }) => {
   const root = join(app.dataDir, "models");
@@ -18,10 +18,68 @@ test("project folder: create and unlink on the edit page", async ({ page, app })
   await expect(card.getByRole("textbox", { name: "Folder" })).toHaveValue(folder);
   expect(existsSync(folder)).toBe(true);
 
+  // Unlink and keep (the default): nothing moves, and it can be linked again in one click.
+  const dialog = page.getByRole("dialog");
   await card.getByRole("button", { name: "Unlink folder" }).click();
-  await page.getByRole("dialog").getByRole("button", { name: "Unlink folder" }).click();
-  await expect(card.getByText("This project has no folder yet")).toBeVisible();
+  await expect(dialog.getByRole("radio", { name: "Keep it as it is" })).toBeChecked();
+  await dialog.getByRole("button", { name: "Unlink folder" }).click();
+  await expect(card.getByText(`Unlinked from ${folder}`)).toBeVisible();
   expect(existsSync(folder)).toBe(true);
+  await card.getByRole("button", { name: "Link it again" }).click();
+  await expect(card.getByRole("textbox", { name: "Folder" })).toHaveValue(folder);
+
+  // Unlink to the trash: the folder moves into the root's trash, and the page says where.
+  await card.getByRole("button", { name: "Unlink folder" }).click();
+  await dialog.getByRole("radio", { name: "Move it to the trash" }).check();
+  await expect(dialog).toContainText(join(root, ".3d-maker-suite-trash"));
+  await dialog.getByRole("button", { name: "Unlink folder" }).click();
+  await expect(card.getByRole("status")).toContainText(join(root, ".3d-maker-suite-trash"));
+  await expect(card.getByText("This project has no folder yet")).toBeVisible();
+  expect(existsSync(folder)).toBe(false);
+});
+
+test("delete project: refused while it has prints, then goes with its empty folder", async ({
+  page,
+  app,
+}) => {
+  const root = join(app.dataDir, "models");
+  mkdirSync(root, { recursive: true });
+  await app.api("PATCH", "/api/preferences", { projectRoots: roots(root) });
+  const p = await app.api<{ id: string; folderPath: string }>("POST", "/api/projects", {
+    name: "Gone",
+    createFolder: true,
+  });
+  const printer = await seedPrinter(app.api);
+  const print = await app.api<{ id: string }>("POST", "/api/prints", {
+    printerId: printer.id,
+    projectId: p.id,
+    startedAt: new Date().toISOString(),
+    usages: [],
+    title: "Calibration",
+    outcome: "success",
+  });
+
+  await page.goto(`/projects/${p.id}`);
+  const dialog = page.getByRole("dialog");
+  await page.getByRole("button", { name: "Delete", exact: true }).click();
+  await dialog.getByRole("button", { name: "Delete" }).click();
+  await expect(dialog.getByRole("alert")).toContainText("It has prints");
+
+  // With the print on No project, the project and its (empty) folder go.
+  await app.api("PATCH", `/api/prints/${print.id}`, { projectId: null });
+  await dialog.getByRole("button", { name: "Delete" }).click();
+  await expect(page).toHaveURL(/\/projects$/);
+  expect(existsSync(p.folderPath)).toBe(false);
+
+  // The print stays, shown as No project, and the project filter finds it.
+  await page.goto("/prints");
+  const row = page.getByRole("row").filter({ hasText: "Calibration" });
+  await expect(row.getByText("No project")).toHaveClass(/text-muted/);
+  const head = page.getByRole("columnheader").filter({ hasText: "Project" });
+  await head.getByRole("button", { name: /^Filter by/ }).click();
+  await head.getByLabel("No project").check();
+  await head.getByRole("button", { name: "Apply" }).click();
+  await expect(page.getByRole("row")).toHaveCount(2); // header + the print
 });
 
 test("project folder: a missing folder shows a banner, linking another fixes it", async ({

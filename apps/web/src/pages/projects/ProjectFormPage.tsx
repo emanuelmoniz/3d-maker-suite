@@ -63,13 +63,16 @@ function ProjectForm({ project }: { project?: ProjectDetail }) {
   // Blank folder path + a root: make the folder there (the first root unless picked).
   const [root, setRoot] = useState<string>();
   const createIn = project || folder.trim() ? "" : (root ?? roots[0] ?? "");
+  // Without a working folder (none, unlinked and kept, or missing) its files can't be picked or
+  // written: what the project knows of them waits for the folder.
+  const ok = project?.folderState === "ok";
   const [description, setDescription] = useState<DescriptionState>({
-    link: project?.descriptionFile ?? "",
+    link: (ok && project?.descriptionFile) || "",
     text: project?.description ?? "",
     original: project?.description ?? "",
   });
   const [writeFailed, setWriteFailed] = useState(false);
-  const files = project?.meta.files ?? [];
+  const files = ok ? (project?.meta.files ?? []) : [];
   const models = files.filter((f) => f.kind === "model");
   const initialPreview = project?.editedFields.includes("filePath")
     ? (models.find((m) => project.filePath?.replaceAll("\\", "/").endsWith(`/${m.path}`))?.path ??
@@ -110,7 +113,7 @@ function ProjectForm({ project }: { project?: ProjectDetail }) {
       );
       // A linked file supplies the text: editing it writes the file instead of the description.
       if (file) delete changed.description;
-      if (file !== project.descriptionFile) changed.descriptionFile = file;
+      if (ok && file !== project.descriptionFile) changed.descriptionFile = file;
       if (preview !== initialPreview) changed.previewFile = preview || null;
       if (JSON.stringify(gallery) !== JSON.stringify(galleryImages(project).map((f) => f.path)))
         changed.gallery = { folders: [], images: gallery };
@@ -249,7 +252,7 @@ function ProjectForm({ project }: { project?: ProjectDetail }) {
               )}
             </FormField>
           ) : (
-            <p className="text-muted">{t("projects:folder.none")}</p>
+            !project.unlinkedFolder && <p className="text-muted">{t("projects:folder.none")}</p>
           )}
           <FolderActions project={project} />
         </Section>
@@ -290,7 +293,7 @@ function ProjectForm({ project }: { project?: ProjectDetail }) {
           )}
         </Section>
       )}
-      {project && (
+      {project && ok && (
         <Collapsible
           id="slicing"
           title={t("projects:slicing.title")}

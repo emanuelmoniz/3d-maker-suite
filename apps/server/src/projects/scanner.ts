@@ -250,6 +250,9 @@ export function createProjectScanner(
   async function scanOne(folder: string) {
     // Number 0 ("000_project-name") marks a template folder: no project.
     if (parseFolderName(basename(folder)).number === 0) return "unchanged" as const;
+    // A folder a project was unlinked from and kept: left alone until it is linked again.
+    if (db.select().from(projects).where(eq(projects.unlinkedFolder, folder)).get())
+      return "unchanged" as const;
     const scan = await read(folder);
     return scan.hasModel ? await upsert(folder, scan) : ("unchanged" as const);
   }
@@ -404,9 +407,18 @@ export function createProjectScanner(
     return folder;
   }
 
+  /** A folder linked by hand is no other project's kept one any more: scans see it again. */
+  const claim = (folder: string) =>
+    db
+      .update(projects)
+      .set({ unlinkedFolder: null })
+      .where(eq(projects.unlinkedFolder, folder))
+      .run();
+
   /** Manual project backed by a folder; the given fields are user-edited from the start. */
   async function addFolder(path: string, user: Fields) {
     const folder = await usableFolder(path);
+    claim(folder);
     await upsert(folder, await read(folder, user.descriptionFile), user);
     return db.select().from(projects).where(eq(projects.folderPath, folder)).get();
   }
@@ -416,6 +428,7 @@ export function createProjectScanner(
     start,
     addFolder,
     usableFolder,
+    claim,
     refresh,
     /** Begins watching and runs a first scan, so changes made while the app was off are found. */
     boot() {

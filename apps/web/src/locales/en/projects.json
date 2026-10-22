@@ -111,7 +111,22 @@
     "linkTitle": "Project folder to link",
     "unlink": "Unlink folder",
     "unlinkTitle": "Unlink the project folder?",
-    "unlinkText": "The project forgets its files. The folder and its files stay on disk.",
+    "unlinkText": "The project will have no folder. What happens to {{from}}?",
+    "unlinkMissingText": "The folder isn't there any more, so nothing on disk changes. The project forgets its files and print setup.",
+    "change": "Switch to another folder…",
+    "changeTitle": "Switch the project folder?",
+    "changeText": "The project moves to {{to}}. What happens to {{from}}?",
+    "changeConfirm": "Switch folder",
+    "releaseLegend": "The current folder",
+    "trashLabel": "Move it to the trash",
+    "trashUnlinkHint": "The folder and all its files move to {{trash}}. They stay there until you empty the trash in Settings → Projects. The project forgets its files and print setup.",
+    "trashChangeHint": "The folder and all its files move to {{trash}}. They stay there until you empty the trash in Settings → Projects.",
+    "keepLabel": "Keep it as it is",
+    "keepUnlinkHint": "Nothing on disk changes, and the project keeps everything it knows. Scans leave the folder alone, so it doesn't come back as a new project. Link the same folder again later and the project is back as it was.",
+    "keepChangeHint": "Nothing on disk changes, and scans leave the folder alone, so it doesn't come back as a new project. The project starts fresh in the new folder (slice again if needed).",
+    "kept": "Unlinked from {{path}}. The folder was kept as it was, and scans leave it alone.",
+    "relink": "Link it again",
+    "trashed": "Moved to {{path}}. It stays there until you empty the trash in <settings>Settings → Projects</settings>.",
     "noRoots": "To create a folder, first <settings>set up a project folder</settings>.",
     "missingTitle": "The project folder was not found",
     "missingText": "{{path}} was deleted, renamed or is offline. Recreate it, link the folder where the files are now, or unlink it.",
@@ -121,6 +136,19 @@
       "folder_in_use": "Another project already uses that folder.",
       "folder_exists": "A folder with the project's name already exists there. Link it instead.",
       "invalid_folder": "That folder doesn't exist."
+    }
+  },
+  "remove": {
+    "action": "Delete",
+    "title": "Delete {{name}}?",
+    "body": "The project is deleted. This can't be undone.",
+    "bodyFolder": "The project is deleted, and its folder too if no file is left in it. This can't be undone.",
+    "bodyKept": "The project is deleted. This can't be undone. Its kept folder {{path}} is no longer skipped: the next scan finds it as a new project unless you move it out of your project folders.",
+    "error": "Couldn't delete the project. Try again.",
+    "errors": {
+      "project_has_prints": "It has prints. Move them to another project, or to No project, first.",
+      "project_in_order": "It is part of an order. Remove it from the order first.",
+      "folder_has_files": "Its folder still has files. Move or delete them first, or the next scan finds the project again."
     }
   },
   "filters": {

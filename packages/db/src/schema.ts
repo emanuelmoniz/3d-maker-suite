@@ -545,6 +545,9 @@ export const projects = sqliteTable(
     coverFile: text(),
     // Set when the project comes from a folder (scan or manual); the scan key.
     folderPath: text(),
+    // The folder it was unlinked from, kept on disk as it was: scans skip it until the project
+    // gets a folder again (that one, with everything kept, or another).
+    unlinkedFolder: text(),
     filePath: text(),
     sourceUrl: text(),
     thumbnailPath: text(),

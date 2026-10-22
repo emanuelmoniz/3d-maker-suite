@@ -3,6 +3,8 @@ import type {
   Project,
   ProjectDetail,
   ProjectFolderInput,
+  ProjectFolderRelease,
+  ProjectFolderResult,
   ProjectInput,
   ProjectOpen,
   ProjectPaint,
@@ -48,14 +50,26 @@ export const useProject = (id: string) =>
     enabled: !!id,
   });
 
-/** Links a folder (`path`) or makes one in a root; `null` unlinks. */
+/** Refused (409) while it has prints or orders, or its folder still has files. */
+export const useDeleteProject = (id: string) => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api("DELETE", `/api/projects/${id}`),
+    onSuccess: () => {
+      qc.removeQueries({ queryKey: ["projects", id] });
+      return qc.invalidateQueries({ queryKey: ["projects", "list"] });
+    },
+  });
+};
+
+/** Links a folder (`path`) or makes one in a root; `unlink` lets go of it, to the trash or kept. */
 export const useProjectFolder = (id: string) => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (v: ProjectFolderInput | null) =>
-      v
-        ? api<ProjectDetail>("POST", `/api/projects/${id}/folder`, v)
-        : api<ProjectDetail>("DELETE", `/api/projects/${id}/folder`),
+    mutationFn: (v: ProjectFolderInput | { unlink: ProjectFolderRelease }) =>
+      "unlink" in v
+        ? api<ProjectFolderResult>("DELETE", `/api/projects/${id}/folder?files=${v.unlink}`)
+        : api<ProjectFolderResult>("POST", `/api/projects/${id}/folder`, v),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["projects"] }),
   });
 };

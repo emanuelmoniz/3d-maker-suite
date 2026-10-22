@@ -72,7 +72,7 @@ Avoid putting one root inside another. A project follows its root's auto slice s
 
 ## Adopting projects without a folder
 
-A project made without a folder (for example by a prints import) keeps its number. When a **new folder** whose prefix is that number shows up in a root, the scan makes it the project's folder instead of adding a second project. Only an exact number match with a folderless project is adopted; a folder you add by hand with typed fields is always a new project.
+A project made without a folder (for example by a prints import), or whose folder is gone, keeps its number. When a **new folder** whose prefix is that number shows up in a root, the scan makes it the project's folder instead of adding a second project. Only an exact number match is adopted; a folder you add by hand with typed fields is always a new project.
 
 ## Deleted files: the trash
 
@@ -80,7 +80,18 @@ Files removed in the app are moved, not erased, into `.3d-maker-suite-trash` in 
 
 ## Renaming and moving folders
 
-The app does not rename folders. Renaming a project's **files** (in the app or on disk) is safe: the next scan picks them up. Renaming or moving a project's **folder** on disk is not tracked yet: the project keeps the old path with stale files (they fail to open), and the renamed folder is found as a **new project** with the next free number, because its number is taken. Until that is handled in the app, avoid renaming project folders, or archive the stale project afterwards.
+The app does not rename folders. Renaming a project's **files** (in the app or on disk) is safe: the next scan picks them up. Renaming a project's **folder** on disk and keeping its number prefix (`012_vase` → `012_tall-vase`) is safe too: the scan moves the project to the new folder. A folder renamed without its number, moved out of the roots or deleted shows a banner on the project page: recreate the folder, link the one where the files are now, or unlink it. Edit → Project folder does the same, and gives a project without a folder one.
+
+## Unlinking or switching a folder
+
+Edit → Project folder → **Unlink folder** (or **Switch to another folder…**) asks what happens to the current folder:
+
+- **Move it to the trash:** the folder and all its files move to `.3d-maker-suite-trash` in its root, as `<timestamp>_<folder>`. They stay there until you empty the trash in Settings → Projects. The project forgets its files and print setup.
+- **Keep it as it is:** nothing on disk changes. The project keeps what it knows, and scans skip the folder, so it doesn't come back as a new project. **Link it again** on the same card picks it back up as it was. Linking any other folder starts the project fresh there; deleting the project lets scans find the kept folder again.
+
+## Deleting a project
+
+Delete on the project page removes a project that has no prints and is in no order (move its prints to another project or to No project first). If its folder is inside a root and has no files left (empty subfolders and OS files like `desktop.ini` don't count), the folder goes too; a folder that still has files blocks the delete, because the next scan would find it as a project again.
 
 ## Docker and bind mounts
 

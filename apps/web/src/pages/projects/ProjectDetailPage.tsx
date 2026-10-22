@@ -1,11 +1,13 @@
-import { bestMatches, type Project, sumCosts } from "@3d-maker-suite/core";
-import { Link, useParams } from "@tanstack/react-router";
+import { bestMatches, type Project, type ProjectDetail, sumCosts } from "@3d-maker-suite/core";
+import { Link, useNavigate, useParams } from "@tanstack/react-router";
 import type { TFunction } from "i18next";
 import { Box, ExternalLink, FolderOpen } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Button } from "../../components/Button.tsx";
 import { Collapsible } from "../../components/Collapsible.tsx";
 import { Combobox } from "../../components/Combobox.tsx";
+import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import {
   CostBreakdown,
   MaterialUsage,
@@ -15,6 +17,7 @@ import {
 import { Markdown } from "../../components/Markdown.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { TagList } from "../../components/TagList.tsx";
+import { ApiError } from "../../lib/api.ts";
 import { estimateSlicedPlates, useCostContext } from "../../lib/cost.ts";
 import { cx } from "../../lib/cx.ts";
 import { useProfiles, useSpools } from "../../lib/filament.ts";
@@ -28,6 +31,7 @@ import {
   projectFileUrl,
   projectName,
   projectThumbnailUrl,
+  useDeleteProject,
   useOpenProject,
   useProject,
   useProjectSlicing,
@@ -42,6 +46,57 @@ import { ProjectGallery } from "./ProjectGallery.tsx";
 
 const linkButton =
   "inline-flex h-9 items-center gap-2 whitespace-nowrap rounded-md border border-border bg-surface px-3 font-medium hover:bg-surface-2";
+const DELETE_ERRORS = {
+  project_has_prints: "projects:remove.errors.project_has_prints",
+  project_in_order: "projects:remove.errors.project_in_order",
+  folder_has_files: "projects:remove.errors.folder_has_files",
+} as const;
+
+/** Delete, confirmed; the dialog stays open with the reason when the server refuses. */
+function DeleteProject({ project }: { project: ProjectDetail }) {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const del = useDeleteProject(project.id);
+  const [open, setOpen] = useState(false);
+  const code = del.error instanceof ApiError ? del.error.code : undefined;
+  return (
+    <>
+      <Button
+        onClick={() => {
+          del.reset();
+          setOpen(true);
+        }}
+      >
+        {t("projects:remove.action")}
+      </Button>
+      <ConfirmDialog
+        open={open}
+        title={t("projects:remove.title", { name: projectName(t, project) })}
+        description={
+          project.folderPath
+            ? t("projects:remove.bodyFolder")
+            : project.unlinkedFolder
+              ? t("projects:remove.bodyKept", { path: project.unlinkedFolder })
+              : t("projects:remove.body")
+        }
+        confirmLabel={t("projects:remove.action")}
+        destructive
+        onCancel={() => setOpen(false)}
+        onConfirm={() => del.mutate(undefined, { onSuccess: () => navigate({ to: "/projects" }) })}
+      >
+        {del.isError && (
+          <p role="alert" className="text-bad">
+            {t(
+              code && code in DELETE_ERRORS
+                ? DELETE_ERRORS[code as keyof typeof DELETE_ERRORS]
+                : "projects:remove.error",
+            )}
+          </p>
+        )}
+      </ConfirmDialog>
+    </>
+  );
+}
 const VIEWABLE = /\.(3mf|stl)$/i;
 const SLICED_EXPORT = /\.gcode\.3mf$/i;
 // The project folder, or with a configured root above it, the path from that root's folder down.
@@ -279,7 +334,7 @@ const savedSlices = (project: Project) =>
     );
 
 /** One print of the whole project, from its sliced plates (else the 3MF's), on the default printer. */
-function SlicedEstimate({ project }: { project: Project }) {
+function SlicedEstimate({ project }: { project: ProjectDetail }) {
   const { t } = useTranslation();
   const own = useProjectSlicing(project.id).data?.plates ?? [];
   const plates = own.some((p) => p.result) ? own : savedSlices(project);
@@ -288,7 +343,8 @@ function SlicedEstimate({ project }: { project: Project }) {
   const profiles = useProfiles().data?.items ?? [];
   const spools = useSpools().data?.items ?? [];
   const sliced = plates.filter((p) => p.result).length;
-  if (!ctx) return null;
+  // Its plates are of files in a folder it doesn't have now (unlinked and kept, or missing).
+  if (!ctx || project.folderState !== "ok") return null;
   const setUp = (
     <Link to="/projects/$id/edit" params={{ id: project.id }} hash="slicing" className={linkButton}>
       {t("projects:detail.setUpSlicing")}
@@ -440,6 +496,7 @@ export function ProjectDetailPage() {
             <Link to="/projects/$id/edit" params={{ id }} className={linkButton}>
               {t("projects:list.edit")}
             </Link>
+            <DeleteProject project={project} />
           </>
         }
       />

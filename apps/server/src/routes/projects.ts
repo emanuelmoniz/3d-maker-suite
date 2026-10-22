@@ -1,16 +1,19 @@
 import { createReadStream } from "node:fs";
-import { readFile, rmdir, stat } from "node:fs/promises";
-import { extname, join } from "node:path";
+import { mkdir, readdir, readFile, rename, rm, rmdir, stat } from "node:fs/promises";
+import { basename, extname, isAbsolute, join, relative } from "node:path";
 import { read3mfEntry, read3mfPaint } from "@3d-maker-suite/3mf";
 import {
   apiErrorSchema,
   type IntegrationAdapter,
   type Page,
+  PROJECT_TRASH_DIR,
   type Project,
   type ProjectDetail,
+  type ProjectFolderRelease,
   type ProjectListItem,
   pageOf,
   projectDetailSchema,
+  projectFolderResultSchema,
   projectFolderSchema,
   projectInputSchema,
   projectListItemSchema,
@@ -21,9 +24,10 @@ import {
   projectPatchSchema,
   projectScanStatusSchema,
   projectSchema,
+  projectUnlinkQuery,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
-import { eq, inArray, isNull, max, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, max, sql } from "drizzle-orm";
 import type { FastifyReply } from "fastify";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
@@ -37,14 +41,17 @@ import { readPreferences, rootPaths } from "../lib/preferences.ts";
 import { folderName, newProjectFolder } from "../projects/newFolder.ts";
 import { projectPath, segments } from "../projects/paths.ts";
 import type { ProjectScanner } from "../projects/scanner.ts";
+import { fsError } from "./fs.ts";
 
 const {
   projects,
   collectionProjects,
+  orderProjects,
   printFilamentUsages,
   prints,
   printers,
   projectSlicePlates: plates,
+  taggings,
 } = schema;
 const params = z.object({ id: z.uuid() });
 const fileQuery = z.object({ path: z.string().min(1), entry: z.string().optional() });
@@ -112,6 +119,14 @@ const FILE_TYPES: Record<string, string> = {
   ".pdf": "application/pdf",
 };
 
+// OS clutter, which doesn't make a folder one with files.
+const JUNK = new Set(["desktop.ini", "thumbs.db", ".ds_store"]);
+/** Whether anything but folders and clutter is left below `dir` (a link counts: it isn't followed). */
+const hasFiles = async (dir: string) =>
+  (await readdir(dir, { recursive: true, withFileTypes: true })).some(
+    (e) => !e.isDirectory() && !JUNK.has(e.name.toLowerCase()),
+  );
+
 // Rows older than the scanner (e.g. demo data) hold other meta; parsing fills the defaults in.
 const out = (row: unknown) => {
   const r = row as Project;
@@ -131,6 +146,79 @@ export const projectsRoutes =
       if (!row) throw new HttpError(404, "not_found", "Project not found");
       return out(row);
     };
+    /** The real path of a folder below a root (never a root itself), and that root; else null. */
+    async function belowRoot(folder: string | null) {
+      if (!folder) return null;
+      const real = (await Promise.all(rootPaths(db).map((r) => insideRoots(r, [r])))).filter(
+        (r): r is string => !!r,
+      );
+      const dir = await insideRoots(folder, real);
+      if (!dir || real.includes(dir)) return null;
+      const root = real.find((r) => {
+        const rel = relative(r, dir);
+        return !rel.startsWith("..") && !isAbsolute(rel);
+      });
+      return root ? { dir, root } : null;
+    }
+
+    /** Moves a project folder into its root's trash; returns where it went. */
+    async function toTrash({ dir, root }: { dir: string; root: string }) {
+      const trash = join(root, PROJECT_TRASH_DIR);
+      await mkdir(trash, { recursive: true });
+      // A trash folder that is a link elsewhere would carry the files out of the root.
+      if (!(await insideRoots(trash, [root])))
+        throw new HttpError(403, "path_denied", "Trash is outside the project root");
+      const dest = join(
+        trash,
+        `${new Date().toISOString().replace(/[:.]/g, "-")}_${basename(dir)}`,
+      );
+      // ponytail: a plain rename, like a file's trash (see projectFiles.ts): EXDEV across volumes.
+      await rename(dir, dest).catch((e) => Promise.reject(fsError(e)));
+      return dest;
+    }
+
+    /** What a project knows about its folder's files, dropped when they aren't its any more. */
+    const forget = (id: string) =>
+      db.transaction((tx) => {
+        tx.delete(plates).where(eq(plates.projectId, id)).run();
+        tx.update(projects)
+          .set({
+            filePath: null,
+            descriptionFile: null,
+            coverFile: null,
+            gallery: { folders: [], images: [] },
+            meta: projectMetaSchema.parse({}),
+          })
+          .where(eq(projects.id, id))
+          .run();
+      });
+
+    /**
+     * Lets go of a project's folder. "keep": the folder and everything the project knows stay as
+     * they are, and the folder is remembered so scans skip it (linking it again picks it all
+     * up). "trash": the folder moves to its root's trash and the project forgets its files.
+     * Returns where a trashed folder went.
+     */
+    async function release(p: ProjectDetail, how: ProjectFolderRelease) {
+      const unlink = (unlinkedFolder?: string | null) =>
+        db
+          .update(projects)
+          .set({ folderPath: null, ...(unlinkedFolder !== undefined && { unlinkedFolder }) })
+          .where(eq(projects.id, p.id))
+          .run();
+      if (how === "keep") return void unlink(p.folderPath);
+      let trashedTo: string | undefined;
+      if (p.folderState === "ok") {
+        const own = await belowRoot(p.folderPath);
+        if (!own)
+          throw new HttpError(403, "not_allowed", "Project folder is not in a project root");
+        trashedTo = await toTrash(own);
+      }
+      unlink();
+      forget(p.id);
+      return trashedTo;
+    }
+
     // ponytail: an offline root reads as "missing" too; 4.2.0 Step 7 tells them apart.
     const detail = async (id: string): Promise<ProjectDetail> => {
       const p = get(id);
@@ -244,62 +332,90 @@ export const projectsRoutes =
       async (req) => detail(req.params.id),
     );
 
-    // Gives a project without a working folder one: links `path`, or makes `<root>/<NNN>_<name>`.
+    // Gives a project a folder: links `path`, or makes `<root>/<NNN>_<name>`. One whose folder is
+    // there lets go of it first, as `previous` says.
     app.post(
       "/:id/folder",
       {
         schema: {
           params,
           body: projectFolderSchema,
-          response: { 200: projectDetailSchema, 400: apiErrorSchema, ...errors },
+          response: { 200: projectFolderResultSchema, 400: apiErrorSchema, ...errors },
         },
       },
       async (req) => {
         const p = await detail(req.params.id);
-        if (p.folderState === "ok")
+        const { path, root, previous } = req.body;
+        if (p.folderState === "ok" && !previous)
           throw new HttpError(409, "has_folder", "Project already has a folder");
-        const { path, root } = req.body;
+        // Checked (or made) before the current folder is let go of.
         const folder = path
           ? await scanner.usableFolder(path)
           : await newProjectFolder(db, root, folderName(p.number, p.name));
+        const trashedTo =
+          p.folderState === "ok" && previous ? await release(p, previous) : undefined;
+        const now = get(p.id);
+        // The folder it was unlinked from and kept: everything it knew is still right. Anything
+        // else (and its plates) was of files that aren't its own: slice again if needed.
+        if (!(now.folderPath === null && now.unlinkedFolder === folder)) forget(p.id);
+        scanner.claim(folder);
         const point = (folderPath: string | null) =>
           db.update(projects).set({ folderPath }).where(eq(projects.id, p.id)).run();
-        // The plates were of files that are gone: slice again on the new folder if needed.
-        db.delete(plates).where(eq(plates.projectId, p.id)).run();
         point(folder);
         try {
           await scanner.refresh(folder);
         } catch (e) {
-          point(p.folderPath);
+          point(now.folderPath);
           if (!path) await rmdir(folder).catch(() => {});
           throw e;
         }
-        return detail(p.id);
+        return { ...(await detail(p.id)), trashedTo };
       },
     );
 
-    // Unlinks the folder: the project forgets its files and their slices, the files on disk stay.
+    // Deletes a project nothing points at. Its folder goes too, only when no file is left in it: a
+    // folder with files in a root would be scanned back in as a project.
+    app.delete(
+      "/:id",
+      { schema: { params, response: { 204: z.null(), ...errors } } },
+      async (req, reply) => {
+        const p = get(req.params.id);
+        if (db.select({ id: prints.id }).from(prints).where(eq(prints.projectId, p.id)).get())
+          throw new HttpError(409, "project_has_prints", "Move or remove its prints first");
+        if (db.select().from(orderProjects).where(eq(orderProjects.projectId, p.id)).get())
+          throw new HttpError(409, "project_in_order", "Remove it from its orders first");
+        // Only a folder below a root is the app's to remove (and only there would a scan find it
+        // again); one outside every root, or a root itself, stays as it is.
+        const own = (await belowRoot(p.folderPath))?.dir;
+        if (own && (await hasFiles(own)))
+          throw new HttpError(409, "folder_has_files", "Its folder still has files");
+        db.transaction((tx) => {
+          tx.delete(taggings)
+            .where(and(eq(taggings.entityType, "project"), eq(taggings.entityId, p.id)))
+            .run();
+          tx.delete(projects).where(eq(projects.id, p.id)).run();
+        });
+        if (own) await rm(own, { recursive: true, force: true });
+        if (p.thumbnailPath) await rm(join(dataDir, p.thumbnailPath), { force: true });
+        return reply.status(204).send(null);
+      },
+    );
+
+    // Unlinks the folder: `files` says whether it goes to the trash or stays as it is (`release`).
     app.delete(
       "/:id/folder",
-      { schema: { params, response: { 200: projectDetailSchema, ...notFound } } },
+      {
+        schema: {
+          params,
+          querystring: projectUnlinkQuery,
+          response: { 200: projectFolderResultSchema, ...errors },
+        },
+      },
       async (req) => {
-        const { id } = req.params;
-        if (!get(id).folderPath) throw new HttpError(404, "no_folder", "Project has no folder");
-        db.transaction((tx) => {
-          tx.delete(plates).where(eq(plates.projectId, id)).run();
-          tx.update(projects)
-            .set({
-              folderPath: null,
-              filePath: null,
-              descriptionFile: null,
-              coverFile: null,
-              gallery: { folders: [], images: [] },
-              meta: projectMetaSchema.parse({}),
-            })
-            .where(eq(projects.id, id))
-            .run();
-        });
-        return detail(id);
+        const p = await detail(req.params.id);
+        if (!p.folderPath) throw new HttpError(404, "no_folder", "Project has no folder");
+        const trashedTo = await release(p, req.query.files);
+        return { ...(await detail(p.id)), trashedTo };
       },
     );
 

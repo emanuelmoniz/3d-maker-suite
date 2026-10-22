@@ -442,6 +442,13 @@
       "when": 1792688802591,
       "tag": "0062_wide_mad_thinker",
       "breakpoints": true
+    },
+    {
+      "idx": 63,
+      "version": "6",
+      "when": 1792690841609,
+      "tag": "0063_amused_deadpool",
+      "breakpoints": true
     }
   ]
 }
