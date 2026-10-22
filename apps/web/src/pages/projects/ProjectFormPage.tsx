@@ -1,4 +1,4 @@
-import type { Project } from "@3d-maker-suite/core";
+import type { Project, ProjectDetail } from "@3d-maker-suite/core";
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -19,6 +19,7 @@ import {
 } from "../../lib/projects.ts";
 import { DescriptionEditor, type DescriptionState } from "./DescriptionEditor.tsx";
 import { GalleryPicker } from "./GalleryPicker.tsx";
+import { FolderActions } from "./ProjectFolder.tsx";
 import { SlicingSetup, useSlicingDraft } from "./SlicingSetup.tsx";
 
 const text = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
@@ -45,7 +46,7 @@ function Section({
   );
 }
 
-function ProjectForm({ project }: { project?: Project }) {
+function ProjectForm({ project }: { project?: ProjectDetail }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const create = useCreateProject();
@@ -195,15 +196,7 @@ function ProjectForm({ project }: { project?: Project }) {
             />
           )}
         </FormField>
-        {project ? (
-          project.folderPath && (
-            <FormField label={t("projects:form.folder")} hint={t("projects:form.editedHint")}>
-              {(p) => (
-                <input {...p} readOnly className={inputClass} value={project.folderPath ?? ""} />
-              )}
-            </FormField>
-          )
-        ) : (
+        {!project && (
           <FormField label={t("projects:form.folder")} hint={t("projects:form.folderHint")}>
             {(p) => (
               <div className="flex gap-2">
@@ -240,6 +233,27 @@ function ProjectForm({ project }: { project?: Project }) {
           </FormField>
         )}
       </Section>
+      {project && (
+        <Section title={t("projects:folder.title")} edit>
+          {project.folderPath ? (
+            <FormField
+              label={t("projects:form.folder")}
+              hint={
+                project.folderState === "missing"
+                  ? t("projects:folder.missingTitle")
+                  : t("projects:form.editedHint")
+              }
+            >
+              {(p) => (
+                <input {...p} readOnly className={inputClass} value={project.folderPath ?? ""} />
+              )}
+            </FormField>
+          ) : (
+            <p className="text-muted">{t("projects:folder.none")}</p>
+          )}
+          <FolderActions project={project} />
+        </Section>
+      )}
       <Section title={t("projects:form.sectionDescription")} edit={!!project} wide>
         <DescriptionEditor project={project} value={description} onChange={setDescription} />
       </Section>

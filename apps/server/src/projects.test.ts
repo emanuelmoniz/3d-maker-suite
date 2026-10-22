@@ -1,4 +1,4 @@
-import { cp, mkdir, mkdtemp, rename, rm, writeFile } from "node:fs/promises";
+import { cp, mkdir, mkdtemp, rename, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { mockAdapter } from "@3d-maker-suite/adapter-mock";
@@ -309,6 +309,11 @@ describe("manual projects", () => {
   it("can point at a folder, which is scanned but keeps the given name", async () => {
     await sampleTree();
     const payload = { name: "Boat", folderPath: join(root(), "Benchy") };
+    // Outside every root: refused, it could never be opened.
+    const outside = await app.inject({ method: "POST", url: "/api/projects", payload });
+    expect(outside.statusCode).toBe(403);
+    expect(outside.json().error.code).toBe("outside_roots");
+    await setRoots();
     const res = await app.inject({ method: "POST", url: "/api/projects", payload });
     expect(res.statusCode).toBe(201);
     expect(res.json()).toMatchObject({ name: "Boat", editedFields: ["name"] });
@@ -323,7 +328,6 @@ describe("manual projects", () => {
     ).toBe(400);
 
     // A later scan of the roots finds the same folder and leaves the name alone.
-    await setRoots();
     await scan();
     expect(
       (await list()).filter((p: { folderPath: string }) => p.folderPath?.endsWith("Benchy")),
@@ -338,6 +342,103 @@ describe("manual projects", () => {
       payload: { name: "Bad", sourceUrl: "javascript:alert(1)" },
     });
     expect(res.statusCode).toBe(400);
+  });
+});
+
+describe("project folder: create, link, unlink, missing", () => {
+  const create = async (name = "Idea") =>
+    (await app.inject({ method: "POST", url: "/api/projects", payload: { name } })).json();
+  const detail = async (id: string) => (await app.inject(`/api/projects/${id}`)).json();
+  const folder = (id: string, payload: object) =>
+    app.inject({ method: "POST", url: `/api/projects/${id}/folder`, payload });
+  const unlink = (id: string) =>
+    app.inject({ method: "DELETE", url: `/api/projects/${id}/folder` });
+
+  it("creates NNN_name in the root, or in the one picked when there are several", async () => {
+    const p = await create();
+    expect((await detail(p.id)).folderState).toBeNull();
+    expect((await folder(p.id, {})).json().error.code).toBe("no_project_root");
+    await mkdir(root(), { recursive: true });
+    await setRoots();
+    const res = await folder(p.id, {});
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({ folderPath: join(root(), "001_Idea"), folderState: "ok" });
+    expect((await folder(p.id, {})).json().error.code).toBe("has_folder");
+
+    const other = join(dir, "other");
+    await mkdir(other);
+    await app.inject({
+      method: "PATCH",
+      url: "/api/preferences",
+      payload: { projectRoots: [projectRoot(root()), projectRoot(other)] },
+    });
+    const q = await create("Two");
+    expect((await folder(q.id, {})).json().error.code).toBe("root_required");
+    expect((await folder(q.id, { root: other })).json().folderPath).toBe(join(other, "002_Two"));
+  });
+
+  it("links an existing folder inside a root that no other project uses", async () => {
+    await sampleTree();
+    await setRoots();
+    const p = await create();
+    const outside = join(dir, "outside");
+    await mkdir(outside);
+    const refused = await folder(p.id, { path: outside });
+    expect([refused.statusCode, refused.json().error.code]).toEqual([403, "outside_roots"]);
+    expect((await folder(p.id, { path: join(root(), "nope") })).statusCode).toBe(400);
+
+    const res = await folder(p.id, { path: join(root(), "Benchy") });
+    expect(res.statusCode).toBe(200);
+    // Scanned, but the typed name stays.
+    expect(res.json()).toMatchObject({ name: "Idea", folderState: "ok" });
+    expect(res.json().meta.files.length).toBeGreaterThan(0);
+
+    const q = await create("Other");
+    const taken = await folder(q.id, { path: join(root(), "Benchy") });
+    expect([taken.statusCode, taken.json().error.code]).toEqual([409, "folder_in_use"]);
+  });
+
+  it("unlinks: the project forgets its files, the files stay on disk", async () => {
+    await sampleTree();
+    await setRoots();
+    const p = await create();
+    await folder(p.id, { path: join(root(), "Benchy") });
+    const res = await unlink(p.id);
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({
+      folderPath: null,
+      filePath: null,
+      folderState: null,
+      meta: { files: [], models: [] },
+    });
+    expect((await stat(join(root(), "Benchy", "benchy.3mf"))).isFile()).toBe(true);
+    expect((await unlink(p.id)).statusCode).toBe(404);
+  });
+
+  it("a deleted folder is missing; another can be linked or the folder made again", async () => {
+    await sampleTree();
+    await setRoots();
+    await scan();
+    const vase = await byName("Vase");
+    await rm(join(root(), "Vase"), { recursive: true });
+    expect((await detail(vase.id)).folderState).toBe("missing");
+    const res = await folder(vase.id, {});
+    expect(res.json()).toMatchObject({
+      folderPath: join(root(), `${String(vase.number).padStart(3, "0")}_Vase`),
+      folderState: "ok",
+    });
+  });
+
+  it("a renamed numbered folder stays the same project, not a twin", async () => {
+    await put("004_boat/b.stl", "solid");
+    await setRoots();
+    await scan();
+    const boat = (await list())[0];
+    await rename(join(root(), "004_boat"), join(root(), "004_ship"));
+    await scan();
+    expect(await list()).toMatchObject([
+      { id: boat.id, number: 4, folderPath: join(root(), "004_ship") },
+    ]);
   });
 });
 

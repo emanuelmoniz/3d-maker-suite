@@ -100,6 +100,29 @@
     "createInNone": "No folder",
     "createInHint": "A folder named after the project is made there. Upload its files on the next page."
   },
+  "folder": {
+    "title": "Project folder",
+    "none": "This project has no folder yet. Create one named after the project, or link a folder that already has its files.",
+    "root": "Create the folder in",
+    "create": "Create folder",
+    "recreate": "Recreate folder",
+    "link": "Link a folder…",
+    "linkOther": "Link another folder…",
+    "linkTitle": "Project folder to link",
+    "unlink": "Unlink folder",
+    "unlinkTitle": "Unlink the project folder?",
+    "unlinkText": "The project forgets its files. The folder and its files stay on disk.",
+    "noRoots": "To create a folder, first <settings>set up a project folder</settings>.",
+    "missingTitle": "The project folder was not found",
+    "missingText": "{{path}} was deleted, renamed or is offline. Recreate it, link the folder where the files are now, or unlink it.",
+    "error": "Couldn't change the project folder. Try again.",
+    "errors": {
+      "outside_roots": "That folder is not inside one of your project folders.",
+      "folder_in_use": "Another project already uses that folder.",
+      "folder_exists": "A folder with the project's name already exists there. Link it instead.",
+      "invalid_folder": "That folder doesn't exist."
+    }
+  },
   "filters": {
     "search": "Search projects",
     "collection": "Filter by collection",

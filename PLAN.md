@@ -83,7 +83,7 @@ Do Step 4 of PLAN.md. Check the scanner code for every rule you document.
 
 ## Phase 2 - Projects & integrations
 
-### [ ] Step 5 - Project folder: create, link, missing  **[plan mode]**
+### [x] Step 5 - Project folder: create, link, missing  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:**
 - Today a project with no folder can't get one later (the field is hidden on edit). A folder deleted or renamed on disk is never noticed: the project keeps stale files (404 on open), and a renamed folder becomes a twin project. `scanner.addFolder()` accepts folders outside every root, which later fail with 403.

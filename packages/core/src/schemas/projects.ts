@@ -110,6 +110,14 @@ export const projectSchema = z.object({
   updatedAt: isoDate,
 });
 
+/**
+ * The project page's project: plus whether its folder is there. null: no folder; "missing": the
+ * folder is gone (deleted, renamed, or its root is offline).
+ */
+export const projectDetailSchema = projectSchema.extend({
+  folderState: z.enum(["ok", "missing"]).nullable(),
+});
+
 /** A row of the projects list: the project plus when it was last printed (null: never). */
 export const projectListItemSchema = projectSchema.extend({
   lastPrintAt: isoDate.nullable(),
@@ -141,6 +149,17 @@ export const projectInputSchema = z
   .refine((p) => !(p.createFolder && p.folderPath), {
     message: "Give folderPath or createFolder, not both",
     path: ["createFolder"],
+  });
+
+/**
+ * Gives a project without a folder (or whose folder is missing) one: `path` links an existing
+ * folder inside a root; without it, `<root>/<number>_<name>` is made (`root` may be left out with one root).
+ */
+export const projectFolderSchema = z
+  .object({ path: z.string().min(1).optional(), root: z.string().min(1).optional() })
+  .refine((p) => !(p.path && p.root), {
+    message: "Give path or root, not both",
+    path: ["root"],
   });
 
 /** Any subset. Every field sent becomes user-edited. */
@@ -208,6 +227,8 @@ export const projectOpenSchema = z.object({
 
 export type ProjectOpen = z.infer<typeof projectOpenSchema>;
 export type Project = z.infer<typeof projectSchema>;
+export type ProjectDetail = z.infer<typeof projectDetailSchema>;
+export type ProjectFolderInput = z.infer<typeof projectFolderSchema>;
 export type ProjectListItem = z.infer<typeof projectListItemSchema>;
 export type ProjectMeta = z.infer<typeof projectMetaSchema>;
 export type ProjectFile = z.infer<typeof projectFileSchema>;

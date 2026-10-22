@@ -37,6 +37,7 @@ import { OrdersTable } from "../orders/OrdersTable.tsx";
 import { QuotesTable } from "../quotes/QuotesTable.tsx";
 import { ModelPreview } from "./ModelPreview.tsx";
 import { ProjectFiles } from "./ProjectFiles.tsx";
+import { MissingFolderBanner } from "./ProjectFolder.tsx";
 import { ProjectGallery } from "./ProjectGallery.tsx";
 
 const linkButton =
@@ -368,9 +369,11 @@ export function ProjectDetailPage() {
     );
   if (!project) return null;
 
+  // A missing folder serves no files: only the stored thumbnail is shown until it is fixed.
+  const ok = project.folderState === "ok";
+  const hasGallery = ok && galleryImages(project).length > 0;
   // A sliced export the scanner folded into its project file is not a model of its own.
-  const hasGallery = galleryImages(project).length > 0;
-  const models = project.meta.files.filter(
+  const models = (ok ? project.meta.files : []).filter(
     (f) =>
       f.kind === "model" &&
       !(SLICED_EXPORT.test(f.path) && !project.meta.models.some((m) => m.file === f.path)),
@@ -401,7 +404,7 @@ export function ProjectDetailPage() {
                 {t("projects:detail.source")}
               </a>
             )}
-            {project.folderPath && current && slicer && (
+            {ok && current && slicer && (
               <span className="flex gap-1">
                 {slicers.length > 1 && (
                   <Combobox
@@ -424,7 +427,7 @@ export function ProjectDetailPage() {
                 </button>
               </span>
             )}
-            {project.folderPath && (
+            {ok && (
               <button
                 type="button"
                 className={linkButton}
@@ -440,9 +443,10 @@ export function ProjectDetailPage() {
           </>
         }
       />
-      {project.folderPath && (
+      {ok && project.folderPath && (
         <p className="-mt-3 mb-4 break-all text-muted">{folderLabel(project.folderPath, roots)}</p>
       )}
+      <MissingFolderBanner project={project} />
       <p role="status" className={open.isError ? "text-bad" : "sr-only"}>
         {open.isError
           ? openError(t, open.error.message)
@@ -533,7 +537,7 @@ export function ProjectDetailPage() {
       <QuotesTable fixed={{ projectId: id }} title={t("costs:saved.title")} />
       <OrdersTable fixed={{ projectId: id }} title={t("orders:list.table")} />
 
-      <ProjectFiles project={project} />
+      {project.folderState !== "missing" && <ProjectFiles project={project} />}
     </>
   );
 }

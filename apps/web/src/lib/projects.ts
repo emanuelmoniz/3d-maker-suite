@@ -1,6 +1,8 @@
 import type {
   Page,
   Project,
+  ProjectDetail,
+  ProjectFolderInput,
   ProjectInput,
   ProjectOpen,
   ProjectPaint,
@@ -42,9 +44,21 @@ export const useProjectMaterials = () =>
 export const useProject = (id: string) =>
   useQuery({
     queryKey: ["projects", id],
-    queryFn: () => api<Project>("GET", `/api/projects/${id}`),
+    queryFn: () => api<ProjectDetail>("GET", `/api/projects/${id}`),
     enabled: !!id,
   });
+
+/** Links a folder (`path`) or makes one in a root; `null` unlinks. */
+export const useProjectFolder = (id: string) => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: ProjectFolderInput | null) =>
+      v
+        ? api<ProjectDetail>("POST", `/api/projects/${id}/folder`, v)
+        : api<ProjectDetail>("DELETE", `/api/projects/${id}/folder`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["projects"] }),
+  });
+};
 
 export const projectThumbnailUrl = (p: Pick<Project, "id" | "updatedAt">) =>
   `/api/projects/${p.id}/thumbnail?v=${encodeURIComponent(p.updatedAt)}`;

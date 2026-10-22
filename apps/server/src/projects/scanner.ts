@@ -12,11 +12,12 @@ import {
   rootOf,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
-import { and, eq, isNull } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import type { FastifyBaseLogger } from "fastify";
 import { HttpError } from "../errors.ts";
+import { insideRoots } from "../lib/launcher.ts";
 import { nextNumber } from "../lib/numbers.ts";
-import { readPreferences } from "../lib/preferences.ts";
+import { readPreferences, rootPaths } from "../lib/preferences.ts";
 import { parseFolderName } from "./folderName.ts";
 import { linkPrints } from "./linkPrints.ts";
 import { type Cover, type FolderScan, isHidden, kindOf, scanFolder } from "./scanFolder.ts";
@@ -122,15 +123,18 @@ export function createProjectScanner(
 
   /**
    * A new folder whose prefix number belongs to a project without a folder (e.g. one a prints
-   * import created) becomes that project's folder, so the scan updates it instead of adding a twin.
+   * import created), or whose folder is gone (renamed), becomes that project's folder, so the scan
+   * updates it instead of adding a twin.
    */
-  function adopt(folder: string) {
+  async function adopt(folder: string) {
     const number = parseFolderName(basename(folder)).number;
     if (!number) return undefined;
+    const row = db.select().from(projects).where(eq(projects.number, number)).get();
+    if (!row || (row.folderPath && (await isDir(row.folderPath)))) return undefined;
     return db
       .update(projects)
       .set({ folderPath: folder })
-      .where(and(eq(projects.number, number), isNull(projects.folderPath)))
+      .where(eq(projects.id, row.id))
       .returning()
       .get();
   }
@@ -140,7 +144,7 @@ export function createProjectScanner(
     const row =
       db.select().from(projects).where(eq(projects.folderPath, folder)).get() ??
       // A folder added by hand with typed fields is a new project, as asked.
-      (Object.keys(user).length ? undefined : adopt(folder));
+      (Object.keys(user).length ? undefined : await adopt(folder));
     const id = row?.id ?? randomUUID();
     // Gallery picks and a chosen cover that are gone from the folder are dropped; the cover then
     // falls back to the scanner's pick. An image past the `projectScanMaxFiles` cap counts as
@@ -386,12 +390,23 @@ export function createProjectScanner(
     }
   }
 
-  /** Manual project backed by a folder; the given fields are user-edited from the start. */
-  async function addFolder(path: string, user: Fields) {
+  /**
+   * The folder as stored, if it can be a project's folder: an existing folder inside a root that no
+   * project uses yet.
+   */
+  async function usableFolder(path: string) {
     const folder = resolve(path);
     if (!(await isDir(folder))) throw new HttpError(400, "invalid_folder", "Folder not found");
+    if (!(await insideRoots(folder, rootPaths(db))))
+      throw new HttpError(403, "outside_roots", "Folder is not inside a project root");
     if (db.select().from(projects).where(eq(projects.folderPath, folder)).get())
       throw new HttpError(409, "folder_in_use", "A project already uses this folder");
+    return folder;
+  }
+
+  /** Manual project backed by a folder; the given fields are user-edited from the start. */
+  async function addFolder(path: string, user: Fields) {
+    const folder = await usableFolder(path);
     await upsert(folder, await read(folder, user.descriptionFile), user);
     return db.select().from(projects).where(eq(projects.folderPath, folder)).get();
   }
@@ -400,6 +415,7 @@ export function createProjectScanner(
     status: () => state,
     start,
     addFolder,
+    usableFolder,
     refresh,
     /** Begins watching and runs a first scan, so changes made while the app was off are found. */
     boot() {

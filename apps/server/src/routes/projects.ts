@@ -1,5 +1,5 @@
 import { createReadStream } from "node:fs";
-import { readFile, rmdir } from "node:fs/promises";
+import { readFile, rmdir, stat } from "node:fs/promises";
 import { extname, join } from "node:path";
 import { read3mfEntry, read3mfPaint } from "@3d-maker-suite/3mf";
 import {
@@ -7,8 +7,11 @@ import {
   type IntegrationAdapter,
   type Page,
   type Project,
+  type ProjectDetail,
   type ProjectListItem,
   pageOf,
+  projectDetailSchema,
+  projectFolderSchema,
   projectInputSchema,
   projectListItemSchema,
   projectListQuery,
@@ -128,6 +131,12 @@ export const projectsRoutes =
       if (!row) throw new HttpError(404, "not_found", "Project not found");
       return out(row);
     };
+    // ponytail: an offline root reads as "missing" too; 4.2.0 Step 7 tells them apart.
+    const detail = async (id: string): Promise<ProjectDetail> => {
+      const p = get(id);
+      const there = p.folderPath && (await stat(p.folderPath).catch(() => null))?.isDirectory();
+      return { ...p, folderState: p.folderPath ? (there ? "ok" : "missing") : null };
+    };
 
     // Scan: POST starts a background scan (or queues another pass), GET reports progress.
     app.get("/scan", { schema: { response: { 200: projectScanStatusSchema } } }, async () =>
@@ -231,8 +240,62 @@ export const projectsRoutes =
 
     app.get(
       "/:id",
-      { schema: { params, response: { 200: projectSchema, ...notFound } } },
-      async (req) => get(req.params.id),
+      { schema: { params, response: { 200: projectDetailSchema, ...notFound } } },
+      async (req) => detail(req.params.id),
+    );
+
+    // Gives a project without a working folder one: links `path`, or makes `<root>/<NNN>_<name>`.
+    app.post(
+      "/:id/folder",
+      {
+        schema: {
+          params,
+          body: projectFolderSchema,
+          response: { 200: projectDetailSchema, 400: apiErrorSchema, ...errors },
+        },
+      },
+      async (req) => {
+        const p = await detail(req.params.id);
+        if (p.folderState === "ok")
+          throw new HttpError(409, "has_folder", "Project already has a folder");
+        const { path, root } = req.body;
+        const folder = path
+          ? await scanner.usableFolder(path)
+          : await newProjectFolder(db, root, folderName(p.number, p.name));
+        const point = (folderPath: string | null) =>
+          db.update(projects).set({ folderPath }).where(eq(projects.id, p.id)).run();
+        point(folder);
+        try {
+          await scanner.refresh(folder);
+        } catch (e) {
+          point(p.folderPath);
+          if (!path) await rmdir(folder).catch(() => {});
+          throw e;
+        }
+        return detail(p.id);
+      },
+    );
+
+    // Unlinks the folder: the project forgets its files, the files on disk stay.
+    app.delete(
+      "/:id/folder",
+      { schema: { params, response: { 200: projectDetailSchema, ...notFound } } },
+      async (req) => {
+        if (!get(req.params.id).folderPath)
+          throw new HttpError(404, "no_folder", "Project has no folder");
+        db.update(projects)
+          .set({
+            folderPath: null,
+            filePath: null,
+            descriptionFile: null,
+            coverFile: null,
+            gallery: { folders: [], images: [] },
+            meta: projectMetaSchema.parse({}),
+          })
+          .where(eq(projects.id, req.params.id))
+          .run();
+        return detail(req.params.id);
+      },
     );
 
     app.post(
