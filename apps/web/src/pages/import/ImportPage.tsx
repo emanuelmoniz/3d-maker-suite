@@ -14,6 +14,7 @@ import { FormField } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { formatDateTime } from "../../lib/format.ts";
 import { useImportRuns, usePreview, useTemplate } from "../../lib/import.ts";
+import { ExportSection } from "./ExportSection.tsx";
 import { ReviewTable } from "./ReviewTable.tsx";
 
 // i18n keys are written out in full so `pnpm i18n:check` can see them.
@@ -135,6 +136,11 @@ export function ImportPage() {
     <>
       <PageHeader title={t("import:title")} description={t("import:description")} />
       <div className="grid gap-5">
+        <section className="grid gap-1">
+          <h2 className="font-semibold">{t("import:howTo.title")}</h2>
+          <p className="text-muted">{t("import:howTo.other")}</p>
+          <p className="text-muted">{t("import:howTo.earlier")}</p>
+        </section>
         <div className="flex flex-wrap items-end gap-3">
           <FormField label={t("import:entity")}>
             {(p) => (
@@ -223,6 +229,7 @@ export function ImportPage() {
             </ul>
           </section>
         )}
+        <ExportSection />
       </div>
     </>
   );

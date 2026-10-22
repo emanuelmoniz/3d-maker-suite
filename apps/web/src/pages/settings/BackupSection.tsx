@@ -11,29 +11,6 @@ import { usePreferences, useSavePreferences } from "../../lib/preferences.ts";
 type Backup = { name: string; size: number; createdAt: string; auto: boolean };
 const KEY = ["backups"];
 
-// i18n keys are written out in full so `pnpm i18n:check` can see them.
-const TABLES = [
-  ["printers", "settings:backup.tables.printers"],
-  ["accessories", "settings:backup.tables.accessories"],
-  ["accessory-installs", "settings:backup.tables.accessoryInstalls"],
-  ["brands", "settings:backup.tables.brands"],
-  ["printer-models", "settings:backup.tables.printerModels"],
-  ["machine-profiles", "settings:backup.tables.machineProfiles"],
-  ["print-profiles", "settings:backup.tables.printProfiles"],
-  ["maintenance", "settings:backup.tables.maintenance"],
-  ["maintenance-types", "settings:backup.tables.maintenanceTypes"],
-  ["filament-brands", "settings:backup.tables.filamentBrands"],
-  ["filament-materials", "settings:backup.tables.filamentMaterials"],
-  ["filament-profiles", "settings:backup.tables.filamentProfiles"],
-  ["spools", "settings:backup.tables.spools"],
-  ["projects", "settings:backup.tables.projects"],
-  ["prints", "settings:backup.tables.prints"],
-  ["quotes", "settings:backup.tables.quotes"],
-  ["clients", "settings:backup.tables.clients"],
-  ["orders", "settings:backup.tables.orders"],
-  ["order-projects", "settings:backup.tables.orderProjects"],
-] as const;
-
 export function BackupSection() {
   const { t } = useTranslation();
   const qc = useQueryClient();
@@ -153,30 +130,6 @@ export function BackupSection() {
       ) : (
         <p className="text-muted">{t("settings:backup.empty")}</p>
       )}
-
-      <div className="grid gap-2 border-t border-border pt-4">
-        <h3 className="font-medium">{t("settings:backup.exportTitle")}</h3>
-        <p className="text-muted">{t("settings:backup.exportHint")}</p>
-        <ul className="grid gap-1 sm:grid-cols-2">
-          {TABLES.map(([id, label]) => (
-            <li key={id} className="flex items-center justify-between gap-2">
-              <span>{t(label)}</span>
-              <span className="flex gap-3">
-                {(["csv", "json"] as const).map((f) => (
-                  <a
-                    key={f}
-                    className="font-medium text-accent hover:underline"
-                    href={`/api/export/${id}?format=${f}`}
-                    download
-                  >
-                    {f.toUpperCase()}
-                  </a>
-                ))}
-              </span>
-            </li>
-          ))}
-        </ul>
-      </div>
 
       <ConfirmDialog
         open={restoring !== null}

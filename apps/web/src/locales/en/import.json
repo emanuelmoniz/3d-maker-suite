@@ -1,6 +1,36 @@
 {
-  "title": "Import",
-  "description": "Bring data in from a spreadsheet. You review every row before anything is saved.",
+  "title": "Import | Export",
+  "description": "Bring data in from a spreadsheet, or take it out. You review every row before anything is saved.",
+  "howTo": {
+    "title": "How to bring your data in",
+    "other": "Your data is in another app or a file: pick what to import, download its template, copy your data into the template, then upload it.",
+    "earlier": "Files you exported from here earlier can be uploaded as they are."
+  },
+  "exportAll": {
+    "title": "Export all data",
+    "hint": "One file per module, for spreadsheets or your own scripts.",
+    "tables": {
+      "printers": "Printers",
+      "accessories": "Accessories",
+      "accessoryInstalls": "Accessory installs",
+      "maintenance": "Maintenance tasks",
+      "maintenanceTypes": "Maintenance types",
+      "filamentProfiles": "Filament profiles",
+      "spools": "Spools",
+      "projects": "Projects",
+      "prints": "Prints",
+      "quotes": "Quotes",
+      "clients": "Clients",
+      "orders": "Orders",
+      "orderProjects": "Order projects",
+      "brands": "Brands",
+      "printerModels": "Printer models",
+      "machineProfiles": "Machine profiles",
+      "printProfiles": "Print profiles",
+      "filamentBrands": "Filament brands",
+      "filamentMaterials": "Filament materials"
+    }
+  },
   "entity": "What to import",
   "entities": {
     "spools": "Spools",

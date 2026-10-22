@@ -193,6 +193,7 @@ test("import: template download, XLSX upload, bulk action, apply and export roun
 }) => {
   await seedSpool(app.api, 800);
   await page.goto("/import");
+  await expect(page.getByRole("heading", { name: "Export all data" })).toBeVisible();
   const [template] = await Promise.all([
     page.waitForEvent("download"),
     page.getByRole("button", { name: "Download template" }).click(),

@@ -41,7 +41,9 @@ Notes on the columns:
 - **Track usage:** leave empty or enter `yes` to subtract the filament from your spools. Enter `no` to save the print and its filament without changing the spools' weights.
 - **Names:** for brand, material and profile columns, pick an existing name or type a new one.
 
-To get your data back out, use **Export** on the same page. It downloads one `.xlsx` per module, ready to edit and re-import.
+To get your data back out, use **Export** on the same page. It downloads one `.xlsx` per module, ready to edit and re-import. **Export all data**, at the bottom of the page, has a CSV and a JSON file for every module.
+
+Data in another app or file? Pick the type, download its template, copy your data into it and upload it. Files you exported earlier can be uploaded as they are.
 
 ## Review rows
 

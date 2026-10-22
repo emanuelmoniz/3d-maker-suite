@@ -113,7 +113,7 @@ and confirm the pre-release is published.
 
 ## Phase 3 - Import/export & logs
 
-### [ ] Step 8 - Import | Export page
+### [x] Step 8 - Import | Export page
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - "Import" becomes "Import | Export" (menu and page title, i18n values).

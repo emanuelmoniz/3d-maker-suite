@@ -147,30 +147,7 @@
     "error": "That didn't work. Check that the file is a backup made by this app.",
     "restaged": "Backup ready. Restart the app to finish restoring; your current data is kept in the pre-restore folder.",
     "confirmTitle": "Restore this backup?",
-    "confirmBody": "All current data is replaced by the backup when you restart the app.",
-    "exportTitle": "Export data",
-    "exportHint": "One file per module, for spreadsheets or your own scripts.",
-    "tables": {
-      "printers": "Printers",
-      "accessories": "Accessories",
-      "accessoryInstalls": "Accessory installs",
-      "maintenance": "Maintenance tasks",
-      "maintenanceTypes": "Maintenance types",
-      "filamentProfiles": "Filament profiles",
-      "spools": "Spools",
-      "projects": "Projects",
-      "prints": "Prints",
-      "quotes": "Quotes",
-      "clients": "Clients",
-      "orders": "Orders",
-      "orderProjects": "Order projects",
-      "brands": "Brands",
-      "printerModels": "Printer models",
-      "machineProfiles": "Machine profiles",
-      "printProfiles": "Print profiles",
-      "filamentBrands": "Filament brands",
-      "filamentMaterials": "Filament materials"
-    }
+    "confirmBody": "All current data is replaced by the backup when you restart the app."
   },
   "server": {
     "host": "Host",
