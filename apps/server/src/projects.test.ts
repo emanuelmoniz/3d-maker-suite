@@ -3,13 +3,14 @@ import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { mockAdapter } from "@3d-maker-suite/adapter-mock";
 import { type ProjectRoot, projectRoot } from "@3d-maker-suite/core";
-import { openDb } from "@3d-maker-suite/db";
+import { openDb, schema } from "@3d-maker-suite/db";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { buildApp } from "./app.ts";
 
 const fixtures = join(import.meta.dirname, "../../../packages/3mf/fixtures");
 
 let dir: string;
+let db: ReturnType<typeof openDb>;
 let app: Awaited<ReturnType<typeof buildApp>>;
 
 beforeEach(async () => {
@@ -21,7 +22,8 @@ beforeEach(async () => {
     kind: "local" as const,
     capabilities: ["openInSlicer" as const],
   };
-  app = await buildApp(openDb(":memory:"), false, join(dir, "data"), { adapters: [slicer] });
+  db = openDb(":memory:");
+  app = await buildApp(db, false, join(dir, "data"), { adapters: [slicer] });
 });
 afterEach(async () => {
   await app.close();
@@ -398,12 +400,24 @@ describe("project folder: create, link, unlink, missing", () => {
     expect([taken.statusCode, taken.json().error.code]).toEqual([409, "folder_in_use"]);
   });
 
-  it("unlinks: the project forgets its files, the files stay on disk", async () => {
+  it("unlinks: the project forgets its files and slices, the files stay on disk", async () => {
     await sampleTree();
     await setRoots();
     const p = await create();
     await folder(p.id, { path: join(root(), "Benchy") });
+    const { projectSlicePlates: plates } = schema;
+    db.insert(plates)
+      .values({
+        projectId: p.id,
+        file: "benchy.3mf",
+        plate: 1,
+        fileSize: 1,
+        fileMtimeMs: 1,
+        fileSha256: "x",
+      })
+      .run();
     const res = await unlink(p.id);
+    expect(db.select().from(plates).all()).toEqual([]);
     expect(res.statusCode).toBe(200);
     expect(res.json()).toMatchObject({
       folderPath: null,

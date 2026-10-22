@@ -264,6 +264,8 @@ export const projectsRoutes =
           : await newProjectFolder(db, root, folderName(p.number, p.name));
         const point = (folderPath: string | null) =>
           db.update(projects).set({ folderPath }).where(eq(projects.id, p.id)).run();
+        // The plates were of files that are gone: slice again on the new folder if needed.
+        db.delete(plates).where(eq(plates.projectId, p.id)).run();
         point(folder);
         try {
           await scanner.refresh(folder);
@@ -276,25 +278,28 @@ export const projectsRoutes =
       },
     );
 
-    // Unlinks the folder: the project forgets its files, the files on disk stay.
+    // Unlinks the folder: the project forgets its files and their slices, the files on disk stay.
     app.delete(
       "/:id/folder",
       { schema: { params, response: { 200: projectDetailSchema, ...notFound } } },
       async (req) => {
-        if (!get(req.params.id).folderPath)
-          throw new HttpError(404, "no_folder", "Project has no folder");
-        db.update(projects)
-          .set({
-            folderPath: null,
-            filePath: null,
-            descriptionFile: null,
-            coverFile: null,
-            gallery: { folders: [], images: [] },
-            meta: projectMetaSchema.parse({}),
-          })
-          .where(eq(projects.id, req.params.id))
-          .run();
-        return detail(req.params.id);
+        const { id } = req.params;
+        if (!get(id).folderPath) throw new HttpError(404, "no_folder", "Project has no folder");
+        db.transaction((tx) => {
+          tx.delete(plates).where(eq(plates.projectId, id)).run();
+          tx.update(projects)
+            .set({
+              folderPath: null,
+              filePath: null,
+              descriptionFile: null,
+              coverFile: null,
+              gallery: { folders: [], images: [] },
+              meta: projectMetaSchema.parse({}),
+            })
+            .where(eq(projects.id, id))
+            .run();
+        });
+        return detail(id);
       },
     );
 
