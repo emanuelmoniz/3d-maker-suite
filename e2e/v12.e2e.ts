@@ -329,7 +329,7 @@ test("sync_pending alert: raised by an auto sync, Review opens the queue, toggle
   await expect(row.getByRole("link", { name: "Review", exact: true })).toHaveCount(0);
   await row.getByRole("link").click();
   await page.getByRole("link", { name: "Review", exact: true }).click();
-  await expect(page).toHaveURL(new RegExp(`/import/integration/${id}/prints$`));
+  await expect(page).toHaveURL(new RegExp(`/import/integration/${id}/prints(\\?waiting=1)?$`));
 
   await page.goto("/integrations");
   await page.getByRole("button", { name: "Settings: Print history" }).click();

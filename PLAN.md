@@ -450,7 +450,7 @@ fast-forward main to dev, push, push the v4.1.1 tag and confirm the release and 
 ## Phase 6 - Users and roles
 
 Design (fixed roles):
-- Tables: `users` (username unique case-insensitive, display name, scrypt hash via `node:crypto`, role `admin | editor | viewer`, disabled, created/last login), `sessions` (sha256 of the token, user, expiry), `logs.actor`.
+- Tables: `users` (email unique, display name, scrypt hash via `node:crypto`, role `admin | editor | viewer`, disabled, created/last login), `sessions` (sha256 of the token, user, expiry), `logs.actor`.
 - Session: httpOnly, SameSite=Lax cookie, parsed/set with a few lines in `lib/session.ts` (no new dependency).
 - Modes: no users = today's behaviour (loopback/host guard + `APP_PASSWORD` Basic). First run: `POST /api/auth/setup` creates the admin, allowed from loopback, with `APP_PASSWORD`, or with a one-time setup token printed to the console at boot (Docker: `docker logs`). Once an admin exists, `APP_PASSWORD` is ignored with a warning.
 - Permissions: one `onRequest` hook replaces `accessGuard`. Viewer: GET/HEAD only. Editor: everything except admin prefixes (users, server-config, updates, backups, integrations, slicer zip, import, logs, branding, API docs, admin preference keys like roots, update channel, logs). Admin: everything. Its own prefix set in `lib/auth.ts` (`moduleOf()` mixes fs/updates/logs under "system").

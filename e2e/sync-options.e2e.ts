@@ -60,8 +60,8 @@ test("sync time: a daily auto type runs at the time picked, any time clears it",
   await page.getByRole("button", { name: "Settings: Print history" }).click();
 
   // Hourly by default: a minute, unset.
-  const minute = page.getByRole("combobox", { name: "Minute: Print history" });
-  await expect(minute).toHaveValue("Any time");
+  const minute = page.getByRole("button", { name: "Minute: Print history" });
+  await expect(minute).toHaveText("Any time");
   await page.getByRole("combobox", { name: "Frequency: Print history" }).click();
   await page.getByRole("option", { name: "Every day" }).click();
 
