@@ -36,26 +36,29 @@ function nextAddress({ effective, saved, defaults }: ServerConfigResponse) {
 export function ServerActions() {
   const { t } = useTranslation();
   const { data } = useServerConfig();
+  // Read the config again at click time: a port field just left may not have reached `data` yet.
   const restart = useMutation({
-    mutationFn: () => api("POST", "/api/server-config/restart"),
+    mutationFn: async () => {
+      const fresh = await api<ServerConfigResponse>("GET", "/api/server-config");
+      const { host, port } = nextAddress(fresh);
+      const bound = ["0.0.0.0", "::", "[::]"].includes(host);
+      // Behind the Vite dev server (a different port than the API), come back to that same address.
+      const url =
+        location.port !== String(fresh.effective.port)
+          ? `${location.origin}/`
+          : `${location.protocol}//${bound ? location.hostname : host}:${port}/`;
+      await api("POST", "/api/server-config/restart");
+      return url;
+    },
   });
   const stop = useMutation({ mutationFn: () => api("POST", "/api/server-config/stop") });
   const [confirmStop, setConfirmStop] = useState(false);
   const [restartUrl, setRestartUrl] = useState<string | null>(null);
   const [timedOut, setTimedOut] = useState(false);
   if (!data) return null;
-  const { effective } = data;
-  const { host: nextHost, port: nextPort } = nextAddress(data);
-
   const restartInPlace = () => {
-    const bound = ["0.0.0.0", "::", "[::]"].includes(nextHost);
-    // Behind the Vite dev server (a different port than the API), come back to that same address.
-    const url =
-      location.port !== String(effective.port)
-        ? `${location.origin}/`
-        : `${location.protocol}//${bound ? location.hostname : nextHost}:${nextPort}/`;
     restart.mutate(undefined, {
-      onSuccess: async () => {
+      onSuccess: async (url) => {
         setRestartUrl(url);
         for (let i = 0; i < 60; i++) {
           await new Promise((r) => setTimeout(r, 500));
