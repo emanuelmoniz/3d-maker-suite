@@ -4,6 +4,11 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+## [4.1.2] - 2026-10-23
+
+### Fixed
+- Windows installer: on a PC with no default browser, the "How do you want to open this?" picker closed at once and no browser opened. Reinstall with the 4.1.2 installer to get the fix (in-app updates don't replace the launcher)
+
 ## [4.1.1] - 2026-10-23
 
 Fixes and polish after 4.1.0.
