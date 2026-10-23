@@ -4,6 +4,27 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+## [4.1.0-alpha.1] - 2026-10-23
+
+### Added
+- Projects: create, link, unlink and switch a project folder from the project page; a banner when a folder is missing (recreate it, link another, or unlink)
+- Projects: unlinking or switching a folder asks whether to move it to the root's trash or keep it as it is; a kept folder can be linked again
+- Projects: delete a project with no prints or orders; an empty folder below a root goes with it
+- Projects: a project can adopt a new folder whose number matches it when it has no folder or its folder is gone
+- Prints: a "No project" filter and label in the prints list; prints with no project show in import, review and sync
+- Integrations: cards with a header menu and an Enabled switch; collapsible sections
+- Integrations: grouped sync rows with Auto or Manual mode, a Manual import button, and a to-review flag
+- Integrations: Manual import for cloud printers; a printer with the same serial as a hand-added one is linked, not duplicated
+- Import: review every item a source offers, archived ones included
+- Footer with the year, version, stage and links
+- Alerts: sync success alerts link to the module that synced
+
+### Fixed
+- Mobile: the project page and grid children no longer widen the page on phones
+- Projects: the scroll bar under gallery thumbnails is hidden
+- Projects: slice plates are dropped when the folder changes
+- Tables: screen-reader labels stay inside the scroll container
+
 ## [4.0.0] - 2026-10-22
 
 ### Added

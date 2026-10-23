@@ -155,7 +155,7 @@ Studio card first.
 Do Step 7b of PLAN.md.
 ```
 
-### [ ] Step 8 - Docs, push & v4.1.0-alpha.1
+### [x] Step 8 - Docs, push & v4.1.0-alpha.1
 **Model:** Haiku · **Effort:** Low
 **Scope:** README/docs for Steps 1-7, CHANGELOG, version `4.1.0-alpha.1` (root and `packages/*`). Refresh `pnpm screenshots` (project page and integrations changed). Commit, push `dev`, create and push tag `v4.1.0-alpha.1` on `dev`; check the run and the pre-release.
 **Done when:** `dev` and the tag are pushed; the workflow is green; the pre-release exists; docs match the app.
