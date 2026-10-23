@@ -298,7 +298,7 @@ Patch release: fixes and small improvements from the 4.1.0 test run, before 4.2.
 Do Step 1 of the 4.1.1 plan in PLAN.md.
 ```
 
-### [ ] Step 2 - Settings → Server layout
+### [x] Step 2 - Settings → Server layout
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - **Restart** and **Stop** become page-header actions on the right, like the buttons on other pages.

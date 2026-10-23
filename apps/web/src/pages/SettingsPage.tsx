@@ -1,7 +1,7 @@
 import { DATE_FORMATS, type Preferences } from "@3d-maker-suite/core";
 import { useTranslation } from "react-i18next";
 import { Combobox } from "../components/Combobox.tsx";
-import { FormField, inputClass } from "../components/FormField.tsx";
+import { FormField } from "../components/FormField.tsx";
 import { PageHeader } from "../components/PageHeader.tsx";
 import { Section } from "../components/Section.tsx";
 import { usePreferences, useSavePreferences } from "../lib/preferences.ts";
@@ -11,7 +11,7 @@ import { AboutSection } from "./settings/AboutSection.tsx";
 import { BackupSection } from "./settings/BackupSection.tsx";
 import { BrandingFields } from "./settings/BrandingFields.tsx";
 import { LogSection } from "./settings/LogSection.tsx";
-import { ServerSection } from "./settings/ServerSection.tsx";
+import { ServerActions, ServerSection, StartAtLogin } from "./settings/ServerSection.tsx";
 
 const ACCENT_LABELS = {
   teal: "settings:appearance.accents.teal",
@@ -46,6 +46,7 @@ export function SettingsPage() {
       <PageHeader
         title={t("nav:items.settings.label")}
         description={t("nav:items.settings.description")}
+        actions={<ServerActions />}
       />
       {save.isError && (
         <p role="alert" className="mb-4 text-bad">
@@ -95,9 +96,11 @@ export function SettingsPage() {
               />
             )}
           </FormField>
-          <FormField label={t("settings:dataDir.label")} hint={t("settings:dataDir.hint")}>
-            {(p) => <input {...p} className={inputClass} value={data.dataDir} readOnly />}
-          </FormField>
+          <StartAtLogin />
+          <div className="grid gap-1.5">
+            <span className="font-medium">{t("settings:dataDir.label")}</span>
+            <span className="text-muted [overflow-wrap:anywhere]">{data.dataDir}</span>
+          </div>
         </Section>
 
         <Section title={t("settings:sections.appearance")}>

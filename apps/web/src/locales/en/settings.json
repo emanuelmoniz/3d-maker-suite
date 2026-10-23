@@ -2,8 +2,7 @@
   "loadError": "Couldn't load settings. Is the server running?",
   "saveError": "Couldn't save your last change.",
   "dataDir": {
-    "label": "Data directory",
-    "hint": "Where the database and files live. Read-only."
+    "label": "Data directory"
   },
   "sections": {
     "general": "General",
@@ -165,13 +164,12 @@
     "passwordNeeded": "Reaching the app from other devices needs the APP_PASSWORD environment variable. Without it, only requests addressed to localhost or this host are accepted.",
     "startAtLogin": "Start at login",
     "startAtLoginHint": "Starts the app when you sign in to this computer. Turn it off to remove the entry.",
-    "restartButton": "Restart and open in new tab",
+    "restartButton": "Restart server",
     "stopButton": "Stop server",
-    "stopHint": "Shuts the app down. Start it again from its shortcut.",
     "stopTitle": "Stop the server?",
     "stopBody": "The app stops and every open tab loses connection. Start it again from the desktop or Start-menu shortcut.",
     "stopped": "The server has stopped. You can close this tab.",
-    "restartHint": "Restarts the app and opens it at the address above. Other tabs lose connection until they are reloaded."
+    "networkHint": "Changes to the host or port apply only after a restart (or after you stop the server and start it again)."
   },
   "logs": {
     "hint": "Keeps a record of what the app does in its database, for troubleshooting. Credentials are never written.",

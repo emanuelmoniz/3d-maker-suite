@@ -17,38 +17,23 @@ const SOURCES = {
 } as const;
 const LOOPBACK = ["localhost", "127.0.0.1", "::1", "[::1]"];
 
-export function ServerSection() {
-  const { t } = useTranslation();
-  const qc = useQueryClient();
-  const { data } = useQuery({
+const useServerConfig = () =>
+  useQuery({
     queryKey: KEY,
     queryFn: () => api<ServerConfigResponse>("GET", "/api/server-config"),
   });
-  const save = useMutation({
-    mutationFn: (patch: ServerConfigPatch) =>
-      api<ServerConfigResponse>("PATCH", "/api/server-config", patch),
-    onSuccess: (res) => qc.setQueryData(KEY, res),
-  });
+
+/** Restart and Stop, rendered in the page header. */
+export function ServerActions() {
+  const { t } = useTranslation();
+  const { data } = useServerConfig();
   const restart = useMutation({
     mutationFn: () => api("POST", "/api/server-config/restart"),
-  });
-  // Not supported = no launch command known (Docker, dev): the toggle stays hidden.
-  const login = useQuery({
-    queryKey: [...KEY, "autostart"],
-    queryFn: () => api<AutostartState>("GET", "/api/server-config/autostart"),
-  });
-  const setLogin = useMutation({
-    mutationFn: (enabled: boolean) =>
-      api<AutostartState>("PUT", "/api/server-config/autostart", { enabled }),
-    onSuccess: (res) => qc.setQueryData([...KEY, "autostart"], res),
   });
   const stop = useMutation({ mutationFn: () => api("POST", "/api/server-config/stop") });
   const [confirmStop, setConfirmStop] = useState(false);
   if (!data) return null;
   const { effective, saved } = data;
-  const pending =
-    (saved.host ?? effective.host) !== effective.host ||
-    (saved.port ?? effective.port) !== effective.port;
   // A flag or env var keeps winning after the restart; otherwise the saved value does.
   const nextHost = ["cli", "env"].includes(effective.hostSource)
     ? effective.host
@@ -83,6 +68,95 @@ export function ServerSection() {
       onError: () => tab?.close(),
     });
   };
+
+  return (
+    <>
+      <Button disabled={restart.isPending || restart.isSuccess} onClick={restartAndOpen}>
+        {t("settings:server.restartButton")}
+      </Button>
+      <Button
+        variant="danger"
+        disabled={stop.isPending || stop.isSuccess}
+        onClick={() => setConfirmStop(true)}
+      >
+        {t("settings:server.stopButton")}
+      </Button>
+      <ConfirmDialog
+        open={confirmStop}
+        destructive
+        title={t("settings:server.stopTitle")}
+        description={t("settings:server.stopBody")}
+        confirmLabel={t("settings:server.stopButton")}
+        onConfirm={() => {
+          setConfirmStop(false);
+          stop.mutate();
+        }}
+        onCancel={() => setConfirmStop(false)}
+      />
+      {stop.isSuccess && (
+        <p role="status" className="w-full text-muted">
+          {t("settings:server.stopped")}
+        </p>
+      )}
+    </>
+  );
+}
+
+/** Start at login, rendered in the General section. */
+export function StartAtLogin() {
+  const { t } = useTranslation();
+  const qc = useQueryClient();
+  // Not supported = no launch command known (Docker, dev): the toggle stays hidden.
+  const login = useQuery({
+    queryKey: [...KEY, "autostart"],
+    queryFn: () => api<AutostartState>("GET", "/api/server-config/autostart"),
+  });
+  const setLogin = useMutation({
+    mutationFn: (enabled: boolean) =>
+      api<AutostartState>("PUT", "/api/server-config/autostart", { enabled }),
+    onSuccess: (res) => qc.setQueryData([...KEY, "autostart"], res),
+  });
+  if (!login.data?.supported) return null;
+  return (
+    <div>
+      <label className="flex items-center gap-2">
+        <input
+          type="checkbox"
+          checked={login.data.enabled}
+          disabled={setLogin.isPending}
+          onChange={(e) => setLogin.mutate(e.target.checked)}
+        />
+        {t("settings:server.startAtLogin")}
+      </label>
+      <p className="mt-1 text-muted">{t("settings:server.startAtLoginHint")}</p>
+      {setLogin.isError && (
+        <p role="alert" className="text-bad">
+          {t("settings:saveError")}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/** Host and port. */
+export function ServerSection() {
+  const { t } = useTranslation();
+  const qc = useQueryClient();
+  const { data } = useServerConfig();
+  const save = useMutation({
+    mutationFn: (patch: ServerConfigPatch) =>
+      api<ServerConfigResponse>("PATCH", "/api/server-config", patch),
+    onSuccess: (res) => qc.setQueryData(KEY, res),
+  });
+  if (!data) return null;
+  const { effective, saved } = data;
+  const pending =
+    (saved.host ?? effective.host) !== effective.host ||
+    (saved.port ?? effective.port) !== effective.port;
+  // A flag or env var keeps winning after the restart; otherwise the saved value does.
+  const nextHost = ["cli", "env"].includes(effective.hostSource)
+    ? effective.host
+    : (saved.host ?? effective.host);
 
   return (
     <div className="grid gap-4">
@@ -133,6 +207,7 @@ export function ServerSection() {
           />
         )}
       </FormField>
+      <p className="text-muted">{t("settings:server.networkHint")}</p>
       {!LOOPBACK.includes(nextHost) && !data.passwordSet && (
         <p role="alert" className="text-bad">
           {t("settings:server.passwordNeeded")}
@@ -143,55 +218,6 @@ export function ServerSection() {
           {t("settings:server.restart")}
         </p>
       )}
-      {login.data?.supported && (
-        <div>
-          <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={login.data.enabled}
-              disabled={setLogin.isPending}
-              onChange={(e) => setLogin.mutate(e.target.checked)}
-            />
-            {t("settings:server.startAtLogin")}
-          </label>
-          <p className="mt-1 text-muted">{t("settings:server.startAtLoginHint")}</p>
-          {setLogin.isError && (
-            <p role="alert" className="text-bad">
-              {t("settings:saveError")}
-            </p>
-          )}
-        </div>
-      )}
-      <div>
-        <Button disabled={restart.isPending || restart.isSuccess} onClick={restartAndOpen}>
-          {t("settings:server.restartButton")}
-        </Button>
-        <p className="mt-1 text-muted">{t("settings:server.restartHint")}</p>
-      </div>
-      <div>
-        <Button
-          variant="danger"
-          disabled={stop.isPending || stop.isSuccess}
-          onClick={() => setConfirmStop(true)}
-        >
-          {t("settings:server.stopButton")}
-        </Button>
-        <p className="mt-1 text-muted">
-          {stop.isSuccess ? t("settings:server.stopped") : t("settings:server.stopHint")}
-        </p>
-      </div>
-      <ConfirmDialog
-        open={confirmStop}
-        destructive
-        title={t("settings:server.stopTitle")}
-        description={t("settings:server.stopBody")}
-        confirmLabel={t("settings:server.stopButton")}
-        onConfirm={() => {
-          setConfirmStop(false);
-          stop.mutate();
-        }}
-        onCancel={() => setConfirmStop(false)}
-      />
       {save.isError && (
         <p role="alert" className="text-bad">
           {t("settings:saveError")}
