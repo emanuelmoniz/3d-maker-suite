@@ -394,7 +394,7 @@ Do Step 8 of the 4.1.1 plan in PLAN.md.
 Do Step 9 of the 4.1.1 plan in PLAN.md.
 ```
 
-### [ ] Step 10 - Add printer: model and brand in modals
+### [x] Step 10 - Add printer: model and brand in modals
 **Model:** Sonnet · **Effort:** Medium
 **Scope:** on Add printer, "Add model" opens a modal instead of leaving the page; inside it, "Add brand" opens a second modal. Saving the brand closes it and selects it in the model modal; saving the model closes it and selects it on the printer form. Keyboard and focus return work.
 **Done when:** a printer can be added with a new brand and model without leaving the page; e2e for the chain; i18n:check passes; tests pass.

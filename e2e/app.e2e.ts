@@ -44,6 +44,28 @@ test("add a brand, a model and a printer of that model", async ({ page }) => {
   await expect(page.getByText("Bambu Lab A1")).toBeVisible();
 });
 
+test("add a printer with a new brand and model without leaving the page", async ({ page }) => {
+  await page.goto("/printers/new");
+  await page.getByLabel("Name", { exact: true }).fill("Chain");
+  await page.getByRole("button", { name: "Add model" }).click();
+  const modelDialog = page.getByRole("dialog", { name: "Add printer model" });
+  await modelDialog.getByRole("button", { name: "Add brand" }).click();
+  const brandDialog = page.getByRole("dialog", { name: "Add brand" });
+  await brandDialog.getByLabel("Name", { exact: true }).fill("Acme");
+  await brandDialog.getByRole("button", { name: "Save" }).click();
+  await expect(brandDialog).toBeHidden();
+  await expect(modelDialog.getByLabel("Brand")).toHaveValue("Acme");
+  await modelDialog.getByLabel("Model", { exact: true }).fill("Z1");
+  await modelDialog.getByLabel("Typical power (W)").fill("120");
+  await modelDialog.getByRole("button", { name: "Save" }).click();
+  await expect(modelDialog).toBeHidden();
+  await expect(page).toHaveURL(/\/printers\/new$/);
+  await expect(page.getByLabel("Model", { exact: true })).toHaveValue("Z1");
+  await expect(page.getByLabel("Typical power (W)")).toHaveValue("120");
+  await page.getByRole("button", { name: "Save" }).click();
+  await expect(page.getByText("Acme Z1")).toBeVisible();
+});
+
 test("add a spool", async ({ page, app }) => {
   await seedProfile(app.api);
   await page.goto("/filament/spools/new");

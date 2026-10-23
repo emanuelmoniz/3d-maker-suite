@@ -164,91 +164,117 @@ export function CatalogForm<K extends CatalogKind>(props: {
   );
 }
 
-export function BrandFormPage() {
+export function BrandFields({ b }: { b?: { name: string; url: string | null } }) {
   const { t } = useTranslation();
+  return (
+    <>
+      <FormField label={t("printers:catalog.brands.name")}>
+        {(p) => <input {...p} name="name" required className={inputClass} defaultValue={b?.name} />}
+      </FormField>
+      <FormField label={t("printers:catalog.brands.url")}>
+        {(p) => (
+          <input
+            {...p}
+            name="url"
+            type="url"
+            placeholder="https://"
+            className={inputClass}
+            defaultValue={b?.url ?? ""}
+          />
+        )}
+      </FormField>
+    </>
+  );
+}
+
+export const brandBody = (f: FormData) => ({ name: text(f, "name"), url: orNull(text(f, "url")) });
+
+export function BrandFormPage() {
   return (
     <CatalogForm
       kind="brands"
       titles={["printers:catalog.brands.addTitle", "printers:catalog.brands.editTitle"]}
       imageLabel="printers:catalog.brands.logo"
-      toBody={(f) => ({ name: text(f, "name"), url: orNull(text(f, "url")) })}
+      toBody={brandBody}
     >
-      {(b) => (
-        <>
-          <FormField label={t("printers:catalog.brands.name")}>
-            {(p) => (
-              <input {...p} name="name" required className={inputClass} defaultValue={b?.name} />
-            )}
-          </FormField>
-          <FormField label={t("printers:catalog.brands.url")}>
-            {(p) => (
-              <input
-                {...p}
-                name="url"
-                type="url"
-                placeholder="https://"
-                className={inputClass}
-                defaultValue={b?.url ?? ""}
-              />
-            )}
-          </FormField>
-        </>
-      )}
+      {(b) => <BrandFields b={b} />}
     </CatalogForm>
   );
 }
 
-export function ModelFormPage() {
+export function ModelFields({
+  m,
+  brandId,
+  onAddBrand,
+}: {
+  m?: { brandId: string; model: string; powerW: number | null };
+  /** Preselected brand when `m` is absent (a brand just created in a modal). */
+  brandId?: string;
+  onAddBrand?: () => void;
+}) {
   const { t } = useTranslation();
   const brands = useBrands().data ?? [];
+  return (
+    <>
+      <FormField
+        label={t("printers:catalog.models.brand")}
+        hint={brands.length ? undefined : t("printers:catalog.models.noBrands")}
+      >
+        {(p) => (
+          <div className="grid gap-1">
+            <Combobox
+              key={brands.length}
+              {...p}
+              name="brandId"
+              required
+              defaultValue={m?.brandId ?? brandId}
+              options={brands.map((b) => ({ value: b.id, label: b.name }))}
+            />
+            {onAddBrand && (
+              <Button variant="ghost" onClick={onAddBrand} className="justify-self-start">
+                {t("printers:catalog.brands.add")}
+              </Button>
+            )}
+          </div>
+        )}
+      </FormField>
+      <FormField label={t("printers:catalog.models.model")}>
+        {(p) => (
+          <input {...p} name="model" required className={inputClass} defaultValue={m?.model} />
+        )}
+      </FormField>
+      <FormField label={t("printers:form.power")} hint={t("printers:catalog.models.powerHint")}>
+        {(p) => (
+          <input
+            {...p}
+            name="powerW"
+            type="number"
+            min={0}
+            step={1}
+            className={inputClass}
+            defaultValue={m?.powerW ?? ""}
+          />
+        )}
+      </FormField>
+    </>
+  );
+}
+
+export const modelBody = (f: FormData) => ({
+  brandId: text(f, "brandId"),
+  model: text(f, "model"),
+  powerW: int(text(f, "powerW")),
+});
+
+export function ModelFormPage() {
   return (
     <CatalogForm
       kind="printer-models"
       titles={["printers:catalog.models.addTitle", "printers:catalog.models.editTitle"]}
       imageLabel="printers:catalog.models.image"
-      toBody={(f) => ({
-        brandId: text(f, "brandId"),
-        model: text(f, "model"),
-        powerW: int(text(f, "powerW")),
-      })}
+      toBody={modelBody}
     >
-      {(m) => (
-        <>
-          <FormField
-            label={t("printers:catalog.models.brand")}
-            hint={brands.length ? undefined : t("printers:catalog.models.noBrands")}
-          >
-            {(p) => (
-              <Combobox
-                key={brands.length}
-                {...p}
-                name="brandId"
-                required
-                defaultValue={m?.brandId}
-                options={brands.map((b) => ({ value: b.id, label: b.name }))}
-              />
-            )}
-          </FormField>
-          <FormField label={t("printers:catalog.models.model")}>
-            {(p) => (
-              <input {...p} name="model" required className={inputClass} defaultValue={m?.model} />
-            )}
-          </FormField>
-          <FormField label={t("printers:form.power")} hint={t("printers:catalog.models.powerHint")}>
-            {(p) => (
-              <input
-                {...p}
-                name="powerW"
-                type="number"
-                min={0}
-                step={1}
-                className={inputClass}
-                defaultValue={m?.powerW ?? ""}
-              />
-            )}
-          </FormField>
-        </>
-      )}
+      {(m) => <ModelFields m={m} />}
     </CatalogForm>
   );
 }
