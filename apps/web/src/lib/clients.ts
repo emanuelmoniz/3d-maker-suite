@@ -24,7 +24,7 @@ export function useDeleteClient() {
       qc.removeQueries({ queryKey: ["clients", id] });
       return Promise.all([
         qc.invalidateQueries({ queryKey: ["clients", "list"] }),
-        qc.invalidateQueries({ queryKey: ["quotes"] }),
+        qc.invalidateQueries({ queryKey: ["costs", "quotes"] }),
       ]);
     },
   });
