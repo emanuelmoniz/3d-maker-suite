@@ -6,7 +6,7 @@ const version: string = JSON.parse(
   readFileSync(join(import.meta.dirname, "..", "package.json"), "utf8"),
 ).version;
 
-test("updates: version in the footer and About; Docker gets the command, git the button", async ({
+test("updates: version in the footer and About; Docker gets the command, git and bundles the button", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
@@ -19,7 +19,7 @@ test("updates: version in the footer and About; Docker gets the command, git the
   await expect(about.getByRole("button", { name: /^Update to/ })).toHaveCount(0);
 
   // The release list comes from GitHub; stand in for the server's answer.
-  const answer = (install: string) =>
+  const answer = (install: string, history: object[] = []) =>
     page.route("**/api/updates", (r) =>
       r.fulfill({
         json: {
@@ -28,7 +28,7 @@ test("updates: version in the footer and About; Docker gets the command, git the
           latest: { tag: "v99.0.0", url: "https://example.com/notes" },
           checkedAt: new Date().toISOString(),
           checkFailed: false,
-          history: [],
+          history,
         },
       }),
     );
@@ -43,6 +43,33 @@ test("updates: version in the footer and About; Docker gets the command, git the
   await page.reload();
   await expect(about.getByRole("button", { name: "Update to 99.0.0" })).toBeVisible();
   await expect(about.getByText("docker compose pull")).toHaveCount(0);
+
+  // An installed app: same button; a release that needs a newer Node points to the installer.
+  await page.unroute("**/api/updates");
+  await answer("bundle", [
+    {
+      action: "update",
+      at: new Date().toISOString(),
+      fromVersion: version,
+      toVersion: "98.0.0",
+      fromSha: version,
+      backup: "update-1.zip",
+      ok: false,
+      failedStep: "start",
+      canRollBack: false,
+    },
+  ]);
+  await page.route("**/api/updates/apply", (r) =>
+    r.fulfill({
+      status: 409,
+      json: { error: { code: "needs_installer", message: "x" } },
+    }),
+  );
+  await page.reload();
+  await expect(about.getByText("failed while starting the new version")).toBeVisible();
+  await about.getByRole("button", { name: "Update to 99.0.0" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Update to 99.0.0" }).click();
+  await expect(about.getByRole("alert")).toContainText("Download its installer");
 });
 
 test("updates: the banner reads on any page and leads to Settings", async ({ page }) => {

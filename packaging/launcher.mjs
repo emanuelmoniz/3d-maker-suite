@@ -1,7 +1,8 @@
 // The installed app's launcher (ADR-0011): if the app already answers, just opens the browser;
 // otherwise runs the newest version in versions/ (on macOS also the one inside the .app),
 // recreating its links first, logs to <install dir>/logs/server.log, opens the browser once it is
-// healthy and starts it again when it exits with RESTART.
+// healthy and starts it again when it exits with RESTART. After an update or rollback
+// (.update/pending.json) the new version gets TRIAL_MS to answer, or the launcher goes back.
 // Node stdlib only. It ships with the installer and doesn't change with updates, so keep it small.
 // node launcher.mjs [server args, e.g. --port 4400]
 import { spawn } from "node:child_process";
@@ -13,8 +14,10 @@ import {
   readdirSync,
   readFileSync,
   renameSync,
+  rmSync,
   statSync,
   symlinkSync,
+  writeFileSync,
   writeSync,
 } from "node:fs";
 import { homedir } from "node:os";
@@ -25,6 +28,12 @@ import { parseArgs } from "node:util";
 /** Exit code the server uses to ask for a restart (RESTART in scripts/update.mjs). */
 const RESTART = 75;
 const VERSION = /^v?(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.]+))?$/;
+/** A runnable folder in versions/: not one being unpacked or hidden by a rollback ("alpha.2.old" is valid semver). */
+const finished = (name) => VERSION.test(name) && !/\.(partial|old)$/.test(name);
+/** How long a freshly updated or rolled back version has to answer /api/health. */
+const TRIAL_MS = 60_000;
+/** Version folders kept after a good update: the running one and the one to roll back to. */
+const KEEP = 2;
 
 /** Semver order, a copy of compareVersions in packages/core: the launcher can't import workspace code. */
 export function compareVersions(a, b) {
@@ -61,7 +70,7 @@ export function newest(install, shipped) {
   const dir = join(install, "versions");
   const found = existsSync(dir)
     ? readdirSync(dir)
-        .filter((n) => VERSION.test(n))
+        .filter(finished)
         .map((version) => ({ version, app: join(dir, version) }))
     : [];
   if (shipped) found.push(shipped);
@@ -118,6 +127,64 @@ export const healthy = (url) =>
     () => false,
   );
 
+/** True once `url` is healthy, false after `ms` without. */
+export async function waitHealthy(url, ms) {
+  for (const end = Date.now() + ms; Date.now() < end; ) {
+    if (await healthy(url)) return true;
+    await new Promise((r) => setTimeout(r, 500));
+  }
+  return false;
+}
+
+/**
+ * The server's hand-over (.update/pending.json), or null. A rollback hides the running version
+ * (`<v>.old`), so the one it goes back to is the newest. Safe to repeat after a crash.
+ */
+export function beginPending(install) {
+  let p;
+  try {
+    p = JSON.parse(readFileSync(join(install, ".update", "pending.json"), "utf8"));
+  } catch {
+    return null;
+  }
+  const running = join(install, "versions", p.fromVersion);
+  if (p.action === "rollback" && existsSync(running)) renameSync(running, `${running}.old`);
+  return p;
+}
+
+/**
+ * Ends a pending update or rollback. ok: drops the undo and leftovers, keeps the KEEP newest
+ * versions. Not ok: removes or unhides folders so the version that ran before is the newest again,
+ * and stages the undo, which that version restores before its database opens.
+ * Then result.json for the server, and pending.json goes.
+ */
+export function settle(install, p, ok) {
+  const versions = join(install, "versions");
+  const rm = (f) => f && rmSync(f, { recursive: true, force: true });
+  if (ok) {
+    rm(p.undo);
+    const names = readdirSync(versions);
+    for (const n of names.filter((n) => !finished(n))) rm(join(versions, n)); // .old, .partial
+    for (const n of names
+      .filter(finished)
+      .sort((a, b) => compareVersions(b, a))
+      .slice(KEEP))
+      rm(join(versions, n));
+  } else {
+    const running = join(versions, p.fromVersion);
+    if (p.action === "update") rm(join(versions, p.toVersion));
+    else if (existsSync(`${running}.old`)) renameSync(`${running}.old`, running);
+    rm(p.restoreDir);
+    if (p.undo && existsSync(p.undo)) renameSync(p.undo, p.restoreDir);
+  }
+  // Written whole, then renamed: the server may read it at any moment.
+  const dir = join(install, ".update");
+  const result = { ...p, ok, ...(!ok && { failedStep: "start" }) };
+  writeFileSync(join(dir, "result.json.tmp"), JSON.stringify(result, null, 2));
+  renameSync(join(dir, "result.json.tmp"), join(dir, "result.json"));
+  rmSync(join(dir, "pending.json"), { force: true });
+}
+
 export function openBrowser(url) {
   const [cmd, ...args] =
     process.platform === "win32"
@@ -160,12 +227,7 @@ async function main() {
   const serverLog = join(install, "logs", "server.log");
 
   // Open the browser once, when the first start is healthy (restarts are opened by Settings).
-  (async () => {
-    for (let i = 0; i < 120; i++) {
-      if (await healthy(url)) return openBrowser(url);
-      await new Promise((r) => setTimeout(r, 500));
-    }
-  })();
+  waitHealthy(url, 60_000).then((ok) => ok && openBrowser(url));
 
   // Ctrl+C (when started from a terminal) reaches the server too; wait for it to exit.
   process.on("SIGINT", () => {});
@@ -173,13 +235,19 @@ async function main() {
   process.on("SIGTERM", () => server?.kill("SIGTERM"));
   try {
     for (;;) {
+      const pending = beginPending(install);
       const run = newest(install, shipped || undefined);
       if (!run) throw new Error(`No version in ${join(install, "versions")}`);
+      if (pending && run.version !== pending.toVersion) {
+        say(`${pending.action} to ${pending.toVersion}: found ${run.version} instead, going back`);
+        settle(install, pending, false);
+        continue;
+      }
       relink(run.app);
       say(`starting ${run.version}`);
       rotate(serverLog);
       const log = openSync(serverLog, "a");
-      const code = await new Promise((done) => {
+      const exited = new Promise((done) => {
         server = spawn(process.execPath, ["src/main.ts", ...process.argv.slice(2)], {
           cwd: join(run.app, "apps", "server"),
           stdio: ["ignore", log, log],
@@ -189,12 +257,31 @@ async function main() {
             APP_LAUNCHER: "1",
             APP_INSTALL: "bundle",
             APP_INSTALL_DIR: install,
+            ...(shipped && { APP_SHIPPED_VERSION: shipped.version }),
             // What Settings -> Start at login registers; same string as the installer's checkbox.
             APP_LAUNCH_CMD: `"${process.execPath}" "${fileURLToPath(import.meta.url)}"`,
           },
         });
         server.on("exit", (c) => done(c ?? 0));
       });
+      if (pending) {
+        // The port may have changed since the launcher started: read it again.
+        const ok = await Promise.race([
+          exited.then(() => false),
+          waitHealthy(serverUrl(dataDir()), TRIAL_MS),
+        ]);
+        if (!ok) {
+          server.kill();
+          await exited;
+        }
+        settle(install, pending, ok);
+        say(`${pending.action} to ${pending.toVersion} ${ok ? "ok" : "failed, going back"}`);
+        if (!ok) {
+          closeSync(log);
+          continue;
+        }
+      }
+      const code = await exited;
       closeSync(log);
       say(`exited with ${code}`);
       if (code !== RESTART) process.exit(code);

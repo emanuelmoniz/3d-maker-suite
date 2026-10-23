@@ -3,13 +3,22 @@ import {
   lstatSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { compareVersions, newest, relink, rotate, serverUrl } from "./launcher.mjs";
+import {
+  beginPending,
+  compareVersions,
+  newest,
+  relink,
+  rotate,
+  serverUrl,
+  settle,
+} from "./launcher.mjs";
 
 const install = (...versions) => {
   const dir = mkdtempSync(join(tmpdir(), "launcher-"));
@@ -25,7 +34,14 @@ describe("newest", () => {
   });
 
   it("picks the highest finished folder", () => {
-    const dir = install("4.1.0-alpha.9", "4.1.0-alpha.10", "4.1.1.partial", "4.0.2");
+    const dir = install(
+      "4.1.0-alpha.9",
+      "4.1.0-alpha.10",
+      "4.1.1.partial",
+      "4.1.0-alpha.11.partial",
+      "4.1.0-alpha.12.old",
+      "4.0.2",
+    );
     expect(newest(dir)?.version).toBe("4.1.0-alpha.10");
   });
 
@@ -40,6 +56,70 @@ describe("newest", () => {
 
   it("finds nothing without versions/", () => {
     expect(newest(install())).toBeUndefined();
+  });
+});
+
+describe("pending update or rollback", () => {
+  /** An install with these versions, a data dir with an undo, and the server's pending.json. */
+  const handOver = (versions, pending) => {
+    const dir = install(...versions);
+    const data = join(dir, "data");
+    mkdirSync(join(data, "update-undo"), { recursive: true });
+    writeFileSync(join(data, "update-undo", "manifest.json"), "{}");
+    const p = {
+      ...pending,
+      backup: "update-1.zip",
+      undo: join(data, "update-undo"),
+      restoreDir: join(data, "restore-pending"),
+    };
+    mkdirSync(join(dir, ".update"));
+    writeFileSync(join(dir, ".update", "pending.json"), JSON.stringify(p));
+    const result = () => JSON.parse(readFileSync(join(dir, ".update", "result.json"), "utf8"));
+    return { dir, data, result };
+  };
+  const update = { action: "update", fromVersion: "4.1.1", toVersion: "4.1.2" };
+  const rollback = { action: "rollback", fromVersion: "4.1.0-alpha.2", toVersion: "4.1.0-alpha.1" };
+
+  it("finds nothing without pending.json", () => {
+    expect(beginPending(install("4.1.0"))).toBeNull();
+  });
+
+  it("a good update drops the undo and leftovers and keeps two versions", () => {
+    const { dir, data, result } = handOver(["4.1.0", "4.1.1", "4.1.2", "4.1.3.partial"], update);
+    const p = beginPending(dir);
+    expect(newest(dir)?.version).toBe(p.toVersion);
+    settle(dir, p, true);
+    expect(readdirSync(join(dir, "versions")).sort()).toEqual(["4.1.1", "4.1.2"]);
+    expect(existsSync(join(data, "update-undo"))).toBe(false);
+    expect(existsSync(join(dir, ".update", "pending.json"))).toBe(false);
+    expect(result()).toMatchObject({ ok: true, toVersion: "4.1.2" });
+    expect(beginPending(dir)).toBeNull();
+  });
+
+  it("a failed update deletes the new version and stages the undo", () => {
+    const { dir, data, result } = handOver(["4.1.1", "4.1.2"], update);
+    settle(dir, beginPending(dir), false);
+    expect(newest(dir)?.version).toBe("4.1.1");
+    expect(existsSync(join(data, "restore-pending", "manifest.json"))).toBe(true);
+    expect(existsSync(join(data, "update-undo"))).toBe(false);
+    expect(result()).toMatchObject({ ok: false, failedStep: "start" });
+  });
+
+  it("a rollback hides the running version; failing puts it back", () => {
+    const { dir, data } = handOver(["4.1.0-alpha.1", "4.1.0-alpha.2"], rollback);
+    mkdirSync(join(data, "restore-pending"));
+    const p = beginPending(dir);
+    expect(newest(dir)?.version).toBe("4.1.0-alpha.1");
+    expect(beginPending(dir)).toEqual(p); // after a crash: same again
+    settle(dir, p, false);
+    expect(newest(dir)?.version).toBe("4.1.0-alpha.2");
+    expect(existsSync(join(data, "restore-pending", "manifest.json"))).toBe(true); // the undo
+  });
+
+  it("a good rollback deletes the newer version", () => {
+    const { dir } = handOver(["4.1.0-alpha.1", "4.1.0-alpha.2"], rollback);
+    settle(dir, beginPending(dir), true);
+    expect(readdirSync(join(dir, "versions"))).toEqual(["4.1.0-alpha.1"]);
   });
 });
 

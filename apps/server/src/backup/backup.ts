@@ -50,12 +50,13 @@ function addDir(zip: yazl.ZipFile, abs: string, rel: string) {
 
 /**
  * Snapshots the live database (safe while the app runs) and zips it with the data files.
- * `auto` ones are pruned by retention; `update` ones by the update history (ADR-0009).
+ * `auto` ones are pruned by retention; `update` ones by the update history (ADR-0009); `undo`
+ * ones by the updater once staged (ADR-0011).
  */
 export async function createBackup(
   db: Db,
   dataDir: string,
-  kind: "backup" | "auto" | "update" = "backup",
+  kind: "backup" | "auto" | "update" | "undo" = "backup",
 ): Promise<BackupInfo> {
   const createdAt = new Date().toISOString();
   const auto = kind === "auto";
@@ -127,15 +128,15 @@ const allowed = (entry: string) =>
   FILES.includes(entry) ||
   DIRS.some((d) => entry.startsWith(`${d}/`) && !entry.split("/").includes(".."));
 
-/** Extracts the whitelisted entries of a backup zip into `dest`. */
-async function extract(file: string, dest: string) {
+/** Extracts the entries of a zip that `ok` lets through (default: a backup's) into `dest`. */
+export async function extract(file: string, dest: string, ok = allowed) {
   const zip = await openZip(file);
   await new Promise<void>((resolve, reject) => {
     zip.on("error", reject);
     zip.on("end", resolve);
     zip.on("entry", (e: yauzl.Entry) => {
       const next = () => zip.readEntry();
-      if (e.fileName.endsWith("/") || !allowed(e.fileName)) return next();
+      if (e.fileName.endsWith("/") || !ok(e.fileName)) return next();
       zip.openReadStream(e, async (err, stream) => {
         if (err || !stream) return reject(err);
         try {

@@ -200,7 +200,7 @@
     "phases": {
       "preparing": "Making a backup and downloading the update…",
       "installing": "Installing. The app restarts and is back in about a minute; this page reloads by itself.",
-      "slow": "This is taking long. Check the terminal where the app runs."
+      "slow": "This is taking long. Check the terminal where the app runs, or logs/ in the app’s install folder."
     },
     "wentBack": "Updating to {{version}} failed while {{step}}. You are still on {{current}}; the Logs and the terminal say more.",
     "failed": "failed while {{step}}",
@@ -208,7 +208,8 @@
       "checkout": "switching versions",
       "node": "checking Node.js: it needs Node.js {{node}} or newer",
       "install": "installing dependencies",
-      "build": "building the app"
+      "build": "building the app",
+      "start": "starting the new version"
     },
     "history": "Update history",
     "updated": "Updated {{from}} → {{to}}",
@@ -225,6 +226,8 @@
       "fetch_failed": "Could not download the update. Check the internet connection.",
       "git_failed": "git did not run. Is it installed?",
       "invalid_backup": "The backup for this version can’t be read.",
+      "bad_checksum": "The download was damaged (its checksum doesn’t match), so it wasn’t installed. Try again later.",
+      "needs_installer": "This version needs a newer Node.js than the installed app has. Download its installer from the release page (What’s new) and run it; your data stays.",
       "unknown": "The update could not start."
     }
   }

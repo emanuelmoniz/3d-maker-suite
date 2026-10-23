@@ -17,13 +17,18 @@ const ERRORS: Record<string, string> = {
   fetch_failed: "settings:updates.errors.fetch_failed",
   git_failed: "settings:updates.errors.git_failed",
   invalid_backup: "settings:updates.errors.invalid_backup",
+  bad_checksum: "settings:updates.errors.bad_checksum",
+  needs_installer: "settings:updates.errors.needs_installer",
 };
 const STEPS = {
   checkout: "settings:updates.steps.checkout",
   node: "settings:updates.steps.node",
   install: "settings:updates.steps.install",
   build: "settings:updates.steps.build",
+  start: "settings:updates.steps.start",
 } as const;
+/** Installs that update themselves through the launcher. */
+const SELF = ["git", "bundle"];
 const PHASES = {
   preparing: "settings:updates.phases.preparing",
   installing: "settings:updates.phases.installing",
@@ -142,14 +147,14 @@ export function AboutSection() {
         <Button disabled={check.isPending || busy} onClick={() => check.mutate()}>
           {t("settings:updates.checkNow")}
         </Button>
-        {latest && install === "git" && (
+        {latest && SELF.includes(install) && (
           <Button variant="primary" disabled={busy} onClick={() => setConfirm({ tag: latest.tag })}>
             {t("settings:updates.update", { version: latest.tag.slice(1) })}
           </Button>
         )}
       </div>
 
-      {latest && install !== "git" && <Manual install={install} tag={latest.tag} />}
+      {latest && !SELF.includes(install) && <Manual install={install} tag={latest.tag} />}
 
       {run.phase in PHASES && (
         <p role="status" className="font-medium">

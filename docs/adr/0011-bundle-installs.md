@@ -68,19 +68,21 @@ The updater checks an app zip against `SHA256SUMS` before unpacking it.
 ### Update (bundle install)
 Same steps as ADR-0009, but downloading a zip instead of using git:
 1. **Server**, `POST /api/updates/apply { tag }`. The tag checks are the same as ADR-0009's. It:
-   - downloads `SHA256SUMS` and `...-app-<os>-<arch>.zip` from the release and checks the hash
-   - compares the zip's `engines.node` with the running Node; if Node is too old it answers `needs_installer` with a link to the release
-   - backs up (`update-` prefix)
-   - unpacks to `versions/<v>.partial`, then renames it to `versions/<v>`
-   - writes `.update/pending.json` `{ action, fromVersion, toVersion, backup }`, replies 202 and exits 75
-2. **Launcher.** The new version is now the newest. It relinks the folder, writes `.update/result.json` (ok) and starts the new version. Once the server listens, it moves `result.json` into the history (`<dataDir>/updates.json`).
-3. **On failure**, the new server exits with something other than 75 while `result.json` is still there. The launcher then deletes `versions/<toVersion>`, marks the result failed (`failedStep: "start"`) and starts the old version again.
-4. After a good start, the launcher keeps the two newest folders and deletes the rest.
+   - downloads `SHA256SUMS` and `...-app-<os>-<arch>.zip` from the release and checks the hash (`fetch_failed`, `bad_checksum`)
+   - unpacks it to `versions/<v>.partial` and compares its `engines.node` with the running Node; if Node is too old it deletes the folder and answers `needs_installer` (the app points to the release's installer)
+   - backs up (`update-` prefix) and stages that backup as the **undo**, `<dataDir>/update-undo/`
+   - writes `.update/pending.json` `{ action, from, fromVersion, toVersion, backup, undo, restoreDir }`, *then* renames `<v>.partial` to `<v>`, replies 202 and exits 75. In that order, the newest folder never runs without its pending.json.
+2. **Launcher**, at every start, not only after exit 75, so a power cut halfway resumes: with a `pending.json`, the newest version must be `toVersion` and must answer `/api/health` within 60 s.
+   - **OK**: it deletes the undo, `*.partial` and `*.old` leftovers, keeps the two newest folders, and writes `result.json` (ok). The server moves it into the history (`<dataDir>/updates.json`) at start and on `GET /api/updates`, because it arrives after the server is up.
+   - **Not OK** (it exits, hangs, or another version is the newest): the launcher kills it, deletes `versions/<toVersion>`, moves the undo to `restore-pending/`, writes `result.json` (`failedStep: "start"`) and starts the old version. That version's `applyPendingRestore()` swaps in the undo before its DB opens, so a half-run migration never reaches it; the touched data stays in `pre-restore/`.
+   - `pending.json` goes only once the outcome is written.
 
 ### Rollback
-- As in ADR-0009, offered while `versions/<fromVersion>` exists (on macOS, also when it's the `.app`'s own version).
-- The server stages the restore (`stageRestore()`), writes `pending.json` with `action: "rollback"` and exits 75. The launcher deletes `versions/<running version>`, which makes the older version the newest, and starts it. That version's `applyPendingRestore()` swaps in the backup before the DB opens.
+- As in ADR-0009, offered while `versions/<fromVersion>` exists (on macOS, also when it's the `.app`'s own version, which the launcher passes as `APP_SHIPPED_VERSION`).
+- The server stages an undo from a fresh `undo-` backup (the zip goes once staged), stages the restore (`stageRestore()`), writes `pending.json` with `action: "rollback"` and exits 75. The launcher renames `versions/<running version>` to `<v>.old`, which makes the older version the newest, and starts it with the same 60 s check. That version's `applyPendingRestore()` swaps in the backup before the DB opens.
+- OK: `<v>.old` is deleted. Not OK: it's renamed back, the staged restore is dropped and the undo staged, so the newer version starts on the data it had.
 - The `.app`'s own version can't be deleted, so on macOS a rollback goes no further back than that.
+- `APP_RELEASES_URL` replaces the GitHub releases URL, to try all this against local builds.
 
 ### Unsigned builds
 Nothing is code-signed: that would take a Windows certificate (a few hundred euros a year) and Apple's $99 a year. The docs walk through each warning:
@@ -97,6 +99,7 @@ Nothing is code-signed: that would take a Windows certificate (a few hundred eur
 - The data dir is never removed. The docs say where it is.
 
 ## Rejected options
+- **Restoring the pre-update backup zip from the launcher.** The launcher has no unzip in Node's stdlib; the server stages the undo while it still runs.
 - **A `current.json` pointer to the active version.** It's one more file to write atomically and keep in step with `versions/`. It also needs a rule for a newer `.app` or installer. "Newest wins" covers all of that with no state.
 - **AppImage.** It's a read-only squashfs, so updates would need a second, writable layout anyway. Sizes are the same as a `tar.gz`.
 - **Electron or Tauri.** The UI is the browser; a window shell adds 100+ MB and its own update system.

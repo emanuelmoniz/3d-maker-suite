@@ -232,12 +232,12 @@ Do Step 11 of PLAN.md.
 Do Step 12 of PLAN.md.
 ```
 
-### [ ] Step 13 - Bundle updates and rollback  **[plan mode]**
+### [x] Step 13 - Bundle updates and rollback  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:**
 - `installType()` returns `bundle` when `APP_INSTALL=bundle`.
 - Update: download the app zip for this OS/arch, check its sha256 against `SHA256SUMS`, unzip (yauzl) into `<appDir>/versions/<v>/`, `createBackup(db, dataDir, "update")`, write `.update/pending.json` into `<appDir>`, exit 75.
-- The launcher switches `current.json` and starts the new version; if health fails within 60 s or it exits during boot, it switches back and restores the backup (existing staged restore).
+- The launcher starts the new version (newest folder wins, no pointer: ADR-0011); if health fails within 60 s or it exits during boot, it goes back to the old folder and restores the pre-update state (existing staged restore).
 - Rollback from Settings works the same way (previous version + its backup). Keep two versions, delete older ones.
 - A release that needs a newer Node major: no in-app update, an alert says to run the new installer.
 - Progress and errors in the existing update dialog.

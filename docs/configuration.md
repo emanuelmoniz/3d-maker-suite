@@ -15,8 +15,9 @@ pnpm --filter @3d-maker-suite/server start -- --port 4400 --host 0.0.0.0
 | `APP_DATA_DIR` | see [install.md](install.md#where-your-data-is) | Where the database, thumbnails, backups and key file live |
 | `APP_PASSWORD` | unset | HTTP Basic password. Required when `HOST` is not a loopback address. Any user name works. |
 | `APP_MOCK_INTEGRATION` | unset | Set to `1` to add a fake integration for trying the Integrations page without an account |
-| `APP_INSTALL` | unset | `docker` in the Docker image: Settings shows `docker compose pull` instead of an Update button |
+| `APP_INSTALL` | unset | `docker` in the Docker image: Settings shows `docker compose pull` instead of an Update button. `bundle` when the installed app's launcher starts it ([ADR-0011](adr/0011-bundle-installs.md)). |
 | `APP_LAUNCHER` | set by `pnpm start` | Tells the server it runs under the launcher, which restarts it and applies updates ([ADR-0009](adr/0009-updates.md)). Don't set it yourself. |
+| `APP_RELEASES_URL` | GitHub's releases API | For testing updates against local builds only: a URL answering like `api.github.com/repos/<owner>/<repo>/releases`, with each `html_url` ending in `/releases/tag/<tag>` and the assets under `/releases/download/<tag>/`. |
 
 The update channel (Stable or Dev) is in Settings → About & updates; Stable is the default and Dev is for testers. See [install.md](install.md#updating).
 

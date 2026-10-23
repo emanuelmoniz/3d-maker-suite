@@ -1,16 +1,16 @@
 import { z } from "zod";
 
 /** How the app was installed decides what Update does (ADR-0009). */
-export const INSTALL_TYPES = ["git", "docker", "other", "dev"] as const;
-/** The launcher step an update or rollback failed at. */
-export const UPDATE_FAILED_STEPS = ["checkout", "node", "install", "build"] as const;
+export const INSTALL_TYPES = ["git", "bundle", "docker", "other", "dev"] as const;
+/** The launcher step an update or rollback failed at (`start`: a bundle that didn't boot). */
+export const UPDATE_FAILED_STEPS = ["checkout", "node", "install", "build", "start"] as const;
 
 export const updateHistoryEntrySchema = z.object({
   action: z.enum(["update", "rollback"]),
   at: z.string(),
   fromVersion: z.string(),
   toVersion: z.string(),
-  /** The commit that ran before; a rollback checks it out again. */
+  /** The commit (git) or version (bundle) that ran before; a rollback goes back to it. */
   fromSha: z.string(),
   /** update: taken before it; rollback: the one restored. */
   backup: z.string(),
