@@ -186,12 +186,17 @@ export function settle(install, p, ok) {
   rmSync(join(dir, "pending.json"), { force: true });
 }
 
+/**
+ * Opens `url` (or the loader file) with the default browser. Windows goes through explorer, not a
+ * hidden rundll32: with no default browser set, the "How do you want to open this?" picker belongs
+ * to the process that asked, and a hidden one that exits at once took the picker with it.
+ */
 export function openBrowser(url) {
   const [cmd, ...args] =
     process.platform === "win32"
-      ? ["rundll32", "url.dll,FileProtocolHandler", url]
+      ? ["explorer.exe", url]
       : [process.platform === "darwin" ? "open" : "xdg-open", url];
-  spawn(cmd, args, { stdio: "ignore", detached: true, windowsHide: true })
+  spawn(cmd, args, { stdio: "ignore", detached: true })
     .on("error", () => {})
     .unref();
 }
