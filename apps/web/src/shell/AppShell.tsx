@@ -57,11 +57,14 @@ function SideLink({ item }: { item: NavItem }) {
   );
 }
 
-function Brand() {
+/** Sidebar brand from `md` up; `mobile` is the header above the content, below `md`. */
+function Brand({ mobile = false }: { mobile?: boolean }) {
   const name = useAppName();
   const logo = useBrandingUrl("logo");
   return (
-    <div className="flex min-w-0 items-center gap-2.5 font-semibold">
+    <div
+      className={cx("flex min-w-0 items-center gap-2.5 font-semibold", mobile && "mb-4 md:hidden")}
+    >
       {logo ? (
         <img src={logo} alt={name} className="size-8 shrink-0 rounded-md object-contain" />
       ) : (
@@ -69,7 +72,7 @@ function Brand() {
           <Printer className="size-4.5" aria-hidden />
         </span>
       )}
-      <span className="hidden truncate lg:inline">{name}</span>
+      <span className={cx("truncate", !mobile && "hidden lg:inline")}>{name}</span>
     </div>
   );
 }
@@ -240,6 +243,7 @@ export function AppShell() {
         className={cx("flex min-w-0 flex-1 flex-col px-4 pb-24 pt-5 md:px-8 md:pb-10 md:pt-8")}
       >
         <div className="mx-auto w-full max-w-6xl flex-1">
+          <Brand mobile />
           <UpdateBanner />
           <Outlet />
         </div>

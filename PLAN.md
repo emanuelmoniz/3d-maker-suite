@@ -364,7 +364,7 @@ Do Step 5 of the 4.1.1 plan in PLAN.md.
 Do Step 6 of the 4.1.1 plan in PLAN.md.
 ```
 
-### [ ] Step 7 - Mobile header branding
+### [x] Step 7 - Mobile header branding
 **Model:** Haiku · **Effort:** Low
 **Scope:** below `md`, the logo and `common:appName` in a header at the top of the content that scrolls away with it (not fixed).
 **Done when:** shows at 375/412, hidden on desktop; no horizontal scroll; tests pass.
