@@ -5,7 +5,13 @@
     "add": "Add client",
     "emptyTitle": "No clients yet",
     "emptyBody": "Add the people and companies you print for.",
-    "columns": { "name": "Name", "mobile": "Mobile", "vat": "VAT", "email": "Email" }
+    "columns": {
+      "name": "Name",
+      "mobile": "Mobile",
+      "vat": "VAT",
+      "email": "Email",
+      "actions": "Actions"
+    }
   },
   "detail": {
     "title": "Details",
@@ -17,7 +23,8 @@
   "delete": {
     "title": "Delete client?",
     "body": "{{name}} will be deleted. Its quotes stay, without a client.",
-    "confirm": "Delete"
+    "confirm": "Delete",
+    "named": "Delete {{name}}"
   },
   "form": {
     "addTitle": "Add client",

@@ -1,17 +1,22 @@
 import { type Client, clientFilters } from "@3d-maker-suite/core";
 import { Link } from "@tanstack/react-router";
-import { Plus, Users } from "lucide-react";
+import { Plus, Trash2, Users } from "lucide-react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Button } from "../../components/Button.tsx";
+import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { DataTable } from "../../components/DataTable.tsx";
 import { EmptyState } from "../../components/EmptyState.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
-import { useClients } from "../../lib/clients.ts";
+import { useClients, useDeleteClient } from "../../lib/clients.ts";
 import { useUrlListQuery } from "../../lib/list.ts";
 
 export function ClientsPage() {
   const { t } = useTranslation();
   const [query, setQuery] = useUrlListQuery();
   const { data, isError } = useClients(query);
+  const del = useDeleteClient();
+  const [deleting, setDeleting] = useState<Client | null>(null);
   const add = (
     <Link
       to="/clients/new"
@@ -40,6 +45,11 @@ export function ClientsPage() {
       {isError && (
         <p role="alert" className="text-bad">
           {t("clients:loadError")}
+        </p>
+      )}
+      {del.isError && (
+        <p role="alert" className="text-bad">
+          {t("clients:detail.inUse")}
         </p>
       )}
       {data && !data.total && !Object.keys(query).length ? (
@@ -75,10 +85,38 @@ export function ClientsPage() {
               text("mobile", t("clients:list.columns.mobile")),
               text("vat", t("clients:list.columns.vat")),
               text("email", t("clients:list.columns.email")),
+              {
+                id: "actions",
+                header: t("clients:list.columns.actions"),
+                cell: (c) => (
+                  <Button
+                    variant="ghost"
+                    aria-label={t("clients:delete.named", { name: c.name })}
+                    onClick={() => {
+                      del.reset();
+                      setDeleting(c);
+                    }}
+                  >
+                    <Trash2 className="size-4" aria-hidden />
+                  </Button>
+                ),
+              },
             ]}
           />
         )
       )}
+      <ConfirmDialog
+        open={!!deleting}
+        title={t("clients:delete.title")}
+        description={deleting ? t("clients:delete.body", { name: deleting.name }) : ""}
+        confirmLabel={t("clients:delete.confirm")}
+        destructive
+        onCancel={() => setDeleting(null)}
+        onConfirm={() => {
+          if (deleting) del.mutate(deleting.id);
+          setDeleting(null);
+        }}
+      />
     </>
   );
 }
