@@ -24,7 +24,7 @@ const autostart = process.env.APP_LAUNCH_CMD
 
 const app = await buildApp(openDb(join(config.dataDir, "app.sqlite")), true, config.dataDir, {
   adapters: adapters({ mock: config.mockIntegration }),
-  syncSchedule: "*/15 * * * *",
+  syncSchedule: "* * * * *",
   alertsSchedule: "0 8 * * *",
   backupSchedule: "0 3 * * *",
   logRetentionSchedule: "0 * * * *",

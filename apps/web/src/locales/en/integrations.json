@@ -154,6 +154,16 @@
     "pending_one": "{{count}} to review",
     "pending_other": "{{count}} to review",
     "frequencyOf": "Frequency: {{type}}",
+    "at": {
+      "time": "Time",
+      "minute": "Minute",
+      "hour": "Hour",
+      "weekday": "Day of the week",
+      "day": "Day of the month",
+      "any": "Any time",
+      "of": "{{field}}: {{type}}",
+      "hint": "In the server's time zone. Any time: counted from the last sync."
+    },
     "alert": "Alerts",
     "alertSeverity": {
       "error": "Error",

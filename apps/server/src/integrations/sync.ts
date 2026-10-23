@@ -19,6 +19,7 @@ import {
   type ReviewedType,
   type SyncFrequency,
   type SyncLogEntry,
+  type SyncPolicy,
   type SyncRequest,
   type SyncResult,
   type SyncRun,
@@ -26,6 +27,7 @@ import {
   type TestResult,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
+import { Cron } from "croner";
 import { and, desc, eq, isNull, notInArray } from "drizzle-orm";
 import type { FastifyBaseLogger } from "fastify";
 import { raise } from "../alerts/evaluate.ts";
@@ -79,7 +81,8 @@ const labelOf = (v: Record<string, unknown>) => {
   const s = String(v.title ?? v.name ?? v.model ?? "");
   return s ? { label: s } : {};
 };
-// The scheduler ticks every 15 minutes (main.ts); an `auto` type runs when its frequency has passed.
+// The scheduler ticks every minute (main.ts). An `auto` type with a time set runs at its
+// `schedulePattern`; without one, when its frequency has passed since the last run.
 // ponytail: "1M" is 30 days, not a calendar month.
 const FREQUENCY_MS: Record<SyncFrequency, number> = {
   "15m": 15 * 60 * 1000,
@@ -95,6 +98,39 @@ const NEEDS_USER = new Set(["auth_required", "auth_expired", "login_failed", "co
 const BACK_OFF = new Set(["rate_limited", "blocked"]);
 // ponytail: fixed 1 h pause after a rate limit; make it exponential if vendors keep throttling.
 const BACK_OFF_MS = 3600 * 1000;
+// Any other failure is retried after this, not on every tick.
+const RETRY_MS = 15 * 60 * 1000;
+
+// Not `Pick<>`: this file's `Pick` is a confirmed review.
+type At = { [K in "atMinute" | "atHour" | "atWeekday" | "atDay"]: SyncPolicy[K] };
+
+/**
+ * The croner pattern (server local time) an `auto` type runs at, or null when none of the fields
+ * its frequency uses is set. A missing one is minute 0, hour 0, Monday, the 1st.
+ */
+export function schedulePattern(frequency: SyncFrequency, at: At): string | null {
+  const { atMinute: m, atHour: h, atWeekday: wd, atDay: d } = at;
+  const [used, pattern] =
+    frequency === "15m"
+      ? [[m], `${(m ?? 0) % 15}/15 * * * *`]
+      : frequency === "1h"
+        ? [[m], `${m ?? 0} * * * *`]
+        : frequency === "1d"
+          ? [[h, m], `${m ?? 0} ${h ?? 0} * * *`]
+          : frequency === "1w"
+            ? [[wd, h], `0 ${h ?? 0} * * ${wd ?? 1}`]
+            : [[d, h], `0 ${h ?? 0} ${d ?? 1} * *`];
+  return used.some((v) => v != null) ? pattern : null;
+}
+
+/** Is a type due: never ran, its next slot after the last run has come, or (no time set) its frequency has passed. */
+function isDue(p: At & { frequency: SyncFrequency; lastRunAt: string | null }, now = Date.now()) {
+  if (!p.lastRunAt) return true;
+  const pattern = schedulePattern(p.frequency, p);
+  if (!pattern) return now - Date.parse(p.lastRunAt) >= FREQUENCY_MS[p.frequency] - DUE_SLACK_MS;
+  const next = new Cron(pattern).nextRun(p.lastRunAt);
+  return !!next && next.getTime() <= now;
+}
 
 /**
  * Runs adapters and stores what they return, through the review. Which rows a run takes and what
@@ -333,26 +369,23 @@ export function createSyncer(
     for (const row of rows) {
       const { id, lastError } = row;
       if (lastError && NEEDS_USER.has(lastError)) continue;
-      if (lastError && BACK_OFF.has(lastError)) {
+      if (lastError) {
         const latest = db
           .select({ startedAt: syncRuns.startedAt })
           .from(syncRuns)
           .where(eq(syncRuns.integrationId, id))
           .orderBy(desc(syncRuns.startedAt))
           .get();
-        if (latest && Date.now() - Date.parse(latest.startedAt) < BACK_OFF_MS) continue;
+        const wait = BACK_OFF.has(lastError) ? BACK_OFF_MS : RETRY_MS;
+        if (latest && Date.now() - Date.parse(latest.startedAt) < wait) continue;
       }
       const adapter = adapters.find((a) => a.id === row.adapterId);
       // Adapter order: printers come before the prints that point at them.
       for (const type of activeCapabilities(db, row, adapter)) {
         if (isAction(type)) continue;
-        const { mode, frequency, lastRunAt } = policyOf(db, id, type);
-        // A failed run leaves `lastRunAt` alone, so it is retried on the next tick.
-        if (
-          mode !== "auto" ||
-          (lastRunAt && Date.now() - Date.parse(lastRunAt) < FREQUENCY_MS[frequency] - DUE_SLACK_MS)
-        )
-          continue;
+        const p = policyOf(db, id, type);
+        // A failed run leaves `lastRunAt` alone, so it is retried after RETRY_MS.
+        if (p.mode !== "auto" || !isDue(p)) continue;
         // A manual run in progress (409) or a deleted row is fine to skip; failures are already stored.
         const done = await run(id, "scheduled", { type }).catch(() => null);
         // The vendor is failing: leave this integration's other types for a later tick.

@@ -40,3 +40,38 @@ test("sync options: what to sync and how to sync, with a hint per choice", async
     merge: "keepEdits",
   });
 });
+
+test("sync time: a daily auto type runs at the time picked, any time clears it", async ({
+  page,
+  app,
+}) => {
+  const { id } = await app.api<{ id: string }>("POST", "/api/integrations", {
+    adapterId: "mock",
+    secrets: { token: "t" },
+  });
+  const prints = async () =>
+    (
+      await app.api<{ policies: (Policy & Record<string, unknown>)[] }>(
+        "GET",
+        `/api/integrations/${id}`,
+      )
+    ).policies.find((p) => p.type === "prints");
+  await page.goto("/integrations");
+  await page.getByRole("button", { name: "Settings: Print history" }).click();
+
+  // Hourly by default: a minute, unset.
+  const minute = page.getByRole("combobox", { name: "Minute: Print history" });
+  await expect(minute).toHaveValue("Any time");
+  await page.getByRole("combobox", { name: "Frequency: Print history" }).click();
+  await page.getByRole("option", { name: "Every day" }).click();
+
+  const time = page.getByLabel("Time: Print history");
+  await time.fill("07:30");
+  await expect.poll(prints).toMatchObject({ frequency: "1d", atHour: 7, atMinute: 30 });
+  await page.reload();
+  await page.getByRole("button", { name: "Settings: Print history" }).click();
+  await expect(time).toHaveValue("07:30");
+
+  await time.fill("");
+  await expect.poll(prints).toMatchObject({ atHour: null, atMinute: null });
+});

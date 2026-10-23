@@ -104,6 +104,12 @@ export const syncPolicies = sqliteTable(
     scope: text({ enum: SYNC_SCOPES }).notNull().default("all"),
     /** What a run does with a change to a row you have (`SYNC_MERGES`); default per type in core. */
     merge: text({ enum: SYNC_MERGES }).notNull().default("keepEdits"),
+    /** When an `auto` run happens within its frequency (the sync job's `schedulePattern`); all null
+     * = every `frequency` since the last run. */
+    atMinute: integer(),
+    atHour: integer(),
+    atWeekday: integer(),
+    atDay: integer(),
   },
   (t) => [
     primaryKey({ columns: [t.integrationId, t.type] }),

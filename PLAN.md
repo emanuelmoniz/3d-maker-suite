@@ -420,7 +420,7 @@ Do Step 10 of the 4.1.1 plan in PLAN.md.
 Do Step 11 of the 4.1.1 plan in PLAN.md.
 ```
 
-### [ ] Step 12 - Sync schedule time  **[plan mode]**
+### [x] Step 12 - Sync schedule time  **[plan mode]**
 **Model:** Opus · **Effort:** Medium
 **Scope:**
 - Frequencies are `15m | 1h | 1d | 1w | 1M` (`core/schemas/enums.ts`). Each gets its own time setting: 15 min → minute offset; hourly → minute; daily → hour:minute; weekly → weekday + hour; monthly → day (1-28) + hour. Unset → today's default.

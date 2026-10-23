@@ -21,7 +21,7 @@ import { Combobox } from "../../components/Combobox.tsx";
 import { DateInput } from "../../components/DateInput.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { Switch } from "../../components/Switch.tsx";
-import { formatDateTime, formatRelative } from "../../lib/format.ts";
+import { formatDateTime, formatNumber, formatRelative, formatTime } from "../../lib/format.ts";
 import { usePatchIntegration, type useSyncIntegration } from "../../lib/integrations.ts";
 import { CAPS } from "./integrationLabels.ts";
 
@@ -76,6 +76,25 @@ const groupOf = (c: Capability): keyof typeof GROUPS =>
 // whose brand and material exist) and leaves the rest pending for the review page.
 const isReviewed = (c: Capability): c is ReviewedType =>
   (REVIEWED_TYPES as readonly string[]).includes(c);
+
+type At = Pick<SyncPolicy, "atMinute" | "atHour" | "atWeekday" | "atDay">;
+// The fields each frequency's time uses (the server's `schedulePattern`); a time input sets 1d's.
+const AT_FIELDS: Record<SyncFrequency, (keyof At)[]> = {
+  "15m": ["atMinute"],
+  "1h": ["atMinute"],
+  "1d": ["atHour", "atMinute"],
+  "1w": ["atWeekday", "atHour"],
+  "1M": ["atDay", "atHour"],
+};
+const AT_LABELS: Record<keyof At, string> = {
+  atMinute: "integrations:policies.at.minute",
+  atHour: "integrations:policies.at.hour",
+  atWeekday: "integrations:policies.at.weekday",
+  atDay: "integrations:policies.at.day",
+};
+// Monday first; 0 is Sunday, as on the server.
+const WEEKDAYS = [1, 2, 3, 4, 5, 6, 0];
+const pad = (n: number) => String(n).padStart(2, "0");
 
 type Patch = ReturnType<typeof usePatchIntegration>;
 type Sync = ReturnType<typeof useSyncIntegration>;
@@ -297,6 +316,7 @@ function PolicyRow({
                 )}
               </FormField>
             )}
+            {auto && <ScheduleAt policy={p} name={name} disabled={patch.isPending} set={set} />}
           </div>
           {/* Empty (null) = all three; picking all three again goes back to it. */}
           <fieldset>
@@ -419,4 +439,87 @@ function PolicyRow({
       </div>
     </li>
   );
+}
+
+/**
+ * When an `auto` type runs within its frequency, in the server's time zone. "Any time" (a cleared
+ * time) unsets them all: every frequency since the last run, as before.
+ */
+function ScheduleAt({
+  policy: p,
+  name,
+  disabled,
+  set,
+}: {
+  policy: SyncPolicy;
+  name: string;
+  disabled: boolean;
+  set: (change: Partial<At>) => void;
+}) {
+  const { t, i18n } = useTranslation();
+  const fields = AT_FIELDS[p.frequency];
+  const clear = Object.fromEntries(fields.map((f) => [f, null]));
+  const hint = t("integrations:policies.at.hint");
+  const of = (field: string) => t("integrations:policies.at.of", { field, type: name });
+
+  if (p.frequency === "1d") {
+    const label = t("integrations:policies.at.time");
+    const value =
+      p.atHour == null && p.atMinute == null ? "" : `${pad(p.atHour ?? 0)}:${pad(p.atMinute ?? 0)}`;
+    return (
+      <FormField label={label} hint={hint}>
+        {(f) => (
+          <input
+            {...f}
+            type="time"
+            aria-label={of(label)}
+            className={inputClass}
+            value={value}
+            disabled={disabled}
+            onChange={(e) => {
+              const [h, m] = e.target.value.split(":").map(Number);
+              set(e.target.value ? { atHour: h, atMinute: m } : clear);
+            }}
+          />
+        )}
+      </FormField>
+    );
+  }
+
+  const weekday = new Intl.DateTimeFormat(i18n.resolvedLanguage, { weekday: "long" });
+  const choices: Record<keyof At, { value: number; label: string }[]> = {
+    // 15m: the offset within each quarter of an hour.
+    atMinute: Array.from({ length: p.frequency === "15m" ? 15 : 60 }, (_, m) => ({
+      value: m,
+      label: `:${pad(m)}`,
+    })),
+    atHour: Array.from({ length: 24 }, (_, h) => ({
+      value: h,
+      label: formatTime(new Date(2000, 0, 1, h)),
+    })),
+    // 2 Jan 2000 was a Sunday.
+    atWeekday: WEEKDAYS.map((d) => ({ value: d, label: weekday.format(new Date(2000, 0, 2 + d)) })),
+    atDay: Array.from({ length: 28 }, (_, i) => ({ value: i + 1, label: formatNumber(i + 1) })),
+  };
+  return fields.map((field, i) => {
+    const label = t(AT_LABELS[field]);
+    const v = p[field];
+    return (
+      <FormField key={field} label={label} hint={i === fields.length - 1 ? hint : undefined}>
+        {(f) => (
+          <Combobox
+            {...f}
+            aria-label={of(label)}
+            value={v == null ? "" : String(p.frequency === "15m" ? v % 15 : v)}
+            disabled={disabled}
+            onChange={(next) => set(next ? { [field]: Number(next) } : clear)}
+            options={[
+              { value: "", label: t("integrations:policies.at.any") },
+              ...choices[field].map((c) => ({ value: String(c.value), label: c.label })),
+            ]}
+          />
+        )}
+      </FormField>
+    );
+  });
 }

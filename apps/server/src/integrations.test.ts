@@ -8,6 +8,7 @@ import {
   type IntegrationAdapter,
   IntegrationError,
   type IntegrationErrorCode,
+  SYNC_FREQUENCIES,
 } from "@3d-maker-suite/core";
 import { openDb, schema } from "@3d-maker-suite/db";
 import { eq } from "drizzle-orm";
@@ -16,7 +17,7 @@ import { z } from "zod";
 import { buildApp } from "./app.ts";
 import { loadKey } from "./integrations/secrets.ts";
 import { spoolRows } from "./integrations/sourceRows.ts";
-import { createSyncer } from "./integrations/sync.ts";
+import { createSyncer, schedulePattern } from "./integrations/sync.ts";
 import { modelIdFor } from "./lib/catalog.ts";
 import { reviewer } from "./testReview.ts";
 
@@ -481,13 +482,29 @@ describe("integrations", () => {
       await syncer.runAll();
       expect(runs()).toBe(2);
 
+      // Any other failure is retried after 15 minutes, not on every tick.
+      const ago = (ms: number) =>
+        db
+          .update(schema.syncRuns)
+          .set({ startedAt: new Date(Date.now() - ms).toISOString() })
+          .run();
+      state.fail = "unreachable";
+      ago(2 * 3600 * 1000);
+      await syncer.runAll();
+      expect(runs()).toBe(3);
+      await syncer.runAll();
+      expect(runs()).toBe(3);
+      ago(16 * 60 * 1000);
+      await syncer.runAll();
+      expect(runs()).toBe(4);
+
       // Nothing in auto mode (off or manual): left alone.
       state.fail = undefined;
       setError(null);
       await setPolicy(id, "printers", { mode: "off" });
       await setPolicy(id, "prints", { mode: "manual" });
       await syncer.runAll();
-      expect(runs()).toBe(2);
+      expect(runs()).toBe(4);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -720,9 +737,68 @@ describe("sync by type and date range", () => {
       await syncer.runAll();
       expect(counts()).toEqual([4, 2, 1]);
       expect((await setPolicy(id, "prints", { frequency: "fortnightly" })).statusCode).toBe(400);
+      expect((await setPolicy(id, "prints", { atHour: 24 })).statusCode).toBe(400);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
+  });
+
+  it("a type with a time set runs at its slot", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "integrations-"));
+    try {
+      app = await buildApp(db, false, dir, { adapters: [mockAdapter(state)] });
+      const syncer = createSyncer(db, [mockAdapter(state)], loadKey(dir), app.log);
+      const { id } = await create();
+      await setPolicy(id, "printers", { mode: "off" });
+      // Daily, at the local minute an hour ago.
+      const slot = new Date(Date.now() - 3600 * 1000);
+      slot.setSeconds(0, 0);
+      await setPolicy(id, "prints", {
+        frequency: "1d",
+        atHour: slot.getHours(),
+        atMinute: slot.getMinutes(),
+      });
+      const lastRun = (ms: number) =>
+        db
+          .update(schema.syncPolicies)
+          .set({ lastRunAt: new Date(slot.getTime() + ms).toISOString() })
+          .run();
+      const runs = () => db.select().from(schema.syncRuns).all().length;
+
+      lastRun(60 * 1000); // ran just after the slot: the next one is tomorrow
+      await syncer.runAll();
+      expect(runs()).toBe(0);
+      lastRun(-60 * 1000); // ran just before it: the slot has come since
+      await syncer.runAll();
+      expect(runs()).toBe(1);
+      await syncer.runAll();
+      expect(runs()).toBe(1);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("builds the croner pattern for each frequency", () => {
+    const none = { atMinute: null, atHour: null, atWeekday: null, atDay: null };
+    const at = { atMinute: 35, atHour: 7, atWeekday: 3, atDay: 12 };
+    expect(SYNC_FREQUENCIES.map((f) => schedulePattern(f, none))).toEqual([
+      null,
+      null,
+      null,
+      null,
+      null,
+    ]);
+    expect(SYNC_FREQUENCIES.map((f) => schedulePattern(f, at))).toEqual([
+      "5/15 * * * *",
+      "35 * * * *",
+      "35 7 * * *",
+      "0 7 * * 3",
+      "0 7 12 * *",
+    ]);
+    // A field the frequency doesn't use doesn't count; a missing one it uses is filled in.
+    expect(schedulePattern("1h", { ...none, atHour: 7 })).toBeNull();
+    expect(schedulePattern("1w", { ...none, atHour: 6 })).toBe("0 6 * * 1");
+    expect(schedulePattern("1M", { ...none, atHour: 3 })).toBe("0 3 1 * *");
   });
 });
 
@@ -747,6 +823,10 @@ describe("capabilities", () => {
       trackUsage: true,
       scope: "all",
       merge: "keepEdits",
+      atMinute: null,
+      atHour: null,
+      atWeekday: null,
+      atDay: null,
     };
     expect((await get(`/api/integrations/${id}`)).policies).toEqual([
       { type: "printers", mode: "auto", frequency: "1d", ...defaults, merge: "review" },

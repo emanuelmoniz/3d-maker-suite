@@ -55,6 +55,15 @@ export const syncPolicySchema = z.object({
   /** Reviewed types except prints: which rows a run takes, and what it does with a change. */
   scope: z.enum(SYNC_SCOPES),
   merge: z.enum(SYNC_MERGES),
+  /**
+   * When an `auto` run happens; null = unset. 15m: minute offset (mod 15); 1h: minute; 1d: hour +
+   * minute; 1w: weekday (0 = Sunday) + hour; 1M: day + hour. All unset = every `frequency` since
+   * the last run.
+   */
+  atMinute: z.number().int().min(0).max(59).nullable(),
+  atHour: z.number().int().min(0).max(23).nullable(),
+  atWeekday: z.number().int().min(0).max(6).nullable(),
+  atDay: z.number().int().min(1).max(28).nullable(),
 });
 
 /** API shape: the encrypted `secrets` column is never exposed, only whether it is set. */

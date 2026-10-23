@@ -85,6 +85,10 @@ export const integrationPatchSchema = z
           trackUsage: true,
           scope: true,
           merge: true,
+          atMinute: true,
+          atHour: true,
+          atWeekday: true,
+          atDay: true,
         })
         .partial({
           mode: true,
@@ -93,6 +97,10 @@ export const integrationPatchSchema = z
           trackUsage: true,
           scope: true,
           merge: true,
+          atMinute: true,
+          atHour: true,
+          atWeekday: true,
+          atDay: true,
         }),
     ),
   })

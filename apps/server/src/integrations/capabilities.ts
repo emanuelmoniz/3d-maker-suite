@@ -30,6 +30,10 @@ export function policyOf(db: Db, integrationId: string, type: Capability) {
       pending: 0,
       alertSeverities: null,
       trackUsage: true,
+      atMinute: null,
+      atHour: null,
+      atWeekday: null,
+      atDay: null,
     }
   );
 }
