@@ -1,4 +1,4 @@
-# 3D Maker Suite - Development Plans 4.1.0 and 4.2.0
+# 3D Maker Suite - Development Plans 4.1.0, 4.1.1 and 4.2.0
 Repo: `3d-maker-suite`
 
 How to use:
@@ -280,9 +280,157 @@ fast-forward main to dev, push, push the v4.1.0 tag and confirm the release and 
 
 ---
 
+# Plan 4.1.1 - Fixes & polish
+
+Patch release: fixes and small improvements from the 4.1.0 test run, before 4.2.0.
+
+## Phase 4 - Server, launcher & bugs
+
+### [ ] Step 1 - Lint noise and autostart 404
+**Model:** Haiku · **Effort:** Low
+**Scope:**
+- Tailwind canonical classes: `lg:min-h-[28rem]` → `lg:min-h-112` (`ProjectDetailPage.tsx`), `size-[18px]` → `size-4.5` (3× in `AppShell.tsx`), and any other `suggestCanonicalClasses` hit.
+- `GET /api/server-config/autostart` is only registered when the launch command is known (`routes/serverConfig.ts:48`), but the web always calls it → `404` warn in the dev log. The web asks only when the server says Start at login is supported (or the route answers `supported: false`); no 404 in the log.
+
+**Done when:** no canonical-class warnings; `pnpm dev` without a launch command logs no autostart 404; tests pass.
+**Prompt:**
+```
+Do Step 1 of the 4.1.1 plan in PLAN.md.
+```
+
+### [ ] Step 2 - Settings → Server layout
+**Model:** Sonnet · **Effort:** Medium
+**Scope:**
+- **Restart** and **Stop** become page-header actions on the right, like the buttons on other pages.
+- "Restart and open in new tab" → "Restart server".
+- Network section: a clear hint that host/port changes apply only after a restart (or stop and start again).
+- "Start at login" moves to the General section.
+- Data dir shown as plain text, not a disabled input; the "read-only" hint goes.
+
+**Done when:** the layout matches other pages at 375/1440; every action still works; e2e selectors updated; i18n:check passes; tests pass.
+**Prompt:**
+```
+Do Step 2 of the 4.1.1 plan in PLAN.md.
+```
+
+### [ ] Step 3 - Restart without a new tab
+**Model:** Sonnet · **Effort:** Medium
+**Scope:**
+- Today `ServerSection.tsx:61-82` pre-opens a blank tab on click (to dodge the popup blocker) and points it at the new host/port once `/api/health` answers.
+- Replace with a "Server restarting…" modal in the same tab that polls health, then reloads. If host or port changed, poll the new address and redirect the same tab there.
+- Timeout: error message in the modal with the new URL as a link.
+
+**Done when:** restart with the same port reloads in place; restart after a port change lands on the new port in the same tab; no new tab is opened; e2e for the modal; i18n:check passes; tests pass.
+**Prompt:**
+```
+Do Step 3 of the 4.1.1 plan in PLAN.md.
+```
+
+### [ ] Step 4 - Launcher: browser only when the user starts it
+**Model:** Sonnet · **Effort:** Medium
+**Scope:**
+- Start at login must not open the browser: a `--background` arg for `packaging/launcher.mjs`, written by `lib/autostart.ts` (Windows Run value, macOS plist, Linux `.desktop`) and by `packaging/setup.iss` `[Registry]`. Entries written by 4.1.0 lack the flag: rewrite the entry at boot when autostart is on.
+- The installer's "Start 3D Maker Suite" option (`setup.iss` `[Run]`) runs the launcher but no browser opened. Find why (suspects: the first start recreating the `links.json` links takes longer than `waitHealthy(url, 60_000)` in `launcher.mjs`, or the post-install process gets killed) and fix it.
+- Loader: when started from the installer or a shortcut, open the browser at once on a static "Starting 3D Maker Suite…" page (file next to the launcher) that polls `/api/health` and redirects to the app.
+
+**Done when:** after a reboot with Start at login on, the server runs and no browser opens; the installer option and the shortcut open the loader, then the app; launcher unit tests for the flag; manual check on Windows; tests pass.
+**Prompt:**
+```
+Do Step 4 of the 4.1.1 plan in PLAN.md. Find why the installer's start option opened no
+browser before changing anything.
+```
+
+### [ ] Step 5 - Update available alert: call to action
+**Model:** Haiku · **Effort:** Low
+**Scope:** the update available alert gets an "Open updates" call to action to the update section in Settings (anchor), on the alert detail page (list rows keep only their own actions, Step 9).
+**Done when:** the button opens Settings at the update section; i18n:check passes; tests pass.
+**Prompt:**
+```
+Do Step 5 of the 4.1.1 plan in PLAN.md.
+```
+
+## Phase 5 - Pages
+
+### [ ] Step 6 - Project page: hide empty cards
+**Model:** Sonnet (use webapp-testing skill) · **Effort:** Medium
+**Scope:**
+- No folder → no **Files** card.
+- No prints → no **Prints** card.
+- No 3D file (including the folder fallback) but prints exist → no 3D preview zone; the prints cost card moves to the left column.
+
+**Done when:** each combination renders without empty cards at 375/1440; e2e per layout; screenshots refreshed if the README project page changed; tests pass.
+**Prompt:**
+```
+Do Step 6 of the 4.1.1 plan in PLAN.md.
+```
+
+### [ ] Step 7 - Mobile header branding
+**Model:** Haiku · **Effort:** Low
+**Scope:** below `md`, the logo and `common:appName` in a header at the top of the content that scrolls away with it (not fixed).
+**Done when:** shows at 375/412, hidden on desktop; no horizontal scroll; tests pass.
+**Prompt:**
+```
+Do Step 7 of the 4.1.1 plan in PLAN.md.
+```
+
+### [ ] Step 8 - Delete client
+**Model:** Sonnet · **Effort:** Medium
+**Scope:**
+- `DELETE /api/clients/:id` like orders and quotes. `409 client_in_use` when an order references the client. Quotes don't block: the FK (`set null`) clears their client.
+- Delete in the client page/list with ConfirmDialog; disabled with the reason when orders exist.
+
+**Done when:** a client with no orders is deleted and its quotes keep existing without a client; one with orders is refused; server tests; e2e; i18n:check passes; tests pass.
+**Prompt:**
+```
+Do Step 8 of the 4.1.1 plan in PLAN.md.
+```
+
+### [ ] Step 9 - Alerts list: only the alert's own actions
+**Model:** Haiku · **Effort:** Low
+**Scope:** rows in "Needs your attention" keep only mark read / dismiss. Every other button ("Review" included) and the navigation calls to action (e.g. "View filament profiles", added to the rows in 4.1 Step 3 via `syncTargets.ts`) live only on the alert detail page.
+**Done when:** list rows show only read/dismiss; the detail page still has every call to action; e2e updated; tests pass.
+**Prompt:**
+```
+Do Step 9 of the 4.1.1 plan in PLAN.md.
+```
+
+### [ ] Step 10 - Add printer: model and brand in modals
+**Model:** Sonnet · **Effort:** Medium
+**Scope:** on Add printer, "Add model" opens a modal instead of leaving the page; inside it, "Add brand" opens a second modal. Saving the brand closes it and selects it in the model modal; saving the model closes it and selects it on the printer form. Keyboard and focus return work.
+**Done when:** a printer can be added with a new brand and model without leaving the page; e2e for the chain; i18n:check passes; tests pass.
+**Prompt:**
+```
+Do Step 10 of the 4.1.1 plan in PLAN.md.
+```
+
+### [ ] Step 11 - Sync schedule time  **[plan mode]**
+**Model:** Opus · **Effort:** Medium
+**Scope:**
+- Frequencies are `15m | 1h | 1d | 1w | 1M` (`core/schemas/enums.ts`). Each gets its own time setting: 15 min → minute offset; hourly → minute; daily → hour:minute; weekly → weekday + hour; monthly → day (1-28) + hour. Unset → today's default.
+- Migration: nullable columns on the sync policy; the job builds the croner pattern from them. Back up the DB first.
+- UI in the expanded policy row, next to the frequency, only when Auto.
+
+**Done when:** the fields and defaults are approved; a policy runs at the chosen time (unit tests for the pattern per frequency); existing policies keep running as before; e2e; i18n:check passes; tests pass.
+**Prompt:**
+```
+Do Step 11 of the 4.1.1 plan in PLAN.md. Show me the columns, defaults and croner patterns first.
+```
+
+### [ ] Step 12 - Docs, push & v4.1.1 release
+**Model:** Haiku · **Effort:** Low
+**Scope:** `pnpm screenshots` (project page, settings), docs touched by Steps 1-11, CHANGELOG, version `4.1.1` (root and `packages/*`). Commit on `dev`, fast-forward `main` to `dev`, push both, create and push tag `v4.1.1` on `main`. Check the run, the release (assets) and the `:latest` image.
+**Done when:** `main`, `dev` and the tag are pushed; the workflow is green; the release is the latest with installers; updating 4.1.0 (installer and git) to 4.1.1 works.
+**Prompt:**
+```
+Do Step 12 of the 4.1.1 plan in PLAN.md. Only document what changed since 4.1.0. Then
+fast-forward main to dev, push, push the v4.1.1 tag and confirm the release and image.
+```
+
+---
+
 # Plan 4.2.0 - Server, NAS & multi-user
 
-## Phase 4 - Users and roles
+## Phase 6 - Users and roles
 
 Design (fixed roles):
 - Tables: `users` (username unique case-insensitive, display name, scrypt hash via `node:crypto`, role `admin | editor | viewer`, disabled, created/last login), `sessions` (sha256 of the token, user, expiry), `logs.actor`.
@@ -347,7 +495,7 @@ Do Step 6 of the 4.2.0 plan in PLAN.md. Only document what changed since 4.1.0. 
 dev, push the tag and confirm the pre-release is published.
 ```
 
-## Phase 5 - Network storage
+## Phase 7 - Network storage
 
 Design (mounted paths): any folder the OS can see is a root - a mapped drive or `\\server\share` (SMB), OneDrive / Google Drive / Dropbox desktop folders, an `rclone mount`, a Docker CIFS volume. Slicing, Open in slicer and the file manager keep working because they stay local paths.
 
@@ -377,7 +525,7 @@ the poll job first.
 Do Step 8 of the 4.2.0 plan in PLAN.md.
 ```
 
-## Phase 6 - Managed slicer
+## Phase 8 - Managed slicer
 
 Design (Bambu Studio and OrcaSlicer, the user picks): the user installs the slicer CLI from the app; it is downloaded from the vendor's GitHub releases (we don't redistribute, AGPL respected, licence + source link shown), unpacked into `<dataDir>/slicers/<adapter>/<version>/`, version tracked, updates checked daily. Core gets a types-only `managedSlicer` descriptor (repo, asset matcher per OS/arch, exe path, unpack type, licence); the bambu and orca adapters fill it in; download/unpack live in `apps/server/src/integrations/managedSlicer.ts`, so core never imports vendor code.
 
@@ -451,6 +599,17 @@ pre-release. Then fast-forward main to dev, push, push the v4.2.0 tag and confir
 | project folder: add a folder to a project that has none | 4.1 · 5 |
 | integrations page: clearer design, same functionality | 4.1 · 6, 7 |
 | launcher, auto run, complete installer | 4.1 · 9-15 |
+| tailwind canonical classes, autostart 404 in dev log | 4.1.1 · 1 |
+| settings server: restart/stop on top, labels, network hint, start at login in General, data dir as text | 4.1.1 · 2 |
+| restart: "restarting" modal, redirect to new port | 4.1.1 · 3 |
+| browser opens on login autostart; installer start opens no browser; starting loader | 4.1.1 · 4 |
+| update available alert: call to action | 4.1.1 · 5 |
+| project page: hide empty files / prints / 3D cards | 4.1.1 · 6 |
+| mobile branding header | 4.1.1 · 7 |
+| delete client | 4.1.1 · 8 |
+| alerts list: only the alert's own actions | 4.1.1 · 9 |
+| add printer: model and brand in modals | 4.1.1 · 10 |
+| sync scheduler: choose the run time | 4.1.1 · 11 |
 | users module: authentication, roles, permissions | 4.2 · 1-5 |
 | storage integration: SMB, cloud | 4.2 · 7, 8 |
 | bundled slicer for headless servers (download from the app) | 4.2 · 9-12 |
