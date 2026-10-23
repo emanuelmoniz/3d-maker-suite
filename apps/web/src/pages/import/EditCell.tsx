@@ -16,6 +16,8 @@ import {
 } from "react";
 import { useTranslation } from "react-i18next";
 import { Combobox } from "../../components/Combobox.tsx";
+import { DateInput } from "../../components/DateInput.tsx";
+import { DateTimeInput } from "../../components/DateTimeInput.tsx";
 import { inputClass } from "../../components/FormField.tsx";
 import { cx } from "../../lib/cx.ts";
 import { toLocalInput } from "../../lib/format.ts";
@@ -168,10 +170,20 @@ export function EditCell({
           <span className="text-muted">{t("import:review.newName")}</span>
         )}
       </>
+    ) : col.type === "date" ? (
+      <DateInput
+        aria-label={common["aria-label"]}
+        aria-invalid={common["aria-invalid"]}
+        value={edit.draft}
+        onChange={set}
+        className={fieldClass}
+      />
+    ) : date ? (
+      <DateTimeInput aria-invalid={common["aria-invalid"]} value={edit.draft} onChange={set} />
     ) : (
       <input
         {...common}
-        type={col.type === "date" ? "date" : date ? "datetime-local" : "text"}
+        type="text"
         inputMode={
           col.type === "integer"
             ? "numeric"

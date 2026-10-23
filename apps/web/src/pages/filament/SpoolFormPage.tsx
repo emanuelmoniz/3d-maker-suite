@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
 import { Combobox } from "../../components/Combobox.tsx";
+import { DateInput } from "../../components/DateInput.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { TagPicker } from "../../components/TagPicker.tsx";
@@ -100,7 +101,13 @@ export function SpoolForm({
     hint?: string,
   ) => (
     <FormField label={t(key)} hint={hint}>
-      {(p) => <input {...p} name={name} className={inputClass} {...props} />}
+      {(p) =>
+        props.type === "date" ? (
+          <DateInput {...p} name={name} defaultValue={props.defaultValue as string} />
+        ) : (
+          <input {...p} name={name} className={inputClass} {...props} />
+        )
+      }
     </FormField>
   );
   const grams = { type: "number", min: 0, step: 0.01 } as const;

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Combobox, type ComboOption } from "../../components/Combobox.tsx";
 import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
+import { DateInput } from "../../components/DateInput.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { accessoryName, useInstall, useRemoveInstall } from "../../lib/accessories.ts";
 import type { ApiError } from "../../lib/api.ts";
@@ -33,13 +34,12 @@ function DateField({
   return (
     <FormField label={label} hint={hint}>
       {(p) => (
-        <input
+        <DateInput
           {...p}
-          type="date"
           required={required}
           className={inputClass}
           value={value}
-          onChange={(e) => onChange(e.target.value)}
+          onChange={onChange}
         />
       )}
     </FormField>

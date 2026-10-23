@@ -5,6 +5,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
 import { Combobox } from "../../components/Combobox.tsx";
+import { DateTimeInput } from "../../components/DateTimeInput.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { TagPicker } from "../../components/TagPicker.tsx";
@@ -227,14 +228,12 @@ function PrintForm({ print }: { print?: PrintDetail }) {
       )}
       <FormField label={t("prints:form.startedAt")}>
         {(p) => (
-          <input
+          <DateTimeInput
             {...p}
             name="startedAt"
-            type="datetime-local"
             required
-            className={inputClass}
             value={startedAt}
-            onChange={(e) => setStartedAt(e.target.value)}
+            onChange={setStartedAt}
           />
         )}
       </FormField>

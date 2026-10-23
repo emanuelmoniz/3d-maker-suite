@@ -9,6 +9,7 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
 import { DataTable } from "../../components/DataTable.tsx";
+import { DateInput } from "../../components/DateInput.tsx";
 import { EmptyState } from "../../components/EmptyState.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
@@ -117,10 +118,9 @@ export function LogDialog({
           </div>
           <FormField label={t("maintenance:log.date")}>
             {(p) => (
-              <input
+              <DateInput
                 {...p}
                 name="doneAt"
-                type="date"
                 className={inputClass}
                 max={new Date().toISOString().slice(0, 10)}
                 defaultValue={new Date().toISOString().slice(0, 10)}

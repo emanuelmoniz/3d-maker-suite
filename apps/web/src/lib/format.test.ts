@@ -7,6 +7,7 @@ import {
   formatEnergy,
   formatRelative,
   formatWeight,
+  parseDateText,
   setDateTimePrefs,
 } from "./format.ts";
 
@@ -38,4 +39,15 @@ test("relative times use the largest whole unit", () => {
   expect(ago(2 * 3600 + 59 * 60)).toBe("2 hr. ago");
   expect(ago(86400)).toBe("yesterday");
   expect(ago(400 * 86400)).toBe("last yr.");
+});
+
+test("parseDateText reads the saved format and rejects impossible days", () => {
+  setDateTimePrefs({ dateFormat: "DD/MM/YYYY", timeFormat: "24h" });
+  expect(parseDateText("05/03/2026")).toBe("2026-03-05");
+  expect(parseDateText("5.3.2026")).toBe("2026-03-05");
+  expect(parseDateText("31/02/2026")).toBeNull();
+  expect(parseDateText("2026-03-05")).toBeNull();
+  setDateTimePrefs({ dateFormat: "MM/DD/YYYY", timeFormat: "24h" });
+  expect(parseDateText("03/05/2026")).toBe("2026-03-05");
+  setDateTimePrefs({ dateFormat: "YYYY/MM/DD", timeFormat: "24h" });
 });

@@ -16,6 +16,7 @@ import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
 import { Combobox } from "../../components/Combobox.tsx";
+import { DateInput } from "../../components/DateInput.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { Switch } from "../../components/Switch.tsx";
 import { formatDateTime, formatRelative } from "../../lib/format.ts";
@@ -322,25 +323,23 @@ function PolicyRow({
               <div className="grid grid-cols-2 gap-3 @xl:col-start-1">
                 <FormField label={t("integrations:sync.from")}>
                   {(f) => (
-                    <input
+                    <DateInput
                       {...f}
-                      type="date"
                       className={inputClass}
                       value={from}
                       max={to || undefined}
-                      onChange={(e) => setFrom(e.target.value)}
+                      onChange={setFrom}
                     />
                   )}
                 </FormField>
                 <FormField label={t("integrations:sync.to")}>
                   {(f) => (
-                    <input
+                    <DateInput
                       {...f}
-                      type="date"
                       className={inputClass}
                       value={to}
                       min={from || undefined}
-                      onChange={(e) => setTo(e.target.value)}
+                      onChange={setTo}
                     />
                   )}
                 </FormField>

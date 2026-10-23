@@ -43,6 +43,10 @@
     "dark": "Dark",
     "system": "System"
   },
+  "dateInput": {
+    "invalid": "Enter a valid date as {{format}}",
+    "openPicker": "Open calendar"
+  },
   "dateRange": {
     "from": "From",
     "to": "To"

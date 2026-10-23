@@ -11,7 +11,7 @@ test("updates: version in the footer and About; Docker gets the command, git the
 }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto("/settings");
-  await expect(page.getByRole("complementary").getByText(`Version ${version}`)).toBeVisible();
+  await expect(page.locator("footer").getByText(`v${version}`, { exact: false })).toBeVisible();
   const about = page.locator("#updates");
   await expect(about.getByRole("heading", { name: "About & updates" })).toBeVisible();
   await expect(about.getByText(`Version ${version}`)).toBeVisible();

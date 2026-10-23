@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
 import { Combobox } from "../../components/Combobox.tsx";
+import { DateInput } from "../../components/DateInput.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { TagPicker } from "../../components/TagPicker.tsx";
@@ -171,10 +172,9 @@ function PrinterForm({ printer }: { printer?: Printer }) {
       </FormField>
       <FormField label={t("printers:form.purchasedAt")}>
         {(p) => (
-          <input
+          <DateInput
             {...p}
             name="purchasedAt"
-            type="date"
             className={inputClass}
             defaultValue={isoToDateInput(printer?.purchasedAt ?? null)}
           />
@@ -196,10 +196,9 @@ function PrinterForm({ printer }: { printer?: Printer }) {
       <CostFields values={printer} kind="printer" />
       <FormField label={t("printers:form.warrantyEndsAt")}>
         {(p) => (
-          <input
+          <DateInput
             {...p}
             name="warrantyEndsAt"
-            type="date"
             className={inputClass}
             defaultValue={isoToDateInput(printer?.warrantyEndsAt ?? null)}
           />

@@ -4,6 +4,7 @@ import { useId } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
 import { Combobox } from "../../components/Combobox.tsx";
+import { DateInput } from "../../components/DateInput.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { TagPicker } from "../../components/TagPicker.tsx";
@@ -154,10 +155,9 @@ function AccessoryForm({ accessory }: { accessory?: Accessory }) {
       </FormField>
       <FormField label={t("printers:form.purchasedAt")}>
         {(p) => (
-          <input
+          <DateInput
             {...p}
             name="purchasedAt"
-            type="date"
             className={inputClass}
             defaultValue={isoToDateInput(accessory?.purchasedAt ?? null)}
           />
@@ -179,10 +179,9 @@ function AccessoryForm({ accessory }: { accessory?: Accessory }) {
       <CostFields values={accessory} kind="accessory" />
       <FormField label={t("printers:form.warrantyEndsAt")}>
         {(p) => (
-          <input
+          <DateInput
             {...p}
             name="warrantyEndsAt"
-            type="date"
             className={inputClass}
             defaultValue={isoToDateInput(accessory?.warrantyEndsAt ?? null)}
           />

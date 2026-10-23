@@ -47,7 +47,14 @@ for (const viewport of VIEWPORTS) {
         buffer: Buffer.from("v1"),
       });
     await expect(files.getByText("notes.txt")).toBeVisible();
-    expect(readFileSync(join(folder, "notes.txt"), "utf8")).toBe("v1");
+    // The list can show the name before the upload finishes writing it.
+    await expect
+      .poll(() =>
+        existsSync(join(folder, "notes.txt"))
+          ? readFileSync(join(folder, "notes.txt"), "utf8")
+          : "",
+      )
+      .toBe("v1");
 
     // Same name again asks before replacing; cancel keeps the file.
     const again = { name: "notes.txt", mimeType: "text/plain", buffer: Buffer.from("v2") };

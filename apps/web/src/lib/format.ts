@@ -31,6 +31,24 @@ export const formatDate = (d: Date | string | number) => {
     .replace("DD", get("day"));
 };
 
+/** Typed text in the saved date format (any of / - . as separator) to "yyyy-mm-dd"; null if it is not a real day. */
+export function parseDateText(text: string) {
+  const nums = text
+    .trim()
+    .match(/^(\d+)\D(\d+)\D(\d+)$/)
+    ?.slice(1);
+  if (!nums) return null;
+  const order = dateFormat.match(/YYYY|MM|DD/g) ?? ([] as string[]);
+  const pick = (k: string) => Number(nums[order.indexOf(k)]);
+  const [y, m, d] = [pick("YYYY"), pick("MM"), pick("DD")];
+  const day = new Date(Date.UTC(y, m - 1, d));
+  if (y < 1000 || day.getUTCMonth() !== m - 1 || day.getUTCDate() !== d) return null;
+  return day.toISOString().slice(0, 10);
+}
+
+/** The format as a placeholder, e.g. "DD/MM/YYYY". */
+export const dateFormatHint = () => dateFormat;
+
 export const formatTime = (d: Date | string | number) =>
   new Intl.DateTimeFormat(locale(), {
     hour: timeFormat === "24h" ? "2-digit" : "numeric",
