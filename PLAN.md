@@ -191,7 +191,7 @@ Design (native, unsigned installers):
 Do Step 9 of PLAN.md. Report each spike point with evidence and your recommendation.
 ```
 
-### [ ] Step 10 - ADR-0011 and installer builds in CI  **[plan mode]**
+### [x] Step 10 - ADR-0011 and installer builds in CI  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:** Read `packaging/spike/NOTES.md` (Step 9 findings and recommendations) first; spike code is on branch `spike/installer` (delete it once this step lands).
 - `docs/adr/0011-bundle-installs.md` (amends ADR-0009): folder layout, `current.json`, launcher, update and rollback flow, unsigned warnings, rejected options.
