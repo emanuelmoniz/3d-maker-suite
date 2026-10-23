@@ -4,6 +4,11 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+## [4.1.0-alpha.3] - 2026-10-23
+
+### Changed
+- Version bump to exercise the installer update and rollback path (Step 15 test build)
+
 ## [4.1.0-alpha.2] - 2026-10-23
 
 ### Added
