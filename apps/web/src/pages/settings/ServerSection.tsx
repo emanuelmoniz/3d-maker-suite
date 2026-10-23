@@ -32,6 +32,8 @@ export function ServerActions() {
   });
   const stop = useMutation({ mutationFn: () => api("POST", "/api/server-config/stop") });
   const [confirmStop, setConfirmStop] = useState(false);
+  const [restartUrl, setRestartUrl] = useState<string | null>(null);
+  const [timedOut, setTimedOut] = useState(false);
   if (!data) return null;
   const { effective, saved } = data;
   // A flag or env var keeps winning after the restart; otherwise the saved value does.
@@ -42,8 +44,7 @@ export function ServerActions() {
     ? effective.port
     : (saved.port ?? effective.port);
 
-  const restartAndOpen = () => {
-    const tab = window.open("about:blank", "_blank"); // opened now, on the click, so it isn't blocked
+  const restartInPlace = () => {
     const bound = ["0.0.0.0", "::", "[::]"].includes(nextHost);
     // Behind the Vite dev server (a different port than the API), come back to that same address.
     const url =
@@ -52,26 +53,26 @@ export function ServerActions() {
         : `${location.protocol}//${bound ? location.hostname : nextHost}:${nextPort}/`;
     restart.mutate(undefined, {
       onSuccess: async () => {
-        for (let i = 0; i < 40; i++) {
+        setRestartUrl(url);
+        for (let i = 0; i < 60; i++) {
           await new Promise((r) => setTimeout(r, 500));
           const up = await fetch(`${url}api/health`, { mode: "no-cors" }).then(
             () => true,
             () => false,
           );
           if (!up) continue;
-          if (tab) tab.location.href = url;
-          else window.open(url, "_blank");
+          if (url === `${location.origin}/`) location.reload();
+          else location.assign(url);
           return;
         }
-        tab?.close();
+        setTimedOut(true);
       },
-      onError: () => tab?.close(),
     });
   };
 
   return (
     <>
-      <Button disabled={restart.isPending || restart.isSuccess} onClick={restartAndOpen}>
+      <Button disabled={restart.isPending || restart.isSuccess} onClick={restartInPlace}>
         {t("settings:server.restartButton")}
       </Button>
       <Button
@@ -93,6 +94,32 @@ export function ServerActions() {
         }}
         onCancel={() => setConfirmStop(false)}
       />
+      {restartUrl && (
+        <dialog
+          ref={(d) => {
+            if (d && !d.open) d.showModal();
+          }}
+          onCancel={(e) => e.preventDefault()}
+          aria-labelledby="restarting-title"
+          className="m-auto w-[min(92vw,26rem)] rounded-lg border border-border bg-surface p-5 text-fg"
+        >
+          <h2 id="restarting-title" className="text-base font-semibold">
+            {t("settings:server.restartingTitle")}
+          </h2>
+          {timedOut ? (
+            <p role="alert" className="mt-2 text-bad">
+              {t("settings:server.restartTimeout")}{" "}
+              <a href={restartUrl} className="underline">
+                {restartUrl}
+              </a>
+            </p>
+          ) : (
+            <p role="status" className="mt-2 text-muted">
+              {t("settings:server.restartingBody")}
+            </p>
+          )}
+        </dialog>
+      )}
       {stop.isSuccess && (
         <p role="status" className="w-full text-muted">
           {t("settings:server.stopped")}

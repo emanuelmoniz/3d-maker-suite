@@ -313,7 +313,7 @@ Do Step 1 of the 4.1.1 plan in PLAN.md.
 Do Step 2 of the 4.1.1 plan in PLAN.md.
 ```
 
-### [ ] Step 3 - Restart without a new tab
+### [x] Step 3 - Restart without a new tab
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - Today `ServerSection.tsx:61-82` pre-opens a blank tab on click (to dodge the popup blocker) and points it at the new host/port once `/api/health` answers.
