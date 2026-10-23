@@ -48,6 +48,11 @@ export function parseDateText(text: string) {
 
 /** The format as a placeholder, e.g. "DD/MM/YYYY". */
 export const dateFormatHint = () => dateFormat;
+export const uses12h = () => timeFormat === "12h";
+
+/** A 0–23 hour as the 12-hour clock shows it: 12 AM is 0, 12 PM is 12. */
+export const to12h = (h: number) => ({ hour: h % 12 || 12, pm: h >= 12 });
+export const from12h = (hour: number, pm: boolean) => (hour % 12) + (pm ? 12 : 0);
 
 export const formatTime = (d: Date | string | number) =>
   new Intl.DateTimeFormat(locale(), {

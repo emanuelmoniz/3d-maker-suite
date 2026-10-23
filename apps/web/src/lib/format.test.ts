@@ -7,8 +7,10 @@ import {
   formatEnergy,
   formatRelative,
   formatWeight,
+  from12h,
   parseDateText,
   setDateTimePrefs,
+  to12h,
 } from "./format.ts";
 
 test("formats base units for the en locale", () => {
@@ -29,6 +31,18 @@ test("dates default to YYYY/MM/DD 24h and follow the preferences", () => {
   expect(formatDate(d)).toBe("05.03.2026");
   expect(formatDateTime(d)).toMatch(/^05\.03\.2026 2:30\sPM$/);
   setDateTimePrefs({ dateFormat: "YYYY/MM/DD", timeFormat: "24h" });
+});
+
+test("hours map between the 24- and 12-hour clock", () => {
+  expect([0, 1, 11, 12, 13, 23].map(to12h)).toEqual([
+    { hour: 12, pm: false },
+    { hour: 1, pm: false },
+    { hour: 11, pm: false },
+    { hour: 12, pm: true },
+    { hour: 1, pm: true },
+    { hour: 11, pm: true },
+  ]);
+  for (let h = 0; h < 24; h++) expect(from12h(to12h(h).hour, to12h(h).pm)).toBe(h);
 });
 
 test("relative times use the largest whole unit", () => {

@@ -1,6 +1,6 @@
 {
   "title": "Integrations",
-  "description": "Accounts, slicers and what to import, per vendor. Each type has its own mode and frequency.",
+  "description": "Connect vendor accounts and slicers, and choose what they import and when.",
   "loadError": "Couldn't load integrations. Is the server running?",
   "add": "Add integration",
   "emptyTitle": "No integrations yet",
@@ -9,14 +9,6 @@
   "kinds": {
     "cloud": "Cloud",
     "local": "Local"
-  },
-  "status": {
-    "new": "Not synced",
-    "syncing": "Syncing",
-    "ok": "OK",
-    "error": "Error",
-    "disabled": "Disabled",
-    "unavailable": "Not available on this server"
   },
   "errors": {
     "auth_required": "Sign-in required. Check the credentials.",
@@ -31,8 +23,15 @@
     "unknown": "Something went wrong. See the server log for details."
   },
   "card": {
-    "lastSync": "Last sync: {{date}}",
-    "never": "Never synced",
+    "lastSync": "Synced {{date}}",
+    "never": "Not synced yet",
+    "syncing": "Syncing…",
+    "ready": "Ready, nothing synced yet",
+    "account": "Account",
+    "signedIn": "Signed in",
+    "notSignedIn": "Not signed in yet",
+    "imports": "What to import",
+    "actions": "Slicer actions",
     "enabled": "Enabled",
     "test": "Test connection",
     "testOk": "Connection works.",
@@ -43,10 +42,7 @@
     "disabledHint": "Switched off: nothing is synced, imported or offered in the app. Tick Enabled to use it and change its settings.",
     "unavailableHint": "The slicer's config folder wasn't found on this server. If it's on another computer, mount it here and set Config folder to that path.",
     "menu": "More actions for {{name}}",
-    "messages_one": "{{count}} message",
-    "messages_other": "{{count}} messages",
-    "sync": "Sync",
-    "log": "Log"
+    "log": "Sync log"
   },
   "deleteDialog": {
     "title": "Delete {{name}}?",
@@ -135,22 +131,33 @@
   },
   "policies": {
     "groups": {
-      "devices": "Devices & prints",
-      "catalog": "Catalog",
-      "actions": "Slicer actions"
+      "devices": "Devices and prints",
+      "catalog": "Catalog"
     },
     "modes": {
-      "auto": "Auto",
       "manual": "Manual"
     },
     "auto": "Auto",
     "autoOf": "Auto sync: {{type}}",
     "detailsOf": "Settings: {{type}}",
     "frequency": "Frequency",
-    "lastRun": "Last sync",
-    "never": "Never",
     "syncNow": "Sync now",
-    "importNow": "Manual import",
+    "importNow": "Review and import",
+    "when": "When it runs",
+    "whatHow": "What and how",
+    "manualHint": "Runs only when you click Sync now.",
+    "summary": {
+      "15m": "Auto, every 15 minutes",
+      "15mAt": "Auto, every 15 minutes from :{{minute}}",
+      "1h": "Auto, every hour",
+      "1hAt": "Auto, every hour at :{{minute}}",
+      "1d": "Auto, every day",
+      "1dAt": "Auto, every day at {{time}}",
+      "1w": "Auto, every week",
+      "1wAt": "Auto, every {{weekday}} at {{time}}",
+      "1M": "Auto, every month",
+      "1MAt": "Auto, every month on day {{day}} at {{time}}"
+    },
     "pending_one": "{{count}} to review",
     "pending_other": "{{count}} to review",
     "frequencyOf": "Frequency: {{type}}",
@@ -182,7 +189,7 @@
     },
     "scopeHints": {
       "all": "Every row the source offers is added and kept up to date.",
-      "imported": "Rows you already have are kept up to date. A new one is added only if you have its brand, so a new model of your printer brand still arrives, but nothing from brands you never imported. Start with \"Manual import\": filter the brand column, select all and import."
+      "imported": "Rows you already have are kept up to date. A new one is added only if you have its brand, so a new model of your printer brand still arrives, but nothing from brands you never imported. Start with \"Review and import\": filter the brand column, select all and import."
     },
     "merge": "How to sync",
     "mergeOf": "How to sync: {{type}}",
@@ -194,10 +201,10 @@
     "mergeHints": {
       "overwrite": "A change at the source replaces what you have, your own edits included.",
       "keepEdits": "Fields you changed since the last sync stay as you left them; the other fields follow the source.",
-      "review": "Nothing you have is changed by an automatic run. When the source changes a row, you get an alert and decide under \"Manual import\". A change you skip there doesn't come back until the source changes again."
+      "review": "Nothing you have is changed by an automatic run. When the source changes a row, you get an alert and decide under \"Review and import\". A change you skip there doesn't come back until the source changes again."
     },
     "doubleTracking": "Tracking usage from both prints and spools at the same time is not recommended: the same filament can be counted twice, or the vendor's estimate can overwrite the weight your prints took off.",
-    "hint": "Automatic runs only import what needs no decision from you. Anything else waits under \"Manual import\"."
+    "hint": "Automatic runs import only what needs no decision from you. Anything else waits under \"Review and import\"."
   },
   "slicer": {
     "title": "Slicer",
@@ -209,12 +216,13 @@
     "makeDefault": "Make default slicer"
   },
   "sync": {
-    "range": "History range",
-    "rangeHint": "Used by \"Sync now\" and \"Manual import\".",
+    "range": "Period",
+    "period": "Sync a past period",
+    "periodHint": "Imports prints from that period once. Sync now always continues from the last sync.",
+    "syncPeriod": "Sync this period",
     "from": "From",
     "to": "To",
     "ranges": {
-      "sinceLast": "Since the last sync",
       "d7": "Last 7 days",
       "d30": "Last 30 days",
       "d90": "Last 90 days",

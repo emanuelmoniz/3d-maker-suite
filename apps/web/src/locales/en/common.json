@@ -48,6 +48,12 @@
     "invalid": "Enter a valid date as {{format}}",
     "openPicker": "Open calendar"
   },
+  "timeInput": {
+    "hour": "Hour",
+    "minute": "Minute",
+    "period": "AM or PM",
+    "done": "Done"
+  },
   "dateRange": {
     "from": "From",
     "to": "To"

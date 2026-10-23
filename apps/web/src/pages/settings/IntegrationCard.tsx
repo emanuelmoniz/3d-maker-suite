@@ -8,7 +8,7 @@ import {
   syncRunFilters,
 } from "@3d-maker-suite/core";
 import { useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { type ReactNode, useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
 import { Collapsible } from "../../components/Collapsible.tsx";
@@ -18,7 +18,8 @@ import { FormField, inputClass } from "../../components/FormField.tsx";
 import { Menu } from "../../components/Menu.tsx";
 import { PathPicker } from "../../components/PathPicker.tsx";
 import { Switch } from "../../components/Switch.tsx";
-import { formatDate, formatDateTime } from "../../lib/format.ts";
+import { cx } from "../../lib/cx.ts";
+import { formatDate, formatDateTime, formatRelative } from "../../lib/format.ts";
 import {
   useAdapterName,
   useAdapters,
@@ -31,19 +32,37 @@ import {
 } from "../../lib/integrations.ts";
 import { usePreferences, useSavePreferences } from "../../lib/preferences.ts";
 import { CAPS, ERRORS, KINDS } from "./integrationLabels.ts";
-import { Policies } from "./PolicyRow.tsx";
+import { ActionSwitches, Policies } from "./PolicyRow.tsx";
 
-// Literal keys so `pnpm i18n:check` sees them.
-const STATUS: Record<IntegrationStatus, { label: string; tone: string }> = {
-  new: { label: "integrations:status.new", tone: "bg-surface-2 text-muted" },
-  syncing: { label: "integrations:status.syncing", tone: "bg-accent-soft text-accent" },
-  ok: { label: "integrations:status.ok", tone: "bg-ok/15 text-ok" },
-  error: { label: "integrations:status.error", tone: "bg-bad/15 text-bad" },
-  unavailable: { label: "integrations:status.unavailable", tone: "bg-surface-2 text-muted" },
+// The status dot's colour; the line's text says the rest.
+const DOT: Record<IntegrationStatus | "disabled", string> = {
+  new: "bg-border",
+  syncing: "bg-accent",
+  ok: "bg-ok",
+  error: "bg-bad",
+  unavailable: "bg-warn",
+  disabled: "bg-border",
 };
 const TRIGGERS = { manual: "integrations:runs.manual", scheduled: "integrations:runs.scheduled" };
 const RUN_STATUSES = { ok: "integrations:runs.ok", error: "integrations:runs.error" };
 
+/** One part of a card: a heading below a divider. */
+function Part({ title, children }: { title: string; children: ReactNode }) {
+  const id = useId();
+  return (
+    <section aria-labelledby={id} className="mt-5 grid gap-3 border-t border-border pt-4">
+      <h4 id={id} className="font-semibold">
+        {title}
+      </h4>
+      {children}
+    </section>
+  );
+}
+
+/**
+ * One integration: name, on/off and a status line; then its account (cloud) or slicer (local),
+ * what it imports, and the sync log.
+ */
 export function IntegrationCard({ integration: i }: { integration: Integration }) {
   const { t } = useTranslation();
   const adapterName = useAdapterName();
@@ -55,37 +74,36 @@ export function IntegrationCard({ integration: i }: { integration: Integration }
   const account = i.enabled && i.kind === "cloud" && on.length > 0;
   const logged = i.enabled && on.some((p) => !isAction(p.type));
   const hasLogin = account && adapter?.login;
+  const imports = i.policies.some((p) => !isAction(p.type));
   const [confirming, setConfirming] = useState(false);
   const patch = usePatchIntegration(i.id);
   const sync = useSyncIntegration(i.id);
   const test = useTestIntegration(i.id);
   const remove = useDeleteIntegration(i.id);
-  const status = i.enabled
-    ? STATUS[sync.isPending ? "syncing" : i.status]
-    : { label: "integrations:status.disabled", tone: "bg-surface-2 text-muted" };
   const failed = [patch, sync, remove].some((m) => m.isError);
+  const name = adapterName(i.adapterId);
 
-  const messages: { key: string; text: string; tone: string; role?: "alert" | "status" }[] = [];
-  const say = (key: string, text: string, tone = "text-muted", role?: "alert" | "status") =>
-    messages.push({ key, text, tone, role });
-  if (!i.enabled) say("disabled", t("integrations:card.disabledHint"));
-  if (i.enabled && i.status === "unavailable")
-    say("unavailable", t("integrations:card.unavailableHint"));
-  if (i.status === "error" && i.lastError)
-    say("error", t(ERRORS[i.lastError]), "text-bad", "alert");
-  if (test.data)
-    say(
-      "test",
-      test.data.ok ? t("integrations:card.testOk") : t(ERRORS[test.data.code]),
-      test.data.ok ? "text-ok" : "text-bad",
-      "status",
+  // The status line: one sentence for where the integration stands.
+  const state = !i.enabled ? "disabled" : sync.isPending ? "syncing" : i.status;
+  const status =
+    state === "disabled" ? (
+      t("integrations:card.disabledHint")
+    ) : state === "syncing" ? (
+      t("integrations:card.syncing")
+    ) : state === "unavailable" ? (
+      t("integrations:card.unavailableHint")
+    ) : state === "error" && i.lastError ? (
+      t(ERRORS[i.lastError])
+    ) : i.lastSyncAt ? (
+      <time dateTime={i.lastSyncAt} title={formatDateTime(i.lastSyncAt)}>
+        {t("integrations:card.lastSync", { date: formatRelative(i.lastSyncAt) })}
+      </time>
+    ) : state === "ok" ? (
+      // A local source that is set up but hasn't imported anything yet.
+      t("integrations:card.ready")
+    ) : (
+      t("integrations:card.never")
     );
-  if (failed) say("action", t("integrations:card.actionError"), "text-bad", "alert");
-  const lines = messages.map((m) => (
-    <p key={m.key} role={m.role} className={m.tone}>
-      {m.text}
-    </p>
-  ));
 
   return (
     <li
@@ -93,11 +111,10 @@ export function IntegrationCard({ integration: i }: { integration: Integration }
       className="scroll-mt-4 rounded-lg border border-border bg-surface p-4 sm:p-5"
     >
       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
-        <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-          <h3 className="truncate text-base font-semibold">{adapterName(i.adapterId)}</h3>
-          <span className="text-muted">· {t(KINDS[i.kind])}</span>
-          <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${status.tone}`}>
-            {t(status.label)}
+        <div className="flex min-w-0 items-center gap-2">
+          <h3 className="truncate text-base font-semibold">{name}</h3>
+          <span className="rounded-full bg-surface-2 px-2 py-0.5 text-xs font-medium text-muted">
+            {t(KINDS[i.kind])}
           </span>
         </div>
         <div className="flex items-center gap-1">
@@ -107,26 +124,7 @@ export function IntegrationCard({ integration: i }: { integration: Integration }
             disabled={patch.isPending}
             onChange={(e) => patch.mutate({ enabled: e.target.checked })}
           />
-          <Menu label={t("integrations:card.menu", { name: adapterName(i.adapterId) })}>
-            {account && (
-              <Button
-                variant="ghost"
-                className="justify-start"
-                disabled={test.isPending}
-                onClick={() => test.mutate()}
-              >
-                {t("integrations:card.test")}
-              </Button>
-            )}
-            {hasLogin && (
-              <Button
-                variant="ghost"
-                className="justify-start"
-                onClick={() => navigate({ to: "/integrations/$id/login", params: { id: i.id } })}
-              >
-                {i.hasSecrets ? t("integrations:card.signInAgain") : t("integrations:card.signIn")}
-              </Button>
-            )}
+          <Menu label={t("integrations:card.menu", { name })}>
             <Button
               variant="ghost"
               className="justify-start text-bad"
@@ -138,47 +136,82 @@ export function IntegrationCard({ integration: i }: { integration: Integration }
         </div>
       </div>
 
-      {i.kind === "cloud" && (
-        <p className="mt-2 text-muted">
-          {i.lastSyncAt
-            ? t("integrations:card.lastSync", { date: formatDateTime(i.lastSyncAt) })
-            : t("integrations:card.never")}
+      <p
+        role={state === "error" ? "alert" : undefined}
+        className={cx("mt-2 flex items-start gap-2", state === "error" ? "text-bad" : "text-muted")}
+      >
+        <span aria-hidden className={cx("mt-1.5 size-2 shrink-0 rounded-full", DOT[state])} />
+        <span>{status}</span>
+      </p>
+      {failed && (
+        <p role="alert" className="mt-1 text-bad">
+          {t("integrations:card.actionError")}
         </p>
       )}
-      {lines.length > 1 ? (
-        <details className="mt-2">
-          <summary className="cursor-pointer font-medium">
-            {t("integrations:card.messages", { count: lines.length })}
-          </summary>
-          <div className="mt-1 grid gap-1">{lines}</div>
-        </details>
-      ) : (
-        <div className="mt-2 grid gap-1">{lines}</div>
-      )}
 
-      {i.enabled && i.policies.length > 0 && (
-        <Collapsible title={t("integrations:card.sync")} defaultOpen className="mt-4">
-          <Policies integration={i} sync={sync} />
-        </Collapsible>
+      {account && (
+        <Part title={t("integrations:card.account")}>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+            {adapter?.login && (
+              <span className="text-muted">
+                {i.hasSecrets
+                  ? t("integrations:card.signedIn")
+                  : t("integrations:card.notSignedIn")}
+              </span>
+            )}
+            <span className="flex flex-wrap gap-2">
+              {hasLogin && (
+                <Button
+                  variant={i.hasSecrets ? "secondary" : "primary"}
+                  onClick={() => navigate({ to: "/integrations/$id/login", params: { id: i.id } })}
+                >
+                  {i.hasSecrets
+                    ? t("integrations:card.signInAgain")
+                    : t("integrations:card.signIn")}
+                </Button>
+              )}
+              <Button disabled={test.isPending} onClick={() => test.mutate()}>
+                {t("integrations:card.test")}
+              </Button>
+            </span>
+          </div>
+          {test.data && (
+            <p role="status" className={test.data.ok ? "text-ok" : "text-bad"}>
+              {test.data.ok ? t("integrations:card.testOk") : t(ERRORS[test.data.code])}
+            </p>
+          )}
+        </Part>
       )}
       {i.enabled && i.kind === "local" && (
-        <Collapsible title={t("integrations:slicer.title")} className="mt-3">
+        <Part title={t("integrations:slicer.title")}>
           <SlicerFields
             integration={i}
             detectedDir={adapter?.detectedConfigDir ?? null}
             program={i.policies.some((p) => isAction(p.type))}
           />
-        </Collapsible>
+          <ActionSwitches integration={i} />
+        </Part>
+      )}
+      {/* A cloud adapter's slicer actions (a local one has them in its slicer part). */}
+      {i.enabled && i.kind === "cloud" && i.policies.some((p) => isAction(p.type)) && (
+        <Part title={t("integrations:card.actions")}>
+          <ActionSwitches integration={i} />
+        </Part>
+      )}
+      {i.enabled && imports && (
+        <Part title={t("integrations:card.imports")}>
+          <Policies integration={i} sync={sync} />
+        </Part>
       )}
       {logged && (
-        <Collapsible title={t("integrations:card.log")} className="mt-3">
+        <Collapsible title={t("integrations:card.log")} className="mt-5">
           <SyncLog id={i.id} types={i.policies.map((p) => p.type).filter((c) => !isAction(c))} />
         </Collapsible>
       )}
 
       <ConfirmDialog
         open={confirming}
-        title={t("integrations:deleteDialog.title", { name: adapterName(i.adapterId) })}
+        title={t("integrations:deleteDialog.title", { name })}
         description={t("integrations:deleteDialog.body")}
         confirmLabel={t("integrations:card.delete")}
         destructive
@@ -242,7 +275,7 @@ function SlicerFields({
     </FormField>
   );
   return (
-    <div className="grid gap-3 p-1">
+    <div className="grid gap-3">
       {path(
         "slicerConfigDir",
         t("integrations:slicer.configDir"),

@@ -1,13 +1,16 @@
 import { expect, test } from "./fixtures.ts";
 
-test("Manual import on the Printers row reviews the cloud's printers", async ({ page, app }) => {
+test("Review and import on the Printers row reviews the cloud's printers", async ({
+  page,
+  app,
+}) => {
   await app.api("POST", "/api/integrations", { adapterId: "mock", secrets: { token: "t" } });
 
   await page.goto("/integrations");
   await page
     .getByRole("listitem")
     .filter({ hasText: /^Printers/ })
-    .getByRole("link", { name: "Manual import" })
+    .getByRole("link", { name: "Review and import" })
     .click();
   await expect(page.getByRole("cell", { name: "MOCK0001" })).toBeVisible();
   await page.getByRole("button", { name: /^Import \d+ rows?$/ }).click();

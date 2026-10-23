@@ -65,13 +65,77 @@ test("sync time: a daily auto type runs at the time picked, any time clears it",
   await page.getByRole("combobox", { name: "Frequency: Print history" }).click();
   await page.getByRole("option", { name: "Every day" }).click();
 
-  const time = page.getByLabel("Time: Print history");
-  await time.fill("07:30");
+  // Picks in the panel are a draft: one save on Done.
+  const patches: unknown[] = [];
+  page.on("request", (r) => {
+    if (r.method() === "PATCH" && r.url().includes("/api/integrations/"))
+      patches.push(r.postDataJSON());
+  });
+  const time = page.getByRole("button", { name: "Time: Print history" });
+  await expect(time).toHaveText("Any time");
+  await time.click();
+  const panel = page.getByRole("dialog", { name: "Time: Print history" });
+  await panel.getByRole("button", { name: "07", exact: true }).click();
+  await panel.getByRole("button", { name: "30", exact: true }).click();
+  await expect(panel).toBeVisible();
+  await panel.getByRole("button", { name: "Done" }).click();
+  await expect(panel).toBeHidden();
   await expect.poll(prints).toMatchObject({ frequency: "1d", atHour: 7, atMinute: 30 });
+  expect(patches).toEqual([{ policies: [{ type: "prints", atHour: 7, atMinute: 30 }] }]);
+  await expect(time).toHaveText("07:30");
+  await expect(page.getByText("Auto, every day at 07:30")).toBeVisible();
+
+  // The 12-hour setting shows the time and the hours that way.
+  await app.api("PATCH", "/api/preferences", { timeFormat: "12h" });
   await page.reload();
   await page.getByRole("button", { name: "Settings: Print history" }).click();
-  await expect(time).toHaveValue("07:30");
+  await expect(time).toHaveText(/^7:30\sAM$/);
+  await time.click();
+  await panel.getByRole("button", { name: "PM" }).click();
+  await panel.getByRole("button", { name: "Done" }).click();
+  await expect.poll(prints).toMatchObject({ atHour: 19, atMinute: 30 });
 
-  await time.fill("");
+  // Escape drops the draft; Any time clears the time.
+  await time.click();
+  await panel.getByRole("button", { name: "AM" }).click();
+  await page.keyboard.press("Escape");
+  await expect(panel).toBeHidden();
+  await expect(time).toHaveText(/^7:30\sPM$/);
+  await time.click();
+  await panel.getByRole("button", { name: "Any time" }).click();
   await expect.poll(prints).toMatchObject({ atHour: null, atMinute: null });
+
+  // Weekly: a weekday and an hour from the same picker, without minutes.
+  await page.getByRole("combobox", { name: "Frequency: Print history" }).click();
+  await page.getByRole("option", { name: "Every week" }).click();
+  const hour = page.getByRole("button", { name: "Hour: Print history" });
+  await hour.click();
+  await expect(panel).toHaveCount(0);
+  const hourPanel = page.getByRole("dialog", { name: "Hour: Print history" });
+  await expect(hourPanel.getByText("Minute")).toHaveCount(0);
+  await hourPanel.getByRole("button", { name: "6", exact: true }).click();
+  await hourPanel.getByRole("button", { name: "Done" }).click();
+  await expect.poll(prints).toMatchObject({ frequency: "1w", atHour: 6, atMinute: null });
+});
+
+test("sync a past period of print history from its own group", async ({ page, app }) => {
+  const { id } = await app.api<{ id: string }>("POST", "/api/integrations", {
+    adapterId: "mock",
+    secrets: { token: "t" },
+  });
+  await page.goto("/integrations");
+  await page.getByRole("button", { name: "Settings: Print history" }).click();
+  const group = page.getByRole("group", { name: "Sync a past period" });
+  await group.getByRole("combobox", { name: "Period" }).click();
+  await page.getByRole("option", { name: "Last 7 days" }).click();
+  await group.getByRole("button", { name: "Sync this period" }).click();
+  await expect
+    .poll(async () => {
+      const runs = await app.api<{ items: { rangeFrom: string | null }[] }>(
+        "GET",
+        `/api/integrations/${id}/runs`,
+      );
+      return runs.items.some((r) => r.rangeFrom);
+    })
+    .toBe(true);
 });
