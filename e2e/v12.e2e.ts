@@ -325,7 +325,10 @@ test("sync_pending alert: raised by an auto sync, Review opens the queue, toggle
     .filter({ hasText: "waiting for your review" })
     .or(page.getByRole("listitem").filter({ hasText: "wait for your review" }));
   await expect(row).toHaveCount(1);
-  await row.getByRole("link", { name: "Review", exact: true }).click();
+  // The list has no Review button: it is on the alert.
+  await expect(row.getByRole("link", { name: "Review", exact: true })).toHaveCount(0);
+  await row.getByRole("link").click();
+  await page.getByRole("link", { name: "Review", exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`/import/integration/${id}/prints$`));
 
   await page.goto("/integrations");

@@ -385,7 +385,7 @@ Do Step 7 of the 4.1.1 plan in PLAN.md.
 Do Step 8 of the 4.1.1 plan in PLAN.md.
 ```
 
-### [ ] Step 9 - Alerts list: only the alert's own actions
+### [x] Step 9 - Alerts list: only the alert's own actions
 **Model:** Haiku · **Effort:** Low
 **Scope:** rows in "Needs your attention" keep only mark read / dismiss. Every other button ("Review" included) and the navigation calls to action (e.g. "View filament profiles", added to the rows in 4.1 Step 3 via `syncTargets.ts`) live only on the alert detail page.
 **Done when:** list rows show only read/dismiss; the detail page still has every call to action; e2e updated; tests pass.

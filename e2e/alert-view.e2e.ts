@@ -138,12 +138,16 @@ test("sync success alert: a button to the synced module, and to the integration 
     secrets: { token: "t" },
   });
   await app.api("POST", `/api/integrations/${id}/sync`, { type: "printers" });
+  // The list has only the alert's own actions: read and dismiss.
   await page.goto("/alerts");
-  await page
-    .getByRole("listitem")
-    .filter({ hasText: /synced/ })
-    .getByRole("link", { name: "View printers" })
-    .click();
+  const row = page.getByRole("listitem").filter({ hasText: /synced/ });
+  await expect(row.getByRole("link", { name: "View printers" })).toHaveCount(0);
+  await expect(row.getByRole("button")).toHaveCount(2);
+  await expect(row.getByRole("button", { name: "Dismiss" })).toBeVisible();
+
+  await page.goto("/alerts");
+  await page.getByRole("link", { name: /synced/ }).click();
+  await page.getByRole("link", { name: "View printers" }).click();
   await expect(page).toHaveURL(/\/printers$/);
 
   await page.goto("/alerts");

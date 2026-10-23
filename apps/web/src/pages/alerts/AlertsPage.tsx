@@ -204,17 +204,20 @@ function Detail({ id }: { id: string }) {
   );
 }
 
-/** Read or unread, snooze (or remove it) and dismiss: the same on the list and in the alert's own view. */
+/** Read or unread, snooze (or remove it) and dismiss. The list only gets read and dismiss. */
 export function AlertButtons({
   a,
   snoozed,
   postpone,
+  inList,
   onHidden,
 }: {
   a: Alert;
   snoozed?: boolean;
   /** Snooze is worded "postpone" (maintenance). */
   postpone?: boolean;
+  /** In the list: no snooze, the alert's own view has it. */
+  inList?: boolean;
   /** After a snooze or dismiss took the alert off the list. */
   onHidden?: () => void;
 }) {
@@ -239,7 +242,7 @@ export function AlertButtons({
           <Button onClick={() => run(a.readAt ? "unread" : "read")}>
             {t(a.readAt ? "alerts:markUnread" : "alerts:markRead")}
           </Button>
-          {[1, 7].map(snooze)}
+          {!inList && [1, 7].map(snooze)}
         </>
       )}
       <Button variant="ghost" onClick={() => run("dismiss")}>
@@ -275,21 +278,7 @@ function Row({ a }: { a: Alert }) {
         </div>
       </div>
       <div className="flex flex-wrap gap-2">
-        {a.kind === "sync_pending" && (
-          <Link
-            to="/import/$source/$id/$type"
-            params={{
-              source: "integration",
-              id: String(a.context.integrationId),
-              type: String(a.context.type),
-            }}
-            className={buttonLink}
-          >
-            {t("alerts:review")}
-          </Link>
-        )}
-        <SyncTargetLink a={a} />
-        <AlertButtons a={a} />
+        <AlertButtons a={a} inList />
       </div>
     </li>
   );
