@@ -50,6 +50,9 @@ function parsePort(value: string, from: string): number {
 }
 
 /** Precedence per setting: CLI flag > env > config file > default. */
+export const DEFAULT_HOST = "127.0.0.1";
+export const DEFAULT_PORT = 4300;
+
 export function loadConfig(env: Env = process.env, argv: string[] = process.argv.slice(2)) {
   const { values: flags } = parseArgs({
     args: argv,
@@ -71,8 +74,8 @@ export function loadConfig(env: Env = process.env, argv: string[] = process.argv
     if (file !== undefined) return [file, "file"];
     return [fallback, "default"];
   };
-  const [host, hostSource] = pick(flags.host, env.HOST, saved.host, "127.0.0.1", (v) => v);
-  const [port, portSource] = pick(flags.port, env.PORT, saved.port, 4300, parsePort);
+  const [host, hostSource] = pick(flags.host, env.HOST, saved.host, DEFAULT_HOST, (v) => v);
+  const [port, portSource] = pick(flags.port, env.PORT, saved.port, DEFAULT_PORT, parsePort);
 
   return {
     host,

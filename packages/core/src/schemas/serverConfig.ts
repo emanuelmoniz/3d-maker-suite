@@ -20,6 +20,8 @@ export const serverConfigResponseSchema = z.object({
   }),
   /** What is saved in the config file (used after a restart unless a flag or env var overrides it). */
   saved: z.object({ host: z.string().optional(), port: z.number().optional() }),
+  /** Used after a restart when nothing is saved and no flag or env var is set. */
+  defaults: z.object({ host: z.string(), port: z.number() }),
   passwordSet: z.boolean(),
 });
 

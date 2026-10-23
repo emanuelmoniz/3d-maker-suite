@@ -23,6 +23,15 @@ const useServerConfig = () =>
     queryFn: () => api<ServerConfigResponse>("GET", "/api/server-config"),
   });
 
+/** Host and port the server uses after a restart: a flag or env var still wins, then saved, then default. */
+function nextAddress({ effective, saved, defaults }: ServerConfigResponse) {
+  const fixed = (src: string) => src === "cli" || src === "env";
+  return {
+    host: fixed(effective.hostSource) ? effective.host : (saved.host ?? defaults.host),
+    port: fixed(effective.portSource) ? effective.port : (saved.port ?? defaults.port),
+  };
+}
+
 /** Restart and Stop, rendered in the page header. */
 export function ServerActions() {
   const { t } = useTranslation();
@@ -35,14 +44,8 @@ export function ServerActions() {
   const [restartUrl, setRestartUrl] = useState<string | null>(null);
   const [timedOut, setTimedOut] = useState(false);
   if (!data) return null;
-  const { effective, saved } = data;
-  // A flag or env var keeps winning after the restart; otherwise the saved value does.
-  const nextHost = ["cli", "env"].includes(effective.hostSource)
-    ? effective.host
-    : (saved.host ?? effective.host);
-  const nextPort = ["cli", "env"].includes(effective.portSource)
-    ? effective.port
-    : (saved.port ?? effective.port);
+  const { effective } = data;
+  const { host: nextHost, port: nextPort } = nextAddress(data);
 
   const restartInPlace = () => {
     const bound = ["0.0.0.0", "::", "[::]"].includes(nextHost);
@@ -177,13 +180,9 @@ export function ServerSection() {
   });
   if (!data) return null;
   const { effective, saved } = data;
-  const pending =
-    (saved.host ?? effective.host) !== effective.host ||
-    (saved.port ?? effective.port) !== effective.port;
-  // A flag or env var keeps winning after the restart; otherwise the saved value does.
-  const nextHost = ["cli", "env"].includes(effective.hostSource)
-    ? effective.host
-    : (saved.host ?? effective.host);
+  const next = nextAddress(data);
+  const pending = next.host !== effective.host || next.port !== effective.port;
+  const nextHost = next.host;
 
   return (
     <div className="grid gap-4">

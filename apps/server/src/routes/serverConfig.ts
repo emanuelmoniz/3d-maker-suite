@@ -5,7 +5,13 @@ import {
   serverConfigResponseSchema,
 } from "@3d-maker-suite/core";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
-import { type Config, readSavedConfig, writeSavedConfig } from "../config.ts";
+import {
+  type Config,
+  DEFAULT_HOST,
+  DEFAULT_PORT,
+  readSavedConfig,
+  writeSavedConfig,
+} from "../config.ts";
 import type { Autostart } from "../lib/autostart.ts";
 
 export const serverConfigRoutes =
@@ -24,6 +30,7 @@ export const serverConfigRoutes =
         portSource: config.portSource,
       },
       saved: readSavedConfig(config.dataDir),
+      defaults: { host: DEFAULT_HOST, port: DEFAULT_PORT },
       passwordSet: !!config.password,
     });
 
