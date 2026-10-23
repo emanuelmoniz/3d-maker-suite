@@ -13,8 +13,16 @@ const text = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
 const num = (v: string, scale = 1) => (v ? Math.round(Number(v) * scale) : null);
 const float = (v: string) => (v ? Number(v) : null);
 
-/** Create, or edit `profile`. */
-function ProfileForm({ profile }: { profile?: FilamentProfile }) {
+/** Create, or edit `profile`. With `onSaved` (a dialog) it hands the new profile back instead of leaving the page. */
+export function ProfileForm({
+  profile,
+  onSaved,
+  onCancel = () => history.back(),
+}: {
+  profile?: FilamentProfile;
+  onSaved?: (profile: FilamentProfile) => void;
+  onCancel?: () => void;
+}) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const currency = usePreferences().data?.values.currency ?? "";
@@ -54,7 +62,11 @@ function ProfileForm({ profile }: { profile?: FilamentProfile }) {
           onSuccess: () => navigate({ to: "/filament/profiles/$id", params: { id: profile.id } }),
         },
       );
-    else create.mutate(values, { onSuccess: () => navigate({ to: "/filament/settings" }) });
+    else
+      create.mutate(values, {
+        onSuccess: (saved) =>
+          onSaved ? onSaved(saved as FilamentProfile) : navigate({ to: "/filament/settings" }),
+      });
   };
   const field = (name: string, key: string, props: React.ComponentProps<"input"> = {}) => (
     <FormField label={t(key)}>
@@ -127,7 +139,7 @@ function ProfileForm({ profile }: { profile?: FilamentProfile }) {
         <Button type="submit" variant="primary" disabled={save.isPending}>
           {t("filament:profiles.save")}
         </Button>
-        <Button onClick={() => history.back()}>{t("common:actions.cancel")}</Button>
+        <Button onClick={onCancel}>{t("common:actions.cancel")}</Button>
       </div>
     </form>
   );

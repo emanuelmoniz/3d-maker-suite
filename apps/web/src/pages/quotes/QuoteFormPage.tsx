@@ -25,6 +25,7 @@ import {
 } from "../../components/CostBreakdown.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
+import { PickerWithAdd } from "../../components/PickerWithAdd.tsx";
 import { PlateSlice, plateKey, SliceSetup } from "../../components/SliceSetup.tsx";
 import { api } from "../../lib/api.ts";
 import { useClients } from "../../lib/clients.ts";
@@ -597,23 +598,17 @@ function QuoteForm({ ctx, editing }: { ctx: CostContext; editing?: Quote }) {
             </FormField>
             <FormField label={t("costs:saved.client")}>
               {(p) => (
-                <div className="flex gap-2">
-                  <div className="min-w-0 flex-1">
-                    <Combobox
-                      {...p}
-                      value={clientId}
-                      onChange={setClientId}
-                      options={[
-                        { value: "", label: t("costs:saved.noClient") },
-                        ...clients.map((c) => ({ value: c.id, label: c.name })),
-                      ]}
-                    />
-                  </div>
-                  <Button onClick={() => setNewClient(true)}>
-                    <Plus className="size-4" aria-hidden />
-                    {t("costs:saved.newClient")}
-                  </Button>
-                </div>
+                <PickerWithAdd label={t("costs:saved.newClient")} onAdd={() => setNewClient(true)}>
+                  <Combobox
+                    {...p}
+                    value={clientId}
+                    onChange={setClientId}
+                    options={[
+                      { value: "", label: t("costs:saved.noClient") },
+                      ...clients.map((c) => ({ value: c.id, label: c.name })),
+                    ]}
+                  />
+                </PickerWithAdd>
               )}
             </FormField>
             <FormField label={t("costs:saved.notes")}>

@@ -1,12 +1,13 @@
 import type { OrderDetail, Quote } from "@3d-maker-suite/core";
 import { useNavigate, useParams, useSearch } from "@tanstack/react-router";
-import { Plus, X } from "lucide-react";
+import { X } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
 import { Combobox } from "../../components/Combobox.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
+import { PickerWithAdd } from "../../components/PickerWithAdd.tsx";
 import { ApiError } from "../../lib/api.ts";
 import { useClients } from "../../lib/clients.ts";
 import { quoteName, useQuote, useQuotes } from "../../lib/cost.ts";
@@ -106,23 +107,17 @@ function OrderForm({ order, quote }: { order?: OrderDetail; quote?: Quote }) {
         </FormField>
         <FormField label={t("orders:form.client")}>
           {(p) => (
-            <div className="flex gap-2">
-              <div className="min-w-0 flex-1">
-                <Combobox
-                  {...p}
-                  value={clientId}
-                  onChange={setClientId}
-                  options={[
-                    { value: "", label: t("orders:form.noClient") },
-                    ...clients.map((c) => ({ value: c.id, label: c.name })),
-                  ]}
-                />
-              </div>
-              <Button onClick={() => setNewClient(true)}>
-                <Plus className="size-4" aria-hidden />
-                {t("orders:form.newClient")}
-              </Button>
-            </div>
+            <PickerWithAdd label={t("orders:form.newClient")} onAdd={() => setNewClient(true)}>
+              <Combobox
+                {...p}
+                value={clientId}
+                onChange={setClientId}
+                options={[
+                  { value: "", label: t("orders:form.noClient") },
+                  ...clients.map((c) => ({ value: c.id, label: c.name })),
+                ]}
+              />
+            </PickerWithAdd>
           )}
         </FormField>
         <FormField

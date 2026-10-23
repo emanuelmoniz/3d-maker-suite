@@ -27,6 +27,8 @@ type Row = {
   "filament-brands": FilamentBrand;
   "filament-materials": FilamentMaterial;
 };
+export type CatalogRow<K extends CatalogKind> = Row[K];
+
 export const IMAGE_OF = {
   brands: "logo",
   "printer-models": "image",

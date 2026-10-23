@@ -1,13 +1,13 @@
 import type { Spool } from "@3d-maker-suite/core";
-import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
+import { AddDialog } from "../../components/AddDialog.tsx";
 import { useProfiles } from "../../lib/filament.ts";
 import { SpoolForm } from "./SpoolFormPage.tsx";
 
 /**
  * Modal: add a spool without leaving the page (a review picking spools). `open` starts it from
  * what the slot says: a colour, a filament (a profile name, else a material and maybe a colour)
- * and the day it was open by; null closes it. Native <dialog> like ConfirmDialog.
+ * and the day it was open by; null closes it.
  */
 export function NewSpoolDialog({
   open,
@@ -19,7 +19,6 @@ export function NewSpoolDialog({
   onSaved: (spool: Spool) => void;
 }) {
   const { t } = useTranslation();
-  const ref = useRef<HTMLDialogElement>(null);
   const profiles = useProfiles().data?.items ?? [];
   const said = open?.filament?.trim().toLowerCase();
   // "PLA #ff8800": the material without the colour.
@@ -29,42 +28,21 @@ export function NewSpoolDialog({
       profiles.find((p) => p.material.toLowerCase() === material) ??
       profiles.find((p) => said.startsWith(p.material.toLowerCase())))
     : undefined;
-  useEffect(() => {
-    const d = ref.current;
-    if (!d || !!open === d.open) return;
-    if (open) d.showModal();
-    else d.close();
-  }, [open]);
   return (
-    // biome-ignore lint/a11y/useKeyWithClickEvents: backdrop click is a pointer shortcut; Escape closes natively
-    <dialog
-      ref={ref}
-      aria-labelledby="new-spool-title"
-      onCancel={(e) => {
-        e.preventDefault();
-        onClose();
-      }}
-      onClick={(e) => e.target === ref.current && onClose()}
-      className="m-auto max-h-[90vh] w-[min(92vw,30rem)] overflow-y-auto rounded-lg border border-border bg-surface p-5 text-fg"
-    >
+    <AddDialog open={!!open} title={t("filament:spools.addTitle")} onClose={onClose}>
       {open && (
-        <>
-          <h2 id="new-spool-title" className="mb-4 text-base font-semibold">
-            {t("filament:spools.addTitle")}
-          </h2>
-          <SpoolForm
-            profiles={profiles}
-            colorHex={open.colorHex}
-            profileId={profile?.id}
-            openedAt={open.openedAt}
-            onCancel={onClose}
-            onSaved={(s) => {
-              onSaved(s);
-              onClose();
-            }}
-          />
-        </>
+        <SpoolForm
+          profiles={profiles}
+          colorHex={open.colorHex}
+          profileId={profile?.id}
+          openedAt={open.openedAt}
+          onCancel={onClose}
+          onSaved={(s) => {
+            onSaved(s);
+            onClose();
+          }}
+        />
       )}
-    </dialog>
+    </AddDialog>
   );
 }

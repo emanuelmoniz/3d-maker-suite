@@ -4,10 +4,13 @@ import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
 import { Combobox } from "../../components/Combobox.tsx";
 import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
+import { FormDialog } from "../../components/FormDialog.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
+import { PickerWithAdd } from "../../components/PickerWithAdd.tsx";
 import {
   type CatalogKind,
+  type CatalogRow,
   type IMAGE_OF,
   imageUrl,
   isConflict,
@@ -41,6 +44,125 @@ export function ModelSelect(props: Omit<React.ComponentProps<typeof Combobox>, "
         ),
       ]}
     />
+  );
+}
+
+type ControlProps = { id: string; "aria-describedby"?: string; "aria-invalid"?: true };
+
+/** "Add" modal for one catalog row: `children` are its fields, `toBody` reads them. */
+export function CatalogAddDialog<K extends CatalogKind>(props: {
+  kind: K;
+  open: boolean;
+  title: string;
+  toBody: (f: FormData) => object;
+  onClose: () => void;
+  onSaved: (row: CatalogRow<K>) => void;
+  children: ReactNode;
+}) {
+  const { t } = useTranslation();
+  const save = useSaveCatalog(props.kind);
+  const close = () => {
+    save.reset();
+    props.onClose();
+  };
+  return (
+    <FormDialog
+      open={props.open}
+      title={props.title}
+      error={
+        save.error
+          ? t(isConflict(save.error) ? "printers:catalog.duplicate" : "printers:catalog.error")
+          : undefined
+      }
+      busy={save.isPending}
+      onCancel={close}
+      onSubmit={(f) =>
+        save.mutate(props.toBody(f), {
+          onSuccess: (row) => {
+            props.onSaved(row);
+            close();
+          },
+        })
+      }
+    >
+      {props.children}
+    </FormDialog>
+  );
+}
+
+/** Brand picker (`brandId`) with "+ Add brand". */
+export function BrandPicker({ defaultValue, ...p }: ControlProps & { defaultValue?: string }) {
+  const { t } = useTranslation();
+  const brands = useBrands().data ?? [];
+  const [id, setId] = useState(defaultValue);
+  const [adding, setAdding] = useState(false);
+  return (
+    <>
+      <PickerWithAdd label={t("printers:catalog.brands.add")} onAdd={() => setAdding(true)}>
+        <Combobox
+          key={brands.length}
+          {...p}
+          name="brandId"
+          required
+          defaultValue={id}
+          onChange={setId}
+          options={brands.map((b) => ({ value: b.id, label: b.name }))}
+        />
+      </PickerWithAdd>
+      <CatalogAddDialog
+        kind="brands"
+        open={adding}
+        title={t("printers:catalog.brands.addTitle")}
+        toBody={brandBody}
+        onClose={() => setAdding(false)}
+        onSaved={(b) => setId(b.id)}
+      >
+        <BrandFields />
+      </CatalogAddDialog>
+    </>
+  );
+}
+
+/** Model picker with "+ Add model"; `onChange` also gets the row when it was just added. */
+export function ModelPicker({
+  defaultValue,
+  onChange,
+  ...p
+}: ControlProps & {
+  name: string;
+  required?: boolean;
+  defaultValue?: string;
+  onChange?: (id: string, added?: CatalogRow<"printer-models">) => void;
+}) {
+  const { t } = useTranslation();
+  const [id, setId] = useState(defaultValue);
+  const [adding, setAdding] = useState(false);
+  return (
+    <>
+      <PickerWithAdd label={t("printers:catalog.models.add")} onAdd={() => setAdding(true)}>
+        <ModelSelect
+          {...p}
+          defaultValue={id}
+          onChange={(v) => {
+            setId(v);
+            onChange?.(v);
+          }}
+        />
+      </PickerWithAdd>
+      <CatalogAddDialog
+        kind="printer-models"
+        open={adding}
+        title={t("printers:catalog.models.addTitle")}
+        toBody={modelBody}
+        onClose={() => setAdding(false)}
+        onSaved={(m) => {
+          setId(m.id);
+          onChange?.(m.id, m);
+        }}
+      >
+        <ModelFields />
+      </CatalogAddDialog>
+    </>
   );
 }
 
@@ -204,13 +326,8 @@ export function BrandFormPage() {
 
 export function ModelFields({
   m,
-  brandId,
-  onAddBrand,
 }: {
   m?: { brandId: string; model: string; powerW: number | null };
-  /** Preselected brand when `m` is absent (a brand just created in a modal). */
-  brandId?: string;
-  onAddBrand?: () => void;
 }) {
   const { t } = useTranslation();
   const brands = useBrands().data ?? [];
@@ -220,23 +337,7 @@ export function ModelFields({
         label={t("printers:catalog.models.brand")}
         hint={brands.length ? undefined : t("printers:catalog.models.noBrands")}
       >
-        {(p) => (
-          <div className="grid gap-1">
-            <Combobox
-              key={brands.length}
-              {...p}
-              name="brandId"
-              required
-              defaultValue={m?.brandId ?? brandId}
-              options={brands.map((b) => ({ value: b.id, label: b.name }))}
-            />
-            {onAddBrand && (
-              <Button variant="ghost" onClick={onAddBrand} className="justify-self-start">
-                {t("printers:catalog.brands.add")}
-              </Button>
-            )}
-          </div>
-        )}
+        {(p) => <BrandPicker {...p} defaultValue={m?.brandId} />}
       </FormField>
       <FormField label={t("printers:catalog.models.model")}>
         {(p) => (
@@ -279,73 +380,161 @@ export function ModelFormPage() {
   );
 }
 
-export function MachineProfileFormPage() {
+export function MachineProfileFields({
+  mp,
+  modelId,
+}: {
+  mp?: CatalogRow<"machine-profiles">;
+  /** Preselected model for a new profile. */
+  modelId?: string;
+}) {
   const { t } = useTranslation();
+  return (
+    <>
+      <FormField label={t("printers:catalog.profiles.name")}>
+        {(p) => (
+          <input {...p} name="name" required className={inputClass} defaultValue={mp?.name} />
+        )}
+      </FormField>
+      <FormField label={t("printers:catalog.profiles.model")}>
+        {(p) => (
+          <ModelPicker
+            {...p}
+            name="printerModelId"
+            required
+            defaultValue={mp?.printerModelId ?? modelId}
+          />
+        )}
+      </FormField>
+      <FormField label={t("printers:catalog.profiles.nozzle")}>
+        {(p) => (
+          <input
+            {...p}
+            name="nozzle"
+            type="number"
+            required
+            min={0.1}
+            step={0.05}
+            className={inputClass}
+            defaultValue={mp?.nozzleDiameterMm ?? 0.4}
+          />
+        )}
+      </FormField>
+      <FormField
+        label={t("printers:catalog.profiles.source")}
+        hint={t("printers:catalog.profiles.sourceHint")}
+      >
+        {(p) => (
+          <input
+            {...p}
+            name="sourcePreset"
+            className={inputClass}
+            defaultValue={mp?.sourcePreset ?? ""}
+          />
+        )}
+      </FormField>
+    </>
+  );
+}
+
+export const machineProfileBody = (f: FormData) => ({
+  name: text(f, "name"),
+  printerModelId: text(f, "printerModelId"),
+  nozzleDiameterMm: Number(text(f, "nozzle")),
+  sourcePreset: orNull(text(f, "sourcePreset")),
+});
+
+export function MachineProfileFormPage() {
   return (
     <CatalogForm
       kind="machine-profiles"
       titles={["printers:catalog.profiles.addTitle", "printers:catalog.profiles.editTitle"]}
-      toBody={(f) => ({
-        name: text(f, "name"),
-        printerModelId: text(f, "printerModelId"),
-        nozzleDiameterMm: Number(text(f, "nozzle")),
-        sourcePreset: orNull(text(f, "sourcePreset")),
-      })}
+      toBody={machineProfileBody}
     >
-      {(mp) => (
-        <>
-          <FormField label={t("printers:catalog.profiles.name")}>
-            {(p) => (
-              <input {...p} name="name" required className={inputClass} defaultValue={mp?.name} />
-            )}
-          </FormField>
-          <FormField label={t("printers:catalog.profiles.model")}>
-            {(p) => (
-              <ModelSelect
-                {...p}
-                name="printerModelId"
-                required
-                defaultValue={mp?.printerModelId}
-              />
-            )}
-          </FormField>
-          <FormField label={t("printers:catalog.profiles.nozzle")}>
-            {(p) => (
-              <input
-                {...p}
-                name="nozzle"
-                type="number"
-                required
-                min={0.1}
-                step={0.05}
-                className={inputClass}
-                defaultValue={mp?.nozzleDiameterMm ?? 0.4}
-              />
-            )}
-          </FormField>
-          <FormField
-            label={t("printers:catalog.profiles.source")}
-            hint={t("printers:catalog.profiles.sourceHint")}
-          >
-            {(p) => (
-              <input
-                {...p}
-                name="sourcePreset"
-                className={inputClass}
-                defaultValue={mp?.sourcePreset ?? ""}
-              />
-            )}
-          </FormField>
-        </>
-      )}
+      {(mp) => <MachineProfileFields mp={mp} />}
     </CatalogForm>
   );
 }
 
 const optNumber = (v: string) => (v ? Number(v) : null);
 
-export function PrintProfileFormPage() {
+export function PrintProfileFields({
+  pp,
+  modelId,
+}: {
+  pp?: CatalogRow<"print-profiles">;
+  /** Preselected model for a new profile. */
+  modelId?: string;
+}) {
   const { t } = useTranslation();
+  return (
+    <>
+      <FormField label={t("printers:catalog.printProfiles.name")}>
+        {(p) => (
+          <input {...p} name="name" required className={inputClass} defaultValue={pp?.name} />
+        )}
+      </FormField>
+      <FormField label={t("printers:catalog.printProfiles.model")}>
+        {(p) => (
+          <ModelPicker
+            {...p}
+            name="printerModelId"
+            defaultValue={pp ? (pp.printerModelId ?? "") : (modelId ?? "")}
+          />
+        )}
+      </FormField>
+      <FormField label={t("printers:catalog.printProfiles.nozzle")}>
+        {(p) => (
+          <input
+            {...p}
+            name="nozzle"
+            type="number"
+            min={0.1}
+            step={0.05}
+            className={inputClass}
+            defaultValue={pp?.nozzleDiameterMm ?? ""}
+          />
+        )}
+      </FormField>
+      <FormField label={t("printers:catalog.printProfiles.layer")}>
+        {(p) => (
+          <input
+            {...p}
+            name="layer"
+            type="number"
+            min={0.01}
+            step={0.01}
+            className={inputClass}
+            defaultValue={pp?.layerHeightMm ?? ""}
+          />
+        )}
+      </FormField>
+      <FormField
+        label={t("printers:catalog.profiles.source")}
+        hint={t("printers:catalog.profiles.sourceHint")}
+      >
+        {(p) => (
+          <input
+            {...p}
+            name="sourcePreset"
+            className={inputClass}
+            defaultValue={pp?.sourcePreset ?? ""}
+          />
+        )}
+      </FormField>
+    </>
+  );
+}
+
+export const printProfileBody = (f: FormData) => ({
+  name: text(f, "name"),
+  printerModelId: orNull(text(f, "printerModelId")),
+  nozzleDiameterMm: optNumber(text(f, "nozzle")),
+  layerHeightMm: optNumber(text(f, "layer")),
+  sourcePreset: orNull(text(f, "sourcePreset")),
+});
+
+export function PrintProfileFormPage() {
   return (
     <CatalogForm
       kind="print-profiles"
@@ -353,67 +542,9 @@ export function PrintProfileFormPage() {
         "printers:catalog.printProfiles.addTitle",
         "printers:catalog.printProfiles.editTitle",
       ]}
-      toBody={(f) => ({
-        name: text(f, "name"),
-        printerModelId: orNull(text(f, "printerModelId")),
-        nozzleDiameterMm: optNumber(text(f, "nozzle")),
-        layerHeightMm: optNumber(text(f, "layer")),
-        sourcePreset: orNull(text(f, "sourcePreset")),
-      })}
+      toBody={printProfileBody}
     >
-      {(pp) => (
-        <>
-          <FormField label={t("printers:catalog.printProfiles.name")}>
-            {(p) => (
-              <input {...p} name="name" required className={inputClass} defaultValue={pp?.name} />
-            )}
-          </FormField>
-          <FormField label={t("printers:catalog.printProfiles.model")}>
-            {(p) => (
-              <ModelSelect {...p} name="printerModelId" defaultValue={pp?.printerModelId ?? ""} />
-            )}
-          </FormField>
-          <FormField label={t("printers:catalog.printProfiles.nozzle")}>
-            {(p) => (
-              <input
-                {...p}
-                name="nozzle"
-                type="number"
-                min={0.1}
-                step={0.05}
-                className={inputClass}
-                defaultValue={pp?.nozzleDiameterMm ?? ""}
-              />
-            )}
-          </FormField>
-          <FormField label={t("printers:catalog.printProfiles.layer")}>
-            {(p) => (
-              <input
-                {...p}
-                name="layer"
-                type="number"
-                min={0.01}
-                step={0.01}
-                className={inputClass}
-                defaultValue={pp?.layerHeightMm ?? ""}
-              />
-            )}
-          </FormField>
-          <FormField
-            label={t("printers:catalog.profiles.source")}
-            hint={t("printers:catalog.profiles.sourceHint")}
-          >
-            {(p) => (
-              <input
-                {...p}
-                name="sourcePreset"
-                className={inputClass}
-                defaultValue={pp?.sourcePreset ?? ""}
-              />
-            )}
-          </FormField>
-        </>
-      )}
+      {(pp) => <PrintProfileFields pp={pp} />}
     </CatalogForm>
   );
 }

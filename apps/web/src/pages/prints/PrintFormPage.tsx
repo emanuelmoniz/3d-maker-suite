@@ -8,6 +8,7 @@ import { Combobox } from "../../components/Combobox.tsx";
 import { DateTimeInput } from "../../components/DateTimeInput.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
+import { PickerWithAdd } from "../../components/PickerWithAdd.tsx";
 import { TagPicker } from "../../components/TagPicker.tsx";
 import { isConflict, useCatalogItem, useMachineProfiles } from "../../lib/catalog.ts";
 import { spoolName, useProfiles, useSpools } from "../../lib/filament.ts";
@@ -18,7 +19,13 @@ import { printerName, usePrinters } from "../../lib/printers.ts";
 import { estimateDuration, useCreatePrint, usePatchPrint, usePrint } from "../../lib/prints.ts";
 import { projectName, useProject, useProjects } from "../../lib/projects.ts";
 import { useTagEditor } from "../../lib/tags.ts";
+import { NewSpoolDialog } from "../filament/NewSpoolDialog.tsx";
 import { useProjectLeftPrompt } from "../orders/ProjectLeftPrompt.tsx";
+import {
+  CatalogAddDialog,
+  MachineProfileFields,
+  machineProfileBody,
+} from "../printers/CatalogForms.tsx";
 
 const text = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
 const OUTCOMES = {
@@ -61,6 +68,10 @@ function PrintForm({ print }: { print?: PrintDetail }) {
   const machineProfiles = (
     saved && !listed.some((mp) => mp.id === saved.id) ? [...listed, saved] : listed
   ).filter((mp) => mp.printerModelId === modelId || mp.id === print?.machineProfileId);
+  const [machineProfileId, setMachineProfileId] = useState(print?.machineProfileId ?? "");
+  const [addProfile, setAddProfile] = useState(false);
+  // The filament row a new spool is for.
+  const [addSpoolTo, setAddSpoolTo] = useState<number | null>(null);
   const [rows, setRows] = useState<Row[]>(
     (print?.usages ?? [])
       .filter((u) => u.spoolId) // slots without a spool live in the review queue
@@ -143,270 +154,307 @@ function PrintForm({ print }: { print?: PrintDetail }) {
     ...new Set([...reasons, ...(print?.failureReason ? [print.failureReason] : [])]),
   ];
   return (
-    <form onSubmit={onSubmit} className="grid gap-4 sm:max-w-md">
-      <FormField
-        label={t("prints:form.number")}
-        hint={print ? undefined : t("prints:form.numberHint")}
-      >
-        {(p) => (
-          <input
-            {...p}
-            name="number"
-            type="number"
-            min={1}
-            step={1}
-            className={inputClass}
-            defaultValue={print?.number}
-          />
-        )}
-      </FormField>
-      <FormField label={t("prints:form.title")}>
-        {(p) => (
-          <input {...p} name="title" required className={inputClass} defaultValue={print?.title} />
-        )}
-      </FormField>
-      <FormField label={t("prints:form.printer")}>
-        {(p) => (
-          <Combobox
-            {...p}
-            name="printer"
-            required
-            defaultValue={print?.printerId}
-            onChange={setPrinterId}
-            options={printers.map((pr) => ({ value: pr.id, label: printerName(t, pr) }))}
-          />
-        )}
-      </FormField>
-      <FormField label={t("prints:form.project")}>
-        {(p) => (
-          <Combobox
-            // Options arrive after the form: remount so defaultValue applies.
-            key={projects.length}
-            {...p}
-            name="project"
-            // A new print needs one; an old one may be saved while it has none yet.
-            required={!print}
-            defaultValue={print?.projectId ?? ""}
-            options={[
-              { value: "", label: t(print ? "prints:form.noProject" : "prints:form.pickProject") },
-              ...projects.map((pr) => ({ value: pr.id, label: projectName(t, pr) })),
-            ]}
-          />
-        )}
-      </FormField>
-      <FormField label={t("orders:printOrder.label")} hint={t("orders:printOrder.hint")}>
-        {(p) => (
-          <Combobox
-            // Options arrive after the form: remount so defaultValue applies.
-            key={orders.length}
-            {...p}
-            name="order"
-            defaultValue={print?.orderId ?? ""}
-            options={[
-              { value: "", label: t("orders:printOrder.none") },
-              ...orders.map((o) => ({ value: o.id, label: orderName(t, o) })),
-            ]}
-          />
-        )}
-      </FormField>
-      {machineProfiles.length > 0 && (
-        <FormField label={t("prints:form.machineProfile")}>
+    <>
+      <form onSubmit={onSubmit} className="grid gap-4 sm:max-w-md">
+        <FormField
+          label={t("prints:form.number")}
+          hint={print ? undefined : t("prints:form.numberHint")}
+        >
+          {(p) => (
+            <input
+              {...p}
+              name="number"
+              type="number"
+              min={1}
+              step={1}
+              className={inputClass}
+              defaultValue={print?.number}
+            />
+          )}
+        </FormField>
+        <FormField label={t("prints:form.title")}>
+          {(p) => (
+            <input
+              {...p}
+              name="title"
+              required
+              className={inputClass}
+              defaultValue={print?.title}
+            />
+          )}
+        </FormField>
+        <FormField label={t("prints:form.printer")}>
           {(p) => (
             <Combobox
-              // Options change with the printer; remount so defaultValue applies.
-              key={`${modelId}:${machineProfiles.length}`}
               {...p}
-              name="machineProfile"
-              defaultValue={print?.machineProfileId ?? ""}
+              name="printer"
+              required
+              defaultValue={print?.printerId}
+              onChange={setPrinterId}
+              options={printers.map((pr) => ({ value: pr.id, label: printerName(t, pr) }))}
+            />
+          )}
+        </FormField>
+        <FormField label={t("prints:form.project")}>
+          {(p) => (
+            <Combobox
+              // Options arrive after the form: remount so defaultValue applies.
+              key={projects.length}
+              {...p}
+              name="project"
+              // A new print needs one; an old one may be saved while it has none yet.
+              required={!print}
+              defaultValue={print?.projectId ?? ""}
               options={[
-                { value: "", label: "" },
-                ...machineProfiles.map((mp) => ({ value: mp.id, label: mp.name })),
+                {
+                  value: "",
+                  label: t(print ? "prints:form.noProject" : "prints:form.pickProject"),
+                },
+                ...projects.map((pr) => ({ value: pr.id, label: projectName(t, pr) })),
               ]}
             />
           )}
         </FormField>
-      )}
-      <FormField label={t("prints:form.startedAt")}>
-        {(p) => (
-          <DateTimeInput
-            {...p}
-            name="startedAt"
-            required
-            value={startedAt}
-            onChange={setStartedAt}
-          />
-        )}
-      </FormField>
-      <FormField label={t("prints:form.outcome")}>
-        {(p) => (
-          <Combobox
-            {...p}
-            value={outcome}
-            onChange={setOutcome}
-            options={Object.entries(OUTCOMES).map(([k, key]) => ({ value: k, label: t(key) }))}
-          />
-        )}
-      </FormField>
-      {outcome !== "success" && (
-        <FormField label={t("prints:form.failureReason")}>
+        <FormField label={t("orders:printOrder.label")} hint={t("orders:printOrder.hint")}>
           {(p) => (
             <Combobox
+              // Options arrive after the form: remount so defaultValue applies.
+              key={orders.length}
               {...p}
-              name="failureReason"
-              defaultValue={print?.failureReason ?? ""}
+              name="order"
+              defaultValue={print?.orderId ?? ""}
               options={[
-                { value: "", label: t("prints:form.noReason") },
-                ...reasonOptions.map((r) => ({ value: r, label: r })),
+                { value: "", label: t("orders:printOrder.none") },
+                ...orders.map((o) => ({ value: o.id, label: orderName(t, o) })),
               ]}
             />
           )}
         </FormField>
-      )}
-      <fieldset className="grid gap-3">
-        <legend className="font-medium">{t("prints:form.filament")}</legend>
-        <p className="text-muted">{t("prints:form.filamentHint")}</p>
-        {rows.map((r) => (
-          <div key={r.key} className="flex items-end gap-2">
-            <div className="min-w-0 flex-1">
-              <FormField label={t("prints:form.spool")}>
-                {(p) => (
-                  <Combobox
-                    {...p}
-                    required
-                    value={r.spoolId}
-                    onChange={(v) => setRow(r.key, { spoolId: v })}
-                    options={[
-                      { value: "", label: "" },
-                      ...spoolsFor(r).map((s) => ({ value: s.id, label: spoolLabel(s) })),
-                    ]}
-                  />
-                )}
-              </FormField>
+        {modelId && (
+          <FormField label={t("prints:form.machineProfile")}>
+            {(p) => (
+              <PickerWithAdd
+                label={t("printers:catalog.profiles.add")}
+                onAdd={() => setAddProfile(true)}
+              >
+                <Combobox
+                  // Options change with the printer; remount so defaultValue applies.
+                  key={`${modelId}:${machineProfiles.length}`}
+                  {...p}
+                  name="machineProfile"
+                  defaultValue={machineProfileId}
+                  onChange={setMachineProfileId}
+                  options={[
+                    { value: "", label: "" },
+                    ...machineProfiles.map((mp) => ({ value: mp.id, label: mp.name })),
+                  ]}
+                />
+              </PickerWithAdd>
+            )}
+          </FormField>
+        )}
+        <FormField label={t("prints:form.startedAt")}>
+          {(p) => (
+            <DateTimeInput
+              {...p}
+              name="startedAt"
+              required
+              value={startedAt}
+              onChange={setStartedAt}
+            />
+          )}
+        </FormField>
+        <FormField label={t("prints:form.outcome")}>
+          {(p) => (
+            <Combobox
+              {...p}
+              value={outcome}
+              onChange={setOutcome}
+              options={Object.entries(OUTCOMES).map(([k, key]) => ({ value: k, label: t(key) }))}
+            />
+          )}
+        </FormField>
+        {outcome !== "success" && (
+          <FormField label={t("prints:form.failureReason")}>
+            {(p) => (
+              <Combobox
+                {...p}
+                name="failureReason"
+                defaultValue={print?.failureReason ?? ""}
+                options={[
+                  { value: "", label: t("prints:form.noReason") },
+                  ...reasonOptions.map((r) => ({ value: r, label: r })),
+                ]}
+              />
+            )}
+          </FormField>
+        )}
+        <fieldset className="grid gap-3">
+          <legend className="font-medium">{t("prints:form.filament")}</legend>
+          <p className="text-muted">{t("prints:form.filamentHint")}</p>
+          {rows.map((r) => (
+            <div key={r.key} className="flex items-end gap-2">
+              <div className="min-w-0 flex-1">
+                <FormField label={t("prints:form.spool")}>
+                  {(p) => (
+                    <PickerWithAdd
+                      label={t("prints:form.newSpool")}
+                      onAdd={() => setAddSpoolTo(r.key)}
+                    >
+                      <Combobox
+                        {...p}
+                        required
+                        value={r.spoolId}
+                        onChange={(v) => setRow(r.key, { spoolId: v })}
+                        options={[
+                          { value: "", label: "" },
+                          ...spoolsFor(r).map((s) => ({ value: s.id, label: spoolLabel(s) })),
+                        ]}
+                      />
+                    </PickerWithAdd>
+                  )}
+                </FormField>
+              </div>
+              <div className="w-24">
+                <FormField label={t("prints:form.grams")}>
+                  {(p) => (
+                    <input
+                      {...p}
+                      required
+                      type="number"
+                      min={0.01}
+                      step={0.01}
+                      className={inputClass}
+                      value={r.grams}
+                      onChange={(e) => setRow(r.key, { grams: e.target.value })}
+                    />
+                  )}
+                </FormField>
+              </div>
+              <Button
+                aria-label={t("prints:form.removeSpool")}
+                onClick={() => setRows((rs) => rs.filter((x) => x.key !== r.key))}
+              >
+                <Trash2 className="size-4" aria-hidden />
+              </Button>
             </div>
-            <div className="w-24">
-              <FormField label={t("prints:form.grams")}>
-                {(p) => (
-                  <input
-                    {...p}
-                    required
-                    type="number"
-                    min={0.01}
-                    step={0.01}
-                    className={inputClass}
-                    value={r.grams}
-                    onChange={(e) => setRow(r.key, { grams: e.target.value })}
-                  />
-                )}
-              </FormField>
-            </div>
+          ))}
+          <div>
             <Button
-              aria-label={t("prints:form.removeSpool")}
-              onClick={() => setRows((rs) => rs.filter((x) => x.key !== r.key))}
+              onClick={() => {
+                setRows((rs) => [...rs, { key: nextKey, spoolId: "", grams: "" }]);
+                setNextKey(nextKey + 1);
+              }}
             >
-              <Trash2 className="size-4" aria-hidden />
+              <Plus className="size-4" aria-hidden />
+              {t("prints:form.addSpool")}
             </Button>
           </div>
-        ))}
-        <div>
+        </fieldset>
+        <fieldset className="grid grid-cols-2 gap-4" onInput={() => setEstimated(false)}>
+          <legend className="mb-1.5 font-medium">{t("prints:form.duration")}</legend>
+          <FormField label={t("prints:form.hours")}>
+            {(p) => (
+              <input
+                {...p}
+                name="hours"
+                type="number"
+                min={0}
+                step={1}
+                className={inputClass}
+                defaultValue={hasDur ? Math.floor(dur / 3600) : ""}
+              />
+            )}
+          </FormField>
+          <FormField label={t("prints:form.minutes")}>
+            {(p) => (
+              <input
+                {...p}
+                name="minutes"
+                type="number"
+                min={0}
+                max={59}
+                step={1}
+                className={inputClass}
+                defaultValue={hasDur ? Math.floor((dur % 3600) / 60) : ""}
+              />
+            )}
+          </FormField>
           <Button
-            onClick={() => {
-              setRows((rs) => [...rs, { key: nextKey, spoolId: "", grams: "" }]);
-              setNextKey(nextKey + 1);
+            type="button"
+            variant="secondary"
+            className="col-span-2 justify-self-start"
+            disabled={!totalGrams}
+            title={totalGrams ? undefined : t("prints:form.estimateNeedsFilament")}
+            onClick={async (e) => {
+              const form = e.currentTarget.form;
+              const sec = await estimateDuration(printerId || printers[0]?.id || "", totalGrams);
+              const set = (name: string, v: number) => {
+                const el = form?.elements.namedItem(name);
+                if (el instanceof HTMLInputElement) el.value = String(v);
+              };
+              const min = Math.round(sec / 60);
+              set("hours", Math.floor(min / 60));
+              set("minutes", min % 60);
+              setEstimated(true);
             }}
           >
-            <Plus className="size-4" aria-hidden />
-            {t("prints:form.addSpool")}
+            {t("prints:form.estimate")}
           </Button>
+        </fieldset>
+        <FormField label={t("prints:form.energy")} hint={t("prints:form.energyHint")}>
+          {(p) => (
+            <input
+              {...p}
+              name="energy"
+              type="number"
+              min={0}
+              step="any"
+              className={inputClass}
+              defaultValue={print?.energySource === "measured" ? (print.energyWh ?? "") : ""}
+            />
+          )}
+        </FormField>
+        <TagPicker value={tags.value} onChange={tags.onChange} />
+        <FormField label={t("prints:form.notes")}>
+          {(p) => (
+            <textarea
+              {...p}
+              name="notes"
+              className={`${inputClass} h-24 py-2`}
+              defaultValue={print?.notes ?? ""}
+            />
+          )}
+        </FormField>
+        {save.isError && (
+          <p role="alert" className="text-bad">
+            {t(isConflict(save.error) ? "prints:form.numberTaken" : "prints:form.error")}
+          </p>
+        )}
+        <div className="flex gap-2">
+          <Button type="submit" variant="primary" disabled={save.isPending || !printers.length}>
+            {t("prints:form.save")}
+          </Button>
+          <Button onClick={() => history.back()}>{t("common:actions.cancel")}</Button>
         </div>
-      </fieldset>
-      <fieldset className="grid grid-cols-2 gap-4" onInput={() => setEstimated(false)}>
-        <legend className="mb-1.5 font-medium">{t("prints:form.duration")}</legend>
-        <FormField label={t("prints:form.hours")}>
-          {(p) => (
-            <input
-              {...p}
-              name="hours"
-              type="number"
-              min={0}
-              step={1}
-              className={inputClass}
-              defaultValue={hasDur ? Math.floor(dur / 3600) : ""}
-            />
-          )}
-        </FormField>
-        <FormField label={t("prints:form.minutes")}>
-          {(p) => (
-            <input
-              {...p}
-              name="minutes"
-              type="number"
-              min={0}
-              max={59}
-              step={1}
-              className={inputClass}
-              defaultValue={hasDur ? Math.floor((dur % 3600) / 60) : ""}
-            />
-          )}
-        </FormField>
-        <Button
-          type="button"
-          variant="secondary"
-          className="col-span-2 justify-self-start"
-          disabled={!totalGrams}
-          title={totalGrams ? undefined : t("prints:form.estimateNeedsFilament")}
-          onClick={async (e) => {
-            const form = e.currentTarget.form;
-            const sec = await estimateDuration(printerId || printers[0]?.id || "", totalGrams);
-            const set = (name: string, v: number) => {
-              const el = form?.elements.namedItem(name);
-              if (el instanceof HTMLInputElement) el.value = String(v);
-            };
-            const min = Math.round(sec / 60);
-            set("hours", Math.floor(min / 60));
-            set("minutes", min % 60);
-            setEstimated(true);
-          }}
-        >
-          {t("prints:form.estimate")}
-        </Button>
-      </fieldset>
-      <FormField label={t("prints:form.energy")} hint={t("prints:form.energyHint")}>
-        {(p) => (
-          <input
-            {...p}
-            name="energy"
-            type="number"
-            min={0}
-            step="any"
-            className={inputClass}
-            defaultValue={print?.energySource === "measured" ? (print.energyWh ?? "") : ""}
-          />
-        )}
-      </FormField>
-      <TagPicker value={tags.value} onChange={tags.onChange} />
-      <FormField label={t("prints:form.notes")}>
-        {(p) => (
-          <textarea
-            {...p}
-            name="notes"
-            className={`${inputClass} h-24 py-2`}
-            defaultValue={print?.notes ?? ""}
-          />
-        )}
-      </FormField>
-      {save.isError && (
-        <p role="alert" className="text-bad">
-          {t(isConflict(save.error) ? "prints:form.numberTaken" : "prints:form.error")}
-        </p>
-      )}
-      <div className="flex gap-2">
-        <Button type="submit" variant="primary" disabled={save.isPending || !printers.length}>
-          {t("prints:form.save")}
-        </Button>
-        <Button onClick={() => history.back()}>{t("common:actions.cancel")}</Button>
-      </div>
-      {projectLeft.dialog}
-    </form>
+        {projectLeft.dialog}
+      </form>
+      <CatalogAddDialog
+        kind="machine-profiles"
+        open={addProfile}
+        title={t("printers:catalog.profiles.addTitle")}
+        toBody={machineProfileBody}
+        onClose={() => setAddProfile(false)}
+        onSaved={(mp) => setMachineProfileId(mp.id)}
+      >
+        <MachineProfileFields modelId={modelId} />
+      </CatalogAddDialog>
+      <NewSpoolDialog
+        open={addSpoolTo === null ? null : {}}
+        onClose={() => setAddSpoolTo(null)}
+        onSaved={(sp) => addSpoolTo !== null && setRow(addSpoolTo, { spoolId: sp.id })}
+      />
+    </>
   );
 }
 

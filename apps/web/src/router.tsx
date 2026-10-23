@@ -187,7 +187,8 @@ const routes: AnyRoute[] = [
   createRoute({
     getParentRoute: () => root,
     path: "/filament/spools/new",
-    loader: () => Promise.all([loadNamespace("filament"), loadNamespace("tags")]),
+    // printers: quick-add modals (profile, brand, material) share the catalog forms.
+    loader: () => Promise.all(["filament", "tags", "printers"].map(loadNamespace)),
     component: SpoolCreatePage,
   }),
   ...[
@@ -201,8 +202,8 @@ const routes: AnyRoute[] = [
       path: path as string,
       loader: () =>
         Promise.all(
-          // The spool page lists its projects and prints.
-          ["filament", "tags", "projects", "prints"].map(loadNamespace),
+          // The spool page lists its projects and prints; printers: quick-add modals.
+          ["filament", "tags", "projects", "prints", "printers"].map(loadNamespace),
         ),
       component: component as () => ReactNode,
     }),
@@ -225,15 +226,17 @@ const routes: AnyRoute[] = [
   createRoute({
     getParentRoute: () => root,
     path: "/filament/profiles/new",
-    loader: () => Promise.all([loadNamespace("filament"), loadNamespace("tags")]),
+    // printers: quick-add modals (brand, material) share the catalog forms.
+    loader: () => Promise.all(["filament", "tags", "printers"].map(loadNamespace)),
     component: ProfileCreatePage,
   }),
   // The review of what an integration or an uploaded zip (`$source`) offers for one type.
   createRoute({
     getParentRoute: () => root,
     path: "/import/$source/$id/$type",
-    // filament + tags: a print's review can add a spool (NewSpoolDialog).
-    loader: () => Promise.all(["import", "integrations", "filament", "tags"].map(loadNamespace)),
+    // filament + tags + printers: a print's review can add a spool (NewSpoolDialog) and its profile.
+    loader: () =>
+      Promise.all(["import", "integrations", "filament", "tags", "printers"].map(loadNamespace)),
     component: SourceReviewPage,
   }),
   ...["/import/slicer-zip", "/import/slicer-zip/$id"].map((path) =>
@@ -279,6 +282,7 @@ const routes: AnyRoute[] = [
           loadNamespace("costs"),
           loadNamespace("orders"), // the print's order
           loadNamespace("integrations"), // the Sync from cloud button on the list
+          loadNamespace("printers"), // quick-add modals (machine profile, spool profile)
         ]),
       component: component as () => ReactNode,
     }),
@@ -415,8 +419,9 @@ const routes: AnyRoute[] = [
   createRoute({
     getParentRoute: () => root,
     path: IMPORT_ITEM.to,
-    // filament + tags: a print's review can add a spool (NewSpoolDialog).
-    loader: () => Promise.all(["import", "integrations", "filament", "tags"].map(loadNamespace)),
+    // filament + tags + printers: a print's review can add a spool (NewSpoolDialog) and its profile.
+    loader: () =>
+      Promise.all(["import", "integrations", "filament", "tags", "printers"].map(loadNamespace)),
     component: ImportPage,
   }),
   createRoute({

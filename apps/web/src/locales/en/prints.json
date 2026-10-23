@@ -52,6 +52,7 @@
     "spool": "Spool",
     "grams": "Grams",
     "addSpool": "Add spool",
+    "newSpool": "New spool",
     "removeSpool": "Remove spool",
     "spoolOption": "{{name}} · {{weight}} left",
     "save": "Save print",

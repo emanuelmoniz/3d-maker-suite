@@ -1,20 +1,17 @@
 import type { FilamentBrand, FilamentMaterial } from "@3d-maker-suite/core";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Button } from "../../components/Button.tsx";
 import { Combobox } from "../../components/Combobox.tsx";
-import { FormField, inputClass } from "../../components/FormField.tsx";
-import {
-  isConflict,
-  useFilamentBrands,
-  useFilamentMaterials,
-  useSaveCatalog,
-} from "../../lib/catalog.ts";
+import { FormField } from "../../components/FormField.tsx";
+import { PickerWithAdd } from "../../components/PickerWithAdd.tsx";
+import { useFilamentBrands, useFilamentMaterials } from "../../lib/catalog.ts";
+import { BrandFields, brandBody, CatalogAddDialog } from "../printers/CatalogForms.tsx";
+import { MaterialFields, materialBody } from "./CatalogForms.tsx";
 
 type Kind = "filament-brands" | "filament-materials";
 type Row = FilamentBrand | FilamentMaterial;
 
-/** A brand / material picker with an inline "add new", for the filament profile form. */
+/** A brand / material picker with "+ Add …" (a modal), for the filament profile form. */
 export function CatalogSelect<K extends Kind>(props: {
   kind: K;
   name: string;
@@ -28,74 +25,47 @@ export function CatalogSelect<K extends Kind>(props: {
   const { t } = useTranslation();
   const brands = useFilamentBrands();
   const materials = useFilamentMaterials();
-  const rows: Row[] = (props.kind === "filament-brands" ? brands.data : materials.data) ?? [];
-  const save = useSaveCatalog(props.kind);
+  const isBrand = props.kind === "filament-brands";
+  const rows: Row[] = (isBrand ? brands.data : materials.data) ?? [];
   const [value, setValue] = useState(props.defaultValue ?? "");
   const [adding, setAdding] = useState(false);
-  const [name, setName] = useState("");
 
-  const pick = (id: string) => {
+  const pick = (id: string, row = rows.find((r) => r.id === id)) => {
     setValue(id);
-    props.onPick?.(rows.find((r) => r.id === id));
-  };
-  const add = async () => {
-    if (!name.trim()) return;
-    try {
-      const row = await save.mutateAsync({ name: name.trim() });
-      pick(row.id);
-      setAdding(false);
-      setName("");
-    } catch {} // shown through save.error
+    props.onPick?.(row);
   };
 
   return (
-    <div className="grid gap-2">
+    <>
       <FormField label={props.label}>
         {(p) => (
-          <Combobox
-            {...p}
-            name={props.name}
-            required={props.required}
-            value={rows.some((r) => r.id === value) ? value : ""}
-            onChange={pick}
-            options={[
-              { value: "", label: props.required ? t("filament:catalog.choose") : "" },
-              ...rows.map((r) => ({ value: r.id, label: r.name })),
-            ]}
-          />
+          <PickerWithAdd label={props.addLabel} onAdd={() => setAdding(true)}>
+            <Combobox
+              {...p}
+              name={props.name}
+              required={props.required}
+              value={rows.some((r) => r.id === value) ? value : ""}
+              onChange={pick}
+              options={[
+                { value: "", label: props.required ? t("filament:catalog.choose") : "" },
+                ...rows.map((r) => ({ value: r.id, label: r.name })),
+              ]}
+            />
+          </PickerWithAdd>
         )}
       </FormField>
-      {adding ? (
-        <div className="flex gap-2">
-          <input
-            aria-label={props.addLabel}
-            className={inputClass}
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault(); // not the profile form's submit
-                add();
-              }
-            }}
-          />
-          <Button onClick={add} disabled={save.isPending}>
-            {t("filament:catalog.addConfirm")}
-          </Button>
-          <Button variant="ghost" onClick={() => setAdding(false)}>
-            {t("common:actions.cancel")}
-          </Button>
-        </div>
-      ) : (
-        <Button variant="ghost" onClick={() => setAdding(true)}>
-          {props.addLabel}
-        </Button>
-      )}
-      {save.isError && (
-        <p role="alert" className="text-bad">
-          {t(isConflict(save.error) ? "printers:catalog.duplicate" : "printers:catalog.error")}
-        </p>
-      )}
-    </div>
+      <CatalogAddDialog
+        kind={props.kind}
+        open={adding}
+        title={t(
+          isBrand ? "filament:catalog.brands.addTitle" : "filament:catalog.materials.addTitle",
+        )}
+        toBody={isBrand ? brandBody : materialBody}
+        onClose={() => setAdding(false)}
+        onSaved={(row) => pick(row.id, row)}
+      >
+        {isBrand ? <BrandFields /> : <MaterialFields />}
+      </CatalogAddDialog>
+    </>
   );
 }

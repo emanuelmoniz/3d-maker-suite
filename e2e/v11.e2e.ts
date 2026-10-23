@@ -135,14 +135,16 @@ test("printer model and machine profile: create, edit and delete", async ({ page
   await expect(block(page, "Machine profiles").getByText("No results")).toBeVisible();
 });
 
-test("filament profile: pick or add a brand and a material inline", async ({ page, app }) => {
+test("filament profile: pick a brand, add a material in a modal", async ({ page, app }) => {
   await app.api("POST", "/api/filament-brands", { name: "Acme" });
   await page.goto("/filament/profiles/new");
   await pick(page.getByLabel("Brand", { exact: true }), "Acme");
   await page.getByRole("button", { name: "Add material" }).click();
-  await page.getByLabel("Add material").fill("PETG");
-  await page.getByRole("button", { name: "Add", exact: true }).click();
-  await expect(page.getByLabel("Material", { exact: true })).toHaveValue(/.+/);
+  const dialog = page.getByRole("dialog", { name: "Add filament material" });
+  await dialog.getByLabel("Name", { exact: true }).fill("PETG");
+  await dialog.getByRole("button", { name: "Save" }).click();
+  await expect(dialog).toBeHidden();
+  await expect(page.getByLabel("Material", { exact: true })).toHaveValue("PETG");
   await page.getByLabel("Name", { exact: true }).fill("Tough");
   await page.getByRole("button", { name: "Save profile" }).click();
   await expect(page).toHaveURL(/\/filament\/settings$/);

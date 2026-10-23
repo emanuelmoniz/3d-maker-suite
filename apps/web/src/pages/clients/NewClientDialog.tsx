@@ -1,9 +1,9 @@
 import type { Client } from "@3d-maker-suite/core";
-import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
+import { AddDialog } from "../../components/AddDialog.tsx";
 import { ClientForm } from "./ClientFormPage.tsx";
 
-/** Modal: add a client without leaving the page (the costs page). Native <dialog> like ConfirmDialog. */
+/** Modal: add a client without leaving the page (orders, quotes). */
 export function NewClientDialog({
   open,
   onClose,
@@ -14,39 +14,15 @@ export function NewClientDialog({
   onSaved: (client: Client) => void;
 }) {
   const { t } = useTranslation();
-  const ref = useRef<HTMLDialogElement>(null);
-  useEffect(() => {
-    const d = ref.current;
-    if (!d || open === d.open) return;
-    if (open) d.showModal();
-    else d.close();
-  }, [open]);
   return (
-    // biome-ignore lint/a11y/useKeyWithClickEvents: backdrop click is a pointer shortcut; Escape closes natively
-    <dialog
-      ref={ref}
-      aria-labelledby="new-client-title"
-      onCancel={(e) => {
-        e.preventDefault();
-        onClose();
-      }}
-      onClick={(e) => e.target === ref.current && onClose()}
-      className="m-auto max-h-[90vh] w-[min(92vw,30rem)] overflow-y-auto rounded-lg border border-border bg-surface p-5 text-fg"
-    >
-      {open && (
-        <>
-          <h2 id="new-client-title" className="mb-4 text-base font-semibold">
-            {t("clients:form.addTitle")}
-          </h2>
-          <ClientForm
-            onCancel={onClose}
-            onSaved={(c) => {
-              onSaved(c);
-              onClose();
-            }}
-          />
-        </>
-      )}
-    </dialog>
+    <AddDialog open={open} title={t("clients:form.addTitle")} onClose={onClose}>
+      <ClientForm
+        onCancel={onClose}
+        onSaved={(c) => {
+          onSaved(c);
+          onClose();
+        }}
+      />
+    </AddDialog>
   );
 }

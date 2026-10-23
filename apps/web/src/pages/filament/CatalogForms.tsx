@@ -42,69 +42,82 @@ export function FilamentBrandFormPage() {
   );
 }
 
-export function FilamentMaterialFormPage() {
+export function MaterialFields({
+  m,
+}: {
+  m?: {
+    name: string;
+    nozzleTempC: number | null;
+    bedTempC: number | null;
+    densityGcm3: number | null;
+  };
+}) {
   const { t } = useTranslation();
+  return (
+    <>
+      <FormField label={t("filament:catalog.materials.name")}>
+        {(p) => <input {...p} name="name" required className={inputClass} defaultValue={m?.name} />}
+      </FormField>
+      <p className="text-sm text-muted">{t("filament:catalog.materials.defaultsHint")}</p>
+      <FormField label={t("filament:profiles.nozzleTemp")}>
+        {(p) => (
+          <input
+            {...p}
+            name="nozzle"
+            type="number"
+            min={1}
+            step={1}
+            className={inputClass}
+            defaultValue={m?.nozzleTempC ?? ""}
+          />
+        )}
+      </FormField>
+      <FormField label={t("filament:profiles.bedTemp")}>
+        {(p) => (
+          <input
+            {...p}
+            name="bed"
+            type="number"
+            min={0}
+            step={1}
+            className={inputClass}
+            defaultValue={m?.bedTempC ?? ""}
+          />
+        )}
+      </FormField>
+      <FormField label={t("filament:profiles.density")}>
+        {(p) => (
+          <input
+            {...p}
+            name="density"
+            type="number"
+            min={0.1}
+            step={0.01}
+            className={inputClass}
+            defaultValue={m?.densityGcm3 ?? ""}
+          />
+        )}
+      </FormField>
+    </>
+  );
+}
+
+export const materialBody = (f: FormData) => ({
+  name: text(f, "name"),
+  nozzleTempC: int(text(f, "nozzle")),
+  bedTempC: int(text(f, "bed")),
+  densityGcm3: float(text(f, "density")),
+});
+
+export function FilamentMaterialFormPage() {
   return (
     <CatalogForm
       kind="filament-materials"
       backTo="/filament/settings"
       titles={["filament:catalog.materials.addTitle", "filament:catalog.materials.editTitle"]}
-      toBody={(f) => ({
-        name: text(f, "name"),
-        nozzleTempC: int(text(f, "nozzle")),
-        bedTempC: int(text(f, "bed")),
-        densityGcm3: float(text(f, "density")),
-      })}
+      toBody={materialBody}
     >
-      {(m) => (
-        <>
-          <FormField label={t("filament:catalog.materials.name")}>
-            {(p) => (
-              <input {...p} name="name" required className={inputClass} defaultValue={m?.name} />
-            )}
-          </FormField>
-          <p className="text-sm text-muted">{t("filament:catalog.materials.defaultsHint")}</p>
-          <FormField label={t("filament:profiles.nozzleTemp")}>
-            {(p) => (
-              <input
-                {...p}
-                name="nozzle"
-                type="number"
-                min={1}
-                step={1}
-                className={inputClass}
-                defaultValue={m?.nozzleTempC ?? ""}
-              />
-            )}
-          </FormField>
-          <FormField label={t("filament:profiles.bedTemp")}>
-            {(p) => (
-              <input
-                {...p}
-                name="bed"
-                type="number"
-                min={0}
-                step={1}
-                className={inputClass}
-                defaultValue={m?.bedTempC ?? ""}
-              />
-            )}
-          </FormField>
-          <FormField label={t("filament:profiles.density")}>
-            {(p) => (
-              <input
-                {...p}
-                name="density"
-                type="number"
-                min={0.1}
-                step={0.01}
-                className={inputClass}
-                defaultValue={m?.densityGcm3 ?? ""}
-              />
-            )}
-          </FormField>
-        </>
-      )}
+      {(m) => <MaterialFields m={m} />}
     </CatalogForm>
   );
 }

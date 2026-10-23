@@ -398,6 +398,7 @@ Do Step 9 of the 4.1.1 plan in PLAN.md.
 **Model:** Sonnet · **Effort:** Medium
 **Scope:** on Add printer, "Add model" opens a modal instead of leaving the page; inside it, "Add brand" opens a second modal. Saving the brand closes it and selects it in the model modal; saving the model closes it and selects it on the printer form. Keyboard and focus return work.
 **Done when:** a printer can be added with a new brand and model without leaving the page; e2e for the chain; i18n:check passes; tests pass.
+**Follow-up (done):** the new row is now selected after save, and the same "+ Add …" picker and modal (`PickerWithAdd`, `AddDialog`) are used everywhere: model → brand, machine and print profile → model, printer → print profile, print → machine profile and spool, spool → filament profile, filament profile → brand and material (replaces the inline add), order and quote → client.
 **Prompt:**
 ```
 Do Step 10 of the 4.1.1 plan in PLAN.md.

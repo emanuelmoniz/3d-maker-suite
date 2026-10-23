@@ -7,15 +7,20 @@ import { Combobox } from "../../components/Combobox.tsx";
 import { DateInput } from "../../components/DateInput.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
+import { PickerWithAdd } from "../../components/PickerWithAdd.tsx";
 import { TagPicker } from "../../components/TagPicker.tsx";
 import { isConflict, useModelInfo, usePrintProfiles } from "../../lib/catalog.ts";
 import { dateInputToIso, isoToDateInput } from "../../lib/format.ts";
 import { usePreferences } from "../../lib/preferences.ts";
 import { useCreatePrinter, usePatchPrinter, usePrinter } from "../../lib/printers.ts";
 import { useTagEditor } from "../../lib/tags.ts";
-import { ModelSelect } from "./CatalogForms.tsx";
+import {
+  CatalogAddDialog,
+  ModelPicker,
+  PrintProfileFields,
+  printProfileBody,
+} from "./CatalogForms.tsx";
 import { CostFields, readCostFields } from "./CostFields.tsx";
-import { QuickAddModel } from "./QuickAddModel.tsx";
 import { useStateLabel } from "./StateBadge.tsx";
 
 const text = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
@@ -37,7 +42,8 @@ function PrinterForm({ printer }: { printer?: Printer }) {
   const models = useModelInfo();
   const power = useRef<HTMLInputElement>(null);
   const [modelId, setModelId] = useState(printer?.modelId);
-  const [addModel, setAddModel] = useState(false);
+  const [printProfileId, setPrintProfileId] = useState(printer?.printProfileId ?? "");
+  const [addProfile, setAddProfile] = useState(false);
   const printProfiles = usePrintProfiles().data ?? [];
   const forModel = (p: PrintProfile) => !!modelId && p.printerModelId === modelId;
 
@@ -105,22 +111,13 @@ function PrinterForm({ printer }: { printer?: Printer }) {
         </FormField>
         <FormField label={t("printers:form.model")}>
           {(p) => (
-            <div className="grid gap-1">
-              <ModelSelect
-                {...p}
-                name="modelId"
-                required
-                defaultValue={modelId}
-                onChange={pickModel}
-              />
-              <Button
-                variant="ghost"
-                onClick={() => setAddModel(true)}
-                className="justify-self-start"
-              >
-                {t("printers:catalog.models.add")}
-              </Button>
-            </div>
+            <ModelPicker
+              {...p}
+              name="modelId"
+              required
+              defaultValue={printer?.modelId}
+              onChange={(v, added) => pickModel(v, added?.powerW)}
+            />
           )}
         </FormField>
         <FormField
@@ -128,26 +125,32 @@ function PrinterForm({ printer }: { printer?: Printer }) {
           hint={t("printers:form.printProfileHint")}
         >
           {(p) => (
-            <Combobox
-              // Remount once the options arrive: an uncontrolled picker only applies defaultValue on mount.
-              key={printProfiles.length}
-              {...p}
-              name="printProfileId"
-              defaultValue={printer?.printProfileId ?? ""}
-              options={[
-                { value: "", label: t("printers:form.printProfileNone") },
-                ...[
-                  ...printProfiles.filter(forModel),
-                  ...printProfiles.filter((x) => !forModel(x)),
-                ].map((x) => ({
-                  value: x.id,
-                  label: x.name,
-                  group: forModel(x)
-                    ? t("printers:form.printProfileForModel")
-                    : t("printers:form.printProfileOther"),
-                })),
-              ]}
-            />
+            <PickerWithAdd
+              label={t("printers:catalog.printProfiles.add")}
+              onAdd={() => setAddProfile(true)}
+            >
+              <Combobox
+                // Remount once the options arrive: an uncontrolled picker only applies defaultValue on mount.
+                key={printProfiles.length}
+                {...p}
+                name="printProfileId"
+                defaultValue={printProfileId}
+                onChange={setPrintProfileId}
+                options={[
+                  { value: "", label: t("printers:form.printProfileNone") },
+                  ...[
+                    ...printProfiles.filter(forModel),
+                    ...printProfiles.filter((x) => !forModel(x)),
+                  ].map((x) => ({
+                    value: x.id,
+                    label: x.name,
+                    group: forModel(x)
+                      ? t("printers:form.printProfileForModel")
+                      : t("printers:form.printProfileOther"),
+                  })),
+                ]}
+              />
+            </PickerWithAdd>
           )}
         </FormField>
         <FormField label={t("printers:form.serial")}>
@@ -245,14 +248,16 @@ function PrinterForm({ printer }: { printer?: Printer }) {
           <Button onClick={() => history.back()}>{t("common:actions.cancel")}</Button>
         </div>
       </form>
-      <QuickAddModel
-        open={addModel}
-        onClose={() => setAddModel(false)}
-        onSaved={(m) => {
-          setAddModel(false);
-          pickModel(m.id, m.powerW);
-        }}
-      />
+      <CatalogAddDialog
+        kind="print-profiles"
+        open={addProfile}
+        title={t("printers:catalog.printProfiles.addTitle")}
+        toBody={printProfileBody}
+        onClose={() => setAddProfile(false)}
+        onSaved={(pp) => setPrintProfileId(pp.id)}
+      >
+        <PrintProfileFields modelId={modelId} />
+      </CatalogAddDialog>
     </>
   );
 }

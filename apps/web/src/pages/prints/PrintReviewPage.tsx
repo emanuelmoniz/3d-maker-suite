@@ -1,6 +1,6 @@
 import { type FilamentReviewItem, filamentReviewFilters, usableOn } from "@3d-maker-suite/core";
 import { Link } from "@tanstack/react-router";
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, Plus } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
@@ -182,7 +182,8 @@ export function PrintReviewPage() {
                       >
                         {t("prints:review.assign")}
                       </Button>
-                      <Button variant="ghost" onClick={() => setAdding(i)}>
+                      <Button onClick={() => setAdding(i)}>
+                        <Plus className="size-4" aria-hidden />
                         {t("prints:review.addSpool")}
                       </Button>
                       <Button
