@@ -13,3 +13,5 @@ playwright-report/
 .playwright-mcp/
 .update/
 packaging/out/
+# Real install test evidence (screenshots, results), not published
+test-runs/
