@@ -1,6 +1,47 @@
 # Install and first run
 
-Pick your setup: [Windows](#windows), [macOS](#macos), [Linux](#linux) or [Docker](#docker) (NAS and home servers).
+Pick your setup: [Installers](#installers) (no git, no Node), [Windows](#windows), [macOS](#macos), [Linux](#linux) or [Docker](#docker) (NAS and home servers).
+
+## Installers
+
+Download the file for your system from the [pre-release or release page](https://github.com/emanuelmoniz/3d-maker-suite/releases) and double-click it:
+
+| System | File |
+|---|---|
+| Windows (x64) | `3d-maker-suite-<version>-windows-x64-setup.exe` |
+| macOS, Apple silicon | `3d-maker-suite-<version>-macos-arm64.dmg` |
+| macOS, Intel | `3d-maker-suite-<version>-macos-x64.dmg` |
+| Linux (x64) | `3d-maker-suite-<version>-linux-x64.tar.gz` |
+
+The installer brings its own Node, so you don't need Node, pnpm or Git. Windows installs per user, without admin. On macOS drag the app to Applications. On Linux, unpack the archive and run `install.sh`. Settings → About & updates then updates the app itself.
+
+To check a download, compare its SHA-256 with `SHA256SUMS` from the same release (`sha256sum -c SHA256SUMS` on Linux and macOS, `Get-FileHash` on Windows).
+
+### Warnings you will see
+
+The installers are not code-signed (a certificate costs money every year), so the system warns once:
+
+- **Windows** "Windows protected your PC" (SmartScreen): click **More info**, then **Run anyway**.
+- **macOS 15** "can't be opened": open the app once, then go to **System Settings → Privacy & Security** and click **Open Anyway**. Or run `xattr -dr com.apple.quarantine "/Applications/3D Maker Suite.app"` in Terminal. Ctrl-click → Open no longer works on macOS 15.
+- **Linux**: no warning.
+
+Updates downloaded from inside the app don't show these warnings again.
+
+### Starting and stopping
+
+The shortcut (Start menu, Applications or the desktop entry) starts the app and opens your browser at <http://127.0.0.1:4300>. There's no window to keep open; a second start just opens the browser again. To stop it, use **Settings → Server → Stop server**.
+
+Turn on **Settings → Server → Start at login** to start it when you sign in.
+
+### Where the installed app and its logs live
+
+| System | Install folder | Logs |
+|---|---|---|
+| Windows | `%LOCALAPPDATA%\Programs\3D Maker Suite` | `logs\server.log` and `logs\launcher.log` in that folder |
+| macOS | `/Applications/3D Maker Suite.app` plus `~/Library/Application Support/3d-maker-suite/install` | `logs/` in the install folder |
+| Linux | `~/.local/share/3d-maker-suite/install` | `logs/` in the install folder |
+
+Your data (database, key file, thumbnails, backups) stays in the data folder listed under [Where your data is](#where-your-data-is). Uninstalling removes the program and keeps your data.
 
 ## Windows
 

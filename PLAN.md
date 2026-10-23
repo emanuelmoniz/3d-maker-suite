@@ -249,7 +249,7 @@ Do Step 13 of PLAN.md. Show me the update and rollback sequence (files, pointer,
 failure cases) first.
 ```
 
-### [ ] Step 14 - Docs, push & v4.1.0-alpha.2
+### [x] Step 14 - Docs, push & v4.1.0-alpha.2
 **Model:** Haiku · **Effort:** Low
 **Scope:** `docs/install.md`: installers per OS first, the unsigned warnings with screenshots, where data and logs live, Start at login, Stop; git install and Docker stay as they are. `docs/configuration.md`, CHANGELOG, version `4.1.0-alpha.2`. Commit, push `dev`, create and push tag `v4.1.0-alpha.2` on `dev`; check the run, the pre-release assets and the `:dev` image.
 **Done when:** `dev` and the tag are pushed; the workflow is green; installers, app zips and checksums are on the pre-release; docs match the app.

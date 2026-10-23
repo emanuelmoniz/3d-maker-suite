@@ -4,6 +4,20 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+## [4.1.0-alpha.2] - 2026-10-23
+
+### Added
+- Installers for Windows (`setup.exe`), macOS (`.dmg`, Apple silicon and Intel) and Linux (`tar.gz`). They bring their own Node, so no git, pnpm or Node is needed; the install guide lists the unsigned-build warnings for each system
+- Release assets: one app zip per system (what the in-app updater downloads) and `SHA256SUMS`
+- Settings → Server → **Start at login**: starts the app when you sign in; the installers' "Start when I sign in" box writes the same entry
+- Settings → Server → **Stop server**
+- The launcher opens the browser on start and refuses a second copy, which just opens the browser again
+- Updates for installed copies: **Update** downloads the app zip, checks it against `SHA256SUMS`, and keeps the previous version for **Roll back**; a new version that fails to start within 60 s is undone automatically
+
+### Changed
+- Installed copies log to `logs/server.log` and `logs/launcher.log` in the install folder (see [install.md](docs/install.md#where-the-installed-app-and-its-logs-live))
+- Git installs keep working as before (`pnpm start`, Settings → Update)
+
 ## [4.1.0-alpha.1] - 2026-10-23
 
 ### Added
