@@ -1,7 +1,9 @@
 import type { ServerConfigPatch, ServerConfigResponse } from "@3d-maker-suite/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
+import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { api } from "../../lib/api.ts";
 
@@ -30,6 +32,8 @@ export function ServerSection() {
   const restart = useMutation({
     mutationFn: () => api("POST", "/api/server-config/restart"),
   });
+  const stop = useMutation({ mutationFn: () => api("POST", "/api/server-config/stop") });
+  const [confirmStop, setConfirmStop] = useState(false);
   if (!data) return null;
   const { effective, saved } = data;
   const pending =
@@ -135,6 +139,30 @@ export function ServerSection() {
         </Button>
         <p className="mt-1 text-muted">{t("settings:server.restartHint")}</p>
       </div>
+      <div>
+        <Button
+          variant="danger"
+          disabled={stop.isPending || stop.isSuccess}
+          onClick={() => setConfirmStop(true)}
+        >
+          {t("settings:server.stopButton")}
+        </Button>
+        <p className="mt-1 text-muted">
+          {stop.isSuccess ? t("settings:server.stopped") : t("settings:server.stopHint")}
+        </p>
+      </div>
+      <ConfirmDialog
+        open={confirmStop}
+        destructive
+        title={t("settings:server.stopTitle")}
+        description={t("settings:server.stopBody")}
+        confirmLabel={t("settings:server.stopButton")}
+        onConfirm={() => {
+          setConfirmStop(false);
+          stop.mutate();
+        }}
+        onCancel={() => setConfirmStop(false)}
+      />
       {save.isError && (
         <p role="alert" className="text-bad">
           {t("settings:saveError")}

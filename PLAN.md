@@ -205,7 +205,7 @@ Do Step 9 of PLAN.md. Report each spike point with evidence and your recommendat
 Do Step 10 of PLAN.md. Show me the ADR draft and the release asset list first.
 ```
 
-### [ ] Step 11 - Launcher and Stop server
+### [x] Step 11 - Launcher and Stop server
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - `packaging/launcher.mjs` (Node stdlib only): read host/port from the saved config; if `/api/health` answers, open the browser and exit (single instance); else start the server hidden with `APP_INSTALL=bundle`, stdio to `<dataDir>/logs/server.log` (rotated by size), wait for health, open the browser; handle exit 75 like `scripts/start.mjs`.

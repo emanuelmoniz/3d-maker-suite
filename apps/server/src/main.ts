@@ -29,6 +29,7 @@ const app = await buildApp(openDb(join(config.dataDir, "app.sqlite")), true, con
   serverConfig: config,
   // Under `pnpm start` the launcher (scripts/start.mjs) starts it again, applying a pending update.
   // ponytail: without it, respawns itself detached; a supervisor (pm2, systemd) would make this unnecessary.
+  stop: () => app.close().then(() => process.exit(0)),
   restart: () =>
     app.close().then(() => {
       if (!process.env.APP_LAUNCHER)

@@ -2,7 +2,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { openDb } from "@3d-maker-suite/db";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { buildApp } from "./app.ts";
 import { dataDir, loadConfig, writeSavedConfig } from "./config.ts";
 
@@ -83,5 +83,20 @@ describe("config", () => {
     expect(res.saved).toEqual({ host: "0.0.0.0", port: 5000 });
     expect(res.effective).toMatchObject({ port: 4300, portSource: "default" });
     expect((await patch({ port: null })).json().saved).toEqual({ host: "0.0.0.0" });
+  });
+
+  it("stops through the API only when the host allows it", async () => {
+    const d = mkdtempSync(join(tmpdir(), "cfg-"));
+    const config = loadConfig({ APP_DATA_DIR: d }, []);
+    const post = (app: Awaited<ReturnType<typeof buildApp>>) =>
+      app.inject({ method: "POST", url: "/api/server-config/stop" });
+    expect(
+      (await post(await buildApp(openDb(":memory:"), false, d, { serverConfig: config })))
+        .statusCode,
+    ).toBe(404);
+    const stop = vi.fn();
+    const app = await buildApp(openDb(":memory:"), false, d, { serverConfig: config, stop });
+    expect((await post(app)).statusCode).toBe(202);
+    await vi.waitFor(() => expect(stop).toHaveBeenCalled());
   });
 });

@@ -3,7 +3,7 @@ import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { type Config, readSavedConfig, writeSavedConfig } from "../config.ts";
 
 export const serverConfigRoutes =
-  (config: Config, restart?: () => void): FastifyPluginAsyncZod =>
+  (config: Config, restart?: () => void, stop?: () => void): FastifyPluginAsyncZod =>
   async (app) => {
     const view = () => ({
       effective: {
@@ -38,6 +38,13 @@ export const serverConfigRoutes =
     if (restart)
       app.post("/restart", async (_req, reply) => {
         reply.raw.once("finish", () => setTimeout(restart, 50));
+        return reply.status(202).send({ ok: true });
+      });
+
+    // Exit code 0 ends the launcher too; this is the only way to quit when it runs without a window.
+    if (stop)
+      app.post("/stop", async (_req, reply) => {
+        reply.raw.once("finish", () => setTimeout(stop, 50));
         return reply.status(202).send({ ok: true });
       });
   };

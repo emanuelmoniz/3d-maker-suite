@@ -1,8 +1,15 @@
-import { lstatSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { compareVersions, newest, relink } from "./launcher.mjs";
+import { compareVersions, newest, relink, rotate, serverUrl } from "./launcher.mjs";
 
 const install = (...versions) => {
   const dir = mkdtempSync(join(tmpdir(), "launcher-"));
@@ -50,5 +57,30 @@ describe("relink", () => {
     const at = join(app, "node_modules", "@3d-maker-suite", "core");
     expect(lstatSync(at).isSymbolicLink()).toBe(true);
     expect(readFileSync(join(at, "package.json"), "utf8")).toBe('{"name":"core"}');
+  });
+});
+
+describe("serverUrl", () => {
+  it("follows flag > env > saved config > default", () => {
+    const dir = install();
+    expect(serverUrl(dir, {}, [])).toBe("http://127.0.0.1:4300/");
+    writeFileSync(join(dir, "config.json"), '{"host":"0.0.0.0","port":5000}');
+    expect(serverUrl(dir, {}, [])).toBe("http://127.0.0.1:5000/"); // wildcard -> loopback
+    expect(serverUrl(dir, { PORT: "5100" }, [])).toBe("http://127.0.0.1:5100/");
+    expect(serverUrl(dir, { PORT: "5100" }, ["--port", "5200", "--host", "::1"])).toBe(
+      "http://[::1]:5200/",
+    );
+  });
+});
+
+describe("rotate", () => {
+  it("moves a log over the limit to .1 and leaves a small one", () => {
+    const file = join(install(), "server.log");
+    writeFileSync(file, "x".repeat(10));
+    rotate(file, 100);
+    expect(existsSync(file)).toBe(true);
+    rotate(file, 5);
+    expect(existsSync(file)).toBe(false);
+    expect(readFileSync(`${file}.1`, "utf8")).toHaveLength(10);
   });
 });

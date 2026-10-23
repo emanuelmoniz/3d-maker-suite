@@ -81,6 +81,8 @@ export async function buildApp(
     serverConfig?: Config;
     /** Makes POST /api/server-config/restart available, and lets an update restart (off in tests). */
     restart?: () => void;
+    /** Makes POST /api/server-config/stop available (there may be no console to close). */
+    stop?: () => void;
     /** Cron for the update check; also checks a minute after start (ADR-0009). */
     updateCheckSchedule?: string;
     /** Test seam for the updater (install type, version, releases). */
@@ -181,7 +183,7 @@ export async function buildApp(
   // Background work has no URL, so it names its module here.
   const logFor = (module: LogModule) => app.log.child({ module });
   if (opts.serverConfig)
-    await app.register(serverConfigRoutes(opts.serverConfig, opts.restart), {
+    await app.register(serverConfigRoutes(opts.serverConfig, opts.restart, opts.stop), {
       prefix: "/api/server-config",
     });
   await app.register(fsRoutes(), { prefix: "/api/fs" });
