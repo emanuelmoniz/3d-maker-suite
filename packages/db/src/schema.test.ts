@@ -169,10 +169,21 @@ function migrateAcross(
   return drizzle({ client: sqlite, schema: s, casing: "snake_case" });
 }
 
+/** Sync policy columns as of 0025, for tests that stop before later ones. */
+const policyColumns = {
+  integrationId: s.syncPolicies.integrationId,
+  type: s.syncPolicies.type,
+  mode: s.syncPolicies.mode,
+  frequency: s.syncPolicies.frequency,
+  lastRunAt: s.syncPolicies.lastRunAt,
+  cursor: s.syncPolicies.cursor,
+  pending: s.syncPolicies.pending,
+};
+
 /** What `disabled_features` held before 0025: the types switched off for one integration. */
 const offTypes = (now: ReturnType<typeof migrateAcross>, integrationId: string) =>
   now
-    .select()
+    .select(policyColumns)
     .from(s.syncPolicies)
     .all()
     .filter((p) => p.integrationId === integrationId && p.mode === "off")
@@ -402,7 +413,7 @@ describe("migration 0025", () => {
     );
     const of = (integrationId: string) =>
       now
-        .select()
+        .select(policyColumns)
         .from(s.syncPolicies)
         .all()
         .filter((p) => p.integrationId === integrationId)
@@ -420,7 +431,7 @@ describe("migration 0025", () => {
     ]);
     // Deleting the integration takes its policies along.
     now.delete(s.integrations).run();
-    expect(now.select().from(s.syncPolicies).all()).toEqual([]);
+    expect(now.select(policyColumns).from(s.syncPolicies).all()).toEqual([]);
   });
 });
 
@@ -454,6 +465,34 @@ describe("migration 0064", () => {
       { type: "prints", mode: "manual", trackUsage: true },
       { type: "spools", mode: "manual", trackUsage: false },
       { type: "slice", mode: "off", trackUsage: true },
+    ]);
+  });
+});
+
+describe("migration 0065", () => {
+  it("keeps every row in scope; printers and spools review changes, the rest keeps your edits", () => {
+    const at = "2026-01-01T00:00:00.000Z";
+    const now = migrateAcross(64, (sqlite) => {
+      sqlite
+        .prepare(
+          "INSERT INTO integrations (id, adapter_id, config, created_at, updated_at) VALUES ('i', 'mock', '{}', ?, ?)",
+        )
+        .run(at, at);
+      const policy = sqlite.prepare(
+        "INSERT INTO sync_policies (integration_id, type, mode, frequency) VALUES ('i', ?, 'manual', '1d')",
+      );
+      for (const type of ["printers", "spools", "brands"]) policy.run(type);
+    });
+    expect(
+      now
+        .select()
+        .from(s.syncPolicies)
+        .all()
+        .map(({ type, scope, merge }) => ({ type, scope, merge })),
+    ).toEqual([
+      { type: "printers", scope: "all", merge: "review" },
+      { type: "spools", scope: "all", merge: "review" },
+      { type: "brands", scope: "all", merge: "keepEdits" },
     ]);
   });
 });

@@ -568,8 +568,11 @@ export const IMPORT_COLUMNS = {
  */
 export const IMPORT_STATUSES = ["new", "identical", "changed", "ambiguous", "invalid"] as const;
 export const IMPORT_ACTIONS = ["create", "update", "skip"] as const;
-/** On update: `overwrite` = file values win; `fill` = only fields that are empty are set. */
-export const MERGE_POLICIES = ["overwrite", "fill"] as const;
+/**
+ * On update: `overwrite` = file values win; `fill` = only fields that are empty are set;
+ * `keepEdits` (rows from an integration) = all but the fields you changed since the last import.
+ */
+export const MERGE_POLICIES = ["overwrite", "fill", "keepEdits"] as const;
 export const IMPORT_ERRORS = [
   "required",
   "not_a_number",
@@ -625,6 +628,11 @@ export const importPreviewRowSchema = z.object({
    * `wait` leaves the row for a person; absent = neither (nothing to do, or only on request).
    */
   auto: z.enum(["apply", "wait"]).optional(),
+  /**
+   * Rows from an integration: keys you changed since the integration last imported the row, kept
+   * by `keepEdits`. Absent = not known (never imported from it), so `keepEdits` only fills blanks.
+   */
+  edited: z.array(z.string()).optional(),
   /** Projects: the row names a folder that doesn't exist (yet). */
   folderMissing: z.boolean().optional(),
 });
@@ -671,6 +679,8 @@ export const importPreviewSchema = z.object({
   columns: z.array(z.string()).optional(),
   /** By `ref`: the names you have, offered when a cell is edited. */
   refNames: z.record(z.string(), z.array(z.string())),
+  /** Rows from an integration: the merge policy its sync type asks for (the bulk default). */
+  policy: z.enum(MERGE_POLICIES).optional(),
 });
 
 /** What the template and the export are written as. */
@@ -711,51 +721,52 @@ export const importPreviewQuerySchema = z.object({
 export const importApplySchema = z.object({
   uploadId: z.uuid(),
   policy: z.enum(MERGE_POLICIES),
-  /** Skipped rows are left out. The rows themselves are re-read from the stored upload. */
-  decisions: z
-    .array(
-      z.object({
-        row: z.number().int().positive(),
-        action: z.enum(["create", "update"]),
-        /** Required for `update`. */
-        targetId: id.optional(),
-        /** Overrides `policy` for this row. */
-        policy: z.enum(MERGE_POLICIES).optional(),
-        /** By column key: the picked references (see `refOptions`). */
-        refs: z.record(z.string(), id).optional(),
-        /**
-         * Prints: false saves the print and its filament without taking it from the spools;
-         * replaces the row's `trackUsage`.
-         */
-        trackUsage: z.boolean().optional(),
-        /**
-         * Projects: replaces the row's folder. A picked folder, one to make inside a project root
-         * (`name` empty = `<number>_<name>`, `root` needed with several roots), or null for none.
-         */
-        folder: z
-          .union([
-            z.object({ path: z.string().min(1) }),
-            z.object({
-              create: z.literal(true),
-              name: z.string().max(200).optional(),
-              root: z.string().min(1).optional(),
-            }),
-          ])
-          .nullable()
-          .optional(),
-        /** Projects: name, description and link come from the folder's scan, not the file. */
-        fromFolder: z.boolean().optional(),
-        /** Projects: exactly these prints are the project's; absent = linked automatically. */
-        prints: z.array(id).max(10000).optional(),
-        /**
-         * Cells edited in the review, by column key, as a file cell would hold them. They replace
-         * the row's cells and the row is validated again; `id` and `number` can't change on an
-         * update.
-         */
-        values: values.optional(),
-      }),
-    )
-    .min(1),
+  /**
+   * Skipped rows are left out. The rows themselves are re-read from the stored upload. Empty only
+   * for rows from an integration: the changes are dismissed (seen) without writing anything.
+   */
+  decisions: z.array(
+    z.object({
+      row: z.number().int().positive(),
+      action: z.enum(["create", "update"]),
+      /** Required for `update`. */
+      targetId: id.optional(),
+      /** Overrides `policy` for this row. */
+      policy: z.enum(MERGE_POLICIES).optional(),
+      /** By column key: the picked references (see `refOptions`). */
+      refs: z.record(z.string(), id).optional(),
+      /**
+       * Prints: false saves the print and its filament without taking it from the spools;
+       * replaces the row's `trackUsage`.
+       */
+      trackUsage: z.boolean().optional(),
+      /**
+       * Projects: replaces the row's folder. A picked folder, one to make inside a project root
+       * (`name` empty = `<number>_<name>`, `root` needed with several roots), or null for none.
+       */
+      folder: z
+        .union([
+          z.object({ path: z.string().min(1) }),
+          z.object({
+            create: z.literal(true),
+            name: z.string().max(200).optional(),
+            root: z.string().min(1).optional(),
+          }),
+        ])
+        .nullable()
+        .optional(),
+      /** Projects: name, description and link come from the folder's scan, not the file. */
+      fromFolder: z.boolean().optional(),
+      /** Projects: exactly these prints are the project's; absent = linked automatically. */
+      prints: z.array(id).max(10000).optional(),
+      /**
+       * Cells edited in the review, by column key, as a file cell would hold them. They replace
+       * the row's cells and the row is validated again; `id` and `number` can't change on an
+       * update.
+       */
+      values: values.optional(),
+    }),
+  ),
 });
 
 export const importProjectPrintsSchema = z.object({

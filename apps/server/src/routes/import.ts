@@ -328,6 +328,8 @@ export const importRoutes =
         const stored = review.load(uploadId);
         if (!stored || stored.entity !== req.params.entity)
           throw new HttpError(404, "upload_not_found", "Upload not found; preview the file again");
+        if (!decisions.length && stored.from?.kind !== "integration")
+          throw new HttpError(400, "nothing_to_import", "No rows to import");
         review.plan(stored, decisions, policy);
         // Projects: the folders to make are made now, and removed again if the write fails.
         const made: string[] = [];

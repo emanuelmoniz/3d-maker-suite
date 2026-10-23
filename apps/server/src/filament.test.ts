@@ -433,7 +433,7 @@ describe("filament library", () => {
     expect(profile()).toMatchObject({ id: b?.id, archivedAt: null });
   });
 
-  it("offers an imported spool's new vendor weight, and only writes it on request", async () => {
+  it("leaves an imported spool's new vendor weight for review, and writes it on request", async () => {
     mock.spools = [vendorSpool("1", "A")];
     const mockId = await addMock();
     addProfile("A");
@@ -442,11 +442,10 @@ describe("filament library", () => {
     mock.spools = [{ ...vendorSpool("1", "A"), remainingGrams: 100 }];
     expect((await run(mockId, "spools")).json()).toMatchObject({ created: 0 });
     expect(db.select().from(schema.spools).get()?.remainingGrams).toBe(250);
-    expect(await policy(mockId, "spools")).toMatchObject({ pending: 0 });
+    expect(await policy(mockId, "spools")).toMatchObject({ pending: 1 });
 
     const p = await open(`/api/import/integration/${mockId}/spools`);
-    expect(p.rows).toMatchObject([{ status: "changed", action: "skip" }]);
-    expect(p.rows[0]?.auto).toBeUndefined();
+    expect(p.rows).toMatchObject([{ status: "changed", action: "update", auto: "wait" }]);
     expect((await review.confirm(p, p.rows, { action: "update" })).json()).toMatchObject({
       updated: 1,
     });

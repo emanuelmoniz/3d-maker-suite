@@ -11,6 +11,7 @@ import {
   autoOf,
   type BULK_ACTIONS,
   diffValues,
+  editedKeys,
   headerKeys,
   mergeValues,
   parseCell,
@@ -123,6 +124,18 @@ describe("diff and merge", () => {
     });
     expect(mergeValues(columns, "fill", file, target)).toEqual({ location: "Shelf" });
   });
+
+  it("keepEdits keeps the fields you changed since the last import; not known = fill", () => {
+    // Imported with 1000 g and no location; you typed a location since.
+    const seen = { brand: "Acme", material: "PLA", initialGrams: 1000, location: null };
+    const yours = { ...seen, location: "Drawer" };
+    const edited = editedKeys(columns, seen, yours);
+    expect(edited).toEqual(["location"]);
+    expect(
+      mergeValues(columns, "keepEdits", { ...file, initialGrams: 750 }, yours, edited),
+    ).toEqual({ initialGrams: 750 });
+    expect(mergeValues(columns, "keepEdits", file, target)).toEqual({ location: "Shelf" });
+  });
 });
 
 it("suggest never guesses", () => {
@@ -211,6 +224,16 @@ describe("auto mode", () => {
     expect(autoOf({ ...facts, status: "identical", linked: true })).toBeUndefined();
     expect(autoOf({ ...facts, status: "invalid" })).toBeUndefined();
     expect(autoOf({ ...facts, status: "new", optional: true })).toBeUndefined();
+  });
+
+  it("follows the sync options: scope, seen changes and review", () => {
+    // A new row the type doesn't take is ignored, not left pending.
+    expect(autoOf({ ...facts, status: "new", outOfScope: true })).toBeUndefined();
+    // Only your edits differ from the source: nothing to do.
+    expect(autoOf({ ...facts, status: "changed", linked: true, seen: true })).toBeUndefined();
+    // The source changed and you review changes: it waits.
+    expect(autoOf({ ...facts, status: "changed", linked: true, review: true })).toBe("wait");
+    expect(autoOf({ ...facts, status: "new", review: true })).toBe("apply");
   });
 
   it("decides only the rows to apply, with their suggestion", () => {

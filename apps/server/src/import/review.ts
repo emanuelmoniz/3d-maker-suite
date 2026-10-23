@@ -10,6 +10,8 @@ import {
 import { join } from "node:path";
 import {
   autoOf,
+  diffValues,
+  editedKeys,
   IMPORT_COLUMNS,
   type ImportApplyDecision,
   type ImportErrorCode,
@@ -21,10 +23,13 @@ import {
   mergeValues,
   parseRow,
   type ReviewEntity,
+  type ReviewedType,
   suggest,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
+import { and, eq } from "drizzle-orm";
 import { HttpError } from "../errors.ts";
+import { policyOf } from "../integrations/capabilities.ts";
 import { catalogImport } from "./catalog.ts";
 import { clientImport, orderImport, quoteImport } from "./commerce.ts";
 import { filamentProfileImport } from "./filamentProfiles.ts";
@@ -145,6 +150,17 @@ export type ImportHandler = {
   update: (db: Db, target: ImportTarget, patch: ImportValues, row: WriteRow) => void;
 };
 
+const { brands, filamentBrands, importSnapshots } = schema;
+/** Where "Only already imported" looks up a new row's brand. Types not listed take no new rows. */
+const BRAND_OF: Partial<Record<ReviewEntity, typeof brands | typeof filamentBrands>> = {
+  printers: brands,
+  printerModels: brands,
+  machineProfiles: brands,
+  printProfiles: brands,
+  spools: filamentBrands,
+  filamentProfiles: filamentBrands,
+};
+
 const UPLOADS = "imports";
 const DAY = 24 * 60 * 60 * 1000;
 
@@ -221,12 +237,59 @@ export function createReview(db: Db, dataDir: string) {
       : null;
   const drop = (uploadId: string) => rmSync(file(uploadId), { force: true });
 
+  /**
+   * The sync options of the integration the rows are from (not for prints: they never change once
+   * imported) and what it last imported per row.
+   */
+  function syncOf(stored: Stored) {
+    if (stored.from?.kind !== "integration" || stored.entity === "prints") return undefined;
+    const { integrationId } = stored.from;
+    const { scope, merge } = policyOf(db, integrationId, stored.entity as ReviewedType);
+    const where = and(
+      eq(importSnapshots.integrationId, integrationId),
+      eq(importSnapshots.entity, stored.entity),
+    );
+    const seen = new Map(
+      db
+        .select()
+        .from(importSnapshots)
+        .where(where)
+        .all()
+        .map((s) => [s.rowId, s.values]),
+    );
+    const table = BRAND_OF[stored.entity];
+    const brands =
+      scope === "imported" && table
+        ? new Set(
+            db
+              .select({ name: table.name })
+              .from(table)
+              .all()
+              .map((b) => b.name.trim().toLowerCase()),
+          )
+        : undefined;
+    return {
+      integrationId,
+      merge,
+      seen,
+      /** A new row this type takes: always under `all`, else when you have its brand. */
+      inScope: (v: ImportValues) =>
+        scope === "all" ||
+        !!brands?.has(
+          String(v.brand ?? "")
+            .trim()
+            .toLowerCase(),
+        ),
+    };
+  }
+
   /** Validates and matches the stored rows against the database as it is now. */
   function preview(stored: Stored): Omit<ImportPreview, "uploadId"> {
     const columns = IMPORT_COLUMNS[stored.entity];
     const handler = handlers[stored.entity];
     const targets = handler.targets(db);
     const sourced = !!stored.from;
+    const sync = syncOf(stored);
     const gone = (sourced && handler.archived?.(db)) || undefined;
     const byId = new Map([...targets, ...(gone?.targets ?? [])].map((t) => [t.id, t]));
     const bySource = (sourced && handler.bySource?.(db)) || new Map<string, string>();
@@ -292,19 +355,41 @@ export function createReview(db: Db, dataDir: string) {
         // A row that has only required picks is skipped until picked (a vendor's spool); one with
         // optional ones too stays a create, so a missing required pick shows (a print's project).
         const unpicked = !!pick && !picks?.optional && Object.values(pick.refs).some((v) => !v);
+        const outOfScope = !!sync && s.status === "new" && !sync.inScope(p.values);
+        const last = (m.targetId && sync?.seen.get(m.targetId)) || undefined;
+        const edited = last && target ? editedKeys(columns, last, target) : undefined;
+        // The source is where it was at the last import: only your edits differ. Nothing imported
+        // yet, a review of changes starts from the source as it is now.
+        const sameSource = !!last && !diffValues(columns, p.values, last).length;
+        const keep = !!sync && sync.merge !== "overwrite";
+        // Keeping your edits leaves nothing to write: the source only changed fields you edited.
+        const nothing =
+          sync?.merge === "keepEdits" &&
+          !!target &&
+          !Object.keys(mergeValues(columns, "keepEdits", p.values, target, edited)).length;
+        const seen = nothing || (keep && !!target && (last ? sameSource : sync.merge === "review"));
         return {
           ...p,
           raw: cells(raw),
           ...m,
           ...s,
-          ...((yours || (unpicked && s.action === "create")) && { action: "skip" as const }),
+          ...((yours ||
+            (unpicked && s.action === "create") ||
+            outOfScope ||
+            (s.status === "changed" && ((keep && sameSource) || nothing))) && {
+            action: "skip" as const,
+          }),
           ...picked,
+          ...(edited && { edited }),
           auto: autoOf({
             status: s.status,
             // Without a source key the name is the identity, so a match is the row itself.
             linked: !!hit || (!handler.bySource && !!m.targetId),
             held: !!held?.(p.values) || (!!pick && !pick.sure),
             optional: yours,
+            outOfScope,
+            seen,
+            review: sync?.merge === "review",
           }),
         };
       }),
@@ -322,7 +407,34 @@ export function createReview(db: Db, dataDir: string) {
       refNames: handler.refs?.(db) ?? {},
       refOptions: picks?.options,
       ...(picks?.optional && { refsOptional: picks.optional }),
+      ...(sync && { policy: sync.merge === "keepEdits" ? "keepEdits" : "overwrite" }),
     };
+  }
+
+  /**
+   * After a write: the rows written, all rows a person looked at (a confirmed review) and rows never
+   * seen before are now as the source has them. A row a run left waiting keeps its last import, so
+   * it waits again.
+   */
+  function snapshot(stored: Stored, wrote: Set<number>, reviewed: boolean) {
+    const sync = syncOf(stored);
+    if (!sync) return;
+    const rows = preview(stored).rows;
+    db.transaction(() => {
+      for (const r of rows) {
+        if (!r.targetId || r.status === "invalid") continue;
+        if (!(wrote.has(r.row) || reviewed || (!sync.seen.has(r.targetId) && r.auto !== "wait")))
+          continue;
+        const row = { integrationId: sync.integrationId, entity: stored.entity, rowId: r.targetId };
+        db.insert(importSnapshots)
+          .values({ ...row, values: r.values })
+          .onConflictDoUpdate({
+            target: [importSnapshots.integrationId, importSnapshots.entity, importSnapshots.rowId],
+            set: { values: r.values },
+          })
+          .run();
+      }
+    });
   }
 
   /** The writes the decisions ask for. Anything wrong rejects them all. */
@@ -410,6 +522,7 @@ export function createReview(db: Db, dataDir: string) {
     const columns = IMPORT_COLUMNS[stored.entity];
     const handler = handlers[stored.entity];
     const { current, ops } = plan(stored, decisions, policy);
+    const editedOf = new Map(current.rows.map((r) => [r.row, r.edited]));
     // Prints oldest first, whatever order the file or the vendor lists them in: numbers and spool
     // bookings follow time. Same start keeps the row order.
     if (stored.entity === "prints") {
@@ -437,7 +550,13 @@ export function createReview(db: Db, dataDir: string) {
             });
           continue;
         }
-        const patch = mergeValues(columns, op.policy, op.values, op.target.values);
+        const patch = mergeValues(
+          columns,
+          op.policy,
+          op.values,
+          op.target.values,
+          editedOf.get(row),
+        );
         // Prints picked in the review, names taken from the folder, or a row you archived coming
         // back are a change of their own.
         if (
@@ -472,6 +591,7 @@ export function createReview(db: Db, dataDir: string) {
           backup,
         })
         .run();
+    snapshot(stored, new Set(written.map((w) => w.row)), !!backup);
     // What is still there for a person (or the next run) once this one is done.
     const left = stored.from ? preview(stored).rows.filter((r) => r.auto) : [];
     return { created, updated, skipped, pending: left.length, left, written, invalid };

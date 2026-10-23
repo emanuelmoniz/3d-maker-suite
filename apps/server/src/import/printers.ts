@@ -140,8 +140,7 @@ export const printerImport = {
       of: (source: string | undefined) => (source && bySource.get(source)) || null,
     };
   },
-  /** A printer you have is yours: the vendor's version of it is offered, never applied. */
-  handsOff: true,
+  // A change to a printer you have follows the sync type's `merge` (default: you review it).
   sourceOnly: true,
 
   refs: (db: Db) => ({

@@ -404,7 +404,23 @@ Do Step 9 of the 4.1.1 plan in PLAN.md.
 Do Step 10 of the 4.1.1 plan in PLAN.md.
 ```
 
-### [ ] Step 11 - Sync schedule time  **[plan mode]**
+### [x] Step 11 - Sync options: what to sync, how to sync  **[plan mode]**
+**Model:** Opus · **Effort:** Medium
+**Scope:** two options per sync type in the policy row, for every reviewed type except prints (printers, spools, the 7 slicer types). Back up the DB first.
+- **What to sync:** `All` | `Only already imported`. The latter updates rows you have and takes a new row only when its brand exists locally (models, machine/print/filament profiles, printers, spools); brands, filament brands and materials themselves: existing only. Out-of-scope new rows are ignored quietly (not pending, no alert). First import = review, filter the brand column, select all filtered.
+- **How to sync:** `Overwrite with source` | `Keep my edits` | `Let me review the changes`.
+  - Keep my edits, per field: the values last imported are stored per row (new `import_snapshots` table); a field that differs locally from them stays, others update. No snapshot yet → only blanks are filled.
+  - Let me review: a source change (source ≠ snapshot, not ≠ local) waits → `pending` → the existing `sync_pending` alert. Skipping it in the review marks those source values as seen. No snapshot yet → the source is the baseline, no alert.
+- Defaults: All + Keep my edits for the slicer types, All + Let me review for printers and spools (replaces their `handsOff`). Prints stay insert-only. Spool weight is never overwritten while usage is tracked.
+- Manual reviews follow the options too (out-of-scope rows pre-skipped, Merge defaults to the type's choice). Hints in the UI, a section in `docs/import.md`.
+
+**Done when:** a printer models sync with Only imported takes a new Bambu model but no Prusa one; Keep my edits keeps an edited field and updates another; Let me review raises one alert per source change, not per run; migration runs on an existing DB; server and core tests; e2e for the options; i18n:check passes; tests pass.
+**Prompt:**
+```
+Do Step 11 of the 4.1.1 plan in PLAN.md.
+```
+
+### [ ] Step 12 - Sync schedule time  **[plan mode]**
 **Model:** Opus · **Effort:** Medium
 **Scope:**
 - Frequencies are `15m | 1h | 1d | 1w | 1M` (`core/schemas/enums.ts`). Each gets its own time setting: 15 min → minute offset; hourly → minute; daily → hour:minute; weekly → weekday + hour; monthly → day (1-28) + hour. Unset → today's default.
@@ -414,16 +430,16 @@ Do Step 10 of the 4.1.1 plan in PLAN.md.
 **Done when:** the fields and defaults are approved; a policy runs at the chosen time (unit tests for the pattern per frequency); existing policies keep running as before; e2e; i18n:check passes; tests pass.
 **Prompt:**
 ```
-Do Step 11 of the 4.1.1 plan in PLAN.md. Show me the columns, defaults and croner patterns first.
+Do Step 12 of the 4.1.1 plan in PLAN.md. Show me the columns, defaults and croner patterns first.
 ```
 
-### [ ] Step 12 - Docs, push & v4.1.1 release
+### [ ] Step 13 - Docs, push & v4.1.1 release
 **Model:** Haiku · **Effort:** Low
-**Scope:** `pnpm screenshots` (project page, settings), docs touched by Steps 1-11, CHANGELOG, version `4.1.1` (root and `packages/*`). Commit on `dev`, fast-forward `main` to `dev`, push both, create and push tag `v4.1.1` on `main`. Check the run, the release (assets) and the `:latest` image.
+**Scope:** `pnpm screenshots` (project page, settings), docs touched by Steps 1-12, CHANGELOG, version `4.1.1` (root and `packages/*`). Commit on `dev`, fast-forward `main` to `dev`, push both, create and push tag `v4.1.1` on `main`. Check the run, the release (assets) and the `:latest` image.
 **Done when:** `main`, `dev` and the tag are pushed; the workflow is green; the release is the latest with installers; updating 4.1.0 (installer and git) to 4.1.1 works.
 **Prompt:**
 ```
-Do Step 12 of the 4.1.1 plan in PLAN.md. Only document what changed since 4.1.0. Then
+Do Step 13 of the 4.1.1 plan in PLAN.md. Only document what changed since 4.1.0. Then
 fast-forward main to dev, push, push the v4.1.1 tag and confirm the release and image.
 ```
 
@@ -610,7 +626,8 @@ pre-release. Then fast-forward main to dev, push, push the v4.2.0 tag and confir
 | delete client | 4.1.1 · 8 |
 | alerts list: only the alert's own actions | 4.1.1 · 9 |
 | add printer: model and brand in modals | 4.1.1 · 10 |
-| sync scheduler: choose the run time | 4.1.1 · 11 |
+| integrations: what to sync, how to sync | 4.1.1 · 11 |
+| sync scheduler: choose the run time | 4.1.1 · 12 |
 | users module: authentication, roles, permissions | 4.2 · 1-5 |
 | storage integration: SMB, cloud | 4.2 · 7, 8 |
 | bundled slicer for headless servers (download from the app) | 4.2 · 9-12 |

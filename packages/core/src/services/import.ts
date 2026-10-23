@@ -153,15 +153,33 @@ export const diffValues = (
     )
     .map((c) => c.key);
 
-/** The values an update writes: the differences, or under `fill` only those the row lacks. */
+/** Keys whose existing value is no longer what was last imported (`seen`): you changed them. */
+export const editedKeys = (
+  columns: readonly ImportColumn[],
+  seen: ImportValues,
+  target: ImportValues,
+) =>
+  columns
+    .filter((c) => !c.fileOnly && !same(c, seen[c.key] ?? null, target[c.key] ?? null))
+    .map((c) => c.key);
+
+/**
+ * The values an update writes: the differences, under `fill` only those the row lacks, under
+ * `keepEdits` all but the `edited` keys (not known = `fill`).
+ */
 export function mergeValues(
   columns: readonly ImportColumn[],
   policy: MergePolicy,
   file: ImportValues,
   target: ImportValues,
+  edited?: readonly string[],
 ): ImportValues {
-  const keys = diffValues(columns, file, target).filter(
-    (k) => policy === "overwrite" || target[k] == null,
+  const keys = diffValues(columns, file, target).filter((k) =>
+    policy === "overwrite"
+      ? true
+      : policy === "keepEdits" && edited
+        ? !edited.includes(k)
+        : target[k] == null,
   );
   return Object.fromEntries(keys.map((k) => [k, file[k] ?? null]));
 }
@@ -185,15 +203,22 @@ export function suggest(
  * `changed` one that is `linked` to its source (imported from it before), unless the row needs a
  * person (`held`: it would add a brand, or no single profile fits). `optional` rows are only ever
  * offered, never waiting. Undefined = nothing to do.
+ * `outOfScope`: a new row the sync type doesn't take. `seen`: the source has not changed since the
+ * last import (only your edits differ). `review`: a source change waits for a person.
  */
 export function autoOf(r: {
   status: ImportStatus;
   linked: boolean;
   held: boolean;
   optional: boolean;
+  outOfScope?: boolean;
+  seen?: boolean;
+  review?: boolean;
 }): "apply" | "wait" | undefined {
   if (r.optional || r.status === "invalid" || r.status === "identical") return undefined;
-  const known = r.status === "new" || (r.status === "changed" && r.linked);
+  if (r.status === "new" && r.outOfScope) return undefined;
+  if (r.status === "changed" && r.linked && r.seen) return undefined;
+  const known = r.status === "new" || (r.status === "changed" && r.linked && !r.review);
   return known && !r.held ? "apply" : "wait";
 }
 

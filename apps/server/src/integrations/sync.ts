@@ -97,8 +97,9 @@ const BACK_OFF = new Set(["rate_limited", "blocked"]);
 const BACK_OFF_MS = 3600 * 1000;
 
 /**
- * Runs adapters and stores what they return. Dedupe is insert-only on (integrationId, externalId):
- * a row that already exists is skipped, so local edits always win.
+ * Runs adapters and stores what they return, through the review. Which rows a run takes and what
+ * it does with a change to a row you have follow the type's `scope` and `merge`; prints are
+ * insert-only.
  */
 export function createSyncer(
   db: Db,
@@ -193,10 +194,13 @@ export function createSyncer(
           return policyOf(db, id, type).trackUsage ? rows : untracked(rows);
         };
         const stored = pick?.stored ?? (await offer());
+        // A run with nobody watching writes changes the way the type's `merge` says; under
+        // `review` it writes none (they wait), so the policy only matters for new rows.
         const done = review.write(
           stored,
           pick?.decisions ?? autoDecisions(review.preview(stored).rows),
-          pick?.policy ?? "overwrite",
+          pick?.policy ??
+            (policyOf(db, id, type).merge === "keepEdits" ? "keepEdits" : "overwrite"),
           pick?.backup ?? null,
         );
         ({ created, updated, pending } = done);

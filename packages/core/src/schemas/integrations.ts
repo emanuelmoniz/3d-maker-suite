@@ -13,7 +13,9 @@ import {
   SYNC_TRIGGERS,
   SYNC_TYPES,
   type SyncFrequency,
+  type SyncMerge,
   type SyncMode,
+  type SyncScope,
 } from "./enums.ts";
 import type { ColumnFilter } from "./list.ts";
 
@@ -75,8 +77,23 @@ export const integrationPatchSchema = z
     /** Only the listed types change, and only the fields sent. */
     policies: z.array(
       syncPolicySchema
-        .pick({ type: true, mode: true, frequency: true, alertSeverities: true, trackUsage: true })
-        .partial({ mode: true, frequency: true, alertSeverities: true, trackUsage: true }),
+        .pick({
+          type: true,
+          mode: true,
+          frequency: true,
+          alertSeverities: true,
+          trackUsage: true,
+          scope: true,
+          merge: true,
+        })
+        .partial({
+          mode: true,
+          frequency: true,
+          alertSeverities: true,
+          trackUsage: true,
+          scope: true,
+          merge: true,
+        }),
     ),
   })
   .partial()
@@ -116,14 +133,20 @@ const WEEKLY: readonly Capability[] = [
 ];
 /**
  * What a type does until the user changes it (no stored row). Printers and prints sync on their
- * own; anything with a preview is imported by hand until the user picks `auto`.
+ * own; anything with a preview is imported by hand until the user picks `auto`. A change to a
+ * printer or spool you have waits for you; catalog rows keep your edits.
  */
-export const defaultPolicy = (type: Capability): { mode: SyncMode; frequency: SyncFrequency } =>
-  type === "prints"
+export const defaultPolicy = (
+  type: Capability,
+): { mode: SyncMode; frequency: SyncFrequency; scope: SyncScope; merge: SyncMerge } => ({
+  ...(type === "prints"
     ? { mode: "auto", frequency: "1h" }
     : type === "printers"
       ? { mode: "auto", frequency: "1d" }
-      : { mode: "manual", frequency: WEEKLY.includes(type) ? "1w" : "1d" };
+      : { mode: "manual", frequency: WEEKLY.includes(type) ? "1w" : "1d" }),
+  scope: "all",
+  merge: type === "printers" || type === "spools" ? "review" : "keepEdits",
+});
 
 export const syncRunSchema = z.object({
   id,

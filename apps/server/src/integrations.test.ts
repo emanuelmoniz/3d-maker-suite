@@ -363,29 +363,74 @@ describe("integrations", () => {
     expect(await sync(id)).toMatchObject({ created: 0, skipped: 1 });
   });
 
-  it("re-syncs printers: yours stay as you left them, new ones are added", async () => {
+  it("re-syncs printers: a change at the source waits for you, new ones are added", async () => {
     const { id } = await create();
     expect(await syncType(id, "printers")).toMatchObject({ created: 1 });
     db.update(schema.printers).set({ name: "Renamed" }).run();
+    // Only your edit differs from the source: nothing to review.
+    expect(await syncType(id, "printers")).toMatchObject({ created: 0, pending: 0 });
     const [first] = state.printers;
     if (!first) throw new Error("mock has a printer");
     state.printers = [
       { ...first, name: "Vendor name" },
       { ...first, externalId: "mock-2", serial: "mock0002", name: "Second" },
     ];
-    expect(await syncType(id, "printers")).toMatchObject({ created: 1, skipped: 1, pending: 0 });
-    expect(
+    expect(await syncType(id, "printers")).toMatchObject({ created: 1, pending: 1 });
+    const names = () =>
       db
         .select({ name: schema.printers.name })
         .from(schema.printers)
         .all()
         .map((p) => p.name)
-        .sort(),
-    ).toEqual(["Renamed", "Second"]);
+        .sort();
+    expect(names()).toEqual(["Renamed", "Second"]);
+    // It waits again on the next run, until you look at it.
+    expect(await syncType(id, "printers")).toMatchObject({ pending: 1 });
+    const p = (await review.open(`/api/import/integration/${id}/printers`)).json() as ImportPreview;
+    expect(p.rows.map((r) => [r.values.name, r.action, r.auto])).toEqual([
+      ["Vendor name", "update", "wait"],
+      ["Second", "skip", undefined],
+    ]);
+    // Skipped in the review: seen, so it doesn't come back until the source changes again.
+    expect((await review.confirm(p, [])).statusCode).toBe(200);
+    expect(await syncType(id, "printers")).toMatchObject({ pending: 0 });
+    expect(names()).toEqual(["Renamed", "Second"]);
     // One you archived isn't imported again.
     db.update(schema.printers).set({ archivedAt: new Date().toISOString() }).run();
     expect(await syncType(id, "printers")).toMatchObject({ created: 0, pending: 0 });
     expect(db.select().from(schema.printers).all()).toHaveLength(2);
+  });
+
+  it("keeps the fields you edited and updates the rest under Keep my edits", async () => {
+    const { id } = await create();
+    await setPolicy(id, "printers", { merge: "keepEdits" });
+    const [first] = state.printers;
+    if (!first) throw new Error("mock has a printer");
+    state.printers = [{ ...first, nozzleDiameterMm: 0.4 }];
+    expect(await syncType(id, "printers")).toMatchObject({ created: 1 });
+    db.update(schema.printers).set({ name: "Renamed" }).run();
+    state.printers = [{ ...first, name: "Vendor name", nozzleDiameterMm: 0.6 }];
+    expect(await syncType(id, "printers")).toMatchObject({ updated: 1, pending: 0 });
+    expect(db.select().from(schema.printers).get()).toMatchObject({
+      name: "Renamed",
+      nozzleDiameterMm: 0.6,
+    });
+    // Only your edited name differs now: nothing to write, nothing waiting.
+    state.printers = [{ ...first, name: "Vendor 2", nozzleDiameterMm: 0.6 }];
+    expect(await syncType(id, "printers")).toMatchObject({ updated: 0, pending: 0 });
+    // Overwrite takes your edit back to the source's.
+    await setPolicy(id, "printers", { merge: "overwrite" });
+    expect(await syncType(id, "printers")).toMatchObject({ updated: 1 });
+    expect(db.select().from(schema.printers).get()?.name).toBe("Vendor 2");
+  });
+
+  it("takes only new printers of a brand you have under Only what I already have", async () => {
+    const { id } = await create();
+    await setPolicy(id, "printers", { scope: "imported" });
+    // No Mock brand yet: nothing is added, and nothing waits.
+    expect(await syncType(id, "printers")).toMatchObject({ created: 0, pending: 0 });
+    await send("POST", "/api/brands", { name: "Mock" });
+    expect(await syncType(id, "printers")).toMatchObject({ created: 1 });
   });
 
   it("Manual import offers the cloud's printers and links a hand-added twin", async () => {
@@ -695,11 +740,25 @@ describe("capabilities", () => {
     });
 
     // Until changed, every type follows its default policy; spools start untracked on a new one.
-    const defaults = { lastRunAt: null, pending: 0, alertSeverities: null, trackUsage: true };
+    const defaults = {
+      lastRunAt: null,
+      pending: 0,
+      alertSeverities: null,
+      trackUsage: true,
+      scope: "all",
+      merge: "keepEdits",
+    };
     expect((await get(`/api/integrations/${id}`)).policies).toEqual([
-      { type: "printers", mode: "auto", frequency: "1d", ...defaults },
+      { type: "printers", mode: "auto", frequency: "1d", ...defaults, merge: "review" },
       { type: "prints", mode: "auto", frequency: "1h", ...defaults },
-      { type: "spools", mode: "manual", frequency: "1d", ...defaults, trackUsage: false },
+      {
+        type: "spools",
+        mode: "manual",
+        frequency: "1d",
+        ...defaults,
+        trackUsage: false,
+        merge: "review",
+      },
       { type: "slice", mode: "manual", frequency: "1d", ...defaults },
     ]);
     const patched = (await setPolicy(id, "prints", { mode: "off" })).json();

@@ -7,8 +7,10 @@ import {
   REVIEWED_TYPES,
   type ReviewedType,
   type SyncFrequency,
+  type SyncMerge,
   type SyncPolicy,
   type SyncRequest,
+  type SyncScope,
 } from "@3d-maker-suite/core";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { ChevronRight, TriangleAlert } from "lucide-react";
@@ -43,6 +45,24 @@ const SEVERITY = {
   warning: "integrations:policies.alertSeverity.warning",
   success: "integrations:policies.alertSeverity.success",
 } as const satisfies Record<AlertSeverity, string>;
+const SCOPES: Record<SyncScope, string> = {
+  all: "integrations:policies.scopes.all",
+  imported: "integrations:policies.scopes.imported",
+};
+const SCOPE_HINTS: Record<SyncScope, string> = {
+  all: "integrations:policies.scopeHints.all",
+  imported: "integrations:policies.scopeHints.imported",
+};
+const MERGES: Record<SyncMerge, string> = {
+  overwrite: "integrations:policies.merges.overwrite",
+  keepEdits: "integrations:policies.merges.keepEdits",
+  review: "integrations:policies.merges.review",
+};
+const MERGE_HINTS: Record<SyncMerge, string> = {
+  overwrite: "integrations:policies.mergeHints.overwrite",
+  keepEdits: "integrations:policies.mergeHints.keepEdits",
+  review: "integrations:policies.mergeHints.review",
+};
 const GROUPS = {
   devices: "integrations:policies.groups.devices",
   catalog: "integrations:policies.groups.catalog",
@@ -307,6 +327,35 @@ function PolicyRow({
             </div>
           </fieldset>
         </fieldset>
+        {/* Prints never change once imported: nothing to choose. */}
+        {review && !prints && (
+          <div className="grid gap-3 @xl:grid-cols-2">
+            <FormField label={t("integrations:policies.scope")} hint={t(SCOPE_HINTS[p.scope])}>
+              {(f) => (
+                <Combobox
+                  {...f}
+                  aria-label={t("integrations:policies.scopeOf", { type: name })}
+                  value={p.scope}
+                  disabled={patch.isPending}
+                  onChange={(v) => set({ scope: v as SyncScope })}
+                  options={options(SCOPES)}
+                />
+              )}
+            </FormField>
+            <FormField label={t("integrations:policies.merge")} hint={t(MERGE_HINTS[p.merge])}>
+              {(f) => (
+                <Combobox
+                  {...f}
+                  aria-label={t("integrations:policies.mergeOf", { type: name })}
+                  value={p.merge}
+                  disabled={patch.isPending}
+                  onChange={(v) => set({ merge: v as SyncMerge })}
+                  options={options(MERGES)}
+                />
+              )}
+            </FormField>
+          </div>
+        )}
         {prints && (
           <div className="grid gap-3 @xl:grid-cols-2">
             <FormField label={t("integrations:sync.range")} hint={t("integrations:sync.rangeHint")}>

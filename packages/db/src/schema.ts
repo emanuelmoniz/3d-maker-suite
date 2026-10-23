@@ -16,8 +16,10 @@ import {
   type PROJECT_EDITABLE_FIELDS,
   SPOOL_STATUSES,
   SYNC_FREQUENCIES,
+  SYNC_MERGES,
   SYNC_MODES,
   SYNC_RUN_STATUSES,
+  SYNC_SCOPES,
   SYNC_TRIGGERS,
   SYNC_TYPES,
   type SyncLogEntry,
@@ -98,12 +100,34 @@ export const syncPolicies = sqliteTable(
     alertSeverities: text({ mode: "json" }).$type<AlertSeverity[]>(),
     /** Prints in `auto` mode: take the filament from the spools (off: link them only). */
     trackUsage: integer({ mode: "boolean" }).notNull().default(true),
+    /** Which rows a run takes (core's `SYNC_SCOPES`). */
+    scope: text({ enum: SYNC_SCOPES }).notNull().default("all"),
+    /** What a run does with a change to a row you have (`SYNC_MERGES`); default per type in core. */
+    merge: text({ enum: SYNC_MERGES }).notNull().default("keepEdits"),
   },
   (t) => [
     primaryKey({ columns: [t.integrationId, t.type] }),
     check("sync_policies_mode_ck", oneOf(t.mode, SYNC_MODES)),
     check("sync_policies_frequency_ck", oneOf(t.frequency, SYNC_FREQUENCIES)),
+    check("sync_policies_scope_ck", oneOf(t.scope, SYNC_SCOPES)),
+    check("sync_policies_merge_ck", oneOf(t.merge, SYNC_MERGES)),
   ],
+);
+
+// What an integration last imported into a row, in the import columns, so a sync tells your
+// edits (row ≠ these) from a change at the source (source ≠ these).
+// ponytail: no FK to the row (one table per entity); a deleted row leaves a stale snapshot behind.
+export const importSnapshots = sqliteTable(
+  "import_snapshots",
+  {
+    integrationId: text()
+      .notNull()
+      .references(() => integrations.id, { onDelete: "cascade" }),
+    entity: text().notNull(),
+    rowId: text().notNull(),
+    values: text({ mode: "json" }).$type<Record<string, string | number | null>>().notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.integrationId, t.entity, t.rowId] })],
 );
 
 // Sync log: one row per run (the server keeps the last 100 per integration).

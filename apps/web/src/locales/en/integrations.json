@@ -164,6 +164,28 @@
     "trackUsage": "Track usage",
     "trackUsageOf": "Take the filament of synced {{type}} from the spools",
     "trackUsageSpools": "Take the remaining weight of synced spools from the vendor",
+    "scope": "What to sync",
+    "scopeOf": "What to sync: {{type}}",
+    "scopes": {
+      "all": "Everything",
+      "imported": "Only what I already have"
+    },
+    "scopeHints": {
+      "all": "Every row the source offers is added and kept up to date.",
+      "imported": "Rows you already have are kept up to date. A new one is added only if you have its brand, so a new model of your printer brand still arrives, but nothing from brands you never imported. Start with \"Manual import\": filter the brand column, select all and import."
+    },
+    "merge": "How to sync",
+    "mergeOf": "How to sync: {{type}}",
+    "merges": {
+      "overwrite": "Overwrite with the source",
+      "keepEdits": "Keep my edits",
+      "review": "Let me review the changes"
+    },
+    "mergeHints": {
+      "overwrite": "A change at the source replaces what you have, your own edits included.",
+      "keepEdits": "Fields you changed since the last sync stay as you left them; the other fields follow the source.",
+      "review": "Nothing you have is changed by an automatic run. When the source changes a row, you get an alert and decide under \"Manual import\". A change you skip there doesn't come back until the source changes again."
+    },
     "doubleTracking": "Tracking usage from both prints and spools at the same time is not recommended: the same filament can be counted twice, or the vendor's estimate can overwrite the weight your prints took off.",
     "hint": "Automatic runs only import what needs no decision from you. Anything else waits under \"Manual import\"."
   },

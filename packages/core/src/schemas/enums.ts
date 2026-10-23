@@ -86,6 +86,16 @@ export const SYNC_MODES = ["off", "manual", "auto"] as const;
 // How often the scheduler runs an `auto` type ("1M" = 30 days). Ticks every 15 minutes.
 export const SYNC_FREQUENCIES = ["15m", "1h", "1d", "1w", "1M"] as const;
 /**
+ * What a run takes: every row the source offers, or only rows you have plus new ones of a brand
+ * you have (a new model of your printer brand).
+ */
+export const SYNC_SCOPES = ["all", "imported"] as const;
+/**
+ * What a run does with a source change to a row you have: write it, write it except the fields
+ * you changed since the last import, or leave it for you to review (an alert).
+ */
+export const SYNC_MERGES = ["overwrite", "keepEdits", "review"] as const;
+/**
  * Where an integration's data comes from: an account, or a folder and program on the server's
  * disk. It says nothing about which types it has; the adapter's capabilities do.
  */
@@ -120,4 +130,6 @@ export type SyncTrigger = (typeof SYNC_TRIGGERS)[number];
 export type SyncType = (typeof SYNC_TYPES)[number];
 export type SyncMode = (typeof SYNC_MODES)[number];
 export type SyncFrequency = (typeof SYNC_FREQUENCIES)[number];
+export type SyncScope = (typeof SYNC_SCOPES)[number];
+export type SyncMerge = (typeof SYNC_MERGES)[number];
 export type Capability = (typeof CAPABILITIES)[number];

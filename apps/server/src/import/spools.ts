@@ -159,8 +159,8 @@ export const spoolImport = {
       of: (source: string | undefined) => (source && bySource.get(source)) || null,
     };
   },
+  // A change to a spool you have follows the sync type's `merge` (default: you review it).
   exclusive: true,
-  handsOff: true,
 
   /** The profile a vendor's spool goes on: suggested when one fits, a run needs exactly one. */
   picks(db: Db) {

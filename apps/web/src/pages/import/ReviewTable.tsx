@@ -28,7 +28,7 @@ import {
   usableOn,
 } from "@3d-maker-suite/core";
 import { FileSpreadsheet, Lock } from "lucide-react";
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
 import { Combobox } from "../../components/Combobox.tsx";
@@ -72,6 +72,7 @@ const BULK: Record<BulkAction, string> = {
 const POLICIES: Record<MergePolicy, string> = {
   overwrite: "import:policies.overwrite",
   fill: "import:policies.fill",
+  keepEdits: "import:policies.keepEdits",
 };
 const ERRORS: Record<ImportErrorCode, string> = {
   required: "import:errors.required",
@@ -167,7 +168,12 @@ export function ReviewTable({
   const apply = useApply(entity);
   const columns: readonly ImportColumn[] = IMPORT_COLUMNS[entity];
   const [decisions, setDecisions] = useState<Record<number, ImportDecision>>({});
-  const [policy, setPolicy] = useState<MergePolicy>("overwrite");
+  // Rows from an integration start with its sync type's choice; "Keep my edits" needs one.
+  const [policy, setPolicy] = useState<MergePolicy>(preview.policy ?? "overwrite");
+  const policies = MERGE_POLICIES.filter((p) => p !== "keepEdits" || preview.policy).map((p) => ({
+    value: p,
+    label: t(POLICIES[p]),
+  }));
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [shown, setShown] = useState<Set<ImportStatus>>(new Set());
   // Rows whose target picker lists every existing row, not just the ones that fit.
@@ -175,6 +181,7 @@ export function ReviewTable({
   const [scope, setScope] = useState<(typeof SCOPES)[number]>("all");
   const [bulk, setBulk] = useState<BulkAction | "">("");
   const [confirming, setConfirming] = useState(false);
+  const dismissHint = useId();
   const [tableQuery, setTableQuery] = useState<ListQuery>({});
   // The spool picker a new spool is being added for, and the spools added so far.
   const [adding, setAdding] = useState<{ row: ImportPreviewRow; key: string } | null>(null);
@@ -328,6 +335,7 @@ export function ReviewTable({
   const count = (a: ImportAction) => rows.filter((r) => decisionOf(r).action === a).length;
   const invalid = rows.filter((r) => r.status === "invalid").length;
   const importing = count("create") + count("update");
+  const waitingChanges = rows.filter((r) => r.auto === "wait" && r.status === "changed").length;
   const blocked = rows.some(problem);
 
   const format = (c: ImportColumn, v: ImportCell | undefined): ReactNode => {
@@ -479,10 +487,7 @@ export function ReviewTable({
             className={selectClass}
             value={d.policy ?? ""}
             onChange={(v) => decide(r, { policy: (v || undefined) as MergePolicy | undefined })}
-            options={[
-              { value: "", label: t("import:review.policyDefault") },
-              ...MERGE_POLICIES.map((p) => ({ value: p, label: t(POLICIES[p]) })),
-            ]}
+            options={[{ value: "", label: t("import:review.policyDefault") }, ...policies]}
           />
         );
       },
@@ -665,7 +670,13 @@ export function ReviewTable({
             );
           if (!target || now.error) return editor(shown);
           // What this update writes: the old value struck out, the new one next to it.
-          const writes = mergeValues(columns, d.policy ?? policy, valuesOf(r), target.values);
+          const writes = mergeValues(
+            columns,
+            d.policy ?? policy,
+            valuesOf(r),
+            target.values,
+            r.edited,
+          );
           return c.key in writes ? (
             <span className="inline-flex items-center gap-2">
               {target.values[c.key] != null && (
@@ -873,7 +884,7 @@ export function ReviewTable({
             className={selectClass}
             value={policy}
             onChange={(v) => setPolicy(v as MergePolicy)}
-            options={MERGE_POLICIES.map((p) => ({ value: p, label: t(POLICIES[p]) }))}
+            options={policies}
           />
         </label>
       </fieldset>
@@ -922,10 +933,30 @@ export function ReviewTable({
         >
           {t("import:review.confirm", { count: importing })}
         </Button>
+        {/* Changes a sync left for you, all skipped: confirming nothing marks them as seen. */}
+        {!importing && waitingChanges > 0 && (
+          <Button
+            aria-describedby={dismissHint}
+            disabled={apply.isPending}
+            onClick={() =>
+              apply.mutate(
+                { uploadId: preview.uploadId, policy, decisions: [] },
+                { onSuccess: onDone },
+              )
+            }
+          >
+            {t("import:review.dismiss", { count: waitingChanges })}
+          </Button>
+        )}
         <Button variant="ghost" onClick={onCancel}>
           {t("common:actions.cancel")}
         </Button>
       </div>
+      {!importing && waitingChanges > 0 && (
+        <p id={dismissHint} className="text-muted">
+          {t("import:review.dismissHint")}
+        </p>
+      )}
       <ConfirmDialog
         open={confirming}
         title={t("import:review.confirmTitle", { count: importing })}

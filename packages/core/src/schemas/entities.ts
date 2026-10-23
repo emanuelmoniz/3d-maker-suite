@@ -14,7 +14,9 @@ import {
   PRINT_OUTCOMES,
   SPOOL_STATUSES,
   SYNC_FREQUENCIES,
+  SYNC_MERGES,
   SYNC_MODES,
+  SYNC_SCOPES,
   TAGGABLE_TYPES,
   WEIGHT_ENTRY_KINDS,
 } from "./enums.ts";
@@ -50,6 +52,9 @@ export const syncPolicySchema = z.object({
   alertSeverities: z.array(z.enum(ALERT_SEVERITIES)).nullable(),
   /** Prints in `auto` mode: take the filament from the spools (off: link them only). */
   trackUsage: z.boolean(),
+  /** Reviewed types except prints: which rows a run takes, and what it does with a change. */
+  scope: z.enum(SYNC_SCOPES),
+  merge: z.enum(SYNC_MERGES),
 });
 
 /** API shape: the encrypted `secrets` column is never exposed, only whether it is set. */

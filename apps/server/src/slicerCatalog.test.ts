@@ -148,6 +148,35 @@ describe("slicer catalog import", () => {
     expect(db.select().from(schema.filamentMaterials).all()).toHaveLength(1);
   });
 
+  it("Only what I already have: models of your brands arrive, other brands' never", async () => {
+    state.catalog.models.push({ brand: "Prusa", model: "MK4", image: null });
+    // You import only Acme.
+    const brands = await open("brands");
+    const acme = brands.rows.filter((r) => r.values.name === "Acme");
+    expect((await review.confirm(brands, acme)).json()).toMatchObject({ created: 1 });
+    await app.inject({
+      method: "PATCH",
+      url: `/api/integrations/${id}`,
+      payload: {
+        policies: ["brands", "printerModels"].map((type) => ({ type, scope: "imported" })),
+      },
+    });
+    expect(await run("brands")).toMatchObject({ created: 0, pending: 0 });
+    expect(await run("printerModels")).toMatchObject({ created: 1, pending: 0 });
+    // A new model of your brand still arrives.
+    state.catalog.models.push({ brand: "Acme", model: "Acme Y", image: null });
+    expect(await run("printerModels")).toMatchObject({ created: 1, pending: 0 });
+    expect(
+      db
+        .select({ model: schema.printerModels.model })
+        .from(schema.printerModels)
+        .all()
+        .map((m) => m.model)
+        .sort(),
+    ).toEqual(["Acme X", "Acme Y"]);
+    expect(db.select().from(schema.brands).all()).toHaveLength(1);
+  });
+
   it("a changed unused machine preset updates in place; a used one is archived and re-added", async () => {
     await run("machineProfiles");
     const first = db.select().from(schema.machineProfiles).get();
