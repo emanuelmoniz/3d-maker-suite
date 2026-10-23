@@ -34,4 +34,11 @@ test("clients: create, edit, duplicates show an error on their field", async ({ 
   await page.goto("/clients");
   await expect(page.getByRole("link", { name: "Ana Silva" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Rui" })).toBeVisible();
+
+  await page.getByRole("link", { name: "Rui" }).click();
+  await page.getByRole("button", { name: "Delete" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Delete" }).click();
+  await expect(page).toHaveURL(/\/clients$/);
+  await expect(page.getByRole("link", { name: "Rui" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Ana Silva" })).toBeVisible();
 });

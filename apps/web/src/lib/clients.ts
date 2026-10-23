@@ -14,6 +14,22 @@ export const useClient = (id: string) =>
     enabled: !!id,
   });
 
+export function useDeleteClient() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api("DELETE", `/api/clients/${id}`),
+    // Quotes too: a deleted client is cleared from them.
+    onSuccess: (_, id) => {
+      // Not refetched: it would 404.
+      qc.removeQueries({ queryKey: ["clients", id] });
+      return Promise.all([
+        qc.invalidateQueries({ queryKey: ["clients", "list"] }),
+        qc.invalidateQueries({ queryKey: ["quotes"] }),
+      ]);
+    },
+  });
+}
+
 /** Create (no `id`) or patch, then refresh everything client-related. */
 export function useSaveClient(id?: string) {
   const qc = useQueryClient();

@@ -373,7 +373,7 @@ Do Step 6 of the 4.1.1 plan in PLAN.md.
 Do Step 7 of the 4.1.1 plan in PLAN.md.
 ```
 
-### [ ] Step 8 - Delete client
+### [x] Step 8 - Delete client
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - `DELETE /api/clients/:id` like orders and quotes. `409 client_in_use` when an order references the client. Quotes don't block: the FK (`set null`) clears their client.

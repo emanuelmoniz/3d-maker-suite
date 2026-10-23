@@ -11,7 +11,13 @@
     "title": "Details",
     "edit": "Edit",
     "notFound": "Client not found.",
+    "inUse": "This client has orders, so it can't be deleted.",
     "none": "-"
+  },
+  "delete": {
+    "title": "Delete client?",
+    "body": "{{name}} will be deleted. Its quotes stay, without a client.",
+    "confirm": "Delete"
   },
   "form": {
     "addTitle": "Add client",
