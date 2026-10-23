@@ -99,21 +99,30 @@ function conditions(db: Db, now: Date): Found {
       grams: spools.remainingGrams,
       lowGrams: spools.lowGrams,
       lowAlert: spools.lowAlert,
+      pricePaid: spools.pricePaid,
+      openedAt: spools.openedAt,
+      status: spools.status,
       name: spoolName,
     })
     .from(spools)
     .where(and(isNull(spools.archivedAt), ne(spools.status, "empty")))
-    .all())
-    if (s.lowAlert !== false && s.grams <= (s.lowGrams ?? prefs.lowSpoolGrams))
+    .all()) {
+    const spool = { severity: "warning", module: "filament", task: `spool:${s.id}` } as const;
+    const of = { entityType: "spool", entityId: s.id };
+    // A spool whose weight isn't known can't be low.
+    if (s.grams != null && s.lowAlert !== false && s.grams <= (s.lowGrams ?? prefs.lowSpoolGrams))
       add({
         kind: "spool_low",
-        severity: "warning",
-        module: "filament",
-        task: `spool:${s.id}`,
-        entityType: "spool",
-        entityId: s.id,
+        ...spool,
+        ...of,
         context: { name: s.name, grams: Math.round(s.grams) },
       });
+    if (prefs.spoolNoPriceAlert && s.pricePaid == null)
+      add({ kind: "spool_no_price", ...spool, ...of, context: { name: s.name } });
+    // A sealed spool has no open date to give.
+    if (prefs.spoolNoOpenDateAlert && s.status === "in_use" && !s.openedAt)
+      add({ kind: "spool_no_open_date", ...spool, ...of, context: { name: s.name } });
+  }
 
   const types = new Map(
     db
@@ -201,6 +210,10 @@ function textOf(a: typeof alerts.$inferSelect): { title: string; body: string } 
   switch (a.kind) {
     case "spool_low":
       return { title: "Spool running low", body: `${c.name}: ${c.grams} g left` };
+    case "spool_no_price":
+      return { title: "Spool has no price", body: `${c.name}: add what you paid for it` };
+    case "spool_no_open_date":
+      return { title: "Spool has no open date", body: `${c.name}: add the day you opened it` };
     case "maintenance_due":
       return {
         title: a.severity === "error" ? "Maintenance overdue" : "Maintenance due soon",

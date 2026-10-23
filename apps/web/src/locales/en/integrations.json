@@ -145,6 +145,32 @@
     "importNow": "Review and import",
     "when": "When it runs",
     "whatHow": "What and how",
+    "newSpools": {
+      "title": "New spools",
+      "hint": "Spools that are not in the database yet.",
+      "weight": "Weight",
+      "weights": {
+        "import": "Import weight",
+        "unset": "Not set",
+        "review": "Let me review"
+      },
+      "weightHints": {
+        "import": "The spool is imported automatically, with the weight from the cloud.",
+        "unset": "The spool is imported automatically, without a weight.",
+        "review": "The spool is not imported: it waits for you to review it and fill in what you want."
+      },
+      "openedAt": "Open date",
+      "openedAts": {
+        "import": "Import date",
+        "unset": "Not set",
+        "review": "Let me review"
+      },
+      "openedAtHints": {
+        "import": "The spool is imported automatically, with the import date as its open date.",
+        "unset": "The spool is imported automatically, without an open date.",
+        "review": "The spool is not imported: it waits for you to review it and fill in what you want."
+      }
+    },
     "manualHint": "Runs only when you click Sync now.",
     "summary": {
       "15m": "Auto, every 15 minutes",

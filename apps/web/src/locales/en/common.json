@@ -1,6 +1,7 @@
 {
   "appName": "3D Maker Suite",
   "help": "Help",
+  "weightUnknown": "Not set",
   "units": {
     "kwh": "{{value}} kWh"
   },

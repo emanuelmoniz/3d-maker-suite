@@ -160,7 +160,7 @@ export function seed(db: Db, now = new Date(), { prints: printCount = 40 } = {})
       )
       .returning()
       .all();
-    const remaining = new Map(spools.map((sp) => [sp.id, sp.initialGrams]));
+    const remaining = new Map(spools.map((sp) => [sp.id, sp.initialGrams ?? 0]));
 
     const projects = tx
       .insert(s.projects)

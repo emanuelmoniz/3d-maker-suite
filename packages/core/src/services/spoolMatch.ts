@@ -10,8 +10,9 @@ export type SpoolCandidate = {
   openedAt: string | null;
   /** When it was entered in the app: an older print only links it, so needs none of its grams. */
   createdAt: string;
-  initialGrams: number;
-  remainingGrams: number;
+  /** Null = not known yet: the spool can take any slot. */
+  initialGrams: number | null;
+  remainingGrams: number | null;
 };
 
 export type SlotToMatch = {
@@ -46,7 +47,9 @@ export const localDay = (iso: string) => {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 };
 
-const opened = (s: SpoolCandidate) => s.status === "in_use" || s.remainingGrams < s.initialGrams;
+const opened = (s: SpoolCandidate) =>
+  s.status === "in_use" ||
+  (s.remainingGrams != null && s.initialGrams != null && s.remainingGrams < s.initialGrams);
 /** Missing dates last. */
 const byDate = (a: string | null, b: string | null) =>
   a === b ? 0 : !a ? 1 : !b ? -1 : a.localeCompare(b);
@@ -76,7 +79,7 @@ export function matchSpool(
     (s) =>
       (!s.purchasedAt || s.purchasedAt.slice(0, 10) <= day) &&
       usableOn(s, startedAt) &&
-      s.remainingGrams >= slot.grams &&
+      (s.remainingGrams == null || s.remainingGrams >= slot.grams) &&
       same(s.material, material) &&
       same(s.colorHex, colorHex),
   );

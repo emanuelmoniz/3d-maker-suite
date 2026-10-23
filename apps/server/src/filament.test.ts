@@ -13,7 +13,7 @@ import { sum } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import { buildApp } from "./app.ts";
 import { filamentBrandIdFor, filamentMaterialIdFor, spoolName } from "./lib/catalog.ts";
-import { setRemaining } from "./lib/spools.ts";
+import { setRemaining, takeFromSpool } from "./lib/spools.ts";
 import { reviewer } from "./testReview.ts";
 
 let db: ReturnType<typeof openDb>;
@@ -139,6 +139,29 @@ describe("filament", () => {
     expect(
       (await send("PATCH", `/api/filament/spools/${spool.id}`, { remainingGrams: 1 })).statusCode,
     ).toBe(400);
+  });
+
+  it("a spool without a weight books nothing until one is set", async () => {
+    const p = await profile();
+    const spool = (await send("POST", "/api/filament/spools", { profileId: p.id })).json();
+    expect(spool).toMatchObject({ initialGrams: null, remainingGrams: null });
+    const entries = async () =>
+      (await app.inject(`/api/filament/spools/${spool.id}/history`))
+        .json()
+        .map((e: { deltaGrams: number }) => e.deltaGrams);
+    expect(await entries()).toEqual([]);
+    // A print takes it without booking anything.
+    expect(takeFromSpool(db, spool.id, 50, "benchy")).toBe(p.id);
+    expect(await entries()).toEqual([]);
+    // Setting the weight opens the ledger: the spool holds all of it.
+    const set = (
+      await send("PATCH", `/api/filament/spools/${spool.id}`, { initialGrams: 1000 })
+    ).json();
+    expect(set).toMatchObject({ initialGrams: 1000, remainingGrams: 1000 });
+    expect(await entries()).toEqual([1000]);
+    // A known weight can't go back to unknown.
+    const unset = await send("PATCH", `/api/filament/spools/${spool.id}`, { initialGrams: null });
+    expect(unset.statusCode).toBe(400);
   });
 });
 
@@ -354,16 +377,21 @@ describe("filament library", () => {
       { sourceSpool: "mock:1", profileId: one },
     ]);
     expect(await policy(mockId, "spools")).toMatchObject({ pending: 2 });
+    // The log names each spool by its filament and colour.
+    expect(db.select().from(schema.syncRuns).get()?.log[0]).toMatchObject({
+      event: "created",
+      label: expect.stringMatching(/^A /),
+    });
 
-    // The review suggests the first fit and takes the user's pick; it is logged like any run.
-    const p = await open(spoolsUrl);
+    // The review the run sends you to suggests the first fit and takes the user's pick; it is
+    // logged like any run. The spool the run imported is left out there: nothing to do.
+    const p = await open(`${spoolsUrl}?waiting=1`);
     expect(p.rows.map((r) => [r.status, r.action, r.refs?.profile ?? null, r.auto])).toEqual([
-      ["identical", "skip", null, undefined],
       ["new", "create", matte, "wait"],
       ["new", "skip", null, "wait"],
     ]);
     expect(p.refOptions?.profile).toHaveLength(3);
-    const confirmed = await review.confirm(p, [p.rows[1] as never]);
+    const confirmed = await review.confirm(p, [p.rows[0] as never]);
     expect(confirmed.json()).toMatchObject({ created: 1, updated: 0 });
     expect(await policy(mockId, "spools")).toMatchObject({ pending: 1 });
     expect((await run(mockId, "spools")).json()).toMatchObject({ created: 0, skipped: 2 });
@@ -377,7 +405,7 @@ describe("filament library", () => {
 
     // A second roll of a filament you already imported is a new spool, not a match.
     mock.spools.push(vendorSpool("4", "A"));
-    expect((await open(spoolsUrl)).rows[3]).toMatchObject({ status: "new", targetId: null });
+    expect((await open(spoolsUrl)).rows.at(-1)).toMatchObject({ status: "new", targetId: null });
 
     // A vendor failure while opening the review comes back with its code.
     mock.fail = "auth_expired";
@@ -462,6 +490,45 @@ describe("filament library", () => {
     ]);
   });
 
+  it("without Track usage, weight and usage alone never leave a spool for review", async () => {
+    mock.spools = [vendorSpool("1", "A")];
+    const mockId = await addMock();
+    const profileId = addProfile("A");
+    await run(mockId, "spools"); // linked: imported from the source
+    // One you entered by hand, matched on filament and colour.
+    await app.inject({
+      method: "POST",
+      url: "/api/filament/spools",
+      payload: { profileId, colorHex: "#00ff00", initialGrams: 1000, remainingGrams: 300 },
+    });
+    await app.inject({
+      method: "PATCH",
+      url: `/api/integrations/${mockId}`,
+      payload: { policies: [{ type: "spools", trackUsage: false }] },
+    });
+    // The source's weight and status differ for both.
+    const full = { initialGrams: 1100, remainingGrams: 1100, status: "new" as const };
+    mock.spools = [
+      { ...vendorSpool("1", "A"), ...full },
+      { ...vendorSpool("2", "A", "#00ff00"), ...full },
+    ];
+    expect((await run(mockId, "spools")).json()).toMatchObject({ created: 0, updated: 0 });
+    expect(await policy(mockId, "spools")).toMatchObject({ pending: 0 });
+    // Nothing to do for either: what the run left for you is empty, and a review opened by hand
+    // shows both, with nothing to write.
+    const url = `/api/import/integration/${mockId}/spools`;
+    expect((await open(`${url}?waiting=1`)).rows).toEqual([]);
+    expect((await open(url)).rows.map((r) => [r.status, r.action])).toEqual([
+      ["identical", "skip"],
+      ["identical", "skip"],
+    ]);
+    // Anything else still counts.
+    mock.spools = [{ ...vendorSpool("1", "A"), ...full, colorHex: "#0000ff" }];
+    expect((await open(`/api/import/integration/${mockId}/spools`)).rows).toMatchObject([
+      { status: "changed" },
+    ]);
+  });
+
   it("imports only the picked presets, once, and links them to the source", async () => {
     await setDir(dir);
     const only = async (name: string) => {
@@ -524,6 +591,7 @@ describe("filament library", () => {
     expect((await both()).json()).toMatchObject({ created: 2 });
     // The review was used up.
     expect((await both()).statusCode).toBe(404);
+    // A review opened by hand shows every spool the source has.
     expect(await suggested()).toEqual(["identical:skip:null", "identical:skip:null"]);
 
     const rows = db.select().from(schema.spools).all();

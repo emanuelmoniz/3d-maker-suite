@@ -120,12 +120,8 @@ export const IMPORT_COLUMNS = {
     },
     { key: "colorHex", type: "color", label: "import:spools.columns.colorHex" },
     { key: "colorName", type: "text", label: "import:spools.columns.colorName" },
-    {
-      key: "initialGrams",
-      type: "number",
-      label: "import:spools.columns.initialGrams",
-      required: true,
-    },
+    // Empty = weight not known yet.
+    { key: "initialGrams", type: "number", label: "import:spools.columns.initialGrams" },
     { key: "remainingGrams", type: "number", label: "import:spools.columns.remainingGrams" },
     { key: "emptyWeightGrams", type: "number", label: "import:spools.columns.emptyWeightGrams" },
     { key: "pricePaid", type: "money", label: "import:spools.columns.pricePaid" },

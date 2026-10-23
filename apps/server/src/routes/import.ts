@@ -184,15 +184,22 @@ export const importRoutes =
             // Prints only: the dates to read; none = since the last sync.
             from: isoDate.optional(),
             to: isoDate.optional(),
+            // Opened for the rows a sync left: what you have already, unchanged, is left out.
+            waiting: z.literal("1").optional(),
           }),
           response: { 200: importPreviewSchema, 404: apiErrorSchema },
         },
       },
       async (req) => {
         const { id, type } = req.params;
-        const { from, to } = req.query;
+        const { from, to, waiting } = req.query;
         const stored = await syncer.offer(id, type, { from, to });
-        return { uploadId: review.save(stored), ...review.preview(stored) };
+        const { rows, ...rest } = review.preview(stored, waiting ? "waiting" : "all");
+        return {
+          uploadId: review.save(stored),
+          ...rest,
+          rows: rows.map(({ imported: _, ...r }) => r),
+        };
       },
     );
 

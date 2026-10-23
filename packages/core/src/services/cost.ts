@@ -30,10 +30,10 @@ export const maintenancePerHour = (totalCost: number, runtimeSec: number) =>
 
 /** What a spool really cost per kg: its own price when known, else the profile's list price. */
 export function spoolPricePerKg(
-  spool: { pricePaid: number | null; initialGrams: number },
+  spool: { pricePaid: number | null; initialGrams: number | null },
   profile: { pricePerKg: number | null },
 ): number | null {
-  if (spool.pricePaid != null && spool.initialGrams > 0)
+  if (spool.pricePaid != null && spool.initialGrams != null && spool.initialGrams > 0)
     return (spool.pricePaid / spool.initialGrams) * 1000;
   return profile.pricePerKg;
 }

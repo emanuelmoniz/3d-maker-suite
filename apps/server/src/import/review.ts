@@ -162,6 +162,10 @@ const BRAND_OF: Partial<Record<ReviewEntity, typeof brands | typeof filamentBran
 };
 
 const UPLOADS = "imports";
+/** A review leaves out the ones of these already imported and unchanged (`preview`). */
+const DEVICES = new Set<ReviewEntity>(["printers", "spools"]);
+/** A spool's weight and the status that follows from it. */
+const USAGE_KEYS = new Set(["initialGrams", "remainingGrams", "status"]);
 const DAY = 24 * 60 * 60 * 1000;
 
 /** Prints saved with their filament but none of it taken from the spools (`trackUsage` "no"). */
@@ -244,7 +248,7 @@ export function createReview(db: Db, dataDir: string) {
   function syncOf(stored: Stored) {
     if (stored.from?.kind !== "integration" || stored.entity === "prints") return undefined;
     const { integrationId } = stored.from;
-    const { scope, merge } = policyOf(db, integrationId, stored.entity as ReviewedType);
+    const { scope, merge, trackUsage } = policyOf(db, integrationId, stored.entity as ReviewedType);
     const where = and(
       eq(importSnapshots.integrationId, integrationId),
       eq(importSnapshots.entity, stored.entity),
@@ -271,6 +275,7 @@ export function createReview(db: Db, dataDir: string) {
     return {
       integrationId,
       merge,
+      trackUsage,
       seen,
       /** A new row this type takes: always under `all`, else when you have its brand. */
       inScope: (v: ImportValues) =>
@@ -283,8 +288,24 @@ export function createReview(db: Db, dataDir: string) {
     };
   }
 
-  /** Validates and matches the stored rows against the database as it is now. */
-  function preview(stored: Stored): Omit<ImportPreview, "uploadId"> {
+  /**
+   * Validates and matches the stored rows against the database as it is now. For a source's review
+   * screen, `view`: `waiting` (opened for what a sync left) leaves out devices you have that are
+   * unchanged; `all` (opened by hand) shows every row and offers every change to write, under
+   * "Let me review the changes" too ("Keep my edits" still leaves yours). None: as a run sees it.
+   */
+  function preview(stored: Stored, view?: "waiting" | "all") {
+    const all = previewAll(stored, view === "all");
+    if (view !== "waiting") return all;
+    return { ...all, rows: all.rows.filter((r) => !r.imported) };
+  }
+
+  function previewAll(
+    stored: Stored,
+    byHand = false,
+  ): Omit<ImportPreview, "uploadId" | "rows"> & {
+    rows: (ImportPreview["rows"][number] & { imported?: boolean })[];
+  } {
     const columns = IMPORT_COLUMNS[stored.entity];
     const handler = handlers[stored.entity];
     const targets = handler.targets(db);
@@ -342,6 +363,12 @@ export function createReview(db: Db, dataDir: string) {
           ? { candidates: [hit], targetId: hit }
           : (matchOf.get(p.row) ?? { candidates: [], targetId: null });
         const target = (m.targetId && byId.get(m.targetId)?.values) || null;
+        // Spools without "Track usage": one you have (linked or matched) keeps its weight and
+        // usage, so they are never a change to review or write.
+        if (target && sync && !sync.trackUsage && stored.entity === "spools")
+          p.values = Object.fromEntries(
+            Object.entries(p.values).filter(([k]) => !USAGE_KEYS.has(k)),
+          );
         const s = suggest(columns, p, { candidates: m.candidates, target });
         const pick = hit || p.errors.length ? undefined : picks?.suggest(p.values, raw);
         const picked = pick && {
@@ -362,6 +389,8 @@ export function createReview(db: Db, dataDir: string) {
         // yet, a review of changes starts from the source as it is now.
         const sameSource = !!last && !diffValues(columns, p.values, last).length;
         const keep = !!sync && sync.merge !== "overwrite";
+        // A review opened by hand writes what you see unless it is yours (`keepEdits`).
+        const skipSeen = byHand ? sync?.merge === "keepEdits" : keep;
         // Keeping your edits leaves nothing to write: the source only changed fields you edited.
         const nothing =
           sync?.merge === "keepEdits" &&
@@ -373,10 +402,15 @@ export function createReview(db: Db, dataDir: string) {
           raw: cells(raw),
           ...m,
           ...s,
+          // A device you have already, the same as the source has it (imported, or entered by
+          // hand): nothing to review. Catalog rows and a range of prints are shown whole.
+          ...(DEVICES.has(stored.entity) &&
+            !archived &&
+            s.status === "identical" && { imported: true }),
           ...((yours ||
             (unpicked && s.action === "create") ||
             outOfScope ||
-            (s.status === "changed" && ((keep && sameSource) || nothing))) && {
+            (s.status === "changed" && ((skipSeen && sameSource) || nothing))) && {
             action: "skip" as const,
           }),
           ...picked,
@@ -385,7 +419,8 @@ export function createReview(db: Db, dataDir: string) {
             status: s.status,
             // Without a source key the name is the identity, so a match is the row itself.
             linked: !!hit || (!handler.bySource && !!m.targetId),
-            held: !!held?.(p.values) || (!!pick && !pick.sure),
+            // `hold`: the source row asks for a person (a new spool to fill in).
+            held: !!held?.(p.values) || raw.hold === true || (!!pick && !pick.sure),
             optional: yours,
             outOfScope,
             seen,

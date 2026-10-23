@@ -21,6 +21,7 @@
     "save": "Save spool",
     "profile": "Profile",
     "initial": "Initial weight (g)",
+    "initialHint": "Leave empty if you don't know it yet: nothing is taken from the spool until you set it.",
     "remainingNow": "Remaining weight (g)",
     "remainingHint": "Leave empty for a full spool.",
     "emptyWeight": "Empty spool weight (g)",

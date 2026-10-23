@@ -68,7 +68,9 @@ describe("parseCell", () => {
     expect(parseCell(grams, "1,234.56")).toEqual({ value: 1234.56 });
     expect(parseCell(grams, "abc")).toEqual({ error: "not_a_number" });
     expect(parseCell(grams, "-5")).toEqual({ error: "negative" });
-    expect(parseCell(grams, "")).toEqual({ error: "required" });
+    // No weight = not known yet; a required column still needs a value.
+    expect(parseCell(grams, "")).toEqual({ value: null });
+    expect(parseCell(col("material"), "")).toEqual({ error: "required" });
   });
 
   it("keeps money in minor units", () => {

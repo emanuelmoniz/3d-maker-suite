@@ -78,7 +78,9 @@ const KEEP_RUNS = 200;
 const MAX_LOG = 200;
 // ponytail: a row's name for the log is its title or name column; per-entity labels if one shows blank.
 const labelOf = (v: Record<string, unknown>) => {
-  const s = String(v.title ?? v.name ?? v.model ?? "");
+  // A spool has no name of its own: its filament and colour ("Bambu PLA Silk Green").
+  const spool = [v.profile, v.colorName ?? v.colorHex].filter(Boolean).join(" ");
+  const s = String(v.title ?? v.name ?? v.model ?? spool);
   return s ? { label: s } : {};
 };
 // The scheduler ticks every minute (main.ts). An `auto` type with a time set runs at its
@@ -532,7 +534,7 @@ export function createSyncer(
           const spool = m?.sure ? byId.get(m.id ?? "") : undefined;
           const profileId = spool && bookOrLink(tx, spool, u.grams, title, startedAt);
           if (!spool || !profileId) continue;
-          spool.remainingGrams -= u.grams;
+          if (spool.remainingGrams != null) spool.remainingGrams -= u.grams;
           tx.update(printFilamentUsages)
             .set({ spoolId: spool.id, profileId })
             .where(eq(printFilamentUsages.id, u.id))
@@ -555,11 +557,11 @@ export function createSyncer(
     const from = { kind: "integration" as const, integrationId: row.id };
     if (type === "printers") {
       const items = instance ? await readPrinters(row.id, instance) : [];
-      return { entity: type, ignoredHeaders: [], from, rows: printerRows(row.id, items) };
+      return { entity: type, ignoredHeaders: [], from, rows: printerRows(db, row.id, items) };
     }
     if (type === "spools") {
-      const track = policyOf(db, row.id, "spools").trackUsage;
-      const rows = spoolRows(db, instance ? await readSpools(row, instance) : [], track);
+      const policy = policyOf(db, row.id, "spools");
+      const rows = spoolRows(db, instance ? await readSpools(row, instance) : [], policy);
       return { entity: type, ignoredHeaders: [], from, rows };
     }
     if (type === "prints") {

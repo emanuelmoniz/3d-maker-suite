@@ -86,6 +86,8 @@ export function Title({ a, inList }: { a: Alert; inList?: boolean }) {
   const type = t(CAPS[c.type as Capability] ?? "");
   const text = {
     spool_low: () => t("alerts:kinds.spool_low", { name: c.name }),
+    spool_no_price: () => t("alerts:kinds.spool_no_price", { name: c.name }),
+    spool_no_open_date: () => t("alerts:kinds.spool_no_open_date", { name: c.name }),
     maintenance_due: () =>
       t(
         a.severity === "error"
@@ -128,6 +130,13 @@ export function Title({ a, inList }: { a: Alert; inList?: boolean }) {
     case "spool_low":
       return (
         <Link to="/filament/spools/$id" params={{ id: a.entityId }} className={link}>
+          {text}
+        </Link>
+      );
+    case "spool_no_price":
+    case "spool_no_open_date":
+      return (
+        <Link to="/filament/spools/$id/edit" params={{ id: a.entityId }} className={link}>
           {text}
         </Link>
       );
@@ -297,6 +306,8 @@ function Group({ title, children }: { title: string; children: ReactNode }) {
 
 const KIND_NAMES: Record<AlertKind, string> = {
   spool_low: "alerts:kindNames.spool_low",
+  spool_no_price: "alerts:kindNames.spool_no_price",
+  spool_no_open_date: "alerts:kindNames.spool_no_open_date",
   maintenance_due: "alerts:kindNames.maintenance_due",
   warranty_ending: "alerts:kindNames.warranty_ending",
   sync_pending: "alerts:kindNames.sync_pending",

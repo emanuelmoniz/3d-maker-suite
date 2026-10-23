@@ -11,6 +11,7 @@ import {
   INTEGRATION_ERROR_CODES,
   LOG_LEVELS,
   MAINTENANCE_TARGETS,
+  NEW_SPOOL_FIELD,
   ORIGINS,
   PRINT_OUTCOMES,
   type PROJECT_EDITABLE_FIELDS,
@@ -104,6 +105,9 @@ export const syncPolicies = sqliteTable(
     scope: text({ enum: SYNC_SCOPES }).notNull().default("all"),
     /** What a run does with a change to a row you have (`SYNC_MERGES`); default per type in core. */
     merge: text({ enum: SYNC_MERGES }).notNull().default("keepEdits"),
+    /** Spools: a new spool's weight and open date (core's `NEW_SPOOL_FIELD`). */
+    newWeight: text({ enum: NEW_SPOOL_FIELD }).notNull().default("import"),
+    newOpenedAt: text({ enum: NEW_SPOOL_FIELD }).notNull().default("unset"),
     /** When an `auto` run happens within its frequency (the sync job's `schedulePattern`); all null
      * = every `frequency` since the last run. */
     atMinute: integer(),
@@ -117,6 +121,8 @@ export const syncPolicies = sqliteTable(
     check("sync_policies_frequency_ck", oneOf(t.frequency, SYNC_FREQUENCIES)),
     check("sync_policies_scope_ck", oneOf(t.scope, SYNC_SCOPES)),
     check("sync_policies_merge_ck", oneOf(t.merge, SYNC_MERGES)),
+    check("sync_policies_new_weight_ck", oneOf(t.newWeight, NEW_SPOOL_FIELD)),
+    check("sync_policies_new_opened_at_ck", oneOf(t.newOpenedAt, NEW_SPOOL_FIELD)),
   ],
 );
 
@@ -513,8 +519,9 @@ export const spools = sqliteTable(
     number: integer(),
     colorHex: text().notNull().default("#808080"),
     colorName: text(),
-    initialGrams: real().notNull(),
-    remainingGrams: real().notNull(),
+    // Both null = weight not known yet (a synced spool you weigh later): no ledger, nothing booked.
+    initialGrams: real(),
+    remainingGrams: real(),
     emptyWeightGrams: real(),
     status: text({ enum: SPOOL_STATUSES }).notNull().default("new"),
     pricePaid: integer(),
@@ -536,7 +543,8 @@ export const spools = sqliteTable(
   ],
 );
 
-// Append-only: `spools.remainingGrams` always equals the sum of its entries' deltas.
+// Append-only: `spools.remainingGrams` always equals the sum of its entries' deltas (none while
+// the weight is unknown).
 export const spoolWeightEntries = sqliteTable(
   "spool_weight_entries",
   {

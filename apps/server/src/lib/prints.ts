@@ -126,6 +126,10 @@ export const syncUsages = (
     if (!spool) throw new HttpError(400, "invalid_spool", "Spool not found");
     profileOf.set(spoolId, spool.profileId);
     if (print && using.has(spoolId)) assertOpened(spool, print.startedAt);
+    // Weight not known yet: the print is linked, nothing is booked.
+    // ponytail: a print booked before the weight was set gives back grams it never took when
+    // edited later; store "booked" per usage if that ever matters.
+    if (spool.remainingGrams == null) continue;
     const remaining = round(spool.remainingGrams + grams);
     if (remaining < 0) throw shortOf(tx, spoolId, title, -grams);
     if (round(grams) !== 0) setRemaining(tx, spoolId, "print", remaining, title);

@@ -166,7 +166,13 @@ export const spoolImport = {
   picks(db: Db) {
     const profiles = spoolProfiles(db);
     return {
-      options: { profile: profiles.active.map((p) => ({ id: p.id, label: label(p) })) },
+      // The profile's own name, like the app shows it: it holds the brand already ("Bambu PLA Matte").
+      options: {
+        profile: profiles.active.map((p) => ({
+          id: p.id,
+          label: p.name || [p.brand, p.material].filter(Boolean).join(" "),
+        })),
+      },
       suggest(v: ImportValues) {
         const fits = profiles.fits(filament(v));
         return { refs: { profile: fits[0]?.id ?? null }, sure: fits.length === 1 };
@@ -175,7 +181,8 @@ export const spoolImport = {
   },
 
   create(db: Db, v: ImportValues, row: WriteRow) {
-    const initialGrams = num(v.initialGrams) ?? 0;
+    // No weight = not known yet (a synced spool you weigh later).
+    const initialGrams = num(v.initialGrams);
     // Imported as new: the vendor's spool is this one now, not the one linked before.
     if (row.source)
       db.update(spools).set({ sourceSpool: null }).where(eq(spools.sourceSpool, row.source)).run();

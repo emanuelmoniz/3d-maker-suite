@@ -10,6 +10,21 @@ const { filamentProfiles } = schema;
 export const profileKey = (p: { brand: string; material: string; name: string }) =>
   [p.brand, p.material, p.name].map((v) => v.trim().toLowerCase()).join("|");
 
+/**
+ * A vendor's short name as the catalog spells it: the same name, else the one catalog name that
+ * ends with it (cloud "A1" -> Studio "Bambu Lab A1", "PLA Basic" -> "Bambu PLA Basic").
+ * `candidates`: the catalog's names of the same brand (and material). No single fit = `name`.
+ */
+// ponytail: suffix match is a naive heuristic; match on the vendor's filament id if it misfires.
+export function catalogName(name: string, candidates: string[]) {
+  const n = name.trim().toLowerCase();
+  if (!n) return name;
+  const same = candidates.find((c) => c.trim().toLowerCase() === n);
+  if (same) return same;
+  const tail = candidates.filter((c) => c.trim().toLowerCase().endsWith(` ${n}`));
+  return tail.length === 1 ? (tail[0] ?? name) : name;
+}
+
 /** An integration's slicer library and its config folder, if it can do `cap` right now. */
 export function libraryOf(
   db: Db,

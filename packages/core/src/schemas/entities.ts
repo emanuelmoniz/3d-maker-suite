@@ -10,6 +10,7 @@ import {
   INTEGRATION_KINDS,
   INTEGRATION_STATUSES,
   MAINTENANCE_TARGETS,
+  NEW_SPOOL_FIELD,
   ORIGINS,
   PRINT_OUTCOMES,
   SPOOL_STATUSES,
@@ -55,6 +56,9 @@ export const syncPolicySchema = z.object({
   /** Reviewed types except prints: which rows a run takes, and what it does with a change. */
   scope: z.enum(SYNC_SCOPES),
   merge: z.enum(SYNC_MERGES),
+  /** Spools: a new spool's weight and open date (`NEW_SPOOL_FIELD`). */
+  newWeight: z.enum(NEW_SPOOL_FIELD),
+  newOpenedAt: z.enum(NEW_SPOOL_FIELD),
   /**
    * When an `auto` run happens; null = unset. 15m: minute offset (mod 15); 1h: minute; 1d: hour +
    * minute; 1w: weekday (0 = Sunday) + hour; 1M: day + hour. All unset = every `frequency` since
@@ -315,8 +319,9 @@ export const spoolSchema = z.object({
   colorHex: hexColor,
   /** e.g. "Scarlet Red"; the display name falls back to the hex without it. */
   colorName: z.string().trim().min(1).nullable(),
-  initialGrams: grams,
-  remainingGrams: grams,
+  /** Null = not known yet (a synced spool you weigh later): nothing is booked from it. */
+  initialGrams: grams.nullable(),
+  remainingGrams: grams.nullable(),
   /** Weight of the empty spool, to turn a scale reading into filament left. */
   emptyWeightGrams: grams.nullable(),
   status: z.enum(SPOOL_STATUSES),

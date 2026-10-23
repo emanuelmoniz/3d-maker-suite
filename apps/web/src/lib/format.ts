@@ -80,8 +80,11 @@ export function formatRelative(d: Date | string | number, now = Date.now()) {
 }
 
 /** Grams in, whole grams out: "850 g", "1,250 g". Never kg, never decimals. */
-export const formatWeight = (grams: number) =>
-  num({ style: "unit", unit: "gram", maximumFractionDigits: 0 }).format(grams);
+/** Null = a spool whose weight isn't known yet: "Not set". */
+export const formatWeight = (grams: number | null) =>
+  grams == null
+    ? i18n.t("common:weightUnknown")
+    : num({ style: "unit", unit: "gram", maximumFractionDigits: 0 }).format(grams);
 
 /** Bytes in, "12.3 MB" out. */
 export const formatMegabytes = (bytes: number) =>

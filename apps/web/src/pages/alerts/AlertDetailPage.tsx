@@ -128,6 +128,15 @@ export function AlertDetailPage() {
                 {t("alerts:view.viewSpool")}
               </Link>
             )}
+            {(a.kind === "spool_no_price" || a.kind === "spool_no_open_date") && (
+              <Link
+                to="/filament/spools/$id/edit"
+                params={{ id: a.entityId }}
+                className={buttonLink}
+              >
+                {t("alerts:view.editSpool")}
+              </Link>
+            )}
             {a.kind === "maintenance_due" && (
               <Link
                 to="/maintenance/types/$id"
@@ -146,6 +155,8 @@ export function AlertDetailPage() {
                   id: String(a.context.integrationId),
                   type: String(a.context.type),
                 }}
+                // The rows the sync left for you, not everything the source has.
+                search={{ waiting: "1" } as never}
                 className={buttonLink}
               >
                 {t("alerts:review")}

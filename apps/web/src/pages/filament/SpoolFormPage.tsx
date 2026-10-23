@@ -69,7 +69,8 @@ export function SpoolForm({
       number: num(text(f, "number")) ?? undefined,
       colorHex: text(f, "color"),
       colorName: text(f, "colorName") || null,
-      initialGrams: Number(text(f, "initial")),
+      // Empty = weight not known yet; once known it can't go back.
+      initialGrams: float(text(f, "initial")),
       emptyWeightGrams: float(text(f, "empty")),
       lowGrams: float(text(f, "lowGrams")),
       // On is the default, so only "off" is stored.
@@ -159,11 +160,16 @@ export function SpoolForm({
           )}
         </FormField>
         {field("colorName", "filament:spools.colorName", { defaultValue: spool?.colorName ?? "" })}
-        {field("initial", "filament:spools.initial", {
-          ...grams,
-          required: true,
-          defaultValue: spool?.initialGrams ?? 1000,
-        })}
+        {field(
+          "initial",
+          "filament:spools.initial",
+          {
+            ...grams,
+            required: spool?.initialGrams != null,
+            defaultValue: spool ? (spool.initialGrams ?? undefined) : 1000,
+          },
+          spool?.initialGrams != null ? undefined : t("filament:spools.initialHint"),
+        )}
         {spool ? (
           <FormField label={t("filament:spools.status")}>
             {(p) => (

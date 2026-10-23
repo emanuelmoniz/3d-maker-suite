@@ -75,7 +75,7 @@ export const integrationsRoutes =
         policies: (adapter?.capabilities ?? []).map((type) => {
           const p = policyOf(db, row.id, type);
           const { mode, frequency, lastRunAt, pending, alertSeverities, trackUsage } = p;
-          const { scope, merge, atMinute, atHour, atWeekday, atDay } = p;
+          const { scope, merge, newWeight, newOpenedAt, atMinute, atHour, atWeekday, atDay } = p;
           return {
             type,
             mode,
@@ -86,6 +86,8 @@ export const integrationsRoutes =
             trackUsage,
             scope,
             merge,
+            newWeight,
+            newOpenedAt,
             atMinute,
             atHour,
             atWeekday,

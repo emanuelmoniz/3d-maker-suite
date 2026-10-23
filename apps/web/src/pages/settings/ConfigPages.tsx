@@ -8,6 +8,7 @@ import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { PathPicker } from "../../components/PathPicker.tsx";
 import { Section } from "../../components/Section.tsx";
+import { Switch } from "../../components/Switch.tsx";
 import { formatMegabytes, formatNumber } from "../../lib/format.ts";
 import { usePrinters } from "../../lib/printers.ts";
 import { useEmptyProjectTrash, useProjectTrash } from "../../lib/projects.ts";
@@ -388,17 +389,44 @@ function ProjectTrash() {
   );
 }
 
+// i18n keys are written out in full so `pnpm i18n:check` can see them.
+const SPOOL_ALERTS = [
+  {
+    key: "spoolNoPriceAlert",
+    label: "settings:alerts.spoolNoPrice",
+    hint: "settings:alerts.spoolNoPriceHint",
+  },
+  {
+    key: "spoolNoOpenDateAlert",
+    label: "settings:alerts.spoolNoOpenDate",
+    hint: "settings:alerts.spoolNoOpenDateHint",
+  },
+] as const;
+
 export function AlertsConfigPage() {
   const { t } = useTranslation();
   return (
     <ConfigPage module="alerts">
-      {({ num }) => (
+      {({ v, commit, num }) => (
         <>
           <Section title={t("settings:sections.alerts")}>
             <p className="text-muted">{t("settings:alerts.hint")}</p>
             <FormField label={t("settings:alerts.lowSpool")}>
               {(p) => num("lowSpoolGrams", p)}
             </FormField>
+            {SPOOL_ALERTS.map(({ key, label, hint }) => (
+              <div key={key}>
+                <Switch
+                  label={t(label)}
+                  aria-describedby={`${key}-hint`}
+                  checked={v[key]}
+                  onChange={(e) => commit({ [key]: e.target.checked })}
+                />
+                <p id={`${key}-hint`} className="text-muted">
+                  {t(hint)}
+                </p>
+              </div>
+            ))}
             <FormField label={t("settings:alerts.maintenanceLead")}>
               {(p) => num("maintenanceLeadDays", p)}
             </FormField>

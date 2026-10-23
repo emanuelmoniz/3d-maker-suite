@@ -94,7 +94,7 @@ export function AdjustDialog({
                   required
                   min={0}
                   step={0.01}
-                  defaultValue={spool.remainingGrams}
+                  defaultValue={spool.remainingGrams ?? undefined}
                   className={inputClass}
                 />
               )}

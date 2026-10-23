@@ -6,6 +6,8 @@ export const ENERGY_SOURCES = ["estimated", "measured"] as const;
 export const ALERT_KINDS = [
   "maintenance_due",
   "spool_low",
+  "spool_no_price",
+  "spool_no_open_date",
   "warranty_ending",
   "sync_pending",
   "sync_success",
@@ -96,6 +98,11 @@ export const SYNC_SCOPES = ["all", "imported"] as const;
  */
 export const SYNC_MERGES = ["overwrite", "keepEdits", "review"] as const;
 /**
+ * A new spool from an integration: its value is taken from the source (weight) or the import day
+ * (open date, spools in use only), left unset, or the spool waits for you to fill it in.
+ */
+export const NEW_SPOOL_FIELD = ["import", "unset", "review"] as const;
+/**
  * Where an integration's data comes from: an account, or a folder and program on the server's
  * disk. It says nothing about which types it has; the adapter's capabilities do.
  */
@@ -132,4 +139,5 @@ export type SyncMode = (typeof SYNC_MODES)[number];
 export type SyncFrequency = (typeof SYNC_FREQUENCIES)[number];
 export type SyncScope = (typeof SYNC_SCOPES)[number];
 export type SyncMerge = (typeof SYNC_MERGES)[number];
+export type NewSpoolField = (typeof NEW_SPOOL_FIELD)[number];
 export type Capability = (typeof CAPABILITIES)[number];

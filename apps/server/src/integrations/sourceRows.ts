@@ -4,6 +4,7 @@ import {
   type FilamentLibrary,
   type LibrarySpool,
   matchPrint,
+  type NewSpoolField,
   PRINT_MAX_SLOTS,
   printSlotKeys,
   type SLICER_ZIP_TYPES,
@@ -13,8 +14,10 @@ import { and, eq, isNotNull, isNull, ne } from "drizzle-orm";
 import type { StoredRow } from "../import/review.ts";
 import { spoolImport } from "../import/spools.ts";
 import { printerLabel, profileMaterial, spoolName } from "../lib/catalog.ts";
+import { catalogName, profileKey, spoolProfiles } from "./imports.ts";
 
-const { filamentProfiles, printers, printFilamentUsages, prints, spools } = schema;
+const { brands, filamentProfiles, printerModels, printers, printFilamentUsages, prints, spools } =
+  schema;
 
 export type LibraryType = (typeof SLICER_ZIP_TYPES)[number];
 type Row = Omit<StoredRow, "n">;
@@ -183,7 +186,7 @@ export function printRows(db: Db, integrationId: string, items: ExternalPrint[])
         const spool = byId.get(m.id ?? "");
         const f = slots[i];
         if (!spool || !f) return { label: null, sure: false };
-        spool.remainingGrams -= f.grams;
+        if (spool.remainingGrams != null) spool.remainingGrams -= f.grams;
         if (printerId)
           history.add({
             printerId,
@@ -236,39 +239,77 @@ export function printRows(db: Db, integrationId: string, items: ExternalPrint[])
   );
 }
 
-/** A vendor's printers. The source key is `<integrationId>:<externalId>`. */
-export const printerRows = (integrationId: string, items: ExternalPrinter[]): StoredRow[] =>
-  numbered(
+/**
+ * A vendor's printers. The source key is `<integrationId>:<externalId>`. The model is spelled
+ * like the catalog's ("A1" -> "Bambu Lab A1"), so it lands on the model you have.
+ */
+export function printerRows(db: Db, integrationId: string, items: ExternalPrinter[]): StoredRow[] {
+  const models = db
+    .select({ brand: brands.name, model: printerModels.model })
+    .from(printerModels)
+    .innerJoin(brands, eq(brands.id, printerModels.brandId))
+    .all();
+  const of = (brand: string) =>
+    models.filter((m) => m.brand.toLowerCase() === brand.toLowerCase()).map((m) => m.model);
+  return numbered(
     items.map((p) => ({
       source: `${integrationId}:${p.externalId}`,
       raw: {
         name: p.name,
         brand: p.brand,
-        model: p.model || null,
+        model: p.model ? catalogName(p.model, of(p.brand)) : null,
         serial: p.serial ?? null,
         nozzleDiameterMm: p.nozzleDiameterMm ?? null,
       },
     })),
   );
+}
 
-/** A vendor's spools. `spoolId` is already `<adapterId>:<id>`. */
-export function spoolRows(db: Db, items: LibrarySpool[], trackUsage = true): StoredRow[] {
+/** What a sync does with a spool it brings in for the first time (the spools policy). */
+export type NewSpools = { newWeight: NewSpoolField; newOpenedAt: NewSpoolField };
+
+/**
+ * A vendor's spools. `spoolId` is already `<adapterId>:<id>`. A new one's profile is spelled like
+ * the catalog's ("PLA Basic" -> "Bambu PLA Basic"); its weight and open date follow `policy`.
+ */
+export function spoolRows(
+  db: Db,
+  items: LibrarySpool[],
+  policy: NewSpools = { newWeight: "import", newOpenedAt: "unset" },
+  today = new Date().toISOString().slice(0, 10),
+): StoredRow[] {
   // A spool you archived counts as yours too: it comes back as a skip (`spoolImport.archived`).
   const gone = spoolImport.archived(db);
   const linked = spoolImport.bySource(db);
   const yours = new Map([...spoolImport.targets(db), ...gone.targets].map((t) => [t.id, t.values]));
+  const profiles = spoolProfiles(db).active;
+  const profileName = (p: LibrarySpool["profile"]) =>
+    catalogName(
+      p.name,
+      profiles
+        .filter((x) => profileKey({ ...x, name: "" }) === profileKey({ ...p, name: "" }))
+        .map((x) => x.name),
+    );
   return numbered(
     items.map(({ spoolId, profile, ...s }) => {
       // A spool you have keeps its own filament: the vendor's name for it is not a difference.
       const mine = yours.get(linked.get(spoolId) ?? gone.of(spoolId) ?? "");
       const filament = mine
         ? { brand: mine.brand, material: mine.material, profile: mine.profile }
-        : { brand: profile.brand, material: profile.material, profile: profile.name };
-      // Not tracking: a spool you have keeps its weight (a new one starts with the vendor's).
-      const { remainingGrams, ...rest } = s;
+        : { brand: profile.brand, material: profile.material, profile: profileName(profile) };
+      const { remainingGrams, initialGrams, ...rest } = s;
+      // Without "Track usage" the review leaves a spool you have its weight (`USAGE_KEYS`).
+      if (mine)
+        return { source: spoolId, raw: { ...filament, ...rest, initialGrams, remainingGrams } };
+      const weight = policy.newWeight === "unset" ? {} : { initialGrams, remainingGrams };
+      // Only a spool in use was opened; a sealed one has no open date to guess.
+      const opened =
+        policy.newOpenedAt === "import" && s.status === "in_use" ? { openedAt: today } : {};
+      // "Let me review": an auto run leaves the spool for a person to fill in.
+      const hold = policy.newWeight === "review" || policy.newOpenedAt === "review";
       return {
         source: spoolId,
-        raw: { ...filament, ...rest, ...(trackUsage || !mine ? { remainingGrams } : {}) },
+        raw: { ...filament, ...rest, ...weight, ...opened, ...(hold && { hold: true }) },
       };
     }),
   );

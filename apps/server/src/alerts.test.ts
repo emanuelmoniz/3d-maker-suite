@@ -125,6 +125,40 @@ describe("alerts", () => {
     expect(await low()).toBe(1);
   });
 
+  it("a spool with no price or no open date warns once switched on, sealed ones aside", async () => {
+    const used = await lowSpool(); // in use: some was taken
+    const p = db.select().from(schema.spools).get()?.profileId ?? "";
+    const sealed = (
+      await send("POST", "/api/filament/spools", { profileId: p, initialGrams: 1000 })
+    ).json().id;
+    const kinds = async () => {
+      await evaluate();
+      return (await list())
+        .filter((a: { kind: string }) => a.kind !== "spool_low")
+        .map(
+          (a: { kind: string; entityId: string }) =>
+            `${a.kind}:${a.entityId === used ? "used" : "sealed"}`,
+        )
+        .sort();
+    };
+    expect(await kinds()).toEqual([]);
+    await send("PATCH", "/api/preferences", {
+      spoolNoPriceAlert: true,
+      spoolNoOpenDateAlert: true,
+    });
+    expect(await kinds()).toEqual([
+      "spool_no_open_date:used",
+      "spool_no_price:sealed",
+      "spool_no_price:used",
+    ]);
+    await send("PATCH", `/api/filament/spools/${used}`, {
+      pricePaid: 2000,
+      openedAt: "2026-10-01T12:00:00.000Z",
+    });
+    expect(await kinds()).toEqual(["spool_no_price:sealed"]);
+    expect(sealed).toBeTruthy();
+  });
+
   it("a maintenance type's lead and switches decide warning and error", async () => {
     const p = (
       await send("POST", "/api/printers", { name: "P1", modelId: modelIdFor(db, "Bambu", "P1S") })

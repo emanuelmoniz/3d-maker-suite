@@ -17,8 +17,16 @@ defineWidget({
     const { t } = useTranslation();
     const threshold = usePreferences().data?.values.lowSpoolGrams ?? 0;
     const profiles = useProfiles().data?.items ?? [];
+    // A spool whose weight isn't known can't be low.
     const low = (useSpools().data?.items ?? [])
-      .filter((x) => !x.archivedAt && x.status !== "empty" && x.remainingGrams <= threshold)
+      .flatMap((x) =>
+        x.remainingGrams != null &&
+        !x.archivedAt &&
+        x.status !== "empty" &&
+        x.remainingGrams <= threshold
+          ? [{ ...x, remainingGrams: x.remainingGrams }]
+          : [],
+      )
       .sort((a, b) => a.remainingGrams - b.remainingGrams);
     return (
       <WidgetCard

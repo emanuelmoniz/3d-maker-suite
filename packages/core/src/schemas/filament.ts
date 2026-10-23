@@ -51,7 +51,7 @@ export const filamentProfilePatchSchema = filamentProfileInputSchema
 
 /**
  * `remainingGrams` defaults to `initialGrams` (a new spool). Afterwards only `adjust` changes it.
- * `number` defaults to the next free one.
+ * No `initialGrams` = weight not known yet. `number` defaults to the next free one.
  */
 export const spoolInputSchema = spoolSchema
   .pick({
@@ -74,6 +74,7 @@ export const spoolInputSchema = spoolSchema
     number: true,
     colorHex: true,
     colorName: true,
+    initialGrams: true,
     remainingGrams: true,
     emptyWeightGrams: true,
     pricePaid: true,
@@ -93,7 +94,7 @@ export const spoolPatchSchema = spoolInputSchema
 /** Set the remaining weight (e.g. after weighing); the API stores the difference as a ledger entry. */
 export const spoolAdjustSchema = z.object({
   kind: z.enum(["manual", "correction"]),
-  remainingGrams: spoolSchema.shape.remainingGrams,
+  remainingGrams: spoolSchema.shape.remainingGrams.unwrap(),
   note: z.string().min(1).nullable().optional(),
 });
 

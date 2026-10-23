@@ -8,6 +8,7 @@ import {
   type IntegrationAdapter,
   IntegrationError,
   type IntegrationErrorCode,
+  type NewSpoolField,
   SYNC_FREQUENCIES,
 } from "@3d-maker-suite/core";
 import { openDb, schema } from "@3d-maker-suite/db";
@@ -15,10 +16,11 @@ import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import { buildApp } from "./app.ts";
+import { catalogName } from "./integrations/imports.ts";
 import { loadKey } from "./integrations/secrets.ts";
-import { spoolRows } from "./integrations/sourceRows.ts";
+import { printerRows, spoolRows } from "./integrations/sourceRows.ts";
 import { createSyncer, schedulePattern } from "./integrations/sync.ts";
-import { modelIdFor } from "./lib/catalog.ts";
+import { filamentProfileIdFor, modelIdFor } from "./lib/catalog.ts";
 import { reviewer } from "./testReview.ts";
 
 let db: ReturnType<typeof openDb>;
@@ -387,10 +389,12 @@ describe("integrations", () => {
     expect(names()).toEqual(["Renamed", "Second"]);
     // It waits again on the next run, until you look at it.
     expect(await syncType(id, "printers")).toMatchObject({ pending: 1 });
-    const p = (await review.open(`/api/import/integration/${id}/printers`)).json() as ImportPreview;
+    const p = (
+      await review.open(`/api/import/integration/${id}/printers?waiting=1`)
+    ).json() as ImportPreview;
+    // "Second" was imported by the run and is unchanged: not in what the run left for you.
     expect(p.rows.map((r) => [r.values.name, r.action, r.auto])).toEqual([
       ["Vendor name", "update", "wait"],
-      ["Second", "skip", undefined],
     ]);
     // Skipped in the review: seen, so it doesn't come back until the source changes again.
     expect((await review.confirm(p, [])).statusCode).toBe(200);
@@ -449,11 +453,12 @@ describe("integrations", () => {
     expect(db.select().from(schema.printers).all()).toEqual([
       expect.objectContaining({ name: "Mine", origin: "manual", integrationId: id }),
     ]);
-    // Linked now: offered as yours, nothing to do.
+    // Linked now. A run leaves your name alone ("Let me review the changes"), while a review opened
+    // by hand offers to write the source's, as "Overwrite" would.
     const again = (
       await review.open(`/api/import/integration/${id}/printers`)
     ).json() as ImportPreview;
-    expect(again.rows.map((r) => [r.action, r.auto])).toEqual([["skip", undefined]]);
+    expect(again.rows.map((r) => [r.action, r.auto])).toEqual([["update", undefined]]);
   });
 
   it("scheduled syncs skip errors the user must fix and back off after rate limits", async () => {
@@ -844,6 +849,8 @@ describe("capabilities", () => {
       trackUsage: true,
       scope: "all",
       merge: "keepEdits",
+      newWeight: "import",
+      newOpenedAt: "unset",
       atMinute: null,
       atHour: null,
       atWeekday: null,
@@ -1253,14 +1260,60 @@ describe("spool rows from a vendor", () => {
     status: "in_use" as const,
   });
 
-  it("leave the weight of a spool you have alone when usage isn't tracked", async () => {
-    const s = await spool();
-    db.update(schema.spools).set({ sourceSpool: "mock:1" }).where(eq(schema.spools.id, s.id)).run();
-    const items = [vendor("mock:1"), vendor("mock:2")];
-    const weights = (track: boolean) =>
-      spoolRows(db, items, track).map((r) => r.raw.remainingGrams);
-    expect(weights(true)).toEqual([400, 400]);
-    // A new spool still starts with the vendor's weight.
-    expect(weights(false)).toEqual([undefined, 400]);
+  it("spell a short name like the catalog only when one name fits", () => {
+    const names = ["Bambu PLA Basic", "Generic PLA Basic", "Bambu PLA Matte"];
+    expect(catalogName("pla matte", names)).toBe("Bambu PLA Matte");
+    expect(catalogName("Bambu PLA Matte", names)).toBe("Bambu PLA Matte");
+    // Two end with it: no guess.
+    expect(catalogName("PLA Basic", names)).toBe("PLA Basic");
+    expect(catalogName("PLA Silk", names)).toBe("PLA Silk");
+  });
+
+  it("take the catalog's name for a vendor's short one", () => {
+    filamentProfileIdFor(db, { brand: "Bambu Lab", material: "PLA", name: "Bambu PLA Basic" });
+    filamentProfileIdFor(db, { brand: "Bambu Lab", material: "PLA", name: "Bambu PLA Matte" });
+    const short = {
+      ...vendor("mock:3"),
+      profile: { brand: "Bambu Lab", material: "PLA", name: "PLA Basic" },
+    };
+    const unknown = {
+      ...short,
+      spoolId: "mock:4",
+      profile: { ...short.profile, name: "PLA Galaxy" },
+    };
+    expect(spoolRows(db, [short, unknown]).map((r) => r.raw.profile)).toEqual([
+      "Bambu PLA Basic",
+      "PLA Galaxy",
+    ]);
+    modelIdFor(db, "Bambu Lab", "Bambu Lab A1");
+    modelIdFor(db, "Bambu Lab", "Bambu Lab A1 mini");
+    const printer = { externalId: "d1", name: "A1", brand: "Bambu Lab", model: "A1" };
+    expect(printerRows(db, "i1", [printer])[0]?.raw.model).toBe("Bambu Lab A1");
+  });
+
+  it("bring a new spool in the way the spools policy says", () => {
+    const sealed = { ...vendor("mock:5"), remainingGrams: 1000, status: "new" as const };
+    const rows = (newWeight: NewSpoolField, newOpenedAt: NewSpoolField) =>
+      spoolRows(db, [vendor("mock:6"), sealed], { newWeight, newOpenedAt }, "2026-10-23").map(
+        ({ raw: { initialGrams, remainingGrams, openedAt, hold } }) => ({
+          initialGrams,
+          remainingGrams,
+          openedAt,
+          hold,
+        }),
+      );
+    // Only the spool in use gets the import day as its open date.
+    expect(rows("import", "import")).toEqual([
+      { initialGrams: 1000, remainingGrams: 400, openedAt: "2026-10-23", hold: undefined },
+      { initialGrams: 1000, remainingGrams: 1000, openedAt: undefined, hold: undefined },
+    ]);
+    expect(rows("unset", "unset")[0]).toEqual({
+      initialGrams: undefined,
+      remainingGrams: undefined,
+      openedAt: undefined,
+      hold: undefined,
+    });
+    expect(rows("review", "unset").map((r) => r.hold)).toEqual([true, true]);
+    expect(rows("import", "review").map((r) => r.hold)).toEqual([true, true]);
   });
 });

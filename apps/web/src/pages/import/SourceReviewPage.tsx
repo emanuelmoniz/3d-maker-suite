@@ -30,8 +30,9 @@ export function SourceReviewPage() {
     id: string;
     type: ReviewedType;
   };
-  // Prints: the range picked on the Integrations page (none = since the last sync).
-  const range = useSearch({ strict: false }) as { from?: string; to?: string };
+  // Prints: the range picked on the Integrations page (none = since the last sync). `waiting`:
+  // opened for the rows a sync left, so only those; without it, everything the source has.
+  const range = useSearch({ strict: false }) as { from?: string; to?: string; waiting?: string };
   const zip = source === "zip";
   const [done, setDone] = useState<ImportResult | null>(null);
   const preview = useSourcePreview(source, id, type, range);

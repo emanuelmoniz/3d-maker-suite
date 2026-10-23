@@ -78,7 +78,7 @@ export function FilamentPage() {
   const tags = useTags().data ?? [];
   const spoolPrice = (s: Spool) => {
     const perKg = spoolPricePerKg(s, profileOf.get(s.profileId) ?? { pricePerKg: null });
-    return perKg === null ? null : (perKg * s.initialGrams) / 1000;
+    return perKg === null || s.initialGrams == null ? null : (perKg * s.initialGrams) / 1000;
   };
 
   return (
@@ -147,7 +147,8 @@ export function FilamentPage() {
                     numeric: true,
                     cell: (s) => (
                       <>
-                        {s.remainingGrams <= (prefs?.lowSpoolGrams ?? 0) &&
+                        {s.remainingGrams != null &&
+                          s.remainingGrams <= (prefs?.lowSpoolGrams ?? 0) &&
                           s.status !== "empty" && (
                             <span className="mr-2 rounded-full bg-warn/15 px-2 py-0.5 text-xs font-medium text-warn">
                               {t("filament:spools.low")}

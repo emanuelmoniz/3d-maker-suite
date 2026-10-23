@@ -35,6 +35,8 @@ export function TimeInput({
   emptyLabel,
   clearLabel = emptyLabel,
   minutes = true,
+  hours: withHours = true,
+  minuteOptions = MINUTES,
   disabled,
   ...aria
 }: {
@@ -45,6 +47,9 @@ export function TimeInput({
   /** The panel's button that unsets the time. */
   clearLabel?: string;
   minutes?: boolean;
+  /** `false` picks only a minute (shown as ":07"); the hour stays 0. */
+  hours?: boolean;
+  minuteOptions?: number[];
   disabled?: boolean;
   id?: string;
   "aria-label"?: string;
@@ -81,7 +86,11 @@ export function TimeInput({
   });
   useEffect(() => {
     if (!open) return;
-    panel.current?.querySelector<HTMLButtonElement>("[data-hour][aria-pressed=true]")?.focus();
+    panel.current
+      ?.querySelector<HTMLButtonElement>(
+        "[data-hour][aria-pressed=true], [data-minute][aria-pressed=true]",
+      )
+      ?.focus();
     const away = (e: PointerEvent) => {
       const target = e.target as Node;
       if (!panel.current?.contains(target) && !trigger.current?.contains(target)) close(false);
@@ -118,7 +127,11 @@ export function TimeInput({
         className={cx(inputClass, "flex items-center justify-between gap-2 text-left")}
       >
         <span className={cx("tabular-nums", !value && "text-muted")}>
-          {value ? formatTime(new Date(2000, 0, 1, value.hour, value.minute)) : emptyLabel}
+          {!value
+            ? emptyLabel
+            : withHours
+              ? formatTime(new Date(2000, 0, 1, value.hour, value.minute))
+              : `:${pad(value.minute)}`}
         </span>
         <Clock aria-hidden className="size-4 shrink-0 text-muted" />
       </button>
@@ -138,55 +151,57 @@ export function TimeInput({
         className="fixed inset-auto m-0 w-72 max-w-[calc(100vw-1rem)] rounded-md border border-border bg-surface text-fg shadow-lg"
       >
         <div className="grid gap-3 p-3">
-          <fieldset className="grid gap-1.5">
-            <legend className="mb-1.5 font-medium">{t("common:timeInput.hour")}</legend>
-            {twelve && (
-              // biome-ignore lint/a11y/useSemanticElements: two toggle buttons, not a form group
-              <div
-                role="group"
-                aria-label={t("common:timeInput.period")}
-                className="grid grid-cols-2 gap-1 rounded-md bg-surface-2 p-0.5"
-              >
-                {[false, true].map((p) => (
+          {withHours && (
+            <fieldset className="grid gap-1.5">
+              <legend className="mb-1.5 font-medium">{t("common:timeInput.hour")}</legend>
+              {twelve && (
+                // biome-ignore lint/a11y/useSemanticElements: two toggle buttons, not a form group
+                <div
+                  role="group"
+                  aria-label={t("common:timeInput.period")}
+                  className="grid grid-cols-2 gap-1 rounded-md bg-surface-2 p-0.5"
+                >
+                  {[false, true].map((p) => (
+                    <button
+                      key={String(p)}
+                      type="button"
+                      aria-pressed={p === pm}
+                      onClick={() => setDraft((d) => ({ ...d, hour: from12h(h12, p) }))}
+                      className={cx(
+                        "h-8 rounded",
+                        p === pm ? "bg-surface font-medium shadow-sm" : "text-muted hover:text-fg",
+                      )}
+                    >
+                      {period(p)}
+                    </button>
+                  ))}
+                </div>
+              )}
+              <div className="grid grid-cols-6 gap-1">
+                {hours.map((h) => (
                   <button
-                    key={String(p)}
+                    key={h}
                     type="button"
-                    aria-pressed={p === pm}
-                    onClick={() => setDraft((d) => ({ ...d, hour: from12h(h12, p) }))}
-                    className={cx(
-                      "h-8 rounded",
-                      p === pm ? "bg-surface font-medium shadow-sm" : "text-muted hover:text-fg",
-                    )}
+                    data-hour
+                    aria-pressed={hourOn(h)}
+                    onClick={() => setHour(h)}
+                    className={cell(hourOn(h))}
                   >
-                    {period(p)}
+                    {twelve ? h : pad(h)}
                   </button>
                 ))}
               </div>
-            )}
-            <div className="grid grid-cols-6 gap-1">
-              {hours.map((h) => (
-                <button
-                  key={h}
-                  type="button"
-                  data-hour
-                  aria-pressed={hourOn(h)}
-                  onClick={() => setHour(h)}
-                  className={cell(hourOn(h))}
-                >
-                  {twelve ? h : pad(h)}
-                </button>
-              ))}
-            </div>
-          </fieldset>
+            </fieldset>
+          )}
           {minutes && (
             <fieldset className="grid gap-1.5">
               <legend className="mb-1.5 font-medium">{t("common:timeInput.minute")}</legend>
-              {/* ponytail: 5-minute steps; add a fine column if anyone needs the exact minute. */}
               <div className="grid grid-cols-6 gap-1">
-                {MINUTES.map((m) => (
+                {minuteOptions.map((m) => (
                   <button
                     key={m}
                     type="button"
+                    data-minute
                     aria-pressed={m === draft.minute}
                     onClick={() => setDraft((d) => ({ ...d, minute: m }))}
                     className={cell(m === draft.minute)}

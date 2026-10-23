@@ -57,15 +57,16 @@ export const useSourcePreview = (
   source: "integration" | "zip",
   id: string,
   type: ReviewedType,
-  /** Prints only: the dates to read; none = since the last sync. */
-  range: { from?: string; to?: string } = {},
+  /** Prints only: the dates to read; none = since the last sync. `waiting`: what a sync left. */
+  range: { from?: string; to?: string; waiting?: string } = {},
 ) =>
   useQuery({
-    queryKey: ["import-source", source, id, type, range.from, range.to],
+    queryKey: ["import-source", source, id, type, range.from, range.to, range.waiting],
     queryFn: () => {
       const q = new URLSearchParams();
       if (range.from) q.set("from", range.from);
       if (range.to) q.set("to", range.to);
+      if (range.waiting) q.set("waiting", "1");
       return api<ImportPreview>(
         "POST",
         source === "zip"

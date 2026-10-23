@@ -24,6 +24,7 @@
     "markDone": "Mark as done",
     "spoolDetail": "The spool {{name}} is now down to {{grams}}.",
     "viewSpool": "View spool",
+    "editSpool": "Edit spool",
     "viewTask": "View task",
     "undismiss": "Restore alert",
     "syncResult_one": "{{count}} new, {{updated}} updated",
@@ -51,6 +52,8 @@
   },
   "kindNames": {
     "spool_low": "Spool running low",
+    "spool_no_price": "Spool without price",
+    "spool_no_open_date": "Spool without open date",
     "maintenance_due": "Maintenance",
     "warranty_ending": "Warranty ending",
     "sync_pending": "Sync needs review",
@@ -80,6 +83,8 @@
   },
   "kinds": {
     "spool_low": "Spool {{name}} is low",
+    "spool_no_price": "Spool {{name}} has no price",
+    "spool_no_open_date": "Spool {{name}} is in use but has no open date",
     "maintenance_due": "{{task}} is due soon on {{printer}}",
     "maintenance_overdue": "{{task}} is overdue on {{printer}}",
     "warranty_ending_one": "Warranty of {{name}} ends in {{count}} day",

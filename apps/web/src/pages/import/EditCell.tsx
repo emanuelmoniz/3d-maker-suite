@@ -10,7 +10,6 @@ import {
   type KeyboardEvent,
   type ReactNode,
   useEffect,
-  useId,
   useRef,
   useState,
 } from "react";
@@ -63,7 +62,6 @@ export function EditCell({
   children: ReactNode;
 }) {
   const { t } = useTranslation();
-  const listId = useId();
   const wrap = useRef<HTMLFieldSetElement>(null);
   // While editing: the input's value, and what it started as (unchanged = no edit).
   const [edit, setEdit] = useState<{ start: string; draft: string } | null>(null);
@@ -159,13 +157,21 @@ export function EditCell({
         )}
       </span>
     ) : col.type === "ref" ? (
+      // The app's own list (a native datalist is drawn by the browser, away from the cell); a
+      // name you type that isn't there is a new one.
       <>
-        <input {...common} type="text" list={listId} />
-        <datalist id={listId}>
-          {names?.map((n) => (
-            <option key={n} value={n} />
-          ))}
-        </datalist>
+        <Combobox
+          free
+          aria-label={common["aria-label"]}
+          aria-invalid={common["aria-invalid"]}
+          className={fieldClass}
+          value={edit.draft}
+          onChange={(v) => done(v)}
+          options={[
+            ...(col.required ? [] : [{ value: "", label: t("import:review.empty") }]),
+            ...(names ?? []).map((n) => ({ value: n, label: n })),
+          ]}
+        />
         {!!edit.draft.trim() && names && !names.includes(edit.draft.trim()) && (
           <span className="text-muted">{t("import:review.newName")}</span>
         )}

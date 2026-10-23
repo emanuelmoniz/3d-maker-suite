@@ -30,9 +30,10 @@ const step = (list: ComboOption[], i: number, d: 1 | -1) => {
  * Single select with type-to-filter: the APG editable combobox with list autocomplete. A drop-in
  * for `<select>`: controlled (`value`/`onChange`) or uncontrolled (`name`/`defaultValue`, read with
  * FormData). The list is a manual popover, so tables don't clip it and it sits above modal dialogs.
+ * `free`: a name typed that isn't listed is a value too (offered first, kept on blur); controlled only.
  */
 export function Combobox({
-  options,
+  options: listed,
   value,
   defaultValue,
   onChange,
@@ -40,6 +41,7 @@ export function Combobox({
   required,
   disabled,
   placeholder,
+  free,
   className = inputClass,
   ...aria
 }: {
@@ -51,6 +53,7 @@ export function Combobox({
   required?: boolean;
   disabled?: boolean;
   placeholder?: string;
+  free?: boolean;
   className?: string;
   id?: string;
   "aria-label"?: string;
@@ -71,6 +74,16 @@ export function Combobox({
   const [query, setQuery] = useState<string | null>(null); // null: not filtering, show the selection
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(-1);
+  // Free: the value itself when it isn't listed, and what is typed when nothing listed is named so.
+  const typed = query?.trim() ?? "";
+  const named = (v: string) => listed.some((o) => o.label.toLowerCase() === v.toLowerCase());
+  const options = free
+    ? [
+        ...(typed && !named(typed) ? [{ value: typed, label: typed }] : []),
+        ...(value && !listed.some((o) => o.value === value) ? [{ value, label: value }] : []),
+        ...listed,
+      ]
+    : listed;
 
   // Like a native select, an uncontrolled value that matches no option falls back to the first one.
   const current =
@@ -195,7 +208,11 @@ export function Combobox({
           e.currentTarget.select(); // after mouseup, which would otherwise drop the focus selection
           openList();
         }}
-        onBlur={close}
+        onBlur={() => {
+          // Free: what was typed stays, like a text field.
+          if (free && query !== null && typed !== current) onChange?.(typed);
+          close();
+        }}
         className={cx(className, "pr-8 text-ellipsis")}
       />
       {name && <input type="hidden" name={name} value={current} disabled={disabled} />}

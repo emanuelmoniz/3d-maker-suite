@@ -201,8 +201,10 @@ export const filamentRoutes =
         if (getProfile(req.body.profileId).archivedAt)
           throw new HttpError(400, "profile_archived", "Filament profile is archived");
         assertNumberFree(db, spools, "spool", req.body.number);
-        const remainingGrams = req.body.remainingGrams ?? req.body.initialGrams;
-        const row = createSpool(db, { ...req.body, remainingGrams });
+        // No weight at all = not known yet.
+        const initialGrams = req.body.initialGrams ?? null;
+        const remainingGrams = req.body.remainingGrams ?? initialGrams;
+        const row = createSpool(db, { ...req.body, initialGrams, remainingGrams });
         return reply.status(201).send(row as Spool);
       },
     );
@@ -220,6 +222,9 @@ export const filamentRoutes =
         const before = getSpool(req.params.id);
         assertNumberFree(db, spools, "spool", req.body.number, req.params.id);
         const { archived, ...fields } = req.body;
+        // A weight the ledger tracks can change, not go back to unknown.
+        if (fields.initialGrams === null && before.initialGrams != null)
+          throw new HttpError(400, "weight_required", "A spool's weight can't be unset");
         return db.transaction((tx) => {
           const row = tx
             .update(spools)
@@ -227,6 +232,11 @@ export const filamentRoutes =
             .where(eq(spools.id, req.params.id))
             .returning()
             .get();
+          // The weight is known now: the spool holds all of it until told otherwise.
+          if (row.remainingGrams == null && row.initialGrams != null)
+            return (setRemaining(tx, row.id, "manual", row.initialGrams) ?? row) as Spool;
+          if (row.initialGrams == null || before.initialGrams == null || row.remainingGrams == null)
+            return row as Spool;
           // A spool that started with more (or less) has that much more (or less) left now.
           const delta = row.initialGrams - before.initialGrams;
           if (!delta) return row as Spool;

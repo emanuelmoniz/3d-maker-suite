@@ -44,6 +44,14 @@ After a scan of a project (full, at startup or of one folder), auto slicing rais
 | `slice_setup_changed` (plates added or removed, or a plate uses a slot its setup doesn't map) | warning | `<projectId>:<file>:<sha256>` | `project:<projectId>` |
 | `slice_failed` (an auto slice failed) | error | `<projectId>:<file>:<plate>:<sha256>` | `project:<projectId>` |
 
+## Spool data alerts (migration 0067)
+Conditions, like `spool_low`: one per spool while it holds, resolved once the spool is filled in. Both are off until switched on in the alerts settings (`spoolNoPriceAlert`, `spoolNoOpenDateAlert`), so a library of synced spools doesn't open with dozens of warnings.
+
+| Kind | Raised for | Severity | Module | Task |
+|---|---|---|---|---|
+| `spool_no_price` | an active, non-empty spool with no price paid | warning | filament | `spool:<spoolId>` |
+| `spool_no_open_date` | an active spool in use with no open date (a sealed one has none to give) | warning | filament | `spool:<spoolId>` |
+
 ## Rejected options
 - **Severity derived from the kind, not stored.** It breaks for kinds that change severity and for Step 13, where a task chooses its severities. Queries such as "all errors" would need the mapping in SQL.
 - **Drop `kind` and keep only module + severity + task.** The app and the channels still need to know which sentence to say, and that is what `kind` is.
