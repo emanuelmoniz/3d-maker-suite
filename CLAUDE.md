@@ -16,6 +16,7 @@ Runs locally on the user's PC (Windows, macOS, Linux) or in Docker on a NAS or s
 - **DB changes only via Drizzle migrations.** Never edit an applied migration.
 - **Secrets** (cloud tokens) are encrypted at rest and never logged or returned by the API.
 - **Responsive and accessible:** mobile-first, keyboard navigable, light/dark themes via CSS variables.
+- **Canonical Tailwind classes.** Use a registered theme token's utility (`accent-accent`, `wrap-anywhere`) over the arbitrary-value or longhand form (`accent-[var(--accent)]`, `[overflow-wrap:anywhere]`), and don't stack utilities that set the same CSS property (e.g. `outline` with `outline-2`). Biome's linter doesn't catch these; check the tailwindcss-intellisense diagnostics (Problems panel / pasted VS Code diagnostics) for any file you touch.
 - Keep things small: no new dependency without a short reason in the PR/commit message.
 
 ## Stack
