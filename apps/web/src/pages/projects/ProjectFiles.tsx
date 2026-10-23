@@ -249,12 +249,7 @@ export function ProjectFiles({ project }: { project: Project }) {
     answer: (replace: boolean) => void;
   } | null>(null);
 
-  if (!project.folderPath)
-    return (
-      <Collapsible title={t("projects:detail.files")}>
-        <p className="text-muted">{t("projects:list.noFolder")}</p>
-      </Collapsible>
-    );
+  if (!project.folderPath) return null;
 
   const errorText = (e: unknown) =>
     e instanceof ApiError && e.code === "path_exists"

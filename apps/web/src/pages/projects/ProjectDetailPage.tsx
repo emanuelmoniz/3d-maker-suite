@@ -283,24 +283,21 @@ function Plates({
 function LinkedPrints({ id }: { id: string }) {
   const { t } = useTranslation();
   const prints = usePrintsOfProject(id).data?.items ?? [];
+  if (!prints.length) return null;
   return (
     <Collapsible title={t("projects:detail.prints")}>
-      {prints.length ? (
-        <ul className="divide-y divide-border rounded-lg border border-border bg-surface">
-          {prints.map((p) => (
-            <li key={p.id} className="flex flex-wrap items-center justify-between gap-2 p-3">
-              <Link to="/prints/$id" params={{ id: p.id }} className="font-medium hover:underline">
-                {printName(t, p)}
-              </Link>
-              <span className="text-muted">
-                {t(`prints:outcomes.${p.outcome}`)} · {formatDateTime(p.startedAt)}
-              </span>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p className="text-muted">{t("projects:detail.noPrints")}</p>
-      )}
+      <ul className="divide-y divide-border rounded-lg border border-border bg-surface">
+        {prints.map((p) => (
+          <li key={p.id} className="flex flex-wrap items-center justify-between gap-2 p-3">
+            <Link to="/prints/$id" params={{ id: p.id }} className="font-medium hover:underline">
+              {printName(t, p)}
+            </Link>
+            <span className="text-muted">
+              {t(`prints:outcomes.${p.outcome}`)} · {formatDateTime(p.startedAt)}
+            </span>
+          </li>
+        ))}
+      </ul>
     </Collapsible>
   );
 }
@@ -446,6 +443,8 @@ export function ProjectDetailPage() {
       : project.thumbnailPath
         ? projectThumbnailUrl(project)
         : null;
+  // No 3D file and no folder-level fallback thumbnail: nothing to preview.
+  const hasPreview = !!current || !!thumbnail;
 
   return (
     <>
@@ -513,50 +512,52 @@ export function ProjectDetailPage() {
       </p>
       <div className="grid gap-6 lg:grid-cols-2">
         {hasGallery && <ProjectGallery project={project} />}
-        <div className="flex min-w-0 flex-col gap-2">
-          <div className="relative lg:min-h-112 lg:flex-1">
-            {current ? (
-              <ModelPreview
-                projectId={project.id}
-                path={current.path}
-                url={projectFileUrl(project.id, current.path)}
-                ext={current.path.slice(current.path.lastIndexOf(".")).toLowerCase()}
-                size={current.size}
-                items={selected?.items ?? []}
-                partColors={info?.partColors ?? []}
-                thumbnail={thumbnail}
-                name={project.name}
-              />
-            ) : (
-              thumbnail && (
-                <img
-                  src={thumbnail}
-                  alt={projectName(t, project)}
-                  className="w-full rounded-lg border border-border"
+        {hasPreview && (
+          <div className="flex min-w-0 flex-col gap-2">
+            <div className="relative lg:min-h-112 lg:flex-1">
+              {current ? (
+                <ModelPreview
+                  projectId={project.id}
+                  path={current.path}
+                  url={projectFileUrl(project.id, current.path)}
+                  ext={current.path.slice(current.path.lastIndexOf(".")).toLowerCase()}
+                  size={current.size}
+                  items={selected?.items ?? []}
+                  partColors={info?.partColors ?? []}
+                  thumbnail={thumbnail}
+                  name={project.name}
                 />
-              )
+              ) : (
+                thumbnail && (
+                  <img
+                    src={thumbnail}
+                    alt={projectName(t, project)}
+                    className="w-full rounded-lg border border-border"
+                  />
+                )
+              )}
+            </div>
+            {models.length > 1 && (
+              <label className="grid content-start gap-1 lg:h-16">
+                <span className="text-muted">{t("projects:detail.model")}</span>
+                <Combobox
+                  className="h-9 w-full rounded-md border border-border bg-surface px-2"
+                  value={current?.path ?? ""}
+                  onChange={(v) => {
+                    setPicked(v);
+                    setPlate(null);
+                  }}
+                  options={models.map((f) => ({
+                    value: f.path,
+                    label: VIEWABLE.test(f.path)
+                      ? f.path
+                      : `${f.path} (${t("projects:viewer.noPreview")})`,
+                  }))}
+                />
+              </label>
             )}
           </div>
-          {models.length > 1 && (
-            <label className="grid content-start gap-1 lg:h-16">
-              <span className="text-muted">{t("projects:detail.model")}</span>
-              <Combobox
-                className="h-9 w-full rounded-md border border-border bg-surface px-2"
-                value={current?.path ?? ""}
-                onChange={(v) => {
-                  setPicked(v);
-                  setPlate(null);
-                }}
-                options={models.map((f) => ({
-                  value: f.path,
-                  label: VIEWABLE.test(f.path)
-                    ? f.path
-                    : `${f.path} (${t("projects:viewer.noPreview")})`,
-                }))}
-              />
-            </label>
-          )}
-        </div>
+        )}
         {!hasGallery && (
           <div className="grid min-w-0 content-start gap-4 [&>section]:mt-0">
             <SlicedEstimate project={project} />

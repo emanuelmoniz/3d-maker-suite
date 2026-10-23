@@ -24,7 +24,7 @@ export function PageHeader({
         />
       )}
       <div>
-        <h1 className="text-xl font-semibold tracking-tight [overflow-wrap:anywhere]">{title}</h1>
+        <h1 className="text-xl font-semibold tracking-tight wrap-anywhere">{title}</h1>
         {description && <p className="mt-0.5 text-muted">{description}</p>}
       </div>
       {actions && <div className="flex flex-wrap gap-2">{actions}</div>}

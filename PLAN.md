@@ -351,7 +351,7 @@ Do Step 5 of the 4.1.1 plan in PLAN.md.
 
 ## Phase 5 - Pages
 
-### [ ] Step 6 - Project page: hide empty cards
+### [x] Step 6 - Project page: hide empty cards
 **Model:** Sonnet (use webapp-testing skill) · **Effort:** Medium
 **Scope:**
 - No folder → no **Files** card.

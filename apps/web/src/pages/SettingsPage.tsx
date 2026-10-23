@@ -123,7 +123,7 @@ export function SettingsPage() {
           <StartAtLogin />
           <div className="grid gap-1.5">
             <span className="font-medium">{t("settings:dataDir.label")}</span>
-            <span className="text-muted [overflow-wrap:anywhere]">{data.dataDir}</span>
+            <span className="text-muted wrap-anywhere">{data.dataDir}</span>
           </div>
         </Section>
 
