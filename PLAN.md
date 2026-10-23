@@ -174,7 +174,7 @@ Design (native, unsigned installers):
 - No console window: on Windows a copy of `node.exe` with the PE subsystem patched to GUI (`nodew.exe`). Rejected: VBScript (deprecated), `conhost --headless` (undocumented), hidden PowerShell (flashes).
 - Unsigned warnings, documented with screenshots: Windows SmartScreen → More info → Run anyway; macOS 15+ → System Settings → Privacy & Security → Open Anyway (`xattr -dr com.apple.quarantine` as fallback). Signing can be added to CI later with no other change.
 
-### [ ] Step 9 - Installer spike  **[plan mode]**
+### [x] Step 9 - Installer spike  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:** Prove the risky parts before building, in a throwaway branch or `packaging/spike/`:
 - `nodew.exe` (patched subsystem): spawns the server with `windowsHide`, stdio to a log file, no window; how Windows Defender reacts.
