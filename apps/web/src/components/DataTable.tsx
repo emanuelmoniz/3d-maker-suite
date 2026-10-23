@@ -155,7 +155,7 @@ export function DataTable<T>({
         aria-label={label}
         // biome-ignore lint/a11y/noNoninteractiveTabindex: scroll container needs keyboard access
         tabIndex={0}
-        className="overflow-x-auto rounded-lg border border-border bg-surface"
+        className="relative overflow-x-auto rounded-lg border border-border bg-surface"
       >
         <table className="w-full border-collapse text-left">
           <caption className="sr-only">{label}</caption>
