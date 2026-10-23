@@ -1,4 +1,4 @@
-import type { ServerConfigPatch, ServerConfigResponse } from "@3d-maker-suite/core";
+import type { AutostartState, ServerConfigPatch, ServerConfigResponse } from "@3d-maker-suite/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -32,15 +32,14 @@ export function ServerSection() {
   const restart = useMutation({
     mutationFn: () => api("POST", "/api/server-config/restart"),
   });
-  // 404 = no launch command known (Docker, dev): the toggle stays hidden.
+  // Not supported = no launch command known (Docker, dev): the toggle stays hidden.
   const login = useQuery({
     queryKey: [...KEY, "autostart"],
-    queryFn: () => api<{ enabled: boolean }>("GET", "/api/server-config/autostart"),
-    retry: false,
+    queryFn: () => api<AutostartState>("GET", "/api/server-config/autostart"),
   });
   const setLogin = useMutation({
     mutationFn: (enabled: boolean) =>
-      api<{ enabled: boolean }>("PUT", "/api/server-config/autostart", { enabled }),
+      api<AutostartState>("PUT", "/api/server-config/autostart", { enabled }),
     onSuccess: (res) => qc.setQueryData([...KEY, "autostart"], res),
   });
   const stop = useMutation({ mutationFn: () => api("POST", "/api/server-config/stop") });
@@ -144,7 +143,7 @@ export function ServerSection() {
           {t("settings:server.restart")}
         </p>
       )}
-      {login.data && (
+      {login.data?.supported && (
         <div>
           <label className="flex items-center gap-2">
             <input

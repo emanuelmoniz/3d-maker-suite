@@ -286,7 +286,7 @@ Patch release: fixes and small improvements from the 4.1.0 test run, before 4.2.
 
 ## Phase 4 - Server, launcher & bugs
 
-### [ ] Step 1 - Lint noise and autostart 404
+### [x] Step 1 - Lint noise and autostart 404
 **Model:** Haiku · **Effort:** Low
 **Scope:**
 - Tailwind canonical classes: `lg:min-h-[28rem]` → `lg:min-h-112` (`ProjectDetailPage.tsx`), `size-[18px]` → `size-4.5` (3× in `AppShell.tsx`), and any other `suggestCanonicalClasses` hit.

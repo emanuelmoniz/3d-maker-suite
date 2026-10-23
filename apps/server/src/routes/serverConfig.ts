@@ -1,5 +1,6 @@
 import {
   autostartSchema,
+  autostartStateSchema,
   serverConfigPatchSchema,
   serverConfigResponseSchema,
 } from "@3d-maker-suite/core";
@@ -44,17 +45,19 @@ export const serverConfigRoutes =
       },
     );
 
-    // Only there when the launch command is known (APP_LAUNCH_CMD); the UI hides the toggle on 404.
+    // Writes are only there when the launch command is known (APP_LAUNCH_CMD); GET always answers.
+    app.get("/autostart", { schema: { response: { 200: autostartStateSchema } } }, async () =>
+      autostart
+        ? { enabled: await autostart.get(), supported: true }
+        : { enabled: false, supported: false },
+    );
     if (autostart) {
-      app.get("/autostart", { schema: { response: { 200: autostartSchema } } }, async () => ({
-        enabled: await autostart.get(),
-      }));
       app.put(
         "/autostart",
-        { schema: { body: autostartSchema, response: { 200: autostartSchema } } },
+        { schema: { body: autostartSchema, response: { 200: autostartStateSchema } } },
         async (req) => {
           await autostart.set(req.body.enabled);
-          return { enabled: await autostart.get() };
+          return { enabled: await autostart.get(), supported: true };
         },
       );
     }

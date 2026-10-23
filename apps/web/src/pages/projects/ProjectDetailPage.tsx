@@ -514,7 +514,7 @@ export function ProjectDetailPage() {
       <div className="grid gap-6 lg:grid-cols-2">
         {hasGallery && <ProjectGallery project={project} />}
         <div className="flex min-w-0 flex-col gap-2">
-          <div className="relative lg:min-h-[28rem] lg:flex-1">
+          <div className="relative lg:min-h-112 lg:flex-1">
             {current ? (
               <ModelPreview
                 projectId={project.id}

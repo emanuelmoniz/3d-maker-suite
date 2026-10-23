@@ -25,6 +25,9 @@ export const serverConfigResponseSchema = z.object({
 
 /** Whether the app starts when the user signs in (only offered when the launch command is known). */
 export const autostartSchema = z.object({ enabled: z.boolean() });
+/** `supported` is false when the launch command is unknown (Docker, dev); then `enabled` is always false. */
+export const autostartStateSchema = autostartSchema.extend({ supported: z.boolean() });
 
 export type ServerConfigPatch = z.infer<typeof serverConfigPatchSchema>;
 export type ServerConfigResponse = z.infer<typeof serverConfigResponseSchema>;
+export type AutostartState = z.infer<typeof autostartStateSchema>;

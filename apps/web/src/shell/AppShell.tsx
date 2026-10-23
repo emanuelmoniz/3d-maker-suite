@@ -50,7 +50,7 @@ function SideLink({ item }: { item: NavItem }) {
       className={linkClass}
       title={t(item.label)}
     >
-      <Icon className="size-[18px] shrink-0" aria-hidden />
+      <Icon className="size-4.5 shrink-0" aria-hidden />
       <span className="hidden lg:inline">{t(item.label)}</span>
       <Badge to={item.to} />
     </Link>
@@ -66,7 +66,7 @@ function Brand() {
         <img src={logo} alt={name} className="size-8 shrink-0 rounded-md object-contain" />
       ) : (
         <span className="grid size-8 shrink-0 place-items-center rounded-md bg-accent text-accent-fg">
-          <Printer className="size-[18px]" aria-hidden />
+          <Printer className="size-4.5" aria-hidden />
         </span>
       )}
       <span className="hidden truncate lg:inline">{name}</span>
@@ -208,7 +208,7 @@ function BottomNav() {
         <div className="flex flex-col gap-0.5">
           {more.map((i) => (
             <Link key={i.to} to={i.to} className={linkClass} onClick={() => sheet.current?.close()}>
-              <i.icon className="size-[18px]" aria-hidden />
+              <i.icon className="size-4.5" aria-hidden />
               {t(i.label)}
               <Badge to={i.to} />
             </Link>

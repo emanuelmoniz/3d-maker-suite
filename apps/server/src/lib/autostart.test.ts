@@ -81,21 +81,29 @@ describe("routes", () => {
       autostart,
     });
 
-  it("is absent without a launch command", async () => {
+  it("reports unsupported without a launch command, and has no write route", async () => {
     const app = await build();
-    expect((await app.inject("/api/server-config/autostart")).statusCode).toBe(404);
-  });
-
-  it("reads and toggles", async () => {
-    const app = await build(createAutostart(CMD, { platform: "linux", home }));
-    const get = async () => (await app.inject("/api/server-config/autostart")).json();
-    expect(await get()).toEqual({ enabled: false });
+    const res = await app.inject("/api/server-config/autostart");
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({ enabled: false, supported: false });
     const put = await app.inject({
       method: "PUT",
       url: "/api/server-config/autostart",
       payload: { enabled: true },
     });
-    expect(put.json()).toEqual({ enabled: true });
-    expect(await get()).toEqual({ enabled: true });
+    expect(put.statusCode).toBe(404);
+  });
+
+  it("reads and toggles", async () => {
+    const app = await build(createAutostart(CMD, { platform: "linux", home }));
+    const get = async () => (await app.inject("/api/server-config/autostart")).json();
+    expect(await get()).toEqual({ enabled: false, supported: true });
+    const put = await app.inject({
+      method: "PUT",
+      url: "/api/server-config/autostart",
+      payload: { enabled: true },
+    });
+    expect(put.json()).toEqual({ enabled: true, supported: true });
+    expect(await get()).toEqual({ enabled: true, supported: true });
   });
 });
