@@ -6,6 +6,11 @@ import { fileURLToPath } from "node:url";
 import { applyPending, RESTART, sh } from "./update.mjs";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
+// What Settings -> Start at login registers. Git installs keep a console window open (docs/install.md).
+const launchCmd =
+  process.platform === "win32"
+    ? `cmd.exe /c "cd /d "${root}" && pnpm start"`
+    : `cd "${root}" && pnpm start`;
 
 // Ctrl+C reaches the server too (same terminal); this waits for it to exit instead of dying first.
 process.on("SIGINT", () => {});
@@ -18,7 +23,7 @@ for (;;) {
     server = spawn(process.execPath, ["--import", "tsx", "src/main.ts", ...process.argv.slice(2)], {
       cwd: join(root, "apps", "server"),
       stdio: "inherit",
-      env: { ...process.env, APP_LAUNCHER: "1" },
+      env: { ...process.env, APP_LAUNCHER: "1", APP_LAUNCH_CMD: launchCmd },
     });
     server.on("exit", (c) => resolve(c ?? 0));
   });

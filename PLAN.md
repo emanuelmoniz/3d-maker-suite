@@ -218,7 +218,7 @@ Do Step 10 of PLAN.md. Show me the ADR draft and the release asset list first.
 Do Step 11 of PLAN.md.
 ```
 
-### [ ] Step 12 - Start at login
+### [x] Step 12 - Start at login
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - `apps/server/src/lib/autostart.ts` (get/set, no admin): Windows HKCU `Software\Microsoft\Windows\CurrentVersion\Run` via `reg.exe`; macOS `~/Library/LaunchAgents/*.plist` with `RunAtLoad`; Linux `~/.config/autostart/*.desktop`.

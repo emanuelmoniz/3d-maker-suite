@@ -35,7 +35,10 @@ Source: "{#Src}\*"; DestDir: "{app}"; Flags: recursesubdirs createallsubdirs ign
 [Icons]
 Name: "{autoprograms}\{#Name}"; Filename: "{#Start}"; Parameters: """{app}\launcher.mjs"""; WorkingDir: "{app}"
 Name: "{autodesktop}\{#Name}"; Filename: "{#Start}"; Parameters: """{app}\launcher.mjs"""; WorkingDir: "{app}"; Tasks: desktopicon
-Name: "{userstartup}\{#Name}"; Filename: "{#Start}"; Parameters: """{app}\launcher.mjs"""; WorkingDir: "{app}"; Tasks: startatlogin
+
+[Registry]
+; The same Run value Settings -> Start at login writes (apps/server/src/lib/autostart.ts).
+Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "{#Name}"; ValueData: """{#Start}"" ""{app}\launcher.mjs"""; Flags: uninsdeletevalue; Tasks: startatlogin
 
 [Run]
 Filename: "{#Start}"; Parameters: """{app}\launcher.mjs"""; WorkingDir: "{app}"; Description: "{cm:LaunchProgram,{#Name}}"; Flags: nowait postinstall skipifsilent

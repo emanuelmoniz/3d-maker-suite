@@ -9,6 +9,7 @@ import { applyPendingRestore } from "./backup/backup.ts";
 import { loadConfig } from "./config.ts";
 import { adapters } from "./integrations/registry.ts";
 import { isLoopback } from "./lib/access.ts";
+import { createAutostart } from "./lib/autostart.ts";
 
 /** Exit code that asks the launcher for a restart (RESTART in scripts/update.mjs). */
 const RESTART = 75;
@@ -27,6 +28,8 @@ const app = await buildApp(openDb(join(config.dataDir, "app.sqlite")), true, con
   watchProjects: true,
   access: { host: config.host, password: config.password },
   serverConfig: config,
+  // Set by the installed launcher and by `pnpm start`; without it the toggle is hidden.
+  autostart: process.env.APP_LAUNCH_CMD ? createAutostart(process.env.APP_LAUNCH_CMD) : undefined,
   // Under `pnpm start` the launcher (scripts/start.mjs) starts it again, applying a pending update.
   // ponytail: without it, respawns itself detached; a supervisor (pm2, systemd) would make this unnecessary.
   stop: () => app.close().then(() => process.exit(0)),

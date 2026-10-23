@@ -43,7 +43,9 @@ If `corepack enable` fails with a permissions error, use `sudo corepack enable` 
 
 ## Start at login
 
-So you don't have to keep a terminal open, let your system run `pnpm start` in the app's folder when you log in. `pnpm start` restarts itself after an update, so Settings → **Update** keeps working. Replace `C:\Apps\3d-maker-suite` or `/home/you/3d-maker-suite` with where you cloned it, and find `pnpm` with `where pnpm` (Windows) or `which pnpm`.
+Turn on **Settings → Server → Start at login**. It adds (or removes) an entry for your user only, no admin needed: a `Run` registry value on Windows, a LaunchAgent on macOS, an autostart `.desktop` file on Linux. The installers' "Start when I sign in" checkbox writes the same entry. With a git install the toggle starts `pnpm start`, so on Windows a console window opens at login (close it and the app stops); on macOS and Linux it runs without a window. The toggle isn't shown in Docker.
+
+To set it up by hand instead (git installs, or if you want a hidden window or automatic restart on failure), let your system run `pnpm start` in the app's folder when you log in. `pnpm start` restarts itself after an update, so Settings → **Update** keeps working. Replace `C:\Apps\3d-maker-suite` or `/home/you/3d-maker-suite` with where you cloned it, and find `pnpm` with `where pnpm` (Windows) or `which pnpm`.
 
 ### Windows (Task Scheduler)
 

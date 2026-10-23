@@ -32,6 +32,17 @@ export function ServerSection() {
   const restart = useMutation({
     mutationFn: () => api("POST", "/api/server-config/restart"),
   });
+  // 404 = no launch command known (Docker, dev): the toggle stays hidden.
+  const login = useQuery({
+    queryKey: [...KEY, "autostart"],
+    queryFn: () => api<{ enabled: boolean }>("GET", "/api/server-config/autostart"),
+    retry: false,
+  });
+  const setLogin = useMutation({
+    mutationFn: (enabled: boolean) =>
+      api<{ enabled: boolean }>("PUT", "/api/server-config/autostart", { enabled }),
+    onSuccess: (res) => qc.setQueryData([...KEY, "autostart"], res),
+  });
   const stop = useMutation({ mutationFn: () => api("POST", "/api/server-config/stop") });
   const [confirmStop, setConfirmStop] = useState(false);
   if (!data) return null;
@@ -132,6 +143,25 @@ export function ServerSection() {
         <p role="status" className="font-medium text-ok">
           {t("settings:server.restart")}
         </p>
+      )}
+      {login.data && (
+        <div>
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={login.data.enabled}
+              disabled={setLogin.isPending}
+              onChange={(e) => setLogin.mutate(e.target.checked)}
+            />
+            {t("settings:server.startAtLogin")}
+          </label>
+          <p className="mt-1 text-muted">{t("settings:server.startAtLoginHint")}</p>
+          {setLogin.isError && (
+            <p role="alert" className="text-bad">
+              {t("settings:saveError")}
+            </p>
+          )}
+        </div>
       )}
       <div>
         <Button disabled={restart.isPending || restart.isSuccess} onClick={restartAndOpen}>

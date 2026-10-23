@@ -20,6 +20,7 @@ import { HttpError } from "./errors.ts";
 import { loadKey } from "./integrations/secrets.ts";
 import { createSyncer } from "./integrations/sync.ts";
 import { accessGuard } from "./lib/access.ts";
+import type { Autostart } from "./lib/autostart.ts";
 import { CUSTOM_LEVELS, createLogSink, moduleOf, pruneLogs, success } from "./lib/logSink.ts";
 import { readPreferences } from "./lib/preferences.ts";
 import { autoSlice } from "./projects/autoSlice.ts";
@@ -83,6 +84,8 @@ export async function buildApp(
     restart?: () => void;
     /** Makes POST /api/server-config/stop available (there may be no console to close). */
     stop?: () => void;
+    /** Makes GET/PUT /api/server-config/autostart available (needs the launch command). */
+    autostart?: Autostart;
     /** Cron for the update check; also checks a minute after start (ADR-0009). */
     updateCheckSchedule?: string;
     /** Test seam for the updater (install type, version, releases). */
@@ -183,9 +186,10 @@ export async function buildApp(
   // Background work has no URL, so it names its module here.
   const logFor = (module: LogModule) => app.log.child({ module });
   if (opts.serverConfig)
-    await app.register(serverConfigRoutes(opts.serverConfig, opts.restart, opts.stop), {
-      prefix: "/api/server-config",
-    });
+    await app.register(
+      serverConfigRoutes(opts.serverConfig, opts.restart, opts.stop, opts.autostart),
+      { prefix: "/api/server-config" },
+    );
   await app.register(fsRoutes(), { prefix: "/api/fs" });
   await app.register(brandingRoutes(dataDir), { prefix: "/api/branding" });
   await app.register(printersRoutes(db, dataDir), { prefix: "/api/printers" });

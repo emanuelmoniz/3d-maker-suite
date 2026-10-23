@@ -23,5 +23,8 @@ export const serverConfigResponseSchema = z.object({
   passwordSet: z.boolean(),
 });
 
+/** Whether the app starts when the user signs in (only offered when the launch command is known). */
+export const autostartSchema = z.object({ enabled: z.boolean() });
+
 export type ServerConfigPatch = z.infer<typeof serverConfigPatchSchema>;
 export type ServerConfigResponse = z.infer<typeof serverConfigResponseSchema>;

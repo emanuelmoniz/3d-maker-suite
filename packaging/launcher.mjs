@@ -189,6 +189,8 @@ async function main() {
             APP_LAUNCHER: "1",
             APP_INSTALL: "bundle",
             APP_INSTALL_DIR: install,
+            // What Settings -> Start at login registers; same string as the installer's checkbox.
+            APP_LAUNCH_CMD: `"${process.execPath}" "${fileURLToPath(import.meta.url)}"`,
           },
         });
         server.on("exit", (c) => done(c ?? 0));
