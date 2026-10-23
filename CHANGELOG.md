@@ -4,6 +4,16 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+## [4.1.3] - 2026-10-23
+
+### Added
+- Integrations: per sync of spools, choose what happens to a **new spool**: import its weight, leave it unset, or review it first; the same for its open date
+- Alerts: optional warnings for spools with no price and for spools in use with no open date (Settings → Alerts, off by default)
+
+### Changed
+- Spools can be saved without an initial weight; nothing is taken from them until you set it
+- Time and combo-box inputs in the sync policy rows are easier to use with the keyboard
+
 ## [4.1.2] - 2026-10-23
 
 ### Fixed
