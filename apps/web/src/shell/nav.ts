@@ -21,7 +21,7 @@ export type NavItem = {
   to: string;
   icon: LucideIcon;
   label: string;
-  description: string;
+  description?: string;
   /** Shown in the mobile bottom bar; the rest go under "More". */
   primary?: boolean;
 };
@@ -152,7 +152,6 @@ export const SETTINGS_ITEM: NavItem = {
   to: "/settings",
   icon: Settings,
   label: "nav:items.settings.label",
-  description: "nav:items.settings.description",
 };
 
 export const ALL_ITEMS = [

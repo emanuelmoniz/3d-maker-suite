@@ -9,7 +9,7 @@ export function ModulePage({ item }: { item: NavItem }) {
   const { t } = useTranslation();
   return (
     <>
-      <PageHeader title={t(item.label)} description={t(item.description)} />
+      <PageHeader title={t(item.label)} description={item.description && t(item.description)} />
       <EmptyState
         icon={Construction}
         title={t("common:placeholder.title")}
