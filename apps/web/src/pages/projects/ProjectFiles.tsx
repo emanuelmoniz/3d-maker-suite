@@ -123,7 +123,7 @@ function Row({ entry, depth, ctx }: { entry: ProjectFileEntry; depth: number; ct
       >
         <input
           type="checkbox"
-          className="size-5 shrink-0 accent-[var(--accent)]"
+          className="size-5 shrink-0 accent-accent"
           aria-label={t("projects:files.select", n)}
           checked={ctx.selected.has(entry.path)}
           onChange={() => ctx.toggle(entry.path)}
@@ -392,7 +392,7 @@ export function ProjectFiles({ project }: { project: Project }) {
   return (
     <Collapsible
       title={t("projects:detail.files")}
-      className={`mt-6 rounded-lg ${over ? "outline outline-2 outline-accent" : ""}`}
+      className={`mt-6 rounded-lg ${over ? "outline-2 outline-accent" : ""}`}
       onDragOver={(e) => {
         e.preventDefault();
         setOver(true);
@@ -427,7 +427,7 @@ export function ProjectFiles({ project }: { project: Project }) {
             >
               <span className="break-all">{t("projects:files.uploading", { name: u.name })}</span>
               <progress
-                className="h-2 w-full accent-[var(--accent)]"
+                className="h-2 w-full accent-accent"
                 aria-label={u.name}
                 value={u.fraction}
                 max={1}
@@ -445,7 +445,7 @@ export function ProjectFiles({ project }: { project: Project }) {
         <label className="mr-auto flex min-h-9 items-center gap-2">
           <input
             type="checkbox"
-            className="size-5 accent-[var(--accent)]"
+            className="size-5 accent-accent"
             checked={allSelected}
             disabled={!top.length}
             onChange={toggleAll}
