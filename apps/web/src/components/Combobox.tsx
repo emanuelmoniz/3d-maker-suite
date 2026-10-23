@@ -62,6 +62,12 @@ export function Combobox({
   const input = useRef<HTMLInputElement>(null);
   const list = useRef<HTMLDivElement>(null);
   const [inner, setInner] = useState(defaultValue);
+  // A changed defaultValue re-seeds the pick (a row just created in a modal), even after a remount.
+  const [seed, setSeed] = useState(defaultValue);
+  if (defaultValue !== seed) {
+    setSeed(defaultValue);
+    setInner(defaultValue);
+  }
   const [query, setQuery] = useState<string | null>(null); // null: not filtering, show the selection
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(-1);

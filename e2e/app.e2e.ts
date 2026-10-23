@@ -44,7 +44,10 @@ test("add a brand, a model and a printer of that model", async ({ page }) => {
   await expect(page.getByText("Bambu Lab A1")).toBeVisible();
 });
 
-test("add a printer with a new brand and model without leaving the page", async ({ page }) => {
+test("add a printer with a new brand and model without leaving the page", async ({ page, app }) => {
+  // An existing brand and model, so a missed selection can't fall back to the only option.
+  const { id } = await app.api<{ id: string }>("POST", "/api/brands", { name: "Aardvark" });
+  await app.api("POST", "/api/printer-models", { brandId: id, model: "M0" });
   await page.goto("/printers/new");
   await page.getByLabel("Name", { exact: true }).fill("Chain");
   await page.getByRole("button", { name: "Add model" }).click();
