@@ -10,6 +10,7 @@ import { ReviewTable } from "./ReviewTable.tsx";
 
 // i18n keys are written out in full so `pnpm i18n:check` can see them.
 export const TITLE: Record<ReviewedType, string> = {
+  printers: "integrations:capabilities.printers",
   spools: "integrations:capabilities.spools",
   prints: "integrations:capabilities.prints",
   brands: "integrations:capabilities.brands",

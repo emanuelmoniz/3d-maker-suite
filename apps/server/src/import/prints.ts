@@ -256,8 +256,8 @@ const unmatched = (look: Lookups, v: ImportValues) =>
     (key) => (num(v[key.grams]) ?? 0) > 0 && !find(look.spools, v[key.spool]),
   );
 
-/** `<integrationId>:<externalId>`, the source key of a print an integration offers. */
-const sourceOf = (row: WriteRow) => {
+/** `<integrationId>:<externalId>`, the source key of a print or printer an integration offers. */
+export const sourceOf = (row: WriteRow) => {
   const at = row.source?.indexOf(":") ?? -1;
   return row.source && at > 0
     ? { integrationId: row.source.slice(0, at), externalId: row.source.slice(at + 1) }

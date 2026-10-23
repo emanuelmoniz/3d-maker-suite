@@ -142,7 +142,7 @@ Do Step 7 of PLAN.md. Show me a desktop and a mobile mock of a Bambu Cloud and a
 Studio card first.
 ```
 
-### [ ] Step 7b - Manual import for cloud printers  **[plan mode]**
+### [x] Step 7b - Manual import for cloud printers  **[plan mode]**
 **Model:** Opus · **Effort:** Medium
 **Scope:** printers become a reviewed type, so the Printers row gets **Manual import** like prints and spools.
 - `printers` in `REVIEWED_TYPES`; a `printerRows` builder in `integrations/sourceRows.ts` from the adapter's `listPrinters()`.

@@ -5,7 +5,7 @@ import {
   matchPrinterRows,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
-import { eq, isNull } from "drizzle-orm";
+import { and, eq, isNotNull, isNull, sql } from "drizzle-orm";
 import { modelIdFor } from "../lib/catalog.ts";
 import {
   accessoryTitle,
@@ -15,6 +15,8 @@ import {
   numberCell,
   printerTitle,
 } from "../lib/numbers.ts";
+import { sourceOf } from "./prints.ts";
+import type { WriteRow } from "./review.ts";
 
 const { brands, printerModels, printers, accessories } = schema;
 
@@ -69,36 +71,78 @@ const modelRows = (db: Db) =>
     .innerJoin(brands, eq(brands.id, printerModels.brandId))
     .all();
 
-/** Printers from a file. The brand and model are found by name or created. */
+/** Active printers, or the vendor's printers you archived, in the shape of the import columns. */
+const printerTargets = (db: Db, archived = false): ImportTarget[] =>
+  db
+    .select({ printer: printers, brand: brands.name, model: printerModels.model })
+    .from(printers)
+    .leftJoin(printerModels, eq(printerModels.id, printers.modelId))
+    .leftJoin(brands, eq(brands.id, printerModels.brandId))
+    .where(
+      archived
+        ? and(isNotNull(printers.archivedAt), isNotNull(printers.integrationId))
+        : isNull(printers.archivedAt),
+    )
+    .all()
+    .map(({ printer: p, brand, model }) => ({
+      id: p.id,
+      label: printerTitle(p),
+      ...(archived && { archived: true }),
+      values: {
+        number: p.number,
+        name: p.name,
+        brand,
+        model,
+        serial: p.serial,
+        nozzleDiameterMm: p.nozzleDiameterMm,
+        purchasedAt: day(p.purchasedAt),
+        purchasePrice: p.purchasePrice,
+        warrantyEndsAt: day(p.warrantyEndsAt),
+        powerW: p.powerW,
+        ...costValues(p),
+      },
+    }));
+
+/** Printers an integration imported, by `<integrationId>:<externalId>`: active, or archived. */
+const printersBySource = (db: Db, archived = false) =>
+  new Map(
+    db
+      .select({ id: printers.id, integrationId: printers.integrationId, ext: printers.externalId })
+      .from(printers)
+      .where(
+        and(
+          isNotNull(printers.integrationId),
+          isNotNull(printers.externalId),
+          archived ? isNotNull(printers.archivedAt) : isNull(printers.archivedAt),
+        ),
+      )
+      .all()
+      .map((p): [string, string] => [`${p.integrationId}:${p.ext}`, p.id]),
+  );
+
+/**
+ * Printers from a file, or an integration's. The brand and model are found by name or created.
+ * A vendor's printer is only ever the one it was imported as: one you added by hand with the same
+ * serial gets linked on create instead of imported twice.
+ */
 export const printerImport = {
   /** Active printers, in the shape of the import columns. */
-  targets: (db: Db): ImportTarget[] =>
-    db
-      .select({ printer: printers, brand: brands.name, model: printerModels.model })
-      .from(printers)
-      .leftJoin(printerModels, eq(printerModels.id, printers.modelId))
-      .leftJoin(brands, eq(brands.id, printerModels.brandId))
-      .where(isNull(printers.archivedAt))
-      .all()
-      .map(({ printer: p, brand, model }) => ({
-        id: p.id,
-        label: printerTitle(p),
-        values: {
-          number: p.number,
-          name: p.name,
-          brand,
-          model,
-          serial: p.serial,
-          nozzleDiameterMm: p.nozzleDiameterMm,
-          purchasedAt: day(p.purchasedAt),
-          purchasePrice: p.purchasePrice,
-          warrantyEndsAt: day(p.warrantyEndsAt),
-          powerW: p.powerW,
-          ...costValues(p),
-        },
-      })),
+  targets: (db: Db) => printerTargets(db),
 
   match: matchPrinterRows,
+
+  bySource: (db: Db) => printersBySource(db),
+  /** A vendor's printer you archived comes back by its source key. */
+  archived(db: Db) {
+    const bySource = printersBySource(db, true);
+    return {
+      targets: printerTargets(db, true),
+      of: (source: string | undefined) => (source && bySource.get(source)) || null,
+    };
+  },
+  /** A printer you have is yours: the vendor's version of it is offered, never applied. */
+  handsOff: true,
+  sourceOnly: true,
 
   refs: (db: Db) => ({
     brands: brandNames(db)
@@ -121,9 +165,27 @@ export const printerImport = {
     };
   },
 
-  create(db: Db, v: ImportValues) {
+  create(db: Db, v: ImportValues, row: WriteRow) {
+    const source = sourceOf(row);
+    const serial = str(v.serial);
+    // A printer added by hand (same serial) gets linked instead of imported twice; it keeps its values.
+    const twin =
+      source &&
+      serial &&
+      db
+        .select({ id: printers.id })
+        .from(printers)
+        .where(
+          and(isNull(printers.integrationId), sql`lower(${printers.serial}) = lower(${serial})`),
+        )
+        .get();
+    if (twin) {
+      db.update(printers).set(source).where(eq(printers.id, twin.id)).run();
+      return twin.id;
+    }
     db.insert(printers)
       .values({
+        ...(source && { ...source, origin: "integration" as const }),
         // A number another printer has ("import as new" of an exported row) gets the next free one.
         number: freeNumber(db, printers, numberCell(v.number)) ?? nextNumber(printers),
         name: str(v.name) ?? "",
@@ -140,7 +202,7 @@ export const printerImport = {
   },
 
   /** Writes `patch` (only the values that change) to the printer. */
-  update(db: Db, target: ImportTarget, patch: ImportValues) {
+  update(db: Db, target: ImportTarget, patch: ImportValues, row: WriteRow) {
     const { brand, model, ...rest } = patch;
     const set = patchColumns(rest);
     assertNumberFree(db, printers, "printer", numberCell(patch.number), target.id);
@@ -148,8 +210,16 @@ export const printerImport = {
       const v = { ...target.values, ...patch };
       set.modelId = modelIdFor(db, str(v.brand) ?? "", str(v.model) ?? "");
     }
+    if (target.archived) set.archivedAt = null;
     if (Object.keys(set).length)
       db.update(printers).set(set).where(eq(printers.id, target.id)).run();
+    // A printer entered by hand is linked to the vendor's, so the next run knows it.
+    const source = sourceOf(row);
+    if (source)
+      db.update(printers)
+        .set(source)
+        .where(and(eq(printers.id, target.id), isNull(printers.integrationId)))
+        .run();
   },
 };
 

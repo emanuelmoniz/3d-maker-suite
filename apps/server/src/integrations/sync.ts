@@ -2,6 +2,7 @@ import {
   autoDecisions,
   defaultPolicy,
   type ExternalPrint,
+  type ExternalPrinter,
   externalPrinterSchema,
   externalPrintSchema,
   type ImportApplyDecision,
@@ -25,14 +26,12 @@ import {
   type TestResult,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
-import { and, desc, eq, isNull, notInArray, sql } from "drizzle-orm";
+import { and, desc, eq, isNull, notInArray } from "drizzle-orm";
 import type { FastifyBaseLogger } from "fastify";
 import { raise } from "../alerts/evaluate.ts";
 import { HttpError } from "../errors.ts";
 import { createReview, type Stored, untracked } from "../import/review.ts";
-import { modelIdFor } from "../lib/catalog.ts";
 import { success } from "../lib/logSink.ts";
-import { nextNumber } from "../lib/numbers.ts";
 import { bookOrLink } from "../lib/prints.ts";
 import { linkPrints } from "../projects/linkPrints.ts";
 import {
@@ -44,9 +43,16 @@ import {
 } from "./capabilities.ts";
 import { libraryOf } from "./imports.ts";
 import { secretStore } from "./secrets.ts";
-import { activeSpools, libraryRows, printRows, spoolHistory, spoolRows } from "./sourceRows.ts";
+import {
+  activeSpools,
+  libraryRows,
+  printerRows,
+  printRows,
+  spoolHistory,
+  spoolRows,
+} from "./sourceRows.ts";
 
-const { integrations, printers, prints, printFilamentUsages, syncPolicies, syncRuns } = schema;
+const { integrations, prints, printFilamentUsages, syncPolicies, syncRuns } = schema;
 
 /** The dates a prints read is limited to; none = since the last run. */
 type Range = { from?: string; to?: string };
@@ -179,7 +185,6 @@ export function createSyncer(
       // Only an account has an instance; a local source is read from its folder.
       const instance = adapter.create && instanceFor(row, signal);
       const ranged = !!(req.from || req.to);
-      const imported = { origin: "integration" as const, integrationId: id };
 
       if (REVIEWED.has(type)) {
         const offer = async () => {
@@ -213,58 +218,6 @@ export function createSyncer(
         oldestLeft = done.left
           .map((r) => String(r.values.startedAt))
           .reduce<string | undefined>((a, b) => (a && a < b ? a : b), undefined);
-      }
-
-      if (type === "printers" && instance?.printers) {
-        for (const raw of await instance.printers.listPrinters()) {
-          const p = externalPrinterSchema.safeParse(raw);
-          if (!p.success) {
-            skipped++;
-            runLog.warn({ issues: p.error.issues }, "invalid printer from adapter");
-            note({ event: "invalid", ...labelOf(raw as Record<string, unknown>) });
-            continue;
-          }
-          const known = db
-            .select({ id: printers.id })
-            .from(printers)
-            .where(and(eq(printers.integrationId, id), eq(printers.externalId, p.data.externalId)))
-            .get();
-          if (known) {
-            skipped++;
-            continue;
-          }
-          // A printer added by hand (same serial) gets linked instead of imported twice.
-          const twin =
-            p.data.serial &&
-            db
-              .select({ id: printers.id })
-              .from(printers)
-              .where(
-                and(
-                  isNull(printers.integrationId),
-                  sql`lower(${printers.serial}) = lower(${p.data.serial})`,
-                ),
-              )
-              .get();
-          if (twin)
-            db.update(printers)
-              .set({ integrationId: id, externalId: p.data.externalId })
-              .where(eq(printers.id, twin.id))
-              .run();
-          else {
-            const { brand, model, ...fields } = p.data;
-            db.insert(printers)
-              .values({
-                ...fields,
-                number: nextNumber(printers),
-                modelId: modelIdFor(db, brand, model),
-                ...imported,
-              })
-              .run();
-          }
-          created++;
-          note({ event: "created", label: p.data.name });
-        }
       }
 
       if (type === "prints") {
@@ -402,6 +355,17 @@ export function createSyncer(
         if (done?.errorCode) break;
       }
     }
+  }
+
+  /** The printers of one integration's account, read live; invalid ones are logged and left out. */
+  async function readPrinters(id: string, instance: IntegrationInstance) {
+    const out: ExternalPrinter[] = [];
+    for (const raw of (await instance.printers?.listPrinters()) ?? []) {
+      const p = externalPrinterSchema.safeParse(raw);
+      if (p.success) out.push(p.data);
+      else log.warn({ integrationId: id, issues: p.error.issues }, "invalid printer from adapter");
+    }
+    return out;
   }
 
   /** The spools one integration keeps, read live; ids become `<adapterId>:<id>`. */
@@ -552,6 +516,10 @@ export function createSyncer(
     review = false,
   ): Promise<Stored> {
     const from = { kind: "integration" as const, integrationId: row.id };
+    if (type === "printers") {
+      const items = instance ? await readPrinters(row.id, instance) : [];
+      return { entity: type, ignoredHeaders: [], from, rows: printerRows(row.id, items) };
+    }
     if (type === "spools") {
       const track = policyOf(db, row.id, "spools").trackUsage;
       const rows = spoolRows(db, instance ? await readSpools(row, instance) : [], track);
@@ -574,7 +542,9 @@ export function createSyncer(
     try {
       const signal = AbortSignal.timeout(TIMEOUT_MS);
       const instance =
-        type === "spools" || type === "prints" ? instanceFor(row, signal) : undefined;
+        type === "printers" || type === "spools" || type === "prints"
+          ? instanceFor(row, signal)
+          : undefined;
       return await offered(row, type, instance, range, signal, true);
     } catch (e) {
       if (e instanceof HttpError) throw e;

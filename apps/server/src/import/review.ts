@@ -102,6 +102,8 @@ export type ImportHandler = {
   bySource?: (db: Db) => Map<string, string>;
   /** A row imported from one source is never another source row's match (two rolls of one filament). */
   exclusive?: boolean;
+  /** A source row is only ever the row its key names; `create` links one entered by hand. */
+  sourceOnly?: boolean;
   /** A row you imported is yours: a change at the source is offered, never suggested. */
   handsOff?: boolean;
   /**
@@ -262,7 +264,11 @@ export function createReview(db: Db, dataDir: string) {
     const linked = new Set(bySource.values());
     const matches = handler.match(
       open.map((p) => p.values),
-      sourced && handler.exclusive ? targets.filter((t) => !linked.has(t.id)) : targets,
+      sourced && handler.sourceOnly
+        ? []
+        : sourced && handler.exclusive
+          ? targets.filter((t) => !linked.has(t.id))
+          : targets,
     );
     const matchOf = new Map(open.map((p, i) => [p.row, matches[i]]));
     return {

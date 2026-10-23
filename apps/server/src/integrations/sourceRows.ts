@@ -1,5 +1,6 @@
 import {
   type ExternalPrint,
+  type ExternalPrinter,
   type FilamentLibrary,
   type LibrarySpool,
   matchPrint,
@@ -234,6 +235,21 @@ export function printRows(db: Db, integrationId: string, items: ExternalPrint[])
     }),
   );
 }
+
+/** A vendor's printers. The source key is `<integrationId>:<externalId>`. */
+export const printerRows = (integrationId: string, items: ExternalPrinter[]): StoredRow[] =>
+  numbered(
+    items.map((p) => ({
+      source: `${integrationId}:${p.externalId}`,
+      raw: {
+        name: p.name,
+        brand: p.brand,
+        model: p.model || null,
+        serial: p.serial ?? null,
+        nozzleDiameterMm: p.nozzleDiameterMm ?? null,
+      },
+    })),
+  );
 
 /** A vendor's spools. `spoolId` is already `<adapterId>:<id>`. */
 export function spoolRows(db: Db, items: LibrarySpool[], trackUsage = true): StoredRow[] {

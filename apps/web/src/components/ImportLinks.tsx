@@ -29,7 +29,7 @@ export function ImportLinks({
   ));
 }
 
-/** Runs a type that needs no review (e.g. printers) straight away; one button per integration. */
+/** Runs a type straight away (rows that need a decision wait for review); one button per integration. */
 export function SyncButtons({ cap }: { cap: SyncType }) {
   const { t } = useTranslation();
   const adapterName = useAdapterName();

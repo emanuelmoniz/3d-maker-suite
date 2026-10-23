@@ -363,6 +363,53 @@ describe("integrations", () => {
     expect(await sync(id)).toMatchObject({ created: 0, skipped: 1 });
   });
 
+  it("re-syncs printers: yours stay as you left them, new ones are added", async () => {
+    const { id } = await create();
+    expect(await syncType(id, "printers")).toMatchObject({ created: 1 });
+    db.update(schema.printers).set({ name: "Renamed" }).run();
+    const [first] = state.printers;
+    if (!first) throw new Error("mock has a printer");
+    state.printers = [
+      { ...first, name: "Vendor name" },
+      { ...first, externalId: "mock-2", serial: "mock0002", name: "Second" },
+    ];
+    expect(await syncType(id, "printers")).toMatchObject({ created: 1, skipped: 1, pending: 0 });
+    expect(
+      db
+        .select({ name: schema.printers.name })
+        .from(schema.printers)
+        .all()
+        .map((p) => p.name)
+        .sort(),
+    ).toEqual(["Renamed", "Second"]);
+    // One you archived isn't imported again.
+    db.update(schema.printers).set({ archivedAt: new Date().toISOString() }).run();
+    expect(await syncType(id, "printers")).toMatchObject({ created: 0, pending: 0 });
+    expect(db.select().from(schema.printers).all()).toHaveLength(2);
+  });
+
+  it("Manual import offers the cloud's printers and links a hand-added twin", async () => {
+    await send("POST", "/api/printers", {
+      name: "Mine",
+      modelId: modelIdFor(db, "Mock", "M1"),
+      serial: "mock0001",
+    });
+    const { id } = await create();
+    const p = (await review.open(`/api/import/integration/${id}/printers`)).json() as ImportPreview;
+    expect(p.rows.map((r) => [r.values.serial, r.status, r.auto])).toEqual([
+      ["MOCK0001", "new", "apply"],
+    ]);
+    expect((await review.confirm(p)).json()).toMatchObject({ created: 1 });
+    expect(db.select().from(schema.printers).all()).toEqual([
+      expect.objectContaining({ name: "Mine", origin: "manual", integrationId: id }),
+    ]);
+    // Linked now: offered as yours, nothing to do.
+    const again = (
+      await review.open(`/api/import/integration/${id}/printers`)
+    ).json() as ImportPreview;
+    expect(again.rows.map((r) => [r.action, r.auto])).toEqual([["skip", undefined]]);
+  });
+
   it("scheduled syncs skip errors the user must fix and back off after rate limits", async () => {
     const dir = mkdtempSync(join(tmpdir(), "integrations-"));
     try {

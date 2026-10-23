@@ -23,7 +23,7 @@ export const IMPORT_ENTITIES = [
 /** Everything the review screen takes: every file entity; an integration or a zip offers some. */
 export const REVIEW_ENTITIES = IMPORT_ENTITIES;
 /** What an integration can offer for review; a run on its own takes only what needs no decision. */
-export const REVIEWED_TYPES = ["spools", "prints", ...SLICER_ZIP_TYPES] as const;
+export const REVIEWED_TYPES = ["printers", "spools", "prints", ...SLICER_ZIP_TYPES] as const;
 export const IMPORT_SOURCES = ["file", "zip", "integration"] as const;
 export type ImportEntity = (typeof IMPORT_ENTITIES)[number];
 export type ReviewEntity = (typeof REVIEW_ENTITIES)[number];
