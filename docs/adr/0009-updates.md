@@ -1,6 +1,6 @@
 # ADR-0009: Updates through a small launcher, git tags and pre-update backups
 
-- Status: Accepted
+- Status: Accepted, amended by ADR-0011 (installers and bundle updates)
 - Date: 2026-10-22
 
 ## Context

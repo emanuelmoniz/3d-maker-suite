@@ -1,11 +1,11 @@
 /** A non-2xx answer; `detail` is the server's own message (`{ error: { code, message } }`). */
 export class ApiError extends Error {
-  constructor(
-    message: string,
-    readonly code?: string,
-    readonly detail?: string,
-  ) {
+  readonly code?: string;
+  readonly detail?: string;
+  constructor(message: string, code?: string, detail?: string) {
     super(message);
+    this.code = code;
+    this.detail = detail;
   }
 }
 

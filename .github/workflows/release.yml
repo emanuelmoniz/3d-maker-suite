@@ -2,17 +2,22 @@ name: Release
 on:
   push:
     tags: ["v*"]
+  # Test builds: a draft release, which the app's update check never sees (ADR-0011).
+  workflow_dispatch:
 permissions:
   contents: write
   packages: write
 jobs:
-  release:
+  check:
     runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: Check the tag is on the right branch
+        if: github.event_name == 'push'
         run: |
           # Stable tags (vX.Y.Z) must be on main; pre-release tags (vX.Y.Z-*) must be on dev.
           BRANCH=main
@@ -22,35 +27,134 @@ jobs:
             echo "::error::$GITHUB_REF_NAME must be on $BRANCH, but its commit is not on origin/$BRANCH"
             exit 1
           fi
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: pnpm
+      - name: Release tag
+        id: tag
+        run: |
+          # A test build is named after the version and run; no git tag is created for a draft.
+          TAG="$GITHUB_REF_NAME"
+          if [[ "$GITHUB_EVENT_NAME" == workflow_dispatch ]]; then
+            TAG="v$(node -p 'require("./package.json").version')-build.$GITHUB_RUN_NUMBER"
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm i18n:check
       - run: pnpm test
+  build:
+    # Installer + app-only zip per OS/arch (ADR-0011), each installed and started once before upload.
+    needs: check
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: windows-latest, arch: x64 }
+          - { os: macos-15, arch: arm64 }
+          - { os: macos-15, arch: x64 }
+          - { os: ubuntu-24.04, arch: x64 }
+    name: build (${{ matrix.os }}, ${{ matrix.arch }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @3d-maker-suite/web build
-      - name: Archive source
-        run: git archive --format=zip --prefix=3d-maker-suite/ -o "3d-maker-suite-${GITHUB_REF_NAME}.zip" HEAD
-      - name: Create GitHub release
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - run: node packaging/build.mjs --arch ${{ matrix.arch }} --tag ${{ needs.check.outputs.tag }}
+      - name: Install and start (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
         run: |
+          $setup = (Get-Item packaging/out/*-setup.exe).FullName
+          Start-Process $setup -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART' -Wait
+          $dir = "$env:LOCALAPPDATA\Programs\3D Maker Suite"
+          for ($n = 0; $n -lt 60 -and -not (Test-Path "$dir\unins000.exe"); $n++) { Start-Sleep 1 }
+          # Start it the way the Start-menu shortcut does.
+          $lnk = (New-Object -ComObject WScript.Shell).CreateShortcut("$env:APPDATA\Microsoft\Windows\Start Menu\Programs\3D Maker Suite.lnk")
+          Start-Process $lnk.TargetPath -ArgumentList $lnk.Arguments -WorkingDirectory $lnk.WorkingDirectory
+          $h = $null
+          for ($n = 0; $n -lt 120 -and -not $h; $n++) { try { $h = (Invoke-WebRequest http://127.0.0.1:4300/api/health -TimeoutSec 1).Content } catch { Start-Sleep -Milliseconds 500 } }
+          if (-not $h) { Get-Content "$dir\logs\launcher.log"; throw "no answer from the installed app" }
+          "health: $h"
+          Get-Process nodew | Stop-Process -Force; Start-Sleep 2
+          Start-Process "$dir\unins000.exe" -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES' -Wait
+          for ($n = 0; $n -lt 60 -and (Test-Path "$dir\versions"); $n++) { Start-Sleep 1 }
+          if (Test-Path "$dir\versions") { throw "the uninstaller left $dir\versions" }
+      - name: Install and start (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          hdiutil attach -nobrowse -mountpoint /tmp/dmg packaging/out/*.dmg
+          cp -R "/tmp/dmg/3D Maker Suite.app" /tmp/
+          hdiutil detach /tmp/dmg
+          codesign --verify --deep --strict "/tmp/3D Maker Suite.app"
+          open -n "/tmp/3D Maker Suite.app"
+          # x64 runs under Rosetta here: its first start takes about 25 s.
+          for _ in $(seq 120); do curl -sf http://127.0.0.1:4300/api/health && exit 0; sleep 0.5; done
+          cat "$HOME/Library/Application Support/3d-maker-suite/install/logs/launcher.log"
+          exit 1
+      - name: Install and start (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          export HOME="$RUNNER_TEMP/home"
+          mkdir -p "$HOME" "$RUNNER_TEMP/x"
+          tar -xzf packaging/out/*.tar.gz -C "$RUNNER_TEMP/x"
+          "$RUNNER_TEMP/x/3d-maker-suite/install.sh"
+          # Start it the way the app menu does.
+          eval "$(grep '^Exec=' "$HOME/.local/share/applications/3d-maker-suite.desktop" | cut -d= -f2-)" &
+          for _ in $(seq 120); do curl -sf http://127.0.0.1:4300/api/health && exit 0; sleep 0.5; done
+          cat "$HOME/.local/share/3d-maker-suite/install/logs/launcher.log"
+          exit 1
+      - uses: actions/upload-artifact@v7
+        with:
+          name: build-${{ matrix.os }}-${{ matrix.arch }}
+          path: packaging/out/3d-maker-suite-*
+          if-no-files-found: error
+          retention-days: 7
+  release:
+    # Publishes only when every target built and started.
+    needs: [check, build]
+    runs-on: ubuntu-latest
+    env:
+      TAG: ${{ needs.check.outputs.tag }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          path: assets
+          merge-multiple: true
+      - name: Source zip and checksums
+        run: |
+          git archive --format=zip --prefix=3d-maker-suite/ -o "assets/3d-maker-suite-$TAG.zip" HEAD
+          cd assets && sha256sum * > SHA256SUMS && cat SHA256SUMS
+      - name: Create GitHub release
+        run: |
+          if [[ "$GITHUB_EVENT_NAME" == workflow_dispatch ]]; then
+            gh release create "$TAG" assets/* --draft --prerelease --target "$GITHUB_SHA" --title "$TAG" --notes "Test build of $GITHUB_SHA. Delete when done."
+            exit 0
+          fi
           # Tags with a suffix (v1.1.0-alpha.1, v1.1.0-rc.1) become pre-releases, which are never marked "latest".
           PRERELEASE=""
-          if [[ "$GITHUB_REF_NAME" == *-* ]]; then PRERELEASE="--prerelease"; fi
-          gh release create "$GITHUB_REF_NAME" "3d-maker-suite-${GITHUB_REF_NAME}.zip" --title "$GITHUB_REF_NAME" --generate-notes $PRERELEASE
+          if [[ "$TAG" == *-* ]]; then PRERELEASE="--prerelease"; fi
+          gh release create "$TAG" assets/* --title "$TAG" --generate-notes $PRERELEASE
   docker:
-    # Checks and the tag/branch guard already ran in `release`.
+    # Checks and the tag/branch guard already ran in `check`.
     needs: release
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -63,7 +167,7 @@ jobs:
           EXTRA=latest
           if [[ "$VERSION" == *-* ]]; then EXTRA=dev; fi
           echo "list=ghcr.io/emanuelmoniz/3d-maker-suite:$VERSION,ghcr.io/emanuelmoniz/3d-maker-suite:$EXTRA" >> "$GITHUB_OUTPUT"
-      - uses: docker/build-push-action@v6
+      - uses: docker/build-push-action@v7
         with:
           context: .
           push: true

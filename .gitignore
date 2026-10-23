@@ -12,3 +12,4 @@ test-results/
 playwright-report/
 .playwright-mcp/
 .update/
+packaging/out/
