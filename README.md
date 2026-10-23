@@ -49,7 +49,9 @@ A local-first manager for your 3D printing: printers, accessories, maintenance, 
 
 ## Install
 
-Requirements: **Node.js 22 LTS** and **pnpm**.
+**Installers (Windows, macOS, Linux)**: download the file for your system from the [latest release](https://github.com/emanuelmoniz/3d-maker-suite/releases/latest) and double-click it. No Git, Node or pnpm needed. The installers are not code-signed, so Windows and macOS show a one-time warning: see [the install guide](docs/install.md#warnings-you-will-see).
+
+**From source** (developers): **Node.js 22 LTS** and **pnpm**.
 
 ```bash
 git clone https://github.com/emanuelmoniz/3d-maker-suite.git

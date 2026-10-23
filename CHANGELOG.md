@@ -4,6 +4,39 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+## [4.1.0] - 2026-10-23
+
+Stable release of the 4.1.0 pre-releases (alpha.1 to alpha.3). The alpha.3 build only bumped the version to test updates and rollback; the Windows install, autostart, update and rollback test found no changes to make.
+
+### Added
+- Installers for Windows (`setup.exe`), macOS (`.dmg`, Apple silicon and Intel) and Linux (`tar.gz`). They bring their own Node, so no git, pnpm or Node is needed; the install guide lists the unsigned-build warnings for each system
+- Release assets: one app zip per system (what the in-app updater downloads) and `SHA256SUMS`
+- Settings → Server → **Start at login**: starts the app when you sign in; the installers' "Start when I sign in" box writes the same entry
+- Settings → Server → **Stop server**
+- The launcher opens the browser on start and refuses a second copy, which just opens the browser again
+- Updates for installed copies: **Update** downloads the app zip, checks it against `SHA256SUMS`, and keeps the previous version for **Roll back**; a new version that fails to start within 60 s is undone automatically
+- Projects: create, link, unlink and switch a project folder from the project page; a banner when a folder is missing (recreate it, link another, or unlink)
+- Projects: unlinking or switching a folder asks whether to move it to the root's trash or keep it as it is; a kept folder can be linked again
+- Projects: delete a project with no prints or orders; an empty folder below a root goes with it
+- Projects: a project can adopt a new folder whose number matches it when it has no folder or its folder is gone
+- Prints: a "No project" filter and label in the prints list; prints with no project show in import, review and sync
+- Integrations: cards with a header menu and an Enabled switch; collapsible sections
+- Integrations: grouped sync rows with Auto or Manual mode, a Manual import button, and a to-review flag
+- Integrations: Manual import for cloud printers; a printer with the same serial as a hand-added one is linked, not duplicated
+- Import: review every item a source offers, archived ones included
+- Footer with the year, version, stage and links
+- Alerts: sync success alerts link to the module that synced
+
+### Changed
+- Installed copies log to `logs/server.log` and `logs/launcher.log` in the install folder (see [install.md](docs/install.md#where-the-installed-app-and-its-logs-live))
+- Git installs keep working as before (`pnpm start`, Settings → Update)
+
+### Fixed
+- Mobile: the project page and grid children no longer widen the page on phones
+- Projects: the scroll bar under gallery thumbnails is hidden
+- Projects: slice plates are dropped when the folder changes
+- Tables: screen-reader labels stay inside the scroll container
+
 ## [4.1.0-alpha.3] - 2026-10-23
 
 ### Changed

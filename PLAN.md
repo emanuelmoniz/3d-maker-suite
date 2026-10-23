@@ -268,7 +268,7 @@ push the tag and confirm the pre-release assets are published.
 Do Step 15 of PLAN.md. Guide me through the test on each machine, then fix what we find.
 ```
 
-### [ ] Step 16 - Docs, push & v4.1.0 release
+### [x] Step 16 - Docs, push & v4.1.0 release
 **Model:** Haiku · **Effort:** Low
 **Scope:** `pnpm screenshots`, README (installers first in "Install"), CHANGELOG, version `4.1.0`. Commit on `dev`, fast-forward `main` to `dev`, push both, create and push tag `v4.1.0` on `main`. Check the run, the release (assets) and the `:latest` image.
 **Done when:** `main`, `dev` and the tag are pushed; the workflow is green; the release is the latest with installers; the image is published; updating 4.0.0 (git) and 4.1.0-alpha.3 (installer) to 4.1.0 works.
