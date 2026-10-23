@@ -193,12 +193,13 @@ Do Step 9 of PLAN.md. Report each spike point with evidence and your recommendat
 
 ### [ ] Step 10 - ADR-0011 and installer builds in CI  **[plan mode]**
 **Model:** Opus · **Effort:** High
-**Scope:**
+**Scope:** Read `packaging/spike/NOTES.md` (Step 9 findings and recommendations) first; spike code is on branch `spike/installer` (delete it once this step lands).
 - `docs/adr/0011-bundle-installs.md` (amends ADR-0009): folder layout, `current.json`, launcher, update and rollback flow, unsigned warnings, rejected options.
-- `packaging/`: Inno Setup script (tasks: desktop icon, start at login), macOS `.app` template + `.dmg`, Linux format from Step 9.
-- Release workflow: a matrix job per OS/arch that builds the web, `pnpm install --prod --frozen-lockfile`, drops dev files, adds Node, and publishes the installer, an app-only zip `3d-maker-suite-<tag>-app-<os>-<arch>.zip` and `SHA256SUMS`.
+- `packaging/`: Inno Setup script (tasks: desktop icon, start at login), macOS `.app` template + `.dmg` (arm64 + x64, both built on `macos-15`), Linux `tar.gz` + `.desktop` entry (no AppImage).
+- Release workflow: a matrix job per OS/arch that builds the web, `pnpm install --prod --frozen-lockfile` (`node-linker=hoisted`, links recorded in `links.json` and recreated at start), drops dev files, adds Node (Windows: patched `nodew.exe` only), and publishes the installer, an app-only zip `3d-maker-suite-<tag>-app-<os>-<arch>.zip` and `SHA256SUMS`.
+- GitHub Actions: bump `actions/checkout`, `actions/setup-node`, `actions/upload-artifact`, `pnpm/action-setup` (and any `docker/*` action with the same warning) to their Node 24 majors in `ci.yml` and `release.yml`, to clear the "Node.js 20 is deprecated" warning. Check each action's release notes for breaking changes.
 
-**Done when:** the ADR is approved; a test pre-release has installers, app zips and checksums for every target; each installer installs and starts the app (launcher can still be the plain start script here).
+**Done when:** the ADR is approved; a test pre-release has installers, app zips and checksums for every target; each installer installs and starts the app (launcher can still be the plain start script here, plus the relink); release and CI runs show no Node 20 deprecation warning.
 **Prompt:**
 ```
 Do Step 10 of PLAN.md. Show me the ADR draft and the release asset list first.
