@@ -19,6 +19,7 @@ describe("api", () => {
     expect((await app.inject("/api/health")).json()).toEqual({
       status: "ok",
       version: expect.stringMatching(/^\d+\.\d+\.\d+/),
+      startedAt: expect.any(String),
     });
     const spec = (await app.inject("/api/docs/json")).json();
     expect(spec.paths["/api/printers/{id}"]).toBeDefined();

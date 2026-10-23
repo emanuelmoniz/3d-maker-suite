@@ -1,5 +1,6 @@
 {
   "loadError": "Couldn't load settings. Is the server running?",
+  "uptime": "Server up time: {{time}}",
   "saveError": "Couldn't save your last change.",
   "dataDir": {
     "label": "Data directory"

@@ -340,7 +340,7 @@ Do Step 4 of the 4.1.1 plan in PLAN.md. Find why the installer's start option op
 browser before changing anything.
 ```
 
-### [ ] Step 5 - Update available alert: call to action
+### [x] Step 5 - Update available alert: call to action
 **Model:** Haiku · **Effort:** Low
 **Scope:** the update available alert gets an "Open updates" call to action to the update section in Settings (anchor), on the alert detail page (list rows keep only their own actions, Step 9).
 **Done when:** the button opens Settings at the update section; i18n:check passes; tests pass.

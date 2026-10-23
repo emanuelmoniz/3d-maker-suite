@@ -157,6 +157,11 @@ export function AlertDetailPage() {
                 {t("alerts:view.openIntegration")}
               </Link>
             )}
+            {a.kind === "update_available" && (
+              <Link to="/settings" hash="updates" className={buttonLink}>
+                {t("alerts:view.openUpdates")}
+              </Link>
+            )}
             {a.kind.startsWith("slice_") && (
               <Link
                 to="/projects/$id/edit"

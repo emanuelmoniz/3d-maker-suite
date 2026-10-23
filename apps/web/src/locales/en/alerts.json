@@ -30,6 +30,7 @@
     "syncResult_other": "{{count}} new, {{updated}} updated",
     "result": "Result",
     "openIntegration": "Open integration",
+    "openUpdates": "Open updates",
     "sync": {
       "printers": "View printers",
       "prints": "View prints",

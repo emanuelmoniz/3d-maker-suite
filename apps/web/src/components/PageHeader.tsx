@@ -9,7 +9,7 @@ export function PageHeader({
   backTo,
 }: {
   title: string;
-  description?: string;
+  description?: ReactNode;
   actions?: ReactNode;
   /** Fallback route for the back link, used when there is no in-app history. */
   backTo?: { to: LinkProps["to"]; params?: Record<string, string> };
