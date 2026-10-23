@@ -265,19 +265,20 @@ export function createSyncer(
         linkPrints(db);
       }
 
-      // Only a prints run without a range moves the cursor on (a past-range run must not make the
-      // next one skip prints). Any run moves it back to a print it left for review, so the next
-      // run and "since the last sync" offer that print again.
+      // Only a sync (scheduled or "Sync now") of prints without a range moves the cursor on. A
+      // past-range run must not make the next one skip prints, and a confirmed review is an import,
+      // not a sync: a print skipped there still comes in with the next sync. Any run moves it back
+      // to a print it left for review, so the next run and "since the last sync" offer it again.
       const was = policyOf(db, id, "prints").cursor;
       const cursor =
         type !== "prints"
           ? null
-          : !ranged
+          : !ranged && !pick
             ? (oldestLeft ?? startedAt)
             : was && oldestLeft && Date.parse(oldestLeft) < Date.parse(was)
               ? oldestLeft
               : null;
-      const done = { lastRunAt: startedAt, pending, ...(cursor && { cursor }) };
+      const done = { pending, ...(!pick && { lastRunAt: startedAt }), ...(cursor && { cursor }) };
       db.insert(syncPolicies)
         .values({ integrationId: id, type, ...defaultPolicy(type), ...done })
         .onConflictDoUpdate({ target: [syncPolicies.integrationId, syncPolicies.type], set: done })
@@ -416,8 +417,9 @@ export function createSyncer(
 
   /**
    * The vendor's prints in the range, or since the last run (minus an overlap) without one.
-   * A review without a range reads the whole history but keeps, before the last run, only prints
-   * never imported (left for review, or missed): nothing already done shows up again.
+   * A review without a range reads the whole history but keeps only prints never imported (left
+   * for review, skipped, or missed): nothing already done shows up again. A review with a range
+   * shows every print in it, imported or not.
    * A print already imported only gets a plate that was never known, and its model's name for a
    * title that is still the print profile's.
    */
@@ -473,7 +475,7 @@ export function createSyncer(
           .where(and(same, eq(prints.title, p.profileTitle)))
           .run();
     }
-    if (!review || range.from || range.to || !last) return out;
+    if (!review || range.from || range.to) return out;
     const imported = new Set(
       db
         .select({ externalId: prints.externalId })
@@ -482,9 +484,7 @@ export function createSyncer(
         .all()
         .map((p) => p.externalId),
     );
-    return out.filter(
-      (p) => Date.parse(p.startedAt) >= Date.parse(last) || !imported.has(p.externalId),
-    );
+    return out.filter((p) => !imported.has(p.externalId));
   }
 
   /**

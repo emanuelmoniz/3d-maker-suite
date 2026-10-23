@@ -118,24 +118,32 @@ test("sync time: a daily auto type runs at the time picked, any time clears it",
   await expect.poll(prints).toMatchObject({ frequency: "1w", atHour: 6, atMinute: null });
 });
 
-test("sync a past period of print history from its own group", async ({ page, app }) => {
+test("review a period of print history: every print in it, imported or not", async ({
+  page,
+  app,
+}) => {
   const { id } = await app.api<{ id: string }>("POST", "/api/integrations", {
     adapterId: "mock",
     secrets: { token: "t" },
   });
+  await app.api("POST", `/api/integrations/${id}/sync`, { type: "prints" });
   await page.goto("/integrations");
   await page.getByRole("button", { name: "Settings: Print history" }).click();
-  const group = page.getByRole("group", { name: "Sync a past period" });
-  await group.getByRole("combobox", { name: "Period" }).click();
-  await page.getByRole("option", { name: "Last 7 days" }).click();
-  await group.getByRole("button", { name: "Sync this period" }).click();
-  await expect
-    .poll(async () => {
-      const runs = await app.api<{ items: { rangeFrom: string | null }[] }>(
-        "GET",
-        `/api/integrations/${id}/runs`,
-      );
-      return runs.items.some((r) => r.rangeFrom);
-    })
-    .toBe(true);
+  const group = page.getByRole("group", { name: "Review and import a period" });
+  const period = group.getByRole("combobox", { name: "Period" });
+  await expect(period).toHaveValue("Since the last sync");
+  await period.click();
+  // The mock's prints are from January.
+  await page.getByRole("option", { name: "This year" }).click();
+  await group.getByRole("button", { name: "Review and import period" }).click();
+  // A review, not a run: the prints already synced are offered again.
+  await expect(page).toHaveURL(new RegExp(`/import/integration/${id}/prints\\?from=`));
+  await expect(
+    page.getByRole("button", { name: /^Edit Name, row \d+ Mock print 1$/ }),
+  ).toBeVisible();
+  const runs = await app.api<{ items: { rangeFrom: string | null }[] }>(
+    "GET",
+    `/api/integrations/${id}/runs`,
+  );
+  expect(runs.items.some((r) => r.rangeFrom)).toBe(false);
 });

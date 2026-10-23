@@ -587,6 +587,27 @@ describe("sync by type and date range", () => {
     expect(at(watermark())).toBe(at(startedAt));
   });
 
+  it("a confirmed review isn't a sync: a print skipped there comes with the next sync", async () => {
+    const { id } = await create();
+    await spool();
+    await sync(id);
+    const synced = watermark();
+    const now = new Date().toISOString();
+    state.prints.push(
+      { ...firstPrint(), externalId: "job-8", title: "Mock print 8", startedAt: now },
+      { ...firstPrint(), externalId: "job-9", title: "Mock print 9", startedAt: now },
+    );
+    const p = await printsReview(id);
+    // Only the prints not imported yet; import one, skip the other.
+    expect(p.rows.map((r) => r.values.title)).toEqual(["Mock print 8", "Mock print 9"]);
+    const eight = p.rows.filter((r) => r.values.title === "Mock print 8");
+    expect((await review.confirm(p, eight)).json()).toMatchObject({ created: 1 });
+    // Never on; back to the skipped print at most.
+    expect(Date.parse(String(watermark()))).toBeLessThanOrEqual(Date.parse(String(synced)));
+    expect(await syncType(id, "prints")).toMatchObject({ created: 1 });
+    expect(printCount()).toBe(5);
+  });
+
   it("reviews a range and applies it as that range, so the incremental start stays", async () => {
     const { id } = await create();
     await syncWith(id, { type: "printers" });

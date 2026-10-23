@@ -101,7 +101,9 @@ Before an import saves anything, the app takes a backup, so you can restore it f
 
 ## From an integration
 
-On the **Integrations** page, a type's **Review and import** button opens the same review screen with the rows an integration offers. Automatic runs import only what needs no decision from you; everything else waits there. The review then reads the date range picked on the Integrations page.
+On the **Integrations** page, a type's **Review and import** button opens the same review screen with the rows an integration offers. Automatic runs import only what needs no decision from you; everything else waits there. For print history it shows every print not imported yet. Under **Review and import a period** in the type's settings, pick a period (since the last sync, the last 7 / 30 / 90 days, this year or your own dates) to review every print in it, imported or not.
+
+Importing from the review is not a sync: **Sync now** and automatic runs always continue from the last sync, so a print you skipped in the review still comes in with the next one.
 
 For print history, each filament is matched to a spool of the same material and colour that was opened by the print's day and still holds the grams used:
 

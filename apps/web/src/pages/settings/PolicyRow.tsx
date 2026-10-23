@@ -28,6 +28,7 @@ import { usePatchIntegration, type useSyncIntegration } from "../../lib/integrat
 import { CAPS } from "./integrationLabels.ts";
 
 const RANGES = {
+  sinceLast: "integrations:sync.ranges.sinceLast",
   d7: "integrations:sync.ranges.d7",
   d30: "integrations:sync.ranges.d30",
   d90: "integrations:sync.ranges.d90",
@@ -110,8 +111,17 @@ const startOfDay = (daysAgo: number) => {
   return d.toISOString();
 };
 
-/** The range for "Sync this period". Custom dates are local days. */
-function rangeFor(range: keyof typeof RANGES, from: string, to: string): Partial<SyncRequest> {
+/**
+ * The range for "Review and import period". Custom dates are local days. Since the last sync
+ * (scheduled or "Sync now"); never synced = no range, everything not imported yet.
+ */
+function rangeFor(
+  range: keyof typeof RANGES,
+  from: string,
+  to: string,
+  lastRunAt: string | null,
+): Partial<SyncRequest> {
+  if (range === "sinceLast") return lastRunAt ? { from: lastRunAt } : {};
   if (range === "d7") return { from: startOfDay(7) };
   if (range === "d30") return { from: startOfDay(30) };
   if (range === "d90") return { from: startOfDay(90) };
@@ -203,7 +213,7 @@ function useSummary(p: SyncPolicy) {
 
 /**
  * A data type: name, schedule and last sync, Sync now and Review and import. Its settings open
- * below: when it runs, what and how it imports, alerts, and for prints a past period to sync.
+ * below: when it runs, what and how it imports, alerts, and for prints a period to review.
  */
 function PolicyRow({
   integration: i,
@@ -242,13 +252,12 @@ function PolicyRow({
         } as const)
       : null;
   const review = reviewOf({});
-  const run = (dates: Partial<SyncRequest> = {}) => {
-    const target = reviewOf(dates);
-    if (!target) return sync.mutate({ type });
+  const run = () => {
+    if (!review) return sync.mutate({ type });
     sync.mutate(
-      { type: target.params.type, ...dates },
+      { type: review.params.type },
       // Rows were left for a person: take them there.
-      { onSuccess: (r) => void (r.pending > 0 && navigate(target)) },
+      { onSuccess: (r) => void (r.pending > 0 && navigate(review)) },
     );
   };
   const picked = (s: AlertSeverity) => p.alertSeverities?.includes(s) ?? true;
@@ -443,22 +452,30 @@ function PolicyRow({
           </fieldset>
         )}
 
-        {prints && active && <SyncPeriod disabled={sync.isPending} run={run} />}
+        {prints && active && (
+          <ReviewPeriod
+            lastRunAt={p.lastRunAt}
+            open={(dates) => {
+              const target = reviewOf(dates);
+              if (target) navigate(target);
+            }}
+          />
+        )}
       </div>
     </li>
   );
 }
 
-/** Prints only: sync a past period once, apart from the saved settings. */
-function SyncPeriod({
-  disabled,
-  run,
+/** Prints only: review every print of a period, imported or not, apart from the saved settings. */
+function ReviewPeriod({
+  lastRunAt,
+  open,
 }: {
-  disabled: boolean;
-  run: (dates: Partial<SyncRequest>) => void;
+  lastRunAt: string | null;
+  open: (dates: Partial<SyncRequest>) => void;
 }) {
   const { t } = useTranslation();
-  const [range, setRange] = useState<keyof typeof RANGES>("d30");
+  const [range, setRange] = useState<keyof typeof RANGES>("sinceLast");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const invalid = range === "custom" && (!from || (!!to && to < from));
@@ -507,8 +524,8 @@ function SyncPeriod({
               </FormField>
             </div>
           )}
-          <Button disabled={disabled || invalid} onClick={() => run(rangeFor(range, from, to))}>
-            {t("integrations:sync.syncPeriod")}
+          <Button disabled={invalid} onClick={() => open(rangeFor(range, from, to, lastRunAt))}>
+            {t("integrations:sync.reviewPeriod")}
           </Button>
         </div>
       </fieldset>

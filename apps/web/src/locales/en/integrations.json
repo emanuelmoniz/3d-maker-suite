@@ -217,12 +217,13 @@
   },
   "sync": {
     "range": "Period",
-    "period": "Sync a past period",
-    "periodHint": "Imports prints from that period once. Sync now always continues from the last sync.",
-    "syncPeriod": "Sync this period",
+    "period": "Review and import a period",
+    "periodHint": "Opens the review with every print from that period, imported or not, so you pick what to import or update. Sync now and automatic runs always continue from the last sync.",
+    "reviewPeriod": "Review and import period",
     "from": "From",
     "to": "To",
     "ranges": {
+      "sinceLast": "Since the last sync",
       "d7": "Last 7 days",
       "d30": "Last 30 days",
       "d90": "Last 90 days",
