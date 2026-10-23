@@ -267,7 +267,7 @@ function PolicyRow({
             <span className="flex items-center gap-1.5">
               <span
                 aria-hidden
-                className={cx("size-2 shrink-0 rounded-full", auto ? "bg-accent" : "bg-border")}
+                className={cx("size-2 shrink-0 rounded-full", auto ? "bg-ok" : "bg-border")}
               />
               {summary}
             </span>
