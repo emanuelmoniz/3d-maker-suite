@@ -208,7 +208,7 @@ Do Step 10 of PLAN.md. Show me the ADR draft and the release asset list first.
 ### [x] Step 11 - Launcher and Stop server
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
-- `packaging/launcher.mjs` (Node stdlib only): read host/port from the saved config; if `/api/health` answers, open the browser and exit (single instance); else start the server hidden with `APP_INSTALL=bundle`, stdio to `<dataDir>/logs/server.log` (rotated by size), wait for health, open the browser; handle exit 75 like `scripts/start.mjs`.
+- `packaging/launcher.mjs` (Node stdlib only): read host/port from the saved config; if `/api/health` answers, open the browser and exit (single instance); else start the server hidden with `APP_INSTALL=bundle`, stdio to `<install dir>/logs/server.log` (rotated by size, ADR-0011), wait for health, open the browser; handle exit 75 like `scripts/start.mjs`.
 - `POST /api/server-config/stop` and a **Stop server** button in Settings → Server (ConfirmDialog), since there is no console to close.
 - Desktop/Start-menu shortcuts, the macOS `.app` and the Linux entry run the launcher.
 

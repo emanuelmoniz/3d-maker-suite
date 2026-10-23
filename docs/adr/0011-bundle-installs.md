@@ -27,6 +27,7 @@ The data dir (ADR-0001) doesn't change. Code and data stay apart, so uninstallin
     4.1.1/
   .update/        pending.json, result.json (launcher <-> server, as in ADR-0009)
   logs/launcher.log
+  logs/server.log
 ```
 On macOS, `node/`, `launcher.mjs` and the shipped version (`app/`) sit inside `3D Maker Suite.app/Contents/Resources`, signed and never written to. `versions/`, `.update/` and `logs/` live in the writable install dir.
 
@@ -60,7 +61,7 @@ The updater checks an app zip against `SHA256SUMS` before unpacking it.
 
 ### Launcher
 - The Start-menu shortcut, the `.app` or the `.desktop` entry runs `node launcher.mjs` (`nodew.exe` on Windows). It uses Node stdlib only.
-- It picks the newest version, relinks it and runs `node src/main.ts` in that version's `apps/server`, with `APP_LAUNCHER=1`, `APP_INSTALL=bundle` and `APP_INSTALL_DIR`. With no terminal, output goes to `<install dir>/logs/launcher.log`, rewritten at each start.
+- It picks the newest version, relinks it and runs `node src/main.ts` in that version's `apps/server`, with `APP_LAUNCHER=1`, `APP_INSTALL=bundle` and `APP_INSTALL_DIR`. With no terminal, the server's output goes to `<install dir>/logs/server.log` (appended, rotated to `server.log.1` past 5 MB) and the launcher's own messages to `launcher.log`, rewritten at each start.
 - Exit 75 means restart, as in ADR-0009. It applies `.update/pending.json` first.
 - It lives outside `versions/` and changes only with an installer, so it stays small. Anything that changes often belongs in the server.
 

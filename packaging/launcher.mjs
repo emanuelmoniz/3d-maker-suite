@@ -1,6 +1,6 @@
 // The installed app's launcher (ADR-0011): if the app already answers, just opens the browser;
 // otherwise runs the newest version in versions/ (on macOS also the one inside the .app),
-// recreating its links first, logs to <dataDir>/logs/server.log, opens the browser once it is
+// recreating its links first, logs to <install dir>/logs/server.log, opens the browser once it is
 // healthy and starts it again when it exits with RESTART.
 // Node stdlib only. It ships with the installer and doesn't change with updates, so keep it small.
 // node launcher.mjs [server args, e.g. --port 4400]
@@ -154,11 +154,10 @@ async function main() {
   mkdirSync(join(install, "logs"), { recursive: true });
   const launcherLog = openSync(join(install, "logs", "launcher.log"), "w");
   const say = (s) => writeSync(launcherLog, `${new Date().toISOString()} ${s}\n`);
-  // No terminal (nodew.exe, .app, .desktop): the server's output goes here, in the data folder.
+  // No terminal (nodew.exe, .app, .desktop): the server's output goes here, next to launcher.log.
   // ponytail: rotated each time the launcher starts the server; a log that outgrows the limit
   // within one run is cut at the next restart.
-  mkdirSync(join(dir, "logs"), { recursive: true });
-  const serverLog = join(dir, "logs", "server.log");
+  const serverLog = join(install, "logs", "server.log");
 
   // Open the browser once, when the first start is healthy (restarts are opened by Settings).
   (async () => {
