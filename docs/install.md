@@ -8,10 +8,10 @@ Download the file for your system from the [pre-release or release page](https:/
 
 | System | File |
 |---|---|
-| Windows (x64) | `3d-maker-suite-<version>-windows-x64-setup.exe` |
-| macOS, Apple silicon | `3d-maker-suite-<version>-macos-arm64.dmg` |
-| macOS, Intel | `3d-maker-suite-<version>-macos-x64.dmg` |
-| Linux (x64) | `3d-maker-suite-<version>-linux-x64.tar.gz` |
+| Windows (x64) | `3d-maker-suite-<tag>-windows-x64-setup.exe` (`<tag>` is like `v4.1.0-alpha.2`) |
+| macOS, Apple silicon | `3d-maker-suite-<tag>-macos-arm64.dmg` |
+| macOS, Intel | `3d-maker-suite-<tag>-macos-x64.dmg` |
+| Linux (x64) | `3d-maker-suite-<tag>-linux-x64.tar.gz` |
 
 The installer brings its own Node, so you don't need Node, pnpm or Git. Windows installs per user, without admin. On macOS drag the app to Applications. On Linux, unpack the archive and run `install.sh`. Settings → About & updates then updates the app itself.
 
