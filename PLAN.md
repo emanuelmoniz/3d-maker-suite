@@ -326,7 +326,7 @@ Do Step 2 of the 4.1.1 plan in PLAN.md.
 Do Step 3 of the 4.1.1 plan in PLAN.md.
 ```
 
-### [ ] Step 4 - Launcher: browser only when the user starts it
+### [x] Step 4 - Launcher: browser only when the user starts it
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - Start at login must not open the browser: a `--background` arg for `packaging/launcher.mjs`, written by `lib/autostart.ts` (Windows Run value, macOS plist, Linux `.desktop`) and by `packaging/setup.iss` `[Registry]`. Entries written by 4.1.0 lack the flag: rewrite the entry at boot when autostart is on.

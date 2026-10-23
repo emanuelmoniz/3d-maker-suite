@@ -1,10 +1,11 @@
 // The installed app's launcher (ADR-0011): if the app already answers, just opens the browser;
 // otherwise runs the newest version in versions/ (on macOS also the one inside the .app),
-// recreating its links first, logs to <install dir>/logs/server.log, opens the browser once it is
-// healthy and starts it again when it exits with RESTART. After an update or rollback
+// recreating its links first, logs to <install dir>/logs/server.log, opens the browser on a loader
+// page (loader.html) that goes to the app once it answers (not with --background, Start at login)
+// and starts it again when it exits with RESTART. After an update or rollback
 // (.update/pending.json) the new version gets TRIAL_MS to answer, or the launcher goes back.
 // Node stdlib only. It ships with the installer and doesn't change with updates, so keep it small.
-// node launcher.mjs [server args, e.g. --port 4400]
+// node launcher.mjs [--background] [server args, e.g. --port 4400]
 import { spawn } from "node:child_process";
 import {
   closeSync,
@@ -195,6 +196,24 @@ export function openBrowser(url) {
     .unref();
 }
 
+/** Start at login passes it: start the server without opening the browser. */
+export const BACKGROUND = "--background";
+
+/** Splits the launcher's own flag from the args it passes on to the server. */
+export function launchArgs(argv) {
+  return { background: argv.includes(BACKGROUND), args: argv.filter((a) => a !== BACKGROUND) };
+}
+
+/** Writes `template` to `out` with the app's URL filled in; returns `out`. */
+export function writeLoader(template, out, url) {
+  const html = readFileSync(template, "utf8");
+  writeFileSync(
+    out,
+    html.replace(/const APP_URL = ".*?";/, `const APP_URL = ${JSON.stringify(url)};`),
+  );
+  return out;
+}
+
 /** Moves `file` to `file.1` (replacing the previous one) once it is over `max` bytes. */
 export function rotate(file, max = 5 * 1024 * 1024) {
   try {
@@ -213,21 +232,36 @@ async function main() {
     version: JSON.parse(readFileSync(join(here, "app", "package.json"), "utf8")).version,
     app: join(here, "app"),
   };
+  const { background, args } = launchArgs(process.argv.slice(2));
   // Single instance: a second double-click only opens the browser.
   const dir = dataDir();
-  const url = serverUrl(dir);
-  if (await healthy(url)) return openBrowser(url);
+  const url = serverUrl(dir, process.env, args);
+  if (await healthy(url)) return background || openBrowser(url);
 
   mkdirSync(join(install, "logs"), { recursive: true });
-  const launcherLog = openSync(join(install, "logs", "launcher.log"), "w");
+  // Appended (rotated like server.log) so the first start after an install isn't overwritten by the next.
+  rotate(join(install, "logs", "launcher.log"));
+  const launcherLog = openSync(join(install, "logs", "launcher.log"), "a");
   const say = (s) => writeSync(launcherLog, `${new Date().toISOString()} ${s}\n`);
   // No terminal (nodew.exe, .app, .desktop): the server's output goes here, next to launcher.log.
   // ponytail: rotated each time the launcher starts the server; a log that outgrows the limit
   // within one run is cut at the next restart.
   const serverLog = join(install, "logs", "server.log");
 
-  // Open the browser once, when the first start is healthy (restarts are opened by Settings).
-  waitHealthy(url, 60_000).then((ok) => ok && openBrowser(url));
+  // Started by the user: the browser opens at once on the loader, which goes to the app once it
+  // answers (restarts are handled by Settings). Start at login (--background) opens nothing.
+  let loader = false;
+  if (!background)
+    try {
+      openBrowser(writeLoader(join(here, "loader.html"), join(install, "starting.html"), url));
+      loader = true;
+    } catch (e) {
+      say(`no loader page: ${e.message}`);
+    }
+  waitHealthy(url, 60_000).then((ok) => {
+    say(ok ? `healthy at ${url}` : `no answer from ${url} within 60 s`);
+    if (ok && !background && !loader) openBrowser(url);
+  });
 
   // Ctrl+C (when started from a terminal) reaches the server too; wait for it to exit.
   process.on("SIGINT", () => {});
@@ -244,11 +278,12 @@ async function main() {
         continue;
       }
       relink(run.app);
+      say(`linked ${run.version}`);
       say(`starting ${run.version}`);
       rotate(serverLog);
       const log = openSync(serverLog, "a");
       const exited = new Promise((done) => {
-        server = spawn(process.execPath, ["src/main.ts", ...process.argv.slice(2)], {
+        server = spawn(process.execPath, ["src/main.ts", ...args], {
           cwd: join(run.app, "apps", "server"),
           stdio: ["ignore", log, log],
           windowsHide: true,
@@ -259,7 +294,7 @@ async function main() {
             APP_INSTALL_DIR: install,
             ...(shipped && { APP_SHIPPED_VERSION: shipped.version }),
             // What Settings -> Start at login registers; same string as the installer's checkbox.
-            APP_LAUNCH_CMD: `"${process.execPath}" "${fileURLToPath(import.meta.url)}"`,
+            APP_LAUNCH_CMD: `"${process.execPath}" "${fileURLToPath(import.meta.url)}" ${BACKGROUND}`,
           },
         });
         server.on("exit", (c) => done(c ?? 0));

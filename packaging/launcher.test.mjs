@@ -13,11 +13,13 @@ import { describe, expect, it } from "vitest";
 import {
   beginPending,
   compareVersions,
+  launchArgs,
   newest,
   relink,
   rotate,
   serverUrl,
   settle,
+  writeLoader,
 } from "./launcher.mjs";
 
 const install = (...versions) => {
@@ -150,6 +152,26 @@ describe("serverUrl", () => {
     expect(serverUrl(dir, { PORT: "5100" }, ["--port", "5200", "--host", "::1"])).toBe(
       "http://[::1]:5200/",
     );
+  });
+});
+
+describe("launchArgs", () => {
+  it("takes --background out of the server's args", () => {
+    expect(launchArgs([])).toEqual({ background: false, args: [] });
+    expect(launchArgs(["--port", "4400", "--background"])).toEqual({
+      background: true,
+      args: ["--port", "4400"],
+    });
+  });
+});
+
+describe("writeLoader", () => {
+  it("fills in the app's URL", () => {
+    const out = join(install(), "starting.html");
+    writeLoader(join(import.meta.dirname, "loader.html"), out, "http://[::1]:5200/");
+    const html = readFileSync(out, "utf8");
+    expect(html).toContain('const APP_URL = "http://[::1]:5200/";');
+    expect(html).not.toContain("4300");
   });
 });
 

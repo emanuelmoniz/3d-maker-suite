@@ -20,6 +20,10 @@ WizardStyle=modern
 UninstallDisplayIcon={#Start}
 OutputDir={#OutDir}
 OutputBaseFilename={#OutName}
+; The default (yes) also reaches the [Run] launcher, contrary to the docs: it then can't follow the
+; junctions it makes in versions\ and the first start fails. Setup runs unelevated as the user who
+; owns the install dir, so the guard protects nothing here.
+RedirectionGuard=no
 
 [CustomMessages]
 StartAtLogin=Start {#Name} when I sign in
@@ -38,7 +42,7 @@ Name: "{autodesktop}\{#Name}"; Filename: "{#Start}"; Parameters: """{app}\launch
 
 [Registry]
 ; The same Run value Settings -> Start at login writes (apps/server/src/lib/autostart.ts).
-Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "{#Name}"; ValueData: """{#Start}"" ""{app}\launcher.mjs"""; Flags: uninsdeletevalue; Tasks: startatlogin
+Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "{#Name}"; ValueData: """{#Start}"" ""{app}\launcher.mjs"" --background"; Flags: uninsdeletevalue; Tasks: startatlogin
 
 [Run]
 Filename: "{#Start}"; Parameters: """{app}\launcher.mjs"""; WorkingDir: "{app}"; Description: "{cm:LaunchProgram,{#Name}}"; Flags: nowait postinstall skipifsilent
@@ -48,3 +52,4 @@ Filename: "{#Start}"; Parameters: """{app}\launcher.mjs"""; WorkingDir: "{app}";
 Type: filesandordirs; Name: "{app}\versions"
 Type: filesandordirs; Name: "{app}\.update"
 Type: filesandordirs; Name: "{app}\logs"
+Type: files; Name: "{app}\starting.html"

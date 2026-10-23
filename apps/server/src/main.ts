@@ -17,6 +17,10 @@ const RESTART = 75;
 const config = loadConfig();
 mkdirSync(config.dataDir, { recursive: true });
 applyPendingRestore(config.dataDir); // before the database opens
+// Set by the installed launcher and by `pnpm start`; without it the toggle is hidden.
+const autostart = process.env.APP_LAUNCH_CMD
+  ? createAutostart(process.env.APP_LAUNCH_CMD)
+  : undefined;
 
 const app = await buildApp(openDb(join(config.dataDir, "app.sqlite")), true, config.dataDir, {
   adapters: adapters({ mock: config.mockIntegration }),
@@ -28,8 +32,7 @@ const app = await buildApp(openDb(join(config.dataDir, "app.sqlite")), true, con
   watchProjects: true,
   access: { host: config.host, password: config.password },
   serverConfig: config,
-  // Set by the installed launcher and by `pnpm start`; without it the toggle is hidden.
-  autostart: process.env.APP_LAUNCH_CMD ? createAutostart(process.env.APP_LAUNCH_CMD) : undefined,
+  autostart,
   // Under `pnpm start` the launcher (scripts/start.mjs) starts it again, applying a pending update.
   // ponytail: without it, respawns itself detached; a supervisor (pm2, systemd) would make this unnecessary.
   stop: () => app.close().then(() => process.exit(0)),
@@ -51,3 +54,6 @@ if (!isLoopback(config.host) && !config.password)
     `Listening on ${config.host} without APP_PASSWORD: only requests addressed to localhost or ${config.host} are accepted. Set APP_PASSWORD to use the app from other devices.`,
   );
 await app.listen({ host: config.host, port: config.port });
+// Rewrites an existing entry with today's command: 4.1.0 wrote it without --background.
+if (await autostart?.get())
+  autostart?.set(true).catch((e) => app.log.warn(`Start at login not updated: ${e.message}`));

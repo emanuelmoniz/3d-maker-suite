@@ -81,7 +81,7 @@ if (platform === "win32") {
 } else cpSync(join(from, "bin", "node"), join(node, "bin", "node"));
 cpSync(join(from, "LICENSE"), join(node, "LICENSE"));
 rmSync(tmp, { recursive: true, force: true });
-cpSync(join(here, "launcher.mjs"), join(stage, "launcher.mjs"));
+for (const f of ["launcher.mjs", "loader.html"]) cpSync(join(here, f), join(stage, f));
 
 // 2. The app: the commit, the server's prod deps (hoisted: only workspace packages are links),
 // the built web app. better-sqlite3 has N-API prebuilds for every platform and no install script.
@@ -161,7 +161,7 @@ if (platform === "win32") {
   const dmgDir = join(work, "dmg");
   const res = join(dmgDir, "3D Maker Suite.app", "Contents", "Resources");
   cpSync(node, join(res, "node"), { recursive: true });
-  cpSync(join(stage, "launcher.mjs"), join(res, "launcher.mjs"));
+  for (const f of ["launcher.mjs", "loader.html"]) cpSync(join(stage, f), join(res, f));
   renameSync(app, join(res, "app"));
   relink(join(res, "app"));
   const macos = join(res, "..", "MacOS");

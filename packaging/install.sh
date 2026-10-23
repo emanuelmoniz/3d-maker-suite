@@ -7,7 +7,7 @@ share=${XDG_DATA_HOME:-$HOME/.local/share}
 dir=$share/3d-maker-suite/install
 mkdir -p "$dir/versions" "$share/applications"
 rm -rf "$dir/node"
-cp -R "$src/node" "$src/launcher.mjs" "$dir/"
+cp -R "$src/node" "$src/launcher.mjs" "$src/loader.html" "$dir/"
 cp -R "$src/versions/." "$dir/versions/"
 cat > "$share/applications/3d-maker-suite.desktop" <<EOF
 [Desktop Entry]

@@ -61,7 +61,9 @@ The updater checks an app zip against `SHA256SUMS` before unpacking it.
 
 ### Launcher
 - The Start-menu shortcut, the `.app` or the `.desktop` entry runs `node launcher.mjs` (`nodew.exe` on Windows). It uses Node stdlib only.
-- It picks the newest version, relinks it and runs `node src/main.ts` in that version's `apps/server`, with `APP_LAUNCHER=1`, `APP_INSTALL=bundle` and `APP_INSTALL_DIR`. With no terminal, the server's output goes to `<install dir>/logs/server.log` (appended, rotated to `server.log.1` past 5 MB) and the launcher's own messages to `launcher.log`, rewritten at each start.
+- It picks the newest version, relinks it and runs `node src/main.ts` in that version's `apps/server`, with `APP_LAUNCHER=1`, `APP_INSTALL=bundle` and `APP_INSTALL_DIR`. With no terminal, the server's output goes to `<install dir>/logs/server.log` (appended, rotated to `server.log.1` past 5 MB) and the launcher's own messages to `launcher.log`, appended and rotated like it.
+- Started by the user, it opens the browser at once on `starting.html` in the install dir (`loader.html` with the URL filled in), which polls `/api/health` and goes to the app. With `--background` (the Start at login entry) it opens nothing; the server rewrites an existing entry at boot so ones written without the flag get it.
+- The installer sets `RedirectionGuard=no`: Inno Setup's default also reaches the process its [Run] entry starts, which then can't follow the junctions it makes.
 - Exit 75 means restart, as in ADR-0009. It applies `.update/pending.json` first.
 - It lives outside `versions/` and changes only with an installer, so it stays small. Anything that changes often belongs in the server.
 
