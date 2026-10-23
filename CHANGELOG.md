@@ -4,6 +4,33 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+## [4.1.1] - 2026-10-23
+
+Fixes and polish after 4.1.0.
+
+### Added
+- Settings → Server: **Restart** with a "restarting" modal; the page moves to the new port. Server actions sit at the top of the page, with the network address hint and the data folder shown as text
+- Settings → General: **Start at login**
+- Integrations: per type, choose what a sync adds (**Everything** or **Only what I already have**) and how it treats rows you changed (**Overwrite with the source**, **Keep my edits** or **Let me review the changes**)
+- Integrations: pick the time an automatic sync runs
+- Integrations: review and import a past period from a type's settings
+- Clients: delete a client
+- Printers: add a model or brand from modals on the add printer form; quick-add modals for profiles, models and spools
+- Projects: the project page hides empty files, prints and 3D cards
+- Mobile: the brand shows in a header
+- Alerts: the update available alert has a call to action
+
+### Changed
+- Installed copies started at login run in the background and don't open the browser; the installer's start option opens the app
+
+### Fixed
+- Settings: the autostart check reports support instead of a 404; restarting after clearing the port goes to the default port
+- Installers: the start option opened no browser
+- Integrations: the green dot for an automatic sync shows in any accent colour; a sync continues from the last sync, including after a review
+- Alerts: list rows keep only the read and dismiss actions
+- Clients: the quotes list refreshes after deleting a client
+- Tailwind: canonical classes in the projects and shell pages
+
 ## [4.1.0] - 2026-10-23
 
 Stable release of the 4.1.0 pre-releases (alpha.1 to alpha.3). The alpha.3 build only bumped the version to test updates and rollback; the Windows install, autostart, update and rollback test found no changes to make.

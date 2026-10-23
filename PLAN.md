@@ -433,7 +433,7 @@ Do Step 11 of the 4.1.1 plan in PLAN.md.
 Do Step 12 of the 4.1.1 plan in PLAN.md. Show me the columns, defaults and croner patterns first.
 ```
 
-### [ ] Step 13 - Docs, push & v4.1.1 release
+### [x] Step 13 - Docs, push & v4.1.1 release
 **Model:** Haiku · **Effort:** Low
 **Scope:** `pnpm screenshots` (project page, settings), docs touched by Steps 1-12, CHANGELOG, version `4.1.1` (root and `packages/*`). Commit on `dev`, fast-forward `main` to `dev`, push both, create and push tag `v4.1.1` on `main`. Check the run, the release (assets) and the `:latest` image.
 **Done when:** `main`, `dev` and the tag are pushed; the workflow is green; the release is the latest with installers; updating 4.1.0 (installer and git) to 4.1.1 works.
