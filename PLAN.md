@@ -512,11 +512,66 @@ Do Step 6 of the 4.2.0 plan in PLAN.md. Only document what changed since 4.1.0. 
 dev, push the tag and confirm the pre-release is published.
 ```
 
-## Phase 7 - Network storage
+## Phase 7 - Roles: settings, alerts, integrations
+
+Design (refines ADR-0012):
+- Settings: Appearance keeps the per-user theme and accent; a new admin-only **Branding** section holds the global app name, logo and favicon. Server (incl. header restart/stop, uptime, start at login), Backup, Logs and About & updates are admin-only: hidden for others and their queries never run.
+- Alerts: every user gets every alert. Read/unread, snooze and dismiss are per user (`alert_states`: alert, user, readAt, snoozedUntil, dismissedAt); no-users mode keeps today's columns. Channel sending (`notifiedAt`) and resolving stay global. Viewers may `PATCH /api/alerts/:id`; call-to-action buttons (sync, review) are for editors with the matching permission, and admins.
+- Integrations: two flags per integration × type on `sync_policies`, default off: `editorSync` ("Allow editor to sync") and `editorReview` ("Allow editor to review and import"). An editor sees the Integrations page with only the tasks a flag allows (Sync now / Review), never config, credentials or policies. The server checks the flag per route; everything else under `/api/integrations` and `/api/import` stays admin-only.
+
+### [ ] Step 7 - Bug: "Your role doesn't allow that" on every page
+**Model:** Sonnet · **Effort:** Low
+**Scope:** The banner fires on any 403, including background GETs for admin-only prefixes. Fire `FORBIDDEN_EVENT` only for writes (non-GET) in `api.ts`; give admin-only queries (server config, updates, backups, logs, alert channels, users) `enabled: canAdmin` so they never run for editors and viewers.
+**Done when:** an editor and a viewer browse every page with no banner and no 403 in the network tab; a blocked write still shows it; e2e per role; tests pass.
+**Prompt:**
+```
+Do Step 7 of the 4.2.0 plan in PLAN.md. List every query that 403s for a viewer first.
+```
+
+### [ ] Step 8 - Admin-only settings and global Branding
+**Model:** Sonnet · **Effort:** Medium
+**Scope:** Settings: move app name, logo and favicon out of Appearance into an admin-only **Branding** section with a hint that it applies to everyone; Server, Backup, Logs, About & updates and the header server actions hidden for non-admins (`useCan("admin")`). Server already rejects these writes; add the missing cases to the role-matrix test. Re-run `pnpm screenshots` if the settings screenshot changes.
+**Done when:** a viewer and an editor see only General (display keys), Appearance (theme, accent) and Account; an admin sees Branding separately; e2e per role; i18n:check passes; tests pass.
+**Prompt:**
+```
+Do Step 8 of the 4.2.0 plan in PLAN.md.
+```
+
+### [ ] Step 9 - Alerts per user  **[plan mode]**
+**Model:** Opus · **Effort:** High
+**Scope:** Migration `alert_states` (alert id, user id, readAt, snoozedUntil, dismissedAt; cascade on both). `GET /api/alerts` (list, history, detail, unread count) merges the caller's state; `PATCH /api/alerts/:id` writes the caller's row; no-users mode keeps the `alerts` columns. Snooze re-arm and channel sending stay global. Auth table: viewer may `PATCH /api/alerts/:id` (read, unread, snooze, dismiss), nothing else under `/alerts`. UI: viewers get those actions; CTAs follow Step 10's rules (until then: admin and editor). Update ADR-0012.
+**Done when:** the schema is approved; migration applies on a copy of the real DB; marking read as one user leaves it unread for the others (test); a viewer can read/snooze/dismiss but not trigger a CTA; tests pass.
+**Prompt:**
+```
+Do Step 9 of the 4.2.0 plan in PLAN.md. Show me the schema and the merge rules first. Back up
+the DB before editing schema.ts.
+```
+
+### [ ] Step 10 - Editor sync and review permissions  **[plan mode]**
+**Model:** Opus · **Effort:** High
+**Scope:** Migration: `editorSync`, `editorReview` booleans on `sync_policies` (default false). Admin toggles them in `PolicyRow` per task. Server: editor `POST /api/integrations/:id/sync` only for types with `editorSync` (a sync of "all" runs only the allowed types); `POST /api/import/integration/:id/:type` and the matching apply only with `editorReview`; checked in one helper next to `can()`. `GET /api/integrations` for an editor returns only what the task rows need (no config). Web: Integrations nav and page visible to an editor with at least one flag, showing only Sync now / Review per allowed task; alert CTAs (`SyncTargetLink`, sync/review buttons) shown only when the role and flag allow. Update ADR-0012 (table row and the editor flags).
+**Done when:** the design is approved; the role-matrix test covers both flags on and off per type; an editor can sync/review only allowed tasks from the page and from an alert, and never sees config; e2e; i18n:check passes; tests pass.
+**Prompt:**
+```
+Do Step 10 of the 4.2.0 plan in PLAN.md. Show me the permission checks and the editor's
+Integrations page first. Back up the DB before editing schema.ts.
+```
+
+### [ ] Step 11 - Docs, push & v4.2.0-alpha.2
+**Model:** Haiku · **Effort:** Low
+**Scope:** `docs/users.md` (what each role sees in Settings, per-user alerts, editor integration permissions), CHANGELOG, version `4.2.0-alpha.2` (root and `packages/*`). Commit, push `dev`, tag `v4.2.0-alpha.2` on `dev`; check the run and the pre-release.
+**Done when:** `dev` and the tag are pushed; the workflow is green; the pre-release exists; docs match the app.
+**Prompt:**
+```
+Do Step 11 of the 4.2.0 plan in PLAN.md. Only document what changed since 4.2.0-alpha.1. Then
+push dev, push the tag and confirm the pre-release is published.
+```
+
+## Phase 8 - Network storage
 
 Design (mounted paths): any folder the OS can see is a root - a mapped drive or `\\server\share` (SMB), OneDrive / Google Drive / Dropbox desktop folders, an `rclone mount`, a Docker CIFS volume. Slicing, Open in slicer and the file manager keep working because they stay local paths.
 
-### [ ] Step 7 - Network roots: polling, status, watcher  **[plan mode]**
+### [ ] Step 12 - Network roots: polling, status, watcher  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:**
 - Per-root `pollMinutes` (null = watch only) in the root settings shape (`packages/core/src/schemas/preferences.ts`), with defaults for stored roots.
@@ -529,77 +584,77 @@ Design (mounted paths): any folder the OS can see is a root - a mapped drive or 
 **Done when:** the design is approved; polling finds changes on a root without events (test with watch off); offline/online flips are handled; watcher re-attaches; tests; tests pass.
 **Prompt:**
 ```
-Do Step 7 of the 4.2.0 plan in PLAN.md. Show me the settings change, the status rules and
+Do Step 12 of the 4.2.0 plan in PLAN.md. Show me the settings change, the status rules and
 the poll job first.
 ```
 
-### [ ] Step 8 - Network roots: UI and docs
+### [ ] Step 13 - Network roots: UI and docs
 **Model:** Sonnet · **Effort:** Medium
 **Scope:** Settings → Projects: per-root "Check for changes every" select, status badge, Test button. Path picker lists `/Volumes`, `/mnt`, `/media`, `/run/media/$USER` when they exist, and a hint for UNC paths (`\\server\share`, mapped drives aren't seen by services). Project page: offline banner. `docs/storage.md`: mounting per OS, cloud desktop clients, `rclone mount`, compose CIFS volume, watch vs poll; update the NAS table in `docs/install.md`.
 **Done when:** a share root can be added, tested and polled from the UI; docs cover each OS and Docker; e2e; i18n:check passes; tests pass.
 **Prompt:**
 ```
-Do Step 8 of the 4.2.0 plan in PLAN.md.
+Do Step 13 of the 4.2.0 plan in PLAN.md.
 ```
 
-## Phase 8 - Managed slicer
+## Phase 9 - Managed slicer
 
 Design (Bambu Studio and OrcaSlicer, the user picks): the user installs the slicer CLI from the app; it is downloaded from the vendor's GitHub releases (we don't redistribute, AGPL respected, licence + source link shown), unpacked into `<dataDir>/slicers/<adapter>/<version>/`, version tracked, updates checked daily. Core gets a types-only `managedSlicer` descriptor (repo, asset matcher per OS/arch, exe path, unpack type, licence); the bambu and orca adapters fill it in; download/unpack live in `apps/server/src/integrations/managedSlicer.ts`, so core never imports vendor code.
 
-### [ ] Step 9 - Managed slicer spike and ADR-0013  **[plan mode]**
+### [ ] Step 14 - Managed slicer spike and ADR-0013  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:** For Bambu Studio and OrcaSlicer, per OS (Windows, macOS, Linux, Docker): which release asset to use (Windows installer-only? zip?), how to unpack without new dependencies (zip via yauzl, dmg via `hdiutil`, AppImage `--appimage-extract`), whether the CLI slices headless (Docker: which libraries, xvfb?), where system profiles live in the download, Orca's `-24` on newer Bambu files and the missing `*_full` profiles. Write `docs/adr/0013-managed-slicer.md` (updates ADR-0007 option B1).
 **Done when:** each point has evidence; the ADR is approved; unsupported combinations are listed.
 **Prompt:**
 ```
-Do Step 9 of the 4.2.0 plan in PLAN.md. Report each slicer × OS with evidence first.
+Do Step 14 of the 4.2.0 plan in PLAN.md. Report each slicer × OS with evidence first.
 ```
 
-### [ ] Step 10 - Managed slicer install  **[plan mode]**
+### [ ] Step 15 - Managed slicer install  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:** `managedSlicer` descriptors; release list (generalise `fetchReleases` from `updates.ts` to any repo); install job with progress (download, digest/size check, unpack, smoke test, set `slicerPath`), previous version kept until the new one passes; migration `slicerVersion`, `slicerManaged` on `integrations`; Integrations → Slicer: "Install slicer" (pick slicer + version, licence notice), installed version, Update, Remove.
 **Done when:** the flow is approved; install, update and remove work on Windows and macOS (tests with fake releases + one manual run); tests pass.
 **Prompt:**
 ```
-Do Step 10 of the 4.2.0 plan in PLAN.md. Show me the install job states and the UI first.
+Do Step 15 of the 4.2.0 plan in PLAN.md. Show me the install job states and the UI first.
 Back up the DB before editing schema.ts.
 ```
 
-### [ ] Step 11 - Managed profiles, versions and update alerts
+### [ ] Step 16 - Managed profiles, versions and update alerts
 **Model:** Opus · **Effort:** High
 **Scope:** With no desktop slicer, a managed config folder `<dataDir>/slicers/<adapter>/config/` built from the download's system profiles; user preset zips unpack there and persist (today `slicer-zips` is cleared after a day); the slicer version stored with each slice result and part of the freshness check (version change → outdated → auto slice); daily check raises a `slicer_update` alert with a CTA to the integration card.
 **Done when:** slicing works with only a managed slicer and imported presets; a version change marks slices outdated; the alert appears; tests pass.
 **Prompt:**
 ```
-Do Step 11 of the 4.2.0 plan in PLAN.md.
+Do Step 16 of the 4.2.0 plan in PLAN.md.
 ```
 
-### [ ] Step 12 - Docker slicer image, docs, push & v4.2.0-alpha.2
+### [ ] Step 17 - Docker slicer image, docs, push & v4.2.0-alpha.3
 **Model:** Sonnet · **Effort:** Medium
-**Scope:** A `:X.Y.Z-slicer` (and `:dev-slicer`) image with the libraries the CLI needs (per Step 9); the base image stays small. `docs/slicing.md` (managed slicer, profiles, Docker), update the NAS table. CHANGELOG, version `4.2.0-alpha.2`. Commit, push `dev`, tag `v4.2.0-alpha.2` on `dev`; check the run, pre-release and both images.
+**Scope:** A `:X.Y.Z-slicer` (and `:dev-slicer`) image with the libraries the CLI needs (per Step 14); the base image stays small. `docs/slicing.md` (managed slicer, profiles, Docker), update the NAS table. CHANGELOG, version `4.2.0-alpha.3`. Commit, push `dev`, tag `v4.2.0-alpha.3` on `dev`; check the run, pre-release and both images.
 **Done when:** the slicer image slices a project in `docker compose up`; tags pushed; workflow green; docs match the app.
 **Prompt:**
 ```
-Do Step 12 of the 4.2.0 plan in PLAN.md. Only document what changed since 4.2.0-alpha.1.
+Do Step 17 of the 4.2.0 plan in PLAN.md. Only document what changed since 4.2.0-alpha.2.
 Then push dev, push the tag and confirm the pre-release and images are published.
 ```
 
-### [ ] Step 13 - Real test: NAS, LAN accounts, managed slicer
+### [ ] Step 18 - Real test: NAS, LAN accounts, managed slicer
 **Model:** Sonnet · **Effort:** Medium
-**Scope:** Docker on a NAS with a CIFS-mounted project root (polling, offline/online); first-run admin via the setup token; an editor and a viewer on other devices over LAN; managed slicer install + slice on Windows, macOS and the Docker slicer image. Fix anything found and note it in the CHANGELOG (alpha.3 if needed).
+**Scope:** Docker on a NAS with a CIFS-mounted project root (polling, offline/online); first-run admin via the setup token; an editor and a viewer on other devices over LAN (an editor with and without each integration permission; per-user alert state); managed slicer install + slice on Windows, macOS and the Docker slicer image. Fix anything found and note it in the CHANGELOG (alpha.4 if needed).
 **Done when:** every scenario worked; fixes released.
 **Prompt:**
 ```
-Do Step 13 of the 4.2.0 plan in PLAN.md. Guide me through each scenario, then fix what we find.
+Do Step 18 of the 4.2.0 plan in PLAN.md. Guide me through each scenario, then fix what we find.
 ```
 
-### [ ] Step 14 - Docs, push & v4.2.0 release
+### [ ] Step 19 - Docs, push & v4.2.0 release
 **Model:** Haiku · **Effort:** Low
 **Scope:** `pnpm screenshots` (login, users, integrations slicer), README, CHANGELOG, version `4.2.0`. Commit on `dev`, fast-forward `main` to `dev`, push both, tag `v4.2.0` on `main`. Check the run, the release and the images.
 **Done when:** `main`, `dev` and the tag are pushed; the workflow is green; the release is the latest; images published; updating 4.1.0 (git and installer) to 4.2.0 works.
 **Prompt:**
 ```
-Do Step 14 of the 4.2.0 plan in PLAN.md. Only document what changed since the last 4.2.0
+Do Step 19 of the 4.2.0 plan in PLAN.md. Only document what changed since the last 4.2.0
 pre-release. Then fast-forward main to dev, push, push the v4.2.0 tag and confirm the release.
 ```
 
@@ -629,5 +684,9 @@ pre-release. Then fast-forward main to dev, push, push the v4.2.0 tag and confir
 | integrations: what to sync, how to sync | 4.1.1 · 11 |
 | sync scheduler: choose the run time | 4.1.1 · 12 |
 | users module: authentication, roles, permissions | 4.2 · 1-5 |
-| storage integration: SMB, cloud | 4.2 · 7, 8 |
-| bundled slicer for headless servers (download from the app) | 4.2 · 9-12 |
+| role banner always shown for editor and viewer | 4.2 · 7 |
+| settings: global branding admin-only; server, backup, logs, about admin-only | 4.2 · 8 |
+| alerts per user; viewer read/snooze/dismiss, editor call-to-actions | 4.2 · 9 |
+| integrations: allow editor to sync / review and import, per task | 4.2 · 10 |
+| storage integration: SMB, cloud | 4.2 · 12, 13 |
+| bundled slicer for headless servers (download from the app) | 4.2 · 14-17 |
