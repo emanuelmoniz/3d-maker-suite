@@ -19,6 +19,7 @@
     "db:generate": "pnpm --filter @3d-maker-suite/db exec drizzle-kit generate",
     "db:migrate": "pnpm --filter @3d-maker-suite/server exec tsx src/db-cli.ts migrate",
     "db:seed": "pnpm --filter @3d-maker-suite/server exec tsx src/db-cli.ts seed",
+    "user:reset-password": "pnpm --filter @3d-maker-suite/server exec tsx src/db-cli.ts reset-password",
     "screenshots": "pnpm --filter @3d-maker-suite/web build && playwright test -c playwright.screenshots.config.ts"
   },
   "devDependencies": {
