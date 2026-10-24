@@ -7,14 +7,17 @@ import { FormField } from "../components/FormField.tsx";
 import { PageHeader } from "../components/PageHeader.tsx";
 import { Section } from "../components/Section.tsx";
 import { api } from "../lib/api.ts";
+import { useCan, useMe } from "../lib/auth.ts";
 import { usePreferences, useSavePreferences } from "../lib/preferences.ts";
 import { ACCENTS, setTheme } from "../lib/theme.ts";
 import { ThemeToggle } from "../shell/ThemeToggle.tsx";
 import { AboutSection } from "./settings/AboutSection.tsx";
+import { AccountSection } from "./settings/AccountSection.tsx";
 import { BackupSection } from "./settings/BackupSection.tsx";
 import { BrandingFields } from "./settings/BrandingFields.tsx";
 import { LogSection } from "./settings/LogSection.tsx";
 import { ServerActions, ServerSection, StartAtLogin } from "./settings/ServerSection.tsx";
+import { UsersSection } from "./settings/UsersSection.tsx";
 
 const ACCENT_LABELS = {
   teal: "settings:appearance.accents.teal",
@@ -49,6 +52,8 @@ export function SettingsPage() {
   const { t } = useTranslation();
   const { data, isError } = usePreferences();
   const save = useSavePreferences();
+  const canAdmin = useCan("admin");
+  const signedIn = !!useMe();
 
   if (isError)
     return (
@@ -144,6 +149,18 @@ export function SettingsPage() {
           </FormField>
           <BrandingFields />
         </Section>
+
+        {signedIn && (
+          <Section title={t("users:account.title")} id="account">
+            <AccountSection />
+          </Section>
+        )}
+
+        {canAdmin && (
+          <Section title={t("users:list.title")} id="users" wide>
+            <UsersSection />
+          </Section>
+        )}
 
         <Section title={t("settings:sections.server")}>
           <ServerSection />

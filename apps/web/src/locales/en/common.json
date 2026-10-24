@@ -106,5 +106,16 @@
     "available": "Version {{version}} is available",
     "see": "See update",
     "dismiss": "Dismiss"
+  },
+  "forbidden": "Your role doesn't allow that. Ask an admin if you need it.",
+  "userMenu": {
+    "label": "Account menu for {{name}}",
+    "account": "My account",
+    "signOut": "Sign out",
+    "roles": {
+      "admin": "Admin",
+      "editor": "Editor",
+      "viewer": "Viewer"
+    }
   }
 }

@@ -484,7 +484,7 @@ editing schema.ts.
 Do Step 3 of the 4.2.0 plan in PLAN.md.
 ```
 
-### [ ] Step 4 - Web: login, current user, Users page
+### [x] Step 4 - Web: login, current user, Users page
 **Model:** Sonnet · **Effort:** High
 **Scope:** `/login` page (and first-run "Create admin" page); `api.ts` 401 → `/login?next=`; `useMe()`, `useCan()`; user menu in the shell (name, change password, sign out); Settings → Users (list, add, role, disable, reset password); a 403 shows a message.
 **Done when:** login, logout, setup and user management work by keyboard and on mobile; e2e; i18n:check passes; tests pass.

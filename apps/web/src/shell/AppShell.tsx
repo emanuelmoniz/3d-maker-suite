@@ -1,9 +1,12 @@
 import { REPO_URL, SITE_URL } from "@3d-maker-suite/core";
 import { Link, Outlet } from "@tanstack/react-router";
-import { Ellipsis, Printer, Sparkles, X } from "lucide-react";
-import { useRef } from "react";
+import { CircleUser, Ellipsis, Printer, ShieldAlert, Sparkles, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
+import { Menu } from "../components/Menu.tsx";
 import { unreadCount, useAlertAction, useAlerts } from "../lib/alerts.ts";
+import { FORBIDDEN_EVENT } from "../lib/api.ts";
+import { useMe, useSignOut } from "../lib/auth.ts";
 import { useApplyBranding, useAppName, useBrandingUrl } from "../lib/branding.ts";
 import { cx } from "../lib/cx.ts";
 import { setDateTimePrefs } from "../lib/format.ts";
@@ -111,6 +114,94 @@ function UpdateBanner() {
   );
 }
 
+/** The server said no (403): the role isn't enough for what was just tried. */
+function ForbiddenBanner() {
+  const { t } = useTranslation();
+  const [shown, setShown] = useState(false);
+  useEffect(() => {
+    const on = () => setShown(true);
+    window.addEventListener(FORBIDDEN_EVENT, on);
+    return () => window.removeEventListener(FORBIDDEN_EVENT, on);
+  }, []);
+  if (!shown) return null;
+  return (
+    <div
+      role="alert"
+      className="mb-5 flex items-center gap-x-4 rounded-lg border border-bad/40 bg-surface-2 px-4 py-2.5"
+    >
+      <ShieldAlert className="size-4 shrink-0 text-bad" aria-hidden />
+      <span className="min-w-0 flex-1 font-medium">{t("common:forbidden")}</span>
+      <button
+        type="button"
+        className="rounded-md p-1 text-muted hover:bg-surface-2 hover:text-fg"
+        aria-label={t("common:updateBanner.dismiss")}
+        onClick={() => setShown(false)}
+      >
+        <X className="size-4" aria-hidden />
+      </button>
+    </div>
+  );
+}
+
+const ROLES = {
+  admin: "common:userMenu.roles.admin",
+  editor: "common:userMenu.roles.editor",
+  viewer: "common:userMenu.roles.viewer",
+} as const;
+const menuItem = "flex h-9 items-center rounded-md px-3 hover:bg-surface-2";
+
+/** Name, account link and sign out; absent while no accounts exist. */
+function UserMenu() {
+  const { t } = useTranslation();
+  const user = useMe();
+  const out = useSignOut();
+  if (!user) return null;
+  return (
+    <Menu
+      label={t("common:userMenu.label", { name: user.displayName })}
+      triggerClass="h-9 w-full gap-3 px-2.5 text-muted hover:text-fg"
+      panelClass="bottom-full left-0 mb-1"
+      trigger={
+        <>
+          <CircleUser className="size-4.5 shrink-0" aria-hidden />
+          <span className="hidden truncate lg:inline">{user.displayName}</span>
+        </>
+      }
+    >
+      <p className="px-3 py-1.5 text-muted wrap-anywhere">
+        {user.email} · {t(ROLES[user.role])}
+      </p>
+      <Link to="/settings" hash="account" className={menuItem}>
+        {t("common:userMenu.account")}
+      </Link>
+      <button type="button" className={cx(menuItem, "text-left")} onClick={() => out.mutate()}>
+        {t("common:userMenu.signOut")}
+      </button>
+    </Menu>
+  );
+}
+
+/** The same, inside the mobile "More" sheet. */
+function SheetUser({ onNavigate }: { onNavigate: () => void }) {
+  const { t } = useTranslation();
+  const user = useMe();
+  const out = useSignOut();
+  if (!user) return null;
+  return (
+    <div className="mt-2 grid gap-0.5 border-t border-border pt-2">
+      <p className="px-2.5 py-1.5 text-muted wrap-anywhere">
+        {user.displayName} · {t(ROLES[user.role])}
+      </p>
+      <Link to="/settings" hash="account" className={linkClass} onClick={onNavigate}>
+        {t("common:userMenu.account")}
+      </Link>
+      <button type="button" className={cx(linkClass, "text-left")} onClick={() => out.mutate()}>
+        {t("common:userMenu.signOut")}
+      </button>
+    </div>
+  );
+}
+
 /** The Logs item is in the menu only while logging is on. */
 const useLogsShown = () => !!usePreferences().data?.values.logActive;
 
@@ -139,6 +230,7 @@ function Sidebar() {
         <SideLink item={INTEGRATIONS_ITEM} />
         {logsShown && <SideLink item={LOGS_ITEM} />}
         <SideLink item={SETTINGS_ITEM} />
+        <UserMenu />
         <ThemeToggle className="mt-1.5 flex-col lg:flex-row" />
       </div>
     </aside>
@@ -217,6 +309,7 @@ function BottomNav() {
             </Link>
           ))}
         </div>
+        <SheetUser onNavigate={() => sheet.current?.close()} />
         <ThemeToggle className="mt-3" />
       </dialog>
     </>
@@ -244,6 +337,7 @@ export function AppShell() {
       >
         <div className="mx-auto w-full max-w-6xl flex-1">
           <Brand mobile />
+          <ForbiddenBanner />
           <UpdateBanner />
           <Outlet />
         </div>

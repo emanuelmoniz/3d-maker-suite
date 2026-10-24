@@ -3,7 +3,9 @@ import {
   createRootRoute,
   createRoute,
   createRouter,
+  Outlet,
   redirect,
+  useRouterState,
 } from "@tanstack/react-router";
 import { SearchX } from "lucide-react";
 import type { ReactNode } from "react";
@@ -12,6 +14,7 @@ import { EmptyState } from "./components/EmptyState.tsx";
 import { loadNamespace } from "./i18n.ts";
 import { AlertDetailPage } from "./pages/alerts/AlertDetailPage.tsx";
 import { AlertsPage } from "./pages/alerts/AlertsPage.tsx";
+import { LoginPage, SetupPage } from "./pages/auth/AuthPages.tsx";
 import { ClientDetailPage } from "./pages/clients/ClientDetailPage.tsx";
 import { ClientCreatePage, ClientEditPage } from "./pages/clients/ClientFormPage.tsx";
 import { ClientsPage } from "./pages/clients/ClientsPage.tsx";
@@ -87,7 +90,15 @@ function NotFound() {
   );
 }
 
-const root = createRootRoute({ component: AppShell, notFoundComponent: NotFound });
+/** Login and setup run without the shell: it loads data a visitor without a session can't have. */
+function Root() {
+  const bare = useRouterState({
+    select: (s) => ["/login", "/setup"].includes(s.location.pathname),
+  });
+  return bare ? <Outlet /> : <AppShell />;
+}
+
+const root = createRootRoute({ component: Root, notFoundComponent: NotFound });
 
 // Feature routes load their i18n namespace here (code-split JSON), e.g. loader: () => loadNamespace("printers").
 const built = [
@@ -424,10 +435,23 @@ const routes: AnyRoute[] = [
       Promise.all(["import", "integrations", "filament", "tags", "printers"].map(loadNamespace)),
     component: ImportPage,
   }),
+  ...(
+    [
+      ["/login", LoginPage],
+      ["/setup", SetupPage],
+    ] as const
+  ).map(([path, component]) =>
+    createRoute({
+      getParentRoute: () => root,
+      path,
+      loader: () => loadNamespace("users"),
+      component,
+    }),
+  ),
   createRoute({
     getParentRoute: () => root,
     path: SETTINGS_ITEM.to,
-    loader: () => Promise.all(["settings", "logs"].map(loadNamespace)),
+    loader: () => Promise.all(["settings", "logs", "users"].map(loadNamespace)),
     component: SettingsPage,
   }),
   createRoute({

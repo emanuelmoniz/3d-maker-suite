@@ -1,0 +1,70 @@
+{
+  "fields": {
+    "email": "Email",
+    "password": "Password",
+    "displayName": "Name",
+    "role": "Role",
+    "newPassword": "New password",
+    "confirmPassword": "Repeat the password",
+    "passwordHint": "At least 8 characters.",
+    "mismatch": "The two passwords don't match."
+  },
+  "login": {
+    "title": "Sign in",
+    "submit": "Sign in",
+    "errors": {
+      "invalid_credentials": "Wrong email or password.",
+      "too_many_attempts": "Too many failed attempts. Try again in 15 minutes.",
+      "user_disabled": "This account is disabled. Ask an admin.",
+      "generic": "Couldn't sign in. Check the connection and try again."
+    }
+  },
+  "setup": {
+    "title": "Create the admin account",
+    "hint": "The first account manages everything and adds the others. Until it exists, anyone who can open this page has full access.",
+    "submit": "Create account",
+    "token": "Setup token",
+    "tokenHint": "Printed in the server's console when it started. In Docker, find it with docker logs.",
+    "toLogin": "Go to sign in",
+    "errors": {
+      "setup_token": "This device isn't on the server itself. Enter the setup token from the server's console.",
+      "setup_done": "An admin account already exists.",
+      "generic": "Couldn't create the account. Check the token and try again."
+    }
+  },
+  "account": {
+    "title": "My account",
+    "passwordTitle": "Change password",
+    "currentPassword": "Current password",
+    "changePassword": "Change password",
+    "passwordChanged": "Password changed. Your other devices were signed out.",
+    "wrongPassword": "The current password is wrong.",
+    "error": "That didn't work. Try again."
+  },
+  "list": {
+    "title": "Users",
+    "label": "Users",
+    "hint": "Admins manage everything. Editors work with data but not the server. Viewers only look.",
+    "noAccounts": "Nobody has to sign in right now. Create the first admin to turn on accounts and roles.",
+    "createFirst": "Create the first admin",
+    "add": "Add user",
+    "you": "(you)",
+    "disabled": "Disabled",
+    "lastLogin": "Last sign-in {{when}}",
+    "neverLoggedIn": "Never signed in",
+    "roleOf": "Role of {{name}}",
+    "disable": "Disable",
+    "enable": "Enable",
+    "reset": "Reset password",
+    "resetTitle": "Reset the password of {{name}}",
+    "resetHint": "They are signed out everywhere and use the new password next time.",
+    "delete": "Delete",
+    "deleteTitle": "Delete {{name}}?",
+    "deleteBody": "The account is removed and can't sign in again. Their past actions stay in the logs.",
+    "errors": {
+      "last_admin": "The last enabled admin can't be disabled, demoted or deleted.",
+      "email_taken": "A user with this email already exists.",
+      "generic": "That didn't work. Try again."
+    }
+  }
+}
