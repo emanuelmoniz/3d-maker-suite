@@ -4,6 +4,22 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+## [4.2.0-alpha.1] - 2026-10-24
+
+Pre-release. Test on a copy of your data first; back up before updating.
+
+### Added
+- Users and roles: accounts with **viewer**, **editor** and **admin** roles. Viewers look, editors work with the data, admins also manage the server, updates, backups and users ([docs/users.md](docs/users.md))
+- First run: the server prints a setup token to create the first admin from another device (in Docker, `docker compose logs app`)
+- Each person changes their own name, password and display preferences (language, units, date and time format, theme, accent)
+- Settings → Users to add people, change their role, disable an account or reset a password
+- Logs record which user made each change
+- Reset a lost admin password from the server's shell: `pnpm user:reset-password <email>` (in Docker: `docker compose exec app pnpm user:reset-password <email>`)
+
+### Changed
+- `APP_PASSWORD` is ignored once a user account exists; the server warns at start. Create accounts and remove it
+- The Docker example no longer sets `APP_PASSWORD`; create accounts after the first start
+
 ## [4.1.3] - 2026-10-23
 
 ### Added

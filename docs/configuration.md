@@ -13,7 +13,7 @@ pnpm --filter @3d-maker-suite/server start -- --port 4400 --host 0.0.0.0
 | `PORT` | `4300` | HTTP port |
 | `HOST` | `127.0.0.1` | Address to listen on. Only change this to reach the app from other devices. |
 | `APP_DATA_DIR` | see [install.md](install.md#where-your-data-is) | Where the database, thumbnails, backups and key file live |
-| `APP_PASSWORD` | unset | HTTP Basic password. Required when `HOST` is not a loopback address. Any user name works. |
+| `APP_PASSWORD` | unset | HTTP Basic password, used only until the first user account exists ([users.md](users.md)). Required when `HOST` is not a loopback address and no account exists. Any user name works. |
 | `APP_MOCK_INTEGRATION` | unset | Set to `1` to add a fake integration for trying the Integrations page without an account |
 | `APP_INSTALL` | unset | `docker` in the Docker image: Settings shows `docker compose pull` instead of an Update button. `bundle` when the installed app's launcher starts it ([ADR-0011](adr/0011-bundle-installs.md)). |
 | `APP_LAUNCHER` | set by `pnpm start` | Tells the server it runs under the launcher, which restarts it and applies updates ([ADR-0009](adr/0009-updates.md)). Don't set it yourself. |
@@ -31,10 +31,16 @@ The alerts page lists what needs attention. Each alert has a severity (error, wa
 ## Access from other devices
 
 ```bash
+HOST=0.0.0.0 pnpm start
+```
+
+Then open `http://<your-PC-address>:4300` from the other device and sign in. Create the accounts first: see [users.md](users.md). Until an account exists, `APP_PASSWORD` works as a shared password instead:
+
+```bash
 HOST=0.0.0.0 APP_PASSWORD=choose-a-long-password pnpm start
 ```
 
-Then open `http://<your-PC-address>:4300` from the other device and enter the password when asked. Use HTTPS (a reverse proxy) if you expose it outside your home network. Without `APP_PASSWORD`, the server rejects requests that are not addressed to `localhost` or `HOST`.
+Once an account exists, `APP_PASSWORD` is ignored and you should remove it. Use HTTPS (a reverse proxy) if you expose it outside your home network. Without `APP_PASSWORD`, the server rejects requests that are not addressed to `localhost` or `HOST`.
 
 ## In-app settings
 

@@ -1,4 +1,4 @@
-# Copy this file, set APP_PASSWORD, then run: docker compose up -d
+# Copy this file, then run: docker compose up -d (create the first admin: docs/users.md)
 services:
   app:
     image: ghcr.io/emanuelmoniz/3d-maker-suite:latest # or :dev for pre-releases; or `build: .`
@@ -7,7 +7,6 @@ services:
       - "4300:4300"
     environment:
       HOST: 0.0.0.0
-      APP_PASSWORD: change-me-to-a-long-password # required to reach the app from other devices
     volumes:
       - app-data:/data # database, key file, thumbnails, backups
       # Project folders: mount read-only and add them in Settings → Projects as /projects/...

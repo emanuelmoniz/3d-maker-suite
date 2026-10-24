@@ -502,7 +502,7 @@ Do Step 4 of the 4.2.0 plan in PLAN.md.
 Do Step 5 of the 4.2.0 plan in PLAN.md.
 ```
 
-### [ ] Step 6 - Docs, push & v4.2.0-alpha.1
+### [x] Step 6 - Docs, push & v4.2.0-alpha.1
 **Model:** Haiku · **Effort:** Low
 **Scope:** `docs/users.md` (setup, roles, LAN/Docker, `APP_PASSWORD` migration, reset a lost admin password), README, `docs/configuration.md`, CHANGELOG, version `4.2.0-alpha.1`. Commit, push `dev`, tag `v4.2.0-alpha.1` on `dev`; check the run and the pre-release.
 **Done when:** `dev` and the tag are pushed; the workflow is green; the pre-release exists; docs match the app.

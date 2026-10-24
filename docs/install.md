@@ -144,7 +144,7 @@ Then `systemctl --user daemon-reload && systemctl --user enable --now 3d-maker-s
 
 Use this on a NAS or home server that is always on. You need Docker with Compose; you don't need Node.
 
-1. Save [docker-compose.yml](../docker-compose.yml) on the server and set `APP_PASSWORD` in it.
+1. Save [docker-compose.yml](../docker-compose.yml) on the server. Start it, then create the first admin account with the setup token from `docker compose logs app` ([users.md](users.md)).
 2. Add your project folders as read-only volumes (the commented line in the file), for example `/volume1/3d-files:/projects/files:ro`.
 3. Run `docker compose up -d` and open `http://<server-address>:4300`. In Settings → Projects, add the folders by their path **inside the container** (`/projects/files`).
 
@@ -161,13 +161,13 @@ Images are published to `ghcr.io/emanuelmoniz/3d-maker-suite`: `:X.Y.Z` and `:la
 | Local slicer presets | The slicer's config folder lives on your PC, not in the container | [Import a catalog zip](import.md#slicer-catalog-from-a-zip), or mount the config folder into the container and set **Config folder** |
 | Live folder watching on network shares | Change events don't arrive over SMB/NFS, and Docker Desktop on Windows/macOS may not forward them | Files are found on startup and on a manual scan; use **Scan folders** after adding files |
 | Path picker | Browses the container's folders, so only mounted paths show | Mount the folders you need |
-| Reaching the app | The server answers only to its own address unless a password is set | Keep `APP_PASSWORD` set; use HTTPS (a reverse proxy) outside your home network |
+| Reaching the app | The server answers only to its own address unless accounts or `APP_PASSWORD` are set | Create accounts ([users.md](users.md)); use HTTPS (a reverse proxy) outside your home network |
 
 Bambu Cloud works the same as on a PC.
 
 ## Your PC or a NAS without Docker
 
-You can also run `pnpm start` on a NAS that has Node 22. Set `HOST=0.0.0.0` and `APP_PASSWORD` to reach it from other devices (see [configuration.md](configuration.md#access-from-other-devices)); the limits above apply to it too. On a NAS, the Integrations page shows a local slicer as **Not available on this server** when its config folder isn't there.
+You can also run `pnpm start` on a NAS that has Node 22. Set `HOST=0.0.0.0` and create accounts ([users.md](users.md)) to reach it from other devices (see [configuration.md](configuration.md#access-from-other-devices)); the limits above apply to it too. On a NAS, the Integrations page shows a local slicer as **Not available on this server** when its config folder isn't there.
 
 ## Where your data is
 
