@@ -11,6 +11,7 @@
     "time": "Time",
     "level": "Level",
     "module": "Module",
+    "actor": "User",
     "message": "Message"
   },
   "levels": {

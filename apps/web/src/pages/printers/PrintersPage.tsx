@@ -13,6 +13,7 @@ import { SyncButtons } from "../../components/ImportLinks.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { SettingsLink } from "../../components/SettingsLink.tsx";
 import { TagList } from "../../components/TagList.tsx";
+import { Write } from "../../components/Write.tsx";
 import { accessoryName } from "../../lib/accessories.ts";
 import { useModelInfo } from "../../lib/catalog.ts";
 import { formatDuration, formatNumber } from "../../lib/format.ts";
@@ -54,10 +55,10 @@ export function PrintersPage() {
         title={t("nav:items.printers.label")}
         description={t("nav:items.printers.description")}
         actions={
-          <>
+          <Write>
             {add}
             <SettingsLink module="printers" />
-          </>
+          </Write>
         }
       />
       {isError && (
@@ -189,10 +190,12 @@ function AccessoriesTable() {
     <section className="mt-8">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-lg font-semibold">{t("printers:accessories.title")}</h2>
-        <Link to="/printers/accessories/new" className={addClass}>
-          <Plus className="size-4" aria-hidden />
-          {t("printers:accessories.add")}
-        </Link>
+        <Write>
+          <Link to="/printers/accessories/new" className={addClass}>
+            <Plus className="size-4" aria-hidden />
+            {t("printers:accessories.add")}
+          </Link>
+        </Write>
       </div>
       {data && !data.total && !Object.keys(query).length ? (
         <p className="text-muted">{t("printers:accessories.empty")}</p>

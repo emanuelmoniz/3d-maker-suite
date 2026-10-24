@@ -105,6 +105,13 @@ export function LogsPage() {
                 filterOptions: LOG_MODULES.map((m) => ({ value: m, label: moduleLabel(m) })),
               },
               {
+                id: "actor",
+                header: t("logs:columns.actor"),
+                cell: (r) => r.actor ?? "",
+                sort: "actor",
+                filter: "actor",
+              },
+              {
                 id: "message",
                 header: t("logs:columns.message"),
                 cell: (r) =>

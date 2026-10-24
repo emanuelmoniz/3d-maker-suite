@@ -17,6 +17,7 @@ import {
 import { Markdown } from "../../components/Markdown.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { TagList } from "../../components/TagList.tsx";
+import { Write } from "../../components/Write.tsx";
 import { ApiError } from "../../lib/api.ts";
 import { estimateSlicedPlates, useCostContext } from "../../lib/cost.ts";
 import { cx } from "../../lib/cx.ts";
@@ -343,9 +344,16 @@ function SlicedEstimate({ project }: { project: ProjectDetail }) {
   // Its plates are of files in a folder it doesn't have now (unlinked and kept, or missing).
   if (!ctx || project.folderState !== "ok") return null;
   const setUp = (
-    <Link to="/projects/$id/edit" params={{ id: project.id }} hash="slicing" className={linkButton}>
-      {t("projects:detail.setUpSlicing")}
-    </Link>
+    <Write>
+      <Link
+        to="/projects/$id/edit"
+        params={{ id: project.id }}
+        hash="slicing"
+        className={linkButton}
+      >
+        {t("projects:detail.setUpSlicing")}
+      </Link>
+    </Write>
   );
   if (!sliced)
     return project.meta.models.length ? (
@@ -459,43 +467,52 @@ export function ProjectDetailPage() {
                 {t("projects:detail.source")}
               </a>
             )}
-            {ok && current && slicer && (
-              <span className="flex gap-1">
-                {slicers.length > 1 && (
-                  <Combobox
-                    aria-label={t("projects:detail.slicerPick")}
+            <Write>
+              {ok && current && slicer && (
+                <span className="flex gap-1">
+                  {slicers.length > 1 && (
+                    <Combobox
+                      aria-label={t("projects:detail.slicerPick")}
+                      className={linkButton}
+                      value={slicer.id}
+                      onChange={setSlicerId}
+                      options={slicers.map((s) => ({
+                        value: s.id,
+                        label: adapterName(s.adapterId),
+                      }))}
+                    />
+                  )}
+                  <button
+                    type="button"
                     className={linkButton}
-                    value={slicer.id}
-                    onChange={setSlicerId}
-                    options={slicers.map((s) => ({ value: s.id, label: adapterName(s.adapterId) }))}
-                  />
-                )}
+                    onClick={() =>
+                      open.mutate({
+                        target: "slicer",
+                        file: current.path,
+                        integrationId: slicer.id,
+                      })
+                    }
+                  >
+                    <Box className="size-4" aria-hidden />
+                    {t("projects:detail.openSlicer")}
+                  </button>
+                </span>
+              )}
+              {ok && (
                 <button
                   type="button"
                   className={linkButton}
-                  onClick={() =>
-                    open.mutate({ target: "slicer", file: current.path, integrationId: slicer.id })
-                  }
+                  onClick={() => open.mutate({ target: "folder" })}
                 >
-                  <Box className="size-4" aria-hidden />
-                  {t("projects:detail.openSlicer")}
+                  <FolderOpen className="size-4" aria-hidden />
+                  {t("projects:detail.openFolder")}
                 </button>
-              </span>
-            )}
-            {ok && (
-              <button
-                type="button"
-                className={linkButton}
-                onClick={() => open.mutate({ target: "folder" })}
-              >
-                <FolderOpen className="size-4" aria-hidden />
-                {t("projects:detail.openFolder")}
-              </button>
-            )}
-            <Link to="/projects/$id/edit" params={{ id }} className={linkButton}>
-              {t("projects:list.edit")}
-            </Link>
-            <DeleteProject project={project} />
+              )}
+              <Link to="/projects/$id/edit" params={{ id }} className={linkButton}>
+                {t("projects:list.edit")}
+              </Link>
+              <DeleteProject project={project} />
+            </Write>
           </>
         }
       />

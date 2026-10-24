@@ -9,6 +9,7 @@ import { Combobox } from "../../components/Combobox.tsx";
 import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { FormField } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
+import { Write } from "../../components/Write.tsx";
 import { api } from "../../lib/api.ts";
 import { useClient } from "../../lib/clients.ts";
 import { quoteName, useMoney, useQuote } from "../../lib/cost.ts";
@@ -144,12 +145,12 @@ export function OrderDetailPage() {
         title={name}
         backTo={{ to: "/orders" }}
         actions={
-          <>
+          <Write>
             <Link to="/orders/$id/edit" params={{ id }} className={linkButton}>
               {t("orders:detail.edit")}
             </Link>
             <Button onClick={() => setDeleting(true)}>{t("orders:delete.confirm")}</Button>
-          </>
+          </Write>
         }
       />
       <section className="rounded-lg border border-border bg-surface p-4 sm:p-5">

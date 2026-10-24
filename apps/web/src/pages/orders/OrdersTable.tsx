@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
 import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { DataTable } from "../../components/DataTable.tsx";
+import { Write } from "../../components/Write.tsx";
 import { useClients } from "../../lib/clients.ts";
 import { useMoney } from "../../lib/cost.ts";
 import { formatDate } from "../../lib/format.ts";
@@ -133,13 +134,15 @@ export function OrdersTable({
           id: "actions",
           header: t("orders:list.columns.actions"),
           cell: (o) => (
-            <Button
-              variant="ghost"
-              aria-label={t("orders:delete.named", { name: orderName(t, o) })}
-              onClick={() => setDeleting(o)}
-            >
-              <Trash2 className="size-4" aria-hidden />
-            </Button>
+            <Write>
+              <Button
+                variant="ghost"
+                aria-label={t("orders:delete.named", { name: orderName(t, o) })}
+                onClick={() => setDeleting(o)}
+              >
+                <Trash2 className="size-4" aria-hidden />
+              </Button>
+            </Write>
           ),
         },
       ]}

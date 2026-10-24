@@ -30,17 +30,20 @@ export const logEntrySchema = z.object({
   time: z.string(),
   level: z.enum(LOG_LEVELS),
   module: z.string(),
+  /** Who made the request: the user's name; null for jobs and the no-users mode. */
+  actor: z.string().nullable(),
   message: z.string(),
   detail: z.record(z.string(), z.unknown()).nullable(),
 });
 export type LogEntry = z.infer<typeof logEntrySchema>;
 
-export const logSortFields = ["time", "level", "module", "message"] as const;
+export const logSortFields = ["time", "level", "module", "actor", "message"] as const;
 
 /** Logs table column filters (see `listQuery`). */
 export const logFilters = {
   time: { kind: "date" },
   level: { kind: "select", options: LOG_LEVELS },
   module: { kind: "select", options: LOG_MODULES },
+  actor: { kind: "text" },
   message: { kind: "text" },
 } as const satisfies Record<string, ColumnFilter>;

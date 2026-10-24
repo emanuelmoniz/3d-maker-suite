@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
 import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
+import { Write } from "../../components/Write.tsx";
 import { useClient, useDeleteClient } from "../../lib/clients.ts";
 import { useOrders } from "../../lib/orders.ts";
 import { Info, linkButton } from "../filament/SpoolDetailPage.tsx";
@@ -32,7 +33,7 @@ export function ClientDetailPage() {
         title={client.name}
         backTo={{ to: "/clients" }}
         actions={
-          <>
+          <Write>
             <Link to="/clients/$id/edit" params={{ id }} className={linkButton}>
               {t("clients:detail.edit")}
             </Link>
@@ -43,7 +44,7 @@ export function ClientDetailPage() {
             >
               {t("clients:delete.confirm")}
             </Button>
-          </>
+          </Write>
         }
       />
       {hasOrders && <p className="mb-3 text-muted">{t("clients:detail.inUse")}</p>}

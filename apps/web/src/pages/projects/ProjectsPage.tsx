@@ -23,6 +23,7 @@ import { PathPicker } from "../../components/PathPicker.tsx";
 import { SettingsLink } from "../../components/SettingsLink.tsx";
 import { TagFilter } from "../../components/TagFilter.tsx";
 import { TagList } from "../../components/TagList.tsx";
+import { Write } from "../../components/Write.tsx";
 import { cx } from "../../lib/cx.ts";
 import { formatDate } from "../../lib/format.ts";
 import { useListPage, useUrlListQuery } from "../../lib/list.ts";
@@ -324,11 +325,11 @@ export function ProjectsPage() {
         title={t("nav:items.projects.label")}
         description={t("nav:items.projects.description")}
         actions={
-          <>
+          <Write>
             {add}
             <AddFolder />
             <SettingsLink module="projects" />
-          </>
+          </Write>
         }
       />
       {isError && (

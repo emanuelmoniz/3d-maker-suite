@@ -8,6 +8,7 @@ import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { DataTable } from "../../components/DataTable.tsx";
 import { EmptyState } from "../../components/EmptyState.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
+import { Write } from "../../components/Write.tsx";
 import { useClients, useDeleteClient } from "../../lib/clients.ts";
 import { useUrlListQuery } from "../../lib/list.ts";
 
@@ -40,7 +41,7 @@ export function ClientsPage() {
       <PageHeader
         title={t("nav:items.clients.label")}
         description={t("nav:items.clients.description")}
-        actions={add}
+        actions={<Write>{add}</Write>}
       />
       {isError && (
         <p role="alert" className="text-bad">
@@ -89,16 +90,18 @@ export function ClientsPage() {
                 id: "actions",
                 header: t("clients:list.columns.actions"),
                 cell: (c) => (
-                  <Button
-                    variant="ghost"
-                    aria-label={t("clients:delete.named", { name: c.name })}
-                    onClick={() => {
-                      del.reset();
-                      setDeleting(c);
-                    }}
-                  >
-                    <Trash2 className="size-4" aria-hidden />
-                  </Button>
+                  <Write>
+                    <Button
+                      variant="ghost"
+                      aria-label={t("clients:delete.named", { name: c.name })}
+                      onClick={() => {
+                        del.reset();
+                        setDeleting(c);
+                      }}
+                    >
+                      <Trash2 className="size-4" aria-hidden />
+                    </Button>
+                  </Write>
                 ),
               },
             ]}

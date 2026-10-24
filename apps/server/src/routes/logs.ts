@@ -12,7 +12,12 @@ import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { listPage } from "../lib/list.ts";
 
-const { logs } = schema;
+const { logs, users } = schema;
+
+/** The user's name while the account exists, else the id the line was written with. */
+const actorName = sql<
+  string | null
+>`coalesce((select ${users.displayName} from ${users} where ${users.id} = ${logs.actor}), ${logs.actor})`;
 
 /** Sorts by severity, not by name. */
 const severity = sql.raw(
@@ -33,13 +38,29 @@ export const logsRoutes =
       async (req) => {
         return listPage(db, logs, req.query, {
           // Lines are inserted as they happen: id is time order, without same-millisecond ties.
-          sort: { time: logs.id, level: severity, module: logs.module, message: logs.message },
+          select: {
+            id: logs.id,
+            time: logs.time,
+            level: logs.level,
+            module: logs.module,
+            actor: actorName,
+            message: logs.message,
+            detail: logs.detail,
+          },
+          sort: {
+            time: logs.id,
+            level: severity,
+            module: logs.module,
+            actor: actorName,
+            message: logs.message,
+          },
           defaultSort: "-time",
           dateColumn: logs.time,
           filters: {
             time: logs.time,
             level: logs.level,
             module: logs.module,
+            actor: actorName,
             message: logs.message,
           },
         });

@@ -2,6 +2,7 @@ import { Link, useParams } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
+import { Write } from "../../components/Write.tsx";
 import { formatNumber } from "../../lib/format.ts";
 import { useAppliesTo, useMaintenanceType, usePatchType } from "../../lib/maintenance.ts";
 import { Info, linkButton } from "../filament/SpoolDetailPage.tsx";
@@ -31,14 +32,14 @@ export function TypeDetailPage() {
         description={type.description ?? undefined}
         backTo={{ to: "/maintenance" }}
         actions={
-          <>
+          <Write>
             <Link to="/maintenance/types/$id/edit" params={{ id }} className={linkButton}>
               {t("maintenance:types.edit")}
             </Link>
             <Button onClick={() => patch.mutate({ id, patch: { archived: !archived } })}>
               {t(archived ? "maintenance:types.restore" : "maintenance:types.archive")}
             </Button>
-          </>
+          </Write>
         }
       />
       {patch.isError && (

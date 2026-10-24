@@ -493,7 +493,7 @@ Do Step 3 of the 4.2.0 plan in PLAN.md.
 Do Step 4 of the 4.2.0 plan in PLAN.md.
 ```
 
-### [ ] Step 5 - Role-aware UI and actor in logs
+### [x] Step 5 - Role-aware UI and actor in logs
 **Model:** Sonnet · **Effort:** Medium
 **Scope:** Hide New / Edit / Delete / Sync / Import actions a role can't use, across every module (`useCan`); admin-only menu items (Settings sections, Logs, Integrations) hidden for others; actor column and filter on the Logs page.
 **Done when:** a viewer and an editor see only what they can do (e2e per role); the actor shows on log rows; tests pass.

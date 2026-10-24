@@ -17,6 +17,7 @@ import { SyncButtons } from "../../components/ImportLinks.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { SettingsLink } from "../../components/SettingsLink.tsx";
 import { TagList } from "../../components/TagList.tsx";
+import { Write } from "../../components/Write.tsx";
 import { useMoney } from "../../lib/cost.ts";
 import { formatDateTime, formatWeight } from "../../lib/format.ts";
 import { useUrlListQuery } from "../../lib/list.ts";
@@ -209,11 +210,11 @@ export function PrintsPage() {
         title={t("nav:items.prints.label")}
         description={t("nav:items.prints.description")}
         actions={
-          <>
+          <Write>
             <SyncButtons cap="prints" />
             {add}
             <SettingsLink module="prints" />
-          </>
+          </Write>
         }
       />
       {isError && (

@@ -4,6 +4,7 @@ import { Plus } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
+import { Write } from "../../components/Write.tsx";
 import { accessoryName, useAccessories } from "../../lib/accessories.ts";
 import { formatDate } from "../../lib/format.ts";
 import { InstallDialog, RemoveDialog } from "./InstallDialogs.tsx";
@@ -21,10 +22,12 @@ export function PrinterAccessories({ printerId }: { printerId: string }) {
     <section className="rounded-lg border border-border bg-surface p-4 sm:p-5">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-base font-semibold">{t("printers:accessories.title")}</h2>
-        <Button onClick={() => setAdding(true)}>
-          <Plus className="size-4" aria-hidden />
-          {t("printers:accessories.onPrinter.install")}
-        </Button>
+        <Write>
+          <Button onClick={() => setAdding(true)}>
+            <Plus className="size-4" aria-hidden />
+            {t("printers:accessories.onPrinter.install")}
+          </Button>
+        </Write>
       </div>
       {installed.length ? (
         <ul className="grid gap-2">
@@ -50,14 +53,16 @@ export function PrinterAccessories({ printerId }: { printerId: string }) {
                   <StateBadge state={a.state} />
                 </p>
               </div>
-              <Button
-                aria-label={t("printers:accessories.onPrinter.removeLabel", {
-                  name: accessoryName(t, a),
-                })}
-                onClick={() => setRemoving(a)}
-              >
-                {t("printers:accessories.onPrinter.remove")}
-              </Button>
+              <Write>
+                <Button
+                  aria-label={t("printers:accessories.onPrinter.removeLabel", {
+                    name: accessoryName(t, a),
+                  })}
+                  onClick={() => setRemoving(a)}
+                >
+                  {t("printers:accessories.onPrinter.remove")}
+                </Button>
+              </Write>
             </li>
           ))}
         </ul>

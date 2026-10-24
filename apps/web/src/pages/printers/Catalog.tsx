@@ -15,6 +15,8 @@ import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { type Column, DataTable } from "../../components/DataTable.tsx";
 import { ImportLinks } from "../../components/ImportLinks.tsx";
+import { Write } from "../../components/Write.tsx";
+import { useCan } from "../../lib/auth.ts";
 import {
   type CatalogKind,
   imageUrl,
@@ -55,10 +57,12 @@ export function Section<T extends { id: string }>(props: {
         <h2 className="text-base font-semibold">{props.title}</h2>
         <span className="flex flex-wrap gap-2">
           {props.extra}
-          <Link to={props.add.to} className={addClass}>
-            <Plus className="size-4" aria-hidden />
-            {props.add.label}
-          </Link>
+          <Write>
+            <Link to={props.add.to} className={addClass}>
+              <Plus className="size-4" aria-hidden />
+              {props.add.label}
+            </Link>
+          </Write>
         </span>
       </div>
       {isError && (
@@ -79,10 +83,21 @@ export function Section<T extends { id: string }>(props: {
   );
 }
 
+/** Name cell: a link to the edit form, or plain text for roles that can't edit. */
+function EditLink({ to, id, children }: { to: string; id: string; children: ReactNode }) {
+  return useCan("write") ? (
+    <Link to={to} params={{ id }} className="gap-2 font-medium hover:underline">
+      {children}
+    </Link>
+  ) : (
+    <span className="inline-flex gap-2">{children}</span>
+  );
+}
+
 export const editLink = (to: string, id: string, children: ReactNode) => (
-  <Link to={to} params={{ id }} className="gap-2 font-medium hover:underline">
+  <EditLink to={to} id={id}>
     {children}
-  </Link>
+  </EditLink>
 );
 
 /** Brands, printer models, machine profiles and print profiles, below the printers table. */

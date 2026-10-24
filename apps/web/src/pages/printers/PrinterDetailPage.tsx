@@ -7,6 +7,7 @@ import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { type DateRange, DateRangePicker } from "../../components/DateRangePicker.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { StatCard } from "../../components/StatCard.tsx";
+import { Write } from "../../components/Write.tsx";
 import { imageUrl, isConflict, useModelInfo } from "../../lib/catalog.ts";
 import {
   formatCurrency,
@@ -73,26 +74,28 @@ export function Photo({
           </span>
         </div>
       )}
-      <div className="flex flex-wrap gap-2">
-        <label className={`${linkButton} cursor-pointer focus-within:outline-2`}>
-          {t("printers:detail.photo.upload")}
-          <input
-            type="file"
-            accept="image/png,image/jpeg,image/webp"
-            className="sr-only"
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) onUpload(file);
-              e.target.value = "";
-            }}
-          />
-        </label>
-        {own && (
-          <Button variant="ghost" onClick={onRemove}>
-            {t("printers:detail.photo.remove")}
-          </Button>
-        )}
-      </div>
+      <Write>
+        <div className="flex flex-wrap gap-2">
+          <label className={`${linkButton} cursor-pointer focus-within:outline-2`}>
+            {t("printers:detail.photo.upload")}
+            <input
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              className="sr-only"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) onUpload(file);
+                e.target.value = "";
+              }}
+            />
+          </label>
+          {own && (
+            <Button variant="ghost" onClick={onRemove}>
+              {t("printers:detail.photo.remove")}
+            </Button>
+          )}
+        </div>
+      </Write>
     </div>
   );
 }
@@ -138,7 +141,7 @@ export function PrinterDetailPage() {
         backTo={{ to: "/printers" }}
         description={model?.label}
         actions={
-          <>
+          <Write>
             <Link to="/printers/$id/edit" params={{ id }} className={linkButton}>
               {t("printers:detail.edit")}
             </Link>
@@ -151,7 +154,7 @@ export function PrinterDetailPage() {
                 {t("printers:detail.archive")}
               </Button>
             )}
-          </>
+          </Write>
         }
       />
       <ConfirmDialog

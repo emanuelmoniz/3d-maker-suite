@@ -18,7 +18,9 @@ import { Collapsible } from "../../components/Collapsible.tsx";
 import { Combobox } from "../../components/Combobox.tsx";
 import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
+import { Write } from "../../components/Write.tsx";
 import { ApiError } from "../../lib/api.ts";
+import { useCan } from "../../lib/auth.ts";
 import { formatSize } from "../../lib/format.ts";
 import {
   uploadProjectFile,
@@ -121,13 +123,15 @@ function Row({ entry, depth, ctx }: { entry: ProjectFileEntry; depth: number; ct
         style={{ paddingLeft: `${0.5 + depth * 1.25}rem` }}
         className={`flex flex-wrap items-center gap-x-2 py-1 pr-2 ${over ? "bg-surface-2 outline outline-accent" : ""}`}
       >
-        <input
-          type="checkbox"
-          className="size-5 shrink-0 accent-accent"
-          aria-label={t("projects:files.select", n)}
-          checked={ctx.selected.has(entry.path)}
-          onChange={() => ctx.toggle(entry.path)}
-        />
+        <Write>
+          <input
+            type="checkbox"
+            className="size-5 shrink-0 accent-accent"
+            aria-label={t("projects:files.select", n)}
+            checked={ctx.selected.has(entry.path)}
+            onChange={() => ctx.toggle(entry.path)}
+          />
+        </Write>
         {dir ? (
           <button
             type="button"
@@ -150,49 +154,51 @@ function Row({ entry, depth, ctx }: { entry: ProjectFileEntry; depth: number; ct
             <span className="shrink-0 text-muted">{formatSize(entry.size)}</span>
           </span>
         )}
-        <span className="flex shrink-0 gap-1">
-          {dir ? (
-            <>
+        <Write>
+          <span className="flex shrink-0 gap-1">
+            {dir ? (
+              <>
+                <IconButton
+                  label={t("projects:files.uploadTo", n)}
+                  onClick={() => upload.current?.click()}
+                >
+                  <Upload className="size-4" aria-hidden />
+                </IconButton>
+                <IconButton
+                  label={t("projects:files.newFolderIn", n)}
+                  onClick={() => ctx.ask({ kind: "folder", dir: entry.path })}
+                >
+                  <FolderPlus className="size-4" aria-hidden />
+                </IconButton>
+              </>
+            ) : (
               <IconButton
-                label={t("projects:files.uploadTo", n)}
-                onClick={() => upload.current?.click()}
+                label={t("projects:files.replace", n)}
+                onClick={() => replace.current?.click()}
               >
-                <Upload className="size-4" aria-hidden />
+                <RefreshCw className="size-4" aria-hidden />
               </IconButton>
-              <IconButton
-                label={t("projects:files.newFolderIn", n)}
-                onClick={() => ctx.ask({ kind: "folder", dir: entry.path })}
-              >
-                <FolderPlus className="size-4" aria-hidden />
-              </IconButton>
-            </>
-          ) : (
+            )}
             <IconButton
-              label={t("projects:files.replace", n)}
-              onClick={() => replace.current?.click()}
+              label={t("projects:files.rename", n)}
+              onClick={() => ctx.ask({ kind: "rename", entry })}
             >
-              <RefreshCw className="size-4" aria-hidden />
+              <Pencil className="size-4" aria-hidden />
             </IconButton>
-          )}
-          <IconButton
-            label={t("projects:files.rename", n)}
-            onClick={() => ctx.ask({ kind: "rename", entry })}
-          >
-            <Pencil className="size-4" aria-hidden />
-          </IconButton>
-          <IconButton
-            label={t("projects:files.move", n)}
-            onClick={() => ctx.ask({ kind: "move", entry })}
-          >
-            <FolderInput className="size-4" aria-hidden />
-          </IconButton>
-          <IconButton
-            label={t("projects:files.delete", n)}
-            onClick={() => ctx.ask({ kind: "delete", entry })}
-          >
-            <Trash2 className="size-4" aria-hidden />
-          </IconButton>
-        </span>
+            <IconButton
+              label={t("projects:files.move", n)}
+              onClick={() => ctx.ask({ kind: "move", entry })}
+            >
+              <FolderInput className="size-4" aria-hidden />
+            </IconButton>
+            <IconButton
+              label={t("projects:files.delete", n)}
+              onClick={() => ctx.ask({ kind: "delete", entry })}
+            >
+              <Trash2 className="size-4" aria-hidden />
+            </IconButton>
+          </span>
+        </Write>
         {dir ? (
           <FilePick inputRef={upload} multiple onFiles={(f) => ctx.onFiles(entry.path, f)} />
         ) : (
@@ -276,7 +282,9 @@ export function ProjectFiles({ project }: { project: Project }) {
       setUploads((u) => u.filter((x) => x.key !== key));
     }
   };
+  const canWrite = useCan("write");
   const onFiles = async (dir: string, files: FileList | File[]) => {
+    if (!canWrite) return;
     setFailed(null);
     for (const f of Array.from(files)) await send(join(dir, f.name), f, false);
     actions.done();
@@ -404,20 +412,22 @@ export function ProjectFiles({ project }: { project: Project }) {
         onFiles("", e.dataTransfer.files);
       }}
     >
-      <div className="mb-2 flex flex-wrap items-center justify-end gap-2">
-        <div className="flex gap-2">
-          <Button onClick={() => picker.current?.click()}>
-            <Upload className="size-4" aria-hidden />
-            {t("projects:files.upload")}
-          </Button>
-          <Button onClick={() => open({ kind: "folder", dir: "" })}>
-            <FolderPlus className="size-4" aria-hidden />
-            {t("projects:files.newFolder")}
-          </Button>
+      <Write>
+        <div className="mb-2 flex flex-wrap items-center justify-end gap-2">
+          <div className="flex gap-2">
+            <Button onClick={() => picker.current?.click()}>
+              <Upload className="size-4" aria-hidden />
+              {t("projects:files.upload")}
+            </Button>
+            <Button onClick={() => open({ kind: "folder", dir: "" })}>
+              <FolderPlus className="size-4" aria-hidden />
+              {t("projects:files.newFolder")}
+            </Button>
+          </div>
+          <FilePick inputRef={picker} multiple onFiles={(f) => onFiles("", f)} />
         </div>
-        <FilePick inputRef={picker} multiple onFiles={(f) => onFiles("", f)} />
-      </div>
-      <p className="mb-2 text-muted">{t("projects:files.dropHint")}</p>
+        <p className="mb-2 text-muted">{t("projects:files.dropHint")}</p>
+      </Write>
       {uploads.length > 0 && (
         <ul className="mb-2 grid gap-2" aria-live="polite">
           {uploads.map((u) => (
@@ -441,32 +451,37 @@ export function ProjectFiles({ project }: { project: Project }) {
           {failed}
         </p>
       )}
-      <div className="mb-2 flex flex-wrap items-center gap-2">
-        <label className="mr-auto flex min-h-9 items-center gap-2">
-          <input
-            type="checkbox"
-            className="size-5 accent-accent"
-            checked={allSelected}
-            disabled={!top.length}
-            onChange={toggleAll}
-          />
-          {t("projects:files.selectAll")}
-        </label>
-        <span className="text-muted" aria-live="polite">
-          {t("projects:files.selected", { count: picked.length })}
-        </span>
-        <Button disabled={!picked.length} onClick={() => open({ kind: "bulkMove", paths: picked })}>
-          <FolderInput className="size-4" aria-hidden />
-          {t("projects:files.bulkMove")}
-        </Button>
-        <Button
-          disabled={!picked.length}
-          onClick={() => open({ kind: "bulkDelete", paths: picked })}
-        >
-          <Trash2 className="size-4" aria-hidden />
-          {t("projects:files.bulkDelete")}
-        </Button>
-      </div>
+      <Write>
+        <div className="mb-2 flex flex-wrap items-center gap-2">
+          <label className="mr-auto flex min-h-9 items-center gap-2">
+            <input
+              type="checkbox"
+              className="size-5 accent-accent"
+              checked={allSelected}
+              disabled={!top.length}
+              onChange={toggleAll}
+            />
+            {t("projects:files.selectAll")}
+          </label>
+          <span className="text-muted" aria-live="polite">
+            {t("projects:files.selected", { count: picked.length })}
+          </span>
+          <Button
+            disabled={!picked.length}
+            onClick={() => open({ kind: "bulkMove", paths: picked })}
+          >
+            <FolderInput className="size-4" aria-hidden />
+            {t("projects:files.bulkMove")}
+          </Button>
+          <Button
+            disabled={!picked.length}
+            onClick={() => open({ kind: "bulkDelete", paths: picked })}
+          >
+            <Trash2 className="size-4" aria-hidden />
+            {t("projects:files.bulkDelete")}
+          </Button>
+        </div>
+      </Write>
       <div className="rounded-lg border border-border bg-surface">
         <Children
           path=""

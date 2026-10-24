@@ -16,6 +16,7 @@ import { SyncButtons } from "../../components/ImportLinks.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { SettingsLink } from "../../components/SettingsLink.tsx";
 import { TagList } from "../../components/TagList.tsx";
+import { Write } from "../../components/Write.tsx";
 import { api } from "../../lib/api.ts";
 import { spoolName, useProfiles } from "../../lib/filament.ts";
 import { formatCurrency, formatWeight } from "../../lib/format.ts";
@@ -32,10 +33,12 @@ const addClass =
   "inline-flex h-9 items-center gap-2 whitespace-nowrap rounded-md bg-accent px-3 font-medium text-accent-fg hover:opacity-90";
 
 const AddLink = ({ to, children }: { to: string; children: string }) => (
-  <Link to={to} className={addClass}>
-    <Plus className="size-4" aria-hidden />
-    {children}
-  </Link>
+  <Write>
+    <Link to={to} className={addClass}>
+      <Plus className="size-4" aria-hidden />
+      {children}
+    </Link>
+  </Write>
 );
 
 export function Swatch({ hex }: { hex: string }) {
@@ -86,7 +89,11 @@ export function FilamentPage() {
       <PageHeader
         title={t("nav:items.filament.label")}
         description={t("nav:items.filament.description")}
-        actions={<SettingsLink module="filament" />}
+        actions={
+          <Write>
+            <SettingsLink module="filament" />
+          </Write>
+        }
       />
       {spools.isError && (
         <p role="alert" className="text-bad">

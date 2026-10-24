@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
 import { DataTable } from "../../components/DataTable.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
+import { Write } from "../../components/Write.tsx";
 import { filamentLabel, usePatchProfile, useProfile } from "../../lib/filament.ts";
 import { formatCurrency, formatNumber, formatWeight } from "../../lib/format.ts";
 import { useListPage, useUrlListQuery } from "../../lib/list.ts";
@@ -41,14 +42,14 @@ export function ProfileDetailPage() {
         title={filamentLabel(profile)}
         backTo={{ to: "/filament/settings" }}
         actions={
-          <>
+          <Write>
             <Link to="/filament/profiles/$id/edit" params={{ id }} className={linkButton}>
               {t("filament:detail.edit")}
             </Link>
             <Button onClick={() => patch.mutate({ id, patch: { archived: !archived } })}>
               {t(archived ? "filament:detail.restore" : "filament:profiles.archive")}
             </Button>
-          </>
+          </Write>
         }
       />
       {patch.isError && (

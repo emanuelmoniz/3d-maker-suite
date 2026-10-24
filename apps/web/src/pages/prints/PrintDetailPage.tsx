@@ -7,6 +7,7 @@ import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { CostBreakdown } from "../../components/CostBreakdown.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { TagList } from "../../components/TagList.tsx";
+import { Write } from "../../components/Write.tsx";
 import { useCatalogItem } from "../../lib/catalog.ts";
 import { spoolName, useProfile, useSpool } from "../../lib/filament.ts";
 import { formatDateTime, formatNumber, formatWeight } from "../../lib/format.ts";
@@ -122,14 +123,14 @@ export function PrintDetailPage() {
         description={formatDateTime(print.startedAt)}
         backTo={{ to: "/prints" }}
         actions={
-          <>
+          <Write>
             <Link to="/prints/$id/edit" params={{ id }} className={linkButton}>
               {t("prints:detail.edit")}
             </Link>
             <Button className="text-bad" onClick={() => setDeleting(true)}>
               {t("prints:detail.delete")}
             </Button>
-          </>
+          </Write>
         }
       />
       <div className="grid gap-6 lg:grid-cols-2">

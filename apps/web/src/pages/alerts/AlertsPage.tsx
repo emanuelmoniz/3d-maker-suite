@@ -19,6 +19,7 @@ import { DataTable } from "../../components/DataTable.tsx";
 import { EmptyState } from "../../components/EmptyState.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { SettingsLink } from "../../components/SettingsLink.tsx";
+import { Write } from "../../components/Write.tsx";
 import {
   needsAttention,
   useAlertAction,
@@ -243,7 +244,7 @@ export function AlertButtons({
     </Button>
   );
   return (
-    <>
+    <Write>
       {snoozed ? (
         <Button onClick={() => run("unsnooze")}>{t("alerts:removeSnooze")}</Button>
       ) : (
@@ -257,7 +258,7 @@ export function AlertButtons({
       <Button variant="ghost" onClick={() => run("dismiss")}>
         {t("alerts:dismiss")}
       </Button>
-    </>
+    </Write>
   );
 }
 
@@ -409,9 +410,11 @@ function History() {
               header: "",
               cell: (a) =>
                 a.status === "snoozed" ? (
-                  <Button onClick={() => act.mutate({ id: a.id, action: "unsnooze" })}>
-                    {t("alerts:removeSnooze")}
-                  </Button>
+                  <Write>
+                    <Button onClick={() => act.mutate({ id: a.id, action: "unsnooze" })}>
+                      {t("alerts:removeSnooze")}
+                    </Button>
+                  </Write>
                 ) : null,
             },
           ]}
@@ -431,7 +434,11 @@ export function AlertsPage() {
       <PageHeader
         title={t("nav:items.alerts.label")}
         description={t("nav:items.alerts.description")}
-        actions={<SettingsLink module="alerts" />}
+        actions={
+          <Write>
+            <SettingsLink module="alerts" />
+          </Write>
+        }
       />
       {data && !active.length && (
         <div className="mb-6">

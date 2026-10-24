@@ -5,7 +5,9 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
+import { Write } from "../../components/Write.tsx";
 import { useAlertAction, useAlertDetail, useEvaluateAlerts } from "../../lib/alerts.ts";
+import { useCan } from "../../lib/auth.ts";
 import { formatDateTime, formatWeight } from "../../lib/format.ts";
 import { useDue } from "../../lib/maintenance.ts";
 import { LogDialog } from "../maintenance/MaintenancePage.tsx";
@@ -49,11 +51,12 @@ export function AlertDetailPage() {
   // Opening an alert reads it, once: marking it unread afterwards must stick.
   const act = useAlertAction();
   const opened = useRef<string>(undefined);
+  const canWrite = useCan("write");
   useEffect(() => {
-    if (!a || opened.current === a.id) return;
+    if (!a || !canWrite || opened.current === a.id) return;
     opened.current = a.id;
     if (!a.readAt && !a.resolvedAt && !a.dismissedAt) act.mutate({ id: a.id, action: "read" });
-  }, [a, act.mutate]);
+  }, [a, canWrite, act.mutate]);
   const header = <PageHeader title={t("alerts:view.title")} backTo={{ to: "/alerts" }} />;
   if (isError) {
     return (
@@ -146,7 +149,11 @@ export function AlertDetailPage() {
                 {t("alerts:view.viewTask")}
               </Link>
             )}
-            {item && <Button onClick={() => setLogging(true)}>{t("alerts:view.markDone")}</Button>}
+            {item && (
+              <Write>
+                <Button onClick={() => setLogging(true)}>{t("alerts:view.markDone")}</Button>
+              </Write>
+            )}
             {a.kind === "sync_pending" && (
               <Link
                 to="/import/$source/$id/$type"
@@ -192,11 +199,13 @@ export function AlertDetailPage() {
           </div>
         )}
         {a.dismissedAt && !a.resolvedAt && (
-          <div>
-            <Button onClick={() => act.mutate({ id: a.id, action: "undismiss" })}>
-              {t("alerts:view.undismiss")}
-            </Button>
-          </div>
+          <Write>
+            <div>
+              <Button onClick={() => act.mutate({ id: a.id, action: "undismiss" })}>
+                {t("alerts:view.undismiss")}
+              </Button>
+            </div>
+          </Write>
         )}
       </section>
       <LogDialog

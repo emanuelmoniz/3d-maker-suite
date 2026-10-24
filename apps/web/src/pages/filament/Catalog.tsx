@@ -10,6 +10,7 @@ import { Plus } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { DataTable } from "../../components/DataTable.tsx";
 import { ImportLinks } from "../../components/ImportLinks.tsx";
+import { Write } from "../../components/Write.tsx";
 import { imageUrl, useFilamentBrands, useFilamentMaterials } from "../../lib/catalog.ts";
 import { filamentLabel } from "../../lib/filament.ts";
 import { formatCurrency } from "../../lib/format.ts";
@@ -121,10 +122,12 @@ export function FilamentProfiles() {
           <h2 className="text-base font-semibold">{t("filament:profiles.title")}</h2>
           <span className="flex flex-wrap gap-2">
             <ImportLinks cap="filamentProfiles" text="filament:library.link" />
-            <Link to="/filament/profiles/new" className={addClass}>
-              <Plus className="size-4" aria-hidden />
-              {t("filament:profiles.add")}
-            </Link>
+            <Write>
+              <Link to="/filament/profiles/new" className={addClass}>
+                <Plus className="size-4" aria-hidden />
+                {t("filament:profiles.add")}
+              </Link>
+            </Write>
           </span>
         </div>
         {profiles.data && (

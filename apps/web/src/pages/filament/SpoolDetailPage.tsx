@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { TagList } from "../../components/TagList.tsx";
+import { Write } from "../../components/Write.tsx";
 import {
   filamentLabel,
   spoolName,
@@ -103,7 +104,7 @@ export function SpoolDetailPage() {
         description={t(STATUS[spool.status])}
         backTo={{ to: "/filament" }}
         actions={
-          <>
+          <Write>
             <Link to="/filament/spools/$id/edit" params={{ id }} className={linkButton}>
               {t("filament:detail.edit")}
             </Link>
@@ -111,7 +112,7 @@ export function SpoolDetailPage() {
             <Button onClick={() => patch.mutate({ id, patch: { archived: !archived } })}>
               {t(archived ? "filament:detail.restore" : "filament:spools.archive")}
             </Button>
-          </>
+          </Write>
         }
       />
       {patch.isError && (

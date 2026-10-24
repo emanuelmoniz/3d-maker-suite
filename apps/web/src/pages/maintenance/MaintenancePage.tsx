@@ -13,6 +13,7 @@ import { DateInput } from "../../components/DateInput.tsx";
 import { EmptyState } from "../../components/EmptyState.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
+import { Write } from "../../components/Write.tsx";
 import { dateInputToIso, formatDate, formatDuration, formatNumber } from "../../lib/format.ts";
 import { useListPage, useUrlListQuery } from "../../lib/list.ts";
 import { useAppliesTo, useDue, useLogDone } from "../../lib/maintenance.ts";
@@ -264,7 +265,11 @@ export function MaintenancePage() {
                     id: "action",
                     header: "",
                     cell: (i) => (
-                      <Button onClick={() => setLogging(i)}>{t("maintenance:due.logDone")}</Button>
+                      <Write>
+                        <Button onClick={() => setLogging(i)}>
+                          {t("maintenance:due.logDone")}
+                        </Button>
+                      </Write>
                     ),
                   },
                 ]}

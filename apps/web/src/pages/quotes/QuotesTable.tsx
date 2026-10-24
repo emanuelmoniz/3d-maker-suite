@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
 import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { DataTable } from "../../components/DataTable.tsx";
+import { Write } from "../../components/Write.tsx";
 import { useClients } from "../../lib/clients.ts";
 import { quoteName, useDeleteQuote, useMoney, useQuotes } from "../../lib/cost.ts";
 import { formatDate } from "../../lib/format.ts";
@@ -128,13 +129,15 @@ export function QuotesTable({
           id: "actions",
           header: t("costs:saved.columns.actions"),
           cell: (q) => (
-            <Button
-              variant="ghost"
-              aria-label={t("costs:saved.deleteNamed", { name: quoteName(t, q) })}
-              onClick={() => setDeleting(q)}
-            >
-              <Trash2 className="size-4" aria-hidden />
-            </Button>
+            <Write>
+              <Button
+                variant="ghost"
+                aria-label={t("costs:saved.deleteNamed", { name: quoteName(t, q) })}
+                onClick={() => setDeleting(q)}
+              >
+                <Trash2 className="size-4" aria-hidden />
+              </Button>
+            </Write>
           ),
         },
       ]}

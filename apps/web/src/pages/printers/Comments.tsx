@@ -2,6 +2,7 @@ import { CircleCheck, Pin, PinOff, RotateCcw, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
+import { Write } from "../../components/Write.tsx";
 import { cx } from "../../lib/cx.ts";
 import { formatDateTime } from "../../lib/format.ts";
 import {
@@ -52,36 +53,38 @@ export function Comments({ base }: { base: string }) {
             )}
           </p>
         </div>
-        <div className="flex shrink-0 gap-1">
-          <Button
-            variant="ghost"
-            className="size-9 px-0"
-            title={c.pinned ? t("printers:comments.unpin") : t("printers:comments.pin")}
-            aria-label={c.pinned ? t("printers:comments.unpin") : t("printers:comments.pin")}
-            aria-pressed={c.pinned}
-            onClick={() => toggle({ pinned: !c.pinned })}
-          >
-            {c.pinned ? <PinOff className="size-4" /> : <Pin className="size-4" />}
-          </Button>
-          <Button
-            variant="ghost"
-            className="size-9 px-0"
-            title={resolved ? t("printers:comments.reopen") : t("printers:comments.resolve")}
-            aria-label={resolved ? t("printers:comments.reopen") : t("printers:comments.resolve")}
-            onClick={() => toggle({ status: resolved ? "open" : "resolved" })}
-          >
-            {resolved ? <RotateCcw className="size-4" /> : <CircleCheck className="size-4" />}
-          </Button>
-          <Button
-            variant="ghost"
-            className="size-9 px-0"
-            title={t("printers:comments.delete")}
-            aria-label={t("printers:comments.delete")}
-            onClick={() => remove.mutate(c.id)}
-          >
-            <Trash2 className="size-4" />
-          </Button>
-        </div>
+        <Write>
+          <div className="flex shrink-0 gap-1">
+            <Button
+              variant="ghost"
+              className="size-9 px-0"
+              title={c.pinned ? t("printers:comments.unpin") : t("printers:comments.pin")}
+              aria-label={c.pinned ? t("printers:comments.unpin") : t("printers:comments.pin")}
+              aria-pressed={c.pinned}
+              onClick={() => toggle({ pinned: !c.pinned })}
+            >
+              {c.pinned ? <PinOff className="size-4" /> : <Pin className="size-4" />}
+            </Button>
+            <Button
+              variant="ghost"
+              className="size-9 px-0"
+              title={resolved ? t("printers:comments.reopen") : t("printers:comments.resolve")}
+              aria-label={resolved ? t("printers:comments.reopen") : t("printers:comments.resolve")}
+              onClick={() => toggle({ status: resolved ? "open" : "resolved" })}
+            >
+              {resolved ? <RotateCcw className="size-4" /> : <CircleCheck className="size-4" />}
+            </Button>
+            <Button
+              variant="ghost"
+              className="size-9 px-0"
+              title={t("printers:comments.delete")}
+              aria-label={t("printers:comments.delete")}
+              onClick={() => remove.mutate(c.id)}
+            >
+              <Trash2 className="size-4" />
+            </Button>
+          </div>
+        </Write>
       </li>
     );
   };
@@ -89,30 +92,32 @@ export function Comments({ base }: { base: string }) {
   return (
     <section className="rounded-lg border border-border bg-surface-2/40 p-4 sm:p-5">
       <h2 className="mb-4 text-base font-semibold">{t("printers:comments.title")}</h2>
-      <form
-        className="mb-4 grid gap-2 sm:max-w-xl"
-        onSubmit={(e) => {
-          e.preventDefault();
-          const form = e.currentTarget;
-          const body = String(new FormData(form).get("body") ?? "").trim();
-          if (body) add.mutate({ body, pinned: false }, { onSuccess: () => form.reset() });
-        }}
-      >
-        <FormField label={t("printers:comments.label")}>
-          {(p) => (
-            <textarea
-              {...p}
-              name="body"
-              required
-              className={`${inputClass} h-20 py-2`}
-              placeholder={t("printers:comments.placeholder")}
-            />
-          )}
-        </FormField>
-        <Button type="submit" variant="primary" className="w-fit" disabled={add.isPending}>
-          {t("printers:comments.add")}
-        </Button>
-      </form>
+      <Write>
+        <form
+          className="mb-4 grid gap-2 sm:max-w-xl"
+          onSubmit={(e) => {
+            e.preventDefault();
+            const form = e.currentTarget;
+            const body = String(new FormData(form).get("body") ?? "").trim();
+            if (body) add.mutate({ body, pinned: false }, { onSuccess: () => form.reset() });
+          }}
+        >
+          <FormField label={t("printers:comments.label")}>
+            {(p) => (
+              <textarea
+                {...p}
+                name="body"
+                required
+                className={`${inputClass} h-20 py-2`}
+                placeholder={t("printers:comments.placeholder")}
+              />
+            )}
+          </FormField>
+          <Button type="submit" variant="primary" className="w-fit" disabled={add.isPending}>
+            {t("printers:comments.add")}
+          </Button>
+        </form>
+      </Write>
       {failed && (
         <p role="alert" className="mb-3 text-bad">
           {t("printers:comments.error")}

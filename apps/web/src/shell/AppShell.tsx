@@ -6,7 +6,7 @@ import { Trans, useTranslation } from "react-i18next";
 import { Menu } from "../components/Menu.tsx";
 import { unreadCount, useAlertAction, useAlerts } from "../lib/alerts.ts";
 import { FORBIDDEN_EVENT } from "../lib/api.ts";
-import { useMe, useSignOut } from "../lib/auth.ts";
+import { useCan, useMe, useSignOut } from "../lib/auth.ts";
 import { useApplyBranding, useAppName, useBrandingUrl } from "../lib/branding.ts";
 import { cx } from "../lib/cx.ts";
 import { setDateTimePrefs } from "../lib/format.ts";
@@ -202,12 +202,16 @@ function SheetUser({ onNavigate }: { onNavigate: () => void }) {
   );
 }
 
-/** The Logs item is in the menu only while logging is on. */
-const useLogsShown = () => !!usePreferences().data?.values.logActive;
+/** The Logs item is in the menu only while logging is on, and only for admins. */
+const useLogsShown = () => {
+  const on = !!usePreferences().data?.values.logActive;
+  return useCan("admin") && on;
+};
 
 function Sidebar() {
   const { t } = useTranslation();
   const logsShown = useLogsShown();
+  const admin = useCan("admin");
   return (
     <aside className="sticky top-0 hidden h-dvh w-14 shrink-0 flex-col border-r border-border bg-surface md:flex lg:w-56">
       <div className="flex h-14 items-center px-3 lg:px-4">
@@ -226,8 +230,8 @@ function Sidebar() {
         ))}
       </nav>
       <div className="flex flex-col gap-0.5 border-t border-border p-2">
-        <SideLink item={IMPORT_ITEM} />
-        <SideLink item={INTEGRATIONS_ITEM} />
+        {admin && <SideLink item={IMPORT_ITEM} />}
+        {admin && <SideLink item={INTEGRATIONS_ITEM} />}
         {logsShown && <SideLink item={LOGS_ITEM} />}
         <SideLink item={SETTINGS_ITEM} />
         <UserMenu />
@@ -274,7 +278,13 @@ function BottomNav() {
   const sheet = useRef<HTMLDialogElement>(null);
   const primary = ALL_ITEMS.filter((i) => i.primary);
   const logsShown = useLogsShown();
-  const more = ALL_ITEMS.filter((i) => !i.primary && (logsShown || i !== LOGS_ITEM));
+  const admin = useCan("admin");
+  const more = ALL_ITEMS.filter(
+    (i) =>
+      !i.primary &&
+      (logsShown || i !== LOGS_ITEM) &&
+      (admin || ![IMPORT_ITEM, INTEGRATIONS_ITEM].includes(i)),
+  );
   const tab =
     "flex flex-1 flex-col items-center justify-center gap-0.5 text-xs text-muted data-[status=active]:text-accent";
   return (
