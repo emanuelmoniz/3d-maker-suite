@@ -519,10 +519,13 @@ Design (refines ADR-0012):
 - Alerts: every user gets every alert. Read/unread, snooze and dismiss are per user (`alert_states`: alert, user, readAt, snoozedUntil, dismissedAt); no-users mode keeps today's columns. Channel sending (`notifiedAt`) and resolving stay global. Viewers may `PATCH /api/alerts/:id`; call-to-action buttons (sync, review) are for editors with the matching permission, and admins.
 - Integrations: two flags per integration × type on `sync_policies`, default off: `editorSync` ("Allow editor to sync") and `editorReview` ("Allow editor to review and import"). An editor sees the Integrations page with only the tasks a flag allows (Sync now / Review), never config, credentials or policies. The server checks the flag per route; everything else under `/api/integrations` and `/api/import` stays admin-only.
 
-### [ ] Step 7 - Bug: "Your role doesn't allow that" on every page
-**Model:** Sonnet · **Effort:** Low
-**Scope:** The banner fires on any 403, including background GETs for admin-only prefixes. Fire `FORBIDDEN_EVENT` only for writes (non-GET) in `api.ts`; give admin-only queries (server config, updates, backups, logs, alert channels, users) `enabled: canAdmin` so they never run for editors and viewers.
-**Done when:** an editor and a viewer browse every page with no banner and no 403 in the network tab; a blocked write still shows it; e2e per role; tests pass.
+### [ ] Step 7 - Fixes: role banner on every page, project prints table
+**Model:** Sonnet · **Effort:** Medium
+**Scope:**
+- Bug: "Your role doesn't allow that" shows on every page for editors and viewers. The banner fires on any 403, including background GETs for admin-only prefixes. Fire `FORBIDDEN_EVENT` only for writes (non-GET) in `api.ts`; give admin-only queries (server config, updates, backups, logs, alert channels, users) `enabled: canAdmin` so they never run for editors and viewers.
+- Project page prints table: reuse the Prints page table (same columns minus Project, same filters, same page size and pagination), filtered server-side by the project.
+
+**Done when:** an editor and a viewer browse every page with no banner and no 403 in the network tab; a blocked write still shows it; the project prints table matches the Prints page and pages through a project with many prints; e2e; tests pass.
 **Prompt:**
 ```
 Do Step 7 of the 4.2.0 plan in PLAN.md. List every query that 403s for a viewer first.
@@ -530,8 +533,8 @@ Do Step 7 of the 4.2.0 plan in PLAN.md. List every query that 403s for a viewer 
 
 ### [ ] Step 8 - Admin-only settings and global Branding
 **Model:** Sonnet · **Effort:** Medium
-**Scope:** Settings: move app name, logo and favicon out of Appearance into an admin-only **Branding** section with a hint that it applies to everyone; Server, Backup, Logs, About & updates and the header server actions hidden for non-admins (`useCan("admin")`). Server already rejects these writes; add the missing cases to the role-matrix test. Re-run `pnpm screenshots` if the settings screenshot changes.
-**Done when:** a viewer and an editor see only General (display keys), Appearance (theme, accent) and Account; an admin sees Branding separately; e2e per role; i18n:check passes; tests pass.
+**Scope:** Settings: move app name, logo and favicon out of Appearance into an admin-only **Branding** section with a hint that it applies to everyone; Server, Backup, Logs, About & updates and the header server actions hidden for non-admins (`useCan("admin")`). Server already rejects these writes; add the missing cases to the role-matrix test. Stop/restart: drop the inline "server stopped" hint that wraps the header buttons; show a shell banner instead, like the update-available one, saying the server is stopped or restarting. Re-run `pnpm screenshots` if the settings screenshot changes.
+**Done when:** a viewer and an editor see only General (display keys), Appearance (theme, accent) and Account; an admin sees Branding separately; stopping the server keeps the header buttons in place and shows the banner; e2e per role; i18n:check passes; tests pass.
 **Prompt:**
 ```
 Do Step 8 of the 4.2.0 plan in PLAN.md.
