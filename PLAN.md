@@ -450,13 +450,13 @@ fast-forward main to dev, push, push the v4.1.1 tag and confirm the release and 
 ## Phase 6 - Users and roles
 
 Design (fixed roles):
-- Tables: `users` (email unique, display name, scrypt hash via `node:crypto`, role `admin | editor | viewer`, disabled, created/last login), `sessions` (sha256 of the token, user, expiry), `logs.actor`.
+- Tables: `users` (email unique, display name, scrypt hash via `node:crypto`, role `admin | editor | viewer`, disabled, created/last login), `sessions` (sha256 of the token, user, expiry), `user_settings` (per-user display preferences), `logs.actor`.
 - Session: httpOnly, SameSite=Lax cookie, parsed/set with a few lines in `lib/session.ts` (no new dependency).
 - Modes: no users = today's behaviour (loopback/host guard + `APP_PASSWORD` Basic). First run: `POST /api/auth/setup` creates the admin, allowed from loopback, with `APP_PASSWORD`, or with a one-time setup token printed to the console at boot (Docker: `docker logs`). Once an admin exists, `APP_PASSWORD` is ignored with a warning.
-- Permissions: one `onRequest` hook replaces `accessGuard`. Viewer: GET/HEAD only. Editor: everything except admin prefixes (users, server-config, updates, backups, integrations, slicer zip, import, logs, branding, API docs, admin preference keys like roots, update channel, logs). Admin: everything. Its own prefix set in `lib/auth.ts` (`moduleOf()` mixes fs/updates/logs under "system").
+- Permissions: see the role × prefix table and preference keys in ADR-0012 (default-deny, display prefs per user, editors may sync integrations, alert channels admin-only).
 - The last enabled admin can't be disabled, demoted or deleted; disabling a user ends their sessions; login rate limit (5 failures → 15 min, in memory); hashes never leave the server (zod `userSchema` without the hash).
 
-### [ ] Step 1 - ADR-0012 users, sessions and roles  **[plan mode]**
+### [x] Step 1 - ADR-0012 users, sessions and roles  **[plan mode]**
 **Model:** Opus · **Effort:** Medium
 **Scope:** `docs/adr/0012-users-and-roles.md` (supersedes the "no login" part of ADR-0001): the design above, the role × prefix table, the exact preference keys editors may change, first-run setup, `APP_PASSWORD` migration, what a viewer sees, rejected options (custom roles, JWT, OAuth/SSO).
 **Done when:** the ADR is approved; the role table is complete for every route prefix.
@@ -467,7 +467,7 @@ Do Step 1 of the 4.2.0 plan in PLAN.md. Show me the role × route prefix table f
 
 ### [ ] Step 2 - Users, sessions and actor: schema  **[plan mode]**
 **Model:** Opus · **Effort:** High
-**Scope:** Drizzle migration for `users`, `sessions`, `logs.actor`. `lib/password.ts` (scrypt + `timingSafeEqual`), `lib/session.ts` (create, read, expire, cookie parse/set). Zod schemas in core (`userSchema`, `loginSchema`, `setupSchema`, role enum). Expired sessions pruned by the existing hourly job.
+**Scope:** Drizzle migration for `users`, `sessions`, `user_settings`, `logs.actor`. `lib/password.ts` (scrypt + `timingSafeEqual`), `lib/session.ts` (create, read, expire, cookie parse/set). Zod schemas in core (`userSchema`, `loginSchema`, `setupSchema`, role enum). Expired sessions pruned by the existing hourly job.
 **Done when:** the schema is approved; migration applies on a copy of the real DB; unit tests for hashing and sessions; tests pass.
 **Prompt:**
 ```

@@ -1,6 +1,6 @@
 # ADR-0001: Run locally, bound to localhost
 
-- Status: Accepted
+- Status: Accepted; the "no login" part is superseded by ADR-0012
 - Date: 2026-10-08
 
 ## Context
