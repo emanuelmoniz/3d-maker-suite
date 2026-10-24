@@ -700,3 +700,20 @@ describe("seed", () => {
     expect(() => seed(empty)).toThrow(/not empty/);
   });
 });
+
+describe("users", () => {
+  const user = (email: string, role = "viewer") =>
+    db
+      .insert(s.users)
+      .values({ email, displayName: "U", passwordHash: "x", role: role as "viewer" })
+      .run();
+
+  it("keeps emails unique ignoring case", () => {
+    user("me@example.com");
+    expect(() => user("ME@example.com")).toThrow(/UNIQUE/);
+  });
+
+  it("only takes the fixed roles", () => {
+    expect(() => user("a@b.c", "owner")).toThrow(/CHECK/);
+  });
+});

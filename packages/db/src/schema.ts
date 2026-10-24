@@ -25,6 +25,7 @@ import {
   SYNC_TYPES,
   type SyncLogEntry,
   TAGGABLE_TYPES,
+  USER_ROLES,
   WEIGHT_ENTRY_KINDS,
 } from "@3d-maker-suite/core";
 import { type SQL, sql } from "drizzle-orm";
@@ -923,6 +924,56 @@ export const logs = sqliteTable(
     message: text().notNull(),
     /** The rest of the pino line (err, url, status, ids), already redacted. */
     detail: text({ mode: "json" }).$type<Record<string, unknown>>(),
+    /** User id behind a request line; null for jobs and the no-users mode. No FK: a line
+     *  outlives a deleted user and keeps saying who did it. */
+    actor: text(),
   },
   (t) => [index("logs_time_idx").on(t.time), check("logs_level_ck", oneOf(t.level, LOG_LEVELS))],
+);
+
+/** Accounts (ADR-0012). The hash never leaves the server: core's `userSchema` has no hash field. */
+export const users = sqliteTable(
+  "users",
+  {
+    id: id(),
+    /** Unique ignoring case, like clients.email. */
+    email: text().notNull(),
+    displayName: text().notNull(),
+    /** `lib/password.ts` format: `scrypt$N$r$p$salt$key`. */
+    passwordHash: text().notNull(),
+    role: text({ enum: USER_ROLES }).notNull(),
+    disabled: integer({ mode: "boolean" }).notNull().default(false),
+    lastLoginAt: text(),
+    ...timestamps,
+  },
+  (t) => [
+    uniqueIndex("users_email_uq").on(sql`${t.email} COLLATE NOCASE`),
+    check("users_role_ck", oneOf(t.role, USER_ROLES)),
+  ],
+);
+
+/** Login sessions. `id` is the sha256 of the cookie token; the token itself is never stored. */
+export const sessions = sqliteTable(
+  "sessions",
+  {
+    id: text().primaryKey(),
+    userId: text()
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    expiresAt: text().notNull(),
+  },
+  (t) => [index("sessions_user_idx").on(t.userId)],
+);
+
+/** Per-user display preferences (ADR-0012 keys), same shape as `settings`; falls back to it. */
+export const userSettings = sqliteTable(
+  "user_settings",
+  {
+    userId: text()
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    key: text().notNull(),
+    value: text({ mode: "json" }).notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.key] })],
 );

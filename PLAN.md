@@ -465,7 +465,7 @@ Design (fixed roles):
 Do Step 1 of the 4.2.0 plan in PLAN.md. Show me the role × route prefix table first.
 ```
 
-### [ ] Step 2 - Users, sessions and actor: schema  **[plan mode]**
+### [x] Step 2 - Users, sessions and actor: schema  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:** Drizzle migration for `users`, `sessions`, `user_settings`, `logs.actor`. `lib/password.ts` (scrypt + `timingSafeEqual`), `lib/session.ts` (create, read, expire, cookie parse/set). Zod schemas in core (`userSchema`, `loginSchema`, `setupSchema`, role enum). Expired sessions pruned by the existing hourly job.
 **Done when:** the schema is approved; migration applies on a copy of the real DB; unit tests for hashing and sessions; tests pass.

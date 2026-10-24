@@ -26,6 +26,8 @@ export const ALERT_MODULES = [
   "system",
 ] as const;
 export const UPDATE_CHANNELS = ["stable", "dev"] as const;
+// Fixed roles (ADR-0012).
+export const USER_ROLES = ["admin", "editor", "viewer"] as const;
 export const COMMENT_STATUSES = ["open", "resolved"] as const;
 export const SPOOL_STATUSES = ["new", "in_use", "empty"] as const;
 // Why a spool's remaining weight changed. "print" entries are written by prints (Step 9+).

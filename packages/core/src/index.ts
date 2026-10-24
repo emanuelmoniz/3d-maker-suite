@@ -26,6 +26,7 @@ export * from "./schemas/slicerCatalog.ts";
 export * from "./schemas/stats.ts";
 export * from "./schemas/tags.ts";
 export * from "./schemas/updates.ts";
+export * from "./schemas/users.ts";
 export * from "./services/cost.ts";
 export * from "./services/duration.ts";
 export * from "./services/import.ts";

@@ -23,6 +23,7 @@ import { accessGuard } from "./lib/access.ts";
 import type { Autostart } from "./lib/autostart.ts";
 import { CUSTOM_LEVELS, createLogSink, moduleOf, pruneLogs, success } from "./lib/logSink.ts";
 import { readPreferences } from "./lib/preferences.ts";
+import { pruneSessions } from "./lib/session.ts";
 import { autoSlice } from "./projects/autoSlice.ts";
 import { createProjectScanner } from "./projects/scanner.ts";
 import { createSliceQueue } from "./projects/sliceQueue.ts";
@@ -175,6 +176,7 @@ export async function buildApp(
     const prune = () => {
       try {
         pruneLogs(db, readPreferences(db));
+        pruneSessions(db);
       } catch (err) {
         app.log.error({ err }, "log pruning failed");
       }
