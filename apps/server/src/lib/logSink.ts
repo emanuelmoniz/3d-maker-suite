@@ -66,6 +66,7 @@ export function createLogSink(db: Db, out: { write(line: string): unknown }) {
       time,
       msg,
       module = "system",
+      actor = null,
       pid: _,
       hostname: __,
       ...detail
@@ -77,6 +78,7 @@ export function createLogSink(db: Db, out: { write(line: string): unknown }) {
         time: new Date(time).toISOString(),
         level: lvl,
         module,
+        actor,
         message: String(msg ?? ""),
         detail: Object.keys(detail).length ? detail : null,
       })

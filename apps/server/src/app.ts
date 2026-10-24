@@ -19,7 +19,7 @@ import type { Config } from "./config.ts";
 import { HttpError } from "./errors.ts";
 import { loadKey } from "./integrations/secrets.ts";
 import { createSyncer } from "./integrations/sync.ts";
-import { accessGuard } from "./lib/access.ts";
+import { authGuard } from "./lib/auth.ts";
 import type { Autostart } from "./lib/autostart.ts";
 import { CUSTOM_LEVELS, createLogSink, moduleOf, pruneLogs, success } from "./lib/logSink.ts";
 import { readPreferences } from "./lib/preferences.ts";
@@ -29,6 +29,7 @@ import { createProjectScanner } from "./projects/scanner.ts";
 import { createSliceQueue } from "./projects/sliceQueue.ts";
 import { accessoriesRoutes } from "./routes/accessories.ts";
 import { alertsRoutes } from "./routes/alerts.ts";
+import { authRoutes } from "./routes/auth.ts";
 import { backupsRoutes } from "./routes/backups.ts";
 import { brandingRoutes } from "./routes/branding.ts";
 import {
@@ -60,6 +61,7 @@ import { slicerZipRoutes } from "./routes/slicerZip.ts";
 import { statsRoutes } from "./routes/stats.ts";
 import { collectionsRoutes, tagsRoutes } from "./routes/tags.ts";
 import { updatesRoutes } from "./routes/updates.ts";
+import { usersRoutes } from "./routes/users.ts";
 import { createUpdater } from "./updates/updates.ts";
 
 export async function buildApp(
@@ -77,8 +79,10 @@ export async function buildApp(
     logRetentionSchedule?: string;
     /** Watch the project folders and scan once at startup (off in tests). */
     watchProjects?: boolean;
-    /** Bind address and optional password; checked on every request (off in tests). */
+    /** Bind address and optional password, checked while no users exist (off in tests). */
     access?: { host: string; password?: string };
+    /** One-time token that allows `POST /api/auth/setup` from another device (ADR-0012). */
+    setupToken?: string;
     /** Network settings editable from Settings (needs a data dir). */
     serverConfig?: Config;
     /** Makes POST /api/server-config/restart available, and lets an update restart (off in tests). */
@@ -128,7 +132,7 @@ export async function buildApp(
     else if (req.method === "GET") req.log.debug(ms, line);
     else req.log.info(ms, line);
   });
-  if (opts.access) app.addHook("onRequest", accessGuard(opts.access));
+  app.addHook("onRequest", authGuard(db, opts.access));
   app.setValidatorCompiler(validatorCompiler);
   app.setSerializerCompiler(serializerCompiler);
 
@@ -165,6 +169,10 @@ export async function buildApp(
   );
 
   await app.register(healthRoutes);
+  await app.register(authRoutes(db, !!opts.access?.password, opts.setupToken), {
+    prefix: "/api/auth",
+  });
+  await app.register(usersRoutes(db), { prefix: "/api/users" });
   await app.register(
     preferencesRoutes(db, dataDir, (v) => {
       if (sink) sink.configure(v);

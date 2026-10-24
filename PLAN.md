@@ -475,7 +475,7 @@ Do Step 2 of the 4.2.0 plan in PLAN.md. Show me the schema first. Back up the DB
 editing schema.ts.
 ```
 
-### [ ] Step 3 - Auth and permission hooks, users API
+### [x] Step 3 - Auth and permission hooks, users API
 **Model:** Opus · **Effort:** High
 **Scope:** `/api/auth/{setup,login,logout,me}`, `/api/users` CRUD (admin), `PATCH /api/users/me/password`. The `onRequest` hook (auth from cookie; public: `/api/auth/*`, `/api/health`, static assets) then `can(role, url, method)`. Setup token at boot (console only, never in the logs table). `APP_PASSWORD` handling per the ADR. Login rate limit. `req.log` child with `actor`, saved by `logSink`.
 **Done when:** a role-matrix test covers every prefix × role × read/write; the last admin is protected; rate limit tested; no hash in any response; tests pass.
