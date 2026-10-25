@@ -4,7 +4,6 @@ import {
   Check,
   ExternalLink,
   FolderKanban,
-  FolderPlus,
   LayoutGrid,
   List,
   Plus,
@@ -19,20 +18,16 @@ import { EmptyState } from "../../components/EmptyState.tsx";
 import { FilterBar } from "../../components/FilterBar.tsx";
 import { inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
-import { PathPicker } from "../../components/PathPicker.tsx";
 import { SettingsLink } from "../../components/SettingsLink.tsx";
 import { TagFilter } from "../../components/TagFilter.tsx";
 import { TagList } from "../../components/TagList.tsx";
 import { Write } from "../../components/Write.tsx";
-import { useCan } from "../../lib/auth.ts";
 import { cx } from "../../lib/cx.ts";
 import { formatDate } from "../../lib/format.ts";
 import { useListPage, useUrlListQuery } from "../../lib/list.ts";
-import { usePreferences } from "../../lib/preferences.ts";
 import {
   projectName,
   projectThumbnailUrl,
-  useCreateProject,
   useProjectMaterials,
   useScan,
 } from "../../lib/projects.ts";
@@ -117,40 +112,6 @@ function ScanPanel() {
         </Button>
       </div>
     </div>
-  );
-}
-
-/** Picks a folder on the server's machine and makes a project of it. */
-function AddFolder() {
-  const { t } = useTranslation();
-  const create = useCreateProject();
-  const roots = usePreferences().data?.values.projectRoots;
-  const admin = useCan("admin");
-  return (
-    <>
-      <PathPicker
-        label={t("projects:list.addFolder")}
-        mode="folder"
-        canCreate
-        initial={roots?.at(-1)?.path}
-        // Editors may only browse inside the project roots (the server enforces it).
-        within={admin ? undefined : roots?.map((r) => r.path)}
-        onPick={(folderPath) =>
-          create.mutate({
-            name: folderPath.split(/[/]/).filter(Boolean).at(-1) ?? folderPath,
-            folderPath,
-          })
-        }
-      >
-        <FolderPlus className="size-4" aria-hidden />
-        {t("projects:list.addFolder")}
-      </PathPicker>
-      {create.isError && (
-        <p role="alert" className="text-bad">
-          {t("projects:list.addFolderError")}
-        </p>
-      )}
-    </>
   );
 }
 
@@ -332,7 +293,6 @@ export function ProjectsPage() {
         actions={
           <Write>
             {add}
-            <AddFolder />
             <SettingsLink module="projects" />
           </Write>
         }

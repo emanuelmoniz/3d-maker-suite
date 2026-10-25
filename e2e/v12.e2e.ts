@@ -130,9 +130,8 @@ test("projects: add a project from a folder, link a description file, edit by ha
   await app.api("PATCH", "/api/preferences", { projectRoots: roots(parent) });
 
   await page.goto("/projects");
-  await page.getByRole("button", { name: "Browse for Add folder" }).click();
-  await dialog(page).getByRole("button", { name: "Bracket" }).click();
-  await dialog(page).getByRole("button", { name: "Select this folder" }).click();
+  await app.api("POST", "/api/projects", { name: "Bracket", folderPath: join(parent, "Bracket") });
+  await page.reload();
   await expect(page.getByRole("link", { name: "Bracket" }).first()).toBeVisible();
 
   const list = await app.api<{ items: { id: string; description: string | null }[] }>(
@@ -376,8 +375,11 @@ test.describe("v1.2 pages fit every viewport", () => {
       expect(bad).toEqual([]);
 
       // The picker modal fits too.
-      await page.goto("/projects");
-      await page.getByRole("button", { name: "Browse for Add folder" }).click();
+      await page.goto("/projects/settings");
+      await page
+        .getByRole("button", { name: /^Browse for/ })
+        .first()
+        .click();
       const box = await dialog(page).boundingBox();
       expect(box && box.x >= 0 && box.x + box.width <= width).toBe(true);
     });

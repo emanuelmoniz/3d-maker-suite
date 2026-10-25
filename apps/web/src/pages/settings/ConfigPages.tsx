@@ -327,6 +327,7 @@ function ProjectRoots({ v, commit }: Pick<ConfigCtx, "v" | "commit">) {
         <PathPicker
           label={t("settings:projects.roots")}
           mode="folder"
+          canCreate
           initial={roots.at(-1)?.path}
           onPick={add}
         />

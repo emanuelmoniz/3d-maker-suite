@@ -5,8 +5,6 @@
     "emptyTitle": "No projects yet",
     "emptyBody": "Add the folders that hold your models in Settings and scan them, or create a project by hand.",
     "add": "New project",
-    "addFolder": "Add folder",
-    "addFolderError": "Couldn't add this folder. It may already be a project.",
     "edit": "Edit",
     "openSource": "Open design page",
     "settings": "Project folders",
