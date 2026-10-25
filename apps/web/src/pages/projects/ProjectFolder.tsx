@@ -1,7 +1,7 @@
 import {
   PROJECT_TRASH_DIR,
   type ProjectDetail,
-  type ProjectFolderRelease,
+  type ProjectFolderPrevious,
 } from "@3d-maker-suite/core";
 import { Link } from "@tanstack/react-router";
 import { useId, useState } from "react";
@@ -12,7 +12,7 @@ import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { PathPicker } from "../../components/PathPicker.tsx";
 import { ApiError } from "../../lib/api.ts";
 import { usePreferences } from "../../lib/preferences.ts";
-import { useProjectFolder } from "../../lib/projects.ts";
+import { useProjectFolder, useProjectFolderHasFiles } from "../../lib/projects.ts";
 
 const ERRORS = {
   outside_roots: "projects:folder.errors.outside_roots",
@@ -27,8 +27,13 @@ const within = (path: string, root: string) => {
   return parts(path).slice(0, r.length).join("/") === r.join("/");
 };
 
-/** The two ways to let go of a folder, with what each means when unlinking or switching. */
+/** The ways to let go of a folder, with what each means when unlinking or switching. */
 const RELEASE = {
+  move: {
+    label: "projects:folder.moveLabel",
+    unlink: "projects:folder.moveChangeHint",
+    change: "projects:folder.moveChangeHint",
+  },
   trash: {
     label: "projects:folder.trashLabel",
     unlink: "projects:folder.trashUnlinkHint",
@@ -53,7 +58,7 @@ export function FolderActions({ project }: { project: ProjectDetail }) {
   const folder = useProjectFolder(project.id);
   // Open while asking: `path` set = switch to that folder, else unlink.
   const [pending, setPending] = useState<{ path?: string } | null>(null);
-  const [how, setHow] = useState<ProjectFolderRelease>("keep");
+  const [how, setHow] = useState<ProjectFolderPrevious>("keep");
   const [root, setRoot] = useState<string>();
   const ok = project.folderState === "ok";
   const old = project.folderPath ? roots.find((r) => within(project.folderPath ?? "", r)) : null;
@@ -62,7 +67,13 @@ export function FolderActions({ project }: { project: ProjectDetail }) {
   const sep = project.folderPath?.includes("\\") ? "\\" : "/";
   // Only a folder inside a root has a trash to go to.
   const trash = old ? `${old.replace(/[\\/]+$/, "")}${sep}${PROJECT_TRASH_DIR}` : null;
-  const choices = ok ? (["trash", "keep"] as const).filter((v) => v === "keep" || trash) : [];
+  // "Move" is for switching, and only when there is something to move.
+  const hasFiles = useProjectFolderHasFiles(project.id, !!pending?.path && ok);
+  const choices = ok
+    ? (["move", "trash", "keep"] as const).filter((v) =>
+        v === "move" ? !!pending?.path && !!hasFiles && !!trash : v === "keep" || trash,
+      )
+    : [];
   const trashedTo = folder.isSuccess ? folder.data.trashedTo : undefined;
   const mode = pending?.path ? "change" : "unlink";
   const link = "font-medium text-accent hover:underline";
@@ -92,6 +103,7 @@ export function FolderActions({ project }: { project: ProjectDetail }) {
           <PathPicker
             label={t("projects:folder.linkTitle")}
             mode="folder"
+            canCreate
             initial={old ?? undefined}
             within={roots}
             onPick={(path) => ask({ path })}
@@ -120,6 +132,7 @@ export function FolderActions({ project }: { project: ProjectDetail }) {
             <PathPicker
               label={t("projects:folder.linkTitle")}
               mode="folder"
+              canCreate
               initial={old ?? undefined}
               within={roots}
               onPick={(path) => folder.mutate({ path })}
@@ -180,7 +193,9 @@ export function FolderActions({ project }: { project: ProjectDetail }) {
           if (!pending) return;
           // A missing folder has nothing to move or keep: the project just forgets it.
           folder.mutate(
-            pending.path ? { path: pending.path, previous: how } : { unlink: ok ? how : "trash" },
+            pending.path
+              ? { path: pending.path, previous: how }
+              : { unlink: ok && how !== "move" ? how : "trash" },
           );
           setPending(null);
         }}

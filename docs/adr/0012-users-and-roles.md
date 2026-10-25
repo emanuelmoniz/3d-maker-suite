@@ -64,7 +64,7 @@ R = GET/HEAD, W = POST/PUT/PATCH/DELETE, - = 403.
 | `/api/import` | - | - | R W | |
 | `/api/backups` | - | - | R W | a download is the whole database |
 | `/api/logs` | - | - | R W | |
-| `/api/fs` | - | R `/list`, confined to the project roots | R | browses the server's disk; editors need it for Projects → Add folder |
+| `/api/fs` | - | R `/list` and W `/folder` (new folder), both confined to the project roots | R | browses the server's disk; editors need it for Projects → Add folder |
 | `/api/server-config` (autostart, restart, stop) | - | - | R W | |
 | `/api/updates` | - | - | R W | |
 | `/api/users` | - | - | R W | |

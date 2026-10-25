@@ -16,5 +16,19 @@ export const fsListResponseSchema = z.object({
   entries: z.array(z.object({ name: z.string(), path: z.string(), type: z.enum(["dir", "file"]) })),
 });
 
+/** A new folder `name` inside the existing folder `path`. One name, never a path. */
+export const fsFolderInputSchema = z.object({
+  path: z.string().min(1),
+  name: z
+    .string()
+    .trim()
+    .min(1)
+    .max(255)
+    .regex(/^[^\\/:*?"<>|\p{Cc}]+$/u)
+    .refine((n) => n !== "." && n !== ".." && !n.endsWith(".")),
+});
+
+export const fsFolderResponseSchema = z.object({ path: z.string() });
+
 export type FsListQuery = z.input<typeof fsListQuerySchema>;
 export type FsListResponse = z.infer<typeof fsListResponseSchema>;

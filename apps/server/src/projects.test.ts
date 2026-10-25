@@ -487,6 +487,27 @@ describe("project folder: create, link, unlink, missing", () => {
     );
   });
 
+  it("switching can move the content along; a name clash moves nothing", async () => {
+    await sampleTree();
+    await setRoots();
+    await scan();
+    const benchy = await byName("Benchy");
+    const content = await app.inject(`/api/projects/${benchy.id}/folder/content`);
+    expect(content.json()).toEqual({ hasFiles: true });
+
+    const target = join(root(), "Target");
+    await put("Target/benchy.3mf", "x");
+    const clash = await folder(benchy.id, { path: target, previous: "move" });
+    expect(clash.json().error.code).toBe("folder_exists");
+    expect((await stat(join(root(), "Benchy", "benchy.3mf"))).isFile()).toBe(true);
+
+    await rm(join(target, "benchy.3mf"));
+    const res = await folder(benchy.id, { path: target, previous: "move" });
+    expect(res.json()).toMatchObject({ folderPath: target, unlinkedFolder: null });
+    expect((await stat(join(target, "benchy.3mf"))).isFile()).toBe(true);
+    await expect(stat(join(root(), "Benchy"))).rejects.toThrow();
+  });
+
   it("a deleted folder is missing; another can be linked or the folder made again", async () => {
     await sampleTree();
     await setRoots();

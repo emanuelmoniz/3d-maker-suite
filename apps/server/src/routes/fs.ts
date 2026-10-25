@@ -1,8 +1,14 @@
-import { readdir, realpath, stat } from "node:fs/promises";
+import { mkdir, readdir, realpath, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, extname, isAbsolute, join, resolve, sep } from "node:path";
-import { fsListQuerySchema, fsListResponseSchema } from "@3d-maker-suite/core";
+import {
+  fsFolderInputSchema,
+  fsFolderResponseSchema,
+  fsListQuerySchema,
+  fsListResponseSchema,
+} from "@3d-maker-suite/core";
 import type { Db } from "@3d-maker-suite/db";
+import type { FastifyRequest } from "fastify";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { HttpError } from "../errors.ts";
 import { insideRoots } from "../lib/launcher.ts";
@@ -86,6 +92,9 @@ async function roots(): Promise<Entry[]> {
  * Admins are not confined to the project roots on purpose: it's how those roots and the slicer get chosen.
  * Editors (the project "Add folder" picker) only see the project roots and what is inside them.
  */
+/** Editors and viewers see the disk only through the project roots; admins everywhere. */
+const confinedTo = (req: FastifyRequest) => !!req.user && req.user.role !== "admin";
+
 export const fsRoutes =
   (db: Db): FastifyPluginAsyncZod =>
   async (app) => {
@@ -94,7 +103,7 @@ export const fsRoutes =
       { schema: { querystring: fsListQuerySchema, response: { 200: fsListResponseSchema } } },
       async (req) => {
         const { path, mode, ext } = req.query;
-        const confined = !!req.user && req.user.role !== "admin";
+        const confined = confinedTo(req);
         if (!path)
           return {
             path: null,
@@ -125,6 +134,23 @@ export const fsRoutes =
           .map((e) => ({ name: e.name, path: e.abs, type: e.type }));
         const parent = dirname(real);
         return { path: real, parent: parent === real ? null : parent, sep, entries };
+      },
+    );
+
+    // "New folder" in the picker. Editors only inside a project root; the name is one segment.
+    app.post(
+      "/folder",
+      { schema: { body: fsFolderInputSchema, response: { 201: fsFolderResponseSchema } } },
+      async (req, reply) => {
+        const { path, name } = req.body;
+        if (!isAbsolute(path))
+          throw new HttpError(400, "validation_error", "Path must be absolute");
+        const parent = await realpath(resolve(path)).catch((e) => Promise.reject(fsError(e)));
+        if (confinedTo(req) && !(await insideRoots(parent, rootPaths(db))))
+          throw new HttpError(403, "not_allowed", "Folder is not in a project root");
+        const dir = join(parent, name);
+        await mkdir(dir).catch((e) => Promise.reject(fsError(e)));
+        return reply.status(201).send({ path: dir });
       },
     );
   };

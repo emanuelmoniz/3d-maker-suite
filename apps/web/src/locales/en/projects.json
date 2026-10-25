@@ -121,6 +121,8 @@
     "trashLabel": "Move it to the trash",
     "trashUnlinkHint": "The folder and all its files move to {{trash}}. They stay there until you empty the trash in Settings → Projects. The project forgets its files and print setup.",
     "trashChangeHint": "The folder and all its files move to {{trash}}. They stay there until you empty the trash in Settings → Projects.",
+    "moveLabel": "Move its content to the new folder",
+    "moveChangeHint": "Everything in the current folder moves into the new one, and the empty folder is removed. The project starts fresh in the new folder (slice again if needed).",
     "keepLabel": "Keep it as it is",
     "keepUnlinkHint": "Nothing on disk changes, and the project keeps everything it knows. Scans leave the folder alone, so it doesn't come back as a new project. Link the same folder again later and the project is back as it was.",
     "keepChangeHint": "Nothing on disk changes, and scans leave the folder alone, so it doesn't come back as a new project. The project starts fresh in the new folder (slice again if needed).",

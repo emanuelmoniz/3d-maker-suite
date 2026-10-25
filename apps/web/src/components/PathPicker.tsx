@@ -1,9 +1,10 @@
 import type { FsListResponse } from "@3d-maker-suite/core";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { api } from "../lib/api.ts";
+import { ApiError, api } from "../lib/api.ts";
 import { Button } from "./Button.tsx";
+import { inputClass } from "./FormField.tsx";
 
 type Sep = FsListResponse["sep"];
 
@@ -42,6 +43,7 @@ export function PathPicker({
   ext,
   initial,
   within,
+  canCreate,
   onPick,
   children,
 }: {
@@ -53,6 +55,8 @@ export function PathPicker({
   initial?: string;
   /** Only folders below these (the project roots): they are the top level, and can't be picked. */
   within?: string[];
+  /** Offer "New folder" inside the folder being shown (folder mode). */
+  canCreate?: boolean;
   onPick: (path: string) => void;
   /** Button text; default "Browse…". */
   children?: ReactNode;
@@ -62,6 +66,15 @@ export function PathPicker({
   const listRef = useRef<HTMLUListElement>(null);
   const [open, setOpen] = useState(false);
   const [path, setPath] = useState<string | null>(null);
+  const [naming, setNaming] = useState(false);
+  const create = useMutation({
+    mutationFn: (name: string) =>
+      api<{ path: string }>("POST", "/api/fs/folder", { path: dir.data?.path, name }),
+    onSuccess: (r) => {
+      setNaming(false);
+      setPath(r.path);
+    },
+  });
 
   // Roots also tell us the server's separator, which the extension filter needs.
   const roots = useQuery({
@@ -101,6 +114,8 @@ export function PathPicker({
   useEffect(() => listRef.current?.querySelector("button")?.focus(), [data]);
 
   const start = () => {
+    setNaming(false);
+    create.reset();
     const from = initial?.trim();
     setPath(from ? (mode === "folder" ? from : parentOf(from)) : null);
     setOpen(true);
@@ -172,6 +187,47 @@ export function PathPicker({
                 ))}
           </ol>
         </nav>
+        {canCreate && mode === "folder" && !!dir.data?.path && (
+          <div className="grid gap-2">
+            {naming ? (
+              <form
+                className="flex flex-wrap gap-2"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const name = new FormData(e.currentTarget).get("name");
+                  if (typeof name === "string" && name.trim()) create.mutate(name.trim());
+                }}
+              >
+                <input
+                  name="name"
+                  className={`${inputClass} min-w-0 flex-1`}
+                  aria-label={t("common:pathPicker.newFolderName")}
+                  maxLength={255}
+                  autoFocus
+                />
+                <Button type="submit" disabled={create.isPending}>
+                  {t("common:pathPicker.create")}
+                </Button>
+                <Button variant="ghost" onClick={() => setNaming(false)}>
+                  {t("common:actions.cancel")}
+                </Button>
+              </form>
+            ) : (
+              <div>
+                <Button onClick={() => setNaming(true)}>{t("common:pathPicker.newFolder")}</Button>
+              </div>
+            )}
+            {create.isError && (
+              <p role="alert" className="text-bad">
+                {t(
+                  create.error instanceof ApiError && create.error.code === "path_exists"
+                    ? "common:pathPicker.exists"
+                    : "common:pathPicker.createError",
+                )}
+              </p>
+            )}
+          </div>
+        )}
         {path && dir.isError ? (
           <p role="alert" className="text-bad">
             {t("common:pathPicker.error")}

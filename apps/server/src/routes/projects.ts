@@ -1,5 +1,5 @@
 import { createReadStream } from "node:fs";
-import { mkdir, readdir, readFile, rename, rm, rmdir, stat } from "node:fs/promises";
+import { cp, mkdir, readdir, readFile, rename, rm, rmdir, stat } from "node:fs/promises";
 import { basename, extname, isAbsolute, join, relative } from "node:path";
 import { read3mfEntry, read3mfPaint } from "@3d-maker-suite/3mf";
 import {
@@ -126,6 +126,33 @@ const hasFiles = async (dir: string) =>
   (await readdir(dir, { recursive: true, withFileTypes: true })).some(
     (e) => !e.isDirectory() && !JUNK.has(e.name.toLowerCase()),
   );
+
+/**
+ * Moves everything in `from` into `to`, then removes `from` (now empty). All-or-nothing on names:
+ * if anything would overwrite something, nothing moves.
+ */
+async function moveContents(from: string, to: string) {
+  const names = await readdir(from).catch((e) => Promise.reject(fsError(e)));
+  for (const n of names)
+    if (
+      await stat(join(to, n)).then(
+        () => true,
+        () => false,
+      )
+    )
+      throw new HttpError(409, "folder_exists", `The new folder already has a file named ${n}`);
+  for (const n of names) {
+    const src = join(from, n);
+    const dest = join(to, n);
+    // A different volume can't rename: copy, then remove.
+    await rename(src, dest).catch(async (e: NodeJS.ErrnoException) => {
+      if (e.code !== "EXDEV") return Promise.reject(fsError(e));
+      await cp(src, dest, { recursive: true, errorOnExist: true });
+      await rm(src, { recursive: true, force: true });
+    });
+  }
+  await rmdir(from).catch(() => {});
+}
 
 // Rows older than the scanner (e.g. demo data) hold other meta; parsing fills the defaults in.
 const out = (row: unknown) => {
@@ -352,8 +379,24 @@ export const projectsRoutes =
         const folder = path
           ? await scanner.usableFolder(path)
           : await newProjectFolder(db, root, folderName(p.number, p.name));
-        const trashedTo =
-          p.folderState === "ok" && previous ? await release(p, previous) : undefined;
+        let trashedTo: string | undefined;
+        if (p.folderState === "ok" && previous === "move") {
+          const own = await belowRoot(p.folderPath);
+          if (!own || !path)
+            throw new HttpError(403, "not_allowed", "Project folder is not in a project root");
+          // Into itself, or onto the folder being left, would lose or loop files.
+          const rel = relative(own.dir, folder);
+          if (rel === "" || (!rel.startsWith("..") && !isAbsolute(rel)))
+            throw new HttpError(400, "invalid_folder", "Pick a folder outside the current one");
+          await moveContents(own.dir, folder);
+          // The old folder is gone with its content: nothing to remember or trash.
+          db.update(projects)
+            .set({ folderPath: null, unlinkedFolder: null })
+            .where(eq(projects.id, p.id))
+            .run();
+        } else if (p.folderState === "ok" && previous && previous !== "move") {
+          trashedTo = await release(p, previous);
+        }
         const now = get(p.id);
         // The folder it was unlinked from and kept: everything it knew is still right. Anything
         // else (and its plates) was of files that aren't its own: slice again if needed.
@@ -370,6 +413,16 @@ export const projectsRoutes =
           throw e;
         }
         return { ...(await detail(p.id)), trashedTo };
+      },
+    );
+
+    // Whether the folder holds any file, so a switch can offer to move the content along.
+    app.get(
+      "/:id/folder/content",
+      { schema: { params, response: { 200: z.object({ hasFiles: z.boolean() }), ...errors } } },
+      async (req) => {
+        const p = await detail(req.params.id);
+        return { hasFiles: p.folderState === "ok" && (await hasFiles(p.folderPath ?? "")) };
       },
     );
 

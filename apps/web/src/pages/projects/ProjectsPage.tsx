@@ -131,6 +131,7 @@ function AddFolder() {
       <PathPicker
         label={t("projects:list.addFolder")}
         mode="folder"
+        canCreate
         initial={roots?.at(-1)?.path}
         // Editors may only browse inside the project roots (the server enforces it).
         within={admin ? undefined : roots?.map((r) => r.path)}

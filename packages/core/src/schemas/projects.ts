@@ -161,6 +161,8 @@ export const PROJECT_TRASH_DIR = ".3d-maker-suite-trash";
  * "keep" leaves it as it is (scans skip it; linking it again later keeps everything).
  */
 export const PROJECT_FOLDER_RELEASE = ["trash", "keep"] as const;
+/** Switching folders also offers "move": the old folder's content goes along to the new one. */
+export const PROJECT_FOLDER_PREVIOUS = [...PROJECT_FOLDER_RELEASE, "move"] as const;
 export const projectUnlinkQuery = z.object({ files: z.enum(PROJECT_FOLDER_RELEASE) });
 
 /**
@@ -172,7 +174,7 @@ export const projectFolderSchema = z
   .object({
     path: z.string().min(1).optional(),
     root: z.string().min(1).optional(),
-    previous: z.enum(PROJECT_FOLDER_RELEASE).optional(),
+    previous: z.enum(PROJECT_FOLDER_PREVIOUS).optional(),
   })
   .refine((p) => !(p.path && p.root), {
     message: "Give path or root, not both",
@@ -251,6 +253,7 @@ export type ProjectOpen = z.infer<typeof projectOpenSchema>;
 export type Project = z.infer<typeof projectSchema>;
 export type ProjectDetail = z.infer<typeof projectDetailSchema>;
 export type ProjectFolderInput = z.infer<typeof projectFolderSchema>;
+export type ProjectFolderPrevious = (typeof PROJECT_FOLDER_PREVIOUS)[number];
 export type ProjectFolderRelease = (typeof PROJECT_FOLDER_RELEASE)[number];
 export type ProjectFolderResult = z.infer<typeof projectFolderResultSchema>;
 export type ProjectListItem = z.infer<typeof projectListItemSchema>;

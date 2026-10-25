@@ -36,6 +36,11 @@
     "roots": "This computer",
     "up": "Up",
     "select": "Select this folder",
+    "newFolder": "New folder",
+    "newFolderName": "New folder name",
+    "create": "Create",
+    "exists": "A file or folder with this name exists.",
+    "createError": "Couldn't create the folder. Use a plain name, without slashes.",
     "empty": "Nothing to show here",
     "error": "This folder can't be opened."
   },

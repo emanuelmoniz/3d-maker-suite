@@ -71,3 +71,17 @@ describe("GET /api/fs/list", () => {
     expect(res.statusCode).toBe(403);
   });
 });
+
+describe("POST /api/fs/folder", () => {
+  it("makes one folder inside an existing one; names stay single segments", async () => {
+    const make = (name: string, path = dir) =>
+      app.inject({ method: "POST", url: "/api/fs/folder", payload: { path, name } });
+    const ok = await make("new one");
+    expect(ok.statusCode).toBe(201);
+    expect(ok.json().path).toBe(join(dir, "new one"));
+    expect((await make("new one")).json().error.code).toBe("path_exists");
+    for (const bad of ["..", "a/b", "a\b", "x:y", " ", "end."])
+      expect((await make(bad)).statusCode, bad).toBe(400);
+    expect((await make("x", join(dir, "missing"))).statusCode).toBe(404);
+  });
+});

@@ -62,6 +62,16 @@ export const useDeleteProject = (id: string) => {
   });
 };
 
+/** Whether the project's folder holds files, to offer moving them on a folder switch. */
+export const useProjectFolderHasFiles = (id: string, enabled: boolean) =>
+  useQuery({
+    queryKey: ["projects", id, "folder-content"],
+    queryFn: () => api<{ hasFiles: boolean }>("GET", `/api/projects/${id}/folder/content`),
+    enabled,
+    // Look again each time the dialog opens: files come and go.
+    staleTime: 0,
+  }).data?.hasFiles;
+
 /** Links a folder (`path`) or makes one in a root; `unlink` lets go of it, to the trash or kept. */
 export const useProjectFolder = (id: string) => {
   const qc = useQueryClient();
