@@ -18,6 +18,7 @@ import { FormField, inputClass } from "../../components/FormField.tsx";
 import { Menu } from "../../components/Menu.tsx";
 import { PathPicker } from "../../components/PathPicker.tsx";
 import { Switch } from "../../components/Switch.tsx";
+import { useCan } from "../../lib/auth.ts";
 import { cx } from "../../lib/cx.ts";
 import { formatDate, formatDateTime, formatRelative } from "../../lib/format.ts";
 import {
@@ -68,11 +69,13 @@ export function IntegrationCard({ integration: i }: { integration: Integration }
   const adapterName = useAdapterName();
   const navigate = useNavigate();
   const adapter = useAdapters().data?.find((a) => a.id === i.adapterId);
+  // An editor gets the status line and their task rows only (ADR-0012).
+  const admin = useCan("admin");
   const on = i.policies.filter((p) => p.mode !== "off");
   // Disabled = switched off entirely, so only the toggle and Delete stay. Sign-in and the test
   // only matter for an account with something switched on, the log for anything that syncs.
-  const account = i.enabled && i.kind === "cloud" && on.length > 0;
-  const logged = i.enabled && on.some((p) => !isAction(p.type));
+  const account = admin && i.enabled && i.kind === "cloud" && on.length > 0;
+  const logged = admin && i.enabled && on.some((p) => !isAction(p.type));
   const hasLogin = account && adapter?.login;
   const imports = i.policies.some((p) => !isAction(p.type));
   const [confirming, setConfirming] = useState(false);
@@ -117,23 +120,25 @@ export function IntegrationCard({ integration: i }: { integration: Integration }
             {t(KINDS[i.kind])}
           </span>
         </div>
-        <div className="flex items-center gap-1">
-          <Switch
-            label={t("integrations:card.enabled")}
-            checked={i.enabled}
-            disabled={patch.isPending}
-            onChange={(e) => patch.mutate({ enabled: e.target.checked })}
-          />
-          <Menu label={t("integrations:card.menu", { name })}>
-            <Button
-              variant="ghost"
-              className="justify-start text-bad"
-              onClick={() => setConfirming(true)}
-            >
-              {t("integrations:card.delete")}
-            </Button>
-          </Menu>
-        </div>
+        {admin && (
+          <div className="flex items-center gap-1">
+            <Switch
+              label={t("integrations:card.enabled")}
+              checked={i.enabled}
+              disabled={patch.isPending}
+              onChange={(e) => patch.mutate({ enabled: e.target.checked })}
+            />
+            <Menu label={t("integrations:card.menu", { name })}>
+              <Button
+                variant="ghost"
+                className="justify-start text-bad"
+                onClick={() => setConfirming(true)}
+              >
+                {t("integrations:card.delete")}
+              </Button>
+            </Menu>
+          </div>
+        )}
       </div>
 
       <p
@@ -182,7 +187,7 @@ export function IntegrationCard({ integration: i }: { integration: Integration }
           )}
         </Part>
       )}
-      {i.enabled && i.kind === "local" && (
+      {admin && i.enabled && i.kind === "local" && (
         <Part title={t("integrations:slicer.title")}>
           <SlicerFields
             integration={i}
@@ -193,7 +198,7 @@ export function IntegrationCard({ integration: i }: { integration: Integration }
         </Part>
       )}
       {/* A cloud adapter's slicer actions (a local one has them in its slicer part). */}
-      {i.enabled && i.kind === "cloud" && i.policies.some((p) => isAction(p.type)) && (
+      {admin && i.enabled && i.kind === "cloud" && i.policies.some((p) => isAction(p.type)) && (
         <Part title={t("integrations:card.actions")}>
           <ActionSwitches integration={i} />
         </Part>

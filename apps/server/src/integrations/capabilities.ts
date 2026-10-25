@@ -36,6 +36,8 @@ export function policyOf(db: Db, integrationId: string, type: Capability) {
       atHour: null,
       atWeekday: null,
       atDay: null,
+      editorSync: false,
+      editorReview: false,
     }
   );
 }

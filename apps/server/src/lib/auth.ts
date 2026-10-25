@@ -1,7 +1,9 @@
 import { createHash, timingSafeEqual } from "node:crypto";
-import type { UserRole } from "@3d-maker-suite/core";
+import type { Capability, UserRole } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
 import type { FastifyReply, FastifyRequest } from "fastify";
+import { HttpError } from "../errors.ts";
+import { policyOf } from "../integrations/capabilities.ts";
 import { accessGuard, isLoopback } from "./access.ts";
 import { readCookie, readSession, SESSION_COOKIE, sessionCookie } from "./session.ts";
 
@@ -55,7 +57,14 @@ export function can(role: UserRole, url: string, method: string): boolean {
   if (/^\/api\/alerts\/channels(\/|$)/.test(path)) return false;
   // Everyone reads, snoozes and dismisses their own alerts (ADR-0012); nothing else under /alerts.
   if (method === "PATCH" && /^\/api\/alerts\/[^/]+$/.test(path)) return true;
-  if (role === "editor" && method === "POST" && /^\/api\/integrations\/[^/]+\/sync$/.test(path))
+  // Sync now, and an integration's review and import: narrowed per task by `mayTask` in the route.
+  if (
+    role === "editor" &&
+    method === "POST" &&
+    (/^\/api\/integrations\/[^/]+\/sync$/.test(path) ||
+      /^\/api\/import\/integration\/[^/]+\/[^/]+$/.test(path) ||
+      /^\/api\/import\/[^/]+\/apply$/.test(path))
+  )
     return true;
   // Editors log work on printers and accessories; the printer, accessory, maintenance and filament-profile setup is admin-only.
   if (
@@ -75,6 +84,22 @@ export function can(role: UserRole, url: string, method: string): boolean {
     return READS.includes(method);
   const access = TABLE[/^\/api\/([^/]+)/.exec(path)?.[1] ?? ""]?.[role] ?? "-";
   return access === "RW" || (access === "R" && READS.includes(method));
+}
+
+/**
+ * ADR-0012 editor flags: admin (and the no-users mode) always, an editor only with the task's
+ * flag, a viewer never. The routes `can` opens for editors call this.
+ */
+export function mayTask(
+  db: Db,
+  user: SessionUser | undefined,
+  integrationId: string,
+  type: Capability,
+  flag: "editorSync" | "editorReview",
+) {
+  if (!user || user.role === "admin") return;
+  if (user.role === "editor" && policyOf(db, integrationId, type)[flag]) return;
+  throw new HttpError(403, "forbidden", "Not allowed for your role");
 }
 
 /** No session needed: the SPA and its assets (the login page has to load), health, setup, login. */

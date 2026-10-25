@@ -550,7 +550,7 @@ Do Step 9 of the 4.2.0 plan in PLAN.md. Show me the schema and the merge rules f
 the DB before editing schema.ts.
 ```
 
-### [ ] Step 10 - Editor sync and review permissions  **[plan mode]**
+### [x] Step 10 - Editor sync and review permissions  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:** Migration: `editorSync`, `editorReview` booleans on `sync_policies` (default false). Admin toggles them in `PolicyRow` per task. Server: editor `POST /api/integrations/:id/sync` only for types with `editorSync` (a sync of "all" runs only the allowed types); `POST /api/import/integration/:id/:type` and the matching apply only with `editorReview`; checked in one helper next to `can()`. `GET /api/integrations` for an editor returns only what the task rows need (no config). Web: Integrations nav and page visible to an editor with at least one flag, showing only Sync now / Review per allowed task; alert CTAs (`SyncTargetLink`, sync/review buttons) shown only when the role and flag allow. Update ADR-0012 (table row and the editor flags).
 **Done when:** the design is approved; the role-matrix test covers both flags on and off per type; an editor can sync/review only allowed tasks from the page and from an alert, and never sees config; e2e; i18n:check passes; tests pass.

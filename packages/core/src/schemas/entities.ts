@@ -68,6 +68,9 @@ export const syncPolicySchema = z.object({
   atHour: z.number().int().min(0).max(23).nullable(),
   atWeekday: z.number().int().min(0).max(6).nullable(),
   atDay: z.number().int().min(1).max(28).nullable(),
+  /** Editors may "Sync now" / review and import this task (ADR-0012); admins always may. */
+  editorSync: z.boolean(),
+  editorReview: z.boolean(),
 });
 
 /** API shape: the encrypted `secrets` column is never exposed, only whether it is set. */
@@ -77,12 +80,13 @@ export const integrationSchema = z.object({
   /** The adapter's kind; the hub groups by it. */
   kind: z.enum(INTEGRATION_KINDS),
   enabled: z.boolean(),
-  config: z.json(),
-  hasSecrets: z.boolean(),
+  // The setup fields below are left out for non-admins (ADR-0012).
+  config: z.json().optional(),
+  hasSecrets: z.boolean().optional(),
   /** Slicer config folder override; null = the detected one. */
-  slicerConfigDir: z.string().nullable(),
+  slicerConfigDir: z.string().nullable().optional(),
   /** Slicer program used by "Open in slicer". */
-  slicerPath: z.string().nullable(),
+  slicerPath: z.string().nullable().optional(),
   /** Supported, switched on and set up: the only thing the UI looks at to offer actions. */
   capabilities: z.array(z.enum(CAPABILITIES)),
   /** One per capability the adapter supports, in its order. */

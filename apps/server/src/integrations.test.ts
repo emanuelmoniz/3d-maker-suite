@@ -855,6 +855,8 @@ describe("capabilities", () => {
       atHour: null,
       atWeekday: null,
       atDay: null,
+      editorSync: false,
+      editorReview: false,
     };
     expect((await get(`/api/integrations/${id}`)).policies).toEqual([
       { type: "printers", mode: "auto", frequency: "1d", ...defaults, merge: "review" },

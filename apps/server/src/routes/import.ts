@@ -30,6 +30,7 @@ import { createBackup } from "../backup/backup.ts";
 import { HttpError } from "../errors.ts";
 import { createReview, edited, type Stored } from "../import/review.ts";
 import type { Syncer } from "../integrations/sync.ts";
+import { mayTask } from "../lib/auth.ts";
 import { insideRoots } from "../lib/launcher.ts";
 import { numberCell, printTitle } from "../lib/numbers.ts";
 import { readPreferences } from "../lib/preferences.ts";
@@ -193,6 +194,7 @@ export const importRoutes =
       async (req) => {
         const { id, type } = req.params;
         const { from, to, waiting } = req.query;
+        mayTask(db, req.user, id, type, "editorReview");
         const stored = await syncer.offer(id, type, { from, to });
         const { rows, ...rest } = review.preview(stored, waiting ? "waiting" : "all");
         return {
@@ -335,6 +337,17 @@ export const importRoutes =
         const stored = review.load(uploadId);
         if (!stored || stored.entity !== req.params.entity)
           throw new HttpError(404, "upload_not_found", "Upload not found; preview the file again");
+        // `can` lets editors here for an integration's review only (ADR-0012).
+        if (stored.from?.kind === "integration")
+          mayTask(
+            db,
+            req.user,
+            stored.from.integrationId,
+            stored.entity as ReviewedType,
+            "editorReview",
+          );
+        else if (req.user && req.user.role !== "admin")
+          throw new HttpError(403, "forbidden", "Not allowed for your role");
         if (!decisions.length && stored.from?.kind !== "integration")
           throw new HttpError(400, "nothing_to_import", "No rows to import");
         review.plan(stored, decisions, policy);

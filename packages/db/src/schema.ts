@@ -115,6 +115,9 @@ export const syncPolicies = sqliteTable(
     atHour: integer(),
     atWeekday: integer(),
     atDay: integer(),
+    /** Editors may "Sync now" this task / review and import it (ADR-0012); admins always may. */
+    editorSync: integer({ mode: "boolean" }).notNull().default(false),
+    editorReview: integer({ mode: "boolean" }).notNull().default(false),
   },
   (t) => [
     primaryKey({ columns: [t.integrationId, t.type] }),

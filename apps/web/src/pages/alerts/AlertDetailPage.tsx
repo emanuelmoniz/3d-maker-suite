@@ -8,6 +8,7 @@ import { PageHeader } from "../../components/PageHeader.tsx";
 import { Write } from "../../components/Write.tsx";
 import { useAlertAction, useAlertDetail, useEvaluateAlerts } from "../../lib/alerts.ts";
 import { formatDateTime, formatWeight } from "../../lib/format.ts";
+import { useMayTask } from "../../lib/integrations.ts";
 import { useDue } from "../../lib/maintenance.ts";
 import { LogDialog } from "../maintenance/MaintenancePage.tsx";
 import { CAPS } from "../settings/integrationLabels.ts";
@@ -20,6 +21,7 @@ import {
   SEVERITY,
   SyncTargetLink,
   Title,
+  useMayOpenTask,
 } from "./AlertsPage.tsx";
 
 /** What the alert is about, in words: the maintenance type, the sync type, the spool or printer. */
@@ -46,6 +48,8 @@ export function AlertDetailPage() {
   const { data: a, isError } = useAlertDetail(id, true);
   const due = useDue();
   const evaluate = useEvaluateAlerts();
+  const may = useMayTask();
+  const mayOpen = useMayOpenTask();
   const [logging, setLogging] = useState(false);
   // Opening an alert reads it (for this user), once: marking it unread afterwards must stick.
   const act = useAlertAction();
@@ -138,21 +142,9 @@ export function AlertDetailPage() {
                 {t("alerts:view.viewTask")}
               </Link>
             )}
-            {/* The fixes themselves: admin and editor (Step 10 narrows the integration ones). */}
-            <Write>
-              {(a.kind === "spool_no_price" || a.kind === "spool_no_open_date") && (
-                <Link
-                  to="/filament/spools/$id/edit"
-                  params={{ id: a.entityId }}
-                  className={buttonLink}
-                >
-                  {t("alerts:view.editSpool")}
-                </Link>
-              )}
-              {item && (
-                <Button onClick={() => setLogging(true)}>{t("alerts:view.markDone")}</Button>
-              )}
-              {a.kind === "sync_pending" && (
+            {/* The integration ones follow the task's editor flags (ADR-0012). */}
+            {a.kind === "sync_pending" &&
+              may(String(a.context.integrationId), String(a.context.type), "review") && (
                 <Link
                   to="/import/$source/$id/$type"
                   params={{
@@ -167,11 +159,25 @@ export function AlertDetailPage() {
                   {t("alerts:review")}
                 </Link>
               )}
-              <SyncTargetLink a={a} />
-              {(a.kind === "sync_error" || a.kind === "sync_success") && (
-                <Link to="/integrations" hash={integrationHash(a)} className={buttonLink}>
-                  {t("alerts:view.openIntegration")}
+            <SyncTargetLink a={a} />
+            {(a.kind === "sync_error" || a.kind === "sync_success") && mayOpen(a) && (
+              <Link to="/integrations" hash={integrationHash(a)} className={buttonLink}>
+                {t("alerts:view.openIntegration")}
+              </Link>
+            )}
+            {/* The other fixes: admin and editor. */}
+            <Write>
+              {(a.kind === "spool_no_price" || a.kind === "spool_no_open_date") && (
+                <Link
+                  to="/filament/spools/$id/edit"
+                  params={{ id: a.entityId }}
+                  className={buttonLink}
+                >
+                  {t("alerts:view.editSpool")}
                 </Link>
+              )}
+              {item && (
+                <Button onClick={() => setLogging(true)}>{t("alerts:view.markDone")}</Button>
               )}
               {a.kind === "update_available" && (
                 <Link to="/settings" hash="updates" className={buttonLink}>

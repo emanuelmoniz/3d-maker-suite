@@ -1,6 +1,10 @@
-import type { UserRole } from "@3d-maker-suite/core";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { fixture, mockAdapter } from "@3d-maker-suite/adapter-mock";
+import { type Capability, isAction, REVIEWED_TYPES, type UserRole } from "@3d-maker-suite/core";
 import { openDb, schema } from "@3d-maker-suite/db";
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it, onTestFinished } from "vitest";
 import { buildApp } from "./app.ts";
 import { can, loginLimiter } from "./lib/auth.ts";
 import { hashPassword } from "./lib/password.ts";
@@ -12,10 +16,10 @@ beforeAll(async () => {
 });
 
 type App = Awaited<ReturnType<typeof buildApp>>;
-const setup = async (opts: Parameters<typeof buildApp>[3] = {}) => {
+const setup = async (opts: Parameters<typeof buildApp>[3] = {}, dataDir = "") => {
   const db = openDb(":memory:");
   const out: string[] = [];
-  const app = await buildApp(db, { stream: { write: (l: string) => out.push(l) } }, "", opts);
+  const app = await buildApp(db, { stream: { write: (l: string) => out.push(l) } }, dataDir, opts);
   return { db, app, out };
 };
 const addUser = (db: ReturnType<typeof openDb>, role: UserRole, email = `${role}@x.io`) =>
@@ -72,6 +76,10 @@ const MATRIX: Record<string, [viewer: string, editor: string]> = {
   "/api/integrations/abc/sync": ["R", "RW"],
   "/api/slicer-zip": ["-", "-"],
   "/api/import": ["-", "-"],
+  // Opened for editors, then narrowed per task by `mayTask` (the flags test below).
+  "/api/import/integration/abc/printers": ["-", "W"],
+  "/api/import/printers/apply": ["-", "W"],
+  "/api/import/printers/preview": ["-", "-"],
   "/api/backups": ["-", "-"],
   "/api/logs": ["-", "-"],
   "/api/fs": ["-", "-"],
@@ -216,6 +224,117 @@ describe("permissions", () => {
       const history = (await s.get("/api/alerts/history?status=resolved")).json().items;
       expect(history.map((h: { id: string }) => h.id)).toContain(low);
     }
+  });
+
+  it("editor flags: sync and review per task, both off by default; never the setup fields", async () => {
+    // An apply takes a backup first.
+    const dataDir = mkdtempSync(join(tmpdir(), "auth-"));
+    onTestFinished(() => rmSync(dataDir, { recursive: true, force: true }));
+    const { db, app } = await setup({ adapters: [mockAdapter(fixture())] }, dataDir);
+    for (const role of ["admin", "editor", "viewer"] as const) addUser(db, role);
+    const session = async (r: UserRole) => as(app, cookieOf(await login(app, `${r}@x.io`)));
+    const [admin, editor, viewer] = [
+      await session("admin"),
+      await session("editor"),
+      await session("viewer"),
+    ];
+    type Who = typeof admin;
+    const { id } = (
+      await admin.send("POST", "/api/integrations", { adapterId: "mock", secrets: { token: "t" } })
+    ).json();
+    const types: Capability[] = (await admin.get("/api/integrations/adapters"))
+      .json()[0]
+      .capabilities.filter((c: Capability) => !isAction(c));
+    expect(types.length).toBeGreaterThan(0);
+    const sync = (who: Who, type: string) =>
+      who.send("POST", `/api/integrations/${id}/sync`, { type });
+    const review = (who: Who, type: string) =>
+      who.send("POST", `/api/import/integration/${id}/${type}`);
+    const denied = async (r: ReturnType<Who["send"]>) => (await r).statusCode === 403;
+    const reviewed = (t: Capability) => (REVIEWED_TYPES as readonly string[]).includes(t);
+
+    const got: string[] = [];
+    const want: string[] = [];
+    for (const type of types)
+      for (const [editorSync, editorReview] of [
+        [false, false],
+        [true, false],
+        [false, true],
+        [true, true],
+      ] as [boolean, boolean][]) {
+        if (editorSync || editorReview)
+          await admin.send("PATCH", `/api/integrations/${id}`, {
+            policies: [{ type, editorSync, editorReview }],
+          });
+        const at = `${type} sync=${editorSync} review=${editorReview}`;
+        const row = async (who: string, s: Who) =>
+          `${at} ${who}: sync ${(await denied(sync(s, type))) ? 403 : "ok"}${
+            reviewed(type) ? `, review ${(await denied(review(s, type))) ? 403 : "ok"}` : ""
+          }`;
+        const line = (who: string, s: boolean, r: boolean) =>
+          `${at} ${who}: sync ${s ? "ok" : 403}${reviewed(type) ? `, review ${r ? "ok" : 403}` : ""}`;
+        for (const [who, s] of [
+          ["admin", admin],
+          ["editor", editor],
+          ["viewer", viewer],
+        ] as const)
+          got.push(await row(who, s));
+        want.push(
+          line("admin", true, true),
+          line("editor", editorSync, editorReview),
+          line("viewer", false, false),
+        );
+      }
+    expect(got).toEqual(want);
+
+    // Apply: an integration's review with the flag; never a file import.
+    const prints = "prints";
+    await admin.send("PATCH", `/api/integrations/${id}`, {
+      policies: [{ type: prints, editorReview: true }],
+    });
+    const apply = async (who: Who, uploadId: string) =>
+      (
+        await who.send("POST", `/api/import/${prints}/apply`, {
+          uploadId,
+          policy: "keepEdits",
+          decisions: [],
+        })
+      ).statusCode;
+    const offered = (await review(editor, prints)).json().uploadId;
+    await admin.send("PATCH", `/api/integrations/${id}`, {
+      policies: [{ type: prints, editorReview: false }],
+    });
+    expect(await apply(editor, offered)).toBe(403);
+    await admin.send("PATCH", `/api/integrations/${id}`, {
+      policies: [{ type: prints, editorReview: true }],
+    });
+    expect(await apply(editor, offered)).toBe(200);
+    const file = (
+      await admin.send("POST", "/api/import/clients/preview", [{ name: "Ana", mobile: "1" }])
+    ).json().uploadId;
+    expect(
+      (
+        await editor.send("POST", "/api/import/clients/apply", {
+          uploadId: file,
+          policy: "keepEdits",
+          decisions: [{ row: 2, action: "create" }],
+        })
+      ).statusCode,
+    ).toBe(403);
+    expect(await apply(viewer, offered)).toBe(403);
+
+    // Admins see the setup; nobody else does.
+    const SETUP = ["config", "hasSecrets", "slicerConfigDir", "slicerPath"];
+    const [full] = (await admin.get("/api/integrations")).json();
+    expect(Object.keys(full)).toEqual(expect.arrayContaining(SETUP));
+    for (const who of [editor, viewer])
+      for (const i of [
+        (await who.get("/api/integrations")).json()[0],
+        (await who.get(`/api/integrations/${id}`)).json(),
+      ]) {
+        expect(Object.keys(i).filter((k) => SETUP.includes(k))).toEqual([]);
+        expect(i.policies[0]).toHaveProperty("editorSync");
+      }
   });
 
   it("preferences: own display keys for everyone, the rest admin-only", async () => {

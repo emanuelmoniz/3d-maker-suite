@@ -39,6 +39,8 @@ test("roles: viewer and editor see only what they can do; logs show the actor", 
     secrets: { token: "t" },
   });
   await post(page, `/api/integrations/${integration.id}/sync`, { type: "printers" });
+  // No spool matches the mock prints, so the (auto) prints sync leaves them for review.
+  await post(page, `/api/integrations/${integration.id}/sync`, { type: "prints" });
 
   const side = page.getByRole("complementary");
   const seesAdminMenu = async () => {
@@ -94,7 +96,7 @@ test("roles: viewer and editor see only what they can do; logs show the actor", 
   await expect(page.getByRole("link", { name: "Edit" })).toHaveCount(0);
   // Alerts: the viewer reads and unreads their own, but gets none of the fixes.
   await page.goto("/alerts");
-  await page.getByRole("link", { name: /synced/ }).click();
+  await page.getByRole("link", { name: /^Printers from .* synced$/ }).click();
   await expect(page.locator("dd", { hasText: /^Read$/ })).toBeVisible();
   await expect(page.getByRole("link", { name: "Open integration" })).toHaveCount(0);
   await expect(page.getByRole("link", { name: "View printers" })).toHaveCount(0);
@@ -118,7 +120,7 @@ test("roles: viewer and editor see only what they can do; logs show the actor", 
   await expect(
     page
       .getByRole("listitem")
-      .filter({ hasText: /synced/ })
+      .filter({ hasText: /Printers from .* synced/ })
       .getByTitle("Unread"),
   ).toBeVisible();
   // The server says the same.
@@ -127,6 +129,67 @@ test("roles: viewer and editor see only what they can do; logs show the actor", 
     ["/api/maintenance/types", { name: "T" }],
   ] as const)
     expect((await page.request.post(path, { data })).status(), path).toBe(403);
+
+  // Integrations: nothing for an editor until the admin allows a task.
+  const syncUrl = `/api/integrations/${integration.id}/sync`;
+  expect((await page.request.post(syncUrl, { data: { type: "printers" } })).status()).toBe(403);
+  await page.goto("/alerts");
+  await page.getByRole("link", { name: /^Printers from .* synced$/ }).click();
+  await expect(page.getByRole("heading", { name: "Alert", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Open integration" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "View printers" })).toHaveCount(0);
+
+  // The admin lets editors sync printers (on the page) and review print history.
+  await signInAs(page, "ana@example.com");
+  await page.goto("/integrations");
+  await page.getByRole("button", { name: "Settings: Printers" }).click();
+  // The switch's input is sr-only under the drawn track.
+  const editorSync = page.getByRole("switch", { name: "Editors can sync now: Printers" });
+  await editorSync.click({ force: true });
+  await expect(editorSync).toBeChecked();
+  await page.request.patch(`/api/integrations/${integration.id}`, {
+    data: { policies: [{ type: "prints", editorReview: true }] },
+  });
+
+  // The editor gets the page with those two tasks and their one button each, nothing else.
+  await signInAs(page, "eva@example.com");
+  await page.goto("/clients");
+  await side.getByRole("link", { name: "Integrations" }).click();
+  const main = page.getByRole("main");
+  await expect(main.getByText("Print history", { exact: true })).toBeVisible();
+  await expect(main.getByText("Printers", { exact: true })).toBeVisible();
+  await expect(main.getByText("Spools", { exact: true })).toHaveCount(0);
+  await expect(main.getByRole("button", { name: "Sync now" })).toHaveCount(1);
+  await expect(main.getByRole("link", { name: "Review and import" })).toHaveCount(1);
+  for (const setup of [
+    main.getByRole("button", { name: /^Settings:/ }),
+    main.getByLabel("Enabled"),
+    main.getByRole("button", { name: "Test connection" }),
+    main.getByRole("link", { name: "Add integration" }),
+  ])
+    await expect(setup).toHaveCount(0);
+  const synced = page.waitForResponse((r) => r.url().endsWith(syncUrl));
+  await main.getByRole("button", { name: "Sync now" }).click();
+  expect((await synced).status()).toBe(200);
+  await main.getByRole("link", { name: "Review and import" }).click();
+  await expect(page).toHaveURL(new RegExp(`/import/integration/${integration.id}/prints`));
+  await expect(page.getByRole("heading", { name: "Print history" })).toBeVisible();
+  await expect(page.getByText("Your role doesn't allow that")).toHaveCount(0);
+
+  // The same from the alerts: Review on the waiting prints, Open integration on the sync.
+  await page.goto("/alerts");
+  await page
+    .getByRole("listitem")
+    .filter({ hasText: /wait(ing)? for your review/ })
+    .getByRole("link")
+    .click();
+  await page.getByRole("link", { name: "Review", exact: true }).click();
+  await expect(page).toHaveURL(new RegExp(`/import/integration/${integration.id}/prints`));
+  await page.goto("/alerts");
+  await page.getByRole("link", { name: /^Printers from .* synced$/ }).click();
+  await page.getByRole("link", { name: "Open integration" }).click();
+  await expect(page).toHaveURL(/\/integrations#integration-/);
+  await expect(page.getByText("Your role doesn't allow that")).toHaveCount(0);
 
   // Admin: full menu, Branding as its own section, and the log names who did what.
   await signInAs(page, "ana@example.com");

@@ -11,11 +11,16 @@ export const meQuery = queryOptions({
 
 export const useMe = () => useQuery(meQuery).data?.user;
 
+/** The caller's role; the no-users mode counts as admin. Undefined while loading. */
+export const useRole = () => {
+  const { data } = useQuery(meQuery);
+  return data && (data.user?.role ?? "admin");
+};
+
 /** Whether the role may change data (`write`: editor, admin) or manage the server (`admin`). The server enforces the same; this only hides buttons. */
 export function useCan(level: "write" | "admin") {
-  const { data } = useQuery(meQuery);
-  if (!data) return false;
-  const role = data.user?.role ?? "admin";
+  const role = useRole();
+  if (!role) return false;
   return level === "write" ? role !== "viewer" : role === "admin";
 }
 

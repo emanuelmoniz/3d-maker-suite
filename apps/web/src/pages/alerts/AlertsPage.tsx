@@ -27,8 +27,9 @@ import {
   useAlertHistory,
   useAlerts,
 } from "../../lib/alerts.ts";
+import { useCan } from "../../lib/auth.ts";
 import { formatDateTime } from "../../lib/format.ts";
-import { useAdapterName } from "../../lib/integrations.ts";
+import { useAdapterName, useMayTask } from "../../lib/integrations.ts";
 import { useUrlListQuery } from "../../lib/list.ts";
 import { SYNC_TARGETS } from "../../lib/syncTargets.ts";
 import { TITLE } from "../import/SourceReviewPage.tsx";
@@ -67,11 +68,23 @@ export const buttonLink =
 /** The integration's card on the integrations page. */
 export const integrationHash = (a: Alert) => `integration-${a.context.integrationId}`;
 
-/** A finished sync's call to action: the module or catalog section it filled. */
+/** Whether the caller may open this sync alert's task on the Integrations page (ADR-0012). */
+export function useMayOpenTask() {
+  const may = useMayTask();
+  return (a: Alert) => may(String(a.context.integrationId), String(a.context.type), "any");
+}
+
+/**
+ * A finished sync's call to action: the module or catalog section it filled. For whoever may run
+ * the task; a catalog section is module settings, so admin-only.
+ */
 export function SyncTargetLink({ a }: { a: Alert }) {
   const { t } = useTranslation();
+  const admin = useCan("admin");
+  const mayOpen = useMayOpenTask();
   const target = SYNC_TARGETS[a.context.type as Capability];
-  if (a.kind !== "sync_success" || !target) return null;
+  if (a.kind !== "sync_success" || !target || !mayOpen(a)) return null;
+  if (!admin && target.to.endsWith("/settings")) return null;
   return (
     <Link to={target.to} hash={target.hash} className={buttonLink}>
       {t(target.label)}
@@ -83,6 +96,7 @@ export function SyncTargetLink({ a }: { a: Alert }) {
 export function Title({ a, inList }: { a: Alert; inList?: boolean }) {
   const { t } = useTranslation();
   const adapterName = useAdapterName();
+  const mayOpen = useMayOpenTask();
   const c = a.context;
   const type = t(CAPS[c.type as Capability] ?? "");
   const text = {
@@ -155,6 +169,7 @@ export function Title({ a, inList }: { a: Alert; inList?: boolean }) {
       );
     case "sync_success":
     case "sync_error":
+      if (!mayOpen(a)) return <span className="font-medium">{text}</span>;
       return (
         <Link to="/integrations" hash={integrationHash(a)} className={link}>
           {text}

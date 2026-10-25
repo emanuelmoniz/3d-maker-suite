@@ -91,6 +91,8 @@ export const integrationPatchSchema = z
           atHour: true,
           atWeekday: true,
           atDay: true,
+          editorSync: true,
+          editorReview: true,
         })
         .partial({
           mode: true,
@@ -105,6 +107,8 @@ export const integrationPatchSchema = z
           atHour: true,
           atWeekday: true,
           atDay: true,
+          editorSync: true,
+          editorReview: true,
         }),
     ),
   })

@@ -14,6 +14,7 @@ import type {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { api } from "./api.ts";
+import { useRole } from "./auth.ts";
 import { useListPage } from "./list.ts";
 
 export const useAdapters = () =>
@@ -22,10 +23,11 @@ export const useAdapters = () =>
     queryFn: () => api<AdapterInfo[]>("GET", "/api/integrations/adapters"),
   });
 
-export const useIntegrations = () =>
+export const useIntegrations = (enabled = true) =>
   useQuery({
     queryKey: ["integrations", "list"],
     queryFn: () => api<Integration[]>("GET", "/api/integrations"),
+    enabled,
   });
 
 /**
@@ -40,6 +42,39 @@ export function useAdapterName() {
 /** Integrations that can do `cap` right now. The server decides; the UI never checks vendors. */
 export const useCapable = (cap: Capability) =>
   (useIntegrations().data ?? []).filter((i) => i.capabilities.includes(cap));
+
+/**
+ * What the caller may do with one task (ADR-0012): an admin everything, an editor what the task's
+ * flags allow, a viewer nothing. `any`: sync or review. The server checks the same.
+ */
+export function useMayTask() {
+  const role = useRole();
+  // Only an editor's answer depends on the flags.
+  const list = useIntegrations(role === "editor").data;
+  return (integrationId: string, type: string, what: "sync" | "review" | "any") => {
+    if (role === "admin") return true;
+    if (role !== "editor") return false;
+    const p = list?.find((i) => i.id === integrationId)?.policies.find((x) => x.type === type);
+    return (
+      !!p &&
+      (what === "sync"
+        ? p.editorSync
+        : what === "review"
+          ? p.editorReview
+          : p.editorSync || p.editorReview)
+    );
+  };
+}
+
+/** The Integrations page has something for the caller: an admin, or an editor with a task. */
+export function useHasTasks() {
+  const role = useRole();
+  const list = useIntegrations(role === "editor").data ?? [];
+  return (
+    role === "admin" ||
+    (role === "editor" && list.some((i) => i.policies.some((p) => p.editorSync || p.editorReview)))
+  );
+}
 
 export const useSyncRuns = (id: string, query: Record<string, string>) =>
   useListPage<SyncRun>(["integrations", id, "runs"], `/api/integrations/${id}/runs`, query);

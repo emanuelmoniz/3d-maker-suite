@@ -23,9 +23,14 @@ import { DateInput } from "../../components/DateInput.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { Switch } from "../../components/Switch.tsx";
 import { TimeInput } from "../../components/TimeInput.tsx";
+import { useCan, useMe } from "../../lib/auth.ts";
 import { cx } from "../../lib/cx.ts";
 import { formatDateTime, formatNumber, formatRelative, formatTime } from "../../lib/format.ts";
-import { usePatchIntegration, type useSyncIntegration } from "../../lib/integrations.ts";
+import {
+  useMayTask,
+  usePatchIntegration,
+  type useSyncIntegration,
+} from "../../lib/integrations.ts";
 import { CAPS } from "./integrationLabels.ts";
 
 const RANGES = {
@@ -158,6 +163,7 @@ function rangeFor(
 export function Policies({ integration: i, sync }: { integration: Integration; sync: Sync }) {
   const { t } = useTranslation();
   const patch = usePatchIntegration(i.id);
+  const may = useMayTask();
   const tracking = (type: string) =>
     i.policies.some((p) => p.type === type && p.mode !== "off" && p.trackUsage);
   const doubleTracking = tracking("prints") && tracking("spools");
@@ -172,7 +178,10 @@ export function Policies({ integration: i, sync }: { integration: Integration; s
       )}
       {(Object.keys(GROUPS) as (keyof typeof GROUPS)[]).map((g) => {
         const rows = i.policies.filter(
-          (p) => !isAction(p.type) && (DEVICES.includes(p.type) ? "devices" : "catalog") === g,
+          (p) =>
+            !isAction(p.type) &&
+            may(i.id, p.type, "any") &&
+            (DEVICES.includes(p.type) ? "devices" : "catalog") === g,
         );
         if (!rows.length) return null;
         const id = `${i.id}-${g}`;
@@ -252,6 +261,10 @@ function PolicyRow({
   const navigate = useNavigate();
   const detailsId = useId();
   const [open, setOpen] = useState(false);
+  // An editor gets the buttons their flags allow and no settings (ADR-0012).
+  const admin = useCan("admin");
+  const accounts = !!useMe();
+  const may = useMayTask();
   const name = t(CAPS[p.type]);
   const summary = useSummary(p);
   const set = (change: Partial<Omit<SyncPolicy, "type" | "lastRunAt" | "pending">>) =>
@@ -274,8 +287,10 @@ function PolicyRow({
         } as const)
       : null;
   const review = reviewOf({});
+  const canSync = may(i.id, type, "sync");
+  const canReview = !!review && may(i.id, type, "review");
   const run = () => {
-    if (!review) return sync.mutate({ type });
+    if (!review || !canReview) return sync.mutate({ type });
     sync.mutate(
       { type: review.params.type },
       // Rows were left for a person: take them there, to those rows only.
@@ -322,12 +337,12 @@ function PolicyRow({
               {t("integrations:policies.pending", { count: p.pending })}
             </span>
           )}
-          {active && (
+          {active && canSync && (
             <Button disabled={sync.isPending} onClick={() => run()}>
               {t("integrations:policies.syncNow")}
             </Button>
           )}
-          {review && active && (
+          {review && active && canReview && (
             <Link
               {...review}
               className={cx(
@@ -341,198 +356,227 @@ function PolicyRow({
             </Link>
           )}
         </span>
-        <button
-          type="button"
-          aria-expanded={open}
-          aria-controls={detailsId}
-          aria-label={t("integrations:policies.detailsOf", { type: name })}
-          onClick={() => setOpen(!open)}
-          className="inline-flex size-9 shrink-0 items-center justify-center rounded-md hover:bg-surface-2 @xl:order-last"
-        >
-          <ChevronRight
-            aria-hidden
-            className={cx("size-4 transition-transform", open && "rotate-90")}
-          />
-        </button>
+        {admin && (
+          <button
+            type="button"
+            aria-expanded={open}
+            aria-controls={detailsId}
+            aria-label={t("integrations:policies.detailsOf", { type: name })}
+            onClick={() => setOpen(!open)}
+            className="inline-flex size-9 shrink-0 items-center justify-center rounded-md hover:bg-surface-2 @xl:order-last"
+          >
+            <ChevronRight
+              aria-hidden
+              className={cx("size-4 transition-transform", open && "rotate-90")}
+            />
+          </button>
+        )}
       </div>
 
-      <div
-        id={detailsId}
-        hidden={!open}
-        className="mx-3 mb-3 grid gap-5 rounded-md bg-surface-2 p-4 @2xl:grid-cols-2"
-      >
-        <div className="grid content-start gap-5">
-          <fieldset className="grid gap-3">
-            <legend className="mb-2 font-semibold">{t("integrations:policies.when")}</legend>
-            <Switch
-              label={t("integrations:policies.auto")}
-              aria-label={t("integrations:policies.autoOf", { type: name })}
-              checked={auto}
-              disabled={patch.isPending}
-              onChange={(e) => set({ mode: e.target.checked ? "auto" : "manual" })}
-            />
-            {auto ? (
-              <div className="grid gap-3">
-                <FormField label={t("integrations:policies.frequency")}>
-                  {(f) => (
-                    <Combobox
-                      {...f}
-                      aria-label={t("integrations:policies.frequencyOf", { type: name })}
-                      value={p.frequency}
-                      disabled={patch.isPending}
-                      onChange={(v) => set({ frequency: v as SyncFrequency })}
-                      options={options(FREQUENCIES)}
-                    />
-                  )}
-                </FormField>
-                <ScheduleAt policy={p} name={name} disabled={patch.isPending} set={set} />
-                <p className="text-muted">{t("integrations:policies.at.hint")}</p>
-              </div>
-            ) : (
-              <p className="text-muted">{t("integrations:policies.manualHint")}</p>
-            )}
-          </fieldset>
-          {/* Empty (null) = all three; picking all three again goes back to it. */}
-          <fieldset>
-            <legend className="mb-2 font-semibold">{t("integrations:policies.alert")}</legend>
-            <div className="flex flex-wrap gap-x-4 gap-y-1">
-              {ALERT_SEVERITIES.map((s) => (
-                <label key={s} className="flex min-h-9 items-center gap-2">
-                  <input
-                    type="checkbox"
-                    aria-label={t("integrations:policies.alertOf", {
-                      severity: t(SEVERITY[s]),
-                      type: name,
-                    })}
-                    checked={picked(s)}
-                    disabled={patch.isPending}
-                    onChange={() => {
-                      const next = ALERT_SEVERITIES.filter((x) =>
-                        x === s ? !picked(s) : picked(x),
-                      );
-                      set({
-                        alertSeverities: next.length === ALERT_SEVERITIES.length ? null : next,
-                      });
-                    }}
-                  />
-                  {t(SEVERITY[s])}
-                </label>
-              ))}
-            </div>
-          </fieldset>
-        </div>
-
-        {/* Right column. Prints never change once imported: only whether they take the filament. */}
-        {(review || type === "spools") && (
+      {admin && (
+        <div
+          id={detailsId}
+          hidden={!open}
+          className="mx-3 mb-3 grid gap-5 rounded-md bg-surface-2 p-4 @2xl:grid-cols-2"
+        >
           <div className="grid content-start gap-5">
-            <fieldset className="grid content-start gap-3">
-              <legend className="mb-2 font-semibold">{t("integrations:policies.whatHow")}</legend>
-              {review && !prints && (
-                <>
-                  <FormField
-                    label={t("integrations:policies.scope")}
-                    hint={t(SCOPE_HINTS[p.scope])}
-                  >
+            <fieldset className="grid gap-3">
+              <legend className="mb-2 font-semibold">{t("integrations:policies.when")}</legend>
+              <Switch
+                label={t("integrations:policies.auto")}
+                aria-label={t("integrations:policies.autoOf", { type: name })}
+                checked={auto}
+                disabled={patch.isPending}
+                onChange={(e) => set({ mode: e.target.checked ? "auto" : "manual" })}
+              />
+              {auto ? (
+                <div className="grid gap-3">
+                  <FormField label={t("integrations:policies.frequency")}>
                     {(f) => (
                       <Combobox
                         {...f}
-                        aria-label={t("integrations:policies.scopeOf", { type: name })}
-                        value={p.scope}
+                        aria-label={t("integrations:policies.frequencyOf", { type: name })}
+                        value={p.frequency}
                         disabled={patch.isPending}
-                        onChange={(v) => set({ scope: v as SyncScope })}
-                        options={options(SCOPES)}
+                        onChange={(v) => set({ frequency: v as SyncFrequency })}
+                        options={options(FREQUENCIES)}
                       />
                     )}
                   </FormField>
-                  <FormField
-                    label={t("integrations:policies.merge")}
-                    hint={t(MERGE_HINTS[p.merge])}
-                  >
-                    {(f) => (
-                      <Combobox
-                        {...f}
-                        aria-label={t("integrations:policies.mergeOf", { type: name })}
-                        value={p.merge}
-                        disabled={patch.isPending}
-                        onChange={(v) => set({ merge: v as SyncMerge })}
-                        options={options(MERGES)}
-                      />
-                    )}
-                  </FormField>
-                </>
-              )}
-              {/* Runs without a review (scheduled, "sync now"); a review asks on its own. */}
-              {(prints || type === "spools") && (
-                <div>
-                  <label className="flex min-h-9 items-center gap-2 font-medium">
-                    <input
-                      type="checkbox"
-                      aria-describedby={trackHint}
-                      checked={p.trackUsage}
-                      disabled={patch.isPending}
-                      onChange={(e) => set({ trackUsage: e.target.checked })}
-                    />
-                    {t("integrations:policies.trackUsage")}
-                  </label>
-                  <p id={trackHint} className="text-muted">
-                    {type === "spools"
-                      ? t("integrations:policies.trackUsageSpools")
-                      : t("integrations:policies.trackUsageOf", { type: name })}
-                  </p>
+                  <ScheduleAt policy={p} name={name} disabled={patch.isPending} set={set} />
+                  <p className="text-muted">{t("integrations:policies.at.hint")}</p>
                 </div>
+              ) : (
+                <p className="text-muted">{t("integrations:policies.manualHint")}</p>
               )}
             </fieldset>
-
-            {/* Spools the source brings in for the first time; one you have keeps its own. */}
-            {type === "spools" && (
-              <fieldset className="grid content-start gap-3">
-                <legend className="font-semibold">
-                  {t("integrations:policies.newSpools.title")}
+            {/* Empty (null) = all three; picking all three again goes back to it. */}
+            <fieldset>
+              <legend className="mb-2 font-semibold">{t("integrations:policies.alert")}</legend>
+              <div className="flex flex-wrap gap-x-4 gap-y-1">
+                {ALERT_SEVERITIES.map((s) => (
+                  <label key={s} className="flex min-h-9 items-center gap-2">
+                    <input
+                      type="checkbox"
+                      aria-label={t("integrations:policies.alertOf", {
+                        severity: t(SEVERITY[s]),
+                        type: name,
+                      })}
+                      checked={picked(s)}
+                      disabled={patch.isPending}
+                      onChange={() => {
+                        const next = ALERT_SEVERITIES.filter((x) =>
+                          x === s ? !picked(s) : picked(x),
+                        );
+                        set({
+                          alertSeverities: next.length === ALERT_SEVERITIES.length ? null : next,
+                        });
+                      }}
+                    />
+                    {t(SEVERITY[s])}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+            {/* Without accounts there are no editors. */}
+            {accounts && (
+              <fieldset className="grid gap-1">
+                <legend className="mb-2 font-semibold">
+                  {t("integrations:policies.editors.title")}
                 </legend>
-                <p className="-mt-1 text-muted">{t("integrations:policies.newSpools.hint")}</p>
-                <FormField
-                  label={t("integrations:policies.newSpools.weight")}
-                  hint={t(NEW_WEIGHT_HINTS[p.newWeight])}
-                >
-                  {(f) => (
-                    <Combobox
-                      {...f}
-                      value={p.newWeight}
-                      disabled={patch.isPending}
-                      onChange={(v) => set({ newWeight: v as NewSpoolField })}
-                      options={options(NEW_WEIGHT)}
-                    />
-                  )}
-                </FormField>
-                <FormField
-                  label={t("integrations:policies.newSpools.openedAt")}
-                  hint={t(NEW_OPENED_AT_HINTS[p.newOpenedAt])}
-                >
-                  {(f) => (
-                    <Combobox
-                      {...f}
-                      value={p.newOpenedAt}
-                      disabled={patch.isPending}
-                      onChange={(v) => set({ newOpenedAt: v as NewSpoolField })}
-                      options={options(NEW_OPENED_AT)}
-                    />
-                  )}
-                </FormField>
+                <Switch
+                  label={t("integrations:policies.editors.sync")}
+                  aria-label={t("integrations:policies.editors.syncOf", { type: name })}
+                  checked={p.editorSync}
+                  disabled={patch.isPending}
+                  onChange={(e) => set({ editorSync: e.target.checked })}
+                />
+                {review && (
+                  <Switch
+                    label={t("integrations:policies.editors.review")}
+                    aria-label={t("integrations:policies.editors.reviewOf", { type: name })}
+                    checked={p.editorReview}
+                    disabled={patch.isPending}
+                    onChange={(e) => set({ editorReview: e.target.checked })}
+                  />
+                )}
+                <p className="text-muted">{t("integrations:policies.editors.hint")}</p>
               </fieldset>
             )}
           </div>
-        )}
 
-        {prints && active && (
-          <ReviewPeriod
-            lastRunAt={p.lastRunAt}
-            open={(dates) => {
-              const target = reviewOf(dates);
-              if (target) navigate(target);
-            }}
-          />
-        )}
-      </div>
+          {/* Right column. Prints never change once imported: only whether they take the filament. */}
+          {(review || type === "spools") && (
+            <div className="grid content-start gap-5">
+              <fieldset className="grid content-start gap-3">
+                <legend className="mb-2 font-semibold">{t("integrations:policies.whatHow")}</legend>
+                {review && !prints && (
+                  <>
+                    <FormField
+                      label={t("integrations:policies.scope")}
+                      hint={t(SCOPE_HINTS[p.scope])}
+                    >
+                      {(f) => (
+                        <Combobox
+                          {...f}
+                          aria-label={t("integrations:policies.scopeOf", { type: name })}
+                          value={p.scope}
+                          disabled={patch.isPending}
+                          onChange={(v) => set({ scope: v as SyncScope })}
+                          options={options(SCOPES)}
+                        />
+                      )}
+                    </FormField>
+                    <FormField
+                      label={t("integrations:policies.merge")}
+                      hint={t(MERGE_HINTS[p.merge])}
+                    >
+                      {(f) => (
+                        <Combobox
+                          {...f}
+                          aria-label={t("integrations:policies.mergeOf", { type: name })}
+                          value={p.merge}
+                          disabled={patch.isPending}
+                          onChange={(v) => set({ merge: v as SyncMerge })}
+                          options={options(MERGES)}
+                        />
+                      )}
+                    </FormField>
+                  </>
+                )}
+                {/* Runs without a review (scheduled, "sync now"); a review asks on its own. */}
+                {(prints || type === "spools") && (
+                  <div>
+                    <label className="flex min-h-9 items-center gap-2 font-medium">
+                      <input
+                        type="checkbox"
+                        aria-describedby={trackHint}
+                        checked={p.trackUsage}
+                        disabled={patch.isPending}
+                        onChange={(e) => set({ trackUsage: e.target.checked })}
+                      />
+                      {t("integrations:policies.trackUsage")}
+                    </label>
+                    <p id={trackHint} className="text-muted">
+                      {type === "spools"
+                        ? t("integrations:policies.trackUsageSpools")
+                        : t("integrations:policies.trackUsageOf", { type: name })}
+                    </p>
+                  </div>
+                )}
+              </fieldset>
+
+              {/* Spools the source brings in for the first time; one you have keeps its own. */}
+              {type === "spools" && (
+                <fieldset className="grid content-start gap-3">
+                  <legend className="font-semibold">
+                    {t("integrations:policies.newSpools.title")}
+                  </legend>
+                  <p className="-mt-1 text-muted">{t("integrations:policies.newSpools.hint")}</p>
+                  <FormField
+                    label={t("integrations:policies.newSpools.weight")}
+                    hint={t(NEW_WEIGHT_HINTS[p.newWeight])}
+                  >
+                    {(f) => (
+                      <Combobox
+                        {...f}
+                        value={p.newWeight}
+                        disabled={patch.isPending}
+                        onChange={(v) => set({ newWeight: v as NewSpoolField })}
+                        options={options(NEW_WEIGHT)}
+                      />
+                    )}
+                  </FormField>
+                  <FormField
+                    label={t("integrations:policies.newSpools.openedAt")}
+                    hint={t(NEW_OPENED_AT_HINTS[p.newOpenedAt])}
+                  >
+                    {(f) => (
+                      <Combobox
+                        {...f}
+                        value={p.newOpenedAt}
+                        disabled={patch.isPending}
+                        onChange={(v) => set({ newOpenedAt: v as NewSpoolField })}
+                        options={options(NEW_OPENED_AT)}
+                      />
+                    )}
+                  </FormField>
+                </fieldset>
+              )}
+            </div>
+          )}
+
+          {prints && active && (
+            <ReviewPeriod
+              lastRunAt={p.lastRunAt}
+              open={(dates) => {
+                const target = reviewOf(dates);
+                if (target) navigate(target);
+              }}
+            />
+          )}
+        </div>
+      )}
     </li>
   );
 }

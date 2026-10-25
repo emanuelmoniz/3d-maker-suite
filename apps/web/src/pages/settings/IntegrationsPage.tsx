@@ -4,7 +4,8 @@ import { Plug, Plus } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { EmptyState } from "../../components/EmptyState.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
-import { useAdapters, useIntegrations } from "../../lib/integrations.ts";
+import { useCan } from "../../lib/auth.ts";
+import { useAdapters, useIntegrations, useMayTask } from "../../lib/integrations.ts";
 import { IntegrationCard } from "./IntegrationCard.tsx";
 import { KINDS } from "./integrationLabels.ts";
 
@@ -13,8 +14,16 @@ const addClass =
 
 export function IntegrationsPage() {
   const { t } = useTranslation();
-  const { data, isError } = useIntegrations();
-  const canAdd = !!useAdapters().data?.length;
+  const admin = useCan("admin");
+  const may = useMayTask();
+  // An editor gets the integrations with a task of theirs, and only those tasks (ADR-0012).
+  const list = useIntegrations();
+  const data = admin
+    ? list.data
+    : list.data?.filter((i) => i.policies.some((p) => may(i.id, p.type, "any")));
+  const { isError } = list;
+  const adapters = useAdapters().data;
+  const canAdd = admin && !!adapters?.length;
   const add = canAdd && (
     <Link to="/integrations/new" className={addClass}>
       <Plus className="size-4" aria-hidden />
@@ -59,7 +68,13 @@ export function IntegrationsPage() {
           <EmptyState
             icon={Plug}
             title={t("integrations:emptyTitle")}
-            description={canAdd ? t("integrations:emptyBody") : t("integrations:noAdapters")}
+            description={
+              !admin
+                ? t("integrations:noTasks")
+                : canAdd
+                  ? t("integrations:emptyBody")
+                  : t("integrations:noAdapters")
+            }
             action={add}
           />
         ))}

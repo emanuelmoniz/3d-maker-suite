@@ -59,9 +59,9 @@ R = GET/HEAD, W = POST/PUT/PATCH/DELETE, - = 403.
 | `/api/alerts/channels` | - | - | R W | channels hold webhook and SMTP secrets |
 | `/api/preferences` | R, W own display keys | R, W own display keys | R W | see below |
 | `/api/branding` | R | R | R W | everyone sees the logo and favicon |
-| `/api/integrations` | R | R, W `/:id/sync` | R W | GET never returns secrets; "Open in slicer" needs the list; sync is the one editor write |
+| `/api/integrations` | R | R, W `/:id/sync` of a task with `editorSync` | R W | GET never returns secrets, and to non-admins not the setup either (`config`, `hasSecrets`, slicer folder and program); "Open in slicer" needs the list. See "Editor tasks" |
 | `/api/slicer-zip` | - | - | R W | |
-| `/api/import` | - | - | R W | |
+| `/api/import` | - | W `/integration/:id/:type` and `/:entity/apply` of that review, for a task with `editorReview` | R W | file imports stay admin-only |
 | `/api/backups` | - | - | R W | a download is the whole database |
 | `/api/logs` | - | - | R W | |
 | `/api/fs` | - | R `/list` and W `/folder` (new folder), both confined to the project roots | R | browses the server's disk; editors need it for the project folder pickers (change or link a folder) |
@@ -79,6 +79,12 @@ Infrastructure keys: `appName`, `projectRoots`, `projectScanMaxFiles`, `viewerMa
 
 A PATCH with any key the caller may not change is rejected as a whole (403), nothing is half-saved.
 
+### Editor tasks
+An integration's setup is admin-only, but the admin can hand editors single tasks: per data type (`sync_policies` row), `editorSync` allows "Sync now" and `editorReview` allows its review and import. Both default to off. Admins always may; viewers never.
+- `can()` has no database and no body, so it lets editors reach `POST /api/integrations/:id/sync`, `POST /api/import/integration/:id/:type` and `POST /api/import/:entity/apply`. Each of these routes then calls `mayTask()` (next to `can()` in `lib/auth.ts`) with the task's integration, type and flag, and answers 403 without it. An apply that isn't an integration's review is admin-only.
+- One sync request is one type, so there is no "sync all" to narrow.
+- The web shows the Integrations page to an editor with at least one flag on, with only those tasks' rows and only their Sync now / Review buttons: no switch, account, slicer, settings or sync log. Alert buttons follow the same flags. A finished sync's link to a catalog section stays admin-only, since that is module settings.
+
 ### Alerts per user
 An alert is the same for everyone; whether a person has read, snoozed or dismissed it is their own (`alert_states`: alert id, user id, read at, snoozed until, dismissed at, updated at; cascade on both).
 - From `alerts`, the same for everyone: kind, severity, context, detail, `resolvedAt`, `notifiedAt`.
@@ -95,7 +101,7 @@ An alert is the same for everyone; whether a person has read, snoozed or dismiss
 - Hashes, tokens and the setup token are never logged or returned (the logger already redacts `cookie` and `*.password`).
 
 ### What a viewer sees
-Every page with data: dashboard, printers, maintenance, filament, projects (with the 3D viewer and files), prints, quotes, orders, clients, stats, alerts. On alerts they get read, unread, snooze and dismiss, but not the fix buttons (edit spool, mark done, review, the integration and update links). Buttons that would change something are hidden, based on the role from `/api/auth/me`; the server enforces the same rules, so hiding is only for comfort. Settings shows only their own display preferences and their account. Editors see the same Settings, and log work (prints, spools, maintenance done, accessory installs) but cannot open any module settings page or add or edit printers, accessories, maintenance types or catalogs.
+Every page with data: dashboard, printers, maintenance, filament, projects (with the 3D viewer and files), prints, quotes, orders, clients, stats, alerts. On alerts they get read, unread, snooze and dismiss, but not the fix buttons (edit spool, mark done, review, the integration and update links). Buttons that would change something are hidden, based on the role from `/api/auth/me`; the server enforces the same rules, so hiding is only for comfort. Settings shows only their own display preferences and their account. Editors see the same Settings, and log work (prints, spools, maintenance done, accessory installs) but cannot open any module settings page or add or edit printers, accessories, maintenance types or catalogs. Their integration buttons, on the Integrations page and on alerts, are the tasks an admin allowed them (see "Editor tasks").
 
 ## Rejected options
 - **Custom roles or a per-permission matrix**: more UI and more ways to get it wrong, for households of two to five people. Three fixed roles cover "owner", "helps with prints" and "only looks".

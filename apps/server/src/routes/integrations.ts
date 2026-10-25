@@ -25,6 +25,7 @@ import {
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
 import { asc, eq } from "drizzle-orm";
+import type { FastifyRequest } from "fastify";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
@@ -36,6 +37,7 @@ import {
 } from "../integrations/capabilities.ts";
 import { readSecrets, writeSecrets } from "../integrations/secrets.ts";
 import type { Syncer } from "../integrations/sync.ts";
+import { mayTask } from "../lib/auth.ts";
 import { listPage } from "../lib/list.ts";
 
 const { integrations, syncPolicies, syncRuns } = schema;
@@ -59,23 +61,25 @@ export const integrationsRoutes =
       if (!r.success) throw new HttpError(400, code, z.prettifyError(r.error));
       return r.data;
     };
-    // The encrypted column never leaves the server (ADR-0005).
-    const toApi = (full: typeof integrations.$inferSelect) => {
-      const { secrets, ...row } = full;
+    // The encrypted column never leaves the server (ADR-0005); the setup fields only go to an
+    // admin (ADR-0012): the others get what the task rows and "Open in slicer" need.
+    const toApi = (full: typeof integrations.$inferSelect, admin = true) => {
+      const { secrets, config, slicerConfigDir, slicerPath, ...row } = full;
       const adapter = syncer.adapters.find((a) => a.id === row.adapterId);
       // A local source never syncs: it's there or it isn't.
       const local =
         adapter?.kind === "local" && (unavailable(full, adapter) ? "unavailable" : "ok");
       return {
         ...row,
+        ...(admin && { config, slicerConfigDir, slicerPath, hasSecrets: !!secrets }),
         kind: adapter?.kind ?? "cloud",
-        hasSecrets: !!secrets,
         status: syncer.running.has(row.id) ? "syncing" : local || row.status,
         capabilities: activeCapabilities(db, full, adapter),
         policies: (adapter?.capabilities ?? []).map((type) => {
           const p = policyOf(db, row.id, type);
           const { mode, frequency, lastRunAt, pending, alertSeverities, trackUsage } = p;
           const { scope, merge, newWeight, newOpenedAt, atMinute, atHour, atWeekday, atDay } = p;
+          const { editorSync, editorReview } = p;
           return {
             type,
             mode,
@@ -92,6 +96,8 @@ export const integrationsRoutes =
             atHour,
             atWeekday,
             atDay,
+            editorSync,
+            editorReview,
           };
         }),
       } as Integration;
@@ -114,14 +120,21 @@ export const integrationsRoutes =
       })),
     );
 
-    app.get("/", { schema: { response: { 200: z.array(integrationSchema) } } }, async () =>
-      db.select().from(integrations).orderBy(asc(integrations.createdAt)).all().map(toApi),
+    const isAdmin = (req: FastifyRequest) => !req.user || req.user.role === "admin";
+
+    app.get("/", { schema: { response: { 200: z.array(integrationSchema) } } }, async (req) =>
+      db
+        .select()
+        .from(integrations)
+        .orderBy(asc(integrations.createdAt))
+        .all()
+        .map((row) => toApi(row, isAdmin(req))),
     );
 
     app.get(
       "/:id",
       { schema: { params, response: { 200: integrationSchema, ...notFound } } },
-      async (req) => toApi(get(req.params.id)),
+      async (req) => toApi(get(req.params.id), isAdmin(req)),
     );
 
     app.post(
@@ -289,7 +302,10 @@ export const integrationsRoutes =
           response: { 200: syncResultSchema, ...notFound, 409: apiErrorSchema },
         },
       },
-      async (req) => syncer.run(req.params.id, "manual", req.body),
+      async (req) => {
+        mayTask(db, req.user, req.params.id, req.body.type, "editorSync");
+        return syncer.run(req.params.id, "manual", req.body);
+      },
     );
 
     app.get(

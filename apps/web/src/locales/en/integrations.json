@@ -6,6 +6,7 @@
   "emptyTitle": "No integrations yet",
   "emptyBody": "Connect a vendor account to import your printers and print history automatically.",
   "noAdapters": "No integrations are available in this version yet.",
+  "noTasks": "An admin can let you sync or review an integration's data here.",
   "kinds": {
     "cloud": "Cloud",
     "local": "Local"
@@ -204,6 +205,14 @@
       "success": "Success"
     },
     "alertOf": "Alert on {{severity}}: {{type}}",
+    "editors": {
+      "title": "Editors",
+      "sync": "Can sync now",
+      "syncOf": "Editors can sync now: {{type}}",
+      "review": "Can review and import",
+      "reviewOf": "Editors can review and import: {{type}}",
+      "hint": "Admins always can. Editors never see the account or its settings."
+    },
     "trackUsage": "Track usage",
     "trackUsageOf": "Take the filament of synced {{type}} from the spools",
     "trackUsageSpools": "Take the remaining weight of synced spools from the vendor",
