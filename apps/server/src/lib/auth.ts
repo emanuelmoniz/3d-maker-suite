@@ -62,8 +62,6 @@ export function can(role: UserRole, url: string, method: string): boolean {
       (method === "POST" && path === "/api/maintenance/tasks"))
   )
     return true;
-  // "Add folder" in Projects browses the server's disk; the route confines editors to the project roots.
-  if (role === "editor" && method === "GET" && path === "/api/fs/list") return true;
   if (role === "editor" && /^\/api\/filament\/profiles(\/|$)/.test(path))
     return READS.includes(method);
   const access = TABLE[/^\/api\/([^/]+)/.exec(path)?.[1] ?? ""]?.[role] ?? "-";
