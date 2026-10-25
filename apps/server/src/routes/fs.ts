@@ -2,8 +2,11 @@ import { readdir, realpath, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, extname, isAbsolute, join, resolve, sep } from "node:path";
 import { fsListQuerySchema, fsListResponseSchema } from "@3d-maker-suite/core";
+import type { Db } from "@3d-maker-suite/db";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { HttpError } from "../errors.ts";
+import { insideRoots } from "../lib/launcher.ts";
+import { rootPaths } from "../lib/preferences.ts";
 
 type Entry = { name: string; path: string; type: "dir" | "file" };
 
@@ -80,33 +83,48 @@ async function roots(): Promise<Entry[]> {
 /**
  * Lists folders (and in file mode, matching files) so the web app can pick a local path.
  * Names and types only; nothing is ever opened. Auth comes from the global access guard.
- * Not confined to the project roots on purpose: it's how those roots and the slicer get chosen.
+ * Admins are not confined to the project roots on purpose: it's how those roots and the slicer get chosen.
+ * Editors (the project "Add folder" picker) only see the project roots and what is inside them.
  */
-export const fsRoutes = (): FastifyPluginAsyncZod => async (app) => {
-  app.get(
-    "/list",
-    { schema: { querystring: fsListQuerySchema, response: { 200: fsListResponseSchema } } },
-    async (req) => {
-      const { path, mode, ext } = req.query;
-      if (!path) return { path: null, parent: null, sep, entries: await roots() };
-      if (!isAbsolute(path)) throw new HttpError(400, "validation_error", "Path must be absolute");
+export const fsRoutes =
+  (db: Db): FastifyPluginAsyncZod =>
+  async (app) => {
+    app.get(
+      "/list",
+      { schema: { querystring: fsListQuerySchema, response: { 200: fsListResponseSchema } } },
+      async (req) => {
+        const { path, mode, ext } = req.query;
+        const confined = !!req.user && req.user.role !== "admin";
+        if (!path)
+          return {
+            path: null,
+            parent: null,
+            sep,
+            entries: confined
+              ? rootPaths(db).map((p) => ({ name: p, path: p, type: "dir" as const }))
+              : await roots(),
+          };
+        if (!isAbsolute(path))
+          throw new HttpError(400, "validation_error", "Path must be absolute");
 
-      // Same normalisation as insideRoots: `..` and symlinks resolve before listing.
-      const real = await realpath(resolve(path)).catch((e) => Promise.reject(fsError(e)));
-      const exts = ext
-        ?.split(",")
-        .map((e) => e.trim().toLowerCase())
-        .filter(Boolean);
+        // Same normalisation as insideRoots: `..` and symlinks resolve before listing.
+        const real = await realpath(resolve(path)).catch((e) => Promise.reject(fsError(e)));
+        if (confined && !(await insideRoots(real, rootPaths(db))))
+          throw new HttpError(403, "not_allowed", "Folder is not in a project root");
+        const exts = ext
+          ?.split(",")
+          .map((e) => e.trim().toLowerCase())
+          .filter(Boolean);
 
-      const entries: Entry[] = (await readEntries(real))
-        .filter(
-          (e) =>
-            e.type === "dir" ||
-            (mode === "file" && (!exts?.length || exts.includes(extname(e.name).toLowerCase()))),
-        )
-        .map((e) => ({ name: e.name, path: e.abs, type: e.type }));
-      const parent = dirname(real);
-      return { path: real, parent: parent === real ? null : parent, sep, entries };
-    },
-  );
-};
+        const entries: Entry[] = (await readEntries(real))
+          .filter(
+            (e) =>
+              e.type === "dir" ||
+              (mode === "file" && (!exts?.length || exts.includes(extname(e.name).toLowerCase()))),
+          )
+          .map((e) => ({ name: e.name, path: e.abs, type: e.type }));
+        const parent = dirname(real);
+        return { path: real, parent: parent === real ? null : parent, sep, entries };
+      },
+    );
+  };
