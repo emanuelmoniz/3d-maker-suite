@@ -8,7 +8,6 @@ import { Combobox } from "../../components/Combobox.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { PathPicker } from "../../components/PathPicker.tsx";
-import { Write } from "../../components/Write.tsx";
 import { isConflict } from "../../lib/catalog.ts";
 import { usePreferences } from "../../lib/preferences.ts";
 import { uploadProjectFile } from "../../lib/projectFiles.ts";
@@ -211,14 +210,12 @@ function ProjectForm({ project }: { project?: ProjectDetail }) {
                   value={folder}
                   onChange={(e) => setFolder(e.target.value)}
                 />
-                <Write admin>
-                  <PathPicker
-                    label={t("projects:form.folder")}
-                    mode="folder"
-                    initial={folder}
-                    onPick={setFolder}
-                  />
-                </Write>
+                <PathPicker
+                  label={t("projects:form.folder")}
+                  mode="folder"
+                  initial={folder}
+                  onPick={setFolder}
+                />
               </div>
             )}
           </FormField>

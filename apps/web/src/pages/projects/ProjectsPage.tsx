@@ -327,9 +327,7 @@ export function ProjectsPage() {
         actions={
           <Write>
             {add}
-            <Write admin>
-              <AddFolder />
-            </Write>
+            <AddFolder />
             <SettingsLink module="projects" />
           </Write>
         }

@@ -10,7 +10,6 @@ import { Button } from "../../components/Button.tsx";
 import { Combobox } from "../../components/Combobox.tsx";
 import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { PathPicker } from "../../components/PathPicker.tsx";
-import { Write } from "../../components/Write.tsx";
 import { ApiError } from "../../lib/api.ts";
 import { usePreferences } from "../../lib/preferences.ts";
 import { useProjectFolder } from "../../lib/projects.ts";
@@ -90,17 +89,15 @@ export function FolderActions({ project }: { project: ProjectDetail }) {
       )}
       {ok && (
         <div className="flex flex-wrap items-center gap-2">
-          <Write admin>
-            <PathPicker
-              label={t("projects:folder.linkTitle")}
-              mode="folder"
-              initial={old ?? undefined}
-              within={roots}
-              onPick={(path) => ask({ path })}
-            >
-              {t("projects:folder.change")}
-            </PathPicker>
-          </Write>
+          <PathPicker
+            label={t("projects:folder.linkTitle")}
+            mode="folder"
+            initial={old ?? undefined}
+            within={roots}
+            onPick={(path) => ask({ path })}
+          >
+            {t("projects:folder.change")}
+          </PathPicker>
           <Button variant="danger" disabled={folder.isPending} onClick={() => ask({})}>
             {t("projects:folder.unlink")}
           </Button>
@@ -120,17 +117,15 @@ export function FolderActions({ project }: { project: ProjectDetail }) {
             <Button disabled={folder.isPending} onClick={() => folder.mutate({ root: chosen })}>
               {t(project.folderState ? "projects:folder.recreate" : "projects:folder.create")}
             </Button>
-            <Write admin>
-              <PathPicker
-                label={t("projects:folder.linkTitle")}
-                mode="folder"
-                initial={old ?? undefined}
-                within={roots}
-                onPick={(path) => folder.mutate({ path })}
-              >
-                {t(project.folderState ? "projects:folder.linkOther" : "projects:folder.link")}
-              </PathPicker>
-            </Write>
+            <PathPicker
+              label={t("projects:folder.linkTitle")}
+              mode="folder"
+              initial={old ?? undefined}
+              within={roots}
+              onPick={(path) => folder.mutate({ path })}
+            >
+              {t(project.folderState ? "projects:folder.linkOther" : "projects:folder.link")}
+            </PathPicker>
           </div>
         ) : (
           <p className="text-muted">
