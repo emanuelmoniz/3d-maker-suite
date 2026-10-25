@@ -107,6 +107,11 @@
     "see": "See update",
     "dismiss": "Dismiss"
   },
+  "serverBanner": {
+    "stopped": "The server has stopped. You can close this tab.",
+    "restarting": "The server is restarting. This page reloads by itself when it is back.",
+    "timeout": "The server did not answer in time. Try opening it here:"
+  },
   "forbidden": "Your role doesn't allow that. Ask an admin if you need it.",
   "userMenu": {
     "label": "Account menu for {{name}}",

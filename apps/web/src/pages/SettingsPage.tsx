@@ -147,8 +147,14 @@ export function SettingsPage() {
               />
             )}
           </FormField>
-          <BrandingFields />
         </Section>
+
+        {canAdmin && (
+          <Section title={t("settings:branding.title")}>
+            <p className="text-muted">{t("settings:branding.everyone")}</p>
+            <BrandingFields />
+          </Section>
+        )}
 
         {signedIn && (
           <Section title={t("users:account.title")} id="account">
@@ -162,21 +168,25 @@ export function SettingsPage() {
           </Section>
         )}
 
-        <Section title={t("settings:sections.server")}>
-          <ServerSection />
-        </Section>
+        {canAdmin && (
+          <>
+            <Section title={t("settings:sections.server")}>
+              <ServerSection />
+            </Section>
 
-        <Section title={t("settings:sections.backup")}>
-          <BackupSection />
-        </Section>
+            <Section title={t("settings:sections.backup")}>
+              <BackupSection />
+            </Section>
 
-        <Section title={t("settings:sections.logs")}>
-          <LogSection />
-        </Section>
+            <Section title={t("settings:sections.logs")}>
+              <LogSection />
+            </Section>
 
-        <Section title={t("settings:sections.about")} id="updates">
-          <AboutSection />
-        </Section>
+            <Section title={t("settings:sections.about")} id="updates">
+              <AboutSection />
+            </Section>
+          </>
+        )}
       </div>
     </>
   );

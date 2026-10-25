@@ -30,6 +30,8 @@
     "time12h": "12-hour (2:30 PM)"
   },
   "branding": {
+    "title": "Branding",
+    "everyone": "Applies to everyone who uses this server.",
     "name": "App name",
     "nameHint": "Shown in the sidebar and browser tab. Leave empty for the default.",
     "upload": "Upload image",
@@ -170,13 +172,9 @@
     "startAtLogin": "Start at login",
     "startAtLoginHint": "Starts the app when you sign in to this computer. Turn it off to remove the entry.",
     "restartButton": "Restart server",
-    "restartingTitle": "Server restarting…",
-    "restartingBody": "This page reloads by itself when the server is back.",
-    "restartTimeout": "The server did not answer in time. Try opening it here:",
     "stopButton": "Stop server",
     "stopTitle": "Stop the server?",
     "stopBody": "The app stops and every open tab loses connection. Start it again from the desktop or Start-menu shortcut.",
-    "stopped": "The server has stopped. You can close this tab.",
     "networkHint": "Changes to the host or port apply only after a restart (or after you stop the server and start it again)."
   },
   "logs": {

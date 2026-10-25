@@ -7,6 +7,7 @@ import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { api } from "../../lib/api.ts";
 import { useCan } from "../../lib/auth.ts";
+import { useSetServerState } from "../../lib/serverState.ts";
 
 const KEY = ["server-config"];
 // i18n keys are written out in full so `pnpm i18n:check` can see them.
@@ -55,13 +56,12 @@ export function ServerActions() {
   });
   const stop = useMutation({ mutationFn: () => api("POST", "/api/server-config/stop") });
   const [confirmStop, setConfirmStop] = useState(false);
-  const [restartUrl, setRestartUrl] = useState<string | null>(null);
-  const [timedOut, setTimedOut] = useState(false);
+  const setState = useSetServerState();
   if (!data) return null;
   const restartInPlace = () => {
     restart.mutate(undefined, {
       onSuccess: async (url) => {
-        setRestartUrl(url);
+        setState({ kind: "restarting", url, timedOut: false });
         for (let i = 0; i < 60; i++) {
           await new Promise((r) => setTimeout(r, 500));
           const up = await fetch(`${url}api/health`, { mode: "no-cors" }).then(
@@ -73,7 +73,7 @@ export function ServerActions() {
           else location.assign(url);
           return;
         }
-        setTimedOut(true);
+        setState({ kind: "restarting", url, timedOut: true });
       },
     });
   };
@@ -98,41 +98,10 @@ export function ServerActions() {
         confirmLabel={t("settings:server.stopButton")}
         onConfirm={() => {
           setConfirmStop(false);
-          stop.mutate();
+          stop.mutate(undefined, { onSuccess: () => setState({ kind: "stopped" }) });
         }}
         onCancel={() => setConfirmStop(false)}
       />
-      {restartUrl && (
-        <dialog
-          ref={(d) => {
-            if (d && !d.open) d.showModal();
-          }}
-          onCancel={(e) => e.preventDefault()}
-          aria-labelledby="restarting-title"
-          className="m-auto w-[min(92vw,26rem)] rounded-lg border border-border bg-surface p-5 text-fg"
-        >
-          <h2 id="restarting-title" className="text-base font-semibold">
-            {t("settings:server.restartingTitle")}
-          </h2>
-          {timedOut ? (
-            <p role="alert" className="mt-2 text-bad">
-              {t("settings:server.restartTimeout")}{" "}
-              <a href={restartUrl} className="underline">
-                {restartUrl}
-              </a>
-            </p>
-          ) : (
-            <p role="status" className="mt-2 text-muted">
-              {t("settings:server.restartingBody")}
-            </p>
-          )}
-        </dialog>
-      )}
-      {stop.isSuccess && (
-        <p role="status" className="w-full text-muted">
-          {t("settings:server.stopped")}
-        </p>
-      )}
     </>
   );
 }

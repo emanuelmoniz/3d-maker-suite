@@ -1,6 +1,6 @@
 import { REPO_URL, SITE_URL } from "@3d-maker-suite/core";
 import { Link, Outlet } from "@tanstack/react-router";
-import { CircleUser, Ellipsis, Printer, ShieldAlert, Sparkles, X } from "lucide-react";
+import { CircleUser, Ellipsis, Power, Printer, ShieldAlert, Sparkles, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import { Menu } from "../components/Menu.tsx";
@@ -11,6 +11,7 @@ import { useApplyBranding, useAppName, useBrandingUrl } from "../lib/branding.ts
 import { cx } from "../lib/cx.ts";
 import { setDateTimePrefs } from "../lib/format.ts";
 import { usePreferences } from "../lib/preferences.ts";
+import { useServerState } from "../lib/serverState.ts";
 import { useVersion } from "../lib/updates.ts";
 import {
   ALL_ITEMS,
@@ -139,6 +140,36 @@ function ForbiddenBanner() {
       >
         <X className="size-4" aria-hidden />
       </button>
+    </div>
+  );
+}
+
+/** After Stop or Restart: the server is gone, so say so where the header buttons can stay put. */
+function ServerBanner() {
+  const { t } = useTranslation();
+  const s = useServerState();
+  if (!s) return null;
+  const failed = s.kind === "restarting" && s.timedOut;
+  return (
+    <div
+      role={failed ? "alert" : "status"}
+      className="mb-5 flex items-center gap-x-4 rounded-lg border border-border bg-surface-2 px-4 py-2.5"
+    >
+      <Power className={cx("size-4 shrink-0", failed ? "text-bad" : "text-muted")} aria-hidden />
+      <span className="min-w-0 flex-1 font-medium wrap-anywhere">
+        {s.kind === "stopped" && t("common:serverBanner.stopped")}
+        {s.kind === "restarting" &&
+          (s.timedOut ? (
+            <>
+              {t("common:serverBanner.timeout")}{" "}
+              <a href={s.url} className="underline">
+                {s.url}
+              </a>
+            </>
+          ) : (
+            t("common:serverBanner.restarting")
+          ))}
+      </span>
     </div>
   );
 }
@@ -348,6 +379,7 @@ export function AppShell() {
         <div className="mx-auto w-full max-w-6xl flex-1">
           <Brand mobile />
           <ForbiddenBanner />
+          <ServerBanner />
           <UpdateBanner />
           <Outlet />
         </div>

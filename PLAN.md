@@ -531,7 +531,7 @@ Design (refines ADR-0012):
 Do Step 7 of the 4.2.0 plan in PLAN.md. List every query that 403s for a viewer first.
 ```
 
-### [ ] Step 8 - Admin-only settings and global Branding
+### [x] Step 8 - Admin-only settings and global Branding
 **Model:** Sonnet · **Effort:** Medium
 **Scope:** Settings: move app name, logo and favicon out of Appearance into an admin-only **Branding** section with a hint that it applies to everyone; Server, Backup, Logs, About & updates and the header server actions hidden for non-admins (`useCan("admin")`). Server already rejects these writes; add the missing cases to the role-matrix test. Stop/restart: drop the inline "server stopped" hint that wraps the header buttons; show a shell banner instead, like the update-available one, saying the server is stopped or restarting. Re-run `pnpm screenshots` if the settings screenshot changes.
 **Done when:** a viewer and an editor see only General (display keys), Appearance (theme, accent) and Account; an admin sees Branding separately; stopping the server keeps the header buttons in place and shows the banner; e2e per role; i18n:check passes; tests pass.

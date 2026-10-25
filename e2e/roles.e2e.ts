@@ -54,9 +54,21 @@ test("roles: viewer and editor see only what they can do; logs show the actor", 
     await expect(page.getByText("Your role doesn't allow that")).toHaveCount(0);
   };
 
+  // Settings: non-admins get display keys, theme and account only.
+  const settingsSections = async () => {
+    await page.goto("/settings");
+    await expect(page.getByRole("heading", { name: "General" })).toBeVisible();
+    return page.getByRole("heading", { level: 2 }).allTextContents();
+  };
+  const adminOnly = ["Branding", "Network", "Backup & export", "Logs", "About & updates"];
+
   // Viewer: reads everything, changes nothing.
   await signInAs(page, "vic@example.com");
   await browsesCleanly();
+  const viewerSections = await settingsSections();
+  expect(viewerSections).toEqual(expect.arrayContaining(["General", "Appearance"]));
+  for (const s of adminOnly) expect(viewerSections).not.toContain(s);
+  await expect(page.getByRole("button", { name: "Stop server" })).toHaveCount(0);
   expect(await seesAdminMenu()).toBe(false);
   await expect(page.getByRole("link", { name: "Add client" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Delete Acme" })).toHaveCount(0);
@@ -67,14 +79,17 @@ test("roles: viewer and editor see only what they can do; logs show the actor", 
   // Editor: edits, but has no admin menu.
   await signInAs(page, "eva@example.com");
   await browsesCleanly();
+  for (const s of adminOnly) expect(await settingsSections()).not.toContain(s);
   expect(await seesAdminMenu()).toBe(false);
   await expect(page.getByRole("link", { name: "Add client" })).toBeVisible();
   await page.goto(`/clients/${id}`);
   await expect(page.getByRole("link", { name: "Edit" })).toBeVisible();
   await post(page, "/api/clients", { name: "Zed", mobile: "922" });
 
-  // Admin: full menu, and the log names who did what.
+  // Admin: full menu, Branding as its own section, and the log names who did what.
   await signInAs(page, "ana@example.com");
+  expect(await settingsSections()).toEqual(expect.arrayContaining(adminOnly));
+  await expect(page.getByRole("button", { name: "Stop server" })).toBeVisible();
   expect(await seesAdminMenu()).toBe(true);
   await side.getByRole("link", { name: "Logs" }).click();
   const table = page.getByRole("table", { name: "Logs" });

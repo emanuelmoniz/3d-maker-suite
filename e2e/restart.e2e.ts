@@ -1,6 +1,6 @@
 import { expect, test } from "./fixtures.ts";
 
-test("restart: modal in the same tab, then the page reloads; no new tab", async ({
+test("restart: banner in the same tab, then the page reloads; no new tab", async ({
   page,
   context,
 }) => {
@@ -15,7 +15,10 @@ test("restart: modal in the same tab, then the page reloads; no new tab", async 
   context.on("page", (p) => opened.push(p));
   const reloaded = page.waitForEvent("load");
   await page.getByRole("button", { name: "Restart server" }).click();
-  await expect(page.getByRole("dialog", { name: "Server restarting…" })).toBeVisible();
+  await expect(
+    page.getByRole("status").filter({ hasText: "The server is restarting" }),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Restart server" })).toBeVisible();
   await reloaded;
   expect(restarted).toBe(true);
   expect(opened).toHaveLength(0);
