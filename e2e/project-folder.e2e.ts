@@ -113,3 +113,28 @@ test("project folder: a missing folder shows a banner, linking another fixes it"
   await expect(banner).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Open folder" })).toBeVisible();
 });
+
+test("folder picker on the edit page: New folder stays in the dialog and creates it", async ({
+  page,
+  app,
+}) => {
+  const root = join(app.dataDir, "models");
+  mkdirSync(root, { recursive: true });
+  await app.api("PATCH", "/api/preferences", { projectRoots: roots(root) });
+  const p = await app.api<{ id: string }>("POST", "/api/projects", {
+    name: "Idea",
+    createFolder: true,
+  });
+
+  await page.goto(`/projects/${p.id}/edit`);
+  const card = page.getByRole("region", { name: "Project folder" });
+  await card.getByRole("heading", { name: "Project folder" }).click();
+  await card.getByRole("button", { name: /^Browse for/ }).click();
+  const picker = page.getByRole("dialog", { name: "Project folder" });
+  await picker.getByRole("button", { name: "New folder" }).click();
+  await picker.getByRole("textbox", { name: "New folder name" }).fill("Elsewhere");
+  await picker.getByRole("textbox", { name: "New folder name" }).press("Enter");
+  await expect(picker.getByRole("button", { name: "Elsewhere" })).toBeVisible();
+  expect(existsSync(join(root, "Elsewhere"))).toBe(true);
+  await expect(picker).toBeVisible();
+});

@@ -67,11 +67,13 @@ export function PathPicker({
   const [open, setOpen] = useState(false);
   const [path, setPath] = useState<string | null>(null);
   const [naming, setNaming] = useState(false);
+  const [newName, setNewName] = useState("");
   const create = useMutation({
     mutationFn: (name: string) =>
       api<{ path: string }>("POST", "/api/fs/folder", { path: dir.data?.path, name }),
     onSuccess: (r) => {
       setNaming(false);
+      setNewName("");
       setPath(r.path);
     },
   });
@@ -113,7 +115,9 @@ export function PathPicker({
   // Navigating replaces the list; keep keyboard focus in it.
   useEffect(() => listRef.current?.querySelector("button")?.focus(), [data]);
 
+  const submitName = () => newName.trim() && create.mutate(newName.trim());
   const start = () => {
+    setNewName("");
     setNaming(false);
     create.reset();
     const from = initial?.trim();
@@ -190,28 +194,29 @@ export function PathPicker({
         {canCreate && mode === "folder" && !!dir.data?.path && (
           <div className="grid gap-2">
             {naming ? (
-              <form
-                className="flex flex-wrap gap-2"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  const name = new FormData(e.currentTarget).get("name");
-                  if (typeof name === "string" && name.trim()) create.mutate(name.trim());
-                }}
-              >
+              // Not a <form>: the picker can sit inside one (the project edit page), and a nested
+              // submit would save that page and close this dialog.
+              <div className="flex flex-wrap gap-2">
                 <input
-                  name="name"
                   className={`${inputClass} min-w-0 flex-1`}
                   aria-label={t("common:pathPicker.newFolderName")}
                   maxLength={255}
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key !== "Enter") return;
+                    e.preventDefault();
+                    submitName();
+                  }}
                   autoFocus
                 />
-                <Button type="submit" disabled={create.isPending}>
+                <Button disabled={create.isPending || !newName.trim()} onClick={submitName}>
                   {t("common:pathPicker.create")}
                 </Button>
                 <Button variant="ghost" onClick={() => setNaming(false)}>
                   {t("common:actions.cancel")}
                 </Button>
-              </form>
+              </div>
             ) : (
               <div>
                 <Button onClick={() => setNaming(true)}>{t("common:pathPicker.newFolder")}</Button>
