@@ -10,12 +10,14 @@ export const useListPage = <T>(
   path: string,
   query: ListQuery,
   refetchInterval?: number,
+  enabled = true,
 ) =>
   useQuery({
     queryKey: [...key, query],
     queryFn: () => api<Page<T>>("GET", `${path}?${new URLSearchParams(query)}`),
     placeholderData: keepPreviousData,
     refetchInterval,
+    enabled,
   });
 
 /**

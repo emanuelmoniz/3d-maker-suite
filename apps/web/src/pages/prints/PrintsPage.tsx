@@ -11,7 +11,7 @@ import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
 import { CostBreakdown } from "../../components/CostBreakdown.tsx";
-import { DataTable, type ListQuery } from "../../components/DataTable.tsx";
+import { type Column, DataTable, type ListQuery } from "../../components/DataTable.tsx";
 import { EmptyState } from "../../components/EmptyState.tsx";
 import { SyncButtons } from "../../components/ImportLinks.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
@@ -39,12 +39,15 @@ export function PrintsTable({
   query,
   onQueryChange,
   actions,
+  hideProject,
 }: {
   data: Page<PrintDetail>;
   query: ListQuery;
   onQueryChange: (q: ListQuery) => void;
   /** A last column of row buttons. */
   actions?: (p: PrintDetail) => ReactNode;
+  /** A project's own list: every row is that project. */
+  hideProject?: boolean;
 }) {
   const { t } = useTranslation();
   const money = useMoney();
@@ -53,6 +56,27 @@ export function PrintsTable({
   const printers = usePrinters({ archived: false }).data?.items ?? [];
   const projects = useProjects().data?.items ?? [];
   const grams = (p: { usages: { grams: number }[] }) => p.usages.reduce((n, u) => n + u.grams, 0);
+  const projectColumn: Column<PrintDetail> = {
+    id: "project",
+    header: t("prints:list.columns.project"),
+    cell: (p) => {
+      if (!p.projectId) return <span className="text-muted">{t("prints:list.noProject")}</span>;
+      const project = projects.find((x) => x.id === p.projectId);
+      return project ? (
+        <Link to="/projects/$id" params={{ id: project.id }} className="hover:underline">
+          {projectName(t, project)}
+        </Link>
+      ) : (
+        ""
+      );
+    },
+    sort: "project",
+    filter: "projectId",
+    filterOptions: [
+      { value: NO_PROJECT, label: t("prints:list.noProject") },
+      ...projects.map((x) => ({ value: x.id, label: projectName(t, x) })),
+    ],
+  };
   return (
     <DataTable
       label={t("prints:list.table")}
@@ -66,28 +90,7 @@ export function PrintsTable({
         defaultSort: "-title",
       }}
       columns={[
-        {
-          id: "project",
-          header: t("prints:list.columns.project"),
-          cell: (p) => {
-            if (!p.projectId)
-              return <span className="text-muted">{t("prints:list.noProject")}</span>;
-            const project = projects.find((x) => x.id === p.projectId);
-            return project ? (
-              <Link to="/projects/$id" params={{ id: project.id }} className="hover:underline">
-                {projectName(t, project)}
-              </Link>
-            ) : (
-              ""
-            );
-          },
-          sort: "project",
-          filter: "projectId",
-          filterOptions: [
-            { value: NO_PROJECT, label: t("prints:list.noProject") },
-            ...projects.map((x) => ({ value: x.id, label: projectName(t, x) })),
-          ],
-        },
+        ...(hideProject ? [] : [projectColumn]),
         {
           id: "title",
           header: t("prints:list.columns.title"),

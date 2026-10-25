@@ -15,6 +15,7 @@ import { DataTable } from "../components/DataTable.tsx";
 import { EmptyState } from "../components/EmptyState.tsx";
 import { PageHeader } from "../components/PageHeader.tsx";
 import { api } from "../lib/api.ts";
+import { useCan } from "../lib/auth.ts";
 import { formatDateTime } from "../lib/format.ts";
 import { useListPage, useUrlListQuery } from "../lib/list.ts";
 import { usePreferences } from "../lib/preferences.ts";
@@ -32,7 +33,8 @@ export function LogsPage() {
   const { t } = useTranslation();
   const qc = useQueryClient();
   const [query, setQuery] = useUrlListQuery();
-  const { data, isError } = useListPage<LogEntry>(["logs"], "/api/logs", query, 10_000);
+  const admin = useCan("admin");
+  const { data, isError } = useListPage<LogEntry>(["logs"], "/api/logs", query, 10_000, admin);
   const active = usePreferences().data?.values.logActive;
   const [confirming, setConfirming] = useState(false);
   const clear = useMutation({

@@ -9,7 +9,7 @@ export class ApiError extends Error {
   }
 }
 
-/** Fired on a 403, so the shell can say the role isn't enough (the server enforces; ADR-0012). */
+/** Fired on a 403 to a write (a blocked GET is a hidden section, not an action), so the shell can say the role isn't enough (the server enforces; ADR-0012). */
 export const FORBIDDEN_EVENT = "app:forbidden";
 
 /** Sends the visitor to the login page, which returns to where they were. A reload on purpose: it drops every cached query. */
@@ -34,7 +34,7 @@ export async function api<T = void>(
   if (!res.ok) {
     // A wrong password on the login form is a 401 too, but the form shows that itself.
     if (res.status === 401 && !url.startsWith("/api/auth/login")) toLogin();
-    if (res.status === 403) window.dispatchEvent(new Event(FORBIDDEN_EVENT));
+    if (res.status === 403 && method !== "GET") window.dispatchEvent(new Event(FORBIDDEN_EVENT));
     const e = (await res.json().catch(() => null))?.error;
     throw new ApiError(`${method} ${url} failed: ${res.status}`, e?.code, e?.message);
   }

@@ -41,8 +41,22 @@ test("roles: viewer and editor see only what they can do; logs show the actor", 
     return (await side.getByRole("link", { name: /^(Import|Integrations|Logs)/ }).count()) > 0;
   };
 
+  // No page asks for an admin-only route, so no 403 and no role banner.
+  const browsesCleanly = async () => {
+    const denied: string[] = [];
+    page.on("response", (r) => r.status() === 403 && denied.push(r.url()));
+    for (const path of ["/", "/clients", "/prints", "/settings", "/alerts"]) {
+      await page.goto(path);
+      await page.waitForLoadState("networkidle");
+    }
+    page.removeAllListeners("response");
+    expect(denied).toEqual([]);
+    await expect(page.getByText("Your role doesn't allow that")).toHaveCount(0);
+  };
+
   // Viewer: reads everything, changes nothing.
   await signInAs(page, "vic@example.com");
+  await browsesCleanly();
   expect(await seesAdminMenu()).toBe(false);
   await expect(page.getByRole("link", { name: "Add client" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Delete Acme" })).toHaveCount(0);
@@ -52,6 +66,7 @@ test("roles: viewer and editor see only what they can do; logs show the actor", 
 
   // Editor: edits, but has no admin menu.
   await signInAs(page, "eva@example.com");
+  await browsesCleanly();
   expect(await seesAdminMenu()).toBe(false);
   await expect(page.getByRole("link", { name: "Add client" })).toBeVisible();
   await page.goto(`/clients/${id}`);

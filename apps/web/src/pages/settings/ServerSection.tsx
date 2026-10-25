@@ -6,6 +6,7 @@ import { Button } from "../../components/Button.tsx";
 import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { api } from "../../lib/api.ts";
+import { useCan } from "../../lib/auth.ts";
 
 const KEY = ["server-config"];
 // i18n keys are written out in full so `pnpm i18n:check` can see them.
@@ -21,6 +22,7 @@ const useServerConfig = () =>
   useQuery({
     queryKey: KEY,
     queryFn: () => api<ServerConfigResponse>("GET", "/api/server-config"),
+    enabled: useCan("admin"),
   });
 
 /** Host and port the server uses after a restart: a flag or env var still wins, then saved, then default. */
@@ -143,6 +145,7 @@ export function StartAtLogin() {
   const login = useQuery({
     queryKey: [...KEY, "autostart"],
     queryFn: () => api<AutostartState>("GET", "/api/server-config/autostart"),
+    enabled: useCan("admin"),
   });
   const setLogin = useMutation({
     mutationFn: (enabled: boolean) =>

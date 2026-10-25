@@ -22,10 +22,11 @@ import { ApiError } from "../../lib/api.ts";
 import { estimateSlicedPlates, useCostContext } from "../../lib/cost.ts";
 import { cx } from "../../lib/cx.ts";
 import { useProfiles, useSpools } from "../../lib/filament.ts";
-import { formatDateTime, formatDuration, formatWeight } from "../../lib/format.ts";
+import { formatDuration, formatWeight } from "../../lib/format.ts";
 import { useAdapterName, useCapable } from "../../lib/integrations.ts";
+import { useUrlListQuery } from "../../lib/list.ts";
 import { usePreferences } from "../../lib/preferences.ts";
-import { printName, usePrintsOfProject } from "../../lib/prints.ts";
+import { usePrints, usePrintsOfProject } from "../../lib/prints.ts";
 import {
   galleryImages,
   projectDocResolver,
@@ -39,6 +40,7 @@ import {
 } from "../../lib/projects.ts";
 import { useTagsOf } from "../../lib/tags.ts";
 import { OrdersTable } from "../orders/OrdersTable.tsx";
+import { PrintsTable } from "../prints/PrintsPage.tsx";
 import { QuotesTable } from "../quotes/QuotesTable.tsx";
 import { ModelPreview } from "./ModelPreview.tsx";
 import { ProjectFiles } from "./ProjectFiles.tsx";
@@ -283,22 +285,12 @@ function Plates({
 
 function LinkedPrints({ id }: { id: string }) {
   const { t } = useTranslation();
-  const prints = usePrintsOfProject(id).data?.items ?? [];
-  if (!prints.length) return null;
+  const [query, setQuery] = useUrlListQuery("prints.");
+  const prints = usePrints({ ...query, projectId: id });
+  if (!prints.data || (!prints.data.total && !Object.keys(query).length)) return null;
   return (
     <Collapsible title={t("projects:detail.prints")}>
-      <ul className="divide-y divide-border rounded-lg border border-border bg-surface">
-        {prints.map((p) => (
-          <li key={p.id} className="flex flex-wrap items-center justify-between gap-2 p-3">
-            <Link to="/prints/$id" params={{ id: p.id }} className="font-medium hover:underline">
-              {printName(t, p)}
-            </Link>
-            <span className="text-muted">
-              {t(`prints:outcomes.${p.outcome}`)} · {formatDateTime(p.startedAt)}
-            </span>
-          </li>
-        ))}
-      </ul>
+      <PrintsTable data={prints.data} query={query} onQueryChange={setQuery} hideProject />
     </Collapsible>
   );
 }

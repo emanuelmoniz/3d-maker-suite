@@ -8,6 +8,7 @@ import type {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ListQuery } from "../components/DataTable.tsx";
 import { api } from "./api.ts";
+import { useCan } from "./auth.ts";
 import { useListPage } from "./list.ts";
 
 const ALERTS = ["alerts"];
@@ -67,6 +68,7 @@ export const useChannels = () =>
   useQuery({
     queryKey: ["alerts", "channels"],
     queryFn: () => api<ChannelSettings[]>("GET", "/api/alerts/channels"),
+    enabled: useCan("admin"),
   });
 
 export function useSaveChannel() {

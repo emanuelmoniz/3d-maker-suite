@@ -519,7 +519,7 @@ Design (refines ADR-0012):
 - Alerts: every user gets every alert. Read/unread, snooze and dismiss are per user (`alert_states`: alert, user, readAt, snoozedUntil, dismissedAt); no-users mode keeps today's columns. Channel sending (`notifiedAt`) and resolving stay global. Viewers may `PATCH /api/alerts/:id`; call-to-action buttons (sync, review) are for editors with the matching permission, and admins.
 - Integrations: two flags per integration × type on `sync_policies`, default off: `editorSync` ("Allow editor to sync") and `editorReview` ("Allow editor to review and import"). An editor sees the Integrations page with only the tasks a flag allows (Sync now / Review), never config, credentials or policies. The server checks the flag per route; everything else under `/api/integrations` and `/api/import` stays admin-only.
 
-### [ ] Step 7 - Fixes: role banner on every page, project prints table
+### [x] Step 7 - Fixes: role banner on every page, project prints table
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - Bug: "Your role doesn't allow that" shows on every page for editors and viewers. The banner fires on any 403, including background GETs for admin-only prefixes. Fire `FORBIDDEN_EVENT` only for writes (non-GET) in `api.ts`; give admin-only queries (server config, updates, backups, logs, alert channels, users) `enabled: canAdmin` so they never run for editors and viewers.

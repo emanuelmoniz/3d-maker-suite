@@ -2,11 +2,18 @@ import type { UpdatesResponse } from "@3d-maker-suite/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { api } from "./api.ts";
+import { useCan } from "./auth.ts";
 
 const KEY = ["updates"];
 
-export const useUpdates = () =>
-  useQuery({ queryKey: KEY, queryFn: () => api<UpdatesResponse>("GET", "/api/updates") });
+export const useUpdates = () => {
+  const admin = useCan("admin");
+  return useQuery({
+    queryKey: KEY,
+    queryFn: () => api<UpdatesResponse>("GET", "/api/updates"),
+    enabled: admin,
+  });
+};
 
 export function useCheckUpdates() {
   const qc = useQueryClient();
@@ -24,6 +31,11 @@ const health = () =>
     (r) => (r.ok ? (r.json() as Promise<{ version: string }>) : null),
     () => null,
   );
+
+/** The running version, from the public health route: the footer shows it to every role. */
+export const useVersion = () =>
+  useQuery({ queryKey: ["health"], queryFn: health, staleTime: Number.POSITIVE_INFINITY }).data
+    ?.version;
 
 /**
  * Update or rollback: the server backs up and hands over, then goes away while the launcher

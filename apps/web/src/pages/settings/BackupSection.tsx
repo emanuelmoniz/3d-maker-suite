@@ -5,6 +5,7 @@ import { Button } from "../../components/Button.tsx";
 import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { api } from "../../lib/api.ts";
+import { useCan } from "../../lib/auth.ts";
 import { formatDateTime, formatMegabytes } from "../../lib/format.ts";
 import { usePreferences, useSavePreferences } from "../../lib/preferences.ts";
 
@@ -16,7 +17,11 @@ export function BackupSection() {
   const qc = useQueryClient();
   const prefs = usePreferences().data?.values;
   const save = useSavePreferences();
-  const list = useQuery({ queryKey: KEY, queryFn: () => api<Backup[]>("GET", "/api/backups") });
+  const list = useQuery({
+    queryKey: KEY,
+    queryFn: () => api<Backup[]>("GET", "/api/backups"),
+    enabled: useCan("admin"),
+  });
   const [restoring, setRestoring] = useState<string | null>(null);
   const refresh = () => qc.invalidateQueries({ queryKey: KEY });
 

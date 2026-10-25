@@ -11,7 +11,7 @@ import { useApplyBranding, useAppName, useBrandingUrl } from "../lib/branding.ts
 import { cx } from "../lib/cx.ts";
 import { setDateTimePrefs } from "../lib/format.ts";
 import { usePreferences } from "../lib/preferences.ts";
-import { useUpdates } from "../lib/updates.ts";
+import { useVersion } from "../lib/updates.ts";
 import {
   ALL_ITEMS,
   IMPORT_ITEM,
@@ -244,7 +244,7 @@ function Sidebar() {
 /** Year, version and links at the foot of every page; the links open in a new tab. */
 function Footer() {
   const { t } = useTranslation();
-  const version = useUpdates().data?.version;
+  const version = useVersion();
   const link = "font-medium text-accent hover:underline";
   return (
     <footer className="mt-10 border-t border-border pt-4 text-sm text-muted">
