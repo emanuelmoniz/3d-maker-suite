@@ -560,7 +560,7 @@ Do Step 10 of the 4.2.0 plan in PLAN.md. Show me the permission checks and the e
 Integrations page first. Back up the DB before editing schema.ts.
 ```
 
-### [ ] Step 11 - Docs, push & v4.2.0-alpha.2
+### [x] Step 11 - Docs, push & v4.2.0-alpha.2
 **Model:** Haiku · **Effort:** Low
 **Scope:** `docs/users.md` (what each role sees in Settings, per-user alerts, editor integration permissions), CHANGELOG, version `4.2.0-alpha.2` (root and `packages/*`). Commit, push `dev`, tag `v4.2.0-alpha.2` on `dev`; check the run and the pre-release.
 **Done when:** `dev` and the tag are pushed; the workflow is green; the pre-release exists; docs match the app.
