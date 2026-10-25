@@ -75,6 +75,7 @@ const MATRIX: Record<string, [viewer: string, editor: string]> = {
   "/api/backups": ["-", "-"],
   "/api/logs": ["-", "-"],
   "/api/fs": ["-", "-"],
+  "/api/fs/list": ["-", "R"],
   "/api/server-config": ["-", "-"],
   "/api/updates": ["-", "-"],
   "/api/users": ["-", "-"],
@@ -128,6 +129,11 @@ describe("permissions", () => {
       (await editor.send("POST", "/api/clients", { name: "Ana", mobile: "1" })).statusCode,
     ).toBe(201);
     expect((await editor.get("/api/backups")).statusCode).toBe(403);
+    // The folder picker: editors see the project roots (none yet) and nothing else.
+    expect((await editor.get("/api/fs/list")).json().entries).toEqual([]);
+    expect(
+      (await editor.get(`/api/fs/list?path=${encodeURIComponent(process.cwd())}`)).statusCode,
+    ).toBe(403);
     expect((await editor.get("/api/alerts/channels")).statusCode).toBe(403);
 
     const admin = as(app, cookieOf(await login(app, "admin@x.io")));

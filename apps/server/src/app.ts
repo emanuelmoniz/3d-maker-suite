@@ -200,7 +200,7 @@ export async function buildApp(
       serverConfigRoutes(opts.serverConfig, opts.restart, opts.stop, opts.autostart),
       { prefix: "/api/server-config" },
     );
-  await app.register(fsRoutes(), { prefix: "/api/fs" });
+  await app.register(fsRoutes(db), { prefix: "/api/fs" });
   await app.register(brandingRoutes(dataDir), { prefix: "/api/branding" });
   await app.register(printersRoutes(db, dataDir), { prefix: "/api/printers" });
   await app.register(accessoriesRoutes(db, dataDir), { prefix: "/api/accessories" });
