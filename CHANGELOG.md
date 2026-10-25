@@ -4,8 +4,23 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+## [4.2.0-alpha.2] - 2026-10-25
+
+Pre-release. Test on a copy of your data first; back up before updating.
+
+### Added
+- Integrations: an admin can let an editor run single tasks: **Sync now** and/or **Review** per data type ([docs/users.md](docs/users.md#integration-tasks-for-editors))
+- Projects: **New folder** in the folder picker, confined to the project roots; the roots picker can create folders
+- Viewers can mark alerts read or unread, snooze and dismiss them
+
 ### Changed
-- Alerts are read, snoozed and dismissed per person: marking one read leaves it unread for the others. Viewers can do this too. When an admin or editor fixes the cause (maintenance done, a review finished, a spool's price or open date filled in), the alert is resolved for everyone
+- Alerts are read, snoozed and dismissed per person: marking one read leaves it unread for the others. When an admin or editor fixes the cause (maintenance done, a review finished, a spool's price or open date filled in), the alert is resolved for everyone
+- Printers, accessories, maintenance types, catalogs and module settings (costs, workflow) are admin-only; editors log work but don't change setup
+- Settings → Branding, Server, Backup, Logs and About are admin-only; the server's stop banner shows in the app shell
+- Project folder pickers show paths from the root down
+
+### Fixed
+- Projects: New folder in the picker no longer submits the page form around it
 
 ## [4.2.0-alpha.1] - 2026-10-24
 

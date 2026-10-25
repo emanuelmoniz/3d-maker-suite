@@ -15,10 +15,23 @@ Until the first account exists, anyone who can open the page can create it. Do t
 | Role | Can do |
 |---|---|
 | **Viewer** | See everything: printers, filament, projects, prints, quotes, orders, clients, stats, alerts. Mark alerts read or unread, snooze and dismiss them. Change their own display preferences (language, units, date and time format, theme, accent). |
-| **Editor** | Everything a viewer can, plus add and change the day-to-day data: printers, filament, projects, prints, quotes, orders, clients, tags, alerts. Run an integration sync. Change the cost and workflow settings. |
-| **Admin** | Everything, including users, server settings (network, autostart, restart, stop), updates, backups and restores, import, integrations setup, alert channels, logs and branding. |
+| **Editor** | Everything a viewer can, plus add and change the day-to-day data: spools, prints, projects, quotes, orders, clients, tags, alerts. Log maintenance done and accessory installs. Run the integration tasks an admin allowed (see below). |
+| **Admin** | Everything, including users, server settings (network, autostart, restart, stop), updates, backups and restores, import, integrations setup, alert channels, logs, branding, and the module settings (printers, accessories, maintenance types, catalogs, costs and workflow). |
 
 The app keeps at least one enabled admin: you can't disable, demote or delete the last one.
+
+## Integration tasks for editors
+
+Admins set up integrations. They can also let an editor run single tasks, per data type (for example, spools but not prints):
+
+- **Sync now**: the editor may run that task's sync.
+- **Review**: the editor may review and import what that task brings in.
+
+Both are off by default. An editor with at least one of them sees the Integrations page with only those tasks, and no account, slicer or setup settings. Alerts show the sync or review button only for the tasks they're allowed.
+
+## Alerts are per person
+
+Each person marks alerts read, snoozes or dismisses them for themselves. Other people still see the alert until they do the same. When the cause is fixed (maintenance done, a review finished, a spool's price or open date filled in), the alert resolves for everyone.
 
 ## Manage users
 
