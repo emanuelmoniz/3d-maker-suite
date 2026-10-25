@@ -96,7 +96,12 @@ export function PathPicker({
     within && roots.data
       ? {
           ...roots.data,
-          entries: within.map((r) => ({ name: r, path: r, type: "dir" as const })),
+          // Just the root's own name: the way there isn't the user's business inside the roots.
+          entries: within.map((r) => ({
+            name: r.split(/[/]/).filter(Boolean).at(-1) ?? r,
+            path: r,
+            type: "dir" as const,
+          })),
         }
       : roots.data;
   const data = path ? dir.data : top;
@@ -252,7 +257,9 @@ export function PathPicker({
                   onClick={() => (e.type === "dir" ? setPath(e.path) : pick(e.path))}
                 >
                   <span aria-hidden="true">{e.type === "dir" ? "📁" : "📄"}</span>
-                  <span className="break-all">{e.name}</span>
+                  <span className="break-all" title={within ? e.path : undefined}>
+                    {e.name}
+                  </span>
                 </button>
               </li>
             ))}
