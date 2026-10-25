@@ -6,6 +6,7 @@ import { Combobox, type ComboOption } from "../../components/Combobox.tsx";
 import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { DateInput } from "../../components/DateInput.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
+import { Write } from "../../components/Write.tsx";
 import { accessoryName, useInstall, useRemoveInstall } from "../../lib/accessories.ts";
 import type { ApiError } from "../../lib/api.ts";
 import { dateInputToIso } from "../../lib/format.ts";
@@ -131,9 +132,11 @@ export function InstallDialog({
         </p>
       )}
       {onPrinter && (
-        <Link to="/printers/accessories/new" className="text-accent hover:underline">
-          {t("printers:accessories.add")}
-        </Link>
+        <Write admin>
+          <Link to="/printers/accessories/new" className="text-accent hover:underline">
+            {t("printers:accessories.add")}
+          </Link>
+        </Write>
       )}
     </ConfirmDialog>
   );

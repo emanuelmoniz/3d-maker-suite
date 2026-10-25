@@ -281,13 +281,15 @@ export function MaintenancePage() {
         <section className="grid gap-3">
           <div className="flex items-center justify-between gap-3">
             <h2 className="text-base font-semibold">{t("maintenance:types.title")}</h2>
-            <Link
-              to="/maintenance/new"
-              className="inline-flex h-9 items-center gap-2 whitespace-nowrap rounded-md bg-accent px-3 font-medium text-accent-fg hover:opacity-90"
-            >
-              <Plus className="size-4" aria-hidden />
-              {t("maintenance:types.add")}
-            </Link>
+            <Write admin>
+              <Link
+                to="/maintenance/new"
+                className="inline-flex h-9 items-center gap-2 whitespace-nowrap rounded-md bg-accent px-3 font-medium text-accent-fg hover:opacity-90"
+              >
+                <Plus className="size-4" aria-hidden />
+                {t("maintenance:types.add")}
+              </Link>
+            </Write>
           </div>
           {types.data && (
             <DataTable

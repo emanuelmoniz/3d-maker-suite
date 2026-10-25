@@ -122,7 +122,7 @@ export function FilamentProfiles() {
           <h2 className="text-base font-semibold">{t("filament:profiles.title")}</h2>
           <span className="flex flex-wrap gap-2">
             <ImportLinks cap="filamentProfiles" text="filament:library.link" />
-            <Write>
+            <Write admin>
               <Link to="/filament/profiles/new" className={addClass}>
                 <Plus className="size-4" aria-hidden />
                 {t("filament:profiles.add")}

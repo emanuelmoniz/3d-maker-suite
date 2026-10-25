@@ -89,11 +89,7 @@ export function FilamentPage() {
       <PageHeader
         title={t("nav:items.filament.label")}
         description={t("nav:items.filament.description")}
-        actions={
-          <Write>
-            <SettingsLink module="filament" />
-          </Write>
-        }
+        actions={<SettingsLink module="filament" />}
       />
       {spools.isError && (
         <p role="alert" className="text-bad">

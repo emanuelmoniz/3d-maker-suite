@@ -19,16 +19,17 @@ type Access = "-" | "R" | "RW";
 // ADR-0012 role × prefix table. A prefix missing here is admin-only, so a new route fails closed.
 const TABLE: Record<string, { viewer: Access; editor: Access }> = {
   auth: { viewer: "RW", editor: "RW" },
-  printers: { viewer: "R", editor: "RW" },
-  accessories: { viewer: "R", editor: "RW" },
-  maintenance: { viewer: "R", editor: "RW" },
-  brands: { viewer: "R", editor: "RW" },
-  "printer-models": { viewer: "R", editor: "RW" },
-  "machine-profiles": { viewer: "R", editor: "RW" },
+  printers: { viewer: "R", editor: "R" },
+  // Accessories (installs and removals only) and maintenance tasks are opened up in `can`.
+  accessories: { viewer: "R", editor: "R" },
+  maintenance: { viewer: "R", editor: "R" },
+  brands: { viewer: "R", editor: "R" },
+  "printer-models": { viewer: "R", editor: "R" },
+  "machine-profiles": { viewer: "R", editor: "R" },
   filament: { viewer: "R", editor: "RW" },
-  "filament-brands": { viewer: "R", editor: "RW" },
-  "filament-materials": { viewer: "R", editor: "RW" },
-  "print-profiles": { viewer: "R", editor: "RW" },
+  "filament-brands": { viewer: "R", editor: "R" },
+  "filament-materials": { viewer: "R", editor: "R" },
+  "print-profiles": { viewer: "R", editor: "R" },
   projects: { viewer: "R", editor: "RW" },
   prints: { viewer: "R", editor: "RW" },
   costs: { viewer: "R", editor: "RW" },
@@ -54,6 +55,15 @@ export function can(role: UserRole, url: string, method: string): boolean {
   if (/^\/api\/alerts\/channels(\/|$)/.test(path)) return false;
   if (role === "editor" && method === "POST" && /^\/api\/integrations\/[^/]+\/sync$/.test(path))
     return true;
+  // Editors log work on printers and accessories; the printer, accessory, maintenance and filament-profile setup is admin-only.
+  if (
+    role === "editor" &&
+    ((/^\/api\/accessories\/[^/]+\/installs(\/|$)/.test(path) && method !== "GET") ||
+      (method === "POST" && path === "/api/maintenance/tasks"))
+  )
+    return true;
+  if (role === "editor" && /^\/api\/filament\/profiles(\/|$)/.test(path))
+    return READS.includes(method);
   const access = TABLE[/^\/api\/([^/]+)/.exec(path)?.[1] ?? ""]?.[role] ?? "-";
   return access === "RW" || (access === "R" && READS.includes(method));
 }

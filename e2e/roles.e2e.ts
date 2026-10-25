@@ -62,6 +62,16 @@ test("roles: viewer and editor see only what they can do; logs show the actor", 
   };
   const adminOnly = ["Branding", "Network", "Backup & export", "Logs", "About & updates"];
 
+  // Printer, accessory and module setup is admin-only: no add links, no settings gear, settings URLs bounce.
+  const expectNoSetup = async () => {
+    await page.goto("/printers");
+    await expect(page.getByRole("heading", { name: "Printers", level: 1 })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Add printer" })).toHaveCount(0);
+    await expect(page.getByRole("main").getByRole("link", { name: /settings/i })).toHaveCount(0);
+    await page.goto("/orders/settings");
+    await expect(page).toHaveURL(/\/orders$/);
+  };
+
   // Viewer: reads everything, changes nothing.
   await signInAs(page, "vic@example.com");
   await browsesCleanly();
@@ -71,6 +81,7 @@ test("roles: viewer and editor see only what they can do; logs show the actor", 
   await expect(page.getByRole("button", { name: "Stop server" })).toHaveCount(0);
   expect(await seesAdminMenu()).toBe(false);
   await expect(page.getByRole("link", { name: "Add client" })).toHaveCount(0);
+  await expectNoSetup();
   await expect(page.getByRole("button", { name: "Delete Acme" })).toHaveCount(0);
   await page.goto(`/clients/${id}`);
   await expect(page.getByRole("heading", { name: "Acme" })).toBeVisible();
@@ -82,9 +93,16 @@ test("roles: viewer and editor see only what they can do; logs show the actor", 
   for (const s of adminOnly) expect(await settingsSections()).not.toContain(s);
   expect(await seesAdminMenu()).toBe(false);
   await expect(page.getByRole("link", { name: "Add client" })).toBeVisible();
+  await expectNoSetup();
   await page.goto(`/clients/${id}`);
   await expect(page.getByRole("link", { name: "Edit" })).toBeVisible();
   await post(page, "/api/clients", { name: "Zed", mobile: "922" });
+  // The server says the same.
+  for (const [path, data] of [
+    ["/api/printers", { name: "P" }],
+    ["/api/maintenance/types", { name: "T" }],
+  ] as const)
+    expect((await page.request.post(path, { data })).status(), path).toBe(403);
 
   // Admin: full menu, Branding as its own section, and the log names who did what.
   await signInAs(page, "ana@example.com");

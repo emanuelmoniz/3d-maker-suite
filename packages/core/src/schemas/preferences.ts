@@ -210,33 +210,6 @@ export const USER_PREFERENCE_KEYS = [
   "dashboardLayout",
 ] as const satisfies readonly PreferenceKey[];
 
-/** ADR-0012: global keys an editor may change. Every other key is admin-only, new ones included. */
-export const EDITOR_PREFERENCE_KEYS = [
-  "currency",
-  "energyCostPerKwh",
-  "printerLifetimeHours",
-  "gramsPerHour",
-  "includeMaintenanceCost",
-  "printerCountInCosts",
-  "accessoryLifetimeHours",
-  "accessoryIncludeMaintenanceCost",
-  "accessoryCountInCosts",
-  "laborRatePerHour",
-  "failureMarginPct",
-  "markupPct",
-  "defaultPrinterId",
-  "defaultSlicerId",
-  "lowSpoolGrams",
-  "spoolNoPriceAlert",
-  "spoolNoOpenDateAlert",
-  "maintenanceLeadDays",
-  "maintenanceLeadHours",
-  "maintenanceLeadPrints",
-  "printerStates",
-  "failureReasons",
-  "orderStatuses",
-] as const satisfies readonly PreferenceKey[];
-
 export const preferencesPatchSchema = preferencesSchema.partial().strict();
 
 export const preferencesResponseSchema = z.object({

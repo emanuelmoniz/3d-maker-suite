@@ -42,7 +42,7 @@ export function ProfileDetailPage() {
         title={filamentLabel(profile)}
         backTo={{ to: "/filament/settings" }}
         actions={
-          <Write>
+          <Write admin>
             <Link to="/filament/profiles/$id/edit" params={{ id }} className={linkButton}>
               {t("filament:detail.edit")}
             </Link>

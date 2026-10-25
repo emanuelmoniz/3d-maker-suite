@@ -62,7 +62,7 @@ export function AccessoryDetailPage() {
         backTo={{ to: "/printers" }}
         description={accessory.type}
         actions={
-          <Write>
+          <Write admin>
             <Link to="/printers/accessories/$id/edit" params={{ id }} className={linkButton}>
               {t("printers:detail.edit")}
             </Link>

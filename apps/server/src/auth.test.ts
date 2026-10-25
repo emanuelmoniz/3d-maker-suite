@@ -37,21 +37,25 @@ const as = (app: App, cookie: string) => ({
 // ADR-0012, written out again so a change to lib/auth.ts has to change this too. Admin: always RW.
 const MATRIX: Record<string, [viewer: string, editor: string]> = {
   "/api/auth/me": ["RW", "RW"],
-  "/api/printers": ["R", "RW"],
-  "/api/accessories": ["R", "RW"],
-  "/api/maintenance": ["R", "RW"],
-  "/api/brands": ["R", "RW"],
-  "/api/printer-models": ["R", "RW"],
-  "/api/machine-profiles": ["R", "RW"],
+  "/api/printers": ["R", "R"],
+  "/api/accessories": ["R", "R"],
+  "/api/maintenance": ["R", "R"],
+  "/api/brands": ["R", "R"],
+  "/api/printer-models": ["R", "R"],
+  "/api/machine-profiles": ["R", "R"],
   "/api/filament": ["R", "RW"],
-  "/api/filament-brands": ["R", "RW"],
-  "/api/filament-materials": ["R", "RW"],
-  "/api/print-profiles": ["R", "RW"],
+  "/api/filament-brands": ["R", "R"],
+  "/api/filament-materials": ["R", "R"],
+  "/api/print-profiles": ["R", "R"],
   "/api/projects": ["R", "RW"],
   "/api/prints": ["R", "RW"],
   "/api/costs": ["R", "RW"],
   "/api/orders": ["R", "RW"],
   "/api/clients": ["R", "RW"],
+  "/api/accessories/abc/installs": ["R", "RW"],
+  "/api/maintenance/tasks": ["R", "RW"],
+  "/api/maintenance/types": ["R", "R"],
+  "/api/filament/profiles": ["R", "R"],
   "/api/stats": ["R", "R"],
   "/api/tags": ["R", "RW"],
   "/api/collections": ["R", "RW"],
@@ -133,7 +137,7 @@ describe("permissions", () => {
     expect((await viewer.get("/api/printers")).statusCode).toBe(401);
   });
 
-  it("preferences: own display keys for everyone, editor keys, the rest admin-only", async () => {
+  it("preferences: own display keys for everyone, the rest admin-only", async () => {
     const { db, app } = await setup();
     for (const role of ["admin", "editor", "viewer"] as const) addUser(db, role);
     const session = async (r: UserRole) => as(app, cookieOf(await login(app, `${r}@x.io`)));
@@ -153,8 +157,8 @@ describe("permissions", () => {
     expect((await patch(viewer, { themeMode: "light", currency: "USD" })).statusCode).toBe(403);
     expect((await values(viewer)).themeMode).toBe("dark");
 
-    expect((await patch(editor, { currency: "USD", accent: "rose" })).statusCode).toBe(200);
-    expect((await values(viewer)).currency).toBe("USD");
+    expect((await patch(editor, { accent: "rose" })).statusCode).toBe(200);
+    expect((await patch(editor, { currency: "USD" })).statusCode).toBe(403);
     expect((await patch(editor, { appName: "Shop" })).statusCode).toBe(403);
     expect((await patch(admin, { appName: "Shop" })).statusCode).toBe(200);
   });

@@ -74,7 +74,7 @@ export function Photo({
           </span>
         </div>
       )}
-      <Write>
+      <Write admin>
         <div className="flex flex-wrap gap-2">
           <label className={`${linkButton} cursor-pointer focus-within:outline-2`}>
             {t("printers:detail.photo.upload")}
@@ -141,7 +141,7 @@ export function PrinterDetailPage() {
         backTo={{ to: "/printers" }}
         description={model?.label}
         actions={
-          <Write>
+          <Write admin>
             <Link to="/printers/$id/edit" params={{ id }} className={linkButton}>
               {t("printers:detail.edit")}
             </Link>

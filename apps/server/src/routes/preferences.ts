@@ -1,5 +1,4 @@
 import {
-  EDITOR_PREFERENCE_KEYS,
   type Preferences,
   preferencesPatchSchema,
   preferencesResponseSchema,
@@ -13,7 +12,6 @@ import { readPreferences as read } from "../lib/preferences.ts";
 
 const { settings, userSettings } = schema;
 const OWN: readonly string[] = USER_PREFERENCE_KEYS;
-const EDITOR: readonly string[] = EDITOR_PREFERENCE_KEYS;
 
 export const preferencesRoutes =
   (db: Db, dataDir: string, onSaved?: (v: Preferences) => void): FastifyPluginAsyncZod =>
@@ -32,11 +30,7 @@ export const preferencesRoutes =
         const role = user?.role;
         // All or nothing: one key the caller may not change rejects the whole patch.
         const denied = Object.keys(req.body).filter(
-          (k) =>
-            role &&
-            role !== "admin" &&
-            !OWN.includes(k) &&
-            !(role === "editor" && EDITOR.includes(k)),
+          (k) => role && role !== "admin" && !OWN.includes(k),
         );
         if (denied.length)
           throw new HttpError(403, "forbidden", `Not allowed for your role: ${denied.join(", ")}`);

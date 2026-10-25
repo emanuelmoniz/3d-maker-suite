@@ -46,9 +46,9 @@ R = GET/HEAD, W = POST/PUT/PATCH/DELETE, - = 403.
 | `/api/health` | public | public | public | Docker healthcheck |
 | `/api/auth/setup`, `/api/auth/login` | public | public | public | setup only while no users exist; login rate-limited |
 | `/api/auth/logout`, `/api/auth/me` | R W | R W | R W | any session; `me` also changes your own name and password |
-| `/api/printers`, `/api/accessories`, `/api/maintenance` | R | R W | R W | |
-| `/api/brands`, `/api/printer-models`, `/api/machine-profiles` | R | R W | R W | catalog |
-| `/api/filament`, `/api/filament-brands`, `/api/filament-materials`, `/api/print-profiles` | R | R W | R W | |
+| `/api/printers`, `/api/accessories`, `/api/maintenance` | R | R, W accessory installs/removals (`/accessories/:id/installs`) and `POST /maintenance/tasks` (log done) | R W | adding and editing printers, accessories and maintenance types is setup, so admin-only |
+| `/api/brands`, `/api/printer-models`, `/api/machine-profiles`, `/api/filament-brands`, `/api/filament-materials`, `/api/print-profiles` | R | R | R W | catalogs belong to the module settings |
+| `/api/filament` | R | R W, but `/profiles` is R | R W | spools are daily work, profiles are setup |
 | `/api/projects` (files, trash, slicing, scan, open) | R | R W | R W | `/:id/open` starts the slicer on the server machine |
 | `/api/prints` (incl. filament review) | R | R W | R W | |
 | `/api/costs` (files, slice, quotes) | R | R W | R W | the calculator uses POST, so viewers see saved quotes only |
@@ -57,7 +57,7 @@ R = GET/HEAD, W = POST/PUT/PATCH/DELETE, - = 403.
 | `/api/tags`, `/api/collections` | R | R W | R W | |
 | `/api/alerts` (list, history, dismiss, evaluate) | R | R W | R W | |
 | `/api/alerts/channels` | - | - | R W | channels hold webhook and SMTP secrets |
-| `/api/preferences` | R, W own display keys | R, W own display keys + editor keys | R W | see below |
+| `/api/preferences` | R, W own display keys | R, W own display keys | R W | see below |
 | `/api/branding` | R | R | R W | everyone sees the logo and favicon |
 | `/api/integrations` | R | R, W `/:id/sync` | R W | GET never returns secrets; "Open in slicer" needs the list; sync is the one editor write |
 | `/api/slicer-zip` | - | - | R W | |
@@ -73,11 +73,9 @@ R = GET/HEAD, W = POST/PUT/PATCH/DELETE, - = 403.
 ### Preferences
 Per-user display keys, which any role (viewer included) may change for themselves: `language`, `units`, `dateFormat`, `timeFormat`, `themeMode`, `accent`, `dashboardLayout`. They're saved in `user_settings` for the caller and fall back to the global value. `GET /api/preferences` returns the global values with the caller's own on top. In the no-users mode they stay global, as today.
 
-Global keys editors may change (an allowlist; every key not listed is admin-only, so new keys start admin-only):
-- Costs: `currency`, `energyCostPerKwh`, `printerLifetimeHours`, `gramsPerHour`, `includeMaintenanceCost`, `printerCountInCosts`, `accessoryLifetimeHours`, `accessoryIncludeMaintenanceCost`, `accessoryCountInCosts`, `laborRatePerHour`, `failureMarginPct`, `markupPct`.
-- Workflow: `defaultPrinterId`, `defaultSlicerId`, `lowSpoolGrams`, `spoolNoPriceAlert`, `spoolNoOpenDateAlert`, `maintenanceLeadDays`, `maintenanceLeadHours`, `maintenanceLeadPrints`, `printerStates`, `failureReasons`, `orderStatuses`.
+Every other key is global and admin-only, so new keys start admin-only: costs, workflow, alert and module settings (`currency`, `markupPct`, `printerStates`, `orderStatuses`, `defaultPrinterId`, `lowSpoolGrams`, `maintenanceLead*` and the rest), plus:
 
-Admin-only keys today: `appName`, `projectRoots`, `projectScanMaxFiles`, `viewerMaxMb`, `projectUploadMaxMb`, `backupAuto`, `backupKeep`, `logActive`, `logLevels`, `logModules`, `logRetentionDays`, `logMaxEntries`, `updateChannel`.
+Infrastructure keys: `appName`, `projectRoots`, `projectScanMaxFiles`, `viewerMaxMb`, `projectUploadMaxMb`, `backupAuto`, `backupKeep`, `logActive`, `logLevels`, `logModules`, `logRetentionDays`, `logMaxEntries`, `updateChannel`.
 
 A PATCH with any key the caller may not change is rejected as a whole (403), nothing is half-saved.
 
@@ -89,7 +87,7 @@ A PATCH with any key the caller may not change is rejected as a whole (403), not
 - Hashes, tokens and the setup token are never logged or returned (the logger already redacts `cookie` and `*.password`).
 
 ### What a viewer sees
-Every page with data: dashboard, printers, maintenance, filament, projects (with the 3D viewer and files), prints, quotes, orders, clients, stats, alerts. Buttons that would change something are hidden, based on the role from `/api/auth/me`; the server enforces the same rules, so hiding is only for comfort. Settings shows only their own display preferences and their account. Editors see Settings without the admin sections (users, server, updates, backups, import, integrations setup, logs, branding).
+Every page with data: dashboard, printers, maintenance, filament, projects (with the 3D viewer and files), prints, quotes, orders, clients, stats, alerts. Buttons that would change something are hidden, based on the role from `/api/auth/me`; the server enforces the same rules, so hiding is only for comfort. Settings shows only their own display preferences and their account. Editors see the same Settings, and log work (prints, spools, maintenance done, accessory installs) but cannot open any module settings page or add or edit printers, accessories, maintenance types or catalogs.
 
 ## Rejected options
 - **Custom roles or a per-permission matrix**: more UI and more ways to get it wrong, for households of two to five people. Three fixed roles cover "owner", "helps with prints" and "only looks".
