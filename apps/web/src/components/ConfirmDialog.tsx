@@ -43,7 +43,7 @@ export function ConfirmDialog({
       className="m-auto w-[min(92vw,26rem)] rounded-lg border border-border bg-surface p-5 text-fg"
     >
       <h2 className="text-base font-semibold">{title}</h2>
-      <p className="mt-2 text-muted">{description}</p>
+      <p className="mt-2 whitespace-pre-line text-muted">{description}</p>
       {children && <div className="mt-4 grid gap-3">{children}</div>}
       <div className="mt-5 flex justify-end gap-2">
         <Button onClick={onCancel}>{t("common:actions.cancel")}</Button>

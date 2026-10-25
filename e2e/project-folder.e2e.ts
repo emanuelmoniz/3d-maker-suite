@@ -1,5 +1,5 @@
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { expect, test } from "./fixtures.ts";
 import { roots, seedPrinter } from "./helpers.ts";
 
@@ -23,7 +23,7 @@ test("project folder: create and unlink on the edit page", async ({ page, app })
   await card.getByRole("button", { name: "Unlink folder" }).click();
   await expect(dialog.getByRole("radio", { name: "Keep it as it is" })).toBeChecked();
   await dialog.getByRole("button", { name: "Unlink folder" }).click();
-  await expect(card.getByText(`Unlinked from ${folder}`)).toBeVisible();
+  await expect(card.getByText(`Unlinked from ${join("models", "001_Idea")}`)).toBeVisible();
   expect(existsSync(folder)).toBe(true);
   await card.getByRole("button", { name: "Link it again" }).click();
   await expect(card.getByRole("textbox", { name: "Folder" })).toHaveValue(folder);
@@ -31,9 +31,9 @@ test("project folder: create and unlink on the edit page", async ({ page, app })
   // Unlink to the trash: the folder moves into the root's trash, and the page says where.
   await card.getByRole("button", { name: "Unlink folder" }).click();
   await dialog.getByRole("radio", { name: "Move it to the trash" }).check();
-  await expect(dialog).toContainText(join(root, ".3d-maker-suite-trash"));
+  await expect(dialog).toContainText(join("models", ".3d-maker-suite-trash"));
   await dialog.getByRole("button", { name: "Unlink folder" }).click();
-  await expect(card.getByRole("status")).toContainText(join(root, ".3d-maker-suite-trash"));
+  await expect(card.getByRole("status")).toContainText(join("models", ".3d-maker-suite-trash"));
   await expect(card.getByText("This project has no folder yet")).toBeVisible();
   expect(existsSync(folder)).toBe(false);
 });
@@ -102,7 +102,7 @@ test("project folder: a missing folder shows a banner, linking another fixes it"
 
   await page.goto(`/projects/${p.id}`);
   const banner = page.getByRole("alert").filter({ hasText: "The project folder was not found" });
-  await expect(banner).toContainText(gone);
+  await expect(banner).toContainText(join("models", basename(gone)));
   await expect(page.getByRole("button", { name: "Open folder" })).toHaveCount(0);
 
   await banner.getByRole("button", { name: /^Browse for/ }).click();

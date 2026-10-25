@@ -115,7 +115,7 @@
     "unlinkMissingText": "The folder isn't there any more, so nothing on disk changes. The project forgets its files and print setup.",
     "change": "Switch to another folder…",
     "changeTitle": "Switch the project folder?",
-    "changeText": "The project moves to {{to}}. What happens to {{from}}?",
+    "changeText": "The project moves to {{to}}.\nWhat happens to {{from}}?",
     "changeConfirm": "Switch folder",
     "releaseLegend": "The current folder",
     "trashLabel": "Move it to the trash",

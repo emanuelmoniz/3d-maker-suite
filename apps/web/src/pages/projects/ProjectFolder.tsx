@@ -27,6 +27,16 @@ const within = (path: string, root: string) => {
   return parts(path).slice(0, r.length).join("/") === r.join("/");
 };
 
+/** `path` from its root's own name down ("projects\test2"); the way to the root stays out of it. */
+const fromRoot = (path: string | null | undefined, roots: string[]) => {
+  if (!path) return path;
+  const root = roots.find((r) => within(path, r));
+  if (!root) return path;
+  const cut = root.replace(/[\\/]+$/, "");
+  const start = Math.max(cut.lastIndexOf("/"), cut.lastIndexOf("\\")) + 1;
+  return path.slice(start);
+};
+
 /** The ways to let go of a folder, with what each means when unlinking or switching. */
 const RELEASE = {
   move: {
@@ -86,7 +96,7 @@ export function FolderActions({ project }: { project: ProjectDetail }) {
       {!project.folderPath && project.unlinkedFolder && (
         <div className="grid gap-2">
           <p className="wrap-break-word text-muted">
-            {t("projects:folder.kept", { path: project.unlinkedFolder })}
+            {t("projects:folder.kept", { path: fromRoot(project.unlinkedFolder, roots) })}
           </p>
           <div>
             <Button
@@ -168,7 +178,7 @@ export function FolderActions({ project }: { project: ProjectDetail }) {
           <Trans
             t={t}
             i18nKey="projects:folder.trashed"
-            values={{ path: trashedTo }}
+            values={{ path: fromRoot(trashedTo, roots) }}
             components={{ settings: <Link to="/projects/settings" className={link} /> }}
           />
         </p>
@@ -179,8 +189,8 @@ export function FolderActions({ project }: { project: ProjectDetail }) {
         description={
           ok
             ? t(mode === "change" ? "projects:folder.changeText" : "projects:folder.unlinkText", {
-                from: project.folderPath,
-                to: pending?.path,
+                from: fromRoot(project.folderPath, roots),
+                to: fromRoot(pending?.path, roots),
               })
             : t("projects:folder.unlinkMissingText")
         }
@@ -219,7 +229,7 @@ export function FolderActions({ project }: { project: ProjectDetail }) {
                 <span className="grid gap-1">
                   <span className="font-medium">{t(RELEASE[v].label)}</span>
                   <span id={`${id}-${v}`} className="wrap-break-word text-muted text-sm">
-                    {t(RELEASE[v][mode], { trash })}
+                    {t(RELEASE[v][mode], { trash: fromRoot(trash, roots) })}
                   </span>
                 </span>
               </label>
@@ -234,6 +244,7 @@ export function FolderActions({ project }: { project: ProjectDetail }) {
 /** On the project page while its folder is gone: what happened and how to fix it. */
 export function MissingFolderBanner({ project }: { project: ProjectDetail }) {
   const { t } = useTranslation();
+  const roots = usePreferences().data?.values.projectRoots.map((r) => r.path) ?? [];
   if (project.folderState !== "missing") return null;
   return (
     <section
@@ -245,7 +256,7 @@ export function MissingFolderBanner({ project }: { project: ProjectDetail }) {
         {t("projects:folder.missingTitle")}
       </h2>
       <p className="wrap-break-word text-muted">
-        {t("projects:folder.missingText", { path: project.folderPath })}
+        {t("projects:folder.missingText", { path: fromRoot(project.folderPath, roots) })}
       </p>
       <FolderActions project={project} />
     </section>
