@@ -53,6 +53,8 @@ export function can(role: UserRole, url: string, method: string): boolean {
   const path = url.split("?")[0] ?? "";
   // Channels hold webhook and SMTP secrets.
   if (/^\/api\/alerts\/channels(\/|$)/.test(path)) return false;
+  // Everyone reads, snoozes and dismisses their own alerts (ADR-0012); nothing else under /alerts.
+  if (method === "PATCH" && /^\/api\/alerts\/[^/]+$/.test(path)) return true;
   if (role === "editor" && method === "POST" && /^\/api\/integrations\/[^/]+\/sync$/.test(path))
     return true;
   // Editors log work on printers and accessories; the printer, accessory, maintenance and filament-profile setup is admin-only.

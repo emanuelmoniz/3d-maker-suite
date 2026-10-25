@@ -7,7 +7,6 @@ import { Button } from "../../components/Button.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { Write } from "../../components/Write.tsx";
 import { useAlertAction, useAlertDetail, useEvaluateAlerts } from "../../lib/alerts.ts";
-import { useCan } from "../../lib/auth.ts";
 import { formatDateTime, formatWeight } from "../../lib/format.ts";
 import { useDue } from "../../lib/maintenance.ts";
 import { LogDialog } from "../maintenance/MaintenancePage.tsx";
@@ -48,15 +47,14 @@ export function AlertDetailPage() {
   const due = useDue();
   const evaluate = useEvaluateAlerts();
   const [logging, setLogging] = useState(false);
-  // Opening an alert reads it, once: marking it unread afterwards must stick.
+  // Opening an alert reads it (for this user), once: marking it unread afterwards must stick.
   const act = useAlertAction();
   const opened = useRef<string>(undefined);
-  const canWrite = useCan("write");
   useEffect(() => {
-    if (!a || !canWrite || opened.current === a.id) return;
+    if (!a || opened.current === a.id) return;
     opened.current = a.id;
     if (!a.readAt && !a.resolvedAt && !a.dismissedAt) act.mutate({ id: a.id, action: "read" });
-  }, [a, canWrite, act.mutate]);
+  }, [a, act.mutate]);
   const header = <PageHeader title={t("alerts:view.title")} backTo={{ to: "/alerts" }} />;
   if (isError) {
     return (
@@ -131,15 +129,6 @@ export function AlertDetailPage() {
                 {t("alerts:view.viewSpool")}
               </Link>
             )}
-            {(a.kind === "spool_no_price" || a.kind === "spool_no_open_date") && (
-              <Link
-                to="/filament/spools/$id/edit"
-                params={{ id: a.entityId }}
-                className={buttonLink}
-              >
-                {t("alerts:view.editSpool")}
-              </Link>
-            )}
             {a.kind === "maintenance_due" && (
               <Link
                 to="/maintenance/types/$id"
@@ -149,47 +138,57 @@ export function AlertDetailPage() {
                 {t("alerts:view.viewTask")}
               </Link>
             )}
-            {item && (
-              <Write>
+            {/* The fixes themselves: admin and editor (Step 10 narrows the integration ones). */}
+            <Write>
+              {(a.kind === "spool_no_price" || a.kind === "spool_no_open_date") && (
+                <Link
+                  to="/filament/spools/$id/edit"
+                  params={{ id: a.entityId }}
+                  className={buttonLink}
+                >
+                  {t("alerts:view.editSpool")}
+                </Link>
+              )}
+              {item && (
                 <Button onClick={() => setLogging(true)}>{t("alerts:view.markDone")}</Button>
-              </Write>
-            )}
-            {a.kind === "sync_pending" && (
-              <Link
-                to="/import/$source/$id/$type"
-                params={{
-                  source: "integration",
-                  id: String(a.context.integrationId),
-                  type: String(a.context.type),
-                }}
-                // The rows the sync left for you, not everything the source has.
-                search={{ waiting: "1" } as never}
-                className={buttonLink}
-              >
-                {t("alerts:review")}
-              </Link>
-            )}
-            <SyncTargetLink a={a} />
-            {(a.kind === "sync_error" || a.kind === "sync_success") && (
-              <Link to="/integrations" hash={integrationHash(a)} className={buttonLink}>
-                {t("alerts:view.openIntegration")}
-              </Link>
-            )}
-            {a.kind === "update_available" && (
-              <Link to="/settings" hash="updates" className={buttonLink}>
-                {t("alerts:view.openUpdates")}
-              </Link>
-            )}
-            {a.kind.startsWith("slice_") && (
-              <Link
-                to="/projects/$id/edit"
-                params={{ id: String(a.context.projectId) }}
-                hash="slicing"
-                className={buttonLink}
-              >
-                {t("alerts:view.openPrintSetup")}
-              </Link>
-            )}
+              )}
+              {a.kind === "sync_pending" && (
+                <Link
+                  to="/import/$source/$id/$type"
+                  params={{
+                    source: "integration",
+                    id: String(a.context.integrationId),
+                    type: String(a.context.type),
+                  }}
+                  // The rows the sync left for you, not everything the source has.
+                  search={{ waiting: "1" } as never}
+                  className={buttonLink}
+                >
+                  {t("alerts:review")}
+                </Link>
+              )}
+              <SyncTargetLink a={a} />
+              {(a.kind === "sync_error" || a.kind === "sync_success") && (
+                <Link to="/integrations" hash={integrationHash(a)} className={buttonLink}>
+                  {t("alerts:view.openIntegration")}
+                </Link>
+              )}
+              {a.kind === "update_available" && (
+                <Link to="/settings" hash="updates" className={buttonLink}>
+                  {t("alerts:view.openUpdates")}
+                </Link>
+              )}
+              {a.kind.startsWith("slice_") && (
+                <Link
+                  to="/projects/$id/edit"
+                  params={{ id: String(a.context.projectId) }}
+                  hash="slicing"
+                  className={buttonLink}
+                >
+                  {t("alerts:view.openPrintSetup")}
+                </Link>
+              )}
+            </Write>
             <AlertButtons
               a={a}
               postpone={a.kind === "maintenance_due"}
@@ -199,13 +198,11 @@ export function AlertDetailPage() {
           </div>
         )}
         {a.dismissedAt && !a.resolvedAt && (
-          <Write>
-            <div>
-              <Button onClick={() => act.mutate({ id: a.id, action: "undismiss" })}>
-                {t("alerts:view.undismiss")}
-              </Button>
-            </div>
-          </Write>
+          <div>
+            <Button onClick={() => act.mutate({ id: a.id, action: "undismiss" })}>
+              {t("alerts:view.undismiss")}
+            </Button>
+          </div>
         )}
       </section>
       <LogDialog

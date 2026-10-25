@@ -4,6 +4,9 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+### Changed
+- Alerts are read, snoozed and dismissed per person: marking one read leaves it unread for the others. Viewers can do this too. When an admin or editor fixes the cause (maintenance done, a review finished, a spool's price or open date filled in), the alert is resolved for everyone
+
 ## [4.2.0-alpha.1] - 2026-10-24
 
 Pre-release. Test on a copy of your data first; back up before updating.

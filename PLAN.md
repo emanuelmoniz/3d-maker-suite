@@ -540,7 +540,7 @@ Do Step 7 of the 4.2.0 plan in PLAN.md. List every query that 403s for a viewer 
 Do Step 8 of the 4.2.0 plan in PLAN.md.
 ```
 
-### [ ] Step 9 - Alerts per user  **[plan mode]**
+### [x] Step 9 - Alerts per user  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:** Migration `alert_states` (alert id, user id, readAt, snoozedUntil, dismissedAt; cascade on both). `GET /api/alerts` (list, history, detail, unread count) merges the caller's state; `PATCH /api/alerts/:id` writes the caller's row; no-users mode keeps the `alerts` columns. Snooze re-arm and channel sending stay global. Auth table: viewer may `PATCH /api/alerts/:id` (read, unread, snooze, dismiss), nothing else under `/alerts`. UI: viewers get those actions; CTAs follow Step 10's rules (until then: admin and editor). Update ADR-0012, All alerts for all users that need user actions, (mantenance, import and review for integrations, and spool missing fields (price and open date)), should be marked as read and resolved when one admin or editor resolve them (exemple: mantenance task on printer x is executed and log done by editor, the corresponding alert of viewer and admin should leave "needs atencion" section and be marked as read and resolved).
 **Done when:** the schema is approved; migration applies on a copy of the real DB; marking read as one user leaves it unread for the others (test); a viewer can read/snooze/dismiss but not trigger a CTA; tests pass.

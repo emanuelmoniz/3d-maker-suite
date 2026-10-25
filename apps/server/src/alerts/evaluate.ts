@@ -9,7 +9,7 @@ import type {
   SyncType,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
-import { and, desc, eq, gt, isNull, ne } from "drizzle-orm";
+import { and, desc, eq, gt, isNull, lte, ne } from "drizzle-orm";
 import { raisesSeverity } from "../integrations/capabilities.ts";
 import { spoolName } from "../lib/catalog.ts";
 import { dueItems } from "../lib/maintenance.ts";
@@ -17,7 +17,16 @@ import { printerTitle } from "../lib/numbers.ts";
 import { readPreferences } from "../lib/preferences.ts";
 import { channels, readChannel, sendVia } from "./channels.ts";
 
-const { alerts, integrations, maintenanceTypes, spools, printers, syncPolicies, syncRuns } = schema;
+const {
+  alerts,
+  alertStates,
+  integrations,
+  maintenanceTypes,
+  spools,
+  printers,
+  syncPolicies,
+  syncRuns,
+} = schema;
 const DAY_MS = 86_400_000;
 // ponytail: fixed lead time, make it a preference if anyone asks.
 const WARRANTY_LEAD_DAYS = 30;
@@ -314,6 +323,11 @@ export async function evaluateAlerts(
           .where(eq(alerts.id, a.id))
           .run();
     }
+    // A user's own snooze ends the same way, for them only; the channels aren't told again.
+    tx.update(alertStates)
+      .set({ snoozedUntil: null, readAt: null, updatedAt: stamp })
+      .where(lte(alertStates.snoozedUntil, stamp))
+      .run();
     for (const f of found.values()) tx.insert(alerts).values(f).onConflictDoNothing().run();
   });
 

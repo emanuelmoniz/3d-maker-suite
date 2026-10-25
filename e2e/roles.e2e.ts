@@ -33,6 +33,12 @@ test("roles: viewer and editor see only what they can do; logs show the actor", 
   ])
     await post(page, "/api/users", { displayName, email, password: PASSWORD, role });
   const { id } = await post(page, "/api/clients", { name: "Acme", mobile: "911" });
+  // A sync raises a success alert, with buttons to the module and the integration.
+  const integration = await post(page, "/api/integrations", {
+    adapterId: "mock",
+    secrets: { token: "t" },
+  });
+  await post(page, `/api/integrations/${integration.id}/sync`, { type: "printers" });
 
   const side = page.getByRole("complementary");
   const seesAdminMenu = async () => {
@@ -86,6 +92,16 @@ test("roles: viewer and editor see only what they can do; logs show the actor", 
   await page.goto(`/clients/${id}`);
   await expect(page.getByRole("heading", { name: "Acme" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Edit" })).toHaveCount(0);
+  // Alerts: the viewer reads and unreads their own, but gets none of the fixes.
+  await page.goto("/alerts");
+  await page.getByRole("link", { name: /synced/ }).click();
+  await expect(page.locator("dd", { hasText: /^Read$/ })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Open integration" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "View printers" })).toHaveCount(0);
+  await page.getByRole("button", { name: "Mark as unread" }).click();
+  await expect(page.locator("dd", { hasText: /^Unread$/ })).toBeVisible();
+  await page.getByRole("button", { name: "Mark as read" }).click();
+  await expect(page.locator("dd", { hasText: /^Read$/ })).toBeVisible();
 
   // Editor: edits, but has no admin menu.
   await signInAs(page, "eva@example.com");
@@ -97,6 +113,14 @@ test("roles: viewer and editor see only what they can do; logs show the actor", 
   await page.goto(`/clients/${id}`);
   await expect(page.getByRole("link", { name: "Edit" })).toBeVisible();
   await post(page, "/api/clients", { name: "Zed", mobile: "922" });
+  // The viewer reading the alert left it unread for the editor.
+  await page.goto("/alerts");
+  await expect(
+    page
+      .getByRole("listitem")
+      .filter({ hasText: /synced/ })
+      .getByTitle("Unread"),
+  ).toBeVisible();
   // The server says the same.
   for (const [path, data] of [
     ["/api/printers", { name: "P" }],

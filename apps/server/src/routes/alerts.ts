@@ -14,17 +14,59 @@ import {
   pageOf,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
-import { and, desc, eq, getTableColumns, isNull, or, sql } from "drizzle-orm";
+import {
+  type AnyColumn,
+  and,
+  desc,
+  eq,
+  getTableColumns,
+  isNull,
+  or,
+  type SQLWrapper,
+  sql,
+} from "drizzle-orm";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { channels, readChannel, sendVia, writeChannel } from "../alerts/channels.ts";
 import { HttpError } from "../errors.ts";
 import { listPage } from "../lib/list.ts";
 
-const { alerts } = schema;
+const { alerts, alertStates } = schema;
 const params = z.object({ id: z.uuid() });
 const channelParams = z.object({ id: z.string() });
 const notFound = { 404: apiErrorSchema };
+
+/**
+ * The caller's own read, snooze and dismiss (ADR-0012): their `alert_states` row, else the `alerts`
+ * columns (the state from before accounts, and the no-users mode, where no row ever matches).
+ */
+function own(userId = "") {
+  const row = sql`FROM ${alertStates} WHERE ${alertStates.alertId} = ${alerts.id} AND ${alertStates.userId} = ${userId}`;
+  const pick = (c: AnyColumn, fallback: SQLWrapper) =>
+    sql<
+      string | null
+    >`CASE WHEN EXISTS (SELECT 1 ${row}) THEN (SELECT ${c} ${row}) ELSE ${fallback} END`;
+  return {
+    readAt: pick(alertStates.readAt, alerts.readAt),
+    snoozedUntil: pick(alertStates.snoozedUntil, alerts.snoozedUntil),
+    dismissedAt: pick(alertStates.dismissedAt, alerts.dismissedAt),
+    updatedAt: pick(alertStates.updatedAt, alerts.updatedAt),
+  };
+}
+
+/** An alert as the caller sees it: their own state, and resolved (for everyone) counts as read. */
+function view(userId?: string) {
+  const o = own(userId);
+  return {
+    ...getTableColumns(alerts),
+    ...o,
+    readAt: sql<string | null>`COALESCE(${o.readAt}, ${alerts.resolvedAt})`,
+    // The caller's last change or a resolve, whichever is later.
+    updatedAt: sql<
+      string | null
+    >`NULLIF(max(COALESCE(${o.updatedAt}, ''), COALESCE(${alerts.updatedAt}, '')), '')`,
+  };
+}
 
 export const alertsRoutes =
   (db: Db, key: Buffer, evaluate: () => Promise<void>): FastifyPluginAsyncZod =>
@@ -35,14 +77,20 @@ export const alertsRoutes =
       return c;
     };
 
-    /** Open alerts, dismissed ones left out. The app splits active from snoozed. */
-    app.get("/", { schema: { response: { 200: z.array(alertSchema) } } }, async () => {
+    const one = (id: string, userId?: string) => {
+      const row = db.select(view(userId)).from(alerts).where(eq(alerts.id, id)).get();
+      if (!row) throw new HttpError(404, "not_found", "Alert not found");
+      return { ...row, hasDetail: !!row.detail } as AlertWithDetail;
+    };
+
+    /** Open alerts, the caller's dismissed ones left out. The app splits active from snoozed. */
+    app.get("/", { schema: { response: { 200: z.array(alertSchema) } } }, async (req) => {
       // The detail (a sync log) stays here: the app polls this list every minute.
-      const { detail: _, ...columns } = getTableColumns(alerts);
+      const { detail: _, ...columns } = view(req.user?.id);
       return db
         .select({ ...columns, hasDetail: sql<number>`${alerts.detail} IS NOT NULL` })
         .from(alerts)
-        .where(and(isNull(alerts.resolvedAt), isNull(alerts.dismissedAt)))
+        .where(and(isNull(alerts.resolvedAt), sql`${columns.dismissedAt} IS NULL`))
         .orderBy(desc(alerts.createdAt))
         .all()
         .map((a) => ({ ...a, hasDetail: !!a.hasDetail })) as Alert[];
@@ -62,14 +110,14 @@ export const alertsRoutes =
       },
       async (req) => {
         const now = new Date().toISOString();
-        const snoozed = sql`${alerts.snoozedUntil} > ${now}`;
+        const { detail: _, ...columns } = view(req.user?.id);
+        const snoozed = sql`${columns.snoozedUntil} > ${now}`;
         const status = sql<string>`CASE
           WHEN ${alerts.resolvedAt} IS NOT NULL THEN 'resolved'
-          WHEN ${alerts.dismissedAt} IS NOT NULL THEN 'dismissed'
+          WHEN ${columns.dismissedAt} IS NOT NULL THEN 'dismissed'
           WHEN ${snoozed} THEN 'snoozed'
           ELSE 'read' END`;
-        const updatedAt = sql<string>`COALESCE(${alerts.updatedAt}, ${alerts.createdAt})`;
-        const { detail: _, ...columns } = getTableColumns(alerts);
+        const updatedAt = sql<string>`COALESCE(${columns.updatedAt}, ${alerts.createdAt})`;
         const page = listPage(db, alerts, req.query, {
           sort: {
             updatedAt,
@@ -88,9 +136,9 @@ export const alertsRoutes =
           where: [
             or(
               sql`${alerts.resolvedAt} IS NOT NULL`,
-              sql`${alerts.dismissedAt} IS NOT NULL`,
+              sql`${columns.dismissedAt} IS NOT NULL`,
               snoozed,
-              sql`${alerts.severity} = 'success' AND ${alerts.readAt} IS NOT NULL`,
+              sql`${alerts.severity} = 'success' AND ${columns.readAt} IS NOT NULL`,
             ),
           ],
           filters: {
@@ -109,11 +157,7 @@ export const alertsRoutes =
     app.get(
       "/:id",
       { schema: { params, response: { 200: alertWithDetailSchema, ...notFound } } },
-      async (req) => {
-        const row = db.select().from(alerts).where(eq(alerts.id, req.params.id)).get();
-        if (!row) throw new HttpError(404, "not_found", "Alert not found");
-        return { ...row, hasDetail: !!row.detail } as AlertWithDetail;
-      },
+      async (req) => one(req.params.id, req.user?.id),
     );
 
     app.post("/evaluate", { schema: { response: { 204: z.null() } } }, async (_req, reply) => {
@@ -141,15 +185,30 @@ export const alertsRoutes =
             ).toISOString(),
           },
         }[a.action];
-        const row = db
-          .update(alerts)
-          .set({ ...set, updatedAt: stamp })
-          .where(eq(alerts.id, req.params.id))
-          .returning()
-          .get();
-        if (!row) throw new HttpError(404, "not_found", "Alert not found");
-        const { detail, ...rest } = row;
-        return { ...rest, hasDetail: !!detail } as Alert;
+        const { id } = req.params;
+        const user = req.user?.id;
+        if (!user) {
+          // No users: the shared state on the alert itself.
+          const row = db
+            .update(alerts)
+            .set({ ...set, updatedAt: stamp })
+            .where(eq(alerts.id, id))
+            .returning({ id: alerts.id })
+            .get();
+          if (!row) throw new HttpError(404, "not_found", "Alert not found");
+        } else
+          db.transaction((tx) => {
+            // Starts from what the caller sees, so a state from before accounts carries over.
+            const cur = tx.select(own(user)).from(alerts).where(eq(alerts.id, id)).get();
+            if (!cur) throw new HttpError(404, "not_found", "Alert not found");
+            const row = { ...cur, ...set, updatedAt: stamp };
+            tx.insert(alertStates)
+              .values({ alertId: id, userId: user, ...row })
+              .onConflictDoUpdate({ target: [alertStates.alertId, alertStates.userId], set: row })
+              .run();
+          });
+        const { detail: _, ...rest } = one(id, user);
+        return rest as Alert;
       },
     );
 

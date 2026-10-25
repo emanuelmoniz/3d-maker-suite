@@ -55,7 +55,7 @@ R = GET/HEAD, W = POST/PUT/PATCH/DELETE, - = 403.
 | `/api/orders`, `/api/clients` | R | R W | R W | |
 | `/api/stats` | R | R | R | read-only already |
 | `/api/tags`, `/api/collections` | R | R W | R W | |
-| `/api/alerts` (list, history, dismiss, evaluate) | R | R W | R W | |
+| `/api/alerts` (list, history, dismiss, evaluate) | R, W `PATCH /:id` (read, unread, snooze, dismiss) | R W | R W | the PATCH writes the caller's own state, see "Alerts per user" |
 | `/api/alerts/channels` | - | - | R W | channels hold webhook and SMTP secrets |
 | `/api/preferences` | R, W own display keys | R, W own display keys | R W | see below |
 | `/api/branding` | R | R | R W | everyone sees the logo and favicon |
@@ -79,6 +79,14 @@ Infrastructure keys: `appName`, `projectRoots`, `projectScanMaxFiles`, `viewerMa
 
 A PATCH with any key the caller may not change is rejected as a whole (403), nothing is half-saved.
 
+### Alerts per user
+An alert is the same for everyone; whether a person has read, snoozed or dismissed it is their own (`alert_states`: alert id, user id, read at, snoozed until, dismissed at, updated at; cascade on both).
+- From `alerts`, the same for everyone: kind, severity, context, detail, `resolvedAt`, `notifiedAt`.
+- Read, snooze and dismiss come from the caller's `alert_states` row. Without a row they fall back to the `alerts` columns, which hold the state from before accounts existed, so old read or dismissed alerts don't come back for everyone. The no-users mode has no rows and keeps using those columns, as before.
+- Resolved wins: once the cause is fixed (maintenance done, a review finished, a spool's price or open date filled in), the check that runs after each write resolves the alert for everyone, and it counts as read.
+- `PATCH /api/alerts/:id` writes the caller's row, starting from what they saw. History's "updated" is the later of their own change and a resolve.
+- When a user's own snooze ends, the alert comes back unread for that user only. The channels (ntfy, email) are told once per alert, never per user.
+
 ### Safety rules
 - The last enabled admin can't be disabled, demoted or deleted (409).
 - Disabling a user, changing their role or resetting their password ends all their sessions.
@@ -87,7 +95,7 @@ A PATCH with any key the caller may not change is rejected as a whole (403), not
 - Hashes, tokens and the setup token are never logged or returned (the logger already redacts `cookie` and `*.password`).
 
 ### What a viewer sees
-Every page with data: dashboard, printers, maintenance, filament, projects (with the 3D viewer and files), prints, quotes, orders, clients, stats, alerts. Buttons that would change something are hidden, based on the role from `/api/auth/me`; the server enforces the same rules, so hiding is only for comfort. Settings shows only their own display preferences and their account. Editors see the same Settings, and log work (prints, spools, maintenance done, accessory installs) but cannot open any module settings page or add or edit printers, accessories, maintenance types or catalogs.
+Every page with data: dashboard, printers, maintenance, filament, projects (with the 3D viewer and files), prints, quotes, orders, clients, stats, alerts. On alerts they get read, unread, snooze and dismiss, but not the fix buttons (edit spool, mark done, review, the integration and update links). Buttons that would change something are hidden, based on the role from `/api/auth/me`; the server enforces the same rules, so hiding is only for comfort. Settings shows only their own display preferences and their account. Editors see the same Settings, and log work (prints, spools, maintenance done, accessory installs) but cannot open any module settings page or add or edit printers, accessories, maintenance types or catalogs.
 
 ## Rejected options
 - **Custom roles or a per-permission matrix**: more UI and more ways to get it wrong, for households of two to five people. Three fixed roles cover "owner", "helps with prints" and "only looks".

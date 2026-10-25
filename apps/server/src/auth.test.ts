@@ -97,6 +97,14 @@ describe("permissions", () => {
       }
   });
 
+  it("a viewer may PATCH their alert state, nothing else under /alerts", () => {
+    expect(can("viewer", "/api/alerts/abc", "PATCH")).toBe(true);
+    expect(can("viewer", "/api/alerts/evaluate", "POST")).toBe(false);
+    expect(can("viewer", "/api/alerts/channels/ntfy", "PATCH")).toBe(false);
+    expect(can("viewer", "/api/alerts/channels/ntfy", "PUT")).toBe(false);
+    expect(can("editor", "/api/alerts/channels/ntfy", "PATCH")).toBe(false);
+  });
+
   it("every registered prefix is in the matrix", async () => {
     const { app } = await setup();
     const spec = (await app.inject("/api/docs/json")).json();
@@ -145,6 +153,69 @@ describe("permissions", () => {
 
     expect((await viewer.send("POST", "/api/auth/logout")).statusCode).toBe(204);
     expect((await viewer.get("/api/printers")).statusCode).toBe(401);
+  });
+
+  it("alerts: read, snooze and dismiss are per user; resolving is for everyone", async () => {
+    const { db, app } = await setup();
+    for (const role of ["admin", "editor", "viewer"] as const) addUser(db, role);
+    const session = async (r: UserRole) => as(app, cookieOf(await login(app, `${r}@x.io`)));
+    const [admin, editor, viewer] = [
+      await session("admin"),
+      await session("editor"),
+      await session("viewer"),
+    ];
+    const raise = (v: Partial<typeof schema.alerts.$inferInsert> = {}) =>
+      db
+        .insert(schema.alerts)
+        .values({
+          kind: "spool_low",
+          severity: "warning",
+          module: "filament",
+          task: "spool:gone",
+          entityType: "spool",
+          entityId: crypto.randomUUID(),
+          ...v,
+        })
+        .returning()
+        .get().id;
+    // Read before accounts existed: everyone without a row of their own sees it read.
+    const legacyRead = "2026-01-01T00:00:00.000Z";
+    const old = raise({ kind: "sync_success", severity: "success", readAt: legacyRead });
+    // A condition nothing holds any more: the next check resolves it.
+    const low = raise();
+    const act = (s: typeof admin, id: string, body: object) =>
+      s.send("PATCH", `/api/alerts/${id}`, body);
+    const get = async (s: typeof admin, id: string) => (await s.get(`/api/alerts/${id}`)).json();
+    const listed = async (s: typeof admin) =>
+      (await s.get("/api/alerts")).json().map((a: { id: string }) => a.id);
+
+    expect((await act(viewer, low, { action: "read" })).json().readAt).not.toBeNull();
+    expect((await get(admin, low)).readAt).toBeNull();
+    expect((await act(viewer, low, { action: "dismiss" })).statusCode).toBe(200);
+    expect(await listed(viewer)).not.toContain(low);
+    expect(await listed(admin)).toContain(low);
+    expect((await viewer.send("POST", "/api/alerts/evaluate")).statusCode).toBe(403);
+
+    expect((await get(admin, old)).readAt).toBe(legacyRead);
+    expect((await act(admin, old, { action: "unread" })).json().readAt).toBeNull();
+    expect((await get(editor, old)).readAt).toBe(legacyRead);
+
+    // A snooze that ended comes back unread, for that user only.
+    await act(admin, old, { action: "snooze", days: 1 });
+    db.update(schema.alertStates).set({ snoozedUntil: legacyRead }).run();
+    expect((await editor.send("POST", "/api/alerts/evaluate")).statusCode).toBe(204);
+    expect(await get(admin, old)).toMatchObject({ readAt: null, snoozedUntil: null });
+    expect((await get(editor, old)).readAt).toBe(legacyRead);
+
+    // The same check resolved `low`: gone for everyone and counted as read.
+    for (const s of [admin, editor, viewer]) {
+      const a = await get(s, low);
+      expect(a.resolvedAt).not.toBeNull();
+      expect(a.readAt).not.toBeNull();
+      expect(await listed(s)).not.toContain(low);
+      const history = (await s.get("/api/alerts/history?status=resolved")).json().items;
+      expect(history.map((h: { id: string }) => h.id)).toContain(low);
+    }
   });
 
   it("preferences: own display keys for everyone, the rest admin-only", async () => {

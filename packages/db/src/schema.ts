@@ -977,3 +977,25 @@ export const userSettings = sqliteTable(
   },
   (t) => [primaryKey({ columns: [t.userId, t.key] })],
 );
+
+/** Each user's own read, snooze and dismiss on an alert (ADR-0012); no row = the `alerts` columns. Resolving stays on `alerts`. */
+export const alertStates = sqliteTable(
+  "alert_states",
+  {
+    alertId: text()
+      .notNull()
+      .references(() => alerts.id, { onDelete: "cascade" }),
+    userId: text()
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    readAt: text(),
+    snoozedUntil: text(),
+    dismissedAt: text(),
+    /** The user's last change; history sorts on it. */
+    updatedAt: text(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.alertId, t.userId] }),
+    index("alert_states_user_idx").on(t.userId),
+  ],
+);

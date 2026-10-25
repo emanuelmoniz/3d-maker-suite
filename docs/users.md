@@ -14,7 +14,7 @@ Until the first account exists, anyone who can open the page can create it. Do t
 
 | Role | Can do |
 |---|---|
-| **Viewer** | See everything: printers, filament, projects, prints, quotes, orders, clients, stats, alerts. Change their own display preferences (language, units, date and time format, theme, accent). |
+| **Viewer** | See everything: printers, filament, projects, prints, quotes, orders, clients, stats, alerts. Mark alerts read or unread, snooze and dismiss them. Change their own display preferences (language, units, date and time format, theme, accent). |
 | **Editor** | Everything a viewer can, plus add and change the day-to-day data: printers, filament, projects, prints, quotes, orders, clients, tags, alerts. Run an integration sync. Change the cost and workflow settings. |
 | **Admin** | Everything, including users, server settings (network, autostart, restart, stop), updates, backups and restores, import, integrations setup, alert channels, logs and branding. |
 

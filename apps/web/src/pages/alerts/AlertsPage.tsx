@@ -214,7 +214,7 @@ function Detail({ id }: { id: string }) {
   );
 }
 
-/** Read or unread, snooze (or remove it) and dismiss. The list only gets read and dismiss. */
+/** Read or unread, snooze (or remove it) and dismiss, for every role: each user's own state. The list only gets read and dismiss. */
 export function AlertButtons({
   a,
   snoozed,
@@ -244,7 +244,7 @@ export function AlertButtons({
     </Button>
   );
   return (
-    <Write>
+    <>
       {snoozed ? (
         <Button onClick={() => run("unsnooze")}>{t("alerts:removeSnooze")}</Button>
       ) : (
@@ -258,7 +258,7 @@ export function AlertButtons({
       <Button variant="ghost" onClick={() => run("dismiss")}>
         {t("alerts:dismiss")}
       </Button>
-    </Write>
+    </>
   );
 }
 
@@ -410,11 +410,9 @@ function History() {
               header: "",
               cell: (a) =>
                 a.status === "snoozed" ? (
-                  <Write>
-                    <Button onClick={() => act.mutate({ id: a.id, action: "unsnooze" })}>
-                      {t("alerts:removeSnooze")}
-                    </Button>
-                  </Write>
+                  <Button onClick={() => act.mutate({ id: a.id, action: "unsnooze" })}>
+                    {t("alerts:removeSnooze")}
+                  </Button>
                 ) : null,
             },
           ]}
