@@ -24,6 +24,7 @@ import { SettingsLink } from "../../components/SettingsLink.tsx";
 import { TagFilter } from "../../components/TagFilter.tsx";
 import { TagList } from "../../components/TagList.tsx";
 import { Write } from "../../components/Write.tsx";
+import { useCan } from "../../lib/auth.ts";
 import { cx } from "../../lib/cx.ts";
 import { formatDate } from "../../lib/format.ts";
 import { useListPage, useUrlListQuery } from "../../lib/list.ts";
@@ -124,12 +125,15 @@ function AddFolder() {
   const { t } = useTranslation();
   const create = useCreateProject();
   const roots = usePreferences().data?.values.projectRoots;
+  const admin = useCan("admin");
   return (
     <>
       <PathPicker
         label={t("projects:list.addFolder")}
         mode="folder"
         initial={roots?.at(-1)?.path}
+        // Editors may only browse inside the project roots (the server enforces it).
+        within={admin ? undefined : roots?.map((r) => r.path)}
         onPick={(folderPath) =>
           create.mutate({
             name: folderPath.split(/[/]/).filter(Boolean).at(-1) ?? folderPath,
