@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
-import { PlateSlice, plateKey, SliceSetup } from "../../components/SliceSetup.tsx";
+import { PlateSlice, plateKey, SliceSetup, usePlateFit } from "../../components/SliceSetup.tsx";
 import { useSlicers } from "../../lib/integrations.ts";
 import { usePreferences } from "../../lib/preferences.ts";
 import {
@@ -50,6 +50,16 @@ export function SlicingSetup({ project, setup }: { project: Project; setup: Slic
   const slicers = useSlicers();
   const prefs = usePreferences().data?.values;
   const defaultId = prefs?.defaultPrinterId;
+  const { misfit } = usePlateFit(defaultId);
+  /** A slicer as the project's: its name, and how many plates that use it it can't slice. */
+  const slicerLabel = (id: string | undefined, name: string) => {
+    const count = value.filter(
+      (v) =>
+        !slicers.usable(v.slicerIntegrationId) &&
+        misfit(project.meta.models.find((m) => m.file === v.file) ?? {}, v, id) !== undefined,
+    ).length;
+    return count ? t("projects:slicing.slicerMisfitPlates", { name, count }) : name;
+  };
   // What "Folder default" means here: on unless the project sits in a root ticked off.
   const rootOn = rootOf(project.folderPath ?? "", prefs?.projectRoots ?? [])?.autoSlice ?? true;
   if (!project.meta.models.length || !saved) return null;
@@ -81,12 +91,12 @@ export function SlicingSetup({ project, setup }: { project: Project; setup: Slic
               >
                 <option value="">
                   {t("projects:slicing.slicerDefault", {
-                    name: slicers.nameOf(slicers.resolve([])),
+                    name: slicerLabel(slicers.resolve([]), slicers.nameOf(slicers.resolve([]))),
                   })}
                 </option>
                 {slicers.slicers.map((s) => (
                   <option key={s.id} value={s.id}>
-                    {s.name}
+                    {slicerLabel(s.id, s.name)}
                   </option>
                 ))}
               </select>

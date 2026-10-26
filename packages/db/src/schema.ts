@@ -650,6 +650,8 @@ export const projectSlicePlates = sqliteTable(
     slicedPrintProfileId: text(),
     /** The slicer integration that sliced it. Not an FK: a deleted one reads as another slicer. */
     slicedIntegrationId: text(),
+    /** That integration's `slicerVersion` then; null = unknown (a local slicer, or before 0073). */
+    slicedSlicerVersion: text(),
     printTimeSeconds: integer(),
     weightGrams: real(),
     slicedFilaments: text({ mode: "json" }).$type<

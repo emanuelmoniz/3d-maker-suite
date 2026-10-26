@@ -13,6 +13,7 @@ import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
 import { createReview, type Stored } from "../import/review.ts";
+import { keepUserPresets } from "../integrations/managedSlicer.ts";
 import { openUpload, unpackSlicerZip } from "../integrations/slicerZip.ts";
 import { libraryRows } from "../integrations/sourceRows.ts";
 import type { Syncer } from "../integrations/sync.ts";
@@ -72,6 +73,8 @@ export const slicerZipRoutes =
           throw new HttpError(415, "unsupported_media_type", "Send a .zip file");
         const uploadId = crypto.randomUUID();
         await unpackSlicerZip(base, uploadId, source, req.body);
+        // The upload goes after a day; a server slicer keeps its user presets to slice with.
+        keepUserPresets(db, dataDir, syncer.adapters, source, openUpload(base, uploadId).root);
         return { uploadId };
       },
     );

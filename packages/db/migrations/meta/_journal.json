@@ -512,6 +512,13 @@
       "when": 1792986503294,
       "tag": "0072_slicer_per_plate",
       "breakpoints": true
+    },
+    {
+      "idx": 73,
+      "version": "6",
+      "when": 1793008676141,
+      "tag": "0073_slicer_update",
+      "breakpoints": true
     }
   ]
 }

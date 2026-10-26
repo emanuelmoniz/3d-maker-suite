@@ -61,7 +61,8 @@
     "sync_error": "Sync failed",
     "slice_setup_changed": "Print setup changed",
     "slice_failed": "Auto slice failed",
-    "update_available": "Update available"
+    "update_available": "Update available",
+    "slicer_update": "Slicer update"
   },
   "status": {
     "snoozed": "Snoozed",
@@ -95,7 +96,8 @@
     "sync_error": "{{type}} from {{name}} could not sync: {{reason}}",
     "slice_setup_changed": "{{file}} in {{name}} changed its plates or filament slots: check the print setup",
     "slice_failed": "Plate {{plate}} of {{file}} in {{name}} could not be sliced again",
-    "update_available": "Version {{version}} is available"
+    "update_available": "Version {{version}} is available",
+    "slicer_update": "{{name}}: version {{version}} is available"
   },
   "severity": {
     "error": "Error",

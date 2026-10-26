@@ -36,6 +36,7 @@ import {
   activeCapabilities,
   detectedDir,
   policyOf,
+  presetLibrary,
   unavailable,
 } from "../integrations/capabilities.ts";
 import type { SlicerInstaller } from "../integrations/managedSlicer.ts";
@@ -83,6 +84,7 @@ export const integrationsRoutes =
           hasSecrets: !!secrets,
         }),
         kind: adapter?.kind ?? "cloud",
+        presetLibrary: adapter ? presetLibrary(adapter) : null,
         status: syncer.running.has(row.id) ? "syncing" : local || row.status,
         capabilities: activeCapabilities(db, full, adapter),
         policies: (adapter?.capabilities ?? []).map((type) => {

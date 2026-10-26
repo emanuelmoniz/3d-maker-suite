@@ -62,7 +62,7 @@ const notFound = { 404: apiErrorSchema };
 const lastPrintAt = sql`(select max(${prints.startedAt}) from ${prints} where ${prints.projectId} = ${projects.id})`;
 const isMulticolor = sql`case when json_extract(${projects.meta}, '$.multicolor') then 'true' else 'false' end`;
 /**
- * `PROJECT_SLICING` of a project: a plate never sliced, sliced with other profiles than now, or
+ * `PROJECT_SLICING` of a project: a plate never sliced, sliced with other profiles or slicer than now, or
  * whose file the last scan saw at another size makes it "needed". ponytail: size only, the project
  * page hashes; a same-size edit shows there first. Store the scanned mtime if that misleads.
  */
@@ -78,19 +78,25 @@ const plateSlicer = (capable: string[], fallback: string | undefined) => {
   return sql`case when ${plates.slicerIntegrationId} in ${can} then ${plates.slicerIntegrationId}
     when ${projectSlicer} in ${can} then ${projectSlicer} else ${fallback ?? null} end`;
 };
-const slicingOf = (capable: string[], fallback: string | undefined) => sql<
-  ProjectListItem["slicing"]
->`case
+type Capable = { id: string; slicerVersion: string | null };
+const slicingOf = (slicers: Capable[], fallback: string | undefined) => {
+  const capable = slicers.map((s) => s.id);
+  // A known version that isn't the resolved slicer's now (`slicedWithOther`).
+  const versions = JSON.stringify(Object.fromEntries(slicers.map((s) => [s.id, s.slicerVersion])));
+  const version = sql`json_extract(${versions}, '$."' || ${plateSlicer(capable, fallback)} || '"')`;
+  return sql<ProjectListItem["slicing"]>`case
   when not exists (select 1 from ${plates} where ${plates.projectId} = ${projectId}) then 'none'
   when exists (select 1 from ${plates} where ${plates.projectId} = ${projectId} and (
     ${plates.slicedAt} is null
     or ${plates.slicedPrintProfileId} is not ${plateProfile}
     or coalesce(${plates.slicedIntegrationId}, ${fallback ?? null}) is not ${plateSlicer(capable, fallback)}
+    or (${plates.slicedSlicerVersion} is not null and ${plates.slicedSlicerVersion} is not ${version})
     or exists (select 1 from json_each(${projectMeta}, '$.files') f
       where json_extract(f.value, '$.path') = ${plates.file}
         and json_extract(f.value, '$.size') != ${plates.fileSize})
   )) then 'needed'
   else 'done' end`;
+};
 const errors = {
   403: apiErrorSchema,
   404: apiErrorSchema,
@@ -285,10 +291,13 @@ export const projectsRoutes =
       },
       async (req) => {
         const { material } = req.query;
-        const capable = capableRows(db, adapters, "slice").map((r) => r.row.id);
+        const capable = capableRows(db, adapters, "slice").map((r) => r.row);
         const slicing = slicingOf(
           capable,
-          pickSlicer(capable, [readPreferences(db).defaultSlicerId]),
+          pickSlicer(
+            capable.map((r) => r.id),
+            [readPreferences(db).defaultSlicerId],
+          ),
         );
         const page = listPage(db, projects, req.query, {
           sort: {

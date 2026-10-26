@@ -12,11 +12,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { buffer } from "node:stream/consumers";
 import type { IntegrationAdapter, Release } from "@3d-maker-suite/core";
-import { openDb } from "@3d-maker-suite/db";
+import { openDb, schema } from "@3d-maker-suite/db";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import yazl from "yazl";
 import { z } from "zod";
 import { buildApp } from "./app.ts";
+import { createSlicerInstaller } from "./integrations/managedSlicer.ts";
 import { can } from "./lib/auth.ts";
 
 const adapter: IntegrationAdapter = {
@@ -229,8 +230,11 @@ describe("managed slicer", () => {
     expect((await send(app, "PATCH", base, { slicerPath: "C:/x.exe" })).json().error.code).toBe(
       "slicer_managed",
     );
+    // The user presets of an imported zip stay for the next install.
+    mkdirSync(join(dir, "slicers", id, "config", "user", "default"), { recursive: true });
     expect((await send(app, "DELETE", `${base}/slicer`)).statusCode).toBe(204);
-    expect(existsSync(join(dir, "slicers", id))).toBe(false);
+    expect(readdirSync(join(dir, "slicers", id))).toEqual(["config"]);
+    expect(readdirSync(join(dir, "slicers", id, "config"))).toEqual(["user"]);
     expect((await send(app, "GET", base)).json()).toMatchObject({
       slicerVersion: null,
       slicerPath: null,
@@ -240,6 +244,52 @@ describe("managed slicer", () => {
     await install(app, base, "v1.0.0");
     expect((await send(app, "DELETE", base)).statusCode).toBe(204);
     expect(existsSync(join(dir, "slicers", id))).toBe(false);
+  });
+
+  it("the daily check alerts once per newer version; installing it resolves the alert", async () => {
+    const installed: string[] = [];
+    const installer = createSlicerInstaller(
+      db,
+      dir,
+      [adapter],
+      { warn: () => {} },
+      {
+        releases: async () => releases,
+        download: (async (url: string) =>
+          new Response(new Uint8Array(files[url] as Buffer))) as typeof fetch,
+        smoke: async () => {},
+        system: { platform: "win32", arch: "x64" },
+        onInstalled: (id) => installed.push(id),
+      },
+    );
+    const id = db.insert(schema.integrations).values({ adapterId: "srv" }).returning().get().id;
+    const installTag = async (tag: string) => {
+      await installer.install(id, tag);
+      while (installer.status(id).state === "running") await new Promise((r) => setTimeout(r, 5));
+    };
+    const open = () =>
+      db
+        .select()
+        .from(schema.alerts)
+        .all()
+        .filter((a) => a.kind === "slicer_update" && !a.resolvedAt);
+
+    await installer.check();
+    expect(open()).toEqual([]); // nothing installed
+    await installTag("v1.0.0");
+    expect(installed).toEqual([id]);
+    await installer.check();
+    await installer.check();
+    expect(open()).toMatchObject([
+      {
+        module: "integrations",
+        entityId: `${id}:1.1.0`,
+        context: { integrationId: id, adapterId: "srv", version: "1.1.0" },
+      },
+    ]);
+    await installTag("v1.1.0");
+    expect(open()).toEqual([]);
+    expect(installed).toEqual([id, id]);
   });
 
   it("cleans up a half install at start", async () => {

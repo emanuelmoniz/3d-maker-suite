@@ -1,7 +1,7 @@
-import { mkdtempSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { orcaSlicerAdapter } from "@3d-maker-suite/adapter-orca";
+import { orcaSlicerAdapter, orcaSlicerServerAdapter } from "@3d-maker-suite/adapter-orca";
 import type { ImportPreview } from "@3d-maker-suite/core";
 import { openDb, schema } from "@3d-maker-suite/db";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -46,11 +46,13 @@ const folder = (prefix = "") =>
 
 let db: ReturnType<typeof openDb>;
 let app: Awaited<ReturnType<typeof buildApp>>;
+let dataDir: string;
 
 beforeEach(async () => {
   db = openDb(":memory:");
-  app = await buildApp(db, false, mkdtempSync(join(tmpdir(), "zip-")), {
-    adapters: [orcaSlicerAdapter()],
+  dataDir = mkdtempSync(join(tmpdir(), "zip-"));
+  app = await buildApp(db, false, dataDir, {
+    adapters: [orcaSlicerAdapter(), orcaSlicerServerAdapter()],
   });
 });
 
@@ -124,5 +126,26 @@ describe("slicer zip import", () => {
     expect((await review.open(`/api/slicer-zip/${crypto.randomUUID()}/brands`)).statusCode).toBe(
       404,
     );
+  });
+
+  it("keeps a zip's user presets in the server slicer's config folder, replacing older ones", async () => {
+    const { id } = (
+      await app.inject({
+        method: "POST",
+        url: "/api/integrations",
+        payload: { adapterId: "orca-slicer-server" },
+      })
+    ).json();
+    const user = join(dataDir, "slicers", id, "config", "user");
+    expect((await upload(await folder())).statusCode).toBe(200);
+    expect(readdirSync(join(user, "default", "filament"))).toEqual(["Mine.json"]);
+    // The system presets are the download's (Step 13), never the zip's.
+    expect(existsSync(join(dataDir, "slicers", id, "config", "system"))).toBe(false);
+
+    const other = await zipOf({
+      "user/default/process/Fast.json": JSON.stringify({ name: "Fast" }),
+    });
+    expect((await upload(other)).statusCode).toBe(200);
+    expect(readdirSync(join(user, "default"))).toEqual(["process"]);
   });
 });

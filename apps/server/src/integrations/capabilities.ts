@@ -50,6 +50,9 @@ export const raisesSeverity = (p: { alertSeverities: AlertSeverity[] | null }, s
 export const detectedDir = (lib?: FilamentLibrary) =>
   lib?.defaultDirs().find((d) => existsSync(d)) ?? null;
 
+/** The library its presets are named after (`<library>:<preset>`), shared by a slicer's kinds. */
+export const presetLibrary = (adapter: IntegrationAdapter) => adapter.library?.id ?? adapter.id;
+
 /** The row's folder override, else the detected one; null when it doesn't exist. */
 export function slicerConfigDir(row: Row, adapter: IntegrationAdapter) {
   const dir = row.slicerConfigDir?.trim() || detectedDir(adapter.library);

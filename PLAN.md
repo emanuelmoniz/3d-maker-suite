@@ -603,7 +603,7 @@ Do Step 13b of the 4.2.0 plan in PLAN.md. Show me the pickers and the fallback r
 Back up the DB before editing schema.ts.
 ```
 
-### [ ] Step 14 - Managed profiles, versions and update alerts
+### [x] Step 14 - Managed profiles, versions and update alerts
 **Model:** Opus · **Effort:** High
 **Scope:** With no desktop slicer, the managed config folder `<dataDir>/slicers/<integrationId>/config/` (its `system/` already points at the download's profiles, Step 13); user preset zips unpack there and persist (today `slicer-zips` is cleared after a day); the slicer version stored with each slice result and part of the freshness check (version change → outdated → auto slice); daily check raises a `slicer_update` alert with a CTA to the integration card. Presets across slicers (from Step 13b): a plate's print / filament / machine profiles are one slicer library's presets (`<library>:<preset>`), so picking a slicer of another library (Bambu Studio ↔ OrcaSlicer) fails with `no_preset`; the plate and project slicer pickers say which slicers fit the plate's profiles (or warn on the plate before slicing).
 **Done when:** slicing works with only a managed slicer and imported presets; a version change marks slices outdated; the alert appears; switching a plate to another library's slicer is flagged before slicing; tests pass.

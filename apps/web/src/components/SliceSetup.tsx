@@ -5,12 +5,13 @@ import {
   type PlateSetupInput,
   type PlateState,
   type ProjectModel,
+  presetMisfit,
   printerFitsFile,
 } from "@3d-maker-suite/core";
 import type { TFunction } from "i18next";
 import { type ReactNode, useId } from "react";
 import { useTranslation } from "react-i18next";
-import { useModelInfo, usePrintProfiles } from "../lib/catalog.ts";
+import { useMachineProfiles, useModelInfo, usePrintProfiles } from "../lib/catalog.ts";
 import { spoolName, useProfiles, useSpools } from "../lib/filament.ts";
 import { formatDuration, formatWeight } from "../lib/format.ts";
 import { useSlicers } from "../lib/integrations.ts";
@@ -121,6 +122,62 @@ export function defaultFilaments(plate: Plate, profiles: FilamentProfile[]): (st
   });
 }
 
+type FileInfo = Pick<SliceSetupFile, "printerModel" | "nozzleDiameter">;
+
+/**
+ * A plate's printer and print profile as the server resolves them, and `misfit`: what a slicer
+ * has no preset for among the plate's profiles (`presetMisfit`), else undefined.
+ */
+export function usePlateFit(defaultPrinterId: string | null | undefined) {
+  const { t } = useTranslation();
+  const slicers = useSlicers();
+  const printProfiles = usePrintProfiles().data ?? [];
+  const machines = useMachineProfiles().data ?? [];
+  const filaments = useProfiles().data?.items ?? [];
+  const models = useModelInfo();
+  // Printers with what `printerFitsFile` compares: the model's name and brand, and the nozzle.
+  const printers = (usePrinters({ archived: false }).data?.items ?? []).map((p) => {
+    const info = models.get(p.modelId ?? "");
+    return { ...p, model: info?.model.model ?? "", brand: info?.brand?.name ?? null };
+  });
+  type SlicePrinter = (typeof printers)[number];
+  const fileInfo = (f: FileInfo) => ({
+    printerModel: f.printerModel ?? null,
+    nozzleDiameter: f.nozzleDiameter ?? null,
+  });
+  const printerOf = (f: FileInfo, v: PlateSetupInput) =>
+    printers.find((p) => p.id === v.printerId) ??
+    defaultSlicePrinter(printers, defaultPrinterId, fileInfo(f));
+  const fitsFile = (f: FileInfo, printer?: SlicePrinter) =>
+    !printer || printerFitsFile(printer, fileInfo(f));
+  const misfit = (f: FileInfo, v: PlateSetupInput, slicerId: string | undefined) => {
+    const library = slicers.slicers.find((s) => s.id === slicerId)?.library;
+    if (!library) return undefined;
+    const printer = printerOf(f, v);
+    const fits = fitsFile(f, printer);
+    const profileId =
+      v.printProfileId ?? (v.useDefaultPrintProfile || !fits ? printer?.printProfileId : null);
+    return presetMisfit(library, {
+      print: printProfiles.find((p) => p.id === profileId),
+      machines:
+        printer && !fits
+          ? machines.filter(
+              (m) =>
+                m.printerModelId === printer.modelId &&
+                m.nozzleDiameterMm === printer.nozzleDiameterMm &&
+                !m.archivedAt,
+            )
+          : undefined,
+      printer: printer && printerName(t, printer),
+      filaments: v.filaments.flatMap((id) => {
+        const p = id ? filaments.find((x) => x.id === id) : undefined;
+        return p ? [{ ...p, name: p.name || [p.brand, p.material].filter(Boolean).join(" ") }] : [];
+      }),
+    });
+  };
+  return { printers, printerOf, fitsFile, misfit };
+}
+
 /**
  * Pick the 3MF files and plates to print, and per plate its print profile and the filament
  * profile per slot. Controlled; saving is up to the parent.
@@ -142,22 +199,7 @@ export function SliceSetup({
   const allProfiles = useProfiles().data?.items ?? [];
   const filaments = allProfiles.filter((p) => !p.archivedAt);
   const spools = useSpools().data?.items ?? [];
-  const models = useModelInfo();
-  // Printers with what `printerFitsFile` compares: the model's name and brand, and the nozzle.
-  const printers = (usePrinters({ archived: false }).data?.items ?? []).map((p) => {
-    const info = models.get(p.modelId ?? "");
-    return { ...p, model: info?.model.model ?? "", brand: info?.brand?.name ?? null };
-  });
-  type SlicePrinter = (typeof printers)[number];
-  const fileInfo = (f: SliceSetupFile) => ({
-    printerModel: f.printerModel ?? null,
-    nozzleDiameter: f.nozzleDiameter ?? null,
-  });
-  const printerOf = (f: SliceSetupFile, v: PlateSetupInput) =>
-    printers.find((p) => p.id === v.printerId) ??
-    defaultSlicePrinter(printers, defaultPrinterId, fileInfo(f));
-  const fitsFile = (f: SliceSetupFile, printer?: SlicePrinter) =>
-    !printer || printerFitsFile(printer, fileInfo(f));
+  const { printers, printerOf, fitsFile, misfit } = usePlateFit(defaultPrinterId);
   const byKey = new Map(value.map((v) => [plateKey(v), v]));
   const order = (next: PlateSetupInput[]) => {
     const rank = new Map(
@@ -169,7 +211,10 @@ export function SliceSetup({
   };
   // New plates: the printer that fits the file, the file's settings when it does, else its default.
   const add = (f: SliceSetupFile, plates: Plate[]): PlateSetupInput[] => {
-    const printer = defaultSlicePrinter(printers, defaultPrinterId, fileInfo(f));
+    const printer = defaultSlicePrinter(printers, defaultPrinterId, {
+      printerModel: f.printerModel ?? null,
+      nozzleDiameter: f.nozzleDiameter ?? null,
+    });
     return plates.map((p) => ({
       file: f.path,
       plate: p.index,
@@ -256,15 +301,26 @@ export function SliceSetup({
 
   // A plate without its own slicer (or whose one can't slice now) uses the project's, then the default.
   const inherited = slicers.usable(projectSlicerId);
-  const slicerOptions: ComboOption[] = [
+  const slicerOptions = (f: SliceSetupFile, v: PlateSetupInput): ComboOption[] => [
     {
       value: "",
       label: t(inherited ? "projects:slicing.slicerProject" : "projects:slicing.slicerDefault", {
         name: slicers.nameOf(slicers.resolve([projectSlicerId])),
       }),
     },
-    ...slicers.slicers.map((s) => ({ value: s.id, label: s.name })),
+    ...slicers.slicers.map((s) => ({
+      value: s.id,
+      label: misfit(f, v, s.id) ? t("projects:slicing.slicerMisfit", { name: s.name }) : s.name,
+    })),
   ];
+  /** Before slicing: the plate's slicer has no preset for one of its profiles. */
+  const misfitOf = (f: SliceSetupFile, v: PlateSetupInput) => {
+    const slicer = slicers.resolve([v.slicerIntegrationId, projectSlicerId]);
+    const name = misfit(f, v, slicer);
+    return name === undefined
+      ? null
+      : t("projects:slicing.presetMisfit", { slicer: slicers.nameOf(slicer), name });
+  };
 
   const profileOf = (id: string) => allProfiles.find((p) => p.id === id);
   // Spools you can print from (and the one picked, whatever its state), then profiles.
@@ -332,6 +388,7 @@ export function SliceSetup({
                   const state = states[key];
                   const name = p.name ?? t("projects:detail.plate", { index: p.index });
                   const plateId = `${uid}-${key}`;
+                  const warning = setup && misfitOf(f, setup);
                   return (
                     <li key={key} className="flex flex-wrap gap-3 border-t border-border pt-3">
                       <label htmlFor={plateId} className="flex min-w-48 items-center gap-2">
@@ -397,7 +454,7 @@ export function SliceSetup({
                               </span>
                               <Combobox
                                 aria-label={t("projects:slicing.slicerOf", { plate: name })}
-                                options={slicerOptions}
+                                options={slicerOptions(f, setup)}
                                 value={slicers.usable(setup.slicerIntegrationId) ?? ""}
                                 disabled={disabled}
                                 onChange={(v) => patch(key, { slicerIntegrationId: v || null })}
@@ -438,6 +495,7 @@ export function SliceSetup({
                               />
                             </div>
                           ))}
+                          {warning && <p className="text-sm text-warn sm:col-span-2">{warning}</p>}
                         </div>
                       )}
                     </li>

@@ -7,6 +7,7 @@ import { Button } from "../../components/Button.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { Write } from "../../components/Write.tsx";
 import { useAlertAction, useAlertDetail, useEvaluateAlerts } from "../../lib/alerts.ts";
+import { useCan } from "../../lib/auth.ts";
 import { formatDateTime, formatWeight } from "../../lib/format.ts";
 import { useMayTask } from "../../lib/integrations.ts";
 import { useDue } from "../../lib/maintenance.ts";
@@ -29,7 +30,7 @@ function taskOf(a: Alert, t: TFunction) {
   const c = a.context;
   if (a.kind === "maintenance_due") return String(c.task);
   if (a.kind.startsWith("sync_")) return t(CAPS[c.type as Capability] ?? "");
-  if (a.kind === "update_available") return String(c.version);
+  if (a.kind === "update_available" || a.kind === "slicer_update") return String(c.version);
   return String(c.name);
 }
 
@@ -50,6 +51,7 @@ export function AlertDetailPage() {
   const evaluate = useEvaluateAlerts();
   const may = useMayTask();
   const mayOpen = useMayOpenTask();
+  const admin = useCan("admin");
   const [logging, setLogging] = useState(false);
   // Opening an alert reads it (for this user), once: marking it unread afterwards must stick.
   const act = useAlertAction();
@@ -160,11 +162,12 @@ export function AlertDetailPage() {
                 </Link>
               )}
             <SyncTargetLink a={a} />
-            {(a.kind === "sync_error" || a.kind === "sync_success") && mayOpen(a) && (
+            {((a.kind === "sync_error" || a.kind === "sync_success") && mayOpen(a)) ||
+            (a.kind === "slicer_update" && admin) ? (
               <Link to="/integrations" hash={integrationHash(a)} className={buttonLink}>
                 {t("alerts:view.openIntegration")}
               </Link>
-            )}
+            ) : null}
             {/* The other fixes: admin and editor. */}
             <Write>
               {(a.kind === "spool_no_price" || a.kind === "spool_no_open_date") && (

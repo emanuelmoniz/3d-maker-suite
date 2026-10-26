@@ -15,10 +15,50 @@ import { raise } from "../alerts/evaluate.ts";
 import { insideRoots } from "../lib/launcher.ts";
 import { readPreferences } from "../lib/preferences.ts";
 import { fingerprint } from "./fingerprint.ts";
-import { projectSliceJob, type SliceQueue, sliceIntegration } from "./sliceQueue.ts";
+import {
+  projectSliceJob,
+  type SliceQueue,
+  slicedWithOther,
+  sliceIntegration,
+  slicerResolver,
+} from "./sliceQueue.ts";
 
 const { projectSlicePlates, projects } = schema;
 type Row = typeof projectSlicePlates.$inferSelect;
+type Project = typeof projects.$inferSelect;
+
+/** The project's own choice, else on unless its folder is in a root with auto slicing off. */
+async function autoSliceOn(db: Db, project: Project & { folderPath: string }) {
+  if (project.autoSlice != null) return project.autoSlice;
+  const off = readPreferences(db).projectRoots.filter((r) => !r.autoSlice);
+  return !(await insideRoots(
+    project.folderPath,
+    off.map((r) => r.path),
+  ));
+}
+
+/** An auto slicing alert of the project, keyed so each event alerts once. */
+const alertOf =
+  (db: Db, project: Project) =>
+  (kind: AlertKind, severity: AlertSeverity, key: string, ctx: Record<string, string | number>) =>
+    raise(db, {
+      kind,
+      severity,
+      module: "projects",
+      task: `project:${project.id}`,
+      entityType: "project",
+      entityId: `${project.id}:${key}`,
+      context: { projectId: project.id, name: project.name, ...ctx },
+    });
+
+const failedAlert =
+  (alert: ReturnType<typeof alertOf>, file: string, plate: number, key: string) =>
+  (error: string) =>
+    alert("slice_failed", "error", `${file}:${plate}:${key}`, {
+      file,
+      plate,
+      code: error.split(":")[0] ?? error,
+    });
 
 /**
  * Which saved plates of a changed 3MF still slice with their saved setup, and whether the setup
@@ -55,35 +95,14 @@ export async function autoSlice(
   const project = db.select().from(projects).where(eq(projects.id, projectId)).get();
   const folder = project?.folderPath;
   if (!project || !folder || !sliceIntegration(db, adapters)) return;
-  const off = readPreferences(db).projectRoots.filter((r) => !r.autoSlice);
-  const on =
-    project.autoSlice ??
-    !(await insideRoots(
-      folder,
-      off.map((r) => r.path),
-    ));
-  if (!on) return;
+  if (!(await autoSliceOn(db, { ...project, folderPath: folder }))) return;
   const after = projectMetaSchema.parse(project.meta);
   const rows = db
     .select()
     .from(projectSlicePlates)
     .where(eq(projectSlicePlates.projectId, projectId))
     .all();
-  const alert = (
-    kind: AlertKind,
-    severity: AlertSeverity,
-    key: string,
-    ctx: Record<string, string | number>,
-  ) =>
-    raise(db, {
-      kind,
-      severity,
-      module: "projects",
-      task: `project:${projectId}`,
-      entityType: "project",
-      entityId: `${projectId}:${key}`,
-      context: { projectId, name: project.name, ...ctx },
-    });
+  const alert = alertOf(db, project);
 
   for (const file of new Set(rows.map((r) => r.file))) {
     const mine = rows.filter((r) => r.file === file);
@@ -107,14 +126,55 @@ export async function autoSlice(
       stale
         .filter((r) => r.slicedAt && slice.includes(r.plate))
         .map((r) =>
-          projectSliceJob(db, adapters, log, { projectId, file, plate: r.plate }, (error) =>
-            alert("slice_failed", "error", `${file}:${r.plate}:${sha}`, {
-              file,
-              plate: r.plate,
-              code: error.split(":")[0] ?? error,
-            }),
+          projectSliceJob(
+            db,
+            adapters,
+            log,
+            { projectId, file, plate: r.plate },
+            failedAlert(alert, file, r.plate, sha),
           ),
         ),
+    );
+  }
+}
+
+/**
+ * After a slicer integration's version changed (an install or update): re-slices the plates it
+ * slices whose last slice was made with it at another version, in projects with auto slicing on.
+ * A failed slice alerts once per version.
+ */
+export async function autoSliceSlicer(
+  db: Db,
+  adapters: IntegrationAdapter[],
+  queue: SliceQueue,
+  log: FastifyBaseLogger,
+  integrationId: string,
+) {
+  const resolve = slicerResolver(db, adapters);
+  const fallback = resolve()?.row.id;
+  for (const project of db.select().from(projects).all()) {
+    const folder = project.folderPath;
+    if (!folder || !(await autoSliceOn(db, { ...project, folderPath: folder }))) continue;
+    const alert = alertOf(db, project);
+    const rows = db
+      .select()
+      .from(projectSlicePlates)
+      .where(eq(projectSlicePlates.projectId, project.id))
+      .all();
+    queue.add(
+      rows.flatMap((r) => {
+        const now = resolve([r.slicerIntegrationId, project.slicerIntegrationId])?.row;
+        if (
+          !r.slicedAt ||
+          now?.id !== integrationId ||
+          (r.slicedIntegrationId ?? fallback) !== integrationId ||
+          !slicedWithOther(r, now, fallback)
+        )
+          return [];
+        const job = { projectId: project.id, file: r.file, plate: r.plate };
+        const key = `v${now.slicerVersion}`;
+        return [projectSliceJob(db, adapters, log, job, failedAlert(alert, r.file, r.plate, key))];
+      }),
     );
   }
 }

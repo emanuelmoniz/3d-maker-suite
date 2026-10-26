@@ -2,6 +2,7 @@ import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
   chmodSync,
+  cpSync,
   createWriteStream,
   existsSync,
   mkdirSync,
@@ -17,6 +18,7 @@ import { Readable, Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import type { ReadableStream } from "node:stream/web";
 import {
+  compareVersions,
   type InstallableRelease,
   type IntegrationAdapter,
   installable,
@@ -27,16 +29,18 @@ import {
   type SlicerSystem,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
-import { eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
+import { raise } from "../alerts/evaluate.ts";
 import { extract } from "../backup/backup.ts";
 import { HttpError } from "../errors.ts";
 import { fetchReleases, repoReleasesUrl } from "../updates/updates.ts";
 
 // Server integrations download their slicer from the vendor's GitHub releases (ADR-0013):
 // <dataDir>/slicers/<integrationId>/<version>/ holds the program, config/system points at its
-// profiles. A new version replaces the old one only once its smoke test passed.
+// profiles and config/user keeps the user presets of an imported zip. A new version replaces the
+// old one only once its smoke test passed.
 
-const { integrations } = schema;
+const { alerts, integrations } = schema;
 const RELEASES_TTL_MS = 60 * 60_000; // GitHub allows 60 unauthenticated requests an hour
 const DOWNLOAD_TIMEOUT_MS = 60 * 60_000;
 const SMOKE_TIMEOUT_MS = 60_000;
@@ -146,6 +150,39 @@ const PHASE_ERRORS = {
   test: "smoke_failed",
 } as const;
 
+/** The server slicers of a slicer library (e.g. Bambu Studio (server) for "bambu-studio"). */
+const managedOf = (db: Db, adapters: IntegrationAdapter[], library?: string) =>
+  db
+    .select()
+    .from(integrations)
+    .all()
+    .flatMap((row) => {
+      const adapter = adapters.find((a) => a.id === row.adapterId);
+      return adapter?.managed && (!library || adapter.library?.id === library)
+        ? [{ row, managed: adapter.managed }]
+        : [];
+    });
+
+/**
+ * A slicer zip's user presets (`<root>/user`) replace those of every server slicer of its library,
+ * in `<dataDir>/slicers/<integrationId>/config/user`, so slicing finds them; installed or not yet.
+ */
+export function keepUserPresets(
+  db: Db,
+  dataDir: string,
+  adapters: IntegrationAdapter[],
+  library: string,
+  root: string,
+) {
+  const from = join(root, "user");
+  if (!dataDir || !existsSync(from)) return;
+  for (const { row } of managedOf(db, adapters, library)) {
+    const to = join(dataDir, "slicers", row.id, "config", "user");
+    rmSync(to, { recursive: true, force: true });
+    cpSync(from, to, { recursive: true });
+  }
+}
+
 export function createSlicerInstaller(
   db: Db,
   dataDir: string,
@@ -156,11 +193,14 @@ export function createSlicerInstaller(
     download = fetch,
     smoke = smokeTest,
     system = systemInfo(),
+    onInstalled = () => {},
   }: {
     releases?: (url: string) => Promise<Release[]>;
     download?: typeof fetch;
     smoke?: (exe: string) => Promise<void>;
     system?: SlicerSystem;
+    /** After a version replaced the old one (its slices are then outdated). */
+    onInstalled?: (id: string) => void;
   } = {},
 ) {
   const root = join(dataDir, "slicers");
@@ -194,6 +234,18 @@ export function createSlicerInstaller(
       cache.set(managed.repo, hit);
     }
     return installable(hit.list, managed, system, pre);
+  }
+
+  /** Resolves the integration's open "slicer update" alerts whose version `stale` says is no news. */
+  function resolveAlerts(id: string, stale: (version: string) => boolean) {
+    const now = new Date().toISOString();
+    for (const a of db
+      .select({ id: alerts.id, context: alerts.context })
+      .from(alerts)
+      .where(and(eq(alerts.kind, "slicer_update"), isNull(alerts.resolvedAt)))
+      .all())
+      if (a.context.integrationId === id && stale(String(a.context.version)))
+        db.update(alerts).set({ resolvedAt: now, updatedAt: now }).where(eq(alerts.id, a.id)).run();
   }
 
   async function run(id: string, rel: InstallableRelease) {
@@ -257,6 +309,8 @@ export function createSlicerInstaller(
         if (old !== version && old !== "config")
           rmSync(join(dir, old), { recursive: true, force: true });
       Object.assign(job, { state: "done", phase: null, finishedAt: new Date().toISOString() });
+      resolveAlerts(id, (v) => compareVersions(v, version) <= 0);
+      onInstalled(id);
     } catch (err) {
       rmSync(partial, { recursive: true, force: true });
       rmSync(file, { force: true });
@@ -279,6 +333,37 @@ export function createSlicerInstaller(
           rmSync(join(dirOf(id), f), { recursive: true, force: true });
 
   return {
+    /**
+     * The daily check: a newer release of an installed slicer (pre-releases only when one is
+     * installed, as the card's Update) raises one alert per version; older ones resolve.
+     */
+    async check() {
+      for (const { row } of managedOf(db, adapters)) {
+        const installed = row.slicerVersion;
+        if (!installed) {
+          resolveAlerts(row.id, () => true);
+          continue;
+        }
+        const newest = await list(row.id, installed.includes("-")).then(
+          (l) => l[0],
+          () => null, // logged by `list`; its alerts stay as they are
+        );
+        if (newest === null) continue;
+        const version = newest?.tag.replace(/^v/i, "");
+        resolveAlerts(row.id, (v) => v !== version);
+        if (version && compareVersions(version, installed) > 0)
+          raise(db, {
+            kind: "slicer_update",
+            severity: "success",
+            module: "integrations",
+            task: `slicer:${row.id}`,
+            entityType: "integration",
+            entityId: `${row.id}:${version}`,
+            context: { integrationId: row.id, adapterId: row.adapterId, version },
+          });
+      }
+    },
+
     /** Installable releases of this integration's slicer, newest first. */
     releases: async (id: string, pre: boolean): Promise<SlicerRelease[]> =>
       (await list(id, pre)).map((r) => ({
@@ -313,10 +398,20 @@ export function createSlicerInstaller(
       return s;
     },
 
-    /** Deletes the slicer's folder; `forget` also clears the row (Remove, not integration delete). */
+    /**
+     * Deletes the slicer; `forget` (Remove, not integration delete) also clears the row and keeps
+     * the user presets for the next install.
+     */
     remove: (id: string, forget = true) => {
       if (job.id === id) busy();
-      rmSync(dirOf(id), { recursive: true, force: true });
+      const dir = dirOf(id);
+      resolveAlerts(id, () => true);
+      if (!forget) rmSync(dir, { recursive: true, force: true });
+      else if (existsSync(dir)) {
+        for (const f of readdirSync(dir))
+          if (f !== "config") rmSync(join(dir, f), { recursive: true, force: true });
+        rmSync(join(dir, "config", "system"), { recursive: true, force: true }); // the link only
+      }
       if (forget)
         db.update(integrations)
           .set({

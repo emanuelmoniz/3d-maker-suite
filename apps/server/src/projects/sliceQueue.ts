@@ -12,7 +12,7 @@ import {
 import { type Db, schema } from "@3d-maker-suite/db";
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import type { FastifyBaseLogger } from "fastify";
-import { capableRows, slicerConfigDir } from "../integrations/capabilities.ts";
+import { capableRows, presetLibrary, slicerConfigDir } from "../integrations/capabilities.ts";
 import { insideRoots } from "../lib/launcher.ts";
 import { success } from "../lib/logSink.ts";
 import { readPreferences, rootPaths } from "../lib/preferences.ts";
@@ -32,6 +32,7 @@ export const SLICE_ERRORS = [
 ] as const;
 
 type PlateRow = typeof projectSlicePlates.$inferSelect;
+type IntegrationRow = typeof schema.integrations.$inferSelect;
 type PlateChoice = Pick<PlateRow, "printerId" | "printProfileId" | "useDefaultPrintProfile">;
 type FileInfo = Pick<ProjectModel, "printerModel" | "nozzleDiameter">;
 
@@ -55,15 +56,18 @@ export function slicerResolver(db: Db, adapters: IntegrationAdapter[]) {
 }
 
 /**
- * Sliced with another slicer than `now` resolves to. Null (sliced before 0072 stored it) was the
- * default slicer, `fallback` (what no picks resolve to). ponytail: so a later change of the default
- * itself leaves those slices current; they re-slice once anything else changes.
+ * Sliced with another slicer than `now` resolves to, or another version of it (ADR-0013). A null
+ * slicer (sliced before 0072 stored it) was the default slicer, `fallback` (what no picks resolve
+ * to); a null version (a local slicer, or before 0073) is the current one. ponytail: so a later
+ * change of the default itself leaves those slices current; they re-slice once anything else changes.
  */
 export const slicedWithOther = (
-  sliced: string | null,
-  now: string | undefined,
+  sliced: Pick<PlateRow, "slicedIntegrationId" | "slicedSlicerVersion">,
+  now: Pick<IntegrationRow, "id" | "slicerVersion"> | undefined,
   fallback: string | undefined,
-) => (sliced ?? fallback) !== now;
+) =>
+  (sliced.slicedIntegrationId ?? fallback) !== now?.id ||
+  (sliced.slicedSlicerVersion ?? now?.slicerVersion) !== now?.slicerVersion;
 
 export const sliceIntegration = (
   db: Db,
@@ -141,7 +145,7 @@ export async function slicePlate(
   const slicer = found?.adapter.slicer;
   if (!found || !slicer) return fail("no_slicer");
   // Presets are named `<library>:<preset id>`; only this slicer's own can be passed to it.
-  const prefix = `${found.adapter.library?.id ?? found.adapter.id}:`;
+  const prefix = `${presetLibrary(found.adapter)}:`;
   const own = (source: string | null | undefined) =>
     source?.startsWith(prefix) ? source.slice(prefix.length) : undefined;
 
@@ -172,14 +176,19 @@ export async function slicePlate(
   }
   if (p.filaments.some(Boolean)) {
     const ids = p.filaments.filter((f): f is string => !!f);
-    const presets = new Map(
-      db
-        .select({ id: filamentProfiles.id, source: filamentProfiles.sourcePreset })
-        .from(filamentProfiles)
-        .where(inArray(filamentProfiles.id, ids))
-        .all()
-        .map((f) => [f.id, own(f.source)]),
-    );
+    const rows = db
+      .select({
+        id: filamentProfiles.id,
+        name: filamentProfiles.name,
+        source: filamentProfiles.sourcePreset,
+      })
+      .from(filamentProfiles)
+      .where(inArray(filamentProfiles.id, ids))
+      .all();
+    // Another slicer library's preset (Bambu Studio <-> OrcaSlicer) means nothing to this one.
+    const foreign = rows.find((f) => f.source && !own(f.source));
+    if (foreign) fail("no_preset", foreign.name);
+    const presets = new Map(rows.map((f) => [f.id, own(f.source)]));
     // ponytail: a hand-made filament keeps the 3MF's own for slicing (grams barely change
     // within a material); its price still counts. Ask for a preset if that turns out wrong.
     req.filaments = p.filaments.map((f) => (f && presets.get(f)) || null);
@@ -193,7 +202,7 @@ export async function slicePlate(
     req,
     signal,
   );
-  return { fingerprint: before, profileId, integrationId: found.row.id, result };
+  return { fingerprint: before, profileId, slicer: found.row, result };
 }
 
 /** The error text stored for a failed slice; unexpected errors are logged. */
@@ -242,7 +251,8 @@ export function projectSliceJob(
           ...out.fingerprint,
           slicedAt: new Date().toISOString(),
           slicedPrintProfileId: out.profileId,
-          slicedIntegrationId: out.integrationId,
+          slicedIntegrationId: out.slicer.id,
+          slicedSlicerVersion: out.slicer.slicerVersion,
           printTimeSeconds: out.result.printTimeSeconds,
           weightGrams: out.result.weightGrams,
           slicedFilaments: out.result.filaments,

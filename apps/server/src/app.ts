@@ -25,7 +25,7 @@ import type { Autostart } from "./lib/autostart.ts";
 import { CUSTOM_LEVELS, createLogSink, moduleOf, pruneLogs, success } from "./lib/logSink.ts";
 import { readPreferences } from "./lib/preferences.ts";
 import { pruneSessions } from "./lib/session.ts";
-import { autoSlice } from "./projects/autoSlice.ts";
+import { autoSlice, autoSliceSlicer } from "./projects/autoSlice.ts";
 import { createProjectScanner } from "./projects/scanner.ts";
 import { createSliceQueue } from "./projects/sliceQueue.ts";
 import { accessoriesRoutes } from "./routes/accessories.ts";
@@ -259,13 +259,14 @@ export async function buildApp(
     app.addHook("onClose", async () => backup.stop());
   }
 
-  const installer = createSlicerInstaller(
-    db,
-    dataDir,
-    syncer.adapters,
-    logFor("integrations"),
-    opts.slicerInstaller,
-  );
+  const installer = createSlicerInstaller(db, dataDir, syncer.adapters, logFor("integrations"), {
+    // A new version outdates its slices (ADR-0013); auto slicing redoes them.
+    onInstalled: (id) =>
+      void autoSliceSlicer(db, syncer.adapters, sliceQueue, projectsLog, id).catch((err) =>
+        projectsLog.error({ err }, "auto slice after a slicer update failed"),
+      ),
+    ...opts.slicerInstaller,
+  });
   await app.register(integrationsRoutes(db, key, syncer, installer), {
     prefix: "/api/integrations",
   });
@@ -303,8 +304,8 @@ export async function buildApp(
   const updater = createUpdater(db, dataDir, logFor("system"), opts.updater);
   await app.register(updatesRoutes(updater, opts.restart), { prefix: "/api/updates" });
   if (opts.updateCheckSchedule) {
-    // A new release raises an alert; evaluate sends it to the channels.
-    const check = () => updater.check().then(evaluate);
+    // A new release (of the app or an installed slicer) raises an alert; evaluate sends it.
+    const check = () => Promise.all([updater.check(), installer.check()]).then(evaluate);
     const daily = new Cron(opts.updateCheckSchedule, { protect: true }, check);
     // Not at once: a server started for a moment (tests, a restart loop) never asks GitHub.
     const first = setTimeout(check, 60_000).unref();

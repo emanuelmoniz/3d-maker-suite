@@ -97,6 +97,7 @@ export function Title({ a, inList }: { a: Alert; inList?: boolean }) {
   const { t } = useTranslation();
   const adapterName = useAdapterName();
   const mayOpen = useMayOpenTask();
+  const admin = useCan("admin");
   const c = a.context;
   const type = t(CAPS[c.type as Capability] ?? "");
   const text = {
@@ -134,6 +135,11 @@ export function Title({ a, inList }: { a: Alert; inList?: boolean }) {
     slice_failed: () =>
       t("alerts:kinds.slice_failed", { name: c.name, file: c.file, plate: c.plate }),
     update_available: () => t("alerts:kinds.update_available", { version: c.version }),
+    slicer_update: () =>
+      t("alerts:kinds.slicer_update", {
+        name: adapterName(String(c.adapterId)),
+        version: c.version,
+      }),
   }[a.kind]();
   if (inList)
     return (
@@ -190,6 +196,13 @@ export function Title({ a, inList }: { a: Alert; inList?: boolean }) {
     case "update_available":
       return (
         <Link to="/settings" hash="updates" className={link}>
+          {text}
+        </Link>
+      );
+    case "slicer_update":
+      if (!admin) return <span className="font-medium">{text}</span>;
+      return (
+        <Link to="/integrations" hash={integrationHash(a)} className={link}>
           {text}
         </Link>
       );
@@ -332,6 +345,7 @@ const KIND_NAMES: Record<AlertKind, string> = {
   slice_setup_changed: "alerts:kindNames.slice_setup_changed",
   slice_failed: "alerts:kindNames.slice_failed",
   update_available: "alerts:kindNames.update_available",
+  slicer_update: "alerts:kindNames.slicer_update",
 };
 const STATUS: Record<AlertStatus, string> = {
   snoozed: "alerts:status.snoozed",

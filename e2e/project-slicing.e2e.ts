@@ -141,3 +141,40 @@ test("slicing a project with the mock slicer: results, estimate, list filter, re
   await slice.click();
   await expect(section.getByText("Every plate is sliced and up to date.")).toBeVisible();
 });
+
+test("a plate warns before slicing when its slicer has no preset for one of its profiles", async ({
+  page,
+  app,
+}) => {
+  const root = join(app.dataDir, "models");
+  mkdirSync(join(root, "Benchy"), { recursive: true });
+  copyFileSync(
+    join(import.meta.dirname, "../packages/3mf/fixtures/multi_color.3mf"),
+    join(root, "Benchy", "benchy.3mf"),
+  );
+  await app.api("PATCH", "/api/preferences", {
+    projectRoots: [{ ...roots(root)[0], autoSlice: false }],
+  });
+  const project = await app.api<{ id: string }>("POST", "/api/projects", {
+    name: "Benchy",
+    folderPath: join(root, "Benchy"),
+  });
+  const mock = await app.api<{ id: string }>("POST", "/api/integrations", {
+    adapterId: "mock",
+    secrets: { token: "t" },
+  });
+  await app.api("PATCH", `/api/integrations/${mock.id}`, { slicerPath: process.execPath });
+  // Hand-made: no slicer's preset.
+  await app.api("POST", "/api/print-profiles", { name: "Mine" });
+
+  await page.goto(`/projects/${project.id}/edit`);
+  await openSections(page, "Print setup");
+  const section = page.getByRole("region", { name: "Print setup" });
+  await section.getByRole("checkbox", { name: /benchy\.3mf/ }).check();
+  const warning = section.getByText(/has no preset for “Mine”, so this plate won't slice/).first();
+  await expect(warning).toHaveCount(0);
+  await pick(section.getByRole("combobox", { name: /^Print profile for/ }).first(), "Mine");
+  await expect(warning).toBeVisible();
+  await pick(section.getByRole("combobox", { name: /^Print profile for/ }).first(), 0);
+  await expect(warning).toHaveCount(0);
+});

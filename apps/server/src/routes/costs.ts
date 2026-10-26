@@ -185,8 +185,8 @@ export const costsRoutes =
           // Same file (size, mtime) and the same printer, profiles and slicer once resolved: same slice.
           const { printer, profileId } = resolve(p, model);
           const slicers = [p.slicerIntegrationId, project?.slicerIntegrationId];
-          const slicer = slicerOf(slicers)?.row.id;
-          const key = `quote:${JSON.stringify([abs, s.size, s.mtimeMs, p.plate, printer?.id ?? null, profileId, p.filaments, slicer ?? null])}`;
+          const slicer = slicerOf(slicers)?.row;
+          const key = `quote:${JSON.stringify([abs, s.size, s.mtimeMs, p.plate, printer?.id ?? null, profileId, p.filaments, slicer?.id ?? null, slicer?.slicerVersion ?? null])}`;
           // The project's own slice when it sliced exactly this: the slicer's time estimate moves by
           // a few seconds between runs of the same input, so slicing again would not match it.
           const own =
@@ -211,7 +211,7 @@ export const costsRoutes =
             own.fileMtimeMs === s.mtimeMs &&
             own.printerId === (printer?.id ?? null) &&
             own.slicedPrintProfileId === profileId &&
-            !slicedWithOther(own.slicedIntegrationId, slicer, fallback) &&
+            !slicedWithOther(own, slicer, fallback) &&
             JSON.stringify(own.filaments) === JSON.stringify(p.filaments)
               ? {
                   printTimeSeconds: own.printTimeSeconds,

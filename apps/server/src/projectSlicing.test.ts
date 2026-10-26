@@ -3,14 +3,18 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fixture, type MockState, mockAdapter } from "@3d-maker-suite/adapter-mock";
 import { projectRoot } from "@3d-maker-suite/core";
-import { openDb } from "@3d-maker-suite/db";
+import { openDb, schema } from "@3d-maker-suite/db";
+import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { buildApp } from "./app.ts";
+import { autoSliceSlicer } from "./projects/autoSlice.ts";
+import { createSliceQueue } from "./projects/sliceQueue.ts";
 
 const fixtures = join(import.meta.dirname, "../../../packages/3mf/fixtures");
 
 let dir: string;
 let app: Awaited<ReturnType<typeof buildApp>>;
+let db: ReturnType<typeof openDb>;
 let id: string;
 let file: string;
 let mock: MockState;
@@ -22,7 +26,8 @@ beforeEach(async () => {
   file = join(dir, "models", "Benchy", "benchy.3mf");
   await cp(join(fixtures, "multi_color.3mf"), file);
   mock = fixture();
-  app = await buildApp(openDb(":memory:"), false, join(dir, "data"), {
+  db = openDb(":memory:");
+  app = await buildApp(db, false, join(dir, "data"), {
     adapters: [mockAdapter(mock)],
   });
   await app.inject({
@@ -251,6 +256,78 @@ describe("slicing a project (mock slicer)", () => {
       error: "slice_failed: Nothing to be sliced (-50)",
       needsSlicing: true,
     });
+  });
+
+  it("refuses a filament preset of another slicer library, keeps a hand-made one's slot", async () => {
+    const post = async (url: string, payload: object) =>
+      (await app.inject({ method: "POST", url, payload })).json();
+    const brand = await post("/api/filament-brands", { name: "Acme" });
+    const material = await post("/api/filament-materials", { name: "PLA" });
+    // Imported ones carry their preset; the API doesn't set it.
+    const profile = async (name: string, sourcePreset: string | null = null) => {
+      const p = await post("/api/filament/profiles", {
+        brandId: brand.id,
+        materialId: material.id,
+        densityGcm3: 1.24,
+        name,
+      });
+      db.update(schema.filamentProfiles)
+        .set({ sourcePreset })
+        .where(eq(schema.filamentProfiles.id, p.id))
+        .run();
+      return p;
+    };
+    const own = await profile("Basic", "mock:system/Basic");
+    const handMade = await profile("Cheap");
+    const orca = await profile("Silk", "orca-slicer:user/Silk");
+    const plate = { file: "benchy.3mf", plate: 1, printProfileId: null };
+
+    await put([{ ...plate, filaments: [own.id, handMade.id] }]);
+    await run();
+    expect((await settled()).plates[0].error).toBeNull();
+    expect(mock.sliced?.at(-1)?.filaments).toEqual(["system/Basic", null]);
+
+    await put([{ ...plate, filaments: [own.id, orca.id] }]);
+    await run();
+    expect((await settled()).plates[0].error).toBe("no_preset: Silk");
+    expect(mock.sliced).toHaveLength(1);
+  });
+
+  it("a new slicer version outdates its slices; auto slicing redoes them", async () => {
+    const version = (v: string) =>
+      db
+        .update(schema.integrations)
+        .set({ slicerVersion: v })
+        .where(eq(schema.integrations.id, first))
+        .run();
+    // Sliced before 0073 (no version stored) counts as the current version.
+    await put([{ file: "benchy.3mf", plate: 1, printProfileId: null, filaments: [] }]);
+    await run();
+    expect((await settled()).plates[0].needsSlicing).toBe(false);
+    version("1.0");
+    expect((await settled()).plates[0].needsSlicing).toBe(false);
+    await put([]);
+    await put([{ file: "benchy.3mf", plate: 1, printProfileId: null, filaments: [] }]);
+    await run();
+    expect((await settled()).plates[0].needsSlicing).toBe(false);
+    expect(await listSlicing("?slicing=done")).toHaveLength(1);
+
+    version("1.1");
+    expect((await settled()).plates[0].needsSlicing).toBe(true);
+    expect(await listSlicing("?slicing=needed")).toHaveLength(1);
+
+    const queue = createSliceQueue(app.log);
+    await autoSliceSlicer(db, [mockAdapter(mock)], queue, app.log, first);
+    for (let i = 0; i < 200 && (mock.sliced ?? []).length < 3; i++)
+      await new Promise((r) => setTimeout(r, 10));
+    expect(mock.sliced).toHaveLength(3);
+    expect((await settled()).plates[0].needsSlicing).toBe(false);
+    expect(await listSlicing("?slicing=done")).toHaveLength(1);
+    // Current now: nothing to redo.
+    await autoSliceSlicer(db, [mockAdapter(mock)], queue, app.log, first);
+    await new Promise((r) => setTimeout(r, 50));
+    expect(mock.sliced).toHaveLength(3);
+    queue.close();
   });
 
   it("slices for the plate's printer: the file's own settings, its default, or another model", async () => {

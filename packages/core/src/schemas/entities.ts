@@ -79,6 +79,8 @@ export const integrationSchema = z.object({
   adapterId: z.string().min(1),
   /** The adapter's kind; the hub groups by it. */
   kind: z.enum(INTEGRATION_KINDS),
+  /** Its presets are `<presetLibrary>:<preset>` profiles (a slicer's local and server kinds share it). */
+  presetLibrary: z.string().nullable(),
   enabled: z.boolean(),
   // The setup fields below are left out for non-admins (ADR-0012).
   config: z.json().optional(),

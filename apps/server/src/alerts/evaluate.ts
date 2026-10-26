@@ -45,6 +45,8 @@ const ONE_SHOT = new Set<AlertKind>([
   "slice_failed",
   // Raised by the update check, one per release; resolved by it (updates/updates.ts).
   "update_available",
+  // The same for an installed slicer (integrations/managedSlicer.ts).
+  "slicer_update",
 ]);
 
 /**
@@ -248,6 +250,8 @@ function textOf(a: typeof alerts.$inferSelect): { title: string; body: string } 
       };
     case "update_available":
       return { title: "Update available", body: `Version ${c.version} is out` };
+    case "slicer_update":
+      return { title: "Slicer update available", body: `Version ${c.version} can be installed` };
   }
 }
 

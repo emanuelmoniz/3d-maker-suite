@@ -43,6 +43,7 @@ const resultOf = (r: Row) => ({
   slicedAt: r.slicedAt,
   slicedPrintProfileId: r.slicedPrintProfileId,
   slicedIntegrationId: r.slicedIntegrationId,
+  slicedSlicerVersion: r.slicedSlicerVersion,
   printTimeSeconds: r.printTimeSeconds,
   weightGrams: r.weightGrams,
   slicedFilaments: r.slicedFilaments,
@@ -107,7 +108,7 @@ export const projectSlicingRoutes =
               r,
               meta.models.find((m) => m.file === r.file),
             );
-            const slicer = slicerOf([r.slicerIntegrationId, slicerIntegrationId])?.row.id;
+            const slicer = slicerOf([r.slicerIntegrationId, slicerIntegrationId])?.row;
             return {
               file: r.file,
               plate: r.plate,
@@ -125,7 +126,7 @@ export const projectSlicingRoutes =
                 (!result ||
                   state === "outdated" ||
                   r.slicedPrintProfileId !== profileId ||
-                  slicedWithOther(r.slicedIntegrationId, slicer, fallback)),
+                  slicedWithOther(r, slicer, fallback)),
               job: jobs[i] ?? null,
             };
           }),

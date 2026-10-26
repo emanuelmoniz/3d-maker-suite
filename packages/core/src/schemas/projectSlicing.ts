@@ -98,6 +98,25 @@ export function defaultSlicePrinter<P extends SlicePrinter>(
 export const pickSlicer = (capable: string[], picks: (string | null | undefined)[]) =>
   picks.find((p): p is string => !!p && capable.includes(p)) ?? capable[0];
 
+type Preset = { name: string; sourcePreset: string | null };
+
+/**
+ * The first of a plate's profiles a slicer of `library` can't slice with, as the slice queue
+ * checks them (presets are `<library>:<preset>`, so Bambu Studio's mean nothing to OrcaSlicer):
+ * the print profile (a hand-made one fits no slicer), a machine preset for the printer when it
+ * isn't the file's (`machines`: its model's and nozzle's; unset when the file's printer slices),
+ * and the filaments (a hand-made one keeps the 3MF's). Undefined when all fit.
+ */
+export function presetMisfit(
+  library: string,
+  p: { print?: Preset; machines?: Preset[]; printer?: string; filaments: Preset[] },
+): string | undefined {
+  const own = (x: Preset) => x.sourcePreset?.startsWith(`${library}:`);
+  if (p.print && !own(p.print)) return p.print.name;
+  if (p.machines && !p.machines.some(own)) return p.printer ?? "";
+  return p.filaments.find((f) => f.sourcePreset && !own(f))?.name;
+}
+
 /** A project in the list: no plates picked, some need slicing, or all sliced and current. */
 export const PROJECT_SLICING = ["none", "needed", "done"] as const;
 

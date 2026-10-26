@@ -63,7 +63,7 @@ export function useSlicers() {
   const defaultSlicerId = usePreferences().data?.values.defaultSlicerId;
   const ids = slicers.map((s) => s.id);
   return {
-    slicers: slicers.map((s) => ({ id: s.id, name: label(s) })),
+    slicers: slicers.map((s) => ({ id: s.id, name: label(s), library: s.presetLibrary })),
     /** A pick that can slice now, else null: what the "inherited" option shows. */
     usable: (id: string | null | undefined) => (id && ids.includes(id) ? id : null),
     nameOf: (id: string | undefined) => {

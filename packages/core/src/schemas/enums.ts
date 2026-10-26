@@ -15,6 +15,7 @@ export const ALERT_KINDS = [
   "slice_setup_changed",
   "slice_failed",
   "update_available",
+  "slicer_update",
 ] as const;
 export const ALERT_SEVERITIES = ["error", "warning", "success"] as const;
 export const ALERT_MODULES = [
