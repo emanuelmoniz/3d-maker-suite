@@ -631,7 +631,7 @@ Then push dev, push the tag and confirm the pre-release and images are published
 Do Step 16 of the 4.2.0 plan in PLAN.md. Guide me through each scenario, then fix what we find.
 ```
 
-### [ ] Step 17 - Docs, push & v4.2.0 release
+### [x] Step 17 - Docs, push & v4.2.0 release
 **Model:** Haiku · **Effort:** Low
 **Scope:** `pnpm screenshots` (login, users, integrations slicer), README, CHANGELOG, version `4.2.0`. Commit on `dev`, fast-forward `main` to `dev`, push both, tag `v4.2.0` on `main`. Check the run, the release and the images.
 **Done when:** `main`, `dev` and the tag are pushed; the workflow is green; the release is the latest; images published; updating 4.1.0 (git and installer) to 4.2.0 works.
