@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { orcaSlicerAdapter, orcaSlicerServerAdapter } from "@3d-maker-suite/adapter-orca";
 import type { ImportPreview } from "@3d-maker-suite/core";
 import { openDb, schema } from "@3d-maker-suite/db";
+import { eq, sql } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import yazl from "yazl";
 import { buildApp } from "./app.ts";
@@ -117,6 +118,50 @@ describe("slicer zip import", () => {
       );
     },
   );
+
+  it("never matches or updates another slicer's profiles of the same name", async () => {
+    const id = (await upload(await folder())).json().uploadId;
+    for (const type of ["brands", "printerModels", "filamentBrands", "filamentMaterials"])
+      await importAll(id, type);
+    await importAll(id, "machineProfiles");
+    await importAll(id, "filamentProfiles");
+    // As if Bambu Studio had imported them: same names, its keys, and a hand-edited name.
+    const relabel = (table: typeof schema.machineProfiles | typeof schema.filamentProfiles) =>
+      db
+        .update(table)
+        .set({ sourcePreset: sql`replace(${table.sourcePreset}, 'orca-slicer:', 'bambu-studio:')` })
+        .run();
+    relabel(schema.machineProfiles);
+    relabel(schema.filamentProfiles);
+    const bambu = db.select().from(schema.filamentProfiles).all();
+
+    const again = (await upload(await folder())).json().uploadId;
+    for (const type of ["machineProfiles", "filamentProfiles"]) {
+      const rows = (await preview(again, type)).rows;
+      expect(rows.every((r) => r.status === "new" && !r.targetId)).toBe(true);
+    }
+    expect((await importAll(again, "machineProfiles")).created).toBe(1);
+    expect((await importAll(again, "filamentProfiles")).created).toBe(2);
+    const sources = (table: typeof schema.machineProfiles | typeof schema.filamentProfiles) =>
+      db
+        .select({ s: table.sourcePreset })
+        .from(table)
+        .all()
+        .map((r) => r.s?.split(":")[0])
+        .sort();
+    expect(sources(schema.machineProfiles)).toEqual(["bambu-studio", "orca-slicer"]);
+    expect(sources(schema.filamentProfiles)).toEqual([
+      "bambu-studio",
+      "bambu-studio",
+      "orca-slicer",
+      "orca-slicer",
+    ]);
+    // Bambu Studio's are as they were.
+    for (const b of bambu)
+      expect(
+        db.select().from(schema.filamentProfiles).where(eq(schema.filamentProfiles.id, b.id)).get(),
+      ).toEqual(b);
+  });
 
   it("rejects a file that isn't a zip, a zip that isn't a slicer folder, and an unknown slicer", async () => {
     expect((await upload(Buffer.from("not a zip"))).json().error.code).toBe("invalid_zip");

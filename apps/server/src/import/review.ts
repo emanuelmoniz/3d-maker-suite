@@ -41,6 +41,10 @@ import { printImport } from "./prints.ts";
 import { projectImport } from "./projects.ts";
 import { spoolImport } from "./spools.ts";
 
+/** The library of a preset key (`bambu-studio:` of `bambu-studio:system/…`); null without one. */
+export const keyLibrary = (key: string | null | undefined) =>
+  key?.slice(0, key.indexOf(":") + 1) || null;
+
 /** One row to review: a file's line, or what an integration or a zip offers, still unparsed. */
 export type StoredRow = {
   n: number;
@@ -109,6 +113,12 @@ export type ImportHandler = {
   exclusive?: boolean;
   /** A source row is only ever the row its key names; `create` links one entered by hand. */
   sourceOnly?: boolean;
+  /**
+   * Keys are `<library>:<preset>`: a source row never matches a row another slicer library
+   * imported (Bambu Studio's "Bambu ABS" isn't OrcaSlicer's); a slicer's local and server kinds
+   * share theirs. Rows entered by hand still match.
+   */
+  sameLibrary?: boolean;
   /** A row you imported is yours: a change at the source is offered, never suggested. */
   handsOff?: boolean;
   /**
@@ -346,13 +356,18 @@ export function createReview(db: Db, dataDir: string) {
     const valid = parsed.filter((p) => !p.errors.length);
     const open = valid.filter((p) => !p.hit);
     const linked = new Set(bySource.values());
+    // One review is one source, so one library.
+    const library = sourced && handler.sameLibrary && keyLibrary(stored.rows[0]?.source);
+    const foreign = new Set(
+      library ? [...bySource].filter(([k]) => keyLibrary(k) !== library).map(([, id]) => id) : [],
+    );
     const matches = handler.match(
       open.map((p) => p.values),
       sourced && handler.sourceOnly
         ? []
         : sourced && handler.exclusive
           ? targets.filter((t) => !linked.has(t.id))
-          : targets,
+          : targets.filter((t) => !foreign.has(t.id)),
     );
     const matchOf = new Map(open.map((p, i) => [p.row, matches[i]]));
     return {

@@ -120,12 +120,16 @@ export const profileColumns = {
   material: profileMaterial,
 };
 
-/** The active profile with that brand, material and name (case-insensitive), if there is one. */
+/**
+ * The active profile with that brand, material and name (case-insensitive), if there is one;
+ * with `library` (`bambu-studio:`), only one of that slicer library or made by hand.
+ */
 export const findFilamentProfile = (
   db: Db,
   brandId: string | null,
   materialId: string,
   name: string,
+  library?: string | null,
 ) =>
   db
     .select({ id: filamentProfiles.id })
@@ -136,6 +140,9 @@ export const findFilamentProfile = (
         eq(filamentProfiles.materialId, materialId),
         sql`${filamentProfiles.name} = ${name} COLLATE NOCASE`,
         isNull(filamentProfiles.archivedAt),
+        library
+          ? sql`(${filamentProfiles.sourcePreset} is null or substr(${filamentProfiles.sourcePreset}, 1, ${library.length}) = ${library})`
+          : undefined,
       ),
     )
     .get();

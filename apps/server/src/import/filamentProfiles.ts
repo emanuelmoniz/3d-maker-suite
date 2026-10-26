@@ -14,7 +14,7 @@ import {
   findFilamentProfile,
   profileColumns,
 } from "../lib/catalog.ts";
-import type { WriteRow } from "./review.ts";
+import { keyLibrary, type WriteRow } from "./review.ts";
 import { distinct, num, spoolImport, str } from "./spools.ts";
 
 const { filamentBrands, filamentMaterials, filamentProfiles, printFilamentUsages, spools } = schema;
@@ -73,6 +73,7 @@ export const filamentProfileImport = {
 
   // A profile made by hand with the same brand, material and name is the preset's twin.
   match: matchRowsOn("brand", "material", "name"),
+  sameLibrary: true,
 
   bySource: (db: Db) =>
     new Map(
@@ -86,27 +87,31 @@ export const filamentProfileImport = {
 
   /**
    * A preset whose profile you archived comes back by its source key; one you never imported, by
-   * the brand, material and name of one you archived that no active profile has.
+   * the brand, material and name of one you archived that no active profile has, of the same
+   * slicer library or made by hand (`sameLibrary`).
    */
   archived(db: Db) {
     const gone = profileRows(db, true);
-    const active = new Set(profileRows(db, false).map(profileKey));
+    const keyOf = (p: { sourcePreset: string | null } & Parameters<typeof profileKey>[0]) =>
+      `${keyLibrary(p.sourcePreset) ?? ""}|${profileKey(p)}`;
+    const active = new Set(profileRows(db, false).map(keyOf));
     const bySource = new Map(gone.flatMap((p) => (p.sourcePreset ? [[p.sourcePreset, p.id]] : [])));
-    const byKey = new Map(
-      gone.filter((p) => !active.has(profileKey(p))).map((p) => [profileKey(p), p.id]),
-    );
+    const byKey = new Map(gone.filter((p) => !active.has(keyOf(p))).map((p) => [keyOf(p), p.id]));
     return {
       targets: profileTargets(db, true),
-      of: (source: string | undefined, v: ImportValues) =>
-        (source && bySource.get(source)) ||
-        byKey.get(
-          profileKey({
-            brand: str(v.brand) ?? "",
-            material: str(v.material) ?? "",
-            name: str(v.name) ?? "",
-          }),
-        ) ||
-        null,
+      of: (source: string | undefined, v: ImportValues) => {
+        const key = profileKey({
+          brand: str(v.brand) ?? "",
+          material: str(v.material) ?? "",
+          name: str(v.name) ?? "",
+        });
+        return (
+          (source && bySource.get(source)) ||
+          byKey.get(`${keyLibrary(source) ?? ""}|${key}`) ||
+          byKey.get(`|${key}`) ||
+          null
+        );
+      },
     };
   },
 
@@ -146,8 +151,9 @@ export const filamentProfileImport = {
     const brandId = filamentBrandIdFor(db, str(v.brand) ?? "");
     const materialId = filamentMaterialIdFor(db, str(v.material) ?? "");
     const name = str(v.name) ?? "";
-    // Two presets can be the same filament: the second one adds nothing.
-    if (findFilamentProfile(db, brandId, materialId, name)) return false;
+    // Two presets of one slicer can be the same filament: the second one adds nothing. Another
+    // slicer's of that name is its own profile (`sameLibrary`).
+    if (findFilamentProfile(db, brandId, materialId, name, keyLibrary(row.source))) return false;
     db.insert(filamentProfiles)
       .values({
         brandId,

@@ -158,6 +158,7 @@ export function catalogImport(dataDir: string) {
             values: { brand, model, name: p.name, nozzleDiameterMm: p.nozzleDiameterMm },
           })),
       match: matchRowsOn("brand", "model", "name"),
+      sameLibrary: true,
       refs: printerImport.refs,
       check: (db, v, file) => (file ? modelErrors(db, v) : []),
       bySource: (db) =>
@@ -244,6 +245,7 @@ export function catalogImport(dataDir: string) {
             },
           })),
       match: matchRowsOn("brand", "model", "name"),
+      sameLibrary: true,
       refs: printerImport.refs,
       // A brand or a model in a file: both, and a model you have.
       check: (db, v, file) => (file && (str(v.brand) || str(v.model)) ? modelErrors(db, v) : []),
