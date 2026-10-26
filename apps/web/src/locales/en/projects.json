@@ -269,6 +269,8 @@
     "slicerMisfit": "{{name}} (doesn't fit this plate's profiles)",
     "slicerMisfitPlates_one": "{{name}} (doesn't fit {{count}} plate's profiles)",
     "slicerMisfitPlates_other": "{{name}} (doesn't fit {{count}} plates' profiles)",
+    "filamentFromFile_one": "{{names}} isn't a {{slicer}} preset: this plate slices with the file's filament for it. Its price still counts.",
+    "filamentFromFile_other": "{{names}} aren't {{slicer}} presets: this plate slices with the file's filaments for them. Their prices still count.",
     "presetMisfit": "{{slicer}} has no preset for “{{name}}”, so this plate won't slice. Pick another slicer, or profiles imported from this one.",
     "fromFileProfile": "As saved in the file ({{name}})",
     "printerDefault": "Printer default ({{name}})",

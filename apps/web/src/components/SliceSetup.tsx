@@ -1,6 +1,7 @@
 import {
   defaultSlicePrinter,
   type FilamentProfile,
+  foreignFilaments,
   type PlateSetup,
   type PlateSetupInput,
   type PlateState,
@@ -13,7 +14,7 @@ import { type ReactNode, useId } from "react";
 import { useTranslation } from "react-i18next";
 import { useMachineProfiles, useModelInfo, usePrintProfiles } from "../lib/catalog.ts";
 import { spoolName, useProfiles, useSpools } from "../lib/filament.ts";
-import { formatDuration, formatWeight } from "../lib/format.ts";
+import { formatDuration, formatList, formatWeight } from "../lib/format.ts";
 import { useSlicers } from "../lib/integrations.ts";
 import { printerName, usePrinters } from "../lib/printers.ts";
 import { Combobox, type ComboOption } from "./Combobox.tsx";
@@ -125,8 +126,8 @@ export function defaultFilaments(plate: Plate, profiles: FilamentProfile[]): (st
 type FileInfo = Pick<SliceSetupFile, "printerModel" | "nozzleDiameter">;
 
 /**
- * A plate's printer and print profile as the server resolves them, and `misfit`: what a slicer
- * has no preset for among the plate's profiles (`presetMisfit`), else undefined.
+ * A plate's printer and print profile as the server resolves them, `misfit`: what a slicer has
+ * no preset for among the plate's profiles (`presetMisfit`), else undefined, and `fromFile`.
  */
 export function usePlateFit(defaultPrinterId: string | null | undefined) {
   const { t } = useTranslation();
@@ -169,13 +170,19 @@ export function usePlateFit(defaultPrinterId: string | null | undefined) {
             )
           : undefined,
       printer: printer && printerName(t, printer),
-      filaments: v.filaments.flatMap((id) => {
-        const p = id ? filaments.find((x) => x.id === id) : undefined;
-        return p ? [{ ...p, name: p.name || [p.brand, p.material].filter(Boolean).join(" ") }] : [];
-      }),
     });
   };
-  return { printers, printerOf, fitsFile, misfit };
+  /** The plate's filaments that slicer slices with the 3MF's own (another slicer's presets). */
+  const fromFile = (v: PlateSetupInput, slicerId: string | undefined) => {
+    const library = slicers.slicers.find((s) => s.id === slicerId)?.library;
+    if (!library) return [];
+    const picked = v.filaments.flatMap((id) => {
+      const p = id ? filaments.find((x) => x.id === id) : undefined;
+      return p ? [{ ...p, name: p.name || [p.brand, p.material].filter(Boolean).join(" ") }] : [];
+    });
+    return foreignFilaments(library, picked).map((f) => f.name);
+  };
+  return { printers, printerOf, fitsFile, misfit, fromFile };
 }
 
 /**
@@ -199,7 +206,7 @@ export function SliceSetup({
   const allProfiles = useProfiles().data?.items ?? [];
   const filaments = allProfiles.filter((p) => !p.archivedAt);
   const spools = useSpools().data?.items ?? [];
-  const { printers, printerOf, fitsFile, misfit } = usePlateFit(defaultPrinterId);
+  const { printers, printerOf, fitsFile, misfit, fromFile } = usePlateFit(defaultPrinterId);
   const byKey = new Map(value.map((v) => [plateKey(v), v]));
   const order = (next: PlateSetupInput[]) => {
     const rank = new Map(
@@ -321,6 +328,18 @@ export function SliceSetup({
       ? null
       : t("projects:slicing.presetMisfit", { slicer: slicers.nameOf(slicer), name });
   };
+  /** Filaments picked from another slicer's presets: sliced with the 3MF's, still priced. */
+  const fromFileOf = (v: PlateSetupInput) => {
+    const slicer = slicers.resolve([v.slicerIntegrationId, projectSlicerId]);
+    const names = fromFile(v, slicer);
+    return names.length
+      ? t("projects:slicing.filamentFromFile", {
+          slicer: slicers.nameOf(slicer),
+          names: formatList(names),
+          count: names.length,
+        })
+      : null;
+  };
 
   const profileOf = (id: string) => allProfiles.find((p) => p.id === id);
   // Spools you can print from (and the one picked, whatever its state), then profiles.
@@ -389,6 +408,7 @@ export function SliceSetup({
                   const name = p.name ?? t("projects:detail.plate", { index: p.index });
                   const plateId = `${uid}-${key}`;
                   const warning = setup && misfitOf(f, setup);
+                  const note = setup && fromFileOf(setup);
                   return (
                     <li key={key} className="flex flex-wrap gap-3 border-t border-border pt-3">
                       <label htmlFor={plateId} className="flex min-w-48 items-center gap-2">
@@ -496,6 +516,7 @@ export function SliceSetup({
                             </div>
                           ))}
                           {warning && <p className="text-sm text-warn sm:col-span-2">{warning}</p>}
+                          {note && <p className="text-sm text-muted sm:col-span-2">{note}</p>}
                         </div>
                       )}
                     </li>

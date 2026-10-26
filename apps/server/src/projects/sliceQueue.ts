@@ -176,21 +176,17 @@ export async function slicePlate(
   }
   if (p.filaments.some(Boolean)) {
     const ids = p.filaments.filter((f): f is string => !!f);
-    const rows = db
-      .select({
-        id: filamentProfiles.id,
-        name: filamentProfiles.name,
-        source: filamentProfiles.sourcePreset,
-      })
-      .from(filamentProfiles)
-      .where(inArray(filamentProfiles.id, ids))
-      .all();
-    // Another slicer library's preset (Bambu Studio <-> OrcaSlicer) means nothing to this one.
-    const foreign = rows.find((f) => f.source && !own(f.source));
-    if (foreign) fail("no_preset", foreign.name);
-    const presets = new Map(rows.map((f) => [f.id, own(f.source)]));
-    // ponytail: a hand-made filament keeps the 3MF's own for slicing (grams barely change
-    // within a material); its price still counts. Ask for a preset if that turns out wrong.
+    const presets = new Map(
+      db
+        .select({ id: filamentProfiles.id, source: filamentProfiles.sourcePreset })
+        .from(filamentProfiles)
+        .where(inArray(filamentProfiles.id, ids))
+        .all()
+        .map((f) => [f.id, own(f.source)]),
+    );
+    // ponytail: a hand-made filament, or another slicer's preset (Bambu Studio <-> OrcaSlicer),
+    // keeps the 3MF's own for slicing (grams barely change within a material); its price still
+    // counts. Ask for a preset if that turns out wrong.
     req.filaments = p.filaments.map((f) => (f && presets.get(f)) || null);
   }
 

@@ -103,19 +103,22 @@ type Preset = { name: string; sourcePreset: string | null };
 /**
  * The first of a plate's profiles a slicer of `library` can't slice with, as the slice queue
  * checks them (presets are `<library>:<preset>`, so Bambu Studio's mean nothing to OrcaSlicer):
- * the print profile (a hand-made one fits no slicer), a machine preset for the printer when it
- * isn't the file's (`machines`: its model's and nozzle's; unset when the file's printer slices),
- * and the filaments (a hand-made one keeps the 3MF's). Undefined when all fit.
+ * the print profile (a hand-made one fits no slicer) and a machine preset for the printer when it
+ * isn't the file's (`machines`: its model's and nozzle's; unset when the file's printer slices).
+ * Undefined when both fit. Filaments never block: see `foreignFilaments`.
  */
 export function presetMisfit(
   library: string,
-  p: { print?: Preset; machines?: Preset[]; printer?: string; filaments: Preset[] },
+  p: { print?: Preset; machines?: Preset[]; printer?: string },
 ): string | undefined {
   const own = (x: Preset) => x.sourcePreset?.startsWith(`${library}:`);
   if (p.print && !own(p.print)) return p.print.name;
   if (p.machines && !p.machines.some(own)) return p.printer ?? "";
-  return p.filaments.find((f) => f.sourcePreset && !own(f))?.name;
 }
+
+/** Filaments of another slicer's presets: a slicer of `library` slices them with the 3MF's own. */
+export const foreignFilaments = (library: string, filaments: Preset[]) =>
+  filaments.filter((f) => f.sourcePreset && !f.sourcePreset.startsWith(`${library}:`));
 
 /** A project in the list: no plates picked, some need slicing, or all sliced and current. */
 export const PROJECT_SLICING = ["none", "needed", "done"] as const;

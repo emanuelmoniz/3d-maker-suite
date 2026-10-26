@@ -258,7 +258,7 @@ describe("slicing a project (mock slicer)", () => {
     });
   });
 
-  it("refuses a filament preset of another slicer library, keeps a hand-made one's slot", async () => {
+  it("slices a hand-made or another slicer's filament with the file's own", async () => {
     const post = async (url: string, payload: object) =>
       (await app.inject({ method: "POST", url, payload })).json();
     const brand = await post("/api/filament-brands", { name: "Acme" });
@@ -287,10 +287,11 @@ describe("slicing a project (mock slicer)", () => {
     expect((await settled()).plates[0].error).toBeNull();
     expect(mock.sliced?.at(-1)?.filaments).toEqual(["system/Basic", null]);
 
+    // Another slicer's preset: the file's own filament for that slot, like a hand-made one.
     await put([{ ...plate, filaments: [own.id, orca.id] }]);
     await run();
-    expect((await settled()).plates[0].error).toBe("no_preset: Silk");
-    expect(mock.sliced).toHaveLength(1);
+    expect((await settled()).plates[0].error).toBeNull();
+    expect(mock.sliced?.at(-1)?.filaments).toEqual(["system/Basic", null]);
   });
 
   it("a new slicer version outdates its slices; auto slicing redoes them", async () => {
