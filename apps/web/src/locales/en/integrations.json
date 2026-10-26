@@ -328,10 +328,6 @@
   },
   "catalogImport": {
     "link": {
-      "brands": "Import brands from {{name}}",
-      "printerModels": "Import models from {{name}}",
-      "machineProfiles": "Import machine profiles from {{name}}",
-      "printProfiles": "Import print profiles from {{name}}",
       "filamentBrands": "Import filament brands from {{name}}",
       "filamentMaterials": "Import materials from {{name}}"
     }

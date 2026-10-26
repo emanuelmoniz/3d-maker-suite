@@ -14,7 +14,6 @@ import { Plus } from "lucide-react";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { type Column, DataTable } from "../../components/DataTable.tsx";
-import { ImportLinks } from "../../components/ImportLinks.tsx";
 import { Write } from "../../components/Write.tsx";
 import { useCan } from "../../lib/auth.ts";
 import {
@@ -115,7 +114,6 @@ export function Catalog() {
         kind="brands"
         title={t("printers:catalog.brands.title")}
         add={{ to: "/printers/brands/new", label: t("printers:catalog.brands.add") }}
-        extra={<ImportLinks cap="brands" text="integrations:catalogImport.link.brands" />}
         filters={brandFilters}
         columns={[
           {
@@ -151,9 +149,6 @@ export function Catalog() {
         kind="printer-models"
         title={t("printers:catalog.models.title")}
         add={{ to: "/printers/models/new", label: t("printers:catalog.models.add") }}
-        extra={
-          <ImportLinks cap="printerModels" text="integrations:catalogImport.link.printerModels" />
-        }
         filters={printerModelFilters}
         columns={[
           {
@@ -194,12 +189,6 @@ export function Catalog() {
         kind="machine-profiles"
         title={t("printers:catalog.profiles.title")}
         add={{ to: "/printers/profiles/new", label: t("printers:catalog.profiles.add") }}
-        extra={
-          <ImportLinks
-            cap="machineProfiles"
-            text="integrations:catalogImport.link.machineProfiles"
-          />
-        }
         filters={machineProfileFilters}
         columns={[
           {
@@ -234,9 +223,6 @@ export function Catalog() {
         kind="print-profiles"
         title={t("printers:catalog.printProfiles.title")}
         add={{ to: "/printers/print-profiles/new", label: t("printers:catalog.printProfiles.add") }}
-        extra={
-          <ImportLinks cap="printProfiles" text="integrations:catalogImport.link.printProfiles" />
-        }
         filters={printProfileFilters}
         columns={[
           {
