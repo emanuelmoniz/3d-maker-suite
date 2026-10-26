@@ -162,6 +162,7 @@ export const costsRoutes =
         const projectRoots = rootPaths(db);
         const resolve = plateResolver(db);
         const slicerOf = slicerResolver(db, adapters);
+        const fallback = slicerOf()?.row.id;
         const out: QuoteSlice["plates"] = [];
         for (const p of plates) {
           // Only uploads and files the scanner listed; nothing the client invents is read.
@@ -210,7 +211,7 @@ export const costsRoutes =
             own.fileMtimeMs === s.mtimeMs &&
             own.printerId === (printer?.id ?? null) &&
             own.slicedPrintProfileId === profileId &&
-            !slicedWithOther(own.slicedIntegrationId, slicer) &&
+            !slicedWithOther(own.slicedIntegrationId, slicer, fallback) &&
             JSON.stringify(own.filaments) === JSON.stringify(p.filaments)
               ? {
                   printTimeSeconds: own.printTimeSeconds,
@@ -264,7 +265,7 @@ export const costsRoutes =
             error: done?.error ?? null,
           });
         }
-        return { canSlice: !!slicerOf(), plates: out };
+        return { canSlice: !!fallback, plates: out };
       },
     );
 

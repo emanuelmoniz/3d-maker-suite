@@ -85,8 +85,7 @@ const slicingOf = (capable: string[], fallback: string | undefined) => sql<
   when exists (select 1 from ${plates} where ${plates.projectId} = ${projectId} and (
     ${plates.slicedAt} is null
     or ${plates.slicedPrintProfileId} is not ${plateProfile}
-    or (${plates.slicedIntegrationId} is not null
-      and ${plates.slicedIntegrationId} is not ${plateSlicer(capable, fallback)})
+    or coalesce(${plates.slicedIntegrationId}, ${fallback ?? null}) is not ${plateSlicer(capable, fallback)}
     or exists (select 1 from json_each(${projectMeta}, '$.files') f
       where json_extract(f.value, '$.path') = ${plates.file}
         and json_extract(f.value, '$.size') != ${plates.fileSize})

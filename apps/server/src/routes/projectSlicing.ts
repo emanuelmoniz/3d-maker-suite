@@ -73,6 +73,7 @@ export const projectSlicingRoutes =
         .all();
       const resolve = plateResolver(db);
       const slicerOf = slicerResolver(db, adapters);
+      const fallback = slicerOf()?.row.id;
       // Taken with the rows, before any await: a job that ends meanwhile has already written them.
       const jobs = rows.map((r) =>
         queue.state(projectJobKey({ projectId: id, file: r.file, plate: r.plate })),
@@ -86,7 +87,7 @@ export const projectSlicingRoutes =
         return states.get(r.file) as Promise<PlateState>;
       };
       return {
-        canSlice: !!slicerOf(),
+        canSlice: !!fallback,
         plates: await Promise.all(
           rows.map(async (r, i) => {
             const inFile = meta.models
@@ -124,7 +125,7 @@ export const projectSlicingRoutes =
                 (!result ||
                   state === "outdated" ||
                   r.slicedPrintProfileId !== profileId ||
-                  slicedWithOther(r.slicedIntegrationId, slicer)),
+                  slicedWithOther(r.slicedIntegrationId, slicer, fallback)),
               job: jobs[i] ?? null,
             };
           }),

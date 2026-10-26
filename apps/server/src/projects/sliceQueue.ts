@@ -55,11 +55,15 @@ export function slicerResolver(db: Db, adapters: IntegrationAdapter[]) {
 }
 
 /**
- * Sliced with another slicer than `now` resolves to. ponytail: null (sliced before 0072 stored it)
- * counts as current, so an upgrade doesn't re-slice everything.
+ * Sliced with another slicer than `now` resolves to. Null (sliced before 0072 stored it) was the
+ * default slicer, `fallback` (what no picks resolve to). ponytail: so a later change of the default
+ * itself leaves those slices current; they re-slice once anything else changes.
  */
-export const slicedWithOther = (sliced: string | null, now: string | undefined) =>
-  sliced != null && sliced !== now;
+export const slicedWithOther = (
+  sliced: string | null,
+  now: string | undefined,
+  fallback: string | undefined,
+) => (sliced ?? fallback) !== now;
 
 export const sliceIntegration = (
   db: Db,
