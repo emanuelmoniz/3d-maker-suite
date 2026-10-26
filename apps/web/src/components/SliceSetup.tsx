@@ -1,6 +1,5 @@
 import {
   defaultSlicePrinter,
-  type FilamentProfile,
   foreignFilaments,
   type PlateSetup,
   type PlateSetupInput,
@@ -103,24 +102,6 @@ export function PlateSlice({
       )}
     </>
   );
-}
-
-const baseName = (n: string) => n.split(" @")[0]?.trim().toLowerCase() ?? "";
-
-/** Per slot, the filament profile named like the one saved in the 3MF; null keeps the 3MF's. */
-export function defaultFilaments(plate: Plate, profiles: FilamentProfile[]): (string | null)[] {
-  const slots = Math.max(0, ...plate.filaments.map((f) => f.slot));
-  return Array.from({ length: slots }, (_, i) => {
-    const want = plate.filaments.find((f) => f.slot === i + 1)?.profile;
-    if (!want) return null;
-    const name = baseName(want);
-    return (
-      profiles.find((p) => !p.archivedAt && p.name.trim().toLowerCase() === name)?.id ??
-      profiles.find((p) => !p.archivedAt && p.sourcePreset?.toLowerCase().endsWith(`/${name}`))
-        ?.id ??
-      null
-    );
-  });
 }
 
 type FileInfo = Pick<SliceSetupFile, "printerModel" | "nozzleDiameter">;
@@ -228,7 +209,8 @@ export function SliceSetup({
       printerId: printer?.id ?? null,
       printProfileId: null,
       useDefaultPrintProfile: !fitsFile(f, printer),
-      filaments: defaultFilaments(p, filaments),
+      // One entry per slot, all as saved in the file.
+      filaments: Array.from({ length: Math.max(0, ...p.filaments.map((x) => x.slot)) }, () => null),
       spools: [],
       slicerIntegrationId: null,
     }));
@@ -254,13 +236,23 @@ export function SliceSetup({
     value: p.id,
     label: printerName(t, p),
   }));
+  /** The slicer library of the plate's slicer; its presets are the only ones it slices with. */
+  const libraryOf = (v: PlateSetupInput) =>
+    slicers.slicers.find((s) => s.id === slicers.resolve([v.slicerIntegrationId, projectSlicerId]))
+      ?.library;
+  const ofSlicer = (library: string | null | undefined, source: string | null) =>
+    !library || !!source?.startsWith(`${library}:`);
   // The printer decides: the file's own settings (only on the file's printer), the printer's
-  // default profile, then the profiles of its model (all of them without a printer).
+  // default profile, then the profiles of its model (all of them without a printer) that are
+  // presets of the plate's slicer. The one picked always stays listed.
   const printOptions = (f: SliceSetupFile, v: PlateSetupInput): ComboOption[] => {
     const printer = printerOf(f, v);
     const ownDefault = printProfiles.find((p) => p.id === printer?.printProfileId);
+    const library = libraryOf(v);
     const listed = printProfiles.filter(
-      (p) => !printer || p.printerModelId === printer.modelId || p.id === v.printProfileId,
+      (p) =>
+        p.id === v.printProfileId ||
+        ((!printer || p.printerModelId === printer.modelId) && ofSlicer(library, p.sourcePreset)),
     );
     return [
       ...(fitsFile(f, printer)
@@ -342,11 +334,18 @@ export function SliceSetup({
   };
 
   const profileOf = (id: string) => allProfiles.find((p) => p.id === id);
-  // Spools you can print from (and the one picked, whatever its state), then profiles.
-  const filamentOptions = (picked: (string | null)[]): ComboOption[] => [
-    { value: "", label: t("projects:slicing.fromFile") },
+  // As saved in the file (its preset's name), spools you can print from (and the one picked,
+  // whatever its state), then profiles: the slicer's presets and hand-made ones (sliced with the
+  // file's filament, priced as theirs). The one picked always stays listed.
+  const filamentOptions = (v: PlateSetupInput, slot: Plate["filaments"][number]): ComboOption[] => [
+    {
+      value: "",
+      label: slot.profile
+        ? t("projects:slicing.fromFileProfile", { name: slot.profile })
+        : t("projects:slicing.fromFile"),
+    },
     ...spools
-      .filter((s) => (!s.archivedAt && s.status !== "empty") || picked.includes(s.id))
+      .filter((s) => (!s.archivedAt && s.status !== "empty") || v.spools.includes(s.id))
       .map((s) => ({
         value: `spool:${s.id}`,
         label: t("projects:slicing.spoolOption", {
@@ -355,11 +354,18 @@ export function SliceSetup({
         }),
         group: t("projects:slicing.spoolsGroup"),
       })),
-    ...filaments.map((p) => ({
-      value: p.id,
-      label: p.name || [p.brand, p.material].filter(Boolean).join(" "),
-      group: t("projects:slicing.profilesGroup"),
-    })),
+    ...filaments
+      .filter(
+        (p) =>
+          !p.sourcePreset ||
+          ofSlicer(libraryOf(v), p.sourcePreset) ||
+          p.id === v.filaments[slot.slot - 1],
+      )
+      .map((p) => ({
+        value: p.id,
+        label: p.name || [p.brand, p.material].filter(Boolean).join(" "),
+        group: t("projects:slicing.profilesGroup"),
+      })),
   ];
   const setFilament = (key: string, v: PlateSetupInput, slot: number, value: string) => {
     const filamentsNext = [...v.filaments];
@@ -504,7 +510,7 @@ export function SliceSetup({
                                   plate: name,
                                   slot: slot.slot,
                                 })}
-                                options={filamentOptions(setup.spools)}
+                                options={filamentOptions(setup, slot)}
                                 value={
                                   setup.spools[slot.slot - 1]
                                     ? `spool:${setup.spools[slot.slot - 1]}`

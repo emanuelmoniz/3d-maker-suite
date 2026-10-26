@@ -142,7 +142,7 @@ test("slicing a project with the mock slicer: results, estimate, list filter, re
   await expect(section.getByText("Every plate is sliced and up to date.")).toBeVisible();
 });
 
-test("a plate warns before slicing when its slicer has no preset for one of its profiles", async ({
+test("plate pickers list the slicer's presets, slots default to the file's, misfits warn", async ({
   page,
   app,
 }) => {
@@ -164,17 +164,46 @@ test("a plate warns before slicing when its slicer has no preset for one of its 
     secrets: { token: "t" },
   });
   await app.api("PATCH", `/api/integrations/${mock.id}`, { slicerPath: process.execPath });
-  // Hand-made: no slicer's preset.
-  await app.api("POST", "/api/print-profiles", { name: "Mine" });
+  const model = await seedModel(app.api);
+  // The mock slicer's preset, another slicer's, and a hand-made one (no slicer's).
+  for (const [name, sourcePreset] of [
+    ["Fine", "mock:system/Fine"],
+    ["Orca Fine", "orca-slicer:system/Fine"],
+    ["Mine", undefined],
+  ])
+    await app.api("POST", "/api/print-profiles", { name, printerModelId: model.id, sourcePreset });
+  const mine = await app.api<{ items: { id: string; name: string }[] }>(
+    "GET",
+    "/api/print-profiles?name=Mine",
+  );
+  // Not the file's printer (an A1): it slices with its default profile, the hand-made one.
+  await app.api("PATCH", "/api/preferences", {
+    defaultPrinterId: (
+      await app.api<{ id: string }>("POST", "/api/printers", {
+        name: "Main",
+        modelId: model.id,
+        state: "working",
+        printProfileId: mine.items[0]?.id,
+      })
+    ).id,
+  });
 
   await page.goto(`/projects/${project.id}/edit`);
   await openSections(page, "Print setup");
   const section = page.getByRole("region", { name: "Print setup" });
   await section.getByRole("checkbox", { name: /benchy\.3mf/ }).check();
+  await expect(section.getByRole("combobox", { name: /, slot 1$/ })).toHaveValue(
+    /^As saved in the file \(.+\)$/,
+  );
   const warning = section.getByText(/has no preset for “Mine”, so this plate won't slice/).first();
-  await expect(warning).toHaveCount(0);
-  await pick(section.getByRole("combobox", { name: /^Print profile for/ }).first(), "Mine");
   await expect(warning).toBeVisible();
-  await pick(section.getByRole("combobox", { name: /^Print profile for/ }).first(), 0);
+
+  const printProfile = section.getByRole("combobox", { name: /^Print profile for/ }).first();
+  await printProfile.click();
+  const options = page.getByRole("listbox").getByRole("option");
+  await expect(options.getByText("Fine", { exact: true })).toBeVisible();
+  await expect(options.getByText("Orca Fine", { exact: true })).toHaveCount(0);
+  await expect(options.getByText("Mine", { exact: true })).toHaveCount(0);
+  await options.getByText("Fine", { exact: true }).click();
   await expect(warning).toHaveCount(0);
 });
