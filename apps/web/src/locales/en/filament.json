@@ -65,7 +65,6 @@
     "error": "Couldn't save the profile."
   },
   "library": {
-    "link": "Import profiles from {{name}}",
     "sources": {
       "bambu-studio": "Bambu Studio",
       "orca-slicer": "OrcaSlicer"
@@ -116,6 +115,7 @@
     "remainingOf": "{{remaining}} of {{initial}}"
   },
   "catalog": {
+    "slicer": "Slicer",
     "choose": "Choose…",
     "brands": {
       "title": "Filament brands",

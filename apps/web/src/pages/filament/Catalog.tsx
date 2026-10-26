@@ -8,29 +8,55 @@ import {
 import { Link } from "@tanstack/react-router";
 import { Plus } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { DataTable } from "../../components/DataTable.tsx";
-import { ImportLinks } from "../../components/ImportLinks.tsx";
+import { type Column, DataTable } from "../../components/DataTable.tsx";
 import { Write } from "../../components/Write.tsx";
 import { imageUrl, useFilamentBrands, useFilamentMaterials } from "../../lib/catalog.ts";
-import { filamentLabel } from "../../lib/filament.ts";
-import { formatCurrency } from "../../lib/format.ts";
+import { filamentLabel, useProfiles } from "../../lib/filament.ts";
+import { formatCurrency, formatList } from "../../lib/format.ts";
 import { useListPage, useUrlListQuery } from "../../lib/list.ts";
 import { usePreferences } from "../../lib/preferences.ts";
 import { addClass, editLink, Section, Thumb } from "../printers/Catalog.tsx";
+
+// The slicer library a preset came from (`<library>:<preset>`); hand-made ones have none.
+const libraryOf = (source: string | null) => source?.split(":")[0] || null;
+
+/** Slicer columns for the three tables, worked out from the profiles' presets. */
+function useSlicerColumns() {
+  const { t } = useTranslation();
+  const profiles = useProfiles().data?.items ?? [];
+  const column = <T,>(libs: (row: T) => (string | null)[]): Column<T> => ({
+    id: "slicer",
+    header: t("filament:catalog.slicer"),
+    cell: (r) => {
+      const names = [...new Set(libs(r).filter((l): l is string => !!l))]
+        .map((l) => t(`filament:library.sources.${l}`, { defaultValue: l }))
+        .sort();
+      return names.length ? formatList(names) : t("printers:detail.info.none");
+    },
+  });
+  // Brands and materials have no preset of their own: theirs are their profiles' slicers.
+  return {
+    profile: column<FilamentProfile>((p) => [libraryOf(p.sourcePreset)]),
+    brand: column<FilamentBrand>((b) =>
+      profiles.filter((p) => p.brandId === b.id).map((p) => libraryOf(p.sourcePreset)),
+    ),
+    material: column<FilamentMaterial>((m) =>
+      profiles.filter((p) => p.materialId === m.id).map((p) => libraryOf(p.sourcePreset)),
+    ),
+  };
+}
 
 /** Filament brands and materials. */
 export function FilamentCatalog() {
   const { t } = useTranslation();
   const none = t("printers:detail.info.none");
+  const slicer = useSlicerColumns();
   return (
     <>
       <Section<FilamentBrand>
         kind="filament-brands"
         title={t("filament:catalog.brands.title")}
         add={{ to: "/filament/brands/new", label: t("filament:catalog.brands.add") }}
-        extra={
-          <ImportLinks cap="filamentBrands" text="integrations:catalogImport.link.filamentBrands" />
-        }
         filters={filamentCatalogFilters}
         columns={[
           {
@@ -60,18 +86,13 @@ export function FilamentCatalog() {
                 none
               ),
           },
+          slicer.brand,
         ]}
       />
       <Section<FilamentMaterial>
         kind="filament-materials"
         title={t("filament:catalog.materials.title")}
         add={{ to: "/filament/materials/new", label: t("filament:catalog.materials.add") }}
-        extra={
-          <ImportLinks
-            cap="filamentMaterials"
-            text="integrations:catalogImport.link.filamentMaterials"
-          />
-        }
         filters={filamentCatalogFilters}
         columns={[
           {
@@ -92,6 +113,7 @@ export function FilamentCatalog() {
                     bed: m.bedTempC ?? "–",
                   }),
           },
+          slicer.material,
         ]}
       />
     </>
@@ -110,6 +132,7 @@ export function FilamentProfiles() {
   );
   const brands = useFilamentBrands().data ?? [];
   const materials = useFilamentMaterials().data ?? [];
+  const slicer = useSlicerColumns();
   return (
     <>
       {profiles.isError && (
@@ -121,7 +144,6 @@ export function FilamentProfiles() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-base font-semibold">{t("filament:profiles.title")}</h2>
           <span className="flex flex-wrap gap-2">
-            <ImportLinks cap="filamentProfiles" text="filament:library.link" />
             <Write admin>
               <Link to="/filament/profiles/new" className={addClass}>
                 <Plus className="size-4" aria-hidden />
@@ -196,6 +218,7 @@ export function FilamentProfiles() {
                 filterScale: 100,
                 filterHint: prefs?.currency,
               },
+              slicer.profile,
             ]}
           />
         )}

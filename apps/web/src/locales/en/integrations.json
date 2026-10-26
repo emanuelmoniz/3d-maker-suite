@@ -326,12 +326,6 @@
       "1M": "Every month"
     }
   },
-  "catalogImport": {
-    "link": {
-      "filamentBrands": "Import filament brands from {{name}}",
-      "filamentMaterials": "Import materials from {{name}}"
-    }
-  },
   "syncFrom": "Sync from {{name}}",
   "syncError": "Couldn’t sync. Check the integration in Settings."
 }

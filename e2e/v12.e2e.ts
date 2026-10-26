@@ -2,6 +2,7 @@ import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSy
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { DatabaseSync } from "node:sqlite";
 import type { Page } from "@playwright/test";
 import { expect, test } from "./fixtures.ts";
 import {
@@ -408,4 +409,49 @@ test.describe("v1.2 pages fit every viewport", () => {
       expect(box && box.x >= 0 && box.x + box.width <= width).toBe(true);
     });
   }
+});
+
+test("filament settings tables show each row's slicer", async ({ page, app }) => {
+  const imported = await seedProfile(app.api); // Acme / PLA
+  const brand = await app.api<{ id: string }>("POST", "/api/filament-brands", { name: "Handmade" });
+  const material = await app.api<{ id: string }>("POST", "/api/filament-materials", {
+    name: "PETG",
+  });
+  await app.api("POST", "/api/filament/profiles", {
+    brandId: brand.id,
+    materialId: material.id,
+    densityGcm3: 1.27,
+    name: "Mine",
+  });
+  // The API can't set a preset (only the slicer import does): mark the first one as imported.
+  const db = new DatabaseSync(join(app.dataDir, "app.sqlite"));
+  db.prepare("UPDATE filament_profiles SET source_preset = ? WHERE id = ?").run(
+    "bambu-studio:system/Basic",
+    imported.id,
+  );
+  db.close();
+  await page.goto("/filament/settings");
+  // No import buttons any more, only "Add ...".
+  await expect(page.getByRole("main").getByRole("link", { name: /^Import / })).toHaveCount(0);
+  for (const table of ["Filament profiles", "Filament brands", "Filament materials"])
+    await expect(
+      page.getByRole("table", { name: table }).getByRole("columnheader", { name: "Slicer" }),
+    ).toBeVisible();
+  // Profile, brand and material of the imported one show its slicer; the hand-made ones none.
+  for (const [table, name] of [
+    ["Filament profiles", /Basic/],
+    ["Filament brands", /Acme/],
+    ["Filament materials", /PLA/],
+  ] as const)
+    await expect(page.getByRole("table", { name: table }).getByRole("row", { name })).toContainText(
+      "Bambu Studio",
+    );
+  for (const [table, name] of [
+    ["Filament profiles", /Mine/],
+    ["Filament brands", /Handmade/],
+    ["Filament materials", /PETG/],
+  ] as const)
+    await expect(
+      page.getByRole("table", { name: table }).getByRole("row", { name }),
+    ).not.toContainText("Bambu Studio");
 });
