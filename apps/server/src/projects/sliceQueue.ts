@@ -1,4 +1,5 @@
 import { join } from "node:path";
+import { parse3mf } from "@3d-maker-suite/3mf";
 import {
   defaultSlicePrinter,
   type IntegrationAdapter,
@@ -28,6 +29,7 @@ export const SLICE_ERRORS = [
   "no_preset",
   "no_machine_preset",
   "no_printer_profile",
+  "empty_plate",
   "slice_failed",
 ] as const;
 
@@ -192,6 +194,10 @@ export async function slicePlate(
 
   const before = await fingerprint(p.abs);
   if (!before) return fail("not_allowed");
+  // The CLI reports a plate without objects as an unparsable model (-6).
+  const info = await parse3mf(p.abs).catch(() => null);
+  const onPlate = info?.plates.find((x) => x.index === p.plate);
+  if (info && !onPlate?.objects.length) fail("empty_plate", String(p.plate));
   const result = await slicer.slice(
     found.row.slicerPath ?? "",
     slicerConfigDir(found.row, found.adapter) ?? "",

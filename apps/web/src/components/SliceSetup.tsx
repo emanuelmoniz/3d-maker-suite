@@ -58,6 +58,7 @@ const SLICE_ERRORS: Record<string, string> = {
   no_preset: "projects:slicing.error.no_preset",
   no_machine_preset: "projects:slicing.error.no_machine_preset",
   no_printer_profile: "projects:slicing.error.no_printer_profile",
+  empty_plate: "projects:slicing.error.empty_plate",
   slice_failed: "projects:slicing.error.slice_failed",
 };
 const sliceError = (t: TFunction, error: string) => {

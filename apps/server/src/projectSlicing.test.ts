@@ -258,6 +258,19 @@ describe("slicing a project (mock slicer)", () => {
     });
   });
 
+  it("tells an empty plate without calling the slicer", async () => {
+    await cp(join(fixtures, "empty_plate.3mf"), file);
+    await app.inject({
+      method: "PATCH",
+      url: `/api/projects/${id}`,
+      payload: { previewFile: null },
+    });
+    await put([{ file: "benchy.3mf", plate: 2, printProfileId: null, filaments: [] }]);
+    await run();
+    expect((await settled()).plates[0]).toMatchObject({ error: "empty_plate: 2", result: null });
+    expect(mock.sliced ?? []).toHaveLength(0);
+  });
+
   it("slices a hand-made or another slicer's filament with the file's own", async () => {
     const post = async (url: string, payload: object) =>
       (await app.inject({ method: "POST", url, payload })).json();
