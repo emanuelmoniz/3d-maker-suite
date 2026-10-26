@@ -468,7 +468,8 @@ const routes: AnyRoute[] = [
     createRoute({
       getParentRoute: () => root,
       path: path as string,
-      loader: () => loadNamespace("integrations"),
+      // import + filament: a server slicer card's "import from a zip" steps (ManagedSlicer.tsx).
+      loader: () => Promise.all(["integrations", "import", "filament"].map(loadNamespace)),
       component: component as () => ReactNode,
     }),
   ),

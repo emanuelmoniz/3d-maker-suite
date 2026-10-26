@@ -55,6 +55,8 @@ export function can(role: UserRole, url: string, method: string): boolean {
   const path = url.split("?")[0] ?? "";
   // Channels hold webhook and SMTP secrets.
   if (/^\/api\/alerts\/channels(\/|$)/.test(path)) return false;
+  // Managed slicer installs download half a gigabyte and ask GitHub (ADR-0013).
+  if (/^\/api\/integrations\/[^/]+\/slicer(\/|$)/.test(path)) return false;
   // Everyone reads, snoozes and dismisses their own alerts (ADR-0012); nothing else under /alerts.
   if (method === "PATCH" && /^\/api\/alerts\/[^/]+$/.test(path)) return true;
   // Sync now, and an integration's review and import: narrowed per task by `mayTask` in the route.

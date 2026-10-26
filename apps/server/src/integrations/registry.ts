@@ -1,6 +1,10 @@
-import { bambuCloudAdapter, bambuStudioAdapter } from "@3d-maker-suite/adapter-bambu";
+import {
+  bambuCloudAdapter,
+  bambuStudioAdapter,
+  bambuStudioServerAdapter,
+} from "@3d-maker-suite/adapter-bambu";
 import { mockAdapter } from "@3d-maker-suite/adapter-mock";
-import { orcaSlicerAdapter } from "@3d-maker-suite/adapter-orca";
+import { orcaSlicerAdapter, orcaSlicerServerAdapter } from "@3d-maker-suite/adapter-orca";
 import type { IntegrationAdapter } from "@3d-maker-suite/core";
 
 // Composition root: the only non-test file that may import an adapter package (ADR-0003).
@@ -9,5 +13,7 @@ export const adapters = (opts: { mock: boolean }): IntegrationAdapter[] => [
   bambuCloudAdapter(),
   bambuStudioAdapter(),
   orcaSlicerAdapter(),
+  bambuStudioServerAdapter(),
+  orcaSlicerServerAdapter(),
   ...(opts.mock ? [mockAdapter()] : []),
 ];

@@ -16,6 +16,9 @@ import {
   type Page,
   pageOf,
   type SyncRun,
+  slicerInstallSchema,
+  slicerInstallStatusSchema,
+  slicerReleaseSchema,
   syncRequestSchema,
   syncResultSchema,
   syncRunFilters,
@@ -35,6 +38,7 @@ import {
   policyOf,
   unavailable,
 } from "../integrations/capabilities.ts";
+import type { SlicerInstaller } from "../integrations/managedSlicer.ts";
 import { readSecrets, writeSecrets } from "../integrations/secrets.ts";
 import type { Syncer } from "../integrations/sync.ts";
 import { mayTask } from "../lib/auth.ts";
@@ -47,7 +51,7 @@ const LOGIN_TTL_MS = 10 * 60 * 1000;
 const LOGIN_TIMEOUT_MS = 60 * 1000;
 
 export const integrationsRoutes =
-  (db: Db, key: Buffer, syncer: Syncer): FastifyPluginAsyncZod =>
+  (db: Db, key: Buffer, syncer: Syncer, installer: SlicerInstaller): FastifyPluginAsyncZod =>
   async (app) => {
     // ponytail: a sign-in waiting for its code lives in memory; a restart means starting over.
     const pendingLogins = new Map<string, { state: string; expires: number }>();
@@ -64,14 +68,20 @@ export const integrationsRoutes =
     // The encrypted column never leaves the server (ADR-0005); the setup fields only go to an
     // admin (ADR-0012): the others get what the task rows and "Open in slicer" need.
     const toApi = (full: typeof integrations.$inferSelect, admin = true) => {
-      const { secrets, config, slicerConfigDir, slicerPath, ...row } = full;
+      const { secrets, config, slicerConfigDir, slicerPath, slicerVersion, ...row } = full;
       const adapter = syncer.adapters.find((a) => a.id === row.adapterId);
-      // A local source never syncs: it's there or it isn't.
+      // A local (or server) source never syncs: it's there or it isn't.
       const local =
-        adapter?.kind === "local" && (unavailable(full, adapter) ? "unavailable" : "ok");
+        adapter?.kind !== "cloud" && adapter && (unavailable(full, adapter) ? "unavailable" : "ok");
       return {
         ...row,
-        ...(admin && { config, slicerConfigDir, slicerPath, hasSecrets: !!secrets }),
+        ...(admin && {
+          config,
+          slicerConfigDir,
+          slicerPath,
+          slicerVersion,
+          hasSecrets: !!secrets,
+        }),
         kind: adapter?.kind ?? "cloud",
         status: syncer.running.has(row.id) ? "syncing" : local || row.status,
         capabilities: activeCapabilities(db, full, adapter),
@@ -117,6 +127,8 @@ export const integrationsRoutes =
         login: !!a.login,
         capabilities: [...a.capabilities],
         detectedConfigDir: detectedDir(a.library),
+        libraryId: a.library?.id ?? null,
+        managed: a.managed ? { repo: a.managed.repo, licenceUrl: a.managed.licenceUrl } : null,
       })),
     );
 
@@ -181,6 +193,11 @@ export const integrationsRoutes =
       async (req) => {
         const cur = get(req.params.id);
         const { config, secrets, slicerConfigDir, slicerPath, policies, ...fields } = req.body;
+        if (
+          (slicerConfigDir !== undefined || slicerPath !== undefined) &&
+          syncer.adapters.find((a) => a.id === cur.adapterId)?.managed
+        )
+          throw new HttpError(409, "slicer_managed", "The app manages this slicer's paths");
         const adapter = config || secrets || policies ? adapterOf(cur.adapterId) : undefined;
         for (const p of policies ?? [])
           if (!adapter?.capabilities.includes(p.type) || (isAction(p.type) && p.mode === "auto"))
@@ -226,7 +243,50 @@ export const integrationsRoutes =
         get(req.params.id);
         if (syncer.running.has(req.params.id))
           throw new HttpError(409, "sync_running", "A sync is running");
+        installer.remove(req.params.id, false); // a server integration's slicer goes with it
         db.delete(integrations).where(eq(integrations.id, req.params.id)).run();
+        return reply.status(204).send(null);
+      },
+    );
+
+    // Managed slicer (server integrations, ADR-0013). Admin-only, reads too (lib/auth.ts).
+    app.get(
+      "/:id/slicer/releases",
+      {
+        schema: {
+          params,
+          querystring: z.object({ pre: z.stringbool().default(false) }),
+          response: { 200: z.array(slicerReleaseSchema), ...notFound, 502: apiErrorSchema },
+        },
+      },
+      async (req) => installer.releases(req.params.id, req.query.pre),
+    );
+
+    app.get(
+      "/:id/slicer/install",
+      { schema: { params, response: { 200: slicerInstallStatusSchema } } },
+      async (req) => installer.status(req.params.id),
+    );
+
+    app.post(
+      "/:id/slicer/install",
+      {
+        schema: {
+          params,
+          body: slicerInstallSchema,
+          response: { 202: slicerInstallStatusSchema, ...notFound, 409: apiErrorSchema },
+        },
+      },
+      async (req, reply) =>
+        reply.status(202).send(await installer.install(req.params.id, req.body.tag)),
+    );
+
+    app.delete(
+      "/:id/slicer",
+      { schema: { params, response: { 204: z.null(), ...notFound, 409: apiErrorSchema } } },
+      async (req, reply) => {
+        get(req.params.id);
+        installer.remove(req.params.id);
         return reply.status(204).send(null);
       },
     );

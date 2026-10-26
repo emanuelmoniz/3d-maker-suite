@@ -26,6 +26,13 @@ describe("compareVersions", () => {
     expect(compareVersions("v4.0.0", "4.0.0")).toBe(0);
     expect(() => compareVersions("main", "4.0.0")).toThrow();
   });
+
+  it("takes Bambu Studio's 4th (build) part, missing = 0", () => {
+    expect(compareVersions("v02.08.04.61", "02.08.04.57")).toBe(1);
+    expect(compareVersions("v02.08.04.57", "v02.09.00.01")).toBe(-1);
+    expect(compareVersions("2.5.0", "2.5.0.0")).toBe(0);
+    expect(compareVersions("2.5.0-alpha", "2.5.0")).toBe(-1);
+  });
 });
 
 describe("pickRelease", () => {

@@ -1,0 +1,395 @@
+[
+  {
+    "tag": "nightly-builds",
+    "prerelease": true,
+    "assets": [
+      "generate_system_cache_Linux_Ubuntu2404_nightly",
+      "OrcaSlicer-Linux-flatpak_nightly_aarch64.flatpak",
+      "OrcaSlicer-Linux-flatpak_nightly_x86_64.flatpak",
+      "OrcaSlicer_Linux_AppImage_Ubuntu2404_aarch64_nightly.AppImage",
+      "OrcaSlicer_Linux_AppImage_Ubuntu2404_aarch64_nightly_belt.AppImage",
+      "OrcaSlicer_Linux_AppImage_Ubuntu2404_nightly.AppImage",
+      "OrcaSlicer_Mac_universal_nightly.dmg",
+      "OrcaSlicer_profile_validator_Linux_Ubuntu2404_nightly",
+      "OrcaSlicer_profile_validator_Mac_universal_nightly.dmg",
+      "OrcaSlicer_profile_validator_Windows_nightly.exe",
+      "OrcaSlicer_Windows_arm64_nightly_portable.zip",
+      "OrcaSlicer_Windows_Installer_arm64_nightly.exe",
+      "OrcaSlicer_Windows_Installer_x64_nightly.exe",
+      "OrcaSlicer_Windows_x64_nightly_portable.zip",
+      "orca_custom_preset_tests.zip"
+    ]
+  },
+  {
+    "tag": "v2.5.0-alpha",
+    "prerelease": true,
+    "assets": [
+      "Debug_PDB_V2.5.0-alpha_for_developers_only.7z",
+      "OrcaSlicer-Linux-flatpak_V2.5.0-alpha_aarch64.flatpak",
+      "OrcaSlicer-Linux-flatpak_V2.5.0-alpha_x86_64.flatpak",
+      "OrcaSlicer_Linux_AppImage_Ubuntu2404_aarch64_V2.5.0-alpha.AppImage",
+      "OrcaSlicer_Linux_AppImage_Ubuntu2404_V2.5.0-alpha.AppImage",
+      "OrcaSlicer_Mac_universal_V2.5.0-alpha.dmg",
+      "OrcaSlicer_Windows_Installer_V2.5.0-alpha_arm64.exe",
+      "OrcaSlicer_Windows_Installer_V2.5.0-alpha_x64.exe",
+      "OrcaSlicer_Windows_V2.5.0-alpha_arm64_portable.zip",
+      "OrcaSlicer_Windows_V2.5.0-alpha_x64_portable.zip"
+    ]
+  },
+  {
+    "tag": "v2.4.2",
+    "prerelease": false,
+    "assets": [
+      "Debug_PDB_V2.4.2_for_developers_only.7z",
+      "OrcaSlicer-Linux-flatpak_V2.4.2_aarch64.flatpak",
+      "OrcaSlicer-Linux-flatpak_V2.4.2_x86_64.flatpak",
+      "OrcaSlicer_Linux_AppImage_Ubuntu2404_aarch64_V2.4.2.AppImage",
+      "OrcaSlicer_Linux_AppImage_Ubuntu2404_V2.4.2.AppImage",
+      "OrcaSlicer_Mac_universal_V2.4.2.dmg",
+      "OrcaSlicer_Windows_Installer_V2.4.2_arm64.exe",
+      "OrcaSlicer_Windows_Installer_V2.4.2_x64.exe",
+      "OrcaSlicer_Windows_V2.4.2_arm64_portable.zip",
+      "OrcaSlicer_Windows_V2.4.2_x64_portable.zip"
+    ]
+  },
+  {
+    "tag": "v2.4.1",
+    "prerelease": false,
+    "assets": [
+      "Debug_PDB_V2.4.1_for_developers_only.7z",
+      "OrcaSlicer-Linux-flatpak_V2.4.1_aarch64.flatpak",
+      "OrcaSlicer-Linux-flatpak_V2.4.1_x86_64.flatpak",
+      "OrcaSlicer_Linux_AppImage_Ubuntu2404_aarch64_V2.4.1.AppImage",
+      "OrcaSlicer_Linux_AppImage_Ubuntu2404_V2.4.1.AppImage",
+      "OrcaSlicer_Mac_universal_V2.4.1.dmg",
+      "OrcaSlicer_Windows_Installer_V2.4.1_arm64.exe",
+      "OrcaSlicer_Windows_Installer_V2.4.1_x64.exe",
+      "OrcaSlicer_Windows_V2.4.1_arm64_portable.zip",
+      "OrcaSlicer_Windows_V2.4.1_x64_portable.zip"
+    ]
+  },
+  {
+    "tag": "v2.4.0",
+    "prerelease": false,
+    "assets": [
+      "Debug_PDB_V2.4.0_for_developers_only.7z",
+      "OrcaSlicer-Linux-flatpak_V2.4.0_aarch64.flatpak",
+      "OrcaSlicer-Linux-flatpak_V2.4.0_x86_64.flatpak",
+      "OrcaSlicer_Linux_AppImage_Ubuntu2404_aarch64_V2.4.0.AppImage",
+      "OrcaSlicer_Linux_AppImage_Ubuntu2404_V2.4.0.AppImage",
+      "OrcaSlicer_Mac_universal_V2.4.0.dmg",
+      "OrcaSlicer_Windows_Installer_V2.4.0.exe",
+      "OrcaSlicer_Windows_V2.4.0_portable.zip"
+    ]
+  },
+  {
+    "tag": "v2.4.0-beta",
+    "prerelease": true,
+    "assets": [
+      "Debug_PDB_V2.4.0-beta_for_developers_only.7z",
+      "OrcaSlicer-Linux-flatpak_V2.4.0-beta_aarch64.flatpak",
+      "OrcaSlicer-Linux-flatpak_V2.4.0-beta_x86_64.flatpak",
+      "OrcaSlicer_Linux_AppImage_Ubuntu2404_V2.4.0-beta.AppImage",
+      "OrcaSlicer_Mac_universal_V2.4.0-beta.dmg",
+      "OrcaSlicer_Windows_Installer_V2.4.0-beta.exe",
+      "OrcaSlicer_Windows_V2.4.0-beta_portable.zip"
+    ]
+  },
+  {
+    "tag": "v2.4.0-alpha",
+    "prerelease": true,
+    "assets": [
+      "Debug_PDB_V2.4.0-alpha_for_developers_only.7z",
+      "OrcaSlicer-Linux-flatpak_V2.4.0-alpha_aarch64.flatpak",
+      "OrcaSlicer-Linux-flatpak_V2.4.0-alpha_x86_64.flatpak",
+      "OrcaSlicer_Linux_AppImage_Ubuntu2404_V2.4.0-alpha.AppImage",
+      "OrcaSlicer_Mac_universal_V2.4.0-alpha.dmg",
+      "OrcaSlicer_Windows_Installer_V2.4.0-alpha.exe",
+      "OrcaSlicer_Windows_V2.4.0-alpha_portable.zip"
+    ]
+  },
+  {
+    "tag": "v2.3.2",
+    "prerelease": false,
+    "assets": [
+      "OrcaSlicer-Linux-flatpak_V2.3.2_aarch64.flatpak",
+      "OrcaSlicer-Linux-flatpak_V2.3.2_x86_64.flatpak",
+      "OrcaSlicer_Linux_AppImage_Ubuntu2404_V2.3.2.AppImage",
+      "OrcaSlicer_Mac_universal_V2.3.2.dmg",
+      "OrcaSlicer_Windows_Installer_V2.3.2.exe",
+      "OrcaSlicer_Windows_V2.3.2_portable.zip"
+    ]
+  },
+  {
+    "tag": "v2.3.2-rc2",
+    "prerelease": true,
+    "assets": [
+      "OrcaSlicer-Linux-flatpak_V2.3.2-rc2_aarch64.flatpak",
+      "OrcaSlicer-Linux-flatpak_V2.3.2-rc2_x86_64.flatpak",
+      "OrcaSlicer_Linux_AppImage_Ubuntu2404_V2.3.2-rc2.AppImage",
+      "OrcaSlicer_Mac_universal_V2.3.2-rc2.dmg",
+      "OrcaSlicer_Windows_Installer_V2.3.2-rc2.exe",
+      "OrcaSlicer_Windows_V2.3.2-rc2_portable.zip"
+    ]
+  },
+  {
+    "tag": "v2.3.2-rc",
+    "prerelease": true,
+    "assets": [
+      "ORCaSlicer-Linux-flatpak_V2.3.2-RC_aarch64.flatpak",
+      "ORCaSlicer-Linux-flatpak_V2.3.2-RC_x86_64.flatpak",
+      "ORCaSlicer_Linux_AppImage_Ubuntu2404_V2.3.2-RC.AppImage",
+      "ORCaSlicer_Mac_universal_V2.3.2-RC.dmg",
+      "ORCaSlicer_Windows_Installer_V2.3.2-RC.exe",
+      "ORCaSlicer_Windows_V2.3.2-RC_portable.zip"
+    ]
+  },
+  {
+    "tag": "v2.3.2-beta2",
+    "prerelease": true,
+    "assets": [
+      "OrcaSlicer-Linux-flatpak_V2.3.2-beta2_aarch64.flatpak",
+      "OrcaSlicer-Linux-flatpak_V2.3.2-beta2_x86_64.flatpak",
+      "OrcaSlicer_Linux_AppImage_Ubuntu2404_V2.3.2-beta2.AppImage",
+      "OrcaSlicer_Mac_universal_V2.3.2-beta2.dmg",
+      "OrcaSlicer_Windows_Installer_V2.3.2-beta2.exe",
+      "OrcaSlicer_Windows_V2.3.2-beta2_portable.zip"
+    ]
+  },
+  {
+    "tag": "v2.3.2-beta",
+    "prerelease": true,
+    "assets": [
+      "OrcaSlicer-Linux-flatpak_V2.3.2-beta_aarch64.flatpak",
+      "OrcaSlicer-Linux-flatpak_V2.3.2-beta_x86_64.flatpak",
+      "OrcaSlicer_Linux_AppImage_Ubuntu2404_V2.3.2-beta.AppImage",
+      "OrcaSlicer_Mac_universal_V2.3.2-beta.dmg",
+      "OrcaSlicer_Windows_Installer_V2.3.2-beta.exe",
+      "OrcaSlicer_Windows_V2.3.2-beta_portable.zip"
+    ]
+  },
+  {
+    "tag": "v2.3.1",
+    "prerelease": false,
+    "assets": [
+      "Debug_PDB_V2.3.1_for_developers_only.7z",
+      "OrcaSlicer-Linux-flatpak_V2.3.1_aarch64.flatpak",
+      "OrcaSlicer-Linux-flatpak_V2.3.1_x86_64.flatpak",
+      "OrcaSlicer_Linux_AppImage_Ubuntu2404_V2.3.1.AppImage",
+      "OrcaSlicer_Mac_universal_V2.3.1.dmg",
+      "OrcaSlicer_Windows_Installer_V2.3.1.exe",
+      "OrcaSlicer_Windows_V2.3.1_portable.zip"
+    ]
+  },
+  {
+    "tag": "v2.3.1-beta",
+    "prerelease": true,
+    "assets": [
+      "OrcaSlicer-Linux-flatpak_V2.3.1-beta_aarch64.flatpak",
+      "OrcaSlicer-Linux-flatpak_V2.3.1-beta_x86_64.flatpak",
+      "OrcaSlicer_Linux_AppImage_Ubuntu2404_V2.3.1-beta.AppImage",
+      "OrcaSlicer_Mac_universal_V2.3.1-beta.dmg",
+      "OrcaSlicer_Windows_Installer_V2.3.1-beta.exe",
+      "OrcaSlicer_Windows_V2.3.1-beta_portable.zip"
+    ]
+  },
+  {
+    "tag": "v2.3.1-alpha",
+    "prerelease": true,
+    "assets": [
+      "OrcaSlicer-Linux-flatpak_V2.3.1-alpha_aarch64.flatpak",
+      "OrcaSlicer-Linux-flatpak_V2.3.1-alpha_x86_64.flatpak",
+      "OrcaSlicer_Linux_AppImage_Ubuntu2404_V2.3.1-alpha.AppImage",
+      "OrcaSlicer_Mac_universal_V2.3.1-alpha.dmg",
+      "OrcaSlicer_Windows_Installer_V2.3.1-alpha.exe",
+      "OrcaSlicer_Windows_V2.3.1-alpha_portable.zip"
+    ]
+  },
+  {
+    "tag": "v2.3.0",
+    "prerelease": false,
+    "assets": [
+      "Debug_PDB_V2.3.0_for_developers_only.7z",
+      "OrcaSlicer-Linux-flatpak_V2.3.0_aarch64.flatpak",
+      "OrcaSlicer-Linux-flatpak_V2.3.0_x86_64.flatpak",
+      "OrcaSlicer_Linux_AppImage_Ubuntu2404_V2.3.0.AppImage",
+      "OrcaSlicer_Linux_AppImage_V2.3.0.AppImage",
+      "OrcaSlicer_Mac_arm64_V2.3.0.dmg",
+      "OrcaSlicer_Mac_x86_64_V2.3.0.dmg",
+      "OrcaSlicer_Windows_Installer_V2.3.0.exe",
+      "OrcaSlicer_Windows_V2.3.0_portable.zip"
+    ]
+  },
+  {
+    "tag": "v2.3.0-rc",
+    "prerelease": true,
+    "assets": [
+      "Debug_PDB_V2.3.0-rc_for_developers_only.7z",
+      "OrcaSlicer-Linux-flatpak_V2.3.0-rc_arm64.flatpak",
+      "OrcaSlicer-Linux-flatpak_V2.3.0-rc_x86_64.flatpak",
+      "OrcaSlicer_Linux_AppImage_Ubuntu2404_V2.3.0-rc.AppImage",
+      "OrcaSlicer_Linux_AppImage_V2.3.0-rc.AppImage",
+      "OrcaSlicer_Mac_arm64_V2.3.0-rc.dmg",
+      "OrcaSlicer_Mac_x86_64_V2.3.0-rc.dmg",
+      "OrcaSlicer_Windows_Installer_V2.3.0-rc.exe",
+      "OrcaSlicer_Windows_V2.3.0-rc_portable.zip"
+    ]
+  },
+  {
+    "tag": "v2.3.0-beta2",
+    "prerelease": true,
+    "assets": [
+      "Debug_PDB_V2.3.0-beta2_for_developers_only.7z",
+      "OrcaSlicer-Linux-flatpak_V2.3.0-beta2.flatpak",
+      "OrcaSlicer_Linux_AppImage_Ubuntu2404_V2.3.0-beta2.AppImage",
+      "OrcaSlicer_Linux_AppImage_V2.3.0-beta2.AppImage",
+      "OrcaSlicer_Mac_arm64_V2.3.0-beta2.dmg",
+      "OrcaSlicer_Mac_x86_64_V2.3.0-beta2.dmg",
+      "OrcaSlicer_Windows_Installer_V2.3.0-beta2.exe",
+      "OrcaSlicer_Windows_V2.3.0-beta2_portable.zip"
+    ]
+  },
+  {
+    "tag": "v2.3.0-beta",
+    "prerelease": true,
+    "assets": [
+      "OrcaSlicer-Linux-flatpak_V2.3.0-beta.flatpak",
+      "OrcaSlicer_Linux_AppImage_Ubuntu2404_V2.3.0-beta.AppImage",
+      "OrcaSlicer_Linux_AppImage_V2.3.0-beta.AppImage",
+      "OrcaSlicer_Mac_arm64_V2.3.0-beta.dmg",
+      "OrcaSlicer_Mac_x86_64_V2.3.0-beta.dmg",
+      "OrcaSlicer_Windows_Installer_V2.3.0-beta.exe",
+      "OrcaSlicer_Windows_V2.3.0-beta_portable.zip",
+      "PDB.zip"
+    ]
+  },
+  {
+    "tag": "v2.2.0",
+    "prerelease": false,
+    "assets": [
+      "OrcaSlicer_Linux_Ubuntu2404_V2.2.0.AppImage",
+      "OrcaSlicer_Linux_V2.2.0.AppImage",
+      "OrcaSlicer_Mac_arm64_V2.2.0.dmg",
+      "OrcaSlicer_Mac_x86_64_V2.2.0.dmg",
+      "OrcaSlicer_Windows_Installer_V2.2.0.exe",
+      "OrcaSlicer_Windows_V2.2.0_portable.zip",
+      "PDB.zip"
+    ]
+  },
+  {
+    "tag": "v2.2.0-rc",
+    "prerelease": true,
+    "assets": [
+      "OrcaSlicer_Linux_Ubuntu2404_V2.2.0-rc.AppImage",
+      "OrcaSlicer_Linux_V2.2.0-rc.AppImage",
+      "OrcaSlicer_Mac_arm64_V2.2.0-rc.dmg",
+      "OrcaSlicer_Mac_x86_64_V2.2.0-rc.dmg",
+      "OrcaSlicer_Windows_Installer_V2.2.0-rc.exe",
+      "OrcaSlicer_Windows_V2.2.0-rc_portable.zip",
+      "PDB.zip"
+    ]
+  },
+  {
+    "tag": "v2.2.0-beta2",
+    "prerelease": true,
+    "assets": [
+      "OrcaSlicer_Linux_Ubuntu2004_V2.2.0-beta2.AppImage",
+      "OrcaSlicer_Linux_Ubuntu2404_V2.2.0-beta2.AppImage",
+      "OrcaSlicer_Mac_arm64_V2.2.0-beta2.dmg",
+      "OrcaSlicer_Mac_x86_64_V2.2.0-beta2.dmg",
+      "OrcaSlicer_Windows_Installer_V2.2.0-beta2.exe",
+      "OrcaSlicer_Windows_V2.2.0-beta2_portable.zip",
+      "PDB.zip"
+    ]
+  },
+  {
+    "tag": "v2.2.0-beta",
+    "prerelease": true,
+    "assets": [
+      "OrcaSlicer_Linux_Ubuntu2004_V2.2.0-beta.AppImage",
+      "OrcaSlicer_Linux_Ubuntu2404_V2.2.0-beta.AppImage",
+      "OrcaSlicer_Mac_arm64_V2.2.0-beta.dmg",
+      "OrcaSlicer_Mac_x86_64_V2.2.0-beta.dmg",
+      "OrcaSlicer_Windows_Installer_V2.2.0-beta.exe",
+      "OrcaSlicer_Windows_V2.2.0-beta_portable.zip"
+    ]
+  },
+  {
+    "tag": "v2.1.1",
+    "prerelease": false,
+    "assets": [
+      "OrcaSlicer_Linux_V2.1.1.AppImage",
+      "OrcaSlicer_Mac_arm64_V2.1.1.dmg",
+      "OrcaSlicer_Mac_x86_64_V2.1.1.dmg",
+      "OrcaSlicer_Windows_Installer_V2.1.1.exe",
+      "OrcaSlicer_Windows_V2.1.1_portable.zip"
+    ]
+  },
+  {
+    "tag": "v2.1.0",
+    "prerelease": false,
+    "assets": [
+      "OrcaSlicer_Linux_V2.1.0.AppImage",
+      "OrcaSlicer_Mac_arm64_V2.1.0.dmg",
+      "OrcaSlicer_Mac_x86_64_V2.1.0.dmg",
+      "OrcaSlicer_Windows_Installer_V2.1.0.exe",
+      "OrcaSlicer_Windows_V2.1.0_portable.zip"
+    ]
+  },
+  {
+    "tag": "v2.1.0-rc",
+    "prerelease": true,
+    "assets": [
+      "OrcaSlicer_Linux_V2.1.0-rc.AppImage",
+      "OrcaSlicer_Mac_arm64_V2.1.0-rc.dmg",
+      "OrcaSlicer_Mac_x86_64_V2.1.0-rc.dmg",
+      "OrcaSlicer_Windows_Installer_V2.1.0-rc.exe",
+      "OrcaSlicer_Windows_V2.1.0-rc_portable.zip"
+    ]
+  },
+  {
+    "tag": "v2.1.0-beta",
+    "prerelease": true,
+    "assets": [
+      "OrcaSlicer_Linux_V2.1.0-beta.AppImage",
+      "OrcaSlicer_Mac_arm64_V2.1.0-beta.dmg",
+      "OrcaSlicer_Mac_x86_64_V2.1.0-beta.dmg",
+      "OrcaSlicer_Windows_Installer_V2.1.0-beta.exe",
+      "OrcaSlicer_Windows_V2.1.0-beta_portable.zip"
+    ]
+  },
+  {
+    "tag": "v2.0.0",
+    "prerelease": false,
+    "assets": [
+      "Debug_PDB_V2.0.0_for_developers_only.7z",
+      "OrcaSlicer_Linux_V2.0.0.AppImage",
+      "OrcaSlicer_Mac_arm64_V2.0.0.dmg",
+      "OrcaSlicer_Mac_x86_64_V2.0.0.dmg",
+      "OrcaSlicer_Windows_Installer_V2.0.0.exe",
+      "OrcaSlicer_Windows_V2.0.0_portable.zip"
+    ]
+  },
+  {
+    "tag": "v2.0.0-rc",
+    "prerelease": true,
+    "assets": [
+      "OrcaSlicer_Linux_V2.0.0-rc.AppImage",
+      "OrcaSlicer_Mac_arm64_V2.0.0-rc.dmg",
+      "OrcaSlicer_Mac_x86_64_V2.0.0-rc.dmg",
+      "OrcaSlicer_Windows_Installer_V2.0.0-rc.exe",
+      "OrcaSlicer_Windows_V2.0.0-rc_portable.zip"
+    ]
+  },
+  {
+    "tag": "v2.0.0-beta",
+    "prerelease": true,
+    "assets": [
+      "OrcaSlicer_Linux_V2.0.0-beta.AppImage",
+      "OrcaSlicer_Mac_arm64_V2.0.0-beta.dmg",
+      "OrcaSlicer_Mac_x86_64_V2.0.0-beta.dmg",
+      "OrcaSlicer_Windows_Installer_V2.0.0-beta.exe",
+      "OrcaSlicer_Windows_V2.0.0-beta_portable.zip"
+    ]
+  }
+]

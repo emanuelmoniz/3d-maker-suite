@@ -6,6 +6,8 @@ import type {
   IntegrationPatch,
   LoginRequest,
   LoginResult,
+  SlicerInstallStatus,
+  SlicerRelease,
   SyncRequest,
   SyncResult,
   SyncRun,
@@ -107,6 +109,42 @@ export const useSyncIntegration = (id: string) =>
     (req: SyncRequest) => api<SyncResult>("POST", `/api/integrations/${id}/sync`, req),
     true,
   );
+
+/** A managed slicer's installable releases; the server asks GitHub at most once an hour. */
+export const useSlicerReleases = (id: string, pre: boolean, enabled = true) =>
+  useQuery({
+    queryKey: ["integrations", id, "slicer", "releases", pre],
+    queryFn: () =>
+      api<SlicerRelease[]>("GET", `/api/integrations/${id}/slicer/releases?pre=${pre}`),
+    enabled,
+    staleTime: 60 * 60_000,
+  });
+
+/** The install job; polled while it runs, and the card refreshes once it ends. */
+export function useSlicerInstall(id: string) {
+  const qc = useQueryClient();
+  return useQuery({
+    queryKey: ["integrations", id, "slicer", "install"],
+    queryFn: async () => {
+      const s = await api<SlicerInstallStatus>("GET", `/api/integrations/${id}/slicer/install`);
+      if (s.state !== "running") qc.invalidateQueries({ queryKey: ["integrations", "list"] });
+      return s;
+    },
+    refetchInterval: (q) => (q.state.data?.state === "running" ? 1000 : false),
+  });
+}
+
+export function useInstallSlicer(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (tag: string) =>
+      api<SlicerInstallStatus>("POST", `/api/integrations/${id}/slicer/install`, { tag }),
+    onSuccess: (s) => qc.setQueryData(["integrations", id, "slicer", "install"], s),
+  });
+}
+
+export const useRemoveSlicer = (id: string) =>
+  useInvalidating(() => api("DELETE", `/api/integrations/${id}/slicer`));
 
 /** On success the server starts a sync, which can import printers. */
 export const useLogin = (id: string) =>

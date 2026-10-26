@@ -17,6 +17,7 @@ import { evaluateAlerts } from "./alerts/evaluate.ts";
 import { runAutoBackup } from "./backup/backup.ts";
 import type { Config } from "./config.ts";
 import { HttpError } from "./errors.ts";
+import { createSlicerInstaller } from "./integrations/managedSlicer.ts";
 import { loadKey } from "./integrations/secrets.ts";
 import { createSyncer } from "./integrations/sync.ts";
 import { authGuard } from "./lib/auth.ts";
@@ -95,6 +96,8 @@ export async function buildApp(
     updateCheckSchedule?: string;
     /** Test seam for the updater (install type, version, releases). */
     updater?: Parameters<typeof createUpdater>[3];
+    /** Test seam for managed slicer installs (releases, download, smoke test, system). */
+    slicerInstaller?: Parameters<typeof createSlicerInstaller>[4];
   } = {},
 ) {
   // Any logger also feeds the `logs` table (Settings -> Logs decides what is kept).
@@ -256,7 +259,16 @@ export async function buildApp(
     app.addHook("onClose", async () => backup.stop());
   }
 
-  await app.register(integrationsRoutes(db, key, syncer), { prefix: "/api/integrations" });
+  const installer = createSlicerInstaller(
+    db,
+    dataDir,
+    syncer.adapters,
+    logFor("integrations"),
+    opts.slicerInstaller,
+  );
+  await app.register(integrationsRoutes(db, key, syncer, installer), {
+    prefix: "/api/integrations",
+  });
 
   // Runs one at a time, so a condition can't be sent twice by overlapping checks.
   let queue = Promise.resolve();

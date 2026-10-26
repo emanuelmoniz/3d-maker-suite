@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import Database from "better-sqlite3";
-import { count, eq } from "drizzle-orm";
+import { count, eq, getTableColumns } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import { migrate } from "drizzle-orm/better-sqlite3/migrator";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -346,7 +346,9 @@ describe("migration 0024", () => {
       },
       63, // 0064 turns off data types into manual
     );
-    const rows = now.select().from(s.integrations).all();
+    // Only the columns that exist at 0064 (slicer_version came with 0071).
+    const { slicerVersion: _, ...columns } = getTableColumns(s.integrations);
+    const rows = now.select(columns).from(s.integrations).all();
     expect(rows).toHaveLength(3);
     expect(rows.find((r) => r.id === "acct")).toMatchObject({
       adapterId: "bambu-cloud",

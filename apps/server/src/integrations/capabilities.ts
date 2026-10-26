@@ -72,9 +72,12 @@ export function activeCapabilities(db: Db, row: Row, adapter?: IntegrationAdapte
   );
 }
 
-/** A local source whose folder isn't on this server (e.g. the app runs on a NAS). */
+/**
+ * A local source whose folder isn't on this server (e.g. the app runs on a NAS), or a server one
+ * with no slicer installed yet.
+ */
 export const unavailable = (row: Row, adapter: IntegrationAdapter) =>
-  adapter.kind === "local" && !!adapter.library && !slicerConfigDir(row, adapter);
+  adapter.kind !== "cloud" && !!adapter.library && !slicerConfigDir(row, adapter);
 
 /** Every integration that can do `cap` right now, oldest first. */
 export function capableRows(db: Db, adapters: IntegrationAdapter[], cap: Capability) {

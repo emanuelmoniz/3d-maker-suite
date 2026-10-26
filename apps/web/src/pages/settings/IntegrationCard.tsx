@@ -33,6 +33,7 @@ import {
 } from "../../lib/integrations.ts";
 import { usePreferences, useSavePreferences } from "../../lib/preferences.ts";
 import { CAPS, ERRORS, KINDS } from "./integrationLabels.ts";
+import { ManagedSlicer, ProfilesFromZip } from "./ManagedSlicer.tsx";
 import { ActionSwitches, Policies } from "./PolicyRow.tsx";
 
 // The status dot's colour; the line's text says the rest.
@@ -94,7 +95,11 @@ export function IntegrationCard({ integration: i }: { integration: Integration }
     ) : state === "syncing" ? (
       t("integrations:card.syncing")
     ) : state === "unavailable" ? (
-      t("integrations:card.unavailableHint")
+      i.kind === "server" ? (
+        t("integrations:managed.notInstalledHint")
+      ) : (
+        t("integrations:card.unavailableHint")
+      )
     ) : state === "error" && i.lastError ? (
       t(ERRORS[i.lastError])
     ) : i.lastSyncAt ? (
@@ -197,6 +202,19 @@ export function IntegrationCard({ integration: i }: { integration: Integration }
           <ActionSwitches integration={i} />
         </Part>
       )}
+      {admin && i.enabled && i.kind === "server" && adapter?.managed && (
+        <Part title={t("integrations:slicer.title")}>
+          <ManagedSlicer integration={i} libraryId={adapter.libraryId} managed={adapter.managed} />
+          <DefaultSlicer integration={i} />
+          <ActionSwitches integration={i} />
+        </Part>
+      )}
+      {/* A server slicer with nothing to import: its presets come from a zip instead. */}
+      {admin && i.enabled && i.kind === "server" && !imports && adapter?.libraryId && (
+        <Part title={t("integrations:managed.profilesTitle")}>
+          <ProfilesFromZip libraryId={adapter.libraryId} />
+        </Part>
+      )}
       {/* A cloud adapter's slicer actions (a local one has them in its slicer part). */}
       {admin && i.enabled && i.kind === "cloud" && i.policies.some((p) => isAction(p.type)) && (
         <Part title={t("integrations:card.actions")}>
@@ -242,11 +260,6 @@ function SlicerFields({
 }) {
   const { t } = useTranslation();
   const patch = usePatchIntegration(i.id);
-  const savePrefs = useSavePreferences();
-  const defaultId = usePreferences().data?.values.defaultSlicerId;
-  const slicers = useCapable("openInSlicer");
-  // The default is the chosen one if it still works, else the first (same rule as the server).
-  const current = slicers.find((s) => s.id === defaultId) ?? slicers[0];
   const path = (
     field: "slicerConfigDir" | "slicerPath",
     label: string,
@@ -289,20 +302,34 @@ function SlicerFields({
       )}
       {program &&
         path("slicerPath", t("integrations:slicer.path"), t("integrations:slicer.pathHint"))}
-      {slicers.length > 1 &&
-        i.capabilities.includes("openInSlicer") &&
-        (current?.id === i.id ? (
-          <p className="text-muted">{t("integrations:slicer.isDefault")}</p>
-        ) : (
-          <Button
-            className="justify-self-start"
-            disabled={savePrefs.isPending}
-            onClick={() => savePrefs.mutate({ defaultSlicerId: i.id })}
-          >
-            {t("integrations:slicer.makeDefault")}
-          </Button>
-        ))}
+      <DefaultSlicer integration={i} />
     </div>
+  );
+}
+
+/** "Make default slicer" when more than one integration can open or slice files. */
+function DefaultSlicer({ integration: i }: { integration: Integration }) {
+  const { t } = useTranslation();
+  const savePrefs = useSavePreferences();
+  const defaultId = usePreferences().data?.values.defaultSlicerId;
+  const openers = useCapable("openInSlicer");
+  const slicers = [
+    ...openers,
+    ...useCapable("slice").filter((s) => !openers.some((o) => o.id === s.id)),
+  ];
+  // The default is the chosen one if it still works, else the first (same rule as the server).
+  const current = slicers.find((s) => s.id === defaultId) ?? slicers[0];
+  if (slicers.length < 2 || !slicers.some((s) => s.id === i.id)) return null;
+  return current?.id === i.id ? (
+    <p className="text-muted">{t("integrations:slicer.isDefault")}</p>
+  ) : (
+    <Button
+      className="justify-self-start"
+      disabled={savePrefs.isPending}
+      onClick={() => savePrefs.mutate({ defaultSlicerId: i.id })}
+    >
+      {t("integrations:slicer.makeDefault")}
+    </Button>
   );
 }
 

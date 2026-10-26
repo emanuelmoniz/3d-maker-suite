@@ -9,6 +9,7 @@ export function FormDialog({
   title,
   error,
   busy,
+  submitLabel,
   onSubmit,
   onCancel,
   children,
@@ -17,6 +18,8 @@ export function FormDialog({
   title: string;
   error?: string;
   busy?: boolean;
+  /** Default: Save. */
+  submitLabel?: string;
   onSubmit: (f: FormData) => void;
   onCancel: () => void;
   children: ReactNode;
@@ -39,7 +42,7 @@ export function FormDialog({
         )}
         <div className="flex gap-2">
           <Button type="submit" variant="primary" disabled={busy}>
-            {t("common:actions.save")}
+            {submitLabel ?? t("common:actions.save")}
           </Button>
           <Button onClick={onCancel}>{t("common:actions.cancel")}</Button>
         </div>

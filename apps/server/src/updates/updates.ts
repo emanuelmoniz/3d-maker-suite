@@ -52,6 +52,16 @@ const githubReleases = z.array(
     prerelease: z.boolean(),
     draft: z.boolean(),
     html_url: z.string(),
+    assets: z
+      .array(
+        z.object({
+          name: z.string(),
+          size: z.number(),
+          digest: z.string().nullish(),
+          browser_download_url: z.string(),
+        }),
+      )
+      .default([]),
   }),
 );
 const history = z.array(updateHistoryEntrySchema);
@@ -64,8 +74,9 @@ export function installType(root = ROOT, env = process.env): InstallType {
   return env.APP_LAUNCHER && existsSync(join(root, ".git")) ? "git" : "other";
 }
 
-const fetchReleases = async (): Promise<Release[]> => {
-  const res = await fetch(RELEASES, {
+/** A GitHub releases list (newest 30, no drafts): this app's, or a managed slicer's (ADR-0013). */
+export const fetchReleases = async (url = RELEASES): Promise<Release[]> => {
+  const res = await fetch(url, {
     headers: { accept: "application/vnd.github+json", "user-agent": "3d-maker-suite" },
     signal: AbortSignal.timeout(15_000),
   });
@@ -73,8 +84,21 @@ const fetchReleases = async (): Promise<Release[]> => {
   return githubReleases
     .parse(await res.json())
     .filter((r) => !r.draft)
-    .map((r) => ({ tag: r.tag_name, prerelease: r.prerelease, url: r.html_url }));
+    .map((r) => ({
+      tag: r.tag_name,
+      prerelease: r.prerelease,
+      url: r.html_url,
+      assets: r.assets.map((a) => ({
+        name: a.name,
+        size: a.size,
+        digest: a.digest ?? undefined,
+        url: a.browser_download_url,
+      })),
+    }));
 };
+
+export const repoReleasesUrl = (repo: string) =>
+  `https://api.github.com/repos/${repo}/releases?per_page=30`;
 
 /**
  * Checks GitHub releases and prepares updates and rollbacks for the launcher (scripts/update.mjs,
@@ -89,7 +113,7 @@ export function createUpdater(
     root = ROOT,
     version = VERSION,
     install = installType(root),
-    releases: fetchAll = fetchReleases,
+    releases: fetchAll = () => fetchReleases(),
     installDir = process.env.APP_INSTALL_DIR ?? "",
     shipped = process.env.APP_SHIPPED_VERSION,
     download = fetch,

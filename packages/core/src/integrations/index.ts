@@ -32,6 +32,8 @@ export interface IntegrationAdapter {
   library?: FilamentLibrary;
   /** Slices a 3MF plate with the vendor's slicer program (ADR-0007). Needs the `slice` capability. */
   slicer?: Slicer;
+  /** `server` adapters: where to download the slicer and what is in the download (ADR-0013). */
+  managed?: ManagedSlicer;
   /**
    * Interactive sign-in (password, then an email code or 2FA). Returns the secrets to store, or a
    * challenge; the server keeps `state` and passes it back with the code. Never store the password.
@@ -143,6 +145,27 @@ export interface Slicer {
     req: SliceRequest,
     signal: AbortSignal,
   ): Promise<SliceResult>;
+}
+
+/** The system the slicer runs on; `glibc` on Linux only (e.g. "2.41"). */
+export type SlicerSystem = { platform: string; arch: string; glibc?: string };
+
+/**
+ * A slicer the server downloads from the vendor's GitHub releases. The server streams, checks
+ * the digest, unpacks (by extension: .zip, .dmg, .AppImage) and runs a smoke test.
+ */
+export interface ManagedSlicer {
+  /** "owner/name" on GitHub. */
+  repo: string;
+  licenceUrl: string;
+  /** Older tags are never offered (e.g. Orca < 2.5 can't slice Bambu files). */
+  minVersion?: string;
+  /** The asset to install for this tag on this system, or undefined (no build: never guess). */
+  asset(tag: string, names: string[], sys: SlicerSystem): string | undefined;
+  /** The program, relative to the unpacked folder. */
+  exe(platform: string): string;
+  /** The system profiles folder (layout of `<configDir>/system/`), relative to the unpacked folder. */
+  profiles(platform: string): string;
 }
 
 /** Opens a local file in a slicer. The server decides which files are allowed before calling. */

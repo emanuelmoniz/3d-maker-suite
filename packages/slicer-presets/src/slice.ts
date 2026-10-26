@@ -69,34 +69,63 @@ async function userFile(dir: string, kind: string, name: string) {
     }
 }
 
+/** The exit code as the program returned it: Windows passes 32 bits, POSIX only the low 8. */
+export const signedExit = (code: number, platform = process.platform) =>
+  platform === "win32" ? code | 0 : (code << 24) >> 24;
+
 /**
  * Runs the slicer until it exits, or until it wrote `result.json` and then lingers: some results
  * (e.g. PLA and PETG on one plate) leave it waiting on a warning box nobody can see, after the
- * work is done. It gets a few seconds to exit on its own, then it's killed.
+ * work is done. It gets a few seconds to exit on its own, then it's killed. Resolves with the
+ * signed exit code, or null when it was killed or crashed.
  */
 const run = (program: string, args: string[], cwd: string, signal: AbortSignal) =>
-  new Promise<void>((ok, fail) => {
+  new Promise<number | null>((ok, fail) => {
     const child = spawn(program, args, { cwd, signal, windowsHide: true, stdio: "ignore" });
     let doneAt = 0;
     const poll = setInterval(() => {
       if (!doneAt && existsSync(join(cwd, "result.json"))) doneAt = Date.now();
       if (doneAt && Date.now() - doneAt > LINGER_MS) child.kill();
     }, 500);
-    const end = (e?: Error) => {
+    child.once("error", (e) => {
       clearInterval(poll);
-      if (e) fail(e);
-      else ok();
-    };
-    child.once("error", end);
-    child.once("exit", () => end());
+      fail(e);
+    });
+    child.once("exit", (code) => {
+      clearInterval(poll);
+      ok(code === null ? null : signedExit(code));
+    });
   });
 
-export function cliSlicer(timeoutMs = TIMEOUT_MS): Slicer {
+/** The last `[error]` line of Orca's log, without its timestamp and thread prefix. */
+export function lastLogError(log: string): string | undefined {
+  const line = log
+    .split(/\r?\n/)
+    .findLast((l) => /\[error\]/i.test(l))
+    ?.replace(/^.*?\[error\]\s*/i, "")
+    .trim();
+  return line || undefined;
+}
+
+/**
+ * Bambu Studio and OrcaSlicer take the same slicing flags, but read results differently
+ * (ADR-0013): Bambu refuses unknown flags and reports in `result.json`; Orca needs
+ * `--allow-newer-file`, writes `result.json` only on Linux, and reports through its exit code
+ * and log.
+ */
+export function cliSlicer({
+  flavor = "bambu",
+  timeoutMs = TIMEOUT_MS,
+}: {
+  flavor?: "bambu" | "orca";
+  timeoutMs?: number;
+} = {}): Slicer {
   return {
     async slice(program, configDir, req: SliceRequest, signal) {
       const out = await mkdtemp(join(tmpdir(), "3dms-slice-"));
       try {
         const args = ["--slice", String(req.plate), "--outputdir", out, "--export-3mf", "out.3mf"];
+        if (flavor === "orca") args.push("--allow-newer-file", "--logfile", join(out, "log.txt"));
         const own = await presetsOf(req.file);
         // Another printer than the file's: its machine preset, and the file's printer edits don't
         // apply. ponytail: system presets only (ADR-0007: the CLI refuses user machine presets).
@@ -192,7 +221,7 @@ export function cliSlicer(timeoutMs = TIMEOUT_MS): Slicer {
           args.push("--load-filaments", files.join(";"));
         }
 
-        await run(
+        const code = await run(
           program,
           [...args, req.file],
           out,
@@ -203,12 +232,22 @@ export function cliSlicer(timeoutMs = TIMEOUT_MS): Slicer {
           throw e;
         });
 
-        const result = await readFile(join(out, "result.json"), "utf8")
-          .then((t) => JSON.parse(t) as { return_code?: number; error_string?: string })
-          .catch(() => null);
-        if (!result) throw failed("The slicer crashed");
-        if (result.return_code !== 0)
-          throw failed(`${result.error_string ?? "Unknown error"} (${result.return_code})`);
+        if (flavor === "orca") {
+          if (code !== 0 || !existsSync(join(out, "out.3mf"))) {
+            if (code === null) throw failed("The slicer crashed");
+            const log = await readFile(join(out, "log.txt"), "utf8").catch(() => "");
+            // Orca's own codes are small (-24); Windows reports a crash as an NTSTATUS (0xC0000005).
+            const why = lastLogError(log) ?? (code < -255 ? "The slicer crashed" : "Unknown error");
+            throw failed(`${why} (${code})`);
+          }
+        } else {
+          const result = await readFile(join(out, "result.json"), "utf8")
+            .then((t) => JSON.parse(t) as { return_code?: number; error_string?: string })
+            .catch(() => null);
+          if (!result) throw failed("The slicer crashed");
+          if (result.return_code !== 0)
+            throw failed(`${result.error_string ?? "Unknown error"} (${result.return_code})`);
+        }
 
         const info = await parse3mf(join(out, "out.3mf")).catch(() => null);
         const plate = info?.plates.find((p) => p.index === req.plate);

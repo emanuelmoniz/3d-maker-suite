@@ -108,7 +108,8 @@ export const NEW_SPOOL_FIELD = ["import", "unset", "review"] as const;
  * Where an integration's data comes from: an account, or a folder and program on the server's
  * disk. It says nothing about which types it has; the adapter's capabilities do.
  */
-export const INTEGRATION_KINDS = ["cloud", "local"] as const;
+/** `server`: a slicer the app downloads and runs itself (ADR-0013). */
+export const INTEGRATION_KINDS = ["cloud", "local", "server"] as const;
 /**
  * What an integration can do: the data types it provides, plus the `openInSlicer` and `slice`
  * actions. The adapter declares only what it really has, the user sets each one's sync policy

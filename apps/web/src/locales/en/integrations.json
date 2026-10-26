@@ -9,7 +9,8 @@
   "noTasks": "An admin can let you sync or review an integration's data here.",
   "kinds": {
     "cloud": "Cloud",
-    "local": "Local"
+    "local": "Local",
+    "server": "Server"
   },
   "errors": {
     "auth_required": "Sign-in required. Check the credentials.",
@@ -102,6 +103,12 @@
     },
     "orca-slicer": {
       "name": "OrcaSlicer"
+    },
+    "bambu-studio-server": {
+      "name": "Bambu Studio (server)"
+    },
+    "orca-slicer-server": {
+      "name": "OrcaSlicer (server)"
     }
   },
   "login": {
@@ -249,6 +256,51 @@
     "pathHint": "Full path to the slicer executable, used by \"Open in slicer\".",
     "isDefault": "This is the default slicer.",
     "makeDefault": "Make default slicer"
+  },
+  "managed": {
+    "notInstalled": "Not installed.",
+    "notInstalledHint": "Install the slicer below. The server downloads it from the vendor's GitHub releases and runs it itself.",
+    "installed": "Version {{version}} installed.",
+    "install": "Install slicer",
+    "otherVersion": "Install another version",
+    "update": "Update to {{version}}",
+    "retry": "Try again",
+    "remove": "Remove slicer",
+    "removeTitle": "Remove {{name}}'s slicer?",
+    "removeBody": "Its program and profiles are deleted from this server. Slicing with it stops until you install it again. Imported presets stay.",
+    "progress": "Install progress",
+    "phases": {
+      "download": "Downloading {{version}}… {{done}} of {{total}}",
+      "verify": "Checking the download…",
+      "unpack": "Unpacking {{version}}…",
+      "test": "Testing {{version}}…"
+    },
+    "errors": {
+      "fetch_failed": "Couldn't download {{version}}. Check the server's internet connection and try again.",
+      "bad_digest": "The download of {{version}} doesn't match its checksum, so it wasn't installed.",
+      "unpack_failed": "Couldn't unpack {{version}}. Is there enough free disk space?",
+      "smoke_failed": "{{version}} was downloaded but doesn't start on this server, so it wasn't installed.",
+      "vcredist_missing": "{{version}} needs the Microsoft Visual C++ Redistributable (x64). Install it, then try again."
+    },
+    "vcRedist": "Get the Visual C++ Redistributable",
+    "dialogTitle": "Install {{name}}",
+    "version": "Version",
+    "size": "Download: {{size}}. Unpacked it takes a little more, plus the old version until the new one works.",
+    "preRelease": "{{version}} (pre-release)",
+    "showPre": "Show pre-releases",
+    "noStable": "No stable release can be installed on this server yet. Switch on pre-releases to see the others.",
+    "noneForSystem": "No release has a build for this server's system.",
+    "releasesError": "Couldn't read the releases from GitHub. Check the server's internet connection and try again later.",
+    "licence": "{{name}} is AGPL-3.0 software. 3D Maker Suite downloads the vendor's own release and doesn't change it.",
+    "licenceLink": "Licence",
+    "source": "Source code of {{version}}",
+    "profilesTitle": "Profiles and catalog",
+    "noProfiles": "{{name}}'s download has no profiles this app can read, so this card can't import brands, printers or profiles. It slices with the settings saved in each 3MF file. To use other profiles, import them from a desktop install:",
+    "zipSteps": {
+      "install": "Install {{name}} on any computer and open it once.",
+      "folder": "Open its config folder (Help → Show Configuration Folder), or find it yourself:",
+      "zip": "Zip the system and user folders in it."
+    }
   },
   "sync": {
     "range": "Period",

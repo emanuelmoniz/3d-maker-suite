@@ -75,6 +75,8 @@ export const integrations = sqliteTable("integrations", {
   slicerConfigDir: text(),
   /** Slicer program for "Open in slicer". */
   slicerPath: text(),
+  /** A server integration's installed slicer version (ADR-0013); null = none installed. */
+  slicerVersion: text(),
   status: text().notNull().default("new"),
   lastSyncAt: text(),
   lastError: text(),

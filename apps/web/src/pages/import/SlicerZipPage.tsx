@@ -1,5 +1,5 @@
 import { SLICER_ZIP_TYPES } from "@3d-maker-suite/core";
-import { Link, useNavigate, useParams } from "@tanstack/react-router";
+import { Link, useNavigate, useParams, useSearch } from "@tanstack/react-router";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Combobox } from "../../components/Combobox.tsx";
@@ -28,8 +28,10 @@ export function SlicerZipPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { id } = useParams({ strict: false }) as { id?: string };
+  // `?slicer=` preselects a source (e.g. from a server slicer card that can't read profiles).
+  const { slicer } = useSearch({ strict: false }) as { slicer?: string };
   const sources = useZipSources();
-  const [picked, setPicked] = useState("");
+  const [picked, setPicked] = useState(slicer ?? "");
   const source = sources.data?.find((s) => s.id === picked) ?? sources.data?.[0];
   const upload = useZipUpload(source?.id ?? "");
   const name = source ? t(`filament:library.sources.${source.id}`) : "";

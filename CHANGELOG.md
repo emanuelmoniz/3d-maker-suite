@@ -4,6 +4,11 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+### Added
+- Integrations: **Bambu Studio (server)** and **OrcaSlicer (server)**. The server downloads the slicer from the vendor's GitHub releases (checksum checked, licence shown), tests it and slices with it, so a NAS or headless server can slice without a desktop slicer. Install, update to a newer version or remove it from the card; the old version stays until the new one starts
+- Bambu Studio (server) imports brands, printers and profiles from the download, with the same sync options as the local one. OrcaSlicer (server) can't read its download's profiles; its card explains how to import them from a zip
+- OrcaSlicer (local) can slice too (OrcaSlicer 2.5 or newer)
+
 ## [4.2.0-alpha.2] - 2026-10-25
 
 Pre-release. Test on a copy of your data first; back up before updating.

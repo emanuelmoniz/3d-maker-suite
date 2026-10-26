@@ -127,6 +127,46 @@ export const adapterInfoSchema = z.object({
   capabilities: z.array(z.enum(CAPABILITIES)),
   /** First default slicer config folder that exists on this PC, if the adapter reads one. */
   detectedConfigDir: z.string().nullable(),
+  /** The slicer library's id (a slicer-zip source), shared by a slicer's local and server adapters. */
+  libraryId: z.string().nullable(),
+  /** `server` adapters: the vendor's repo and licence, for the install dialog. */
+  managed: z.object({ repo: z.string(), licenceUrl: z.string() }).nullable(),
+});
+
+/** A slicer release this server can install (ADR-0013). */
+export const slicerReleaseSchema = z.object({
+  tag: z.string(),
+  prerelease: z.boolean(),
+  /** The release page. */
+  url: z.string(),
+  /** Download size in bytes. */
+  size: z.number().int().nonnegative(),
+});
+
+export const slicerInstallSchema = z.object({ tag: z.string().min(1) }).strict();
+
+export const SLICER_INSTALL_PHASES = ["download", "verify", "unpack", "test"] as const;
+export const SLICER_INSTALL_ERRORS = [
+  "fetch_failed",
+  "bad_digest",
+  "unpack_failed",
+  "smoke_failed",
+  "vcredist_missing",
+] as const;
+
+/** The install job of one server integration (one job runs at a time, in memory). */
+export const slicerInstallStatusSchema = z.object({
+  state: z.enum(["idle", "running", "failed", "done"]),
+  phase: z.enum(SLICER_INSTALL_PHASES).nullable(),
+  tag: z.string().nullable(),
+  /** Bytes downloaded so far, and the asset's size. */
+  received: z.number().int().nonnegative(),
+  total: z.number().int().nonnegative(),
+  error: z.enum(SLICER_INSTALL_ERRORS).nullable(),
+  /** The program's own text (e.g. its exit code), shown as-is. */
+  detail: z.string().nullable(),
+  startedAt: isoDate.nullable(),
+  finishedAt: isoDate.nullable(),
 });
 
 /** Step 1 sends email + password, step 2 the code the vendor asked for. */
@@ -232,3 +272,6 @@ export type SyncPolicy = z.infer<typeof syncPolicySchema>;
 export type TestResult = z.infer<typeof testResultSchema>;
 export type LoginRequest = z.infer<typeof loginInputSchema>;
 export type LoginResult = z.infer<typeof loginResultSchema>;
+export type SlicerRelease = z.infer<typeof slicerReleaseSchema>;
+export type SlicerInstallStatus = z.infer<typeof slicerInstallStatusSchema>;
+export type SlicerInstallError = (typeof SLICER_INSTALL_ERRORS)[number];

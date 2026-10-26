@@ -87,6 +87,8 @@ export const integrationSchema = z.object({
   slicerConfigDir: z.string().nullable().optional(),
   /** Slicer program used by "Open in slicer". */
   slicerPath: z.string().nullable().optional(),
+  /** A server integration's installed slicer version; null = none. */
+  slicerVersion: z.string().nullable().optional(),
   /** Supported, switched on and set up: the only thing the UI looks at to offer actions. */
   capabilities: z.array(z.enum(CAPABILITIES)),
   /** One per capability the adapter supports, in its order. */

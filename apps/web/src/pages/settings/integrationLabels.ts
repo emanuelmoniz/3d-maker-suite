@@ -1,9 +1,29 @@
-import type { Capability, IntegrationErrorCode, IntegrationKind } from "@3d-maker-suite/core";
+import type {
+  Capability,
+  IntegrationErrorCode,
+  IntegrationKind,
+  SlicerInstallError,
+  SlicerInstallStatus,
+} from "@3d-maker-suite/core";
 
 // Literal keys so `pnpm i18n:check` sees them.
 export const KINDS: Record<IntegrationKind, string> = {
   cloud: "integrations:kinds.cloud",
   local: "integrations:kinds.local",
+  server: "integrations:kinds.server",
+};
+export const INSTALL_PHASES: Record<NonNullable<SlicerInstallStatus["phase"]>, string> = {
+  download: "integrations:managed.phases.download",
+  verify: "integrations:managed.phases.verify",
+  unpack: "integrations:managed.phases.unpack",
+  test: "integrations:managed.phases.test",
+};
+export const INSTALL_ERRORS: Record<SlicerInstallError, string> = {
+  fetch_failed: "integrations:managed.errors.fetch_failed",
+  bad_digest: "integrations:managed.errors.bad_digest",
+  unpack_failed: "integrations:managed.errors.unpack_failed",
+  smoke_failed: "integrations:managed.errors.smoke_failed",
+  vcredist_missing: "integrations:managed.errors.vcredist_missing",
 };
 export const ERRORS: Record<IntegrationErrorCode, string> = {
   auth_required: "integrations:errors.auth_required",

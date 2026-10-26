@@ -11,6 +11,7 @@ ADR-0007 slices with the CLI of the slicer installed on the server's PC. A headl
 - **Digest:** every asset in the releases API has `digest: "sha256:…"`. The download is hashed and compared before unpacking. No asset without a digest is installed.
 - **Descriptor:** core gets a types-only `managedSlicer` descriptor (repo, asset matcher per OS/arch, unpack type, exe path, profiles path, licence and source link). The bambu and orca adapters fill it in. Download, unpack and smoke test live in `apps/server/src/integrations/managedSlicer.ts`.
 - **Target:** `<dataDir>/slicers/<adapter>/<version>/`. The previous version is kept until the new one passes its smoke test.
+  - *Step 13 amendment:* managed slicers are their own integration kind `server` (Bambu Studio (server), OrcaSlicer (server)), so the folder is per integration, `<dataDir>/slicers/<integrationId>/`, and `config/system` links to the installed version's profiles. The smoke test is `<exe> --help` exiting 0.
 
 ### Per slicer × OS
 

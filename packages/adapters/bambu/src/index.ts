@@ -2,10 +2,14 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import {
   type ExternalPrint,
+  glibcAtLeast,
   type IntegrationAdapter,
   IntegrationError,
   type LibrarySpool,
   type Logger,
+  type ManagedSlicer,
+  pickAsset,
+  tagPattern,
 } from "@3d-maker-suite/core";
 import { z } from "zod";
 
@@ -351,6 +355,68 @@ export function bambuStudioAdapter(): IntegrationAdapter {
     ],
     library: bambuStudioLibrary(),
     slicer: cliSlicer(),
+    configSchema: z.object({}),
+    secretsSchema: z.object({}),
+  };
+}
+
+const app = "BambuStudio.app/Contents";
+
+/**
+ * ADR-0013: portable zip (x64), universal dmg, AppImage (x64; the Ubuntu 22.04 build on glibc
+ * < 2.38). Names are matched with the tag's own version: a release can carry another one's dmg.
+ */
+export const bambuManaged: ManagedSlicer = {
+  repo: "bambulab/BambuStudio",
+  licenceUrl: "https://github.com/bambulab/BambuStudio/blob/master/LICENSE",
+  asset(tag, names, sys) {
+    const v = tagPattern(tag);
+    const ubuntu = glibcAtLeast(sys, "2.38")
+      ? "(?:ubu24|ubuntu-?24\\.04)"
+      : "(?:ubu22|ubuntu-?22\\.04)";
+    const re =
+      sys.platform === "win32" && sys.arch === "x64"
+        ? new RegExp(`^Bambu_Studio_win[-_]v${v}-\\d+\\.zip$`)
+        : sys.platform === "darwin"
+          ? new RegExp(`^Bambu_Studio_mac[-_]v${v}-\\d+\\.dmg$`)
+          : sys.platform === "linux" && sys.arch === "x64" && sys.glibc
+            ? new RegExp(`^BambuStudio_${ubuntu}[-_]v${v}-\\d+\\.AppImage$`)
+            : undefined;
+    return pickAsset(names, re);
+  },
+  exe: (p) =>
+    p === "win32"
+      ? "bambu-studio.exe"
+      : p === "darwin"
+        ? `${app}/MacOS/BambuStudio`
+        : "squashfs-root/AppRun",
+  profiles: (p) =>
+    p === "win32"
+      ? "resources/profiles"
+      : p === "darwin"
+        ? `${app}/Resources/profiles`
+        : "squashfs-root/resources/profiles",
+};
+
+// Bambu Studio downloaded and run by the server: its own system profiles are the preset source,
+// so it imports like the local one (same library id, so the same presets), but has no GUI to open.
+export function bambuStudioServerAdapter(): IntegrationAdapter {
+  return {
+    id: "bambu-studio-server",
+    kind: "server",
+    capabilities: [
+      "brands",
+      "printerModels",
+      "machineProfiles",
+      "printProfiles",
+      "filamentBrands",
+      "filamentMaterials",
+      "filamentProfiles",
+      "slice",
+    ],
+    library: bambuStudioLibrary(() => []),
+    slicer: cliSlicer(),
+    managed: bambuManaged,
     configSchema: z.object({}),
     secretsSchema: z.object({}),
   };

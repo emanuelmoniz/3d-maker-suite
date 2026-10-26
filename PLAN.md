@@ -583,9 +583,9 @@ Design (Bambu Studio and OrcaSlicer, the user picks): the user installs the slic
 Do Step 12 of the 4.2.0 plan in PLAN.md. Report each slicer × OS with evidence first.
 ```
 
-### [ ] Step 13 - Managed slicer install  **[plan mode]**
+### [x] Step 13 - Managed slicer install  **[plan mode]**
 **Model:** Opus · **Effort:** High
-**Scope:** `managedSlicer` descriptors; release list (generalise `fetchReleases` from `updates.ts` to any repo); install job with progress (download, digest/size check, unpack, smoke test, set `slicerPath`), previous version kept until the new one passes; migration `slicerVersion`, `slicerManaged` on `integrations`; Integrations → Slicer: "Install slicer" (pick slicer + version, licence notice), installed version, Update, Remove.
+**Scope:** A third integration kind `server`: **Bambu Studio (server)** and **OrcaSlicer (server)**, added with Add integration, one card each. `managedSlicer` descriptors; release list (generalise `fetchReleases` from `updates.ts` to any repo); install job with progress (download, digest check, unpack, smoke test, set `slicerPath`/`slicerConfigDir`), previous version kept until the new one passes; `<dataDir>/slicers/<integrationId>/config/system` points at the download's profiles, so Bambu (server) imports with the usual sync options; Orca (server) has no readable profiles (`.opc`) and its card explains the zip import; Orca's CLI arguments and error reading (local Orca slices too); migration `slicerVersion` on `integrations` (no `slicerManaged`: the kind says it); card: Install (version, pre-releases, licence + source), installed version, Update, Remove.
 **Done when:** the flow is approved; install, update and remove work on Windows and macOS (tests with fake releases + one manual run); tests pass.
 **Prompt:**
 ```
@@ -593,9 +593,19 @@ Do Step 13 of the 4.2.0 plan in PLAN.md. Show me the install job states and the 
 Back up the DB before editing schema.ts.
 ```
 
+### [ ] Step 13b - Slicer per project and plate  **[plan mode]**
+**Model:** Opus · **Effort:** High
+**Scope:** Pick the slicer integration that slices: per plate, else per project (project edit page → print setup), else the default slicer from Integrations (local, server or cloud-linked). Stored on projects and plates (migration), used by the slice queue and part of the slice cache key; the plate and project pickers list only slice-capable integrations; a removed or switched-off choice falls back to the default.
+**Done when:** the flow is approved; plate → project → default resolves in the queue and the UI; tests pass.
+**Prompt:**
+```
+Do Step 13b of the 4.2.0 plan in PLAN.md. Show me the pickers and the fallback rules first.
+Back up the DB before editing schema.ts.
+```
+
 ### [ ] Step 14 - Managed profiles, versions and update alerts
 **Model:** Opus · **Effort:** High
-**Scope:** With no desktop slicer, a managed config folder `<dataDir>/slicers/<adapter>/config/` built from the download's system profiles; user preset zips unpack there and persist (today `slicer-zips` is cleared after a day); the slicer version stored with each slice result and part of the freshness check (version change → outdated → auto slice); daily check raises a `slicer_update` alert with a CTA to the integration card.
+**Scope:** With no desktop slicer, the managed config folder `<dataDir>/slicers/<integrationId>/config/` (its `system/` already points at the download's profiles, Step 13); user preset zips unpack there and persist (today `slicer-zips` is cleared after a day); the slicer version stored with each slice result and part of the freshness check (version change → outdated → auto slice); daily check raises a `slicer_update` alert with a CTA to the integration card.
 **Done when:** slicing works with only a managed slicer and imported presets; a version change marks slices outdated; the alert appears; tests pass.
 **Prompt:**
 ```
