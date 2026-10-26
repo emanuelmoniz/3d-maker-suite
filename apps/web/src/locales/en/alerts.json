@@ -73,6 +73,7 @@
   "history": {
     "title": "Alerts history",
     "table": "Alerts history",
+    "error": "The alerts history could not be loaded.",
     "columns": {
       "alert": "Alert",
       "module": "Module",

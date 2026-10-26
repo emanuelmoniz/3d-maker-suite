@@ -362,12 +362,17 @@ function History() {
   const { t } = useTranslation();
   const act = useAlertAction();
   const [query, setQuery] = useUrlListQuery();
-  const { data } = useAlertHistory(query);
+  const { data, isError } = useAlertHistory(query);
   const options = <K extends string>(map: Record<K, string>) =>
     (Object.keys(map) as K[]).map((value) => ({ value, label: t(map[value]) }));
   return (
     <section className="grid gap-3">
       <h2 className="text-base font-semibold">{t("alerts:history.title")}</h2>
+      {isError && !data && (
+        <p role="alert" className="text-bad">
+          {t("alerts:history.error")}
+        </p>
+      )}
       {data && (
         <DataTable
           label={t("alerts:history.table")}
