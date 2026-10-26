@@ -70,13 +70,16 @@ function PrinterForm({ printer }: { printer?: Printer }) {
       printProfileId: orNull(text(f, "printProfileId")),
       ...readCostFields(f),
     };
-    save.mutate(body, {
-      onSuccess: async (saved) => {
+    // mutateAsync, not mutate's onSuccess: the save refetches the row and the edit page remounts
+    // this form (key=updatedAt), which drops mutate-level callbacks.
+    save
+      .mutateAsync(body)
+      .then(async (saved) => {
         const { id } = saved as Printer;
         await tags.persist(id);
         navigate({ to: "/printers/$id", params: { id } });
-      },
-    });
+      })
+      .catch(() => {}); // errors show via save.error
   };
 
   return (

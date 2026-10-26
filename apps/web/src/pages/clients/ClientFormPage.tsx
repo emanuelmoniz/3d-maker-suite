@@ -34,10 +34,14 @@ export function ClientForm({
   const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const body = Object.fromEntries(new FormData(e.currentTarget)) as Record<string, string>;
-    save.mutate(body as never, {
-      onSuccess: (saved) =>
+    // mutateAsync, not mutate's onSuccess: the save refetches the row and the edit page remounts
+    // this form (key=updatedAt), which drops mutate-level callbacks.
+    save
+      .mutateAsync(body as never)
+      .then((saved) =>
         onSaved ? onSaved(saved) : navigate({ to: "/clients/$id", params: { id: saved.id } }),
-    });
+      )
+      .catch(() => {}); // errors show via save.error
   };
 
   const input = (

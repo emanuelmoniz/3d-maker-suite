@@ -62,12 +62,15 @@ function TypeForm({ type }: { type?: MaintenanceType }) {
       appliesToAccessoryTypes: forPrinters ? [] : accessoryTypes,
       appliesToAccessoryIds: forPrinters ? [] : accessoryIds,
     };
-    if (type)
-      patch.mutate(
-        { id: type.id, patch: body },
-        { onSuccess: () => navigate({ to: "/maintenance/types/$id", params: { id: type.id } }) },
-      );
-    else create.mutate(body, { onSuccess: () => navigate({ to: "/maintenance" }) });
+    // mutateAsync, not mutate's onSuccess: the save refetches the row and the edit page remounts
+    // this form (key=updatedAt), which drops mutate-level callbacks.
+    (type ? patch.mutateAsync({ id: type.id, patch: body }) : create.mutateAsync(body))
+      .then(() =>
+        navigate(
+          type ? { to: "/maintenance/types/$id", params: { id: type.id } } : { to: "/maintenance" },
+        ),
+      )
+      .catch(() => {}); // errors show via the mutation state
   };
   const interval = (name: string, label: string, value: number | null | undefined, min = 1) => (
     <FormField label={t(label)}>

@@ -57,13 +57,16 @@ function AccessoryForm({ accessory }: { accessory?: Accessory }) {
       warrantyNotes: orNull(text(f, "warrantyNotes")),
       ...readCostFields(f),
     };
-    save.mutate(body, {
-      onSuccess: async (saved) => {
+    // mutateAsync, not mutate's onSuccess: the save refetches the row and the edit page remounts
+    // this form (key=updatedAt), which drops mutate-level callbacks.
+    save
+      .mutateAsync(body)
+      .then(async (saved) => {
         const { id } = saved as Accessory;
         await tags.persist(id);
         navigate({ to: "/printers/accessories/$id", params: { id } });
-      },
-    });
+      })
+      .catch(() => {}); // errors show via save.error
   };
 
   return (

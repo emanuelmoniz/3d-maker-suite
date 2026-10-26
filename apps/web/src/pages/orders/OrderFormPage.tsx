@@ -54,8 +54,10 @@ function OrderForm({ order, quote }: { order?: OrderDetail; quote?: Quote }) {
     e.preventDefault();
     const f = new FormData(e.currentTarget);
     const number = String(f.get("number") ?? "");
-    save.mutate(
-      {
+    // mutateAsync, not mutate's onSuccess: the save refetches the row and the edit page remounts
+    // this form (key=updatedAt), which drops mutate-level callbacks.
+    save
+      .mutateAsync({
         number: number ? Number(number) : undefined,
         clientId: clientId || null,
         quoteId: quoteId || null,
@@ -63,9 +65,9 @@ function OrderForm({ order, quote }: { order?: OrderDetail; quote?: Quote }) {
         price: Math.round(Number(price) * 100),
         status: String(f.get("status")),
         notes: String(f.get("notes") ?? ""),
-      },
-      { onSuccess: (saved) => navigate({ to: "/orders/$id", params: { id: saved.id } }) },
-    );
+      })
+      .then((saved) => navigate({ to: "/orders/$id", params: { id: saved.id } }))
+      .catch(() => {}); // errors show via save.error
   };
 
   const statusOptions = [...new Set([...statuses, ...(order ? [order.status] : [])])].map((s) => ({

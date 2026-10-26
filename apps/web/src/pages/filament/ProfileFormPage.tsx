@@ -55,13 +55,13 @@ export function ProfileForm({
       nozzleTempC: num(text(f, "nozzle")),
       bedTempC: num(text(f, "bed")),
     };
+    // mutateAsync, not mutate's onSuccess: the save refetches the row and the edit page remounts
+    // this form (key=updatedAt), which drops mutate-level callbacks.
     if (profile)
-      patch.mutate(
-        { id: profile.id, patch: values },
-        {
-          onSuccess: () => navigate({ to: "/filament/profiles/$id", params: { id: profile.id } }),
-        },
-      );
+      patch
+        .mutateAsync({ id: profile.id, patch: values })
+        .then(() => navigate({ to: "/filament/profiles/$id", params: { id: profile.id } }))
+        .catch(() => {}); // errors show via patch.error
     else
       create.mutate(values, {
         onSuccess: (saved) =>

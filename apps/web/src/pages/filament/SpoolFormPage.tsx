@@ -87,19 +87,15 @@ export function SpoolForm({
         spool ? { to: "/filament/spools/$id", params: { id: saved.id } } : { to: "/filament" },
       );
     };
-    if (spool)
-      patch.mutate(
-        {
+    // mutateAsync, not mutate's onSuccess: saving refetches the spool, the edit page remounts this
+    // form (key=updatedAt) and mutate-level callbacks are dropped once the form is unmounted.
+    const request = spool
+      ? patch.mutateAsync({
           id: spool.id,
           patch: { ...values, status: text(f, "status") as Spool["status"] },
-        },
-        { onSuccess: (saved) => done(saved as Spool) },
-      );
-    else
-      create.mutate(
-        { ...values, remainingGrams: float(text(f, "remaining")) ?? undefined },
-        { onSuccess: (saved) => done(saved as Spool) },
-      );
+        })
+      : create.mutateAsync({ ...values, remainingGrams: float(text(f, "remaining")) ?? undefined });
+    request.then((saved) => done(saved as Spool)).catch(() => {}); // errors show via save.error
   };
   const field = (
     name: string,
