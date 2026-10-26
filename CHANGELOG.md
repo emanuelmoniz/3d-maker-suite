@@ -5,6 +5,7 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 ## [Unreleased]
 
 ### Fixed
+- Bambu Cloud spools go on Bambu Studio's filament profiles (local or server) or ones you made, never on OrcaSlicer's
 - Import review: a vendor spool that matched a spool you have is no longer held for review because two profiles share its name (e.g. "Bambu PLA Matte" from Bambu Studio and OrcaSlicer)
 - Import review: the same catalog name from two slicers is one name, so a spool's profile is no longer offered as overwritten with the vendor's short name ("PLA Matte")
 

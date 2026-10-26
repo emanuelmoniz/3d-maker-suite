@@ -16,7 +16,7 @@ import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import { buildApp } from "./app.ts";
-import { catalogName } from "./integrations/imports.ts";
+import { catalogName, spoolProfiles } from "./integrations/imports.ts";
 import { loadKey } from "./integrations/secrets.ts";
 import { printerRows, spoolRows } from "./integrations/sourceRows.ts";
 import { createSyncer, schedulePattern } from "./integrations/sync.ts";
@@ -1293,6 +1293,28 @@ describe("spool rows from a vendor", () => {
     modelIdFor(db, "Bambu Lab", "Bambu Lab A1 mini");
     const printer = { externalId: "d1", name: "A1", brand: "Bambu Lab", model: "A1" };
     expect(printerRows(db, "i1", [printer])[0]?.raw.model).toBe("Bambu Lab A1");
+  });
+
+  it("go on Bambu Studio's profiles or yours, never another slicer's", () => {
+    const from = (name: string, sourcePreset: string | null) => {
+      const id = filamentProfileIdFor(db, { brand: "Bambu Lab", material: "PLA", name });
+      db.update(schema.filamentProfiles)
+        .set({ sourcePreset })
+        .where(eq(schema.filamentProfiles.id, id))
+        .run();
+    };
+    from("Bambu PLA Matte", "bambu-studio:system/Bambu PLA Matte");
+    from("Bambu PLA Silk", "orca-slicer:system/Bambu PLA Silk");
+    from("Bambu PLA Basic", null);
+    const names = spoolProfiles(db).active.map((p) => p.name);
+    expect(names.sort()).toEqual(["Bambu PLA Basic", "Bambu PLA Matte"]);
+    const silk = {
+      ...vendor("mock:7"),
+      profile: { brand: "Bambu Lab", material: "PLA", name: "PLA Silk" },
+    };
+    // Orca's "Bambu PLA Silk" is not offered, so the short name stays as the vendor has it.
+    expect(spoolRows(db, [silk])[0]?.raw.profile).toBe("PLA Silk");
+    expect(spoolProfiles(db).fits({ ...silk.profile })).toEqual([]);
   });
 
   it("bring a new spool in the way the spools policy says", () => {

@@ -1,6 +1,6 @@
 import type { Capability, IntegrationAdapter } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
-import { isNull } from "drizzle-orm";
+import { and, isNull, like, or } from "drizzle-orm";
 import { HttpError } from "../errors.ts";
 import { profileColumns } from "../lib/catalog.ts";
 import { capableRow, slicerConfigDir } from "./capabilities.ts";
@@ -41,15 +41,25 @@ export function libraryOf(
 }
 
 /**
- * The active profiles, and the ones a vendor's spool could go on: those with the same brand,
- * material and name, else those named like a slicer preset of it ("PLA Basic" -> "Bambu PLA Basic").
+ * The profiles a vendor's spool could go on: Bambu Studio's (local or server, one library) or made
+ * by hand, never another slicer's. `fits`: those with the same brand, material and name, else those
+ * named like a slicer preset of it ("PLA Basic" -> "Bambu PLA Basic").
  */
+// ponytail: only Bambu Cloud has spools; give the adapter a library id when a second vendor does.
 // ponytail: suffix match is a naive heuristic; match on the vendor's filament id if it misfires.
 export function spoolProfiles(db: Db) {
   const active = db
     .select(profileColumns)
     .from(filamentProfiles)
-    .where(isNull(filamentProfiles.archivedAt))
+    .where(
+      and(
+        isNull(filamentProfiles.archivedAt),
+        or(
+          isNull(filamentProfiles.sourcePreset),
+          like(filamentProfiles.sourcePreset, "bambu-studio:%"),
+        ),
+      ),
+    )
     .all();
   return {
     active,
