@@ -286,6 +286,11 @@ export function ReviewTable({
         next[r.row] = cur;
       }
     setDecisions(next);
+    // Applied: a choice left in the bulk fields is one not applied yet (`pendingBulk`).
+    setBulk("");
+    setProject("");
+    setSpool("");
+    setTrack("");
   };
   const toggle = <T,>(set: Set<T>, v: T) => {
     const next = new Set(set);
@@ -336,7 +341,9 @@ export function ReviewTable({
   const invalid = rows.filter((r) => r.status === "invalid").length;
   const importing = count("create") + count("update");
   const waitingChanges = rows.filter((r) => r.auto === "wait" && r.status === "changed").length;
-  const blocked = rows.some(problem);
+  // A bulk choice does nothing until Apply: importing past it would write what the rows show.
+  const pendingBulk = anyBulk;
+  const blocked = rows.some(problem) || pendingBulk;
 
   const format = (c: ImportColumn, v: ImportCell | undefined): ReactNode => {
     if (v == null) return "";
@@ -878,6 +885,11 @@ export function ReviewTable({
         <Button disabled={!inScope[scope].length || !anyBulk} onClick={applyAll}>
           {t("common:table.apply")}
         </Button>
+        {pendingBulk && (
+          <p role="status" className="basis-full text-warn">
+            {t("import:review.bulkPending")}
+          </p>
+        )}
         <label className="flex flex-col gap-1.5 sm:ml-auto">
           <span className="font-medium">{t("import:review.policyBulk")}</span>
           <Combobox

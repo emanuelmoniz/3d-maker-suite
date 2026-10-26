@@ -162,13 +162,11 @@ export type ImportHandler = {
 
 const { brands, filamentBrands, importSnapshots } = schema;
 /** Where "Only already imported" looks up a new row's brand. Types not listed take no new rows. */
+// Slicer presets aren't here: a slicer ships hundreds per brand, so "imported" takes no new one.
 const BRAND_OF: Partial<Record<ReviewEntity, typeof brands | typeof filamentBrands>> = {
   printers: brands,
   printerModels: brands,
-  machineProfiles: brands,
-  printProfiles: brands,
   spools: filamentBrands,
-  filamentProfiles: filamentBrands,
 };
 
 const UPLOADS = "imports";
@@ -287,7 +285,7 @@ export function createReview(db: Db, dataDir: string) {
       merge,
       trackUsage,
       seen,
-      /** A new row this type takes: always under `all`, else when you have its brand. */
+      /** A new row this type takes: always under `all`, else when you have its brand (`BRAND_OF`). */
       inScope: (v: ImportValues) =>
         scope === "all" ||
         !!brands?.has(

@@ -177,6 +177,39 @@ describe("slicer catalog import", () => {
     expect(db.select().from(schema.brands).all()).toHaveLength(1);
   });
 
+  it("Only what I already have: presets you imported stay up to date, new ones never arrive", async () => {
+    for (const type of ["brands", "printerModels", "filamentBrands", "filamentMaterials"])
+      await run(type);
+    // You import one filament preset of the brand; the slicer has another of it.
+    state.presets = [preset(), preset({ presetId: "user/B", name: "B" })];
+    const profiles = await open("filamentProfiles");
+    const a = profiles.rows.filter((r) => r.values.name === "A");
+    expect((await review.confirm(profiles, a)).json()).toMatchObject({ created: 1 });
+    await app.inject({
+      method: "PATCH",
+      url: `/api/integrations/${id}`,
+      payload: {
+        policies: ["filamentProfiles", "machineProfiles"].map((type) => ({
+          type,
+          scope: "imported",
+        })),
+      },
+    });
+    // "B" has a brand you have, yet it is neither added nor left for review.
+    expect(await run("filamentProfiles")).toMatchObject({ created: 0, pending: 0 });
+    expect(await run("machineProfiles")).toMatchObject({ created: 0, pending: 0 });
+    // The one you have follows the slicer.
+    state.presets = [preset({ pricePerKg: 2500 }), preset({ presetId: "user/B", name: "B" })];
+    expect(await run("filamentProfiles")).toMatchObject({ created: 0, updated: 1, pending: 0 });
+    expect(
+      db
+        .select({ name: schema.filamentProfiles.name })
+        .from(schema.filamentProfiles)
+        .all()
+        .map((p) => p.name),
+    ).toEqual(["A"]);
+  });
+
   it("a changed unused machine preset updates in place; a used one is archived and re-added", async () => {
     await run("machineProfiles");
     const first = db.select().from(schema.machineProfiles).get();

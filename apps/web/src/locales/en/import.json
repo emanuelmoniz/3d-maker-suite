@@ -189,6 +189,7 @@
     "bulk": "Action",
     "bulkTitle": "Bulk operations",
     "noChange": "No change",
+    "bulkPending": "Click Apply to use the bulk choice, or set it back to No change, before importing.",
     "policyBulk": "When updating",
     "dismiss_one": "Dismiss {{count, number}} change",
     "dismiss_other": "Dismiss {{count, number}} changes",

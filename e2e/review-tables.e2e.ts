@@ -111,6 +111,30 @@ test("import review: sort, filter and page cover every row", async ({ page }) =>
   await expect(page.getByText("1–25 of 30")).toBeVisible();
 });
 
+test("import review: a bulk choice blocks importing until it is applied", async ({ page }) => {
+  await page.goto("/import");
+  await page.getByLabel("Upload a file").setInputFiles({
+    name: "spools.csv",
+    mimeType: "text/csv",
+    buffer: Buffer.from(
+      ["Brand;Material;Initial weight (g)", "Acme;PLA;100", "Acme;PLA;200"].join("\n"),
+    ),
+  });
+  const importButton = page.getByRole("button", { name: /^Import \d+/ });
+  await expect(importButton).toBeEnabled();
+  await pick(page.getByRole("combobox", { name: "Action", exact: true }), "Skip all");
+  // Chosen, not applied: importing now would create both rows.
+  await expect(importButton).toBeDisabled();
+  await expect(page.getByText(/Click Apply to use the bulk choice/)).toBeVisible();
+  await page.getByRole("button", { name: "Apply", exact: true }).click();
+  await expect(page.getByText(/Click Apply to use the bulk choice/)).toHaveCount(0);
+  await expect(page.getByRole("combobox", { name: "Action", exact: true })).toHaveValue(
+    "No change",
+  );
+  // Everything skipped: nothing to import.
+  await expect(page.getByRole("button", { name: /^Import/ })).toBeDisabled();
+});
+
 test("choice filters search as you type and work from the keyboard", async ({ page }) => {
   await page.goto("/import");
   await page.getByLabel("Upload a file").setInputFiles({

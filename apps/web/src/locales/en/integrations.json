@@ -232,7 +232,7 @@
     },
     "scopeHints": {
       "all": "Every row the source offers is added and kept up to date.",
-      "imported": "Rows you already have are kept up to date. A new one is added only if you have its brand, so a new model of your printer brand still arrives, but nothing from brands you never imported. Start with \"Review and import\": filter the brand column, select all and import."
+      "imported": "Rows you already have are kept up to date. A new printer, printer model or spool is added only if you have its brand, so a new model of your printer brand still arrives. New slicer presets (machine, print and filament profiles) are never added: only the ones you imported from this slicer are kept up to date. Start with \"Review and import\": filter the brand column, select all and import."
     },
     "merge": "How to sync",
     "mergeOf": "How to sync: {{type}}",
