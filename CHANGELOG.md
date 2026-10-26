@@ -4,10 +4,36 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+## [4.2.0-alpha.3] - 2026-10-26
+
+Pre-release. Test on a copy of your data first; back up before updating.
+
 ### Added
 - Integrations: **Bambu Studio (server)** and **OrcaSlicer (server)**. The server downloads the slicer from the vendor's GitHub releases (checksum checked, licence shown), tests it and slices with it, so a NAS or headless server can slice without a desktop slicer. Install, update to a newer version or remove it from the card; the old version stays until the new one starts
 - Bambu Studio (server) imports brands, printers and profiles from the download, with the same sync options as the local one. OrcaSlicer (server) can't read its download's profiles; its card explains how to import them from a zip
 - OrcaSlicer (local) can slice too (OrcaSlicer 2.5 or newer)
+- Docker: a **slicer image** (`:X.Y.Z-slicer`, `:latest-slicer`, `:dev-slicer`) with the libraries a server slicer needs; the default image stays small ([docs/slicing.md](docs/slicing.md))
+- Slicing: pick the slicer per plate, per project (Print setup) or as the default; the first slice-capable one is the fallback
+- Slicer user presets from a zip are kept for the server slicers, so slicing works with only a server slicer
+- A slice remembers the slicer version; a new version marks it outdated and an install slices it again where auto slice is on
+- Alert when a newer slicer release exists, with a link to the integration card
+- Printer and filament settings tables show which slicer each preset came from
+- Filament slots can stay "As saved in the file", and new plates start on it
+- Integration cards start closed; a server slicer is named like its local twin, with a badge for the kind
+
+### Changed
+- The Docker image is built on Debian 13 (trixie), which the slicers need
+- Print profile and filament pickers list the presets of the plate's slicer
+- A filament preset of another slicer slices with the file's own filament and the plate notes it; the plate warns before slicing when its print or printer profile belongs to the other slicer
+- Sync scope "Only what I already have" no longer adds slicer presets (machine, print, filament) of a brand you have
+- Slicer presets only match presets of the same slicer, so Bambu Studio's and OrcaSlicer's "Bambu ABS" stay two profiles
+- The import links on the printer and filament catalogs are gone; the Add buttons stay
+
+### Fixed
+- Slicing: an empty plate says so instead of "input model file can not be parsed"
+- Projects: a slice made before slicer choice counts as the default slicer's, so picking another slicer marks it for slicing
+- Import review: a bulk action picked but not applied no longer imports the rows' own suggestions; Import waits until it is applied or cleared
+- Edit forms (spool, printer, accessory, client, order, maintenance type, filament profile) leave the edit page after saving
 
 ## [4.2.0-alpha.2] - 2026-10-25
 

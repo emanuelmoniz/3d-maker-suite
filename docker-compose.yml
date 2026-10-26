@@ -1,7 +1,7 @@
 # Copy this file, then run: docker compose up -d (create the first admin: docs/users.md)
 services:
   app:
-    image: ghcr.io/emanuelmoniz/3d-maker-suite:latest # or :dev for pre-releases; or `build: .`
+    image: ghcr.io/emanuelmoniz/3d-maker-suite:latest # or :dev for pre-releases; :latest-slicer to slice (docs/slicing.md); or `build: .`
     restart: unless-stopped
     ports:
       - "4300:4300"

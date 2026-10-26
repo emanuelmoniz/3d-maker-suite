@@ -166,9 +166,17 @@ jobs:
           VERSION="${GITHUB_REF_NAME#v}"
           EXTRA=latest
           if [[ "$VERSION" == *-* ]]; then EXTRA=dev; fi
-          echo "list=ghcr.io/emanuelmoniz/3d-maker-suite:$VERSION,ghcr.io/emanuelmoniz/3d-maker-suite:$EXTRA" >> "$GITHUB_OUTPUT"
+          IMAGE=ghcr.io/emanuelmoniz/3d-maker-suite
+          echo "list=$IMAGE:$VERSION,$IMAGE:$EXTRA" >> "$GITHUB_OUTPUT"
+          echo "slicer=$IMAGE:$VERSION-slicer,$IMAGE:$EXTRA-slicer" >> "$GITHUB_OUTPUT"
       - uses: docker/build-push-action@v7
         with:
           context: .
           push: true
           tags: ${{ steps.tags.outputs.list }}
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          target: slicer
+          push: true
+          tags: ${{ steps.tags.outputs.slicer }}

@@ -612,7 +612,7 @@ Back up the DB before editing schema.ts.
 Do Step 14 of the 4.2.0 plan in PLAN.md.
 ```
 
-### [ ] Step 15 - Docker slicer image, docs, push & v4.2.0-alpha.3
+### [x] Step 15 - Docker slicer image, docs, push & v4.2.0-alpha.3
 **Model:** Sonnet · **Effort:** Medium
 **Scope:** A `:X.Y.Z-slicer` (and `:dev-slicer`) image with the libraries the CLI needs (per Step 12); the base image stays small. `docs/slicing.md` (managed slicer, profiles, Docker), update the NAS table. CHANGELOG, version `4.2.0-alpha.3`. Commit, push `dev`, tag `v4.2.0-alpha.3` on `dev`; check the run, pre-release and both images.
 **Done when:** the slicer image slices a project in `docker compose up`; tags pushed; workflow green; docs match the app.
