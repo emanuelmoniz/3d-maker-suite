@@ -51,6 +51,7 @@ test("README screenshots", async ({ page, app }) => {
     secrets: { token: "t" },
   });
   await app.api("PATCH", `/api/integrations/${mock.id}`, { slicerPath: process.execPath });
+  await app.api("POST", "/api/integrations", { adapterId: "bambu-studio-server" });
   await app.api("PUT", `/api/projects/${dragon.id}/slicing`, {
     plates: [
       {
@@ -178,4 +179,22 @@ test("README screenshots", async ({ page, app }) => {
     if (name === "project") await page.waitForTimeout(2000); // the 3D view fits its camera after it loads
     await page.screenshot({ path: `${IMAGES}/${name}.png`, fullPage: name === "project" });
   }
+
+  // Accounts: the admin is created in this browser, so the users list is shown signed in.
+  const password = "correct horse";
+  await page.request.post("/api/auth/setup", {
+    data: { email: "ana@example.com", displayName: "Ana Pereira", password },
+  });
+  await page.request.post("/api/users", {
+    data: { email: "eva@example.com", displayName: "Eva Editor", password, role: "editor" },
+  });
+  await page.goto("/settings");
+  await page.getByRole("heading", { name: "Users" }).scrollIntoViewIfNeeded();
+  await page.waitForLoadState("networkidle");
+  await page.screenshot({ path: `${IMAGES}/users.png` });
+
+  await page.context().clearCookies();
+  await page.goto("/login");
+  await page.waitForLoadState("networkidle");
+  await page.screenshot({ path: `${IMAGES}/login.png` });
 });

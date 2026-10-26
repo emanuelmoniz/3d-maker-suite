@@ -2,12 +2,15 @@
 
 All notable changes are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased]
+## [4.2.0] - 2026-10-26
+
+Stable. Back up before updating. The features are listed under 4.2.0-alpha.1 to alpha.3.
 
 ### Fixed
 - Bambu Cloud spools go on Bambu Studio's filament profiles (local or server) or ones you made, never on OrcaSlicer's
 - Import review: a vendor spool that matched a spool you have is no longer held for review because two profiles share its name (e.g. "Bambu PLA Matte" from Bambu Studio and OrcaSlicer)
 - Import review: the same catalog name from two slicers is one name, so a spool's profile is no longer offered as overwritten with the vendor's short name ("PLA Matte")
+- Alerts: the history says so when it fails to load instead of showing an empty list
 
 ## [4.2.0-alpha.3] - 2026-10-26
 
