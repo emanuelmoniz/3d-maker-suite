@@ -21,7 +21,8 @@ export function catalogName(name: string, candidates: string[]) {
   if (!n) return name;
   const same = candidates.find((c) => c.trim().toLowerCase() === n);
   if (same) return same;
-  const tail = candidates.filter((c) => c.trim().toLowerCase().endsWith(` ${n}`));
+  // The same name from two slicers is one name.
+  const tail = [...new Set(candidates.filter((c) => c.trim().toLowerCase().endsWith(` ${n}`)))];
   return tail.length === 1 ? (tail[0] ?? name) : name;
 }
 

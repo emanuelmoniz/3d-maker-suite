@@ -383,7 +383,9 @@ export function createReview(db: Db, dataDir: string) {
             Object.entries(p.values).filter(([k]) => !USAGE_KEYS.has(k)),
           );
         const s = suggest(columns, p, { candidates: m.candidates, target });
-        const pick = hit || p.errors.length ? undefined : picks?.suggest(p.values, raw);
+        // A row that matched something you have is an update: it needs no pick.
+        const pick =
+          hit || m.targetId || p.errors.length ? undefined : picks?.suggest(p.values, raw);
         const picked = pick && {
           refs: pick.refs,
           ...(pick.unsure?.length && { refsUnsure: pick.unsure }),

@@ -4,6 +4,10 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+### Fixed
+- Import review: a vendor spool that matched a spool you have is no longer held for review because two profiles share its name (e.g. "Bambu PLA Matte" from Bambu Studio and OrcaSlicer)
+- Import review: the same catalog name from two slicers is one name, so a spool's profile is no longer offered as overwritten with the vendor's short name ("PLA Matte")
+
 ## [4.2.0-alpha.3] - 2026-10-26
 
 Pre-release. Test on a copy of your data first; back up before updating.

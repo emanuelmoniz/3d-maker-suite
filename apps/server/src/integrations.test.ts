@@ -1269,6 +1269,8 @@ describe("spool rows from a vendor", () => {
     // Two end with it: no guess.
     expect(catalogName("PLA Basic", names)).toBe("PLA Basic");
     expect(catalogName("PLA Silk", names)).toBe("PLA Silk");
+    // The same catalog name twice (Studio and Orca) is still one fit.
+    expect(catalogName("PLA Matte", [...names, "Bambu PLA Matte"])).toBe("Bambu PLA Matte");
   });
 
   it("take the catalog's name for a vendor's short one", () => {
