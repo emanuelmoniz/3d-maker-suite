@@ -622,7 +622,7 @@ Do Step 15 of the 4.2.0 plan in PLAN.md. Only document what changed since 4.2.0-
 Then push dev, push the tag and confirm the pre-release and images are published.
 ```
 
-### [ ] Step 16 - Real test: NAS, LAN accounts, managed slicer
+### [x] Step 16 - Real test: NAS, LAN accounts, managed slicer
 **Model:** Sonnet · **Effort:** Medium
 **Scope:** Docker on a NAS with a CIFS-mounted project root (polling, offline/online); first-run admin via the setup token; an editor and a viewer on other devices over LAN (an editor with and without each integration permission; per-user alert state); managed slicer install + slice on Windows, macOS and the Docker slicer image. Fix anything found and note it in the CHANGELOG (alpha.4 if needed).
 **Done when:** every scenario worked; fixes released.
