@@ -139,9 +139,16 @@ export function estimatePlate(plate: Plate, printerId: string | undefined, ctx: 
 /** A plate on a quote: its slicing setup, and its slice once there is one. */
 export type QuotePlate = PlateSetupInput & { result: SliceResultInfo | null };
 
-// What a slice depends on; a spool of the same profile only changes the price.
+// What a slice depends on; a spool of the same profile only changes the price. Quotes saved
+// before slicer picks have no `slicerIntegrationId`.
 const slicedWith = (p: PlateSetupInput) =>
-  JSON.stringify([p.printerId, p.printProfileId, p.useDefaultPrintProfile, p.filaments]);
+  JSON.stringify([
+    p.printerId,
+    p.printProfileId,
+    p.useDefaultPrintProfile,
+    p.filaments,
+    p.slicerIntegrationId ?? null,
+  ]);
 
 const samePlate = (a: { file: string; plate: number }) => (b: { file: string; plate: number }) =>
   a.file === b.file && a.plate === b.plate;

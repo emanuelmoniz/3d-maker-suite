@@ -12,6 +12,7 @@ import {
   type ProjectFolderRelease,
   type ProjectListItem,
   pageOf,
+  pickSlicer,
   projectDetailSchema,
   projectFolderResultSchema,
   projectFolderSchema,
@@ -46,6 +47,7 @@ import { fsError } from "./fs.ts";
 const {
   projects,
   collectionProjects,
+  integrations,
   orderProjects,
   printFilamentUsages,
   prints,
@@ -69,11 +71,22 @@ const projectId = sql`${projects}.${sql.identifier("id")}`;
 const projectMeta = sql`${projects}.${sql.identifier("meta")}`;
 // The print profile a plate slices with, as `plateResolver` (the PUT stores plates resolved).
 const plateProfile = sql`coalesce(${plates.printProfileId}, case when ${plates.useDefaultPrintProfile} then (select p.${sql.identifier("print_profile_id")} from ${printers} p where p.${sql.identifier("id")} = ${plates.printerId}) end)`;
-const slicing = sql<ProjectListItem["slicing"]>`case
+const projectSlicer = sql`${projects}.${sql.identifier("slicer_integration_id")}`;
+/** The slicer a plate slices with, as `slicerResolver`: `capable` can slice now, `fallback` = the default's pick. */
+const plateSlicer = (capable: string[], fallback: string | undefined) => {
+  const can = sql`(select value from json_each(${JSON.stringify(capable)}))`;
+  return sql`case when ${plates.slicerIntegrationId} in ${can} then ${plates.slicerIntegrationId}
+    when ${projectSlicer} in ${can} then ${projectSlicer} else ${fallback ?? null} end`;
+};
+const slicingOf = (capable: string[], fallback: string | undefined) => sql<
+  ProjectListItem["slicing"]
+>`case
   when not exists (select 1 from ${plates} where ${plates.projectId} = ${projectId}) then 'none'
   when exists (select 1 from ${plates} where ${plates.projectId} = ${projectId} and (
     ${plates.slicedAt} is null
     or ${plates.slicedPrintProfileId} is not ${plateProfile}
+    or (${plates.slicedIntegrationId} is not null
+      and ${plates.slicedIntegrationId} is not ${plateSlicer(capable, fallback)})
     or exists (select 1 from json_each(${projectMeta}, '$.files') f
       where json_extract(f.value, '$.path') = ${plates.file}
         and json_extract(f.value, '$.size') != ${plates.fileSize})
@@ -273,6 +286,11 @@ export const projectsRoutes =
       },
       async (req) => {
         const { material } = req.query;
+        const capable = capableRows(db, adapters, "slice").map((r) => r.row.id);
+        const slicing = slicingOf(
+          capable,
+          pickSlicer(capable, [readPreferences(db).defaultSlicerId]),
+        );
         const page = listPage(db, projects, req.query, {
           sort: {
             // The name starts with the number: sorting by it sorts the name as shown.
@@ -529,12 +547,30 @@ export const projectsRoutes =
       },
       async (req) => {
         const { editedFields, folderPath, meta } = get(req.params.id);
-        const { descriptionFile, previewFile, number, gallery, coverFile, autoSlice, ...fields } =
-          req.body;
+        const {
+          descriptionFile,
+          previewFile,
+          number,
+          gallery,
+          coverFile,
+          autoSlice,
+          slicerIntegrationId,
+          ...fields
+        } = req.body;
         assertNumberFree(db, projects, "project", number, req.params.id);
+        if (
+          slicerIntegrationId &&
+          !db.select().from(integrations).where(eq(integrations.id, slicerIntegrationId)).get()
+        )
+          throw new HttpError(400, "invalid_reference", "Unknown slicer");
         const touched = new Set([...editedFields, ...(Object.keys(fields) as typeof editedFields)]);
         // Not scanned fields, so not tracked in `editedFields`.
-        const set: Partial<typeof projects.$inferInsert> = { ...fields, number, autoSlice };
+        const set: Partial<typeof projects.$inferInsert> = {
+          ...fields,
+          number,
+          autoSlice,
+          slicerIntegrationId,
+        };
         if (descriptionFile) {
           // Link a doc the scanner listed; its text becomes the description on the refresh below.
           const doc = meta.files.some(

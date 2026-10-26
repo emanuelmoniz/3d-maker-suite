@@ -4,6 +4,7 @@ import {
   type IntegrationAdapter,
   IntegrationError,
   type ProjectModel,
+  pickSlicer,
   printerFitsFile,
   projectMetaSchema,
   type SliceRequest,
@@ -39,12 +40,32 @@ export type SliceJob = { key: string; run: (signal: AbortSignal) => Promise<void
 export type ProjectPlate = { projectId: string; file: string; plate: number };
 export const projectJobKey = (j: ProjectPlate) => `project:${j.projectId}#${j.file}#${j.plate}`;
 
-/** The slicer integration: the default slicer if it can slice, else the first one that can. */
-export function sliceIntegration(db: Db, adapters: IntegrationAdapter[]) {
+/**
+ * Resolves the slicer integration of `picks` (a plate's, its project's) with the slicers that can
+ * slice now: the first that can, else the default slicer, else the first one (`pickSlicer`).
+ */
+export function slicerResolver(db: Db, adapters: IntegrationAdapter[]) {
   const rows = capableRows(db, adapters, "slice");
-  const pick = readPreferences(db).defaultSlicerId;
-  return rows.find((r) => r.row.id === pick) ?? rows[0];
+  const ids = rows.map((r) => r.row.id);
+  const { defaultSlicerId } = readPreferences(db);
+  return (picks: (string | null | undefined)[] = []) => {
+    const id = pickSlicer(ids, [...picks, defaultSlicerId]);
+    return rows.find((r) => r.row.id === id);
+  };
 }
+
+/**
+ * Sliced with another slicer than `now` resolves to. ponytail: null (sliced before 0072 stored it)
+ * counts as current, so an upgrade doesn't re-slice everything.
+ */
+export const slicedWithOther = (sliced: string | null, now: string | undefined) =>
+  sliced != null && sliced !== now;
+
+export const sliceIntegration = (
+  db: Db,
+  adapters: IntegrationAdapter[],
+  picks?: (string | null | undefined)[],
+) => slicerResolver(db, adapters)(picks);
 
 /**
  * How a plate slices: its printer (its own, else `defaultSlicePrinter`), whether that printer is
@@ -89,12 +110,16 @@ const fail = (code: (typeof SLICE_ERRORS)[number], detail?: string): never => {
   throw new SliceError(detail ? `${code}: ${detail}` : code);
 };
 
-/** A plate to slice: the 3MF (absolute, already checked), its info, and the profile choices. */
+/**
+ * A plate to slice: the 3MF (absolute, already checked), its info, the profile choices, and the
+ * slicer picks (the plate's, its project's; see `sliceIntegration`).
+ */
 export type PlateToSlice = PlateChoice & {
   abs: string;
   plate: number;
   model: FileInfo | undefined;
   filaments: (string | null)[];
+  slicers: (string | null | undefined)[];
 };
 
 /**
@@ -108,7 +133,7 @@ export async function slicePlate(
   p: PlateToSlice,
   signal: AbortSignal,
 ) {
-  const found = sliceIntegration(db, adapters);
+  const found = sliceIntegration(db, adapters, p.slicers);
   const slicer = found?.adapter.slicer;
   if (!found || !slicer) return fail("no_slicer");
   // Presets are named `<library>:<preset id>`; only this slicer's own can be passed to it.
@@ -164,7 +189,7 @@ export async function slicePlate(
     req,
     signal,
   );
-  return { fingerprint: before, profileId, result };
+  return { fingerprint: before, profileId, integrationId: found.row.id, result };
 }
 
 /** The error text stored for a failed slice; unexpected errors are logged. */
@@ -207,11 +232,13 @@ export function projectSliceJob(
             ? await insideRoots(join(project.folderPath, job.file), rootPaths(db))
             : null;
         if (!abs) return fail("not_allowed");
-        const out = await slicePlate(db, adapters, { ...row, abs, model }, signal);
+        const slicers = [row.slicerIntegrationId, project?.slicerIntegrationId];
+        const out = await slicePlate(db, adapters, { ...row, abs, model, slicers }, signal);
         done = {
           ...out.fingerprint,
           slicedAt: new Date().toISOString(),
           slicedPrintProfileId: out.profileId,
+          slicedIntegrationId: out.integrationId,
           printTimeSeconds: out.result.printTimeSeconds,
           weightGrams: out.result.weightGrams,
           slicedFilaments: out.result.filaments,

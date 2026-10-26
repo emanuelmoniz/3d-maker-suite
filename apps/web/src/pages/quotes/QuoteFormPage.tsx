@@ -107,6 +107,7 @@ const fromProject = (s: ProjectSlicing): QuotePlate[] =>
     useDefaultPrintProfile: p.useDefaultPrintProfile,
     filaments: p.filaments,
     spools: p.spools,
+    slicerIntegrationId: p.slicerIntegrationId,
     result: p.needsSlicing ? null : p.result,
   }));
 
@@ -454,6 +455,7 @@ function QuoteForm({ ctx, editing }: { ctx: CostContext; editing?: Quote }) {
               value={plates}
               onChange={changePicked}
               defaultPrinterId={defaultPrinterId}
+              projectSlicerId={project?.slicerIntegrationId}
               plateInfo={(key) => {
                 const p = plates.find((x) => plateKey(x) === key);
                 const s = p && sliceOf(p);

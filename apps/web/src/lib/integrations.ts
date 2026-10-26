@@ -1,23 +1,25 @@
-import type {
-  AdapterInfo,
-  Capability,
-  Integration,
-  IntegrationInput,
-  IntegrationPatch,
-  LoginRequest,
-  LoginResult,
-  SlicerInstallStatus,
-  SlicerRelease,
-  SyncRequest,
-  SyncResult,
-  SyncRun,
-  TestResult,
+import {
+  type AdapterInfo,
+  type Capability,
+  type Integration,
+  type IntegrationInput,
+  type IntegrationPatch,
+  type LoginRequest,
+  type LoginResult,
+  pickSlicer,
+  type SlicerInstallStatus,
+  type SlicerRelease,
+  type SyncRequest,
+  type SyncResult,
+  type SyncRun,
+  type TestResult,
 } from "@3d-maker-suite/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { api } from "./api.ts";
 import { useRole } from "./auth.ts";
 import { useListPage } from "./list.ts";
+import { usePreferences } from "./preferences.ts";
 
 export const useAdapters = () =>
   useQuery({
@@ -44,6 +46,25 @@ export function useAdapterName() {
 /** Integrations that can do `cap` right now. The server decides; the UI never checks vendors. */
 export const useCapable = (cap: Capability) =>
   (useIntegrations().data ?? []).filter((i) => i.capabilities.includes(cap));
+
+/** The slicers that can slice now, their names, and what picks resolve to (as the server does). */
+export function useSlicers() {
+  const slicers = useCapable("slice");
+  const adapterName = useAdapterName();
+  const defaultSlicerId = usePreferences().data?.values.defaultSlicerId;
+  const ids = slicers.map((s) => s.id);
+  return {
+    slicers: slicers.map((s) => ({ id: s.id, name: adapterName(s.adapterId) })),
+    /** A pick that can slice now, else null: what the "inherited" option shows. */
+    usable: (id: string | null | undefined) => (id && ids.includes(id) ? id : null),
+    nameOf: (id: string | undefined) => {
+      const s = slicers.find((x) => x.id === id);
+      return s ? adapterName(s.adapterId) : "";
+    },
+    /** Plate, project: the slicer it slices with (`pickSlicer` over the default slicer). */
+    resolve: (picks: (string | null | undefined)[]) => pickSlicer(ids, [...picks, defaultSlicerId]),
+  };
+}
 
 /**
  * What the caller may do with one task (ADR-0012): an admin everything, an editor what the task's

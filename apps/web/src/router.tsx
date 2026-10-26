@@ -331,8 +331,8 @@ const routes: AnyRoute[] = [
       path: path as string,
       loader: () =>
         Promise.all(
-          // "projects" and "filament": the slicing setup's labels and spool names.
-          ["costs", "clients", "projects", "filament"].map(loadNamespace),
+          // "projects", "filament", "integrations": the slicing setup's labels, spools, slicers.
+          ["costs", "clients", "projects", "filament", "integrations"].map(loadNamespace),
         ),
       component: component as () => ReactNode,
     }),

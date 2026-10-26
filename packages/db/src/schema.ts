@@ -603,6 +603,8 @@ export const projects = sqliteTable(
       .default([]),
     // Slice again when a sliced file changes; null = as its project root says.
     autoSlice: integer({ mode: "boolean" }),
+    /** The slicer for plates without their own; null (or one that can't slice) = the default. */
+    slicerIntegrationId: text().references(() => integrations.id, { onDelete: "set null" }),
     archivedAt: text(),
     ...imported(),
     ...timestamps,
@@ -636,6 +638,8 @@ export const projectSlicePlates = sqliteTable(
     filaments: text({ mode: "json" }).$type<(string | null)[]>().notNull().default([]),
     /** Spool id per slot, for its price; its profile is also in `filaments`. Not FKs, as above. */
     spools: text({ mode: "json" }).$type<(string | null)[]>().notNull().default([]),
+    /** Its slicer; null (or one that can't slice) = the project's, then the default (`pickSlicer`). */
+    slicerIntegrationId: text().references(() => integrations.id, { onDelete: "set null" }),
     fileSize: integer().notNull(),
     fileMtimeMs: real().notNull(),
     fileSha256: text().notNull(),
@@ -644,6 +648,8 @@ export const projectSlicePlates = sqliteTable(
     slicedAt: text(),
     /** The print profile it was sliced with, after the default printer's was filled in. */
     slicedPrintProfileId: text(),
+    /** The slicer integration that sliced it. Not an FK: a deleted one reads as another slicer. */
+    slicedIntegrationId: text(),
     printTimeSeconds: integer(),
     weightGrams: real(),
     slicedFilaments: text({ mode: "json" }).$type<

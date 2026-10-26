@@ -26,6 +26,8 @@ export const plateSetupInputSchema = z.object({
   filaments: z.array(id.nullable()).max(PRINT_MAX_SLOTS),
   /** Spool per slot, for its price; the server fills `filaments` with its profile. */
   spools: z.array(id.nullable()).max(PRINT_MAX_SLOTS).default([]),
+  /** The slicer integration; null = the project's, then the default slicer (see `pickSlicer`). */
+  slicerIntegrationId: id.nullable().default(null),
 });
 
 export const projectSlicingInputSchema = z.object({
@@ -53,7 +55,7 @@ export const plateSetupSchema = plateSetupInputSchema.extend({
   result: sliceResultSchema.nullable(),
   /** Why the last slice failed, in the slicer's words (not translated). */
   error: z.string().nullable(),
-  /** Never sliced, the file changed, or the profiles (incl. the default printer's) changed. */
+  /** Never sliced, the file, the profiles (incl. the default printer's) or the slicer changed. */
   needsSlicing: z.boolean(),
   /** In the slice queue right now. */
   job: z.enum(["queued", "running"]).nullable(),
@@ -88,6 +90,13 @@ export function defaultSlicePrinter<P extends SlicePrinter>(
   const preferred = (list: P[]) => list.find((p) => p.id === defaultPrinterId) ?? list[0];
   return preferred(fits) ?? preferred(printers);
 }
+
+/**
+ * The slicer a plate slices with: the first of `picks` (plate, project, default slicer) that can
+ * slice now, else the first one that can. A removed or switched-off pick is skipped, not cleared.
+ */
+export const pickSlicer = (capable: string[], picks: (string | null | undefined)[]) =>
+  picks.find((p): p is string => !!p && capable.includes(p)) ?? capable[0];
 
 /** A project in the list: no plates picked, some need slicing, or all sliced and current. */
 export const PROJECT_SLICING = ["none", "needed", "done"] as const;

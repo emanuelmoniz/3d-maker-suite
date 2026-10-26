@@ -39,9 +39,10 @@ import { rootPaths } from "../lib/preferences.ts";
 import {
   plateResolver,
   type SliceQueue,
+  slicedWithOther,
   sliceErrorText,
-  sliceIntegration,
   slicePlate,
+  slicerResolver,
 } from "../projects/sliceQueue.ts";
 
 const { quotes, projects, clients, projectSlicePlates } = schema;
@@ -160,6 +161,7 @@ export const costsRoutes =
         const meta = projectMetaSchema.parse(project?.meta ?? {});
         const projectRoots = rootPaths(db);
         const resolve = plateResolver(db);
+        const slicerOf = slicerResolver(db, adapters);
         const out: QuoteSlice["plates"] = [];
         for (const p of plates) {
           // Only uploads and files the scanner listed; nothing the client invents is read.
@@ -179,9 +181,11 @@ export const costsRoutes =
           const s = abs && (await stat(abs).catch(() => null));
           if (!abs || !s || !model?.plates.some((x) => x.index === p.plate))
             throw new HttpError(400, "invalid_reference", `Unknown plate ${p.plate} of ${p.file}`);
-          // Same file (size, mtime) and the same printer and profiles once resolved: same slice.
+          // Same file (size, mtime) and the same printer, profiles and slicer once resolved: same slice.
           const { printer, profileId } = resolve(p, model);
-          const key = `quote:${JSON.stringify([abs, s.size, s.mtimeMs, p.plate, printer?.id ?? null, profileId, p.filaments])}`;
+          const slicers = [p.slicerIntegrationId, project?.slicerIntegrationId];
+          const slicer = slicerOf(slicers)?.row.id;
+          const key = `quote:${JSON.stringify([abs, s.size, s.mtimeMs, p.plate, printer?.id ?? null, profileId, p.filaments, slicer ?? null])}`;
           // The project's own slice when it sliced exactly this: the slicer's time estimate moves by
           // a few seconds between runs of the same input, so slicing again would not match it.
           const own =
@@ -206,6 +210,7 @@ export const costsRoutes =
             own.fileMtimeMs === s.mtimeMs &&
             own.printerId === (printer?.id ?? null) &&
             own.slicedPrintProfileId === profileId &&
+            !slicedWithOther(own.slicedIntegrationId, slicer) &&
             JSON.stringify(own.filaments) === JSON.stringify(p.filaments)
               ? {
                   printTimeSeconds: own.printTimeSeconds,
@@ -226,7 +231,12 @@ export const costsRoutes =
                 async run(signal) {
                   let entry: { result: SliceResultInfo | null; error: string | null };
                   try {
-                    const { result } = await slicePlate(db, adapters, { ...p, abs, model }, signal);
+                    const { result } = await slicePlate(
+                      db,
+                      adapters,
+                      { ...p, abs, model, slicers },
+                      signal,
+                    );
                     entry = {
                       result: {
                         printTimeSeconds: result.printTimeSeconds,
@@ -254,7 +264,7 @@ export const costsRoutes =
             error: done?.error ?? null,
           });
         }
-        return { canSlice: !!sliceIntegration(db, adapters), plates: out };
+        return { canSlice: !!slicerOf(), plates: out };
       },
     );
 

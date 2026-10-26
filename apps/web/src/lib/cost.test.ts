@@ -72,11 +72,13 @@ test("a quote plate keeps its slice while it slices the same, and loses it when 
     useDefaultPrintProfile: false,
     filaments: ["pla"],
     spools: [],
+    slicerIntegrationId: null,
   };
   const sliced = { ...setup, result: plate({}, [[1, 10, "PLA"]]).result };
-  // Another spool of the same profile: same slice. Another profile or a new plate: none.
+  // Another spool of the same profile: same slice. Another profile, slicer or plate: none.
   expect(keepResults([{ ...setup, spools: ["red"] }], [sliced])[0]?.result).toBe(sliced.result);
   expect(keepResults([{ ...setup, printProfileId: "fine" }], [sliced])[0]?.result).toBeNull();
+  expect(keepResults([{ ...setup, slicerIntegrationId: "orca" }], [sliced])[0]?.result).toBeNull();
   expect(keepResults([{ ...setup, plate: 2 }], [sliced])[0]?.result).toBeNull();
 });
 
@@ -89,6 +91,7 @@ test("a plate ticked again gets back its own setup and slice, not the defaults",
     useDefaultPrintProfile: false,
     filaments: ["pla", null],
     spools: ["red", null],
+    slicerIntegrationId: null,
     result: plate({}, [[1, 10, "PLA"]]).result,
   };
   // What SliceSetup builds for a freshly ticked plate: filaments by name, no spools.

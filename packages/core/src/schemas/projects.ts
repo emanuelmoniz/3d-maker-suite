@@ -104,6 +104,8 @@ export const projectSchema = z.object({
   editedFields: z.array(z.enum(PROJECT_EDITABLE_FIELDS)),
   /** Slice again when a sliced file changes; null = as its project root says. */
   autoSlice: z.boolean().nullable(),
+  /** Slicer integration for plates without their own; null = the default (see `pickSlicer`). */
+  slicerIntegrationId: id.nullable(),
   archivedAt: isoDate.nullable(),
   origin: z.enum(ORIGINS),
   integrationId: id.nullable(),
@@ -197,6 +199,7 @@ export const projectPatchSchema = z
     gallery: projectGallerySchema,
     coverFile: nullableText,
     autoSlice: projectSchema.shape.autoSlice,
+    slicerIntegrationId: projectSchema.shape.slicerIntegrationId,
   })
   .partial()
   .strict();

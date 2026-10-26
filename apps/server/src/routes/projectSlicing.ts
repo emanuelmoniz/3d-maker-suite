@@ -19,10 +19,19 @@ import {
   projectJobKey,
   projectSliceJob,
   type SliceQueue,
-  sliceIntegration,
+  slicedWithOther,
+  slicerResolver,
 } from "../projects/sliceQueue.ts";
 
-const { filamentProfiles, printers, printProfiles, projectSlicePlates, projects, spools } = schema;
+const {
+  filamentProfiles,
+  integrations,
+  printers,
+  printProfiles,
+  projectSlicePlates,
+  projects,
+  spools,
+} = schema;
 const params = z.object({ id: z.uuid() });
 type Row = typeof projectSlicePlates.$inferSelect;
 
@@ -33,6 +42,7 @@ const resultOf = (r: Row) => ({
   fileSha256: r.fileSha256,
   slicedAt: r.slicedAt,
   slicedPrintProfileId: r.slicedPrintProfileId,
+  slicedIntegrationId: r.slicedIntegrationId,
   printTimeSeconds: r.printTimeSeconds,
   weightGrams: r.weightGrams,
   slicedFilaments: r.slicedFilaments,
@@ -46,11 +56,15 @@ export const projectSlicingRoutes =
     const project = (id: string) => {
       const row = db.select().from(projects).where(eq(projects.id, id)).get();
       if (!row) throw new HttpError(404, "not_found", "Project not found");
-      return { folderPath: row.folderPath, meta: projectMetaSchema.parse(row.meta) };
+      return {
+        folderPath: row.folderPath,
+        meta: projectMetaSchema.parse(row.meta),
+        slicerIntegrationId: row.slicerIntegrationId,
+      };
     };
 
     async function read(id: string): Promise<ProjectSlicing> {
-      const { folderPath, meta } = project(id);
+      const { folderPath, meta, slicerIntegrationId } = project(id);
       const rows = db
         .select()
         .from(projectSlicePlates)
@@ -58,6 +72,7 @@ export const projectSlicingRoutes =
         .orderBy(projectSlicePlates.file, projectSlicePlates.plate)
         .all();
       const resolve = plateResolver(db);
+      const slicerOf = slicerResolver(db, adapters);
       // Taken with the rows, before any await: a job that ends meanwhile has already written them.
       const jobs = rows.map((r) =>
         queue.state(projectJobKey({ projectId: id, file: r.file, plate: r.plate })),
@@ -71,7 +86,7 @@ export const projectSlicingRoutes =
         return states.get(r.file) as Promise<PlateState>;
       };
       return {
-        canSlice: !!sliceIntegration(db, adapters),
+        canSlice: !!slicerOf(),
         plates: await Promise.all(
           rows.map(async (r, i) => {
             const inFile = meta.models
@@ -91,6 +106,7 @@ export const projectSlicingRoutes =
               r,
               meta.models.find((m) => m.file === r.file),
             );
+            const slicer = slicerOf([r.slicerIntegrationId, slicerIntegrationId])?.row.id;
             return {
               file: r.file,
               plate: r.plate,
@@ -99,12 +115,16 @@ export const projectSlicingRoutes =
               useDefaultPrintProfile: r.useDefaultPrintProfile,
               filaments: r.filaments,
               spools: r.spools,
+              slicerIntegrationId: r.slicerIntegrationId,
               state,
               result,
               error: r.sliceError,
               needsSlicing:
                 state !== "missing" &&
-                (!result || state === "outdated" || r.slicedPrintProfileId !== profileId),
+                (!result ||
+                  state === "outdated" ||
+                  r.slicedPrintProfileId !== profileId ||
+                  slicedWithOther(r.slicedIntegrationId, slicer)),
               job: jobs[i] ?? null,
             };
           }),
@@ -135,7 +155,11 @@ export const projectSlicingRoutes =
           if (!meta.models.find((m) => m.file === p.file)?.plates.some((x) => x.index === p.plate))
             throw new HttpError(400, "invalid_reference", `Unknown plate ${p.plate} of ${p.file}`);
         const known = (
-          table: typeof printProfiles | typeof filamentProfiles | typeof printers,
+          table:
+            | typeof printProfiles
+            | typeof filamentProfiles
+            | typeof printers
+            | typeof integrations,
           ids: string[],
         ) =>
           new Set(
@@ -158,6 +182,13 @@ export const projectSlicingRoutes =
         const printerSet = known(printers, printerIds);
         if (printerIds.some((i) => !printerSet.has(i)))
           throw new HttpError(400, "invalid_reference", "Unknown printer");
+        // Any integration, even one that can't slice now: a plate saved unchanged keeps its pick.
+        const slicerIds = plates.flatMap((p) =>
+          p.slicerIntegrationId ? [p.slicerIntegrationId] : [],
+        );
+        const slicerSet = known(integrations, slicerIds);
+        if (slicerIds.some((i) => !slicerSet.has(i)))
+          throw new HttpError(400, "invalid_reference", "Unknown slicer");
         const spoolIds = [
           ...new Set(plates.flatMap((p) => p.spools.filter((s): s is string => !!s))),
         ];

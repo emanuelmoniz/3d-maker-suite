@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { PlateSlice, plateKey, SliceSetup } from "../../components/SliceSetup.tsx";
+import { useSlicers } from "../../lib/integrations.ts";
 import { usePreferences } from "../../lib/preferences.ts";
 import {
   projectFileUrl,
@@ -26,6 +27,7 @@ export function useSlicingDraft(id: string) {
     useDefaultPrintProfile: p.useDefaultPrintProfile,
     filaments: p.filaments,
     spools: p.spools,
+    slicerIntegrationId: p.slicerIntegrationId,
   }));
   const dirty = draft !== null && JSON.stringify(draft) !== JSON.stringify(stored);
   /** Saves a changed draft; resolves once it is stored (or at once when nothing changed). */
@@ -45,6 +47,7 @@ export function SlicingSetup({ project, setup }: { project: Project; setup: Slic
   const slice = useSliceProject(project.id);
   const busy = slice.isPending || save.isPending;
   const patch = usePatchProject(project.id);
+  const slicers = useSlicers();
   const prefs = usePreferences().data?.values;
   const defaultId = prefs?.defaultPrinterId;
   // What "Folder default" means here: on unless the project sits in a root ticked off.
@@ -65,7 +68,31 @@ export function SlicingSetup({ project, setup }: { project: Project; setup: Slic
   return (
     <>
       <p className="mb-2 text-muted">{t("projects:slicing.hint")}</p>
-      <div className="mb-3 max-w-sm">
+      <div className="mb-3 grid max-w-2xl gap-3 sm:grid-cols-2">
+        {slicers.slicers.length > 1 && (
+          <FormField label={t("projects:slicing.slicer")} hint={t("projects:slicing.slicerHint")}>
+            {(p) => (
+              <select
+                {...p}
+                className={inputClass}
+                value={slicers.usable(project.slicerIntegrationId) ?? ""}
+                disabled={patch.isPending}
+                onChange={(e) => patch.mutate({ slicerIntegrationId: e.target.value || null })}
+              >
+                <option value="">
+                  {t("projects:slicing.slicerDefault", {
+                    name: slicers.nameOf(slicers.resolve([])),
+                  })}
+                </option>
+                {slicers.slicers.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+            )}
+          </FormField>
+        )}
         <FormField
           label={t("projects:slicing.autoSlice")}
           hint={t("projects:slicing.autoSliceHint")}
@@ -107,6 +134,7 @@ export function SlicingSetup({ project, setup }: { project: Project; setup: Slic
         onChange={setDraft}
         states={Object.fromEntries(saved.plates.map((p) => [plateKey(p), p.state]))}
         defaultPrinterId={defaultId}
+        projectSlicerId={project.slicerIntegrationId}
         disabled={save.isPending}
         plateInfo={(key) => {
           const p = byKey.get(key);

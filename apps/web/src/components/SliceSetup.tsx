@@ -13,6 +13,7 @@ import { useTranslation } from "react-i18next";
 import { useModelInfo, usePrintProfiles } from "../lib/catalog.ts";
 import { spoolName, useProfiles, useSpools } from "../lib/filament.ts";
 import { formatDuration, formatWeight } from "../lib/format.ts";
+import { useSlicers } from "../lib/integrations.ts";
 import { printerName, usePrinters } from "../lib/printers.ts";
 import { Combobox, type ComboOption } from "./Combobox.tsx";
 
@@ -43,6 +44,8 @@ export type SliceSetupProps = {
   disabled?: boolean;
   /** Extra line under a picked plate's name (e.g. its slice result), by `plateKey`. */
   plateInfo?: (key: string) => ReactNode;
+  /** The project's slicer, for plates without their own; else they use the default slicer. */
+  projectSlicerId?: string | null;
 };
 
 export const plateKey = (p: { file: string; plate: number }) => `${p.file}#${p.plate}`;
@@ -130,9 +133,11 @@ export function SliceSetup({
   defaultPrinterId,
   disabled,
   plateInfo,
+  projectSlicerId,
 }: SliceSetupProps) {
   const { t } = useTranslation();
   const uid = useId();
+  const slicers = useSlicers();
   const printProfiles = usePrintProfiles().data ?? [];
   const allProfiles = useProfiles().data?.items ?? [];
   const filaments = allProfiles.filter((p) => !p.archivedAt);
@@ -173,6 +178,7 @@ export function SliceSetup({
       useDefaultPrintProfile: !fitsFile(f, printer),
       filaments: defaultFilaments(p, filaments),
       spools: [],
+      slicerIntegrationId: null,
     }));
   };
   const setFile = (f: SliceSetupFile, on: boolean) =>
@@ -247,6 +253,18 @@ export function SliceSetup({
       useDefaultPrintProfile: !fitsFile(f, printer),
     });
   };
+
+  // A plate without its own slicer (or whose one can't slice now) uses the project's, then the default.
+  const inherited = slicers.usable(projectSlicerId);
+  const slicerOptions: ComboOption[] = [
+    {
+      value: "",
+      label: t(inherited ? "projects:slicing.slicerProject" : "projects:slicing.slicerDefault", {
+        name: slicers.nameOf(slicers.resolve([projectSlicerId])),
+      }),
+    },
+    ...slicers.slicers.map((s) => ({ value: s.id, label: s.name })),
+  ];
 
   const profileOf = (id: string) => allProfiles.find((p) => p.id === id);
   // Spools you can print from (and the one picked, whatever its state), then profiles.
@@ -372,6 +390,20 @@ export function SliceSetup({
                               onChange={(v) => setPrintProfile(key, v)}
                             />
                           </div>
+                          {slicers.slicers.length > 1 && (
+                            <div>
+                              <span aria-hidden className="mb-1 block text-sm text-muted">
+                                {t("projects:slicing.slicer")}
+                              </span>
+                              <Combobox
+                                aria-label={t("projects:slicing.slicerOf", { plate: name })}
+                                options={slicerOptions}
+                                value={slicers.usable(setup.slicerIntegrationId) ?? ""}
+                                disabled={disabled}
+                                onChange={(v) => patch(key, { slicerIntegrationId: v || null })}
+                              />
+                            </div>
+                          )}
                           {p.filaments.map((slot) => (
                             <div key={slot.slot}>
                               <span

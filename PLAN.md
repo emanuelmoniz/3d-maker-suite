@@ -1,4 +1,4 @@
-# 3D Maker Suite - Development Plans 4.1.0, 4.1.1 and 4.2.0
+# 3D Maker Suite - Development Plans 4.1.0, 4.1.1, 4.2.0 and 5.0.0
 Repo: `3d-maker-suite`
 
 How to use:
@@ -10,7 +10,7 @@ How to use:
 - Skills: `webapp-testing` for screenshots or browser checks, `frontend-design` for new visual pieces, `dataviz` for charts.
 
 Versioning (default from now on):
-- Stay on 4.x. **One plan = one release.**
+- Stay on 4.x until 5.0.0 (the hub, an agreed major), then on 5.x. **One plan = one release.**
 - Minor bump (`4.Y.0`) when the plan adds features, patch bump (`4.Y.Z`) when it only fixes things. A major bump only for an explicit, agreed breaking change.
 - During a plan: pre-releases `4.Y.Z-alpha.N` tagged on `dev`. Stable: fast-forward `main` to `dev`, tag `v4.Y.Z` on `main`.
 - Keep the root and `packages/*` versions in sync when bumping.
@@ -593,7 +593,7 @@ Do Step 13 of the 4.2.0 plan in PLAN.md. Show me the install job states and the 
 Back up the DB before editing schema.ts.
 ```
 
-### [ ] Step 13b - Slicer per project and plate  **[plan mode]**
+### [x] Step 13b - Slicer per project and plate  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:** Pick the slicer integration that slices: per plate, else per project (project edit page → print setup), else the default slicer from Integrations (local, server or cloud-linked). Stored on projects and plates (migration), used by the slice queue and part of the slice cache key; the plate and project pickers list only slice-capable integrations; a removed or switched-off choice falls back to the default.
 **Done when:** the flow is approved; plate → project → default resolves in the queue and the UI; tests pass.
@@ -643,6 +643,370 @@ pre-release. Then fast-forward main to dev, push, push the v4.2.0 tag and confir
 
 ---
 
+# Plan 5.0.0 - Hub
+
+Major release, agreed on 2026-10-26. Starts after the 4.2.0 release. Connector steps add tests that run a real connector against a test hub.
+
+Design: ADR-0014. A **hub** is the normal server with hub features switched on. Each workstation, NAS or file server runs a small **connector**. Every project root has a **location**:
+- `hub`: files live on the hub, and devices sync them.
+- a device: files live on that device, and the hub indexes them and pulls a file when it needs it.
+
+People work in the web app only. Slicing happens on the hub, or on a designated slice worker when the hub can't slice.
+
+## Phase 9 - Foundations
+
+Design:
+- Hub switch: Settings → Server, admin-only, off by default, needs users (ADR-0012). With it off, nothing changes.
+- `roots` table (id, name, location `hub` | device id, path). Projects reference `rootId` + relative path. All root file access on the hub goes through one per-root seam.
+- `devices` (id, name, user, OS, connector version, last seen, sha256 of the token, sync mode, sync folder, slice worker) and `pairing_codes` (sha256, user, expiry, used).
+- Channel: the connector connects out. REST for requests and files, one SSE stream `GET /api/hub/events` for hub → device commands, and a heartbeat. No new dependency.
+
+### [ ] Step 1 - Hub spikes and ADR-0014  **[plan mode]**
+**Model:** Opus · **Effort:** High
+**Scope:** The five spikes listed in `docs/adr/0014-hub-and-connector.md`:
+- slicer save patterns and what `fs.watch` reports, on each OS
+- whether the launched slicer process lives until its window closes
+- SSE through Caddy, nginx, Traefik and Docker
+- the connector bundle size with Node, and how much of ADR-0011 it reuses
+- SignPath Foundation eligibility and the unsigned connector warnings
+
+Record the evidence in the ADR, adjust the decisions it changes, and set the status to Accepted.
+**Done when:** every spike has evidence; the ADR is approved; the lock-release strategy for each OS is fixed.
+**Prompt:**
+```
+Do Step 1 of the 5.0.0 plan in PLAN.md. Report each spike with evidence before changing the ADR.
+```
+
+### [ ] Step 2 - Hub switch and root locations: schema  **[plan mode]**
+**Model:** Opus · **Effort:** High
+**Scope:**
+- Migration: `roots` table filled from `projectRoots` (location `hub`). Projects get `rootId` + relative path, and the old absolute paths are converted. `hub.enabled` setting.
+- The per-root file access seam on the server (local only for now). The scanner, watcher, trash, create folder and slicer use it.
+- Settings → Server: the hub switch, with a short explanation of what it adds and a hint when no users exist.
+- The roots picker and API move to `roots`. i18n `settings:hub.*`.
+
+No visible change with the switch off.
+**Done when:** existing installs migrate with no lost project links (test with a copy of a real DB); the switch shows and saves; tests pass.
+**Prompt:**
+```
+Do Step 2 of the 5.0.0 plan in PLAN.md. Show me the migration and the seam's interface first.
+Back up the DB before editing schema.ts.
+```
+
+### [ ] Step 3 - Hub management and device pairing
+**Model:** Opus · **Effort:** Medium
+**Scope:**
+- A Hub management nav section next to Integrations, admin-only, visible when the hub is on.
+- Device list: name, user, OS, connector version, online or last seen.
+- Only admins pair devices: an admin creates a pairing code for a user (valid 10 minutes, one-time, shown once). `POST /api/hub/pair` exchanges it for a device token (only its sha256 is stored). Rename, revoke (ends access at once).
+- Device auth in `lib/auth.ts` next to sessions, with routes in the role × prefix table (ADR-0012).
+
+**Done when:** pair, rename and revoke work through the API and the UI; a revoked token gets 401; tests pass.
+**Prompt:**
+```
+Do Step 3 of the 5.0.0 plan in PLAN.md.
+Back up the DB before editing schema.ts.
+```
+
+### [ ] Step 4 - Connector skeleton and installers  **[plan mode]**
+**Model:** Opus · **Effort:** High
+**Scope:**
+- `apps/connector` (TypeScript, imports only `core` and `3mf`).
+- A status page on `127.0.0.1`: hub URL, pairing code, online state, open the sync folder. It uses i18n from its own `locales/en`.
+- The SSE stream plus heartbeat, with reconnects from a cursor.
+- Installers from the ADR-0011 pipeline (Inno Setup, `.dmg`, `tar.gz`), start at login, and self-update to the hub's version with rollback.
+- Release workflow: connector assets and `SHA256SUMS`, plus GitHub artifact attestations for every asset.
+- `apps/connector` joins the version-sync rule (root, `packages/*`, `apps/connector`) in CLAUDE.md and the bump script.
+
+**Done when:** a connector installed on Windows, macOS and Linux pairs with a hub and shows online in Hub management; it updates to a newer test release; the workflow builds all installers; tests pass.
+**Prompt:**
+```
+Do Step 4 of the 5.0.0 plan in PLAN.md. Show me the connector's folder layout and the event protocol first.
+```
+
+### [ ] Step 5 - Docs, push & v5.0.0-alpha.1
+**Model:** Sonnet · **Effort:** Medium
+**Scope:**
+- `docs/hub.md`: what the hub is, the switch, pairing, the connector install and its unsigned warnings, and a page for company IT (checksums, attestations, install paths).
+- CHANGELOG, version `5.0.0-alpha.1`.
+- Commit, push `dev`, tag `v5.0.0-alpha.1` on `dev`. Check the run, the pre-release and the images.
+
+**Done when:** tags pushed; workflow green; docs match the app.
+**Prompt:**
+```
+Do Step 5 of the 5.0.0 plan in PLAN.md. Then push dev, push the tag and confirm the pre-release is published.
+```
+
+## Phase 10 - Device roots
+
+Design:
+- A root can live on a device. The connector watches it, reads 3MF metadata locally with `packages/3mf`, and sends the index and metadata to the hub.
+- The hub pulls a file only for slicing, download or the 3D view. Pulled files go to a temp cache with a size cap and an expiry.
+- Writes from the web app (create folder, trash) run on the owning connector.
+- Offline device: last known data plus an "offline" badge.
+- Other users can only download.
+
+### [ ] Step 6 - Device roots: index and metadata  **[plan mode]**
+**Model:** Opus · **Effort:** High
+**Scope:**
+- Add root gets a location picker: hub, or an online device. The folder browser goes through the connector.
+- The connector watches the root, waits for stable files, sends changes and 3MF metadata, and resends after reconnecting.
+- The hub stores them like a scan (same tables and the same project page).
+- An offline badge on roots and projects.
+
+**Done when:** a device root's projects appear, update after a save in the slicer, and show offline when the connector stops; tests pass.
+**Prompt:**
+```
+Do Step 6 of the 5.0.0 plan in PLAN.md. Show me the index messages and the offline rules first.
+```
+
+### [ ] Step 7 - Pull on demand, slice on the hub, remote writes
+**Model:** Opus · **Effort:** High
+**Scope:**
+- Hub → device "upload `<path>`" over SSE. The connector streams the file to the hub, which checks the hash.
+- Temp cache (size cap, expiry, cleanup job). The slice queue, download and 3D view use it, and auto slice works for device roots.
+- Create project folder and trash run on the connector, inside its root.
+- Path checks on both sides (no `..`, no absolute paths, no symlinks out of the root).
+
+**Done when:** a device-root file is sliced on the hub, downloaded and shown in 3D; create folder and trash work remotely; path-escape tests fail as expected; tests pass.
+**Prompt:**
+```
+Do Step 7 of the 5.0.0 plan in PLAN.md.
+```
+
+### [ ] Step 8 - Project owner and visibility  **[plan mode]**
+**Model:** Opus · **Effort:** Medium
+**Scope:**
+- Projects get an owner (migration: the admin for existing ones; the creator, or the device's user for device roots).
+- Per-user permissions: see all projects or only their own; edit or only download other people's projects in hub roots.
+- Device roots are always download-only for everyone but the owner.
+- API, project list, search and the 3D view respect it.
+
+**Done when:** the flow is approved; each combination is covered by tests; the UI hides what a user can't do; tests pass.
+**Prompt:**
+```
+Do Step 8 of the 5.0.0 plan in PLAN.md. Show me the permission table first.
+Back up the DB before editing schema.ts.
+```
+
+### [ ] Step 9 - Docs, push & v5.0.0-alpha.2
+**Model:** Sonnet · **Effort:** Medium
+**Scope:**
+- `docs/hub.md`: device roots, what offline means, permissions.
+- CHANGELOG, version `5.0.0-alpha.2`.
+- Commit, push `dev`, tag on `dev`. Check the run and the pre-release.
+
+**Done when:** tags pushed; workflow green; docs match the app.
+**Prompt:**
+```
+Do Step 9 of the 5.0.0 plan in PLAN.md. Only document what changed since 5.0.0-alpha.1.
+Then push dev, push the tag and confirm the pre-release is published.
+```
+
+## Phase 11 - Hub roots: sync
+
+Design:
+- `hub_files` (root, path, size, sha256, version, deleted, lock) plus a change sequence number. Connectors pull "changes since cursor" and upload with their base version.
+- Base version current → new version. Otherwise → conflict copy `<name> (conflict <device> <date>).<ext>` plus an alert.
+- A local delete moves the file to the root's trash on the hub. Mass delete guard.
+- Sync mode per device: everything, or selected projects, plus **Open on my workstation**.
+- Clocks are never compared across machines.
+
+### [ ] Step 10 - Hub file index and transfer API  **[plan mode]**
+**Model:** Opus · **Effort:** High
+**Scope:**
+- Migration `hub_files`. The index is kept current by the existing scanner and watcher, so files edited on the hub itself count too.
+- `GET changes?since=`, download, upload: stream to temp, check sha256 and base version, rename into place, or keep a conflict copy.
+- Delete → trash. A conflict alert with a CTA to the project.
+
+**Done when:** the flow is approved; concurrent uploads of the same base give exactly one version and one conflict copy (test); tests pass.
+**Prompt:**
+```
+Do Step 10 of the 5.0.0 plan in PLAN.md. Show me the change feed and the upload rules first.
+Back up the DB before editing schema.ts.
+```
+
+### [ ] Step 11 - Connector sync engine  **[plan mode]**
+**Model:** Opus · **Effort:** High
+**Scope:**
+- One folder per root under the device's sync folder.
+- First sync, then pull changes and push local changes after the stability check.
+- Downloads to a temp file plus rename. Read-only files for projects the user may only download.
+- State in a JSON file: per file, the last synced version and hash.
+- Mass delete guard (threshold in Hub management): it pauses, asks on the status page, and raises an alert.
+- Sync state on the status page and in Hub management.
+
+**Done when:** two connectors and the hub stay in sync through edits, renames, deletes and a conflict; a mass delete pauses; a killed connector resumes without re-downloading everything; tests pass.
+**Prompt:**
+```
+Do Step 11 of the 5.0.0 plan in PLAN.md. Show me the sync loop and its state file first.
+```
+
+### [ ] Step 12 - Selected projects and Open on my workstation
+**Model:** Opus · **Effort:** Medium
+**Scope:**
+- Device sync mode: everything or selected projects (Hub management and the status page). Removing an unselected project's local copy is not a delete.
+- An **Open on my workstation** button on the project page and file rows, when the user has an online device. The hub sends "open". The connector syncs the project if it isn't there yet, then opens the file in its detected slicer, through the adapter's slicer launcher as the server does today.
+
+**Done when:** with selected projects, Open downloads the project and opens the slicer; the save syncs back and auto slice runs on the hub; tests pass.
+**Prompt:**
+```
+Do Step 12 of the 5.0.0 plan in PLAN.md.
+```
+
+### [ ] Step 13 - Docs, push & v5.0.0-alpha.3
+**Model:** Sonnet · **Effort:** Medium
+**Scope:**
+- `docs/hub.md`: hub roots, sync modes, conflicts, trash, the mass delete guard.
+- CHANGELOG, version `5.0.0-alpha.3`.
+- Commit, push `dev`, tag on `dev`. Check the run and the pre-release.
+
+**Done when:** tags pushed; workflow green; docs match the app.
+**Prompt:**
+```
+Do Step 13 of the 5.0.0 plan in PLAN.md. Only document what changed since 5.0.0-alpha.2.
+Then push dev, push the tag and confirm the pre-release is published.
+```
+
+## Phase 12 - Locks and versions
+
+Design:
+- Locks: off · on · strict (Hub management). Opening through the connector, or the first local change, takes a lock, and other devices set the file read-only.
+- Release: the slicer process exits (where Step 1 found this observable), Done editing, an idle timeout, or an admin force-unlock.
+- Strict: an offline device can't lock, so it's read-only.
+- Versions: on/off and keep N. The previous content goes to `<dataDir>/versions/<rootId>/<fileId>/<version>`, outside the root.
+
+### [ ] Step 14 - Check-out locks  **[plan mode]**
+**Model:** Opus · **Effort:** High
+**Scope:**
+- Lock fields on `hub_files`, with lock and unlock routes.
+- The connector takes a lock on Open and on the first change, sets the file read-only on other devices, and releases it as Step 1 decided.
+- A Done editing button in the web app and on the status page; idle timeout (setting); admin force-unlock.
+- Strict mode for offline devices.
+- "Being edited by `<user>` on `<device>`" on the project page.
+
+**Done when:** the flow is approved; a second device can't save a locked file; release works through each path; strict mode makes an offline device read-only; tests pass.
+**Prompt:**
+```
+Do Step 14 of the 5.0.0 plan in PLAN.md. Show me the lock states and release paths per OS first.
+Back up the DB before editing schema.ts.
+```
+
+### [ ] Step 15 - File versions
+**Model:** Sonnet · **Effort:** Medium
+**Scope:**
+- Settings on/off and keep N (Hub management). On an accepted upload, the previous content moves to the versions folder. Prune past N, and when N is lowered.
+- A file history on the project page (version, user, device, date, size) with Download.
+- Disk use in Hub management. Backups list whether they include versions.
+
+**Done when:** N uploads keep N versions; older ones download intact; lowering N prunes; tests pass.
+**Prompt:**
+```
+Do Step 15 of the 5.0.0 plan in PLAN.md.
+```
+
+### [ ] Step 16 - Docs, push & v5.0.0-alpha.4
+**Model:** Sonnet · **Effort:** Medium
+**Scope:**
+- `docs/hub.md`: locks and their limits (soft locks), versions and disk use.
+- CHANGELOG, version `5.0.0-alpha.4`.
+- Commit, push `dev`, tag on `dev`. Check the run and the pre-release.
+
+**Done when:** tags pushed; workflow green; docs match the app.
+**Prompt:**
+```
+Do Step 16 of the 5.0.0 plan in PLAN.md. Only document what changed since 5.0.0-alpha.3.
+Then push dev, push the tag and confirm the pre-release is published.
+```
+
+## Phase 13 - Slice workers
+
+Design:
+- An admin marks a device as a slice worker. Its connector installs a managed slicer (ADR-0013) into its own data folder, with no admin rights.
+- The hub fixes the version and pushes its managed config folder (presets).
+- The worker is one more slice-capable integration in the plate → project → default pickers (4.2.0 Step 13b).
+- Jobs go out over SSE. The worker pulls the file (or uses its local copy if the hash matches), slices, and uploads the result.
+
+### [ ] Step 17 - Managed slicer on a device  **[plan mode]**
+**Model:** Opus · **Effort:** High
+**Scope:**
+- Move the `managedSlicer` download, digest check, unpack and smoke test from `apps/server` into a shared package. The server and the connector both use it.
+- A "slice worker" switch per device in Hub management.
+- Install, update and remove on the worker, driven from the hub, with progress shown in Hub management.
+- The hub pushes the managed config folder and keeps it in sync.
+
+**Done when:** the flow is approved; a worker on Windows and on macOS installs the hub's slicer version and presets; the server's own managed slicer still works; tests pass.
+**Prompt:**
+```
+Do Step 17 of the 5.0.0 plan in PLAN.md. Show me the shared package's API and the install states first.
+```
+
+### [ ] Step 18 - Slice jobs on workers
+**Model:** Opus · **Effort:** High
+**Scope:**
+- Workers appear as slice-capable integrations ("Bambu Studio (WS-3)").
+- The slice queue sends jobs to the picked worker: the file is pulled or reused by hash, the result uploaded, the same cache key including the slicer version.
+- Job timeout. When the worker is offline, the job waits and shows why, with an option to fall back to the hub's slicer.
+
+**Done when:** an arm64 Docker hub with no slicer slices through a worker; results match a hub slice of the same file and version; tests pass.
+**Prompt:**
+```
+Do Step 18 of the 5.0.0 plan in PLAN.md.
+```
+
+### [ ] Step 19 - Docs, push & v5.0.0-alpha.5
+**Model:** Sonnet · **Effort:** Medium
+**Scope:**
+- `docs/slicing.md` and `docs/hub.md`: slice workers, when to use them, matching presets.
+- CHANGELOG, version `5.0.0-alpha.5`.
+- Commit, push `dev`, tag on `dev`. Check the run and the pre-release.
+
+**Done when:** tags pushed; workflow green; docs match the app.
+**Prompt:**
+```
+Do Step 19 of the 5.0.0 plan in PLAN.md. Only document what changed since 5.0.0-alpha.4.
+Then push dev, push the tag and confirm the pre-release is published.
+```
+
+## Phase 14 - Release
+
+### [ ] Step 20 - Real test: VPS, NAS and three workstations
+**Model:** Sonnet · **Effort:** Medium
+**Scope:**
+- A hub on a VPS behind Caddy (HTTPS), plus a hub on a NAS (Docker).
+- Connectors on Windows, macOS and Linux, plus one on a NAS used as a device root.
+- Pairing and revoking; hub root sync in both modes; Open on my workstation; a conflict; the mass delete guard; locks (on and strict) with a device going offline; versions.
+- A device root offline and back; a slice worker for an arm64 hub; antivirus and SmartScreen behaviour on Windows.
+
+Fix anything found and note it in the CHANGELOG (alpha.6 if needed).
+**Done when:** every scenario worked; fixes released.
+**Prompt:**
+```
+Do Step 20 of the 5.0.0 plan in PLAN.md. Guide me through each scenario, then fix what we find.
+```
+
+### [ ] Step 21 - Docs, push & v5.0.0 release
+**Model:** Haiku · **Effort:** Low
+**Scope:**
+- `pnpm screenshots` (Hub management, the project page with the lock and Open button, file history), README (hub section), CHANGELOG, version `5.0.0`.
+- Commit on `dev`, fast-forward `main` to `dev`, push both, tag `v5.0.0` on `main`. Check the run, the release, the images and the connector installers.
+
+**Done when:** `main`, `dev` and the tag are pushed; the workflow is green; the release is the latest; images and connector installers are published; updating 4.2.0 (git and installer) to 5.0.0 works, with the hub off.
+**Prompt:**
+```
+Do Step 21 of the 5.0.0 plan in PLAN.md. Only document what changed since the last 5.0.0 pre-release.
+Then fast-forward main to dev, push, push the v5.0.0 tag and confirm the release.
+```
+
+## Out of scope for 5.0.0 (later plans)
+- Printing from the web app: both root locations can give the hub the sliced file.
+- A WebDAV drive served by the hub, for browsing without syncing.
+- Restoring a version in place.
+- Several users on one shared workstation.
+- The network storage module (SMB and cloud mounts on the hub).
+
+---
+
 ## Backlog mapping
 | Backlog item | Plan · Step |
 |---|---|
@@ -673,3 +1037,14 @@ pre-release. Then fast-forward main to dev, push, push the v4.2.0 tag and confir
 | integrations: allow editor to sync / review and import, per task | 4.2 · 10 |
 | storage integration: SMB, cloud | Backlog · Ideas / modules (Network storage) |
 | bundled slicer for headless servers (download from the app) | 4.2 · 12-15 |
+| hub: server installer anywhere, hub features switched on in Settings | 5.0 · 2 |
+| hub: Hub management section next to Integrations | 5.0 · 3 |
+| hub: small client connector with its own installer | 5.0 · 4 |
+| hub: files scattered on workstations, NAS, file server (indexed, sliced on the hub) | 5.0 · 6, 7 |
+| hub: others see all projects, edit, download only, or only their own | 5.0 · 8 |
+| hub: central file server, a folder on each workstation, delete goes to the server's trash | 5.0 · 10, 11 |
+| hub: full local copy or files on demand | 5.0 · 11, 12 (per project, not placeholder files; ADR-0014) |
+| hub: prevent editing a file being edited on another client (setting) | 5.0 · 14 |
+| hub: version history, download older versions (setting, keep N) | 5.0 · 15 |
+| hub: slice on the clients when the server can't | 5.0 · 17, 18 |
+| hub: print from the app | later |

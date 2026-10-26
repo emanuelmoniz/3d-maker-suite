@@ -67,6 +67,7 @@ describe("project slicing setup", () => {
         printerId: null, // no printers yet
         useDefaultPrintProfile: false,
         spools: [],
+        slicerIntegrationId: null,
         state: "ok",
         result: null,
         error: null,
@@ -118,21 +119,70 @@ const listSlicing = async (filter = "") =>
     .json()
     .items.map((p: { slicing: string }) => p.slicing);
 
+/** A mock slicer integration; it needs a program path that exists, though it never runs it. */
+async function addSlicer() {
+  const slicerId = (
+    await app.inject({
+      method: "POST",
+      url: "/api/integrations",
+      payload: { adapterId: "mock", secrets: { token: "t" } },
+    })
+  ).json().id as string;
+  await app.inject({
+    method: "PATCH",
+    url: `/api/integrations/${slicerId}`,
+    payload: { slicerPath: process.execPath },
+  });
+  return slicerId;
+}
+
 describe("slicing a project (mock slicer)", () => {
+  let first: string;
   beforeEach(async () => {
-    // The mock slicer needs a program path that exists; it never runs it.
-    const mockId = (
-      await app.inject({
-        method: "POST",
-        url: "/api/integrations",
-        payload: { adapterId: "mock", secrets: { token: "t" } },
-      })
-    ).json().id;
+    first = await addSlicer();
+  });
+
+  it("slices with the plate's slicer, else the project's, else the default", async () => {
+    const second = await addSlicer();
+    const plate = { file: "benchy.3mf", plate: 1, printProfileId: null, filaments: [] };
+    const project = (slicerIntegrationId: string | null) =>
+      app.inject({ method: "PATCH", url: `/api/projects/${id}`, payload: { slicerIntegrationId } });
+
+    // The plate's own: sliced with it. Then none on the plate, the project's is the same: current.
+    await put([{ ...plate, slicerIntegrationId: second }]);
+    await run();
+    expect((await settled()).plates[0].needsSlicing).toBe(false);
+    expect((await project(second)).statusCode).toBe(200);
+    await put([plate]);
+    expect((await settled()).plates[0].needsSlicing).toBe(false);
+
+    // The project switches slicer: needs slicing again, here and in the list.
+    await project(first);
+    expect((await settled()).plates[0].needsSlicing).toBe(true);
+    expect(await listSlicing("?slicing=needed")).toHaveLength(1);
+    await run();
+    expect((await settled()).plates[0].needsSlicing).toBe(false);
+    expect(await listSlicing("?slicing=done")).toHaveLength(1);
+
+    // Switched off: kept, but falls back to the default (none set: the first that can, `second`).
     await app.inject({
       method: "PATCH",
-      url: `/api/integrations/${mockId}`,
-      payload: { slicerPath: process.execPath },
+      url: `/api/integrations/${first}`,
+      payload: { enabled: false },
     });
+    expect((await settled()).plates[0].needsSlicing).toBe(true);
+    expect(await listSlicing("?slicing=needed")).toHaveLength(1);
+    expect((await app.inject(`/api/projects/${id}`)).json().slicerIntegrationId).toBe(first);
+
+    // Removed: the choice goes.
+    await app.inject({ method: "DELETE", url: `/api/integrations/${first}` });
+    expect((await app.inject(`/api/projects/${id}`)).json().slicerIntegrationId).toBeNull();
+
+    // Unknown slicers are refused.
+    expect((await project(crypto.randomUUID())).statusCode).toBe(400);
+    expect((await put([{ ...plate, slicerIntegrationId: crypto.randomUUID() }])).statusCode).toBe(
+      400,
+    );
   });
 
   it("slices, stores the result, re-slices only what changed", async () => {
