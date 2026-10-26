@@ -406,7 +406,7 @@ const routes: AnyRoute[] = [
     [
       ["/quotes/settings", CostsConfigPage, ["costs"]],
       ["/orders/settings", OrdersConfigPage, ["orders"]],
-      ["/printers/settings", PrintersConfigPage, ["printers", "integrations", "tags"]],
+      ["/printers/settings", PrintersConfigPage, ["printers", "integrations", "tags", "filament"]],
       ["/filament/settings", FilamentConfigPage, ["filament", "printers", "integrations"]],
       ["/prints/settings", PrintsConfigPage, ["prints"]],
       ["/projects/settings", ProjectsConfigPage, ["projects"]],

@@ -10,6 +10,7 @@ import {
   openSections,
   pick,
   roots,
+  seedModel,
   seedPrinter,
   seedProfile,
   seedProject,
@@ -59,6 +60,28 @@ test("config pages: printers and filament hold the catalogs, the module pages do
   await page.goto("/filament/settings");
   for (const h of ["Profiles", "Filament brands", "Filament materials"])
     await expect(page.getByRole("heading", { name: h, level: 2 })).toBeVisible();
+});
+
+test("printer settings tables show each row's slicer", async ({ page, app }) => {
+  const model = await seedModel(app.api);
+  await app.api("POST", "/api/machine-profiles", {
+    name: "Acme X1 0.4 nozzle",
+    printerModelId: model.id,
+    nozzleDiameterMm: 0.4,
+    sourcePreset: "bambu-studio:system/Acme X1 0.4 nozzle",
+  });
+  await app.api("POST", "/api/print-profiles", { name: "Mine", printerModelId: model.id });
+  await page.goto("/printers/settings");
+  for (const table of ["Brands", "Printer models", "Machine profiles", "Print profiles"]) {
+    const t = page.getByRole("table", { name: table });
+    await expect(t.getByRole("columnheader", { name: "Slicer" })).toBeVisible();
+  }
+  // Brand and model: their profiles' slicers. A hand-made profile has none.
+  for (const table of ["Brands", "Printer models", "Machine profiles"])
+    await expect(page.getByRole("table", { name: table }).getByText("Bambu Studio")).toBeVisible();
+  await expect(
+    page.getByRole("table", { name: "Print profiles" }).getByRole("row", { name: /Mine/ }),
+  ).not.toContainText("Bambu Studio");
 });
 
 test("path picker: project roots are filled by browsing, keyboard included", async ({

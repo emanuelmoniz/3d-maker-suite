@@ -180,6 +180,7 @@
     "duplicate": "An entry with this name already exists.",
     "inUse": "Still in use, so it can't be deleted.",
     "mm": "{{value}} mm",
+    "slicer": "Slicer",
     "brands": {
       "title": "Brands",
       "add": "Add brand",

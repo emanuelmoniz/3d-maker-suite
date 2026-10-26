@@ -20,10 +20,12 @@ import {
   type CatalogKind,
   imageUrl,
   useBrands,
+  useMachineProfiles,
   useModelInfo,
   usePrinterModels,
+  usePrintProfiles,
 } from "../../lib/catalog.ts";
-import { formatNumber } from "../../lib/format.ts";
+import { formatList, formatNumber } from "../../lib/format.ts";
 import { useListPage, useUrlListQuery } from "../../lib/list.ts";
 
 export const addClass =
@@ -105,8 +107,38 @@ export function Catalog() {
   const brands = useBrands().data ?? [];
   const models = usePrinterModels().data ?? [];
   const info = useModelInfo();
+  const machineProfiles = useMachineProfiles().data ?? [];
+  const printProfiles = usePrintProfiles().data ?? [];
   const brandOf = new Map(brands.map((b) => [b.id, b]));
   const none = t("printers:detail.info.none");
+
+  // The slicer library a preset came from (`<library>:<preset>`); hand-made ones have none.
+  // Brands and models have no preset of their own: theirs are their profiles' slicers.
+  const libraryOf = (source: string | null) => source?.split(":")[0] || null;
+  const modelLibraries = new Map<string, Set<string>>();
+  for (const p of [...machineProfiles, ...printProfiles]) {
+    const lib = libraryOf(p.sourcePreset);
+    if (!lib || !p.printerModelId) continue;
+    modelLibraries.set(
+      p.printerModelId,
+      (modelLibraries.get(p.printerModelId) ?? new Set()).add(lib),
+    );
+  }
+  const brandLibraries = (brandId: string) =>
+    models
+      .filter((m) => m.brandId === brandId)
+      .flatMap((m) => [...(modelLibraries.get(m.id) ?? [])]);
+  const slicers = (libs: Iterable<string | null>) => {
+    const names = [...new Set([...libs].filter((l): l is string => !!l))]
+      .map((l) => t(`filament:library.sources.${l}`, { defaultValue: l }))
+      .sort();
+    return names.length ? formatList(names) : none;
+  };
+  const slicerColumn = <T,>(libs: (row: T) => Iterable<string | null>): Column<T> => ({
+    id: "slicer",
+    header: t("printers:catalog.slicer"),
+    cell: (r) => slicers(libs(r)),
+  });
 
   return (
     <div className="mt-8 grid gap-8">
@@ -143,6 +175,7 @@ export function Catalog() {
                 none
               ),
           },
+          slicerColumn<Brand>((b) => brandLibraries(b.id)),
         ]}
       />
       <Section<PrinterModel>
@@ -183,6 +216,7 @@ export function Catalog() {
             sort: "powerW",
             filter: "powerW",
           },
+          slicerColumn<PrinterModel>((m) => modelLibraries.get(m.id) ?? []),
         ]}
       />
       <Section<MachineProfile>
@@ -217,6 +251,7 @@ export function Catalog() {
             sort: "nozzleDiameterMm",
             filter: "nozzleDiameterMm",
           },
+          slicerColumn<MachineProfile>((p) => [libraryOf(p.sourcePreset)]),
         ]}
       />
       <Section<PrintProfile>
@@ -265,6 +300,7 @@ export function Catalog() {
             sort: "layerHeightMm",
             filter: "layerHeightMm",
           },
+          slicerColumn<PrintProfile>((p) => [libraryOf(p.sourcePreset)]),
         ]}
       />
     </div>

@@ -10,6 +10,10 @@ export const formatNumber = (n: number, opts?: Intl.NumberFormatOptions) => num(
 export const formatCurrency = (amount: number, currency = "EUR") =>
   num({ style: "currency", currency }).format(amount);
 
+/** "A, B and C" in the UI language. */
+export const formatList = (items: string[]) =>
+  new Intl.ListFormat(locale(), { type: "conjunction" }).format(items);
+
 // The only place dates are formatted. AppShell pushes the saved preferences in and remounts on change.
 let dateFormat: DateFormat = PREFERENCE_DEFAULTS.dateFormat;
 let timeFormat: TimeFormat = PREFERENCE_DEFAULTS.timeFormat;
