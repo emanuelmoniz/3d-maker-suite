@@ -12,6 +12,7 @@
     "local": "Local",
     "server": "Server"
   },
+  "nameWithKind": "{{name}} - {{kind}}",
   "errors": {
     "auth_required": "Sign-in required. Check the credentials.",
     "auth_expired": "Sign-in expired. Connect again.",
@@ -105,10 +106,10 @@
       "name": "OrcaSlicer"
     },
     "bambu-studio-server": {
-      "name": "Bambu Studio (server)"
+      "name": "Bambu Studio"
     },
     "orca-slicer-server": {
-      "name": "OrcaSlicer (server)"
+      "name": "OrcaSlicer"
     }
   },
   "login": {

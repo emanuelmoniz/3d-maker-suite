@@ -1,5 +1,6 @@
 import type { Page } from "@playwright/test";
 import { expect, test } from "./fixtures.ts";
+import { gotoIntegrations, openIntegrationCards } from "./helpers.ts";
 
 const PASSWORD = "correct horse";
 
@@ -141,7 +142,7 @@ test("roles: viewer and editor see only what they can do; logs show the actor", 
 
   // The admin lets editors sync printers (on the page) and review print history.
   await signInAs(page, "ana@example.com");
-  await page.goto("/integrations");
+  await gotoIntegrations(page);
   await page.getByRole("button", { name: "Settings: Printers" }).click();
   // The switch's input is sr-only under the drawn track.
   const editorSync = page.getByRole("switch", { name: "Editors can sync now: Printers" });
@@ -155,6 +156,7 @@ test("roles: viewer and editor see only what they can do; logs show the actor", 
   await signInAs(page, "eva@example.com");
   await page.goto("/clients");
   await side.getByRole("link", { name: "Integrations" }).click();
+  await openIntegrationCards(page);
   const main = page.getByRole("main");
   await expect(main.getByText("Print history", { exact: true })).toBeVisible();
   await expect(main.getByText("Printers", { exact: true })).toBeVisible();

@@ -8,6 +8,7 @@ import {
   syncRunFilters,
 } from "@3d-maker-suite/core";
 import { useNavigate } from "@tanstack/react-router";
+import { ChevronRight } from "lucide-react";
 import { type ReactNode, useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
@@ -86,6 +87,9 @@ export function IntegrationCard({ integration: i }: { integration: Integration }
   const remove = useDeleteIntegration(i.id);
   const failed = [patch, sync, remove].some((m) => m.isError);
   const name = adapterName(i.adapterId);
+  // Closed by default; a deep link (an alert's "Open integration") opens it.
+  const [open, setOpen] = useState(() => location.hash === `#integration-${i.id}`);
+  const bodyId = useId();
 
   // The status line: one sentence for where the integration stands.
   const state = !i.enabled ? "disabled" : sync.isPending ? "syncing" : i.status;
@@ -119,12 +123,24 @@ export function IntegrationCard({ integration: i }: { integration: Integration }
       className="scroll-mt-4 rounded-lg border border-border bg-surface p-4 sm:p-5"
     >
       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
-        <div className="flex min-w-0 items-center gap-2">
-          <h3 className="truncate text-base font-semibold">{name}</h3>
-          <span className="rounded-full bg-surface-2 px-2 py-0.5 text-xs font-medium text-muted">
-            {t(KINDS[i.kind])}
-          </span>
-        </div>
+        <h3 className="min-w-0 text-base font-semibold">
+          <button
+            type="button"
+            aria-expanded={open}
+            aria-controls={bodyId}
+            onClick={() => setOpen(!open)}
+            className="flex min-h-11 max-w-full items-center gap-2 rounded-md text-left"
+          >
+            <ChevronRight
+              aria-hidden
+              className={cx("size-4 shrink-0 transition-transform", open && "rotate-90")}
+            />
+            <span className="truncate">{name}</span>
+            <span className="rounded-full bg-surface-2 px-2 py-0.5 text-xs font-medium text-muted">
+              {t(KINDS[i.kind])}
+            </span>
+          </button>
+        </h3>
         {admin && (
           <div className="flex items-center gap-1">
             <Switch
@@ -159,77 +175,90 @@ export function IntegrationCard({ integration: i }: { integration: Integration }
         </p>
       )}
 
-      {account && (
-        <Part title={t("integrations:card.account")}>
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-            {adapter?.login && (
-              <span className="text-muted">
-                {i.hasSecrets
-                  ? t("integrations:card.signedIn")
-                  : t("integrations:card.notSignedIn")}
-              </span>
-            )}
-            <span className="flex flex-wrap gap-2">
-              {hasLogin && (
-                <Button
-                  variant={i.hasSecrets ? "secondary" : "primary"}
-                  onClick={() => navigate({ to: "/integrations/$id/login", params: { id: i.id } })}
-                >
-                  {i.hasSecrets
-                    ? t("integrations:card.signInAgain")
-                    : t("integrations:card.signIn")}
-                </Button>
+      {open && (
+        <div id={bodyId}>
+          {account && (
+            <Part title={t("integrations:card.account")}>
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                {adapter?.login && (
+                  <span className="text-muted">
+                    {i.hasSecrets
+                      ? t("integrations:card.signedIn")
+                      : t("integrations:card.notSignedIn")}
+                  </span>
+                )}
+                <span className="flex flex-wrap gap-2">
+                  {hasLogin && (
+                    <Button
+                      variant={i.hasSecrets ? "secondary" : "primary"}
+                      onClick={() =>
+                        navigate({ to: "/integrations/$id/login", params: { id: i.id } })
+                      }
+                    >
+                      {i.hasSecrets
+                        ? t("integrations:card.signInAgain")
+                        : t("integrations:card.signIn")}
+                    </Button>
+                  )}
+                  <Button disabled={test.isPending} onClick={() => test.mutate()}>
+                    {t("integrations:card.test")}
+                  </Button>
+                </span>
+              </div>
+              {test.data && (
+                <p role="status" className={test.data.ok ? "text-ok" : "text-bad"}>
+                  {test.data.ok ? t("integrations:card.testOk") : t(ERRORS[test.data.code])}
+                </p>
               )}
-              <Button disabled={test.isPending} onClick={() => test.mutate()}>
-                {t("integrations:card.test")}
-              </Button>
-            </span>
-          </div>
-          {test.data && (
-            <p role="status" className={test.data.ok ? "text-ok" : "text-bad"}>
-              {test.data.ok ? t("integrations:card.testOk") : t(ERRORS[test.data.code])}
-            </p>
+            </Part>
           )}
-        </Part>
-      )}
-      {admin && i.enabled && i.kind === "local" && (
-        <Part title={t("integrations:slicer.title")}>
-          <SlicerFields
-            integration={i}
-            detectedDir={adapter?.detectedConfigDir ?? null}
-            program={i.policies.some((p) => isAction(p.type))}
-          />
-          <ActionSwitches integration={i} />
-        </Part>
-      )}
-      {admin && i.enabled && i.kind === "server" && adapter?.managed && (
-        <Part title={t("integrations:slicer.title")}>
-          <ManagedSlicer integration={i} libraryId={adapter.libraryId} managed={adapter.managed} />
-          <DefaultSlicer integration={i} />
-          <ActionSwitches integration={i} />
-        </Part>
-      )}
-      {/* A server slicer with nothing to import: its presets come from a zip instead. */}
-      {admin && i.enabled && i.kind === "server" && !imports && adapter?.libraryId && (
-        <Part title={t("integrations:managed.profilesTitle")}>
-          <ProfilesFromZip libraryId={adapter.libraryId} />
-        </Part>
-      )}
-      {/* A cloud adapter's slicer actions (a local one has them in its slicer part). */}
-      {admin && i.enabled && i.kind === "cloud" && i.policies.some((p) => isAction(p.type)) && (
-        <Part title={t("integrations:card.actions")}>
-          <ActionSwitches integration={i} />
-        </Part>
-      )}
-      {i.enabled && imports && (
-        <Part title={t("integrations:card.imports")}>
-          <Policies integration={i} sync={sync} />
-        </Part>
-      )}
-      {logged && (
-        <Collapsible title={t("integrations:card.log")} className="mt-5">
-          <SyncLog id={i.id} types={i.policies.map((p) => p.type).filter((c) => !isAction(c))} />
-        </Collapsible>
+          {admin && i.enabled && i.kind === "local" && (
+            <Part title={t("integrations:slicer.title")}>
+              <SlicerFields
+                integration={i}
+                detectedDir={adapter?.detectedConfigDir ?? null}
+                program={i.policies.some((p) => isAction(p.type))}
+              />
+              <ActionSwitches integration={i} />
+            </Part>
+          )}
+          {admin && i.enabled && i.kind === "server" && adapter?.managed && (
+            <Part title={t("integrations:slicer.title")}>
+              <ManagedSlicer
+                integration={i}
+                libraryId={adapter.libraryId}
+                managed={adapter.managed}
+              />
+              <DefaultSlicer integration={i} />
+              <ActionSwitches integration={i} />
+            </Part>
+          )}
+          {/* A server slicer with nothing to import: its presets come from a zip instead. */}
+          {admin && i.enabled && i.kind === "server" && !imports && adapter?.libraryId && (
+            <Part title={t("integrations:managed.profilesTitle")}>
+              <ProfilesFromZip libraryId={adapter.libraryId} />
+            </Part>
+          )}
+          {/* A cloud adapter's slicer actions (a local one has them in its slicer part). */}
+          {admin && i.enabled && i.kind === "cloud" && i.policies.some((p) => isAction(p.type)) && (
+            <Part title={t("integrations:card.actions")}>
+              <ActionSwitches integration={i} />
+            </Part>
+          )}
+          {i.enabled && imports && (
+            <Part title={t("integrations:card.imports")}>
+              <Policies integration={i} sync={sync} />
+            </Part>
+          )}
+          {logged && (
+            <Collapsible title={t("integrations:card.log")} className="mt-5">
+              <SyncLog
+                id={i.id}
+                types={i.policies.map((p) => p.type).filter((c) => !isAction(c))}
+              />
+            </Collapsible>
+          )}
+        </div>
       )}
 
       <ConfirmDialog

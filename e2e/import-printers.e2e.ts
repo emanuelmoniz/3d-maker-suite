@@ -1,4 +1,5 @@
 import { expect, test } from "./fixtures.ts";
+import { gotoIntegrations } from "./helpers.ts";
 
 test("Review and import on the Printers row reviews the cloud's printers", async ({
   page,
@@ -6,7 +7,7 @@ test("Review and import on the Printers row reviews the cloud's printers", async
 }) => {
   await app.api("POST", "/api/integrations", { adapterId: "mock", secrets: { token: "t" } });
 
-  await page.goto("/integrations");
+  await gotoIntegrations(page);
   await page
     .getByRole("listitem")
     .filter({ hasText: /^Printers/ })

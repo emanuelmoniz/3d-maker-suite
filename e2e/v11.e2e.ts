@@ -4,7 +4,15 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Page } from "@playwright/test";
 import { expect, test } from "./fixtures.ts";
-import { hasHorizontalScroll, pick, seedPrinter, seedProfile, seedSpool } from "./helpers.ts";
+import {
+  gotoIntegrations,
+  hasHorizontalScroll,
+  openIntegrationCards,
+  pick,
+  seedPrinter,
+  seedProfile,
+  seedSpool,
+} from "./helpers.ts";
 
 // yazl is the server's dependency (it reads the zips); the tests only borrow it to build one.
 const yazl = createRequire(join(import.meta.dirname, "..", "apps", "server", "package.json"))(
@@ -175,7 +183,7 @@ test("integrations hub groups cloud and local and edits the per-type policy", as
   const orca = list.find((i) => i.adapterId === "orca-slicer");
   await app.api("PATCH", `/api/integrations/${orca?.id}`, { slicerConfigDir: dir });
 
-  await page.goto("/integrations");
+  await gotoIntegrations(page);
   await expect(page.getByRole("heading", { name: "Cloud", level: 2 })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Local", level: 2 })).toBeVisible();
   const auto = page.getByRole("switch", { name: "Auto sync: Print history" });
@@ -191,11 +199,13 @@ test("integrations hub groups cloud and local and edits the per-type policy", as
   await flip();
   await expect(frequency).toBeVisible();
   await page.reload();
+  await openIntegrationCards(page);
   await settings.click();
   await expect(auto).toBeChecked();
   await flip();
   await expect(auto).not.toBeChecked();
   await page.reload();
+  await openIntegrationCards(page);
   await settings.click();
   await expect(auto).not.toBeChecked();
 });

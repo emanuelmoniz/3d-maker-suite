@@ -240,7 +240,7 @@
     },
     "saveFailed": "Could not save the setup.",
     "slice": "Slice",
-    "sliceHint": "Slices the plates that were never sliced or changed since, with the slicer on this computer.",
+    "sliceHint": "Slices the plates that were never sliced or changed since, with each plate's slicer.",
     "noSlicer": "Set up a slicer in Settings > Integrations to slice.",
     "upToDate": "Every plate is sliced and up to date.",
     "progress_one": "Slicing… {{count}} plate left.",

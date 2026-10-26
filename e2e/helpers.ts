@@ -9,6 +9,19 @@ type Api = <T = unknown>(method: string, path: string, body?: unknown) => Promis
 export const roots = (...paths: string[]) =>
   paths.map((path) => ({ path, projectDepth: 1, filesDepth: null, autoSlice: true }));
 
+/** Opens every integration card on the page (they start closed). */
+export async function openIntegrationCards(page: Page) {
+  const closed = page.getByRole("heading", { level: 3 }).getByRole("button", { expanded: false });
+  await closed.first().waitFor();
+  while (await closed.count()) await closed.first().click();
+}
+
+/** The Integrations page with every card open. */
+export async function gotoIntegrations(page: Page) {
+  await page.goto("/integrations");
+  await openIntegrationCards(page);
+}
+
 /** The "Acme X1" printer model, created on first use. */
 export const seedModel = async (api: Api) => {
   const found = await api<{ items: { id: string }[] }>(

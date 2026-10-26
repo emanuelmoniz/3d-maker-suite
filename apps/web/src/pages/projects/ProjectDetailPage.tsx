@@ -23,7 +23,7 @@ import { estimateSlicedPlates, useCostContext } from "../../lib/cost.ts";
 import { cx } from "../../lib/cx.ts";
 import { useProfiles, useSpools } from "../../lib/filament.ts";
 import { formatDuration, formatWeight } from "../../lib/format.ts";
-import { useAdapterName, useCapable } from "../../lib/integrations.ts";
+import { useCapable, useIntegrationLabel } from "../../lib/integrations.ts";
 import { useUrlListQuery } from "../../lib/list.ts";
 import { usePreferences } from "../../lib/preferences.ts";
 import { usePrints, usePrintsOfProject } from "../../lib/prints.ts";
@@ -406,7 +406,7 @@ export function ProjectDetailPage() {
   const open = useOpenProject(id);
   // The default slicer, or the one picked when several are set up (Settings > Integrations).
   const slicers = useCapable("openInSlicer");
-  const adapterName = useAdapterName();
+  const integrationLabel = useIntegrationLabel();
   const defaultSlicer = usePreferences().data?.values.defaultSlicerId;
   const [slicerId, setSlicerId] = useState<string>();
   const slicer =
@@ -470,7 +470,7 @@ export function ProjectDetailPage() {
                       onChange={setSlicerId}
                       options={slicers.map((s) => ({
                         value: s.id,
-                        label: adapterName(s.adapterId),
+                        label: integrationLabel(s),
                       }))}
                     />
                   )}

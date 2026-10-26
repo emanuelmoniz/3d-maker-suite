@@ -5,6 +5,7 @@ import { join } from "node:path";
 import type { Page } from "@playwright/test";
 import { expect, test } from "./fixtures.ts";
 import {
+  gotoIntegrations,
   hasHorizontalScroll,
   openSections,
   pick,
@@ -98,7 +99,7 @@ test("path picker: the slicer program and config folder come from the picker", a
     slicerPath: join(dir, "old.exe"),
     slicerConfigDir: dir,
   });
-  await page.goto("/integrations");
+  await gotoIntegrations(page);
   await page.getByText("Slicer", { exact: true }).click(); // closed by default
 
   await page.getByRole("button", { name: "Browse for Slicer program" }).click();
@@ -330,7 +331,7 @@ test("sync_pending alert: raised by an auto sync, Review opens the queue, toggle
   await page.getByRole("link", { name: "Review", exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`/import/integration/${id}/prints(\\?waiting=1)?$`));
 
-  await page.goto("/integrations");
+  await gotoIntegrations(page);
   await page.getByRole("button", { name: "Settings: Print history" }).click();
   const toggle = page.getByLabel("Alert on Review: Print history");
   await toggle.click(); // saved on the server first, so the box flips after the round trip

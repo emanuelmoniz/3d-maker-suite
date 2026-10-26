@@ -1,4 +1,5 @@
 import { expect, test } from "./fixtures.ts";
+import { gotoIntegrations, openIntegrationCards } from "./helpers.ts";
 
 type Policy = { type: string; scope: string; merge: string };
 
@@ -10,7 +11,7 @@ test("sync options: what to sync and how to sync, with a hint per choice", async
     adapterId: "mock",
     secrets: { token: "t" },
   });
-  await page.goto("/integrations");
+  await gotoIntegrations(page);
 
   // Print history never changes once imported: no options.
   await page.getByRole("button", { name: "Settings: Print history" }).click();
@@ -56,7 +57,7 @@ test("sync time: a daily auto type runs at the time picked, any time clears it",
         `/api/integrations/${id}`,
       )
     ).policies.find((p) => p.type === "prints");
-  await page.goto("/integrations");
+  await gotoIntegrations(page);
   await page.getByRole("button", { name: "Settings: Print history" }).click();
 
   // Hourly by default: a minute, unset.
@@ -88,6 +89,7 @@ test("sync time: a daily auto type runs at the time picked, any time clears it",
   // The 12-hour setting shows the time and the hours that way.
   await app.api("PATCH", "/api/preferences", { timeFormat: "12h" });
   await page.reload();
+  await openIntegrationCards(page);
   await page.getByRole("button", { name: "Settings: Print history" }).click();
   await expect(time).toHaveText(/^7:30\sAM$/);
   await time.click();
@@ -127,7 +129,7 @@ test("review a period of print history: every print in it, imported or not", asy
     secrets: { token: "t" },
   });
   await app.api("POST", `/api/integrations/${id}/sync`, { type: "prints" });
-  await page.goto("/integrations");
+  await gotoIntegrations(page);
   await page.getByRole("button", { name: "Settings: Print history" }).click();
   const group = page.getByRole("group", { name: "Review and import a period" });
   const period = group.getByRole("combobox", { name: "Period" });
