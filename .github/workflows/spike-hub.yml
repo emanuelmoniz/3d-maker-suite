@@ -74,9 +74,11 @@ jobs:
         run: |
           sudo apt-get install -y -qq flatpak >/dev/null
           flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
-          flatpak install --user -y --noninteractive flathub io.github.softfever.OrcaSlicer com.bambulab.BambuStudio >/dev/null
+          flatpak install --user -y --noninteractive flathub com.orcaslicer.OrcaSlicer com.bambulab.BambuStudio >/dev/null
           flatpak list --user --app --columns=application,version,branch
           flatpak info --user com.bambulab.BambuStudio | grep -E 'Version|Location'
+          flatpak info --user com.orcaslicer.OrcaSlicer | grep -E 'Version|Location'
+          flatpak info --user --show-permissions com.bambulab.BambuStudio | grep -i filesystems
           mkdir -p out/flatpak; cp packages/3mf/fixtures/single_color.3mf out/flatpak/
           cd out/flatpak && timeout 300 flatpak run --user com.bambulab.BambuStudio --slice 1 --outputdir "$PWD" --export-3mf sliced.3mf "$PWD/single_color.3mf"; echo "exit $?"; ls -la
       - uses: actions/upload-artifact@v7
