@@ -9,6 +9,11 @@ const event = (id) => `id: ${id}\ndata: {"t":${id * EVERY}}\n\n`;
 
 createServer((req, res) => {
   const url = new URL(req.url, "http://x");
+  if (url.pathname === "/upload") { // spike 5: the connector stand-in uploads a 3MF
+    let n = 0;
+    req.on("data", (c) => (n += c.length)).on("end", () => res.end(String(n)));
+    return;
+  }
   if (url.pathname !== "/events") return res.writeHead(404).end();
   const hb = Number(url.searchParams.get("hb") ?? 15);
   const quiet = url.searchParams.get("quiet") === "1";
