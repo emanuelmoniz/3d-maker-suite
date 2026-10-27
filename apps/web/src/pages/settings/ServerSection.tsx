@@ -5,8 +5,10 @@ import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
 import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
+import { Switch } from "../../components/Switch.tsx";
 import { api } from "../../lib/api.ts";
-import { useCan } from "../../lib/auth.ts";
+import { useCan, useMe } from "../../lib/auth.ts";
+import { usePreferences, useSavePreferences } from "../../lib/preferences.ts";
 import { useSetServerState } from "../../lib/serverState.ts";
 
 const KEY = ["server-config"];
@@ -135,6 +137,36 @@ export function StartAtLogin() {
       </label>
       <p className="mt-1 text-muted">{t("settings:server.startAtLoginHint")}</p>
       {setLogin.isError && (
+        <p role="alert" className="text-bad">
+          {t("settings:saveError")}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/** The hub switch (ADR-0014): off by default, and only with user accounts (devices act as one). */
+export function HubSwitch() {
+  const { t } = useTranslation();
+  const on = usePreferences().data?.values.hubEnabled;
+  const save = useSavePreferences();
+  // An admin without a session is the no-accounts mode (ADR-0012).
+  const noUsers = !useMe();
+  if (on === undefined) return null;
+  return (
+    <div>
+      <Switch
+        label={t("settings:hub.enabled")}
+        aria-describedby="hub-enabled-hint"
+        checked={on}
+        disabled={save.isPending || (noUsers && !on)}
+        onChange={(e) => save.mutate({ hubEnabled: e.target.checked })}
+      />
+      <p id="hub-enabled-hint" className="text-muted">
+        {t("settings:hub.enabledHint")}
+      </p>
+      {noUsers && <p className="text-muted">{t("settings:hub.needsUsers")}</p>}
+      {save.isError && (
         <p role="alert" className="text-bad">
           {t("settings:saveError")}
         </p>

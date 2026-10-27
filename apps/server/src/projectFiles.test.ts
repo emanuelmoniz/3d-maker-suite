@@ -3,10 +3,10 @@ import { mkdir, mkdtemp, readFile, rename, rm, symlink, writeFile } from "node:f
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Readable } from "node:stream";
-import { projectRoot } from "@3d-maker-suite/core";
 import { openDb } from "@3d-maker-suite/db";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { buildApp } from "./app.ts";
+import { setRoots } from "./testRoots.ts";
 
 let dir: string;
 let app: Awaited<ReturnType<typeof buildApp>>;
@@ -46,7 +46,7 @@ async function scan() {
 
 async function boot(opts: { watchProjects?: boolean } = {}) {
   app = await buildApp(openDb(":memory:"), false, join(dir, "data"), opts);
-  await setPrefs({ projectRoots: [projectRoot(root())] });
+  await setRoots(app, root());
   const res = await create({ name: "Boat Test", createFolder: true });
   expect(res.statusCode).toBe(201);
   ({ id, folderPath: folder } = res.json());
@@ -76,14 +76,20 @@ describe("new project folder", () => {
   it("needs a configured root, picked when there are several", async () => {
     const second = join(dir, "more");
     await mkdir(second);
-    await setPrefs({ projectRoots: [projectRoot(root()), projectRoot(second)] });
+    const [, more] = await setRoots(app, root(), second);
     expect((await create({ name: "A", createFolder: true })).json().error.code).toBe(
       "root_required",
     );
-    expect((await create({ name: "A", createFolder: true, root: outside() })).statusCode).toBe(400);
-    const res = await create({ name: "A", createFolder: true, root: second });
+    const unknown = { name: "A", createFolder: true, rootId: crypto.randomUUID() };
+    expect((await create(unknown)).statusCode).toBe(400);
+    const res = await create({ name: "A", createFolder: true, rootId: more?.id });
     expect(res.json().folderPath).toBe(join(second, "002_A"));
-    await setPrefs({ projectRoots: [] });
+    // Roots in use stay: their (empty) project folders go with the projects first.
+    for (const p of [id, res.json().id])
+      expect((await app.inject({ method: "DELETE", url: `/api/projects/${p}` })).statusCode).toBe(
+        204,
+      );
+    await setRoots(app);
     expect((await create({ name: "B", createFolder: true })).statusCode).toBe(409);
   });
 
@@ -137,9 +143,9 @@ describe("path guard", () => {
     expect(await names()).toEqual([]);
   });
 
-  it("refuses every route once the project folder is no longer in a root", async () => {
+  it("refuses every route once the project folder is gone from its root", async () => {
     await upload("a.txt", "x");
-    await setPrefs({ projectRoots: [projectRoot(outside())] });
+    await rename(root(), join(dir, "moved"));
     for (const res of [
       await files(),
       await upload("b.txt", "x"),
@@ -384,7 +390,7 @@ describe("scanner", () => {
       (await project()).meta.files.map((f: { path: string }) => f.path).sort();
     await upload("part.stl", "solid");
     expect(await paths()).toEqual(["part.stl"]);
-    expect((await project()).filePath).toBe(join(folder, "part.stl"));
+    expect((await project()).filePath).toBe("part.stl");
     await mkdirApi("models");
     await move("part.stl", "models/part.stl");
     expect(await paths()).toEqual(["models/part.stl"]);

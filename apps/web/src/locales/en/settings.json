@@ -16,6 +16,7 @@
     "alerts": "Alerts",
     "backup": "Backup & export",
     "server": "Network",
+    "hub": "Hub",
     "logs": "Logs",
     "about": "About & updates"
   },
@@ -85,6 +86,9 @@
     "newRoot": "Folder path",
     "addRoot": "Add",
     "removeRoot": "Remove {{path}}",
+    "rootInUse": "Projects still use this folder. Unlink or delete them first, then remove it.",
+    "rootExists": "This folder is a project folder already.",
+    "rootMissing": "That folder doesn't exist on the server.",
     "autoSlice": "Auto slice",
     "autoSliceFor": "Auto slice projects in {{path}}",
     "autoSliceHint": "Auto slice: when a sliced 3MF in one of the folder's projects changes, its plates are sliced again with their saved setup. Each project can change this in its print setup.",
@@ -176,6 +180,11 @@
     "stopTitle": "Stop the server?",
     "stopBody": "The app stops and every open tab loses connection. Start it again from the desktop or Start-menu shortcut.",
     "networkHint": "Changes to the host or port apply only after a restart (or after you stop the server and start it again)."
+  },
+  "hub": {
+    "enabled": "Hub",
+    "enabledHint": "Lets workstations, a NAS or a file server join this server with a small connector app, so project folders on those devices show up here and folders on this server can sync to them. Off: nothing changes.",
+    "needsUsers": "The hub needs user accounts, because each device acts as a user. Add an admin account under Users first."
   },
   "logs": {
     "hint": "Keeps a record of what the app does in its database, for troubleshooting. Credentials are never written.",

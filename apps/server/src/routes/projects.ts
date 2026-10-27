@@ -1,12 +1,11 @@
 import { createReadStream } from "node:fs";
-import { cp, mkdir, readdir, readFile, rename, rm, rmdir, stat } from "node:fs/promises";
+import { cp, readdir, readFile, rename, rm, rmdir, stat } from "node:fs/promises";
 import { basename, extname, isAbsolute, join, relative } from "node:path";
 import { read3mfEntry, read3mfPaint } from "@3d-maker-suite/3mf";
 import {
   apiErrorSchema,
   type IntegrationAdapter,
   type Page,
-  PROJECT_TRASH_DIR,
   type Project,
   type ProjectDetail,
   type ProjectFolderRelease,
@@ -35,12 +34,20 @@ import { z } from "zod";
 import { HttpError } from "../errors.ts";
 import { capableRows } from "../integrations/capabilities.ts";
 import { projectLabel } from "../lib/catalog.ts";
-import { insideRoots, openFolder, slicerLauncher } from "../lib/launcher.ts";
+import { openFolder, slicerLauncher } from "../lib/launcher.ts";
 import { columnFilter, listPage, taggedWith } from "../lib/list.ts";
 import { assertNumberFree, nextNumber } from "../lib/numbers.ts";
-import { readPreferences, rootPaths } from "../lib/preferences.ts";
-import { folderName, newProjectFolder } from "../projects/newFolder.ts";
+import { readPreferences } from "../lib/preferences.ts";
+import { dropNewFolder, folderName, newProjectFolder } from "../projects/newFolder.ts";
 import { projectPath, segments } from "../projects/paths.ts";
+import {
+  absPath,
+  listRoots,
+  projectDir,
+  projectFile,
+  type Root,
+  rootFs,
+} from "../projects/rootFs.ts";
 import type { ProjectScanner } from "../projects/scanner.ts";
 import { fsError } from "./fs.ts";
 
@@ -172,11 +179,22 @@ async function moveContents(from: string, to: string) {
   await rmdir(from).catch(() => {});
 }
 
-// Rows older than the scanner (e.g. demo data) hold other meta; parsing fills the defaults in.
-const out = (row: unknown) => {
-  const r = row as Project;
-  return { ...r, meta: projectMetaSchema.parse(r.meta) };
+type Row = typeof projects.$inferSelect;
+/** `rel` below the root `rootId` as an absolute path, for showing; null without a folder. */
+const shown = (roots: Root[], rootId: string | null, rel: string | null) => {
+  const root = rel === null ? undefined : roots.find((r) => r.id === rootId);
+  return root && rel !== null ? absPath(root, rel) : null;
 };
+/**
+ * The API's project: the folders also as absolute paths. Rows older than the scanner (e.g. demo
+ * data) hold other meta; parsing fills the defaults in.
+ */
+const out = (r: Row, roots: Root[]): Project => ({
+  ...(r as unknown as Project),
+  meta: projectMetaSchema.parse(r.meta),
+  folderPath: shown(roots, r.rootId, r.folder),
+  unlinkedFolder: shown(roots, r.unlinkedRootId, r.unlinkedFolder),
+});
 
 export const projectsRoutes =
   (
@@ -186,41 +204,19 @@ export const projectsRoutes =
     adapters: IntegrationAdapter[] = [],
   ): FastifyPluginAsyncZod =>
   async (app) => {
-    const get = (id: string) => {
-      const row = db.select().from(projects).where(eq(projects.id, id)).get();
-      if (!row) throw new HttpError(404, "not_found", "Project not found");
-      return out(row);
+    const row = (id: string) => {
+      const r = db.select().from(projects).where(eq(projects.id, id)).get();
+      if (!r) throw new HttpError(404, "not_found", "Project not found");
+      return r;
     };
-    /** The real path of a folder below a root (never a root itself), and that root; else null. */
-    async function belowRoot(folder: string | null) {
-      if (!folder) return null;
-      const real = (await Promise.all(rootPaths(db).map((r) => insideRoots(r, [r])))).filter(
-        (r): r is string => !!r,
-      );
-      const dir = await insideRoots(folder, real);
-      if (!dir || real.includes(dir)) return null;
-      const root = real.find((r) => {
-        const rel = relative(r, dir);
-        return !rel.startsWith("..") && !isAbsolute(rel);
-      });
-      return root ? { dir, root } : null;
-    }
+    const get = (id: string) => out(row(id), listRoots(db));
 
     /** Moves a project folder into its root's trash; returns where it went. */
-    async function toTrash({ dir, root }: { dir: string; root: string }) {
-      const trash = join(root, PROJECT_TRASH_DIR);
-      await mkdir(trash, { recursive: true });
-      // A trash folder that is a link elsewhere would carry the files out of the root.
-      if (!(await insideRoots(trash, [root])))
-        throw new HttpError(403, "path_denied", "Trash is outside the project root");
-      const dest = join(
-        trash,
-        `${new Date().toISOString().replace(/[:.]/g, "-")}_${basename(dir)}`,
+    const toTrash = (own: NonNullable<Awaited<ReturnType<typeof projectDir>>>) =>
+      own.fs.trash(
+        own.rel,
+        `${new Date().toISOString().replace(/[:.]/g, "-")}_${basename(own.dir)}`,
       );
-      // ponytail: a plain rename, like a file's trash (see projectFiles.ts): EXDEV across volumes.
-      await rename(dir, dest).catch((e) => Promise.reject(fsError(e)));
-      return dest;
-    }
 
     /** What a project knows about its folder's files, dropped when they aren't its any more. */
     const forget = (id: string) =>
@@ -245,16 +241,17 @@ export const projectsRoutes =
      * Returns where a trashed folder went.
      */
     async function release(p: ProjectDetail, how: ProjectFolderRelease) {
-      const unlink = (unlinkedFolder?: string | null) =>
+      const unlink = (kept?: Pick<Row, "unlinkedRootId" | "unlinkedFolder">) =>
         db
           .update(projects)
-          .set({ folderPath: null, ...(unlinkedFolder !== undefined && { unlinkedFolder }) })
+          .set({ rootId: null, folder: null, ...kept })
           .where(eq(projects.id, p.id))
           .run();
-      if (how === "keep") return void unlink(p.folderPath);
+      if (how === "keep")
+        return void unlink({ unlinkedRootId: p.rootId, unlinkedFolder: p.folder });
       let trashedTo: string | undefined;
       if (p.folderState === "ok") {
-        const own = await belowRoot(p.folderPath);
+        const own = await projectDir(db, p);
         if (!own)
           throw new HttpError(403, "not_allowed", "Project folder is not in a project root");
         trashedTo = await toTrash(own);
@@ -267,8 +264,9 @@ export const projectsRoutes =
     // ponytail: an offline root reads as "missing" too; 4.2.0 Step 7 tells them apart.
     const detail = async (id: string): Promise<ProjectDetail> => {
       const p = get(id);
-      const there = p.folderPath && (await stat(p.folderPath).catch(() => null))?.isDirectory();
-      return { ...p, folderState: p.folderPath ? (there ? "ok" : "missing") : null };
+      const own = p.rootId && (await projectDir(db, p));
+      const there = own && (await stat(own.dir).catch(() => null))?.isDirectory();
+      return { ...p, folderState: p.rootId ? (there ? "ok" : "missing") : null };
     };
 
     // Scan: POST starts a background scan (or queues another pass), GET reports progress.
@@ -361,8 +359,9 @@ export const projectsRoutes =
                 .map((r) => [r.id, r.slicing])
             : [],
         );
+        const roots = listRoots(db);
         const items = page.items.map((p) => ({
-          ...out(p),
+          ...out(p, roots),
           lastPrintAt: last.get(p.id) ?? null,
           slicing: slicingById.get(p.id) ?? "none",
         }));
@@ -398,44 +397,50 @@ export const projectsRoutes =
       },
       async (req) => {
         const p = await detail(req.params.id);
-        const { path, root, previous } = req.body;
+        const { path, rootId, previous } = req.body;
         if (p.folderState === "ok" && !previous)
           throw new HttpError(409, "has_folder", "Project already has a folder");
         // Checked (or made) before the current folder is let go of.
-        const folder = path
+        const place = path
           ? await scanner.usableFolder(path)
-          : await newProjectFolder(db, root, folderName(p.number, p.name));
+          : await newProjectFolder(db, rootId, folderName(p.number, p.name));
         let trashedTo: string | undefined;
         if (p.folderState === "ok" && previous === "move") {
-          const own = await belowRoot(p.folderPath);
-          if (!own || !path)
+          const own = await projectDir(db, p);
+          const to = await rootFs(place.root).local(place.rel);
+          if (!own || !to || !path)
             throw new HttpError(403, "not_allowed", "Project folder is not in a project root");
           // Into itself, or onto the folder being left, would lose or loop files.
-          const rel = relative(own.dir, folder);
+          const rel = relative(own.dir, to);
           if (rel === "" || (!rel.startsWith("..") && !isAbsolute(rel)))
             throw new HttpError(400, "invalid_folder", "Pick a folder outside the current one");
-          await moveContents(own.dir, folder);
+          await moveContents(own.dir, to);
           // The old folder is gone with its content: nothing to remember or trash.
           db.update(projects)
-            .set({ folderPath: null, unlinkedFolder: null })
+            .set({ rootId: null, folder: null, unlinkedRootId: null, unlinkedFolder: null })
             .where(eq(projects.id, p.id))
             .run();
         } else if (p.folderState === "ok" && previous && previous !== "move") {
           trashedTo = await release(p, previous);
         }
-        const now = get(p.id);
+        const now = row(p.id);
         // The folder it was unlinked from and kept: everything it knew is still right. Anything
         // else (and its plates) was of files that aren't its own: slice again if needed.
-        if (!(now.folderPath === null && now.unlinkedFolder === folder)) forget(p.id);
-        scanner.claim(folder);
-        const point = (folderPath: string | null) =>
-          db.update(projects).set({ folderPath }).where(eq(projects.id, p.id)).run();
-        point(folder);
+        const kept =
+          now.rootId === null &&
+          now.unlinkedRootId === place.root.id &&
+          now.unlinkedFolder === place.rel;
+        if (!kept) forget(p.id);
+        scanner.claim(place);
+        const point = (to: Pick<Row, "rootId" | "folder">) =>
+          db.update(projects).set(to).where(eq(projects.id, p.id)).run();
+        const linked = { rootId: place.root.id, folder: place.rel };
+        point(linked);
         try {
-          await scanner.refresh(folder);
+          await scanner.refresh(linked);
         } catch (e) {
-          point(now.folderPath);
-          if (!path) await rmdir(folder).catch(() => {});
+          point({ rootId: now.rootId, folder: now.folder });
+          if (!path) await dropNewFolder(place);
           throw e;
         }
         return { ...(await detail(p.id)), trashedTo };
@@ -448,7 +453,8 @@ export const projectsRoutes =
       { schema: { params, response: { 200: z.object({ hasFiles: z.boolean() }), ...errors } } },
       async (req) => {
         const p = await detail(req.params.id);
-        return { hasFiles: p.folderState === "ok" && (await hasFiles(p.folderPath ?? "")) };
+        const own = p.folderState === "ok" && (await projectDir(db, p));
+        return { hasFiles: !!own && (await hasFiles(own.dir)) };
       },
     );
 
@@ -464,8 +470,8 @@ export const projectsRoutes =
         if (db.select().from(orderProjects).where(eq(orderProjects.projectId, p.id)).get())
           throw new HttpError(409, "project_in_order", "Remove it from its orders first");
         // Only a folder below a root is the app's to remove (and only there would a scan find it
-        // again); one outside every root, or a root itself, stays as it is.
-        const own = (await belowRoot(p.folderPath))?.dir;
+        // again); one gone or led out of its root by a link stays as it is.
+        const own = (await projectDir(db, p))?.dir;
         if (own && (await hasFiles(own)))
           throw new HttpError(409, "folder_has_files", "Its folder still has files");
         db.transaction((tx) => {
@@ -492,7 +498,7 @@ export const projectsRoutes =
       },
       async (req) => {
         const p = await detail(req.params.id);
-        if (!p.folderPath) throw new HttpError(404, "no_folder", "Project has no folder");
+        if (!p.rootId) throw new HttpError(404, "no_folder", "Project has no folder");
         const trashedTo = await release(p, req.query.files);
         return { ...(await detail(p.id)), trashedTo };
       },
@@ -507,23 +513,23 @@ export const projectsRoutes =
         },
       },
       async (req, reply) => {
-        const { folderPath, number, createFolder, root, ...fields } = req.body;
+        const { folderPath, number, createFolder, rootId, ...fields } = req.body;
         assertNumberFree(db, projects, "project", number);
         // Only what the user typed is "edited"; `undefined` means "let the scan decide".
         const given = Object.fromEntries(Object.entries(fields).filter(([, v]) => v !== undefined));
         if (createFolder) {
           const n = number ?? db.get<{ n: number }>(sql`select ${nextNumber(projects)} as n`).n;
-          const folder = await newProjectFolder(db, root, folderName(n, fields.name));
+          const place = await newProjectFolder(db, rootId, folderName(n, fields.name));
           try {
-            const row = await scanner.addFolder(folder, { ...given, number: n });
-            return reply.status(201).send(out(row));
+            const made = await scanner.addFolder(place, { ...given, number: n });
+            return reply.status(201).send(get(made?.id ?? ""));
           } catch (e) {
-            await rmdir(folder).catch(() => {});
+            await dropNewFolder(place);
             throw e;
           }
         }
-        const row = folderPath
-          ? await scanner.addFolder(folderPath, { ...given, number })
+        const made = folderPath
+          ? await scanner.addFolder(await scanner.usableFolder(folderPath), { ...given, number })
           : db
               .insert(projects)
               .values({
@@ -534,7 +540,7 @@ export const projectsRoutes =
               })
               .returning()
               .get();
-        return reply.status(201).send(out(row));
+        return reply.status(201).send(get(made?.id ?? ""));
       },
     );
 
@@ -554,7 +560,8 @@ export const projectsRoutes =
         },
       },
       async (req) => {
-        const { editedFields, folderPath, meta } = get(req.params.id);
+        const current = get(req.params.id);
+        const { editedFields, folder, meta } = current;
         const {
           descriptionFile,
           previewFile,
@@ -584,7 +591,7 @@ export const projectsRoutes =
           const doc = meta.files.some(
             (f) => f.path === descriptionFile && f.kind === "doc" && !/.pdf$/i.test(f.path),
           );
-          if (!folderPath || !doc) throw new HttpError(404, "not_found", "File not found");
+          if (folder === null || !doc) throw new HttpError(404, "not_found", "File not found");
           set.descriptionFile = descriptionFile;
           touched.delete("description");
           delete set.description;
@@ -594,17 +601,17 @@ export const projectsRoutes =
           touched.add("description");
         }
         if (previewFile) {
-          // Stored absolute like the scanner's pick; it must be a model the scanner listed.
+          // It must be a model the scanner listed.
           const model = meta.files.some((f) => f.path === previewFile && f.kind === "model");
-          if (!folderPath || !model) throw new HttpError(404, "not_found", "File not found");
-          set.filePath = join(folderPath, ...previewFile.split("/"));
+          if (folder === null || !model) throw new HttpError(404, "not_found", "File not found");
+          set.filePath = previewFile;
           touched.add("filePath");
         } else if (previewFile === null) touched.delete("filePath");
         if (gallery || coverFile) {
           // Not scanned fields either: the scanner never writes them, so they survive re-scans.
           // Every path is project-relative; images must be listed, folders pass the path guard.
-          if (!folderPath) throw new HttpError(404, "no_folder", "Project has no folder");
-          const dir = await insideRoots(folderPath, rootPaths(db));
+          if (folder === null) throw new HttpError(404, "no_folder", "Project has no folder");
+          const dir = (await projectDir(db, current))?.dir;
           if (!dir)
             throw new HttpError(403, "not_allowed", "Project folder is not in a project root");
           const image = (rel: string) => {
@@ -628,8 +635,8 @@ export const projectsRoutes =
           .set({ ...set, editedFields: [...touched] })
           .where(eq(projects.id, req.params.id))
           .run();
-        if ((descriptionFile || previewFile === null || coverFile !== undefined) && folderPath)
-          await scanner.refresh(folderPath);
+        if (descriptionFile || previewFile === null || coverFile !== undefined)
+          await scanner.refresh(current);
         return get(req.params.id);
       },
     );
@@ -637,15 +644,14 @@ export const projectsRoutes =
     // Serves a file listed in meta.files (nothing else is reachable), or, with `entry`, a plate
     // preview inside that 3MF.
     app.get("/:id/file", { schema: { params, querystring: fileQuery } }, async (req, reply) => {
-      const { folderPath, meta } = get(req.params.id);
+      const p = get(req.params.id);
       const { path, entry } = req.query;
-      const listed = meta.files.some((f) => f.path === path && f.kind !== "shortcut");
-      const plate = meta.models
+      const listed = p.meta.files.some((f) => f.path === path && f.kind !== "shortcut");
+      const plate = p.meta.models
         .find((m) => m.file === path)
-        ?.plates.some((p) => p.thumbnail === entry);
-      if (!folderPath || !listed || (entry && !plate))
-        throw new HttpError(404, "not_found", "File not found");
-      const abs = join(folderPath, path);
+        ?.plates.some((pl) => pl.thumbnail === entry);
+      const abs = listed && (!entry || plate) && (await projectFile(db, p, path));
+      if (!abs) throw new HttpError(404, "not_found", "File not found");
       if (!entry) {
         const ext = extname(path).toLowerCase();
         if (IMAGE_TYPES[ext]) imageReply(reply, path);
@@ -668,11 +674,11 @@ export const projectsRoutes =
         },
       },
       async (req) => {
-        const { folderPath, meta } = get(req.params.id);
+        const p = get(req.params.id);
         const { path } = req.query;
-        const listed = meta.models.some((m) => m.file === path);
-        if (!folderPath || !listed) throw new HttpError(404, "not_found", "File not found");
-        return read3mfPaint(join(folderPath, path));
+        const abs = p.meta.models.some((m) => m.file === path) && (await projectFile(db, p, path));
+        if (!abs) throw new HttpError(404, "not_found", "File not found");
+        return read3mfPaint(abs);
       },
     );
 
@@ -688,16 +694,16 @@ export const projectsRoutes =
         },
       },
       async (req) => {
-        const { folderPath, meta } = get(req.params.id);
+        const p = get(req.params.id);
         const { target, file, integrationId } = req.body;
         const prefs = readPreferences(db);
-        const dir = folderPath && (await insideRoots(folderPath, rootPaths(db)));
+        const dir = (await projectDir(db, p))?.dir;
         if (!dir)
           throw new HttpError(403, "not_allowed", "Project folder is not in a project root");
         try {
           if (target === "folder") return await openFolder(dir).then(() => ({ ok: true as const }));
-          const listed = file && meta.files.some((f) => f.path === file && f.kind === "model");
-          const abs = listed ? await insideRoots(join(dir, file), [dir]) : null;
+          const listed = file && p.meta.files.some((f) => f.path === file && f.kind === "model");
+          const abs = listed ? await projectFile(db, p, file) : null;
           if (!abs) throw new HttpError(403, "not_allowed", "File is not part of this project");
           // The picked slicer, else the default one, else the first.
           const slicers = capableRows(db, adapters, "openInSlicer");

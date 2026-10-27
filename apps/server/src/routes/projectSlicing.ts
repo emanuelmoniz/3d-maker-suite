@@ -1,4 +1,3 @@
-import { join } from "node:path";
 import type { IntegrationAdapter } from "@3d-maker-suite/core";
 import {
   apiErrorSchema,
@@ -14,6 +13,7 @@ import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
 import { type Fingerprint, fingerprint, stateOf } from "../projects/fingerprint.ts";
+import { projectFile } from "../projects/rootFs.ts";
 import {
   plateResolver,
   projectJobKey,
@@ -58,14 +58,14 @@ export const projectSlicingRoutes =
       const row = db.select().from(projects).where(eq(projects.id, id)).get();
       if (!row) throw new HttpError(404, "not_found", "Project not found");
       return {
-        folderPath: row.folderPath,
+        place: { rootId: row.rootId, folder: row.folder },
         meta: projectMetaSchema.parse(row.meta),
         slicerIntegrationId: row.slicerIntegrationId,
       };
     };
 
     async function read(id: string): Promise<ProjectSlicing> {
-      const { folderPath, meta, slicerIntegrationId } = project(id);
+      const { place, meta, slicerIntegrationId } = project(id);
       const rows = db
         .select()
         .from(projectSlicePlates)
@@ -82,9 +82,15 @@ export const projectSlicingRoutes =
       // One stat (and at most one hash) per file, however many plates it has.
       const states = new Map<string, Promise<PlateState>>();
       const fileState = (r: Row) => {
-        if (!folderPath || !meta.models.some((m) => m.file === r.file))
+        if (!meta.models.some((m) => m.file === r.file))
           return Promise.resolve<PlateState>("missing");
-        if (!states.has(r.file)) states.set(r.file, stateOf(join(folderPath, r.file), r));
+        if (!states.has(r.file))
+          states.set(
+            r.file,
+            projectFile(db, place, r.file).then((abs) =>
+              abs ? stateOf(abs, r) : ("missing" as const),
+            ),
+          );
         return states.get(r.file) as Promise<PlateState>;
       };
       return {
@@ -150,7 +156,7 @@ export const projectSlicingRoutes =
         },
       },
       async (req) => {
-        const { folderPath, meta } = project(req.params.id);
+        const { place, meta } = project(req.params.id);
         const { plates } = req.body;
         // Only plates of 3MFs the scanner listed; nothing the client invents is read.
         for (const p of plates)
@@ -230,7 +236,8 @@ export const projectSlicingRoutes =
 
         const fingerprints = new Map<string, Fingerprint>();
         for (const f of new Set(plates.map((p) => p.file))) {
-          const fp = folderPath && (await fingerprint(join(folderPath, f)));
+          const abs = await projectFile(db, place, f);
+          const fp = abs && (await fingerprint(abs));
           if (!fp) throw new HttpError(400, "invalid_reference", `Cannot read ${f}`);
           fingerprints.set(f, fp);
         }

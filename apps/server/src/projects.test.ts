@@ -2,12 +2,12 @@ import { cp, mkdir, mkdtemp, rename, rm, stat, writeFile } from "node:fs/promise
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { mockAdapter } from "@3d-maker-suite/adapter-mock";
-import { type ProjectRoot, projectRoot } from "@3d-maker-suite/core";
 import { openDb, schema } from "@3d-maker-suite/db";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { buildApp } from "./app.ts";
 import { modelIdFor } from "./lib/catalog.ts";
+import { setRoots as setAllRoots } from "./testRoots.ts";
 
 const fixtures = join(import.meta.dirname, "../../../packages/3mf/fixtures");
 
@@ -37,12 +37,7 @@ const put = async (path: string, content: string | Buffer) => {
   await mkdir(join(root(), path, ".."), { recursive: true });
   await writeFile(join(root(), path), content);
 };
-const setRoots = (projectDepth = 1) =>
-  app.inject({
-    method: "PATCH",
-    url: "/api/preferences",
-    payload: { projectRoots: [projectRoot(root(), { projectDepth })] },
-  });
+const setRoots = (projectDepth = 1) => setAllRoots(app, { path: root(), projectDepth });
 
 async function scan() {
   const res = await app.inject({ method: "POST", url: "/api/projects/scan" });
@@ -88,7 +83,7 @@ describe("project scanner", () => {
     expect(benchy.meta.multicolor).toBe(true);
     expect(benchy.meta.models[0].plates.length).toBeGreaterThan(0);
     expect(benchy.meta.files.map((f: { path: string }) => f.path)).toContain("images/cover.png");
-    expect(benchy.filePath).toBe(join(root(), "Benchy", "benchy.3mf"));
+    expect(benchy.filePath).toBe("benchy.3mf");
     const thumb = await app.inject(`/api/projects/${benchy.id}/thumbnail`);
     expect(thumb.statusCode).toBe(200);
     expect(thumb.headers["content-type"]).toBe("image/png");
@@ -158,12 +153,7 @@ describe("project scanner", () => {
     const other = join(dir, "other");
     await mkdir(join(other, "Shelf", "Lamp"), { recursive: true });
     await writeFile(join(other, "Shelf", "Lamp", "lamp.stl"), "solid");
-    const roots: ProjectRoot[] = [projectRoot(root()), projectRoot(other, { projectDepth: 2 })];
-    await app.inject({
-      method: "PATCH",
-      url: "/api/preferences",
-      payload: { projectRoots: roots },
-    });
+    await setAllRoots(app, root(), { path: other, projectDepth: 2 });
     await scan();
     // Depth 1: Cat is the project (Ears inside it). Depth 2: Lamp, not Shelf.
     const names = (await list()).map((p: { name: string }) => p.name);
@@ -176,11 +166,7 @@ describe("project scanner", () => {
     await sampleTree();
     await put("Benchy/a/b/deep.png", "png");
     const filesDepth = async (depth: number | null) => {
-      await app.inject({
-        method: "PATCH",
-        url: "/api/preferences",
-        payload: { projectRoots: [projectRoot(root(), { filesDepth: depth })] },
-      });
+      await setAllRoots(app, { path: root(), filesDepth: depth });
       await scan();
       return (await byName("Benchy")).meta.files.map((f: { path: string }) => f.path);
     };
@@ -253,16 +239,16 @@ describe("project scanner", () => {
     const patch = (payload: object) =>
       app.inject({ method: "PATCH", url: `/api/projects/${id}`, payload });
     const get = async () => (await app.inject(`/api/projects/${id}`)).json();
-    const other = join(root(), "Boat", filePath.endsWith("a.stl") ? "b.stl" : "a.stl");
+    const other = filePath === "a.stl" ? "b.stl" : "a.stl";
 
     expect((await patch({ previewFile: "../x.stl" })).statusCode).toBe(404);
     expect((await patch({ previewFile: "missing.stl" })).statusCode).toBe(404);
-    const picked = (await patch({ previewFile: basename(other) })).json();
+    const picked = (await patch({ previewFile: other })).json();
     expect(picked).toMatchObject({ filePath: other, editedFields: ["filePath"] });
     await scan();
     expect((await get()).filePath).toBe(other);
 
-    await rm(other);
+    await rm(join(root(), "Boat", other));
     await scan();
     expect((await get()).filePath).toBe(filePath);
 
@@ -272,7 +258,9 @@ describe("project scanner", () => {
   });
 
   it("reports roots that do not exist", async () => {
+    await mkdir(root());
     await setRoots();
+    await rm(root(), { recursive: true });
     expect((await scan()).missingRoots).toEqual([root()]);
   });
 });
@@ -384,14 +372,12 @@ describe("project folder: create, link, unlink, missing", () => {
 
     const other = join(dir, "other");
     await mkdir(other);
-    await app.inject({
-      method: "PATCH",
-      url: "/api/preferences",
-      payload: { projectRoots: [projectRoot(root()), projectRoot(other)] },
-    });
+    const [, more] = await setAllRoots(app, root(), other);
     const q = await create("Two");
     expect((await folder(q.id, {})).json().error.code).toBe("root_required");
-    expect((await folder(q.id, { root: other })).json().folderPath).toBe(join(other, "002_Two"));
+    expect((await folder(q.id, { rootId: more?.id })).json().folderPath).toBe(
+      join(other, "002_Two"),
+    );
   });
 
   it("links an existing folder inside a root that no other project uses", async () => {
@@ -673,8 +659,8 @@ describe("open in slicer / folder", () => {
     expect((await picked(id)).statusCode).toBe(200);
     expect((await picked(crypto.randomUUID())).statusCode).toBe(409);
 
-    // Roots removed -> the folder is no longer allowed.
-    await app.inject({ method: "PATCH", url: "/api/preferences", payload: { projectRoots: [] } });
+    // The root's folder gone -> nothing to open.
+    await rename(root(), join(dir, "moved"));
     expect((await open(vase.id, { target: "folder" })).statusCode).toBe(403);
   });
 });

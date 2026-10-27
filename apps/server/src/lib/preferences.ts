@@ -20,6 +20,3 @@ export const readPreferences = (db: Db, userId?: string): Preferences =>
     ...(userId &&
       entries(db.select().from(userSettings).where(eq(userSettings.userId, userId)).all())),
   });
-
-/** The project root folders, as configured (not resolved). */
-export const rootPaths = (db: Db) => readPreferences(db).projectRoots.map((r) => r.path);

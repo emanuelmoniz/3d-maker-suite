@@ -1,7 +1,7 @@
 import { copyFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { expect, test } from "./fixtures.ts";
-import { roots } from "./helpers.ts";
+import { addRoots, roots, savedRoots } from "./helpers.ts";
 
 type Slicing = { plates: { state: string; result: { slicedAt: string } | null; job: unknown }[] };
 const fixture = (name: string) => join(import.meta.dirname, `../packages/3mf/fixtures/${name}.3mf`);
@@ -14,10 +14,8 @@ test("project folders: depths and auto slice per folder, and removing one", asyn
   const b = join(app.dataDir, "archive");
   mkdirSync(a);
   mkdirSync(b);
-  await app.api("PATCH", "/api/preferences", { projectRoots: roots(a, b) });
-  const saved = async () =>
-    (await app.api<{ values: { projectRoots: unknown[] } }>("GET", "/api/preferences")).values
-      .projectRoots;
+  await addRoots(app.api, a, b);
+  const saved = async () => await savedRoots(app.api);
 
   await page.goto("/projects/settings");
   const auto = page.getByRole("checkbox", { name: `Auto slice projects in ${b}` });
@@ -53,7 +51,7 @@ test("a changed file slices again; a new slot raises an alert that opens the pri
   mkdirSync(join(root, "Benchy"), { recursive: true });
   const file = join(root, "Benchy", "benchy.3mf");
   copyFileSync(fixture("multi_color"), file);
-  await app.api("PATCH", "/api/preferences", { projectRoots: roots(root) });
+  await addRoots(app.api, root);
   const project = await app.api<{ id: string }>("POST", "/api/projects", {
     name: "Benchy",
     folderPath: join(root, "Benchy"),

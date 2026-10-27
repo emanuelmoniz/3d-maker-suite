@@ -1,4 +1,4 @@
-import { type PlateSetupInput, type Project, rootOf } from "@3d-maker-suite/core";
+import type { PlateSetupInput, Project } from "@3d-maker-suite/core";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
@@ -13,6 +13,7 @@ import {
   useSaveProjectSlicing,
   useSliceProject,
 } from "../../lib/projects.ts";
+import { useRoots } from "../../lib/roots.ts";
 
 /** The print setup draft, owned by the edit form so its one Save button covers it too. */
 export function useSlicingDraft(id: string) {
@@ -61,7 +62,7 @@ export function SlicingSetup({ project, setup }: { project: Project; setup: Slic
     return count ? t("projects:slicing.slicerMisfitPlates", { name, count }) : name;
   };
   // What "Folder default" means here: on unless the project sits in a root ticked off.
-  const rootOn = rootOf(project.folderPath ?? "", prefs?.projectRoots ?? [])?.autoSlice ?? true;
+  const rootOn = useRoots().find((r) => r.id === project.rootId)?.autoSlice ?? true;
   if (!project.meta.models.length || !saved) return null;
   const byKey = new Map(saved.plates.map((p) => [plateKey(p), p]));
   const left = saved.plates.filter((p) => p.job).length;

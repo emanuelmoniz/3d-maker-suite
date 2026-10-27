@@ -661,10 +661,15 @@ describe("migration 0054", () => {
 describe("migration 0059", () => {
   const prefs = (fill: (set: (key: string, value: unknown) => void) => void) =>
     Object.fromEntries(
-      migrateAcross(58, (sqlite) => {
-        const insert = sqlite.prepare("INSERT INTO settings (key, value) VALUES (?, ?)");
-        fill((key, value) => insert.run(key, JSON.stringify(value)));
-      })
+      migrateAcross(
+        58,
+        (sqlite) => {
+          const insert = sqlite.prepare("INSERT INTO settings (key, value) VALUES (?, ?)");
+          fill((key, value) => insert.run(key, JSON.stringify(value)));
+        },
+        // 0074 moves the roots into their own table.
+        73,
+      )
         .select()
         .from(s.settings)
         .all()
@@ -750,5 +755,151 @@ describe("migration 0073", () => {
         entityId: "i1",
       })
       .run();
+  });
+});
+
+describe("migration 0074", () => {
+  const at = "2026-01-01T00:00:00.000Z";
+  const migrated = (
+    roots: {
+      path: string;
+      projectDepth?: number;
+      filesDepth?: number | null;
+      autoSlice?: boolean;
+    }[],
+    projects: { id: string; folder?: string; unlinked?: string; file?: string }[],
+  ) =>
+    migrateAcross(73, (sqlite) => {
+      sqlite
+        .prepare("INSERT INTO settings (key, value) VALUES ('projectRoots', ?)")
+        .run(JSON.stringify(roots));
+      const insert = sqlite.prepare(
+        "INSERT INTO projects (id, number, name, folder_path, unlinked_folder, file_path, created_at, updated_at) VALUES (?, ?, 'P', ?, ?, ?, ?, ?)",
+      );
+      for (const [i, p] of projects.entries())
+        insert.run(p.id, i + 1, p.folder ?? null, p.unlinked ?? null, p.file ?? null, at, at);
+      if (!projects[0]) return;
+      // Rows that point at a project and would go with it if `projects` were rebuilt.
+      sqlite
+        .prepare(
+          "INSERT INTO project_slice_plates (id, project_id, file, plate, file_size, file_mtime_ms, file_sha256, created_at, updated_at) VALUES ('pl', ?, 'a.3mf', 1, 1, 1, 'x', ?, ?)",
+        )
+        .run(projects[0]?.id, at, at);
+      sqlite
+        .prepare(
+          "INSERT INTO collections (id, name, created_at, updated_at) VALUES ('c', 'C', ?, ?)",
+        )
+        .run(at, at);
+      sqlite
+        .prepare(
+          "INSERT INTO collection_projects (collection_id, project_id, position) VALUES ('c', ?, 0)",
+        )
+        .run(projects[0]?.id);
+    });
+
+  it("moves the roots into a table, in order, named after their last folder", () => {
+    const now = migrated(
+      [
+        { path: "C:\\Models\\\\", projectDepth: 2, filesDepth: 1, autoSlice: false },
+        { path: "/srv/prints", projectDepth: 1, filesDepth: null, autoSlice: true },
+        { path: "C:\\\\" },
+      ],
+      [],
+    );
+    expect(now.select().from(s.roots).orderBy(s.roots.position).all()).toMatchObject([
+      {
+        name: "Models",
+        location: "hub",
+        path: "C:\\Models\\\\",
+        projectDepth: 2,
+        filesDepth: 1,
+        autoSlice: false,
+        position: 0,
+      },
+      {
+        name: "prints",
+        location: "hub",
+        path: "/srv/prints",
+        projectDepth: 1,
+        filesDepth: null,
+        autoSlice: true,
+        position: 1,
+      },
+      { name: "C:", path: "C:\\\\", projectDepth: 1, autoSlice: true, position: 2 },
+    ]);
+    expect(now.select().from(s.roots).all()[0]?.id).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+    );
+    expect(now.select().from(s.settings).all()).toEqual([]);
+  });
+
+  it("points each project at the deepest root it is below, with relative paths", () => {
+    const now = migrated(
+      [{ path: "C:\\3D\\projects" }, { path: "C:\\3D\\projects\\test4" }, { path: "/srv/a/" }],
+      [
+        {
+          id: "outer",
+          folder: "C:\\3D\\projects\\001_x",
+          file: "C:\\3D\\projects\\001_x\\m\\a.3mf",
+        },
+        { id: "nested", folder: "C:\\3D\\projects\\test4\\002_y" },
+        { id: "root4", folder: "C:\\3D\\projects\\test4" },
+        { id: "case", folder: "c:\\3d\\Projects\\003_z" },
+        { id: "posix", folder: "/srv/a/sub/004_w", file: "/srv/a/sub/004_w/b.stl" },
+        { id: "gone", folder: "D:\\old\\005_v", file: "D:\\old\\005_v\\c.3mf" },
+        { id: "prefix", folder: "C:\\3D\\projects2\\006_u" },
+        { id: "kept", unlinked: "C:\\3D\\projects\\007_t" },
+        { id: "keptGone", unlinked: "E:\\x\\008_s" },
+        { id: "none" },
+      ],
+    );
+    const roots = Object.fromEntries(
+      now
+        .select()
+        .from(s.roots)
+        .all()
+        .map((r) => [r.name, r.id]),
+    );
+    const rows = Object.fromEntries(
+      now
+        .select({
+          id: s.projects.id,
+          rootId: s.projects.rootId,
+          folder: s.projects.folder,
+          unlinkedRootId: s.projects.unlinkedRootId,
+          unlinkedFolder: s.projects.unlinkedFolder,
+          filePath: s.projects.filePath,
+        })
+        .from(s.projects)
+        .all()
+        .map(({ id, ...r }) => [id, r]),
+    );
+    const linked = (
+      root: string | null,
+      folder: string | null,
+      filePath: string | null = null,
+    ) => ({
+      rootId: root && roots[root],
+      folder,
+      unlinkedRootId: null,
+      unlinkedFolder: null,
+      filePath,
+    });
+    expect(rows).toEqual({
+      outer: linked("projects", "001_x", "m/a.3mf"),
+      nested: linked("test4", "002_y"),
+      root4: linked("projects", "test4"),
+      case: linked("projects", "003_z"),
+      posix: linked("a", "sub/004_w", "b.stl"),
+      // In no root: kept, unlinked.
+      gone: linked(null, null, "c.3mf"),
+      prefix: linked(null, null),
+      kept: { ...linked(null, null), unlinkedRootId: roots.projects, unlinkedFolder: "007_t" },
+      keptGone: linked(null, null),
+      none: linked(null, null),
+    });
+    // Nothing that points at a project went with the column change.
+    expect(now.select().from(s.projectSlicePlates).all()).toHaveLength(1);
+    expect(now.select().from(s.collectionProjects).all()).toHaveLength(1);
   });
 });

@@ -5,9 +5,31 @@ import type { Locator, Page } from "@playwright/test";
 
 type Api = <T = unknown>(method: string, path: string, body?: unknown) => Promise<T>;
 
-/** `projectRoots` preference value: each path with the default settings (as `projectRoot` in core). */
-export const roots = (...paths: string[]) =>
+type RootSettings = {
+  path: string;
+  projectDepth: number;
+  filesDepth: number | null;
+  autoSlice: boolean;
+};
+/** Project roots with the default settings (as `ROOT_DEFAULTS` in core), as `savedRoots` reads them. */
+export const roots = (...paths: string[]): RootSettings[] =>
   paths.map((path) => ({ path, projectDepth: 1, filesDepth: null, autoSlice: true }));
+
+/** Adds project roots (a path, or a path with its settings), in order. */
+export async function addRoots(api: Api, ...add: (string | Partial<RootSettings>)[]) {
+  for (const r of add) await api("POST", "/api/roots", typeof r === "string" ? { path: r } : r);
+}
+
+/** The project roots as saved, in the shape of `roots`. */
+export const savedRoots = async (api: Api) =>
+  (await api<RootSettings[]>("GET", "/api/roots")).map(
+    ({ path, projectDepth, filesDepth, autoSlice }) => ({
+      path,
+      projectDepth,
+      filesDepth,
+      autoSlice,
+    }),
+  );
 
 /** Opens every integration card on the page (they start closed). */
 export async function openIntegrationCards(page: Page) {
@@ -184,7 +206,7 @@ export const seedRichProject = async (api: Api, dataDir: string) => {
   mkdirSync(dir, { recursive: true });
   const images = Array.from({ length: 8 }, (_, i) => `image-${i + 1}.png`);
   for (const [i, n] of images.entries()) writeFileSync(join(dir, n), png(30 * i + 20));
-  await api("PATCH", "/api/preferences", { projectRoots: roots(root) });
+  await addRoots(api, root);
   const project = await api<{ id: string }>("POST", "/api/projects", {
     name: "A project with a very long name that keeps going and going until it cannot fit a phone",
     folderPath: dir,

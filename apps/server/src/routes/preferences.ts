@@ -8,6 +8,7 @@ import { type Db, schema } from "@3d-maker-suite/db";
 import { eq } from "drizzle-orm";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { HttpError } from "../errors.ts";
+import { hasUsers } from "../lib/auth.ts";
 import { readPreferences as read } from "../lib/preferences.ts";
 
 const { settings, userSettings } = schema;
@@ -34,6 +35,9 @@ export const preferencesRoutes =
         );
         if (denied.length)
           throw new HttpError(403, "forbidden", `Not allowed for your role: ${denied.join(", ")}`);
+        // Devices act as a user, so the hub needs accounts (ADR-0014).
+        if (req.body.hubEnabled && !hasUsers(db))
+          throw new HttpError(409, "hub_needs_users", "The hub needs user accounts");
         db.transaction((tx) => {
           for (const [key, value] of Object.entries(req.body)) {
             // Display keys aren't nullable, so they never reach the delete below.

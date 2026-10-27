@@ -1,7 +1,7 @@
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { expect, test } from "./fixtures.ts";
-import { hasHorizontalScroll, offScreen, roots, seedPrinter, seedProject } from "./helpers.ts";
+import { addRoots, hasHorizontalScroll, offScreen, seedPrinter, seedProject } from "./helpers.ts";
 
 const VIEWPORTS = [
   ["mobile", 375, 800],
@@ -81,7 +81,7 @@ for (const [name, width, height] of VIEWPORTS) {
 test("project files: row buttons are 40px tap targets on a phone", async ({ page, app }) => {
   const root = join(app.dataDir, "root");
   mkdirSync(root, { recursive: true });
-  await app.api("PATCH", "/api/preferences", { projectRoots: roots(root) });
+  await addRoots(app.api, root);
   await page.setViewportSize({ width: 375, height: 800 });
   await page.goto("/projects/new");
   await page.getByLabel("Name", { exact: true }).fill("Vase");

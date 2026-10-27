@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, test } from "./fixtures.ts";
-import { hasHorizontalScroll, pick, roots } from "./helpers.ts";
+import { addRoots, hasHorizontalScroll, pick } from "./helpers.ts";
 
 const VIEWPORTS = [
   { width: 375, height: 800 },
@@ -18,7 +18,7 @@ for (const viewport of VIEWPORTS) {
     const b = join(app.dataDir, "root-b");
     mkdirSync(a, { recursive: true });
     mkdirSync(b, { recursive: true });
-    await app.api("PATCH", "/api/preferences", { projectRoots: roots(a, b) });
+    await addRoots(app.api, a, b);
     await page.setViewportSize(viewport);
 
     // New project: asks for the root, creates the folder, opens the project.
@@ -114,7 +114,7 @@ test("project files: a name that is not allowed shows an error", async ({ page, 
   const root = join(app.dataDir, "root");
   mkdirSync(root, { recursive: true });
   writeFileSync(join(root, ".keep"), "");
-  await app.api("PATCH", "/api/preferences", { projectRoots: roots(root) });
+  await addRoots(app.api, root);
   const p = await app.api<{ id: string }>("POST", "/api/projects", {
     name: "Bad",
     createFolder: true,
@@ -134,7 +134,7 @@ test("project files: select items and move or remove them in bulk", async ({ pag
   mkdirSync(join(dir, "dest"), { recursive: true });
   for (const f of ["a.txt", "b.txt", "c.txt"]) writeFileSync(join(dir, f), f);
   writeFileSync(join(dir, "dest", "c.txt"), "already there");
-  await app.api("PATCH", "/api/preferences", { projectRoots: roots(root) });
+  await addRoots(app.api, root);
   const p = await app.api<{ id: string }>("POST", "/api/projects", {
     name: "Bulk",
     folderPath: dir,

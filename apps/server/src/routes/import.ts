@@ -1,6 +1,4 @@
-import { existsSync } from "node:fs";
-import { rmdir } from "node:fs/promises";
-import { basename, resolve } from "node:path";
+import { basename } from "node:path";
 import {
   apiErrorSchema,
   headerKeys,
@@ -19,11 +17,10 @@ import {
   REVIEW_ENTITIES,
   REVIEWED_TYPES,
   type ReviewedType,
-  rootOf,
   SHEET_FORMATS,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
-import { desc } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { createBackup } from "../backup/backup.ts";
@@ -31,7 +28,6 @@ import { HttpError } from "../errors.ts";
 import { createReview, edited, type Stored } from "../import/review.ts";
 import type { Syncer } from "../integrations/sync.ts";
 import { mayTask } from "../lib/auth.ts";
-import { insideRoots } from "../lib/launcher.ts";
 import { numberCell, printTitle } from "../lib/numbers.ts";
 import { readPreferences } from "../lib/preferences.ts";
 import {
@@ -45,8 +41,9 @@ import {
 } from "../lib/sheet.ts";
 import { parseFolderName } from "../projects/folderName.ts";
 import { linkPrints, type MatchProject, suggestPrints } from "../projects/linkPrints.ts";
-import { folderName, newProjectFolder } from "../projects/newFolder.ts";
+import { dropNewFolder, folderName, newProjectFolder } from "../projects/newFolder.ts";
 import { safeName } from "../projects/paths.ts";
+import { absPath, locate, type Place, projectDir, rootFs } from "../projects/rootFs.ts";
 import { scanFolder } from "../projects/scanFolder.ts";
 import type { ProjectScanner } from "../projects/scanner.ts";
 
@@ -212,7 +209,7 @@ export const importRoutes =
      * A folder named by the convention takes the number the row's insert will take: its own when
      * free, else its folder's prefix when free, else the next one (as `projectImport.create`).
      */
-    async function makeFolders(stored: Stored, decisions: ImportApplyDecision[], made: string[]) {
+    async function makeFolders(stored: Stored, decisions: ImportApplyDecision[], made: Place[]) {
       if (!decisions.some((d) => d.folder && "create" in d.folder)) return decisions;
       const current = review.preview(edited(stored, decisions));
       const rows = new Map(current.rows.map((r) => [r.row, r.values]));
@@ -246,9 +243,9 @@ export const importRoutes =
         }
         const name = d.folder.name?.trim();
         const base = name ? safeName(name) : folderName(number ?? 0, String(v.name ?? ""));
-        const path = await newProjectFolder(db, d.folder.root, base);
-        made.push(path);
-        out.push({ ...d, folder: { path } });
+        const place = await newProjectFolder(db, d.folder.rootId, base);
+        made.push(place);
+        out.push({ ...d, folder: { path: absPath(place.root, place.rel) } });
       }
       return out;
     }
@@ -264,14 +261,13 @@ export const importRoutes =
         },
       },
       async (req) => {
-        const { projectRoots, projectScanMaxFiles } = readPreferences(db);
-        const paths = projectRoots.map((r) => r.path);
-        const resolved = projectRoots.map((r) => ({ ...r, path: resolve(r.path) }));
+        const { projectScanMaxFiles } = readPreferences(db);
         const stored = new Map(
           db
             .select({
               id: schema.projects.id,
-              folder: schema.projects.folderPath,
+              rootId: schema.projects.rootId,
+              folder: schema.projects.folder,
               meta: schema.projects.meta,
             })
             .from(schema.projects)
@@ -281,22 +277,20 @@ export const importRoutes =
         const rows: (MatchProject & { row: number })[] = [];
         for (const r of req.body.rows) {
           const cur = r.targetId ? stored.get(r.targetId) : undefined;
-          const folder = r.folder ? resolve(r.folder) : null;
-          const read =
-            folder && folder !== cur?.folder && (await insideRoots(folder, paths))
-              ? await scanFolder(
-                  folder,
-                  null,
-                  projectScanMaxFiles,
-                  rootOf(folder, resolved)?.filesDepth ?? null,
-                )
-              : null;
+          const place = r.folder ? await locate(db, r.folder) : null;
+          const same = !!place && place.root.id === cur?.rootId && place.rel === cur.folder;
+          const dir = place && !same && (await rootFs(place.root).local(place.rel));
+          const read = dir
+            ? await scanFolder(dir, null, projectScanMaxFiles, place.root.filesDepth)
+            : null;
           rows.push({
             row: r.row,
             id: r.targetId ?? `row:${r.row}`,
             meta: read
               ? { files: read.files, models: read.models }
-              : ((cur && folder === cur.folder ? cur.meta : {}) as MatchProject["meta"]),
+              : ((cur && (same || (!r.folder && !cur.rootId))
+                  ? cur.meta
+                  : {}) as MatchProject["meta"]),
           });
         }
         const suggested = suggestPrints(db, rows);
@@ -352,13 +346,13 @@ export const importRoutes =
           throw new HttpError(400, "nothing_to_import", "No rows to import");
         review.plan(stored, decisions, policy);
         // Projects: the folders to make are made now, and removed again if the write fails.
-        const made: string[] = [];
+        const made: Place[] = [];
         if (stored.entity === "projects") {
           try {
             decisions = await makeFolders(stored, decisions, made);
             review.plan(stored, decisions, policy);
           } catch (e) {
-            await Promise.all(made.map((f) => rmdir(f).catch(() => {})));
+            await Promise.all(made.map(dropNewFolder));
             throw e;
           }
         }
@@ -377,7 +371,7 @@ export const importRoutes =
                 )
               : review.write(stored, decisions, policy, backup);
         } catch (e) {
-          await Promise.all(made.map((f) => rmdir(f).catch(() => {})));
+          await Promise.all(made.map(dropNewFolder));
           throw e;
         }
         // Projects: the scan reads each folder in (files, cover, names not given), then prints are
@@ -385,8 +379,9 @@ export const importRoutes =
         if (stored.entity === "projects" && "written" in done) {
           const picked = new Set(decisions.filter((d) => d.prints).map((d) => d.row));
           for (const w of done.written) {
-            const folder = w.values.folder;
-            if (typeof folder === "string" && existsSync(folder)) await scanner.refresh(folder);
+            const p =
+              w.id && db.select().from(schema.projects).where(eq(schema.projects.id, w.id)).get();
+            if (p && (await projectDir(db, p))) await scanner.refresh(p);
           }
           linkPrints(
             db,

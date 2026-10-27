@@ -32,10 +32,9 @@ import { z } from "zod";
 import { HttpError } from "../errors.ts";
 import { projectLabel } from "../lib/catalog.ts";
 import { costContext } from "../lib/cost.ts";
-import { insideRoots } from "../lib/launcher.ts";
 import { listPage } from "../lib/list.ts";
 import { assertNumberFree, nextNumber } from "../lib/numbers.ts";
-import { rootPaths } from "../lib/preferences.ts";
+import { projectFile } from "../projects/rootFs.ts";
 import {
   plateResolver,
   type SliceQueue,
@@ -159,7 +158,6 @@ export const costsRoutes =
           : undefined;
         if (projectId && !project) throw new HttpError(400, "invalid_project", "Project not found");
         const meta = projectMetaSchema.parse(project?.meta ?? {});
-        const projectRoots = rootPaths(db);
         const resolve = plateResolver(db);
         const slicerOf = slicerResolver(db, adapters);
         const fallback = slicerOf()?.row.id;
@@ -176,8 +174,8 @@ export const costsRoutes =
             ? null
             : upload
               ? uploadPath(upload)
-              : project?.folderPath
-                ? await insideRoots(join(project.folderPath, p.file), projectRoots)
+              : project
+                ? await projectFile(db, project, p.file)
                 : null;
           const s = abs && (await stat(abs).catch(() => null));
           if (!abs || !s || !model?.plates.some((x) => x.index === p.plate))

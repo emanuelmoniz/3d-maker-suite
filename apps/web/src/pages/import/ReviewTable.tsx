@@ -42,7 +42,7 @@ import { cx } from "../../lib/cx.ts";
 import { spoolName, useProfiles } from "../../lib/filament.ts";
 import { formatDate, formatDateTime, formatNumber, formatWeight } from "../../lib/format.ts";
 import { useApply } from "../../lib/import.ts";
-import { usePreferences } from "../../lib/preferences.ts";
+import { useRoots } from "../../lib/roots.ts";
 import { NewSpoolDialog } from "../filament/NewSpoolDialog.tsx";
 import { cellText, EditCell } from "./EditCell.tsx";
 import { FolderCell, folderOf, PrintsCell, useProjectPrints } from "./ProjectCells.tsx";
@@ -244,7 +244,7 @@ export function ReviewTable({
   const prints = entity === "prints";
   // Projects: a folder and the prints per row, besides the file's columns.
   const projects = entity === "projects";
-  const roots = usePreferences().data?.values.projectRoots.map((r) => r.path) ?? [];
+  const roots = useRoots();
   const projectPrints = useProjectPrints(preview, projects);
   const decideFolder = (r: ImportPreviewRow, patch: Partial<ImportDecision>) => {
     const d = { ...decisionOf(r), ...patch };

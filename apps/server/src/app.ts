@@ -57,6 +57,7 @@ import { printsRoutes } from "./routes/prints.ts";
 import { projectFilesRoutes } from "./routes/projectFiles.ts";
 import { projectSlicingRoutes } from "./routes/projectSlicing.ts";
 import { projectsRoutes } from "./routes/projects.ts";
+import { rootsRoutes } from "./routes/roots.ts";
 import { serverConfigRoutes } from "./routes/serverConfig.ts";
 import { slicerZipRoutes } from "./routes/slicerZip.ts";
 import { statsRoutes } from "./routes/stats.ts";
@@ -204,6 +205,7 @@ export async function buildApp(
       { prefix: "/api/server-config" },
     );
   await app.register(fsRoutes(db), { prefix: "/api/fs" });
+  await app.register(rootsRoutes(db), { prefix: "/api/roots" });
   await app.register(brandingRoutes(dataDir), { prefix: "/api/branding" });
   await app.register(printersRoutes(db, dataDir), { prefix: "/api/printers" });
   await app.register(accessoriesRoutes(db, dataDir), { prefix: "/api/accessories" });

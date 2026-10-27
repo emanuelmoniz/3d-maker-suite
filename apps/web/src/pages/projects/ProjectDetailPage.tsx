@@ -38,6 +38,7 @@ import {
   useProject,
   useProjectSlicing,
 } from "../../lib/projects.ts";
+import { useRoots } from "../../lib/roots.ts";
 import { useTagsOf } from "../../lib/tags.ts";
 import { OrdersTable } from "../orders/OrdersTable.tsx";
 import { PrintsTable } from "../prints/PrintsPage.tsx";
@@ -402,7 +403,7 @@ export function ProjectDetailPage() {
   const [picked, setPicked] = useState<string | null>(null);
   // null: the whole file ("View all").
   const [plate, setPlate] = useState<number | null>(null);
-  const roots = usePreferences().data?.values.projectRoots.map((r) => r.path) ?? [];
+  const roots = useRoots().map((r) => r.path);
   const open = useOpenProject(id);
   // The default slicer, or the one picked when several are set up (Settings > Integrations).
   const slicers = useCapable("openInSlicer");
@@ -432,7 +433,7 @@ export function ProjectDetailPage() {
       !(SLICED_EXPORT.test(f.path) && !project.meta.models.some((m) => m.file === f.path)),
   );
   // Default: the scanner's main file, else the first model.
-  const main = models.find((f) => project.filePath?.replaceAll("\\", "/").endsWith(`/${f.path}`));
+  const main = models.find((f) => f.path === project.filePath);
   const current = models.find((f) => f.path === picked) ?? main ?? models[0];
   const info = project.meta.models.find((m) => m.file === current?.path);
   const selected = info?.plates.find((p) => p.index === plate) ?? null;

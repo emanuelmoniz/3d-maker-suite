@@ -234,7 +234,7 @@ describe("print import", () => {
     expect(statuses(p)).toEqual(["new", "new"]);
     await applySuggested("prints", p);
     const projects = db.select().from(schema.projects).all();
-    expect(projects).toMatchObject([{ number: 5, name: "bucket", folderPath: null }]);
+    expect(projects).toMatchObject([{ number: 5, name: "bucket", rootId: null }]);
     const linked = db
       .select()
       .from(schema.prints)
@@ -259,7 +259,7 @@ describe("print import", () => {
     expect(p.missing).toEqual({ projects: ["135-Boat Test"] });
     await applySuggested("prints", p);
     expect(db.select().from(schema.projects).all()).toMatchObject([
-      { number: 135, name: "Boat Test", folderPath: null },
+      { number: 135, name: "Boat Test", rootId: null },
     ]);
   });
 

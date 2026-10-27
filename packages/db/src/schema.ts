@@ -570,6 +570,27 @@ export const spoolWeightEntries = sqliteTable(
   ],
 );
 
+// A folder projects live in (ADR-0014). `location` is "hub" (a folder on this server); a device id
+// once devices have roots of their own.
+export const roots = sqliteTable(
+  "roots",
+  {
+    id: id(),
+    name: text().notNull(),
+    location: text().notNull().default("hub"),
+    // Absolute on its location, as the user picked it.
+    path: text().notNull(),
+    // How many folder levels below the root project folders are.
+    projectDepth: integer().notNull().default(1),
+    // How deep a project's files are listed; null = all.
+    filesDepth: integer(),
+    autoSlice: integer({ mode: "boolean" }).notNull().default(true),
+    position: integer().notNull(),
+    ...timestamps,
+  },
+  (t) => [uniqueIndex("roots_location_path_uq").on(t.location, t.path)],
+);
+
 export const projects = sqliteTable(
   "projects",
   {
@@ -587,11 +608,15 @@ export const projects = sqliteTable(
       .default({ folders: [], images: [] }),
     // Image (relative) the user chose as the cover; the scan's own pick when null or gone.
     coverFile: text(),
-    // Set when the project comes from a folder (scan or manual); the scan key.
-    folderPath: text(),
+    // Set when the project comes from a folder (scan or manual): its root and the folder relative to
+    // it (`/`). Together the scan key.
+    rootId: text().references(() => roots.id, { onDelete: "restrict" }),
+    folder: text(),
     // The folder it was unlinked from, kept on disk as it was: scans skip it until the project
     // gets a folder again (that one, with everything kept, or another).
+    unlinkedRootId: text().references(() => roots.id, { onDelete: "set null" }),
     unlinkedFolder: text(),
+    // The main model file, relative to the folder (`/`).
     filePath: text(),
     sourceUrl: text(),
     thumbnailPath: text(),
@@ -611,7 +636,7 @@ export const projects = sqliteTable(
   },
   (t) => [
     uniqueIndex("projects_external_uq").on(t.integrationId, t.externalId),
-    uniqueIndex("projects_folder_uq").on(t.folderPath),
+    uniqueIndex("projects_root_folder_uq").on(t.rootId, t.folder),
     uniqueIndex("projects_number_uq").on(t.number),
     check("projects_origin_ck", oneOf(t.origin, ORIGINS)),
   ],

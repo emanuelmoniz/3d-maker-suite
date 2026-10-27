@@ -1,9 +1,9 @@
 import { expect, test } from "./fixtures.ts";
 import {
+  addRoots,
   hasHorizontalScroll,
   pick,
   ROUTES,
-  roots,
   seedPrinter,
   seedProfile,
   seedProject,
@@ -118,7 +118,7 @@ test("tables link to the show page, which holds Edit; filters live in the URL", 
 
 test("scanning project folders lists the projects", async ({ page, app }) => {
   const root = app.makeProjectDir("Dragon");
-  await app.api("PATCH", "/api/preferences", { projectRoots: roots(root) });
+  await addRoots(app.api, root);
   await page.goto("/projects");
   await page.getByRole("button", { name: "Scan folders" }).click();
   await expect(page.getByText("Dragon").first()).toBeVisible();
@@ -239,4 +239,13 @@ test("mobile: the More sheet reaches secondary pages", async ({ page }) => {
   await page.getByRole("button", { name: "More" }).click();
   await page.getByRole("dialog").getByRole("link", { name: "Stats" }).click();
   await expect(page).toHaveURL(/\/stats$/);
+});
+
+test("hub switch: off by default, and waits for user accounts", async ({ page }) => {
+  await page.goto("/settings");
+  await expect(page.getByRole("heading", { name: "Hub" })).toBeVisible();
+  const hub = page.getByRole("switch", { name: "Hub" });
+  await expect(hub).not.toBeChecked();
+  await expect(hub).toBeDisabled();
+  await expect(page.getByText("The hub needs user accounts")).toBeVisible();
 });

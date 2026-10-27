@@ -2,13 +2,13 @@ import { appendFile, cp, mkdir, mkdtemp, readFile, rm, utimes } from "node:fs/pr
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fixture, type MockState, mockAdapter } from "@3d-maker-suite/adapter-mock";
-import { projectRoot } from "@3d-maker-suite/core";
 import { openDb, schema } from "@3d-maker-suite/db";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { buildApp } from "./app.ts";
 import { autoSliceSlicer } from "./projects/autoSlice.ts";
 import { createSliceQueue } from "./projects/sliceQueue.ts";
+import { setRoots } from "./testRoots.ts";
 
 const fixtures = join(import.meta.dirname, "../../../packages/3mf/fixtures");
 
@@ -30,11 +30,7 @@ beforeEach(async () => {
   app = await buildApp(db, false, join(dir, "data"), {
     adapters: [mockAdapter(mock)],
   });
-  await app.inject({
-    method: "PATCH",
-    url: "/api/preferences",
-    payload: { projectRoots: [projectRoot(join(dir, "models"))] },
-  });
+  await setRoots(app, join(dir, "models"));
   id = (
     await app.inject({
       method: "POST",
@@ -613,11 +609,7 @@ describe("slicing a project (mock slicer)", () => {
     it("follows the project's choice, else its root's", async () => {
       await sliced();
       const rootOn = (autoSlice: boolean) =>
-        app.inject({
-          method: "PATCH",
-          url: "/api/preferences",
-          payload: { projectRoots: [projectRoot(join(dir, "models"), { autoSlice })] },
-        });
+        setRoots(app, { path: join(dir, "models"), autoSlice });
       const choose = (autoSlice: boolean | null) =>
         app.inject({ method: "PATCH", url: `/api/projects/${id}`, payload: { autoSlice } });
 

@@ -32,7 +32,7 @@ describe("api", () => {
     expect((await get()).values).toMatchObject({
       currency: "EUR",
       accent: "teal",
-      projectRoots: [],
+      hubEnabled: false,
     });
     const patch = (payload: Record<string, unknown>) =>
       app.inject({ method: "PATCH", url: "/api/preferences", payload });

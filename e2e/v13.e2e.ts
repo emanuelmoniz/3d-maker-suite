@@ -3,10 +3,10 @@ import { join } from "node:path";
 import type { Page } from "@playwright/test";
 import { expect, test } from "./fixtures.ts";
 import {
+  addRoots,
   hasHorizontalScroll,
   offScreen,
   pick,
-  roots,
   seedPrinter,
   seedProfile,
   seedProject,
@@ -292,7 +292,7 @@ test.describe("project page layout", () => {
         ),
         "solid x\nendsolid x\n",
       );
-      await app.api("PATCH", "/api/preferences", { projectRoots: roots(root) });
+      await addRoots(app.api, root);
       await page.goto("/projects");
       await page.getByRole("button", { name: "Scan folders" }).click();
       await expect(page.getByText("benchy").first()).toBeVisible();

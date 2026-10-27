@@ -12,7 +12,7 @@ import type { FastifyRequest } from "fastify";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { HttpError } from "../errors.ts";
 import { insideRoots } from "../lib/launcher.ts";
-import { rootPaths } from "../lib/preferences.ts";
+import { rootPaths } from "../projects/rootFs.ts";
 
 type Entry = { name: string; path: string; type: "dir" | "file" };
 

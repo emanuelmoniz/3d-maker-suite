@@ -1,7 +1,7 @@
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { expect, test } from "./fixtures.ts";
-import { hasHorizontalScroll, roots, seedPrinter } from "./helpers.ts";
+import { addRoots, hasHorizontalScroll, seedPrinter } from "./helpers.ts";
 
 const VIEWPORTS = [
   { width: 375, height: 800 },
@@ -27,7 +27,7 @@ for (const viewport of VIEWPORTS) {
   }) => {
     const root = join(app.dataDir, "models");
     mkdirSync(root, { recursive: true });
-    await app.api("PATCH", "/api/preferences", { projectRoots: roots(root) });
+    await addRoots(app.api, root);
     const p = await app.api<{ id: string }>("POST", "/api/projects", {
       name: "No Prints",
       createFolder: true,
@@ -45,7 +45,7 @@ for (const viewport of VIEWPORTS) {
   }) => {
     const root = join(app.dataDir, "models");
     mkdirSync(root, { recursive: true });
-    await app.api("PATCH", "/api/preferences", { projectRoots: roots(root) });
+    await addRoots(app.api, root);
     const p = await app.api<{ id: string }>("POST", "/api/projects", {
       name: "No Model",
       createFolder: true,

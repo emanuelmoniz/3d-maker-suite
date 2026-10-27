@@ -56,7 +56,7 @@ describe("sliced exports", () => {
       await writeFile(join(dir, "foo.3mf"), "x");
       await writeFile(join(dir, "foo.gcode.3mf"), "x");
       await utimes(join(dir, "foo.3mf"), new Date(1000), new Date(1000));
-      expect((await scanFolder(dir)).mainFile).toBe(join(dir, "foo.3mf"));
+      expect((await scanFolder(dir)).mainFile).toBe("foo.3mf");
     } finally {
       await rm(dir, { recursive: true, force: true });
     }

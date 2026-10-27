@@ -738,7 +738,7 @@ export const importApplySchema = z.object({
       trackUsage: z.boolean().optional(),
       /**
        * Projects: replaces the row's folder. A picked folder, one to make inside a project root
-       * (`name` empty = `<number>_<name>`, `root` needed with several roots), or null for none.
+       * (`name` empty = `<number>_<name>`, `rootId` needed with several roots), or null for none.
        */
       folder: z
         .union([
@@ -746,7 +746,7 @@ export const importApplySchema = z.object({
           z.object({
             create: z.literal(true),
             name: z.string().max(200).optional(),
-            root: z.string().min(1).optional(),
+            rootId: id.optional(),
           }),
         ])
         .nullable()

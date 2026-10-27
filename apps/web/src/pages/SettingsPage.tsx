@@ -16,7 +16,12 @@ import { AccountSection } from "./settings/AccountSection.tsx";
 import { BackupSection } from "./settings/BackupSection.tsx";
 import { BrandingFields } from "./settings/BrandingFields.tsx";
 import { LogSection } from "./settings/LogSection.tsx";
-import { ServerActions, ServerSection, StartAtLogin } from "./settings/ServerSection.tsx";
+import {
+  HubSwitch,
+  ServerActions,
+  ServerSection,
+  StartAtLogin,
+} from "./settings/ServerSection.tsx";
 import { UsersSection } from "./settings/UsersSection.tsx";
 
 const ACCENT_LABELS = {
@@ -172,6 +177,10 @@ export function SettingsPage() {
           <>
             <Section title={t("settings:sections.server")}>
               <ServerSection />
+            </Section>
+
+            <Section title={t("settings:sections.hub")}>
+              <HubSwitch />
             </Section>
 
             <Section title={t("settings:sections.backup")}>

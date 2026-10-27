@@ -3,6 +3,7 @@ import type {
   ImportDecision,
   ImportPreview,
   ImportPreviewRow,
+  Root,
 } from "@3d-maker-suite/core";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
@@ -76,7 +77,7 @@ export function FolderCell({
 }: {
   row: ImportPreviewRow;
   decision: ImportDecision;
-  roots: string[];
+  roots: Root[];
   /** The folder the matched project has now: keeping it asks nothing. */
   targetFolder: string | null;
   onChange: (patch: Pick<ImportDecision, "folder" | "fromFolder">) => void;
@@ -84,7 +85,8 @@ export function FolderCell({
   const { t } = useTranslation();
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState("");
-  const [root, setRoot] = useState(roots[0] ?? "");
+  const [rootId, setRootId] = useState(roots[0]?.id ?? "");
+  const paths = roots.map((r) => r.path);
   const folder = folderOf(row, decision);
   const create = decision.folder && "create" in decision.folder ? decision.folder : null;
   const missing = !create && (!folder || (decision.folder === undefined && !!row.folderMissing));
@@ -122,8 +124,8 @@ export function FolderCell({
         <PathPicker
           label={t("import:projects.pickFor", { row: row.row })}
           mode="folder"
-          within={roots}
-          initial={folder && !missing ? folder : roots[0]}
+          within={paths}
+          initial={folder && !missing ? folder : paths[0]}
           onPick={(path) => onChange({ folder: { path }, fromFolder: undefined })}
         >
           {t("import:projects.pick")}
@@ -159,7 +161,7 @@ export function FolderCell({
         onConfirm={() => {
           setCreating(false);
           onChange({
-            folder: { create: true, name: name.trim() || undefined, root: root || undefined },
+            folder: { create: true, name: name.trim() || undefined, rootId: rootId || undefined },
             fromFolder: undefined,
           });
         }}
@@ -182,9 +184,9 @@ export function FolderCell({
             {(p) => (
               <Combobox
                 {...p}
-                value={root}
-                onChange={setRoot}
-                options={roots.map((r) => ({ value: r, label: r }))}
+                value={rootId}
+                onChange={setRootId}
+                options={roots.map((r) => ({ value: r.id, label: r.path }))}
               />
             )}
           </FormField>

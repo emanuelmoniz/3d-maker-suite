@@ -1,10 +1,10 @@
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { projectRoot } from "@3d-maker-suite/core";
 import { openDb } from "@3d-maker-suite/db";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { buildApp } from "../app.ts";
+import { setRoots } from "../testRoots.ts";
 
 const scanned: string[] = [];
 vi.mock("./scanFolder.ts", async (orig) => {
@@ -41,11 +41,7 @@ beforeEach(async () => {
   await put("B/b.stl");
   await mkdir(join(root(), "A", "x", "y"), { recursive: true });
   app = await buildApp(openDb(":memory:"), false, join(dir, "data"), { watchProjects: true });
-  await app.inject({
-    method: "PATCH",
-    url: "/api/preferences",
-    payload: { projectRoots: [projectRoot(root(), { filesDepth: 1 })] },
-  });
+  await setRoots(app, { path: root(), filesDepth: 1 });
   await app.inject({ method: "POST", url: "/api/projects/scan" });
   await idle();
   await settle(1000);

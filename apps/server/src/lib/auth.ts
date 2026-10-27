@@ -33,6 +33,7 @@ const TABLE: Record<string, { viewer: Access; editor: Access }> = {
   "filament-materials": { viewer: "R", editor: "R" },
   "print-profiles": { viewer: "R", editor: "R" },
   projects: { viewer: "R", editor: "RW" },
+  roots: { viewer: "R", editor: "R" },
   prints: { viewer: "R", editor: "RW" },
   costs: { viewer: "R", editor: "RW" },
   orders: { viewer: "R", editor: "RW" },

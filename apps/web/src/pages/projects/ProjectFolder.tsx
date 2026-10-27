@@ -11,8 +11,8 @@ import { Combobox } from "../../components/Combobox.tsx";
 import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { PathPicker } from "../../components/PathPicker.tsx";
 import { ApiError } from "../../lib/api.ts";
-import { usePreferences } from "../../lib/preferences.ts";
 import { useProjectFolder, useProjectFolderHasFiles } from "../../lib/projects.ts";
+import { useRoots } from "../../lib/roots.ts";
 
 const ERRORS = {
   outside_roots: "projects:folder.errors.outside_roots",
@@ -64,15 +64,16 @@ const RELEASE = {
 export function FolderActions({ project }: { project: ProjectDetail }) {
   const { t } = useTranslation();
   const id = useId();
-  const roots = usePreferences().data?.values.projectRoots.map((r) => r.path) ?? [];
+  const all = useRoots();
+  const roots = all.map((r) => r.path);
   const folder = useProjectFolder(project.id);
   // Open while asking: `path` set = switch to that folder, else unlink.
   const [pending, setPending] = useState<{ path?: string } | null>(null);
   const [how, setHow] = useState<ProjectFolderPrevious>("keep");
-  const [root, setRoot] = useState<string>();
+  const [rootId, setRootId] = useState<string>();
   const ok = project.folderState === "ok";
-  const old = project.folderPath ? roots.find((r) => within(project.folderPath ?? "", r)) : null;
-  const chosen = root ?? old ?? roots[0] ?? "";
+  const old = all.find((r) => r.id === project.rootId)?.path;
+  const chosen = rootId ?? project.rootId ?? all[0]?.id ?? "";
   const code = folder.error instanceof ApiError ? folder.error.code : undefined;
   const sep = project.folderPath?.includes("\\") ? "\\" : "/";
   // Only a folder inside a root has a trash to go to.
@@ -114,7 +115,7 @@ export function FolderActions({ project }: { project: ProjectDetail }) {
             label={t("projects:folder.linkTitle")}
             mode="folder"
             canCreate
-            initial={old ?? undefined}
+            initial={old}
             within={roots}
             onPick={(path) => ask({ path })}
           >
@@ -132,18 +133,18 @@ export function FolderActions({ project }: { project: ProjectDetail }) {
               <Combobox
                 aria-label={t("projects:folder.root")}
                 value={chosen}
-                onChange={setRoot}
-                options={roots.map((r) => ({ value: r, label: r }))}
+                onChange={setRootId}
+                options={all.map((r) => ({ value: r.id, label: r.path }))}
               />
             )}
-            <Button disabled={folder.isPending} onClick={() => folder.mutate({ root: chosen })}>
+            <Button disabled={folder.isPending} onClick={() => folder.mutate({ rootId: chosen })}>
               {t(project.folderState ? "projects:folder.recreate" : "projects:folder.create")}
             </Button>
             <PathPicker
               label={t("projects:folder.linkTitle")}
               mode="folder"
               canCreate
-              initial={old ?? undefined}
+              initial={old}
               within={roots}
               onPick={(path) => folder.mutate({ path })}
             >
@@ -244,7 +245,7 @@ export function FolderActions({ project }: { project: ProjectDetail }) {
 /** On the project page while its folder is gone: what happened and how to fix it. */
 export function MissingFolderBanner({ project }: { project: ProjectDetail }) {
   const { t } = useTranslation();
-  const roots = usePreferences().data?.values.projectRoots.map((r) => r.path) ?? [];
+  const roots = useRoots().map((r) => r.path);
   if (project.folderState !== "missing") return null;
   return (
     <section

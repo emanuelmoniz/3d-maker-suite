@@ -1,7 +1,7 @@
 import { copyFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, test } from "../e2e/fixtures.ts";
-import { png, roots, seedPrinter, seedProfile } from "../e2e/helpers.ts";
+import { addRoots, png, seedPrinter, seedProfile } from "../e2e/helpers.ts";
 
 const IMAGES = "docs/images";
 
@@ -40,7 +40,7 @@ test("README screenshots", async ({ page, app }) => {
   );
   const images = ["front.png", "side.png", "top.png"];
   for (const [i, n] of images.entries()) writeFileSync(join(dragonDir, n), png(60 * i + 20));
-  await app.api("PATCH", "/api/preferences", { projectRoots: roots(root) });
+  await addRoots(app.api, root);
   const dragon = await app.api<{ id: string; meta: { models: { plates: { index: number }[] }[] } }>(
     "POST",
     "/api/projects",

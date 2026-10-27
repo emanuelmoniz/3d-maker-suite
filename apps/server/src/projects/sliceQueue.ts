@@ -1,4 +1,3 @@
-import { join } from "node:path";
 import { parse3mf } from "@3d-maker-suite/3mf";
 import {
   defaultSlicePrinter,
@@ -14,10 +13,10 @@ import { type Db, schema } from "@3d-maker-suite/db";
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import type { FastifyBaseLogger } from "fastify";
 import { capableRows, presetLibrary, slicerConfigDir } from "../integrations/capabilities.ts";
-import { insideRoots } from "../lib/launcher.ts";
 import { success } from "../lib/logSink.ts";
-import { readPreferences, rootPaths } from "../lib/preferences.ts";
+import { readPreferences } from "../lib/preferences.ts";
 import { fingerprint } from "./fingerprint.ts";
+import { projectFile } from "./rootFs.ts";
 
 const { brands, filamentProfiles, machineProfiles, printerModels, printers } = schema;
 const { printProfiles, projectSlicePlates, projects } = schema;
@@ -242,10 +241,7 @@ export function projectSliceJob(
       try {
         const meta = projectMetaSchema.parse(project?.meta ?? {});
         const model = meta.models.find((m) => m.file === job.file);
-        const abs =
-          model && project?.folderPath
-            ? await insideRoots(join(project.folderPath, job.file), rootPaths(db))
-            : null;
+        const abs = model && project ? await projectFile(db, project, job.file) : null;
         if (!abs) return fail("not_allowed");
         const slicers = [row.slicerIntegrationId, project?.slicerIntegrationId];
         const out = await slicePlate(db, adapters, { ...row, abs, model, slicers }, signal);

@@ -1,12 +1,12 @@
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { basename, join } from "node:path";
 import { expect, test } from "./fixtures.ts";
-import { roots, seedPrinter } from "./helpers.ts";
+import { addRoots, seedPrinter } from "./helpers.ts";
 
 test("project folder: create and unlink on the edit page", async ({ page, app }) => {
   const root = join(app.dataDir, "models");
   mkdirSync(root, { recursive: true });
-  await app.api("PATCH", "/api/preferences", { projectRoots: roots(root) });
+  await addRoots(app.api, root);
   const p = await app.api<{ id: string }>("POST", "/api/projects", { name: "Idea" });
 
   await page.goto(`/projects/${p.id}/edit`);
@@ -44,7 +44,7 @@ test("delete project: refused while it has prints, then goes with its empty fold
 }) => {
   const root = join(app.dataDir, "models");
   mkdirSync(root, { recursive: true });
-  await app.api("PATCH", "/api/preferences", { projectRoots: roots(root) });
+  await addRoots(app.api, root);
   const p = await app.api<{ id: string; folderPath: string }>("POST", "/api/projects", {
     name: "Gone",
     createFolder: true,
@@ -93,7 +93,7 @@ test("project folder: a missing folder shows a banner, linking another fixes it"
     mkdirSync(d, { recursive: true });
     writeFileSync(join(d, "part.stl"), "solid");
   }
-  await app.api("PATCH", "/api/preferences", { projectRoots: roots(root) });
+  await addRoots(app.api, root);
   const p = await app.api<{ id: string }>("POST", "/api/projects", {
     name: "Part",
     folderPath: gone,
@@ -120,7 +120,7 @@ test("folder picker on the edit page: New folder stays in the dialog and creates
 }) => {
   const root = join(app.dataDir, "models");
   mkdirSync(root, { recursive: true });
-  await app.api("PATCH", "/api/preferences", { projectRoots: roots(root) });
+  await addRoots(app.api, root);
   const p = await app.api<{ id: string }>("POST", "/api/projects", {
     name: "Idea",
     createFolder: true,

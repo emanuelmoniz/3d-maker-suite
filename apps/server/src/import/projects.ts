@@ -1,5 +1,5 @@
 import { existsSync, realpathSync } from "node:fs";
-import { basename, isAbsolute, relative, resolve } from "node:path";
+import { basename, isAbsolute, relative, resolve, sep } from "node:path";
 import {
   type ImportCell,
   type ImportErrorCode,
@@ -12,8 +12,8 @@ import { type Db, schema } from "@3d-maker-suite/db";
 import { and, eq, inArray, isNotNull, isNull, notInArray } from "drizzle-orm";
 import { projectLabel } from "../lib/catalog.ts";
 import { assertNumberFree, freeNumber, nextNumber, numberCell } from "../lib/numbers.ts";
-import { rootPaths } from "../lib/preferences.ts";
 import { parseFolderName } from "../projects/folderName.ts";
+import { absPath, listRoots, type Root } from "../projects/rootFs.ts";
 import type { WriteRow } from "./review.ts";
 
 const { orderProjects, prints, projects } = schema;
@@ -34,32 +34,44 @@ const real = (p: string) => {
   }
 };
 /**
- * `folder` is inside a project root (a missing folder by its resolved path). Like `insideRoots`,
- * but sync for the preview; the apply makes or scans only folders that pass it.
+ * The root `folder` is below (the deepest) and the path relative to it, or null (a missing folder
+ * by its resolved path). Like `locate` in rootFs.ts, but sync for the preview; the apply makes or
+ * scans only folders that pass it.
  */
-const inRoots = (folder: string, roots: string[]) => {
+const placeOf = (folder: string, roots: Root[]) => {
   const f = real(folder);
-  return roots.some((r) => {
-    const rel = relative(real(r), f);
-    return rel !== "" && !rel.startsWith("..") && !isAbsolute(rel);
-  });
+  let best: { rootId: string; folder: string } | null = null;
+  for (const r of roots) {
+    const rel = relative(real(r.path), f);
+    if (rel === "" || rel === ".." || rel.startsWith(`..${sep}`) || isAbsolute(rel)) continue;
+    const posix = rel.split(sep).join("/");
+    if (!best || posix.split("/").length < best.folder.split("/").length)
+      best = { rootId: r.id, folder: posix };
+  }
+  return best;
 };
+const placeKey = (p: { rootId: string; folder: string }) => pathKey(`${p.rootId}/${p.folder}`);
 
 /** The columns a row gives that the scan would otherwise fill. */
 const SCANNED = ["name", "description", "sourceUrl"] as const;
 
-type Look = { owners: Map<string, { id: string; number: number | null }>; roots: string[] };
+type Look = { owners: Map<string, { id: string; number: number | null }>; roots: Root[] };
 function build(db: Db): Look {
   return {
     owners: new Map(
       db
-        .select({ id: projects.id, number: projects.number, folder: projects.folderPath })
+        .select({
+          id: projects.id,
+          number: projects.number,
+          rootId: projects.rootId,
+          folder: projects.folder,
+        })
         .from(projects)
-        .where(isNotNull(projects.folderPath))
+        .where(isNotNull(projects.rootId))
         .all()
-        .map((p) => [pathKey(p.folder ?? ""), p]),
+        .map((p) => [placeKey({ rootId: p.rootId ?? "", folder: p.folder ?? "" }), p]),
     ),
-    roots: rootPaths(db),
+    roots: listRoots(db),
   };
 }
 // A preview or an apply runs in one synchronous stretch (see `lookups` in prints.ts).
@@ -105,8 +117,13 @@ function setPrints(db: Db, projectId: string, ids: string[] | undefined) {
  */
 export const projectImport = {
   /** Active projects, in the shape of the import columns. */
-  targets: (db: Db): ImportTarget[] =>
-    db
+  targets: (db: Db): ImportTarget[] => {
+    const roots = listRoots(db);
+    const shown = (p: { rootId: string | null; folder: string | null }) => {
+      const root = roots.find((r) => r.id === p.rootId);
+      return root && p.folder !== null ? absPath(root, p.folder) : null;
+    };
+    return db
       .select({ project: projects, label: projectLabel })
       .from(projects)
       .where(isNull(projects.archivedAt))
@@ -120,9 +137,10 @@ export const projectImport = {
           name: p.name,
           description: p.description,
           sourceUrl: p.sourceUrl,
-          folder: p.folderPath,
+          folder: shown(p),
         },
-      })),
+      }));
+  },
 
   match: matchNumberedRows(),
 
@@ -135,8 +153,9 @@ export const projectImport = {
     if (!folder) return [];
     const look = lookups(db);
     const errors: { column: string; code: ImportErrorCode }[] = [];
-    if (!inRoots(folder, look.roots)) errors.push({ column: "folder", code: "outside_roots" });
-    const owner = look.owners.get(pathKey(folder));
+    const place = placeOf(folder, look.roots);
+    if (!place) errors.push({ column: "folder", code: "outside_roots" });
+    const owner = place && look.owners.get(placeKey(place));
     if (owner && owner.number !== numberCell(v.number))
       errors.push({ column: "folder", code: "folder_in_use" });
     return errors;
@@ -176,7 +195,7 @@ export const projectImport = {
         name: str(v.name) ?? "",
         description: str(v.description),
         sourceUrl: str(v.sourceUrl),
-        folderPath: folder,
+        ...(folder && placeOf(folder, listRoots(db))),
         editedFields: row.fromFolder ? [] : PROJECT_EDITABLE_FIELDS.filter((f) => f in given),
       })
       .returning({ id: projects.id })
@@ -203,7 +222,12 @@ export const projectImport = {
         else set[k] = str(patch[k]);
         edited.add(k);
       }
-    if ("folder" in patch) set.folderPath = folderOf(patch.folder);
+    if ("folder" in patch) {
+      const folder = folderOf(patch.folder);
+      const place = folder ? placeOf(folder, listRoots(db)) : null;
+      set.rootId = place?.rootId ?? null;
+      set.folder = place?.folder ?? null;
+    }
     set.editedFields = [...edited];
     db.update(projects).set(set).where(eq(projects.id, cur.id)).run();
     setPrints(db, cur.id, row.prints);

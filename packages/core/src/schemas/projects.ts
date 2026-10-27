@@ -87,11 +87,15 @@ export const projectSchema = z.object({
   description: nullableText,
   /** Doc in the project folder (relative, `/`) whose text is the description; re-read on scans. */
   descriptionFile: nullableText,
-  /** Absolute. Null for a project that has no folder. */
+  /** The root the folder is in. Null for a project that has no folder. */
+  rootId: id.nullable(),
+  /** The folder, relative to its root (`/`). */
+  folder: nullableText,
+  /** The folder as an absolute path on its root's location, for showing and picking. */
   folderPath: nullableText,
-  /** The folder it was unlinked from and kept: scans skip it; linking it again keeps everything. */
+  /** The folder it was unlinked from and kept (absolute): scans skip it; linking it again keeps everything. */
   unlinkedFolder: nullableText,
-  /** The main model file (absolute), picked by the scanner. */
+  /** The main model file (relative, `/`), picked by the scanner. */
   filePath: nullableText,
   sourceUrl: z.httpUrl().nullable(),
   /** Relative to the data directory; serve it with `GET /api/projects/:id/thumbnail`. */
@@ -136,7 +140,7 @@ const editable = {
 
 /**
  * Fields given here count as user-edited. `folderPath` must be an existing directory;
- * `createFolder` makes `<root>/<number>_<name>` instead (`root` may be left out with one root).
+ * `createFolder` makes `<root>/<number>_<name>` instead (`rootId` may be left out with one root).
  */
 export const projectInputSchema = z
   .object({
@@ -147,8 +151,8 @@ export const projectInputSchema = z
     sourceUrl: editable.sourceUrl.optional(),
     folderPath: z.string().min(1).optional(),
     createFolder: z.boolean().optional(),
-    /** One of the configured `projectRoots`. */
-    root: z.string().min(1).optional(),
+    /** The root `createFolder` makes it in. */
+    rootId: id.optional(),
   })
   .refine((p) => !(p.createFolder && p.folderPath), {
     message: "Give folderPath or createFolder, not both",
@@ -169,18 +173,18 @@ export const projectUnlinkQuery = z.object({ files: z.enum(PROJECT_FOLDER_RELEAS
 
 /**
  * Gives a project a folder: `path` links an existing folder inside a root; without it,
- * `<root>/<number>_<name>` is made (`root` may be left out with one root). A project whose folder
+ * `<root>/<number>_<name>` is made (`rootId` may be left out with one root). A project whose folder
  * is there needs `previous`: what happens to that one.
  */
 export const projectFolderSchema = z
   .object({
     path: z.string().min(1).optional(),
-    root: z.string().min(1).optional(),
+    rootId: id.optional(),
     previous: z.enum(PROJECT_FOLDER_PREVIOUS).optional(),
   })
-  .refine((p) => !(p.path && p.root), {
-    message: "Give path or root, not both",
-    path: ["root"],
+  .refine((p) => !(p.path && p.rootId), {
+    message: "Give path or rootId, not both",
+    path: ["rootId"],
   });
 
 /** Unlink and folder changes: where a trashed folder went. */

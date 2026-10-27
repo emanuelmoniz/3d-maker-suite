@@ -21,9 +21,9 @@ import { eq } from "drizzle-orm";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
-import { insideRoots } from "../lib/launcher.ts";
-import { readPreferences, rootPaths } from "../lib/preferences.ts";
+import { readPreferences } from "../lib/preferences.ts";
 import { projectPath, segments } from "../projects/paths.ts";
+import { listRoots, projectDir, rootFs } from "../projects/rootFs.ts";
 import { isHidden } from "../projects/scanFolder.ts";
 import type { ProjectScanner } from "../projects/scanner.ts";
 import { fsError, readEntries } from "./fs.ts";
@@ -70,25 +70,14 @@ export const projectFilesRoutes =
       done(null, payload),
     );
 
-    const roots = () => rootPaths(db);
-
-    /** The real path of the configured root holding `folder`. */
-    async function rootOf(folder: string) {
-      for (const r of roots()) {
-        const real = await insideRoots(r, [r]);
-        if (real && (await insideRoots(folder, [real]))) return real;
-      }
-      return null;
-    }
-
-    /** The project and its folder's real path; the folder must still be inside a project root. */
+    /** The project and its folder through its root; the folder must still be inside it. */
     async function project(id: string) {
       const row = db.select().from(projects).where(eq(projects.id, id)).get();
       if (!row) throw new HttpError(404, "not_found", "Project not found");
-      if (!row.folderPath) throw new HttpError(404, "no_folder", "Project has no folder");
-      const dir = await insideRoots(row.folderPath, roots());
-      if (!dir) throw new HttpError(403, "not_allowed", "Project folder is not in a project root");
-      return { row, folderPath: row.folderPath, dir };
+      if (!row.rootId) throw new HttpError(404, "no_folder", "Project has no folder");
+      const own = await projectDir(db, row);
+      if (!own) throw new HttpError(403, "not_allowed", "Project folder is not in a project root");
+      return { row, own, dir: own.dir };
     }
 
     /** Keeps the description link, cover and gallery picks after a move (null: deleted). */
@@ -109,7 +98,7 @@ export const projectFilesRoutes =
         if (JSON.stringify(next) !== JSON.stringify({ descriptionFile, coverFile, gallery }))
           db.update(projects).set(next).where(eq(projects.id, p.row.id)).run();
       }
-      await scanner.refresh(p.folderPath);
+      await scanner.refresh(p.row);
     }
 
     app.get(
@@ -278,24 +267,10 @@ export const projectFilesRoutes =
       },
       async (req, reply) => {
         const p = await project(req.params.id);
-        const { abs } = await projectPath(p.dir, req.query.path, "existing");
-        const root = await rootOf(p.dir);
-        if (!root)
-          throw new HttpError(403, "not_allowed", "Project folder is not in a project root");
+        const { path } = req.query;
+        await projectPath(p.dir, path, "existing");
         const stamp = new Date().toISOString().replace(/[:.]/g, "-");
-        const dest = join(
-          root,
-          TRASH_DIR,
-          `${stamp}_${basename(p.dir)}`,
-          ...segments(req.query.path),
-        );
-        await mkdir(dirname(dest), { recursive: true });
-        // A trash folder that is a link elsewhere would carry the files out of the root.
-        if (!(await insideRoots(dirname(dest), [root])))
-          throw new HttpError(403, "path_denied", "Trash is outside the project root");
-        // ponytail: a plain rename, so a project folder on another volume than its root (a mount
-        // point inside the root) fails with EXDEV; copy + remove then if that ever comes up.
-        await os(rename(abs, dest));
+        await p.own.fs.trash(`${p.own.rel}/${path}`, `${stamp}_${basename(p.dir)}/${path}`);
         await changed(p, req.query.path, null);
         return reply.status(204).send(null);
       },
@@ -303,8 +278,8 @@ export const projectFilesRoutes =
 
     const trashDirs = async () => {
       const dirs: string[] = [];
-      for (const r of roots()) {
-        const real = await insideRoots(r, [r]);
+      for (const r of listRoots(db)) {
+        const real = await rootFs(r).local("");
         if (real) dirs.push(join(real, TRASH_DIR));
       }
       return dirs;

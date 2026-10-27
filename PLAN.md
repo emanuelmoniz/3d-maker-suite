@@ -677,7 +677,7 @@ Record the evidence in the ADR, adjust the decisions it changes, and set the sta
 Do Step 1 of the 5.0.0 plan in PLAN.md. Report each spike with evidence before changing the ADR.
 ```
 
-### [ ] Step 2 - Hub switch and root locations: schema  **[plan mode]**
+### [x] Step 2 - Hub switch and root locations: schema  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:**
 - Migration: `roots` table filled from `projectRoots` (location `hub`). Projects get `rootId` + relative path, and the old absolute paths are converted. `hub.enabled` setting.

@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, test } from "./fixtures.ts";
-import { hasHorizontalScroll, openSections, roots } from "./helpers.ts";
+import { addRoots, hasHorizontalScroll, openSections } from "./helpers.ts";
 
 const VIEWPORTS = [
   { width: 375, height: 800 },
@@ -20,7 +20,7 @@ for (const viewport of VIEWPORTS) {
     for (const n of ["front.png", "back.png", "side.png"]) writeFileSync(join(dir, n), PNG);
     mkdirSync(join(dir, "pics"));
     writeFileSync(join(dir, "pics", "top.png"), PNG);
-    await app.api("PATCH", "/api/preferences", { projectRoots: roots(root) });
+    await addRoots(app.api, root);
     await app.api("POST", "/api/projects/scan");
     const list = () => app.api<{ items: { id: string }[] }>("GET", "/api/projects");
     await expect.poll(async () => (await list()).items.length).toBe(1);

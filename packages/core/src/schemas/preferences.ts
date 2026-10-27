@@ -24,41 +24,6 @@ export const dashboardWidgetSchema = z.object({
   settings: z.record(z.string(), z.json()),
 });
 
-/** A folder searched for projects, with its own scan settings. */
-export const projectRootSchema = z.object({
-  path: z.string().min(1),
-  /** How many folder levels below the root a project may sit (1 = direct subfolders). */
-  projectDepth: z.number().int().min(1).max(5),
-  /** Subfolder levels below a project folder that are listed and watched; null = all. */
-  filesDepth: z.number().int().min(0).nullable(),
-  /** Off: its projects don't slice again when a file changes (unless a project says so). */
-  autoSlice: z.boolean(),
-});
-export type ProjectRoot = z.infer<typeof projectRootSchema>;
-export const PROJECT_ROOT_DEFAULTS: Omit<ProjectRoot, "path"> = {
-  projectDepth: 1,
-  filesDepth: null,
-  autoSlice: true,
-};
-/** A root with the default settings, unless `over` says otherwise. */
-export const projectRoot = (path: string, over: Partial<ProjectRoot> = {}): ProjectRoot => ({
-  ...PROJECT_ROOT_DEFAULTS,
-  ...over,
-  path,
-});
-
-const normPath = (p: string) => p.replace(/\\/g, "/").replace(/\/+$/, "");
-/** The root `path` sits in (the deepest one if roots nest), or undefined. Plain string match. */
-export function rootOf<R extends { path: string }>(path: string, roots: R[]): R | undefined {
-  const p = normPath(path);
-  return roots
-    .filter((r) => {
-      const n = normPath(r.path);
-      return p === n || p.startsWith(`${n}/`);
-    })
-    .sort((a, b) => b.path.length - a.path.length)[0];
-}
-
 const shape = {
   language: z.enum(LANGUAGES),
   units: z.enum(UNIT_SYSTEMS),
@@ -87,7 +52,6 @@ const shape = {
   laborRatePerHour: z.number().nonnegative(),
   failureMarginPct: z.number().nonnegative(),
   markupPct: z.number().nonnegative(),
-  projectRoots: z.array(projectRootSchema),
   /** Files a scan lists per project folder at most; the rest can't be picked or shown. */
   projectScanMaxFiles: z.number().int().min(100).max(100_000),
   /** Model files bigger than this show the plate thumbnail instead of the 3D viewer. */
@@ -109,6 +73,8 @@ const shape = {
   /** An order's statuses, in order; a new order starts at the first. */
   orderStatuses: z.array(z.string().min(1)).min(1),
   dashboardLayout: z.array(dashboardWidgetSchema),
+  /** Hub features (ADR-0014): devices, device roots and sync. Needs user accounts. */
+  hubEnabled: z.boolean(),
   /** Daily automatic backup, keeping this many of the newest automatic ones. */
   backupAuto: z.boolean(),
   backupKeep: z.number().int().min(1).max(100),
@@ -153,7 +119,6 @@ export const PREFERENCE_DEFAULTS: z.infer<typeof preferencesSchema> = {
   laborRatePerHour: 0,
   failureMarginPct: 5,
   markupPct: 20,
-  projectRoots: [],
   projectScanMaxFiles: 1000,
   viewerMaxMb: 30,
   projectUploadMaxMb: 1024,
@@ -176,6 +141,7 @@ export const PREFERENCE_DEFAULTS: z.infer<typeof preferencesSchema> = {
     "Power loss",
     "Other",
   ],
+  hubEnabled: false,
   backupAuto: true,
   backupKeep: 7,
   logActive: false,

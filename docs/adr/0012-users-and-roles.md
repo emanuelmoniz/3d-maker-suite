@@ -50,6 +50,7 @@ R = GET/HEAD, W = POST/PUT/PATCH/DELETE, - = 403.
 | `/api/brands`, `/api/printer-models`, `/api/machine-profiles`, `/api/filament-brands`, `/api/filament-materials`, `/api/print-profiles` | R | R | R W | catalogs belong to the module settings |
 | `/api/filament` | R | R W, but `/profiles` is R | R W | spools are daily work, profiles are setup |
 | `/api/projects` (files, trash, slicing, scan, open) | R | R W | R W | `/:id/open` starts the slicer on the server machine |
+| `/api/roots` (project roots, ADR-0014) | R | R | R W | the pickers read them; Settings → Projects changes them |
 | `/api/prints` (incl. filament review) | R | R W | R W | |
 | `/api/costs` (files, slice, quotes) | R | R W | R W | the calculator uses POST, so viewers see saved quotes only |
 | `/api/orders`, `/api/clients` | R | R W | R W | |

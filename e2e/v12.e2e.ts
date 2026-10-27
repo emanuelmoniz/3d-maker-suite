@@ -6,11 +6,13 @@ import { DatabaseSync } from "node:sqlite";
 import type { Page } from "@playwright/test";
 import { expect, test } from "./fixtures.ts";
 import {
+  addRoots,
   gotoIntegrations,
   hasHorizontalScroll,
   openSections,
   pick,
   roots,
+  savedRoots,
   seedModel,
   seedPrinter,
   seedProfile,
@@ -90,7 +92,7 @@ test("path picker: project roots are filled by browsing, keyboard included", asy
   app,
 }) => {
   const root = makeTree("pick", ["alpha", "beta"]);
-  await app.api("PATCH", "/api/preferences", { projectRoots: roots(root) });
+  await addRoots(app.api, root);
   await page.goto("/projects/settings");
   await page.getByRole("button", { name: /^Browse for/ }).click();
   await expect(dialog(page).getByRole("button", { name: "alpha" })).toBeVisible();
@@ -100,11 +102,7 @@ test("path picker: project roots are filled by browsing, keyboard included", asy
   await dialog(page).getByRole("button", { name: "Select this folder" }).click();
   await expect(dialog(page)).toHaveCount(0);
   await expect
-    .poll(
-      async () =>
-        (await app.api<{ values: { projectRoots: unknown[] } }>("GET", "/api/preferences")).values
-          .projectRoots,
-    )
+    .poll(async () => await savedRoots(app.api))
     .toEqual(roots(root, join(root, "alpha")));
   // Escape closes without choosing.
   await page.getByRole("button", { name: /^Browse for/ }).click();
@@ -152,7 +150,7 @@ test("projects: add a project from a folder, link a description file, edit by ha
     join(import.meta.dirname, "../docs/images/dashboard.png"),
     join(parent, "Bracket", "img", "pic.png"),
   );
-  await app.api("PATCH", "/api/preferences", { projectRoots: roots(parent) });
+  await addRoots(app.api, parent);
 
   await page.goto("/projects");
   await app.api("POST", "/api/projects", { name: "Bracket", folderPath: join(parent, "Bracket") });
@@ -206,7 +204,7 @@ test("projects: the description editor writes the .md file and the preview file 
   mkdirSync(join(dir, "sub"));
   writeFileSync(join(dir, "sub", "extra.stl"), "solid");
   rmSync(join(dir, "README.md")); // so "New file…" suggests README.md
-  await app.api("PATCH", "/api/preferences", { projectRoots: roots(parent) });
+  await addRoots(app.api, parent);
   await app.api("POST", "/api/projects/scan");
   await expect
     .poll(async () => (await app.api<{ items: unknown[] }>("GET", "/api/projects")).items.length)
@@ -245,7 +243,7 @@ test("projects: the description editor writes the .md file and the preview file 
     `/api/projects/${id}`,
   );
   expect(after.description).toBe("# Gadget\n\nMade **fast**");
-  expect(after.filePath).toBe(join(dir, "sub", "extra.stl"));
+  expect(after.filePath).toBe("sub/extra.stl");
 });
 
 test("spools: automatic numbers, taken numbers are refused, color name shows in the name", async ({

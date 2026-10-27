@@ -1,7 +1,7 @@
 import { copyFileSync, mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, test } from "./fixtures.ts";
-import { pick, roots } from "./helpers.ts";
+import { addRoots, pick } from "./helpers.ts";
 
 const fixture = join(import.meta.dirname, "../packages/3mf/fixtures/multi_color.3mf");
 
@@ -13,7 +13,8 @@ test("quote from a project: filled, profile changed, sliced, file added, saved, 
   mkdirSync(join(root, "Benchy"), { recursive: true });
   copyFileSync(fixture, join(root, "Benchy", "benchy.3mf"));
   // 1 kW at 1 per kWh: an hour of printing is 1.00 of energy.
-  await app.api("PATCH", "/api/preferences", { projectRoots: roots(root), energyCostPerKwh: 1 });
+  await addRoots(app.api, root);
+  await app.api("PATCH", "/api/preferences", { energyCostPerKwh: 1 });
   const mock = await app.api<{ id: string }>("POST", "/api/integrations", {
     adapterId: "mock",
     secrets: { token: "t" },

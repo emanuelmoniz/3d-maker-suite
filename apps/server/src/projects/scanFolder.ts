@@ -40,7 +40,7 @@ export interface FolderScan {
   models: ProjectModel[];
   description: string | null;
   sourceUrl: string | null;
-  /** Absolute path of the main model file. */
+  /** The main model file, relative to the folder (`/`). */
   mainFile: string | null;
   cover: Cover | null;
   hasModel: boolean;
@@ -205,7 +205,7 @@ export async function scanFolder(
     models: mergeSlicedExports(models),
     description,
     sourceUrl: sourceUrl ? tidyUrl(sourceUrl) : null,
-    mainFile: main?.abs ?? null,
+    mainFile: main?.path ?? null,
     cover,
     hasModel: modelFiles.length > 0,
     unreadable,

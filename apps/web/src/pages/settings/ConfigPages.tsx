@@ -1,4 +1,4 @@
-import { PROJECT_ROOT_DEFAULTS, type ProjectRoot, projectRoot } from "@3d-maker-suite/core";
+import { ROOT_DEFAULTS, type Root, type RootPatch } from "@3d-maker-suite/core";
 import { Trash2 } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -9,9 +9,11 @@ import { FormField, inputClass } from "../../components/FormField.tsx";
 import { PathPicker } from "../../components/PathPicker.tsx";
 import { Section } from "../../components/Section.tsx";
 import { Switch } from "../../components/Switch.tsx";
+import { ApiError } from "../../lib/api.ts";
 import { formatMegabytes, formatNumber } from "../../lib/format.ts";
 import { usePrinters } from "../../lib/printers.ts";
 import { useEmptyProjectTrash, useProjectTrash } from "../../lib/projects.ts";
+import { useChangeRoot, useRoots } from "../../lib/roots.ts";
 import { ChannelsSection } from "../alerts/ChannelsSection.tsx";
 import { FilamentCatalog, FilamentProfiles } from "../filament/Catalog.tsx";
 import { Catalog } from "../printers/Catalog.tsx";
@@ -166,9 +168,9 @@ export function ProjectsConfigPage() {
   const { t } = useTranslation();
   return (
     <ConfigPage module="projects">
-      {({ v, commit, num }) => (
+      {({ num }) => (
         <Section title={t("settings:sections.projects")} wide help="docs/projects.md">
-          <ProjectRoots v={v} commit={commit} />
+          <ProjectRoots />
           {/* The usual narrow column of a settings card; only the roots use the full width. */}
           <div className="grid gap-4 sm:max-w-md">
             <FormField
@@ -197,7 +199,7 @@ export function ProjectsConfigPage() {
   );
 }
 
-type Depths = Pick<ProjectRoot, "projectDepth" | "filesDepth">;
+type Depths = Pick<Root, "projectDepth" | "filesDepth">;
 const PROJECT_DEPTHS = [1, 2, 3, 4, 5];
 const FILES_DEPTHS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 
@@ -262,19 +264,25 @@ function DepthFields({
   );
 }
 
+const ROOT_ERRORS = {
+  root_in_use: "settings:projects.rootInUse",
+  root_exists: "settings:projects.rootExists",
+  invalid_folder: "settings:projects.rootMissing",
+} as const;
+
 /** The project folder roots, each with its depths, auto slice switch and a remove button. */
-function ProjectRoots({ v, commit }: Pick<ConfigCtx, "v" | "commit">) {
+function ProjectRoots() {
   const { t } = useTranslation();
   const [typed, setTyped] = useState("");
-  const [depths, setDepths] = useState<Depths>(PROJECT_ROOT_DEFAULTS);
-  const roots = v.projectRoots;
+  const [depths, setDepths] = useState<Depths>(ROOT_DEFAULTS);
+  const roots = useRoots();
+  const save = useChangeRoot();
+  const code = save.error instanceof ApiError ? save.error.code : undefined;
   const add = (dir: string) => {
     const d = dir.trim();
-    if (d && !roots.some((r) => r.path === d))
-      commit({ projectRoots: [...roots, projectRoot(d, depths)] });
+    if (d && !roots.some((r) => r.path === d)) save.mutate({ add: { path: d, ...depths } });
   };
-  const change = (path: string, patch: Partial<ProjectRoot>) =>
-    commit({ projectRoots: roots.map((r) => (r.path === path ? { ...r, ...patch } : r)) });
+  const change = (id: string, patch: RootPatch) => save.mutate({ id, patch });
   return (
     <fieldset className="grid gap-2">
       <legend className="mb-1 font-medium">{t("settings:projects.roots")}</legend>
@@ -284,20 +292,26 @@ function ProjectRoots({ v, commit }: Pick<ConfigCtx, "v" | "commit">) {
           {roots.map((r) => (
             <li key={r.path} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-1 pr-1 pl-3">
               <span className="min-w-0 basis-full break-all sm:flex-1 sm:basis-auto">{r.path}</span>
-              <DepthFields value={r} path={r.path} onChange={(d) => change(r.path, d)} />
+              <DepthFields
+                value={r}
+                path={r.path}
+                onChange={({ projectDepth, filesDepth }) =>
+                  change(r.id, { projectDepth, filesDepth })
+                }
+              />
               <label className="flex items-center gap-2">
                 <input
                   type="checkbox"
                   checked={r.autoSlice}
                   aria-label={t("settings:projects.autoSliceFor", { path: r.path })}
-                  onChange={(e) => change(r.path, { autoSlice: e.target.checked })}
+                  onChange={(e) => change(r.id, { autoSlice: e.target.checked })}
                 />
                 <span aria-hidden>{t("settings:projects.autoSlice")}</span>
               </label>
               <Button
                 variant="ghost"
                 aria-label={t("settings:projects.removeRoot", { path: r.path })}
-                onClick={() => commit({ projectRoots: roots.filter((x) => x.path !== r.path) })}
+                onClick={() => save.mutate({ remove: r.id })}
               >
                 <Trash2 className="size-4" aria-hidden />
               </Button>
@@ -332,6 +346,15 @@ function ProjectRoots({ v, commit }: Pick<ConfigCtx, "v" | "commit">) {
           onPick={add}
         />
       </form>
+      {save.isError && (
+        <p role="alert" className="text-bad">
+          {t(
+            code && code in ROOT_ERRORS
+              ? ROOT_ERRORS[code as keyof typeof ROOT_ERRORS]
+              : "settings:saveError",
+          )}
+        </p>
+      )}
       <div className="grid gap-2 text-muted lg:grid-cols-3 lg:gap-6">
         <p>{t("settings:projects.projectDepthHint")}</p>
         <p>{t("settings:projects.filesDepthHint")}</p>

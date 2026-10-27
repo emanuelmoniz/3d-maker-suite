@@ -7,13 +7,13 @@ import {
   type ImportEntity,
   type ImportPreview,
   type ImportRun,
-  projectRoot,
 } from "@3d-maker-suite/core";
 import { openDb, schema } from "@3d-maker-suite/db";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { buildApp } from "./app.ts";
 import { readXlsx } from "./lib/sheet.ts";
+import { setRoots } from "./testRoots.ts";
 
 let dataDir: string;
 let db: ReturnType<typeof openDb>;
@@ -314,11 +314,8 @@ it("imports projects: folders picked, made or none, prints linked like the scan 
     if (file) writeFileSync(join(root, name, file), "not a real 3mf");
     return join(root, name);
   };
-  await app.inject({
-    method: "PATCH",
-    url: "/api/preferences",
-    payload: { projectRoots: [projectRoot(root)] },
-  });
+  mkdirSync(root, { recursive: true });
+  await setRoots(app, root);
   const spice = folder("007_spice", "spice_rack.3mf");
   const cup = folder("cup", "cup.3mf");
   await load("printers", "name,brand,model\nA,Bambu Lab,X1C\n");

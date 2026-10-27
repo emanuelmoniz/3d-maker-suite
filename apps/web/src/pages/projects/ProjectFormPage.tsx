@@ -9,7 +9,6 @@ import { FormField, inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { PathPicker } from "../../components/PathPicker.tsx";
 import { isConflict } from "../../lib/catalog.ts";
-import { usePreferences } from "../../lib/preferences.ts";
 import { uploadProjectFile } from "../../lib/projectFiles.ts";
 import {
   galleryImages,
@@ -17,6 +16,7 @@ import {
   usePatchProject,
   useProject,
 } from "../../lib/projects.ts";
+import { useRoots } from "../../lib/roots.ts";
 import { DescriptionEditor, type DescriptionState } from "./DescriptionEditor.tsx";
 import { GalleryPicker } from "./GalleryPicker.tsx";
 import { FolderActions } from "./ProjectFolder.tsx";
@@ -59,10 +59,10 @@ function ProjectForm({ project }: { project?: ProjectDetail }) {
     if (location.hash === "#slicing") document.getElementById("slicing")?.scrollIntoView();
   }, []);
   const [folder, setFolder] = useState("");
-  const roots = usePreferences().data?.values.projectRoots.map((r) => r.path) ?? [];
+  const roots = useRoots();
   // Blank folder path + a root: make the folder there (the first root unless picked).
-  const [root, setRoot] = useState<string>();
-  const createIn = project || folder.trim() ? "" : (root ?? roots[0] ?? "");
+  const [rootId, setRootId] = useState<string>();
+  const createIn = project || folder.trim() ? "" : (rootId ?? roots[0]?.id ?? "");
   // Without a working folder (none, unlinked and kept, or missing) its files can't be picked or
   // written: what the project knows of them waits for the folder.
   const ok = project?.folderState === "ok";
@@ -75,8 +75,7 @@ function ProjectForm({ project }: { project?: ProjectDetail }) {
   const files = ok ? (project?.meta.files ?? []) : [];
   const models = files.filter((f) => f.kind === "model");
   const initialPreview = project?.editedFields.includes("filePath")
-    ? (models.find((m) => project.filePath?.replaceAll("\\", "/").endsWith(`/${m.path}`))?.path ??
-      "")
+    ? (models.find((m) => m.path === project.filePath)?.path ?? "")
     : "";
   const [preview, setPreview] = useState(initialPreview);
   const images = files.filter((f) => f.kind === "image");
@@ -151,7 +150,7 @@ function ProjectForm({ project }: { project?: ProjectDetail }) {
           ...typed,
           name: fields.name,
           folderPath,
-          ...(!folderPath && createIn ? { createFolder: true, root: createIn } : {}),
+          ...(!folderPath && createIn ? { createFolder: true, rootId: createIn } : {}),
         },
         created,
       );
@@ -226,9 +225,9 @@ function ProjectForm({ project }: { project?: ProjectDetail }) {
               <Combobox
                 {...p}
                 value={createIn}
-                onChange={setRoot}
+                onChange={setRootId}
                 options={[
-                  ...roots.map((r) => ({ value: r, label: r })),
+                  ...roots.map((r) => ({ value: r.id, label: r.path })),
                   { value: "", label: t("projects:form.createInNone") },
                 ]}
               />

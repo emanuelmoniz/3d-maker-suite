@@ -1,5 +1,4 @@
 import { stat } from "node:fs/promises";
-import { join } from "node:path";
 import {
   type AlertKind,
   type AlertSeverity,
@@ -12,9 +11,8 @@ import { type Db, schema } from "@3d-maker-suite/db";
 import { eq } from "drizzle-orm";
 import type { FastifyBaseLogger } from "fastify";
 import { raise } from "../alerts/evaluate.ts";
-import { insideRoots } from "../lib/launcher.ts";
-import { readPreferences } from "../lib/preferences.ts";
 import { fingerprint } from "./fingerprint.ts";
+import { projectFile } from "./rootFs.ts";
 import {
   projectSliceJob,
   type SliceQueue,
@@ -23,18 +21,17 @@ import {
   slicerResolver,
 } from "./sliceQueue.ts";
 
-const { projectSlicePlates, projects } = schema;
+const { projectSlicePlates, projects, roots } = schema;
 type Row = typeof projectSlicePlates.$inferSelect;
 type Project = typeof projects.$inferSelect;
 
-/** The project's own choice, else on unless its folder is in a root with auto slicing off. */
-async function autoSliceOn(db: Db, project: Project & { folderPath: string }) {
+/** The project's own choice, else its root's. */
+function autoSliceOn(db: Db, project: Project) {
   if (project.autoSlice != null) return project.autoSlice;
-  const off = readPreferences(db).projectRoots.filter((r) => !r.autoSlice);
-  return !(await insideRoots(
-    project.folderPath,
-    off.map((r) => r.path),
-  ));
+  const root = project.rootId
+    ? db.select().from(roots).where(eq(roots.id, project.rootId)).get()
+    : undefined;
+  return root?.autoSlice ?? true;
 }
 
 /** An auto slicing alert of the project, keyed so each event alerts once. */
@@ -93,9 +90,8 @@ export async function autoSlice(
   before: ProjectMeta,
 ) {
   const project = db.select().from(projects).where(eq(projects.id, projectId)).get();
-  const folder = project?.folderPath;
-  if (!project || !folder || !sliceIntegration(db, adapters)) return;
-  if (!(await autoSliceOn(db, { ...project, folderPath: folder }))) return;
+  if (!project?.rootId || !sliceIntegration(db, adapters)) return;
+  if (!autoSliceOn(db, project)) return;
   const after = projectMetaSchema.parse(project.meta);
   const rows = db
     .select()
@@ -112,9 +108,10 @@ export async function autoSlice(
     let stale = mine;
     if (model) {
       // Same size and mtime as a row's last slice (or save): that row is current, no hash needed.
-      const s = await stat(join(folder, file)).catch(() => null);
+      const abs = await projectFile(db, project, file);
+      const s = abs ? await stat(abs).catch(() => null) : null;
       stale = mine.filter((r) => r.fileSize !== s?.size || r.fileMtimeMs !== s?.mtimeMs);
-      const now = stale.length ? await fingerprint(join(folder, file)) : null;
+      const now = abs && stale.length ? await fingerprint(abs) : null;
       if (!now) continue;
       sha = now.fileSha256;
       stale = stale.filter((r) => r.fileSha256 !== sha);
@@ -153,8 +150,7 @@ export async function autoSliceSlicer(
   const resolve = slicerResolver(db, adapters);
   const fallback = resolve()?.row.id;
   for (const project of db.select().from(projects).all()) {
-    const folder = project.folderPath;
-    if (!folder || !(await autoSliceOn(db, { ...project, folderPath: folder }))) continue;
+    if (!project.rootId || !autoSliceOn(db, project)) continue;
     const alert = alertOf(db, project);
     const rows = db
       .select()
