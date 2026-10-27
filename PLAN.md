@@ -661,7 +661,7 @@ Design:
 - `devices` (id, name, user, OS, connector version, last seen, sha256 of the token, sync mode, sync folder, slice worker) and `pairing_codes` (sha256, user, expiry, used).
 - Channel: the connector connects out. REST for requests and files, one SSE stream `GET /api/hub/events` for hub → device commands, and a heartbeat. No new dependency.
 
-### [ ] Step 1 - Hub spikes and ADR-0014  **[plan mode]**
+### [x] Step 1 - Hub spikes and ADR-0014  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:** The five spikes listed in `docs/adr/0014-hub-and-connector.md`:
 - slicer save patterns and what `fs.watch` reports, on each OS
