@@ -922,23 +922,24 @@ Then push dev, push the tag and confirm the pre-release is published.
 ## Phase 13 - Slice workers
 
 Design:
-- An admin marks a device as a slice worker. Its connector installs a managed slicer (ADR-0013) into its own data folder, with no admin rights.
-- The hub fixes the version and pushes its managed config folder (presets).
+- An admin marks a device as a slice worker and picks its slicer (ADR-0014): one **installed** on the device (detected, or a typed path), or a **managed** one (ADR-0013) that the connector downloads into its own data folder, with no admin rights.
+- For a managed slicer the hub fixes the version. Either way it pushes its managed config folder (presets), and slicing never touches the user's own slicer settings.
 - The worker is one more slice-capable integration in the plate → project → default pickers (4.2.0 Step 13b).
 - Jobs go out over SSE. The worker pulls the file (or uses its local copy if the hash matches), slices, and uploads the result.
 
-### [ ] Step 17 - Managed slicer on a device  **[plan mode]**
+### [ ] Step 17 - Slicer on a device: installed or managed  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:**
+- The connector reports its installed slicers (ADR-0014): Windows `Uninstall` registry keys (path from `DisplayIcon`), macOS `/Applications/*.app` `Info.plist`, Linux `flatpak list --app` (run through `flatpak run`); AppImages and anything else are a typed path checked with `--help`. Shown per device in Hub management with name, path and version.
 - Move the `managedSlicer` download, digest check, unpack and smoke test from `apps/server` into a shared package. The server and the connector both use it.
-- A "slice worker" switch per device in Hub management.
-- Install, update and remove on the worker, driven from the hub, with progress shown in Hub management.
-- The hub pushes the managed config folder and keeps it in sync.
+- A "slice worker" switch per device in Hub management, and its slicer: an installed one, or a managed one.
+- Managed: install, update and remove on the worker, driven from the hub, with progress shown in Hub management.
+- The hub pushes the managed config folder and keeps it in sync. Work files stay in the connector's data folder under the home folder (a Flatpak slicer can't read `/tmp`).
 
-**Done when:** the flow is approved; a worker on Windows and on macOS installs the hub's slicer version and presets; the server's own managed slicer still works; tests pass.
+**Done when:** the flow is approved; a Windows worker uses its installed Bambu Studio and a macOS worker installs the hub's managed slicer version, both with the hub's presets; detection finds the installed slicers on Windows, macOS and a Linux Flatpak; the server's own managed slicer still works; tests pass.
 **Prompt:**
 ```
-Do Step 17 of the 5.0.0 plan in PLAN.md. Show me the shared package's API and the install states first.
+Do Step 17 of the 5.0.0 plan in PLAN.md. Show me the detection results, the shared package's API and the install states first.
 ```
 
 ### [ ] Step 18 - Slice jobs on workers
