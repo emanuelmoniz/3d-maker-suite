@@ -50,6 +50,7 @@ docs/              ADRs (docs/adr), user docs
 - Work is driven by `PLAN.md`. Read **only the current step** in it, not the whole file.
 - **Never read `BACKLOG.md`** unless the user asks; it's the user's private notes (gitignored).
 - Finish a step = tests pass, lint passes, `pnpm i18n:check` passes, tick the step checkbox in `PLAN.md`, one conventional commit (`feat(printers): ...`).
+- Release checklist (CONTRIBUTING.md#releases): CHANGELOG entry, the same version in root, `apps/*` and `packages/*` `package.json`, `Version X.Y.Z.` on README's Status line, docs that name features or versions. `pnpm version:check` must pass before tagging. Never tag while README or docs still show the old version.
 - Versioning: stay on 4.x until 5.0.0 (the hub, an agreed major; see PLAN.md), then on 5.x; one plan = one release, minor bump if it adds features, patch if fixes only (major only for an agreed breaking change). Keep root and `packages/*` versions in sync.
 - Branches: steps commit to `dev`, not `main`. A stable release = fast-forward `main` to `dev` and tag `vX.Y.Z` on `main`. Pre-releases tag `vX.Y.Z-alpha.N` on `dev`. The release workflow fails if a tag is on the wrong branch.
 - If a step visibly changes a page that has a README screenshot, re-run `pnpm screenshots` and commit the images in `docs/images`.

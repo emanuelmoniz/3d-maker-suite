@@ -22,4 +22,4 @@ No. Each print stores its cost when it is recorded.
 Open an issue on GitHub and use the bug report template.
 
 **Do I need a slicer to estimate a project's cost?**
-No. Type the print time and grams per plate, or slice the plates with Bambu Studio installed on the server's PC (set its **Slicer program** in Integrations). Sliced numbers match the slicer's own for the same presets. See [ADR-0007](adr/0007-slicing.md).
+No. Type the print time and grams per plate, or slice the plates with Bambu Studio or OrcaSlicer installed on the server's PC (set its **Slicer program** in Integrations), or install a server slicer from the app ([slicing.md](slicing.md)). Sliced numbers match the slicer's own for the same presets. See [ADR-0007](adr/0007-slicing.md).

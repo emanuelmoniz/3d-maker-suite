@@ -52,7 +52,13 @@ Known gap: `common` and `nav` are bundled for English only in `i18n.ts`. Make th
 
 ## Releases
 
-Maintainers tag a version after adding its entry to [CHANGELOG.md](CHANGELOG.md) and bumping the version in the root `package.json`, `apps/server` and `apps/web`.
+Maintainers tag a version after the release checklist below. Do the steps in this order:
+
+1. Add the entry to [CHANGELOG.md](CHANGELOG.md) as the newest `## [X.Y.Z]` heading.
+2. Bump `version` in the root `package.json` and every `apps/*` and `packages/*` `package.json` (all the same version).
+3. Put `Version X.Y.Z.` on the status line of [README.md](README.md).
+4. Check the docs that name features or versions (README features, `docs/*.md`, the screenshots if the UI changed).
+5. Run `pnpm version:check`. The release workflow runs it too and fails on a mismatch or on a tag that isn't `v` plus the version.
 
 - **Stable** (`vX.Y.Z`) is tagged on `main`. Fast-forward `main` to `dev` first.
 - **Pre-release** (`vX.Y.Z-alpha.N`) is tagged on `dev`.

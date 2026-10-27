@@ -12,13 +12,13 @@ A local-first manager for your 3D printing: printers, accessories, maintenance, 
 - **Filament**: brands, materials, profiles, spools with numbers and colour names, remaining grams, low-spool alerts
 - **Users and roles**: accounts for a LAN, NAS or Docker install, with viewer, editor and admin roles and a log of who changed what ([docs/users.md](docs/users.md))
 - **Alerts**: one list of what needs attention (low spools, maintenance, warranties, sync results), with severity, read, snooze and dismiss, a history table, and optional ntfy or email channels; each task chooses what it raises
-- **Projects**: 3MF models with plates, thumbnails, tags, collections, filament colours, files you can upload, move and remove in folders, a chosen 3D preview file, an image gallery with a cover, a markdown description (linked `.md` or `.txt` file, with an editor), and slicing per plate (Bambu Studio, or automatically when a sliced file changes) for an estimated cost of one complete print
+- **Projects**: 3MF models with plates, thumbnails, tags, collections, filament colours, files you can upload, move and remove in folders, a chosen 3D preview file, an image gallery with a cover, a markdown description (linked `.md` or `.txt` file, with an editor), and slicing per plate (Bambu Studio or OrcaSlicer, locally or on the server, automatically when a sliced file changes) for an estimated cost of one complete print
 - **Prints**: history with outcome, filament usage per AMS slot (up to 16 for multicolor), energy, and an estimated duration when only the grams are known
 - **Clients**: people and companies you print for, with unique VAT, mobile and email
 - **Quotes**: numbered quotes from a project or typed in, with notes, client and markup on cost
 - **Orders**: work agreed with a client, from a quote or on its own, with a status, a price and the cost of its linked prints
 - **Costs and stats**: cost per print snapshotted at record time (printer, counted accessories, filament, energy, labour), charts by period, filters by material and outcome
-- **Integrations** (optional): Bambu Cloud, Bambu Studio and OrcaSlicer, with a sync mode and frequency per data type
+- **Integrations** (optional): Bambu Cloud, Bambu Studio and OrcaSlicer (on your PC, or installed on a server or NAS from the app), with a sync mode and frequency per data type
 - **Import**: 19 types as spreadsheets (your things, money, maintenance, printer and filament catalogs) and slicer catalogs from a zip, reviewed row by row before anything is saved; every type exports in the same format
 - **Backups**: scheduled online SQLite backups, restore, CSV, JSON and spreadsheet export
 - **Logs** (optional): what the app does, by module and level, with retention limits; off by default
@@ -96,7 +96,7 @@ By default the app only answers on this PC. To reach it from your phone or anoth
 
 ## Status
 
-Version 4.1.3. English only for now; the code is ready for more languages (see [CONTRIBUTING.md](CONTRIBUTING.md)).
+Version 4.2.0. English only for now; the code is ready for more languages (see [CONTRIBUTING.md](CONTRIBUTING.md)).
 
 ## License
 

@@ -45,6 +45,7 @@ jobs:
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm i18n:check
+      - run: pnpm version:check
       - run: pnpm test
   build:
     # Installer + app-only zip per OS/arch (ADR-0011), each installed and started once before upload.
