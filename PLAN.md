@@ -1,4 +1,4 @@
-# 3D Maker Suite - Development Plans 4.1.0, 4.1.1, 4.2.0 and 5.0.0
+# 3D Maker Suite - Development Plans 4.1.0, 4.1.1, 4.2.0, 5.0.0 and 6.0.0
 Repo: `3d-maker-suite`
 
 How to use:
@@ -10,7 +10,7 @@ How to use:
 - Skills: `webapp-testing` for screenshots or browser checks, `frontend-design` for new visual pieces, `dataviz` for charts.
 
 Versioning (default from now on):
-- Stay on 4.x until 5.0.0 (the hub, an agreed major), then on 5.x. **One plan = one release.**
+- Stay on 4.x until 5.0.0 (the hub, an agreed major), then on 5.x until 6.0.0 (every printer, an agreed major), then on 6.x. **One plan = one release.**
 - Minor bump (`4.Y.0`) when the plan adds features, patch bump (`4.Y.Z`) when it only fixes things. A major bump only for an explicit, agreed breaking change.
 - During a plan: pre-releases `4.Y.Z-alpha.N` tagged on `dev`. Stable: fast-forward `main` to `dev`, tag `v4.Y.Z` on `main`.
 - Keep the root and `packages/*` versions in sync when bumping.
@@ -1007,6 +1007,239 @@ Then fast-forward main to dev, push, push the v5.0.0 tag and confirm the release
 
 ---
 
+# Plan 6.0.0 - Every printer
+
+Major release, agreed on 2026-10-27. Starts after the 5.0.0 release. Adapter steps add tests against recorded payloads (fixtures), never a live printer in CI.
+
+Design: ADR-0015. Prints are recorded automatically from the most used printer systems, the dashboard shows live status, and spool usage follows:
+- a new `PrinterStatusSource` capability and one **job tracker** in core turn status snapshots into prints;
+- grams come from the printer, the job file's header, the project plate's slice, or the review queue;
+- the spool comes from the printer, the **loaded spool per slot**, or the review queue;
+- a hub reaches LAN printers through the connector (ADR-0014).
+
+Wave 1: Moonraker, Bambu LAN, PrusaLink, OctoPrint, plus Spoolman two-way.
+
+## Phase 15 - Foundations
+
+Design:
+- Snapshot: state, job file, progress, ETA, layer, temperatures, slots (material, colour, RFID or spool id). In memory only, pushed over SSE.
+- The job tracker emits an `ExternalPrint`; the existing upsert, dedupe and review do the rest. History sources backfill.
+- Review policy `never` · `unmatched` · `always`: global → integration → printer, most specific wins.
+- No printer control.
+
+### [ ] Step 1 - Printer spikes and ADR-0015  **[plan mode]**
+**Model:** Opus · **Effort:** High
+**Scope:** The five spikes listed in `docs/adr/0015-multi-brand-print-tracking.md`:
+- real payloads from Moonraker, PrusaLink, Bambu LAN (and what needs Developer mode) and OctoPrint, saved as fixtures
+- slicer totals in job file headers (OrcaSlicer, PrusaSlicer, Bambu Studio)
+- the dedupe tolerance between Bambu Cloud and Bambu LAN
+- discovery (mDNS, SSDP): in 6.0.0 or later
+- a connector relaying a LAN printer to a VPS hub
+
+Record the evidence in the ADR, adjust the decisions it changes, and set the status to Accepted.
+**Done when:** every spike has evidence and fixtures are committed; the ADR is approved.
+**Prompt:**
+```
+Do Step 1 of the 6.0.0 plan in PLAN.md. Report each spike with evidence before changing the ADR.
+```
+
+### [ ] Step 2 - Printer status capability and job tracker  **[plan mode]**
+**Model:** Opus · **Effort:** High
+**Scope:**
+- `PrinterStatusSource` in `packages/core/src/integrations`, the snapshot zod schema, a `printerStatus` capability, `docs/architecture.md`.
+- The job tracker in core: pure, state in and prints out. Covers a print first seen half-way (recorded and flagged for review), a restart during a print, cancel and failure.
+- Matching sources of one printer by serial, and deduping prints by start time within the Step 1 tolerance.
+- The mock adapter gets a status source for dev and e2e.
+
+**Done when:** the tracker turns every fixture sequence into the expected prints; tests pass.
+**Prompt:**
+```
+Do Step 2 of the 6.0.0 plan in PLAN.md. Show me the snapshot schema and the tracker's states first.
+```
+
+### [ ] Step 3 - Live status on the dashboard
+**Model:** Opus · **Effort:** Medium
+**Scope:**
+- Server: a runner per enabled status source (poll faster while printing, slower when idle), the in-memory store, the tracker wired to the existing print import.
+- `GET /api/printers/status/events` (SSE, permissions per ADR-0012) and a snapshot endpoint.
+- Web: a printer card on the dashboard and printer page: state, progress, ETA, temperatures, slots, offline. i18n `printers:status.*`, keyboard and screen reader friendly, both themes.
+
+**Done when:** the mock printer's prints show live and land as prints when they end; e2e spec passes.
+**Prompt:**
+```
+Do Step 3 of the 6.0.0 plan in PLAN.md. Use frontend-design for the printer card.
+```
+
+### [ ] Step 4 - Grams from the job file and the project plate
+**Model:** Sonnet · **Effort:** Medium
+**Scope:**
+- When the printer doesn't report grams: read the slicer totals from the job file's header (G-code or 3MF, the formats from Step 1), else use the slice result of the project plate the print matched, else leave the slot for review.
+- The print shows where its grams came from.
+
+**Done when:** each fallback has a test with a real header; tests pass.
+**Prompt:**
+```
+Do Step 4 of the 6.0.0 plan in PLAN.md.
+```
+
+### [ ] Step 5 - Loaded spool per printer slot  **[plan mode]**
+**Model:** Opus · **Effort:** Medium
+**Scope:**
+- Migration: the spool loaded in each printer slot (or toolhead).
+- Printer page: set, change and clear the loaded spool per slot; the spool page shows where it is loaded.
+- New prints charge the loaded spool when the printer can't say which spool it used. RFID and Spoolman come first.
+
+**Done when:** a print on a printer with a loaded spool charges it without review; tests and e2e pass.
+**Prompt:**
+```
+Do Step 5 of the 6.0.0 plan in PLAN.md. Back up the DB before editing schema.ts.
+```
+
+### [ ] Step 6 - Review policy  **[plan mode]**
+**Model:** Sonnet · **Effort:** Medium
+**Scope:**
+- `never` · `unmatched` · `always`: a global setting, an override per integration and per printer (migration).
+- `always` sends every new print to the review queue even when the spool matched; `never` leaves unmatched slots unassigned and raises no review alert.
+- Settings UI in Integrations (global and per integration) and on the printer page. i18n.
+
+**Done when:** each level overrides the one above it in tests; e2e passes.
+**Prompt:**
+```
+Do Step 6 of the 6.0.0 plan in PLAN.md. Back up the DB before editing schema.ts.
+```
+
+### [ ] Step 7 - Docs, push & v6.0.0-alpha.1
+**Model:** Sonnet · **Effort:** Medium
+**Scope:**
+- `docs/printers.md`: live status, how prints are recorded, grams and spools, the review policy.
+- CHANGELOG, version `6.0.0-alpha.1`.
+- Commit, push `dev`, tag on `dev`. Check the run and the pre-release.
+
+**Done when:** tags pushed; workflow green; docs match the app.
+**Prompt:**
+```
+Do Step 7 of the 6.0.0 plan in PLAN.md. Then push dev, push the tag and confirm the pre-release is published.
+```
+
+## Phase 16 - Adapters
+
+Each adapter: a `local` package in `packages/adapters/<id>`, config and secrets schemas, status (and history where it exists), the recorded fixtures as tests, i18n names, a setup page in the docs. Added by host or IP.
+
+### [ ] Step 8 - Moonraker
+**Model:** Opus · **Effort:** Medium
+**Scope:** Status; history backfill (`server/history`); grams from Moonraker's metadata; the Spoolman active spool when Moonraker has one; API key optional.
+**Done when:** fixtures from Step 1 import as the expected prints; tests pass.
+**Prompt:**
+```
+Do Step 8 of the 6.0.0 plan in PLAN.md.
+```
+
+### [ ] Step 9 - Bambu LAN
+**Model:** Opus · **Effort:** High
+**Scope:** MQTT over TLS with the access code (new dependency `mqtt`, see ADR-0015); status from the push reports; AMS RFID → spool; matched by serial with a Bambu Cloud integration of the same printer, which then only gives history. Setup docs say what to switch on (LAN mode, Developer mode).
+**Done when:** a cloud + LAN printer records each print once; tests pass.
+**Prompt:**
+```
+Do Step 9 of the 6.0.0 plan in PLAN.md.
+```
+
+### [ ] Step 10 - PrusaLink
+**Model:** Sonnet · **Effort:** Medium
+**Scope:** Status and job over the local API (digest auth); grams from the job file's header.
+**Done when:** fixtures import as the expected prints; tests pass.
+**Prompt:**
+```
+Do Step 10 of the 6.0.0 plan in PLAN.md.
+```
+
+### [ ] Step 11 - OctoPrint
+**Model:** Sonnet · **Effort:** Medium
+**Scope:** Status and job (API key); grams from the job file's header or OctoPrint's analysis.
+**Done when:** fixtures import as the expected prints; tests pass.
+**Prompt:**
+```
+Do Step 11 of the 6.0.0 plan in PLAN.md.
+```
+
+### [ ] Step 12 - Spoolman two-way  **[plan mode]**
+**Model:** Opus · **Effort:** High
+**Scope:**
+- A Spoolman integration: import spools (the usual review and merge), read the active spool, write usage back after each print.
+- Each write carries an idempotency key (print id + slot); retries and re-imports never charge twice. A print that came from Moonraker's own Spoolman link isn't written back.
+
+**Done when:** a print charges the Spoolman spool exactly once across retries and restarts; tests pass.
+**Prompt:**
+```
+Do Step 12 of the 6.0.0 plan in PLAN.md. Show me how double charging is prevented first.
+```
+
+### [ ] Step 13 - Docs, push & v6.0.0-alpha.2
+**Model:** Sonnet · **Effort:** Medium
+**Scope:**
+- A setup page per adapter and Spoolman; the README support matrix (printer, what it provides).
+- CHANGELOG, version `6.0.0-alpha.2`.
+- Commit, push `dev`, tag on `dev`. Check the run and the pre-release.
+
+**Done when:** tags pushed; workflow green; docs match the app.
+**Prompt:**
+```
+Do Step 13 of the 6.0.0 plan in PLAN.md. Only document what changed since 6.0.0-alpha.1.
+Then push dev, push the tag and confirm the pre-release is published.
+```
+
+## Phase 17 - Hub
+
+### [ ] Step 14 - Connector printer bridge  **[plan mode]**
+**Model:** Opus · **Effort:** High
+**Scope:**
+- A new fixed connector operation: relay status and history for the printer hosts the hub assigns to that device. It never sends commands to a printer.
+- Hub management: assign a printer integration to a device; the status runner reads it through the connector.
+- Offline device: the printer shows offline; history backfills when it's back.
+
+**Done when:** a VPS hub shows live status and records prints of a LAN printer through a connector; tests run a real connector against a test hub.
+**Prompt:**
+```
+Do Step 14 of the 6.0.0 plan in PLAN.md.
+```
+
+## Phase 18 - Release
+
+### [ ] Step 15 - Real test: one printer per adapter
+**Model:** Sonnet · **Effort:** Medium
+**Scope:**
+- A Klipper printer, a Bambu printer (LAN, and LAN + cloud), a Prusa printer, an OctoPrint printer, Spoolman.
+- A full print, a cancelled and a failed print, the app restarted during a print, each review policy, loaded spools, a hub with a connector bridge.
+
+Fix anything found and note it in the CHANGELOG (alpha.3 if needed).
+**Done when:** every scenario worked; fixes released.
+**Prompt:**
+```
+Do Step 15 of the 6.0.0 plan in PLAN.md. Guide me through each scenario, then fix what we find.
+```
+
+### [ ] Step 16 - Docs, push & v6.0.0 release
+**Model:** Haiku · **Effort:** Low
+**Scope:**
+- `pnpm screenshots` (dashboard with live printer cards, printer page with loaded spools), README, CHANGELOG, version `6.0.0`.
+- Commit on `dev`, fast-forward `main` to `dev`, push both, tag `v6.0.0` on `main`. Check the run, the release and the images.
+
+**Done when:** `main`, `dev` and the tag are pushed; the workflow is green; the release is the latest; updating 5.x to 6.0.0 works.
+**Prompt:**
+```
+Do Step 16 of the 6.0.0 plan in PLAN.md. Only document what changed since the last 6.0.0 pre-release.
+Then fast-forward main to dev, push, push the v6.0.0 tag and confirm the release.
+```
+
+## Out of scope for 6.0.0 (later plans)
+- Wave 2 adapters: Creality stock websocket, Elegoo SDCP (6.x).
+- Anycubic, FlashForge, Duet, a Home Assistant bridge.
+- Printer control (pause, stop, start) and printing from the web app.
+- Camera snapshots and timelapses.
+- Capturing slicer uploads for printers with no network.
+- Telemetry history.
+
+---
+
 ## Backlog mapping
 | Backlog item | Plan · Step |
 |---|---|
@@ -1048,3 +1281,7 @@ Then fast-forward main to dev, push, push the v5.0.0 tag and confirm the release
 | hub: version history, download older versions (setting, keep N) | 5.0 · 15 |
 | hub: slice on the clients when the server can't | 5.0 · 17, 18 |
 | hub: print from the app | later |
+| live status: progress, temps, AMS state, auto print-event capture | 6.0 · 2, 3 (camera snapshot later) |
+| Spoolman: sync spools two-way | 6.0 · 12 |
+| other systems: Klipper/Moonraker, Prusa, OctoPrint, Bambu LAN | 6.0 · 8-11 (Creality stock, Elegoo SDCP in 6.x) |
+| automatic prints and spool usage without Bambu Cloud | 6.0 · 2-6, 14 |
