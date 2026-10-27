@@ -1,0 +1,14 @@
+{
+	auto_https disable_redirects
+}
+:8090 {
+	reverse_proxy app:8080
+}
+:8091 {
+	encode gzip zstd
+	reverse_proxy app:8080
+}
+https://localhost:8443 {
+	tls internal
+	reverse_proxy app:8080
+}

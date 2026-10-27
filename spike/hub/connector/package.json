@@ -1,0 +1,10 @@
+{
+  "name": "@3d-maker-suite/connector",
+  "version": "4.2.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@3d-maker-suite/3mf": "workspace:*",
+    "@3d-maker-suite/core": "workspace:*"
+  }
+}

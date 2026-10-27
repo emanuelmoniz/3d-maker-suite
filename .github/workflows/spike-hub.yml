@@ -1,0 +1,102 @@
+# 5.0.0 Step 1 spikes (ADR-0014). Lives only on the spike/hub branch.
+name: spike-hub
+on:
+  push:
+    branches: [spike/hub]
+  workflow_dispatch:
+permissions:
+  contents: read
+env:
+  BAMBU_TAG: v02.08.02.61
+  ORCA_TAG: v2.5.0-alpha
+  GH_TOKEN: ${{ github.token }}
+
+jobs:
+  slicers:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-15, ubuntu-24.04]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with: { node-version: 22 }
+      - name: Download slicers (digest checked, ADR-0013)
+        shell: bash
+        run: |
+          set -eu
+          get() { # repo tag pattern
+            gh release download "$2" -R "$1" -p "$3" -D dl
+            f=$(ls dl/$3); want=$(gh api "repos/$1/releases/tags/$2" --jq ".assets[] | select(.name==\"$(basename $f)\") | .digest")
+            echo "$want  $(shasum -a 256 "$f" | cut -d' ' -f1)"; [ "$want" = "sha256:$(shasum -a 256 "$f" | cut -d' ' -f1)" ]
+          }
+          if [ "$RUNNER_OS" = macOS ]; then
+            get bambulab/BambuStudio $BAMBU_TAG 'Bambu_Studio_mac*v02.08.02.61*.dmg'
+            get OrcaSlicer/OrcaSlicer $ORCA_TAG 'OrcaSlicer_Mac_universal_V2.5.0-alpha.dmg'
+            for d in dl/*.dmg; do m=$(mktemp -d); hdiutil attach -nobrowse -readonly -noautoopen -mountpoint "$m" "$d" >/dev/null; cp -R "$m"/*.app /Applications/; hdiutil detach "$m" >/dev/null; done
+            echo "BAMBU=/Applications/BambuStudio.app/Contents/MacOS/BambuStudio" >> $GITHUB_ENV
+            echo "ORCA=/Applications/OrcaSlicer.app/Contents/MacOS/OrcaSlicer" >> $GITHUB_ENV
+          else
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq xvfb openbox wmctrl imagemagick strace libgtk-3-0t64 libwebkit2gtk-4.1-0 libgstreamer1.0-0 libgstreamer-plugins-base1.0-0 libgl1 libegl1 libglu1-mesa libsm6 libice6 libopengl0 libmspack0t64 >/dev/null
+            get bambulab/BambuStudio $BAMBU_TAG 'BambuStudio_ubuntu24.04-v02.08.02.61*.AppImage'
+            get OrcaSlicer/OrcaSlicer $ORCA_TAG 'OrcaSlicer_Linux_AppImage_Ubuntu2404_V2.5.0-alpha.AppImage'
+            for a in bambu:dl/BambuStudio*.AppImage orca:dl/OrcaSlicer*.AppImage; do
+              mkdir -p "$HOME/${a%%:*}"; chmod +x ${a#*:}; (cd "$HOME/${a%%:*}" && "$GITHUB_WORKSPACE"/${a#*:} --appimage-extract >/dev/null)
+            done
+            echo "BAMBU=$HOME/bambu/squashfs-root/AppRun" >> $GITHUB_ENV
+            echo "ORCA=$HOME/orca/squashfs-root/AppRun" >> $GITHUB_ENV
+            Xvfb :99 -screen 0 1920x1080x24 & sleep 2; DISPLAY=:99 openbox & sleep 2
+            echo "DISPLAY=:99" >> $GITHUB_ENV
+          fi
+      - name: Spike 2b - detect installed slicers
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = macOS ]; then
+            for a in /Applications/*.app; do case "$a" in *Bambu*|*Orca*) echo "$a $(plutil -extract CFBundleShortVersionString raw "$a/Contents/Info.plist") id=$(plutil -extract CFBundleIdentifier raw "$a/Contents/Info.plist")";; esac; done
+            mdfind "kMDItemCFBundleIdentifier == 'com.bambulab.bambu-studio'" || true
+          else
+            command -v bambu-studio orca-slicer || echo "nothing on PATH (AppImages are wherever the user put them)"
+            ls /opt /usr/share/applications ~/.local/share/applications 2>/dev/null | grep -i -E 'bambu|orca' || echo "no .desktop entries"
+            grep -m1 -i -E '^Version|X-AppImage-Version' "$HOME"/bambu/squashfs-root/*.desktop "$HOME"/orca/squashfs-root/*.desktop || true
+          fi
+      - name: Spikes 1, 2, 2b
+        shell: bash
+        env: { OUT: "${{ github.workspace }}/out" }
+        run: bash spike/hub/ci.sh
+      - name: Spike 2b - Flatpak detection and CLI (Linux)
+        if: runner.os == 'Linux'
+        continue-on-error: true
+        timeout-minutes: 20
+        shell: bash
+        run: |
+          sudo apt-get install -y -qq flatpak >/dev/null
+          flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+          flatpak install --user -y --noninteractive flathub io.github.softfever.OrcaSlicer com.bambulab.BambuStudio >/dev/null
+          flatpak list --user --app --columns=application,version,branch
+          flatpak info --user com.bambulab.BambuStudio | grep -E 'Version|Location'
+          mkdir -p out/flatpak; cp packages/3mf/fixtures/single_color.3mf out/flatpak/
+          cd out/flatpak && timeout 300 flatpak run --user com.bambulab.BambuStudio --slice 1 --outputdir "$PWD" --export-3mf sliced.3mf "$PWD/single_color.3mf"; echo "exit $?"; ls -la
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with: { name: "slicers-${{ matrix.os }}", path: out }
+
+  connector-size:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: macos-15, arch: arm64 }
+          - { os: macos-15, arch: x64 }
+          - { os: ubuntu-24.04, arch: x64 }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with: { node-version: 22 }
+      - name: Spike 4 - connector bundle
+        env: { ARCH: "${{ matrix.arch }}" }
+        run: bash spike/hub/bundle.sh

@@ -1,0 +1,8 @@
+http:
+  routers:
+    plain: { entryPoints: [plain], rule: "PathPrefix(`/`)", service: app }
+    gzip: { entryPoints: [gzip], rule: "PathPrefix(`/`)", service: app, middlewares: [compress] }
+  middlewares:
+    compress: { compress: {} }
+  services:
+    app: { loadBalancer: { servers: [{ url: "http://app:8080" }] } }
