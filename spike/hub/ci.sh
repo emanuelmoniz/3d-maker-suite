@@ -4,14 +4,18 @@
 set -u
 # Without it the AppImages stop at a first-start "use system SSL certificate?" dialog (Http.cpp).
 [ "$(uname)" = Linux ] && export SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
+command -v timeout >/dev/null || timeout() { shift; "$@"; } # macOS has no timeout(1)
 here=$(cd "$(dirname "$0")" && pwd)
 fx=$here/../../packages/3mf/fixtures/single_color.3mf
 mkdir -p "$OUT"
 shot() { if [ "$(uname)" = Darwin ]; then screencapture -x "$OUT/$1.png"; else import -window root "$OUT/$1.png"; fi 2>/dev/null || true; }
-# Closes the slicer's window the way a user does (no kill): AppleScript quit on macOS, the window
+# Closes the slicer's window the way a user does (no kill): Cmd+W on macOS, logged, then quit; the window
 # manager's close (WM_DELETE_WINDOW) on Linux.
 close() {
-  if [ "$(uname)" = Darwin ]; then osascript -e "quit app \"$1\"" 2>&1
+  if [ "$(uname)" = Darwin ]; then
+    osascript -e "tell application \"$1\" to activate" -e "delay 1" -e "tell application \"System Events\" to keystroke \"w\" using command down" 2>&1
+    sleep 10; echo "after Cmd+W: $(ps -eo args= | grep -F "$1.app/Contents/MacOS" | grep -v -e grep -e launch.mjs | wc -l) process(es)"
+    osascript -e "with timeout of 60 seconds" -e "quit app \"$1\"" -e "end timeout" 2>&1
   else wmctrl -l; wmctrl -c "$2" 2>&1; fi
 }
 
