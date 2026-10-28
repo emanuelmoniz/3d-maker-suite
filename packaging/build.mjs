@@ -54,7 +54,7 @@ const PRODUCTS = {
     app: "connector",
     port: 4301,
     apps: ["connector"],
-    packages: ["core", "host"],
+    packages: ["3mf", "core", "host"],
     // It only helps while it runs: the installer always registers it.
     alwaysStart: true,
   },
