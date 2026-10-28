@@ -2,6 +2,16 @@ import { z } from "zod";
 import { id, isoDate } from "./entities.ts";
 import { projectFileSchema, projectGallerySchema, projectModelSchema } from "./projects.ts";
 
+/**
+ * Why a connector stays on its version (`X-Connector-Update` on the event stream, as JSON):
+ * `download` failed (with the error), or the launcher went back from it (`rollback`).
+ */
+export const connectorUpdateFailureSchema = z.object({
+  version: z.string().max(50),
+  reason: z.enum(["download", "rollback"]),
+  error: z.string().max(200).optional(),
+});
+
 /** A connector paired with the hub (ADR-0014), as Hub management lists it. */
 export const deviceSchema = z.object({
   id,
@@ -13,6 +23,10 @@ export const deviceSchema = z.object({
   lastSeenAt: isoDate.nullable(),
   /** Its event stream is open now. */
   online: z.boolean(),
+  /** Its connector version isn't the hub's. */
+  outdated: z.boolean(),
+  /** What it reported last time its stream opened; null = no failed update. */
+  updateFailed: connectorUpdateFailureSchema.nullable(),
   createdAt: isoDate,
 });
 
@@ -36,6 +50,7 @@ export const pairSchema = z.object({
 export const pairResultSchema = z.object({ token: z.string(), deviceId: id });
 
 export type Device = z.infer<typeof deviceSchema>;
+export type ConnectorUpdateFailure = z.infer<typeof connectorUpdateFailureSchema>;
 export type DeviceRename = z.input<typeof deviceRenameSchema>;
 export type PairingCodeCreate = z.input<typeof pairingCodeCreateSchema>;
 export type PairingCode = z.infer<typeof pairingCodeSchema>;
@@ -50,6 +65,8 @@ export type PairResult = z.infer<typeof pairResultSchema>;
  */
 export const hubEventSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("device.renamed"), name }),
+  /** Update now (an admin): download the hub's version at once, even one that rolled back. */
+  z.object({ type: z.literal("connector.update") }),
   /** Its roots were added, changed or removed, or a scan was asked for: read them, sync them all. */
   z.object({ type: z.literal("roots.changed") }),
   /** One level of the folder browser (`listFolder`); `path` null = where browsing starts. */

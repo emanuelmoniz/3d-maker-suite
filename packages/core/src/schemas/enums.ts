@@ -16,6 +16,7 @@ export const ALERT_KINDS = [
   "slice_failed",
   "update_available",
   "slicer_update",
+  "connector_outdated",
 ] as const;
 export const ALERT_SEVERITIES = ["error", "warning", "success"] as const;
 export const ALERT_MODULES = [
@@ -25,6 +26,7 @@ export const ALERT_MODULES = [
   "integrations",
   "projects",
   "system",
+  "hub",
 ] as const;
 export const UPDATE_CHANNELS = ["stable", "dev"] as const;
 // Fixed roles (ADR-0012).

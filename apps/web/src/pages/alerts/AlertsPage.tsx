@@ -47,6 +47,7 @@ export const MODULE: Record<AlertModule, string> = {
   integrations: "nav:items.integrations.label",
   projects: "nav:items.projects.label",
   system: "alerts:system",
+  hub: "nav:items.hub.label",
 };
 const LOG: Record<Exclude<SyncLogEntry["event"], "left">, string> = {
   created: "alerts:log.created",
@@ -140,6 +141,12 @@ export function Title({ a, inList }: { a: Alert; inList?: boolean }) {
         name: adapterName(String(c.adapterId)),
         version: c.version,
       }),
+    connector_outdated: () =>
+      t(c.reason ? "alerts:kinds.connector_update_failed" : "alerts:kinds.connector_outdated", {
+        name: c.name,
+        version: c.version,
+        hubVersion: c.hubVersion,
+      }),
   }[a.kind]();
   if (inList)
     return (
@@ -203,6 +210,13 @@ export function Title({ a, inList }: { a: Alert; inList?: boolean }) {
       if (!admin) return <span className="font-medium">{text}</span>;
       return (
         <Link to="/integrations" hash={integrationHash(a)} className={link}>
+          {text}
+        </Link>
+      );
+    case "connector_outdated":
+      if (!admin) return <span className="font-medium">{text}</span>;
+      return (
+        <Link to="/hub" className={link}>
           {text}
         </Link>
       );
@@ -348,6 +362,7 @@ const KIND_NAMES: Record<AlertKind, string> = {
   slice_failed: "alerts:kindNames.slice_failed",
   update_available: "alerts:kindNames.update_available",
   slicer_update: "alerts:kindNames.slicer_update",
+  connector_outdated: "alerts:kindNames.connector_outdated",
 };
 const STATUS: Record<AlertStatus, string> = {
   snoozed: "alerts:status.snoozed",

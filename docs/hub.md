@@ -47,6 +47,12 @@ The installers are not code-signed, so the system warns once, as with the app it
 
 Self-updates don't warn again.
 
+### Updates, restart and stop
+
+Hub management marks a device whose connector isn't on the hub's version: **Outdated**, or **Update failed** with the reason (the download failed, or the new version didn't start and the connector went back). The hub also raises an alert, which clears once the versions match. **Update now** makes an online connector download the hub's version at once, even one that went back before.
+
+The status page has **Restart** and **Stop**. Stop takes the device offline for the hub until the connector starts again: from the start menu or app menu, or at the next login.
+
 ## For company IT
 
 - **Where it comes from.** Every release asset is listed in `SHA256SUMS` and has a GitHub artifact attestation:

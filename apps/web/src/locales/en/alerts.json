@@ -44,7 +44,8 @@
       "filamentMaterials": "View filament materials",
       "filamentProfiles": "View filament profiles"
     },
-    "openPrintSetup": "Open print setup"
+    "openPrintSetup": "Open print setup",
+    "openHub": "Open Hub management"
   },
   "empty": {
     "title": "All clear",
@@ -62,7 +63,8 @@
     "slice_setup_changed": "Print setup changed",
     "slice_failed": "Auto slice failed",
     "update_available": "Update available",
-    "slicer_update": "Slicer update"
+    "slicer_update": "Slicer update",
+    "connector_outdated": "Connector outdated"
   },
   "status": {
     "snoozed": "Snoozed",
@@ -98,7 +100,9 @@
     "slice_setup_changed": "{{file}} in {{name}} changed its plates or filament slots: check the print setup",
     "slice_failed": "Plate {{plate}} of {{file}} in {{name}} could not be sliced again",
     "update_available": "Version {{version}} is available",
-    "slicer_update": "{{name}}: version {{version}} is available"
+    "slicer_update": "{{name}}: version {{version}} is available",
+    "connector_outdated": "Connector on {{name}} is on version {{version}}, the hub on {{hubVersion}}",
+    "connector_update_failed": "Connector on {{name}} could not update to {{hubVersion}}"
   },
   "severity": {
     "error": "Error",

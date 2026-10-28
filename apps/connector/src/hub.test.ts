@@ -91,9 +91,12 @@ describe("connector and hub", () => {
     return { url, send, code };
   };
 
-  const connector = (dir = mkdtempSync(join(tmpdir(), "connector-"))) => {
+  const connector = (
+    dir = mkdtempSync(join(tmpdir(), "connector-")),
+    opts: Partial<Parameters<typeof createLink>[0]> = {},
+  ) => {
     const store = openStore(dir);
-    const link = createLink({ store, version: "5.0.0-test", os: "TestOS x64" });
+    const link = createLink({ store, version: "5.0.0-test", os: "TestOS x64", ...opts });
     cleanup.push(() => link.close());
     cleanup.push(() => rmSync(dir, { recursive: true, force: true }));
     return { dir, store, link };
@@ -132,6 +135,25 @@ describe("connector and hub", () => {
     await until(() => status(again.link) === "revoked");
     expect(again.store.token()).toBeUndefined();
     expect(again.store.get().hubUrl).toBe(h.url); // kept for the pair form
+  });
+
+  it("updates on Update now and tells the hub why it couldn't", async () => {
+    const h = await hub();
+    const forced: boolean[] = [];
+    const c = connector(undefined, {
+      onHubVersion: async (_, force) => void forced.push(force),
+      updateFailure: () =>
+        forced.at(-1) ? { version: "9.9.9", reason: "download", error: "HTTP 404" } : undefined,
+    });
+    await c.link.pair(h.url, await h.code(), "WS-1");
+    await until(() => status(c.link) === "online");
+    const devices = async () => (await h.send("GET", "/api/hub/devices")).json();
+    const [device] = await devices();
+    expect(device).toMatchObject({ outdated: true, updateFailed: null });
+
+    expect((await h.send("POST", `/api/hub/devices/${device.id}/update`)).statusCode).toBe(204);
+    await until(() => forced.includes(true));
+    await until(async () => (await devices())[0].updateFailed?.error === "HTTP 404");
   });
 
   it("tells the hub being off apart from a revoke", async () => {

@@ -23,6 +23,7 @@ const serve = async () => {
   const store = openStore(dir);
   const link = createLink({ store, version: "1.0.0", os: "x" });
   const opened: string[] = [];
+  const exits: number[] = [];
   const updater = { state: () => ({ failed: undefined, hubOlder: false, error: undefined }) };
   const syncDir = join(dir, "sync");
   const page = createStatusPage({
@@ -32,6 +33,7 @@ const serve = async () => {
     version: "1.0.0",
     syncDir,
     open: (d) => opened.push(d),
+    exit: (c) => exits.push(c),
   });
   await new Promise<void>((r) => page.listen(0, "127.0.0.1", r));
   const { port } = page.address() as AddressInfo;
@@ -57,7 +59,7 @@ const serve = async () => {
       req.on("error", fail);
       req.end(body);
     });
-  return { port, call, opened, syncDir, origin: () => `http://127.0.0.1:${port}` };
+  return { port, call, opened, exits, syncDir, origin: () => `http://127.0.0.1:${port}` };
 };
 
 it("only answers its own host, and POSTs only from its own page", () => {
@@ -97,6 +99,21 @@ it("creates and opens the sync folder", async () => {
   const res = await s.call("POST", "/open-folder", { origin: s.origin() });
   expect(res).toMatchObject({ status: 303, location: "/" });
   expect(s.opened).toEqual([s.syncDir]);
+});
+
+it("restarts, and stops only once confirmed and only from its own page", async () => {
+  const s = await serve();
+  expect((await s.call("POST", "/restart", { origin: "https://evil.example" })).status).toBe(403);
+  const restart = await s.call("POST", "/restart", { origin: s.origin() });
+  expect(restart.body).toContain(t("connector:restarting"));
+  expect(restart.body).toContain('content="5; url=/"');
+
+  const ask = await s.call("GET", "/stop");
+  expect(ask.body).toContain(t("connector:stop.body"));
+  expect(s.exits).toEqual([75]);
+  const stop = await s.call("POST", "/stop", { origin: s.origin() });
+  expect(stop.body).toContain(t("connector:stopped"));
+  expect(s.exits).toEqual([75, 0]);
 });
 
 it("escapes what it fills in", () => {

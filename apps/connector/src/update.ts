@@ -1,10 +1,10 @@
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { compareVersions, REPO_URL } from "@3d-maker-suite/core";
+import { type ConnectorUpdateFailure, compareVersions, REPO_URL } from "@3d-maker-suite/core";
 import { fetchBundle } from "@3d-maker-suite/host";
 
 /** Exit code that asks the launcher to start the newest version (RESTART in packaging/launcher.mjs). */
-const RESTART = 75;
+export const RESTART = 75;
 const OS: Record<string, string> = { win32: "windows", darwin: "macos", linux: "linux" };
 const cmp = (a: string, b: string) => {
   try {
@@ -44,14 +44,26 @@ export function createUpdater({
     if (!last.ok) failed = last.toVersion;
   } catch {} // no update yet
   let hubOlder = false;
-  let error: string | undefined;
+  /** Why it stays below the hub's version; the hub shows it (`X-Connector-Update`). */
+  let failure: ConnectorUpdateFailure | undefined;
 
   return {
-    state: () => ({ failed, hubOlder, error }),
+    state: () => ({
+      failed,
+      hubOlder,
+      error: failure?.reason === "download" ? failure.error : undefined,
+    }),
+    failure: () => failure,
 
-    async follow(hub: string) {
+    /** `force`: Update now from the hub, which tries a version that rolled back again too. */
+    async follow(hub: string, force = false) {
       hubOlder = cmp(hub, version) < 0;
-      if (!install || cmp(hub, version) <= 0 || hub === failed) return;
+      failure = undefined;
+      if (!install || cmp(hub, version) <= 0) return;
+      if (hub === failed && !force) {
+        failure = { version: hub, reason: "rollback" };
+        return;
+      }
       const tag = `v${hub}`;
       const base = env.APP_DOWNLOAD_URL ?? `${REPO_URL}/releases/download/${tag}`;
       const asset = `3d-maker-suite-connector-${tag}-app-${OS[process.platform]}-${process.arch}.zip`;
@@ -61,7 +73,13 @@ export function createUpdater({
         await fetchBundle(base, asset, partial, download);
       } catch (e) {
         // Keeps the link up on this version and tries again at the next connect.
-        error = (e as Error).message;
+        const error = (e as Error).message;
+        // It goes in a header: printable ASCII only.
+        failure = {
+          version: hub,
+          reason: "download",
+          error: error.replace(/[^ -~]/g, "?").slice(0, 200),
+        };
         return log(`update to ${hub} failed: ${error}`);
       }
       const dir = join(install, ".update");

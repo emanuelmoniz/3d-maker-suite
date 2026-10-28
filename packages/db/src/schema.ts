@@ -6,6 +6,7 @@ import {
   type AlertSeverity,
   CAPABILITIES,
   COMMENT_STATUSES,
+  type ConnectorUpdateFailure,
   ENERGY_SOURCES,
   IMPORT_SOURCES,
   INTEGRATION_ERROR_CODES,
@@ -1098,6 +1099,8 @@ export const devices = sqliteTable(
     tokenHash: text().notNull(),
     os: text(),
     connectorVersion: text(),
+    /** What the connector reported when its stream last opened (`X-Connector-Update`). */
+    updateFailed: text({ mode: "json" }).$type<ConnectorUpdateFailure>(),
     lastSeenAt: text(),
     ...timestamps,
   },

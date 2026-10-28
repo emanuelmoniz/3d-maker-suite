@@ -1,5 +1,10 @@
 import { Readable } from "node:stream";
-import { HUB_HEARTBEAT_MS, hubEventSchema, pairResultSchema } from "@3d-maker-suite/core";
+import {
+  type ConnectorUpdateFailure,
+  HUB_HEARTBEAT_MS,
+  hubEventSchema,
+  pairResultSchema,
+} from "@3d-maker-suite/core";
 import { z } from "zod";
 import { createRootSync, type Request } from "./roots.ts";
 import type { Store } from "./state.ts";
@@ -64,8 +69,13 @@ type Options = {
   store: Store;
   version: string;
   os: string;
-  /** Called with the hub's version before each connect; the updater may exit from here. */
-  onHubVersion?: (version: string) => Promise<void>;
+  /**
+   * Called with the hub's version before each connect; the updater may exit from here. `force`:
+   * the hub asked for Update now.
+   */
+  onHubVersion?: (version: string, force: boolean) => Promise<void>;
+  /** Why the update to the hub's version failed, sent when the stream opens. */
+  updateFailure?: () => ConnectorUpdateFailure | undefined;
   log?: (line: string) => void;
 };
 
@@ -74,12 +84,21 @@ type Options = {
  * reconnected from the cursor after 1 s, doubling up to 30 s. 401 = revoked: the token goes.
  * While online, its device roots are synced and watched (roots.ts).
  */
-export function createLink({ store, version, os, onHubVersion, log = () => {} }: Options) {
+export function createLink({
+  store,
+  version,
+  os,
+  onHubVersion,
+  updateFailure,
+  log = () => {},
+}: Options) {
   let status: LinkStatus = store.token() ? "connecting" : "unpaired";
   let error: string | undefined;
   /** Reached the stream since the last retry. */
   let online = false;
   let running: AbortController | undefined;
+  /** Update now came in: the next connect updates even to a version that rolled back. */
+  let forceUpdate = false;
 
   /** The hub's device API (`/api/hub/device/...`) with this device's token. */
   const request: Request = (path, init = {}) =>
@@ -132,7 +151,13 @@ export function createLink({ store, version, os, onHubVersion, log = () => {} }:
     if (event.success && event.data.type === "device.renamed")
       store.set({ deviceName: event.data.name, cursor: seq });
     else store.set({ cursor: seq });
-    if (event.success) roots.handle(event.data);
+    if (!event.success) return;
+    // Reconnecting runs the update first, and reports how it went when the stream opens again.
+    if (event.data.type === "connector.update") {
+      forceUpdate = true;
+      return start();
+    }
+    roots.handle(event.data);
   };
 
   /** One connection: the health check, then the stream until it ends. Returns the next status. */
@@ -142,7 +167,10 @@ export function createLink({ store, version, os, onHubVersion, log = () => {} }:
     });
     if (!health.ok) throw new Error(`HTTP ${health.status}`);
     const { version: hubVersion } = z.object({ version: z.string() }).parse(await health.json());
-    await onHubVersion?.(hubVersion);
+    const force = forceUpdate;
+    forceUpdate = false;
+    await onHubVersion?.(hubVersion, force);
+    const failure = updateFailure?.();
 
     const quiet = new AbortController();
     let watchdog = setTimeout(() => quiet.abort(new Error("no heartbeat")), WATCHDOG_MS);
@@ -154,6 +182,7 @@ export function createLink({ store, version, os, onHubVersion, log = () => {} }:
           accept: "text/event-stream",
           "x-connector-version": version,
           "x-connector-os": os,
+          ...(failure && { "x-connector-update": JSON.stringify(failure) }),
           ...(store.get().cursor && { "last-event-id": String(store.get().cursor) }),
         },
       });

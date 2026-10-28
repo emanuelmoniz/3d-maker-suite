@@ -168,6 +168,11 @@ export function AlertDetailPage() {
                 {t("alerts:view.openIntegration")}
               </Link>
             ) : null}
+            {a.kind === "connector_outdated" && admin && (
+              <Link to="/hub" className={buttonLink}>
+                {t("alerts:view.openHub")}
+              </Link>
+            )}
             {/* The other fixes: admin and editor. */}
             <Write>
               {(a.kind === "spool_no_price" || a.kind === "spool_no_open_date") && (

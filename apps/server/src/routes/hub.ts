@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 import {
   apiErrorSchema,
   connectorInfoSchema,
+  connectorUpdateFailureSchema,
   deviceRenameSchema,
   deviceSchema,
   HUB_HEARTBEAT_MS,
@@ -20,6 +21,7 @@ import { loginLimiter } from "../lib/auth.ts";
 import type { HubChannel } from "../lib/hubChannel.ts";
 import { readPreferences } from "../lib/preferences.ts";
 import { tokenHash } from "../lib/session.ts";
+import { VERSION } from "../updates/updates.ts";
 
 const { devices, hubEvents, pairingCodes, users } = schema;
 const params = z.object({ id: z.uuid() });
@@ -41,7 +43,12 @@ const codeHash = (code: string) => tokenHash(code.toUpperCase().replace(/[^A-Z0-
  * the hub off, none of it exists.
  */
 export const hubRoutes =
-  (db: Db, channel: HubChannel): FastifyPluginAsyncZod =>
+  (
+    db: Db,
+    channel: HubChannel,
+    /** A device opened its stream: its version may open or clear the outdated alert. */
+    onConnect: () => void = () => {},
+  ): FastifyPluginAsyncZod =>
   async (app) => {
     app.addHook("onRequest", async () => {
       if (!readPreferences(db).hubEnabled) throw new HttpError(404, "hub_off", "The hub is off");
@@ -57,6 +64,7 @@ export const hubRoutes =
           userName: users.displayName,
           os: devices.os,
           connectorVersion: devices.connectorVersion,
+          updateFailed: devices.updateFailed,
           lastSeenAt: devices.lastSeenAt,
           createdAt: devices.createdAt,
         })
@@ -64,7 +72,29 @@ export const hubRoutes =
         .innerJoin(users, eq(users.id, devices.userId))
         .orderBy(asc(devices.name))
         .all()
-        .map((d) => ({ ...d, online: channel.online(d.id) })),
+        .map((d) => {
+          const outdated = !!d.connectorVersion && d.connectorVersion !== VERSION;
+          return {
+            ...d,
+            online: channel.online(d.id),
+            outdated,
+            updateFailed: outdated ? d.updateFailed : null,
+          };
+        }),
+    );
+
+    // Update now: the connector downloads the hub's version at once, even one that rolled back.
+    app.post(
+      "/devices/:id/update",
+      { schema: { params, response: { 204: z.null(), ...errors } } },
+      async (req, reply) => {
+        const row = db.select().from(devices).where(eq(devices.id, req.params.id)).get();
+        if (!row) throw new HttpError(404, "not_found", "Device not found");
+        if (!channel.online(req.params.id))
+          throw new HttpError(409, "device_offline", "The device is offline");
+        channel.publish(req.params.id, { type: "connector.update" });
+        return reply.status(204).send(null);
+      },
     );
 
     app.patch(
@@ -110,8 +140,22 @@ export const hubRoutes =
         connectorVersion: req.headers["x-connector-version"],
         os: req.headers["x-connector-os"],
       });
-      if (info.success && (info.data.connectorVersion || info.data.os))
-        db.update(devices).set(info.data).where(eq(devices.id, deviceId)).run();
+      // The connector tried to update to the hub's version before opening this: a failure says why
+      // it didn't, none clears the last one.
+      let failed: unknown = null;
+      try {
+        failed = JSON.parse(String(req.headers["x-connector-update"] ?? "null"));
+      } catch {}
+      const update = connectorUpdateFailureSchema.safeParse(failed);
+      db.update(devices)
+        .set({
+          ...(info.success && info.data),
+          updateFailed: update.success ? update.data : null,
+          lastSeenAt: new Date().toISOString(),
+        })
+        .where(eq(devices.id, deviceId))
+        .run();
+      onConnect();
       const cursor = Number(req.headers["last-event-id"]);
       const mine = eq(hubEvents.deviceId, deviceId);
 

@@ -4,7 +4,7 @@ import { VERSION } from "../updates/updates.ts";
 
 // The version tells the app, polling after an update, which code came back.
 // The start time lets Settings show how long this server has been up.
-const STARTED_AT = new Date().toISOString();
+export const STARTED_AT = new Date().toISOString();
 export const healthRoutes: FastifyPluginAsyncZod = async (app) => {
   app.get(
     "/api/health",

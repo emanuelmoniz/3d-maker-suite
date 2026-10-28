@@ -15,11 +15,14 @@ import { spoolName } from "../lib/catalog.ts";
 import { dueItems } from "../lib/maintenance.ts";
 import { printerTitle } from "../lib/numbers.ts";
 import { readPreferences } from "../lib/preferences.ts";
+import { STARTED_AT } from "../routes/health.ts";
+import { VERSION } from "../updates/updates.ts";
 import { channels, readChannel, sendVia } from "./channels.ts";
 
 const {
   alerts,
   alertStates,
+  devices,
   integrations,
   maintenanceTypes,
   spools,
@@ -212,6 +215,27 @@ function conditions(db: Db, now: Date): Found {
       ...(run && left.length && { detail: { runId: run.id, log: left } }),
     });
   }
+  // A connector that opened its stream to this hub (since it started on this version) and is still
+  // on another version: its update failed, or it can't update itself (not an installed build).
+  if (prefs.hubEnabled)
+    for (const d of db.select().from(devices).where(ne(devices.connectorVersion, VERSION)).all()) {
+      if (!d.connectorVersion || !d.lastSeenAt || d.lastSeenAt < STARTED_AT) continue;
+      add({
+        kind: "connector_outdated",
+        severity: d.updateFailed ? "error" : "warning",
+        module: "hub",
+        task: `device:${d.id}`,
+        entityType: "device",
+        entityId: d.id,
+        context: {
+          name: d.name,
+          version: d.connectorVersion,
+          hubVersion: VERSION,
+          ...(d.updateFailed && { reason: d.updateFailed.reason }),
+          ...(d.updateFailed?.error && { error: d.updateFailed.error }),
+        },
+      });
+    }
   return found;
 }
 
@@ -252,6 +276,11 @@ function textOf(a: typeof alerts.$inferSelect): { title: string; body: string } 
       return { title: "Update available", body: `Version ${c.version} is out` };
     case "slicer_update":
       return { title: "Slicer update available", body: `Version ${c.version} can be installed` };
+    case "connector_outdated":
+      return {
+        title: c.reason ? "Connector update failed" : "Connector outdated",
+        body: `${c.name}: connector ${c.version}, hub ${c.hubVersion}${c.error ? ` (${c.error})` : ""}`,
+      };
   }
 }
 

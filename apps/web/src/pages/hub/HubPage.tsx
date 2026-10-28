@@ -23,7 +23,7 @@ export function HubPage() {
   const { t } = useTranslation();
   const devices = useDevices();
   const users = useUsers(true);
-  const { pairingCode, rename, revoke } = useDeviceActions();
+  const { pairingCode, rename, revoke, update } = useDeviceActions();
   const [dialog, setDialog] = useState<Dialog | null>(null);
 
   const close = () => {
@@ -48,6 +48,11 @@ export function HubPage() {
           </Button>
         }
       />
+      {update.isError && (
+        <p role="alert" className="text-bad">
+          {t("hub:errors.generic")}
+        </p>
+      )}
       {devices.isError && (
         <p role="alert" className="text-bad">
           {t("hub:loadError")}
@@ -67,6 +72,11 @@ export function HubPage() {
                     <span className={d.online ? "ml-2 text-ok" : "ml-2 text-muted"}>
                       {t(d.online ? "hub:devices.online" : "hub:devices.offline")}
                     </span>
+                    {d.outdated && (
+                      <span className={d.updateFailed ? "ml-2 text-bad" : "ml-2 text-warn"}>
+                        {t(d.updateFailed ? "hub:devices.updateFailed" : "hub:devices.outdated")}
+                      </span>
+                    )}
                   </p>
                   <p className="text-muted wrap-anywhere">
                     {t("hub:devices.details", {
@@ -75,6 +85,18 @@ export function HubPage() {
                       version: d.connectorVersion ?? t("hub:devices.unknown"),
                     })}
                   </p>
+                  {d.outdated && (
+                    <p className="text-muted wrap-anywhere">
+                      {d.updateFailed?.reason === "download"
+                        ? t("hub:devices.failedDownload", {
+                            version: d.updateFailed.version,
+                            error: d.updateFailed.error ?? "",
+                          })
+                        : d.updateFailed?.reason === "rollback"
+                          ? t("hub:devices.failedRollback", { version: d.updateFailed.version })
+                          : t("hub:devices.outdatedHint")}
+                    </p>
+                  )}
                   {!d.online && (
                     <p className="text-muted">
                       {d.lastSeenAt
@@ -84,6 +106,15 @@ export function HubPage() {
                   )}
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
+                  {d.outdated && (
+                    // An offline device can't get the event now.
+                    <Button
+                      disabled={!d.online || update.isPending}
+                      onClick={() => update.mutate(d.id)}
+                    >
+                      {t("hub:devices.updateNow")}
+                    </Button>
+                  )}
                   <Button onClick={() => setDialog({ kind: "rename", device: d })}>
                     {t("hub:devices.rename")}
                   </Button>

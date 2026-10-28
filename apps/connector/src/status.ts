@@ -4,7 +4,7 @@ import { createServer, type IncomingHttpHeaders, type IncomingMessage } from "no
 import { hostname } from "node:os";
 import { type Link, type LinkStatus, PairError, type PairErrorCode } from "./hub.ts";
 import type { Store } from "./state.ts";
-import type { Updater } from "./update.ts";
+import { RESTART, type Updater } from "./update.ts";
 
 type Messages = { [k: string]: string | Messages };
 const en: Messages = JSON.parse(
@@ -83,6 +83,7 @@ button { font: inherit; font-weight: 600; padding: .5rem 1rem; border-radius: .5
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 a { color: var(--accent); }
 .online { color: var(--ok); } .connecting, .hubOff { color: var(--warn); } .offline, .error { color: var(--bad); }
+button.danger { background: var(--bad); }
 .row { display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; }
 `;
 
@@ -93,6 +94,8 @@ type Options = {
   version: string;
   syncDir: string;
   open?: (dir: string) => void;
+  /** Ends the connector; RESTART asks the launcher to start it again. */
+  exit?: (code: number) => void;
 };
 
 /** The connector's only UI (ADR-0014): pair, hub, state, sync folder. 127.0.0.1 only. */
@@ -103,6 +106,7 @@ export function createStatusPage({
   version,
   syncDir,
   open = openFolder,
+  exit = (code) => process.exit(code),
 }: Options) {
   const pairForm = (error?: PairErrorCode, form?: URLSearchParams) => {
     const state = store.get();
@@ -148,16 +152,31 @@ ${update.hubOlder ? note(t("connector:status.hubOlder")) : ""}
 <form method="post" action="/open-folder"><button type="submit">${t("connector:status.openFolder")}</button></form>
 <a href="${esc(state.hubUrl ?? "")}">${t("connector:status.openApp")}</a>
 </div>
+<div class="row">
+<form method="post" action="/restart"><button type="submit">${t("connector:status.restart")}</button></form>
+<form method="get" action="/stop"><button type="submit" class="danger">${t("connector:status.stop")}</button></form>
+</div>
 <p class="muted">${t("connector:status.manage")}</p>
 </section>`;
   };
+
+  // Stop takes the device offline for the hub, so it asks first.
+  const stopForm = `<section aria-labelledby="stop">
+<h2 id="stop">${t("connector:stop.title")}</h2>
+<p>${t("connector:stop.body")}</p>
+<div class="row">
+<form method="post" action="/stop"><button type="submit" class="danger">${t("connector:stop.confirm")}</button></form>
+<a href="/">${t("connector:stop.cancel")}</a>
+</div>
+</section>`;
+  const note = (html: string) => `<section><p role="status">${html}</p></section>`;
 
   const page = (body: string, refresh: boolean) => `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-${refresh ? '<meta http-equiv="refresh" content="5">' : ""}
+${refresh ? '<meta http-equiv="refresh" content="5; url=/">' : ""}
 <title>${t("connector:appName")}</title>
 <style>${CSS}</style>
 </head>
@@ -197,6 +216,19 @@ ${body}
           throw e;
         }
         return back();
+      }
+      if (req.method === "GET" && path === "/stop") return send(200, html, page(stopForm, false));
+      // The answer goes out first, then the process ends.
+      if (req.method === "POST" && (path === "/restart" || path === "/stop")) {
+        const restart = path === "/restart";
+        res.on("finish", () => exit(restart ? RESTART : 0));
+        return send(
+          200,
+          html,
+          restart
+            ? page(note(t("connector:restarting")), true)
+            : page(note(t("connector:stopped")), false),
+        );
       }
       if (req.method === "POST" && path === "/open-folder") {
         mkdirSync(syncDir, { recursive: true });

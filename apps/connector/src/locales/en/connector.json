@@ -37,6 +37,16 @@
     "manage": "Rename or remove this device in Hub management in the web app.",
     "updateFailed": "The update to version {{version}} did not start, so this connector stays on {{current}}.",
     "updateError": "Could not download the update: {{error}}",
-    "hubOlder": "The hub runs an older version than this connector. Install the connector that matches the hub."
-  }
+    "hubOlder": "The hub runs an older version than this connector. Install the connector that matches the hub.",
+    "restart": "Restart",
+    "stop": "Stop"
+  },
+  "stop": {
+    "title": "Stop the connector?",
+    "body": "This device goes offline for the hub until the connector starts again: from the Start menu or the launcher, or at your next login.",
+    "confirm": "Stop connector",
+    "cancel": "Cancel"
+  },
+  "restarting": "Restarting… This page reloads by itself in a few seconds.",
+  "stopped": "The connector stopped. Start it again from the Start menu or the launcher, or it starts at your next login."
 }

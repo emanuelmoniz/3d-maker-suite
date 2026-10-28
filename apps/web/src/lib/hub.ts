@@ -25,6 +25,10 @@ export function useDeviceActions() {
         api("PATCH", `/api/hub/devices/${id}`, { name }),
       onSuccess: refresh,
     }),
+    update: useMutation({
+      mutationFn: (id: string) => api("POST", `/api/hub/devices/${id}/update`),
+      onSuccess: refresh,
+    }),
     revoke: useMutation({
       mutationFn: (id: string) => api("DELETE", `/api/hub/devices/${id}`),
       onSuccess: refresh,

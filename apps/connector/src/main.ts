@@ -17,10 +17,23 @@ const link = createLink({
   version: VERSION,
   os: `${type()} ${release()} ${arch()}`,
   onHubVersion: updater.follow,
+  updateFailure: updater.failure,
   log,
 });
 const port = readPort(dir);
-const page = createStatusPage({ link, store, updater, version: VERSION, syncDir: syncDir() });
+const quit = (code: number) => {
+  link.close();
+  page.close();
+  process.exit(code);
+};
+const page = createStatusPage({
+  link,
+  store,
+  updater,
+  version: VERSION,
+  syncDir: syncDir(),
+  exit: quit,
+});
 page.listen(port, "127.0.0.1", () => log(`${VERSION}, status page on http://127.0.0.1:${port}/`));
 link.start();
 
@@ -31,9 +44,4 @@ if (cmd)
     .set(true)
     .catch((e) => log(`start at login: ${e.message}`));
 
-for (const signal of ["SIGINT", "SIGTERM"] as const)
-  process.on(signal, () => {
-    link.close();
-    page.close();
-    process.exit(0);
-  });
+for (const signal of ["SIGINT", "SIGTERM"] as const) process.on(signal, () => quit(0));

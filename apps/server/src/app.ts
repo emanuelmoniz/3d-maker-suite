@@ -198,7 +198,10 @@ export async function buildApp(
   );
   useDeviceFiles(db, deviceFiles);
   app.addHook("onClose", async () => deviceFiles.close());
-  await app.register(hubRoutes(db, hub), { prefix: "/api/hub" });
+  await app.register(
+    hubRoutes(db, hub, () => void evaluate()),
+    { prefix: "/api/hub" },
+  );
   await app.register(
     preferencesRoutes(db, dataDir, (v, patch) => {
       if (sink) sink.configure(v);

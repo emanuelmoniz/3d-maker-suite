@@ -2,11 +2,19 @@
   "title": "Hub management",
   "description": "The workstations and servers paired with this hub. Each device acts as the user it was paired for.",
   "loadError": "Couldn't load the devices.",
-  "errors": { "generic": "That didn't work. Try again." },
+  "errors": {
+    "generic": "That didn't work. Try again."
+  },
   "devices": {
     "label": "Devices",
     "online": "Online",
     "offline": "Offline",
+    "outdated": "Outdated",
+    "updateFailed": "Update failed",
+    "outdatedHint": "Its connector isn't on the hub's version. It updates itself when it connects.",
+    "failedDownload": "Could not download version {{version}}: {{error}}",
+    "failedRollback": "Version {{version}} did not start on the device, so it went back.",
+    "updateNow": "Update now",
     "details": "{{user}} · {{os}} · connector {{version}}",
     "unknown": "unknown",
     "lastSeen": "Last seen {{when}}",

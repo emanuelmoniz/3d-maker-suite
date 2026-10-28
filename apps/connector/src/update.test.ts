@@ -82,7 +82,26 @@ it("stays put for the same or an older hub, outside an install, and after a fail
   const failed = at("5.0.0");
   await failed.follow("5.1.0");
   expect(failed.state().failed).toBe("5.1.0");
+  expect(failed.failure()).toEqual({ version: "5.1.0", reason: "rollback" });
   expect(asked).toEqual([]);
+});
+
+it("Update now tries a version that rolled back again", async () => {
+  const { download } = await release();
+  mkdirSync(join(install, ".update"));
+  writeFileSync(
+    join(install, ".update", "result.json"),
+    JSON.stringify({ action: "update", toVersion: "5.1.0", ok: false }),
+  );
+  const exits: number[] = [];
+  const u = createUpdater({
+    version: "5.0.0",
+    env: { ...env, APP_INSTALL_DIR: install },
+    download,
+    exit: (c) => exits.push(c),
+  });
+  await u.follow("5.1.0", true);
+  expect(exits).toEqual([75]);
 });
 
 it("keeps running when the download doesn't match its checksum", async () => {
@@ -101,5 +120,6 @@ it("keeps running when the download doesn't match its checksum", async () => {
   });
   await u.follow("5.1.0");
   expect(u.state().error).toBe("bad_checksum");
+  expect(u.failure()).toEqual({ version: "5.1.0", reason: "download", error: "bad_checksum" });
   expect(existsSync(join(install, "versions"))).toBe(false);
 });

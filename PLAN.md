@@ -831,7 +831,7 @@ Do Step 8 of the 5.0.0 plan in PLAN.md. Show me the permission table first.
 Back up the DB before editing schema.ts.
 ```
 
-### [ ] Step 8b - Connector updates: outdated alert, update now, restart and stop
+### [x] Step 8b - Connector updates: outdated alert, update now, restart and stop
 **Model:** Opus · **Effort:** Medium
 **Scope:**
 - The connector reports a failed update to the hub: the download failed, or the launcher rolled back the new version.
@@ -848,6 +848,19 @@ Back up the DB before editing schema.ts.
 **Prompt:**
 ```
 Do Step 8b of the 5.0.0 plan in PLAN.md.
+```
+
+### [ ] Step 8c - Project permissions: leaks and owner change
+**Model:** Opus · **Effort:** Medium
+**Scope:**
+- Prints, orders, quotes, stats and tags don't show the name or link of a project the user can't see (`visibleProjects`, `projectAccess`). The rows stay; the project shows as hidden ("Other project"), and stats still count it.
+- The project trash lists only files from roots the user may edit (`mayEditRoot`). Restoring or emptying the trash checks the same rule on the server.
+- Change owner on the project page: admins only, from a list of users. Not offered for projects in device roots, because the device's user owns those. Uses the existing project update route.
+
+**Done when:** a user who sees only their own projects finds no other project's name in prints, orders, quotes, stats, tags or the trash (covered by tests); an admin can change a project's owner in the UI; tests pass.
+**Prompt:**
+```
+Do Step 8c of the 5.0.0 plan in PLAN.md.
 ```
 
 ### [ ] Step 9 - Docs, push & v5.0.0-alpha.2

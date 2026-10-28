@@ -7,6 +7,7 @@ import { eq } from "drizzle-orm";
 import { afterEach, beforeAll, describe, expect, it, onTestFinished, vi } from "vitest";
 import { buildApp } from "./app.ts";
 import { hashPassword } from "./lib/password.ts";
+import { VERSION } from "./updates/updates.ts";
 
 const PW = "password123";
 let hash: string;
@@ -196,6 +197,43 @@ describe("hub events", () => {
       online: true,
     });
     await s.cancel();
+  });
+
+  it("marks an outdated connector, alerts admins, and Update now reaches it", async () => {
+    const { send, open, deviceId } = await live();
+    const update = () => send("POST", `/api/hub/devices/${deviceId}/update`);
+    const alert = async () =>
+      (await send("GET", "/api/alerts"))
+        .json()
+        .find((a: { kind: string }) => a.kind === "connector_outdated");
+    expect((await update()).statusCode).toBe(409); // offline
+
+    const failure = { version: VERSION, reason: "download", error: "HTTP 404" };
+    const s = await open({
+      "x-connector-version": "0.0.1",
+      "x-connector-update": JSON.stringify(failure),
+    });
+    await s.until(": open");
+    expect((await send("GET", "/api/hub/devices")).json()[0]).toMatchObject({
+      outdated: true,
+      updateFailed: failure,
+    });
+    await vi.waitFor(async () =>
+      expect(await alert()).toMatchObject({ severity: "error", module: "hub", entityId: deviceId }),
+    );
+    expect((await update()).statusCode).toBe(204);
+    expect(await s.until("event: connector.update")).toBeTruthy();
+    await s.cancel();
+
+    // Back on the hub's version: not outdated, and the alert resolves.
+    const t = await open({ "x-connector-version": VERSION });
+    await t.until(": open");
+    expect((await send("GET", "/api/hub/devices")).json()[0]).toMatchObject({
+      outdated: false,
+      updateFailed: null,
+    });
+    await vi.waitFor(async () => expect(await alert()).toBeUndefined());
+    await t.cancel();
   });
 
   it("pushes events live, replays missed ones and deletes acked ones", async () => {
