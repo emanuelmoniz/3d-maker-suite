@@ -9,6 +9,7 @@ export * from "./schemas/entities.ts";
 export * from "./schemas/enums.ts";
 export * from "./schemas/filament.ts";
 export * from "./schemas/fs.ts";
+export * from "./schemas/hub.ts";
 export * from "./schemas/import.ts";
 export * from "./schemas/integrations.ts";
 export * from "./schemas/list.ts";

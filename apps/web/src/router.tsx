@@ -25,6 +25,7 @@ import { ProfileCreatePage, ProfileEditPage } from "./pages/filament/ProfileForm
 import { SpoolDetailPage } from "./pages/filament/SpoolDetailPage.tsx";
 import { SpoolCreatePage, SpoolEditPage } from "./pages/filament/SpoolFormPage.tsx";
 import { HomePage } from "./pages/HomePage.tsx";
+import { HubPage } from "./pages/hub/HubPage.tsx";
 import { ImportPage } from "./pages/import/ImportPage.tsx";
 import { SlicerZipPage } from "./pages/import/SlicerZipPage.tsx";
 import { SourceReviewPage } from "./pages/import/SourceReviewPage.tsx";
@@ -73,6 +74,7 @@ import { StatsPage } from "./pages/stats/StatsPage.tsx";
 import { AppShell } from "./shell/AppShell.tsx";
 import {
   ALL_ITEMS,
+  HUB_ITEM,
   IMPORT_ITEM,
   INTEGRATIONS_ITEM,
   LOGS_ITEM,
@@ -105,6 +107,7 @@ const built = [
   "/",
   IMPORT_ITEM.to,
   INTEGRATIONS_ITEM.to,
+  HUB_ITEM.to,
   SETTINGS_ITEM.to,
   LOGS_ITEM.to,
   "/printers",
@@ -453,6 +456,12 @@ const routes: AnyRoute[] = [
     path: SETTINGS_ITEM.to,
     loader: () => Promise.all(["settings", "logs", "users"].map(loadNamespace)),
     component: SettingsPage,
+  }),
+  createRoute({
+    getParentRoute: () => root,
+    path: HUB_ITEM.to,
+    loader: () => loadNamespace("hub"),
+    component: HubPage,
   }),
   createRoute({
     getParentRoute: () => root,

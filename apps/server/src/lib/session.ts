@@ -9,14 +9,15 @@ const { sessions, users } = schema;
 export const SESSION_COOKIE = "session";
 const TTL_MS = 30 * 86_400_000;
 
-const hash = (token: string) => createHash("sha256").update(token).digest("base64url");
+/** How `sessions` and `devices` store a token (ADR-0012). */
+export const tokenHash = (token: string) => createHash("sha256").update(token).digest("base64url");
 const expiry = (now: Date) => new Date(now.getTime() + TTL_MS).toISOString();
 
 export function createSession(db: Db, userId: string, now = new Date()) {
   const token = randomBytes(32).toString("base64url");
   const expiresAt = expiry(now);
   db.insert(sessions)
-    .values({ id: hash(token), userId, expiresAt })
+    .values({ id: tokenHash(token), userId, expiresAt })
     .run();
   return { token, expiresAt };
 }
@@ -26,7 +27,7 @@ export function createSession(db: Db, userId: string, now = new Date()) {
  * last half of its window is extended, and `refreshed` says the cookie needs sending again.
  */
 export function readSession(db: Db, token: string, now = new Date()) {
-  const id = hash(token);
+  const id = tokenHash(token);
   const row = db
     .select({ expiresAt: sessions.expiresAt, user: users })
     .from(sessions)
@@ -50,7 +51,7 @@ export function readSession(db: Db, token: string, now = new Date()) {
 export const deleteSession = (db: Db, token: string) =>
   db
     .delete(sessions)
-    .where(eq(sessions.id, hash(token)))
+    .where(eq(sessions.id, tokenHash(token)))
     .run();
 
 /** Logs a user out everywhere (disabled, role changed, password reset). */

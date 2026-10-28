@@ -69,6 +69,7 @@ R = GET/HEAD, W = POST/PUT/PATCH/DELETE, - = 403.
 | `/api/server-config` (autostart, restart, stop) | - | - | R W | |
 | `/api/updates` | - | - | R W | |
 | `/api/users` | - | - | R W | |
+| `/api/hub` (devices, pairing codes, ADR-0014) | - | - | R W | `POST /api/hub/pair` is public: the connector has only the one-time code. A device token (`Authorization: Bearer`) acts as its user, so the same table applies |
 | `/api/docs` | - | - | R | OpenAPI UI |
 
 ### Preferences

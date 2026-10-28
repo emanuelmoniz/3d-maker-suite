@@ -1,0 +1,35 @@
+{
+  "title": "Hub management",
+  "description": "The workstations and servers paired with this hub. Each device acts as the user it was paired for.",
+  "loadError": "Couldn't load the devices.",
+  "errors": { "generic": "That didn't work. Try again." },
+  "devices": {
+    "label": "Devices",
+    "online": "Online",
+    "offline": "Offline",
+    "details": "{{user}} · {{os}} · connector {{version}}",
+    "unknown": "unknown",
+    "lastSeen": "Last seen {{when}}",
+    "neverSeen": "Not seen yet",
+    "emptyTitle": "No devices yet",
+    "emptyBody": "Pair a device so its connector can work with this hub.",
+    "name": "Name",
+    "rename": "Rename",
+    "renameTitle": "Rename device",
+    "revoke": "Revoke",
+    "revokeTitle": "Revoke {{name}}?",
+    "revokeBody": "The device loses access at once. Its local files stay on its disk. To use it again, pair it with a new code."
+  },
+  "pair": {
+    "action": "Pair a device",
+    "title": "Pair a device",
+    "hint": "The device will act as this user, with their role.",
+    "user": "User",
+    "submit": "Create code"
+  },
+  "code": {
+    "title": "Pairing code",
+    "body": "Enter this code on the connector's status page. It works once, until {{time}}, and isn't shown again.",
+    "done": "Done"
+  }
+}

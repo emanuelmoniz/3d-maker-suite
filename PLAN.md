@@ -693,7 +693,7 @@ Do Step 2 of the 5.0.0 plan in PLAN.md. Show me the migration and the seam's int
 Back up the DB before editing schema.ts.
 ```
 
-### [ ] Step 3 - Hub management and device pairing
+### [x] Step 3 - Hub management and device pairing
 **Model:** Opus · **Effort:** Medium
 **Scope:**
 - A Hub management nav section next to Integrations, admin-only, visible when the hub is on.

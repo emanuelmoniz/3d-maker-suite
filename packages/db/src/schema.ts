@@ -1037,3 +1037,31 @@ export const alertStates = sqliteTable(
     index("alert_states_user_idx").on(t.userId),
   ],
 );
+
+/** Connectors paired with the hub (ADR-0014). A device acts as its user; deleting the row revokes it. */
+export const devices = sqliteTable(
+  "devices",
+  {
+    id: id(),
+    name: text().notNull(),
+    userId: text()
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    /** sha256 of the device token, like `sessions.id`; the token itself is never stored. */
+    tokenHash: text().notNull(),
+    os: text(),
+    connectorVersion: text(),
+    lastSeenAt: text(),
+    ...timestamps,
+  },
+  (t) => [uniqueIndex("devices_token_uq").on(t.tokenHash), index("devices_user_idx").on(t.userId)],
+);
+
+/** One-time pairing codes an admin makes for a user. `id` is the code's sha256; used = deleted. */
+export const pairingCodes = sqliteTable("pairing_codes", {
+  id: text().primaryKey(),
+  userId: text()
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  expiresAt: text().notNull(),
+});

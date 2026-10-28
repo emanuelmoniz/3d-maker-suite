@@ -8,6 +8,7 @@ import {
   House,
   Layers,
   type LucideIcon,
+  MonitorSmartphone,
   Plug,
   Printer,
   ScrollText,
@@ -140,6 +141,14 @@ export const INTEGRATIONS_ITEM: NavItem = {
   description: "nav:items.integrations.description",
 };
 
+/** Admin only, in the menu while the hub is on (ADR-0014). */
+export const HUB_ITEM: NavItem = {
+  to: "/hub",
+  icon: MonitorSmartphone,
+  label: "nav:items.hub.label",
+  description: "nav:items.hub.description",
+};
+
 /** Only in the menu while logging is on (Settings -> Logs). */
 export const LOGS_ITEM: NavItem = {
   to: "/logs",
@@ -158,6 +167,7 @@ export const ALL_ITEMS = [
   ...NAV_GROUPS.flatMap((g) => g.items),
   IMPORT_ITEM,
   INTEGRATIONS_ITEM,
+  HUB_ITEM,
   LOGS_ITEM,
   SETTINGS_ITEM,
 ];

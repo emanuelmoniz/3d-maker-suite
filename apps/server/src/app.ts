@@ -46,6 +46,7 @@ import { costsRoutes } from "./routes/costs.ts";
 import { filamentRoutes } from "./routes/filament.ts";
 import { fsRoutes } from "./routes/fs.ts";
 import { healthRoutes } from "./routes/health.ts";
+import { hubRoutes } from "./routes/hub.ts";
 import { importRoutes } from "./routes/import.ts";
 import { integrationsRoutes } from "./routes/integrations.ts";
 import { logsRoutes } from "./routes/logs.ts";
@@ -177,6 +178,7 @@ export async function buildApp(
     prefix: "/api/auth",
   });
   await app.register(usersRoutes(db), { prefix: "/api/users" });
+  await app.register(hubRoutes(db), { prefix: "/api/hub" });
   await app.register(
     preferencesRoutes(db, dataDir, (v) => {
       if (sink) sink.configure(v);

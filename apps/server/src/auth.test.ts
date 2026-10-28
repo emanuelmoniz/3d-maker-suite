@@ -89,6 +89,8 @@ const MATRIX: Record<string, [viewer: string, editor: string]> = {
   "/api/server-config": ["-", "-"],
   "/api/updates": ["-", "-"],
   "/api/users": ["-", "-"],
+  "/api/hub/devices": ["-", "-"],
+  "/api/hub/pairing-codes": ["-", "-"],
   "/api/docs": ["-", "-"],
   "/api/not-yet-in-the-table": ["-", "-"],
 };

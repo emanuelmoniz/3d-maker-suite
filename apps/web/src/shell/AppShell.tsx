@@ -16,6 +16,7 @@ import { useServerState } from "../lib/serverState.ts";
 import { useVersion } from "../lib/updates.ts";
 import {
   ALL_ITEMS,
+  HUB_ITEM,
   IMPORT_ITEM,
   INTEGRATIONS_ITEM,
   LOGS_ITEM,
@@ -240,9 +241,16 @@ const useLogsShown = () => {
   return useCan("admin") && on;
 };
 
+/** Hub management: admins, while the hub is on. */
+const useHubShown = () => {
+  const on = !!usePreferences().data?.values.hubEnabled;
+  return useCan("admin") && on;
+};
+
 function Sidebar() {
   const { t } = useTranslation();
   const logsShown = useLogsShown();
+  const hubShown = useHubShown();
   const admin = useCan("admin");
   const tasks = useHasTasks();
   return (
@@ -265,6 +273,7 @@ function Sidebar() {
       <div className="flex flex-col gap-0.5 border-t border-border p-2">
         {admin && <SideLink item={IMPORT_ITEM} />}
         {tasks && <SideLink item={INTEGRATIONS_ITEM} />}
+        {hubShown && <SideLink item={HUB_ITEM} />}
         {logsShown && <SideLink item={LOGS_ITEM} />}
         <SideLink item={SETTINGS_ITEM} />
         <UserMenu />
@@ -311,6 +320,7 @@ function BottomNav() {
   const sheet = useRef<HTMLDialogElement>(null);
   const primary = ALL_ITEMS.filter((i) => i.primary);
   const logsShown = useLogsShown();
+  const hubShown = useHubShown();
   const admin = useCan("admin");
   const tasks = useHasTasks();
   const more = ALL_ITEMS.filter(
@@ -318,7 +328,8 @@ function BottomNav() {
       !i.primary &&
       (logsShown || i !== LOGS_ITEM) &&
       (admin || i !== IMPORT_ITEM) &&
-      (tasks || i !== INTEGRATIONS_ITEM),
+      (tasks || i !== INTEGRATIONS_ITEM) &&
+      (hubShown || i !== HUB_ITEM),
   );
   const tab =
     "flex flex-1 flex-col items-center justify-center gap-0.5 text-xs text-muted data-[status=active]:text-accent";

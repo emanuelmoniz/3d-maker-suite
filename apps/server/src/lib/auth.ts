@@ -1,17 +1,21 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 import type { Capability, UserRole } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
+import { and, eq, isNull, lt, or } from "drizzle-orm";
 import type { FastifyReply, FastifyRequest } from "fastify";
 import { HttpError } from "../errors.ts";
 import { policyOf } from "../integrations/capabilities.ts";
 import { accessGuard, isLoopback } from "./access.ts";
-import { readCookie, readSession, SESSION_COOKIE, sessionCookie } from "./session.ts";
+import { readPreferences } from "./preferences.ts";
+import { readCookie, readSession, SESSION_COOKIE, sessionCookie, tokenHash } from "./session.ts";
 
 type SessionUser = NonNullable<ReturnType<typeof readSession>>["user"];
 declare module "fastify" {
   interface FastifyRequest {
     /** The logged-in user; unset in the no-users mode and on public routes. */
     user?: SessionUser;
+    /** The paired device behind a `Bearer` token (ADR-0014); it acts as `user`. */
+    deviceId?: string;
   }
 }
 
@@ -105,12 +109,12 @@ export function mayTask(
   throw new HttpError(403, "forbidden", "Not allowed for your role");
 }
 
-/** No session needed: the SPA and its assets (the login page has to load), health, setup, login. */
+/** No session needed: the SPA and its assets (the login page has to load), health, setup, login, device pairing. */
 export const isPublic = (url: string) => {
   const path = url.split("?")[0] ?? "";
   return (
     !path.startsWith("/api/") ||
-    ["/api/health", "/api/auth/setup", "/api/auth/login"].includes(path)
+    ["/api/health", "/api/auth/setup", "/api/auth/login", "/api/hub/pair"].includes(path)
   );
 };
 
@@ -130,9 +134,37 @@ export const sameSecret = (a: string, b: string) => timingSafeEqual(digest(a), d
 const deny = (reply: FastifyReply, status: number, code: string, message: string) =>
   reply.status(status).send({ error: { code, message } });
 
+const SEEN_EVERY_MS = 15_000;
+
+/**
+ * The enabled user behind a device token, or null (unknown or revoked token, user disabled, hub
+ * off). Marks the device seen, at most every 15 s.
+ */
+export function readDevice(db: Db, token: string, now = new Date()) {
+  if (!readPreferences(db).hubEnabled) return null;
+  const { devices, users } = schema;
+  const row = db
+    .select({ id: devices.id, user: users })
+    .from(devices)
+    .innerJoin(users, eq(users.id, devices.userId))
+    .where(eq(devices.tokenHash, tokenHash(token)))
+    .get();
+  if (!row || row.user.disabled) return null;
+  const stale = new Date(now.getTime() - SEEN_EVERY_MS).toISOString();
+  db.update(devices)
+    .set({ lastSeenAt: now.toISOString() })
+    .where(
+      and(eq(devices.id, row.id), or(isNull(devices.lastSeenAt), lt(devices.lastSeenAt, stale))),
+    )
+    .run();
+  const { passwordHash: _, ...user } = row.user;
+  return { deviceId: row.id, user };
+}
+
 /**
  * The one onRequest hook (ADR-0012). No users: the old access guard (host guard, `APP_PASSWORD`).
- * Users: a session for everything but the public routes, then the role table. The host guard stays
+ * Users: a session (or a device token, ADR-0014) for everything but the public routes, then the
+ * role table. The host guard stays
  * on for loopback binds, so a DNS-rebinding page can't reach setup from the server's own browser.
  */
 export function authGuard(db: Db, access?: { host: string; password?: string }) {
@@ -145,14 +177,22 @@ export function authGuard(db: Db, access?: { host: string; password?: string }) 
     if (blocked) return blocked;
     if (isPublic(req.url)) return;
 
-    const token = readCookie(req.headers.cookie, SESSION_COOKIE);
-    const session = token ? readSession(db, token) : null;
-    if (!token || !session) return deny(reply, 401, "unauthorized", "Login required");
-    if (session.refreshed)
-      reply.header("set-cookie", sessionCookie(token, session.expiresAt, isHttps(req)));
-    req.user = session.user;
-    req.log = req.log.child({ actor: session.user.id });
-    if (!can(session.user.role, req.url, req.method))
+    const bearer = /^Bearer (\S+)$/.exec(req.headers.authorization ?? "")?.[1];
+    if (bearer) {
+      const device = readDevice(db, bearer);
+      if (!device) return deny(reply, 401, "unauthorized", "Device not paired");
+      req.user = device.user;
+      req.deviceId = device.deviceId;
+    } else {
+      const token = readCookie(req.headers.cookie, SESSION_COOKIE);
+      const session = token ? readSession(db, token) : null;
+      if (!token || !session) return deny(reply, 401, "unauthorized", "Login required");
+      if (session.refreshed)
+        reply.header("set-cookie", sessionCookie(token, session.expiresAt, isHttps(req)));
+      req.user = session.user;
+    }
+    req.log = req.log.child({ actor: req.user.id });
+    if (!can(req.user.role, req.url, req.method))
       return deny(reply, 403, "forbidden", "Not allowed for your role");
   };
 }
