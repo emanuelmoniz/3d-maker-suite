@@ -2,6 +2,11 @@
 
 All notable changes are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Added
+- `APP_ALLOWED_HOSTS`: public host names a reverse proxy forwards in `Host`, accepted by the loopback host guard. Setup from such a host still needs the setup token
+
 ## [4.2.0] - 2026-10-26
 
 Stable. Back up before updating. The features are listed under 4.2.0-alpha.1 to alpha.3.

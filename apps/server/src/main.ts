@@ -36,7 +36,7 @@ const app = await buildApp(db, true, config.dataDir, {
   logRetentionSchedule: "0 * * * *",
   updateCheckSchedule: "0 9 * * *",
   watchProjects: true,
-  access: { host: config.host, password: config.password },
+  access: { host: config.host, password: config.password, allowedHosts: config.allowedHosts },
   setupToken,
   serverConfig: config,
   autostart,
@@ -64,6 +64,8 @@ else if (!isLoopback(config.host) && !config.password)
   app.log.warn(
     `Listening on ${config.host} without APP_PASSWORD: only requests addressed to localhost or ${config.host} are accepted. Set APP_PASSWORD to use the app from other devices.`,
   );
+if (config.allowedHosts.length)
+  app.log.info(`Also accepting requests addressed to: ${config.allowedHosts.join(", ")}`);
 await app.listen({ host: config.host, port: config.port });
 if (setupToken)
   console.log(

@@ -11,6 +11,7 @@ import type { FastifyReply, FastifyRequest } from "fastify";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
+import { hostname, isLoopback } from "../lib/access.ts";
 import { hasUsers, isHttps, isLoopbackIp, loginLimiter, sameSecret } from "../lib/auth.ts";
 import { hashPassword, verifyPassword } from "../lib/password.ts";
 import {
@@ -56,10 +57,12 @@ export const authRoutes =
         const done = () => new HttpError(409, "setup_done", "An admin already exists");
         if (hasUsers(db)) throw done();
         const { token, password, ...rest } = req.body;
+        // "On this PC" needs a loopback socket AND a loopback Host: behind a reverse proxy the
+        // socket is always loopback, but an allowed public Host means another device.
+        const name = hostname(req.headers.host);
+        const local = isLoopbackIp(req.ip) && !!name && isLoopback(name);
         const allowed =
-          isLoopbackIp(req.ip) ||
-          passwordSet ||
-          (!!setupToken && !!token && sameSecret(token, setupToken));
+          local || passwordSet || (!!setupToken && !!token && sameSecret(token, setupToken));
         if (!allowed) throw new HttpError(403, "setup_token", "Setup token required");
         const passwordHash = await hashPassword(password);
         const user = db.transaction((tx) => {

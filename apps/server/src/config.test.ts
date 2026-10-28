@@ -18,6 +18,28 @@ describe("config", () => {
     expect(dataDir({ XDG_DATA_HOME: "/xdg" }, "linux")).toBe(join("/xdg", "3d-maker-suite"));
   });
 
+  describe("APP_ALLOWED_HOSTS", () => {
+    const hosts = (v?: string) =>
+      loadConfig({ APP_DATA_DIR: mkdtempSync(join(tmpdir(), "cfg-")), APP_ALLOWED_HOSTS: v }, [])
+        .allowedHosts;
+
+    it("trims, lowercases, dedupes and drops empties", () => {
+      expect(hosts(" A.Example.com, b.test ,,a.example.com,[2001:db8::1],10.0.0.2")).toEqual([
+        "a.example.com",
+        "b.test",
+        "[2001:db8::1]",
+        "10.0.0.2",
+      ]);
+    });
+    it("is empty when unset or blank", () => {
+      expect(hosts()).toEqual([]);
+      expect(hosts(" , ")).toEqual([]);
+    });
+    it.each(["*.example.com", "https://x", "x:443", "x/path", "2001:db8::1"])("rejects %s", (v) => {
+      expect(() => hosts(v)).toThrow(/APP_ALLOWED_HOSTS/);
+    });
+  });
+
   describe("host and port", () => {
     const dir = () => mkdtempSync(join(tmpdir(), "cfg-"));
 

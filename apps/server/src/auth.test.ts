@@ -383,6 +383,26 @@ describe("users", () => {
     expect(res.statusCode).toBe(201);
   });
 
+  it("setup through a reverse proxy: an allowed host is not 'this PC', so it needs the token", async () => {
+    const { app } = await setup({
+      setupToken: "tok",
+      access: { host: "127.0.0.1", allowedHosts: ["example.test"] },
+    });
+    const payload = { email: "me@x.io", displayName: "Me", password: PW };
+    const post = (extra: object, host: string) =>
+      app.inject({
+        method: "POST",
+        url: "/api/auth/setup",
+        payload: { ...payload, ...extra },
+        remoteAddress: "127.0.0.1",
+        headers: { host },
+      });
+    const denied = await post({}, "example.test");
+    expect(denied.statusCode).toBe(403);
+    expect(denied.json().error.code).toBe("setup_token");
+    expect((await post({ token: "tok" }, "example.test")).statusCode).toBe(201);
+  });
+
   it("the last enabled admin can't be disabled, demoted or deleted", async () => {
     const { db, app } = await setup();
     const me = addUser(db, "admin");

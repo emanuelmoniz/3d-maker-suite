@@ -133,10 +133,17 @@ const deny = (reply: FastifyReply, status: number, code: string, message: string
  * The one onRequest hook (ADR-0012). No users: the old access guard (host guard, `APP_PASSWORD`).
  * Users: a session for everything but the public routes, then the role table. The host guard stays
  * on for loopback binds, so a DNS-rebinding page can't reach setup from the server's own browser.
+ * `allowedHosts` (`APP_ALLOWED_HOSTS`) lists the public names a reverse proxy forwards; both guards accept them.
  */
-export function authGuard(db: Db, access?: { host: string; password?: string }) {
+export function authGuard(
+  db: Db,
+  access?: { host: string; password?: string; allowedHosts?: string[] },
+) {
   const legacy = access && accessGuard(access);
-  const hostOnly = access && isLoopback(access.host) && accessGuard({ host: access.host });
+  const hostOnly =
+    access &&
+    isLoopback(access.host) &&
+    accessGuard({ host: access.host, allowedHosts: access.allowedHosts });
 
   return async (req: FastifyRequest, reply: FastifyReply) => {
     if (!hasUsers(db)) return legacy?.(req, reply);

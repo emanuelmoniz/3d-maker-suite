@@ -14,6 +14,7 @@ pnpm --filter @3d-maker-suite/server start -- --port 4400 --host 0.0.0.0
 | `HOST` | `127.0.0.1` | Address to listen on. Only change this to reach the app from other devices. |
 | `APP_DATA_DIR` | see [install.md](install.md#where-your-data-is) | Where the database, thumbnails, backups and key file live |
 | `APP_PASSWORD` | unset | HTTP Basic password, used only until the first user account exists ([users.md](users.md)). Required when `HOST` is not a loopback address and no account exists. Any user name works. |
+| `APP_ALLOWED_HOSTS` | unset | Comma-separated public host names a reverse proxy forwards in `Host`, e.g. `3d.example.com,makersuite.example.org`. Bare names or IPs only (no scheme, port, path or wildcard; IPv6 in brackets). Exact matches, case-insensitive. Environment only. See [Behind a reverse proxy](#behind-a-reverse-proxy). |
 | `APP_MOCK_INTEGRATION` | unset | Set to `1` to add a fake integration for trying the Integrations page without an account |
 | `APP_INSTALL` | unset | `docker` in the Docker image: Settings shows `docker compose pull` instead of an Update button. `bundle` when the installed app's launcher starts it ([ADR-0011](adr/0011-bundle-installs.md)). |
 | `APP_LAUNCHER` | set by `pnpm start` | Tells the server it runs under the launcher, which restarts it and applies updates ([ADR-0009](adr/0009-updates.md)). Don't set it yourself. |
@@ -41,6 +42,24 @@ HOST=0.0.0.0 APP_PASSWORD=choose-a-long-password pnpm start
 ```
 
 Once an account exists, `APP_PASSWORD` is ignored and you should remove it. Use HTTPS (a reverse proxy) if you expose it outside your home network. Without `APP_PASSWORD`, the server rejects requests that are not addressed to `localhost` or `HOST`.
+
+## Behind a reverse proxy
+
+Keep `HOST=127.0.0.1` and list the public name(s) in `APP_ALLOWED_HOSTS`. Without it the host guard answers `403 forbidden_host` to any `Host` that is not `localhost`. The proxy must also send `X-Forwarded-Proto` so session cookies stay `Secure`.
+
+```bash
+APP_ALLOWED_HOSTS=3d.example.com pnpm start
+```
+
+```nginx
+location / {
+    proxy_pass http://127.0.0.1:4300;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-Proto $scheme;
+}
+```
+
+Creating the first admin from the public name still needs the setup token: only a request addressed to `localhost` from this PC skips it.
 
 ## In-app settings
 
