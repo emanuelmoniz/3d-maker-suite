@@ -83,7 +83,7 @@ export async function buildApp(
     /** Watch the project folders and scan once at startup (off in tests). */
     watchProjects?: boolean;
     /** Bind address and optional password, checked while no users exist (off in tests). */
-    access?: { host: string; password?: string };
+    access?: { host: string; password?: string; allowedHosts?: string[] };
     /** One-time token that allows `POST /api/auth/setup` from another device (ADR-0012). */
     setupToken?: string;
     /** Network settings editable from Settings (needs a data dir). */

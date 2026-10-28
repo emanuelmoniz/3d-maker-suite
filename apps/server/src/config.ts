@@ -49,6 +49,23 @@ function parsePort(value: string, from: string): number {
   return port.data;
 }
 
+const HOST_NAME =
+  /^([a-z0-9]([a-z0-9-]*[a-z0-9])?)(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*$|^\[[0-9a-f:.]+\]$/;
+
+/** `APP_ALLOWED_HOSTS`: bare host names or IPs only (IPv6 in brackets), so no pattern can widen the guard. */
+function parseAllowedHosts(value: string | undefined): string[] {
+  const hosts = (value ?? "")
+    .split(",")
+    .map((h) => h.trim().toLowerCase())
+    .filter(Boolean);
+  for (const h of hosts)
+    if (!HOST_NAME.test(h))
+      throw new Error(
+        `Invalid APP_ALLOWED_HOSTS entry: "${h}" (use a bare host name or IP: no scheme, port, path or wildcard; IPv6 in brackets)`,
+      );
+  return [...new Set(hosts)];
+}
+
 /** Precedence per setting: CLI flag > env > config file > default. */
 export const DEFAULT_HOST = "127.0.0.1";
 export const DEFAULT_PORT = 4300;
@@ -85,6 +102,8 @@ export function loadConfig(env: Env = process.env, argv: string[] = process.argv
     dataDir: dir,
     /** Required to reach the app from other devices (HTTP Basic auth, any user name). */
     password: env.APP_PASSWORD || undefined,
+    /** Public host names a reverse proxy forwards in `Host`; env only (a deployment decision). */
+    allowedHosts: parseAllowedHosts(env.APP_ALLOWED_HOSTS),
     /** Registers the fake adapter so the Integrations page can be tried without a vendor account. */
     mockIntegration: env.APP_MOCK_INTEGRATION === "1",
   };

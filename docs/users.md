@@ -5,7 +5,7 @@ By default there is no login: anyone who can reach the app has full access. That
 ## Create the first admin
 
 1. Start the app. Until an account exists, the server prints a **setup token** in its console (in Docker, run `docker compose logs app`).
-2. Open the app. On this PC, the setup page opens directly. From another device, enter the setup token it asks for.
+2. Open the app. On this PC, the setup page opens directly. From another device, enter the setup token it asks for. Setup from a public domain behind a reverse proxy ([configuration.md](configuration.md#behind-a-reverse-proxy)) still needs the token.
 3. Enter your email, name and a password of at least 8 characters. This account is an admin.
 
 Until the first account exists, anyone who can open the page can create it. Do this right after the first start, before the app is reachable from your network.

@@ -166,10 +166,17 @@ export function readDevice(db: Db, token: string, now = new Date()) {
  * Users: a session (or a device token, ADR-0014) for everything but the public routes, then the
  * role table. The host guard stays
  * on for loopback binds, so a DNS-rebinding page can't reach setup from the server's own browser.
+ * `allowedHosts` (`APP_ALLOWED_HOSTS`) lists the public names a reverse proxy forwards; both guards accept them.
  */
-export function authGuard(db: Db, access?: { host: string; password?: string }) {
+export function authGuard(
+  db: Db,
+  access?: { host: string; password?: string; allowedHosts?: string[] },
+) {
   const legacy = access && accessGuard(access);
-  const hostOnly = access && isLoopback(access.host) && accessGuard({ host: access.host });
+  const hostOnly =
+    access &&
+    isLoopback(access.host) &&
+    accessGuard({ host: access.host, allowedHosts: access.allowedHosts });
 
   return async (req: FastifyRequest, reply: FastifyReply) => {
     if (!hasUsers(db)) return legacy?.(req, reply);
