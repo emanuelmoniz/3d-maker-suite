@@ -261,11 +261,13 @@ export function AlertButtons({
 }) {
   const { t } = useTranslation();
   const act = useAlertAction();
+  // Not mutate's onSuccess: the refetch that hides the alert unmounts these buttons first, and
+  // React Query skips a per-call callback once its component is gone. The promise still settles.
   const run = (action: Parameters<typeof act.mutate>[0]["action"]) =>
-    act.mutate(
-      { id: a.id, action },
-      { onSuccess: action === "dismiss" || typeof action === "object" ? onHidden : undefined },
-    );
+    act
+      .mutateAsync({ id: a.id, action })
+      .then(() => (action === "dismiss" || typeof action === "object") && onHidden?.())
+      .catch(() => {}); // as with mutate: a failed action leaves the alert as it was
   const snooze = (days: number) => (
     <Button key={days} onClick={() => run({ snooze: days })}>
       {t(postpone ? "alerts:postpone" : "alerts:snooze", { count: days })}
