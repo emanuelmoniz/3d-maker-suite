@@ -1065,3 +1065,21 @@ export const pairingCodes = sqliteTable("pairing_codes", {
     .references(() => users.id, { onDelete: "cascade" }),
   expiresAt: text().notNull(),
 });
+
+/**
+ * Hub → device events waiting for the device (ADR-0014). `seq` is the SSE event id; a reconnect's
+ * `Last-Event-ID` acks (deletes) everything up to it.
+ */
+export const hubEvents = sqliteTable(
+  "hub_events",
+  {
+    seq: integer().primaryKey({ autoIncrement: true }),
+    deviceId: text()
+      .notNull()
+      .references(() => devices.id, { onDelete: "cascade" }),
+    type: text().notNull(),
+    data: text({ mode: "json" }).notNull(),
+    createdAt: text().notNull(),
+  },
+  (t) => [index("hub_events_device_idx").on(t.deviceId, t.seq)],
+);

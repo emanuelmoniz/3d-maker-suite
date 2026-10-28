@@ -40,3 +40,18 @@ export type PairingCodeCreate = z.input<typeof pairingCodeCreateSchema>;
 export type PairingCode = z.infer<typeof pairingCodeSchema>;
 export type PairInput = z.input<typeof pairSchema>;
 export type PairResult = z.infer<typeof pairResultSchema>;
+
+/**
+ * Hub → device events on `GET /api/hub/events` (ADR-0014): SSE frames `id: <seq>`, `event: <type>`,
+ * `data: <json>`. The connector sends its last id as `Last-Event-ID`; that acks everything up to it.
+ */
+export const hubEventSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("device.renamed"), name }),
+]);
+/** What the connector reports when it opens the stream (`X-Connector-Version`, `X-Connector-OS`). */
+export const connectorInfoSchema = pairSchema.pick({ connectorVersion: true, os: true });
+
+/** A `: hb` comment this often keeps the device online and proxies from closing a quiet stream. */
+export const HUB_HEARTBEAT_MS = 15_000;
+
+export type HubEvent = z.infer<typeof hubEventSchema>;

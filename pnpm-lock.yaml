@@ -179,6 +179,34 @@ importers:
         specifier: ^3.2.0
         version: 3.2.7(@types/debug@4.1.13)(@types/node@22.20.5)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.15)(yaml@2.9.1)
 
+  apps/connector:
+    dependencies:
+      '@3d-maker-suite/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@3d-maker-suite/host':
+        specifier: workspace:*
+        version: link:../../packages/host
+      zod:
+        specifier: ^4.6.5
+        version: 4.6.5
+    devDependencies:
+      '@3d-maker-suite/db':
+        specifier: workspace:*
+        version: link:../../packages/db
+      '@3d-maker-suite/server':
+        specifier: workspace:*
+        version: link:../server
+      '@types/node':
+        specifier: ^22.20.5
+        version: 22.20.5
+      '@types/yazl':
+        specifier: ^3.3.1
+        version: 3.3.1
+      yazl:
+        specifier: ^3.3.1
+        version: 3.3.1
+
   apps/server:
     dependencies:
       '@3d-maker-suite/3mf':
@@ -199,6 +227,9 @@ importers:
       '@3d-maker-suite/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@3d-maker-suite/host':
+        specifier: workspace:*
+        version: link:../../packages/host
       '@fastify/static':
         specifier: ^10.1.5
         version: 10.1.5
@@ -401,6 +432,25 @@ importers:
       drizzle-kit:
         specifier: ^0.31.11
         version: 0.31.11
+
+  packages/host:
+    dependencies:
+      yauzl:
+        specifier: ^3.4.0
+        version: 3.4.0
+    devDependencies:
+      '@types/node':
+        specifier: ^22.20.5
+        version: 22.20.5
+      '@types/yauzl':
+        specifier: ^3.4.0
+        version: 3.4.0
+      '@types/yazl':
+        specifier: ^3.3.1
+        version: 3.3.1
+      yazl:
+        specifier: ^3.3.1
+        version: 3.3.1
 
   packages/slicer-presets:
     dependencies:

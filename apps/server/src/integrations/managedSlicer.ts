@@ -29,9 +29,9 @@ import {
   type SlicerSystem,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
+import { extract } from "@3d-maker-suite/host";
 import { and, eq, isNull } from "drizzle-orm";
 import { raise } from "../alerts/evaluate.ts";
-import { extract } from "../backup/backup.ts";
 import { HttpError } from "../errors.ts";
 import { fetchReleases, repoReleasesUrl } from "../updates/updates.ts";
 

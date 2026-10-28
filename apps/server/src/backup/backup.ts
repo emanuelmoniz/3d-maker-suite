@@ -8,10 +8,10 @@ import {
   statSync,
 } from "node:fs";
 import { mkdir, readFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 import { pipeline } from "node:stream/promises";
 import type { Db } from "@3d-maker-suite/db";
-import yauzl from "yauzl";
+import { extract } from "@3d-maker-suite/host";
 import yazl from "yazl";
 import { readPreferences } from "../lib/preferences.ts";
 
@@ -114,44 +114,11 @@ export async function runAutoBackup(db: Db, dataDir: string) {
     rmSync(join(backupsDir(dataDir), old.name), { force: true });
 }
 
-function openZip(file: string) {
-  return new Promise<yauzl.ZipFile>((res, rej) =>
-    yauzl.open(file, { lazyEntries: true }, (e, z) =>
-      e || !z ? rej(e ?? new Error("bad zip")) : res(z),
-    ),
-  );
-}
-
 /** Whitelisted, traversal-safe destination for a zip entry, or null to skip it. */
 const allowed = (entry: string) =>
   entry === "manifest.json" ||
   FILES.includes(entry) ||
   DIRS.some((d) => entry.startsWith(`${d}/`) && !entry.split("/").includes(".."));
-
-/** Extracts the entries of a zip that `ok` lets through (default: a backup's) into `dest`. */
-export async function extract(file: string, dest: string, ok = allowed) {
-  const zip = await openZip(file);
-  await new Promise<void>((resolve, reject) => {
-    zip.on("error", reject);
-    zip.on("end", resolve);
-    zip.on("entry", (e: yauzl.Entry) => {
-      const next = () => zip.readEntry();
-      if (e.fileName.endsWith("/") || !ok(e.fileName)) return next();
-      zip.openReadStream(e, async (err, stream) => {
-        if (err || !stream) return reject(err);
-        try {
-          const out = join(dest, e.fileName);
-          mkdirSync(dirname(out), { recursive: true });
-          await pipeline(stream, createWriteStream(out));
-          next();
-        } catch (x) {
-          reject(x);
-        }
-      });
-    });
-    zip.readEntry();
-  });
-}
 
 export class BackupError extends Error {}
 
@@ -169,7 +136,7 @@ export async function stageRestore(dataDir: string, file: string) {
   const staged = join(dataDir, STAGED);
   rmSync(staged, { recursive: true, force: true });
   try {
-    await extract(file, staged).catch(() => {
+    await extract(file, staged, allowed).catch(() => {
       throw new BackupError("Not a valid backup file");
     });
     let m: { format?: unknown; app?: unknown };

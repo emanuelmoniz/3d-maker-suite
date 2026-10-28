@@ -4,6 +4,7 @@ import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { openDb } from "@3d-maker-suite/db";
+import { createAutostart } from "@3d-maker-suite/host";
 import fastifyStatic from "@fastify/static";
 import { buildApp } from "./app.ts";
 import { applyPendingRestore } from "./backup/backup.ts";
@@ -11,7 +12,6 @@ import { loadConfig } from "./config.ts";
 import { adapters } from "./integrations/registry.ts";
 import { isLoopback } from "./lib/access.ts";
 import { hasUsers } from "./lib/auth.ts";
-import { createAutostart } from "./lib/autostart.ts";
 
 /** Exit code that asks the launcher for a restart (RESTART in scripts/update.mjs). */
 const RESTART = 75;

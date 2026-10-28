@@ -4,6 +4,7 @@ import {
   serverConfigPatchSchema,
   serverConfigResponseSchema,
 } from "@3d-maker-suite/core";
+import type { Autostart } from "@3d-maker-suite/host";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import {
   type Config,
@@ -12,7 +13,6 @@ import {
   readSavedConfig,
   writeSavedConfig,
 } from "../config.ts";
-import type { Autostart } from "../lib/autostart.ts";
 
 export const serverConfigRoutes =
   (

@@ -1,15 +1,18 @@
 import { randomBytes } from "node:crypto";
 import {
   apiErrorSchema,
+  connectorInfoSchema,
   deviceRenameSchema,
   deviceSchema,
+  HUB_HEARTBEAT_MS,
+  type HubEvent,
   pairingCodeCreateSchema,
   pairingCodeSchema,
   pairResultSchema,
   pairSchema,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
-import { asc, eq, lte } from "drizzle-orm";
+import { and, asc, eq, lte } from "drizzle-orm";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
@@ -17,7 +20,7 @@ import { loginLimiter } from "../lib/auth.ts";
 import { readPreferences } from "../lib/preferences.ts";
 import { tokenHash } from "../lib/session.ts";
 
-const { devices, pairingCodes, users } = schema;
+const { devices, hubEvents, pairingCodes, users } = schema;
 const params = z.object({ id: z.uuid() });
 const errors = { 404: apiErrorSchema, 409: apiErrorSchema };
 
@@ -34,7 +37,8 @@ const codeHash = (code: string) => tokenHash(code.toUpperCase().replace(/[^A-Z0-
 
 /**
  * Hub management and pairing (ADR-0014). Admin only (lib/auth.ts), except `POST /pair`, which is
- * public: the connector has only the code. With the hub off, none of it exists.
+ * public: the connector has only the code, and `GET /events`, which any paired device may hold. With
+ * the hub off, none of it exists.
  */
 export const hubRoutes =
   (db: Db): FastifyPluginAsyncZod =>
@@ -75,21 +79,100 @@ export const hubRoutes =
           .returning({ id: devices.id })
           .get();
         if (!row) throw new HttpError(404, "not_found", "Device not found");
+        publish(row.id, { type: "device.renamed", name: req.body.name });
         return reply.status(204).send(null);
       },
     );
 
-    // Revoke: the token stops working on its next request.
+    // Revoke: the token stops working at once, and its open stream ends.
     app.delete(
       "/devices/:id",
       { schema: { params, response: { 204: z.null(), ...errors } } },
       async (req, reply) => {
         const gone = db.delete(devices).where(eq(devices.id, req.params.id)).run().changes;
         if (!gone) throw new HttpError(404, "not_found", "Device not found");
+        for (const s of streams.get(req.params.id) ?? []) s.end();
         req.log.info({ deviceId: req.params.id }, "device revoked");
         return reply.status(204).send(null);
       },
     );
+
+    // Open event streams per device: write a frame, or end the stream.
+    const streams = new Map<string, Set<{ write: (frame: string) => void; end: () => void }>>();
+    const frame = (seq: number, event: HubEvent) =>
+      `id: ${seq}\nevent: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`;
+    /** Queues an event for a device and sends it now if the device is connected. */
+    const publish = (deviceId: string, event: HubEvent) => {
+      const { seq } = db
+        .insert(hubEvents)
+        .values({ deviceId, type: event.type, data: event, createdAt: new Date().toISOString() })
+        .returning({ seq: hubEvents.seq })
+        .get();
+      for (const s of streams.get(deviceId) ?? []) s.write(frame(seq, event));
+    };
+    app.addHook("preClose", async () => {
+      for (const set of streams.values()) for (const s of set) s.end();
+    });
+
+    /**
+     * Hub → device commands (ADR-0014), device tokens only. `Last-Event-ID` acks (deletes) the
+     * device's events up to it; the rest are replayed, then live ones follow. A `: hb` comment every
+     * 15 s keeps the device online and proxies from closing a quiet stream.
+     */
+    app.get("/events", async (req, reply) => {
+      const deviceId = req.deviceId;
+      if (!deviceId) throw new HttpError(403, "forbidden", "Only a paired device can open this");
+      const info = connectorInfoSchema.safeParse({
+        connectorVersion: req.headers["x-connector-version"],
+        os: req.headers["x-connector-os"],
+      });
+      if (info.success && (info.data.connectorVersion || info.data.os))
+        db.update(devices).set(info.data).where(eq(devices.id, deviceId)).run();
+      const cursor = Number(req.headers["last-event-id"]);
+      const mine = eq(hubEvents.deviceId, deviceId);
+
+      reply.hijack();
+      const res = reply.raw;
+      res.writeHead(200, {
+        "content-type": "text/event-stream",
+        "cache-control": "no-cache",
+        "x-accel-buffering": "no",
+        // Once the hub ends a stream (revoke, shutdown) the socket goes too, instead of idling in
+        // keep-alive, which held up the server's close.
+        connection: "close",
+      });
+      res.write(": open\n\n");
+      // Synchronous from here to the registration (better-sqlite3), so no event falls in between.
+      if (Number.isSafeInteger(cursor) && cursor > 0)
+        db.delete(hubEvents)
+          .where(and(mine, lte(hubEvents.seq, cursor)))
+          .run();
+      for (const e of db.select().from(hubEvents).where(mine).orderBy(asc(hubEvents.seq)).all())
+        res.write(frame(e.seq, e.data as HubEvent));
+
+      const stream = { write: (f: string) => res.write(f), end: () => res.end() };
+      const set = streams.get(deviceId) ?? new Set();
+      streams.set(deviceId, set.add(stream));
+      const beat = setInterval(() => {
+        const live = db
+          .select({ disabled: users.disabled })
+          .from(devices)
+          .innerJoin(users, eq(users.id, devices.userId))
+          .where(eq(devices.id, deviceId))
+          .get();
+        if (!live || live.disabled || !readPreferences(db).hubEnabled) return res.end();
+        db.update(devices)
+          .set({ lastSeenAt: new Date().toISOString() })
+          .where(eq(devices.id, deviceId))
+          .run();
+        res.write(": hb\n\n");
+      }, HUB_HEARTBEAT_MS);
+      res.on("close", () => {
+        clearInterval(beat);
+        set.delete(stream);
+        if (!set.size) streams.delete(deviceId);
+      });
+    });
 
     app.post(
       "/pairing-codes",

@@ -1,9 +1,9 @@
 import type { Notification, NotificationChannel } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
+import { decrypt, encrypt, type Secrets } from "@3d-maker-suite/host";
 import { eq } from "drizzle-orm";
 import nodemailer from "nodemailer";
 import { z } from "zod";
-import { decrypt, encrypt, type Secrets } from "../integrations/secrets.ts";
 
 // ntfy refuses messages over 4096 bytes; the short form keeps a few detail lines.
 const NTFY_LINES = 5;

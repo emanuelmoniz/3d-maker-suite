@@ -13,8 +13,10 @@ import { describe, expect, it } from "vitest";
 import {
   beginPending,
   compareVersions,
+  dataDir,
   launchArgs,
   newest,
+  product,
   relink,
   rotate,
   serverUrl,
@@ -155,6 +157,19 @@ describe("serverUrl", () => {
   });
 });
 
+describe("product", () => {
+  it("is the app without product.json, and the connector with its own", () => {
+    const here = install();
+    expect(product(here)).toMatchObject({ id: "3d-maker-suite", app: "server", port: 4300 });
+    const connector = { id: "3d-maker-suite-connector", name: "C", app: "connector", port: 4301 };
+    writeFileSync(join(here, "product.json"), JSON.stringify(connector));
+    const p = product(here);
+    expect(p).toEqual(connector);
+    expect(dataDir({ APPDATA: "A" }, "win32", p.id)).toBe(join("A", "3d-maker-suite-connector"));
+    expect(serverUrl(here, {}, [], p.port)).toBe("http://127.0.0.1:4301/");
+  });
+});
+
 describe("launchArgs", () => {
   it("takes --background out of the server's args", () => {
     expect(launchArgs([])).toEqual({ background: false, args: [] });
@@ -172,6 +187,12 @@ describe("writeLoader", () => {
     const html = readFileSync(out, "utf8");
     expect(html).toContain('const APP_URL = "http://[::1]:5200/";');
     expect(html).not.toContain("4300");
+  });
+
+  it("names the product", () => {
+    const out = join(install(), "starting.html");
+    writeLoader(join(import.meta.dirname, "loader.html"), out, "http://x/", "Connector");
+    expect(readFileSync(out, "utf8")).toContain("<title>Starting Connector…</title>");
   });
 });
 

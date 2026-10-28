@@ -5,10 +5,7 @@ import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { promisify } from "node:util";
 
-/** Same name the Windows installer's checkbox writes (packaging/setup.iss). */
-const NAME = "3D Maker Suite";
 const RUN_KEY = "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run";
-const LABEL = "com.3dmakersuite.login";
 
 /** Runs a program and rejects on a non-zero exit; swapped for a fake in tests. */
 export type Runner = (cmd: string, args: string[]) => Promise<unknown>;
@@ -23,37 +20,45 @@ const desktopArg = (s: string) =>
 
 /**
  * Start at login for the current user, no admin: Windows HKCU Run via reg.exe, macOS LaunchAgent,
- * Linux autostart .desktop. `cmd` is the full command line (APP_LAUNCH_CMD); `home` and `run` are
- * test seams.
+ * Linux autostart .desktop. `cmd` is the full command line (APP_LAUNCH_CMD). `name` is also the Run
+ * value the Windows installer writes (packaging/setup.iss) and `id` names the .desktop file; the
+ * defaults are the app's, the connector passes its own. `home` and `exec` are test seams.
  */
 export function createAutostart(
   cmd: string,
-  { platform = process.platform, home = homedir(), exec = run } = {},
+  {
+    name = "3D Maker Suite",
+    id = "3d-maker-suite",
+    label = "com.3dmakersuite.login",
+    platform = process.platform,
+    home = homedir(),
+    exec = run,
+  } = {},
 ): Autostart {
   if (platform === "win32")
     return {
       get: () =>
-        exec("reg", ["query", RUN_KEY, "/v", NAME]).then(
+        exec("reg", ["query", RUN_KEY, "/v", name]).then(
           () => true,
           () => false,
         ),
       set: async (on) => {
-        if (on) await exec("reg", ["add", RUN_KEY, "/v", NAME, "/t", "REG_SZ", "/d", cmd, "/f"]);
-        else if (await createAutostart(cmd, { platform, home, exec }).get())
-          await exec("reg", ["delete", RUN_KEY, "/v", NAME, "/f"]);
+        if (on) await exec("reg", ["add", RUN_KEY, "/v", name, "/t", "REG_SZ", "/d", cmd, "/f"]);
+        else if (await createAutostart(cmd, { name, platform, exec }).get())
+          await exec("reg", ["delete", RUN_KEY, "/v", name, "/f"]);
       },
     };
 
   const mac = platform === "darwin";
   const file = mac
-    ? join(home, "Library", "LaunchAgents", `${LABEL}.plist`)
-    : join(home, ".config", "autostart", "3d-maker-suite.desktop");
+    ? join(home, "Library", "LaunchAgents", `${label}.plist`)
+    : join(home, ".config", "autostart", `${id}.desktop`);
   const body = mac
     ? `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-  <key>Label</key><string>${LABEL}</string>
+  <key>Label</key><string>${label}</string>
   <key>ProgramArguments</key><array><string>/bin/sh</string><string>-c</string><string>${xml(cmd)}</string></array>
   <key>RunAtLoad</key><true/>
 </dict>
@@ -61,7 +66,7 @@ export function createAutostart(
 `
     : `[Desktop Entry]
 Type=Application
-Name=${NAME}
+Name=${name}
 Exec=/bin/sh -c ${desktopArg(cmd)}
 Terminal=false
 `;

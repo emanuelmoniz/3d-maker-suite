@@ -1,5 +1,6 @@
 import { openDb, schema } from "@3d-maker-suite/db";
-import { beforeAll, describe, expect, it } from "vitest";
+import { eq } from "drizzle-orm";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { buildApp } from "./app.ts";
 import { hashPassword } from "./lib/password.ts";
 
@@ -85,12 +86,12 @@ describe("hub devices", () => {
     expect((await send("DELETE", `/api/hub/devices/${deviceId}`)).statusCode).toBe(204);
     expect((await bearer(token)).statusCode).toBe(401);
 
-    // Turning the hub off stops every device too.
+    // Turning the hub off stops every device too, with hub_off rather than 401 (not a revoke).
     const again = await pair(
       (await send("POST", "/api/hub/pairing-codes", { userId: viewer.id })).json().code,
     );
     await send("PATCH", "/api/preferences", { hubEnabled: false });
-    expect((await bearer(again.json().token)).statusCode).toBe(401);
+    expect((await bearer(again.json().token)).statusCode).toBe(404);
   });
 
   it("refuses expired codes and locks an IP after 5 wrong ones", async () => {
@@ -105,5 +106,101 @@ describe("hub devices", () => {
     for (let i = 0; i < 4; i++) expect((await pair("AAAA-AAAA")).statusCode).toBe(401);
     const fresh = (await send("POST", "/api/hub/pairing-codes", { userId: viewer.id })).json();
     expect((await pair(fresh.code)).statusCode).toBe(429);
+  });
+});
+
+describe("hub events", () => {
+  let close: (() => Promise<unknown>) | undefined;
+  afterEach(async () => {
+    vi.useRealTimers();
+    await close?.();
+  });
+
+  // A listening hub with one viewer device; `open` holds GET /api/hub/events like the connector.
+  const live = async () => {
+    const s = await setup();
+    close = () => s.app.close();
+    await s.send("PATCH", "/api/preferences", { hubEnabled: true });
+    const { code } = (
+      await s.send("POST", "/api/hub/pairing-codes", { userId: s.viewer.id })
+    ).json();
+    const { token, deviceId } = (await s.pair(code)).json();
+    const base = await s.app.listen({ port: 0, host: "127.0.0.1" });
+    const open = async (headers: Record<string, string> = {}) => {
+      const res = await fetch(`${base}/api/hub/events`, {
+        headers: { authorization: `Bearer ${token}`, ...headers },
+      });
+      const reader = (res.body as ReadableStream<Uint8Array>).getReader();
+      const dec = new TextDecoder();
+      let text = "";
+      /** Reads until `text` contains `what`; null once the hub ended the stream. */
+      const until = async (what: string) => {
+        while (!text.includes(what)) {
+          const { done, value } = await reader.read();
+          if (done) return null;
+          text += dec.decode(value, { stream: true });
+        }
+        return text;
+      };
+      return { res, until, cancel: () => reader.cancel() };
+    };
+    return { ...s, token, deviceId, open };
+  };
+
+  it("is for devices only and records the connector's version", async () => {
+    const { send, open, deviceId } = await live();
+    expect((await send("GET", "/api/hub/events")).statusCode).toBe(403);
+    const s = await open({ "x-connector-version": "5.0.1", "x-connector-os": "linux x64" });
+    expect(s.res.headers.get("content-type")).toBe("text/event-stream");
+    expect(s.res.headers.get("x-accel-buffering")).toBe("no");
+    await s.until(": open");
+    const [d] = (await send("GET", "/api/hub/devices")).json();
+    expect(d).toMatchObject({ id: deviceId, connectorVersion: "5.0.1", os: "linux x64" });
+    await s.cancel();
+  });
+
+  it("pushes events live, replays missed ones and deletes acked ones", async () => {
+    const { db, send, open, deviceId } = await live();
+    const rename = (name: string) => send("PATCH", `/api/hub/devices/${deviceId}`, { name });
+    const a = await open();
+    await a.until(": open");
+    await rename("One");
+    const text = await a.until('"One"');
+    expect(text).toContain(`event: device.renamed\ndata: {"type":"device.renamed","name":"One"}`);
+    const first = Number(/^id: (\d+)$/m.exec(text ?? "")?.[1]);
+    await a.cancel();
+
+    await rename("Two"); // while disconnected
+    const b = await open({ "last-event-id": String(first) });
+    const replay = await b.until('"Two"');
+    expect(replay).not.toContain('"One"');
+    expect(
+      db
+        .select()
+        .from(schema.hubEvents)
+        .all()
+        .map((e) => e.data),
+    ).toEqual([{ type: "device.renamed", name: "Two" }]);
+    await b.cancel();
+  });
+
+  it("ends the stream on revoke", async () => {
+    const { send, open, deviceId } = await live();
+    const s = await open();
+    await s.until(": open");
+    await send("DELETE", `/api/hub/devices/${deviceId}`);
+    expect(await s.until("never")).toBeNull();
+  });
+
+  it("beats every 15 s and ends once the user is disabled", async () => {
+    const { db, open, viewer } = await live();
+    vi.useFakeTimers({ toFake: ["setInterval"] });
+    const s = await open();
+    await s.until(": open");
+    vi.advanceTimersByTime(15_000);
+    await s.until(": hb");
+    db.update(schema.users).set({ disabled: true }).where(eq(schema.users.id, viewer.id)).run();
+    vi.advanceTimersByTime(15_000);
+    expect(await s.until("never")).toBeNull();
   });
 });

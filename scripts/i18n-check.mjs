@@ -1,14 +1,16 @@
-// Compares i18n key usages ("ns:key" string literals, or t("key") for common) in apps/web/src
-// with keys in locales/en/*.json. Plural suffixes (_one, _other, ...) count as the base key.
+// Compares i18n key usages ("ns:key" string literals, or t("key") for common) in apps/web/src and
+// apps/connector/src (its own `connector` namespace)
+// with keys in their locales/en/*.json. Plural suffixes (_one, _other, ...) count as the base key.
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
-const src = "apps/web/src";
 const files = (dir) =>
   readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
     e.isDirectory() ? files(join(dir, e.name)) : [join(dir, e.name)],
   );
-const all = files(src).map((f) => f.replaceAll("\\", "/"));
+const all = ["apps/web/src", "apps/connector/src"]
+  .flatMap(files)
+  .map((f) => f.replaceAll("\\", "/"));
 
 const defined0 = new Set();
 for (const f of all.filter((f) => /locales[/]en[/].+\.json$/.test(f))) {

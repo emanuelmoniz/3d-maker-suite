@@ -1,5 +1,4 @@
 import { execFile } from "node:child_process";
-import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -16,6 +15,7 @@ import {
   updateHistoryEntrySchema,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
+import { BundleError, fetchBundle as downloadBundle } from "@3d-maker-suite/host";
 import { and, eq, isNull } from "drizzle-orm";
 import { z } from "zod";
 import { raise } from "../alerts/evaluate.ts";
@@ -23,7 +23,6 @@ import {
   BackupError,
   backupsDir,
   createBackup,
-  extract,
   stagedDir,
   stageRestore,
 } from "../backup/backup.ts";
@@ -274,43 +273,23 @@ export function createUpdater(
    */
   async function fetchBundle(tag: string) {
     const fail = () => new HttpError(502, "fetch_failed", "Could not download the release");
-    const get = async (url: string) => {
-      const res = await download(url, { signal: AbortSignal.timeout(10 * 60_000) }).catch(() => {
-        throw fail();
-      });
-      if (!res.ok) throw fail();
-      // ponytail: the whole zip in memory (~50 MB); stream it if bundles grow a lot.
-      return Buffer.from(await res.arrayBuffer());
-    };
     const release = (releases ?? (await fetchAll().catch(() => []))).find((r) => r.tag === tag);
     if (!release) throw fail();
     const base = release.url.replace("/releases/tag/", "/releases/download/");
     const asset = `3d-maker-suite-${tag}-app-${OS[process.platform]}-${process.arch}.zip`;
-    const sums = (await get(`${base}/SHA256SUMS`)).toString("utf8");
-    const want = sums
-      .split("\n")
-      .map((l) => l.trim().split(/ [ *]/))
-      .find(([, name]) => name === asset)?.[0];
-    const zip = await get(`${base}/${asset}`);
-    if (!want || createHash("sha256").update(zip).digest("hex") !== want)
-      throw new HttpError(502, "bad_checksum", "The download does not match its checksum");
-
-    const file = join(updateDir, "download.zip");
     const partial = join(versionsDir, `${tag.slice(1)}.partial`);
-    mkdirSync(updateDir, { recursive: true });
-    rmSync(partial, { recursive: true, force: true });
-    writeFileSync(file, zip);
+    await downloadBundle(base, asset, partial, download).catch((e) => {
+      throw e instanceof BundleError && e.code === "bad_checksum"
+        ? new HttpError(502, "bad_checksum", "The download does not match its checksum")
+        : fail();
+    });
     try {
-      // yauzl refuses absolute and `..` entry names itself.
-      await extract(file, partial, () => true);
       const pkg = JSON.parse(readFileSync(join(partial, "package.json"), "utf8"));
       if (nodeNeeded(pkg) > Number(process.versions.node.split(".")[0]))
         throw new HttpError(409, "needs_installer", "This release needs the new installer");
     } catch (e) {
       rmSync(partial, { recursive: true, force: true });
       throw e instanceof HttpError ? e : fail();
-    } finally {
-      rmSync(file, { force: true });
     }
     return partial;
   }

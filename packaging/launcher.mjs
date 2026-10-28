@@ -94,18 +94,32 @@ export function relink(app) {
   }
 }
 
-/** Same default as dataDir() in apps/server/src/config.ts (the launcher can't import it). */
-export function dataDir(env = process.env, platform = process.platform) {
+/** The app; packaging/build.mjs writes product.json next to the launcher for another product. */
+const APP = { id: "3d-maker-suite", name: "3D Maker Suite", app: "server", port: 4300 };
+
+/** What this launcher runs: `{ id, name, app (the apps/* folder), port }`. */
+export function product(here) {
+  try {
+    return { ...APP, ...JSON.parse(readFileSync(join(here, "product.json"), "utf8")) };
+  } catch {
+    return APP;
+  }
+}
+
+/**
+ * Same default as dataDir() in apps/server/src/config.ts and apps/connector/src/state.ts (the
+ * launcher can't import them); `id` is the product's.
+ */
+export function dataDir(env = process.env, platform = process.platform, id = APP.id) {
   if (env.APP_DATA_DIR) return env.APP_DATA_DIR;
   const home = homedir();
-  if (platform === "win32")
-    return join(env.APPDATA ?? join(home, "AppData", "Roaming"), "3d-maker-suite");
-  if (platform === "darwin") return join(home, "Library", "Application Support", "3d-maker-suite");
-  return join(env.XDG_DATA_HOME ?? join(home, ".local", "share"), "3d-maker-suite");
+  if (platform === "win32") return join(env.APPDATA ?? join(home, "AppData", "Roaming"), id);
+  if (platform === "darwin") return join(home, "Library", "Application Support", id);
+  return join(env.XDG_DATA_HOME ?? join(home, ".local", "share"), id);
 }
 
 /** Where the app listens: CLI flag > env > saved config.json > default, like loadConfig(). */
-export function serverUrl(dir, env = process.env, argv = process.argv.slice(2)) {
+export function serverUrl(dir, env = process.env, argv = process.argv.slice(2), port = APP.port) {
   const { values } = parseArgs({
     args: argv,
     options: { host: { type: "string" }, port: { type: "string" } },
@@ -116,10 +130,10 @@ export function serverUrl(dir, env = process.env, argv = process.argv.slice(2)) 
     saved = JSON.parse(readFileSync(join(dir, "config.json"), "utf8"));
   } catch {}
   const host = String(values.host ?? env.HOST ?? saved.host ?? "127.0.0.1");
-  const port = Number(values.port ?? env.PORT ?? saved.port ?? 4300);
+  const at = Number(values.port ?? env.PORT ?? saved.port ?? port);
   // A wildcard bind is reached through loopback; IPv6 literals need brackets.
   const name = ["0.0.0.0", "::", "[::]"].includes(host) ? "127.0.0.1" : host;
-  return `http://${name.includes(":") && !name.startsWith("[") ? `[${name}]` : name}:${port}/`;
+  return `http://${name.includes(":") && !name.startsWith("[") ? `[${name}]` : name}:${at}/`;
 }
 
 export const healthy = (url) =>
@@ -209,12 +223,14 @@ export function launchArgs(argv) {
   return { background: argv.includes(BACKGROUND), args: argv.filter((a) => a !== BACKGROUND) };
 }
 
-/** Writes `template` to `out` with the app's URL filled in; returns `out`. */
-export function writeLoader(template, out, url) {
+/** Writes `template` to `out` with the app's URL and the product's name filled in; returns `out`. */
+export function writeLoader(template, out, url, name = APP.name) {
   const html = readFileSync(template, "utf8");
   writeFileSync(
     out,
-    html.replace(/const APP_URL = ".*?";/, `const APP_URL = ${JSON.stringify(url)};`),
+    html
+      .replace(/const APP_URL = ".*?";/, `const APP_URL = ${JSON.stringify(url)};`)
+      .replaceAll(APP.name, name),
   );
   return out;
 }
@@ -228,19 +244,18 @@ export function rotate(file, max = 5 * 1024 * 1024) {
 
 async function main() {
   const here = import.meta.dirname;
+  const p = product(here);
   // The .app is signed and read-only: versions and logs live next to the data instead.
   const mac = process.platform === "darwin";
-  const install = mac
-    ? join(homedir(), "Library", "Application Support", "3d-maker-suite", "install")
-    : here;
+  const install = mac ? join(homedir(), "Library", "Application Support", p.id, "install") : here;
   const shipped = mac && {
     version: JSON.parse(readFileSync(join(here, "app", "package.json"), "utf8")).version,
     app: join(here, "app"),
   };
   const { background, args } = launchArgs(process.argv.slice(2));
   // Single instance: a second double-click only opens the browser.
-  const dir = dataDir();
-  const url = serverUrl(dir, process.env, args);
+  const dir = dataDir(process.env, process.platform, p.id);
+  const url = serverUrl(dir, process.env, args, p.port);
   if (await healthy(url)) return background || openBrowser(url);
 
   mkdirSync(join(install, "logs"), { recursive: true });
@@ -258,7 +273,9 @@ async function main() {
   let loader = false;
   if (!background)
     try {
-      openBrowser(writeLoader(join(here, "loader.html"), join(install, "starting.html"), url));
+      openBrowser(
+        writeLoader(join(here, "loader.html"), join(install, "starting.html"), url, p.name),
+      );
       loader = true;
     } catch (e) {
       say(`no loader page: ${e.message}`);
@@ -289,7 +306,7 @@ async function main() {
       const log = openSync(serverLog, "a");
       const exited = new Promise((done) => {
         server = spawn(process.execPath, ["src/main.ts", ...args], {
-          cwd: join(run.app, "apps", "server"),
+          cwd: join(run.app, "apps", p.app),
           stdio: ["ignore", log, log],
           windowsHide: true,
           env: {
@@ -308,7 +325,7 @@ async function main() {
         // The port may have changed since the launcher started: read it again.
         const ok = await Promise.race([
           exited.then(() => false),
-          waitHealthy(serverUrl(dataDir()), TRIAL_MS),
+          waitHealthy(serverUrl(dir, process.env, args, p.port), TRIAL_MS),
         ]);
         if (!ok) {
           server.kill();

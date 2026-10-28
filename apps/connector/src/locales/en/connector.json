@@ -1,0 +1,40 @@
+{
+  "appName": "3D Maker Suite Connector",
+  "pair": {
+    "title": "Pair with your hub",
+    "intro": "Ask an admin for a pairing code. They make one in Hub management in the web app. A code works once, for 10 minutes.",
+    "revoked": "This device was removed from the hub. Pair it again to reconnect.",
+    "hubUrl": "Hub address",
+    "hubUrlHint": "The address you open the web app at, for example https://maker.example.com",
+    "code": "Pairing code",
+    "name": "Device name",
+    "submit": "Pair",
+    "errors": {
+      "badUrl": "Enter the hub's address, starting with http:// or https://.",
+      "unreachable": "Could not reach a hub at this address. Check the address and that the hub is running.",
+      "invalidCode": "The pairing code is wrong, used or expired. Ask an admin for a new one.",
+      "tooManyAttempts": "Too many wrong codes. Wait 15 minutes, then try again.",
+      "hubOff": "This server has the hub turned off. An admin turns it on in Settings → Server."
+    }
+  },
+  "status": {
+    "hub": "Hub",
+    "device": "Device",
+    "state": "State",
+    "version": "Connector version",
+    "syncFolder": "Sync folder",
+    "states": {
+      "connecting": "Connecting…",
+      "online": "Online",
+      "offline": "Offline, retrying",
+      "hubOff": "The hub is turned off on this server"
+    },
+    "lastError": "Last error: {{error}}",
+    "openFolder": "Open sync folder",
+    "openApp": "Open the web app",
+    "manage": "Rename or remove this device in Hub management in the web app.",
+    "updateFailed": "The update to version {{version}} did not start, so this connector stays on {{current}}.",
+    "updateError": "Could not download the update: {{error}}",
+    "hubOlder": "The hub runs an older version than this connector. Install the connector that matches the hub."
+  }
+}

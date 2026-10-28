@@ -12,12 +12,12 @@ import {
   SYNC_FREQUENCIES,
 } from "@3d-maker-suite/core";
 import { openDb, schema } from "@3d-maker-suite/db";
+import { loadKey } from "@3d-maker-suite/host";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import { buildApp } from "./app.ts";
 import { catalogName, spoolProfiles } from "./integrations/imports.ts";
-import { loadKey } from "./integrations/secrets.ts";
 import { printerRows, spoolRows } from "./integrations/sourceRows.ts";
 import { createSyncer, schedulePattern } from "./integrations/sync.ts";
 import { filamentProfileIdFor, modelIdFor } from "./lib/catalog.ts";

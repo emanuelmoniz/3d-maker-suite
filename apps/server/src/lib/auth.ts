@@ -186,6 +186,8 @@ export function authGuard(
 
     const bearer = /^Bearer (\S+)$/.exec(req.headers.authorization ?? "")?.[1];
     if (bearer) {
+      // Not a 401: the connector would take that as a revoke and drop its token.
+      if (!readPreferences(db).hubEnabled) return deny(reply, 404, "hub_off", "The hub is off");
       const device = readDevice(db, bearer);
       if (!device) return deny(reply, 401, "unauthorized", "Device not paired");
       req.user = device.user;
@@ -199,7 +201,9 @@ export function authGuard(
       req.user = session.user;
     }
     req.log = req.log.child({ actor: req.user.id });
-    if (!can(req.user.role, req.url, req.method))
+    // Any role's device holds its event stream; the hub routes are admin-only otherwise.
+    const stream = req.deviceId && req.url.split("?")[0] === "/api/hub/events";
+    if (!stream && !can(req.user.role, req.url, req.method))
       return deny(reply, 403, "forbidden", "Not allowed for your role");
   };
 }
