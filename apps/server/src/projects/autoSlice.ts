@@ -11,8 +11,8 @@ import { type Db, schema } from "@3d-maker-suite/db";
 import { eq } from "drizzle-orm";
 import type { FastifyBaseLogger } from "fastify";
 import { raise } from "../alerts/evaluate.ts";
-import { fingerprint } from "./fingerprint.ts";
-import { projectFile } from "./rootFs.ts";
+import { fingerprint, sameAsScanned } from "./fingerprint.ts";
+import { onDeviceRoot, projectFile } from "./rootFs.ts";
 import {
   projectSliceJob,
   type SliceQueue,
@@ -99,6 +99,7 @@ export async function autoSlice(
     .where(eq(projectSlicePlates.projectId, projectId))
     .all();
   const alert = alertOf(db, project);
+  const device = onDeviceRoot(db, project.rootId);
 
   for (const file of new Set(rows.map((r) => r.file))) {
     const mine = rows.filter((r) => r.file === file);
@@ -107,6 +108,9 @@ export async function autoSlice(
     let sha = "gone";
     let stale = mine;
     if (model) {
+      // A device's file is pulled only when its scan says it changed.
+      const seen = after.files.find((f) => f.path === file);
+      if (device && mine.every((r) => sameAsScanned(seen, r))) continue;
       // Same size and mtime as a row's last slice (or save): that row is current, no hash needed.
       const abs = await projectFile(db, project, file);
       const s = abs ? await stat(abs).catch(() => null) : null;

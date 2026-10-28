@@ -191,6 +191,9 @@ importers:
         specifier: ^4.6.5
         version: 4.6.5
     devDependencies:
+      '@3d-maker-suite/adapter-mock':
+        specifier: workspace:*
+        version: link:../../packages/adapters/mock
       '@3d-maker-suite/db':
         specifier: workspace:*
         version: link:../../packages/db

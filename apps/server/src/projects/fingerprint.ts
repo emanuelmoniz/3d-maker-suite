@@ -18,6 +18,18 @@ export async function fingerprint(abs: string): Promise<Fingerprint | null> {
   }
 }
 
+/**
+ * Whether a device root's file, as its last scan lists it, is the one a fingerprint was taken of,
+ * so it needn't be pulled. Its pulled copy carries the device's mtime, to within a millisecond.
+ */
+export const sameAsScanned = (
+  file: { size: number; mtime?: number } | undefined,
+  saved: Pick<Fingerprint, "fileSize" | "fileMtimeMs">,
+) =>
+  file?.mtime !== undefined &&
+  file.size === saved.fileSize &&
+  Math.abs(file.mtime - saved.fileMtimeMs) < 1;
+
 /** Unchanged when size and mtime match; else only when the bytes still hash the same. */
 export async function stateOf(abs: string, saved: Fingerprint): Promise<PlateState> {
   const s = await stat(abs).catch(() => null);

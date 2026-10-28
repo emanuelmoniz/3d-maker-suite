@@ -1,13 +1,20 @@
 import { watch as fsWatch } from "node:fs";
-import { mkdir, realpath, rename } from "node:fs/promises";
-import { dirname, isAbsolute, join, posix, relative, resolve, sep, win32 } from "node:path";
+import { realpath } from "node:fs/promises";
+import { join, resolve } from "node:path";
 import { PROJECT_TRASH_DIR, ROOT_HUB } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
-import { discoverFolders } from "@3d-maker-suite/host";
+import {
+  below,
+  discoverFolders,
+  inRoot,
+  relParts,
+  rootMkdir,
+  rootTrash,
+} from "@3d-maker-suite/host";
 import { asc, eq } from "drizzle-orm";
 import { HttpError } from "../errors.ts";
-import { insideRoots } from "../lib/launcher.ts";
 import { fsError } from "../routes/fs.ts";
+import type { DeviceFiles } from "./deviceFiles.ts";
 
 const { roots } = schema;
 
@@ -18,24 +25,31 @@ export type Place = { root: Root; rel: string };
 
 /**
  * All file access under one project root (ADR-0014). `rel` paths are root-relative with `/`: never
- * absolute, no empty, `.` or `..` segment; a link out of the root is refused. A device root's
- * files are on its device: nothing is local, and its index comes from the connector.
+ * absolute, no empty, `.` or `..` segment (400 `invalid_path`); a link out of the root is refused.
+ * A device root's files are on its device: nothing is local, files are pulled when needed, its
+ * writes run on its connector and its index comes from there.
  */
 export type RootFs = {
   readonly root: Root;
   /**
    * The real local path of an existing `rel` ("" = the root), or null when it is missing or
-   * outside the root. For code that hands a path to a library or program: the scan, 3MF parsing,
-   * fingerprints, the slicer CLI, open in slicer.
+   * outside the root. For code that works in the folder: the scan, the file manager, open in
+   * slicer. Always null on a device.
    */
   local(rel: string): Promise<string | null>;
+  /**
+   * A local path to read the file `rel` from: `local`, or on a device a copy pulled into the temp
+   * cache. For code that hands a file to a library or program: 3MF parsing, fingerprints, the
+   * slicer CLI, a download. Null when it is missing.
+   */
+  file(rel: string): Promise<string | null>;
   /** `rel` of a local absolute path strictly below this root (real paths), or null. */
   relative(abs: string): Promise<string | null>;
   /** Project folders (`rel`): the first folder from the root down with a model file, or at `depth`. */
   discover(depth: number): Promise<string[]>;
   /** Makes a new folder whose parent exists: 409 `folder_exists` when it's there. */
   mkdir(rel: string): Promise<void>;
-  /** Moves `rel` to `<root>/<trash>/<as>`; returns where it went (local). */
+  /** Moves `rel` to `<root>/<trash>/<as>`; returns where it went (on the root's location). */
   trash(rel: string, as: string): Promise<string>;
   /** Watches the root; `rel` of what changed (null = unknown). Returns the stop function. */
   watch(
@@ -44,41 +58,25 @@ export type RootFs = {
   ): Promise<() => void>;
 };
 
-const invalid = () => new HttpError(400, "invalid_path", "Invalid path");
-
-/** Looser than `segments` (paths.ts): a folder may have any name its OS allows. */
-function parts(rel: string) {
-  if (rel === "") return [];
-  const p = rel.split("/");
-  if (posix.isAbsolute(rel) || win32.isAbsolute(rel)) throw invalid();
-  for (const s of p)
-    if (
-      s === "" ||
-      s === "." ||
-      s === ".." ||
-      s.includes("\0") ||
-      (sep === "\\" && /[\\:]/.test(s))
-    )
-      throw invalid();
-  return p;
-}
-
-/** `abs` relative to `base` with `/`, if strictly below it; else null. */
-function below(base: string, abs: string) {
-  const r = relative(base, abs);
-  if (r === "" || r === ".." || r.startsWith(`..${sep}`) || isAbsolute(r)) return null;
-  return r.split(sep).join("/");
-}
+const os = <T>(p: Promise<T>) => p.catch((e) => Promise.reject(fsError(e)));
+/** A folder made where it can't be, or that is there: the same answers on the hub and a device. */
+const mkdirError = (e: NodeJS.ErrnoException) =>
+  e.code === "EEXIST"
+    ? new HttpError(409, "folder_exists", "The folder exists")
+    : e.code === "ENOENT"
+      ? new HttpError(400, "invalid_root", "Not a configured project folder")
+      : fsError(e);
 
 function localRoot(root: Root): RootFs {
   const base = () => realpath(resolve(root.path)).catch(() => null);
   const local = async (rel: string) => {
     const b = await base();
-    return b && insideRoots(join(b, ...parts(rel)), [b]);
+    return b && os(inRoot(b, rel));
   };
   return {
     root,
     local,
+    file: local,
     async relative(abs) {
       const b = await base();
       const real = b && (await realpath(resolve(abs)).catch(() => null));
@@ -89,29 +87,14 @@ function localRoot(root: Root): RootFs {
       return b ? discoverFolders(b, depth) : [];
     },
     async mkdir(rel) {
-      const p = parts(rel);
-      const parent = p.length ? await local(p.slice(0, -1).join("/")) : null;
-      if (!parent) throw new HttpError(400, "invalid_root", "Not a configured project folder");
-      await mkdir(join(parent, p.at(-1) ?? "")).catch((e) =>
-        Promise.reject(
-          e.code === "EEXIST"
-            ? new HttpError(409, "folder_exists", "The folder exists")
-            : fsError(e),
-        ),
-      );
+      const b = await base();
+      if (!b) throw new HttpError(400, "invalid_root", "Not a configured project folder");
+      await rootMkdir(b, rel).catch((e) => Promise.reject(mkdirError(e)));
     },
     async trash(rel, as) {
       const b = await base();
-      const src = await local(rel);
-      if (!b || !src || src === b) throw new HttpError(404, "path_not_found", "Path not found");
-      const dest = join(b, PROJECT_TRASH_DIR, ...parts(as));
-      await mkdir(dirname(dest), { recursive: true });
-      // A trash folder that is a link elsewhere would carry the files out of the root.
-      if (!(await insideRoots(dirname(dest), [b])))
-        throw new HttpError(403, "path_denied", "Trash is outside the project root");
-      // ponytail: a plain rename, so EXDEV across volumes (a mount inside the root) fails.
-      await rename(src, dest).catch((e) => Promise.reject(fsError(e)));
-      return dest;
+      if (!b) throw new HttpError(404, "path_not_found", "Path not found");
+      return os(rootTrash(b, rel, PROJECT_TRASH_DIR, as));
     },
     async watch(onChange, onError) {
       const b = await base();
@@ -125,28 +108,45 @@ function localRoot(root: Root): RootFs {
   };
 }
 
-/**
- * A root on a device (ADR-0014). Nothing in it is local, so callers that need a file see it as
- * missing; writes are refused.
- * ponytail: pulling a file and writes over the connector are Plan 5.0.0 Step 7.
- */
-function deviceRoot(root: Root): RootFs {
-  const refused = () =>
-    Promise.reject(new HttpError(409, "device_root", "Not available for a folder on a device yet"));
+/** Each app's device files (one hub channel and pull cache per database). */
+const devices = new WeakMap<Db, DeviceFiles>();
+export const useDeviceFiles = (db: Db, files: DeviceFiles) => void devices.set(db, files);
+
+/** A root on a device (ADR-0014): pulls, and writes through its connector. */
+function deviceRoot(db: Db, root: Root): RootFs {
+  /** Checks paths here before anything is asked (the connector checks them again). */
+  const files = (...rels: string[]) => {
+    try {
+      for (const rel of rels) relParts(rel);
+    } catch (e) {
+      throw fsError(e as NodeJS.ErrnoException);
+    }
+    const f = devices.get(db);
+    if (!f) throw new HttpError(409, "device_offline", "The device is offline");
+    return f;
+  };
   return {
     root,
     local: async () => null,
+    file: async (rel) => files(rel).pull(root, rel),
     relative: async () => null,
     discover: async () => [],
-    mkdir: refused,
-    trash: refused,
+    mkdir: async (rel) => files(rel).mkdir(root, rel, mkdirError),
+    trash: async (rel, as) => files(rel, as).trash(root, rel, as),
     watch: async () => () => {},
   };
 }
 
 export const onDevice = (root: Pick<Root, "location">) => root.location !== ROOT_HUB;
 
-export const rootFs = (root: Root): RootFs => (onDevice(root) ? deviceRoot(root) : localRoot(root));
+/** Whether a project's root is on a device. */
+export const onDeviceRoot = (db: Db, rootId: string | null) => {
+  const root = rootId ? db.select().from(roots).where(eq(roots.id, rootId)).get() : undefined;
+  return !!root && onDevice(root);
+};
+
+export const rootFs = (db: Db, root: Root): RootFs =>
+  onDevice(root) ? deviceRoot(db, root) : localRoot(root);
 
 export const listRoots = (db: Db) => db.select().from(roots).orderBy(asc(roots.position)).all();
 
@@ -160,7 +160,7 @@ export const rootPaths = (db: Db) => hubRoots(db).map((r) => r.path);
 export async function locate(db: Db, abs: string): Promise<Place | null> {
   let best: Place | null = null;
   for (const root of listRoots(db)) {
-    const rel = await rootFs(root).relative(abs);
+    const rel = await rootFs(db, root).relative(abs);
     if (rel !== null && (!best || rel.split("/").length < best.rel.split("/").length))
       best = { root, rel };
   }
@@ -174,17 +174,20 @@ export const absPath = (root: Root, rel: string) => join(root.path, ...rel.split
 export async function projectDir(db: Db, p: { rootId: string | null; folder: string | null }) {
   const root = p.rootId ? db.select().from(roots).where(eq(roots.id, p.rootId)).get() : undefined;
   if (!root || p.folder === null) return null;
-  const fs = rootFs(root);
+  const fs = rootFs(db, root);
   const dir = await fs.local(p.folder);
   return dir ? { fs, rel: p.folder, dir } : null;
 }
 
-/** The checked local path of a file in a project's folder (`file`: relative, `/`), or null. */
+/**
+ * A checked local path to read a file of a project's folder from (`file`: relative, `/`), or null.
+ * A device root's file is pulled (RootFs `file`).
+ */
 export async function projectFile(
   db: Db,
   p: { rootId: string | null; folder: string | null },
   file: string,
 ) {
-  const own = await projectDir(db, p);
-  return own ? own.fs.local(`${own.rel}/${file}`) : null;
+  const root = p.rootId ? db.select().from(roots).where(eq(roots.id, p.rootId)).get() : undefined;
+  return root && p.folder !== null ? rootFs(db, root).file(`${p.folder}/${file}`) : null;
 }

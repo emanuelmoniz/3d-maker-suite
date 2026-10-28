@@ -11,6 +11,7 @@ const { hubEvents } = schema;
 type Stream = { write: (frame: string) => void; end: () => void };
 type Waiting = {
   deviceId: string;
+  timer?: NodeJS.Timeout;
   done: (reply: DeviceReply) => void;
   fail: (err: Error) => void;
 };
@@ -67,28 +68,33 @@ export function createHubChannel(db: Db) {
 
     /**
      * Sends a request to an online device and waits for its answer, checked with `result`. 409
-     * `device_offline` when it isn't connected (or goes), 504 `device_timeout` after 10 s. The
-     * device's OS error (ENOENT, ...) comes back as the same error a local call gives.
+     * `device_offline` when it isn't connected (or goes), 504 `device_timeout` after `ms`. The
+     * device's OS error (ENOENT, ...) comes back as `error` makes it: by default the same error a
+     * local call gives.
      */
     ask<T extends z.ZodType>(
       deviceId: string,
       event: (requestId: string) => HubEvent,
       result: T,
+      {
+        ms = ASK_MS,
+        error = fsError,
+      }: { ms?: number; error?: (err: NodeJS.ErrnoException) => Error } = {},
     ): Promise<z.infer<T>> {
       const set = online(deviceId) && streams.get(deviceId);
       if (!set) return Promise.reject(offline());
       const requestId = randomUUID();
       return new Promise<DeviceReply>((resolve, reject) => {
-        const timer = setTimeout(
-          () => w.fail(new HttpError(504, "device_timeout", "The device didn't answer")),
-          ASK_MS,
-        );
         const settle = () => {
-          clearTimeout(timer);
+          clearTimeout(w.timer);
           waiting.delete(requestId);
         };
         const w: Waiting = {
           deviceId,
+          timer: setTimeout(
+            () => w.fail(new HttpError(504, "device_timeout", "The device didn't answer")),
+            ms,
+          ),
           done: (r) => {
             settle();
             resolve(r);
@@ -102,7 +108,7 @@ export function createHubChannel(db: Db) {
         // Live only: a request isn't queued, so a reconnect never replays a stale one.
         for (const s of set) s.write(frame(null, event(requestId)));
       }).then((reply) => {
-        if (!reply.ok) throw fsError(Object.assign(new Error(reply.code), { code: reply.code }));
+        if (!reply.ok) throw error(Object.assign(new Error(reply.code), { code: reply.code }));
         const parsed = result.safeParse(reply.result);
         if (!parsed.success)
           throw new HttpError(502, "device_bad_reply", "The device's answer is invalid");
@@ -116,6 +122,17 @@ export function createHubChannel(db: Db) {
       if (!w || w.deviceId !== deviceId) return false;
       w.done(reply);
       return true;
+    },
+
+    /**
+     * A request the device answers with a transfer: the 10 s timeout stops (the transfer takes
+     * its time), and the caller settles it. Undefined when nothing (of this device) waits.
+     */
+    claim(deviceId: string, requestId: string) {
+      const w = waiting.get(requestId);
+      if (!w || w.deviceId !== deviceId) return undefined;
+      clearTimeout(w.timer);
+      return w;
     },
   };
 }

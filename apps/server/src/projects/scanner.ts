@@ -124,7 +124,7 @@ export function createProjectScanner(
   const spots = () =>
     Promise.all(
       hubRoots(db).map(async (root) => {
-        const fs = rootFs(root);
+        const fs = rootFs(db, root);
         return { root, fs, base: await fs.local("") };
       }),
     );
@@ -215,7 +215,7 @@ export function createProjectScanner(
       ).filter((d): d is string => d !== null),
       images: row.gallery.images.filter((p) => listed.has(p)),
     };
-    // ponytail: a chosen cover on a device keeps the stored thumbnail; pulling it is Step 7.
+    // ponytail: a chosen cover on a device keeps the stored thumbnail; a scan never pulls a file.
     const cover: Cover | null =
       coverFile && dir !== null
         ? { kind: "image", abs: join(dir, ...coverFile.split("/")) }
@@ -279,11 +279,9 @@ export function createProjectScanner(
     if (changed) db.update(projects).set(next).where(eq(projects.id, id)).run();
     // Even when nothing stored changed: a 3MF can change its bytes and keep its plates.
     // Never awaited: slicing work must not hold up the scan (or the request that asked for it).
-    // ponytail: a device root's files aren't here to slice; pulling them is Step 7.
-    if (dir !== null)
-      opts
-        .onScanned?.(id, projectMetaSchema.parse(row.meta))
-        .catch((err) => log.warn({ err, folder: place.rel }, "auto slice failed"));
+    opts
+      .onScanned?.(id, projectMetaSchema.parse(row.meta))
+      .catch((err) => log.warn({ err, folder: place.rel }, "auto slice failed"));
     return changed ? ("updated" as const) : ("unchanged" as const);
   }
 
@@ -310,7 +308,7 @@ export function createProjectScanner(
       const scan = fromDevice(sent.scan as Omit<DeviceFolder, "cover">, link, null);
       return { dir: null, scan, keepThumbnail: true };
     }
-    const dir = await rootFs(place.root).local(place.rel);
+    const dir = await rootFs(db, place.root).local(place.rel);
     if (!dir) throw new HttpError(404, "not_found", "Project folder not found");
     const prefs = readPreferences(db);
     const scan = await scanFolder(dir, link, prefs.projectScanMaxFiles, place.root.filesDepth);
@@ -545,7 +543,7 @@ export function createProjectScanner(
     for (const root of all) {
       const deepest = root.filesDepth == null ? Infinity : root.projectDepth + root.filesDepth;
       try {
-        const stop = await rootFs(root).watch(
+        const stop = await rootFs(db, root).watch(
           (rel) => {
             const parts = rel?.split("/") ?? [];
             if (parts.some(isHidden) || parts.length - 1 > deepest) return;

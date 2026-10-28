@@ -1,5 +1,6 @@
-import { randomBytes } from "node:crypto";
-import { hostname } from "node:os";
+import { randomBytes, randomUUID } from "node:crypto";
+import { hostname, tmpdir } from "node:os";
+import { join } from "node:path";
 import type { IntegrationAdapter, LogModule } from "@3d-maker-suite/core";
 import type { Db } from "@3d-maker-suite/db";
 import { type Autostart, loadKey } from "@3d-maker-suite/host";
@@ -28,6 +29,8 @@ import { CUSTOM_LEVELS, createLogSink, moduleOf, pruneLogs, success } from "./li
 import { readPreferences } from "./lib/preferences.ts";
 import { pruneSessions } from "./lib/session.ts";
 import { autoSlice, autoSliceSlicer } from "./projects/autoSlice.ts";
+import { createDeviceFiles } from "./projects/deviceFiles.ts";
+import { useDeviceFiles } from "./projects/rootFs.ts";
 import { createProjectScanner } from "./projects/scanner.ts";
 import { createSliceQueue } from "./projects/sliceQueue.ts";
 import { accessoriesRoutes } from "./routes/accessories.ts";
@@ -185,6 +188,16 @@ export async function buildApp(
   });
   await app.register(usersRoutes(db), { prefix: "/api/users" });
   const hub = createHubChannel(db);
+  // Files pulled from device roots (ADR-0014); a temp folder of its own without a data dir (tests).
+  const deviceFiles = createDeviceFiles(
+    db,
+    hub,
+    dataDir
+      ? join(dataDir, "cache", "device-files")
+      : join(tmpdir(), `3d-maker-suite-device-files-${randomUUID()}`),
+  );
+  useDeviceFiles(db, deviceFiles);
+  app.addHook("onClose", async () => deviceFiles.close());
   await app.register(hubRoutes(db, hub), { prefix: "/api/hub" });
   await app.register(
     preferencesRoutes(db, dataDir, (v) => {
@@ -243,7 +256,7 @@ export async function buildApp(
     onScanned: (id, before) => autoSlice(db, syncer.adapters, sliceQueue, projectsLog, id, before),
   });
   await app.register(rootsRoutes(db, hub, scanner), { prefix: "/api/roots" });
-  await app.register(hubDeviceRoutes(db, hub, scanner), { prefix: "/api/hub/device" });
+  await app.register(hubDeviceRoutes(db, hub, scanner, deviceFiles), { prefix: "/api/hub/device" });
   await app.register(projectsRoutes(db, dataDir, scanner, hub, syncer.adapters), {
     prefix: "/api/projects",
   });

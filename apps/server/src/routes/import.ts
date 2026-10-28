@@ -279,7 +279,7 @@ export const importRoutes =
           const cur = r.targetId ? stored.get(r.targetId) : undefined;
           const place = r.folder ? await locate(db, r.folder) : null;
           const same = !!place && place.root.id === cur?.rootId && place.rel === cur.folder;
-          const dir = place && !same && (await rootFs(place.root).local(place.rel));
+          const dir = place && !same && (await rootFs(db, place.root).local(place.rel));
           const read = dir
             ? await scanFolder(dir, null, projectScanMaxFiles, place.root.filesDepth)
             : null;
@@ -352,7 +352,7 @@ export const importRoutes =
             decisions = await makeFolders(stored, decisions, made);
             review.plan(stored, decisions, policy);
           } catch (e) {
-            await Promise.all(made.map(dropNewFolder));
+            await Promise.all(made.map((m) => dropNewFolder(db, m)));
             throw e;
           }
         }
@@ -371,7 +371,7 @@ export const importRoutes =
                 )
               : review.write(stored, decisions, policy, backup);
         } catch (e) {
-          await Promise.all(made.map(dropNewFolder));
+          await Promise.all(made.map((m) => dropNewFolder(db, m)));
           throw e;
         }
         // Projects: the scan reads each folder in (files, cover, names not given), then prints are

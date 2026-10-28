@@ -1,6 +1,7 @@
+import { Readable } from "node:stream";
 import { HUB_HEARTBEAT_MS, hubEventSchema, pairResultSchema } from "@3d-maker-suite/core";
 import { z } from "zod";
-import { createRootSync } from "./roots.ts";
+import { createRootSync, type Request } from "./roots.ts";
 import type { Store } from "./state.ts";
 
 export type LinkStatus = "unpaired" | "connecting" | "online" | "offline" | "hubOff" | "revoked";
@@ -81,16 +82,28 @@ export function createLink({ store, version, os, onHubVersion, log = () => {} }:
   let running: AbortController | undefined;
 
   /** The hub's device API (`/api/hub/device/...`) with this device's token. */
-  const request = (path: string, init: { method?: string; body?: unknown } = {}) =>
+  const request: Request = (path, init = {}) =>
     fetch(`${store.get().hubUrl}/api/hub/device${path}`, {
       method: init.method ?? "GET",
       headers: {
         authorization: `Bearer ${store.token()}`,
         ...(init.body !== undefined && { "content-type": "application/json" }),
+        ...(init.file && {
+          "content-type": "application/octet-stream",
+          "x-file-sha256": init.file.sha256,
+          "x-file-mtime": String(init.file.mtimeMs),
+        }),
       },
-      body: init.body === undefined ? undefined : JSON.stringify(init.body),
-      signal: AbortSignal.timeout(60_000),
-    });
+      body: init.file
+        ? (Readable.toWeb(init.file.stream) as ReadableStream)
+        : init.body === undefined
+          ? undefined
+          : JSON.stringify(init.body),
+      // A large file over a slow link takes its time; a stalled one ends some time.
+      signal: AbortSignal.timeout(init.file ? 30 * 60_000 : 60_000),
+      // A stream body needs it (undici); the DOM's RequestInit type doesn't know it.
+      duplex: "half",
+    } as RequestInit);
   const roots = createRootSync({ request, log });
 
   const handle = ({ id, data }: SseEvent) => {

@@ -1,6 +1,8 @@
-import { type FSWatcher, watch } from "node:fs";
+import { createHash } from "node:crypto";
+import { createReadStream, type FSWatcher, type ReadStream, watch } from "node:fs";
 import { realpath, stat } from "node:fs/promises";
 import { join } from "node:path";
+import { pipeline } from "node:stream/promises";
 import {
   DEVICE_COVER_MAX,
   type DeviceFolder,
@@ -8,21 +10,32 @@ import {
   deviceIndexResultSchema,
   deviceRootSchema,
   type HubEvent,
+  PROJECT_TRASH_DIR,
 } from "@3d-maker-suite/core";
 import {
   discoverFolders,
   folderDigest,
+  inRoot,
   isHidden,
   listFolder,
   readCover,
+  rootMkdir,
+  rootTrash,
   scanFolder,
 } from "@3d-maker-suite/host";
 import { z } from "zod";
 
-/** A request to the hub's device API (`/api/hub/device/...`) with this device's token. */
+/**
+ * A request to the hub's device API (`/api/hub/device/...`) with this device's token: a JSON
+ * `body`, or the bytes of a `file`.
+ */
 export type Request = (
   path: string,
-  init?: { method?: string; body?: unknown },
+  init?: {
+    method?: string;
+    body?: unknown;
+    file?: { stream: ReadStream; sha256: string; mtimeMs: number };
+  },
 ) => Promise<Response>;
 
 /** No event on a folder for this long: look at it. */
@@ -229,13 +242,44 @@ export function createRootSync({
     });
   }
 
-  /** Answers the hub's folder browser; an OS error goes back as its code. */
-  async function list(requestId: string, path: string | null) {
-    const body = await listFolder(path).then(
+  /** Answers a request of the hub with what `work` gives; an OS error goes back as its code. */
+  async function answer(requestId: string, work: () => Promise<unknown>) {
+    const body = await work().then(
       (result) => ({ ok: true, result }),
       (e: NodeJS.ErrnoException) => ({ ok: false, code: e.code ?? "EIO" }),
     );
     await request(`/replies/${requestId}`, { method: "POST", body }).catch(() => {});
+  }
+
+  /**
+   * The real path of a root the hub asks about: only a root of this device that is synced now.
+   * Every `rel` in it is checked again here (rootPath.ts): no `..`, no absolute path, no link out.
+   */
+  function baseOf(rootId: string) {
+    const l = live.find((x) => x.root.id === rootId);
+    if (!l) throw Object.assign(new Error("Not a root of this device"), { code: "ENOENT" });
+    return l.base;
+  }
+
+  /** Sends a file the hub asked for: hashed first, then streamed with that hash and its mtime. */
+  async function upload(requestId: string, rootId: string, rel: string) {
+    try {
+      const abs = await inRoot(baseOf(rootId), rel);
+      const s = abs ? await stat(abs) : null;
+      if (!abs || !s?.isFile()) throw Object.assign(new Error(rel), { code: "ENOENT" });
+      const hash = createHash("sha256");
+      await pipeline(createReadStream(abs), hash);
+      const file = {
+        stream: createReadStream(abs),
+        sha256: hash.digest("hex"),
+        mtimeMs: s.mtimeMs,
+      };
+      const res = await request(`/files/${requestId}`, { method: "PUT", file });
+      if (!res.ok) log(`upload ${rel}: HTTP ${res.status}`);
+    } catch (e) {
+      log(`upload ${rel}: ${e instanceof Error ? e.message : e}`);
+      await answer(requestId, () => Promise.reject(e));
+    }
   }
 
   return {
@@ -244,7 +288,17 @@ export function createRootSync({
     /** A hub event for the roots; anything else is ignored. */
     handle(event: HubEvent) {
       if (event.type === "roots.changed") void start();
-      else if (event.type === "fs.list") void list(event.requestId, event.path);
+      else if (event.type === "fs.list") void answer(event.requestId, () => listFolder(event.path));
+      else if (event.type === "fs.upload") void upload(event.requestId, event.rootId, event.rel);
+      else if (event.type === "fs.mkdir")
+        void answer(event.requestId, async () => {
+          await rootMkdir(baseOf(event.rootId), event.rel);
+          return null;
+        });
+      else if (event.type === "fs.trash")
+        void answer(event.requestId, async () => ({
+          path: await rootTrash(baseOf(event.rootId), event.rel, PROJECT_TRASH_DIR, event.as),
+        }));
     },
     state: () => ({ watching: live.filter((l) => l.watcher).length, error }),
     /** Resolves once everything started so far is done (tests). */

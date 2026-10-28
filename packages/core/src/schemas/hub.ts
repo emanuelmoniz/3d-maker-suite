@@ -54,6 +54,21 @@ export const hubEventSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("roots.changed") }),
   /** One level of the folder browser (`listFolder`); `path` null = where browsing starts. */
   z.object({ type: z.literal("fs.list"), requestId: id, path: z.string().max(4096).nullable() }),
+  /**
+   * Send a file of a device root: `PUT /api/hub/device/files/:requestId` with the bytes and its
+   * `X-File-Sha256` and `X-File-Mtime`, or an error answer.
+   */
+  z.object({ type: z.literal("fs.upload"), requestId: id, rootId: id, rel: z.string().max(1024) }),
+  /** Make a folder in a device root; the answer's result is null. */
+  z.object({ type: z.literal("fs.mkdir"), requestId: id, rootId: id, rel: z.string().max(1024) }),
+  /** Move `rel` to the root's trash as `as`; the answer's result is `{ path }`, where it went. */
+  z.object({
+    type: z.literal("fs.trash"),
+    requestId: id,
+    rootId: id,
+    rel: z.string().max(1024),
+    as: z.string().max(1024),
+  }),
 ]);
 /** What the connector reports when it opens the stream (`X-Connector-Version`, `X-Connector-OS`). */
 export const connectorInfoSchema = pairSchema.pick({ connectorVersion: true, os: true });

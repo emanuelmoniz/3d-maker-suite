@@ -60,15 +60,16 @@ const RELEASE = {
 /**
  * Create / link / unlink / switch a project's folder. Create and link while it has no working
  * folder (none, or missing); create defaults to the root the missing folder was in. Letting go of
- * a working folder asks what happens to it: the trash, or kept as it is.
+ * a working folder asks what happens to it: the trash, or kept as it is. A folder on a device is
+ * created and trashed by its connector; the pickers browse this server only.
  */
 export function FolderActions({ project }: { project: ProjectDetail }) {
   const { t } = useTranslation();
   const id = useId();
-  const every = useRoots();
-  // The pickers browse this server: only its own roots.
-  const all = every.filter((r) => r.location === ROOT_HUB);
+  const all = useRoots();
   const roots = all.map((r) => r.path);
+  const hubRoots = all.filter((r) => r.location === ROOT_HUB).map((r) => r.path);
+  const onDevice = all.some((r) => r.id === project.rootId && r.location !== ROOT_HUB);
   const folder = useProjectFolder(project.id);
   // Open while asking: `path` set = switch to that folder, else unlink.
   const [pending, setPending] = useState<{ path?: string } | null>(null);
@@ -95,8 +96,8 @@ export function FolderActions({ project }: { project: ProjectDetail }) {
     setHow("keep");
     setPending(next);
   };
-  // ponytail: a folder on a device is created, linked and trashed there in Step 7.
-  if (every.some((r) => r.id === project.rootId && r.location !== ROOT_HUB)) return null;
+  // Its device isn't connected: nothing to do there until it is.
+  if (project.folderState === "offline") return null;
   return (
     <div className="grid gap-3">
       {!project.folderPath && project.unlinkedFolder && (
@@ -116,16 +117,18 @@ export function FolderActions({ project }: { project: ProjectDetail }) {
       )}
       {ok && (
         <div className="flex flex-wrap items-center gap-2">
-          <PathPicker
-            label={t("projects:folder.linkTitle")}
-            mode="folder"
-            canCreate
-            initial={old}
-            within={roots}
-            onPick={(path) => ask({ path })}
-          >
-            {t("projects:folder.change")}
-          </PathPicker>
+          {!onDevice && (
+            <PathPicker
+              label={t("projects:folder.linkTitle")}
+              mode="folder"
+              canCreate
+              initial={old}
+              within={hubRoots}
+              onPick={(path) => ask({ path })}
+            >
+              {t("projects:folder.change")}
+            </PathPicker>
+          )}
           <Button variant="danger" disabled={folder.isPending} onClick={() => ask({})}>
             {t("projects:folder.unlink")}
           </Button>
@@ -145,16 +148,18 @@ export function FolderActions({ project }: { project: ProjectDetail }) {
             <Button disabled={folder.isPending} onClick={() => folder.mutate({ rootId: chosen })}>
               {t(project.folderState ? "projects:folder.recreate" : "projects:folder.create")}
             </Button>
-            <PathPicker
-              label={t("projects:folder.linkTitle")}
-              mode="folder"
-              canCreate
-              initial={old}
-              within={roots}
-              onPick={(path) => folder.mutate({ path })}
-            >
-              {t(project.folderState ? "projects:folder.linkOther" : "projects:folder.link")}
-            </PathPicker>
+            {hubRoots.length > 0 && (
+              <PathPicker
+                label={t("projects:folder.linkTitle")}
+                mode="folder"
+                canCreate
+                initial={onDevice ? undefined : old}
+                within={hubRoots}
+                onPick={(path) => folder.mutate({ path })}
+              >
+                {t(project.folderState ? "projects:folder.linkOther" : "projects:folder.link")}
+              </PathPicker>
+            )}
           </div>
         ) : (
           <p className="text-muted">

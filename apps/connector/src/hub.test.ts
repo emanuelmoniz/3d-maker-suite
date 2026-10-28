@@ -1,8 +1,20 @@
 // A real connector link against a real hub (the server's buildApp on a free port).
-import { copyFileSync, mkdirSync, mkdtempSync, renameSync, rmSync } from "node:fs";
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { mockAdapter, fixture as mockState } from "@3d-maker-suite/adapter-mock";
+import { PROJECT_TRASH_DIR } from "@3d-maker-suite/core";
 import { openDb, schema } from "@3d-maker-suite/db";
 import { buildApp } from "@3d-maker-suite/server/src/app.ts";
 import { hashPassword } from "@3d-maker-suite/server/src/lib/password.ts";
@@ -35,11 +47,11 @@ describe("connector and hub", () => {
     for (const f of cleanup.splice(0).reverse()) await f();
   });
 
-  const hub = async () => {
+  const hub = async (opts: Parameters<typeof buildApp>[3] = {}) => {
     const db = openDb(":memory:");
     // A data dir of its own: a device folder's cover lands in <dataDir>/thumbnails.
     const dataDir = mkdtempSync(join(tmpdir(), "hub-data-"));
-    const app = await buildApp(db, { stream: { write: () => true } }, dataDir, {});
+    const app = await buildApp(db, { stream: { write: () => true } }, dataDir, opts);
     const passwordHash = await hashPassword("password123");
     const user = (role: "admin" | "viewer") =>
       db
@@ -55,8 +67,11 @@ describe("connector and hub", () => {
       payload: { email: admin.email, password: "password123" },
     });
     const cookie = String(login.headers["set-cookie"]).split(";")[0] ?? "";
-    const send = (method: "GET" | "POST" | "PATCH" | "DELETE", url: string, payload?: object) =>
-      app.inject({ method, url, payload, headers: { cookie } });
+    const send = (
+      method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE",
+      url: string,
+      payload?: object,
+    ) => app.inject({ method, url, payload, headers: { cookie } });
     await send("PATCH", "/api/preferences", { hubEnabled: true });
     const code = async () =>
       (await send("POST", "/api/hub/pairing-codes", { userId: viewer.id })).json().code as string;
@@ -129,8 +144,8 @@ describe("connector and hub", () => {
     const fixture = (name: string) =>
       fileURLToPath(new URL(`../../../packages/3mf/fixtures/${name}`, import.meta.url));
     /** A paired, online connector and a folder on "its" disk with one project in it. */
-    const setup = async () => {
-      const h = await hub();
+    const setup = async (opts?: Parameters<typeof hub>[0]) => {
+      const h = await hub(opts);
       const c = connector();
       await c.link.pair(h.url, await h.code(), "WS-1");
       await until(() => status(c.link) === "online");
@@ -189,5 +204,74 @@ describe("connector and hub", () => {
       await until(async () => (await projects()).length === 2, 10_000);
       expect((await projects()).every((x: { offline: boolean }) => !x.offline)).toBe(true);
     }, 40_000);
+
+    it("pulls a file when needed, slices it on the hub, and writes on the device", async () => {
+      const mock = mockState();
+      const { h, device, root, projects } = await setup({ adapters: [mockAdapter(mock)] });
+      const rootId = (
+        await h.send("POST", "/api/roots", { path: root, location: device.id })
+      ).json().id;
+      await until(async () => (await projects()).length === 1, 10_000);
+      const [p] = await projects();
+      const box = join(root, "001_Box", "box.3mf");
+
+      // Download and the 3D view: pulled from the device, checked by its hash.
+      const file = await h.send("GET", `/api/projects/${p.id}/file?path=box.3mf`);
+      expect(file.statusCode).toBe(200);
+      expect(file.rawPayload.equals(readFileSync(box))).toBe(true);
+      expect((await h.send("GET", `/api/projects/${p.id}/paint?path=box.3mf`)).statusCode).toBe(
+        200,
+      );
+      // Only files its scan lists are ever asked for.
+      for (const path of ["../../outside.3mf", "box.3mf/../../x.3mf", "nope.3mf"])
+        expect(
+          (await h.send("GET", `/api/projects/${p.id}/file?${new URLSearchParams({ path })}`))
+            .statusCode,
+        ).toBe(404);
+
+      // Sliced on the hub.
+      const slicer = (
+        await h.send("POST", "/api/integrations", { adapterId: "mock", secrets: { token: "t" } })
+      ).json().id;
+      await h.send("PATCH", `/api/integrations/${slicer}`, { slicerPath: process.execPath });
+      // Its plate uses slot 4: auto slicing keeps a setup that maps every slot.
+      const filaments = [null, null, null, null];
+      const plate = { file: "box.3mf", plate: 1, printProfileId: null, filaments };
+      expect(
+        (await h.send("PUT", `/api/projects/${p.id}/slicing`, { plates: [plate] })).statusCode,
+      ).toBe(200);
+      await h.send("POST", `/api/projects/${p.id}/slicing/run`);
+      const slicing = async () => (await h.send("GET", `/api/projects/${p.id}/slicing`)).json();
+      await until(async () => (await slicing()).plates[0].needsSlicing === false);
+      expect(mock.sliced).toHaveLength(1);
+      expect((await slicing()).plates[0].state).toBe("ok");
+
+      // Saved with other bytes on the device: auto slicing pulls it and slices again.
+      const saved = readFileSync(box);
+      // The same 3MF with a zip comment: other bytes, the same plates.
+      const comment = Buffer.from("save");
+      writeFileSync(
+        `${box}.tmp`,
+        Buffer.concat([saved.subarray(0, -2), Buffer.from([comment.length, 0]), comment]),
+      );
+      renameSync(`${box}.tmp`, box);
+      await until(() => mock.sliced?.length === 2, 15_000);
+
+      // A new project's folder is made on the device, and trashed there.
+      const made = await h.send("POST", "/api/projects", {
+        name: "Cup",
+        createFolder: true,
+        rootId,
+      });
+      expect(made.statusCode).toBe(201);
+      const cup = made.json();
+      expect(existsSync(cup.folderPath)).toBe(true);
+      expect((await h.send("GET", `/api/projects/${cup.id}`)).json().folderState).toBe("ok");
+      const trashed = await h.send("DELETE", `/api/projects/${cup.id}/folder?files=trash`);
+      expect(trashed.statusCode).toBe(200);
+      expect(trashed.json().trashedTo).toContain(PROJECT_TRASH_DIR);
+      expect(existsSync(cup.folderPath)).toBe(false);
+      expect(readdirSync(join(root, PROJECT_TRASH_DIR))).toHaveLength(1);
+    }, 60_000);
   });
 });

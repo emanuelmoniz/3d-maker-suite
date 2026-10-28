@@ -279,7 +279,7 @@ export const projectFilesRoutes =
     const trashDirs = async () => {
       const dirs: string[] = [];
       for (const r of listRoots(db)) {
-        const real = await rootFs(r).local("");
+        const real = await rootFs(db, r).local("");
         if (real) dirs.push(join(real, TRASH_DIR));
       }
       return dirs;

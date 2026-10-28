@@ -1,4 +1,10 @@
-import { bestMatches, type Project, type ProjectDetail, sumCosts } from "@3d-maker-suite/core";
+import {
+  bestMatches,
+  type Project,
+  type ProjectDetail,
+  ROOT_HUB,
+  sumCosts,
+} from "@3d-maker-suite/core";
 import { Link, useNavigate, useParams } from "@tanstack/react-router";
 import type { TFunction } from "i18next";
 import { Box, ExternalLink, FolderOpen } from "lucide-react";
@@ -45,7 +51,7 @@ import { OrdersTable } from "../orders/OrdersTable.tsx";
 import { PrintsTable } from "../prints/PrintsPage.tsx";
 import { QuotesTable } from "../quotes/QuotesTable.tsx";
 import { ModelPreview } from "./ModelPreview.tsx";
-import { ProjectFiles } from "./ProjectFiles.tsx";
+import { DeviceFileList, ProjectFiles } from "./ProjectFiles.tsx";
 import { MissingFolderBanner } from "./ProjectFolder.tsx";
 import { ProjectGallery } from "./ProjectGallery.tsx";
 
@@ -404,7 +410,10 @@ export function ProjectDetailPage() {
   const [picked, setPicked] = useState<string | null>(null);
   // null: the whole file ("View all").
   const [plate, setPlate] = useState<number | null>(null);
-  const roots = useRoots().map((r) => r.path);
+  const allRoots = useRoots();
+  const roots = allRoots.map((r) => r.path);
+  // A device root's files open on the device, not here: they're only viewed and downloaded.
+  const onDevice = allRoots.some((r) => r.id === project?.rootId && r.location !== ROOT_HUB);
   const open = useOpenProject(id);
   // The default slicer, or the one picked when several are set up (Settings > Integrations).
   const slicers = useCapable("openInSlicer");
@@ -462,7 +471,7 @@ export function ProjectDetailPage() {
               </a>
             )}
             <Write>
-              {ok && current && slicer && (
+              {ok && !onDevice && current && slicer && (
                 <span className="flex gap-1">
                   {slicers.length > 1 && (
                     <Combobox
@@ -492,7 +501,7 @@ export function ProjectDetailPage() {
                   </button>
                 </span>
               )}
-              {ok && (
+              {ok && !onDevice && (
                 <button
                   type="button"
                   className={linkButton}
@@ -609,7 +618,11 @@ export function ProjectDetailPage() {
       <QuotesTable fixed={{ projectId: id }} title={t("costs:saved.title")} />
       <OrdersTable fixed={{ projectId: id }} title={t("orders:list.table")} />
 
-      {project.folderState !== "missing" && <ProjectFiles project={project} />}
+      {onDevice ? (
+        <DeviceFileList project={project} />
+      ) : (
+        project.folderState !== "missing" && <ProjectFiles project={project} />
+      )}
     </>
   );
 }

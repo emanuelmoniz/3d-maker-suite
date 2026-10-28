@@ -760,7 +760,7 @@ Design:
 Do Step 6 of the 5.0.0 plan in PLAN.md. Show me the index messages and the offline rules first.
 ```
 
-### [ ] Step 7 - Pull on demand, slice on the hub, remote writes
+### [x] Step 7 - Pull on demand, slice on the hub, remote writes
 **Model:** Opus · **Effort:** High
 **Scope:**
 - Hub → device "upload `<path>`" over SSE. The connector streams the file to the hub, which checks the hash.

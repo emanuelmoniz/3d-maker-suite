@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -160,9 +161,9 @@ describe("hub events", () => {
       const reader = (res.body as ReadableStream<Uint8Array>).getReader();
       const dec = new TextDecoder();
       let text = "";
-      /** Reads until `text` contains `what`; null once the hub ended the stream. */
-      const until = async (what: string) => {
-        while (!text.includes(what)) {
+      /** Reads until `text` contains `what` (or passes it); null once the hub ended the stream. */
+      const until = async (what: string | ((text: string) => boolean)) => {
+        while (typeof what === "string" ? !text.includes(what) : !what(text)) {
           const { done, value } = await reader.read();
           if (done) return null;
           text += dec.decode(value, { stream: true });
@@ -329,5 +330,72 @@ describe("hub events", () => {
     expect((await send("GET", "/api/projects")).json().items[0].offline).toBe(true);
     const add = await send("POST", "/api/roots", { path: "D:/more", location: deviceId });
     expect(add.json().error.code).toBe("device_offline");
+  });
+
+  it("pulls a listed file from its device and keeps it only when its hash matches", async () => {
+    const { db, app, send, open, token, deviceId } = await live();
+    const root = db
+      .insert(schema.roots)
+      .values({ name: "WS", location: deviceId, path: "C:/models", position: 0 })
+      .returning()
+      .get();
+    const dev = (method: "PUT", url: string, payload: object | Buffer, headers = {}) =>
+      app.inject({
+        method,
+        url: `/api/hub/device${url}`,
+        payload,
+        headers: { authorization: `Bearer ${token}`, ...headers },
+      });
+    const s = await open();
+    await s.until(": open");
+    const file = { path: "box.stl", kind: "model", size: 5, mtime: 1_700_000_000_123 };
+    await dev("PUT", `/roots/${root.id}/folders`, {
+      rel: "001_Box",
+      digest: "a",
+      scan: {
+        files: [file],
+        models: [],
+        mainFile: "box.stl",
+        sourceUrl: null,
+        hasModel: true,
+        unreadable: 0,
+      },
+      texts: {},
+      cover: null,
+    });
+    const [{ id }] = (await send("GET", "/api/projects")).json().items;
+    const get = () => send("GET", `/api/projects/${id}/file?path=box.stl`);
+    const uploads = (text: string) =>
+      [...text.matchAll(/"type":"fs\.upload","requestId":"([^"]+)"/g)].map((m) => m[1] ?? "");
+    let seen = 0;
+    /** The next `fs.upload` request the device gets. */
+    const asked = async () =>
+      uploads((await s.until((t) => uploads(t).length > seen)) ?? "")[seen++] ?? "";
+    const sha = (data: string) => createHash("sha256").update(data).digest("hex");
+    const upload = (requestId: string, data: string, hash = sha(data)) =>
+      dev("PUT", `/files/${requestId}`, Buffer.from(data), {
+        "content-type": "application/octet-stream",
+        "x-file-sha256": hash,
+        "x-file-mtime": String(file.mtime),
+      });
+
+    // Damaged on the way: refused, and the download fails.
+    let pending = get();
+    let requestId = await asked();
+    expect((await upload(requestId, "hello", sha("other"))).statusCode).toBe(502);
+    expect((await pending).json().error.code).toBe("device_bad_file");
+    // Nothing waits for it any more.
+    expect((await upload(requestId, "hello")).statusCode).toBe(404);
+
+    pending = get();
+    requestId = await asked();
+    expect((await upload(requestId, "hello")).statusCode).toBe(204);
+    const res = await pending;
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toBe("hello");
+    // Cached: no second pull.
+    expect((await get()).body).toBe("hello");
+    expect(seen).toBe(2);
+    await s.cancel();
   });
 });

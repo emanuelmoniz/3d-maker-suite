@@ -2,6 +2,7 @@
 export * from "./autostart.ts";
 export * from "./bundle.ts";
 export * from "./listFolder.ts";
+export * from "./rootPath.ts";
 export * from "./scanFolder.ts";
 export * from "./secrets.ts";
 export * from "./zip.ts";

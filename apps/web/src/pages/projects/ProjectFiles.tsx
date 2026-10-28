@@ -1,4 +1,4 @@
-import type { Project, ProjectFileEntry } from "@3d-maker-suite/core";
+import type { Project, ProjectDetail, ProjectFileEntry } from "@3d-maker-suite/core";
 import {
   ChevronDown,
   ChevronRight,
@@ -28,6 +28,7 @@ import {
   useProjectFolder,
   useProjectFolders,
 } from "../../lib/projectFiles.ts";
+import { projectFileUrl } from "../../lib/projects.ts";
 
 const join = (dir: string, name: string) => (dir ? `${dir}/${name}` : name);
 const dirOf = (p: string) => p.slice(0, Math.max(p.lastIndexOf("/"), 0));
@@ -554,6 +555,35 @@ export function ProjectFiles({ project }: { project: Project }) {
           setConflict(null);
         }}
       />
+    </Collapsible>
+  );
+}
+
+/**
+ * The files of a project in a device root (ADR-0014): only viewed and downloaded here; the hub
+ * pulls each from its device. Edits happen on the device.
+ */
+export function DeviceFileList({ project }: { project: ProjectDetail }) {
+  const { t } = useTranslation();
+  const files = project.meta.files.filter((f) => f.kind !== "shortcut");
+  if (project.folderState !== "ok" || !files.length) return null;
+  return (
+    <Collapsible title={t("projects:detail.files")} className="mt-6 rounded-lg">
+      <ul className="grid gap-1">
+        {files.map((f) => (
+          <li key={f.path} className="flex items-center gap-2">
+            <FileIcon className="size-4 shrink-0 text-muted" aria-hidden />
+            <a
+              href={projectFileUrl(project.id, f.path)}
+              download={f.path.slice(f.path.lastIndexOf("/") + 1)}
+              className="min-w-0 wrap-anywhere text-accent hover:underline"
+            >
+              {f.path}
+            </a>
+            <span className="ml-auto shrink-0 text-muted text-sm">{formatSize(f.size)}</span>
+          </li>
+        ))}
+      </ul>
     </Collapsible>
   );
 }

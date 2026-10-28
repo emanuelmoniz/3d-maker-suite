@@ -12,8 +12,8 @@ import { eq, inArray } from "drizzle-orm";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
-import { type Fingerprint, fingerprint, stateOf } from "../projects/fingerprint.ts";
-import { projectFile } from "../projects/rootFs.ts";
+import { type Fingerprint, fingerprint, sameAsScanned, stateOf } from "../projects/fingerprint.ts";
+import { onDeviceRoot, projectFile } from "../projects/rootFs.ts";
 import {
   plateResolver,
   projectJobKey,
@@ -81,15 +81,27 @@ export const projectSlicingRoutes =
       );
       // One stat (and at most one hash) per file, however many plates it has.
       const states = new Map<string, Promise<PlateState>>();
+      const device = onDeviceRoot(db, place.rootId);
       const fileState = (r: Row) => {
         if (!meta.models.some((m) => m.file === r.file))
           return Promise.resolve<PlateState>("missing");
         if (!states.has(r.file))
           states.set(
             r.file,
-            projectFile(db, place, r.file).then((abs) =>
-              abs ? stateOf(abs, r) : ("missing" as const),
-            ),
+            // A device's file is pulled only when its scan says it changed; offline, it is outdated.
+            device &&
+              sameAsScanned(
+                meta.files.find((f) => f.path === r.file),
+                r,
+              )
+              ? Promise.resolve("ok")
+              : projectFile(db, place, r.file).then(
+                  (abs) => (abs ? stateOf(abs, r) : ("missing" as const)),
+                  (e) => {
+                    if (device) return "outdated" as const;
+                    throw e;
+                  },
+                ),
           );
         return states.get(r.file) as Promise<PlateState>;
       };

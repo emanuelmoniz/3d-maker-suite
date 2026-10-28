@@ -1,6 +1,6 @@
 import { createReadStream } from "node:fs";
 import { cp, readdir, readFile, rename, rm, rmdir, stat } from "node:fs/promises";
-import { basename, extname, isAbsolute, join, relative } from "node:path";
+import { extname, isAbsolute, join, posix, relative } from "node:path";
 import { read3mfEntry, read3mfPaint } from "@3d-maker-suite/3mf";
 import {
   apiErrorSchema,
@@ -48,6 +48,7 @@ import {
   projectDir,
   projectFile,
   type Root,
+  type RootFs,
   rootFs,
 } from "../projects/rootFs.ts";
 import type { ProjectScanner } from "../projects/scanner.ts";
@@ -214,11 +215,11 @@ export const projectsRoutes =
     };
     const get = (id: string) => out(row(id), listRoots(db));
 
-    /** Moves a project folder into its root's trash; returns where it went. */
-    const toTrash = (own: NonNullable<Awaited<ReturnType<typeof projectDir>>>) =>
+    /** Moves a project folder into its root's trash (on a device: there); returns where it went. */
+    const toTrash = (own: { fs: RootFs; rel: string }) =>
       own.fs.trash(
         own.rel,
-        `${new Date().toISOString().replace(/[:.]/g, "-")}_${basename(own.dir)}`,
+        `${new Date().toISOString().replace(/[:.]/g, "-")}_${posix.basename(own.rel)}`,
       );
 
     /** What a project knows about its folder's files, dropped when they aren't its any more. */
@@ -254,7 +255,11 @@ export const projectsRoutes =
         return void unlink({ unlinkedRootId: p.rootId, unlinkedFolder: p.folder });
       let trashedTo: string | undefined;
       if (p.folderState === "ok") {
-        const own = await projectDir(db, p);
+        const root = listRoots(db).find((r) => r.id === p.rootId);
+        const own =
+          root && onDevice(root) && p.folder !== null
+            ? { fs: rootFs(db, root), rel: p.folder }
+            : await projectDir(db, p);
         if (!own)
           throw new HttpError(403, "not_allowed", "Project folder is not in a project root");
         trashedTo = await toTrash(own);
@@ -438,7 +443,7 @@ export const projectsRoutes =
         let trashedTo: string | undefined;
         if (p.folderState === "ok" && previous === "move") {
           const own = await projectDir(db, p);
-          const to = await rootFs(place.root).local(place.rel);
+          const to = await rootFs(db, place.root).local(place.rel);
           if (!own || !to || !path)
             throw new HttpError(403, "not_allowed", "Project folder is not in a project root");
           // Into itself, or onto the folder being left, would lose or loop files.
@@ -471,7 +476,7 @@ export const projectsRoutes =
           await scanner.refresh(linked);
         } catch (e) {
           point({ rootId: now.rootId, folder: now.folder });
-          if (!path) await dropNewFolder(place);
+          if (!path) await dropNewFolder(db, place);
           throw e;
         }
         return { ...(await detail(p.id)), trashedTo };
@@ -555,7 +560,7 @@ export const projectsRoutes =
             const made = await scanner.addFolder(place, { ...given, number: n });
             return reply.status(201).send(get(made?.id ?? ""));
           } catch (e) {
-            await dropNewFolder(place);
+            await dropNewFolder(db, place);
             throw e;
           }
         }

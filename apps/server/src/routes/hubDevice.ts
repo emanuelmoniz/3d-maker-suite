@@ -1,3 +1,4 @@
+import { Readable } from "node:stream";
 import {
   apiErrorSchema,
   deviceFolderQuerySchema,
@@ -15,6 +16,7 @@ import { z } from "zod";
 import { HttpError } from "../errors.ts";
 import type { HubChannel } from "../lib/hubChannel.ts";
 import { readPreferences } from "../lib/preferences.ts";
+import type { DeviceFiles } from "../projects/deviceFiles.ts";
 import type { ProjectScanner } from "../projects/scanner.ts";
 
 const { roots } = schema;
@@ -29,12 +31,21 @@ const deviceOf = (req: FastifyRequest) => {
 
 /**
  * What a connector sends the hub about its device roots (ADR-0014): the index of each root, the
- * scan of each changed project folder, and answers to the hub's requests. A device sees only the
- * roots on itself; any other root is 404.
+ * scan of each changed project folder, and answers to the hub's requests (a file it asked for as
+ * raw bytes). A device sees only the roots on itself; any other root is 404.
  */
 export const hubDeviceRoutes =
-  (db: Db, channel: HubChannel, scanner: ProjectScanner): FastifyPluginAsyncZod =>
+  (
+    db: Db,
+    channel: HubChannel,
+    scanner: ProjectScanner,
+    files: DeviceFiles,
+  ): FastifyPluginAsyncZod =>
   async (app) => {
+    // Raw stream, read by the file route itself (Fastify's bodyLimit doesn't apply to it).
+    app.addContentTypeParser("application/octet-stream", (_req, payload, done) =>
+      done(null, payload),
+    );
     app.addHook("onRequest", async () => {
       if (!readPreferences(db).hubEnabled) throw new HttpError(404, "hub_off", "The hub is off");
     });
@@ -125,6 +136,32 @@ export const hubDeviceRoutes =
       async (req, reply) => {
         if (!channel.answer(deviceOf(req), req.params.requestId, req.body))
           throw new HttpError(404, "not_found", "Nothing waits for this answer");
+        return reply.status(204).send(null);
+      },
+    );
+
+    // A file the hub asked for (`fs.upload`), with the sha256 and mtime it has on the device.
+    app.put(
+      "/files/:requestId",
+      {
+        schema: {
+          params: z.object({ requestId: z.uuid() }),
+          headers: z.object({
+            "x-file-sha256": z.string().regex(/^[0-9a-f]{64}$/),
+            "x-file-mtime": z.coerce.number().nonnegative().optional(),
+          }),
+          response: { 204: z.null(), ...errors },
+        },
+      },
+      async (req, reply) => {
+        await files.receive(
+          deviceOf(req),
+          req.params.requestId,
+          // An empty file has no body to parse.
+          (req.body as Readable | undefined) ?? Readable.from([]),
+          req.headers["x-file-sha256"],
+          req.headers["x-file-mtime"],
+        );
         return reply.status(204).send(null);
       },
     );

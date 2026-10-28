@@ -29,7 +29,11 @@
   },
   "overrides": [
     {
-      "includes": ["apps/server/src/integrations/registry.ts", "apps/server/src/**/*.test.ts"],
+      "includes": [
+        "apps/server/src/integrations/registry.ts",
+        "apps/server/src/**/*.test.ts",
+        "apps/connector/src/**/*.test.ts"
+      ],
       "linter": { "rules": { "style": { "noRestrictedImports": "off" } } }
     }
   ]

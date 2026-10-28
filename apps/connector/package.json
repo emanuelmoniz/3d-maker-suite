@@ -13,6 +13,7 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@3d-maker-suite/adapter-mock": "workspace:*",
     "@3d-maker-suite/db": "workspace:*",
     "@3d-maker-suite/server": "workspace:*",
     "@types/node": "^22.20.5",

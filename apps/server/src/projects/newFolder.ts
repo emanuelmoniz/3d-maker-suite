@@ -25,12 +25,15 @@ export async function newProjectFolder(
   const root = rootId ? roots.find((r) => r.id === rootId) : roots[0];
   if (!root) throw new HttpError(400, "invalid_root", "Not a configured project folder");
   if (!validName(base)) throw new HttpError(400, "invalid_name", "Name can't be a folder name");
-  await rootFs(root).mkdir(base);
+  await rootFs(db, root).mkdir(base);
   return { root, rel: base };
 }
 
-/** Undoes `newProjectFolder` when what came after failed (only while it's still empty). */
-export async function dropNewFolder({ root, rel }: Place) {
-  const dir = await rootFs(root).local(rel);
+/**
+ * Undoes `newProjectFolder` when what came after failed (only while it's still empty).
+ * ponytail: a folder on a device stays (the connector has no remove); it is an empty folder.
+ */
+export async function dropNewFolder(db: Db, { root, rel }: Place) {
+  const dir = await rootFs(db, root).local(rel);
   if (dir) await rmdir(dir).catch(() => {});
 }
