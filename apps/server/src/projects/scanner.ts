@@ -28,6 +28,8 @@ import { linkPrints } from "./linkPrints.ts";
 import { hubRoots, locate, onDevice, type Place, projectDir, type Root, rootFs } from "./rootFs.ts";
 
 const { deviceRootFolders, projects, roots } = schema;
+/** A device folder's scan as stored: its images are kept as files. */
+type Sent = Omit<DeviceFolder, "cover" | "previews" | "gallery">;
 type Fields = {
   number?: number;
   name?: string;
@@ -121,12 +123,18 @@ export function createProjectScanner(
     return next;
   }
 
-  /** A device folder's plate previews (ADR-0014): a folder per root, in it one per project folder. */
+  /**
+   * A device folder's plate previews and gallery images (ADR-0014): a folder per root, in it one
+   * per project folder.
+   */
   const previewDir = (rootId: string, rel?: string) =>
     join(dataDir, THUMB_DIR, "device", rootId, ...(rel === undefined ? [] : [short(rel)]));
   /** The stored preview of plate `entry` of a device folder's `file`. */
   const devicePreview = (rootId: string, rel: string, file: string, entry: string) =>
     join(previewDir(rootId, rel), `${short(`${file}\0${entry}`)}.png`);
+  /** The stored copy of a device folder's gallery image `file`. */
+  const deviceGalleryImage = (rootId: string, rel: string, file: string) =>
+    join(previewDir(rootId, rel), `${short(`gallery\0${file}`)}${extname(file).toLowerCase()}`);
 
   /** The hub's roots with their seam and real path (null: missing). Devices index their own. */
   const spots = () =>
@@ -301,7 +309,7 @@ export function createProjectScanner(
     db.select().from(projects).where(at(place)).get()?.descriptionFile;
   /** A device's scan as the hub's own: the description from the doc the project links. */
   const fromDevice = (
-    sent: Omit<DeviceFolder, "cover" | "previews">,
+    sent: Sent,
     link: string | null | undefined,
     cover: Cover | null,
   ): FolderScan => ({
@@ -317,7 +325,7 @@ export function createProjectScanner(
     if (onDevice(place.root)) {
       const sent = deviceFolder(place.root.id, place.rel);
       if (!sent) throw new HttpError(404, "not_found", "Project folder not found");
-      const scan = fromDevice(sent.scan as Omit<DeviceFolder, "cover" | "previews">, link, null);
+      const scan = fromDevice(sent.scan as Sent, link, null);
       return { dir: null, scan, keepThumbnail: true };
     }
     const dir = await rootFs(db, place.root).local(place.rel);
@@ -396,10 +404,13 @@ export function createProjectScanner(
   }
 
   /**
-   * One device folder as its connector scanned it: stored (its plate previews as files), then like
-   * a scanned folder.
+   * One device folder as its connector scanned it: stored (its plate previews and gallery images as
+   * files), then like a scanned folder.
    */
-  async function deviceFolderScanned(root: Root, { cover, previews, ...sent }: DeviceFolder) {
+  async function deviceFolderScanned(
+    root: Root,
+    { cover, previews, gallery, ...sent }: DeviceFolder,
+  ) {
     const updatedAt = new Date().toISOString();
     db.insert(deviceRootFolders)
       .values({ rootId: root.id, folder: sent.rel, digest: sent.digest, scan: sent, updatedAt })
@@ -410,12 +421,14 @@ export function createProjectScanner(
       .run();
     const dir = previewDir(root.id, sent.rel);
     await rm(dir, { recursive: true, force: true });
-    if (previews.length) await mkdir(dir, { recursive: true });
+    if (previews.length || gallery.length) await mkdir(dir, { recursive: true });
     for (const p of previews)
       await writeFile(
         devicePreview(root.id, sent.rel, p.file, p.entry),
         Buffer.from(p.data, "base64"),
       );
+    for (const g of gallery)
+      await writeFile(deviceGalleryImage(root.id, sent.rel, g.file), Buffer.from(g.data, "base64"));
     const place = { root, rel: sent.rel };
     const data: Cover | null = cover && {
       kind: "data",
@@ -439,7 +452,7 @@ export function createProjectScanner(
     await rm(previewDir(root.id, rel), { recursive: true, force: true });
   }
 
-  /** Makes the device send a folder again on its next sync (e.g. for a newly picked cover). */
+  /** Makes the device send a folder again on its next sync (e.g. for a newly picked cover or gallery). */
   const deviceFolderStale = (rootId: string, rel: string) =>
     db
       .update(deviceRootFolders)
@@ -642,6 +655,10 @@ export function createProjectScanner(
     deviceFolderStale,
     deviceFolder,
     devicePreview,
+    deviceGalleryImage,
+    /** Gallery images a device folder's last scan left out (over its caps). */
+    deviceGalleryLeftOut: (rootId: string, rel: string) =>
+      (deviceFolder(rootId, rel)?.scan as Partial<Sent> | undefined)?.galleryLeftOut ?? [],
     /** A removed device root's previews. */
     dropDevicePreviews: (rootId: string) =>
       rm(previewDir(rootId), { recursive: true, force: true }),

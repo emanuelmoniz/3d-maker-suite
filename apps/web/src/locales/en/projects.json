@@ -191,6 +191,8 @@
     "galleryShow": "Show {{name}}",
     "galleryScrollBack": "Scroll thumbnails back",
     "galleryScrollForward": "Scroll thumbnails forward",
+    "galleryLeftOut_one": "{{count, number}} picked image is too large to keep from the device and isn't shown.",
+    "galleryLeftOut_other": "{{count, number}} picked images are too large to keep from the device and aren't shown.",
     "plate": "Plate {{index}}",
     "description": "Project info",
     "setUpSlicing": "Print setup",

@@ -1,16 +1,19 @@
 import { createHash } from "node:crypto";
 import { createReadStream, type FSWatcher, type ReadStream, watch } from "node:fs";
-import { realpath, stat } from "node:fs/promises";
+import { readFile, realpath, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { pipeline } from "node:stream/promises";
 import {
   DEVICE_COVER_MAX,
+  DEVICE_GALLERY_IMAGE_MAX,
+  DEVICE_GALLERY_MAX,
   DEVICE_PREVIEW_MAX,
   DEVICE_PREVIEWS_MAX,
   type DeviceFolder,
   type DeviceRoot,
   deviceIndexResultSchema,
   deviceRootSchema,
+  galleryImages,
   type HubEvent,
   PROJECT_TRASH_DIR,
 } from "@3d-maker-suite/core";
@@ -111,8 +114,8 @@ export function createRootSync({
     folderDigest(dirOf(l, rel), l.root.maxFiles, l.root.filesDepth);
 
   /**
-   * Scans one folder and sends it, with its plate previews and its cover (the one the project
-   * picked, if listed); false when a 3MF didn't open (try again later).
+   * Scans one folder and sends it, with its plate previews, its cover (the one the project
+   * picked, if listed) and its gallery's images; false when a 3MF didn't open (try again later).
    */
   async function send(l: Live, rel: string, digest: string, final = true) {
     const dir = dirOf(l, rel);
@@ -130,6 +133,25 @@ export function createRootSync({
       DEVICE_PREVIEW_MAX,
       DEVICE_PREVIEWS_MAX,
     );
+    // The gallery's images, in file order, until the caps are used; the rest is left out.
+    const gallery: DeviceFolder["gallery"] = [];
+    const galleryLeftOut: string[] = [];
+    let galleryBytes = 0;
+    const picks = l.root.galleries[rel];
+    for (const { path, size } of picks ? galleryImages({ gallery: picks, meta: scan }) : []) {
+      const fits = size <= DEVICE_GALLERY_IMAGE_MAX && galleryBytes + size <= DEVICE_GALLERY_MAX;
+      const data = fits && (await readFile(join(dir, ...path.split("/"))).catch(() => null));
+      if (
+        !data ||
+        data.length > DEVICE_GALLERY_IMAGE_MAX ||
+        galleryBytes + data.length > DEVICE_GALLERY_MAX
+      ) {
+        galleryLeftOut.push(path);
+        continue;
+      }
+      galleryBytes += data.length;
+      gallery.push({ file: path, data: data.toString("base64") });
+    }
     const body: DeviceFolder = {
       rel,
       digest,
@@ -151,6 +173,8 @@ export function createRootSync({
             }
           : null,
       previews: previews.map((p) => ({ ...p, data: Buffer.from(p.data).toString("base64") })),
+      gallery,
+      galleryLeftOut,
     };
     await call(`/roots/${l.root.id}/folders`, { method: "PUT", body });
     l.sent.set(rel, digest);

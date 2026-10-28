@@ -125,6 +125,8 @@ export const projectSchema = z.object({
  */
 export const projectDetailSchema = projectSchema.extend({
   folderState: z.enum(["ok", "missing", "offline"]).nullable(),
+  /** Gallery images its device didn't send (over the folder's caps): they don't show offline. */
+  galleryLeftOut: z.array(z.string()),
 });
 
 /** A row of the projects list: the project plus when it was last printed (null: never). */
@@ -212,7 +214,10 @@ export const projectPatchSchema = z
   .strict();
 
 /** The listed images the gallery picks show: chosen ones and those under a chosen folder. */
-export const galleryImages = (p: Pick<Project, "gallery" | "meta">): ProjectFile[] =>
+export const galleryImages = (p: {
+  gallery: Project["gallery"];
+  meta: Pick<Project["meta"], "files">;
+}): ProjectFile[] =>
   p.meta.files.filter(
     (f) =>
       f.kind === "image" &&

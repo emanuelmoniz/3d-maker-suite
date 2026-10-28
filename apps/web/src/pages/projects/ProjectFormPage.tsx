@@ -78,7 +78,11 @@ function ProjectForm({ project }: { project?: ProjectDetail }) {
     ? (models.find((m) => m.path === project.filePath)?.path ?? "")
     : "";
   const [preview, setPreview] = useState(initialPreview);
-  const images = files.filter((f) => f.kind === "image");
+  // Offline, a device project's picker has only what the hub keeps: the gallery's images it got.
+  const images =
+    project?.folderState === "offline"
+      ? galleryImages(project).filter((f) => !project.galleryLeftOut.includes(f.path))
+      : files.filter((f) => f.kind === "image");
   // The picker works on single images: folder picks saved by an older version become their images.
   const [gallery, setGallery] = useState(() =>
     project ? galleryImages(project).map((f) => f.path) : [],
@@ -284,6 +288,7 @@ function ProjectForm({ project }: { project?: ProjectDetail }) {
           {project?.folderPath && images.length > 0 && (
             <GalleryPicker
               project={project}
+              images={images}
               value={gallery}
               cover={cover}
               onChange={setGallery}

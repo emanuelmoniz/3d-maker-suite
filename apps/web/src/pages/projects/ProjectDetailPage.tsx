@@ -435,7 +435,8 @@ export function ProjectDetailPage() {
 
   // A missing folder serves no files: only the stored thumbnail is shown until it is fixed.
   const ok = project.folderState === "ok";
-  const hasGallery = ok && galleryImages(project).length > 0;
+  // A device project's gallery is kept on the hub: it shows offline too.
+  const hasGallery = (ok || project.folderState === "offline") && galleryImages(project).length > 0;
   // A sliced export the scanner folded into its project file is not a model of its own.
   const models = (ok ? project.meta.files : []).filter(
     (f) =>

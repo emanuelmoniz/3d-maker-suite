@@ -69,23 +69,36 @@ export const hubDeviceRoutes =
           .from(roots)
           .where(eq(roots.location, deviceOf(req)))
           .all()
-          .map(({ id, path, projectDepth, filesDepth }) => ({
-            id,
-            path,
-            projectDepth,
-            filesDepth,
-            maxFiles,
-            covers: Object.fromEntries(
-              db
-                .select({ folder: projects.folder, coverFile: projects.coverFile })
-                .from(projects)
-                .where(and(eq(projects.rootId, id), isNotNull(projects.coverFile)))
-                .all()
-                .flatMap((p) =>
+          .map(({ id, path, projectDepth, filesDepth }) => {
+            const picks = db
+              .select({
+                folder: projects.folder,
+                coverFile: projects.coverFile,
+                gallery: projects.gallery,
+              })
+              .from(projects)
+              .where(and(eq(projects.rootId, id), isNotNull(projects.folder)))
+              .all();
+            return {
+              id,
+              path,
+              projectDepth,
+              filesDepth,
+              maxFiles,
+              covers: Object.fromEntries(
+                picks.flatMap((p) =>
                   p.folder !== null && p.coverFile ? [[p.folder, p.coverFile]] : [],
                 ),
-            ),
-          }));
+              ),
+              galleries: Object.fromEntries(
+                picks.flatMap((p) =>
+                  p.folder !== null && (p.gallery.folders.length || p.gallery.images.length)
+                    ? [[p.folder, p.gallery]]
+                    : [],
+                ),
+              ),
+            };
+          });
       },
     );
 
@@ -104,8 +117,9 @@ export const hubDeviceRoutes =
     app.put(
       "/roots/:rootId/folders",
       {
-        // A folder's meta (up to 50 3MFs) plus its docs, a cover and plate previews (capped).
-        bodyLimit: 32 * 1024 * 1024,
+        // A folder's meta (up to 50 3MFs) plus its docs, a cover, plate previews and gallery images
+        // (capped).
+        bodyLimit: 48 * 1024 * 1024,
         schema: {
           params: rootParams,
           body: deviceFolderSchema,

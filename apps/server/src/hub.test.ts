@@ -271,6 +271,8 @@ describe("hub events", () => {
       texts: { "README.md": "A box." },
       cover: { ext: ".png", data: Buffer.from("png").toString("base64"), file: null },
       previews: [],
+      gallery: [],
+      galleryLeftOut: [],
     });
     const index = (digest: string) =>
       dev("PUT", `/roots/${mine.id}/index`, { state: "ok", folders: [{ rel: "001_Box", digest }] });
@@ -289,6 +291,7 @@ describe("hub events", () => {
         filesDepth: null,
         maxFiles: expect.any(Number),
         covers: {},
+        galleries: {},
       },
     ]);
     expect((await index("a")).json()).toEqual({ want: ["001_Box"] });
@@ -385,6 +388,8 @@ describe("hub events", () => {
       texts: {},
       cover: null,
       previews: [],
+      gallery: [],
+      galleryLeftOut: [],
     });
     const [{ id }] = (await send("GET", "/api/projects")).json().items;
     const get = () => send("GET", `/api/projects/${id}/file?path=box.stl`);

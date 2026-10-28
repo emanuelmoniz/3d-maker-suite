@@ -788,7 +788,7 @@ Do Step 7 of the 5.0.0 plan in PLAN.md.
 Do Step 7b of the 5.0.0 plan in PLAN.md.
 ```
 
-### [ ] Step 7c - Gallery on device projects
+### [x] Step 7c - Gallery on device projects
 **Model:** Opus · **Effort:** Medium
 **Scope:**
 - Today a device project can't save gallery picks (PATCH returns 403), and `/files/image` reads only hub folders.

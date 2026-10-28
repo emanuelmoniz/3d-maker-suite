@@ -4,6 +4,7 @@ import { extname, isAbsolute, join, posix, relative } from "node:path";
 import { read3mfEntry, read3mfPaint } from "@3d-maker-suite/3mf";
 import {
   apiErrorSchema,
+  galleryImages,
   type IntegrationAdapter,
   type Page,
   type Project,
@@ -281,18 +282,26 @@ export const projectsRoutes =
     const detail = async (id: string): Promise<ProjectDetail> => {
       const p = get(id);
       const root = p.rootId ? listRoots(db).find((r) => r.id === p.rootId) : undefined;
-      if (!root || p.folder === null) return { ...p, folderState: p.rootId ? "missing" : null };
+      const galleryLeftOut: string[] = [];
+      if (!root || p.folder === null)
+        return { ...p, folderState: p.rootId ? "missing" : null, galleryLeftOut };
       if (onDevice(root)) {
         const state = !hub.online(root.location)
           ? "offline"
           : scanner.deviceFolder(root.id, p.folder)
             ? "ok"
             : "missing";
-        return { ...p, folderState: state };
+        // Only current picks: one dropped since the device's last scan isn't left out.
+        const leftOut = new Set(scanner.deviceGalleryLeftOut(root.id, p.folder));
+        return {
+          ...p,
+          folderState: state,
+          galleryLeftOut: galleryImages(p).flatMap((f) => (leftOut.has(f.path) ? [f.path] : [])),
+        };
       }
       const own = await projectDir(db, p);
       const there = own && (await stat(own.dir).catch(() => null))?.isDirectory();
-      return { ...p, folderState: there ? "ok" : "missing" };
+      return { ...p, folderState: there ? "ok" : "missing", galleryLeftOut };
     };
 
     // Scan: POST starts a background scan (or queues another pass), GET reports progress.
@@ -647,10 +656,11 @@ export const projectsRoutes =
         if (gallery || coverFile) {
           // Not scanned fields either: the scanner never writes them, so they survive re-scans.
           // Every path is project-relative; images must be listed, folders pass the path guard.
-          // A device's folder isn't here: only its cover can be picked (it comes with its scan).
+          // A device's folder isn't here: its picks come with its scan, its folders are checked
+          // against its listing.
           if (folder === null) throw new HttpError(404, "no_folder", "Project has no folder");
           const dir = (await projectDir(db, current))?.dir;
-          if (!dir && (gallery || !onDeviceRoot(db, current.rootId)))
+          if (!dir && !onDeviceRoot(db, current.rootId))
             throw new HttpError(403, "not_allowed", "Project folder is not in a project root");
           const image = (rel: string) => {
             segments(rel);
@@ -660,7 +670,11 @@ export const projectsRoutes =
           for (const rel of gallery?.images ?? []) image(rel);
           if (coverFile) image(coverFile);
           for (const rel of gallery?.folders ?? [])
-            if (!dir || !(await projectPath(dir, rel, "existing")).isDir)
+            if (
+              dir
+                ? !(await projectPath(dir, rel, "existing")).isDir
+                : rel !== "" && !meta.files.some((f) => f.path.startsWith(`${rel}/`))
+            )
               throw new HttpError(400, "not_a_directory", "Not a folder");
         }
         if (gallery)
@@ -675,9 +689,9 @@ export const projectsRoutes =
           .run();
         if (descriptionFile || previewFile === null || coverFile !== undefined)
           await scanner.refresh(current);
-        // The device sends the folder again with the new pick (an offline one when it connects).
+        // The device sends the folder again with the new picks (an offline one when it connects).
         const root = current.rootId && listRoots(db).find((r) => r.id === current.rootId);
-        if (coverFile !== undefined && root && onDevice(root) && folder !== null) {
+        if ((coverFile !== undefined || gallery) && root && onDevice(root) && folder !== null) {
           scanner.deviceFolderStale(root.id, folder);
           if (hub.online(root.location)) hub.publish(root.location, { type: "roots.changed" });
         }

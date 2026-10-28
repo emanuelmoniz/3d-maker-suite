@@ -13,7 +13,7 @@ import type { HubChannel } from "../lib/hubChannel.ts";
 
 const { deviceRootFolders } = schema;
 type Root = typeof schema.roots.$inferSelect;
-type Sent = Omit<DeviceFolder, "cover" | "previews">;
+type Sent = Omit<DeviceFolder, "cover" | "previews" | "gallery">;
 
 /** A pulled file is kept this long after its last use; all of them together at most this much. */
 const EXPIRY_MS = 60 * 60_000;
@@ -28,6 +28,7 @@ const empty = (rel: string): Sent => ({
   digest: "",
   scan: { files: [], models: [], mainFile: null, sourceUrl: null, hasModel: false, unreadable: 0 },
   texts: {},
+  galleryLeftOut: [],
 });
 
 /**

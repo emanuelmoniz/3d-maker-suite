@@ -1,4 +1,4 @@
-import type { Project } from "@3d-maker-suite/core";
+import type { Project, ProjectFile } from "@3d-maker-suite/core";
 import { Eye, Plus, Star, X } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -25,12 +25,15 @@ type Tile = { path: string };
  */
 export function GalleryPicker({
   project,
+  images,
   value,
   cover,
   onChange,
   onCover,
 }: {
   project: Project;
+  /** The images it can pick from. */
+  images: ProjectFile[];
   /** The gallery's image paths, in the order they were added. */
   value: string[];
   cover: string;
@@ -44,7 +47,6 @@ export function GalleryPicker({
   const [viewing, setViewing] = useState<{ list: "selected" | "available"; i: number } | null>(
     null,
   );
-  const images = project.meta.files.filter((f) => f.kind === "image");
   const folderOptions = [...new Set(images.flatMap((f) => parentsOf(f.path)))]
     .sort()
     .map((d) => ({ id: d, label: d }));

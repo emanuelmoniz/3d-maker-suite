@@ -14,7 +14,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { mockAdapter, fixture as mockState } from "@3d-maker-suite/adapter-mock";
-import { PROJECT_TRASH_DIR } from "@3d-maker-suite/core";
+import { DEVICE_GALLERY_IMAGE_MAX, PROJECT_TRASH_DIR } from "@3d-maker-suite/core";
 import { openDb, schema } from "@3d-maker-suite/db";
 import { buildApp } from "@3d-maker-suite/server/src/app.ts";
 import { hashPassword } from "@3d-maker-suite/server/src/lib/password.ts";
@@ -191,11 +191,23 @@ describe("connector and hub", () => {
       expect(first.subarray(1, 4).toString()).toBe("PNG");
       expect(first.equals(await thumbnail())).toBe(true);
 
-      // A picked cover comes from the device the same way.
+      // A picked cover and gallery come from the device the same way; a pick over the caps is
+      // left out (shown while online, pulled).
       writeFileSync(join(root, "001_Box", "photo.png"), "photo");
-      await until(async () => (await projects())[0].meta.files.length === 2, 15_000);
-      await h.send("PATCH", `/api/projects/${p.id}`, { coverFile: "photo.png" });
+      writeFileSync(join(root, "001_Box", "big.png"), Buffer.alloc(DEVICE_GALLERY_IMAGE_MAX + 1));
+      await until(async () => (await projects())[0].meta.files.length === 3, 15_000);
+      const image = (path: string) =>
+        h.send("GET", `/api/projects/${p.id}/files/image?path=${path}`);
+      expect((await image("big.png")).rawPayload.length).toBe(DEVICE_GALLERY_IMAGE_MAX + 1);
+      const picked = await h.send("PATCH", `/api/projects/${p.id}`, {
+        coverFile: "photo.png",
+        gallery: { folders: [], images: ["photo.png", "big.png"] },
+      });
+      expect(picked.statusCode).toBe(200);
       await until(async () => (await thumbnail()).toString() === "photo", 15_000);
+      expect((await h.send("GET", `/api/projects/${p.id}`)).json().galleryLeftOut).toEqual([
+        "big.png",
+      ]);
 
       // A slicer's save: write <file>.tmp, rename it over the file.
       const file = join(root, "001_Box", "box.3mf");
@@ -212,6 +224,10 @@ describe("connector and hub", () => {
       expect((await h.send("GET", `/api/projects/${p.id}`)).json().folderState).toBe("offline");
       expect((await h.send("GET", "/api/roots")).json()[0].state).toBe("offline");
       expect((await preview()).equals(saved)).toBe(true);
+      expect((await image("photo.png")).rawPayload.toString()).toBe("photo");
+      expect((await h.send("GET", `/api/projects/${p.id}`)).json().galleryLeftOut).toEqual([
+        "big.png",
+      ]);
       expect((await h.send("GET", `/api/fs/list?device=${device.id}`)).json().error.code).toBe(
         "device_offline",
       );

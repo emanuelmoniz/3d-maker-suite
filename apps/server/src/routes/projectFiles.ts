@@ -13,6 +13,7 @@ import {
   projectFilesListSchema,
   projectFilesQuery,
   projectFolderCreateSchema,
+  projectMetaSchema,
   projectTrashSchema,
   projectUploadQuery,
 } from "@3d-maker-suite/core";
@@ -24,7 +25,7 @@ import { z } from "zod";
 import { HttpError } from "../errors.ts";
 import { readPreferences } from "../lib/preferences.ts";
 import { projectPath, segments } from "../projects/paths.ts";
-import { listRoots, projectDir, rootFs } from "../projects/rootFs.ts";
+import { listRoots, onDeviceRoot, projectDir, projectFile, rootFs } from "../projects/rootFs.ts";
 import type { ProjectScanner } from "../projects/scanner.ts";
 import { fsError, readEntries } from "./fs.ts";
 import { IMAGE_TYPES, imageReply } from "./projects.ts";
@@ -133,8 +134,24 @@ export const projectFilesRoutes =
       "/:id/files/image",
       { schema: { params, querystring: projectFilePathQuery, response: errors } },
       async (req, reply) => {
-        const { dir } = await project(req.params.id);
         const { path } = req.query;
+        const row = db.select().from(projects).where(eq(projects.id, req.params.id)).get();
+        if (row?.rootId && row.folder !== null && onDeviceRoot(db, row.rootId)) {
+          // A device's gallery images came with its scan (also offline); other listed images are
+          // pulled from the device.
+          const listed = projectMetaSchema
+            .parse(row.meta)
+            .files.some((f) => f.path === path && f.kind === "image");
+          if (!listed || !IMAGE_TYPES[extname(path).toLowerCase()])
+            throw new HttpError(404, "not_found", "Image not found");
+          const stored = scanner.deviceGalleryImage(row.rootId, row.folder, path);
+          const abs = (await stat(stored).catch(() => null))
+            ? stored
+            : await projectFile(db, row, path);
+          if (!abs) throw new HttpError(404, "not_found", "Image not found");
+          return imageReply(reply, path).send(createReadStream(abs));
+        }
+        const { dir } = await project(req.params.id);
         const { abs, isDir } = await projectPath(dir, path, "existing");
         if (isDir || !IMAGE_TYPES[extname(path).toLowerCase()])
           throw new HttpError(404, "not_found", "Image not found");

@@ -37,7 +37,15 @@ beforeEach(async () => {
   const request: Request = async (path, init) => {
     if (path === "/roots")
       return Response.json([
-        { id: rootId, path: base, projectDepth: 1, filesDepth: null, maxFiles: 500, covers: {} },
+        {
+          id: rootId,
+          path: base,
+          projectDepth: 1,
+          filesDepth: null,
+          maxFiles: 500,
+          covers: {},
+          galleries: {},
+        },
       ]);
     if (path.endsWith("/index")) return Response.json({ want: [] });
     const file = init?.file;

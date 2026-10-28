@@ -1,4 +1,4 @@
-import type { Project } from "@3d-maker-suite/core";
+import type { ProjectDetail } from "@3d-maker-suite/core";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -11,8 +11,11 @@ const thumbArrow =
 const arrow =
   "absolute top-1/2 inline-flex size-10 -translate-y-1/2 items-center justify-center rounded-full bg-black/55 text-white hover:bg-black/75 focus-visible:bg-black/75";
 
-/** The project's pictures: a square viewer with arrows and swipe, thumbnails below. A click opens the full-screen viewer. */
-export function ProjectGallery({ project }: { project: Project }) {
+/**
+ * The project's pictures: a square viewer with arrows and swipe, thumbnails below. A click opens
+ * the full-screen viewer. Picks its device didn't send (over the folder's caps) are left out.
+ */
+export function ProjectGallery({ project }: { project: ProjectDetail }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState<number | null>(null);
   const [index, setIndex] = useState(0);
@@ -20,11 +23,14 @@ export function ProjectGallery({ project }: { project: Project }) {
   const strip = useRef<HTMLUListElement>(null);
   const [overflow, setOverflow] = useState(false);
   // The cover first, then the most recently changed.
-  const ordered = galleryImages(project).sort(
-    (a, b) =>
-      Number(b.path === project.coverFile) - Number(a.path === project.coverFile) ||
-      (b.mtime ?? 0) - (a.mtime ?? 0),
-  );
+  const leftOut = project.galleryLeftOut.length;
+  const ordered = galleryImages(project)
+    .filter((f) => !project.galleryLeftOut.includes(f.path))
+    .sort(
+      (a, b) =>
+        Number(b.path === project.coverFile) - Number(a.path === project.coverFile) ||
+        (b.mtime ?? 0) - (a.mtime ?? 0),
+    );
   const images = ordered.map((f) => ({
     src: projectImageUrl(project.id, f.path),
     label: f.path,
@@ -48,7 +54,10 @@ export function ProjectGallery({ project }: { project: Project }) {
     strip.current?.children[index]?.scrollIntoView({ block: "nearest", inline: "nearest" });
   }, [index]);
 
-  if (!current) return null;
+  const note = leftOut > 0 && (
+    <p className="text-muted">{t("projects:detail.galleryLeftOut", { count: leftOut })}</p>
+  );
+  if (!current) return note || null;
   return (
     <section
       aria-label={t("projects:detail.gallery", { count })}
@@ -118,7 +127,7 @@ export function ProjectGallery({ project }: { project: Project }) {
         <div className="relative">
           <ul
             ref={strip}
-            className="flex snap-x gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            className="flex snap-x gap-2 overflow-x-auto scrollbar-none [&::-webkit-scrollbar]:hidden"
           >
             {images.map((img, i) => (
               <li key={img.label} className="snap-start">
@@ -164,6 +173,7 @@ export function ProjectGallery({ project }: { project: Project }) {
           )}
         </div>
       )}
+      {note}
       {open !== null && (
         <ImageViewer
           images={images}
