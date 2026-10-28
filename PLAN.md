@@ -774,6 +774,20 @@ Do Step 6 of the 5.0.0 plan in PLAN.md. Show me the index messages and the offli
 Do Step 7 of the 5.0.0 plan in PLAN.md.
 ```
 
+### [ ] Step 7b - Device thumbnails in the scan
+**Model:** Opus · **Effort:** Medium
+**Scope:**
+- The connector sends each 3MF's plate thumbnails with the folder scan (only when the folder's digest changed), with a size cap per image and per folder, like the cover.
+- The hub stores them under `<dataDir>/thumbnails` and serves plate previews (`/file?entry=`) from there for device roots, so a project page never pulls a whole 3MF just for its previews.
+- A chosen cover from a device folder comes the same way (today it keeps the stored thumbnail).
+- Offline device: the stored previews still show.
+
+**Done when:** a device project's page shows its plate previews without any `fs.upload`; a save updates them; offline they still show; tests pass.
+**Prompt:**
+```
+Do Step 7b of the 5.0.0 plan in PLAN.md.
+```
+
 ### [ ] Step 8 - Project owner and visibility  **[plan mode]**
 **Model:** Opus · **Effort:** Medium
 **Scope:**

@@ -6,6 +6,18 @@ import { ApiError, api } from "../lib/api.ts";
 import { Button } from "./Button.tsx";
 import { inputClass } from "./FormField.tsx";
 
+/** Why a device's folders can't be listed: its connector is off, doesn't answer, or is too old. */
+const DEVICE_ERRORS: Record<
+  string,
+  | "common:pathPicker.deviceOffline"
+  | "common:pathPicker.deviceTimeout"
+  | "common:pathPicker.deviceOutdated"
+> = {
+  device_outdated: "common:pathPicker.deviceOutdated",
+  device_offline: "common:pathPicker.deviceOffline",
+  device_timeout: "common:pathPicker.deviceTimeout",
+};
+
 type Sep = FsListResponse["sep"];
 
 const fetchList = (q: Record<string, string>) =>
@@ -116,6 +128,8 @@ export function PathPicker({
         }
       : roots.data;
   const data = path ? dir.data : top;
+  const failed = path ? dir.error : roots.error;
+  const failure = failed instanceof ApiError ? failed.code : undefined;
   // Inside `within`: going up from a root goes to the roots, and only folders below one are picked.
   const atRoot = !!within && !!path && !within.some((r) => sep && below(path, r, sep));
   const pickable =
@@ -251,7 +265,7 @@ export function PathPicker({
         )}
         {(path ? dir.isError : roots.isError) ? (
           <p role="alert" className="text-bad">
-            {t("common:pathPicker.error")}
+            {t(DEVICE_ERRORS[failure ?? ""] ?? "common:pathPicker.error")}
           </p>
         ) : data?.entries.length === 0 ? (
           <p className="text-muted">{t("common:pathPicker.empty")}</p>

@@ -107,15 +107,26 @@ export function createLink({ store, version, os, onHubVersion, log = () => {} }:
   const roots = createRootSync({ request, log });
 
   const handle = ({ id, data }: SseEvent) => {
-    let event: ReturnType<typeof hubEventSchema.safeParse>;
+    let json: unknown;
     try {
-      event = hubEventSchema.safeParse(JSON.parse(data));
+      json = JSON.parse(data);
     } catch {
       return log(`event ${id ?? "request"}: not JSON`);
     }
+    const event = hubEventSchema.safeParse(json);
     // A type this version doesn't know is skipped: the connector follows the hub's version.
-    // A request has no id: it's live only, never stored or replayed.
-    if (id === undefined) return event.success && roots.handle(event.data);
+    // A request has no id: it's live only, never stored or replayed. One it can't carry out is
+    // answered at once, so the hub doesn't wait for it.
+    if (id === undefined) {
+      if (event.success) return roots.handle(event.data);
+      const requestId = (json as { requestId?: unknown })?.requestId;
+      if (typeof requestId === "string" && /^[0-9a-f-]{36}$/i.test(requestId))
+        void request(`/replies/${requestId}`, {
+          method: "POST",
+          body: { ok: false, code: "ENOTSUP" },
+        }).catch(() => {});
+      return;
+    }
     const seq = Number(id);
     if (!Number.isSafeInteger(seq) || seq <= (store.get().cursor ?? 0)) return; // seen already
     if (event.success && event.data.type === "device.renamed")

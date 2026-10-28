@@ -24,6 +24,8 @@ const ERRORS: Record<string, [number, string, string]> = {
   EEXIST: [409, "path_exists", "A file or folder with this name exists"],
   ENOTEMPTY: [409, "path_exists", "A file or folder with this name exists"],
   EINVAL: [400, "invalid_path", "Invalid path"],
+  // A connector older than its hub: it doesn't know the request (ADR-0014).
+  ENOTSUP: [409, "device_outdated", "The device's connector is too old for this; update it"],
 };
 /** Known OS errors as HTTP errors; anything else stays a 500. */
 export const fsError = (err: NodeJS.ErrnoException) => {

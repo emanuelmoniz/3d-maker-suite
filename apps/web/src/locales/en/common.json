@@ -42,7 +42,10 @@
     "exists": "A file or folder with this name exists.",
     "createError": "Couldn't create the folder. Use a plain name, without slashes.",
     "empty": "Nothing to show here",
-    "error": "This folder can't be opened."
+    "error": "This folder can't be opened.",
+    "deviceOffline": "The device is offline. Start its connector, then try again.",
+    "deviceTimeout": "The device didn't answer. Check that its connector is running, then try again.",
+    "deviceOutdated": "The device's connector is too old for this. Update it, then try again."
   },
   "theme": {
     "label": "Theme",

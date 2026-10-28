@@ -332,6 +332,26 @@ describe("hub events", () => {
     expect(add.json().error.code).toBe("device_offline");
   });
 
+  it("tells a connector too old for a request from one that doesn't answer", async () => {
+    const { app, send, open, token, deviceId } = await live();
+    const s = await open();
+    await s.until(": open");
+    const listing = send("GET", `/api/fs/list?device=${deviceId}`);
+    const text = (await s.until((t) => t.includes('"fs.list"'))) ?? "";
+    const requestId = /"requestId":"([^"]+)"/.exec(text)?.[1];
+    // What a connector answers for a request type it doesn't know.
+    await app.inject({
+      method: "POST",
+      url: `/api/hub/device/replies/${requestId}`,
+      payload: { ok: false, code: "ENOTSUP" },
+      headers: { authorization: `Bearer ${token}` },
+    });
+    const res = await listing;
+    expect(res.statusCode).toBe(409);
+    expect(res.json().error.code).toBe("device_outdated");
+    await s.cancel();
+  });
+
   it("pulls a listed file from its device and keeps it only when its hash matches", async () => {
     const { db, app, send, open, token, deviceId } = await live();
     const root = db
