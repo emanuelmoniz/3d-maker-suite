@@ -183,6 +183,8 @@
   },
   "detail": {
     "notFound": "Project not found.",
+    "owner": "Owner: {{name}}",
+    "ownerReadOnly": "Owner: {{name}}. You can view and download this project, but not change it.",
     "source": "Design page",
     "model": "Model file",
     "plates": "Plates",

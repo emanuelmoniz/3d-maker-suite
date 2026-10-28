@@ -55,12 +55,49 @@ Every project root gets a **location**, and the two "modes" from the discussion 
 - The hub pulls a file only when it needs it (slicing, download, 3D view). The file goes into a temp cache with a size cap and an expiry, and is deleted after use.
 - Write actions from the web app (create project folder, trash) run on the owning connector, inside its root.
 - When the device is offline, its projects show the last known data with an "offline" badge. Nothing is lost, and the device catches up when it comes back.
-- Other users can only download files in a device root. Editing someone else's files would make a machine that sleeps or leaves the office the source of truth for others. People who need shared editing use a hub root.
+- By default, other users can only download files in a device root. Editing someone else's files would make a machine that sleeps or leaves the office the source of truth for others. People who need shared editing use a hub root. An admin can give a user the `editOtherDevices` right (admins have it by default).
 
 ### Who sees what
 - Permissions belong to **users and roles**, not to devices: whether someone sees all projects or only their own, and whether they may edit other people's projects in hub roots or only download them. Projects get an owner.
 - What a device syncs follows its user's permissions. Files a user may only download sync read-only.
 - Per-device settings cover only where and how: sync folder, everything or selected projects, slice worker.
+
+#### Permission table (5.0.0 Step 8)
+Per-user switches (Settings → Users):
+
+| Switch | Default | Applies to |
+|---|---|---|
+| `projectsSeeAll`: see every project (otherwise only my own) | on | viewer, editor (an admin always sees every project) |
+| `projectsEditOthers`: edit other people's projects (otherwise download only) | on | editor (an admin always may; a viewer never may) |
+| `editOtherDevices`: edit files in another user's device root | on for admins, off for editors | admin, editor |
+
+Per root (`roots.editBy`, Settings → Projects):
+
+| `editBy` | Hub root: who edits | Device root: who edits besides the device's own user |
+|---|---|---|
+| `roles` (default) | admins and editors | admins and editors who have `editOtherDevices` |
+| `admins` | admins | admins who have `editOtherDevices` |
+| `users` | the picked editors and admins (`root_editors`) | the picked users, with or without `editOtherDevices` |
+| `none` | nobody (view only) | nobody else |
+
+On their own device root, the device's user can always edit: the files are on their disk anyway.
+
+The project owner (`projects.owner_id`, set to null when the user is deleted) is:
+- for projects from before Step 8, the oldest enabled admin;
+- for a project in a device root, the device's user;
+- for a project made with "New project", whoever made it;
+- for a project the scan finds in a hub root, nobody.
+
+A project without an owner counts as someone else's for everybody.
+
+What a user may do with one project:
+1. With no users set up, everyone may edit.
+2. The project is **hidden** (404, left out of the list, search, pickers and materials) when it isn't theirs, they aren't an admin, and `projectsSeeAll` is off.
+3. A viewer may only download.
+4. A user may **edit** when the root lets them edit (a project without a folder skips this check) and one of these holds: the project is theirs, they are an admin, or `projectsEditOthers` is on.
+5. Otherwise the user may **download**: every GET works, and every write to `/api/projects/:id/...` answers 403.
+
+Making a project in a root, or linking one of its folders, needs the root's edit right. The hook in `lib/auth.ts` checks the `/api/projects/:id` routes once for every route file, as `can()` does for prefixes.
 
 ### Locks (setting: off · on · strict)
 - Opening a file through the connector (the "Open" button) takes a lock on the hub. So does the first local change to a file that wasn't opened that way. Other devices set the file read-only, and the web app shows "Being edited by `<user>` on `<device>`".

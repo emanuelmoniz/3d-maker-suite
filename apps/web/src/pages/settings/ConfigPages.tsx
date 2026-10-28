@@ -1,9 +1,11 @@
 import {
   DEVICE_FOLDER_MAX_MB_LIMIT,
   ROOT_DEFAULTS,
+  ROOT_EDIT_BY,
   ROOT_HUB,
   type Root,
   type RootPatch,
+  type User,
 } from "@3d-maker-suite/core";
 import { Trash2 } from "lucide-react";
 import { useState } from "react";
@@ -17,12 +19,14 @@ import { RootStateBadge } from "../../components/RootStateBadge.tsx";
 import { Section } from "../../components/Section.tsx";
 import { Switch } from "../../components/Switch.tsx";
 import { ApiError } from "../../lib/api.ts";
+import { useMe } from "../../lib/auth.ts";
 import { formatMegabytes, formatNumber } from "../../lib/format.ts";
 import { useDevices } from "../../lib/hub.ts";
 import { usePreferences } from "../../lib/preferences.ts";
 import { usePrinters } from "../../lib/printers.ts";
 import { useEmptyProjectTrash, useProjectTrash } from "../../lib/projects.ts";
 import { useChangeRoot, useRoots } from "../../lib/roots.ts";
+import { useUsers } from "../../lib/users.ts";
 import { ChannelsSection } from "../alerts/ChannelsSection.tsx";
 import { FilamentCatalog, FilamentProfiles } from "../filament/Catalog.tsx";
 import { Catalog } from "../printers/Catalog.tsx";
@@ -287,6 +291,72 @@ const ROOT_ERRORS = {
   device_timeout: "settings:projects.deviceTimeout",
 } as const;
 
+const EDIT_BY: Record<(typeof ROOT_EDIT_BY)[number], string> = {
+  roles: "settings:projects.editBy.roles",
+  admins: "settings:projects.editBy.admins",
+  users: "settings:projects.editBy.users",
+  none: "settings:projects.editBy.none",
+};
+
+/** Who edits a root's files (ADR-0014); "users" lists the editors and admins to pick. */
+function EditBy({
+  root,
+  users,
+  onChange,
+}: {
+  root: Root;
+  users: User[];
+  onChange: (patch: RootPatch) => void;
+}) {
+  const { t } = useTranslation();
+  const picked = new Set(root.editorIds);
+  return (
+    <div className="flex basis-full flex-wrap items-center gap-x-3 gap-y-1">
+      <label className="flex items-center gap-2">
+        <span>{t("settings:projects.editByLabel")}</span>
+        <select
+          className={`${inputClass} w-auto!`}
+          value={root.editBy}
+          aria-label={t("settings:projects.editByFor", { path: root.path })}
+          onChange={(e) => onChange({ editBy: e.target.value as Root["editBy"] })}
+        >
+          {ROOT_EDIT_BY.map((v) => (
+            <option key={v} value={v}>
+              {t(EDIT_BY[v])}
+            </option>
+          ))}
+        </select>
+      </label>
+      {root.editBy === "users" && (
+        <fieldset className="flex flex-wrap gap-x-3 gap-y-1">
+          <legend className="sr-only">
+            {t("settings:projects.editorsFor", { path: root.path })}
+          </legend>
+          {users.map((u) => (
+            <label key={u.id} className="flex min-h-9 items-center gap-2">
+              <input
+                type="checkbox"
+                checked={picked.has(u.id)}
+                onChange={(e) =>
+                  onChange({
+                    editorIds: e.target.checked
+                      ? [...picked, u.id]
+                      : [...picked].filter((id) => id !== u.id),
+                  })
+                }
+              />
+              {u.displayName}
+            </label>
+          ))}
+        </fieldset>
+      )}
+      {root.location !== ROOT_HUB && (
+        <span className="text-muted">{t("settings:projects.editByDevice")}</span>
+      )}
+    </div>
+  );
+}
+
 /**
  * The project folder roots, each with its depths, auto slice switch and a remove button. With the
  * hub on, a new root can be a folder on an online device (ADR-0014).
@@ -301,6 +371,8 @@ function ProjectRoots() {
   const online = hubOn ? (devices.data ?? []).filter((d) => d.online) : [];
   const device = location === ROOT_HUB ? undefined : location;
   const roots = useRoots();
+  // Users who can be picked to edit a root: a viewer never edits.
+  const editors = (useUsers(!!useMe()).data ?? []).filter((u) => u.role !== "viewer");
   const save = useChangeRoot();
   const code = save.error instanceof ApiError ? save.error.code : undefined;
   const add = (dir: string) => {
@@ -342,6 +414,7 @@ function ProjectRoots() {
                 />
                 <span aria-hidden>{t("settings:projects.autoSlice")}</span>
               </label>
+              <EditBy root={r} users={editors} onChange={(patch) => change(r.id, patch)} />
               <Button
                 variant="ghost"
                 aria-label={t("settings:projects.removeRoot", { path: r.path })}

@@ -15,6 +15,7 @@ import {
   ORIGINS,
   PRINT_OUTCOMES,
   type PROJECT_EDITABLE_FIELDS,
+  ROOT_EDIT_BY,
   SPOOL_STATUSES,
   SYNC_FREQUENCIES,
   SYNC_MERGES,
@@ -585,10 +586,28 @@ export const roots = sqliteTable(
     // How deep a project's files are listed; null = all.
     filesDepth: integer(),
     autoSlice: integer({ mode: "boolean" }).notNull().default(true),
+    /** Who edits its files besides a device root's own user (ADR-0014); "users" = `root_editors`. */
+    editBy: text({ enum: ROOT_EDIT_BY }).notNull().default("roles"),
     position: integer().notNull(),
     ...timestamps,
   },
+  // No CHECK on `editBy`: adding one rebuilds the table, and dropping `roots` in the migrator's
+  // transaction would cascade to its folders (zod checks it).
   (t) => [uniqueIndex("roots_location_path_uq").on(t.location, t.path)],
+);
+
+/** The users picked to edit a root whose `editBy` is "users". */
+export const rootEditors = sqliteTable(
+  "root_editors",
+  {
+    rootId: text()
+      .notNull()
+      .references(() => roots.id, { onDelete: "cascade" }),
+    userId: text()
+      .notNull()
+      .references((): AnySQLiteColumn => users.id, { onDelete: "cascade" }),
+  },
+  (t) => [primaryKey({ columns: [t.rootId, t.userId] })],
 );
 
 /**
@@ -651,10 +670,13 @@ export const projects = sqliteTable(
     /** The slicer for plates without their own; null (or one that can't slice) = the default. */
     slicerIntegrationId: text().references(() => integrations.id, { onDelete: "set null" }),
     archivedAt: text(),
+    /** Who it belongs to (ADR-0014): its creator, or a device root's user; null = nobody's. */
+    ownerId: text().references((): AnySQLiteColumn => users.id, { onDelete: "set null" }),
     ...imported(),
     ...timestamps,
   },
   (t) => [
+    index("projects_owner_idx").on(t.ownerId),
     uniqueIndex("projects_external_uq").on(t.integrationId, t.externalId),
     uniqueIndex("projects_root_folder_uq").on(t.rootId, t.folder),
     uniqueIndex("projects_number_uq").on(t.number),
@@ -1001,6 +1023,11 @@ export const users = sqliteTable(
     passwordHash: text().notNull(),
     role: text({ enum: USER_ROLES }).notNull(),
     disabled: integer({ mode: "boolean" }).notNull().default(false),
+    /** Project rights (ADR-0014); an admin always sees and edits everyone's projects. */
+    projectsSeeAll: integer({ mode: "boolean" }).notNull().default(true),
+    projectsEditOthers: integer({ mode: "boolean" }).notNull().default(true),
+    /** Edit files in another user's device root (where the root lets them). */
+    editOtherDevices: integer({ mode: "boolean" }).notNull().default(false),
     lastLoginAt: text(),
     ...timestamps,
   },

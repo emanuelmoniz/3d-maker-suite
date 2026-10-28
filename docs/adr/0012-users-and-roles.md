@@ -49,7 +49,7 @@ R = GET/HEAD, W = POST/PUT/PATCH/DELETE, - = 403.
 | `/api/printers`, `/api/accessories`, `/api/maintenance` | R | R, W accessory installs/removals (`/accessories/:id/installs`) and `POST /maintenance/tasks` (log done) | R W | adding and editing printers, accessories and maintenance types is setup, so admin-only |
 | `/api/brands`, `/api/printer-models`, `/api/machine-profiles`, `/api/filament-brands`, `/api/filament-materials`, `/api/print-profiles` | R | R | R W | catalogs belong to the module settings |
 | `/api/filament` | R | R W, but `/profiles` is R | R W | spools are daily work, profiles are setup |
-| `/api/projects` (files, trash, slicing, scan, open) | R | R W | R W | `/:id/open` starts the slicer on the server machine |
+| `/api/projects` (files, trash, slicing, scan, open) | R | R W | R W | `/:id/open` starts the slicer on the server machine. Each project is further narrowed by its owner, the user's project rights and its root's `editBy` (ADR-0014, "Permission table") |
 | `/api/roots` (project roots, ADR-0014) | R | R | R W | the pickers read them; Settings → Projects changes them |
 | `/api/prints` (incl. filament review) | R | R W | R W | |
 | `/api/costs` (files, slice, quotes) | R | R W | R W | the calculator uses POST, so viewers see saved quotes only |

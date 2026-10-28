@@ -111,6 +111,8 @@ export const projectSchema = z.object({
   /** Slicer integration for plates without their own; null = the default (see `pickSlicer`). */
   slicerIntegrationId: id.nullable(),
   archivedAt: isoDate.nullable(),
+  /** The user it belongs to (ADR-0014); null = nobody's. */
+  ownerId: id.nullable(),
   origin: z.enum(ORIGINS),
   integrationId: id.nullable(),
   externalId: z.string().nullable(),
@@ -127,6 +129,10 @@ export const projectDetailSchema = projectSchema.extend({
   folderState: z.enum(["ok", "missing", "offline"]).nullable(),
   /** Gallery images its device didn't send (over the folder's caps): they don't show offline. */
   galleryLeftOut: z.array(z.string()),
+  /** Who it belongs to (ADR-0014); null = nobody's. */
+  owner: z.object({ id, displayName: z.string() }).nullable(),
+  /** Whether the caller may change it; otherwise it is download-only for them. */
+  canEdit: z.boolean(),
 });
 
 /** A row of the projects list: the project plus when it was last printed (null: never). */

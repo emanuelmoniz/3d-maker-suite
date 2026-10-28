@@ -69,7 +69,13 @@ export const authRoutes =
           if (tx.select({ id: users.id }).from(users).limit(1).get()) throw done();
           return tx
             .insert(users)
-            .values({ ...rest, passwordHash, role: "admin", lastLoginAt: new Date().toISOString() })
+            .values({
+              ...rest,
+              passwordHash,
+              role: "admin",
+              editOtherDevices: true,
+              lastLoginAt: new Date().toISOString(),
+            })
             .returning()
             .get();
         });

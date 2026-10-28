@@ -53,7 +53,8 @@ export const usersRoutes =
           return reply.status(201).send(
             db
               .insert(users)
-              .values({ ...rest, passwordHash })
+              // Admins edit other devices' files unless told otherwise; editors only when allowed.
+              .values({ editOtherDevices: rest.role === "admin", ...rest, passwordHash })
               .returning()
               .get(),
           );

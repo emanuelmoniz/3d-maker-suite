@@ -816,7 +816,7 @@ Do Step 7c of the 5.0.0 plan in PLAN.md.
 Do Step 7d of the 5.0.0 plan in PLAN.md.
 ```
 
-### [ ] Step 8 - Project owner and visibility  **[plan mode]**
+### [x] Step 8 - Project owner and visibility  **[plan mode]**
 **Model:** Opus · **Effort:** Medium
 **Scope:**
 - Projects get an owner (migration: the admin for existing ones; the creator, or the device's user for device roots).

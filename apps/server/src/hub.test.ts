@@ -23,7 +23,13 @@ const setup = async (opts: Parameters<typeof buildApp>[3] = {}) => {
   const user = (role: "admin" | "viewer") =>
     db
       .insert(schema.users)
-      .values({ email: `${role}@x.io`, displayName: role, role, passwordHash: hash })
+      .values({
+        email: `${role}@x.io`,
+        displayName: role,
+        role,
+        passwordHash: hash,
+        editOtherDevices: role === "admin",
+      })
       .returning()
       .get();
   const admin = user("admin");

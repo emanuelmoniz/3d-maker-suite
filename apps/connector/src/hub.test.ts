@@ -56,7 +56,13 @@ describe("connector and hub", () => {
     const user = (role: "admin" | "viewer") =>
       db
         .insert(schema.users)
-        .values({ email: `${role}@x.io`, displayName: role, role, passwordHash })
+        .values({
+          editOtherDevices: role === "admin",
+          email: `${role}@x.io`,
+          displayName: role,
+          role,
+          passwordHash,
+        })
         .returning()
         .get();
     const admin = user("admin");

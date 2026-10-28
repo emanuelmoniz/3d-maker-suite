@@ -1,7 +1,7 @@
 import { createHash, timingSafeEqual } from "node:crypto";
-import type { Capability, UserRole } from "@3d-maker-suite/core";
+import { type Capability, ROOT_HUB, type UserRole } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
-import { and, eq, isNull, lt, or } from "drizzle-orm";
+import { and, eq, isNull, lt, or, type SQL } from "drizzle-orm";
 import type { FastifyReply, FastifyRequest } from "fastify";
 import { HttpError } from "../errors.ts";
 import { policyOf } from "../integrations/capabilities.ts";
@@ -109,6 +109,96 @@ export function mayTask(
   throw new HttpError(403, "forbidden", "Not allowed for your role");
 }
 
+type Rights = Pick<
+  SessionUser,
+  "id" | "role" | "projectsSeeAll" | "projectsEditOthers" | "editOtherDevices"
+>;
+type Root = typeof schema.roots.$inferSelect;
+/** What `mayEditRoot` needs of a root: its `editBy`, picked users and, on a device, the device's user. */
+export type RootRule = Pick<Root, "editBy" | "location"> & {
+  editorIds: string[];
+  deviceUserId: string | null;
+};
+
+/**
+ * Whether `user` may edit files in a root (ADR-0014). No user (no-users mode): yes. On a device
+ * root its own user always may; anyone else follows `editBy`, and needs `editOtherDevices` there
+ * unless picked by name.
+ */
+export function mayEditRoot(user: Rights | undefined, root: RootRule) {
+  if (!user) return true;
+  if (user.role === "viewer") return false;
+  const device = root.location !== ROOT_HUB;
+  if (device && root.deviceUserId === user.id) return true;
+  if (root.editBy === "none") return false;
+  if (root.editBy === "users") return root.editorIds.includes(user.id);
+  if (root.editBy === "admins" && user.role !== "admin") return false;
+  return !device || user.editOtherDevices;
+}
+
+/**
+ * What `user` may do with a project (ADR-0014). "none": hidden (not theirs and they see only their
+ * own). "edit" needs the root's edit right (a project without a folder has no root) and the
+ * project being theirs, or being an admin, or `projectsEditOthers`. Else "read": download only.
+ */
+export function projectAccess(
+  user: Rights | undefined,
+  project: { ownerId: string | null },
+  root: RootRule | null,
+): "edit" | "read" | "none" {
+  if (!user) return "edit";
+  const mine = project.ownerId === user.id;
+  const admin = user.role === "admin";
+  if (!mine && !admin && !user.projectsSeeAll) return "none";
+  if (user.role === "viewer" || (root && !mayEditRoot(user, root))) return "read";
+  return mine || admin || user.projectsEditOthers ? "edit" : "read";
+}
+
+/** A root's `RootRule` from the database. */
+export function rootRule(db: Db, root: Root): RootRule {
+  const { devices, rootEditors } = schema;
+  const deviceUserId =
+    root.location === ROOT_HUB
+      ? null
+      : (db.select({ id: devices.userId }).from(devices).where(eq(devices.id, root.location)).get()
+          ?.id ?? null);
+  const editorIds = db
+    .select({ id: rootEditors.userId })
+    .from(rootEditors)
+    .where(eq(rootEditors.rootId, root.id))
+    .all()
+    .map((r) => r.id);
+  return { editBy: root.editBy, location: root.location, editorIds, deviceUserId };
+}
+
+/** `projectAccess` of a stored project; "edit" for an unknown id, so its route answers 404. */
+export function projectAccessOf(db: Db, user: Rights | undefined, id: string) {
+  if (!user) return "edit";
+  const { projects, roots } = schema;
+  const p = db
+    .select({ ownerId: projects.ownerId, root: roots })
+    .from(projects)
+    .leftJoin(roots, eq(roots.id, projects.rootId))
+    .where(eq(projects.id, id))
+    .get();
+  if (!p) return "edit";
+  return projectAccess(user, p, p.root && rootRule(db, p.root));
+}
+
+/** The list condition for the projects `user` sees (ADR-0014); undefined = all. */
+export const visibleProjects = (user: Rights | undefined): SQL | undefined =>
+  !user || user.role === "admin" || user.projectsSeeAll
+    ? undefined
+    : eq(schema.projects.ownerId, user.id);
+
+/** 403 unless `user` may edit files in `root` (create a project there, link one of its folders). */
+export function assertRootEditable(db: Db, user: Rights | undefined, root: Root) {
+  if (!mayEditRoot(user, rootRule(db, root)))
+    throw new HttpError(403, "forbidden", "You can't change files in this folder");
+}
+
+const PROJECT_PATH = /^\/api\/projects\/([0-9a-f-]{36})(\/|$)/i;
+
 /** No session needed: the SPA and its assets (the login page has to load), health, setup, login, device pairing. */
 export const isPublic = (url: string) => {
   const path = url.split("?")[0] ?? "";
@@ -207,6 +297,14 @@ export function authGuard(
     const own = req.deviceId && (path === "/api/hub/events" || path.startsWith("/api/hub/device/"));
     if (!own && !can(req.user.role, req.url, req.method))
       return deny(reply, 403, "forbidden", "Not allowed for your role");
+    // One project's routes (projects, files, slicing): hidden is a 404, download-only refuses writes.
+    const projectId = PROJECT_PATH.exec(path)?.[1];
+    if (projectId) {
+      const access = projectAccessOf(db, req.user, projectId);
+      if (access === "none") return deny(reply, 404, "not_found", "Project not found");
+      if (access === "read" && !READS.includes(req.method))
+        return deny(reply, 403, "forbidden", "This project is download-only for you");
+    }
   };
 }
 

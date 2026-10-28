@@ -41,6 +41,12 @@
     "wrongPassword": "The current password is wrong.",
     "error": "That didn't work. Try again."
   },
+  "rights": {
+    "legend": "Project rights of {{name}}",
+    "projectsSeeAll": "Sees all projects",
+    "projectsEditOthers": "Edits other people's projects",
+    "editOtherDevices": "Edits files on other people's devices"
+  },
   "list": {
     "title": "Users",
     "label": "Users",

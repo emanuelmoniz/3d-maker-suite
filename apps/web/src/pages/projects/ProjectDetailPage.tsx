@@ -344,7 +344,7 @@ function SlicedEstimate({ project }: { project: ProjectDetail }) {
   // Its plates are of files in a folder it doesn't have now (unlinked and kept, or missing).
   if (!ctx || project.folderState !== "ok") return null;
   const setUp = (
-    <Write>
+    <Write when={project.canEdit}>
       <Link
         to="/projects/$id/edit"
         params={{ id: project.id }}
@@ -471,7 +471,7 @@ export function ProjectDetailPage() {
                 {t("projects:detail.source")}
               </a>
             )}
-            <Write>
+            <Write when={project.canEdit}>
               {ok && !onDevice && current && slicer && (
                 <span className="flex gap-1">
                   {slicers.length > 1 && (
@@ -524,6 +524,13 @@ export function ProjectDetailPage() {
         <p className="-mt-3 mb-4 flex flex-wrap items-center gap-2 break-all text-muted">
           {folderLabel(project.folderPath, roots)}
           {project.folderState === "offline" && <RootStateBadge state="offline" />}
+        </p>
+      )}
+      {project.owner && (
+        <p className="-mt-3 mb-4 text-muted">
+          {t(project.canEdit ? "projects:detail.owner" : "projects:detail.ownerReadOnly", {
+            name: project.owner.displayName,
+          })}
         </p>
       )}
       <MissingFolderBanner project={project} />

@@ -102,6 +102,10 @@ export function UsersSection() {
                   ? t("users:list.lastLogin", { when: formatDateTime(u.lastLoginAt) })
                   : t("users:list.neverLoggedIn")}
               </p>
+              <ProjectRights
+                user={u}
+                onChange={(rights) => patch.mutate({ id: u.id, ...rights })}
+              />
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <Combobox
@@ -213,5 +217,41 @@ export function UsersSection() {
         }
       />
     </div>
+  );
+}
+
+type Rights = Pick<User, "projectsSeeAll" | "projectsEditOthers" | "editOtherDevices">;
+const RIGHT_LABELS: Record<keyof Rights, string> = {
+  projectsSeeAll: "users:rights.projectsSeeAll",
+  projectsEditOthers: "users:rights.projectsEditOthers",
+  editOtherDevices: "users:rights.editOtherDevices",
+};
+
+/**
+ * A user's project rights (ADR-0014). An admin always sees and edits everyone's projects, so only
+ * the device switch is theirs; a viewer never edits, so only "see all" is.
+ */
+function ProjectRights({ user, onChange }: { user: User; onChange: (r: Partial<Rights>) => void }) {
+  const { t } = useTranslation();
+  const shown: (keyof Rights)[] =
+    user.role === "admin"
+      ? ["editOtherDevices"]
+      : user.role === "editor"
+        ? ["projectsSeeAll", "projectsEditOthers", "editOtherDevices"]
+        : ["projectsSeeAll"];
+  return (
+    <fieldset className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
+      <legend className="sr-only">{t("users:rights.legend", { name: user.displayName })}</legend>
+      {shown.map((key) => (
+        <label key={key} className="flex min-h-9 items-center gap-2">
+          <input
+            type="checkbox"
+            checked={user[key]}
+            onChange={(e) => onChange({ [key]: e.target.checked })}
+          />
+          {t(RIGHT_LABELS[key])}
+        </label>
+      ))}
+    </fieldset>
   );
 }

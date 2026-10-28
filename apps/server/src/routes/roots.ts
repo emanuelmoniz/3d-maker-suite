@@ -11,15 +11,17 @@ import {
   rootSchema,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
-import { and, eq, max } from "drizzle-orm";
+import { and, eq, inArray, max, ne } from "drizzle-orm";
+import type { FastifyRequest } from "fastify";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
+import { mayEditRoot, rootRule } from "../lib/auth.ts";
 import type { HubChannel } from "../lib/hubChannel.ts";
 import { listRoots, onDevice, type Root as Row } from "../projects/rootFs.ts";
 import type { ProjectScanner } from "../projects/scanner.ts";
 
-const { devices, projects, roots } = schema;
+const { devices, projects, rootEditors, roots, users } = schema;
 const params = z.object({ id: z.uuid() });
 const errors = {
   400: apiErrorSchema,
@@ -44,8 +46,10 @@ export const rootsRoutes =
       if (!row) throw new HttpError(404, "not_found", "Root not found");
       return row;
     };
-    const out = (r: Row): Root => {
-      if (!onDevice(r)) return { ...r, state: "ok", deviceName: null };
+    const out = (r: Row, user: FastifyRequest["user"]): Root => {
+      const rule = rootRule(db, r);
+      const access = { editorIds: rule.editorIds, canEdit: mayEditRoot(user, rule) };
+      if (!onDevice(r)) return { ...r, ...access, state: "ok", deviceName: null };
       const device = db
         .select({ name: devices.name })
         .from(devices)
@@ -56,7 +60,28 @@ export const rootsRoutes =
         : scanner.missingOnDevice(r.id)
           ? "missing"
           : "ok";
-      return { ...r, state, deviceName: device?.name ?? null };
+      return { ...r, ...access, state, deviceName: device?.name ?? null };
+    };
+    /** Replaces a root's picked editors: editors and admins only (a viewer can't edit anything). */
+    const setEditors = (rootId: string, ids: string[] | undefined) => {
+      if (!ids) return;
+      const unique = [...new Set(ids)];
+      const found = unique.length
+        ? db
+            .select({ id: users.id })
+            .from(users)
+            .where(and(inArray(users.id, unique), ne(users.role, "viewer")))
+            .all()
+        : [];
+      if (found.length !== unique.length)
+        throw new HttpError(400, "invalid_reference", "Pick editors or admins");
+      db.transaction((tx) => {
+        tx.delete(rootEditors).where(eq(rootEditors.rootId, rootId)).run();
+        if (unique.length)
+          tx.insert(rootEditors)
+            .values(unique.map((userId) => ({ rootId, userId })))
+            .run();
+      });
     };
     /** Tells a root's device to read its roots again (an offline one does when it connects). */
     const changed = (r: Row) => {
@@ -64,15 +89,15 @@ export const rootsRoutes =
         channel.publish(r.location, { type: "roots.changed" });
     };
 
-    app.get("/", { schema: { response: { 200: z.array(rootSchema) } } }, async () =>
-      listRoots(db).map(out),
+    app.get("/", { schema: { response: { 200: z.array(rootSchema) } } }, async (req) =>
+      listRoots(db).map((r) => out(r, req.user)),
     );
 
     app.post(
       "/",
       { schema: { body: rootInputSchema, response: { 201: rootSchema, ...errors } } },
       async (req, reply) => {
-        const { path, name, location, ...settings } = req.body;
+        const { path, name, location, editorIds, ...settings } = req.body;
         if (
           db
             .select()
@@ -116,10 +141,11 @@ export const rootsRoutes =
         // A device's path is in its own OS's form.
         const shortName =
           location === ROOT_HUB ? basename(path) : path.split(/[\\/]/).filter(Boolean).at(-1);
+        const { editorIds: _, ...defaults } = ROOT_DEFAULTS;
         const row = db
           .insert(roots)
           .values({
-            ...ROOT_DEFAULTS,
+            ...defaults,
             ...settings,
             name: name ?? (shortName || path),
             location,
@@ -128,8 +154,9 @@ export const rootsRoutes =
           })
           .returning()
           .get();
+        setEditors(row.id, editorIds);
         changed(row);
-        return reply.status(201).send(out(row));
+        return reply.status(201).send(out(row, req.user));
       },
     );
 
@@ -138,15 +165,17 @@ export const rootsRoutes =
       { schema: { params, body: rootPatchSchema, response: { 200: rootSchema, ...errors } } },
       async (req) => {
         const row = get(req.params.id);
-        if (!Object.keys(req.body).length) return out(row);
+        const { editorIds, ...fields } = req.body;
+        setEditors(row.id, editorIds);
+        if (!Object.keys(fields).length) return out(row, req.user);
         const next = db
           .update(roots)
-          .set(req.body)
+          .set(fields)
           .where(eq(roots.id, req.params.id))
           .returning()
           .get();
         changed(next);
-        return out(next);
+        return out(next, req.user);
       },
     );
 

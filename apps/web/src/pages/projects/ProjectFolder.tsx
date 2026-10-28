@@ -11,6 +11,7 @@ import { Button } from "../../components/Button.tsx";
 import { Combobox } from "../../components/Combobox.tsx";
 import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { PathPicker } from "../../components/PathPicker.tsx";
+import { Write } from "../../components/Write.tsx";
 import { ApiError } from "../../lib/api.ts";
 import { useProjectFolder, useProjectFolderHasFiles } from "../../lib/projects.ts";
 import { useRoots } from "../../lib/roots.ts";
@@ -68,7 +69,9 @@ export function FolderActions({ project }: { project: ProjectDetail }) {
   const id = useId();
   const all = useRoots();
   const roots = all.map((r) => r.path);
-  const hubRoots = all.filter((r) => r.location === ROOT_HUB).map((r) => r.path);
+  // Only roots the user may change files in (ADR-0014) are offered.
+  const editable = all.filter((r) => r.canEdit);
+  const hubRoots = editable.filter((r) => r.location === ROOT_HUB).map((r) => r.path);
   const onDevice = all.some((r) => r.id === project.rootId && r.location !== ROOT_HUB);
   const folder = useProjectFolder(project.id);
   // Open while asking: `path` set = switch to that folder, else unlink.
@@ -77,7 +80,8 @@ export function FolderActions({ project }: { project: ProjectDetail }) {
   const [rootId, setRootId] = useState<string>();
   const ok = project.folderState === "ok";
   const old = all.find((r) => r.id === project.rootId)?.path;
-  const chosen = rootId ?? project.rootId ?? all[0]?.id ?? "";
+  const chosen =
+    rootId ?? editable.find((r) => r.id === project.rootId)?.id ?? editable[0]?.id ?? "";
   const code = folder.error instanceof ApiError ? folder.error.code : undefined;
   const sep = project.folderPath?.includes("\\") ? "\\" : "/";
   // Only a folder inside a root has a trash to go to.
@@ -142,7 +146,7 @@ export function FolderActions({ project }: { project: ProjectDetail }) {
                 aria-label={t("projects:folder.root")}
                 value={chosen}
                 onChange={setRootId}
-                options={all.map((r) => ({ value: r.id, label: r.path }))}
+                options={editable.map((r) => ({ value: r.id, label: r.path }))}
               />
             )}
             <Button disabled={folder.isPending} onClick={() => folder.mutate({ rootId: chosen })}>
@@ -269,7 +273,9 @@ export function MissingFolderBanner({ project }: { project: ProjectDetail }) {
       <p className="wrap-break-word text-muted">
         {t("projects:folder.missingText", { path: fromRoot(project.folderPath, roots) })}
       </p>
-      <FolderActions project={project} />
+      <Write when={project.canEdit}>
+        <FolderActions project={project} />
+      </Write>
     </section>
   );
 }

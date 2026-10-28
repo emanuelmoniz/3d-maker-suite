@@ -4,6 +4,17 @@ import { USER_ROLES } from "./enums.ts";
 
 export const userRoleSchema = z.enum(USER_ROLES);
 
+/**
+ * Project rights (ADR-0014). `projectsSeeAll` off: only their own projects show. `projectsEditOthers`
+ * off: other people's projects are download-only. `editOtherDevices`: edit files in another user's
+ * device root. An admin always sees and edits everyone's projects; the device switch applies to admins too.
+ */
+const projectRights = {
+  projectsSeeAll: z.boolean(),
+  projectsEditOthers: z.boolean(),
+  editOtherDevices: z.boolean(),
+};
+
 /** A user as the API returns it. No hash field, so a route can't send one by mistake (ADR-0012). */
 export const userSchema = z.object({
   id,
@@ -11,6 +22,7 @@ export const userSchema = z.object({
   displayName: z.string(),
   role: userRoleSchema,
   disabled: z.boolean(),
+  ...projectRights,
   lastLoginAt: isoDate.nullable(),
   createdAt: isoDate,
   updatedAt: isoDate,
@@ -38,6 +50,8 @@ export const userCreateSchema = z.object({
   displayName,
   password: newPassword,
   role: userRoleSchema,
+  /** Left out: both on, and `editOtherDevices` for admins only. */
+  ...z.object(projectRights).partial().shape,
 });
 
 /** Admin edit; a new `password` is a reset. */

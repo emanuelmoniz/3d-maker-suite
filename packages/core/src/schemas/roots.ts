@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { id, isoDate } from "./entities.ts";
+import { ROOT_EDIT_BY } from "./enums.ts";
 
 /** Where a root's files live (ADR-0014): "hub" is a folder on this server. */
 export const ROOT_HUB = "hub";
@@ -17,6 +18,15 @@ export const rootSchema = z.object({
   filesDepth: z.number().int().min(0).nullable(),
   /** Off: its projects don't slice again when a file changes (unless a project says so). */
   autoSlice: z.boolean(),
+  /**
+   * Who edits its files (ADR-0014): "roles" editors and admins, "admins", "users" the picked
+   * `editorIds`, "none" nobody (view only). On a device root, a device's own user always may, and
+   * anyone else also needs `editOtherDevices` unless picked.
+   */
+  editBy: z.enum(ROOT_EDIT_BY),
+  editorIds: z.array(id),
+  /** Whether the caller may edit its files (create projects in it, link its folders). */
+  canEdit: z.boolean(),
   position: z.number().int(),
   createdAt: isoDate,
   updatedAt: isoDate,
@@ -30,11 +40,19 @@ export const rootSchema = z.object({
 });
 export type Root = z.infer<typeof rootSchema>;
 
-const settings = rootSchema.pick({ projectDepth: true, filesDepth: true, autoSlice: true });
+const settings = rootSchema.pick({
+  projectDepth: true,
+  filesDepth: true,
+  autoSlice: true,
+  editBy: true,
+  editorIds: true,
+});
 export const ROOT_DEFAULTS: z.infer<typeof settings> = {
   projectDepth: 1,
   filesDepth: null,
   autoSlice: true,
+  editBy: "roles",
+  editorIds: [],
 };
 
 /**

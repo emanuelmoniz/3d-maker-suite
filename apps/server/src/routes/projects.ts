@@ -29,11 +29,12 @@ import {
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
 import { and, eq, inArray, isNull, max, sql } from "drizzle-orm";
-import type { FastifyReply } from "fastify";
+import type { FastifyReply, FastifyRequest } from "fastify";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
 import { capableRows } from "../integrations/capabilities.ts";
+import { assertRootEditable, projectAccessOf, rootRule, visibleProjects } from "../lib/auth.ts";
 import { projectLabel } from "../lib/catalog.ts";
 import type { HubChannel } from "../lib/hubChannel.ts";
 import { openFolder, slicerLauncher } from "../lib/launcher.ts";
@@ -66,6 +67,7 @@ const {
   printers,
   projectSlicePlates: plates,
   taggings,
+  users,
 } = schema;
 const params = z.object({ id: z.uuid() });
 const fileQuery = z.object({ path: z.string().min(1), entry: z.string().optional() });
@@ -279,8 +281,16 @@ export const projectsRoutes =
           .map((r) => r.id),
       );
 
-    const detail = async (id: string): Promise<ProjectDetail> => {
-      const p = get(id);
+    const detail = async (id: string, user: FastifyRequest["user"]): Promise<ProjectDetail> => {
+      const stored = get(id);
+      const owner = stored.ownerId
+        ? (db
+            .select({ id: users.id, displayName: users.displayName })
+            .from(users)
+            .where(eq(users.id, stored.ownerId))
+            .get() ?? null)
+        : null;
+      const p = { ...stored, owner, canEdit: projectAccessOf(db, user, id) === "edit" };
       const root = p.rootId ? listRoots(db).find((r) => r.id === p.rootId) : undefined;
       const galleryLeftOut: string[] = [];
       if (!root || p.folder === null)
@@ -359,6 +369,7 @@ export const projectsRoutes =
           },
           where: [
             isNull(projects.archivedAt),
+            visibleProjects(req.user),
             material &&
               sql`exists (select 1 from json_each(${projects.meta}, '$.materials') where ${columnFilter(sql`value`, material)})`,
             taggedWith(db, "project", projects.id, req.query.tagId),
@@ -416,18 +427,19 @@ export const projectsRoutes =
     );
 
     /** Every material used by a project, for the material filter. */
-    app.get("/materials", { schema: { response: { 200: z.array(z.string()) } } }, async () =>
-      db
+    app.get("/materials", { schema: { response: { 200: z.array(z.string()) } } }, async (req) => {
+      const visible = visibleProjects(req.user);
+      return db
         .all<{ value: string }>(
-          sql`select distinct value from ${projects}, json_each(${projects.meta}, '$.materials') where ${projects.archivedAt} is null order by value`,
+          sql`select distinct value from ${projects}, json_each(${projects.meta}, '$.materials') where ${projects.archivedAt} is null ${visible ? sql`and ${visible}` : sql``} order by value`,
         )
-        .map((r) => r.value),
-    );
+        .map((r) => r.value);
+    });
 
     app.get(
       "/:id",
       { schema: { params, response: { 200: projectDetailSchema, ...notFound } } },
-      async (req) => detail(req.params.id),
+      async (req) => detail(req.params.id, req.user),
     );
 
     // Gives a project a folder: links `path`, or makes `<root>/<NNN>_<name>`. One whose folder is
@@ -442,14 +454,16 @@ export const projectsRoutes =
         },
       },
       async (req) => {
-        const p = await detail(req.params.id);
+        const p = await detail(req.params.id, req.user);
         const { path, rootId, previous } = req.body;
         if (p.folderState === "ok" && !previous)
           throw new HttpError(409, "has_folder", "Project already has a folder");
         // Checked (or made) before the current folder is let go of.
+        const editable = (root: Root) => assertRootEditable(db, req.user, root);
         const place = path
           ? await scanner.usableFolder(path)
-          : await newProjectFolder(db, rootId, folderName(p.number, p.name));
+          : await newProjectFolder(db, rootId, folderName(p.number, p.name), editable);
+        if (path) editable(place.root);
         let trashedTo: string | undefined;
         if (p.folderState === "ok" && previous === "move") {
           const own = await projectDir(db, p);
@@ -478,18 +492,20 @@ export const projectsRoutes =
           now.unlinkedFolder === place.rel;
         if (!kept) forget(p.id);
         scanner.claim(place);
-        const point = (to: Pick<Row, "rootId" | "folder">) =>
+        const point = (to: Partial<Pick<Row, "rootId" | "folder" | "ownerId">>) =>
           db.update(projects).set(to).where(eq(projects.id, p.id)).run();
         const linked = { rootId: place.root.id, folder: place.rel };
-        point(linked);
+        // A device root's projects are its user's (ADR-0014).
+        const deviceUser = onDevice(place.root) ? rootRule(db, place.root).deviceUserId : null;
+        point(deviceUser ? { ...linked, ownerId: deviceUser } : linked);
         try {
           await scanner.refresh(linked);
         } catch (e) {
-          point({ rootId: now.rootId, folder: now.folder });
+          point({ rootId: now.rootId, folder: now.folder, ownerId: now.ownerId });
           if (!path) await dropNewFolder(db, place);
           throw e;
         }
-        return { ...(await detail(p.id)), trashedTo };
+        return { ...(await detail(p.id, req.user)), trashedTo };
       },
     );
 
@@ -498,7 +514,7 @@ export const projectsRoutes =
       "/:id/folder/content",
       { schema: { params, response: { 200: z.object({ hasFiles: z.boolean() }), ...errors } } },
       async (req) => {
-        const p = await detail(req.params.id);
+        const p = await detail(req.params.id, req.user);
         const own = p.folderState === "ok" && (await projectDir(db, p));
         return { hasFiles: !!own && (await hasFiles(own.dir)) };
       },
@@ -543,10 +559,10 @@ export const projectsRoutes =
         },
       },
       async (req) => {
-        const p = await detail(req.params.id);
+        const p = await detail(req.params.id, req.user);
         if (!p.rootId) throw new HttpError(404, "no_folder", "Project has no folder");
         const trashedTo = await release(p, req.query.files);
-        return { ...(await detail(p.id)), trashedTo };
+        return { ...(await detail(p.id, req.user)), trashedTo };
       },
     );
 
@@ -563,30 +579,40 @@ export const projectsRoutes =
         assertNumberFree(db, projects, "project", number);
         // Only what the user typed is "edited"; `undefined` means "let the scan decide".
         const given = Object.fromEntries(Object.entries(fields).filter(([, v]) => v !== undefined));
+        const editable = (root: Root) => assertRootEditable(db, req.user, root);
+        // The creator's, unless the scan gave it its device's user (ADR-0014).
+        const created = (made: Row | undefined) => {
+          if (made && made.ownerId === null && req.user)
+            db.update(projects).set({ ownerId: req.user.id }).where(eq(projects.id, made.id)).run();
+          return reply.status(201).send(get(made?.id ?? ""));
+        };
         if (createFolder) {
           const n = number ?? db.get<{ n: number }>(sql`select ${nextNumber(projects)} as n`).n;
-          const place = await newProjectFolder(db, rootId, folderName(n, fields.name));
+          const place = await newProjectFolder(db, rootId, folderName(n, fields.name), editable);
           try {
-            const made = await scanner.addFolder(place, { ...given, number: n });
-            return reply.status(201).send(get(made?.id ?? ""));
+            return created(await scanner.addFolder(place, { ...given, number: n }));
           } catch (e) {
             await dropNewFolder(db, place);
             throw e;
           }
         }
-        const made = folderPath
-          ? await scanner.addFolder(await scanner.usableFolder(folderPath), { ...given, number })
-          : db
-              .insert(projects)
-              .values({
-                ...given,
-                number: number ?? nextNumber(projects),
-                name: fields.name,
-                editedFields: Object.keys(given) as Project["editedFields"],
-              })
-              .returning()
-              .get();
-        return reply.status(201).send(get(made?.id ?? ""));
+        if (folderPath) {
+          const place = await scanner.usableFolder(folderPath);
+          editable(place.root);
+          return created(await scanner.addFolder(place, { ...given, number }));
+        }
+        return created(
+          db
+            .insert(projects)
+            .values({
+              ...given,
+              number: number ?? nextNumber(projects),
+              name: fields.name,
+              editedFields: Object.keys(given) as Project["editedFields"],
+            })
+            .returning()
+            .get(),
+        );
       },
     );
 

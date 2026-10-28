@@ -903,3 +903,80 @@ describe("migration 0074", () => {
     expect(now.select().from(s.collectionProjects).all()).toHaveLength(1);
   });
 });
+
+describe("migration 0078", () => {
+  it("gives projects their device's user or the oldest enabled admin, and admins the device right", () => {
+    const now = migrateAcross(77, (sqlite) => {
+      const user = (id: string, role: string, disabled: number, at: string) =>
+        sqlite
+          .prepare(
+            "insert into users (id, email, display_name, password_hash, role, disabled, created_at, updated_at) values (?, ?, ?, 'x', ?, ?, ?, ?)",
+          )
+          .run(id, `${id}@x.io`, id, role, disabled, at, at);
+      user("gone", "admin", 1, "2026-01-01");
+      user("first", "admin", 0, "2026-02-01");
+      user("later", "admin", 0, "2026-03-01");
+      user("ed", "editor", 0, "2026-01-01");
+      sqlite
+        .prepare(
+          "insert into devices (id, name, user_id, token_hash, created_at, updated_at) values ('dev', 'WS', 'ed', 't', 'x', 'x')",
+        )
+        .run();
+      const root = (id: string, location: string) =>
+        sqlite
+          .prepare(
+            "insert into roots (id, name, location, path, position, created_at, updated_at) values (?, ?, ?, ?, 0, 'x', 'x')",
+          )
+          .run(id, id, location, `/${id}`);
+      root("hub", "hub");
+      root("ws", "dev");
+      root("lost", "6f1c3f5e-7d4c-4c1e-9b1a-1a2b3c4d5e6f");
+      const project = (id: string, rootId: string | null) =>
+        sqlite
+          .prepare(
+            "insert into projects (id, name, root_id, folder, created_at, updated_at) values (?, ?, ?, ?, 'x', 'x')",
+          )
+          .run(id, id, rootId, rootId && id);
+      project("onHub", "hub");
+      project("onWs", "ws");
+      project("onLost", "lost");
+      project("none", null);
+    });
+    const owners = Object.fromEntries(
+      now
+        .select({ id: s.projects.id, ownerId: s.projects.ownerId })
+        .from(s.projects)
+        .all()
+        .map((p) => [p.id, p.ownerId]),
+    );
+    expect(owners).toEqual({ onHub: "first", onWs: "ed", onLost: "first", none: "first" });
+    const rights = now
+      .select({ id: s.users.id, dev: s.users.editOtherDevices, all: s.users.projectsSeeAll })
+      .from(s.users)
+      .all();
+    expect(rights).toEqual(
+      expect.arrayContaining([
+        { id: "first", dev: true, all: true },
+        { id: "ed", dev: false, all: true },
+      ]),
+    );
+    expect(now.select({ editBy: s.roots.editBy }).from(s.roots).all()).toEqual([
+      { editBy: "roles" },
+      { editBy: "roles" },
+      { editBy: "roles" },
+    ]);
+  });
+
+  it("leaves projects without an owner when no users exist", () => {
+    const now = migrateAcross(77, (sqlite) => {
+      sqlite
+        .prepare(
+          "insert into projects (id, name, created_at, updated_at) values ('p', 'p', 'x', 'x')",
+        )
+        .run();
+    });
+    expect(now.select({ ownerId: s.projects.ownerId }).from(s.projects).all()).toEqual([
+      { ownerId: null },
+    ]);
+  });
+});

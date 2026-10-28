@@ -59,7 +59,8 @@ function ProjectForm({ project }: { project?: ProjectDetail }) {
     if (location.hash === "#slicing") document.getElementById("slicing")?.scrollIntoView();
   }, []);
   const [folder, setFolder] = useState("");
-  const roots = useRoots();
+  // Only roots the user may change files in (ADR-0014).
+  const roots = useRoots().filter((r) => r.canEdit);
   // Blank folder path + a root: make the folder there (the first root unless picked).
   const [rootId, setRootId] = useState<string>();
   const createIn = project || folder.trim() ? "" : (rootId ?? roots[0]?.id ?? "");

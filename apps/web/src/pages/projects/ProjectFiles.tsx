@@ -1,4 +1,4 @@
-import type { Project, ProjectDetail, ProjectFileEntry } from "@3d-maker-suite/core";
+import type { ProjectDetail, ProjectFileEntry } from "@3d-maker-suite/core";
 import {
   ChevronDown,
   ChevronRight,
@@ -41,6 +41,7 @@ type Ask =
 type Transfer = { key: number; name: string; fraction: number };
 type Ctx = {
   projectId: string;
+  canEdit: boolean;
   onFiles: (dir: string, files: FileList | File[]) => void;
   onReplace: (path: string, file: File) => void;
   ask: (a: Ask) => void;
@@ -124,7 +125,7 @@ function Row({ entry, depth, ctx }: { entry: ProjectFileEntry; depth: number; ct
         style={{ paddingLeft: `${0.5 + depth * 1.25}rem` }}
         className={`flex flex-wrap items-center gap-x-2 py-1 pr-2 ${over ? "bg-surface-2 outline outline-accent" : ""}`}
       >
-        <Write>
+        <Write when={ctx.canEdit}>
           <input
             type="checkbox"
             className="size-5 shrink-0 accent-accent"
@@ -155,7 +156,7 @@ function Row({ entry, depth, ctx }: { entry: ProjectFileEntry; depth: number; ct
             <span className="shrink-0 text-muted">{formatSize(entry.size)}</span>
           </span>
         )}
-        <Write>
+        <Write when={ctx.canEdit}>
           <span className="flex shrink-0 gap-1">
             {dir ? (
               <>
@@ -237,7 +238,7 @@ function Children({ path, depth, ctx }: { path: string; depth: number; ctx: Ctx 
 }
 
 /** The project folder as a tree: create, rename, move, delete, upload (picker or drop) and replace. */
-export function ProjectFiles({ project }: { project: Project }) {
+export function ProjectFiles({ project }: { project: ProjectDetail }) {
   const { t } = useTranslation();
   const id = project.id;
   const actions = useProjectFileActions(id);
@@ -283,7 +284,7 @@ export function ProjectFiles({ project }: { project: Project }) {
       setUploads((u) => u.filter((x) => x.key !== key));
     }
   };
-  const canWrite = useCan("write");
+  const canWrite = useCan("write") && project.canEdit;
   const onFiles = async (dir: string, files: FileList | File[]) => {
     if (!canWrite) return;
     setFailed(null);
@@ -413,7 +414,7 @@ export function ProjectFiles({ project }: { project: Project }) {
         onFiles("", e.dataTransfer.files);
       }}
     >
-      <Write>
+      <Write when={project.canEdit}>
         <div className="mb-2 flex flex-wrap items-center justify-end gap-2">
           <div className="flex gap-2">
             <Button onClick={() => picker.current?.click()}>
@@ -452,7 +453,7 @@ export function ProjectFiles({ project }: { project: Project }) {
           {failed}
         </p>
       )}
-      <Write>
+      <Write when={project.canEdit}>
         <div className="mb-2 flex flex-wrap items-center gap-2">
           <label className="mr-auto flex min-h-9 items-center gap-2">
             <input
@@ -487,7 +488,15 @@ export function ProjectFiles({ project }: { project: Project }) {
         <Children
           path=""
           depth={0}
-          ctx={{ projectId: id, onFiles, onReplace, ask: open, selected, toggle }}
+          ctx={{
+            projectId: id,
+            canEdit: project.canEdit,
+            onFiles,
+            onReplace,
+            ask: open,
+            selected,
+            toggle,
+          }}
         />
       </div>
       <ConfirmDialog

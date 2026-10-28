@@ -27,7 +27,7 @@ import { parseFolderName } from "./folderName.ts";
 import { linkPrints } from "./linkPrints.ts";
 import { hubRoots, locate, onDevice, type Place, projectDir, type Root, rootFs } from "./rootFs.ts";
 
-const { deviceRootFolders, projects, roots } = schema;
+const { deviceRootFolders, devices, projects, roots } = schema;
 /** A device folder's scan as stored: its images are kept as files. */
 type Sent = Omit<DeviceFolder, "cover" | "previews" | "gallery">;
 type Fields = {
@@ -280,6 +280,14 @@ export function createProjectScanner(
             (f) => f in user && !(f === "description" && user.descriptionFile),
           ),
           ...always,
+          // A device root's projects are its user's (ADR-0014); a hub scan's are nobody's.
+          ownerId: onDevice(place.root)
+            ? (db
+                .select({ id: devices.userId })
+                .from(devices)
+                .where(eq(devices.id, place.root.location))
+                .get()?.id ?? null)
+            : null,
         })
         .run();
       return "created" as const;

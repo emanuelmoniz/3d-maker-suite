@@ -99,6 +99,16 @@
     "rootOn": "On {{device}}",
     "autoSlice": "Auto slice",
     "autoSliceFor": "Auto slice projects in {{path}}",
+    "editByLabel": "Who can edit",
+    "editByFor": "Who can edit {{path}}",
+    "editorsFor": "Users who can edit {{path}}",
+    "editByDevice": "The device's own user can always edit.",
+    "editBy": {
+      "roles": "Editors and admins",
+      "admins": "Admins only",
+      "users": "Picked users",
+      "none": "Nobody (view only)"
+    },
     "autoSliceHint": "Auto slice: when a sliced 3MF in one of the folder's projects changes, its plates are sliced again with their saved setup. Each project can change this in its print setup.",
     "projectDepth": "Project depth",
     "projectDepthFor": "Project depth for {{path}}",
