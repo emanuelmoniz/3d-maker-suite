@@ -6,6 +6,7 @@ import { Button } from "../../components/Button.tsx";
 import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { CostBreakdown } from "../../components/CostBreakdown.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
+import { ProjectRef } from "../../components/ProjectRef.tsx";
 import { TagList } from "../../components/TagList.tsx";
 import { Write } from "../../components/Write.tsx";
 import { useCatalogItem } from "../../lib/catalog.ts";
@@ -14,7 +15,6 @@ import { formatDateTime, formatNumber, formatWeight } from "../../lib/format.ts"
 import { orderName, useOrder } from "../../lib/orders.ts";
 import { printerName, usePrinter } from "../../lib/printers.ts";
 import { printName, useDeletePrint, usePrint } from "../../lib/prints.ts";
-import { projectName, useProject } from "../../lib/projects.ts";
 import { useTagsOf } from "../../lib/tags.ts";
 import { Info, linkButton } from "../filament/SpoolDetailPage.tsx";
 import { Duration } from "./Duration.tsx";
@@ -41,17 +41,6 @@ function MachineProfileLink({ id }: { id: string }) {
   const name = useCatalogItem("machine-profiles", id).data?.name;
   return (
     <Link to="/printers/profiles/$id/edit" params={{ id }} className={link}>
-      {name}
-    </Link>
-  );
-}
-
-function ProjectLink({ id }: { id: string }) {
-  const { t } = useTranslation();
-  const project = useProject(id).data;
-  const name = project && projectName(t, project);
-  return (
-    <Link to="/projects/$id" params={{ id }} className={link}>
       {name}
     </Link>
   );
@@ -141,7 +130,7 @@ export function PrintDetailPage() {
               <PrinterLink id={print.printerId} />
             </Info>
             <Info label={t("prints:detail.project")}>
-              {print.projectId ? <ProjectLink id={print.projectId} /> : none}
+              {print.projectId ? <ProjectRef id={print.projectId} className={link} /> : none}
             </Info>
             {print.orderId && (
               <Info label={t("orders:printOrder.label")}>

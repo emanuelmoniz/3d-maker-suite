@@ -1,8 +1,8 @@
-import { existsSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { UserRole } from "@3d-maker-suite/core";
-import { openDb, schema } from "@3d-maker-suite/db";
+import { HIDDEN_PROJECT, PROJECT_TRASH_DIR, type UserRole } from "@3d-maker-suite/core";
+import { openDb, schema, seed } from "@3d-maker-suite/db";
 import { eq } from "drizzle-orm";
 import { beforeAll, describe, expect, it, onTestFinished } from "vitest";
 import { buildApp } from "./app.ts";
@@ -323,6 +323,136 @@ describe("project access over HTTP", () => {
     expect((await asOther("PATCH", `/api/projects/${p.id}`, { name: "x" })).statusCode).toBe(403);
     await asAdmin("PATCH", `/api/users/${other.id}`, { editOtherDevices: true });
     expect(await canEdit(await as(other))).toBe(true);
+  });
+
+  it("names no hidden project in prints, orders, quotes, stats, tags or the trash", async () => {
+    const { db, dir, root, add, as } = await setup();
+    seed(db, new Date());
+    const admin = add("admin", "admin");
+    const solo = add("editor", "solo", { projectsSeeAll: false });
+    const [asAdmin, asSolo] = await Promise.all([as(admin), as(solo)]);
+    // The seeded projects are nobody's: hidden from solo.
+    const hidden = db.select().from(schema.projects).all();
+    const secret = hidden[0];
+    if (!secret) throw new Error("seed");
+    const own = (await asSolo("POST", "/api/projects", { name: "Solo's" })).json();
+    const [p1, p2] = db.select().from(schema.prints).orderBy(schema.prints.number).all();
+    if (!p1 || !p2) throw new Error("seed");
+    db.update(schema.prints).set({ projectId: secret.id }).where(eq(schema.prints.id, p1.id)).run();
+    db.update(schema.prints).set({ projectId: own.id }).where(eq(schema.prints.id, p2.id)).run();
+    const order = await asAdmin("POST", "/api/orders", {
+      projectIds: [secret.id, own.id],
+      price: 1000,
+    });
+    expect(order.statusCode).toBe(201);
+    const quote = await asAdmin("POST", "/api/costs/quotes", {
+      name: "Quote",
+      projectId: secret.id,
+      form: { grams: 1 },
+      cost: { material: 1, energy: 0, wear: 0, maintenance: 0, total: 1, unpricedGrams: 0 },
+      quote: {
+        unitCost: 1,
+        labor: 0,
+        failureMargin: 0,
+        subtotal: 1,
+        markup: 0,
+        unitPrice: 1,
+        quantity: 1,
+        total: 1,
+      },
+    });
+    expect(quote.statusCode).toBe(201);
+
+    const [desk] = (await asAdmin("GET", "/api/collections")).json();
+    for (const url of [
+      "/api/prints?pageSize=100&sort=project",
+      `/api/prints/${p1.id}`,
+      "/api/orders",
+      `/api/orders/${order.json().id}`,
+      "/api/costs/quotes?sort=project",
+      "/api/stats",
+      "/api/tags",
+      `/api/collections/${desk.id}`,
+    ]) {
+      const res = await asSolo("GET", url);
+      expect(res.statusCode, url).toBe(200);
+      for (const p of hidden) expect(res.body, url).not.toContain(p.name);
+    }
+    // The rows stay, and stats still count them, as one hidden project.
+    const stats = async (send: typeof asSolo) => (await send("GET", "/api/stats")).json();
+    const [mine, all] = [await stats(asSolo), await stats(asAdmin)];
+    expect(mine.totals).toEqual(all.totals);
+    expect(mine.breakdowns.project).toContainEqual(
+      expect.objectContaining({ key: HIDDEN_PROJECT, label: null }),
+    );
+    expect(all.breakdowns.project).toContainEqual(
+      expect.objectContaining({ key: secret.id, label: `001-${secret.name}` }),
+    );
+    expect((await asSolo("GET", "/api/prints?pageSize=100")).json().total).toBe(
+      (await asAdmin("GET", "/api/prints?pageSize=100")).json().total,
+    );
+
+    // Tags: hidden projects' taggings aren't listed, nor can they be changed.
+    expect((await asSolo("GET", "/api/tags/taggings?entityType=project")).json()).toEqual([]);
+    expect((await asAdmin("GET", "/api/tags/taggings?entityType=project")).json()).not.toEqual([]);
+    expect(
+      (await asSolo("PUT", `/api/tags/taggings/project/${secret.id}`, { tagIds: [] })).statusCode,
+    ).toBe(404);
+    // A collection: solo sees and sets only theirs; the hidden members stay, after them.
+    expect((await asSolo("GET", `/api/collections/${desk.id}`)).json().projectIds).toEqual([]);
+    const before = (await asAdmin("GET", `/api/collections/${desk.id}`)).json().projectIds;
+    const set = (ids: string[]) =>
+      asSolo("PUT", `/api/collections/${desk.id}/projects`, { projectIds: ids });
+    expect((await set([secret.id])).statusCode).toBe(400);
+    expect((await set([own.id])).json().projectIds).toEqual([own.id]);
+    expect((await asAdmin("GET", `/api/collections/${desk.id}`)).json().projectIds).toEqual([
+      own.id,
+      ...before,
+    ]);
+
+    // The trash: only roots solo may edit count, and only those are emptied.
+    const trash = join(dir, PROJECT_TRASH_DIR, "x_Secret");
+    mkdirSync(trash, { recursive: true });
+    writeFileSync(join(trash, "a.stl"), "solid");
+    expect((await asSolo("GET", "/api/projects/trash")).json()).toEqual({ items: 1, bytes: 5 });
+    await asAdmin("PATCH", `/api/roots/${root.id}`, { editBy: "admins" });
+    expect((await asSolo("GET", "/api/projects/trash")).json()).toEqual({ items: 0, bytes: 0 });
+    expect((await asSolo("DELETE", "/api/projects/trash")).statusCode).toBe(204);
+    expect(existsSync(trash)).toBe(true);
+    expect((await asAdmin("DELETE", "/api/projects/trash")).statusCode).toBe(204);
+    expect(existsSync(trash)).toBe(false);
+  });
+
+  it("only an admin changes a project's owner, never in a device root", async () => {
+    const { db, add, as } = await setup();
+    const admin = add("admin", "admin");
+    const solo = add("editor", "solo", { projectsSeeAll: false });
+    const [asAdmin, asSolo] = await Promise.all([as(admin), as(solo)]);
+    const p = (await asAdmin("POST", "/api/projects", { name: "Box" })).json();
+    const owner = (send: typeof asAdmin, id: string, ownerId: string) =>
+      send("PATCH", `/api/projects/${id}`, { ownerId });
+
+    expect((await owner(asAdmin, p.id, crypto.randomUUID())).statusCode).toBe(400);
+    expect((await owner(asAdmin, p.id, solo.id)).json().ownerId).toBe(solo.id);
+    // Now solo's: they see it, but can't hand it on.
+    expect((await asSolo("GET", `/api/projects/${p.id}`)).json().owner.id).toBe(solo.id);
+    expect((await owner(asSolo, p.id, admin.id)).statusCode).toBe(403);
+
+    const dev = db
+      .insert(schema.devices)
+      .values({ name: "WS", userId: solo.id, tokenHash: "t" })
+      .returning()
+      .get();
+    const devRoot = db
+      .insert(schema.roots)
+      .values({ name: "WS", location: dev.id, path: "C:/m", position: 1 })
+      .returning()
+      .get();
+    db.update(schema.projects)
+      .set({ rootId: devRoot.id, folder: "001_Box" })
+      .where(eq(schema.projects.id, p.id))
+      .run();
+    expect((await owner(asAdmin, p.id, admin.id)).statusCode).toBe(409);
   });
 
   it("new users get the device right by role unless told", async () => {

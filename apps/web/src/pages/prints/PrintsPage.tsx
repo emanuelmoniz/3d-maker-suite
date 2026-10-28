@@ -15,6 +15,7 @@ import { type Column, DataTable, type ListQuery } from "../../components/DataTab
 import { EmptyState } from "../../components/EmptyState.tsx";
 import { SyncButtons } from "../../components/ImportLinks.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
+import { ProjectRef } from "../../components/ProjectRef.tsx";
 import { SettingsLink } from "../../components/SettingsLink.tsx";
 import { TagList } from "../../components/TagList.tsx";
 import { Write } from "../../components/Write.tsx";
@@ -61,14 +62,7 @@ export function PrintsTable({
     header: t("prints:list.columns.project"),
     cell: (p) => {
       if (!p.projectId) return <span className="text-muted">{t("prints:list.noProject")}</span>;
-      const project = projects.find((x) => x.id === p.projectId);
-      return project ? (
-        <Link to="/projects/$id" params={{ id: project.id }} className="hover:underline">
-          {projectName(t, project)}
-        </Link>
-      ) : (
-        ""
-      );
+      return <ProjectRef id={p.projectId} />;
     },
     sort: "project",
     filter: "projectId",

@@ -9,13 +9,13 @@ export const statsRoutes =
     app.get(
       "/",
       { schema: { querystring: statsQuerySchema, response: { 200: statsSchema } } },
-      async (req) => readStats(db, req.query),
+      async (req) => readStats(db, req.query, req.user),
     );
 
     app.get("/csv", { schema: { querystring: statsQuerySchema } }, async (req, reply) =>
       reply
         .header("content-type", "text/csv; charset=utf-8")
         .header("content-disposition", 'attachment; filename="stats.csv"')
-        .send(statsCsv(readStats(db, req.query))),
+        .send(statsCsv(readStats(db, req.query, req.user))),
     );
   };

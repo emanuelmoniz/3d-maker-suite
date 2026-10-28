@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
 import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { DataTable } from "../../components/DataTable.tsx";
+import { ProjectRef } from "../../components/ProjectRef.tsx";
 import { Write } from "../../components/Write.tsx";
 import { useClients } from "../../lib/clients.ts";
 import { useMoney } from "../../lib/cost.ts";
@@ -92,19 +93,12 @@ export function OrdersTable({
           id: "projects",
           header: t("orders:list.columns.projects"),
           cell: (o) =>
-            o.projectIds.map((id, i) => {
-              const p = projects.find((x) => x.id === id);
-              return (
-                <Fragment key={id}>
-                  {i > 0 && ", "}
-                  {p && (
-                    <Link to="/projects/$id" params={{ id }} className="hover:underline">
-                      {projectName(t, p)}
-                    </Link>
-                  )}
-                </Fragment>
-              );
-            }),
+            o.projectIds.map((id, i) => (
+              <Fragment key={id}>
+                {i > 0 && ", "}
+                <ProjectRef id={id} />
+              </Fragment>
+            )),
           filter: fixed && "projectId" in fixed ? undefined : "projectId",
           filterOptions: projects.map((p) => ({ value: p.id, label: projectName(t, p) })),
         },

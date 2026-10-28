@@ -215,9 +215,17 @@ export const projectPatchSchema = z
     coverFile: nullableText,
     autoSlice: projectSchema.shape.autoSlice,
     slicerIntegrationId: projectSchema.shape.slicerIntegrationId,
+    /** Admins only, and not in a device root (its device's user owns it). */
+    ownerId: id,
   })
   .partial()
   .strict();
+
+/**
+ * Stands for every project the user can't see (ADR-0014), e.g. as a stats breakdown key: the row
+ * still counts, without its name.
+ */
+export const HIDDEN_PROJECT = "ffffffff-ffff-ffff-ffff-ffffffffffff";
 
 /** The listed images the gallery picks show: chosen ones and those under a chosen folder. */
 export const galleryImages = (p: {

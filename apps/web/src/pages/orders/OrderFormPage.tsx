@@ -133,7 +133,7 @@ function OrderForm({ order, quote }: { order?: OrderDetail; quote?: Quote }) {
                 <ul className="flex flex-wrap gap-2">
                   {projectIds.map((id) => {
                     const pr = projects.find((x) => x.id === id);
-                    const name = pr ? projectName(t, pr) : id;
+                    const name = pr ? projectName(t, pr) : t("projects:hidden");
                     return (
                       <li
                         key={id}

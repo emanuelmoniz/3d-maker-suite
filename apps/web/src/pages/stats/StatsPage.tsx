@@ -1,4 +1,4 @@
-import type { Stats, StatsMetrics } from "@3d-maker-suite/core";
+import { HIDDEN_PROJECT, type Stats, type StatsMetrics } from "@3d-maker-suite/core";
 import { ChartColumn, Download } from "lucide-react";
 import { type ReactNode, useId, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -393,9 +393,8 @@ export function StatsPage() {
               rows={data.breakdowns.project}
               rowKey={(r) => r.key ?? ""}
               client={{ query: projectQuery, onQueryChange: setProjectQuery }}
-              columns={costColumns<Group>(
-                t("stats:by.project"),
-                (r) => r.label ?? t("stats:noProject"),
+              columns={costColumns<Group>(t("stats:by.project"), (r) =>
+                r.key === HIDDEN_PROJECT ? t("projects:hidden") : (r.label ?? t("stats:noProject")),
               )}
             />
             <DataTable

@@ -22,6 +22,7 @@ import { and, asc, eq, inArray } from "drizzle-orm";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
+import { projectAccessOf, type Rights, visibleProjects } from "../lib/auth.ts";
 
 const {
   tags,
@@ -109,12 +110,25 @@ export const tagsRoutes =
       {
         schema: { querystring: taggingsQuery, response: { 200: z.array(taggingSchema) } },
       },
-      async (req) =>
-        db
+      async (req) => {
+        // Not the tags of projects the caller can't see (ADR-0014).
+        const visible = req.query.entityType === "project" && visibleProjects(req.user);
+        return db
           .select()
           .from(taggings)
-          .where(eq(taggings.entityType, req.query.entityType))
-          .all() as Tagging[],
+          .where(
+            and(
+              eq(taggings.entityType, req.query.entityType),
+              visible
+                ? inArray(
+                    taggings.entityId,
+                    db.select({ id: projects.id }).from(projects).where(visible),
+                  )
+                : undefined,
+            ),
+          )
+          .all() as Tagging[];
+      },
     );
 
     app.put(
@@ -129,8 +143,14 @@ export const tagsRoutes =
       async (req) => {
         const { type, id } = req.params;
         const table = tables[type];
-        if (!db.select({ id: table.id }).from(table).where(eq(table.id, id)).get())
+        const access = type === "project" ? projectAccessOf(db, req.user, id) : "edit";
+        if (
+          access === "none" ||
+          !db.select({ id: table.id }).from(table).where(eq(table.id, id)).get()
+        )
           throw new HttpError(404, "not_found", "Tagged item not found");
+        if (access === "read")
+          throw new HttpError(403, "forbidden", "This project is download-only for you");
         const tagIds = [...new Set(req.body.tagIds)];
         if (
           tagIds.length &&
@@ -158,15 +178,19 @@ export const collectionsRoutes =
       if (!row) throw new HttpError(404, "not_found", "Collection not found");
       return row;
     };
-    const detail = (id: string): CollectionDetail => ({
-      ...get(id),
-      projectIds: db
+    /** A collection's projects in order; with `user`, only those they see (ADR-0014). */
+    const members = (id: string, user?: Rights) =>
+      db
         .select({ id: collectionProjects.projectId })
         .from(collectionProjects)
-        .where(eq(collectionProjects.collectionId, id))
+        .innerJoin(projects, eq(projects.id, collectionProjects.projectId))
+        .where(and(eq(collectionProjects.collectionId, id), visibleProjects(user)))
         .orderBy(asc(collectionProjects.position))
         .all()
-        .map((r) => r.id),
+        .map((r) => r.id);
+    const detail = (id: string, user: Rights | undefined): CollectionDetail => ({
+      ...get(id),
+      projectIds: members(id, user),
     });
 
     app.get(
@@ -182,13 +206,13 @@ export const collectionsRoutes =
       async (req, reply) =>
         reply
           .status(201)
-          .send(detail(db.insert(collections).values(req.body).returning().get().id)),
+          .send(detail(db.insert(collections).values(req.body).returning().get().id, req.user)),
     );
 
     app.get(
       "/:id",
       { schema: { params, response: { 200: collectionDetailSchema, ...notFound } } },
-      async (req) => detail(req.params.id),
+      async (req) => detail(req.params.id, req.user),
     );
 
     app.patch(
@@ -203,7 +227,7 @@ export const collectionsRoutes =
       async (req) => {
         get(req.params.id);
         db.update(collections).set(req.body).where(eq(collections.id, req.params.id)).run();
-        return detail(req.params.id);
+        return detail(req.params.id, req.user);
       },
     );
 
@@ -229,12 +253,19 @@ export const collectionsRoutes =
       },
       async (req) => {
         get(req.params.id);
-        const ids = [...new Set(req.body.projectIds)];
+        const given = [...new Set(req.body.projectIds)];
         if (
-          ids.length &&
-          db.select().from(projects).where(inArray(projects.id, ids)).all().length !== ids.length
+          given.length &&
+          db
+            .select()
+            .from(projects)
+            .where(and(inArray(projects.id, given), visibleProjects(req.user)))
+            .all().length !== given.length
         )
           throw new HttpError(400, "invalid_project", "Project not found");
+        // Projects the caller can't see stay in it, after theirs.
+        const seen = new Set(members(req.params.id, req.user));
+        const ids = [...given, ...members(req.params.id).filter((id) => !seen.has(id))];
         db.transaction((tx) => {
           tx.delete(collectionProjects)
             .where(eq(collectionProjects.collectionId, req.params.id))
@@ -250,7 +281,7 @@ export const collectionsRoutes =
               )
               .run();
         });
-        return detail(req.params.id);
+        return detail(req.params.id, req.user);
       },
     );
   };

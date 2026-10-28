@@ -30,6 +30,7 @@ import { and, eq, sql } from "drizzle-orm";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
+import { projectVisible } from "../lib/auth.ts";
 import { projectLabel } from "../lib/catalog.ts";
 import { costContext } from "../lib/cost.ts";
 import { listPage } from "../lib/list.ts";
@@ -281,7 +282,7 @@ export const costsRoutes =
             // The name starts with the number: sorting by it sorts the name as shown.
             name: quotes.number,
             client: sql`(SELECT ${clients.name} FROM ${clients} WHERE ${clients.id} = ${quotes.clientId})`,
-            project: sql`(SELECT ${projectLabel} FROM ${projects} WHERE ${projects.id} = ${quotes.projectId})`,
+            project: sql`(SELECT ${projectLabel} FROM ${projects} WHERE ${projects.id} = ${quotes.projectId} AND ${projectVisible(req.user)})`,
             quantity: sql`json_extract(${quotes.quote}, '$.quantity')`,
             total: sql`json_extract(${quotes.quote}, '$.total')`,
             createdAt: quotes.createdAt,

@@ -23,6 +23,7 @@ import { eq } from "drizzle-orm";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
+import { mayEditRoot, type Rights, rootRule } from "../lib/auth.ts";
 import { readPreferences } from "../lib/preferences.ts";
 import { projectPath, segments } from "../projects/paths.ts";
 import { listRoots, onDeviceRoot, projectDir, projectFile, rootFs } from "../projects/rootFs.ts";
@@ -293,19 +294,21 @@ export const projectFilesRoutes =
       },
     );
 
-    const trashDirs = async () => {
+    /** The trash folders of the roots `user` may edit (ADR-0014): only those are shown and emptied. */
+    const trashDirs = async (user: Rights | undefined) => {
       const dirs: string[] = [];
       for (const r of listRoots(db)) {
+        if (!mayEditRoot(user, rootRule(db, r))) continue;
         const real = await rootFs(db, r).local("");
         if (real) dirs.push(join(real, TRASH_DIR));
       }
       return dirs;
     };
 
-    app.get("/trash", { schema: { response: { 200: projectTrashSchema } } }, async () => {
+    app.get("/trash", { schema: { response: { 200: projectTrashSchema } } }, async (req) => {
       let items = 0;
       let bytes = 0;
-      for (const dir of await trashDirs()) {
+      for (const dir of await trashDirs(req.user)) {
         items += (await readdir(dir).catch(() => [])).length;
         for (const d of await readdir(dir, { withFileTypes: true, recursive: true }).catch(
           () => [],
@@ -316,9 +319,10 @@ export const projectFilesRoutes =
       return { items, bytes };
     });
 
-    app.delete("/trash", { schema: { response: { 204: z.null() } } }, async (_req, reply) => {
+    app.delete("/trash", { schema: { response: { 204: z.null() } } }, async (req, reply) => {
       // rm never follows links, so a trash folder that is a link only loses the link.
-      for (const dir of await trashDirs()) await os(rm(dir, { recursive: true, force: true }));
+      for (const dir of await trashDirs(req.user))
+        await os(rm(dir, { recursive: true, force: true }));
       return reply.status(204).send(null);
     });
   };

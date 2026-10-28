@@ -1,6 +1,7 @@
-import { type Stats, type StatsQuery, toMinor } from "@3d-maker-suite/core";
+import { HIDDEN_PROJECT, type Stats, type StatsQuery, toMinor } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
 import { and, inArray, type SQL, sql } from "drizzle-orm";
+import { projectVisible, type Rights } from "./auth.ts";
 import { printerLabel, profileLabel, projectLabel } from "./catalog.ts";
 import { deviceRates, type Rate } from "./cost.ts";
 import { dateRange, inIds, taggedWith } from "./list.ts";
@@ -31,7 +32,9 @@ const BUCKET = {
   month: "substr(started_at, 1, 7) || '-01'",
 } as const;
 
-export function readStats(db: Db, q: StatsQuery): Stats {
+/** `user`'s hidden projects (ADR-0014) count as one `HIDDEN_PROJECT` row, without a label. */
+export function readStats(db: Db, q: StatsQuery, user?: Rights): Stats {
+  const visible = projectVisible(user);
   const prefs = readPreferences(db);
   const rates = deviceRates(db);
   // `('', 0, 0)` keeps VALUES valid when a map is empty.
@@ -153,8 +156,8 @@ export function readStats(db: Db, q: StatsQuery): Stats {
         sql`JOIN printers ON printers.id = pc.printer_id`,
       ),
       project: grouped(
-        sql`pc.project_id`,
-        projectLabel,
+        sql`CASE WHEN projects.id IS NULL OR ${visible} THEN pc.project_id ELSE ${HIDDEN_PROJECT} END`,
+        sql`CASE WHEN ${visible} THEN ${projectLabel} END`,
         sql`LEFT JOIN projects ON projects.id = pc.project_id`,
       ),
       outcome: grouped(sql`pc.outcome`, sql`pc.outcome`, sql``),

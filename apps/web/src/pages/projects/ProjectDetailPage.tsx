@@ -26,6 +26,7 @@ import { RootStateBadge } from "../../components/RootStateBadge.tsx";
 import { TagList } from "../../components/TagList.tsx";
 import { Write } from "../../components/Write.tsx";
 import { ApiError } from "../../lib/api.ts";
+import { useMe } from "../../lib/auth.ts";
 import { estimateSlicedPlates, useCostContext } from "../../lib/cost.ts";
 import { cx } from "../../lib/cx.ts";
 import { useProfiles, useSpools } from "../../lib/filament.ts";
@@ -42,11 +43,13 @@ import {
   projectThumbnailUrl,
   useDeleteProject,
   useOpenProject,
+  usePatchProject,
   useProject,
   useProjectSlicing,
 } from "../../lib/projects.ts";
 import { useRoots } from "../../lib/roots.ts";
 import { useTagsOf } from "../../lib/tags.ts";
+import { useUsers } from "../../lib/users.ts";
 import { OrdersTable } from "../orders/OrdersTable.tsx";
 import { PrintsTable } from "../prints/PrintsPage.tsx";
 import { QuotesTable } from "../quotes/QuotesTable.tsx";
@@ -64,6 +67,43 @@ const DELETE_ERRORS = {
 } as const;
 
 /** Delete, confirmed; the dialog stays open with the reason when the server refuses. */
+/** "Owner: name"; an admin picks another user, except in a device root (its device's user owns it). */
+function ProjectOwner({ project, onDevice }: { project: ProjectDetail; onDevice: boolean }) {
+  const { t } = useTranslation();
+  const pick = useMe()?.role === "admin" && project.canEdit && !onDevice;
+  const users = useUsers(pick).data ?? [];
+  const patch = usePatchProject(project.id);
+  if (!pick)
+    return project.owner ? (
+      <p className="-mt-3 mb-4 text-muted">
+        {t(project.canEdit ? "projects:detail.owner" : "projects:detail.ownerReadOnly", {
+          name: project.owner.displayName,
+        })}
+      </p>
+    ) : null;
+  return (
+    <div className="-mt-3 mb-4 flex flex-wrap items-center gap-2 text-muted">
+      <span>{t("projects:detail.ownerPick")}</span>
+      <Combobox
+        aria-label={t("projects:detail.ownerPick")}
+        className="h-9 rounded-md border border-border bg-surface px-2 text-fg"
+        value={project.owner?.id ?? ""}
+        placeholder={t("projects:detail.noOwner")}
+        disabled={patch.isPending}
+        onChange={(ownerId) => ownerId && patch.mutate({ ownerId })}
+        options={users
+          .filter((u) => !u.disabled)
+          .map((u) => ({ value: u.id, label: u.displayName }))}
+      />
+      {patch.isError && (
+        <span role="alert" className="text-bad">
+          {t("projects:detail.ownerFailed")}
+        </span>
+      )}
+    </div>
+  );
+}
+
 function DeleteProject({ project }: { project: ProjectDetail }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -526,13 +566,7 @@ export function ProjectDetailPage() {
           {project.folderState === "offline" && <RootStateBadge state="offline" />}
         </p>
       )}
-      {project.owner && (
-        <p className="-mt-3 mb-4 text-muted">
-          {t(project.canEdit ? "projects:detail.owner" : "projects:detail.ownerReadOnly", {
-            name: project.owner.displayName,
-          })}
-        </p>
-      )}
+      <ProjectOwner project={project} onDevice={onDevice} />
       <MissingFolderBanner project={project} />
       <p role="status" className={open.isError ? "text-bad" : "sr-only"}>
         {open.isError

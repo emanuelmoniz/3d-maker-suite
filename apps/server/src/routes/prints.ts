@@ -22,6 +22,7 @@ import { and, count, eq, inArray, isNull, sql } from "drizzle-orm";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
+import { projectVisible } from "../lib/auth.ts";
 import { printLabel } from "../lib/catalog.ts";
 import { printCosts } from "../lib/cost.ts";
 import { columnFilter, listPage, orderBy, taggedWith } from "../lib/list.ts";
@@ -249,7 +250,7 @@ export const printsRoutes =
             // The name starts with the number: sorting by it sorts the name as shown.
             title: prints.number,
             // By the project's number, so "no project" sorts first.
-            project: sql`(select ${projects.number} from ${projects} where ${projects.id} = ${prints.projectId})`,
+            project: sql`(select ${projects.number} from ${projects} where ${projects.id} = ${prints.projectId} and ${projectVisible(req.user)})`,
             outcome: prints.outcome,
             durationSec: prints.durationSec,
           },

@@ -1,7 +1,7 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 import { type Capability, ROOT_HUB, type UserRole } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
-import { and, eq, isNull, lt, or, type SQL } from "drizzle-orm";
+import { and, eq, isNull, lt, or, type SQL, sql } from "drizzle-orm";
 import type { FastifyReply, FastifyRequest } from "fastify";
 import { HttpError } from "../errors.ts";
 import { policyOf } from "../integrations/capabilities.ts";
@@ -109,7 +109,7 @@ export function mayTask(
   throw new HttpError(403, "forbidden", "Not allowed for your role");
 }
 
-type Rights = Pick<
+export type Rights = Pick<
   SessionUser,
   "id" | "role" | "projectsSeeAll" | "projectsEditOthers" | "editOtherDevices"
 >;
@@ -190,6 +190,9 @@ export const visibleProjects = (user: Rights | undefined): SQL | undefined =>
   !user || user.role === "admin" || user.projectsSeeAll
     ? undefined
     : eq(schema.projects.ownerId, user.id);
+
+/** `visibleProjects` as an expression on a `projects` row (joins, subqueries, CASE). */
+export const projectVisible = (user: Rights | undefined): SQL => visibleProjects(user) ?? sql`1`;
 
 /** 403 unless `user` may edit files in `root` (create a project there, link one of its folders). */
 export function assertRootEditable(db: Db, user: Rights | undefined, root: Root) {

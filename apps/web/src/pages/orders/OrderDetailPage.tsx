@@ -9,6 +9,7 @@ import { Combobox } from "../../components/Combobox.tsx";
 import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { FormField } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
+import { ProjectRef } from "../../components/ProjectRef.tsx";
 import { Write } from "../../components/Write.tsx";
 import { api } from "../../lib/api.ts";
 import { useClient } from "../../lib/clients.ts";
@@ -23,7 +24,6 @@ import {
 } from "../../lib/orders.ts";
 import { usePreferences } from "../../lib/preferences.ts";
 import { printName, usePrints } from "../../lib/prints.ts";
-import { projectName, useProjects } from "../../lib/projects.ts";
 import { Info, linkButton } from "../filament/SpoolDetailPage.tsx";
 import { PrintsTable } from "../prints/PrintsPage.tsx";
 import { useProjectLeftPrompt } from "./ProjectLeftPrompt.tsx";
@@ -125,7 +125,6 @@ export function OrderDetailPage() {
   const statuses = usePreferences().data?.values.orderStatuses ?? [];
   const client = useClient(order?.clientId ?? "").data;
   const quote = useQuote(order?.quoteId ?? undefined).data;
-  const projects = useProjects().data?.items ?? [];
   const save = useSaveOrder(id);
   const del = useDeleteOrder();
   const [deleting, setDeleting] = useState(false);
@@ -200,19 +199,12 @@ export function OrderDetailPage() {
             )}
           </Info>
           <Info label={t("orders:form.projects")}>
-            {order.projectIds.map((pid, i) => {
-              const p = projects.find((x) => x.id === pid);
-              return (
-                <Fragment key={pid}>
-                  {i > 0 && ", "}
-                  {p && (
-                    <Link to="/projects/$id" params={{ id: pid }} className="hover:underline">
-                      {projectName(t, p)}
-                    </Link>
-                  )}
-                </Fragment>
-              );
-            })}
+            {order.projectIds.map((pid, i) => (
+              <Fragment key={pid}>
+                {i > 0 && ", "}
+                <ProjectRef id={pid} />
+              </Fragment>
+            ))}
           </Info>
           <div className="sm:col-span-3">
             <Info label={t("orders:form.notes")}>

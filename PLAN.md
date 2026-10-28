@@ -850,7 +850,7 @@ Back up the DB before editing schema.ts.
 Do Step 8b of the 5.0.0 plan in PLAN.md.
 ```
 
-### [ ] Step 8c - Project permissions: leaks and owner change
+### [x] Step 8c - Project permissions: leaks and owner change
 **Model:** Opus · **Effort:** Medium
 **Scope:**
 - Prints, orders, quotes, stats and tags don't show the name or link of a project the user can't see (`visibleProjects`, `projectAccess`). The rows stay; the project shows as hidden ("Other project"), and stats still count it.

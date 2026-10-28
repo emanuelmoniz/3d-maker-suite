@@ -642,9 +642,18 @@ export const projectsRoutes =
           coverFile,
           autoSlice,
           slicerIntegrationId,
+          ownerId,
           ...fields
         } = req.body;
         assertNumberFree(db, projects, "project", number, req.params.id);
+        if (ownerId) {
+          if (req.user?.role !== "admin")
+            throw new HttpError(403, "forbidden", "Only admins change a project's owner");
+          if (onDeviceRoot(db, current.rootId))
+            throw new HttpError(409, "device_owner", "Its device's user owns a device project");
+          if (!db.select({ id: users.id }).from(users).where(eq(users.id, ownerId)).get())
+            throw new HttpError(400, "invalid_reference", "Unknown user");
+        }
         if (
           slicerIntegrationId &&
           !db.select().from(integrations).where(eq(integrations.id, slicerIntegrationId)).get()
@@ -657,6 +666,7 @@ export const projectsRoutes =
           number,
           autoSlice,
           slicerIntegrationId,
+          ownerId,
         };
         if (descriptionFile) {
           // Link a doc the scanner listed; its text becomes the description on the refresh below.
