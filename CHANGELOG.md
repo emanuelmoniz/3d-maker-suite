@@ -2,6 +2,19 @@
 
 All notable changes are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [5.0.0-alpha.1] - 2026-10-28
+
+Pre-release. Test on a copy of your data first; back up before updating. Syncing project folders and device roots come in later 5.0.0 pre-releases.
+
+### Added
+- **Hub**: a switch in Settings → Server (admins, off by default, needs user accounts). Off, nothing changes ([docs/hub.md](docs/hub.md))
+- **Hub management**: a menu section for admins with the paired devices (name, user, OS, connector version, online or last seen). Pair a device with a one-time code (10 minutes), rename it or revoke it; a revoked device loses access at once
+- **Connector**: a small app for workstations, a NAS or a file server, with a status page on 127.0.0.1 to pair it. It connects out to the hub (event stream and heartbeat, resuming after a reconnect), starts at login and updates to the hub's version with rollback
+- Connector installers for Windows (.exe), macOS (.dmg) and Linux (.tar.gz). Releases carry `SHA256SUMS` and GitHub artifact attestations for every asset
+
+### Changed
+- Project folders are stored as roots with a relative path per project; existing installs migrate with their project links kept
+
 ## [4.2.1] - 2026-10-28
 
 Stable. Back up before updating.

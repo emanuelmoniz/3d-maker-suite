@@ -708,7 +708,7 @@ Do Step 3 of the 5.0.0 plan in PLAN.md.
 Back up the DB before editing schema.ts.
 ```
 
-### [ ] Step 4 - Connector skeleton and installers  **[plan mode]**
+### [x] Step 4 - Connector skeleton and installers  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:**
 - `apps/connector` (TypeScript, imports only `core` and `3mf`).
@@ -724,7 +724,7 @@ Back up the DB before editing schema.ts.
 Do Step 4 of the 5.0.0 plan in PLAN.md. Show me the connector's folder layout and the event protocol first.
 ```
 
-### [ ] Step 5 - Docs, push & v5.0.0-alpha.1
+### [x] Step 5 - Docs, push & v5.0.0-alpha.1
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - `docs/hub.md`: what the hub is, the switch, pairing, the connector install and its unsigned warnings, and a page for company IT (checksums, attestations, install paths).

@@ -10,6 +10,7 @@ A local-first manager for your 3D printing: printers, accessories, maintenance, 
 - **Accessories**: install on a printer with dates, usage, photos, tags, maintenance and cost
 - **Maintenance**: reusable tasks for printers and accessories, due by hours, prints or days
 - **Filament**: brands, materials, profiles, spools with numbers and colour names, remaining grams, low-spool alerts
+- **Hub and connector** (pre-release): workstations, a NAS or a file server join your server with a small connector app ([docs/hub.md](docs/hub.md))
 - **Users and roles**: accounts for a LAN, NAS or Docker install, with viewer, editor and admin roles and a log of who changed what ([docs/users.md](docs/users.md))
 - **Alerts**: one list of what needs attention (low spools, maintenance, warranties, sync results), with severity, read, snooze and dismiss, a history table, and optional ntfy or email channels; each task chooses what it raises
 - **Projects**: 3MF models with plates, thumbnails, tags, collections, filament colours, files you can upload, move and remove in folders, a chosen 3D preview file, an image gallery with a cover, a markdown description (linked `.md` or `.txt` file, with an editor), and slicing per plate (Bambu Studio or OrcaSlicer, locally or on the server, automatically when a sliced file changes) for an estimated cost of one complete print
@@ -96,7 +97,7 @@ By default the app only answers on this PC. To reach it from your phone or anoth
 
 ## Status
 
-Version 4.2.1. English only for now; the code is ready for more languages (see [CONTRIBUTING.md](CONTRIBUTING.md)).
+Version 5.0.0-alpha.1. English only for now; the code is ready for more languages (see [CONTRIBUTING.md](CONTRIBUTING.md)).
 
 ## License
 
