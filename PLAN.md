@@ -789,10 +789,29 @@ Do Step 8 of the 5.0.0 plan in PLAN.md. Show me the permission table first.
 Back up the DB before editing schema.ts.
 ```
 
+### [ ] Step 8b - Connector updates: outdated alert, update now, restart and stop
+**Model:** Opus · **Effort:** Medium
+**Scope:**
+- The connector reports a failed update to the hub: the download failed, or the launcher rolled back the new version.
+- Hub management marks a device whose connector version isn't the hub's ("Outdated", or "Update failed" with the reason). An alert (hub module, admins) is raised when a device stays outdated or its update fails, and clears once it matches.
+- **Update now** per device (admin): a new `connector.update` event. The connector retries the download at once, including a version that rolled back before. Offline device: the button is disabled.
+- Connector status page: **Restart** and **Stop** buttons (POST, same Host and Origin checks as Pair). Restart exits with the launcher's restart code; Stop ends the connector until it is started again from the start menu or launcher, or at the next login. Stop asks for confirmation, since the device goes offline for the hub.
+
+**Done when:**
+- An outdated connector shows in Hub management and raises the alert.
+- Update now updates it, tested against a local build with `APP_DOWNLOAD_URL`.
+- Restart and Stop work from the status page.
+- Tests pass.
+
+**Prompt:**
+```
+Do Step 8b of the 5.0.0 plan in PLAN.md.
+```
+
 ### [ ] Step 9 - Docs, push & v5.0.0-alpha.2
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
-- `docs/hub.md`: device roots, what offline means, permissions.
+- `docs/hub.md`: device roots, what offline means, permissions, connector updates (outdated alert, Update now) and the status page's Restart and Stop.
 - CHANGELOG, version `5.0.0-alpha.2`.
 - Commit, push `dev`, tag on `dev`. Check the run and the pre-release.
 
