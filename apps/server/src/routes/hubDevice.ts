@@ -1,6 +1,7 @@
 import { Readable } from "node:stream";
 import {
   apiErrorSchema,
+  DEVICE_FOLDER_MAX_MB_LIMIT,
   deviceFolderQuerySchema,
   deviceFolderSchema,
   deviceIndexResultSchema,
@@ -21,7 +22,12 @@ import type { ProjectScanner } from "../projects/scanner.ts";
 
 const { projects, roots } = schema;
 const rootParams = z.object({ rootId: z.uuid() });
-const errors = { 400: apiErrorSchema, 403: apiErrorSchema, 404: apiErrorSchema };
+const errors = {
+  400: apiErrorSchema,
+  403: apiErrorSchema,
+  404: apiErrorSchema,
+  413: apiErrorSchema,
+};
 
 /** The paired device making the request; the role check is skipped for these routes (lib/auth.ts). */
 const deviceOf = (req: FastifyRequest) => {
@@ -63,7 +69,8 @@ export const hubDeviceRoutes =
       "/roots",
       { schema: { response: { 200: z.array(deviceRootSchema), ...errors } } },
       async (req) => {
-        const maxFiles = readPreferences(db).projectScanMaxFiles;
+        const { projectScanMaxFiles: maxFiles, deviceFolderMaxMb: folderMaxMb } =
+          readPreferences(db);
         return db
           .select()
           .from(roots)
@@ -85,6 +92,7 @@ export const hubDeviceRoutes =
               projectDepth,
               filesDepth,
               maxFiles,
+              folderMaxMb,
               covers: Object.fromEntries(
                 picks.flatMap((p) =>
                   p.folder !== null && p.coverFile ? [[p.folder, p.coverFile]] : [],
@@ -117,9 +125,13 @@ export const hubDeviceRoutes =
     app.put(
       "/roots/:rootId/folders",
       {
-        // A folder's meta (up to 50 3MFs) plus its docs, a cover, plate previews and gallery images
-        // (capped).
-        bodyLimit: 48 * 1024 * 1024,
+        // The most `deviceFolderMaxMb` can be; the setting's own value is checked below.
+        bodyLimit: DEVICE_FOLDER_MAX_MB_LIMIT * 1024 * 1024,
+        onRequest: async (req) => {
+          const max = readPreferences(db).deviceFolderMaxMb;
+          if (Number(req.headers["content-length"]) > max * 1024 * 1024)
+            throw new HttpError(413, "folder_too_large", `The folder is larger than ${max} MB`);
+        },
         schema: {
           params: rootParams,
           body: deviceFolderSchema,

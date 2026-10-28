@@ -91,15 +91,13 @@ const rel = z
   );
 
 /**
- * Caps on what a device sends per folder: each doc's text, the cover, each plate preview and all
- * previews together, each gallery pick and all picks together (bytes, before base64).
+ * Caps on what a device sends per folder: each doc's text, the cover, each plate preview and each
+ * gallery pick (bytes, before base64). The whole request is capped by `deviceFolderMaxMb`.
  */
 export const DEVICE_TEXT_MAX = 100_000;
 export const DEVICE_COVER_MAX = 2 * 1024 * 1024;
 export const DEVICE_PREVIEW_MAX = 1024 * 1024;
-export const DEVICE_PREVIEWS_MAX = 8 * 1024 * 1024;
 export const DEVICE_GALLERY_IMAGE_MAX = 4 * 1024 * 1024;
-export const DEVICE_GALLERY_MAX = 16 * 1024 * 1024;
 const base64 = (max: number) => z.base64().max(Math.ceil(max / 3) * 4);
 const COVER_EXTS = [".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg"] as const;
 
@@ -111,6 +109,8 @@ export const deviceRootSchema = z.object({
   filesDepth: z.number().int().nullable(),
   /** `projectScanMaxFiles`: files listed per folder at most. */
   maxFiles: z.number().int(),
+  /** `deviceFolderMaxMb`: the most one folder's request may be. */
+  folderMaxMb: z.number().int(),
   /** The cover a project picked, by folder: it is sent as the folder's cover. */
   covers: z.record(z.string(), z.string()),
   /** The gallery a project picked, by folder: its images are sent with the folder. */

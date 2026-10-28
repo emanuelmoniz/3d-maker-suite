@@ -2,7 +2,7 @@ import { randomBytes, randomUUID } from "node:crypto";
 import { hostname, tmpdir } from "node:os";
 import { join } from "node:path";
 import type { IntegrationAdapter, LogModule } from "@3d-maker-suite/core";
-import type { Db } from "@3d-maker-suite/db";
+import { type Db, schema } from "@3d-maker-suite/db";
 import { type Autostart, loadKey } from "@3d-maker-suite/host";
 // Types only: reply.sendFile below; main.ts registers the plugin when it serves the web build.
 import type {} from "@fastify/static";
@@ -200,8 +200,15 @@ export async function buildApp(
   app.addHook("onClose", async () => deviceFiles.close());
   await app.register(hubRoutes(db, hub), { prefix: "/api/hub" });
   await app.register(
-    preferencesRoutes(db, dataDir, (v) => {
+    preferencesRoutes(db, dataDir, (v, patch) => {
       if (sink) sink.configure(v);
+      // Folders cut off by the old size are sent again: forget their digests and wake the devices
+      // (an offline one syncs when it connects).
+      if (patch.deviceFolderMaxMb !== undefined) {
+        db.update(schema.deviceRootFolders).set({ digest: "" }).run();
+        for (const { id } of db.select({ id: schema.devices.id }).from(schema.devices).all())
+          if (hub.online(id)) hub.publish(id, { type: "roots.changed" });
+      }
     }),
     { prefix: "/api/preferences" },
   );

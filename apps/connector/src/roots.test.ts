@@ -43,6 +43,7 @@ beforeEach(async () => {
           projectDepth: 1,
           filesDepth: null,
           maxFiles: 500,
+          folderMaxMb: 32,
           covers: {},
           galleries: {},
         },

@@ -6,9 +6,7 @@ import { pipeline } from "node:stream/promises";
 import {
   DEVICE_COVER_MAX,
   DEVICE_GALLERY_IMAGE_MAX,
-  DEVICE_GALLERY_MAX,
   DEVICE_PREVIEW_MAX,
-  DEVICE_PREVIEWS_MAX,
   type DeviceFolder,
   type DeviceRoot,
   deviceIndexResultSchema,
@@ -124,34 +122,8 @@ export function createRootSync({
     const picked = l.root.covers[rel];
     const chosen =
       picked && scan.files.some((f) => f.path === picked && f.kind === "image") ? picked : null;
-    const cover = await readCover(
-      chosen ? { kind: "image", abs: join(dir, ...chosen.split("/")) } : scan.cover,
-    );
-    const previews = await readPlatePreviews(
-      dir,
-      scan.models,
-      DEVICE_PREVIEW_MAX,
-      DEVICE_PREVIEWS_MAX,
-    );
-    // The gallery's images, in file order, until the caps are used; the rest is left out.
-    const gallery: DeviceFolder["gallery"] = [];
-    const galleryLeftOut: string[] = [];
-    let galleryBytes = 0;
-    const picks = l.root.galleries[rel];
-    for (const { path, size } of picks ? galleryImages({ gallery: picks, meta: scan }) : []) {
-      const fits = size <= DEVICE_GALLERY_IMAGE_MAX && galleryBytes + size <= DEVICE_GALLERY_MAX;
-      const data = fits && (await readFile(join(dir, ...path.split("/"))).catch(() => null));
-      if (
-        !data ||
-        data.length > DEVICE_GALLERY_IMAGE_MAX ||
-        galleryBytes + data.length > DEVICE_GALLERY_MAX
-      ) {
-        galleryLeftOut.push(path);
-        continue;
-      }
-      galleryBytes += data.length;
-      gallery.push({ file: path, data: data.toString("base64") });
-    }
+    // The request fills a budget (`deviceFolderMaxMb`), in order: scan and docs, cover, gallery
+    // picks, plate previews. What doesn't fit is left out.
     const body: DeviceFolder = {
       rel,
       digest,
@@ -164,18 +136,47 @@ export function createRootSync({
         unreadable: scan.unreadable,
       },
       texts: scan.texts,
-      cover:
-        cover && cover.data.length <= DEVICE_COVER_MAX
-          ? {
-              ext: cover.ext as NonNullable<DeviceFolder["cover"]>["ext"],
-              data: Buffer.from(cover.data).toString("base64"),
-              file: chosen,
-            }
-          : null,
-      previews: previews.map((p) => ({ ...p, data: Buffer.from(p.data).toString("base64") })),
-      gallery,
-      galleryLeftOut,
+      cover: null,
+      previews: [],
+      gallery: [],
+      galleryLeftOut: [],
     };
+    // Bytes in the request: base64 plus a little for each item's JSON.
+    const cost = (n: number) => Math.ceil(n / 3) * 4 + 256;
+    let left = l.root.folderMaxMb * 1024 * 1024 - Buffer.byteLength(JSON.stringify(body));
+
+    const cover = await readCover(
+      chosen ? { kind: "image", abs: join(dir, ...chosen.split("/")) } : scan.cover,
+    );
+    if (cover && cover.data.length <= DEVICE_COVER_MAX && cost(cover.data.length) <= left) {
+      left -= cost(cover.data.length);
+      body.cover = {
+        ext: cover.ext as NonNullable<DeviceFolder["cover"]>["ext"],
+        data: Buffer.from(cover.data).toString("base64"),
+        file: chosen,
+      };
+    }
+
+    const picks = l.root.galleries[rel];
+    for (const { path, size } of picks ? galleryImages({ gallery: picks, meta: scan }) : []) {
+      const fits = size <= DEVICE_GALLERY_IMAGE_MAX && cost(size) <= left;
+      const data = fits && (await readFile(join(dir, ...path.split("/"))).catch(() => null));
+      if (!data || data.length > DEVICE_GALLERY_IMAGE_MAX || cost(data.length) > left) {
+        body.galleryLeftOut.push(path);
+        continue;
+      }
+      left -= cost(data.length);
+      body.gallery.push({ file: path, data: data.toString("base64") });
+    }
+
+    // readPlatePreviews counts raw bytes; 0.7 covers base64 (0.75) and each item's JSON.
+    const previews = await readPlatePreviews(
+      dir,
+      scan.models,
+      DEVICE_PREVIEW_MAX,
+      Math.max(0, Math.floor(left * 0.7)),
+    );
+    body.previews = previews.map((p) => ({ ...p, data: Buffer.from(p.data).toString("base64") }));
     await call(`/roots/${l.root.id}/folders`, { method: "PUT", body });
     l.sent.set(rel, digest);
     return true;

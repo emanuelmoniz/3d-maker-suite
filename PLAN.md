@@ -802,7 +802,7 @@ Do Step 7b of the 5.0.0 plan in PLAN.md.
 Do Step 7c of the 5.0.0 plan in PLAN.md.
 ```
 
-### [ ] Step 7d - Device folder size setting
+### [x] Step 7d - Device folder size setting
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - A preference `deviceFolderMaxMb` (default 32) in Settings → Projects, with a hint: how much one device folder's scan may send (docs, cover, plate previews, gallery picks).

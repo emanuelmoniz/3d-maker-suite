@@ -1,4 +1,10 @@
-import { ROOT_DEFAULTS, ROOT_HUB, type Root, type RootPatch } from "@3d-maker-suite/core";
+import {
+  DEVICE_FOLDER_MAX_MB_LIMIT,
+  ROOT_DEFAULTS,
+  ROOT_HUB,
+  type Root,
+  type RootPatch,
+} from "@3d-maker-suite/core";
 import { Trash2 } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -181,6 +187,12 @@ export function ProjectsConfigPage() {
               hint={t("settings:projects.maxFilesHint")}
             >
               {(p) => num("projectScanMaxFiles", p)}
+            </FormField>
+            <FormField
+              label={t("settings:projects.deviceFolderMax")}
+              hint={t("settings:projects.deviceFolderMaxHint", { max: DEVICE_FOLDER_MAX_MB_LIMIT })}
+            >
+              {(p) => num("deviceFolderMaxMb", p)}
             </FormField>
             <FormField
               label={t("settings:projects.viewerMax")}

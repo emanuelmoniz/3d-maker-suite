@@ -24,6 +24,9 @@ export const dashboardWidgetSchema = z.object({
   settings: z.record(z.string(), z.json()),
 });
 
+/** Upper bound of `deviceFolderMaxMb`; also the device folder route's body limit. */
+export const DEVICE_FOLDER_MAX_MB_LIMIT = 128;
+
 const shape = {
   language: z.enum(LANGUAGES),
   units: z.enum(UNIT_SYSTEMS),
@@ -54,6 +57,8 @@ const shape = {
   markupPct: z.number().nonnegative(),
   /** Files a scan lists per project folder at most; the rest can't be picked or shown. */
   projectScanMaxFiles: z.number().int().min(100).max(100_000),
+  /** What one device folder's scan may send the hub (docs, cover, plate previews, gallery picks). */
+  deviceFolderMaxMb: z.number().int().min(1).max(DEVICE_FOLDER_MAX_MB_LIMIT),
   /** Model files bigger than this show the plate thumbnail instead of the 3D viewer. */
   viewerMaxMb: z.number().positive(),
   /** Largest file one upload into a project folder may be. */
@@ -120,6 +125,7 @@ export const PREFERENCE_DEFAULTS: z.infer<typeof preferencesSchema> = {
   failureMarginPct: 5,
   markupPct: 20,
   projectScanMaxFiles: 1000,
+  deviceFolderMaxMb: 32,
   viewerMaxMb: 30,
   projectUploadMaxMb: 1024,
   defaultSlicerId: null,

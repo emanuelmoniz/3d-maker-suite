@@ -15,7 +15,11 @@ const { settings, userSettings } = schema;
 const OWN: readonly string[] = USER_PREFERENCE_KEYS;
 
 export const preferencesRoutes =
-  (db: Db, dataDir: string, onSaved?: (v: Preferences) => void): FastifyPluginAsyncZod =>
+  (
+    db: Db,
+    dataDir: string,
+    onSaved?: (v: Preferences, patch: Partial<Preferences>) => void,
+  ): FastifyPluginAsyncZod =>
   async (app) => {
     // With users, display keys are each user's own (ADR-0012); without, everything is global.
     app.get("/", { schema: { response: { 200: preferencesResponseSchema } } }, async (req) => ({
@@ -58,7 +62,7 @@ export const preferencesRoutes =
                 .run();
           }
         });
-        onSaved?.(read(db));
+        onSaved?.(read(db), req.body);
         return { values: read(db, user?.id), dataDir };
       },
     );

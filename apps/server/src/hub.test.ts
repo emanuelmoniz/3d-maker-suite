@@ -290,6 +290,7 @@ describe("hub events", () => {
         projectDepth: 1,
         filesDepth: null,
         maxFiles: expect.any(Number),
+        folderMaxMb: 32,
         covers: {},
         galleries: {},
       },
@@ -319,6 +320,26 @@ describe("hub events", () => {
       (await dev("PUT", `/roots/${mine.id}/folders`, { ...folder("c"), rel: "../x" })).statusCode,
     ).toBe(400);
     expect((await send("GET", "/api/hub/device/roots")).statusCode).toBe(403);
+
+    // The size setting: over it 413, and a change makes the device read its roots and resend.
+    const big = { ...folder("a"), texts: { "README.md": "x".repeat(60_000) } };
+    expect((await send("PATCH", "/api/preferences", { deviceFolderMaxMb: 1 })).statusCode).toBe(
+      200,
+    );
+    expect(
+      (
+        await dev("PUT", `/roots/${mine.id}/folders`, {
+          ...big,
+          previews: [
+            { file: "box.stl", entry: "t.png", data: Buffer.alloc(900_000).toString("base64") },
+            { file: "box.stl", entry: "u.png", data: Buffer.alloc(900_000).toString("base64") },
+          ],
+        })
+      ).statusCode,
+    ).toBe(413);
+    expect((await s.until((t) => t.includes('"roots.changed"'))) ?? "").toContain("roots.changed");
+    expect((await index("a")).json()).toEqual({ want: ["001_Box"] });
+    await send("PATCH", "/api/preferences", { deviceFolderMaxMb: 32 });
 
     expect((await dev("DELETE", `/roots/${mine.id}/folders?rel=001_Box`)).statusCode).toBe(204);
     expect((await detail()).folderState).toBe("missing");

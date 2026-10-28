@@ -1,4 +1,4 @@
-import type { Preferences } from "@3d-maker-suite/core";
+import { DEVICE_FOLDER_MAX_MB_LIMIT, type Preferences } from "@3d-maker-suite/core";
 import { useQuery } from "@tanstack/react-query";
 import { type LinkProps, Navigate } from "@tanstack/react-router";
 import type { ReactNode } from "react";
@@ -21,6 +21,7 @@ export type NumKey =
   | "maintenanceLeadHours"
   | "maintenanceLeadPrints"
   | "projectScanMaxFiles"
+  | "deviceFolderMaxMb"
   | "viewerMaxMb"
   | "projectUploadMaxMb";
 
@@ -73,11 +74,20 @@ export function ConfigPage({
       min={
         key === "projectScanMaxFiles"
           ? 100
-          : key === "viewerMaxMb" || key === "projectUploadMaxMb" || key === "gramsPerHour"
+          : key === "viewerMaxMb" ||
+              key === "projectUploadMaxMb" ||
+              key === "deviceFolderMaxMb" ||
+              key === "gramsPerHour"
             ? 1
             : 0
       }
-      max={key === "projectScanMaxFiles" ? 100_000 : undefined}
+      max={
+        key === "projectScanMaxFiles"
+          ? 100_000
+          : key === "deviceFolderMaxMb"
+            ? DEVICE_FOLDER_MAX_MB_LIMIT
+            : undefined
+      }
       step={
         key === "energyCostPerKwh" || key === "laborRatePerHour"
           ? 0.01
