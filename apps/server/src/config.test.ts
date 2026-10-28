@@ -40,6 +40,25 @@ describe("config", () => {
     });
   });
 
+  describe("APP_TRUST_PROXY", () => {
+    const trust = (v?: string) =>
+      loadConfig({ APP_DATA_DIR: mkdtempSync(join(tmpdir(), "cfg-")), APP_TRUST_PROXY: v }, [])
+        .trustProxy;
+
+    it("takes the proxies' IPs/CIDRs, and is off when unset or blank", () => {
+      expect(trust()).toBeUndefined();
+      expect(trust(" , ")).toBeUndefined();
+      expect(trust(" 127.0.0.1, 172.16.0.0/12,::1 ")).toEqual([
+        "127.0.0.1",
+        "172.16.0.0/12",
+        "::1",
+      ]);
+    });
+    it.each(["true", "1", "proxy.example", "10.0.0.0/33", "10.0.0.1/8/1"])("rejects %s", (v) => {
+      expect(() => trust(v)).toThrow(/APP_TRUST_PROXY/);
+    });
+  });
+
   describe("host and port", () => {
     const dir = () => mkdtempSync(join(tmpdir(), "cfg-"));
 

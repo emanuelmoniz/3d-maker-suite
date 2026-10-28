@@ -37,6 +37,7 @@ const app = await buildApp(db, true, config.dataDir, {
   updateCheckSchedule: "0 9 * * *",
   watchProjects: true,
   access: { host: config.host, password: config.password, allowedHosts: config.allowedHosts },
+  trustProxy: config.trustProxy,
   setupToken,
   serverConfig: config,
   autostart,
@@ -66,6 +67,8 @@ else if (!isLoopback(config.host) && !config.password)
   );
 if (config.allowedHosts.length)
   app.log.info(`Also accepting requests addressed to: ${config.allowedHosts.join(", ")}`);
+if (config.trustProxy !== undefined)
+  app.log.info(`Client IPs from X-Forwarded-For, trusting: ${config.trustProxy}`);
 await app.listen({ host: config.host, port: config.port });
 if (setupToken)
   console.log(

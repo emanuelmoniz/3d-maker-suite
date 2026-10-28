@@ -1,4 +1,5 @@
 import { readFileSync, writeFileSync } from "node:fs";
+import { isIP } from "node:net";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
@@ -66,6 +67,28 @@ function parseAllowedHosts(value: string | undefined): string[] {
   return [...new Set(hosts)];
 }
 
+/**
+ * `APP_TRUST_PROXY`: the reverse proxies' IPs/CIDRs (`127.0.0.1`, `172.16.0.0/12`). Then `req.ip`
+ * is the client from `X-Forwarded-For`, so the per-IP login and pairing limits count each client.
+ * Addresses only: trusting any (`true`) or a hop count would let a client name its own IP in the
+ * header when the proxies change.
+ */
+function parseTrustProxy(value: string | undefined): string[] | undefined {
+  const list = (value ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  for (const s of list) {
+    const [ip = "", bits, ...rest] = s.split("/");
+    const max = isIP(ip) === 4 ? 32 : 128;
+    if (!isIP(ip) || rest.length || (bits !== undefined && !(/^\d+$/.test(bits) && +bits <= max)))
+      throw new Error(
+        `Invalid APP_TRUST_PROXY entry: "${s}" (use the proxies' IPs or CIDRs, e.g. 127.0.0.1,172.16.0.0/12)`,
+      );
+  }
+  return list.length ? list : undefined;
+}
+
 /** Precedence per setting: CLI flag > env > config file > default. */
 export const DEFAULT_HOST = "127.0.0.1";
 export const DEFAULT_PORT = 4300;
@@ -104,6 +127,8 @@ export function loadConfig(env: Env = process.env, argv: string[] = process.argv
     password: env.APP_PASSWORD || undefined,
     /** Public host names a reverse proxy forwards in `Host`; env only (a deployment decision). */
     allowedHosts: parseAllowedHosts(env.APP_ALLOWED_HOSTS),
+    /** Proxies whose `X-Forwarded-For` names the client; env only, like `allowedHosts`. */
+    trustProxy: parseTrustProxy(env.APP_TRUST_PROXY),
     /** Registers the fake adapter so the Integrations page can be tried without a vendor account. */
     mockIntegration: env.APP_MOCK_INTEGRATION === "1",
   };

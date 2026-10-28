@@ -10,9 +10,9 @@ beforeAll(async () => {
   hash = await hashPassword(PW);
 });
 
-const setup = async () => {
+const setup = async (opts: Parameters<typeof buildApp>[3] = {}) => {
   const db = openDb(":memory:");
-  const app = await buildApp(db, { stream: { write: () => true } }, "", {});
+  const app = await buildApp(db, { stream: { write: () => true } }, "", opts);
   const user = (role: "admin" | "viewer") =>
     db
       .insert(schema.users)
@@ -106,6 +106,26 @@ describe("hub devices", () => {
     for (let i = 0; i < 4; i++) expect((await pair("AAAA-AAAA")).statusCode).toBe(401);
     const fresh = (await send("POST", "/api/hub/pairing-codes", { userId: viewer.id })).json();
     expect((await pair(fresh.code)).statusCode).toBe(429);
+  });
+
+  it("behind a trusted proxy, locks the client, not everyone", async () => {
+    const { app, viewer, send } = await setup({ trustProxy: ["127.0.0.1"] });
+    await send("PATCH", "/api/preferences", { hubEnabled: true });
+    // What the proxy forwards: whatever the client sent in X-Forwarded-For, then the client's address.
+    const pairVia = (forwardedFor: string, code: string) =>
+      app.inject({
+        method: "POST",
+        url: "/api/hub/pair",
+        remoteAddress: "127.0.0.1",
+        headers: { "x-forwarded-for": forwardedFor },
+        payload: { code, name: "PC" },
+      });
+    for (let i = 0; i < 5; i++) await pairVia("203.0.113.5", "AAAA-AAAA");
+    const code = async () =>
+      (await send("POST", "/api/hub/pairing-codes", { userId: viewer.id })).json().code;
+    expect((await pairVia("203.0.113.5", await code())).statusCode).toBe(429);
+    // Another client pairs; naming the locked one first in the header changes nothing.
+    expect((await pairVia("203.0.113.5, 198.51.100.7", await code())).statusCode).toBe(201);
   });
 });
 

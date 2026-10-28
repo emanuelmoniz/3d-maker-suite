@@ -15,6 +15,7 @@ pnpm --filter @3d-maker-suite/server start -- --port 4400 --host 0.0.0.0
 | `APP_DATA_DIR` | see [install.md](install.md#where-your-data-is) | Where the database, thumbnails, backups and key file live |
 | `APP_PASSWORD` | unset | HTTP Basic password, used only until the first user account exists ([users.md](users.md)). Required when `HOST` is not a loopback address and no account exists. Any user name works. |
 | `APP_ALLOWED_HOSTS` | unset | Comma-separated public host names a reverse proxy forwards in `Host`, e.g. `3d.example.com,makersuite.example.org`. Bare names or IPs only (no scheme, port, path or wildcard; IPv6 in brackets). Exact matches, case-insensitive. Environment only. See [Behind a reverse proxy](#behind-a-reverse-proxy). |
+| `APP_TRUST_PROXY` | unset | Comma-separated IPs or CIDRs of your reverse proxies, e.g. `127.0.0.1` or `172.16.0.0/12` (Docker). The app then takes the client's address from `X-Forwarded-For`, so the lockout after wrong passwords or pairing codes hits only that client. Addresses only: a hop count or `true` would let a client fake its address. Environment only. See [Behind a reverse proxy](#behind-a-reverse-proxy). |
 | `APP_MOCK_INTEGRATION` | unset | Set to `1` to add a fake integration for trying the Integrations page without an account |
 | `APP_INSTALL` | unset | `docker` in the Docker image: Settings shows `docker compose pull` instead of an Update button. `bundle` when the installed app's launcher starts it ([ADR-0011](adr/0011-bundle-installs.md)). |
 | `APP_LAUNCHER` | set by `pnpm start` | Tells the server it runs under the launcher, which restarts it and applies updates ([ADR-0009](adr/0009-updates.md)). Don't set it yourself. |
@@ -47,8 +48,10 @@ Once an account exists, `APP_PASSWORD` is ignored and you should remove it. Use 
 
 Keep `HOST=127.0.0.1` and list the public name(s) in `APP_ALLOWED_HOSTS`. Without it the host guard answers `403 forbidden_host` to any `Host` that is not `localhost`. The proxy must also send `X-Forwarded-Proto` so session cookies stay `Secure`.
 
+Set `APP_TRUST_PROXY` to the proxy's address too. Without it every request seems to come from the proxy, so five wrong passwords or pairing codes from anyone lock that account, or pairing, for everyone for 15 minutes. The proxy must then send `X-Forwarded-For`. In Docker the proxy reaches the container from the Docker network, so trust that range (e.g. `172.16.0.0/12`), not `127.0.0.1`.
+
 ```bash
-APP_ALLOWED_HOSTS=3d.example.com pnpm start
+APP_ALLOWED_HOSTS=3d.example.com APP_TRUST_PROXY=127.0.0.1 pnpm start
 ```
 
 ```nginx
@@ -56,8 +59,11 @@ location / {
     proxy_pass http://127.0.0.1:4300;
     proxy_set_header Host $host;
     proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
 }
 ```
+
+Caddy and Traefik send `X-Forwarded-For` and `X-Forwarded-Proto` by default.
 
 Creating the first admin from the public name still needs the setup token: only a request addressed to `localhost` from this PC skips it.
 

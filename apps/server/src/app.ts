@@ -85,6 +85,8 @@ export async function buildApp(
     watchProjects?: boolean;
     /** Bind address and optional password, checked while no users exist (off in tests). */
     access?: { host: string; password?: string; allowedHosts?: string[] };
+    /** Fastify `trustProxy` (`APP_TRUST_PROXY`): `req.ip` is then the client behind the proxy. */
+    trustProxy?: FastifyServerOptions["trustProxy"];
     /** One-time token that allows `POST /api/auth/setup` from another device (ADR-0012). */
     setupToken?: string;
     /** Network settings editable from Settings (needs a data dir). */
@@ -121,6 +123,7 @@ export async function buildApp(
       customLevels: CUSTOM_LEVELS,
       stream: sink,
     },
+    trustProxy: opts.trustProxy ?? false,
     // Replaced by the one line per API call below.
     disableRequestLogging: true,
     childLoggerFactory: (log, bindings, o, raw) =>
