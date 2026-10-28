@@ -788,6 +788,34 @@ Do Step 7 of the 5.0.0 plan in PLAN.md.
 Do Step 7b of the 5.0.0 plan in PLAN.md.
 ```
 
+### [ ] Step 7c - Gallery on device projects
+**Model:** Opus · **Effort:** Medium
+**Scope:**
+- Today a device project can't save gallery picks (PATCH returns 403), and `/files/image` reads only hub folders.
+- Picked gallery images come with the folder scan, like the picked cover: the device's roots list carries each folder's picks, a new pick marks the folder stale and asks the device to sync, and the hub stores them under `<dataDir>/thumbnails` and serves `/files/image` from there (offline too).
+- The picker's other images are pulled on demand (`fs.upload`, images only, online device only); offline, the picker shows only what is stored.
+- Picked images count against the folder's size cap (Step 7d); over the cap, the picks that don't fit are left out and the page says so.
+
+**Done when:** gallery picks on a device project save, show, survive a save on the device, and still show offline; tests pass.
+**Prompt:**
+```
+Do Step 7c of the 5.0.0 plan in PLAN.md.
+```
+
+### [ ] Step 7d - Device folder size setting
+**Model:** Sonnet · **Effort:** Medium
+**Scope:**
+- A preference `deviceFolderMaxMb` (default 32) in Settings → Projects, with a hint: how much one device folder's scan may send (docs, cover, plate previews, gallery picks).
+- The hub's `PUT /api/hub/device/roots/:id/folders` enforces it per request (the route's static `bodyLimit` becomes the upper bound of the setting), answering 413 over it.
+- The connector reads it from `GET /api/hub/device/roots` (like `maxFiles`) and fills the folder in order: scan and docs, cover, gallery picks, then plate previews until the budget is used. The fixed `DEVICE_PREVIEWS_MAX` goes; the per-image caps stay.
+- A changed value makes the devices resync (`roots.changed`), so folders that were cut off are sent again.
+
+**Done when:** the setting shows in Settings → Projects, a lower value leaves out previews over it, a folder over the hub's limit gets 413, and a change resends; `pnpm i18n:check` and tests pass.
+**Prompt:**
+```
+Do Step 7d of the 5.0.0 plan in PLAN.md.
+```
+
 ### [ ] Step 8 - Project owner and visibility  **[plan mode]**
 **Model:** Opus · **Effort:** Medium
 **Scope:**
@@ -825,7 +853,7 @@ Do Step 8b of the 5.0.0 plan in PLAN.md.
 ### [ ] Step 9 - Docs, push & v5.0.0-alpha.2
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
-- `docs/hub.md`: device roots, what offline means, permissions, connector updates (outdated alert, Update now) and the status page's Restart and Stop.
+- `docs/hub.md`: device roots, what offline means, plate previews and gallery on device projects, the device folder size setting, permissions, connector updates (outdated alert, Update now) and the status page's Restart and Stop.
 - CHANGELOG, version `5.0.0-alpha.2`.
 - Commit, push `dev`, tag on `dev`. Check the run and the pre-release.
 
