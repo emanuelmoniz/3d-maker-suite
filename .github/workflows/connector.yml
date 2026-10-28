@@ -1,0 +1,66 @@
+name: Connector pairing
+# The installed connector against a hub run from source, on Linux and macOS (ADR-0014): pair through
+# the status page, online in Hub management, a rename over the event stream, a revoke.
+# Windows: run scripts/pair-test.mjs by hand (docs in the script).
+on:
+  push:
+    branches: [dev]
+    paths:
+      - "apps/connector/**"
+      - "apps/server/src/routes/hub.ts"
+      - "apps/server/src/lib/auth.ts"
+      - "packages/core/src/schemas/hub.ts"
+      - "packages/host/**"
+      - "packaging/**"
+      - "scripts/pair-test.mjs"
+      - ".github/workflows/connector.yml"
+  workflow_dispatch:
+jobs:
+  pair:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15]
+    name: pair (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # The hub serves the web app, so it needs the build to start.
+      - run: pnpm --filter @3d-maker-suite/web build
+      - run: node packaging/build.mjs --product connector
+      - name: Start a hub (fresh data, port 4300)
+        run: |
+          mkdir -p "$RUNNER_TEMP/hub"
+          cd apps/server
+          APP_DATA_DIR="$RUNNER_TEMP/hub" nohup pnpm exec tsx src/main.ts > "$RUNNER_TEMP/hub.log" 2>&1 &
+      - name: Install and start the connector (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          tar -xzf packaging/out/3d-maker-suite-connector-*.tar.gz -C "$RUNNER_TEMP"
+          "$RUNNER_TEMP/3d-maker-suite-connector/install.sh"
+          # The way the app menu starts it.
+          eval "$(grep '^Exec=' "$HOME/.local/share/applications/3d-maker-suite-connector.desktop" | cut -d= -f2-)" &
+      - name: Install and start the connector (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          hdiutil attach -nobrowse -mountpoint /tmp/cdmg packaging/out/3d-maker-suite-connector-*.dmg
+          cp -R "/tmp/cdmg/3D Maker Suite Connector.app" /tmp/
+          hdiutil detach /tmp/cdmg
+          open -n "/tmp/3D Maker Suite Connector.app"
+      - run: node scripts/pair-test.mjs
+      - name: Logs
+        if: failure()
+        run: |
+          cat "$RUNNER_TEMP/hub.log" || true
+          for d in "$HOME/.local/share/3d-maker-suite-connector/install/logs" \
+                   "$HOME/Library/Application Support/3d-maker-suite-connector/install/logs"; do
+            [ -d "$d" ] && tail -n 50 "$d"/*.log
+          done
+          true
