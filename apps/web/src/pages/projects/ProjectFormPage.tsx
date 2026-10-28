@@ -1,4 +1,4 @@
-import type { Project, ProjectDetail } from "@3d-maker-suite/core";
+import { type Project, type ProjectDetail, ROOT_HUB } from "@3d-maker-suite/core";
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -8,6 +8,7 @@ import { Combobox } from "../../components/Combobox.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { PathPicker } from "../../components/PathPicker.tsx";
+import { useMe } from "../../lib/auth.ts";
 import { isConflict } from "../../lib/catalog.ts";
 import { uploadProjectFile } from "../../lib/projectFiles.ts";
 import {
@@ -17,6 +18,7 @@ import {
   useProject,
 } from "../../lib/projects.ts";
 import { useRoots } from "../../lib/roots.ts";
+import { useUsers } from "../../lib/users.ts";
 import { DescriptionEditor, type DescriptionState } from "./DescriptionEditor.tsx";
 import { GalleryPicker } from "./GalleryPicker.tsx";
 import { FolderActions } from "./ProjectFolder.tsx";
@@ -60,7 +62,15 @@ function ProjectForm({ project }: { project?: ProjectDetail }) {
   }, []);
   const [folder, setFolder] = useState("");
   // Only roots the user may change files in (ADR-0014).
-  const roots = useRoots().filter((r) => r.canEdit);
+  const allRoots = useRoots();
+  const roots = allRoots.filter((r) => r.canEdit);
+  // An admin picks the owner, except in a device root: its device's user owns it.
+  const pickOwner =
+    useMe()?.role === "admin" &&
+    !!project &&
+    !allRoots.some((r) => r.id === project.rootId && r.location !== ROOT_HUB);
+  const users = useUsers(pickOwner).data ?? [];
+  const [ownerId, setOwnerId] = useState(project?.owner?.id ?? "");
   // Blank folder path + a root: make the folder there (the first root unless picked).
   const [rootId, setRootId] = useState<string>();
   const createIn = project || folder.trim() ? "" : (rootId ?? roots[0]?.id ?? "");
@@ -122,6 +132,7 @@ function ProjectForm({ project }: { project?: ProjectDetail }) {
       if (JSON.stringify(gallery) !== JSON.stringify(galleryImages(project).map((f) => f.path)))
         changed.gallery = { folders: [], images: gallery };
       if ((cover || null) !== project.coverFile) changed.coverFile = cover || null;
+      if (pickOwner && ownerId !== (project.owner?.id ?? "")) changed.ownerId = ownerId || null;
       if (file && description.text !== description.original) {
         try {
           // Replaces the file; the server re-scans, so the description follows.
@@ -203,6 +214,23 @@ function ProjectForm({ project }: { project?: ProjectDetail }) {
             />
           )}
         </FormField>
+        {pickOwner && (
+          <FormField label={t("projects:detail.ownerPick")}>
+            {(p) => (
+              <Combobox
+                {...p}
+                value={ownerId}
+                onChange={setOwnerId}
+                options={[
+                  ...users
+                    .filter((u) => !u.disabled)
+                    .map((u) => ({ value: u.id, label: u.displayName })),
+                  { value: "", label: t("projects:detail.noOwner") },
+                ]}
+              />
+            )}
+          </FormField>
+        )}
         {!project && (
           <FormField label={t("projects:form.folder")} hint={t("projects:form.folderHint")}>
             {(p) => (

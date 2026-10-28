@@ -580,6 +580,7 @@ export function createReview(db: Db, dataDir: string) {
       ops.sort((a, b) => at(a) - at(b));
     }
     // The rows written, for a sync run's log and a projects import's follow-up (by file row).
+    const linked = new Set(handler.bySource?.(db).values());
     const written: {
       event: "created" | "updated";
       values: (typeof ops)[number]["values"];
@@ -608,12 +609,14 @@ export function createReview(db: Db, dataDir: string) {
           editedOf.get(row),
         );
         // Prints picked in the review, names taken from the folder, or a row you archived coming
-        // back are a change of their own.
+        // back are a change of their own, and so is linking a row to its source for the first time
+        // (else "keep my edits" with nothing to write leaves it unlinked and offered again).
         if (
           !Object.keys(patch).length &&
           !op.row.prints &&
           !op.row.fromFolder &&
-          !op.target.archived
+          !op.target.archived &&
+          !(op.row.source && !linked.has(op.target.id))
         )
           continue;
         handler.update(db, op.target, patch, op.row);

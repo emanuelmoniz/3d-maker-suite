@@ -188,7 +188,6 @@
     "ownerReadOnly": "Owner: {{name}}. You can view and download this project, but not change it.",
     "ownerPick": "Owner",
     "noOwner": "Nobody",
-    "ownerFailed": "Couldn't change the owner.",
     "source": "Design page",
     "model": "Model file",
     "plates": "Plates",

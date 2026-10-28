@@ -429,14 +429,16 @@ describe("project access over HTTP", () => {
     const solo = add("editor", "solo", { projectsSeeAll: false });
     const [asAdmin, asSolo] = await Promise.all([as(admin), as(solo)]);
     const p = (await asAdmin("POST", "/api/projects", { name: "Box" })).json();
-    const owner = (send: typeof asAdmin, id: string, ownerId: string) =>
+    const owner = (send: typeof asAdmin, id: string, ownerId: string | null) =>
       send("PATCH", `/api/projects/${id}`, { ownerId });
 
     expect((await owner(asAdmin, p.id, crypto.randomUUID())).statusCode).toBe(400);
+    expect((await owner(asAdmin, p.id, null)).json().ownerId).toBeNull();
     expect((await owner(asAdmin, p.id, solo.id)).json().ownerId).toBe(solo.id);
     // Now solo's: they see it, but can't hand it on.
     expect((await asSolo("GET", `/api/projects/${p.id}`)).json().owner.id).toBe(solo.id);
     expect((await owner(asSolo, p.id, admin.id)).statusCode).toBe(403);
+    expect((await owner(asSolo, p.id, null)).statusCode).toBe(403);
 
     const dev = db
       .insert(schema.devices)

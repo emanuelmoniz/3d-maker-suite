@@ -215,8 +215,8 @@ export const projectPatchSchema = z
     coverFile: nullableText,
     autoSlice: projectSchema.shape.autoSlice,
     slicerIntegrationId: projectSchema.shape.slicerIntegrationId,
-    /** Admins only, and not in a device root (its device's user owns it). */
-    ownerId: id,
+    /** Admins only, and not in a device root (its device's user owns it); null: nobody. */
+    ownerId: id.nullable(),
   })
   .partial()
   .strict();

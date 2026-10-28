@@ -46,7 +46,7 @@ The scan carries the plate previews of each 3MF, so a project page doesn't downl
 
 ## Owners and permissions
 
-Every project has an owner: the user who created it, the device's user for a project in a device root, or the oldest admin for projects that existed before 5.0.0. A folder found by a scan has no owner. Admins change the owner on the project page, except in device roots.
+Every project has an owner: the user who created it, the device's user for a project in a device root, or the oldest admin for projects that existed before 5.0.0. A folder found by a scan has no owner. Admins change the owner (or set it to nobody) when they edit the project, except in device roots.
 
 Each user has three switches (**Settings → Users**; on for admins by default):
 
