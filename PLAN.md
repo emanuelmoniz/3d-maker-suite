@@ -863,7 +863,7 @@ Do Step 8b of the 5.0.0 plan in PLAN.md.
 Do Step 8c of the 5.0.0 plan in PLAN.md.
 ```
 
-### [ ] Step 9 - Docs, push & v5.0.0-alpha.2
+### [x] Step 9 - Docs, push & v5.0.0-alpha.2
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - `docs/hub.md`: device roots, what offline means, plate previews and gallery on device projects, the device folder size setting, permissions, connector updates (outdated alert, Update now) and the status page's Restart and Stop.
@@ -1209,7 +1209,7 @@ Each adapter: a `local` package in `packages/adapters/<id>`, config and secrets 
 Do Step 8 of the 6.0.0 plan in PLAN.md.
 ```
 
-### [ ] Step 9 - Bambu LAN
+### [x] Step 9 - Bambu LAN
 **Model:** Opus · **Effort:** High
 **Scope:** MQTT over TLS with the access code (new dependency `mqtt`, see ADR-0015); status from the push reports; AMS RFID → spool; matched by serial with a Bambu Cloud integration of the same printer, which then only gives history. Setup docs say what to switch on (LAN mode, Developer mode).
 **Done when:** a cloud + LAN printer records each print once; tests pass.

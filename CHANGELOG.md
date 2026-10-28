@@ -2,6 +2,19 @@
 
 All notable changes are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [5.0.0-alpha.2] - 2026-10-28
+
+Pre-release. Test on a copy of your data first; back up before updating. Syncing project folders between devices comes in later 5.0.0 pre-releases.
+
+### Added
+- **Device roots**: add a project root on a paired device. The connector watches it and sends each project's scan and 3MF details; the hub pulls a file only when slicing, downloading or viewing it. Offline devices show their last known data ([docs/hub.md](docs/hub.md))
+- Device projects show plate previews and can pick a cover and gallery images, also while the device is offline. Setting: **Device folder size limit** (default 32 MB)
+- **Owners and permissions**: projects have an owner (admins change it); users get "sees all projects", "edits other people's projects" and "edits files on other people's devices"; roots get "who can edit". Projects a user can't see show as "Other project" elsewhere
+- **Connector updates**: Hub management marks an outdated connector or a failed update, raises an alert and offers **Update now**. The connector's status page has **Restart** and **Stop**
+
+### Changed
+- Browsing a device whose connector is too old says so instead of timing out
+
 ## [5.0.0-alpha.1] - 2026-10-28
 
 Pre-release. Test on a copy of your data first; back up before updating. Syncing project folders and device roots come in later 5.0.0 pre-releases.
