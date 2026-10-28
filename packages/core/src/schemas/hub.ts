@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { id, isoDate } from "./entities.ts";
+import { projectFileSchema, projectModelSchema } from "./projects.ts";
 
 /** A connector paired with the hub (ADR-0014), as Hub management lists it. */
 export const deviceSchema = z.object({
@@ -10,7 +11,7 @@ export const deviceSchema = z.object({
   os: z.string().nullable(),
   connectorVersion: z.string().nullable(),
   lastSeenAt: isoDate.nullable(),
-  /** Seen within the last minute. */
+  /** Its event stream is open now. */
   online: z.boolean(),
   createdAt: isoDate,
 });
@@ -44,9 +45,15 @@ export type PairResult = z.infer<typeof pairResultSchema>;
 /**
  * Hub → device events on `GET /api/hub/events` (ADR-0014): SSE frames `id: <seq>`, `event: <type>`,
  * `data: <json>`. The connector sends its last id as `Last-Event-ID`; that acks everything up to it.
+ * A request (`requestId`) goes only to an open stream and has no id: it is never replayed. The
+ * connector answers it on `POST /api/hub/device/replies/:requestId`.
  */
 export const hubEventSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("device.renamed"), name }),
+  /** Its roots were added, changed or removed, or a scan was asked for: read them, sync them all. */
+  z.object({ type: z.literal("roots.changed") }),
+  /** One level of the folder browser (`listFolder`); `path` null = where browsing starts. */
+  z.object({ type: z.literal("fs.list"), requestId: id, path: z.string().max(4096).nullable() }),
 ]);
 /** What the connector reports when it opens the stream (`X-Connector-Version`, `X-Connector-OS`). */
 export const connectorInfoSchema = pairSchema.pick({ connectorVersion: true, os: true });
@@ -55,3 +62,78 @@ export const connectorInfoSchema = pairSchema.pick({ connectorVersion: true, os:
 export const HUB_HEARTBEAT_MS = 15_000;
 
 export type HubEvent = z.infer<typeof hubEventSchema>;
+
+/** Root-relative with `/`: never absolute, no empty, `.` or `..` segment, no backslash or NUL. */
+const rel = z
+  .string()
+  .min(1)
+  .max(1024)
+  .refine(
+    (p) =>
+      !/^[a-z]:/i.test(p) &&
+      p.split("/").every((s) => s !== "" && s !== "." && s !== ".." && !/[\\\0]/.test(s)),
+    "Invalid path",
+  );
+
+/** Caps on what a device sends per folder: each doc's text, and the cover (base64). */
+export const DEVICE_TEXT_MAX = 100_000;
+export const DEVICE_COVER_MAX = 2 * 1024 * 1024;
+const COVER_EXTS = [".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg"] as const;
+
+/** A root on this device, as the connector needs it (`GET /api/hub/device/roots`). */
+export const deviceRootSchema = z.object({
+  id,
+  path: z.string(),
+  projectDepth: z.number().int(),
+  filesDepth: z.number().int().nullable(),
+  /** `projectScanMaxFiles`: files listed per folder at most. */
+  maxFiles: z.number().int(),
+});
+
+/**
+ * A device root's project folders (`PUT /api/hub/device/roots/:id/index`), each with the digest of
+ * its file list; or the root folder itself is missing on the device.
+ */
+export const deviceIndexSchema = z.discriminatedUnion("state", [
+  z.object({
+    state: z.literal("ok"),
+    folders: z.array(z.object({ rel, digest: z.string().max(128) })),
+  }),
+  z.object({ state: z.literal("missing") }),
+]);
+/** The folders the hub doesn't have at that digest: send them. */
+export const deviceIndexResultSchema = z.object({ want: z.array(z.string()) });
+
+/** One project folder as the device scanned it (`PUT /api/hub/device/roots/:id/folders`). */
+export const deviceFolderSchema = z.object({
+  rel,
+  digest: z.string().max(128),
+  scan: z.object({
+    files: z.array(projectFileSchema.extend({ path: rel })),
+    models: z.array(projectModelSchema.extend({ file: rel })),
+    mainFile: rel.nullable(),
+    sourceUrl: z.string().max(2048).nullable(),
+    hasModel: z.boolean(),
+    unreadable: z.number().int().nonnegative(),
+  }),
+  /** Each `.md`/`.txt` doc's text by path: a description file linked on the hub reads from here. */
+  texts: z.record(rel, z.string().max(DEVICE_TEXT_MAX)),
+  cover: z
+    .object({
+      ext: z.enum(COVER_EXTS),
+      data: z.base64().max(Math.ceil(DEVICE_COVER_MAX / 3) * 4),
+    })
+    .nullable(),
+});
+export const deviceFolderQuerySchema = z.object({ rel });
+
+/** The connector's answer to a request event: the result, or the OS error code (ENOENT, ...). */
+export const deviceReplySchema = z.discriminatedUnion("ok", [
+  z.object({ ok: z.literal(true), result: z.unknown() }),
+  z.object({ ok: z.literal(false), code: z.string().max(50) }),
+]);
+
+export type DeviceRoot = z.infer<typeof deviceRootSchema>;
+export type DeviceIndex = z.infer<typeof deviceIndexSchema>;
+export type DeviceFolder = z.infer<typeof deviceFolderSchema>;
+export type DeviceReply = z.infer<typeof deviceReplySchema>;

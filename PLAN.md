@@ -746,7 +746,7 @@ Design:
 - Offline device: last known data plus an "offline" badge.
 - Other users can only download.
 
-### [ ] Step 6 - Device roots: index and metadata  **[plan mode]**
+### [x] Step 6 - Device roots: index and metadata  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:**
 - Add root gets a location picker: hub, or an online device. The folder browser goes through the connector.

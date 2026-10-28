@@ -1,5 +1,6 @@
 import { HUB_HEARTBEAT_MS, hubEventSchema, pairResultSchema } from "@3d-maker-suite/core";
 import { z } from "zod";
+import { createRootSync } from "./roots.ts";
 import type { Store } from "./state.ts";
 
 export type LinkStatus = "unpaired" | "connecting" | "online" | "offline" | "hubOff" | "revoked";
@@ -70,6 +71,7 @@ type Options = {
 /**
  * The connector's link to its hub (ADR-0014): pairing, then `GET /api/hub/events` held open,
  * reconnected from the cursor after 1 s, doubling up to 30 s. 401 = revoked: the token goes.
+ * While online, its device roots are synced and watched (roots.ts).
  */
 export function createLink({ store, version, os, onHubVersion, log = () => {} }: Options) {
   let status: LinkStatus = store.token() ? "connecting" : "unpaired";
@@ -78,19 +80,35 @@ export function createLink({ store, version, os, onHubVersion, log = () => {} }:
   let online = false;
   let running: AbortController | undefined;
 
+  /** The hub's device API (`/api/hub/device/...`) with this device's token. */
+  const request = (path: string, init: { method?: string; body?: unknown } = {}) =>
+    fetch(`${store.get().hubUrl}/api/hub/device${path}`, {
+      method: init.method ?? "GET",
+      headers: {
+        authorization: `Bearer ${store.token()}`,
+        ...(init.body !== undefined && { "content-type": "application/json" }),
+      },
+      body: init.body === undefined ? undefined : JSON.stringify(init.body),
+      signal: AbortSignal.timeout(60_000),
+    });
+  const roots = createRootSync({ request, log });
+
   const handle = ({ id, data }: SseEvent) => {
-    const seq = Number(id);
-    if (!Number.isSafeInteger(seq) || seq <= (store.get().cursor ?? 0)) return; // seen already
     let event: ReturnType<typeof hubEventSchema.safeParse>;
     try {
       event = hubEventSchema.safeParse(JSON.parse(data));
     } catch {
-      return log(`event ${seq}: not JSON`);
+      return log(`event ${id ?? "request"}: not JSON`);
     }
     // A type this version doesn't know is skipped: the connector follows the hub's version.
+    // A request has no id: it's live only, never stored or replayed.
+    if (id === undefined) return event.success && roots.handle(event.data);
+    const seq = Number(id);
+    if (!Number.isSafeInteger(seq) || seq <= (store.get().cursor ?? 0)) return; // seen already
     if (event.success && event.data.type === "device.renamed")
       store.set({ deviceName: event.data.name, cursor: seq });
     else store.set({ cursor: seq });
+    if (event.success) roots.handle(event.data);
   };
 
   /** One connection: the health check, then the stream until it ends. Returns the next status. */
@@ -123,6 +141,7 @@ export function createLink({ store, version, os, onHubVersion, log = () => {} }:
       online = true;
       error = undefined;
       log(`online at ${hub}`);
+      void roots.start();
       const parse = sseParser(handle);
       const text = new TextDecoder();
       for await (const chunk of res.body) {
@@ -133,6 +152,7 @@ export function createLink({ store, version, os, onHubVersion, log = () => {} }:
       return "offline";
     } finally {
       clearTimeout(watchdog);
+      roots.stop();
     }
   }
 
@@ -172,8 +192,12 @@ export function createLink({ store, version, os, onHubVersion, log = () => {} }:
 
   return {
     start,
-    close: () => running?.abort(),
+    close: () => {
+      running?.abort();
+      roots.stop();
+    },
     state: () => ({ status, error }),
+    roots,
 
     /** Exchanges a pairing code for a device token, then connects. */
     async pair(hubUrl: string, code: string, name: string) {

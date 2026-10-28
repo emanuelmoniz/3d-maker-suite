@@ -7,8 +7,8 @@ import { buildApp } from "../app.ts";
 import { setRoots } from "../testRoots.ts";
 
 const scanned: string[] = [];
-vi.mock("./scanFolder.ts", async (orig) => {
-  const mod = await orig<typeof import("./scanFolder.ts")>();
+vi.mock("@3d-maker-suite/host", async (orig) => {
+  const mod = await orig<typeof import("@3d-maker-suite/host")>();
   return {
     ...mod,
     scanFolder: (folder: string, ...rest: [(string | null)?, number?, (number | null)?]) => {

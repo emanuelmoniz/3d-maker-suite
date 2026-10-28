@@ -23,6 +23,7 @@ import { HttpError } from "./errors.ts";
 import { createSlicerInstaller } from "./integrations/managedSlicer.ts";
 import { createSyncer } from "./integrations/sync.ts";
 import { authGuard } from "./lib/auth.ts";
+import { createHubChannel } from "./lib/hubChannel.ts";
 import { CUSTOM_LEVELS, createLogSink, moduleOf, pruneLogs, success } from "./lib/logSink.ts";
 import { readPreferences } from "./lib/preferences.ts";
 import { pruneSessions } from "./lib/session.ts";
@@ -48,6 +49,7 @@ import { filamentRoutes } from "./routes/filament.ts";
 import { fsRoutes } from "./routes/fs.ts";
 import { healthRoutes } from "./routes/health.ts";
 import { hubRoutes } from "./routes/hub.ts";
+import { hubDeviceRoutes } from "./routes/hubDevice.ts";
 import { importRoutes } from "./routes/import.ts";
 import { integrationsRoutes } from "./routes/integrations.ts";
 import { logsRoutes } from "./routes/logs.ts";
@@ -182,7 +184,8 @@ export async function buildApp(
     prefix: "/api/auth",
   });
   await app.register(usersRoutes(db), { prefix: "/api/users" });
-  await app.register(hubRoutes(db), { prefix: "/api/hub" });
+  const hub = createHubChannel(db);
+  await app.register(hubRoutes(db, hub), { prefix: "/api/hub" });
   await app.register(
     preferencesRoutes(db, dataDir, (v) => {
       if (sink) sink.configure(v);
@@ -210,8 +213,7 @@ export async function buildApp(
       serverConfigRoutes(opts.serverConfig, opts.restart, opts.stop, opts.autostart),
       { prefix: "/api/server-config" },
     );
-  await app.register(fsRoutes(db), { prefix: "/api/fs" });
-  await app.register(rootsRoutes(db), { prefix: "/api/roots" });
+  await app.register(fsRoutes(db, hub), { prefix: "/api/fs" });
   await app.register(brandingRoutes(dataDir), { prefix: "/api/branding" });
   await app.register(printersRoutes(db, dataDir), { prefix: "/api/printers" });
   await app.register(accessoriesRoutes(db, dataDir), { prefix: "/api/accessories" });
@@ -240,7 +242,9 @@ export async function buildApp(
     watch: opts.watchProjects,
     onScanned: (id, before) => autoSlice(db, syncer.adapters, sliceQueue, projectsLog, id, before),
   });
-  await app.register(projectsRoutes(db, dataDir, scanner, syncer.adapters), {
+  await app.register(rootsRoutes(db, hub, scanner), { prefix: "/api/roots" });
+  await app.register(hubDeviceRoutes(db, hub, scanner), { prefix: "/api/hub/device" });
+  await app.register(projectsRoutes(db, dataDir, scanner, hub, syncer.adapters), {
     prefix: "/api/projects",
   });
   await app.register(projectFilesRoutes(db, scanner), { prefix: "/api/projects" });

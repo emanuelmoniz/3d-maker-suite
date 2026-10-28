@@ -20,6 +20,13 @@ export const rootSchema = z.object({
   position: z.number().int(),
   createdAt: isoDate,
   updatedAt: isoDate,
+  /**
+   * "offline": its device isn't connected (last known data is shown). "missing": the folder isn't
+   * there. A hub root is "ok" here; its scan reports a missing one.
+   */
+  state: z.enum(["ok", "offline", "missing"]),
+  /** The device a root lives on; null on the hub or when the device is gone. */
+  deviceName: z.string().nullable(),
 });
 export type Root = z.infer<typeof rootSchema>;
 
@@ -30,13 +37,20 @@ export const ROOT_DEFAULTS: z.infer<typeof settings> = {
   autoSlice: true,
 };
 
-/** A new root on the hub; the name defaults to the folder's own name, settings to `ROOT_DEFAULTS`. */
+/**
+ * A new root, on the hub or on a device (its id; it must be online). The name defaults to the
+ * folder's own name, settings to `ROOT_DEFAULTS`.
+ */
 export const rootInputSchema = settings
   .partial()
-  .extend({ path: rootSchema.shape.path, name: rootSchema.shape.name.optional() })
+  .extend({
+    path: rootSchema.shape.path,
+    name: rootSchema.shape.name.optional(),
+    location: z.union([z.literal(ROOT_HUB), id]).default(ROOT_HUB),
+  })
   .strict();
 /** The path stays: a root at another path is another root (its projects point at this one). */
 export const rootPatchSchema = settings.extend({ name: rootSchema.shape.name }).partial().strict();
 
-export type RootInput = z.infer<typeof rootInputSchema>;
+export type RootInput = z.input<typeof rootInputSchema>;
 export type RootPatch = z.infer<typeof rootPatchSchema>;

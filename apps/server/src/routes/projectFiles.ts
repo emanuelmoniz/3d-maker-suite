@@ -17,6 +17,7 @@ import {
   projectUploadQuery,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
+import { isHidden } from "@3d-maker-suite/host";
 import { eq } from "drizzle-orm";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
@@ -24,7 +25,6 @@ import { HttpError } from "../errors.ts";
 import { readPreferences } from "../lib/preferences.ts";
 import { projectPath, segments } from "../projects/paths.ts";
 import { listRoots, projectDir, rootFs } from "../projects/rootFs.ts";
-import { isHidden } from "../projects/scanFolder.ts";
 import type { ProjectScanner } from "../projects/scanner.ts";
 import { fsError, readEntries } from "./fs.ts";
 import { IMAGE_TYPES, imageReply } from "./projects.ts";

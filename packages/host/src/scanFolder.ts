@@ -1,6 +1,7 @@
+import { createHash } from "node:crypto";
 import { readdir, readFile, stat } from "node:fs/promises";
 import { extname, join, posix, relative } from "node:path";
-import { parse3mf } from "@3d-maker-suite/3mf";
+import { parse3mf, read3mfEntry } from "@3d-maker-suite/3mf";
 import { PREFERENCE_DEFAULTS, type ProjectFile, type ProjectModel } from "@3d-maker-suite/core";
 
 type Kind = ProjectFile["kind"];
@@ -33,12 +34,18 @@ const COVER_NAME = /^(cover|preview|thumbnail|thumb|main)\b/i;
 const MARKETPLACE_URL =
   /https?:\/\/(?:www\.)?(?:makerworld\.com|printables\.com|thingiverse\.com)\/[^\s)<>"'\]]*/i;
 
-export type Cover = { kind: "image"; abs: string } | { kind: "3mf"; abs: string; entry: string };
+export type Cover =
+  | { kind: "image"; abs: string }
+  | { kind: "3mf"; abs: string; entry: string }
+  /** Bytes read elsewhere (a device root's connector, ADR-0014); `ext` like ".png". */
+  | { kind: "data"; ext: string; data: Uint8Array };
 
 export interface FolderScan {
   files: ProjectFile[];
   models: ProjectModel[];
   description: string | null;
+  /** Text of each `.md`/`.txt` doc by path, capped: a description file linked later reads from here. */
+  texts: Record<string, string>;
   sourceUrl: string | null;
   /** The main model file, relative to the folder (`/`). */
   mainFile: string | null;
@@ -126,6 +133,10 @@ async function readText(abs: string, size: number) {
 
 const tidyUrl = (u: string) => u.replace(/[.,;:!?]+$/, "");
 
+/** The text of a linked description file, if it is one of the listed docs. */
+export const descriptionOf = (texts: Record<string, string>, file?: string | null) =>
+  (file && Object.hasOwn(texts, file) ? texts[file] : "")?.trim().slice(0, MAX_DESCRIPTION) || null;
+
 /** Reads one project folder. Nothing is written; unreadable parts yield nulls, not errors. */
 export async function scanFolder(
   dir: string,
@@ -147,8 +158,10 @@ export async function scanFolder(
   const texts = await Promise.all(docs.map((d) => readText(d.abs, d.size)));
 
   // Only a file the user linked becomes the description (it must be a listed doc).
-  const linkedAt = docs.findIndex((d) => d.path === descriptionFile);
-  const description = (texts[linkedAt] ?? "").trim().slice(0, MAX_DESCRIPTION) || null;
+  const byPath = Object.fromEntries(
+    docs.map((d, i) => [d.path, (texts[i] ?? "").slice(0, MAX_DESCRIPTION)]),
+  );
+  const description = descriptionOf(byPath, descriptionFile);
 
   // Marketplace link: .url shortcuts win over links mentioned in docs.
   const shortcuts = await Promise.all(
@@ -204,10 +217,54 @@ export async function scanFolder(
     files,
     models: mergeSlicedExports(models),
     description,
+    texts: byPath,
     sourceUrl: sourceUrl ? tidyUrl(sourceUrl) : null,
     mainFile: main?.path ?? null,
     cover,
     hasModel: modelFiles.length > 0,
     unreadable,
   };
+}
+
+/** A cover as bytes, for sending it where its file can't be read. Null when it can't be read. */
+export async function readCover(cover: Cover | null) {
+  if (!cover) return null;
+  if (cover.kind === "data") return cover;
+  const data =
+    cover.kind === "image"
+      ? await readFile(cover.abs).catch(() => null)
+      : await read3mfEntry(cover.abs, cover.entry).catch(() => null);
+  const ext = cover.kind === "3mf" ? ".png" : extname(cover.abs).toLowerCase();
+  return data ? { kind: "data" as const, ext, data: new Uint8Array(data) } : null;
+}
+
+/**
+ * Project folders below `base` (`rel`, `/`): the first folder from the root down with a model
+ * file, or at `depth`.
+ */
+export async function discoverFolders(base: string, depth: number): Promise<string[]> {
+  const found: string[] = [];
+  async function visit(dir: string, level: number) {
+    const entries = await readdir(dir, { withFileTypes: true }).catch(() => []);
+    const hasModel = entries.some((e) => e.isFile() && kindOf(e.name) === "model");
+    if (level > 0 && (level >= depth || hasModel)) {
+      found.push(relative(base, dir).split("\\").join("/"));
+      return;
+    }
+    for (const e of entries.sort(byName))
+      if (e.isDirectory() && !isHidden(e.name)) await visit(join(dir, e.name), level + 1);
+  }
+  await visit(base, 0);
+  return found;
+}
+
+/**
+ * What a folder's scan depends on, without opening a file: its listed files with size and
+ * modification time (ADR-0014: a device compares only with its own earlier values).
+ */
+export async function folderDigest(dir: string, maxFiles: number, filesDepth: number | null) {
+  const files = await collect(dir, maxFiles, filesDepth);
+  const h = createHash("sha256");
+  h.update(JSON.stringify(files.map((f) => [f.path, f.size, f.mtimeMs])));
+  return h.digest("hex");
 }

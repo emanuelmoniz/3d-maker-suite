@@ -18,6 +18,7 @@ import { EmptyState } from "../../components/EmptyState.tsx";
 import { FilterBar } from "../../components/FilterBar.tsx";
 import { inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
+import { RootStateBadge } from "../../components/RootStateBadge.tsx";
 import { SettingsLink } from "../../components/SettingsLink.tsx";
 import { TagFilter } from "../../components/TagFilter.tsx";
 import { TagList } from "../../components/TagList.tsx";
@@ -157,6 +158,7 @@ export function ProjectsTable({
               >
                 {projectName(t, p)}
               </Link>
+              {p.offline && <RootStateBadge state="offline" />}
               {p.sourceUrl && (
                 <a
                   href={p.sourceUrl}

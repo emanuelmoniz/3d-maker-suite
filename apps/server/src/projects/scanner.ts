@@ -3,23 +3,31 @@ import { copyFile, mkdir, rm, stat, writeFile } from "node:fs/promises";
 import { extname, join, posix, resolve, sep } from "node:path";
 import { read3mfEntry } from "@3d-maker-suite/3mf";
 import {
+  type DeviceFolder,
+  type DeviceIndex,
   PROJECT_EDITABLE_FIELDS,
   type ProjectMeta,
   type ProjectScanStatus,
   projectMetaSchema,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
-import { and, eq } from "drizzle-orm";
+import {
+  type Cover,
+  descriptionOf,
+  type FolderScan,
+  isHidden,
+  scanFolder,
+} from "@3d-maker-suite/host";
+import { and, eq, notInArray } from "drizzle-orm";
 import type { FastifyBaseLogger } from "fastify";
 import { HttpError } from "../errors.ts";
 import { nextNumber } from "../lib/numbers.ts";
 import { readPreferences } from "../lib/preferences.ts";
 import { parseFolderName } from "./folderName.ts";
 import { linkPrints } from "./linkPrints.ts";
-import { listRoots, locate, type Place, projectDir, type Root, rootFs } from "./rootFs.ts";
-import { type Cover, type FolderScan, isHidden, scanFolder } from "./scanFolder.ts";
+import { hubRoots, locate, onDevice, type Place, projectDir, type Root, rootFs } from "./rootFs.ts";
 
-const { projects, roots } = schema;
+const { deviceRootFolders, projects, roots } = schema;
 type Fields = {
   number?: number;
   name?: string;
@@ -76,6 +84,8 @@ export function createProjectScanner(
   let state = idle();
   const pending = new Map<string, { root: Root; rel: string; at: number }>();
   const refreshedAt = new Map<string, number>();
+  /** Device roots whose folder their device reported missing (resent on every connect). */
+  const missingOnDevice = new Set<string>();
   const stops: (() => void)[] = [];
   let watching = "";
   let closed = false;
@@ -84,7 +94,12 @@ export function createProjectScanner(
   /** Copies/extracts the cover into <dataDir>/thumbnails; returns the data-dir-relative path. */
   async function storeCover(id: string, cover: Cover | null, previous: string | null) {
     let next: string | null = null;
-    if (cover) {
+    if (cover?.kind === "data") {
+      // A device's folder: sent only when its files changed, so always written.
+      next = `${THUMB_DIR}/${id}${cover.ext}`;
+      await mkdir(join(dataDir, THUMB_DIR), { recursive: true });
+      await writeFile(join(dataDir, next), cover.data);
+    } else if (cover) {
       const ext = cover.kind === "3mf" ? ".png" : extname(cover.abs).toLowerCase();
       next = `${THUMB_DIR}/${id}${ext}`;
       const dest = join(dataDir, next);
@@ -105,10 +120,10 @@ export function createProjectScanner(
     return next;
   }
 
-  /** The roots with their seam and real path (null: missing). */
+  /** The hub's roots with their seam and real path (null: missing). Devices index their own. */
   const spots = () =>
     Promise.all(
-      listRoots(db).map(async (root) => {
+      hubRoots(db).map(async (root) => {
         const fs = rootFs(root);
         return { root, fs, base: await fs.local("") };
       }),
@@ -139,7 +154,7 @@ export function createProjectScanner(
     const number = parseFolderName(posix.basename(rel)).number;
     if (!number) return undefined;
     const row = db.select().from(projects).where(eq(projects.number, number)).get();
-    if (!row || (await projectDir(db, row))) return undefined;
+    if (!row || (await present(row))) return undefined;
     return db
       .update(projects)
       .set({ rootId: root.id, folder: rel })
@@ -148,8 +163,33 @@ export function createProjectScanner(
       .get();
   }
 
-  /** Creates or updates the project of one folder (`dir`: its local path). `user` fields count as user-edited. */
-  async function upsert(place: Place, dir: string, scan: FolderScan, user: Fields = {}) {
+  /** A device root's folder as last sent, or undefined (missing on the device). */
+  const deviceFolder = (rootId: string, folder: string) =>
+    db
+      .select()
+      .from(deviceRootFolders)
+      .where(and(eq(deviceRootFolders.rootId, rootId), eq(deviceRootFolders.folder, folder)))
+      .get();
+
+  /** Whether a project's folder is there: on disk, or in its device's last index. */
+  async function present(p: { rootId: string | null; folder: string | null }) {
+    const root = p.rootId ? db.select().from(roots).where(eq(roots.id, p.rootId)).get() : undefined;
+    if (!root || p.folder === null) return false;
+    return onDevice(root) ? !!deviceFolder(root.id, p.folder) : !!(await projectDir(db, p));
+  }
+
+  /**
+   * Creates or updates the project of one folder (`dir`: its local path; null on a device, where
+   * `keepThumbnail` keeps the stored cover when the scan brings none). `user` fields count as
+   * user-edited.
+   */
+  async function upsert(
+    place: Place,
+    dir: string | null,
+    scan: FolderScan,
+    user: Fields = {},
+    keepThumbnail = false,
+  ) {
     const row =
       db.select().from(projects).where(at(place)).get() ??
       // A folder added by hand with typed fields is a new project, as asked.
@@ -164,16 +204,26 @@ export function createProjectScanner(
       folders: (
         await Promise.all(
           row.gallery.folders.map(async (d) =>
-            d === "" || (await isDir(join(dir, ...d.split("/")))) ? d : null,
+            d === "" ||
+            (dir === null
+              ? scan.files.some((f) => f.path.startsWith(`${d}/`))
+              : await isDir(join(dir, ...d.split("/"))))
+              ? d
+              : null,
           ),
         )
       ).filter((d): d is string => d !== null),
       images: row.gallery.images.filter((p) => listed.has(p)),
     };
-    const cover: Cover | null = coverFile
-      ? { kind: "image", abs: join(dir, ...coverFile.split("/")) }
-      : scan.cover;
-    const thumbnailPath = await storeCover(id, cover, row?.thumbnailPath ?? null);
+    // ponytail: a chosen cover on a device keeps the stored thumbnail; pulling it is Step 7.
+    const cover: Cover | null =
+      coverFile && dir !== null
+        ? { kind: "image", abs: join(dir, ...coverFile.split("/")) }
+        : scan.cover;
+    const thumbnailPath =
+      (keepThumbnail && !cover) || (coverFile && dir === null)
+        ? (row?.thumbnailPath ?? null)
+        : await storeCover(id, cover, row?.thumbnailPath ?? null);
     const types = scan.models.flatMap((m) =>
       m.plates.flatMap((p) => p.filaments.map((f) => f.type)),
     );
@@ -229,15 +279,37 @@ export function createProjectScanner(
     if (changed) db.update(projects).set(next).where(eq(projects.id, id)).run();
     // Even when nothing stored changed: a 3MF can change its bytes and keep its plates.
     // Never awaited: slicing work must not hold up the scan (or the request that asked for it).
-    opts
-      .onScanned?.(id, projectMetaSchema.parse(row.meta))
-      .catch((err) => log.warn({ err, folder: place.rel }, "auto slice failed"));
+    // ponytail: a device root's files aren't here to slice; pulling them is Step 7.
+    if (dir !== null)
+      opts
+        .onScanned?.(id, projectMetaSchema.parse(row.meta))
+        .catch((err) => log.warn({ err, folder: place.rel }, "auto slice failed"));
     return changed ? ("updated" as const) : ("unchanged" as const);
   }
 
   const linkOf = (place: Place) =>
     db.select().from(projects).where(at(place)).get()?.descriptionFile;
-  async function read(place: Place, link = linkOf(place)) {
+  /** A device's scan as the hub's own: the description from the doc the project links. */
+  const fromDevice = (
+    sent: Omit<DeviceFolder, "cover">,
+    link: string | null | undefined,
+    cover: Cover | null,
+  ): FolderScan => ({
+    ...sent.scan,
+    texts: sent.texts,
+    description: descriptionOf(sent.texts, link),
+    cover,
+  });
+
+  type Read = { dir: string | null; scan: FolderScan; keepThumbnail?: boolean };
+  /** A folder's scan: read from disk, or from what its device last sent (cover kept). */
+  async function read(place: Place, link = linkOf(place)): Promise<Read> {
+    if (onDevice(place.root)) {
+      const sent = deviceFolder(place.root.id, place.rel);
+      if (!sent) throw new HttpError(404, "not_found", "Project folder not found");
+      const scan = fromDevice(sent.scan as Omit<DeviceFolder, "cover">, link, null);
+      return { dir: null, scan, keepThumbnail: true };
+    }
     const dir = await rootFs(place.root).local(place.rel);
     if (!dir) throw new HttpError(404, "not_found", "Project folder not found");
     const prefs = readPreferences(db);
@@ -248,8 +320,8 @@ export function createProjectScanner(
   async function refreshPlace(place: Place) {
     // The app's own write already fired the watcher; events up to now need no second scan.
     refreshedAt.set(keyOf(place), Date.now());
-    const { dir, scan } = await read(place);
-    await upsert(place, dir, scan);
+    const { dir, scan, keepThumbnail } = await read(place);
+    await upsert(place, dir, scan, {}, keepThumbnail);
   }
 
   /** Re-reads one project folder now (e.g. after its description file changed). */
@@ -259,7 +331,7 @@ export function createProjectScanner(
   }
 
   /** Scans one discovered folder; a template folder or one without a model is no project. */
-  async function scanOne(place: Place) {
+  async function scanOne(place: Place, get = () => read(place)) {
     // Number 0 ("000_project-name") marks a template folder: no project.
     if (parseFolderName(posix.basename(place.rel)).number === 0) return "unchanged" as const;
     // A folder a project was unlinked from and kept: left alone until it is linked again.
@@ -268,9 +340,76 @@ export function createProjectScanner(
       eq(projects.unlinkedFolder, place.rel),
     );
     if (db.select().from(projects).where(kept).get()) return "unchanged" as const;
-    const { dir, scan } = await read(place);
-    return scan.hasModel ? await upsert(place, dir, scan) : ("unchanged" as const);
+    const { dir, scan, keepThumbnail } = await get();
+    return scan.hasModel
+      ? await upsert(place, dir, scan, {}, keepThumbnail)
+      : ("unchanged" as const);
   }
+
+  /**
+   * A device root's index (ADR-0014): folders it no longer lists are forgotten (their projects
+   * read "missing"); returns the ones to send, new or with another digest. A missing root
+   * forgets them all.
+   */
+  function deviceIndex(root: Root, index: DeviceIndex) {
+    if (index.state === "missing") missingOnDevice.add(root.id);
+    else missingOnDevice.delete(root.id);
+    const listed = index.state === "ok" ? index.folders : [];
+    const mine = eq(deviceRootFolders.rootId, root.id);
+    db.delete(deviceRootFolders)
+      .where(
+        listed.length
+          ? and(
+              mine,
+              notInArray(
+                deviceRootFolders.folder,
+                listed.map((f) => f.rel),
+              ),
+            )
+          : mine,
+      )
+      .run();
+    const have = new Map(
+      db
+        .select({ folder: deviceRootFolders.folder, digest: deviceRootFolders.digest })
+        .from(deviceRootFolders)
+        .where(mine)
+        .all()
+        .map((r) => [r.folder, r.digest]),
+    );
+    return listed.filter((f) => have.get(f.rel) !== f.digest).map((f) => f.rel);
+  }
+
+  /** One device folder as its connector scanned it: stored, then like a scanned folder. */
+  async function deviceFolderScanned(root: Root, { cover, ...sent }: DeviceFolder) {
+    const updatedAt = new Date().toISOString();
+    db.insert(deviceRootFolders)
+      .values({ rootId: root.id, folder: sent.rel, digest: sent.digest, scan: sent, updatedAt })
+      .onConflictDoUpdate({
+        target: [deviceRootFolders.rootId, deviceRootFolders.folder],
+        set: { digest: sent.digest, scan: sent, updatedAt },
+      })
+      .run();
+    const place = { root, rel: sent.rel };
+    const data: Cover | null = cover && {
+      kind: "data",
+      ext: cover.ext,
+      data: Buffer.from(cover.data, "base64"),
+    };
+    const result = await scanOne(place, async () => ({
+      dir: null,
+      scan: fromDevice(sent, linkOf(place), data),
+    }));
+    if (result === "created") linkPrints(db);
+    return result;
+  }
+
+  /** A device folder that is gone: its project reads "missing". */
+  const deviceFolderGone = (root: Root, rel: string) =>
+    db
+      .delete(deviceRootFolders)
+      .where(and(eq(deviceRootFolders.rootId, root.id), eq(deviceRootFolders.folder, rel)))
+      .run();
 
   async function pass() {
     state = running();
@@ -391,7 +530,7 @@ export function createProjectScanner(
   /** (Re)points the folder watcher at the current roots. Called after every scan. */
   async function watch() {
     if (!opts.watch || closed) return;
-    const all = listRoots(db);
+    const all = hubRoots(db);
     // Depths are in the key too: the callbacks below hold the values they were made with.
     const key = JSON.stringify(all);
     if (key === watching) return;
@@ -449,8 +588,8 @@ export function createProjectScanner(
   /** Manual project backed by a folder; the given fields are user-edited from the start. */
   async function addFolder(place: Place, user: Fields) {
     claim(place);
-    const { dir, scan } = await read(place, user.descriptionFile);
-    await upsert(place, dir, scan, user);
+    const { dir, scan, keepThumbnail } = await read(place, user.descriptionFile);
+    await upsert(place, dir, scan, user, keepThumbnail);
     return db.select().from(projects).where(at(place)).get();
   }
 
@@ -461,10 +600,15 @@ export function createProjectScanner(
     usableFolder,
     claim,
     refresh,
+    deviceIndex,
+    deviceFolderScanned,
+    deviceFolderGone,
+    deviceFolder,
+    missingOnDevice: (rootId: string) => missingOnDevice.has(rootId),
     /** Begins watching and runs a first scan, so changes made while the app was off are found. */
     boot() {
       void watch();
-      if (listRoots(db).length) start();
+      if (hubRoots(db).length) start();
     },
     close: async () => {
       closed = true;

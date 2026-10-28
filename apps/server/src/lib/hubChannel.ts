@@ -1,0 +1,123 @@
+import { randomUUID } from "node:crypto";
+import type { DeviceReply, HubEvent } from "@3d-maker-suite/core";
+import { type Db, schema } from "@3d-maker-suite/db";
+import type { z } from "zod";
+import { HttpError } from "../errors.ts";
+import { fsError } from "../routes/fs.ts";
+import { readPreferences } from "./preferences.ts";
+
+const { hubEvents } = schema;
+
+type Stream = { write: (frame: string) => void; end: () => void };
+type Waiting = {
+  deviceId: string;
+  done: (reply: DeviceReply) => void;
+  fail: (err: Error) => void;
+};
+
+const ASK_MS = 10_000;
+const frame = (seq: number | null, event: HubEvent) =>
+  `${seq === null ? "" : `id: ${seq}\n`}event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`;
+const offline = () => new HttpError(409, "device_offline", "The device is offline");
+
+/**
+ * The hub's side of its devices' event streams (ADR-0014): which are open, queued events, and
+ * requests a device answers on `POST /api/hub/device/replies/:requestId`. One per app.
+ */
+export function createHubChannel(db: Db) {
+  const streams = new Map<string, Set<Stream>>();
+  const waiting = new Map<string, Waiting>();
+
+  /** A device is online while its event stream is open (and the hub is on). */
+  const online = (deviceId: string) => streams.has(deviceId) && readPreferences(db).hubEnabled;
+
+  return {
+    online,
+
+    /** Queues an event for a device and sends it now if the device is connected. */
+    publish(deviceId: string, event: HubEvent) {
+      const { seq } = db
+        .insert(hubEvents)
+        .values({ deviceId, type: event.type, data: event, createdAt: new Date().toISOString() })
+        .returning({ seq: hubEvents.seq })
+        .get();
+      for (const s of streams.get(deviceId) ?? []) s.write(frame(seq, event));
+    },
+
+    /** A stored event, for the replay when a stream opens. */
+    frame: (seq: number, event: HubEvent) => frame(seq, event),
+
+    /** Registers an open stream; returns the function that removes it when it closes. */
+    attach(deviceId: string, stream: Stream) {
+      const set = streams.get(deviceId) ?? new Set();
+      streams.set(deviceId, set.add(stream));
+      return () => {
+        set.delete(stream);
+        if (set.size) return;
+        streams.delete(deviceId);
+        for (const w of waiting.values()) if (w.deviceId === deviceId) w.fail(offline());
+      };
+    },
+
+    /** Ends a device's streams (revoked), or every stream. */
+    end(deviceId?: string) {
+      for (const [id, set] of streams)
+        if (!deviceId || id === deviceId) for (const s of set) s.end();
+    },
+
+    /**
+     * Sends a request to an online device and waits for its answer, checked with `result`. 409
+     * `device_offline` when it isn't connected (or goes), 504 `device_timeout` after 10 s. The
+     * device's OS error (ENOENT, ...) comes back as the same error a local call gives.
+     */
+    ask<T extends z.ZodType>(
+      deviceId: string,
+      event: (requestId: string) => HubEvent,
+      result: T,
+    ): Promise<z.infer<T>> {
+      const set = online(deviceId) && streams.get(deviceId);
+      if (!set) return Promise.reject(offline());
+      const requestId = randomUUID();
+      return new Promise<DeviceReply>((resolve, reject) => {
+        const timer = setTimeout(
+          () => w.fail(new HttpError(504, "device_timeout", "The device didn't answer")),
+          ASK_MS,
+        );
+        const settle = () => {
+          clearTimeout(timer);
+          waiting.delete(requestId);
+        };
+        const w: Waiting = {
+          deviceId,
+          done: (r) => {
+            settle();
+            resolve(r);
+          },
+          fail: (e) => {
+            settle();
+            reject(e);
+          },
+        };
+        waiting.set(requestId, w);
+        // Live only: a request isn't queued, so a reconnect never replays a stale one.
+        for (const s of set) s.write(frame(null, event(requestId)));
+      }).then((reply) => {
+        if (!reply.ok) throw fsError(Object.assign(new Error(reply.code), { code: reply.code }));
+        const parsed = result.safeParse(reply.result);
+        if (!parsed.success)
+          throw new HttpError(502, "device_bad_reply", "The device's answer is invalid");
+        return parsed.data;
+      });
+    },
+
+    /** A device's answer; false when nothing (of this device) waits for it. */
+    answer(deviceId: string, requestId: string, reply: DeviceReply) {
+      const w = waiting.get(requestId);
+      if (!w || w.deviceId !== deviceId) return false;
+      w.done(reply);
+      return true;
+    },
+  };
+}
+
+export type HubChannel = ReturnType<typeof createHubChannel>;

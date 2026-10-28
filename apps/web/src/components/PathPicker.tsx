@@ -34,8 +34,9 @@ const below = (p: string, root: string, sep: Sep) => {
 };
 
 /**
- * "Browse…" button + modal that lists folders on the server's machine, because a browser can't
- * hand over a full local path. The text input next to it stays the source of truth.
+ * "Browse…" button + modal that lists folders on the server's machine (or on a paired `device`,
+ * through its connector), because a browser can't hand over a full local path. The text input
+ * next to it stays the source of truth.
  */
 export function PathPicker({
   label,
@@ -44,6 +45,7 @@ export function PathPicker({
   initial,
   within,
   canCreate,
+  device,
   onPick,
   children,
 }: {
@@ -57,6 +59,8 @@ export function PathPicker({
   within?: string[];
   /** Offer "New folder" inside the folder being shown (folder mode). */
   canCreate?: boolean;
+  /** Browse this device's folders instead (folder mode; no "New folder"). */
+  device?: string;
   onPick: (path: string) => void;
   /** Button text; default "Browse…". */
   children?: ReactNode;
@@ -80,15 +84,22 @@ export function PathPicker({
 
   // Roots also tell us the server's separator, which the extension filter needs.
   const roots = useQuery({
-    queryKey: ["fs", "roots"],
-    queryFn: () => fetchList({}),
+    queryKey: ["fs", device, "roots"],
+    queryFn: () => fetchList(device ? { device } : {}),
+    retry: !device,
     enabled: open,
   });
   const sep = roots.data?.sep;
   const filter = sep && ext?.(sep);
   const dir = useQuery({
-    queryKey: ["fs", path, mode, filter],
-    queryFn: () => fetchList({ path: path ?? "", mode, ...(filter ? { ext: filter } : {}) }),
+    queryKey: ["fs", device, path, mode, filter],
+    queryFn: () =>
+      fetchList({
+        path: path ?? "",
+        mode,
+        ...(filter ? { ext: filter } : {}),
+        ...(device ? { device } : {}),
+      }),
     enabled: open && !!path && !!sep,
     retry: false,
   });
@@ -196,7 +207,7 @@ export function PathPicker({
                 ))}
           </ol>
         </nav>
-        {canCreate && mode === "folder" && !!dir.data?.path && (
+        {canCreate && !device && mode === "folder" && !!dir.data?.path && (
           <div className="grid gap-2">
             {naming ? (
               // Not a <form>: the picker can sit inside one (the project edit page), and a nested
@@ -238,7 +249,7 @@ export function PathPicker({
             )}
           </div>
         )}
-        {path && dir.isError ? (
+        {(path ? dir.isError : roots.isError) ? (
           <p role="alert" className="text-bad">
             {t("common:pathPicker.error")}
           </p>

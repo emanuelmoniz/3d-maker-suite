@@ -1,8 +1,8 @@
 import { lstat } from "node:fs/promises";
 import { dirname, join, posix, win32 } from "node:path";
+import { isHidden } from "@3d-maker-suite/host";
 import { HttpError } from "../errors.ts";
 import { insideRoots } from "../lib/launcher.ts";
-import { isHidden } from "./scanFolder.ts";
 
 const invalid = () => new HttpError(400, "invalid_path", "Invalid path");
 const denied = () => new HttpError(403, "path_denied", "Path is outside the project folder");

@@ -120,16 +120,19 @@ export const projectSchema = z.object({
 
 /**
  * The project page's project: plus whether its folder is there. null: no folder; "missing": the
- * folder is gone (deleted, renamed, or its root is offline).
+ * folder is gone (deleted or renamed); "offline": it is in a device root whose device isn't
+ * connected, so what is shown is the last known data.
  */
 export const projectDetailSchema = projectSchema.extend({
-  folderState: z.enum(["ok", "missing"]).nullable(),
+  folderState: z.enum(["ok", "missing", "offline"]).nullable(),
 });
 
 /** A row of the projects list: the project plus when it was last printed (null: never). */
 export const projectListItemSchema = projectSchema.extend({
   lastPrintAt: isoDate.nullable(),
   slicing: z.enum(PROJECT_SLICING),
+  /** In a device root whose device isn't connected (ADR-0014). */
+  offline: z.boolean(),
 });
 
 const editable = {

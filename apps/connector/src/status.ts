@@ -128,6 +128,7 @@ ${error ? `<p class="error" role="alert">${t(PAIR_ERRORS[error])}</p>` : ""}
   const statusView = (status: keyof typeof STATES, error?: string) => {
     const state = store.get();
     const update = updater.state();
+    const roots = link.roots.state();
     const note = (html: string) => `<p class="muted" role="status">${html}</p>`;
     return `<section>
 <dl>
@@ -136,8 +137,10 @@ ${error ? `<p class="error" role="alert">${t(PAIR_ERRORS[error])}</p>` : ""}
 <dt>${t("connector:status.state")}</dt><dd class="${status}">${t(STATES[status])}</dd>
 <dt>${t("connector:status.version")}</dt><dd>${esc(version)}</dd>
 <dt>${t("connector:status.syncFolder")}</dt><dd>${esc(syncDir)}</dd>
+<dt>${t("connector:status.roots")}</dt><dd>${roots.watching}</dd>
 </dl>
 ${error ? `<p class="error">${t("connector:status.lastError", { error })}</p>` : ""}
+${roots.error ? `<p class="error">${t("connector:status.rootsError", { error: roots.error })}</p>` : ""}
 ${update.failed ? note(t("connector:status.updateFailed", { version: update.failed, current: version })) : ""}
 ${update.error ? note(t("connector:status.updateError", { error: update.error })) : ""}
 ${update.hubOlder ? note(t("connector:status.hubOlder")) : ""}

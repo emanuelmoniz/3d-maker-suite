@@ -20,6 +20,7 @@ import {
   SHEET_FORMATS,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
+import { scanFolder } from "@3d-maker-suite/host";
 import { desc, eq } from "drizzle-orm";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
@@ -44,7 +45,6 @@ import { linkPrints, type MatchProject, suggestPrints } from "../projects/linkPr
 import { dropNewFolder, folderName, newProjectFolder } from "../projects/newFolder.ts";
 import { safeName } from "../projects/paths.ts";
 import { absPath, locate, type Place, projectDir, rootFs } from "../projects/rootFs.ts";
-import { scanFolder } from "../projects/scanFolder.ts";
 import type { ProjectScanner } from "../projects/scanner.ts";
 
 const MAX_UPLOAD = 10 * 1024 ** 2;

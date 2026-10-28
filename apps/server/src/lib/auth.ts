@@ -201,9 +201,11 @@ export function authGuard(
       req.user = session.user;
     }
     req.log = req.log.child({ actor: req.user.id });
-    // Any role's device holds its event stream; the hub routes are admin-only otherwise.
-    const stream = req.deviceId && req.url.split("?")[0] === "/api/hub/events";
-    if (!stream && !can(req.user.role, req.url, req.method))
+    // Any role's device holds its event stream and reports on its own roots; the hub routes are
+    // admin-only otherwise.
+    const path = req.url.split("?")[0] ?? "";
+    const own = req.deviceId && (path === "/api/hub/events" || path.startsWith("/api/hub/device/"));
+    if (!own && !can(req.user.role, req.url, req.method))
       return deny(reply, 403, "forbidden", "Not allowed for your role");
   };
 }

@@ -1,7 +1,8 @@
 // A real connector link against a real hub (the server's buildApp on a free port).
-import { mkdtempSync, rmSync } from "node:fs";
+import { copyFileSync, mkdirSync, mkdtempSync, renameSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { openDb, schema } from "@3d-maker-suite/db";
 import { buildApp } from "@3d-maker-suite/server/src/app.ts";
 import { hashPassword } from "@3d-maker-suite/server/src/lib/password.ts";
@@ -22,8 +23,8 @@ describe("sseParser", () => {
   });
 });
 
-const until = async (ok: () => boolean, ms = 5000) => {
-  for (const end = Date.now() + ms; !ok(); await new Promise((r) => setTimeout(r, 20)))
+const until = async (ok: () => boolean | Promise<boolean>, ms = 5000) => {
+  for (const end = Date.now() + ms; !(await ok()); await new Promise((r) => setTimeout(r, 20)))
     if (Date.now() > end) throw new Error("timed out");
 };
 
@@ -36,7 +37,9 @@ describe("connector and hub", () => {
 
   const hub = async () => {
     const db = openDb(":memory:");
-    const app = await buildApp(db, { stream: { write: () => true } }, "", {});
+    // A data dir of its own: a device folder's cover lands in <dataDir>/thumbnails.
+    const dataDir = mkdtempSync(join(tmpdir(), "hub-data-"));
+    const app = await buildApp(db, { stream: { write: () => true } }, dataDir, {});
     const passwordHash = await hashPassword("password123");
     const user = (role: "admin" | "viewer") =>
       db
@@ -62,7 +65,7 @@ describe("connector and hub", () => {
       // A request aborted while connecting (the link restarts) can leave undici a connected socket
       // that never sends a request; server.close() would wait for it until the headers timeout.
       app.server.closeAllConnections();
-      return app.close();
+      return app.close().finally(() => rmSync(dataDir, { recursive: true, force: true }));
     });
     return { url, send, code };
   };
@@ -120,5 +123,71 @@ describe("connector and hub", () => {
     c.link.start();
     await until(() => status(c.link) === "hubOff");
     expect(c.store.token()).toBeTruthy();
+  });
+
+  describe("device roots", () => {
+    const fixture = (name: string) =>
+      fileURLToPath(new URL(`../../../packages/3mf/fixtures/${name}`, import.meta.url));
+    /** A paired, online connector and a folder on "its" disk with one project in it. */
+    const setup = async () => {
+      const h = await hub();
+      const c = connector();
+      await c.link.pair(h.url, await h.code(), "WS-1");
+      await until(() => status(c.link) === "online");
+      const [device] = (await h.send("GET", "/api/hub/devices")).json();
+      const root = mkdtempSync(join(tmpdir(), "device-root-"));
+      cleanup.push(() => rmSync(root, { recursive: true, force: true }));
+      mkdirSync(join(root, "001_Box"));
+      copyFileSync(fixture("single_color.3mf"), join(root, "001_Box", "box.3mf"));
+      const projects = async () => (await h.send("GET", "/api/projects")).json().items;
+      return { h, c, device, root, projects };
+    };
+
+    it("indexes a device root, updates after a save, and shows offline", async () => {
+      const { h, c, device, root, projects } = await setup();
+
+      // The folder browser goes through the connector.
+      const listed = (
+        await h.send("GET", `/api/fs/list?device=${device.id}&path=${encodeURIComponent(root)}`)
+      ).json();
+      expect(listed.entries.map((e: { name: string }) => e.name)).toEqual(["001_Box"]);
+      expect(
+        (
+          await h.send("POST", "/api/roots", { path: join(root, "nope"), location: device.id })
+        ).json().error.code,
+      ).toBe("invalid_folder");
+
+      const added = await h.send("POST", "/api/roots", { path: root, location: device.id });
+      expect(added.statusCode).toBe(201);
+      expect(added.json()).toMatchObject({ location: device.id, state: "ok", deviceName: "WS-1" });
+      await until(() => c.link.roots.state().watching === 1);
+      await until(async () => (await projects()).length === 1, 10_000);
+      const [p] = await projects();
+      expect(p).toMatchObject({ name: "Box", offline: false, meta: { multicolor: false } });
+      expect((await h.send("GET", `/api/projects/${p.id}`)).json().folderState).toBe("ok");
+
+      // A slicer's save: write <file>.tmp, rename it over the file.
+      const file = join(root, "001_Box", "box.3mf");
+      copyFileSync(fixture("multi_color.3mf"), `${file}.tmp`);
+      renameSync(`${file}.tmp`, file);
+      await until(async () => (await projects())[0].meta.multicolor, 15_000);
+
+      // The connector stops: last known data, offline.
+      c.link.close();
+      await until(async () => (await projects())[0].offline);
+      expect((await h.send("GET", `/api/projects/${p.id}`)).json().folderState).toBe("offline");
+      expect((await h.send("GET", "/api/roots")).json()[0].state).toBe("offline");
+      expect((await h.send("GET", `/api/fs/list?device=${device.id}`)).json().error.code).toBe(
+        "device_offline",
+      );
+
+      // Changed while it was stopped: caught up on the next connect.
+      mkdirSync(join(root, "002_Cup"));
+      copyFileSync(fixture("unsliced.3mf"), join(root, "002_Cup", "cup.3mf"));
+      const again = connector(c.dir);
+      again.link.start();
+      await until(async () => (await projects()).length === 2, 10_000);
+      expect((await projects()).every((x: { offline: boolean }) => !x.offline)).toBe(true);
+    }, 40_000);
   });
 });

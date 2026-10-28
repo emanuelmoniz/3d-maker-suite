@@ -127,5 +127,9 @@
       "editor": "Editor",
       "viewer": "Viewer"
     }
+  },
+  "rootState": {
+    "offline": "Offline",
+    "missing": "Missing"
   }
 }

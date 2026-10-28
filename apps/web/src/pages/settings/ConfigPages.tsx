@@ -1,4 +1,4 @@
-import { ROOT_DEFAULTS, type Root, type RootPatch } from "@3d-maker-suite/core";
+import { ROOT_DEFAULTS, ROOT_HUB, type Root, type RootPatch } from "@3d-maker-suite/core";
 import { Trash2 } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -7,10 +7,13 @@ import { Combobox } from "../../components/Combobox.tsx";
 import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { PathPicker } from "../../components/PathPicker.tsx";
+import { RootStateBadge } from "../../components/RootStateBadge.tsx";
 import { Section } from "../../components/Section.tsx";
 import { Switch } from "../../components/Switch.tsx";
 import { ApiError } from "../../lib/api.ts";
 import { formatMegabytes, formatNumber } from "../../lib/format.ts";
+import { useDevices } from "../../lib/hub.ts";
+import { usePreferences } from "../../lib/preferences.ts";
 import { usePrinters } from "../../lib/printers.ts";
 import { useEmptyProjectTrash, useProjectTrash } from "../../lib/projects.ts";
 import { useChangeRoot, useRoots } from "../../lib/roots.ts";
@@ -267,20 +270,31 @@ function DepthFields({
 const ROOT_ERRORS = {
   root_in_use: "settings:projects.rootInUse",
   root_exists: "settings:projects.rootExists",
-  invalid_folder: "settings:projects.rootMissing",
+  root_nested: "settings:projects.rootNested",
+  device_offline: "settings:projects.deviceOffline",
+  device_timeout: "settings:projects.deviceTimeout",
 } as const;
 
-/** The project folder roots, each with its depths, auto slice switch and a remove button. */
+/**
+ * The project folder roots, each with its depths, auto slice switch and a remove button. With the
+ * hub on, a new root can be a folder on an online device (ADR-0014).
+ */
 function ProjectRoots() {
   const { t } = useTranslation();
   const [typed, setTyped] = useState("");
   const [depths, setDepths] = useState<Depths>(ROOT_DEFAULTS);
+  const [location, setLocation] = useState(ROOT_HUB);
+  const hubOn = !!usePreferences().data?.values.hubEnabled;
+  const devices = useDevices();
+  const online = hubOn ? (devices.data ?? []).filter((d) => d.online) : [];
+  const device = location === ROOT_HUB ? undefined : location;
   const roots = useRoots();
   const save = useChangeRoot();
   const code = save.error instanceof ApiError ? save.error.code : undefined;
   const add = (dir: string) => {
     const d = dir.trim();
-    if (d && !roots.some((r) => r.path === d)) save.mutate({ add: { path: d, ...depths } });
+    if (d && !roots.some((r) => r.path === d && r.location === location))
+      save.mutate({ add: { path: d, location, ...depths } });
   };
   const change = (id: string, patch: RootPatch) => save.mutate({ id, patch });
   return (
@@ -291,7 +305,15 @@ function ProjectRoots() {
         <ul className="divide-y divide-border rounded-md border border-border">
           {roots.map((r) => (
             <li key={r.path} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-1 pr-1 pl-3">
-              <span className="min-w-0 basis-full break-all sm:flex-1 sm:basis-auto">{r.path}</span>
+              <span className="flex min-w-0 basis-full flex-wrap items-center gap-2 sm:flex-1 sm:basis-auto">
+                <span className="break-all">{r.path}</span>
+                {r.deviceName && (
+                  <span className="text-muted">
+                    {t("settings:projects.rootOn", { device: r.deviceName })}
+                  </span>
+                )}
+                <RootStateBadge state={r.state} />
+              </span>
               <DepthFields
                 value={r}
                 path={r.path}
@@ -327,6 +349,27 @@ function ProjectRoots() {
           setTyped("");
         }}
       >
+        {online.length > 0 && (
+          <label className="flex basis-full items-center gap-2">
+            <span>{t("settings:projects.location")}</span>
+            <select
+              className={`${inputClass} w-auto!`}
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              aria-describedby="root-location-hint"
+            >
+              <option value={ROOT_HUB}>{t("settings:projects.locationHub")}</option>
+              {online.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.name}
+                </option>
+              ))}
+            </select>
+            <span id="root-location-hint" className="text-muted">
+              {t("settings:projects.locationHint")}
+            </span>
+          </label>
+        )}
         <input
           className={`${inputClass} min-w-0 basis-full sm:flex-1 sm:basis-auto`}
           value={typed}
@@ -339,19 +382,25 @@ function ProjectRoots() {
           {t("settings:projects.addRoot")}
         </Button>
         <PathPicker
+          key={location}
           label={t("settings:projects.roots")}
           mode="folder"
-          canCreate
-          initial={roots.at(-1)?.path}
+          canCreate={!device}
+          device={device}
+          initial={roots.findLast((r) => r.location === location)?.path}
           onPick={add}
         />
       </form>
       {save.isError && (
         <p role="alert" className="text-bad">
           {t(
-            code && code in ROOT_ERRORS
-              ? ROOT_ERRORS[code as keyof typeof ROOT_ERRORS]
-              : "settings:saveError",
+            code === "invalid_folder"
+              ? device
+                ? "settings:projects.rootMissingDevice"
+                : "settings:projects.rootMissing"
+              : code && code in ROOT_ERRORS
+                ? ROOT_ERRORS[code as keyof typeof ROOT_ERRORS]
+                : "settings:saveError",
           )}
         </p>
       )}

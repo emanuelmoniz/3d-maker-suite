@@ -6,6 +6,8 @@ export const fsListQuerySchema = z.object({
   mode: z.enum(["folder", "file"]).default("folder"),
   /** Comma-separated extensions, e.g. ".exe,.3mf"; only filters files in file mode. */
   ext: z.string().optional(),
+  /** List a paired device's folders through its connector (admins, folder mode). */
+  device: z.uuid().optional(),
 });
 
 /** Names and types only, never sizes, dates or contents. */

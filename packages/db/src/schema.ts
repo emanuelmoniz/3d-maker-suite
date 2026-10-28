@@ -591,6 +591,26 @@ export const roots = sqliteTable(
   (t) => [uniqueIndex("roots_location_path_uq").on(t.location, t.path)],
 );
 
+/**
+ * A device root's project folders as its connector last sent them (ADR-0014): the digest of the
+ * file list (the hub asks only for changed ones) and the scan, so a re-read on the hub (a
+ * description file linked) needs no device. A folder without a row is missing on the device.
+ */
+export const deviceRootFolders = sqliteTable(
+  "device_root_folders",
+  {
+    rootId: text()
+      .notNull()
+      .references(() => roots.id, { onDelete: "cascade" }),
+    folder: text().notNull(),
+    digest: text().notNull(),
+    /** `deviceFolderSchema` without the cover. */
+    scan: text({ mode: "json" }).notNull(),
+    updatedAt: text().notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.rootId, t.folder] })],
+);
+
 export const projects = sqliteTable(
   "projects",
   {

@@ -23,6 +23,7 @@
     "state": "State",
     "version": "Connector version",
     "syncFolder": "Sync folder",
+    "roots": "Project roots watched",
     "states": {
       "connecting": "Connecting…",
       "online": "Online",
@@ -30,6 +31,7 @@
       "hubOff": "The hub is turned off on this server"
     },
     "lastError": "Last error: {{error}}",
+    "rootsError": "Could not send the project roots to the hub: {{error}}",
     "openFolder": "Open sync folder",
     "openApp": "Open the web app",
     "manage": "Rename or remove this device in Hub management in the web app.",

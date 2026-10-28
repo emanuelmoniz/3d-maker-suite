@@ -1,6 +1,9 @@
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { openDb, schema } from "@3d-maker-suite/db";
 import { eq } from "drizzle-orm";
-import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, describe, expect, it, onTestFinished, vi } from "vitest";
 import { buildApp } from "./app.ts";
 import { hashPassword } from "./lib/password.ts";
 
@@ -12,7 +15,10 @@ beforeAll(async () => {
 
 const setup = async (opts: Parameters<typeof buildApp>[3] = {}) => {
   const db = openDb(":memory:");
-  const app = await buildApp(db, { stream: { write: () => true } }, "", opts);
+  // A data dir of its own: a device folder's cover lands in <dataDir>/thumbnails.
+  const dataDir = mkdtempSync(join(tmpdir(), "hub-data-"));
+  onTestFinished(() => rmSync(dataDir, { recursive: true, force: true }));
+  const app = await buildApp(db, { stream: { write: () => true } }, dataDir, opts);
   const user = (role: "admin" | "viewer") =>
     db
       .insert(schema.users)
@@ -74,7 +80,8 @@ describe("hub devices", () => {
       userName: "viewer",
       os: "win32",
       connectorVersion: "5.0.0",
-      online: true,
+      // Online = its event stream is open; a plain request doesn't make it so.
+      online: false,
     });
     expect(JSON.stringify(listed)).not.toContain(token);
 
@@ -175,7 +182,12 @@ describe("hub events", () => {
     expect(s.res.headers.get("x-accel-buffering")).toBe("no");
     await s.until(": open");
     const [d] = (await send("GET", "/api/hub/devices")).json();
-    expect(d).toMatchObject({ id: deviceId, connectorVersion: "5.0.1", os: "linux x64" });
+    expect(d).toMatchObject({
+      id: deviceId,
+      connectorVersion: "5.0.1",
+      os: "linux x64",
+      online: true,
+    });
     await s.cancel();
   });
 
@@ -222,5 +234,100 @@ describe("hub events", () => {
     db.update(schema.users).set({ disabled: true }).where(eq(schema.users.id, viewer.id)).run();
     vi.advanceTimersByTime(15_000);
     expect(await s.until("never")).toBeNull();
+  });
+
+  it("takes a device root's index and folders like a scan, and tells offline from missing", async () => {
+    const { db, app, send, open, token, deviceId } = await live();
+    const dev = (method: "GET" | "PUT" | "DELETE", url: string, payload?: object) =>
+      app.inject({
+        method,
+        url: `/api/hub/device${url}`,
+        payload,
+        headers: { authorization: `Bearer ${token}` },
+      });
+    const root = (location: string) =>
+      db
+        .insert(schema.roots)
+        .values({ name: "WS", location, path: "C:/models", position: 0 })
+        .returning()
+        .get();
+    const mine = root(deviceId);
+    const theirs = root("6f1c3f5e-7d4c-4c1e-9b1a-1a2b3c4d5e6f");
+    const folder = (digest: string) => ({
+      rel: "001_Box",
+      digest,
+      scan: {
+        files: [
+          { path: "box.stl", kind: "model", size: 5, mtime: 1 },
+          { path: "README.md", kind: "doc", size: 9, mtime: 1 },
+        ],
+        models: [],
+        mainFile: "box.stl",
+        sourceUrl: null,
+        hasModel: true,
+        unreadable: 0,
+      },
+      texts: { "README.md": "A box." },
+      cover: { ext: ".png", data: Buffer.from("png").toString("base64") },
+    });
+    const index = (digest: string) =>
+      dev("PUT", `/roots/${mine.id}/index`, { state: "ok", folders: [{ rel: "001_Box", digest }] });
+    const detail = async () => {
+      const [p] = (await send("GET", "/api/projects")).json().items;
+      return p && (await send("GET", `/api/projects/${p.id}`)).json();
+    };
+
+    const s = await open();
+    await s.until(": open");
+    expect((await dev("GET", "/roots")).json()).toEqual([
+      {
+        id: mine.id,
+        path: mine.path,
+        projectDepth: 1,
+        filesDepth: null,
+        maxFiles: expect.any(Number),
+      },
+    ]);
+    expect((await index("a")).json()).toEqual({ want: ["001_Box"] });
+    expect((await dev("PUT", `/roots/${mine.id}/folders`, folder("a"))).statusCode).toBe(204);
+    expect(await detail()).toMatchObject({
+      name: "Box",
+      number: 1,
+      filePath: "box.stl",
+      folderState: "ok",
+      thumbnailPath: expect.stringMatching(/\.png$/),
+    });
+    expect((await index("a")).json()).toEqual({ want: [] });
+    expect((await index("b")).json()).toEqual({ want: ["001_Box"] });
+
+    // Linking a doc reads the text the device sent.
+    const { id } = await detail();
+    await send("PATCH", `/api/projects/${id}`, { descriptionFile: "README.md" });
+    expect((await detail()).description).toBe("A box.");
+
+    // Only its own roots; paths stay inside the root.
+    expect((await dev("PUT", `/roots/${theirs.id}/index`, { state: "missing" })).statusCode).toBe(
+      404,
+    );
+    expect(
+      (await dev("PUT", `/roots/${mine.id}/folders`, { ...folder("c"), rel: "../x" })).statusCode,
+    ).toBe(400);
+    expect((await send("GET", "/api/hub/device/roots")).statusCode).toBe(403);
+
+    expect((await dev("DELETE", `/roots/${mine.id}/folders?rel=001_Box`)).statusCode).toBe(204);
+    expect((await detail()).folderState).toBe("missing");
+    await dev("PUT", `/roots/${mine.id}/index`, { state: "missing" });
+    expect(
+      (await send("GET", "/api/roots")).json().find((r: { id: string }) => r.id === mine.id),
+    ).toMatchObject({ state: "missing", deviceName: "Desk PC" });
+
+    // The stream ends: offline, with the last known data.
+    await s.cancel();
+    for (let i = 0; i < 100 && (await detail()).folderState !== "offline"; i++)
+      await new Promise((r) => setTimeout(r, 20));
+    expect(await detail()).toMatchObject({ folderState: "offline", name: "Box" });
+    expect((await send("GET", "/api/projects")).json().items[0].offline).toBe(true);
+    const add = await send("POST", "/api/roots", { path: "D:/more", location: deviceId });
+    expect(add.json().error.code).toBe("device_offline");
   });
 });

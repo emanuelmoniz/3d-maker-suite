@@ -435,6 +435,12 @@ importers:
 
   packages/host:
     dependencies:
+      '@3d-maker-suite/3mf':
+        specifier: workspace:*
+        version: link:../3mf
+      '@3d-maker-suite/core':
+        specifier: workspace:*
+        version: link:../core
       yauzl:
         specifier: ^3.4.0
         version: 3.4.0

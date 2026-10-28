@@ -17,6 +17,7 @@ import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
 import { loginLimiter } from "../lib/auth.ts";
+import type { HubChannel } from "../lib/hubChannel.ts";
 import { readPreferences } from "../lib/preferences.ts";
 import { tokenHash } from "../lib/session.ts";
 
@@ -25,7 +26,6 @@ const params = z.object({ id: z.uuid() });
 const errors = { 404: apiErrorSchema, 409: apiErrorSchema };
 
 const CODE_TTL_MS = 10 * 60_000;
-const ONLINE_MS = 60_000;
 // 32 symbols, no 0/O or 1/I; 256 % 32 = 0, so a byte maps without bias. 8 symbols = 40 bits.
 const SYMBOLS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const newCode = () => {
@@ -41,16 +41,15 @@ const codeHash = (code: string) => tokenHash(code.toUpperCase().replace(/[^A-Z0-
  * the hub off, none of it exists.
  */
 export const hubRoutes =
-  (db: Db): FastifyPluginAsyncZod =>
+  (db: Db, channel: HubChannel): FastifyPluginAsyncZod =>
   async (app) => {
     app.addHook("onRequest", async () => {
       if (!readPreferences(db).hubEnabled) throw new HttpError(404, "hub_off", "The hub is off");
     });
 
     // ponytail: unpaginated, a hub has a handful of devices.
-    app.get("/devices", { schema: { response: { 200: z.array(deviceSchema) } } }, async () => {
-      const since = Date.now() - ONLINE_MS;
-      return db
+    app.get("/devices", { schema: { response: { 200: z.array(deviceSchema) } } }, async () =>
+      db
         .select({
           id: devices.id,
           name: devices.name,
@@ -65,8 +64,8 @@ export const hubRoutes =
         .innerJoin(users, eq(users.id, devices.userId))
         .orderBy(asc(devices.name))
         .all()
-        .map((d) => ({ ...d, online: !!d.lastSeenAt && Date.parse(d.lastSeenAt) > since }));
-    });
+        .map((d) => ({ ...d, online: channel.online(d.id) })),
+    );
 
     app.patch(
       "/devices/:id",
@@ -79,7 +78,7 @@ export const hubRoutes =
           .returning({ id: devices.id })
           .get();
         if (!row) throw new HttpError(404, "not_found", "Device not found");
-        publish(row.id, { type: "device.renamed", name: req.body.name });
+        channel.publish(row.id, { type: "device.renamed", name: req.body.name });
         return reply.status(204).send(null);
       },
     );
@@ -91,28 +90,13 @@ export const hubRoutes =
       async (req, reply) => {
         const gone = db.delete(devices).where(eq(devices.id, req.params.id)).run().changes;
         if (!gone) throw new HttpError(404, "not_found", "Device not found");
-        for (const s of streams.get(req.params.id) ?? []) s.end();
+        channel.end(req.params.id);
         req.log.info({ deviceId: req.params.id }, "device revoked");
         return reply.status(204).send(null);
       },
     );
 
-    // Open event streams per device: write a frame, or end the stream.
-    const streams = new Map<string, Set<{ write: (frame: string) => void; end: () => void }>>();
-    const frame = (seq: number, event: HubEvent) =>
-      `id: ${seq}\nevent: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`;
-    /** Queues an event for a device and sends it now if the device is connected. */
-    const publish = (deviceId: string, event: HubEvent) => {
-      const { seq } = db
-        .insert(hubEvents)
-        .values({ deviceId, type: event.type, data: event, createdAt: new Date().toISOString() })
-        .returning({ seq: hubEvents.seq })
-        .get();
-      for (const s of streams.get(deviceId) ?? []) s.write(frame(seq, event));
-    };
-    app.addHook("preClose", async () => {
-      for (const set of streams.values()) for (const s of set) s.end();
-    });
+    app.addHook("preClose", async () => channel.end());
 
     /**
      * Hub → device commands (ADR-0014), device tokens only. `Last-Event-ID` acks (deletes) the
@@ -148,11 +132,12 @@ export const hubRoutes =
           .where(and(mine, lte(hubEvents.seq, cursor)))
           .run();
       for (const e of db.select().from(hubEvents).where(mine).orderBy(asc(hubEvents.seq)).all())
-        res.write(frame(e.seq, e.data as HubEvent));
+        res.write(channel.frame(e.seq, e.data as HubEvent));
 
-      const stream = { write: (f: string) => res.write(f), end: () => res.end() };
-      const set = streams.get(deviceId) ?? new Set();
-      streams.set(deviceId, set.add(stream));
+      const detach = channel.attach(deviceId, {
+        write: (f: string) => res.write(f),
+        end: () => res.end(),
+      });
       const beat = setInterval(() => {
         const live = db
           .select({ disabled: users.disabled })
@@ -169,8 +154,7 @@ export const hubRoutes =
       }, HUB_HEARTBEAT_MS);
       res.on("close", () => {
         clearInterval(beat);
-        set.delete(stream);
-        if (!set.size) streams.delete(deviceId);
+        detach();
       });
     });
 

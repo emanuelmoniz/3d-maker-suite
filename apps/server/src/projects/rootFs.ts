@@ -1,13 +1,13 @@
 import { watch as fsWatch } from "node:fs";
-import { mkdir, readdir, realpath, rename } from "node:fs/promises";
+import { mkdir, realpath, rename } from "node:fs/promises";
 import { dirname, isAbsolute, join, posix, relative, resolve, sep, win32 } from "node:path";
 import { PROJECT_TRASH_DIR, ROOT_HUB } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
+import { discoverFolders } from "@3d-maker-suite/host";
 import { asc, eq } from "drizzle-orm";
 import { HttpError } from "../errors.ts";
 import { insideRoots } from "../lib/launcher.ts";
 import { fsError } from "../routes/fs.ts";
-import { isHidden, kindOf } from "./scanFolder.ts";
 
 const { roots } = schema;
 
@@ -18,8 +18,8 @@ export type Place = { root: Root; rel: string };
 
 /**
  * All file access under one project root (ADR-0014). `rel` paths are root-relative with `/`: never
- * absolute, no empty, `.` or `..` segment; a link out of the root is refused. Local folders only
- * for now; a device root does the same calls over the connector.
+ * absolute, no empty, `.` or `..` segment; a link out of the root is refused. A device root's
+ * files are on its device: nothing is local, and its index comes from the connector.
  */
 export type RootFs = {
   readonly root: Root;
@@ -86,20 +86,7 @@ function localRoot(root: Root): RootFs {
     },
     async discover(depth) {
       const b = await base();
-      if (!b) return [];
-      const found: string[] = [];
-      async function visit(dir: string, level: number) {
-        const entries = await readdir(dir, { withFileTypes: true }).catch(() => []);
-        const hasModel = entries.some((e) => e.isFile() && kindOf(e.name) === "model");
-        if (level > 0 && (level >= depth || hasModel)) {
-          found.push(dir);
-          return;
-        }
-        for (const e of entries.sort((a, b) => a.name.localeCompare(b.name)))
-          if (e.isDirectory() && !isHidden(e.name)) await visit(join(dir, e.name), level + 1);
-      }
-      await visit(b, 0);
-      return found.flatMap((d) => below(b, d) ?? []);
+      return b ? discoverFolders(b, depth) : [];
     },
     async mkdir(rel) {
       const p = parts(rel);
@@ -138,15 +125,36 @@ function localRoot(root: Root): RootFs {
   };
 }
 
-export function rootFs(root: Root): RootFs {
-  if (root.location !== ROOT_HUB) throw new Error(`No access to roots on ${root.location} yet`);
-  return localRoot(root);
+/**
+ * A root on a device (ADR-0014). Nothing in it is local, so callers that need a file see it as
+ * missing; writes are refused.
+ * ponytail: pulling a file and writes over the connector are Plan 5.0.0 Step 7.
+ */
+function deviceRoot(root: Root): RootFs {
+  const refused = () =>
+    Promise.reject(new HttpError(409, "device_root", "Not available for a folder on a device yet"));
+  return {
+    root,
+    local: async () => null,
+    relative: async () => null,
+    discover: async () => [],
+    mkdir: refused,
+    trash: refused,
+    watch: async () => () => {},
+  };
 }
+
+export const onDevice = (root: Pick<Root, "location">) => root.location !== ROOT_HUB;
+
+export const rootFs = (root: Root): RootFs => (onDevice(root) ? deviceRoot(root) : localRoot(root));
 
 export const listRoots = (db: Db) => db.select().from(roots).orderBy(asc(roots.position)).all();
 
-/** The root folders, as configured (not resolved). */
-export const rootPaths = (db: Db) => listRoots(db).map((r) => r.path);
+/** The roots on the hub (the ones its own scan and watcher cover). */
+export const hubRoots = (db: Db) => listRoots(db).filter((r) => !onDevice(r));
+
+/** The hub's root folders, as configured (not resolved). */
+export const rootPaths = (db: Db) => hubRoots(db).map((r) => r.path);
 
 /** Where a local absolute path is: below the deepest root that holds it (real paths), or null. */
 export async function locate(db: Db, abs: string): Promise<Place | null> {

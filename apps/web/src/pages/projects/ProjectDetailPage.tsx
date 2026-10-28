@@ -16,6 +16,7 @@ import {
 } from "../../components/CostBreakdown.tsx";
 import { Markdown } from "../../components/Markdown.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
+import { RootStateBadge } from "../../components/RootStateBadge.tsx";
 import { TagList } from "../../components/TagList.tsx";
 import { Write } from "../../components/Write.tsx";
 import { ApiError } from "../../lib/api.ts";
@@ -509,8 +510,11 @@ export function ProjectDetailPage() {
           </>
         }
       />
-      {ok && project.folderPath && (
-        <p className="-mt-3 mb-4 break-all text-muted">{folderLabel(project.folderPath, roots)}</p>
+      {(ok || project.folderState === "offline") && project.folderPath && (
+        <p className="-mt-3 mb-4 flex flex-wrap items-center gap-2 break-all text-muted">
+          {folderLabel(project.folderPath, roots)}
+          {project.folderState === "offline" && <RootStateBadge state="offline" />}
+        </p>
       )}
       <MissingFolderBanner project={project} />
       <p role="status" className={open.isError ? "text-bad" : "sr-only"}>

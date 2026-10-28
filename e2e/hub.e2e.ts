@@ -35,6 +35,13 @@ test("hub: pair a device, rename it, revoke it", async ({ page, app }) => {
   const asDevice = () =>
     fetch(`${app.url}/api/auth/me`, { headers: { authorization: `Bearer ${token}` } });
   expect((await asDevice()).status).toBe(200);
+  // Online = its event stream is open, as a running connector holds it.
+  const stream = new AbortController();
+  const events = await fetch(`${app.url}/api/hub/events`, {
+    headers: { authorization: `Bearer ${token}` },
+    signal: stream.signal,
+  });
+  expect(events.status).toBe(200);
 
   await page.reload();
   const row = page.getByRole("list", { name: "Devices" }).getByRole("listitem");

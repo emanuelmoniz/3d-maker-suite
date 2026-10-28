@@ -2,6 +2,7 @@ import {
   PROJECT_TRASH_DIR,
   type ProjectDetail,
   type ProjectFolderPrevious,
+  ROOT_HUB,
 } from "@3d-maker-suite/core";
 import { Link } from "@tanstack/react-router";
 import { useId, useState } from "react";
@@ -64,7 +65,9 @@ const RELEASE = {
 export function FolderActions({ project }: { project: ProjectDetail }) {
   const { t } = useTranslation();
   const id = useId();
-  const all = useRoots();
+  const every = useRoots();
+  // The pickers browse this server: only its own roots.
+  const all = every.filter((r) => r.location === ROOT_HUB);
   const roots = all.map((r) => r.path);
   const folder = useProjectFolder(project.id);
   // Open while asking: `path` set = switch to that folder, else unlink.
@@ -92,6 +95,8 @@ export function FolderActions({ project }: { project: ProjectDetail }) {
     setHow("keep");
     setPending(next);
   };
+  // ponytail: a folder on a device is created, linked and trashed there in Step 7.
+  if (every.some((r) => r.id === project.rootId && r.location !== ROOT_HUB)) return null;
   return (
     <div className="grid gap-3">
       {!project.folderPath && project.unlinkedFolder && (

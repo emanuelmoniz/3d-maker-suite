@@ -34,6 +34,7 @@ import { z } from "zod";
 import { HttpError } from "../errors.ts";
 import { capableRows } from "../integrations/capabilities.ts";
 import { projectLabel } from "../lib/catalog.ts";
+import type { HubChannel } from "../lib/hubChannel.ts";
 import { openFolder, slicerLauncher } from "../lib/launcher.ts";
 import { columnFilter, listPage, taggedWith } from "../lib/list.ts";
 import { assertNumberFree, nextNumber } from "../lib/numbers.ts";
@@ -43,6 +44,7 @@ import { projectPath, segments } from "../projects/paths.ts";
 import {
   absPath,
   listRoots,
+  onDevice,
   projectDir,
   projectFile,
   type Root,
@@ -201,6 +203,7 @@ export const projectsRoutes =
     db: Db,
     dataDir: string,
     scanner: ProjectScanner,
+    hub: HubChannel,
     adapters: IntegrationAdapter[] = [],
   ): FastifyPluginAsyncZod =>
   async (app) => {
@@ -261,12 +264,29 @@ export const projectsRoutes =
       return trashedTo;
     }
 
-    // ponytail: an offline root reads as "missing" too; 4.2.0 Step 7 tells them apart.
+    /** Roots on a device that isn't connected: their projects show their last known data. */
+    const offlineRoots = () =>
+      new Set(
+        listRoots(db)
+          .filter((r) => onDevice(r) && !hub.online(r.location))
+          .map((r) => r.id),
+      );
+
     const detail = async (id: string): Promise<ProjectDetail> => {
       const p = get(id);
-      const own = p.rootId && (await projectDir(db, p));
+      const root = p.rootId ? listRoots(db).find((r) => r.id === p.rootId) : undefined;
+      if (!root || p.folder === null) return { ...p, folderState: p.rootId ? "missing" : null };
+      if (onDevice(root)) {
+        const state = !hub.online(root.location)
+          ? "offline"
+          : scanner.deviceFolder(root.id, p.folder)
+            ? "ok"
+            : "missing";
+        return { ...p, folderState: state };
+      }
+      const own = await projectDir(db, p);
       const there = own && (await stat(own.dir).catch(() => null))?.isDirectory();
-      return { ...p, folderState: p.rootId ? (there ? "ok" : "missing") : null };
+      return { ...p, folderState: there ? "ok" : "missing" };
     };
 
     // Scan: POST starts a background scan (or queues another pass), GET reports progress.
@@ -276,7 +296,16 @@ export const projectsRoutes =
     app.post(
       "/scan",
       { schema: { response: { 202: projectScanStatusSchema } } },
-      async (_, reply) => reply.status(202).send(scanner.start()),
+      async (_, reply) => {
+        // Devices index their own roots: ask each to send everything again.
+        for (const location of new Set(
+          listRoots(db)
+            .filter(onDevice)
+            .map((r) => r.location),
+        ))
+          if (hub.online(location)) hub.publish(location, { type: "roots.changed" });
+        return reply.status(202).send(scanner.start());
+      },
     );
 
     app.get(
@@ -360,10 +389,12 @@ export const projectsRoutes =
             : [],
         );
         const roots = listRoots(db);
+        const offline = offlineRoots();
         const items = page.items.map((p) => ({
           ...out(p, roots),
           lastPrintAt: last.get(p.id) ?? null,
           slicing: slicingById.get(p.id) ?? "none",
+          offline: !!p.rootId && offline.has(p.rootId),
         }));
         return { ...page, items } as Page<ProjectListItem>;
       },
