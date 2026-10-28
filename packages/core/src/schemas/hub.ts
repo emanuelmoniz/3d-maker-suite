@@ -90,9 +90,15 @@ const rel = z
     "Invalid path",
   );
 
-/** Caps on what a device sends per folder: each doc's text, and the cover (base64). */
+/**
+ * Caps on what a device sends per folder: each doc's text, the cover, each plate preview and all
+ * previews together (bytes, before base64).
+ */
 export const DEVICE_TEXT_MAX = 100_000;
 export const DEVICE_COVER_MAX = 2 * 1024 * 1024;
+export const DEVICE_PREVIEW_MAX = 1024 * 1024;
+export const DEVICE_PREVIEWS_MAX = 8 * 1024 * 1024;
+const base64 = (max: number) => z.base64().max(Math.ceil(max / 3) * 4);
 const COVER_EXTS = [".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg"] as const;
 
 /** A root on this device, as the connector needs it (`GET /api/hub/device/roots`). */
@@ -103,6 +109,8 @@ export const deviceRootSchema = z.object({
   filesDepth: z.number().int().nullable(),
   /** `projectScanMaxFiles`: files listed per folder at most. */
   maxFiles: z.number().int(),
+  /** The cover a project picked, by folder: it is sent as the folder's cover. */
+  covers: z.record(z.string(), z.string()),
 });
 
 /**
@@ -136,9 +144,15 @@ export const deviceFolderSchema = z.object({
   cover: z
     .object({
       ext: z.enum(COVER_EXTS),
-      data: z.base64().max(Math.ceil(DEVICE_COVER_MAX / 3) * 4),
+      data: base64(DEVICE_COVER_MAX),
+      /** The picked cover (`covers`) it is, or null: the scan's own pick. */
+      file: rel.nullable(),
     })
     .nullable(),
+  /** Plate previews of the listed 3MFs (`entry`: the plate's `thumbnail`), so none is pulled. */
+  previews: z.array(
+    z.object({ file: rel, entry: z.string().min(1).max(1024), data: base64(DEVICE_PREVIEW_MAX) }),
+  ),
 });
 export const deviceFolderQuerySchema = z.object({ rel });
 

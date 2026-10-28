@@ -37,8 +37,11 @@ const MARKETPLACE_URL =
 export type Cover =
   | { kind: "image"; abs: string }
   | { kind: "3mf"; abs: string; entry: string }
-  /** Bytes read elsewhere (a device root's connector, ADR-0014); `ext` like ".png". */
-  | { kind: "data"; ext: string; data: Uint8Array };
+  /**
+   * Bytes read elsewhere (a device root's connector, ADR-0014); `ext` like ".png"; `file` the
+   * picked cover it is, if it is one.
+   */
+  | { kind: "data"; ext: string; data: Uint8Array; file?: string | null };
 
 export interface FolderScan {
   files: ProjectFile[];
@@ -236,6 +239,29 @@ export async function readCover(cover: Cover | null) {
       : await read3mfEntry(cover.abs, cover.entry).catch(() => null);
   const ext = cover.kind === "3mf" ? ".png" : extname(cover.abs).toLowerCase();
   return data ? { kind: "data" as const, ext, data: new Uint8Array(data) } : null;
+}
+
+/**
+ * The plate previews of a folder's scanned 3MFs, in model order, each at most `perImage` bytes and
+ * all together at most `total` (the rest is left out).
+ */
+export async function readPlatePreviews(
+  dir: string,
+  models: ProjectModel[],
+  perImage: number,
+  total: number,
+) {
+  const out: { file: string; entry: string; data: Uint8Array }[] = [];
+  let bytes = 0;
+  for (const m of models)
+    for (const { thumbnail } of m.plates) {
+      if (!thumbnail) continue;
+      const data = await read3mfEntry(join(dir, ...m.file.split("/")), thumbnail).catch(() => null);
+      if (!data || data.length > perImage || bytes + data.length > total) continue;
+      bytes += data.length;
+      out.push({ file: m.file, entry: thumbnail, data });
+    }
+  return out;
 }
 
 /**

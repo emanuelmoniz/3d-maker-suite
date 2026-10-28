@@ -159,6 +159,7 @@ export const rootsRoutes =
         if (db.select({ id: projects.id }).from(projects).where(eq(projects.rootId, row.id)).get())
           throw new HttpError(409, "root_in_use", "Projects still use this folder");
         db.delete(roots).where(eq(roots.id, row.id)).run();
+        await scanner.dropDevicePreviews(row.id);
         changed(row);
         return reply.status(204).send(null);
       },

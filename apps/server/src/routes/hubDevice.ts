@@ -9,7 +9,7 @@ import {
   deviceRootSchema,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNotNull } from "drizzle-orm";
 import type { FastifyRequest } from "fastify";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
@@ -19,7 +19,7 @@ import { readPreferences } from "../lib/preferences.ts";
 import type { DeviceFiles } from "../projects/deviceFiles.ts";
 import type { ProjectScanner } from "../projects/scanner.ts";
 
-const { roots } = schema;
+const { projects, roots } = schema;
 const rootParams = z.object({ rootId: z.uuid() });
 const errors = { 400: apiErrorSchema, 403: apiErrorSchema, 404: apiErrorSchema };
 
@@ -75,6 +75,16 @@ export const hubDeviceRoutes =
             projectDepth,
             filesDepth,
             maxFiles,
+            covers: Object.fromEntries(
+              db
+                .select({ folder: projects.folder, coverFile: projects.coverFile })
+                .from(projects)
+                .where(and(eq(projects.rootId, id), isNotNull(projects.coverFile)))
+                .all()
+                .flatMap((p) =>
+                  p.folder !== null && p.coverFile ? [[p.folder, p.coverFile]] : [],
+                ),
+            ),
           }));
       },
     );
@@ -88,14 +98,14 @@ export const hubDeviceRoutes =
           response: { 200: deviceIndexResultSchema, ...errors },
         },
       },
-      async (req) => ({ want: scanner.deviceIndex(mine(req, req.params.rootId), req.body) }),
+      async (req) => ({ want: await scanner.deviceIndex(mine(req, req.params.rootId), req.body) }),
     );
 
     app.put(
       "/roots/:rootId/folders",
       {
-        // A folder's meta (up to 50 3MFs) plus its docs and a cover.
-        bodyLimit: 16 * 1024 * 1024,
+        // A folder's meta (up to 50 3MFs) plus its docs, a cover and plate previews (capped).
+        bodyLimit: 32 * 1024 * 1024,
         schema: {
           params: rootParams,
           body: deviceFolderSchema,
@@ -118,7 +128,7 @@ export const hubDeviceRoutes =
         },
       },
       async (req, reply) => {
-        scanner.deviceFolderGone(mine(req, req.params.rootId), req.query.rel);
+        await scanner.deviceFolderGone(mine(req, req.params.rootId), req.query.rel);
         return reply.status(204).send(null);
       },
     );

@@ -13,7 +13,7 @@ import type { HubChannel } from "../lib/hubChannel.ts";
 
 const { deviceRootFolders } = schema;
 type Root = typeof schema.roots.$inferSelect;
-type Sent = Omit<DeviceFolder, "cover">;
+type Sent = Omit<DeviceFolder, "cover" | "previews">;
 
 /** A pulled file is kept this long after its last use; all of them together at most this much. */
 const EXPIRY_MS = 60 * 60_000;

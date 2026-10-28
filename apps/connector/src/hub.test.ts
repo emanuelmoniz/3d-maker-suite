@@ -181,17 +181,37 @@ describe("connector and hub", () => {
       expect(p).toMatchObject({ name: "Box", offline: false, meta: { multicolor: false } });
       expect((await h.send("GET", `/api/projects/${p.id}`)).json().folderState).toBe("ok");
 
+      // Plate previews came with the scan; the cover is the first plate's.
+      const entry = p.meta.models[0].plates[0].thumbnail;
+      const preview = async () =>
+        (await h.send("GET", `/api/projects/${p.id}/file?path=box.3mf&entry=${entry}`)).rawPayload;
+      const thumbnail = async () =>
+        (await h.send("GET", `/api/projects/${p.id}/thumbnail`)).rawPayload;
+      const first = await preview();
+      expect(first.subarray(1, 4).toString()).toBe("PNG");
+      expect(first.equals(await thumbnail())).toBe(true);
+
+      // A picked cover comes from the device the same way.
+      writeFileSync(join(root, "001_Box", "photo.png"), "photo");
+      await until(async () => (await projects())[0].meta.files.length === 2, 15_000);
+      await h.send("PATCH", `/api/projects/${p.id}`, { coverFile: "photo.png" });
+      await until(async () => (await thumbnail()).toString() === "photo", 15_000);
+
       // A slicer's save: write <file>.tmp, rename it over the file.
       const file = join(root, "001_Box", "box.3mf");
       copyFileSync(fixture("multi_color.3mf"), `${file}.tmp`);
       renameSync(`${file}.tmp`, file);
       await until(async () => (await projects())[0].meta.multicolor, 15_000);
+      const saved = await preview();
+      expect(saved.equals(first)).toBe(false);
+      expect((await thumbnail()).toString()).toBe("photo");
 
       // The connector stops: last known data, offline.
       c.link.close();
       await until(async () => (await projects())[0].offline);
       expect((await h.send("GET", `/api/projects/${p.id}`)).json().folderState).toBe("offline");
       expect((await h.send("GET", "/api/roots")).json()[0].state).toBe("offline");
+      expect((await preview()).equals(saved)).toBe(true);
       expect((await h.send("GET", `/api/fs/list?device=${device.id}`)).json().error.code).toBe(
         "device_offline",
       );

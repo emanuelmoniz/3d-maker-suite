@@ -774,7 +774,7 @@ Do Step 6 of the 5.0.0 plan in PLAN.md. Show me the index messages and the offli
 Do Step 7 of the 5.0.0 plan in PLAN.md.
 ```
 
-### [ ] Step 7b - Device thumbnails in the scan
+### [x] Step 7b - Device thumbnails in the scan
 **Model:** Opus · **Effort:** Medium
 **Scope:**
 - The connector sends each 3MF's plate thumbnails with the folder scan (only when the folder's digest changed), with a size cap per image and per folder, like the cover.

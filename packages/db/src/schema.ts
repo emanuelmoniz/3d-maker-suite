@@ -604,7 +604,7 @@ export const deviceRootFolders = sqliteTable(
       .references(() => roots.id, { onDelete: "cascade" }),
     folder: text().notNull(),
     digest: text().notNull(),
-    /** `deviceFolderSchema` without the cover. */
+    /** `deviceFolderSchema` without the cover and previews. */
     scan: text({ mode: "json" }).notNull(),
     updatedAt: text().notNull(),
   },

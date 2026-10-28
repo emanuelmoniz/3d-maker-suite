@@ -5,6 +5,8 @@ import { join } from "node:path";
 import { pipeline } from "node:stream/promises";
 import {
   DEVICE_COVER_MAX,
+  DEVICE_PREVIEW_MAX,
+  DEVICE_PREVIEWS_MAX,
   type DeviceFolder,
   type DeviceRoot,
   deviceIndexResultSchema,
@@ -19,6 +21,7 @@ import {
   isHidden,
   listFolder,
   readCover,
+  readPlatePreviews,
   rootMkdir,
   rootTrash,
   scanFolder,
@@ -107,11 +110,26 @@ export function createRootSync({
   const digestOf = (l: Live, rel: string) =>
     folderDigest(dirOf(l, rel), l.root.maxFiles, l.root.filesDepth);
 
-  /** Scans one folder and sends it; false when a 3MF didn't open (try again later). */
+  /**
+   * Scans one folder and sends it, with its plate previews and its cover (the one the project
+   * picked, if listed); false when a 3MF didn't open (try again later).
+   */
   async function send(l: Live, rel: string, digest: string, final = true) {
-    const scan = await scanFolder(dirOf(l, rel), null, l.root.maxFiles, l.root.filesDepth);
+    const dir = dirOf(l, rel);
+    const scan = await scanFolder(dir, null, l.root.maxFiles, l.root.filesDepth);
     if (scan.unreadable && !final) return false;
-    const cover = await readCover(scan.cover);
+    const picked = l.root.covers[rel];
+    const chosen =
+      picked && scan.files.some((f) => f.path === picked && f.kind === "image") ? picked : null;
+    const cover = await readCover(
+      chosen ? { kind: "image", abs: join(dir, ...chosen.split("/")) } : scan.cover,
+    );
+    const previews = await readPlatePreviews(
+      dir,
+      scan.models,
+      DEVICE_PREVIEW_MAX,
+      DEVICE_PREVIEWS_MAX,
+    );
     const body: DeviceFolder = {
       rel,
       digest,
@@ -129,8 +147,10 @@ export function createRootSync({
           ? {
               ext: cover.ext as NonNullable<DeviceFolder["cover"]>["ext"],
               data: Buffer.from(cover.data).toString("base64"),
+              file: chosen,
             }
           : null,
+      previews: previews.map((p) => ({ ...p, data: Buffer.from(p.data).toString("base64") })),
     };
     await call(`/roots/${l.root.id}/folders`, { method: "PUT", body });
     l.sent.set(rel, digest);

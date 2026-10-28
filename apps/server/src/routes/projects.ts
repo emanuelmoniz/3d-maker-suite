@@ -45,6 +45,7 @@ import {
   absPath,
   listRoots,
   onDevice,
+  onDeviceRoot,
   projectDir,
   projectFile,
   type Root,
@@ -646,9 +647,10 @@ export const projectsRoutes =
         if (gallery || coverFile) {
           // Not scanned fields either: the scanner never writes them, so they survive re-scans.
           // Every path is project-relative; images must be listed, folders pass the path guard.
+          // A device's folder isn't here: only its cover can be picked (it comes with its scan).
           if (folder === null) throw new HttpError(404, "no_folder", "Project has no folder");
           const dir = (await projectDir(db, current))?.dir;
-          if (!dir)
+          if (!dir && (gallery || !onDeviceRoot(db, current.rootId)))
             throw new HttpError(403, "not_allowed", "Project folder is not in a project root");
           const image = (rel: string) => {
             segments(rel);
@@ -658,7 +660,7 @@ export const projectsRoutes =
           for (const rel of gallery?.images ?? []) image(rel);
           if (coverFile) image(coverFile);
           for (const rel of gallery?.folders ?? [])
-            if (!(await projectPath(dir, rel, "existing")).isDir)
+            if (!dir || !(await projectPath(dir, rel, "existing")).isDir)
               throw new HttpError(400, "not_a_directory", "Not a folder");
         }
         if (gallery)
@@ -673,12 +675,18 @@ export const projectsRoutes =
           .run();
         if (descriptionFile || previewFile === null || coverFile !== undefined)
           await scanner.refresh(current);
+        // The device sends the folder again with the new pick (an offline one when it connects).
+        const root = current.rootId && listRoots(db).find((r) => r.id === current.rootId);
+        if (coverFile !== undefined && root && onDevice(root) && folder !== null) {
+          scanner.deviceFolderStale(root.id, folder);
+          if (hub.online(root.location)) hub.publish(root.location, { type: "roots.changed" });
+        }
         return get(req.params.id);
       },
     );
 
     // Serves a file listed in meta.files (nothing else is reachable), or, with `entry`, a plate
-    // preview inside that 3MF.
+    // preview inside that 3MF (a device folder's came with its scan: no pull, also offline).
     app.get("/:id/file", { schema: { params, querystring: fileQuery } }, async (req, reply) => {
       const p = get(req.params.id);
       const { path, entry } = req.query;
@@ -686,6 +694,13 @@ export const projectsRoutes =
       const plate = p.meta.models
         .find((m) => m.file === path)
         ?.plates.some((pl) => pl.thumbnail === entry);
+      if (listed && entry && plate && p.folder !== null && onDeviceRoot(db, p.rootId)) {
+        const png = await readFile(
+          scanner.devicePreview(p.rootId ?? "", p.folder, path, entry),
+        ).catch(() => null);
+        if (!png) throw new HttpError(404, "not_found", "File not found");
+        return reply.type("image/png").send(png);
+      }
       const abs = listed && (!entry || plate) && (await projectFile(db, p, path));
       if (!abs) throw new HttpError(404, "not_found", "File not found");
       if (!entry) {

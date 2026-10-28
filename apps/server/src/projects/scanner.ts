@@ -1,5 +1,5 @@
-import { randomUUID } from "node:crypto";
-import { copyFile, mkdir, rm, stat, writeFile } from "node:fs/promises";
+import { createHash, randomUUID } from "node:crypto";
+import { copyFile, mkdir, readdir, rm, stat, writeFile } from "node:fs/promises";
 import { extname, join, posix, resolve, sep } from "node:path";
 import { read3mfEntry } from "@3d-maker-suite/3mf";
 import {
@@ -40,6 +40,7 @@ const keyOf = ({ root, rel }: Place) => `${root.id}\0${rel}`;
 
 const WATCH_DEBOUNCE_MS = 3000;
 const THUMB_DIR = "thumbnails";
+const short = (s: string) => createHash("sha256").update(s).digest("hex").slice(0, 32);
 
 const idle = (): ProjectScanStatus => ({
   state: "idle",
@@ -119,6 +120,13 @@ export function createProjectScanner(
     if (previous && previous !== next) await rm(join(dataDir, previous), { force: true });
     return next;
   }
+
+  /** A device folder's plate previews (ADR-0014): a folder per root, in it one per project folder. */
+  const previewDir = (rootId: string, rel?: string) =>
+    join(dataDir, THUMB_DIR, "device", rootId, ...(rel === undefined ? [] : [short(rel)]));
+  /** The stored preview of plate `entry` of a device folder's `file`. */
+  const devicePreview = (rootId: string, rel: string, file: string, entry: string) =>
+    join(previewDir(rootId, rel), `${short(`${file}\0${entry}`)}.png`);
 
   /** The hub's roots with their seam and real path (null: missing). Devices index their own. */
   const spots = () =>
@@ -215,13 +223,17 @@ export function createProjectScanner(
       ).filter((d): d is string => d !== null),
       images: row.gallery.images.filter((p) => listed.has(p)),
     };
-    // ponytail: a chosen cover on a device keeps the stored thumbnail; a scan never pulls a file.
     const cover: Cover | null =
       coverFile && dir !== null
         ? { kind: "image", abs: join(dir, ...coverFile.split("/")) }
         : scan.cover;
+    // A device sends the picked cover with its scan; one sent for another pick (before the device
+    // knew) keeps the stored one until the next.
+    const otherPick =
+      dir === null &&
+      (cover?.kind === "data" ? (cover.file ?? null) !== coverFile : coverFile !== null);
     const thumbnailPath =
-      (keepThumbnail && !cover) || (coverFile && dir === null)
+      (keepThumbnail && !cover) || otherPick
         ? (row?.thumbnailPath ?? null)
         : await storeCover(id, cover, row?.thumbnailPath ?? null);
     const types = scan.models.flatMap((m) =>
@@ -289,7 +301,7 @@ export function createProjectScanner(
     db.select().from(projects).where(at(place)).get()?.descriptionFile;
   /** A device's scan as the hub's own: the description from the doc the project links. */
   const fromDevice = (
-    sent: Omit<DeviceFolder, "cover">,
+    sent: Omit<DeviceFolder, "cover" | "previews">,
     link: string | null | undefined,
     cover: Cover | null,
   ): FolderScan => ({
@@ -305,7 +317,7 @@ export function createProjectScanner(
     if (onDevice(place.root)) {
       const sent = deviceFolder(place.root.id, place.rel);
       if (!sent) throw new HttpError(404, "not_found", "Project folder not found");
-      const scan = fromDevice(sent.scan as Omit<DeviceFolder, "cover">, link, null);
+      const scan = fromDevice(sent.scan as Omit<DeviceFolder, "cover" | "previews">, link, null);
       return { dir: null, scan, keepThumbnail: true };
     }
     const dir = await rootFs(db, place.root).local(place.rel);
@@ -349,7 +361,7 @@ export function createProjectScanner(
    * read "missing"); returns the ones to send, new or with another digest. A missing root
    * forgets them all.
    */
-  function deviceIndex(root: Root, index: DeviceIndex) {
+  async function deviceIndex(root: Root, index: DeviceIndex) {
     if (index.state === "missing") missingOnDevice.add(root.id);
     else missingOnDevice.delete(root.id);
     const listed = index.state === "ok" ? index.folders : [];
@@ -375,11 +387,19 @@ export function createProjectScanner(
         .all()
         .map((r) => [r.folder, r.digest]),
     );
+    // Previews of folders forgotten here or before (trashed, gone while offline) go too.
+    const keep = new Set([...have.keys()].map(short));
+    for (const name of await readdir(previewDir(root.id)).catch(() => []))
+      if (!keep.has(name))
+        await rm(join(previewDir(root.id), name), { recursive: true, force: true });
     return listed.filter((f) => have.get(f.rel) !== f.digest).map((f) => f.rel);
   }
 
-  /** One device folder as its connector scanned it: stored, then like a scanned folder. */
-  async function deviceFolderScanned(root: Root, { cover, ...sent }: DeviceFolder) {
+  /**
+   * One device folder as its connector scanned it: stored (its plate previews as files), then like
+   * a scanned folder.
+   */
+  async function deviceFolderScanned(root: Root, { cover, previews, ...sent }: DeviceFolder) {
     const updatedAt = new Date().toISOString();
     db.insert(deviceRootFolders)
       .values({ rootId: root.id, folder: sent.rel, digest: sent.digest, scan: sent, updatedAt })
@@ -388,11 +408,20 @@ export function createProjectScanner(
         set: { digest: sent.digest, scan: sent, updatedAt },
       })
       .run();
+    const dir = previewDir(root.id, sent.rel);
+    await rm(dir, { recursive: true, force: true });
+    if (previews.length) await mkdir(dir, { recursive: true });
+    for (const p of previews)
+      await writeFile(
+        devicePreview(root.id, sent.rel, p.file, p.entry),
+        Buffer.from(p.data, "base64"),
+      );
     const place = { root, rel: sent.rel };
     const data: Cover | null = cover && {
       kind: "data",
       ext: cover.ext,
       data: Buffer.from(cover.data, "base64"),
+      file: cover.file,
     };
     const result = await scanOne(place, async () => ({
       dir: null,
@@ -403,10 +432,19 @@ export function createProjectScanner(
   }
 
   /** A device folder that is gone: its project reads "missing". */
-  const deviceFolderGone = (root: Root, rel: string) =>
-    db
-      .delete(deviceRootFolders)
+  async function deviceFolderGone(root: Root, rel: string) {
+    db.delete(deviceRootFolders)
       .where(and(eq(deviceRootFolders.rootId, root.id), eq(deviceRootFolders.folder, rel)))
+      .run();
+    await rm(previewDir(root.id, rel), { recursive: true, force: true });
+  }
+
+  /** Makes the device send a folder again on its next sync (e.g. for a newly picked cover). */
+  const deviceFolderStale = (rootId: string, rel: string) =>
+    db
+      .update(deviceRootFolders)
+      .set({ digest: "" })
+      .where(and(eq(deviceRootFolders.rootId, rootId), eq(deviceRootFolders.folder, rel)))
       .run();
 
   async function pass() {
@@ -601,7 +639,12 @@ export function createProjectScanner(
     deviceIndex,
     deviceFolderScanned,
     deviceFolderGone,
+    deviceFolderStale,
     deviceFolder,
+    devicePreview,
+    /** A removed device root's previews. */
+    dropDevicePreviews: (rootId: string) =>
+      rm(previewDir(rootId), { recursive: true, force: true }),
     missingOnDevice: (rootId: string) => missingOnDevice.has(rootId),
     /** Begins watching and runs a first scan, so changes made while the app was off are found. */
     boot() {
