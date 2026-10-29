@@ -51,7 +51,10 @@ const deviceError = (e: NodeJS.ErrnoException) =>
     ? new HttpError(422, e.code, "The slicer doesn't run on the device")
     : e.code === "no_slicer"
       ? new HttpError(409, "device_no_slicer", "No such slicer on the device")
-      : new HttpError(500, "device_failed", `The device answered ${e.code}`);
+      : // A connector older than the request (it follows the hub's version, so a dev hub's may lag).
+        e.code === "ENOTSUP"
+        ? new HttpError(409, "device_outdated", "The device's connector is too old")
+        : new HttpError(500, "device_failed", `The device answered ${e.code}`);
 
 export function createWorkerSlicers(
   db: Db,

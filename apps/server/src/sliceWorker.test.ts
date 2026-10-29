@@ -102,6 +102,7 @@ async function live(adapters: IntegrationAdapter[] = []) {
     });
     reader = (res.body as ReadableStream<Uint8Array>).getReader();
     text = "";
+    return res.headers;
   };
   await connect();
   /** The next request of `type` on the stream: its requestId and data. */
@@ -295,7 +296,8 @@ it("slices a plate on the worker; offline, the plate waits and can fall back to 
 
     // Back online: it slices on the worker. The device pulls the 3MF and sends back what its
     // run wrote; the hub reads the result from it, as from its own slices.
-    await connect();
+    // Told on every connect too: an older connector skipped the `device.worker` event.
+    expect((await connect()).get("x-slice-worker")).toBe("1");
     await send("POST", `/api/projects/${projectId}/slicing/run`);
     const job = await next("slice");
     expect(job).toMatchObject({
@@ -378,6 +380,10 @@ it("an installed slicer becomes the worker's once it runs there; offline, nothin
   const ask2 = await next("slicer.check");
   await answer(ask2.requestId, { ok: false, code: "smoke_failed" });
   expect((await typed).json()).toMatchObject({ error: { code: "smoke_failed" } });
+  // A connector older than the request.
+  const old = send("POST", `/api/integrations/${worker.id}/slicer/check`, { path: "/opt/x" });
+  await answer((await next("slicer.check")).requestId, { ok: false, code: "ENOTSUP" });
+  expect((await old).json()).toMatchObject({ error: { code: "device_outdated" } });
 
   // Another device for it: its slicer is picked again.
   await send("PATCH", `/api/integrations/${worker.id}`, {

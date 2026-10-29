@@ -23,6 +23,7 @@ const CHECK_ERRORS: Record<string, string> = {
   device_offline: "integrations:worker.errors.device_offline",
   device_no_slicer: "integrations:worker.errors.device_no_slicer",
   not_worker: "integrations:worker.errors.not_worker",
+  device_outdated: "integrations:worker.errors.device_outdated",
 };
 
 /**

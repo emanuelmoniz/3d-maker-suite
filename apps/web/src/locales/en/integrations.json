@@ -315,7 +315,8 @@
       "vcredist_missing": "It needs the Microsoft Visual C++ Redistributable (x64) on the device. Install it there, then try again.",
       "device_offline": "The device is offline.",
       "device_no_slicer": "The device doesn't have that slicer any more.",
-      "not_worker": "The device isn't a slice worker. Turn it on in Hub management."
+      "not_worker": "The device isn't a slice worker. Turn it on in Hub management.",
+      "device_outdated": "The connector on the device is too old for slice workers. Update it to the hub's version, then try again."
     }
   },
   "managed": {

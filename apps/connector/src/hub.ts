@@ -260,6 +260,7 @@ export function createLink({
       if (res.status === 404) return "hubOff";
       if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
       if (signal.aborted) return "offline";
+      store.set({ sliceWorker: res.headers.get("x-slice-worker") === "1" });
       status = "online";
       online = true;
       error = undefined;
