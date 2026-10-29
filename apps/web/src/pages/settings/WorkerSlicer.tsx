@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
 import { Combobox } from "../../components/Combobox.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
+import { Switch } from "../../components/Switch.tsx";
 import { ApiError } from "../../lib/api.ts";
 import { useDevices } from "../../lib/hub.ts";
 import {
@@ -45,6 +46,8 @@ export function WorkerSlicer({
   const patch = usePatchIntegration(i.id);
   const check = useCheckSlicer(i.id);
   const [path, setPath] = useState("");
+  /** The typed path is for a slicer that wasn't found; hidden until asked for. */
+  const [manual, setManual] = useState(false);
   // The device's slicers of this one's library (Bambu Studio for Bambu Studio (worker)).
   const found =
     device?.slicers.filter(
@@ -129,33 +132,40 @@ export function WorkerSlicer({
               ))}
             </ul>
           )}
-          <form
-            className="flex flex-wrap items-end gap-2"
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (path.trim()) check.mutate({ path: path.trim() });
-            }}
-          >
-            <div className="min-w-0 grow sm:max-w-md">
-              <FormField
-                label={t("integrations:worker.path")}
-                hint={t("integrations:worker.pathHint")}
-              >
-                {(p) => (
-                  <input
-                    {...p}
-                    value={path}
-                    onChange={(e) => setPath(e.target.value)}
-                    autoComplete="off"
-                    className={inputClass}
-                  />
-                )}
-              </FormField>
-            </div>
-            <Button type="submit" disabled={check.isPending || !path.trim() || !device?.online}>
-              {t("integrations:worker.check")}
-            </Button>
-          </form>
+          <Switch
+            label={t("integrations:worker.manual")}
+            checked={manual}
+            onChange={(e) => setManual(e.target.checked)}
+          />
+          {manual && (
+            <form
+              className="flex flex-wrap items-end gap-2"
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (path.trim()) check.mutate({ path: path.trim() });
+              }}
+            >
+              <div className="min-w-0 grow sm:max-w-md">
+                <FormField
+                  label={t("integrations:worker.path")}
+                  hint={t("integrations:worker.pathHint")}
+                >
+                  {(p) => (
+                    <input
+                      {...p}
+                      value={path}
+                      onChange={(e) => setPath(e.target.value)}
+                      autoComplete="off"
+                      className={inputClass}
+                    />
+                  )}
+                </FormField>
+              </div>
+              <Button type="submit" disabled={check.isPending || !path.trim() || !device?.online}>
+                {t("integrations:worker.check")}
+              </Button>
+            </form>
+          )}
           {check.isPending && <p role="status">{t("integrations:worker.checking")}</p>}
           {check.isSuccess && (
             <p role="status" className="text-ok">

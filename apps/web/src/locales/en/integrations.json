@@ -305,6 +305,7 @@
     "found": "Slicers found on the device",
     "foundSlicer": "{{name}} {{version}}",
     "use": "Use this one",
+    "manual": "Manual path",
     "path": "Program path on the device",
     "pathHint": "An AppImage, or any slicer that wasn't found. It's checked by starting it there with --help.",
     "check": "Check and use",
