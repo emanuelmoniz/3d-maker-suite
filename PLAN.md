@@ -945,7 +945,7 @@ Do Step 12 of the 5.0.0 plan in PLAN.md.
 Do Step 12b of the 5.0.0 plan in PLAN.md. Show me the folder rules and the upgrade seeding first.
 ```
 
-### [ ] Step 13 - Docs, push & v5.0.0-alpha.3
+### [x] Step 13 - Docs, push & v5.0.0-alpha.3
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - `docs/hub.md`: hub roots, sync modes, conflicts, trash, the mass delete guard, connector folders.

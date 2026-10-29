@@ -2,6 +2,20 @@
 
 All notable changes are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [5.0.0-alpha.3] - 2026-10-29
+
+Pre-release. Test on a copy of your data first; back up before updating. Locks, versions and slice workers come in later 5.0.0 pre-releases.
+
+### Added
+- **Hub roots sync**: a root on this server is kept in each device's sync folder, both ways. Conflicts keep both versions (`… (conflict <device> <date>)`) and raise an alert; deletes go to the hub's trash ([docs/hub.md](docs/hub.md))
+- **Mass delete guard**: a device that deletes more files than the limit at once (Hub management, default 20) or whose root folder is missing pauses its sync until you confirm or restore on its status page. Hub management shows each device's sync state
+- **Selected projects**: a device syncs everything or only the projects chosen for it
+- **Open on my workstation**: on the project page and model files, opens the project in the slicer on your own online device. Connectors find installed slicers and you pick the default on the status page
+- **Shared folders**: a connector shares only the folders you add on its status page. The hub can't browse or add anything outside them; a root outside them reads "Not shared on the device"
+
+### Changed
+- Upgraded connectors start by sharing the folders their roots are in
+
 ## [5.0.0-alpha.2] - 2026-10-28
 
 Pre-release. Test on a copy of your data first; back up before updating. Syncing project folders between devices comes in later 5.0.0 pre-releases.

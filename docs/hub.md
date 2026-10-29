@@ -1,6 +1,6 @@
 # Hub and connector
 
-> **Status: 5.0.0-alpha.2.** This pre-release adds device roots (project folders on a paired device), project owners and permissions, and connector updates from Hub management. Syncing a project folder between devices comes in later 5.0.0 pre-releases. Test on a copy of your data and back up first.
+> **Status: 5.0.0-alpha.3.** This pre-release adds syncing the hub's own project folders with paired devices (both ways, with conflict copies and a mass delete guard), choosing which projects a device syncs, **Open on my workstation**, and shared folders on the device. Test on a copy of your data and back up first.
 
 A **hub** is the normal server with hub features switched on. Workstations, a NAS or a file server join it by running a small **connector**. People still work only in the web app. Design and decisions: [ADR-0014](adr/0014-hub-and-connector.md).
 
@@ -43,6 +43,42 @@ While a device is offline, its roots and projects show **Offline** with the last
 The scan carries the plate previews of each 3MF, so a project page doesn't download the whole file. A device project's cover and gallery can be picked as on the server. Offline, the picker offers only the picks the hub already holds, and the project page says how many the device didn't send.
 
 **Settings → Projects → Device folder size limit** (default 32 MB, up to 128 MB) caps what one folder's scan sends: descriptions first, then the cover, plate previews and gallery picks. What doesn't fit is left out, so plate previews go first. Changing it sends the folders again.
+
+## Hub roots: sync with devices
+
+A root on **This server** is a hub root. Each device keeps a copy of it in its sync folder (`<home>/3D Maker Suite/<root>`) and the two stay in step both ways: save in your slicer as usual and the hub gets the change; a change made on the hub or another device arrives on its own. Files download to a hidden temporary file, are hash-checked and then renamed into place, so a half-copied file never shows. Files the root marks download-only are read-only on the device. The device's status page shows the sync state and how many changes wait.
+
+A restarted connector downloads nothing it already has.
+
+### Which projects a device syncs
+
+**Hub management** (and the connector's status page) set what a device syncs: **Everything**, or **Selected projects**. With selected projects, a project joins the device through **Open on my workstation**, and Hub management lists the selection with a button to stop syncing one. Stopping removes the local copy only; the hub keeps the project and nothing counts as a delete.
+
+### Open on my workstation
+
+The project page and the model file rows show **Open on my workstation** when you have an online device with a slicer. The hub selects the project for that device, the connector downloads it if it isn't there yet and opens the file in its default slicer. When you save, the change syncs back, and auto slicing runs on the hub as for any change.
+
+The connector finds installed slicers itself (Windows: the installed apps list; macOS: `/Applications`; Linux: Flatpak) and reports them to the hub. The status page picks the default. With no slicer found, the button is hidden for that device.
+
+### Conflicts
+
+If a device uploads a file that changed on the hub or on another device since it last synced, nobody's work is overwritten. The hub keeps the newer version at the original name and the late one beside it as `<name> (conflict <device> <date>).<ext>`, and raises a **Sync conflict** alert that links to the project. Pick the version you want and delete the other.
+
+### Deleting and the trash
+
+A file deleted on a device moves to the root's trash on the hub, never a hard delete, and only when the hub has no newer version of it.
+
+**Mass delete guard.** When a device deletes more files from one hub root at once than the limit (**Hub management → Sync**, default 20), or a root's folder is missing on the device, the connector holds those deletes. Its status page asks you to **Delete on the hub too** or **Restore them**, the device shows **Paused** in Hub management and the hub keeps an alert open until it is settled.
+
+## Shared folders on a device
+
+The hub can browse and use only the folders a device **shares**. On the connector's status page, **Manage shared folders** adds a folder (the full path of an existing folder) or stops sharing one. Adding a folder inside a shared one isn't needed; the device already shares it.
+
+- Browsing from the web app starts at the shared folders and can't leave them, also through `..` or links.
+- A device root outside the shared folders can't be added. If a folder stops being shared, its root shows **Not shared on the device** with the last known data, and isn't synced or served.
+- You can't stop sharing a folder while a device root inside it still has projects on the hub; remove those first.
+- Upgraded connectors start by sharing the folders their roots are in, so nothing changes until you edit the list.
+- The sync folder for hub roots isn't affected.
 
 ## Owners and permissions
 
