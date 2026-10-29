@@ -983,6 +983,26 @@ Do Step 14 of the 5.0.0 plan in PLAN.md. Show me the lock states and release pat
 Back up the DB before editing schema.ts.
 ```
 
+### [ ] Step 14b - One Open button: this machine's slicer  **[plan mode]**
+**Model:** Opus · **Effort:** High
+**Scope:**
+- The project page and the file rows get **one** Open button instead of "Open in slicer" and "Open on my workstation". It opens the slicer on the machine the user is sitting at:
+  1. **The server's own machine** (a loopback socket and a loopback Host, as the login page's "on this PC" test in `routes/auth.ts`): `target: "slicer"`, the slicer from Settings → Integrations, as today.
+  2. **A machine with a connector:** the page probes the local connector (`http://127.0.0.1:<port>`, the port from the connector's launcher entry). The connector answers a new `GET /api/whoami` with its device id only, with CORS limited to the hub's own origin (it knows its hub URL) and checked against the Host header as today. If the id is one of the user's online devices with a slicer, `target: "device"` for that device.
+  3. **Probe failed** (no connector, blocked by the browser, Safari or a Local Network prompt): fall back to the user's online devices with a slicer. One device is used without asking; several keep today's device dropdown.
+  4. No slicer anywhere: the button is hidden, as now.
+- ADR-0014 gets an amendment (the only readable endpoint of the connector's page, why it is safe: id only, hub origin only, no state-changing route; the probe is a hint, the hub still checks that the device belongs to the user). `docs/hub.md` and the i18n keys follow (`projects:detail.open*`).
+- Opening on the server's machine takes no hub lock (it edits the hub root in place); the project page shows the lock holder as now, and the docs say locks are soft.
+- Device-root projects are unchanged: no Open button, view and download only.
+- Probe result cached for the page session; a failed probe never blocks the page or shows an error.
+- give connector option to not select default slicer. if a connector does not have a a default slicer, ask user what is the slicer that should open.
+
+**Done when:** on the server's machine the button launches the integration slicer; on a workstation with a connector it launches that device's slicer without a dropdown, even with two devices paired; with the connector stopped or the probe blocked it falls back to the online device(s); another origin can't read `/api/whoami`; tests pass.
+**Prompt:**
+```
+Do Step 14b of the 5.0.0 plan in PLAN.md. Show me the three-way decision and the connector endpoint first.
+```
+
 ### [ ] Step 15 - File versions
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
