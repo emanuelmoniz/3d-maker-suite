@@ -1,7 +1,10 @@
 import { execFile } from "node:child_process";
-import { rmSync } from "node:fs";
-import { readFile, stat } from "node:fs/promises";
-import { join } from "node:path";
+import { createHash } from "node:crypto";
+import { createReadStream, createWriteStream, rmSync } from "node:fs";
+import { mkdir, readdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
+import { join, sep } from "node:path";
+import { Readable } from "node:stream";
+import { pipeline } from "node:stream/promises";
 import { promisify } from "node:util";
 import {
   type DesktopSlicer,
@@ -9,6 +12,7 @@ import {
   type DeviceSlicerCheck,
   desktopSlicerSchema,
   type HubEvent,
+  SLICE_TIMEOUT_MS,
   type SlicerInstallStatus,
 } from "@3d-maker-suite/core";
 import {
@@ -17,6 +21,7 @@ import {
   installSlicer,
   launch,
   removeSlicer,
+  runSlicer,
   smokeTest,
 } from "@3d-maker-suite/host";
 import { z } from "zod";
@@ -166,6 +171,7 @@ export function createSlicers({
   start = launch,
   smoke = smokeTest,
   install = installSlicer,
+  runSlice = runSlicer,
 }: {
   request: Request;
   store: Store;
@@ -176,10 +182,46 @@ export function createSlicers({
   start?: (cmd: string, args: string[]) => Promise<number | undefined>;
   smoke?: (cmd: string, args?: string[]) => Promise<string | null>;
   install?: typeof installSlicer;
+  runSlice?: typeof runSlicer;
 }) {
   let found: Found[] = [];
   const managedDir = dataDir && join(dataDir, "slicers");
   if (managedDir) cleanPartials(managedDir);
+  /** Slice workers: a folder per slice from the hub, and the 3MF pulled last. */
+  const sliceDir = dataDir && join(dataDir, "slicing");
+  if (sliceDir) rmSync(sliceDir, { recursive: true, force: true }); // what a crash left
+
+  /**
+   * A slice's 3MF from the hub, checked against its hash. ponytail: only the last one is kept (a
+   * file's plates slice one after another); keep more if workers pull the same files again.
+   */
+  const pull = async (requestId: string, sha256: string) => {
+    const dir = sliceDir as string;
+    const dest = join(dir, `${sha256}.3mf`);
+    if (await isFile(dest)) return dest;
+    const res = await request(`/slices/${requestId}/file`, { long: true });
+    if (!res.ok || !res.body)
+      throw Object.assign(new Error(`3MF: HTTP ${res.status}`), { code: "EIO" });
+    const part = `${dest}.part`;
+    const hash = createHash("sha256");
+    await pipeline(
+      Readable.fromWeb(res.body as import("node:stream/web").ReadableStream),
+      async function* (src: AsyncIterable<Buffer>) {
+        for await (const chunk of src) {
+          hash.update(chunk);
+          yield chunk;
+        }
+      },
+      createWriteStream(part),
+    );
+    if (hash.digest("hex") !== sha256) {
+      await rm(part, { force: true });
+      throw Object.assign(new Error("3MF: wrong hash"), { code: "EIO" });
+    }
+    for (const n of await readdir(dir)) if (n.endsWith(".3mf")) await rm(join(dir, n));
+    await rename(part, dest);
+    return dest;
+  };
   const reply = (requestId: string, body: object) =>
     request(`/replies/${requestId}`, { method: "POST", body }).catch(() => {});
   /** An install error's code, else the OS one. */
@@ -317,6 +359,50 @@ export function createSlicers({
     async remove({ requestId, integrationId }: Extract<HubEvent, { type: "slicer.remove" }>) {
       if (managedDir) rmSync(join(managedDir, integrationId), { recursive: true, force: true });
       await reply(requestId, { ok: true, result: null });
+    },
+
+    /**
+     * Slice workers: a slice from the hub (ADR-0014), in `<dataDir>/slicing/<requestId>` (under the
+     * home folder: a Flatpak slicer can't read `/tmp`). The 3MF is a synced copy with its hash
+     * (`copyOf`), the one pulled last, or pulled now. Each file the run adds goes back, then the
+     * exit code; the hub reads the result from those files, as for its own slices.
+     */
+    async slice(
+      { requestId, program, args, files, sha256 }: Extract<HubEvent, { type: "slice" }>,
+      copyOf: (sha256: string) => Promise<string | null>,
+    ) {
+      if (!sliceDir || !store.get().sliceWorker)
+        return reply(requestId, { ok: false, code: "ENOTSUP" });
+      const work = join(sliceDir, requestId);
+      try {
+        await mkdir(work, { recursive: true });
+        for (const [name, text] of Object.entries(files)) await writeFile(join(work, name), text);
+        const file = (await copyOf(sha256)) ?? (await pull(requestId, sha256));
+        // A found slicer is known by its path (an app, a Flatpak id); it runs as its `cli`.
+        const f = found.find((s) => s.path === program);
+        const local = args.map((a) => a.replaceAll("{dir}/", work + sep).replaceAll("{dir}", work));
+        log(`slicing ${sha256.slice(0, 12)} with ${program}`);
+        const code = await runSlice(
+          f?.cli.cmd ?? program,
+          [...(f?.cli.args ?? []), ...local, file],
+          work,
+          AbortSignal.timeout(SLICE_TIMEOUT_MS),
+        );
+        for (const name of await readdir(work)) {
+          if (name in files || !(await isFile(join(work, name)))) continue;
+          const res = await request(`/slices/${requestId}/files/${encodeURIComponent(name)}`, {
+            method: "PUT",
+            file: { stream: createReadStream(join(work, name)) },
+          });
+          if (!res.ok) throw Object.assign(new Error(`HTTP ${res.status}`), { code: "EIO" });
+        }
+        await reply(requestId, { ok: true, result: { code } });
+      } catch (e) {
+        log(`slice: ${e instanceof Error ? e.message : e}`);
+        await reply(requestId, { ok: false, code: codeOf(e) });
+      } finally {
+        await rm(work, { recursive: true, force: true });
+      }
     },
 
     /** Online again: the managed slicers the hub no longer has for this device go. */

@@ -7,7 +7,9 @@ import {
   pickSlicer,
   printerFitsFile,
   projectMetaSchema,
+  type SLICE_JOB_STATES,
   type SliceRequest,
+  type SliceRun,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
 import { and, eq, inArray, isNull } from "drizzle-orm";
@@ -36,6 +38,7 @@ type PlateRow = typeof projectSlicePlates.$inferSelect;
 type IntegrationRow = typeof schema.integrations.$inferSelect;
 type PlateChoice = Pick<PlateRow, "printerId" | "printProfileId" | "useDefaultPrintProfile">;
 type FileInfo = Pick<ProjectModel, "printerModel" | "nozzleDiameter">;
+type SliceJobState = (typeof SLICE_JOB_STATES)[number];
 
 /** Anything the queue runs; `key` tells whether the same work is already waiting. */
 export type SliceJob = { key: string; run: (signal: AbortSignal) => Promise<void> };
@@ -46,8 +49,11 @@ export const projectJobKey = (j: ProjectPlate) => `project:${j.projectId}#${j.fi
  * Resolves the slicer integration of `picks` (a plate's, its project's) with the slicers that can
  * slice now: the first that can, else the default slicer, else the first one (`pickSlicer`).
  */
-export function slicerResolver(db: Db, adapters: IntegrationAdapter[]) {
-  const rows = capableRows(db, adapters, "slice");
+export function slicerResolver(db: Db, adapters: IntegrationAdapter[], here = false) {
+  // `here`: only the server's own slicers, no slice workers (a waiting plate's fallback).
+  const rows = capableRows(db, adapters, "slice").filter(
+    (r) => !here || r.adapter.kind !== "worker",
+  );
   const ids = rows.map((r) => r.row.id);
   const { defaultSlicerId } = readPreferences(db);
   return (picks: (string | null | undefined)[] = []) => {
@@ -74,7 +80,16 @@ export const sliceIntegration = (
   db: Db,
   adapters: IntegrationAdapter[],
   picks?: (string | null | undefined)[],
-) => slicerResolver(db, adapters)(picks);
+  here = false,
+) => slicerResolver(db, adapters, here)(picks);
+
+/** The slice worker's device is offline: the job waits in the queue until a device connects. */
+export class SliceWait extends Error {}
+
+/** How a worker integration's slices run on its device (workerSlicer.ts); one per app. */
+const workerRuns = new WeakMap<Db, (integrationId: string) => SliceRun>();
+export const useSliceWorkers = (db: Db, run: (integrationId: string) => SliceRun) =>
+  void workerRuns.set(db, run);
 
 /**
  * How a plate slices: its printer (its own, else `defaultSlicePrinter`), whether that printer is
@@ -121,7 +136,8 @@ const fail = (code: (typeof SLICE_ERRORS)[number], detail?: string): never => {
 
 /**
  * A plate to slice: the 3MF (absolute, already checked), its info, the profile choices, and the
- * slicer picks (the plate's, its project's; see `sliceIntegration`).
+ * slicer picks (the plate's, its project's; see `sliceIntegration`). `here`: the server's own
+ * slicers only.
  */
 export type PlateToSlice = PlateChoice & {
   abs: string;
@@ -129,6 +145,7 @@ export type PlateToSlice = PlateChoice & {
   model: FileInfo | undefined;
   filaments: (string | null)[];
   slicers: (string | null | undefined)[];
+  here?: boolean;
 };
 
 /**
@@ -142,9 +159,11 @@ export async function slicePlate(
   p: PlateToSlice,
   signal: AbortSignal,
 ) {
-  const found = sliceIntegration(db, adapters, p.slicers);
+  const found = sliceIntegration(db, adapters, p.slicers, p.here);
   const slicer = found?.adapter.slicer;
   if (!found || !slicer) return fail("no_slicer");
+  const run = found.adapter.kind === "worker" ? workerRuns.get(db)?.(found.row.id) : undefined;
+  if (found.adapter.kind === "worker" && !run) return fail("no_slicer");
   // Presets are named `<library>:<preset id>`; only this slicer's own can be passed to it.
   const prefix = `${presetLibrary(found.adapter)}:`;
   const own = (source: string | null | undefined) =>
@@ -202,12 +221,14 @@ export async function slicePlate(
     slicerConfigDir(found.row, found.adapter) ?? "",
     req,
     signal,
+    run,
   );
   return { fingerprint: before, profileId, slicer: found.row, result };
 }
 
-/** The error text stored for a failed slice; unexpected errors are logged. */
+/** The error text stored for a failed slice; unexpected errors are logged. A wait isn't one. */
 export function sliceErrorText(e: unknown, log: FastifyBaseLogger, context: object): string {
+  if (e instanceof SliceWait) throw e;
   if (e instanceof SliceError) return e.message;
   if (e instanceof IntegrationError && e.code === "slice_failed") return e.message;
   log.warn({ err: e, ...context }, "slice failed");
@@ -216,13 +237,13 @@ export function sliceErrorText(e: unknown, log: FastifyBaseLogger, context: obje
 
 /**
  * Slices a plate of a project's setup; its result or error goes to its `project_slice_plates` row.
- * `onError` hears a stored error (auto slices raise an alert with it).
+ * `onError` hears a stored error (auto slices raise an alert with it). `here`: see `PlateToSlice`.
  */
 export function projectSliceJob(
   db: Db,
   adapters: IntegrationAdapter[],
   log: FastifyBaseLogger,
-  job: ProjectPlate,
+  job: ProjectPlate & { here?: boolean },
   onError?: (error: string) => void,
 ): SliceJob {
   return {
@@ -244,7 +265,12 @@ export function projectSliceJob(
         const abs = model && project ? await projectFile(db, project, job.file) : null;
         if (!abs) return fail("not_allowed");
         const slicers = [row.slicerIntegrationId, project?.slicerIntegrationId];
-        const out = await slicePlate(db, adapters, { ...row, abs, model, slicers }, signal);
+        const out = await slicePlate(
+          db,
+          adapters,
+          { ...row, abs, model, slicers, here: job.here },
+          signal,
+        );
         done = {
           ...out.fingerprint,
           slicedAt: new Date().toISOString(),
@@ -278,35 +304,58 @@ export function projectSliceJob(
   };
 }
 
-/** One slice at a time, first in first out, in this process (ADR-0007). Only in memory. */
+/**
+ * One slice at a time, first in first out, in this process (ADR-0007). Only in memory. A job whose
+ * slice worker is offline (`SliceWait`) is set aside without blocking the others, and runs again
+ * on `wake`.
+ */
 export function createSliceQueue(log: FastifyBaseLogger) {
   const queue: SliceJob[] = [];
+  const waiting = new Map<string, SliceJob>();
   let running: SliceJob | null = null;
   const stop = new AbortController();
 
   async function pump() {
     if (running) return;
     while (!stop.signal.aborted) {
-      running = queue.shift() ?? null;
-      if (!running) break;
-      await running.run(stop.signal).catch((err) => log.error({ err }, "slice job crashed"));
+      const job = queue.shift();
+      if (!job) break;
+      running = job;
+      await job.run(stop.signal).catch((err) => {
+        if (err instanceof SliceWait) waiting.set(job.key, job);
+        else log.error({ err }, "slice job crashed");
+      });
     }
     running = null;
   }
 
   return {
-    /** Adds the jobs not already waiting; returns at once. */
+    /** Adds the jobs not already queued or waiting; returns at once. */
     add(jobs: SliceJob[]) {
       for (const j of jobs)
-        if (running?.key !== j.key && !queue.some((q) => q.key === j.key)) queue.push(j);
+        if (running?.key !== j.key && !waiting.has(j.key) && !queue.some((q) => q.key === j.key))
+          queue.push(j);
       void pump();
     },
-    state(key: string): "queued" | "running" | null {
+    state(key: string): SliceJobState | null {
       if (running?.key === key) return "running";
+      if (waiting.has(key)) return "waiting";
       return queue.some((q) => q.key === key) ? "queued" : null;
     },
+    /**
+     * The waiting jobs go back in line: a device came online, or slicing was asked for again.
+     * ponytail: all of them; the ones whose worker is still offline set themselves aside at once.
+     */
+    wake() {
+      queue.push(...waiting.values());
+      waiting.clear();
+      void pump();
+    },
+    /** Forgets a waiting job, so `add` can queue it another way (the server's own slicer). */
+    drop: (key: string) => void waiting.delete(key),
     close() {
       queue.length = 0;
+      waiting.clear();
       stop.abort();
     },
   };

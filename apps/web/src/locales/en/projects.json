@@ -271,6 +271,10 @@
     "needsSlicing": "Needs slicing",
     "queued": "Waiting to slice",
     "running": "Slicing…",
+    "waiting": "Waiting for the slice worker: its device is offline. It slices when the device is back.",
+    "waitingPlates_one": "{{count}} plate waits for a slice worker that is offline.",
+    "waitingPlates_other": "{{count}} plates wait for a slice worker that is offline.",
+    "fallback": "Slice on the server instead",
     "error": {
       "no_slicer": "No slicer is set up.",
       "not_allowed": "This file is outside your project folders.",

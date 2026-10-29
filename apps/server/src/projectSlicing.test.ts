@@ -56,6 +56,7 @@ describe("project slicing setup", () => {
     expect((await app.inject(`/api/projects/${id}/slicing`)).json()).toEqual({
       plates: [],
       canSlice: false,
+      canFallback: false,
     });
     const profile = (
       await app.inject({ method: "POST", url: "/api/print-profiles", payload: { name: "0.20mm" } })

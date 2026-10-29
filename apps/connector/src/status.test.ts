@@ -142,6 +142,15 @@ it("can drop the default slicer so the hub asks", async () => {
   expect(s.store.get().defaultSlicer).toBe("");
 });
 
+it("shows when the hub made the device a slice worker", async () => {
+  // Paired before the page starts, so it shows the status view.
+  openStore(dir).set({ hubUrl: "http://127.0.0.1:9", deviceId: "dev-1", token: "t" });
+  const s = await serve();
+  expect((await s.call("GET", "/")).body).not.toContain(t("connector:slicers.worker"));
+  s.store.set({ sliceWorker: true });
+  expect((await s.call("GET", "/")).body).toContain(t("connector:slicers.worker"));
+});
+
 it("creates and opens the sync folder", async () => {
   const s = await serve();
   const res = await s.call("POST", "/open-folder", { origin: s.origin() });

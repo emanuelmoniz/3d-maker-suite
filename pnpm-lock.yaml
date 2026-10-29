@@ -469,6 +469,9 @@ importers:
       '@3d-maker-suite/core':
         specifier: workspace:*
         version: link:../core
+      '@3d-maker-suite/host':
+        specifier: workspace:*
+        version: link:../host
     devDependencies:
       '@types/node':
         specifier: ^22.20.5

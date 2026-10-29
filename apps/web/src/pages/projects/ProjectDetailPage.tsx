@@ -268,7 +268,7 @@ function Plates({
                         ]
                           .filter(Boolean)
                           .join(" · ")
-                      : !p.sliced && setup?.job
+                      : !p.sliced && setup?.job && setup.job !== "waiting"
                         ? t("projects:detail.slicing")
                         : result
                           ? [

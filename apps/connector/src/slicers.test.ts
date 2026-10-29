@@ -1,6 +1,8 @@
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { buffer } from "node:stream/consumers";
 import { InstallError } from "@3d-maker-suite/host";
 import { describe, expect, it } from "vitest";
 import {
@@ -134,8 +136,9 @@ describe("slice worker", () => {
   const setup = (opts: Partial<Parameters<typeof createSlicers>[0]> = {}) => {
     const dir = mkdtempSync(join(tmpdir(), "worker-"));
     const sent: { path: string; body: unknown }[] = [];
+    const store = openStore(dir);
     const slicers = createSlicers({
-      store: openStore(dir),
+      store,
       log: () => {},
       dataDir: dir,
       find: async () => [
@@ -155,7 +158,7 @@ describe("slice worker", () => {
       },
       ...opts,
     });
-    return { dir, sent, slicers, done: () => rmSync(dir, { recursive: true, force: true }) };
+    return { dir, sent, store, slicers, done: () => rmSync(dir, { recursive: true, force: true }) };
   };
   const req = "00000000-0000-4000-8000-000000000001";
   const integrationId = "00000000-0000-4000-8000-000000000002";
@@ -246,6 +249,78 @@ describe("slice worker", () => {
       expect(existsSync(join(t.dir, "slicers", integrationId))).toBe(false);
       await t.slicers.prune();
       expect(readdirSync(join(t.dir, "slicers"))).toEqual(["keep"]);
+    } finally {
+      t.done();
+    }
+  });
+
+  it("runs a slice from the hub: pulls the 3MF once, sends back what the run wrote", async () => {
+    const bytes = Buffer.from("3mf bytes");
+    const sha256 = createHash("sha256").update(bytes).digest("hex");
+    const uploads: Record<string, string> = {};
+    const replies: unknown[] = [];
+    let pulls = 0;
+    const runs: { cmd: string; args: string[]; cwd: string }[] = [];
+    const t = setup({
+      request: async (path, init) => {
+        if (path.endsWith("/file")) {
+          pulls++;
+          return new Response(bytes);
+        }
+        if (init?.file) uploads[path] = (await buffer(init.file.stream)).toString();
+        if (path.startsWith("/replies/")) replies.push(init?.body);
+        return new Response("[]");
+      },
+      runSlice: async (cmd, args, cwd) => {
+        runs.push({ cmd, args, cwd });
+        writeFileSync(join(cwd, "result.json"), '{"return_code":0}');
+        writeFileSync(join(cwd, "out.3mf"), "sliced");
+        return 0;
+      },
+    });
+    const job = {
+      type: "slice" as const,
+      requestId: req,
+      program: "C:BS\bambu-studio.exe",
+      args: ["--outputdir", "{dir}", "--load-settings", "{dir}/machine.json;{dir}/process.json"],
+      files: { "machine.json": "{}", "process.json": "{}" },
+      sha256,
+    };
+    const none = async () => null;
+    try {
+      await t.slicers.refresh();
+      // Not a slice worker (yet): refused.
+      await t.slicers.slice(job, none);
+      expect(replies).toEqual([{ ok: false, code: "ENOTSUP" }]);
+
+      t.store.set({ sliceWorker: true });
+      await t.slicers.slice(job, none);
+      const work = join(t.dir, "slicing", req);
+      const pulled = join(t.dir, "slicing", `${sha256}.3mf`);
+      expect(runs[0]).toEqual({
+        cmd: "C:BS\bambu-studio.exe",
+        args: [
+          "--outputdir",
+          work,
+          "--load-settings",
+          `${join(work, "machine.json")};${join(work, "process.json")}`,
+          pulled,
+        ],
+        cwd: work,
+      });
+      // Only what the run wrote goes back, then the exit code; the work folder goes.
+      expect(uploads).toEqual({
+        [`/slices/${req}/files/result.json`]: '{"return_code":0}',
+        [`/slices/${req}/files/out.3mf`]: "sliced",
+      });
+      expect(replies[1]).toEqual({ ok: true, result: { code: 0 } });
+      expect(existsSync(work)).toBe(false);
+
+      // The next plate of that file: no pull. A synced copy with those bytes: that one.
+      await t.slicers.slice(job, none);
+      expect(pulls).toBe(1);
+      await t.slicers.slice(job, async () => "/synced/box.3mf");
+      expect(runs[2]?.args.at(-1)).toBe("/synced/box.3mf");
     } finally {
       t.done();
     }

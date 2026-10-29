@@ -4,6 +4,7 @@ import {
   type PlateState,
   type ProjectSlicing,
   projectMetaSchema,
+  projectSliceRunSchema,
   projectSlicingInputSchema,
   projectSlicingSchema,
 } from "@3d-maker-suite/core";
@@ -75,6 +76,7 @@ export const projectSlicingRoutes =
       const resolve = plateResolver(db);
       const slicerOf = slicerResolver(db, adapters);
       const fallback = slicerOf()?.row.id;
+      const here = slicerResolver(db, adapters, true)();
       // Taken with the rows, before any await: a job that ends meanwhile has already written them.
       const jobs = rows.map((r) =>
         queue.state(projectJobKey({ projectId: id, file: r.file, plate: r.plate })),
@@ -107,6 +109,7 @@ export const projectSlicingRoutes =
       };
       return {
         canSlice: !!fallback,
+        canFallback: !!here,
         plates: await Promise.all(
           rows.map(async (r, i) => {
             const inFile = meta.models
@@ -287,27 +290,37 @@ export const projectSlicingRoutes =
     );
 
     // Queues every plate that needs it (never sliced, file or profiles changed) and returns at once.
+    // Waiting ones try their worker again, or with `fallback` slice on the server's own slicer.
     app.post(
       "/:id/slicing/run",
       {
         schema: {
           params,
+          body: projectSliceRunSchema.nullish(),
           response: { 202: projectSlicingSchema, 404: apiErrorSchema, 409: apiErrorSchema },
         },
       },
       async (req, reply) => {
+        const fallback = !!req.body?.fallback;
+        if (!fallback) queue.wake();
         const now = await read(req.params.id);
         if (!now.canSlice) throw new HttpError(409, "no_slicer", "No slicer set up");
+        if (fallback && !now.canFallback)
+          throw new HttpError(409, "no_slicer", "No slicer on the server");
+        const plates = now.plates.filter((p) =>
+          fallback ? p.job === "waiting" : p.needsSlicing && !p.job,
+        );
+        for (const p of plates)
+          if (fallback) queue.drop(projectJobKey({ ...p, projectId: req.params.id }));
         queue.add(
-          now.plates
-            .filter((p) => p.needsSlicing && !p.job)
-            .map((p) =>
-              projectSliceJob(db, adapters, app.log, {
-                projectId: req.params.id,
-                file: p.file,
-                plate: p.plate,
-              }),
-            ),
+          plates.map((p) =>
+            projectSliceJob(db, adapters, app.log, {
+              projectId: req.params.id,
+              file: p.file,
+              plate: p.plate,
+              here: fallback,
+            }),
+          ),
         );
         return reply.status(202).send(await read(req.params.id));
       },

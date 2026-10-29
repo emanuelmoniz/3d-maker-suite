@@ -34,7 +34,7 @@ import { createDeviceFiles } from "./projects/deviceFiles.ts";
 import { createHubFiles } from "./projects/hubFiles.ts";
 import { useDeviceFiles } from "./projects/rootFs.ts";
 import { createProjectScanner } from "./projects/scanner.ts";
-import { createSliceQueue } from "./projects/sliceQueue.ts";
+import { createSliceQueue, useSliceWorkers } from "./projects/sliceQueue.ts";
 import { accessoriesRoutes } from "./routes/accessories.ts";
 import { alertsRoutes } from "./routes/alerts.ts";
 import { authRoutes } from "./routes/auth.ts";
@@ -313,6 +313,9 @@ export async function buildApp(
     ...opts.slicerInstaller,
   });
   const workers = createWorkerSlicers(db, syncer.adapters, hub, installer);
+  useSliceWorkers(db, (id) => workers.runner(id));
+  // A device is back: slices waiting for their worker try again.
+  hub.onOnline(() => sliceQueue.wake());
   await app.register(
     hubDeviceRoutes(
       db,

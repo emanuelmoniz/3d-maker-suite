@@ -1,5 +1,6 @@
+import { signedExit } from "@3d-maker-suite/host";
 import { expect, it } from "vitest";
-import { lastLogError, signedExit } from "./slice.ts";
+import { lastLogError } from "./slice.ts";
 
 it("reads Orca's last error line without its prefix", () => {
   const log = [

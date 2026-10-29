@@ -65,7 +65,8 @@ export function SlicingSetup({ project, setup }: { project: Project; setup: Slic
   const rootOn = useRoots().find((r) => r.id === project.rootId)?.autoSlice ?? true;
   if (!project.meta.models.length || !saved) return null;
   const byKey = new Map(saved.plates.map((p) => [plateKey(p), p]));
-  const left = saved.plates.filter((p) => p.job).length;
+  const left = saved.plates.filter((p) => p.job && p.job !== "waiting").length;
+  const waiting = saved.plates.filter((p) => p.job === "waiting").length;
   const toSlice = saved.plates.filter((p) => p.needsSlicing).length;
   const sliceStatus = !saved.canSlice
     ? t("projects:slicing.noSlicer")
@@ -73,9 +74,11 @@ export function SlicingSetup({ project, setup }: { project: Project; setup: Slic
       ? t("projects:slicing.progress", { count: left })
       : slice.isError
         ? t("projects:slicing.startFailed")
-        : saved.plates.length && !toSlice
-          ? t("projects:slicing.upToDate")
-          : t("projects:slicing.sliceHint");
+        : waiting
+          ? t("projects:slicing.waitingPlates", { count: waiting })
+          : saved.plates.length && !toSlice
+            ? t("projects:slicing.upToDate")
+            : t("projects:slicing.sliceHint");
   return (
     <>
       <p className="mb-2 text-muted">{t("projects:slicing.hint")}</p>
@@ -161,11 +164,16 @@ export function SlicingSetup({ project, setup }: { project: Project; setup: Slic
             } catch {
               return; // save.isError shows below
             }
-            slice.mutate();
+            slice.mutate({});
           }}
         >
           {t("projects:slicing.slice")}
         </Button>
+        {waiting > 0 && saved.canFallback && !left && (
+          <Button disabled={busy} onClick={() => slice.mutate({ fallback: true })}>
+            {t("projects:slicing.fallback")}
+          </Button>
+        )}
         <p aria-live="polite" className={slice.isError || save.isError ? "text-bad" : "text-muted"}>
           {save.isError ? t("projects:slicing.saveFailed") : sliceStatus}
         </p>

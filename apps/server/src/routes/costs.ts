@@ -154,6 +154,8 @@ export const costsRoutes =
       },
       async (req): Promise<QuoteSlice> => {
         const { projectId, plates, run } = req.body;
+        // Slices waiting for their worker try it again.
+        if (run) queue.wake();
         const project = projectId
           ? db.select().from(projects).where(eq(projects.id, projectId)).get()
           : undefined;

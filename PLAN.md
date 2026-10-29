@@ -1053,12 +1053,14 @@ Design:
 Do Step 17 of the 5.0.0 plan in PLAN.md. Show me the detection results, the shared package's API and the install states first.
 ```
 
-### [ ] Step 18 - Slice jobs on workers
+### [x] Step 18 - Slice jobs on workers
 **Model:** Opus · **Effort:** High
 **Scope:**
 - Workers appear as slice-capable integrations ("Bambu Studio (WS-3)").
 - The slice queue sends jobs to the picked worker: the file is pulled or reused by hash, the result uploaded, the same cache key including the slicer version.
 - Job timeout. When the worker is offline, the job waits and shows why, with an option to fall back to the hub's slicer.
+- The connector status page shows when the device is a slice worker.
+- Make the "indexes a device root" test in `apps/connector/src/hub.test.ts` reliable under a full parallel run (it timed out once in Step 17).
 
 **Done when:** an arm64 Docker hub with no slicer slices through a worker; results match a hub slice of the same file and version; tests pass.
 **Prompt:**
@@ -1120,9 +1122,9 @@ Then fast-forward main to dev, push, push the v5.0.0 tag and confirm the release
 
 ---
 
-# Plan 5.1.0 - Roles, permissions & alerts
+# Plan 5.1.0 - Roles, permissions, alerts & shared presets
 
-Minor release, starts after the 5.0.0 release. Design: ADR-0016, which supersedes ADR-0012's fixed roles.
+Minor release, starts after the 5.0.0 release. Design: ADR-0016, which supersedes ADR-0012's fixed roles, and ADR-0017 for shared slicer presets.
 
 ## Phase 15 - Fixes & settings
 
@@ -1271,32 +1273,117 @@ Do Step 10 of the 5.1.0 plan in PLAN.md. Only document what changed since 5.1.0-
 Then push dev, push the tag and confirm the pre-release is published.
 ```
 
-## Phase 18 - Release
+## Phase 18 - Shared slicer presets
 
-### [ ] Step 11 - Real test: roles, alerts and delivery
+The hub keeps one slicer preset library that the hub slicer, slice workers and workstations' desktop slicers all use. Today user presets reach the hub only through the slicer zip, which replaces `config/user` wholesale.
+
+Design (confirmed in Step 11):
+- **Why:** a saved 3MF already holds its resolved settings, so slicing "as saved" needs no presets. Presets matter when the app overrides the print, filament or printer (Print setup, filament prices and densities from `slicerPresetLibrary.read`) and for the same results on every worker.
+- **Hub only.** A single-PC install already slices with its desktop slicer folder.
+- **Library:** per slicer library (`bambu:`, `orca:`) and kind (machine, process, filament), with a version, sha256, and who saved it, from which device and when. Recommended: a hidden system root of kind `presets` (`<library>/<kind>/<name>.json`) reusing the hub file sync: versions, base-version uploads, change cursor, conflict copies, alerts, trash. Fallback: a small `slicer_presets` table. The managed slicer's `config/user/<x>` becomes a junction to the library, like `config/system`. The slicer zip merges into the library instead of replacing it. Workers get the library through Step 17 of 5.0.0.
+- **Two opt-in switches per device:** *Share my presets* (desktop → hub) and *Install hub presets* (hub → desktop).
+- **Conflicts:** same content (sha) is never a conflict and is never re-sent. A stale base with other content becomes `<name> (conflict <device>)`, with the `name` inside the json renamed too, plus a Sync conflict alert.
+- **Bambu Cloud and OrcaCloud rules** (the desktop folder is `user/<account id>/` when signed in, `user/default/` when signed out; each preset has a `.json` and, for Bambu, a `.info`):
+  - New preset: `.info` with an empty `setting_id`, `sync_info = create`, the folder's `user_id`. Studio then uploads it.
+  - Changed preset: keep `setting_id`, set `sync_info = update`, bump `updated_time`. Otherwise the older cloud copy wins at login.
+  - Write only while that slicer is closed (it reads presets at startup only; reuse the slicer-exit detection from check-out locks). Queue until then.
+  - Deletes never reach desktops, because the cloud brings them back. A hub delete removes the preset from the hub and workers and tells the user to delete it in the slicer. A desktop delete only shows "removed on <device>".
+  - The connector remembers the sha of every file it wrote (echo suppression), so a preset that also arrives through Bambu Cloud on the same account doesn't loop.
+  - Back up the desktop user folder to a zip before the first write. Reject invalid json (e.g. `"nil"` values) with an alert.
+  - A preset whose `inherits` parent this slicer lacks is skipped on that device, with an alert.
+
+### [ ] Step 11 - Preset spike and ADR-0017  **[plan mode]**
+**Model:** Opus · **Effort:** High
+**Scope:**
+- On real installs (Bambu Studio signed in and signed out; Orca 2.4 signed out and on OrcaCloud), confirm the `.info` rules, startup-only reading, delete resurrection and the same-account echo.
+- Decide the storage: hidden hub root or `slicer_presets` table. Decide who may share and delete presets (a 5.1 permission) and the preset alert kinds (Phase 17 catalog).
+- `docs/adr/0017-shared-slicer-presets.md`: design, findings, rejected options (writing into desktop folders without `.info` handling; reading Bambu Cloud's undocumented preset API).
+
+**Done when:** the ADR is approved; every rule above is confirmed or corrected from a real install.
+**Prompt:**
+```
+Do Step 11 of the 5.1.0 plan in PLAN.md. Guide me through each test install, then show me the storage choice first.
+```
+
+### [ ] Step 12 - Hub preset library
+**Model:** Opus · **Effort:** High
+**Scope:**
+- Storage per ADR-0017, zod schemas in `packages/core/src/schemas`, API, and a **Slicer presets** page in Hub management: per library and kind, versions, who saved, conflicts, download, delete.
+- Slicer zip import merges into the library. The managed slicer's `config/user` points at the library; workers get it.
+- Preset changes mark affected slices outdated (the cache key already holds the preset sha).
+
+**Done when:** a zip import from two PCs keeps both sets; a hub delete disappears from a worker; e2e; `pnpm i18n:check` and tests pass.
+**Prompt:**
+```
+Do Step 12 of the 5.1.0 plan in PLAN.md. Use frontend-design for the page.
+Back up the DB before editing schema.ts.
+```
+
+### [ ] Step 13 - Share my presets (desktop → hub)
+**Model:** Opus · **Effort:** High
+**Scope:**
+- Device switch *Share my presets* in Hub management. The connector watches its slicers' user preset folders (the account the slicer last used) and uploads changes with their base version.
+- json validation, conflict copies with the inner name renamed, Sync conflict alert. A desktop delete only shows "removed on <device>".
+
+**Done when:** a preset saved in Bambu Studio on one workstation shows on the hub within a minute; two edits of the same preset give a conflict copy and an alert; tests pass.
+**Prompt:**
+```
+Do Step 13 of the 5.1.0 plan in PLAN.md.
+```
+
+### [ ] Step 14 - Install hub presets (hub → desktop)  **[plan mode]**
+**Model:** Opus · **Effort:** High
+**Scope:**
+- Device switch *Install hub presets*. Writes queue until the slicer is closed. `.info` rules for Bambu; backup zip before the first write; echo suppression; no delete propagation; skip and alert on a missing `inherits` parent.
+- The device page shows the target folder, the queue and the last backup.
+
+**Done when:** a hub preset appears in a closed Bambu Studio after its next start, signed in and signed out; it survives a Bambu Cloud sync; two workstations on the same account don't loop; tests for the `.info` writer and echo suppression pass.
+**Prompt:**
+```
+Do Step 14 of the 5.1.0 plan in PLAN.md. Show me the .info writer and the write queue first.
+```
+
+### [ ] Step 15 - Docs, push & v5.1.0-alpha.3
+**Model:** Sonnet · **Effort:** Medium
+**Scope:**
+- `docs/slicing.md` and `docs/hub.md`: how presets flow, the two switches, the Bambu Cloud and OrcaCloud caveats, and a tip for farms (one Bambu account, or cloud sync off on farm PCs).
+- CHANGELOG, version `5.1.0-alpha.3`.
+- Commit, push `dev`, tag on `dev`. Check the run and the pre-release.
+
+**Done when:** tags pushed; workflow green; docs match the app.
+**Prompt:**
+```
+Do Step 15 of the 5.1.0 plan in PLAN.md. Only document what changed since 5.1.0-alpha.2.
+Then push dev, push the tag and confirm the pre-release is published.
+```
+
+## Phase 19 - Release
+
+### [ ] Step 16 - Real test: roles, alerts, delivery and presets
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - Upgrade a copy of a real 5.0.0 DB.
 - A custom role; a user override; a user manager who isn't an admin (escalation refused); a disabled role.
 - Each alert kind reaching the right users in the app, by email and by ntfy; no-users mode.
+- Presets with three workstations, two of them on the same Bambu account: share, install, conflict, delete, a worker slicing with a shared preset.
 
-Fix anything found and note it in the CHANGELOG (alpha.3 if needed).
+Fix anything found and note it in the CHANGELOG (alpha.4 if needed).
 **Done when:** every scenario worked; fixes released.
 **Prompt:**
 ```
-Do Step 11 of the 5.1.0 plan in PLAN.md. Guide me through each scenario, then fix what we find.
+Do Step 16 of the 5.1.0 plan in PLAN.md. Guide me through each scenario, then fix what we find.
 ```
 
-### [ ] Step 12 - Docs, push & v5.1.0 release
+### [ ] Step 17 - Docs, push & v5.1.0 release
 **Model:** Haiku · **Effort:** Low
 **Scope:**
-- `pnpm screenshots` (Users, Roles, My account), README, CHANGELOG, version `5.1.0`.
+- `pnpm screenshots` (Users, Roles, My account, Slicer presets), README, CHANGELOG, version `5.1.0`.
 - Commit on `dev`, fast-forward `main` to `dev`, push both, tag `v5.1.0` on `main`. Check the run, the release and the images.
 
 **Done when:** `main`, `dev` and the tag are pushed; the workflow is green; updating 5.0.0 to 5.1.0 keeps every user's rights and alerts.
 **Prompt:**
 ```
-Do Step 12 of the 5.1.0 plan in PLAN.md. Only document what changed since the last 5.1.0 pre-release.
+Do Step 17 of the 5.1.0 plan in PLAN.md. Only document what changed since the last 5.1.0 pre-release.
 Then fast-forward main to dev, push, push the v5.1.0 tag and confirm the release.
 ```
 
@@ -1304,6 +1391,7 @@ Then fast-forward main to dev, push, push the v5.1.0 tag and confirm the release
 - Per-user thresholds: alert rows are shared.
 - Other delivery channels (push, webhooks) and per-user mail servers.
 - Quiet hours and digests.
+- Reading presets straight from Bambu Cloud (undocumented API); editing preset values on the hub; a downloadable preset bundle for devices without a connector.
 
 ---
 
@@ -1319,7 +1407,7 @@ Design: ADR-0015. Prints are recorded automatically from the most used printer s
 
 Wave 1: Moonraker, Bambu LAN, PrusaLink, OctoPrint, plus Spoolman two-way.
 
-## Phase 19 - Foundations
+## Phase 20 - Foundations
 
 Design:
 - Snapshot: state, job file, progress, ETA, layer, temperatures, slots (material, colour, RFID or spool id). In memory only, pushed over SSE.
@@ -1422,7 +1510,7 @@ Do Step 6 of the 6.0.0 plan in PLAN.md. Back up the DB before editing schema.ts.
 Do Step 7 of the 6.0.0 plan in PLAN.md. Then push dev, push the tag and confirm the pre-release is published.
 ```
 
-## Phase 20 - Adapters
+## Phase 21 - Adapters
 
 Each adapter: a `local` package in `packages/adapters/<id>`, config and secrets schemas, status (and history where it exists), the recorded fixtures as tests, i18n names, a setup page in the docs. Added by host or IP.
 
@@ -1488,7 +1576,7 @@ Do Step 13 of the 6.0.0 plan in PLAN.md. Only document what changed since 6.0.0-
 Then push dev, push the tag and confirm the pre-release is published.
 ```
 
-## Phase 21 - Hub
+## Phase 22 - Hub
 
 ### [ ] Step 14 - Connector printer bridge  **[plan mode]**
 **Model:** Opus · **Effort:** High
@@ -1503,7 +1591,7 @@ Then push dev, push the tag and confirm the pre-release is published.
 Do Step 14 of the 6.0.0 plan in PLAN.md.
 ```
 
-## Phase 22 - Release
+## Phase 23 - Release
 
 ### [ ] Step 15 - Real test: one printer per adapter
 **Model:** Sonnet · **Effort:** Medium
@@ -1591,6 +1679,7 @@ Then fast-forward main to dev, push, push the v6.0.0 tag and confirm the release
 | alerts move to roles and users, no global switch per kind; shared resolve for action alerts | 5.1 · 7 (thresholds stay global) |
 | alerts delivered per user (email, ntfy) | 5.1 · 8 |
 | users edit their own alerts | 5.1 · 9 |
+| shared slicer presets: workstations → hub → workers and desktops, one source of truth | 5.1 · 11-15 |
 | live status: progress, temps, AMS state, auto print-event capture | 6.0 · 2, 3 (camera snapshot later) |
 | Spoolman: sync spools two-way | 6.0 · 12 |
 | other systems: Klipper/Moonraker, Prusa, OctoPrint, Bambu LAN | 6.0 · 8-11 (Creality stock, Elegoo SDCP in 6.x) |

@@ -26,6 +26,7 @@ import { api } from "./api.ts";
 import { formatCurrency } from "./format.ts";
 import { useListPage } from "./list.ts";
 import { usePreferences } from "./preferences.ts";
+import { slicePoll } from "./projects.ts";
 
 export const useCostContext = () =>
   useQuery({
@@ -82,7 +83,7 @@ export const useQuoteSlice = (body: Omit<QuoteSliceInput, "run">) =>
     queryKey: ["costs", "slice", body],
     queryFn: () => api<QuoteSlice>("POST", "/api/costs/slice", { ...body, run: false }),
     enabled: body.plates.length > 0,
-    refetchInterval: (q) => (q.state.data?.plates.some((p) => p.job) ? 1000 : false),
+    refetchInterval: (q) => slicePoll(q.state.data?.plates),
   });
 
 /** Queues the plates without a result; progress comes from `useQuoteSlice`. */

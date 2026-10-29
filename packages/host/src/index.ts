@@ -4,6 +4,7 @@ export * from "./bundle.ts";
 export * from "./launch.ts";
 export * from "./listFolder.ts";
 export * from "./rootPath.ts";
+export * from "./runSlicer.ts";
 export * from "./scanFolder.ts";
 export * from "./secrets.ts";
 export * from "./slicerInstall.ts";

@@ -46,6 +46,8 @@ type State = {
   cursor?: number;
   defaultSlicer?: string;
   folders?: string[];
+  /** An admin made this device a slice worker (`device.worker`): it runs the hub's slices. */
+  sliceWorker?: boolean;
 };
 type Saved = State & { token?: Blob };
 

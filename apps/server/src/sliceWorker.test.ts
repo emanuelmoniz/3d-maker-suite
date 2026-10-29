@@ -1,11 +1,19 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { buffer } from "node:stream/consumers";
 import { bambuStudioWorkerAdapter } from "@3d-maker-suite/adapter-bambu";
+import { fixture, mockAdapter } from "@3d-maker-suite/adapter-mock";
+import type { IntegrationAdapter } from "@3d-maker-suite/core";
 import { openDb, schema } from "@3d-maker-suite/db";
+import { eq } from "drizzle-orm";
 import { afterEach, beforeAll, expect, it } from "vitest";
+import yazl from "yazl";
 import { buildApp } from "./app.ts";
 import { hashPassword } from "./lib/password.ts";
+
+const fixtures = join(import.meta.dirname, "../../../packages/3mf/fixtures");
 
 const PW = "password123";
 let hash: string;
@@ -38,11 +46,11 @@ const releases = async () => [
 ];
 
 // A listening hub with one paired device whose stream is open, reporting a Mac.
-async function live() {
+async function live(adapters: IntegrationAdapter[] = []) {
   const db = openDb(":memory:");
   const dataDir = mkdtempSync(join(tmpdir(), "worker-data-"));
   const app = await buildApp(db, { stream: { write: () => true } }, dataDir, {
-    adapters: [bambuStudioWorkerAdapter()],
+    adapters: [bambuStudioWorkerAdapter(), ...adapters],
     slicerInstaller: { releases },
   });
   close = async () => {
@@ -60,8 +68,11 @@ async function live() {
     payload: { email: admin.email, password: PW },
   });
   const cookie = String(login.headers["set-cookie"]).split(";")[0] ?? "";
-  const send = (method: "GET" | "POST" | "PATCH" | "DELETE", url: string, payload?: object) =>
-    app.inject({ method, url, payload, headers: { cookie } });
+  const send = (
+    method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE",
+    url: string,
+    payload?: object,
+  ) => app.inject({ method, url, payload, headers: { cookie } });
   await send("PATCH", "/api/preferences", { hubEnabled: true });
   const pair = async () => {
     const { code } = (await send("POST", "/api/hub/pairing-codes", { userId: admin.id })).json();
@@ -78,15 +89,21 @@ async function live() {
       headers: { authorization: `Bearer ${as}` },
     });
   const base = await app.listen({ port: 0, host: "127.0.0.1" });
-  const res = await fetch(`${base}/api/hub/events`, {
-    headers: {
-      authorization: `Bearer ${token}`,
-      "x-connector-system": JSON.stringify({ platform: "darwin", arch: "arm64" }),
-    },
-  });
-  const reader = (res.body as ReadableStream<Uint8Array>).getReader();
   const dec = new TextDecoder();
+  let reader: ReadableStreamDefaultReader<Uint8Array>;
   let text = "";
+  /** Opens the device's stream (again). */
+  const connect = async () => {
+    const res = await fetch(`${base}/api/hub/events`, {
+      headers: {
+        authorization: `Bearer ${token}`,
+        "x-connector-system": JSON.stringify({ platform: "darwin", arch: "arm64" }),
+      },
+    });
+    reader = (res.body as ReadableStream<Uint8Array>).getReader();
+    text = "";
+  };
+  await connect();
   /** The next request of `type` on the stream: its requestId and data. */
   const next = async (type: string) => {
     for (;;) {
@@ -102,7 +119,15 @@ async function live() {
     }
   };
   const answer = (requestId: string, body: object) => dev("POST", `/replies/${requestId}`, body);
-  return { db, send, dev, next, answer, deviceId, pair, cancel: () => reader.cancel() };
+  /** Until the hub sees the device offline. */
+  const cancel = async () => {
+    await reader.cancel();
+    for (let i = 0; i < 100; i++) {
+      if (!(await send("GET", "/api/hub/devices")).json()[0].online) return;
+      await new Promise((r) => setTimeout(r, 20));
+    }
+  };
+  return { app, db, send, dev, next, answer, deviceId, token, pair, cancel, connect };
 }
 
 it("a device made a worker installs the hub's managed slicer for its system and reports it", async () => {
@@ -193,6 +218,129 @@ it("a device made a worker installs the hub's managed slicer for its system and 
   await answer(rm.requestId, { ok: true, result: null });
   expect((await removed).statusCode).toBe(204);
   expect((await send("GET", `/api/integrations/${worker.id}`)).json().slicerPath).toBeNull();
+});
+
+it("slices a plate on the worker; offline, the plate waits and can fall back to the server", async () => {
+  const mock = fixture();
+  const { app, db, send, next, answer, deviceId, token, cancel, connect } = await live([
+    mockAdapter(mock),
+  ]);
+  const dir = mkdtempSync(join(tmpdir(), "worker-slice-"));
+  try {
+    mkdirSync(join(dir, "Benchy"));
+    const file = join(dir, "Benchy", "benchy.3mf");
+    cpSync(join(fixtures, "single_color.3mf"), file);
+    await send("POST", "/api/roots", { path: dir });
+    const projectId = (
+      await send("POST", "/api/projects", { name: "Benchy", folderPath: join(dir, "Benchy") })
+    ).json().id;
+
+    // A worker with the hub's presets (a zip import) and the device's installed slicer.
+    await send("PATCH", `/api/hub/devices/${deviceId}`, { sliceWorker: true });
+    expect((await next("device.worker")).on).toBe(true);
+    const worker = (
+      await send("POST", "/api/integrations", {
+        adapterId: "bambu-studio-worker",
+        config: { deviceId, source: "installed" },
+      })
+    ).json();
+    db.update(schema.integrations)
+      .set({ slicerConfigDir: dir })
+      .where(eq(schema.integrations.id, worker.id))
+      .run();
+    const checked = send("POST", `/api/integrations/${worker.id}/slicer/check`, {
+      slicer: "bambu-studio",
+    });
+    const check = await next("slicer.check");
+    const app_ = "/Applications/BambuStudio.app";
+    await answer(check.requestId, { ok: true, result: { path: app_, version: "02.08.02.61" } });
+    await checked;
+    expect((await send("GET", `/api/integrations/${worker.id}`)).json()).toMatchObject({
+      deviceName: "Mac",
+      capabilities: expect.arrayContaining(["slice"]),
+    });
+
+    const plate = { file: "benchy.3mf", plate: 1, printProfileId: null, filaments: [null] };
+    await send("PUT", `/api/projects/${projectId}/slicing`, { plates: [plate] });
+    const slicing = async () => (await send("GET", `/api/projects/${projectId}/slicing`)).json();
+    const until = async (ok: (s: { plates: { job: string | null }[] }) => boolean) => {
+      for (let i = 0; i < 200; i++) {
+        const s = await slicing();
+        if (ok(s)) return s;
+        await new Promise((r) => setTimeout(r, 20));
+      }
+      throw new Error("timed out");
+    };
+
+    // Offline: the plate waits; no slicer here yet, so no fallback.
+    await cancel();
+    await send("POST", `/api/projects/${projectId}/slicing/run`);
+    expect(await until((s) => s.plates[0]?.job === "waiting")).toMatchObject({
+      canSlice: true,
+      canFallback: false,
+    });
+
+    // A slicer on the server: the waiting plate slices there instead.
+    const local = (
+      await send("POST", "/api/integrations", { adapterId: "mock", secrets: { token: "t" } })
+    ).json();
+    await send("PATCH", `/api/integrations/${local.id}`, { slicerPath: process.execPath });
+    expect((await slicing()).canFallback).toBe(true);
+    await send("POST", `/api/projects/${projectId}/slicing/run`, { fallback: true });
+    const fell = await until((s) => !s.plates[0]?.job);
+    expect(fell.plates[0]).toMatchObject({
+      result: { printTimeSeconds: 3600 }, // the mock's
+      needsSlicing: true, // not with the plate's slicer, the worker
+    });
+
+    // Back online: it slices on the worker. The device pulls the 3MF and sends back what its
+    // run wrote; the hub reads the result from it, as from its own slices.
+    await connect();
+    await send("POST", `/api/projects/${projectId}/slicing/run`);
+    const job = await next("slice");
+    expect(job).toMatchObject({
+      program: app_,
+      files: {},
+      sha256: createHash("sha256").update(readFileSync(file)).digest("hex"),
+    });
+    expect(job.args).toContain("{dir}");
+    const device = (method: "GET" | "PUT", url: string, payload?: Buffer) =>
+      app.inject({
+        method,
+        url: `/api/hub/device/slices/${job.requestId}${url}`,
+        payload,
+        headers: {
+          authorization: `Bearer ${token}`,
+          ...(payload && { "content-type": "application/octet-stream" }),
+        },
+      });
+    expect((await device("GET", "/file")).rawPayload.equals(readFileSync(file))).toBe(true);
+    expect((await device("PUT", "/files/.config", Buffer.from("x"))).statusCode).toBe(400);
+    const out = new yazl.ZipFile();
+    out.addBuffer(Buffer.from("<model/>"), "3D/3dmodel.model");
+    out.addBuffer(
+      Buffer.from(`<config><plate><metadata key="index" value="1"/>
+        <metadata key="prediction" value="1234"/><metadata key="weight" value="5.5"/>
+        <filament id="1" type="PLA" used_g="5.5"/></plate></config>`),
+      "Metadata/slice_info.config",
+    );
+    out.end();
+    expect((await device("PUT", "/files/out.3mf", await buffer(out.outputStream))).statusCode).toBe(
+      204,
+    );
+    await device("PUT", "/files/result.json", Buffer.from('{"return_code":0}'));
+    await answer(job.requestId, { ok: true, result: { code: 0 } });
+    const done = await until((s) => !s.plates[0]?.job);
+    expect(done.plates[0]).toMatchObject({
+      result: { printTimeSeconds: 1234, weightGrams: 5.5 },
+      error: null,
+      needsSlicing: false,
+    });
+    // Over: its files can't be asked for any more.
+    expect((await device("GET", "/file")).statusCode).toBe(404);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 it("an installed slicer becomes the worker's once it runs there; offline, nothing is sent", async () => {

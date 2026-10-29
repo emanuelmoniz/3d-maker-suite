@@ -3,6 +3,7 @@ import type {
   HubFileVersion,
   OpenTargets,
   Page,
+  PlateSetup,
   Project,
   ProjectDetail,
   ProjectFolderInput,
@@ -13,6 +14,7 @@ import type {
   ProjectPaint,
   ProjectPatch,
   ProjectScanStatus,
+  ProjectSliceRun,
   ProjectSlicing,
   ProjectSlicingInput,
   ProjectTrash,
@@ -197,15 +199,27 @@ export const useProjectSlicing = (id: string) => {
       return next;
     },
     enabled: !!id,
-    refetchInterval: (q) => (q.state.data?.plates.some((p) => p.job) ? 1000 : false),
+    refetchInterval: (q) => slicePoll(q.state.data?.plates),
   });
 };
 
-/** Queues the plates that need slicing; progress comes from `useProjectSlicing`. */
+/** Every second while plates slice; now and then while some wait for their slice worker. */
+export const slicePoll = (plates: { job: PlateSetup["job"] }[] = []) =>
+  plates.some((p) => p.job === "queued" || p.job === "running")
+    ? 1000
+    : plates.some((p) => p.job === "waiting")
+      ? 10_000
+      : false;
+
+/**
+ * Queues the plates that need slicing, or with `fallback` the ones waiting for their slice worker
+ * on the server's own slicer; progress comes from `useProjectSlicing`.
+ */
 export const useSliceProject = (id: string) => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: () => api<ProjectSlicing>("POST", `/api/projects/${id}/slicing/run`),
+    mutationFn: (body: ProjectSliceRun = {}) =>
+      api<ProjectSlicing>("POST", `/api/projects/${id}/slicing/run`, body),
     onSuccess: (data) => qc.setQueryData(["projects", id, "slicing"], data),
   });
 };

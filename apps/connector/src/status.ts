@@ -182,7 +182,8 @@ ${update.hubOlder ? note(t("connector:status.hubOlder")) : ""}
 </div>
 <p class="muted">${t("connector:status.manage")}</p>
 </section>
-${syncView()}`;
+${syncView()}
+${slicersView()}`;
   };
 
   // The hub roots' sync; held deletes ask here, nowhere else.
@@ -225,8 +226,7 @@ ${held}
 ${locks}
 <p>${t(selected ? "connector:sync.mode.selected" : "connector:sync.mode.all")}</p>
 <form method="post" action="/sync/mode"><input type="hidden" name="mode" value="${selected ? "all" : "selected"}"><button type="submit">${t(selected ? "connector:sync.mode.toAll" : "connector:sync.mode.toSelected")}</button></form>
-</section>
-${slicersView()}`;
+</section>`;
   };
 
   // Open uses the default; with several and none picked, the hub asks which one each time.
@@ -248,6 +248,7 @@ ${
       : `<p class="muted">${t("connector:slicers.asking")}</p>`;
     return `<section aria-labelledby="slicers">
 <h2 id="slicers">${t("connector:slicers.title")}</h2>
+${store.get().sliceWorker ? `<p>${t("connector:slicers.worker")}</p>` : ""}
 ${found.length ? `<p class="muted">${t("connector:slicers.intro")}</p><ul>${rows}</ul>${found.length > 1 ? ask : ""}` : `<p class="muted">${t("connector:slicers.none")}</p>`}
 </section>`;
   };

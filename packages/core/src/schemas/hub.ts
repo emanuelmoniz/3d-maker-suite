@@ -165,6 +165,9 @@ export type PairingCode = z.infer<typeof pairingCodeSchema>;
 export type PairInput = z.input<typeof pairSchema>;
 export type PairResult = z.infer<typeof pairResultSchema>;
 
+/** A file in a slice's work folder: a plain name, never a path or a dot file. */
+export const sliceFileName = z.string().regex(/^[\w-][\w.-]{0,99}$/);
+
 /**
  * Hub → device events on `GET /api/hub/events` (ADR-0014): SSE frames `id: <seq>`, `event: <type>`,
  * `data: <json>`. The connector sends its last id as `Last-Event-ID`; that acks everything up to it.
@@ -236,7 +239,26 @@ export const hubEventSchema = z.discriminatedUnion("type", [
   }),
   /** Delete the managed slicer of `integrationId`; the answer is null. */
   z.object({ type: z.literal("slicer.remove"), requestId: id, integrationId: id }),
+  /** An admin made this device a slice worker, or no longer one (its status page shows it). */
+  z.object({ type: z.literal("device.worker"), on: z.boolean() }),
+  /**
+   * Slice workers: run `program` (the worker's `slicerPath`) with `args` in a work folder of the
+   * data folder, after writing `files` there; `{dir}` in the args is that folder. The 3MF goes
+   * last: a copy here with its `sha256`, else `GET /api/hub/device/slices/:requestId/file`. Each
+   * file the run adds goes to `PUT .../slices/:requestId/files/:name`, then the answer: `{ code }`,
+   * the exit code (null = killed or crashed).
+   */
+  z.object({
+    type: z.literal("slice"),
+    requestId: id,
+    program: z.string().max(4096),
+    args: z.array(z.string().max(16_384)).max(50),
+    files: z.record(sliceFileName, z.string().max(4 * 1024 * 1024)),
+    sha256: z.string().regex(/^[0-9a-f]{64}$/),
+  }),
 ]);
+/** What a slice worker's run reports (`slice`). */
+export const deviceSliceSchema = z.object({ code: z.number().int().nullable() });
 /**
  * What the connector reports when it opens the stream (`X-Connector-Version`, `X-Connector-OS`,
  * `X-Connector-System` as JSON: which managed slicer build fits it).
@@ -434,3 +456,4 @@ export type DeviceRoot = z.infer<typeof deviceRootSchema>;
 export type DeviceIndex = z.infer<typeof deviceIndexSchema>;
 export type DeviceFolder = z.infer<typeof deviceFolderSchema>;
 export type DeviceReply = z.infer<typeof deviceReplySchema>;
+export type DeviceSlice = z.infer<typeof deviceSliceSchema>;

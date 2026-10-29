@@ -1,7 +1,16 @@
+import { createReadStream, createWriteStream } from "node:fs";
+import { readdir, readFile } from "node:fs/promises";
+import { join, sep } from "node:path";
+import type { Readable } from "node:stream";
+import { pipeline } from "node:stream/promises";
 import {
   type DeviceSlicerInstall,
   deviceSlicerCheckSchema,
+  deviceSliceSchema,
   type IntegrationAdapter,
+  IntegrationError,
+  SLICE_TIMEOUT_MS,
+  type SliceRun,
   type SlicerCheck,
   type SlicerInstallStatus,
   workerConfigSchema,
@@ -11,6 +20,8 @@ import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
 import type { HubChannel } from "../lib/hubChannel.ts";
+import { fingerprint } from "../projects/fingerprint.ts";
+import { SliceWait } from "../projects/sliceQueue.ts";
 import type { SlicerInstaller } from "./managedSlicer.ts";
 
 // A worker integration's slicer lives on its device (ADR-0014): one installed there, checked with
@@ -50,6 +61,13 @@ export function createWorkerSlicers(
 ) {
   // ponytail: in memory; a hub restart forgets a running install's progress, its result still lands.
   const jobs = new Map<string, SlicerInstallStatus & { deviceId: string; reportedAt: number }>();
+  /** Slices running on devices, by request: the server's work folder, the 3MF, what was sent. */
+  const slices = new Map<string, { deviceId: string; dir: string; file: string; sent: string[] }>();
+  const slice = (deviceId: string, requestId: string) => {
+    const s = slices.get(requestId);
+    if (s?.deviceId !== deviceId) throw new HttpError(404, "not_found", "No such slice");
+    return s;
+  };
 
   /** The worker integration and its device; `ready`: the device is a worker and online. */
   const workerOf = (id: string) => {
@@ -205,6 +223,77 @@ export function createWorkerSlicers(
             z.null(),
           )
           .catch(() => {}); // it goes on the next connect then
+    },
+
+    /**
+     * How the worker `id` runs a slice (`SliceRun`): the files the slicer prepared in its work
+     * folder and the args go to the device (`{dir}` for the folder), which pulls the 3MF unless it
+     * has those bytes, and sends back what the run wrote; reading the result stays here. Offline,
+     * now or before it answers, the job waits (`SliceWait`).
+     */
+    runner(id: string): SliceRun {
+      const { deviceId } = workerOf(id).config;
+      if (!channel.online(deviceId)) throw new SliceWait();
+      return async (program, args, file, dir, signal) => {
+        const sent = await readdir(dir);
+        const files = Object.fromEntries(
+          await Promise.all(sent.map(async (n) => [n, await readFile(join(dir, n), "utf8")])),
+        );
+        const sha256 = (await fingerprint(file))?.fileSha256;
+        if (!sha256) throw Object.assign(new Error("ENOENT"), { code: "ENOENT" });
+        const swap = (a: string) => a.replaceAll(dir + sep, "{dir}/").replaceAll(dir, "{dir}");
+        let requestId = "";
+        const stopped = new Promise<never>((_, reject) =>
+          signal.addEventListener(
+            "abort",
+            () => reject(Object.assign(new Error("aborted"), { name: "AbortError" })),
+            { once: true },
+          ),
+        );
+        stopped.catch(() => {}); // an abort after the answer is nobody's error
+        try {
+          const answer = channel.ask(
+            deviceId,
+            (rid) => {
+              requestId = rid;
+              slices.set(rid, { deviceId, dir, file, sent });
+              return {
+                type: "slice",
+                requestId: rid,
+                program,
+                args: args.map(swap),
+                files,
+                sha256,
+              };
+            },
+            deviceSliceSchema,
+            // The signal (the slicer's timeout) stops it first; this only catches a lost answer.
+            { ms: SLICE_TIMEOUT_MS + 60_000, error: (e) => e },
+          );
+          return (await Promise.race([answer, stopped])).code;
+        } catch (e) {
+          const code = (e as { code?: string }).code;
+          if (code === "device_offline") throw new SliceWait();
+          if (code === "device_timeout")
+            throw Object.assign(new Error("timeout"), { name: "AbortError" });
+          // ENOENT: the program isn't there (the slicer says so); others are the worker's own.
+          if (e instanceof HttpError || !code || code === "ENOENT") throw e;
+          throw new IntegrationError("slice_failed", `The slice worker failed (${code})`);
+        } finally {
+          slices.delete(requestId);
+        }
+      };
+    },
+
+    /** The device pulls a running slice's 3MF. */
+    sliceFile: (deviceId: string, requestId: string) =>
+      createReadStream(slice(deviceId, requestId).file),
+
+    /** A file the device's run wrote, into the server's work folder (never over what was sent). */
+    async sliceOutput(deviceId: string, requestId: string, name: string, body: Readable) {
+      const s = slice(deviceId, requestId);
+      if (s.sent.includes(name)) throw new HttpError(409, "conflict", "That file was sent");
+      await pipeline(body, createWriteStream(join(s.dir, name)));
     },
 
     /** The worker integrations on this device with a managed slicer: the others' folders go. */

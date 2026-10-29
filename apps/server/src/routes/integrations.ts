@@ -40,6 +40,7 @@ import {
   policyOf,
   presetLibrary,
   unavailable,
+  workerDevice,
 } from "../integrations/capabilities.ts";
 import type { SlicerInstaller } from "../integrations/managedSlicer.ts";
 import { readSecrets, writeSecrets } from "../integrations/secrets.ts";
@@ -96,6 +97,7 @@ export const integrationsRoutes =
         }),
         kind: adapter?.kind ?? "cloud",
         presetLibrary: adapter ? presetLibrary(adapter) : null,
+        deviceName: adapter?.kind === "worker" ? (workerDevice(db, full)?.name ?? null) : null,
         status: syncer.running.has(row.id) ? "syncing" : local || row.status,
         capabilities: activeCapabilities(db, full, adapter),
         policies: (adapter?.capabilities ?? []).map((type) => {

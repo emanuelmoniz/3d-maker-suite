@@ -140,6 +140,22 @@ export interface SliceResult {
   filaments: { slot: number; grams: number; material: string | null }[];
 }
 
+/** A slice is stopped after this long; a slice worker stops its own too. */
+export const SLICE_TIMEOUT_MS = 10 * 60_000;
+
+/**
+ * Runs the slicer program with `args`, then the 3MF `file`, in `dir`: every other file it reads or
+ * writes is in there. Resolves with the signed exit code, null when it was killed or crashed.
+ * The server's own runs it here; a slice worker's on its device (ADR-0014).
+ */
+export type SliceRun = (
+  program: string,
+  args: string[],
+  file: string,
+  dir: string,
+  signal: AbortSignal,
+) => Promise<number | null>;
+
 /** Throws `IntegrationError("slice_failed", <the slicer's text>)` when the slicer refuses or crashes. */
 export interface Slicer {
   slice(
@@ -147,6 +163,8 @@ export interface Slicer {
     configDir: string,
     req: SliceRequest,
     signal: AbortSignal,
+    /** Where the program runs; unset = on this machine. */
+    run?: SliceRun,
   ): Promise<SliceResult>;
 }
 

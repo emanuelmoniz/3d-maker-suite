@@ -46,12 +46,17 @@ export function useAdapterName() {
   return (id: string) => t(`integrations:adapters.${id}.name`, { defaultValue: id });
 }
 
-/** Name and kind ("Bambu Studio - Server"), for pickers where a slicer's kinds sit side by side. */
+/**
+ * Name and kind ("Bambu Studio - Server"), or a worker's device ("Bambu Studio (WS-3)"), for
+ * pickers where a slicer's kinds sit side by side.
+ */
 export function useIntegrationLabel() {
   const { t } = useTranslation();
   const adapterName = useAdapterName();
-  return (i: Pick<Integration, "adapterId" | "kind">) =>
-    t("integrations:nameWithKind", { name: adapterName(i.adapterId), kind: t(KINDS[i.kind]) });
+  return (i: Pick<Integration, "adapterId" | "kind" | "deviceName">) =>
+    i.deviceName
+      ? t("integrations:nameOnDevice", { name: adapterName(i.adapterId), device: i.deviceName })
+      : t("integrations:nameWithKind", { name: adapterName(i.adapterId), kind: t(KINDS[i.kind]) });
 }
 
 /** Integrations that can do `cap` right now. The server decides; the UI never checks vendors. */

@@ -70,14 +70,17 @@ const sliceError = (t: TFunction, error: string) => {
     : t("projects:slicing.error.unknown");
 };
 
-/** Under a picked plate: queued / slicing, the last result, or why it failed. */
+/**
+ * Under a picked plate: queued / slicing, the last result, or why it failed; one waiting for its
+ * slice worker keeps its last result.
+ */
 export function PlateSlice({
   plate: p,
 }: {
   plate: Pick<PlateSetup, "job" | "result" | "error" | "needsSlicing"> & { state?: PlateState };
 }) {
   const { t } = useTranslation();
-  if (p.job)
+  if (p.job && p.job !== "waiting")
     return (
       <span className="block text-sm text-muted">
         {p.job === "running" ? t("projects:slicing.running") : t("projects:slicing.queued")}
@@ -85,6 +88,9 @@ export function PlateSlice({
     );
   return (
     <>
+      {p.job === "waiting" && (
+        <span className="block text-sm text-warn">{t("projects:slicing.waiting")}</span>
+      )}
       {p.result && (
         <span className="block text-sm text-muted">
           {t("projects:slicing.result", {
@@ -97,6 +103,7 @@ export function PlateSlice({
         <span className="block text-sm text-bad">{sliceError(t, p.error)}</span>
       ) : (
         p.needsSlicing &&
+        !p.job &&
         (p.state ?? "ok") === "ok" && (
           <span className="block text-sm text-warn">{t("projects:slicing.needsSlicing")}</span>
         )

@@ -280,7 +280,10 @@ function QuoteForm({ ctx, editing }: { ctx: CostContext; editing?: Quote }) {
     ...p,
     result: p.result ?? sliceOf(p)?.result ?? null,
   }));
-  const left = toSlice.plates.filter((p) => sliceOf(p)?.job).length;
+  const left = toSlice.plates.filter((p) => {
+    const job = sliceOf(p)?.job;
+    return job && job !== "waiting";
+  }).length;
   const unsliced = plates.filter((p) => !p.result).length;
   // Files picked (a project's plates, or uploads): they are the print. Else it's typed in.
   const byHand = !plates.length && !f.uploads.length;

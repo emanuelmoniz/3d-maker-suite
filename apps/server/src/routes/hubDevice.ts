@@ -20,6 +20,7 @@ import {
   hubUploadResultSchema,
   type IntegrationAdapter,
   ROOT_HUB,
+  sliceFileName,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
 import { and, asc, count, eq, isNotNull } from "drizzle-orm";
@@ -282,6 +283,33 @@ export const hubDeviceRoutes =
       "/slicers/managed",
       { schema: { response: { 200: z.array(z.uuid()), ...errors } } },
       async (req) => workers.managedOn(deviceOf(req)),
+    );
+
+    // A slice on this worker (ADR-0014): it pulls the 3MF, then sends each file its run wrote.
+    const sliceParams = z.object({ requestId: z.uuid() });
+    app.get("/slices/:requestId/file", { schema: { params: sliceParams } }, async (req, reply) =>
+      reply
+        .type("application/octet-stream")
+        .send(workers.sliceFile(deviceOf(req), req.params.requestId)),
+    );
+    app.put(
+      "/slices/:requestId/files/:name",
+      {
+        schema: {
+          params: sliceParams.extend({ name: sliceFileName }),
+          response: { 204: z.null(), ...errors },
+        },
+      },
+      async (req, reply) => {
+        await workers.sliceOutput(
+          deviceOf(req),
+          req.params.requestId,
+          req.params.name,
+          // An empty file has no body to parse.
+          (req.body as Readable | undefined) ?? Readable.from([]),
+        );
+        return reply.status(204).send(null);
+      },
     );
 
     // The status page's switch; the connector syncs again from scratch, as after Hub management's.

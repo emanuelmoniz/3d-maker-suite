@@ -8,6 +8,8 @@ import { PRINT_MAX_SLOTS } from "./import.ts";
 
 /** `outdated`: the file changed on disk since the setup was saved. `missing`: file or plate is gone. */
 export const PLATE_STATES = ["ok", "outdated", "missing"] as const;
+/** A plate's slice job. */
+export const SLICE_JOB_STATES = ["queued", "running", "waiting"] as const;
 
 export const plateSetupInputSchema = z.object({
   /** A 3MF of the project, relative to its folder (one of `meta.files`). */
@@ -57,14 +59,18 @@ export const plateSetupSchema = plateSetupInputSchema.extend({
   error: z.string().nullable(),
   /** Never sliced, the file, the profiles (incl. the default printer's) or the slicer changed. */
   needsSlicing: z.boolean(),
-  /** In the slice queue right now. */
-  job: z.enum(["queued", "running"]).nullable(),
+  /** In the slice queue right now; `waiting`: for its slice worker's device to come online. */
+  job: z.enum(SLICE_JOB_STATES).nullable(),
 });
 export const projectSlicingSchema = z.object({
   plates: z.array(plateSetupSchema),
   /** A slicer is set up (an integration with `slice` switched on). */
   canSlice: z.boolean(),
+  /** A slicer of the server itself can slice: waiting plates may fall back to it. */
+  canFallback: z.boolean(),
 });
+/** `POST /api/projects/:id/slicing/run`; `fallback`: the plates waiting for a worker slice here. */
+export const projectSliceRunSchema = z.object({ fallback: z.boolean().default(false) });
 
 type SlicePrinter = { id: string; model: string; brand?: string | null; nozzleDiameterMm: number };
 type SliceFile = { printerModel: string | null; nozzleDiameter: number | null };
@@ -129,3 +135,4 @@ export type PlateSetupInput = z.infer<typeof plateSetupInputSchema>;
 export type PlateSetup = z.infer<typeof plateSetupSchema>;
 export type ProjectSlicingInput = z.infer<typeof projectSlicingInputSchema>;
 export type ProjectSlicing = z.infer<typeof projectSlicingSchema>;
+export type ProjectSliceRun = z.input<typeof projectSliceRunSchema>;

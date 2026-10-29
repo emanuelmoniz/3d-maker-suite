@@ -14,6 +14,7 @@
     "worker": "Worker"
   },
   "nameWithKind": "{{name}} - {{kind}}",
+  "nameOnDevice": "{{name}} ({{device}})",
   "errors": {
     "auth_required": "Sign-in required. Check the credentials.",
     "auth_expired": "Sign-in expired. Connect again.",

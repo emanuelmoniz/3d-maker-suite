@@ -123,7 +123,7 @@ export const hubRoutes =
       "/devices/:id",
       { schema: { params, body: deviceUpdateSchema, response: { 204: z.null(), ...errors } } },
       async (req, reply) => {
-        const { name, syncMode } = req.body;
+        const { name, syncMode, sliceWorker } = req.body;
         const row = db.select().from(devices).where(eq(devices.id, req.params.id)).get();
         if (!row) throw new HttpError(404, "not_found", "Device not found");
         if (Object.keys(req.body).length)
@@ -132,6 +132,8 @@ export const hubRoutes =
           channel.publish(row.id, { type: "device.renamed", name });
         if (syncMode !== undefined && syncMode !== row.syncMode)
           channel.publish(row.id, { type: "roots.changed" });
+        if (sliceWorker !== undefined && sliceWorker !== row.sliceWorker)
+          channel.publish(row.id, { type: "device.worker", on: sliceWorker });
         return reply.status(204).send(null);
       },
     );

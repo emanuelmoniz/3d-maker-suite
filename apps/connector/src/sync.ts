@@ -687,6 +687,17 @@ export function createHubSync({
       });
       return abs;
     },
+    /** A synced file with these bytes, unchanged since (a slice worker reuses it); else null. */
+    async copyOf(sha256: string) {
+      for (const [key, e] of Object.entries(saved.files)) {
+        if (e.sha256 !== sha256) continue;
+        const at = key.indexOf("/");
+        const l = live.get(key.slice(0, at));
+        const abs = l && (await inRoot(l.base, key.slice(at + 1)).catch(() => null));
+        if (abs && same(e, await fileStat(abs))) return abs;
+      }
+      return null;
+    },
     /** The local folder of a hub root's project, for Open folder; null when it isn't here. */
     async folder(rootId: string, path: string) {
       const l = live.get(rootId);

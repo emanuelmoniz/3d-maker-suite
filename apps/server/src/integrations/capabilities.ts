@@ -6,6 +6,7 @@ import {
   type FilamentLibrary,
   type IntegrationAdapter,
   isAction,
+  workerConfigSchema,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
 import { and, asc, eq } from "drizzle-orm";
@@ -59,6 +60,14 @@ export function slicerConfigDir(row: Row, adapter: IntegrationAdapter) {
   return dir && existsSync(dir) ? dir : null;
 }
 
+/** The device a worker integration slices on; undefined for other kinds or a removed device. */
+export const workerDevice = (db: Db, row: Row) => {
+  const deviceId = workerConfigSchema.safeParse(row.config).data?.deviceId;
+  return deviceId
+    ? db.select().from(schema.devices).where(eq(schema.devices.id, deviceId)).get()
+    : undefined;
+};
+
 /** Supported by the adapter, not switched off, and what it needs is set up. */
 export function activeCapabilities(db: Db, row: Row, adapter?: IntegrationAdapter): Capability[] {
   if (!row.enabled || !adapter) return [];
@@ -67,8 +76,11 @@ export function activeCapabilities(db: Db, row: Row, adapter?: IntegrationAdapte
   const source =
     adapter.kind === "cloud" ? !adapter.login || !!row.secrets : !!slicerConfigDir(row, adapter);
   const program = row.slicerPath?.trim();
-  // A worker's program is on its device; it slices there from Step 18 on (ADR-0014).
-  const slicerApp = adapter.kind !== "worker" && !!program && existsSync(program);
+  // A worker's program is on its device (ADR-0014), while that device is a slice worker. Offline,
+  // it still counts: its slices wait for it.
+  const slicerApp =
+    !!program &&
+    (adapter.kind === "worker" ? !!workerDevice(db, row)?.sliceWorker : existsSync(program));
   return adapter.capabilities.filter(
     (c) =>
       policyOf(db, row.id, c).mode !== "off" &&

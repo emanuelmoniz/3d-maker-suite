@@ -1,19 +1,22 @@
-import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, parse } from "node:path";
 import { parse3mf, read3mfEntry } from "@3d-maker-suite/3mf";
-import { IntegrationError, type SliceRequest, type Slicer } from "@3d-maker-suite/core";
+import {
+  IntegrationError,
+  SLICE_TIMEOUT_MS,
+  type SliceRequest,
+  type SliceRun,
+  type Slicer,
+} from "@3d-maker-suite/core";
+import { runSlicer } from "@3d-maker-suite/host";
 import { baseName, dirs, jsonFiles, readJson, systemPresets } from "./index.ts";
 
 // Bambu Studio's CLI, as found in ADR-0007: one plate per run, in a fresh temp dir that is also
 // the cwd. A process preset only applies together with a machine preset, and only when its
 // `compatible_printers` lists that machine, so a temp copy gets the list set. Success and errors
 // come from `result.json`; the exe prints nothing and its exit code isn't reliable.
-
-const TIMEOUT_MS = 10 * 60_000;
-const LINGER_MS = 3000;
 
 const failed = (why: string) => new IntegrationError("slice_failed", why);
 
@@ -69,33 +72,9 @@ async function userFile(dir: string, kind: string, name: string) {
     }
 }
 
-/** The exit code as the program returned it: Windows passes 32 bits, POSIX only the low 8. */
-export const signedExit = (code: number, platform = process.platform) =>
-  platform === "win32" ? code | 0 : (code << 24) >> 24;
-
-/**
- * Runs the slicer until it exits, or until it wrote `result.json` and then lingers: some results
- * (e.g. PLA and PETG on one plate) leave it waiting on a warning box nobody can see, after the
- * work is done. It gets a few seconds to exit on its own, then it's killed. Resolves with the
- * signed exit code, or null when it was killed or crashed.
- */
-const run = (program: string, args: string[], cwd: string, signal: AbortSignal) =>
-  new Promise<number | null>((ok, fail) => {
-    const child = spawn(program, args, { cwd, signal, windowsHide: true, stdio: "ignore" });
-    let doneAt = 0;
-    const poll = setInterval(() => {
-      if (!doneAt && existsSync(join(cwd, "result.json"))) doneAt = Date.now();
-      if (doneAt && Date.now() - doneAt > LINGER_MS) child.kill();
-    }, 500);
-    child.once("error", (e) => {
-      clearInterval(poll);
-      fail(e);
-    });
-    child.once("exit", (code) => {
-      clearInterval(poll);
-      ok(code === null ? null : signedExit(code));
-    });
-  });
+/** On this machine. */
+const runHere: SliceRun = (program, args, file, dir, signal) =>
+  runSlicer(program, [...args, file], dir, signal);
 
 /** The last `[error]` line of Orca's log, without its timestamp and thread prefix. */
 export function lastLogError(log: string): string | undefined {
@@ -115,13 +94,13 @@ export function lastLogError(log: string): string | undefined {
  */
 export function cliSlicer({
   flavor = "bambu",
-  timeoutMs = TIMEOUT_MS,
+  timeoutMs = SLICE_TIMEOUT_MS,
 }: {
   flavor?: "bambu" | "orca";
   timeoutMs?: number;
 } = {}): Slicer {
   return {
-    async slice(program, configDir, req: SliceRequest, signal) {
+    async slice(program, configDir, req: SliceRequest, signal, run = runHere) {
       const out = await mkdtemp(join(tmpdir(), "3dms-slice-"));
       try {
         const args = ["--slice", String(req.plate), "--outputdir", out, "--export-3mf", "out.3mf"];
@@ -223,7 +202,8 @@ export function cliSlicer({
 
         const code = await run(
           program,
-          [...args, req.file],
+          args,
+          req.file,
           out,
           AbortSignal.any([signal, AbortSignal.timeout(timeoutMs)]),
         ).catch((e: NodeJS.ErrnoException) => {

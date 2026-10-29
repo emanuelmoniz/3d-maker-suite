@@ -40,7 +40,8 @@ export type Request = (
   init?: {
     method?: string;
     body?: unknown;
-    file?: { stream: ReadStream; sha256: string; mtimeMs: number };
+    /** A file upload; `sha256` and `mtimeMs` go along as headers when given. */
+    file?: { stream: ReadStream; sha256?: string; mtimeMs?: number };
     /** A download: it may take as long as an upload. */
     long?: boolean;
   },

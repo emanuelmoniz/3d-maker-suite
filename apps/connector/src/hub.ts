@@ -89,7 +89,10 @@ type Options = {
     "alive" | "handoffMs" | "pollMs"
   >;
   /** How slicers are found and started, and folders opened (tests); the real ones by default. */
-  slicers?: Pick<Parameters<typeof createSlicers>[0], "find" | "start" | "smoke" | "install"> & {
+  slicers?: Pick<
+    Parameters<typeof createSlicers>[0],
+    "find" | "start" | "smoke" | "install" | "runSlice"
+  > & {
     openDir?: (dir: string) => Promise<unknown>;
   };
   log?: (line: string) => void;
@@ -126,8 +129,8 @@ export function createLink({
       headers: {
         authorization: `Bearer ${store.token()}`,
         ...(init.body !== undefined && { "content-type": "application/json" }),
-        ...(init.file && {
-          "content-type": "application/octet-stream",
+        ...(init.file && { "content-type": "application/octet-stream" }),
+        ...(init.file?.sha256 && {
           "x-file-sha256": init.file.sha256,
           "x-file-mtime": String(init.file.mtimeMs),
         }),
@@ -198,6 +201,8 @@ export function createLink({
         return void slicers.install(event.data);
       if (event.success && event.data.type === "slicer.remove")
         return void slicers.remove(event.data);
+      if (event.success && event.data.type === "slice")
+        return void slicers.slice(event.data, (sha) => sync?.copyOf(sha) ?? Promise.resolve(null));
       if (event.success) return toRoots(event.data);
       const requestId = (json as { requestId?: unknown })?.requestId;
       if (typeof requestId === "string" && /^[0-9a-f-]{36}$/i.test(requestId))
@@ -211,6 +216,8 @@ export function createLink({
     if (!Number.isSafeInteger(seq) || seq <= (store.get().cursor ?? 0)) return; // seen already
     if (event.success && event.data.type === "device.renamed")
       store.set({ deviceName: event.data.name, cursor: seq });
+    else if (event.success && event.data.type === "device.worker")
+      store.set({ sliceWorker: event.data.on, cursor: seq });
     else store.set({ cursor: seq });
     if (!event.success) return;
     // Reconnecting runs the update first, and reports how it went when the stream opens again.

@@ -303,8 +303,8 @@ describe("hub root sync", () => {
     // A viewer may only download: read-only, and a delete comes back.
     const v = await device(h, "WS-V", "viewer");
     const file = join(v.folder, "p/1.txt");
-    await until(() => read(file) === "file 1");
-    expect(statSync(file).mode & 0o222).toBe(0);
+    // Made read-only just after it lands.
+    await until(() => read(file) === "file 1" && (statSync(file).mode & 0o222) === 0);
     rmSync(file, { force: true });
     await until(() => read(file) === "file 1");
     expect(existsSync(join(h.dir, "p/1.txt"))).toBe(true);

@@ -29,6 +29,7 @@ const offline = () => new HttpError(409, "device_offline", "The device is offlin
 export function createHubChannel(db: Db) {
   const streams = new Map<string, Set<Stream>>();
   const waiting = new Map<string, Waiting>();
+  const comeOnline = new Set<(deviceId: string) => void>();
 
   /** A device is online while its event stream is open (and the hub is on). */
   const online = (deviceId: string) => streams.has(deviceId) && readPreferences(db).hubEnabled;
@@ -62,6 +63,7 @@ export function createHubChannel(db: Db) {
     attach(deviceId: string, stream: Stream) {
       const set = streams.get(deviceId) ?? new Set();
       streams.set(deviceId, set.add(stream));
+      if (set.size === 1) for (const fn of comeOnline) fn(deviceId);
       return () => {
         set.delete(stream);
         if (set.size) return;
@@ -69,6 +71,9 @@ export function createHubChannel(db: Db) {
         for (const w of waiting.values()) if (w.deviceId === deviceId) w.fail(offline());
       };
     },
+
+    /** Calls `fn` when a device's first stream opens (e.g. slices waiting for it). */
+    onOnline: (fn: (deviceId: string) => void) => void comeOnline.add(fn),
 
     /** Ends a device's streams (revoked), or every stream. */
     end(deviceId?: string) {

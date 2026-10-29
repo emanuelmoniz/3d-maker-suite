@@ -9,7 +9,8 @@
   },
   "dependencies": {
     "@3d-maker-suite/3mf": "workspace:*",
-    "@3d-maker-suite/core": "workspace:*"
+    "@3d-maker-suite/core": "workspace:*",
+    "@3d-maker-suite/host": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^22.20.5"

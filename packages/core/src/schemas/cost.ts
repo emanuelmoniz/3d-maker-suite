@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { id, isoDate } from "./entities.ts";
 import type { ColumnFilter } from "./list.ts";
-import { plateSetupInputSchema, sliceResultSchema } from "./projectSlicing.ts";
+import { plateSetupInputSchema, SLICE_JOB_STATES, sliceResultSchema } from "./projectSlicing.ts";
 import { projectModelSchema } from "./projects.ts";
 
 const minor = z.number().int(); // minor currency units
@@ -149,7 +149,7 @@ export const quoteSliceSchema = z.object({
     z.object({
       file: z.string(),
       plate: z.number().int(),
-      job: z.enum(["queued", "running"]).nullable(),
+      job: z.enum(SLICE_JOB_STATES).nullable(),
       result: sliceResultSchema.nullable(),
       error: z.string().nullable(),
     }),

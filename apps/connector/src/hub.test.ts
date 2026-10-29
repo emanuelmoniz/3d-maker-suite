@@ -36,7 +36,8 @@ describe("sseParser", () => {
   });
 });
 
-const until = async (ok: () => boolean | Promise<boolean>, ms = 5000) => {
+// Generous: a full parallel run slows file watching and scans down a lot.
+const until = async (ok: () => boolean | Promise<boolean>, ms = 15_000) => {
   for (const end = Date.now() + ms; !(await ok()); await new Promise((r) => setTimeout(r, 20)))
     if (Date.now() > end) throw new Error("timed out");
 };
@@ -209,7 +210,7 @@ describe("connector and hub", () => {
       expect(added.statusCode).toBe(201);
       expect(added.json()).toMatchObject({ location: device.id, state: "ok", deviceName: "WS-1" });
       await until(() => c.link.roots.state().watching === 1);
-      await until(async () => (await projects()).length === 1, 10_000);
+      await until(async () => (await projects()).length === 1);
       const [p] = await projects();
       expect(p).toMatchObject({ name: "Box", offline: false, meta: { multicolor: false } });
       expect((await h.send("GET", `/api/projects/${p.id}`)).json().folderState).toBe("ok");
@@ -270,9 +271,9 @@ describe("connector and hub", () => {
       copyFileSync(fixture("unsliced.3mf"), join(root, "002_Cup", "cup.3mf"));
       const again = connector(c.dir);
       again.link.start();
-      await until(async () => (await projects()).length === 2, 10_000);
+      await until(async () => (await projects()).length === 2);
       expect((await projects()).every((x: { offline: boolean }) => !x.offline)).toBe(true);
-    }, 40_000);
+    }, 120_000);
 
     it("lists and adds only inside the shared folders; an unshared root keeps its data", async () => {
       const { h, c, device, root, projects } = await setup();
