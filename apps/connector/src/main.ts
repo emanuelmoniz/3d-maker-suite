@@ -1,7 +1,9 @@
 // The connector (ADR-0014): a status page on 127.0.0.1 and the link to the hub. The launcher
 // (packaging/launcher.mjs) starts it and writes its output to logs/server.log. The device token is
 // never logged.
+import { existsSync } from "node:fs";
 import { arch, release, type } from "node:os";
+import { join } from "node:path";
 import { createAutostart } from "@3d-maker-suite/host";
 import { createLink } from "./hub.ts";
 import { dataDir, openStore, PRODUCT, readPort, syncDir, VERSION } from "./state.ts";
@@ -10,6 +12,11 @@ import { createUpdater } from "./update.ts";
 
 const log = (line: string) => console.log(`${new Date().toISOString()} ${line}`);
 const dir = dataDir();
+// A hub's folder (one APP_DATA_DIR for both): pruning `slicers/` would delete the hub's own.
+if (existsSync(join(dir, "app.sqlite"))) {
+  log(`${dir} is a hub's data folder; set APP_DATA_DIR to another folder for the connector`);
+  process.exit(1);
+}
 const store = openStore(dir);
 const updater = createUpdater({ version: VERSION, log });
 const port = readPort(dir);
