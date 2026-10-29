@@ -65,6 +65,7 @@ export const hubRoutes =
           os: devices.os,
           connectorVersion: devices.connectorVersion,
           updateFailed: devices.updateFailed,
+          sync: devices.syncState,
           lastSeenAt: devices.lastSeenAt,
           createdAt: devices.createdAt,
         })

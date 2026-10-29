@@ -9,9 +9,77 @@ import { EmptyState } from "../../components/EmptyState.tsx";
 import { FormDialog } from "../../components/FormDialog.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
+import { Section } from "../../components/Section.tsx";
 import { formatDateTime, formatTime } from "../../lib/format.ts";
 import { useDeviceActions, useDevices } from "../../lib/hub.ts";
+import { usePreferences, useSavePreferences } from "../../lib/preferences.ts";
 import { useUsers } from "../../lib/users.ts";
+
+/** The device's last sync report of the hub roots, as one line. */
+function SyncLine({ sync }: { sync: NonNullable<Device["sync"]> }) {
+  const { t } = useTranslation();
+  if (sync.state === "paused")
+    return (
+      <p className="text-warn wrap-anywhere">
+        {t("hub:devices.sync.paused", {
+          count: sync.held.reduce((n, h) => n + h.files, 0),
+          roots: sync.held.map((h) => h.name).join(", "),
+        })}
+      </p>
+    );
+  if (sync.state === "error")
+    return (
+      <p className="text-bad wrap-anywhere">
+        {t("hub:devices.sync.error", { error: sync.error ?? "" })}
+      </p>
+    );
+  return (
+    <p className="text-muted">
+      {sync.state === "syncing"
+        ? t("hub:devices.sync.syncing", { count: sync.pending })
+        : t("hub:devices.sync.idle", { count: sync.files })}
+    </p>
+  );
+}
+
+/** Hub settings that belong to the sync: the mass delete guard. */
+function SyncSettings() {
+  const { t } = useTranslation();
+  const prefs = usePreferences();
+  const save = useSavePreferences();
+  const v = prefs.data?.values.hubDeleteGuard;
+  if (v === undefined) return null;
+  return (
+    <Section title={t("hub:settings.title")} help="docs/hub.md">
+      {save.isError && (
+        <p role="alert" className="mb-4 text-bad">
+          {t("hub:errors.generic")}
+        </p>
+      )}
+      <div className="grid gap-4 sm:max-w-md">
+        <FormField label={t("hub:settings.deleteGuard")} hint={t("hub:settings.deleteGuardHint")}>
+          {(p) => (
+            <input
+              key={v}
+              {...p}
+              className={inputClass}
+              type="number"
+              min={1}
+              max={10_000}
+              step={1}
+              defaultValue={v}
+              onBlur={(e) => {
+                const n = e.target.valueAsNumber;
+                if (e.target.checkValidity() && Number.isFinite(n) && n !== v)
+                  save.mutate({ hubDeleteGuard: n });
+              }}
+            />
+          )}
+        </FormField>
+      </div>
+    </Section>
+  );
+}
 
 type Dialog =
   | { kind: "pair" }
@@ -97,6 +165,7 @@ export function HubPage() {
                           : t("hub:devices.outdatedHint")}
                     </p>
                   )}
+                  {d.sync && <SyncLine sync={d.sync} />}
                   {!d.online && (
                     <p className="text-muted">
                       {d.lastSeenAt
@@ -132,6 +201,9 @@ export function HubPage() {
             description={t("hub:devices.emptyBody")}
           />
         ))}
+      <div className="mt-6">
+        <SyncSettings />
+      </div>
 
       <FormDialog
         open={dialog?.kind === "pair"}

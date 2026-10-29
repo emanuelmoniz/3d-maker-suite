@@ -12,6 +12,18 @@ export const connectorUpdateFailureSchema = z.object({
   error: z.string().max(200).optional(),
 });
 
+/**
+ * How a device's sync of the hub roots is doing (`PUT /api/hub/device/sync/state`): `files` synced,
+ * `pending` transfers waiting, and per root the local deletes held by the mass delete guard.
+ */
+export const deviceSyncStateSchema = z.object({
+  state: z.enum(["syncing", "idle", "paused", "error"]),
+  files: z.number().int().nonnegative(),
+  pending: z.number().int().nonnegative(),
+  held: z.array(z.object({ rootId: id, name: z.string().max(200), files: z.number().int() })),
+  error: z.string().max(200).nullable(),
+});
+
 /** A connector paired with the hub (ADR-0014), as Hub management lists it. */
 export const deviceSchema = z.object({
   id,
@@ -27,6 +39,8 @@ export const deviceSchema = z.object({
   outdated: z.boolean(),
   /** What it reported last time its stream opened; null = no failed update. */
   updateFailed: connectorUpdateFailureSchema.nullable(),
+  /** What it reported last about its sync, and when (the hub's clock). */
+  sync: deviceSyncStateSchema.extend({ reportedAt: isoDate }).nullable(),
   createdAt: isoDate,
 });
 
@@ -69,6 +83,8 @@ export const hubEventSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("connector.update") }),
   /** Its roots were added, changed or removed, or a scan was asked for: read them, sync them all. */
   z.object({ type: z.literal("roots.changed") }),
+  /** Live only: files of the hub roots changed; ask for the changes since the cursor. */
+  z.object({ type: z.literal("sync.changed") }),
   /** One level of the folder browser (`listFolder`); `path` null = where browsing starts. */
   z.object({ type: z.literal("fs.list"), requestId: id, path: z.string().max(4096).nullable() }),
   /**
@@ -226,7 +242,15 @@ export const hubUploadResultSchema = z.discriminatedUnion("status", [
   z.object({ status: z.literal("conflict"), version: z.number().int(), path: z.string() }),
 ]);
 
+/** `GET /api/hub/device/sync/roots`: the hub roots to sync, and the mass delete guard's threshold. */
+export const hubSyncRootsSchema = z.object({
+  roots: z.array(z.object({ id, name: z.string() })),
+  deleteGuard: z.number().int(),
+});
+
 export type HubChanges = z.infer<typeof hubChangesSchema>;
+export type HubSyncRoots = z.infer<typeof hubSyncRootsSchema>;
+export type DeviceSyncState = z.infer<typeof deviceSyncStateSchema>;
 export type HubUploadResult = z.infer<typeof hubUploadResultSchema>;
 export type DeviceRoot = z.infer<typeof deviceRootSchema>;
 export type DeviceIndex = z.infer<typeof deviceIndexSchema>;

@@ -24,6 +24,8 @@ const KINDS: Record<string, Kind> = {
 };
 export const kindOf = (name: string): Kind | undefined => KINDS[extname(name).toLowerCase()];
 export const isHidden = (name: string) => name.startsWith(".") || name === "node_modules";
+/** Never synced (ADR-0014): hidden names (the trash, temp `.part` files) and slicers' `<file>.tmp` saves. */
+export const syncSkipped = (name: string) => isHidden(name) || /\.(tmp|part)$/i.test(name);
 
 // ponytail: fixed caps keep a stray huge folder from stalling a scan; make them settings if hit.
 // (The file cap and depth are ones already: `projectScanMaxFiles`, a root's `filesDepth`.)

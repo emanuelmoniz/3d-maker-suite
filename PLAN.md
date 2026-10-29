@@ -900,7 +900,7 @@ Do Step 10 of the 5.0.0 plan in PLAN.md. Show me the change feed and the upload 
 Back up the DB before editing schema.ts.
 ```
 
-### [ ] Step 11 - Connector sync engine  **[plan mode]**
+### [x] Step 11 - Connector sync engine  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:**
 - One folder per root under the device's sync folder.

@@ -66,7 +66,8 @@
     "update_available": "Update available",
     "slicer_update": "Slicer update",
     "connector_outdated": "Connector outdated",
-    "hub_conflict": "Sync conflict"
+    "hub_conflict": "Sync conflict",
+    "hub_mass_delete": "Sync paused: many deletes"
   },
   "status": {
     "snoozed": "Snoozed",
@@ -105,7 +106,9 @@
     "slicer_update": "{{name}}: version {{version}} is available",
     "connector_outdated": "Connector on {{name}} is on version {{version}}, the hub on {{hubVersion}}",
     "hub_conflict": "{{file}} changed on the hub and on {{device}}; their version was kept as {{copy}}",
-    "connector_update_failed": "Connector on {{name}} could not update to {{hubVersion}}"
+    "connector_update_failed": "Connector on {{name}} could not update to {{hubVersion}}",
+    "hub_mass_delete_one": "{{name}} deleted {{count}} file in {{roots}} at once; the sync waits until someone confirms or restores it on that device",
+    "hub_mass_delete_other": "{{name}} deleted {{count}} files in {{roots}} at once; the sync waits until someone confirms or restores them on that device"
   },
   "severity": {
     "error": "Error",

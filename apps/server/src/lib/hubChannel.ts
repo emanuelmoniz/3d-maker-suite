@@ -45,6 +45,12 @@ export function createHubChannel(db: Db) {
       for (const s of streams.get(deviceId) ?? []) s.write(frame(seq, event));
     },
 
+    /** Sends a live event to every open stream; never stored, so a reconnect doesn't get it. */
+    nudge(event: HubEvent) {
+      if (!readPreferences(db).hubEnabled) return;
+      for (const set of streams.values()) for (const s of set) s.write(frame(null, event));
+    },
+
     /** A stored event, for the replay when a stream opens. */
     frame: (seq: number, event: HubEvent) => frame(seq, event),
 

@@ -238,6 +238,25 @@ function conditions(db: Db, now: Date): Found {
         },
       });
     }
+  // A device that holds local deletes back (the mass delete guard): open until it reports none.
+  if (prefs.hubEnabled)
+    for (const d of db.select().from(devices).all()) {
+      const held = d.syncState?.held ?? [];
+      if (!held.length) continue;
+      add({
+        kind: "hub_mass_delete",
+        severity: "warning",
+        module: "hub",
+        task: `device:${d.id}`,
+        entityType: "device",
+        entityId: d.id,
+        context: {
+          name: d.name,
+          roots: held.map((h) => h.name).join(", "),
+          count: held.reduce((n, h) => n + h.files, 0),
+        },
+      });
+    }
   return found;
 }
 
@@ -287,6 +306,11 @@ function textOf(a: typeof alerts.$inferSelect): { title: string; body: string } 
       return {
         title: "Sync conflict",
         body: `${c.file} changed on the hub and on ${c.device}; their version is ${c.copy}`,
+      };
+    case "hub_mass_delete":
+      return {
+        title: "Sync paused: many files deleted",
+        body: `${c.name} deleted ${c.count} files in ${c.roots}; confirm or restore them on the device`,
       };
   }
 }

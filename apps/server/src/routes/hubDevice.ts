@@ -8,14 +8,16 @@ import {
   deviceIndexSchema,
   deviceReplySchema,
   deviceRootSchema,
+  deviceSyncStateSchema,
   hubChangesQuerySchema,
   hubChangesSchema,
   hubFileQuerySchema,
+  hubSyncRootsSchema,
   hubUploadResultSchema,
   ROOT_HUB,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
-import { and, eq, isNotNull } from "drizzle-orm";
+import { and, asc, eq, isNotNull } from "drizzle-orm";
 import type { FastifyRequest } from "fastify";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
@@ -26,7 +28,7 @@ import type { DeviceFiles } from "../projects/deviceFiles.ts";
 import type { HubFiles } from "../projects/hubFiles.ts";
 import type { ProjectScanner } from "../projects/scanner.ts";
 
-const { projects, roots } = schema;
+const { devices, projects, roots } = schema;
 const rootParams = z.object({ rootId: z.uuid() });
 const errors = {
   400: apiErrorSchema,
@@ -56,6 +58,8 @@ export const hubDeviceRoutes =
     scanner: ProjectScanner,
     files: DeviceFiles,
     sync: HubFiles,
+    /** A device reported its sync state: the mass delete alert may open or close. */
+    onSyncState: () => void = () => {},
   ): FastifyPluginAsyncZod =>
   async (app) => {
     // Raw stream, read by the file route itself (Fastify's bodyLimit doesn't apply to it).
@@ -216,6 +220,37 @@ export const hubDeviceRoutes =
           req.headers["x-file-sha256"],
           req.headers["x-file-mtime"],
         );
+        return reply.status(204).send(null);
+      },
+    );
+
+    // Every hub root; the change feed leaves out the files the user may not see.
+    app.get(
+      "/sync/roots",
+      { schema: { response: { 200: hubSyncRootsSchema, ...errors } } },
+      async (req) => {
+        deviceOf(req);
+        return {
+          roots: db
+            .select({ id: roots.id, name: roots.name })
+            .from(roots)
+            .where(eq(roots.location, ROOT_HUB))
+            .orderBy(asc(roots.position))
+            .all(),
+          deleteGuard: readPreferences(db).hubDeleteGuard,
+        };
+      },
+    );
+
+    app.put(
+      "/sync/state",
+      { schema: { body: deviceSyncStateSchema, response: { 204: z.null(), ...errors } } },
+      async (req, reply) => {
+        db.update(devices)
+          .set({ syncState: { ...req.body, reportedAt: new Date().toISOString() } })
+          .where(eq(devices.id, deviceOf(req)))
+          .run();
+        onSyncState();
         return reply.status(204).send(null);
       },
     );

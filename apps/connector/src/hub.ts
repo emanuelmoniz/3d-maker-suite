@@ -2,12 +2,14 @@ import { Readable } from "node:stream";
 import {
   type ConnectorUpdateFailure,
   HUB_HEARTBEAT_MS,
+  type HubEvent,
   hubEventSchema,
   pairResultSchema,
 } from "@3d-maker-suite/core";
 import { z } from "zod";
 import { createRootSync, type Request } from "./roots.ts";
 import type { Store } from "./state.ts";
+import { createHubSync } from "./sync.ts";
 
 export type LinkStatus = "unpaired" | "connecting" | "online" | "offline" | "hubOff" | "revoked";
 export type PairErrorCode = "badUrl" | "unreachable" | "invalidCode" | "tooManyAttempts" | "hubOff";
@@ -76,13 +78,15 @@ type Options = {
   onHubVersion?: (version: string, force: boolean) => Promise<void>;
   /** Why the update to the hub's version failed, sent when the stream opens. */
   updateFailure?: () => ConnectorUpdateFailure | undefined;
+  /** Where the hub roots are synced to, and the data folder for its state file; none = no sync. */
+  sync?: { dataDir: string; syncDir: string };
   log?: (line: string) => void;
 };
 
 /**
  * The connector's link to its hub (ADR-0014): pairing, then `GET /api/hub/events` held open,
  * reconnected from the cursor after 1 s, doubling up to 30 s. 401 = revoked: the token goes.
- * While online, its device roots are synced and watched (roots.ts).
+ * While online, its device roots are synced and watched (roots.ts), and so are the hub roots (sync.ts).
  */
 export function createLink({
   store,
@@ -90,6 +94,7 @@ export function createLink({
   os,
   onHubVersion,
   updateFailure,
+  sync: syncAt,
   log = () => {},
 }: Options) {
   let status: LinkStatus = store.token() ? "connecting" : "unpaired";
@@ -119,11 +124,23 @@ export function createLink({
           ? undefined
           : JSON.stringify(init.body),
       // A large file over a slow link takes its time; a stalled one ends some time.
-      signal: AbortSignal.timeout(init.file ? 30 * 60_000 : 60_000),
+      signal: AbortSignal.timeout(init.file || init.long ? 30 * 60_000 : 60_000),
       // A stream body needs it (undici); the DOM's RequestInit type doesn't know it.
       duplex: "half",
     } as RequestInit);
   const roots = createRootSync({ request, log });
+  const sync =
+    syncAt &&
+    createHubSync({
+      request,
+      ...syncAt,
+      identity: () => `${store.get().hubUrl}|${store.get().deviceId}`,
+      log,
+    });
+  const toRoots = (event: HubEvent) => {
+    roots.handle(event);
+    sync?.handle(event);
+  };
 
   const handle = ({ id, data }: SseEvent) => {
     let json: unknown;
@@ -137,7 +154,7 @@ export function createLink({
     // A request has no id: it's live only, never stored or replayed. One it can't carry out is
     // answered at once, so the hub doesn't wait for it.
     if (id === undefined) {
-      if (event.success) return roots.handle(event.data);
+      if (event.success) return toRoots(event.data);
       const requestId = (json as { requestId?: unknown })?.requestId;
       if (typeof requestId === "string" && /^[0-9a-f-]{36}$/i.test(requestId))
         void request(`/replies/${requestId}`, {
@@ -157,7 +174,7 @@ export function createLink({
       forceUpdate = true;
       return start();
     }
-    roots.handle(event.data);
+    toRoots(event.data);
   };
 
   /** One connection: the health check, then the stream until it ends. Returns the next status. */
@@ -195,6 +212,7 @@ export function createLink({
       error = undefined;
       log(`online at ${hub}`);
       void roots.start();
+      void sync?.start();
       const parse = sseParser(handle);
       const text = new TextDecoder();
       for await (const chunk of res.body) {
@@ -206,6 +224,7 @@ export function createLink({
     } finally {
       clearTimeout(watchdog);
       roots.stop();
+      sync?.stop();
     }
   }
 
@@ -248,9 +267,11 @@ export function createLink({
     close: () => {
       running?.abort();
       roots.stop();
+      sync?.stop();
     },
     state: () => ({ status, error }),
     roots,
+    sync,
 
     /** Exchanges a pairing code for a device token, then connects. */
     async pair(hubUrl: string, code: string, name: string) {

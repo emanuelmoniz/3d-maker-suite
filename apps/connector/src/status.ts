@@ -2,6 +2,7 @@ import { spawn } from "node:child_process";
 import { mkdirSync, readFileSync } from "node:fs";
 import { createServer, type IncomingHttpHeaders, type IncomingMessage } from "node:http";
 import { hostname } from "node:os";
+import type { DeviceSyncState } from "@3d-maker-suite/core";
 import { type Link, type LinkStatus, PairError, type PairErrorCode } from "./hub.ts";
 import type { Store } from "./state.ts";
 import { RESTART, type Updater } from "./update.ts";
@@ -12,13 +13,21 @@ const en: Messages = JSON.parse(
 );
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
-/** A `connector:` key from locales/en as HTML, `{{name}}` filled in and escaped. Only EN ships. */
-export function t(key: string, vars: Record<string, string> = {}) {
+const plurals = new Intl.PluralRules("en");
+
+/**
+ * A `connector:` key from locales/en as HTML, `{{name}}` filled in and escaped. A `count` picks the
+ * plural form (`key_one`, `key_other`). Only EN ships.
+ */
+export function t(key: string, vars: Record<string, string | number> = {}) {
   let text: string | Messages | undefined = en;
-  for (const k of key.replace(/^connector:/, "").split("."))
-    text = typeof text === "object" ? text[k] : undefined;
+  const path = key.replace(/^connector:/, "").split(".");
+  if (typeof vars.count === "number") path.push(`${path.pop()}_${plurals.select(vars.count)}`);
+  for (const k of path) text = typeof text === "object" ? text[k] : undefined;
   if (typeof text !== "string") return esc(key);
-  return esc(text).replace(/\{\{(\w+)\}\}/g, (_, k: string) => esc(vars[k] ?? ""));
+  return esc(text).replace(/\{\{(\w+)\}\}/g, (_, k: string) =>
+    esc(typeof vars[k] === "number" ? vars[k].toLocaleString("en") : (vars[k] ?? "")),
+  );
 }
 
 // Literal keys, so the i18n check sees them.
@@ -27,6 +36,12 @@ const STATES: Record<Exclude<LinkStatus, "unpaired" | "revoked">, string> = {
   online: "connector:status.states.online",
   offline: "connector:status.states.offline",
   hubOff: "connector:status.states.hubOff",
+};
+const SYNC_STATES: Record<DeviceSyncState["state"], string> = {
+  idle: "connector:sync.states.idle",
+  syncing: "connector:sync.states.syncing",
+  paused: "connector:sync.states.paused",
+  error: "connector:sync.states.error",
 };
 const PAIR_ERRORS: Record<PairErrorCode, string> = {
   badUrl: "connector:pair.errors.badUrl",
@@ -157,6 +172,34 @@ ${update.hubOlder ? note(t("connector:status.hubOlder")) : ""}
 <form method="get" action="/stop"><button type="submit" class="danger">${t("connector:status.stop")}</button></form>
 </div>
 <p class="muted">${t("connector:status.manage")}</p>
+</section>
+${syncView()}`;
+  };
+
+  // The hub roots' sync; held deletes ask here, nowhere else.
+  const syncView = () => {
+    const s = link.sync?.state();
+    if (!s) return "";
+    const held = s.held
+      .map(
+        (h) => `<div role="alert">
+<p class="error">${t("connector:sync.held", { count: h.files, root: h.name })}</p>
+<div class="row">
+<form method="post" action="/sync/confirm"><input type="hidden" name="root" value="${esc(h.rootId)}"><button type="submit" class="danger">${t("connector:sync.confirm")}</button></form>
+<form method="post" action="/sync/restore"><input type="hidden" name="root" value="${esc(h.rootId)}"><button type="submit">${t("connector:sync.restore")}</button></form>
+</div>
+</div>`,
+      )
+      .join("\n");
+    return `<section aria-labelledby="sync">
+<h2 id="sync">${t("connector:sync.title")}</h2>
+<p class="muted">${t("connector:sync.intro")}</p>
+<dl>
+<dt>${t("connector:sync.state")}</dt><dd class="${s.state === "idle" ? "online" : s.state === "syncing" ? "connecting" : "error"}">${t(SYNC_STATES[s.state])}${s.pending ? ` · ${t("connector:sync.pending", { count: s.pending })}` : ""}</dd>
+<dt>${t("connector:sync.files")}</dt><dd>${s.files.toLocaleString("en")}</dd>
+</dl>
+${s.error ? `<p class="error">${t("connector:sync.error", { error: s.error })}</p>` : ""}
+${held}
 </section>`;
   };
 
@@ -229,6 +272,12 @@ ${body}
             ? page(note(t("connector:restarting")), true)
             : page(note(t("connector:stopped")), false),
         );
+      }
+      if (req.method === "POST" && (path === "/sync/confirm" || path === "/sync/restore")) {
+        const root = (await readForm(req)).get("root") ?? "";
+        const sync = link.sync;
+        if (sync) void (path === "/sync/confirm" ? sync.confirm(root) : sync.restore(root));
+        return back();
       }
       if (req.method === "POST" && path === "/open-folder") {
         mkdirSync(syncDir, { recursive: true });

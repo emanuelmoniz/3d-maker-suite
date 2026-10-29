@@ -7,6 +7,7 @@ import {
   CAPABILITIES,
   COMMENT_STATUSES,
   type ConnectorUpdateFailure,
+  type DeviceSyncState,
   ENERGY_SOURCES,
   IMPORT_SOURCES,
   INTEGRATION_ERROR_CODES,
@@ -1101,6 +1102,8 @@ export const devices = sqliteTable(
     connectorVersion: text(),
     /** What the connector reported when its stream last opened (`X-Connector-Update`). */
     updateFailed: text({ mode: "json" }).$type<ConnectorUpdateFailure>(),
+    /** What the connector reported last about its sync of the hub roots (`PUT .../sync/state`). */
+    syncState: text({ mode: "json" }).$type<DeviceSyncState & { reportedAt: string }>(),
     lastSeenAt: text(),
     ...timestamps,
   },

@@ -149,6 +149,8 @@ export function Title({ a, inList }: { a: Alert; inList?: boolean }) {
       }),
     hub_conflict: () =>
       t("alerts:kinds.hub_conflict", { file: c.file, device: c.device, copy: c.copy }),
+    hub_mass_delete: () =>
+      t("alerts:kinds.hub_mass_delete", { name: c.name, count: Number(c.count), roots: c.roots }),
   }[a.kind]();
   if (inList)
     return (
@@ -216,6 +218,7 @@ export function Title({ a, inList }: { a: Alert; inList?: boolean }) {
         </Link>
       );
     case "connector_outdated":
+    case "hub_mass_delete":
       if (!admin) return <span className="font-medium">{text}</span>;
       return (
         <Link to="/hub" className={link}>
@@ -374,6 +377,7 @@ const KIND_NAMES: Record<AlertKind, string> = {
   slicer_update: "alerts:kindNames.slicer_update",
   connector_outdated: "alerts:kindNames.connector_outdated",
   hub_conflict: "alerts:kindNames.hub_conflict",
+  hub_mass_delete: "alerts:kindNames.hub_mass_delete",
 };
 const STATUS: Record<AlertStatus, string> = {
   snoozed: "alerts:status.snoozed",

@@ -758,6 +758,39 @@ describe("migration 0073", () => {
   });
 });
 
+describe("migration 0081", () => {
+  it("rebuilds alerts for hub_mass_delete and keeps each user's alert state", () => {
+    const now = migrateAcross(80, (sqlite) => {
+      const at = "2026-01-01T00:00:00.000Z";
+      sqlite
+        .prepare(
+          "INSERT INTO users (id, email, display_name, password_hash, role, created_at, updated_at) VALUES ('u1', 'a@b.c', 'A', 'x', 'admin', ?, ?)",
+        )
+        .run(at, at);
+      sqlite
+        .prepare(
+          "INSERT INTO alerts (id, kind, severity, module, task, entity_type, entity_id, created_at) VALUES ('a1', 'spool_low', 'warning', 'filament', 't', 'spool', 's1', ?)",
+        )
+        .run(at);
+      sqlite
+        .prepare("INSERT INTO alert_states (alert_id, user_id, read_at) VALUES ('a1', 'u1', ?)")
+        .run(at);
+    });
+    expect(now.select().from(s.alertStates).all()).toMatchObject([{ alertId: "a1", userId: "u1" }]);
+    now
+      .insert(s.alerts)
+      .values({
+        kind: "hub_mass_delete",
+        severity: "warning",
+        module: "hub",
+        task: "t",
+        entityType: "device",
+        entityId: "d1",
+      })
+      .run();
+  });
+});
+
 describe("migration 0080", () => {
   it("rebuilds alerts for hub_conflict and keeps each user's alert state", () => {
     const now = migrateAcross(79, (sqlite) => {

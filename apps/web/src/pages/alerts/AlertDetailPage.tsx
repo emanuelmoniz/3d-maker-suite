@@ -168,7 +168,7 @@ export function AlertDetailPage() {
                 {t("alerts:view.openIntegration")}
               </Link>
             ) : null}
-            {a.kind === "connector_outdated" && admin && (
+            {(a.kind === "connector_outdated" || a.kind === "hub_mass_delete") && admin && (
               <Link to="/hub" className={buttonLink}>
                 {t("alerts:view.openHub")}
               </Link>

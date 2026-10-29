@@ -80,6 +80,8 @@ const shape = {
   dashboardLayout: z.array(dashboardWidgetSchema),
   /** Hub features (ADR-0014): devices, device roots and sync. Needs user accounts. */
   hubEnabled: z.boolean(),
+  /** A device that deletes more files than this from one hub root at once pauses and asks. */
+  hubDeleteGuard: z.number().int().min(1).max(10_000),
   /** Daily automatic backup, keeping this many of the newest automatic ones. */
   backupAuto: z.boolean(),
   backupKeep: z.number().int().min(1).max(100),
@@ -148,6 +150,7 @@ export const PREFERENCE_DEFAULTS: z.infer<typeof preferencesSchema> = {
     "Other",
   ],
   hubEnabled: false,
+  hubDeleteGuard: 20,
   backupAuto: true,
   backupKeep: 7,
   logActive: false,

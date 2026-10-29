@@ -48,5 +48,24 @@
     "cancel": "Cancel"
   },
   "restarting": "Restarting… This page reloads by itself in a few seconds.",
-  "stopped": "The connector stopped. Start it again from the Start menu or the launcher, or it starts at your next login."
+  "stopped": "The connector stopped. Start it again from the Start menu or the launcher, or it starts at your next login.",
+  "sync": {
+    "title": "Hub folders",
+    "intro": "The hub's shared project folders are kept in the sync folder. Save there as usual: the hub gets each change.",
+    "files": "Files",
+    "state": "Sync",
+    "states": {
+      "idle": "Up to date",
+      "syncing": "Syncing…",
+      "paused": "Paused",
+      "error": "Something didn't sync"
+    },
+    "pending_one": "{{count}} change waiting",
+    "pending_other": "{{count}} changes waiting",
+    "error": "Last sync error: {{error}}",
+    "held_one": "{{count}} file was deleted in {{root}} at once. The hub keeps it until you choose.",
+    "held_other": "{{count}} files were deleted in {{root}} at once. The hub keeps them until you choose.",
+    "confirm": "Delete on the hub too",
+    "restore": "Restore them"
+  }
 }

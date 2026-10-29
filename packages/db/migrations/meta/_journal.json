@@ -568,6 +568,13 @@
       "when": 1793269962980,
       "tag": "0080_hub_files",
       "breakpoints": true
+    },
+    {
+      "idx": 81,
+      "version": "6",
+      "when": 1793271340268,
+      "tag": "0081_device_sync_state",
+      "breakpoints": true
     }
   ]
 }

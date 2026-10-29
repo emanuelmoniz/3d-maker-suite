@@ -6,7 +6,7 @@ import type { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { type HubChanges, type HubUploadResult, PROJECT_TRASH_DIR } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
-import { inRoot, isHidden, relParts, rootTrash } from "@3d-maker-suite/host";
+import { inRoot, relParts, rootTrash, syncSkipped as skipped } from "@3d-maker-suite/host";
 import { and, asc, eq, gt, isNotNull, max, sql } from "drizzle-orm";
 import { raise } from "../alerts/evaluate.ts";
 import { HttpError } from "../errors.ts";
@@ -39,8 +39,6 @@ export async function writeHashed(body: Readable, path: string, cap: number, too
   return hash.digest("hex");
 }
 
-/** Never synced: hidden names (the trash, temp `.part` files) and slicers' `<file>.tmp` saves. */
-const skipped = (name: string) => isHidden(name) || /\.(tmp|part)$/i.test(name);
 const invalid = () => new HttpError(400, "invalid_path", "Invalid path");
 /** `rel`'s segments, 400 when it is bad or never synced. */
 function partsOf(rel: string) {
@@ -72,7 +70,11 @@ const conflictName = (name: string, device: string, at: Date, n: number) => {
  * conflict copy. One per app.
  * ponytail: in-process locks, one server per database; tombstones are never pruned.
  */
-export function createHubFiles(db: Db) {
+export function createHubFiles(
+  db: Db,
+  /** A row took a new `seq` (devices pull the changes). */
+  onChange: () => void = () => {},
+) {
   const locks = new Map<string, Promise<unknown>>();
   function serial<T>(key: string, fn: () => Promise<T>): Promise<T> {
     const run = (locks.get(key) ?? Promise.resolve()).then(fn);
@@ -89,11 +91,15 @@ export function createHubFiles(db: Db) {
       .where(and(eq(hubFiles.rootId, rootId), eq(hubFiles.path, path)))
       .get();
   /** The next change number; synchronous with the write that takes it. */
-  const nextSeq = () =>
-    (db
-      .select({ n: max(hubFiles.seq) })
-      .from(hubFiles)
-      .get()?.n ?? 0) + 1;
+  const nextSeq = () => {
+    onChange();
+    return (
+      (db
+        .select({ n: max(hubFiles.seq) })
+        .from(hubFiles)
+        .get()?.n ?? 0) + 1
+    );
+  };
   const update = (row: Row, set: Partial<Row>) =>
     db.update(hubFiles).set(set).where(eq(hubFiles.id, row.id)).returning().get();
 

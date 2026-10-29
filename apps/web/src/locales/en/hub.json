@@ -26,7 +26,16 @@
     "renameTitle": "Rename device",
     "revoke": "Revoke",
     "revokeTitle": "Revoke {{name}}?",
-    "revokeBody": "The device loses access at once. Its local files stay on its disk. To use it again, pair it with a new code."
+    "revokeBody": "The device loses access at once. Its local files stay on its disk. To use it again, pair it with a new code.",
+    "sync": {
+      "idle_one": "Hub folders up to date · {{count}} file",
+      "idle_other": "Hub folders up to date · {{count}} files",
+      "syncing_one": "Syncing the hub folders, {{count}} change waiting",
+      "syncing_other": "Syncing the hub folders, {{count}} changes waiting",
+      "paused_one": "Sync paused: {{count}} file deleted in {{roots}} at once. Confirm or restore it on the device's status page.",
+      "paused_other": "Sync paused: {{count}} files deleted in {{roots}} at once. Confirm or restore them on the device's status page.",
+      "error": "Something didn't sync: {{error}}"
+    }
   },
   "pair": {
     "action": "Pair a device",
@@ -39,5 +48,10 @@
     "title": "Pairing code",
     "body": "Enter this code on the connector's status page. It works once, until {{time}}, and isn't shown again.",
     "done": "Done"
+  },
+  "settings": {
+    "title": "Sync",
+    "deleteGuard": "Pause after this many deletes at once",
+    "deleteGuardHint": "When a device deletes more files than this from one hub folder at once, its sync pauses and asks on the device's status page before anything moves to the hub's trash."
   }
 }

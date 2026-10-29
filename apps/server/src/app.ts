@@ -264,7 +264,15 @@ export async function buildApp(
     prefix: "/api/costs",
   });
   await app.register(statsRoutes(db), { prefix: "/api/stats" });
-  const hubFiles = createHubFiles(db);
+  // Devices pull the changes when told; one nudge for a burst of them.
+  let nudge: NodeJS.Timeout | undefined;
+  const hubFiles = createHubFiles(db, () => {
+    nudge ??= setTimeout(() => {
+      nudge = undefined;
+      hub.nudge({ type: "sync.changed" });
+    }, 1000);
+  });
+  app.addHook("onClose", async () => clearTimeout(nudge));
   const scanner = createProjectScanner(db, dataDir, projectsLog, {
     watch: opts.watchProjects,
     index: async (root, rel) => {
@@ -273,9 +281,12 @@ export async function buildApp(
     onScanned: (id, before) => autoSlice(db, syncer.adapters, sliceQueue, projectsLog, id, before),
   });
   await app.register(rootsRoutes(db, hub, scanner), { prefix: "/api/roots" });
-  await app.register(hubDeviceRoutes(db, hub, scanner, deviceFiles, hubFiles), {
-    prefix: "/api/hub/device",
-  });
+  await app.register(
+    hubDeviceRoutes(db, hub, scanner, deviceFiles, hubFiles, () => void evaluate()),
+    {
+      prefix: "/api/hub/device",
+    },
+  );
   await app.register(projectsRoutes(db, dataDir, scanner, hub, syncer.adapters), {
     prefix: "/api/projects",
   });

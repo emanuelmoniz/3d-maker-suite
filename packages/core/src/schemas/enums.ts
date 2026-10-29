@@ -18,6 +18,7 @@ export const ALERT_KINDS = [
   "slicer_update",
   "connector_outdated",
   "hub_conflict",
+  "hub_mass_delete",
 ] as const;
 export const ALERT_SEVERITIES = ["error", "warning", "success"] as const;
 export const ALERT_MODULES = [

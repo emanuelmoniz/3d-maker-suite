@@ -39,13 +39,15 @@ export type Request = (
     method?: string;
     body?: unknown;
     file?: { stream: ReadStream; sha256: string; mtimeMs: number };
+    /** A download: it may take as long as an upload. */
+    long?: boolean;
   },
 ) => Promise<Response>;
 
 /** No event on a folder for this long: look at it. */
-const QUIET_MS = 1000;
+export const QUIET_MS = 1000;
 /** Its file list must stay the same over this long before it is read (a copy written in place). */
-const STABLE_MS = 2000;
+export const STABLE_MS = 2000;
 /** A 3MF that doesn't open yet (still written, locked) is tried again this often, this many times. */
 const RETRY_MS = 5000;
 const RETRIES = 3;

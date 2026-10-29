@@ -18,6 +18,7 @@ const link = createLink({
   os: `${type()} ${release()} ${arch()}`,
   onHubVersion: updater.follow,
   updateFailure: updater.failure,
+  sync: { dataDir: dir, syncDir: syncDir() },
   log,
 });
 const port = readPort(dir);
