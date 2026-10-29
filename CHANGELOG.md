@@ -2,6 +2,22 @@
 
 All notable changes are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [5.0.0-alpha.5] - 2026-10-29
+
+Pre-release. Test on a copy of your data first; back up before updating.
+
+### Added
+- **Slice workers**: turn on **Slice worker** for a device in Hub management and it can run a slicer for the hub. New **Bambu Studio (worker)** and **OrcaSlicer (worker)** integrations pick a slicer found on the device, install the hub's managed release there, or take a typed path behind a **Manual path** switch. The worker appears in the slicer pickers named after its device ([docs/slicing.md](docs/slicing.md#slice-on-a-worker))
+- A worker that is offline leaves its slices *waiting* without blocking the queue; they run when it connects, or **Slice on the server instead**
+
+### Changed
+- A connector that is too old for slice workers says so ("update it") instead of a generic error
+- A Bambu Studio worker only slices, like the OrcaSlicer one: its presets come from the zip import
+
+### Fixed
+- A connector updated after the hub never learned it was a slice worker and refused slices
+- A connector started in the hub's data folder deleted the hub's own server slicer installs; it now refuses to start there
+
 ## [5.0.0-alpha.4] - 2026-10-29
 
 Pre-release. Test on a copy of your data first; back up before updating. Slice workers come in later 5.0.0 pre-releases.

@@ -1068,7 +1068,7 @@ Do Step 17 of the 5.0.0 plan in PLAN.md. Show me the detection results, the shar
 Do Step 18 of the 5.0.0 plan in PLAN.md.
 ```
 
-### [ ] Step 19 - Docs, push & v5.0.0-alpha.5
+### [x] Step 19 - Docs, push & v5.0.0-alpha.5
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - `docs/slicing.md` and `docs/hub.md`: slice workers, when to use them, matching presets.

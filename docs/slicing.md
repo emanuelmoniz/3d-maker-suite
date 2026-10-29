@@ -8,6 +8,7 @@ Slicing gives a project's plates their print time and grams, so costs and quotes
 |---|---|---|
 | Bambu Studio / OrcaSlicer (local) | The PC that runs the server, using the installed program | Set its **Slicer program** ([open-in-slicer.md](open-in-slicer.md)). OrcaSlicer needs 2.5 or newer |
 | Bambu Studio (server) / OrcaSlicer (server) | The server, using a copy the app downloads | **Add integration**, then **Install** on its card |
+| Bambu Studio (worker) / OrcaSlicer (worker) | A workstation or NAS with the connector | Turn the device into a slice worker, then see [Slice on a worker](#slice-on-a-worker) |
 
 A plate slices with its own slicer, else its project's (**Print setup**), else the default slicer, else the first one that can slice. A slicer that is switched off is skipped; a deleted one is cleared. The pickers show only with two or more slicers.
 
@@ -23,6 +24,21 @@ Use this on a NAS or any server without a desktop slicer.
 A daily check raises an alert when a newer release exists (pre-releases only when one is installed); installing or removing resolves it. Slices remember the slicer version they were made with: a new version marks them outdated, and an install slices them again for projects with auto slice on.
 
 OrcaSlicer 2.5.0 is the minimum: 2.4 can't slice Bambu files. Until 2.5 is stable, OrcaSlicer is offered only with pre-releases ticked. See [ADR-0013](adr/0013-managed-slicer.md) for the details and the unsupported combinations (Linux on arm64, Bambu on Windows arm64).
+
+## Slice on a worker
+
+Use this when the server can't run a slicer (an arm64 hub, a small VPS) or a workstation is simply faster. Needs the [hub](hub.md) and the connector on the device, at the hub's version.
+
+1. **Hub management**: turn on **Slice worker** for the device. Its slicers are listed there.
+2. **Settings → Integrations → Add integration**, then **Bambu Studio (worker)** or **OrcaSlicer (worker)**, and pick the device.
+3. On its card pick the slicer: **Use this one** for a slicer found on the device, or **Install** to have the hub install its managed release there (same download and checks as on the server). **Manual path** is for a slicer the connector didn't find (an AppImage, a portable copy); the program is checked by starting it with `--help` on the device.
+4. Import your presets from a zip as usual. Presets stay on the hub; each slice sends the device the flattened presets and the 3MF, and the result comes back. The worker needs no preset folder.
+
+The slicer pickers show the worker as "Bambu Studio (WS-3)", named after its device. A slice that runs on a worker takes at most 10 minutes, as on the server.
+
+**If the device is offline** the plate shows *Waiting for the slice worker* and the queue goes on. It slices when the device connects or you press **Slice**; **Slice on the server instead** falls back to the hub's own slicer. A connector older than the hub says it's too old: update it from Hub management.
+
+The slice remembers the worker and the slicer version, so a new version marks it outdated like on the server.
 
 ## Profiles
 
