@@ -37,7 +37,11 @@ const get = (tx: Tx, id: string) => {
 // Admin only (lib/auth.ts). Hashes never leave: userSchema has no such field.
 // ponytail: unpaginated, a household has a handful of users.
 export const usersRoutes =
-  (db: Db): FastifyPluginAsyncZod =>
+  (
+    db: Db,
+    /** Before a user is deleted (their devices go with them): their locks are released. */
+    onDelete: (userId: string) => void = () => {},
+  ): FastifyPluginAsyncZod =>
   async (app) => {
     app.get("/", { schema: { response: { 200: z.array(userSchema) } } }, async () =>
       db.select().from(users).orderBy(asc(users.displayName)).all(),
@@ -97,6 +101,8 @@ export const usersRoutes =
         db.transaction((tx) => {
           const row = get(tx, req.params.id);
           if (row.role === "admin" && !row.disabled && enabledAdmins(tx) <= 1) throw lastAdmin();
+          // Same connection, so this is inside the transaction.
+          onDelete(row.id);
           tx.delete(users).where(eq(users.id, row.id)).run();
         });
         return reply.status(204).send(null);

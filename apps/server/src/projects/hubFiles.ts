@@ -12,7 +12,7 @@ import {
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
 import { inRoot, relParts, rootTrash, syncSkipped as skipped } from "@3d-maker-suite/host";
-import { and, asc, eq, gt, isNotNull, lt, max, sql } from "drizzle-orm";
+import { and, asc, eq, gt, inArray, isNotNull, lt, max, sql } from "drizzle-orm";
 import { raise } from "../alerts/evaluate.ts";
 import { HttpError } from "../errors.ts";
 import { mayEditRoot, projectAccess, type Rights, rootRule } from "../lib/auth.ts";
@@ -457,8 +457,11 @@ export function createHubFiles(
       });
     },
 
-    /** Releases every lock, a device's (revoke), or those with no save since `idleBefore` (ISO). */
-    releaseLocks(only: { deviceId?: string; idleBefore?: string } = {}) {
+    /**
+     * Releases every lock, a device's (revoke), a user's devices' (user deleted), or those with no
+     * save since `idleBefore` (ISO).
+     */
+    releaseLocks(only: { deviceId?: string; userId?: string; idleBefore?: string } = {}) {
       const rows = db
         .select()
         .from(hubFiles)
@@ -466,6 +469,15 @@ export function createHubFiles(
           and(
             isNotNull(hubFiles.lockDeviceId),
             only.deviceId ? eq(hubFiles.lockDeviceId, only.deviceId) : undefined,
+            only.userId
+              ? inArray(
+                  hubFiles.lockDeviceId,
+                  db
+                    .select({ id: devices.id })
+                    .from(devices)
+                    .where(eq(devices.userId, only.userId)),
+                )
+              : undefined,
             only.idleBefore ? lt(hubFiles.lockTouchedAt, only.idleBefore) : undefined,
           ),
         )

@@ -187,7 +187,10 @@ export async function buildApp(
   await app.register(authRoutes(db, !!opts.access?.password, opts.setupToken), {
     prefix: "/api/auth",
   });
-  await app.register(usersRoutes(db), { prefix: "/api/users" });
+  await app.register(
+    usersRoutes(db, (id) => hubFiles.releaseLocks({ userId: id })),
+    { prefix: "/api/users" },
+  );
   const hub = createHubChannel(db);
   // Files pulled from device roots (ADR-0014); a temp folder of its own without a data dir (tests).
   const deviceFiles = createDeviceFiles(

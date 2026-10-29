@@ -117,8 +117,14 @@ describe("hub root sync", () => {
       sync: { dataDir: at, syncDir: join(at, "sync"), ...hooks },
       slicers,
     });
-    cleanup.push(() => link.close());
+    // Cleanup runs backwards: the link closes, and its last sync work ends, before its folder goes.
     if (!dir) cleanup.push(() => rmSync(at, { recursive: true, force: true }));
+    cleanup.push(async () => {
+      link.close();
+      // The stream's end queues the strict-locks check a moment later.
+      await new Promise((r) => setTimeout(r, 200));
+      await link.sync?.idle();
+    });
     if (store.token()) link.start();
     else await link.pair(h.url, await h.code(role), name);
     await until(() => link.state().status === "online");

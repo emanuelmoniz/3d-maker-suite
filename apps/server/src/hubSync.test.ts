@@ -435,6 +435,15 @@ describe("check-out locks", () => {
     const { cursor } = await s.laptop.changes();
     expect((await s.send("DELETE", `/api/hub/devices/${desk.id}`)).statusCode).toBe(204);
     expect((await s.laptop.changes(cursor)).files).toMatchObject([{ path: "a/m.3mf", lock: null }]);
+
+    // Deleting a user takes their devices, and so their locks, the same way.
+    const pc = await s.pair(s.editor.id, "PC");
+    expect((await pc.put("a/m.3mf", "v6", 5)).json()).toMatchObject({ status: "updated" });
+    expect(s.lockOf()).not.toBeNull();
+    const before = (await s.laptop.changes()).cursor;
+    expect((await s.send("DELETE", `/api/users/${s.editor.id}`)).statusCode).toBe(204);
+    expect(s.lockOf()).toBeNull();
+    expect((await s.laptop.changes(before)).files).toMatchObject([{ path: "a/m.3mf", lock: null }]);
   });
 
   it("lets only the lock's user or an admin release it from the web app", async () => {
