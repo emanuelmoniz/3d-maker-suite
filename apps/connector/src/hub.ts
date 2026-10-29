@@ -7,6 +7,7 @@ import {
   hubEventSchema,
   pairResultSchema,
 } from "@3d-maker-suite/core";
+import { openFolder } from "@3d-maker-suite/host";
 import { z } from "zod";
 import { createRootSync, type Request } from "./roots.ts";
 import { createSlicers } from "./slicers.ts";
@@ -87,8 +88,10 @@ type Options = {
     Parameters<typeof createHubSync>[0],
     "alive" | "handoffMs" | "pollMs"
   >;
-  /** How slicers are found and started (tests); the real ones by default. */
-  slicers?: Pick<Parameters<typeof createSlicers>[0], "find" | "start">;
+  /** How slicers are found and started, and folders opened (tests); the real ones by default. */
+  slicers?: Pick<Parameters<typeof createSlicers>[0], "find" | "start"> & {
+    openDir?: (dir: string) => Promise<unknown>;
+  };
   log?: (line: string) => void;
 };
 
@@ -148,9 +151,25 @@ export function createLink({
       identity: () => `${store.get().hubUrl}|${store.get().deviceId}`,
       log,
     });
-  const slicers = createSlicers({ request, store, log, ...slicerHooks });
+  const { openDir = openFolder, ...slicerFns } = slicerHooks ?? {};
+  const slicers = createSlicers({ request, store, log, ...slicerFns });
   const local = (rootId: string, path: string) =>
     sync ? sync.local(rootId, path) : Promise.resolve(null);
+  /** Open folder: the project's synced copy in the file manager, ENOENT when it isn't here. */
+  const openSynced = async ({
+    requestId,
+    rootId,
+    path,
+  }: Extract<HubEvent, { type: "open.folder" }>) => {
+    const abs = await sync?.folder(rootId, path);
+    const body = abs
+      ? await openDir(abs).then(
+          () => ({ ok: true, result: null }),
+          (e: NodeJS.ErrnoException) => ({ ok: false, code: e.code ?? "EIO" }),
+        )
+      : { ok: false, code: "ENOENT" };
+    await request(`/replies/${requestId}`, { method: "POST", body }).catch(() => {});
+  };
   const toRoots = (event: HubEvent) => {
     roots.handle(event);
     sync?.handle(event);
@@ -172,6 +191,7 @@ export function createLink({
         return void slicers.open(event.data, local, (rootId, path, pid) =>
           sync?.opened(rootId, path, pid),
         );
+      if (event.success && event.data.type === "open.folder") return void openSynced(event.data);
       if (event.success) return toRoots(event.data);
       const requestId = (json as { requestId?: unknown })?.requestId;
       if (typeof requestId === "string" && /^[0-9a-f-]{36}$/i.test(requestId))

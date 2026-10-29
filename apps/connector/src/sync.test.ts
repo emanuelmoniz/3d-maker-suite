@@ -142,6 +142,7 @@ describe("hub root sync", () => {
     await h.put("p/m.stl", "model");
     await h.put("q/n.stl", "other");
     const started: string[] = [];
+    const folders: string[] = [];
     const a = await device(h, "WS-A", "admin", undefined, {
       find: async () => [
         { id: "bambu-studio", name: "Bambu Studio", version: "2", path: "bs", cmd: "bs", args: [] },
@@ -150,6 +151,7 @@ describe("hub root sync", () => {
         started.push(args.at(-1) ?? "");
         return undefined;
       },
+      openDir: async (dir) => folders.push(dir),
     });
     await until(() => read(join(a.folder, "q/n.stl")) === "other");
 
@@ -164,8 +166,10 @@ describe("hub root sync", () => {
     const p = (await h.send("GET", "/api/projects"))
       .json()
       .items.find((x: { folder: string }) => x.folder === "p");
-    await until(
-      async () => (await h.send("GET", `/api/projects/${p.id}/devices`)).json().devices.length > 0,
+    await until(async () =>
+      (await h.send("GET", `/api/projects/${p.id}/devices`))
+        .json()
+        .devices.some((d: { slicers: unknown[] }) => d.slicers.length),
     );
     const res = await h.send("POST", `/api/projects/${p.id}/open`, {
       target: "device",
@@ -176,6 +180,16 @@ describe("hub root sync", () => {
     expect(started).toEqual([join(a.folder, "p", "m.stl")]);
     expect(read(join(a.folder, "p/m.stl"))).toBe("model");
     expect(existsSync(join(a.folder, "q/n.stl"))).toBe(false);
+
+    // Open folder opens the synced copy; a project the device doesn't sync has none.
+    const folder = (id: string) =>
+      h.send("POST", `/api/projects/${id}/open`, { target: "folder", deviceId: a.id });
+    expect((await folder(p.id)).json()).toEqual({ ok: true });
+    expect(folders).toEqual([join(a.folder, "p")]);
+    const q = (await h.send("GET", "/api/projects"))
+      .json()
+      .items.find((x: { folder: string }) => x.folder === "q");
+    expect((await folder(q.id)).json().error.code).toBe("device_not_synced");
 
     // The slicer saves: the hub gets it.
     writeFileSync(join(a.folder, "p/m.stl"), "saved");
@@ -320,7 +334,10 @@ describe("hub root sync", () => {
     const open = (deviceId: string) =>
       h.send("POST", `/api/projects/${p.id}/open`, { target: "device", deviceId, file: "m.stl" });
     await until(
-      async () => (await h.send("GET", `/api/projects/${p.id}/devices`)).json().devices.length > 1,
+      async () =>
+        (await h.send("GET", `/api/projects/${p.id}/devices`))
+          .json()
+          .devices.filter((d: { slicers: unknown[] }) => d.slicers.length).length > 1,
     );
 
     expect((await open(a.id)).json()).toEqual({ ok: true });

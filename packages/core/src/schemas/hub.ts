@@ -81,13 +81,16 @@ export const deviceUpdateSchema = z
   .object({ name, syncMode: deviceSyncModeSchema })
   .partial()
   .strict();
-/** One of the user's online devices that can open a project's files. */
+/** One of the user's online devices, for a project's Open and Open folder. */
 export const openDeviceSchema = z.object({
   id,
   name: z.string(),
   /** Its status page's port, for the page's `/api/whoami` probe; null = not reported. */
   port: z.number().int().nullable(),
+  /** No slicer: Open isn't offered there, Open folder still is. */
   slicers: z.array(deviceSlicerSchema.pick({ id: true, default: true })),
+  /** It syncs this project (everything, or selected), so Open folder can open its copy. */
+  synced: z.boolean(),
 });
 /**
  * Where the project page's Open button can open (`GET /api/projects/:id/devices`). `local`: the
@@ -168,6 +171,13 @@ export const hubEventSchema = z.discriminatedUnion("type", [
     rootId: id,
     path: z.string().max(1024),
     slicer: z.string().max(100).optional(),
+  }),
+  /** Open a hub root's project folder (synced here) in the file manager; the answer is null. */
+  z.object({
+    type: z.literal("open.folder"),
+    requestId: id,
+    rootId: id,
+    path: z.string().max(1024),
   }),
 ]);
 /** What the connector reports when it opens the stream (`X-Connector-Version`, `X-Connector-OS`). */

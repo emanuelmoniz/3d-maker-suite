@@ -222,7 +222,9 @@
       "device_offline": "The device went offline or no longer has a slicer.",
       "device_timeout": "The device didn't open the file in time. Check its status page.",
       "device_no_slicer": "No slicer was found on the device.",
-      "not_local": "The server's slicer opens only on the server's computer. Open the app there, or install the connector on this computer."
+      "not_local": "This opens only on the server's computer. Open the app there, or install the connector on this computer.",
+      "device_not_synced": "This project isn't synced to your device, so it has no folder there. To get it, open one of its models with Open (that adds the project to the device), or set the device to sync everything on its connector's status page or in Hub management. Then try again.",
+      "device_folder_missing": "The project folder isn't on your device yet. Wait for the sync to finish (the connector's status page shows it), then try again."
     },
     "slicerPick": "Slicer",
     "viewAll": "View all",
@@ -230,6 +232,7 @@
     "viewAllHint_other": "All {{count}} plates",
     "devicePick": "Device",
     "deviceSlicerPick": "Slicer on {{name}}",
+    "notSyncedOn": "{{name}} (not synced)",
     "openingOnDevice": "Opening on {{name}}… A project that isn't on the device yet downloads first.",
     "openedOnDevice": "Opened on {{name}}.",
     "openedReadOnly": "Opened on {{name}}, read-only: {{user}} is editing it on {{device}}."

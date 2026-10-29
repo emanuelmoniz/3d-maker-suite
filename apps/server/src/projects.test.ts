@@ -663,13 +663,15 @@ describe("open in slicer / folder", () => {
       { remoteAddress: "192.0.2.7" },
       { headers: { "x-forwarded-for": "192.0.2.7" } },
     ]) {
-      const res = await app.inject({
-        method: "POST",
-        url: `/api/projects/${vase.id}/open`,
-        payload: { target: "slicer", file: "vase.stl" },
-        ...from,
-      });
-      expect(res.json().error.code).toBe("not_local");
+      for (const payload of [{ target: "slicer", file: "vase.stl" }, { target: "folder" }]) {
+        const res = await app.inject({
+          method: "POST",
+          url: `/api/projects/${vase.id}/open`,
+          payload,
+          ...from,
+        });
+        expect(res.json().error.code).toBe("not_local");
+      }
     }
 
     // The root's folder gone -> nothing to open.

@@ -271,7 +271,10 @@ export const projectScanStatusSchema = z.object({
 });
 
 export const projectOpenSchema = z.object({
-  /** `device`: in the slicer of the user's device `deviceId` (a hub root's project only). */
+  /**
+   * `device`: in the slicer of the user's device `deviceId` (a hub root's project only). `folder`
+   * with `deviceId`: its synced copy on that device; without, on the server's machine.
+   */
   target: z.enum(["slicer", "folder", "device"]),
   /** Relative to the project folder; must be one of `meta.files`. Slicer and device only. */
   file: z.string().min(1).optional(),

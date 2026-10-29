@@ -13,3 +13,10 @@ export const launch = (cmd: string, args: string[]) =>
       ok(child.pid);
     });
   });
+
+/** Opens a folder in the OS file manager (Windows explorer, macOS open, Linux xdg-open). */
+export const openFolder = (dir: string) =>
+  launch(
+    process.platform === "win32" ? "explorer" : process.platform === "darwin" ? "open" : "xdg-open",
+    [dir],
+  );

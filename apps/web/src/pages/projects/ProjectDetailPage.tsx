@@ -133,6 +133,8 @@ const DEVICE_ERRORS: Record<string, string> = {
   device_timeout: "projects:detail.openFailed.device_timeout",
   device_no_slicer: "projects:detail.openFailed.device_no_slicer",
   not_local: "projects:detail.openFailed.not_local",
+  device_not_synced: "projects:detail.openFailed.device_not_synced",
+  device_folder_missing: "projects:detail.openFailed.device_folder_missing",
 };
 const openError = (t: TFunction, e: Error) => {
   const key = e instanceof ApiError && e.code ? DEVICE_ERRORS[e.code] : undefined;
@@ -437,11 +439,12 @@ export function ProjectDetailPage() {
     slicers.find((s) => s.id === slicerId) ??
     slicers.find((s) => s.id === defaultSlicer) ??
     slicers[0];
-  // Open opens on the machine the user sits at: the server's, with its integration slicer;
-  // else the device whose connector answers beside this browser; else the user's online devices
-  // with a slicer (a hub root's project), one without asking, several in a picker.
+  // Open and Open folder open on the machine the user sits at: the server's (Open with its
+  // integration slicer); else the device whose connector answers beside this browser; else the
+  // user's online devices (a hub root's project), one without asking, several in a picker.
   const targets = useOpenTargets(id).data;
-  const local = !!targets?.local && !!slicer && !onDevice;
+  const atServer = !!targets?.local && !onDevice;
+  const local = atServer && !!slicer;
   const devices = onDevice ? [] : (targets?.devices ?? []);
   const here = useConnectorId(
     devices.map((d) => d.port),
@@ -449,12 +452,19 @@ export function ProjectDetailPage() {
   ).data;
   const [deviceId, setDeviceId] = useState<string>();
   const beside = devices.find((d) => d.id === here);
-  const device = beside ?? devices.find((d) => d.id === deviceId) ?? devices[0];
+  const withSlicer = devices.filter((d) => d.slicers.length);
+  // Beside this browser without a slicer: nothing opens on another device instead.
+  const device = beside
+    ? beside.slicers.length
+      ? beside
+      : undefined
+    : (withSlicer.find((d) => d.id === deviceId) ?? withSlicer[0]);
+  const folderDevice = beside ?? devices.find((d) => d.id === deviceId) ?? devices[0];
   // The device's default slicer opens it; none picked on its status page: the user picks.
   const adapterName = useAdapterName();
   const [deviceSlicerId, setDeviceSlicerId] = useState<string>();
-  // The file Open was asked for while its dialog is up.
-  const [asking, setAsking] = useState<string | null>(null);
+  // What the dialog asks for: a file's Open, or Open folder (no file).
+  const [asking, setAsking] = useState<{ file?: string } | null>(null);
   const askSlicer = !!device && device.slicers.length > 1 && !device.slicers.some((s) => s.default);
   const deviceSlicer = askSlicer
     ? (device.slicers.find((s) => s.id === deviceSlicerId) ?? device.slicers[0])
@@ -497,11 +507,22 @@ export function ProjectDetailPage() {
         open.mutate({ target: "device", deviceId: device.id, file, slicer: deviceSlicer?.id });
   // One Open button; a choice (several slicers, or devices without a probe answer) asks in a dialog.
   const pickSlicer = local && slicers.length > 1;
-  const pickDevice = !local && !beside && devices.length > 1;
+  const pickDevice = !local && !beside && withSlicer.length > 1;
   const openFile =
     local || device
       ? (file: string) =>
-          pickSlicer || pickDevice || deviceSlicer ? setAsking(file) : openNow(file)
+          pickSlicer || pickDevice || deviceSlicer ? setAsking({ file }) : openNow(file)
+      : undefined;
+  // Open folder: the server's folder, or the project's synced copy on the device. Not synced
+  // there, the server says so and how to get it.
+  const openFolderNow = () =>
+    atServer
+      ? open.mutate({ target: "folder" })
+      : folderDevice && open.mutate({ target: "folder", deviceId: folderDevice.id });
+  const pickFolderDevice = !atServer && !beside && devices.length > 1;
+  const openFolder =
+    atServer || folderDevice
+      ? () => (pickFolderDevice ? setAsking({}) : openFolderNow())
       : undefined;
   const sent =
     open.variables?.target === "device"
@@ -535,11 +556,12 @@ export function ProjectDetailPage() {
                   {t("projects:detail.open")}
                 </button>
               )}
-              {ok && !onDevice && (
+              {ok && openFolder && (
                 <button
                   type="button"
                   className={linkButton}
-                  onClick={() => open.mutate({ target: "folder" })}
+                  disabled={open.isPending}
+                  onClick={openFolder}
                 >
                   <FolderOpen className="size-4" aria-hidden />
                   {t("projects:detail.openFolder")}
@@ -569,16 +591,36 @@ export function ProjectDetailPage() {
       <MissingFolderBanner project={project} />
       <ConfirmDialog
         open={asking !== null}
-        title={t("projects:detail.openTitle", { name: asking ?? "" })}
+        title={
+          asking?.file === undefined
+            ? t("projects:detail.openFolder")
+            : t("projects:detail.openTitle", { name: asking.file })
+        }
         description={t("projects:detail.openPick")}
         confirmLabel={t("projects:detail.open")}
         onCancel={() => setAsking(null)}
         onConfirm={() => {
-          if (asking) openNow(asking);
+          if (asking?.file !== undefined) openNow(asking.file);
+          else if (asking) openFolderNow();
           setAsking(null);
         }}
       >
-        {pickSlicer && slicer && (
+        {asking?.file === undefined && folderDevice && (
+          <FormField label={t("projects:detail.devicePick")}>
+            {(p) => (
+              <Combobox
+                {...p}
+                value={folderDevice.id}
+                onChange={setDeviceId}
+                options={devices.map((d) => ({
+                  value: d.id,
+                  label: d.synced ? d.name : t("projects:detail.notSyncedOn", { name: d.name }),
+                }))}
+              />
+            )}
+          </FormField>
+        )}
+        {asking?.file !== undefined && pickSlicer && slicer && (
           <FormField label={t("projects:detail.slicerPick")}>
             {(p) => (
               <Combobox
@@ -590,19 +632,19 @@ export function ProjectDetailPage() {
             )}
           </FormField>
         )}
-        {pickDevice && device && (
+        {asking?.file !== undefined && pickDevice && device && (
           <FormField label={t("projects:detail.devicePick")}>
             {(p) => (
               <Combobox
                 {...p}
                 value={device.id}
                 onChange={setDeviceId}
-                options={devices.map((d) => ({ value: d.id, label: d.name }))}
+                options={withSlicer.map((d) => ({ value: d.id, label: d.name }))}
               />
             )}
           </FormField>
         )}
-        {!local && device && deviceSlicer && (
+        {asking?.file !== undefined && !local && device && deviceSlicer && (
           <FormField label={t("projects:detail.deviceSlicerPick", { name: device.name })}>
             {(p) => (
               <Combobox

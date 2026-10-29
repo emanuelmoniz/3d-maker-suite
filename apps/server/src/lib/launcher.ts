@@ -3,12 +3,7 @@ import { isAbsolute, relative, resolve } from "node:path";
 import type { SlicerLauncher } from "@3d-maker-suite/core";
 import { launch } from "@3d-maker-suite/host";
 
-/** Opens a folder in the OS file manager (Windows explorer, macOS open, Linux xdg-open). */
-export const openFolder = (dir: string) =>
-  launch(
-    process.platform === "win32" ? "explorer" : process.platform === "darwin" ? "open" : "xdg-open",
-    [dir],
-  );
+export { openFolder } from "@3d-maker-suite/host";
 
 export const slicerLauncher = (slicerPath: string): SlicerLauncher => ({
   canOpen: () => slicerPath !== "",

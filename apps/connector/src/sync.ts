@@ -687,6 +687,19 @@ export function createHubSync({
       });
       return abs;
     },
+    /** The local folder of a hub root's project, for Open folder; null when it isn't here. */
+    async folder(rootId: string, path: string) {
+      const l = live.get(rootId);
+      if (!l || !syncable(path)) return null;
+      const abs = await inRoot(l.base, path).catch(() => null);
+      return abs &&
+        (await stat(abs).then(
+          (s) => s.isDirectory(),
+          () => false,
+        ))
+        ? abs
+        : null;
+    },
     /** Sends a root's held deletes to the hub. */
     confirm: (rootId: string) =>
       serial(async () => {

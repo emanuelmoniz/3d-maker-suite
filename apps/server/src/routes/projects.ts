@@ -807,22 +807,39 @@ export const projectsRoutes =
       },
     );
 
-    /** The user's online devices whose connector found a slicer; none but for a hub root's project. */
+    /**
+     * The user's online devices, with their slicers and whether they sync the project; none but
+     * for a hub root's project (only those sync).
+     */
     const openDevices = (req: FastifyRequest, p: Project) => {
       const root = listRoots(db).find((r) => r.id === p.rootId);
       if (!req.user || root?.location !== ROOT_HUB || !p.folder) return [];
+      const selected = new Set(
+        db
+          .select({ id: deviceProjects.deviceId })
+          .from(deviceProjects)
+          .where(eq(deviceProjects.projectId, p.id))
+          .all()
+          .map((r) => r.id),
+      );
       return db
-        .select({ id: devices.id, name: devices.name, slicers: devices.slicers })
+        .select({
+          id: devices.id,
+          name: devices.name,
+          slicers: devices.slicers,
+          syncMode: devices.syncMode,
+        })
         .from(devices)
         .where(eq(devices.userId, req.user.id))
         .orderBy(asc(devices.name))
         .all()
-        .filter((d) => d.slicers.length && hub.online(d.id))
+        .filter((d) => hub.online(d.id))
         .map((d) => ({
           id: d.id,
           name: d.name,
           port: hub.port(d.id),
           slicers: d.slicers.map((s) => ({ id: s.id, default: s.default })),
+          synced: d.syncMode === "all" || selected.has(d.id),
         }));
     };
     app.get(
@@ -895,7 +912,7 @@ export const projectsRoutes =
         const listed = !!file && p.meta.files.some((f) => f.path === file && f.kind === "model");
         if (target === "device") {
           const device = openDevices(req, p).find((d) => d.id === req.body.deviceId);
-          if (!device)
+          if (!device?.slicers.length)
             throw new HttpError(409, "device_offline", "The device can't open files now");
           if (slicer && !device.slicers.some((s) => s.id === slicer))
             throw new HttpError(409, "device_no_slicer", "No such slicer on the device");
@@ -930,6 +947,35 @@ export const projectsRoutes =
           }
           return { ok: true as const, ...(lockedBy && { lockedBy }) };
         }
+        // The project's synced copy on the device. Not synced there: the user is told how.
+        if (target === "folder" && req.body.deviceId) {
+          const device = openDevices(req, p).find((d) => d.id === req.body.deviceId);
+          if (!device) throw new HttpError(409, "device_offline", "The device is offline");
+          if (!device.synced || !p.rootId || !p.folder)
+            throw new HttpError(409, "device_not_synced", "The device doesn't sync this project");
+          const rootId = p.rootId;
+          const path = p.folder;
+          await hub.ask(
+            device.id,
+            (requestId) => ({ type: "open.folder", requestId, rootId, path }),
+            z.null(),
+            {
+              error: (e) =>
+                e.code === "ENOENT"
+                  ? new HttpError(
+                      409,
+                      "device_folder_missing",
+                      "The folder isn't on the device yet",
+                    )
+                  : new HttpError(500, "launch_failed", "Could not start the program"),
+            },
+          );
+          return { ok: true as const };
+        }
+        // The server's file manager and slicer open on the server's screen: never for someone at
+        // another computer.
+        if (!fromThisPc(req))
+          throw new HttpError(403, "not_local", "This opens only on the server's machine");
         const prefs = readPreferences(db);
         const dir = (await projectDir(db, p))?.dir;
         if (!dir)
@@ -938,9 +984,6 @@ export const projectsRoutes =
           if (target === "folder") return await openFolder(dir).then(() => ({ ok: true as const }));
           const abs = listed ? await projectFile(db, p, file) : null;
           if (!abs) throw new HttpError(403, "not_allowed", "File is not part of this project");
-          // The server's slicer opens on the server's screen: never for someone at another computer.
-          if (!fromThisPc(req))
-            throw new HttpError(403, "not_local", "The slicer opens only on the server's machine");
           // The picked slicer, else the default one, else the first.
           const slicers = capableRows(db, adapters, "openInSlicer");
           const pick = integrationId ?? prefs.defaultSlicerId;

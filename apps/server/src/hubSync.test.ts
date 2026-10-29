@@ -318,8 +318,23 @@ describe("hub file sync", () => {
       s.app.inject({ method, url, payload, headers: { cookie }, remoteAddress: remote });
     expect((await asEditor("GET", `/api/projects/${mine.id}/devices`)).json()).toEqual({
       local: true,
-      devices: [],
+      devices: [{ id: device.id, name: "Desk: PC", port: 4399, slicers: [], synced: false }],
     });
+    // Open folder: not synced there yet, so the user is told how to get it.
+    const folder = { target: "folder", deviceId: device.id };
+    expect(
+      (await asEditor("POST", `/api/projects/${mine.id}/open`, folder)).json().error.code,
+    ).toBe("device_not_synced");
+    // No slicer: Open isn't for this device.
+    expect(
+      (
+        await asEditor("POST", `/api/projects/${mine.id}/open`, {
+          target: "device",
+          deviceId: device.id,
+          file: "m.stl",
+        })
+      ).json().error.code,
+    ).toBe("device_offline");
     await s.app.inject({
       method: "PUT",
       url: "/api/hub/device/slicers",
@@ -340,6 +355,7 @@ describe("hub file sync", () => {
           name: "Desk: PC",
           port: 4399,
           slicers: [{ id: "bambu-studio" }, { id: "orca-slicer", default: true }],
+          synced: false,
         },
       ],
     });
@@ -365,6 +381,20 @@ describe("hub file sync", () => {
       headers: { authorization: s.authorization },
     });
     expect((await opening).json()).toEqual({ ok: true });
+
+    // Selected now: Open folder asks the device to open its copy.
+    const opened = asEditor("POST", `/api/projects/${mine.id}/open`, folder);
+    const ask = JSON.parse(
+      /data: (\{"type":"open.folder".*)/.exec(await until('"open.folder"'))?.[1] ?? "",
+    );
+    expect(ask).toMatchObject({ rootId: s.root.id, path: "mine" });
+    await s.app.inject({
+      method: "POST",
+      url: `/api/hub/device/replies/${ask.requestId}`,
+      payload: { ok: true, result: null },
+      headers: { authorization: s.authorization },
+    });
+    expect((await opened).json()).toEqual({ ok: true });
 
     // Hub management takes it off the device: the connector syncs again, its copy goes.
     const off = await s.send("DELETE", `/api/hub/devices/${device.id}/projects/${mine.id}`);

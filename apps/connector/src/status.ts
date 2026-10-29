@@ -1,4 +1,3 @@
-import { spawn } from "node:child_process";
 import { mkdirSync, readFileSync } from "node:fs";
 import {
   createServer,
@@ -8,6 +7,7 @@ import {
 } from "node:http";
 import { hostname } from "node:os";
 import type { DeviceSyncState } from "@3d-maker-suite/core";
+import { openFolder } from "@3d-maker-suite/host";
 import { type Link, type LinkStatus, PairError, type PairErrorCode } from "./hub.ts";
 import type { FolderError } from "./roots.ts";
 import type { Store } from "./state.ts";
@@ -74,12 +74,7 @@ export function allowed(method: string | undefined, headers: IncomingHttpHeaders
   return method === "GET" || ours.some((h) => headers.origin === `http://${h}`);
 }
 
-const openFolder = (dir: string) => {
-  const cmd = { win32: "explorer.exe", darwin: "open" }[process.platform as string] ?? "xdg-open";
-  spawn(cmd, [dir], { stdio: "ignore", detached: true })
-    .on("error", () => {})
-    .unref();
-};
+const openDir = (dir: string) => void openFolder(dir).catch(() => {});
 
 async function readForm(req: IncomingMessage) {
   let body = "";
@@ -133,7 +128,7 @@ export function createStatusPage({
   updater,
   version,
   syncDir,
-  open = openFolder,
+  open = openDir,
   exit = (code) => process.exit(code),
 }: Options) {
   const pairForm = (error?: PairErrorCode, form?: URLSearchParams) => {
