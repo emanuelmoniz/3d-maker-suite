@@ -2,7 +2,8 @@ import { mkdir, mkdtemp, readdir, realpath, rm, symlink, writeFile } from "node:
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { inRoot, relParts, rootMkdir, rootTrash } from "./rootPath.ts";
+import { listShared } from "./listFolder.ts";
+import { inRoot, relParts, rootMkdir, rootTrash, within } from "./rootPath.ts";
 
 let dir: string;
 let base: string;
@@ -62,5 +63,32 @@ describe("root paths", () => {
     // A trash folder that leads out of the root.
     expect(await code(rootTrash(base, "a.3mf", "out", "x"))).toBe("EACCES");
     expect(await readdir(outside)).toEqual(["secret.3mf"]);
+  });
+});
+
+describe("shared folders", () => {
+  it("finds the folder holding a path, never a sibling with the same prefix", () => {
+    expect(within([base], base)).toBe(base);
+    expect(within([base], join(base, "001_Box"))).toBe(base);
+    expect(within([base], `${base}X`)).toBeUndefined();
+    expect(within([base], dir)).toBeUndefined();
+    // Windows paths compare case-insensitively, others don't.
+    expect(within([base], base.toUpperCase())).toBe(
+      process.platform === "win32" ? base : undefined,
+    );
+  });
+
+  it("lists only inside the folders, also through `..` and links", async () => {
+    expect((await listShared(null, [base])).entries).toEqual([
+      { name: base, path: base, type: "dir" },
+    ]);
+    const top = await listShared(base, [base]);
+    expect(top.parent).toBeNull();
+    expect(top.entries.map((e) => e.name)).toEqual(["001_Box", "out"]);
+    expect((await listShared(join(base, "001_Box"), [base])).parent).toBe(base);
+    for (const p of [dir, outside, join(base, ".."), join(base, "out"), join(dir, "nope"), "/"])
+      expect(await code(listShared(p, [base])), p).toBe("EACCES");
+    expect(await code(listShared("relative", [base]))).toBe("EINVAL");
+    expect(await code(listShared(base, []))).toBe("EACCES");
   });
 });

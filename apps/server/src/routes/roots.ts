@@ -57,9 +57,11 @@ export const rootsRoutes =
         .get();
       const state = !channel.online(r.location)
         ? "offline"
-        : scanner.missingOnDevice(r.id)
-          ? "missing"
-          : "ok";
+        : scanner.unsharedOnDevice(r.id)
+          ? "unshared"
+          : scanner.missingOnDevice(r.id)
+            ? "missing"
+            : "ok";
       return { ...r, ...access, state, deviceName: device?.name ?? null };
     };
     /** Replaces a root's picked editors: editors and admins only (a viewer can't edit anything). */
@@ -112,7 +114,8 @@ export const rootsRoutes =
         } else {
           if (!db.select().from(devices).where(eq(devices.id, location)).get())
             throw new HttpError(404, "not_found", "Device not found");
-          // The device checks the folder: it must be there, and absolute on the device's OS.
+          // The device checks the folder: it must be there, absolute on the device's OS and in one
+          // of its shared folders (403 path_denied).
           const list = await channel
             .ask(
               location,
@@ -121,7 +124,10 @@ export const rootsRoutes =
             )
             .catch((e) =>
               Promise.reject(
-                e instanceof HttpError && e.statusCode < 500 && e.code !== "device_offline"
+                e instanceof HttpError &&
+                  e.statusCode < 500 &&
+                  e.code !== "device_offline" &&
+                  e.code !== "path_denied"
                   ? new HttpError(400, "invalid_folder", "Folder not found")
                   : e,
               ),

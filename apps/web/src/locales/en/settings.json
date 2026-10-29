@@ -91,6 +91,7 @@
     "rootMissing": "That folder doesn't exist on the server.",
     "rootMissingDevice": "That folder doesn't exist on the device.",
     "rootNested": "This folder is inside another project folder on that device, or holds one.",
+    "rootNotShared": "The device doesn't share this folder. Add it to the shared folders on the device's connector page first.",
     "deviceOffline": "The device is offline. Start its connector, then try again.",
     "deviceTimeout": "The device didn't answer. Check that its connector is running, then try again.",
     "location": "Location",

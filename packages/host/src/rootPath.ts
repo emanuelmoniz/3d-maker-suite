@@ -34,6 +34,13 @@ export function below(base: string, abs: string) {
 }
 
 /**
+ * The one of `folders` that is `abs` or holds it; undefined when none does. Case-insensitive on
+ * Windows only, as `relative` is.
+ */
+export const within = (folders: readonly string[], abs: string) =>
+  folders.find((f) => relative(f, abs) === "" || below(f, abs) !== null);
+
+/**
  * The real path of an existing `rel` in the root whose real path is `base` ("" = the root), or null
  * when it is missing or a link leads it out of the root. EINVAL for a bad `rel`.
  */

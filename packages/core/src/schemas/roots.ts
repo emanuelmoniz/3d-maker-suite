@@ -32,9 +32,10 @@ export const rootSchema = z.object({
   updatedAt: isoDate,
   /**
    * "offline": its device isn't connected (last known data is shown). "missing": the folder isn't
-   * there. A hub root is "ok" here; its scan reports a missing one.
+   * there. "unshared": it isn't in its device's shared folders (last known data, like offline).
+   * A hub root is "ok" here; its scan reports a missing one.
    */
-  state: z.enum(["ok", "offline", "missing"]),
+  state: z.enum(["ok", "offline", "missing", "unshared"]),
   /** The device a root lives on; null on the hub or when the device is gone. */
   deviceName: z.string().nullable(),
 });

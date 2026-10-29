@@ -287,6 +287,7 @@ const ROOT_ERRORS = {
   root_in_use: "settings:projects.rootInUse",
   root_exists: "settings:projects.rootExists",
   root_nested: "settings:projects.rootNested",
+  path_denied: "settings:projects.rootNotShared",
   device_offline: "settings:projects.deviceOffline",
   device_timeout: "settings:projects.deviceTimeout",
 } as const;

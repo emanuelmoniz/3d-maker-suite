@@ -21,7 +21,7 @@ import {
   ROOT_HUB,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
-import { and, asc, eq, isNotNull } from "drizzle-orm";
+import { and, asc, count, eq, isNotNull } from "drizzle-orm";
 import type { FastifyRequest } from "fastify";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
@@ -133,6 +133,9 @@ export const hubDeviceRoutes =
                     : [],
                 ),
               ),
+              projects:
+                db.select({ n: count() }).from(projects).where(eq(projects.rootId, id)).get()?.n ??
+                0,
             };
           });
       },

@@ -93,6 +93,8 @@ export function createProjectScanner(
   const refreshedAt = new Map<string, number>();
   /** Device roots whose folder their device reported missing (resent on every connect). */
   const missingOnDevice = new Set<string>();
+  /** Device roots outside their device's shared folders (resent on every connect). */
+  const unsharedOnDevice = new Set<string>();
   const stops: (() => void)[] = [];
   let watching = "";
   let closed = false;
@@ -379,11 +381,16 @@ export function createProjectScanner(
   /**
    * A device root's index (ADR-0014): folders it no longer lists are forgotten (their projects
    * read "missing"); returns the ones to send, new or with another digest. A missing root
-   * forgets them all.
+   * forgets them all; an unshared one keeps them as they were (like offline).
    */
   async function deviceIndex(root: Root, index: DeviceIndex) {
     if (index.state === "missing") missingOnDevice.add(root.id);
     else missingOnDevice.delete(root.id);
+    if (index.state === "unshared") {
+      unsharedOnDevice.add(root.id);
+      return [];
+    }
+    unsharedOnDevice.delete(root.id);
     const listed = index.state === "ok" ? index.folders : [];
     const mine = eq(deviceRootFolders.rootId, root.id);
     db.delete(deviceRootFolders)
@@ -688,6 +695,7 @@ export function createProjectScanner(
     dropDevicePreviews: (rootId: string) =>
       rm(previewDir(rootId), { recursive: true, force: true }),
     missingOnDevice: (rootId: string) => missingOnDevice.has(rootId),
+    unsharedOnDevice: (rootId: string) => unsharedOnDevice.has(rootId),
     /** Begins watching and runs a first scan, so changes made while the app was off are found. */
     boot() {
       void watch();

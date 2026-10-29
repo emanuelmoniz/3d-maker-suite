@@ -928,7 +928,7 @@ Do Step 11 of the 5.0.0 plan in PLAN.md. Show me the sync loop and its state fil
 Do Step 12 of the 5.0.0 plan in PLAN.md.
 ```
 
-### [ ] Step 12b - Connector folders: only shared folders are browsable  **[plan mode]**
+### [x] Step 12b - Connector folders: only shared folders are browsable  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:**
 - Today the hub's folder browser (`fs.list`) can list the device's whole filesystem. The connector status page gets a **Folders** section: add (typed path, checked to exist) and remove the local folders the hub may use. Stored as real paths in `state.json` (`folders`). A folder inside another one is refused (already covered).

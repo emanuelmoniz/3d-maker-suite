@@ -1,7 +1,8 @@
 import { readdir, realpath, stat } from "node:fs/promises";
 import { homedir } from "node:os";
-import { dirname, extname, isAbsolute, join, resolve, sep } from "node:path";
+import { dirname, extname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import type { FsListResponse } from "@3d-maker-suite/core";
+import { within } from "./rootPath.ts";
 
 export type DirEntry = {
   name: string;
@@ -83,4 +84,32 @@ export async function listFolder(
     .map((e) => ({ name: e.name, path: e.abs, type: e.type }));
   const parent = dirname(real);
   return { path: real, parent: parent === real ? null : parent, sep, entries };
+}
+
+/**
+ * `listFolder` confined to `folders` (real paths: a connector's shared folders). No path lists
+ * them; any other path must be inside one once `..` and links resolve, else `code` EACCES, also
+ * when it doesn't exist (so nothing tells what is there outside). At a folder, `parent` is null.
+ */
+export async function listShared(
+  path: string | null,
+  folders: readonly string[],
+): Promise<FsListResponse> {
+  if (!path)
+    return {
+      path: null,
+      parent: null,
+      sep,
+      entries: folders.map((f) => ({ name: f, path: f, type: "dir" })),
+    };
+  const denied = () => Object.assign(new Error("Not a shared folder"), { code: "EACCES" });
+  if (!isAbsolute(path))
+    throw Object.assign(new Error("Path must be absolute"), { code: "EINVAL" });
+  const real = await realpath(resolve(path)).catch((e) => {
+    throw within(folders, resolve(path)) ? e : denied();
+  });
+  const top = within(folders, real);
+  if (!top) throw denied();
+  const list = await listFolder(real);
+  return relative(top, real) === "" ? { ...list, parent: null } : list;
 }

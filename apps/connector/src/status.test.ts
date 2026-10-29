@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, realpathSync, rmSync } from "node:fs";
 import { request } from "node:http";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
@@ -59,7 +59,7 @@ const serve = async () => {
       req.on("error", fail);
       req.end(body);
     });
-  return { port, call, opened, exits, syncDir, origin: () => `http://127.0.0.1:${port}` };
+  return { port, call, opened, exits, syncDir, store, origin: () => `http://127.0.0.1:${port}` };
 };
 
 it("only answers its own host, and POSTs only from its own page", () => {
@@ -114,6 +114,36 @@ it("restarts, and stops only once confirmed and only from its own page", async (
   const stop = await s.call("POST", "/stop", { origin: s.origin() });
   expect(stop.body).toContain(t("connector:stopped"));
   expect(s.exits).toEqual([75, 0]);
+});
+
+it("shares folders on a page of its own, only from its own page", async () => {
+  const s = await serve();
+  const page = await s.call("GET", "/folders");
+  expect(page.body).toContain(t("connector:folders.intro"));
+  expect(page.body).not.toContain('http-equiv="refresh"');
+
+  const type = { "content-type": "application/x-www-form-urlencoded" };
+  const form = (k: string, v: string) => new URLSearchParams({ [k]: v }).toString();
+  const add = (path: string, origin = s.origin()) =>
+    s.call("POST", "/folders/add", { ...type, origin }, form("path", path));
+  // Not seeded yet: the hub's roots come first.
+  expect((await add(dir)).body).toContain(t("connector:folders.errors.waiting"));
+  s.store.set({ folders: [] });
+  expect((await add(dir, "https://evil.example")).status).toBe(403);
+  expect(await add(dir)).toMatchObject({ status: 303, location: "/folders" });
+  expect(s.store.get().folders).toEqual([realpathSync(dir)]);
+  const bad = await add("relative/path");
+  expect(bad.status).toBe(400);
+  expect(bad.body).toContain(t("connector:folders.errors.notAbsolute"));
+  expect(bad.body).toContain('value="relative/path"');
+  // No roots list from the hub yet: removing waits for it.
+  const remove = await s.call(
+    "POST",
+    "/folders/remove",
+    { ...type, origin: s.origin() },
+    form("folder", realpathSync(dir)),
+  );
+  expect(remove.body).toContain(t("connector:folders.errors.waiting"));
 });
 
 it("escapes what it fills in", () => {

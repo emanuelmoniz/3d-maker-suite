@@ -36,7 +36,8 @@ export function readPort(dir: string): number {
 
 /**
  * `cursor` is the last hub event handled (the stream's `Last-Event-ID`); `defaultSlicer` the id of
- * the slicer Open uses (slicers.ts).
+ * the slicer Open uses (slicers.ts); `folders` the real paths the hub may use (roots.ts), none yet
+ * until the first roots fetch seeds them.
  */
 type State = {
   hubUrl?: string;
@@ -44,6 +45,7 @@ type State = {
   deviceName?: string;
   cursor?: number;
   defaultSlicer?: string;
+  folders?: string[];
 };
 type Saved = State & { token?: Blob };
 

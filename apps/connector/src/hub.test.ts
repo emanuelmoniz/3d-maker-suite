@@ -6,6 +6,7 @@ import {
   mkdtempSync,
   readdirSync,
   readFileSync,
+  realpathSync,
   renameSync,
   rmSync,
   writeFileSync,
@@ -182,6 +183,10 @@ describe("connector and hub", () => {
       cleanup.push(() => rmSync(root, { recursive: true, force: true }));
       mkdirSync(join(root, "001_Box"));
       copyFileSync(fixture("single_color.3mf"), join(root, "001_Box", "box.3mf"));
+      // A new connector shares nothing: seeded empty from its (no) roots, then the folder added.
+      await until(() => c.store.get().folders !== undefined);
+      expect(c.store.get().folders).toEqual([]);
+      expect(await c.link.roots.folders.add(root)).toBeUndefined();
       const projects = async () => (await h.send("GET", "/api/projects")).json().items;
       return { h, c, device, root, projects };
     };
@@ -268,6 +273,48 @@ describe("connector and hub", () => {
       await until(async () => (await projects()).length === 2, 10_000);
       expect((await projects()).every((x: { offline: boolean }) => !x.offline)).toBe(true);
     }, 40_000);
+
+    it("lists and adds only inside the shared folders; an unshared root keeps its data", async () => {
+      const { h, c, device, root, projects } = await setup();
+      const outside = mkdtempSync(join(tmpdir(), "device-outside-"));
+      cleanup.push(() => rmSync(outside, { recursive: true, force: true }));
+      const list = async (path?: string) =>
+        (
+          await h.send(
+            "GET",
+            `/api/fs/list?device=${device.id}${path === undefined ? "" : `&path=${encodeURIComponent(path)}`}`,
+          )
+        ).json();
+      const real = realpathSync(root);
+      expect((await list()).entries).toEqual([{ name: real, path: real, type: "dir" }]);
+      for (const path of [outside, join(root, ".."), join(outside, "nope")])
+        expect((await list(path)).error.code).toBe("path_denied");
+      const denied = await h.send("POST", "/api/roots", { path: outside, location: device.id });
+      expect(denied.statusCode).toBe(403);
+      expect(denied.json().error.code).toBe("path_denied");
+
+      const added = await h.send("POST", "/api/roots", { path: root, location: device.id });
+      await until(async () => (await projects()).length === 1, 10_000);
+      const [p] = await projects();
+      // A root with projects keeps its shared folder.
+      expect(await c.link.roots.folders.remove(real)).toBe("inUse");
+      expect(c.link.roots.folders.list()).toEqual([real]);
+
+      // Unshared on the device (e.g. by hand in state.json): last known data, never missing.
+      c.store.set({ folders: [] });
+      void c.link.roots.start();
+      const roots = async () => (await h.send("GET", "/api/roots")).json();
+      await until(async () => (await roots())[0].state === "unshared");
+      expect((await roots())[0].id).toBe(added.json().id);
+      expect(c.link.roots.state().watching).toBe(0);
+      expect(await projects()).toMatchObject([{ id: p.id, offline: true }]);
+      expect((await h.send("GET", `/api/projects/${p.id}`)).json().folderState).toBe("offline");
+
+      // Shared again: back to ok.
+      expect(await c.link.roots.folders.add(root)).toBeUndefined();
+      await until(async () => (await roots())[0].state === "ok");
+      expect((await projects())[0].offline).toBe(false);
+    }, 30_000);
 
     it("pulls a file when needed, slices it on the hub, and writes on the device", async () => {
       const mock = mockState();

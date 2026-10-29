@@ -188,11 +188,14 @@ export const deviceRootSchema = z.object({
   covers: z.record(z.string(), z.string()),
   /** The gallery a project picked, by folder: its images are sent with the folder. */
   galleries: z.record(z.string(), projectGallerySchema),
+  /** Projects in it: the connector keeps a shared folder holding it while there are any. */
+  projects: z.number().int(),
 });
 
 /**
  * A device root's project folders (`PUT /api/hub/device/roots/:id/index`), each with the digest of
- * its file list; or the root folder itself is missing on the device.
+ * its file list; or the root folder itself is missing on the device; or it isn't in the device's
+ * shared folders (the hub keeps its last known folders).
  */
 export const deviceIndexSchema = z.discriminatedUnion("state", [
   z.object({
@@ -200,6 +203,7 @@ export const deviceIndexSchema = z.discriminatedUnion("state", [
     folders: z.array(z.object({ rel, digest: z.string().max(128) })),
   }),
   z.object({ state: z.literal("missing") }),
+  z.object({ state: z.literal("unshared") }),
 ]);
 /** The folders the hub doesn't have at that digest: send them. */
 export const deviceIndexResultSchema = z.object({ want: z.array(z.string()) });

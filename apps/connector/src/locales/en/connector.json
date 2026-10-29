@@ -80,5 +80,23 @@
     "none": "No supported slicer is installed on this device, so files can't be opened here from the web app. Install one, then restart the connector.",
     "default": "Default",
     "makeDefault": "Use by default"
+  },
+  "folders": {
+    "title": "Shared folders",
+    "intro": "The hub sees only these folders on this device: an admin can browse them and add project folders inside them. Nothing else on this device is listed.",
+    "none": "None yet",
+    "manage": "Manage shared folders",
+    "path": "Folder to share",
+    "pathHint": "The full path of an existing folder, for example C:\\Users\\me\\3D or /home/me/3d",
+    "add": "Share folder",
+    "remove": "Stop sharing",
+    "back": "Back to status",
+    "errors": {
+      "notAbsolute": "Enter the full path of the folder, starting at the drive or at /.",
+      "notFound": "There is no folder at this path.",
+      "covered": "This folder is shared already, as part of a shared folder.",
+      "inUse": "A project folder in it still has projects on the hub. Remove those projects, or the project folder, in the web app first.",
+      "waiting": "Waiting for the hub. Try again once the connector is online."
+    }
   }
 }

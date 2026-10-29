@@ -279,11 +279,16 @@ export const projectsRoutes =
       return trashedTo;
     }
 
-    /** Roots on a device that isn't connected: their projects show their last known data. */
+    /**
+     * Roots on a device that isn't connected, or outside its shared folders: their projects show
+     * their last known data.
+     */
+    const away = (r: Root) =>
+      onDevice(r) && (!hub.online(r.location) || scanner.unsharedOnDevice(r.id));
     const offlineRoots = () =>
       new Set(
         listRoots(db)
-          .filter((r) => onDevice(r) && !hub.online(r.location))
+          .filter(away)
           .map((r) => r.id),
       );
 
@@ -302,7 +307,7 @@ export const projectsRoutes =
       if (!root || p.folder === null)
         return { ...p, folderState: p.rootId ? "missing" : null, galleryLeftOut };
       if (onDevice(root)) {
-        const state = !hub.online(root.location)
+        const state = away(root)
           ? "offline"
           : scanner.deviceFolder(root.id, p.folder)
             ? "ok"

@@ -45,7 +45,9 @@
     "error": "This folder can't be opened.",
     "deviceOffline": "The device is offline. Start its connector, then try again.",
     "deviceTimeout": "The device didn't answer. Check that its connector is running, then try again.",
-    "deviceOutdated": "The device's connector is too old for this. Update it, then try again."
+    "deviceOutdated": "The device's connector is too old for this. Update it, then try again.",
+    "notShared": "The device doesn't share this folder. Add it to the shared folders on the device's connector page.",
+    "deviceNone": "The device shares no folders yet. Add one on the device's connector page."
   },
   "theme": {
     "label": "Theme",
@@ -133,6 +135,7 @@
   },
   "rootState": {
     "offline": "Offline",
-    "missing": "Missing"
+    "missing": "Missing",
+    "unshared": "Not shared on the device"
   }
 }

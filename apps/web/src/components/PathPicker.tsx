@@ -6,16 +6,21 @@ import { ApiError, api } from "../lib/api.ts";
 import { Button } from "./Button.tsx";
 import { inputClass } from "./FormField.tsx";
 
-/** Why a device's folders can't be listed: its connector is off, doesn't answer, or is too old. */
+/**
+ * Why a device's folders can't be listed: its connector is off, doesn't answer, is too old, or
+ * doesn't share the folder.
+ */
 const DEVICE_ERRORS: Record<
   string,
   | "common:pathPicker.deviceOffline"
   | "common:pathPicker.deviceTimeout"
   | "common:pathPicker.deviceOutdated"
+  | "common:pathPicker.notShared"
 > = {
   device_outdated: "common:pathPicker.deviceOutdated",
   device_offline: "common:pathPicker.deviceOffline",
   device_timeout: "common:pathPicker.deviceTimeout",
+  path_denied: "common:pathPicker.notShared",
 };
 
 type Sep = FsListResponse["sep"];
@@ -268,7 +273,9 @@ export function PathPicker({
             {t(DEVICE_ERRORS[failure ?? ""] ?? "common:pathPicker.error")}
           </p>
         ) : data?.entries.length === 0 ? (
-          <p className="text-muted">{t("common:pathPicker.empty")}</p>
+          <p className="text-muted">
+            {t(device && !path ? "common:pathPicker.deviceNone" : "common:pathPicker.empty")}
+          </p>
         ) : (
           <ul
             ref={listRef}

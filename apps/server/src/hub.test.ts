@@ -337,6 +337,7 @@ describe("hub events", () => {
         folderMaxMb: 32,
         covers: {},
         galleries: {},
+        projects: 0,
       },
     ]);
     expect((await index("a")).json()).toEqual({ want: ["001_Box"] });
@@ -355,6 +356,20 @@ describe("hub events", () => {
     const { id } = await detail();
     await send("PATCH", `/api/projects/${id}`, { descriptionFile: "README.md" });
     expect((await detail()).description).toBe("A box.");
+
+    // Not in the device's shared folders: last known data, like offline; nothing is forgotten.
+    const mineNow = async () =>
+      (await send("GET", "/api/roots")).json().find((r: { id: string }) => r.id === mine.id);
+    expect((await dev("PUT", `/roots/${mine.id}/index`, { state: "unshared" })).json()).toEqual({
+      want: [],
+    });
+    expect(await detail()).toMatchObject({ folderState: "offline", description: "A box." });
+    expect((await send("GET", "/api/projects")).json().items[0].offline).toBe(true);
+    expect(await mineNow()).toMatchObject({ state: "unshared" });
+    expect((await dev("GET", "/roots")).json()[0].projects).toBe(1);
+    expect((await index("a")).json()).toEqual({ want: [] });
+    expect(await mineNow()).toMatchObject({ state: "ok" });
+    expect((await detail()).folderState).toBe("ok");
 
     // Only its own roots; paths stay inside the root.
     expect((await dev("PUT", `/roots/${theirs.id}/index`, { state: "missing" })).statusCode).toBe(
