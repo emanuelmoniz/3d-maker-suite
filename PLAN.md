@@ -1,4 +1,4 @@
-# 3D Maker Suite - Development Plans 4.1.0, 4.1.1, 4.2.0, 5.0.0 and 6.0.0
+# 3D Maker Suite - Development Plans 4.1.0, 4.1.1, 4.2.0, 5.0.0, 5.1.0 and 6.0.0
 Repo: `3d-maker-suite`
 
 How to use:
@@ -928,10 +928,27 @@ Do Step 11 of the 5.0.0 plan in PLAN.md. Show me the sync loop and its state fil
 Do Step 12 of the 5.0.0 plan in PLAN.md.
 ```
 
+### [ ] Step 12b - Connector folders: only shared folders are browsable  **[plan mode]**
+**Model:** Opus · **Effort:** High
+**Scope:**
+- Today the hub's folder browser (`fs.list`) can list the device's whole filesystem. The connector status page gets a **Folders** section: add (typed path, checked to exist) and remove the local folders the hub may use. Stored as real paths in `state.json` (`folders`). A folder inside another one is refused (already covered).
+- Upgrade: a connector with no `folders` yet seeds them from its current device roots on the first roots fetch, so nothing breaks.
+- `fs.list` is confined: no path → the folders as starting points (instead of drives, `/` and home); any other path must resolve (`realpath`) inside a folder (reuse `below()` from `packages/host/src/rootPath.ts`), else EACCES → hub 403 `path_denied`. `POST /api/roots` checks through `fs.list`, so a root outside the folders is refused.
+- A device root outside the folders isn't watched or served: the connector reports it, and the hub shows a "Not shared on the device" badge (like offline: last known data, projects never marked missing).
+- Removing a folder is refused while a hub root inside it has projects (`GET /api/hub/device/roots` gains a `projects` count; with no roots list fetched yet, removal waits for the hub). The hub already refuses removing a root with projects (409 `root_in_use`).
+- Windows paths compare case-insensitively. The sync folder (hub roots) is not affected.
+- i18n `connector:folders.*`, `projects:roots.*`.
+
+**Done when:** the hub can't list or add anything outside the device's folders (path-escape and symlink tests); an upgraded connector keeps its roots; a folder holding a used root can't be removed; tests pass.
+**Prompt:**
+```
+Do Step 12b of the 5.0.0 plan in PLAN.md. Show me the folder rules and the upgrade seeding first.
+```
+
 ### [ ] Step 13 - Docs, push & v5.0.0-alpha.3
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
-- `docs/hub.md`: hub roots, sync modes, conflicts, trash, the mass delete guard.
+- `docs/hub.md`: hub roots, sync modes, conflicts, trash, the mass delete guard, connector folders.
 - CHANGELOG, version `5.0.0-alpha.3`.
 - Commit, push `dev`, tag on `dev`. Check the run and the pre-release.
 
@@ -1051,7 +1068,8 @@ Then push dev, push the tag and confirm the pre-release is published.
 - A hub on a VPS behind Caddy (HTTPS), plus a hub on a NAS (Docker).
 - Connectors on Windows, macOS and Linux, plus one on a NAS used as a device root.
 - Pairing and revoking; hub root sync in both modes; Open on my workstation; a conflict; the mass delete guard; locks (on and strict) with a device going offline; versions.
-- A device root offline and back; a slice worker for an arm64 hub; antivirus and SmartScreen behaviour on Windows.
+- A device root offline and back; a root outside the connector's folders is refused; removing a folder in use is refused.
+- A slice worker for an arm64 hub; antivirus and SmartScreen behaviour on Windows.
 
 Fix anything found and note it in the CHANGELOG (alpha.6 if needed).
 **Done when:** every scenario worked; fixes released.
@@ -1082,9 +1100,196 @@ Then fast-forward main to dev, push, push the v5.0.0 tag and confirm the release
 
 ---
 
+# Plan 5.1.0 - Roles, permissions & alerts
+
+Minor release, starts after the 5.0.0 release. Design: ADR-0016, which supersedes ADR-0012's fixed roles.
+
+## Phase 15 - Fixes & settings
+
+### [ ] Step 1 - Accent selector shows the picked color
+**Model:** Sonnet · **Effort:** Low
+**Scope:** The Appearance accent Combobox reads `useTheme()` (like `ThemeToggle`), not the preferences query that `setTheme` never updates. Check every other reader of `prefs.accent`.
+**Done when:** picking an accent updates the selector at once and after a reload; e2e; tests pass.
+**Prompt:**
+```
+Do Step 1 of the 5.1.0 plan in PLAN.md.
+```
+
+### [ ] Step 2 - Settings → Projects, organized
+**Model:** Sonnet · **Effort:** Medium
+**Scope:**
+- Split the one `Section` in `ConfigPages.tsx` into cards: **Project folders** (roots list and add form, moved to its own file), **Scanning & limits** (scan max files, viewer and upload size), **Hub devices** (device folder size, only with the hub on), **Trash**.
+- Same fields and behaviour; clearer labels and hints; mobile and keyboard checked. Use `frontend-design`.
+
+**Done when:** every field still saves; the layout is reviewed on mobile and desktop; screenshots are updated if one shows this page; `pnpm i18n:check` and tests pass.
+**Prompt:**
+```
+Do Step 2 of the 5.1.0 plan in PLAN.md. Use frontend-design. Show me the card layout first.
+```
+
+## Phase 16 - Roles and permissions
+
+Design:
+- `roles` table (id, name, built-in, disabled, permissions, project rights, alert kinds). Seeded **Admin** (all permissions; can't be edited, disabled or deleted), **Editor** and **Viewer** with exactly today's rights. `users.role` → `roleId`.
+- A fixed **permission catalog**, mapped from today's role × prefix table: per module none · read · write (printers, maintenance, filament, projects, prints, costs: quotes, orders and clients; stats), plus integrations sync, integrations review, integrations manage, hub manage, settings (server, backup, logs, branding, alerts), users & roles manage. Project rights: see all, edit others', edit other devices.
+- **Per-user overrides:** every permission and project right is tri-state (same as role · allow · deny), edited only by users with users & roles manage. Users can't change their own permissions. Effective rights are read per request, so no session reset is needed.
+- No escalation: a manager can't grant what they don't have, can't change their own role or rights, and can't touch the Admin role or its users.
+- A disabled role: its users can't sign in and their sessions end. A role with users can't be deleted (409 `role_in_use`). The last enabled Admin user stays protected.
+- `roots.editBy = roles` means "users with projects write". The per-policy editor flags stay as an extra gate for non-admins with the sync or review permission. Device tokens act with their user's rights. No-users mode is unchanged.
+
+### [ ] Step 3 - ADR-0016 roles, permissions and alert delivery  **[plan mode]**
+**Model:** Opus · **Effort:** High
+**Scope:** `docs/adr/0016-roles-permissions-alerts.md`: the designs of Phases 16 and 17, the permission catalog mapped from every prefix in `lib/auth.ts`, the alert kind catalog with each kind's permission, the migration, the escalation rules, rejected options. ADR-0012 marked partly superseded.
+**Done when:** the ADR is approved; every route prefix and alert kind maps to a permission.
+**Prompt:**
+```
+Do Step 3 of the 5.1.0 plan in PLAN.md. Show me the permission catalog mapped from today's table first.
+```
+
+### [ ] Step 4 - Roles and permissions: schema and server  **[plan mode]**
+**Model:** Opus · **Effort:** High
+**Scope:**
+- Migration: `roles` seeded, `users.roleId`, user overrides (null = same as role), project rights moved to role defaults plus user overrides.
+- `can()`, `mayTask`, `mayEditRoot` and `projectAccess` use effective rights. `/api/roles` CRUD; `/api/users` takes overrides; `/api/auth/me` returns effective permissions.
+- Escalation and last-admin rules on the server.
+
+**Done when:** the role-matrix test proves the seeded roles behave exactly as before; overrides and escalation rules are covered; the migration applies on a copy of the real DB; tests pass.
+**Prompt:**
+```
+Do Step 4 of the 5.1.0 plan in PLAN.md. Show me the schema and the migration first.
+Back up the DB before editing schema.ts.
+```
+
+### [ ] Step 5 - Users and roles pages
+**Model:** Opus · **Effort:** Medium
+**Scope:**
+- Settings → Users becomes a table: name (link to the edit page), email, role, state; row actions reset password, disable, delete.
+- User edit page: name, email, role, disabled, permission overrides (same as role · allow · deny) and project rights, each showing its effective value.
+- Settings → Roles: a table (name → edit page, users count, disable, delete) and a role edit page (permissions, project rights; default alerts once Phase 17 lands). New role.
+- `useCan(permission)` replaces `useCan("write" | "admin")` across the app. Use `frontend-design` for the tables and edit pages.
+
+**Done when:** a custom role and a user override change what that user sees (e2e); keyboard and mobile work; `pnpm i18n:check` and tests pass.
+**Prompt:**
+```
+Do Step 5 of the 5.1.0 plan in PLAN.md. Use frontend-design.
+```
+
+### [ ] Step 6 - Docs, push & v5.1.0-alpha.1
+**Model:** Sonnet · **Effort:** Medium
+**Scope:**
+- `docs/users.md`: roles, permissions, overrides, the upgrade from fixed roles.
+- CHANGELOG, version `5.1.0-alpha.1`.
+- Commit, push `dev`, tag on `dev`. Check the run and the pre-release.
+
+**Done when:** tags pushed; workflow green; docs match the app.
+**Prompt:**
+```
+Do Step 6 of the 5.1.0 plan in PLAN.md. Then push dev, push the tag and confirm the pre-release is published.
+```
+
+## Phase 17 - Alerts per role and user
+
+Design:
+- Alerts are still raised once per condition, and resolving stays shared: an alert that needs action (spool review, maintenance due, missing price…) resolves for everyone when its condition clears. Info alerts are read and dismissed per user.
+- Which kinds a user gets: the role's default kinds, overridden per kind by the user (in app · notify). A user never gets a kind whose permission they lack, nor an alert about a project they can't see.
+- The global on/off switches (`spoolNoPriceAlert`, `spoolNoOpenDateAlert`) move into the role defaults, migrated as they are. Thresholds (`lowSpoolGrams`, maintenance lead) stay global, because alert rows are shared. The per-spool, per-maintenance-type and per-policy switches stay.
+- Delivery per user: the mail server and the ntfy server stay global (admin). Each user turns on email (to their account email) and/or sets their own ntfy topic and token (encrypted, never returned). Sent once per user (`alert_states.notifiedAt`); a user's snooze holds delivery; disabled users get nothing.
+- No-users mode: the Admin role's kinds and today's global destinations apply.
+
+### [ ] Step 7 - Who gets which alert  **[plan mode]**
+**Model:** Opus · **Effort:** High
+**Scope:**
+- The kind catalog with a permission per kind (ADR-0016). Role default kinds and user overrides, migrated from the global switches.
+- `GET /api/alerts`, history, detail and the unread badge filter by subscription, permission and project visibility.
+- Settings → Alerts keeps the thresholds and the servers, and warns when no enabled user gets an action kind (e.g. maintenance due).
+- Tests per kind: shared resolve for action kinds, per-user dismiss for info kinds.
+
+**Done when:** a viewer without filament access gets no spool alerts; a hidden project's alert never shows; resolving an alert clears it for everyone; tests pass.
+**Prompt:**
+```
+Do Step 7 of the 5.1.0 plan in PLAN.md. Show me the kind catalog and the filter rules first.
+Back up the DB before editing schema.ts.
+```
+
+### [ ] Step 8 - Delivery per user: email and ntfy  **[plan mode]**
+**Model:** Opus · **Effort:** High
+**Scope:**
+- Global mail and ntfy servers (admin). Per user: email on/off, ntfy topic and token, a test button.
+- Sending per user and kind with `alert_states.notifiedAt`, re-armed after a snooze. Secrets never logged or returned.
+- Migration: today's email recipient and ntfy topic become the oldest enabled admin's delivery, so nothing stops.
+
+**Done when:** two users with different kinds receive only their own; a failed send retries without duplicates; the migration keeps today's notifications; tests pass.
+**Prompt:**
+```
+Do Step 8 of the 5.1.0 plan in PLAN.md. Show me the send loop and the migration first.
+Back up the DB before editing schema.ts.
+```
+
+### [ ] Step 9 - My alerts on the user page
+**Model:** Sonnet · **Effort:** Medium
+**Scope:**
+- A **My account** page from the user menu: name, password, my alerts (in app · notify per kind I can get, with "same as role" to reset), my delivery. No permissions here.
+- The admin's user edit page and the role page show the same alert list for that user or role.
+
+**Done when:** a user changes their own alerts and delivery, and an admin changes another user's; e2e; `pnpm i18n:check` and tests pass.
+**Prompt:**
+```
+Do Step 9 of the 5.1.0 plan in PLAN.md.
+```
+
+### [ ] Step 10 - Docs, push & v5.1.0-alpha.2
+**Model:** Sonnet · **Effort:** Medium
+**Scope:**
+- `docs/alerts.md` (who gets what, delivery per user, thresholds) and `docs/users.md`.
+- CHANGELOG, version `5.1.0-alpha.2`.
+- Commit, push `dev`, tag on `dev`. Check the run and the pre-release.
+
+**Done when:** tags pushed; workflow green; docs match the app.
+**Prompt:**
+```
+Do Step 10 of the 5.1.0 plan in PLAN.md. Only document what changed since 5.1.0-alpha.1.
+Then push dev, push the tag and confirm the pre-release is published.
+```
+
+## Phase 18 - Release
+
+### [ ] Step 11 - Real test: roles, alerts and delivery
+**Model:** Sonnet · **Effort:** Medium
+**Scope:**
+- Upgrade a copy of a real 5.0.0 DB.
+- A custom role; a user override; a user manager who isn't an admin (escalation refused); a disabled role.
+- Each alert kind reaching the right users in the app, by email and by ntfy; no-users mode.
+
+Fix anything found and note it in the CHANGELOG (alpha.3 if needed).
+**Done when:** every scenario worked; fixes released.
+**Prompt:**
+```
+Do Step 11 of the 5.1.0 plan in PLAN.md. Guide me through each scenario, then fix what we find.
+```
+
+### [ ] Step 12 - Docs, push & v5.1.0 release
+**Model:** Haiku · **Effort:** Low
+**Scope:**
+- `pnpm screenshots` (Users, Roles, My account), README, CHANGELOG, version `5.1.0`.
+- Commit on `dev`, fast-forward `main` to `dev`, push both, tag `v5.1.0` on `main`. Check the run, the release and the images.
+
+**Done when:** `main`, `dev` and the tag are pushed; the workflow is green; updating 5.0.0 to 5.1.0 keeps every user's rights and alerts.
+**Prompt:**
+```
+Do Step 12 of the 5.1.0 plan in PLAN.md. Only document what changed since the last 5.1.0 pre-release.
+Then fast-forward main to dev, push, push the v5.1.0 tag and confirm the release.
+```
+
+## Out of scope for 5.1.0 (later plans)
+- Per-user thresholds: alert rows are shared.
+- Other delivery channels (push, webhooks) and per-user mail servers.
+- Quiet hours and digests.
+
+---
+
 # Plan 6.0.0 - Every printer
 
-Major release, agreed on 2026-10-27. Starts after the 5.0.0 release. Adapter steps add tests against recorded payloads (fixtures), never a live printer in CI.
+Major release, agreed on 2026-10-27. Starts after the 5.1.0 release. Adapter steps add tests against recorded payloads (fixtures), never a live printer in CI.
 
 Design: ADR-0015. Prints are recorded automatically from the most used printer systems, the dashboard shows live status, and spool usage follows:
 - a new `PrinterStatusSource` capability and one **job tracker** in core turn status snapshots into prints;
@@ -1094,10 +1299,11 @@ Design: ADR-0015. Prints are recorded automatically from the most used printer s
 
 Wave 1: Moonraker, Bambu LAN, PrusaLink, OctoPrint, plus Spoolman two-way.
 
-## Phase 15 - Foundations
+## Phase 19 - Foundations
 
 Design:
 - Snapshot: state, job file, progress, ETA, layer, temperatures, slots (material, colour, RFID or spool id). In memory only, pushed over SSE.
+- New alert kinds join the kind catalog (5.1.0, ADR-0016) with their permission.
 - The job tracker emits an `ExternalPrint`; the existing upsert, dedupe and review do the rest. History sources backfill.
 - Review policy `never` · `unmatched` · `always`: global → integration → printer, most specific wins.
 - No printer control.
@@ -1196,7 +1402,7 @@ Do Step 6 of the 6.0.0 plan in PLAN.md. Back up the DB before editing schema.ts.
 Do Step 7 of the 6.0.0 plan in PLAN.md. Then push dev, push the tag and confirm the pre-release is published.
 ```
 
-## Phase 16 - Adapters
+## Phase 20 - Adapters
 
 Each adapter: a `local` package in `packages/adapters/<id>`, config and secrets schemas, status (and history where it exists), the recorded fixtures as tests, i18n names, a setup page in the docs. Added by host or IP.
 
@@ -1262,7 +1468,7 @@ Do Step 13 of the 6.0.0 plan in PLAN.md. Only document what changed since 6.0.0-
 Then push dev, push the tag and confirm the pre-release is published.
 ```
 
-## Phase 17 - Hub
+## Phase 21 - Hub
 
 ### [ ] Step 14 - Connector printer bridge  **[plan mode]**
 **Model:** Opus · **Effort:** High
@@ -1277,7 +1483,7 @@ Then push dev, push the tag and confirm the pre-release is published.
 Do Step 14 of the 6.0.0 plan in PLAN.md.
 ```
 
-## Phase 18 - Release
+## Phase 22 - Release
 
 ### [ ] Step 15 - Real test: one printer per adapter
 **Model:** Sonnet · **Effort:** Medium
@@ -1356,6 +1562,15 @@ Then fast-forward main to dev, push, push the v6.0.0 tag and confirm the release
 | hub: version history, download older versions (setting, keep N) | 5.0 · 15 |
 | hub: slice on the clients when the server can't | 5.0 · 17, 18 |
 | hub: print from the app | later |
+| connector: several roots; hub sees and adds only those; no removing a root in use | 5.0 · 12b |
+| accent color selector keeps showing teal | 5.1 · 1 |
+| projects settings more organized | 5.1 · 2 |
+| quote: preselect the project's print setup | already works (dropped) |
+| roles section: table, edit page, permissions, project rights, preset alerts | 5.1 · 3-5, 7 |
+| users section as a table, user edit page, per-user permissions and project rights over the role | 5.1 · 3-5 |
+| alerts move to roles and users, no global switch per kind; shared resolve for action alerts | 5.1 · 7 (thresholds stay global) |
+| alerts delivered per user (email, ntfy) | 5.1 · 8 |
+| users edit their own alerts | 5.1 · 9 |
 | live status: progress, temps, AMS state, auto print-event capture | 6.0 · 2, 3 (camera snapshot later) |
 | Spoolman: sync spools two-way | 6.0 · 12 |
 | other systems: Klipper/Moonraker, Prusa, OctoPrint, Bambu LAN | 6.0 · 8-11 (Creality stock, Elegoo SDCP in 6.x) |
