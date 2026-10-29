@@ -1,15 +1,15 @@
 import { createHash, randomUUID } from "node:crypto";
-import { createWriteStream, rmSync } from "node:fs";
+import { rmSync } from "node:fs";
 import { mkdir, rename, rm, stat, utimes } from "node:fs/promises";
 import { extname, join } from "node:path";
 import type { Readable } from "node:stream";
-import { pipeline } from "node:stream/promises";
 import type { DeviceFolder } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
 import type { HubChannel } from "../lib/hubChannel.ts";
+import { writeHashed } from "./hubFiles.ts";
 
 const { deviceRootFolders } = schema;
 type Root = typeof schema.roots.$inferSelect;
@@ -138,23 +138,13 @@ export function createDeviceFiles(db: Db, channel: HubChannel, dir: string) {
       if (!path || !w) throw new HttpError(404, "not_found", "Nothing waits for this file");
       const part = `${path}.${randomUUID()}.part`;
       try {
-        const hash = createHash("sha256");
-        let size = 0;
-        await pipeline(
+        const got = await writeHashed(
           body,
-          async function* (src: AsyncIterable<Buffer>) {
-            for await (const chunk of src) {
-              size += chunk.length;
-              if (size > CAP_BYTES)
-                throw new HttpError(413, "file_too_large", "The file is larger than the cache");
-              hash.update(chunk);
-              yield chunk;
-            }
-          },
-          createWriteStream(part),
+          part,
+          CAP_BYTES,
+          new HttpError(413, "file_too_large", "The file is larger than the cache"),
         );
-        if (hash.digest("hex") !== sha256)
-          throw new HttpError(502, "device_bad_file", "The file arrived damaged");
+        if (got !== sha256) throw new HttpError(502, "device_bad_file", "The file arrived damaged");
         // Its mtime on the device: what slicing fingerprints from here matches its scan.
         if (mtimeMs !== undefined) await utimes(part, new Date(), mtimeMs / 1000);
         await rename(part, path);

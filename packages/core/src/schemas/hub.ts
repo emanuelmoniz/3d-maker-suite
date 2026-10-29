@@ -187,6 +187,47 @@ export const deviceReplySchema = z.discriminatedUnion("ok", [
   z.object({ ok: z.literal(false), code: z.string().max(50) }),
 ]);
 
+/** `GET /api/hub/device/sync/changes`: the hub roots' files changed after `since` (0 = all). */
+export const hubChangesQuerySchema = z.object({
+  since: z.coerce.number().int().nonnegative().default(0),
+  limit: z.coerce.number().int().min(1).max(1000).default(1000),
+});
+/**
+ * One page of changes in `seq` order. `cursor`: send it as `since` next time (it moves even when
+ * nothing on the page is for this user); `more`: ask again at once. Only versions and hashes
+ * count, never clocks. `access` "read": the user may only download it (sync it read-only).
+ */
+export const hubChangesSchema = z.object({
+  cursor: z.number().int(),
+  more: z.boolean(),
+  files: z.array(
+    z.object({
+      rootId: id,
+      path: z.string(),
+      size: z.number().int(),
+      sha256: z.string(),
+      version: z.number().int(),
+      deleted: z.boolean(),
+      access: z.enum(["edit", "read"]),
+    }),
+  ),
+});
+/** A file of a hub root; `base`: the version the device's copy started from (0 = a new file). */
+export const hubFileQuerySchema = z.object({
+  path: rel,
+  base: z.coerce.number().int().nonnegative().optional(),
+});
+/**
+ * An upload's outcome: `updated` (now `version`), `unchanged` (the hub has these bytes), or
+ * `conflict`: the hub's file changed since `base`, the upload was kept as the copy `path`.
+ */
+export const hubUploadResultSchema = z.discriminatedUnion("status", [
+  z.object({ status: z.enum(["updated", "unchanged"]), version: z.number().int() }),
+  z.object({ status: z.literal("conflict"), version: z.number().int(), path: z.string() }),
+]);
+
+export type HubChanges = z.infer<typeof hubChangesSchema>;
+export type HubUploadResult = z.infer<typeof hubUploadResultSchema>;
 export type DeviceRoot = z.infer<typeof deviceRootSchema>;
 export type DeviceIndex = z.infer<typeof deviceIndexSchema>;
 export type DeviceFolder = z.infer<typeof deviceFolderSchema>;

@@ -82,10 +82,14 @@ export function createProjectScanner(
     watch?: boolean;
     /** After any scan of a known project (full or one folder), with its meta from before (auto slicing). */
     onScanned?: (projectId: string, before: ProjectMeta) => Promise<void>;
+    /** Re-reads `rel` ("" = all) of a hub root into the sync index (ADR-0014): every file, any depth. */
+    index?: (root: Root, rel: string) => Promise<void>;
   } = {},
 ) {
   let state = idle();
   const pending = new Map<string, { root: Root; rel: string; at: number }>();
+  /** What the watcher saw, for the sync index. */
+  const toIndex = new Map<string, Place>();
   const refreshedAt = new Map<string, number>();
   /** Device roots whose folder their device reported missing (resent on every connect). */
   const missingOnDevice = new Set<string>();
@@ -468,6 +472,11 @@ export function createProjectScanner(
       .where(and(eq(deviceRootFolders.rootId, rootId), eq(deviceRootFolders.folder, rel)))
       .run();
 
+  const indexPlace = ({ root, rel }: Place) =>
+    opts
+      .index?.(root, rel)
+      .catch((err) => log.warn({ err, root: root.path, rel }, "hub index failed"));
+
   async function pass() {
     state = running();
     try {
@@ -507,6 +516,7 @@ export function createProjectScanner(
         state.done++;
       }
       linkPrints(db);
+      for (const s of all) if (s.base) await indexPlace({ root: s.root, rel: "" });
     } catch (e) {
       log.error({ err: e }, "project scan crashed");
     }
@@ -527,6 +537,7 @@ export function createProjectScanner(
       state = running();
       // The pass sees everything on disk now, so changes seen so far need no scan of their own.
       pending.clear();
+      toIndex.clear();
       void run();
     }
     return state;
@@ -540,6 +551,9 @@ export function createProjectScanner(
     }
     const batch = [...pending.values()];
     pending.clear();
+    const indexing = [...toIndex.values()];
+    toIndex.clear();
+    for (const place of indexing) await indexPlace(place);
     const known = db
       .select({ rootId: projects.rootId, rel: projects.folder })
       .from(projects)
@@ -605,8 +619,11 @@ export function createProjectScanner(
         const stop = await rootFs(db, root).watch(
           (rel) => {
             const parts = rel?.split("/") ?? [];
-            if (parts.some(isHidden) || parts.length - 1 > deepest) return;
-            pending.set(`${root.id}\0${rel ?? ""}`, { root, rel: rel ?? "", at: Date.now() });
+            if (parts.some(isHidden)) return;
+            const place = { root, rel: rel ?? "" };
+            if (opts.index) toIndex.set(keyOf(place), place);
+            if (parts.length - 1 <= deepest)
+              pending.set(keyOf(place), { ...place, at: Date.now() });
             clearTimeout(timer);
             timer = setTimeout(flush, WATCH_DEBOUNCE_MS);
           },
@@ -680,6 +697,7 @@ export function createProjectScanner(
       closed = true;
       clearTimeout(timer);
       pending.clear();
+      toIndex.clear();
       for (const stop of stops.splice(0)) stop();
     },
   };

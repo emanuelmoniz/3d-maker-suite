@@ -173,6 +173,15 @@ export function AlertDetailPage() {
                 {t("alerts:view.openHub")}
               </Link>
             )}
+            {a.kind === "hub_conflict" && a.context.projectId && (
+              <Link
+                to="/projects/$id"
+                params={{ id: String(a.context.projectId) }}
+                className={buttonLink}
+              >
+                {t("alerts:view.openProject")}
+              </Link>
+            )}
             {/* The other fixes: admin and editor. */}
             <Write>
               {(a.kind === "spool_no_price" || a.kind === "spool_no_open_date") && (

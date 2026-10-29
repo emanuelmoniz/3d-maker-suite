@@ -45,7 +45,8 @@
       "filamentProfiles": "View filament profiles"
     },
     "openPrintSetup": "Open print setup",
-    "openHub": "Open Hub management"
+    "openHub": "Open Hub management",
+    "openProject": "Open project"
   },
   "empty": {
     "title": "All clear",
@@ -64,7 +65,8 @@
     "slice_failed": "Auto slice failed",
     "update_available": "Update available",
     "slicer_update": "Slicer update",
-    "connector_outdated": "Connector outdated"
+    "connector_outdated": "Connector outdated",
+    "hub_conflict": "Sync conflict"
   },
   "status": {
     "snoozed": "Snoozed",
@@ -102,6 +104,7 @@
     "update_available": "Version {{version}} is available",
     "slicer_update": "{{name}}: version {{version}} is available",
     "connector_outdated": "Connector on {{name}} is on version {{version}}, the hub on {{hubVersion}}",
+    "hub_conflict": "{{file}} changed on the hub and on {{device}}; their version was kept as {{copy}}",
     "connector_update_failed": "Connector on {{name}} could not update to {{hubVersion}}"
   },
   "severity": {

@@ -8,6 +8,11 @@ import {
   deviceIndexSchema,
   deviceReplySchema,
   deviceRootSchema,
+  hubChangesQuerySchema,
+  hubChangesSchema,
+  hubFileQuerySchema,
+  hubUploadResultSchema,
+  ROOT_HUB,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
 import { and, eq, isNotNull } from "drizzle-orm";
@@ -18,6 +23,7 @@ import { HttpError } from "../errors.ts";
 import type { HubChannel } from "../lib/hubChannel.ts";
 import { readPreferences } from "../lib/preferences.ts";
 import type { DeviceFiles } from "../projects/deviceFiles.ts";
+import type { HubFiles } from "../projects/hubFiles.ts";
 import type { ProjectScanner } from "../projects/scanner.ts";
 
 const { projects, roots } = schema;
@@ -26,8 +32,10 @@ const errors = {
   400: apiErrorSchema,
   403: apiErrorSchema,
   404: apiErrorSchema,
+  409: apiErrorSchema,
   413: apiErrorSchema,
 };
+const sha256Header = z.object({ "x-file-sha256": z.string().regex(/^[0-9a-f]{64}$/) });
 
 /** The paired device making the request; the role check is skipped for these routes (lib/auth.ts). */
 const deviceOf = (req: FastifyRequest) => {
@@ -38,7 +46,8 @@ const deviceOf = (req: FastifyRequest) => {
 /**
  * What a connector sends the hub about its device roots (ADR-0014): the index of each root, the
  * scan of each changed project folder, and answers to the hub's requests (a file it asked for as
- * raw bytes). A device sees only the roots on itself; any other root is 404.
+ * raw bytes). A device sees only the roots on itself; any other root is 404. `/sync/*` is the sync of
+ * the hub roots: their change feed, download, upload and delete, as the device's user may.
  */
 export const hubDeviceRoutes =
   (
@@ -46,6 +55,7 @@ export const hubDeviceRoutes =
     channel: HubChannel,
     scanner: ProjectScanner,
     files: DeviceFiles,
+    sync: HubFiles,
   ): FastifyPluginAsyncZod =>
   async (app) => {
     // Raw stream, read by the file route itself (Fastify's bodyLimit doesn't apply to it).
@@ -60,6 +70,15 @@ export const hubDeviceRoutes =
         .select()
         .from(roots)
         .where(and(eq(roots.id, rootId), eq(roots.location, deviceOf(req))))
+        .get();
+      if (!root) throw new HttpError(404, "not_found", "Root not found");
+      return root;
+    };
+    const hubRoot = (rootId: string) => {
+      const root = db
+        .select()
+        .from(roots)
+        .where(and(eq(roots.id, rootId), eq(roots.location, ROOT_HUB)))
         .get();
       if (!root) throw new HttpError(404, "not_found", "Root not found");
       return root;
@@ -182,8 +201,7 @@ export const hubDeviceRoutes =
       {
         schema: {
           params: z.object({ requestId: z.uuid() }),
-          headers: z.object({
-            "x-file-sha256": z.string().regex(/^[0-9a-f]{64}$/),
+          headers: sha256Header.extend({
             "x-file-mtime": z.coerce.number().nonnegative().optional(),
           }),
           response: { 204: z.null(), ...errors },
@@ -198,6 +216,76 @@ export const hubDeviceRoutes =
           req.headers["x-file-sha256"],
           req.headers["x-file-mtime"],
         );
+        return reply.status(204).send(null);
+      },
+    );
+
+    app.get(
+      "/sync/changes",
+      {
+        schema: {
+          querystring: hubChangesQuerySchema,
+          response: { 200: hubChangesSchema, ...errors },
+        },
+      },
+      async (req) => {
+        deviceOf(req);
+        return sync.changes(req.user, req.query.since, req.query.limit);
+      },
+    );
+
+    // The bytes, with the sha256 and version they are; the connector checks the hash.
+    app.get(
+      "/sync/roots/:rootId/file",
+      { schema: { params: rootParams, querystring: hubFileQuerySchema } },
+      async (req, reply) => {
+        deviceOf(req);
+        const f = await sync.download(req.user, hubRoot(req.params.rootId), req.query.path);
+        return reply
+          .header("x-file-sha256", f.sha256)
+          .header("x-file-version", f.version)
+          .type("application/octet-stream")
+          .send(f.stream);
+      },
+    );
+
+    // `base`: the version the device's copy started from; the rules are in `HubFiles.upload`.
+    app.put(
+      "/sync/roots/:rootId/file",
+      {
+        schema: {
+          params: rootParams,
+          querystring: hubFileQuerySchema,
+          headers: sha256Header,
+          response: { 200: hubUploadResultSchema, ...errors },
+        },
+      },
+      async (req) =>
+        sync.upload(
+          req.user,
+          deviceOf(req),
+          hubRoot(req.params.rootId),
+          req.query.path,
+          req.query.base ?? 0,
+          req.headers["x-file-sha256"],
+          // An empty file has no body to parse.
+          (req.body as Readable | undefined) ?? Readable.from([]),
+        ),
+    );
+
+    // Into the root's trash; 409 `file_changed` when the hub's copy isn't `base` any more.
+    app.delete(
+      "/sync/roots/:rootId/file",
+      {
+        schema: {
+          params: rootParams,
+          querystring: hubFileQuerySchema,
+          response: { 204: z.null(), ...errors },
+        },
+      },
+      async (req, reply) => {
+        deviceOf(req);
+        await sync.trash(req.user, hubRoot(req.params.rootId), req.query.path, req.query.base ?? 0);
         return reply.status(204).send(null);
       },
     );

@@ -50,6 +50,8 @@ const ONE_SHOT = new Set<AlertKind>([
   "update_available",
   // The same for an installed slicer (integrations/managedSlicer.ts).
   "slicer_update",
+  // Raised by an upload that lost to a newer version, keyed by its conflict copy (projects/hubFiles.ts).
+  "hub_conflict",
 ]);
 
 /**
@@ -280,6 +282,11 @@ function textOf(a: typeof alerts.$inferSelect): { title: string; body: string } 
       return {
         title: c.reason ? "Connector update failed" : "Connector outdated",
         body: `${c.name}: connector ${c.version}, hub ${c.hubVersion}${c.error ? ` (${c.error})` : ""}`,
+      };
+    case "hub_conflict":
+      return {
+        title: "Sync conflict",
+        body: `${c.file} changed on the hub and on ${c.device}; their version is ${c.copy}`,
       };
   }
 }

@@ -886,7 +886,7 @@ Design:
 - Sync mode per device: everything, or selected projects, plus **Open on my workstation**.
 - Clocks are never compared across machines.
 
-### [ ] Step 10 - Hub file index and transfer API  **[plan mode]**
+### [x] Step 10 - Hub file index and transfer API  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:**
 - Migration `hub_files`. The index is kept current by the existing scanner and watcher, so files edited on the hub itself count too.

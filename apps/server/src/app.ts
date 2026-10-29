@@ -30,6 +30,7 @@ import { readPreferences } from "./lib/preferences.ts";
 import { pruneSessions } from "./lib/session.ts";
 import { autoSlice, autoSliceSlicer } from "./projects/autoSlice.ts";
 import { createDeviceFiles } from "./projects/deviceFiles.ts";
+import { createHubFiles } from "./projects/hubFiles.ts";
 import { useDeviceFiles } from "./projects/rootFs.ts";
 import { createProjectScanner } from "./projects/scanner.ts";
 import { createSliceQueue } from "./projects/sliceQueue.ts";
@@ -212,6 +213,8 @@ export async function buildApp(
         for (const { id } of db.select({ id: schema.devices.id }).from(schema.devices).all())
           if (hub.online(id)) hub.publish(id, { type: "roots.changed" });
       }
+      // The sync index is kept only while the hub is on: a scan builds it.
+      if (patch.hubEnabled) scanner.start();
     }),
     { prefix: "/api/preferences" },
   );
@@ -261,12 +264,18 @@ export async function buildApp(
     prefix: "/api/costs",
   });
   await app.register(statsRoutes(db), { prefix: "/api/stats" });
+  const hubFiles = createHubFiles(db);
   const scanner = createProjectScanner(db, dataDir, projectsLog, {
     watch: opts.watchProjects,
+    index: async (root, rel) => {
+      if (readPreferences(db).hubEnabled) await hubFiles.reindex(root, rel);
+    },
     onScanned: (id, before) => autoSlice(db, syncer.adapters, sliceQueue, projectsLog, id, before),
   });
   await app.register(rootsRoutes(db, hub, scanner), { prefix: "/api/roots" });
-  await app.register(hubDeviceRoutes(db, hub, scanner, deviceFiles), { prefix: "/api/hub/device" });
+  await app.register(hubDeviceRoutes(db, hub, scanner, deviceFiles, hubFiles), {
+    prefix: "/api/hub/device",
+  });
   await app.register(projectsRoutes(db, dataDir, scanner, hub, syncer.adapters), {
     prefix: "/api/projects",
   });

@@ -1133,3 +1133,29 @@ export const hubEvents = sqliteTable(
   },
   (t) => [index("hub_events_device_idx").on(t.deviceId, t.seq)],
 );
+
+/**
+ * The files of hub roots as devices sync them (ADR-0014). Every add, change and delete takes the
+ * next `seq`, so a device asks for "changes since my cursor". A deleted file stays as a tombstone.
+ * `size` and `mtimeMs` are the hub's own, only to skip rehashing unchanged files.
+ */
+export const hubFiles = sqliteTable(
+  "hub_files",
+  {
+    id: id(),
+    rootId: text()
+      .notNull()
+      .references(() => roots.id, { onDelete: "cascade" }),
+    path: text().notNull(),
+    size: integer().notNull(),
+    mtimeMs: real().notNull(),
+    sha256: text().notNull(),
+    version: integer().notNull(),
+    deleted: integer({ mode: "boolean" }).notNull().default(false),
+    seq: integer().notNull(),
+  },
+  (t) => [
+    uniqueIndex("hub_files_root_path_uq").on(t.rootId, t.path),
+    uniqueIndex("hub_files_seq_uq").on(t.seq),
+  ],
+);

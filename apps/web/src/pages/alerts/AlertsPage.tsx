@@ -147,6 +147,8 @@ export function Title({ a, inList }: { a: Alert; inList?: boolean }) {
         version: c.version,
         hubVersion: c.hubVersion,
       }),
+    hub_conflict: () =>
+      t("alerts:kinds.hub_conflict", { file: c.file, device: c.device, copy: c.copy }),
   }[a.kind]();
   if (inList)
     return (
@@ -217,6 +219,14 @@ export function Title({ a, inList }: { a: Alert; inList?: boolean }) {
       if (!admin) return <span className="font-medium">{text}</span>;
       return (
         <Link to="/hub" className={link}>
+          {text}
+        </Link>
+      );
+    case "hub_conflict":
+      // A file in no project has no page to open.
+      if (!c.projectId) return <span className="font-medium">{text}</span>;
+      return (
+        <Link to="/projects/$id" params={{ id: String(c.projectId) }} className={link}>
           {text}
         </Link>
       );
@@ -363,6 +373,7 @@ const KIND_NAMES: Record<AlertKind, string> = {
   update_available: "alerts:kindNames.update_available",
   slicer_update: "alerts:kindNames.slicer_update",
   connector_outdated: "alerts:kindNames.connector_outdated",
+  hub_conflict: "alerts:kindNames.hub_conflict",
 };
 const STATUS: Record<AlertStatus, string> = {
   snoozed: "alerts:status.snoozed",
