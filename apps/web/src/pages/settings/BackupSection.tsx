@@ -9,7 +9,7 @@ import { useCan } from "../../lib/auth.ts";
 import { formatDateTime, formatMegabytes } from "../../lib/format.ts";
 import { usePreferences, useSavePreferences } from "../../lib/preferences.ts";
 
-type Backup = { name: string; size: number; createdAt: string; auto: boolean };
+type Backup = { name: string; size: number; createdAt: string; auto: boolean; versions: boolean };
 const KEY = ["backups"];
 
 export function BackupSection() {
@@ -116,6 +116,7 @@ export function BackupSection() {
                 <div className="text-muted">
                   {formatMegabytes(b.size)}
                   {b.auto ? ` · ${t("settings:backup.automatic")}` : ""}
+                  {b.versions ? ` · ${t("settings:backup.withVersions")}` : ""}
                 </div>
               </div>
               <a

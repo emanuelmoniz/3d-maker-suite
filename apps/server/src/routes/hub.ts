@@ -7,6 +7,8 @@ import {
   deviceUpdateSchema,
   HUB_HEARTBEAT_MS,
   type HubEvent,
+  type HubVersionsUsage,
+  hubVersionsUsageSchema,
   pairingCodeCreateSchema,
   pairingCodeSchema,
   pairResultSchema,
@@ -50,11 +52,17 @@ export const hubRoutes =
     onConnect: () => void = () => {},
     /** Before a device is revoked: its locks are released. */
     onRevoke: (deviceId: string) => void = () => {},
+    /** Disk used by the kept file versions. */
+    versionsUsage: () => HubVersionsUsage = () => ({ files: 0, bytes: 0 }),
   ): FastifyPluginAsyncZod =>
   async (app) => {
     app.addHook("onRequest", async () => {
       if (!readPreferences(db).hubEnabled) throw new HttpError(404, "hub_off", "The hub is off");
     });
+
+    app.get("/versions", { schema: { response: { 200: hubVersionsUsageSchema } } }, async () =>
+      versionsUsage(),
+    );
 
     // ponytail: unpaginated, a hub has a handful of devices.
     app.get("/devices", { schema: { response: { 200: z.array(deviceSchema) } } }, async () =>

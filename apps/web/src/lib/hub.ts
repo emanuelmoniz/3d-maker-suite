@@ -1,4 +1,4 @@
-import type { Device, DeviceSyncMode, PairingCode } from "@3d-maker-suite/core";
+import type { Device, DeviceSyncMode, HubVersionsUsage, PairingCode } from "@3d-maker-suite/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "./api.ts";
 
@@ -10,6 +10,13 @@ export const useDevices = () =>
     queryKey: KEY,
     queryFn: () => api<Device[]>("GET", "/api/hub/devices"),
     refetchInterval: 30_000,
+  });
+
+/** Disk used by the kept file versions. */
+export const useVersionsUsage = () =>
+  useQuery({
+    queryKey: ["hub", "versions"],
+    queryFn: () => api<HubVersionsUsage>("GET", "/api/hub/versions"),
   });
 
 export function useDeviceActions() {

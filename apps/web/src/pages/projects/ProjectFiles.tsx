@@ -6,6 +6,7 @@ import {
   Folder,
   FolderInput,
   FolderPlus,
+  History,
   Lock,
   MonitorSmartphone,
   Pencil,
@@ -15,6 +16,7 @@ import {
 } from "lucide-react";
 import { type DragEvent, type ReactNode, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { AddDialog } from "../../components/AddDialog.tsx";
 import { Button } from "../../components/Button.tsx";
 import { Collapsible } from "../../components/Collapsible.tsx";
 import { Combobox } from "../../components/Combobox.tsx";
@@ -23,14 +25,21 @@ import { FormField, inputClass } from "../../components/FormField.tsx";
 import { Write } from "../../components/Write.tsx";
 import { ApiError } from "../../lib/api.ts";
 import { useCan } from "../../lib/auth.ts";
-import { formatSize } from "../../lib/format.ts";
+import { formatDateTime, formatSize } from "../../lib/format.ts";
+import { usePreferences } from "../../lib/preferences.ts";
 import {
   uploadProjectFile,
   useProjectFileActions,
   useProjectFolder,
   useProjectFolders,
 } from "../../lib/projectFiles.ts";
-import { projectFileUrl, useProjectLocks, useUnlockFile } from "../../lib/projects.ts";
+import {
+  fileVersionUrl,
+  projectFileUrl,
+  useFileVersions,
+  useProjectLocks,
+  useUnlockFile,
+} from "../../lib/projects.ts";
 
 const join = (dir: string, name: string) => (dir ? `${dir}/${name}` : name);
 const dirOf = (p: string) => p.slice(0, Math.max(p.lastIndexOf("/"), 0));
@@ -52,6 +61,8 @@ type Ctx = {
   /** Open, for the project's models; none when there is no slicer to open them in. */
   open?: (path: string) => void;
   models: Set<string>;
+  /** Shows a file's kept versions; none while the hub is off. */
+  history?: (path: string) => void;
   /** Checked-out files by path; Done editing (mine) or force-unlock (`admin`). */
   locks: Map<string, HubFileLock>;
   admin: boolean;
@@ -102,6 +113,71 @@ function IconButton({
     >
       {children}
     </Button>
+  );
+}
+
+function VersionsDialog({
+  projectId,
+  file,
+  onClose,
+}: {
+  projectId: string;
+  file: string | null;
+  onClose: () => void;
+}) {
+  const { t } = useTranslation();
+  const versions = useFileVersions(projectId, file);
+  return (
+    <AddDialog
+      open={file !== null}
+      title={t("projects:files.versions.title", { name: file?.split("/").pop() ?? "" })}
+      onClose={onClose}
+    >
+      {versions.isError ? (
+        <p role="alert" className="text-bad">
+          {t("projects:files.versions.error")}
+        </p>
+      ) : versions.data?.length ? (
+        <table className="w-full text-left">
+          <thead>
+            <tr className="text-muted">
+              <th className="py-1 pr-3 font-medium">{t("projects:files.versions.version")}</th>
+              <th className="py-1 pr-3 font-medium">{t("projects:files.versions.by")}</th>
+              <th className="py-1 pr-3 font-medium">{t("projects:files.versions.date")}</th>
+              <th className="py-1 pr-3 font-medium">{t("projects:files.versions.size")}</th>
+              <th className="py-1">
+                <span className="sr-only">{t("projects:files.versions.download")}</span>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {versions.data.map((v) => (
+              <tr key={v.version} className="border-border border-t">
+                <td className="py-1 pr-3">{v.version}</td>
+                <td className="py-1 pr-3 wrap-anywhere">
+                  {v.user
+                    ? t("projects:files.versions.userOnDevice", { user: v.user, device: v.device })
+                    : t("projects:files.versions.hub")}
+                </td>
+                <td className="py-1 pr-3">{formatDateTime(v.savedAt)}</td>
+                <td className="py-1 pr-3">{formatSize(v.size)}</td>
+                <td className="py-1">
+                  <a
+                    className="font-medium text-accent hover:underline"
+                    href={fileVersionUrl(projectId, file ?? "", v.version)}
+                    download
+                  >
+                    {t("projects:files.versions.download")}
+                  </a>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : (
+        <p className="text-muted">{t("projects:files.versions.empty")}</p>
+      )}
+    </AddDialog>
   );
 }
 
@@ -187,6 +263,14 @@ function Row({ entry, depth, ctx }: { entry: ProjectFileEntry; depth: number; ct
               </Button>
             )}
           </span>
+        )}
+        {ctx.history && !dir && (
+          <IconButton
+            label={t("projects:files.history", n)}
+            onClick={() => ctx.history?.(entry.path)}
+          >
+            <History className="size-4" aria-hidden />
+          </IconButton>
         )}
         <Write when={ctx.canEdit}>
           <span className="flex shrink-0 gap-1">
@@ -305,6 +389,8 @@ export function ProjectFiles({
   const locks = useProjectLocks(id, !!project.folderPath).data ?? [];
   const unlock = useUnlockFile(id);
   const admin = useCan("admin");
+  const hubOn = usePreferences().data?.values.hubEnabled;
+  const [history, setHistory] = useState<string | null>(null);
 
   if (!project.folderPath) return null;
 
@@ -549,6 +635,7 @@ export function ProjectFiles({
             models: new Set(
               project.meta.files.filter((f) => f.kind === "model").map((f) => f.path),
             ),
+            history: hubOn ? setHistory : undefined,
             locks: new Map(locks.map((l) => [l.file, l])),
             admin,
             unlock: (path) =>
@@ -557,6 +644,7 @@ export function ProjectFiles({
           }}
         />
       </div>
+      <VersionsDialog projectId={id} file={history} onClose={() => setHistory(null)} />
       <ConfirmDialog
         open={!!ask}
         title={text[0] as string}

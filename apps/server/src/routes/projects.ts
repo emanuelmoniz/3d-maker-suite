@@ -1,12 +1,14 @@
 import { createReadStream } from "node:fs";
 import { cp, readdir, readFile, rename, rm, rmdir, stat } from "node:fs/promises";
-import { extname, isAbsolute, join, posix, relative } from "node:path";
+import { basename, extname, isAbsolute, join, posix, relative } from "node:path";
 import { read3mfEntry, read3mfPaint } from "@3d-maker-suite/3mf";
 import {
   apiErrorSchema,
   galleryImages,
   hubFileLockQuerySchema,
   hubFileLockSchema,
+  hubFileVersionQuerySchema,
+  hubFileVersionSchema,
   type IntegrationAdapter,
   openTargetsSchema,
   type Page,
@@ -860,6 +862,43 @@ export const projectsRoutes =
         const p = get(req.params.id);
         const root = hubRootOf(p);
         return root && p.folder ? hubFiles.locksIn(root.id, p.folder, req.user?.id) : [];
+      },
+    );
+    app.get(
+      "/:id/versions",
+      {
+        schema: {
+          params,
+          querystring: hubFileVersionQuerySchema.pick({ file: true }),
+          response: { 200: z.array(hubFileVersionSchema), ...notFound },
+        },
+      },
+      async (req) => {
+        const p = get(req.params.id);
+        const root = hubRootOf(p);
+        return root ? hubFiles.versionsOf(root.id, `${p.folder}/${req.query.file}`) : [];
+      },
+    );
+    app.get(
+      "/:id/versions/download",
+      {
+        schema: {
+          params,
+          querystring: hubFileVersionQuerySchema.required({ version: true }),
+        },
+      },
+      async (req, reply) => {
+        const p = get(req.params.id);
+        const root = hubRootOf(p);
+        const { file, version } = req.query;
+        const stream = root && hubFiles.versionStream(root.id, `${p.folder}/${file}`, version);
+        if (!stream) throw new HttpError(404, "not_found", "Version not found");
+        const ext = extname(file);
+        const name = `${basename(file, ext)} (v${version})${ext}`;
+        return reply
+          .type("application/octet-stream")
+          .header("content-disposition", `attachment; filename*=UTF-8''${encodeURIComponent(name)}`)
+          .send(stream);
       },
     );
     // Done editing (the lock's user) or force-unlock (an admin).

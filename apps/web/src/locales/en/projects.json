@@ -348,6 +348,19 @@
     "tooLarge": "The file is over the upload limit (Settings > Projects).",
     "error": "That didn't work. Check the name and try again.",
     "open": "Open {{name}}",
+    "history": "Versions of {{name}}",
+    "versions": {
+      "title": "Versions of {{name}}",
+      "version": "Version",
+      "by": "Saved by",
+      "date": "Date",
+      "size": "Size",
+      "download": "Download",
+      "userOnDevice": "{{user}} on {{device}}",
+      "hub": "The hub",
+      "empty": "No earlier versions are kept.",
+      "error": "The versions couldn't be loaded."
+    },
     "lock": {
       "by": "Being edited by {{user}} on {{device}}",
       "done": "Done editing",

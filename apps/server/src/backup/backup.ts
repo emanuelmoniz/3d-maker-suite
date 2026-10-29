@@ -12,6 +12,7 @@ import { join } from "node:path";
 import { pipeline } from "node:stream/promises";
 import type { Db } from "@3d-maker-suite/db";
 import { extract } from "@3d-maker-suite/host";
+import yauzl from "yauzl";
 import yazl from "yazl";
 import { readPreferences } from "../lib/preferences.ts";
 
@@ -20,13 +21,13 @@ import { readPreferences } from "../lib/preferences.ts";
  *   manifest.json   { format, app, createdAt }
  *   app.sqlite      consistent snapshot (SQLite online backup)
  *   secret.key      encrypts the integration tokens inside app.sqlite
- *   photos/ thumbnails/ quote-files/   files the database points at
+ *   photos/ thumbnails/ quote-files/ versions/   files the database points at
  * Bump FORMAT when the layout changes and add the step to UPGRADES (runs on a staged restore).
  */
 export const FORMAT = 1;
 const APP = "3d-maker-suite";
 // A new folder needs no FORMAT bump: older backups just don't have it.
-const DIRS = ["photos", "thumbnails", "quote-files"];
+const DIRS = ["photos", "thumbnails", "quote-files", "versions"];
 const FILES = ["app.sqlite", "secret.key"];
 /** format N → function that turns the staged files of format N into format N+1. */
 const UPGRADES: Record<number, (stagedDir: string) => void> = {};
@@ -85,6 +86,23 @@ export async function createBackup(
   }
   return { name, size: statSync(join(dir, name)).size, createdAt, auto };
 }
+
+/** Whether the zip holds the hub's file versions (a backup made before them, or with none, has not). */
+export const hasVersions = (file: string) =>
+  new Promise<boolean>((resolve) =>
+    yauzl.open(file, { lazyEntries: true }, (err, zip) => {
+      if (err || !zip) return resolve(false);
+      zip.on("end", () => resolve(false));
+      zip.on("error", () => resolve(false));
+      zip.on("entry", (e: yauzl.Entry) => {
+        if (e.fileName.startsWith("versions/")) {
+          zip.close();
+          resolve(true);
+        } else zip.readEntry();
+      });
+      zip.readEntry();
+    }),
+  );
 
 export function listBackups(dataDir: string): BackupInfo[] {
   const dir = backupsDir(dataDir);

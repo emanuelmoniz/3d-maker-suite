@@ -1003,7 +1003,7 @@ Back up the DB before editing schema.ts.
 Do Step 14b of the 5.0.0 plan in PLAN.md. Show me the three-way decision and the connector endpoint first.
 ```
 
-### [ ] Step 15 - File versions
+### [x] Step 15 - File versions
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - Settings on/off and keep N (Hub management). On an accepted upload, the previous content moves to the versions folder. Prune past N, and when N is lowered.

@@ -10,8 +10,8 @@ import { FormDialog } from "../../components/FormDialog.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { Section } from "../../components/Section.tsx";
-import { formatDateTime, formatTime } from "../../lib/format.ts";
-import { useDeviceActions, useDevices } from "../../lib/hub.ts";
+import { formatDateTime, formatSize, formatTime } from "../../lib/format.ts";
+import { useDeviceActions, useDevices, useVersionsUsage } from "../../lib/hub.ts";
 import { useAdapterName } from "../../lib/integrations.ts";
 import { usePreferences, useSavePreferences } from "../../lib/preferences.ts";
 import { useUsers } from "../../lib/users.ts";
@@ -117,9 +117,16 @@ function SyncSettings() {
   const { t } = useTranslation();
   const prefs = usePreferences();
   const save = useSavePreferences();
+  const usage = useVersionsUsage().data;
   const values = prefs.data?.values;
   if (!values) return null;
-  const { hubDeleteGuard: v, hubLocks: locks, hubLockIdleMin: idle } = values;
+  const {
+    hubDeleteGuard: v,
+    hubLocks: locks,
+    hubLockIdleMin: idle,
+    hubVersions: versions,
+    hubVersionsKeep: keep,
+  } = values;
   return (
     <Section title={t("hub:settings.title")} help="docs/hub.md">
       {save.isError && (
@@ -184,6 +191,45 @@ function SyncSettings() {
               />
             )}
           </FormField>
+        )}
+        <label className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={versions}
+            disabled={save.isPending}
+            onChange={(e) => save.mutate({ hubVersions: e.target.checked })}
+          />
+          <span className="font-medium">{t("hub:settings.versions")}</span>
+        </label>
+        <p className="text-muted">{t("hub:settings.versionsHint")}</p>
+        {versions && (
+          <FormField
+            label={t("hub:settings.versionsKeep")}
+            hint={t("hub:settings.versionsKeepHint")}
+          >
+            {(p) => (
+              <input
+                key={keep}
+                {...p}
+                className={inputClass}
+                type="number"
+                min={1}
+                max={100}
+                step={1}
+                defaultValue={keep}
+                onBlur={(e) => {
+                  const n = e.target.valueAsNumber;
+                  if (e.target.checkValidity() && Number.isFinite(n) && n !== keep)
+                    save.mutate({ hubVersionsKeep: n });
+                }}
+              />
+            )}
+          </FormField>
+        )}
+        {usage && (versions || usage.files > 0) && (
+          <p className="text-muted">
+            {t("hub:settings.usage", { count: usage.files, size: formatSize(usage.bytes) })}
+          </p>
         )}
       </div>
     </Section>

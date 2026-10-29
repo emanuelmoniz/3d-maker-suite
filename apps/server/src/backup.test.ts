@@ -39,7 +39,12 @@ describe("backup", () => {
     writeFileSync(join(a.dataDir, "photos", "x.png"), "img");
     writeFileSync(join(a.dataDir, "secret.key"), "k".repeat(32));
 
+    const plain = (await a.app.inject({ method: "POST", url: "/api/backups" })).json();
+    expect(plain.versions).toBe(false);
+    mkdirSync(join(a.dataDir, "versions", "r", "f"), { recursive: true });
+    writeFileSync(join(a.dataDir, "versions", "r", "f", "1"), "old");
     const made = (await a.app.inject({ method: "POST", url: "/api/backups" })).json();
+    expect(made.versions).toBe(true);
     expect(made.name).toMatch(/^backup-\d{14}\.zip$/);
     const zip = (await a.app.inject(`/api/backups/${made.name}`)).rawPayload;
     expect(zip.subarray(0, 2).toString()).toBe("PK");

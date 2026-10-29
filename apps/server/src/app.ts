@@ -208,6 +208,7 @@ export async function buildApp(
       hub,
       () => void evaluate(),
       (id) => hubFiles.releaseLocks({ deviceId: id }),
+      () => hubFiles.versionsUsage(),
     ),
     { prefix: "/api/hub" },
   );
@@ -223,6 +224,9 @@ export async function buildApp(
       }
       // The sync index is kept only while the hub is on: a scan builds it.
       if (patch.hubEnabled) scanner.start();
+      // A lower limit drops the older versions now.
+      if (patch.hubVersionsKeep !== undefined)
+        void hubFiles.pruneVersions(v.hubVersionsKeep).catch((err) => app.log.error({ err }));
       // Connectors read the lock mode with their roots (strict makes them read-only offline).
       if (patch.hubLocks !== undefined) {
         if (patch.hubLocks === "off") hubFiles.releaseLocks();
@@ -280,12 +284,16 @@ export async function buildApp(
   await app.register(statsRoutes(db), { prefix: "/api/stats" });
   // Devices pull the changes when told; one nudge for a burst of them.
   let nudge: NodeJS.Timeout | undefined;
-  const hubFiles = createHubFiles(db, () => {
-    nudge ??= setTimeout(() => {
-      nudge = undefined;
-      hub.nudge({ type: "sync.changed" });
-    }, 1000);
-  });
+  const hubFiles = createHubFiles(
+    db,
+    () => {
+      nudge ??= setTimeout(() => {
+        nudge = undefined;
+        hub.nudge({ type: "sync.changed" });
+      }, 1000);
+    },
+    dataDir,
+  );
   app.addHook("onClose", async () => clearTimeout(nudge));
   const scanner = createProjectScanner(db, dataDir, projectsLog, {
     watch: opts.watchProjects,

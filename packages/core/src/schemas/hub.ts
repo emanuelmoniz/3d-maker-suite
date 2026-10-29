@@ -343,10 +343,28 @@ export const hubFileLockSchema = z.object({
   mine: z.boolean(),
   lockedAt: isoDate,
 });
+/** `GET /api/projects/:id/versions`: a file's kept earlier versions, newest first. */
+export const hubFileVersionSchema = z.object({
+  version: z.number().int(),
+  /** Null when the change was made on the hub itself. */
+  user: z.string().nullable(),
+  device: z.string().nullable(),
+  savedAt: isoDate,
+  size: z.number().int(),
+});
+export const hubFileVersionQuerySchema = z.object({
+  file: z.string().min(1),
+  version: z.coerce.number().int().positive().optional(),
+});
+/** `GET /api/hub/versions`: disk used by the kept versions. */
+export const hubVersionsUsageSchema = z.object({ files: z.number().int(), bytes: z.number() });
+
 export const hubFileLockQuerySchema = z.object({ file: z.string().min(1) });
 
 export type HubChanges = z.infer<typeof hubChangesSchema>;
 export type HubSyncRoots = z.infer<typeof hubSyncRootsSchema>;
+export type HubFileVersion = z.infer<typeof hubFileVersionSchema>;
+export type HubVersionsUsage = z.infer<typeof hubVersionsUsageSchema>;
 export type HubFileLock = z.infer<typeof hubFileLockSchema>;
 export type DeviceSyncState = z.infer<typeof deviceSyncStateSchema>;
 export type HubUploadResult = z.infer<typeof hubUploadResultSchema>;

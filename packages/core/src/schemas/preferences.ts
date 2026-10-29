@@ -86,6 +86,9 @@ const shape = {
   /** Check-out locks; a lock with no save from its device for `hubLockIdleMin` minutes is released. */
   hubLocks: z.enum(HUB_LOCK_MODES),
   hubLockIdleMin: z.number().int().min(5).max(1440),
+  /** An accepted upload keeps the file's previous content, the newest `hubVersionsKeep` of them. */
+  hubVersions: z.boolean(),
+  hubVersionsKeep: z.number().int().min(1).max(100),
   /** Daily automatic backup, keeping this many of the newest automatic ones. */
   backupAuto: z.boolean(),
   backupKeep: z.number().int().min(1).max(100),
@@ -157,6 +160,8 @@ export const PREFERENCE_DEFAULTS: z.infer<typeof preferencesSchema> = {
   hubDeleteGuard: 20,
   hubLocks: "off",
   hubLockIdleMin: 60,
+  hubVersions: false,
+  hubVersionsKeep: 5,
   backupAuto: true,
   backupKeep: 7,
   logActive: false,

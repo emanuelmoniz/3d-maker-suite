@@ -76,6 +76,12 @@
       "strict": "As On, and a device that is offline can only read hub files, because it can't check them out."
     },
     "lockIdle": "Release a checked-out file after this many minutes without a save",
-    "lockIdleHint": "Closing the slicer (Windows and Linux) and Done editing release a file at once. This catches the rest."
+    "lockIdleHint": "Closing the slicer (Windows and Linux) and Done editing release a file at once. This catches the rest.",
+    "versions": "Keep earlier versions of files",
+    "versionsHint": "When a device's save replaces a hub file, the old content is kept. Changes made directly on the hub's own disk are not kept. Backups include the versions, so they grow.",
+    "versionsKeep": "Versions to keep per file",
+    "versionsKeepHint": "Lowering this deletes the older versions now.",
+    "usage_one": "Using {{size}} for {{count}} kept version.",
+    "usage_other": "Using {{size}} for {{count}} kept versions."
   }
 }

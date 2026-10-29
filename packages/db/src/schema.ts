@@ -1185,9 +1185,33 @@ export const hubFiles = sqliteTable(
     lockedAt: text(),
     /** Taking the lock or an accepted upload from its device; the idle timeout counts from here. */
     lockTouchedAt: text(),
+    /** Who saved this version and when (names as they were); null for a change made on the hub. */
+    savedUser: text(),
+    savedDevice: text(),
+    savedAt: text(),
   },
   (t) => [
     uniqueIndex("hub_files_root_path_uq").on(t.rootId, t.path),
     uniqueIndex("hub_files_seq_uq").on(t.seq),
   ],
+);
+
+/**
+ * The earlier contents of a hub file (`hubVersions`), kept at
+ * `<dataDir>/versions/<rootId>/<fileId>/<version>`. Who and when are those of the version itself.
+ */
+export const hubFileVersions = sqliteTable(
+  "hub_file_versions",
+  {
+    id: id(),
+    fileId: text()
+      .notNull()
+      .references(() => hubFiles.id, { onDelete: "cascade" }),
+    version: integer().notNull(),
+    size: integer().notNull(),
+    user: text(),
+    device: text(),
+    savedAt: text().notNull(),
+  },
+  (t) => [uniqueIndex("hub_file_versions_file_version_uq").on(t.fileId, t.version)],
 );

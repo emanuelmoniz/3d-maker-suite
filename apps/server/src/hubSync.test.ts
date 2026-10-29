@@ -524,3 +524,43 @@ describe("check-out locks", () => {
     expect((await editor("GET", url)).json()).toEqual([]);
   });
 });
+
+describe("file versions", () => {
+  it("keeps the newest N earlier versions, intact, and prunes when N is lowered", async () => {
+    const s = await setup();
+    s.project("a", s.editor.id);
+    const p = s.db.select().from(schema.projects).get();
+    if (!p) throw new Error("setup");
+    const list = async () =>
+      (await s.send("GET", `/api/projects/${p.id}/versions?file=m.3mf`)).json() as {
+        version: number;
+        user: string | null;
+        device: string | null;
+        size: number;
+      }[];
+    const save = async (body: string, base: number) =>
+      expect((await s.desk.put("a/m.3mf", body, base)).json()).toMatchObject({ status: "updated" });
+
+    // Off: nothing is kept.
+    await save("v1", 0);
+    await save("v2", 1);
+    expect(await list()).toEqual([]);
+
+    await s.send("PATCH", "/api/preferences", { hubVersions: true, hubVersionsKeep: 2 });
+    for (const [i, body] of ["v3", "v4", "v5", "v6"].entries()) await save(body, i + 2);
+    // Version 6 is live; 5 and 4 are kept, 3 was pruned.
+    expect((await list()).map((v) => v.version)).toEqual([5, 4]);
+    expect((await list())[0]).toMatchObject({ user: "editor", device: "Desk: PC", size: 2 });
+    const dl = (v: number) =>
+      s.send("GET", `/api/projects/${p.id}/versions/download?file=m.3mf&version=${v}`);
+    expect((await dl(4)).body).toBe("v4");
+    expect((await dl(5)).body).toBe("v5");
+    expect((await dl(3)).statusCode).toBe(404);
+    expect((await s.send("GET", "/api/hub/versions")).json()).toEqual({ files: 2, bytes: 4 });
+
+    // Lowering N prunes at once.
+    await s.send("PATCH", "/api/preferences", { hubVersionsKeep: 1 });
+    await expect.poll(async () => (await list()).map((v) => v.version)).toEqual([5]);
+    expect((await dl(4)).statusCode).toBe(404);
+  });
+});

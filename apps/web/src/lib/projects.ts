@@ -1,5 +1,6 @@
 import type {
   HubFileLock,
+  HubFileVersion,
   OpenTargets,
   Page,
   Project,
@@ -305,6 +306,21 @@ export const useProjectLocks = (id: string, enabled: boolean) =>
     refetchInterval: 30_000,
     enabled,
   });
+
+/** A hub file's kept earlier versions; `file` is relative to the project. */
+export const useFileVersions = (id: string, file: string | null) =>
+  useQuery({
+    queryKey: ["projects", id, "versions", file],
+    queryFn: () =>
+      api<HubFileVersion[]>(
+        "GET",
+        `/api/projects/${id}/versions?file=${encodeURIComponent(file ?? "")}`,
+      ),
+    enabled: file !== null,
+  });
+
+export const fileVersionUrl = (id: string, file: string, version: number) =>
+  `/api/projects/${id}/versions/download?${new URLSearchParams({ file, version: String(version) })}`;
 
 /** Done editing (my own lock) or force-unlock (an admin): `file` is relative to the project. */
 export const useUnlockFile = (id: string) => {

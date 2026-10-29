@@ -176,6 +176,7 @@
     "restore": "Restore",
     "delete": "Delete",
     "automatic": "Automatic",
+    "withVersions": "Includes file versions",
     "empty": "No backups yet.",
     "error": "That didn't work. Check that the file is a backup made by this app.",
     "restaged": "Backup ready. Restart the app to finish restoring; your current data is kept in the pre-restore folder.",

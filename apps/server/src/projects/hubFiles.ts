@@ -1,18 +1,20 @@
 import { createHash, randomUUID } from "node:crypto";
 import { createReadStream, createWriteStream } from "node:fs";
-import { mkdir, readdir, rename, rm, stat } from "node:fs/promises";
+import { copyFile, mkdir, readdir, rename, rm, stat } from "node:fs/promises";
 import { extname, join, posix } from "node:path";
 import type { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import {
   type HubChanges,
   type HubFileLock,
+  type HubFileVersion,
   type HubUploadResult,
+  type HubVersionsUsage,
   PROJECT_TRASH_DIR,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
 import { inRoot, relParts, rootTrash, syncSkipped as skipped } from "@3d-maker-suite/host";
-import { and, asc, eq, gt, inArray, isNotNull, lt, max, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray, isNotNull, lt, max, sql } from "drizzle-orm";
 import { raise } from "../alerts/evaluate.ts";
 import { HttpError } from "../errors.ts";
 import { mayEditRoot, projectAccess, type Rights, rootRule } from "../lib/auth.ts";
@@ -20,7 +22,7 @@ import { readPreferences } from "../lib/preferences.ts";
 import { fsError } from "../routes/fs.ts";
 import { hubRoots, type Root, rootFs } from "./rootFs.ts";
 
-const { devices, hubFiles, projects, users } = schema;
+const { devices, hubFileVersions, hubFiles, projects, users } = schema;
 type Row = typeof hubFiles.$inferSelect;
 
 /** The most one file may be. */
@@ -74,12 +76,15 @@ const conflictName = (name: string, device: string, at: Date, n: number) => {
  * the scanner and watcher (`reindex`), the change feed, download, upload and delete. Every change
  * to one path runs one at a time, so two uploads of the same base give one version and one
  * conflict copy. One per app.
- * ponytail: in-process locks, one server per database; tombstones are never pruned.
+ * ponytail: in-process locks, one server per database; tombstones are never pruned; a deleted
+ * root leaves its version files behind.
  */
 export function createHubFiles(
   db: Db,
   /** A row took a new `seq` (devices pull the changes). */
   onChange: () => void = () => {},
+  /** Where earlier versions are kept (`<dataDir>/versions`); none without one. */
+  dataDir = "",
 ) {
   const locks = new Map<string, Promise<unknown>>();
   function serial<T>(key: string, fn: () => Promise<T>): Promise<T> {
@@ -122,6 +127,40 @@ export function createHubFiles(
     });
   };
   const unlockRow = (row: Row) => update(row, { ...unlocked, seq: nextSeq() });
+  const versionFile = (rootId: string, fileId: string, version: number) =>
+    join(dataDir, "versions", rootId, fileId, String(version));
+  /** Drops a file's kept versions past the `keep` newest. */
+  async function pruneFile(rootId: string, fileId: string, keep: number) {
+    const old = db
+      .select()
+      .from(hubFileVersions)
+      .where(eq(hubFileVersions.fileId, fileId))
+      .orderBy(desc(hubFileVersions.version))
+      .all()
+      .slice(keep);
+    for (const v of old) {
+      await rm(versionFile(rootId, fileId, v.version), { force: true });
+      db.delete(hubFileVersions).where(eq(hubFileVersions.id, v.id)).run();
+    }
+  }
+  /** Keeps `row`'s content (still at `abs`) as an earlier version, then prunes. */
+  async function archive(rootId: string, row: Row, abs: string, keep: number) {
+    const to = versionFile(rootId, row.id, row.version);
+    await mkdir(join(to, ".."), { recursive: true });
+    await copyFile(abs, to);
+    db.insert(hubFileVersions)
+      .values({
+        fileId: row.id,
+        version: row.version,
+        size: row.size,
+        user: row.savedUser,
+        device: row.savedDevice,
+        savedAt: row.savedAt ?? new Date(row.mtimeMs).toISOString(),
+      })
+      .onConflictDoNothing()
+      .run();
+    await pruneFile(rootId, row.id, keep);
+  }
   /** The user and device names of a lock's device. */
   const holderOf = (deviceId: string) =>
     db
@@ -147,7 +186,16 @@ export function createHubFiles(
     const sha256 = await sha256Of(abs);
     const disk = { size: st.size, mtimeMs: st.mtimeMs, sha256 };
     if (row && !row.deleted && row.sha256 === sha256) return update(row, disk);
-    const next = { ...disk, deleted: false, version: (row?.version ?? 0) + 1, seq: nextSeq() };
+    const next = {
+      ...disk,
+      deleted: false,
+      version: (row?.version ?? 0) + 1,
+      seq: nextSeq(),
+      // A change seen on the disk is the hub's own; an upload names its device afterwards.
+      savedUser: null,
+      savedDevice: null,
+      savedAt: null,
+    };
     return row
       ? update(row, next)
       : db
@@ -357,9 +405,20 @@ export function createHubFiles(
           const locks = readPreferences(db).hubLocks !== "off";
           const theirs = locks && !!live?.lockDeviceId && live.lockDeviceId !== deviceId;
           if (!theirs && (!live || live.version === base)) {
+            const prefs = readPreferences(db);
+            if (live && prefs.hubVersions && dataDir)
+              await archive(root.id, live, join(dir, name), prefs.hubVersionsKeep);
             await os(rename(part, join(dir, name)));
             const next = await refreshNow(root, rootBase, path);
-            if (locks && next && !next.deleted) lockRow(next, deviceId);
+            if (next && !next.deleted) {
+              const who = holderOf(deviceId);
+              const saved = update(next, {
+                savedUser: who?.user ?? null,
+                savedDevice: who?.device ?? null,
+                savedAt: new Date().toISOString(),
+              });
+              if (locks) lockRow(saved, deviceId);
+            }
             return { status: "updated", version: next?.version ?? 0 };
           }
           const device =
@@ -484,6 +543,59 @@ export function createHubFiles(
         .all();
       for (const row of rows) unlockRow(row);
       return rows.length;
+    },
+
+    /** The kept earlier versions of a file, newest first. */
+    versionsOf(rootId: string, path: string): HubFileVersion[] {
+      return db
+        .select({
+          version: hubFileVersions.version,
+          user: hubFileVersions.user,
+          device: hubFileVersions.device,
+          savedAt: hubFileVersions.savedAt,
+          size: hubFileVersions.size,
+        })
+        .from(hubFileVersions)
+        .innerJoin(hubFiles, eq(hubFiles.id, hubFileVersions.fileId))
+        .where(and(eq(hubFiles.rootId, rootId), eq(hubFiles.path, path)))
+        .orderBy(desc(hubFileVersions.version))
+        .all();
+    },
+
+    /** A kept version to send; null when there is no such one. */
+    versionStream(rootId: string, path: string, version: number) {
+      const row = rowOf(rootId, path);
+      const kept =
+        row &&
+        db
+          .select({ id: hubFileVersions.id })
+          .from(hubFileVersions)
+          .where(and(eq(hubFileVersions.fileId, row.id), eq(hubFileVersions.version, version)))
+          .get();
+      return kept && row ? createReadStream(versionFile(rootId, row.id, version)) : null;
+    },
+
+    /** Drops every file's versions past the `keep` newest (the setting was lowered). */
+    async pruneVersions(keep: number) {
+      const over = db
+        .select({ fileId: hubFileVersions.fileId, rootId: hubFiles.rootId })
+        .from(hubFileVersions)
+        .innerJoin(hubFiles, eq(hubFiles.id, hubFileVersions.fileId))
+        .groupBy(hubFileVersions.fileId)
+        .having(sql`count(*) > ${keep}`)
+        .all();
+      for (const { fileId, rootId } of over) await pruneFile(rootId, fileId, keep);
+    },
+
+    versionsUsage(): HubVersionsUsage {
+      const r = db
+        .select({
+          files: sql<number>`count(*)`,
+          bytes: sql<number>`coalesce(sum(${hubFileVersions.size}), 0)`,
+        })
+        .from(hubFileVersions)
+        .get();
+      return { files: r?.files ?? 0, bytes: r?.bytes ?? 0 };
     },
 
     /** The checked-out files below `folder` of a root, relative to it; `mine` for `userId`. */

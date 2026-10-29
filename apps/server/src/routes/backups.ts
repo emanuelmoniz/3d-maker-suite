@@ -18,6 +18,7 @@ import {
   backupsDir,
   createBackup,
   discardStaged,
+  hasVersions,
   listBackups,
   stageRestore,
 } from "../backup/backup.ts";
@@ -28,6 +29,8 @@ const backupSchema = z.object({
   size: z.number(),
   createdAt: z.string(),
   auto: z.boolean(),
+  /** The zip holds the hub's file versions. */
+  versions: z.boolean(),
 });
 const params = z.object({ name: z.string().regex(BACKUP_NAME) });
 const notFound = { 404: apiErrorSchema };
@@ -50,12 +53,17 @@ export const backupsRoutes =
       }
     };
 
+    const withVersions = async (b: BackupInfo) => ({
+      ...b,
+      versions: await hasVersions(join(backupsDir(dataDir), b.name)),
+    });
+
     app.get("/", { schema: { response: { 200: z.array(backupSchema) } } }, async () =>
-      listBackups(dataDir),
+      Promise.all(listBackups(dataDir).map(withVersions)),
     );
 
     app.post("/", { schema: { response: { 201: backupSchema } } }, async (_req, reply) =>
-      reply.status(201).send(await createBackup(db, dataDir)),
+      reply.status(201).send(await withVersions(await createBackup(db, dataDir))),
     );
 
     // Registered before /:name so "upload" isn't read as a name.
@@ -85,7 +93,9 @@ export const backupsRoutes =
         renameSync(tmp, join(backupsDir(dataDir), name));
         return reply
           .status(201)
-          .send(listBackups(dataDir).find((b) => b.name === name) as BackupInfo);
+          .send(
+            await withVersions(listBackups(dataDir).find((b) => b.name === name) as BackupInfo),
+          );
       },
     );
 
