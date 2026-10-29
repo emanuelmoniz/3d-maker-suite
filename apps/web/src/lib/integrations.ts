@@ -1,12 +1,14 @@
 import {
   type AdapterInfo,
   type Capability,
+  type DeviceSlicerCheck,
   type Integration,
   type IntegrationInput,
   type IntegrationPatch,
   type LoginRequest,
   type LoginResult,
   pickSlicer,
+  type SlicerCheck,
   type SlicerInstallStatus,
   type SlicerRelease,
   type SyncRequest,
@@ -172,6 +174,12 @@ export function useInstallSlicer(id: string) {
     onSuccess: (s) => qc.setQueryData(["integrations", id, "slicer", "install"], s),
   });
 }
+
+/** A worker's installed slicer: found on its device (`slicer`) or a typed path, checked there. */
+export const useCheckSlicer = (id: string) =>
+  useInvalidating((v: SlicerCheck) =>
+    api<DeviceSlicerCheck>("POST", `/api/integrations/${id}/slicer/check`, v),
+  );
 
 export const useRemoveSlicer = (id: string) =>
   useInvalidating(() => api("DELETE", `/api/integrations/${id}/slicer`));

@@ -20,6 +20,7 @@ import {
   PRINT_OUTCOMES,
   type PROJECT_EDITABLE_FIELDS,
   ROOT_EDIT_BY,
+  type SlicerSystem,
   SPOOL_STATUSES,
   SYNC_FREQUENCIES,
   SYNC_MERGES,
@@ -1110,6 +1111,10 @@ export const devices = sqliteTable(
     syncMode: text({ enum: DEVICE_SYNC_MODES }).notNull().default("all"),
     /** The slicers its connector found (`PUT .../slicers`). */
     slicers: text({ mode: "json" }).$type<DeviceSlicer[]>().notNull().default([]),
+    /** Worker integrations may slice on it (ADR-0014). */
+    sliceWorker: integer({ mode: "boolean" }).notNull().default(false),
+    /** Its OS, arch and glibc (`X-Connector-System`): which managed slicer build fits it. */
+    system: text({ mode: "json" }).$type<SlicerSystem>(),
     lastSeenAt: text(),
     ...timestamps,
   },

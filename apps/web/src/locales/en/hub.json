@@ -45,8 +45,11 @@
     "projects": "Selected projects",
     "unselect": "Stop syncing {{name}} on this device",
     "noProjects": "No projects selected yet. Open on a project page adds one.",
-    "slicers": "Slicers: {{list}}",
-    "noSlicers": "No slicer found, so files can't be opened on this device."
+    "slicers": "Slicers found",
+    "slicer": "{{name}} {{version}}",
+    "noSlicers": "No slicer found, so files can't be opened on this device.",
+    "sliceWorker": "Slice worker",
+    "sliceWorkerHint": "Worker integrations can slice on this device. Add one under Integrations and pick its slicer there."
   },
   "pair": {
     "action": "Pair a device",

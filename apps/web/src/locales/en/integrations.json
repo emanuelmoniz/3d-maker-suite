@@ -10,7 +10,8 @@
   "kinds": {
     "cloud": "Cloud",
     "local": "Local",
-    "server": "Server"
+    "server": "Server",
+    "worker": "Worker"
   },
   "nameWithKind": "{{name}} - {{kind}}",
   "errors": {
@@ -77,7 +78,8 @@
     "adapter": "Service",
     "secretHint": "Stored encrypted on this computer.",
     "save": "Add",
-    "error": "Couldn't add the integration. Check the fields."
+    "error": "Couldn't add the integration. Check the fields.",
+    "noWorkers": "No slice worker yet. Turn one on in Hub management."
   },
   "adapters": {
     "mock": {
@@ -110,6 +112,32 @@
     },
     "orca-slicer-server": {
       "name": "OrcaSlicer"
+    },
+    "bambu-studio-worker": {
+      "name": "Bambu Studio",
+      "fields": {
+        "deviceId": "Device",
+        "source": "Slicer"
+      },
+      "options": {
+        "source": {
+          "installed": "Installed on the device",
+          "managed": "Installed by the hub"
+        }
+      }
+    },
+    "orca-slicer-worker": {
+      "name": "OrcaSlicer",
+      "fields": {
+        "deviceId": "Device",
+        "source": "Slicer"
+      },
+      "options": {
+        "source": {
+          "installed": "Installed on the device",
+          "managed": "Installed by the hub"
+        }
+      }
     }
   },
   "login": {
@@ -258,6 +286,37 @@
     "isDefault": "This is the default slicer.",
     "makeDefault": "Make default slicer"
   },
+  "worker": {
+    "unavailableHint": "Pick the slicer it uses on its device below, and import its presets from a zip.",
+    "noDevice": "Its device was revoked. Pick another one.",
+    "notWorker": "{{name}} isn't a slice worker.",
+    "toHub": "Turn it on in Hub management",
+    "online": "Slices on {{name}}.",
+    "offline": "Slices on {{name}}, which is offline now.",
+    "source": "Slicer",
+    "sources": {
+      "installed": "Installed on the device",
+      "managed": "Installed by the hub"
+    },
+    "uses": "Uses version {{version}} at {{path}}.",
+    "unknownVersion": "unknown",
+    "noneYet": "No slicer picked yet. Use one found on the device, or type the path of its program.",
+    "found": "Slicers found on the device",
+    "foundSlicer": "{{name}} {{version}}",
+    "use": "Use this one",
+    "path": "Program path on the device",
+    "pathHint": "An AppImage, or any slicer that wasn't found. It's checked by starting it there with --help.",
+    "check": "Check and use",
+    "checking": "Checking on the device…",
+    "checked": "It runs on the device and is used from now on.",
+    "errors": {
+      "smoke_failed": "That program doesn't start on the device. Check the path.",
+      "vcredist_missing": "It needs the Microsoft Visual C++ Redistributable (x64) on the device. Install it there, then try again.",
+      "device_offline": "The device is offline.",
+      "device_no_slicer": "The device doesn't have that slicer any more.",
+      "not_worker": "The device isn't a slice worker. Turn it on in Hub management."
+    }
+  },
   "managed": {
     "notInstalled": "Not installed.",
     "notInstalledHint": "Install the slicer below. The server downloads it from the vendor's GitHub releases and runs it itself.",
@@ -281,8 +340,14 @@
       "bad_digest": "The download of {{version}} doesn't match its checksum, so it wasn't installed.",
       "unpack_failed": "Couldn't unpack {{version}}. Is there enough free disk space?",
       "smoke_failed": "{{version}} was downloaded but doesn't start on this server, so it wasn't installed.",
-      "vcredist_missing": "{{version}} needs the Microsoft Visual C++ Redistributable (x64). Install it, then try again."
+      "vcredist_missing": "{{version}} needs the Microsoft Visual C++ Redistributable (x64). Install it, then try again.",
+      "device_offline": "The device went offline before {{version}} was installed. Try again once it's back."
     },
+    "deviceErrors": {
+      "fetch_failed": "The device couldn't download {{version}}. Check its internet connection and try again.",
+      "smoke_failed": "{{version}} was downloaded but doesn't start on the device, so it wasn't installed."
+    },
+    "removeBodyDevice": "Its program is deleted from the device. Slicing there stops until you install it again. The hub's presets stay.",
     "vcRedist": "Get the Visual C++ Redistributable",
     "dialogTitle": "Install {{name}}",
     "version": "Version",

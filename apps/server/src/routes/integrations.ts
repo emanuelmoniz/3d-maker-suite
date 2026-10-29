@@ -2,6 +2,7 @@ import {
   adapterInfoSchema,
   apiErrorSchema,
   defaultPolicy,
+  deviceSlicerCheckSchema,
   type Integration,
   IntegrationError,
   integrationInputSchema,
@@ -16,6 +17,7 @@ import {
   type Page,
   pageOf,
   type SyncRun,
+  slicerCheckSchema,
   slicerInstallSchema,
   slicerInstallStatusSchema,
   slicerReleaseSchema,
@@ -42,6 +44,7 @@ import {
 import type { SlicerInstaller } from "../integrations/managedSlicer.ts";
 import { readSecrets, writeSecrets } from "../integrations/secrets.ts";
 import type { Syncer } from "../integrations/sync.ts";
+import type { WorkerSlicers } from "../integrations/workerSlicer.ts";
 import { mayTask } from "../lib/auth.ts";
 import { listPage } from "../lib/list.ts";
 
@@ -52,8 +55,16 @@ const LOGIN_TTL_MS = 10 * 60 * 1000;
 const LOGIN_TIMEOUT_MS = 60 * 1000;
 
 export const integrationsRoutes =
-  (db: Db, key: Buffer, syncer: Syncer, installer: SlicerInstaller): FastifyPluginAsyncZod =>
+  (
+    db: Db,
+    key: Buffer,
+    syncer: Syncer,
+    installer: SlicerInstaller,
+    workers: WorkerSlicers,
+  ): FastifyPluginAsyncZod =>
   async (app) => {
+    /** A worker's slicer is on its device; a server's is here. */
+    const slicerOf = (id: string) => (workers.isWorker(id) ? workers : installer);
     // ponytail: a sign-in waiting for its code lives in memory; a restart means starting over.
     const pendingLogins = new Map<string, { state: string; expires: number }>();
     const adapterOf = (id: string) => {
@@ -224,6 +235,13 @@ export const integrationsRoutes =
               ...(slicerPath !== undefined && { slicerPath: slicerPath || null }),
               ...(config &&
                 adapter && { config: parse(adapter.configSchema, config, "invalid_config") }),
+              // Another device or source: its slicer is picked again.
+              ...(config &&
+                adapter?.kind === "worker" &&
+                JSON.stringify(config) !== JSON.stringify(cur.config) && {
+                  slicerPath: null,
+                  slicerVersion: null,
+                }),
             })
             .where(eq(integrations.id, cur.id))
             .run();
@@ -245,13 +263,16 @@ export const integrationsRoutes =
         get(req.params.id);
         if (syncer.running.has(req.params.id))
           throw new HttpError(409, "sync_running", "A sync is running");
-        installer.remove(req.params.id, false); // a server integration's slicer goes with it
+        // A server or worker integration's slicer goes with it.
+        if (workers.isWorker(req.params.id)) await workers.remove(req.params.id, false);
+        installer.remove(req.params.id, false);
         db.delete(integrations).where(eq(integrations.id, req.params.id)).run();
         return reply.status(204).send(null);
       },
     );
 
-    // Managed slicer (server integrations, ADR-0013). Admin-only, reads too (lib/auth.ts).
+    // Managed slicer (server and worker integrations, ADR-0013, ADR-0014). Admin-only, reads too
+    // (lib/auth.ts).
     app.get(
       "/:id/slicer/releases",
       {
@@ -261,13 +282,13 @@ export const integrationsRoutes =
           response: { 200: z.array(slicerReleaseSchema), ...notFound, 502: apiErrorSchema },
         },
       },
-      async (req) => installer.releases(req.params.id, req.query.pre),
+      async (req) => slicerOf(req.params.id).releases(req.params.id, req.query.pre),
     );
 
     app.get(
       "/:id/slicer/install",
       { schema: { params, response: { 200: slicerInstallStatusSchema } } },
-      async (req) => installer.status(req.params.id),
+      async (req) => slicerOf(req.params.id).status(req.params.id),
     );
 
     app.post(
@@ -276,11 +297,37 @@ export const integrationsRoutes =
         schema: {
           params,
           body: slicerInstallSchema,
-          response: { 202: slicerInstallStatusSchema, ...notFound, 409: apiErrorSchema },
+          response: {
+            202: slicerInstallStatusSchema,
+            ...notFound,
+            409: apiErrorSchema,
+            422: apiErrorSchema,
+            504: apiErrorSchema,
+          },
         },
       },
       async (req, reply) =>
-        reply.status(202).send(await installer.install(req.params.id, req.body.tag)),
+        reply.status(202).send(await slicerOf(req.params.id).install(req.params.id, req.body.tag)),
+    );
+
+    // A worker's installed slicer: found on its device, or a typed path, once it runs there.
+    app.post(
+      "/:id/slicer/check",
+      {
+        schema: {
+          params,
+          body: slicerCheckSchema,
+          response: {
+            200: deviceSlicerCheckSchema,
+            400: apiErrorSchema,
+            ...notFound,
+            409: apiErrorSchema,
+            422: apiErrorSchema,
+            504: apiErrorSchema,
+          },
+        },
+      },
+      async (req) => workers.check(req.params.id, req.body),
     );
 
     app.delete(
@@ -288,7 +335,7 @@ export const integrationsRoutes =
       { schema: { params, response: { 204: z.null(), ...notFound, 409: apiErrorSchema } } },
       async (req, reply) => {
         get(req.params.id);
-        installer.remove(req.params.id);
+        await slicerOf(req.params.id).remove(req.params.id);
         return reply.status(204).send(null);
       },
     );

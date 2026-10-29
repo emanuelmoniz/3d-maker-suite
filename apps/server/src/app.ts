@@ -23,6 +23,7 @@ import type { Config } from "./config.ts";
 import { HttpError } from "./errors.ts";
 import { createSlicerInstaller } from "./integrations/managedSlicer.ts";
 import { createSyncer } from "./integrations/sync.ts";
+import { createWorkerSlicers } from "./integrations/workerSlicer.ts";
 import { authGuard } from "./lib/auth.ts";
 import { createHubChannel } from "./lib/hubChannel.ts";
 import { CUSTOM_LEVELS, createLogSink, moduleOf, pruneLogs, success } from "./lib/logSink.ts";
@@ -303,6 +304,15 @@ export async function buildApp(
     onScanned: (id, before) => autoSlice(db, syncer.adapters, sliceQueue, projectsLog, id, before),
   });
   await app.register(rootsRoutes(db, hub, scanner), { prefix: "/api/roots" });
+  const installer = createSlicerInstaller(db, dataDir, syncer.adapters, logFor("integrations"), {
+    // A new version outdates its slices (ADR-0013); auto slicing redoes them.
+    onInstalled: (id) =>
+      void autoSliceSlicer(db, syncer.adapters, sliceQueue, projectsLog, id).catch((err) =>
+        projectsLog.error({ err }, "auto slice after a slicer update failed"),
+      ),
+    ...opts.slicerInstaller,
+  });
+  const workers = createWorkerSlicers(db, syncer.adapters, hub, installer);
   await app.register(
     hubDeviceRoutes(
       db,
@@ -311,6 +321,7 @@ export async function buildApp(
       deviceFiles,
       hubFiles,
       syncer.adapters,
+      workers,
       () => void evaluate(),
     ),
     {
@@ -344,15 +355,7 @@ export async function buildApp(
     app.addHook("onClose", async () => backup.stop());
   }
 
-  const installer = createSlicerInstaller(db, dataDir, syncer.adapters, logFor("integrations"), {
-    // A new version outdates its slices (ADR-0013); auto slicing redoes them.
-    onInstalled: (id) =>
-      void autoSliceSlicer(db, syncer.adapters, sliceQueue, projectsLog, id).catch((err) =>
-        projectsLog.error({ err }, "auto slice after a slicer update failed"),
-      ),
-    ...opts.slicerInstaller,
-  });
-  await app.register(integrationsRoutes(db, key, syncer, installer), {
+  await app.register(integrationsRoutes(db, key, syncer, installer, workers), {
     prefix: "/api/integrations",
   });
 

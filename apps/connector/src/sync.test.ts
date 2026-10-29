@@ -145,7 +145,15 @@ describe("hub root sync", () => {
     const folders: string[] = [];
     const a = await device(h, "WS-A", "admin", undefined, {
       find: async () => [
-        { id: "bambu-studio", name: "Bambu Studio", version: "2", path: "bs", cmd: "bs", args: [] },
+        {
+          id: "bambu-studio",
+          name: "Bambu Studio",
+          version: "2",
+          path: "bs",
+          cmd: "bs",
+          args: [],
+          cli: { cmd: "bs", args: [] },
+        },
       ],
       start: async (_cmd, args) => {
         started.push(args.at(-1) ?? "");
@@ -306,7 +314,15 @@ describe("hub root sync", () => {
   /** A fake slicer per device: each start is a new pid that runs while it's in `running`. */
   const slicer = (running: Set<number>, pids: { next: number }, keep: boolean) => ({
     find: async () => [
-      { id: "bambu-studio", name: "Bambu Studio", version: "2", path: "bs", cmd: "bs", args: [] },
+      {
+        id: "bambu-studio",
+        name: "Bambu Studio",
+        version: "2",
+        path: "bs",
+        cmd: "bs",
+        args: [],
+        cli: { cmd: "bs", args: [] },
+      },
     ],
     start: async () => {
       const pid = pids.next++;

@@ -10,6 +10,7 @@ import { FormDialog } from "../../components/FormDialog.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { SettingsLink } from "../../components/SettingsLink.tsx";
+import { Switch } from "../../components/Switch.tsx";
 import { formatDateTime, formatTime } from "../../lib/format.ts";
 import { useDeviceActions, useDevices } from "../../lib/hub.ts";
 import { useAdapterName } from "../../lib/integrations.ts";
@@ -42,14 +43,14 @@ function SyncLine({ sync }: { sync: NonNullable<Device["sync"]> }) {
   );
 }
 
-/** What the device syncs, and the slicers Open uses there. */
+/** What the device syncs, the slicers found there, and whether worker integrations may slice on it. */
 function DeviceSync({ device: d }: { device: Device }) {
   const { t } = useTranslation();
   const adapterName = useAdapterName();
-  const { syncMode, unselect } = useDeviceActions();
+  const { syncMode, unselect, sliceWorker } = useDeviceActions();
   return (
     <div className="mt-2 grid gap-2">
-      {(syncMode.isError || unselect.isError) && (
+      {(syncMode.isError || unselect.isError || sliceWorker.isError) && (
         <p role="alert" className="text-bad">
           {t("hub:errors.generic")}
         </p>
@@ -92,15 +93,34 @@ function DeviceSync({ device: d }: { device: Device }) {
         ) : (
           <p className="text-muted">{t("hub:devices.noProjects")}</p>
         ))}
-      <p className="text-muted wrap-anywhere">
-        {d.slicers.length
-          ? t("hub:devices.slicers", {
-              list: d.slicers
-                .map((s) => (s.version ? `${adapterName(s.id)} ${s.version}` : adapterName(s.id)))
-                .join(", "),
-            })
-          : t("hub:devices.noSlicers")}
-      </p>
+      {d.slicers.length ? (
+        <div className="grid gap-1">
+          <span className="text-muted">{t("hub:devices.slicers")}</span>
+          <ul className="grid gap-1">
+            {d.slicers.map((s) => (
+              <li key={s.id} className="flex flex-wrap gap-x-2">
+                <span>
+                  {s.version
+                    ? t("hub:devices.slicer", { name: adapterName(s.id), version: s.version })
+                    : adapterName(s.id)}
+                </span>
+                <span className="text-muted wrap-anywhere">{s.path}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : (
+        <p className="text-muted">{t("hub:devices.noSlicers")}</p>
+      )}
+      <div>
+        <Switch
+          label={t("hub:devices.sliceWorker")}
+          checked={d.sliceWorker}
+          disabled={sliceWorker.isPending}
+          onChange={(e) => sliceWorker.mutate({ id: d.id, sliceWorker: e.target.checked })}
+        />
+        <p className="text-muted">{t("hub:devices.sliceWorkerHint")}</p>
+      </div>
     </div>
   );
 }

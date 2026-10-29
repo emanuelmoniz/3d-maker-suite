@@ -9,6 +9,7 @@ import {
   deviceIndexSchema,
   deviceReplySchema,
   deviceRootSchema,
+  deviceSlicerInstallSchema,
   deviceSlicerSchema,
   deviceSyncModeSchema,
   deviceSyncStateSchema,
@@ -26,6 +27,7 @@ import type { FastifyRequest } from "fastify";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
+import type { WorkerSlicers } from "../integrations/workerSlicer.ts";
 import type { HubChannel } from "../lib/hubChannel.ts";
 import { readPreferences } from "../lib/preferences.ts";
 import type { DeviceFiles } from "../projects/deviceFiles.ts";
@@ -63,6 +65,7 @@ export const hubDeviceRoutes =
     files: DeviceFiles,
     sync: HubFiles,
     adapters: IntegrationAdapter[],
+    workers: WorkerSlicers,
     /** A device reported its sync state: the mass delete alert may open or close. */
     onSyncState: () => void = () => {},
   ): FastifyPluginAsyncZod =>
@@ -263,6 +266,22 @@ export const hubDeviceRoutes =
           .run();
         return reply.status(204).send(null);
       },
+    );
+
+    // A worker's managed slicer install, as it goes (ADR-0014).
+    app.put(
+      "/slicers/install",
+      { schema: { body: deviceSlicerInstallSchema, response: { 204: z.null(), ...errors } } },
+      async (req, reply) => {
+        workers.report(deviceOf(req), req.body);
+        return reply.status(204).send(null);
+      },
+    );
+    // The managed slicers to keep here; the connector deletes the others' folders.
+    app.get(
+      "/slicers/managed",
+      { schema: { response: { 200: z.array(z.uuid()), ...errors } } },
+      async (req) => workers.managedOn(deviceOf(req)),
     );
 
     // The status page's switch; the connector syncs again from scratch, as after Hub management's.

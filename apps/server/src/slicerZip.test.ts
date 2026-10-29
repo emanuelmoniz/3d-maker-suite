@@ -1,7 +1,11 @@
 import { existsSync, mkdtempSync, readdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { orcaSlicerAdapter, orcaSlicerServerAdapter } from "@3d-maker-suite/adapter-orca";
+import {
+  orcaSlicerAdapter,
+  orcaSlicerServerAdapter,
+  orcaSlicerWorkerAdapter,
+} from "@3d-maker-suite/adapter-orca";
 import type { ImportPreview } from "@3d-maker-suite/core";
 import { openDb, schema } from "@3d-maker-suite/db";
 import { eq, sql } from "drizzle-orm";
@@ -53,7 +57,7 @@ beforeEach(async () => {
   db = openDb(":memory:");
   dataDir = mkdtempSync(join(tmpdir(), "zip-"));
   app = await buildApp(db, false, dataDir, {
-    adapters: [orcaSlicerAdapter(), orcaSlicerServerAdapter()],
+    adapters: [orcaSlicerAdapter(), orcaSlicerServerAdapter(), orcaSlicerWorkerAdapter()],
   });
 });
 
@@ -192,5 +196,23 @@ describe("slicer zip import", () => {
     });
     expect((await upload(other)).statusCode).toBe(200);
     expect(readdirSync(join(user, "default"))).toEqual(["process"]);
+  });
+
+  it("gives a worker slicer the whole zip, system and user: the hub slices its presets", async () => {
+    const { id } = (
+      await app.inject({
+        method: "POST",
+        url: "/api/integrations",
+        payload: {
+          adapterId: "orca-slicer-worker",
+          config: { deviceId: crypto.randomUUID(), source: "installed" },
+        },
+      })
+    ).json();
+    expect((await upload(await folder())).statusCode).toBe(200);
+    const config = join(dataDir, "slicers", id, "config");
+    expect(readdirSync(config).sort()).toEqual(["system", "user"]);
+    const row = db.select().from(schema.integrations).where(eq(schema.integrations.id, id)).get();
+    expect(row?.slicerConfigDir).toBe(config);
   });
 });

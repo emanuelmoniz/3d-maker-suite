@@ -11,6 +11,7 @@ export const KINDS: Record<IntegrationKind, string> = {
   cloud: "integrations:kinds.cloud",
   local: "integrations:kinds.local",
   server: "integrations:kinds.server",
+  worker: "integrations:kinds.worker",
 };
 export const INSTALL_PHASES: Record<NonNullable<SlicerInstallStatus["phase"]>, string> = {
   download: "integrations:managed.phases.download",
@@ -24,6 +25,12 @@ export const INSTALL_ERRORS: Record<SlicerInstallError, string> = {
   unpack_failed: "integrations:managed.errors.unpack_failed",
   smoke_failed: "integrations:managed.errors.smoke_failed",
   vcredist_missing: "integrations:managed.errors.vcredist_missing",
+  device_offline: "integrations:managed.errors.device_offline",
+};
+/** A worker's install runs on its device, not on this server. */
+export const DEVICE_INSTALL_ERRORS: Partial<Record<SlicerInstallError, string>> = {
+  fetch_failed: "integrations:managed.deviceErrors.fetch_failed",
+  smoke_failed: "integrations:managed.deviceErrors.smoke_failed",
 };
 export const ERRORS: Record<IntegrationErrorCode, string> = {
   auth_required: "integrations:errors.auth_required",

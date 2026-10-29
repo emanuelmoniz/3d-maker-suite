@@ -145,6 +145,22 @@ export const slicerReleaseSchema = z.object({
 
 export const slicerInstallSchema = z.object({ tag: z.string().min(1) }).strict();
 
+/**
+ * A `worker` integration (ADR-0014): the device it slices on, and its slicer there: one installed
+ * on it (picked with `POST /:id/slicer/check`) or a managed one the hub installs. Presets are the
+ * hub's: a zip import, or a folder on the hub.
+ */
+export const workerConfigSchema = z.object({
+  deviceId: id,
+  source: z.enum(["installed", "managed"]),
+});
+/** Use the slicer found on the device (its id) or the program at `path` there, once it runs. */
+export const slicerCheckSchema = z
+  .object({ slicer: z.string().max(100), path: z.string().trim().min(1).max(4096) })
+  .partial()
+  .strict()
+  .refine((b) => !!b.slicer !== !!b.path, "Either slicer or path");
+
 export const SLICER_INSTALL_PHASES = ["download", "verify", "unpack", "test"] as const;
 export const SLICER_INSTALL_ERRORS = [
   "fetch_failed",
@@ -152,6 +168,8 @@ export const SLICER_INSTALL_ERRORS = [
   "unpack_failed",
   "smoke_failed",
   "vcredist_missing",
+  /** A worker's device went offline before its install finished. */
+  "device_offline",
 ] as const;
 
 /** The install job of one server integration (one job runs at a time, in memory). */
@@ -274,4 +292,6 @@ export type LoginRequest = z.infer<typeof loginInputSchema>;
 export type LoginResult = z.infer<typeof loginResultSchema>;
 export type SlicerRelease = z.infer<typeof slicerReleaseSchema>;
 export type SlicerInstallStatus = z.infer<typeof slicerInstallStatusSchema>;
+export type WorkerConfig = z.infer<typeof workerConfigSchema>;
+export type SlicerCheck = z.infer<typeof slicerCheckSchema>;
 export type SlicerInstallError = (typeof SLICER_INSTALL_ERRORS)[number];

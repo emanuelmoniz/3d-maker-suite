@@ -1,20 +1,38 @@
 import { execFile } from "node:child_process";
+import { rmSync } from "node:fs";
 import { readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import {
   type DesktopSlicer,
   type DeviceSlicer,
+  type DeviceSlicerCheck,
   desktopSlicerSchema,
   type HubEvent,
+  type SlicerInstallStatus,
 } from "@3d-maker-suite/core";
-import { launch } from "@3d-maker-suite/host";
+import {
+  cleanPartials,
+  InstallError,
+  installSlicer,
+  launch,
+  removeSlicer,
+  smokeTest,
+} from "@3d-maker-suite/host";
 import { z } from "zod";
 import type { Request } from "./roots.ts";
 import type { Store } from "./state.ts";
 
-/** A slicer found here, its product name (`windowsName`), and how to start it with a file. */
-export type Found = DeviceSlicer & { name: string; cmd: string; args: string[] };
+/**
+ * A slicer found here, its product name (`windowsName`), how to start it with a file, and how to
+ * run it headless (`cli`: `--help`, slicing on a worker).
+ */
+export type Found = DeviceSlicer & {
+  name: string;
+  cmd: string;
+  args: string[];
+  cli: { cmd: string; args: string[] };
+};
 type Run = (cmd: string, args: string[]) => Promise<string>;
 
 const exec = promisify(execFile);
@@ -44,9 +62,10 @@ export function parseReg(out: string) {
 /** `DisplayIcon`: the program, without quotes or an icon index (`"x.exe",0`). */
 export const iconPath = (icon: string) => icon.replace(/,\s*-?\d+$/, "").replace(/^"(.*)"$/, "$1");
 
-/** `CFBundleShortVersionString` of an XML `Info.plist`. */
-export const plistVersion = (xml: string) =>
-  /<key>CFBundleShortVersionString<\/key>\s*<string>([^<]*)<\/string>/.exec(xml)?.[1] ?? null;
+/** A key's string in an XML `Info.plist`. */
+export const plistString = (xml: string, key: string) =>
+  new RegExp(`<key>${key}</key>\\s*<string>([^<]*)</string>`).exec(xml)?.[1] ?? null;
+export const plistVersion = (xml: string) => plistString(xml, "CFBundleShortVersionString");
 
 /** `flatpak list --app --columns=application,version`: version by app id. */
 export const parseFlatpak = (out: string) =>
@@ -71,7 +90,8 @@ const isDir = (p: string) =>
 
 /**
  * The installed slicers of `known` (ADR-0014): Windows `Uninstall` keys (HKLM, HKLM `WOW6432Node`,
- * HKCU) by exact `DisplayName`, macOS `/Applications/*.app`, Linux Flatpak. AppImages are Step 17.
+ * HKCU) by exact `DisplayName`, macOS `/Applications/*.app`, Linux Flatpak. An AppImage or anything
+ * else is a path the admin types for a slice worker (`check`).
  */
 export async function findSlicers(
   known: DesktopSlicer[],
@@ -94,6 +114,7 @@ export async function findSlicers(
           path,
           cmd: path,
           args: [],
+          cli: { cmd: path, args: [] },
         });
     }
   } else if (platform === "darwin") {
@@ -101,7 +122,8 @@ export async function findSlicers(
       const path = join("/Applications", k.macApp);
       if (!(await isDir(path))) continue;
       const plist = await readFile(join(path, "Contents", "Info.plist"), "utf8").catch(() => "");
-      // `open -a`: the file joins the running app, if there is one.
+      // `open -a`: the file joins the running app, if there is one; headless, its program.
+      const exe = plistString(plist, "CFBundleExecutable") ?? k.macApp.replace(/\.app$/, "");
       found.push({
         id: k.id,
         name: k.windowsName,
@@ -109,6 +131,7 @@ export async function findSlicers(
         path,
         cmd: "open",
         args: ["-a", path],
+        cli: { cmd: join(path, "Contents", "MacOS", exe), args: [] },
       });
     }
   } else {
@@ -124,6 +147,7 @@ export async function findSlicers(
           path: k.flatpak,
           cmd: "flatpak",
           args: ["run", k.flatpak],
+          cli: { cmd: "flatpak", args: ["run", k.flatpak] },
         });
   }
   return found;
@@ -137,16 +161,30 @@ export function createSlicers({
   request,
   store,
   log,
+  dataDir,
   find = findSlicers,
   start = launch,
+  smoke = smokeTest,
+  install = installSlicer,
 }: {
   request: Request;
   store: Store;
   log: (line: string) => void;
+  /** Slice workers' managed slicers go to `<dataDir>/slicers/<integrationId>`; none = not here. */
+  dataDir?: string;
   find?: (known: DesktopSlicer[]) => Promise<Found[]>;
   start?: (cmd: string, args: string[]) => Promise<number | undefined>;
+  smoke?: (cmd: string, args?: string[]) => Promise<string | null>;
+  install?: typeof installSlicer;
 }) {
   let found: Found[] = [];
+  const managedDir = dataDir && join(dataDir, "slicers");
+  if (managedDir) cleanPartials(managedDir);
+  const reply = (requestId: string, body: object) =>
+    request(`/replies/${requestId}`, { method: "POST", body }).catch(() => {});
+  /** An install error's code, else the OS one. */
+  const codeOf = (e: unknown) =>
+    e instanceof InstallError ? e.code : ((e as NodeJS.ErrnoException).code ?? "EIO");
 
   /**
    * The one asked for, else the default, else the only one found. Several and no default: none,
@@ -200,6 +238,97 @@ export function createSlicers({
         return { ok: false, code: e.code ?? "EIO" };
       });
       await request(`/replies/${requestId}`, { method: "POST", body }).catch(() => {});
+    },
+
+    /** Slice workers: a found slicer (its id) or a typed path runs with `--help` here. */
+    async check({ requestId, slicer, path }: Extract<HubEvent, { type: "slicer.check" }>) {
+      const f = slicer ? found.find((s) => s.id === slicer) : undefined;
+      if (slicer && !f) return reply(requestId, { ok: false, code: "no_slicer" });
+      const where = f?.path ?? path ?? "";
+      try {
+        const version = f ? await smoke(f.cli.cmd, f.cli.args) : await smoke(where);
+        const result: DeviceSlicerCheck = { path: where, version: f?.version ?? version };
+        log(`slicer ${where} runs (${result.version ?? "version unknown"})`);
+        await reply(requestId, { ok: true, result });
+      } catch (e) {
+        log(`slicer ${where}: ${e instanceof Error ? e.message : e}`);
+        await reply(requestId, { ok: false, code: codeOf(e) });
+      }
+    },
+
+    /**
+     * Slice workers: the hub's managed slicer into the data folder, no admin rights needed
+     * (ADR-0014). Answered at once; progress goes to `PUT /slicers/install`, at most once a second
+     * while downloading.
+     */
+    async install({
+      requestId,
+      integrationId,
+      target,
+    }: Extract<HubEvent, { type: "slicer.install" }>) {
+      if (!managedDir) return reply(requestId, { ok: false, code: "ENOTSUP" });
+      await reply(requestId, { ok: true, result: null });
+      const status: SlicerInstallStatus = {
+        state: "running",
+        phase: "download",
+        tag: null,
+        received: 0,
+        total: target.asset.size,
+        error: null,
+        detail: null,
+        startedAt: new Date().toISOString(),
+        finishedAt: null,
+      };
+      const send = (result?: DeviceSlicerCheck) =>
+        request("/slicers/install", {
+          method: "PUT",
+          body: { integrationId, status: { ...status }, ...(result && { result }) },
+        }).catch(() => {});
+      let sentAt = 0;
+      log(`installing ${target.asset.name}`);
+      try {
+        const exe = await install(join(managedDir, integrationId), target, {
+          onProgress: ({ phase, received }) => {
+            const next = phase !== status.phase;
+            Object.assign(status, { phase, received });
+            if (next || Date.now() - sentAt > 1000) {
+              sentAt = Date.now();
+              void send();
+            }
+          },
+        });
+        Object.assign(status, { state: "done", phase: null, finishedAt: new Date().toISOString() });
+        log(`installed ${target.asset.name}`);
+        await send({ path: exe, version: target.version });
+      } catch (e) {
+        Object.assign(status, {
+          state: "failed",
+          phase: null,
+          error: e instanceof InstallError ? e.code : "fetch_failed",
+          detail: e instanceof InstallError ? (e.detail ?? null) : String(e),
+          finishedAt: new Date().toISOString(),
+        });
+        log(`install ${target.asset.name}: ${status.error} ${status.detail ?? ""}`);
+        await send();
+      }
+    },
+
+    /** Slice workers: a managed slicer goes (Remove, or its integration was deleted). */
+    async remove({ requestId, integrationId }: Extract<HubEvent, { type: "slicer.remove" }>) {
+      if (managedDir) rmSync(join(managedDir, integrationId), { recursive: true, force: true });
+      await reply(requestId, { ok: true, result: null });
+    },
+
+    /** Online again: the managed slicers the hub no longer has for this device go. */
+    async prune() {
+      if (!managedDir) return;
+      try {
+        const res = await request("/slicers/managed");
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        removeSlicer(managedDir, z.array(z.string()).parse(await res.json()));
+      } catch (e) {
+        log(`slicers: ${e instanceof Error ? e.message : e}`);
+      }
     },
   };
 }

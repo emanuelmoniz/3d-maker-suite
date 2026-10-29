@@ -36,6 +36,7 @@ import { usePreferences, useSavePreferences } from "../../lib/preferences.ts";
 import { CAPS, ERRORS, KINDS } from "./integrationLabels.ts";
 import { ManagedSlicer, ProfilesFromZip } from "./ManagedSlicer.tsx";
 import { ActionSwitches, Policies } from "./PolicyRow.tsx";
+import { WorkerSlicer } from "./WorkerSlicer.tsx";
 
 // The status dot's colour; the line's text says the rest.
 const DOT: Record<IntegrationStatus | "disabled", string> = {
@@ -101,6 +102,8 @@ export function IntegrationCard({ integration: i }: { integration: Integration }
     ) : state === "unavailable" ? (
       i.kind === "server" ? (
         t("integrations:managed.notInstalledHint")
+      ) : i.kind === "worker" ? (
+        t("integrations:worker.unavailableHint")
       ) : (
         t("integrations:card.unavailableHint")
       )
@@ -233,12 +236,20 @@ export function IntegrationCard({ integration: i }: { integration: Integration }
               <ActionSwitches integration={i} />
             </Part>
           )}
-          {/* A server slicer with nothing to import: its presets come from a zip instead. */}
-          {admin && i.enabled && i.kind === "server" && !imports && adapter?.libraryId && (
-            <Part title={t("integrations:managed.profilesTitle")}>
-              <ProfilesFromZip libraryId={adapter.libraryId} />
+          {admin && i.enabled && i.kind === "worker" && adapter && (
+            <Part title={t("integrations:slicer.title")}>
+              <WorkerSlicer integration={i} adapter={adapter} />
             </Part>
           )}
+          {/* A server slicer with nothing to import, or a worker: presets come from a zip instead. */}
+          {admin &&
+            i.enabled &&
+            (i.kind === "server" ? !imports : i.kind === "worker") &&
+            adapter?.libraryId && (
+              <Part title={t("integrations:managed.profilesTitle")}>
+                <ProfilesFromZip libraryId={adapter.libraryId} />
+              </Part>
+            )}
           {/* A cloud adapter's slicer actions (a local one has them in its slicer part). */}
           {admin && i.enabled && i.kind === "cloud" && i.policies.some((p) => isAction(p.type)) && (
             <Part title={t("integrations:card.actions")}>

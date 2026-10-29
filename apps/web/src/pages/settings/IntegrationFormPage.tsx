@@ -6,6 +6,7 @@ import { Button } from "../../components/Button.tsx";
 import { Combobox } from "../../components/Combobox.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
+import { useDevices } from "../../lib/hub.ts";
 import { useAdapterName, useAdapters, useCreateIntegration } from "../../lib/integrations.ts";
 import { KINDS } from "./integrationLabels.ts";
 
@@ -44,6 +45,8 @@ export function IntegrationCreatePage() {
   const adapter = adapters.find((a) => a.id === (adapterId || adapters[0]?.id));
   const config = adapter ? fieldsOf(adapter.config) : [];
   const secrets = adapter && !adapter.login ? fieldsOf(adapter.secrets) : [];
+  // A worker integration picks one of the devices made a slice worker in Hub management.
+  const workers = (useDevices().data ?? []).filter((d) => d.sliceWorker);
 
   const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -73,6 +76,13 @@ export function IntegrationCreatePage() {
       {(p) =>
         type === "boolean" ? (
           <input {...p} type="checkbox" name={`${prefix}.${name}`} className="size-4" />
+        ) : name === "deviceId" ? (
+          <Combobox
+            {...p}
+            name={`${prefix}.${name}`}
+            placeholder={workers.length ? undefined : t("integrations:form.noWorkers")}
+            options={workers.map((d) => ({ value: d.id, label: d.name }))}
+          />
         ) : options ? (
           <Combobox
             {...p}

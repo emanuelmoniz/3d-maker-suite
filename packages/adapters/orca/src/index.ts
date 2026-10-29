@@ -7,6 +7,7 @@ import {
   type ManagedSlicer,
   pickAsset,
   tagPattern,
+  workerConfigSchema,
 } from "@3d-maker-suite/core";
 import { cliSlicer, slicerPresetLibrary } from "@3d-maker-suite/slicer-presets";
 import { z } from "zod";
@@ -115,5 +116,16 @@ export function orcaSlicerServerAdapter(): IntegrationAdapter {
     managed: orcaManaged,
     configSchema: z.object({}),
     secretsSchema: z.object({}),
+  };
+}
+
+// The same slicer on a slice worker (ADR-0014): installed on the device or downloaded there by the
+// hub. Its presets are the hub's (a zip import), as for the server one.
+export function orcaSlicerWorkerAdapter(): IntegrationAdapter {
+  return {
+    ...orcaSlicerServerAdapter(),
+    id: "orca-slicer-worker",
+    kind: "worker",
+    configSchema: workerConfigSchema,
   };
 }

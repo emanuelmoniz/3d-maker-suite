@@ -1038,14 +1038,14 @@ Design:
 - The worker is one more slice-capable integration in the plate → project → default pickers (4.2.0 Step 13b).
 - Jobs go out over SSE. The worker pulls the file (or uses its local copy if the hash matches), slices, and uploads the result.
 
-### [ ] Step 17 - Slicer on a device: installed or managed  **[plan mode]**
+### [x] Step 17 - Slicer on a device: installed or managed  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:**
 - The connector reports its installed slicers (ADR-0014): Windows `Uninstall` registry keys (path from `DisplayIcon`), macOS `/Applications/*.app` `Info.plist`, Linux `flatpak list --app` (run through `flatpak run`); AppImages and anything else are a typed path checked with `--help`. Shown per device in Hub management with name, path and version.
 - Move the `managedSlicer` download, digest check, unpack and smoke test from `apps/server` into a shared package. The server and the connector both use it.
-- A "slice worker" switch per device in Hub management, and its slicer: an installed one, or a managed one.
-- Managed: install, update and remove on the worker, driven from the hub, with progress shown in Hub management.
-- The hub pushes the managed config folder and keeps it in sync. Work files stay in the connector's data folder under the home folder (a Flatpak slicer can't read `/tmp`).
+- A "slice worker" switch per device in Hub management. A **worker** integration ("Bambu Studio (worker)") picks a worker device and, on its card, its slicer: an installed one (found, or a typed path checked with `--help`), or a managed one.
+- Managed: install, update and remove on the worker, driven from the hub, with progress shown on the worker integration's card.
+- Presets stay on the hub (the worker integration's zip import, system and user). Step 18's job carries the 3MF, plus the flattened presets only when one is picked, so nothing is synced to the worker. Work files stay in the connector's data folder under the home folder (a Flatpak slicer can't read `/tmp`).
 
 **Done when:** the flow is approved; a Windows worker uses its installed Bambu Studio and a macOS worker installs the hub's managed slicer version, both with the hub's presets; detection finds the installed slicers on Windows, macOS and a Linux Flatpak; the server's own managed slicer still works; tests pass.
 **Prompt:**

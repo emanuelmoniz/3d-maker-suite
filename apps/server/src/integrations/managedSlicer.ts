@@ -1,134 +1,37 @@
-import { spawn } from "node:child_process";
-import { createHash } from "node:crypto";
-import {
-  chmodSync,
-  cpSync,
-  createWriteStream,
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  readdirSync,
-  renameSync,
-  rmSync,
-  symlinkSync,
-} from "node:fs";
-import { tmpdir } from "node:os";
-import { extname, join } from "node:path";
-import { Readable, Transform } from "node:stream";
-import { pipeline } from "node:stream/promises";
-import type { ReadableStream } from "node:stream/web";
+import { cpSync, existsSync, mkdirSync, rmSync, symlinkSync } from "node:fs";
+import { join } from "node:path";
 import {
   compareVersions,
   type InstallableRelease,
   type IntegrationAdapter,
   installable,
   type Release,
-  type SlicerInstallError,
   type SlicerInstallStatus,
   type SlicerRelease,
   type SlicerSystem,
+  workerConfigSchema,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
-import { extract } from "@3d-maker-suite/host";
+import {
+  cleanPartials,
+  InstallError,
+  installSlicer,
+  PHASE_ERRORS,
+  removeSlicer,
+  smokeTest,
+  systemInfo,
+} from "@3d-maker-suite/host";
 import { and, eq, isNull } from "drizzle-orm";
 import { raise } from "../alerts/evaluate.ts";
 import { HttpError } from "../errors.ts";
 import { fetchReleases, repoReleasesUrl } from "../updates/updates.ts";
 
 // Server integrations download their slicer from the vendor's GitHub releases (ADR-0013):
-// <dataDir>/slicers/<integrationId>/<version>/ holds the program, config/system points at its
-// profiles and config/user keeps the user presets of an imported zip. A new version replaces the
-// old one only once its smoke test passed.
+// <dataDir>/slicers/<integrationId>/<version>/ holds the program (packages/host installs it),
+// config/system points at its profiles and config/user keeps the user presets of an imported zip.
 
-const { alerts, integrations } = schema;
+const { alerts, devices, integrations } = schema;
 const RELEASES_TTL_MS = 60 * 60_000; // GitHub allows 60 unauthenticated requests an hour
-const DOWNLOAD_TIMEOUT_MS = 60 * 60_000;
-const SMOKE_TIMEOUT_MS = 60_000;
-/** Windows' STATUS_DLL_NOT_FOUND: Bambu's zip relies on the system's VC++ runtime. */
-const DLL_NOT_FOUND = 0xc0000135 | 0;
-
-class InstallError extends Error {
-  readonly code: SlicerInstallError;
-  readonly detail?: string;
-  constructor(code: SlicerInstallError, detail?: string) {
-    super(detail ?? code);
-    this.code = code;
-    this.detail = detail;
-  }
-}
-
-/** Runs a program with its output ignored (an AppImage lists every file it extracts). */
-const exec = (cmd: string, args: string[], opts: { cwd?: string; timeoutMs?: number } = {}) =>
-  new Promise<number>((ok, fail) => {
-    const child = spawn(cmd, args, {
-      cwd: opts.cwd,
-      stdio: "ignore",
-      windowsHide: true,
-      ...(opts.timeoutMs && { signal: AbortSignal.timeout(opts.timeoutMs) }),
-    });
-    child.once("error", fail);
-    child.once("exit", (code, signal) => ok(code ?? (signal ? -1 : 0)));
-  });
-
-const must = async (cmd: string, args: string[], cwd?: string) => {
-  const code = await exec(cmd, args, { cwd });
-  if (code !== 0) throw new Error(`${cmd} exited with ${code}`);
-};
-
-/** The program starts and exits cleanly with `--help`, in a temp cwd: it writes result.json and a log. */
-export async function smokeTest(exe: string) {
-  const cwd = mkdtempSync(join(tmpdir(), "3dms-smoke-"));
-  const code = await exec(exe, ["--help"], { cwd, timeoutMs: SMOKE_TIMEOUT_MS })
-    .catch((e: Error) => {
-      throw new InstallError("smoke_failed", e.message);
-    })
-    .finally(() => rmSync(cwd, { recursive: true, force: true }));
-  if ((code | 0) === DLL_NOT_FOUND) throw new InstallError("vcredist_missing");
-  if (code !== 0) throw new InstallError("smoke_failed", `exit ${code | 0}`);
-}
-
-/** By extension (ADR-0013): yauzl without debug symbols, hdiutil, or the AppImage itself. */
-async function unpack(file: string, dest: string) {
-  mkdirSync(dest, { recursive: true });
-  if (file.endsWith(".zip")) return extract(file, dest, (n) => !n.endsWith(".pdb"));
-  if (file.endsWith(".dmg")) {
-    const mnt = mkdtempSync(join(tmpdir(), "3dms-dmg-"));
-    try {
-      await must("hdiutil", [
-        "attach",
-        "-nobrowse",
-        "-readonly",
-        "-noautoopen",
-        "-mountpoint",
-        mnt,
-        file,
-      ]);
-      try {
-        for (const app of readdirSync(mnt).filter((n) => n.endsWith(".app")))
-          await must("cp", ["-R", join(mnt, app), dest]);
-      } finally {
-        await exec("hdiutil", ["detach", mnt, "-force"]).catch(() => {});
-      }
-    } finally {
-      rmSync(mnt, { recursive: true, force: true });
-    }
-    return;
-  }
-  chmodSync(file, 0o755);
-  await must(file, ["--appimage-extract"], dest);
-}
-
-export function systemInfo(): SlicerSystem {
-  const report =
-    process.platform === "linux"
-      ? (process.report.getReport() as { header?: { glibcVersionRuntime?: string } })
-      : undefined;
-  return {
-    platform: process.platform,
-    arch: process.arch,
-    glibc: report?.header?.glibcVersionRuntime,
-  };
-}
 
 const idle = (): SlicerInstallStatus => ({
   state: "idle",
@@ -142,15 +45,7 @@ const idle = (): SlicerInstallStatus => ({
   finishedAt: null,
 });
 
-/** A phase's error when the failure wasn't one of ours (e.g. a full disk). */
-const PHASE_ERRORS = {
-  download: "fetch_failed",
-  verify: "bad_digest",
-  unpack: "unpack_failed",
-  test: "smoke_failed",
-} as const;
-
-/** The server slicers of a slicer library (e.g. Bambu Studio (server) for "bambu-studio"). */
+/** The server and worker slicers of a slicer library (e.g. Bambu Studio (server) for "bambu-studio"). */
 const managedOf = (db: Db, adapters: IntegrationAdapter[], library?: string) =>
   db
     .select()
@@ -159,27 +54,46 @@ const managedOf = (db: Db, adapters: IntegrationAdapter[], library?: string) =>
     .flatMap((row) => {
       const adapter = adapters.find((a) => a.id === row.adapterId);
       return adapter?.managed && (!library || adapter.library?.id === library)
-        ? [{ row, managed: adapter.managed }]
+        ? [{ row, adapter, managed: adapter.managed }]
         : [];
     });
 
+/** A worker's device's system (`X-Connector-System`); null before it reported one. */
+export function workerSystem(db: Db, row: typeof integrations.$inferSelect) {
+  const deviceId = workerConfigSchema.safeParse(row.config).data?.deviceId;
+  return deviceId
+    ? (db.select({ system: devices.system }).from(devices).where(eq(devices.id, deviceId)).get()
+        ?.system ?? null)
+    : null;
+}
+
 /**
- * A slicer zip's user presets (`<root>/user`) replace those of every server slicer of its library,
- * in `<dataDir>/slicers/<integrationId>/config/user`, so slicing finds them; installed or not yet.
+ * A slicer zip's presets go to every server and worker slicer of its library, in
+ * `<dataDir>/slicers/<integrationId>/config`, so slicing finds them; installed or not yet. A server
+ * slicer takes its user presets (`<root>/user`; its system ones are its install's). A worker takes
+ * the whole config, system and user, since the hub slices its presets for it (ADR-0014).
  */
-export function keepUserPresets(
+export function keepPresets(
   db: Db,
   dataDir: string,
   adapters: IntegrationAdapter[],
   library: string,
   root: string,
 ) {
-  const from = join(root, "user");
-  if (!dataDir || !existsSync(from)) return;
-  for (const { row } of managedOf(db, adapters, library)) {
-    const to = join(dataDir, "slicers", row.id, "config", "user");
-    rmSync(to, { recursive: true, force: true });
-    cpSync(from, to, { recursive: true });
+  if (!dataDir) return;
+  for (const { row, adapter } of managedOf(db, adapters, library)) {
+    const config = join(dataDir, "slicers", row.id, "config");
+    const parts = adapter.kind === "worker" ? ["system", "user"] : ["user"];
+    for (const part of parts) {
+      if (!existsSync(join(root, part))) continue;
+      rmSync(join(config, part), { recursive: true, force: true });
+      cpSync(join(root, part), join(config, part), { recursive: true });
+    }
+    if (adapter.kind === "worker" && existsSync(join(config, "system")))
+      db.update(integrations)
+        .set({ slicerConfigDir: config, updatedAt: new Date().toISOString() })
+        .where(eq(integrations.id, row.id))
+        .run();
   }
 }
 
@@ -197,7 +111,7 @@ export function createSlicerInstaller(
   }: {
     releases?: (url: string) => Promise<Release[]>;
     download?: typeof fetch;
-    smoke?: (exe: string) => Promise<void>;
+    smoke?: (exe: string) => Promise<unknown>;
     system?: SlicerSystem;
     /** After a version replaced the old one (its slices are then outdated). */
     onInstalled?: (id: string) => void;
@@ -222,8 +136,16 @@ export function createSlicerInstaller(
     if (running()) throw new HttpError(409, "install_running", "A slicer install is running");
   };
 
+  /** The system a slicer runs on: the server's, or a worker's device's. */
+  const systemOf = (id: string) => {
+    const { row, adapter } = managedRow(id);
+    return adapter.kind === "worker" ? workerSystem(db, row) : system;
+  };
+
   async function list(id: string, pre: boolean): Promise<InstallableRelease[]> {
     const { managed } = managedRow(id);
+    const sys = systemOf(id);
+    if (!sys) return [];
     let hit = cache.get(managed.repo);
     if (!hit || Date.now() - hit.at > RELEASES_TTL_MS) {
       const all = await fetchAll(repoReleasesUrl(managed.repo)).catch((err) => {
@@ -233,7 +155,7 @@ export function createSlicerInstaller(
       hit = { at: Date.now(), list: all };
       cache.set(managed.repo, hit);
     }
-    return installable(hit.list, managed, system, pre);
+    return installable(hit.list, managed, sys, pre);
   }
 
   /** Resolves the integration's open "slicer update" alerts whose version `stale` says is no news. */
@@ -248,89 +170,60 @@ export function createSlicerInstaller(
         db.update(alerts).set({ resolvedAt: now, updatedAt: now }).where(eq(alerts.id, a.id)).run();
   }
 
+  /** A version is in place: its update alerts are done, its slices outdated. */
+  function installed(id: string, version: string) {
+    resolveAlerts(id, (v) => compareVersions(v, version) <= 0);
+    onInstalled(id);
+  }
+
   async function run(id: string, rel: InstallableRelease) {
     const { managed } = managedRow(id);
     const dir = dirOf(id);
     const version = rel.tag.replace(/^v/i, "");
-    const file = join(dir, `download${extname(rel.asset.name)}`);
-    const partial = join(dir, `${version}.partial`);
-    const phase = (p: SlicerInstallStatus["phase"]) => {
-      job.phase = p;
-    };
     try {
-      mkdirSync(dir, { recursive: true });
-      rmSync(partial, { recursive: true, force: true });
-      const res = await download(rel.asset.url, {
-        signal: AbortSignal.timeout(DOWNLOAD_TIMEOUT_MS),
-      });
-      if (!res.ok || !res.body) throw new InstallError("fetch_failed", `HTTP ${res.status}`);
-      const hash = createHash("sha256");
-      await pipeline(
-        Readable.fromWeb(res.body as ReadableStream),
-        new Transform({
-          transform(chunk: Buffer, _enc, done) {
-            hash.update(chunk);
-            job.received += chunk.length;
-            done(null, chunk);
-          },
-        }),
-        createWriteStream(file),
+      const exe = await installSlicer(
+        dir,
+        { version, asset: rel.asset, exe: managed.exe(system.platform) },
+        {
+          download,
+          smoke,
+          keep: ["config"],
+          onProgress: (p) => Object.assign(job, p),
+        },
       );
-
-      phase("verify");
-      if (`sha256:${hash.digest("hex")}` !== rel.asset.digest) throw new InstallError("bad_digest");
-
-      phase("unpack");
-      await unpack(file, partial);
-      rmSync(file, { force: true });
-
-      phase("test");
-      await smoke(join(partial, managed.exe(system.platform)));
-
-      // Only now the new version replaces the old one.
-      const target = join(dir, version);
-      rmSync(target, { recursive: true, force: true });
-      renameSync(partial, target);
       const config = join(dir, "config");
       const systemLink = join(config, "system");
       mkdirSync(config, { recursive: true });
       rmSync(systemLink, { recursive: true, force: true }); // the link only, never its target
-      symlinkSync(join(target, managed.profiles(system.platform)), systemLink, "junction");
+      symlinkSync(join(dir, version, managed.profiles(system.platform)), systemLink, "junction");
       db.update(integrations)
         .set({
-          slicerPath: join(target, managed.exe(system.platform)),
+          slicerPath: exe,
           slicerConfigDir: config,
           slicerVersion: version,
           updatedAt: new Date().toISOString(),
         })
         .where(eq(integrations.id, id))
         .run();
-      for (const old of readdirSync(dir))
-        if (old !== version && old !== "config")
-          rmSync(join(dir, old), { recursive: true, force: true });
       Object.assign(job, { state: "done", phase: null, finishedAt: new Date().toISOString() });
-      resolveAlerts(id, (v) => compareVersions(v, version) <= 0);
-      onInstalled(id);
+      installed(id, version);
     } catch (err) {
-      rmSync(partial, { recursive: true, force: true });
-      rmSync(file, { force: true });
       log.warn({ err, integrationId: id, tag: rel.tag }, "slicer install failed");
+      const e =
+        err instanceof InstallError
+          ? err
+          : new InstallError(PHASE_ERRORS[job.phase ?? "download"], String((err as Error).message));
       Object.assign(job, {
         state: "failed",
-        error: err instanceof InstallError ? err.code : PHASE_ERRORS[job.phase ?? "download"],
-        detail: err instanceof InstallError ? (err.detail ?? null) : String((err as Error).message),
+        error: e.code,
+        detail: e.detail ?? null,
         phase: null,
         finishedAt: new Date().toISOString(),
       });
     }
   }
 
-  // A restart mid-install leaves a half folder or download behind.
-  if (dataDir && existsSync(root))
-    for (const id of readdirSync(root))
-      for (const f of readdirSync(dirOf(id)))
-        if (f.endsWith(".partial") || f.startsWith("download."))
-          rmSync(join(dirOf(id), f), { recursive: true, force: true });
+  if (dataDir) cleanPartials(root);
 
   return {
     /**
@@ -363,6 +256,12 @@ export function createSlicerInstaller(
           });
       }
     },
+
+    /** Its installable releases (a worker's: for its device), newest first, with their assets. */
+    installable: list,
+    systemOf,
+    installed,
+    resolveAlerts,
 
     /** Installable releases of this integration's slicer, newest first. */
     releases: async (id: string, pre: boolean): Promise<SlicerRelease[]> =>
@@ -407,9 +306,8 @@ export function createSlicerInstaller(
       const dir = dirOf(id);
       resolveAlerts(id, () => true);
       if (!forget) rmSync(dir, { recursive: true, force: true });
-      else if (existsSync(dir)) {
-        for (const f of readdirSync(dir))
-          if (f !== "config") rmSync(join(dir, f), { recursive: true, force: true });
+      else {
+        removeSlicer(dir, ["config"]);
         rmSync(join(dir, "config", "system"), { recursive: true, force: true }); // the link only
       }
       if (forget)

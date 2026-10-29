@@ -7,7 +7,7 @@ import {
   hubEventSchema,
   pairResultSchema,
 } from "@3d-maker-suite/core";
-import { openFolder } from "@3d-maker-suite/host";
+import { openFolder, systemInfo } from "@3d-maker-suite/host";
 import { z } from "zod";
 import { createRootSync, type Request } from "./roots.ts";
 import { createSlicers } from "./slicers.ts";
@@ -89,7 +89,7 @@ type Options = {
     "alive" | "handoffMs" | "pollMs"
   >;
   /** How slicers are found and started, and folders opened (tests); the real ones by default. */
-  slicers?: Pick<Parameters<typeof createSlicers>[0], "find" | "start"> & {
+  slicers?: Pick<Parameters<typeof createSlicers>[0], "find" | "start" | "smoke" | "install"> & {
     openDir?: (dir: string) => Promise<unknown>;
   };
   log?: (line: string) => void;
@@ -152,7 +152,7 @@ export function createLink({
       log,
     });
   const { openDir = openFolder, ...slicerFns } = slicerHooks ?? {};
-  const slicers = createSlicers({ request, store, log, ...slicerFns });
+  const slicers = createSlicers({ request, store, log, dataDir: syncAt?.dataDir, ...slicerFns });
   const local = (rootId: string, path: string) =>
     sync ? sync.local(rootId, path) : Promise.resolve(null);
   /** Open folder: the project's synced copy in the file manager, ENOENT when it isn't here. */
@@ -192,6 +192,12 @@ export function createLink({
           sync?.opened(rootId, path, pid),
         );
       if (event.success && event.data.type === "open.folder") return void openSynced(event.data);
+      if (event.success && event.data.type === "slicer.check")
+        return void slicers.check(event.data);
+      if (event.success && event.data.type === "slicer.install")
+        return void slicers.install(event.data);
+      if (event.success && event.data.type === "slicer.remove")
+        return void slicers.remove(event.data);
       if (event.success) return toRoots(event.data);
       const requestId = (json as { requestId?: unknown })?.requestId;
       if (typeof requestId === "string" && /^[0-9a-f-]{36}$/i.test(requestId))
@@ -237,6 +243,7 @@ export function createLink({
           accept: "text/event-stream",
           "x-connector-version": version,
           "x-connector-os": os,
+          "x-connector-system": JSON.stringify(systemInfo()),
           ...(port && { "x-connector-port": String(port) }),
           ...(failure && { "x-connector-update": JSON.stringify(failure) }),
           ...(store.get().cursor && { "last-event-id": String(store.get().cursor) }),
@@ -253,6 +260,7 @@ export function createLink({
       void roots.start();
       void sync?.start();
       void slicers.refresh();
+      void slicers.prune();
       const parse = sseParser(handle);
       const text = new TextDecoder();
       for await (const chunk of res.body) {

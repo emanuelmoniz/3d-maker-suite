@@ -10,6 +10,7 @@ import {
   type ManagedSlicer,
   pickAsset,
   tagPattern,
+  workerConfigSchema,
 } from "@3d-maker-suite/core";
 import { z } from "zod";
 
@@ -424,5 +425,16 @@ export function bambuStudioServerAdapter(): IntegrationAdapter {
     managed: bambuManaged,
     configSchema: z.object({}),
     secretsSchema: z.object({}),
+  };
+}
+
+// The same slicer on a slice worker (ADR-0014): installed on the device or downloaded there by the
+// hub. Its presets are the hub's (a zip import), as for the server one.
+export function bambuStudioWorkerAdapter(): IntegrationAdapter {
+  return {
+    ...bambuStudioServerAdapter(),
+    id: "bambu-studio-worker",
+    kind: "worker",
+    configSchema: workerConfigSchema,
   };
 }

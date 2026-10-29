@@ -16,21 +16,26 @@ import {
   useSlicerReleases,
 } from "../../lib/integrations.ts";
 import { useZipSources } from "../../lib/slicerCatalog.ts";
-import { INSTALL_ERRORS, INSTALL_PHASES } from "./integrationLabels.ts";
+import { DEVICE_INSTALL_ERRORS, INSTALL_ERRORS, INSTALL_PHASES } from "./integrationLabels.ts";
 
 const VC_REDIST = "https://learn.microsoft.com/cpp/windows/latest-supported-vc-redist";
 const link = "text-accent hover:underline";
 const version = (tag: string) => tag.replace(/^v/i, "");
 
-/** A server integration's slicer (ADR-0013): install a version, follow the job, update, remove. */
+/**
+ * A server integration's slicer (ADR-0013), or a worker's on its device (`onDevice`, ADR-0014):
+ * install a version, follow the job, update, remove.
+ */
 export function ManagedSlicer({
   integration: i,
   libraryId,
   managed,
+  onDevice = false,
 }: {
   integration: Integration;
   libraryId: string | null;
   managed: NonNullable<AdapterInfo["managed"]>;
+  onDevice?: boolean;
 }) {
   const { t } = useTranslation();
   const name = useAdapterName()(i.adapterId);
@@ -74,7 +79,9 @@ export function ManagedSlicer({
       )}
       {job?.state === "failed" && job.error && (
         <p role="alert" className="text-bad">
-          {t(INSTALL_ERRORS[job.error], { version: version(job.tag ?? "") })}
+          {t((onDevice && DEVICE_INSTALL_ERRORS[job.error]) || INSTALL_ERRORS[job.error], {
+            version: version(job.tag ?? ""),
+          })}
           {job.detail && ` (${job.detail})`}
           {job.error === "vcredist_missing" && (
             <>
@@ -130,7 +137,11 @@ export function ManagedSlicer({
       <ConfirmDialog
         open={confirming}
         title={t("integrations:managed.removeTitle", { name })}
-        description={t("integrations:managed.removeBody")}
+        description={
+          onDevice
+            ? t("integrations:managed.removeBodyDevice")
+            : t("integrations:managed.removeBody")
+        }
         confirmLabel={t("integrations:managed.remove")}
         destructive
         onCancel={() => setConfirming(false)}

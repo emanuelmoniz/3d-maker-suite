@@ -78,6 +78,7 @@ export const hubRoutes =
           sync: devices.syncState,
           syncMode: devices.syncMode,
           slicers: devices.slicers,
+          sliceWorker: devices.sliceWorker,
           lastSeenAt: devices.lastSeenAt,
           createdAt: devices.createdAt,
         })
@@ -180,9 +181,14 @@ export const hubRoutes =
     app.get("/events", async (req, reply) => {
       const deviceId = req.deviceId;
       if (!deviceId) throw new HttpError(403, "forbidden", "Only a paired device can open this");
+      let system: unknown;
+      try {
+        system = JSON.parse(String(req.headers["x-connector-system"]));
+      } catch {}
       const info = connectorInfoSchema.safeParse({
         connectorVersion: req.headers["x-connector-version"],
         os: req.headers["x-connector-os"],
+        system,
       });
       // The connector tried to update to the hub's version before opening this: a failure says why
       // it didn't, none clears the last one.

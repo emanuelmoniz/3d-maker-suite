@@ -32,6 +32,11 @@ export function useDeviceActions() {
         api("PATCH", `/api/hub/devices/${id}`, { name }),
       onSuccess: refresh,
     }),
+    sliceWorker: useMutation({
+      mutationFn: ({ id, sliceWorker }: { id: string; sliceWorker: boolean }) =>
+        api("PATCH", `/api/hub/devices/${id}`, { sliceWorker }),
+      onSuccess: refresh,
+    }),
     syncMode: useMutation({
       mutationFn: ({ id, syncMode }: { id: string; syncMode: DeviceSyncMode }) =>
         api("PATCH", `/api/hub/devices/${id}`, { syncMode }),

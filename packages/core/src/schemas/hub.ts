@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { id, isoDate } from "./entities.ts";
+import { slicerInstallStatusSchema } from "./integrations.ts";
 import { projectFileSchema, projectGallerySchema, projectModelSchema } from "./projects.ts";
 
 /**
@@ -50,6 +51,35 @@ export const deviceSlicerSchema = z.object({
   default: z.boolean().optional(),
 });
 
+/** `SlicerSystem`: picks a managed slicer's build. */
+export const slicerSystemSchema = z.object({
+  platform: z.string().max(20),
+  arch: z.string().max(20),
+  glibc: z.string().max(20).optional(),
+});
+/** A managed slicer for a worker: the release asset, its version and the program inside it. */
+export const slicerInstallTargetSchema = z.object({
+  version: z.string().max(100),
+  exe: z.string().max(1024),
+  asset: z.object({
+    name: z.string().max(500),
+    size: z.number().int().nonnegative(),
+    digest: z.string().max(200),
+    url: z.url().max(2048),
+  }),
+});
+/** A slicer that passed `--help` on the device: the path it runs from and its version, if known. */
+export const deviceSlicerCheckSchema = z.object({
+  path: z.string().max(4096),
+  version: z.string().max(100).nullable(),
+});
+/** A worker's managed install (`PUT /api/hub/device/slicers/install`); `result` once it's done. */
+export const deviceSlicerInstallSchema = z.object({
+  integrationId: id,
+  status: slicerInstallStatusSchema,
+  result: deviceSlicerCheckSchema.optional(),
+});
+
 /** A connector paired with the hub (ADR-0014), as Hub management lists it. */
 export const deviceSchema = z.object({
   id,
@@ -72,13 +102,15 @@ export const deviceSchema = z.object({
   projects: z.array(z.object({ id, name: z.string() })),
   /** The slicers its connector found; none = it can't open files. */
   slicers: z.array(deviceSlicerSchema),
+  /** A worker integration may slice on it (ADR-0014). */
+  sliceWorker: z.boolean(),
   createdAt: isoDate,
 });
 
 const name = z.string().trim().min(1).max(100);
 
 export const deviceUpdateSchema = z
-  .object({ name, syncMode: deviceSyncModeSchema })
+  .object({ name, syncMode: deviceSyncModeSchema, sliceWorker: z.boolean() })
   .partial()
   .strict();
 /** One of the user's online devices, for a project's Open and Open folder. */
@@ -124,6 +156,9 @@ export type HubLockMode = z.infer<typeof hubLockModeSchema>;
 export type DesktopSlicer = z.infer<typeof desktopSlicerSchema>;
 export type DeviceSlicer = z.infer<typeof deviceSlicerSchema>;
 export type OpenDevice = z.infer<typeof openDeviceSchema>;
+export type SlicerInstallTarget = z.infer<typeof slicerInstallTargetSchema>;
+export type DeviceSlicerCheck = z.infer<typeof deviceSlicerCheckSchema>;
+export type DeviceSlicerInstall = z.infer<typeof deviceSlicerInstallSchema>;
 export type OpenTargets = z.infer<typeof openTargetsSchema>;
 export type PairingCodeCreate = z.input<typeof pairingCodeCreateSchema>;
 export type PairingCode = z.infer<typeof pairingCodeSchema>;
@@ -179,9 +214,36 @@ export const hubEventSchema = z.discriminatedUnion("type", [
     rootId: id,
     path: z.string().max(1024),
   }),
+  /**
+   * Slice workers: does a slicer run here with `--help`? `slicer` a found one (its id), or `path`
+   * one the admin typed (an AppImage, ...). The answer's result is a `deviceSlicerCheckSchema`.
+   */
+  z.object({
+    type: z.literal("slicer.check"),
+    requestId: id,
+    slicer: z.string().max(100).optional(),
+    path: z.string().max(4096).optional(),
+  }),
+  /**
+   * Install a managed slicer for the worker integration `integrationId`; answered (null) at once,
+   * then reported on `PUT /api/hub/device/slicers/install`.
+   */
+  z.object({
+    type: z.literal("slicer.install"),
+    requestId: id,
+    integrationId: id,
+    target: slicerInstallTargetSchema,
+  }),
+  /** Delete the managed slicer of `integrationId`; the answer is null. */
+  z.object({ type: z.literal("slicer.remove"), requestId: id, integrationId: id }),
 ]);
-/** What the connector reports when it opens the stream (`X-Connector-Version`, `X-Connector-OS`). */
-export const connectorInfoSchema = pairSchema.pick({ connectorVersion: true, os: true });
+/**
+ * What the connector reports when it opens the stream (`X-Connector-Version`, `X-Connector-OS`,
+ * `X-Connector-System` as JSON: which managed slicer build fits it).
+ */
+export const connectorInfoSchema = pairSchema
+  .pick({ connectorVersion: true, os: true })
+  .extend({ system: slicerSystemSchema.optional() });
 
 /** A `: hb` comment this often keeps the device online and proxies from closing a quiet stream. */
 export const HUB_HEARTBEAT_MS = 15_000;
