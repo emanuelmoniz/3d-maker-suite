@@ -1,6 +1,6 @@
 {
   "name": "@3d-maker-suite/host",
-  "version": "5.0.0-alpha.3",
+  "version": "5.0.0-alpha.4",
   "private": true,
   "type": "module",
   "main": "src/index.ts",

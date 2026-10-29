@@ -2,6 +2,21 @@
 
 All notable changes are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [5.0.0-alpha.4] - 2026-10-29
+
+Pre-release. Test on a copy of your data first; back up before updating. Slice workers come in later 5.0.0 pre-releases.
+
+### Added
+- **Check-out locks** (Hub management → Settings, off by default; on or strict): opening a hub file on a workstation, or the first save there, checks it out and other devices get it read-only. It is released when the slicer exits (Windows and Linux), on **Done editing**, after an idle time, or by an admin. The project page shows who has a file checked out ([docs/hub.md](docs/hub.md#locks))
+- **File versions** (off by default): a save that replaces a hub file keeps the old content, the newest N per file. The project page lists them with Download; Settings shows the disk they use; backups include them and say so ([docs/hub.md](docs/hub.md#versions))
+
+### Changed
+- **One Open button** on the project page and file rows opens the slicer on the computer you sit at: the server's own slicer on the server's computer, else that computer's connector, else your online devices (asking when several). **Open folder** follows the same order. A connector can be set to **Ask each time** instead of a default slicer
+- The hub's settings have their own page under Hub management
+
+### Fixed
+- Deleting a user left the files their devices had checked out read-only on other devices
+
 ## [5.0.0-alpha.3] - 2026-10-29
 
 Pre-release. Test on a copy of your data first; back up before updating. Locks, versions and slice workers come in later 5.0.0 pre-releases.

@@ -6,4 +6,4 @@
 - **Restore:** choose a backup in Settings. The restore is applied on the next start, before the database opens, so the app restarts after restoring.
 - **Export:** CSV and JSON exports of prints, spools and other tables are on the **Import | Export** page. Use them for spreadsheets or your own tools.
 
-Backups live in the `backups` folder inside your data folder (see [install.md](install.md#where-your-data-is)). A backup holds your database, photos and the key that protects saved logins, so keep copies private. Copy them to another drive for real safety.
+Backups live in the `backups` folder inside your data folder (see [install.md](install.md#where-your-data-is)). A backup holds your database, photos, the hub's file versions (if kept) and the key that protects saved logins, so keep copies private. Copy them to another drive for real safety.

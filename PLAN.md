@@ -1016,7 +1016,7 @@ Do Step 14b of the 5.0.0 plan in PLAN.md. Show me the three-way decision and the
 Do Step 15 of the 5.0.0 plan in PLAN.md.
 ```
 
-### [ ] Step 16 - Docs, push & v5.0.0-alpha.4
+### [x] Step 16 - Docs, push & v5.0.0-alpha.4
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - `docs/hub.md`: locks and their limits (soft locks), versions and disk use.

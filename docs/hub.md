@@ -1,6 +1,6 @@
 # Hub and connector
 
-> **Status: 5.0.0-alpha.3.** This pre-release adds syncing the hub's own project folders with paired devices (both ways, with conflict copies and a mass delete guard), choosing which projects a device syncs, **Open on my workstation**, and shared folders on the device. Test on a copy of your data and back up first.
+> **Status: 5.0.0-alpha.4.** This pre-release adds check-out locks, file versions, one **Open** button for the machine you sit at, and the hub's settings on their own page. Test on a copy of your data and back up first.
 
 A **hub** is the normal server with hub features switched on. Workstations, a NAS or a file server join it by running a small **connector**. People still work only in the web app. Design and decisions: [ADR-0014](adr/0014-hub-and-connector.md).
 
@@ -10,7 +10,7 @@ With the switch off, nothing changes.
 
 1. Set up user accounts first ([users.md](users.md)): every device acts as a user.
 2. As an admin, go to **Settings → Server** and turn on **Hub**.
-3. **Hub management** appears in the menu next to Integrations (admins only). It lists the devices: name, user, OS, connector version, and online or last seen.
+3. **Hub management** appears in the menu next to Integrations (admins only). It lists the devices: name, user, OS, connector version, and online or last seen. Its **Settings** page holds the sync, lock and version settings.
 
 If the hub is switched off again, connectors show "The hub is turned off on this server" and keep their pairing.
 
@@ -68,7 +68,36 @@ The page only finds the connector when the connector was paired with the same ad
 
 The connector finds installed slicers itself (Windows: the installed apps list; macOS: `/Applications`; Linux: Flatpak) and reports them to the hub. The status page picks the default, or **Ask each time**: then Open asks which slicer when the device has more than one. With no slicer found, the device isn't offered.
 
-Locks are soft: they keep two devices from editing the same file by accident, but opening on the server's computer, or copying a file out, doesn't check them. The project page shows who has a file checked out.
+Locks are soft: see [Locks](#locks).
+
+### Locks
+
+**Hub management → Settings → Check-out locks** has three modes (default **Off**):
+
+- **Off**: anyone can edit a hub file on any device at once. Clashing saves become conflict copies.
+- **On**: opening a file on a workstation with **Open**, or the first save of it there, checks it out for that device. Other devices get the file read-only until it is released. Their saves still become conflict copies and their deletes are refused.
+- **Strict**: as On, and a device that is offline can only read hub files (except the ones it has checked out), because it can't check anything out.
+
+A checked-out file is released when:
+
+- the slicer **Open** launched exits (Windows and Linux only),
+- you choose **Done editing** (the project page or the connector's status page),
+- it has had no save for the idle time (**Release a checked-out file after this many minutes without a save**, default 60),
+- an admin force-unlocks it, or the device is revoked or its user deleted, or locks are switched off.
+
+The project page shows "Being edited by `<user>` on `<device>`" on a checked-out file.
+
+**Limits.** Locks are soft. They guard against two devices editing the same file by accident, not against someone who works around them: opening on the server's computer (which edits the hub folder in place and takes no lock), copying a file out, or editing the hub's disk directly doesn't check them. A device that was offline when a file was checked out learns about it when it reconnects.
+
+### Versions
+
+**Hub management → Settings → Keep earlier versions of files** (default off). When on, a save from a device that replaces a hub file keeps the old content as a version, and the newest **N** (default 5, up to 100) are kept per file.
+
+- The project page lists a file's versions (number, user, device, date, size), each with **Download**.
+- Only saves that reach the hub from a device are kept. A change made on the hub's own disk is not.
+- Lowering N deletes the older versions at once. Turning versions off stops keeping new ones and leaves the existing ones.
+- **Disk use.** Versions are stored in `<data folder>/versions`, outside your project roots, and Settings shows the space they use. A big 3MF saved often costs N copies of itself, so choose N with the disk in mind.
+- **Backups** include `versions/`, so they grow with it. The backup list marks the ones that include file versions ([backups.md](backups.md)).
 
 ### Conflicts
 
@@ -78,7 +107,7 @@ If a device uploads a file that changed on the hub or on another device since it
 
 A file deleted on a device moves to the root's trash on the hub, never a hard delete, and only when the hub has no newer version of it.
 
-**Mass delete guard.** When a device deletes more files from one hub root at once than the limit (**Hub management → Sync**, default 20), or a root's folder is missing on the device, the connector holds those deletes. Its status page asks you to **Delete on the hub too** or **Restore them**, the device shows **Paused** in Hub management and the hub keeps an alert open until it is settled.
+**Mass delete guard.** When a device deletes more files from one hub root at once than the limit (**Hub management → Settings → Sync**, default 20), or a root's folder is missing on the device, the connector holds those deletes. Its status page asks you to **Delete on the hub too** or **Restore them**, the device shows **Paused** in Hub management and the hub keeps an alert open until it is settled.
 
 ## Shared folders on a device
 
