@@ -13,6 +13,7 @@ import { join } from "node:path";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import {
+  type DeviceSyncMode,
   type DeviceSyncState,
   type HubChanges,
   type HubEvent,
@@ -113,6 +114,7 @@ export function createHubSync({
   };
 
   let live = new Map<string, Live>();
+  let mode: DeviceSyncMode = "all";
   let guard = Number.POSITIVE_INFINITY;
   let cursor = 0;
   let run = 0;
@@ -518,8 +520,10 @@ export function createHubSync({
       await load();
       const res = await call("/sync/roots");
       if (!res.ok) throw new Error(`roots: HTTP ${res.status}`);
-      const { roots, deleteGuard } = hubSyncRootsSchema.parse(await res.json());
-      guard = deleteGuard;
+      const synced = hubSyncRootsSchema.parse(await res.json());
+      const { roots } = synced;
+      guard = synced.deleteGuard;
+      mode = synced.mode;
       await mkdir(syncDir, { recursive: true });
       const next = new Map<string, Live>();
       for (const r of roots) {
@@ -553,6 +557,23 @@ export function createHubSync({
       else if (event.type === "roots.changed") void start();
     },
     state,
+    /** `all` the hub roots, or the selected projects (the hub filters the feed); as of the connect. */
+    mode: () => mode,
+    /**
+     * The local path of a hub root's file, for Open: a file not synced yet (a project just selected)
+     * pulls everything it now may see first. Null when it isn't here even then.
+     */
+    async local(rootId: string, path: string) {
+      let abs: string | null = null;
+      await serial(async () => {
+        const l = live.get(rootId);
+        if (!l || !syncable(path)) return;
+        const key = keyOf(rootId, path);
+        if (!saved.files[key]) await pull(true).catch((e) => log(`sync: ${message(e)}`));
+        if (saved.files[key]) abs = await inRoot(l.base, path).catch(() => null);
+      });
+      return abs;
+    },
     /** Sends a root's held deletes to the hub. */
     confirm: (rootId: string) =>
       serial(async () => {

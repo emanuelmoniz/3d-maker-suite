@@ -56,6 +56,11 @@ export function orcaSlicerAdapter(): IntegrationAdapter {
     ],
     library: orcaSlicerLibrary(),
     slicer: cliSlicer({ flavor: "orca" }),
+    desktop: {
+      windowsName: "OrcaSlicer",
+      macApp: "OrcaSlicer.app",
+      flatpak: "io.github.softfever.OrcaSlicer",
+    },
     configSchema: z.object({}),
     secretsSchema: z.object({}),
   };

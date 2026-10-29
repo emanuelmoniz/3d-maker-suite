@@ -6,6 +6,7 @@ import {
   Folder,
   FolderInput,
   FolderPlus,
+  MonitorSmartphone,
   Pencil,
   RefreshCw,
   Trash2,
@@ -47,6 +48,9 @@ type Ctx = {
   ask: (a: Ask) => void;
   selected: Set<string>;
   toggle: (path: string) => void;
+  /** Open on my workstation, for the project's models; none without a device. */
+  open?: (path: string) => void;
+  models: Set<string>;
 };
 
 /** A hidden file input that a button opens; keeps the picker keyboard reachable through the button. */
@@ -158,6 +162,14 @@ function Row({ entry, depth, ctx }: { entry: ProjectFileEntry; depth: number; ct
         )}
         <Write when={ctx.canEdit}>
           <span className="flex shrink-0 gap-1">
+            {ctx.open && ctx.models.has(entry.path) && (
+              <IconButton
+                label={t("projects:files.openOnDevice", n)}
+                onClick={() => ctx.open?.(entry.path)}
+              >
+                <MonitorSmartphone className="size-4" aria-hidden />
+              </IconButton>
+            )}
             {dir ? (
               <>
                 <IconButton
@@ -238,7 +250,13 @@ function Children({ path, depth, ctx }: { path: string; depth: number; ctx: Ctx 
 }
 
 /** The project folder as a tree: create, rename, move, delete, upload (picker or drop) and replace. */
-export function ProjectFiles({ project }: { project: ProjectDetail }) {
+export function ProjectFiles({
+  project,
+  onOpen,
+}: {
+  project: ProjectDetail;
+  onOpen?: (path: string) => void;
+}) {
   const { t } = useTranslation();
   const id = project.id;
   const actions = useProjectFileActions(id);
@@ -496,6 +514,10 @@ export function ProjectFiles({ project }: { project: ProjectDetail }) {
             ask: open,
             selected,
             toggle,
+            open: onOpen,
+            models: new Set(
+              project.meta.files.filter((f) => f.kind === "model").map((f) => f.path),
+            ),
           }}
         />
       </div>

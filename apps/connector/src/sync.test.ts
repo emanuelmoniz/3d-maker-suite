@@ -62,7 +62,7 @@ describe("hub root sync", () => {
       payload: { email: users.admin.email, password: "password123" },
     });
     const cookie = String(login.headers["set-cookie"]).split(";")[0] ?? "";
-    const send = (method: "GET" | "POST" | "PATCH", url: string, payload?: object) =>
+    const send = (method: "GET" | "POST" | "PATCH" | "DELETE", url: string, payload?: object) =>
       app.inject({ method, url, payload, headers: { cookie } });
     await send("PATCH", "/api/preferences", { hubEnabled: true });
     const dir = temp("sync-hub-root-");
@@ -100,7 +100,13 @@ describe("hub root sync", () => {
   type Hub = Awaited<ReturnType<typeof hub>>;
 
   /** A connector with its own data and sync folder; `dir` again = the same one restarted. */
-  const device = async (h: Hub, name: string, role: "admin" | "viewer" = "admin", dir?: string) => {
+  const device = async (
+    h: Hub,
+    name: string,
+    role: "admin" | "viewer" = "admin",
+    dir?: string,
+    slicers?: Parameters<typeof createLink>[0]["slicers"],
+  ) => {
     const at = dir ?? temp("sync-device-");
     const store = openStore(at);
     const link = createLink({
@@ -108,6 +114,7 @@ describe("hub root sync", () => {
       version: "5.0.0-test",
       os: "TestOS x64",
       sync: { dataDir: at, syncDir: join(at, "sync") },
+      slicers,
     });
     cleanup.push(() => link.close());
     if (!dir) cleanup.push(() => rmSync(at, { recursive: true, force: true }));
@@ -116,11 +123,56 @@ describe("hub root sync", () => {
     await until(() => link.state().status === "online");
     return {
       dir: at,
+      id: store.get().deviceId ?? "",
       link,
       folder: join(at, "sync", h.root.name),
       sync: () => link.sync as HubSync,
     };
   };
+
+  it("with selected projects, Open downloads the project and opens the slicer; the save syncs back", async () => {
+    const h = await hub();
+    await h.put("p/m.stl", "model");
+    await h.put("q/n.stl", "other");
+    const started: string[] = [];
+    const a = await device(h, "WS-A", "admin", undefined, {
+      find: async () => [
+        { id: "bambu-studio", name: "Bambu Studio", version: "2", path: "bs", cmd: "bs", args: [] },
+      ],
+      start: async (_cmd, args) => {
+        started.push(args.at(-1) ?? "");
+      },
+    });
+    await until(() => read(join(a.folder, "q/n.stl")) === "other");
+
+    // Selected projects only: the local copies go, and nothing goes on the hub.
+    await h.send("PATCH", `/api/hub/devices/${a.id}`, { syncMode: "selected" });
+    await until(
+      () => !existsSync(join(a.folder, "p/m.stl")) && !existsSync(join(a.folder, "q/n.stl")),
+    );
+    expect(read(join(h.dir, "p/m.stl"))).toBe("model");
+    expect(h.open("hub_mass_delete")).toEqual([]);
+
+    const p = (await h.send("GET", "/api/projects"))
+      .json()
+      .items.find((x: { folder: string }) => x.folder === "p");
+    await until(
+      async () => (await h.send("GET", `/api/projects/${p.id}/devices`)).json().length > 0,
+    );
+    const res = await h.send("POST", `/api/projects/${p.id}/open`, {
+      target: "device",
+      deviceId: a.id,
+      file: "m.stl",
+    });
+    expect(res.json()).toEqual({ ok: true });
+    expect(started).toEqual([join(a.folder, "p", "m.stl")]);
+    expect(read(join(a.folder, "p/m.stl"))).toBe("model");
+    expect(existsSync(join(a.folder, "q/n.stl"))).toBe(false);
+
+    // The slicer saves: the hub gets it.
+    writeFileSync(join(a.folder, "p/m.stl"), "saved");
+    await until(() => read(join(h.dir, "p/m.stl")) === "saved");
+  }, 120_000);
 
   it("keeps two devices and the hub in sync through edits, renames, deletes and a conflict", async () => {
     const h = await hub();

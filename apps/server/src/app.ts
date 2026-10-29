@@ -282,7 +282,15 @@ export async function buildApp(
   });
   await app.register(rootsRoutes(db, hub, scanner), { prefix: "/api/roots" });
   await app.register(
-    hubDeviceRoutes(db, hub, scanner, deviceFiles, hubFiles, () => void evaluate()),
+    hubDeviceRoutes(
+      db,
+      hub,
+      scanner,
+      deviceFiles,
+      hubFiles,
+      syncer.adapters,
+      () => void evaluate(),
+    ),
     {
       prefix: "/api/hub/device",
     },

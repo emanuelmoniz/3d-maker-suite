@@ -1,4 +1,4 @@
-import type { Device, PairingCode } from "@3d-maker-suite/core";
+import type { Device, DeviceSyncMode, PairingCode } from "@3d-maker-suite/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "./api.ts";
 
@@ -23,6 +23,16 @@ export function useDeviceActions() {
     rename: useMutation({
       mutationFn: ({ id, name }: { id: string; name: string }) =>
         api("PATCH", `/api/hub/devices/${id}`, { name }),
+      onSuccess: refresh,
+    }),
+    syncMode: useMutation({
+      mutationFn: ({ id, syncMode }: { id: string; syncMode: DeviceSyncMode }) =>
+        api("PATCH", `/api/hub/devices/${id}`, { syncMode }),
+      onSuccess: refresh,
+    }),
+    unselect: useMutation({
+      mutationFn: ({ id, projectId }: { id: string; projectId: string }) =>
+        api("DELETE", `/api/hub/devices/${id}/projects/${projectId}`),
       onSuccess: refresh,
     }),
     update: useMutation({

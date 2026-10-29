@@ -1,18 +1,7 @@
-import { spawn } from "node:child_process";
 import { realpath } from "node:fs/promises";
 import { isAbsolute, relative, resolve } from "node:path";
 import type { SlicerLauncher } from "@3d-maker-suite/core";
-
-/** Starts a program detached and resolves once the OS accepted it (rejects if it can't start). */
-export const launch = (cmd: string, args: string[]) =>
-  new Promise<void>((ok, fail) => {
-    const child = spawn(cmd, args, { detached: true, stdio: "ignore" });
-    child.once("error", fail);
-    child.once("spawn", () => {
-      child.unref();
-      ok();
-    });
-  });
+import { launch } from "@3d-maker-suite/host";
 
 /** Opens a folder in the OS file manager (Windows explorer, macOS open, Linux xdg-open). */
 export const openFolder = (dir: string) =>

@@ -47,7 +47,7 @@ const setup = async (opts: Parameters<typeof buildApp>[3] = {}) => {
     payload: { email: admin.email, password: PW },
   });
   const cookie = String(login.headers["set-cookie"]).split(";")[0] ?? "";
-  const send = (method: "GET" | "POST" | "PATCH", url: string, payload?: object) =>
+  const send = (method: "GET" | "POST" | "PATCH" | "DELETE", url: string, payload?: object) =>
     app.inject({ method, url, payload, headers: { cookie } });
   await send("PATCH", "/api/preferences", { hubEnabled: true });
   const dir = temp("hub-sync-root-");
@@ -97,6 +97,7 @@ const setup = async (opts: Parameters<typeof buildApp>[3] = {}) => {
   return {
     db,
     app,
+    send,
     admin,
     editor,
     dir,
@@ -254,5 +255,86 @@ describe("hub file sync", () => {
     ]);
     expect((await s.put("theirs/b.stl", "x", 1)).statusCode).toBe(403);
     expect((await s.del("theirs/b.stl", 1)).statusCode).toBe(403);
+  });
+
+  it("syncs only selected projects; Open selects one and asks the device", async () => {
+    const s = await setup();
+    for (const f of ["mine", "other"]) {
+      mkdirSync(join(s.dir, f));
+      writeFileSync(join(s.dir, f, "m.stl"), f);
+      s.project(f, s.editor.id);
+    }
+    await s.scan();
+    const device = s.db.select().from(schema.devices).get();
+    const mine = s.db
+      .select()
+      .from(schema.projects)
+      .all()
+      .find((p) => p.folder === "mine");
+    if (!device || !mine) throw new Error("setup");
+    expect(
+      (await s.send("PATCH", `/api/hub/devices/${device.id}`, { syncMode: "selected" })).statusCode,
+    ).toBe(204);
+    expect((await s.changes()).files).toEqual([]);
+
+    // Online, with a slicer: the device's user gets Open on my workstation.
+    const base = await s.app.listen({ port: 0, host: "127.0.0.1" });
+    const res = await fetch(`${base}/api/hub/events`, {
+      headers: { authorization: s.authorization },
+    });
+    const reader = (res.body as ReadableStream<Uint8Array>).getReader();
+    const dec = new TextDecoder();
+    let text = "";
+    const until = async (what: string) => {
+      while (!text.includes(what)) {
+        const { done, value } = await reader.read();
+        if (done) return text;
+        text += dec.decode(value, { stream: true });
+      }
+      return text;
+    };
+    await until(": open");
+    const login = await s.app.inject({
+      method: "POST",
+      url: "/api/auth/login",
+      payload: { email: s.editor.email, password: PW },
+    });
+    const cookie = String(login.headers["set-cookie"]).split(";")[0] ?? "";
+    const asEditor = (method: "GET" | "POST", url: string, payload?: object) =>
+      s.app.inject({ method, url, payload, headers: { cookie } });
+    expect((await asEditor("GET", `/api/projects/${mine.id}/devices`)).json()).toEqual([]);
+    await s.app.inject({
+      method: "PUT",
+      url: "/api/hub/device/slicers",
+      payload: [{ id: "bambu-studio", version: "2.8", path: "C:/bambu-studio.exe" }],
+      headers: { authorization: s.authorization },
+    });
+    expect((await asEditor("GET", `/api/projects/${mine.id}/devices`)).json()).toEqual([
+      { id: device.id, name: "Desk: PC" },
+    ]);
+
+    const opening = asEditor("POST", `/api/projects/${mine.id}/open`, {
+      target: "device",
+      deviceId: device.id,
+      file: "m.stl",
+    });
+    const event = JSON.parse(/data: (\{"type":"open".*)/.exec(await until('"open"'))?.[1] ?? "");
+    expect(event).toMatchObject({ rootId: s.root.id, path: "mine/m.stl" });
+    // Selected now: the device pulls it before it opens the slicer.
+    expect((await s.changes()).files).toMatchObject([{ path: "mine/m.stl" }]);
+    await s.app.inject({
+      method: "POST",
+      url: `/api/hub/device/replies/${event.requestId}`,
+      payload: { ok: true, result: null },
+      headers: { authorization: s.authorization },
+    });
+    expect((await opening).json()).toEqual({ ok: true });
+
+    // Hub management takes it off the device: the connector syncs again, its copy goes.
+    const off = await s.send("DELETE", `/api/hub/devices/${device.id}/projects/${mine.id}`);
+    expect(off.statusCode).toBe(204);
+    await until('"roots.changed"');
+    expect((await s.changes()).files).toEqual([]);
+    await reader.cancel();
   });
 });

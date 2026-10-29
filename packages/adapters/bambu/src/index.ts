@@ -355,6 +355,11 @@ export function bambuStudioAdapter(): IntegrationAdapter {
     ],
     library: bambuStudioLibrary(),
     slicer: cliSlicer(),
+    desktop: {
+      windowsName: "Bambu Studio",
+      macApp: "BambuStudio.app",
+      flatpak: "com.bambulab.BambuStudio",
+    },
     configSchema: z.object({}),
     secretsSchema: z.object({}),
   };

@@ -6,6 +6,7 @@ import type {
   LoginChallenge,
 } from "../schemas/enums.ts";
 import type { LibraryPreset, LibrarySpool } from "../schemas/filament.ts";
+import type { DesktopSlicer } from "../schemas/hub.ts";
 import type { ExternalPrint, ExternalPrinter, TestResult } from "../schemas/integrations.ts";
 import type { SlicerCatalog } from "../schemas/slicerCatalog.ts";
 
@@ -34,6 +35,8 @@ export interface IntegrationAdapter {
   slicer?: Slicer;
   /** `server` adapters: where to download the slicer and what is in the download (ADR-0013). */
   managed?: ManagedSlicer;
+  /** How a connector finds this desktop slicer on a workstation (ADR-0014). */
+  desktop?: Omit<DesktopSlicer, "id">;
   /**
    * Interactive sign-in (password, then an email code or 2FA). Returns the secrets to store, or a
    * challenge; the server keeps `state` and passes it back with the code. Never store the password.

@@ -34,8 +34,17 @@ export function readPort(dir: string): number {
   return 4301;
 }
 
-/** `cursor` is the last hub event handled (the stream's `Last-Event-ID`). */
-type State = { hubUrl?: string; deviceId?: string; deviceName?: string; cursor?: number };
+/**
+ * `cursor` is the last hub event handled (the stream's `Last-Event-ID`); `defaultSlicer` the id of
+ * the slicer Open uses (slicers.ts).
+ */
+type State = {
+  hubUrl?: string;
+  deviceId?: string;
+  deviceName?: string;
+  cursor?: number;
+  defaultSlicer?: string;
+};
 type Saved = State & { token?: Blob };
 
 /**

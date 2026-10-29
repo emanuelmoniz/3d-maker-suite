@@ -575,6 +575,13 @@
       "when": 1793271340268,
       "tag": "0081_device_sync_state",
       "breakpoints": true
+    },
+    {
+      "idx": 82,
+      "version": "6",
+      "when": 1793272988559,
+      "tag": "0082_device_sync_mode",
+      "breakpoints": true
     }
   ]
 }

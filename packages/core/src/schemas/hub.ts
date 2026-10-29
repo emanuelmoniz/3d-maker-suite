@@ -24,6 +24,27 @@ export const deviceSyncStateSchema = z.object({
   error: z.string().max(200).nullable(),
 });
 
+/** Everything in the hub roots, or only the projects picked for it (Open on my workstation adds one). */
+export const DEVICE_SYNC_MODES = ["all", "selected"] as const;
+export const deviceSyncModeSchema = z.enum(DEVICE_SYNC_MODES);
+
+/**
+ * How a connector finds an adapter's desktop slicer (ADR-0014): the Windows `Uninstall` key's exact
+ * `DisplayName`, the macOS app in `/Applications`, the Linux Flatpak id. `id`: the adapter's.
+ */
+export const desktopSlicerSchema = z.object({
+  id: z.string(),
+  windowsName: z.string(),
+  macApp: z.string(),
+  flatpak: z.string(),
+});
+/** A slicer the connector found (`PUT /api/hub/device/slicers`); `id` as in `desktopSlicerSchema`. */
+export const deviceSlicerSchema = z.object({
+  id: z.string().max(100),
+  version: z.string().max(100).nullable(),
+  path: z.string().max(4096),
+});
+
 /** A connector paired with the hub (ADR-0014), as Hub management lists it. */
 export const deviceSchema = z.object({
   id,
@@ -41,12 +62,22 @@ export const deviceSchema = z.object({
   updateFailed: connectorUpdateFailureSchema.nullable(),
   /** What it reported last about its sync, and when (the hub's clock). */
   sync: deviceSyncStateSchema.extend({ reportedAt: isoDate }).nullable(),
+  syncMode: deviceSyncModeSchema,
+  /** The projects it syncs in `selected` mode. */
+  projects: z.array(z.object({ id, name: z.string() })),
+  /** The slicers its connector found; none = it can't open files. */
+  slicers: z.array(deviceSlicerSchema),
   createdAt: isoDate,
 });
 
 const name = z.string().trim().min(1).max(100);
 
-export const deviceRenameSchema = z.object({ name }).strict();
+export const deviceUpdateSchema = z
+  .object({ name, syncMode: deviceSyncModeSchema })
+  .partial()
+  .strict();
+/** The user's online devices that can open a project's files (`GET /api/projects/:id/devices`). */
+export const openDeviceSchema = z.object({ id, name: z.string() });
 
 /** An admin makes a code for a user (`POST /api/hub/pairing-codes`). */
 export const pairingCodeCreateSchema = z.object({ userId: id });
@@ -65,7 +96,11 @@ export const pairResultSchema = z.object({ token: z.string(), deviceId: id });
 
 export type Device = z.infer<typeof deviceSchema>;
 export type ConnectorUpdateFailure = z.infer<typeof connectorUpdateFailureSchema>;
-export type DeviceRename = z.input<typeof deviceRenameSchema>;
+export type DeviceUpdate = z.input<typeof deviceUpdateSchema>;
+export type DeviceSyncMode = z.infer<typeof deviceSyncModeSchema>;
+export type DesktopSlicer = z.infer<typeof desktopSlicerSchema>;
+export type DeviceSlicer = z.infer<typeof deviceSlicerSchema>;
+export type OpenDevice = z.infer<typeof openDeviceSchema>;
 export type PairingCodeCreate = z.input<typeof pairingCodeCreateSchema>;
 export type PairingCode = z.infer<typeof pairingCodeSchema>;
 export type PairInput = z.input<typeof pairSchema>;
@@ -102,6 +137,11 @@ export const hubEventSchema = z.discriminatedUnion("type", [
     rel: z.string().max(1024),
     as: z.string().max(1024),
   }),
+  /**
+   * Open a file of a hub root in the device's slicer, synced first if it isn't there yet; the
+   * answer (null) comes once the slicer started.
+   */
+  z.object({ type: z.literal("open"), requestId: id, rootId: id, path: z.string().max(1024) }),
 ]);
 /** What the connector reports when it opens the stream (`X-Connector-Version`, `X-Connector-OS`). */
 export const connectorInfoSchema = pairSchema.pick({ connectorVersion: true, os: true });
@@ -246,6 +286,7 @@ export const hubUploadResultSchema = z.discriminatedUnion("status", [
 export const hubSyncRootsSchema = z.object({
   roots: z.array(z.object({ id, name: z.string() })),
   deleteGuard: z.number().int(),
+  mode: deviceSyncModeSchema,
 });
 
 export type HubChanges = z.infer<typeof hubChangesSchema>;

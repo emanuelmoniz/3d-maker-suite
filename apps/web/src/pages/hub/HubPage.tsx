@@ -1,5 +1,5 @@
 import type { Device } from "@3d-maker-suite/core";
-import { MonitorSmartphone } from "lucide-react";
+import { MonitorSmartphone, X } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
@@ -12,6 +12,7 @@ import { PageHeader } from "../../components/PageHeader.tsx";
 import { Section } from "../../components/Section.tsx";
 import { formatDateTime, formatTime } from "../../lib/format.ts";
 import { useDeviceActions, useDevices } from "../../lib/hub.ts";
+import { useAdapterName } from "../../lib/integrations.ts";
 import { usePreferences, useSavePreferences } from "../../lib/preferences.ts";
 import { useUsers } from "../../lib/users.ts";
 
@@ -39,6 +40,69 @@ function SyncLine({ sync }: { sync: NonNullable<Device["sync"]> }) {
         ? t("hub:devices.sync.syncing", { count: sync.pending })
         : t("hub:devices.sync.idle", { count: sync.files })}
     </p>
+  );
+}
+
+/** What the device syncs, and the slicers Open on my workstation uses there. */
+function DeviceSync({ device: d }: { device: Device }) {
+  const { t } = useTranslation();
+  const adapterName = useAdapterName();
+  const { syncMode, unselect } = useDeviceActions();
+  return (
+    <div className="mt-2 grid gap-2">
+      {(syncMode.isError || unselect.isError) && (
+        <p role="alert" className="text-bad">
+          {t("hub:errors.generic")}
+        </p>
+      )}
+      <div className="grid gap-1 sm:max-w-xs">
+        <span className="text-muted">{t("hub:devices.syncMode")}</span>
+        <Combobox
+          aria-label={t("hub:devices.syncModeOf", { name: d.name })}
+          value={d.syncMode}
+          disabled={syncMode.isPending}
+          onChange={(v) =>
+            (v === "all" || v === "selected") && syncMode.mutate({ id: d.id, syncMode: v })
+          }
+          options={[
+            { value: "all", label: t("hub:devices.syncModes.all") },
+            { value: "selected", label: t("hub:devices.syncModes.selected") },
+          ]}
+        />
+      </div>
+      {d.syncMode === "selected" &&
+        (d.projects.length ? (
+          <ul aria-label={t("hub:devices.projects")} className="flex flex-wrap gap-2">
+            {d.projects.map((p) => (
+              <li
+                key={p.id}
+                className="flex items-center gap-1 rounded-md border border-border pl-2"
+              >
+                <span className="wrap-anywhere">{p.name}</span>
+                <Button
+                  variant="ghost"
+                  disabled={unselect.isPending}
+                  aria-label={t("hub:devices.unselect", { name: p.name })}
+                  onClick={() => unselect.mutate({ id: d.id, projectId: p.id })}
+                >
+                  <X className="size-4" aria-hidden />
+                </Button>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-muted">{t("hub:devices.noProjects")}</p>
+        ))}
+      <p className="text-muted wrap-anywhere">
+        {d.slicers.length
+          ? t("hub:devices.slicers", {
+              list: d.slicers
+                .map((s) => (s.version ? `${adapterName(s.id)} ${s.version}` : adapterName(s.id)))
+                .join(", "),
+            })
+          : t("hub:devices.noSlicers")}
+      </p>
+    </div>
   );
 }
 
@@ -166,6 +230,7 @@ export function HubPage() {
                     </p>
                   )}
                   {d.sync && <SyncLine sync={d.sync} />}
+                  <DeviceSync device={d} />
                   {!d.online && (
                     <p className="text-muted">
                       {d.lastSeenAt

@@ -1,6 +1,7 @@
 import { Readable } from "node:stream";
 import {
   type ConnectorUpdateFailure,
+  type DeviceSyncMode,
   HUB_HEARTBEAT_MS,
   type HubEvent,
   hubEventSchema,
@@ -8,6 +9,7 @@ import {
 } from "@3d-maker-suite/core";
 import { z } from "zod";
 import { createRootSync, type Request } from "./roots.ts";
+import { createSlicers } from "./slicers.ts";
 import type { Store } from "./state.ts";
 import { createHubSync } from "./sync.ts";
 
@@ -80,6 +82,8 @@ type Options = {
   updateFailure?: () => ConnectorUpdateFailure | undefined;
   /** Where the hub roots are synced to, and the data folder for its state file; none = no sync. */
   sync?: { dataDir: string; syncDir: string };
+  /** How slicers are found and started (tests); the real ones by default. */
+  slicers?: Pick<Parameters<typeof createSlicers>[0], "find" | "start">;
   log?: (line: string) => void;
 };
 
@@ -95,6 +99,7 @@ export function createLink({
   onHubVersion,
   updateFailure,
   sync: syncAt,
+  slicers: slicerHooks,
   log = () => {},
 }: Options) {
   let status: LinkStatus = store.token() ? "connecting" : "unpaired";
@@ -137,6 +142,9 @@ export function createLink({
       identity: () => `${store.get().hubUrl}|${store.get().deviceId}`,
       log,
     });
+  const slicers = createSlicers({ request, store, log, ...slicerHooks });
+  const local = (rootId: string, path: string) =>
+    sync ? sync.local(rootId, path) : Promise.resolve(null);
   const toRoots = (event: HubEvent) => {
     roots.handle(event);
     sync?.handle(event);
@@ -154,6 +162,7 @@ export function createLink({
     // A request has no id: it's live only, never stored or replayed. One it can't carry out is
     // answered at once, so the hub doesn't wait for it.
     if (id === undefined) {
+      if (event.success && event.data.type === "open") return void slicers.open(event.data, local);
       if (event.success) return toRoots(event.data);
       const requestId = (json as { requestId?: unknown })?.requestId;
       if (typeof requestId === "string" && /^[0-9a-f-]{36}$/i.test(requestId))
@@ -213,6 +222,7 @@ export function createLink({
       log(`online at ${hub}`);
       void roots.start();
       void sync?.start();
+      void slicers.refresh();
       const parse = sseParser(handle);
       const text = new TextDecoder();
       for await (const chunk of res.body) {
@@ -272,6 +282,12 @@ export function createLink({
     state: () => ({ status, error }),
     roots,
     sync,
+    slicers,
+    /** The status page's sync mode switch; the hub answers with `roots.changed`. */
+    setMode: (mode: DeviceSyncMode) =>
+      request("/sync/mode", { method: "PUT", body: { mode } }).then((res) => {
+        if (!res.ok) throw new Error(`sync mode: HTTP ${res.status}`);
+      }),
 
     /** Exchanges a pairing code for a device token, then connects. */
     async pair(hubUrl: string, code: string, name: string) {

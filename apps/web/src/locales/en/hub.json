@@ -35,7 +35,18 @@
       "paused_one": "Sync paused: {{count}} file deleted in {{roots}} at once. Confirm or restore it on the device's status page.",
       "paused_other": "Sync paused: {{count}} files deleted in {{roots}} at once. Confirm or restore them on the device's status page.",
       "error": "Something didn't sync: {{error}}"
-    }
+    },
+    "syncMode": "Syncs",
+    "syncModeOf": "What {{name}} syncs",
+    "syncModes": {
+      "all": "Everything",
+      "selected": "Selected projects"
+    },
+    "projects": "Selected projects",
+    "unselect": "Stop syncing {{name}} on this device",
+    "noProjects": "No projects selected yet. Open on my workstation on a project page adds one.",
+    "slicers": "Slicers: {{list}}",
+    "noSlicers": "No slicer found, so files can't be opened on this device."
   },
   "pair": {
     "action": "Pair a device",

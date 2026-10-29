@@ -3,8 +3,8 @@ import {
   apiErrorSchema,
   connectorInfoSchema,
   connectorUpdateFailureSchema,
-  deviceRenameSchema,
   deviceSchema,
+  deviceUpdateSchema,
   HUB_HEARTBEAT_MS,
   type HubEvent,
   pairingCodeCreateSchema,
@@ -23,7 +23,7 @@ import { readPreferences } from "../lib/preferences.ts";
 import { tokenHash } from "../lib/session.ts";
 import { VERSION } from "../updates/updates.ts";
 
-const { devices, hubEvents, pairingCodes, users } = schema;
+const { deviceProjects, devices, hubEvents, pairingCodes, projects, users } = schema;
 const params = z.object({ id: z.uuid() });
 const errors = { 404: apiErrorSchema, 409: apiErrorSchema };
 
@@ -66,6 +66,8 @@ export const hubRoutes =
           connectorVersion: devices.connectorVersion,
           updateFailed: devices.updateFailed,
           sync: devices.syncState,
+          syncMode: devices.syncMode,
+          slicers: devices.slicers,
           lastSeenAt: devices.lastSeenAt,
           createdAt: devices.createdAt,
         })
@@ -80,6 +82,13 @@ export const hubRoutes =
             online: channel.online(d.id),
             outdated,
             updateFailed: outdated ? d.updateFailed : null,
+            projects: db
+              .select({ id: projects.id, name: projects.name })
+              .from(deviceProjects)
+              .innerJoin(projects, eq(projects.id, deviceProjects.projectId))
+              .where(eq(deviceProjects.deviceId, d.id))
+              .orderBy(asc(projects.name))
+              .all(),
           };
         }),
     );
@@ -98,18 +107,41 @@ export const hubRoutes =
       },
     );
 
+    // A new sync mode makes the connector sync again from scratch (`roots.changed`).
     app.patch(
       "/devices/:id",
-      { schema: { params, body: deviceRenameSchema, response: { 204: z.null(), ...errors } } },
+      { schema: { params, body: deviceUpdateSchema, response: { 204: z.null(), ...errors } } },
       async (req, reply) => {
-        const row = db
-          .update(devices)
-          .set({ name: req.body.name })
-          .where(eq(devices.id, req.params.id))
-          .returning({ id: devices.id })
-          .get();
+        const { name, syncMode } = req.body;
+        const row = db.select().from(devices).where(eq(devices.id, req.params.id)).get();
         if (!row) throw new HttpError(404, "not_found", "Device not found");
-        channel.publish(row.id, { type: "device.renamed", name: req.body.name });
+        if (Object.keys(req.body).length)
+          db.update(devices).set(req.body).where(eq(devices.id, row.id)).run();
+        if (name !== undefined && name !== row.name)
+          channel.publish(row.id, { type: "device.renamed", name });
+        if (syncMode !== undefined && syncMode !== row.syncMode)
+          channel.publish(row.id, { type: "roots.changed" });
+        return reply.status(204).send(null);
+      },
+    );
+
+    // The project's local copy goes; that's not a delete on the hub.
+    app.delete(
+      "/devices/:id/projects/:projectId",
+      {
+        schema: {
+          params: params.extend({ projectId: z.uuid() }),
+          response: { 204: z.null(), ...errors },
+        },
+      },
+      async (req, reply) => {
+        const { id, projectId } = req.params;
+        const gone = db
+          .delete(deviceProjects)
+          .where(and(eq(deviceProjects.deviceId, id), eq(deviceProjects.projectId, projectId)))
+          .run().changes;
+        if (!gone) throw new HttpError(404, "not_found", "Project not selected on this device");
+        channel.publish(id, { type: "roots.changed" });
         return reply.status(204).send(null);
       },
     );

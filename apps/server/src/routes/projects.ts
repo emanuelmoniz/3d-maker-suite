@@ -6,6 +6,7 @@ import {
   apiErrorSchema,
   galleryImages,
   type IntegrationAdapter,
+  openDeviceSchema,
   type Page,
   type Project,
   type ProjectDetail,
@@ -26,9 +27,10 @@ import {
   projectScanStatusSchema,
   projectSchema,
   projectUnlinkQuery,
+  ROOT_HUB,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
-import { and, eq, inArray, isNull, max, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, max, sql } from "drizzle-orm";
 import type { FastifyReply, FastifyRequest } from "fastify";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
@@ -60,6 +62,8 @@ import { fsError } from "./fs.ts";
 const {
   projects,
   collectionProjects,
+  deviceProjects,
+  devices,
   integrations,
   orderProjects,
   printFilamentUsages,
@@ -72,6 +76,8 @@ const {
 const params = z.object({ id: z.uuid() });
 const fileQuery = z.object({ path: z.string().min(1), entry: z.string().optional() });
 const notFound = { 404: apiErrorSchema };
+/** Open on a device waits this long at most: a project that isn't there yet downloads first. */
+const DEVICE_OPEN_MS = 10 * 60_000;
 // "true" / "false", to filter and sort by the `?multicolor=` select values.
 const lastPrintAt = sql`(select max(${prints.startedAt}) from ${prints} where ${prints.projectId} = ${projects.id})`;
 const isMulticolor = sql`case when json_extract(${projects.meta}, '$.multicolor') then 'true' else 'false' end`;
@@ -786,27 +792,73 @@ export const projectsRoutes =
       },
     );
 
+    /** The user's online devices whose connector found a slicer; none but for a hub root's project. */
+    const openDevices = (req: FastifyRequest, p: Project) => {
+      const root = listRoots(db).find((r) => r.id === p.rootId);
+      if (!req.user || root?.location !== ROOT_HUB || !p.folder) return [];
+      return db
+        .select({ id: devices.id, name: devices.name, slicers: devices.slicers })
+        .from(devices)
+        .where(eq(devices.userId, req.user.id))
+        .orderBy(asc(devices.name))
+        .all()
+        .filter((d) => d.slicers.length && hub.online(d.id))
+        .map(({ id, name }) => ({ id, name }));
+    };
+    app.get(
+      "/:id/devices",
+      { schema: { params, response: { 200: z.array(openDeviceSchema), ...notFound } } },
+      async (req) => openDevices(req, get(req.params.id)),
+    );
+
     // Launches a local program, so everything is checked here: the project folder must be inside a
-    // configured root, and a file must be one the scanner listed (nothing the client invents).
+    // configured root, and a file must be one the scanner listed (nothing the client invents). On a
+    // device, the connector checks the path against its sync folder again.
     app.post(
       "/:id/open",
       {
         schema: {
           params,
           body: projectOpenSchema,
-          response: { 200: z.object({ ok: z.literal(true) }), ...errors },
+          response: { 200: z.object({ ok: z.literal(true) }), ...errors, 504: apiErrorSchema },
         },
       },
       async (req) => {
         const p = get(req.params.id);
         const { target, file, integrationId } = req.body;
+        const listed = !!file && p.meta.files.some((f) => f.path === file && f.kind === "model");
+        if (target === "device") {
+          const device = openDevices(req, p).find((d) => d.id === req.body.deviceId);
+          if (!device)
+            throw new HttpError(409, "device_offline", "The device can't open files now");
+          if (!listed || !p.rootId || !p.folder)
+            throw new HttpError(403, "not_allowed", "File is not part of this project");
+          // Selected from now on, so a device that syncs only selected projects gets it.
+          db.insert(deviceProjects)
+            .values({ deviceId: device.id, projectId: p.id })
+            .onConflictDoNothing()
+            .run();
+          const rootId = p.rootId;
+          await hub.ask(
+            device.id,
+            (requestId) => ({ type: "open", requestId, rootId, path: `${p.folder}/${file}` }),
+            z.null(),
+            {
+              ms: DEVICE_OPEN_MS,
+              error: (e) =>
+                e.code === "no_slicer"
+                  ? new HttpError(409, "device_no_slicer", "No slicer found on the device")
+                  : new HttpError(500, "launch_failed", "Could not start the program"),
+            },
+          );
+          return { ok: true as const };
+        }
         const prefs = readPreferences(db);
         const dir = (await projectDir(db, p))?.dir;
         if (!dir)
           throw new HttpError(403, "not_allowed", "Project folder is not in a project root");
         try {
           if (target === "folder") return await openFolder(dir).then(() => ({ ok: true as const }));
-          const listed = file && p.meta.files.some((f) => f.path === file && f.kind === "model");
           const abs = listed ? await projectFile(db, p, file) : null;
           if (!abs) throw new HttpError(403, "not_allowed", "File is not part of this project");
           // The picked slicer, else the default one, else the first.

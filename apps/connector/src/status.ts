@@ -180,6 +180,7 @@ ${syncView()}`;
   const syncView = () => {
     const s = link.sync?.state();
     if (!s) return "";
+    const selected = link.sync?.mode() === "selected";
     const held = s.held
       .map(
         (h) => `<div role="alert">
@@ -200,6 +201,29 @@ ${syncView()}`;
 </dl>
 ${s.error ? `<p class="error">${t("connector:sync.error", { error: s.error })}</p>` : ""}
 ${held}
+<p>${t(selected ? "connector:sync.mode.selected" : "connector:sync.mode.all")}</p>
+<form method="post" action="/sync/mode"><input type="hidden" name="mode" value="${selected ? "all" : "selected"}"><button type="submit">${t(selected ? "connector:sync.mode.toAll" : "connector:sync.mode.toSelected")}</button></form>
+</section>
+${slicersView()}`;
+  };
+
+  // Open on my workstation uses the default; the hub offers it only while one is found.
+  const slicersView = () => {
+    const found = link.slicers.list();
+    const pick = link.slicers.pick();
+    const rows = found
+      .map(
+        (f) => `<li class="row"><span>${esc(f.name)}${f.version ? ` ${esc(f.version)}` : ""}</span>
+${
+  f === pick
+    ? `<span class="muted">${t("connector:slicers.default")}</span>`
+    : `<form method="post" action="/slicer"><input type="hidden" name="slicer" value="${esc(f.id)}"><button type="submit">${t("connector:slicers.makeDefault")}</button></form>`
+}</li>`,
+      )
+      .join("\n");
+    return `<section aria-labelledby="slicers">
+<h2 id="slicers">${t("connector:slicers.title")}</h2>
+${found.length ? `<p class="muted">${t("connector:slicers.intro")}</p><ul>${rows}</ul>` : `<p class="muted">${t("connector:slicers.none")}</p>`}
 </section>`;
   };
 
@@ -277,6 +301,16 @@ ${body}
         const root = (await readForm(req)).get("root") ?? "";
         const sync = link.sync;
         if (sync) void (path === "/sync/confirm" ? sync.confirm(root) : sync.restore(root));
+        return back();
+      }
+      if (req.method === "POST" && path === "/sync/mode") {
+        const mode = (await readForm(req)).get("mode");
+        if (mode === "all" || mode === "selected") await link.setMode(mode).catch(() => {}); // offline: the page still shows the old mode
+        return back();
+      }
+      if (req.method === "POST" && path === "/slicer") {
+        const id = (await readForm(req)).get("slicer");
+        if (link.slicers.list().some((f) => f.id === id)) store.set({ defaultSlicer: id ?? "" });
         return back();
       }
       if (req.method === "POST" && path === "/open-folder") {

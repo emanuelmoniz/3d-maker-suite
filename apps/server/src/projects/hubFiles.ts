@@ -249,8 +249,16 @@ export function createHubFiles(
       for (const path of new Set([...disk, ...known])) await refresh(root, base, path);
     },
 
-    /** The hub roots' files changed after `since` that `user` sees (see `hubChangesSchema`). */
-    changes(user: Rights | undefined, since: number, limit: number): HubChanges {
+    /**
+     * The hub roots' files changed after `since` that `user` sees (see `hubChangesSchema`); with
+     * `only`, just the files of those projects.
+     */
+    changes(
+      user: Rights | undefined,
+      since: number,
+      limit: number,
+      only?: Set<string>,
+    ): HubChanges {
       const rows = db
         .select()
         .from(hubFiles)
@@ -261,7 +269,9 @@ export function createHubFiles(
       const rules = new Map(hubRoots(db).map((r) => [r.id, accessIn(user, r)]));
       const files: HubChanges["files"] = [];
       for (const { rootId, path, size, sha256, version, deleted } of rows) {
-        const access = rules.get(rootId)?.access(path) ?? "none";
+        const rule = rules.get(rootId);
+        if (only && !only.has(rule?.projectOf(path)?.id ?? "")) continue;
+        const access = rule?.access(path) ?? "none";
         if (access !== "none") files.push({ rootId, path, size, sha256, version, deleted, access });
       }
       return { cursor: rows.at(-1)?.seq ?? since, more: rows.length === limit, files };

@@ -271,11 +271,13 @@ export const projectScanStatusSchema = z.object({
 });
 
 export const projectOpenSchema = z.object({
-  target: z.enum(["slicer", "folder"]),
-  /** Relative to the project folder; must be one of `meta.files`. Slicer only. */
+  /** `device`: in the slicer of the user's device `deviceId` (a hub root's project only). */
+  target: z.enum(["slicer", "folder", "device"]),
+  /** Relative to the project folder; must be one of `meta.files`. Slicer and device only. */
   file: z.string().min(1).optional(),
   /** Which integration's slicer; default: `defaultSlicerId`, then the first one. */
   integrationId: z.uuid().optional(),
+  deviceId: z.uuid().optional(),
 });
 
 export type ProjectOpen = z.infer<typeof projectOpenSchema>;

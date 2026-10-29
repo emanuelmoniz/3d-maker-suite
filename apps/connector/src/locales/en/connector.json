@@ -66,6 +66,19 @@
     "held_one": "{{count}} file was deleted in {{root}} at once. The hub keeps it until you choose.",
     "held_other": "{{count}} files were deleted in {{root}} at once. The hub keeps them until you choose.",
     "confirm": "Delete on the hub too",
-    "restore": "Restore them"
+    "restore": "Restore them",
+    "mode": {
+      "all": "This device syncs all the hub's project folders.",
+      "selected": "This device syncs only selected projects. Open on my workstation in the web app adds a project; Hub management removes one.",
+      "toAll": "Sync everything",
+      "toSelected": "Sync selected projects only"
+    }
+  },
+  "slicers": {
+    "title": "Slicers",
+    "intro": "Open on my workstation in the web app opens files here, in the default slicer.",
+    "none": "No supported slicer is installed on this device, so files can't be opened here from the web app. Install one, then restart the connector.",
+    "default": "Default",
+    "makeDefault": "Use by default"
   }
 }

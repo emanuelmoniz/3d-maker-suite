@@ -916,7 +916,7 @@ Back up the DB before editing schema.ts.
 Do Step 11 of the 5.0.0 plan in PLAN.md. Show me the sync loop and its state file first.
 ```
 
-### [ ] Step 12 - Selected projects and Open on my workstation
+### [x] Step 12 - Selected projects and Open on my workstation
 **Model:** Opus · **Effort:** Medium
 **Scope:**
 - Device sync mode: everything or selected projects (Hub management and the status page). Removing an unselected project's local copy is not a delete.

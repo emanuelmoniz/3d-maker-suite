@@ -2,18 +2,22 @@ import { Readable } from "node:stream";
 import {
   apiErrorSchema,
   DEVICE_FOLDER_MAX_MB_LIMIT,
+  desktopSlicerSchema,
   deviceFolderQuerySchema,
   deviceFolderSchema,
   deviceIndexResultSchema,
   deviceIndexSchema,
   deviceReplySchema,
   deviceRootSchema,
+  deviceSlicerSchema,
+  deviceSyncModeSchema,
   deviceSyncStateSchema,
   hubChangesQuerySchema,
   hubChangesSchema,
   hubFileQuerySchema,
   hubSyncRootsSchema,
   hubUploadResultSchema,
+  type IntegrationAdapter,
   ROOT_HUB,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
@@ -28,7 +32,7 @@ import type { DeviceFiles } from "../projects/deviceFiles.ts";
 import type { HubFiles } from "../projects/hubFiles.ts";
 import type { ProjectScanner } from "../projects/scanner.ts";
 
-const { devices, projects, roots } = schema;
+const { deviceProjects, devices, projects, roots } = schema;
 const rootParams = z.object({ rootId: z.uuid() });
 const errors = {
   400: apiErrorSchema,
@@ -58,6 +62,7 @@ export const hubDeviceRoutes =
     scanner: ProjectScanner,
     files: DeviceFiles,
     sync: HubFiles,
+    adapters: IntegrationAdapter[],
     /** A device reported its sync state: the mass delete alert may open or close. */
     onSyncState: () => void = () => {},
   ): FastifyPluginAsyncZod =>
@@ -225,12 +230,61 @@ export const hubDeviceRoutes =
     );
 
     // Every hub root; the change feed leaves out the files the user may not see.
+    const modeOf = (deviceId: string) =>
+      db.select({ m: devices.syncMode }).from(devices).where(eq(devices.id, deviceId)).get()?.m ??
+      "all";
+
+    // What to look for, from the adapters that open files in a slicer; then what it found.
+    app.get(
+      "/slicers",
+      { schema: { response: { 200: z.array(desktopSlicerSchema), ...errors } } },
+      async (req) => {
+        deviceOf(req);
+        return adapters.flatMap((a) =>
+          a.desktop && a.capabilities.includes("openInSlicer") ? [{ id: a.id, ...a.desktop }] : [],
+        );
+      },
+    );
+    app.put(
+      "/slicers",
+      {
+        schema: {
+          body: z.array(deviceSlicerSchema).max(20),
+          response: { 204: z.null(), ...errors },
+        },
+      },
+      async (req, reply) => {
+        db.update(devices)
+          .set({ slicers: req.body })
+          .where(eq(devices.id, deviceOf(req)))
+          .run();
+        return reply.status(204).send(null);
+      },
+    );
+
+    // The status page's switch; the connector syncs again from scratch, as after Hub management's.
+    app.put(
+      "/sync/mode",
+      {
+        schema: {
+          body: z.object({ mode: deviceSyncModeSchema }),
+          response: { 204: z.null(), ...errors },
+        },
+      },
+      async (req, reply) => {
+        const id = deviceOf(req);
+        db.update(devices).set({ syncMode: req.body.mode }).where(eq(devices.id, id)).run();
+        channel.publish(id, { type: "roots.changed" });
+        return reply.status(204).send(null);
+      },
+    );
+
     app.get(
       "/sync/roots",
       { schema: { response: { 200: hubSyncRootsSchema, ...errors } } },
       async (req) => {
-        deviceOf(req);
         return {
+          mode: modeOf(deviceOf(req)),
           roots: db
             .select({ id: roots.id, name: roots.name })
             .from(roots)
@@ -264,8 +318,19 @@ export const hubDeviceRoutes =
         },
       },
       async (req) => {
-        deviceOf(req);
-        return sync.changes(req.user, req.query.since, req.query.limit);
+        const id = deviceOf(req);
+        const only =
+          modeOf(id) === "selected"
+            ? new Set(
+                db
+                  .select({ id: deviceProjects.projectId })
+                  .from(deviceProjects)
+                  .where(eq(deviceProjects.deviceId, id))
+                  .all()
+                  .map((r) => r.id),
+              )
+            : undefined;
+        return sync.changes(req.user, req.query.since, req.query.limit, only);
       },
     );
 

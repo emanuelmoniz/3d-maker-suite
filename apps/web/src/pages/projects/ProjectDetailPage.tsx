@@ -7,7 +7,7 @@ import {
 } from "@3d-maker-suite/core";
 import { Link, useNavigate, useParams } from "@tanstack/react-router";
 import type { TFunction } from "i18next";
-import { Box, ExternalLink, FolderOpen } from "lucide-react";
+import { Box, ExternalLink, FolderOpen, MonitorSmartphone } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
@@ -41,6 +41,7 @@ import {
   projectName,
   projectThumbnailUrl,
   useDeleteProject,
+  useOpenDevices,
   useOpenProject,
   useProject,
   useProjectSlicing,
@@ -125,7 +126,16 @@ const folderLabel = (path: string, roots: string[]) => {
 };
 
 // Static keys so `pnpm i18n:check` sees them; `api()` puts the HTTP status last in the message.
-const openError = (t: TFunction, message: string) =>
+const DEVICE_ERRORS: Record<string, string> = {
+  device_offline: "projects:detail.openFailed.device_offline",
+  device_timeout: "projects:detail.openFailed.device_timeout",
+  device_no_slicer: "projects:detail.openFailed.device_no_slicer",
+};
+const openError = (t: TFunction, e: Error) => {
+  const key = e instanceof ApiError && e.code ? DEVICE_ERRORS[e.code] : undefined;
+  return key ? t(key) : openErrorOf(t, e.message);
+};
+const openErrorOf = (t: TFunction, message: string) =>
   message.endsWith(": 409")
     ? t("projects:detail.openFailed.no_slicer")
     : message.endsWith(": 403")
@@ -420,6 +430,10 @@ export function ProjectDetailPage() {
   const integrationLabel = useIntegrationLabel();
   const defaultSlicer = usePreferences().data?.values.defaultSlicerId;
   const [slicerId, setSlicerId] = useState<string>();
+  // The user's online devices with a slicer: Open on my workstation (a hub root's project).
+  const devices = useOpenDevices(id).data ?? [];
+  const [deviceId, setDeviceId] = useState<string>();
+  const device = devices.find((d) => d.id === deviceId) ?? devices[0];
   const slicer =
     slicers.find((s) => s.id === slicerId) ??
     slicers.find((s) => s.id === defaultSlicer) ??
@@ -455,6 +469,11 @@ export function ProjectDetailPage() {
       : project.thumbnailPath
         ? projectThumbnailUrl(project)
         : null;
+  const openOnDevice =
+    device && !onDevice
+      ? (file: string) => open.mutate({ target: "device", deviceId: device.id, file })
+      : undefined;
+  const sent = open.variables?.target === "device" ? device?.name : undefined;
   // No 3D file and no folder-level fallback thumbnail: nothing to preview.
   const hasPreview = !!current || !!thumbnail;
 
@@ -502,6 +521,28 @@ export function ProjectDetailPage() {
                   </button>
                 </span>
               )}
+              {ok && current && openOnDevice && device && (
+                <span className="flex gap-1">
+                  {devices.length > 1 && (
+                    <Combobox
+                      aria-label={t("projects:detail.devicePick")}
+                      className={linkButton}
+                      value={device.id}
+                      onChange={setDeviceId}
+                      options={devices.map((d) => ({ value: d.id, label: d.name }))}
+                    />
+                  )}
+                  <button
+                    type="button"
+                    className={linkButton}
+                    disabled={open.isPending}
+                    onClick={() => openOnDevice(current.path)}
+                  >
+                    <MonitorSmartphone className="size-4" aria-hidden />
+                    {t("projects:detail.openOnDevice")}
+                  </button>
+                </span>
+              )}
               {ok && !onDevice && (
                 <button
                   type="button"
@@ -534,12 +575,16 @@ export function ProjectDetailPage() {
         </p>
       )}
       <MissingFolderBanner project={project} />
-      <p role="status" className={open.isError ? "text-bad" : "sr-only"}>
+      <p role="status" className={open.isError ? "text-bad" : sent ? "text-muted" : "sr-only"}>
         {open.isError
-          ? openError(t, open.error.message)
-          : open.isSuccess
-            ? t("projects:detail.opened")
-            : ""}
+          ? openError(t, open.error)
+          : open.isPending && sent
+            ? t("projects:detail.openingOnDevice", { name: sent })
+            : open.isSuccess
+              ? sent
+                ? t("projects:detail.openedOnDevice", { name: sent })
+                : t("projects:detail.opened")
+              : ""}
       </p>
       <div className="grid gap-6 lg:grid-cols-2">
         {hasGallery && <ProjectGallery project={project} />}
@@ -629,7 +674,9 @@ export function ProjectDetailPage() {
       {onDevice ? (
         <DeviceFileList project={project} />
       ) : (
-        project.folderState !== "missing" && <ProjectFiles project={project} />
+        project.folderState !== "missing" && (
+          <ProjectFiles project={project} onOpen={openOnDevice} />
+        )
       )}
     </>
   );

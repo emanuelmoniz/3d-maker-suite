@@ -7,6 +7,8 @@ import {
   CAPABILITIES,
   COMMENT_STATUSES,
   type ConnectorUpdateFailure,
+  DEVICE_SYNC_MODES,
+  type DeviceSlicer,
   type DeviceSyncState,
   ENERGY_SOURCES,
   IMPORT_SOURCES,
@@ -1104,10 +1106,32 @@ export const devices = sqliteTable(
     updateFailed: text({ mode: "json" }).$type<ConnectorUpdateFailure>(),
     /** What the connector reported last about its sync of the hub roots (`PUT .../sync/state`). */
     syncState: text({ mode: "json" }).$type<DeviceSyncState & { reportedAt: string }>(),
+    /** `all` the hub roots, or only its `device_projects`. */
+    syncMode: text({ enum: DEVICE_SYNC_MODES }).notNull().default("all"),
+    /** The slicers its connector found (`PUT .../slicers`). */
+    slicers: text({ mode: "json" }).$type<DeviceSlicer[]>().notNull().default([]),
     lastSeenAt: text(),
     ...timestamps,
   },
-  (t) => [uniqueIndex("devices_token_uq").on(t.tokenHash), index("devices_user_idx").on(t.userId)],
+  (t) => [
+    uniqueIndex("devices_token_uq").on(t.tokenHash),
+    index("devices_user_idx").on(t.userId),
+    check("devices_sync_mode_ck", oneOf(t.syncMode, DEVICE_SYNC_MODES)),
+  ],
+);
+
+/** The projects a device syncs in `selected` mode. */
+export const deviceProjects = sqliteTable(
+  "device_projects",
+  {
+    deviceId: text()
+      .notNull()
+      .references(() => devices.id, { onDelete: "cascade" }),
+    projectId: text()
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+  },
+  (t) => [primaryKey({ columns: [t.deviceId, t.projectId] })],
 );
 
 /** One-time pairing codes an admin makes for a user. `id` is the code's sha256; used = deleted. */

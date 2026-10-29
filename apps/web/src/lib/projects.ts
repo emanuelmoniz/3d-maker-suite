@@ -1,4 +1,5 @@
 import type {
+  OpenDevice,
   Page,
   Project,
   ProjectDetail,
@@ -236,6 +237,14 @@ export function useScan() {
   });
   return { status: status.data, start };
 }
+
+/** The user's online devices that can open this project's files (a hub root's project only). */
+export const useOpenDevices = (id: string) =>
+  useQuery({
+    queryKey: ["projects", id, "devices"],
+    queryFn: () => api<OpenDevice[]>("GET", `/api/projects/${id}/devices`),
+    refetchInterval: 30_000,
+  });
 
 /** Opens a project folder or one of its models in the OS / the configured slicer (server-side). */
 export const useOpenProject = (id: string) =>
