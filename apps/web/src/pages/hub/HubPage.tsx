@@ -9,11 +9,10 @@ import { EmptyState } from "../../components/EmptyState.tsx";
 import { FormDialog } from "../../components/FormDialog.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
-import { Section } from "../../components/Section.tsx";
-import { formatDateTime, formatSize, formatTime } from "../../lib/format.ts";
-import { useDeviceActions, useDevices, useVersionsUsage } from "../../lib/hub.ts";
+import { SettingsLink } from "../../components/SettingsLink.tsx";
+import { formatDateTime, formatTime } from "../../lib/format.ts";
+import { useDeviceActions, useDevices } from "../../lib/hub.ts";
 import { useAdapterName } from "../../lib/integrations.ts";
-import { usePreferences, useSavePreferences } from "../../lib/preferences.ts";
 import { useUsers } from "../../lib/users.ts";
 
 /** The device's last sync report of the hub roots, as one line. */
@@ -106,136 +105,6 @@ function DeviceSync({ device: d }: { device: Device }) {
   );
 }
 
-const LOCK_HINTS = {
-  off: "hub:settings.lockHints.off",
-  on: "hub:settings.lockHints.on",
-  strict: "hub:settings.lockHints.strict",
-} as const;
-
-/** Hub settings that belong to the sync: the mass delete guard and check-out locks. */
-function SyncSettings() {
-  const { t } = useTranslation();
-  const prefs = usePreferences();
-  const save = useSavePreferences();
-  const usage = useVersionsUsage().data;
-  const values = prefs.data?.values;
-  if (!values) return null;
-  const {
-    hubDeleteGuard: v,
-    hubLocks: locks,
-    hubLockIdleMin: idle,
-    hubVersions: versions,
-    hubVersionsKeep: keep,
-  } = values;
-  return (
-    <Section title={t("hub:settings.title")} help="docs/hub.md">
-      {save.isError && (
-        <p role="alert" className="mb-4 text-bad">
-          {t("hub:errors.generic")}
-        </p>
-      )}
-      <div className="grid gap-4 sm:max-w-md">
-        <FormField label={t("hub:settings.deleteGuard")} hint={t("hub:settings.deleteGuardHint")}>
-          {(p) => (
-            <input
-              key={v}
-              {...p}
-              className={inputClass}
-              type="number"
-              min={1}
-              max={10_000}
-              step={1}
-              defaultValue={v}
-              onBlur={(e) => {
-                const n = e.target.valueAsNumber;
-                if (e.target.checkValidity() && Number.isFinite(n) && n !== v)
-                  save.mutate({ hubDeleteGuard: n });
-              }}
-            />
-          )}
-        </FormField>
-        <FormField label={t("hub:settings.locks")} hint={t(LOCK_HINTS[locks])}>
-          {(p) => (
-            <Combobox
-              {...p}
-              value={locks}
-              disabled={save.isPending}
-              onChange={(x) =>
-                (x === "off" || x === "on" || x === "strict") && save.mutate({ hubLocks: x })
-              }
-              options={[
-                { value: "off", label: t("hub:settings.lockModes.off") },
-                { value: "on", label: t("hub:settings.lockModes.on") },
-                { value: "strict", label: t("hub:settings.lockModes.strict") },
-              ]}
-            />
-          )}
-        </FormField>
-        {locks !== "off" && (
-          <FormField label={t("hub:settings.lockIdle")} hint={t("hub:settings.lockIdleHint")}>
-            {(p) => (
-              <input
-                key={idle}
-                {...p}
-                className={inputClass}
-                type="number"
-                min={5}
-                max={1440}
-                step={1}
-                defaultValue={idle}
-                onBlur={(e) => {
-                  const n = e.target.valueAsNumber;
-                  if (e.target.checkValidity() && Number.isFinite(n) && n !== idle)
-                    save.mutate({ hubLockIdleMin: n });
-                }}
-              />
-            )}
-          </FormField>
-        )}
-        <label className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            checked={versions}
-            disabled={save.isPending}
-            onChange={(e) => save.mutate({ hubVersions: e.target.checked })}
-          />
-          <span className="font-medium">{t("hub:settings.versions")}</span>
-        </label>
-        <p className="text-muted">{t("hub:settings.versionsHint")}</p>
-        {versions && (
-          <FormField
-            label={t("hub:settings.versionsKeep")}
-            hint={t("hub:settings.versionsKeepHint")}
-          >
-            {(p) => (
-              <input
-                key={keep}
-                {...p}
-                className={inputClass}
-                type="number"
-                min={1}
-                max={100}
-                step={1}
-                defaultValue={keep}
-                onBlur={(e) => {
-                  const n = e.target.valueAsNumber;
-                  if (e.target.checkValidity() && Number.isFinite(n) && n !== keep)
-                    save.mutate({ hubVersionsKeep: n });
-                }}
-              />
-            )}
-          </FormField>
-        )}
-        {usage && (versions || usage.files > 0) && (
-          <p className="text-muted">
-            {t("hub:settings.usage", { count: usage.files, size: formatSize(usage.bytes) })}
-          </p>
-        )}
-      </div>
-    </Section>
-  );
-}
-
 type Dialog =
   | { kind: "pair" }
   | { kind: "code"; code: string; expiresAt: string }
@@ -266,9 +135,12 @@ export function HubPage() {
         title={t("hub:title")}
         description={t("hub:description")}
         actions={
-          <Button variant="primary" onClick={() => setDialog({ kind: "pair" })}>
-            {t("hub:pair.action")}
-          </Button>
+          <>
+            <Button variant="primary" onClick={() => setDialog({ kind: "pair" })}>
+              {t("hub:pair.action")}
+            </Button>
+            <SettingsLink module="hub" />
+          </>
         }
       />
       {update.isError && (
@@ -357,9 +229,6 @@ export function HubPage() {
             description={t("hub:devices.emptyBody")}
           />
         ))}
-      <div className="mt-6">
-        <SyncSettings />
-      </div>
 
       <FormDialog
         open={dialog?.kind === "pair"}

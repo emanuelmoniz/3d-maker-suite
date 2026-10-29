@@ -62,6 +62,7 @@ import {
   AlertsConfigPage,
   CostsConfigPage,
   FilamentConfigPage,
+  HubConfigPage,
   OrdersConfigPage,
   PrintersConfigPage,
   PrintsConfigPage,
@@ -414,6 +415,7 @@ const routes: AnyRoute[] = [
       ["/prints/settings", PrintsConfigPage, ["prints"]],
       ["/projects/settings", ProjectsConfigPage, ["projects"]],
       ["/alerts/settings", AlertsConfigPage, ["alerts", "integrations"]],
+      ["/hub/settings", HubConfigPage, ["hub"]],
     ] as const
   ).map(([path, component, ns]) =>
     createRoute({

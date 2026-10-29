@@ -7,7 +7,7 @@ import { useCan } from "../lib/auth.ts";
 export function SettingsLink({
   module,
 }: {
-  module: "quotes" | "orders" | "prints" | "projects" | "alerts" | "printers" | "filament";
+  module: "quotes" | "orders" | "prints" | "projects" | "alerts" | "printers" | "filament" | "hub";
 }) {
   const { t } = useTranslation();
   const admin = useCan("admin");

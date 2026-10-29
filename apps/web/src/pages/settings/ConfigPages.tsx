@@ -20,8 +20,8 @@ import { Section } from "../../components/Section.tsx";
 import { Switch } from "../../components/Switch.tsx";
 import { ApiError } from "../../lib/api.ts";
 import { useMe } from "../../lib/auth.ts";
-import { formatMegabytes, formatNumber } from "../../lib/format.ts";
-import { useDevices } from "../../lib/hub.ts";
+import { formatMegabytes, formatNumber, formatSize } from "../../lib/format.ts";
+import { useDevices, useVersionsUsage } from "../../lib/hub.ts";
 import { usePreferences } from "../../lib/preferences.ts";
 import { usePrinters } from "../../lib/printers.ts";
 import { useEmptyProjectTrash, useProjectTrash } from "../../lib/projects.ts";
@@ -713,6 +713,134 @@ export function FilamentConfigPage() {
           <FilamentCatalog />
         </div>
       )}
+    </ConfigPage>
+  );
+}
+
+const LOCK_HINTS = {
+  off: "hub:settings.lockHints.off",
+  on: "hub:settings.lockHints.on",
+  strict: "hub:settings.lockHints.strict",
+} as const;
+
+/** Hub management settings: the sync (mass delete guard, locks) and file versions. */
+export function HubConfigPage() {
+  const { t } = useTranslation();
+  const usage = useVersionsUsage().data;
+  return (
+    <ConfigPage module="hub">
+      {({ v: values, commit }) => {
+        const {
+          hubDeleteGuard: v,
+          hubLocks: locks,
+          hubLockIdleMin: idle,
+          hubVersions: versions,
+          hubVersionsKeep: keep,
+        } = values;
+        return (
+          <Section title={t("hub:settings.title")} help="docs/hub.md">
+            <div className="grid gap-4 sm:max-w-md">
+              <FormField
+                label={t("hub:settings.deleteGuard")}
+                hint={t("hub:settings.deleteGuardHint")}
+              >
+                {(p) => (
+                  <input
+                    key={v}
+                    {...p}
+                    className={inputClass}
+                    type="number"
+                    min={1}
+                    max={10_000}
+                    step={1}
+                    defaultValue={v}
+                    onBlur={(e) => {
+                      const n = e.target.valueAsNumber;
+                      if (e.target.checkValidity() && Number.isFinite(n) && n !== v)
+                        commit({ hubDeleteGuard: n });
+                    }}
+                  />
+                )}
+              </FormField>
+              <FormField label={t("hub:settings.locks")} hint={t(LOCK_HINTS[locks])}>
+                {(p) => (
+                  <Combobox
+                    {...p}
+                    value={locks}
+                    onChange={(x) =>
+                      (x === "off" || x === "on" || x === "strict") && commit({ hubLocks: x })
+                    }
+                    options={[
+                      { value: "off", label: t("hub:settings.lockModes.off") },
+                      { value: "on", label: t("hub:settings.lockModes.on") },
+                      { value: "strict", label: t("hub:settings.lockModes.strict") },
+                    ]}
+                  />
+                )}
+              </FormField>
+              {locks !== "off" && (
+                <FormField label={t("hub:settings.lockIdle")} hint={t("hub:settings.lockIdleHint")}>
+                  {(p) => (
+                    <input
+                      key={idle}
+                      {...p}
+                      className={inputClass}
+                      type="number"
+                      min={5}
+                      max={1440}
+                      step={1}
+                      defaultValue={idle}
+                      onBlur={(e) => {
+                        const n = e.target.valueAsNumber;
+                        if (e.target.checkValidity() && Number.isFinite(n) && n !== idle)
+                          commit({ hubLockIdleMin: n });
+                      }}
+                    />
+                  )}
+                </FormField>
+              )}
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={versions}
+                  onChange={(e) => commit({ hubVersions: e.target.checked })}
+                />
+                <span className="font-medium">{t("hub:settings.versions")}</span>
+              </label>
+              <p className="text-muted">{t("hub:settings.versionsHint")}</p>
+              {versions && (
+                <FormField
+                  label={t("hub:settings.versionsKeep")}
+                  hint={t("hub:settings.versionsKeepHint")}
+                >
+                  {(p) => (
+                    <input
+                      key={keep}
+                      {...p}
+                      className={inputClass}
+                      type="number"
+                      min={1}
+                      max={100}
+                      step={1}
+                      defaultValue={keep}
+                      onBlur={(e) => {
+                        const n = e.target.valueAsNumber;
+                        if (e.target.checkValidity() && Number.isFinite(n) && n !== keep)
+                          commit({ hubVersionsKeep: n });
+                      }}
+                    />
+                  )}
+                </FormField>
+              )}
+              {usage && (versions || usage.files > 0) && (
+                <p className="text-muted">
+                  {t("hub:settings.usage", { count: usage.files, size: formatSize(usage.bytes) })}
+                </p>
+              )}
+            </div>
+          </Section>
+        );
+      }}
     </ConfigPage>
   );
 }
