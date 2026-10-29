@@ -658,6 +658,19 @@ describe("open in slicer / folder", () => {
       open(vase.id, { target: "slicer", file: "vase.stl", integrationId });
     expect((await picked(id)).statusCode).toBe(200);
     expect((await picked(crypto.randomUUID())).statusCode).toBe(409);
+    // Never on the server's screen for someone at another computer, or behind a proxy it can't see past.
+    for (const from of [
+      { remoteAddress: "192.0.2.7" },
+      { headers: { "x-forwarded-for": "192.0.2.7" } },
+    ]) {
+      const res = await app.inject({
+        method: "POST",
+        url: `/api/projects/${vase.id}/open`,
+        payload: { target: "slicer", file: "vase.stl" },
+        ...from,
+      });
+      expect(res.json().error.code).toBe("not_local");
+    }
 
     // The root's folder gone -> nothing to open.
     await rename(root(), join(dir, "moved"));

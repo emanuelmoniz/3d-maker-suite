@@ -8,7 +8,8 @@ import { readPreferences } from "./preferences.ts";
 
 const { hubEvents } = schema;
 
-type Stream = { write: (frame: string) => void; end: () => void };
+/** `port`: the connector's status page port it reported (`X-Connector-Port`). */
+type Stream = { write: (frame: string) => void; end: () => void; port?: number | null };
 type Waiting = {
   deviceId: string;
   timer?: NodeJS.Timeout;
@@ -34,6 +35,9 @@ export function createHubChannel(db: Db) {
 
   return {
     online,
+
+    /** An online device's status page port, for the project page's probe; null = not reported. */
+    port: (deviceId: string) => [...(streams.get(deviceId) ?? [])].at(-1)?.port ?? null,
 
     /** Queues an event for a device and sends it now if the device is connected. */
     publish(deviceId: string, event: HubEvent) {

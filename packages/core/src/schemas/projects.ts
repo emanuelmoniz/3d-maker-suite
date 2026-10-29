@@ -278,6 +278,8 @@ export const projectOpenSchema = z.object({
   /** Which integration's slicer; default: `defaultSlicerId`, then the first one. */
   integrationId: z.uuid().optional(),
   deviceId: z.uuid().optional(),
+  /** Which of the device's slicers (its id); default: the one its status page picked. */
+  slicer: z.string().max(100).optional(),
 });
 
 export type ProjectOpen = z.infer<typeof projectOpenSchema>;

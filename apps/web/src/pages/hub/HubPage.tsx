@@ -43,7 +43,7 @@ function SyncLine({ sync }: { sync: NonNullable<Device["sync"]> }) {
   );
 }
 
-/** What the device syncs, and the slicers Open on my workstation uses there. */
+/** What the device syncs, and the slicers Open uses there. */
 function DeviceSync({ device: d }: { device: Device }) {
   const { t } = useTranslation();
   const adapterName = useAdapterName();

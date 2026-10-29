@@ -49,7 +49,7 @@ type Ctx = {
   ask: (a: Ask) => void;
   selected: Set<string>;
   toggle: (path: string) => void;
-  /** Open on my workstation, for the project's models; none without a device. */
+  /** Open, for the project's models; none when there is no slicer to open them in. */
   open?: (path: string) => void;
   models: Set<string>;
   /** Checked-out files by path; Done editing (mine) or force-unlock (`admin`). */
@@ -192,7 +192,7 @@ function Row({ entry, depth, ctx }: { entry: ProjectFileEntry; depth: number; ct
           <span className="flex shrink-0 gap-1">
             {ctx.open && ctx.models.has(entry.path) && (
               <IconButton
-                label={t("projects:files.openOnDevice", n)}
+                label={t("projects:files.open", n)}
                 onClick={() => ctx.open?.(entry.path)}
               >
                 <MonitorSmartphone className="size-4" aria-hidden />

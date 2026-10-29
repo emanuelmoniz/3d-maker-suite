@@ -73,6 +73,8 @@ type Options = {
   store: Store;
   version: string;
   os: string;
+  /** The status page's port, sent so the hub's project page can find it (`/api/whoami`). */
+  port?: number;
   /**
    * Called with the hub's version before each connect; the updater may exit from here. `force`:
    * the hub asked for Update now.
@@ -99,6 +101,7 @@ export function createLink({
   store,
   version,
   os,
+  port,
   onHubVersion,
   updateFailure,
   sync: syncAt,
@@ -214,6 +217,7 @@ export function createLink({
           accept: "text/event-stream",
           "x-connector-version": version,
           "x-connector-os": os,
+          ...(port && { "x-connector-port": String(port) }),
           ...(failure && { "x-connector-update": JSON.stringify(failure) }),
           ...(store.get().cursor && { "last-event-id": String(store.get().cursor) }),
         },

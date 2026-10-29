@@ -214,9 +214,16 @@ export const hubRoutes =
       for (const e of db.select().from(hubEvents).where(mine).orderBy(asc(hubEvents.seq)).all())
         res.write(channel.frame(e.seq, e.data as HubEvent));
 
+      const port = z.coerce
+        .number()
+        .int()
+        .min(1)
+        .max(65535)
+        .safeParse(req.headers["x-connector-port"]);
       const detach = channel.attach(deviceId, {
         write: (f: string) => res.write(f),
         end: () => res.end(),
+        port: port.success ? port.data : null,
       });
       const beat = setInterval(() => {
         const live = db

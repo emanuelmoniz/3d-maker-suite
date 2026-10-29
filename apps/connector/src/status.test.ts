@@ -39,7 +39,12 @@ const serve = async () => {
   const { port } = page.address() as AddressInfo;
   close = () => page.close();
   const call = (method: string, path: string, headers: Record<string, string> = {}, body = "") =>
-    new Promise<{ status: number; body: string; location?: string }>((done, fail) => {
+    new Promise<{
+      status: number;
+      body: string;
+      location?: string;
+      headers: import("node:http").IncomingHttpHeaders;
+    }>((done, fail) => {
       const req = request(
         {
           host: "127.0.0.1",
@@ -52,7 +57,12 @@ const serve = async () => {
           let text = "";
           res.on("data", (c) => (text += c));
           res.on("end", () =>
-            done({ status: res.statusCode ?? 0, body: text, location: res.headers.location }),
+            done({
+              status: res.statusCode ?? 0,
+              body: text,
+              location: res.headers.location,
+              headers: res.headers,
+            }),
           );
         },
       );
@@ -92,6 +102,44 @@ it("answers health, shows the pair form, and refuses a cross-site pair", async (
   expect(bad.status).toBe(400);
   expect(bad.body).toContain(t("connector:pair.errors.unreachable"));
   expect(bad.body).toContain('value="WS"');
+});
+
+it("tells only its hub's page which device it is", async () => {
+  const s = await serve();
+  const hub = "http://hub.example:3000";
+  expect((await s.call("GET", "/api/whoami", { origin: hub })).status).toBe(404); // not paired
+  s.store.set({ hubUrl: `${hub}/`, deviceId: "dev-1", token: "t" });
+
+  const mine = await s.call("GET", "/api/whoami", { origin: hub });
+  expect(JSON.parse(mine.body)).toEqual({ id: "dev-1" });
+  expect(mine.headers["access-control-allow-origin"]).toBe(hub);
+  // Another origin gets the answer too, but no CORS header: its browser can't read it.
+  const other = await s.call("GET", "/api/whoami", { origin: "https://evil.example" });
+  expect(other.headers["access-control-allow-origin"]).toBeUndefined();
+  // The Host check still holds (DNS rebinding), for the preflight too.
+  expect((await s.call("GET", "/api/whoami", { host: "evil.example:4301" })).status).toBe(403);
+  expect(
+    (await s.call("OPTIONS", "/api/whoami", { host: "evil.example:4301", origin: hub })).status,
+  ).toBe(403);
+  const pre = await s.call("OPTIONS", "/api/whoami", {
+    origin: hub,
+    "access-control-request-private-network": "true",
+  });
+  expect(pre.status).toBe(204);
+  expect(pre.headers["access-control-allow-private-network"]).toBe("true");
+  // Still no other route for another origin's preflight.
+  expect((await s.call("OPTIONS", "/pair", { origin: hub })).status).toBe(403);
+});
+
+it("can drop the default slicer so the hub asks", async () => {
+  const s = await serve();
+  s.store.set({ defaultSlicer: "orca-slicer" });
+  const form = { "content-type": "application/x-www-form-urlencoded", origin: s.origin() };
+  expect((await s.call("POST", "/slicer", form, "slicer=")).status).toBe(303);
+  expect(s.store.get().defaultSlicer).toBe("");
+  // Only a slicer that was found can become the default.
+  await s.call("POST", "/slicer", form, "slicer=nope");
+  expect(s.store.get().defaultSlicer).toBe("");
 });
 
 it("creates and opens the sync folder", async () => {

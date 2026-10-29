@@ -69,7 +69,7 @@
     "restore": "Restore them",
     "mode": {
       "all": "This device syncs all the hub's project folders.",
-      "selected": "This device syncs only selected projects. Open on my workstation in the web app adds a project; Hub management removes one.",
+      "selected": "This device syncs only selected projects. Open in the web app adds a project; Hub management removes one.",
       "toAll": "Sync everything",
       "toSelected": "Sync selected projects only"
     }
@@ -81,10 +81,12 @@
   },
   "slicers": {
     "title": "Slicers",
-    "intro": "Open on my workstation in the web app opens files here, in the default slicer.",
+    "intro": "Open in the web app opens files here, in the default slicer.",
     "none": "No supported slicer is installed on this device, so files can't be opened here from the web app. Install one, then restart the connector.",
     "default": "Default",
-    "makeDefault": "Use by default"
+    "makeDefault": "Use by default",
+    "ask": "Ask each time",
+    "asking": "No default: the web app asks which slicer opens a file."
   },
   "folders": {
     "title": "Shared folders",

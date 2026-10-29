@@ -1,6 +1,6 @@
 import type {
   HubFileLock,
-  OpenDevice,
+  OpenTargets,
   Page,
   Project,
   ProjectDetail,
@@ -239,13 +239,46 @@ export function useScan() {
   return { status: status.data, start };
 }
 
-/** The user's online devices that can open this project's files (a hub root's project only). */
-export const useOpenDevices = (id: string) =>
+/**
+ * Where Open can open this project's files: `local` (the browser is on the server's machine) and
+ * the user's online devices with a slicer (a hub root's project only).
+ */
+export const useOpenTargets = (id: string) =>
   useQuery({
     queryKey: ["projects", id, "devices"],
-    queryFn: () => api<OpenDevice[]>("GET", `/api/projects/${id}/devices`),
+    queryFn: () => api<OpenTargets>("GET", `/api/projects/${id}/devices`),
     refetchInterval: 30_000,
   });
+
+/** The connector's port when its device didn't report one (packaging/build.mjs). */
+const CONNECTOR_PORT = 4301;
+
+/**
+ * The device id of the connector running beside this browser, from its status page's
+ * `/api/whoami` (ADR-0014); null when there is none or the browser blocks it (Safari, a declined
+ * local network prompt). A hint only: asked once a page session, never an error.
+ */
+export function useConnectorId(ports: (number | null)[], enabled: boolean) {
+  const distinct = [...new Set(ports.map((p) => p ?? CONNECTOR_PORT))].sort();
+  return useQuery({
+    queryKey: ["connector", "whoami", distinct],
+    queryFn: async () => {
+      for (const port of distinct) {
+        try {
+          const res = await fetch(`http://127.0.0.1:${port}/api/whoami`, {
+            signal: AbortSignal.timeout(1500),
+          });
+          if (res.ok) return ((await res.json()) as { id?: string }).id ?? null;
+        } catch {} // nothing there, or blocked: the next port, then the fallback
+      }
+      return null;
+    },
+    enabled,
+    staleTime: Number.POSITIVE_INFINITY,
+    gcTime: Number.POSITIVE_INFINITY,
+    retry: false,
+  });
+}
 
 /**
  * Opens a project folder or one of its models in the OS / the configured slicer (server-side).

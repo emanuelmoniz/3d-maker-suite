@@ -1,4 +1,5 @@
 import { createHash, timingSafeEqual } from "node:crypto";
+import { networkInterfaces } from "node:os";
 import { type Capability, ROOT_HUB, type UserRole } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
 import { and, eq, isNull, lt, or, type SQL, sql } from "drizzle-orm";
@@ -216,6 +217,19 @@ export const hasUsers = (db: Db) =>
 
 export const isLoopbackIp = (ip: string) =>
   ip === "::1" || ip.startsWith("127.") || ip.startsWith("::ffff:127.");
+
+/**
+ * The request comes from the server's own machine: the client is loopback or one of this machine's
+ * addresses (a browser here using its LAN IP or a DNS name for it). The Host is the access guard's
+ * job. An `X-Forwarded-For` that `trustProxy` didn't resolve is a proxy here forwarding someone
+ * else, so it never counts.
+ */
+export function fromThisPc(req: FastifyRequest) {
+  if (req.headers["x-forwarded-for"] && req.ip === req.socket.remoteAddress) return false;
+  if (isLoopbackIp(req.ip)) return true;
+  const ip = req.ip.replace(/^::ffff:/, "");
+  return Object.values(networkInterfaces()).some((list) => list?.some((a) => a.address === ip));
+}
 
 /** Directly or through a reverse proxy. A forged header only makes the cookie Secure. */
 export const isHttps = (req: FastifyRequest) =>

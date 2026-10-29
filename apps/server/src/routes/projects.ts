@@ -8,7 +8,7 @@ import {
   hubFileLockQuerySchema,
   hubFileLockSchema,
   type IntegrationAdapter,
-  openDeviceSchema,
+  openTargetsSchema,
   type Page,
   type Project,
   type ProjectDetail,
@@ -38,7 +38,13 @@ import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
 import { capableRows } from "../integrations/capabilities.ts";
-import { assertRootEditable, projectAccessOf, rootRule, visibleProjects } from "../lib/auth.ts";
+import {
+  assertRootEditable,
+  fromThisPc,
+  projectAccessOf,
+  rootRule,
+  visibleProjects,
+} from "../lib/auth.ts";
 import { projectLabel } from "../lib/catalog.ts";
 import type { HubChannel } from "../lib/hubChannel.ts";
 import { openFolder, slicerLauncher } from "../lib/launcher.ts";
@@ -812,12 +818,17 @@ export const projectsRoutes =
         .orderBy(asc(devices.name))
         .all()
         .filter((d) => d.slicers.length && hub.online(d.id))
-        .map(({ id, name }) => ({ id, name }));
+        .map((d) => ({
+          id: d.id,
+          name: d.name,
+          port: hub.port(d.id),
+          slicers: d.slicers.map((s) => ({ id: s.id, default: s.default })),
+        }));
     };
     app.get(
       "/:id/devices",
-      { schema: { params, response: { 200: z.array(openDeviceSchema), ...notFound } } },
-      async (req) => openDevices(req, get(req.params.id)),
+      { schema: { params, response: { 200: openTargetsSchema, ...notFound } } },
+      async (req) => ({ local: fromThisPc(req), devices: openDevices(req, get(req.params.id)) }),
     );
 
     /** The project's hub root, when its folder is in one (only hub-root files are checked out). */
@@ -880,12 +891,14 @@ export const projectsRoutes =
       },
       async (req) => {
         const p = get(req.params.id);
-        const { target, file, integrationId } = req.body;
+        const { target, file, integrationId, slicer } = req.body;
         const listed = !!file && p.meta.files.some((f) => f.path === file && f.kind === "model");
         if (target === "device") {
           const device = openDevices(req, p).find((d) => d.id === req.body.deviceId);
           if (!device)
             throw new HttpError(409, "device_offline", "The device can't open files now");
+          if (slicer && !device.slicers.some((s) => s.id === slicer))
+            throw new HttpError(409, "device_no_slicer", "No such slicer on the device");
           if (!listed || !p.rootId || !p.folder)
             throw new HttpError(403, "not_allowed", "File is not part of this project");
           // Selected from now on, so a device that syncs only selected projects gets it.
@@ -901,7 +914,7 @@ export const projectsRoutes =
           try {
             await hub.ask(
               device.id,
-              (requestId) => ({ type: "open", requestId, rootId, path }),
+              (requestId) => ({ type: "open", requestId, rootId, path, slicer }),
               z.null(),
               {
                 ms: DEVICE_OPEN_MS,
@@ -925,14 +938,17 @@ export const projectsRoutes =
           if (target === "folder") return await openFolder(dir).then(() => ({ ok: true as const }));
           const abs = listed ? await projectFile(db, p, file) : null;
           if (!abs) throw new HttpError(403, "not_allowed", "File is not part of this project");
+          // The server's slicer opens on the server's screen: never for someone at another computer.
+          if (!fromThisPc(req))
+            throw new HttpError(403, "not_local", "The slicer opens only on the server's machine");
           // The picked slicer, else the default one, else the first.
           const slicers = capableRows(db, adapters, "openInSlicer");
           const pick = integrationId ?? prefs.defaultSlicerId;
           const chosen =
             slicers.find((s) => s.row.id === pick) ?? (integrationId ? undefined : slicers[0]);
-          const slicer = slicerLauncher(chosen?.row.slicerPath ?? "");
-          if (!slicer.canOpen(abs)) throw new HttpError(409, "no_slicer", "No slicer configured");
-          await slicer.open(abs);
+          const launcher = slicerLauncher(chosen?.row.slicerPath ?? "");
+          if (!launcher.canOpen(abs)) throw new HttpError(409, "no_slicer", "No slicer configured");
+          await launcher.open(abs);
           return { ok: true as const };
         } catch (e) {
           if (e instanceof HttpError) throw e;

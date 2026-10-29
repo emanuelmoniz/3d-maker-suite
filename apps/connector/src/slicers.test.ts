@@ -1,5 +1,17 @@
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { findSlicers, iconPath, parseFlatpak, parseReg, plistVersion } from "./slicers.ts";
+import {
+  createSlicers,
+  type Found,
+  findSlicers,
+  iconPath,
+  parseFlatpak,
+  parseReg,
+  plistVersion,
+} from "./slicers.ts";
+import { openStore } from "./state.ts";
 
 const known = [
   {
@@ -51,5 +63,53 @@ HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Bam
     expect(
       await findSlicers(known, "linux", async () => "com.bambulab.BambuStudio\t2.8\n"),
     ).toMatchObject([{ cmd: "flatpak", args: ["run", "com.bambulab.BambuStudio"] }]);
+  });
+});
+
+describe("which slicer opens", () => {
+  const slicer = (id: string): Found => ({
+    id,
+    name: id,
+    version: null,
+    path: id,
+    cmd: id,
+    args: [],
+  });
+
+  it("the one asked for, else the default, else the only one; several and none: the hub asks", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "slicers-"));
+    try {
+      const store = openStore(dir);
+      const puts: unknown[] = [];
+      let found = [slicer("bambu-studio")];
+      const slicers = createSlicers({
+        store,
+        log: () => {},
+        find: async () => found,
+        request: async (_path, init) => {
+          if (init?.method === "PUT") puts.push(init.body);
+          return new Response("[]");
+        },
+      });
+      await slicers.refresh();
+      expect(slicers.pick()?.id).toBe("bambu-studio");
+
+      found = [slicer("bambu-studio"), slicer("orca-slicer")];
+      await slicers.refresh();
+      expect(slicers.pick()).toBeUndefined();
+      expect(slicers.pick("orca-slicer")?.id).toBe("orca-slicer");
+
+      store.set({ defaultSlicer: "orca-slicer" });
+      await slicers.refresh();
+      expect(slicers.pick()?.id).toBe("orca-slicer");
+      expect(slicers.pick("bambu-studio")?.id).toBe("bambu-studio");
+      // The hub learns which one is the default.
+      expect(puts.at(-1)).toMatchObject([
+        { id: "bambu-studio", default: false },
+        { id: "orca-slicer", default: true },
+      ]);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });

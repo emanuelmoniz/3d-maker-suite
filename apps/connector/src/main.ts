@@ -12,16 +12,17 @@ const log = (line: string) => console.log(`${new Date().toISOString()} ${line}`)
 const dir = dataDir();
 const store = openStore(dir);
 const updater = createUpdater({ version: VERSION, log });
+const port = readPort(dir);
 const link = createLink({
   store,
   version: VERSION,
   os: `${type()} ${release()} ${arch()}`,
+  port,
   onHubVersion: updater.follow,
   updateFailure: updater.failure,
   sync: { dataDir: dir, syncDir: syncDir() },
   log,
 });
-const port = readPort(dir);
 const quit = (code: number) => {
   link.close();
   page.close();

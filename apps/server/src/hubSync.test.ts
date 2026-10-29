@@ -291,10 +291,10 @@ describe("hub file sync", () => {
     ).toBe(204);
     expect((await s.changes()).files).toEqual([]);
 
-    // Online, with a slicer: the device's user gets Open on my workstation.
+    // Online, with a slicer: the device's user gets Open on it.
     const base = await s.app.listen({ port: 0, host: "127.0.0.1" });
     const res = await fetch(`${base}/api/hub/events`, {
-      headers: { authorization: s.authorization },
+      headers: { authorization: s.authorization, "x-connector-port": "4399" },
     });
     const reader = (res.body as ReadableStream<Uint8Array>).getReader();
     const dec = new TextDecoder();
@@ -314,26 +314,48 @@ describe("hub file sync", () => {
       payload: { email: s.editor.email, password: PW },
     });
     const cookie = String(login.headers["set-cookie"]).split(";")[0] ?? "";
-    const asEditor = (method: "GET" | "POST", url: string, payload?: object) =>
-      s.app.inject({ method, url, payload, headers: { cookie } });
-    expect((await asEditor("GET", `/api/projects/${mine.id}/devices`)).json()).toEqual([]);
+    const asEditor = (method: "GET" | "POST", url: string, payload?: object, remote?: string) =>
+      s.app.inject({ method, url, payload, headers: { cookie }, remoteAddress: remote });
+    expect((await asEditor("GET", `/api/projects/${mine.id}/devices`)).json()).toEqual({
+      local: true,
+      devices: [],
+    });
     await s.app.inject({
       method: "PUT",
       url: "/api/hub/device/slicers",
-      payload: [{ id: "bambu-studio", version: "2.8", path: "C:/bambu-studio.exe" }],
+      payload: [
+        { id: "bambu-studio", version: "2.8", path: "C:/bambu-studio.exe" },
+        { id: "orca-slicer", version: "2.3", path: "C:/orca-slicer.exe", default: true },
+      ],
       headers: { authorization: s.authorization },
     });
-    expect((await asEditor("GET", `/api/projects/${mine.id}/devices`)).json()).toEqual([
-      { id: device.id, name: "Desk: PC" },
-    ]);
+    // From another computer: not local; the port is the one its stream reported.
+    expect(
+      (await asEditor("GET", `/api/projects/${mine.id}/devices`, undefined, "192.0.2.7")).json(),
+    ).toEqual({
+      local: false,
+      devices: [
+        {
+          id: device.id,
+          name: "Desk: PC",
+          port: 4399,
+          slicers: [{ id: "bambu-studio" }, { id: "orca-slicer", default: true }],
+        },
+      ],
+    });
+    const open = { target: "device", deviceId: device.id, file: "m.stl" };
+    const unknown = await asEditor("POST", `/api/projects/${mine.id}/open`, {
+      ...open,
+      slicer: "nope",
+    });
+    expect(unknown.json().error.code).toBe("device_no_slicer");
 
     const opening = asEditor("POST", `/api/projects/${mine.id}/open`, {
-      target: "device",
-      deviceId: device.id,
-      file: "m.stl",
+      ...open,
+      slicer: "bambu-studio",
     });
     const event = JSON.parse(/data: (\{"type":"open".*)/.exec(await until('"open"'))?.[1] ?? "");
-    expect(event).toMatchObject({ rootId: s.root.id, path: "mine/m.stl" });
+    expect(event).toMatchObject({ rootId: s.root.id, path: "mine/m.stl", slicer: "bambu-studio" });
     // Selected now: the device pulls it before it opens the slicer.
     expect((await s.changes()).files).toMatchObject([{ path: "mine/m.stl" }]);
     await s.app.inject({

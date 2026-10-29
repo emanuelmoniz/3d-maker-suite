@@ -7,7 +7,7 @@ import {
 } from "@3d-maker-suite/core";
 import { Link, useNavigate, useParams } from "@tanstack/react-router";
 import type { TFunction } from "i18next";
-import { Box, ExternalLink, FolderOpen, MonitorSmartphone } from "lucide-react";
+import { Box, ExternalLink, FolderOpen } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
@@ -20,6 +20,7 @@ import {
   PrinterHint,
   ProductionCost,
 } from "../../components/CostBreakdown.tsx";
+import { FormField } from "../../components/FormField.tsx";
 import { Markdown } from "../../components/Markdown.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { RootStateBadge } from "../../components/RootStateBadge.tsx";
@@ -30,7 +31,7 @@ import { estimateSlicedPlates, useCostContext } from "../../lib/cost.ts";
 import { cx } from "../../lib/cx.ts";
 import { useProfiles, useSpools } from "../../lib/filament.ts";
 import { formatDuration, formatWeight } from "../../lib/format.ts";
-import { useCapable, useIntegrationLabel } from "../../lib/integrations.ts";
+import { useAdapterName, useCapable, useIntegrationLabel } from "../../lib/integrations.ts";
 import { useUrlListQuery } from "../../lib/list.ts";
 import { usePreferences } from "../../lib/preferences.ts";
 import { usePrints, usePrintsOfProject } from "../../lib/prints.ts";
@@ -40,9 +41,10 @@ import {
   projectFileUrl,
   projectName,
   projectThumbnailUrl,
+  useConnectorId,
   useDeleteProject,
-  useOpenDevices,
   useOpenProject,
+  useOpenTargets,
   useProject,
   useProjectSlicing,
 } from "../../lib/projects.ts";
@@ -130,6 +132,7 @@ const DEVICE_ERRORS: Record<string, string> = {
   device_offline: "projects:detail.openFailed.device_offline",
   device_timeout: "projects:detail.openFailed.device_timeout",
   device_no_slicer: "projects:detail.openFailed.device_no_slicer",
+  not_local: "projects:detail.openFailed.not_local",
 };
 const openError = (t: TFunction, e: Error) => {
   const key = e instanceof ApiError && e.code ? DEVICE_ERRORS[e.code] : undefined;
@@ -430,14 +433,32 @@ export function ProjectDetailPage() {
   const integrationLabel = useIntegrationLabel();
   const defaultSlicer = usePreferences().data?.values.defaultSlicerId;
   const [slicerId, setSlicerId] = useState<string>();
-  // The user's online devices with a slicer: Open on my workstation (a hub root's project).
-  const devices = useOpenDevices(id).data ?? [];
-  const [deviceId, setDeviceId] = useState<string>();
-  const device = devices.find((d) => d.id === deviceId) ?? devices[0];
   const slicer =
     slicers.find((s) => s.id === slicerId) ??
     slicers.find((s) => s.id === defaultSlicer) ??
     slicers[0];
+  // Open opens on the machine the user sits at: the server's, with its integration slicer;
+  // else the device whose connector answers beside this browser; else the user's online devices
+  // with a slicer (a hub root's project), one without asking, several in a picker.
+  const targets = useOpenTargets(id).data;
+  const local = !!targets?.local && !!slicer && !onDevice;
+  const devices = onDevice ? [] : (targets?.devices ?? []);
+  const here = useConnectorId(
+    devices.map((d) => d.port),
+    !local && devices.length > 0,
+  ).data;
+  const [deviceId, setDeviceId] = useState<string>();
+  const beside = devices.find((d) => d.id === here);
+  const device = beside ?? devices.find((d) => d.id === deviceId) ?? devices[0];
+  // The device's default slicer opens it; none picked on its status page: the user picks.
+  const adapterName = useAdapterName();
+  const [deviceSlicerId, setDeviceSlicerId] = useState<string>();
+  // The file Open was asked for while its dialog is up.
+  const [asking, setAsking] = useState<string | null>(null);
+  const askSlicer = !!device && device.slicers.length > 1 && !device.slicers.some((s) => s.default);
+  const deviceSlicer = askSlicer
+    ? (device.slicers.find((s) => s.id === deviceSlicerId) ?? device.slicers[0])
+    : undefined;
 
   if (isError)
     return (
@@ -469,11 +490,23 @@ export function ProjectDetailPage() {
       : project.thumbnailPath
         ? projectThumbnailUrl(project)
         : null;
-  const openOnDevice =
-    device && !onDevice
-      ? (file: string) => open.mutate({ target: "device", deviceId: device.id, file })
+  const openNow = (file: string) =>
+    local
+      ? open.mutate({ target: "slicer", file, integrationId: slicer?.id })
+      : device &&
+        open.mutate({ target: "device", deviceId: device.id, file, slicer: deviceSlicer?.id });
+  // One Open button; a choice (several slicers, or devices without a probe answer) asks in a dialog.
+  const pickSlicer = local && slicers.length > 1;
+  const pickDevice = !local && !beside && devices.length > 1;
+  const openFile =
+    local || device
+      ? (file: string) =>
+          pickSlicer || pickDevice || deviceSlicer ? setAsking(file) : openNow(file)
       : undefined;
-  const sent = open.variables?.target === "device" ? device?.name : undefined;
+  const sent =
+    open.variables?.target === "device"
+      ? devices.find((d) => d.id === open.variables?.deviceId)?.name
+      : undefined;
   // No 3D file and no folder-level fallback thumbnail: nothing to preview.
   const hasPreview = !!current || !!thumbnail;
 
@@ -491,57 +524,16 @@ export function ProjectDetailPage() {
               </a>
             )}
             <Write when={project.canEdit}>
-              {ok && !onDevice && current && slicer && (
-                <span className="flex gap-1">
-                  {slicers.length > 1 && (
-                    <Combobox
-                      aria-label={t("projects:detail.slicerPick")}
-                      className={linkButton}
-                      value={slicer.id}
-                      onChange={setSlicerId}
-                      options={slicers.map((s) => ({
-                        value: s.id,
-                        label: integrationLabel(s),
-                      }))}
-                    />
-                  )}
-                  <button
-                    type="button"
-                    className={linkButton}
-                    onClick={() =>
-                      open.mutate({
-                        target: "slicer",
-                        file: current.path,
-                        integrationId: slicer.id,
-                      })
-                    }
-                  >
-                    <Box className="size-4" aria-hidden />
-                    {t("projects:detail.openSlicer")}
-                  </button>
-                </span>
-              )}
-              {ok && current && openOnDevice && device && (
-                <span className="flex gap-1">
-                  {devices.length > 1 && (
-                    <Combobox
-                      aria-label={t("projects:detail.devicePick")}
-                      className={linkButton}
-                      value={device.id}
-                      onChange={setDeviceId}
-                      options={devices.map((d) => ({ value: d.id, label: d.name }))}
-                    />
-                  )}
-                  <button
-                    type="button"
-                    className={linkButton}
-                    disabled={open.isPending}
-                    onClick={() => openOnDevice(current.path)}
-                  >
-                    <MonitorSmartphone className="size-4" aria-hidden />
-                    {t("projects:detail.openOnDevice")}
-                  </button>
-                </span>
+              {ok && current && openFile && (
+                <button
+                  type="button"
+                  className={linkButton}
+                  disabled={open.isPending}
+                  onClick={() => openFile(current.path)}
+                >
+                  <Box className="size-4" aria-hidden />
+                  {t("projects:detail.open")}
+                </button>
               )}
               {ok && !onDevice && (
                 <button
@@ -575,6 +567,54 @@ export function ProjectDetailPage() {
         </p>
       )}
       <MissingFolderBanner project={project} />
+      <ConfirmDialog
+        open={asking !== null}
+        title={t("projects:detail.openTitle", { name: asking ?? "" })}
+        description={t("projects:detail.openPick")}
+        confirmLabel={t("projects:detail.open")}
+        onCancel={() => setAsking(null)}
+        onConfirm={() => {
+          if (asking) openNow(asking);
+          setAsking(null);
+        }}
+      >
+        {pickSlicer && slicer && (
+          <FormField label={t("projects:detail.slicerPick")}>
+            {(p) => (
+              <Combobox
+                {...p}
+                value={slicer.id}
+                onChange={setSlicerId}
+                options={slicers.map((s) => ({ value: s.id, label: integrationLabel(s) }))}
+              />
+            )}
+          </FormField>
+        )}
+        {pickDevice && device && (
+          <FormField label={t("projects:detail.devicePick")}>
+            {(p) => (
+              <Combobox
+                {...p}
+                value={device.id}
+                onChange={setDeviceId}
+                options={devices.map((d) => ({ value: d.id, label: d.name }))}
+              />
+            )}
+          </FormField>
+        )}
+        {!local && device && deviceSlicer && (
+          <FormField label={t("projects:detail.deviceSlicerPick", { name: device.name })}>
+            {(p) => (
+              <Combobox
+                {...p}
+                value={deviceSlicer.id}
+                onChange={setDeviceSlicerId}
+                options={device.slicers.map((s) => ({ value: s.id, label: adapterName(s.id) }))}
+              />
+            )}
+          </FormField>
+        )}
+      </ConfirmDialog>
       <p role="status" className={open.isError ? "text-bad" : sent ? "text-muted" : "sr-only"}>
         {open.isError
           ? openError(t, open.error)
@@ -676,9 +716,7 @@ export function ProjectDetailPage() {
       {onDevice ? (
         <DeviceFileList project={project} />
       ) : (
-        project.folderState !== "missing" && (
-          <ProjectFiles project={project} onOpen={openOnDevice} />
-        )
+        project.folderState !== "missing" && <ProjectFiles project={project} onOpen={openFile} />
       )}
     </>
   );

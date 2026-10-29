@@ -210,7 +210,9 @@
     "unknownMaterial": "Unknown",
     "prints": "Prints",
     "files": "Files",
-    "openSlicer": "Open in slicer",
+    "open": "Open",
+    "openTitle": "Open {{name}}",
+    "openPick": "Choose where it opens.",
     "openFolder": "Open folder",
     "opened": "Opened.",
     "openFailed": {
@@ -219,14 +221,15 @@
       "launch_failed": "Could not start the program.",
       "device_offline": "The device went offline or no longer has a slicer.",
       "device_timeout": "The device didn't open the file in time. Check its status page.",
-      "device_no_slicer": "No slicer was found on the device."
+      "device_no_slicer": "No slicer was found on the device.",
+      "not_local": "The server's slicer opens only on the server's computer. Open the app there, or install the connector on this computer."
     },
     "slicerPick": "Slicer",
     "viewAll": "View all",
     "viewAllHint_one": "{{count}} plate",
     "viewAllHint_other": "All {{count}} plates",
-    "openOnDevice": "Open on my workstation",
     "devicePick": "Device",
+    "deviceSlicerPick": "Slicer on {{name}}",
     "openingOnDevice": "Opening on {{name}}… A project that isn't on the device yet downloads first.",
     "openedOnDevice": "Opened on {{name}}.",
     "openedReadOnly": "Opened on {{name}}, read-only: {{user}} is editing it on {{device}}."
@@ -341,7 +344,7 @@
     "exists": "A file or folder with this name already exists.",
     "tooLarge": "The file is over the upload limit (Settings > Projects).",
     "error": "That didn't work. Check the name and try again.",
-    "openOnDevice": "Open {{name}} on my workstation",
+    "open": "Open {{name}}",
     "lock": {
       "by": "Being edited by {{user}} on {{device}}",
       "done": "Done editing",

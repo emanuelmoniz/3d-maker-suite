@@ -983,7 +983,7 @@ Do Step 14 of the 5.0.0 plan in PLAN.md. Show me the lock states and release pat
 Back up the DB before editing schema.ts.
 ```
 
-### [ ] Step 14b - One Open button: this machine's slicer  **[plan mode]**
+### [x] Step 14b - One Open button: this machine's slicer  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:**
 - The project page and the file rows get **one** Open button instead of "Open in slicer" and "Open on my workstation". It opens the slicer on the machine the user is sitting at:

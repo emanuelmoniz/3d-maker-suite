@@ -52,13 +52,21 @@ A restarted connector downloads nothing it already has.
 
 ### Which projects a device syncs
 
-**Hub management** (and the connector's status page) set what a device syncs: **Everything**, or **Selected projects**. With selected projects, a project joins the device through **Open on my workstation**, and Hub management lists the selection with a button to stop syncing one. Stopping removes the local copy only; the hub keeps the project and nothing counts as a delete.
+**Hub management** (and the connector's status page) set what a device syncs: **Everything**, or **Selected projects**. With selected projects, a project joins the device through **Open**, and Hub management lists the selection with a button to stop syncing one. Stopping removes the local copy only; the hub keeps the project and nothing counts as a delete.
 
-### Open on my workstation
+### Open
 
-The project page and the model file rows show **Open on my workstation** when you have an online device with a slicer. The hub selects the project for that device, the connector downloads it if it isn't there yet and opens the file in its default slicer. When you save, the change syncs back, and auto slicing runs on the hub as for any change.
+The project page and the model file rows have one **Open** button. It opens the file in a slicer on the computer you are sitting at:
 
-The connector finds installed slicers itself (Windows: the installed apps list; macOS: `/Applications`; Linux: Flatpak) and reports them to the hub. The status page picks the default. With no slicer found, the button is hidden for that device.
+- **On the server's computer** (by `localhost`, its network address, or a name for it): the slicer from Settings > Integrations. It edits the hub folder in place, so it takes no lock. Another computer can never open the server's slicer.
+- **On a computer with the connector:** the page asks the connector on this computer which device it is, and that device opens the file, even when you have other devices paired. The hub selects the project for that device, the connector downloads it if it isn't there yet and opens the file. When you save, the change syncs back, and auto slicing runs on the hub as for any change.
+- **When the page can't ask** (no connector here, Safari, or you declined the browser's local network prompt): your online devices with a slicer. One opens without asking; with several, Open asks which.
+
+The page only finds the connector when the connector was paired with the same address you use in the browser (for example both `http://3dms.lan:4300`). With another address it falls back to the list.
+
+The connector finds installed slicers itself (Windows: the installed apps list; macOS: `/Applications`; Linux: Flatpak) and reports them to the hub. The status page picks the default, or **Ask each time**: then Open asks which slicer when the device has more than one. With no slicer found, the device isn't offered.
+
+Locks are soft: they keep two devices from editing the same file by accident, but opening on the server's computer, or copying a file out, doesn't check them. The project page shows who has a file checked out.
 
 ### Conflicts
 

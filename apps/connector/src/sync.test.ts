@@ -165,7 +165,7 @@ describe("hub root sync", () => {
       .json()
       .items.find((x: { folder: string }) => x.folder === "p");
     await until(
-      async () => (await h.send("GET", `/api/projects/${p.id}/devices`)).json().length > 0,
+      async () => (await h.send("GET", `/api/projects/${p.id}/devices`)).json().devices.length > 0,
     );
     const res = await h.send("POST", `/api/projects/${p.id}/open`, {
       target: "device",
@@ -320,7 +320,7 @@ describe("hub root sync", () => {
     const open = (deviceId: string) =>
       h.send("POST", `/api/projects/${p.id}/open`, { target: "device", deviceId, file: "m.stl" });
     await until(
-      async () => (await h.send("GET", `/api/projects/${p.id}/devices`)).json().length > 1,
+      async () => (await h.send("GET", `/api/projects/${p.id}/devices`)).json().devices.length > 1,
     );
 
     expect((await open(a.id)).json()).toEqual({ ok: true });

@@ -131,7 +131,7 @@ export async function findSlicers(
 
 /**
  * The slicers on this device: found when the link comes online and reported to the hub, which
- * offers Open on my workstation only while there is one. The status page picks the default.
+ * offers Open only while there is one. The status page picks the default, or none (ask each time).
  */
 export function createSlicers({
   request,
@@ -148,8 +148,12 @@ export function createSlicers({
 }) {
   let found: Found[] = [];
 
-  /** The default, else the first one found. */
-  const pick = () => found.find((f) => f.id === store.get().defaultSlicer) ?? found[0];
+  /**
+   * The one asked for, else the default, else the only one found. Several and no default: none,
+   * since the hub asks the user which one before it sends `open`.
+   */
+  const pick = (id = store.get().defaultSlicer) =>
+    found.find((f) => f.id === id) ?? (found.length === 1 ? found[0] : undefined);
 
   return {
     list: () => found,
@@ -159,7 +163,13 @@ export function createSlicers({
         const res = await request("/slicers");
         if (!res.ok) throw new Error(`slicers: HTTP ${res.status}`);
         found = await find(z.array(desktopSlicerSchema).parse(await res.json()));
-        const body = found.map(({ id, version, path }) => ({ id, version, path }));
+        const { defaultSlicer } = store.get();
+        const body = found.map(({ id, version, path }) => ({
+          id,
+          version,
+          path,
+          default: id === defaultSlicer,
+        }));
         const put = await request("/slicers", { method: "PUT", body });
         if (!put.ok) throw new Error(`slicers: HTTP ${put.status}`);
       } catch (e) {
@@ -172,12 +182,12 @@ export function createSlicers({
      * it started, or with the error code.
      */
     async open(
-      { requestId, rootId, path }: Extract<HubEvent, { type: "open" }>,
+      { requestId, rootId, path, slicer: asked }: Extract<HubEvent, { type: "open" }>,
       local: (rootId: string, path: string) => Promise<string | null>,
       opened: (rootId: string, path: string, pid: number) => void = () => {},
     ) {
       const body = await (async () => {
-        const slicer = pick();
+        const slicer = pick(asked);
         if (!slicer) return { ok: false, code: "no_slicer" };
         const abs = await local(rootId, path);
         if (!abs) return { ok: false, code: "ENOENT" };

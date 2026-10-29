@@ -46,6 +46,8 @@ export const deviceSlicerSchema = z.object({
   id: z.string().max(100),
   version: z.string().max(100).nullable(),
   path: z.string().max(4096),
+  /** The one picked on its status page; none picked = the hub asks which one opens. */
+  default: z.boolean().optional(),
 });
 
 /** A connector paired with the hub (ADR-0014), as Hub management lists it. */
@@ -79,8 +81,22 @@ export const deviceUpdateSchema = z
   .object({ name, syncMode: deviceSyncModeSchema })
   .partial()
   .strict();
-/** The user's online devices that can open a project's files (`GET /api/projects/:id/devices`). */
-export const openDeviceSchema = z.object({ id, name: z.string() });
+/** One of the user's online devices that can open a project's files. */
+export const openDeviceSchema = z.object({
+  id,
+  name: z.string(),
+  /** Its status page's port, for the page's `/api/whoami` probe; null = not reported. */
+  port: z.number().int().nullable(),
+  slicers: z.array(deviceSlicerSchema.pick({ id: true, default: true })),
+});
+/**
+ * Where the project page's Open button can open (`GET /api/projects/:id/devices`). `local`: the
+ * request comes from the server's own machine, so its integration slicer is the user's.
+ */
+export const openTargetsSchema = z.object({
+  local: z.boolean(),
+  devices: z.array(openDeviceSchema),
+});
 
 /** An admin makes a code for a user (`POST /api/hub/pairing-codes`). */
 export const pairingCodeCreateSchema = z.object({ userId: id });
@@ -105,6 +121,7 @@ export type HubLockMode = z.infer<typeof hubLockModeSchema>;
 export type DesktopSlicer = z.infer<typeof desktopSlicerSchema>;
 export type DeviceSlicer = z.infer<typeof deviceSlicerSchema>;
 export type OpenDevice = z.infer<typeof openDeviceSchema>;
+export type OpenTargets = z.infer<typeof openTargetsSchema>;
 export type PairingCodeCreate = z.input<typeof pairingCodeCreateSchema>;
 export type PairingCode = z.infer<typeof pairingCodeSchema>;
 export type PairInput = z.input<typeof pairSchema>;
@@ -143,9 +160,15 @@ export const hubEventSchema = z.discriminatedUnion("type", [
   }),
   /**
    * Open a file of a hub root in the device's slicer, synced first if it isn't there yet; the
-   * answer (null) comes once the slicer started.
+   * answer (null) comes once the slicer started. `slicer`: which one (its id); none = the default.
    */
-  z.object({ type: z.literal("open"), requestId: id, rootId: id, path: z.string().max(1024) }),
+  z.object({
+    type: z.literal("open"),
+    requestId: id,
+    rootId: id,
+    path: z.string().max(1024),
+    slicer: z.string().max(100).optional(),
+  }),
 ]);
 /** What the connector reports when it opens the stream (`X-Connector-Version`, `X-Connector-OS`). */
 export const connectorInfoSchema = pairSchema.pick({ connectorVersion: true, os: true });

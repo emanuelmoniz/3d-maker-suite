@@ -1,6 +1,11 @@
 import { spawn } from "node:child_process";
 import { mkdirSync, readFileSync } from "node:fs";
-import { createServer, type IncomingHttpHeaders, type IncomingMessage } from "node:http";
+import {
+  createServer,
+  type IncomingHttpHeaders,
+  type IncomingMessage,
+  type ServerResponse,
+} from "node:http";
 import { hostname } from "node:os";
 import type { DeviceSyncState } from "@3d-maker-suite/core";
 import { type Link, type LinkStatus, PairError, type PairErrorCode } from "./hub.ts";
@@ -229,10 +234,10 @@ ${locks}
 ${slicersView()}`;
   };
 
-  // Open on my workstation uses the default; the hub offers it only while one is found.
+  // Open uses the default; with several and none picked, the hub asks which one each time.
   const slicersView = () => {
     const found = link.slicers.list();
-    const pick = link.slicers.pick();
+    const pick = found.find((f) => f.id === store.get().defaultSlicer);
     const rows = found
       .map(
         (f) => `<li class="row"><span>${esc(f.name)}${f.version ? ` ${esc(f.version)}` : ""}</span>
@@ -243,9 +248,12 @@ ${
 }</li>`,
       )
       .join("\n");
+    const ask = pick
+      ? `<form method="post" action="/slicer"><input type="hidden" name="slicer" value=""><button type="submit">${t("connector:slicers.ask")}</button></form>`
+      : `<p class="muted">${t("connector:slicers.asking")}</p>`;
     return `<section aria-labelledby="slicers">
 <h2 id="slicers">${t("connector:slicers.title")}</h2>
-${found.length ? `<p class="muted">${t("connector:slicers.intro")}</p><ul>${rows}</ul>` : `<p class="muted">${t("connector:slicers.none")}</p>`}
+${found.length ? `<p class="muted">${t("connector:slicers.intro")}</p><ul>${rows}</ul>${found.length > 1 ? ask : ""}` : `<p class="muted">${t("connector:slicers.none")}</p>`}
 </section>`;
   };
 
@@ -307,15 +315,45 @@ ${body}
       : page(statusView(s, e), true);
   };
 
+  /**
+   * The device id, the only answer another origin may read (ADR-0014): the hub's project page asks
+   * which device it runs beside. CORS only for the hub this connector is paired with; it changes
+   * nothing, and the hub still checks the device is the user's.
+   */
+  const answerWhoami = (req: IncomingMessage, res: ServerResponse) => {
+    const { hubUrl, deviceId } = store.get();
+    const hub = (() => {
+      try {
+        return hubUrl ? new URL(hubUrl).origin : undefined;
+      } catch {
+        return undefined;
+      }
+    })();
+    const headers: Record<string, string> = { vary: "origin", "cache-control": "no-store" };
+    if (hub && req.headers.origin === hub)
+      Object.assign(headers, {
+        "access-control-allow-origin": hub,
+        "access-control-allow-methods": "GET",
+        "access-control-allow-private-network": "true",
+      });
+    if (req.method === "OPTIONS") return res.writeHead(204, headers).end();
+    if (!deviceId || !store.token()) return res.writeHead(404, headers).end();
+    res.writeHead(200, { ...headers, "content-type": "application/json" });
+    res.end(JSON.stringify({ id: deviceId }));
+  };
+
   return createServer(async (req, res) => {
     const send = (code: number, type: string, body: string) =>
       res.writeHead(code, { "content-type": type, "cache-control": "no-store" }).end(body);
     const html = "text/html; charset=utf-8";
     const back = () => res.writeHead(303, { location: "/" }).end();
-    if (!allowed(req.method, req.headers, req.socket.localPort ?? 0))
-      return send(403, "text/plain", "Forbidden");
     const path = new URL(req.url ?? "/", "http://x").pathname;
+    // whoami's preflight is a read like its GET: any Origin may ask, the Host must still be ours.
+    const whoami = path === "/api/whoami" && (req.method === "GET" || req.method === "OPTIONS");
+    if (!allowed(whoami ? "GET" : req.method, req.headers, req.socket.localPort ?? 0))
+      return send(403, "text/plain", "Forbidden");
     try {
+      if (whoami) return answerWhoami(req, res);
       if (req.method === "GET" && path === "/api/health")
         return send(200, "application/json", JSON.stringify({ status: "ok", version }));
       if (req.method === "GET" && path === "/") return send(200, html, render());
@@ -372,8 +410,12 @@ ${body}
         return back();
       }
       if (req.method === "POST" && path === "/slicer") {
-        const id = (await readForm(req)).get("slicer");
-        if (link.slicers.list().some((f) => f.id === id)) store.set({ defaultSlicer: id ?? "" });
+        // An empty one: no default, the hub asks which slicer opens.
+        const id = (await readForm(req)).get("slicer") ?? "";
+        if (!id || link.slicers.list().some((f) => f.id === id)) {
+          store.set({ defaultSlicer: id });
+          void link.slicers.refresh(); // tells the hub
+        }
         return back();
       }
       if (req.method === "POST" && path === "/open-folder") {
