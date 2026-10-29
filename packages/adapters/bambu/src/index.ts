@@ -429,12 +429,13 @@ export function bambuStudioServerAdapter(): IntegrationAdapter {
 }
 
 // The same slicer on a slice worker (ADR-0014): installed on the device or downloaded there by the
-// hub. Its presets are the hub's (a zip import), as for the server one.
+// hub. Its presets are the hub's (a zip import, reviewed there), so it has nothing to sync.
 export function bambuStudioWorkerAdapter(): IntegrationAdapter {
   return {
     ...bambuStudioServerAdapter(),
     id: "bambu-studio-worker",
     kind: "worker",
+    capabilities: ["slice"],
     configSchema: workerConfigSchema,
   };
 }

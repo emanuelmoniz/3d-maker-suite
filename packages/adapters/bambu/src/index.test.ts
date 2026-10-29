@@ -3,7 +3,13 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { IntegrationContext, SecretStore } from "@3d-maker-suite/core";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { bambuCloudAdapter, bambuStudioAdapter, readColorNames, toSpool } from "./index.ts";
+import {
+  bambuCloudAdapter,
+  bambuStudioAdapter,
+  bambuStudioWorkerAdapter,
+  readColorNames,
+  toSpool,
+} from "./index.ts";
 
 // Canned Bambu Cloud responses; each test queues what `fetch` answers, in order.
 const json = (status: number, body: unknown, headers: [string, string][] = []) =>
@@ -94,6 +100,13 @@ it("splits cloud and local, each declaring only what it provides", () => {
       "slice",
     ],
     undefined,
+    "bambu-studio",
+  ]);
+  // A worker's presets come from a zip import, so it only slices.
+  const worker = bambuStudioWorkerAdapter();
+  expect([worker.kind, worker.capabilities, worker.library?.id]).toEqual([
+    "worker",
+    ["slice"],
     "bambu-studio",
   ]);
 });
