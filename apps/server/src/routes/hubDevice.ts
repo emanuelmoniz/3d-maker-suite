@@ -295,6 +295,7 @@ export const hubDeviceRoutes =
             .orderBy(asc(roots.position))
             .all(),
           deleteGuard: readPreferences(db).hubDeleteGuard,
+          locks: readPreferences(db).hubLocks,
         };
       },
     );
@@ -333,7 +334,7 @@ export const hubDeviceRoutes =
                   .map((r) => r.id),
               )
             : undefined;
-        return sync.changes(req.user, req.query.since, req.query.limit, only);
+        return sync.changes(req.user, id, req.query.since, req.query.limit, only);
       },
     );
 
@@ -387,8 +388,26 @@ export const hubDeviceRoutes =
         },
       },
       async (req, reply) => {
-        deviceOf(req);
-        await sync.trash(req.user, hubRoot(req.params.rootId), req.query.path, req.query.base ?? 0);
+        const id = deviceOf(req);
+        const root = hubRoot(req.params.rootId);
+        await sync.trash(req.user, id, root, req.query.path, req.query.base ?? 0);
+        return reply.status(204).send(null);
+      },
+    );
+
+    // Done editing on the status page, or the slicer the connector launched has exited.
+    app.delete(
+      "/sync/roots/:rootId/lock",
+      {
+        schema: {
+          params: rootParams,
+          querystring: hubFileQuerySchema,
+          response: { 204: z.null(), ...errors },
+        },
+      },
+      async (req, reply) => {
+        const id = deviceOf(req);
+        await sync.unlock(hubRoot(req.params.rootId), req.query.path, (holder) => holder === id);
         return reply.status(204).send(null);
       },
     );

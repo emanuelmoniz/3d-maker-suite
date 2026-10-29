@@ -5,6 +5,8 @@ import { read3mfEntry, read3mfPaint } from "@3d-maker-suite/3mf";
 import {
   apiErrorSchema,
   galleryImages,
+  hubFileLockQuerySchema,
+  hubFileLockSchema,
   type IntegrationAdapter,
   openDeviceSchema,
   type Page,
@@ -43,6 +45,7 @@ import { openFolder, slicerLauncher } from "../lib/launcher.ts";
 import { columnFilter, listPage, taggedWith } from "../lib/list.ts";
 import { assertNumberFree, nextNumber } from "../lib/numbers.ts";
 import { readPreferences } from "../lib/preferences.ts";
+import type { HubFiles } from "../projects/hubFiles.ts";
 import { dropNewFolder, folderName, newProjectFolder } from "../projects/newFolder.ts";
 import { projectPath, segments } from "../projects/paths.ts";
 import {
@@ -215,6 +218,7 @@ export const projectsRoutes =
     dataDir: string,
     scanner: ProjectScanner,
     hub: HubChannel,
+    hubFiles: HubFiles,
     adapters: IntegrationAdapter[] = [],
   ): FastifyPluginAsyncZod =>
   async (app) => {
@@ -816,6 +820,44 @@ export const projectsRoutes =
       async (req) => openDevices(req, get(req.params.id)),
     );
 
+    /** The project's hub root, when its folder is in one (only hub-root files are checked out). */
+    const hubRootOf = (p: Project) =>
+      p.folder
+        ? listRoots(db).find((r) => r.id === p.rootId && r.location === ROOT_HUB)
+        : undefined;
+    app.get(
+      "/:id/locks",
+      { schema: { params, response: { 200: z.array(hubFileLockSchema), ...notFound } } },
+      async (req) => {
+        const p = get(req.params.id);
+        const root = hubRootOf(p);
+        return root && p.folder ? hubFiles.locksIn(root.id, p.folder, req.user?.id) : [];
+      },
+    );
+    // Done editing (the lock's user) or force-unlock (an admin).
+    app.delete(
+      "/:id/locks",
+      {
+        schema: {
+          params,
+          querystring: hubFileLockQuerySchema,
+          response: { 204: z.null(), 400: apiErrorSchema, ...errors },
+        },
+      },
+      async (req, reply) => {
+        const p = get(req.params.id);
+        const root = hubRootOf(p);
+        if (!root) throw new HttpError(404, "not_found", "File not found");
+        const me = req.user;
+        await hubFiles.unlock(
+          root,
+          `${p.folder}/${req.query.file}`,
+          (_, userId) => !me || me.role === "admin" || me.id === userId,
+        );
+        return reply.status(204).send(null);
+      },
+    );
+
     // Launches a local program, so everything is checked here: the project folder must be inside a
     // configured root, and a file must be one the scanner listed (nothing the client invents). On a
     // device, the connector checks the path against its sync folder again.
@@ -825,7 +867,15 @@ export const projectsRoutes =
         schema: {
           params,
           body: projectOpenSchema,
-          response: { 200: z.object({ ok: z.literal(true) }), ...errors, 504: apiErrorSchema },
+          response: {
+            200: z.object({
+              ok: z.literal(true),
+              /** Another device has the file checked out: it opened read-only. */
+              lockedBy: z.object({ user: z.string(), device: z.string() }).optional(),
+            }),
+            ...errors,
+            504: apiErrorSchema,
+          },
         },
       },
       async (req) => {
@@ -844,19 +894,28 @@ export const projectsRoutes =
             .onConflictDoNothing()
             .run();
           const rootId = p.rootId;
-          await hub.ask(
-            device.id,
-            (requestId) => ({ type: "open", requestId, rootId, path: `${p.folder}/${file}` }),
-            z.null(),
-            {
-              ms: DEVICE_OPEN_MS,
-              error: (e) =>
-                e.code === "no_slicer"
-                  ? new HttpError(409, "device_no_slicer", "No slicer found on the device")
-                  : new HttpError(500, "launch_failed", "Could not start the program"),
-            },
-          );
-          return { ok: true as const };
+          const path = `${p.folder}/${file}`;
+          const root = hubRootOf(p);
+          // Checked out to the device before it opens; a failed open lets go again.
+          const lockedBy = root ? await hubFiles.lock(root, path, device.id) : null;
+          try {
+            await hub.ask(
+              device.id,
+              (requestId) => ({ type: "open", requestId, rootId, path }),
+              z.null(),
+              {
+                ms: DEVICE_OPEN_MS,
+                error: (e) =>
+                  e.code === "no_slicer"
+                    ? new HttpError(409, "device_no_slicer", "No slicer found on the device")
+                    : new HttpError(500, "launch_failed", "Could not start the program"),
+              },
+            );
+          } catch (e) {
+            if (root && !lockedBy) await hubFiles.unlock(root, path, (d) => d === device.id);
+            throw e;
+          }
+          return { ok: true as const, ...(lockedBy && { lockedBy }) };
         }
         const prefs = readPreferences(db);
         const dir = (await projectDir(db, p))?.dir;

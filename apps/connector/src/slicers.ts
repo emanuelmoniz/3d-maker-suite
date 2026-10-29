@@ -144,7 +144,7 @@ export function createSlicers({
   store: Store;
   log: (line: string) => void;
   find?: (known: DesktopSlicer[]) => Promise<Found[]>;
-  start?: (cmd: string, args: string[]) => Promise<void>;
+  start?: (cmd: string, args: string[]) => Promise<number | undefined>;
 }) {
   let found: Found[] = [];
 
@@ -168,18 +168,21 @@ export function createSlicers({
     },
     /**
      * The hub's `open`: the file synced first (`local` gives its path here), then the slicer
-     * started with it. Answered once it started, or with the error code.
+     * started with it (`opened` gets its pid, to release the lock when it exits). Answered once
+     * it started, or with the error code.
      */
     async open(
       { requestId, rootId, path }: Extract<HubEvent, { type: "open" }>,
       local: (rootId: string, path: string) => Promise<string | null>,
+      opened: (rootId: string, path: string, pid: number) => void = () => {},
     ) {
       const body = await (async () => {
         const slicer = pick();
         if (!slicer) return { ok: false, code: "no_slicer" };
         const abs = await local(rootId, path);
         if (!abs) return { ok: false, code: "ENOENT" };
-        await start(slicer.cmd, [...slicer.args, abs]);
+        const pid = await start(slicer.cmd, [...slicer.args, abs]);
+        if (pid) opened(rootId, path, pid);
         log(`opened ${path} in ${slicer.id}`);
         return { ok: true, result: null };
       })().catch((e: NodeJS.ErrnoException) => {

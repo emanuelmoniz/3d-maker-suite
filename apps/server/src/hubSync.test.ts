@@ -15,6 +15,7 @@ import { openDb, schema } from "@3d-maker-suite/db";
 import { beforeAll, describe, expect, it, onTestFinished } from "vitest";
 import { buildApp } from "./app.ts";
 import { hashPassword } from "./lib/password.ts";
+import { createHubFiles } from "./projects/hubFiles.ts";
 
 const PW = "password123";
 let hash: string;
@@ -52,38 +53,49 @@ const setup = async (opts: Parameters<typeof buildApp>[3] = {}) => {
   await send("PATCH", "/api/preferences", { hubEnabled: true });
   const dir = temp("hub-sync-root-");
   const root = (await send("POST", "/api/roots", { path: dir })).json();
-  const { code } = (await send("POST", "/api/hub/pairing-codes", { userId: editor.id })).json();
-  const { token } = (
-    await app.inject({
-      method: "POST",
-      url: "/api/hub/pair",
-      payload: { code, name: "Desk: PC" },
-    })
-  ).json();
-  const authorization = `Bearer ${token}`;
-  const file = (path: string) =>
-    `/api/hub/device/sync/roots/${root.id}/file?path=${encodeURIComponent(path)}`;
-  const put = (path: string, body: string, base: number) =>
-    app.inject({
-      method: "PUT",
-      url: `${file(path)}&base=${base}`,
-      payload: Buffer.from(body),
-      headers: {
-        authorization,
-        "content-type": "application/octet-stream",
-        "x-file-sha256": sha(body),
-      },
-    });
-  const changes = async (since = 0) =>
-    (
-      await app.inject({
-        url: `/api/hub/device/sync/changes?since=${since}`,
-        headers: { authorization },
-      })
+  /** Pairs a device for `userId`; its sync calls. */
+  const pair = async (userId: string, name: string) => {
+    const { code } = (await send("POST", "/api/hub/pairing-codes", { userId })).json();
+    const { token } = (
+      await app.inject({ method: "POST", url: "/api/hub/pair", payload: { code, name } })
     ).json();
-  const get = (path: string) => app.inject({ url: file(path), headers: { authorization } });
-  const del = (path: string, base: number) =>
-    app.inject({ method: "DELETE", url: `${file(path)}&base=${base}`, headers: { authorization } });
+    const authorization = `Bearer ${token}`;
+    const at = (what: "file" | "lock", path: string) =>
+      `/api/hub/device/sync/roots/${root.id}/${what}?path=${encodeURIComponent(path)}`;
+    const file = (path: string) => at("file", path);
+    return {
+      authorization,
+      put: (path: string, body: string, base: number) =>
+        app.inject({
+          method: "PUT",
+          url: `${file(path)}&base=${base}`,
+          payload: Buffer.from(body),
+          headers: {
+            authorization,
+            "content-type": "application/octet-stream",
+            "x-file-sha256": sha(body),
+          },
+        }),
+      changes: async (since = 0) =>
+        (
+          await app.inject({
+            url: `/api/hub/device/sync/changes?since=${since}`,
+            headers: { authorization },
+          })
+        ).json(),
+      get: (path: string) => app.inject({ url: file(path), headers: { authorization } }),
+      del: (path: string, base: number) =>
+        app.inject({
+          method: "DELETE",
+          url: `${file(path)}&base=${base}`,
+          headers: { authorization },
+        }),
+      unlock: (path: string) =>
+        app.inject({ method: "DELETE", url: at("lock", path), headers: { authorization } }),
+    };
+  };
+  const desk = await pair(editor.id, "Desk: PC");
+  const { authorization, put, changes, get, del } = desk;
   const project = (folder: string, ownerId: string | null) =>
     db.insert(schema.projects).values({ name: folder, rootId: root.id, folder, ownerId }).run();
   const idle = () =>
@@ -109,6 +121,8 @@ const setup = async (opts: Parameters<typeof buildApp>[3] = {}) => {
     del,
     project,
     scan,
+    pair,
+    desk,
   };
 };
 
@@ -336,5 +350,116 @@ describe("hub file sync", () => {
     await until('"roots.changed"');
     expect((await s.changes()).files).toEqual([]);
     await reader.cancel();
+  });
+});
+
+describe("check-out locks", () => {
+  /** Locks on, a project "a" with one file the editor's desk saved first (so it has it out). */
+  const locked = async () => {
+    const s = await setup();
+    expect((await s.send("PATCH", "/api/preferences", { hubLocks: "on" })).statusCode).toBe(200);
+    s.project("a", s.editor.id);
+    const p = s.db.select().from(schema.projects).get();
+    if (!p) throw new Error("setup");
+    expect((await s.desk.put("a/m.3mf", "v1", 0)).json()).toEqual({
+      status: "updated",
+      version: 1,
+    });
+    const laptop = await s.pair(s.admin.id, "Laptop");
+    const lockOf = () =>
+      s.db.select({ device: schema.hubFiles.lockDeviceId }).from(schema.hubFiles).get()?.device;
+    return { ...s, p, laptop, lockOf };
+  };
+  const entry = async (changes: () => Promise<{ files: object[] }>) =>
+    (await changes()).files.find((f) => (f as { path: string }).path === "a/m.3mf");
+
+  it("checks a file out on the first save; another device can only read it", async () => {
+    const s = await locked();
+    expect(await entry(s.desk.changes)).toMatchObject({ access: "edit", lock: "mine" });
+    expect(await entry(s.laptop.changes)).toMatchObject({ access: "read", lock: "other" });
+    expect((await s.send("GET", `/api/projects/${s.p.id}/locks`)).json()).toMatchObject([
+      { file: "m.3mf", user: "editor", device: "Desk: PC", mine: false },
+    ]);
+
+    // The other device's save becomes a conflict copy, its delete is refused: the file stays.
+    const theirs = (await s.laptop.put("a/m.3mf", "from laptop", 1)).json();
+    expect(theirs).toMatchObject({ status: "conflict", version: 1 });
+    expect(readFileSync(join(s.dir, "a", "m.3mf"), "utf8")).toBe("v1");
+    expect((await s.laptop.del("a/m.3mf", 1)).statusCode).toBe(409);
+    // The holder saves on.
+    expect((await s.desk.put("a/m.3mf", "v2", 1)).json()).toEqual({
+      status: "updated",
+      version: 2,
+    });
+
+    // Only the holder releases it from a device; then everyone may edit again.
+    expect((await s.laptop.unlock("a/m.3mf")).statusCode).toBe(403);
+    const { cursor } = await s.laptop.changes();
+    expect((await s.desk.unlock("a/m.3mf")).statusCode).toBe(204);
+    expect(s.lockOf()).toBeNull();
+    expect((await s.laptop.changes(cursor)).files).toMatchObject([
+      { path: "a/m.3mf", access: "edit", lock: null },
+    ]);
+  });
+
+  it("releases on force-unlock, the idle timeout, revoke and locks off", async () => {
+    const s = await locked();
+    const desk = s.db.select().from(schema.devices).all()[0];
+    if (!desk) throw new Error("setup");
+    const relock = async (v: string, base: number) => {
+      expect((await s.desk.put("a/m.3mf", v, base)).json()).toMatchObject({ status: "updated" });
+      expect(s.lockOf()).toBe(desk.id);
+    };
+    // Admin force-unlock from the project page.
+    const force = await s.send("DELETE", `/api/projects/${s.p.id}/locks?file=m.3mf`);
+    expect(force.statusCode).toBe(204);
+    expect(s.lockOf()).toBeNull();
+
+    // Idle: no save since the cutoff.
+    await relock("v2", 1);
+    const files = createHubFiles(s.db);
+    expect(files.releaseLocks({ idleBefore: "2000-01-01T00:00:00.000Z" })).toBe(0);
+    expect(files.releaseLocks({ idleBefore: new Date(Date.now() + 1000).toISOString() })).toBe(1);
+    expect(s.lockOf()).toBeNull();
+
+    // Locks off releases everything, and saves take no lock then.
+    await relock("v3", 2);
+    await s.send("PATCH", "/api/preferences", { hubLocks: "off" });
+    expect(s.lockOf()).toBeNull();
+    await s.desk.put("a/m.3mf", "v4", 3);
+    expect(s.lockOf()).toBeNull();
+
+    // Revoke releases the device's locks, as a change the other devices get.
+    await s.send("PATCH", "/api/preferences", { hubLocks: "strict" });
+    await relock("v5", 4);
+    const { cursor } = await s.laptop.changes();
+    expect((await s.send("DELETE", `/api/hub/devices/${desk.id}`)).statusCode).toBe(204);
+    expect((await s.laptop.changes(cursor)).files).toMatchObject([{ path: "a/m.3mf", lock: null }]);
+  });
+
+  it("lets only the lock's user or an admin release it from the web app", async () => {
+    const s = await locked();
+    const other = s.db
+      .insert(schema.users)
+      .values({ email: "e2@x.io", displayName: "e2", role: "editor", passwordHash: hash })
+      .returning()
+      .get();
+    const as = async (email: string) => {
+      const login = await s.app.inject({
+        method: "POST",
+        url: "/api/auth/login",
+        payload: { email, password: PW },
+      });
+      const cookie = String(login.headers["set-cookie"]).split(";")[0] ?? "";
+      return (method: "GET" | "DELETE", url: string) =>
+        s.app.inject({ method, url, headers: { cookie } });
+    };
+    const url = `/api/projects/${s.p.id}/locks`;
+    const e2 = await as(other.email);
+    expect((await e2("DELETE", `${url}?file=m.3mf`)).statusCode).toBe(403);
+    const editor = await as(s.editor.email);
+    expect((await editor("GET", url)).json()).toMatchObject([{ file: "m.3mf", mine: true }]);
+    expect((await editor("DELETE", `${url}?file=m.3mf`)).statusCode).toBe(204);
+    expect((await editor("GET", url)).json()).toEqual([]);
   });
 });

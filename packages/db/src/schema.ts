@@ -1180,6 +1180,11 @@ export const hubFiles = sqliteTable(
     version: integer().notNull(),
     deleted: integer({ mode: "boolean" }).notNull().default(false),
     seq: integer().notNull(),
+    /** The device that has the file checked out (`hubLocks`); its user is the editor. */
+    lockDeviceId: text().references(() => devices.id, { onDelete: "set null" }),
+    lockedAt: text(),
+    /** Taking the lock or an accepted upload from its device; the idle timeout counts from here. */
+    lockTouchedAt: text(),
   },
   (t) => [
     uniqueIndex("hub_files_root_path_uq").on(t.rootId, t.path),

@@ -582,6 +582,13 @@
       "when": 1793272988559,
       "tag": "0082_device_sync_mode",
       "breakpoints": true
+    },
+    {
+      "idx": 83,
+      "version": "6",
+      "when": 1793285290292,
+      "tag": "0083_hub_file_locks",
+      "breakpoints": true
     }
   ]
 }

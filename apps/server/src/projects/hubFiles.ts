@@ -4,17 +4,23 @@ import { mkdir, readdir, rename, rm, stat } from "node:fs/promises";
 import { extname, join, posix } from "node:path";
 import type { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
-import { type HubChanges, type HubUploadResult, PROJECT_TRASH_DIR } from "@3d-maker-suite/core";
+import {
+  type HubChanges,
+  type HubFileLock,
+  type HubUploadResult,
+  PROJECT_TRASH_DIR,
+} from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
 import { inRoot, relParts, rootTrash, syncSkipped as skipped } from "@3d-maker-suite/host";
-import { and, asc, eq, gt, isNotNull, max, sql } from "drizzle-orm";
+import { and, asc, eq, gt, isNotNull, lt, max, sql } from "drizzle-orm";
 import { raise } from "../alerts/evaluate.ts";
 import { HttpError } from "../errors.ts";
 import { mayEditRoot, projectAccess, type Rights, rootRule } from "../lib/auth.ts";
+import { readPreferences } from "../lib/preferences.ts";
 import { fsError } from "../routes/fs.ts";
 import { hubRoots, type Root, rootFs } from "./rootFs.ts";
 
-const { devices, hubFiles, projects } = schema;
+const { devices, hubFiles, projects, users } = schema;
 type Row = typeof hubFiles.$inferSelect;
 
 /** The most one file may be. */
@@ -102,6 +108,28 @@ export function createHubFiles(
   };
   const update = (row: Row, set: Partial<Row>) =>
     db.update(hubFiles).set(set).where(eq(hubFiles.id, row.id)).returning().get();
+  const unlocked = { lockDeviceId: null, lockedAt: null, lockTouchedAt: null };
+  const gone = { deleted: true, ...unlocked };
+  /** Checks the row out to `deviceId`, or touches its lock; a new holder is a change for devices. */
+  const lockRow = (row: Row, deviceId: string) => {
+    const now = new Date().toISOString();
+    if (row.lockDeviceId === deviceId) return update(row, { lockTouchedAt: now });
+    return update(row, {
+      lockDeviceId: deviceId,
+      lockedAt: now,
+      lockTouchedAt: now,
+      seq: nextSeq(),
+    });
+  };
+  const unlockRow = (row: Row) => update(row, { ...unlocked, seq: nextSeq() });
+  /** The user and device names of a lock's device. */
+  const holderOf = (deviceId: string) =>
+    db
+      .select({ userId: users.id, user: users.displayName, device: devices.name })
+      .from(devices)
+      .innerJoin(users, eq(users.id, devices.userId))
+      .where(eq(devices.id, deviceId))
+      .get();
 
   /**
    * Brings one path's row in line with the disk (call it holding the path's lock): gone → a
@@ -112,7 +140,7 @@ export function createHubFiles(
     const abs = await inRoot(base, path).catch(() => null);
     const st = abs ? await stat(abs).catch(() => null) : null;
     if (!abs || !st?.isFile()) {
-      if (row && !row.deleted) return update(row, { deleted: true, seq: nextSeq() });
+      if (row && !row.deleted) return update(row, { ...gone, seq: nextSeq() });
       return row;
     }
     if (row && !row.deleted && row.size === st.size && row.mtimeMs === st.mtimeMs) return row;
@@ -255,6 +283,7 @@ export function createHubFiles(
      */
     changes(
       user: Rights | undefined,
+      deviceId: string,
       since: number,
       limit: number,
       only?: Set<string>,
@@ -268,11 +297,14 @@ export function createHubFiles(
         .all();
       const rules = new Map(hubRoots(db).map((r) => [r.id, accessIn(user, r)]));
       const files: HubChanges["files"] = [];
-      for (const { rootId, path, size, sha256, version, deleted } of rows) {
+      for (const { rootId, path, size, sha256, version, deleted, lockDeviceId } of rows) {
         const rule = rules.get(rootId);
         if (only && !only.has(rule?.projectOf(path)?.id ?? "")) continue;
-        const access = rule?.access(path) ?? "none";
-        if (access !== "none") files.push({ rootId, path, size, sha256, version, deleted, access });
+        const may = rule?.access(path) ?? "none";
+        if (may === "none") continue;
+        const lock = !lockDeviceId ? null : lockDeviceId === deviceId ? "mine" : "other";
+        const access = lock === "other" ? "read" : may;
+        files.push({ rootId, path, size, sha256, version, deleted, access, lock });
       }
       return { cursor: rows.at(-1)?.seq ?? since, more: rows.length === limit, files };
     },
@@ -291,7 +323,9 @@ export function createHubFiles(
      * An upload from `deviceId` that started from version `base` (0 = new). Streamed to a hidden
      * temp file next to the target and checked against `sha256`; then, one at a time per path:
      * the same bytes as the hub's → unchanged; the hub has no file there or is still at `base` →
-     * the next version; else it is kept as a conflict copy beside it and an alert is raised.
+     * the next version; else, or while another device has it checked out, it is kept as a
+     * conflict copy beside it and an alert is raised. With locks on, an accepted upload checks
+     * the file out to the device (the first local change) or touches its lock.
      */
     async upload(
       user: Rights | undefined,
@@ -320,9 +354,12 @@ export function createHubFiles(
           const row = await refreshNow(root, rootBase, path);
           const live = row && !row.deleted ? row : undefined;
           if (live?.sha256 === sha256) return { status: "unchanged", version: live.version };
-          if (!live || live.version === base) {
+          const locks = readPreferences(db).hubLocks !== "off";
+          const theirs = locks && !!live?.lockDeviceId && live.lockDeviceId !== deviceId;
+          if (!theirs && (!live || live.version === base)) {
             await os(rename(part, join(dir, name)));
             const next = await refreshNow(root, rootBase, path);
+            if (locks && next && !next.deleted) lockRow(next, deviceId);
             return { status: "updated", version: next?.version ?? 0 };
           }
           const device =
@@ -352,7 +389,7 @@ export function createHubFiles(
                 device,
               },
             });
-          return { status: "conflict", version: live.version, path: copy };
+          return { status: "conflict", version: live?.version ?? 0, path: copy };
         });
       } finally {
         await rm(part, { force: true });
@@ -361,21 +398,112 @@ export function createHubFiles(
 
     /**
      * A device deleted its copy of version `base`: the file moves to the root's trash. 409
-     * `file_changed` when the hub has another version now (the device gets that one instead).
+     * `file_changed` when the hub has another version now or another device has it checked out
+     * (the device gets the hub's copy back).
      */
-    async trash(user: Rights | undefined, root: Root, path: string, base: number) {
+    async trash(
+      user: Rights | undefined,
+      deviceId: string,
+      root: Root,
+      path: string,
+      base: number,
+    ) {
       partsOf(path);
       assertEdit(user, root, path);
       const rootBase = await baseOf(root);
       await serial(keyOf(root, path), async () => {
         const row = await refreshNow(root, rootBase, path);
         if (!row || row.deleted) throw new HttpError(404, "not_found", "File not found");
-        if (row.version !== base)
+        if (row.version !== base || (row.lockDeviceId && row.lockDeviceId !== deviceId))
           throw new HttpError(409, "file_changed", "The file changed on the hub");
         const stamp = new Date().toISOString().replace(/[:.]/g, "-");
         await os(rootTrash(rootBase, path, PROJECT_TRASH_DIR, `${stamp}_sync/${path}`));
-        update(row, { deleted: true, seq: nextSeq() });
+        update(row, { ...gone, seq: nextSeq() });
       });
+    },
+
+    /**
+     * Checks a file out to `deviceId` (Open on my workstation) while locks are on. Returns who has
+     * it when another device does (it opens read-only there), else null.
+     */
+    async lock(root: Root, path: string, deviceId: string) {
+      partsOf(path);
+      if (readPreferences(db).hubLocks === "off") return null;
+      const rootBase = await baseOf(root);
+      return serial(keyOf(root, path), async () => {
+        const row = await refreshNow(root, rootBase, path);
+        if (!row || row.deleted) return null;
+        if (row.lockDeviceId && row.lockDeviceId !== deviceId) {
+          const h = holderOf(row.lockDeviceId);
+          return { user: h?.user ?? "", device: h?.device ?? "" };
+        }
+        lockRow(row, deviceId);
+        return null;
+      });
+    },
+
+    /**
+     * Releases a file's lock when `may(deviceId, userId)` of the lock holds, else 403
+     * `not_lock_owner`. A file nobody has checked out is fine.
+     */
+    async unlock(root: Root, path: string, may: (deviceId: string, userId: string) => boolean) {
+      partsOf(path);
+      await serial(keyOf(root, path), async () => {
+        const row = rowOf(root.id, path);
+        if (!row?.lockDeviceId) return;
+        if (!may(row.lockDeviceId, holderOf(row.lockDeviceId)?.userId ?? ""))
+          throw new HttpError(403, "not_lock_owner", "Someone else has this file checked out");
+        unlockRow(row);
+      });
+    },
+
+    /** Releases every lock, a device's (revoke), or those with no save since `idleBefore` (ISO). */
+    releaseLocks(only: { deviceId?: string; idleBefore?: string } = {}) {
+      const rows = db
+        .select()
+        .from(hubFiles)
+        .where(
+          and(
+            isNotNull(hubFiles.lockDeviceId),
+            only.deviceId ? eq(hubFiles.lockDeviceId, only.deviceId) : undefined,
+            only.idleBefore ? lt(hubFiles.lockTouchedAt, only.idleBefore) : undefined,
+          ),
+        )
+        .all();
+      for (const row of rows) unlockRow(row);
+      return rows.length;
+    },
+
+    /** The checked-out files below `folder` of a root, relative to it; `mine` for `userId`. */
+    locksIn(rootId: string, folder: string, userId: string | undefined): HubFileLock[] {
+      const prefix = `${folder}/`;
+      return db
+        .select({
+          path: hubFiles.path,
+          lockedAt: hubFiles.lockedAt,
+          userId: users.id,
+          user: users.displayName,
+          device: devices.name,
+        })
+        .from(hubFiles)
+        .innerJoin(devices, eq(devices.id, hubFiles.lockDeviceId))
+        .innerJoin(users, eq(users.id, devices.userId))
+        .where(
+          and(
+            eq(hubFiles.rootId, rootId),
+            eq(hubFiles.deleted, false),
+            sql`substr(${hubFiles.path}, 1, ${prefix.length}) = ${prefix}`,
+          ),
+        )
+        .orderBy(asc(hubFiles.path))
+        .all()
+        .map((r) => ({
+          file: r.path.slice(prefix.length),
+          user: r.user,
+          device: r.device,
+          mine: r.userId === userId,
+          lockedAt: r.lockedAt ?? "",
+        }));
     },
   };
 }

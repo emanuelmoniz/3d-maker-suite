@@ -582,7 +582,9 @@ export function ProjectDetailPage() {
             ? t("projects:detail.openingOnDevice", { name: sent })
             : open.isSuccess
               ? sent
-                ? t("projects:detail.openedOnDevice", { name: sent })
+                ? open.data?.lockedBy
+                  ? t("projects:detail.openedReadOnly", { name: sent, ...open.data.lockedBy })
+                  : t("projects:detail.openedOnDevice", { name: sent })
                 : t("projects:detail.opened")
               : ""}
       </p>

@@ -1,4 +1,5 @@
 import type {
+  HubFileLock,
   OpenDevice,
   Page,
   Project,
@@ -246,11 +247,41 @@ export const useOpenDevices = (id: string) =>
     refetchInterval: 30_000,
   });
 
-/** Opens a project folder or one of its models in the OS / the configured slicer (server-side). */
-export const useOpenProject = (id: string) =>
-  useMutation({
-    mutationFn: (v: ProjectOpen) => api("POST", `/api/projects/${id}/open`, v),
+/**
+ * Opens a project folder or one of its models in the OS / the configured slicer (server-side).
+ * On a device, `lockedBy`: another device has the file checked out, so it opened read-only.
+ */
+export const useOpenProject = (id: string) => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: ProjectOpen) =>
+      api<{ ok: true; lockedBy?: { user: string; device: string } }>(
+        "POST",
+        `/api/projects/${id}/open`,
+        v,
+      ),
+    onSettled: () => qc.invalidateQueries({ queryKey: ["projects", id, "locks"] }),
   });
+};
+
+/** The project's files a device has checked out (a hub root's project only). */
+export const useProjectLocks = (id: string, enabled: boolean) =>
+  useQuery({
+    queryKey: ["projects", id, "locks"],
+    queryFn: () => api<HubFileLock[]>("GET", `/api/projects/${id}/locks`),
+    refetchInterval: 30_000,
+    enabled,
+  });
+
+/** Done editing (my own lock) or force-unlock (an admin): `file` is relative to the project. */
+export const useUnlockFile = (id: string) => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (file: string) =>
+      api("DELETE", `/api/projects/${id}/locks?file=${encodeURIComponent(file)}`),
+    onSettled: () => qc.invalidateQueries({ queryKey: ["projects", id, "locks"] }),
+  });
+};
 
 /** The name a project goes by everywhere: "001-aquaterrario" (the number padded like the folders). */
 export const projectName = (t: TFunction, p: Pick<Project, "number" | "name">) =>

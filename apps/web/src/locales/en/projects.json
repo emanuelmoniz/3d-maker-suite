@@ -228,7 +228,8 @@
     "openOnDevice": "Open on my workstation",
     "devicePick": "Device",
     "openingOnDevice": "Opening on {{name}}… A project that isn't on the device yet downloads first.",
-    "openedOnDevice": "Opened on {{name}}."
+    "openedOnDevice": "Opened on {{name}}.",
+    "openedReadOnly": "Opened on {{name}}, read-only: {{user}} is editing it on {{device}}."
   },
   "slicing": {
     "title": "Print setup",
@@ -340,6 +341,14 @@
     "exists": "A file or folder with this name already exists.",
     "tooLarge": "The file is over the upload limit (Settings > Projects).",
     "error": "That didn't work. Check the name and try again.",
-    "openOnDevice": "Open {{name}} on my workstation"
+    "openOnDevice": "Open {{name}} on my workstation",
+    "lock": {
+      "by": "Being edited by {{user}} on {{device}}",
+      "done": "Done editing",
+      "doneFor": "Done editing {{name}}",
+      "force": "Force unlock",
+      "forceFor": "Force unlock {{name}}",
+      "error": "The file couldn't be released. Try again."
+    }
   }
 }

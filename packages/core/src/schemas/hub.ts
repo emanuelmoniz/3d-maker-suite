@@ -27,6 +27,9 @@ export const deviceSyncStateSchema = z.object({
 /** Everything in the hub roots, or only the projects picked for it (Open on my workstation adds one). */
 export const DEVICE_SYNC_MODES = ["all", "selected"] as const;
 export const deviceSyncModeSchema = z.enum(DEVICE_SYNC_MODES);
+/** Check-out locks (ADR-0014): `strict` also makes an offline device's hub-root files read-only. */
+export const HUB_LOCK_MODES = ["off", "on", "strict"] as const;
+export const hubLockModeSchema = z.enum(HUB_LOCK_MODES);
 
 /**
  * How a connector finds an adapter's desktop slicer (ADR-0014): the Windows `Uninstall` key's exact
@@ -98,6 +101,7 @@ export type Device = z.infer<typeof deviceSchema>;
 export type ConnectorUpdateFailure = z.infer<typeof connectorUpdateFailureSchema>;
 export type DeviceUpdate = z.input<typeof deviceUpdateSchema>;
 export type DeviceSyncMode = z.infer<typeof deviceSyncModeSchema>;
+export type HubLockMode = z.infer<typeof hubLockModeSchema>;
 export type DesktopSlicer = z.infer<typeof desktopSlicerSchema>;
 export type DeviceSlicer = z.infer<typeof deviceSlicerSchema>;
 export type OpenDevice = z.infer<typeof openDeviceSchema>;
@@ -255,7 +259,8 @@ export const hubChangesQuerySchema = z.object({
 /**
  * One page of changes in `seq` order. `cursor`: send it as `since` next time (it moves even when
  * nothing on the page is for this user); `more`: ask again at once. Only versions and hashes
- * count, never clocks. `access` "read": the user may only download it (sync it read-only).
+ * count, never clocks. `access` "read": the user may only download it, or another device has it
+ * checked out (sync it read-only). `lock`: who has it checked out, this device or another one.
  */
 export const hubChangesSchema = z.object({
   cursor: z.number().int(),
@@ -269,6 +274,7 @@ export const hubChangesSchema = z.object({
       version: z.number().int(),
       deleted: z.boolean(),
       access: z.enum(["edit", "read"]),
+      lock: z.enum(["mine", "other"]).nullable(),
     }),
   ),
 });
@@ -286,15 +292,29 @@ export const hubUploadResultSchema = z.discriminatedUnion("status", [
   z.object({ status: z.literal("conflict"), version: z.number().int(), path: z.string() }),
 ]);
 
-/** `GET /api/hub/device/sync/roots`: the hub roots to sync, and the mass delete guard's threshold. */
+/** `GET /api/hub/device/sync/roots`: the hub roots to sync, the mass delete guard's threshold. */
 export const hubSyncRootsSchema = z.object({
   roots: z.array(z.object({ id, name: z.string() })),
   deleteGuard: z.number().int(),
   mode: deviceSyncModeSchema,
+  locks: hubLockModeSchema,
 });
+
+/** `GET /api/projects/:id/locks`: the project's files that a device has checked out. */
+export const hubFileLockSchema = z.object({
+  /** Relative to the project folder, like `meta.files`. */
+  file: z.string(),
+  user: z.string(),
+  device: z.string(),
+  /** The lock's user is the one asking (they may click Done editing). */
+  mine: z.boolean(),
+  lockedAt: isoDate,
+});
+export const hubFileLockQuerySchema = z.object({ file: z.string().min(1) });
 
 export type HubChanges = z.infer<typeof hubChangesSchema>;
 export type HubSyncRoots = z.infer<typeof hubSyncRootsSchema>;
+export type HubFileLock = z.infer<typeof hubFileLockSchema>;
 export type DeviceSyncState = z.infer<typeof deviceSyncStateSchema>;
 export type HubUploadResult = z.infer<typeof hubUploadResultSchema>;
 export type DeviceRoot = z.infer<typeof deviceRootSchema>;

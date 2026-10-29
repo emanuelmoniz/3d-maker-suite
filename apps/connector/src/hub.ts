@@ -81,7 +81,10 @@ type Options = {
   /** Why the update to the hub's version failed, sent when the stream opens. */
   updateFailure?: () => ConnectorUpdateFailure | undefined;
   /** Where the hub roots are synced to, and the data folder for its state file; none = no sync. */
-  sync?: { dataDir: string; syncDir: string };
+  sync?: { dataDir: string; syncDir: string } & Pick<
+    Parameters<typeof createHubSync>[0],
+    "alive" | "handoffMs" | "pollMs"
+  >;
   /** How slicers are found and started (tests); the real ones by default. */
   slicers?: Pick<Parameters<typeof createSlicers>[0], "find" | "start">;
   log?: (line: string) => void;
@@ -162,7 +165,10 @@ export function createLink({
     // A request has no id: it's live only, never stored or replayed. One it can't carry out is
     // answered at once, so the hub doesn't wait for it.
     if (id === undefined) {
-      if (event.success && event.data.type === "open") return void slicers.open(event.data, local);
+      if (event.success && event.data.type === "open")
+        return void slicers.open(event.data, local, (rootId, path, pid) =>
+          sync?.opened(rootId, path, pid),
+        );
       if (event.success) return toRoots(event.data);
       const requestId = (json as { requestId?: unknown })?.requestId;
       if (typeof requestId === "string" && /^[0-9a-f-]{36}$/i.test(requestId))
@@ -235,6 +241,7 @@ export function createLink({
       clearTimeout(watchdog);
       roots.stop();
       sync?.stop();
+      void sync?.offline();
     }
   }
 
@@ -268,6 +275,8 @@ export function createLink({
 
   const start = () => {
     running?.abort();
+    // Until it connects; connecting starts the sync over (and gives files their access back).
+    void sync?.offline();
     running = new AbortController();
     void run(running.signal);
   };

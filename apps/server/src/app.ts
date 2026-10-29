@@ -200,7 +200,12 @@ export async function buildApp(
   useDeviceFiles(db, deviceFiles);
   app.addHook("onClose", async () => deviceFiles.close());
   await app.register(
-    hubRoutes(db, hub, () => void evaluate()),
+    hubRoutes(
+      db,
+      hub,
+      () => void evaluate(),
+      (id) => hubFiles.releaseLocks({ deviceId: id }),
+    ),
     { prefix: "/api/hub" },
   );
   await app.register(
@@ -215,6 +220,12 @@ export async function buildApp(
       }
       // The sync index is kept only while the hub is on: a scan builds it.
       if (patch.hubEnabled) scanner.start();
+      // Connectors read the lock mode with their roots (strict makes them read-only offline).
+      if (patch.hubLocks !== undefined) {
+        if (patch.hubLocks === "off") hubFiles.releaseLocks();
+        for (const { id } of db.select({ id: schema.devices.id }).from(schema.devices).all())
+          if (hub.online(id)) hub.publish(id, { type: "roots.changed" });
+      }
     }),
     { prefix: "/api/preferences" },
   );
@@ -295,7 +306,7 @@ export async function buildApp(
       prefix: "/api/hub/device",
     },
   );
-  await app.register(projectsRoutes(db, dataDir, scanner, hub, syncer.adapters), {
+  await app.register(projectsRoutes(db, dataDir, scanner, hub, hubFiles, syncer.adapters), {
     prefix: "/api/projects",
   });
   await app.register(projectFilesRoutes(db, scanner), { prefix: "/api/projects" });
@@ -358,6 +369,9 @@ export async function buildApp(
   }
   if (opts.syncSchedule) {
     const job = new Cron(opts.syncSchedule, { protect: true }, async () => {
+      // A checked-out file with no save from its device for the idle time is released.
+      const idle = readPreferences(db).hubLockIdleMin * 60_000;
+      hubFiles.releaseLocks({ idleBefore: new Date(Date.now() - idle).toISOString() });
       await syncer.runAll();
       await evaluate();
     });

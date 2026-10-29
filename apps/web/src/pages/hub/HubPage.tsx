@@ -106,13 +106,20 @@ function DeviceSync({ device: d }: { device: Device }) {
   );
 }
 
-/** Hub settings that belong to the sync: the mass delete guard. */
+const LOCK_HINTS = {
+  off: "hub:settings.lockHints.off",
+  on: "hub:settings.lockHints.on",
+  strict: "hub:settings.lockHints.strict",
+} as const;
+
+/** Hub settings that belong to the sync: the mass delete guard and check-out locks. */
 function SyncSettings() {
   const { t } = useTranslation();
   const prefs = usePreferences();
   const save = useSavePreferences();
-  const v = prefs.data?.values.hubDeleteGuard;
-  if (v === undefined) return null;
+  const values = prefs.data?.values;
+  if (!values) return null;
+  const { hubDeleteGuard: v, hubLocks: locks, hubLockIdleMin: idle } = values;
   return (
     <Section title={t("hub:settings.title")} help="docs/hub.md">
       {save.isError && (
@@ -140,6 +147,44 @@ function SyncSettings() {
             />
           )}
         </FormField>
+        <FormField label={t("hub:settings.locks")} hint={t(LOCK_HINTS[locks])}>
+          {(p) => (
+            <Combobox
+              {...p}
+              value={locks}
+              disabled={save.isPending}
+              onChange={(x) =>
+                (x === "off" || x === "on" || x === "strict") && save.mutate({ hubLocks: x })
+              }
+              options={[
+                { value: "off", label: t("hub:settings.lockModes.off") },
+                { value: "on", label: t("hub:settings.lockModes.on") },
+                { value: "strict", label: t("hub:settings.lockModes.strict") },
+              ]}
+            />
+          )}
+        </FormField>
+        {locks !== "off" && (
+          <FormField label={t("hub:settings.lockIdle")} hint={t("hub:settings.lockIdleHint")}>
+            {(p) => (
+              <input
+                key={idle}
+                {...p}
+                className={inputClass}
+                type="number"
+                min={5}
+                max={1440}
+                step={1}
+                defaultValue={idle}
+                onBlur={(e) => {
+                  const n = e.target.valueAsNumber;
+                  if (e.target.checkValidity() && Number.isFinite(n) && n !== idle)
+                    save.mutate({ hubLockIdleMin: n });
+                }}
+              />
+            )}
+          </FormField>
+        )}
       </div>
     </Section>
   );

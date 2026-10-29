@@ -48,6 +48,8 @@ export const hubRoutes =
     channel: HubChannel,
     /** A device opened its stream: its version may open or clear the outdated alert. */
     onConnect: () => void = () => {},
+    /** Before a device is revoked: its locks are released. */
+    onRevoke: (deviceId: string) => void = () => {},
   ): FastifyPluginAsyncZod =>
   async (app) => {
     app.addHook("onRequest", async () => {
@@ -151,6 +153,7 @@ export const hubRoutes =
       "/devices/:id",
       { schema: { params, response: { 204: z.null(), ...errors } } },
       async (req, reply) => {
+        onRevoke(req.params.id);
         const gone = db.delete(devices).where(eq(devices.id, req.params.id)).run().changes;
         if (!gone) throw new HttpError(404, "not_found", "Device not found");
         channel.end(req.params.id);

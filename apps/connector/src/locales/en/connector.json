@@ -74,6 +74,11 @@
       "toSelected": "Sync selected projects only"
     }
   },
+  "locks": {
+    "title": "Checked out here",
+    "intro": "Other devices can only read these files until you're done. On Windows and Linux, closing the slicer releases them. Otherwise click Done editing, or they're released after the idle time set on the hub.",
+    "done": "Done editing"
+  },
   "slicers": {
     "title": "Slicers",
     "intro": "Open on my workstation in the web app opens files here, in the default slicer.",

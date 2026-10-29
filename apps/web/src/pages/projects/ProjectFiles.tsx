@@ -1,4 +1,4 @@
-import type { ProjectDetail, ProjectFileEntry } from "@3d-maker-suite/core";
+import type { HubFileLock, ProjectDetail, ProjectFileEntry } from "@3d-maker-suite/core";
 import {
   ChevronDown,
   ChevronRight,
@@ -6,6 +6,7 @@ import {
   Folder,
   FolderInput,
   FolderPlus,
+  Lock,
   MonitorSmartphone,
   Pencil,
   RefreshCw,
@@ -29,7 +30,7 @@ import {
   useProjectFolder,
   useProjectFolders,
 } from "../../lib/projectFiles.ts";
-import { projectFileUrl } from "../../lib/projects.ts";
+import { projectFileUrl, useProjectLocks, useUnlockFile } from "../../lib/projects.ts";
 
 const join = (dir: string, name: string) => (dir ? `${dir}/${name}` : name);
 const dirOf = (p: string) => p.slice(0, Math.max(p.lastIndexOf("/"), 0));
@@ -51,6 +52,11 @@ type Ctx = {
   /** Open on my workstation, for the project's models; none without a device. */
   open?: (path: string) => void;
   models: Set<string>;
+  /** Checked-out files by path; Done editing (mine) or force-unlock (`admin`). */
+  locks: Map<string, HubFileLock>;
+  admin: boolean;
+  unlock: (path: string) => void;
+  unlocking: boolean;
 };
 
 /** A hidden file input that a button opens; keeps the picker keyboard reachable through the button. */
@@ -107,6 +113,7 @@ function Row({ entry, depth, ctx }: { entry: ProjectFileEntry; depth: number; ct
   const replace = useRef<HTMLInputElement>(null);
   const dir = entry.type === "dir";
   const n = { name: entry.name };
+  const lock = ctx.locks.get(entry.path);
   const drop = (e: DragEvent) => {
     if (!dir) return;
     e.preventDefault();
@@ -158,6 +165,27 @@ function Row({ entry, depth, ctx }: { entry: ProjectFileEntry; depth: number; ct
             <FileIcon className="size-4 shrink-0 text-muted" aria-hidden />
             <span className="break-all">{entry.name}</span>
             <span className="shrink-0 text-muted">{formatSize(entry.size)}</span>
+          </span>
+        )}
+        {lock && (
+          <span className="flex shrink-0 flex-wrap items-center gap-2">
+            <span className="inline-flex items-center gap-1 text-warn wrap-anywhere">
+              <Lock className="size-4 shrink-0" aria-hidden />
+              {t("projects:files.lock.by", { user: lock.user, device: lock.device })}
+            </span>
+            {(lock.mine || ctx.admin) && (
+              <Button
+                variant="ghost"
+                disabled={ctx.unlocking}
+                aria-label={t(
+                  lock.mine ? "projects:files.lock.doneFor" : "projects:files.lock.forceFor",
+                  n,
+                )}
+                onClick={() => ctx.unlock(entry.path)}
+              >
+                {t(lock.mine ? "projects:files.lock.done" : "projects:files.lock.force")}
+              </Button>
+            )}
           </span>
         )}
         <Write when={ctx.canEdit}>
@@ -274,6 +302,9 @@ export function ProjectFiles({
     path: string;
     answer: (replace: boolean) => void;
   } | null>(null);
+  const locks = useProjectLocks(id, !!project.folderPath).data ?? [];
+  const unlock = useUnlockFile(id);
+  const admin = useCan("admin");
 
   if (!project.folderPath) return null;
 
@@ -518,6 +549,11 @@ export function ProjectFiles({
             models: new Set(
               project.meta.files.filter((f) => f.kind === "model").map((f) => f.path),
             ),
+            locks: new Map(locks.map((l) => [l.file, l])),
+            admin,
+            unlock: (path) =>
+              unlock.mutate(path, { onError: () => setFailed(t("projects:files.lock.error")) }),
+            unlocking: unlock.isPending,
           }}
         />
       </div>

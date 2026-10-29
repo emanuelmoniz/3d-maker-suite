@@ -17,6 +17,7 @@ import {
   type DeviceSyncState,
   type HubChanges,
   type HubEvent,
+  type HubLockMode,
   hubChangesSchema,
   hubSyncRootsSchema,
   hubUploadResultSchema,
@@ -24,13 +25,31 @@ import {
 import { inRoot, relParts, syncSkipped } from "@3d-maker-suite/host";
 import { QUIET_MS, type Request, STABLE_MS } from "./roots.ts";
 
-/** One synced file: the hub version this copy is, and the local stat it had then. */
-type Entry = { version: number; sha256: string; size: number; mtimeMs: number; readOnly: boolean };
+/**
+ * One synced file: the hub version this copy is, and the local stat it had then. `mine`: this
+ * device has it checked out.
+ */
+type Entry = {
+  version: number;
+  sha256: string;
+  size: number;
+  mtimeMs: number;
+  readOnly: boolean;
+  mine?: boolean;
+};
 /**
  * `<dataDir>/sync.json`. `link`: the hub and device it belongs to (another one starts over);
- * `roots`: each hub root's folder name in the sync folder; `files` by `<rootId>/<path>`.
+ * `roots`: each hub root's folder name in the sync folder; `files` by `<rootId>/<path>`;
+ * `locks`: the hub's lock mode as of the last connect; `opened`: the pid of the slicer a file
+ * was opened in, by key, so its exit releases the lock even after a restart of the connector.
  */
-type Saved = { link: string; roots: Record<string, string>; files: Record<string, Entry> };
+type Saved = {
+  link: string;
+  roots: Record<string, string>;
+  files: Record<string, Entry>;
+  locks?: HubLockMode;
+  opened?: Record<string, number>;
+};
 type Live = { id: string; name: string; base: string };
 type Change = HubChanges["files"][number];
 
@@ -57,6 +76,19 @@ async function sha256Of(abs: string) {
 }
 /** A file can't be renamed over or deleted on Windows while it is read-only. */
 const writable = (abs: string) => chmod(abs, 0o644).catch(() => {});
+/** A slicer that is gone this soon after it started handed the file to one already running. */
+const HANDOFF_MS = 2000;
+/** How often the slicers files were opened in are checked. */
+const OPENED_POLL_MS = 5000;
+/** The process runs (EPERM: it does, as another user). */
+const isAlive = (pid: number) => {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (e) {
+    return (e as NodeJS.ErrnoException).code === "EPERM";
+  }
+};
 
 /** A root's name as a folder name: no characters an OS refuses, not hidden, never empty. */
 export function folderName(name: string, taken: string[]) {
@@ -86,6 +118,9 @@ export function createHubSync({
   syncDir,
   identity,
   log,
+  alive = isAlive,
+  handoffMs = HANDOFF_MS,
+  pollMs = OPENED_POLL_MS,
 }: {
   request: Request;
   dataDir: string;
@@ -93,6 +128,10 @@ export function createHubSync({
   /** The hub URL and device id: a state file of another pairing starts over. */
   identity: () => string;
   log: (line: string) => void;
+  /** Whether a slicer's process still runs, and the timings around it (tests). */
+  alive?: (pid: number) => boolean;
+  handoffMs?: number;
+  pollMs?: number;
 }) {
   const file = join(dataDir, "sync.json");
   let saved: Saved = { link: "", roots: {}, files: {} };
@@ -127,6 +166,7 @@ export function createHubSync({
   const queued = new Map<string, Set<string>>();
   let quiet: NodeJS.Timeout | undefined;
   let retry: NodeJS.Timeout | undefined;
+  let poll: NodeJS.Timeout | undefined;
   let jobs = 0;
 
   let reported = "";
@@ -218,7 +258,13 @@ export function createHubSync({
    * renamed over the local file, unless that changed meanwhile (`before`): then it is left for
    * the push.
    */
-  async function download(l: Live, path: string, readOnly: boolean, before: Stats | null) {
+  async function download(
+    l: Live,
+    path: string,
+    readOnly: boolean,
+    before: Stats | null,
+    mine = false,
+  ) {
     const res = await call(fileUrl(l.id, path), { long: true });
     if (!res.ok || !res.body) return; // gone or hidden meanwhile: the feed says so next
     const name = relParts(path).at(-1) ?? "";
@@ -246,7 +292,7 @@ export function createHubSync({
       if (readOnly) await chmod(abs, 0o444);
       const s = await stat(abs);
       const version = Number(res.headers.get("x-file-version"));
-      set(keyOf(l.id, path), { version, sha256, size: s.size, mtimeMs: s.mtimeMs, readOnly });
+      set(keyOf(l.id, path), { version, sha256, size: s.size, mtimeMs: s.mtimeMs, readOnly, mine });
     } finally {
       await rm(part, { force: true });
     }
@@ -271,20 +317,22 @@ export function createHubSync({
     const key = keyOf(l.id, f.path);
     const e = saved.files[key];
     if (f.deleted) return goneOnHub(l, f.path);
+    // Read-only also while another device has it checked out.
     const readOnly = f.access === "read";
+    const mine = f.lock === "mine";
     const abs = await inRoot(l.base, f.path).catch(() => null);
     const s = await fileStat(abs);
     if (!abs || !s) {
       // Deleted here, and the hub has nothing newer: the push sends the delete.
       if (e && e.version >= f.version) return;
-      return download(l, f.path, readOnly, null);
+      return download(l, f.path, readOnly, null, mine);
     }
     if (same(e, s) && e) {
-      if (e.version !== f.version) return download(l, f.path, readOnly, s);
-      if (e.readOnly !== readOnly) {
-        await chmod(abs, readOnly ? 0o444 : 0o644);
+      if (e.version !== f.version) return download(l, f.path, readOnly, s, mine);
+      if (e.readOnly !== readOnly || !!e.mine !== mine) {
+        if (e.readOnly !== readOnly) await chmod(abs, readOnly ? 0o444 : 0o644);
         const now = await stat(abs);
-        set(key, { ...e, readOnly, size: now.size, mtimeMs: now.mtimeMs });
+        set(key, { ...e, readOnly, mine, size: now.size, mtimeMs: now.mtimeMs });
       }
       return;
     }
@@ -294,7 +342,7 @@ export function createHubSync({
     if (sha256 !== f.sha256) return;
     if (readOnly !== !!e?.readOnly) await chmod(abs, readOnly ? 0o444 : 0o644);
     const now = await stat(abs);
-    set(key, { version: f.version, sha256, size: now.size, mtimeMs: now.mtimeMs, readOnly });
+    set(key, { version: f.version, sha256, size: now.size, mtimeMs: now.mtimeMs, readOnly, mine });
   }
 
   /**
@@ -385,12 +433,24 @@ export function createHubSync({
     if (res.status === 400) return later(l.id, path); // changed while it was sent
     const r = hubUploadResultSchema.parse(await res.json());
     if (r.status === "conflict") {
-      // Ours is on the hub now as `r.path`; this copy becomes the hub's version.
+      // Ours is on the hub now as `r.path`; this copy becomes the hub's version (still read-only
+      // while another device has it checked out).
       log(`sync ${path}: conflict, kept as ${r.path}`);
       set(key, undefined);
-      return download(l, path, false, s);
+      return download(l, path, !!e?.readOnly, s);
     }
-    set(key, { version: r.version, sha256, size: s.size, mtimeMs: s.mtimeMs, readOnly: false });
+    // Read-only here since strict mode went offline: it's ours to edit again.
+    if (e?.readOnly) await writable(join(l.base, ...relParts(path)));
+    // With locks on, the hub checked the file out to this device.
+    const mine = (saved.locks ?? "off") !== "off";
+    set(key, {
+      version: r.version,
+      sha256,
+      size: s.size,
+      mtimeMs: s.mtimeMs,
+      readOnly: false,
+      mine,
+    });
   }
 
   /**
@@ -509,8 +569,57 @@ export function createHubSync({
     watcher = undefined;
     clearTimeout(quiet);
     clearTimeout(retry);
+    clearInterval(poll);
     queued.clear();
     persist(true);
+  }
+
+  /** Lets go of a file's lock on the hub; its last save goes up first. */
+  const release = (key: string) =>
+    serial(async () => {
+      const l = live.get(rootOf(key));
+      if (!l) return;
+      await push(l, [pathOf(key)]);
+      await call(`/sync/roots/${l.id}/lock?path=${encodeURIComponent(pathOf(key))}`, {
+        method: "DELETE",
+      });
+    });
+  const forgetOpened = (key: string) => {
+    if (saved.opened?.[key] === undefined) return;
+    delete saved.opened[key];
+    changed = true;
+    persist(true);
+  };
+  /**
+   * A slicer a file was opened in has exited: the lock goes.
+   * ponytail: a reused pid keeps the lock until the idle timeout; compare start times if it bites.
+   */
+  const checkOpened = () => {
+    for (const [key, pid] of Object.entries(saved.opened ?? {}))
+      if (!alive(pid)) {
+        forgetOpened(key);
+        void release(key);
+      }
+  };
+
+  /**
+   * Strict locks while offline (and before the first connect): the device can't check anything
+   * out, so only the files it already has checked out stay writable. The next full pull gives
+   * each file the hub's access again.
+   */
+  async function lockDown() {
+    await load();
+    if (saved.locks !== "strict") return;
+    for (const [key, e] of Object.entries(saved.files)) {
+      if (e.readOnly || e.mine) continue;
+      const folder = saved.roots[rootOf(key)];
+      const base = folder && (await realpath(join(syncDir, folder)).catch(() => null));
+      const abs = base && (await inRoot(base, pathOf(key)).catch(() => null));
+      if (!abs) continue;
+      await chmod(abs, 0o444).catch(() => {});
+      // Only the flag: a change not pushed yet must still differ from the state.
+      set(key, { ...e, readOnly: true });
+    }
   }
 
   /** On connect: the hub roots and their folders, a full pull, then the local changes. */
@@ -524,6 +633,7 @@ export function createHubSync({
       const { roots } = synced;
       guard = synced.deleteGuard;
       mode = synced.mode;
+      saved.locks = synced.locks;
       await mkdir(syncDir, { recursive: true });
       const next = new Map<string, Live>();
       for (const r of roots) {
@@ -546,6 +656,9 @@ export function createHubSync({
       watchFolder();
       await pull(true);
       for (const l of live.values()) await push(l, [""]);
+      checkOpened();
+      poll = setInterval(checkOpened, pollMs);
+      poll.unref();
     });
   }
 
@@ -594,6 +707,31 @@ export function createHubSync({
         }
         await pull(true);
       }),
+    /** The link went offline (or hasn't connected yet): strict locks make files read-only. */
+    offline: () => serial(lockDown),
+    /**
+     * A file was opened in a slicer whose process is `pid`. One that is gone within 2 s handed
+     * the file to a slicer already running (macOS, single instance): Done editing or the idle
+     * timeout releases that lock. Otherwise its exit does.
+     */
+    async opened(rootId: string, path: string, pid: number) {
+      await wait(handoffMs);
+      if (!alive(pid)) return;
+      saved.opened = { ...saved.opened, [keyOf(rootId, path)]: pid };
+      changed = true;
+      persist(true);
+    },
+    /** The files this device has checked out, for Done editing on the status page. */
+    editing: () =>
+      Object.entries(saved.files)
+        .filter(([key, e]) => e.mine && live.has(rootOf(key)))
+        .map(([key]) => ({ key, root: live.get(rootOf(key))?.name ?? "", path: pathOf(key) })),
+    /** Done editing: the lock goes now, whether or not the slicer is still open. */
+    done(key: string) {
+      if (!saved.files[key]?.mine) return Promise.resolve();
+      forgetOpened(key);
+      return release(key);
+    },
     /** Resolves once everything started so far is done (tests). */
     idle: () => chain,
   };

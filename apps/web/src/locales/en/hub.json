@@ -63,6 +63,19 @@
   "settings": {
     "title": "Sync",
     "deleteGuard": "Pause after this many deletes at once",
-    "deleteGuardHint": "When a device deletes more files than this from one hub folder at once, its sync pauses and asks on the device's status page before anything moves to the hub's trash."
+    "deleteGuardHint": "When a device deletes more files than this from one hub folder at once, its sync pauses and asks on the device's status page before anything moves to the hub's trash.",
+    "locks": "Check-out locks",
+    "lockModes": {
+      "off": "Off",
+      "on": "On",
+      "strict": "Strict"
+    },
+    "lockHints": {
+      "off": "Anyone can edit a hub file on any device at the same time. Clashing saves become conflict copies.",
+      "on": "Opening a file on a workstation, or the first save there, checks it out. Other devices can only read it until it's released.",
+      "strict": "As On, and a device that is offline can only read hub files, because it can't check them out."
+    },
+    "lockIdle": "Release a checked-out file after this many minutes without a save",
+    "lockIdleHint": "Closing the slicer (Windows and Linux) and Done editing release a file at once. This catches the rest."
   }
 }

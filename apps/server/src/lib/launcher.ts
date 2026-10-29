@@ -12,7 +12,9 @@ export const openFolder = (dir: string) =>
 
 export const slicerLauncher = (slicerPath: string): SlicerLauncher => ({
   canOpen: () => slicerPath !== "",
-  open: (filePath) => launch(slicerPath, [filePath]),
+  open: async (filePath) => {
+    await launch(slicerPath, [filePath]);
+  },
 });
 
 /**

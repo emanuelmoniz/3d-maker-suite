@@ -967,7 +967,7 @@ Design:
 - Strict: an offline device can't lock, so it's read-only.
 - Versions: on/off and keep N. The previous content goes to `<dataDir>/versions/<rootId>/<fileId>/<version>`, outside the root.
 
-### [ ] Step 14 - Check-out locks  **[plan mode]**
+### [x] Step 14 - Check-out locks  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:**
 - Lock fields on `hub_files`, with lock and unlock routes.
