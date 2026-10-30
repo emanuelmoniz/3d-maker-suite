@@ -1100,7 +1100,7 @@ Fix anything found and note it in the CHANGELOG (alpha.6 if needed).
 Do Step 20 of the 5.0.0 plan in PLAN.md. Guide me through each scenario, then fix what we find.
 ```
 
-### [ ] Step 21 - Docs, push & v5.0.0 release
+### [x] Step 21 - Docs, push & v5.0.0 release
 **Model:** Haiku · **Effort:** Low
 **Scope:**
 - `pnpm screenshots` (Hub management, the project page with the lock and Open button, file history), README (hub section), CHANGELOG, version `5.0.0`.

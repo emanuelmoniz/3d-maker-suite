@@ -2,6 +2,10 @@
 
 All notable changes are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [5.0.0] - 2026-10-30
+
+Stable. The hub, connectors, locks, file versions and slice workers, as in the 5.0.0 pre-releases. Nothing changed in the app since 5.0.0-alpha.6; this release only marks it stable. Back up before updating from 4.x.
+
 ## [5.0.0-alpha.6] - 2026-10-30
 
 Pre-release. Test on a copy of your data first; back up before updating.
