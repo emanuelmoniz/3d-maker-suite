@@ -317,7 +317,7 @@ ${rows ? `<ul>${rows}</ul>` : `<p>${t("connector:folders.none")}</p>`}
   const note = (html: string) => `<section><p role="status">${html}</p></section>`;
 
   const page = (body: string, refresh: boolean) => {
-    const { name, logo } = link.branding();
+    const { name, logo, favicon } = link.branding();
     const title = name ? t("connector:appNameOf", { name }) : t("connector:appName");
     return `<!doctype html>
 <html lang="en">
@@ -325,6 +325,7 @@ ${rows ? `<ul>${rows}</ul>` : `<p>${t("connector:folders.none")}</p>`}
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 ${refresh ? '<meta http-equiv="refresh" content="5; url=/">' : ""}
+${favicon ? `<link rel="icon" href="/branding/favicon?v=${favicon.data.length}">` : ""}
 <title>${title}</title>
 <style>${CSS}</style>
 </head>
@@ -384,8 +385,8 @@ ${body}
       if (whoami) return answerWhoami(req, res);
       if (req.method === "GET" && path === "/api/health")
         return send(200, "application/json", JSON.stringify({ status: "ok", version }));
-      if (req.method === "GET" && path === "/branding/logo") {
-        const logo = link.branding().logo;
+      if (req.method === "GET" && (path === "/branding/logo" || path === "/branding/favicon")) {
+        const logo = link.branding()[path === "/branding/logo" ? "logo" : "favicon"];
         if (!logo) return send(404, "text/plain", "Not found");
         return res
           .writeHead(200, { "content-type": logo.type, "x-content-type-options": "nosniff" })

@@ -332,28 +332,32 @@ export function createLink({
     }
   }
 
-  /** The hub's name and logo (public settings any paired device may read), for the status page. */
-  let branding: { name?: string; logo?: { type: string; data: Buffer } } = {};
+  /** The hub's name, logo and favicon (settings any paired device may read), for the status page. */
+  type Image = { type: string; data: Buffer };
+  let branding: { name?: string; logo?: Image; favicon?: Image } = {};
   async function loadBranding(hub: string, token: string, signal: AbortSignal) {
     const get = (path: string) =>
       fetch(`${hub}/api/${path}`, {
         headers: { authorization: `Bearer ${token}` },
         signal: AbortSignal.any([signal, AbortSignal.timeout(15_000)]),
       });
+    // Only the image types the hub accepts, so the status page never serves anything else.
+    const image = async (kind: "logo" | "favicon"): Promise<Image | undefined> => {
+      const res = await get(`branding/${kind}`);
+      const type = res.headers.get("content-type") ?? "";
+      return res.ok && /^image\/(png|jpeg|webp)$/.test(type)
+        ? { type, data: Buffer.from(await res.arrayBuffer()) }
+        : undefined;
+    };
     try {
       const prefs = await get("preferences");
       const name = prefs.ok
         ? ((await prefs.json()) as { values?: { appName?: string } }).values?.appName
         : "";
-      const logo = await get("branding/logo");
-      const type = logo.headers.get("content-type") ?? "";
       branding = {
         name: name || undefined,
-        // Only the image types the hub accepts, so the status page never serves anything else.
-        logo:
-          logo.ok && /^image\/(png|jpeg|webp)$/.test(type)
-            ? { type, data: Buffer.from(await logo.arrayBuffer()) }
-            : undefined,
+        logo: await image("logo"),
+        favicon: await image("favicon"),
       };
     } catch {} // keeps what it had; the page falls back to the connector name
   }
