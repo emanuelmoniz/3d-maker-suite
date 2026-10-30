@@ -1137,7 +1137,7 @@ Minor release, starts after the 5.0.0 release. Design: ADR-0016, which supersede
 Do Step 1 of the 5.1.0 plan in PLAN.md.
 ```
 
-### [ ] Step 2 - Settings → Projects, organized
+### [x] Step 2 - Settings → Projects, organized
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - Split the one `Section` in `ConfigPages.tsx` into cards: **Project folders** (roots list and add form, moved to its own file), **Scanning & limits** (scan max files, viewer and upload size), **Hub devices** (device folder size, only with the hub on), **Trash**.
@@ -1147,6 +1147,43 @@ Do Step 1 of the 5.1.0 plan in PLAN.md.
 **Prompt:**
 ```
 Do Step 2 of the 5.1.0 plan in PLAN.md. Use frontend-design. Show me the card layout first.
+```
+
+### [ ] Step 3 - Edit connector page  **[plan mode]**
+**Model:** Sonnet · **Effort:** Medium
+**Scope:**
+- New **Edit connector** page in hub management; the machine name on the connector card links to it. Every connector setting lives there: port, autostart on or off, plus the settings the card has today. Changes reach the connector as commands over the hub↔connector event stream; admin only; offline connectors get a clear message.
+- The connector card keeps only **Revoke** and **Restart connector**.
+
+**Done when:** each setting saves from the page and reaches the connector; the card shows only the two actions; e2e; `pnpm i18n:check` and tests pass.
+**Prompt:**
+```
+Do Step 3 of the 5.1.0 plan in PLAN.md. Show me the page layout, the command messages and the offline behavior first.
+```
+
+### [ ] Step 4 - Connector: one hub per machine, unpair, server controls
+**Model:** Sonnet · **Effort:** Medium
+**Scope:**
+- A connector refuses to start on a machine where a hub is running (checked on start, clear message).
+- **Unpair** from the connector side (status and pair page), for when the hub has a fatal error and needs a new install: clears the local token and state; the hub shows the device offline until an admin removes it.
+- **Stop server** and **Restart server** on the connector's pair screen.
+
+**Done when:** all three work; strings go through i18n; e2e; `pnpm i18n:check` and tests pass.
+**Prompt:**
+```
+Do Step 4 of the 5.1.0 plan in PLAN.md.
+```
+
+### [ ] Step 5 - Selected projects default, newest-first quote picker
+**Model:** Sonnet · **Effort:** Low
+**Scope:**
+- Hub management settings: a default "sync selected projects" setting that new devices start with (on by default).
+- The project selector in quotes lists newest first.
+
+**Done when:** a new device gets the default; the selector order is covered by a test; tests pass.
+**Prompt:**
+```
+Do Step 5 of the 5.1.0 plan in PLAN.md.
 ```
 
 ## Phase 16 - Roles and permissions
@@ -1159,16 +1196,16 @@ Design:
 - A disabled role: its users can't sign in and their sessions end. A role with users can't be deleted (409 `role_in_use`). The last enabled Admin user stays protected.
 - `roots.editBy = roles` means "users with projects write". The per-policy editor flags stay as an extra gate for non-admins with the sync or review permission. Device tokens act with their user's rights. No-users mode is unchanged.
 
-### [ ] Step 3 - ADR-0016 roles, permissions and alert delivery  **[plan mode]**
+### [ ] Step 6 - ADR-0016 roles, permissions and alert delivery  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:** `docs/adr/0016-roles-permissions-alerts.md`: the designs of Phases 16 and 17, the permission catalog mapped from every prefix in `lib/auth.ts`, the alert kind catalog with each kind's permission, the migration, the escalation rules, rejected options. ADR-0012 marked partly superseded.
 **Done when:** the ADR is approved; every route prefix and alert kind maps to a permission.
 **Prompt:**
 ```
-Do Step 3 of the 5.1.0 plan in PLAN.md. Show me the permission catalog mapped from today's table first.
+Do Step 6 of the 5.1.0 plan in PLAN.md. Show me the permission catalog mapped from today's table first.
 ```
 
-### [ ] Step 4 - Roles and permissions: schema and server  **[plan mode]**
+### [ ] Step 7 - Roles and permissions: schema and server  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:**
 - Migration: `roles` seeded, `users.roleId`, user overrides (null = same as role), project rights moved to role defaults plus user overrides.
@@ -1178,11 +1215,11 @@ Do Step 3 of the 5.1.0 plan in PLAN.md. Show me the permission catalog mapped fr
 **Done when:** the role-matrix test proves the seeded roles behave exactly as before; overrides and escalation rules are covered; the migration applies on a copy of the real DB; tests pass.
 **Prompt:**
 ```
-Do Step 4 of the 5.1.0 plan in PLAN.md. Show me the schema and the migration first.
+Do Step 7 of the 5.1.0 plan in PLAN.md. Show me the schema and the migration first.
 Back up the DB before editing schema.ts.
 ```
 
-### [ ] Step 5 - Users and roles pages
+### [ ] Step 8 - Users and roles pages
 **Model:** Opus · **Effort:** Medium
 **Scope:**
 - Settings → Users becomes a table: name (link to the edit page), email, role, state; row actions reset password, disable, delete.
@@ -1193,10 +1230,10 @@ Back up the DB before editing schema.ts.
 **Done when:** a custom role and a user override change what that user sees (e2e); keyboard and mobile work; `pnpm i18n:check` and tests pass.
 **Prompt:**
 ```
-Do Step 5 of the 5.1.0 plan in PLAN.md. Use frontend-design.
+Do Step 8 of the 5.1.0 plan in PLAN.md. Use frontend-design.
 ```
 
-### [ ] Step 6 - Docs, push & v5.1.0-alpha.1
+### [ ] Step 9 - Docs, push & v5.1.0-alpha.1
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - `docs/users.md`: roles, permissions, overrides, the upgrade from fixed roles.
@@ -1206,7 +1243,7 @@ Do Step 5 of the 5.1.0 plan in PLAN.md. Use frontend-design.
 **Done when:** tags pushed; workflow green; docs match the app.
 **Prompt:**
 ```
-Do Step 6 of the 5.1.0 plan in PLAN.md. Then push dev, push the tag and confirm the pre-release is published.
+Do Step 9 of the 5.1.0 plan in PLAN.md. Then push dev, push the tag and confirm the pre-release is published.
 ```
 
 ## Phase 17 - Alerts per role and user
@@ -1218,7 +1255,7 @@ Design:
 - Delivery per user: the mail server and the ntfy server stay global (admin). Each user turns on email (to their account email) and/or sets their own ntfy topic and token (encrypted, never returned). Sent once per user (`alert_states.notifiedAt`); a user's snooze holds delivery; disabled users get nothing.
 - No-users mode: the Admin role's kinds and today's global destinations apply.
 
-### [ ] Step 7 - Who gets which alert  **[plan mode]**
+### [ ] Step 10 - Who gets which alert  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:**
 - The kind catalog with a permission per kind (ADR-0016). Role default kinds and user overrides, migrated from the global switches.
@@ -1229,11 +1266,11 @@ Design:
 **Done when:** a viewer without filament access gets no spool alerts; a hidden project's alert never shows; resolving an alert clears it for everyone; tests pass.
 **Prompt:**
 ```
-Do Step 7 of the 5.1.0 plan in PLAN.md. Show me the kind catalog and the filter rules first.
+Do Step 10 of the 5.1.0 plan in PLAN.md. Show me the kind catalog and the filter rules first.
 Back up the DB before editing schema.ts.
 ```
 
-### [ ] Step 8 - Delivery per user: email and ntfy  **[plan mode]**
+### [ ] Step 11 - Delivery per user: email and ntfy  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:**
 - Global mail and ntfy servers (admin). Per user: email on/off, ntfy topic and token, a test button.
@@ -1243,11 +1280,11 @@ Back up the DB before editing schema.ts.
 **Done when:** two users with different kinds receive only their own; a failed send retries without duplicates; the migration keeps today's notifications; tests pass.
 **Prompt:**
 ```
-Do Step 8 of the 5.1.0 plan in PLAN.md. Show me the send loop and the migration first.
+Do Step 11 of the 5.1.0 plan in PLAN.md. Show me the send loop and the migration first.
 Back up the DB before editing schema.ts.
 ```
 
-### [ ] Step 9 - My alerts on the user page
+### [ ] Step 12 - My alerts on the user page
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - A **My account** page from the user menu: name, password, my alerts (in app · notify per kind I can get, with "same as role" to reset), my delivery. No permissions here.
@@ -1256,10 +1293,10 @@ Back up the DB before editing schema.ts.
 **Done when:** a user changes their own alerts and delivery, and an admin changes another user's; e2e; `pnpm i18n:check` and tests pass.
 **Prompt:**
 ```
-Do Step 9 of the 5.1.0 plan in PLAN.md.
+Do Step 12 of the 5.1.0 plan in PLAN.md.
 ```
 
-### [ ] Step 10 - Docs, push & v5.1.0-alpha.2
+### [ ] Step 13 - Docs, push & v5.1.0-alpha.2
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - `docs/alerts.md` (who gets what, delivery per user, thresholds) and `docs/users.md`.
@@ -1269,7 +1306,7 @@ Do Step 9 of the 5.1.0 plan in PLAN.md.
 **Done when:** tags pushed; workflow green; docs match the app.
 **Prompt:**
 ```
-Do Step 10 of the 5.1.0 plan in PLAN.md. Only document what changed since 5.1.0-alpha.1.
+Do Step 13 of the 5.1.0 plan in PLAN.md. Only document what changed since 5.1.0-alpha.1.
 Then push dev, push the tag and confirm the pre-release is published.
 ```
 
@@ -1277,7 +1314,7 @@ Then push dev, push the tag and confirm the pre-release is published.
 
 The hub keeps one slicer preset library that the hub slicer, slice workers and workstations' desktop slicers all use. Today user presets reach the hub only through the slicer zip, which replaces `config/user` wholesale.
 
-Design (confirmed in Step 11):
+Design (confirmed in Step 14):
 - **Why:** a saved 3MF already holds its resolved settings, so slicing "as saved" needs no presets. Presets matter when the app overrides the print, filament or printer (Print setup, filament prices and densities from `slicerPresetLibrary.read`) and for the same results on every worker.
 - **Hub only.** A single-PC install already slices with its desktop slicer folder.
 - **Library:** per slicer library (`bambu:`, `orca:`) and kind (machine, process, filament), with a version, sha256, and who saved it, from which device and when. Recommended: a hidden system root of kind `presets` (`<library>/<kind>/<name>.json`) reusing the hub file sync: versions, base-version uploads, change cursor, conflict copies, alerts, trash. Fallback: a small `slicer_presets` table. The managed slicer's `config/user/<x>` becomes a junction to the library, like `config/system`. The slicer zip merges into the library instead of replacing it. Workers get the library through Step 17 of 5.0.0.
@@ -1292,7 +1329,7 @@ Design (confirmed in Step 11):
   - Back up the desktop user folder to a zip before the first write. Reject invalid json (e.g. `"nil"` values) with an alert.
   - A preset whose `inherits` parent this slicer lacks is skipped on that device, with an alert.
 
-### [ ] Step 11 - Preset spike and ADR-0017  **[plan mode]**
+### [ ] Step 14 - Preset spike and ADR-0017  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:**
 - On real installs (Bambu Studio signed in and signed out; Orca 2.4 signed out and on OrcaCloud), confirm the `.info` rules, startup-only reading, delete resurrection and the same-account echo.
@@ -1302,10 +1339,10 @@ Design (confirmed in Step 11):
 **Done when:** the ADR is approved; every rule above is confirmed or corrected from a real install.
 **Prompt:**
 ```
-Do Step 11 of the 5.1.0 plan in PLAN.md. Guide me through each test install, then show me the storage choice first.
+Do Step 14 of the 5.1.0 plan in PLAN.md. Guide me through each test install, then show me the storage choice first.
 ```
 
-### [ ] Step 12 - Hub preset library
+### [ ] Step 15 - Hub preset library
 **Model:** Opus · **Effort:** High
 **Scope:**
 - Storage per ADR-0017, zod schemas in `packages/core/src/schemas`, API, and a **Slicer presets** page in Hub management: per library and kind, versions, who saved, conflicts, download, delete.
@@ -1315,11 +1352,11 @@ Do Step 11 of the 5.1.0 plan in PLAN.md. Guide me through each test install, the
 **Done when:** a zip import from two PCs keeps both sets; a hub delete disappears from a worker; e2e; `pnpm i18n:check` and tests pass.
 **Prompt:**
 ```
-Do Step 12 of the 5.1.0 plan in PLAN.md. Use frontend-design for the page.
+Do Step 15 of the 5.1.0 plan in PLAN.md. Use frontend-design for the page.
 Back up the DB before editing schema.ts.
 ```
 
-### [ ] Step 13 - Share my presets (desktop → hub)
+### [ ] Step 16 - Share my presets (desktop → hub)
 **Model:** Opus · **Effort:** High
 **Scope:**
 - Device switch *Share my presets* in Hub management. The connector watches its slicers' user preset folders (the account the slicer last used) and uploads changes with their base version.
@@ -1328,10 +1365,10 @@ Back up the DB before editing schema.ts.
 **Done when:** a preset saved in Bambu Studio on one workstation shows on the hub within a minute; two edits of the same preset give a conflict copy and an alert; tests pass.
 **Prompt:**
 ```
-Do Step 13 of the 5.1.0 plan in PLAN.md.
+Do Step 16 of the 5.1.0 plan in PLAN.md.
 ```
 
-### [ ] Step 14 - Install hub presets (hub → desktop)  **[plan mode]**
+### [ ] Step 17 - Install hub presets (hub → desktop)  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:**
 - Device switch *Install hub presets*. Writes queue until the slicer is closed. `.info` rules for Bambu; backup zip before the first write; echo suppression; no delete propagation; skip and alert on a missing `inherits` parent.
@@ -1340,10 +1377,10 @@ Do Step 13 of the 5.1.0 plan in PLAN.md.
 **Done when:** a hub preset appears in a closed Bambu Studio after its next start, signed in and signed out; it survives a Bambu Cloud sync; two workstations on the same account don't loop; tests for the `.info` writer and echo suppression pass.
 **Prompt:**
 ```
-Do Step 14 of the 5.1.0 plan in PLAN.md. Show me the .info writer and the write queue first.
+Do Step 17 of the 5.1.0 plan in PLAN.md. Show me the .info writer and the write queue first.
 ```
 
-### [ ] Step 15 - Docs, push & v5.1.0-alpha.3
+### [ ] Step 18 - Docs, push & v5.1.0-alpha.3
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - `docs/slicing.md` and `docs/hub.md`: how presets flow, the two switches, the Bambu Cloud and OrcaCloud caveats, and a tip for farms (one Bambu account, or cloud sync off on farm PCs).
@@ -1353,13 +1390,13 @@ Do Step 14 of the 5.1.0 plan in PLAN.md. Show me the .info writer and the write 
 **Done when:** tags pushed; workflow green; docs match the app.
 **Prompt:**
 ```
-Do Step 15 of the 5.1.0 plan in PLAN.md. Only document what changed since 5.1.0-alpha.2.
+Do Step 18 of the 5.1.0 plan in PLAN.md. Only document what changed since 5.1.0-alpha.2.
 Then push dev, push the tag and confirm the pre-release is published.
 ```
 
 ## Phase 19 - Release
 
-### [ ] Step 16 - Real test: roles, alerts, delivery and presets
+### [ ] Step 19 - Real test: roles, alerts, delivery and presets
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - Upgrade a copy of a real 5.0.0 DB.
@@ -1371,10 +1408,10 @@ Fix anything found and note it in the CHANGELOG (alpha.4 if needed).
 **Done when:** every scenario worked; fixes released.
 **Prompt:**
 ```
-Do Step 16 of the 5.1.0 plan in PLAN.md. Guide me through each scenario, then fix what we find.
+Do Step 19 of the 5.1.0 plan in PLAN.md. Guide me through each scenario, then fix what we find.
 ```
 
-### [ ] Step 17 - Docs, push & v5.1.0 release
+### [ ] Step 20 - Docs, push & v5.1.0 release
 **Model:** Haiku · **Effort:** Low
 **Scope:**
 - `pnpm screenshots` (Users, Roles, My account, Slicer presets), README, CHANGELOG, version `5.1.0`.
@@ -1383,7 +1420,7 @@ Do Step 16 of the 5.1.0 plan in PLAN.md. Guide me through each scenario, then fi
 **Done when:** `main`, `dev` and the tag are pushed; the workflow is green; updating 5.0.0 to 5.1.0 keeps every user's rights and alerts.
 **Prompt:**
 ```
-Do Step 17 of the 5.1.0 plan in PLAN.md. Only document what changed since the last 5.1.0 pre-release.
+Do Step 20 of the 5.1.0 plan in PLAN.md. Only document what changed since the last 5.1.0 pre-release.
 Then fast-forward main to dev, push, push the v5.1.0 tag and confirm the release.
 ```
 
