@@ -1,6 +1,6 @@
 # Hub and connector
 
-> **Status: 5.0.0-alpha.5.** This pre-release adds slice workers: a device with the connector can run the slicer for the hub. Test on a copy of your data and back up first.
+> **Status: 5.0.0-alpha.6.** This pre-release fixes hub roots not reaching devices that are already connected, after real tests on a VPS, Docker and Windows. Test on a copy of your data and back up first.
 
 A **hub** is the normal server with hub features switched on. Workstations, a NAS or a file server join it by running a small **connector**. People still work only in the web app. Design and decisions: [ADR-0014](adr/0014-hub-and-connector.md).
 

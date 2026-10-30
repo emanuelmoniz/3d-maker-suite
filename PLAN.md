@@ -1084,7 +1084,7 @@ Then push dev, push the tag and confirm the pre-release is published.
 
 ## Phase 14 - Release
 
-### [ ] Step 20 - Real test: VPS, NAS and three workstations
+### [x] Step 20 - Real test: VPS, NAS and three workstations
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - A hub on a VPS behind Caddy (HTTPS), plus a hub on a NAS (Docker).
