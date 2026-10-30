@@ -106,13 +106,13 @@ describe("hub devices", () => {
     expect((await bearer(token)).statusCode).toBe(401);
 
     // With the default off, a new device syncs everything.
-    await send("PATCH", "/api/preferences", { hubSyncSelectedDefault: false });
+    await send("PATCH", "/api/preferences", { hubDefaultSyncMode: "all" });
     await pair((await send("POST", "/api/hub/pairing-codes", { userId: viewer.id })).json().code);
     const modes = (await send("GET", "/api/hub/devices"))
       .json()
       .map((d: { syncMode: string }) => d.syncMode);
     expect(modes).toContain("all");
-    await send("PATCH", "/api/preferences", { hubSyncSelectedDefault: true });
+    await send("PATCH", "/api/preferences", { hubDefaultSyncMode: "selected" });
 
     // Turning the hub off stops every device too, with hub_off rather than 401 (not a revoke).
     const again = await pair(

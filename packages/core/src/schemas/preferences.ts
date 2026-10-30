@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { UPDATE_CHANNELS } from "./enums.ts";
-import { HUB_LOCK_MODES } from "./hub.ts";
+import { DEVICE_SYNC_MODES, HUB_LOCK_MODES } from "./hub.ts";
 import { LOG_LEVELS, LOG_MODULES } from "./logs.ts";
 
 export const LANGUAGES = ["en"] as const;
@@ -89,8 +89,8 @@ const shape = {
   /** An accepted upload keeps the file's previous content, the newest `hubVersionsKeep` of them. */
   hubVersions: z.boolean(),
   hubVersionsKeep: z.number().int().min(1).max(100),
-  /** A newly paired device starts in `selected` sync mode (else `all`). */
-  hubSyncSelectedDefault: z.boolean(),
+  /** The sync mode a newly paired device starts with. */
+  hubDefaultSyncMode: z.enum(DEVICE_SYNC_MODES),
   /** Daily automatic backup, keeping this many of the newest automatic ones. */
   backupAuto: z.boolean(),
   backupKeep: z.number().int().min(1).max(100),
@@ -164,7 +164,7 @@ export const PREFERENCE_DEFAULTS: z.infer<typeof preferencesSchema> = {
   hubLockIdleMin: 60,
   hubVersions: false,
   hubVersionsKeep: 5,
-  hubSyncSelectedDefault: true,
+  hubDefaultSyncMode: "selected",
   backupAuto: true,
   backupKeep: 7,
   logActive: false,

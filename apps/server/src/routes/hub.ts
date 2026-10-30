@@ -372,7 +372,7 @@ export const hubRoutes =
         const { code, ...device } = req.body;
         const token = randomBytes(32).toString("base64url");
         const id = codeHash(code);
-        const syncMode = readPreferences(db).hubSyncSelectedDefault ? "selected" : "all";
+        const syncMode = readPreferences(db).hubDefaultSyncMode;
         const row = db.transaction((tx) => {
           const found = tx.select().from(pairingCodes).where(eq(pairingCodes.id, id)).get();
           if (!found) return null;
