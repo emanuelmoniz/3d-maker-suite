@@ -96,8 +96,7 @@ const CSS = `
 body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.5 system-ui, sans-serif; }
 main { max-width: 36rem; margin: 0 auto; padding: 1.5rem 1rem 3rem; display: grid; gap: 1rem; }
 header { display: flex; align-items: center; gap: .75rem; padding: .5rem 0 .25rem; }
-.mark { width: 2.25rem; height: 2.25rem; border-radius: .6rem; background: var(--accent); color: var(--on-accent);
-  display: grid; place-items: center; font-weight: 800; font-size: .95rem; flex: none; }
+.mark { height: 2.25rem; max-width: 8rem; object-fit: contain; flex: none; }
 h1 { font-size: 1.25rem; margin: 0; } h2 { font-size: 1.05rem; margin: 0 0 .5rem; } h3 { font-size: 1rem; margin: 1rem 0 .25rem; }
 section { background: var(--card); border: 1px solid var(--line); border-radius: 1rem; padding: 1.25rem; box-shadow: var(--shadow); }
 dl { display: grid; grid-template-columns: max-content 1fr; gap: .6rem 1.25rem; margin: 0 0 1rem; }
@@ -317,20 +316,24 @@ ${rows ? `<ul>${rows}</ul>` : `<p>${t("connector:folders.none")}</p>`}
 </section>`;
   const note = (html: string) => `<section><p role="status">${html}</p></section>`;
 
-  const page = (body: string, refresh: boolean) => `<!doctype html>
+  const page = (body: string, refresh: boolean) => {
+    const { name, logo } = link.branding();
+    const title = name ? t("connector:appNameOf", { name }) : t("connector:appName");
+    return `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 ${refresh ? '<meta http-equiv="refresh" content="5; url=/">' : ""}
-<title>${t("connector:appName")}</title>
+<title>${title}</title>
 <style>${CSS}</style>
 </head>
 <body><main>
-<header><span class="mark" aria-hidden="true">3D</span><h1>${t("connector:appName")}</h1></header>
+<header>${logo ? `<img class="mark" src="/branding/logo?v=${logo.data.length}" alt="">` : ""}<h1>${title}</h1></header>
 ${body}
 </main></body>
 </html>`;
+  };
 
   const render = (error?: PairErrorCode, form?: URLSearchParams) => {
     const { status: s, error: e } = link.state();
@@ -381,6 +384,13 @@ ${body}
       if (whoami) return answerWhoami(req, res);
       if (req.method === "GET" && path === "/api/health")
         return send(200, "application/json", JSON.stringify({ status: "ok", version }));
+      if (req.method === "GET" && path === "/branding/logo") {
+        const logo = link.branding().logo;
+        if (!logo) return send(404, "text/plain", "Not found");
+        return res
+          .writeHead(200, { "content-type": logo.type, "x-content-type-options": "nosniff" })
+          .end(logo.data);
+      }
       if (req.method === "GET" && path === "/") return send(200, html, render());
       if (req.method === "POST" && path === "/pair") {
         const form = await readForm(req);

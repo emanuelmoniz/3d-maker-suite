@@ -315,6 +315,7 @@ export function createLink({
       void sync?.start();
       void slicers.refresh();
       void slicers.prune();
+      void loadBranding(hub, token, signal);
       const parse = sseParser(handle);
       const text = new TextDecoder();
       for await (const chunk of res.body) {
@@ -329,6 +330,32 @@ export function createLink({
       sync?.stop();
       void sync?.offline();
     }
+  }
+
+  /** The hub's name and logo (public settings any paired device may read), for the status page. */
+  let branding: { name?: string; logo?: { type: string; data: Buffer } } = {};
+  async function loadBranding(hub: string, token: string, signal: AbortSignal) {
+    const get = (path: string) =>
+      fetch(`${hub}/api/${path}`, {
+        headers: { authorization: `Bearer ${token}` },
+        signal: AbortSignal.any([signal, AbortSignal.timeout(15_000)]),
+      });
+    try {
+      const prefs = await get("preferences");
+      const name = prefs.ok
+        ? ((await prefs.json()) as { values?: { appName?: string } }).values?.appName
+        : "";
+      const logo = await get("branding/logo");
+      const type = logo.headers.get("content-type") ?? "";
+      branding = {
+        name: name || undefined,
+        // Only the image types the hub accepts, so the status page never serves anything else.
+        logo:
+          logo.ok && /^image\/(png|jpeg|webp)$/.test(type)
+            ? { type, data: Buffer.from(await logo.arrayBuffer()) }
+            : undefined,
+      };
+    } catch {} // keeps what it had; the page falls back to the connector name
   }
 
   async function run(signal: AbortSignal) {
@@ -351,7 +378,10 @@ export function createLink({
       status = next;
       error = failure;
       log(`${status}${error ? `: ${error}` : ""}`);
-      if (status === "revoked") return store.forget();
+      if (status === "revoked") {
+        branding = {};
+        return store.forget();
+      }
       // It was online this round: a drop starts the backoff over.
       if (online) delay = 1000;
       online = false;
@@ -375,6 +405,7 @@ export function createLink({
       sync?.stop();
     },
     state: () => ({ status, error }),
+    branding: () => branding,
     /**
      * Unpair from this side (the hub is broken or being reinstalled): the token and state go, the
      * stream closes, and the hub shows the device offline until an admin removes it.
@@ -384,6 +415,7 @@ export function createLink({
       roots.stop();
       sync?.stop();
       store.forget();
+      branding = {};
       status = "unpaired";
       error = undefined;
       online = false;

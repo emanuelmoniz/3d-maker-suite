@@ -8,7 +8,7 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 - Connector: **Unpair** from the connector side, and **Restart server** / **Stop server** on the pair screen
 
 ### Changed
-- Connector: the status page has a new look
+- Connector: the status page has a new look, and shows the hub's name and logo once paired (name + "Connector")
 - Connector: refuses to start on a machine where a hub is running
 
 ## [5.0.0] - 2026-10-30

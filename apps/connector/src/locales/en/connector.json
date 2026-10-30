@@ -1,5 +1,6 @@
 {
   "appName": "3D Maker Suite Connector",
+  "appNameOf": "{{name}} Connector",
   "pair": {
     "title": "Pair with your hub",
     "intro": "Ask an admin for a pairing code. They make one in Hub management in the web app. A code works once, for 10 minutes.",

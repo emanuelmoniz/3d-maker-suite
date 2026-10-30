@@ -114,6 +114,11 @@ describe("connector and hub", () => {
     await c.link.pair(`${h.url}/`, await h.code(), "WS-1");
     await until(() => status(c.link) === "online");
     expect(c.store.token()).toBeTruthy();
+    expect(c.link.branding().name).toBeUndefined();
+    await h.send("PATCH", "/api/preferences", { appName: "Farm" });
+    c.link.start();
+    await until(() => c.link.branding().name === "Farm");
+    await until(() => status(c.link) === "online");
 
     const [device] = (await h.send("GET", "/api/hub/devices")).json();
     expect(device).toMatchObject({
