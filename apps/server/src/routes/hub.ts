@@ -372,6 +372,7 @@ export const hubRoutes =
         const { code, ...device } = req.body;
         const token = randomBytes(32).toString("base64url");
         const id = codeHash(code);
+        const syncMode = readPreferences(db).hubSyncSelectedDefault ? "selected" : "all";
         const row = db.transaction((tx) => {
           const found = tx.select().from(pairingCodes).where(eq(pairingCodes.id, id)).get();
           if (!found) return null;
@@ -380,7 +381,7 @@ export const hubRoutes =
           if (Date.parse(found.expiresAt) <= Date.now() || !user || user.disabled) return null;
           return tx
             .insert(devices)
-            .values({ ...device, userId: user.id, tokenHash: tokenHash(token) })
+            .values({ ...device, syncMode, userId: user.id, tokenHash: tokenHash(token) })
             .returning({ id: devices.id })
             .get();
         });

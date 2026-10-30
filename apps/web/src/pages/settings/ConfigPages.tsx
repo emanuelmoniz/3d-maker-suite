@@ -450,6 +450,7 @@ export function HubConfigPage() {
           hubLockIdleMin: idle,
           hubVersions: versions,
           hubVersionsKeep: keep,
+          hubSyncSelectedDefault: selectedDefault,
         } = values;
         return (
           <Section title={t("hub:settings.title")} help="docs/hub.md">
@@ -513,6 +514,15 @@ export function HubConfigPage() {
                   )}
                 </FormField>
               )}
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={selectedDefault}
+                  onChange={(e) => commit({ hubSyncSelectedDefault: e.target.checked })}
+                />
+                <span className="font-medium">{t("hub:settings.syncSelectedDefault")}</span>
+              </label>
+              <p className="text-muted">{t("hub:settings.syncSelectedDefaultHint")}</p>
               <label className="flex items-center gap-2">
                 <input
                   type="checkbox"

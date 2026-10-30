@@ -34,7 +34,7 @@ export const useProjects = () =>
       for (let page = 1; ; page++) {
         const p = await api<Page<Project>>(
           "GET",
-          `/api/projects?pageSize=100&sort=name&page=${page}`,
+          `/api/projects?pageSize=100&sort=-name&page=${page}`,
         );
         items.push(...p.items);
         if (!p.items.length || items.length >= p.total) return { ...p, items };

@@ -73,6 +73,9 @@ describe("project scanner", () => {
     const status = await scan();
     expect(status).toMatchObject({ created: 3, failed: 0, total: 4 }); // Notes is not a project
     expect((await list()).map((p: { name: string }) => p.name)).toEqual(["Benchy", "Cat", "Vase"]);
+    // The pickers ask for `-name` (useProjects): newest number first.
+    const newest = (await app.inject("/api/projects?sort=-name")).json().items;
+    expect(newest.map((p: { name: string }) => p.name)).toEqual(["Vase", "Cat", "Benchy"]);
 
     const benchy = await byName("Benchy");
     expect(benchy).toMatchObject({

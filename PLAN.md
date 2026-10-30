@@ -1175,7 +1175,7 @@ Do Step 3 of the 5.1.0 plan in PLAN.md. Show me the page layout, the command mes
 Do Step 4 of the 5.1.0 plan in PLAN.md.
 ```
 
-### [ ] Step 5 - Selected projects default, newest-first quote picker
+### [x] Step 5 - Selected projects default, newest-first quote picker
 **Model:** Sonnet · **Effort:** Low
 **Scope:**
 - Hub management settings: a default "sync selected projects" setting that new devices start with (on by default).

@@ -89,6 +89,8 @@ const shape = {
   /** An accepted upload keeps the file's previous content, the newest `hubVersionsKeep` of them. */
   hubVersions: z.boolean(),
   hubVersionsKeep: z.number().int().min(1).max(100),
+  /** A newly paired device starts in `selected` sync mode (else `all`). */
+  hubSyncSelectedDefault: z.boolean(),
   /** Daily automatic backup, keeping this many of the newest automatic ones. */
   backupAuto: z.boolean(),
   backupKeep: z.number().int().min(1).max(100),
@@ -162,6 +164,7 @@ export const PREFERENCE_DEFAULTS: z.infer<typeof preferencesSchema> = {
   hubLockIdleMin: 60,
   hubVersions: false,
   hubVersionsKeep: 5,
+  hubSyncSelectedDefault: true,
   backupAuto: true,
   backupKeep: 7,
   logActive: false,

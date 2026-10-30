@@ -91,6 +91,7 @@ describe("hub devices", () => {
       userName: "viewer",
       os: "win32",
       connectorVersion: "5.0.0",
+      syncMode: "selected", // the default for new devices
       // Online = its event stream is open; a plain request doesn't make it so.
       online: false,
     });
@@ -103,6 +104,15 @@ describe("hub devices", () => {
 
     expect((await send("DELETE", `/api/hub/devices/${deviceId}`)).statusCode).toBe(204);
     expect((await bearer(token)).statusCode).toBe(401);
+
+    // With the default off, a new device syncs everything.
+    await send("PATCH", "/api/preferences", { hubSyncSelectedDefault: false });
+    await pair((await send("POST", "/api/hub/pairing-codes", { userId: viewer.id })).json().code);
+    const modes = (await send("GET", "/api/hub/devices"))
+      .json()
+      .map((d: { syncMode: string }) => d.syncMode);
+    expect(modes).toContain("all");
+    await send("PATCH", "/api/preferences", { hubSyncSelectedDefault: true });
 
     // Turning the hub off stops every device too, with hub_off rather than 401 (not a revoke).
     const again = await pair(
