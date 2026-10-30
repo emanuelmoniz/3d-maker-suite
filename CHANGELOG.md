@@ -2,6 +2,11 @@
 
 All notable changes are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Fixed
+- A hub root added, changed or removed in Settings now reaches the devices that are online at once; before, they picked it up only after reconnecting
+
 ## [5.0.0-alpha.5] - 2026-10-29
 
 Pre-release. Test on a copy of your data first; back up before updating.

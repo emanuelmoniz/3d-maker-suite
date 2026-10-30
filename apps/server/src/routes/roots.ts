@@ -85,10 +85,13 @@ export const rootsRoutes =
             .run();
       });
     };
-    /** Tells a root's device to read its roots again (an offline one does when it connects). */
+    /**
+     * Tells a root's device to read its roots again, or every device for a hub root, which they all
+     * sync (an offline one does when it connects).
+     */
     const changed = (r: Row) => {
-      if (onDevice(r) && channel.online(r.location))
-        channel.publish(r.location, { type: "roots.changed" });
+      if (!onDevice(r)) channel.nudge({ type: "roots.changed" });
+      else if (channel.online(r.location)) channel.publish(r.location, { type: "roots.changed" });
     };
 
     app.get("/", { schema: { response: { 200: z.array(rootSchema) } } }, async (req) =>
