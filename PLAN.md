@@ -1128,7 +1128,7 @@ Minor release, starts after the 5.0.0 release. Design: ADR-0016, which supersede
 
 ## Phase 15 - Fixes & settings
 
-### [ ] Step 1 - Accent selector shows the picked color
+### [x] Step 1 - Accent selector shows the picked color
 **Model:** Sonnet · **Effort:** Low
 **Scope:** The Appearance accent Combobox reads `useTheme()` (like `ThemeToggle`), not the preferences query that `setTheme` never updates. Check every other reader of `prefs.accent`.
 **Done when:** picking an accent updates the selector at once and after a reload; e2e; tests pass.

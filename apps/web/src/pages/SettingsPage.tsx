@@ -9,7 +9,7 @@ import { Section } from "../components/Section.tsx";
 import { api } from "../lib/api.ts";
 import { useCan, useMe } from "../lib/auth.ts";
 import { usePreferences, useSavePreferences } from "../lib/preferences.ts";
-import { ACCENTS, setTheme } from "../lib/theme.ts";
+import { ACCENTS, type Accent, useTheme } from "../lib/theme.ts";
 import { ThemeToggle } from "../shell/ThemeToggle.tsx";
 import { AboutSection } from "./settings/AboutSection.tsx";
 import { AccountSection } from "./settings/AccountSection.tsx";
@@ -59,6 +59,7 @@ export function SettingsPage() {
   const save = useSavePreferences();
   const canAdmin = useCan("admin");
   const signedIn = !!useMe();
+  const { accent, setAccent } = useTheme();
 
   if (isError)
     return (
@@ -146,8 +147,8 @@ export function SettingsPage() {
             {(p) => (
               <Combobox
                 {...p}
-                value={v.accent}
-                onChange={(x) => setTheme({ accent: x as Preferences["accent"] })}
+                value={accent}
+                onChange={(x) => setAccent(x as Accent)}
                 options={ACCENTS.map((a) => ({ value: a, label: t(ACCENT_LABELS[a]) }))}
               />
             )}
