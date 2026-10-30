@@ -6,9 +6,18 @@ import { arch, release, type } from "node:os";
 import { join } from "node:path";
 import { createAutostart } from "@3d-maker-suite/host";
 import { createLink } from "./hub.ts";
-import { dataDir, openStore, PRODUCT, readPort, syncDir, VERSION } from "./state.ts";
+import {
+  dataDir,
+  openStore,
+  PRODUCT,
+  readAutostart,
+  readPort,
+  syncDir,
+  VERSION,
+  writeConfig,
+} from "./state.ts";
 import { createStatusPage } from "./status.ts";
-import { createUpdater } from "./update.ts";
+import { createUpdater, RESTART } from "./update.ts";
 
 const log = (line: string) => console.log(`${new Date().toISOString()} ${line}`);
 const dir = dataDir();
@@ -20,6 +29,11 @@ if (existsSync(join(dir, "app.sqlite"))) {
 const store = openStore(dir);
 const updater = createUpdater({ version: VERSION, log });
 const port = readPort(dir);
+// Always on unless the admin turned it off on the Edit connector page. APP_LAUNCH_CMD comes from
+// the launcher.
+const cmd = process.env.APP_LAUNCH_CMD;
+const autostart = cmd ? createAutostart(cmd, PRODUCT) : undefined;
+let startAtLogin = readAutostart(dir);
 const link = createLink({
   store,
   version: VERSION,
@@ -28,6 +42,22 @@ const link = createLink({
   onHubVersion: updater.follow,
   updateFailure: updater.failure,
   sync: { dataDir: dir, syncDir: syncDir() },
+  settings: {
+    get: () => ({ port, autostart: startAtLogin }),
+    set: async (patch) => {
+      if (patch.autostart !== undefined) {
+        await autostart?.set(patch.autostart);
+        startAtLogin = patch.autostart;
+      }
+      writeConfig(dir, {
+        ...(patch.port !== undefined && { port: patch.port }),
+        ...(patch.autostart !== undefined && { autostart: patch.autostart }),
+      });
+      const saved = readPort(dir);
+      return { port: saved, autostart: startAtLogin, restartRequired: saved !== port };
+    },
+    restart: () => setTimeout(() => quit(RESTART), 200),
+  },
   log,
 });
 const quit = (code: number) => {
@@ -46,11 +76,6 @@ const page = createStatusPage({
 page.listen(port, "127.0.0.1", () => log(`${VERSION}, status page on http://127.0.0.1:${port}/`));
 link.start();
 
-// Always on: the connector only helps while it runs. APP_LAUNCH_CMD comes from the launcher.
-const cmd = process.env.APP_LAUNCH_CMD;
-if (cmd)
-  createAutostart(cmd, PRODUCT)
-    .set(true)
-    .catch((e) => log(`start at login: ${e.message}`));
+autostart?.set(startAtLogin).catch((e) => log(`start at login: ${e.message}`));
 
 for (const signal of ["SIGINT", "SIGTERM"] as const) process.on(signal, () => quit(0));

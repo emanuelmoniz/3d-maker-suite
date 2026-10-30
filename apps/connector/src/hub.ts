@@ -1,5 +1,8 @@
 import { Readable } from "node:stream";
 import {
+  type ConnectorSettings,
+  type ConnectorSettingsPatch,
+  type ConnectorSettingsResult,
   type ConnectorUpdateFailure,
   type DeviceSyncMode,
   HUB_HEARTBEAT_MS,
@@ -95,6 +98,12 @@ type Options = {
   > & {
     openDir?: (dir: string) => Promise<unknown>;
   };
+  /** Edit connector: its settings, read and saved; `restart` ends the process for the launcher. */
+  settings?: {
+    get: () => ConnectorSettings;
+    set: (patch: ConnectorSettingsPatch) => Promise<ConnectorSettingsResult>;
+    restart: () => void;
+  };
   log?: (line: string) => void;
 };
 
@@ -112,6 +121,7 @@ export function createLink({
   updateFailure,
   sync: syncAt,
   slicers: slicerHooks,
+  settings,
   log = () => {},
 }: Options) {
   let status: LinkStatus = store.token() ? "connecting" : "unpaired";
@@ -173,6 +183,35 @@ export function createLink({
       : { ok: false, code: "ENOENT" };
     await request(`/replies/${requestId}`, { method: "POST", body }).catch(() => {});
   };
+  const reply = (requestId: string, body: unknown) =>
+    request(`/replies/${requestId}`, { method: "POST", body }).catch(() => {});
+  /** Edit connector requests; ENOTSUP when this connector has no settings to give (tests). */
+  const editSettings = async (
+    event: Extract<
+      HubEvent,
+      { type: "connector.settings.get" | "connector.settings.set" | "connector.restart" }
+    >,
+  ) => {
+    const { requestId } = event;
+    if (!settings) return void (await reply(requestId, { ok: false, code: "ENOTSUP" }));
+    try {
+      if (event.type === "connector.settings.get")
+        await reply(requestId, { ok: true, result: settings.get() });
+      else if (event.type === "connector.settings.set")
+        await reply(requestId, {
+          ok: true,
+          result: await settings.set({ port: event.port, autostart: event.autostart }),
+        });
+      else {
+        // Answered first: the hub's request must not time out on a process that is gone.
+        await reply(requestId, { ok: true, result: null });
+        settings.restart();
+      }
+    } catch (e) {
+      log(`settings: ${message(e)}`);
+      await reply(requestId, { ok: false, code: "EIO" });
+    }
+  };
   const toRoots = (event: HubEvent) => {
     roots.handle(event);
     sync?.handle(event);
@@ -195,6 +234,13 @@ export function createLink({
           sync?.opened(rootId, path, pid),
         );
       if (event.success && event.data.type === "open.folder") return void openSynced(event.data);
+      if (
+        event.success &&
+        (event.data.type === "connector.settings.get" ||
+          event.data.type === "connector.settings.set" ||
+          event.data.type === "connector.restart")
+      )
+        return void editSettings(event.data);
       if (event.success && event.data.type === "slicer.check")
         return void slicers.check(event.data);
       if (event.success && event.data.type === "slicer.install")

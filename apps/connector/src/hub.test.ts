@@ -158,6 +158,39 @@ describe("connector and hub", () => {
     await until(async () => (await devices())[0].updateFailed?.error === "HTTP 404");
   });
 
+  it("answers the hub's Edit connector requests, and restarts only after answering", async () => {
+    const h = await hub();
+    const calls: string[] = [];
+    const c = connector(undefined, {
+      settings: {
+        get: () => ({ port: 4301, autostart: true }),
+        set: async (patch) => {
+          calls.push(`set ${JSON.stringify(patch)}`);
+          return {
+            port: patch.port ?? 4301,
+            autostart: patch.autostart ?? true,
+            restartRequired: !!patch.port,
+          };
+        },
+        restart: () => void calls.push("restart"),
+      },
+    });
+    await c.link.pair(h.url, await h.code(), "WS-1");
+    await until(() => status(c.link) === "online");
+    const [device] = (await h.send("GET", "/api/hub/devices")).json();
+    const url = `/api/hub/devices/${device.id}`;
+
+    expect((await h.send("GET", `${url}/settings`)).json()).toEqual({
+      port: 4301,
+      autostart: true,
+    });
+    const saved = await h.send("PUT", `${url}/settings`, { port: 4400 });
+    expect(saved.json()).toMatchObject({ port: 4400, restartRequired: true });
+    expect((await h.send("POST", `${url}/restart`)).statusCode).toBe(204);
+    await until(() => calls.includes("restart"));
+    expect(calls[0]).toBe('set {"port":4400}');
+  });
+
   it("tells the hub being off apart from a revoke", async () => {
     const h = await hub();
     const c = connector();

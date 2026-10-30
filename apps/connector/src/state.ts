@@ -34,6 +34,26 @@ export function readPort(dir: string): number {
   return 4301;
 }
 
+/** Start at login is on unless `config.json` says `"autostart": false` (Edit connector page). */
+export function readAutostart(dir: string): boolean {
+  try {
+    return JSON.parse(readFileSync(join(dir, "config.json"), "utf8")).autostart !== false;
+  } catch {
+    return true;
+  }
+}
+
+/** Merges into `config.json`, which the launcher reads for the port too. */
+export function writeConfig(dir: string, patch: { port?: number; autostart?: boolean }) {
+  let config: Record<string, unknown> = {};
+  try {
+    config = JSON.parse(readFileSync(join(dir, "config.json"), "utf8"));
+  } catch {}
+  const file = join(dir, "config.json");
+  writeFileSync(`${file}.tmp`, JSON.stringify({ ...config, ...patch }, null, 2));
+  renameSync(`${file}.tmp`, file);
+}
+
 /**
  * `cursor` is the last hub event handled (the stream's `Last-Event-ID`); `defaultSlicer` the id of
  * the slicer Open uses (slicers.ts); `folders` the real paths the hub may use (roots.ts), none yet

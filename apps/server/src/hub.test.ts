@@ -41,8 +41,11 @@ const setup = async (opts: Parameters<typeof buildApp>[3] = {}) => {
     payload: { email: admin.email, password: PW },
   });
   const cookie = String(login.headers["set-cookie"]).split(";")[0] ?? "";
-  const send = (method: "GET" | "POST" | "PATCH" | "DELETE", url: string, payload?: object) =>
-    app.inject({ method, url, payload, headers: { cookie } });
+  const send = (
+    method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE",
+    url: string,
+    payload?: object,
+  ) => app.inject({ method, url, payload, headers: { cookie } });
   const bearer = (token: string, url = "/api/auth/me") =>
     app.inject({ url, headers: { authorization: `Bearer ${token}` } });
   const pair = (code: string) =>
@@ -434,6 +437,60 @@ describe("hub events", () => {
     const res = await listing;
     expect(res.statusCode).toBe(409);
     expect(res.json().error.code).toBe("device_outdated");
+    await s.cancel();
+  });
+
+  it("edits a connector's settings and restarts it with live requests, never queued", async () => {
+    const { app, send, open, token, deviceId } = await live();
+    const url = `/api/hub/devices/${deviceId}`;
+    for (const [method, path, payload] of [
+      ["GET", "/settings"],
+      ["PUT", "/settings", { port: 4400 }],
+      ["POST", "/restart"],
+    ] as const) {
+      const res = await send(method, url + path, payload);
+      expect(res.statusCode).toBe(409);
+      expect(res.json().error.code).toBe("device_offline");
+    }
+    expect((await send("PUT", `${url}/settings`, { port: 80 })).statusCode).toBe(400);
+    expect((await send("GET", `/api/hub/devices/${crypto.randomUUID()}/settings`)).statusCode).toBe(
+      404,
+    );
+
+    const s = await open();
+    await s.until(": open");
+    let seen = 0;
+    const answer = async (type: string, body: unknown) => {
+      // Requests pile up in the stream's text: wait for one beyond those answered already.
+      const ids = (t: string) => [...t.matchAll(/"requestId":"([^"]+)"/g)];
+      const text = (await s.until((t) => ids(t).length > seen)) ?? "";
+      const requestId = ids(text)[seen++]?.[1];
+      expect(text).toContain(`"${type}"`);
+      await app.inject({
+        method: "POST",
+        url: `/api/hub/device/replies/${requestId}`,
+        payload: body as object,
+        headers: { authorization: `Bearer ${token}` },
+      });
+    };
+    const got = send("GET", `${url}/settings`);
+    await answer("connector.settings.get", { ok: true, result: { port: 4301, autostart: true } });
+    expect((await got).json()).toEqual({ port: 4301, autostart: true });
+
+    const set = send("PUT", `${url}/settings`, { port: 4400, autostart: false });
+    await answer("connector.settings.set", {
+      ok: true,
+      result: { port: 4400, autostart: false, restartRequired: true },
+    });
+    expect((await set).json()).toMatchObject({ port: 4400, restartRequired: true });
+
+    const restart = send("POST", `${url}/restart`);
+    await answer("connector.restart", { ok: true, result: null });
+    expect((await restart).statusCode).toBe(204);
+
+    const failing = send("POST", `${url}/restart`);
+    await answer("connector.restart", { ok: false, code: "EIO" });
+    expect((await failing).statusCode).toBe(502);
     await s.cancel();
   });
 

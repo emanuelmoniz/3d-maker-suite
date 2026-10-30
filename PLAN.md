@@ -1149,7 +1149,7 @@ Do Step 1 of the 5.1.0 plan in PLAN.md.
 Do Step 2 of the 5.1.0 plan in PLAN.md. Use frontend-design. Show me the card layout first.
 ```
 
-### [ ] Step 3 - Edit connector page  **[plan mode]**
+### [x] Step 3 - Edit connector page  **[plan mode]**
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - New **Edit connector** page in hub management; the machine name on the connector card links to it. Every connector setting lives there: port, autostart on or off, plus the settings the card has today. Changes reach the connector as commands over the hub↔connector event stream; admin only; offline connectors get a clear message.
@@ -1161,12 +1161,13 @@ Do Step 2 of the 5.1.0 plan in PLAN.md. Use frontend-design. Show me the card la
 Do Step 3 of the 5.1.0 plan in PLAN.md. Show me the page layout, the command messages and the offline behavior first.
 ```
 
-### [ ] Step 4 - Connector: one hub per machine, unpair, server controls
+### [ ] Step 4 - Connector: one hub per machine, unpair, server controls **[plan mode]**
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - A connector refuses to start on a machine where a hub is running (checked on start, clear message).
 - **Unpair** from the connector side (status and pair page), for when the hub has a fatal error and needs a new install: clears the local token and state; the hub shows the device offline until an admin removes it.
 - **Stop server** and **Restart server** on the connector's pair screen.
+- Refactor connector side interface to be more slick and with a more appealing design.
 
 **Done when:** all three work; strings go through i18n; e2e; `pnpm i18n:check` and tests pass.
 **Prompt:**

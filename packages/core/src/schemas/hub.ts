@@ -168,6 +168,25 @@ export type PairResult = z.infer<typeof pairResultSchema>;
 /** A file in a slice's work folder: a plain name, never a path or a dot file. */
 export const sliceFileName = z.string().regex(/^[\w-][\w.-]{0,99}$/);
 
+/** What an admin may change on a connector (Edit connector page). */
+const connectorSettingsPatch = {
+  port: z.number().int().min(1024).max(65535).optional(),
+  autostart: z.boolean().optional(),
+};
+export const connectorSettingsPatchSchema = z.strictObject(connectorSettingsPatch);
+/** A connector's settings, read live from it (`PUT`'s port is the one in use until a restart). */
+export const connectorSettingsSchema = z.object({
+  port: z.number().int(),
+  autostart: z.boolean(),
+});
+export const connectorSettingsResultSchema = connectorSettingsSchema.extend({
+  /** The saved port differs from the one in use: a restart applies it. */
+  restartRequired: z.boolean(),
+});
+export type ConnectorSettingsPatch = z.infer<typeof connectorSettingsPatchSchema>;
+export type ConnectorSettings = z.infer<typeof connectorSettingsSchema>;
+export type ConnectorSettingsResult = z.infer<typeof connectorSettingsResultSchema>;
+
 /**
  * Hub → device events on `GET /api/hub/events` (ADR-0014): SSE frames `id: <seq>`, `event: <type>`,
  * `data: <json>`. The connector sends its last id as `Last-Event-ID`; that acks everything up to it.
@@ -241,6 +260,19 @@ export const hubEventSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("slicer.remove"), requestId: id, integrationId: id }),
   /** An admin made this device a slice worker, or no longer one (its status page shows it). */
   z.object({ type: z.literal("device.worker"), on: z.boolean() }),
+  /** Edit connector: read its settings; the answer's result is a `connectorSettingsSchema`. */
+  z.object({ type: z.literal("connector.settings.get"), requestId: id }),
+  /**
+   * Edit connector: change them; the answer's result is a `connectorSettingsResultSchema`. The
+   * port is saved and used after the next restart; start at login applies at once.
+   */
+  z.object({
+    type: z.literal("connector.settings.set"),
+    requestId: id,
+    ...connectorSettingsPatch,
+  }),
+  /** Restart connector: answered (null) first, then the connector exits for its launcher. */
+  z.object({ type: z.literal("connector.restart"), requestId: id }),
   /**
    * Slice workers: run `program` (the worker's `slicerPath`) with `args` in a work folder of the
    * data folder, after writing `files` there; `{dir}` in the args is that folder. The 3MF goes

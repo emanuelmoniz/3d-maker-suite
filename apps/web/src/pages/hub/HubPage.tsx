@@ -1,5 +1,6 @@
 import type { Device } from "@3d-maker-suite/core";
-import { MonitorSmartphone, X } from "lucide-react";
+import { Link } from "@tanstack/react-router";
+import { MonitorSmartphone } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
@@ -7,144 +8,89 @@ import { Combobox } from "../../components/Combobox.tsx";
 import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { EmptyState } from "../../components/EmptyState.tsx";
 import { FormDialog } from "../../components/FormDialog.tsx";
-import { FormField, inputClass } from "../../components/FormField.tsx";
+import { FormField } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { SettingsLink } from "../../components/SettingsLink.tsx";
-import { Switch } from "../../components/Switch.tsx";
 import { formatDateTime, formatTime } from "../../lib/format.ts";
-import { useDeviceActions, useDevices } from "../../lib/hub.ts";
-import { useAdapterName } from "../../lib/integrations.ts";
+import { useConnectorActions, useDeviceActions, useDevices } from "../../lib/hub.ts";
 import { useUsers } from "../../lib/users.ts";
-
-/** The device's last sync report of the hub roots, as one line. */
-function SyncLine({ sync }: { sync: NonNullable<Device["sync"]> }) {
-  const { t } = useTranslation();
-  if (sync.state === "paused")
-    return (
-      <p className="text-warn wrap-anywhere">
-        {t("hub:devices.sync.paused", {
-          count: sync.held.reduce((n, h) => n + h.files, 0),
-          roots: sync.held.map((h) => h.name).join(", "),
-        })}
-      </p>
-    );
-  if (sync.state === "error")
-    return (
-      <p className="text-bad wrap-anywhere">
-        {t("hub:devices.sync.error", { error: sync.error ?? "" })}
-      </p>
-    );
-  return (
-    <p className="text-muted">
-      {sync.state === "syncing"
-        ? t("hub:devices.sync.syncing", { count: sync.pending })
-        : t("hub:devices.sync.idle", { count: sync.files })}
-    </p>
-  );
-}
-
-/** What the device syncs, the slicers found there, and whether worker integrations may slice on it. */
-function DeviceSync({ device: d }: { device: Device }) {
-  const { t } = useTranslation();
-  const adapterName = useAdapterName();
-  const { syncMode, unselect, sliceWorker } = useDeviceActions();
-  return (
-    <div className="mt-2 grid gap-2">
-      {(syncMode.isError || unselect.isError || sliceWorker.isError) && (
-        <p role="alert" className="text-bad">
-          {t("hub:errors.generic")}
-        </p>
-      )}
-      <div className="grid gap-1 sm:max-w-xs">
-        <span className="text-muted">{t("hub:devices.syncMode")}</span>
-        <Combobox
-          aria-label={t("hub:devices.syncModeOf", { name: d.name })}
-          value={d.syncMode}
-          disabled={syncMode.isPending}
-          onChange={(v) =>
-            (v === "all" || v === "selected") && syncMode.mutate({ id: d.id, syncMode: v })
-          }
-          options={[
-            { value: "all", label: t("hub:devices.syncModes.all") },
-            { value: "selected", label: t("hub:devices.syncModes.selected") },
-          ]}
-        />
-      </div>
-      {d.syncMode === "selected" &&
-        (d.projects.length ? (
-          <ul aria-label={t("hub:devices.projects")} className="flex flex-wrap gap-2">
-            {d.projects.map((p) => (
-              <li
-                key={p.id}
-                className="flex items-center gap-1 rounded-md border border-border pl-2"
-              >
-                <span className="wrap-anywhere">{p.name}</span>
-                <Button
-                  variant="ghost"
-                  disabled={unselect.isPending}
-                  aria-label={t("hub:devices.unselect", { name: p.name })}
-                  onClick={() => unselect.mutate({ id: d.id, projectId: p.id })}
-                >
-                  <X className="size-4" aria-hidden />
-                </Button>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="text-muted">{t("hub:devices.noProjects")}</p>
-        ))}
-      {d.slicers.length ? (
-        <div className="grid gap-1">
-          <span className="text-muted">{t("hub:devices.slicers")}</span>
-          <ul className="grid gap-1">
-            {d.slicers.map((s) => (
-              <li key={s.id} className="flex flex-wrap gap-x-2">
-                <span>
-                  {s.version
-                    ? t("hub:devices.slicer", { name: adapterName(s.id), version: s.version })
-                    : adapterName(s.id)}
-                </span>
-                <span className="text-muted wrap-anywhere">{s.path}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : (
-        <p className="text-muted">{t("hub:devices.noSlicers")}</p>
-      )}
-      <div>
-        <Switch
-          label={t("hub:devices.sliceWorker")}
-          checked={d.sliceWorker}
-          disabled={sliceWorker.isPending}
-          onChange={(e) => sliceWorker.mutate({ id: d.id, sliceWorker: e.target.checked })}
-        />
-        <p className="text-muted">{t("hub:devices.sliceWorkerHint")}</p>
-      </div>
-    </div>
-  );
-}
 
 type Dialog =
   | { kind: "pair" }
   | { kind: "code"; code: string; expiresAt: string }
-  | { kind: "rename" | "revoke"; device: Device };
+  | { kind: "revoke"; device: Device };
+
+/** One device in the list: where it stands, and the two actions that act on the connector itself. */
+function DeviceCard({ device: d, onRevoke }: { device: Device; onRevoke: () => void }) {
+  const { t } = useTranslation();
+  const { restart } = useConnectorActions(d.id);
+  return (
+    <li className="grid gap-3 rounded-md border border-border p-3 lg:grid-cols-[1fr_auto] lg:items-center">
+      <div className="min-w-0">
+        <p className="font-medium wrap-anywhere">
+          <Link to="/hub/devices/$deviceId" params={{ deviceId: d.id }} className="hover:underline">
+            {d.name}
+          </Link>
+          <span className={d.online ? "ml-2 text-ok" : "ml-2 text-muted"}>
+            {t(d.online ? "hub:devices.online" : "hub:devices.offline")}
+          </span>
+          {d.outdated && (
+            <span className={d.updateFailed ? "ml-2 text-bad" : "ml-2 text-warn"}>
+              {t(d.updateFailed ? "hub:devices.updateFailed" : "hub:devices.outdated")}
+            </span>
+          )}
+        </p>
+        <p className="text-muted wrap-anywhere">
+          {t("hub:devices.details", {
+            user: d.userName,
+            os: d.os ?? t("hub:devices.unknown"),
+            version: d.connectorVersion ?? t("hub:devices.unknown"),
+          })}
+        </p>
+        {!d.online && (
+          <p className="text-muted">
+            {d.lastSeenAt
+              ? t("hub:devices.lastSeen", { when: formatDateTime(d.lastSeenAt) })
+              : t("hub:devices.neverSeen")}
+          </p>
+        )}
+        {restart.isError && (
+          <p role="alert" className="text-bad">
+            {t("hub:edit.restartFailed")}
+          </p>
+        )}
+        {restart.isSuccess && (
+          <p role="status" className="text-muted">
+            {t("hub:edit.restarting")}
+          </p>
+        )}
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        {/* An offline connector can't be asked: the edit page explains. */}
+        <Button disabled={!d.online || restart.isPending} onClick={() => restart.mutate()}>
+          {t("hub:devices.restart")}
+        </Button>
+        <Button variant="danger" onClick={onRevoke}>
+          {t("hub:devices.revoke")}
+        </Button>
+      </div>
+    </li>
+  );
+}
 
 /** Hub management (ADR-0014): admin only, in the menu while the hub is on. */
 export function HubPage() {
   const { t } = useTranslation();
   const devices = useDevices();
   const users = useUsers(true);
-  const { pairingCode, rename, revoke, update } = useDeviceActions();
+  const { pairingCode, revoke } = useDeviceActions();
   const [dialog, setDialog] = useState<Dialog | null>(null);
 
   const close = () => {
     setDialog(null);
-    for (const m of [pairingCode, rename, revoke]) m.reset();
+    for (const m of [pairingCode, revoke]) m.reset();
   };
-  const error = [pairingCode, rename, revoke].some((m) => m.isError)
-    ? t("hub:errors.generic")
-    : undefined;
+  const error = [pairingCode, revoke].some((m) => m.isError) ? t("hub:errors.generic") : undefined;
   const people = (users.data ?? [])
     .filter((u) => !u.disabled)
     .map((u) => ({ value: u.id, label: u.displayName }));
@@ -163,11 +109,6 @@ export function HubPage() {
           </>
         }
       />
-      {update.isError && (
-        <p role="alert" className="text-bad">
-          {t("hub:errors.generic")}
-        </p>
-      )}
       {devices.isError && (
         <p role="alert" className="text-bad">
           {t("hub:loadError")}
@@ -177,69 +118,11 @@ export function HubPage() {
         (devices.data.length ? (
           <ul aria-label={t("hub:devices.label")} className="grid gap-2">
             {devices.data.map((d) => (
-              <li
+              <DeviceCard
                 key={d.id}
-                className="grid gap-3 rounded-md border border-border p-3 lg:grid-cols-[1fr_auto] lg:items-center"
-              >
-                <div className="min-w-0">
-                  <p className="font-medium wrap-anywhere">
-                    {d.name}
-                    <span className={d.online ? "ml-2 text-ok" : "ml-2 text-muted"}>
-                      {t(d.online ? "hub:devices.online" : "hub:devices.offline")}
-                    </span>
-                    {d.outdated && (
-                      <span className={d.updateFailed ? "ml-2 text-bad" : "ml-2 text-warn"}>
-                        {t(d.updateFailed ? "hub:devices.updateFailed" : "hub:devices.outdated")}
-                      </span>
-                    )}
-                  </p>
-                  <p className="text-muted wrap-anywhere">
-                    {t("hub:devices.details", {
-                      user: d.userName,
-                      os: d.os ?? t("hub:devices.unknown"),
-                      version: d.connectorVersion ?? t("hub:devices.unknown"),
-                    })}
-                  </p>
-                  {d.outdated && (
-                    <p className="text-muted wrap-anywhere">
-                      {d.updateFailed?.reason === "download"
-                        ? t("hub:devices.failedDownload", {
-                            version: d.updateFailed.version,
-                            error: d.updateFailed.error ?? "",
-                          })
-                        : d.updateFailed?.reason === "rollback"
-                          ? t("hub:devices.failedRollback", { version: d.updateFailed.version })
-                          : t("hub:devices.outdatedHint")}
-                    </p>
-                  )}
-                  {d.sync && <SyncLine sync={d.sync} />}
-                  <DeviceSync device={d} />
-                  {!d.online && (
-                    <p className="text-muted">
-                      {d.lastSeenAt
-                        ? t("hub:devices.lastSeen", { when: formatDateTime(d.lastSeenAt) })
-                        : t("hub:devices.neverSeen")}
-                    </p>
-                  )}
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  {d.outdated && (
-                    // An offline device can't get the event now.
-                    <Button
-                      disabled={!d.online || update.isPending}
-                      onClick={() => update.mutate(d.id)}
-                    >
-                      {t("hub:devices.updateNow")}
-                    </Button>
-                  )}
-                  <Button onClick={() => setDialog({ kind: "rename", device: d })}>
-                    {t("hub:devices.rename")}
-                  </Button>
-                  <Button variant="danger" onClick={() => setDialog({ kind: "revoke", device: d })}>
-                    {t("hub:devices.revoke")}
-                  </Button>
-                </div>
-              </li>
+                device={d}
+                onRevoke={() => setDialog({ kind: "revoke", device: d })}
+              />
             ))}
           </ul>
         ) : (
@@ -283,34 +166,6 @@ export function HubPage() {
           {dialog?.kind === "code" && dialog.code}
         </p>
       </ConfirmDialog>
-
-      <FormDialog
-        open={dialog?.kind === "rename"}
-        title={t("hub:devices.renameTitle")}
-        error={error}
-        busy={rename.isPending}
-        onCancel={close}
-        onSubmit={(f) =>
-          dialog?.kind === "rename" &&
-          rename.mutate(
-            { id: dialog.device.id, name: String(f.get("name") ?? "") },
-            { onSuccess: close },
-          )
-        }
-      >
-        <FormField label={t("hub:devices.name")}>
-          {(p) => (
-            <input
-              {...p}
-              name="name"
-              required
-              maxLength={100}
-              defaultValue={dialog?.kind === "rename" ? dialog.device.name : ""}
-              className={inputClass}
-            />
-          )}
-        </FormField>
-      </FormDialog>
 
       <ConfirmDialog
         open={dialog?.kind === "revoke"}

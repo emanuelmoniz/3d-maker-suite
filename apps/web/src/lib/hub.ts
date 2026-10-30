@@ -1,4 +1,12 @@
-import type { Device, DeviceSyncMode, HubVersionsUsage, PairingCode } from "@3d-maker-suite/core";
+import type {
+  ConnectorSettings,
+  ConnectorSettingsPatch,
+  ConnectorSettingsResult,
+  Device,
+  DeviceSyncMode,
+  HubVersionsUsage,
+  PairingCode,
+} from "@3d-maker-suite/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "./api.ts";
 
@@ -11,6 +19,34 @@ export const useDevices = () =>
     queryFn: () => api<Device[]>("GET", "/api/hub/devices"),
     refetchInterval: 30_000,
   });
+
+/** A connector's settings, read live from it: fails with 409 `device_offline` when it's offline. */
+export const useConnectorSettings = (id: string, online: boolean) =>
+  useQuery({
+    queryKey: ["hub", "settings", id],
+    queryFn: () => api<ConnectorSettings>("GET", `/api/hub/devices/${id}/settings`),
+    enabled: online,
+    retry: false,
+  });
+
+export function useConnectorActions(id: string) {
+  const qc = useQueryClient();
+  return {
+    save: useMutation({
+      mutationFn: (patch: ConnectorSettingsPatch) =>
+        api<ConnectorSettingsResult>("PUT", `/api/hub/devices/${id}/settings`, patch),
+      onSuccess: () => qc.invalidateQueries({ queryKey: ["hub", "settings", id] }),
+    }),
+    restart: useMutation({
+      mutationFn: () => api("POST", `/api/hub/devices/${id}/restart`),
+      // It drops offline and comes back: look more often for a while.
+      onSuccess: () => {
+        for (const ms of [2_000, 6_000, 12_000, 20_000])
+          setTimeout(() => qc.invalidateQueries({ queryKey: KEY }), ms);
+      },
+    }),
+  };
+}
 
 /** Disk used by the kept file versions. */
 export const useVersionsUsage = () =>

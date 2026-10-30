@@ -2,6 +2,9 @@ import { randomBytes } from "node:crypto";
 import {
   apiErrorSchema,
   connectorInfoSchema,
+  connectorSettingsPatchSchema,
+  connectorSettingsResultSchema,
+  connectorSettingsSchema,
   connectorUpdateFailureSchema,
   deviceSchema,
   deviceUpdateSchema,
@@ -114,6 +117,67 @@ export const hubRoutes =
         if (!channel.online(req.params.id))
           throw new HttpError(409, "device_offline", "The device is offline");
         channel.publish(req.params.id, { type: "connector.update" });
+        return reply.status(204).send(null);
+      },
+    );
+
+    // Edit connector: live requests (409 offline, 504 no answer), never queued for a reconnect.
+    // ENOTSUP: a connector older than this request, which updates itself to the hub's version.
+    const failed = (err: NodeJS.ErrnoException) =>
+      err.code === "ENOTSUP"
+        ? new HttpError(409, "device_outdated", "The connector is too old for this")
+        : new HttpError(502, "device_failed", "The connector couldn't do that");
+    const known = (id: string) => {
+      if (!db.select({ id: devices.id }).from(devices).where(eq(devices.id, id)).get())
+        throw new HttpError(404, "not_found", "Device not found");
+    };
+    const settingsErrors = { ...errors, 502: apiErrorSchema, 504: apiErrorSchema };
+
+    app.get(
+      "/devices/:id/settings",
+      { schema: { params, response: { 200: connectorSettingsSchema, ...settingsErrors } } },
+      async (req) => {
+        known(req.params.id);
+        return channel.ask(
+          req.params.id,
+          (requestId) => ({ type: "connector.settings.get", requestId }),
+          connectorSettingsSchema,
+          { error: failed },
+        );
+      },
+    );
+
+    app.put(
+      "/devices/:id/settings",
+      {
+        schema: {
+          params,
+          body: connectorSettingsPatchSchema,
+          response: { 200: connectorSettingsResultSchema, ...settingsErrors },
+        },
+      },
+      async (req) => {
+        known(req.params.id);
+        return channel.ask(
+          req.params.id,
+          (requestId) => ({ type: "connector.settings.set", requestId, ...req.body }),
+          connectorSettingsResultSchema,
+          { error: failed },
+        );
+      },
+    );
+
+    app.post(
+      "/devices/:id/restart",
+      { schema: { params, response: { 204: z.null(), ...settingsErrors } } },
+      async (req, reply) => {
+        known(req.params.id);
+        await channel.ask(
+          req.params.id,
+          (requestId) => ({ type: "connector.restart", requestId }),
+          z.null(),
+          { error: failed },
+        );
         return reply.status(204).send(null);
       },
     );

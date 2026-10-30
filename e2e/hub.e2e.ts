@@ -1,6 +1,6 @@
 import { expect, test } from "./fixtures.ts";
 
-test("hub: pair a device, rename it, revoke it", async ({ page, app }) => {
+test("hub: pair a device, edit it, revoke it", async ({ page, app }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto("/");
   await page.request.post("/api/auth/setup", {
@@ -49,11 +49,48 @@ test("hub: pair a device, rename it, revoke it", async ({ page, app }) => {
   await expect(row).toContainText("Online");
   await expect(row).toContainText("Ana Admin · win32 · connector 5.0.0");
 
-  await row.getByRole("button", { name: "Rename" }).click();
-  const rename = page.getByRole("dialog", { name: "Rename device" });
-  await rename.getByLabel("Name").fill("Laptop");
-  await rename.getByRole("button", { name: "Save" }).click();
+  // The card has only the two connector actions; everything else is on the Edit connector page.
+  await expect(row.getByRole("button")).toHaveText(["Restart connector", "Revoke"]);
+  await row.getByRole("link", { name: "Desk PC" }).click();
+  await expect(page.getByRole("heading", { name: "Edit connector: Desk PC" })).toBeVisible();
+
+  // What the connector does with a live request: answer on /replies/:id.
+  const reader = events.body?.getReader();
+  const dec = new TextDecoder();
+  void (async () => {
+    let text = "";
+    while (reader) {
+      const { done, value } = await reader.read().catch(() => ({ done: true, value: undefined }));
+      if (done) return;
+      text += dec.decode(value, { stream: true });
+      for (const block of text.split("\n\n")) {
+        const id = /"requestId":"([^"]+)"/.exec(block)?.[1];
+        if (!id || !block.includes("connector.settings.get")) continue;
+        text = "";
+        await fetch(`${app.url}/api/hub/device/replies/${id}`, {
+          method: "POST",
+          headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+          body: JSON.stringify({ ok: true, result: { port: 4301, autostart: true } }),
+        });
+      }
+    }
+  })();
+  await expect(page.getByLabel("Status page port")).toHaveValue("4301");
+  await expect(page.getByLabel("Start with the computer")).toBeChecked();
+
+  const identity = page.getByRole("region", { name: "Identity" });
+  await identity.getByLabel("Name").fill("Laptop");
+  await identity.getByRole("button", { name: "Save" }).click();
+  await expect(page.getByRole("heading", { name: "Edit connector: Laptop" })).toBeVisible();
+
+  // Offline: what needs the connector says so, the hub-side settings stay editable.
+  stream.abort();
+  await page.waitForTimeout(500);
+  await page.reload();
+  await expect(page.getByText("The connector is offline. This can only be changed")).toBeVisible();
+  await page.getByRole("link", { name: "Back" }).click();
   await expect(row).toContainText("Laptop");
+  await expect(row.getByRole("button", { name: "Restart connector" })).toBeDisabled();
 
   await row.getByRole("button", { name: "Revoke" }).click();
   await page

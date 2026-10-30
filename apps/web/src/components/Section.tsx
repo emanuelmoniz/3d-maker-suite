@@ -1,5 +1,5 @@
 import { REPO_URL } from "@3d-maker-suite/core";
-import type { ReactNode } from "react";
+import { type ReactNode, useId } from "react";
 import { useTranslation } from "react-i18next";
 
 /** A settings card. Its fields stay a narrow column unless `wide`. */
@@ -19,10 +19,17 @@ export function Section({
   children: ReactNode;
 }) {
   const { t } = useTranslation();
+  const heading = useId();
   return (
-    <section id={id} className="scroll-mt-4 rounded-lg border border-border bg-surface p-4 sm:p-5">
+    <section
+      id={id}
+      aria-labelledby={heading}
+      className="scroll-mt-4 rounded-lg border border-border bg-surface p-4 sm:p-5"
+    >
       <div className="mb-4 flex items-baseline justify-between gap-3">
-        <h2 className="text-base font-semibold">{title}</h2>
+        <h2 id={heading} className="text-base font-semibold">
+          {title}
+        </h2>
         {help && (
           <a
             href={`${REPO_URL}/blob/main/${help}`}
