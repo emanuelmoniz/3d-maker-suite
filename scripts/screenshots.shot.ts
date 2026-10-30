@@ -1,4 +1,5 @@
-import { copyFileSync, mkdirSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, test } from "../e2e/fixtures.ts";
 import { addRoots, png, seedPrinter, seedProfile } from "../e2e/helpers.ts";
@@ -197,4 +198,74 @@ test("README screenshots", async ({ page, app }) => {
   await page.goto("/login");
   await page.waitForLoadState("networkidle");
   await page.screenshot({ path: `${IMAGES}/login.png` });
+});
+
+test("hub screenshots", async ({ page, app }) => {
+  test.setTimeout(180_000);
+  // A hub root with locks and versions on, one paired workstation that saves a 3MF twice.
+  await page.request.post("/api/auth/setup", {
+    data: { displayName: "Ana Pereira", email: "ana@example.com", password: "correct horse" },
+  });
+  await page.request.patch("/api/preferences", {
+    data: { hubEnabled: true, hubLocks: "on", hubVersions: true },
+  });
+  const hubDir = join(app.dataDir, "hub-models");
+  mkdirSync(hubDir, { recursive: true });
+  const root = await page.request
+    .post("/api/roots", { data: { path: hubDir } })
+    .then((r) => r.json() as Promise<{ id: string }>);
+  const { user } = await page.request
+    .get("/api/auth/me")
+    .then((r) => r.json() as Promise<{ user: { id: string } }>);
+  const { code } = await page.request
+    .post("/api/hub/pairing-codes", { data: { userId: user.id } })
+    .then((r) => r.json() as Promise<{ code: string }>);
+  const { token } = await fetch(`${app.url}/api/hub/pair`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ code, name: "Desk PC", os: "win32", connectorVersion: "5.0.0" }),
+  }).then((r) => r.json() as Promise<{ token: string }>);
+  // Online = its event stream is open, as a running connector holds it (the stream stays open).
+  await fetch(`${app.url}/api/hub/events`, { headers: { authorization: `Bearer ${token}` } });
+  const save = (body: Buffer, base: number) =>
+    fetch(
+      `${app.url}/api/hub/device/sync/roots/${root.id}/file?path=${encodeURIComponent("Vase/vase.3mf")}&base=${base}`,
+      {
+        method: "PUT",
+        headers: {
+          authorization: `Bearer ${token}`,
+          "content-type": "application/octet-stream",
+          "x-file-sha256": createHash("sha256").update(body).digest("hex"),
+        },
+        body,
+      },
+    ).then((r) => r.json());
+  const model = readFileSync(join(import.meta.dirname, "../packages/3mf/fixtures/multi_color.3mf"));
+  await save(model, 0);
+  await save(Buffer.concat([model, Buffer.from("\n")]), 1);
+  await page.request.post("/api/projects/scan");
+  await expect
+    .poll(async () => (await page.request.get("/api/projects/scan")).json().then((s) => s.state))
+    .toBe("idle");
+  const { items } = await page.request
+    .get("/api/projects")
+    .then((r) => r.json() as Promise<{ items: { id: string; name: string }[] }>);
+  const vase = items.find((p) => p.name === "Vase");
+  if (!vase) throw new Error("the scan did not find the Vase project");
+
+  await page.goto("/hub");
+  await page.waitForLoadState("networkidle");
+  await expect(page.getByText("Online")).toBeVisible();
+  await page.screenshot({ path: `${IMAGES}/hub.png` });
+
+  await page.goto(`/projects/${vase.id}`);
+  await page.waitForLoadState("networkidle");
+  await page.getByRole("heading", { name: "Files", exact: true }).click();
+  await expect(page.getByText("Being edited by Ana Pereira on Desk PC")).toBeVisible();
+  await page.screenshot({ path: `${IMAGES}/project-hub.png`, fullPage: true });
+
+  await page.getByRole("button", { name: "Versions of vase.3mf" }).click();
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await page.waitForLoadState("networkidle");
+  await page.screenshot({ path: `${IMAGES}/file-history.png` });
 });

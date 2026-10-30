@@ -47,6 +47,8 @@ A local-first manager for your 3D printing: printers, accessories, maintenance, 
 | ![Import and export](docs/images/import.png) | ![Integrations](docs/images/integrations.png) |
 | ![Settings](docs/images/settings.png) | ![New quote](docs/images/quote-new.png) |
 | ![Users](docs/images/users.png) | ![Sign in](docs/images/login.png) |
+| ![Hub management](docs/images/hub.png) | ![A file checked out](docs/images/project-hub.png) |
+| ![File versions](docs/images/file-history.png) | |
 
 </details>
 
