@@ -86,28 +86,43 @@ async function readForm(req: IncomingMessage) {
 }
 
 const CSS = `
-:root { color-scheme: light dark; --bg: #f7f7f8; --fg: #1b1b1f; --muted: #5d5d66; --card: #fff;
-  --line: #dcdce1; --accent: #2457d6; --ok: #19734a; --warn: #9a5b00; --bad: #b42318; }
-@media (prefers-color-scheme: dark) { :root { --bg: #131316; --fg: #ececf1; --muted: #a3a3ad;
-  --card: #1c1c21; --line: #34343c; --accent: #7aa2ff; --ok: #4cc38a; --warn: #f0b04a; --bad: #ff8a80; } }
+:root { color-scheme: light dark; --bg: #f4f5f8; --fg: #1b1b1f; --muted: #5d5d66; --card: #fff;
+  --line: #dcdce1; --accent: #2457d6; --on-accent: #fff; --ok: #19734a; --warn: #9a5b00; --bad: #b42318;
+  --shadow: 0 1px 2px rgb(16 24 40 / .06), 0 1px 3px rgb(16 24 40 / .08); }
+@media (prefers-color-scheme: dark) { :root { --bg: #101013; --fg: #ececf1; --muted: #a3a3ad;
+  --card: #1a1a1f; --line: #2f2f37; --accent: #7aa2ff; --on-accent: #101013; --ok: #4cc38a; --warn: #f0b04a;
+  --bad: #ff8a80; --shadow: none; } }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.5 system-ui, sans-serif; }
-main { max-width: 34rem; margin: 0 auto; padding: 2rem 1rem; }
-h1 { font-size: 1.4rem; margin: 0 0 1.5rem; } h2 { font-size: 1.1rem; margin: 0 0 .5rem; }
-section { background: var(--card); border: 1px solid var(--line); border-radius: .75rem; padding: 1.25rem; }
-dl { display: grid; grid-template-columns: max-content 1fr; gap: .5rem 1rem; margin: 0 0 1rem; }
+main { max-width: 36rem; margin: 0 auto; padding: 1.5rem 1rem 3rem; display: grid; gap: 1rem; }
+header { display: flex; align-items: center; gap: .75rem; padding: .5rem 0 .25rem; }
+.mark { width: 2.25rem; height: 2.25rem; border-radius: .6rem; background: var(--accent); color: var(--on-accent);
+  display: grid; place-items: center; font-weight: 800; font-size: .95rem; flex: none; }
+h1 { font-size: 1.25rem; margin: 0; } h2 { font-size: 1.05rem; margin: 0 0 .5rem; } h3 { font-size: 1rem; margin: 1rem 0 .25rem; }
+section { background: var(--card); border: 1px solid var(--line); border-radius: 1rem; padding: 1.25rem; box-shadow: var(--shadow); }
+dl { display: grid; grid-template-columns: max-content 1fr; gap: .6rem 1.25rem; margin: 0 0 1rem; }
 dt { color: var(--muted); } dd { margin: 0; overflow-wrap: anywhere; }
+@media (max-width: 30rem) { dl { grid-template-columns: 1fr; gap: 0; } dd { margin-bottom: .6rem; } }
 label { display: block; font-weight: 600; margin-top: 1rem; }
-input { width: 100%; font: inherit; padding: .5rem .6rem; margin-top: .25rem; border: 1px solid var(--line);
-  border-radius: .5rem; background: var(--bg); color: var(--fg); }
+input { width: 100%; font: inherit; padding: .55rem .7rem; margin-top: .25rem; border: 1px solid var(--line);
+  border-radius: .6rem; background: var(--bg); color: var(--fg); }
 small, .muted { color: var(--muted); font-size: .875rem; }
-button { font: inherit; font-weight: 600; padding: .5rem 1rem; border-radius: .5rem; border: 0;
-  background: var(--accent); color: var(--card); cursor: pointer; margin-top: 1rem; }
+button { font: inherit; font-weight: 600; padding: .5rem 1rem; border-radius: .6rem; border: 1px solid transparent;
+  background: var(--accent); color: var(--on-accent); cursor: pointer; margin-top: 1rem; min-height: 2.5rem; }
+button:hover { filter: brightness(1.08); }
+button.secondary, button.danger { background: transparent; }
+button.secondary { color: var(--fg); border-color: var(--line); }
+button.danger { color: var(--bad); border-color: var(--bad); }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 a { color: var(--accent); }
+.pill { display: inline-block; padding: .05rem .65rem; border-radius: 999px; font-weight: 600; font-size: .875rem;
+  border: 1px solid currentColor; }
 .online { color: var(--ok); } .connecting, .hubOff { color: var(--warn); } .offline, .error { color: var(--bad); }
-button.danger { background: var(--bad); }
-.row { display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; }
+.row { display: flex; flex-wrap: wrap; gap: .75rem; align-items: center; }
+.actions { display: flex; flex-wrap: wrap; gap: .75rem; align-items: center; margin-top: .5rem; }
+.actions form, .row form { margin: 0; }
+.divider { border-top: 1px solid var(--line); margin-top: 1.25rem; padding-top: .25rem; }
+ul { padding-left: 1.25rem; } li.row { justify-content: space-between; }
 `;
 
 type Options = {
@@ -131,6 +146,13 @@ export function createStatusPage({
   open = openDir,
   exit = (code) => process.exit(code),
 }: Options) {
+  // Restart and stop the connector's own server; on the pair screen too, where nothing else is left to do.
+  const controls = (unpair: boolean) => `<div class="actions divider">
+<form method="post" action="/restart"><button type="submit" class="secondary">${t("connector:status.restart")}</button></form>
+<form method="get" action="/stop"><button type="submit" class="danger">${t("connector:status.stop")}</button></form>
+${unpair ? `<form method="get" action="/unpair"><button type="submit" class="danger">${t("connector:status.unpair")}</button></form>` : ""}
+</div>`;
+
   const pairForm = (error?: PairErrorCode, form?: URLSearchParams) => {
     const state = store.get();
     const value = (k: string, fallback = "") => esc(form?.get(k) ?? fallback);
@@ -149,6 +171,7 @@ ${error ? `<p class="error" role="alert">${t(PAIR_ERRORS[error])}</p>` : ""}
 <input id="name" name="name" required maxlength="100" value="${value("name", state.deviceName ?? hostname())}">
 <button type="submit">${t("connector:pair.submit")}</button>
 </form>
+${controls(false)}
 </section>`;
   };
 
@@ -161,7 +184,7 @@ ${error ? `<p class="error" role="alert">${t(PAIR_ERRORS[error])}</p>` : ""}
 <dl>
 <dt>${t("connector:status.hub")}</dt><dd><a href="${esc(state.hubUrl ?? "")}">${esc(state.hubUrl ?? "")}</a></dd>
 <dt>${t("connector:status.device")}</dt><dd>${esc(state.deviceName ?? "")}</dd>
-<dt>${t("connector:status.state")}</dt><dd class="${status}">${t(STATES[status])}</dd>
+<dt>${t("connector:status.state")}</dt><dd><span class="pill ${status}">${t(STATES[status])}</span></dd>
 <dt>${t("connector:status.version")}</dt><dd>${esc(version)}</dd>
 <dt>${t("connector:status.syncFolder")}</dt><dd>${esc(syncDir)}</dd>
 <dt>${t("connector:status.roots")}</dt><dd>${roots.watching}</dd>
@@ -172,14 +195,11 @@ ${roots.error ? `<p class="error">${t("connector:status.rootsError", { error: ro
 ${update.failed ? note(t("connector:status.updateFailed", { version: update.failed, current: version })) : ""}
 ${update.error ? note(t("connector:status.updateError", { error: update.error })) : ""}
 ${update.hubOlder ? note(t("connector:status.hubOlder")) : ""}
-<div class="row">
+<div class="actions">
 <form method="post" action="/open-folder"><button type="submit">${t("connector:status.openFolder")}</button></form>
 <a href="${esc(state.hubUrl ?? "")}">${t("connector:status.openApp")}</a>
 </div>
-<div class="row">
-<form method="post" action="/restart"><button type="submit">${t("connector:status.restart")}</button></form>
-<form method="get" action="/stop"><button type="submit" class="danger">${t("connector:status.stop")}</button></form>
-</div>
+${controls(true)}
 <p class="muted">${t("connector:status.manage")}</p>
 </section>
 ${syncView()}
@@ -286,6 +306,15 @@ ${rows ? `<ul>${rows}</ul>` : `<p>${t("connector:folders.none")}</p>`}
 <a href="/">${t("connector:stop.cancel")}</a>
 </div>
 </section>`;
+  // Unpair clears the token and state here; the hub keeps the device, offline, until an admin removes it.
+  const unpairForm = `<section aria-labelledby="unpair">
+<h2 id="unpair">${t("connector:unpair.title")}</h2>
+<p>${t("connector:unpair.body")}</p>
+<div class="row">
+<form method="post" action="/unpair"><button type="submit" class="danger">${t("connector:unpair.confirm")}</button></form>
+<a href="/">${t("connector:unpair.cancel")}</a>
+</div>
+</section>`;
   const note = (html: string) => `<section><p role="status">${html}</p></section>`;
 
   const page = (body: string, refresh: boolean) => `<!doctype html>
@@ -298,7 +327,7 @@ ${refresh ? '<meta http-equiv="refresh" content="5; url=/">' : ""}
 <style>${CSS}</style>
 </head>
 <body><main>
-<h1>${t("connector:appName")}</h1>
+<header><span class="mark" aria-hidden="true">3D</span><h1>${t("connector:appName")}</h1></header>
 ${body}
 </main></body>
 </html>`;
@@ -365,6 +394,12 @@ ${body}
         return back();
       }
       if (req.method === "GET" && path === "/stop") return send(200, html, page(stopForm, false));
+      if (req.method === "GET" && path === "/unpair")
+        return send(200, html, page(unpairForm, false));
+      if (req.method === "POST" && path === "/unpair") {
+        link.unpair();
+        return back();
+      }
       if (req.method === "GET" && path === "/folders")
         return send(200, html, page(foldersView(), false));
       if (req.method === "POST" && (path === "/folders/add" || path === "/folders/remove")) {

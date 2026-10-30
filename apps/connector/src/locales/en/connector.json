@@ -34,17 +34,24 @@
     "rootsError": "Could not send the project roots to the hub: {{error}}",
     "openFolder": "Open sync folder",
     "openApp": "Open the web app",
-    "manage": "Rename or remove this device in Hub management in the web app.",
+    "manage": "Rename or remove this device in Hub management in the web app. Unpair here if the hub needs a fresh install.",
     "updateFailed": "The update to version {{version}} did not start, so this connector stays on {{current}}.",
     "updateError": "Could not download the update: {{error}}",
     "hubOlder": "The hub runs an older version than this connector. Install the connector that matches the hub.",
-    "restart": "Restart",
-    "stop": "Stop"
+    "restart": "Restart server",
+    "stop": "Stop server",
+    "unpair": "Unpair"
   },
   "stop": {
-    "title": "Stop the connector?",
+    "title": "Stop the server?",
     "body": "This device goes offline for the hub until the connector starts again: from the Start menu or the launcher, or at your next login.",
-    "confirm": "Stop connector",
+    "confirm": "Stop server",
+    "cancel": "Cancel"
+  },
+  "unpair": {
+    "title": "Unpair from the hub?",
+    "body": "This connector forgets the hub and its pairing. The hub shows this device as offline until an admin removes it in Hub management. Pair again with a new code to reconnect.",
+    "confirm": "Unpair",
     "cancel": "Cancel"
   },
   "restarting": "Restarting… This page reloads by itself in a few seconds.",

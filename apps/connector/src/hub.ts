@@ -375,6 +375,20 @@ export function createLink({
       sync?.stop();
     },
     state: () => ({ status, error }),
+    /**
+     * Unpair from this side (the hub is broken or being reinstalled): the token and state go, the
+     * stream closes, and the hub shows the device offline until an admin removes it.
+     */
+    unpair: () => {
+      running?.abort();
+      roots.stop();
+      sync?.stop();
+      store.forget();
+      status = "unpaired";
+      error = undefined;
+      online = false;
+      log("unpaired");
+    },
     roots,
     sync,
     slicers,

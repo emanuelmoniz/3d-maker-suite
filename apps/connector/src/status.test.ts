@@ -173,6 +173,23 @@ it("restarts, and stops only once confirmed and only from its own page", async (
   expect(s.exits).toEqual([75, 0]);
 });
 
+it("offers restart and stop on the pair screen, and unpairs only once confirmed", async () => {
+  const s = await serve();
+  const pair = await s.call("GET", "/");
+  expect(pair.body).toContain('action="/restart"');
+  expect(pair.body).toContain('action="/stop"');
+  expect(pair.body).not.toContain('action="/unpair"');
+
+  s.store.set({ hubUrl: "https://hub.example", deviceId: "d1", deviceName: "Desk", token: "tok" });
+  expect((await s.call("POST", "/unpair", { origin: "https://evil.example" })).status).toBe(403);
+  expect(s.store.token()).toBe("tok");
+  expect((await s.call("GET", "/unpair")).body).toContain(t("connector:unpair.body"));
+  expect(s.store.token()).toBe("tok");
+  expect(await s.call("POST", "/unpair", { origin: s.origin() })).toMatchObject({ status: 303 });
+  expect(s.store.token()).toBeUndefined();
+  expect(s.store.get()).toEqual({ hubUrl: "https://hub.example", deviceName: "Desk" });
+});
+
 it("shares folders on a page of its own, only from its own page", async () => {
   const s = await serve();
   const page = await s.call("GET", "/folders");

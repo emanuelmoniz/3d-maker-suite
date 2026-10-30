@@ -1161,7 +1161,7 @@ Do Step 2 of the 5.1.0 plan in PLAN.md. Use frontend-design. Show me the card la
 Do Step 3 of the 5.1.0 plan in PLAN.md. Show me the page layout, the command messages and the offline behavior first.
 ```
 
-### [ ] Step 4 - Connector: one hub per machine, unpair, server controls **[plan mode]**
+### [x] Step 4 - Connector: one hub per machine, unpair, server controls **[plan mode]**
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - A connector refuses to start on a machine where a hub is running (checked on start, clear message).

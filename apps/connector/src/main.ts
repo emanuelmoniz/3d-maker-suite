@@ -8,6 +8,7 @@ import { createAutostart } from "@3d-maker-suite/host";
 import { createLink } from "./hub.ts";
 import {
   dataDir,
+  localHub,
   openStore,
   PRODUCT,
   readAutostart,
@@ -26,9 +27,15 @@ if (existsSync(join(dir, "app.sqlite"))) {
   log(`${dir} is a hub's data folder; set APP_DATA_DIR to another folder for the connector`);
   process.exit(1);
 }
+const port = readPort(dir);
+// One hub per machine: a connector beside a running hub would fight it for folders and slicers.
+const hubVersion = await localHub(port);
+if (hubVersion) {
+  log(`a hub (${hubVersion}) is running on this machine; the connector is for other machines`);
+  process.exit(1);
+}
 const store = openStore(dir);
 const updater = createUpdater({ version: VERSION, log });
-const port = readPort(dir);
 // Always on unless the admin turned it off on the Edit connector page. APP_LAUNCH_CMD comes from
 // the launcher.
 const cmd = process.env.APP_LAUNCH_CMD;

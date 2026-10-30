@@ -1,7 +1,10 @@
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { type Blob, decrypt, encrypt, loadKey } from "@3d-maker-suite/host";
+
+/** The hub's product id, which names its data folder next to the connector's. */
+const HUB_ID = "3d-maker-suite";
 
 /** Names the installer, the launcher (product.json) and start at login use for the connector. */
 export const PRODUCT = {
@@ -32,6 +35,34 @@ export function readPort(dir: string): number {
     if (Number.isInteger(port) && port > 0 && port < 65536) return port;
   } catch {}
   return 4301;
+}
+
+/**
+ * The version of a hub answering on this machine's hub port (the hub's `config.json` port, else 4300),
+ * or undefined. One hub per machine: the connector doesn't start beside it (ADR-0014).
+ */
+export async function localHub(
+  ownPort: number,
+  { env = process.env, platform = process.platform, fetcher = fetch } = {},
+): Promise<string | undefined> {
+  let port = 4300;
+  try {
+    const hubDir = join(dirname(dataDir({ ...env, APP_DATA_DIR: undefined }, platform)), HUB_ID);
+    const saved = JSON.parse(readFileSync(join(hubDir, "config.json"), "utf8")).port;
+    if (Number.isInteger(saved) && saved > 0 && saved < 65536) port = saved;
+  } catch {}
+  if (port === ownPort) return undefined;
+  try {
+    const res = await fetcher(`http://127.0.0.1:${port}/api/health`, {
+      signal: AbortSignal.timeout(1500),
+    });
+    const body = await res.json();
+    return res.ok && body?.status === "ok" && typeof body.version === "string"
+      ? body.version
+      : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 /** Start at login is on unless `config.json` says `"autostart": false` (Edit connector page). */
@@ -103,7 +134,7 @@ export function openStore(dir: string) {
     },
     set: ({ token, ...patch }: State & { token?: string }) =>
       write({ ...saved, ...patch, ...(token !== undefined && { token: encrypt(key, { token }) }) }),
-    /** Unpaired (revoked): keeps the hub URL and name to prefill the pair form. */
+    /** Unpaired (revoked, or by the user): drops the token and all state, keeps the hub URL and name to prefill the pair form. */
     forget: () => write({ hubUrl: saved.hubUrl, deviceName: saved.deviceName }),
   };
 }

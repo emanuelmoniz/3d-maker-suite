@@ -163,7 +163,7 @@ Self-updates don't warn again.
 
 Hub management marks a device whose connector isn't on the hub's version: **Outdated**, or **Update failed** with the reason (the download failed, or the new version didn't start and the connector went back). The hub also raises an alert, which clears once the versions match. **Update now** makes an online connector download the hub's version at once, even one that went back before.
 
-The status page has **Restart** and **Stop**. Stop takes the device offline for the hub until the connector starts again: from the start menu or app menu, or at the next login.
+The status page has **Restart server**, **Stop server** and **Unpair**, also on the pair screen. Unpair forgets the hub on this machine (for a hub that needs a fresh install); the hub shows the device offline until an admin removes it. A connector does not start on a machine where a hub is running: one hub per machine. Stop takes the device offline for the hub until the connector starts again: from the start menu or app menu, or at the next login.
 
 ## For company IT
 
