@@ -120,7 +120,8 @@ Settings that stay or move:
 ### Delivery
 - The mail server (host, port, user, password, from) and the ntfy server stay global, under `settings.alerts`.
 - Each user turns on email (to their email address, by default the account email) and/or sets their own ntfy topic and token. The token is encrypted, never logged and never returned (the API says only whether one is set). A test button sends to the user's own destinations.
-- An alert is sent to each user who gets it as notify, once per user and channel. The stamp lives in that user's `alert_states` row; a channel that failed is tried again at the next check, one that went through is not sent again. The evaluate queue runs one check at a time, so two checks can't send the same alert.
+- An alert is sent to each user who gets it as notify, once per user and channel. The stamp lives in that user's `alert_states` row (`notifiedAt`, one time per channel id); a channel that failed is tried again at a later check, one that went through is not sent again. A failing destination waits 15 minutes before its next try (kept in memory), so a wrong topic doesn't slow every check. The evaluate queue runs one check at a time, so two checks can't send the same alert.
+- With users, the global `to`, topic and ntfy token are not used: a user's ntfy goes with their own token or none.
 - A user's own snooze holds their delivery and re-arms it when it ends (the alert comes back unread and unsent for them). Disabled users and users of a disabled role get nothing.
 - No-users mode: the Admin role's kinds and the global destinations of today (the channel's `to` and topic) apply.
 

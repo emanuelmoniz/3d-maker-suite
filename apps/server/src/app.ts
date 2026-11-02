@@ -185,12 +185,14 @@ export async function buildApp(
       : reply.status(404).send({ error: { code: "not_found", message: "Route not found" } }),
   );
 
+  // Without a data dir (tests) secrets use a throwaway in-memory key.
+  const key = dataDir ? loadKey(dataDir) : randomBytes(32);
   await app.register(healthRoutes);
-  await app.register(authRoutes(db, !!opts.access?.password, opts.setupToken), {
+  await app.register(authRoutes(db, key, !!opts.access?.password, opts.setupToken), {
     prefix: "/api/auth",
   });
   await app.register(
-    usersRoutes(db, (id) => hubFiles.releaseLocks({ userId: id })),
+    usersRoutes(db, key, (id) => hubFiles.releaseLocks({ userId: id })),
     { prefix: "/api/users" },
   );
   await app.register(rolesRoutes(db), { prefix: "/api/roles" });
@@ -273,8 +275,6 @@ export async function buildApp(
   await app.register(machineProfilesRoutes(db, dataDir), { prefix: "/api/machine-profiles" });
   await app.register(printProfilesRoutes(db, dataDir), { prefix: "/api/print-profiles" });
   await app.register(maintenanceRoutes(db), { prefix: "/api/maintenance" });
-  // Without a data dir (tests) secrets use a throwaway in-memory key.
-  const key = dataDir ? loadKey(dataDir) : randomBytes(32);
   const syncer = createSyncer(db, opts.adapters ?? [], key, logFor("integrations"), dataDir);
   await app.register(filamentRoutes(db), { prefix: "/api/filament" });
   await app.register(slicerZipRoutes(db, syncer, dataDir), { prefix: "/api/slicer-zip" });

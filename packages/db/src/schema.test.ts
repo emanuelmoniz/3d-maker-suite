@@ -883,6 +883,93 @@ describe("migration 0088", () => {
   });
 });
 
+describe("migration 0089", () => {
+  const token = { v: 1, iv: "iv", tag: "tag", data: "data" };
+  const migrated = (channels: { to?: string; topic?: string }) =>
+    migrateAcross(88, (sqlite) => {
+      const run = (q: string, ...args: unknown[]) => sqlite.prepare(q).run(...args);
+      const user = (id: string, role: string, disabled: number, at: string) =>
+        run(
+          "insert into users (id, email, display_name, password_hash, role_id, disabled, created_at, updated_at) values (?, ?, ?, 'x', ?, ?, ?, ?)",
+          id,
+          `${id}@x.io`,
+          id,
+          BUILT_IN_ROLE_IDS[role as "admin"],
+          disabled,
+          at,
+          at,
+        );
+      user("gone", "admin", 1, "2026-01-01");
+      user("first", "admin", 0, "2026-02-01");
+      user("later", "admin", 0, "2026-03-01");
+      user("ed", "editor", 0, "2026-01-01");
+      const setting = (key: string, value: object) =>
+        run("insert into settings (key, value) values (?, ?)", key, JSON.stringify(value));
+      if (channels.to !== undefined)
+        setting("channel:email", {
+          enabled: true,
+          config: { host: "h", port: "25", from: "f", to: channels.to },
+          secrets: null,
+        });
+      if (channels.topic !== undefined)
+        setting("channel:ntfy", {
+          enabled: false,
+          config: { server: "https://ntfy.sh", topic: channels.topic },
+          secrets: token,
+        });
+      const alert = (id: string, notifiedAt: string | null, resolvedAt: string | null) =>
+        run(
+          "insert into alerts (id, kind, severity, module, task, entity_type, entity_id, created_at, notified_at, resolved_at, read_at) values (?, 'spool_low', 'warning', 'filament', 't', 'spool', ?, 'x', ?, ?, 'r')",
+          id,
+          id,
+          notifiedAt,
+          resolvedAt,
+        );
+      alert("sent", "2026-04-01", null);
+      alert("unsent", null, null);
+      alert("closed", "2026-04-01", "2026-04-02");
+    });
+  const deliveries = (now: ReturnType<typeof migrated>) =>
+    Object.fromEntries(
+      now
+        .select({ id: s.users.id, delivery: s.users.delivery })
+        .from(s.users)
+        .all()
+        .map((u) => [u.id, u.delivery]),
+    );
+
+  it("gives today's recipient and topic to the oldest enabled admin; sent alerts count as sent to them", () => {
+    const now = migrated({ to: "FIRST@x.io", topic: "shop" });
+    expect(deliveries(now)).toEqual({
+      gone: {},
+      // The account email: no own address.
+      first: { email: true, ntfyTopic: "shop", ntfyToken: token },
+      later: {},
+      ed: {},
+    });
+    expect(now.select().from(s.alertStates).all()).toEqual([
+      {
+        alertId: "sent",
+        userId: "first",
+        readAt: "r",
+        snoozedUntil: null,
+        dismissedAt: null,
+        updatedAt: null,
+        notifiedAt: { email: "2026-04-01", ntfy: "2026-04-01" },
+      },
+    ]);
+  });
+
+  it("keeps another address; no recipient or topic leaves delivery off", () => {
+    expect(deliveries(migrated({ to: "shop@y.io" })).first).toEqual({
+      email: true,
+      emailTo: "shop@y.io",
+    });
+    expect(deliveries(migrated({ to: "", topic: "" })).first).toEqual({});
+    expect(deliveries(migrated({})).first).toEqual({});
+  });
+});
+
 describe("migration 0073", () => {
   it("rebuilds alerts for slicer_update and keeps each user's alert state", () => {
     const now = migrateAcross(72, (sqlite) => {

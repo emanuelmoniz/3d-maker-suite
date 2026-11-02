@@ -137,6 +137,7 @@
     "save": "Save",
     "test": "Send test",
     "secretKept": "Saved. Leave empty to keep it.",
+    "noUsersOnly": "Used only while the app has no accounts. With accounts, each user sets their own.",
     "status": {
       "saved": "Saved",
       "testOk": "Test sent",

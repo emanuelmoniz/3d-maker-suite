@@ -11,15 +11,18 @@ import {
   type SyncType,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
-import { and, desc, eq, gt, inArray, isNull, lte, ne } from "drizzle-orm";
+import { and, desc, eq, gt, inArray, isNull, lte, ne, sql } from "drizzle-orm";
 import { raisesSeverity } from "../integrations/capabilities.ts";
+import { alertVisible, hasUsers } from "../lib/auth.ts";
 import { spoolName } from "../lib/catalog.ts";
 import { dueItems } from "../lib/maintenance.ts";
 import { printerTitle } from "../lib/numbers.ts";
 import { readPreferences } from "../lib/preferences.ts";
+import { isEnabled, sessionUser } from "../lib/session.ts";
+import { own } from "../routes/alerts.ts";
 import { STARTED_AT } from "../routes/health.ts";
 import { VERSION } from "../updates/updates.ts";
-import { channels, readChannel, sendVia } from "./channels.ts";
+import { channels, destinationsOf, readChannel, sendVia } from "./channels.ts";
 
 const {
   alerts,
@@ -32,6 +35,7 @@ const {
   roles,
   syncPolicies,
   syncRuns,
+  users,
 } = schema;
 const DAY_MS = 86_400_000;
 // ponytail: fixed lead time, make it a preference if anyone asks.
@@ -391,15 +395,23 @@ export async function evaluateAlerts(
           .where(eq(alerts.id, a.id))
           .run();
     }
-    // A user's own snooze ends the same way, for them only; the channels aren't told again.
+    // A user's own snooze ends the same way, for them only: unread and unsent for them again.
     tx.update(alertStates)
-      .set({ snoozedUntil: null, readAt: null, updatedAt: stamp })
+      .set({ snoozedUntil: null, readAt: null, notifiedAt: null, updatedAt: stamp })
       .where(lte(alertStates.snoozedUntil, stamp))
       .run();
     for (const f of found.values()) tx.insert(alerts).values(f).onConflictDoNothing().run();
   });
 
-  // The global channels get the kinds the Admin role gets as notify (ADR-0016, no-users mode).
+  const targets = new Set(
+    channels.filter((c) => readChannel(db, key, c.id).enabled).map((c) => c.id),
+  );
+  if (hasUsers(db)) {
+    if (targets.size) await notifyUsers(db, key, log, targets, now, baseUrl);
+    return;
+  }
+
+  // No users: the global channels get the kinds the Admin role gets as notify (ADR-0016).
   const admin = db.select().from(roles).where(eq(roles.builtIn, "admin")).get();
   const kinds = effectiveAlertKinds(admin ?? {});
   const pending = db
@@ -418,17 +430,96 @@ export async function evaluateAlerts(
       ),
     )
     .all();
-  const targets = channels.filter((c) => readChannel(db, key, c.id).enabled);
   for (const a of pending) {
     // Mark first: a slow channel must not let a concurrent run send the same alert twice.
     db.update(alerts).set({ notifiedAt: stamp }).where(eq(alerts.id, a.id)).run();
     const n = messageOf(a, baseUrl);
-    for (const c of targets)
+    for (const id of targets)
       try {
-        await sendVia(db, key, c.id, n);
+        await sendVia(db, key, id, n);
       } catch (e) {
         // ponytail: no retry; a failed delivery is logged and the alert stays in the app.
-        log.warn({ err: e, channel: c.id }, "notification failed");
+        log.warn({ err: e, channel: id }, "notification failed");
       }
+  }
+}
+
+/**
+ * A failing destination waits this long before its next try, so a wrong topic doesn't add a
+ * timeout to every check (one runs after each write).
+ * ponytail: in memory, a restart retries at once; store a failedAt per channel if that matters.
+ */
+const RETRY_MS = 15 * 60_000;
+const failing = new Map<string, number>();
+
+/**
+ * Each alert to every enabled user who gets it as notify, on their own destinations, once per user
+ * and channel (ADR-0016). Stamped after the send: the evaluate queue runs one check at a time
+ * (app.ts), so nothing else sends it meanwhile, and a channel that failed stays unstamped and retries.
+ */
+async function notifyUsers(
+  db: Db,
+  key: Buffer,
+  log: { warn: (o: object, m: string) => void },
+  targets: Set<string>,
+  now: Date,
+  baseUrl?: string,
+) {
+  const stamp = now.toISOString();
+  for (const row of db
+    .select({ user: users, role: roles })
+    .from(users)
+    .innerJoin(roles, eq(roles.id, users.roleId))
+    .all()
+    .filter(isEnabled)) {
+    const dests = destinationsOf(key, row.user).filter((d) => targets.has(d.channel));
+    if (!dests.length) continue;
+    const u = sessionUser(row.user, row.role);
+    // In app counts as off here: only the kinds they get as notify.
+    const subscriptions = Object.fromEntries(
+      ALERT_KINDS.map((k) => [k, u.subscriptions[k] === "notify" ? "notify" : "off"]),
+    ) as typeof u.subscriptions;
+    const o = own(u.id);
+    const pending = db
+      .select({ alert: alerts, sent: alertStates.notifiedAt })
+      .from(alerts)
+      .leftJoin(alertStates, and(eq(alertStates.alertId, alerts.id), eq(alertStates.userId, u.id)))
+      .where(
+        and(
+          isNull(alerts.resolvedAt),
+          sql`${o.dismissedAt} IS NULL`,
+          sql`${o.snoozedUntil} IS NULL`,
+          alertVisible({ ...u, subscriptions }),
+        ),
+      )
+      .orderBy(alerts.createdAt)
+      .all();
+    for (const { alert, sent } of pending) {
+      const next = { ...sent };
+      for (const d of dests) {
+        const k = `${u.id}:${d.channel}`;
+        if (next[d.channel] || (failing.get(k) ?? 0) > now.getTime()) continue;
+        try {
+          await sendVia(db, key, d.channel, messageOf(alert, baseUrl), d);
+          next[d.channel] = stamp;
+          failing.delete(k);
+        } catch (e) {
+          failing.set(k, now.getTime() + RETRY_MS);
+          log.warn({ err: e, channel: d.channel, userId: u.id }, "notification failed");
+        }
+      }
+      if (Object.keys(next).length > Object.keys(sent ?? {}).length)
+        db.transaction((tx) => {
+          // A first state row starts from what they see, like their first PATCH (routes/alerts.ts).
+          const cur = tx.select(o).from(alerts).where(eq(alerts.id, alert.id)).get();
+          tx.insert(alertStates)
+            .values({ alertId: alert.id, userId: u.id, ...cur, notifiedAt: next })
+            .onConflictDoUpdate({
+              target: [alertStates.alertId, alertStates.userId],
+              set: { notifiedAt: next },
+            })
+            .run();
+        });
+    }
   }
 }

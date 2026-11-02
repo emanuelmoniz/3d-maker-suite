@@ -68,6 +68,32 @@ export const meUpdateSchema = z
   .strict()
   .refine((v) => !v.password || v.currentPassword, { path: ["currentPassword"] });
 
+/** Where a user's notify alerts go (ADR-0016). The token never comes back, only whether one is set. */
+export const deliverySchema = z.object({
+  email: z.boolean(),
+  /** null = the account email. */
+  emailTo: z.string().nullable(),
+  ntfyTopic: z.string().nullable(),
+  ntfyTokenSet: z.boolean(),
+});
+
+/** `PUT .../delivery`. `ntfyToken` left out or empty keeps the stored one; null removes it. */
+export const deliveryInputSchema = z
+  .object({
+    email: z.boolean(),
+    emailTo: email.or(z.literal("")),
+    ntfyTopic: z
+      .string()
+      .trim()
+      .regex(/^[-\w]{0,64}$/),
+    ntfyToken: z.string().trim().max(200).nullable(),
+  })
+  .partial()
+  .strict();
+
+/** `POST /api/auth/me/delivery/test`: one entry per destination tried. */
+export const deliveryTestSchema = z.array(z.object({ channel: z.string(), ok: z.boolean() }));
+
 /** `user` and `role` are null in the no-users mode, where everyone has the Admin role's rights. */
 export const meSchema = z.object({
   user: userSchema.nullable(),
@@ -82,3 +108,5 @@ export type UserCreateInput = z.input<typeof userCreateSchema>;
 export type UserPatch = z.input<typeof userPatchSchema>;
 export type MeUpdate = z.input<typeof meUpdateSchema>;
 export type Me = z.infer<typeof meSchema>;
+export type Delivery = z.infer<typeof deliverySchema>;
+export type DeliveryInput = z.input<typeof deliveryInputSchema>;

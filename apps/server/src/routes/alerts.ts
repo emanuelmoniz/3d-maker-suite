@@ -45,7 +45,7 @@ const notFound = { 404: apiErrorSchema };
  * The caller's own read, snooze and dismiss (ADR-0012): their `alert_states` row, else the `alerts`
  * columns (the state from before accounts, and the no-users mode, where no row ever matches).
  */
-function own(userId = "") {
+export function own(userId = "") {
   const row = sql`FROM ${alertStates} WHERE ${alertStates.alertId} = ${alerts.id} AND ${alertStates.userId} = ${userId}`;
   const pick = (c: AnyColumn, fallback: SQLWrapper) =>
     sql<

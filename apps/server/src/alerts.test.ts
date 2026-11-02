@@ -1,16 +1,24 @@
+import { randomBytes } from "node:crypto";
 import { mkdtempSync, rmSync } from "node:fs";
 import { hostname, tmpdir } from "node:os";
 import { join } from "node:path";
 import { fixture, mockAdapter } from "@3d-maker-suite/adapter-mock";
+import { BUILT_IN_ROLE_IDS, type RoleBuiltIn } from "@3d-maker-suite/core";
 import { openDb, schema } from "@3d-maker-suite/db";
+import { encrypt } from "@3d-maker-suite/host";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ntfyBody } from "./alerts/channels.ts";
+import { ntfyBody, writeChannel } from "./alerts/channels.ts";
+import { evaluateAlerts, raise } from "./alerts/evaluate.ts";
 import { buildApp } from "./app.ts";
 import type { Config } from "./config.ts";
 import { modelIdFor } from "./lib/catalog.ts";
+import { hashPassword } from "./lib/password.ts";
 import { setRemaining } from "./lib/spools.ts";
 import { reviewer } from "./testReview.ts";
+
+const { sendMail } = vi.hoisted(() => ({ sendMail: vi.fn(async () => ({})) }));
+vi.mock("nodemailer", () => ({ default: { createTransport: () => ({ sendMail }) } }));
 
 let db: ReturnType<typeof openDb>;
 let app: Awaited<ReturnType<typeof buildApp>>;
@@ -592,5 +600,184 @@ describe("alerts", () => {
       secrets: { password: "" },
     });
     expect((await app.inject("/api/alerts/channels")).json()[1].secretsSet).toEqual(["password"]);
+  });
+});
+
+describe("delivery per user (ADR-0016)", () => {
+  const key = randomBytes(32);
+  const log = { warn: vi.fn() };
+  const t0 = new Date("2026-11-02T10:00:00.000Z");
+  const later = (min: number) => new Date(t0.getTime() + min * 60_000);
+  const run = (now = t0) => evaluateAlerts(db, key, log, undefined, now);
+
+  const channelsOn = () => {
+    writeChannel(db, key, "ntfy", {
+      enabled: true,
+      config: { server: "https://ntfy.example" },
+      secrets: {},
+    });
+    writeChannel(db, key, "email", {
+      enabled: true,
+      config: { host: "smtp.example", port: "587", from: "app@x.io" },
+      secrets: {},
+    });
+  };
+  const user = (
+    name: string,
+    role: RoleBuiltIn,
+    delivery: { email?: boolean; emailTo?: string; ntfyTopic?: string; ntfyToken?: string } = {},
+    more: Partial<typeof schema.users.$inferInsert> = {},
+  ) => {
+    const { ntfyToken, ...rest } = delivery;
+    return db
+      .insert(schema.users)
+      .values({
+        email: `${name}@x.io`,
+        displayName: name,
+        roleId: BUILT_IN_ROLE_IDS[role],
+        passwordHash: "x",
+        delivery: { ...rest, ...(ntfyToken && { ntfyToken: encrypt(key, { token: ntfyToken }) }) },
+        ...more,
+      })
+      .returning()
+      .get();
+  };
+  const event = (kind: "update_available" | "hub_conflict", id: string) =>
+    raise(db, {
+      kind,
+      severity: "warning",
+      module: kind === "hub_conflict" ? "hub" : "system",
+      task: `t:${id}`,
+      entityType: "x",
+      entityId: id,
+      context: { version: id, file: id, device: "d", copy: "c" },
+    });
+  /** The ntfy topics called, in order. */
+  const topics = () =>
+    (fetchMock.mock.calls as unknown as [string][]).map(([url]) => url.split("/").pop());
+  const mailedTo = () => sendMail.mock.calls.map(([m]) => (m as { to: string }).to);
+
+  beforeEach(() => sendMail.mockClear());
+
+  it("each user gets only their own notify kinds, on their own destinations", async () => {
+    channelsOn();
+    user("admin", "admin", { ntfyTopic: "a" });
+    // A viewer gets hub conflicts (projects read) but can't get update_available (settings.server).
+    user(
+      "viewer",
+      "viewer",
+      { email: true, emailTo: "me@y.io", ntfyTopic: "v" },
+      { alertKinds: { hub_conflict: "notify", update_available: "notify" } },
+    );
+    user("editor", "editor", { email: true, ntfyTopic: "e" }); // in app only: nothing sent
+    user(
+      "gone",
+      "viewer",
+      { ntfyTopic: "d" },
+      { disabled: true, alertKinds: { hub_conflict: "notify" } },
+    );
+    event("update_available", "u1");
+    event("hub_conflict", "h1");
+    await run();
+    expect(topics().sort()).toEqual(["a", "a", "v"]);
+    expect(mailedTo()).toEqual(["me@y.io"]);
+    // Once per user and channel.
+    await run(later(60));
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(sendMail).toHaveBeenCalledTimes(1);
+  });
+
+  it("a failed channel retries after a wait, without re-sending the one that went through", async () => {
+    channelsOn();
+    user("admin", "admin", { email: true, ntfyTopic: "a" });
+    event("update_available", "u1");
+    fetchMock.mockResolvedValueOnce(new Response("no", { status: 500 }));
+    await run();
+    expect([topics(), mailedTo()]).toEqual([["a"], ["admin@x.io"]]);
+    await run(later(5)); // still waiting
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    await run(later(16));
+    await run(later(30));
+    expect(topics()).toEqual(["a", "a"]);
+    expect(sendMail).toHaveBeenCalledTimes(1);
+    expect(log.warn).toHaveBeenCalledWith(
+      expect.not.objectContaining({ topic: expect.anything() }),
+      "notification failed",
+    );
+  });
+
+  it("a user's snooze holds their delivery and re-arms it when it ends; the others aren't told again", async () => {
+    channelsOn();
+    const admin = user("admin", "admin", { ntfyTopic: "a" });
+    user("viewer", "viewer", { ntfyTopic: "v" }, { alertKinds: { hub_conflict: "notify" } });
+    event("hub_conflict", "h1");
+    const alertId = db.select().from(schema.alerts).get()?.id ?? "";
+    db.insert(schema.alertStates)
+      .values({ alertId, userId: admin.id, snoozedUntil: later(60).toISOString() })
+      .run();
+    await run();
+    expect(topics()).toEqual(["v"]);
+    await run(later(61));
+    expect(topics()).toEqual(["v", "a"]);
+  });
+
+  it("the global topic and recipient aren't used once there are users", async () => {
+    writeChannel(db, key, "ntfy", {
+      enabled: true,
+      config: { server: "https://ntfy.example", topic: "global" },
+      secrets: {},
+    });
+    user("admin", "admin");
+    event("update_available", "u1");
+    await run();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("the API never returns the token; a manager can't change an admin's; the test sends with it", async () => {
+    await ntfyOn();
+    const hash = await hashPassword("password123");
+    const admin = user("admin", "admin", {}, { passwordHash: hash });
+    user("boss", "editor", {}, { passwordHash: hash, permissions: { "users.manage": true } });
+    const cookie = async (email: string) =>
+      String(
+        (await send("POST", "/api/auth/login", { email, password: "password123" })).headers[
+          "set-cookie"
+        ],
+      ).split(";")[0] ?? "";
+    const as = (c: string) => (method: "GET" | "PATCH" | "POST", url: string, payload?: object) =>
+      app.inject({ method, url, payload, headers: { cookie: c } });
+    const me = as(await cookie("admin@x.io"));
+
+    const put = await me("PATCH", "/api/auth/me/delivery", {
+      ntfyTopic: "mine",
+      ntfyToken: "tk_secret",
+    });
+    expect(put.json()).toEqual({
+      email: false,
+      emailTo: null,
+      ntfyTopic: "mine",
+      ntfyTokenSet: true,
+    });
+    for (const url of ["/api/auth/me", "/api/auth/me/delivery", `/api/users/${admin.id}/delivery`])
+      expect((await me("GET", url)).body).not.toMatch(/tk_secret|ntfyToken"/);
+
+    fetchMock.mockClear();
+    expect((await me("POST", "/api/auth/me/delivery/test")).json()).toEqual([
+      { channel: "ntfy", ok: true },
+    ]);
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe("https://ntfy.example/mine");
+    expect((init.headers as Record<string, string>).authorization).toBe("Bearer tk_secret");
+
+    // Empty keeps the token, null removes it.
+    await me("PATCH", "/api/auth/me/delivery", { ntfyToken: "" });
+    expect((await me("GET", "/api/auth/me/delivery")).json().ntfyTokenSet).toBe(true);
+    await me("PATCH", "/api/auth/me/delivery", { ntfyToken: null });
+    expect((await me("GET", "/api/auth/me/delivery")).json().ntfyTokenSet).toBe(false);
+
+    const boss = as(await cookie("boss@x.io"));
+    expect(
+      (await boss("PATCH", `/api/users/${admin.id}/delivery`, { email: true })).statusCode,
+    ).toBe(403);
   });
 });

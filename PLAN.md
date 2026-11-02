@@ -1271,7 +1271,7 @@ Do Step 10 of the 5.1.0 plan in PLAN.md. Show me the kind catalog and the filter
 Back up the DB before editing schema.ts.
 ```
 
-### [ ] Step 11 - Delivery per user: email and ntfy  **[plan mode]**
+### [x] Step 11 - Delivery per user: email and ntfy  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:**
 - Global mail and ntfy servers (admin). Per user: email on/off, ntfy topic and token, a test button.

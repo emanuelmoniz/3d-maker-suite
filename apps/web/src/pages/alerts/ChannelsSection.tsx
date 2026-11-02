@@ -6,7 +6,8 @@ import { FormField, inputClass } from "../../components/FormField.tsx";
 import { useChannels, useSaveChannel, useTestChannel } from "../../lib/alerts.ts";
 
 // i18n keys are written out in full so `pnpm i18n:check` can see them.
-type Field = { name: string; label: string; secret?: boolean };
+// `own`: the no-users mode's destination; with accounts each user sets their own (ADR-0016).
+type Field = { name: string; label: string; secret?: boolean; own?: boolean };
 const STATUS = {
   saved: "alerts:channels.status.saved",
   testOk: "alerts:channels.status.testOk",
@@ -18,8 +19,8 @@ const CHANNELS: { id: string; title: string; fields: Field[] }[] = [
     title: "alerts:channels.ntfy.name",
     fields: [
       { name: "server", label: "alerts:channels.ntfy.server" },
-      { name: "topic", label: "alerts:channels.ntfy.topic" },
-      { name: "token", label: "alerts:channels.ntfy.token", secret: true },
+      { name: "topic", label: "alerts:channels.ntfy.topic", own: true },
+      { name: "token", label: "alerts:channels.ntfy.token", secret: true, own: true },
     ],
   },
   {
@@ -31,7 +32,7 @@ const CHANNELS: { id: string; title: string; fields: Field[] }[] = [
       { name: "user", label: "alerts:channels.email.user" },
       { name: "password", label: "alerts:channels.email.password", secret: true },
       { name: "from", label: "alerts:channels.email.from" },
-      { name: "to", label: "alerts:channels.email.to" },
+      { name: "to", label: "alerts:channels.email.to", own: true },
     ],
   },
 ];
@@ -76,7 +77,9 @@ function ChannelForm({ def, saved }: { def: (typeof CHANNELS)[number]; saved?: C
           hint={
             x.secret && saved?.secretsSet.includes(x.name)
               ? t("alerts:channels.secretKept")
-              : undefined
+              : x.own
+                ? t("alerts:channels.noUsersOnly")
+                : undefined
           }
         >
           {(p) => (

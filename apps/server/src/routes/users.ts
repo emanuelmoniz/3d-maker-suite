@@ -1,5 +1,7 @@
 import {
   apiErrorSchema,
+  deliveryInputSchema,
+  deliverySchema,
   userCreateSchema,
   userPatchSchema,
   userSchema,
@@ -8,6 +10,7 @@ import { type Db, schema } from "@3d-maker-suite/db";
 import { and, asc, count, eq } from "drizzle-orm";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
+import { deliveryView, writeDelivery } from "../alerts/channels.ts";
 import { HttpError } from "../errors.ts";
 import { assertWithin } from "../lib/auth.ts";
 import { hashPassword } from "../lib/password.ts";
@@ -95,6 +98,7 @@ function assertChange(
 export const usersRoutes =
   (
     db: Db,
+    key: Buffer,
     /** Before a user is deleted (their devices go with them): their locks are released. */
     onDelete: (userId: string) => void = () => {},
   ): FastifyPluginAsyncZod =>
@@ -189,5 +193,26 @@ export const usersRoutes =
         });
         return reply.status(204).send(null);
       },
+    );
+
+    // Someone's notify destinations (ADR-0016); an Admin-role user's only by an admin.
+    const deliveryOf = (caller: SessionUser | undefined, id: string) =>
+      db.transaction((tx) => {
+        const row = get(tx, id);
+        if (caller && !caller.rights.admin && isAdmin(roleOf(tx, row.roleId)))
+          throw new HttpError(403, "admin_only", "Only admins change admin accounts");
+        return row;
+      });
+    app.get(
+      "/:id/delivery",
+      { schema: { params, response: { 200: deliverySchema, ...errors } } },
+      async (req) => deliveryView(deliveryOf(req.user, req.params.id).delivery),
+    );
+    app.patch(
+      "/:id/delivery",
+      {
+        schema: { params, body: deliveryInputSchema, response: { 200: deliverySchema, ...errors } },
+      },
+      async (req) => writeDelivery(db, key, deliveryOf(req.user, req.params.id), req.body),
     );
   };

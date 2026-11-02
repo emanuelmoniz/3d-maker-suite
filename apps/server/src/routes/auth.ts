@@ -2,6 +2,9 @@ import {
   ADMIN_EFFECTIVE,
   apiErrorSchema,
   BUILT_IN_ROLE_IDS,
+  deliveryInputSchema,
+  deliverySchema,
+  deliveryTestSchema,
   loginSchema,
   meSchema,
   meUpdateSchema,
@@ -12,6 +15,7 @@ import { eq } from "drizzle-orm";
 import type { FastifyReply, FastifyRequest } from "fastify";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
+import { deliveryView, testDelivery, writeDelivery } from "../alerts/channels.ts";
 import { HttpError } from "../errors.ts";
 import { hostname, isLoopback } from "../lib/access.ts";
 import { hasUsers, isHttps, isLoopbackIp, loginLimiter, sameSecret } from "../lib/auth.ts";
@@ -40,6 +44,7 @@ const meOf = (user: SessionUser | undefined) =>
 export const authRoutes =
   (
     db: Db,
+    key: Buffer,
     /** `APP_PASSWORD` is set; the access guard already checked it on this request. */
     passwordSet: boolean,
     setupToken?: string,
@@ -160,5 +165,31 @@ export const authRoutes =
         if (displayName) db.update(users).set({ displayName }).where(eq(users.id, id)).run();
         return meOf({ ...current, ...(displayName && { displayName }) });
       },
+    );
+
+    // Where my notify alerts go (ADR-0016). The token goes in and never comes out.
+    const myRow = (req: FastifyRequest) => {
+      const row = db
+        .select()
+        .from(users)
+        .where(eq(users.id, me(req).id))
+        .get();
+      if (!row) throw new HttpError(401, "unauthorized", "Login required");
+      return row;
+    };
+    app.get(
+      "/me/delivery",
+      { schema: { response: { 200: deliverySchema, ...errors } } },
+      async (req) => deliveryView(myRow(req).delivery),
+    );
+    app.patch(
+      "/me/delivery",
+      { schema: { body: deliveryInputSchema, response: { 200: deliverySchema, ...errors } } },
+      async (req) => writeDelivery(db, key, myRow(req), req.body),
+    );
+    app.post(
+      "/me/delivery/test",
+      { schema: { response: { 200: deliveryTestSchema, ...errors } } },
+      async (req) => testDelivery(db, key, myRow(req), req.log),
     );
   };

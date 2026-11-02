@@ -624,6 +624,13 @@
       "when": 1793632818680,
       "tag": "0088_alert_kinds",
       "breakpoints": true
+    },
+    {
+      "idx": 89,
+      "version": "6",
+      "when": 1793633945830,
+      "tag": "0089_user_delivery",
+      "breakpoints": true
     }
   ]
 }

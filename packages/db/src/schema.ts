@@ -1060,6 +1060,19 @@ export const users = sqliteTable(
     permissions: text({ mode: "json" }).$type<Partial<Permissions>>().notNull().default({}),
     projectRights: text({ mode: "json" }).$type<Partial<ProjectRights>>().notNull().default({}),
     alertKinds: text({ mode: "json" }).$type<Partial<AlertKinds>>().notNull().default({}),
+    /**
+     * Where their notify alerts go (ADR-0016); the servers are the global channels'. `emailTo`
+     * unset = the account email. `ntfyToken`: the `{ v, iv, tag, data }` blob of `{ token }` (ADR-0005).
+     */
+    delivery: text({ mode: "json" })
+      .$type<{
+        email?: boolean;
+        emailTo?: string;
+        ntfyTopic?: string;
+        ntfyToken?: { v: 1; iv: string; tag: string; data: string };
+      }>()
+      .notNull()
+      .default({}),
     lastLoginAt: text(),
     ...timestamps,
   },
@@ -1107,6 +1120,8 @@ export const alertStates = sqliteTable(
     dismissedAt: text(),
     /** The user's last change; history sorts on it. */
     updatedAt: text(),
+    /** When it went out to this user, per channel id (ADR-0016); a missing channel is (re)tried. */
+    notifiedAt: text({ mode: "json" }).$type<Partial<Record<string, string>>>(),
   },
   (t) => [
     primaryKey({ columns: [t.alertId, t.userId] }),

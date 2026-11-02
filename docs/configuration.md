@@ -28,7 +28,7 @@ The update channel (Stable or Dev) is in Settings → About & updates; Stable is
 The alerts page lists what needs attention. Each alert has a severity (error, warning, success), its module and the task that raised it. Open an alert to see its details, mark it read or unread, snooze it, dismiss it, or jump to its spool, task or integration. Dismissed and snoozed alerts move to the history table on the same page.
 
 - **Per task** (Settings → Alerts): maintenance types set their own warning lead (days, hours or prints) and switch the warning and the overdue error on or off. Spools set the weight below which they are low and whether the low-spool alert is on. Each sync type chooses which of error, review and success it raises.
-- **Channels** (Settings → Alerts): send alerts to an ntfy topic or by email (SMTP). The access token and SMTP password are stored encrypted and never shown again; leave them empty to keep them. **Send test** checks a channel before you rely on it.
+- **Channels** (Settings → Alerts): send alerts to an ntfy topic or by email (SMTP). With accounts, this is only the server: each user sets their own email and ntfy topic, and gets the alerts their role (or their own setting) marks as notify. The access token and SMTP password are stored encrypted and never shown again; leave them empty to keep them. **Send test** checks a channel before you rely on it.
 
 ## Access from other devices
 
