@@ -27,6 +27,7 @@ import { SpoolCreatePage, SpoolEditPage } from "./pages/filament/SpoolFormPage.t
 import { HomePage } from "./pages/HomePage.tsx";
 import { EditConnectorPage } from "./pages/hub/EditConnectorPage.tsx";
 import { HubPage } from "./pages/hub/HubPage.tsx";
+import { PresetsPage } from "./pages/hub/PresetsPage.tsx";
 import { ImportPage } from "./pages/import/ImportPage.tsx";
 import { SlicerZipPage } from "./pages/import/SlicerZipPage.tsx";
 import { SourceReviewPage } from "./pages/import/SourceReviewPage.tsx";
@@ -484,6 +485,12 @@ const routes: AnyRoute[] = [
     path: HUB_ITEM.to,
     loader: () => loadNamespace("hub"),
     component: HubPage,
+  }),
+  createRoute({
+    getParentRoute: () => root,
+    path: `${HUB_ITEM.to}/presets`,
+    loader: () => loadNamespace("hub"),
+    component: PresetsPage,
   }),
   createRoute({
     getParentRoute: () => root,

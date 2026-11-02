@@ -87,6 +87,7 @@ const GROUPS: { title: string; rows: Row[] }[] = [
     title: "users:rights.groups.admin",
     rows: [
       on("permissions", "hub.manage", "users:rights.hub", "users:rights.hubHint"),
+      on("permissions", "presets.manage", "users:rights.presets", "users:rights.presetsHint"),
       on("permissions", "settings.server", "users:rights.server", "users:rights.serverHint"),
       on("permissions", "settings.backup", "users:rights.backup", "users:rights.backupHint"),
       on("permissions", "settings.logs", "users:rights.logs", "users:rights.logsHint"),

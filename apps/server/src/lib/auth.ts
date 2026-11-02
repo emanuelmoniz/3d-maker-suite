@@ -147,6 +147,9 @@ const RULES: [RegExp, string, Need][] = [
   ],
   [p("integrations|import|slicer-zip"), "*", on("integrations.manage")],
   [p("hub"), "*", on("hub.manage")],
+  // ADR-0017: who sees projects sees what slices them.
+  [p("presets"), "R", at("projects", "read")],
+  [p("presets"), "W", on("presets.manage")],
   [p("server-config|updates|docs"), "*", on("settings.server")],
   // A restored database carries anyone's rights.
   [/^\/api\/backups\/[^/]+\/restore$/, "*", ADMIN_ROLE],

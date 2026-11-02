@@ -19,6 +19,8 @@ export const ALERT_KINDS = [
   "connector_outdated",
   "hub_conflict",
   "hub_mass_delete",
+  "preset_conflict",
+  "preset_skipped",
 ] as const;
 export const ALERT_SEVERITIES = ["error", "warning", "success"] as const;
 // Who gets a kind (ADR-0016): not at all, in the app, or in the app and on their channels.

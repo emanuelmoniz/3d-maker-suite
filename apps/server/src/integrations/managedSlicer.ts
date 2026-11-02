@@ -1,4 +1,4 @@
-import { cpSync, existsSync, mkdirSync, rmSync, symlinkSync } from "node:fs";
+import { cpSync, existsSync, lstatSync, mkdirSync, rmSync, symlinkSync } from "node:fs";
 import { join } from "node:path";
 import {
   compareVersions,
@@ -24,11 +24,14 @@ import {
 import { and, eq, isNull } from "drizzle-orm";
 import { raise } from "../alerts/evaluate.ts";
 import { HttpError } from "../errors.ts";
+import { readPreferences } from "../lib/preferences.ts";
 import { fetchReleases, repoReleasesUrl } from "../updates/updates.ts";
+import { libraryDir, mergeUserPresets, type SavedBy } from "./presetLibrary.ts";
 
 // Server integrations download their slicer from the vendor's GitHub releases (ADR-0013):
 // <dataDir>/slicers/<integrationId>/<version>/ holds the program (packages/host installs it),
-// config/system points at its profiles and config/user keeps the user presets of an imported zip.
+// config/system points at its profiles and config/user keeps the user presets of an imported zip
+// (on a hub, it points at the preset library, ADR-0017).
 
 const { alerts, devices, integrations } = schema;
 const RELEASES_TTL_MS = 60 * 60_000; // GitHub allows 60 unauthenticated requests an hour
@@ -68,10 +71,34 @@ export function workerSystem(db: Db, row: typeof integrations.$inferSelect) {
 }
 
 /**
+ * Hub only (ADR-0017): every server and worker slicer's `config/user` becomes a junction to its
+ * library's folder. A real folder there (a zip kept before 0090) is merged into the library first.
+ */
+export function linkLibraries(db: Db, dataDir: string, adapters: IntegrationAdapter[]) {
+  if (!dataDir) return;
+  for (const { row, adapter } of managedOf(db, adapters)) {
+    if (!adapter.library) continue;
+    const config = join(dataDir, "slicers", row.id, "config");
+    const user = join(config, "user");
+    const target = libraryDir(dataDir, adapter.library.id);
+    mkdirSync(target, { recursive: true });
+    const st = lstatSync(user, { throwIfNoEntry: false });
+    if (st?.isSymbolicLink()) continue;
+    if (st) {
+      mergeUserPresets(db, dataDir, adapter.library.id, user);
+      rmSync(user, { recursive: true, force: true });
+    }
+    mkdirSync(config, { recursive: true });
+    symlinkSync(target, user, "junction");
+  }
+}
+
+/**
  * A slicer zip's presets go to every server and worker slicer of its library, in
  * `<dataDir>/slicers/<integrationId>/config`, so slicing finds them; installed or not yet. A server
  * slicer takes its user presets (`<root>/user`; its system ones are its install's). A worker takes
- * the whole config, system and user, since the hub slices its presets for it (ADR-0014).
+ * the whole config, system and user, since the hub slices its presets for it (ADR-0014). With the
+ * hub on, user presets merge into the library instead (ADR-0017), which both read through `linkLibraries`.
  */
 export function keepPresets(
   db: Db,
@@ -79,11 +106,20 @@ export function keepPresets(
   adapters: IntegrationAdapter[],
   library: string,
   root: string,
+  by: SavedBy = {},
 ) {
   if (!dataDir) return;
+  const hub = readPreferences(db).hubEnabled;
+  if (hub) {
+    // Older folders first, so the zip's content is the newest version.
+    linkLibraries(db, dataDir, adapters);
+    mergeUserPresets(db, dataDir, library, join(root, "user"), by);
+  }
   for (const { row, adapter } of managedOf(db, adapters, library)) {
     const config = join(dataDir, "slicers", row.id, "config");
-    const parts = adapter.kind === "worker" ? ["system", "user"] : ["user"];
+    const parts = (adapter.kind === "worker" ? ["system", "user"] : ["user"]).filter(
+      (p) => !hub || p !== "user",
+    );
     for (const part of parts) {
       if (!existsSync(join(root, part))) continue;
       rmSync(join(config, part), { recursive: true, force: true });
@@ -196,6 +232,7 @@ export function createSlicerInstaller(
       mkdirSync(config, { recursive: true });
       rmSync(systemLink, { recursive: true, force: true }); // the link only, never its target
       symlinkSync(join(dir, version, managed.profiles(system.platform)), systemLink, "junction");
+      if (readPreferences(db).hubEnabled) linkLibraries(db, dataDir, adapters);
       db.update(integrations)
         .set({
           slicerPath: exe,

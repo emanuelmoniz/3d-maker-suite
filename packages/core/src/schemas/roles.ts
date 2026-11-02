@@ -23,6 +23,7 @@ export const permissionsSchema = z.object({
   "integrations.review": z.boolean(),
   "integrations.manage": z.boolean(),
   "hub.manage": z.boolean(),
+  "presets.manage": z.boolean(),
   "settings.server": z.boolean(),
   "settings.backup": z.boolean(),
   "settings.logs": z.boolean(),
@@ -69,6 +70,7 @@ const switches = (on: boolean) => ({
   "integrations.review": on,
   "integrations.manage": on,
   "hub.manage": on,
+  "presets.manage": on,
   "settings.server": on,
   "settings.backup": on,
   "settings.logs": on,
@@ -103,6 +105,7 @@ export const BUILT_IN_RIGHTS: Record<RoleBuiltIn, RoleRights> = {
       ...switches(false),
       "integrations.sync": true,
       "integrations.review": true,
+      "presets.manage": true,
     },
     projectRights: {
       "projects.seeAll": true,
@@ -249,6 +252,8 @@ export const ALERT_KIND_CATALOG: Record<AlertKind, KindRule> = {
   connector_outdated: { needs: (p) => p["hub.manage"], condition: true, default: "app" },
   hub_conflict: { needs: (p) => hasLevel(p, "projects", "read"), condition: false, default: "app" },
   hub_mass_delete: { needs: (p) => p["hub.manage"], condition: true, default: "app" },
+  preset_conflict: { needs: (p) => p["presets.manage"], condition: false, default: "app" },
+  preset_skipped: { needs: (p) => p["presets.manage"], condition: false, default: "app" },
 };
 
 const subscription = z.enum(ALERT_SUBSCRIPTIONS);

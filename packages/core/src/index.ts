@@ -17,6 +17,7 @@ export * from "./schemas/logs.ts";
 export * from "./schemas/maintenance.ts";
 export * from "./schemas/orders.ts";
 export * from "./schemas/preferences.ts";
+export * from "./schemas/presets.ts";
 export * from "./schemas/printers.ts";
 export * from "./schemas/prints.ts";
 export * from "./schemas/projectFiles.ts";

@@ -81,6 +81,7 @@ const {
   prints,
   printers,
   projectSlicePlates: plates,
+  slicerPresets,
   taggings,
   users,
 } = schema;
@@ -122,6 +123,9 @@ const slicingOf = (slicers: Capable[], fallback: string | undefined) => {
     or ${plates.slicedPrintProfileId} is not ${plateProfile}
     or coalesce(${plates.slicedIntegrationId}, ${fallback ?? null}) is not ${plateSlicer(capable, fallback)}
     or (${plates.slicedSlicerVersion} is not null and ${plates.slicedSlicerVersion} is not ${version})
+    or exists (select 1 from json_each(coalesce(${plates.slicedPresets}, '{}')) j
+      where j.value is not (select s.${sql.identifier("sha256")} from ${slicerPresets} s
+        where s.${sql.identifier("id")} = j.key and s.${sql.identifier("deleted")} = 0))
     or exists (select 1 from json_each(${projectMeta}, '$.files') f
       where json_extract(f.value, '$.path') = ${plates.file}
         and json_extract(f.value, '$.size') != ${plates.fileSize})

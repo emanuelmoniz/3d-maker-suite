@@ -1343,7 +1343,7 @@ Design: ADR-0017 (confirmed on real installs in Step 14). In short:
 Do Step 14 of the 5.1.0 plan in PLAN.md. Guide me through each test install, then show me the storage choice first.
 ```
 
-### [ ] Step 15 - Hub preset library
+### [x] Step 15 - Hub preset library
 **Model:** Opus · **Effort:** High
 **Scope:**
 - Storage per ADR-0017, zod schemas in `packages/core/src/schemas`, API, and a **Slicer presets** page in Hub management: per library and kind, versions, who saved, conflicts, download, delete.

@@ -24,6 +24,7 @@ import {
   type ProjectRights,
   ROLE_BUILT_INS,
   ROOT_EDIT_BY,
+  SLICER_PRESET_KINDS,
   type SlicerSystem,
   SPOOL_STATUSES,
   SYNC_FREQUENCIES,
@@ -732,6 +733,8 @@ export const projectSlicePlates = sqliteTable(
     slicedFilaments: text({ mode: "json" }).$type<
       { slot: number; grams: number; material: string | null }[]
     >(),
+    /** The library presets it was sliced with, `slicer_presets.id` → sha256; null = before 0090. */
+    slicedPresets: text({ mode: "json" }).$type<Record<string, string>>(),
     /** Why the last slice failed (the slicer's own text); cleared by a successful one. */
     sliceError: text(),
     ...timestamps,
@@ -1258,4 +1261,53 @@ export const hubFileVersions = sqliteTable(
     savedAt: text().notNull(),
   },
   (t) => [uniqueIndex("hub_file_versions_file_version_uq").on(t.fileId, t.version)],
+);
+
+/**
+ * The hub's slicer preset library (ADR-0017), the source of truth for
+ * `<dataDir>/presets/<library>/default/<kind>/`. `sha256` is of the canonical json (sorted keys,
+ * no whitespace); every change takes the next `seq`, as `hub_files`. A deleted preset stays as a
+ * tombstone.
+ */
+export const slicerPresets = sqliteTable(
+  "slicer_presets",
+  {
+    id: id(),
+    library: text().notNull(),
+    kind: text({ enum: SLICER_PRESET_KINDS }).notNull(),
+    name: text().notNull(),
+    /** As received. */
+    json: text().notNull(),
+    sha256: text().notNull(),
+    version: integer().notNull(),
+    deleted: integer({ mode: "boolean" }).notNull().default(false),
+    seq: integer().notNull(),
+    /** Who saved this version, from where (names as they were); null = on the hub, or unknown. */
+    savedUser: text(),
+    savedDevice: text(),
+    savedAt: text().notNull(),
+  },
+  (t) => [
+    uniqueIndex("slicer_presets_name_uq").on(t.library, t.kind, t.name),
+    uniqueIndex("slicer_presets_seq_uq").on(t.seq),
+    check("slicer_presets_kind_ck", oneOf(t.kind, SLICER_PRESET_KINDS)),
+  ],
+);
+
+/** A preset's earlier versions, pruned as hub file versions (`hubVersionsKeep`). */
+export const slicerPresetVersions = sqliteTable(
+  "slicer_preset_versions",
+  {
+    id: id(),
+    presetId: text()
+      .notNull()
+      .references(() => slicerPresets.id, { onDelete: "cascade" }),
+    version: integer().notNull(),
+    json: text().notNull(),
+    sha256: text().notNull(),
+    savedUser: text(),
+    savedDevice: text(),
+    savedAt: text().notNull(),
+  },
+  (t) => [uniqueIndex("slicer_preset_versions_uq").on(t.presetId, t.version)],
 );

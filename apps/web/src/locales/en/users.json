@@ -185,6 +185,8 @@
     "integrationsHint": "Add, sign in and configure integrations and slicers.",
     "hub": "Manage the hub",
     "hubHint": "Pair and edit workstations and change hub settings.",
+    "presets": "Manage slicer presets",
+    "presetsHint": "Delete hub presets, clean up conflict copies and set what each workstation shares.",
     "server": "Server and updates",
     "serverHint": "Address, restart and updates.",
     "backup": "Backups",
@@ -227,7 +229,9 @@
       "slicer_update": "Slicer update available",
       "connector_outdated": "Connector out of date",
       "hub_conflict": "Hub file conflict",
-      "hub_mass_delete": "Mass delete on a device"
+      "hub_mass_delete": "Mass delete on a device",
+      "preset_conflict": "Slicer preset conflict",
+      "preset_skipped": "Slicer preset skipped"
     }
   },
   "delivery": {

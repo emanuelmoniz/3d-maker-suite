@@ -109,6 +109,9 @@ const MATRIX: Record<string, [viewer: string, editor: string]> = {
   "/api/roles": ["-", "-"],
   "/api/hub/devices": ["-", "-"],
   "/api/hub/pairing-codes": ["-", "-"],
+  // ADR-0017: who sees projects sees the presets; presets.manage (Editor by migration 0090) deletes.
+  "/api/presets": ["R", "RW"],
+  "/api/presets/abc": ["R", "RW"],
   "/api/docs": ["-", "-"],
   "/api/not-yet-in-the-table": ["-", "-"],
 };
@@ -868,7 +871,8 @@ describe("who gets which alert (ADR-0016)", () => {
   // Written out, like MATRIX: sync kinds also need the policy flags (off by default).
   const GETS: Record<RoleBuiltIn, AlertKind[]> = {
     admin: ALERT_KINDS.filter((k) => !OPT_IN.includes(k)),
-    editor: BASIC,
+    // presets.manage (ADR-0017).
+    editor: [...BASIC, "preset_conflict", "preset_skipped"],
     viewer: BASIC,
   };
 

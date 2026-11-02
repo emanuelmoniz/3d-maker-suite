@@ -870,7 +870,8 @@ describe("migration 0088", () => {
       spool_no_price: "off",
       spool_no_open_date: "off",
     });
-    expect(Object.keys(off.admin ?? {})).toHaveLength(15);
+    // The 15 kinds of 0088, and the two preset kinds 0090 adds.
+    expect(Object.keys(off.admin ?? {})).toHaveLength(17);
     expect([off.editor, off.viewer, off.nf]).toEqual([{}, {}, {}]);
 
     const on = kinds({ price: true, openDate: true });
@@ -880,6 +881,37 @@ describe("migration 0088", () => {
     expect([on.editor, on.viewer, on.nf]).toEqual([both, both, {}]);
 
     expect(kinds({ price: true }).viewer).toEqual({ spool_no_price: "app" });
+  });
+});
+
+describe("migration 0090", () => {
+  it("sets presets.manage on Admin and Editor only, and keeps alert states through the rebuild", () => {
+    const now = migrateAcross(89, (sqlite) => {
+      const run = (q: string) => sqlite.prepare(q).run();
+      run(
+        `insert into roles (id, name, permissions, project_rights, created_at, updated_at) values ('c', 'Custom', '{"hub.manage":true}', '{}', 'x', 'x')`,
+      );
+      run(
+        `insert into users (id, email, display_name, password_hash, role_id, created_at, updated_at) values ('u', 'u@x.io', 'u', 'x', '${BUILT_IN_ROLE_IDS.admin}', 'x', 'x')`,
+      );
+      run(
+        "insert into alerts (id, kind, severity, module, task, entity_type, entity_id, created_at) values ('a', 'hub_conflict', 'warning', 'hub', 't', 'file', 'f', 'x')",
+      );
+      run(
+        `insert into alert_states (alert_id, user_id, read_at, updated_at, notified_at) values ('a', 'u', 'r', 'x', '{"email":"n"}')`,
+      );
+    });
+    const manage = Object.fromEntries(
+      now
+        .select()
+        .from(s.roles)
+        .all()
+        .map((r) => [r.builtIn ?? r.id, r.permissions["presets.manage"]]),
+    );
+    expect(manage).toEqual({ admin: true, editor: true, viewer: false, c: undefined });
+    expect(now.select().from(s.alertStates).all()).toEqual([
+      expect.objectContaining({ alertId: "a", readAt: "r", notifiedAt: { email: "n" } }),
+    ]);
   });
 });
 

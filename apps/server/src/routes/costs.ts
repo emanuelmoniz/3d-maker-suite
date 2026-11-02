@@ -30,6 +30,7 @@ import { and, eq, sql } from "drizzle-orm";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
+import { presetsChanged, presetsSeq } from "../integrations/presetLibrary.ts";
 import { projectVisible } from "../lib/auth.ts";
 import { projectLabel } from "../lib/catalog.ts";
 import { costContext } from "../lib/cost.ts";
@@ -187,7 +188,7 @@ export const costsRoutes =
           const { printer, profileId } = resolve(p, model);
           const slicers = [p.slicerIntegrationId, project?.slicerIntegrationId];
           const slicer = slicerOf(slicers)?.row;
-          const key = `quote:${JSON.stringify([abs, s.size, s.mtimeMs, p.plate, printer?.id ?? null, profileId, p.filaments, slicer?.id ?? null, slicer?.slicerVersion ?? null])}`;
+          const key = `quote:${JSON.stringify([abs, s.size, s.mtimeMs, p.plate, printer?.id ?? null, profileId, p.filaments, slicer?.id ?? null, slicer?.slicerVersion ?? null, presetsSeq(db)])}`;
           // The project's own slice when it sliced exactly this: the slicer's time estimate moves by
           // a few seconds between runs of the same input, so slicing again would not match it.
           const own =
@@ -213,6 +214,7 @@ export const costsRoutes =
             own.printerId === (printer?.id ?? null) &&
             own.slicedPrintProfileId === profileId &&
             !slicedWithOther(own, slicer, fallback) &&
+            !presetsChanged(db)(own) &&
             JSON.stringify(own.filaments) === JSON.stringify(p.filaments)
               ? {
                   printTimeSeconds: own.printTimeSeconds,

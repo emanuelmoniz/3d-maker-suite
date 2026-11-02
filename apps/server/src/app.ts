@@ -21,7 +21,8 @@ import { evaluateAlerts } from "./alerts/evaluate.ts";
 import { runAutoBackup } from "./backup/backup.ts";
 import type { Config } from "./config.ts";
 import { HttpError } from "./errors.ts";
-import { createSlicerInstaller } from "./integrations/managedSlicer.ts";
+import { createSlicerInstaller, linkLibraries } from "./integrations/managedSlicer.ts";
+import { rebuildLibraries } from "./integrations/presetLibrary.ts";
 import { createSyncer } from "./integrations/sync.ts";
 import { createWorkerSlicers } from "./integrations/workerSlicer.ts";
 import { authGuard } from "./lib/auth.ts";
@@ -61,6 +62,7 @@ import { logsRoutes } from "./routes/logs.ts";
 import { maintenanceRoutes } from "./routes/maintenance.ts";
 import { ordersRoutes } from "./routes/orders.ts";
 import { preferencesRoutes } from "./routes/preferences.ts";
+import { presetsRoutes } from "./routes/presets.ts";
 import { printersRoutes } from "./routes/printers.ts";
 import { printsRoutes } from "./routes/prints.ts";
 import { projectFilesRoutes } from "./routes/projectFiles.ts";
@@ -227,8 +229,11 @@ export async function buildApp(
         for (const { id } of db.select({ id: schema.devices.id }).from(schema.devices).all())
           if (hub.online(id)) hub.publish(id, { type: "roots.changed" });
       }
-      // The sync index is kept only while the hub is on: a scan builds it.
-      if (patch.hubEnabled) scanner.start();
+      // The sync index is kept only while the hub is on: a scan builds it. So is the preset library.
+      if (patch.hubEnabled) {
+        scanner.start();
+        linkLibraries(db, dataDir, syncer.adapters);
+      }
       // A lower limit drops the older versions now.
       if (patch.hubVersionsKeep !== undefined)
         void hubFiles.pruneVersions(v.hubVersionsKeep).catch((err) => app.log.error({ err }));
@@ -278,6 +283,12 @@ export async function buildApp(
   const syncer = createSyncer(db, opts.adapters ?? [], key, logFor("integrations"), dataDir);
   await app.register(filamentRoutes(db), { prefix: "/api/filament" });
   await app.register(slicerZipRoutes(db, syncer, dataDir), { prefix: "/api/slicer-zip" });
+  await app.register(presetsRoutes(db, dataDir), { prefix: "/api/presets" });
+  // The library folder is a cache of its table (ADR-0017).
+  app.addHook("onReady", async () => {
+    rebuildLibraries(db, dataDir);
+    if (readPreferences(db).hubEnabled) linkLibraries(db, dataDir, syncer.adapters);
+  });
   await app.register(printsRoutes(db), { prefix: "/api/prints" });
   const projectsLog = logFor("projects");
   const sliceQueue = createSliceQueue(projectsLog);

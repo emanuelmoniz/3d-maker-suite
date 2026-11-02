@@ -15,6 +15,7 @@ import { type Db, schema } from "@3d-maker-suite/db";
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import type { FastifyBaseLogger } from "fastify";
 import { capableRows, presetLibrary, slicerConfigDir } from "../integrations/capabilities.ts";
+import { usedPresets } from "../integrations/presetLibrary.ts";
 import { success } from "../lib/logSink.ts";
 import { readPreferences } from "../lib/preferences.ts";
 import { fingerprint } from "./fingerprint.ts";
@@ -223,7 +224,8 @@ export async function slicePlate(
     signal,
     run,
   );
-  return { fingerprint: before, profileId, slicer: found.row, result };
+  const presets = usedPresets(db, presetLibrary(found.adapter), req);
+  return { fingerprint: before, profileId, slicer: found.row, presets, result };
 }
 
 /** The error text stored for a failed slice; unexpected errors are logged. A wait isn't one. */
@@ -277,6 +279,7 @@ export function projectSliceJob(
           slicedPrintProfileId: out.profileId,
           slicedIntegrationId: out.slicer.id,
           slicedSlicerVersion: out.slicer.slicerVersion,
+          slicedPresets: out.presets,
           printTimeSeconds: out.result.printTimeSeconds,
           weightGrams: out.result.weightGrams,
           slicedFilaments: out.result.filaments,

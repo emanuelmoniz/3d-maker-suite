@@ -67,7 +67,9 @@
     "slicer_update": "Slicer update",
     "connector_outdated": "Connector outdated",
     "hub_conflict": "Sync conflict",
-    "hub_mass_delete": "Sync paused: many deletes"
+    "hub_mass_delete": "Sync paused: many deletes",
+    "preset_conflict": "Preset conflict",
+    "preset_skipped": "Preset skipped"
   },
   "status": {
     "snoozed": "Snoozed",
@@ -108,7 +110,10 @@
     "hub_conflict": "{{file}} changed on the hub and on {{device}}; their version was kept as {{copy}}",
     "connector_update_failed": "Connector on {{name}} could not update to {{hubVersion}}",
     "hub_mass_delete_one": "{{name}} deleted {{count}} file in {{roots}} at once; the sync waits until someone confirms or restores it on that device",
-    "hub_mass_delete_other": "{{name}} deleted {{count}} files in {{roots}} at once; the sync waits until someone confirms or restores them on that device"
+    "hub_mass_delete_other": "{{name}} deleted {{count}} files in {{roots}} at once; the sync waits until someone confirms or restores them on that device",
+    "preset_conflict": "Slicer preset {{name}} changed on the hub and on {{device}}; their version was kept as {{copy}}",
+    "preset_skipped_json": "Slicer preset {{name}} isn't valid JSON and was not stored",
+    "preset_skipped_parent": "Slicer preset {{name}} was not installed: the slicer lacks the preset it inherits from"
   },
   "severity": {
     "error": "Error",

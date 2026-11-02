@@ -59,6 +59,9 @@ const ONE_SHOT = new Set<AlertKind>([
   "slicer_update",
   // Raised by an upload that lost to a newer version, keyed by its conflict copy (projects/hubFiles.ts).
   "hub_conflict",
+  // Raised by the preset library, keyed by the preset's content (integrations/presetLibrary.ts).
+  "preset_conflict",
+  "preset_skipped",
 ]);
 
 /**
@@ -319,6 +322,16 @@ function textOf(a: typeof alerts.$inferSelect): { title: string; body: string } 
       return {
         title: "Sync paused: many files deleted",
         body: `${c.name} deleted ${c.count} files in ${c.roots}; confirm or restore them on the device`,
+      };
+    case "preset_conflict":
+      return {
+        title: "Slicer preset conflict",
+        body: `${c.name} changed on the hub and on ${c.device}; their version is ${c.copy}`,
+      };
+    case "preset_skipped":
+      return {
+        title: "Slicer preset skipped",
+        body: `${c.name} from ${c.from} was not stored (${c.reason})`,
       };
   }
 }

@@ -151,6 +151,15 @@ export function Title({ a, inList }: { a: Alert; inList?: boolean }) {
       t("alerts:kinds.hub_conflict", { file: c.file, device: c.device, copy: c.copy }),
     hub_mass_delete: () =>
       t("alerts:kinds.hub_mass_delete", { name: c.name, count: Number(c.count), roots: c.roots }),
+    preset_conflict: () =>
+      t("alerts:kinds.preset_conflict", { name: c.name, device: c.device, copy: c.copy }),
+    preset_skipped: () =>
+      t(
+        c.reason === "missing_parent"
+          ? "alerts:kinds.preset_skipped_parent"
+          : "alerts:kinds.preset_skipped_json",
+        { name: c.name },
+      ),
   }[a.kind]();
   if (inList)
     return (
@@ -222,6 +231,13 @@ export function Title({ a, inList }: { a: Alert; inList?: boolean }) {
       if (!hubManage) return <span className="font-medium">{text}</span>;
       return (
         <Link to="/hub" className={link}>
+          {text}
+        </Link>
+      );
+    case "preset_conflict":
+    case "preset_skipped":
+      return (
+        <Link to="/hub/presets" className={link}>
           {text}
         </Link>
       );
@@ -378,6 +394,8 @@ const KIND_NAMES: Record<AlertKind, string> = {
   connector_outdated: "alerts:kindNames.connector_outdated",
   hub_conflict: "alerts:kindNames.hub_conflict",
   hub_mass_delete: "alerts:kindNames.hub_mass_delete",
+  preset_conflict: "alerts:kindNames.preset_conflict",
+  preset_skipped: "alerts:kindNames.preset_skipped",
 };
 const STATUS: Record<AlertStatus, string> = {
   snoozed: "alerts:status.snoozed",

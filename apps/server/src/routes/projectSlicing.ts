@@ -13,6 +13,7 @@ import { eq, inArray } from "drizzle-orm";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
+import { presetsChanged } from "../integrations/presetLibrary.ts";
 import { type Fingerprint, fingerprint, sameAsScanned, stateOf } from "../projects/fingerprint.ts";
 import { onDeviceRoot, projectFile } from "../projects/rootFs.ts";
 import {
@@ -45,6 +46,7 @@ const resultOf = (r: Row) => ({
   slicedPrintProfileId: r.slicedPrintProfileId,
   slicedIntegrationId: r.slicedIntegrationId,
   slicedSlicerVersion: r.slicedSlicerVersion,
+  slicedPresets: r.slicedPresets,
   printTimeSeconds: r.printTimeSeconds,
   weightGrams: r.weightGrams,
   slicedFilaments: r.slicedFilaments,
@@ -77,6 +79,7 @@ export const projectSlicingRoutes =
       const slicerOf = slicerResolver(db, adapters);
       const fallback = slicerOf()?.row.id;
       const here = slicerResolver(db, adapters, true)();
+      const presetsStale = presetsChanged(db);
       // Taken with the rows, before any await: a job that ends meanwhile has already written them.
       const jobs = rows.map((r) =>
         queue.state(projectJobKey({ projectId: id, file: r.file, plate: r.plate })),
@@ -147,7 +150,8 @@ export const projectSlicingRoutes =
                 (!result ||
                   state === "outdated" ||
                   r.slicedPrintProfileId !== profileId ||
-                  slicedWithOther(r, slicer, fallback)),
+                  slicedWithOther(r, slicer, fallback) ||
+                  presetsStale(r)),
               job: jobs[i] ?? null,
             };
           }),
