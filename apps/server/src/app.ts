@@ -283,7 +283,7 @@ export async function buildApp(
   const syncer = createSyncer(db, opts.adapters ?? [], key, logFor("integrations"), dataDir);
   await app.register(filamentRoutes(db), { prefix: "/api/filament" });
   await app.register(slicerZipRoutes(db, syncer, dataDir), { prefix: "/api/slicer-zip" });
-  await app.register(presetsRoutes(db, dataDir), { prefix: "/api/presets" });
+  await app.register(presetsRoutes(db, dataDir, hub), { prefix: "/api/presets" });
   // The library folder is a cache of its table (ADR-0017).
   app.addHook("onReady", async () => {
     rebuildLibraries(db, dataDir);
@@ -338,6 +338,7 @@ export async function buildApp(
       hubFiles,
       syncer.adapters,
       workers,
+      dataDir,
       () => void evaluate(),
     ),
     {

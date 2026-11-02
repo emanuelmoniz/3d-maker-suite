@@ -19,6 +19,9 @@ import {
   hubSyncRootsSchema,
   hubUploadResultSchema,
   type IntegrationAdapter,
+  presetRemovedSchema,
+  presetUploadResultSchema,
+  presetUploadSchema,
   ROOT_HUB,
   sliceFileName,
 } from "@3d-maker-suite/core";
@@ -28,6 +31,8 @@ import type { FastifyRequest } from "fastify";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
+import { presetLibrary } from "../integrations/capabilities.ts";
+import { presetRemovedOn, uploadPreset } from "../integrations/presetLibrary.ts";
 import type { WorkerSlicers } from "../integrations/workerSlicer.ts";
 import type { HubChannel } from "../lib/hubChannel.ts";
 import { readPreferences } from "../lib/preferences.ts";
@@ -67,6 +72,7 @@ export const hubDeviceRoutes =
     sync: HubFiles,
     adapters: IntegrationAdapter[],
     workers: WorkerSlicers,
+    dataDir: string,
     /** A device reported its sync state: the mass delete alert may open or close. */
     onSyncState: () => void = () => {},
   ): FastifyPluginAsyncZod =>
@@ -242,14 +248,58 @@ export const hubDeviceRoutes =
       "all";
 
     // What to look for, from the adapters that open files in a slicer; then what it found.
+    const desktopSlicers = () =>
+      adapters.flatMap((a) =>
+        a.desktop && a.capabilities.includes("openInSlicer")
+          ? [{ id: a.id, library: presetLibrary(a), ...a.desktop }]
+          : [],
+      );
     app.get(
       "/slicers",
       { schema: { response: { 200: z.array(desktopSlicerSchema), ...errors } } },
       async (req) => {
         deviceOf(req);
-        return adapters.flatMap((a) =>
-          a.desktop && a.capabilities.includes("openInSlicer") ? [{ id: a.id, ...a.desktop }] : [],
-        );
+        return desktopSlicers();
+      },
+    );
+
+    // Share my presets (ADR-0017): only with its switch on, and only into a slicer's library,
+    // whose id names a folder.
+    const sharing = (req: FastifyRequest, library: string) => {
+      const device = db
+        .select()
+        .from(devices)
+        .where(eq(devices.id, deviceOf(req)))
+        .get();
+      if (!device?.sharePresets)
+        throw new HttpError(403, "not_sharing", "Share my presets is off for this device");
+      if (!desktopSlicers().some((s) => s.library === library))
+        throw new HttpError(404, "not_found", "No such preset library");
+      return device;
+    };
+    app.put(
+      "/presets",
+      {
+        bodyLimit: 16 * 1024 * 1024,
+        schema: {
+          body: presetUploadSchema,
+          response: { 200: presetUploadResultSchema, ...errors },
+        },
+      },
+      async (req) => {
+        const device = sharing(req, req.body.library);
+        return uploadPreset(db, dataDir, req.body, device.id, {
+          user: req.user?.displayName,
+          device: device.name,
+        });
+      },
+    );
+    app.post(
+      "/presets/removed",
+      { schema: { body: presetRemovedSchema, response: { 204: z.null(), ...errors } } },
+      async (req, reply) => {
+        presetRemovedOn(db, req.body, sharing(req, req.body.library).id);
+        return reply.status(204).send(null);
       },
     );
     app.put(

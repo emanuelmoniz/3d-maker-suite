@@ -29,6 +29,7 @@ Two tables, `slicer_presets` and `slicer_preset_versions`:
 | `deleted` | tombstone |
 | `seq` | change cursor for devices, as `hub_files.seq` |
 | `savedUser`, `savedDevice`, `savedAt` | who saved it, from where, when |
+| `removedOn` | ids of the devices that deleted their copy; only shown |
 
 `slicer_preset_versions` keeps earlier versions (`json`, `sha256`, `version`, the saved fields), pruned like hub file versions (`hubVersionsKeep`).
 
@@ -42,7 +43,7 @@ Off by default, set in Hub management by `presets.manage`:
 - **Install hub presets** (hub → desktop). The connector writes hub changes into that same folder, following the cloud rules below.
 
 ### Conflicts
-- The same canonical sha is never a conflict and is never sent again. This also stops the same-account loop: a preset that comes back through the slicer's cloud has the sha the hub already holds.
+- The same canonical sha is never a conflict and is never sent again. This also stops the same-account loop: a preset that comes back through the slicer's cloud has the sha the hub already holds. It holds against a hub delete too: only an edit brings a deleted preset back.
 - A stale base with other content becomes a conflict copy named as hub files are (`<name> (conflict <who> <when>)`, `conflictName` in `hubFiles.ts`). The `name` inside the json is renamed too, plus a `preset_conflict` alert.
 - Json that doesn't parse is rejected with a `preset_skipped` alert and never stored or written. `"nil"` values are valid: they mean "inherit from the parent", and both slicers load them.
 

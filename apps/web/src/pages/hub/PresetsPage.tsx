@@ -7,13 +7,16 @@ import { Button } from "../../components/Button.tsx";
 import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { EmptyState } from "../../components/EmptyState.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
+import { Switch } from "../../components/Switch.tsx";
 import { useCan } from "../../lib/auth.ts";
 import { formatDateTime } from "../../lib/format.ts";
 import {
   presetDownloadUrl,
   useDeletePreset,
   usePresetDetail,
+  usePresetDevices,
   usePresets,
+  useSharePresets,
 } from "../../lib/presets.ts";
 
 // Written out so `pnpm i18n:check` sees the keys. The most edited kind first.
@@ -79,7 +82,7 @@ function Versions({ preset }: { preset: SlicerPreset }) {
 }
 
 function PresetRow({ preset: p, onDelete }: { preset: SlicerPreset; onDelete?: () => void }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [open, setOpen] = useState(false);
   const panel = `preset-${p.id}`;
   return (
@@ -106,6 +109,13 @@ function PresetRow({ preset: p, onDelete }: { preset: SlicerPreset; onDelete?: (
             <span className="block text-sm text-muted wrap-anywhere">
               <SavedLine v={p} />
             </span>
+            {p.removedOn.length > 0 && (
+              <span className="block text-sm text-warn wrap-anywhere">
+                {t("hub:presets.removedOn", {
+                  devices: new Intl.ListFormat(i18n.language).format(p.removedOn),
+                })}
+              </span>
+            )}
           </span>
         </button>
         <a
@@ -162,6 +172,52 @@ function Switcher<T extends string>({
         </Button>
       ))}
     </fieldset>
+  );
+}
+
+/** Which devices send their slicers' user presets here. */
+function SharingDevices() {
+  const { t } = useTranslation();
+  const devices = usePresetDevices(true);
+  const share = useSharePresets();
+  return (
+    <section
+      aria-labelledby="preset-devices"
+      className="mt-5 grid gap-2 rounded-lg border border-border bg-surface px-4 py-3"
+    >
+      <h2 id="preset-devices" className="text-base font-semibold">
+        {t("hub:presets.devicesTitle")}
+      </h2>
+      <p className="max-w-prose text-muted">{t("hub:presets.devicesHint")}</p>
+      {share.isError && (
+        <p role="alert" className="text-bad">
+          {t("hub:errors.generic")}
+        </p>
+      )}
+      {devices.data?.length ? (
+        <ul className="divide-y divide-border">
+          {devices.data.map((d) => (
+            <li key={d.id} className="flex flex-wrap items-center justify-between gap-x-4 py-1">
+              <span className="min-w-0 wrap-anywhere">
+                {d.name}
+                {!d.online && (
+                  <span className="ml-2 text-sm text-muted">{t("hub:presets.deviceOffline")}</span>
+                )}
+              </span>
+              <Switch
+                label={t("hub:presets.share")}
+                aria-label={t("hub:presets.shareOn", { name: d.name })}
+                checked={d.sharePresets}
+                disabled={share.isPending}
+                onChange={(e) => share.mutate({ id: d.id, sharePresets: e.target.checked })}
+              />
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="text-muted">{t("hub:presets.noDevices")}</p>
+      )}
+    </section>
   );
 }
 
@@ -293,6 +349,7 @@ export function PresetsPage() {
           </section>
         </div>
       )}
+      {manage && <SharingDevices />}
 
       <ConfirmDialog
         open={!!deleting}

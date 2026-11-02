@@ -8,10 +8,11 @@ import {
 } from "@3d-maker-suite/adapter-orca";
 import type { SlicerPreset, SlicerPresetDetail } from "@3d-maker-suite/core";
 import { openDb, schema } from "@3d-maker-suite/db";
+import { presetSha } from "@3d-maker-suite/host";
 import { beforeEach, describe, expect, it } from "vitest";
 import yazl from "yazl";
 import { buildApp } from "./app.ts";
-import { presetSha, presetsChanged, usedPresets } from "./integrations/presetLibrary.ts";
+import { presetsChanged, usedPresets } from "./integrations/presetLibrary.ts";
 
 const zipOf = (files: Record<string, string>) =>
   new Promise<Buffer>((resolve) => {

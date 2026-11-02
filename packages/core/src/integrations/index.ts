@@ -36,7 +36,7 @@ export interface IntegrationAdapter {
   /** `server` adapters: where to download the slicer and what is in the download (ADR-0013). */
   managed?: ManagedSlicer;
   /** How a connector finds this desktop slicer on a workstation (ADR-0014). */
-  desktop?: Omit<DesktopSlicer, "id">;
+  desktop?: Omit<DesktopSlicer, "id" | "library">;
   /**
    * Interactive sign-in (password, then an email code or 2FA). Returns the secrets to store, or a
    * challenge; the server keeps `state` and passes it back with the code. Never store the password.

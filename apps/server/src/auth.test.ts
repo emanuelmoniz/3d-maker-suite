@@ -112,6 +112,7 @@ const MATRIX: Record<string, [viewer: string, editor: string]> = {
   // ADR-0017: who sees projects sees the presets; presets.manage (Editor by migration 0090) deletes.
   "/api/presets": ["R", "RW"],
   "/api/presets/abc": ["R", "RW"],
+  "/api/presets/devices": ["-", "RW"],
   "/api/docs": ["-", "-"],
   "/api/not-yet-in-the-table": ["-", "-"],
 };

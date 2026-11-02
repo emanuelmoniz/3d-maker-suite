@@ -275,11 +275,11 @@ export const hubRoutes =
       const cursor = Number(req.headers["last-event-id"]);
       const mine = eq(hubEvents.deviceId, deviceId);
 
-      const worker = db
-        .select({ on: devices.sliceWorker })
+      const switches = db
+        .select({ worker: devices.sliceWorker, share: devices.sharePresets })
         .from(devices)
         .where(eq(devices.id, deviceId))
-        .get()?.on;
+        .get();
       reply.hijack();
       const res = reply.raw;
       res.writeHead(200, {
@@ -287,7 +287,8 @@ export const hubRoutes =
         "cache-control": "no-cache",
         "x-accel-buffering": "no",
         // On every connect, so a connector that missed `device.worker` (an older one) knows it.
-        "x-slice-worker": worker ? "1" : "0",
+        "x-slice-worker": switches?.worker ? "1" : "0",
+        "x-share-presets": switches?.share ? "1" : "0",
         // Once the hub ends a stream (revoke, shutdown) the socket goes too, instead of idling in
         // keep-alive, which held up the server's close.
         connection: "close",

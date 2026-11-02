@@ -360,6 +360,7 @@ export function bambuStudioAdapter(): IntegrationAdapter {
       windowsName: "Bambu Studio",
       macApp: "BambuStudio.app",
       flatpak: "com.bambulab.BambuStudio",
+      config: "BambuStudio",
     },
     configSchema: z.object({}),
     secretsSchema: z.object({}),

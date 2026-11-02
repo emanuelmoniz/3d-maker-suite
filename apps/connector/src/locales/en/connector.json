@@ -95,7 +95,8 @@
     "makeDefault": "Use by default",
     "ask": "Ask each time",
     "asking": "No default: the web app asks which slicer opens a file.",
-    "worker": "This device is a slice worker: the hub sends it slices to run in the background, with the hub's presets. Your own slicer settings aren't touched."
+    "worker": "This device is a slice worker: the hub sends it slices to run in the background, with the hub's presets. Your own slicer settings aren't touched.",
+    "sharing": "Share my presets is on: user presets you save in these slicers go to the hub."
   },
   "folders": {
     "title": "Shared folders",

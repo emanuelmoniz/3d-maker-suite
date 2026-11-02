@@ -116,7 +116,7 @@
     "description": "The user presets the hub's slicer and every slice worker use. A slice that used a changed preset needs slicing again.",
     "loadError": "Couldn't load the presets.",
     "emptyTitle": "No slicer presets yet",
-    "emptyBody": "Import a slicer zip on a server slicer's card in Integrations. Its user presets join this library, and a zip from another PC adds its own.",
+    "emptyBody": "Turn on Share my presets for a device below, or import a slicer zip on a server slicer's card in Integrations. Their user presets join this library.",
     "toIntegrations": "Go to Integrations",
     "library": "Slicer",
     "libraries": {
@@ -148,6 +148,13 @@
     "delete": "Delete {{name}}",
     "deleteTitle": "Delete {{name}}?",
     "deleteBody": "It's removed from the hub's slicer and the slice workers, and slices that used it need slicing again. Workstations keep their own copy: delete it in the slicer on each one, or its cloud account brings it back.",
-    "deleteConfirm": "Delete preset"
+    "deleteConfirm": "Delete preset",
+    "removedOn": "Removed on {{devices}}",
+    "devicesTitle": "Devices",
+    "devicesHint": "A device with Share my presets on sends each preset saved in its slicers here within a minute. Deleting one in a slicer only shows here; the hub keeps its copy.",
+    "deviceOffline": "Offline",
+    "share": "Share my presets",
+    "shareOn": "Share my presets on {{name}}",
+    "noDevices": "No connector with a slicer yet."
   }
 }

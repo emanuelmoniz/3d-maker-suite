@@ -1155,6 +1155,8 @@ export const devices = sqliteTable(
     slicers: text({ mode: "json" }).$type<DeviceSlicer[]>().notNull().default([]),
     /** Worker integrations may slice on it (ADR-0014). */
     sliceWorker: integer({ mode: "boolean" }).notNull().default(false),
+    /** Share my presets: its slicers' user presets go to the hub's library (ADR-0017). */
+    sharePresets: integer({ mode: "boolean" }).notNull().default(false),
     /** Its OS, arch and glibc (`X-Connector-System`): which managed slicer build fits it. */
     system: text({ mode: "json" }).$type<SlicerSystem>(),
     lastSeenAt: text(),
@@ -1286,6 +1288,8 @@ export const slicerPresets = sqliteTable(
     savedUser: text(),
     savedDevice: text(),
     savedAt: text().notNull(),
+    /** The ids of the devices that deleted their copy; only shown, the hub keeps it. */
+    removedOn: text({ mode: "json" }).$type<string[]>().notNull().default([]),
   },
   (t) => [
     uniqueIndex("slicer_presets_name_uq").on(t.library, t.kind, t.name),

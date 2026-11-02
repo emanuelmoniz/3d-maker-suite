@@ -41,6 +41,10 @@ export const desktopSlicerSchema = z.object({
   windowsName: z.string(),
   macApp: z.string(),
   flatpak: z.string(),
+  /** The hub's preset library it shares into (ADR-0017). */
+  library: z.string(),
+  /** Its config folder's name, which also names its `.conf` there. */
+  config: z.string(),
 });
 /** A slicer the connector found (`PUT /api/hub/device/slicers`); `id` as in `desktopSlicerSchema`. */
 export const deviceSlicerSchema = z.object({
@@ -260,6 +264,8 @@ export const hubEventSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("slicer.remove"), requestId: id, integrationId: id }),
   /** An admin made this device a slice worker, or no longer one (its status page shows it). */
   z.object({ type: z.literal("device.worker"), on: z.boolean() }),
+  /** Share my presets went on or off (ADR-0017): its slicers' user presets go to the hub. */
+  z.object({ type: z.literal("device.presets"), share: z.boolean() }),
   /** Edit connector: read its settings; the answer's result is a `connectorSettingsSchema`. */
   z.object({ type: z.literal("connector.settings.get"), requestId: id }),
   /**

@@ -2,14 +2,19 @@ import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join, parse } from "node:path";
 import {
+  type PresetRemoved,
+  type PresetUpload,
+  type PresetUploadResult,
   SLICER_PRESET_KINDS,
   type SliceRequest,
   type SlicerPresetKind,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
+import { parsePreset, presetName, presetSha } from "@3d-maker-suite/host";
 import { and, desc, eq, inArray, max } from "drizzle-orm";
 import { raise } from "../alerts/evaluate.ts";
 import { readPreferences } from "../lib/preferences.ts";
+import { conflictMark } from "../projects/hubFiles.ts";
 
 // The hub's slicer preset library (ADR-0017). The `slicer_presets` table is the source of truth;
 // `<dataDir>/presets/<library>/default/<kind>/` holds its live presets, rebuilt at start and kept
@@ -20,33 +25,6 @@ type Row = typeof slicerPresets.$inferSelect;
 type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
 /** Who saved a change (names as they were); none = on the hub. */
 export type SavedBy = { user?: string | null; device?: string | null };
-
-const sorted = (v: unknown): unknown =>
-  Array.isArray(v)
-    ? v.map(sorted)
-    : v && typeof v === "object"
-      ? Object.fromEntries(
-          Object.keys(v)
-            .sort()
-            .map((k) => [k, sorted((v as Record<string, unknown>)[k])]),
-        )
-      : v;
-
-/** Of the canonical json: sorted keys, no whitespace. The clouds re-serialize, so bytes don't compare. */
-export const presetSha = (json: unknown) =>
-  createHash("sha256")
-    .update(JSON.stringify(sorted(json)))
-    .digest("hex");
-
-/** The json object in `text`, or null. `"nil"` values are valid: they inherit. */
-export function parsePreset(text: string): Record<string, unknown> | null {
-  try {
-    const j: unknown = JSON.parse(text);
-    return j && typeof j === "object" && !Array.isArray(j) ? (j as Record<string, unknown>) : null;
-  } catch {
-    return null;
-  }
-}
 
 export const libraryDir = (dataDir: string, library: string) => join(dataDir, "presets", library);
 // ponytail: two names that differ only in these characters share a file; the later write wins.
@@ -111,6 +89,37 @@ function archive(tx: Tx, row: Row, keep: number) {
       .run();
 }
 
+const named = (q: Db | Tx, p: { library: string; kind: SlicerPresetKind; name: string }) =>
+  q
+    .select()
+    .from(slicerPresets)
+    .where(
+      and(
+        eq(slicerPresets.library, p.library),
+        eq(slicerPresets.kind, p.kind),
+        eq(slicerPresets.name, p.name),
+      ),
+    )
+    .get();
+
+/** Json that doesn't parse: not stored, with an alert per name and content. */
+function skipInvalid(
+  db: Db,
+  p: { library: string; kind: SlicerPresetKind; name: string },
+  text: string,
+  by: SavedBy,
+) {
+  raise(db, {
+    kind: "preset_skipped",
+    severity: "warning",
+    module: "hub",
+    task: `presets:${p.library}`,
+    entityType: "preset",
+    entityId: `${p.library}:${p.kind}:${p.name}:${createHash("sha256").update(text).digest("hex")}`,
+    context: { ...p, from: by.device ?? by.user ?? "a slicer zip", reason: "invalid_json" },
+  });
+}
+
 /**
  * Stores a preset (`json` must parse, see `parsePreset`): new, changed (the old content becomes a
  * version) or back from a delete. The same canonical sha is no change. Returns the row if it changed.
@@ -124,17 +133,7 @@ export function savePreset(
   const sha256 = presetSha(JSON.parse(p.json));
   const keep = readPreferences(db).hubVersionsKeep;
   const row = db.transaction((tx) => {
-    const old = tx
-      .select()
-      .from(slicerPresets)
-      .where(
-        and(
-          eq(slicerPresets.library, p.library),
-          eq(slicerPresets.kind, p.kind),
-          eq(slicerPresets.name, p.name),
-        ),
-      )
-      .get();
+    const old = named(tx, p);
     if (old && !old.deleted && old.sha256 === sha256) return undefined;
     const set = {
       json: p.json,
@@ -211,25 +210,85 @@ export function mergeUserPresets(
         if (!rel.endsWith(".json")) continue;
         const text = readFileSync(join(dir, rel), "utf8");
         const json = parsePreset(text);
-        const name = typeof json?.name === "string" && json.name ? json.name : parse(rel).name;
+        const name = presetName(json, parse(rel).name);
         if (seen.has(`${kind}/${name}`)) continue;
         seen.add(`${kind}/${name}`);
         if (!json) {
-          raise(db, {
-            kind: "preset_skipped",
-            severity: "warning",
-            module: "hub",
-            task: `presets:${library}`,
-            entityType: "preset",
-            entityId: `${library}:${kind}:${name}:${createHash("sha256").update(text).digest("hex")}`,
-            context: { library, kind, name, reason: "invalid_json" },
-          });
+          skipInvalid(db, { library, kind, name }, text, by);
           continue;
         }
         if (savePreset(db, dataDir, { library, kind, name, json: text }, by)) changed++;
       }
     }
   return changed;
+}
+
+/**
+ * A preset from a device's slicer (Share my presets). The same canonical sha is no change, even
+ * against a hub delete: only an edit brings a deleted preset back. Another content on the version
+ * the hub has is its next version; on any other (`base`) it is a conflict copy, with the `name`
+ * inside renamed and an alert, and the hub's version stays.
+ */
+export function uploadPreset(
+  db: Db,
+  dataDir: string,
+  { base, text, ...p }: PresetUpload,
+  deviceId: string,
+  by: SavedBy,
+): PresetUploadResult {
+  const json = parsePreset(text);
+  const name = presetName(json, p.name);
+  const ref = { library: p.library, kind: p.kind, name };
+  if (!json) {
+    skipInvalid(db, ref, text, by);
+    return { result: "invalid", name, version: 0 };
+  }
+  const old = named(db, ref);
+  // Its file is there again.
+  if (old?.removedOn.includes(deviceId))
+    db.update(slicerPresets)
+      .set({ removedOn: old.removedOn.filter((d) => d !== deviceId) })
+      .where(eq(slicerPresets.id, old.id))
+      .run();
+  if (old?.sha256 === presetSha(json)) return { result: "same", name, version: old.version };
+  if (!old || old.deleted || old.version === base) {
+    const saved = savePreset(db, dataDir, { ...ref, json: text }, by);
+    return { result: "saved", name, version: saved?.version ?? 0 };
+  }
+  const device = by.device ?? "device";
+  const at = new Date();
+  let copy = "";
+  for (let n = 1; ; n++) {
+    copy = `${name}${conflictMark(device, at, n)}`;
+    if (!named(db, { ...ref, name: copy })) break;
+  }
+  const kept = savePreset(
+    db,
+    dataDir,
+    { ...ref, name: copy, json: JSON.stringify({ ...json, name: copy }, null, 4) },
+    by,
+  );
+  if (kept)
+    raise(db, {
+      kind: "preset_conflict",
+      severity: "warning",
+      module: "hub",
+      task: `presets:${p.library}`,
+      entityType: "preset",
+      entityId: kept.id,
+      context: { ...ref, copy, device },
+    });
+  return { result: "conflict", name, version: old.version };
+}
+
+/** A device deleted its copy: only shown on the preset (ADR-0017). */
+export function presetRemovedOn(db: Db, p: PresetRemoved, deviceId: string) {
+  const row = named(db, p);
+  if (row && !row.removedOn.includes(deviceId))
+    db.update(slicerPresets)
+      .set({ removedOn: [...row.removedOn, deviceId] })
+      .where(eq(slicerPresets.id, row.id))
+      .run();
 }
 
 /**

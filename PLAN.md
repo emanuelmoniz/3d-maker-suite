@@ -1358,7 +1358,7 @@ Do Step 15 of the 5.1.0 plan in PLAN.md. Use frontend-design for the page.
 Back up the DB before editing schema.ts.
 ```
 
-### [ ] Step 16 - Share my presets (desktop → hub)
+### [x] Step 16 - Share my presets (desktop → hub)
 **Model:** Opus · **Effort:** High
 **Scope:**
 - Device switch *Share my presets* in Hub management. The connector watches its slicers' user preset folders (`app.preset_folder` in the slicer's `.conf`, empty = `default`), ignores `.info` changes, and uploads changed `.json` with their base version.

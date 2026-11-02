@@ -99,6 +99,8 @@ type State = {
   folders?: string[];
   /** An admin made this device a slice worker (`device.worker`): it runs the hub's slices. */
   sliceWorker?: boolean;
+  /** Share my presets is on (`device.presets`): its slicers' user presets go to the hub. */
+  sharePresets?: boolean;
 };
 type Saved = State & { token?: Blob };
 

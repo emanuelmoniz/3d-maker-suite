@@ -1,4 +1,4 @@
-import type { SlicerPreset, SlicerPresetDetail } from "@3d-maker-suite/core";
+import type { PresetDevice, SlicerPreset, SlicerPresetDetail } from "@3d-maker-suite/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "./api.ts";
 
@@ -19,6 +19,24 @@ export const usePresetDetail = (id: string, enabled: boolean) =>
 /** The json as stored; `version` = an earlier one. A plain link: the session cookie goes with it. */
 export const presetDownloadUrl = (id: string, version?: number) =>
   `/api/presets/${id}/download${version === undefined ? "" : `?version=${version}`}`;
+
+/** Devices with a slicer and their Share my presets switch; `enabled`: presets.manage. */
+export const usePresetDevices = (enabled: boolean) =>
+  useQuery({
+    queryKey: [...KEY, "devices"],
+    queryFn: () => api<PresetDevice[]>("GET", "/api/presets/devices"),
+    enabled,
+    refetchInterval: 30_000,
+  });
+
+export function useSharePresets() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, sharePresets }: { id: string; sharePresets: boolean }) =>
+      api("PATCH", `/api/presets/devices/${id}`, { sharePresets }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: KEY }),
+  });
+}
 
 export function useDeletePreset() {
   const qc = useQueryClient();

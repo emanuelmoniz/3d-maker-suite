@@ -3,6 +3,7 @@ export * from "./autostart.ts";
 export * from "./bundle.ts";
 export * from "./launch.ts";
 export * from "./listFolder.ts";
+export * from "./presets.ts";
 export * from "./rootPath.ts";
 export * from "./runSlicer.ts";
 export * from "./scanFolder.ts";

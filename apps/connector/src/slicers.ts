@@ -185,6 +185,7 @@ export function createSlicers({
   runSlice?: typeof runSlicer;
 }) {
   let found: Found[] = [];
+  let known: DesktopSlicer[] = [];
   const managedDir = dataDir && join(dataDir, "slicers");
   if (managedDir) cleanPartials(managedDir);
   /** Slice workers: a folder per slice from the hub, and the 3MF pulled last. */
@@ -237,12 +238,15 @@ export function createSlicers({
 
   return {
     list: () => found,
+    /** The found slicers as the hub described them: their preset library and config folder. */
+    described: () => known.filter((k) => found.some((f) => f.id === k.id)),
     pick,
     async refresh() {
       try {
         const res = await request("/slicers");
         if (!res.ok) throw new Error(`slicers: HTTP ${res.status}`);
-        found = await find(z.array(desktopSlicerSchema).parse(await res.json()));
+        known = z.array(desktopSlicerSchema).parse(await res.json());
+        found = await find(known);
         const { defaultSlicer } = store.get();
         const body = found.map(({ id, version, path }) => ({
           id,

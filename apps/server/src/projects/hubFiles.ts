@@ -63,12 +63,16 @@ const sha256Of = async (abs: string) => {
   return hash.digest("hex");
 };
 
-/** `<name> (conflict <device> <date>).<ext>`; the device name made safe for a file name. */
-const conflictName = (name: string, device: string, at: Date, n: number) => {
-  const ext = extname(name);
+/** ` (conflict <device> <date>)`; the device name made safe for a file name. */
+export const conflictMark = (device: string, at: Date, n: number) => {
   const who = device.replace(/[\\/:*?"<>|\p{Cc}]/gu, "-").replace(/[. ]+$/, "") || "device";
   const when = at.toISOString().slice(0, 19).replace("T", " ").replace(/:/g, "-");
-  return `${name.slice(0, name.length - ext.length)} (conflict ${who} ${when}${n > 1 ? ` ${n}` : ""})${ext}`;
+  return ` (conflict ${who} ${when}${n > 1 ? ` ${n}` : ""})`;
+};
+/** `<name> (conflict <device> <date>).<ext>`. */
+const conflictName = (name: string, device: string, at: Date, n: number) => {
+  const ext = extname(name);
+  return `${name.slice(0, name.length - ext.length)}${conflictMark(device, at, n)}${ext}`;
 };
 
 /**

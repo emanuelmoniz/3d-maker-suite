@@ -12,6 +12,7 @@ import {
 } from "@3d-maker-suite/core";
 import { openFolder, systemInfo } from "@3d-maker-suite/host";
 import { z } from "zod";
+import { createPresetShare } from "./presets.ts";
 import { createRootSync, type Request } from "./roots.ts";
 import { createSlicers } from "./slicers.ts";
 import type { Store } from "./state.ts";
@@ -91,6 +92,8 @@ type Options = {
     Parameters<typeof createHubSync>[0],
     "alive" | "handoffMs" | "pollMs"
   >;
+  /** Where slicers' config folders are (tests); the real ones by default. */
+  presetConfigDir?: Parameters<typeof createPresetShare>[0]["configDir"];
   /** How slicers are found and started, and folders opened (tests); the real ones by default. */
   slicers?: Pick<
     Parameters<typeof createSlicers>[0],
@@ -120,6 +123,7 @@ export function createLink({
   onHubVersion,
   updateFailure,
   sync: syncAt,
+  presetConfigDir,
   slicers: slicerHooks,
   settings,
   log = () => {},
@@ -166,6 +170,17 @@ export function createLink({
     });
   const { openDir = openFolder, ...slicerFns } = slicerHooks ?? {};
   const slicers = createSlicers({ request, store, log, dataDir: syncAt?.dataDir, ...slicerFns });
+  const presets =
+    syncAt &&
+    createPresetShare({
+      request,
+      store,
+      dataDir: syncAt.dataDir,
+      slicers: slicers.described,
+      identity: () => `${store.get().hubUrl}|${store.get().deviceId}`,
+      log,
+      configDir: presetConfigDir,
+    });
   const local = (rootId: string, path: string) =>
     sync ? sync.local(rootId, path) : Promise.resolve(null);
   /** Open folder: the project's synced copy in the file manager, ENOENT when it isn't here. */
@@ -264,7 +279,10 @@ export function createLink({
       store.set({ deviceName: event.data.name, cursor: seq });
     else if (event.success && event.data.type === "device.worker")
       store.set({ sliceWorker: event.data.on, cursor: seq });
-    else store.set({ cursor: seq });
+    else if (event.success && event.data.type === "device.presets") {
+      store.set({ sharePresets: event.data.share, cursor: seq });
+      void presets?.start();
+    } else store.set({ cursor: seq });
     if (!event.success) return;
     // Reconnecting runs the update first, and reports how it went when the stream opens again.
     if (event.data.type === "connector.update") {
@@ -306,14 +324,20 @@ export function createLink({
       if (res.status === 404) return "hubOff";
       if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
       if (signal.aborted) return "offline";
-      store.set({ sliceWorker: res.headers.get("x-slice-worker") === "1" });
+      store.set({
+        sliceWorker: res.headers.get("x-slice-worker") === "1",
+        sharePresets: res.headers.get("x-share-presets") === "1",
+      });
       status = "online";
       online = true;
       error = undefined;
       log(`online at ${hub}`);
       void roots.start();
       void sync?.start();
-      void slicers.refresh();
+      // Its slicers first: they say which folders to watch.
+      void slicers.refresh().then(() => {
+        if (!signal.aborted && !quiet.signal.aborted) void presets?.start();
+      });
       void slicers.prune();
       void loadBranding(hub, token, signal);
       const parse = sseParser(handle);
@@ -328,6 +352,7 @@ export function createLink({
       clearTimeout(watchdog);
       roots.stop();
       sync?.stop();
+      presets?.stop();
       void sync?.offline();
     }
   }
@@ -407,6 +432,7 @@ export function createLink({
       running?.abort();
       roots.stop();
       sync?.stop();
+      presets?.stop();
     },
     state: () => ({ status, error }),
     branding: () => branding,
@@ -418,6 +444,7 @@ export function createLink({
       running?.abort();
       roots.stop();
       sync?.stop();
+      presets?.stop();
       store.forget();
       branding = {};
       status = "unpaired";

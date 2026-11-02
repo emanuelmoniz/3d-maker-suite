@@ -23,6 +23,8 @@ const known = [
     windowsName: "Bambu Studio",
     macApp: "BambuStudio.app",
     flatpak: "com.bambulab.BambuStudio",
+    library: "bambu-studio",
+    config: "BambuStudio",
   },
 ];
 
