@@ -1,6 +1,6 @@
 # ADR-0012: Users, sessions and fixed roles
 
-- Status: Accepted (supersedes the "no login" part of ADR-0001)
+- Status: Accepted (supersedes the "no login" part of ADR-0001); partly superseded by ADR-0016 (roles, permissions and alerts per user)
 - Date: 2026-10-24
 
 ## Context
@@ -32,6 +32,8 @@ ADR-0001 bound the app to 127.0.0.1 with no login. Since then it runs on a LAN (
 - Lost admin password: a `pnpm` script (and the same command in the Docker image) resets a named user's password from the server's shell. Shell access to the data dir already means full access, so this opens nothing new.
 
 ### Permissions
+> Superseded by ADR-0016: editable roles with a permission catalog and per-user overrides. The table below is what the seeded Editor and Viewer roles reproduce.
+
 One `onRequest` hook in `lib/auth.ts` replaces `accessGuard`. It looks up the request's prefix in its own table (not `moduleOf()`, which groups fs, updates and logs under "system" for the Logs page) and compares the user's role with what the method needs.
 - **Viewer**: GET/HEAD only, on the prefixes marked R below.
 - **Editor**: everything except the admin-only prefixes and keys.
@@ -93,9 +95,10 @@ An alert is the same for everyone; whether a person has read, snoozed or dismiss
 - Read, snooze and dismiss come from the caller's `alert_states` row. Without a row they fall back to the `alerts` columns, which hold the state from before accounts existed, so old read or dismissed alerts don't come back for everyone. The no-users mode has no rows and keeps using those columns, as before.
 - Resolved wins: once the cause is fixed (maintenance done, a review finished, a spool's price or open date filled in), the check that runs after each write resolves the alert for everyone, and it counts as read.
 - `PATCH /api/alerts/:id` writes the caller's row, starting from what they saw. History's "updated" is the later of their own change and a resolve.
-- When a user's own snooze ends, the alert comes back unread for that user only. The channels (ntfy, email) are told once per alert, never per user.
+- When a user's own snooze ends, the alert comes back unread for that user only. The channels (ntfy, email) are told once per alert, never per user. (Superseded by ADR-0016: who gets which kind, and delivery per user.)
 
 ### Safety rules
+(ADR-0016 adds the rules for roles and overrides, and role or override changes no longer end sessions.)
 - The last enabled admin can't be disabled, demoted or deleted (409).
 - Disabling a user, changing their role or resetting their password ends all their sessions.
 - Login rate limit: 5 failures per email + IP lock that pair for 15 minutes. Kept in memory; a restart clears it.

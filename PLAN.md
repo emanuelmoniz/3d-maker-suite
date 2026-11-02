@@ -1191,13 +1191,13 @@ Do Step 5 of the 5.1.0 plan in PLAN.md.
 
 Design:
 - `roles` table (id, name, built-in, disabled, permissions, project rights, alert kinds). Seeded **Admin** (all permissions; can't be edited, disabled or deleted), **Editor** and **Viewer** with exactly today's rights. `users.role` → `roleId`.
-- A fixed **permission catalog**, mapped from today's role × prefix table: per module none · read · write (printers, maintenance, filament, projects, prints, costs: quotes, orders and clients; stats), plus integrations sync, integrations review, integrations manage, hub manage, settings (server, backup, logs, branding, alerts), users & roles manage. Project rights: see all, edit others', edit other devices.
+- A fixed **permission catalog**, mapped from today's role × prefix table: per module none · read · write · manage (manage = setup and the module's settings page; printers, maintenance, filament, projects, prints, costs: quotes, orders and clients; stats), plus integrations sync, integrations review, integrations manage, hub manage, settings (server, backup, logs, branding, alerts), users & roles manage. Project rights: see all, edit others', edit other devices.
 - **Per-user overrides:** every permission and project right is tri-state (same as role · allow · deny), edited only by users with users & roles manage. Users can't change their own permissions. Effective rights are read per request, so no session reset is needed.
 - No escalation: a manager can't grant what they don't have, can't change their own role or rights, and can't touch the Admin role or its users.
 - A disabled role: its users can't sign in and their sessions end. A role with users can't be deleted (409 `role_in_use`). The last enabled Admin user stays protected.
 - `roots.editBy = roles` means "users with projects write". The per-policy editor flags stay as an extra gate for non-admins with the sync or review permission. Device tokens act with their user's rights. No-users mode is unchanged.
 
-### [ ] Step 6 - ADR-0016 roles, permissions and alert delivery  **[plan mode]**
+### [x] Step 6 - ADR-0016 roles, permissions and alert delivery  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:** `docs/adr/0016-roles-permissions-alerts.md`: the designs of Phases 16 and 17, the permission catalog mapped from every prefix in `lib/auth.ts`, the alert kind catalog with each kind's permission, the migration, the escalation rules, rejected options. ADR-0012 marked partly superseded.
 **Done when:** the ADR is approved; every route prefix and alert kind maps to a permission.

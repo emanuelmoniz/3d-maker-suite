@@ -63,6 +63,8 @@ Every project root gets a **location**, and the two "modes" from the discussion 
 - Per-device settings cover only where and how: sync folder, everything or selected projects, slice worker.
 
 #### Permission table (5.0.0 Step 8)
+> The three switches become project rights of a role with per-user overrides in ADR-0016; `editBy = roles` there means "users with projects write".
+
 Per-user switches (Settings → Users):
 
 | Switch | Default | Applies to |
