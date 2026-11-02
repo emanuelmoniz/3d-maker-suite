@@ -3,6 +3,9 @@ import { expect, test } from "./fixtures.ts";
 import { gotoIntegrations, openIntegrationCards } from "./helpers.ts";
 
 const PASSWORD = "correct horse";
+// The seeded roles (migration 0086).
+const EDITOR = "00000000-0000-4000-8000-000000000002";
+const VIEWER = "00000000-0000-4000-8000-000000000003";
 
 const post = async (page: Page, path: string, data: unknown) => {
   const res = await page.request.post(path, { data });
@@ -28,11 +31,11 @@ test("roles: viewer and editor see only what they can do; logs show the actor", 
     password: PASSWORD,
   });
   await page.request.patch("/api/preferences", { data: { logActive: true } });
-  for (const [displayName, email, role] of [
-    ["Eva Editor", "eva@example.com", "editor"],
-    ["Vic Viewer", "vic@example.com", "viewer"],
+  for (const [displayName, email, roleId] of [
+    ["Eva Editor", "eva@example.com", EDITOR],
+    ["Vic Viewer", "vic@example.com", VIEWER],
   ])
-    await post(page, "/api/users", { displayName, email, password: PASSWORD, role });
+    await post(page, "/api/users", { displayName, email, password: PASSWORD, roleId });
   const { id } = await post(page, "/api/clients", { name: "Acme", mobile: "911" });
   // A sync raises a success alert, with buttons to the module and the integration.
   const integration = await post(page, "/api/integrations", {

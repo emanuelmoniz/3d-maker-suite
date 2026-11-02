@@ -273,7 +273,7 @@ export function MissingFolderBanner({ project }: { project: ProjectDetail }) {
       <p className="wrap-break-word text-muted">
         {t("projects:folder.missingText", { path: fromRoot(project.folderPath, roots) })}
       </p>
-      <Write when={project.canEdit}>
+      <Write can="projects" when={project.canEdit}>
         <FolderActions project={project} />
       </Write>
     </section>

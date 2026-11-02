@@ -207,11 +207,11 @@ export function PrintsPage() {
         title={t("nav:items.prints.label")}
         description={t("nav:items.prints.description")}
         actions={
-          <Write>
+          <>
             <SyncButtons cap="prints" />
-            {add}
+            <Write can="prints">{add}</Write>
             <SettingsLink module="prints" />
-          </Write>
+          </>
         }
       />
       {isError && (

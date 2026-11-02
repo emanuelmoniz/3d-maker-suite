@@ -232,23 +232,23 @@ function SheetUser({ onNavigate }: { onNavigate: () => void }) {
   );
 }
 
-/** The Logs item is in the menu only while logging is on, and only for admins. */
+/** The Logs item is in the menu only while logging is on, and only with settings.logs. */
 const useLogsShown = () => {
   const on = !!usePreferences().data?.values.logActive;
-  return useCan("admin") && on;
+  return useCan("settings.logs") && on;
 };
 
-/** Hub management: admins, while the hub is on. */
+/** Hub management: hub.manage, while the hub is on. */
 const useHubShown = () => {
   const on = !!usePreferences().data?.values.hubEnabled;
-  return useCan("admin") && on;
+  return useCan("hub.manage") && on;
 };
 
 function Sidebar() {
   const { t } = useTranslation();
   const logsShown = useLogsShown();
   const hubShown = useHubShown();
-  const admin = useCan("admin");
+  const importShown = useCan("integrations.manage");
   const tasks = useHasTasks();
   return (
     <aside className="sticky top-0 hidden h-dvh w-14 shrink-0 flex-col border-r border-border bg-surface md:flex lg:w-56">
@@ -268,7 +268,7 @@ function Sidebar() {
         ))}
       </nav>
       <div className="flex flex-col gap-0.5 border-t border-border p-2">
-        {admin && <SideLink item={IMPORT_ITEM} />}
+        {importShown && <SideLink item={IMPORT_ITEM} />}
         {tasks && <SideLink item={INTEGRATIONS_ITEM} />}
         {hubShown && <SideLink item={HUB_ITEM} />}
         {logsShown && <SideLink item={LOGS_ITEM} />}
@@ -318,13 +318,13 @@ function BottomNav() {
   const primary = ALL_ITEMS.filter((i) => i.primary);
   const logsShown = useLogsShown();
   const hubShown = useHubShown();
-  const admin = useCan("admin");
+  const importShown = useCan("integrations.manage");
   const tasks = useHasTasks();
   const more = ALL_ITEMS.filter(
     (i) =>
       !i.primary &&
       (logsShown || i !== LOGS_ITEM) &&
-      (admin || i !== IMPORT_ITEM) &&
+      (importShown || i !== IMPORT_ITEM) &&
       (tasks || i !== INTEGRATIONS_ITEM) &&
       (hubShown || i !== HUB_ITEM),
   );

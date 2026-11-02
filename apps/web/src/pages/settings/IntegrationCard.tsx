@@ -73,7 +73,7 @@ export function IntegrationCard({ integration: i }: { integration: Integration }
   const navigate = useNavigate();
   const adapter = useAdapters().data?.find((a) => a.id === i.adapterId);
   // An editor gets the status line and their task rows only (ADR-0012).
-  const admin = useCan("admin");
+  const admin = useCan("integrations.manage");
   const on = i.policies.filter((p) => p.mode !== "off");
   // Disabled = switched off entirely, so only the toggle and Delete stay. Sign-in and the test
   // only matter for an account with something switched on, the log for anything that syncs.

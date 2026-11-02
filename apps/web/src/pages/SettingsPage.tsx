@@ -16,6 +16,7 @@ import { AccountSection } from "./settings/AccountSection.tsx";
 import { BackupSection } from "./settings/BackupSection.tsx";
 import { BrandingFields } from "./settings/BrandingFields.tsx";
 import { LogSection } from "./settings/LogSection.tsx";
+import { RolesSection } from "./settings/RolesSection.tsx";
 import {
   HubSwitch,
   ServerActions,
@@ -57,7 +58,14 @@ export function SettingsPage() {
   const { t } = useTranslation();
   const { data, isError } = usePreferences();
   const save = useSavePreferences();
-  const canAdmin = useCan("admin");
+  const can = {
+    branding: useCan("settings.branding"),
+    users: useCan("users.manage"),
+    server: useCan("settings.server"),
+    hub: useCan("hub.manage"),
+    backup: useCan("settings.backup"),
+    logs: useCan("settings.logs"),
+  };
   const signedIn = !!useMe();
   const { accent, setAccent } = useTheme();
 
@@ -155,7 +163,7 @@ export function SettingsPage() {
           </FormField>
         </Section>
 
-        {canAdmin && (
+        {can.branding && (
           <Section title={t("settings:branding.title")}>
             <p className="text-muted">{t("settings:branding.everyone")}</p>
             <BrandingFields />
@@ -168,34 +176,46 @@ export function SettingsPage() {
           </Section>
         )}
 
-        {canAdmin && (
+        {can.users && (
           <Section title={t("users:list.title")} id="users" wide>
             <UsersSection />
           </Section>
         )}
 
-        {canAdmin && (
-          <>
-            <Section title={t("settings:sections.server")}>
-              <ServerSection />
-            </Section>
+        {can.users && signedIn && (
+          <Section title={t("users:roles.title")} id="roles" wide>
+            <RolesSection />
+          </Section>
+        )}
 
-            <Section title={t("settings:sections.hub")}>
-              <HubSwitch />
-            </Section>
+        {can.server && (
+          <Section title={t("settings:sections.server")}>
+            <ServerSection />
+          </Section>
+        )}
 
-            <Section title={t("settings:sections.backup")}>
-              <BackupSection />
-            </Section>
+        {can.hub && (
+          <Section title={t("settings:sections.hub")}>
+            <HubSwitch />
+          </Section>
+        )}
 
-            <Section title={t("settings:sections.logs")}>
-              <LogSection />
-            </Section>
+        {can.backup && (
+          <Section title={t("settings:sections.backup")}>
+            <BackupSection />
+          </Section>
+        )}
 
-            <Section title={t("settings:sections.about")} id="updates">
-              <AboutSection />
-            </Section>
-          </>
+        {can.logs && (
+          <Section title={t("settings:sections.logs")}>
+            <LogSection />
+          </Section>
+        )}
+
+        {can.server && (
+          <Section title={t("settings:sections.about")} id="updates">
+            <AboutSection />
+          </Section>
         )}
       </div>
     </>

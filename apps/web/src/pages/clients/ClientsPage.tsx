@@ -41,7 +41,7 @@ export function ClientsPage() {
       <PageHeader
         title={t("nav:items.clients.label")}
         description={t("nav:items.clients.description")}
-        actions={<Write>{add}</Write>}
+        actions={<Write can="costs">{add}</Write>}
       />
       {isError && (
         <p role="alert" className="text-bad">
@@ -90,7 +90,7 @@ export function ClientsPage() {
                 id: "actions",
                 header: t("clients:list.columns.actions"),
                 cell: (c) => (
-                  <Write>
+                  <Write can="costs">
                     <Button
                       variant="ghost"
                       aria-label={t("clients:delete.named", { name: c.name })}

@@ -5,7 +5,8 @@ import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
-import { meQuery, useCan } from "../../lib/auth.ts";
+import { type SettingsModule, useCanSettings } from "../../components/SettingsLink.tsx";
+import { meQuery } from "../../lib/auth.ts";
 import { usePreferences, useSavePreferences } from "../../lib/preferences.ts";
 
 export type NumKey =
@@ -37,7 +38,7 @@ export function ConfigPage({
   module,
   children,
 }: {
-  module: "quotes" | "orders" | "prints" | "projects" | "alerts" | "printers" | "filament" | "hub";
+  module: SettingsModule;
   children: (ctx: ConfigCtx) => ReactNode;
 }) {
   const { t } = useTranslation();
@@ -46,12 +47,12 @@ export function ConfigPage({
   const description = t(`nav:items.${module}.label`);
   const title = t("common:actions.moduleSettings", { module: description });
   const backTo = { to: `/${module}` as LinkProps["to"] };
-  const admin = useCan("admin");
+  const allowed = useCanSettings(module);
 
-  // Module settings are admin-only; everyone else goes back to the module.
+  // Without the permission, back to the module.
   const loaded = !!useQuery(meQuery).data;
   if (!loaded) return null;
-  if (!admin) return <Navigate {...backTo} replace />;
+  if (!allowed) return <Navigate {...backTo} replace />;
   if (isError)
     return (
       <>

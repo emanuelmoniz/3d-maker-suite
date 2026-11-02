@@ -359,7 +359,7 @@ function SlicedEstimate({ project }: { project: ProjectDetail }) {
   // Its plates are of files in a folder it doesn't have now (unlinked and kept, or missing).
   if (!ctx || project.folderState !== "ok") return null;
   const setUp = (
-    <Write when={project.canEdit}>
+    <Write can="projects" when={project.canEdit}>
       <Link
         to="/projects/$id/edit"
         params={{ id: project.id }}
@@ -544,7 +544,7 @@ export function ProjectDetailPage() {
                 {t("projects:detail.source")}
               </a>
             )}
-            <Write when={project.canEdit}>
+            <Write can="projects" when={project.canEdit}>
               {ok && current && openFile && (
                 <button
                   type="button"

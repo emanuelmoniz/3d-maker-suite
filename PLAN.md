@@ -1220,7 +1220,7 @@ Do Step 7 of the 5.1.0 plan in PLAN.md. Show me the schema and the migration fir
 Back up the DB before editing schema.ts.
 ```
 
-### [ ] Step 8 - Users and roles pages
+### [x] Step 8 - Users and roles pages
 **Model:** Opus · **Effort:** Medium
 **Scope:**
 - Settings → Users becomes a table: name (link to the edit page), email, role, state; row actions reset password, disable, delete.

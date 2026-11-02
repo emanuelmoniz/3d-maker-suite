@@ -8,7 +8,7 @@ import { Combobox } from "../../components/Combobox.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { PathPicker } from "../../components/PathPicker.tsx";
-import { useCan, useMe } from "../../lib/auth.ts";
+import { useIsAdmin, useMe } from "../../lib/auth.ts";
 import { isConflict } from "../../lib/catalog.ts";
 import { uploadProjectFile } from "../../lib/projectFiles.ts";
 import {
@@ -65,7 +65,7 @@ function ProjectForm({ project }: { project?: ProjectDetail }) {
   const allRoots = useRoots();
   const roots = allRoots.filter((r) => r.canEdit);
   // An admin picks the owner, except in a device root: its device's user owns it.
-  const admin = useCan("admin");
+  const admin = useIsAdmin();
   const pickOwner =
     !!useMe() &&
     admin &&

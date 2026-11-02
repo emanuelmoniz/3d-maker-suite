@@ -68,7 +68,7 @@ export const useChannels = () =>
   useQuery({
     queryKey: ["alerts", "channels"],
     queryFn: () => api<ChannelSettings[]>("GET", "/api/alerts/channels"),
-    enabled: useCan("admin"),
+    enabled: useCan("settings.alerts"),
   });
 
 export function useSaveChannel() {

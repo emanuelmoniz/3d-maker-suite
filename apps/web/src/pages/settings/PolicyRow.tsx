@@ -262,7 +262,7 @@ function PolicyRow({
   const detailsId = useId();
   const [open, setOpen] = useState(false);
   // An editor gets the buttons their flags allow and no settings (ADR-0012).
-  const admin = useCan("admin");
+  const admin = useCan("integrations.manage");
   const accounts = !!useMe();
   const may = useMayTask();
   const name = t(CAPS[p.type]);

@@ -33,7 +33,7 @@ export function LogsPage() {
   const { t } = useTranslation();
   const qc = useQueryClient();
   const [query, setQuery] = useUrlListQuery();
-  const admin = useCan("admin");
+  const admin = useCan("settings.logs");
   const { data, isError } = useListPage<LogEntry>(["logs"], "/api/logs", query, 10_000, admin);
   const active = usePreferences().data?.values.logActive;
   const [confirming, setConfirming] = useState(false);

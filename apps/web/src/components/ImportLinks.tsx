@@ -1,8 +1,7 @@
 import type { ReviewedType, SyncType } from "@3d-maker-suite/core";
 import { Link } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
-import { useCan } from "../lib/auth.ts";
-import { useAdapterName, useCapable, useSyncIntegration } from "../lib/integrations.ts";
+import { useAdapterName, useCapable, useMayTask, useSyncIntegration } from "../lib/integrations.ts";
 
 const importClass =
   "inline-flex h-9 items-center whitespace-nowrap rounded-md border border-border bg-surface px-3 font-medium hover:bg-surface-2";
@@ -18,8 +17,8 @@ export function ImportLinks({
 }) {
   const { t } = useTranslation();
   const adapterName = useAdapterName();
-  const capable = useCapable(cap);
-  if (!useCan("admin")) return null;
+  const may = useMayTask();
+  const capable = useCapable(cap).filter((i) => may(i.id, cap, "review"));
   return capable.map((i) => (
     <Link
       key={i.id}
@@ -36,8 +35,8 @@ export function ImportLinks({
 export function SyncButtons({ cap }: { cap: SyncType }) {
   const { t } = useTranslation();
   const adapterName = useAdapterName();
-  const capable = useCapable(cap);
-  if (!useCan("write")) return null;
+  const may = useMayTask();
+  const capable = useCapable(cap).filter((i) => may(i.id, cap, "sync"));
   return capable.map((i) => (
     <SyncButton key={i.id} id={i.id} type={cap}>
       {t("integrations:syncFrom", { name: adapterName(i.adapterId) })}

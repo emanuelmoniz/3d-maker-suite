@@ -51,7 +51,8 @@ export function AlertDetailPage() {
   const evaluate = useEvaluateAlerts();
   const may = useMayTask();
   const mayOpen = useMayOpenTask();
-  const admin = useCan("admin");
+  const integrationsManage = useCan("integrations.manage");
+  const hubManage = useCan("hub.manage");
   const [logging, setLogging] = useState(false);
   // Opening an alert reads it (for this user), once: marking it unread afterwards must stick.
   const act = useAlertAction();
@@ -163,12 +164,12 @@ export function AlertDetailPage() {
               )}
             <SyncTargetLink a={a} />
             {((a.kind === "sync_error" || a.kind === "sync_success") && mayOpen(a)) ||
-            (a.kind === "slicer_update" && admin) ? (
+            (a.kind === "slicer_update" && integrationsManage) ? (
               <Link to="/integrations" hash={integrationHash(a)} className={buttonLink}>
                 {t("alerts:view.openIntegration")}
               </Link>
             ) : null}
-            {(a.kind === "connector_outdated" || a.kind === "hub_mass_delete") && admin && (
+            {(a.kind === "connector_outdated" || a.kind === "hub_mass_delete") && hubManage && (
               <Link to="/hub" className={buttonLink}>
                 {t("alerts:view.openHub")}
               </Link>
@@ -182,8 +183,8 @@ export function AlertDetailPage() {
                 {t("alerts:view.openProject")}
               </Link>
             )}
-            {/* The other fixes: admin and editor. */}
-            <Write>
+            {/* The other fixes: whoever has the module's permission. */}
+            <Write can="filament">
               {(a.kind === "spool_no_price" || a.kind === "spool_no_open_date") && (
                 <Link
                   to="/filament/spools/$id/edit"
@@ -193,14 +194,20 @@ export function AlertDetailPage() {
                   {t("alerts:view.editSpool")}
                 </Link>
               )}
+            </Write>
+            <Write can="maintenance">
               {item && (
                 <Button onClick={() => setLogging(true)}>{t("alerts:view.markDone")}</Button>
               )}
+            </Write>
+            <Write can="settings.server">
               {a.kind === "update_available" && (
                 <Link to="/settings" hash="updates" className={buttonLink}>
                   {t("alerts:view.openUpdates")}
                 </Link>
               )}
+            </Write>
+            <Write can="projects">
               {a.kind.startsWith("slice_") && (
                 <Link
                   to="/projects/$id/edit"

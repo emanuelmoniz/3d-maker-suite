@@ -72,6 +72,8 @@ import {
 import { IntegrationCreatePage } from "./pages/settings/IntegrationFormPage.tsx";
 import { IntegrationLoginPage } from "./pages/settings/IntegrationLoginPage.tsx";
 import { IntegrationsPage } from "./pages/settings/IntegrationsPage.tsx";
+import { RoleEditPage } from "./pages/settings/RoleEditPage.tsx";
+import { UserEditPage } from "./pages/settings/UserEditPage.tsx";
 import { StatsPage } from "./pages/stats/StatsPage.tsx";
 import { AppShell } from "./shell/AppShell.tsx";
 import {
@@ -460,6 +462,21 @@ const routes: AnyRoute[] = [
     loader: () => Promise.all(["settings", "logs", "users"].map(loadNamespace)),
     component: SettingsPage,
   }),
+  // "/settings/roles/new" is declared before "/settings/roles/$id" so it wins the match.
+  ...(
+    [
+      ["/settings/users/$id", UserEditPage],
+      ["/settings/roles/new", RoleEditPage],
+      ["/settings/roles/$id", RoleEditPage],
+    ] as const
+  ).map(([path, component]) =>
+    createRoute({
+      getParentRoute: () => root,
+      path,
+      loader: () => loadNamespace("users"),
+      component,
+    }),
+  ),
   createRoute({
     getParentRoute: () => root,
     path: HUB_ITEM.to,

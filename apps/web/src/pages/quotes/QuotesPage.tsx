@@ -15,7 +15,7 @@ export function QuotesPage() {
         title={t("nav:items.quotes.label")}
         description={t("nav:items.quotes.description")}
         actions={
-          <Write>
+          <Write can="costs">
             <Link
               to="/quotes/new"
               className="inline-flex h-9 items-center gap-2 whitespace-nowrap rounded-md bg-accent px-3 font-medium text-accent-fg hover:opacity-90"

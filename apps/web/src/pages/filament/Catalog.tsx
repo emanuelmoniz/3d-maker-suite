@@ -144,7 +144,7 @@ export function FilamentProfiles() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-base font-semibold">{t("filament:profiles.title")}</h2>
           <span className="flex flex-wrap gap-2">
-            <Write admin>
+            <Write can="filament" level="manage">
               <Link to="/filament/profiles/new" className={addClass}>
                 <Plus className="size-4" aria-hidden />
                 {t("filament:profiles.add")}

@@ -132,7 +132,7 @@ export function InstallDialog({
         </p>
       )}
       {onPrinter && (
-        <Write admin>
+        <Write can="printers" level="manage">
           <Link to="/printers/accessories/new" className="text-accent hover:underline">
             {t("printers:accessories.add")}
           </Link>

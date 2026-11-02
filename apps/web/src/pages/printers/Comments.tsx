@@ -53,7 +53,7 @@ export function Comments({ base }: { base: string }) {
             )}
           </p>
         </div>
-        <Write>
+        <Write can="printers" level="manage">
           <div className="flex shrink-0 gap-1">
             <Button
               variant="ghost"
@@ -92,7 +92,7 @@ export function Comments({ base }: { base: string }) {
   return (
     <section className="rounded-lg border border-border bg-surface-2/40 p-4 sm:p-5">
       <h2 className="mb-4 text-base font-semibold">{t("printers:comments.title")}</h2>
-      <Write>
+      <Write can="printers" level="manage">
         <form
           className="mb-4 grid gap-2 sm:max-w-xl"
           onSubmit={(e) => {

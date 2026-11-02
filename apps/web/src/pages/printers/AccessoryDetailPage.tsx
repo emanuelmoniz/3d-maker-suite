@@ -62,7 +62,7 @@ export function AccessoryDetailPage() {
         backTo={{ to: "/printers" }}
         description={accessory.type}
         actions={
-          <Write admin>
+          <Write can="printers" level="manage">
             <Link to="/printers/accessories/$id/edit" params={{ id }} className={linkButton}>
               {t("printers:detail.edit")}
             </Link>
@@ -184,7 +184,7 @@ export function AccessoryDetailPage() {
           <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-base font-semibold">{t("printers:accessories.history.title")}</h2>
             {!archived && (
-              <Write>
+              <Write can="printers">
                 <span className="flex flex-wrap gap-2">
                   {accessory.installId && (
                     <Button onClick={() => setRemoving(true)}>
@@ -225,7 +225,7 @@ export function AccessoryDetailPage() {
                       })}
                     </p>
                   </div>
-                  <Write>
+                  <Write can="printers">
                     <Button
                       variant="ghost"
                       className="size-9 px-0"

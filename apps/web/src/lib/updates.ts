@@ -7,7 +7,7 @@ import { useCan } from "./auth.ts";
 const KEY = ["updates"];
 
 export const useUpdates = () => {
-  const admin = useCan("admin");
+  const admin = useCan("settings.server");
   return useQuery({
     queryKey: KEY,
     queryFn: () => api<UpdatesResponse>("GET", "/api/updates"),

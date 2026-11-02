@@ -42,7 +42,7 @@ export function PrintersPage() {
   const add = (
     <span className="flex flex-wrap gap-2">
       <SyncButtons cap="printers" />
-      <Write admin>
+      <Write can="printers" level="manage">
         <Link to="/printers/new" className={addClass}>
           <Plus className="size-4" aria-hidden />
           {t("printers:list.add")}
@@ -58,7 +58,7 @@ export function PrintersPage() {
         description={t("nav:items.printers.description")}
         actions={
           <>
-            <Write>{add}</Write>
+            {add}
             <SettingsLink module="printers" />
           </>
         }
@@ -192,7 +192,7 @@ function AccessoriesTable() {
     <section className="mt-8">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-lg font-semibold">{t("printers:accessories.title")}</h2>
-        <Write admin>
+        <Write can="printers" level="manage">
           <Link to="/printers/accessories/new" className={addClass}>
             <Plus className="size-4" aria-hidden />
             {t("printers:accessories.add")}

@@ -104,7 +104,7 @@ export function SpoolDetailPage() {
         description={t(STATUS[spool.status])}
         backTo={{ to: "/filament" }}
         actions={
-          <Write>
+          <Write can="filament">
             <Link to="/filament/spools/$id/edit" params={{ id }} className={linkButton}>
               {t("filament:detail.edit")}
             </Link>

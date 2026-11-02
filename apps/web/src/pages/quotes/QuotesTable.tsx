@@ -121,7 +121,7 @@ export function QuotesTable({
           id: "actions",
           header: t("costs:saved.columns.actions"),
           cell: (q) => (
-            <Write>
+            <Write can="costs">
               <Button
                 variant="ghost"
                 aria-label={t("costs:saved.deleteNamed", { name: quoteName(t, q) })}

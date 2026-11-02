@@ -18,8 +18,7 @@ import { Button } from "../../components/Button.tsx";
 import { DataTable } from "../../components/DataTable.tsx";
 import { EmptyState } from "../../components/EmptyState.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
-import { SettingsLink } from "../../components/SettingsLink.tsx";
-import { Write } from "../../components/Write.tsx";
+import { SettingsLink, useCanSettings } from "../../components/SettingsLink.tsx";
 import {
   needsAttention,
   useAlertAction,
@@ -77,15 +76,15 @@ export function useMayOpenTask() {
 
 /**
  * A finished sync's call to action: the module or catalog section it filled. For whoever may run
- * the task; a catalog section is module settings, so admin-only.
+ * the task; a catalog section is module settings, so it also needs that module's manage.
  */
 export function SyncTargetLink({ a }: { a: Alert }) {
   const { t } = useTranslation();
-  const admin = useCan("admin");
   const mayOpen = useMayOpenTask();
   const target = SYNC_TARGETS[a.context.type as Capability];
+  const settings = useCanSettings(target?.to.startsWith("/filament") ? "filament" : "printers");
   if (a.kind !== "sync_success" || !target || !mayOpen(a)) return null;
-  if (!admin && target.to.endsWith("/settings")) return null;
+  if (!settings && target.to.endsWith("/settings")) return null;
   return (
     <Link to={target.to} hash={target.hash} className={buttonLink}>
       {t(target.label)}
@@ -98,7 +97,8 @@ export function Title({ a, inList }: { a: Alert; inList?: boolean }) {
   const { t } = useTranslation();
   const adapterName = useAdapterName();
   const mayOpen = useMayOpenTask();
-  const admin = useCan("admin");
+  const integrationsManage = useCan("integrations.manage");
+  const hubManage = useCan("hub.manage");
   const c = a.context;
   const type = t(CAPS[c.type as Capability] ?? "");
   const text = {
@@ -211,7 +211,7 @@ export function Title({ a, inList }: { a: Alert; inList?: boolean }) {
         </Link>
       );
     case "slicer_update":
-      if (!admin) return <span className="font-medium">{text}</span>;
+      if (!integrationsManage) return <span className="font-medium">{text}</span>;
       return (
         <Link to="/integrations" hash={integrationHash(a)} className={link}>
           {text}
@@ -219,7 +219,7 @@ export function Title({ a, inList }: { a: Alert; inList?: boolean }) {
       );
     case "connector_outdated":
     case "hub_mass_delete":
-      if (!admin) return <span className="font-medium">{text}</span>;
+      if (!hubManage) return <span className="font-medium">{text}</span>;
       return (
         <Link to="/hub" className={link}>
           {text}
@@ -498,11 +498,7 @@ export function AlertsPage() {
       <PageHeader
         title={t("nav:items.alerts.label")}
         description={t("nav:items.alerts.description")}
-        actions={
-          <Write>
-            <SettingsLink module="alerts" />
-          </Write>
-        }
+        actions={<SettingsLink module="alerts" />}
       />
       {data && !active.length && (
         <div className="mb-6">

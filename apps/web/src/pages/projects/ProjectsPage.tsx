@@ -293,10 +293,10 @@ export function ProjectsPage() {
         title={t("nav:items.projects.label")}
         description={t("nav:items.projects.description")}
         actions={
-          <Write>
-            {add}
+          <>
+            <Write can="projects">{add}</Write>
             <SettingsLink module="projects" />
-          </Write>
+          </>
         }
       />
       {isError && (

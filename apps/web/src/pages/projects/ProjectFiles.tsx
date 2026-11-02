@@ -24,7 +24,7 @@ import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { Write } from "../../components/Write.tsx";
 import { ApiError } from "../../lib/api.ts";
-import { useCan } from "../../lib/auth.ts";
+import { useCan, useIsAdmin } from "../../lib/auth.ts";
 import { formatDateTime, formatSize } from "../../lib/format.ts";
 import { usePreferences } from "../../lib/preferences.ts";
 import {
@@ -212,7 +212,7 @@ function Row({ entry, depth, ctx }: { entry: ProjectFileEntry; depth: number; ct
         style={{ paddingLeft: `${0.5 + depth * 1.25}rem` }}
         className={`flex flex-wrap items-center gap-x-2 py-1 pr-2 ${over ? "bg-surface-2 outline outline-accent" : ""}`}
       >
-        <Write when={ctx.canEdit}>
+        <Write can="projects" when={ctx.canEdit}>
           <input
             type="checkbox"
             className="size-5 shrink-0 accent-accent"
@@ -272,7 +272,7 @@ function Row({ entry, depth, ctx }: { entry: ProjectFileEntry; depth: number; ct
             <History className="size-4" aria-hidden />
           </IconButton>
         )}
-        <Write when={ctx.canEdit}>
+        <Write can="projects" when={ctx.canEdit}>
           <span className="flex shrink-0 gap-1">
             {ctx.open && ctx.models.has(entry.path) && (
               <IconButton
@@ -388,7 +388,7 @@ export function ProjectFiles({
   } | null>(null);
   const locks = useProjectLocks(id, !!project.folderPath).data ?? [];
   const unlock = useUnlockFile(id);
-  const admin = useCan("admin");
+  const admin = useIsAdmin();
   const hubOn = usePreferences().data?.values.hubEnabled;
   const [history, setHistory] = useState<string | null>(null);
 
@@ -419,7 +419,7 @@ export function ProjectFiles({
       setUploads((u) => u.filter((x) => x.key !== key));
     }
   };
-  const canWrite = useCan("write") && project.canEdit;
+  const canWrite = useCan("projects") && project.canEdit;
   const onFiles = async (dir: string, files: FileList | File[]) => {
     if (!canWrite) return;
     setFailed(null);
@@ -549,7 +549,7 @@ export function ProjectFiles({
         onFiles("", e.dataTransfer.files);
       }}
     >
-      <Write when={project.canEdit}>
+      <Write can="projects" when={project.canEdit}>
         <div className="mb-2 flex flex-wrap items-center justify-end gap-2">
           <div className="flex gap-2">
             <Button onClick={() => picker.current?.click()}>
@@ -588,7 +588,7 @@ export function ProjectFiles({
           {failed}
         </p>
       )}
-      <Write when={project.canEdit}>
+      <Write can="projects" when={project.canEdit}>
         <div className="mb-2 flex flex-wrap items-center gap-2">
           <label className="mr-auto flex min-h-9 items-center gap-2">
             <input

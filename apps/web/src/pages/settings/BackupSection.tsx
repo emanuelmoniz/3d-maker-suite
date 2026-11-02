@@ -5,7 +5,7 @@ import { Button } from "../../components/Button.tsx";
 import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { api } from "../../lib/api.ts";
-import { useCan } from "../../lib/auth.ts";
+import { useCan, useIsAdmin } from "../../lib/auth.ts";
 import { formatDateTime, formatMegabytes } from "../../lib/format.ts";
 import { usePreferences, useSavePreferences } from "../../lib/preferences.ts";
 
@@ -17,10 +17,12 @@ export function BackupSection() {
   const qc = useQueryClient();
   const prefs = usePreferences().data?.values;
   const save = useSavePreferences();
+  // A restored database carries anyone's rights, so only the Admin role restores (ADR-0016).
+  const admin = useIsAdmin();
   const list = useQuery({
     queryKey: KEY,
     queryFn: () => api<Backup[]>("GET", "/api/backups"),
-    enabled: useCan("admin"),
+    enabled: useCan("settings.backup"),
   });
   const [restoring, setRestoring] = useState<string | null>(null);
   const refresh = () => qc.invalidateQueries({ queryKey: KEY });
@@ -126,7 +128,9 @@ export function BackupSection() {
               >
                 {t("settings:backup.download")}
               </a>
-              <Button onClick={() => setRestoring(b.name)}>{t("settings:backup.restore")}</Button>
+              {admin && (
+                <Button onClick={() => setRestoring(b.name)}>{t("settings:backup.restore")}</Button>
+              )}
               <Button variant="ghost" onClick={() => remove.mutate(b.name)}>
                 {t("settings:backup.delete")}
               </Button>

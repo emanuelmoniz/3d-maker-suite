@@ -33,7 +33,7 @@ const addClass =
   "inline-flex h-9 items-center gap-2 whitespace-nowrap rounded-md bg-accent px-3 font-medium text-accent-fg hover:opacity-90";
 
 const AddLink = ({ to, children }: { to: string; children: string }) => (
-  <Write>
+  <Write can="filament">
     <Link to={to} className={addClass}>
       <Plus className="size-4" aria-hidden />
       {children}

@@ -112,7 +112,7 @@ export function PrintDetailPage() {
         description={formatDateTime(print.startedAt)}
         backTo={{ to: "/prints" }}
         actions={
-          <Write>
+          <Write can="prints">
             <Link to="/prints/$id/edit" params={{ id }} className={linkButton}>
               {t("prints:detail.edit")}
             </Link>

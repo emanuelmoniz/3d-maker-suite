@@ -1,9 +1,13 @@
-import type {
-  EffectiveRights,
-  Me,
-  MeUpdate,
-  SetupInput,
-  UserLoginInput,
+import {
+  type EffectiveRights,
+  hasLevel,
+  type Me,
+  type MeUpdate,
+  type Permission,
+  type PermissionLevel,
+  type PermissionModule,
+  type SetupInput,
+  type UserLoginInput,
 } from "@3d-maker-suite/core";
 import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "./api.ts";
@@ -24,18 +28,18 @@ export const useRights = (): EffectiveRights | undefined => useQuery(meQuery).da
 export const useMyRole = () => useQuery(meQuery).data?.role;
 
 /**
- * Whether the caller may change data (`write`: any write permission) or is in the Admin role
- * (`admin`). The server enforces the real rules; this only hides buttons.
+ * Whether the caller has a permission: a module at `level` or above, or an on/off one switched on.
+ * The server enforces the real rules (`lib/auth.ts`); this only hides buttons.
  */
-export function useCan(level: "write" | "admin") {
-  const r = useRights();
-  if (!r) return false;
-  return (
-    r.admin ||
-    (level === "write" &&
-      Object.values(r.permissions).some((v) => v === true || v === "write" || v === "manage"))
-  );
+export function useCan(permission: Permission, level: PermissionLevel = "write") {
+  const p = useRights()?.permissions;
+  if (!p) return false;
+  const v = p[permission];
+  return typeof v === "boolean" ? v : hasLevel(p, permission as PermissionModule, level);
 }
+
+/** The Admin role (or the no-users mode): the few things no permission grants (ADR-0016). */
+export const useIsAdmin = () => !!useRights()?.admin;
 
 // A full load after each of these: preferences and every cached query belong to one person.
 const reload = (to: string) => window.location.assign(to);

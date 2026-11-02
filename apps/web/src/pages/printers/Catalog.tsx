@@ -58,7 +58,7 @@ export function Section<T extends { id: string }>(props: {
         <h2 className="text-base font-semibold">{props.title}</h2>
         <span className="flex flex-wrap gap-2">
           {props.extra}
-          <Write admin>
+          <Write can="printers" level="manage">
             <Link to={props.add.to} className={addClass}>
               <Plus className="size-4" aria-hidden />
               {props.add.label}
@@ -86,7 +86,7 @@ export function Section<T extends { id: string }>(props: {
 
 /** Name cell: a link to the edit form, or plain text for roles that can't edit. */
 function EditLink({ to, id, children }: { to: string; id: string; children: ReactNode }) {
-  return useCan("admin") ? (
+  return useCan("printers", "manage") ? (
     <Link to={to} params={{ id }} className="gap-2 font-medium hover:underline">
       {children}
     </Link>

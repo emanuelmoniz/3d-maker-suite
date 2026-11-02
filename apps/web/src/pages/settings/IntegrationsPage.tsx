@@ -14,7 +14,7 @@ const addClass =
 
 export function IntegrationsPage() {
   const { t } = useTranslation();
-  const admin = useCan("admin");
+  const admin = useCan("integrations.manage");
   const may = useMayTask();
   // An editor gets the integrations with a task of theirs, and only those tasks (ADR-0012).
   const list = useIntegrations();

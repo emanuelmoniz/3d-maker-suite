@@ -39,17 +39,15 @@ test("users: setup, add a user, sign out and in, change password", async ({ page
   await add.getByLabel("Role").fill("Editor");
   await add.getByRole("option", { name: "Editor" }).click();
   await add.getByRole("button", { name: "Save" }).click();
-  const users = page.getByRole("list", { name: "Users" });
-  await expect(users.getByRole("listitem").filter({ hasText: "Eva Editor" })).toBeVisible();
-  await expect(page.getByLabel("Role of Eva Editor")).toHaveValue("Editor");
+  const users = page.getByRole("table", { name: "Users" });
+  const eva = users.getByRole("row").filter({ hasText: "Eva Editor" });
+  await expect(eva.getByRole("link", { name: "Editor", exact: true })).toBeVisible();
+  await expect(eva.getByText("Never signed in")).toBeVisible();
 
-  // The last admin is protected.
-  await users
-    .getByRole("listitem")
-    .filter({ hasText: "Ana Admin" })
-    .getByRole("button", { name: "Disable" })
-    .click();
-  await expect(page.getByRole("alert").filter({ hasText: "last enabled admin" })).toBeVisible();
+  // Nobody disables or deletes their own account.
+  const ana = users.getByRole("row").filter({ hasText: "Ana Admin" });
+  await expect(ana.getByRole("button", { name: "Disable Ana Admin" })).toHaveCount(0);
+  await expect(ana.getByRole("button", { name: "Delete Ana Admin" })).toHaveCount(0);
 
   // Sign out; a deep link sends the visitor to the login and back.
   await page.getByLabel("Account menu for Ana Admin").click();
@@ -81,6 +79,69 @@ test("users: setup, add a user, sign out and in, change password", async ({ page
   await expect(
     page.getByRole("alert").filter({ hasText: "Your role doesn't allow that" }),
   ).toBeVisible();
+});
+
+test("users: a custom role and an override change what a user sees", async ({ page, app }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await app.api("POST", "/api/auth/setup", {
+    displayName: "Ana Admin",
+    email: "ana@example.com",
+    password: PASSWORD,
+  });
+  await page.goto("/login");
+  await signIn(page, "ana@example.com", PASSWORD);
+  await expect(page).toHaveURL(/\/$/);
+  // A viewer: no printer setup, no clients.
+  await page.request.post("/api/users", {
+    data: {
+      displayName: "Pat Tech",
+      email: "pat@example.com",
+      password: PASSWORD,
+      roleId: "00000000-0000-4000-8000-000000000003",
+    },
+  });
+
+  // A new role from Viewer that manages printers, picked by keyboard on the ladder.
+  await page.goto("/settings");
+  await page.getByRole("link", { name: "New role" }).click();
+  await page.getByLabel("Name").fill("Printer tech");
+  const printers = page.getByRole("group", { name: /^Printers and accessories/ });
+  await expect(printers.getByRole("radio", { name: "Read" })).toBeChecked();
+  await printers.getByRole("radio", { name: "Read" }).focus();
+  await page.keyboard.press("ArrowRight");
+  await page.keyboard.press("ArrowRight");
+  await expect(printers.getByRole("radio", { name: "Manage" })).toBeChecked();
+  await expect(page.getByRole("status").filter({ hasText: "Unsaved changes" })).toBeVisible();
+  await page.getByRole("button", { name: "Save" }).click();
+  await expect(page.getByRole("heading", { name: "Printer tech" })).toBeVisible();
+
+  // Pat gets the role, plus write on quotes, orders and clients as an override.
+  await page.goto("/settings");
+  await page.getByRole("table", { name: "Users" }).getByRole("link", { name: "Pat Tech" }).click();
+  await page.getByRole("combobox", { name: "Role" }).fill("Printer tech");
+  await page.getByRole("option", { name: "Printer tech" }).click();
+  const costs = page.getByRole("group", { name: /^Quotes, orders and clients/ });
+  await expect(costs.getByText("From the role: Read")).toBeVisible();
+  await costs.getByText("Write", { exact: true }).click();
+  await expect(costs.getByText("The role has Read")).toBeVisible();
+  await page.getByRole("button", { name: "Save" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Saved" })).toBeVisible();
+  // The edit page fits a phone.
+  await page.setViewportSize({ width: 375, height: 700 });
+  expect(await page.evaluate(() => document.body.scrollWidth <= window.innerWidth)).toBe(true);
+
+  // Pat sees both: printer setup from the role, Add client from the override.
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.context().clearCookies();
+  await page.goto("/login");
+  await signIn(page, "pat@example.com", PASSWORD);
+  await expect(page).toHaveURL(/\/$/);
+  await page.goto("/printers");
+  await expect(page.getByRole("link", { name: "Add printer" }).first()).toBeVisible();
+  await page.goto("/clients");
+  await expect(page.getByRole("link", { name: "Add client" }).first()).toBeVisible();
+  await page.goto("/settings");
+  await expect(page.getByRole("heading", { name: "Users" })).toHaveCount(0);
 });
 
 test("users: login and sign out fit a phone", async ({ page, app }) => {

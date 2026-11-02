@@ -1,18 +1,22 @@
+import type { Permission, PermissionLevel } from "@3d-maker-suite/core";
 import type { ReactNode } from "react";
 import { useCan } from "../lib/auth.ts";
 
 /**
- * Shows its children only to roles that may change data (`admin`: admins only), and only `when`
- * that one thing may change (a project's `canEdit`). The server enforces the same; this hides dead buttons.
+ * Shows its children only to users with the permission (`level` for a module, write by default),
+ * and only `when` that one thing may change (a project's `canEdit`). The server enforces the same;
+ * this hides dead buttons.
  */
 export function Write({
   children,
-  admin,
+  can,
+  level,
   when = true,
 }: {
   children: ReactNode;
-  admin?: boolean;
+  can: Permission;
+  level?: PermissionLevel;
   when?: boolean;
 }) {
-  return useCan(admin ? "admin" : "write") && when ? children : null;
+  return useCan(can, level) && when ? children : null;
 }

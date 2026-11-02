@@ -33,7 +33,7 @@ export function ClientDetailPage() {
         title={client.name}
         backTo={{ to: "/clients" }}
         actions={
-          <Write>
+          <Write can="costs">
             <Link to="/clients/$id/edit" params={{ id }} className={linkButton}>
               {t("clients:detail.edit")}
             </Link>

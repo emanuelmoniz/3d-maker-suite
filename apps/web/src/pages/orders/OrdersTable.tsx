@@ -128,7 +128,7 @@ export function OrdersTable({
           id: "actions",
           header: t("orders:list.columns.actions"),
           cell: (o) => (
-            <Write>
+            <Write can="costs">
               <Button
                 variant="ghost"
                 aria-label={t("orders:delete.named", { name: orderName(t, o) })}

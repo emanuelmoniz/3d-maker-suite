@@ -25,7 +25,7 @@ const useServerConfig = () =>
   useQuery({
     queryKey: KEY,
     queryFn: () => api<ServerConfigResponse>("GET", "/api/server-config"),
-    enabled: useCan("admin"),
+    enabled: useCan("settings.server"),
   });
 
 /** Host and port the server uses after a restart: a flag or env var still wins, then saved, then default. */
@@ -116,7 +116,7 @@ export function StartAtLogin() {
   const login = useQuery({
     queryKey: [...KEY, "autostart"],
     queryFn: () => api<AutostartState>("GET", "/api/server-config/autostart"),
-    enabled: useCan("admin"),
+    enabled: useCan("settings.server"),
   });
   const setLogin = useMutation({
     mutationFn: (enabled: boolean) =>

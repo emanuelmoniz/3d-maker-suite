@@ -32,7 +32,7 @@ export function TypeDetailPage() {
         description={type.description ?? undefined}
         backTo={{ to: "/maintenance" }}
         actions={
-          <Write admin>
+          <Write can="maintenance" level="manage">
             <Link to="/maintenance/types/$id/edit" params={{ id }} className={linkButton}>
               {t("maintenance:types.edit")}
             </Link>

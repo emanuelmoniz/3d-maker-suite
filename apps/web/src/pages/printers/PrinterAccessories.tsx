@@ -22,7 +22,7 @@ export function PrinterAccessories({ printerId }: { printerId: string }) {
     <section className="rounded-lg border border-border bg-surface p-4 sm:p-5">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-base font-semibold">{t("printers:accessories.title")}</h2>
-        <Write>
+        <Write can="printers">
           <Button onClick={() => setAdding(true)}>
             <Plus className="size-4" aria-hidden />
             {t("printers:accessories.onPrinter.install")}
@@ -53,7 +53,7 @@ export function PrinterAccessories({ printerId }: { printerId: string }) {
                   <StateBadge state={a.state} />
                 </p>
               </div>
-              <Write>
+              <Write can="printers">
                 <Button
                   aria-label={t("printers:accessories.onPrinter.removeLabel", {
                     name: accessoryName(t, a),

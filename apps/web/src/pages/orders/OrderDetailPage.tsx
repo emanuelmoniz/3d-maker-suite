@@ -144,7 +144,7 @@ export function OrderDetailPage() {
         title={name}
         backTo={{ to: "/orders" }}
         actions={
-          <Write>
+          <Write can="costs">
             <Link to="/orders/$id/edit" params={{ id }} className={linkButton}>
               {t("orders:detail.edit")}
             </Link>
