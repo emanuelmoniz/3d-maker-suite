@@ -1,4 +1,9 @@
-import type { PresetDevice, SlicerPreset, SlicerPresetDetail } from "@3d-maker-suite/core";
+import type {
+  PresetDevice,
+  PresetDeviceUpdate,
+  SlicerPreset,
+  SlicerPresetDetail,
+} from "@3d-maker-suite/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "./api.ts";
 
@@ -20,7 +25,7 @@ export const usePresetDetail = (id: string, enabled: boolean) =>
 export const presetDownloadUrl = (id: string, version?: number) =>
   `/api/presets/${id}/download${version === undefined ? "" : `?version=${version}`}`;
 
-/** Devices with a slicer and their Share my presets switch; `enabled`: presets.manage. */
+/** Devices with a slicer, their two switches and install status; `enabled`: presets.manage. */
 export const usePresetDevices = (enabled: boolean) =>
   useQuery({
     queryKey: [...KEY, "devices"],
@@ -29,11 +34,11 @@ export const usePresetDevices = (enabled: boolean) =>
     refetchInterval: 30_000,
   });
 
-export function useSharePresets() {
+export function useUpdatePresetDevice() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, sharePresets }: { id: string; sharePresets: boolean }) =>
-      api("PATCH", `/api/presets/devices/${id}`, { sharePresets }),
+    mutationFn: ({ id, ...body }: PresetDeviceUpdate & { id: string }) =>
+      api("PATCH", `/api/presets/devices/${id}`, body),
     onSuccess: () => qc.invalidateQueries({ queryKey: KEY }),
   });
 }

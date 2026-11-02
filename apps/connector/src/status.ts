@@ -269,6 +269,7 @@ ${
 <h2 id="slicers">${t("connector:slicers.title")}</h2>
 ${store.get().sliceWorker ? `<p>${t("connector:slicers.worker")}</p>` : ""}
 ${store.get().sharePresets ? `<p>${t("connector:slicers.sharing")}</p>` : ""}
+${store.get().installPresets ? `<p>${t("connector:slicers.installing")}</p>` : ""}
 ${found.length ? `<p class="muted">${t("connector:slicers.intro")}</p><ul>${rows}</ul>${found.length > 1 ? ask : ""}` : `<p class="muted">${t("connector:slicers.none")}</p>`}
 </section>`;
   };

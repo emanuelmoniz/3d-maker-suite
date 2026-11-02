@@ -12,7 +12,8 @@ import {
 } from "@3d-maker-suite/core";
 import { openFolder, systemInfo } from "@3d-maker-suite/host";
 import { z } from "zod";
-import { createPresetShare } from "./presets.ts";
+import { createPresetInstall } from "./presetInstall.ts";
+import { createPresetShare, openPresetState } from "./presets.ts";
 import { createRootSync, type Request } from "./roots.ts";
 import { createSlicers } from "./slicers.ts";
 import type { Store } from "./state.ts";
@@ -94,6 +95,8 @@ type Options = {
   >;
   /** Where slicers' config folders are (tests); the real ones by default. */
   presetConfigDir?: Parameters<typeof createPresetShare>[0]["configDir"];
+  /** The process list and the queue's timing (tests); the real ones by default. */
+  presetHooks?: Pick<Parameters<typeof createPresetInstall>[0], "processes" | "pollMs">;
   /** How slicers are found and started, and folders opened (tests); the real ones by default. */
   slicers?: Pick<
     Parameters<typeof createSlicers>[0],
@@ -124,6 +127,7 @@ export function createLink({
   updateFailure,
   sync: syncAt,
   presetConfigDir,
+  presetHooks,
   slicers: slicerHooks,
   settings,
   log = () => {},
@@ -170,16 +174,32 @@ export function createLink({
     });
   const { openDir = openFolder, ...slicerFns } = slicerHooks ?? {};
   const slicers = createSlicers({ request, store, log, dataDir: syncAt?.dataDir, ...slicerFns });
-  const presets =
+  const presetState =
     syncAt &&
+    openPresetState(syncAt.dataDir, () => `${store.get().hubUrl}|${store.get().deviceId}`);
+  const presets =
+    presetState &&
     createPresetShare({
       request,
       store,
-      dataDir: syncAt.dataDir,
+      state: presetState,
       slicers: slicers.described,
-      identity: () => `${store.get().hubUrl}|${store.get().deviceId}`,
       log,
       configDir: presetConfigDir,
+    });
+  const presetInstall =
+    syncAt &&
+    presetState &&
+    createPresetInstall({
+      request,
+      store,
+      state: presetState,
+      slicers: slicers.described,
+      dataDir: syncAt.dataDir,
+      log,
+      configDir: presetConfigDir,
+      beforeWrite: () => presets?.flush() ?? Promise.resolve(),
+      ...presetHooks,
     });
   const local = (rootId: string, path: string) =>
     sync ? sync.local(rootId, path) : Promise.resolve(null);
@@ -280,8 +300,13 @@ export function createLink({
     else if (event.success && event.data.type === "device.worker")
       store.set({ sliceWorker: event.data.on, cursor: seq });
     else if (event.success && event.data.type === "device.presets") {
-      store.set({ sharePresets: event.data.share, cursor: seq });
+      store.set({
+        sharePresets: event.data.share,
+        installPresets: event.data.install,
+        cursor: seq,
+      });
       void presets?.start();
+      void presetInstall?.start();
     } else store.set({ cursor: seq });
     if (!event.success) return;
     // Reconnecting runs the update first, and reports how it went when the stream opens again.
@@ -327,6 +352,7 @@ export function createLink({
       store.set({
         sliceWorker: res.headers.get("x-slice-worker") === "1",
         sharePresets: res.headers.get("x-share-presets") === "1",
+        installPresets: res.headers.get("x-install-presets") === "1",
       });
       status = "online";
       online = true;
@@ -336,7 +362,9 @@ export function createLink({
       void sync?.start();
       // Its slicers first: they say which folders to watch.
       void slicers.refresh().then(() => {
-        if (!signal.aborted && !quiet.signal.aborted) void presets?.start();
+        if (signal.aborted || quiet.signal.aborted) return;
+        void presets?.start();
+        void presetInstall?.start();
       });
       void slicers.prune();
       void loadBranding(hub, token, signal);
@@ -353,6 +381,7 @@ export function createLink({
       roots.stop();
       sync?.stop();
       presets?.stop();
+      presetInstall?.stop();
       void sync?.offline();
     }
   }
@@ -433,6 +462,7 @@ export function createLink({
       roots.stop();
       sync?.stop();
       presets?.stop();
+      presetInstall?.stop();
     },
     state: () => ({ status, error }),
     branding: () => branding,
@@ -445,6 +475,7 @@ export function createLink({
       roots.stop();
       sync?.stop();
       presets?.stop();
+      presetInstall?.stop();
       store.forget();
       branding = {};
       status = "unpaired";

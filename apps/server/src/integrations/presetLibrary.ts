@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync
 import { dirname, join, parse } from "node:path";
 import {
   type PresetRemoved,
+  type PresetSkipped,
   type PresetUpload,
   type PresetUploadResult,
   SLICER_PRESET_KINDS,
@@ -10,7 +11,7 @@ import {
   type SlicerPresetKind,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
-import { parsePreset, presetName, presetSha } from "@3d-maker-suite/host";
+import { parsePreset, presetFileName, presetName, presetSha } from "@3d-maker-suite/host";
 import { and, desc, eq, inArray, max } from "drizzle-orm";
 import { raise } from "../alerts/evaluate.ts";
 import { readPreferences } from "../lib/preferences.ts";
@@ -27,11 +28,8 @@ type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
 export type SavedBy = { user?: string | null; device?: string | null };
 
 export const libraryDir = (dataDir: string, library: string) => join(dataDir, "presets", library);
-// ponytail: two names that differ only in these characters share a file; the later write wins.
-const fileName = (name: string) =>
-  `${name.replace(/[\\/:*?"<>|\p{Cc}]/gu, "-").replace(/[. ]+$/, "") || "preset"}.json`;
 const fileOf = (dataDir: string, r: Pick<Row, "library" | "kind" | "name">) =>
-  join(libraryDir(dataDir, r.library), "default", r.kind, fileName(r.name));
+  join(libraryDir(dataDir, r.library), "default", r.kind, presetFileName(r.name));
 
 function writeLive(dataDir: string, row: Row) {
   if (!dataDir) return;
@@ -250,7 +248,21 @@ export function uploadPreset(
       .set({ removedOn: old.removedOn.filter((d) => d !== deviceId) })
       .where(eq(slicerPresets.id, old.id))
       .run();
-  if (old?.sha256 === presetSha(json)) return { result: "same", name, version: old.version };
+  const sha256 = presetSha(json);
+  if (old?.sha256 === sha256) return { result: "same", name, version: old.version };
+  // An older copy back from a slicer's cloud isn't an edit, or it would undo the hub's. ponytail:
+  // a preset put back by hand to a kept version's exact content is ignored too, until it's edited.
+  if (
+    old &&
+    db
+      .select({ id: slicerPresetVersions.id })
+      .from(slicerPresetVersions)
+      .where(
+        and(eq(slicerPresetVersions.presetId, old.id), eq(slicerPresetVersions.sha256, sha256)),
+      )
+      .get()
+  )
+    return { result: "same", name, version: old.version };
   if (!old || old.deleted || old.version === base) {
     const saved = savePreset(db, dataDir, { ...ref, json: text }, by);
     return { result: "saved", name, version: saved?.version ?? 0 };
@@ -279,6 +291,23 @@ export function uploadPreset(
       context: { ...ref, copy, device },
     });
   return { result: "conflict", name, version: old.version };
+}
+
+/** A device can't install a preset: its `inherits` parent isn't there. An alert per device and content. */
+export function presetSkipped(
+  db: Db,
+  { sha256, ...p }: PresetSkipped,
+  device: { id: string; name: string },
+) {
+  raise(db, {
+    kind: "preset_skipped",
+    severity: "warning",
+    module: "hub",
+    task: `presets:${p.library}`,
+    entityType: "preset",
+    entityId: `${p.library}:${p.kind}:${p.name}:${device.id}:${sha256}`,
+    context: { ...p, from: device.name, reason: "missing_parent" },
+  });
 }
 
 /** A device deleted its copy: only shown on the preset (ADR-0017). */

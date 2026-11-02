@@ -19,7 +19,11 @@ import {
   hubSyncRootsSchema,
   hubUploadResultSchema,
   type IntegrationAdapter,
+  isPresetConflict,
+  presetInstallItemSchema,
+  presetInstallStatusSchema,
   presetRemovedSchema,
+  presetSkippedSchema,
   presetUploadResultSchema,
   presetUploadSchema,
   ROOT_HUB,
@@ -32,7 +36,7 @@ import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
 import { presetLibrary } from "../integrations/capabilities.ts";
-import { presetRemovedOn, uploadPreset } from "../integrations/presetLibrary.ts";
+import { presetRemovedOn, presetSkipped, uploadPreset } from "../integrations/presetLibrary.ts";
 import type { WorkerSlicers } from "../integrations/workerSlicer.ts";
 import type { HubChannel } from "../lib/hubChannel.ts";
 import { readPreferences } from "../lib/preferences.ts";
@@ -40,7 +44,7 @@ import type { DeviceFiles } from "../projects/deviceFiles.ts";
 import type { HubFiles } from "../projects/hubFiles.ts";
 import type { ProjectScanner } from "../projects/scanner.ts";
 
-const { deviceProjects, devices, projects, roots } = schema;
+const { deviceProjects, devices, projects, roots, slicerPresets } = schema;
 const rootParams = z.object({ rootId: z.uuid() });
 const errors = {
   400: apiErrorSchema,
@@ -299,6 +303,73 @@ export const hubDeviceRoutes =
       { schema: { body: presetRemovedSchema, response: { 204: z.null(), ...errors } } },
       async (req, reply) => {
         presetRemovedOn(db, req.body, sharing(req, req.body.library).id);
+        return reply.status(204).send(null);
+      },
+    );
+
+    // Install hub presets (ADR-0017): only with its switch on. Conflict copies are for cleaning up
+    // on the hub, and in a desktop slicer they would spread through its cloud.
+    const installing = (req: FastifyRequest) => {
+      const device = db
+        .select()
+        .from(devices)
+        .where(eq(devices.id, deviceOf(req)))
+        .get();
+      if (!device?.installPresets)
+        throw new HttpError(403, "not_installing", "Install hub presets is off for this device");
+      return device;
+    };
+    app.get(
+      "/presets",
+      { schema: { response: { 200: z.array(presetInstallItemSchema), ...errors } } },
+      async (req) => {
+        installing(req);
+        return db
+          .select({
+            id: slicerPresets.id,
+            library: slicerPresets.library,
+            kind: slicerPresets.kind,
+            name: slicerPresets.name,
+            version: slicerPresets.version,
+            sha256: slicerPresets.sha256,
+          })
+          .from(slicerPresets)
+          .where(eq(slicerPresets.deleted, false))
+          .orderBy(asc(slicerPresets.name))
+          .all()
+          .filter((p) => !isPresetConflict(p.name));
+      },
+    );
+    app.get(
+      "/presets/:id",
+      { schema: { params: z.object({ id: z.uuid() }) } },
+      async (req, reply) => {
+        installing(req);
+        const row = db
+          .select()
+          .from(slicerPresets)
+          .where(eq(slicerPresets.id, req.params.id))
+          .get();
+        if (!row || row.deleted) throw new HttpError(404, "not_found", "Preset not found");
+        return reply.type("application/json").send(row.json);
+      },
+    );
+    app.post(
+      "/presets/skipped",
+      { schema: { body: presetSkippedSchema, response: { 204: z.null(), ...errors } } },
+      async (req, reply) => {
+        presetSkipped(db, req.body, installing(req));
+        return reply.status(204).send(null);
+      },
+    );
+    app.put(
+      "/presets/install",
+      { schema: { body: presetInstallStatusSchema, response: { 204: z.null(), ...errors } } },
+      async (req, reply) => {
+        db.update(devices)
+          .set({ presetInstall: req.body })
+          .where(eq(devices.id, installing(req).id))
+          .run();
         return reply.status(204).send(null);
       },
     );

@@ -84,6 +84,7 @@ import {
   IMPORT_ITEM,
   INTEGRATIONS_ITEM,
   LOGS_ITEM,
+  PRESETS_ITEM,
   SETTINGS_ITEM,
 } from "./shell/nav.ts";
 
@@ -114,6 +115,7 @@ const built = [
   IMPORT_ITEM.to,
   INTEGRATIONS_ITEM.to,
   HUB_ITEM.to,
+  PRESETS_ITEM.to,
   SETTINGS_ITEM.to,
   LOGS_ITEM.to,
   "/printers",
@@ -488,7 +490,7 @@ const routes: AnyRoute[] = [
   }),
   createRoute({
     getParentRoute: () => root,
-    path: `${HUB_ITEM.to}/presets`,
+    path: PRESETS_ITEM.to,
     loader: () => loadNamespace("hub"),
     component: PresetsPage,
   }),

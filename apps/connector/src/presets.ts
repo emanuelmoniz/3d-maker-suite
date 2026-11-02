@@ -44,6 +44,12 @@ export function presetFolder(conf: string) {
   }
 }
 
+/** The account folder of the slicer whose config is `dir`; null = its `.conf` is being saved. */
+export const readFolder = (dir: string, { config }: Pick<DesktopSlicer, "config">) =>
+  readFile(join(dir, `${config}.conf`), "utf8").then(presetFolder, (e: NodeJS.ErrnoException) =>
+    e.code === "ENOENT" ? "default" : null,
+  );
+
 /**
  * What the hub knows of a preset file. `sha`: the content last sent, never sent again. `base`: the
  * hub version it started from; a conflict leaves it, as the file still didn't start from the hub's.
@@ -56,7 +62,41 @@ type Sent = {
   /** The file is gone, and the hub was told. */
   removed?: boolean;
 };
-type Saved = { link: string; files: Record<string, Sent> };
+/** `files`: what Share sent. `installed`: the sha Install last settled, per folder, kind and name. */
+type Saved = {
+  link: string;
+  files: Record<string, Sent>;
+  installed?: Record<string, string>;
+  /** The last backup per slicer id. */
+  backups?: Record<string, { path: string; at: string }>;
+};
+
+/** `<dataDir>/presets.json`, which Share and Install keep together: a state of another pairing starts over. */
+export function openPresetState(dataDir: string, identity: () => string) {
+  const file = join(dataDir, "presets.json");
+  let saved: Saved | undefined;
+  let changed = false;
+  return {
+    get() {
+      if (saved?.link === identity()) return saved;
+      try {
+        saved = JSON.parse(readFileSync(file, "utf8")) as Saved;
+      } catch {} // first start, or a damaged file: the hub answers by sha again
+      if (saved?.link !== identity()) saved = { link: identity(), files: {} };
+      return saved;
+    },
+    touch: () => {
+      changed = true;
+    },
+    persist() {
+      if (!changed || !saved) return;
+      writeFileSync(`${file}.tmp`, JSON.stringify(saved));
+      renameSync(`${file}.tmp`, file);
+      changed = false;
+    },
+  };
+}
+export type PresetState = ReturnType<typeof openPresetState>;
 
 /**
  * Share my presets (ADR-0017): the user preset folder of the account each found slicer last used
@@ -67,9 +107,8 @@ type Saved = { link: string; files: Record<string, Sent> };
 export function createPresetShare({
   request,
   store,
-  dataDir,
+  state,
   slicers,
-  identity,
   log,
   configDir = configDirOf,
   pollMs = POLL_MS,
@@ -77,41 +116,21 @@ export function createPresetShare({
 }: {
   request: Request;
   store: Store;
-  dataDir: string;
+  state: PresetState;
   /** The found slicers, as the hub described them. */
   slicers: () => DesktopSlicer[];
-  /** The hub URL and device id: a state file of another pairing starts over. */
-  identity: () => string;
   log: (line: string) => void;
   /** Where a slicer's config is, and the timings (tests). */
   configDir?: (slicer: DesktopSlicer) => string;
   pollMs?: number;
   settleMs?: number;
 }) {
-  const file = join(dataDir, "presets.json");
-  let saved: Saved | undefined;
-  let changed = false;
   let on = false;
   let watchers: FSWatcher[] = [];
   let poll: NodeJS.Timeout | undefined;
   let quiet: NodeJS.Timeout | undefined;
   let looking: Promise<void> | undefined;
   let again = false;
-
-  const state = () => {
-    if (saved?.link === identity()) return saved;
-    try {
-      saved = JSON.parse(readFileSync(file, "utf8")) as Saved;
-    } catch {} // first start, or a damaged file: the hub answers by sha again
-    if (saved?.link !== identity()) saved = { link: identity(), files: {} };
-    return saved;
-  };
-  const persist = () => {
-    if (!changed || !saved) return;
-    writeFileSync(`${file}.tmp`, JSON.stringify(saved));
-    renameSync(`${file}.tmp`, file);
-    changed = false;
-  };
 
   async function send(
     slicer: DesktopSlicer,
@@ -120,7 +139,7 @@ export function createPresetShare({
     key: string,
     fileName: string,
   ) {
-    const files = state().files;
+    const files = state.get().files;
     const was = files[key];
     const info = await stat(abs).catch(() => null);
     if (!info?.isFile() || (was && !was.removed && was.mtimeMs === info.mtimeMs)) return;
@@ -131,7 +150,7 @@ export function createPresetShare({
     const sha = json ? presetSha(json) : createHash("sha256").update(text).digest("hex");
     if (was && !was.removed && was.sha === sha) {
       was.mtimeMs = info.mtimeMs;
-      changed = true;
+      state.touch();
       return;
     }
     const res = await request("/presets", {
@@ -148,7 +167,7 @@ export function createPresetShare({
     const { result, name, version } = presetUploadResultSchema.parse(await res.json());
     const onHub = result === "saved" || result === "same";
     files[key] = { name, sha, mtimeMs: info.mtimeMs, base: onHub ? version : (was?.base ?? 0) };
-    changed = true;
+    state.touch();
     if (result !== "same") log(`preset ${name}: ${result}`);
   }
 
@@ -159,15 +178,12 @@ export function createPresetShare({
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     entry.removed = true;
-    changed = true;
+    state.touch();
   }
 
   async function lookAt(slicer: DesktopSlicer) {
     const dir = configDir(slicer);
-    const folder = await readFile(join(dir, `${slicer.config}.conf`), "utf8").then(
-      presetFolder,
-      (e: NodeJS.ErrnoException) => (e.code === "ENOENT" ? "default" : null),
-    );
+    const folder = await readFolder(dir, slicer);
     if (folder === null) return;
     for (const kind of SLICER_PRESET_KINDS) {
       const base = join(dir, "user", folder, kind);
@@ -185,7 +201,7 @@ export function createPresetShare({
         here.add(key);
         await attempt(rel, send(slicer, kind, join(base, rel), key, parse(rel).name));
       }
-      for (const [key, entry] of Object.entries(state().files)) {
+      for (const [key, entry] of Object.entries(state.get().files)) {
         if (!on) return;
         if (key.startsWith(prefix) && !here.has(key) && !entry.removed)
           await attempt(entry.name, gone(slicer, kind, entry));
@@ -203,7 +219,7 @@ export function createPresetShare({
       do {
         again = false;
         for (const slicer of slicers()) await lookAt(slicer);
-        persist();
+        state.persist();
       } while (again && on);
     })()
       .catch((e) => log(`presets: ${e instanceof Error ? e.message : e}`))
@@ -223,6 +239,8 @@ export function createPresetShare({
 
   return {
     stop,
+    /** A look now, if the switch is on: Install's writes come after what's unsent. */
+    flush: () => (on ? look() : Promise.resolve()),
     /** Connected, or the switch changed: looks now and keeps watching, if the switch is on. */
     start() {
       stop();

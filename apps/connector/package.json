@@ -10,6 +10,7 @@
   "dependencies": {
     "@3d-maker-suite/core": "workspace:*",
     "@3d-maker-suite/host": "workspace:*",
+    "yazl": "^3.3.1",
     "zod": "^4.6.5"
   },
   "devDependencies": {
@@ -17,7 +18,6 @@
     "@3d-maker-suite/db": "workspace:*",
     "@3d-maker-suite/server": "workspace:*",
     "@types/node": "^22.20.5",
-    "@types/yazl": "^3.3.1",
-    "yazl": "^3.3.1"
+    "@types/yazl": "^3.3.1"
   }
 }

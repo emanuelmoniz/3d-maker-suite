@@ -25,6 +25,10 @@ const known = [
     flatpak: "com.bambulab.BambuStudio",
     library: "bambu-studio",
     config: "BambuStudio",
+    process: "bambu-studio",
+    presetIndent: "    ",
+    uploadsDiskEdits: true,
+    cloudClockLeadS: 0,
   },
 ];
 

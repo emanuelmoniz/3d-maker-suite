@@ -62,7 +62,7 @@ export const presetsRoutes =
         .map((r) => itemOf(r, names));
     });
 
-    // Only devices with a slicer have presets to share.
+    // Only devices with a slicer have presets to share or install.
     app.get("/devices", { schema: { response: { 200: z.array(presetDeviceSchema) } } }, async () =>
       db
         .select()
@@ -70,10 +70,12 @@ export const presetsRoutes =
         .orderBy(asc(devices.name))
         .all()
         .filter((d) => d.slicers.length)
-        .map(({ id, name, sharePresets }) => ({
+        .map(({ id, name, sharePresets, installPresets, presetInstall }) => ({
           id,
           name,
           sharePresets,
+          installPresets,
+          presetInstall,
           online: channel.online(id),
         })),
     );
@@ -90,10 +92,19 @@ export const presetsRoutes =
       async (req, reply) => {
         const row = db.select().from(devices).where(eq(devices.id, req.params.id)).get();
         if (!row) throw new HttpError(404, "not_found", "Device not found");
-        const share = req.body.sharePresets;
-        if (share !== row.sharePresets) {
-          db.update(devices).set({ sharePresets: share }).where(eq(devices.id, row.id)).run();
-          channel.publish(row.id, { type: "device.presets", share });
+        const share = req.body.sharePresets ?? row.sharePresets;
+        const install = req.body.installPresets ?? row.installPresets;
+        if (share !== row.sharePresets || install !== row.installPresets) {
+          db.update(devices)
+            .set({
+              sharePresets: share,
+              installPresets: install,
+              // Off: what it last said no longer holds.
+              ...(!install && { presetInstall: null }),
+            })
+            .where(eq(devices.id, row.id))
+            .run();
+          channel.publish(row.id, { type: "device.presets", share, install });
         }
         return reply.status(204).send(null);
       },

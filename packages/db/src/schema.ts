@@ -21,6 +21,7 @@ import {
   type Permissions,
   PRINT_OUTCOMES,
   type PROJECT_EDITABLE_FIELDS,
+  type PresetInstallStatus,
   type ProjectRights,
   ROLE_BUILT_INS,
   ROOT_EDIT_BY,
@@ -1157,6 +1158,10 @@ export const devices = sqliteTable(
     sliceWorker: integer({ mode: "boolean" }).notNull().default(false),
     /** Share my presets: its slicers' user presets go to the hub's library (ADR-0017). */
     sharePresets: integer({ mode: "boolean" }).notNull().default(false),
+    /** Install hub presets: the library's presets go to its slicers (ADR-0017). */
+    installPresets: integer({ mode: "boolean" }).notNull().default(false),
+    /** What it last reported of that (`PUT .../presets/install`). */
+    presetInstall: text({ mode: "json" }).$type<PresetInstallStatus>(),
     /** Its OS, arch and glibc (`X-Connector-System`): which managed slicer build fits it. */
     system: text({ mode: "json" }).$type<SlicerSystem>(),
     lastSeenAt: text(),

@@ -1370,13 +1370,14 @@ Back up the DB before editing schema.ts.
 Do Step 16 of the 5.1.0 plan in PLAN.md.
 ```
 
-### [ ] Step 17 - Install hub presets (hub → desktop)  **[plan mode]**
+### [x] Step 17 - Install hub presets (hub → desktop)  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:**
 - Device switch *Install hub presets*. Writes queue until the slicer's process is gone (a check by process name; the check-out lock only knows pids the connector started). `.info` rules per ADR-0017 for Bambu and OrcaCloud; backup zip before the first write; same canonical sha = no write; no delete propagation; skip and alert on a missing `inherits` parent.
 - The device page shows the target folder, the queue, the last backup and, for OrcaCloud, that edits stay on that PC.
+- A way to reach Hub management → Slicer presets without `hub.manage`. Today the Hub nav item and the link on the Hub page both need it, while the page's API only needs `projects` read to see and `presets.manage` to change (ADR-0017). With the hub off, it stays hidden.
 
-**Done when:** a hub preset appears in a closed Bambu Studio after its next start, signed in and signed out; it survives a Bambu Cloud sync; two workstations on the same account don't loop; tests for the `.info` writer and echo suppression pass.
+**Done when:** a hub preset appears in a closed Bambu Studio after its next start, signed in and signed out; it survives a Bambu Cloud sync; two workstations on the same account don't loop; an Editor reaches Slicer presets from the navigation and can use its switches, and a Viewer sees the presets without them (e2e); tests for the `.info` writer and echo suppression pass.
 **Prompt:**
 ```
 Do Step 17 of the 5.1.0 plan in PLAN.md. Show me the .info writer and the write queue first.

@@ -10,6 +10,7 @@ import { PageHeader } from "../../components/PageHeader.tsx";
 import { Section } from "../../components/Section.tsx";
 import { Switch } from "../../components/Switch.tsx";
 import { ApiError } from "../../lib/api.ts";
+import { useCan } from "../../lib/auth.ts";
 import { formatDateTime } from "../../lib/format.ts";
 import {
   useConnectorActions,
@@ -18,6 +19,8 @@ import {
   useDevices,
 } from "../../lib/hub.ts";
 import { useAdapterName } from "../../lib/integrations.ts";
+import { usePresetDevices } from "../../lib/presets.ts";
+import { InstallStatus } from "./PresetsPage.tsx";
 import { SyncLine } from "./SyncLine.tsx";
 
 /** The message for a failed save: a connector that is offline or silent says so. */
@@ -293,6 +296,23 @@ function Slicing({ device: d }: { device: Device }) {
   );
 }
 
+/** Install hub presets on this device, for those who may see it (presets.manage). */
+function PresetsCard({ device: d }: { device: Device }) {
+  const { t } = useTranslation();
+  const allowed = useCan("presets.manage");
+  const status = usePresetDevices(allowed).data?.find((p) => p.id === d.id);
+  if (!status?.installPresets) return null;
+  return (
+    <Section title={t("hub:presets.slicerPresets")}>
+      {status.presetInstall ? (
+        <InstallStatus status={status.presetInstall} />
+      ) : (
+        <p className="text-muted">{t("hub:edit.loading")}</p>
+      )}
+    </Section>
+  );
+}
+
 /** Every setting of one connector (admin only). Cards that need it online say so when it isn't. */
 export function EditConnectorPage() {
   const { t } = useTranslation();
@@ -320,6 +340,7 @@ export function EditConnectorPage() {
           <Connection device={device} />
           <SyncCard device={device} />
           <Slicing device={device} />
+          <PresetsCard device={device} />
         </div>
       )}
     </>

@@ -90,6 +90,130 @@ test("hub presets: two PCs' zips in one library, versions, delete", async ({ pag
   expect(await hasHorizontalScroll(page)).toBe(false);
 });
 
+test("slicer presets without hub.manage: an editor's switches, a viewer's list, hub off hides it", async ({
+  page,
+  app,
+}) => {
+  const PASSWORD = "correct horse";
+  const signInAs = async (email: string) => {
+    await page.context().clearCookies();
+    expect(
+      (await page.request.post("/api/auth/login", { data: { email, password: PASSWORD } })).ok(),
+    ).toBe(true);
+  };
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto("/");
+  await page.request.post("/api/auth/setup", {
+    data: { displayName: "Ana Admin", email: "ana@example.com", password: PASSWORD },
+  });
+  await page.request.patch("/api/preferences", { data: { hubEnabled: true } });
+  // The seeded roles (migration 0086).
+  for (const [displayName, email, roleId] of [
+    ["Eva Editor", "eva@example.com", "00000000-0000-4000-8000-000000000002"],
+    ["Vic Viewer", "vic@example.com", "00000000-0000-4000-8000-000000000003"],
+  ])
+    expect(
+      (
+        await page.request.post("/api/users", {
+          data: { displayName, email, password: PASSWORD, roleId },
+        })
+      ).ok(),
+    ).toBe(true);
+  const zip = await zipOf({ "user/default/filament/Farm PLA.json": { name: "Farm PLA" } });
+  await page.request.post("/api/slicer-zip/orca-slicer", {
+    headers: { "content-type": "application/zip" },
+    data: zip,
+  });
+  const me = await (await page.request.get("/api/auth/me")).json();
+  const { code } = await (
+    await page.request.post("/api/hub/pairing-codes", { data: { userId: me.user.id } })
+  ).json();
+  const { token } = await app.api<{ token: string }>("POST", "/api/hub/pair", {
+    code,
+    name: "Desk PC",
+  });
+  const device = (method: string, path: string, body: unknown) =>
+    fetch(`${app.url}/api/hub/device${path}`, {
+      method,
+      headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  await device("PUT", "/slicers", [
+    { id: "orca-slicer", version: "2.5", path: "C:/Orca/orca-slicer.exe", default: true },
+  ]);
+  const side = page.getByRole("complementary");
+  const nav = side.getByRole("link", { name: "Slicer presets" });
+
+  // An admin has it on the Hub page, so no second item.
+  await page.goto("/hub");
+  await expect(side.getByRole("link", { name: "Hub management" })).toBeVisible();
+  await expect(nav).toHaveCount(0);
+
+  // Editor: from the navigation, with the switches and no way back to a page it can't open.
+  await signInAs("eva@example.com");
+  await page.goto("/");
+  await expect(side.getByRole("link", { name: "Hub management" })).toHaveCount(0);
+  await nav.click();
+  await expect(page.getByRole("heading", { name: "Slicer presets", level: 1 })).toBeVisible();
+  await expect(page.getByText("Farm PLA")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Delete Farm PLA" })).toBeVisible();
+  await expect(page.getByRole("link", { name: /back/i })).toHaveCount(0);
+  const install = page.getByRole("switch", { name: "Install hub presets on Desk PC" });
+  await expect(install).not.toBeChecked();
+  expect((await device("GET", "/presets", undefined)).status).toBe(403);
+  await install.click({ force: true });
+  await expect(install).toBeChecked();
+
+  // What the connector reports shows under the device.
+  expect(
+    (
+      await device("PUT", "/presets/install", [
+        {
+          library: "orca-slicer",
+          folder: "C:/Users/me/AppData/Roaming/OrcaSlicer/user/abc",
+          waiting: true,
+          queued: 1,
+          queue: [{ library: "orca-slicer", kind: "filament", name: "Farm PLA" }],
+          backup: null,
+          editsStayLocal: true,
+        },
+      ])
+    ).status,
+  ).toBe(204);
+  await page.reload();
+  await expect(
+    page.getByText("Writes to C:/Users/me/AppData/Roaming/OrcaSlicer/user/abc"),
+  ).toBeVisible();
+  await expect(page.getByText("1 preset waits for this slicer to close:")).toBeVisible();
+  await expect(page.getByRole("list", { name: "Presets waiting for OrcaSlicer" })).toContainText(
+    "Farm PLA",
+  );
+  await expect(page.getByText("No backup yet.")).toBeVisible();
+  await expect(page.getByText("An edit from the hub stays on this PC")).toBeVisible();
+
+  // Viewer: sees the presets, without the switches or delete.
+  await signInAs("vic@example.com");
+  await page.goto("/");
+  await nav.click();
+  await expect(page.getByText("Farm PLA")).toBeVisible();
+  await expect(page.getByRole("switch")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Delete Farm PLA" })).toHaveCount(0);
+  expect((await page.request.patch("/api/presets/devices/x", { data: {} })).status()).toBe(403);
+
+  // The device's page shows the same to an admin.
+  await signInAs("ana@example.com");
+  const [{ id }] = await (await page.request.get("/api/presets/devices")).json();
+  await page.goto(`/hub/devices/${id}`);
+  await expect(page.getByText("1 preset waits for this slicer to close:")).toBeVisible();
+
+  // Hub off: hidden for all.
+  await page.request.patch("/api/preferences", { data: { hubEnabled: false } });
+  await signInAs("eva@example.com");
+  await page.goto("/");
+  await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+  await expect(nav).toHaveCount(0);
+});
+
 test("share my presets: the switch, a device's preset, a conflict copy, a desktop delete", async ({
   page,
   app,

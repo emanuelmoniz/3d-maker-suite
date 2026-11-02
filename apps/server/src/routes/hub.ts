@@ -276,7 +276,11 @@ export const hubRoutes =
       const mine = eq(hubEvents.deviceId, deviceId);
 
       const switches = db
-        .select({ worker: devices.sliceWorker, share: devices.sharePresets })
+        .select({
+          worker: devices.sliceWorker,
+          share: devices.sharePresets,
+          install: devices.installPresets,
+        })
         .from(devices)
         .where(eq(devices.id, deviceId))
         .get();
@@ -289,6 +293,7 @@ export const hubRoutes =
         // On every connect, so a connector that missed `device.worker` (an older one) knows it.
         "x-slice-worker": switches?.worker ? "1" : "0",
         "x-share-presets": switches?.share ? "1" : "0",
+        "x-install-presets": switches?.install ? "1" : "0",
         // Once the hub ends a stream (revoke, shutdown) the socket goes too, instead of idling in
         // keep-alive, which held up the server's close.
         connection: "close",

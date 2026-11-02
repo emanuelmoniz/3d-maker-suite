@@ -45,6 +45,14 @@ export const desktopSlicerSchema = z.object({
   library: z.string(),
   /** Its config folder's name, which also names its `.conf` there. */
   config: z.string(),
+  /** Its process, to write presets only while it's closed; `-`, `_` and case don't count (`BambuStudio`). */
+  process: z.string(),
+  /** How it indents a preset's json, so a file's bytes survive a cloud round trip (ADR-0017). */
+  presetIndent: z.string(),
+  /** Its cloud also takes an edit written to disk; false = the edit stays on that PC (ADR-0017). */
+  uploadsDiskEdits: z.boolean(),
+  /** Seconds an `update`'s `updated_time` leads real time, to look newer than its cloud's copy. */
+  cloudClockLeadS: z.number().int().nonnegative(),
 });
 /** A slicer the connector found (`PUT /api/hub/device/slicers`); `id` as in `desktopSlicerSchema`. */
 export const deviceSlicerSchema = z.object({
@@ -264,8 +272,8 @@ export const hubEventSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("slicer.remove"), requestId: id, integrationId: id }),
   /** An admin made this device a slice worker, or no longer one (its status page shows it). */
   z.object({ type: z.literal("device.worker"), on: z.boolean() }),
-  /** Share my presets went on or off (ADR-0017): its slicers' user presets go to the hub. */
-  z.object({ type: z.literal("device.presets"), share: z.boolean() }),
+  /** Share my presets or Install hub presets changed (ADR-0017). */
+  z.object({ type: z.literal("device.presets"), share: z.boolean(), install: z.boolean() }),
   /** Edit connector: read its settings; the answer's result is a `connectorSettingsSchema`. */
   z.object({ type: z.literal("connector.settings.get"), requestId: id }),
   /**

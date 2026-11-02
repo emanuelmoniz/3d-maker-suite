@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { EOL } from "node:os";
 
 // Slicer presets as the hub and connectors compare them (ADR-0017).
 
@@ -20,6 +21,15 @@ export const presetSha = (json: unknown) =>
   createHash("sha256")
     .update(JSON.stringify(sorted(json)))
     .digest("hex");
+
+/** The slicer's own style (sorted keys, its indent), so a file's bytes survive a cloud round trip. */
+export const presetText = (json: unknown, indent: string, eol = EOL) =>
+  JSON.stringify(sorted(json), null, indent).replaceAll("\n", eol) + eol;
+
+// ponytail: two names that differ only in these characters share a file; the later write wins.
+/** A preset's file: its name can't leave the folder or break on any OS. */
+export const presetFileName = (name: string) =>
+  `${name.replace(/[\\/:*?"<>|\p{Cc}]/gu, "-").replace(/[. ]+$/, "") || "preset"}.json`;
 
 /** The json object in `text`, or null. `"nil"` values are valid: they inherit. */
 export function parsePreset(text: string): Record<string, unknown> | null {

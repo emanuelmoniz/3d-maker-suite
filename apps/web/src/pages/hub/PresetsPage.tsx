@@ -1,4 +1,9 @@
-import type { SlicerPreset, SlicerPresetKind, SlicerPresetVersion } from "@3d-maker-suite/core";
+import type {
+  PresetInstallStatus,
+  SlicerPreset,
+  SlicerPresetKind,
+  SlicerPresetVersion,
+} from "@3d-maker-suite/core";
 import { Link } from "@tanstack/react-router";
 import { ChevronRight, Download, SlidersHorizontal, Trash2 } from "lucide-react";
 import { useState } from "react";
@@ -16,7 +21,7 @@ import {
   usePresetDetail,
   usePresetDevices,
   usePresets,
-  useSharePresets,
+  useUpdatePresetDevice,
 } from "../../lib/presets.ts";
 
 // Written out so `pnpm i18n:check` sees the keys. The most edited kind first.
@@ -28,6 +33,11 @@ const KINDS: [SlicerPresetKind, string][] = [
 const LIBRARIES: Record<string, string> = {
   "bambu-studio": "hub:presets.libraries.bambuStudio",
   "orca-slicer": "hub:presets.libraries.orcaSlicer",
+};
+
+const useLibraryName = () => {
+  const { t } = useTranslation();
+  return (id: string) => (LIBRARIES[id] ? t(LIBRARIES[id]) : id);
 };
 
 const iconButton =
@@ -175,11 +185,52 @@ function Switcher<T extends string>({
   );
 }
 
-/** Which devices send their slicers' user presets here. */
-function SharingDevices() {
+/** Where Install hub presets writes on a device, what waits and the last backup, per slicer. */
+export function InstallStatus({ status }: { status: PresetInstallStatus }) {
+  const { t } = useTranslation();
+  const libName = useLibraryName();
+  return (
+    <div className="grid gap-2">
+      {status.map((s) => (
+        <div key={s.library} className="grid gap-0.5 text-sm">
+          <p className="font-medium">{libName(s.library)}</p>
+          <p className="text-muted wrap-anywhere">
+            {t("hub:presets.installFolder", { folder: s.folder })}
+          </p>
+          <p className="text-muted">
+            {s.queued
+              ? t(s.waiting ? "hub:presets.queueWaiting" : "hub:presets.queue", {
+                  count: s.queued,
+                })
+              : t("hub:presets.queueEmpty")}
+          </p>
+          {s.queue.length > 0 && (
+            <ul
+              aria-label={t("hub:presets.queueOf", { name: libName(s.library) })}
+              className="text-muted wrap-anywhere"
+            >
+              {s.queue.map((q) => (
+                <li key={`${q.kind}/${q.name}`}>{q.name}</li>
+              ))}
+            </ul>
+          )}
+          <p className="text-muted wrap-anywhere">
+            {s.backup
+              ? t("hub:presets.backup", { when: formatDateTime(s.backup.at), path: s.backup.path })
+              : t("hub:presets.noBackup")}
+          </p>
+          {s.editsStayLocal && <p className="text-warn">{t("hub:presets.editsStayLocal")}</p>}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** What each device shares to and installs from this library. */
+function PresetDevices() {
   const { t } = useTranslation();
   const devices = usePresetDevices(true);
-  const share = useSharePresets();
+  const update = useUpdatePresetDevice();
   return (
     <section
       aria-labelledby="preset-devices"
@@ -189,7 +240,7 @@ function SharingDevices() {
         {t("hub:presets.devicesTitle")}
       </h2>
       <p className="max-w-prose text-muted">{t("hub:presets.devicesHint")}</p>
-      {share.isError && (
+      {update.isError && (
         <p role="alert" className="text-bad">
           {t("hub:errors.generic")}
         </p>
@@ -197,20 +248,34 @@ function SharingDevices() {
       {devices.data?.length ? (
         <ul className="divide-y divide-border">
           {devices.data.map((d) => (
-            <li key={d.id} className="flex flex-wrap items-center justify-between gap-x-4 py-1">
-              <span className="min-w-0 wrap-anywhere">
-                {d.name}
-                {!d.online && (
-                  <span className="ml-2 text-sm text-muted">{t("hub:presets.deviceOffline")}</span>
-                )}
-              </span>
-              <Switch
-                label={t("hub:presets.share")}
-                aria-label={t("hub:presets.shareOn", { name: d.name })}
-                checked={d.sharePresets}
-                disabled={share.isPending}
-                onChange={(e) => share.mutate({ id: d.id, sharePresets: e.target.checked })}
-              />
+            <li key={d.id} className="grid gap-2 py-2">
+              <div className="flex flex-wrap items-center justify-between gap-x-4">
+                <span className="min-w-0 wrap-anywhere">
+                  {d.name}
+                  {!d.online && (
+                    <span className="ml-2 text-sm text-muted">
+                      {t("hub:presets.deviceOffline")}
+                    </span>
+                  )}
+                </span>
+                <div className="flex flex-wrap gap-x-4">
+                  <Switch
+                    label={t("hub:presets.share")}
+                    aria-label={t("hub:presets.shareOn", { name: d.name })}
+                    checked={d.sharePresets}
+                    disabled={update.isPending}
+                    onChange={(e) => update.mutate({ id: d.id, sharePresets: e.target.checked })}
+                  />
+                  <Switch
+                    label={t("hub:presets.install")}
+                    aria-label={t("hub:presets.installOn", { name: d.name })}
+                    checked={d.installPresets}
+                    disabled={update.isPending}
+                    onChange={(e) => update.mutate({ id: d.id, installPresets: e.target.checked })}
+                  />
+                </div>
+              </div>
+              {d.installPresets && d.presetInstall && <InstallStatus status={d.presetInstall} />}
             </li>
           ))}
         </ul>
@@ -227,6 +292,8 @@ export function PresetsPage() {
   const presets = usePresets();
   const manage = useCan("presets.manage");
   const integrations = useCan("integrations.manage");
+  const hub = useCan("hub.manage");
+  const libName = useLibraryName();
   const remove = useDeletePreset();
   const [library, setLibrary] = useState<string | null>(null);
   const [kind, setKind] = useState<SlicerPresetKind>("filament");
@@ -242,7 +309,6 @@ export function PresetsPage() {
   const shown = inLib.filter(
     (p) => !p.conflict && p.kind === kind && (!q || p.name.toLocaleLowerCase().includes(q)),
   );
-  const libName = (id: string) => (LIBRARIES[id] ? t(LIBRARIES[id]) : id);
   const close = () => {
     setDeleting(null);
     remove.reset();
@@ -253,7 +319,7 @@ export function PresetsPage() {
       <PageHeader
         title={t("hub:presets.title")}
         description={t("hub:presets.description")}
-        backTo={{ to: "/hub" }}
+        backTo={hub ? { to: "/hub" } : undefined}
       />
       {presets.isError && (
         <p role="alert" className="text-bad">
@@ -349,7 +415,7 @@ export function PresetsPage() {
           </section>
         </div>
       )}
-      {manage && <SharingDevices />}
+      {manage && <PresetDevices />}
 
       <ConfirmDialog
         open={!!deleting}

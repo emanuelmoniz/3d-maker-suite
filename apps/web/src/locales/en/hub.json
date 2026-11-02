@@ -151,10 +151,23 @@
     "deleteConfirm": "Delete preset",
     "removedOn": "Removed on {{devices}}",
     "devicesTitle": "Devices",
-    "devicesHint": "A device with Share my presets on sends each preset saved in its slicers here within a minute. Deleting one in a slicer only shows here; the hub keeps its copy.",
+    "devicesHint": "A device with Share my presets on sends each preset saved in its slicers here within a minute. Deleting one in a slicer only shows here; the hub keeps its copy. With Install hub presets on, this library's presets are written to its slicers while they are closed, and show at their next start.",
     "deviceOffline": "Offline",
     "share": "Share my presets",
     "shareOn": "Share my presets on {{name}}",
-    "noDevices": "No connector with a slicer yet."
+    "install": "Install hub presets",
+    "installOn": "Install hub presets on {{name}}",
+    "installFolder": "Writes to {{folder}}",
+    "queueEmpty": "Nothing waiting to be written.",
+    "queue_one": "{{count}} preset being written:",
+    "queue_other": "{{count}} presets being written:",
+    "queueWaiting_one": "{{count}} preset waits for this slicer to close:",
+    "queueWaiting_other": "{{count}} presets wait for this slicer to close:",
+    "queueOf": "Presets waiting for {{name}}",
+    "backup": "Last backup {{when}}: {{path}}",
+    "noBackup": "No backup yet. One is made before the first write.",
+    "editsStayLocal": "This slicer's cloud account only takes new presets written to disk. An edit from the hub stays on this PC, and the cloud keeps the old version for other PCs.",
+    "noDevices": "No connector with a slicer yet.",
+    "slicerPresets": "Slicer presets"
   }
 }

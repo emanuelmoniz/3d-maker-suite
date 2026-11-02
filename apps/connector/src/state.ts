@@ -101,6 +101,8 @@ type State = {
   sliceWorker?: boolean;
   /** Share my presets is on (`device.presets`): its slicers' user presets go to the hub. */
   sharePresets?: boolean;
+  /** Install hub presets is on (`device.presets`): the hub's presets go to its slicers. */
+  installPresets?: boolean;
 };
 type Saved = State & { token?: Blob };
 
