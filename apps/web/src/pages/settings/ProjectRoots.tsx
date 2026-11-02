@@ -175,8 +175,8 @@ export function ProjectRoots() {
   const online = hubOn ? (devices.data ?? []).filter((d) => d.online) : [];
   const device = location === ROOT_HUB ? undefined : location;
   const roots = useRoots();
-  // Users who can be picked to edit a root: a viewer never edits.
-  const editors = (useUsers(!!useMe()).data ?? []).filter((u) => u.role !== "viewer");
+  // Users who can be picked to edit a root; the server refuses anyone without projects write.
+  const editors = useUsers(!!useMe()).data ?? [];
   const save = useChangeRoot();
   const code = save.error instanceof ApiError ? save.error.code : undefined;
   const add = (dir: string) => {

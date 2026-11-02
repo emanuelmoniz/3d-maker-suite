@@ -9,12 +9,18 @@ import { and, asc, count, eq } from "drizzle-orm";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
+import { assertWithin } from "../lib/auth.ts";
 import { hashPassword } from "../lib/password.ts";
-import { endUserSessions } from "../lib/session.ts";
+import { endUserSessions, type SessionUser } from "../lib/session.ts";
 
-const { users } = schema;
+const { roles, users } = schema;
 const params = z.object({ id: z.uuid() });
-const errors = { 404: apiErrorSchema, 409: apiErrorSchema };
+const errors = {
+  400: apiErrorSchema,
+  403: apiErrorSchema,
+  404: apiErrorSchema,
+  409: apiErrorSchema,
+};
 
 const isUnique = (e: unknown) => String((e as Error).message).includes("UNIQUE");
 const taken = () => new HttpError(409, "email_taken", "A user with this email exists");
@@ -22,19 +28,69 @@ const lastAdmin = () =>
   new HttpError(409, "last_admin", "The last enabled admin can't be disabled, demoted or deleted");
 
 type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
+type Role = typeof roles.$inferSelect;
+type Body = z.infer<typeof userPatchSchema>;
+
 const enabledAdmins = (tx: Tx) =>
   tx
     .select({ n: count() })
     .from(users)
-    .where(and(eq(users.role, "admin"), eq(users.disabled, false)))
+    .innerJoin(roles, eq(roles.id, users.roleId))
+    .where(and(eq(roles.builtIn, "admin"), eq(users.disabled, false)))
     .get()?.n ?? 0;
 const get = (tx: Tx, id: string) => {
   const row = tx.select().from(users).where(eq(users.id, id)).get();
   if (!row) throw new HttpError(404, "not_found", "User not found");
   return row;
 };
+const roleOf = (tx: Tx, id: string) => {
+  const role = tx.select().from(roles).where(eq(roles.id, id)).get();
+  if (!role) throw new HttpError(400, "invalid_reference", "Role not found");
+  return role;
+};
+const isAdmin = (role: Role) => role.builtIn === "admin";
 
-// Admin only (lib/auth.ts). Hashes never leave: userSchema has no such field.
+/**
+ * What new overrides change, as the values the user ends up with: a dropped override counts as
+ * the role's value (dropping a deny is a grant). Unchanged keys are left out.
+ */
+function changedOverrides<T extends object>(
+  next: Partial<T> | undefined,
+  prev: Partial<T>,
+  role: T,
+) {
+  if (!next) return undefined;
+  const keys = new Set([...Object.keys(next), ...Object.keys(prev)] as (keyof T)[]);
+  return Object.fromEntries(
+    [...keys].filter((k) => next[k] !== prev[k]).map((k) => [k, next[k] ?? role[k]]),
+  ) as Partial<T>;
+}
+
+/**
+ * ADR-0016 rules on one account change: only the Admin role touches Admin-role users or moves
+ * anyone into or out of it; an Admin-role user takes only the `editOtherDevices` override; a
+ * manager picks no role and sets no override above their own rights.
+ */
+function assertChange(
+  caller: SessionUser | undefined,
+  from: Role | null,
+  to: Role,
+  overrides: Pick<Body, "permissions" | "projectRights">,
+) {
+  if (caller && !caller.rights.admin && (isAdmin(to) || (from && isAdmin(from))))
+    throw new HttpError(403, "admin_only", "Only admins change admin accounts");
+  const { permissions = {}, projectRights = {} } = overrides;
+  if (
+    isAdmin(to) &&
+    (Object.keys(permissions).length ||
+      Object.keys(projectRights).some((k) => k !== "projects.editOtherDevices"))
+  )
+    throw new HttpError(400, "admin_overrides", "Admins take only the device files override");
+  if (from?.id !== to.id) assertWithin(caller, to);
+  assertWithin(caller, overrides);
+}
+
+// users.manage only (lib/auth.ts). Hashes never leave: userSchema has no such field.
 // ponytail: unpaginated, a household has a handful of users.
 export const usersRoutes =
   (
@@ -54,14 +110,15 @@ export const usersRoutes =
         const { password, ...rest } = req.body;
         const passwordHash = await hashPassword(password);
         try {
-          return reply.status(201).send(
-            db
+          const user = db.transaction((tx) => {
+            assertChange(req.user, null, roleOf(tx, rest.roleId), rest);
+            return tx
               .insert(users)
-              // Admins edit other devices' files unless told otherwise; editors only when allowed.
-              .values({ editOtherDevices: rest.role === "admin", ...rest, passwordHash })
+              .values({ ...rest, passwordHash })
               .returning()
-              .get(),
-          );
+              .get();
+          });
+          return reply.status(201).send(user);
         } catch (e) {
           throw isUnique(e) ? taken() : e;
         }
@@ -77,15 +134,37 @@ export const usersRoutes =
         try {
           return db.transaction((tx) => {
             const row = get(tx, req.params.id);
-            const roleChanged = !!rest.role && rest.role !== row.role;
-            const demoted = roleChanged || rest.disabled === true;
-            if (row.role === "admin" && !row.disabled && demoted && enabledAdmins(tx) <= 1)
+            const from = roleOf(tx, row.roleId);
+            const to = rest.roleId ? roleOf(tx, rest.roleId) : from;
+            // Only what actually changes counts, so a form may send every field back.
+            const permissions = changedOverrides(rest.permissions, row.permissions, to.permissions);
+            const projectRights = changedOverrides(
+              rest.projectRights,
+              row.projectRights,
+              to.projectRights,
+            );
+            const disabling = rest.disabled !== undefined && rest.disabled !== row.disabled;
+            const own =
+              to.id !== from.id ||
+              disabling ||
+              Object.keys(permissions ?? {}).length ||
+              Object.keys(projectRights ?? {}).length;
+            if (req.user?.id === row.id && own)
+              throw new HttpError(
+                403,
+                "own_account",
+                "You can't change your own role, rights or state",
+              );
+            assertChange(req.user, from, to, { permissions, projectRights });
+            const demoted = (to.id !== from.id && !isAdmin(to)) || rest.disabled === true;
+            if (isAdmin(from) && !row.disabled && demoted && enabledAdmins(tx) <= 1)
               throw lastAdmin();
             const values = { ...rest, ...(passwordHash && { passwordHash }) };
             if (!Object.keys(values).length) return row;
             const user = tx.update(users).set(values).where(eq(users.id, row.id)).returning().get();
+            // Rights are read per request (ADR-0016); only a disable or a reset logs out.
             // Same connection, so this is inside the transaction.
-            if (demoted || passwordHash) endUserSessions(db, row.id);
+            if (rest.disabled === true || passwordHash) endUserSessions(db, row.id);
             return user;
           });
         } catch (e) {
@@ -100,7 +179,10 @@ export const usersRoutes =
       async (req, reply) => {
         db.transaction((tx) => {
           const row = get(tx, req.params.id);
-          if (row.role === "admin" && !row.disabled && enabledAdmins(tx) <= 1) throw lastAdmin();
+          const role = roleOf(tx, row.roleId);
+          if (isAdmin(role) && req.user && !req.user.rights.admin)
+            throw new HttpError(403, "admin_only", "Only admins change admin accounts");
+          if (isAdmin(role) && !row.disabled && enabledAdmins(tx) <= 1) throw lastAdmin();
           // Same connection, so this is inside the transaction.
           onDelete(row.id);
           tx.delete(users).where(eq(users.id, row.id)).run();

@@ -1,18 +1,16 @@
 import { z } from "zod";
 import { id, isoDate } from "./entities.ts";
-import { USER_ROLES } from "./enums.ts";
+import { ROLE_BUILT_INS } from "./enums.ts";
+import {
+  effectiveRightsSchema,
+  permissionOverridesSchema,
+  projectRightOverridesSchema,
+} from "./roles.ts";
 
-export const userRoleSchema = z.enum(USER_ROLES);
-
-/**
- * Project rights (ADR-0014). `projectsSeeAll` off: only their own projects show. `projectsEditOthers`
- * off: other people's projects are download-only. `editOtherDevices`: edit files in another user's
- * device root. An admin always sees and edits everyone's projects; the device switch applies to admins too.
- */
-const projectRights = {
-  projectsSeeAll: z.boolean(),
-  projectsEditOthers: z.boolean(),
-  editOtherDevices: z.boolean(),
+/** Overrides on the role (ADR-0016): a missing key = same as role. */
+const overrides = {
+  permissions: permissionOverridesSchema,
+  projectRights: projectRightOverridesSchema,
 };
 
 /** A user as the API returns it. No hash field, so a route can't send one by mistake (ADR-0012). */
@@ -20,9 +18,9 @@ export const userSchema = z.object({
   id,
   email: z.string(),
   displayName: z.string(),
-  role: userRoleSchema,
+  roleId: id,
   disabled: z.boolean(),
-  ...projectRights,
+  ...overrides,
   lastLoginAt: isoDate.nullable(),
   createdAt: isoDate,
   updatedAt: isoDate,
@@ -44,17 +42,17 @@ export const setupSchema = z.object({
   token: z.string().max(200).optional(),
 });
 
-/** An account added by an admin (`POST /api/users`). */
+/** An account added by a user manager (`POST /api/users`). Overrides left out: same as role. */
 export const userCreateSchema = z.object({
   email,
   displayName,
   password: newPassword,
-  role: userRoleSchema,
-  /** Left out: both on, and `editOtherDevices` for admins only. */
-  ...z.object(projectRights).partial().shape,
+  roleId: id,
+  permissions: permissionOverridesSchema.strict().optional(),
+  projectRights: projectRightOverridesSchema.strict().optional(),
 });
 
-/** Admin edit; a new `password` is a reset. */
+/** A user manager's edit; a new `password` is a reset, overrides replace the stored ones. */
 export const userPatchSchema = userCreateSchema
   .extend({ disabled: z.boolean() })
   .partial()
@@ -67,9 +65,13 @@ export const meUpdateSchema = z
   .strict()
   .refine((v) => !v.password || v.currentPassword, { path: ["currentPassword"] });
 
-export const meSchema = z.object({ user: userSchema.nullable() });
+/** `user` and `role` are null in the no-users mode, where everyone has the Admin role's rights. */
+export const meSchema = z.object({
+  user: userSchema.nullable(),
+  role: z.object({ id, name: z.string(), builtIn: z.enum(ROLE_BUILT_INS).nullable() }).nullable(),
+  ...effectiveRightsSchema.shape,
+});
 
-export type UserRole = z.infer<typeof userRoleSchema>;
 export type User = z.infer<typeof userSchema>;
 export type UserLoginInput = z.input<typeof loginSchema>;
 export type SetupInput = z.input<typeof setupSchema>;

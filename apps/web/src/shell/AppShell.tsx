@@ -6,7 +6,7 @@ import { Trans, useTranslation } from "react-i18next";
 import { Menu } from "../components/Menu.tsx";
 import { unreadCount, useAlertAction, useAlerts } from "../lib/alerts.ts";
 import { FORBIDDEN_EVENT } from "../lib/api.ts";
-import { useCan, useMe, useSignOut } from "../lib/auth.ts";
+import { useCan, useMe, useMyRole, useSignOut } from "../lib/auth.ts";
 import { useApplyBranding, useAppName, useBrandingUrl } from "../lib/branding.ts";
 import { cx } from "../lib/cx.ts";
 import { setDateTimePrefs } from "../lib/format.ts";
@@ -176,17 +176,13 @@ function ServerBanner() {
   );
 }
 
-const ROLES = {
-  admin: "common:userMenu.roles.admin",
-  editor: "common:userMenu.roles.editor",
-  viewer: "common:userMenu.roles.viewer",
-} as const;
 const menuItem = "flex h-9 items-center rounded-md px-3 hover:bg-surface-2";
 
 /** Name, account link and sign out; absent while no accounts exist. */
 function UserMenu() {
   const { t } = useTranslation();
   const user = useMe();
+  const role = useMyRole();
   const out = useSignOut();
   if (!user) return null;
   return (
@@ -202,7 +198,7 @@ function UserMenu() {
       }
     >
       <p className="px-3 py-1.5 text-muted wrap-anywhere">
-        {user.email} · {t(ROLES[user.role])}
+        {user.email} · {role?.name}
       </p>
       <Link to="/settings" hash="account" className={menuItem}>
         {t("common:userMenu.account")}
@@ -218,12 +214,13 @@ function UserMenu() {
 function SheetUser({ onNavigate }: { onNavigate: () => void }) {
   const { t } = useTranslation();
   const user = useMe();
+  const role = useMyRole();
   const out = useSignOut();
   if (!user) return null;
   return (
     <div className="mt-2 grid gap-0.5 border-t border-border pt-2">
       <p className="px-2.5 py-1.5 text-muted wrap-anywhere">
-        {user.displayName} · {t(ROLES[user.role])}
+        {user.displayName} · {role?.name}
       </p>
       <Link to="/settings" hash="account" className={linkClass} onClick={onNavigate}>
         {t("common:userMenu.account")}

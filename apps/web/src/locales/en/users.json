@@ -41,12 +41,6 @@
     "wrongPassword": "The current password is wrong.",
     "error": "That didn't work. Try again."
   },
-  "rights": {
-    "legend": "Project rights of {{name}}",
-    "projectsSeeAll": "Sees all projects",
-    "projectsEditOthers": "Edits other people's projects",
-    "editOtherDevices": "Edits files on other people's devices"
-  },
   "list": {
     "title": "Users",
     "label": "Users",
@@ -70,7 +64,8 @@
     "errors": {
       "last_admin": "The last enabled admin can't be disabled, demoted or deleted.",
       "email_taken": "A user with this email already exists.",
-      "generic": "That didn't work. Try again."
+      "generic": "That didn't work. Try again.",
+      "own_account": "You can't change your own role or disable yourself."
     }
   }
 }

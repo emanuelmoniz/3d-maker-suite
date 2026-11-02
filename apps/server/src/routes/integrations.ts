@@ -147,7 +147,8 @@ export const integrationsRoutes =
       })),
     );
 
-    const isAdmin = (req: FastifyRequest) => !req.user || req.user.role === "admin";
+    const isAdmin = (req: FastifyRequest) =>
+      !req.user || req.user.rights.permissions["integrations.manage"];
 
     app.get("/", { schema: { response: { 200: z.array(integrationSchema) } } }, async (req) =>
       db

@@ -66,6 +66,7 @@ import { printsRoutes } from "./routes/prints.ts";
 import { projectFilesRoutes } from "./routes/projectFiles.ts";
 import { projectSlicingRoutes } from "./routes/projectSlicing.ts";
 import { projectsRoutes } from "./routes/projects.ts";
+import { rolesRoutes } from "./routes/roles.ts";
 import { rootsRoutes } from "./routes/roots.ts";
 import { serverConfigRoutes } from "./routes/serverConfig.ts";
 import { slicerZipRoutes } from "./routes/slicerZip.ts";
@@ -192,6 +193,7 @@ export async function buildApp(
     usersRoutes(db, (id) => hubFiles.releaseLocks({ userId: id })),
     { prefix: "/api/users" },
   );
+  await app.register(rolesRoutes(db), { prefix: "/api/roles" });
   const hub = createHubChannel(db);
   // Files pulled from device roots (ADR-0014); a temp folder of its own without a data dir (tests).
   const deviceFiles = createDeviceFiles(

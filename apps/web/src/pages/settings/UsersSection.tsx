@@ -1,4 +1,4 @@
-import { USER_ROLES, type User, type UserRole } from "@3d-maker-suite/core";
+import { BUILT_IN_ROLE_IDS, type User } from "@3d-maker-suite/core";
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -10,17 +10,12 @@ import { FormField, inputClass } from "../../components/FormField.tsx";
 import { ApiError } from "../../lib/api.ts";
 import { useMe } from "../../lib/auth.ts";
 import { formatDateTime } from "../../lib/format.ts";
-import { useUserActions, useUsers } from "../../lib/users.ts";
+import { useRoles, useUserActions, useUsers } from "../../lib/users.ts";
 
-// Keys written out in full so `pnpm i18n:check` can see them.
-const ROLE_LABELS = {
-  admin: "common:userMenu.roles.admin",
-  editor: "common:userMenu.roles.editor",
-  viewer: "common:userMenu.roles.viewer",
-} as const;
 const ERRORS: Record<string, string> = {
   last_admin: "users:list.errors.last_admin",
   email_taken: "users:list.errors.email_taken",
+  own_account: "users:list.errors.own_account",
 };
 const field = (f: FormData, k: string) => String(f.get(k) ?? "");
 
@@ -31,6 +26,7 @@ export function UsersSection() {
   const { t } = useTranslation();
   const me = useMe();
   const users = useUsers(!!me);
+  const roleList = useRoles(!!me).data ?? [];
   const { create, patch, remove } = useUserActions();
   const [dialog, setDialog] = useState<Dialog | null>(null);
   const [mismatch, setMismatch] = useState(false);
@@ -45,7 +41,8 @@ export function UsersSection() {
       </>
     );
 
-  const roles = USER_ROLES.map((r) => ({ value: r, label: t(ROLE_LABELS[r]) }));
+  // Role names are the admin's own data, not UI strings.
+  const roles = roleList.map((r) => ({ value: r.id, label: r.name }));
   const close = () => {
     setDialog(null);
     setMismatch(false);
@@ -102,18 +99,14 @@ export function UsersSection() {
                   ? t("users:list.lastLogin", { when: formatDateTime(u.lastLoginAt) })
                   : t("users:list.neverLoggedIn")}
               </p>
-              <ProjectRights
-                user={u}
-                onChange={(rights) => patch.mutate({ id: u.id, ...rights })}
-              />
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <Combobox
                 aria-label={t("users:list.roleOf", { name: u.displayName })}
                 className={`${inputClass} w-36`}
-                value={u.role}
+                value={u.roleId}
                 options={roles}
-                onChange={(role) => patch.mutate({ id: u.id, role: role as UserRole })}
+                onChange={(roleId) => patch.mutate({ id: u.id, roleId })}
               />
               <Button onClick={() => patch.mutate({ id: u.id, disabled: !u.disabled })}>
                 {t(u.disabled ? "users:list.enable" : "users:list.disable")}
@@ -141,7 +134,7 @@ export function UsersSection() {
               displayName: field(f, "displayName"),
               email: field(f, "email"),
               password: field(f, "password"),
-              role: field(f, "role") as UserRole,
+              roleId: field(f, "roleId"),
             },
             { onSuccess: close },
           )
@@ -159,7 +152,15 @@ export function UsersSection() {
           {passwordInput}
         </FormField>
         <FormField label={t("users:fields.role")}>
-          {(p) => <Combobox {...p} name="role" defaultValue="viewer" options={roles} required />}
+          {(p) => (
+            <Combobox
+              {...p}
+              name="roleId"
+              defaultValue={BUILT_IN_ROLE_IDS.viewer}
+              options={roles}
+              required
+            />
+          )}
         </FormField>
       </FormDialog>
 
@@ -217,41 +218,5 @@ export function UsersSection() {
         }
       />
     </div>
-  );
-}
-
-type Rights = Pick<User, "projectsSeeAll" | "projectsEditOthers" | "editOtherDevices">;
-const RIGHT_LABELS: Record<keyof Rights, string> = {
-  projectsSeeAll: "users:rights.projectsSeeAll",
-  projectsEditOthers: "users:rights.projectsEditOthers",
-  editOtherDevices: "users:rights.editOtherDevices",
-};
-
-/**
- * A user's project rights (ADR-0014). An admin always sees and edits everyone's projects, so only
- * the device switch is theirs; a viewer never edits, so only "see all" is.
- */
-function ProjectRights({ user, onChange }: { user: User; onChange: (r: Partial<Rights>) => void }) {
-  const { t } = useTranslation();
-  const shown: (keyof Rights)[] =
-    user.role === "admin"
-      ? ["editOtherDevices"]
-      : user.role === "editor"
-        ? ["projectsSeeAll", "projectsEditOthers", "editOtherDevices"]
-        : ["projectsSeeAll"];
-  return (
-    <fieldset className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
-      <legend className="sr-only">{t("users:rights.legend", { name: user.displayName })}</legend>
-      {shown.map((key) => (
-        <label key={key} className="flex min-h-9 items-center gap-2">
-          <input
-            type="checkbox"
-            checked={user[key]}
-            onChange={(e) => onChange({ [key]: e.target.checked })}
-          />
-          {t(RIGHT_LABELS[key])}
-        </label>
-      ))}
-    </fieldset>
   );
 }

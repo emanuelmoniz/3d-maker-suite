@@ -1,3 +1,4 @@
+import { BUILT_IN_ROLE_IDS } from "@3d-maker-suite/core";
 import { type Db, openDb, schema } from "@3d-maker-suite/db";
 import { beforeEach, describe, expect, it } from "vitest";
 import {
@@ -22,7 +23,12 @@ beforeEach(() => {
   db = openDb(":memory:");
   userId = db
     .insert(users)
-    .values({ email: "a@b.c", displayName: "A", passwordHash: "x", role: "admin" })
+    .values({
+      email: "a@b.c",
+      displayName: "A",
+      passwordHash: "x",
+      roleId: BUILT_IN_ROLE_IDS.admin,
+    })
     .returning()
     .get().id;
 });
@@ -51,9 +57,17 @@ describe("sessions", () => {
     expect(db.select().from(sessions).all()).toHaveLength(0);
   });
 
-  it("ignores disabled users", () => {
+  it("ignores disabled users and users of a disabled role; carries the effective rights", () => {
     const { token } = createSession(db, userId, t0);
+    expect(readSession(db, token, at(1))?.user).toMatchObject({
+      role: { name: "Admin", builtIn: "admin" },
+      rights: { admin: true },
+    });
     db.update(users).set({ disabled: true }).run();
+    expect(readSession(db, token, at(1))).toBeNull();
+    db.update(users).set({ disabled: false, roleId: BUILT_IN_ROLE_IDS.viewer }).run();
+    expect(readSession(db, token, at(1))?.user.rights.permissions.prints).toBe("read");
+    db.update(schema.roles).set({ disabled: true }).run();
     expect(readSession(db, token, at(1))).toBeNull();
   });
 

@@ -1206,7 +1206,7 @@ Design:
 Do Step 6 of the 5.1.0 plan in PLAN.md. Show me the permission catalog mapped from today's table first.
 ```
 
-### [ ] Step 7 - Roles and permissions: schema and server  **[plan mode]**
+### [x] Step 7 - Roles and permissions: schema and server  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:**
 - Migration: `roles` seeded, `users.roleId`, user overrides (null = same as role), project rights moved to role defaults plus user overrides.

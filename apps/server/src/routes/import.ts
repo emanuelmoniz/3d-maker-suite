@@ -340,7 +340,7 @@ export const importRoutes =
             stored.entity as ReviewedType,
             "editorReview",
           );
-        else if (req.user && req.user.role !== "admin")
+        else if (req.user && !req.user.rights.permissions["integrations.manage"])
           throw new HttpError(403, "forbidden", "Not allowed for your role");
         if (!decisions.length && stored.from?.kind !== "integration")
           throw new HttpError(400, "nothing_to_import", "No rows to import");

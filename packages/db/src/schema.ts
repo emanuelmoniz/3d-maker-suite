@@ -17,8 +17,11 @@ import {
   MAINTENANCE_TARGETS,
   NEW_SPOOL_FIELD,
   ORIGINS,
+  type Permissions,
   PRINT_OUTCOMES,
   type PROJECT_EDITABLE_FIELDS,
+  type ProjectRights,
+  ROLE_BUILT_INS,
   ROOT_EDIT_BY,
   type SlicerSystem,
   SPOOL_STATUSES,
@@ -31,7 +34,6 @@ import {
   SYNC_TYPES,
   type SyncLogEntry,
   TAGGABLE_TYPES,
-  USER_ROLES,
   WEIGHT_ENTRY_KINDS,
 } from "@3d-maker-suite/core";
 import { type SQL, sql } from "drizzle-orm";
@@ -1016,6 +1018,26 @@ export const logs = sqliteTable(
   (t) => [index("logs_time_idx").on(t.time), check("logs_level_ck", oneOf(t.level, LOG_LEVELS))],
 );
 
+/** Roles (ADR-0016). `builtIn = "admin"` always has every right; its stored values are for display. */
+export const roles = sqliteTable(
+  "roles",
+  {
+    id: id(),
+    name: text().notNull(),
+    /** The seeded role it started as; only "admin" changes behaviour. */
+    builtIn: text({ enum: ROLE_BUILT_INS }),
+    disabled: integer({ mode: "boolean" }).notNull().default(false),
+    permissions: text({ mode: "json" }).$type<Permissions>().notNull(),
+    projectRights: text({ mode: "json" }).$type<ProjectRights>().notNull(),
+    ...timestamps,
+  },
+  (t) => [
+    uniqueIndex("roles_name_uq").on(sql`${t.name} COLLATE NOCASE`),
+    uniqueIndex("roles_built_in_uq").on(t.builtIn),
+    check("roles_built_in_ck", oneOf(t.builtIn, ROLE_BUILT_INS)),
+  ],
+);
+
 /** Accounts (ADR-0012). The hash never leaves the server: core's `userSchema` has no hash field. */
 export const users = sqliteTable(
   "users",
@@ -1026,20 +1048,18 @@ export const users = sqliteTable(
     displayName: text().notNull(),
     /** `lib/password.ts` format: `scrypt$N$r$p$salt$key`. */
     passwordHash: text().notNull(),
-    role: text({ enum: USER_ROLES }).notNull(),
+    /** No cascade: a role with users can't be deleted (409 role_in_use). */
+    roleId: text()
+      .notNull()
+      .references(() => roles.id),
     disabled: integer({ mode: "boolean" }).notNull().default(false),
-    /** Project rights (ADR-0014); an admin always sees and edits everyone's projects. */
-    projectsSeeAll: integer({ mode: "boolean" }).notNull().default(true),
-    projectsEditOthers: integer({ mode: "boolean" }).notNull().default(true),
-    /** Edit files in another user's device root (where the root lets them). */
-    editOtherDevices: integer({ mode: "boolean" }).notNull().default(false),
+    /** Overrides on the role (ADR-0016); a missing key = same as role. */
+    permissions: text({ mode: "json" }).$type<Partial<Permissions>>().notNull().default({}),
+    projectRights: text({ mode: "json" }).$type<Partial<ProjectRights>>().notNull().default({}),
     lastLoginAt: text(),
     ...timestamps,
   },
-  (t) => [
-    uniqueIndex("users_email_uq").on(sql`${t.email} COLLATE NOCASE`),
-    check("users_role_ck", oneOf(t.role, USER_ROLES)),
-  ],
+  (t) => [uniqueIndex("users_email_uq").on(sql`${t.email} COLLATE NOCASE`)],
 );
 
 /** Login sessions. `id` is the sha256 of the cookie token; the token itself is never stored. */

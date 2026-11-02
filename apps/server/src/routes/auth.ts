@@ -1,5 +1,7 @@
 import {
+  ADMIN_EFFECTIVE,
   apiErrorSchema,
+  BUILT_IN_ROLE_IDS,
   loginSchema,
   meSchema,
   meUpdateSchema,
@@ -19,14 +21,21 @@ import {
   createSession,
   deleteSession,
   endUserSessions,
+  isEnabled,
   readCookie,
   SESSION_COOKIE,
+  type SessionUser,
   sessionCookie,
+  sessionUser,
 } from "../lib/session.ts";
 
-const { users } = schema;
+const { roles, users } = schema;
 const errors = { 401: apiErrorSchema, 403: apiErrorSchema, 409: apiErrorSchema };
 const wrongLogin = () => new HttpError(401, "invalid_credentials", "Wrong email or password");
+
+/** `/me` and the login answers: no user = the no-users mode, with the Admin role's rights. */
+const meOf = (user: SessionUser | undefined) =>
+  user ? { user, role: user.role, ...user.rights } : { user: null, role: null, ...ADMIN_EFFECTIVE };
 
 export const authRoutes =
   (
@@ -67,21 +76,23 @@ export const authRoutes =
         const passwordHash = await hashPassword(password);
         const user = db.transaction((tx) => {
           if (tx.select({ id: users.id }).from(users).limit(1).get()) throw done();
-          return tx
+          const row = tx
             .insert(users)
             .values({
               ...rest,
               passwordHash,
-              role: "admin",
-              editOtherDevices: true,
+              roleId: BUILT_IN_ROLE_IDS.admin,
               lastLoginAt: new Date().toISOString(),
             })
             .returning()
             .get();
+          const role = tx.select().from(roles).where(eq(roles.id, row.roleId)).get();
+          if (!role) throw new Error("The Admin role is missing");
+          return sessionUser(row, role);
         });
         startSession(req, reply, user.id);
         if (passwordSet) req.log.warn("First admin created: APP_PASSWORD is now ignored");
-        return reply.status(201).send({ user });
+        return reply.status(201).send(meOf(user));
       },
     );
 
@@ -95,18 +106,24 @@ export const authRoutes =
         const key = `${email}|${req.ip}`;
         if (limiter.locked(key))
           throw new HttpError(429, "too_many_attempts", "Too many failed logins, try again later");
-        const user = db.select().from(users).where(eq(users.email, email)).get();
-        const ok = await verifyPassword(password, user?.passwordHash ?? (await dummy));
-        if (!user || !ok) {
+        const row = db
+          .select({ user: users, role: roles })
+          .from(users)
+          .innerJoin(roles, eq(roles.id, users.roleId))
+          .where(eq(users.email, email))
+          .get();
+        const ok = await verifyPassword(password, row?.user.passwordHash ?? (await dummy));
+        if (!row || !ok) {
           limiter.fail(key);
           throw wrongLogin();
         }
         limiter.clear(key);
-        if (user.disabled) throw new HttpError(403, "user_disabled", "This account is disabled");
+        // A disabled role counts like a disabled account (ADR-0016).
+        if (!isEnabled(row)) throw new HttpError(403, "user_disabled", "This account is disabled");
         const lastLoginAt = new Date().toISOString();
-        db.update(users).set({ lastLoginAt }).where(eq(users.id, user.id)).run();
-        startSession(req, reply, user.id);
-        return { user: { ...user, lastLoginAt } };
+        db.update(users).set({ lastLoginAt }).where(eq(users.id, row.user.id)).run();
+        startSession(req, reply, row.user.id);
+        return meOf(sessionUser({ ...row.user, lastLoginAt }, row.role));
       },
     );
 
@@ -120,15 +137,14 @@ export const authRoutes =
     });
 
     // No users: `user` is null and every page works as before.
-    app.get("/me", { schema: { response: { 200: meSchema } } }, async (req) => ({
-      user: req.user ?? null,
-    }));
+    app.get("/me", { schema: { response: { 200: meSchema } } }, async (req) => meOf(req.user));
 
     app.patch(
       "/me",
       { schema: { body: meUpdateSchema, response: { 200: meSchema, ...errors } } },
       async (req, reply) => {
-        const { id } = me(req);
+        const current = me(req);
+        const { id } = current;
         const { displayName, currentPassword, password } = req.body;
         const row = db.select().from(users).where(eq(users.id, id)).get();
         if (!row) throw new HttpError(401, "unauthorized", "Login required");
@@ -141,10 +157,8 @@ export const authRoutes =
           endUserSessions(db, id);
           startSession(req, reply, id);
         }
-        const user = displayName
-          ? db.update(users).set({ displayName }).where(eq(users.id, id)).returning().get()
-          : row;
-        return { user };
+        if (displayName) db.update(users).set({ displayName }).where(eq(users.id, id)).run();
+        return meOf({ ...current, ...(displayName && { displayName }) });
       },
     );
   };

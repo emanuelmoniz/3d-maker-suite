@@ -1,7 +1,15 @@
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { HIDDEN_PROJECT, PROJECT_TRASH_DIR, type UserRole } from "@3d-maker-suite/core";
+import {
+  BUILT_IN_RIGHTS,
+  BUILT_IN_ROLE_IDS,
+  effectiveRights,
+  HIDDEN_PROJECT,
+  PROJECT_TRASH_DIR,
+  type ProjectRights,
+  type RoleBuiltIn,
+} from "@3d-maker-suite/core";
 import { openDb, schema, seed } from "@3d-maker-suite/db";
 import { eq } from "drizzle-orm";
 import { beforeAll, describe, expect, it, onTestFinished } from "vitest";
@@ -17,13 +25,23 @@ beforeAll(async () => {
 });
 
 type Rights = Parameters<typeof projectAccess>[0] & {};
-const person = (id: string, role: UserRole, rights: Partial<Rights> = {}): Rights => ({
+/** ADR-0014's per-user switches, as written in these cases; they are ADR-0016 overrides now. */
+type Switches = {
+  projectsSeeAll?: boolean;
+  projectsEditOthers?: boolean;
+  editOtherDevices?: boolean;
+};
+const overrides = (s: Switches): Partial<ProjectRights> => ({
+  ...(s.projectsSeeAll !== undefined && { "projects.seeAll": s.projectsSeeAll }),
+  ...(s.projectsEditOthers !== undefined && { "projects.editOthers": s.projectsEditOthers }),
+  ...(s.editOtherDevices !== undefined && { "projects.editOtherDevices": s.editOtherDevices }),
+});
+const person = (id: string, role: RoleBuiltIn, s: Switches = {}): Rights => ({
   id,
-  role,
-  projectsSeeAll: true,
-  projectsEditOthers: true,
-  editOtherDevices: role === "admin",
-  ...rights,
+  rights: effectiveRights(
+    { builtIn: role, ...BUILT_IN_RIGHTS[role] },
+    { permissions: {}, projectRights: overrides(s) },
+  ),
 });
 const hub = (editBy: RootRule["editBy"] = "roles", editorIds: string[] = []): RootRule => ({
   editBy,
@@ -160,16 +178,15 @@ describe("project access over HTTP", () => {
     const app = await buildApp(db, { stream: { write: () => true } }, dataDir);
     // Set up in the no-users mode, before anyone logs in.
     const [root] = await setRoots(app, dir);
-    const add = (role: UserRole, name: string, rights: Partial<Rights> = {}) =>
+    const add = (role: RoleBuiltIn, name: string, s: Switches = {}) =>
       db
         .insert(schema.users)
         .values({
           email: `${name}@x.io`,
           displayName: name,
-          role,
+          roleId: BUILT_IN_ROLE_IDS[role],
           passwordHash: hash,
-          editOtherDevices: role === "admin",
-          ...rights,
+          projectRights: overrides(s),
         })
         .returning()
         .get();
@@ -321,7 +338,9 @@ describe("project access over HTTP", () => {
     expect(await canEdit(asAdmin)).toBe(true);
     expect(await canEdit(asOther)).toBe(false);
     expect((await asOther("PATCH", `/api/projects/${p.id}`, { name: "x" })).statusCode).toBe(403);
-    await asAdmin("PATCH", `/api/users/${other.id}`, { editOtherDevices: true });
+    await asAdmin("PATCH", `/api/users/${other.id}`, {
+      projectRights: { "projects.editOtherDevices": true },
+    });
     expect(await canEdit(await as(other))).toBe(true);
   });
 
@@ -457,29 +476,39 @@ describe("project access over HTTP", () => {
     expect((await owner(asAdmin, p.id, admin.id)).statusCode).toBe(409);
   });
 
-  it("new users get the device right by role unless told", async () => {
+  it("new users take their role's project rights unless overridden", async () => {
     const { add, as } = await setup();
     const asAdmin = await as(add("admin", "admin"));
-    const create = async (role: UserRole, rights = {}) =>
-      (
+    const create = async (role: RoleBuiltIn, projectRights = {}) => {
+      const email = `${role}${Object.keys(projectRights).length}@y.io`;
+      const user = (
         await asAdmin("POST", "/api/users", {
-          email: `${role}${Object.keys(rights).length}@y.io`,
+          email,
           displayName: role,
           password: PW,
-          role,
-          ...rights,
+          roleId: BUILT_IN_ROLE_IDS[role],
+          projectRights,
         })
       ).json();
-    expect(await create("admin")).toMatchObject({ editOtherDevices: true, projectsSeeAll: true });
-    expect(await create("editor")).toMatchObject({
-      editOtherDevices: false,
-      projectsEditOthers: true,
+      const me = await as({ email });
+      return { stored: user.projectRights, effective: (await me("GET", "/api/auth/me")).json() };
+    };
+    const admin = await create("admin");
+    expect(admin.stored).toEqual({});
+    expect(admin.effective.projectRights["projects.editOtherDevices"]).toBe(true);
+    const editor = await create("editor");
+    expect(editor.effective.projectRights).toMatchObject({
+      "projects.editOtherDevices": false,
+      "projects.editOthers": true,
     });
-    expect(await create("editor", { editOtherDevices: true, projectsSeeAll: false })).toMatchObject(
-      {
-        editOtherDevices: true,
-        projectsSeeAll: false,
-      },
-    );
+    const custom = await create("editor", {
+      "projects.editOtherDevices": true,
+      "projects.seeAll": false,
+    });
+    expect(custom.stored).toEqual({ "projects.editOtherDevices": true, "projects.seeAll": false });
+    expect(custom.effective.projectRights).toMatchObject({
+      "projects.editOtherDevices": true,
+      "projects.seeAll": false,
+    });
   });
 });

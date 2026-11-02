@@ -11,7 +11,12 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { buffer } from "node:stream/consumers";
-import type { IntegrationAdapter, Release } from "@3d-maker-suite/core";
+import {
+  BUILT_IN_RIGHTS,
+  effectiveRights,
+  type IntegrationAdapter,
+  type Release,
+} from "@3d-maker-suite/core";
 import { openDb, schema } from "@3d-maker-suite/db";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import yazl from "yazl";
@@ -301,9 +306,11 @@ describe("managed slicer", () => {
     expect(readdirSync(leftovers)).toEqual(["1.1.0"]);
   });
 
-  it("is admin-only, reads included", () => {
-    expect(can("editor", "/api/integrations/x/slicer/releases", "GET")).toBe(false);
-    expect(can("viewer", "/api/integrations/x/slicer/install", "GET")).toBe(false);
-    expect(can("viewer", "/api/integrations/x", "GET")).toBe(true);
+  it("needs integrations.manage, reads included", () => {
+    const editor = effectiveRights({ builtIn: "editor", ...BUILT_IN_RIGHTS.editor });
+    const viewer = effectiveRights({ builtIn: "viewer", ...BUILT_IN_RIGHTS.viewer });
+    expect(can(editor, "/api/integrations/x/slicer/releases", "GET")).toBe(false);
+    expect(can(viewer, "/api/integrations/x/slicer/install", "GET")).toBe(false);
+    expect(can(viewer, "/api/integrations/x", "GET")).toBe(true);
   });
 });

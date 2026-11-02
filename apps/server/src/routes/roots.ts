@@ -2,7 +2,9 @@ import { stat } from "node:fs/promises";
 import { basename, isAbsolute } from "node:path";
 import {
   apiErrorSchema,
+  effectiveRights,
   fsListResponseSchema,
+  hasLevel,
   ROOT_DEFAULTS,
   ROOT_HUB,
   type Root,
@@ -11,7 +13,7 @@ import {
   rootSchema,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
-import { and, eq, inArray, max, ne } from "drizzle-orm";
+import { and, eq, inArray, max } from "drizzle-orm";
 import type { FastifyRequest } from "fastify";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
@@ -21,7 +23,7 @@ import type { HubChannel } from "../lib/hubChannel.ts";
 import { listRoots, onDevice, type Root as Row } from "../projects/rootFs.ts";
 import type { ProjectScanner } from "../projects/scanner.ts";
 
-const { devices, projects, rootEditors, roots, users } = schema;
+const { devices, projects, roles, rootEditors, roots, users } = schema;
 const params = z.object({ id: z.uuid() });
 const errors = {
   400: apiErrorSchema,
@@ -64,19 +66,23 @@ export const rootsRoutes =
             : "ok";
       return { ...r, ...access, state, deviceName: device?.name ?? null };
     };
-    /** Replaces a root's picked editors: editors and admins only (a viewer can't edit anything). */
+    /** Replaces a root's picked editors: users with projects write only (nobody else edits files). */
     const setEditors = (rootId: string, ids: string[] | undefined) => {
       if (!ids) return;
       const unique = [...new Set(ids)];
       const found = unique.length
         ? db
-            .select({ id: users.id })
+            .select({ user: users, role: roles })
             .from(users)
-            .where(and(inArray(users.id, unique), ne(users.role, "viewer")))
+            .innerJoin(roles, eq(roles.id, users.roleId))
+            .where(inArray(users.id, unique))
             .all()
+            .filter((r) =>
+              hasLevel(effectiveRights(r.role, r.user).permissions, "projects", "write"),
+            )
         : [];
       if (found.length !== unique.length)
-        throw new HttpError(400, "invalid_reference", "Pick editors or admins");
+        throw new HttpError(400, "invalid_reference", "Pick users who may edit projects");
       db.transaction((tx) => {
         tx.delete(rootEditors).where(eq(rootEditors.rootId, rootId)).run();
         if (unique.length)

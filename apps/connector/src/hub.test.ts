@@ -15,7 +15,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { mockAdapter, fixture as mockState } from "@3d-maker-suite/adapter-mock";
-import { DEVICE_GALLERY_IMAGE_MAX, PROJECT_TRASH_DIR } from "@3d-maker-suite/core";
+import {
+  BUILT_IN_ROLE_IDS,
+  DEVICE_GALLERY_IMAGE_MAX,
+  PROJECT_TRASH_DIR,
+} from "@3d-maker-suite/core";
 import { openDb, schema } from "@3d-maker-suite/db";
 import { buildApp } from "@3d-maker-suite/server/src/app.ts";
 import { hashPassword } from "@3d-maker-suite/server/src/lib/password.ts";
@@ -59,10 +63,9 @@ describe("connector and hub", () => {
       db
         .insert(schema.users)
         .values({
-          editOtherDevices: role === "admin",
           email: `${role}@x.io`,
           displayName: role,
-          role,
+          roleId: BUILT_IN_ROLE_IDS[role],
           passwordHash,
         })
         .returning()

@@ -1,6 +1,7 @@
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { BUILT_IN_ROLE_IDS } from "@3d-maker-suite/core";
 import { openDb, schema } from "@3d-maker-suite/db";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { buildApp } from "./app.ts";
@@ -72,7 +73,12 @@ describe("hub switch", () => {
 
     const passwordHash = await hashPassword("correct horse battery");
     db.insert(schema.users)
-      .values({ email: "admin@example.com", displayName: "A", role: "admin", passwordHash })
+      .values({
+        email: "admin@example.com",
+        displayName: "A",
+        roleId: BUILT_IN_ROLE_IDS.admin,
+        passwordHash,
+      })
       .run();
     const login = await app.inject({
       method: "POST",

@@ -31,8 +31,10 @@ export const ALERT_MODULES = [
   "hub",
 ] as const;
 export const UPDATE_CHANNELS = ["stable", "dev"] as const;
-// Fixed roles (ADR-0012).
-export const USER_ROLES = ["admin", "editor", "viewer"] as const;
+// The seeded roles (ADR-0016); only "admin" changes behaviour.
+export const ROLE_BUILT_INS = ["admin", "editor", "viewer"] as const;
+// Module levels (ADR-0016), each including the ones before.
+export const PERMISSION_LEVELS = ["none", "read", "write", "manage"] as const;
 // Who edits a project root's files (ADR-0014): editors and admins, admins, picked users, nobody.
 export const ROOT_EDIT_BY = ["roles", "admins", "users", "none"] as const;
 export const COMMENT_STATUSES = ["open", "resolved"] as const;

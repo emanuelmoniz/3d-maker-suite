@@ -1,8 +1,9 @@
 import { createHash, randomBytes } from "node:crypto";
+import { effectiveRights } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
 import { eq, lte } from "drizzle-orm";
 
-const { sessions, users } = schema;
+const { roles, sessions, users } = schema;
 
 // ADR-0012: a random token in an HttpOnly cookie, only its sha256 in `sessions`. 30-day sliding
 // expiry: a request in the last half of the window extends it.
@@ -22,6 +23,26 @@ export function createSession(db: Db, userId: string, now = new Date()) {
   return { token, expiresAt };
 }
 
+type UserRow = typeof users.$inferSelect;
+type RoleRow = typeof roles.$inferSelect;
+
+/**
+ * The user as a request carries it: no hash, with the role's name and the effective rights
+ * (ADR-0016), read per request so a role or override change applies on the next one.
+ */
+export function sessionUser({ passwordHash: _, ...user }: UserRow, role: RoleRow) {
+  return {
+    ...user,
+    role: { id: role.id, name: role.name, builtIn: role.builtIn },
+    rights: effectiveRights(role, user),
+  };
+}
+export type SessionUser = ReturnType<typeof sessionUser>;
+
+/** A disabled role counts like a disabled user (ADR-0016). */
+export const isEnabled = (row: { user: UserRow; role: RoleRow }) =>
+  !row.user.disabled && !row.role.disabled;
+
 /**
  * The enabled user behind a token, or null. An expired row is deleted on the spot; one in the
  * last half of its window is extended, and `refreshed` says the cookie needs sending again.
@@ -29,9 +50,10 @@ export function createSession(db: Db, userId: string, now = new Date()) {
 export function readSession(db: Db, token: string, now = new Date()) {
   const id = tokenHash(token);
   const row = db
-    .select({ expiresAt: sessions.expiresAt, user: users })
+    .select({ expiresAt: sessions.expiresAt, user: users, role: roles })
     .from(sessions)
     .innerJoin(users, eq(users.id, sessions.userId))
+    .innerJoin(roles, eq(roles.id, users.roleId))
     .where(eq(sessions.id, id))
     .get();
   if (!row) return null;
@@ -40,12 +62,11 @@ export function readSession(db: Db, token: string, now = new Date()) {
     db.delete(sessions).where(eq(sessions.id, id)).run();
     return null;
   }
-  if (row.user.disabled) return null;
+  if (!isEnabled(row)) return null;
   const refreshed = left < TTL_MS / 2;
   const expiresAt = refreshed ? expiry(now) : row.expiresAt;
   if (refreshed) db.update(sessions).set({ expiresAt }).where(eq(sessions.id, id)).run();
-  const { passwordHash: _, ...user } = row.user;
-  return { user, expiresAt, refreshed };
+  return { user: sessionUser(row.user, row.role), expiresAt, refreshed };
 }
 
 export const deleteSession = (db: Db, token: string) =>
@@ -54,7 +75,7 @@ export const deleteSession = (db: Db, token: string) =>
     .where(eq(sessions.id, tokenHash(token)))
     .run();
 
-/** Logs a user out everywhere (disabled, role changed, password reset). */
+/** Logs a user out everywhere (disabled, password reset). */
 export const endUserSessions = (db: Db, userId: string) =>
   db.delete(sessions).where(eq(sessions.userId, userId)).run();
 

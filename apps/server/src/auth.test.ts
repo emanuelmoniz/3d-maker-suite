@@ -2,12 +2,22 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fixture, mockAdapter } from "@3d-maker-suite/adapter-mock";
-import { type Capability, isAction, REVIEWED_TYPES, type UserRole } from "@3d-maker-suite/core";
+import {
+  ADMIN_EFFECTIVE,
+  BUILT_IN_ROLE_IDS,
+  type Capability,
+  type EffectiveRights,
+  effectiveRights,
+  isAction,
+  REVIEWED_TYPES,
+  type RoleBuiltIn,
+} from "@3d-maker-suite/core";
 import { openDb, schema } from "@3d-maker-suite/db";
 import { beforeAll, describe, expect, it, onTestFinished } from "vitest";
 import { buildApp } from "./app.ts";
-import { can, loginLimiter } from "./lib/auth.ts";
+import { can, loginLimiter, readDevice } from "./lib/auth.ts";
 import { hashPassword } from "./lib/password.ts";
+import { tokenHash } from "./lib/session.ts";
 
 const PW = "password123";
 let hash: string;
@@ -22,12 +32,13 @@ const setup = async (opts: Parameters<typeof buildApp>[3] = {}, dataDir = "") =>
   const app = await buildApp(db, { stream: { write: (l: string) => out.push(l) } }, dataDir, opts);
   return { db, app, out };
 };
-const addUser = (db: ReturnType<typeof openDb>, role: UserRole, email = `${role}@x.io`) =>
+const addUser = (db: ReturnType<typeof openDb>, role: RoleBuiltIn, email = `${role}@x.io`) =>
   db
     .insert(schema.users)
-    .values({ email, displayName: role, role, passwordHash: hash })
+    .values({ email, displayName: role, roleId: BUILT_IN_ROLE_IDS[role], passwordHash: hash })
     .returning()
     .get();
+type UserRole = RoleBuiltIn;
 const cookieOf = (res: { headers: Record<string, unknown> }) =>
   String(res.headers["set-cookie"] ?? "").split(";")[0] ?? "";
 const login = async (app: App, email: string, password = PW) =>
@@ -39,6 +50,7 @@ const as = (app: App, cookie: string) => ({
 });
 
 // ADR-0012, written out again so a change to lib/auth.ts has to change this too. Admin: always RW.
+// ADR-0016: the seeded roles answer exactly this, as before the migration.
 const MATRIX: Record<string, [viewer: string, editor: string]> = {
   "/api/auth/me": ["RW", "RW"],
   "/api/printers": ["R", "R"],
@@ -70,6 +82,7 @@ const MATRIX: Record<string, [viewer: string, editor: string]> = {
   "/api/branding": ["R", "R"],
   "/api/branding/logo": ["R", "R"],
   "/api/backups/restore": ["-", "-"],
+  "/api/backups/x/restore": ["-", "-"],
   "/api/logs/clear": ["-", "-"],
   "/api/server-config/stop": ["-", "-"],
   "/api/server-config/autostart": ["-", "-"],
@@ -89,31 +102,64 @@ const MATRIX: Record<string, [viewer: string, editor: string]> = {
   "/api/server-config": ["-", "-"],
   "/api/updates": ["-", "-"],
   "/api/users": ["-", "-"],
+  "/api/roles": ["-", "-"],
   "/api/hub/devices": ["-", "-"],
   "/api/hub/pairing-codes": ["-", "-"],
   "/api/docs": ["-", "-"],
   "/api/not-yet-in-the-table": ["-", "-"],
 };
 
+/** The effective rights of the roles a fresh database seeds (migration 0086). */
+let seeded: Record<RoleBuiltIn, EffectiveRights>;
+beforeAll(() => {
+  const rows = openDb(":memory:").select().from(schema.roles).all();
+  seeded = Object.fromEntries(rows.map((r) => [r.builtIn, effectiveRights(r)])) as typeof seeded;
+});
+
 describe("permissions", () => {
-  it("every prefix × role × read/write matches ADR-0012", () => {
+  it("every prefix × seeded role × read/write matches ADR-0012", () => {
     for (const [url, [viewer, editor]] of Object.entries(MATRIX))
       for (const [role, access] of [
         ["viewer", viewer],
         ["editor", editor],
         ["admin", "RW"],
       ] as const) {
-        const got = `${can(role, url, "GET") ? "R" : ""}${can(role, url, "POST") ? "W" : ""}`;
+        const r = seeded[role];
+        const got = `${can(r, url, "GET") ? "R" : ""}${can(r, url, "POST") ? "W" : ""}`;
         expect(`${role} ${url} ${got || "-"}`).toBe(`${role} ${url} ${access}`);
       }
   });
 
   it("a viewer may PATCH their alert state, nothing else under /alerts", () => {
-    expect(can("viewer", "/api/alerts/abc", "PATCH")).toBe(true);
-    expect(can("viewer", "/api/alerts/evaluate", "POST")).toBe(false);
-    expect(can("viewer", "/api/alerts/channels/ntfy", "PATCH")).toBe(false);
-    expect(can("viewer", "/api/alerts/channels/ntfy", "PUT")).toBe(false);
-    expect(can("editor", "/api/alerts/channels/ntfy", "PATCH")).toBe(false);
+    const { viewer, editor } = seeded;
+    expect(can(viewer, "/api/alerts/abc", "PATCH")).toBe(true);
+    expect(can(viewer, "/api/alerts/evaluate", "POST")).toBe(false);
+    expect(can(viewer, "/api/alerts/channels/ntfy", "PATCH")).toBe(false);
+    expect(can(viewer, "/api/alerts/channels/ntfy", "PUT")).toBe(false);
+    expect(can(editor, "/api/alerts/channels/ntfy", "PATCH")).toBe(false);
+  });
+
+  it("module levels, switches and the tagged module, beyond the seeded roles", () => {
+    const rights = (permissions: Partial<EffectiveRights["permissions"]>) =>
+      effectiveRights({ builtIn: null, permissions });
+    const helper = rights({ filament: "manage", "settings.backup": true });
+    expect(can(helper, "/api/filament/profiles", "POST")).toBe(true);
+    expect(can(helper, "/api/filament-brands", "PATCH")).toBe(true);
+    expect(can(helper, "/api/printers", "GET")).toBe(false);
+    expect(can(helper, "/api/backups", "POST")).toBe(true);
+    // Restore stays with the Admin role: a restored database carries anyone's rights.
+    expect(can(helper, "/api/backups/x/restore", "POST")).toBe(false);
+    expect(can(helper, "/api/tags/taggings/spool/abc", "PUT")).toBe(true);
+    expect(can(helper, "/api/tags/taggings/print/abc", "PUT")).toBe(false);
+    expect(can(helper, "/api/tags", "POST")).toBe(true); // any write permission
+    expect(can(rights({ prints: "read" }), "/api/tags", "POST")).toBe(false);
+    const roots = rights({ projects: "manage" });
+    expect(can(roots, "/api/users", "GET")).toBe(true);
+    expect(can(roots, "/api/users", "POST")).toBe(false);
+    expect(can(roots, "/api/fs", "GET")).toBe(true);
+    const hub = rights({ "hub.manage": true });
+    expect(can(hub, "/api/hub/devices", "GET")).toBe(true);
+    expect(can(hub, "/api/not-yet-in-the-table", "GET")).toBe(false);
   });
 
   it("every registered prefix is in the matrix", async () => {
@@ -130,7 +176,11 @@ describe("permissions", () => {
     const { db, app } = await setup();
     // No users: today's behaviour.
     expect((await app.inject("/api/printers")).statusCode).toBe(200);
-    expect((await app.inject("/api/auth/me")).json()).toEqual({ user: null });
+    expect((await app.inject("/api/auth/me")).json()).toEqual({
+      user: null,
+      role: null,
+      ...ADMIN_EFFECTIVE,
+    });
 
     for (const role of ["admin", "editor", "viewer"] as const) addUser(db, role);
     expect((await app.inject("/api/printers")).statusCode).toBe(401);
@@ -138,7 +188,12 @@ describe("permissions", () => {
     expect((await app.inject("/some/spa/route")).statusCode).toBe(404); // public, no SPA in tests
 
     const viewer = as(app, cookieOf(await login(app, "viewer@x.io")));
-    expect((await viewer.get("/api/auth/me")).json().user.role).toBe("viewer");
+    const me = (await viewer.get("/api/auth/me")).json();
+    expect(me.role).toMatchObject({ name: "Viewer", builtIn: "viewer" });
+    expect(me).toMatchObject({
+      admin: false,
+      permissions: { prints: "read", "users.manage": false },
+    });
     expect((await viewer.get("/api/printers")).statusCode).toBe(200);
     const denied = await viewer.send("POST", "/api/clients", { name: "Ana", mobile: "1" });
     expect(denied.statusCode).toBe(403);
@@ -340,7 +395,7 @@ describe("permissions", () => {
       }
   });
 
-  it("preferences: own display keys for everyone, the rest admin-only", async () => {
+  it("preferences: own display keys for everyone, the rest by permission", async () => {
     const { db, app } = await setup();
     for (const role of ["admin", "editor", "viewer"] as const) addUser(db, role);
     const session = async (r: UserRole) => as(app, cookieOf(await login(app, `${r}@x.io`)));
@@ -351,6 +406,12 @@ describe("permissions", () => {
     ];
     type Who = typeof admin;
     const patch = (who: Who, payload: object) => who.send("PATCH", "/api/preferences", payload);
+    const userId = (r: string) =>
+      db
+        .select()
+        .from(schema.users)
+        .all()
+        .find((u) => u.email === `${r}@x.io`)?.id;
     const values = async (who: Who) => (await who.get("/api/preferences")).json().values;
 
     expect((await patch(viewer, { themeMode: "dark" })).statusCode).toBe(200);
@@ -364,6 +425,13 @@ describe("permissions", () => {
     expect((await patch(editor, { currency: "USD" })).statusCode).toBe(403);
     expect((await patch(editor, { appName: "Shop" })).statusCode).toBe(403);
     expect((await patch(admin, { appName: "Shop" })).statusCode).toBe(200);
+    // Costs manage opens the cost keys, and only those.
+    const costs = (
+      await admin.send("POST", "/api/roles", { name: "Quoting", permissions: { costs: "manage" } })
+    ).json();
+    await admin.send("PATCH", `/api/users/${userId("editor")}`, { roleId: costs.id });
+    expect((await patch(editor, { currency: "USD", markupPct: 10 })).statusCode).toBe(200);
+    expect((await patch(editor, { currency: "EUR", backupKeep: 3 })).statusCode).toBe(403);
   });
 });
 
@@ -377,7 +445,11 @@ describe("users", () => {
     expect((await post({ ...body, token: "nope" })).statusCode).toBe(403);
     const ok = await post({ ...body, token: "tok" });
     expect(ok.statusCode).toBe(201);
-    expect(ok.json().user).toMatchObject({ email: "me@x.io", role: "admin" });
+    expect(ok.json()).toMatchObject({
+      user: { email: "me@x.io", roleId: BUILT_IN_ROLE_IDS.admin },
+      role: { builtIn: "admin" },
+      admin: true,
+    });
     expect((await as(app, cookieOf(ok)).get("/api/users")).statusCode).toBe(200);
     expect((await post(body, "127.0.0.1")).json().error.code).toBe("setup_done");
 
@@ -406,42 +478,56 @@ describe("users", () => {
     expect((await post({ token: "tok" }, "example.test")).statusCode).toBe(201);
   });
 
-  it("the last enabled admin can't be disabled, demoted or deleted", async () => {
+  it("the last enabled admin can't be deleted; nobody changes their own role or state", async () => {
     const { db, app } = await setup();
     const me = addUser(db, "admin");
     const admin = as(app, cookieOf(await login(app, "admin@x.io")));
     const url = `/api/users/${me.id}`;
-    for (const payload of [{ role: "editor" }, { disabled: true }])
-      expect((await admin.send("PATCH", url, payload)).json().error.code).toBe("last_admin");
-    expect((await admin.send("DELETE", url)).statusCode).toBe(409);
+    for (const payload of [{ roleId: BUILT_IN_ROLE_IDS.editor }, { disabled: true }])
+      expect((await admin.send("PATCH", url, payload)).json().error.code).toBe("own_account");
+    // Sending your own values back is no change.
+    expect(
+      (await admin.send("PATCH", url, { disabled: false, displayName: "Me" })).statusCode,
+    ).toBe(200);
+    expect((await admin.send("DELETE", url)).json().error.code).toBe("last_admin");
 
     const other = await admin.send("POST", "/api/users", {
       email: "two@x.io",
       displayName: "Two",
       password: PW,
-      role: "admin",
+      roleId: BUILT_IN_ROLE_IDS.admin,
     });
     expect(other.statusCode).toBe(201);
-    expect((await admin.send("PATCH", url, { role: "editor" })).statusCode).toBe(200);
-    // Changing the role ended the session.
-    expect((await admin.get("/api/auth/me")).statusCode).toBe(401);
+    const two = as(app, cookieOf(await login(app, "two@x.io")));
+    expect((await two.send("PATCH", url, { roleId: BUILT_IN_ROLE_IDS.editor })).statusCode).toBe(
+      200,
+    );
+    // Rights are read per request: the session goes on, with the editor's rights.
+    expect((await admin.get("/api/auth/me")).json().role.builtIn).toBe("editor");
+    expect((await admin.get("/api/users")).statusCode).toBe(403);
+    // Now `two` is the last enabled admin, and can't be demoted by anyone.
+    const id = other.json().id;
+    expect((await admin.send("PATCH", `/api/users/${id}`, { disabled: true })).statusCode).toBe(
+      403,
+    );
   });
 
-  it("disabling, a role change or a reset ends the user's sessions", async () => {
+  it("disabling or a reset ends the user's sessions; a role or override change doesn't", async () => {
     const { db, app } = await setup();
     addUser(db, "admin");
     const viewer = addUser(db, "viewer");
     const admin = as(app, cookieOf(await login(app, "admin@x.io")));
     const url = `/api/users/${viewer.id}`;
-    for (const [change, undo] of [
-      [{ disabled: true }, { disabled: false }],
-      [{ role: "editor" }, { role: "viewer" }],
-      [{ password: "a new one!" }, { password: PW }],
-    ]) {
+    for (const [change, undo, ends] of [
+      [{ disabled: true }, { disabled: false }, true],
+      [{ password: "a new one!" }, { password: PW }, true],
+      [{ roleId: BUILT_IN_ROLE_IDS.editor }, { roleId: BUILT_IN_ROLE_IDS.viewer }, false],
+      [{ permissions: { prints: "write" } }, { permissions: {} }, false],
+    ] as const) {
       const session = as(app, cookieOf(await login(app, "viewer@x.io")));
       expect((await session.get("/api/auth/me")).statusCode).toBe(200);
-      await admin.send("PATCH", url, change);
-      expect((await session.get("/api/auth/me")).statusCode).toBe(401);
+      expect((await admin.send("PATCH", url, change)).statusCode).toBe(200);
+      expect((await session.get("/api/auth/me")).statusCode).toBe(ends ? 401 : 200);
       await admin.send("PATCH", url, undo);
     }
     await admin.send("PATCH", url, { disabled: true });
@@ -478,7 +564,7 @@ describe("users", () => {
       email: "b@x.io",
       displayName: "B",
       password: PW,
-      role: "viewer",
+      roleId: BUILT_IN_ROLE_IDS.viewer,
     });
     responses.push(
       created,
@@ -539,5 +625,166 @@ describe("users", () => {
     const r = await lan.app.inject({ url: "/api/printers", headers: { host: "nas.lan" } });
     expect(r.statusCode).toBe(401);
     expect(r.headers["www-authenticate"]).toBeUndefined();
+  });
+});
+
+describe("roles and overrides (ADR-0016)", () => {
+  const start = async () => {
+    const { db, app } = await setup();
+    addUser(db, "admin");
+    const admin = as(app, cookieOf(await login(app, "admin@x.io")));
+    const role = async (name: string, body: object = {}) =>
+      (await admin.send("POST", "/api/roles", { name, ...body })).json();
+    const user = async (email: string, roleId: string, body: object = {}) => {
+      const res = await admin.send("POST", "/api/users", {
+        email,
+        displayName: email,
+        password: PW,
+        roleId,
+        ...body,
+      });
+      expect(res.statusCode).toBe(201);
+      return { id: res.json().id as string, s: as(app, cookieOf(await login(app, email))) };
+    };
+    return { db, app, admin, role, user };
+  };
+
+  it("a custom role and a user override change what the user may do, on the next request", async () => {
+    const { admin, role, user } = await start();
+    const helper = await role("Filament helper", { permissions: { filament: "manage" } });
+    expect(helper).toMatchObject({ usersCount: 0, builtIn: null });
+    expect(helper.permissions).toMatchObject({ filament: "manage", printers: "none" });
+    const h = await user("h@x.io", helper.id);
+    expect((await h.s.get("/api/filament/spools")).statusCode).toBe(200);
+    expect((await h.s.send("POST", "/api/filament-brands", {})).statusCode).not.toBe(403);
+    expect((await h.s.get("/api/costs/quotes")).statusCode).toBe(403);
+    expect(
+      (await admin.send("PATCH", `/api/users/${h.id}`, { permissions: { costs: "read" } }))
+        .statusCode,
+    ).toBe(200);
+    expect((await h.s.get("/api/costs/quotes")).statusCode).not.toBe(403);
+    // A role change applies at once too.
+    await admin.send("PATCH", `/api/roles/${helper.id}`, { permissions: { filament: "none" } });
+    expect((await h.s.get("/api/filament/spools")).statusCode).toBe(403);
+    expect(
+      (await admin.get("/api/roles")).json().find((r: { id: string }) => r.id === helper.id),
+    ).toMatchObject({ usersCount: 1 });
+  });
+
+  it("a user manager grants nothing above their own rights and never touches admins", async () => {
+    const { admin, role, user } = await start();
+    const managers = await role("Managers", {
+      permissions: { "users.manage": true, prints: "write", stats: "read" },
+    });
+    const m = await user("m@x.io", managers.id);
+    const code = async (
+      r: Promise<{ json: () => { error?: { code: string } }; statusCode: number }>,
+    ) => {
+      const res = await r;
+      return res.json().error?.code ?? res.statusCode;
+    };
+    expect(
+      await code(m.s.send("POST", "/api/roles", { name: "Up", permissions: { prints: "manage" } })),
+    ).toBe("escalation");
+    const low = await m.s.send("POST", "/api/roles", {
+      name: "Low",
+      permissions: { prints: "read" },
+    });
+    expect(low.statusCode).toBe(201);
+    const body = (roleId: string, extra: object = {}) => ({
+      email: `${crypto.randomUUID()}@x.io`,
+      displayName: "N",
+      password: PW,
+      roleId,
+      ...extra,
+    });
+    // The Editor role has more than the manager: picking it is escalation.
+    expect(await code(m.s.send("POST", "/api/users", body(BUILT_IN_ROLE_IDS.editor)))).toBe(
+      "escalation",
+    );
+    expect(await code(m.s.send("POST", "/api/users", body(BUILT_IN_ROLE_IDS.admin)))).toBe(
+      "admin_only",
+    );
+    const n = await m.s.send("POST", "/api/users", body(low.json().id));
+    expect(n.statusCode).toBe(201);
+    const url = `/api/users/${n.json().id}`;
+    expect(await code(m.s.send("PATCH", url, { permissions: { prints: "manage" } }))).toBe(
+      "escalation",
+    );
+    expect(await code(m.s.send("PATCH", url, { permissions: { prints: "write" } }))).toBe(200);
+    // Unchanged values aren't checked again, so the form can send them back.
+    await admin.send("PATCH", url, { permissions: { prints: "write", costs: "manage" } });
+    expect(
+      await code(m.s.send("PATCH", url, { permissions: { prints: "read", costs: "manage" } })),
+    ).toBe(200);
+    expect(
+      await code(m.s.send("PATCH", `/api/users/${m.id}`, { permissions: { prints: "read" } })),
+    ).toBe("own_account");
+    // Dropping an override is a change too: back to the role's value.
+    await admin.send("PATCH", `/api/users/${m.id}`, { permissions: { prints: "read" } });
+    expect(await code(m.s.send("PATCH", `/api/users/${m.id}`, { permissions: {} }))).toBe(
+      "own_account",
+    );
+    // Dropping a deny would lift the user to their role's costs manage, above the manager.
+    const quoting = await role("Quoting", { permissions: { costs: "manage" } });
+    const k = await user("k@x.io", quoting.id, { permissions: { costs: "none" } });
+    expect(await code(m.s.send("PATCH", `/api/users/${k.id}`, { permissions: {} }))).toBe(
+      "escalation",
+    );
+    const adminId = (await admin.get("/api/auth/me")).json().user.id;
+    expect(await code(m.s.send("PATCH", `/api/users/${adminId}`, { displayName: "X" }))).toBe(
+      "admin_only",
+    );
+    expect(await code(m.s.send("DELETE", `/api/users/${adminId}`))).toBe("admin_only");
+  });
+
+  it("the Admin role is fixed; its users take only the device files override", async () => {
+    const { admin, role } = await start();
+    const url = `/api/roles/${BUILT_IN_ROLE_IDS.admin}`;
+    expect((await admin.send("PATCH", url, { name: "Boss" })).json().error.code).toBe(
+      "role_builtin",
+    );
+    expect((await admin.send("DELETE", url)).json().error.code).toBe("role_builtin");
+    const body = (extra: object) => ({
+      email: `${crypto.randomUUID()}@x.io`,
+      displayName: "A",
+      password: PW,
+      roleId: BUILT_IN_ROLE_IDS.admin,
+      ...extra,
+    });
+    for (const bad of [
+      { permissions: { costs: "read" } },
+      { projectRights: { "projects.seeAll": false } },
+    ])
+      expect((await admin.send("POST", "/api/users", body(bad))).json().error.code).toBe(
+        "admin_overrides",
+      );
+    const ok = await admin.send(
+      "POST",
+      "/api/users",
+      body({ projectRights: { "projects.editOtherDevices": false } }),
+    );
+    expect(ok.statusCode).toBe(201);
+    expect((await role("admin")).error.code).toBe("name_taken"); // names are unique ignoring case
+  });
+
+  it("a role in use can't be deleted; disabling one locks its users out, devices too", async () => {
+    const { db, admin, role, user, app } = await start();
+    const r = await role("Temps", { permissions: { prints: "read" } });
+    const t = await user("t@x.io", r.id);
+    expect((await admin.send("DELETE", `/api/roles/${r.id}`)).json().error.code).toBe(
+      "role_in_use",
+    );
+    db.insert(schema.settings).values({ key: "hubEnabled", value: true }).run();
+    db.insert(schema.devices)
+      .values({ name: "WS", userId: t.id, tokenHash: tokenHash("dev-token") })
+      .run();
+    expect(readDevice(db, "dev-token")).not.toBeNull();
+    await admin.send("PATCH", `/api/roles/${r.id}`, { disabled: true });
+    expect((await t.s.get("/api/prints")).statusCode).toBe(401);
+    expect((await login(app, "t@x.io")).json().error.code).toBe("user_disabled");
+    expect(readDevice(db, "dev-token")).toBeNull();
+    await admin.send("PATCH", `/api/users/${t.id}`, { roleId: BUILT_IN_ROLE_IDS.viewer });
+    expect((await admin.send("DELETE", `/api/roles/${r.id}`)).statusCode).toBe(204);
   });
 });

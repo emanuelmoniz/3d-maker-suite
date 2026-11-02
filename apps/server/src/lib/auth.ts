@@ -1,6 +1,16 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 import { networkInterfaces } from "node:os";
-import { type Capability, ROOT_HUB, type UserRole } from "@3d-maker-suite/core";
+import {
+  type Capability,
+  type EffectiveRights,
+  exceeds,
+  hasLevel,
+  type PermissionLevel,
+  type PermissionModule,
+  type PermissionSwitch,
+  ROOT_HUB,
+  USER_PREFERENCE_KEYS,
+} from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
 import { and, eq, isNull, lt, or, type SQL, sql } from "drizzle-orm";
 import type { FastifyReply, FastifyRequest } from "fastify";
@@ -8,9 +18,17 @@ import { HttpError } from "../errors.ts";
 import { policyOf } from "../integrations/capabilities.ts";
 import { accessGuard, isLoopback } from "./access.ts";
 import { readPreferences } from "./preferences.ts";
-import { readCookie, readSession, SESSION_COOKIE, sessionCookie, tokenHash } from "./session.ts";
+import {
+  isEnabled,
+  readCookie,
+  readSession,
+  SESSION_COOKIE,
+  type SessionUser,
+  sessionCookie,
+  sessionUser,
+  tokenHash,
+} from "./session.ts";
 
-type SessionUser = NonNullable<ReturnType<typeof readSession>>["user"];
 declare module "fastify" {
   interface FastifyRequest {
     /** The logged-in user; unset in the no-users mode and on public routes. */
@@ -20,83 +38,209 @@ declare module "fastify" {
   }
 }
 
-/** R = GET/HEAD, RW = every method, "-" = 403. Admin may do everything. */
-type Access = "-" | "R" | "RW";
-
-// ADR-0012 role × prefix table. A prefix missing here is admin-only, so a new route fails closed.
-const TABLE: Record<string, { viewer: Access; editor: Access }> = {
-  auth: { viewer: "RW", editor: "RW" },
-  printers: { viewer: "R", editor: "R" },
-  // Accessories (installs and removals only) and maintenance tasks are opened up in `can`.
-  accessories: { viewer: "R", editor: "R" },
-  maintenance: { viewer: "R", editor: "R" },
-  brands: { viewer: "R", editor: "R" },
-  "printer-models": { viewer: "R", editor: "R" },
-  "machine-profiles": { viewer: "R", editor: "R" },
-  filament: { viewer: "R", editor: "RW" },
-  "filament-brands": { viewer: "R", editor: "R" },
-  "filament-materials": { viewer: "R", editor: "R" },
-  "print-profiles": { viewer: "R", editor: "R" },
-  projects: { viewer: "R", editor: "RW" },
-  roots: { viewer: "R", editor: "R" },
-  prints: { viewer: "R", editor: "RW" },
-  costs: { viewer: "R", editor: "RW" },
-  orders: { viewer: "R", editor: "RW" },
-  clients: { viewer: "R", editor: "RW" },
-  stats: { viewer: "R", editor: "R" },
-  tags: { viewer: "R", editor: "RW" },
-  collections: { viewer: "R", editor: "RW" },
-  alerts: { viewer: "R", editor: "RW" },
-  // Writes are narrowed to the caller's allowed keys by the route.
-  preferences: { viewer: "RW", editor: "RW" },
-  branding: { viewer: "R", editor: "R" },
-  integrations: { viewer: "R", editor: "R" },
+/** Whether the caller's rights meet a rule; `m` is the path's match (the tagged module needs it). */
+type Need = (r: EffectiveRights, m?: RegExpExecArray) => boolean;
+const at =
+  (module: PermissionModule, level: PermissionLevel): Need =>
+  (r) =>
+    hasLevel(r.permissions, module, level);
+const on =
+  (p: PermissionSwitch): Need =>
+  (r) =>
+    r.permissions[p];
+const either =
+  (...needs: Need[]): Need =>
+  (r, m) =>
+    needs.some((n) => n(r, m));
+const SESSION: Need = () => true;
+/** The Admin role only; `can` lets it through before the rules. */
+const ADMIN_ROLE: Need = () => false;
+/** Write or manage on a module, or any on/off permission. */
+const ANY_WRITE: Need = (r) =>
+  Object.values(r.permissions).some((v) => v === true || v === "write" || v === "manage");
+const TAG_MODULE: Record<string, PermissionModule> = {
+  project: "projects",
+  print: "prints",
+  spool: "filament",
+  printer: "printers",
+  accessory: "printers",
 };
+const TAGGED: Need = (r, m) => {
+  const module = TAG_MODULE[m?.[1] ?? ""];
+  return !!module && hasLevel(r.permissions, module, "write");
+};
+
+/** `^/api/(a|b)` followed by a slash or the end. */
+const p = (prefixes: string) => new RegExp(`^/api/(${prefixes})(/|$)`);
+const PRINTERS = "printers|accessories|brands|printer-models|machine-profiles|print-profiles";
+const ROOTS_OR_SLICERS = either(at("projects", "write"), on("integrations.manage"));
+
+// ADR-0016 permission table: [path, methods (R = GET/HEAD, W = the rest, * = all, or one method),
+// need]. First match wins; a path no rule matches is Admin role only, so a new route fails closed.
+const RULES: [RegExp, string, Need][] = [
+  [p("auth"), "*", SESSION],
+  // Writes are narrowed to the caller's keys by the route.
+  [/^\/api\/preferences$/, "*", SESSION],
+  [p("branding"), "R", SESSION],
+  [p("branding"), "W", on("settings.branding")],
+  // Channels hold the mail and ntfy servers' secrets.
+  [p("alerts/channels"), "*", on("settings.alerts")],
+  // Everyone reads, snoozes and dismisses their own alerts (ADR-0012).
+  [/^\/api\/alerts\/[^/]+$/, "PATCH", SESSION],
+  [p("alerts"), "R", SESSION],
+  // `POST /alerts/evaluate`.
+  [p("alerts"), "W", ANY_WRITE],
+  [/^\/api\/tags\/taggings\/([^/]+)\//, "W", TAGGED],
+  [p("tags"), "R", SESSION],
+  [p("tags"), "W", ANY_WRITE],
+  [p(PRINTERS), "R", at("printers", "read")],
+  // Logging work on accessories is write; their setup, and the printers', is manage.
+  [/^\/api\/accessories\/[^/]+\/installs(\/|$)/, "W", at("printers", "write")],
+  [p(PRINTERS), "W", at("printers", "manage")],
+  [p("maintenance"), "R", at("maintenance", "read")],
+  [/^\/api\/maintenance\/tasks$/, "POST", at("maintenance", "write")],
+  [p("maintenance"), "W", at("maintenance", "manage")],
+  [p("filament|filament-brands|filament-materials"), "R", at("filament", "read")],
+  [p("filament/profiles|filament-brands|filament-materials"), "W", at("filament", "manage")],
+  [p("filament"), "W", at("filament", "write")],
+  [p("projects|collections|roots"), "R", at("projects", "read")],
+  [p("projects|collections"), "W", at("projects", "write")],
+  [p("roots"), "W", at("projects", "manage")],
+  // "Add folder" in Projects browses the disk; the route confines it to the project roots.
+  [/^\/api\/fs\/list$/, "GET", ROOTS_OR_SLICERS],
+  [/^\/api\/fs\/folder$/, "POST", ROOTS_OR_SLICERS],
+  [p("fs"), "*", either(at("projects", "manage"), on("integrations.manage"))],
+  [p("prints"), "R", at("prints", "read")],
+  [p("prints"), "W", at("prints", "write")],
+  [p("costs|orders|clients"), "R", at("costs", "read")],
+  [p("costs|orders|clients"), "W", at("costs", "write")],
+  [p("stats"), "R", at("stats", "read")],
+  // Managed slicer installs download half a gigabyte and ask GitHub (ADR-0013).
+  [/^\/api\/integrations\/[^/]+\/slicer(\/|$)/, "*", on("integrations.manage")],
+  // Sync now, and an integration's review and import: narrowed per task by `mayTask` in the route.
+  [
+    /^\/api\/integrations\/[^/]+\/sync$/,
+    "POST",
+    either(on("integrations.sync"), on("integrations.manage")),
+  ],
+  // The setup fields are left out without integrations.manage (route).
+  [p("integrations"), "R", SESSION],
+  [
+    /^\/api\/import\/(integration\/[^/]+\/[^/]+|[^/]+\/apply)$/,
+    "POST",
+    either(on("integrations.review"), on("integrations.manage")),
+  ],
+  [p("integrations|import|slicer-zip"), "*", on("integrations.manage")],
+  [p("hub"), "*", on("hub.manage")],
+  [p("server-config|updates|docs"), "*", on("settings.server")],
+  // A restored database carries anyone's rights.
+  [/^\/api\/backups\/[^/]+\/restore$/, "*", ADMIN_ROLE],
+  [p("backups"), "*", on("settings.backup")],
+  [p("logs"), "*", on("settings.logs")],
+  // A root's picked editors.
+  [/^\/api\/users$/, "GET", either(on("users.manage"), at("projects", "manage"))],
+  [p("users|roles"), "*", on("users.manage")],
+];
+
+const keys = (need: Need, ...names: string[]) => names.map((k) => [k, need] as const);
+// ADR-0016 preference keys. Each user's own display keys are always allowed; a key missing here
+// is Admin role only.
+const KEYS: Record<string, Need> = Object.fromEntries([
+  ...keys(at("printers", "manage"), "defaultPrinterId", "printerStates"),
+  ...keys(at("projects", "manage"), "projectScanMaxFiles", "viewerMaxMb", "projectUploadMaxMb"),
+  ...keys(at("prints", "manage"), "gramsPerHour", "failureReasons"),
+  ...keys(
+    at("costs", "manage"),
+    "currency",
+    "energyCostPerKwh",
+    "laborRatePerHour",
+    "failureMarginPct",
+    "markupPct",
+    "printerLifetimeHours",
+    "printerCountInCosts",
+    "includeMaintenanceCost",
+    "accessoryLifetimeHours",
+    "accessoryCountInCosts",
+    "accessoryIncludeMaintenanceCost",
+    "orderStatuses",
+  ),
+  ...keys(on("integrations.manage"), "defaultSlicerId"),
+  ...keys(
+    on("hub.manage"),
+    "hubEnabled",
+    "hubDeleteGuard",
+    "hubLocks",
+    "hubLockIdleMin",
+    "hubVersions",
+    "hubVersionsKeep",
+    "hubDefaultSyncMode",
+    "deviceFolderMaxMb",
+  ),
+  ...keys(on("settings.server"), "updateChannel"),
+  ...keys(on("settings.backup"), "backupAuto", "backupKeep"),
+  ...keys(
+    on("settings.logs"),
+    "logActive",
+    "logLevels",
+    "logModules",
+    "logRetentionDays",
+    "logMaxEntries",
+  ),
+  ...keys(on("settings.branding"), "appName"),
+  ...keys(
+    on("settings.alerts"),
+    "lowSpoolGrams",
+    "maintenanceLeadDays",
+    "maintenanceLeadHours",
+    "maintenanceLeadPrints",
+  ),
+]);
+const OWN_KEYS: readonly string[] = USER_PREFERENCE_KEYS;
+
+/** Whether `rights` may change the preference `key` (a global one, or their own display key). */
+export const mayPatchKey = (rights: EffectiveRights, key: string) =>
+  rights.admin || OWN_KEYS.includes(key) || !!KEYS[key]?.(rights);
+
+/** The entries of `next` that differ from `prev`: what a patch actually changes. */
+export const changed = <T extends object>(next: Partial<T> | undefined, prev: Partial<T>) =>
+  next &&
+  (Object.fromEntries(
+    Object.entries(next).filter(([k, v]) => prev[k as keyof T] !== v),
+  ) as Partial<T>);
+
+/**
+ * ADR-0016 escalation rule: a user manager outside the Admin role sets nothing above their own
+ * effective value (no user = the no-users mode, the Admin role).
+ */
+export function assertWithin(
+  caller: SessionUser | undefined,
+  values: Parameters<typeof exceeds>[1],
+) {
+  if (!caller || caller.rights.admin) return;
+  const over = exceeds(caller.rights, values);
+  if (over.length)
+    throw new HttpError(403, "escalation", `More than you have yourself: ${over.join(", ")}`);
+}
 
 const READS = ["GET", "HEAD"];
 
-/** Whether `role` may call `method url`. The prefix table plus the two rules a prefix can't express. */
-export function can(role: UserRole, url: string, method: string): boolean {
-  if (role === "admin") return true;
+/** Whether `rights` may call `method url` (ADR-0016). The Admin role may do everything. */
+export function can(rights: EffectiveRights, url: string, method: string): boolean {
+  if (rights.admin) return true;
   const path = url.split("?")[0] ?? "";
-  // Channels hold webhook and SMTP secrets.
-  if (/^\/api\/alerts\/channels(\/|$)/.test(path)) return false;
-  // Managed slicer installs download half a gigabyte and ask GitHub (ADR-0013).
-  if (/^\/api\/integrations\/[^/]+\/slicer(\/|$)/.test(path)) return false;
-  // Everyone reads, snoozes and dismisses their own alerts (ADR-0012); nothing else under /alerts.
-  if (method === "PATCH" && /^\/api\/alerts\/[^/]+$/.test(path)) return true;
-  // Sync now, and an integration's review and import: narrowed per task by `mayTask` in the route.
-  if (
-    role === "editor" &&
-    method === "POST" &&
-    (/^\/api\/integrations\/[^/]+\/sync$/.test(path) ||
-      /^\/api\/import\/integration\/[^/]+\/[^/]+$/.test(path) ||
-      /^\/api\/import\/[^/]+\/apply$/.test(path))
-  )
-    return true;
-  // Editors log work on printers and accessories; the printer, accessory, maintenance and filament-profile setup is admin-only.
-  if (
-    role === "editor" &&
-    ((/^\/api\/accessories\/[^/]+\/installs(\/|$)/.test(path) && method !== "GET") ||
-      (method === "POST" && path === "/api/maintenance/tasks"))
-  )
-    return true;
-  // "Add folder" in Projects browses the server's disk; the route confines editors to the project roots.
-  if (
-    role === "editor" &&
-    ((method === "GET" && path === "/api/fs/list") ||
-      (method === "POST" && path === "/api/fs/folder"))
-  )
-    return true;
-  if (role === "editor" && /^\/api\/filament\/profiles(\/|$)/.test(path))
-    return READS.includes(method);
-  const access = TABLE[/^\/api\/([^/]+)/.exec(path)?.[1] ?? ""]?.[role] ?? "-";
-  return access === "RW" || (access === "R" && READS.includes(method));
+  const read = READS.includes(method);
+  for (const [re, methods, need] of RULES) {
+    if (methods === "R" ? !read : methods === "W" ? read : methods !== "*" && methods !== method)
+      continue;
+    const m = re.exec(path);
+    if (m) return need(rights, m);
+  }
+  return false;
 }
 
 /**
- * ADR-0012 editor flags: admin (and the no-users mode) always, an editor only with the task's
- * flag, a viewer never. The routes `can` opens for editors call this.
+ * The per-task gate on sync and review (ADR-0016): `integrations.manage` (and the no-users mode)
+ * always; with only `integrations.sync` (`.review`), the task's flag must be on.
  */
 export function mayTask(
   db: Db,
@@ -105,15 +249,14 @@ export function mayTask(
   type: Capability,
   flag: "editorSync" | "editorReview",
 ) {
-  if (!user || user.role === "admin") return;
-  if (user.role === "editor" && policyOf(db, integrationId, type)[flag]) return;
+  const p = user?.rights.permissions;
+  if (!p || p["integrations.manage"]) return;
+  const allowed = flag === "editorSync" ? p["integrations.sync"] : p["integrations.review"];
+  if (allowed && policyOf(db, integrationId, type)[flag]) return;
   throw new HttpError(403, "forbidden", "Not allowed for your role");
 }
 
-export type Rights = Pick<
-  SessionUser,
-  "id" | "role" | "projectsSeeAll" | "projectsEditOthers" | "editOtherDevices"
->;
+export type Rights = Pick<SessionUser, "id" | "rights">;
 type Root = typeof schema.roots.$inferSelect;
 /** What `mayEditRoot` needs of a root: its `editBy`, picked users and, on a device, the device's user. */
 export type RootRule = Pick<Root, "editBy" | "location"> & {
@@ -122,25 +265,26 @@ export type RootRule = Pick<Root, "editBy" | "location"> & {
 };
 
 /**
- * Whether `user` may edit files in a root (ADR-0014). No user (no-users mode): yes. On a device
- * root its own user always may; anyone else follows `editBy`, and needs `editOtherDevices` there
- * unless picked by name.
+ * Whether `user` may edit files in a root (ADR-0014, in ADR-0016 permissions). No user (no-users
+ * mode): yes. It needs projects write. On a device root its own user always may; anyone else
+ * follows `editBy`, and needs `projects.editOtherDevices` there unless picked by name.
  */
 export function mayEditRoot(user: Rights | undefined, root: RootRule) {
   if (!user) return true;
-  if (user.role === "viewer") return false;
+  const { admin, permissions, projectRights } = user.rights;
+  if (!hasLevel(permissions, "projects", "write")) return false;
   const device = root.location !== ROOT_HUB;
   if (device && root.deviceUserId === user.id) return true;
   if (root.editBy === "none") return false;
   if (root.editBy === "users") return root.editorIds.includes(user.id);
-  if (root.editBy === "admins" && user.role !== "admin") return false;
-  return !device || user.editOtherDevices;
+  if (root.editBy === "admins" && !admin) return false;
+  return !device || projectRights["projects.editOtherDevices"];
 }
 
 /**
- * What `user` may do with a project (ADR-0014). "none": hidden (not theirs and they see only their
- * own). "edit" needs the root's edit right (a project without a folder has no root) and the
- * project being theirs, or being an admin, or `projectsEditOthers`. Else "read": download only.
+ * What `user` may do with a project (ADR-0014). "none": hidden (not theirs, and no
+ * `projects.seeAll`). "edit" needs the root's edit right (a project without a folder has no root)
+ * and the project being theirs or `projects.editOthers`. Else "read": download only.
  */
 export function projectAccess(
   user: Rights | undefined,
@@ -149,10 +293,11 @@ export function projectAccess(
 ): "edit" | "read" | "none" {
   if (!user) return "edit";
   const mine = project.ownerId === user.id;
-  const admin = user.role === "admin";
-  if (!mine && !admin && !user.projectsSeeAll) return "none";
-  if (user.role === "viewer" || (root && !mayEditRoot(user, root))) return "read";
-  return mine || admin || user.projectsEditOthers ? "edit" : "read";
+  const { permissions, projectRights } = user.rights;
+  if (!mine && !projectRights["projects.seeAll"]) return "none";
+  if (!hasLevel(permissions, "projects", "write") || (root && !mayEditRoot(user, root)))
+    return "read";
+  return mine || projectRights["projects.editOthers"] ? "edit" : "read";
 }
 
 /** A root's `RootRule` from the database. */
@@ -188,7 +333,7 @@ export function projectAccessOf(db: Db, user: Rights | undefined, id: string) {
 
 /** The list condition for the projects `user` sees (ADR-0014); undefined = all. */
 export const visibleProjects = (user: Rights | undefined): SQL | undefined =>
-  !user || user.role === "admin" || user.projectsSeeAll
+  !user || user.rights.projectRights["projects.seeAll"]
     ? undefined
     : eq(schema.projects.ownerId, user.id);
 
@@ -244,19 +389,20 @@ const deny = (reply: FastifyReply, status: number, code: string, message: string
 const SEEN_EVERY_MS = 15_000;
 
 /**
- * The enabled user behind a device token, or null (unknown or revoked token, user disabled, hub
+ * The enabled user behind a device token, or null (unknown or revoked token, user or role disabled, hub
  * off). Marks the device seen, at most every 15 s.
  */
 export function readDevice(db: Db, token: string, now = new Date()) {
   if (!readPreferences(db).hubEnabled) return null;
-  const { devices, users } = schema;
+  const { devices, roles, users } = schema;
   const row = db
-    .select({ id: devices.id, user: users })
+    .select({ id: devices.id, user: users, role: roles })
     .from(devices)
     .innerJoin(users, eq(users.id, devices.userId))
+    .innerJoin(roles, eq(roles.id, users.roleId))
     .where(eq(devices.tokenHash, tokenHash(token)))
     .get();
-  if (!row || row.user.disabled) return null;
+  if (!row || !isEnabled(row)) return null;
   const stale = new Date(now.getTime() - SEEN_EVERY_MS).toISOString();
   db.update(devices)
     .set({ lastSeenAt: now.toISOString() })
@@ -264,14 +410,13 @@ export function readDevice(db: Db, token: string, now = new Date()) {
       and(eq(devices.id, row.id), or(isNull(devices.lastSeenAt), lt(devices.lastSeenAt, stale))),
     )
     .run();
-  const { passwordHash: _, ...user } = row.user;
-  return { deviceId: row.id, user };
+  return { deviceId: row.id, user: sessionUser(row.user, row.role) };
 }
 
 /**
  * The one onRequest hook (ADR-0012). No users: the old access guard (host guard, `APP_PASSWORD`).
  * Users: a session (or a device token, ADR-0014) for everything but the public routes, then the
- * role table. The host guard stays
+ * permission table. The host guard stays
  * on for loopback binds, so a DNS-rebinding page can't reach setup from the server's own browser.
  * `allowedHosts` (`APP_ALLOWED_HOSTS`) lists the public names a reverse proxy forwards; both guards accept them.
  */
@@ -308,11 +453,11 @@ export function authGuard(
       req.user = session.user;
     }
     req.log = req.log.child({ actor: req.user.id });
-    // Any role's device holds its event stream and reports on its own roots; the hub routes are
-    // admin-only otherwise.
+    // Any user's device holds its event stream and reports on its own roots; the hub routes need
+    // hub.manage otherwise.
     const path = req.url.split("?")[0] ?? "";
     const own = req.deviceId && (path === "/api/hub/events" || path.startsWith("/api/hub/device/"));
-    if (!own && !can(req.user.role, req.url, req.method))
+    if (!own && !can(req.user.rights, req.url, req.method))
       return deny(reply, 403, "forbidden", "Not allowed for your role");
     // One project's routes (projects, files, slicing): hidden is a 404, download-only refuses writes.
     const projectId = PROJECT_PATH.exec(path)?.[1];

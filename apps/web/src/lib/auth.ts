@@ -1,4 +1,10 @@
-import type { Me, MeUpdate, SetupInput, UserLoginInput } from "@3d-maker-suite/core";
+import type {
+  EffectiveRights,
+  Me,
+  MeUpdate,
+  SetupInput,
+  UserLoginInput,
+} from "@3d-maker-suite/core";
 import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "./api.ts";
 
@@ -11,17 +17,24 @@ export const meQuery = queryOptions({
 
 export const useMe = () => useQuery(meQuery).data?.user;
 
-/** The caller's role; the no-users mode counts as admin. Undefined while loading. */
-export const useRole = () => {
-  const { data } = useQuery(meQuery);
-  return data && (data.user?.role ?? "admin");
-};
+/** The caller's effective rights (ADR-0016); the no-users mode has the Admin role's. Undefined while loading. */
+export const useRights = (): EffectiveRights | undefined => useQuery(meQuery).data;
 
-/** Whether the role may change data (`write`: editor, admin) or manage the server (`admin`). The server enforces the same; this only hides buttons. */
+/** The caller's role (name and built-in kind); null in the no-users mode. */
+export const useMyRole = () => useQuery(meQuery).data?.role;
+
+/**
+ * Whether the caller may change data (`write`: any write permission) or is in the Admin role
+ * (`admin`). The server enforces the real rules; this only hides buttons.
+ */
 export function useCan(level: "write" | "admin") {
-  const role = useRole();
-  if (!role) return false;
-  return level === "write" ? role !== "viewer" : role === "admin";
+  const r = useRights();
+  if (!r) return false;
+  return (
+    r.admin ||
+    (level === "write" &&
+      Object.values(r.permissions).some((v) => v === true || v === "write" || v === "manage"))
+  );
 }
 
 // A full load after each of these: preferences and every cached query belong to one person.

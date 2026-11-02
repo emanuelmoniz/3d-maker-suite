@@ -20,7 +20,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { KINDS } from "../pages/settings/integrationLabels.ts";
 import { api } from "./api.ts";
-import { useRole } from "./auth.ts";
+import { useRights } from "./auth.ts";
 import { useListPage } from "./list.ts";
 import { usePreferences } from "./preferences.ts";
 
@@ -82,36 +82,46 @@ export function useSlicers() {
   };
 }
 
+/** The caller's task permissions (ADR-0016); only the sync and review ones depend on the flags. */
+function useTaskRights() {
+  const p = useRights()?.permissions;
+  const manage = !!p?.["integrations.manage"];
+  const sync = !!p?.["integrations.sync"];
+  const review = !!p?.["integrations.review"];
+  const list = useIntegrations(!manage && (sync || review)).data ?? [];
+  const allowed = (t: { editorSync: boolean; editorReview: boolean }) => ({
+    sync: sync && t.editorSync,
+    review: review && t.editorReview,
+  });
+  return { manage, list, allowed };
+}
+
 /**
- * What the caller may do with one task (ADR-0012): an admin everything, an editor what the task's
- * flags allow, a viewer nothing. `any`: sync or review. The server checks the same.
+ * What the caller may do with one task: everything with integrations.manage; else sync (review)
+ * with that permission and the task's flag on. `any`: sync or review. The server checks the same.
  */
 export function useMayTask() {
-  const role = useRole();
-  // Only an editor's answer depends on the flags.
-  const list = useIntegrations(role === "editor").data;
+  const { manage, list, allowed } = useTaskRights();
   return (integrationId: string, type: string, what: "sync" | "review" | "any") => {
-    if (role === "admin") return true;
-    if (role !== "editor") return false;
-    const p = list?.find((i) => i.id === integrationId)?.policies.find((x) => x.type === type);
-    return (
-      !!p &&
-      (what === "sync"
-        ? p.editorSync
-        : what === "review"
-          ? p.editorReview
-          : p.editorSync || p.editorReview)
-    );
+    if (manage) return true;
+    const p = list.find((i) => i.id === integrationId)?.policies.find((x) => x.type === type);
+    if (!p) return false;
+    const a = allowed(p);
+    return what === "any" ? a.sync || a.review : a[what];
   };
 }
 
-/** The Integrations page has something for the caller: an admin, or an editor with a task. */
+/** The Integrations page has something for the caller: integrations.manage, or a task they may run. */
 export function useHasTasks() {
-  const role = useRole();
-  const list = useIntegrations(role === "editor").data ?? [];
+  const { manage, list, allowed } = useTaskRights();
   return (
-    role === "admin" ||
-    (role === "editor" && list.some((i) => i.policies.some((p) => p.editorSync || p.editorReview)))
+    manage ||
+    list.some((i) =>
+      i.policies.some((p) => {
+        const a = allowed(p);
+        return a.sync || a.review;
+      }),
+    )
   );
 }
 

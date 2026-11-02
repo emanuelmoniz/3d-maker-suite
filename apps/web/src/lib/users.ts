@@ -1,4 +1,4 @@
-import type { User, UserCreateInput, UserPatch } from "@3d-maker-suite/core";
+import type { Role, User, UserCreateInput, UserPatch } from "@3d-maker-suite/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "./api.ts";
 
@@ -6,6 +6,10 @@ const KEY = ["users"];
 
 export const useUsers = (enabled: boolean) =>
   useQuery({ queryKey: KEY, queryFn: () => api<User[]>("GET", "/api/users"), enabled });
+
+/** The roles (ADR-0016), for the role pickers. */
+export const useRoles = (enabled: boolean) =>
+  useQuery({ queryKey: ["roles"], queryFn: () => api<Role[]>("GET", "/api/roles"), enabled });
 
 export function useUserActions() {
   const qc = useQueryClient();

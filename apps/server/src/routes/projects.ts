@@ -670,7 +670,7 @@ export const projectsRoutes =
         } = req.body;
         assertNumberFree(db, projects, "project", number, req.params.id);
         if (ownerId !== undefined) {
-          if (req.user?.role !== "admin")
+          if (req.user && !req.user.rights.admin)
             throw new HttpError(403, "forbidden", "Only admins change a project's owner");
           if (onDeviceRoot(db, current.rootId))
             throw new HttpError(409, "device_owner", "Its device's user owns a device project");
@@ -919,7 +919,7 @@ export const projectsRoutes =
         await hubFiles.unlock(
           root,
           `${p.folder}/${req.query.file}`,
-          (_, userId) => !me || me.role === "admin" || me.id === userId,
+          (_, userId) => !me || me.rights.admin || me.id === userId,
         );
         return reply.status(204).send(null);
       },

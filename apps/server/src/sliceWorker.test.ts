@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { buffer } from "node:stream/consumers";
 import { bambuStudioWorkerAdapter } from "@3d-maker-suite/adapter-bambu";
 import { fixture, mockAdapter } from "@3d-maker-suite/adapter-mock";
-import type { IntegrationAdapter } from "@3d-maker-suite/core";
+import { BUILT_IN_ROLE_IDS, type IntegrationAdapter } from "@3d-maker-suite/core";
 import { openDb, schema } from "@3d-maker-suite/db";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeAll, expect, it } from "vitest";
@@ -59,7 +59,12 @@ async function live(adapters: IntegrationAdapter[] = []) {
   };
   const admin = db
     .insert(schema.users)
-    .values({ email: "a@x.io", displayName: "admin", role: "admin", passwordHash: hash })
+    .values({
+      email: "a@x.io",
+      displayName: "admin",
+      roleId: BUILT_IN_ROLE_IDS.admin,
+      passwordHash: hash,
+    })
     .returning()
     .get();
   const login = await app.inject({

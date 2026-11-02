@@ -8,7 +8,7 @@ import { type Db, schema } from "@3d-maker-suite/db";
 import { eq } from "drizzle-orm";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { HttpError } from "../errors.ts";
-import { hasUsers } from "../lib/auth.ts";
+import { hasUsers, mayPatchKey } from "../lib/auth.ts";
 import { readPreferences as read } from "../lib/preferences.ts";
 
 const { settings, userSettings } = schema;
@@ -32,11 +32,8 @@ export const preferencesRoutes =
       { schema: { body: preferencesPatchSchema, response: { 200: preferencesResponseSchema } } },
       async (req) => {
         const user = req.user;
-        const role = user?.role;
         // All or nothing: one key the caller may not change rejects the whole patch.
-        const denied = Object.keys(req.body).filter(
-          (k) => role && role !== "admin" && !OWN.includes(k),
-        );
+        const denied = Object.keys(req.body).filter((k) => user && !mayPatchKey(user.rights, k));
         if (denied.length)
           throw new HttpError(403, "forbidden", `Not allowed for your role: ${denied.join(", ")}`);
         // Devices act as a user, so the hub needs accounts (ADR-0014).

@@ -10,7 +10,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { PROJECT_TRASH_DIR } from "@3d-maker-suite/core";
+import { BUILT_IN_ROLE_IDS, PROJECT_TRASH_DIR } from "@3d-maker-suite/core";
 import { openDb, schema } from "@3d-maker-suite/db";
 import { beforeAll, describe, expect, it, onTestFinished } from "vitest";
 import { buildApp } from "./app.ts";
@@ -37,11 +37,17 @@ const setup = async (opts: Parameters<typeof buildApp>[3] = {}) => {
   const user = (role: "admin" | "editor" | "viewer", flags: object = {}) =>
     db
       .insert(schema.users)
-      .values({ email: `${role}@x.io`, displayName: role, role, passwordHash: hash, ...flags })
+      .values({
+        email: `${role}@x.io`,
+        displayName: role,
+        roleId: BUILT_IN_ROLE_IDS[role],
+        passwordHash: hash,
+        ...flags,
+      })
       .returning()
       .get();
   const admin = user("admin");
-  const editor = user("editor", { projectsSeeAll: false });
+  const editor = user("editor", { projectRights: { "projects.seeAll": false } });
   const login = await app.inject({
     method: "POST",
     url: "/api/auth/login",
@@ -263,7 +269,10 @@ describe("hub file sync", () => {
     expect((await s.changes()).files).toMatchObject([{ path: "mine/a.stl", access: "edit" }]);
 
     // Seeing everything but editing only their own: someone else's project is download-only.
-    s.db.update(schema.users).set({ projectsSeeAll: true, projectsEditOthers: false }).run();
+    s.db
+      .update(schema.users)
+      .set({ projectRights: { "projects.editOthers": false } })
+      .run();
     expect((await s.changes()).files).toMatchObject([
       { path: "mine/a.stl", access: "edit" },
       { path: "theirs/b.stl", access: "read" },
@@ -503,7 +512,12 @@ describe("check-out locks", () => {
     const s = await locked();
     const other = s.db
       .insert(schema.users)
-      .values({ email: "e2@x.io", displayName: "e2", role: "editor", passwordHash: hash })
+      .values({
+        email: "e2@x.io",
+        displayName: "e2",
+        roleId: BUILT_IN_ROLE_IDS.editor,
+        passwordHash: hash,
+      })
       .returning()
       .get();
     const as = async (email: string) => {

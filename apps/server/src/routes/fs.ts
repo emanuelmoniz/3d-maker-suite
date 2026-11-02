@@ -5,6 +5,7 @@ import {
   fsFolderResponseSchema,
   fsListQuerySchema,
   fsListResponseSchema,
+  hasLevel,
 } from "@3d-maker-suite/core";
 import type { Db } from "@3d-maker-suite/db";
 import { type DirEntry, listFolder, readEntries as readLocal } from "@3d-maker-suite/host";
@@ -44,8 +45,11 @@ export const readEntries = (dir: string) => readLocal(dir).catch((e) => Promise.
  * Admins are not confined to the project roots on purpose: it's how those roots and the slicer get chosen.
  * Editors (the project "Add folder" picker) only see the project roots and what is inside them.
  */
-/** Editors and viewers see the disk only through the project roots; admins everywhere. */
-const confinedTo = (req: FastifyRequest) => !!req.user && req.user.role !== "admin";
+/** Without projects manage or integrations.manage the disk shows only through the project roots. */
+const confinedTo = (req: FastifyRequest) =>
+  !!req.user &&
+  !hasLevel(req.user.rights.permissions, "projects", "manage") &&
+  !req.user.rights.permissions["integrations.manage"];
 
 export const fsRoutes =
   (db: Db, channel: HubChannel): FastifyPluginAsyncZod =>

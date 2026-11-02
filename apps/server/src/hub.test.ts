@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { BUILT_IN_ROLE_IDS } from "@3d-maker-suite/core";
 import { openDb, schema } from "@3d-maker-suite/db";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeAll, describe, expect, it, onTestFinished, vi } from "vitest";
@@ -27,9 +28,8 @@ const setup = async (opts: Parameters<typeof buildApp>[3] = {}) => {
       .values({
         email: `${role}@x.io`,
         displayName: role,
-        role,
+        roleId: BUILT_IN_ROLE_IDS[role],
         passwordHash: hash,
-        editOtherDevices: role === "admin",
       })
       .returning()
       .get();

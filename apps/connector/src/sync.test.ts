@@ -12,7 +12,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { PROJECT_TRASH_DIR } from "@3d-maker-suite/core";
+import { BUILT_IN_ROLE_IDS, PROJECT_TRASH_DIR } from "@3d-maker-suite/core";
 import { openDb, schema } from "@3d-maker-suite/db";
 import { buildApp } from "@3d-maker-suite/server/src/app.ts";
 import { hashPassword } from "@3d-maker-suite/server/src/lib/password.ts";
@@ -52,7 +52,12 @@ describe("hub root sync", () => {
     const user = (role: "admin" | "viewer") =>
       db
         .insert(schema.users)
-        .values({ email: `${role}@x.io`, displayName: role, role, passwordHash })
+        .values({
+          email: `${role}@x.io`,
+          displayName: role,
+          roleId: BUILT_IN_ROLE_IDS[role],
+          passwordHash,
+        })
         .returning()
         .get();
     const users = { admin: user("admin"), viewer: user("viewer") };

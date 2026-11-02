@@ -603,6 +603,20 @@
       "when": 1793296903681,
       "tag": "0085_device_slice_worker",
       "breakpoints": true
+    },
+    {
+      "idx": 86,
+      "version": "6",
+      "when": 1793613525984,
+      "tag": "0086_roles",
+      "breakpoints": true
+    },
+    {
+      "idx": 87,
+      "version": "6",
+      "when": 1793613546857,
+      "tag": "0087_roles_drop_old",
+      "breakpoints": true
     }
   ]
 }

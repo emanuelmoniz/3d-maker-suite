@@ -2,6 +2,7 @@ import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:f
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { BUILT_IN_RIGHTS, BUILT_IN_ROLE_IDS } from "@3d-maker-suite/core";
 import Database from "better-sqlite3";
 import { count, eq, getTableColumns } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/better-sqlite3";
@@ -709,19 +710,128 @@ describe("seed", () => {
 });
 
 describe("users", () => {
-  const user = (email: string, role = "viewer") =>
-    db
-      .insert(s.users)
-      .values({ email, displayName: "U", passwordHash: "x", role: role as "viewer" })
-      .run();
+  const user = (email: string, roleId = BUILT_IN_ROLE_IDS.viewer) =>
+    db.insert(s.users).values({ email, displayName: "U", passwordHash: "x", roleId }).run();
 
   it("keeps emails unique ignoring case", () => {
     user("me@example.com");
     expect(() => user("ME@example.com")).toThrow(/UNIQUE/);
   });
 
-  it("only takes the fixed roles", () => {
-    expect(() => user("a@b.c", "owner")).toThrow(/CHECK/);
+  it("takes only a stored role, and a role with users can't be deleted", () => {
+    expect(() => user("a@b.c", crypto.randomUUID())).toThrow(/FOREIGN KEY/);
+    user("a@b.c", BUILT_IN_ROLE_IDS.editor);
+    expect(() => db.delete(s.roles).where(eq(s.roles.id, BUILT_IN_ROLE_IDS.editor)).run()).toThrow(
+      /FOREIGN KEY/,
+    );
+  });
+
+  it("seeds Admin, Editor and Viewer with core's rights", () => {
+    const seeded = db.select().from(s.roles).all();
+    expect(seeded.map((r) => [r.id, r.name, r.builtIn])).toEqual([
+      [BUILT_IN_ROLE_IDS.admin, "Admin", "admin"],
+      [BUILT_IN_ROLE_IDS.editor, "Editor", "editor"],
+      [BUILT_IN_ROLE_IDS.viewer, "Viewer", "viewer"],
+    ]);
+    for (const r of seeded)
+      expect({ permissions: r.permissions, projectRights: r.projectRights }).toEqual(
+        BUILT_IN_RIGHTS[r.builtIn as "admin"],
+      );
+  });
+});
+
+describe("migrations 0086 and 0087", () => {
+  it("moves roles and the old switches to role ids and overrides; nothing else is touched", () => {
+    const now = migrateAcross(85, (sqlite) => {
+      const user = (
+        id: string,
+        role: string,
+        seeAll: number,
+        editOthers: number,
+        devices: number,
+      ) =>
+        sqlite
+          .prepare(
+            "insert into users (id, email, display_name, password_hash, role, projects_see_all, projects_edit_others, edit_other_devices, created_at, updated_at) values (?, ?, ?, 'x', ?, ?, ?, ?, 'x', 'x')",
+          )
+          .run(id, `${id}@x.io`, id, role, seeAll, editOthers, devices);
+      user("admin", "admin", 1, 1, 1);
+      user("adminNoDev", "admin", 0, 0, 0); // only the device switch counts for an admin
+      user("ed", "editor", 1, 1, 0);
+      user("edAll", "editor", 0, 0, 1);
+      user("view", "viewer", 1, 1, 1); // editOthers and devices had no effect for a viewer
+      user("viewOwn", "viewer", 0, 0, 0);
+      const run = (q: string) => sqlite.prepare(q).run();
+      run("insert into sessions (id, user_id, expires_at) values ('s', 'ed', 'x')");
+      run("insert into user_settings (user_id, key, value) values ('ed', 'units', '\"metric\"')");
+      run("insert into pairing_codes (id, user_id, expires_at) values ('c', 'ed', 'x')");
+      run(
+        "insert into devices (id, name, user_id, token_hash, created_at, updated_at) values ('dev', 'WS', 'ed', 't', 'x', 'x')",
+      );
+      run(
+        "insert into hub_events (device_id, type, data, created_at) values ('dev', 'x', '{}', 'x')",
+      );
+      run(
+        "insert into roots (id, name, location, path, position, created_at, updated_at) values ('r', 'r', 'hub', '/r', 0, 'x', 'x')",
+      );
+      run("insert into root_editors (root_id, user_id) values ('r', 'ed')");
+      run(
+        "insert into projects (id, name, owner_id, created_at, updated_at) values ('p', 'p', 'ed', 'x', 'x')",
+      );
+      run(
+        "insert into alerts (id, kind, severity, module, task, entity_type, entity_id, created_at) values ('a', 'spool_low', 'warning', 'filament', 't', 'spool', 's1', 'x')",
+      );
+      run("insert into alert_states (alert_id, user_id, read_at) values ('a', 'ed', 'x')");
+    });
+    const users = Object.fromEntries(
+      now
+        .select()
+        .from(s.users)
+        .all()
+        .map((u) => [u.id, [u.roleId, u.projectRights]]),
+    );
+    const { admin, editor, viewer } = BUILT_IN_ROLE_IDS;
+    expect(users).toEqual({
+      admin: [admin, {}],
+      adminNoDev: [admin, { "projects.editOtherDevices": false }],
+      ed: [editor, {}],
+      edAll: [
+        editor,
+        {
+          "projects.seeAll": false,
+          "projects.editOthers": false,
+          "projects.editOtherDevices": true,
+        },
+      ],
+      view: [viewer, {}],
+      viewOwn: [viewer, { "projects.seeAll": false }],
+    });
+    for (const t of [
+      s.sessions,
+      s.userSettings,
+      s.pairingCodes,
+      s.devices,
+      s.hubEvents,
+      s.rootEditors,
+      s.alertStates,
+    ])
+      expect(now.select({ n: count() }).from(t).get()?.n).toBe(1);
+    expect(now.select({ ownerId: s.projects.ownerId }).from(s.projects).get()).toEqual({
+      ownerId: "ed",
+    });
+    expect(now.$client.pragma("foreign_key_check")).toEqual([]);
+    // The email index came back.
+    expect(() =>
+      now
+        .insert(s.users)
+        .values({
+          email: "ED@x.io",
+          displayName: "x",
+          passwordHash: "x",
+          roleId: viewer,
+        })
+        .run(),
+    ).toThrow(/UNIQUE/);
   });
 });
 
@@ -1005,42 +1115,46 @@ describe("migration 0074", () => {
 
 describe("migration 0078", () => {
   it("gives projects their device's user or the oldest enabled admin, and admins the device right", () => {
-    const now = migrateAcross(77, (sqlite) => {
-      const user = (id: string, role: string, disabled: number, at: string) =>
+    const now = migrateAcross(
+      77,
+      (sqlite) => {
+        const user = (id: string, role: string, disabled: number, at: string) =>
+          sqlite
+            .prepare(
+              "insert into users (id, email, display_name, password_hash, role, disabled, created_at, updated_at) values (?, ?, ?, 'x', ?, ?, ?, ?)",
+            )
+            .run(id, `${id}@x.io`, id, role, disabled, at, at);
+        user("gone", "admin", 1, "2026-01-01");
+        user("first", "admin", 0, "2026-02-01");
+        user("later", "admin", 0, "2026-03-01");
+        user("ed", "editor", 0, "2026-01-01");
         sqlite
           .prepare(
-            "insert into users (id, email, display_name, password_hash, role, disabled, created_at, updated_at) values (?, ?, ?, 'x', ?, ?, ?, ?)",
+            "insert into devices (id, name, user_id, token_hash, created_at, updated_at) values ('dev', 'WS', 'ed', 't', 'x', 'x')",
           )
-          .run(id, `${id}@x.io`, id, role, disabled, at, at);
-      user("gone", "admin", 1, "2026-01-01");
-      user("first", "admin", 0, "2026-02-01");
-      user("later", "admin", 0, "2026-03-01");
-      user("ed", "editor", 0, "2026-01-01");
-      sqlite
-        .prepare(
-          "insert into devices (id, name, user_id, token_hash, created_at, updated_at) values ('dev', 'WS', 'ed', 't', 'x', 'x')",
-        )
-        .run();
-      const root = (id: string, location: string) =>
-        sqlite
-          .prepare(
-            "insert into roots (id, name, location, path, position, created_at, updated_at) values (?, ?, ?, ?, 0, 'x', 'x')",
-          )
-          .run(id, id, location, `/${id}`);
-      root("hub", "hub");
-      root("ws", "dev");
-      root("lost", "6f1c3f5e-7d4c-4c1e-9b1a-1a2b3c4d5e6f");
-      const project = (id: string, rootId: string | null) =>
-        sqlite
-          .prepare(
-            "insert into projects (id, name, root_id, folder, created_at, updated_at) values (?, ?, ?, ?, 'x', 'x')",
-          )
-          .run(id, id, rootId, rootId && id);
-      project("onHub", "hub");
-      project("onWs", "ws");
-      project("onLost", "lost");
-      project("none", null);
-    });
+          .run();
+        const root = (id: string, location: string) =>
+          sqlite
+            .prepare(
+              "insert into roots (id, name, location, path, position, created_at, updated_at) values (?, ?, ?, ?, 0, 'x', 'x')",
+            )
+            .run(id, id, location, `/${id}`);
+        root("hub", "hub");
+        root("ws", "dev");
+        root("lost", "6f1c3f5e-7d4c-4c1e-9b1a-1a2b3c4d5e6f");
+        const project = (id: string, rootId: string | null) =>
+          sqlite
+            .prepare(
+              "insert into projects (id, name, root_id, folder, created_at, updated_at) values (?, ?, ?, ?, 'x', 'x')",
+            )
+            .run(id, id, rootId, rootId && id);
+        project("onHub", "hub");
+        project("onWs", "ws");
+        project("onLost", "lost");
+        project("none", null);
+      },
+      85,
+    );
     const owners = Object.fromEntries(
       now
         .select({ id: s.projects.id, ownerId: s.projects.ownerId })
@@ -1049,14 +1163,13 @@ describe("migration 0078", () => {
         .map((p) => [p.id, p.ownerId]),
     );
     expect(owners).toEqual({ onHub: "first", onWs: "ed", onLost: "first", none: "first" });
-    const rights = now
-      .select({ id: s.users.id, dev: s.users.editOtherDevices, all: s.users.projectsSeeAll })
-      .from(s.users)
+    const rights = now.$client
+      .prepare('select id, edit_other_devices "dev", projects_see_all "all" from users')
       .all();
     expect(rights).toEqual(
       expect.arrayContaining([
-        { id: "first", dev: true, all: true },
-        { id: "ed", dev: false, all: true },
+        { id: "first", dev: 1, all: 1 },
+        { id: "ed", dev: 0, all: 1 },
       ]),
     );
     expect(now.select({ editBy: s.roots.editBy }).from(s.roots).all()).toEqual([
