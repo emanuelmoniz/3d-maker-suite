@@ -77,6 +77,7 @@ export function RolesSection() {
                 </span>
               ),
               sortValue: (r) => r.name.toLowerCase(),
+              filterValue: (r) => r.name,
             },
             {
               id: "users",
@@ -84,6 +85,7 @@ export function RolesSection() {
               numeric: true,
               cell: (r) => r.usersCount,
               sortValue: (r) => r.usersCount,
+              filterValue: (r) => r.usersCount,
             },
             {
               id: "enabled",
@@ -101,6 +103,11 @@ export function RolesSection() {
                     onChange={(e) => patch.mutate({ id: r.id, disabled: !e.target.checked })}
                   />
                 ),
+              filterValue: (r) => (r.disabled ? "disabled" : "enabled"),
+              filterOptions: [
+                { value: "enabled", label: t("users:roles.states.enabled") },
+                { value: "disabled", label: t("users:roles.states.disabled") },
+              ],
             },
             {
               id: "actions",

@@ -110,6 +110,10 @@
       "actions": "Actions"
     },
     "enabledNamed": "{{name}} enabled",
+    "states": {
+      "enabled": "Enabled",
+      "disabled": "Disabled"
+    },
     "delete": "Delete",
     "deleteNamed": "Delete {{name}}",
     "deleteTitle": "Delete the role {{name}}?",
