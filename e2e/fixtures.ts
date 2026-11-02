@@ -27,30 +27,41 @@ export const test = base.extend<{ app: App }>({
   // biome-ignore lint/correctness/noEmptyPattern: Playwright requires a destructured first argument
   app: async ({}, use) => {
     const dataDir = mkdtempSync(join(tmpdir(), "3dms-e2e-"));
-    const port = await freePort();
-    const url = `http://127.0.0.1:${port}`;
-    const server: ChildProcess = spawn(process.execPath, ["--import", "tsx", "src/main.ts"], {
-      cwd: join(import.meta.dirname, "..", "apps", "server"),
-      env: {
-        ...process.env,
-        APP_DATA_DIR: dataDir,
-        PORT: String(port),
-        HOST: "127.0.0.1",
-        APP_MOCK_INTEGRATION: "1", // the cloud source of the integrations hub tests
-      },
-      stdio: "ignore",
-    });
-    for (let i = 0; ; i++) {
-      if (
-        await fetch(`${url}/api/preferences`).then(
-          (r) => r.ok,
+    // Another worker can take the free port before our server binds it: then ours exits, and the
+    // port answers with the other test's server. Only our data dir counts; else a new port.
+    const start = async () => {
+      const port = await freePort();
+      const url = `http://127.0.0.1:${port}`;
+      const server: ChildProcess = spawn(process.execPath, ["--import", "tsx", "src/main.ts"], {
+        cwd: join(import.meta.dirname, "..", "apps", "server"),
+        env: {
+          ...process.env,
+          APP_DATA_DIR: dataDir,
+          PORT: String(port),
+          HOST: "127.0.0.1",
+          APP_MOCK_INTEGRATION: "1", // the cloud source of the integrations hub tests
+        },
+        stdio: "ignore",
+      });
+      let gone = false;
+      server.once("exit", () => {
+        gone = true;
+      });
+      for (let i = 0; i <= 150 && !gone; i++) {
+        const ours = await fetch(`${url}/api/preferences`).then(
+          async (r) => r.ok && ((await r.json()) as { dataDir: string }).dataDir === dataDir,
           () => false,
-        )
-      )
-        break;
-      if (i > 150) throw new Error("server did not start");
-      await new Promise((r) => setTimeout(r, 200));
-    }
+        );
+        if (ours) return { url, server, exited: () => gone };
+        await new Promise((r) => setTimeout(r, 200));
+      }
+      server.kill();
+      return null;
+    };
+    let started = await start();
+    for (let i = 0; !started && i < 3; i++) started = await start();
+    if (!started) throw new Error("server did not start");
+    const { url, server, exited: gone } = started;
     const api: App["api"] = async (method, path, body) => {
       const res = await fetch(url + path, {
         method,
@@ -68,7 +79,7 @@ export const test = base.extend<{ app: App }>({
       return join(dataDir, "models");
     };
     await use({ url, dataDir, api, makeProjectDir });
-    const exited = new Promise((r) => server.once("exit", r));
+    const exited = new Promise((r) => (gone() ? r(null) : server.once("exit", r)));
     server.kill();
     await exited; // release SQLite file handles (Windows) before removing the dir
     rmSync(dataDir, { recursive: true, force: true, maxRetries: 5 });

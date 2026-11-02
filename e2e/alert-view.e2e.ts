@@ -21,7 +21,7 @@ test("maintenance alert: open it, mark as done, the alert resolves", async ({ pa
     .getByRole("link", { name: /Clean nozzle/ })
     .click();
 
-  await expect(page.getByRole("heading", { name: "Alert" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Alert", exact: true })).toBeVisible();
   await expect(page.locator("dd", { hasText: /^Warning$/ })).toBeVisible();
   await expect(page.locator("dd", { hasText: /^Maintenance$/ })).toBeVisible();
   await expect(page.locator("dd", { hasText: /^Clean nozzle$/ })).toBeVisible();

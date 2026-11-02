@@ -67,11 +67,19 @@ for (const viewport of VIEWPORTS) {
     await expect.poll(() => readFileSync(join(folder, "notes.txt"), "utf8")).toBe("v2");
     await page.waitForLoadState("networkidle");
 
-    // Replace from the row.
-    await files
-      .locator("li", { hasText: "notes.txt" })
-      .locator('input[type="file"]')
-      .setInputFiles({ name: "x.txt", mimeType: "text/plain", buffer: Buffer.from("v3") });
+    // Replace from the row. Under load the row can re-render as the file is picked, so pick
+    // until the upload goes out.
+    await expect(async () => {
+      const put = page.waitForResponse(
+        (r) => r.request().method() === "PUT" && r.url().includes("/content?"),
+        { timeout: 2000 },
+      );
+      await files
+        .locator("li", { hasText: "notes.txt" })
+        .locator('input[type="file"]')
+        .setInputFiles({ name: "x.txt", mimeType: "text/plain", buffer: Buffer.from("v3") });
+      expect((await put).ok()).toBe(true);
+    }).toPass();
     await expect.poll(() => readFileSync(join(folder, "notes.txt"), "utf8")).toBe("v3");
 
     // New folder, upload into it, rename it, move the file out, delete the folder.
