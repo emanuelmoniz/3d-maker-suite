@@ -48,7 +48,8 @@ A local-first manager for your 3D printing: printers, accessories, maintenance, 
 | ![Settings](docs/images/settings.png) | ![New quote](docs/images/quote-new.png) |
 | ![Users](docs/images/users.png) | ![Sign in](docs/images/login.png) |
 | ![Hub management](docs/images/hub.png) | ![A file checked out](docs/images/project-hub.png) |
-| ![File versions](docs/images/file-history.png) | |
+| ![File versions](docs/images/file-history.png) | ![Slicer presets](docs/images/presets.png) |
+| ![Roles](docs/images/roles.png) | ![My account](docs/images/my-account.png) |
 
 </details>
 

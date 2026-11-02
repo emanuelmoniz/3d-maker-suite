@@ -193,6 +193,13 @@ test("README screenshots", async ({ page, app }) => {
   await page.getByRole("heading", { name: "Users" }).scrollIntoViewIfNeeded();
   await page.waitForLoadState("networkidle");
   await page.screenshot({ path: `${IMAGES}/users.png` });
+  await page.getByRole("heading", { name: "Roles", exact: true }).scrollIntoViewIfNeeded();
+  await page.waitForLoadState("networkidle");
+  await page.screenshot({ path: `${IMAGES}/roles.png` });
+
+  await page.goto("/account");
+  await page.waitForLoadState("networkidle");
+  await page.screenshot({ path: `${IMAGES}/my-account.png` });
 
   await page.context().clearCookies();
   await page.goto("/login");
@@ -223,10 +230,18 @@ test("hub screenshots", async ({ page, app }) => {
   const { token } = await fetch(`${app.url}/api/hub/pair`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ code, name: "Desk PC", os: "win32", connectorVersion: "5.0.0" }),
+    body: JSON.stringify({ code, name: "Desk PC", os: "win32", connectorVersion: "5.1.0" }),
   }).then((r) => r.json() as Promise<{ token: string }>);
   // Online = its event stream is open, as a running connector holds it (the stream stays open).
-  await fetch(`${app.url}/api/hub/events`, { headers: { authorization: `Bearer ${token}` } });
+  const events = await fetch(`${app.url}/api/hub/events`, {
+    headers: {
+      authorization: `Bearer ${token}`,
+      "x-connector-version": "5.1.0",
+      "x-connector-os": "win32 x64",
+    },
+  });
+  // Read the body, so the stream stays open until the test ends.
+  void events.body?.getReader().read();
   const save = (body: Buffer, base: number) =>
     fetch(
       `${app.url}/api/hub/device/sync/roots/${root.id}/file?path=${encodeURIComponent("Vase/vase.3mf")}&base=${base}`,
@@ -255,7 +270,7 @@ test("hub screenshots", async ({ page, app }) => {
 
   await page.goto("/hub");
   await page.waitForLoadState("networkidle");
-  await expect(page.getByText("Online")).toBeVisible();
+  await expect(page.getByText("Online")).toBeVisible({ timeout: 20_000 });
   await page.screenshot({ path: `${IMAGES}/hub.png` });
 
   await page.goto(`/projects/${vase.id}`);
@@ -268,4 +283,34 @@ test("hub screenshots", async ({ page, app }) => {
   await expect(page.getByRole("dialog")).toBeVisible();
   await page.waitForLoadState("networkidle");
   await page.screenshot({ path: `${IMAGES}/file-history.png` });
+
+  // Slicer presets: the connector's slicer and two presets, shared the way the connector sends them.
+  const device = (method: string, path: string, body: unknown) =>
+    fetch(`${app.url}/api/hub/device${path}`, {
+      method,
+      headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  await device("PUT", "/slicers", [
+    { id: "bambu-studio", version: "1", path: "C:/Studio/bambu-studio.exe", default: true },
+  ]);
+  await page.goto("/hub/presets");
+  await page.getByRole("switch", { name: "Share my presets on Desk PC" }).click({ force: true });
+  for (const [name, cost] of [
+    ["Farm PLA", "20"],
+    ["Eco PETG", "24"],
+    ["Silk PLA", "28"],
+  ]) {
+    await device("PUT", "/presets", {
+      library: "bambu-studio",
+      kind: "filament",
+      name,
+      base: 1,
+      text: JSON.stringify({ name, filament_cost: [cost] }),
+    });
+  }
+  await page.reload();
+  await page.waitForLoadState("networkidle");
+  await expect(page.getByText("Farm PLA")).toBeVisible();
+  await page.screenshot({ path: `${IMAGES}/presets.png` });
 });
