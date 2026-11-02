@@ -2,6 +2,13 @@
 
 All notable changes are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [5.1.0-alpha.4] - 2026-11-02
+
+Pre-release. Test on a copy of your data first; back up before updating. Same as alpha.3, whose release build failed on a slow test.
+
+### Fixed
+- The release build no longer fails when a slow runner takes longer than 20 s on a preset echo test
+
 ## [5.1.0-alpha.3] - 2026-11-02
 
 Pre-release. Test on a copy of your data first; back up before updating.

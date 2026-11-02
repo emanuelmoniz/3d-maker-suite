@@ -25,7 +25,7 @@ import { configDirOf, createPresetShare, openPresetState, presetFolder } from ".
 import type { Found } from "./slicers.ts";
 import { openStore } from "./state.ts";
 
-const until = async (ok: () => boolean | Promise<boolean>, ms = 20_000) => {
+const until = async (ok: () => boolean | Promise<boolean>, ms = 60_000) => {
   for (const end = Date.now() + ms; !(await ok()); await new Promise((r) => setTimeout(r, 50)))
     if (Date.now() > end) throw new Error("timed out");
 };

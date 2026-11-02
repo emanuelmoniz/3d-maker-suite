@@ -1399,7 +1399,7 @@ Then push dev, push the tag and confirm the pre-release is published.
 
 ## Phase 19 - Release
 
-### [ ] Step 19 - Real test: roles, alerts, delivery and presets
+### [x] Step 19 - Real test: roles, alerts, delivery and presets
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - Upgrade a copy of a real 5.0.0 DB.
