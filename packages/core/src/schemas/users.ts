@@ -61,9 +61,14 @@ export const userPatchSchema = userCreateSchema
   .partial()
   .strict();
 
-/** Your own account (`PATCH /api/auth/me`). A new password needs the current one. */
+/** Your own account (`PATCH /api/auth/me`). A new password needs the current one; `alertKinds` replaces your overrides. */
 export const meUpdateSchema = z
-  .object({ displayName, currentPassword: z.string().max(256), password: newPassword })
+  .object({
+    displayName,
+    currentPassword: z.string().max(256),
+    password: newPassword,
+    alertKinds: alertKindsSchema.strict(),
+  })
   .partial()
   .strict()
   .refine((v) => !v.password || v.currentPassword, { path: ["currentPassword"] });
@@ -97,7 +102,14 @@ export const deliveryTestSchema = z.array(z.object({ channel: z.string(), ok: z.
 /** `user` and `role` are null in the no-users mode, where everyone has the Admin role's rights. */
 export const meSchema = z.object({
   user: userSchema.nullable(),
-  role: z.object({ id, name: z.string(), builtIn: z.enum(ROLE_BUILT_INS).nullable() }).nullable(),
+  role: z
+    .object({
+      id,
+      name: z.string(),
+      builtIn: z.enum(ROLE_BUILT_INS).nullable(),
+      alertKinds: alertKindsSchema,
+    })
+    .nullable(),
   ...effectiveRightsSchema.shape,
 });
 

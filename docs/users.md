@@ -89,7 +89,7 @@ Each person marks alerts read, snoozes or dismisses them for themselves. Other p
 
 People with **Users and roles** open **Settings → Users** to add people, change their role or rights, disable an account or reset a password. Disabling an account or resetting its password signs that person out everywhere. A change of role or rights applies at once, without signing them out.
 
-Each person changes their own name and password under **Settings → My account**.
+Each person changes their own name and password under **My account** in the account menu.
 
 ## Logs
 

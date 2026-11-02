@@ -1,4 +1,4 @@
-import { ADMIN_EFFECTIVE, type Role, type User } from "@3d-maker-suite/core";
+import { ADMIN_EFFECTIVE, effectiveRights, type Role, type User } from "@3d-maker-suite/core";
 import { useParams } from "@tanstack/react-router";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -8,13 +8,14 @@ import { PageHeader } from "../../components/PageHeader.tsx";
 import { Switch } from "../../components/Switch.tsx";
 import { useMe, useRights } from "../../lib/auth.ts";
 import { mayAssign, useRoles, useUserActions, useUsers } from "../../lib/users.ts";
+import { AlertKindsEditor } from "./AlertKindsEditor.tsx";
 import { RightsEditor, same } from "./RightsEditor.tsx";
 import { SaveBar } from "./RoleEditPage.tsx";
 import { useUserError } from "./UsersSection.tsx";
 
 type Draft = Pick<
   User,
-  "displayName" | "email" | "roleId" | "disabled" | "permissions" | "projectRights"
+  "displayName" | "email" | "roleId" | "disabled" | "permissions" | "projectRights" | "alertKinds"
 >;
 
 /** The one override an Admin-role user takes (ADR-0016). */
@@ -33,6 +34,7 @@ function UserForm({ user, roles }: { user: User; roles: Role[] }) {
     disabled: user.disabled,
     permissions: user.permissions,
     projectRights: user.projectRights,
+    alertKinds: user.alertKinds,
   };
   const [draft, setDraft] = useState(initial);
   const [saved, setSaved] = useState(false);
@@ -144,6 +146,21 @@ function UserForm({ user, roles }: { user: User; roles: Role[] }) {
             setDraft({ ...draft, [group]: next });
           }}
         />
+      )}
+      {role && (
+        <section className="rounded-lg border border-border bg-surface p-4 sm:p-5">
+          <h2 className="mb-1 text-base font-semibold">{t("users:alerts.title")}</h2>
+          <p className="mb-3 text-muted">
+            {self ? t("users:alerts.ownAccount") : t("users:alerts.userHint")}
+          </p>
+          <AlertKindsEditor
+            permissions={effectiveRights(role, overrides).permissions}
+            value={draft.alertKinds}
+            role={role.alertKinds}
+            disabled={locked || self}
+            onChange={(alertKinds) => setDraft({ ...draft, alertKinds })}
+          />
+        </section>
       )}
       {!locked && (
         <SaveBar

@@ -200,7 +200,7 @@ function UserMenu() {
       <p className="px-3 py-1.5 text-muted wrap-anywhere">
         {user.email} · {role?.name}
       </p>
-      <Link to="/settings" hash="account" className={menuItem}>
+      <Link to="/account" className={menuItem}>
         {t("common:userMenu.account")}
       </Link>
       <button type="button" className={cx(menuItem, "text-left")} onClick={() => out.mutate()}>
@@ -222,7 +222,7 @@ function SheetUser({ onNavigate }: { onNavigate: () => void }) {
       <p className="px-2.5 py-1.5 text-muted wrap-anywhere">
         {user.displayName} · {role?.name}
       </p>
-      <Link to="/settings" hash="account" className={linkClass} onClick={onNavigate}>
+      <Link to="/account" className={linkClass} onClick={onNavigate}>
         {t("common:userMenu.account")}
       </Link>
       <button type="button" className={cx(linkClass, "text-left")} onClick={() => out.mutate()}>

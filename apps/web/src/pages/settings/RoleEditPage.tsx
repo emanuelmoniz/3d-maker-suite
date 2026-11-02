@@ -10,6 +10,7 @@ import { Switch } from "../../components/Switch.tsx";
 import { useMyRole, useRights } from "../../lib/auth.ts";
 import { cx } from "../../lib/cx.ts";
 import { useRoleActions, useRoles } from "../../lib/users.ts";
+import { AlertKindsEditor } from "./AlertKindsEditor.tsx";
 import { type Rights, RightsEditor, same } from "./RightsEditor.tsx";
 import { useRoleError } from "./RolesSection.tsx";
 
@@ -47,7 +48,7 @@ export function SaveBar({
   );
 }
 
-type Draft = Rights & { name: string; disabled: boolean };
+type Draft = Rights & { name: string; disabled: boolean; alertKinds: Role["alertKinds"] };
 
 function RoleForm({ role, roles }: { role: Role | null; roles: Role[] }) {
   const { t } = useTranslation();
@@ -62,8 +63,9 @@ function RoleForm({ role, roles }: { role: Role | null; roles: Role[] }) {
         disabled: role.disabled,
         permissions: role.permissions,
         projectRights: role.projectRights,
+        alertKinds: role.alertKinds,
       }
-    : { name: "", disabled: false, ...BUILT_IN_RIGHTS.viewer };
+    : { name: "", disabled: false, alertKinds: {}, ...BUILT_IN_RIGHTS.viewer };
   const [draft, setDraft] = useState(initial);
   const [saved, setSaved] = useState(false);
   const fixed = role?.builtIn === "admin";
@@ -115,6 +117,7 @@ function RoleForm({ role, roles }: { role: Role | null; roles: Role[] }) {
                       ...draft,
                       permissions: from.permissions,
                       projectRights: from.projectRights,
+                      alertKinds: from.alertKinds,
                     });
                 }}
               />
@@ -139,6 +142,16 @@ function RoleForm({ role, roles }: { role: Role | null; roles: Role[] }) {
         disabled={fixed}
         onChange={(group, key, v) => setDraft({ ...draft, [group]: { ...draft[group], [key]: v } })}
       />
+      <section className="rounded-lg border border-border bg-surface p-4 sm:p-5">
+        <h2 className="mb-1 text-base font-semibold">{t("users:alerts.title")}</h2>
+        <p className="mb-3 text-muted">{t("users:alerts.roleHint")}</p>
+        <AlertKindsEditor
+          permissions={draft.permissions}
+          value={draft.alertKinds}
+          disabled={fixed}
+          onChange={(alertKinds) => setDraft({ ...draft, alertKinds })}
+        />
+      </section>
       {!fixed && (
         <SaveBar
           dirty={dirty}

@@ -12,7 +12,6 @@ import { usePreferences, useSavePreferences } from "../lib/preferences.ts";
 import { ACCENTS, type Accent, useTheme } from "../lib/theme.ts";
 import { ThemeToggle } from "../shell/ThemeToggle.tsx";
 import { AboutSection } from "./settings/AboutSection.tsx";
-import { AccountSection } from "./settings/AccountSection.tsx";
 import { BackupSection } from "./settings/BackupSection.tsx";
 import { BrandingFields } from "./settings/BrandingFields.tsx";
 import { LogSection } from "./settings/LogSection.tsx";
@@ -167,12 +166,6 @@ export function SettingsPage() {
           <Section title={t("settings:branding.title")}>
             <p className="text-muted">{t("settings:branding.everyone")}</p>
             <BrandingFields />
-          </Section>
-        )}
-
-        {signedIn && (
-          <Section title={t("users:account.title")} id="account">
-            <AccountSection />
           </Section>
         )}
 

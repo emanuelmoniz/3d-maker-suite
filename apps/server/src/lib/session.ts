@@ -33,7 +33,7 @@ type RoleRow = typeof roles.$inferSelect;
 export function sessionUser({ passwordHash: _, ...user }: UserRow, role: RoleRow) {
   return {
     ...user,
-    role: { id: role.id, name: role.name, builtIn: role.builtIn },
+    role: { id: role.id, name: role.name, builtIn: role.builtIn, alertKinds: role.alertKinds },
     rights: effectiveRights(role, user),
     subscriptions: effectiveAlertKinds(role, user),
   };

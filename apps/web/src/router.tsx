@@ -72,6 +72,7 @@ import {
 import { IntegrationCreatePage } from "./pages/settings/IntegrationFormPage.tsx";
 import { IntegrationLoginPage } from "./pages/settings/IntegrationLoginPage.tsx";
 import { IntegrationsPage } from "./pages/settings/IntegrationsPage.tsx";
+import { MyAccountPage } from "./pages/settings/MyAccountPage.tsx";
 import { RoleEditPage } from "./pages/settings/RoleEditPage.tsx";
 import { UserEditPage } from "./pages/settings/UserEditPage.tsx";
 import { StatsPage } from "./pages/stats/StatsPage.tsx";
@@ -447,6 +448,7 @@ const routes: AnyRoute[] = [
     [
       ["/login", LoginPage],
       ["/setup", SetupPage],
+      ["/account", MyAccountPage],
     ] as const
   ).map(([path, component]) =>
     createRoute({

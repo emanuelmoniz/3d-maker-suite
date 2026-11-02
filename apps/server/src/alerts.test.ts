@@ -655,7 +655,7 @@ describe("delivery per user (ADR-0016)", () => {
   /** The ntfy topics called, in order. */
   const topics = () =>
     (fetchMock.mock.calls as unknown as [string][]).map(([url]) => url.split("/").pop());
-  const mailedTo = () => sendMail.mock.calls.map(([m]) => (m as { to: string }).to);
+  const mailedTo = () => (sendMail.mock.calls as unknown as [{ to: string }][]).map(([m]) => m.to);
 
   beforeEach(() => sendMail.mockClear());
 

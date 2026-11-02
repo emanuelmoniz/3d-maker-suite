@@ -39,7 +39,9 @@
     "changePassword": "Change password",
     "passwordChanged": "Password changed. Your other devices were signed out.",
     "wrongPassword": "The current password is wrong.",
-    "error": "That didn't work. Try again."
+    "error": "That didn't work. Try again.",
+    "profile": "Name and password",
+    "noAccounts": "Nobody has to sign in right now, so there is no account to manage."
   },
   "list": {
     "title": "Users",
@@ -195,5 +197,55 @@
     "alertsHint": "Thresholds and the email and ntfy channels.",
     "users": "Users and roles",
     "usersHint": "Add and edit users and roles. Never more than they have themselves."
+  },
+  "alerts": {
+    "title": "My alerts",
+    "none": "This role gets no alerts.",
+    "mineHint": "Pick what you get. Same as role follows {{role}}, also when it changes later. Notify also sends it to your email or ntfy below.",
+    "userHint": "Same as role follows the role. Notify also sends it to the user's own email or ntfy.",
+    "ownAccount": "Your own alerts are on the My account page.",
+    "roleHint": "What users of this role get unless they change it themselves. A kind only reaches users who have its permission.",
+    "sameAsRole": "Same as role ({{value}})",
+    "resetAll": "Reset all to the role",
+    "sub": {
+      "off": "Off",
+      "app": "In app",
+      "notify": "Notify"
+    },
+    "kinds": {
+      "maintenance_due": "Maintenance due",
+      "spool_low": "Spool running low",
+      "spool_no_price": "Spool without a price",
+      "spool_no_open_date": "Spool in use without an open date",
+      "warranty_ending": "Warranty ending",
+      "sync_pending": "Sync waiting for review",
+      "sync_success": "Sync finished",
+      "sync_error": "Sync failed",
+      "slice_setup_changed": "Print setup changed",
+      "slice_failed": "Slicing failed",
+      "update_available": "App update available",
+      "slicer_update": "Slicer update available",
+      "connector_outdated": "Connector out of date",
+      "hub_conflict": "Hub file conflict",
+      "hub_mass_delete": "Mass delete on a device"
+    }
+  },
+  "delivery": {
+    "title": "My delivery",
+    "hint": "Where the alerts you set to Notify are sent. The mail and ntfy servers are set up by an admin.",
+    "email": "Email",
+    "emailTo": "Send to",
+    "emailToHint": "Leave empty to use your account email ({{email}}).",
+    "ntfyTopic": "ntfy topic",
+    "ntfyTopicHint": "Letters, numbers, - and _. Leave empty to turn ntfy off.",
+    "ntfyToken": "ntfy access token",
+    "tokenHint": "Only for a protected topic.",
+    "tokenSet": "A token is stored. Type a new one to replace it.",
+    "removeToken": "Remove the stored token",
+    "saved": "Saved.",
+    "test": "Send a test",
+    "testOk": "{{channel}}: sent.",
+    "testFailed": "{{channel}}: failed.",
+    "testNone": "Nothing to test. Turn on email or set a topic, and ask an admin whether the servers are on."
   }
 }

@@ -5,6 +5,7 @@ import {
   deliveryInputSchema,
   deliverySchema,
   deliveryTestSchema,
+  effectiveAlertKinds,
   loginSchema,
   meSchema,
   meUpdateSchema,
@@ -150,7 +151,7 @@ export const authRoutes =
       async (req, reply) => {
         const current = me(req);
         const { id } = current;
-        const { displayName, currentPassword, password } = req.body;
+        const { displayName, currentPassword, password, alertKinds } = req.body;
         const row = db.select().from(users).where(eq(users.id, id)).get();
         if (!row) throw new HttpError(401, "unauthorized", "Login required");
         if (password) {
@@ -163,7 +164,15 @@ export const authRoutes =
           startSession(req, reply, id);
         }
         if (displayName) db.update(users).set({ displayName }).where(eq(users.id, id)).run();
-        return meOf({ ...current, ...(displayName && { displayName }) });
+        if (alertKinds) db.update(users).set({ alertKinds }).where(eq(users.id, id)).run();
+        return meOf({
+          ...current,
+          ...(displayName && { displayName }),
+          ...(alertKinds && {
+            alertKinds,
+            subscriptions: effectiveAlertKinds(current.role, { alertKinds }),
+          }),
+        });
       },
     );
 

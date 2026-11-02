@@ -62,7 +62,7 @@ test("users: setup, add a user, sign out and in, change password", async ({ page
   await expect(page).toHaveURL(/\/printers$/);
 
   // The editor has no Users section, but can change their own password.
-  await page.goto("/settings");
+  await page.goto("/account");
   await expect(page.getByRole("heading", { name: "My account" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Users" })).toHaveCount(0);
   await page.getByLabel("Current password").fill("nope nope nope");
@@ -161,4 +161,58 @@ test("users: login and sign out fit a phone", async ({ page, app }) => {
   await page.getByRole("button", { name: "More" }).click();
   await page.getByRole("button", { name: "Sign out" }).click();
   await expect(page).toHaveURL(/\/login$/);
+});
+
+test("users: my alerts and delivery on My account, an admin sets another user's alerts", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto("/");
+  const post = async (path: string, data: unknown) => {
+    const res = await page.request.post(path, { data });
+    expect(res.ok(), `${path} ${res.status()}`).toBe(true);
+    return (await res.json()) as { id: string };
+  };
+  await post("/api/auth/setup", {
+    displayName: "Ana Admin",
+    email: "ana@example.com",
+    password: PASSWORD,
+  });
+  // The seeded Viewer role.
+  const eva = await post("/api/users", {
+    displayName: "Vic Viewer",
+    email: "vic@example.com",
+    password: PASSWORD,
+    roleId: "00000000-0000-4000-8000-000000000003",
+  });
+
+  // The admin gives Vic maintenance alerts by notify.
+  await page.goto(`/settings/users/${eva.id}`);
+  const maintenance = page.getByLabel("Maintenance due");
+  await expect(maintenance).toHaveValue("");
+  await maintenance.selectOption("notify");
+  await page.getByRole("button", { name: "Save" }).click();
+  await expect(page.getByText("Saved", { exact: true })).toBeVisible();
+
+  // Vic sees it on My account, changes another kind, and sets their delivery.
+  await page.context().clearCookies();
+  await post("/api/auth/login", { email: "vic@example.com", password: PASSWORD });
+  await page.goto("/account");
+  await expect(page.getByLabel("Maintenance due")).toHaveValue("notify");
+  // A viewer has no integrations or hub permission: those kinds aren't listed.
+  await expect(page.getByLabel("Sync failed")).toHaveCount(0);
+  await page.getByLabel("Spool running low").selectOption("off");
+  await page.reload();
+  await expect(page.getByLabel("Spool running low")).toHaveValue("off");
+  await page.getByRole("button", { name: "Reset all to the role" }).click();
+  await expect(page.getByLabel("Spool running low")).toHaveValue("");
+
+  await page.getByRole("switch", { name: "Email" }).check({ force: true });
+  await page.getByLabel("ntfy topic").fill("vic-alerts");
+  await page.getByLabel("ntfy access token").fill("tk_secret");
+  await page.getByRole("button", { name: "Save", exact: true }).last().click();
+  await expect(page.getByText("A token is stored")).toBeVisible();
+  await page.reload();
+  await expect(page.getByLabel("ntfy topic")).toHaveValue("vic-alerts");
+  await expect(page.getByLabel("ntfy access token")).toHaveValue("");
 });

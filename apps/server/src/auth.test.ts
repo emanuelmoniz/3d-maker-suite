@@ -554,6 +554,29 @@ describe("users", () => {
     expect((await login(app, "viewer@x.io", "brand new pw")).statusCode).toBe(200);
   });
 
+  it("you set your own alert kinds; a kind you lack the permission for stays out of your list", async () => {
+    const { db, app } = await setup();
+    addUser(db, "viewer");
+    const viewer = as(app, cookieOf(await login(app, "viewer@x.io")));
+    const set = await viewer.send("PATCH", "/api/auth/me", {
+      alertKinds: { spool_low: "notify", sync_error: "off" },
+    });
+    expect(set.statusCode).toBe(200);
+    expect(set.json().user.alertKinds).toEqual({ spool_low: "notify", sync_error: "off" });
+    expect(set.json().role.alertKinds).toBeDefined();
+    expect((await viewer.get("/api/auth/me")).json().user.alertKinds).toEqual({
+      spool_low: "notify",
+      sync_error: "off",
+    });
+    // An empty object goes back to the role; an unknown kind is refused.
+    expect(
+      (await viewer.send("PATCH", "/api/auth/me", { alertKinds: {} })).json().user.alertKinds,
+    ).toEqual({});
+    expect(
+      (await viewer.send("PATCH", "/api/auth/me", { alertKinds: { nope: "off" } })).statusCode,
+    ).toBe(400);
+  });
+
   it("no response ever carries a hash", async () => {
     const { db, app } = await setup();
     const responses = [

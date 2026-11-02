@@ -1,4 +1,6 @@
 import {
+  type Delivery,
+  type DeliveryInput,
   type EffectiveRights,
   exceeds,
   type Role,
@@ -70,3 +72,26 @@ export function useRoleActions() {
     }),
   };
 }
+
+const DELIVERY = ["delivery"];
+
+/** Where my notify alerts go (ADR-0016); `userId` = another user's, for an admin. */
+export const useDelivery = (userId?: string) =>
+  useQuery({
+    queryKey: [...DELIVERY, userId],
+    queryFn: () =>
+      api<Delivery>("GET", userId ? `/api/users/${userId}/delivery` : "/api/auth/me/delivery"),
+  });
+
+export function useSaveDelivery() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: DeliveryInput) => api<Delivery>("PATCH", "/api/auth/me/delivery", body),
+    onSuccess: (d) => qc.setQueryData([...DELIVERY, undefined], d),
+  });
+}
+
+export const useTestDelivery = () =>
+  useMutation({
+    mutationFn: () => api<{ channel: string; ok: boolean }[]>("POST", "/api/auth/me/delivery/test"),
+  });

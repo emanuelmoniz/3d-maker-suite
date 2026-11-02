@@ -1285,7 +1285,7 @@ Do Step 11 of the 5.1.0 plan in PLAN.md. Show me the send loop and the migration
 Back up the DB before editing schema.ts.
 ```
 
-### [ ] Step 12 - My alerts on the user page
+### [x] Step 12 - My alerts on the user page
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - A **My account** page from the user menu: name, password, my alerts (in app · notify per kind I can get, with "same as role" to reset), my delivery. No permissions here.
