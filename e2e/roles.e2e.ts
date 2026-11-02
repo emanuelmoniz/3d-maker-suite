@@ -98,16 +98,10 @@ test("roles: viewer and editor see only what they can do; logs show the actor", 
   await page.goto(`/clients/${id}`);
   await expect(page.getByRole("heading", { name: "Acme" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Edit" })).toHaveCount(0);
-  // Alerts: the viewer reads and unreads their own, but gets none of the fixes.
+  // Alerts: sync alerts need the sync permission, so the viewer gets none.
   await page.goto("/alerts");
-  await page.getByRole("link", { name: /^Printers from .* synced$/ }).click();
-  await expect(page.locator("dd", { hasText: /^Read$/ })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Open integration" })).toHaveCount(0);
-  await expect(page.getByRole("link", { name: "View printers" })).toHaveCount(0);
-  await page.getByRole("button", { name: "Mark as unread" }).click();
-  await expect(page.locator("dd", { hasText: /^Unread$/ })).toBeVisible();
-  await page.getByRole("button", { name: "Mark as read" }).click();
-  await expect(page.locator("dd", { hasText: /^Read$/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Alerts", level: 1 })).toBeVisible();
+  await expect(page.getByRole("link", { name: /^Printers from .* synced$/ })).toHaveCount(0);
 
   // Editor: edits, but has no admin menu.
   await signInAs(page, "eva@example.com");
@@ -119,14 +113,10 @@ test("roles: viewer and editor see only what they can do; logs show the actor", 
   await page.goto(`/clients/${id}`);
   await expect(page.getByRole("link", { name: "Edit" })).toBeVisible();
   await post(page, "/api/clients", { name: "Zed", mobile: "922" });
-  // The viewer reading the alert left it unread for the editor.
+  // The sync policy does not let editors sync yet, so the alert is hidden from them too.
   await page.goto("/alerts");
-  await expect(
-    page
-      .getByRole("listitem")
-      .filter({ hasText: /Printers from .* synced/ })
-      .getByTitle("Unread"),
-  ).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Alerts", level: 1 })).toBeVisible();
+  await expect(page.getByRole("link", { name: /^Printers from .* synced$/ })).toHaveCount(0);
   // The server says the same.
   for (const [path, data] of [
     ["/api/printers", { name: "P" }],
@@ -137,11 +127,6 @@ test("roles: viewer and editor see only what they can do; logs show the actor", 
   // Integrations: nothing for an editor until the admin allows a task.
   const syncUrl = `/api/integrations/${integration.id}/sync`;
   expect((await page.request.post(syncUrl, { data: { type: "printers" } })).status()).toBe(403);
-  await page.goto("/alerts");
-  await page.getByRole("link", { name: /^Printers from .* synced$/ }).click();
-  await expect(page.getByRole("heading", { name: "Alert", exact: true })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Open integration" })).toHaveCount(0);
-  await expect(page.getByRole("link", { name: "View printers" })).toHaveCount(0);
 
   // The admin lets editors sync printers (on the page) and review print history.
   await signInAs(page, "ana@example.com");
