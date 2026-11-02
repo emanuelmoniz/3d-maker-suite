@@ -41,7 +41,8 @@ const clicks = () =>
 const list = async () => (await app.inject("/api/alerts")).json();
 const detail = async (id: string) => (await app.inject(`/api/alerts/${id}`)).json().detail;
 
-async function lowSpool() {
+/** A spool in use that is low; `bare` leaves out its price and open date (two more alerts). */
+async function lowSpool(bare = false) {
   const brand = (await send("POST", "/api/filament-brands", { name: "Prusament" })).json();
   const material = (await send("POST", "/api/filament-materials", { name: "PLA" })).json();
   const p = (
@@ -53,7 +54,11 @@ async function lowSpool() {
     })
   ).json();
   const s = (
-    await send("POST", "/api/filament/spools", { profileId: p.id, initialGrams: 1000 })
+    await send("POST", "/api/filament/spools", {
+      profileId: p.id,
+      initialGrams: 1000,
+      ...(!bare && { pricePaid: 2000, openedAt: "2026-10-01T12:00:00.000Z" }),
+    })
   ).json();
   setRemaining(db, s.id, "manual", 50);
   return s.id as string;
@@ -125,8 +130,8 @@ describe("alerts", () => {
     expect(await low()).toBe(1);
   });
 
-  it("a spool with no price or no open date warns once switched on, sealed ones aside", async () => {
-    const used = await lowSpool(); // in use: some was taken
+  it("a spool with no price or no open date always warns (ADR-0016: who sees it is the subscription), sealed ones aside", async () => {
+    const used = await lowSpool(true); // in use: some was taken
     const p = db.select().from(schema.spools).get()?.profileId ?? "";
     const sealed = (
       await send("POST", "/api/filament/spools", { profileId: p, initialGrams: 1000 })
@@ -141,11 +146,6 @@ describe("alerts", () => {
         )
         .sort();
     };
-    expect(await kinds()).toEqual([]);
-    await send("PATCH", "/api/preferences", {
-      spoolNoPriceAlert: true,
-      spoolNoOpenDateAlert: true,
-    });
     expect(await kinds()).toEqual([
       "spool_no_open_date:used",
       "spool_no_price:sealed",
@@ -157,6 +157,23 @@ describe("alerts", () => {
     });
     expect(await kinds()).toEqual(["spool_no_price:sealed"]);
     expect(sealed).toBeTruthy();
+  });
+
+  it("the global channel is told only the kinds the Admin role gets as notify", async () => {
+    await ntfyOn();
+    await lowSpool(true); // low, no price, no open date; the last two are off for the Admin role
+    await evaluate();
+    const told = await list();
+    const low = told.find((a: { kind: string }) => a.kind === "spool_low");
+    expect(clicks()).toEqual([`http://${hostname()}:4300/alerts/${low.id}`]);
+    db.update(schema.roles)
+      .set({ alertKinds: { spool_no_price: "notify" } })
+      .where(eq(schema.roles.builtIn, "admin"))
+      .run();
+    await evaluate();
+    const price = told.find((a: { kind: string }) => a.kind === "spool_no_price");
+    expect(clicks()).toContain(`http://${hostname()}:4300/alerts/${price.id}`);
+    expect(clicks()).toHaveLength(2);
   });
 
   it("a maintenance type's lead and switches decide warning and error", async () => {

@@ -1256,7 +1256,7 @@ Design:
 - Delivery per user: the mail server and the ntfy server stay global (admin). Each user turns on email (to their account email) and/or sets their own ntfy topic and token (encrypted, never returned). Sent once per user (`alert_states.notifiedAt`); a user's snooze holds delivery; disabled users get nothing.
 - No-users mode: the Admin role's kinds and today's global destinations apply.
 
-### [ ] Step 10 - Who gets which alert  **[plan mode]**
+### [x] Step 10 - Who gets which alert  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:**
 - The kind catalog with a permission per kind (ADR-0016). Role default kinds and user overrides, migrated from the global switches.

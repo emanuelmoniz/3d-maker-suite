@@ -83,6 +83,8 @@ export const rolesRoutes =
                 ...req.body,
                 permissions: { ...role.permissions, ...permissions },
                 projectRights: { ...role.projectRights, ...projectRights },
+                // No escalation check: a kind's permission gates it anyway.
+                alertKinds: { ...role.alertKinds, ...req.body.alertKinds },
               })
               .where(eq(roles.id, role.id))
               .run();

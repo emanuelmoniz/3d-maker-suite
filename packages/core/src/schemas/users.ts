@@ -2,6 +2,7 @@ import { z } from "zod";
 import { id, isoDate } from "./entities.ts";
 import { ROLE_BUILT_INS } from "./enums.ts";
 import {
+  alertKindsSchema,
   effectiveRightsSchema,
   permissionOverridesSchema,
   projectRightOverridesSchema,
@@ -11,6 +12,7 @@ import {
 const overrides = {
   permissions: permissionOverridesSchema,
   projectRights: projectRightOverridesSchema,
+  alertKinds: alertKindsSchema,
 };
 
 /** A user as the API returns it. No hash field, so a route can't send one by mistake (ADR-0012). */
@@ -50,6 +52,7 @@ export const userCreateSchema = z.object({
   roleId: id,
   permissions: permissionOverridesSchema.strict().optional(),
   projectRights: projectRightOverridesSchema.strict().optional(),
+  alertKinds: alertKindsSchema.strict().optional(),
 });
 
 /** A user manager's edit; a new `password` is a reset, overrides replace the stored ones. */

@@ -1,6 +1,12 @@
 import { z } from "zod";
 import { id, isoDate } from "./entities.ts";
-import { PERMISSION_LEVELS, ROLE_BUILT_INS } from "./enums.ts";
+import {
+  ALERT_KINDS,
+  ALERT_SUBSCRIPTIONS,
+  type AlertKind,
+  PERMISSION_LEVELS,
+  ROLE_BUILT_INS,
+} from "./enums.ts";
 
 const level = z.enum(PERMISSION_LEVELS);
 
@@ -177,6 +183,102 @@ export function exceeds(own: EffectiveRights, values: Partial<Overrides>): strin
   ];
 }
 
+export type AlertSubscription = (typeof ALERT_SUBSCRIPTIONS)[number];
+type KindRule = {
+  /** The permission a user needs to get the kind at all, whatever their subscription says. */
+  needs: (p: Permissions) => boolean;
+  /** Resolves for everyone when the cause is fixed; otherwise an event each user dismisses. */
+  condition: boolean;
+  /** A role's value when it sets none: in app, or off for the opt-in checks. */
+  default: AlertSubscription;
+};
+
+/**
+ * ADR-0016 kind catalog. The server adds two rules it alone can check: the sync policy's
+ * `editorSync` / `editorReview` without `integrations.manage`, and the project's visibility.
+ */
+export const ALERT_KIND_CATALOG: Record<AlertKind, KindRule> = {
+  maintenance_due: {
+    needs: (p) => hasLevel(p, "maintenance", "read"),
+    condition: true,
+    default: "app",
+  },
+  spool_low: { needs: (p) => hasLevel(p, "filament", "read"), condition: true, default: "app" },
+  spool_no_price: {
+    needs: (p) => hasLevel(p, "filament", "read"),
+    condition: true,
+    default: "off",
+  },
+  spool_no_open_date: {
+    needs: (p) => hasLevel(p, "filament", "read"),
+    condition: true,
+    default: "off",
+  },
+  warranty_ending: {
+    needs: (p) => hasLevel(p, "printers", "read"),
+    condition: true,
+    default: "app",
+  },
+  sync_pending: {
+    needs: (p) => p["integrations.review"] || p["integrations.manage"],
+    condition: true,
+    default: "app",
+  },
+  sync_success: {
+    needs: (p) => p["integrations.sync"] || p["integrations.manage"],
+    condition: false,
+    default: "app",
+  },
+  sync_error: {
+    needs: (p) => p["integrations.sync"] || p["integrations.manage"],
+    condition: false,
+    default: "app",
+  },
+  slice_setup_changed: {
+    needs: (p) => hasLevel(p, "projects", "read"),
+    condition: false,
+    default: "app",
+  },
+  slice_failed: {
+    needs: (p) => hasLevel(p, "projects", "read"),
+    condition: false,
+    default: "app",
+  },
+  update_available: { needs: (p) => p["settings.server"], condition: false, default: "app" },
+  slicer_update: { needs: (p) => p["integrations.manage"], condition: false, default: "app" },
+  connector_outdated: { needs: (p) => p["hub.manage"], condition: true, default: "app" },
+  hub_conflict: { needs: (p) => hasLevel(p, "projects", "read"), condition: false, default: "app" },
+  hub_mass_delete: { needs: (p) => p["hub.manage"], condition: true, default: "app" },
+};
+
+const subscription = z.enum(ALERT_SUBSCRIPTIONS);
+/** Per kind off · in app · notify; a role or user stores only what it sets (missing = default / same as role). */
+export const alertKindsSchema = z
+  .object(
+    Object.fromEntries(ALERT_KINDS.map((k) => [k, subscription])) as Record<
+      AlertKind,
+      typeof subscription
+    >,
+  )
+  .partial();
+export type AlertKinds = Record<AlertKind, AlertSubscription>;
+
+/** Role values, then the user's overrides, then the catalog default. Permissions gate it separately. */
+export const effectiveAlertKinds = (
+  role: { alertKinds?: Partial<AlertKinds> },
+  user: { alertKinds?: Partial<AlertKinds> } = {},
+): AlertKinds =>
+  Object.fromEntries(
+    ALERT_KINDS.map((k) => [
+      k,
+      user.alertKinds?.[k] ?? role.alertKinds?.[k] ?? ALERT_KIND_CATALOG[k].default,
+    ]),
+  ) as AlertKinds;
+
+/** The kinds a user gets (in app at least): subscribed, and the permission to see them. */
+export const receivedKinds = (permissions: Permissions, kinds: AlertKinds): AlertKind[] =>
+  ALERT_KINDS.filter((k) => kinds[k] !== "off" && ALERT_KIND_CATALOG[k].needs(permissions));
+
 const name = z.string().trim().min(1).max(100);
 
 /** A role as the API returns it. */
@@ -187,6 +289,7 @@ export const roleSchema = z.object({
   disabled: z.boolean(),
   permissions: permissionsSchema,
   projectRights: projectRightsSchema,
+  alertKinds: alertKindsSchema,
   usersCount: z.number().int(),
   createdAt: isoDate,
   updatedAt: isoDate,
@@ -198,9 +301,10 @@ export const roleCreateSchema = z.object({
   disabled: z.boolean().optional(),
   permissions: permissionOverridesSchema.strict().optional(),
   projectRights: projectRightOverridesSchema.strict().optional(),
+  alertKinds: alertKindsSchema.strict().optional(),
 });
 
-/** `PATCH /api/roles/:id`; `permissions` and `projectRights` merge into the stored ones. */
+/** `PATCH /api/roles/:id`; `permissions`, `projectRights` and `alertKinds` merge into the stored ones. */
 export const rolePatchSchema = roleCreateSchema.partial().strict();
 
 export type Role = z.infer<typeof roleSchema>;

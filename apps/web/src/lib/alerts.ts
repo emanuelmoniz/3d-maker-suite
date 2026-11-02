@@ -1,6 +1,7 @@
 import type {
   Alert,
   AlertHistoryItem,
+  AlertKind,
   AlertWithDetail,
   ChannelInput,
   ChannelSettings,
@@ -68,6 +69,14 @@ export const useChannels = () =>
   useQuery({
     queryKey: ["alerts", "channels"],
     queryFn: () => api<ChannelSettings[]>("GET", "/api/alerts/channels"),
+    enabled: useCan("settings.alerts"),
+  });
+
+/** The condition kinds no enabled user gets (ADR-0016), for the Settings warning. */
+export const useAlertCoverage = () =>
+  useQuery({
+    queryKey: ["alerts", "coverage"],
+    queryFn: () => api<AlertKind[]>("GET", "/api/alerts/coverage"),
     enabled: useCan("settings.alerts"),
   });
 

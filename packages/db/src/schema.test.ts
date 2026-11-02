@@ -835,6 +835,54 @@ describe("migrations 0086 and 0087", () => {
   });
 });
 
+describe("migration 0088", () => {
+  const kinds = (on: { price?: boolean; openDate?: boolean }) => {
+    const now = migrateAcross(87, (sqlite) => {
+      const run = (q: string) => sqlite.prepare(q).run();
+      if (on.price) run("insert into settings (key, value) values ('spoolNoPriceAlert', 'true')");
+      run(
+        `insert into settings (key, value) values ('spoolNoOpenDateAlert', '${on.openDate ? "true" : "false"}')`,
+      );
+      run(
+        `insert into roles (id, name, permissions, project_rights, created_at, updated_at) values ('nf', 'No filament', '{"filament":"none"}', '{}', 'x', 'x')`,
+      );
+    });
+    const keys = now
+      .select({ key: s.settings.key })
+      .from(s.settings)
+      .all()
+      .map((r) => r.key);
+    expect(keys.filter((k) => k.startsWith("spoolNo"))).toEqual([]);
+    return Object.fromEntries(
+      now
+        .select()
+        .from(s.roles)
+        .all()
+        .map((r) => [r.builtIn ?? r.id, r.alertKinds]),
+    );
+  };
+
+  it("the Admin role notifies every kind; the old spool switches become role defaults, then go", () => {
+    const off = kinds({});
+    expect(off.admin).toMatchObject({
+      maintenance_due: "notify",
+      hub_mass_delete: "notify",
+      spool_no_price: "off",
+      spool_no_open_date: "off",
+    });
+    expect(Object.keys(off.admin ?? {})).toHaveLength(15);
+    expect([off.editor, off.viewer, off.nf]).toEqual([{}, {}, {}]);
+
+    const on = kinds({ price: true, openDate: true });
+    expect(on.admin).toMatchObject({ spool_no_price: "notify", spool_no_open_date: "notify" });
+    const both = { spool_no_price: "app", spool_no_open_date: "app" };
+    // A role that can't read filament gets nothing it couldn't see.
+    expect([on.editor, on.viewer, on.nf]).toEqual([both, both, {}]);
+
+    expect(kinds({ price: true }).viewer).toEqual({ spool_no_price: "app" });
+  });
+});
+
 describe("migration 0073", () => {
   it("rebuilds alerts for slicer_update and keeps each user's alert state", () => {
     const now = migrateAcross(72, (sqlite) => {

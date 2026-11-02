@@ -140,10 +140,9 @@
   "alerts": {
     "hint": "Alerts appear in the Alerts page. Optionally also send them to a phone or inbox.",
     "lowSpool": "Low spool warning (grams left)",
-    "spoolNoPrice": "Spools with no price",
-    "spoolNoPriceHint": "Warns about each spool that has no price paid set.",
-    "spoolNoOpenDate": "Spools with no open date",
-    "spoolNoOpenDateHint": "Warns about each spool in use that has no open date.",
+    "uncovered_one": "No enabled user gets the {{kinds}} alert.",
+    "uncovered_other": "No enabled user gets these alerts: {{kinds}}.",
+    "editRoles": "Edit roles",
     "maintenanceLead": "Maintenance warning (days before due)",
     "maintenanceLeadHours": "Maintenance warning (print hours before due, 0 = none)",
     "maintenanceLeadPrints": "Maintenance warning (prints before due, 0 = none)",

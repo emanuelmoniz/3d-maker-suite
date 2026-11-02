@@ -1,4 +1,5 @@
 import { DEVICE_FOLDER_MAX_MB_LIMIT } from "@3d-maker-suite/core";
+import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
@@ -6,8 +7,9 @@ import { Combobox } from "../../components/Combobox.tsx";
 import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { Section } from "../../components/Section.tsx";
-import { Switch } from "../../components/Switch.tsx";
-import { formatMegabytes, formatSize } from "../../lib/format.ts";
+import { useAlertCoverage } from "../../lib/alerts.ts";
+import { useCan } from "../../lib/auth.ts";
+import { formatList, formatMegabytes, formatSize } from "../../lib/format.ts";
 import { useVersionsUsage } from "../../lib/hub.ts";
 import { usePreferences } from "../../lib/preferences.ts";
 import { usePrinters } from "../../lib/printers.ts";
@@ -262,44 +264,39 @@ function ProjectTrash() {
   );
 }
 
-// i18n keys are written out in full so `pnpm i18n:check` can see them.
-const SPOOL_ALERTS = [
-  {
-    key: "spoolNoPriceAlert",
-    label: "settings:alerts.spoolNoPrice",
-    hint: "settings:alerts.spoolNoPriceHint",
-  },
-  {
-    key: "spoolNoOpenDateAlert",
-    label: "settings:alerts.spoolNoOpenDate",
-    hint: "settings:alerts.spoolNoOpenDateHint",
-  },
-] as const;
+/** ADR-0016: a condition kind no enabled user gets would be raised for nobody. */
+function Uncovered() {
+  const { t } = useTranslation();
+  const kinds = useAlertCoverage().data ?? [];
+  const roles = useCan("users.manage");
+  if (!kinds.length) return null;
+  return (
+    <p role="status" className="text-warn">
+      {t("settings:alerts.uncovered", {
+        count: kinds.length,
+        kinds: formatList(kinds.map((k) => t(`alerts:kindNames.${k}`))),
+      })}{" "}
+      {roles && (
+        <Link to="/settings" hash="roles" className="font-medium text-accent hover:underline">
+          {t("settings:alerts.editRoles")}
+        </Link>
+      )}
+    </p>
+  );
+}
 
 export function AlertsConfigPage() {
   const { t } = useTranslation();
   return (
     <ConfigPage module="alerts">
-      {({ v, commit, num }) => (
+      {({ num }) => (
         <>
           <Section title={t("settings:sections.alerts")}>
             <p className="text-muted">{t("settings:alerts.hint")}</p>
+            <Uncovered />
             <FormField label={t("settings:alerts.lowSpool")}>
               {(p) => num("lowSpoolGrams", p)}
             </FormField>
-            {SPOOL_ALERTS.map(({ key, label, hint }) => (
-              <div key={key}>
-                <Switch
-                  label={t(label)}
-                  aria-describedby={`${key}-hint`}
-                  checked={v[key]}
-                  onChange={(e) => commit({ [key]: e.target.checked })}
-                />
-                <p id={`${key}-hint`} className="text-muted">
-                  {t(hint)}
-                </p>
-              </div>
-            ))}
             <FormField label={t("settings:alerts.maintenanceLead")}>
               {(p) => num("maintenanceLeadDays", p)}
             </FormField>

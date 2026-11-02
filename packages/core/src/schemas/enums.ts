@@ -21,6 +21,8 @@ export const ALERT_KINDS = [
   "hub_mass_delete",
 ] as const;
 export const ALERT_SEVERITIES = ["error", "warning", "success"] as const;
+// Who gets a kind (ADR-0016): not at all, in the app, or in the app and on their channels.
+export const ALERT_SUBSCRIPTIONS = ["off", "app", "notify"] as const;
 export const ALERT_MODULES = [
   "filament",
   "maintenance",

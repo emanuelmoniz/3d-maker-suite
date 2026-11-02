@@ -4,6 +4,9 @@ import { join } from "node:path";
 import { fixture, mockAdapter } from "@3d-maker-suite/adapter-mock";
 import {
   ADMIN_EFFECTIVE,
+  ALERT_KIND_CATALOG,
+  ALERT_KINDS,
+  type AlertKind,
   BUILT_IN_ROLE_IDS,
   type Capability,
   type EffectiveRights,
@@ -78,6 +81,7 @@ const MATRIX: Record<string, [viewer: string, editor: string]> = {
   "/api/collections": ["R", "RW"],
   "/api/alerts": ["R", "RW"],
   "/api/alerts/channels": ["-", "-"],
+  "/api/alerts/coverage": ["-", "-"],
   "/api/preferences": ["RW", "RW"],
   "/api/branding": ["R", "R"],
   "/api/branding/logo": ["R", "R"],
@@ -246,7 +250,8 @@ describe("permissions", () => {
         .get().id;
     // Read before accounts existed: everyone without a row of their own sees it read.
     const legacyRead = "2026-01-01T00:00:00.000Z";
-    const old = raise({ kind: "sync_success", severity: "success", readAt: legacyRead });
+    // An event every seeded role gets (ADR-0016: a hub conflict outside a project needs projects read).
+    const old = raise({ kind: "hub_conflict", severity: "success", readAt: legacyRead });
     // A condition nothing holds any more: the next check resolves it.
     const low = raise();
     const act = (s: typeof admin, id: string, body: object) =>
@@ -786,5 +791,184 @@ describe("roles and overrides (ADR-0016)", () => {
     expect(readDevice(db, "dev-token")).toBeNull();
     await admin.send("PATCH", `/api/users/${t.id}`, { roleId: BUILT_IN_ROLE_IDS.viewer });
     expect((await admin.send("DELETE", `/api/roles/${r.id}`)).statusCode).toBe(204);
+  });
+});
+
+describe("who gets which alert (ADR-0016)", () => {
+  type Who = ReturnType<typeof as>;
+  const start = async () => {
+    const { db, app } = await setup({ adapters: [mockAdapter(fixture())] });
+    const me = addUser(db, "admin");
+    const admin = as(app, cookieOf(await login(app, "admin@x.io")));
+    const role = async (name: string, body: object) =>
+      (await admin.send("POST", "/api/roles", { name, ...body })).json().id as string;
+    const user = async (email: string, roleId: string, body: object = {}) => {
+      const res = await admin.send("POST", "/api/users", {
+        email,
+        displayName: email,
+        password: PW,
+        roleId,
+        ...body,
+      });
+      expect(res.statusCode).toBe(201);
+      return { id: res.json().id as string, s: as(app, cookieOf(await login(app, email))) };
+    };
+    const raise = (kind: AlertKind, context: Record<string, string> = {}) =>
+      db
+        .insert(schema.alerts)
+        .values({
+          kind,
+          severity: "warning",
+          module: "system",
+          task: kind,
+          entityType: "test",
+          entityId: crypto.randomUUID(),
+          context,
+        })
+        .returning()
+        .get().id;
+    const ids = async (s: Who, url = "/api/alerts") => {
+      const body = (await s.get(url)).json();
+      return (body.items ?? body).map((a: { id: string }) => a.id) as string[];
+    };
+    return { db, app, me, admin, role, user, raise, ids };
+  };
+  const OPT_IN = ALERT_KINDS.filter((k) => ALERT_KIND_CATALOG[k].default === "off");
+  const BASIC: AlertKind[] = [
+    "maintenance_due",
+    "spool_low",
+    "warranty_ending",
+    "slice_setup_changed",
+    "slice_failed",
+    "hub_conflict",
+  ];
+  // Written out, like MATRIX: sync kinds also need the policy flags (off by default).
+  const GETS: Record<RoleBuiltIn, AlertKind[]> = {
+    admin: ALERT_KINDS.filter((k) => !OPT_IN.includes(k)),
+    editor: BASIC,
+    viewer: BASIC,
+  };
+
+  it("each seeded role gets the kinds its permissions allow; others are a 404", async () => {
+    const { admin, user, raise, ids } = await start();
+    const byKind = Object.fromEntries(ALERT_KINDS.map((k) => [k, raise(k)])) as Record<
+      AlertKind,
+      string
+    >;
+    const who: Record<RoleBuiltIn, Who> = {
+      admin,
+      editor: (await user("e@x.io", BUILT_IN_ROLE_IDS.editor)).s,
+      viewer: (await user("v@x.io", BUILT_IN_ROLE_IDS.viewer)).s,
+    };
+    for (const [r, s] of Object.entries(who) as [RoleBuiltIn, Who][]) {
+      const got = await ids(s);
+      for (const k of ALERT_KINDS) {
+        const gets = GETS[r].includes(k);
+        expect([r, k, got.includes(byKind[k])]).toEqual([r, k, gets]);
+        expect([r, k, (await s.get(`/api/alerts/${byKind[k]}`)).statusCode]).toEqual([
+          r,
+          k,
+          gets ? 200 : 404,
+        ]);
+        if (!gets)
+          expect(
+            (await s.send("PATCH", `/api/alerts/${byKind[k]}`, { action: "dismiss" })).statusCode,
+          ).toBe(404);
+      }
+    }
+  });
+
+  it("condition kinds resolve for everyone; event kinds are dismissed per user", async () => {
+    const { me, admin, user, raise, ids } = await start();
+    // Opted in, so every kind is in play.
+    const alertKinds = Object.fromEntries(OPT_IN.map((k) => [k, "app"]));
+    const other = (await user("a2@x.io", BUILT_IN_ROLE_IDS.admin, { alertKinds })).s;
+    await admin.send("PATCH", `/api/users/${me.id}`, { alertKinds });
+    const byKind = Object.fromEntries(ALERT_KINDS.map((k) => [k, raise(k)])) as Record<
+      AlertKind,
+      string
+    >;
+    for (const k of ALERT_KINDS)
+      if (!ALERT_KIND_CATALOG[k].condition)
+        await admin.send("PATCH", `/api/alerts/${byKind[k]}`, { action: "dismiss" });
+    // Nothing holds any of these conditions, so the check resolves them.
+    expect((await admin.send("POST", "/api/alerts/evaluate")).statusCode).toBe(204);
+    const [mine, theirs] = [await ids(admin), await ids(other)];
+    const resolved = await ids(other, "/api/alerts/history?status=resolved&pageSize=100");
+    for (const k of ALERT_KINDS) {
+      const id = byKind[k];
+      const condition = ALERT_KIND_CATALOG[k].condition;
+      expect([k, mine.includes(id), theirs.includes(id), resolved.includes(id)]).toEqual([
+        k,
+        false,
+        !condition,
+        condition,
+      ]);
+    }
+  });
+
+  it("no permission, no alert, whatever the subscription; a hidden project's alert never shows", async () => {
+    const { db, me, admin, role, user, raise, ids } = await start();
+    const r = await role("No filament", {
+      permissions: { maintenance: "read", projects: "read" },
+      projectRights: { "projects.seeAll": false },
+    });
+    const u = await user("u@x.io", r, {
+      alertKinds: { spool_low: "notify", spool_no_price: "app" },
+    });
+    const project = (ownerId: string) =>
+      db.insert(schema.projects).values({ name: "P", ownerId }).returning().get().id;
+    const theirs = raise("slice_failed", { projectId: project(me.id) });
+    const own = raise("slice_failed", { projectId: project(u.id) });
+    const loose = raise("hub_conflict");
+    const due = raise("maintenance_due");
+    const spools = [raise("spool_low"), raise("spool_no_price")];
+    expect((await ids(u.s)).sort()).toEqual([own, loose, due].sort());
+    for (const id of [theirs, ...spools])
+      expect((await u.s.get(`/api/alerts/${id}`)).statusCode).toBe(404);
+    // Off hides a kind they could get; the role's value applies on the next request.
+    await admin.send("PATCH", `/api/roles/${r}`, { alertKinds: { maintenance_due: "off" } });
+    expect(await ids(u.s)).not.toContain(due);
+    // The user's own override wins over the role.
+    await admin.send("PATCH", `/api/users/${u.id}`, { alertKinds: { maintenance_due: "app" } });
+    expect(await ids(u.s)).toContain(due);
+  });
+
+  it("sync alerts need the task's flag unless the user has integrations.manage", async () => {
+    const { admin, user, raise, ids } = await start();
+    const editor = (await user("e@x.io", BUILT_IN_ROLE_IDS.editor)).s;
+    const { id } = (
+      await admin.send("POST", "/api/integrations", { adapterId: "mock", secrets: { token: "t" } })
+    ).json();
+    const type: Capability = (await admin.get("/api/integrations/adapters"))
+      .json()[0]
+      .capabilities.find((c: Capability) => !isAction(c));
+    const context = { integrationId: id, type };
+    const pending = raise("sync_pending", context);
+    const done = raise("sync_success", context);
+    expect(await ids(admin)).toEqual(expect.arrayContaining([pending, done]));
+    expect(await ids(editor)).toEqual([]);
+    const flags = (editorSync: boolean, editorReview: boolean) =>
+      admin.send("PATCH", `/api/integrations/${id}`, {
+        policies: [{ type, editorSync, editorReview }],
+      });
+    await flags(true, false);
+    expect(await ids(editor)).toEqual([done]);
+    await flags(false, true);
+    expect(await ids(editor)).toEqual([pending]);
+  });
+
+  it("coverage lists the condition kinds no enabled user gets", async () => {
+    const { me, admin, user } = await start();
+    const coverage = async () => (await admin.get("/api/alerts/coverage")).json();
+    // The opt-in checks are never listed, though nobody gets them.
+    expect(await coverage()).toEqual([]);
+    await admin.send("PATCH", `/api/users/${me.id}`, { alertKinds: { maintenance_due: "off" } });
+    expect(await coverage()).toEqual(["maintenance_due"]);
+    const v = await user("v@x.io", BUILT_IN_ROLE_IDS.viewer);
+    expect(await coverage()).toEqual([]);
+    expect((await v.s.get("/api/alerts/coverage")).statusCode).toBe(403);
+    await admin.send("PATCH", `/api/users/${v.id}`, { disabled: true });
+    expect(await coverage()).toEqual(["maintenance_due"]);
   });
 });

@@ -1,15 +1,17 @@
-import type {
-  AlertDetail,
-  AlertKind,
-  AlertModule,
-  AlertSeverity,
-  MaintenanceDueItem,
-  Notification,
-  SyncLogEntry,
-  SyncType,
+import {
+  ALERT_KINDS,
+  type AlertDetail,
+  type AlertKind,
+  type AlertModule,
+  type AlertSeverity,
+  effectiveAlertKinds,
+  type MaintenanceDueItem,
+  type Notification,
+  type SyncLogEntry,
+  type SyncType,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
-import { and, desc, eq, gt, isNull, lte, ne } from "drizzle-orm";
+import { and, desc, eq, gt, inArray, isNull, lte, ne } from "drizzle-orm";
 import { raisesSeverity } from "../integrations/capabilities.ts";
 import { spoolName } from "../lib/catalog.ts";
 import { dueItems } from "../lib/maintenance.ts";
@@ -27,6 +29,7 @@ const {
   maintenanceTypes,
   spools,
   printers,
+  roles,
   syncPolicies,
   syncRuns,
 } = schema;
@@ -133,10 +136,11 @@ function conditions(db: Db, now: Date): Found {
         ...of,
         context: { name: s.name, grams: Math.round(s.grams) },
       });
-    if (prefs.spoolNoPriceAlert && s.pricePaid == null)
+    // Always checked; who sees them is the subscription, off unless a role opts in (ADR-0016).
+    if (s.pricePaid == null)
       add({ kind: "spool_no_price", ...spool, ...of, context: { name: s.name } });
     // A sealed spool has no open date to give.
-    if (prefs.spoolNoOpenDateAlert && s.status === "in_use" && !s.openedAt)
+    if (s.status === "in_use" && !s.openedAt)
       add({ kind: "spool_no_open_date", ...spool, ...of, context: { name: s.name } });
   }
 
@@ -395,6 +399,9 @@ export async function evaluateAlerts(
     for (const f of found.values()) tx.insert(alerts).values(f).onConflictDoNothing().run();
   });
 
+  // The global channels get the kinds the Admin role gets as notify (ADR-0016, no-users mode).
+  const admin = db.select().from(roles).where(eq(roles.builtIn, "admin")).get();
+  const kinds = effectiveAlertKinds(admin ?? {});
   const pending = db
     .select()
     .from(alerts)
@@ -404,6 +411,10 @@ export async function evaluateAlerts(
         isNull(alerts.notifiedAt),
         isNull(alerts.dismissedAt),
         isNull(alerts.snoozedUntil),
+        inArray(
+          alerts.kind,
+          ALERT_KINDS.filter((k) => kinds[k] === "notify"),
+        ),
       ),
     )
     .all();

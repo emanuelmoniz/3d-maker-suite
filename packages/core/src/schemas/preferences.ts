@@ -67,9 +67,6 @@ const shape = {
   /** Integration whose slicer "Open in slicer" uses first. Missing / null = the first one. */
   defaultSlicerId: z.string().nullable(),
   lowSpoolGrams: z.number().nonnegative(),
-  /** A warning per spool with no price, and per spool in use with no open date. */
-  spoolNoPriceAlert: z.boolean(),
-  spoolNoOpenDateAlert: z.boolean(),
   maintenanceLeadDays: z.number().int().nonnegative(),
   /** Default warning leads in print hours / prints before due; 0 = none. */
   maintenanceLeadHours: z.number().int().nonnegative(),
@@ -141,8 +138,6 @@ export const PREFERENCE_DEFAULTS: z.infer<typeof preferencesSchema> = {
   projectUploadMaxMb: 1024,
   defaultSlicerId: null,
   lowSpoolGrams: 100,
-  spoolNoPriceAlert: false,
-  spoolNoOpenDateAlert: false,
   maintenanceLeadDays: 7,
   maintenanceLeadHours: 0,
   maintenanceLeadPrints: 0,

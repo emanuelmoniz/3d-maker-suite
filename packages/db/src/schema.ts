@@ -3,6 +3,7 @@ import {
   ALERT_MODULES,
   ALERT_SEVERITIES,
   type AlertDetail,
+  type AlertKinds,
   type AlertSeverity,
   CAPABILITIES,
   COMMENT_STATUSES,
@@ -1029,6 +1030,8 @@ export const roles = sqliteTable(
     disabled: integer({ mode: "boolean" }).notNull().default(false),
     permissions: text({ mode: "json" }).$type<Permissions>().notNull(),
     projectRights: text({ mode: "json" }).$type<ProjectRights>().notNull(),
+    /** Who of its users gets which alert kind; a missing kind = the catalog default (ADR-0016). */
+    alertKinds: text({ mode: "json" }).$type<Partial<AlertKinds>>().notNull().default({}),
     ...timestamps,
   },
   (t) => [
@@ -1056,6 +1059,7 @@ export const users = sqliteTable(
     /** Overrides on the role (ADR-0016); a missing key = same as role. */
     permissions: text({ mode: "json" }).$type<Partial<Permissions>>().notNull().default({}),
     projectRights: text({ mode: "json" }).$type<Partial<ProjectRights>>().notNull().default({}),
+    alertKinds: text({ mode: "json" }).$type<Partial<AlertKinds>>().notNull().default({}),
     lastLoginAt: text(),
     ...timestamps,
   },

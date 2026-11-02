@@ -1,6 +1,7 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 import { networkInterfaces } from "node:os";
 import {
+  type AlertKind,
   type Capability,
   type EffectiveRights,
   exceeds,
@@ -9,10 +10,22 @@ import {
   type PermissionModule,
   type PermissionSwitch,
   ROOT_HUB,
+  receivedKinds,
   USER_PREFERENCE_KEYS,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
-import { and, eq, isNull, lt, or, type SQL, sql } from "drizzle-orm";
+import {
+  type AnyColumn,
+  and,
+  eq,
+  inArray,
+  isNull,
+  lt,
+  notInArray,
+  or,
+  type SQL,
+  sql,
+} from "drizzle-orm";
 import type { FastifyReply, FastifyRequest } from "fastify";
 import { HttpError } from "../errors.ts";
 import { policyOf } from "../integrations/capabilities.ts";
@@ -87,6 +100,8 @@ const RULES: [RegExp, string, Need][] = [
   [p("alerts/channels"), "*", on("settings.alerts")],
   // Everyone reads, snoozes and dismisses their own alerts (ADR-0012).
   [/^\/api\/alerts\/[^/]+$/, "PATCH", SESSION],
+  // Which kinds no enabled user gets: it looks at everyone's rights.
+  [p("alerts/coverage"), "*", on("settings.alerts")],
   [p("alerts"), "R", SESSION],
   // `POST /alerts/evaluate`.
   [p("alerts"), "W", ANY_WRITE],
@@ -339,6 +354,48 @@ export const visibleProjects = (user: Rights | undefined): SQL | undefined =>
 
 /** `visibleProjects` as an expression on a `projects` row (joins, subqueries, CASE). */
 export const projectVisible = (user: Rights | undefined): SQL => visibleProjects(user) ?? sql`1`;
+
+const PROJECT_KINDS: AlertKind[] = ["slice_setup_changed", "slice_failed", "hub_conflict"];
+
+/**
+ * The alerts `user` gets (ADR-0016), as a condition on `alerts`: a kind they subscribe to and have
+ * the permission for; a project's alert only when they see the project (a hub conflict outside a
+ * project needs only the kind); a sync task's only when its policy flag lets them, unless they have
+ * `integrations.manage`. undefined = all (the no-users mode).
+ */
+export function alertVisible(
+  user: Pick<SessionUser, "id" | "rights" | "subscriptions"> | undefined,
+): SQL | undefined {
+  if (!user) return undefined;
+  const { alerts, projects, syncPolicies } = schema;
+  const { permissions, projectRights } = user.rights;
+  const kinds = receivedKinds(permissions, user.subscriptions);
+  if (!kinds.length) return sql`0`;
+  const ctx = (key: string) => sql`json_extract(${alerts.context}, ${`$.${key}`})`;
+  const project = ctx("projectId");
+  const policy = (flag: AnyColumn) =>
+    sql`EXISTS (SELECT 1 FROM ${syncPolicies} WHERE ${syncPolicies.integrationId} = ${ctx("integrationId")} AND ${syncPolicies.type} = ${ctx("type")} AND ${flag})`;
+  return and(
+    inArray(alerts.kind, kinds),
+    projectRights["projects.seeAll"]
+      ? undefined
+      : or(
+          notInArray(alerts.kind, PROJECT_KINDS),
+          sql`${project} IS NULL`,
+          sql`EXISTS (SELECT 1 FROM ${projects} WHERE ${projects.id} = ${project} AND ${projectVisible(user)})`,
+        ),
+    permissions["integrations.manage"]
+      ? undefined
+      : or(
+          notInArray(alerts.kind, ["sync_pending", "sync_success", "sync_error"]),
+          and(eq(alerts.kind, "sync_pending"), policy(syncPolicies.editorReview)),
+          and(
+            inArray(alerts.kind, ["sync_success", "sync_error"]),
+            policy(syncPolicies.editorSync),
+          ),
+        ),
+  );
+}
 
 /** 403 unless `user` may edit files in `root` (create a project there, link one of its folders). */
 export function assertRootEditable(db: Db, user: Rights | undefined, root: Root) {

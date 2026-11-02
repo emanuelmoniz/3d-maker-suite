@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
-import { effectiveRights } from "@3d-maker-suite/core";
+import { effectiveAlertKinds, effectiveRights } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
 import { eq, lte } from "drizzle-orm";
 
@@ -27,14 +27,15 @@ type UserRow = typeof users.$inferSelect;
 type RoleRow = typeof roles.$inferSelect;
 
 /**
- * The user as a request carries it: no hash, with the role's name and the effective rights
- * (ADR-0016), read per request so a role or override change applies on the next one.
+ * The user as a request carries it: no hash, with the role's name, the effective rights and alert
+ * subscriptions (ADR-0016), read per request so a role or override change applies on the next one.
  */
 export function sessionUser({ passwordHash: _, ...user }: UserRow, role: RoleRow) {
   return {
     ...user,
     role: { id: role.id, name: role.name, builtIn: role.builtIn },
     rights: effectiveRights(role, user),
+    subscriptions: effectiveAlertKinds(role, user),
   };
 }
 export type SessionUser = ReturnType<typeof sessionUser>;

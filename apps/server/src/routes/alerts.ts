@@ -1,4 +1,6 @@
 import {
+  ALERT_KIND_CATALOG,
+  ALERT_KINDS,
   type Alert,
   type AlertHistoryItem,
   type AlertWithDetail,
@@ -12,6 +14,7 @@ import {
   channelSettingsSchema,
   type Page,
   pageOf,
+  receivedKinds,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
 import {
@@ -29,9 +32,11 @@ import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { channels, readChannel, sendVia, writeChannel } from "../alerts/channels.ts";
 import { HttpError } from "../errors.ts";
+import { alertVisible } from "../lib/auth.ts";
 import { listPage } from "../lib/list.ts";
+import { isEnabled, type SessionUser, sessionUser } from "../lib/session.ts";
 
-const { alerts, alertStates } = schema;
+const { alerts, alertStates, roles, users } = schema;
 const params = z.object({ id: z.uuid() });
 const channelParams = z.object({ id: z.string() });
 const notFound = { 404: apiErrorSchema };
@@ -77,8 +82,13 @@ export const alertsRoutes =
       return c;
     };
 
-    const one = (id: string, userId?: string) => {
-      const row = db.select(view(userId)).from(alerts).where(eq(alerts.id, id)).get();
+    /** An alert the caller gets (ADR-0016); one they don't is a 404, like a missing one. */
+    const one = (id: string, user?: SessionUser) => {
+      const row = db
+        .select(view(user?.id))
+        .from(alerts)
+        .where(and(eq(alerts.id, id), alertVisible(user)))
+        .get();
       if (!row) throw new HttpError(404, "not_found", "Alert not found");
       return { ...row, hasDetail: !!row.detail } as AlertWithDetail;
     };
@@ -90,7 +100,13 @@ export const alertsRoutes =
       return db
         .select({ ...columns, hasDetail: sql<number>`${alerts.detail} IS NOT NULL` })
         .from(alerts)
-        .where(and(isNull(alerts.resolvedAt), sql`${columns.dismissedAt} IS NULL`))
+        .where(
+          and(
+            isNull(alerts.resolvedAt),
+            sql`${columns.dismissedAt} IS NULL`,
+            alertVisible(req.user),
+          ),
+        )
         .orderBy(desc(alerts.createdAt))
         .all()
         .map((a) => ({ ...a, hasDetail: !!a.hasDetail })) as Alert[];
@@ -134,6 +150,7 @@ export const alertsRoutes =
             hasDetail: sql<number>`${alerts.detail} IS NOT NULL`,
           },
           where: [
+            alertVisible(req.user),
             or(
               sql`${alerts.resolvedAt} IS NOT NULL`,
               sql`${columns.dismissedAt} IS NOT NULL`,
@@ -157,7 +174,40 @@ export const alertsRoutes =
     app.get(
       "/:id",
       { schema: { params, response: { 200: alertWithDetailSchema, ...notFound } } },
-      async (req) => one(req.params.id, req.user?.id),
+      async (req) => one(req.params.id, req.user),
+    );
+
+    /**
+     * The condition kinds no enabled user gets (ADR-0016), for the Settings warning. The opt-in
+     * checks are left out: nobody getting them is the default.
+     */
+    app.get(
+      "/coverage",
+      { schema: { response: { 200: z.array(z.enum(ALERT_KINDS)) } } },
+      async (req) => {
+        // No users: the global channels get everything.
+        if (!req.user) return [];
+        const got = new Set(
+          db
+            .select({ user: users, role: roles })
+            .from(users)
+            .innerJoin(roles, eq(roles.id, users.roleId))
+            .all()
+            .filter(isEnabled)
+            // ponytail: the sync policy flags are left out, so a user with `.review` covers
+            // `sync_pending` on every task; check per policy if a task can go unwatched.
+            .flatMap(({ user, role }) => {
+              const u = sessionUser(user, role);
+              return receivedKinds(u.rights.permissions, u.subscriptions);
+            }),
+        );
+        return ALERT_KINDS.filter(
+          (k) =>
+            ALERT_KIND_CATALOG[k].condition &&
+            ALERT_KIND_CATALOG[k].default !== "off" &&
+            !got.has(k),
+        );
+      },
     );
 
     app.post("/evaluate", { schema: { response: { 204: z.null() } } }, async (_req, reply) => {
@@ -187,6 +237,8 @@ export const alertsRoutes =
         }[a.action];
         const { id } = req.params;
         const user = req.user?.id;
+        // Also a 404 for an alert the caller doesn't get, before anything is written.
+        one(id, req.user);
         if (!user) {
           // No users: the shared state on the alert itself.
           const row = db
@@ -207,7 +259,7 @@ export const alertsRoutes =
               .onConflictDoUpdate({ target: [alertStates.alertId, alertStates.userId], set: row })
               .run();
           });
-        const { detail: _, ...rest } = one(id, user);
+        const { detail: _, ...rest } = one(id, req.user);
         return rest as Alert;
       },
     );
