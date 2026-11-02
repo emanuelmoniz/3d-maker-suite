@@ -1297,7 +1297,7 @@ Back up the DB before editing schema.ts.
 Do Step 12 of the 5.1.0 plan in PLAN.md.
 ```
 
-### [ ] Step 13 - Docs, push & v5.1.0-alpha.2
+### [x] Step 13 - Docs, push & v5.1.0-alpha.2
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - `docs/alerts.md` (who gets what, delivery per user, thresholds) and `docs/users.md`.

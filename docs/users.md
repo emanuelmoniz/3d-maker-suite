@@ -85,6 +85,8 @@ Both are off by default. A user with Run syncs or Review imports, but not Set up
 
 Each person marks alerts read, snoozes or dismisses them for themselves. Other people still see the alert until they do the same. When the cause is fixed (maintenance done, a review finished, a spool's price or open date filled in), the alert resolves for everyone.
 
+Which alerts a person gets is set per role (Off, In app or Notify) and can be overridden on their user page. **My account** in the account menu has their own alert choices and where Notify alerts are sent (email, ntfy). See [alerts.md](alerts.md).
+
 ## Manage users
 
 People with **Users and roles** open **Settings → Users** to add people, change their role or rights, disable an account or reset a password. Disabling an account or resetting its password signs that person out everywhere. A change of role or rights applies at once, without signing them out.

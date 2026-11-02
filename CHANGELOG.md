@@ -2,6 +2,20 @@
 
 All notable changes are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [5.1.0-alpha.2] - 2026-11-02
+
+Pre-release. Test on a copy of your data first; back up before updating. Shared presets come in a later 5.1.0 pre-release.
+
+### Added
+- **Alerts per role and user**: each role sets every kind of alert to Off, In app or Notify, and a user can override any kind. Nobody gets an alert their permissions don't cover or about a project they can't see ([docs/alerts.md](docs/alerts.md))
+- **Delivery per user**: each person sets their own email and ntfy topic and token, and Notify alerts go to them once. The mail and ntfy servers stay in Settings → Alerts
+- **My account** page in the account menu: your name and password, your alerts and your delivery, with a test button
+- Settings → Alerts warns when no enabled user gets a condition alert
+
+### Changed
+- The "alert about missing price / open date" spool switches are now part of the role alert settings
+- Updating keeps notifications: the old email recipient and ntfy topic move to the oldest enabled admin
+
 ## [5.1.0-alpha.1] - 2026-11-02
 
 Pre-release. Test on a copy of your data first; back up before updating. Alerts per user and shared presets come in later 5.1.0 pre-releases.
