@@ -50,7 +50,8 @@ const setup = async (opts: Parameters<typeof buildApp>[3] = {}) => {
   const cookie = String(login.headers["set-cookie"]).split(";")[0] ?? "";
   const send = (method: "GET" | "POST" | "PATCH" | "DELETE", url: string, payload?: object) =>
     app.inject({ method, url, payload, headers: { cookie } });
-  await send("PATCH", "/api/preferences", { hubEnabled: true });
+  // These devices sync every project; selected projects are tested in hub.test.ts.
+  await send("PATCH", "/api/preferences", { hubEnabled: true, hubDefaultSyncMode: "all" });
   const dir = temp("hub-sync-root-");
   const root = (await send("POST", "/api/roots", { path: dir })).json();
   /** Pairs a device for `userId`; its sync calls. */

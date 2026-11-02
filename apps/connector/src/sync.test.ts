@@ -64,7 +64,8 @@ describe("hub root sync", () => {
     const cookie = String(login.headers["set-cookie"]).split(";")[0] ?? "";
     const send = (method: "GET" | "POST" | "PATCH" | "DELETE", url: string, payload?: object) =>
       app.inject({ method, url, payload, headers: { cookie } });
-    await send("PATCH", "/api/preferences", { hubEnabled: true });
+    // These devices sync every project; selected projects are tested in hub.test.ts.
+    await send("PATCH", "/api/preferences", { hubEnabled: true, hubDefaultSyncMode: "all" });
     const dir = temp("sync-hub-root-");
     const root = (await send("POST", "/api/roots", { path: dir })).json();
     const scan = async () => {
