@@ -1315,22 +1315,22 @@ Then push dev, push the tag and confirm the pre-release is published.
 
 The hub keeps one slicer preset library that the hub slicer, slice workers and workstations' desktop slicers all use. Today user presets reach the hub only through the slicer zip, which replaces `config/user` wholesale.
 
-Design (confirmed in Step 14):
+Design: ADR-0017 (confirmed on real installs in Step 14). In short:
 - **Why:** a saved 3MF already holds its resolved settings, so slicing "as saved" needs no presets. Presets matter when the app overrides the print, filament or printer (Print setup, filament prices and densities from `slicerPresetLibrary.read`) and for the same results on every worker.
 - **Hub only.** A single-PC install already slices with its desktop slicer folder.
-- **Library:** per slicer library (`bambu:`, `orca:`) and kind (machine, process, filament), with a version, sha256, and who saved it, from which device and when. Recommended: a hidden system root of kind `presets` (`<library>/<kind>/<name>.json`) reusing the hub file sync: versions, base-version uploads, change cursor, conflict copies, alerts, trash. Fallback: a small `slicer_presets` table. The managed slicer's `config/user/<x>` becomes a junction to the library, like `config/system`. The slicer zip merges into the library instead of replacing it. Workers get the library through Step 17 of 5.0.0.
-- **Two opt-in switches per device:** *Share my presets* (desktop → hub) and *Install hub presets* (hub → desktop).
-- **Conflicts:** same content (sha) is never a conflict and is never re-sent. A stale base with other content becomes `<name> (conflict <device>)`, with the `name` inside the json renamed too, plus a Sync conflict alert.
-- **Bambu Cloud and OrcaCloud rules** (the desktop folder is `user/<account id>/` when signed in, `user/default/` when signed out; each preset has a `.json` and, for Bambu, a `.info`):
-  - New preset: `.info` with an empty `setting_id`, `sync_info = create`, the folder's `user_id`. Studio then uploads it.
-  - Changed preset: keep `setting_id`, set `sync_info = update`, bump `updated_time`. Otherwise the older cloud copy wins at login.
-  - Write only while that slicer is closed (it reads presets at startup only; reuse the slicer-exit detection from check-out locks). Queue until then.
+- **Library:** per slicer library (`bambu-studio`, `orca-slicer`) and kind (machine, process, filament), in a `slicer_presets` table plus `slicer_preset_versions`: json, canonical sha256 (sorted keys, no whitespace), version, tombstone, `seq` change cursor, who saved it, from which device and when. The hub writes the live presets to `<dataDir>/presets/<library>/default/<kind>/`, and the managed slicer's `config/user` is a junction to that folder, like `config/system`. Worker integrations' `slicerConfigDir` points there too. The slicer zip merges into the library instead of replacing it.
+- **Two opt-in switches per device:** *Share my presets* (desktop → hub) and *Install hub presets* (hub → desktop), set by the new `presets.manage` permission.
+- **Conflicts:** the same canonical sha is never a conflict and is never re-sent; this also stops same-account loops through the cloud. A stale base with other content becomes a conflict copy named like hub files (`conflictName`), with the `name` inside the json renamed too, plus a `preset_conflict` alert.
+- **Bambu Cloud and OrcaCloud rules** (the folder is `user/<app.preset_folder>/`, or `user/default/` when signed out; `.json` + `.info` in account folders, the same format for both slicers):
+  - New preset: `.info` with an empty `setting_id`, `sync_info = create`, the folder's `user_id`, and `base_id` = the root system preset's `setting_id`. Never `create` under a name the cloud already has.
+  - Changed preset: keep `setting_id`, `sync_info = update`, `updated_time = max(old + 1, now)`. Without it the edit stays on that PC only. OrcaCloud doesn't upload disk edits even then (a warning on the device page).
+  - Write only while that slicer's process is closed: presets are read at startup and at sign-in only. Queue until then.
   - Deletes never reach desktops, because the cloud brings them back. A hub delete removes the preset from the hub and workers and tells the user to delete it in the slicer. A desktop delete only shows "removed on <device>".
-  - The connector remembers the sha of every file it wrote (echo suppression), so a preset that also arrives through Bambu Cloud on the same account doesn't loop.
-  - Back up the desktop user folder to a zip before the first write. Reject invalid json (e.g. `"nil"` values) with an alert.
-  - A preset whose `inherits` parent this slicer lacks is skipped on that device, with an alert.
+  - Json that doesn't parse is never stored or written (the slicers silently delete such files), with a `preset_skipped` alert. `"nil"` values are valid.
+  - Back up the desktop user folder to a zip before the first write. Write json in the slicer's own style (4 spaces for Studio, tabs for Orca).
+  - A preset whose `inherits` parent this slicer lacks is skipped on that device, with a `preset_skipped` alert.
 
-### [ ] Step 14 - Preset spike and ADR-0017  **[plan mode]**
+### [x] Step 14 - Preset spike and ADR-0017  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:**
 - On real installs (Bambu Studio signed in and signed out; Orca 2.4 signed out and on OrcaCloud), confirm the `.info` rules, startup-only reading, delete resurrection and the same-account echo.
@@ -1348,7 +1348,8 @@ Do Step 14 of the 5.1.0 plan in PLAN.md. Guide me through each test install, the
 **Scope:**
 - Storage per ADR-0017, zod schemas in `packages/core/src/schemas`, API, and a **Slicer presets** page in Hub management: per library and kind, versions, who saved, conflicts, download, delete.
 - Slicer zip import merges into the library. The managed slicer's `config/user` points at the library; workers get it.
-- Preset changes mark affected slices outdated (the cache key already holds the preset sha).
+- Preset changes mark affected slices outdated: add the presets' sha to the slice fingerprint (today it is the file sha, print profile, integration and slicer version).
+- `presets.manage` permission (ADR-0016 catalog, Editor on by data migration) and the `preset_conflict` / `preset_skipped` alert kinds (one migration).
 
 **Done when:** a zip import from two PCs keeps both sets; a hub delete disappears from a worker; e2e; `pnpm i18n:check` and tests pass.
 **Prompt:**
@@ -1360,8 +1361,8 @@ Back up the DB before editing schema.ts.
 ### [ ] Step 16 - Share my presets (desktop → hub)
 **Model:** Opus · **Effort:** High
 **Scope:**
-- Device switch *Share my presets* in Hub management. The connector watches its slicers' user preset folders (the account the slicer last used) and uploads changes with their base version.
-- json validation, conflict copies with the inner name renamed, Sync conflict alert. A desktop delete only shows "removed on <device>".
+- Device switch *Share my presets* in Hub management. The connector watches its slicers' user preset folders (`app.preset_folder` in the slicer's `.conf`, empty = `default`), ignores `.info` changes, and uploads changed `.json` with their base version.
+- json validation, conflict copies with the inner name renamed, `preset_conflict` alert. A desktop delete only shows "removed on <device>".
 
 **Done when:** a preset saved in Bambu Studio on one workstation shows on the hub within a minute; two edits of the same preset give a conflict copy and an alert; tests pass.
 **Prompt:**
@@ -1372,8 +1373,8 @@ Do Step 16 of the 5.1.0 plan in PLAN.md.
 ### [ ] Step 17 - Install hub presets (hub → desktop)  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:**
-- Device switch *Install hub presets*. Writes queue until the slicer is closed. `.info` rules for Bambu; backup zip before the first write; echo suppression; no delete propagation; skip and alert on a missing `inherits` parent.
-- The device page shows the target folder, the queue and the last backup.
+- Device switch *Install hub presets*. Writes queue until the slicer's process is gone (a check by process name; the check-out lock only knows pids the connector started). `.info` rules per ADR-0017 for Bambu and OrcaCloud; backup zip before the first write; same canonical sha = no write; no delete propagation; skip and alert on a missing `inherits` parent.
+- The device page shows the target folder, the queue, the last backup and, for OrcaCloud, that edits stay on that PC.
 
 **Done when:** a hub preset appears in a closed Bambu Studio after its next start, signed in and signed out; it survives a Bambu Cloud sync; two workstations on the same account don't loop; tests for the `.info` writer and echo suppression pass.
 **Prompt:**
