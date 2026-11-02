@@ -99,7 +99,15 @@ jobs:
           codesign --verify --deep --strict "/tmp/3D Maker Suite.app"
           open -n "/tmp/3D Maker Suite.app"
           # x64 runs under Rosetta here: its first start takes about 25 s.
-          for _ in $(seq 120); do curl -sf http://127.0.0.1:4300/api/health && exit 0; sleep 0.5; done
+          for _ in $(seq 120); do
+            if curl -sf http://127.0.0.1:4300/api/health; then
+              # Stop it: the connector refuses to start beside a hub on this machine (next steps).
+              curl -sf -X POST http://127.0.0.1:4300/api/server-config/stop
+              for _ in $(seq 40); do curl -sf http://127.0.0.1:4300/api/health > /dev/null || exit 0; sleep 0.5; done
+              echo "the app didn't stop"; exit 1
+            fi
+            sleep 0.5
+          done
           cat "$HOME/Library/Application Support/3d-maker-suite/install/logs/launcher.log"
           exit 1
       - name: Install and start (Linux)
@@ -111,7 +119,15 @@ jobs:
           "$RUNNER_TEMP/x/3d-maker-suite/install.sh"
           # Start it the way the app menu does.
           eval "$(grep '^Exec=' "$HOME/.local/share/applications/3d-maker-suite.desktop" | cut -d= -f2-)" &
-          for _ in $(seq 120); do curl -sf http://127.0.0.1:4300/api/health && exit 0; sleep 0.5; done
+          for _ in $(seq 120); do
+            if curl -sf http://127.0.0.1:4300/api/health; then
+              # Stop it: the connector refuses to start beside a hub on this machine (next steps).
+              curl -sf -X POST http://127.0.0.1:4300/api/server-config/stop
+              for _ in $(seq 40); do curl -sf http://127.0.0.1:4300/api/health > /dev/null || exit 0; sleep 0.5; done
+              echo "the app didn't stop"; exit 1
+            fi
+            sleep 0.5
+          done
           cat "$HOME/.local/share/3d-maker-suite/install/logs/launcher.log"
           exit 1
       # The connector (ADR-0014): same pipeline, its own name, port 4301 and start at login always on.
