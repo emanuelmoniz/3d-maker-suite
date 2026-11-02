@@ -1234,7 +1234,7 @@ Back up the DB before editing schema.ts.
 Do Step 8 of the 5.1.0 plan in PLAN.md. Use frontend-design.
 ```
 
-### [ ] Step 9 - Docs, push & v5.1.0-alpha.1
+### [x] Step 9 - Docs, push & v5.1.0-alpha.1
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - `docs/users.md`: roles, permissions, overrides, the upgrade from fixed roles.

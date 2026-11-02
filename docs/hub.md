@@ -129,13 +129,13 @@ The hub can browse and use only the folders a device **shares**. On the connecto
 
 Every project has an owner: the user who created it, the device's user for a project in a device root, or the oldest admin for projects that existed before 5.0.0. A folder found by a scan has no owner. Admins change the owner (or set it to nobody) when they edit the project, except in device roots.
 
-Each user has three switches (**Settings → Users**; on for admins by default):
+Three project rights come from the user's role, and can be changed per user ([users.md](users.md#projects-of-others)):
 
-- **Sees all projects.** Without it, a user sees only the projects they own. Elsewhere, such as prints and orders, other projects show as "Other project" with no link, and a project the user can't see is a 404.
-- **Edits other people's projects.** Without it, they can view and download them, not change them.
-- **Edits files on other people's devices.**
+- **See everyone's projects.** Without it, a user sees only the projects they own. Elsewhere, such as prints and orders, other projects show as "Other project" with no link, and a project the user can't see is a 404.
+- **Edit everyone's projects.** Without it, they can view and download them, not change them.
+- **Edit files on other workstations.**
 
-Each root also has **Who can edit**: editors and admins, admins only, picked users, or nobody (view only). A device's own user can always edit.
+Editing any project file needs Projects write. Each root also has **Who can edit**: **Editors and admins** (anyone with Projects write), admins only, picked users, or nobody (view only). A device's own user can always edit.
 
 ## Install the connector
 

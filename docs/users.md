@@ -12,22 +12,74 @@ Until the first account exists, anyone who can open the page can create it. Do t
 
 ## Roles
 
+A role is a set of permissions. Each user has one role, and gets what it allows. Manage roles under **Settings → Roles**.
+
+Three roles come built in:
+
 | Role | Can do |
 |---|---|
-| **Viewer** | See everything: printers, filament, projects, prints, quotes, orders, clients, stats, alerts. Mark alerts read or unread, snooze and dismiss them. Change their own display preferences (language, units, date and time format, theme, accent). |
-| **Editor** | Everything a viewer can, plus add and change the day-to-day data: spools, prints, projects, quotes, orders, clients, tags, alerts. Log maintenance done and accessory installs. Run the integration tasks an admin allowed (see below). |
-| **Admin** | Everything, including users, server settings (network, autostart, restart, stop), updates, backups and restores, import, integrations setup, alert channels, logs, branding, and the module settings (printers, accessories, maintenance types, catalogs, costs and workflow). |
+| **Viewer** | Read every module: printers, maintenance, filament, projects, prints, quotes, orders, clients, stats, alerts. |
+| **Editor** | Write every module: the day-to-day data (spools, prints, projects, quotes, orders, clients, tags), maintenance done and accessory installs. Run syncs and review imports where allowed (see below). |
+| **Admin** | Everything. The Admin role can't be changed, disabled or deleted. |
 
-The app keeps at least one enabled admin: you can't disable, demote or delete the last one.
+Everyone, viewers included, marks their own alerts read, snoozes and dismisses them, and changes their own display preferences (language, units, date and time format, theme, accent).
 
-## Integration tasks for editors
+Editor and Viewer are ordinary roles: rename them, change their permissions, disable them, or delete them once nobody has them. **New role** starts from a copy of an existing role. Changes apply to the role's users right away. While a role is disabled, its users can't sign in.
 
-Admins set up integrations. They can also let an editor run single tasks, per data type (for example, spools but not prints):
+### Permissions
 
-- **Sync now**: the editor may run that task's sync.
-- **Review**: the editor may review and import what that task brings in.
+Modules have four steps: **None** (hidden), **Read**, **Write** and **Manage**.
 
-Both are off by default. An editor with at least one of them sees the Integrations page with only those tasks, and no account, slicer or setup settings. Alerts show the sync or review button only for the tasks they're allowed.
+| Module | Write | Manage |
+|---|---|---|
+| Printers and accessories | Log accessory installs | Add and edit printers, accessories and the catalog |
+| Maintenance | Log work done | Edit the tasks and types |
+| Filament | Add and edit spools | Edit profiles, brands and materials |
+| Projects | Add and edit projects and their files | Set up the project folders |
+| Prints | Log and edit prints | Change print settings |
+| Quotes, orders and clients | Make quotes and orders | Change rates, currency and order statuses |
+
+**Stats** is None or Read. The rest are on or off:
+
+- **Run syncs** and **Review imports**: only the integration tasks set to allow them (see below).
+- **Set up integrations**: add, sign in and configure integrations and slicers.
+- **Manage the hub**: pair and edit workstations, change hub settings.
+- **Server and updates**, **Backups** (make, download, delete; only the Admin role restores one), **Logs**, **Branding**, **Alert settings** (thresholds, email and ntfy).
+- **Users and roles**: add and edit users and roles.
+
+### Projects of others
+
+- **See everyone's projects.** Off: only the projects they own.
+- **Edit everyone's projects.** Needs Projects write. Off: only their own; the others are download only.
+- **Edit files on other workstations.** Change files in folders shared from someone else's workstation ([hub.md](hub.md#owners-and-permissions)).
+
+Admin, Editor and Viewer see everyone's projects. Admin and Editor edit them. Only Admin edits files on other workstations.
+
+### Give one user more or less
+
+Open a user under **Settings → Users** to change any permission or project right for that user only. **Same as role** follows the role, also when the role changes later. Each row shows the user's value and the role's.
+
+Admin-role users have every permission; the only thing to change for them is **Edit files on other workstations**.
+
+### Who can manage whom
+
+- Someone with **Users and roles** who isn't in the Admin role can't give more than they have: every step they pick, in a role or for a user, is at most their own.
+- Only Admin-role users change admin accounts or move someone into or out of the Admin role.
+- Nobody changes their own role, rights or state. Another user manager does.
+- The app keeps at least one enabled admin: you can't disable, demote or delete the last one.
+
+### Upgrading from fixed roles (before 5.1.0)
+
+Each user keeps their role: admins become Admin, editors Editor, viewers Viewer, with the same rights as before. The old per-user switches (sees all projects, edits other people's projects, edits files on other people's devices) become overrides only where they differed from the new role's value. Nothing to do after the update.
+
+## Integration tasks
+
+People with **Set up integrations** set up integrations. They can also allow single tasks per data type (for example, spools but not prints), in the integration's **Editors** settings:
+
+- **Can sync now**: users with **Run syncs** may run that task's sync.
+- **Can review and import**: users with **Review imports** may review and import what that task brings in.
+
+Both are off by default. A user with Run syncs or Review imports, but not Set up integrations, sees the Integrations page with only the allowed tasks, and no account, slicer or setup settings. Alerts show the sync or review button only for those tasks.
 
 ## Alerts are per person
 
@@ -35,7 +87,7 @@ Each person marks alerts read, snoozes or dismisses them for themselves. Other p
 
 ## Manage users
 
-Admins open **Settings → Users** to add people, change their role, disable an account or reset a password. Disabling an account, changing its role or resetting its password signs that person out everywhere.
+People with **Users and roles** open **Settings → Users** to add people, change their role or rights, disable an account or reset a password. Disabling an account or resetting its password signs that person out everywhere. A change of role or rights applies at once, without signing them out.
 
 Each person changes their own name and password under **Settings → My account**.
 

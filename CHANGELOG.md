@@ -2,14 +2,28 @@
 
 All notable changes are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased]
+## [5.1.0-alpha.1] - 2026-11-02
+
+Pre-release. Test on a copy of your data first; back up before updating. Alerts per user and shared presets come in later 5.1.0 pre-releases.
 
 ### Added
+- **Roles and permissions**: Admin, Editor and Viewer become roles, and you can add your own under **Settings → Roles**. Each module has a step (none, read, write, manage), plus switches for syncs, imports, integrations setup, the hub, server, backups, logs, branding, alert settings and users ([docs/users.md](docs/users.md#roles))
+- **Per-user overrides**: give one user more or less than their role, permission by permission, on the new user page. The project rights (see everyone's projects, edit them, edit files on other workstations) are part of it
+- Users with **Users and roles** who aren't admins can manage users and roles, but never give more than they have
+- Hub management: an **edit connector** page with port, start at login, restart, rename, sync and slicing
 - Connector: **Unpair** from the connector side, and **Restart server** / **Stop server** on the pair screen
 
 ### Changed
+- Updating keeps everyone's rights: users move to the matching role, and the old per-user project switches become overrides only where they differed
+- A change of role or rights applies at once, without signing the user out
+- **Settings → Users** is a table with a page per user; **Settings → Roles** lists the roles with filters
+- New devices sync selected projects by default; the default is a setting in Hub management. The quote picker lists newest first
+- Projects settings are organized into cards
 - Connector: the status page has a new look, and shows the hub's name, logo and favicon once paired (name + "Connector")
 - Connector: refuses to start on a machine where a hub is running
+
+### Fixed
+- The accent selector shows the picked color
 
 ## [5.0.0] - 2026-10-30
 
