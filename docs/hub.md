@@ -115,6 +115,35 @@ A device can slice for the hub. In **Hub management** turn on **Slice worker** f
 
 Use a worker when the hub is on a VPS or an arm64 NAS with no server slicer, or when a workstation is faster. The hub keeps the presets and prepares each job; only the slicer runs on the device. Run the connector in its own data folder: it refuses to start in the hub's, because it would clean up the hub's slicer installs.
 
+## Slicer presets
+
+On a hub, one library holds the user presets (printer, process, filament) of Bambu Studio and OrcaSlicer. The hub's slicer and every slice worker use it, and a slice that used a changed preset shows as outdated. A single-PC install has no library: it slices with its desktop slicer's own folder.
+
+Open it from **Slicer presets** in the navigation (or the link on the Hub page). Anyone who can see projects can browse and download presets and their earlier versions. Changing things needs **Manage slicer presets**, which Admin and Editor have: delete a preset, clean up conflict copies, and set the two switches below.
+
+Presets get in from a slicer zip ([slicing.md](slicing.md#profiles)) or from a workstation. Per device, in Hub management → **Slicer presets** (both off by default):
+
+- **Share my presets**: the connector sends each preset saved in its slicers to the hub within a minute. It follows the account the slicer last used, or the signed-out folder.
+- **Install hub presets**: the connector writes the library's presets into that slicer's folder. It waits until the slicer is closed, backs up the folder to a zip first (shown on the device page) and the preset shows at the slicer's next start.
+
+### Conflicts and skipped presets
+
+If a device and the hub both changed a preset, the device's version is kept as a *conflict copy* named like hub file conflicts, and you get a **Preset conflict** alert. Download both, keep what you need, then delete the copy. Conflict copies stay on the hub. A preset that isn't valid JSON is never stored or written, and one whose parent preset the slicer lacks isn't installed there: both raise **Preset skipped**.
+
+### Deleting
+
+A delete never reaches workstations. Bambu Cloud and OrcaCloud bring a deleted preset back at the slicer's next start. Deleting on the hub removes the preset from the hub and the workers; delete it in each slicer too. Deleting in a slicer only shows **Removed on <device>** on the hub, which keeps its copy.
+
+### Bambu Cloud and OrcaCloud
+
+Both slicers sync user presets through their cloud account, and the connector writes the files the way the slicer expects, so a new preset is uploaded at the slicer's next start.
+
+- **OrcaCloud** uploads new presets written to disk but not edits. A hub edit lands on that PC only, and the cloud keeps the old version for other PCs; the device page says so.
+- A preset the cloud sends back may differ slightly (it drops values equal to the parent's). With both switches on this makes one more version on the hub, then it settles.
+- Presets in the slicer need the parent preset they inherit from. OrcaSlicer 2.5 and later can't be checked for this, so they install without the check.
+
+**Tip for farms:** with one cloud account on every PC, or cloud sync off on farm PCs, each PC gets the hub's presets from the connector alone, and the account's cloud can't bring back what you deleted or undo an edit. Use one Bambu account for the farm, or turn cloud sync off on those PCs.
+
 ## Shared folders on a device
 
 The hub can browse and use only the folders a device **shares**. On the connector's status page, **Manage shared folders** adds a folder (the full path of an existing folder) or stops sharing one. Adding a folder inside a shared one isn't needed; the device already shares it.

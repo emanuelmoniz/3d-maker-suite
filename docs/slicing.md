@@ -38,13 +38,13 @@ The slicer pickers show the worker as "Bambu Studio (WS-3)", named after its dev
 
 **If the device is offline** the plate shows *Waiting for the slice worker* and the queue goes on. It slices when the device connects or you press **Slice**; **Slice on the server instead** falls back to the hub's own slicer. A connector older than the hub says it's too old: update it from Hub management.
 
-The slice remembers the worker and the slicer version, so a new version marks it outdated like on the server.
+The slice remembers the worker and the slicer version, so a new version marks it outdated like on the server. It also remembers the presets it used: when one of them changes in the [library](hub.md#slicer-presets), the slice shows as outdated.
 
 ## Profiles
 
 - **Bambu Studio (server)** imports its brands, printers and profiles from the download, with the same sync options as the local one.
 - **OrcaSlicer (server)** can't be read (Orca ships its profiles in a binary format). It slices with the 3MF's own settings plus the user presets you import.
-- **Your own presets:** zip the slicer's config folder on your PC and upload it on [Import → slicer zip](import.md#slicer-catalog-from-a-zip). The `user` presets are kept in the server slicer's config folder, so slicing finds them later.
+- **Your own presets:** zip the slicer's config folder on your PC and upload it on [Import → slicer zip](import.md#slicer-catalog-from-a-zip). The zip is merged into the hub's [slicer preset library](hub.md#slicer-presets), so presets already there stay. Slicing on the server and on workers uses that library.
 - **Presets belong to a slicer.** A Bambu Studio print or printer preset doesn't exist in OrcaSlicer and the other way round, and a slicer's presets are never matched to the other's, even with the same name. The slicer pickers mark slicers that don't fit a plate's profiles, and the plate warns before slicing. A filament preset of the other slicer is fine: that slot slices with the file's own filament, and the spool's price still counts.
 
 ## Docker

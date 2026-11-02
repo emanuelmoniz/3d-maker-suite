@@ -2,6 +2,21 @@
 
 All notable changes are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [5.1.0-alpha.3] - 2026-11-02
+
+Pre-release. Test on a copy of your data first; back up before updating.
+
+### Added
+- **Slicer presets library** on the hub: the user presets of Bambu Studio and OrcaSlicer in one place, used by the hub's slicer and every slice worker. Browse, download earlier versions and delete on the new **Slicer presets** page ([docs/hub.md](docs/hub.md#slicer-presets))
+- **Share my presets**: a workstation sends the presets saved in its slicers to the hub
+- **Install hub presets**: the connector writes the library into a workstation's slicer while it is closed, with a backup first, in the way Bambu Cloud and OrcaCloud expect
+- **Manage slicer presets** permission (Admin and Editor), and **Preset conflict** / **Preset skipped** alerts
+- A slice shows as outdated when a preset it used changes
+
+### Changed
+- Importing a slicer zip on a hub merges into the library instead of replacing the slicer's user presets
+- The Slicer presets page can be reached without the hub management permission
+
 ## [5.1.0-alpha.2] - 2026-11-02
 
 Pre-release. Test on a copy of your data first; back up before updating. Shared presets come in a later 5.1.0 pre-release.

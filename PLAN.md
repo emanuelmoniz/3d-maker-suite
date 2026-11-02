@@ -1383,7 +1383,7 @@ Do Step 16 of the 5.1.0 plan in PLAN.md.
 Do Step 17 of the 5.1.0 plan in PLAN.md. Show me the .info writer and the write queue first.
 ```
 
-### [ ] Step 18 - Docs, push & v5.1.0-alpha.3
+### [x] Step 18 - Docs, push & v5.1.0-alpha.3
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - `docs/slicing.md` and `docs/hub.md`: how presets flow, the two switches, the Bambu Cloud and OrcaCloud caveats, and a tip for farms (one Bambu account, or cloud sync off on farm PCs).
