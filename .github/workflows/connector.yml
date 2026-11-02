@@ -35,11 +35,12 @@ jobs:
       # The hub serves the web app, so it needs the build to start.
       - run: pnpm --filter @3d-maker-suite/web build
       - run: node packaging/build.mjs --product connector
-      - name: Start a hub (fresh data, port 4300)
+      # Not 4300: the connector refuses to start beside a hub on this machine's hub port.
+      - name: Start a hub (fresh data, port 4310)
         run: |
           mkdir -p "$RUNNER_TEMP/hub"
           cd apps/server
-          APP_DATA_DIR="$RUNNER_TEMP/hub" nohup pnpm exec tsx src/main.ts > "$RUNNER_TEMP/hub.log" 2>&1 &
+          PORT=4310 APP_DATA_DIR="$RUNNER_TEMP/hub" nohup pnpm exec tsx src/main.ts > "$RUNNER_TEMP/hub.log" 2>&1 &
       - name: Install and start the connector (Linux)
         if: runner.os == 'Linux'
         run: |
@@ -54,7 +55,7 @@ jobs:
           cp -R "/tmp/cdmg/3D Maker Suite Connector.app" /tmp/
           hdiutil detach /tmp/cdmg
           open -n "/tmp/3D Maker Suite Connector.app"
-      - run: node scripts/pair-test.mjs
+      - run: node scripts/pair-test.mjs --hub http://127.0.0.1:4310
       - name: Logs
         if: failure()
         run: |

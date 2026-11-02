@@ -87,7 +87,9 @@ test("hub: pair a device, edit it, revoke it", async ({ page, app }) => {
   stream.abort();
   await page.waitForTimeout(500);
   await page.reload();
-  await expect(page.getByText("The connector is offline. This can only be changed")).toBeVisible();
+  await expect(
+    page.getByText("The connector is offline. This can only be changed").first(),
+  ).toBeVisible();
   await page.getByRole("link", { name: "Back" }).click();
   await expect(row).toContainText("Laptop");
   await expect(row.getByRole("button", { name: "Restart connector" })).toBeDisabled();
