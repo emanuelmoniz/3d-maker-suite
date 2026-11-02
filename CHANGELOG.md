@@ -2,6 +2,14 @@
 
 All notable changes are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [5.1.0] - 2026-11-02
+
+Stable release. Everything in 5.1.0-alpha.1 to alpha.4 is included; nothing changed after alpha.4. Test on a copy of your data first; back up before updating. Updating from 5.0.0 keeps every user's rights and alerts.
+
+### Added
+- **Alerts per role and user** and **delivery per user**, with the **My account** page ([docs/alerts.md](docs/alerts.md), [docs/users.md](docs/users.md))
+- **Slicer presets library** on the hub, sharing and installing presets on workstations ([docs/hub.md](docs/hub.md#slicer-presets))
+
 ## [5.1.0-alpha.4] - 2026-11-02
 
 Pre-release. Test on a copy of your data first; back up before updating. Same as alpha.3, whose release build failed on a slow test.

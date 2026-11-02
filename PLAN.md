@@ -1414,7 +1414,7 @@ Fix anything found and note it in the CHANGELOG (alpha.4 if needed).
 Do Step 19 of the 5.1.0 plan in PLAN.md. Guide me through each scenario, then fix what we find.
 ```
 
-### [ ] Step 20 - Docs, push & v5.1.0 release
+### [x] Step 20 - Docs, push & v5.1.0 release
 **Model:** Haiku · **Effort:** Low
 **Scope:**
 - `pnpm screenshots` (Users, Roles, My account, Slicer presets), README, CHANGELOG, version `5.1.0`.
