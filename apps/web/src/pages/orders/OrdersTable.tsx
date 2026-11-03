@@ -51,6 +51,7 @@ export function OrdersTable({
         filters: orderFilters,
         defaultSort: "-number",
         archivable: true,
+        scope: fixed,
       }}
       columns={[
         {

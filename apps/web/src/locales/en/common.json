@@ -150,7 +150,11 @@
     }
   },
   "bulk": {
-    "selectAll": "Select all on this page",
+    "selectAll": "Select all matching rows, on every page",
+    "selecting_one": "Selecting {{count, number}} row…",
+    "selecting_other": "Selecting {{count, number}} rows…",
+    "selectFailed": "Couldn't select them all, so nothing was added. The list may have just changed. Try again.",
+    "working": "Working…",
     "select": "Select {{name}}",
     "selected_one": "{{count, number}} selected",
     "selected_other": "{{count, number}} selected",

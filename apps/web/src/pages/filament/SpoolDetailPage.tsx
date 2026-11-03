@@ -55,6 +55,7 @@ function SpoolUse({ spoolId }: { spoolId: string }) {
               total={projects.data.total}
               query={projectQuery}
               onQueryChange={setProjectQuery}
+              scope={{ spoolId }}
             />
           ) : (
             <p className="text-muted">{t("filament:detail.projectsNone")}</p>
@@ -64,7 +65,12 @@ function SpoolUse({ spoolId }: { spoolId: string }) {
         <h2 className="mb-3 text-base font-semibold">{t("filament:detail.prints")}</h2>
         {prints.data &&
           (prints.data.total || Object.keys(printQuery).length || archivedPrints ? (
-            <PrintsTable data={prints.data} query={printQuery} onQueryChange={setPrintQuery} />
+            <PrintsTable
+              data={prints.data}
+              query={printQuery}
+              onQueryChange={setPrintQuery}
+              scope={{ spoolId }}
+            />
           ) : (
             <p className="text-muted">{t("filament:detail.printsNone")}</p>
           ))}

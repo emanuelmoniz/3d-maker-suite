@@ -40,12 +40,15 @@ export function PrintsTable({
   data,
   query,
   onQueryChange,
+  scope,
   actions,
   hideProject,
 }: {
   data: Page<PrintDetail>;
   query: ListQuery;
   onQueryChange: (q: ListQuery) => void;
+  /** What the list is limited to, outside `query`. */
+  scope?: ListQuery;
   /** A last column of row buttons, instead of Archive and Delete. */
   actions?: (p: PrintDetail) => ReactNode;
   /** A project's own list: every row is that project. */
@@ -84,6 +87,7 @@ export function PrintsTable({
         filters: printFilters,
         defaultSort: "-title",
         archivable: true,
+        scope,
       }}
       columns={[
         ...(hideProject ? [] : [projectColumn]),

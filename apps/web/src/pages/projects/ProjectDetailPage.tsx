@@ -263,7 +263,13 @@ function LinkedPrints({ id }: { id: string }) {
     return null;
   return (
     <Collapsible title={t("projects:detail.prints")}>
-      <PrintsTable data={prints.data} query={query} onQueryChange={setQuery} hideProject />
+      <PrintsTable
+        data={prints.data}
+        query={query}
+        onQueryChange={setQuery}
+        scope={{ projectId: id }}
+        hideProject
+      />
     </Collapsible>
   );
 }

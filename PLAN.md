@@ -1615,8 +1615,8 @@ Do Step 11 of the 5.2.0 plan in PLAN.md.
 ### [x] Step 12 - Bulk archive and delete  **[plan mode]**
 **Model:** Opus · **Effort:** Medium
 **Scope:**
-- `DataTable` gets optional row selection (checkbox per row, select all on the page, keyboard, a bar with the count and actions). `ReviewTable` and `ProjectFiles` have their own, leave those.
-- Server: one bulk route per entity, or one shared route, each row going through the same archive and delete code as Steps 9 and 10. A cap on ids per request. Module `manage` in the rules in `lib/auth.ts`; project access per row.
+- `DataTable` gets optional row selection (checkbox per row, select all rows the table's filters list on every page, keyboard, a bar with the count and actions). `ReviewTable` and `ProjectFiles` have their own, leave those.
+- Server: one bulk route per entity, or one shared route, each row going through the same archive and delete code as Steps 9 and 10. No cap on ids per request. Module `manage` in the rules in `lib/auth.ts`; project access per row.
 - Web: selection only shows with `manage`. Confirm with the count; a result dialog with done and blocked rows.
 
 **Done when:** all 16 lists bulk archive, restore and delete; partial results are reported; a `write` user sees no selection and the API refuses them; e2e; `pnpm i18n:check` and tests pass.

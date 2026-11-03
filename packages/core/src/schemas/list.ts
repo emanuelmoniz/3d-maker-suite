@@ -172,12 +172,9 @@ export const BULK_ITEMS = {
 export type BulkKind = keyof typeof BULK_ITEMS;
 export const bulkKindSchema = z.enum(Object.keys(BULK_ITEMS) as [BulkKind, ...BulkKind[]]);
 
-/** The API's largest page: a selection is one page's rows. */
-export const BULK_MAX_IDS = 100;
-
 export const bulkInputSchema = z.object({
   action: z.enum(["archive", "restore", "delete"]),
-  ids: z.array(z.uuid()).min(1).max(BULK_MAX_IDS),
+  ids: z.array(z.uuid()).min(1),
 });
 
 /** What happened to each row; `blocked` carries the error its single-row request would get. */

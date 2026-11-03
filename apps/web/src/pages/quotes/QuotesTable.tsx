@@ -46,6 +46,7 @@ export function QuotesTable({
         filters: quoteFilters,
         defaultSort: "-name",
         archivable: true,
+        scope: fixed,
       }}
       columns={[
         {

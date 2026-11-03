@@ -1,7 +1,7 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { BUILT_IN_ROLE_IDS, BULK_MAX_IDS, type BulkKind } from "@3d-maker-suite/core";
+import { BUILT_IN_ROLE_IDS, type BulkKind } from "@3d-maker-suite/core";
 import { openDb, schema, seed } from "@3d-maker-suite/db";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { buildApp } from "./app.ts";
@@ -133,9 +133,39 @@ describe("POST /api/bulk/:kind", () => {
     expect((await bulk("users", { action: "archive", ids: [id] })).statusCode).toBe(400);
     expect((await bulk("clients", { action: "archive", ids: [] })).statusCode).toBe(400);
     expect((await bulk("clients", { action: "hide", ids: [id] })).statusCode).toBe(400);
-    const tooMany = Array.from({ length: BULK_MAX_IDS + 1 }, () => id);
-    expect((await bulk("clients", { action: "archive", ids: tooMany })).statusCode).toBe(400);
     expect((await app.inject(`/api/clients/${id}`)).json().archivedAt).toBeNull();
+  });
+
+  it("has no cap on rows", async () => {
+    const ids: string[] = [];
+    for (let i = 0; i < 250; i++) ids.push(await client());
+    const res = await bulk("clients", { action: "archive", ids });
+    expect(res.statusCode, res.body).toBe(200);
+    expect(res.json().done).toHaveLength(250);
+  });
+
+  it("takes a request far over the default 1 MiB body limit", async () => {
+    const id = await client();
+    const ids = Array.from({ length: 40_000 }, () => id);
+    const res = await bulk("clients", { action: "archive", ids });
+    expect(res.statusCode, res.body).toBe(200);
+    expect(res.json()).toEqual({ done: [id], blocked: [] });
+  });
+
+  it("paging through a list finds every row, even when the sort column ties", async () => {
+    const ids = new Set<string>();
+    for (let i = 0; i < 230; i++) ids.add(await client());
+    db.update(schema.clients).set({ createdAt: "2026-01-01T00:00:00.000Z" }).run();
+    for (const sort of ["createdAt", "-createdAt"]) {
+      const seen = new Set<string>();
+      for (const page of [1, 2, 3]) {
+        const { items } = (
+          await app.inject(`/api/clients?sort=${sort}&pageSize=100&page=${page}`)
+        ).json();
+        for (const c of items) seen.add(c.id);
+      }
+      expect(seen).toEqual(ids);
+    }
   });
 });
 

@@ -196,7 +196,9 @@ Each row goes through the same archive and delete code as a single one, in its o
 
 Rows run in request order. A row blocked by another in the same request (a project and its quote) is reported as blocked and can be retried.
 
-One shared route, `POST /api/bulk/:kind` with `{ action, ids }`, answers 200 with `{ done, blocked }`, including when every row is blocked. It takes at most 100 ids, the API's largest page, because a selection is one page's rows.
+One shared route, `POST /api/bulk/:kind` with `{ action, ids }`, answers 200 with `{ done, blocked }`, including when every row is blocked. There is no cap on ids beyond a 64 MiB body, over a million of them.
+
+Select all takes every row the table lists, on every page: its column filters, Show archived and anything else it is limited to (`scope`, like a client's orders). The web pages through the same list endpoint, and selects nothing if the count differs from the table's own total, so "all" can't reach rows the table doesn't show. It is a snapshot of those rows, shown as a count before the confirm, not a filter applied later. A selection survives paging and sorting and ends with a new filter.
 
 Each row is the `PATCH` or `DELETE` its own button sends, replayed in process as the same caller (`app.inject`). So a row can't drift from the single-row code, its error becomes its `blocked` entry, and `authGuard` applies per-project access: a hidden project is `not_found` and a download-only one `forbidden`. A replayed row skips the on-change alert check, and the bulk request runs one when it ends.
 

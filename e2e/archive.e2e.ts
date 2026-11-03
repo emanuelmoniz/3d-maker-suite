@@ -2,6 +2,8 @@ import type { Locator, Page } from "@playwright/test";
 import { expect, test } from "./fixtures.ts";
 import { hasHorizontalScroll, seedModel, seedPrinter, seedProject, seedSpool } from "./helpers.ts";
 
+const SELECT_ALL = "Select all matching rows, on every page";
+
 test("archived rows still show where a row points at them, and pickers keep only those", async ({
   page,
   app,
@@ -350,10 +352,10 @@ test("bulk: select by keyboard, archive, restore, and a partial delete says why"
   await expect(link("Cid")).toHaveCount(0);
   await expect(page.getByText("1 selected")).toHaveCount(0);
 
-  // Select all on the page, with an archived row in it: Archive and Restore count only theirs.
+  // Select all, with an archived row in it: Archive and Restore count only theirs.
   await page.getByRole("checkbox", { name: "Show archived" }).check();
   await expect(link("Cid")).toBeVisible();
-  await page.getByRole("checkbox", { name: "Select all on this page" }).check();
+  await page.getByRole("checkbox", { name: SELECT_ALL }).click();
   await expect(page.getByText("3 selected")).toBeVisible();
   await expect(page.getByRole("button", { name: "Archive 2" })).toBeVisible();
   await page.getByRole("button", { name: "Restore 1" }).click();
@@ -367,7 +369,7 @@ test("bulk: select by keyboard, archive, restore, and a partial delete says why"
   await expect(page.getByText("1 selected")).toHaveCount(0);
 
   // Delete: the free ones go, the used one is named with what uses it and stays selected.
-  await page.getByRole("checkbox", { name: "Select all on this page" }).check();
+  await page.getByRole("checkbox", { name: SELECT_ALL }).click();
   await page.getByRole("button", { name: "Delete 3" }).click();
   await expect(dialog).toContainText("Delete 3 items?");
   await dialog.getByRole("button", { name: "Delete" }).click();
@@ -442,4 +444,117 @@ test("archived printers and accessories are marked where they show", async ({ pa
   // A maintenance type limited to it doesn't read as "all models".
   await page.goto(`/maintenance/types/${type.id}`);
   await expect(page.getByText(/Test Printer \(archived\)/)).toBeVisible();
+});
+
+test("select all takes every row the filters list, on every page, past 100", async ({
+  page,
+  app,
+}) => {
+  for (let i = 0; i < 120; i++)
+    await app.api("POST", "/api/clients", { name: `Ana ${i}`, mobile: `91${i}` });
+  for (let i = 0; i < 5; i++)
+    await app.api("POST", "/api/clients", { name: `Bea ${i}`, mobile: `92${i}` });
+  await page.goto("/clients");
+  const all = page.getByRole("checkbox", { name: SELECT_ALL });
+  const bar = page.getByText(/\d selected/);
+
+  // Everything, though a page shows 25.
+  await all.focus();
+  await page.keyboard.press("Space");
+  await expect(bar).toHaveText("125 selected");
+  await expect(all).toBeChecked();
+
+  // It holds across pages and sorting; a row unticked anywhere is left out.
+  await page.getByRole("button", { name: "Next" }).click();
+  await expect(page.getByText("26–50 of 125")).toBeVisible();
+  await expect(bar).toHaveText("125 selected");
+  const row = page.getByRole("checkbox", { name: /^Select / }).nth(1);
+  await expect(row).toBeChecked();
+  await row.uncheck();
+  await expect(bar).toHaveText("124 selected");
+  await expect(all).not.toBeChecked();
+  await page.getByRole("button", { name: "Clear selection" }).click();
+  await expect(bar).toHaveCount(0);
+
+  // A filter narrows it to what the filter lists.
+  await page.goto("/clients?name=Bea");
+  await expect(page.getByText("1–5 of 5")).toBeVisible();
+  await all.click();
+  await expect(bar).toHaveText("5 selected");
+  await page.getByRole("button", { name: "Archive 5" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Archive" }).click();
+  await expect(bar).toHaveCount(0);
+  expect(
+    (await app.api<{ total: number }>("GET", "/api/clients?archived=true&pageSize=1")).total,
+  ).toBe(5);
+  expect((await app.api<{ total: number }>("GET", "/api/clients?pageSize=1")).total).toBe(120);
+
+  // It acts on rows it never showed: all 120 go from page 5.
+  await page.goto("/clients?page=5");
+  await all.click();
+  await expect(bar).toHaveText("120 selected");
+  await page.getByRole("button", { name: "Delete 120" }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toContainText("Delete 120 items?");
+  await dialog.getByRole("button", { name: "Delete" }).click();
+  await expect(bar).toHaveCount(0);
+  expect((await app.api<{ total: number }>("GET", "/api/clients?pageSize=1")).total).toBe(0);
+});
+
+test("select all on a detail page keeps to that page's rows", async ({ page, app }) => {
+  const client = (name: string, mobile: string) =>
+    app.api<{ id: string }>("POST", "/api/clients", { name, mobile });
+  const [ana, bea] = [await client("Ana", "911"), await client("Bea", "912")];
+  const project = await seedProject(app.api, "Lamp");
+  const other = await seedProject(app.api, "Vase");
+  const printer = await seedPrinter(app.api);
+  const projectIds = [project.id];
+  for (const clientId of [ana.id, ana.id, bea.id])
+    await app.api("POST", "/api/orders", { projectIds, clientId, price: 1 });
+  const print = (title: string, projectId: string) =>
+    app.api("POST", "/api/prints", {
+      printerId: printer.id,
+      title,
+      projectId,
+      startedAt: "2026-01-01T10:00:00.000Z",
+      outcome: "success",
+      usages: [],
+    });
+  await print("One", project.id);
+  await print("Two", project.id);
+  await print("Elsewhere", other.id);
+  const bar = page.getByText(/\d selected/);
+
+  await page.goto(`/clients/${ana.id}`);
+  const orders = page.getByRole("table", { name: "Orders" });
+  await orders.getByRole("checkbox", { name: SELECT_ALL }).click();
+  await expect(bar).toHaveText("2 selected");
+
+  await page.goto(`/projects/${project.id}`);
+  await page.getByRole("heading", { name: "Prints", exact: true }).click();
+  const prints = page.getByRole("table", { name: "Prints" });
+  await prints.getByRole("checkbox", { name: SELECT_ALL }).click();
+  await expect(bar).toHaveText("2 selected");
+});
+
+test("select all selects nothing when the list no longer matches the table", async ({
+  page,
+  app,
+}) => {
+  await app.api("POST", "/api/clients", { name: "Ana", mobile: "911" });
+  await page.goto("/clients");
+  await expect(page.getByRole("link", { name: "Ana" })).toBeVisible();
+  await app.api("POST", "/api/clients", { name: "Bea", mobile: "912" });
+
+  const all = page.getByRole("checkbox", { name: SELECT_ALL });
+  const bar = page.getByText(/\d selected/);
+  await all.click();
+  await expect(page.getByRole("alert")).toContainText("Couldn't select them all");
+  await expect(bar).toHaveCount(0);
+
+  // The table caught up, so trying again works.
+  await expect(page.getByRole("link", { name: "Bea" })).toBeVisible();
+  await all.click();
+  await expect(bar).toHaveText("2 selected");
+  await expect(page.getByRole("alert")).toHaveCount(0);
 });

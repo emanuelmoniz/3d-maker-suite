@@ -96,7 +96,8 @@ export function listPage<T extends SQLiteTable>(
     .select(o.select as never)
     .from(table as SQLiteTable)
     .where(where)
-    .orderBy(orderBy(o.sort, q.sort ?? defaultSort))
+    // Rows that tie keep one order on every page, or paging through a list could miss some.
+    .orderBy(orderBy(o.sort, q.sort ?? defaultSort), sql`${table}.rowid`)
     .limit(q.pageSize)
     .offset((q.page - 1) * q.pageSize)
     .all() as T["$inferSelect"][];

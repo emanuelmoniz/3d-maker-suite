@@ -20,6 +20,18 @@ export const useListPage = <T>(
     enabled,
   });
 
+/** Every row a list query matches, whatever its page. A row that moves meanwhile counts once. */
+export async function allRows<T>(path: string, query: ListQuery, key: (row: T) => string) {
+  const rows = new Map<string, T>();
+  const pageSize = 100; // the API's largest
+  for (let page = 1; ; page++) {
+    const params = { ...query, page: String(page), pageSize: String(pageSize) };
+    const { items, total } = await api<Page<T>>("GET", `${path}?${new URLSearchParams(params)}`);
+    for (const row of items) rows.set(key(row), row);
+    if (!items.length || page * pageSize >= total) return [...rows.values()];
+  }
+}
+
 /** Archived rows keep a list's table, and its "Show archived" switch, up with no active ones. */
 export const useHasArchived = (key: readonly unknown[], path: string, filter?: ListQuery) =>
   useListPage(key, path, { ...filter, archived: "true", pageSize: "1" }).data?.total !== 0;

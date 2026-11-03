@@ -23,6 +23,8 @@ export const bulkRoutes: FastifyPluginAsyncZod = async (app) => {
   app.post(
     "/:kind",
     {
+      // Everything a filter lists can be selected; this is over a million ids.
+      bodyLimit: 64 * 1024 * 1024,
       schema: {
         params: z.object({ kind: bulkKindSchema }),
         body: bulkInputSchema,
