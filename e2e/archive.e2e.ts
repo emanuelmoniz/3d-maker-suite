@@ -318,6 +318,70 @@ test("the actions work by keyboard and on a phone", async ({ page, app }) => {
   await expect(del).toHaveCount(0);
 });
 
+test("bulk: select by keyboard, archive, restore, and a partial delete says why", async ({
+  page,
+  app,
+}) => {
+  const ana = await app.api<{ id: string }>("POST", "/api/clients", { name: "Ana", mobile: "911" });
+  await app.api("POST", "/api/clients", { name: "Bea", mobile: "912" });
+  await app.api("POST", "/api/clients", { name: "Cid", mobile: "913" });
+  const project = await seedProject(app.api, "Lamp");
+  await app.api("POST", "/api/orders", {
+    projectIds: [project.id],
+    clientId: ana.id,
+    price: 100,
+  });
+  await page.setViewportSize({ width: 360, height: 700 });
+  await page.goto("/clients");
+
+  const box = (name: string) => page.getByRole("checkbox", { name: `Select ${name}` });
+  const link = (name: string) => page.getByRole("link", { name, exact: true });
+  const dialog = page.getByRole("dialog");
+  await expect(page.getByRole("button", { name: /^Archive \d/ })).toHaveCount(0);
+
+  // Archive one by keyboard: the bar counts it, and it stays reachable on a phone.
+  await box("Cid").focus();
+  await page.keyboard.press("Space");
+  await expect(page.getByText("1 selected")).toBeVisible();
+  expect(await hasHorizontalScroll(page)).toBe(false);
+  await page.getByRole("button", { name: "Archive 1" }).click();
+  await expect(dialog).toContainText("Archive 1 item?");
+  await dialog.getByRole("button", { name: "Archive" }).click();
+  await expect(link("Cid")).toHaveCount(0);
+  await expect(page.getByText("1 selected")).toHaveCount(0);
+
+  // Select all on the page, with an archived row in it: Archive and Restore count only theirs.
+  await page.getByRole("checkbox", { name: "Show archived" }).check();
+  await expect(link("Cid")).toBeVisible();
+  await page.getByRole("checkbox", { name: "Select all on this page" }).check();
+  await expect(page.getByText("3 selected")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Archive 2" })).toBeVisible();
+  await page.getByRole("button", { name: "Restore 1" }).click();
+  await dialog.getByRole("button", { name: "Restore" }).click();
+  await expect(page.getByText("selected", { exact: false })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Archive Cid" })).toBeVisible();
+
+  // Changing the list ends a selection.
+  await box("Bea").check();
+  await page.getByRole("checkbox", { name: "Show archived" }).uncheck();
+  await expect(page.getByText("1 selected")).toHaveCount(0);
+
+  // Delete: the free ones go, the used one is named with what uses it and stays selected.
+  await page.getByRole("checkbox", { name: "Select all on this page" }).check();
+  await page.getByRole("button", { name: "Delete 3" }).click();
+  await expect(dialog).toContainText("Delete 3 items?");
+  await dialog.getByRole("button", { name: "Delete" }).click();
+  await expect(dialog).toContainText("Deleted 2 of 3");
+  await expect(dialog).toContainText("Ana");
+  await expect(dialog.getByRole("link", { name: /001/ })).toBeVisible();
+  await expect(dialog).toBeInViewport({ ratio: 1 });
+  await dialog.getByRole("button", { name: "Close" }).click();
+  await expect(link("Bea")).toHaveCount(0);
+  await expect(link("Ana")).toBeVisible();
+  await expect(box("Ana")).toBeChecked();
+  await expect(page.getByText("1 selected")).toBeVisible();
+});
+
 test("restore works right after archive on a project's page", async ({ page, app }) => {
   const project = await seedProject(app.api, "Lamp");
   await page.goto(`/projects/${project.id}`);

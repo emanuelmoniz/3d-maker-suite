@@ -1,8 +1,12 @@
-import type {
-  DependentType,
-  InUseDetails,
-  Permission,
-  PermissionLevel,
+import {
+  BULK_ITEMS,
+  type BulkItemAction,
+  type BulkKind,
+  type BulkResult,
+  type DependentType,
+  type InUseDetails,
+  type Permission,
+  type PermissionLevel,
 } from "@3d-maker-suite/core";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
@@ -42,6 +46,8 @@ const ERRORS: Record<string, string> = {
   accessory_installed: "common:archive.errors.accessory_installed",
   preset_newer_exists: "common:archive.errors.preset_newer_exists",
   folder_has_files: "common:archive.errors.folder_has_files",
+  forbidden: "common:archive.errors.forbidden",
+  not_found: "common:archive.errors.not_found",
 };
 
 const DEPENDENTS: Record<DependentType, { key: string; to: string }> = {
@@ -252,12 +258,158 @@ export function ArchiveActions({
   );
 }
 
-/** A list's last column: `ArchiveActions` for the row, to those who may. */
+// Static keys so `pnpm i18n:check` sees them.
+const BULK_TEXT = {
+  archive: {
+    button: "common:bulk.actions.archive",
+    title: "common:bulk.archiveTitle",
+    body: "common:archive.archiveBody",
+    result: "common:bulk.archived",
+  },
+  restore: {
+    button: "common:bulk.actions.restore",
+    title: "common:bulk.restoreTitle",
+    body: "common:bulk.restoreBody",
+    result: "common:bulk.restored",
+  },
+  delete: {
+    button: "common:bulk.actions.delete",
+    title: "common:bulk.deleteTitle",
+    body: "common:bulk.deleteBody",
+    result: "common:bulk.deleted",
+  },
+} as const;
+
+/**
+ * The bar under a list with selected rows: Archive, Restore or Delete them after a confirm. Rows it
+ * couldn't do stay selected and are listed with why (ADR-0018).
+ */
+export function BulkBar({
+  kind,
+  rows,
+  onClear,
+  onDone,
+}: {
+  kind: BulkKind;
+  rows: { id: string; name: string; archived: boolean }[];
+  onClear: () => void;
+  /** The ids that are still selected: the blocked ones. */
+  onDone: (blocked: string[]) => void;
+}) {
+  const { t } = useTranslation();
+  const qc = useQueryClient();
+  const [ask, setAsk] = useState<BulkItemAction | null>(null);
+  const [outcome, setOutcome] = useState<{
+    action: BulkItemAction;
+    total: number;
+    names: Map<string, string>;
+    result: BulkResult;
+  } | null>(null);
+  const targets = (action: BulkItemAction) =>
+    action === "delete" ? rows : rows.filter((r) => r.archived === (action === "restore"));
+  const run = useMutation({
+    mutationFn: (action: BulkItemAction) =>
+      api<BulkResult>("POST", `/api/bulk/${kind}`, {
+        action,
+        ids: targets(action).map((r) => r.id),
+      }),
+    onSuccess: (result, action) => {
+      setAsk(null);
+      if (result.blocked.length)
+        setOutcome({
+          action,
+          total: targets(action).length,
+          names: new Map(rows.map((r) => [r.id, r.name])),
+          result,
+        });
+      onDone(result.blocked.map((b) => b.id));
+      void qc.invalidateQueries();
+    },
+  });
+  const close = () => setOutcome(null);
+
+  return (
+    <>
+      {rows.length > 0 && (
+        <div className="sticky bottom-2 z-10 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-surface-2 p-2 shadow-lg">
+          <span aria-live="polite" className="font-medium">
+            {t("common:bulk.selected", { count: rows.length })}
+          </span>
+          <Button variant="ghost" onClick={onClear}>
+            {t("common:bulk.clear")}
+          </Button>
+          <span className="ml-auto flex flex-wrap gap-2">
+            {(["archive", "restore", "delete"] as const).map((action) => {
+              const count = targets(action).length;
+              return count ? (
+                <Button
+                  key={action}
+                  onClick={() => {
+                    run.reset();
+                    setAsk(action);
+                  }}
+                >
+                  {t(BULK_TEXT[action].button, { count })}
+                </Button>
+              ) : null;
+            })}
+          </span>
+        </div>
+      )}
+      {ask && (
+        <ConfirmDialog
+          open
+          destructive={ask === "delete"}
+          title={t(BULK_TEXT[ask].title, { count: targets(ask).length })}
+          description={t(BULK_TEXT[ask].body)}
+          confirmLabel={t(BUTTONS[ask].label)}
+          onCancel={() => setAsk(null)}
+          onConfirm={() => {
+            if (!run.isPending) run.mutate(ask);
+          }}
+        >
+          {run.isError && (
+            <p role="alert" className="text-bad">
+              {t("common:archive.errors.generic")}
+            </p>
+          )}
+        </ConfirmDialog>
+      )}
+      {outcome && (
+        <ConfirmDialog
+          open
+          title={t(BULK_TEXT[outcome.action].result, {
+            done: outcome.result.done.length,
+            total: outcome.total,
+          })}
+          description={t("common:bulk.blocked")}
+          onCancel={close}
+        >
+          <ul className="grid max-h-96 gap-3 overflow-y-auto">
+            {outcome.result.blocked.map((b) => (
+              <li key={b.id} className="grid gap-1">
+                <span className="font-medium wrap-anywhere">{outcome.names.get(b.id)}</span>
+                {b.details ? (
+                  <Dependents details={b.details} onLeave={close} />
+                ) : (
+                  <span className="text-bad">
+                    {t(ERRORS[b.code] ?? "common:archive.errors.generic")}
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </ConfirmDialog>
+      )}
+    </>
+  );
+}
+
+/** A list's last column: `ArchiveActions` for the row, to those who may. It also offers selection. */
 export const archiveColumn = <T extends { id: string; archivedAt: string | null }>(
   t: TFunction,
   o: {
-    /** The list's API path. */
-    base: string;
+    kind: BulkKind;
     can: Permission;
     level?: PermissionLevel;
     name: (row: T) => string;
@@ -266,11 +418,12 @@ export const archiveColumn = <T extends { id: string; archivedAt: string | null 
 ): Column<T> => ({
   id: "actions",
   header: t("common:table.actions"),
+  bulk: { kind: o.kind, name: o.name, when: o.when },
   cell: (r) => (
     <Write can={o.can} level={o.level} when={o.when?.(r)}>
       <ArchiveActions
         compact
-        path={`${o.base}/${r.id}`}
+        path={`${BULK_ITEMS[o.kind].path}/${r.id}`}
         name={o.name(r)}
         archived={r.archivedAt !== null}
       />

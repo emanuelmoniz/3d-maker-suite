@@ -41,6 +41,7 @@ import { alertsRoutes } from "./routes/alerts.ts";
 import { authRoutes } from "./routes/auth.ts";
 import { backupsRoutes } from "./routes/backups.ts";
 import { brandingRoutes } from "./routes/branding.ts";
+import { BULK_ROW_HEADER, bulkRoutes } from "./routes/bulk.ts";
 import {
   brandsRoutes,
   filamentBrandsRoutes,
@@ -360,6 +361,7 @@ export async function buildApp(
   if (opts.watchProjects) app.addHook("onReady", async () => scanner.boot());
   await app.register(tagsRoutes(db), { prefix: "/api/tags" });
   await app.register(collectionsRoutes(db), { prefix: "/api/collections" });
+  await app.register(bulkRoutes, { prefix: "/api/bulk" });
 
   await app.register(backupsRoutes(db, dataDir), { prefix: "/api/backups" });
   await app.register(importRoutes(db, dataDir, syncer, scanner), { prefix: "/api/import" });
@@ -393,9 +395,15 @@ export async function buildApp(
     const daily = new Cron(opts.alertsSchedule, { protect: true }, evaluate);
     app.addHook("onClose", async () => daily.stop());
     app.addHook("onReady", async () => void evaluate());
-    // On-event checks: any change that went through can open or clear an alert.
+    // On-event checks: any change that went through can open or clear an alert. A bulk request
+    // checks once when it ends, not once per row.
     app.addHook("onResponse", async (req, reply) => {
-      if (req.method !== "GET" && reply.statusCode < 400 && !req.url.startsWith("/api/alerts"))
+      if (
+        req.method !== "GET" &&
+        reply.statusCode < 400 &&
+        !req.url.startsWith("/api/alerts") &&
+        !req.headers[BULK_ROW_HEADER]
+      )
         void evaluate();
     });
   }

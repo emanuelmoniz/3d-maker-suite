@@ -336,7 +336,7 @@ export function MaintenancePage() {
                   filter: "appliesToModels",
                 },
                 archiveColumn<MaintenanceType>(t, {
-                  base: "/api/maintenance/types",
+                  kind: "maintenance-types",
                   can: "maintenance",
                   level: "manage",
                   name: (m) => m.name,

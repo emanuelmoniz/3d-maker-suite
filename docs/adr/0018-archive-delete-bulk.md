@@ -196,7 +196,9 @@ Each row goes through the same archive and delete code as a single one, in its o
 
 Rows run in request order. A row blocked by another in the same request (a project and its quote) is reported as blocked and can be retried.
 
-Step 12 decides the route shape and the cap on ids per request.
+One shared route, `POST /api/bulk/:kind` with `{ action, ids }`, answers 200 with `{ done, blocked }`, including when every row is blocked. It takes at most 100 ids, the API's largest page, because a selection is one page's rows.
+
+Each row is the `PATCH` or `DELETE` its own button sends, replayed in process as the same caller (`app.inject`). So a row can't drift from the single-row code, its error becomes its `blocked` entry, and `authGuard` applies per-project access: a hidden project is `not_found` and a download-only one `forbidden`. A replayed row skips the on-change alert check, and the bulk request runs one when it ends.
 
 ## Rejected options
 - **Archive only, no delete.** A mistake or a test row could never be removed.

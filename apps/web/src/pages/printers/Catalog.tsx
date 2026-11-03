@@ -91,7 +91,7 @@ export function Section<T extends { id: string; archivedAt: string | null }>(pro
           columns={[
             ...props.columns,
             archiveColumn<T>(t, {
-              base: `/api/${props.kind}`,
+              kind: props.kind,
               can: catalogModule(props.kind),
               level: "manage",
               name: props.name,

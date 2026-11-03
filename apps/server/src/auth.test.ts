@@ -78,6 +78,8 @@ const MATRIX: Record<string, [viewer: string, editor: string]> = {
   "/api/filament/profiles": ["R", "R"],
   "/api/stats": ["R", "R"],
   "/api/tags": ["R", "RW"],
+  // Manage on the item's module, which neither seeded role has on costs.
+  "/api/bulk/clients": ["-", "-"],
   "/api/collections": ["R", "RW"],
   "/api/alerts": ["R", "RW"],
   "/api/alerts/channels": ["-", "-"],

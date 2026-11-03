@@ -85,7 +85,7 @@ export function ClientsPage() {
               text("vat", t("clients:list.columns.vat")),
               text("email", t("clients:list.columns.email")),
               archiveColumn<Client>(t, {
-                base: "/api/clients",
+                kind: "clients",
                 can: "costs",
                 name: (c) => c.name,
               }),

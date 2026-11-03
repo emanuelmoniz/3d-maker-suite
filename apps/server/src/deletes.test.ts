@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { inUseDetailsSchema } from "@3d-maker-suite/core";
+import { BULK_ITEMS, inUseDetailsSchema } from "@3d-maker-suite/core";
 import { openDb, schema } from "@3d-maker-suite/db";
 import { and, eq, getTableName } from "drizzle-orm";
 import type { SQLiteColumn } from "drizzle-orm/sqlite-core";
@@ -605,6 +605,36 @@ describe("what goes with an item", () => {
     const saved = await send("PATCH", url, { name: "Again", form });
     expect(saved.statusCode, saved.body).toBe(200);
   });
+});
+
+describe("bulk", () => {
+  const bulkKind = Object.fromEntries(Object.entries(BULK_ITEMS).map(([k, i]) => [i.path, k]));
+
+  it("covers every entity", () => {
+    expect(Object.keys(bulkKind).sort()).toEqual(Object.values(urls).sort());
+  });
+
+  it.each(Object.keys(urls) as (keyof typeof urls)[])(
+    "%s: archives, restores and deletes",
+    async (kind) => {
+      const ids = [await fresh[kind](), await fresh[kind]()];
+      const url = `/api/bulk/${bulkKind[urls[kind]]}`;
+      const archivedAt = async (id: string) =>
+        (await app.inject(`${urls[kind]}/${id}`)).json().archivedAt;
+      const run = async (action: string) => {
+        const res = await send("POST", url, { action, ids });
+        expect(res.statusCode, res.body).toBe(200);
+        expect(res.json()).toEqual({ done: ids, blocked: [] });
+      };
+
+      await run("archive");
+      for (const id of ids) expect(await archivedAt(id)).toEqual(expect.any(String));
+      await run("restore");
+      for (const id of ids) expect(await archivedAt(id)).toBeNull();
+      await run("delete");
+      for (const id of ids) expect((await app.inject(`${urls[kind]}/${id}`)).statusCode).toBe(404);
+    },
+  );
 });
 
 describe("the guard on foreign keys", () => {

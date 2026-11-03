@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { PermissionModule } from "./roles.ts";
 
 // Shared by API validation, OpenAPI and the frontend. Query-string friendly (everything coerces).
 
@@ -148,6 +149,52 @@ export const inUseDetailsSchema = z.object({
   ),
 });
 
+/** The 16 entities of ADR-0018: where a row's `PATCH` and `DELETE` live, and who may bulk them. */
+export const BULK_ITEMS = {
+  printers: { path: "/api/printers", module: "printers" },
+  accessories: { path: "/api/accessories", module: "printers" },
+  "maintenance-types": { path: "/api/maintenance/types", module: "maintenance" },
+  brands: { path: "/api/brands", module: "printers" },
+  "printer-models": { path: "/api/printer-models", module: "printers" },
+  "machine-profiles": { path: "/api/machine-profiles", module: "printers" },
+  "print-profiles": { path: "/api/print-profiles", module: "printers" },
+  spools: { path: "/api/filament/spools", module: "filament" },
+  "filament-brands": { path: "/api/filament-brands", module: "filament" },
+  "filament-materials": { path: "/api/filament-materials", module: "filament" },
+  "filament-profiles": { path: "/api/filament/profiles", module: "filament" },
+  projects: { path: "/api/projects", module: "projects" },
+  prints: { path: "/api/prints", module: "prints" },
+  orders: { path: "/api/orders", module: "costs" },
+  quotes: { path: "/api/costs/quotes", module: "costs" },
+  clients: { path: "/api/clients", module: "costs" },
+} as const satisfies Record<string, { path: string; module: PermissionModule }>;
+
+export type BulkKind = keyof typeof BULK_ITEMS;
+export const bulkKindSchema = z.enum(Object.keys(BULK_ITEMS) as [BulkKind, ...BulkKind[]]);
+
+/** The API's largest page: a selection is one page's rows. */
+export const BULK_MAX_IDS = 100;
+
+export const bulkInputSchema = z.object({
+  action: z.enum(["archive", "restore", "delete"]),
+  ids: z.array(z.uuid()).min(1).max(BULK_MAX_IDS),
+});
+
+/** What happened to each row; `blocked` carries the error its single-row request would get. */
+export const bulkResultSchema = z.object({
+  done: z.array(z.string()),
+  blocked: z.array(
+    z.object({
+      id: z.string(),
+      code: z.string(),
+      message: z.string(),
+      details: inUseDetailsSchema.optional(),
+    }),
+  ),
+});
+
+export type BulkItemAction = z.infer<typeof bulkInputSchema>["action"];
+export type BulkResult = z.infer<typeof bulkResultSchema>;
 export type DependentType = (typeof DEPENDENT_TYPES)[number];
 export type InUseDetails = z.infer<typeof inUseDetailsSchema>;
 export type PaginationQuery = z.infer<typeof paginationQuery>;

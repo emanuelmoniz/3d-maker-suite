@@ -1612,7 +1612,7 @@ Do Step 10 of the 5.2.0 plan in PLAN.md.
 Do Step 11 of the 5.2.0 plan in PLAN.md.
 ```
 
-### [ ] Step 12 - Bulk archive and delete  **[plan mode]**
+### [x] Step 12 - Bulk archive and delete  **[plan mode]**
 **Model:** Opus · **Effort:** Medium
 **Scope:**
 - `DataTable` gets optional row selection (checkbox per row, select all on the page, keyboard, a bar with the count and actions). `ReviewTable` and `ProjectFiles` have their own, leave those.

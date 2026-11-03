@@ -195,6 +195,43 @@ test("roles: viewer and editor see only what they can do; logs show the actor", 
   ).toBeVisible();
 });
 
+test("bulk needs manage: a write user gets no selection and the API refuses them", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await post(page, "/api/auth/setup", {
+    displayName: "Ana Admin",
+    email: "ana@example.com",
+    password: PASSWORD,
+  });
+  const { id } = await post(page, "/api/clients", { name: "Bea", mobile: "911" });
+  await expect(async () => {
+    await page.goto("/clients");
+    await expect(page.getByRole("checkbox", { name: "Select Bea" })).toBeVisible({ timeout: 1000 });
+  }).toPass();
+
+  const write = await post(page, "/api/roles", {
+    name: "Clerk",
+    permissions: { costs: "write" },
+  });
+  await post(page, "/api/users", {
+    displayName: "Wes",
+    email: "wes@example.com",
+    password: PASSWORD,
+    roleId: write.id,
+  });
+  await signInAs(page, "wes@example.com");
+
+  await page.goto("/clients");
+  await expect(page.getByRole("link", { name: "Bea" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Archive Bea" })).toBeVisible();
+  await expect(page.getByRole("checkbox")).toHaveCount(1); // Show archived
+  const res = await page.request.post("/api/bulk/clients", {
+    data: { action: "archive", ids: [id] },
+  });
+  expect(res.status()).toBe(403);
+});
+
 test("filament catalog rows follow the filament permission, not the printers one", async ({
   page,
 }) => {

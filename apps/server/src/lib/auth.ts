@@ -2,6 +2,8 @@ import { createHash, timingSafeEqual } from "node:crypto";
 import { networkInterfaces } from "node:os";
 import {
   type AlertKind,
+  BULK_ITEMS,
+  type BulkKind,
   type Capability,
   type EffectiveRights,
   exceeds,
@@ -82,6 +84,11 @@ const TAGGED: Need = (r, m) => {
   const module = TAG_MODULE[m?.[1] ?? ""];
   return !!module && hasLevel(r.permissions, module, "write");
 };
+/** Bulk needs manage on the item's module, whatever one row of it needs (ADR-0018). */
+const BULK: Need = (r, m) => {
+  const module = BULK_ITEMS[m?.[1] as BulkKind]?.module;
+  return !!module && hasLevel(r.permissions, module, "manage");
+};
 
 /** `^/api/(a|b)` followed by a slash or the end. */
 const p = (prefixes: string) => new RegExp(`^/api/(${prefixes})(/|$)`);
@@ -108,6 +115,7 @@ const RULES: [RegExp, string, Need][] = [
   [/^\/api\/tags\/taggings\/([^/]+)\//, "W", TAGGED],
   [p("tags"), "R", SESSION],
   [p("tags"), "W", ANY_WRITE],
+  [/^\/api\/bulk\/([^/]+)$/, "POST", BULK],
   [p(PRINTERS), "R", at("printers", "read")],
   // Logging work on accessories is write; their setup, and the printers', is manage.
   [/^\/api\/accessories\/[^/]+\/installs(\/|$)/, "W", at("printers", "write")],

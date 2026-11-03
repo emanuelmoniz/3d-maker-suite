@@ -244,7 +244,7 @@ export function ProjectsTable({
               : t("projects:list.noFolder"),
         },
         archiveColumn<ProjectListItem>(t, {
-          base: "/api/projects",
+          kind: "projects",
           can: "projects",
           name: (p) => projectName(t, p),
           when: (p) => p.canEdit,

@@ -165,7 +165,7 @@ export function PrintersPage() {
                 filter: "powerW",
               },
               archiveColumn<PrinterRow>(t, {
-                base: "/api/printers",
+                kind: "printers",
                 can: "printers",
                 level: "manage",
                 name: (p) => printerName(t, p),
@@ -303,7 +303,7 @@ function AccessoriesTable() {
                 filter: "powerW",
               },
               archiveColumn<Accessory>(t, {
-                base: "/api/accessories",
+                kind: "accessories",
                 can: "printers",
                 level: "manage",
                 name: (a) => accessoryName(t, a),

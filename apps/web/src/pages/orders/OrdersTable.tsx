@@ -122,7 +122,7 @@ export function OrdersTable({
           filter: "createdAt",
         },
         archiveColumn<Order>(t, {
-          base: "/api/orders",
+          kind: "orders",
           can: "costs",
           name: (o) => orderName(t, o),
         }),

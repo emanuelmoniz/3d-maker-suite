@@ -191,7 +191,7 @@ export function PrintsTable({
         actions
           ? { id: "actions", header: t("common:table.actions"), cell: actions }
           : archiveColumn<PrintDetail>(t, {
-              base: "/api/prints",
+              kind: "prints",
               can: "prints",
               name: (p) => printName(t, p),
             }),

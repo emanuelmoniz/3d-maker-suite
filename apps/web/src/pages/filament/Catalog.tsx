@@ -223,7 +223,7 @@ export function FilamentProfiles() {
               },
               slicer.profile,
               archiveColumn<FilamentProfile>(t, {
-                base: "/api/filament/profiles",
+                kind: "filament-profiles",
                 can: "filament",
                 level: "manage",
                 name: filamentLabel,

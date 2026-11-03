@@ -114,7 +114,7 @@ export function QuotesTable({
           sort: "total",
         },
         archiveColumn<Quote>(t, {
-          base: "/api/costs/quotes",
+          kind: "quotes",
           can: "costs",
           name: (q) => quoteName(t, q),
         }),

@@ -198,7 +198,7 @@ export function FilamentPage() {
                     },
                   },
                   archiveColumn<Spool>(t, {
-                    base: "/api/filament/spools",
+                    kind: "spools",
                     can: "filament",
                     name: (s) => spoolName(t, s, profileOf.get(s.profileId)),
                   }),

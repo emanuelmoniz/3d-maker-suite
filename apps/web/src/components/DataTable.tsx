@@ -1,10 +1,11 @@
-import type { ColumnFilter } from "@3d-maker-suite/core";
+import { BULK_ITEMS, type BulkKind, type ColumnFilter } from "@3d-maker-suite/core";
 import { ArrowDown, ArrowUp, Filter } from "lucide-react";
 import { type FormEvent, type ReactNode, useId, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useCan } from "../lib/auth.ts";
 import { cx } from "../lib/cx.ts";
 import { placePopover } from "../lib/placePopover.ts";
-import { ArchivedBadge } from "./ArchiveActions.tsx";
+import { ArchivedBadge, BulkBar } from "./ArchiveActions.tsx";
 import { Button } from "./Button.tsx";
 import { Combobox } from "./Combobox.tsx";
 import { DateRangePicker } from "./DateRangePicker.tsx";
@@ -37,6 +38,8 @@ export type Column<T> = {
   filterHint?: string;
   /** The Archived pill of a row with `archivedAt` goes here; an `archivable` list's first column by default. */
   archivedMark?: boolean;
+  /** Set by `archiveColumn`: the rows can be selected and acted on together, with `manage`. */
+  bulk?: { kind: BulkKind; name: (row: T) => string; when?: (row: T) => boolean };
 };
 
 /** Raw list query, as in the URL and the API: page, pageSize, sort and column filters. */
@@ -107,7 +110,13 @@ export function DataTable<T>({
   const { t } = useTranslation();
   const [ownQuery, setOwnQuery] = useState<ListQuery>({});
   const query = server?.query ?? client?.query ?? ownQuery;
-  const setQuery = server?.onQueryChange ?? client?.onQueryChange ?? setOwnQuery;
+  const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
+  const setListQuery = server?.onQueryChange ?? client?.onQueryChange ?? setOwnQuery;
+  // A selection is the rows on screen, so anything that changes them ends it.
+  const setQuery = (q: ListQuery) => {
+    setSelected(new Set());
+    setListQuery(q);
+  };
   const view = server ? rows : viewOf(columns, rows, query);
   const total = server ? server.total : view.length;
   const size = Number(query.pageSize) || 25; // the API default
@@ -142,6 +151,48 @@ export function DataTable<T>({
     return key && query[key];
   });
 
+  const bulkColumn = columns.find((c) => c.bulk)?.bulk;
+  const mayBulk = useCan(bulkColumn ? BULK_ITEMS[bulkColumn.kind].module : "printers", "manage");
+  const bulk = mayBulk ? bulkColumn : undefined;
+  const selectable = bulk ? sorted.filter((r) => bulk.when?.(r) ?? true) : [];
+  const picked = selectable.filter((r) => selected.has(rowKey(r)));
+  const shown: Column<T>[] = bulk
+    ? [
+        {
+          id: "select",
+          header: t("common:bulk.selectAll"),
+          headerCell: (
+            <input
+              type="checkbox"
+              aria-label={t("common:bulk.selectAll")}
+              disabled={!selectable.length}
+              checked={!!selectable.length && picked.length === selectable.length}
+              ref={(el) => {
+                if (el) el.indeterminate = !!picked.length && picked.length < selectable.length;
+              }}
+              onChange={(e) => setSelected(new Set(e.target.checked ? selectable.map(rowKey) : []))}
+            />
+          ),
+          cell: (r) => (
+            <input
+              type="checkbox"
+              aria-label={t("common:bulk.select", { name: bulk.name(r) })}
+              disabled={!(bulk.when?.(r) ?? true)}
+              checked={selected.has(rowKey(r))}
+              onChange={() =>
+                setSelected((s) => {
+                  const next = new Set(s);
+                  if (!next.delete(rowKey(r))) next.add(rowKey(r));
+                  return next;
+                })
+              }
+            />
+          ),
+        },
+        ...columns,
+      ]
+    : columns;
+
   return (
     <div className="flex min-w-0 flex-col gap-3">
       {server?.archivable && (
@@ -162,7 +213,7 @@ export function DataTable<T>({
           <caption className="sr-only">{label}</caption>
           <thead>
             <tr className="border-b border-border bg-surface-2 text-muted">
-              {columns.map((c) => {
+              {shown.map((c) => {
                 const s = sortOf(c);
                 const Arrow = s?.dir === -1 ? ArrowDown : ArrowUp;
                 const key = filterKey(c, !!server);
@@ -220,7 +271,7 @@ export function DataTable<T>({
           <tbody>
             {sorted.map((row) => (
               <tr key={rowKey(row)} className="h-9 border-b border-border last:border-0">
-                {columns.map((c) => (
+                {shown.map((c) => (
                   <td
                     key={c.id}
                     className={cx(
@@ -242,7 +293,7 @@ export function DataTable<T>({
             ))}
             {!sorted.length && (
               <tr>
-                <td colSpan={columns.length} className="h-16 text-center text-muted">
+                <td colSpan={shown.length} className="h-16 text-center text-muted">
                   {t("common:table.noRows")}
                 </td>
               </tr>
@@ -250,6 +301,18 @@ export function DataTable<T>({
           </tbody>
         </table>
       </section>
+      {bulk && (
+        <BulkBar
+          kind={bulk.kind}
+          rows={picked.map((r) => ({
+            id: rowKey(r),
+            name: bulk.name(r),
+            archived: !!(r as { archivedAt?: string | null }).archivedAt,
+          }))}
+          onClear={() => setSelected(new Set())}
+          onDone={(ids) => setSelected(new Set(ids))}
+        />
+      )}
       {(server || total > 10 || hasFilters) && (
         <Pager
           query={query}

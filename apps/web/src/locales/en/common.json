@@ -144,8 +144,37 @@
       "printer_has_accessories": "Remove its accessories first.",
       "accessory_installed": "Remove it from its printer first.",
       "preset_newer_exists": "A newer version of this preset is in use, so this old one can't come back.",
-      "folder_has_files": "Its folder still has files. Move or delete them first, or the next scan finds the project again."
+      "folder_has_files": "Its folder still has files. Move or delete them first, or the next scan finds the project again.",
+      "forbidden": "You can't change this one.",
+      "not_found": "It no longer exists, or you can't see it."
     }
+  },
+  "bulk": {
+    "selectAll": "Select all on this page",
+    "select": "Select {{name}}",
+    "selected_one": "{{count, number}} selected",
+    "selected_other": "{{count, number}} selected",
+    "clear": "Clear selection",
+    "actions": {
+      "archive_one": "Archive {{count, number}}",
+      "archive_other": "Archive {{count, number}}",
+      "restore_one": "Restore {{count, number}}",
+      "restore_other": "Restore {{count, number}}",
+      "delete_one": "Delete {{count, number}}",
+      "delete_other": "Delete {{count, number}}"
+    },
+    "archiveTitle_one": "Archive {{count, number}} item?",
+    "archiveTitle_other": "Archive {{count, number}} items?",
+    "restoreTitle_one": "Restore {{count, number}} item?",
+    "restoreTitle_other": "Restore {{count, number}} items?",
+    "restoreBody": "They come back to the lists and pickers.",
+    "deleteTitle_one": "Delete {{count, number}} item?",
+    "deleteTitle_other": "Delete {{count, number}} items?",
+    "deleteBody": "They are deleted for good, except any that are still in use. This can't be undone.",
+    "archived": "Archived {{done, number}} of {{total, number}}",
+    "restored": "Restored {{done, number}} of {{total, number}}",
+    "deleted": "Deleted {{done, number}} of {{total, number}}",
+    "blocked": "The ones below stay selected, so you can try again once they're free."
   },
   "a11y": {
     "mainNav": "Main navigation",
