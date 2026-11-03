@@ -42,8 +42,8 @@ flowchart LR
 - **Money:** integer minor units in one app currency, set in Settings.
 - **Display:** all formatting goes through `Intl` (see ADR-0004).
 - **Imported rows:** any row that can come from an integration has `origin: 'manual' | 'integration'`, `integrationId?` and `externalId?`, with a unique constraint on `(integrationId, externalId)`. That makes sync an idempotent upsert.
-- **Catalog:** brands, printer models and machine profiles are hard-deleted, and only while nothing points at them (`ON DELETE RESTRICT`, the API answers 409). Imported printers keep sending brand/model strings; sync finds or creates the catalog rows.
-- **Soft archive:** printers, spools, filament profiles, maintenance types and projects get `archivedAt` instead of being deleted, so their history stays intact. Foreign keys from history rows use `ON DELETE RESTRICT`, so a hard delete fails instead of orphaning stats. Prints are hard-deleted (their filament usages cascade).
+- **Catalog:** brands, printer models and machine profiles are hard-deleted, and only while nothing points at them (the API answers 409 `in_use` with the dependents). Imported printers keep sending brand/model strings; sync finds or creates the catalog rows.
+- **Archive and delete:** the 16 archivable entities have `archivedAt`; delete is real and refused while something depends on the item (ADR-0018, [docs/archive-delete.md](archive-delete.md)). History rows keep `ON DELETE RESTRICT` as a backstop.
 - **Dates in queries:** stored as `toISOString()` text, so range filters compare as strings and use the date indexes (`prints.startedAt`).
 
 ## Domain glossary
@@ -75,7 +75,7 @@ Notes:
 - **Usage keeps the profile.** `PrintFilamentUsage.spoolId` can be null for imported prints where the spool is unknown. `profileId` keeps the material, so cost and stats still work.
 - **Cost is snapshotted.** `costSnapshot` freezes the computed cost when a print is recorded, so later price changes don't rewrite history (cost engine: Step 19).
 - **Alerts** (ADR-0008) have a kind (the message), a severity (`error`, `warning`, `success`), a module, a task (what raised it) and an optional detail (a sync run's log). At most one unresolved alert exists per (kind, entityType, entityId).
-- **Tag storage** is one polymorphic table, `taggings(tagId, entityType, entityId)`. It has no FK to the tagged row, so a trigger removes the taggings of deleted prints (spools and projects are only archived).
+- **Tag storage** is one polymorphic table, `taggings(tagId, entityType, entityId)`. It has no FK to the tagged row, so a trigger removes the taggings of deleted prints, and the delete helper removes those of other deleted items.
 - **Print rules** are enforced as DB CHECKs and mirrored in zod: a `success` print has no `failureReason`, and `energyWh` and `energySource` are set together.
 
 ## Entity relations

@@ -101,7 +101,7 @@ Edit → Project folder → **Unlink folder** (or **Switch to another folder…*
 
 ## Deleting a project
 
-Delete on the project page removes a project that has no prints and is in no order (move its prints to another project or to No project first). If its folder is inside a root and has no files left (empty subfolders and OS files like `desktop.ini` don't count), the folder goes too; a folder that still has files blocks the delete, because the next scan would find it as a project again.
+Delete on the project page removes a project that has no prints, orders or quotes (see [what blocks a delete](archive-delete.md#delete); archive it to hide it instead). If its folder is inside a root and has no files left (empty subfolders and OS files like `desktop.ini` don't count), the folder goes too; a folder that still has files blocks the delete, because the next scan would find it as a project again.
 
 ## Docker and bind mounts
 

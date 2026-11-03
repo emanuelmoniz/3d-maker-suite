@@ -89,6 +89,7 @@ By default the app only answers on this PC. To reach it from your phone or anoth
 | Bambu Cloud setup | [docs/bambu-cloud.md](docs/bambu-cloud.md) |
 | Project folders: structure, depths, Docker | [docs/projects.md](docs/projects.md) |
 | Import spreadsheets and slicer catalogs | [docs/import.md](docs/import.md) |
+| Archive, delete and bulk actions | [docs/archive-delete.md](docs/archive-delete.md) |
 | Slicing: server slicers, profiles, Docker | [docs/slicing.md](docs/slicing.md) |
 | Open in slicer | [docs/open-in-slicer.md](docs/open-in-slicer.md) |
 | Backups | [docs/backups.md](docs/backups.md) |
@@ -100,7 +101,7 @@ By default the app only answers on this PC. To reach it from your phone or anoth
 
 ## Status
 
-Version 5.2.0-alpha.1. English only for now; the code is ready for more languages (see [CONTRIBUTING.md](CONTRIBUTING.md)).
+Version 5.2.0-alpha.2. English only for now; the code is ready for more languages (see [CONTRIBUTING.md](CONTRIBUTING.md)).
 
 ## License
 

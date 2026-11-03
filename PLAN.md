@@ -1625,7 +1625,7 @@ Do Step 11 of the 5.2.0 plan in PLAN.md.
 Do Step 12 of the 5.2.0 plan in PLAN.md. Show me the API and the selection bar first.
 ```
 
-### [ ] Step 13 - Docs, push & v5.2.0-alpha.2
+### [x] Step 13 - Docs, push & v5.2.0-alpha.2
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - Docs: archive vs delete, what blocks a delete, bulk actions and who can use them.

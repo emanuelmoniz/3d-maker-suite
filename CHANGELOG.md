@@ -2,6 +2,22 @@
 
 All notable changes are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [5.2.0-alpha.2] - 2026-11-03
+
+Pre-release. Test on a copy of your data first; back up before updating. Adds archive, delete and bulk actions; everything in 5.2.0-alpha.1 is included. A migration adds archive columns and the record of deleted imports.
+
+### Added
+- **Archive, restore and delete on every list and detail page** for printers, accessories, maintenance types, printer brands and models, machine and print profiles, spools, filament brands, materials and profiles, projects, prints, orders, quotes and clients, with a **Show archived** filter ([docs/archive-delete.md](docs/archive-delete.md))
+- A delete that something still uses is refused and lists what uses it, with links, and offers Archive instead
+- **Bulk archive, restore and delete** with checkboxes and **Select all matching rows, on every page**, for users with Manage on the module; blocked rows are reported and stay selected
+- A sync or import skips archived items, and shows an item you deleted as **You deleted this** instead of adding it back
+- Archiving resolves the item's open alerts
+
+### Changed
+- `DELETE` on a printer or accessory now deletes it (or answers `409 in_use`) instead of archiving; archive through `PATCH`. Deleting an order, quote or client that is used is refused instead of unlinking
+- Archived items keep their names and numbers, and the "already taken" messages say the other one may be archived
+- Auto slice skips archived projects
+
 ## [5.2.0-alpha.1] - 2026-11-03
 
 Pre-release. Test on a copy of your data first; back up before updating. Archive and delete come in a later 5.2.0 pre-release.
