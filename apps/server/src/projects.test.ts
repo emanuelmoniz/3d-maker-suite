@@ -692,6 +692,7 @@ describe("changing the root of many projects", () => {
         folderPath: join(target(), "012_vase"),
         folderState: "missing",
         canEdit: true,
+        archivedAt: null,
       },
     ]);
 

@@ -8,9 +8,11 @@ import { FormDialog } from "../../components/FormDialog.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { PickerWithAdd } from "../../components/PickerWithAdd.tsx";
+import { Write } from "../../components/Write.tsx";
 import {
   type CatalogKind,
   type CatalogRow,
+  catalogModule,
   type IMAGE_OF,
   imageUrl,
   isConflict,
@@ -222,12 +224,14 @@ export function CatalogForm<K extends CatalogKind>(props: {
         description={row?.archivedAt && <ArchivedBadge />}
         actions={
           row && (
-            <ArchiveActions
-              path={`/api/${props.kind}/${row.id}`}
-              name={"name" in row ? row.name : row.model}
-              archived={row.archivedAt !== null}
-              onDeleted={back}
-            />
+            <Write can={catalogModule(props.kind)} level="manage">
+              <ArchiveActions
+                path={`/api/${props.kind}/${row.id}`}
+                name={"name" in row ? row.name : row.model}
+                archived={row.archivedAt !== null}
+                onDeleted={back}
+              />
+            </Write>
           )
         }
       />

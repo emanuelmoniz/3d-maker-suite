@@ -99,6 +99,7 @@ export function PrintReviewPage() {
                 {
                   id: "print",
                   header: t("prints:review.columns.print"),
+                  archivedMark: true,
                   cell: (i) => (
                     <Link
                       to="/prints/$id"

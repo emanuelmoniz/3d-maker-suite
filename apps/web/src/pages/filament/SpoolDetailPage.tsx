@@ -9,7 +9,7 @@ import { TagList } from "../../components/TagList.tsx";
 import { Write } from "../../components/Write.tsx";
 import { filamentLabel, spoolName, useProfile, useSpool } from "../../lib/filament.ts";
 import { formatCurrency, formatDate, formatWeight } from "../../lib/format.ts";
-import { useListPage, useUrlListQuery } from "../../lib/list.ts";
+import { useHasArchived, useListPage, useUrlListQuery } from "../../lib/list.ts";
 import { usePreferences } from "../../lib/preferences.ts";
 import { usePrints } from "../../lib/prints.ts";
 import { useTagsOf } from "../../lib/tags.ts";
@@ -40,12 +40,16 @@ function SpoolUse({ spoolId }: { spoolId: string }) {
     spoolId,
   });
   const prints = usePrints({ ...printQuery, spoolId });
+  const archivedProjects = useHasArchived(["projects", "list", "spool"], "/api/projects", {
+    spoolId,
+  });
+  const archivedPrints = useHasArchived(["prints", "list"], "/api/prints", { spoolId });
   return (
     <>
       <section className="mt-6">
         <h2 className="mb-3 text-base font-semibold">{t("filament:detail.projects")}</h2>
         {projects.data &&
-          (projects.data.total || Object.keys(projectQuery).length ? (
+          (projects.data.total || Object.keys(projectQuery).length || archivedProjects ? (
             <ProjectsTable
               rows={projects.data.items}
               total={projects.data.total}
@@ -59,7 +63,7 @@ function SpoolUse({ spoolId }: { spoolId: string }) {
       <section className="mt-6">
         <h2 className="mb-3 text-base font-semibold">{t("filament:detail.prints")}</h2>
         {prints.data &&
-          (prints.data.total || Object.keys(printQuery).length ? (
+          (prints.data.total || Object.keys(printQuery).length || archivedPrints ? (
             <PrintsTable data={prints.data} query={printQuery} onQueryChange={setPrintQuery} />
           ) : (
             <p className="text-muted">{t("filament:detail.printsNone")}</p>

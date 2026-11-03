@@ -7,7 +7,7 @@ import { PageHeader } from "../../components/PageHeader.tsx";
 import { Write } from "../../components/Write.tsx";
 import { filamentLabel, useProfile } from "../../lib/filament.ts";
 import { formatCurrency, formatNumber, formatWeight } from "../../lib/format.ts";
-import { useListPage, useUrlListQuery } from "../../lib/list.ts";
+import { useHasArchived, useListPage, useUrlListQuery } from "../../lib/list.ts";
 import { usePreferences } from "../../lib/preferences.ts";
 import { STATUS } from "./FilamentPage.tsx";
 import { Info, linkButton } from "./SpoolDetailPage.tsx";
@@ -23,6 +23,9 @@ export function ProfileDetailPage() {
     ...query,
     profileId: id,
   }).data;
+  const hasArchived = useHasArchived(["filament", "spools", "table"], "/api/filament/spools", {
+    profileId: id,
+  });
 
   if (isError)
     return (
@@ -87,7 +90,7 @@ export function ProfileDetailPage() {
 
         <section className="grid gap-3">
           <h2 className="text-base font-semibold">{t("filament:profileDetail.spools")}</h2>
-          {spools && !spools.total && !Object.keys(query).length ? (
+          {spools && !spools.total && !Object.keys(query).length && !hasArchived ? (
             <p className="text-muted">{t("filament:profileDetail.noSpools")}</p>
           ) : (
             spools && (

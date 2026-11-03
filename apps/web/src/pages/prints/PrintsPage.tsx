@@ -9,7 +9,7 @@ import { Link } from "@tanstack/react-router";
 import { ExternalLink, Layers, Plus } from "lucide-react";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { archiveColumn } from "../../components/ArchiveActions.tsx";
+import { ArchivedBadge, archiveColumn } from "../../components/ArchiveActions.tsx";
 import { Button } from "../../components/Button.tsx";
 import { CostBreakdown } from "../../components/CostBreakdown.tsx";
 import { type Column, DataTable, type ListQuery } from "../../components/DataTable.tsx";
@@ -55,7 +55,7 @@ export function PrintsTable({
   const money = useMoney();
   const tagsOf = useTagsOf("print");
   const tags = useTags().data ?? [];
-  const printers = usePrinters({ archived: false }).data?.items ?? [];
+  const printers = usePrinters({ archived: "all" }).data?.items ?? [];
   const projects = useProjects().data?.items ?? [];
   const grams = (p: { usages: { grams: number }[] }) => p.usages.reduce((n, u) => n + u.grams, 0);
   const projectColumn: Column<PrintDetail> = {
@@ -90,6 +90,7 @@ export function PrintsTable({
         {
           id: "title",
           header: t("prints:list.columns.title"),
+          archivedMark: true,
           cell: (p) => (
             <span className="flex items-center gap-2">
               <Link to="/prints/$id" params={{ id: p.id }} className="font-medium hover:underline">
@@ -123,7 +124,14 @@ export function PrintsTable({
           header: t("prints:list.columns.printer"),
           cell: (p) => {
             const printer = printers.find((x) => x.id === p.printerId);
-            return printer ? printerName(t, printer) : "";
+            return (
+              printer && (
+                <span className="flex items-center gap-2">
+                  {printerName(t, printer)}
+                  {printer.archivedAt && <ArchivedBadge />}
+                </span>
+              )
+            );
           },
           filter: "printerId",
           filterOptions: printers.map((x) => ({ value: x.id, label: printerName(t, x) })),

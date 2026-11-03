@@ -78,7 +78,8 @@ const DEPENDENTS: Record<DependentType, { key: string; to: string }> = {
 export function ArchivedBadge() {
   const { t } = useTranslation();
   return (
-    <span className="rounded-full bg-surface-2 px-2 py-0.5 text-xs font-medium text-muted">
+    <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-warn/15 px-2 py-0.5 text-xs font-medium text-warn">
+      <Archive className="size-3" aria-hidden />
       {t("common:archive.archived")}
     </span>
   );

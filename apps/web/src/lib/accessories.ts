@@ -11,13 +11,13 @@ import type { TFunction } from "i18next";
 import { api } from "./api.ts";
 
 // ponytail: one page of 100, the printer page's pickers; page them if anyone owns more.
-export const useAccessories = (printerId?: string) =>
+export const useAccessories = (printerId?: string, archived?: "all") =>
   useQuery({
-    queryKey: ["accessories", "list", printerId ?? "all"],
+    queryKey: ["accessories", "list", printerId ?? "all", archived ?? "active"],
     queryFn: () =>
       api<Page<Accessory>>(
         "GET",
-        `/api/accessories?pageSize=100${printerId ? `&printerId=${printerId}` : ""}`,
+        `/api/accessories?pageSize=100${printerId ? `&printerId=${printerId}` : ""}${archived ? `&archived=${archived}` : ""}`,
       ),
   });
 

@@ -29,9 +29,12 @@ function PrinterLink({ id }: { id: string }) {
   const printer = usePrinter(id).data;
   const name = printer && printerName(t, printer);
   return (
-    <Link to="/printers/$id" params={{ id }} className={link}>
-      {name}
-    </Link>
+    <span className="flex flex-wrap items-center gap-2">
+      <Link to="/printers/$id" params={{ id }} className={link}>
+        {name}
+      </Link>
+      {printer?.archivedAt && <ArchivedBadge />}
+    </span>
   );
 }
 

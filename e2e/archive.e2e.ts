@@ -1,3 +1,4 @@
+import type { Locator, Page } from "@playwright/test";
 import { expect, test } from "./fixtures.ts";
 import { hasHorizontalScroll, seedModel, seedPrinter, seedProject, seedSpool } from "./helpers.ts";
 
@@ -162,6 +163,59 @@ for (const { module, list, name, seed, listView } of MODULES)
     await expect(del).toHaveCount(0);
   });
 
+test("Show archived adds archived rows to the active ones, marked", async ({ page, app }) => {
+  await app.api("POST", "/api/clients", { name: "Rui", mobile: "922" });
+  const ana = await app.api<{ id: string }>("POST", "/api/clients", {
+    name: "Ana",
+    mobile: "911",
+  });
+  await app.api("PATCH", `/api/clients/${ana.id}`, { archived: true });
+  await page.goto("/clients");
+  await expect(page.getByRole("link", { name: "Ana" })).toHaveCount(0);
+
+  await page.getByLabel("Show archived").check();
+  const active = page.getByRole("row", { name: /Rui/ });
+  const archived = page.getByRole("row", { name: /Ana/ });
+  await expect(active.getByText("Archived", { exact: true })).toHaveCount(0);
+  await expect(archived.getByText("Archived", { exact: true })).toBeVisible();
+
+  await page.getByLabel("Show archived").uncheck();
+  await expect(archived).toHaveCount(0);
+  await expect(active).toBeVisible();
+});
+
+test("the projects grid and the tables without the switch mark archived rows", async ({
+  page,
+  app,
+}) => {
+  const printer = await seedPrinter(app.api);
+  const project = await seedProject(app.api, "Lamp");
+  await app.api("POST", "/api/prints", {
+    printerId: printer.id,
+    projectId: project.id,
+    startedAt: new Date().toISOString(),
+    usages: [],
+    title: "Benchy",
+    outcome: "success",
+  });
+  await app.api("PATCH", `/api/projects/${project.id}`, { archived: true });
+  await app.api("PATCH", `/api/printers/${printer.id}`, { archived: true });
+
+  await page.goto("/projects");
+  await page.getByLabel("Show archived").check();
+  const card = page.getByRole("listitem").filter({ hasText: "Lamp" });
+  await expect(card.getByText("Archived", { exact: true })).toBeVisible();
+
+  await page.goto("/stats");
+  for (const [table, name] of [
+    ["Printer", /Test Printer/],
+    ["Project", /Lamp/],
+  ] as const) {
+    const row = page.getByRole("table", { name: table }).getByRole("row", { name });
+    await expect(row.getByText("Archived", { exact: true })).toBeVisible();
+  }
+});
+
 test("a list with only archived rows keeps its switch", async ({ page, app }) => {
   const client = await app.api<{ id: string }>("POST", "/api/clients", {
     name: "Ana",
@@ -272,4 +326,56 @@ test("restore works right after archive on a project's page", async ({ page, app
   await page.getByRole("button", { name: "Restore", exact: true }).click();
   await expect(page.getByRole("button", { name: "Archive", exact: true })).toBeVisible();
   await expect(page.getByText("Archived", { exact: true })).toHaveCount(0);
+});
+
+test("archived printers and accessories are marked where they show", async ({ page, app }) => {
+  const printer = await seedPrinter(app.api);
+  const accessory = await app.api<{ id: string }>("POST", "/api/accessories", {
+    name: "AMS",
+    type: "Feeder",
+    state: "working",
+  });
+  const print = await app.api<{ id: string }>("POST", "/api/prints", {
+    printerId: printer.id,
+    startedAt: new Date().toISOString(),
+    usages: [],
+    title: "Benchy",
+    outcome: "success",
+  });
+  await app.api("POST", `/api/accessories/${accessory.id}/installs`, {
+    printerId: printer.id,
+    installedAt: "2026-01-01T00:00:00.000Z",
+    removedAt: "2026-01-02T00:00:00.000Z",
+  });
+  const type = await app.api<{ id: string }>("POST", "/api/maintenance/types", {
+    name: "Clean nozzle",
+    intervalDays: 10,
+    appliesToPrinterIds: [printer.id],
+  });
+  await app.api("PATCH", `/api/printers/${printer.id}`, { archived: true });
+  await app.api("PATCH", `/api/accessories/${accessory.id}`, { archived: true });
+  const badge = (scope: Page | Locator) => scope.getByText("Archived", { exact: true });
+
+  // A print's printer: in the table, and on the print's page.
+  await page.goto("/prints");
+  const row = page.getByRole("row", { name: /Benchy/ });
+  await expect(row).toContainText("Test Printer");
+  await expect(badge(row)).toBeVisible();
+  await page.goto(`/prints/${print.id}`);
+  await expect(badge(page)).toBeVisible();
+
+  // Their own rows under Show archived, and their pages.
+  await page.goto("/printers?archived=all&accessories.archived=all");
+  await expect(badge(page.getByRole("row", { name: /Test Printer/ }))).toBeVisible();
+  await expect(badge(page.getByRole("row", { name: /AMS/ }))).toBeVisible();
+  await page.goto(`/printers/${printer.id}`);
+  await expect(badge(page.locator("header"))).toBeVisible();
+  await page.goto(`/printers/accessories/${accessory.id}`);
+  await expect(badge(page.locator("header"))).toBeVisible();
+  // Its install history names the archived printer.
+  await expect(badge(page.getByRole("listitem").filter({ hasText: "Test Printer" }))).toBeVisible();
+
+  // A maintenance type limited to it doesn't read as "all models".
+  await page.goto(`/maintenance/types/${type.id}`);
+  await expect(page.getByText(/Test Printer \(archived\)/)).toBeVisible();
 });

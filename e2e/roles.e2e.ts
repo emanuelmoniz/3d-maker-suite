@@ -194,3 +194,33 @@ test("roles: viewer and editor see only what they can do; logs show the actor", 
     }),
   ).toBeVisible();
 });
+
+test("filament catalog rows follow the filament permission, not the printers one", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await post(page, "/api/auth/setup", {
+    displayName: "Ana Admin",
+    email: "ana@example.com",
+    password: PASSWORD,
+  });
+  await post(page, "/api/filament-brands", { name: "Acme" });
+  const role = await post(page, "/api/roles", {
+    name: "Filament keeper",
+    permissions: { filament: "manage", printers: "read" },
+  });
+  await post(page, "/api/users", {
+    displayName: "Fay",
+    email: "fay@example.com",
+    password: PASSWORD,
+    roleId: role.id,
+  });
+  await signInAs(page, "fay@example.com");
+
+  await page.goto("/filament/settings");
+  await expect(page.getByRole("link", { name: "Add brand" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Acme" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Archive Acme" })).toBeVisible();
+  await page.getByRole("link", { name: "Acme" }).click();
+  await expect(page.getByRole("button", { name: "Delete", exact: true })).toBeVisible();
+});

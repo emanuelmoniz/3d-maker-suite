@@ -7,7 +7,7 @@ import {
 import { Link } from "@tanstack/react-router";
 import { Plus, Printer as PrinterIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { archiveColumn } from "../../components/ArchiveActions.tsx";
+import { ArchivedBadge, archiveColumn } from "../../components/ArchiveActions.tsx";
 import { DataTable } from "../../components/DataTable.tsx";
 import { EmptyState } from "../../components/EmptyState.tsx";
 import { SyncButtons } from "../../components/ImportLinks.tsx";
@@ -187,7 +187,7 @@ function AccessoriesTable() {
   const [query, setQuery] = useUrlListQuery("accessories.");
   const { data } = useListPage<Accessory>(["accessories", "list"], "/api/accessories", query);
   const hasArchived = useHasArchived(["accessories", "list"], "/api/accessories");
-  const printers = usePrinters({ archived: false }).data?.items ?? [];
+  const printers = usePrinters({ archived: "all" }).data?.items ?? [];
   const printerOf = new Map(printers.map((p) => [p.id, p]));
   const tagsOf = useTagsOf("accessory");
   const tags = useTags().data ?? [];
@@ -263,9 +263,12 @@ function AccessoriesTable() {
                   const p = a.printerId && printerOf.get(a.printerId);
                   return (
                     p && (
-                      <Link to="/printers/$id" params={{ id: p.id }} className="hover:underline">
-                        {printerName(t, p)}
-                      </Link>
+                      <span className="flex items-center gap-2">
+                        <Link to="/printers/$id" params={{ id: p.id }} className="hover:underline">
+                          {printerName(t, p)}
+                        </Link>
+                        {p.archivedAt && <ArchivedBadge />}
+                      </span>
                     )
                   );
                 },

@@ -161,6 +161,7 @@ export const printsRoutes =
             printNumber: prints.number,
             printTitle: prints.title,
             startedAt: prints.startedAt,
+            archivedAt: prints.archivedAt,
             slot: printFilamentUsages.slot,
             grams: printFilamentUsages.grams,
             material: printFilamentUsages.material,

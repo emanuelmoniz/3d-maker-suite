@@ -19,6 +19,7 @@ import { Write } from "../../components/Write.tsx";
 import { useCan } from "../../lib/auth.ts";
 import {
   type CatalogKind,
+  catalogModule,
   imageUrl,
   useBrands,
   useCatalogWithArchived,
@@ -62,7 +63,7 @@ export function Section<T extends { id: string; archivedAt: string | null }>(pro
         <h2 className="text-base font-semibold">{props.title}</h2>
         <span className="flex flex-wrap gap-2">
           {props.extra}
-          <Write can="printers" level="manage">
+          <Write can={catalogModule(props.kind)} level="manage">
             <Link to={props.add.to} className={addClass}>
               <Plus className="size-4" aria-hidden />
               {props.add.label}
@@ -91,7 +92,7 @@ export function Section<T extends { id: string; archivedAt: string | null }>(pro
             ...props.columns,
             archiveColumn<T>(t, {
               base: `/api/${props.kind}`,
-              can: props.kind.startsWith("filament") ? "filament" : "printers",
+              can: catalogModule(props.kind),
               level: "manage",
               name: props.name,
             }),
@@ -104,7 +105,7 @@ export function Section<T extends { id: string; archivedAt: string | null }>(pro
 
 /** Name cell: a link to the edit form, or plain text for roles that can't edit. */
 function EditLink({ to, id, children }: { to: string; id: string; children: ReactNode }) {
-  return useCan("printers", "manage") ? (
+  return useCan(to.startsWith("/filament") ? "filament" : "printers", "manage") ? (
     <Link to={to} params={{ id }} className="gap-2 font-medium hover:underline">
       {children}
     </Link>

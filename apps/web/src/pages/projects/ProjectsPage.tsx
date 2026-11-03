@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { archiveColumn } from "../../components/ArchiveActions.tsx";
+import { ArchivedBadge, archiveColumn } from "../../components/ArchiveActions.tsx";
 import { Button } from "../../components/Button.tsx";
 import { Combobox } from "../../components/Combobox.tsx";
 import { DataTable, type ListQuery, Pager, ShowArchived } from "../../components/DataTable.tsx";
@@ -403,8 +403,8 @@ export function ProjectsPage() {
                     ).map(([v, key]) => ({ value: v, label: t(key) }))}
                   />
                   <ShowArchived
-                    checked={query.archived === "true"}
-                    onChange={(on) => set({ archived: on ? "true" : "" })}
+                    checked={query.archived === "all"}
+                    onChange={(on) => set({ archived: on ? "all" : "" })}
                   />
                 </FilterBar>
               ) : (
@@ -453,9 +453,14 @@ export function ProjectsPage() {
                       <Link
                         to="/projects/$id"
                         params={{ id: p.id }}
-                        className="block overflow-hidden rounded-lg border border-border bg-surface hover:border-accent"
+                        className="relative block overflow-hidden rounded-lg border border-border bg-surface hover:border-accent"
                       >
                         <Thumb p={p} className="aspect-square w-full" />
+                        {p.archivedAt && (
+                          <span className="absolute left-2 top-2 rounded-full bg-surface">
+                            <ArchivedBadge />
+                          </span>
+                        )}
                         <span className="block p-2">
                           <span className="line-clamp-2 min-h-[2lh] font-medium">
                             {projectName(t, p)}

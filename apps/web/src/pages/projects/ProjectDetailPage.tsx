@@ -32,7 +32,7 @@ import { cx } from "../../lib/cx.ts";
 import { useProfiles, useSpools } from "../../lib/filament.ts";
 import { formatDuration, formatWeight } from "../../lib/format.ts";
 import { useAdapterName, useCapable, useIntegrationLabel } from "../../lib/integrations.ts";
-import { useUrlListQuery } from "../../lib/list.ts";
+import { useHasArchived, useUrlListQuery } from "../../lib/list.ts";
 import { usePreferences } from "../../lib/preferences.ts";
 import { usePrints, usePrintsOfProject } from "../../lib/prints.ts";
 import {
@@ -258,7 +258,9 @@ function LinkedPrints({ id }: { id: string }) {
   const { t } = useTranslation();
   const [query, setQuery] = useUrlListQuery("prints.");
   const prints = usePrints({ ...query, projectId: id });
-  if (!prints.data || (!prints.data.total && !Object.keys(query).length)) return null;
+  const hasArchived = useHasArchived(["prints", "list"], "/api/prints", { projectId: id });
+  if (!prints.data || (!prints.data.total && !Object.keys(query).length && !hasArchived))
+    return null;
   return (
     <Collapsible title={t("projects:detail.prints")}>
       <PrintsTable data={prints.data} query={query} onQueryChange={setQuery} hideProject />

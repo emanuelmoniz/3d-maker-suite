@@ -85,6 +85,7 @@ function RelinkForm({ onClose }: { onClose: () => void }) {
     {
       id: "name",
       header: t("settings:projects.relink.project"),
+      archivedMark: true,
       cell: (r) => projectName(t, r),
       sortValue: (r) => r.number,
       filterValue: (r) => projectName(t, r),

@@ -147,6 +147,7 @@ export function StatsPage() {
     {
       id: "name",
       header: name,
+      archivedMark: true,
       cell: label,
       sortValue: (r: R) => label(r).toLowerCase(),
       filterValue: label,

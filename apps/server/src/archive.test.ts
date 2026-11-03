@@ -196,10 +196,19 @@ describe("what still counts", () => {
     grams: (await app.inject(`/api/filament/spools/${s.spool.id}`)).json().remainingGrams,
     usage: (await app.inject("/api/printers?archived=all")).json().items[0].prints,
   });
-  const noArchiveStamp = ({ print, order, ...rest }: Awaited<ReturnType<typeof snapshot>>) => {
+  const noArchiveStamp = ({
+    print,
+    order,
+    stats,
+    ...rest
+  }: Awaited<ReturnType<typeof snapshot>>) => {
     const { archivedAt: _p, updatedAt: _pu, ...p } = print;
     const { archivedAt: _o, updatedAt: _ou, ...o } = order;
-    return { ...rest, print: p, order: o };
+    // A breakdown row says its printer, project or filament is archived; its numbers don't move.
+    const numbers = JSON.parse(
+      JSON.stringify(stats, (k, v) => (k === "archivedAt" ? undefined : v)),
+    );
+    return { ...rest, stats: numbers, print: p, order: o };
   };
 
   it.each([

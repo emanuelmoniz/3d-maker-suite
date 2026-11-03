@@ -47,22 +47,24 @@ export const useLogDone = () =>
 /** "P1S, 01-X1C" / "AMS, 02-Hotend": what a type applies to, or "All printers/accessories". */
 export function useAppliesTo() {
   const { t } = useTranslation();
-  const printers = usePrinters({ archived: false }).data?.items ?? [];
-  const accessories = useAccessories().data?.items ?? [];
+  const printers = usePrinters({ archived: "all" }).data?.items ?? [];
+  const accessories = useAccessories(undefined, "all").data?.items ?? [];
   const models = useModelInfo();
+  const marked = (name: string, row: { archivedAt: string | null }) =>
+    row.archivedAt ? t("common:archive.nameArchived", { name }) : name;
   return (m: MaintenanceType) =>
     (m.target === "printer"
       ? [
           ...m.appliesToModelIds.map((id) => models.get(id)?.label ?? ""),
           ...printers
             .filter((p) => m.appliesToPrinterIds.includes(p.id))
-            .map((p) => printerName(t, p)),
+            .map((p) => marked(printerName(t, p), p)),
         ]
       : [
           ...m.appliesToAccessoryTypes,
           ...accessories
             .filter((a) => m.appliesToAccessoryIds.includes(a.id))
-            .map((a) => accessoryName(t, a)),
+            .map((a) => marked(accessoryName(t, a), a)),
         ]
     )
       .filter(Boolean)

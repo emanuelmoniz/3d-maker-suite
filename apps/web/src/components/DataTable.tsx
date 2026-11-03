@@ -4,6 +4,7 @@ import { type FormEvent, type ReactNode, useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { cx } from "../lib/cx.ts";
 import { placePopover } from "../lib/placePopover.ts";
+import { ArchivedBadge } from "./ArchiveActions.tsx";
 import { Button } from "./Button.tsx";
 import { Combobox } from "./Combobox.tsx";
 import { DateRangePicker } from "./DateRangePicker.tsx";
@@ -34,6 +35,8 @@ export type Column<T> = {
   filterScale?: number;
   /** Shown under a number filter, e.g. its unit. */
   filterHint?: string;
+  /** The Archived pill of a row with `archivedAt` goes here; an `archivable` list's first column by default. */
+  archivedMark?: boolean;
 };
 
 /** Raw list query, as in the URL and the API: page, pageSize, sort and column filters. */
@@ -47,7 +50,7 @@ type ServerProps = {
   filters?: Record<string, ColumnFilter>;
   /** The API's sort when `query.sort` is absent. */
   defaultSort?: string;
-  /** Adds a "Show archived" switch, sent as `?archived=true`. */
+  /** Adds a "Show archived" switch: archived rows join the active ones (`?archived=all`). */
   archivable?: boolean;
 };
 
@@ -133,6 +136,7 @@ export function DataTable<T>({
     const key = sortKey(c, !!server);
     if (key) update({ sort: s.active && s.dir === 1 ? `-${key}` : key });
   };
+  const markColumn = columns.find((c) => c.archivedMark) ?? (server?.archivable && columns[0]);
   const hasFilters = columns.some((c) => {
     const key = filterKey(c, !!server);
     return key && query[key];
@@ -143,8 +147,8 @@ export function DataTable<T>({
       {server?.archivable && (
         <ShowArchived
           className="self-end"
-          checked={server.query.archived === "true"}
-          onChange={(on) => update({ archived: on ? "true" : "" })}
+          checked={server.query.archived === "all"}
+          onChange={(on) => update({ archived: on ? "all" : "" })}
         />
       )}
       {/* Scrollable on narrow screens, so it must be keyboard-focusable (and named) to be reachable. */}
@@ -224,7 +228,14 @@ export function DataTable<T>({
                       c.numeric && "text-right",
                     )}
                   >
-                    {c.cell(row)}
+                    {c === markColumn && (row as { archivedAt?: string | null }).archivedAt ? (
+                      <span className="inline-flex items-center gap-2">
+                        {c.cell(row)}
+                        <ArchivedBadge />
+                      </span>
+                    ) : (
+                      c.cell(row)
+                    )}
                   </td>
                 ))}
               </tr>

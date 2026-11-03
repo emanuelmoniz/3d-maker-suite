@@ -134,9 +134,9 @@ export function readStats(db: Db, q: StatsQuery, user?: Rights): Stats {
       FROM base)`;
 
   const all = <T>(select: SQL) => db.all<T>(sql`${cte} ${select}`);
-  const grouped = (key: SQL, label: SQL, join: SQL) =>
+  const grouped = (key: SQL, label: SQL, join: SQL, archivedAt: SQL = sql`NULL`) =>
     all<Stats["breakdowns"]["printer"][number]>(
-      sql`SELECT ${key} AS key, ${label} AS label, ${metrics} FROM pc ${join}
+      sql`SELECT ${key} AS key, ${label} AS label, ${archivedAt} AS archivedAt, ${metrics} FROM pc ${join}
           GROUP BY key ORDER BY total DESC, prints DESC`,
     );
 
@@ -154,11 +154,13 @@ export function readStats(db: Db, q: StatsQuery, user?: Rights): Stats {
         sql`pc.printer_id`,
         printerLabel,
         sql`JOIN printers ON printers.id = pc.printer_id`,
+        sql`printers.archived_at`,
       ),
       project: grouped(
         sql`CASE WHEN projects.id IS NULL OR ${visible} THEN pc.project_id ELSE ${HIDDEN_PROJECT} END`,
         sql`CASE WHEN ${visible} THEN ${projectLabel} END`,
         sql`LEFT JOIN projects ON projects.id = pc.project_id`,
+        sql`CASE WHEN ${visible} THEN projects.archived_at END`,
       ),
       outcome: grouped(sql`pc.outcome`, sql`pc.outcome`, sql``),
       // Each usage takes its grams' part (w / share) of the print's already filtered lines.
@@ -166,6 +168,7 @@ export function readStats(db: Db, q: StatsQuery, user?: Rights): Stats {
         sql`SELECT *, material + energy + wear + maintenance AS total FROM (
               SELECT use.profile_id || '|' || COALESCE(use.color, '') AS key,
                 trim(COALESCE(${profileLabel}, '') || ' ' || COALESCE(use.color, '')) AS label,
+                filament_profiles.archived_at AS archivedAt,
                 COUNT(DISTINCT use.print_id) AS prints,
                 COUNT(DISTINCT CASE WHEN pc.outcome = 'success' THEN pc.id END) AS successes,
                 CAST(ROUND(SUM(pc.sec * use.w / pc.share)) AS INTEGER) AS seconds,

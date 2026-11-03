@@ -215,6 +215,7 @@ export const projectFolderRowSchema = projectDetailSchema.pick({
   folderPath: true,
   folderState: true,
   canEdit: true,
+  archivedAt: true,
 });
 
 /**

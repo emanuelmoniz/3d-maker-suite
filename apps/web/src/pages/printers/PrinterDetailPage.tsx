@@ -137,7 +137,11 @@ export function PrinterDetailPage() {
       <PageHeader
         title={printerName(t, printer)}
         backTo={{ to: "/printers" }}
-        description={model?.label}
+        description={
+          <>
+            {model?.label} {archived && <ArchivedBadge />}
+          </>
+        }
         actions={
           <Write can="printers" level="manage">
             <Link to="/printers/$id/edit" params={{ id }} className={linkButton}>
@@ -171,7 +175,6 @@ export function PrinterDetailPage() {
             <h2 className="mb-3 flex items-center gap-2 text-base font-semibold">
               {t("printers:detail.info.title")}
               <StateBadge state={printer.state} />
-              {archived && <ArchivedBadge />}
             </h2>
             <dl className="grid gap-3 sm:grid-cols-2">
               <Info label={t("printers:detail.info.serial")}>{printer.serial ?? none}</Info>

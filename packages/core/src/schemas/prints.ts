@@ -93,6 +93,7 @@ export const filamentReviewItemSchema = z.object({
   printNumber: z.number().int(),
   printTitle: z.string(),
   startedAt: isoDate,
+  archivedAt: isoDate.nullable(),
   slot: z.number().int().nonnegative().nullable(),
   grams: z.number().nonnegative(),
   material: z.string().nullable(),

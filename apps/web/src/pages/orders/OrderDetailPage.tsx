@@ -14,7 +14,7 @@ import { Write } from "../../components/Write.tsx";
 import { api } from "../../lib/api.ts";
 import { useClient } from "../../lib/clients.ts";
 import { quoteName, useMoney, useQuote } from "../../lib/cost.ts";
-import { useUrlListQuery } from "../../lib/list.ts";
+import { useHasArchived, useUrlListQuery } from "../../lib/list.ts";
 import { orderName, useOrder, useOrderStatusLabel, useSaveOrder } from "../../lib/orders.ts";
 import { usePreferences } from "../../lib/preferences.ts";
 import { printName, usePrints } from "../../lib/prints.ts";
@@ -39,6 +39,7 @@ function OrderPrints({ order }: { order: OrderDetail }) {
   const { t } = useTranslation();
   const [query, setQuery] = useUrlListQuery("prints.");
   const prints = usePrints({ ...query, orderId: order.id });
+  const hasArchived = useHasArchived(["prints", "list"], "/api/prints", { orderId: order.id });
   const link = useLinkPrint();
   const prompt = useProjectLeftPrompt();
   // ponytail: the newest 100 prints of the order's projects; type a print number on its page past that.
@@ -82,7 +83,7 @@ function OrderPrints({ order }: { order: OrderDetail }) {
         </Button>
       </div>
       {prints.data &&
-        (prints.data.total || Object.keys(query).length ? (
+        (prints.data.total || Object.keys(query).length || hasArchived ? (
           <PrintsTable
             data={prints.data}
             query={query}

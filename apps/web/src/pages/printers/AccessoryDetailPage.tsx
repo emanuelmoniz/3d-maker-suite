@@ -38,7 +38,7 @@ export function AccessoryDetailPage() {
   const [removing, setRemoving] = useState(false);
   const upload = useUploadAccessoryPhoto(id);
   const removePhoto = useRemoveAccessoryPhoto(id);
-  const printers = usePrinters({ archived: false }).data?.items ?? [];
+  const printers = usePrinters({ archived: "all" }).data?.items ?? [];
   const costInfo = useCostInfo(accessory, "accessory");
 
   if (isError)
@@ -58,7 +58,11 @@ export function AccessoryDetailPage() {
       <PageHeader
         title={accessoryName(t, accessory)}
         backTo={{ to: "/printers" }}
-        description={accessory.type}
+        description={
+          <>
+            {accessory.type} {archived && <ArchivedBadge />}
+          </>
+        }
         actions={
           <Write can="printers" level="manage">
             <Link to="/printers/accessories/$id/edit" params={{ id }} className={linkButton}>
@@ -104,7 +108,6 @@ export function AccessoryDetailPage() {
             <h2 className="mb-3 flex items-center gap-2 text-base font-semibold">
               {t("printers:detail.info.title")}
               <StateBadge state={accessory.state} />
-              {archived && <ArchivedBadge />}
             </h2>
             <dl className="grid gap-3 sm:grid-cols-2">
               <Info label={t("printers:accessories.detail.printer")}>
@@ -185,13 +188,16 @@ export function AccessoryDetailPage() {
                   className="flex items-center gap-3 rounded-md border border-border p-3"
                 >
                   <div className="min-w-0 flex-1">
-                    <Link
-                      to="/printers/$id"
-                      params={{ id: i.printerId }}
-                      className="font-medium hover:underline"
-                    >
-                      {i.printerLabel}
-                    </Link>
+                    <span className="flex flex-wrap items-center gap-2">
+                      <Link
+                        to="/printers/$id"
+                        params={{ id: i.printerId }}
+                        className="font-medium hover:underline"
+                      >
+                        {i.printerLabel}
+                      </Link>
+                      {printers.find((p) => p.id === i.printerId)?.archivedAt && <ArchivedBadge />}
+                    </span>
                     <p className="text-sm text-muted">
                       {t("printers:accessories.history.period", {
                         from: formatDate(i.installedAt),
@@ -223,7 +229,9 @@ export function AccessoryDetailPage() {
       {adding && (
         <InstallDialog
           accessoryId={id}
-          options={printers.map((p) => ({ value: p.id, label: printerName(t, p) }))}
+          options={printers
+            .filter((p) => !p.archivedAt)
+            .map((p) => ({ value: p.id, label: printerName(t, p) }))}
           onClose={() => setAdding(false)}
         />
       )}

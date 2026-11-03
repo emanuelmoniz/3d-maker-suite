@@ -37,6 +37,8 @@ export const statsMetricsSchema = z.object({
 const group = statsMetricsSchema.extend({
   key: z.string().nullable(),
   label: z.string().nullable(),
+  /** Set when the row's printer, project or filament is archived. They still count. */
+  archivedAt: z.string().nullable(),
 });
 
 export const statsSchema = z.object({

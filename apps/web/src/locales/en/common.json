@@ -90,6 +90,7 @@
   },
   "archive": {
     "archived": "Archived",
+    "nameArchived": "{{name}} (archived)",
     "actions": {
       "archive": "Archive",
       "restore": "Restore",
