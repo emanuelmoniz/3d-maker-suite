@@ -334,7 +334,9 @@ export function DataTable<T>({
                       c.numeric && "text-right",
                     )}
                   >
-                    {c === markColumn && c.archivedMark !== "own" && (row as { archivedAt?: string | null }).archivedAt ? (
+                    {c === markColumn &&
+                    c.archivedMark !== "own" &&
+                    (row as { archivedAt?: string | null }).archivedAt ? (
                       <span className="inline-flex items-center gap-2">
                         {c.cell(row)}
                         <ArchivedBadge />
