@@ -84,8 +84,7 @@ const DEPENDENTS: Record<DependentType, { key: string; to: string }> = {
 export function ArchivedBadge() {
   const { t } = useTranslation();
   return (
-    <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-warn/15 px-2 py-0.5 text-xs font-medium text-warn">
-      <Archive className="size-3" aria-hidden />
+    <span className="inline-flex items-center whitespace-nowrap rounded-full bg-warn/15 px-2 py-0.5 text-xs font-medium text-warn">
       {t("common:archive.archived")}
     </span>
   );
@@ -280,6 +279,9 @@ const BULK_TEXT = {
   },
 } as const;
 
+/** What a bulk action needs of a selected row, which may be on another page. */
+export type BulkRow = { id: string; name: string; archived: boolean };
+
 /**
  * The bar under a list with selected rows: Archive, Restore or Delete them after a confirm. Rows it
  * couldn't do stay selected and are listed with why (ADR-0018).
@@ -291,7 +293,7 @@ export function BulkBar({
   onDone,
 }: {
   kind: BulkKind;
-  rows: { id: string; name: string; archived: boolean }[];
+  rows: BulkRow[];
   onClear: () => void;
   /** The ids that are still selected: the blocked ones. */
   onDone: (blocked: string[]) => void;
@@ -362,7 +364,7 @@ export function BulkBar({
           destructive={ask === "delete"}
           title={t(BULK_TEXT[ask].title, { count: targets(ask).length })}
           description={t(BULK_TEXT[ask].body)}
-          confirmLabel={t(BUTTONS[ask].label)}
+          confirmLabel={run.isPending ? t("common:bulk.working") : t(BUTTONS[ask].label)}
           onCancel={() => setAsk(null)}
           onConfirm={() => {
             if (!run.isPending) run.mutate(ask);

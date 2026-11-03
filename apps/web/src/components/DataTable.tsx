@@ -1,11 +1,13 @@
 import { BULK_ITEMS, type BulkKind, type ColumnFilter } from "@3d-maker-suite/core";
+import { useQueryClient } from "@tanstack/react-query";
 import { ArrowDown, ArrowUp, Filter } from "lucide-react";
 import { type FormEvent, type ReactNode, useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useCan } from "../lib/auth.ts";
 import { cx } from "../lib/cx.ts";
+import { allRows } from "../lib/list.ts";
 import { placePopover } from "../lib/placePopover.ts";
-import { ArchivedBadge, BulkBar } from "./ArchiveActions.tsx";
+import { ArchivedBadge, BulkBar, type BulkRow } from "./ArchiveActions.tsx";
 import { Button } from "./Button.tsx";
 import { Combobox } from "./Combobox.tsx";
 import { DateRangePicker } from "./DateRangePicker.tsx";
@@ -37,7 +39,7 @@ export type Column<T> = {
   /** Shown under a number filter, e.g. its unit. */
   filterHint?: string;
   /** The Archived pill of a row with `archivedAt` goes here; an `archivable` list's first column by default. */
-  archivedMark?: boolean;
+  archivedMark?: boolean | "own";
   /** Set by `archiveColumn`: the rows can be selected and acted on together, with `manage`. */
   bulk?: { kind: BulkKind; name: (row: T) => string; when?: (row: T) => boolean };
 };
@@ -55,9 +57,14 @@ type ServerProps = {
   defaultSort?: string;
   /** Adds a "Show archived" switch: archived rows join the active ones (`?archived=all`). */
   archivable?: boolean;
+  /** What else the list is limited to, outside `query` (a client's orders): select all keeps to it. */
+  scope?: ListQuery;
 };
 
 const PAGE_SIZES = [10, 25, 50, 100];
+/** These change how a list shows, not what it lists, so a selection outlives them. */
+const VIEW_ONLY = ["page", "pageSize", "sort"];
+const NOTHING: ReadonlyMap<string, BulkRow> = new Map();
 
 const filterKey = <T,>(c: Column<T>, server: boolean) =>
   server ? c.filter : c.filterValue && c.id;
@@ -110,13 +117,7 @@ export function DataTable<T>({
   const { t } = useTranslation();
   const [ownQuery, setOwnQuery] = useState<ListQuery>({});
   const query = server?.query ?? client?.query ?? ownQuery;
-  const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
-  const setListQuery = server?.onQueryChange ?? client?.onQueryChange ?? setOwnQuery;
-  // A selection is the rows on screen, so anything that changes them ends it.
-  const setQuery = (q: ListQuery) => {
-    setSelected(new Set());
-    setListQuery(q);
-  };
+  const setQuery = server?.onQueryChange ?? client?.onQueryChange ?? setOwnQuery;
   const view = server ? rows : viewOf(columns, rows, query);
   const total = server ? server.total : view.length;
   const size = Number(query.pageSize) || 25; // the API default
@@ -153,9 +154,62 @@ export function DataTable<T>({
 
   const bulkColumn = columns.find((c) => c.bulk)?.bulk;
   const mayBulk = useCan(bulkColumn ? BULK_ITEMS[bulkColumn.kind].module : "printers", "manage");
-  const bulk = mayBulk ? bulkColumn : undefined;
-  const selectable = bulk ? sorted.filter((r) => bulk.when?.(r) ?? true) : [];
-  const picked = selectable.filter((r) => selected.has(rowKey(r)));
+  const bulk = mayBulk && server ? bulkColumn : undefined;
+  const qc = useQueryClient();
+  // A selection belongs to what the list lists, so a new filter ends it and paging doesn't.
+  const list = JSON.stringify(
+    Object.entries({ ...query, ...server?.scope })
+      .filter(([k]) => !VIEW_ONLY.includes(k))
+      .sort(),
+  );
+  const [selection, setSelection] = useState<{
+    list: string;
+    rows: ReadonlyMap<string, BulkRow>;
+    /** How many select all found; every row is selected while `rows` holds that many. */
+    full?: number;
+    status?: "busy" | "failed";
+  }>({ list, rows: NOTHING });
+  const current = selection.list === list ? selection : { list, rows: NOTHING };
+  const selected = current.rows;
+  const clearSelection = () => setSelection({ list, rows: NOTHING });
+  const selectable = (r: T) => bulk?.when?.(r) ?? true;
+  const toRow = (r: T): BulkRow => ({
+    id: rowKey(r),
+    name: bulk?.name(r) ?? "",
+    archived: !!(r as { archivedAt?: string | null }).archivedAt,
+  });
+
+  const selectAll = async () => {
+    if (!bulk || current.status === "busy") return;
+    setSelection({ ...current, status: "busy" });
+    // Ignored if the list changes meanwhile: the result would be some other list's rows.
+    const finish = (next: Omit<typeof selection, "list">) =>
+      setSelection((s) => (s.list === list ? { list, ...next } : s));
+    try {
+      const found = await allRows<T>(
+        BULK_ITEMS[bulk.kind].path,
+        { ...query, ...server?.scope },
+        rowKey,
+      );
+      // Anything but the table's own count means these aren't the rows it shows.
+      if (found.length !== server?.total) throw new Error("list changed");
+      const rows = found.filter(selectable).map(toRow);
+      finish({ rows: new Map(rows.map((r) => [r.id, r])), full: rows.length });
+    } catch {
+      finish({ rows: selected, full: current.full, status: "failed" });
+      void qc.invalidateQueries();
+    }
+  };
+  const toggle = (r: T) => {
+    const rows = new Map(selected);
+    if (!rows.delete(rowKey(r))) rows.set(rowKey(r), toRow(r));
+    setSelection({ list, rows, full: current.full });
+  };
+  const onPage = sorted.filter(selectable);
+  const allSelected =
+    !!selected.size &&
+    (selected.size === current.full ||
+      (sorted.length === total && onPage.every((r) => selected.has(rowKey(r)))));
   const shown: Column<T>[] = bulk
     ? [
         {
@@ -165,33 +219,34 @@ export function DataTable<T>({
             <input
               type="checkbox"
               aria-label={t("common:bulk.selectAll")}
-              disabled={!selectable.length}
-              checked={!!selectable.length && picked.length === selectable.length}
+              title={t("common:bulk.selectAll")}
+              disabled={!total}
+              checked={allSelected}
               ref={(el) => {
-                if (el) el.indeterminate = !!picked.length && picked.length < selectable.length;
+                if (el) el.indeterminate = !!selected.size && !allSelected;
               }}
-              onChange={(e) => setSelected(new Set(e.target.checked ? selectable.map(rowKey) : []))}
+              onChange={(e) => (e.target.checked ? void selectAll() : clearSelection())}
             />
           ),
           cell: (r) => (
             <input
               type="checkbox"
               aria-label={t("common:bulk.select", { name: bulk.name(r) })}
-              disabled={!(bulk.when?.(r) ?? true)}
+              disabled={!selectable(r)}
               checked={selected.has(rowKey(r))}
-              onChange={() =>
-                setSelected((s) => {
-                  const next = new Set(s);
-                  if (!next.delete(rowKey(r))) next.add(rowKey(r));
-                  return next;
-                })
-              }
+              onChange={() => toggle(r)}
             />
           ),
         },
         ...columns,
       ]
     : columns;
+  // A row on this page is as it is now; one on another page as it was when selected.
+  const onScreen = new Map(sorted.map((r) => [rowKey(r), r]));
+  const bulkRows = [...selected.values()].map((s) => {
+    const row = onScreen.get(s.id);
+    return row ? toRow(row) : s;
+  });
 
   return (
     <div className="flex min-w-0 flex-col gap-3">
@@ -279,7 +334,7 @@ export function DataTable<T>({
                       c.numeric && "text-right",
                     )}
                   >
-                    {c === markColumn && (row as { archivedAt?: string | null }).archivedAt ? (
+                    {c === markColumn && c.archivedMark !== "own" && (row as { archivedAt?: string | null }).archivedAt ? (
                       <span className="inline-flex items-center gap-2">
                         {c.cell(row)}
                         <ArchivedBadge />
@@ -304,14 +359,28 @@ export function DataTable<T>({
       {bulk && (
         <BulkBar
           kind={bulk.kind}
-          rows={picked.map((r) => ({
-            id: rowKey(r),
-            name: bulk.name(r),
-            archived: !!(r as { archivedAt?: string | null }).archivedAt,
-          }))}
-          onClear={() => setSelected(new Set())}
-          onDone={(ids) => setSelected(new Set(ids))}
+          rows={bulkRows}
+          onClear={clearSelection}
+          onDone={(blocked) => {
+            const kept = new Set(blocked);
+            setSelection({
+              list,
+              rows: new Map([...selected].filter(([id]) => kept.has(id))),
+            });
+            // The page it was on may be gone.
+            if (query.page) update({});
+          }}
         />
+      )}
+      {current.status === "busy" && (
+        <p role="status" className="text-muted">
+          {t("common:bulk.selecting", { count: total })}
+        </p>
+      )}
+      {current.status === "failed" && (
+        <p role="alert" className="text-bad">
+          {t("common:bulk.selectFailed")}
+        </p>
       )}
       {(server || total > 10 || hasFilters) && (
         <Pager

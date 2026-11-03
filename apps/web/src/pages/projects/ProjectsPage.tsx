@@ -123,11 +123,14 @@ export function ProjectsTable({
   total,
   query,
   onQueryChange,
+  scope,
 }: {
   rows: ProjectListItem[];
   total: number;
   query: ListQuery;
   onQueryChange: (q: ListQuery) => void;
+  /** What the list is limited to, outside `query`. */
+  scope?: ListQuery;
 }) {
   const { t } = useTranslation();
   const materials = useProjectMaterials().data ?? [];
@@ -145,21 +148,24 @@ export function ProjectsTable({
         filters: projectFilters,
         defaultSort: "-name",
         archivable: true,
+        scope,
       }}
       columns={[
         {
           id: "name",
+          archivedMark: "own",
           header: t("projects:list.columns.name"),
           cell: (p) => (
             <span className="flex items-center gap-2">
-              <Thumb p={p} className="size-8 rounded" />
+              <Thumb p={p} className="size-8 shrink-0 rounded" />
               <Link
                 to="/projects/$id"
                 params={{ id: p.id }}
-                className="font-medium hover:underline"
+                className="shrink-0 font-medium hover:underline"
               >
                 {projectName(t, p)}
               </Link>
+              {p.archivedAt && <ArchivedBadge />}
               {p.offline && <RootStateBadge state="offline" />}
               {p.sourceUrl && (
                 <a
@@ -167,7 +173,7 @@ export function ProjectsTable({
                   target="_blank"
                   rel="noreferrer"
                   aria-label={t("projects:list.openSource")}
-                  className="text-muted hover:text-fg"
+                  className="shrink-0 text-muted hover:text-fg"
                 >
                   <ExternalLink className="size-4" aria-hidden />
                 </a>
