@@ -2,6 +2,10 @@
 
 All notable changes are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [5.2.0] - 2026-11-03
+
+Stable. Same code as 5.2.0-alpha.3; the release notes list everything since 5.1.0 (the 5.2.0-alpha sections below). No new migrations. Back up before updating from 5.1.0.
+
 ## [5.2.0-alpha.3] - 2026-11-03
 
 Pre-release. Test on a copy of your data first; back up before updating. Fixes found by running the release scenarios on a real 5.1.0 database; everything in 5.2.0-alpha.2 is included. No new migrations.
