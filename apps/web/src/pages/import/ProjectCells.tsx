@@ -108,10 +108,24 @@ export function FolderCell({
 
   return (
     <span className="flex max-w-96 flex-col gap-2">
+      {folder && !create && (
+        <input
+          key={folder}
+          aria-label={t("import:projects.editFolder", { row: row.row })}
+          defaultValue={folder}
+          className={cx(inputClass, missing && "border-warn ring-1 ring-warn")}
+          onBlur={(e) => {
+            const path = e.target.value.trim();
+            if (path && path !== folder) onChange({ folder: { path }, fromFolder: undefined });
+          }}
+          onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
+        />
+      )}
       <span
         className={cx(
           "break-all",
           missing && "rounded-md px-2 py-1 font-medium text-warn ring-1 ring-warn",
+          folder && !create && !missing && "sr-only",
         )}
       >
         {create

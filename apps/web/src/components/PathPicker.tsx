@@ -61,6 +61,7 @@ export function PathPicker({
   ext,
   initial,
   within,
+  pickRoots,
   canCreate,
   device,
   onPick,
@@ -74,6 +75,8 @@ export function PathPicker({
   initial?: string;
   /** Only folders below these (the project roots): they are the top level, and can't be picked. */
   within?: string[];
+  /** With `within`: the roots themselves can be picked too. */
+  pickRoots?: boolean;
   /** Offer "New folder" inside the folder being shown (folder mode). */
   canCreate?: boolean;
   /** Browse this device's folders instead (folder mode; no "New folder"). */
@@ -139,7 +142,14 @@ export function PathPicker({
   const atRoot = !!within && !!path && !within.some((r) => sep && below(path, r, sep));
   const pickable =
     !!dir.data?.path &&
-    (!within || within.some((r) => sep && dir.data?.path && below(dir.data.path, r, sep)));
+    (!within ||
+      within.some(
+        (r) =>
+          sep &&
+          dir.data?.path &&
+          (below(dir.data.path, r, sep) ||
+            (pickRoots && dir.data.path.toLowerCase() === r.replace(/[/]+$/, "").toLowerCase())),
+      ));
 
   useEffect(() => {
     const d = ref.current;

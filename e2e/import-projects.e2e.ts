@@ -1,4 +1,4 @@
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { expect, test } from "./fixtures.ts";
 import { addRoots, pick, seedPrinter } from "./helpers.ts";
 
@@ -73,7 +73,10 @@ test("import projects: pick a folder, create one, add a print in the review", as
   expect(print.projectId).toBe(projects.items[0]?.id);
 });
 
-test("import projects: bulk replace the start of the folders", async ({ page, app }) => {
+test("import projects: bulk move the folders to a root, keeping the last level", async ({
+  page,
+  app,
+}) => {
   const root = app.makeProjectDir("cup");
   await addRoots(app.api, root);
 
@@ -84,18 +87,13 @@ test("import projects: bulk replace the start of the folders", async ({ page, ap
     mimeType: "text/csv",
     buffer: Buffer.from("Name;Folder\nMug;/volume1/projects/cup\nLamp;/volume1/projects/cup/sub\n"),
   });
-  // Another machine's paths are outside the roots.
-  await expect(page.getByLabel("Replace the start of the folder")).toHaveValue(
-    "/volume1/projects/cup",
-  );
-  await page.getByLabel("Replace the start of the folder").fill("/volume1/projects");
-
-  await page.getByRole("button", { name: "Browse for New start of the folders" }).click();
-  const browse = page.getByRole("dialog", { name: "New start of the folders" });
-  await browse.getByRole("button", { name: "cup" }).click();
+  await page.getByRole("button", { name: "Browse for Move all folders to" }).click();
+  const browse = page.getByRole("dialog", { name: "Move all folders to" });
+  // The root itself can be picked: every folder keeps only its last level.
+  await browse.getByRole("button", { name: basename(root) }).click();
   await browse.getByRole("button", { name: "Select this folder" }).click();
   await page.getByRole("button", { name: "Apply" }).click();
 
-  await expect(page.getByText(join(root, "cup", "cup"), { exact: true })).toBeVisible();
-  await expect(page.getByText(join(root, "cup", "cup", "sub"))).toBeVisible();
+  await expect(page.getByLabel("Edit folder of row 2")).toHaveValue(join(root, "cup"));
+  await expect(page.getByLabel("Edit folder of row 3")).toHaveValue(join(root, "sub"));
 });

@@ -46,7 +46,7 @@ import { useApply } from "../../lib/import.ts";
 import { useRoots } from "../../lib/roots.ts";
 import { NewSpoolDialog } from "../filament/NewSpoolDialog.tsx";
 import { cellText, EditCell } from "./EditCell.tsx";
-import { commonStart, replaceStart } from "./folderPrefix.ts";
+import { inRoot, lastFolder } from "./folderPrefix.ts";
 import { FolderCell, folderOf, PrintsCell, useProjectPrints } from "./ProjectCells.tsx";
 
 // i18n keys are written out in full so `pnpm i18n:check` can see them.
@@ -258,22 +258,11 @@ export function ReviewTable({
         folder: folderOf(r, d),
       });
   };
-  // Bulk folder change: the start of the path to replace (pre-filled with what the rows in scope
-  // share) and the folder inside the roots that takes its place.
-  const [fromPath, setFromPath] = useState<string | null>(null);
+  // Bulk folder change: every folder moves to this root, keeping its last folder.
   const [toPath, setToPath] = useState("");
   // A row whose only error is its folder (outside the roots) takes part: the new path fixes it.
   const fixable = (r: ImportPreviewRow) =>
     r.status === "invalid" && r.errors.length > 0 && r.errors.every((e) => e.column === "folder");
-  const folderNow = (r: ImportPreviewRow) => {
-    const d = decisionOf(r);
-    return d.action === "skip" && !fixable(r) ? null : folderOf(r, d);
-  };
-  const paths = (list: ImportPreviewRow[]) =>
-    list.flatMap((r) => {
-      const f = folderNow(r);
-      return f ? [f] : [];
-    });
   const anyBulk = !!bulk || (prints && !!(project || spool || track)) || (projects && !!toPath);
   // One Apply: the action first (so "All new" + a project works in one go), then the prints
   // picks. A project or spool only goes to a created row that takes it; a spool only to a row
@@ -304,7 +293,6 @@ export function ReviewTable({
         next[r.row] = cur;
       }
     if (projects && toPath) {
-      const from = fromPath ?? commonStart(paths(rowsIn));
       const asks: { row: number; targetId: string | null; folder: string }[] = [];
       for (const r of rowsIn) {
         const fix = fixable(r);
@@ -312,7 +300,7 @@ export function ReviewTable({
           next[r.row] ??
           (fix ? { ...suggested(r), action: "create" as const, targetId: null } : suggested(r));
         const old = cur.action === "skip" ? null : folderOf(r, cur);
-        const path = old && replaceStart(old, from, toPath);
+        const path = old && lastFolder(old) ? inRoot(toPath, lastFolder(old)) : null;
         if (!path || path === old) continue;
         if (fix) editCell(r, "folder", path);
         next[r.row] = { ...cur, folder: { path }, fromFolder: undefined };
@@ -330,7 +318,6 @@ export function ReviewTable({
     setProject("");
     setSpool("");
     setTrack("");
-    setFromPath(null);
     setToPath("");
   };
   const toggle = <T,>(set: Set<T>, v: T) => {
@@ -925,14 +912,6 @@ export function ReviewTable({
         )}
         {projects && (
           <>
-            <label className="flex flex-col gap-1.5">
-              <span className="font-medium">{t("import:review.pathFrom")}</span>
-              <input
-                className={`${inputClass} w-72!`}
-                value={fromPath ?? commonStart(paths(inScope[scope]))}
-                onChange={(e) => setFromPath(e.target.value)}
-              />
-            </label>
             <span className="flex flex-col gap-1.5">
               <span className="font-medium">{t("import:review.pathTo")}</span>
               <span className="flex items-center gap-2">
@@ -940,6 +919,7 @@ export function ReviewTable({
                   label={t("import:review.pathToPick")}
                   mode="folder"
                   within={roots.map((r) => r.path)}
+                  pickRoots
                   initial={toPath || roots[0]?.path}
                   onPick={setToPath}
                 >
