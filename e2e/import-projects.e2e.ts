@@ -72,3 +72,30 @@ test("import projects: pick a folder, create one, add a print in the review", as
   const print = await app.api<{ projectId: string }>("GET", `/api/prints/${benchy.id}`);
   expect(print.projectId).toBe(projects.items[0]?.id);
 });
+
+test("import projects: bulk replace the start of the folders", async ({ page, app }) => {
+  const root = app.makeProjectDir("cup");
+  await addRoots(app.api, root);
+
+  await page.goto("/import");
+  await pick(page.getByRole("combobox", { name: "What to import" }), "Projects");
+  await page.getByLabel("Upload a file").setInputFiles({
+    name: "projects.csv",
+    mimeType: "text/csv",
+    buffer: Buffer.from("Name;Folder\nMug;/volume1/projects/cup\nLamp;/volume1/projects/cup/sub\n"),
+  });
+  // Another machine's paths are outside the roots.
+  await expect(page.getByLabel("Replace the start of the folder")).toHaveValue(
+    "/volume1/projects/cup",
+  );
+  await page.getByLabel("Replace the start of the folder").fill("/volume1/projects");
+
+  await page.getByRole("button", { name: "Browse for New start of the folders" }).click();
+  const browse = page.getByRole("dialog", { name: "New start of the folders" });
+  await browse.getByRole("button", { name: "cup" }).click();
+  await browse.getByRole("button", { name: "Select this folder" }).click();
+  await page.getByRole("button", { name: "Apply" }).click();
+
+  await expect(page.getByText(join(root, "cup", "cup"), { exact: true })).toBeVisible();
+  await expect(page.getByText(join(root, "cup", "cup", "sub"))).toBeVisible();
+});

@@ -56,9 +56,13 @@ export function useProjectPrints(preview: ImportPreview, enabled: boolean) {
   return {
     options: all.data?.prints ?? [],
     of: (row: number) => again[row] ?? all.data?.suggested[row] ?? [],
-    refresh: async (a: Ask) => {
-      const res = await ask([a]);
-      setAgain((s) => ({ ...s, [a.row]: res.suggested[a.row] ?? [] }));
+    refresh: async (a: Ask | Ask[]) => {
+      const asks = Array.isArray(a) ? a : [a];
+      const res = await ask(asks);
+      setAgain((s) => ({
+        ...s,
+        ...Object.fromEntries(asks.map((x) => [x.row, res.suggested[x.row] ?? []])),
+      }));
     },
   };
 }

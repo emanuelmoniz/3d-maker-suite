@@ -1492,7 +1492,7 @@ Design:
 - Changing a project's root only changes the database: same relative folder, new root. Files are moved by the user first. Nothing on disk is touched.
 - A project whose folder isn't at the new root shows as missing, as it does today.
 
-### [ ] Step 5 - Import review: bulk folder change
+### [x] Step 5 - Import review: bulk folder change
 **Model:** Sonnet · **Effort:** Medium
 **Scope:** Rows can already pick a folder, create one or have none (`FolderCell`). Add a bulk action in `ReviewTable`, with scope all, selected or filtered: replace the start of the path (for example `/volume1/projects` → a folder picked inside the current roots), pre-filled with the rows' common start. Subfolders are kept. Rows with no match or a new path outside the roots show as today.
 **Done when:** a file with another machine's paths imports into the new root with subfolders kept; `pnpm i18n:check` and tests pass; e2e.
