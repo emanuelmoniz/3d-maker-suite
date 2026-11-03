@@ -139,7 +139,11 @@ export function StatsPage() {
   const tot = data?.totals;
   const rate = (m: StatsMetrics) =>
     m.prints ? `${Math.round((m.successes / m.prints) * 100)}%` : "–";
-  const costColumns = <R extends Group>(name: string, label: (r: R) => string) => [
+  const costColumns = <R extends Group>(
+    name: string,
+    label: (r: R) => string,
+    cost: "total" | "material" = "total",
+  ) => [
     {
       id: "name",
       header: name,
@@ -174,12 +178,12 @@ export function StatsPage() {
       filterValue: (r: R) => r.grams,
     },
     {
-      id: "total",
-      header: t("stats:metrics.cost"),
+      id: cost,
+      header: t(cost === "material" ? "stats:metrics.materialCost" : "stats:metrics.cost"),
       numeric: true,
-      cell: (r: R) => money(r.total),
-      sortValue: (r: R) => r.total,
-      filterValue: (r: R) => r.total,
+      cell: (r: R) => money(r[cost]),
+      sortValue: (r: R) => r[cost],
+      filterValue: (r: R) => r[cost],
     },
   ];
   const outcomeLabel = (k: string | null) => t(OUTCOMES[k as keyof typeof OUTCOMES]);
@@ -405,6 +409,7 @@ export function StatsPage() {
               columns={costColumns<Group>(
                 t("stats:by.filament"),
                 (r) => r.label ?? t("stats:noFilament"),
+                "material",
               )}
             />
           </div>

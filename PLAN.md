@@ -1,4 +1,4 @@
-# 3D Maker Suite - Development Plans 4.1.0, 4.1.1, 4.2.0, 5.0.0, 5.1.0 and 6.0.0
+# 3D Maker Suite - Development Plans 4.1.0, 4.1.1, 4.2.0, 5.0.0, 5.1.0, 5.2.0 and 6.0.0
 Repo: `3d-maker-suite`
 
 How to use:
@@ -1435,9 +1435,260 @@ Then fast-forward main to dev, push, push the v5.1.0 tag and confirm the release
 
 ---
 
+# Plan 5.2.0 - Project folders, archive & delete, connector user
+
+Minor release, starts after the 5.1.0 release. Design: ADR-0018 for archive, delete and bulk actions.
+
+## Phase 20 - Fixes & connector user
+
+### [x] Step 1 - Stats: material cost in the filament table
+**Model:** Sonnet · **Effort:** Low
+**Scope:** The filament table's last column shows `total` (material, energy, wear and maintenance). In the filament table only, show the row's `material`, already returned by the API, under a new "Material cost" header. `costColumns` in `StatsPage.tsx` is shared with the printer and project tables, which keep Total cost.
+**Done when:** the filament column shows material cost only and sorts and filters by it; the other tables are unchanged; test; `pnpm i18n:check` and tests pass.
+**Prompt:**
+```
+Do Step 1 of the 5.2.0 plan in PLAN.md.
+```
+
+### [ ] Step 2 - Sync errors clear when the sync works again
+**Model:** Sonnet · **Effort:** Low
+**Scope:** A successful run resolves the open `sync_error` alerts of the same `task` (`sync:<integration>:<type>`) in `integrations/sync.ts`, so they leave everyone's list. Errors of another sync type stay. `sync_error` stays one-shot in `evaluate.ts`: the run clears it, not the evaluator. Same update as `updates.ts` and `managedSlicer.ts`.
+**Done when:** fail then succeed resolves the alert; a success of another type doesn't; a later failure raises a new one; tests pass.
+**Prompt:**
+```
+Do Step 2 of the 5.2.0 plan in PLAN.md.
+```
+
+### [ ] Step 3 - Show the connector's user
+**Model:** Sonnet · **Effort:** Low
+**Scope:**
+- Connector status page: the user this connector acts as, from the hub. Hidden in no-users mode.
+- Hub: the user on the connector card and on the Edit connector page's identity card (today only read-only text under Software).
+
+**Done when:** both pages show the user and follow a rename; no-users mode shows none; e2e; `pnpm i18n:check` and tests pass.
+**Prompt:**
+```
+Do Step 3 of the 5.2.0 plan in PLAN.md.
+```
+
+### [ ] Step 4 - Change the connector's user  **[plan mode]**
+**Model:** Opus · **Effort:** High
+**Scope:**
+- The status page has no login and a connector acts with its user's rights, so a free picker there would let anyone at that PC become an admin. The change needs a code from the hub.
+- Hub, Edit connector page (`hub.manage`, same rules as picking a user at pairing): generate a code for a chosen user, tied to this device, one use, expiring. Extends `pairing_codes`.
+- Connector status page: enter the code, choose what happens to the projects in this connector's device folders (move to the new user, or stay with their owner), confirm. Needs the hub online; clear errors for a wrong, expired or used code. The device keeps its identity, token, roots and settings.
+- Effective rights follow at once (`devices.userId` is read per request). Projects in hub folders are never touched. The change goes in the log.
+
+**Done when:** the user changes without re-pairing, with both owner choices; a code for another device or a used code is refused; e2e; `pnpm i18n:check` and tests pass.
+**Prompt:**
+```
+Do Step 4 of the 5.2.0 plan in PLAN.md. Show me the code format, the API and the screens first.
+Back up the DB before editing schema.ts.
+```
+
+## Phase 21 - Project folders
+
+Design:
+- Changing a project's root only changes the database: same relative folder, new root. Files are moved by the user first. Nothing on disk is touched.
+- A project whose folder isn't at the new root shows as missing, as it does today.
+
+### [ ] Step 5 - Import review: bulk folder change
+**Model:** Sonnet · **Effort:** Medium
+**Scope:** Rows can already pick a folder, create one or have none (`FolderCell`). Add a bulk action in `ReviewTable`, with scope all, selected or filtered: replace the start of the path (for example `/volume1/projects` → a folder picked inside the current roots), pre-filled with the rows' common start. Subfolders are kept. Rows with no match or a new path outside the roots show as today.
+**Done when:** a file with another machine's paths imports into the new root with subfolders kept; `pnpm i18n:check` and tests pass; e2e.
+**Prompt:**
+```
+Do Step 5 of the 5.2.0 plan in PLAN.md.
+```
+
+### [ ] Step 6 - Change the root of many projects  **[plan mode]**
+**Model:** Opus · **Effort:** Medium
+**Scope:**
+- Settings → Projects: an action opening a dialog with a projects table (filter by root, name, folder state; select), then pick the new root and confirm.
+- Server: one route that relinks the selection. Needs `projects` manage, per-project access and the root's edit rule. Reuses what `POST /projects/:id/folder` does: `assertRootEditable`, the device root owner rule, `scanner.refresh`. The files are the same, so plates and slices are kept.
+- A project whose target is already taken (`folder_in_use`) is skipped and reported; the others go through.
+
+**Done when:** projects move to a new root with their relative folders; missing ones show as missing; conflicts are reported; no file is touched (test); e2e; keyboard and mobile work; `pnpm i18n:check` and tests pass.
+**Prompt:**
+```
+Do Step 6 of the 5.2.0 plan in PLAN.md. Show me the dialog and the API first.
+```
+
+### [ ] Step 7 - Review project folders after a restore
+**Model:** Sonnet · **Effort:** Medium
+**Scope:**
+- A restore replaces the database, roots included, at the next start, so the review comes after it. The restore dialog gets a "Review project folders after restore" checkbox.
+- The choice survives the restart with the staged restore. On the next start the admin is sent to the Step 6 table, where they add the new roots and change folders. Nothing changes until they confirm; they can skip it.
+- Roots report their real state in that table: a root from the old machine today always says `ok` (`roots.ts`).
+
+**Done when:** a backup from another machine restores, opens the review, and the projects end up on the new roots; restoring without the option works as before; e2e; `pnpm i18n:check` and tests pass.
+**Prompt:**
+```
+Do Step 7 of the 5.2.0 plan in PLAN.md.
+```
+
+### [ ] Step 8 - Docs, push & v5.2.0-alpha.1
+**Model:** Sonnet · **Effort:** Medium
+**Scope:**
+- Docs: moving to a new machine (backup, move the files, restore, review folders), changing a connector's user, material cost in stats.
+- CHANGELOG, version `5.2.0-alpha.1`.
+- Commit, push `dev`, tag on `dev`. Check the run and the pre-release.
+
+**Done when:** tags pushed; workflow green; docs match the app.
+**Prompt:**
+```
+Do Step 8 of the 5.2.0 plan in PLAN.md. Then push dev, push the tag and confirm the pre-release is published.
+```
+
+## Phase 22 - Archive and delete everywhere
+
+Applies to printers, accessories, maintenance types, printer brands, printer models, machine profiles, spools, filament brands, filament materials, filament profiles, projects, prints, orders, quotes, clients. Maintenance task records stay permanent history.
+
+Design:
+- **Archive** hides an item from lists and pickers; a "Show archived" filter finds it and Restore brings it back. Nothing else changes: stats, costs and spool weight still count it.
+- **Delete** is real and only works when nothing depends on the item. If something does, a 409 says what, and the message names those items (and whether they're archived). Archived items still block.
+- Depends on it (blocks delete):
+  - printer: prints, maintenance tasks, accessory installs
+  - accessory: maintenance tasks, installs
+  - maintenance type: maintenance tasks
+  - printer brand: printer models
+  - printer model: printers, machine profiles, print profiles
+  - machine profile: prints
+  - filament brand, filament material: filament profiles
+  - filament profile: spools, print usages
+  - spool: print usages
+  - project: prints, orders, quotes, and its folder still having files (today's rule)
+  - order: prints
+  - quote: orders
+  - client: orders
+  - print: nothing
+- Goes with the item (never blocks): comments, a spool's weight log, a print's usages (filament returns to the spool, as today), an order's project links, a project's plates and tags.
+- **Permissions:** single-row actions keep today's level. Bulk needs `manage` on the item's module (printers, maintenance, filament, projects, prints, costs). Project bulk also checks per-project access: projects the user can't edit are skipped and reported.
+- **Partial bulk:** free rows go through; a result dialog lists the blocked ones and what uses each, with links.
+
+### [ ] Step 9 - ADR-0018 archive, delete and bulk actions  **[plan mode]**
+**Model:** Opus · **Effort:** High
+**Scope:** `docs/adr/0018-archive-delete-bulk.md`: the design above, checked against every foreign key in `schema.ts`, plus:
+- the `in_use` error shape, and what changes for today's callers (`DELETE` on a printer, accessory or spool archives or doesn't exist today; deleting an order or quote unlinks today)
+- imported rows: what the next sync does with an archived or deleted row, so a deleted item doesn't come back unnoticed
+- unique names and numbers while a row is archived
+- archive side effects: a printer with installed accessories (409 stays), a project's scanner, locks and connector sync, the alerts of an archived item
+- rejected options
+
+**Done when:** the ADR is approved; every entity and foreign key is mapped.
+**Prompt:**
+```
+Do Step 9 of the 5.2.0 plan in PLAN.md. Show me the dependency table checked against the schema first.
+```
+
+### [ ] Step 10 - Archive on every entity: schema and server  **[plan mode]**
+**Model:** Opus · **Effort:** High
+**Scope:**
+- Migration: `archivedAt` for printer brands, printer models, filament brands, filament materials, prints, orders, quotes, clients.
+- Archive and restore in the API for all 15, including projects and machine profiles, whose column nothing sets today. Lists hide archived rows by default and take a filter; pickers never offer them; a row's own archived references still display.
+- Stats, costs and spool weight keep counting archived rows (test).
+
+**Done when:** each entity archives and restores; pickers and lists hide them; stats don't change on archive (test); the migration applies on a copy of the real DB; tests pass.
+**Prompt:**
+```
+Do Step 10 of the 5.2.0 plan in PLAN.md. Show me the schema and the migration first.
+Back up the DB before editing schema.ts.
+```
+
+### [ ] Step 11 - Real delete with the dependents check
+**Model:** Opus · **Effort:** Medium
+**Scope:**
+- One helper per ADR-0018's table: which items use this one, with names and archived state. Every `DELETE` route uses it and returns the `in_use` 409.
+- `DELETE` on printers and accessories really deletes; spools, filament profiles and maintenance types get one. Orders and quotes now refuse when used. Owned rows go in the same transaction.
+- Replaces `project_has_prints`, `project_in_order` and `client_in_use`; `folder_has_files` stays.
+
+**Done when:** each entity deletes when free and refuses with named dependents when not, archived ones included (table-driven test); tests pass.
+**Prompt:**
+```
+Do Step 11 of the 5.2.0 plan in PLAN.md.
+```
+
+### [ ] Step 12 - Archive, restore and delete on every page
+**Model:** Sonnet · **Effort:** Medium
+**Scope:**
+- Each of the 15 lists and detail pages: Archive or Restore, Delete, and a "Show archived" filter. Printers, accessories and others that say Delete but archive today are relabelled.
+- A refused delete shows what uses the item, with links, and offers Archive. One shared dialog.
+
+**Done when:** all 15 work from their pages; a blocked delete names its dependents; e2e for one entity per module; keyboard and mobile work; `pnpm i18n:check` and tests pass.
+**Prompt:**
+```
+Do Step 12 of the 5.2.0 plan in PLAN.md.
+```
+
+### [ ] Step 13 - Bulk archive and delete  **[plan mode]**
+**Model:** Opus · **Effort:** Medium
+**Scope:**
+- `DataTable` gets optional row selection (checkbox per row, select all on the page, keyboard, a bar with the count and actions). `ReviewTable` and `ProjectFiles` have their own, leave those.
+- Server: one bulk route per entity, or one shared route, each row going through the same archive and delete code as Steps 10 and 11. A cap on ids per request. Module `manage` in the rules in `lib/auth.ts`; project access per row.
+- Web: selection only shows with `manage`. Confirm with the count; a result dialog with done and blocked rows.
+
+**Done when:** all 15 lists bulk archive, restore and delete; partial results are reported; a `write` user sees no selection and the API refuses them; e2e; `pnpm i18n:check` and tests pass.
+**Prompt:**
+```
+Do Step 13 of the 5.2.0 plan in PLAN.md. Show me the API and the selection bar first.
+```
+
+### [ ] Step 14 - Docs, push & v5.2.0-alpha.2
+**Model:** Sonnet · **Effort:** Medium
+**Scope:**
+- Docs: archive vs delete, what blocks a delete, bulk actions and who can use them.
+- CHANGELOG, version `5.2.0-alpha.2`.
+- Commit, push `dev`, tag on `dev`. Check the run and the pre-release.
+
+**Done when:** tags pushed; workflow green; docs match the app.
+**Prompt:**
+```
+Do Step 14 of the 5.2.0 plan in PLAN.md. Only document what changed since 5.2.0-alpha.1.
+Then push dev, push the tag and confirm the pre-release is published.
+```
+
+## Phase 23 - Release
+
+### [ ] Step 15 - Real test: new machine, connector user, archive and delete
+**Model:** Sonnet · **Effort:** Medium
+**Scope:**
+- Upgrade a copy of a real 5.1.0 DB.
+- Move a NAS install to a VPS: backup, move files, restore with review, change roots, projects open and slice.
+- A connector's user changed with both owner choices; a wrong code refused.
+- An integration failing, then syncing again.
+- Archive, restore, delete and bulk on each module with real data, as an admin, a `manage` user and a `write` user; a sync after archiving and deleting imported rows.
+
+Fix anything found and note it in the CHANGELOG (alpha.3 if needed).
+**Done when:** every scenario worked; fixes released.
+**Prompt:**
+```
+Do Step 15 of the 5.2.0 plan in PLAN.md. Guide me through each scenario, then fix what we find.
+```
+
+### [ ] Step 16 - Docs, push & v5.2.0 release
+**Model:** Haiku · **Effort:** Low
+**Scope:**
+- `pnpm screenshots` if a README page changed, README, CHANGELOG, version `5.2.0`.
+- Commit on `dev`, fast-forward `main` to `dev`, push both, tag `v5.2.0` on `main`. Check the run, the release and the images.
+
+**Done when:** `main`, `dev` and the tag are pushed; the workflow is green; updating 5.1.0 to 5.2.0 keeps all data.
+**Prompt:**
+```
+Do Step 16 of the 5.2.0 plan in PLAN.md. Only document what changed since the last 5.2.0 pre-release.
+Then fast-forward main to dev, push, push the v5.2.0 tag and confirm the release.
+```
+
+## Out of scope for 5.2.0 (later plans)
+- Moving project files when changing a root.
+- Changing folders before a restore, inside the backup.
+- Editing or deleting maintenance task records.
+- Permissions per entity instead of per module.
+
+---
+
 # Plan 6.0.0 - Every printer
 
-Major release, agreed on 2026-10-27. Starts after the 5.1.0 release. Adapter steps add tests against recorded payloads (fixtures), never a live printer in CI.
+Major release, agreed on 2026-10-27. Starts after the 5.2.0 release. Adapter steps add tests against recorded payloads (fixtures), never a live printer in CI.
 
 Design: ADR-0015. Prints are recorded automatically from the most used printer systems, the dashboard shows live status, and spool usage follows:
 - a new `PrinterStatusSource` capability and one **job tracker** in core turn status snapshots into prints;
@@ -1447,7 +1698,7 @@ Design: ADR-0015. Prints are recorded automatically from the most used printer s
 
 Wave 1: Moonraker, Bambu LAN, PrusaLink, OctoPrint, plus Spoolman two-way.
 
-## Phase 20 - Foundations
+## Phase 24 - Foundations
 
 Design:
 - Snapshot: state, job file, progress, ETA, layer, temperatures, slots (material, colour, RFID or spool id). In memory only, pushed over SSE.
@@ -1550,7 +1801,7 @@ Do Step 6 of the 6.0.0 plan in PLAN.md. Back up the DB before editing schema.ts.
 Do Step 7 of the 6.0.0 plan in PLAN.md. Then push dev, push the tag and confirm the pre-release is published.
 ```
 
-## Phase 21 - Adapters
+## Phase 25 - Adapters
 
 Each adapter: a `local` package in `packages/adapters/<id>`, config and secrets schemas, status (and history where it exists), the recorded fixtures as tests, i18n names, a setup page in the docs. Added by host or IP.
 
@@ -1616,7 +1867,7 @@ Do Step 13 of the 6.0.0 plan in PLAN.md. Only document what changed since 6.0.0-
 Then push dev, push the tag and confirm the pre-release is published.
 ```
 
-## Phase 22 - Hub
+## Phase 26 - Hub
 
 ### [ ] Step 14 - Connector printer bridge  **[plan mode]**
 **Model:** Opus · **Effort:** High
@@ -1631,7 +1882,7 @@ Then push dev, push the tag and confirm the pre-release is published.
 Do Step 14 of the 6.0.0 plan in PLAN.md.
 ```
 
-## Phase 23 - Release
+## Phase 27 - Release
 
 ### [ ] Step 15 - Real test: one printer per adapter
 **Model:** Sonnet · **Effort:** Medium
@@ -1720,6 +1971,14 @@ Then fast-forward main to dev, push, push the v6.0.0 tag and confirm the release
 | alerts delivered per user (email, ntfy) | 5.1 · 8 |
 | users edit their own alerts | 5.1 · 9 |
 | shared slicer presets: workstations → hub → workers and desktops, one source of truth | 5.1 · 11-15 |
+| stats filament table: material cost, not total | 5.2 · 1 |
+| integration sync errors clear when a sync works again | 5.2 · 2 |
+| show the connector's user on the connector and the hub | 5.2 · 3 |
+| change the connector's user from the connector page | 5.2 · 4 (with a code from the hub) |
+| import: change project folders, bulk action in review | 5.2 · 5 |
+| bulk change of the projects' root folder | 5.2 · 6 |
+| complete DB import: change project folders | 5.2 · 7 (after the restart) |
+| bulk delete and archive, manage permission | 5.2 · 9-13 |
 | live status: progress, temps, AMS state, auto print-event capture | 6.0 · 2, 3 (camera snapshot later) |
 | Spoolman: sync spools two-way | 6.0 · 12 |
 | other systems: Klipper/Moonraker, Prusa, OctoPrint, Bambu LAN | 6.0 · 8-11 (Creality stock, Elegoo SDCP in 6.x) |

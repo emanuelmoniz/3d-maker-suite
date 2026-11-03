@@ -169,7 +169,10 @@ test("stats open on all time, with coloured filament rows and a bounded projects
   await expect(prints).toContainText("12");
   const filament = page.getByRole("table", { name: "Filament" });
   await expect(filament.getByRole("row", { name: /Basic #ff0000/ })).toContainText("12h");
+  await expect(filament.getByRole("columnheader", { name: "Material cost" })).toBeVisible();
+  await expect(filament.getByRole("columnheader", { name: "Total cost" })).toHaveCount(0);
   const projects = page.getByRole("table", { name: "Project" });
+  await expect(projects.getByRole("columnheader", { name: "Total cost" })).toBeVisible();
   await expect(projects.locator("tbody tr")).toHaveCount(10);
   await page.getByRole("button", { name: "Next" }).first().click();
   await expect(projects.locator("tbody tr")).toHaveCount(2);

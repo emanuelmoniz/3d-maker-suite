@@ -34,6 +34,7 @@
     "energy": "Energy",
     "wear": "Wear and maintenance",
     "cost": "Total cost",
+    "materialCost": "Material cost",
     "costPerPrint": "Cost per print"
   },
   "series": {
