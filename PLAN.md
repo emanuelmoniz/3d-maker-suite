@@ -1641,7 +1641,7 @@ Then push dev, push the tag and confirm the pre-release is published.
 
 ## Phase 23 - Release
 
-### [ ] Step 14 - Real test: new machine, connector user, archive and delete
+### [x] Step 14 - Real test: new machine, connector user, archive and delete
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - Upgrade a copy of a real 5.1.0 DB.
