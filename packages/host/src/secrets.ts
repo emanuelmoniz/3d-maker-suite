@@ -35,3 +35,15 @@ export function decrypt(key: Buffer, blob: Blob): Secrets {
   const text = decipher.update(blob.data, "base64", "utf8") + decipher.final("utf8");
   return JSON.parse(text);
 }
+
+/**
+ * For stored secrets: the database moved without its `secret.key` must not lock anyone out, so what
+ * can't be read counts as not set and is simply entered again.
+ */
+export function readStored(key: Buffer, blob: Blob): Secrets {
+  try {
+    return decrypt(key, blob);
+  } catch {
+    return {};
+  }
+}

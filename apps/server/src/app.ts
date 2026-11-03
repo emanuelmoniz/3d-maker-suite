@@ -173,6 +173,11 @@ export async function buildApp(
       const { code, message, details } = err;
       return reply.status(err.statusCode).send({ error: { code, message, details } });
     }
+    // A file the database points at isn't there (moved by hand, deleted): the row is still fine.
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") {
+      req.log.warn(err);
+      return reply.status(404).send({ error: { code: "not_found", message: "File not found" } });
+    }
     const status = isResponseSerializationError(err) ? 500 : (err.statusCode ?? 500);
     if (status >= 500) req.log.error(err);
     reply.status(status).send({

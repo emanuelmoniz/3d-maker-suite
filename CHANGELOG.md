@@ -2,6 +2,13 @@
 
 All notable changes are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Fixed
+- Saving a new token or opening the alert channels no longer fails when the database was moved without its `secret.key`: what can't be read counts as not set, so a sync asks you to sign in again
+- An image whose file is gone from the disk (thumbnail, photo, logo) answers 404 instead of a server error
+- Deleting a printer used by a project's plate, or a user who owns projects, no longer fails on a database that applied those migrations before their final form
+
 ## [5.2.0-alpha.2] - 2026-11-03
 
 Pre-release. Test on a copy of your data first; back up before updating. Adds archive, delete and bulk actions; everything in 5.2.0-alpha.1 is included. A migration adds archive columns and the record of deleted imports.

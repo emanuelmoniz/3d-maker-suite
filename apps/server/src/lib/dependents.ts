@@ -198,6 +198,11 @@ export const ITEMS = {
       tx.delete(settings)
         .where(and(eq(settings.key, "defaultPrinterId"), eq(settings.value, row.id)))
         .run();
+      // Also by hand: a database that ran 0049 before its FK got `set null` would refuse the delete.
+      tx.update(plates)
+        .set({ printerId: null })
+        .where(eq(plates.printerId, row.id as string))
+        .run();
     },
   },
   accessories: {

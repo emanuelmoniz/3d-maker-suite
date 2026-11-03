@@ -16,6 +16,15 @@ pnpm i18n:check     # missing or unused translation keys
 
 Database changes go through Drizzle migrations only: `pnpm db:generate`, then `pnpm db:migrate`. Never edit a migration that was already applied.
 
+Before a release, run the release journeys on a copy of real data. The file is only read and never committed; the copy's alert delivery is removed, its integrations are off or fake, and its project roots point at a temp folder, so nothing gets mailed or deleted:
+
+```bash
+REAL_DB=/path/to/app.sqlite pnpm vitest run apps/server/src/release.test.ts
+REAL_DB=/path/to/app.sqlite pnpm exec playwright test real-data   # after building the web app
+```
+
+Without `REAL_DB`, `release.test.ts` runs on made-up rows (as in CI) and `real-data.e2e.ts` is skipped.
+
 ## Ground rules
 
 - `packages/core` and `apps/*` never import from a vendor adapter.

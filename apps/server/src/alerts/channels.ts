@@ -5,7 +5,7 @@ import type {
   NotificationChannel,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
-import { decrypt, encrypt, type Secrets } from "@3d-maker-suite/host";
+import { encrypt, readStored, type Secrets } from "@3d-maker-suite/host";
 import { eq } from "drizzle-orm";
 import nodemailer from "nodemailer";
 import { z } from "zod";
@@ -100,7 +100,7 @@ export function readChannel(db: Db, key: Buffer, id: string) {
   return {
     enabled: v?.enabled ?? false,
     config: v?.config ?? {},
-    secrets: (v?.secrets ? decrypt(key, v.secrets) : {}) as Secrets,
+    secrets: (v?.secrets ? readStored(key, v.secrets) : {}) as Secrets,
   };
 }
 
@@ -158,7 +158,7 @@ export function destinationsOf(key: Buffer, user: Pick<UserRow, "email" | "deliv
     out.push({
       channel: "ntfy",
       config: { topic: d.ntfyTopic },
-      secrets: d.ntfyToken ? decrypt(key, d.ntfyToken) : {},
+      secrets: d.ntfyToken ? readStored(key, d.ntfyToken) : {},
     });
   return out;
 }

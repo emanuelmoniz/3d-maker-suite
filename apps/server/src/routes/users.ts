@@ -189,6 +189,11 @@ export const usersRoutes =
           if (isAdmin(role) && !row.disabled && enabledAdmins(tx) <= 1) throw lastAdmin();
           // Same connection, so this is inside the transaction.
           onDelete(row.id);
+          // Also by hand: a database that ran 0078 before its FK got `set null` would refuse this.
+          tx.update(schema.projects)
+            .set({ ownerId: null })
+            .where(eq(schema.projects.ownerId, row.id))
+            .run();
           tx.delete(users).where(eq(users.id, row.id)).run();
         });
         return reply.status(204).send(null);

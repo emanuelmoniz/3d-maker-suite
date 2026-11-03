@@ -1359,3 +1359,20 @@ describe("migration 0078", () => {
     ]);
   });
 });
+
+describe("upgrading from 5.1.0", () => {
+  it("keeps the rows; nothing starts archived; a pairing code has no device", () => {
+    const now = migrateAcross(92, (sqlite) => {
+      sqlite.exec(`
+        insert into brands (id, name, created_at, updated_at) values ('b', 'Acme', 'x', 'x');
+        insert into clients (id, name, mobile, created_at, updated_at) values ('c', 'Ana', '91', 'x', 'x');
+      `);
+    });
+    expect(
+      now.select({ name: s.brands.name, at: s.brands.archivedAt }).from(s.brands).all(),
+    ).toEqual([{ name: "Acme", at: null }]);
+    expect(now.select({ at: s.clients.archivedAt }).from(s.clients).all()).toEqual([{ at: null }]);
+    expect(now.select().from(s.deletedSources).all()).toEqual([]);
+    expect(now.$client.pragma("foreign_key_check")).toEqual([]);
+  });
+});

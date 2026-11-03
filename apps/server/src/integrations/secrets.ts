@@ -1,6 +1,6 @@
 import type { SecretStore } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
-import { decrypt, encrypt, type Secrets } from "@3d-maker-suite/host";
+import { encrypt, readStored, type Secrets } from "@3d-maker-suite/host";
 import { eq } from "drizzle-orm";
 
 const { integrations } = schema;
@@ -11,7 +11,7 @@ export function readSecrets(db: Db, key: Buffer, id: string): Secrets {
     .from(integrations)
     .where(eq(integrations.id, id))
     .get();
-  return row?.secrets ? decrypt(key, JSON.parse(row.secrets)) : {};
+  return row?.secrets ? readStored(key, JSON.parse(row.secrets)) : {};
 }
 
 export function writeSecrets(db: Db, key: Buffer, id: string, secrets: Secrets) {

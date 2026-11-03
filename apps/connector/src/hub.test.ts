@@ -11,6 +11,8 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
+import { request } from "node:http";
+import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -26,6 +28,7 @@ import { hashPassword } from "@3d-maker-suite/server/src/lib/password.ts";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createLink, type Link, PairError, sseParser } from "./hub.ts";
 import { openStore } from "./state.ts";
+import { createStatusPage, t } from "./status.ts";
 
 describe("sseParser", () => {
   it("splits events across chunks, joins data lines and skips comments", () => {
@@ -93,7 +96,7 @@ describe("connector and hub", () => {
       app.server.closeAllConnections();
       return app.close().finally(() => rmSync(dataDir, { recursive: true, force: true }));
     });
-    return { url, send, code, admin, viewer };
+    return { url, send, code, admin, viewer, db };
   };
 
   const connector = (
@@ -199,6 +202,126 @@ describe("connector and hub", () => {
 
     const used = await c.link.changeUser(code, "move").catch((e) => e);
     expect(used.code).toBe("invalidCode");
+  });
+
+  it("changes its user on its status page, with both owner choices, and refuses a bad code", async () => {
+    const h = await hub();
+    const c = connector();
+    await c.link.pair(h.url, await h.code(), "WS-1");
+    await until(() => c.link.userName() === "viewer");
+    const token = c.store.token();
+    const [device] = (await h.send("GET", "/api/hub/devices")).json();
+    const other = connector();
+    await other.link.pair(h.url, await h.code(), "WS-2");
+    const [, otherDevice] = (await h.send("GET", "/api/hub/devices")).json();
+
+    // A project in this connector's folder and one on the hub, both the viewer's.
+    const project = (number: number, location: string) => {
+      const { id: rootId } = h.db
+        .insert(schema.roots)
+        .values({ name: location, location, path: `/${location}`, position: number })
+        .returning()
+        .get();
+      return h.db
+        .insert(schema.projects)
+        .values({ number, name: `p${number}`, rootId, folder: "a", ownerId: h.viewer.id })
+        .returning()
+        .get().id;
+    };
+    const onDevice = project(1, device.id);
+    const onHub = project(2, "hub");
+    const ownerOf = (id: string) =>
+      h.db
+        .select()
+        .from(schema.projects)
+        .all()
+        .find((p) => p.id === id)?.ownerId;
+
+    const page = createStatusPage({
+      link: c.link,
+      store: c.store,
+      updater: { state: () => ({ failed: undefined, hubOlder: false, error: undefined }) },
+      version: "5.0.0-test",
+      syncDir: join(c.dir, "sync"),
+      open: () => {},
+      exit: () => {},
+    });
+    await new Promise<void>((r) => page.listen(0, "127.0.0.1", r));
+    cleanup.push(() => page.close());
+    const { port } = page.address() as AddressInfo;
+    // node:http: fetch can't send an Origin, and the page wants one on a POST.
+    const call = (method: string, path: string, body = "") =>
+      new Promise<{ status: number; body: string }>((done, fail) => {
+        const req = request(
+          {
+            host: "127.0.0.1",
+            port,
+            method,
+            path,
+            headers: {
+              host: `127.0.0.1:${port}`,
+              origin: `http://127.0.0.1:${port}`,
+              "content-type": "application/x-www-form-urlencoded",
+            },
+          },
+          (res) => {
+            let text = "";
+            res.on("data", (d) => (text += d));
+            res.on("end", () => done({ status: res.statusCode ?? 0, body: text }));
+          },
+        );
+        req.on("error", fail);
+        req.end(body);
+      });
+    const wrongCode = t("connector:user.errors.invalidCode");
+    const codeFor = async (userId: string, id = device.id) =>
+      (await h.send("POST", `/api/hub/devices/${id}/user-code`, { userId })).json().code as string;
+
+    expect((await call("GET", "/")).body).toContain("viewer");
+
+    // Wrong, and another device's: refused with the same message, nothing changes.
+    for (const code of ["AAAA-AAAA", await codeFor(h.admin.id, otherDevice.id)]) {
+      for (const path of ["/user", "/user/confirm"]) {
+        const refused = await call("POST", path, `code=${code}&projects=move`);
+        expect(refused.status).toBe(400);
+        expect(refused.body).toContain(wrongCode);
+      }
+    }
+    expect(c.link.userName()).toBe("viewer");
+    expect(ownerOf(onDevice)).toBe(h.viewer.id);
+
+    // Move: the folder's project goes with the connector; the hub's stays.
+    const toAdmin = await codeFor(h.admin.id);
+    const asked = await call("POST", "/user", `code=${toAdmin}&projects=move`);
+    expect(asked.body).toContain(t("connector:user.willMove", { count: 1, name: "admin" }));
+    expect(ownerOf(onDevice)).toBe(h.viewer.id); // only asked
+    const moved = await call("POST", "/user/confirm", `code=${toAdmin}&projects=move`);
+    expect(moved.body).toContain(t("connector:user.done", { name: "admin" }));
+    expect(ownerOf(onDevice)).toBe(h.admin.id);
+    expect(ownerOf(onHub)).toBe(h.viewer.id);
+    expect(c.link.userName()).toBe("admin");
+    expect((await call("GET", "/")).body).toContain("admin");
+
+    // Used: refused.
+    const used = await call("POST", "/user/confirm", `code=${toAdmin}&projects=move`);
+    expect(used.status).toBe(400);
+    expect(used.body).toContain(wrongCode);
+
+    // Stay: the connector changes user, the project keeps its owner.
+    const toViewer = await codeFor(h.viewer.id);
+    const stay = await call("POST", "/user", `code=${toViewer}&projects=stay`);
+    expect(stay.body).toContain(t("connector:user.willStay", { count: 1 }));
+    await call("POST", "/user/confirm", `code=${toViewer}&projects=stay`);
+    expect(c.link.userName()).toBe("viewer");
+    expect(ownerOf(onDevice)).toBe(h.admin.id);
+
+    // No new pairing at any point.
+    expect(c.store.token()).toBe(token);
+    expect(status(c.link)).toBe("online");
+    expect((await h.send("GET", "/api/hub/devices")).json()[0]).toMatchObject({
+      id: device.id,
+      userName: "viewer",
+    });
   });
 
   it("updates on Update now and tells the hub why it couldn't", async () => {

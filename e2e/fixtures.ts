@@ -1,4 +1,4 @@
-import { type ChildProcess, spawn } from "node:child_process";
+import { type ChildProcess, execFileSync, spawn } from "node:child_process";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
@@ -27,6 +27,11 @@ export const test = base.extend<{ app: App }>({
   // biome-ignore lint/correctness/noEmptyPattern: Playwright requires a destructured first argument
   app: async ({}, use) => {
     const dataDir = mkdtempSync(join(tmpdir(), "3dms-e2e-"));
+    // A sterile copy of real data, for `real-data.e2e.ts` (see apps/server/src/testRealDb.ts).
+    if (process.env.REAL_DB)
+      execFileSync(process.execPath, ["--import", "tsx", "src/testRealSetup.ts", dataDir], {
+        cwd: join(import.meta.dirname, "..", "apps", "server"),
+      });
     // Another worker can take the free port before our server binds it: then ours exits, and the
     // port answers with the other test's server. Only our data dir counts; else a new port.
     const start = async () => {
@@ -48,8 +53,14 @@ export const test = base.extend<{ app: App }>({
         gone = true;
       });
       for (let i = 0; i <= 150 && !gone; i++) {
-        const ours = await fetch(`${url}/api/preferences`).then(
-          async (r) => r.ok && ((await r.json()) as { dataDir: string }).dataDir === dataDir,
+        // Real data has users, so only the health check answers without a sign-in.
+        const ours = await fetch(
+          `${url}/api/${process.env.REAL_DB ? "health" : "preferences"}`,
+        ).then(
+          async (r) =>
+            r.ok &&
+            (!!process.env.REAL_DB ||
+              ((await r.json()) as { dataDir: string }).dataDir === dataDir),
           () => false,
         );
         if (ours) return { url, server, exited: () => gone };
