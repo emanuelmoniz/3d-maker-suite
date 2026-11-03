@@ -1529,31 +1529,32 @@ Do Step 7 of the 5.2.0 plan in PLAN.md. Then push dev, push the tag and confirm 
 
 ## Phase 22 - Archive and delete everywhere
 
-Applies to printers, accessories, maintenance types, printer brands, printer models, machine profiles, spools, filament brands, filament materials, filament profiles, projects, prints, orders, quotes, clients. Maintenance task records stay permanent history.
+Applies to printers, accessories, maintenance types, printer brands, printer models, machine profiles, print profiles, spools, filament brands, filament materials, filament profiles, projects, prints, orders, quotes, clients. Maintenance task records stay permanent history.
 
 Design:
 - **Archive** hides an item from lists and pickers; a "Show archived" filter finds it and Restore brings it back. Nothing else changes: stats, costs and spool weight still count it.
 - **Delete** is real and only works when nothing depends on the item. If something does, a 409 says what, and the message names those items (and whether they're archived). Archived items still block.
 - Depends on it (blocks delete):
-  - printer: prints, maintenance tasks, accessory installs
-  - accessory: maintenance tasks, installs
+  - printer: prints, maintenance tasks, accessory installs, maintenance types that list it
+  - accessory: maintenance tasks, installs, maintenance types that list it
   - maintenance type: maintenance tasks
   - printer brand: printer models
-  - printer model: printers, machine profiles, print profiles
+  - printer model: printers, machine profiles, print profiles, maintenance types that list it
   - machine profile: prints
   - filament brand, filament material: filament profiles
   - filament profile: spools, print usages
   - spool: print usages
-  - project: prints, orders, quotes, and its folder still having files (today's rule)
+  - project: prints, orders, quotes, and its folder still having files (today's rule, also a device folder and a kept unlinked one)
   - order: prints
   - quote: orders
-  - client: orders
-  - print: nothing
-- Goes with the item (never blocks): comments, a spool's weight log, a print's usages (filament returns to the spool, as today), an order's project links, a project's plates and tags.
+  - client: orders, quotes
+  - print, print profile: nothing
+- Goes with the item (never blocks): comments, a spool's weight log, a print's usages (filament returns to the spool, as today), an order's project links, a project's plates, tags, collection and device links, the item's tags, import snapshot and open alerts.
+- Cleared, the row stays: a plate's printer or print profile, a printer's print profile, the default printer setting.
 - **Permissions:** single-row actions keep today's level. Bulk needs `manage` on the item's module (printers, maintenance, filament, projects, prints, costs). Project bulk also checks per-project access: projects the user can't edit are skipped and reported.
 - **Partial bulk:** free rows go through; a result dialog lists the blocked ones and what uses each, with links.
 
-### [ ] Step 8 - ADR-0018 archive, delete and bulk actions  **[plan mode]**
+### [x] Step 8 - ADR-0018 archive, delete and bulk actions  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:** `docs/adr/0018-archive-delete-bulk.md`: the design above, checked against every foreign key in `schema.ts`, plus:
 - the `in_use` error shape, and what changes for today's callers (`DELETE` on a printer, accessory or spool archives or doesn't exist today; deleting an order or quote unlinks today)
@@ -1572,10 +1573,12 @@ Do Step 8 of the 5.2.0 plan in PLAN.md. Show me the dependency table checked aga
 **Model:** Opus · **Effort:** High
 **Scope:**
 - Migration: `archivedAt` for printer brands, printer models, filament brands, filament materials, prints, orders, quotes, clients.
-- Archive and restore in the API for all 15, including projects and machine profiles, whose column nothing sets today. Lists hide archived rows by default and take a filter; pickers never offer them; a row's own archived references still display.
+- Archive and restore in the API for all 16, including projects, machine profiles and print profiles, whose column nothing sets today. Lists hide archived rows by default and take a filter; pickers never offer them; a row's own archived references still display. Restoring an old preset version while a current one exists is a 409 `preset_newer_exists`.
 - Stats, costs and spool weight keep counting archived rows (test).
+- A sync leaves an archived row alone: the `archived` import hook on machine and print profiles, brands, printer models, filament brands and filament materials.
+- Archive resolves the item's open alerts; auto slice skips archived projects; the existing reference checks refuse a new reference to an archived row (ADR-0018).
 
-**Done when:** each entity archives and restores; pickers and lists hide them; stats don't change on archive (test); the migration applies on a copy of the real DB; tests pass.
+**Done when:** each entity archives and restores; pickers and lists hide them; stats don't change on archive (test); a sync doesn't re-add an archived row (test); the migration applies on a copy of the real DB; tests pass.
 **Prompt:**
 ```
 Do Step 9 of the 5.2.0 plan in PLAN.md. Show me the schema and the migration first.
@@ -1585,11 +1588,12 @@ Back up the DB before editing schema.ts.
 ### [ ] Step 10 - Real delete with the dependents check
 **Model:** Opus · **Effort:** Medium
 **Scope:**
-- One helper per ADR-0018's table: which items use this one, with names and archived state. Every `DELETE` route uses it and returns the `in_use` 409.
-- `DELETE` on printers and accessories really deletes; spools, filament profiles and maintenance types get one. Orders and quotes now refuse when used. Owned rows go in the same transaction.
-- Replaces `project_has_prints`, `project_in_order` and `client_in_use`; `folder_has_files` stays.
+- One helper per ADR-0018's table: which items use this one, with names and archived state. Every `DELETE` route uses it and returns the `in_use` 409. `HttpError` gets `details` and the handler in `app.ts` passes it on; dependents the caller can't read are counted, not named.
+- `DELETE` on printers and accessories really deletes; spools, filament profiles and maintenance types get one. Orders and quotes now refuse when used. Owned rows, tags, import snapshots and open alerts go in the same transaction; image files after it.
+- Replaces `project_has_prints`, `project_in_order` and `client_in_use`; `folder_has_files` stays and also covers a device root's folder and an unlinked project's kept folder.
+- Migration: `deleted_sources`. A sync offers a deleted row as a skip marked "you deleted this", never written by a run; importing it by hand clears the mark.
 
-**Done when:** each entity deletes when free and refuses with named dependents when not, archived ones included (table-driven test); tests pass.
+**Done when:** each entity deletes when free and refuses with named dependents when not, archived ones included (table-driven test); a test on `pragma foreign_key_list` fails on an FK to one of the 16 that the helper's map doesn't cover; a deleted imported row doesn't come back on the next run (test); reopening a quote with a stale id in its form doesn't fail (test); the migration applies on a copy of the real DB; tests pass.
 **Prompt:**
 ```
 Do Step 10 of the 5.2.0 plan in PLAN.md.
@@ -1598,10 +1602,11 @@ Do Step 10 of the 5.2.0 plan in PLAN.md.
 ### [ ] Step 11 - Archive, restore and delete on every page
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
-- Each of the 15 lists and detail pages: Archive or Restore, Delete, and a "Show archived" filter. Printers, accessories and others that say Delete but archive today are relabelled.
+- Each of the 16 lists and detail pages: Archive or Restore, Delete, and a "Show archived" filter. Printers, accessories and others that say Delete but archive today are relabelled.
 - A refused delete shows what uses the item, with links, and offers Archive. One shared dialog.
+- The "name or number taken" and `root_in_use` texts say the other row may be archived.
 
-**Done when:** all 15 work from their pages; a blocked delete names its dependents; e2e for one entity per module; keyboard and mobile work; `pnpm i18n:check` and tests pass.
+**Done when:** all 16 work from their pages; a blocked delete names its dependents; e2e for one entity per module; keyboard and mobile work; `pnpm i18n:check` and tests pass.
 **Prompt:**
 ```
 Do Step 11 of the 5.2.0 plan in PLAN.md.
@@ -1614,7 +1619,7 @@ Do Step 11 of the 5.2.0 plan in PLAN.md.
 - Server: one bulk route per entity, or one shared route, each row going through the same archive and delete code as Steps 9 and 10. A cap on ids per request. Module `manage` in the rules in `lib/auth.ts`; project access per row.
 - Web: selection only shows with `manage`. Confirm with the count; a result dialog with done and blocked rows.
 
-**Done when:** all 15 lists bulk archive, restore and delete; partial results are reported; a `write` user sees no selection and the API refuses them; e2e; `pnpm i18n:check` and tests pass.
+**Done when:** all 16 lists bulk archive, restore and delete; partial results are reported; a `write` user sees no selection and the API refuses them; e2e; `pnpm i18n:check` and tests pass.
 **Prompt:**
 ```
 Do Step 12 of the 5.2.0 plan in PLAN.md. Show me the API and the selection bar first.
