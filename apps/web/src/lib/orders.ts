@@ -37,9 +37,6 @@ export const useSaveOrder = (id?: string) =>
       : api<OrderDetail>("POST", "/api/orders", v),
   );
 
-export const useDeleteOrder = () =>
-  useOrderMutation((id: string) => api("DELETE", `/api/orders/${id}`));
-
 /** The name an order goes by everywhere: "Order 007". */
 export const orderName = (t: TFunction, o: Pick<Order, "number">) =>
   t("common:orderName", { number: String(o.number).padStart(3, "0") });

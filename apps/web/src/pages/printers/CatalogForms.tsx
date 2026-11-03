@@ -1,9 +1,9 @@
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { type ReactNode, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { ArchiveActions, ArchivedBadge } from "../../components/ArchiveActions.tsx";
 import { Button } from "../../components/Button.tsx";
 import { Combobox } from "../../components/Combobox.tsx";
-import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { FormDialog } from "../../components/FormDialog.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
@@ -19,7 +19,6 @@ import {
   useCatalogItem,
   useCatalogPicker,
   useCatalogWithArchived,
-  useDeleteCatalog,
   useModelInfo,
   useSaveCatalog,
 } from "../../lib/catalog.ts";
@@ -188,10 +187,8 @@ export function CatalogForm<K extends CatalogKind>(props: {
   const { id } = useParams({ strict: false }) as { id?: string };
   const item = useCatalogItem(props.kind, id);
   const save = useSaveCatalog(props.kind, id);
-  const remove = useDeleteCatalog(props.kind);
   const image = useCatalogImage(props.kind as keyof typeof IMAGE_OF);
   const [file, setFile] = useState<File | null>(null);
-  const [confirm, setConfirm] = useState(false);
   const to = props.backTo ?? "/printers/settings";
   const back = () => navigate({ to });
   const row = item.data;
@@ -215,31 +212,25 @@ export function CatalogForm<K extends CatalogKind>(props: {
       </p>
     );
   if (id && !row) return null;
-  const error = save.error ?? image.error ?? remove.error;
+  const error = save.error ?? image.error;
 
   return (
     <>
       <PageHeader
         title={t(props.titles[id ? 1 : 0])}
         backTo={{ to }}
+        description={row?.archivedAt && <ArchivedBadge />}
         actions={
-          id && <Button onClick={() => setConfirm(true)}>{t("printers:catalog.delete")}</Button>
+          row && (
+            <ArchiveActions
+              path={`/api/${props.kind}/${row.id}`}
+              name={"name" in row ? row.name : row.model}
+              archived={row.archivedAt !== null}
+              onDeleted={back}
+            />
+          )
         }
       />
-      {id && (
-        <ConfirmDialog
-          open={confirm}
-          destructive
-          title={t("printers:catalog.deleteTitle")}
-          description={t("printers:catalog.deleteBody")}
-          confirmLabel={t("printers:catalog.delete")}
-          onCancel={() => setConfirm(false)}
-          onConfirm={() => {
-            setConfirm(false);
-            remove.mutate(id, { onSuccess: back });
-          }}
-        />
-      )}
       <form key={row?.updatedAt} onSubmit={onSubmit} className="grid gap-4 sm:max-w-md">
         {props.children(row)}
         {props.imageLabel && (
@@ -270,13 +261,7 @@ export function CatalogForm<K extends CatalogKind>(props: {
         )}
         {error && (
           <p role="alert" className="text-bad">
-            {t(
-              !isConflict(error)
-                ? "printers:catalog.error"
-                : error === remove.error
-                  ? "printers:catalog.inUse"
-                  : "printers:catalog.duplicate",
-            )}
+            {t(isConflict(error) ? "printers:catalog.duplicate" : "printers:catalog.error")}
           </p>
         )}
         <div className="flex gap-2">

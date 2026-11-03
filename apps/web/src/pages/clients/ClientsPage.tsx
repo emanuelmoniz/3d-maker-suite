@@ -1,23 +1,20 @@
 import { type Client, clientFilters } from "@3d-maker-suite/core";
 import { Link } from "@tanstack/react-router";
-import { Plus, Trash2, Users } from "lucide-react";
-import { useState } from "react";
+import { Plus, Users } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { Button } from "../../components/Button.tsx";
-import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
+import { archiveColumn } from "../../components/ArchiveActions.tsx";
 import { DataTable } from "../../components/DataTable.tsx";
 import { EmptyState } from "../../components/EmptyState.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { Write } from "../../components/Write.tsx";
-import { useClients, useDeleteClient } from "../../lib/clients.ts";
-import { useUrlListQuery } from "../../lib/list.ts";
+import { useClients } from "../../lib/clients.ts";
+import { useHasArchived, useUrlListQuery } from "../../lib/list.ts";
 
 export function ClientsPage() {
   const { t } = useTranslation();
   const [query, setQuery] = useUrlListQuery();
   const { data, isError } = useClients(query);
-  const del = useDeleteClient();
-  const [deleting, setDeleting] = useState<Client | null>(null);
+  const hasArchived = useHasArchived(["clients", "list"], "/api/clients");
   const add = (
     <Link
       to="/clients/new"
@@ -48,12 +45,7 @@ export function ClientsPage() {
           {t("clients:loadError")}
         </p>
       )}
-      {del.isError && (
-        <p role="alert" className="text-bad">
-          {t("clients:detail.inUse")}
-        </p>
-      )}
-      {data && !data.total && !Object.keys(query).length ? (
+      {data && !data.total && !Object.keys(query).length && !hasArchived ? (
         <EmptyState
           icon={Users}
           title={t("clients:list.emptyTitle")}
@@ -66,7 +58,13 @@ export function ClientsPage() {
             label={t("clients:list.table")}
             rows={data.items}
             rowKey={(c) => c.id}
-            server={{ query, onQueryChange: setQuery, total: data.total, filters: clientFilters }}
+            server={{
+              query,
+              onQueryChange: setQuery,
+              total: data.total,
+              filters: clientFilters,
+              archivable: true,
+            }}
             columns={[
               {
                 id: "name",
@@ -86,40 +84,15 @@ export function ClientsPage() {
               text("mobile", t("clients:list.columns.mobile")),
               text("vat", t("clients:list.columns.vat")),
               text("email", t("clients:list.columns.email")),
-              {
-                id: "actions",
-                header: t("clients:list.columns.actions"),
-                cell: (c) => (
-                  <Write can="costs">
-                    <Button
-                      variant="ghost"
-                      aria-label={t("clients:delete.named", { name: c.name })}
-                      onClick={() => {
-                        del.reset();
-                        setDeleting(c);
-                      }}
-                    >
-                      <Trash2 className="size-4" aria-hidden />
-                    </Button>
-                  </Write>
-                ),
-              },
+              archiveColumn<Client>(t, {
+                base: "/api/clients",
+                can: "costs",
+                name: (c) => c.name,
+              }),
             ]}
           />
         )
       )}
-      <ConfirmDialog
-        open={!!deleting}
-        title={t("clients:delete.title")}
-        description={deleting ? t("clients:delete.body", { name: deleting.name }) : ""}
-        confirmLabel={t("clients:delete.confirm")}
-        destructive
-        onCancel={() => setDeleting(null)}
-        onConfirm={() => {
-          if (deleting) del.mutate(deleting.id);
-          setDeleting(null);
-        }}
-      />
     </>
   );
 }

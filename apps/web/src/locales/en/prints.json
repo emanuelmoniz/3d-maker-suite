@@ -15,8 +15,7 @@
       "outcome": "Outcome",
       "duration": "Duration",
       "filament": "Filament",
-      "cost": "Cost",
-      "actions": "Actions"
+      "cost": "Cost"
     },
     "durationUnit": "In minutes"
   },
@@ -60,7 +59,7 @@
     "machineProfile": "Machine profile",
     "number": "Number",
     "numberHint": "Leave empty for the next free number.",
-    "numberTaken": "Another print already has this number."
+    "numberTaken": "Another print already has this number. It may be archived."
   },
   "review": {
     "title": "Filament to review",
@@ -89,15 +88,12 @@
     "open": "Review"
   },
   "delete": {
-    "title": "Delete this print?",
-    "body": "“{{title}}” will be removed and its filament returned to the spools.",
-    "confirm": "Delete print"
+    "body": "“{{title}}” will be removed and its filament returned to the spools."
   },
   "detail": {
     "title": "Print details",
     "notFound": "Print not found.",
     "edit": "Edit",
-    "delete": "Delete",
     "project": "Project",
     "source": "Design page",
     "waiting": "Waiting for review",

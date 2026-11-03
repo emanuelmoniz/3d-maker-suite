@@ -40,18 +40,12 @@
     "saveError": "Couldn't save the printer.",
     "number": "Number",
     "numberHint": "Leave empty for the next free number.",
-    "numberTaken": "Another printer already has this number."
+    "numberTaken": "Another printer already has this number. It may be archived."
   },
   "detail": {
     "notFound": "This printer doesn't exist.",
     "edit": "Edit",
-    "archive": "Archive",
-    "restore": "Restore",
-    "archived": "Archived",
-    "archiveTitle": "Archive this printer?",
-    "archiveBody": "It disappears from the list, but its prints and maintenance history are kept. You can restore it later.",
     "actionError": "That didn't work. Try again.",
-    "hasAccessories": "Remove its accessories first.",
     "photo": {
       "alt": "Photo of {{name}}",
       "empty": "No photo",
@@ -125,13 +119,10 @@
       "type": "Type",
       "typeHint": "e.g. AMS, Hotend, Enclosure",
       "saveError": "Couldn't save the accessory.",
-      "numberTaken": "Another accessory already has this number."
+      "numberTaken": "Another accessory already has this number. It may be archived."
     },
     "detail": {
       "notFound": "This accessory doesn't exist.",
-      "archiveTitle": "Archive this accessory?",
-      "archiveBody": "It disappears from the list, but its install history is kept. You can restore it later.",
-      "installedError": "Remove it from its printer first.",
       "printer": "On printer",
       "notInstalled": "Not installed"
     },
@@ -172,13 +163,9 @@
   },
   "catalog": {
     "notFound": "This entry doesn't exist.",
-    "delete": "Delete",
-    "deleteTitle": "Delete this entry?",
-    "deleteBody": "This can't be undone. Entries still used by printers, models or prints can't be deleted.",
     "removeImage": "Remove image",
     "error": "Couldn't save. Try again.",
-    "duplicate": "An entry with this name already exists.",
-    "inUse": "Still in use, so it can't be deleted.",
+    "duplicate": "An entry with this name already exists. It may be archived.",
     "mm": "{{value}} mm",
     "slicer": "Slicer",
     "brands": {

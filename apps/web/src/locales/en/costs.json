@@ -72,18 +72,13 @@
     "new": "New quote",
     "notFound": "That quote no longer exists.",
     "saveError": "Couldn't save the quote.",
-    "delete": "Delete",
-    "deleteNamed": "Delete {{name}}",
-    "deleteTitle": "Delete quote?",
-    "deleteBody": "{{name}} will be deleted. This can't be undone.",
     "columns": {
       "name": "Quote",
       "client": "Client",
       "project": "Project",
       "createdAt": "Created",
       "quantity": "Prints",
-      "total": "Total",
-      "actions": "Actions"
+      "total": "Total"
     }
   },
   "project": {

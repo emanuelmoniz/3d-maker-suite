@@ -11,7 +11,6 @@
     "status": "Status",
     "location": "Location",
     "adjust": "Adjust weight",
-    "archive": "Archive",
     "add": "Add spool",
     "addTitle": "Add spool",
     "editTitle": "Edit spool",
@@ -42,7 +41,7 @@
     "name": "{{number}}-{{profile}} {{color}}",
     "number": "Number",
     "numberHint": "Leave empty for the next free number.",
-    "numberTaken": "Another spool already has this number.",
+    "numberTaken": "Another spool already has this number. It may be archived.",
     "colorName": "Color name"
   },
   "profiles": {
@@ -57,7 +56,6 @@
     "nozzleTemp": "Nozzle (°C)",
     "bedTemp": "Bed (°C)",
     "temps": "{{nozzle}} / {{bed}} °C",
-    "archive": "Archive",
     "add": "Add profile",
     "addTitle": "Add filament profile",
     "editTitle": "Edit filament profile",
@@ -95,8 +93,6 @@
     "notFound": "Spool not found.",
     "none": "Not set",
     "edit": "Edit",
-    "restore": "Restore",
-    "archived": "Archived",
     "source": "Source",
     "imported": "Imported from {{source}}",
     "manual": "Added by hand",

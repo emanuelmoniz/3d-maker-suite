@@ -2,10 +2,13 @@
 export class ApiError extends Error {
   readonly code?: string;
   readonly detail?: string;
-  constructor(message: string, code?: string, detail?: string) {
+  /** The error's own data, e.g. what uses a row (`in_use`). */
+  readonly details?: unknown;
+  constructor(message: string, code?: string, detail?: string, details?: unknown) {
     super(message);
     this.code = code;
     this.detail = detail;
+    this.details = details;
   }
 }
 
@@ -36,7 +39,7 @@ export async function api<T = void>(
     if (res.status === 401 && !url.startsWith("/api/auth/login")) toLogin();
     if (res.status === 403 && method !== "GET") window.dispatchEvent(new Event(FORBIDDEN_EVENT));
     const e = (await res.json().catch(() => null))?.error;
-    throw new ApiError(`${method} ${url} failed: ${res.status}`, e?.code, e?.message);
+    throw new ApiError(`${method} ${url} failed: ${res.status}`, e?.code, e?.message, e?.details);
   }
   return (res.status === 204 ? undefined : await res.json()) as T;
 }

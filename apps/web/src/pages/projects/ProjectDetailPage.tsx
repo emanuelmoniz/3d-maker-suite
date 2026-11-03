@@ -10,7 +10,7 @@ import type { TFunction } from "i18next";
 import { Box, ExternalLink, FolderOpen } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Button } from "../../components/Button.tsx";
+import { ArchiveActions, ArchivedBadge } from "../../components/ArchiveActions.tsx";
 import { Collapsible } from "../../components/Collapsible.tsx";
 import { Combobox } from "../../components/Combobox.tsx";
 import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
@@ -42,7 +42,6 @@ import {
   projectName,
   projectThumbnailUrl,
   useConnectorId,
-  useDeleteProject,
   useOpenProject,
   useOpenTargets,
   useProject,
@@ -60,56 +59,6 @@ import { ProjectGallery } from "./ProjectGallery.tsx";
 
 const linkButton =
   "inline-flex h-9 items-center gap-2 whitespace-nowrap rounded-md border border-border bg-surface px-3 font-medium hover:bg-surface-2";
-const DELETE_ERRORS = {
-  in_use: "projects:remove.errors.in_use",
-  folder_has_files: "projects:remove.errors.folder_has_files",
-} as const;
-
-/** Delete, confirmed; the dialog stays open with the reason when the server refuses. */
-function DeleteProject({ project }: { project: ProjectDetail }) {
-  const { t } = useTranslation();
-  const navigate = useNavigate();
-  const del = useDeleteProject(project.id);
-  const [open, setOpen] = useState(false);
-  const code = del.error instanceof ApiError ? del.error.code : undefined;
-  return (
-    <>
-      <Button
-        onClick={() => {
-          del.reset();
-          setOpen(true);
-        }}
-      >
-        {t("projects:remove.action")}
-      </Button>
-      <ConfirmDialog
-        open={open}
-        title={t("projects:remove.title", { name: projectName(t, project) })}
-        description={
-          project.folderPath
-            ? t("projects:remove.bodyFolder")
-            : project.unlinkedFolder
-              ? t("projects:remove.bodyKept", { path: project.unlinkedFolder })
-              : t("projects:remove.body")
-        }
-        confirmLabel={t("projects:remove.action")}
-        destructive
-        onCancel={() => setOpen(false)}
-        onConfirm={() => del.mutate(undefined, { onSuccess: () => navigate({ to: "/projects" }) })}
-      >
-        {del.isError && (
-          <p role="alert" className="text-bad">
-            {t(
-              code && code in DELETE_ERRORS
-                ? DELETE_ERRORS[code as keyof typeof DELETE_ERRORS]
-                : "projects:remove.error",
-            )}
-          </p>
-        )}
-      </ConfirmDialog>
-    </>
-  );
-}
 const VIEWABLE = /\.(3mf|stl)$/i;
 const SLICED_EXPORT = /\.gcode\.3mf$/i;
 // The project folder, or with a configured root above it, the path from that root's folder down.
@@ -418,6 +367,7 @@ function PrintedCost({ id }: { id: string }) {
 
 export function ProjectDetailPage() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const { id } = useParams({ strict: false }) as { id: string };
   const { data: project, isError } = useProject(id);
   const tags = useTagsOf("project")(id);
@@ -535,6 +485,7 @@ export function ProjectDetailPage() {
       <PageHeader
         title={projectName(t, project)}
         backTo={{ to: "/projects" }}
+        description={project.archivedAt && <ArchivedBadge />}
         actions={
           <>
             {project.sourceUrl && (
@@ -569,7 +520,19 @@ export function ProjectDetailPage() {
               <Link to="/projects/$id/edit" params={{ id }} className={linkButton}>
                 {t("projects:list.edit")}
               </Link>
-              <DeleteProject project={project} />
+              <ArchiveActions
+                path={`/api/projects/${id}`}
+                name={projectName(t, project)}
+                archived={project.archivedAt !== null}
+                deleteBody={
+                  project.folderPath
+                    ? t("projects:remove.bodyFolder")
+                    : project.unlinkedFolder
+                      ? t("projects:remove.bodyKept", { path: project.unlinkedFolder })
+                      : t("projects:remove.body")
+                }
+                onDeleted={() => navigate({ to: "/projects" })}
+              />
             </Write>
           </>
         }

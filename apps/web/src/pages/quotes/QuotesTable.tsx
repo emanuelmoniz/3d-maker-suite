@@ -1,17 +1,13 @@
 import { type Quote, quoteFilters } from "@3d-maker-suite/core";
 import { Link } from "@tanstack/react-router";
-import { Trash2 } from "lucide-react";
-import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Button } from "../../components/Button.tsx";
-import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
+import { archiveColumn } from "../../components/ArchiveActions.tsx";
 import { DataTable } from "../../components/DataTable.tsx";
 import { ProjectRef } from "../../components/ProjectRef.tsx";
-import { Write } from "../../components/Write.tsx";
 import { useClients } from "../../lib/clients.ts";
-import { quoteName, useDeleteQuote, useMoney, useQuotes } from "../../lib/cost.ts";
+import { quoteName, useMoney, useQuotes } from "../../lib/cost.ts";
 import { formatDate } from "../../lib/format.ts";
-import { useUrlListQuery } from "../../lib/list.ts";
+import { useHasArchived, useUrlListQuery } from "../../lib/list.ts";
 import { projectName, useProjects } from "../../lib/projects.ts";
 
 /**
@@ -33,11 +29,10 @@ export function QuotesTable({
   // ponytail: first 100 of each for names and filter options; a search filter if anyone has more.
   const clients = useClients({ pageSize: "100", archived: "all" }).data?.items ?? [];
   const projects = useProjects().data?.items ?? [];
-  const del = useDeleteQuote();
-  const [deleting, setDeleting] = useState<Quote | null>(null);
+  const hasArchived = useHasArchived(["costs", "quotes", "list"], "/api/costs/quotes", fixed);
 
   if (!data) return null;
-  if (!data.total && !Object.keys(query).length)
+  if (!data.total && !Object.keys(query).length && !hasArchived)
     return fixed ? null : <p className="text-muted">{t("costs:saved.empty")}</p>;
   const table = (
     <DataTable
@@ -50,6 +45,7 @@ export function QuotesTable({
         total: data.total,
         filters: quoteFilters,
         defaultSort: "-name",
+        archivable: true,
       }}
       columns={[
         {
@@ -117,49 +113,23 @@ export function QuotesTable({
           cell: (q) => money(q.quote.total),
           sort: "total",
         },
-        {
-          id: "actions",
-          header: t("costs:saved.columns.actions"),
-          cell: (q) => (
-            <Write can="costs">
-              <Button
-                variant="ghost"
-                aria-label={t("costs:saved.deleteNamed", { name: quoteName(t, q) })}
-                onClick={() => setDeleting(q)}
-              >
-                <Trash2 className="size-4" aria-hidden />
-              </Button>
-            </Write>
-          ),
-        },
+        archiveColumn<Quote>(t, {
+          base: "/api/costs/quotes",
+          can: "costs",
+          name: (q) => quoteName(t, q),
+        }),
       ]}
     />
   );
 
-  return (
-    <>
-      {title ? (
-        <section aria-labelledby="quotes" className="mt-6">
-          <h2 id="quotes" className="mb-2 text-base font-semibold">
-            {title}
-          </h2>
-          {table}
-        </section>
-      ) : (
-        table
-      )}
-      <ConfirmDialog
-        open={!!deleting}
-        title={t("costs:saved.deleteTitle")}
-        description={deleting ? t("costs:saved.deleteBody", { name: quoteName(t, deleting) }) : ""}
-        confirmLabel={t("costs:saved.delete")}
-        destructive
-        onCancel={() => setDeleting(null)}
-        onConfirm={() => {
-          if (deleting) del.mutate(deleting.id);
-          setDeleting(null);
-        }}
-      />
-    </>
+  return title ? (
+    <section aria-labelledby="quotes" className="mt-6">
+      <h2 id="quotes" className="mb-2 text-base font-semibold">
+        {title}
+      </h2>
+      {table}
+    </section>
+  ) : (
+    table
   );
 }

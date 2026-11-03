@@ -1,14 +1,14 @@
-import { Link, useParams } from "@tanstack/react-router";
+import { Link, useNavigate, useParams } from "@tanstack/react-router";
 import { ImageOff } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { ArchiveActions, ArchivedBadge } from "../../components/ArchiveActions.tsx";
 import { Button } from "../../components/Button.tsx";
-import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { type DateRange, DateRangePicker } from "../../components/DateRangePicker.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { StatCard } from "../../components/StatCard.tsx";
 import { Write } from "../../components/Write.tsx";
-import { imageUrl, isConflict, useModelInfo } from "../../lib/catalog.ts";
+import { imageUrl, useModelInfo } from "../../lib/catalog.ts";
 import {
   formatCurrency,
   formatDate,
@@ -20,7 +20,6 @@ import { usePreferences } from "../../lib/preferences.ts";
 import {
   photoUrl,
   printerName,
-  usePatchPrinter,
   usePrinter,
   usePrinterStats,
   useRemovePhoto,
@@ -102,15 +101,14 @@ export function Photo({
 
 export function PrinterDetailPage() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const { id } = useParams({ strict: false }) as { id: string };
   const { data: printer, isError } = usePrinter(id);
   const currency = usePreferences().data?.values.currency ?? "EUR";
   const [period, setPeriod] = useState<DateRange>({});
   const stats = usePrinterStats(id, period);
-  const patch = usePatchPrinter(id);
   const upload = useUploadPhoto(id);
   const removePhoto = useRemovePhoto(id);
-  const [confirmArchive, setConfirmArchive] = useState(false);
   const models = useModelInfo();
   const costInfo = useCostInfo(printer, "printer");
 
@@ -145,36 +143,18 @@ export function PrinterDetailPage() {
             <Link to="/printers/$id/edit" params={{ id }} className={linkButton}>
               {t("printers:detail.edit")}
             </Link>
-            {archived ? (
-              <Button onClick={() => patch.mutate({ archived: false })}>
-                {t("printers:detail.restore")}
-              </Button>
-            ) : (
-              <Button onClick={() => setConfirmArchive(true)}>
-                {t("printers:detail.archive")}
-              </Button>
-            )}
+            <ArchiveActions
+              path={`/api/printers/${id}`}
+              name={printerName(t, printer)}
+              archived={archived}
+              onDeleted={() => navigate({ to: "/printers" })}
+            />
           </Write>
         }
       />
-      <ConfirmDialog
-        open={confirmArchive}
-        title={t("printers:detail.archiveTitle")}
-        description={t("printers:detail.archiveBody")}
-        confirmLabel={t("printers:detail.archive")}
-        onCancel={() => setConfirmArchive(false)}
-        onConfirm={() => {
-          setConfirmArchive(false);
-          patch.mutate({ archived: true });
-        }}
-      />
-      {(patch.isError || upload.isError || removePhoto.isError) && (
+      {(upload.isError || removePhoto.isError) && (
         <p role="alert" className="mb-4 text-bad">
-          {t(
-            isConflict(patch.error)
-              ? "printers:detail.hasAccessories"
-              : "printers:detail.actionError",
-          )}
+          {t("printers:detail.actionError")}
         </p>
       )}
 
@@ -191,11 +171,7 @@ export function PrinterDetailPage() {
             <h2 className="mb-3 flex items-center gap-2 text-base font-semibold">
               {t("printers:detail.info.title")}
               <StateBadge state={printer.state} />
-              {archived && (
-                <span className="rounded-full bg-surface-2 px-2 py-0.5 text-xs font-medium text-muted">
-                  {t("printers:detail.archived")}
-                </span>
-              )}
+              {archived && <ArchivedBadge />}
             </h2>
             <dl className="grid gap-3 sm:grid-cols-2">
               <Info label={t("printers:detail.info.serial")}>{printer.serial ?? none}</Info>

@@ -9,6 +9,7 @@ import { Link } from "@tanstack/react-router";
 import { ExternalLink, Layers, Plus } from "lucide-react";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
+import { archiveColumn } from "../../components/ArchiveActions.tsx";
 import { Button } from "../../components/Button.tsx";
 import { CostBreakdown } from "../../components/CostBreakdown.tsx";
 import { type Column, DataTable, type ListQuery } from "../../components/DataTable.tsx";
@@ -21,7 +22,7 @@ import { TagList } from "../../components/TagList.tsx";
 import { Write } from "../../components/Write.tsx";
 import { useMoney } from "../../lib/cost.ts";
 import { formatDateTime, formatWeight } from "../../lib/format.ts";
-import { useUrlListQuery } from "../../lib/list.ts";
+import { useHasArchived, useUrlListQuery } from "../../lib/list.ts";
 import { printerName, usePrinters } from "../../lib/printers.ts";
 import { printName, useFilamentReview, usePrints } from "../../lib/prints.ts";
 import { projectName, useProjects } from "../../lib/projects.ts";
@@ -45,7 +46,7 @@ export function PrintsTable({
   data: Page<PrintDetail>;
   query: ListQuery;
   onQueryChange: (q: ListQuery) => void;
-  /** A last column of row buttons. */
+  /** A last column of row buttons, instead of Archive and Delete. */
   actions?: (p: PrintDetail) => ReactNode;
   /** A project's own list: every row is that project. */
   hideProject?: boolean;
@@ -82,6 +83,7 @@ export function PrintsTable({
         total: data.total,
         filters: printFilters,
         defaultSort: "-title",
+        archivable: true,
       }}
       columns={[
         ...(hideProject ? [] : [projectColumn]),
@@ -178,9 +180,13 @@ export function PrintsTable({
             </details>
           ),
         },
-        ...(actions
-          ? [{ id: "actions", header: t("prints:list.columns.actions"), cell: actions }]
-          : []),
+        actions
+          ? { id: "actions", header: t("common:table.actions"), cell: actions }
+          : archiveColumn<PrintDetail>(t, {
+              base: "/api/prints",
+              can: "prints",
+              name: (p) => printName(t, p),
+            }),
       ]}
     />
   );
@@ -190,6 +196,7 @@ export function PrintsPage() {
   const { t } = useTranslation();
   const [query, setQuery] = useUrlListQuery();
   const { data, isError } = usePrints(query);
+  const hasArchived = useHasArchived(["prints", "list"], "/api/prints");
   const waiting = useFilamentReview({ pageSize: "1" }).data?.total ?? 0;
   const add = (
     <Link
@@ -232,7 +239,7 @@ export function PrintsPage() {
           </Link>
         </p>
       )}
-      {data && !data.total && !Object.keys(query).length ? (
+      {data && !data.total && !Object.keys(query).length && !hasArchived ? (
         <EmptyState
           icon={Layers}
           title={t("prints:list.emptyTitle")}

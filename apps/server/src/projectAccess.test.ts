@@ -240,6 +240,8 @@ describe("project access over HTTP", () => {
     // Download-only: reads work, writes are 403 on the project, its files and its slicing.
     const seen = (await asHelper("GET", `/api/projects/${theirs.id}`)).json();
     expect(seen).toMatchObject({ canEdit: false, owner: { id: admin.id, displayName: "admin" } });
+    const listed = (await asHelper("GET", "/api/projects")).json().items;
+    expect(listed.find((p: { id: string }) => p.id === theirs.id).canEdit).toBe(false);
     expect((await asHelper("GET", `/api/projects/${theirs.id}/slicing`)).statusCode).toBe(200);
     for (const [method, url] of [
       ["PATCH", ""],

@@ -85,7 +85,66 @@
     "max": "Max",
     "apply": "Apply",
     "clear": "Clear",
-    "showArchived": "Show archived"
+    "showArchived": "Show archived",
+    "actions": "Actions"
+  },
+  "archive": {
+    "archived": "Archived",
+    "actions": {
+      "archive": "Archive",
+      "restore": "Restore",
+      "delete": "Delete"
+    },
+    "named": {
+      "archive": "Archive {{name}}",
+      "restore": "Restore {{name}}",
+      "delete": "Delete {{name}}"
+    },
+    "archiveTitle": "Archive {{name}}?",
+    "archiveBody": "It leaves the lists and pickers. Its history stays, and stats and costs still count it. Show archived finds it, and Restore brings it back.",
+    "deleteTitle": "Delete {{name}}?",
+    "deleteBody": "It is deleted for good. This can't be undone.",
+    "restoreTitle": "Couldn't restore {{name}}",
+    "blockedTitle": "{{name}} is still in use",
+    "blocked": "The items below use it, so it can't be deleted. Archive it to hide it and keep them as they are, or change them first and delete it then.",
+    "blockedArchived": "The items below use it, even the archived ones, so it can't be deleted. Change them first and delete it then.",
+    "archivedCount_one": "{{count, number}} archived",
+    "archivedCount_other": "{{count, number}} archived",
+    "notShown_one": "{{count, number}} more not shown",
+    "notShown_other": "{{count, number}} more not shown",
+    "dependents": {
+      "printerModel_one": "{{count, number}} printer model",
+      "printerModel_other": "{{count, number}} printer models",
+      "machineProfile_one": "{{count, number}} machine profile",
+      "machineProfile_other": "{{count, number}} machine profiles",
+      "printProfile_one": "{{count, number}} print profile",
+      "printProfile_other": "{{count, number}} print profiles",
+      "printer_one": "{{count, number}} printer",
+      "printer_other": "{{count, number}} printers",
+      "accessory_one": "{{count, number}} accessory",
+      "accessory_other": "{{count, number}} accessories",
+      "maintenanceType_one": "{{count, number}} maintenance type",
+      "maintenanceType_other": "{{count, number}} maintenance types",
+      "maintenanceTask_one": "{{count, number}} maintenance record",
+      "maintenanceTask_other": "{{count, number}} maintenance records",
+      "filamentProfile_one": "{{count, number}} filament profile",
+      "filamentProfile_other": "{{count, number}} filament profiles",
+      "spool_one": "{{count, number}} spool",
+      "spool_other": "{{count, number}} spools",
+      "print_one": "{{count, number}} print",
+      "print_other": "{{count, number}} prints",
+      "order_one": "{{count, number}} order",
+      "order_other": "{{count, number}} orders",
+      "quote_one": "{{count, number}} quote",
+      "quote_other": "{{count, number}} quotes"
+    },
+    "errors": {
+      "generic": "That didn't work. Try again.",
+      "printer_has_accessories": "Remove its accessories first.",
+      "accessory_installed": "Remove it from its printer first.",
+      "preset_newer_exists": "A newer version of this preset is in use, so this old one can't come back.",
+      "folder_has_files": "Its folder still has files. Move or delete them first, or the next scan finds the project again."
+    }
   },
   "a11y": {
     "mainNav": "Main navigation",

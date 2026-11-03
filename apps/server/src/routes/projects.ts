@@ -452,6 +452,7 @@ export const projectsRoutes =
           lastPrintAt: last.get(p.id) ?? null,
           slicing: slicingById.get(p.id) ?? "none",
           offline: !!p.rootId && offline.has(p.rootId),
+          canEdit: projectAccessOf(db, req.user, p.id) === "edit",
         }));
         return { ...page, items } as Page<ProjectListItem>;
       },

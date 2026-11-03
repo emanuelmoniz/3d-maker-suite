@@ -1,18 +1,15 @@
 import { type Order, orderFilters } from "@3d-maker-suite/core";
 import { Link } from "@tanstack/react-router";
-import { Trash2 } from "lucide-react";
-import { Fragment, useState } from "react";
+import { Fragment } from "react";
 import { useTranslation } from "react-i18next";
-import { Button } from "../../components/Button.tsx";
-import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
+import { archiveColumn } from "../../components/ArchiveActions.tsx";
 import { DataTable } from "../../components/DataTable.tsx";
 import { ProjectRef } from "../../components/ProjectRef.tsx";
-import { Write } from "../../components/Write.tsx";
 import { useClients } from "../../lib/clients.ts";
 import { useMoney } from "../../lib/cost.ts";
 import { formatDate } from "../../lib/format.ts";
-import { useUrlListQuery } from "../../lib/list.ts";
-import { orderName, useDeleteOrder, useOrderStatusLabel, useOrders } from "../../lib/orders.ts";
+import { useHasArchived, useUrlListQuery } from "../../lib/list.ts";
+import { orderName, useOrderStatusLabel, useOrders } from "../../lib/orders.ts";
 import { usePreferences } from "../../lib/preferences.ts";
 import { projectName, useProjects } from "../../lib/projects.ts";
 
@@ -37,11 +34,10 @@ export function OrdersTable({
   // ponytail: first 100 clients for names and filter options, as QuotesTable.
   const clients = useClients({ pageSize: "100", archived: "all" }).data?.items ?? [];
   const projects = useProjects().data?.items ?? [];
-  const del = useDeleteOrder();
-  const [deleting, setDeleting] = useState<Order | null>(null);
+  const hasArchived = useHasArchived(["orders", "list"], "/api/orders", fixed);
 
   if (!data) return null;
-  if (!data.total && !Object.keys(query).length)
+  if (!data.total && !Object.keys(query).length && !hasArchived)
     return fixed ? null : <p className="text-muted">{t("orders:list.empty")}</p>;
   const table = (
     <DataTable
@@ -54,6 +50,7 @@ export function OrdersTable({
         total: data.total,
         filters: orderFilters,
         defaultSort: "-number",
+        archivable: true,
       }}
       columns={[
         {
@@ -124,49 +121,23 @@ export function OrdersTable({
           sort: "createdAt",
           filter: "createdAt",
         },
-        {
-          id: "actions",
-          header: t("orders:list.columns.actions"),
-          cell: (o) => (
-            <Write can="costs">
-              <Button
-                variant="ghost"
-                aria-label={t("orders:delete.named", { name: orderName(t, o) })}
-                onClick={() => setDeleting(o)}
-              >
-                <Trash2 className="size-4" aria-hidden />
-              </Button>
-            </Write>
-          ),
-        },
+        archiveColumn<Order>(t, {
+          base: "/api/orders",
+          can: "costs",
+          name: (o) => orderName(t, o),
+        }),
       ]}
     />
   );
 
-  return (
-    <>
-      {title ? (
-        <section aria-labelledby="orders" className="mt-6">
-          <h2 id="orders" className="mb-2 text-base font-semibold">
-            {title}
-          </h2>
-          {table}
-        </section>
-      ) : (
-        table
-      )}
-      <ConfirmDialog
-        open={!!deleting}
-        title={t("orders:delete.title")}
-        description={deleting ? t("orders:delete.body", { name: orderName(t, deleting) }) : ""}
-        confirmLabel={t("orders:delete.confirm")}
-        destructive
-        onCancel={() => setDeleting(null)}
-        onConfirm={() => {
-          if (deleting) del.mutate(deleting.id);
-          setDeleting(null);
-        }}
-      />
-    </>
+  return title ? (
+    <section aria-labelledby="orders" className="mt-6">
+      <h2 id="orders" className="mb-2 text-base font-semibold">
+        {title}
+      </h2>
+      {table}
+    </section>
+  ) : (
+    table
   );
 }

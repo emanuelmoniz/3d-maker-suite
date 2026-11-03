@@ -11,9 +11,10 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { archiveColumn } from "../../components/ArchiveActions.tsx";
 import { Button } from "../../components/Button.tsx";
 import { Combobox } from "../../components/Combobox.tsx";
-import { DataTable, type ListQuery, Pager } from "../../components/DataTable.tsx";
+import { DataTable, type ListQuery, Pager, ShowArchived } from "../../components/DataTable.tsx";
 import { EmptyState } from "../../components/EmptyState.tsx";
 import { FilterBar } from "../../components/FilterBar.tsx";
 import { inputClass } from "../../components/FormField.tsx";
@@ -25,7 +26,7 @@ import { TagList } from "../../components/TagList.tsx";
 import { Write } from "../../components/Write.tsx";
 import { cx } from "../../lib/cx.ts";
 import { formatDate } from "../../lib/format.ts";
-import { useListPage, useUrlListQuery } from "../../lib/list.ts";
+import { useHasArchived, useListPage, useUrlListQuery } from "../../lib/list.ts";
 import {
   projectName,
   projectThumbnailUrl,
@@ -81,7 +82,7 @@ function ScanPanel() {
               : t("projects:scan.progress", { done: status.done, total: status.total })}
           </span>
           <progress
-            className="h-2 w-full accent-[var(--accent)]"
+            className="h-2 w-full accent-accent"
             aria-label={t("projects:scan.start")}
             {...(discovering ? {} : { value: status.done, max: Math.max(status.total, 1) })}
           />
@@ -143,6 +144,7 @@ export function ProjectsTable({
         total,
         filters: projectFilters,
         defaultSort: "-name",
+        archivable: true,
       }}
       columns={[
         {
@@ -241,6 +243,12 @@ export function ProjectsTable({
               ? t("projects:list.files", { count: p.meta.files.length })
               : t("projects:list.noFolder"),
         },
+        archiveColumn<ProjectListItem>(t, {
+          base: "/api/projects",
+          can: "projects",
+          name: (p) => projectName(t, p),
+          when: (p) => p.canEdit,
+        }),
       ]}
     />
   );
@@ -256,6 +264,7 @@ export function ProjectsPage() {
     "/api/projects",
     query,
   );
+  const hasArchived = useHasArchived(["projects", "list"], "/api/projects");
   const collections = useCollections().data ?? [];
   const materials = useProjectMaterials().data ?? [];
   const set = (patch: ListQuery, keepPage = false) => {
@@ -305,7 +314,7 @@ export function ProjectsPage() {
         </p>
       )}
       <ScanPanel />
-      {data && !data.total && !filtered ? (
+      {data && !data.total && !filtered && !query.archived && !hasArchived ? (
         <EmptyState
           icon={FolderKanban}
           title={t("projects:list.emptyTitle")}
@@ -392,6 +401,10 @@ export function ProjectsPage() {
                         ["lastPrintAt", "projects:sort.lastPrintAsc"],
                       ] as const
                     ).map(([v, key]) => ({ value: v, label: t(key) }))}
+                  />
+                  <ShowArchived
+                    checked={query.archived === "true"}
+                    onChange={(on) => set({ archived: on ? "true" : "" })}
                   />
                 </FilterBar>
               ) : (

@@ -65,9 +65,6 @@ export const useCreatePrint = () =>
 export const usePatchPrint = (id: string) =>
   useInvalidating((v: PrintPatch) => api<PrintDetail>("PATCH", `/api/prints/${id}`, v));
 
-export const useDeletePrint = () =>
-  useInvalidating((id: string) => api("DELETE", `/api/prints/${id}`));
-
 export const useFilamentReview = (query: Record<string, string> = {}) =>
   useListPage<FilamentReviewItem>(["prints", "review"], "/api/prints/filament-review", query);
 

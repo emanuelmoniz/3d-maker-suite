@@ -9,22 +9,14 @@
       "name": "Name",
       "mobile": "Mobile",
       "vat": "VAT",
-      "email": "Email",
-      "actions": "Actions"
+      "email": "Email"
     }
   },
   "detail": {
     "title": "Details",
     "edit": "Edit",
     "notFound": "Client not found.",
-    "inUse": "This client has orders or quotes, so it can't be deleted.",
     "none": "-"
-  },
-  "delete": {
-    "title": "Delete client?",
-    "body": "{{name}} will be deleted. This can't be undone.",
-    "confirm": "Delete",
-    "named": "Delete {{name}}"
   },
   "form": {
     "addTitle": "Add client",
@@ -38,9 +30,9 @@
     "save": "Save",
     "saveError": "Couldn't save the client.",
     "taken": {
-      "vat": "Another client has this VAT.",
-      "mobile": "Another client has this mobile.",
-      "email": "Another client has this email."
+      "vat": "Another client has this VAT. It may be archived.",
+      "mobile": "Another client has this mobile. It may be archived.",
+      "email": "Another client has this email. It may be archived."
     }
   }
 }

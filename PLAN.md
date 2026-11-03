@@ -1599,7 +1599,7 @@ Back up the DB before editing schema.ts.
 Do Step 10 of the 5.2.0 plan in PLAN.md.
 ```
 
-### [ ] Step 11 - Archive, restore and delete on every page
+### [x] Step 11 - Archive, restore and delete on every page
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - Each of the 16 lists and detail pages: Archive or Restore, Delete, and a "Show archived" filter. Printers, accessories and others that say Delete but archive today are relabelled.

@@ -7,6 +7,7 @@ import {
 import { Link } from "@tanstack/react-router";
 import { Plus, Printer as PrinterIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { archiveColumn } from "../../components/ArchiveActions.tsx";
 import { DataTable } from "../../components/DataTable.tsx";
 import { EmptyState } from "../../components/EmptyState.tsx";
 import { SyncButtons } from "../../components/ImportLinks.tsx";
@@ -17,7 +18,7 @@ import { Write } from "../../components/Write.tsx";
 import { accessoryName } from "../../lib/accessories.ts";
 import { useModelInfo } from "../../lib/catalog.ts";
 import { formatDuration, formatNumber } from "../../lib/format.ts";
-import { useListPage, useUrlListQuery } from "../../lib/list.ts";
+import { useHasArchived, useListPage, useUrlListQuery } from "../../lib/list.ts";
 import { usePreferences } from "../../lib/preferences.ts";
 import { printerName, usePrinters } from "../../lib/printers.ts";
 import { useTags, useTagsOf } from "../../lib/tags.ts";
@@ -30,11 +31,7 @@ export function PrintersPage() {
   const states = usePreferences().data?.values.printerStates ?? [];
   const [query, setQuery] = useUrlListQuery();
   const { data, isError } = useListPage<PrinterRow>(["printers", "list"], "/api/printers", query);
-  // Archived printers keep the table (and its "Show archived" switch) up, even with no active ones.
-  const archived = useListPage<PrinterRow>(["printers", "list"], "/api/printers", {
-    archived: "true",
-    pageSize: "1",
-  });
+  const hasArchived = useHasArchived(["printers", "list"], "/api/printers");
   const tagsOf = useTagsOf("printer");
   const tags = useTags().data ?? [];
   const models = useModelInfo();
@@ -68,7 +65,7 @@ export function PrintersPage() {
           {t("printers:loadError")}
         </p>
       )}
-      {data && !data.total && !Object.keys(query).length && archived.data?.total === 0 ? (
+      {data && !data.total && !Object.keys(query).length && !hasArchived ? (
         <EmptyState
           icon={PrinterIcon}
           title={t("printers:list.emptyTitle")}
@@ -167,6 +164,12 @@ export function PrintersPage() {
                 sort: "powerW",
                 filter: "powerW",
               },
+              archiveColumn<PrinterRow>(t, {
+                base: "/api/printers",
+                can: "printers",
+                level: "manage",
+                name: (p) => printerName(t, p),
+              }),
             ]}
           />
         )
@@ -183,6 +186,7 @@ function AccessoriesTable() {
   const states = usePreferences().data?.values.printerStates ?? [];
   const [query, setQuery] = useUrlListQuery("accessories.");
   const { data } = useListPage<Accessory>(["accessories", "list"], "/api/accessories", query);
+  const hasArchived = useHasArchived(["accessories", "list"], "/api/accessories");
   const printers = usePrinters({ archived: false }).data?.items ?? [];
   const printerOf = new Map(printers.map((p) => [p.id, p]));
   const tagsOf = useTagsOf("accessory");
@@ -199,7 +203,7 @@ function AccessoriesTable() {
           </Link>
         </Write>
       </div>
-      {data && !data.total && !Object.keys(query).length ? (
+      {data && !data.total && !Object.keys(query).length && !hasArchived ? (
         <p className="text-muted">{t("printers:accessories.empty")}</p>
       ) : (
         data && (
@@ -295,6 +299,12 @@ function AccessoriesTable() {
                 sort: "powerW",
                 filter: "powerW",
               },
+              archiveColumn<Accessory>(t, {
+                base: "/api/accessories",
+                can: "printers",
+                level: "manage",
+                name: (a) => accessoryName(t, a),
+              }),
             ]}
           />
         )

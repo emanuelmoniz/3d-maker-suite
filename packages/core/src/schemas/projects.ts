@@ -141,6 +141,8 @@ export const projectListItemSchema = projectSchema.extend({
   slicing: z.enum(PROJECT_SLICING),
   /** In a device root whose device isn't connected (ADR-0014). */
   offline: z.boolean(),
+  /** Whether the caller may change it, as on the detail. */
+  canEdit: z.boolean(),
 });
 
 const editable = {

@@ -105,15 +105,6 @@ export const useSaveCatalog = <K extends CatalogKind>(kind: K, id?: string) =>
     api<Row[K]>(id ? "PATCH" : "POST", id ? `/api/${kind}/${id}` : `/api/${kind}`, v),
   );
 
-export function useDeleteCatalog(kind: CatalogKind) {
-  const qc = useQueryClient();
-  return useInvalidating(async (id: string) => {
-    await api("DELETE", `/api/${kind}/${id}`);
-    // Else the refresh refetches the deleted row and waits out the 404 retries before the page leaves.
-    qc.removeQueries({ queryKey: ["catalog", kind, id] });
-  });
-}
-
 export const useCatalogImage = (kind: keyof typeof IMAGE_OF) =>
   useInvalidating((v: { id: string; file: File | null }) =>
     api(v.file ? "PUT" : "DELETE", `/api/${kind}/${v.id}/${IMAGE_OF[kind]}`, v.file ?? undefined),
@@ -122,5 +113,5 @@ export const useCatalogImage = (kind: keyof typeof IMAGE_OF) =>
 export const imageUrl = (kind: keyof typeof IMAGE_OF, row: { id: string; updatedAt: string }) =>
   `/api/${kind}/${row.id}/${IMAGE_OF[kind]}?v=${row.updatedAt}`;
 
-/** `api()` errors end with the HTTP status; 409 = duplicate name on save, still in use on delete. */
+/** `api()` errors end with the HTTP status; 409 = duplicate name on save. */
 export const isConflict = (e: unknown) => String(e).endsWith(": 409");

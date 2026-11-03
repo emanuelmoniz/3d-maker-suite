@@ -15,6 +15,7 @@ import { Link, type LinkProps, useNavigate, useParams } from "@tanstack/react-ro
 import { ClipboardList, Plus, Trash2, Upload } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { ArchiveActions, ArchivedBadge } from "../../components/ArchiveActions.tsx";
 import { Button } from "../../components/Button.tsx";
 import { Combobox } from "../../components/Combobox.tsx";
 import {
@@ -27,6 +28,7 @@ import { FormField, inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { PickerWithAdd } from "../../components/PickerWithAdd.tsx";
 import { PlateSlice, plateKey, SliceSetup } from "../../components/SliceSetup.tsx";
+import { Write } from "../../components/Write.tsx";
 import { api } from "../../lib/api.ts";
 import { useClient, useClients } from "../../lib/clients.ts";
 import {
@@ -697,6 +699,7 @@ export function QuoteCreatePage() {
 
 export function QuoteEditPage() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const { id } = useParams({ strict: false }) as { id: string };
   const ctx = useCostContext();
   const quote = useQuote(id);
@@ -714,14 +717,27 @@ export function QuoteEditPage() {
       <PageHeader
         title={quote.data ? quoteName(t, quote.data) : ""}
         backTo={{ to: "/quotes" }}
+        description={quote.data?.archivedAt && <ArchivedBadge />}
         actions={
-          <Link
-            to={`/orders/new?${new URLSearchParams({ quoteId: id })}` as LinkProps["to"]}
-            className="inline-flex h-9 items-center gap-2 whitespace-nowrap rounded-md border border-border bg-surface px-3 font-medium hover:bg-surface-2"
-          >
-            <ClipboardList className="size-4" aria-hidden />
-            {t("costs:saved.createOrder")}
-          </Link>
+          <>
+            <Link
+              to={`/orders/new?${new URLSearchParams({ quoteId: id })}` as LinkProps["to"]}
+              className="inline-flex h-9 items-center gap-2 whitespace-nowrap rounded-md border border-border bg-surface px-3 font-medium hover:bg-surface-2"
+            >
+              <ClipboardList className="size-4" aria-hidden />
+              {t("costs:saved.createOrder")}
+            </Link>
+            {quote.data && (
+              <Write can="costs">
+                <ArchiveActions
+                  path={`/api/costs/quotes/${id}`}
+                  name={quoteName(t, quote.data)}
+                  archived={quote.data.archivedAt !== null}
+                  onDeleted={() => navigate({ to: "/quotes" })}
+                />
+              </Write>
+            )}
+          </>
         }
       />
       {ctx.isError && <LoadError />}

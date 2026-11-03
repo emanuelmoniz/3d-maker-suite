@@ -1,18 +1,13 @@
 import type { ProjectListItem } from "@3d-maker-suite/core";
-import { Link, useParams } from "@tanstack/react-router";
+import { Link, useNavigate, useParams } from "@tanstack/react-router";
 import { type ReactNode, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { ArchiveActions, ArchivedBadge } from "../../components/ArchiveActions.tsx";
 import { Button } from "../../components/Button.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { TagList } from "../../components/TagList.tsx";
 import { Write } from "../../components/Write.tsx";
-import {
-  filamentLabel,
-  spoolName,
-  usePatchSpool,
-  useProfile,
-  useSpool,
-} from "../../lib/filament.ts";
+import { filamentLabel, spoolName, useProfile, useSpool } from "../../lib/filament.ts";
 import { formatCurrency, formatDate, formatWeight } from "../../lib/format.ts";
 import { useListPage, useUrlListQuery } from "../../lib/list.ts";
 import { usePreferences } from "../../lib/preferences.ts";
@@ -76,12 +71,12 @@ function SpoolUse({ spoolId }: { spoolId: string }) {
 
 export function SpoolDetailPage() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const { id } = useParams({ strict: false }) as { id: string };
   const { data: spool, isError } = useSpool(id);
   const { data: profile } = useProfile(spool?.profileId);
   const currency = usePreferences().data?.values.currency;
   const tagsOf = useTagsOf("spool");
-  const patch = usePatchSpool();
   const [adjusting, setAdjusting] = useState(false);
 
   if (isError)
@@ -109,26 +104,20 @@ export function SpoolDetailPage() {
               {t("filament:detail.edit")}
             </Link>
             <Button onClick={() => setAdjusting(true)}>{t("filament:spools.adjust")}</Button>
-            <Button onClick={() => patch.mutate({ id, patch: { archived: !archived } })}>
-              {t(archived ? "filament:detail.restore" : "filament:spools.archive")}
-            </Button>
+            <ArchiveActions
+              path={`/api/filament/spools/${id}`}
+              name={title}
+              archived={archived}
+              onDeleted={() => navigate({ to: "/filament" })}
+            />
           </Write>
         }
       />
-      {patch.isError && (
-        <p role="alert" className="mb-4 text-bad">
-          {t("filament:spools.error")}
-        </p>
-      )}
       <section className="rounded-lg border border-border bg-surface p-4 sm:p-5">
         <h2 className="mb-3 flex items-center gap-2 text-base font-semibold">
           <Swatch hex={spool.colorHex} />
           {t("filament:detail.title")}
-          {archived && (
-            <span className="rounded-full bg-surface-2 px-2 py-0.5 text-xs font-medium text-muted">
-              {t("filament:detail.archived")}
-            </span>
-          )}
+          {archived && <ArchivedBadge />}
         </h2>
         <dl className="grid gap-3 sm:grid-cols-2">
           <Info label={t("filament:spools.number")}>{spool.number}</Info>

@@ -8,6 +8,7 @@ import {
 import { Link } from "@tanstack/react-router";
 import { Plus } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { archiveColumn } from "../../components/ArchiveActions.tsx";
 import { type Column, DataTable } from "../../components/DataTable.tsx";
 import { Write } from "../../components/Write.tsx";
 import { imageUrl, useFilamentBrands, useFilamentMaterials } from "../../lib/catalog.ts";
@@ -56,6 +57,7 @@ export function FilamentCatalog() {
       <Section<FilamentBrand>
         kind="filament-brands"
         title={t("filament:catalog.brands.title")}
+        name={(b) => b.name}
         add={{ to: "/filament/brands/new", label: t("filament:catalog.brands.add") }}
         filters={filamentCatalogFilters}
         columns={[
@@ -92,6 +94,7 @@ export function FilamentCatalog() {
       <Section<FilamentMaterial>
         kind="filament-materials"
         title={t("filament:catalog.materials.title")}
+        name={(m) => m.name}
         add={{ to: "/filament/materials/new", label: t("filament:catalog.materials.add") }}
         filters={filamentCatalogFilters}
         columns={[
@@ -219,6 +222,12 @@ export function FilamentProfiles() {
                 filterHint: prefs?.currency,
               },
               slicer.profile,
+              archiveColumn<FilamentProfile>(t, {
+                base: "/api/filament/profiles",
+                can: "filament",
+                level: "manage",
+                name: filamentLabel,
+              }),
             ]}
           />
         )}

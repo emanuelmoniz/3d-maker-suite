@@ -10,6 +10,7 @@ import { Link } from "@tanstack/react-router";
 import { Plus, Spool as SpoolIcon } from "lucide-react";
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
+import { archiveColumn } from "../../components/ArchiveActions.tsx";
 import { DataTable } from "../../components/DataTable.tsx";
 import { EmptyState } from "../../components/EmptyState.tsx";
 import { SyncButtons } from "../../components/ImportLinks.tsx";
@@ -196,6 +197,11 @@ export function FilamentPage() {
                       );
                     },
                   },
+                  archiveColumn<Spool>(t, {
+                    base: "/api/filament/spools",
+                    can: "filament",
+                    name: (s) => spoolName(t, s, profileOf.get(s.profileId)),
+                  }),
                 ]}
               />
             )

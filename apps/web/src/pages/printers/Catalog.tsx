@@ -13,6 +13,7 @@ import { Link } from "@tanstack/react-router";
 import { Plus } from "lucide-react";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
+import { archiveColumn } from "../../components/ArchiveActions.tsx";
 import { type Column, DataTable } from "../../components/DataTable.tsx";
 import { Write } from "../../components/Write.tsx";
 import { useCan } from "../../lib/auth.ts";
@@ -37,9 +38,11 @@ export function Thumb({ src }: { src: string | null }) {
   return src ? <img src={src} alt="" className="size-6 shrink-0 rounded object-contain" /> : null;
 }
 
-export function Section<T extends { id: string }>(props: {
+export function Section<T extends { id: string; archivedAt: string | null }>(props: {
   kind: CatalogKind;
   title: string;
+  /** The row's name in its Archive and Delete buttons and dialogs. */
+  name: (row: T) => string;
   add: { to: string; label: string };
   /** Import links, next to the add button. */
   extra?: ReactNode;
@@ -77,8 +80,22 @@ export function Section<T extends { id: string }>(props: {
           label={props.title}
           rows={data.items}
           rowKey={(r) => r.id}
-          server={{ query, onQueryChange: setQuery, total: data.total, filters: props.filters }}
-          columns={props.columns}
+          server={{
+            query,
+            onQueryChange: setQuery,
+            total: data.total,
+            filters: props.filters,
+            archivable: true,
+          }}
+          columns={[
+            ...props.columns,
+            archiveColumn<T>(t, {
+              base: `/api/${props.kind}`,
+              can: props.kind.startsWith("filament") ? "filament" : "printers",
+              level: "manage",
+              name: props.name,
+            }),
+          ]}
         />
       )}
     </section>
@@ -147,6 +164,7 @@ export function Catalog() {
       <Section<Brand>
         kind="brands"
         title={t("printers:catalog.brands.title")}
+        name={(b) => b.name}
         add={{ to: "/printers/brands/new", label: t("printers:catalog.brands.add") }}
         filters={brandFilters}
         columns={[
@@ -183,6 +201,7 @@ export function Catalog() {
       <Section<PrinterModel>
         kind="printer-models"
         title={t("printers:catalog.models.title")}
+        name={(m) => info.get(m.id)?.label ?? m.model}
         add={{ to: "/printers/models/new", label: t("printers:catalog.models.add") }}
         filters={printerModelFilters}
         columns={[
@@ -224,6 +243,7 @@ export function Catalog() {
       <Section<MachineProfile>
         kind="machine-profiles"
         title={t("printers:catalog.profiles.title")}
+        name={(p) => p.name}
         add={{ to: "/printers/profiles/new", label: t("printers:catalog.profiles.add") }}
         filters={machineProfileFilters}
         columns={[
@@ -259,6 +279,7 @@ export function Catalog() {
       <Section<PrintProfile>
         kind="print-profiles"
         title={t("printers:catalog.printProfiles.title")}
+        name={(p) => p.name}
         add={{ to: "/printers/print-profiles/new", label: t("printers:catalog.printProfiles.add") }}
         filters={printProfileFilters}
         columns={[

@@ -7,6 +7,7 @@ import { Link } from "@tanstack/react-router";
 import { Plus, Wrench } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { archiveColumn } from "../../components/ArchiveActions.tsx";
 import { Button } from "../../components/Button.tsx";
 import { DataTable } from "../../components/DataTable.tsx";
 import { DateInput } from "../../components/DateInput.tsx";
@@ -334,6 +335,12 @@ export function MaintenancePage() {
                   sort: "appliesToModels",
                   filter: "appliesToModels",
                 },
+                archiveColumn<MaintenanceType>(t, {
+                  base: "/api/maintenance/types",
+                  can: "maintenance",
+                  level: "manage",
+                  name: (m) => m.name,
+                }),
               ]}
             />
           )}

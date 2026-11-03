@@ -165,6 +165,7 @@ test("an archived profile leaves the list but stays on its spool", async ({ page
   const { items } = await app.api<{ items: { id: string }[] }>("GET", "/api/filament/profiles");
   await page.goto(`/filament/profiles/${items[0]?.id}`);
   await page.getByRole("button", { name: "Archive" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Archive" }).click();
   await expect(page.getByText("Archived", { exact: true }).first()).toBeVisible();
   await page.goto("/filament/settings");
   await expect(page.getByRole("table", { name: "Filament profiles" })).not.toContainText("Basic");

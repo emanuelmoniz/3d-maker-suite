@@ -1,11 +1,11 @@
 import { SPOOL_STATUSES, type Spool, spoolFilters } from "@3d-maker-suite/core";
-import { Link, useParams } from "@tanstack/react-router";
+import { Link, useNavigate, useParams } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
-import { Button } from "../../components/Button.tsx";
+import { ArchiveActions, ArchivedBadge } from "../../components/ArchiveActions.tsx";
 import { DataTable } from "../../components/DataTable.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { Write } from "../../components/Write.tsx";
-import { filamentLabel, usePatchProfile, useProfile } from "../../lib/filament.ts";
+import { filamentLabel, useProfile } from "../../lib/filament.ts";
 import { formatCurrency, formatNumber, formatWeight } from "../../lib/format.ts";
 import { useListPage, useUrlListQuery } from "../../lib/list.ts";
 import { usePreferences } from "../../lib/preferences.ts";
@@ -14,6 +14,7 @@ import { Info, linkButton } from "./SpoolDetailPage.tsx";
 
 export function ProfileDetailPage() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const { id } = useParams({ strict: false }) as { id: string };
   const { data: profile, isError } = useProfile(id);
   const currency = usePreferences().data?.values.currency;
@@ -22,7 +23,6 @@ export function ProfileDetailPage() {
     ...query,
     profileId: id,
   }).data;
-  const patch = usePatchProfile();
 
   if (isError)
     return (
@@ -46,26 +46,20 @@ export function ProfileDetailPage() {
             <Link to="/filament/profiles/$id/edit" params={{ id }} className={linkButton}>
               {t("filament:detail.edit")}
             </Link>
-            <Button onClick={() => patch.mutate({ id, patch: { archived: !archived } })}>
-              {t(archived ? "filament:detail.restore" : "filament:profiles.archive")}
-            </Button>
+            <ArchiveActions
+              path={`/api/filament/profiles/${id}`}
+              name={filamentLabel(profile)}
+              archived={archived}
+              onDeleted={() => navigate({ to: "/filament/settings" })}
+            />
           </Write>
         }
       />
-      {patch.isError && (
-        <p role="alert" className="mb-4 text-bad">
-          {t("filament:profiles.error")}
-        </p>
-      )}
       <div className="grid gap-6">
         <section className="rounded-lg border border-border bg-surface p-4 sm:p-5">
           <h2 className="mb-3 flex items-center gap-2 text-base font-semibold">
             {t("filament:profileDetail.title")}
-            {archived && (
-              <span className="rounded-full bg-surface-2 px-2 py-0.5 text-xs font-medium text-muted">
-                {t("filament:detail.archived")}
-              </span>
-            )}
+            {archived && <ArchivedBadge />}
           </h2>
           <dl className="grid gap-3 sm:grid-cols-2">
             <Info label={t("filament:profiles.brand")}>{profile.brand || none}</Info>

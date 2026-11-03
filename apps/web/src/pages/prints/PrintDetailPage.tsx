@@ -1,9 +1,7 @@
 import type { PrintDetail } from "@3d-maker-suite/core";
 import { Link, useNavigate, useParams } from "@tanstack/react-router";
-import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Button } from "../../components/Button.tsx";
-import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
+import { ArchiveActions, ArchivedBadge } from "../../components/ArchiveActions.tsx";
 import { CostBreakdown } from "../../components/CostBreakdown.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { ProjectRef } from "../../components/ProjectRef.tsx";
@@ -14,7 +12,7 @@ import { spoolName, useProfile, useSpool } from "../../lib/filament.ts";
 import { formatDateTime, formatNumber, formatWeight } from "../../lib/format.ts";
 import { orderName, useOrder } from "../../lib/orders.ts";
 import { printerName, usePrinter } from "../../lib/printers.ts";
-import { printName, useDeletePrint, usePrint } from "../../lib/prints.ts";
+import { printName, usePrint } from "../../lib/prints.ts";
 import { useTagsOf } from "../../lib/tags.ts";
 import { Info, linkButton } from "../filament/SpoolDetailPage.tsx";
 import { Duration } from "./Duration.tsx";
@@ -92,8 +90,6 @@ export function PrintDetailPage() {
   const { id } = useParams({ strict: false }) as { id: string };
   const { data: print, isError } = usePrint(id);
   const tagsOf = useTagsOf("print");
-  const del = useDeletePrint();
-  const [deleting, setDeleting] = useState(false);
 
   if (isError)
     return (
@@ -109,16 +105,24 @@ export function PrintDetailPage() {
     <>
       <PageHeader
         title={printName(t, print)}
-        description={formatDateTime(print.startedAt)}
+        description={
+          <>
+            {formatDateTime(print.startedAt)} {print.archivedAt && <ArchivedBadge />}
+          </>
+        }
         backTo={{ to: "/prints" }}
         actions={
           <Write can="prints">
             <Link to="/prints/$id/edit" params={{ id }} className={linkButton}>
               {t("prints:detail.edit")}
             </Link>
-            <Button className="text-bad" onClick={() => setDeleting(true)}>
-              {t("prints:detail.delete")}
-            </Button>
+            <ArchiveActions
+              path={`/api/prints/${id}`}
+              name={printName(t, print)}
+              archived={print.archivedAt !== null}
+              deleteBody={t("prints:delete.body", { title: printName(t, print) })}
+              onDeleted={() => navigate({ to: "/prints" })}
+            />
           </Write>
         }
       />
@@ -194,19 +198,6 @@ export function PrintDetailPage() {
           </section>
         </div>
       </div>
-      <ConfirmDialog
-        open={deleting}
-        destructive
-        title={t("prints:delete.title")}
-        description={t("prints:delete.body", { title: printName(t, print) })}
-        confirmLabel={t("prints:delete.confirm")}
-        onCancel={() => setDeleting(false)}
-        onConfirm={() => {
-          // Leave first: refetching this print after the delete would only 404.
-          navigate({ to: "/prints" });
-          del.mutate(id);
-        }}
-      />
     </>
   );
 }

@@ -4,9 +4,9 @@ import { Link, useNavigate, useParams } from "@tanstack/react-router";
 import { Plus, Unlink } from "lucide-react";
 import { Fragment, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { ArchiveActions, ArchivedBadge } from "../../components/ArchiveActions.tsx";
 import { Button } from "../../components/Button.tsx";
 import { Combobox } from "../../components/Combobox.tsx";
-import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { FormField } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { ProjectRef } from "../../components/ProjectRef.tsx";
@@ -15,13 +15,7 @@ import { api } from "../../lib/api.ts";
 import { useClient } from "../../lib/clients.ts";
 import { quoteName, useMoney, useQuote } from "../../lib/cost.ts";
 import { useUrlListQuery } from "../../lib/list.ts";
-import {
-  orderName,
-  useDeleteOrder,
-  useOrder,
-  useOrderStatusLabel,
-  useSaveOrder,
-} from "../../lib/orders.ts";
+import { orderName, useOrder, useOrderStatusLabel, useSaveOrder } from "../../lib/orders.ts";
 import { usePreferences } from "../../lib/preferences.ts";
 import { printName, usePrints } from "../../lib/prints.ts";
 import { Info, linkButton } from "../filament/SpoolDetailPage.tsx";
@@ -126,8 +120,6 @@ export function OrderDetailPage() {
   const client = useClient(order?.clientId ?? "").data;
   const quote = useQuote(order?.quoteId ?? undefined).data;
   const save = useSaveOrder(id);
-  const del = useDeleteOrder();
-  const [deleting, setDeleting] = useState(false);
 
   if (isError)
     return (
@@ -143,12 +135,18 @@ export function OrderDetailPage() {
       <PageHeader
         title={name}
         backTo={{ to: "/orders" }}
+        description={order.archivedAt && <ArchivedBadge />}
         actions={
           <Write can="costs">
             <Link to="/orders/$id/edit" params={{ id }} className={linkButton}>
               {t("orders:detail.edit")}
             </Link>
-            <Button onClick={() => setDeleting(true)}>{t("orders:delete.confirm")}</Button>
+            <ArchiveActions
+              path={`/api/orders/${id}`}
+              name={name}
+              archived={order.archivedAt !== null}
+              onDeleted={() => navigate({ to: "/orders" })}
+            />
           </Write>
         }
       />
@@ -214,15 +212,6 @@ export function OrderDetailPage() {
         </dl>
       </section>
       <OrderPrints order={order} />
-      <ConfirmDialog
-        open={deleting}
-        title={t("orders:delete.title")}
-        description={t("orders:delete.body", { name })}
-        confirmLabel={t("orders:delete.confirm")}
-        destructive
-        onCancel={() => setDeleting(false)}
-        onConfirm={() => del.mutate(id, { onSuccess: () => navigate({ to: "/orders" }) })}
-      />
     </>
   );
 }

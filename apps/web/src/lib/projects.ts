@@ -59,18 +59,6 @@ export const useProject = (id: string) =>
     enabled: !!id,
   });
 
-/** Refused (409) while it has prints or orders, or its folder still has files. */
-export const useDeleteProject = (id: string) => {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: () => api("DELETE", `/api/projects/${id}`),
-    onSuccess: () => {
-      qc.removeQueries({ queryKey: ["projects", id] });
-      return qc.invalidateQueries({ queryKey: ["projects", "list"] });
-    },
-  });
-};
-
 /** Whether the project's folder holds files, to offer moving them on a folder switch. */
 export const useProjectFolderHasFiles = (id: string, enabled: boolean) =>
   useQuery({

@@ -15,8 +15,7 @@
       "projects": "Projects",
       "status": "Status",
       "price": "Price",
-      "createdAt": "Created",
-      "actions": "Actions"
+      "createdAt": "Created"
     }
   },
   "detail": {
@@ -38,7 +37,7 @@
     "editTitle": "Edit order",
     "number": "Number",
     "numberHint": "Leave empty for the next free number.",
-    "numberTaken": "Another order has this number.",
+    "numberTaken": "Another order has this number. It may be archived.",
     "quote": "Quote",
     "noQuote": "No quote",
     "client": "Client",
@@ -55,12 +54,6 @@
     "notes": "Notes",
     "save": "Save",
     "saveError": "Couldn't save the order."
-  },
-  "delete": {
-    "title": "Delete order?",
-    "body": "{{name}} will be deleted. This can't be undone.",
-    "confirm": "Delete",
-    "named": "Delete {{name}}"
   },
   "projectLeft": {
     "title": "Remove the project too?",

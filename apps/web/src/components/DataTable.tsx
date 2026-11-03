@@ -141,14 +141,11 @@ export function DataTable<T>({
   return (
     <div className="flex min-w-0 flex-col gap-3">
       {server?.archivable && (
-        <label className="flex items-center gap-2 self-end">
-          <input
-            type="checkbox"
-            checked={server.query.archived === "true"}
-            onChange={(e) => update({ archived: e.target.checked ? "true" : "" })}
-          />
-          {t("common:table.showArchived")}
-        </label>
+        <ShowArchived
+          className="self-end"
+          checked={server.query.archived === "true"}
+          onChange={(on) => update({ archived: on ? "true" : "" })}
+        />
       )}
       {/* Scrollable on narrow screens, so it must be keyboard-focusable (and named) to be reachable. */}
       <section
@@ -262,6 +259,25 @@ export function DataTable<T>({
         />
       )}
     </div>
+  );
+}
+
+/** The "Show archived" switch. DataTable renders it for an `archivable` list; grids reuse it. */
+export function ShowArchived({
+  checked,
+  onChange,
+  className,
+}: {
+  checked: boolean;
+  onChange: (on: boolean) => void;
+  className?: string;
+}) {
+  const { t } = useTranslation();
+  return (
+    <label className={cx("flex min-h-9 items-center gap-2", className)}>
+      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />
+      {t("common:table.showArchived")}
+    </label>
   );
 }
 

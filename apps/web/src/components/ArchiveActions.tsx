@@ -1,0 +1,278 @@
+import type {
+  DependentType,
+  InUseDetails,
+  Permission,
+  PermissionLevel,
+} from "@3d-maker-suite/core";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
+import type { TFunction } from "i18next";
+import { Archive, ArchiveRestore, Trash2 } from "lucide-react";
+import { useState } from "react";
+import { useTranslation } from "react-i18next";
+import { ApiError, api } from "../lib/api.ts";
+import { Button } from "./Button.tsx";
+import { ConfirmDialog } from "./ConfirmDialog.tsx";
+import type { Column } from "./DataTable.tsx";
+import { Write } from "./Write.tsx";
+
+type Action = "archive" | "restore" | "delete";
+
+// Static keys so `pnpm i18n:check` sees them.
+const BUTTONS = {
+  archive: {
+    Icon: Archive,
+    label: "common:archive.actions.archive",
+    named: "common:archive.named.archive",
+  },
+  restore: {
+    Icon: ArchiveRestore,
+    label: "common:archive.actions.restore",
+    named: "common:archive.named.restore",
+  },
+  delete: {
+    Icon: Trash2,
+    label: "common:archive.actions.delete",
+    named: "common:archive.named.delete",
+  },
+} as const;
+
+const ERRORS: Record<string, string> = {
+  printer_has_accessories: "common:archive.errors.printer_has_accessories",
+  accessory_installed: "common:archive.errors.accessory_installed",
+  preset_newer_exists: "common:archive.errors.preset_newer_exists",
+  folder_has_files: "common:archive.errors.folder_has_files",
+};
+
+const DEPENDENTS: Record<DependentType, { key: string; to: string }> = {
+  printerModel: {
+    key: "common:archive.dependents.printerModel",
+    to: "/printers/models/$id/edit",
+  },
+  machineProfile: {
+    key: "common:archive.dependents.machineProfile",
+    to: "/printers/profiles/$id/edit",
+  },
+  printProfile: {
+    key: "common:archive.dependents.printProfile",
+    to: "/printers/print-profiles/$id/edit",
+  },
+  printer: { key: "common:archive.dependents.printer", to: "/printers/$id" },
+  accessory: { key: "common:archive.dependents.accessory", to: "/printers/accessories/$id" },
+  maintenanceType: {
+    key: "common:archive.dependents.maintenanceType",
+    to: "/maintenance/types/$id",
+  },
+  // A logged task has no page of its own.
+  maintenanceTask: { key: "common:archive.dependents.maintenanceTask", to: "/maintenance" },
+  filamentProfile: {
+    key: "common:archive.dependents.filamentProfile",
+    to: "/filament/profiles/$id",
+  },
+  spool: { key: "common:archive.dependents.spool", to: "/filament/spools/$id" },
+  print: { key: "common:archive.dependents.print", to: "/prints/$id" },
+  order: { key: "common:archive.dependents.order", to: "/orders/$id" },
+  quote: { key: "common:archive.dependents.quote", to: "/quotes/$id" },
+};
+
+export function ArchivedBadge() {
+  const { t } = useTranslation();
+  return (
+    <span className="rounded-full bg-surface-2 px-2 py-0.5 text-xs font-medium text-muted">
+      {t("common:archive.archived")}
+    </span>
+  );
+}
+
+/** What keeps an item from being deleted, with links. Hidden rows are only counted (ADR-0018). */
+function Dependents({ details, onLeave }: { details: InUseDetails; onLeave: () => void }) {
+  const { t } = useTranslation();
+  return (
+    <ul className="grid max-h-72 gap-3 overflow-y-auto">
+      {details.dependents.map((d) => (
+        <li key={d.type} className="grid gap-1">
+          <span className="font-medium">
+            {t(DEPENDENTS[d.type].key, { count: d.total })}
+            {d.archived > 0 && ` · ${t("common:archive.archivedCount", { count: d.archived })}`}
+          </span>
+          {d.items.map((i) => (
+            <span key={i.id} className="flex flex-wrap items-center gap-2">
+              <Link
+                to={DEPENDENTS[d.type].to}
+                params={{ id: i.id }}
+                onClick={onLeave}
+                className="underline wrap-anywhere"
+              >
+                {i.label}
+              </Link>
+              {i.archived && <ArchivedBadge />}
+            </span>
+          ))}
+          {d.total > d.items.length && (
+            <span className="text-muted">
+              {t("common:archive.notShown", { count: d.total - d.items.length })}
+            </span>
+          )}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/**
+ * Archive or Restore, and Delete, for one row of any of the 16 entities (ADR-0018): buttons on its
+ * page, icons in a list. A refused delete names what uses the row and offers Archive.
+ */
+export function ArchiveActions({
+  path,
+  name,
+  archived,
+  compact,
+  deleteBody,
+  onDeleted,
+}: {
+  /** The row's API path; `PATCH { archived }` and `DELETE` work on it. */
+  path: string;
+  name: string;
+  archived: boolean;
+  /** Icon buttons, for a table row. */
+  compact?: boolean;
+  /** What deleting this one does, when there is more to say. */
+  deleteBody?: string;
+  /** Leave the row's page; awaited, so the refresh doesn't refetch the deleted row. */
+  onDeleted?: () => unknown;
+}) {
+  const { t } = useTranslation();
+  const qc = useQueryClient();
+  const [ask, setAsk] = useState<Action | null>(null);
+  const run = useMutation({
+    mutationFn: async (action: Action) => {
+      if (action !== "delete") return api("PATCH", path, { archived: action === "archive" });
+      await api("DELETE", path);
+      await onDeleted?.();
+    },
+    onSuccess: () => {
+      setAsk(null);
+      // Rows of other modules name this one, and archive resolves its alerts. Not awaited: the
+      // action is done, and a page's slow queries mustn't hold up the next click.
+      void qc.invalidateQueries();
+    },
+  });
+  const start = (action: Action) => {
+    run.reset();
+    setAsk(action);
+  };
+  const go = (action: Action) => {
+    if (run.isPending) return;
+    setAsk(action);
+    run.mutate(action);
+  };
+
+  const error = run.error instanceof ApiError ? run.error : undefined;
+  const blocked = ask && error?.code === "in_use" ? (error.details as InUseDetails) : null;
+  const message = run.isError && !blocked && (
+    <p role="alert" className="text-bad">
+      {t(ERRORS[error?.code ?? ""] ?? "common:archive.errors.generic")}
+    </p>
+  );
+  const cancel = () => setAsk(null);
+
+  const button = (action: Action, onClick: () => void) => {
+    const { Icon, label, named } = BUTTONS[action];
+    return compact ? (
+      <Button
+        variant="ghost"
+        className="px-2"
+        aria-label={t(named, { name })}
+        title={t(label)}
+        onClick={onClick}
+      >
+        <Icon className="size-4" aria-hidden />
+      </Button>
+    ) : (
+      <Button onClick={onClick}>{t(label)}</Button>
+    );
+  };
+
+  return (
+    <>
+      {archived
+        ? button("restore", () => go("restore"))
+        : button("archive", () => start("archive"))}
+      {button("delete", () => start("delete"))}
+      {blocked ? (
+        <ConfirmDialog
+          open
+          title={t("common:archive.blockedTitle", { name })}
+          description={t(archived ? "common:archive.blockedArchived" : "common:archive.blocked")}
+          confirmLabel={t("common:archive.actions.archive")}
+          onCancel={cancel}
+          onConfirm={archived ? undefined : () => go("archive")}
+        >
+          <Dependents details={blocked} onLeave={cancel} />
+        </ConfirmDialog>
+      ) : ask === "archive" ? (
+        <ConfirmDialog
+          open
+          title={t("common:archive.archiveTitle", { name })}
+          description={t("common:archive.archiveBody")}
+          confirmLabel={t("common:archive.actions.archive")}
+          onCancel={cancel}
+          onConfirm={() => go("archive")}
+        >
+          {message}
+        </ConfirmDialog>
+      ) : ask === "delete" ? (
+        <ConfirmDialog
+          open
+          destructive
+          title={t("common:archive.deleteTitle", { name })}
+          description={deleteBody ?? t("common:archive.deleteBody")}
+          confirmLabel={t("common:archive.actions.delete")}
+          onCancel={cancel}
+          onConfirm={() => go("delete")}
+        >
+          {message}
+        </ConfirmDialog>
+      ) : (
+        ask === "restore" &&
+        run.isError && (
+          <ConfirmDialog
+            open
+            title={t("common:archive.restoreTitle", { name })}
+            description=""
+            onCancel={cancel}
+          >
+            {message}
+          </ConfirmDialog>
+        )
+      )}
+    </>
+  );
+}
+
+/** A list's last column: `ArchiveActions` for the row, to those who may. */
+export const archiveColumn = <T extends { id: string; archivedAt: string | null }>(
+  t: TFunction,
+  o: {
+    /** The list's API path. */
+    base: string;
+    can: Permission;
+    level?: PermissionLevel;
+    name: (row: T) => string;
+    when?: (row: T) => boolean;
+  },
+): Column<T> => ({
+  id: "actions",
+  header: t("common:table.actions"),
+  cell: (r) => (
+    <Write can={o.can} level={o.level} when={o.when?.(r)}>
+      <ArchiveActions
+        compact
+        path={`${o.base}/${r.id}`}
+        name={o.name(r)}
+        archived={r.archivedAt !== null}
+      />
+    </Write>
+  ),
+});

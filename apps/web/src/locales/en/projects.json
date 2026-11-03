@@ -94,7 +94,7 @@
     "error": "Couldn't save the project. Check the folder path and the link.",
     "number": "Number",
     "numberHint": "Leave empty for the folder’s number, or the next free one.",
-    "numberTaken": "Another project already has this number.",
+    "numberTaken": "Another project already has this number. It may be archived.",
     "createIn": "Create the project folder in",
     "createInNone": "No folder",
     "createInHint": "A folder named after the project is made there. Upload its files on the next page."
@@ -134,22 +134,15 @@
     "error": "Couldn't change the project folder. Try again.",
     "errors": {
       "outside_roots": "That folder is not inside one of your project folders.",
-      "folder_in_use": "Another project already uses that folder.",
+      "folder_in_use": "Another project already uses that folder. It may be archived.",
       "folder_exists": "A folder with the project's name already exists there. Link it instead.",
       "invalid_folder": "That folder doesn't exist."
     }
   },
   "remove": {
-    "action": "Delete",
-    "title": "Delete {{name}}?",
     "body": "The project is deleted. This can't be undone.",
     "bodyFolder": "The project is deleted, and its folder too if no file is left in it. This can't be undone.",
-    "bodyKept": "The project is deleted, once its kept folder {{path}} has no files left. This can't be undone.",
-    "error": "Couldn't delete the project. Try again.",
-    "errors": {
-      "in_use": "Prints, orders or quotes still use it. Move or remove them first.",
-      "folder_has_files": "Its folder still has files. Move or delete them first, or the next scan finds the project again."
-    }
+    "bodyKept": "The project is deleted, once its kept folder {{path}} has no files left. This can't be undone."
   },
   "filters": {
     "search": "Search projects",

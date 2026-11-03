@@ -1,7 +1,8 @@
-import { Link, useParams } from "@tanstack/react-router";
+import { Link, useNavigate, useParams } from "@tanstack/react-router";
 import { Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { ArchiveActions, ArchivedBadge } from "../../components/ArchiveActions.tsx";
 import { Button } from "../../components/Button.tsx";
 import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
@@ -12,11 +13,9 @@ import {
   useAccessory,
   useDeleteInstall,
   useInstalls,
-  usePatchAccessory,
   useRemoveAccessoryPhoto,
   useUploadAccessoryPhoto,
 } from "../../lib/accessories.ts";
-import { isConflict } from "../../lib/catalog.ts";
 import { formatCurrency, formatDate, formatDuration, formatNumber } from "../../lib/format.ts";
 import { usePreferences } from "../../lib/preferences.ts";
 import { printerName, usePrinters } from "../../lib/printers.ts";
@@ -28,13 +27,12 @@ import { StateBadge } from "./StateBadge.tsx";
 
 export function AccessoryDetailPage() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const { id } = useParams({ strict: false }) as { id: string };
   const { data: accessory, isError } = useAccessory(id);
   const installs = useInstalls(id).data;
   const currency = usePreferences().data?.values.currency ?? "EUR";
-  const patch = usePatchAccessory(id);
   const remove = useDeleteInstall(id);
-  const [confirmArchive, setConfirmArchive] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [removing, setRemoving] = useState(false);
@@ -66,28 +64,14 @@ export function AccessoryDetailPage() {
             <Link to="/printers/accessories/$id/edit" params={{ id }} className={linkButton}>
               {t("printers:detail.edit")}
             </Link>
-            {archived ? (
-              <Button onClick={() => patch.mutate({ archived: false })}>
-                {t("printers:detail.restore")}
-              </Button>
-            ) : (
-              <Button onClick={() => setConfirmArchive(true)}>
-                {t("printers:detail.archive")}
-              </Button>
-            )}
+            <ArchiveActions
+              path={`/api/accessories/${id}`}
+              name={accessoryName(t, accessory)}
+              archived={archived}
+              onDeleted={() => navigate({ to: "/printers" })}
+            />
           </Write>
         }
-      />
-      <ConfirmDialog
-        open={confirmArchive}
-        title={t("printers:accessories.detail.archiveTitle")}
-        description={t("printers:accessories.detail.archiveBody")}
-        confirmLabel={t("printers:detail.archive")}
-        onCancel={() => setConfirmArchive(false)}
-        onConfirm={() => {
-          setConfirmArchive(false);
-          patch.mutate({ archived: true });
-        }}
       />
       <ConfirmDialog
         open={deleting !== null}
@@ -101,13 +85,9 @@ export function AccessoryDetailPage() {
           setDeleting(null);
         }}
       />
-      {(patch.isError || remove.isError || upload.isError || removePhoto.isError) && (
+      {(remove.isError || upload.isError || removePhoto.isError) && (
         <p role="alert" className="mb-4 text-bad">
-          {t(
-            isConflict(patch.error)
-              ? "printers:accessories.detail.installedError"
-              : "printers:detail.actionError",
-          )}
+          {t("printers:detail.actionError")}
         </p>
       )}
 
@@ -124,11 +104,7 @@ export function AccessoryDetailPage() {
             <h2 className="mb-3 flex items-center gap-2 text-base font-semibold">
               {t("printers:detail.info.title")}
               <StateBadge state={accessory.state} />
-              {archived && (
-                <span className="rounded-full bg-surface-2 px-2 py-0.5 text-xs font-medium text-muted">
-                  {t("printers:detail.archived")}
-                </span>
-              )}
+              {archived && <ArchivedBadge />}
             </h2>
             <dl className="grid gap-3 sm:grid-cols-2">
               <Info label={t("printers:accessories.detail.printer")}>

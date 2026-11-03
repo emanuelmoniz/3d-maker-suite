@@ -20,6 +20,10 @@ export const useListPage = <T>(
     enabled,
   });
 
+/** Archived rows keep a list's table, and its "Show archived" switch, up with no active ones. */
+export const useHasArchived = (key: readonly unknown[], path: string, filter?: ListQuery) =>
+  useListPage(key, path, { ...filter, archived: "true", pageSize: "1" }).data?.total !== 0;
+
 /** A picker's rows plus the value the row already has, which the list leaves out once archived. */
 export const withOwn = <T extends { id: string }>(rows: T[], own: T | null | undefined) =>
   own && !rows.some((r) => r.id === own.id) ? [...rows, own] : rows;

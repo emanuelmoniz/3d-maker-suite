@@ -43,6 +43,7 @@ test("accessories: create, install, remove, install again, delete a record", asy
   await page.getByRole("button", { name: "Archive" }).click();
   await dialog.getByRole("button", { name: "Archive" }).click();
   await expect(page.getByRole("alert")).toContainText("Remove its accessories first");
+  await dialog.getByRole("button", { name: "Cancel" }).click();
 
   await row.click();
   const history = page.getByRole("listitem").filter({ hasText: "01-Test Printer" });

@@ -59,9 +59,6 @@ export const usePatchQuote = () =>
     const { id, ...patch } = v;
     return api<Quote>("PATCH", `/api/costs/quotes/${id}`, patch);
   });
-export const useDeleteQuote = () =>
-  useQuoteMutation((id: string) => api("DELETE", `/api/costs/quotes/${id}`));
-
 /** Uploads a .3mf for the calculator (outside any project). */
 export const useUploadQuoteFile = () =>
   useMutation({
