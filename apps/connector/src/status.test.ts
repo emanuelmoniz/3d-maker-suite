@@ -4,7 +4,7 @@ import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, expect, it } from "vitest";
-import { createLink, type Link } from "./hub.ts";
+import { createLink, type Link, PairError } from "./hub.ts";
 import { openStore } from "./state.ts";
 import { allowed, createStatusPage, t } from "./status.ts";
 
@@ -109,11 +109,86 @@ it("shows the hub user it acts as, and none when the hub names none", async () =
   const named = await serve({ ...online, userName: () => "<Zoë>" });
   const { body } = await named.call("GET", "/");
   const row = `<dt>${t("connector:status.user")}</dt>`;
-  expect(body).toContain(`${row}<dd>&#60;Zoë&#62;</dd>`);
+  expect(body).toContain(`${row}<dd>&#60;Zoë&#62;<br><a href="/user">`);
   close();
 
   const none = await serve({ ...online, userName: () => undefined });
-  expect((await none.call("GET", "/")).body).not.toContain(row);
+  const empty = (await none.call("GET", "/")).body;
+  expect(empty).not.toContain(row);
+  expect(empty).not.toContain('href="/user"');
+});
+
+it("changes the user only with a code, only from its own page, after confirming", async () => {
+  const changes: [string, string][] = [];
+  const s = await serve({
+    checkUser: async (code) => {
+      if (code !== 'AB"CD') throw new PairError("invalidCode");
+      return { userName: "<Ben>", currentUserName: "Ana", projects: 12 };
+    },
+    changeUser: async (code, projects) => {
+      changes.push([code, projects]);
+      return { userName: "<Ben>", moved: 12 };
+    },
+  });
+  // Unpaired: nothing to change.
+  expect((await s.call("GET", "/user")).location).toBe("/");
+  s.store.set({ hubUrl: "http://hub.example", deviceId: "d", token: "t" });
+
+  const form = await s.call("GET", "/user");
+  expect(form.body).toContain(t("connector:user.stayHint"));
+  expect(form.body).not.toContain('http-equiv="refresh"'); // would wipe the code being typed
+
+  const type = { "content-type": "application/x-www-form-urlencoded" };
+  const post = (path: string, body: string, origin = s.origin()) =>
+    s.call("POST", path, { ...type, origin }, body);
+  const stay = "code=AB%22CD&projects=stay";
+  expect((await post("/user", stay, "https://evil.example")).status).toBe(403);
+  expect((await post("/user/confirm", stay, "https://evil.example")).status).toBe(403);
+
+  const confirm = await post("/user", stay);
+  expect(confirm.body).toContain(t("connector:user.confirmTitle", { name: "<Ben>" }));
+  expect(confirm.body).toContain(t("connector:user.from", { from: "Ana", to: "<Ben>" }));
+  expect(confirm.body).toContain(t("connector:user.willStay", { count: 12 }));
+  expect(confirm.body).toContain('name="code" value="AB&#34;CD"');
+  expect(confirm.body).toContain('name="projects" value="stay"');
+  expect(changes).toEqual([]); // nothing yet
+
+  const done = await post("/user/confirm", stay);
+  expect(done.status).toBe(200);
+  expect(done.body).toContain(t("connector:user.done", { name: "<Ben>" }));
+  expect(changes).toEqual([['AB"CD', "stay"]]);
+
+  // Anything but "stay" moves, the default the form shows.
+  expect((await post("/user", "code=AB%22CD&projects=x")).body).toContain(
+    t("connector:user.willMove", { count: 12, name: "<Ben>" }),
+  );
+
+  // A wrong code comes back to the form, with the choice kept.
+  const wrong = await post("/user", "code=NOPE&projects=stay");
+  expect(wrong.status).toBe(400);
+  expect(wrong.body).toContain(t("connector:user.errors.invalidCode"));
+  expect(wrong.body).toContain('value="stay" aria-describedby="stay-hint" checked');
+});
+
+it.each([
+  ["unreachable", "connector:user.errors.unreachable"],
+  ["tooManyAttempts", "connector:user.errors.tooManyAttempts"],
+  ["hubOff", "connector:user.errors.hubOff"],
+] as const)("says so when the hub answers a user change with %s", async (code, key) => {
+  const s = await serve({
+    changeUser: async () => {
+      throw new PairError(code);
+    },
+  });
+  s.store.set({ hubUrl: "http://hub.example", deviceId: "d", token: "t" });
+  const res = await s.call(
+    "POST",
+    "/user/confirm",
+    { "content-type": "application/x-www-form-urlencoded", origin: s.origin() },
+    "code=ABCD",
+  );
+  expect(res.status).toBe(400);
+  expect(res.body).toContain(t(key));
 });
 
 it("tells only its hub's page which device it is", async () => {

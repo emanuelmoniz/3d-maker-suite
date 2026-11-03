@@ -6,7 +6,7 @@ import {
   type ServerResponse,
 } from "node:http";
 import { hostname } from "node:os";
-import type { DeviceSyncState } from "@3d-maker-suite/core";
+import type { DeviceSyncState, DeviceUserPreview } from "@3d-maker-suite/core";
 import { openFolder } from "@3d-maker-suite/host";
 import { type Link, type LinkStatus, PairError, type PairErrorCode } from "./hub.ts";
 import type { FolderError } from "./roots.ts";
@@ -63,6 +63,14 @@ const PAIR_ERRORS: Record<PairErrorCode, string> = {
   tooManyAttempts: "connector:pair.errors.tooManyAttempts",
   hubOff: "connector:pair.errors.hubOff",
 };
+// A user change has no address to get wrong.
+const USER_ERRORS: Record<PairErrorCode, string> = {
+  badUrl: "connector:user.errors.unreachable",
+  unreachable: "connector:user.errors.unreachable",
+  invalidCode: "connector:user.errors.invalidCode",
+  tooManyAttempts: "connector:user.errors.tooManyAttempts",
+  hubOff: "connector:user.errors.hubOff",
+};
 
 /**
  * The page's own requests only. Host must be ours, so a DNS-rebinding site can't reach it; a POST
@@ -105,6 +113,8 @@ dt { color: var(--muted); } dd { margin: 0; overflow-wrap: anywhere; }
 label { display: block; font-weight: 600; margin-top: 1rem; }
 input { width: 100%; font: inherit; padding: .55rem .7rem; margin-top: .25rem; border: 1px solid var(--line);
   border-radius: .6rem; background: var(--bg); color: var(--fg); }
+fieldset { border: 0; padding: 0; margin: 1rem 0 0; } legend { font-weight: 600; padding: 0; }
+label.choice { font-weight: 400; margin-top: .25rem; } label.choice input { width: auto; margin: 0 .5rem 0 0; }
 small, .muted { color: var(--muted); font-size: .875rem; }
 button { font: inherit; font-weight: 600; padding: .5rem 1rem; border-radius: .6rem; border: 1px solid transparent;
   background: var(--accent); color: var(--on-accent); cursor: pointer; margin-top: 1rem; min-height: 2.5rem; }
@@ -183,7 +193,7 @@ ${controls(false)}
 <dl>
 <dt>${t("connector:status.hub")}</dt><dd><a href="${esc(state.hubUrl ?? "")}">${esc(state.hubUrl ?? "")}</a></dd>
 <dt>${t("connector:status.device")}</dt><dd>${esc(state.deviceName ?? "")}</dd>
-${link.userName() ? `<dt>${t("connector:status.user")}</dt><dd>${esc(link.userName() ?? "")}</dd>` : ""}
+${link.userName() ? `<dt>${t("connector:status.user")}</dt><dd>${esc(link.userName() ?? "")}<br><a href="/user">${t("connector:user.change")}</a></dd>` : ""}
 <dt>${t("connector:status.state")}</dt><dd><span class="pill ${status}">${t(STATES[status])}</span></dd>
 <dt>${t("connector:status.version")}</dt><dd>${esc(version)}</dd>
 <dt>${t("connector:status.syncFolder")}</dt><dd>${esc(syncDir)}</dd>
@@ -296,6 +306,52 @@ ${rows ? `<ul>${rows}</ul>` : `<p>${t("connector:folders.none")}</p>`}
 <button type="submit">${t("connector:folders.add")}</button>
 </form>
 <p><a href="/">${t("connector:folders.back")}</a></p>
+</section>`;
+  };
+
+  // No login here, so the user only changes with a code from the hub. Its own page, as for folders.
+  const userForm = (error?: PairErrorCode, form?: URLSearchParams) => {
+    const stay = form?.get("projects") === "stay";
+    return `<section aria-labelledby="change-user">
+<h2 id="change-user">${t("connector:user.change")}</h2>
+<p class="muted">${t("connector:user.intro")}</p>
+${error ? `<p class="error" role="alert">${t(USER_ERRORS[error])}</p>` : ""}
+<form method="post" action="/user">
+<label for="code">${t("connector:user.code")}</label>
+<input id="code" name="code" required maxlength="20" autocomplete="off" autocapitalize="characters" spellcheck="false">
+<fieldset>
+<legend>${t("connector:user.projects")}</legend>
+<label class="choice"><input type="radio" name="projects" value="move"${stay ? "" : " checked"}>${t("connector:user.move")}</label>
+<label class="choice"><input type="radio" name="projects" value="stay" aria-describedby="stay-hint"${stay ? " checked" : ""}>${t("connector:user.stay")}</label>
+<small id="stay-hint">${t("connector:user.stayHint")}</small>
+</fieldset>
+<div class="actions">
+<button type="submit">${t("connector:user.continue")}</button>
+<a href="/">${t("connector:user.cancel")}</a>
+</div>
+</form>
+</section>`;
+  };
+
+  const userConfirm = (preview: DeviceUserPreview, code: string, projects: "move" | "stay") => {
+    const { userName: name, currentUserName: from, projects: count } = preview;
+    const what = !count
+      ? t("connector:user.noProjects")
+      : projects === "move"
+        ? t("connector:user.willMove", { count, name })
+        : t("connector:user.willStay", { count });
+    return `<section aria-labelledby="confirm-user">
+<h2 id="confirm-user">${t("connector:user.confirmTitle", { name })}</h2>
+<p>${t("connector:user.from", { from, to: name })}</p>
+<p>${what}</p>
+<form method="post" action="/user/confirm">
+<input type="hidden" name="code" value="${esc(code)}">
+<input type="hidden" name="projects" value="${projects}">
+<div class="actions">
+<button type="submit">${t("connector:user.change")}</button>
+<a href="/">${t("connector:user.cancel")}</a>
+</div>
+</form>
 </section>`;
   };
 
@@ -413,6 +469,29 @@ ${body}
       if (req.method === "POST" && path === "/unpair") {
         link.unpair();
         return back();
+      }
+      if (path === "/user" || path === "/user/confirm") {
+        if (!store.token()) return back();
+        if (req.method === "GET" && path === "/user")
+          return send(200, html, page(userForm(), false));
+        if (req.method === "POST") {
+          const form = await readForm(req);
+          const code = form.get("code") ?? "";
+          const projects = form.get("projects") === "stay" ? "stay" : "move";
+          try {
+            if (path === "/user")
+              return send(
+                200,
+                html,
+                page(userConfirm(await link.checkUser(code), code, projects), false),
+              );
+            const { userName } = await link.changeUser(code, projects);
+            return send(200, html, page(note(t("connector:user.done", { name: userName })), true));
+          } catch (e) {
+            if (e instanceof PairError) return send(400, html, page(userForm(e.code, form), false));
+            throw e;
+          }
+        }
       }
       if (req.method === "GET" && path === "/folders")
         return send(200, html, page(foldersView(), false));

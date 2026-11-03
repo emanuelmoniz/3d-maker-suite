@@ -160,6 +160,20 @@ export const pairSchema = z.object({
 /** `token` goes in `Authorization: Bearer`; it's returned only here. */
 export const pairResultSchema = z.object({ token: z.string(), deviceId: id });
 
+/** A code to change a device's user, as the connector checks it (`.../device/user/check`): not used up. */
+export const deviceUserCheckSchema = z.object({ code: z.string().max(20) });
+export const deviceUserPreviewSchema = z.object({
+  userName: z.string(),
+  currentUserName: z.string(),
+  /** How many projects are in this device's folders. */
+  projects: z.number().int(),
+});
+/** The change (`.../device/user`): those projects go to the new user, or stay with their owner. */
+export const deviceUserChangeSchema = deviceUserCheckSchema.extend({
+  projects: z.enum(["move", "stay"]),
+});
+export const deviceUserResultSchema = z.object({ userName: z.string(), moved: z.number().int() });
+
 export type Device = z.infer<typeof deviceSchema>;
 export type ConnectorUpdateFailure = z.infer<typeof connectorUpdateFailureSchema>;
 export type DeviceUpdate = z.input<typeof deviceUpdateSchema>;
@@ -176,6 +190,9 @@ export type PairingCodeCreate = z.input<typeof pairingCodeCreateSchema>;
 export type PairingCode = z.infer<typeof pairingCodeSchema>;
 export type PairInput = z.input<typeof pairSchema>;
 export type PairResult = z.infer<typeof pairResultSchema>;
+export type DeviceUserPreview = z.infer<typeof deviceUserPreviewSchema>;
+export type DeviceUserChange = z.infer<typeof deviceUserChangeSchema>;
+export type DeviceUserResult = z.infer<typeof deviceUserResultSchema>;
 
 /** A file in a slice's work folder: a plain name, never a path or a dot file. */
 export const sliceFileName = z.string().regex(/^[\w-][\w.-]{0,99}$/);

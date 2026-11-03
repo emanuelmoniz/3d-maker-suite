@@ -5,6 +5,9 @@ import {
   type ConnectorSettingsResult,
   type ConnectorUpdateFailure,
   type DeviceSyncMode,
+  type DeviceUserChange,
+  deviceUserPreviewSchema,
+  deviceUserResultSchema,
   HUB_HEARTBEAT_MS,
   type HubEvent,
   hubEventSchema,
@@ -220,6 +223,18 @@ export function createLink({
   };
   const reply = (requestId: string, body: unknown) =>
     request(`/replies/${requestId}`, { method: "POST", body }).catch(() => {});
+  /** A request about a code to change this device's user, with the same errors as pairing. */
+  const askWithCode = async <T extends z.ZodType>(path: string, body: unknown, result: T) => {
+    const res = await request(path, { method: "POST", body }).catch(() => {
+      throw new PairError("unreachable");
+    });
+    if (res.status === 400) throw new PairError("invalidCode");
+    if (res.status === 429) throw new PairError("tooManyAttempts");
+    if (res.status === 404) throw new PairError("hubOff");
+    const answer = result.safeParse(await res.json().catch(() => null));
+    if (!res.ok || !answer.success) throw new PairError("unreachable");
+    return answer.data as z.infer<T>;
+  };
   /** Edit connector requests; ENOTSUP when this connector has no settings to give (tests). */
   const editSettings = async (
     event: Extract<
@@ -501,6 +516,17 @@ export function createLink({
       request("/sync/mode", { method: "PUT", body: { mode } }).then((res) => {
         if (!res.ok) throw new Error(`sync mode: HTTP ${res.status}`);
       }),
+
+    /** Who a code would change this device's user to; the code stays unused. */
+    checkUser: (code: string) => askWithCode("/user/check", { code }, deviceUserPreviewSchema),
+
+    /** Changes this device's user with a code from the hub; its token and everything else stay. */
+    async changeUser(code: string, projects: DeviceUserChange["projects"]) {
+      const result = await askWithCode("/user", { code, projects }, deviceUserResultSchema);
+      userName = result.userName;
+      log(`now acts as ${result.userName}`);
+      return result;
+    },
 
     /** Exchanges a pairing code for a device token, then connects. */
     async pair(hubUrl: string, code: string, name: string) {

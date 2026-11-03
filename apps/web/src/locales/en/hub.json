@@ -73,6 +73,13 @@
     "restarting": "Restarting. It shows online again in a few seconds.",
     "restartFailed": "The connector couldn't restart."
   },
+  "changeUser": {
+    "action": "Change user",
+    "title": "Change this connector's user",
+    "hint": "It will act as this user, with their role. Nothing changes until the code is entered on the connector.",
+    "codeTitle": "Code for {{name}}",
+    "codeBody": "Enter this code on this connector's status page. It works once, until {{time}}, only on {{name}}, and isn't shown again."
+  },
   "pair": {
     "action": "Pair a device",
     "title": "Pair a device",

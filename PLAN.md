@@ -1471,7 +1471,7 @@ Do Step 2 of the 5.2.0 plan in PLAN.md.
 Do Step 3 of the 5.2.0 plan in PLAN.md.
 ```
 
-### [ ] Step 4 - Change the connector's user  **[plan mode]**
+### [x] Step 4 - Change the connector's user  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:**
 - The status page has no login and a connector acts with its user's rights, so a free picker there would let anyone at that PC become an admin. The change needs a code from the hub.

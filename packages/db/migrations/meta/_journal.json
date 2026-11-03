@@ -652,6 +652,13 @@
       "when": 1793650298166,
       "tag": "0092_install_presets",
       "breakpoints": true
+    },
+    {
+      "idx": 93,
+      "version": "6",
+      "when": 1793709744771,
+      "tag": "0093_device_user_code",
+      "breakpoints": true
     }
   ]
 }

@@ -680,7 +680,10 @@ export const projects = sqliteTable(
     /** The slicer for plates without their own; null (or one that can't slice) = the default. */
     slicerIntegrationId: text().references(() => integrations.id, { onDelete: "set null" }),
     archivedAt: text(),
-    /** Who it belongs to (ADR-0014): its creator, or a device root's user; null = nobody's. */
+    /**
+     * Who it belongs to (ADR-0014): its creator, or a device root's user (or that device's earlier
+     * user, if a user change left it with them); null = nobody's.
+     */
     ownerId: text().references((): AnySQLiteColumn => users.id, { onDelete: "set null" }),
     ...imported(),
     ...timestamps,
@@ -1194,6 +1197,8 @@ export const pairingCodes = sqliteTable("pairing_codes", {
   userId: text()
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
+  /** Set: not for pairing, it changes this device's user to `userId`. */
+  deviceId: text().references(() => devices.id, { onDelete: "cascade" }),
   expiresAt: text().notNull(),
 });
 

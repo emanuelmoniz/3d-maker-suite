@@ -166,6 +166,41 @@ describe("connector and hub", () => {
     expect(c.link.userName()).toBeUndefined();
   });
 
+  it("changes its user with a code and keeps its pairing", async () => {
+    const h = await hub();
+    const c = connector();
+    await c.link.pair(h.url, await h.code(), "WS-1");
+    await until(() => c.link.userName() === "viewer");
+    const token = c.store.token();
+    const [device] = (await h.send("GET", "/api/hub/devices")).json();
+
+    const invalid = await c.link.checkUser("AAAA-AAAA").catch((e) => e);
+    expect(invalid).toBeInstanceOf(PairError);
+    expect(invalid.code).toBe("invalidCode");
+
+    const made = await h.send("POST", `/api/hub/devices/${device.id}/user-code`, {
+      userId: h.admin.id,
+    });
+    const { code } = made.json();
+    expect(await c.link.checkUser(code)).toEqual({
+      userName: "admin",
+      currentUserName: "viewer",
+      projects: 0,
+    });
+    expect(await c.link.changeUser(code, "move")).toEqual({ userName: "admin", moved: 0 });
+    expect(c.link.userName()).toBe("admin");
+    expect(c.store.token()).toBe(token);
+    expect(status(c.link)).toBe("online");
+    expect((await h.send("GET", "/api/hub/devices")).json()[0]).toMatchObject({
+      id: device.id,
+      userName: "admin",
+      online: true,
+    });
+
+    const used = await c.link.changeUser(code, "move").catch((e) => e);
+    expect(used.code).toBe("invalidCode");
+  });
+
   it("updates on Update now and tells the hub why it couldn't", async () => {
     const h = await hub();
     const forced: boolean[] = [];

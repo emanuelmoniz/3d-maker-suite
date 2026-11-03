@@ -21,7 +21,9 @@ const setup = async (opts: Parameters<typeof buildApp>[3] = {}) => {
   // A data dir of its own: a device folder's cover lands in <dataDir>/thumbnails.
   const dataDir = mkdtempSync(join(tmpdir(), "hub-data-"));
   onTestFinished(() => rmSync(dataDir, { recursive: true, force: true }));
-  const app = await buildApp(db, { stream: { write: () => true } }, dataDir, opts);
+  const logged: string[] = [];
+  const stream = { write: (line: string) => logged.push(line) > 0 };
+  const app = await buildApp(db, { stream }, dataDir, opts);
   const user = (role: "admin" | "viewer") =>
     db
       .insert(schema.users)
@@ -54,8 +56,185 @@ const setup = async (opts: Parameters<typeof buildApp>[3] = {}) => {
       url: "/api/hub/pair",
       payload: { code, name: "Desk PC", os: "win32", connectorVersion: "5.0.0" },
     });
-  return { db, app, admin, viewer, send, bearer, pair };
+  return { db, app, admin, viewer, send, bearer, pair, logged };
 };
+
+describe("changing a device's user", () => {
+  // A viewer's device, with one project in its folder and one in a hub root.
+  const device = async () => {
+    const s = await setup();
+    await s.send("PATCH", "/api/preferences", { hubEnabled: true });
+    const pairNew = async () => {
+      const made = await s.send("POST", "/api/hub/pairing-codes", { userId: s.viewer.id });
+      return (await s.pair(made.json().code)).json() as { token: string; deviceId: string };
+    };
+    const { token, deviceId } = await pairNew();
+    const root = (location: string, name: string) =>
+      s.db
+        .insert(schema.roots)
+        .values({ name, location, path: `/${name}`, position: 0 })
+        .returning()
+        .get().id;
+    const project = (number: number, rootId: string) =>
+      s.db
+        .insert(schema.projects)
+        .values({ number, name: `p${number}`, rootId, folder: "a", ownerId: s.viewer.id })
+        .returning()
+        .get().id;
+    const onDevice = project(1, root(deviceId, "device"));
+    const onHub = project(2, root("hub", "hub"));
+    const ownerOf = (id: string) =>
+      s.db.select().from(schema.projects).where(eq(schema.projects.id, id)).get()?.ownerId;
+    const userCode = (id: string, userId: string) =>
+      s.send("POST", `/api/hub/devices/${id}/user-code`, { userId });
+    const codeFor = async (userId: string, id = deviceId) =>
+      (await userCode(id, userId)).json().code as string;
+    const call = (path: "/check" | "", payload: object, as = token) =>
+      s.app.inject({
+        method: "POST",
+        url: `/api/hub/device/user${path}`,
+        payload,
+        headers: { authorization: `Bearer ${as}` },
+      });
+    return { ...s, token, deviceId, onDevice, onHub, ownerOf, userCode, codeFor, call, pairNew };
+  };
+
+  it("moves the device's folder projects to the new user, and only those", async () => {
+    const d = await device();
+    const code = await d.codeFor(d.admin.id);
+    expect(code).toMatch(/^[A-Z2-9]{4}-[A-Z2-9]{4}$/);
+
+    // Checking tells who and how many, and doesn't use the code up. Typed any case, no dash.
+    const check = await d.call("/check", { code: code.replace("-", "").toLowerCase() });
+    expect(check.json()).toEqual({ userName: "admin", currentUserName: "viewer", projects: 1 });
+    expect(d.ownerOf(d.onDevice)).toBe(d.viewer.id);
+
+    const before = d.db.select().from(schema.devices).get();
+    const done = await d.call("", { code, projects: "move" });
+    expect(done.statusCode).toBe(200);
+    expect(done.json()).toEqual({ userName: "admin", moved: 1 });
+    expect(d.ownerOf(d.onDevice)).toBe(d.admin.id);
+    expect(d.ownerOf(d.onHub)).toBe(d.viewer.id);
+
+    // Same device and token; the new user's rights apply on the next request.
+    expect(d.db.select().from(schema.devices).get()).toMatchObject({
+      id: d.deviceId,
+      name: before?.name,
+      tokenHash: before?.tokenHash,
+      syncMode: before?.syncMode,
+      userId: d.admin.id,
+    });
+    expect((await d.bearer(d.token)).json().user.id).toBe(d.admin.id);
+    expect((await d.bearer(d.token, "/api/hub/devices")).statusCode).toBe(200);
+    // It reads its roots again: what it syncs goes by its user.
+    expect(d.db.select().from(schema.hubEvents).all().at(-1)?.data).toEqual({
+      type: "roots.changed",
+    });
+
+    // One use.
+    expect((await d.call("", { code, projects: "move" })).statusCode).toBe(400);
+
+    const line = d.logged.find((l) => l.includes("device user changed"));
+    expect(JSON.parse(line ?? "{}")).toMatchObject({
+      deviceId: d.deviceId,
+      fromUserId: d.viewer.id,
+      toUserId: d.admin.id,
+      projects: "move",
+      moved: 1,
+    });
+    expect(d.logged.join("\n")).not.toContain(code);
+  });
+
+  it("leaves the projects with their owner when asked", async () => {
+    const d = await device();
+    const done = await d.call("", { code: await d.codeFor(d.admin.id), projects: "stay" });
+    expect(done.json()).toEqual({ userName: "admin", moved: 0 });
+    expect(d.ownerOf(d.onDevice)).toBe(d.viewer.id);
+    expect((await d.bearer(d.token)).json().user.id).toBe(d.admin.id);
+  });
+
+  it("keeps the two kinds of code apart, and a code to its own device", async () => {
+    const d = await device();
+    const other = await d.pairNew();
+    const stay = (code: string, as?: string) => d.call("", { code, projects: "stay" }, as);
+
+    // Another device's: refused, and it still works on its own.
+    const mine = await d.codeFor(d.admin.id);
+    expect((await stay(mine, other.token)).statusCode).toBe(400);
+    expect((await d.call("/check", { code: mine }, other.token)).statusCode).toBe(400);
+    // A user-change code never pairs a new device, and isn't used up trying.
+    expect((await d.pair(mine)).statusCode).toBe(401);
+    expect((await d.send("GET", "/api/hub/devices")).json()).toHaveLength(2);
+    expect((await stay(mine)).statusCode).toBe(200);
+
+    // A pairing code doesn't change a user, and still pairs.
+    const made = await d.send("POST", "/api/hub/pairing-codes", { userId: d.admin.id });
+    expect((await stay(made.json().code, other.token)).statusCode).toBe(400);
+    expect((await d.pair(made.json().code)).statusCode).toBe(201);
+  });
+
+  it("refuses an expired, replaced or disabled target's code, and what no one should make", async () => {
+    const d = await device();
+    const stay = (code: string) => d.call("", { code, projects: "stay" });
+
+    expect((await d.userCode(d.deviceId, d.viewer.id)).json().error.code).toBe("same_user");
+    expect((await d.bearer(d.token, "/api/hub/devices")).statusCode).toBe(403);
+    expect(
+      (
+        await d.app.inject({
+          method: "POST",
+          url: `/api/hub/devices/${d.deviceId}/user-code`,
+          payload: { userId: d.viewer.id },
+          headers: { authorization: `Bearer ${d.token}` },
+        })
+      ).statusCode,
+    ).toBe(403);
+
+    const expired = await d.codeFor(d.admin.id);
+    d.db
+      .update(schema.pairingCodes)
+      .set({ expiresAt: new Date(0).toISOString() })
+      .run();
+    expect((await stay(expired)).statusCode).toBe(400);
+
+    // Only its latest code works.
+    const first = await d.codeFor(d.admin.id);
+    const second = await d.codeFor(d.admin.id);
+    expect((await stay(first)).statusCode).toBe(400);
+
+    // Disabled since the code was made (the user or the role): its token would be refused, which
+    // would end the pairing, so the change is. The code stays for when it's enabled again.
+    const { admin } = d;
+    d.db.update(schema.users).set({ disabled: true }).where(eq(schema.users.id, admin.id)).run();
+    expect((await stay(second)).statusCode).toBe(400);
+    d.db.update(schema.users).set({ disabled: false }).where(eq(schema.users.id, admin.id)).run();
+    d.db
+      .update(schema.roles)
+      .set({ disabled: true })
+      .where(eq(schema.roles.id, BUILT_IN_ROLE_IDS.admin))
+      .run();
+    expect((await stay(second)).statusCode).toBe(400);
+    expect(d.db.select().from(schema.devices).get()?.userId).toBe(d.viewer.id);
+  });
+
+  it("locks a device after 5 wrong codes, not the others", async () => {
+    const d = await device();
+    const other = await d.pairNew();
+    for (let i = 0; i < 5; i++)
+      expect((await d.call("/check", { code: "AAAA-AAAA" })).statusCode).toBe(400);
+    const good = await d.codeFor(d.admin.id);
+    expect((await d.call("/check", { code: good })).statusCode).toBe(429);
+    expect((await d.call("", { code: good, projects: "stay" })).statusCode).toBe(429);
+    expect((await d.call("/check", { code: "AAAA-AAAA" }, other.token)).statusCode).toBe(400);
+  });
+
+  it("revokes a device that has a live code, and the code goes with it", async () => {
+    const d = await device();
+    await d.codeFor(d.admin.id);
+    expect((await d.send("DELETE", `/api/hub/devices/${d.deviceId}`)).statusCode).toBe(204);
+    expect(d.db.select().from(schema.pairingCodes).all()).toEqual([]);
+  });
+});
 
 describe("hub devices", () => {
   it("is not there while the hub is off", async () => {

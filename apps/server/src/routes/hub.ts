@@ -8,6 +8,10 @@ import {
   connectorUpdateFailureSchema,
   deviceSchema,
   deviceUpdateSchema,
+  deviceUserChangeSchema,
+  deviceUserCheckSchema,
+  deviceUserPreviewSchema,
+  deviceUserResultSchema,
   HUB_HEARTBEAT_MS,
   type HubEvent,
   type HubVersionsUsage,
@@ -18,17 +22,18 @@ import {
   pairSchema,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
-import { and, asc, eq, lte } from "drizzle-orm";
+import { and, asc, count, eq, inArray, lte } from "drizzle-orm";
+import type { FastifyRequest } from "fastify";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
 import { loginLimiter } from "../lib/auth.ts";
 import type { HubChannel } from "../lib/hubChannel.ts";
 import { readPreferences } from "../lib/preferences.ts";
-import { tokenHash } from "../lib/session.ts";
+import { isEnabled, tokenHash } from "../lib/session.ts";
 import { VERSION } from "../updates/updates.ts";
 
-const { deviceProjects, devices, hubEvents, pairingCodes, projects, users } = schema;
+const { deviceProjects, devices, hubEvents, pairingCodes, projects, roles, roots, users } = schema;
 const params = z.object({ id: z.uuid() });
 const errors = { 404: apiErrorSchema, 409: apiErrorSchema };
 
@@ -44,8 +49,8 @@ const codeHash = (code: string) => tokenHash(code.toUpperCase().replace(/[^A-Z0-
 
 /**
  * Hub management and pairing (ADR-0014). Admin only (lib/auth.ts), except `POST /pair`, which is
- * public: the connector has only the code, and `GET /events`, which any paired device may hold. With
- * the hub off, none of it exists.
+ * public: the connector has only the code, and `GET /events` and `/device/user`, which any paired
+ * device may use. With the hub off, none of it exists.
  */
 export const hubRoutes =
   (
@@ -352,6 +357,21 @@ export const hubRoutes =
       });
     });
 
+    /** A code for `userId`: to pair a new device, or with `deviceId` to change that device's user. */
+    const makeCode = (userId: string, deviceId: string | null = null) => {
+      const user = db.select().from(users).where(eq(users.id, userId)).get();
+      if (!user) throw new HttpError(404, "not_found", "User not found");
+      if (user.disabled) throw new HttpError(409, "user_disabled", "The user is disabled");
+      const now = new Date();
+      db.delete(pairingCodes).where(lte(pairingCodes.expiresAt, now.toISOString())).run();
+      const code = newCode();
+      const expiresAt = new Date(now.getTime() + CODE_TTL_MS).toISOString();
+      db.insert(pairingCodes)
+        .values({ id: codeHash(code), userId: user.id, deviceId, expiresAt })
+        .run();
+      return { code, expiresAt };
+    };
+
     app.post(
       "/pairing-codes",
       {
@@ -360,23 +380,138 @@ export const hubRoutes =
           response: { 201: pairingCodeSchema, ...errors },
         },
       },
+      async (req, reply) => reply.status(201).send(makeCode(req.body.userId)),
+    );
+
+    // The connector's page has no login, so its user only changes with a code from here. Its latest
+    // code is the only one that works.
+    app.post(
+      "/devices/:id/user-code",
+      {
+        schema: {
+          params,
+          body: pairingCodeCreateSchema,
+          response: { 201: pairingCodeSchema, ...errors },
+        },
+      },
       async (req, reply) => {
-        const user = db.select().from(users).where(eq(users.id, req.body.userId)).get();
-        if (!user) throw new HttpError(404, "not_found", "User not found");
-        if (user.disabled) throw new HttpError(409, "user_disabled", "The user is disabled");
-        const now = new Date();
-        db.delete(pairingCodes).where(lte(pairingCodes.expiresAt, now.toISOString())).run();
-        const code = newCode();
-        const expiresAt = new Date(now.getTime() + CODE_TTL_MS).toISOString();
-        db.insert(pairingCodes)
-          .values({ id: codeHash(code), userId: user.id, expiresAt })
-          .run();
-        return reply.status(201).send({ code, expiresAt });
+        const { userId } = req.body;
+        const device = db.select().from(devices).where(eq(devices.id, req.params.id)).get();
+        if (!device) throw new HttpError(404, "not_found", "Device not found");
+        if (device.userId === userId)
+          throw new HttpError(409, "same_user", "The device already acts as this user");
+        db.delete(pairingCodes).where(eq(pairingCodes.deviceId, device.id)).run();
+        const made = makeCode(userId, device.id);
+        req.log.info({ deviceId: device.id, userId }, "device user code created");
+        return reply.status(201).send(made);
       },
     );
 
-    // Same lock as logins: 5 wrong codes per IP lock it for 15 minutes.
+    // Same lock as logins: 5 wrong codes per IP (per device for a user change) lock it for 15 minutes.
     const limiter = loginLimiter();
+
+    /**
+     * The user a device's code changes it to, or null: wrong, used, expired or another device's (none
+     * of which uses it up), or a user whose token the hub would refuse, which would end the pairing.
+     */
+    const codeTarget = (q: Pick<Db, "select">, code: string, deviceId: string) => {
+      const found = q
+        .select({ code: pairingCodes, user: users, role: roles })
+        .from(pairingCodes)
+        .innerJoin(users, eq(users.id, pairingCodes.userId))
+        .innerJoin(roles, eq(roles.id, users.roleId))
+        .where(eq(pairingCodes.id, codeHash(code)))
+        .get();
+      const usable =
+        found?.code.deviceId === deviceId &&
+        Date.parse(found.code.expiresAt) > Date.now() &&
+        isEnabled(found);
+      return usable ? found.user : null;
+    };
+    /** Runs a device's code attempt under the lock; a null answer is a wrong code. */
+    const attempt = <T>(req: FastifyRequest, run: (deviceId: string) => T | null) => {
+      const { deviceId } = req;
+      if (!deviceId) throw new HttpError(403, "forbidden", "Only a paired device can call this");
+      const key = `device:${deviceId}`;
+      if (limiter.locked(key))
+        throw new HttpError(429, "too_many_attempts", "Too many wrong codes, try again later");
+      const answer = run(deviceId);
+      if (answer === null) {
+        limiter.fail(key);
+        throw new HttpError(400, "invalid_code", "The code is wrong, used or expired");
+      }
+      limiter.clear(key);
+      return answer;
+    };
+    const inFoldersOf = (deviceId: string) =>
+      inArray(
+        projects.rootId,
+        db.select({ id: roots.id }).from(roots).where(eq(roots.location, deviceId)),
+      );
+    const codeErrors = { 400: apiErrorSchema, 403: apiErrorSchema, 429: apiErrorSchema };
+
+    // What the connector's page asks before it confirms: who, and how many projects it's about.
+    app.post(
+      "/device/user/check",
+      {
+        schema: {
+          body: deviceUserCheckSchema,
+          response: { 200: deviceUserPreviewSchema, ...codeErrors },
+        },
+      },
+      async (req) =>
+        attempt(req, (deviceId) => {
+          const user = codeTarget(db, req.body.code, deviceId);
+          if (!user) return null;
+          const found = db.select({ n: count() }).from(projects).where(inFoldersOf(deviceId)).get();
+          return {
+            userName: user.displayName,
+            currentUserName: req.user?.displayName ?? "",
+            projects: found?.n ?? 0,
+          };
+        }),
+    );
+
+    // Everything else about the device stays: its identity, token, roots and settings. Hub-root
+    // projects aren't in its folders, so they never move.
+    app.post(
+      "/device/user",
+      {
+        schema: {
+          body: deviceUserChangeSchema,
+          response: { 200: deviceUserResultSchema, ...codeErrors },
+        },
+      },
+      async (req) => {
+        const { code, projects: choice } = req.body;
+        return attempt(req, (deviceId) => {
+          const result = db.transaction((tx) => {
+            const user = codeTarget(tx, code, deviceId);
+            if (!user) return null;
+            tx.delete(pairingCodes)
+              .where(eq(pairingCodes.id, codeHash(code)))
+              .run();
+            tx.update(devices).set({ userId: user.id }).where(eq(devices.id, deviceId)).run();
+            const moved =
+              choice === "move"
+                ? tx.update(projects).set({ ownerId: user.id }).where(inFoldersOf(deviceId)).run()
+                    .changes
+                : 0;
+            return { userName: user.displayName, toUserId: user.id, moved };
+          });
+          if (!result) return null;
+          const { userName, toUserId, moved } = result;
+          // What it syncs from the hub roots goes by its user's rights.
+          channel.publish(deviceId, { type: "roots.changed" });
+          req.log.info(
+            { deviceId, fromUserId: req.user?.id, toUserId, projects: choice, moved },
+            "device user changed",
+          );
+          return { userName, moved };
+        });
+      },
+    );
+
     app.post(
       "/pair",
       {
@@ -395,7 +530,8 @@ export const hubRoutes =
         const syncMode = readPreferences(db).hubDefaultSyncMode;
         const row = db.transaction((tx) => {
           const found = tx.select().from(pairingCodes).where(eq(pairingCodes.id, id)).get();
-          if (!found) return null;
+          // A code to change a device's user never pairs a new one, and isn't used up trying.
+          if (!found || found.deviceId) return null;
           tx.delete(pairingCodes).where(eq(pairingCodes.id, id)).run();
           const user = tx.select().from(users).where(eq(users.id, found.userId)).get();
           if (Date.parse(found.expiresAt) <= Date.now() || !user || user.disabled) return null;

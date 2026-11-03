@@ -1,17 +1,19 @@
-import type { Device } from "@3d-maker-suite/core";
+import type { Device, PairingCode } from "@3d-maker-suite/core";
 import { useParams } from "@tanstack/react-router";
 import { X } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
 import { Combobox } from "../../components/Combobox.tsx";
+import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
+import { FormDialog } from "../../components/FormDialog.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { Section } from "../../components/Section.tsx";
 import { Switch } from "../../components/Switch.tsx";
 import { ApiError } from "../../lib/api.ts";
 import { useCan } from "../../lib/auth.ts";
-import { formatDateTime } from "../../lib/format.ts";
+import { formatDateTime, formatTime } from "../../lib/format.ts";
 import {
   useConnectorActions,
   useConnectorSettings,
@@ -20,6 +22,7 @@ import {
 } from "../../lib/hub.ts";
 import { useAdapterName } from "../../lib/integrations.ts";
 import { usePresetDevices } from "../../lib/presets.ts";
+import { useUsers } from "../../lib/users.ts";
 import { InstallStatus } from "./PresetsPage.tsx";
 import { SyncLine } from "./SyncLine.tsx";
 
@@ -51,11 +54,76 @@ function OfflineNote() {
   return <p className="text-muted">{t("hub:edit.offlineNote")}</p>;
 }
 
+/** A code for another user, entered on the connector: its status page has no login to check. */
+function ChangeUserDialogs({
+  device: d,
+  open,
+  onClose,
+}: {
+  device: Device;
+  open: boolean;
+  onClose: () => void;
+}) {
+  const { t } = useTranslation();
+  const users = useUsers(open);
+  const { userCode } = useDeviceActions();
+  const [made, setMade] = useState<PairingCode | null>(null);
+  const close = () => {
+    setMade(null);
+    userCode.reset();
+    onClose();
+  };
+  const people = (users.data ?? [])
+    .filter((u) => !u.disabled && u.id !== d.userId)
+    .map((u) => ({ value: u.id, label: u.displayName }));
+  return (
+    <>
+      <FormDialog
+        open={open && !made}
+        title={t("hub:changeUser.title")}
+        submitLabel={t("hub:pair.submit")}
+        error={userCode.isError ? t("hub:errors.generic") : undefined}
+        busy={userCode.isPending}
+        onCancel={close}
+        onSubmit={(f) =>
+          userCode.mutate(
+            { id: d.id, userId: String(f.get("userId") ?? "") },
+            { onSuccess: setMade },
+          )
+        }
+      >
+        <p className="text-muted">{t("hub:changeUser.hint")}</p>
+        <FormField label={t("hub:pair.user")}>
+          {(p) => <Combobox {...p} name="userId" options={people} required />}
+        </FormField>
+      </FormDialog>
+      <ConfirmDialog
+        open={open && !!made}
+        title={t("hub:changeUser.codeTitle", { name: d.name })}
+        description={t("hub:changeUser.codeBody", {
+          name: d.name,
+          time: made ? formatTime(made.expiresAt) : "",
+        })}
+        confirmLabel={t("hub:code.done")}
+        onCancel={close}
+        onConfirm={close}
+      >
+        <p className="select-all text-center font-mono text-2xl font-semibold tracking-widest">
+          {made?.code}
+        </p>
+      </ConfirmDialog>
+    </>
+  );
+}
+
 function Identity({ device: d }: { device: Device }) {
   const { t } = useTranslation();
   const { rename } = useDeviceActions();
+  const [changing, setChanging] = useState(false);
   return (
     <Section title={t("hub:edit.identity")}>
+      {/* Outside the form: a dialog's own submit would bubble into it. */}
+      <ChangeUserDialogs device={d} open={changing} onClose={() => setChanging(false)} />
       <form
         className="grid gap-3"
         onSubmit={(e) => {
@@ -78,7 +146,10 @@ function Identity({ device: d }: { device: Device }) {
             />
           )}
         </FormField>
-        <p className="text-muted wrap-anywhere">{t("hub:devices.user", { name: d.userName })}</p>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-muted wrap-anywhere">{t("hub:devices.user", { name: d.userName })}</p>
+          <Button onClick={() => setChanging(true)}>{t("hub:changeUser.action")}</Button>
+        </div>
         <Alert error={rename.error} />
         <div>
           <Button type="submit" variant="primary" disabled={rename.isPending}>

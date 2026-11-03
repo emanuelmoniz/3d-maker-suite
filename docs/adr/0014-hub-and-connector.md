@@ -86,7 +86,7 @@ On their own device root, the device's user can always edit: the files are on th
 
 The project owner (`projects.owner_id`, set to null when the user is deleted) is:
 - for projects from before Step 8, the oldest enabled admin;
-- for a project in a device root, the device's user;
+- for a project in a device root, the device's user, or an earlier one if a change of the device's user (5.2.0, with a code from the hub) left it with them;
 - for a project made with "New project", whoever made it;
 - for a project the scan finds in a hub root, nobody.
 

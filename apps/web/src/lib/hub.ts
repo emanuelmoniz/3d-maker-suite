@@ -63,6 +63,10 @@ export function useDeviceActions() {
       mutationFn: (userId: string) =>
         api<PairingCode>("POST", "/api/hub/pairing-codes", { userId }),
     }),
+    userCode: useMutation({
+      mutationFn: ({ id, userId }: { id: string; userId: string }) =>
+        api<PairingCode>("POST", `/api/hub/devices/${id}/user-code`, { userId }),
+    }),
     rename: useMutation({
       mutationFn: ({ id, name }: { id: string; name: string }) =>
         api("PATCH", `/api/hub/devices/${id}`, { name }),

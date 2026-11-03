@@ -44,6 +44,31 @@
     "stop": "Stop server",
     "unpair": "Unpair"
   },
+  "user": {
+    "change": "Change user",
+    "intro": "Ask an admin for a code. They make one on this connector's page in Hub management in the web app. A code works once, for 10 minutes, only on this connector.",
+    "code": "Code",
+    "projects": "Projects in this connector's folders",
+    "move": "Move to the new user",
+    "stay": "Stay with their owner",
+    "stayHint": "Their owner keeps them, but may no longer be able to edit them, and the new user may not see them.",
+    "continue": "Continue",
+    "cancel": "Cancel",
+    "confirmTitle": "Change user to {{name}}?",
+    "from": "From {{from}} to {{to}}. This connector will act as {{to}}, with that user's rights.",
+    "willMove_one": "{{count}} project in this connector's folders will move to {{name}}.",
+    "willMove_other": "{{count}} projects in this connector's folders will move to {{name}}.",
+    "willStay_one": "{{count}} project in this connector's folders will stay with its owner.",
+    "willStay_other": "{{count}} projects in this connector's folders will stay with their owner.",
+    "noProjects": "This connector's folders have no projects.",
+    "done": "This connector now acts as {{name}}.",
+    "errors": {
+      "unreachable": "Could not reach the hub. Changing the user needs the hub online.",
+      "invalidCode": "The code is wrong, used or expired. Ask an admin for a new one.",
+      "tooManyAttempts": "Too many wrong codes. Wait 15 minutes, then try again.",
+      "hubOff": "This server has the hub turned off. An admin turns it on in Settings → Server."
+    }
+  },
   "stop": {
     "title": "Stop the server?",
     "body": "This device goes offline for the hub until the connector starts again: from the Start menu or the launcher, or at your next login.",
