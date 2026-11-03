@@ -82,6 +82,16 @@ Files removed in the app are moved, not erased, into `.3d-maker-suite-trash` in 
 
 The app does not rename folders. Renaming a project's **files** (in the app or on disk) is safe: the next scan picks them up. Renaming a project's **folder** on disk and keeping its number prefix (`012_vase` → `012_tall-vase`) is safe too: the scan moves the project to the new folder. A folder renamed without its number, moved out of the roots or deleted shows a banner on the project page: recreate the folder, link the one where the files are now, or unlink it. Edit → Project folder does the same, and gives a project without a folder one.
 
+## Moving projects to another root
+
+To move many projects (a new disk, NAS or machine), move the files yourself first and add the new folder as a root. Then use Settings → Projects → **Change projects' root…**: filter and select the projects, pick the new root and confirm.
+
+- Only the app's link changes, nothing on disk. Each project keeps its relative folder (`/volume1/projects/a/012_vase` → `/mnt/nas/projects/a/012_vase`), its files, plates and slices.
+- A project whose folder isn't at the new root yet shows as missing until the folder is there.
+- A project whose target folder another project already uses is skipped and reported, and the others go through. This happens when a scan of the new root already made a project of that folder: unlink that project's folder and keep it, delete that project, then try again.
+- If the old folder is still there, scans skip it, so it doesn't come back as a new project.
+- A hub file's version history stays with the old root, and is deleted when you remove that root.
+
 ## Unlinking or switching a folder
 
 Edit → Project folder → **Unlink folder** (or **Switch to another folder…**) asks what happens to the current folder:

@@ -344,6 +344,107 @@ describe("project access over HTTP", () => {
     expect(await canEdit(await as(other))).toBe(true);
   });
 
+  describe("changing the root of many projects", () => {
+    const manager = (db: ReturnType<typeof openDb>, id: string) =>
+      db
+        .update(schema.users)
+        .set({ permissions: { projects: "manage" } })
+        .where(eq(schema.users.id, id))
+        .run();
+    const hubRoot = (db: ReturnType<typeof openDb>, path: string) =>
+      db
+        .insert(schema.roots)
+        .values({ name: "New", location: "hub", path, position: 1 })
+        .returning()
+        .get();
+    const project = (
+      db: ReturnType<typeof openDb>,
+      number: number,
+      name: string,
+      rootId: string,
+      ownerId: string,
+    ) =>
+      db
+        .insert(schema.projects)
+        .values({ number, name, rootId, folder: name, ownerId })
+        .returning()
+        .get();
+
+    it("needs projects manage, the target root's edit rule and each project's access", async () => {
+      const { db, dir, root, add, as } = await setup();
+      const admin = add("admin", "admin");
+      const editor = add("editor", "editor");
+      const mgr = add("editor", "mgr", { projectsSeeAll: false, projectsEditOthers: false });
+      const seer = add("editor", "seer", { projectsEditOthers: false });
+      for (const u of [mgr, seer]) manager(db, u.id);
+      const to = hubRoot(db, join(dir, "new"));
+      const mine = project(db, 1, "Mine", root.id, mgr.id);
+      const hidden = project(db, 2, "Hidden", root.id, editor.id);
+      const clash = project(db, 3, "Clash", root.id, mgr.id);
+      db.insert(schema.projects)
+        .values({ number: 4, name: "Secret", rootId: to.id, folder: "Clash", ownerId: editor.id })
+        .run();
+      const [asEditor, asMgr, asSeer, asAdmin] = await Promise.all([
+        as(editor),
+        as(mgr),
+        as(seer),
+        as(admin),
+      ]);
+      const body = (ids: string[]) => ({ ids, rootId: to.id });
+
+      // Projects write isn't enough.
+      expect((await asEditor("GET", "/api/projects/folders")).statusCode).toBe(403);
+      expect((await asEditor("POST", "/api/projects/relink", body([hidden.id]))).statusCode).toBe(
+        403,
+      );
+
+      // Only the projects they can see, and no name of a hidden one.
+      const rows = (await asMgr("GET", "/api/projects/folders")).json();
+      expect(rows.map((r: { name: string }) => r.name)).toEqual(["Mine", "Clash"]);
+      const res = await asMgr("POST", "/api/projects/relink", body([mine.id, hidden.id, clash.id]));
+      expect(res.json()).toEqual({
+        moved: [{ id: mine.id, folderState: "missing" }],
+        skipped: [
+          { id: hidden.id, code: "not_found" },
+          { id: clash.id, code: "folder_in_use" },
+        ],
+      });
+
+      // Seen, but only theirs to edit.
+      const forbidden = await asSeer("POST", "/api/projects/relink", body([clash.id]));
+      expect(forbidden.json().skipped).toEqual([{ id: clash.id, code: "forbidden" }]);
+
+      // The target root's edit rule refuses the whole request.
+      await asAdmin("PATCH", `/api/roots/${to.id}`, { editBy: "admins" });
+      expect((await asMgr("POST", "/api/projects/relink", body([clash.id]))).statusCode).toBe(403);
+    });
+
+    it("a device root's user becomes the owner", async () => {
+      const { db, root, add, as } = await setup();
+      const admin = add("admin", "admin");
+      const owner = add("editor", "owner");
+      const dev = db
+        .insert(schema.devices)
+        .values({ name: "WS", userId: owner.id, tokenHash: "t" })
+        .returning()
+        .get();
+      const to = db
+        .insert(schema.roots)
+        .values({ name: "WS", location: dev.id, path: "C:/m", position: 1 })
+        .returning()
+        .get();
+      const p = project(db, 1, "Box", root.id, admin.id);
+
+      const res = await (await as(admin))("POST", "/api/projects/relink", {
+        ids: [p.id],
+        rootId: to.id,
+      });
+      expect(res.json().moved).toEqual([{ id: p.id, folderState: "offline" }]);
+      const stored = db.select().from(schema.projects).where(eq(schema.projects.id, p.id)).get();
+      expect(stored).toMatchObject({ rootId: to.id, folder: "Box", ownerId: owner.id });
+    });
+  });
+
   it("names no hidden project in prints, orders, quotes, stats, tags or the trash", async () => {
     const { db, dir, root, add, as } = await setup();
     seed(db, new Date());

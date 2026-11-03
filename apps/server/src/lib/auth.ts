@@ -118,6 +118,8 @@ const RULES: [RegExp, string, Need][] = [
   [p("filament|filament-brands|filament-materials"), "R", at("filament", "read")],
   [p("filament/profiles|filament-brands|filament-materials"), "W", at("filament", "manage")],
   [p("filament"), "W", at("filament", "write")],
+  // Changing the root of many projects; each project and the root are checked by the route too.
+  [/^\/api\/projects\/(folders|relink)$/, "*", at("projects", "manage")],
   [p("projects|collections|roots"), "R", at("projects", "read")],
   [p("projects|collections"), "W", at("projects", "write")],
   [p("roots"), "W", at("projects", "manage")],

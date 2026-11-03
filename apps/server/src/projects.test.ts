@@ -1,13 +1,25 @@
-import { cp, mkdir, mkdtemp, rename, rm, stat, writeFile } from "node:fs/promises";
+import { cp, mkdir, mkdtemp, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { mockAdapter } from "@3d-maker-suite/adapter-mock";
 import { openDb, schema } from "@3d-maker-suite/db";
 import { eq } from "drizzle-orm";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { buildApp } from "./app.ts";
 import { modelIdFor } from "./lib/catalog.ts";
 import { setRoots as setAllRoots } from "./testRoots.ts";
+
+// A folder that fails to read: permissions or a disk error can't be set up the same on every OS.
+vi.mock("@3d-maker-suite/host", async (original) => {
+  const real = await original<typeof import("@3d-maker-suite/host")>();
+  return {
+    ...real,
+    scanFolder: (...args: Parameters<typeof real.scanFolder>) =>
+      /[\\/]new[\\/]Unreadable$/.test(args[0])
+        ? Promise.reject(new Error("EIO"))
+        : real.scanFolder(...args),
+  };
+});
 
 const fixtures = join(import.meta.dirname, "../../../packages/3mf/fixtures");
 
@@ -563,6 +575,200 @@ describe("project folder: create, link, unlink, missing", () => {
     expect(await list()).toMatchObject([
       { id: boat.id, number: 4, folderPath: join(root(), "004_ship") },
     ]);
+  });
+});
+
+describe("changing the root of many projects", () => {
+  const target = () => join(dir, "new");
+  const twoRoots = async () => {
+    await mkdir(root(), { recursive: true });
+    await mkdir(target(), { recursive: true });
+    const [, to] = await setAllRoots(
+      app,
+      { path: root(), projectDepth: 2 },
+      { path: target(), projectDepth: 2 },
+    );
+    return to?.id ?? "";
+  };
+  const relink = (ids: string[], rootId: string) =>
+    app.inject({ method: "POST", url: "/api/projects/relink", payload: { ids, rootId } });
+  const idle = async () => {
+    while ((await app.inject("/api/projects/scan")).json().state !== "idle")
+      await new Promise((r) => setTimeout(r, 10));
+  };
+  const detail = async (id: string) => (await app.inject(`/api/projects/${id}`)).json();
+  /** Every path below the roots, with size and mtime: any write shows. */
+  const disk = async () => {
+    const out: string[] = [];
+    for (const base of [root(), target()])
+      for (const e of await readdir(base, { recursive: true, withFileTypes: true })) {
+        const path = join(e.parentPath, e.name);
+        const s = await stat(path);
+        out.push(`${path} ${s.size} ${s.mtimeMs}`);
+      }
+    return out.sort();
+  };
+
+  it("moved projects keep their relative folder, files and plates; no file is touched", async () => {
+    const to = await twoRoots();
+    await put("a/012_vase/vase.stl", "solid");
+    await mkdir(join(root(), "Benchy"));
+    await cp(join(fixtures, "multi_color.3mf"), join(root(), "Benchy", "benchy.3mf"));
+    await scan();
+    const vase = await byName("vase");
+    const benchy = await byName("Benchy");
+    db.insert(schema.projectSlicePlates)
+      .values({
+        projectId: benchy.id,
+        file: "benchy.3mf",
+        plate: 1,
+        fileSize: 1,
+        fileMtimeMs: 1,
+        fileSha256: "x",
+      })
+      .run();
+    // The user moves the files.
+    await mkdir(join(target(), "a"));
+    await rename(join(root(), "a", "012_vase"), join(target(), "a", "012_vase"));
+    await rename(join(root(), "Benchy"), join(target(), "Benchy"));
+    const before = await disk();
+
+    const res = await relink([vase.id, benchy.id, vase.id], to);
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({
+      moved: [
+        { id: vase.id, folderState: "ok" },
+        { id: benchy.id, folderState: "ok" },
+      ],
+      skipped: [],
+    });
+    await idle();
+
+    expect(await disk()).toEqual(before);
+    expect(await detail(vase.id)).toMatchObject({
+      number: 12,
+      rootId: to,
+      folder: "a/012_vase",
+      folderPath: join(target(), "a", "012_vase"),
+      // Its old folder is gone: nothing to skip.
+      unlinkedFolder: null,
+    });
+    const after = await detail(benchy.id);
+    expect(after.meta.models).toEqual(benchy.meta.models);
+    expect(db.select().from(schema.projectSlicePlates).all()).toHaveLength(1);
+    expect(await list()).toHaveLength(2);
+  });
+
+  it("a folder not at the new root reads missing; the old one doesn't come back as a twin", async () => {
+    const to = await twoRoots();
+    await put("012_vase/vase.stl", "solid");
+    await scan();
+    const vase = await byName("vase");
+    const before = await disk();
+
+    expect((await relink([vase.id], to)).json().moved).toEqual([
+      { id: vase.id, folderState: "missing" },
+    ]);
+    await idle();
+    await scan();
+
+    expect(await disk()).toEqual(before);
+    expect(await list()).toHaveLength(1);
+    const after = await detail(vase.id);
+    expect(after).toMatchObject({
+      rootId: to,
+      folderState: "missing",
+      unlinkedFolder: join(root(), "012_vase"),
+    });
+    expect(after.meta.files).toEqual(vase.meta.files);
+    const rows = (await app.inject("/api/projects/folders")).json();
+    expect(rows).toEqual([
+      {
+        id: vase.id,
+        number: 12,
+        name: "vase",
+        rootId: to,
+        folder: "012_vase",
+        folderPath: join(target(), "012_vase"),
+        folderState: "missing",
+        canEdit: true,
+      },
+    ]);
+
+    // The old root isn't in use any more, and its removal lets go of the remembered folder.
+    const [from] = (await app.inject("/api/roots")).json();
+    const removed = await app.inject({ method: "DELETE", url: `/api/roots/${from.id}` });
+    expect(removed.statusCode).toBe(204);
+    expect((await detail(vase.id)).unlinkedFolder).toBeNull();
+  });
+
+  it("skips what can't move and reports why; the others go through", async () => {
+    const to = await twoRoots();
+    await put("Same/a.stl", "solid");
+    await put("Other/b.stl", "solid");
+    await put("Unreadable/c.stl", "solid");
+    await scan();
+    const same = await byName("Same");
+    const other = await byName("Other");
+    const bad = await byName("Unreadable");
+    // A project already holds the target of Same; Unreadable's new folder fails to scan (the mock).
+    await mkdir(join(target(), "Same"));
+    await writeFile(join(target(), "Same", "x.stl"), "solid");
+    await mkdir(join(target(), "Unreadable"));
+    await scan();
+    const holder = (await list()).find(
+      (p: { folderPath: string }) => p.folderPath === join(target(), "Same"),
+    );
+    const noFolder = (
+      await app.inject({ method: "POST", url: "/api/projects", payload: { name: "Idea" } })
+    ).json();
+    const unknown = "00000000-0000-4000-8000-000000000000";
+
+    const res = await relink([same.id, other.id, bad.id, noFolder.id, unknown, holder.id], to);
+    expect(res.json()).toEqual({
+      moved: [{ id: other.id, folderState: "missing" }],
+      skipped: [
+        {
+          id: same.id,
+          code: "folder_in_use",
+          usedBy: { number: holder.number, name: holder.name },
+        },
+        { id: bad.id, code: "scan_failed" },
+        { id: noFolder.id, code: "no_folder" },
+        { id: unknown, code: "not_found" },
+        { id: holder.id, code: "same_root" },
+      ],
+    });
+    await idle();
+    expect(await detail(same.id)).toMatchObject({ rootId: same.rootId, unlinkedFolder: null });
+    expect(await detail(bad.id)).toMatchObject({ rootId: bad.rootId, unlinkedFolder: null });
+  });
+
+  it("two selected projects with one relative folder: the second is reported", async () => {
+    const third = join(dir, "third");
+    await mkdir(third);
+    await mkdir(root(), { recursive: true });
+    await mkdir(target());
+    const [, b, c] = await setAllRoots(app, root(), target(), third);
+    await put("Same/a.stl", "solid");
+    await mkdir(join(target(), "Same"));
+    await writeFile(join(target(), "Same", "b.stl"), "solid");
+    await scan();
+    const all = await list();
+    const first = all.find((p: { rootId: string }) => p.rootId !== b?.id);
+    const second = all.find((p: { rootId: string }) => p.rootId === b?.id);
+
+    const { moved, skipped } = (await relink([first.id, second.id], c?.id ?? "")).json();
+    expect(moved.map((m: { id: string }) => m.id)).toEqual([first.id]);
+    expect(skipped).toMatchObject([{ id: second.id, code: "folder_in_use" }]);
+    await idle();
+  });
+
+  it("an unknown root is a 404, and an empty selection a 400", async () => {
+    const to = await twoRoots();
+    const unknown = "00000000-0000-4000-8000-000000000000";
+    expect((await relink([unknown], unknown)).statusCode).toBe(404);
+    expect((await relink([], to)).statusCode).toBe(400);
   });
 });
 

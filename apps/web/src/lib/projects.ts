@@ -9,10 +9,13 @@ import type {
   ProjectFolderInput,
   ProjectFolderRelease,
   ProjectFolderResult,
+  ProjectFolderRow,
   ProjectInput,
   ProjectOpen,
   ProjectPaint,
   ProjectPatch,
+  ProjectRelink,
+  ProjectRelinkResult,
   ProjectScanStatus,
   ProjectSliceRun,
   ProjectSlicing,
@@ -85,6 +88,22 @@ export const useProjectFolder = (id: string) => {
       "unlink" in v
         ? api<ProjectFolderResult>("DELETE", `/api/projects/${id}/folder?files=${v.unlink}`)
         : api<ProjectFolderResult>("POST", `/api/projects/${id}/folder`, v),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["projects"] }),
+  });
+};
+
+/** Every project with a folder, with its folder's state. */
+export const useProjectFolders = () =>
+  useQuery({
+    queryKey: ["projects", "folders"],
+    queryFn: () => api<ProjectFolderRow[]>("GET", "/api/projects/folders"),
+  });
+
+/** Points projects at another root, same relative folders; those that can't move are reported. */
+export const useRelinkProjects = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: ProjectRelink) => api<ProjectRelinkResult>("POST", "/api/projects/relink", v),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["projects"] }),
   });
 };

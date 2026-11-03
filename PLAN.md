@@ -1501,7 +1501,7 @@ Design:
 Do Step 5 of the 5.2.0 plan in PLAN.md.
 ```
 
-### [ ] Step 6 - Change the root of many projects  **[plan mode]**
+### [x] Step 6 - Change the root of many projects  **[plan mode]**
 **Model:** Opus · **Effort:** Medium
 **Scope:**
 - Settings → Projects: an action opening a dialog with a projects table (filter by root, name, folder state; select), then pick the new root and confirm.

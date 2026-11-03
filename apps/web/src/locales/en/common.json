@@ -8,6 +8,7 @@
   "actions": {
     "back": "Back",
     "cancel": "Cancel",
+    "close": "Close",
     "confirm": "Confirm",
     "save": "Save",
     "clear": "Clear filters",

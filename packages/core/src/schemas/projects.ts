@@ -203,6 +203,42 @@ export const projectFolderResultSchema = projectDetailSchema.extend({
   trashedTo: z.string().optional(),
 });
 
+/** A project with a folder, in the table that changes the root of many projects. */
+export const projectFolderRowSchema = projectDetailSchema.pick({
+  id: true,
+  number: true,
+  name: true,
+  rootId: true,
+  folder: true,
+  folderPath: true,
+  folderState: true,
+  canEdit: true,
+});
+
+/** Same relative folder, new root; nothing on disk changes. */
+export const projectRelinkSchema = z.object({ ids: z.array(id).min(1), rootId: id });
+
+export const PROJECT_RELINK_SKIPS = [
+  "not_found",
+  "forbidden",
+  "no_folder",
+  "same_root",
+  "folder_in_use",
+  "scan_failed",
+] as const;
+
+/** `usedBy`: who holds the folder, when the caller may see that project. */
+export const projectRelinkResultSchema = z.object({
+  moved: z.array(projectDetailSchema.pick({ id: true, folderState: true })),
+  skipped: z.array(
+    z.object({
+      id,
+      code: z.enum(PROJECT_RELINK_SKIPS),
+      usedBy: projectSchema.pick({ number: true, name: true }).optional(),
+    }),
+  ),
+});
+
 /** Any subset. Every field sent becomes user-edited. */
 export const projectPatchSchema = z
   .object({
@@ -292,6 +328,9 @@ export type ProjectFolderInput = z.infer<typeof projectFolderSchema>;
 export type ProjectFolderPrevious = (typeof PROJECT_FOLDER_PREVIOUS)[number];
 export type ProjectFolderRelease = (typeof PROJECT_FOLDER_RELEASE)[number];
 export type ProjectFolderResult = z.infer<typeof projectFolderResultSchema>;
+export type ProjectFolderRow = z.infer<typeof projectFolderRowSchema>;
+export type ProjectRelink = z.infer<typeof projectRelinkSchema>;
+export type ProjectRelinkResult = z.infer<typeof projectRelinkResultSchema>;
 export type ProjectListItem = z.infer<typeof projectListItemSchema>;
 export type ProjectMeta = z.infer<typeof projectMetaSchema>;
 export type ProjectFile = z.infer<typeof projectFileSchema>;

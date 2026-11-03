@@ -17,6 +17,7 @@ import { useEmptyProjectTrash, useProjectTrash } from "../../lib/projects.ts";
 import { ChannelsSection } from "../alerts/ChannelsSection.tsx";
 import { FilamentCatalog, FilamentProfiles } from "../filament/Catalog.tsx";
 import { Catalog } from "../printers/Catalog.tsx";
+import { ChangeProjectsRoot } from "./ChangeProjectsRoot.tsx";
 import { type ConfigCtx, ConfigPage } from "./ConfigPage.tsx";
 import { ProjectRoots } from "./ProjectRoots.tsx";
 
@@ -174,6 +175,7 @@ export function ProjectsConfigPage() {
         <>
           <Section title={t("settings:projects.roots")} wide help="docs/projects.md">
             <ProjectRoots />
+            <ChangeProjectsRoot />
           </Section>
           <Section title={t("settings:projects.scanning")}>
             <FormField

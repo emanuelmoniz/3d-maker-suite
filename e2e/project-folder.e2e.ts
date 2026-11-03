@@ -1,7 +1,7 @@
-import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { basename, join } from "node:path";
 import { expect, test } from "./fixtures.ts";
-import { addRoots, seedPrinter } from "./helpers.ts";
+import { addRoots, hasHorizontalScroll, seedPrinter } from "./helpers.ts";
 
 test("project folder: create and unlink on the edit page", async ({ page, app }) => {
   const root = join(app.dataDir, "models");
@@ -112,6 +112,68 @@ test("project folder: a missing folder shows a banner, linking another fixes it"
   await picker.getByRole("button", { name: "Select this folder" }).click();
   await expect(banner).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Open folder" })).toBeVisible();
+});
+
+test("change projects' root: moves the selection, reports a conflict, touches no file", async ({
+  page,
+  app,
+}) => {
+  const from = join(app.dataDir, "old");
+  const to = join(app.dataDir, "new");
+  for (const d of [join(from, "One"), join(from, "Two"), join(to, "Two")]) {
+    mkdirSync(d, { recursive: true });
+    writeFileSync(join(d, "part.stl"), "solid");
+  }
+  await addRoots(app.api, from, to);
+  for (const [name, folderPath] of [
+    ["One", join(from, "One")],
+    ["Two", join(from, "Two")],
+    ["Holder", join(to, "Two")],
+  ])
+    await app.api("POST", "/api/projects", { name, folderPath });
+  // The user moves One's files.
+  renameSync(join(from, "One"), join(to, "One"));
+
+  await page.goto("/projects/settings");
+  await page.getByRole("button", { name: "Change projects' root…" }).click();
+  const dialog = page.getByRole("dialog", { name: "Change projects' root" });
+  const row = (name: string) => dialog.getByRole("row").filter({ hasText: name });
+  await expect(row("001-One")).toContainText("Missing");
+
+  // Only the old root's projects, selected from the keyboard.
+  const head = dialog.getByRole("columnheader").filter({ hasText: "Root" });
+  await head.getByRole("button", { name: /^Filter by/ }).click();
+  await head.getByLabel(from).check();
+  await head.getByRole("button", { name: "Apply" }).click();
+  await expect(dialog.getByRole("row")).toHaveCount(3); // header + 2
+  const all = dialog.getByRole("checkbox", { name: "Select all 2 projects shown" });
+  await all.focus();
+  await page.keyboard.press("Space");
+  await expect(all).toBeChecked();
+
+  await dialog.getByRole("combobox", { name: "New root" }).selectOption({ label: to });
+  await dialog.getByRole("button", { name: "Change root of 2 projects" }).click();
+  await page.getByRole("button", { name: "Change root", exact: true }).click();
+
+  const summary = dialog.getByRole("status").filter({ hasText: "skipped" });
+  await expect(summary).toContainText("1 project changed.");
+  await expect(summary).toContainText("002-Two: 003-Holder already uses that folder.");
+
+  // One now reads OK on the new root; Two stayed. Files are where the user left them.
+  await dialog.getByRole("button", { name: "Clear" }).click();
+  await expect(row("001-One")).toContainText(to);
+  await expect(row("001-One")).toContainText("OK");
+  await expect(row("002-Two")).toContainText(from);
+  expect(existsSync(join(to, "One", "part.stl"))).toBe(true);
+  expect(existsSync(join(from, "Two", "part.stl"))).toBe(true);
+  expect(existsSync(join(from, "One"))).toBe(false);
+
+  // Phone: the table scrolls inside the dialog, not the page.
+  await page.setViewportSize({ width: 390, height: 800 });
+  await expect(dialog.getByRole("button", { name: "Close" })).toBeVisible();
+  expect(await hasHorizontalScroll(page)).toBe(false);
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
 });
 
 test("folder picker on the edit page: New folder stays in the dialog and creates it", async ({

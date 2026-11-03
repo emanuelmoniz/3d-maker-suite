@@ -9,11 +9,14 @@ import { createPortal } from "react-dom";
 export function AddDialog({
   open,
   title,
+  wide,
   onClose,
   children,
 }: {
   open: boolean;
   title: string;
+  /** Room for a table. */
+  wide?: boolean;
   onClose: () => void;
   children: ReactNode;
 }) {
@@ -38,7 +41,7 @@ export function AddDialog({
       onClick={(e) => e.target === ref.current && onClose()}
       // React events bubble through portals: keep this form's submit out of the form it sits in.
       onSubmit={(e) => e.stopPropagation()}
-      className="m-auto max-h-[90vh] w-[min(92vw,30rem)] overflow-y-auto rounded-lg border border-border bg-surface p-5 text-fg"
+      className={`m-auto max-h-[90vh] overflow-y-auto rounded-lg border border-border bg-surface p-5 text-fg ${wide ? "w-[min(92vw,60rem)]" : "w-[min(92vw,30rem)]"}`}
     >
       {open && (
         <>

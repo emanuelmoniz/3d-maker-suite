@@ -20,6 +20,7 @@ import {
   pickSlicer,
   projectDetailSchema,
   projectFolderResultSchema,
+  projectFolderRowSchema,
   projectFolderSchema,
   projectInputSchema,
   projectListItemSchema,
@@ -28,13 +29,15 @@ import {
   projectOpenSchema,
   projectPaintSchema,
   projectPatchSchema,
+  projectRelinkResultSchema,
+  projectRelinkSchema,
   projectScanStatusSchema,
   projectSchema,
   projectUnlinkQuery,
   ROOT_HUB,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
-import { and, asc, eq, inArray, isNull, max, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNotNull, isNull, max, sql } from "drizzle-orm";
 import type { FastifyReply, FastifyRequest } from "fastify";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
@@ -533,6 +536,115 @@ export const projectsRoutes =
           throw e;
         }
         return { ...(await detail(p.id, req.user)), trashedTo };
+      },
+    );
+
+    // Every project with a folder, archived ones too: they also keep a root in use.
+    app.get(
+      "/folders",
+      { schema: { response: { 200: z.array(projectFolderRowSchema) } } },
+      async (req) => {
+        const rows = db
+          .select({ id: projects.id })
+          .from(projects)
+          .where(
+            and(isNotNull(projects.rootId), isNotNull(projects.folder), visibleProjects(req.user)),
+          )
+          .orderBy(asc(projects.number))
+          .all();
+        return Promise.all(rows.map((r) => detail(r.id, req.user)));
+      },
+    );
+
+    // Points projects at another root, same relative folder; the user moved the files. Nothing on
+    // disk changes and the project keeps what it knows. One that can't move is skipped and reported.
+    // ponytail: one at a time inside the request, so a huge batch is slow; a job if that matters.
+    app.post(
+      "/relink",
+      {
+        schema: {
+          body: projectRelinkSchema,
+          response: { 200: projectRelinkResultSchema, 400: apiErrorSchema, ...errors },
+        },
+      },
+      async (req) => {
+        const root = listRoots(db).find((r) => r.id === req.body.rootId);
+        if (!root) throw new HttpError(404, "not_found", "Root not found");
+        assertRootEditable(db, req.user, root);
+        // A device root's projects are its user's (ADR-0014).
+        const deviceUser = onDevice(root) ? rootRule(db, root).deviceUserId : null;
+        const result: z.infer<typeof projectRelinkResultSchema> = { moved: [], skipped: [] };
+        for (const id of new Set(req.body.ids)) {
+          const skip = (
+            code: (typeof result.skipped)[number]["code"],
+            usedBy?: (typeof result.skipped)[number]["usedBy"],
+          ) => void result.skipped.push({ id, code, usedBy });
+          const p = db.select().from(projects).where(eq(projects.id, id)).get();
+          const access = projectAccessOf(db, req.user, id);
+          if (!p || access === "none") {
+            skip("not_found");
+            continue;
+          }
+          if (access !== "edit") {
+            skip("forbidden");
+            continue;
+          }
+          if (!p.rootId || p.folder === null) {
+            skip("no_folder");
+            continue;
+          }
+          if (p.rootId === root.id) {
+            skip("same_root");
+            continue;
+          }
+          const holder = db
+            .select({ id: projects.id })
+            .from(projects)
+            .where(and(eq(projects.rootId, root.id), eq(projects.folder, p.folder)))
+            .get();
+          if (holder) {
+            const seen = projectAccessOf(db, req.user, holder.id) !== "none";
+            skip("folder_in_use", seen ? get(holder.id) : undefined);
+            continue;
+          }
+          const { folderState } = await detail(id, req.user);
+          scanner.claim({ root, rel: p.folder });
+          const point = (to: Partial<Row>) =>
+            db.update(projects).set(to).where(eq(projects.id, id)).run();
+          point({
+            rootId: root.id,
+            ...(deviceUser && { ownerId: deviceUser }),
+            // A folder still there would come back as a new project: scans skip it, as with "keep".
+            ...(folderState !== "missing" && {
+              unlinkedRootId: p.rootId,
+              unlinkedFolder: p.folder,
+            }),
+          });
+          try {
+            await scanner.refresh({ rootId: root.id, folder: p.folder });
+          } catch (e) {
+            // 404: the folder isn't at the new root (yet), so the project reads "missing".
+            if (!(e instanceof HttpError && e.statusCode === 404)) {
+              req.log.warn({ err: e, projectId: id }, "project relink failed");
+              point({
+                rootId: p.rootId,
+                ownerId: p.ownerId,
+                unlinkedRootId: p.unlinkedRootId,
+                unlinkedFolder: p.unlinkedFolder,
+              });
+              skip("scan_failed");
+              continue;
+            }
+          }
+          result.moved.push({ id, folderState: (await detail(id, req.user)).folderState });
+        }
+        // A new root is only watched and indexed after a pass.
+        if (result.moved.length) scanner.start();
+        req.log.info(
+          { rootId: root.id, moved: result.moved.length, skipped: result.skipped.length },
+          "projects relinked",
+        );
+        return result;
       },
     );
 
