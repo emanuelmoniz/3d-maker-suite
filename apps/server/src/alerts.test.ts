@@ -513,9 +513,12 @@ describe("alerts", () => {
       expect((await detail(error.id)).log).toEqual([{ event: "failed", code: "unreachable" }]);
       state.fail = undefined;
       await sync("printers");
+      // The run that went through resolved the first error; the next failure raises a new one.
+      expect(await errors()).toHaveLength(0);
       state.fail = "unreachable";
       await sync("printers");
-      expect(await errors()).toHaveLength(2);
+      const [again] = await errors();
+      expect(again.id).not.toBe(error.id);
       state.fail = undefined;
 
       // Switched off for the type: no alert.
@@ -524,7 +527,7 @@ describe("alerts", () => {
       });
       state.fail = "blocked";
       await sync("printers");
-      expect(await results()).toHaveLength(3);
+      expect(await results()).toHaveLength(2);
       state.fail = undefined;
 
       // Only the severities picked are raised: success yes, error no.
@@ -534,7 +537,7 @@ describe("alerts", () => {
       state.fail = "unreachable";
       await sync("printers");
       state.fail = undefined;
-      expect(await results()).toHaveLength(3);
+      expect(await results()).toHaveLength(2);
 
       // A confirmed review imports rows but is no sync result.
       const review = reviewer(() => app);
@@ -543,7 +546,7 @@ describe("alerts", () => {
       ).json();
       const done = await review.confirm(preview);
       expect(done.json(), done.body).toMatchObject({ created: 3 });
-      expect(await results()).toHaveLength(3);
+      expect(await results()).toHaveLength(2);
 
       // Dismissed: gone from the list, nothing re-sent.
       const calls = fetchMock.mock.calls.length;

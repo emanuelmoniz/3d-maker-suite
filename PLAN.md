@@ -1450,7 +1450,7 @@ Minor release, starts after the 5.1.0 release. Design: ADR-0018 for archive, del
 Do Step 1 of the 5.2.0 plan in PLAN.md.
 ```
 
-### [ ] Step 2 - Sync errors clear when the sync works again
+### [x] Step 2 - Sync errors clear when the sync works again
 **Model:** Sonnet · **Effort:** Low
 **Scope:** A successful run resolves the open `sync_error` alerts of the same `task` (`sync:<integration>:<type>`) in `integrations/sync.ts`, so they leave everyone's list. Errors of another sync type stay. `sync_error` stays one-shot in `evaluate.ts`: the run clears it, not the evaluator. Same update as `updates.ts` and `managedSlicer.ts`.
 **Done when:** fail then succeed resolves the alert; a success of another type doesn't; a later failure raises a new one; tests pass.

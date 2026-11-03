@@ -304,9 +304,17 @@ describe("integrations", () => {
     expect(open()).toHaveLength(1);
 
     state.fail = undefined;
-    expect(await sync(id)).toMatchObject({ status: "ok" });
-    // An event, not a condition: it stays until dismissed.
-    expect(open()).toHaveLength(1);
+    // A success of another type leaves the printers error alone.
+    expect(await syncType(id, "prints")).toMatchObject({ status: "ok" });
+    expect(open().filter((a) => !a.resolvedAt)).toHaveLength(1);
+    // The same type working again resolves it.
+    expect(await syncType(id, "printers")).toMatchObject({ status: "ok" });
+    expect(open().filter((a) => !a.resolvedAt)).toHaveLength(0);
+
+    // A later failure raises a new one.
+    state.fail = "auth_expired";
+    await syncType(id, "printers");
+    expect(open().filter((a) => !a.resolvedAt)).toHaveLength(1);
   });
 
   it("skips prints of unknown printers and keeps imported rows when the integration goes", async () => {

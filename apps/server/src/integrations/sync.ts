@@ -329,7 +329,21 @@ export function createSyncer(
       })
       .returning()
       .get();
-    if (!errorCode) success(runLog, { type, trigger, created, skipped }, "sync done");
+    if (!errorCode) {
+      success(runLog, { type, trigger, created, skipped }, "sync done");
+      // The sync works again: its open error alerts leave everyone's list (another type's stay).
+      const now = new Date().toISOString();
+      db.update(schema.alerts)
+        .set({ resolvedAt: now, updatedAt: now })
+        .where(
+          and(
+            eq(schema.alerts.kind, "sync_error"),
+            eq(schema.alerts.task, `sync:${id}:${type}`),
+            isNull(schema.alerts.resolvedAt),
+          ),
+        )
+        .run();
+    }
     // A sync's result is an alert; a confirmed review (`pick`) isn't, the person is looking at it.
     // A type that keeps failing alerts once, until a run goes through again.
     const severity = errorCode ? "error" : "success";
