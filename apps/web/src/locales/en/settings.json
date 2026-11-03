@@ -137,9 +137,10 @@
     "trashConfirm": "The deleted files are removed for good. This can't be undone.",
     "trashError": "Couldn't empty the trash. A file in it may be in use.",
     "relink": {
-      "open": "Change projects' root…",
-      "title": "Change projects' root",
-      "hint": "Move the files first. Only the app's link changes, nothing on disk. Projects keep their relative folder.",
+      "open": "Bulk change projects root",
+      "title": "Bulk change projects root",
+      "hint": "Projects keep their relative folder. If you already moved the files, leave Move files off: only the app's link changes, nothing on disk.",
+      "moveFiles": "Move files from the previous root to the new root",
       "table": "Projects with a folder",
       "project": "Project",
       "root": "Root",
@@ -157,6 +158,8 @@
       "confirmTitle": "Change the root?",
       "confirm_one": "Change the root of {{count}} project to {{path}}? A project whose folder isn't there will show as missing.",
       "confirm_other": "Change the root of {{count}} projects to {{path}}? Projects whose folder isn't there will show as missing.",
+      "confirmMove_one": "Change the root of {{count}} project to {{path}} and move its files there?",
+      "confirmMove_other": "Change the root of {{count}} projects to {{path}} and move their files there?",
       "confirmLabel": "Change root",
       "error": "Couldn't change the root. You may not be allowed to edit that folder.",
       "moved_one": "{{count}} project changed.",
@@ -171,7 +174,11 @@
         "same_root": "It's already in that root.",
         "folder_in_use": "Another project already uses that folder.",
         "used_by": "{{project}} already uses that folder.",
-        "scan_failed": "Its folder couldn't be read, so nothing changed."
+        "scan_failed": "Its folder couldn't be read, so nothing changed.",
+        "move_unavailable": "Files on a device can't be moved from here. Move them yourself, then change the root with Move files off.",
+        "folder_exists": "A file with the same name is already in the new folder, so nothing moved.",
+        "invalid_folder": "The new folder is inside the current one, so nothing moved.",
+        "move_failed": "Moving the files failed. Some may already be in the new folder, so check both."
       }
     }
   },

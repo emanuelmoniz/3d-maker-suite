@@ -135,8 +135,8 @@ test("change projects' root: moves the selection, reports a conflict, touches no
   renameSync(join(from, "One"), join(to, "One"));
 
   await page.goto("/projects/settings");
-  await page.getByRole("button", { name: "Change projects' root…" }).click();
-  const dialog = page.getByRole("dialog", { name: "Change projects' root" });
+  await page.getByRole("button", { name: "Bulk change projects root" }).click();
+  const dialog = page.getByRole("dialog", { name: "Bulk change projects root" });
   const row = (name: string) => dialog.getByRole("row").filter({ hasText: name });
   await expect(row("001-One")).toContainText("Missing");
 
@@ -174,6 +174,36 @@ test("change projects' root: moves the selection, reports a conflict, touches no
   expect(await hasHorizontalScroll(page)).toBe(false);
   await page.keyboard.press("Escape");
   await expect(dialog).toHaveCount(0);
+});
+
+test("bulk change projects root: Move files takes the files to the new root", async ({
+  page,
+  app,
+}) => {
+  const from = join(app.dataDir, "old");
+  const to = join(app.dataDir, "new");
+  mkdirSync(join(from, "sub", "Part"), { recursive: true });
+  mkdirSync(to);
+  writeFileSync(join(from, "sub", "Part", "part.stl"), "solid");
+  await addRoots(app.api, from, to);
+  await app.api("POST", "/api/projects", { name: "Part", folderPath: join(from, "sub", "Part") });
+
+  await page.goto("/projects/settings");
+  await page.getByRole("button", { name: "Bulk change projects root" }).click();
+  const dialog = page.getByRole("dialog", { name: "Bulk change projects root" });
+  await dialog.getByRole("checkbox", { name: "Select 001-Part" }).check();
+  await dialog.getByRole("combobox", { name: "New root" }).selectOption({ label: to });
+  await dialog.getByRole("checkbox", { name: "Move files" }).check();
+  await dialog.getByRole("button", { name: "Change root of 1 project" }).click();
+  await expect(page.getByText("and move its files there?")).toBeVisible();
+  await page.getByRole("button", { name: "Change root", exact: true }).click();
+
+  await expect(dialog.getByRole("status").first()).toContainText("1 project changed.");
+  const row = dialog.getByRole("row").filter({ hasText: "001-Part" });
+  await expect(row).toContainText(to);
+  await expect(row).toContainText("OK");
+  expect(existsSync(join(to, "sub", "Part", "part.stl"))).toBe(true);
+  expect(existsSync(join(from, "sub", "Part"))).toBe(false);
 });
 
 test("folder picker on the edit page: New folder stays in the dialog and creates it", async ({

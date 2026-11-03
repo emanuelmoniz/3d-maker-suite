@@ -1,5 +1,5 @@
 import { createReadStream } from "node:fs";
-import { cp, readdir, readFile, rename, rm, rmdir, stat } from "node:fs/promises";
+import { cp, mkdir, readdir, readFile, rename, rm, rmdir, stat } from "node:fs/promises";
 import { basename, extname, isAbsolute, join, posix, relative } from "node:path";
 import { read3mfEntry, read3mfPaint } from "@3d-maker-suite/3mf";
 import {
@@ -556,9 +556,11 @@ export const projectsRoutes =
       },
     );
 
-    // Points projects at another root, same relative folder; the user moved the files. Nothing on
-    // disk changes and the project keeps what it knows. One that can't move is skipped and reported.
-    // ponytail: one at a time inside the request, so a huge batch is slow; a job if that matters.
+    // Points projects at another root, same relative folder, and the project keeps what it knows.
+    // Nothing on disk changes (the user moved the files) unless `move` takes the files along. One
+    // that can't change is skipped and reported.
+    // ponytail: one at a time inside the request, so a huge batch (or a copy to another volume) is
+    // slow; a job if that matters.
     app.post(
       "/relink",
       {
@@ -607,33 +609,77 @@ export const projectsRoutes =
             skip("folder_in_use", seen ? get(holder.id) : undefined);
             continue;
           }
+          // A device's files can't be moved from here.
+          if (req.body.move && (onDevice(root) || onDeviceRoot(db, p.rootId))) {
+            skip("move_unavailable");
+            continue;
+          }
           const { folderState } = await detail(id, req.user);
-          scanner.claim({ root, rel: p.folder });
           const point = (to: Partial<Row>) =>
             db.update(projects).set(to).where(eq(projects.id, id)).run();
-          point({
-            rootId: root.id,
-            ...(deviceUser && { ownerId: deviceUser }),
-            // A folder still there would come back as a new project: scans skip it, as with "keep".
-            ...(folderState !== "missing" && {
-              unlinkedRootId: p.rootId,
-              unlinkedFolder: p.folder,
-            }),
-          });
+          const restore = () =>
+            point({
+              rootId: p.rootId,
+              ownerId: p.ownerId,
+              unlinkedRootId: p.unlinkedRootId,
+              unlinkedFolder: p.unlinkedFolder,
+            });
+          // A folder already gone has nothing to move: the project only changes root.
+          const own = req.body.move ? await projectDir(db, p) : null;
+          let wanted: string | null = null;
+          let made = false;
+          try {
+            if (own) {
+              const base = await rootFs(db, root).local("");
+              if (!base) throw new HttpError(404, "path_not_found", "Root not found");
+              wanted = join(base, ...p.folder.split("/"));
+              // Into itself would lose or loop files.
+              const inside = relative(own.dir, wanted);
+              if (inside === "" || (!inside.startsWith("..") && !isAbsolute(inside)))
+                throw new HttpError(
+                  400,
+                  "invalid_folder",
+                  "The new folder is inside the current one",
+                );
+              made = !(await stat(wanted).catch(() => null));
+              await mkdir(wanted, { recursive: true });
+            }
+            scanner.claim({ root, rel: p.folder });
+            point({
+              rootId: root.id,
+              ...(deviceUser && { ownerId: deviceUser }),
+              // A folder still there would come back as a new project: scans skip it, as with
+              // "keep". Files being moved count too: a scan may run during a long copy.
+              ...(folderState !== "missing" && {
+                unlinkedRootId: p.rootId,
+                unlinkedFolder: p.folder,
+              }),
+            });
+            if (own && wanted) {
+              await moveContents(own.dir, wanted);
+              point({ unlinkedRootId: null, unlinkedFolder: null });
+            }
+          } catch (e) {
+            restore();
+            if (made && wanted) await rmdir(wanted).catch(() => {});
+            req.log.warn({ err: e, projectId: id }, "project relink failed");
+            const known =
+              e instanceof HttpError && (e.code === "folder_exists" || e.code === "invalid_folder");
+            skip(known ? (e.code as "folder_exists" | "invalid_folder") : "move_failed");
+            continue;
+          }
           try {
             await scanner.refresh({ rootId: root.id, folder: p.folder });
           } catch (e) {
             // 404: the folder isn't at the new root (yet), so the project reads "missing".
             if (!(e instanceof HttpError && e.statusCode === 404)) {
               req.log.warn({ err: e, projectId: id }, "project relink failed");
-              point({
-                rootId: p.rootId,
-                ownerId: p.ownerId,
-                unlinkedRootId: p.unlinkedRootId,
-                unlinkedFolder: p.unlinkedFolder,
-              });
-              skip("scan_failed");
-              continue;
+              // Moved files stay moved, so the project stays with them: a later scan reads them.
+              if (!own) {
+                restore();
+                skip("scan_failed");
+                continue;
+              }
             }
           }
           result.moved.push({ id, folderState: (await detail(id, req.user)).folderState });

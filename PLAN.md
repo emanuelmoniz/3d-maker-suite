@@ -1489,7 +1489,7 @@ Back up the DB before editing schema.ts.
 ## Phase 21 - Project folders
 
 Design:
-- Changing a project's root only changes the database: same relative folder, new root. Files are moved by the user first. Nothing on disk is touched.
+- Changing a project's root keeps the same relative folder. By default it only changes the database: files are moved by the user first and nothing on disk is touched. With "Move files" on, the app moves them from the previous root to the new one (both on the hub).
 - A project whose folder isn't at the new root shows as missing, as it does today.
 
 ### [x] Step 5 - Import review: bulk folder change
@@ -1514,30 +1514,17 @@ Do Step 5 of the 5.2.0 plan in PLAN.md.
 Do Step 6 of the 5.2.0 plan in PLAN.md. Show me the dialog and the API first.
 ```
 
-### [ ] Step 7 - Review project folders after a restore
+### [ ] Step 7 - Docs, push & v5.2.0-alpha.1
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
-- A restore replaces the database, roots included, at the next start, so the review comes after it. The restore dialog gets a "Review project folders after restore" checkbox.
-- The choice survives the restart with the staged restore. On the next start the admin is sent to the Step 6 table, where they add the new roots and change folders. Nothing changes until they confirm; they can skip it.
-- Roots report their real state in that table: a root from the old machine today always says `ok` (`roots.ts`).
-
-**Done when:** a backup from another machine restores, opens the review, and the projects end up on the new roots; restoring without the option works as before; e2e; `pnpm i18n:check` and tests pass.
-**Prompt:**
-```
-Do Step 7 of the 5.2.0 plan in PLAN.md.
-```
-
-### [ ] Step 8 - Docs, push & v5.2.0-alpha.1
-**Model:** Sonnet · **Effort:** Medium
-**Scope:**
-- Docs: moving to a new machine (backup, move the files, restore, review folders), changing a connector's user, material cost in stats.
+- Docs: moving to a new machine (backup, move the files, restore, bulk change projects root), changing a connector's user, material cost in stats.
 - CHANGELOG, version `5.2.0-alpha.1`.
 - Commit, push `dev`, tag on `dev`. Check the run and the pre-release.
 
 **Done when:** tags pushed; workflow green; docs match the app.
 **Prompt:**
 ```
-Do Step 8 of the 5.2.0 plan in PLAN.md. Then push dev, push the tag and confirm the pre-release is published.
+Do Step 7 of the 5.2.0 plan in PLAN.md. Then push dev, push the tag and confirm the pre-release is published.
 ```
 
 ## Phase 22 - Archive and delete everywhere
@@ -1566,7 +1553,7 @@ Design:
 - **Permissions:** single-row actions keep today's level. Bulk needs `manage` on the item's module (printers, maintenance, filament, projects, prints, costs). Project bulk also checks per-project access: projects the user can't edit are skipped and reported.
 - **Partial bulk:** free rows go through; a result dialog lists the blocked ones and what uses each, with links.
 
-### [ ] Step 9 - ADR-0018 archive, delete and bulk actions  **[plan mode]**
+### [ ] Step 8 - ADR-0018 archive, delete and bulk actions  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:** `docs/adr/0018-archive-delete-bulk.md`: the design above, checked against every foreign key in `schema.ts`, plus:
 - the `in_use` error shape, and what changes for today's callers (`DELETE` on a printer, accessory or spool archives or doesn't exist today; deleting an order or quote unlinks today)
@@ -1578,10 +1565,10 @@ Design:
 **Done when:** the ADR is approved; every entity and foreign key is mapped.
 **Prompt:**
 ```
-Do Step 9 of the 5.2.0 plan in PLAN.md. Show me the dependency table checked against the schema first.
+Do Step 8 of the 5.2.0 plan in PLAN.md. Show me the dependency table checked against the schema first.
 ```
 
-### [ ] Step 10 - Archive on every entity: schema and server  **[plan mode]**
+### [ ] Step 9 - Archive on every entity: schema and server  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:**
 - Migration: `archivedAt` for printer brands, printer models, filament brands, filament materials, prints, orders, quotes, clients.
@@ -1591,11 +1578,11 @@ Do Step 9 of the 5.2.0 plan in PLAN.md. Show me the dependency table checked aga
 **Done when:** each entity archives and restores; pickers and lists hide them; stats don't change on archive (test); the migration applies on a copy of the real DB; tests pass.
 **Prompt:**
 ```
-Do Step 10 of the 5.2.0 plan in PLAN.md. Show me the schema and the migration first.
+Do Step 9 of the 5.2.0 plan in PLAN.md. Show me the schema and the migration first.
 Back up the DB before editing schema.ts.
 ```
 
-### [ ] Step 11 - Real delete with the dependents check
+### [ ] Step 10 - Real delete with the dependents check
 **Model:** Opus · **Effort:** Medium
 **Scope:**
 - One helper per ADR-0018's table: which items use this one, with names and archived state. Every `DELETE` route uses it and returns the `in_use` 409.
@@ -1605,10 +1592,10 @@ Back up the DB before editing schema.ts.
 **Done when:** each entity deletes when free and refuses with named dependents when not, archived ones included (table-driven test); tests pass.
 **Prompt:**
 ```
-Do Step 11 of the 5.2.0 plan in PLAN.md.
+Do Step 10 of the 5.2.0 plan in PLAN.md.
 ```
 
-### [ ] Step 12 - Archive, restore and delete on every page
+### [ ] Step 11 - Archive, restore and delete on every page
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - Each of the 15 lists and detail pages: Archive or Restore, Delete, and a "Show archived" filter. Printers, accessories and others that say Delete but archive today are relabelled.
@@ -1617,23 +1604,23 @@ Do Step 11 of the 5.2.0 plan in PLAN.md.
 **Done when:** all 15 work from their pages; a blocked delete names its dependents; e2e for one entity per module; keyboard and mobile work; `pnpm i18n:check` and tests pass.
 **Prompt:**
 ```
-Do Step 12 of the 5.2.0 plan in PLAN.md.
+Do Step 11 of the 5.2.0 plan in PLAN.md.
 ```
 
-### [ ] Step 13 - Bulk archive and delete  **[plan mode]**
+### [ ] Step 12 - Bulk archive and delete  **[plan mode]**
 **Model:** Opus · **Effort:** Medium
 **Scope:**
 - `DataTable` gets optional row selection (checkbox per row, select all on the page, keyboard, a bar with the count and actions). `ReviewTable` and `ProjectFiles` have their own, leave those.
-- Server: one bulk route per entity, or one shared route, each row going through the same archive and delete code as Steps 10 and 11. A cap on ids per request. Module `manage` in the rules in `lib/auth.ts`; project access per row.
+- Server: one bulk route per entity, or one shared route, each row going through the same archive and delete code as Steps 9 and 10. A cap on ids per request. Module `manage` in the rules in `lib/auth.ts`; project access per row.
 - Web: selection only shows with `manage`. Confirm with the count; a result dialog with done and blocked rows.
 
 **Done when:** all 15 lists bulk archive, restore and delete; partial results are reported; a `write` user sees no selection and the API refuses them; e2e; `pnpm i18n:check` and tests pass.
 **Prompt:**
 ```
-Do Step 13 of the 5.2.0 plan in PLAN.md. Show me the API and the selection bar first.
+Do Step 12 of the 5.2.0 plan in PLAN.md. Show me the API and the selection bar first.
 ```
 
-### [ ] Step 14 - Docs, push & v5.2.0-alpha.2
+### [ ] Step 13 - Docs, push & v5.2.0-alpha.2
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - Docs: archive vs delete, what blocks a delete, bulk actions and who can use them.
@@ -1643,17 +1630,17 @@ Do Step 13 of the 5.2.0 plan in PLAN.md. Show me the API and the selection bar f
 **Done when:** tags pushed; workflow green; docs match the app.
 **Prompt:**
 ```
-Do Step 14 of the 5.2.0 plan in PLAN.md. Only document what changed since 5.2.0-alpha.1.
+Do Step 13 of the 5.2.0 plan in PLAN.md. Only document what changed since 5.2.0-alpha.1.
 Then push dev, push the tag and confirm the pre-release is published.
 ```
 
 ## Phase 23 - Release
 
-### [ ] Step 15 - Real test: new machine, connector user, archive and delete
+### [ ] Step 14 - Real test: new machine, connector user, archive and delete
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - Upgrade a copy of a real 5.1.0 DB.
-- Move a NAS install to a VPS: backup, move files, restore with review, change roots, projects open and slice.
+- Move a NAS install to a VPS: backup, move files, restore, bulk change projects root, projects open and slice.
 - A connector's user changed with both owner choices; a wrong code refused.
 - An integration failing, then syncing again.
 - Archive, restore, delete and bulk on each module with real data, as an admin, a `manage` user and a `write` user; a sync after archiving and deleting imported rows.
@@ -1662,10 +1649,10 @@ Fix anything found and note it in the CHANGELOG (alpha.3 if needed).
 **Done when:** every scenario worked; fixes released.
 **Prompt:**
 ```
-Do Step 15 of the 5.2.0 plan in PLAN.md. Guide me through each scenario, then fix what we find.
+Do Step 14 of the 5.2.0 plan in PLAN.md. Guide me through each scenario, then fix what we find.
 ```
 
-### [ ] Step 16 - Docs, push & v5.2.0 release
+### [ ] Step 15 - Docs, push & v5.2.0 release
 **Model:** Haiku · **Effort:** Low
 **Scope:**
 - `pnpm screenshots` if a README page changed, README, CHANGELOG, version `5.2.0`.
@@ -1674,7 +1661,7 @@ Do Step 15 of the 5.2.0 plan in PLAN.md. Guide me through each scenario, then fi
 **Done when:** `main`, `dev` and the tag are pushed; the workflow is green; updating 5.1.0 to 5.2.0 keeps all data.
 **Prompt:**
 ```
-Do Step 16 of the 5.2.0 plan in PLAN.md. Only document what changed since the last 5.2.0 pre-release.
+Do Step 15 of the 5.2.0 plan in PLAN.md. Only document what changed since the last 5.2.0 pre-release.
 Then fast-forward main to dev, push, push the v5.2.0 tag and confirm the release.
 ```
 

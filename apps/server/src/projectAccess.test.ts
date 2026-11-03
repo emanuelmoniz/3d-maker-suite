@@ -435,10 +435,16 @@ describe("project access over HTTP", () => {
         .get();
       const p = project(db, 1, "Box", root.id, admin.id);
 
-      const res = await (await as(admin))("POST", "/api/projects/relink", {
+      const asAdmin = await as(admin);
+      // A device's files can't be moved from the hub.
+      const moving = await asAdmin("POST", "/api/projects/relink", {
         ids: [p.id],
         rootId: to.id,
+        move: true,
       });
+      expect(moving.json().skipped).toEqual([{ id: p.id, code: "move_unavailable" }]);
+
+      const res = await asAdmin("POST", "/api/projects/relink", { ids: [p.id], rootId: to.id });
       expect(res.json().moved).toEqual([{ id: p.id, folderState: "offline" }]);
       const stored = db.select().from(schema.projects).where(eq(schema.projects.id, p.id)).get();
       expect(stored).toMatchObject({ rootId: to.id, folder: "Box", ownerId: owner.id });

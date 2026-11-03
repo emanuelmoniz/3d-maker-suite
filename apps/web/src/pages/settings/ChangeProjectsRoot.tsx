@@ -17,6 +17,10 @@ const SKIPS = {
   same_root: "settings:projects.relink.skips.same_root",
   folder_in_use: "settings:projects.relink.skips.folder_in_use",
   scan_failed: "settings:projects.relink.skips.scan_failed",
+  move_unavailable: "settings:projects.relink.skips.move_unavailable",
+  folder_exists: "settings:projects.relink.skips.folder_exists",
+  invalid_folder: "settings:projects.relink.skips.invalid_folder",
+  move_failed: "settings:projects.relink.skips.move_failed",
 } as const;
 
 /** What the last change did: how many moved, and each skipped project with its reason. */
@@ -67,6 +71,7 @@ function RelinkForm({ onClose }: { onClose: () => void }) {
   const [query, setQuery] = useState<ListQuery>({});
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [rootId, setRootId] = useState("");
+  const [move, setMove] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const rootLabel = (id: string | null) => {
     const r = roots.find((x) => x.id === id);
@@ -190,6 +195,10 @@ function RelinkForm({ onClose }: { onClose: () => void }) {
             ))}
         </select>
       </label>
+      <label className="flex items-center gap-2">
+        <input type="checkbox" checked={move} onChange={(e) => setMove(e.target.checked)} />
+        {t("settings:projects.relink.moveFiles")}
+      </label>
       {relink.isError && (
         <p role="alert" className="text-bad">
           {t("settings:projects.relink.error")}
@@ -208,16 +217,19 @@ function RelinkForm({ onClose }: { onClose: () => void }) {
       <ConfirmDialog
         open={confirming}
         title={t("settings:projects.relink.confirmTitle")}
-        description={t("settings:projects.relink.confirm", {
-          count: selected.size,
-          path: rootLabel(rootId),
-        })}
+        description={t(
+          move ? "settings:projects.relink.confirmMove" : "settings:projects.relink.confirm",
+          {
+            count: selected.size,
+            path: rootLabel(rootId),
+          },
+        )}
         confirmLabel={t("settings:projects.relink.confirmLabel")}
         onCancel={() => setConfirming(false)}
         onConfirm={() => {
           setConfirming(false);
           relink.mutate(
-            { ids: [...selected], rootId },
+            { ids: [...selected], rootId, move },
             { onSuccess: () => setSelected(new Set()) },
           );
         }}
@@ -227,8 +239,8 @@ function RelinkForm({ onClose }: { onClose: () => void }) {
 }
 
 /**
- * Changes the root of many projects after their files were moved: same relative folders, nothing on
- * disk changes.
+ * Changes the root of many projects: same relative folders. The files stay where they are, unless
+ * "Move files" takes them along.
  */
 export function ChangeProjectsRoot() {
   const { t } = useTranslation();

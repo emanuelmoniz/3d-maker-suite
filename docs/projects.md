@@ -84,10 +84,10 @@ The app does not rename folders. Renaming a project's **files** (in the app or o
 
 ## Moving projects to another root
 
-To move many projects (a new disk, NAS or machine), move the files yourself first and add the new folder as a root. Then use Settings → Projects → **Change projects' root…**: filter and select the projects, pick the new root and confirm.
+To move many projects (a new disk, NAS or machine), add the new folder as a root. Then use Settings → Projects → **Bulk change projects root**: filter and select the projects, pick the new root and confirm. Each project keeps its relative folder (`/volume1/projects/a/012_vase` → `/mnt/nas/projects/a/012_vase`), its files, plates and slices.
 
-- Only the app's link changes, nothing on disk. Each project keeps its relative folder (`/volume1/projects/a/012_vase` → `/mnt/nas/projects/a/012_vase`), its files, plates and slices.
-- A project whose folder isn't at the new root yet shows as missing until the folder is there.
+- **Move files** off (the default) is for files you already moved: only the app's link changes, nothing on disk. A project whose folder isn't at the new root yet shows as missing until the folder is there.
+- **Move files** on moves each project's files from the old folder to the new one. It works when both roots are on this server; a project on a device is skipped, so move those files yourself. If a file with the same name is already in the new folder, nothing of that project moves. Folders above the project folder (`a` above) stay behind, empty. Connectors syncing these roots see the files as removed from the old root and new in the new one.
 - A project whose target folder another project already uses is skipped and reported, and the others go through. This happens when a scan of the new root already made a project of that folder: unlink that project's folder and keep it, delete that project, then try again.
 - If the old folder is still there, scans skip it, so it doesn't come back as a new project.
 - A hub file's version history stays with the old root, and is deleted when you remove that root.

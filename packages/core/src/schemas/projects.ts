@@ -215,8 +215,15 @@ export const projectFolderRowSchema = projectDetailSchema.pick({
   canEdit: true,
 });
 
-/** Same relative folder, new root; nothing on disk changes. */
-export const projectRelinkSchema = z.object({ ids: z.array(id).min(1), rootId: id });
+/**
+ * Same relative folder, new root. Nothing on disk changes unless `move`: the files go from the old
+ * folder to the new one (both on the hub).
+ */
+export const projectRelinkSchema = z.object({
+  ids: z.array(id).min(1),
+  rootId: id,
+  move: z.boolean().optional(),
+});
 
 export const PROJECT_RELINK_SKIPS = [
   "not_found",
@@ -225,6 +232,10 @@ export const PROJECT_RELINK_SKIPS = [
   "same_root",
   "folder_in_use",
   "scan_failed",
+  "move_unavailable",
+  "folder_exists",
+  "invalid_folder",
+  "move_failed",
 ] as const;
 
 /** `usedBy`: who holds the folder, when the caller may see that project. */

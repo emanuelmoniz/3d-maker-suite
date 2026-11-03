@@ -764,6 +764,100 @@ describe("changing the root of many projects", () => {
     await idle();
   });
 
+  describe("with move", () => {
+    const move = (ids: string[], rootId: string) =>
+      app.inject({
+        method: "POST",
+        url: "/api/projects/relink",
+        payload: { ids, rootId, move: true },
+      });
+
+    it("takes the files along, keeps plates, leaves no twin", async () => {
+      const to = await twoRoots();
+      await put("a/012_vase/vase.stl", "solid");
+      await put("a/012_vase/images/cover.png", "png");
+      await scan();
+      const vase = await byName("vase");
+      db.insert(schema.projectSlicePlates)
+        .values({
+          projectId: vase.id,
+          file: "vase.stl",
+          plate: 1,
+          fileSize: 1,
+          fileMtimeMs: 1,
+          fileSha256: "x",
+        })
+        .run();
+
+      expect((await move([vase.id], to)).json()).toEqual({
+        moved: [{ id: vase.id, folderState: "ok" }],
+        skipped: [],
+      });
+      await idle();
+      await scan();
+
+      const moved = join(target(), "a", "012_vase");
+      expect((await stat(join(moved, "vase.stl"))).isFile()).toBe(true);
+      expect((await stat(join(moved, "images", "cover.png"))).isFile()).toBe(true);
+      await expect(stat(join(root(), "a", "012_vase"))).rejects.toThrow();
+      expect(await detail(vase.id)).toMatchObject({
+        rootId: to,
+        folder: "a/012_vase",
+        folderState: "ok",
+        unlinkedFolder: null,
+      });
+      expect(db.select().from(schema.projectSlicePlates).all()).toHaveLength(1);
+      expect(await list()).toHaveLength(1);
+    });
+
+    it("a name clash in the new folder moves nothing; the others go through", async () => {
+      const to = await twoRoots();
+      await put("Clash/same.stl", "old");
+      await put("Clash/other.stl", "old");
+      await put("Free/free.stl", "solid");
+      await scan();
+      const clash = await byName("Clash");
+      const free = await byName("Free");
+      await mkdir(join(target(), "Clash"));
+      await writeFile(join(target(), "Clash", "same.stl"), "new");
+
+      expect((await move([clash.id, free.id], to)).json()).toEqual({
+        moved: [{ id: free.id, folderState: "ok" }],
+        skipped: [{ id: clash.id, code: "folder_exists" }],
+      });
+      await idle();
+      expect(await detail(clash.id)).toMatchObject({ rootId: clash.rootId, unlinkedFolder: null });
+      expect((await stat(join(root(), "Clash", "other.stl"))).isFile()).toBe(true);
+      await expect(stat(join(target(), "Clash", "other.stl"))).rejects.toThrow();
+    });
+
+    it("refuses a new root inside the project's folder, and leaves nothing behind", async () => {
+      await put("Box/box.stl", "solid");
+      await mkdir(join(root(), "Box", "inner"));
+      const [, inner] = await setAllRoots(app, root(), join(root(), "Box", "inner"));
+      await scan();
+      const box = await byName("Box");
+      expect((await move([box.id], inner?.id ?? "")).json().skipped).toEqual([
+        { id: box.id, code: "invalid_folder" },
+      ]);
+      expect((await detail(box.id)).rootId).toBe(box.rootId);
+      await expect(stat(join(root(), "Box", "inner", "Box"))).rejects.toThrow();
+    });
+
+    it("a folder already gone only changes the root", async () => {
+      const to = await twoRoots();
+      await put("Gone/g.stl", "solid");
+      await scan();
+      const gone = await byName("Gone");
+      await rm(join(root(), "Gone"), { recursive: true });
+      expect((await move([gone.id], to)).json().moved).toEqual([
+        { id: gone.id, folderState: "missing" },
+      ]);
+      await idle();
+      await expect(stat(join(target(), "Gone"))).rejects.toThrow();
+    });
+  });
+
   it("an unknown root is a 404, and an empty selection a 400", async () => {
     const to = await twoRoots();
     const unknown = "00000000-0000-4000-8000-000000000000";
