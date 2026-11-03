@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { id, isoDate } from "./entities.ts";
 import { ORIGINS, PROJECT_EDITABLE_FIELDS, PROJECT_FILE_KINDS } from "./enums.ts";
-import { type ColumnFilter, listQuery } from "./list.ts";
+import { archivedFilter, type ColumnFilter, listQuery } from "./list.ts";
 import { PROJECT_SLICING } from "./projectSlicing.ts";
 
 const nullableText = z.string().nullable();
@@ -264,6 +264,8 @@ export const projectPatchSchema = z
     slicerIntegrationId: projectSchema.shape.slicerIntegrationId,
     /** Admins only, and not in a device root (its device's user owns it); null: nobody. */
     ownerId: id.nullable(),
+    /** Archives or restores; not a scanned field, so not tracked in `editedFields`. */
+    archived: z.boolean(),
   })
   .partial()
   .strict();
@@ -300,7 +302,11 @@ export const projectFilters = {
   /** See `PROJECT_SLICING`. The file check here is by size only; the project page hashes. */
   slicing: { kind: "select", options: PROJECT_SLICING },
 } as const satisfies Record<string, ColumnFilter>;
-export const projectListQuery = listQuery(projectSortFields, {}, projectFilters);
+export const projectListQuery = listQuery(
+  projectSortFields,
+  { archived: archivedFilter },
+  projectFilters,
+);
 
 export const projectScanStatusSchema = z.object({
   state: z.enum(["idle", "running"]),

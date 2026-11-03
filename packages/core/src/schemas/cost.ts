@@ -64,6 +64,7 @@ export const quoteSchema = z.object({
   form: z.record(z.string(), z.json()),
   cost: costBreakdownSchema,
   quote: quoteBreakdownSchema,
+  archivedAt: isoDate.nullable(),
   createdAt: isoDate,
   updatedAt: isoDate,
 });
@@ -82,7 +83,10 @@ export const quoteInputSchema = z.object({
   cost: costBreakdownSchema,
   quote: quoteBreakdownSchema,
 });
-export const quotePatchSchema = quoteInputSchema.partial().strict();
+export const quotePatchSchema = quoteInputSchema
+  .partial()
+  .extend({ archived: z.boolean().optional() })
+  .strict();
 
 export const quoteSortFields = [
   "name",

@@ -28,15 +28,21 @@ export const filamentProfileInputSchema = filamentProfileSchema
     nozzleTempC: true,
     bedTempC: true,
   });
-// Filament brands and materials. Fields the user edits; `PATCH` takes any subset.
+// Filament brands and materials. Fields the user edits; `PATCH` takes any subset, plus `archived`.
 export const filamentBrandInputSchema = filamentBrandSchema
   .pick({ name: true, url: true })
   .partial({ url: true });
-export const filamentBrandPatchSchema = filamentBrandInputSchema.partial().strict();
+export const filamentBrandPatchSchema = filamentBrandInputSchema
+  .partial()
+  .extend({ archived: z.boolean().optional() })
+  .strict();
 export const filamentMaterialInputSchema = filamentMaterialSchema
   .pick({ name: true, nozzleTempC: true, bedTempC: true, densityGcm3: true })
   .partial({ nozzleTempC: true, bedTempC: true, densityGcm3: true });
-export const filamentMaterialPatchSchema = filamentMaterialInputSchema.partial().strict();
+export const filamentMaterialPatchSchema = filamentMaterialInputSchema
+  .partial()
+  .extend({ archived: z.boolean().optional() })
+  .strict();
 export const filamentBrandSortFields = ["name", "createdAt"] as const;
 export const filamentMaterialSortFields = ["name", "createdAt"] as const;
 export const filamentCatalogFilters = { name: { kind: "text" } } as const satisfies Record<

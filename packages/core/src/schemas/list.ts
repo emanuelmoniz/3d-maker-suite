@@ -30,6 +30,9 @@ const listOf = (item: z.ZodType<string, string>) =>
 /** Comma-separated ids in the query string: `?printerId=a,b` -> ["a", "b"]. */
 export const idList = listOf(z.string());
 
+/** Lists leave archived rows out: `true` lists only those, `all` both (to name what a row points at). */
+export const archivedFilter = z.enum(["true", "false", "all"]).default("false");
+
 /** A per-column filter. The same declaration builds the API query schema and the table's filter UI. */
 export type ColumnFilter =
   | { kind: "text" } // ?title=benchy -> contains, case-insensitive

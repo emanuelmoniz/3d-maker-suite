@@ -9,8 +9,9 @@ import { FormField, inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { PickerWithAdd } from "../../components/PickerWithAdd.tsx";
 import { ApiError } from "../../lib/api.ts";
-import { useClients } from "../../lib/clients.ts";
+import { useClient, useClients } from "../../lib/clients.ts";
 import { quoteName, useQuote, useQuotes } from "../../lib/cost.ts";
+import { withOwn } from "../../lib/list.ts";
 import { useOrder, useOrderStatusLabel, useSaveOrder } from "../../lib/orders.ts";
 import { usePreferences } from "../../lib/preferences.ts";
 import { projectName, useProjects } from "../../lib/projects.ts";
@@ -24,9 +25,14 @@ function OrderForm({ order, quote }: { order?: OrderDetail; quote?: Quote }) {
   const statusLabel = useOrderStatusLabel();
   const statuses = usePreferences().data?.values.orderStatuses ?? [];
   // ponytail: first 100 clients and quotes in the pickers, as QuotesTable.
-  const clients = useClients({ pageSize: "100" }).data?.items ?? [];
-  const listed = useQuotes({ pageSize: "100" }).data?.items ?? [];
-  const quotes = quote && !listed.some((q) => q.id === quote.id) ? [quote, ...listed] : listed;
+  const clients = withOwn(
+    useClients({ pageSize: "100" }).data?.items ?? [],
+    useClient(order?.clientId ?? "").data,
+  );
+  const quotes = withOwn(
+    withOwn(useQuotes({ pageSize: "100" }).data?.items ?? [], quote),
+    useQuote(order?.quoteId ?? undefined).data,
+  );
   const projects = useProjects().data?.items ?? [];
   const [clientId, setClientId] = useState(order?.clientId ?? quote?.clientId ?? "");
   const [quoteId, setQuoteId] = useState(order?.quoteId ?? quote?.id ?? "");

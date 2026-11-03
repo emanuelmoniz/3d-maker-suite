@@ -1,5 +1,6 @@
 import {
   apiErrorSchema,
+  archivedFilter,
   type FilamentReviewItem,
   filamentReviewFilters,
   filamentReviewItemSchema,
@@ -22,6 +23,7 @@ import { and, count, eq, inArray, isNull, sql } from "drizzle-orm";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
+import { archivedAtOf, archivedWhere, canReference } from "../lib/archive.ts";
 import { projectVisible } from "../lib/auth.ts";
 import { printLabel } from "../lib/catalog.ts";
 import { printCosts } from "../lib/cost.ts";
@@ -89,24 +91,25 @@ export const printsRoutes =
         machineProfileId?: string | null;
         failureReason?: string | null;
       },
-      was?: string | null,
+      /** The print as it is: what it already points at stays allowed, even if archived since. */
+      cur?: PrintDetail,
     ) => {
       if (b.orderId && !b.projectId)
         throw new HttpError(400, "print_project_required", "A print in an order needs a project");
-      if (b.printerId && !db.select().from(printers).where(eq(printers.id, b.printerId)).get())
+      if (b.printerId && !canReference(db, printers, b.printerId, cur?.printerId))
         throw new HttpError(400, "invalid_printer", "Printer not found");
-      if (b.projectId && !db.select().from(projects).where(eq(projects.id, b.projectId)).get())
+      if (b.projectId && !canReference(db, projects, b.projectId, cur?.projectId))
         throw new HttpError(400, "invalid_project", "Project not found");
-      if (b.orderId && !db.select().from(orders).where(eq(orders.id, b.orderId)).get())
+      if (b.orderId && !canReference(db, orders, b.orderId, cur?.orderId))
         throw new HttpError(400, "invalid_order", "Order not found");
       if (
         b.machineProfileId &&
-        !db.select().from(machineProfiles).where(eq(machineProfiles.id, b.machineProfileId)).get()
+        !canReference(db, machineProfiles, b.machineProfileId, cur?.machineProfileId)
       )
         throw new HttpError(400, "invalid_machine_profile", "Machine profile not found");
       if (
         b.failureReason &&
-        b.failureReason !== was &&
+        b.failureReason !== cur?.failureReason &&
         !readPreferences(db).failureReasons.includes(b.failureReason)
       )
         throw new HttpError(
@@ -239,7 +242,7 @@ export const printsRoutes =
       "/",
       {
         schema: {
-          querystring: listQuery(printSortFields, {}, printFilters),
+          querystring: listQuery(printSortFields, { archived: archivedFilter }, printFilters),
           response: { 200: pageOf(printDetailSchema) },
         },
       },
@@ -267,6 +270,7 @@ export const printsRoutes =
             durationSec: prints.durationSec,
           },
           where: [
+            archivedWhere(prints.archivedAt, req.query.archived),
             taggedWith(db, "print", prints.id, req.query.tagId),
             req.query.spoolId &&
               inArray(
@@ -352,8 +356,22 @@ export const printsRoutes =
       },
       async (req) => {
         const cur = detail(req.params.id);
-        const { usages, energyWh, ...fields } = req.body;
-        checkRefs({ ...cur, ...fields }, cur.failureReason);
+        const { usages, energyWh, archived, ...fields } = req.body;
+        // Archiving alone writes nothing else: the estimates below follow today's printer, and
+        // the stats must not move (ADR-0018).
+        if (
+          archived !== undefined &&
+          !usages &&
+          energyWh === undefined &&
+          !Object.keys(fields).length
+        ) {
+          db.update(prints)
+            .set({ archivedAt: archivedAtOf(archived) })
+            .where(eq(prints.id, cur.id))
+            .run();
+          return detail(cur.id);
+        }
+        checkRefs({ ...cur, ...fields }, cur);
         assertNumberFree(db, prints, "print", fields.number, cur.id);
         Object.assign(
           fields,
@@ -368,6 +386,7 @@ export const printsRoutes =
           tx.update(prints)
             .set({
               ...fields,
+              archivedAt: archivedAtOf(archived),
               // A duration someone typed in (or cleared) is real.
               ...(fields.durationEstimated === undefined &&
                 fields.durationSec !== undefined &&

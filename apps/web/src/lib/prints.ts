@@ -24,7 +24,8 @@ export const usePrintsOfProject = (projectId: string) =>
     queryFn: () =>
       api<Page<PrintDetail>>(
         "GET",
-        `/api/prints?pageSize=100&sort=-startedAt&projectId=${projectId}`,
+        // Archived ones too: the project's printed cost still counts them.
+        `/api/prints?pageSize=100&sort=-startedAt&archived=all&projectId=${projectId}`,
       ),
   });
 

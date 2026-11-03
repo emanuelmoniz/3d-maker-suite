@@ -29,15 +29,16 @@ import { api } from "./api.ts";
 // ponytail: one page of 100 projects, add pagination controls if libraries get bigger.
 // Tag and collection filter on the server; material, multicolor and search on the page.
 // Every project, for pickers (page by page, the API's limit); the projects page pages on the server.
-export const useProjects = () =>
+/** Every active project; archived too to name what a row points at. */
+export const useProjects = (withArchived = false) =>
   useQuery({
-    queryKey: ["projects", "list", "all"],
+    queryKey: ["projects", "list", withArchived ? "withArchived" : "all"],
     queryFn: async () => {
       const items: Project[] = [];
       for (let page = 1; ; page++) {
         const p = await api<Page<Project>>(
           "GET",
-          `/api/projects?pageSize=100&sort=-name&page=${page}`,
+          `/api/projects?pageSize=100&sort=-name&page=${page}${withArchived ? "&archived=all" : ""}`,
         );
         items.push(...p.items);
         if (!p.items.length || items.length >= p.total) return { ...p, items };

@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Combobox } from "../../components/Combobox.tsx";
 import { FormField } from "../../components/FormField.tsx";
 import { PickerWithAdd } from "../../components/PickerWithAdd.tsx";
-import { useFilamentBrands, useFilamentMaterials } from "../../lib/catalog.ts";
+import { useCatalogPicker } from "../../lib/catalog.ts";
 import { BrandFields, brandBody, CatalogAddDialog } from "../printers/CatalogForms.tsx";
 import { MaterialFields, materialBody } from "./CatalogForms.tsx";
 
@@ -23,10 +23,8 @@ export function CatalogSelect<K extends Kind>(props: {
   onPick?: (row: Row | undefined) => void;
 }) {
   const { t } = useTranslation();
-  const brands = useFilamentBrands();
-  const materials = useFilamentMaterials();
   const isBrand = props.kind === "filament-brands";
-  const rows: Row[] = (isBrand ? brands.data : materials.data) ?? [];
+  const rows: Row[] = useCatalogPicker<Kind>(props.kind, props.defaultValue);
   const [value, setValue] = useState(props.defaultValue ?? "");
   const [adding, setAdding] = useState(false);
 

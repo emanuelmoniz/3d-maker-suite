@@ -63,12 +63,21 @@ function patchColumns(patch: ImportValues) {
   return set;
 }
 
-const brandNames = (db: Db) => db.select({ name: brands.name }).from(brands).all();
-const modelRows = (db: Db) =>
+// `activeOnly`: what a template offers; a name match still finds an archived row (ADR-0018).
+const brandNames = (db: Db, activeOnly = false) =>
+  db
+    .select({ name: brands.name })
+    .from(brands)
+    .where(activeOnly ? isNull(brands.archivedAt) : undefined)
+    .all();
+const modelRows = (db: Db, activeOnly = false) =>
   db
     .select({ brand: brands.name, model: printerModels.model })
     .from(printerModels)
     .innerJoin(brands, eq(brands.id, printerModels.brandId))
+    .where(
+      activeOnly ? and(isNull(brands.archivedAt), isNull(printerModels.archivedAt)) : undefined,
+    )
     .all();
 
 /** Active printers, or the vendor's printers you archived, in the shape of the import columns. */
@@ -144,10 +153,10 @@ export const printerImport = {
   sourceOnly: true,
 
   refs: (db: Db) => ({
-    brands: brandNames(db)
+    brands: brandNames(db, true)
       .map((b) => b.name)
       .sort(),
-    printerModels: distinct(modelRows(db).map((m) => m.model)).sort(),
+    printerModels: distinct(modelRows(db, true).map((m) => m.model)).sort(),
   }),
 
   /** Brands and models the rows name that aren't there yet. */

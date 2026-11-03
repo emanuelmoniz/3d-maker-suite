@@ -1,4 +1,4 @@
-import type { z } from "zod";
+import { z } from "zod";
 import {
   brandSchema,
   machineProfileSchema,
@@ -19,19 +19,29 @@ export function modelLabel(brand: string | null | undefined, model: string): str
   return lower === b.toLowerCase() || lower.startsWith(`${b.toLowerCase()} `) ? m : `${b} ${m}`;
 }
 
-// Brand -> printer model -> machine profile. Fields the user edits; `PATCH` takes any subset.
+// Brand -> printer model -> machine profile. Fields the user edits; `PATCH` takes any subset, plus
+// `archived` to archive/restore.
 export const brandInputSchema = brandSchema.pick({ name: true, url: true }).partial({ url: true });
-export const brandPatchSchema = brandInputSchema.partial().strict();
+export const brandPatchSchema = brandInputSchema
+  .partial()
+  .extend({ archived: z.boolean().optional() })
+  .strict();
 
 export const printerModelInputSchema = printerModelSchema
   .pick({ brandId: true, model: true, powerW: true })
   .partial({ powerW: true });
-export const printerModelPatchSchema = printerModelInputSchema.partial().strict();
+export const printerModelPatchSchema = printerModelInputSchema
+  .partial()
+  .extend({ archived: z.boolean().optional() })
+  .strict();
 
 export const machineProfileInputSchema = machineProfileSchema
   .pick({ name: true, printerModelId: true, nozzleDiameterMm: true, sourcePreset: true })
   .partial({ nozzleDiameterMm: true, sourcePreset: true });
-export const machineProfilePatchSchema = machineProfileInputSchema.partial().strict();
+export const machineProfilePatchSchema = machineProfileInputSchema
+  .partial()
+  .extend({ archived: z.boolean().optional() })
+  .strict();
 
 export const printProfileInputSchema = printProfileSchema
   .pick({
@@ -47,7 +57,10 @@ export const printProfileInputSchema = printProfileSchema
     layerHeightMm: true,
     sourcePreset: true,
   });
-export const printProfilePatchSchema = printProfileInputSchema.partial().strict();
+export const printProfilePatchSchema = printProfileInputSchema
+  .partial()
+  .extend({ archived: z.boolean().optional() })
+  .strict();
 
 export const brandSortFields = ["name", "createdAt"] as const;
 export const brandFilters = { name: { kind: "text" } } as const satisfies Record<

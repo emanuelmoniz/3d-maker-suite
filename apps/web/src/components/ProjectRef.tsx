@@ -11,7 +11,7 @@ export function ProjectRef({
   className?: string;
 }) {
   const { t } = useTranslation();
-  const projects = useProjects().data?.items;
+  const projects = useProjects(true).data?.items;
   if (!projects) return null;
   const p = projects.find((x) => x.id === id);
   return p ? (

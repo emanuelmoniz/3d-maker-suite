@@ -40,10 +40,16 @@ const activeProfiles = (db: Db) =>
     .from(filamentProfiles)
     .where(isNull(filamentProfiles.archivedAt))
     .all();
-export const names = (db: Db, table: typeof filamentBrands | typeof filamentMaterials) =>
+export const names = (
+  db: Db,
+  table: typeof filamentBrands | typeof filamentMaterials,
+  /** For what a template offers; a name match still finds an archived row (ADR-0018). */
+  activeOnly = false,
+) =>
   db
     .select({ name: table.name })
     .from(table)
+    .where(activeOnly ? isNull(table.archivedAt) : undefined)
     .orderBy(table.name)
     .all()
     .map((r) => r.name);
@@ -127,8 +133,8 @@ export const spoolImport = {
 
   /** The names the template's dropdowns offer. */
   refs: (db: Db) => ({
-    filamentBrands: names(db, filamentBrands),
-    filamentMaterials: names(db, filamentMaterials),
+    filamentBrands: names(db, filamentBrands, true),
+    filamentMaterials: names(db, filamentMaterials, true),
     filamentProfiles: distinct(activeProfiles(db).map((p) => p.name)).sort(),
   }),
 

@@ -31,7 +31,7 @@ export function QuotesTable({
   const [query, setQuery] = useUrlListQuery("quotes.");
   const { data } = useQuotes({ ...query, ...fixed });
   // ponytail: first 100 of each for names and filter options; a search filter if anyone has more.
-  const clients = useClients({ pageSize: "100" }).data?.items ?? [];
+  const clients = useClients({ pageSize: "100", archived: "all" }).data?.items ?? [];
   const projects = useProjects().data?.items ?? [];
   const del = useDeleteQuote();
   const [deleting, setDeleting] = useState<Quote | null>(null);

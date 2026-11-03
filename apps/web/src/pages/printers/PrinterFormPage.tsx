@@ -9,7 +9,7 @@ import { FormField, inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { PickerWithAdd } from "../../components/PickerWithAdd.tsx";
 import { TagPicker } from "../../components/TagPicker.tsx";
-import { isConflict, useModelInfo, usePrintProfiles } from "../../lib/catalog.ts";
+import { isConflict, useCatalogPicker, useModelInfo } from "../../lib/catalog.ts";
 import { dateInputToIso, isoToDateInput } from "../../lib/format.ts";
 import { usePreferences } from "../../lib/preferences.ts";
 import { useCreatePrinter, usePatchPrinter, usePrinter } from "../../lib/printers.ts";
@@ -44,7 +44,7 @@ function PrinterForm({ printer }: { printer?: Printer }) {
   const [modelId, setModelId] = useState(printer?.modelId);
   const [printProfileId, setPrintProfileId] = useState(printer?.printProfileId ?? "");
   const [addProfile, setAddProfile] = useState(false);
-  const printProfiles = usePrintProfiles().data ?? [];
+  const printProfiles = useCatalogPicker("print-profiles", printer?.printProfileId);
   const forModel = (p: PrintProfile) => !!modelId && p.printerModelId === modelId;
 
   const pickModel = (v: string, watts = models.get(v)?.model.powerW) => {

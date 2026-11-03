@@ -93,7 +93,6 @@ export const printerFilters = {
   runtimeSec: { kind: "number" },
   successRate: { kind: "number" },
 } as const satisfies Record<string, ColumnFilter>;
-export const archivedFilter = z.enum(["true", "false"]).default("false");
 
 export type PrinterRow = z.infer<typeof printerRowSchema>;
 export type PrinterInput = z.infer<typeof printerInputSchema>;

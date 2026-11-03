@@ -20,6 +20,7 @@ const print = {
   energySource: "estimated",
   costSnapshot: null,
   sourceUrl: null,
+  archivedAt: null,
   origin: "manual",
   integrationId: null,
   externalId: null,

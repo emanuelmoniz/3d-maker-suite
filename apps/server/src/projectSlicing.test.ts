@@ -52,6 +52,24 @@ const states = async () =>
     .plates.map((p: { state: string }) => p.state);
 
 describe("project slicing setup", () => {
+  it("refuses a new pick that is archived; a plate saved unchanged keeps its own", async () => {
+    const post = async (url: string, payload: object) =>
+      (await app.inject({ method: "POST", url, payload })).json();
+    const archive = (url: string) =>
+      app.inject({ method: "PATCH", url, payload: { archived: true } });
+    const { id: mine } = await post("/api/print-profiles", { name: "Mine" });
+    const { id: other } = await post("/api/print-profiles", { name: "Other" });
+    const plate = { file: "benchy.3mf", plate: 1, filaments: [null] };
+    expect((await put([{ ...plate, printProfileId: mine }])).statusCode).toBe(200);
+    await archive(`/api/print-profiles/${mine}`);
+    await archive(`/api/print-profiles/${other}`);
+
+    const refused = await put([{ ...plate, printProfileId: other }]);
+    expect(refused.statusCode).toBe(400);
+    expect(refused.json().error.code).toBe("invalid_reference");
+    expect((await put([{ ...plate, printProfileId: mine }])).statusCode).toBe(200);
+  });
+
   it("saves and reloads, and tells a changed or missing file", async () => {
     expect((await app.inject(`/api/projects/${id}/slicing`)).json()).toEqual({
       plates: [],

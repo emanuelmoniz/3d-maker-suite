@@ -91,7 +91,8 @@ export const filamentProfileImport = {
    * slicer library or made by hand (`sameLibrary`).
    */
   archived(db: Db) {
-    const gone = profileRows(db, true);
+    // Oldest first: where several share a source, the newest version wins.
+    const gone = profileRows(db, true).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
     const keyOf = (p: { sourcePreset: string | null } & Parameters<typeof profileKey>[0]) =>
       `${keyLibrary(p.sourcePreset) ?? ""}|${profileKey(p)}`;
     const active = new Set(profileRows(db, false).map(keyOf));

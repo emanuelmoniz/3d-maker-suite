@@ -1,5 +1,6 @@
 import {
   apiErrorSchema,
+  archivedFilter,
   listQuery,
   type Order,
   type OrderDetail,
@@ -17,6 +18,7 @@ import { eq, inArray, sql } from "drizzle-orm";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
+import { archivedAtOf, archivedWhere, canReference } from "../lib/archive.ts";
 import { printCosts } from "../lib/cost.ts";
 import { listPage } from "../lib/list.ts";
 import { assertNumberFree, nextNumber } from "../lib/numbers.ts";
@@ -66,23 +68,22 @@ export const ordersRoutes =
       };
     };
 
-    const checkRefs = (b: {
-      clientId?: string | null;
-      quoteId?: string | null;
-      projectIds?: string[];
-      status?: string;
-    }) => {
-      if (b.clientId && !db.select().from(clients).where(eq(clients.id, b.clientId)).get())
+    const checkRefs = (
+      b: {
+        clientId?: string | null;
+        quoteId?: string | null;
+        projectIds?: string[];
+        status?: string;
+      },
+      /** The order as it is: what it already points at stays allowed, even if archived since. */
+      cur?: OrderDetail,
+    ) => {
+      if (b.clientId && !canReference(db, clients, b.clientId, cur?.clientId))
         throw new HttpError(400, "invalid_client", "Client not found");
-      if (b.quoteId && !db.select().from(quotes).where(eq(quotes.id, b.quoteId)).get())
+      if (b.quoteId && !canReference(db, quotes, b.quoteId, cur?.quoteId))
         throw new HttpError(400, "invalid_quote", "Quote not found");
       if (
-        b.projectIds &&
-        db
-          .select({ id: projects.id })
-          .from(projects)
-          .where(inArray(projects.id, b.projectIds))
-          .all().length !== b.projectIds.length
+        b.projectIds?.some((id) => !cur?.projectIds.includes(id) && !canReference(db, projects, id))
       )
         throw new HttpError(400, "invalid_project", "Project not found");
       if (b.status !== undefined && !readPreferences(db).orderStatuses.includes(b.status))
@@ -93,7 +94,7 @@ export const ordersRoutes =
       "/",
       {
         schema: {
-          querystring: listQuery(orderSortFields, {}, orderFilters),
+          querystring: listQuery(orderSortFields, { archived: archivedFilter }, orderFilters),
           response: { 200: pageOf(orderSchema) },
         },
       },
@@ -114,6 +115,7 @@ export const ordersRoutes =
             createdAt: orders.createdAt,
           },
           where: [
+            archivedWhere(orders.archivedAt, req.query.archived),
             req.query.projectId &&
               inArray(
                 orders.id,
@@ -183,13 +185,16 @@ export const ordersRoutes =
       },
       async (req) => {
         const { id } = req.params;
-        get(id);
-        const { projectIds, ...fields } = req.body;
-        checkRefs(req.body);
+        const cur = get(id);
+        const { projectIds, archived, ...fields } = req.body;
+        checkRefs(req.body, cur);
         assertNumberFree(db, orders, "order", fields.number, id);
         db.transaction((tx) => {
-          if (Object.keys(fields).length)
-            tx.update(orders).set(fields).where(eq(orders.id, id)).run();
+          if (Object.keys(fields).length || archived !== undefined)
+            tx.update(orders)
+              .set({ ...fields, archivedAt: archivedAtOf(archived) })
+              .where(eq(orders.id, id))
+              .run();
           if (projectIds) setProjects(tx, id, projectIds);
         });
         return get(id);

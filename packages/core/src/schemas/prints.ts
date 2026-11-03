@@ -52,7 +52,7 @@ export const printInputSchema = base.refine(
 export const printPatchSchema = base
   .partial()
   // Without the default: a patch that leaves `usages` out keeps them.
-  .extend({ usages: base.shape.usages.unwrap().optional() })
+  .extend({ usages: base.shape.usages.unwrap().optional(), archived: z.boolean().optional() })
   .strict()
   .refine((p) => p.outcome !== "success" || !p.failureReason, successHasNoReason);
 

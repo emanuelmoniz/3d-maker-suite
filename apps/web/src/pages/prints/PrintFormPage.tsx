@@ -13,7 +13,8 @@ import { TagPicker } from "../../components/TagPicker.tsx";
 import { isConflict, useCatalogItem, useMachineProfiles } from "../../lib/catalog.ts";
 import { spoolName, useProfiles, useSpools } from "../../lib/filament.ts";
 import { formatWeight, toLocalInput } from "../../lib/format.ts";
-import { orderName, useOrders } from "../../lib/orders.ts";
+import { withOwn } from "../../lib/list.ts";
+import { orderName, useOrder, useOrders } from "../../lib/orders.ts";
 import { usePreferences } from "../../lib/preferences.ts";
 import { printerName, usePrinters } from "../../lib/printers.ts";
 import { estimateDuration, useCreatePrint, usePatchPrint, usePrint } from "../../lib/prints.ts";
@@ -48,7 +49,10 @@ function PrintForm({ print }: { print?: PrintDetail }) {
     (a, b) => a.number - b.number,
   );
   // ponytail: the newest 100 orders; a search if anyone keeps more open.
-  const orders = useOrders({ pageSize: "100" }).data?.items ?? [];
+  const orders = withOwn(
+    useOrders({ pageSize: "100" }).data?.items ?? [],
+    useOrder(print?.orderId ?? "").data,
+  );
   const projectLeft = useProjectLeftPrompt();
   const spools = useSpools().data?.items ?? [];
   const profiles = useProfiles().data?.items ?? [];

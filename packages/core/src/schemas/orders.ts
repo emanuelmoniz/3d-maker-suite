@@ -15,6 +15,7 @@ export const orderSchema = z.object({
   /** One of `Preferences.orderStatuses`. */
   status: z.string().min(1),
   notes: z.string().nullable(),
+  archivedAt: isoDate.nullable(),
   createdAt: isoDate,
   updatedAt: isoDate,
 });
@@ -42,7 +43,10 @@ export const orderInputSchema = z.object({
     .nullish()
     .transform((v) => v || null),
 });
-export const orderPatchSchema = orderInputSchema.partial().strict();
+export const orderPatchSchema = orderInputSchema
+  .partial()
+  .extend({ archived: z.boolean().optional() })
+  .strict();
 
 export const orderSortFields = ["number", "client", "status", "price", "createdAt"] as const;
 

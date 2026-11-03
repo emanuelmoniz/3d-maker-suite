@@ -34,11 +34,12 @@ import {
   printProfileSortFields,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
-import { eq, isNotNull, isNull, sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import type { SQLiteColumn, SQLiteTable } from "drizzle-orm/sqlite-core";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
+import { archivedAtOf, archivedWhere, assertPresetFree } from "../lib/archive.ts";
 import { brandModel, modelName } from "../lib/catalog.ts";
 import { imageRoutes } from "../lib/images.ts";
 import { type ListOptions, listPage } from "../lib/list.ts";
@@ -67,12 +68,12 @@ interface Entity {
   patch: z.ZodType;
   query: z.ZodType;
   list: ListOptions;
-  /** Has an `archivedAt` column: lists hide archived rows unless `?archived=true`. */
-  archivable?: boolean;
+  /** Keeps old versions of a preset, so an old one can't be restored beside the current one. */
+  preset?: boolean;
   image?: { name: string; dir: string; column: string };
 }
 
-/** List / get / create / patch / hard delete (409 while referenced), plus an optional image. */
+/** List / get / create / patch and archive / hard delete (409 while referenced), plus an optional image. */
 const crud =
   (db: Db, dataDir: string, o: Entity): FastifyPluginAsyncZod =>
   async (app) => {
@@ -93,11 +94,9 @@ const crud =
 
     app.get("/", { schema: { querystring: o.query, response: { 200: pageOf(o.row) } } }, (req) => {
       const q = req.query as Parameters<typeof listPage>[2] & { archived?: string };
-      const col = (table as unknown as typeof machineProfiles).archivedAt;
-      const archived = o.archivable && (q.archived === "true" ? isNotNull(col) : isNull(col));
       return listPage(db, table, q, {
         ...o.list,
-        where: [...(o.list.where ?? []), archived || undefined],
+        where: [...(o.list.where ?? []), archivedWhere(table.archivedAt, q.archived)],
       });
     });
 
@@ -124,11 +123,14 @@ const crud =
       "/:id",
       { schema: { params, body: o.patch, response: { 200: o.row, ...errors } } },
       async (req) => {
-        get(req.params.id);
+        const cur = get(req.params.id);
+        const { archived, ...fields } = req.body as { archived?: boolean };
+        if (o.preset && archived === false)
+          assertPresetFree(db, o.table as typeof machineProfiles, cur as never);
         return write(() =>
           db
             .update(table)
-            .set(req.body as never)
+            .set({ ...fields, archivedAt: archivedAtOf(archived) } as never)
             .where(eq(table.id, req.params.id))
             .returning()
             .get(),
@@ -176,7 +178,7 @@ export const brandsRoutes = (db: Db, dataDir: string) =>
     row: brandSchema,
     input: brandInputSchema,
     patch: brandPatchSchema,
-    query: listQuery(brandSortFields, {}, brandFilters),
+    query: listQuery(brandSortFields, { archived: archivedFilter }, brandFilters),
     list: {
       sort: { name: sql`${brands.name} COLLATE NOCASE`, createdAt: brands.createdAt },
       filters: { name: brands.name },
@@ -191,7 +193,7 @@ export const printerModelsRoutes = (db: Db, dataDir: string) =>
     row: printerModelSchema,
     input: printerModelInputSchema,
     patch: printerModelPatchSchema,
-    query: listQuery(printerModelSortFields, {}, printerModelFilters),
+    query: listQuery(printerModelSortFields, { archived: archivedFilter }, printerModelFilters),
     list: {
       sort: {
         model: sql`${brandModel(brandOf, printerModels.model)} COLLATE NOCASE`,
@@ -216,7 +218,7 @@ export const machineProfilesRoutes = (db: Db, dataDir: string) =>
     input: machineProfileInputSchema,
     patch: machineProfilePatchSchema,
     query: listQuery(machineProfileSortFields, { archived: archivedFilter }, machineProfileFilters),
-    archivable: true,
+    preset: true,
     list: {
       sort: {
         name: sql`${machineProfiles.name} COLLATE NOCASE`,
@@ -240,7 +242,7 @@ export const printProfilesRoutes = (db: Db, dataDir: string) =>
     input: printProfileInputSchema,
     patch: printProfilePatchSchema,
     query: listQuery(printProfileSortFields, { archived: archivedFilter }, printProfileFilters),
-    archivable: true,
+    preset: true,
     list: {
       sort: {
         name: sql`${printProfiles.name} COLLATE NOCASE`,
@@ -265,7 +267,7 @@ export const filamentBrandsRoutes = (db: Db, dataDir: string) =>
     row: filamentBrandSchema,
     input: filamentBrandInputSchema,
     patch: filamentBrandPatchSchema,
-    query: listQuery(filamentBrandSortFields, {}, filamentCatalogFilters),
+    query: listQuery(filamentBrandSortFields, { archived: archivedFilter }, filamentCatalogFilters),
     list: {
       sort: {
         name: sql`${filamentBrands.name} COLLATE NOCASE`,
@@ -283,7 +285,11 @@ export const filamentMaterialsRoutes = (db: Db, dataDir: string) =>
     row: filamentMaterialSchema,
     input: filamentMaterialInputSchema,
     patch: filamentMaterialPatchSchema,
-    query: listQuery(filamentMaterialSortFields, {}, filamentCatalogFilters),
+    query: listQuery(
+      filamentMaterialSortFields,
+      { archived: archivedFilter },
+      filamentCatalogFilters,
+    ),
     list: {
       sort: {
         name: sql`${filamentMaterials.name} COLLATE NOCASE`,

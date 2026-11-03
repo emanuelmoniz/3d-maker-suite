@@ -28,7 +28,7 @@ import { PageHeader } from "../../components/PageHeader.tsx";
 import { PickerWithAdd } from "../../components/PickerWithAdd.tsx";
 import { PlateSlice, plateKey, SliceSetup } from "../../components/SliceSetup.tsx";
 import { api } from "../../lib/api.ts";
-import { useClients } from "../../lib/clients.ts";
+import { useClient, useClients } from "../../lib/clients.ts";
 import {
   changePlates,
   estimateSlicedPlates,
@@ -44,9 +44,16 @@ import {
   useUploadQuoteFile,
 } from "../../lib/cost.ts";
 import { useProfiles, useSpools } from "../../lib/filament.ts";
+import { withOwn } from "../../lib/list.ts";
 import { usePreferences } from "../../lib/preferences.ts";
 import { printerName } from "../../lib/printers.ts";
-import { projectFileUrl, projectName, useProjectSlicing, useProjects } from "../../lib/projects.ts";
+import {
+  projectFileUrl,
+  projectName,
+  useProject,
+  useProjectSlicing,
+  useProjects,
+} from "../../lib/projects.ts";
 import { NewClientDialog } from "../clients/NewClientDialog.tsx";
 
 type Row = { label: string; grams: number; price: number | null };
@@ -243,9 +250,15 @@ function ByHand({
 function QuoteForm({ ctx, editing }: { ctx: CostContext; editing?: Quote }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const projects = useProjects().data?.items ?? [];
+  const projects = withOwn(
+    useProjects().data?.items ?? [],
+    useProject(editing?.projectId ?? "").data,
+  );
   // ponytail: first 100 clients in the picker (it searches them); a server search if anyone has more.
-  const clients = useClients({ pageSize: "100" }).data?.items ?? [];
+  const clients = withOwn(
+    useClients({ pageSize: "100" }).data?.items ?? [],
+    useClient(editing?.clientId ?? "").data,
+  );
   const save = useSaveQuote();
   const patch = usePatchQuote();
   const qc = useQueryClient();

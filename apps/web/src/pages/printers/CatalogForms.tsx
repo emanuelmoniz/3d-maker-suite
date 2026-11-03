@@ -17,6 +17,8 @@ import {
   useBrands,
   useCatalogImage,
   useCatalogItem,
+  useCatalogPicker,
+  useCatalogWithArchived,
   useDeleteCatalog,
   useModelInfo,
   useSaveCatalog,
@@ -28,8 +30,10 @@ const int = (v: string) => (v ? Math.round(Number(v)) : null);
 
 /** Printer model picker, grouped by brand. */
 export function ModelSelect(props: Omit<React.ComponentProps<typeof Combobox>, "options">) {
-  const brands = useBrands().data ?? [];
-  const info = [...useModelInfo().values()];
+  const brands = useCatalogWithArchived("brands").data ?? [];
+  const own = props.value ?? props.defaultValue;
+  // An archived model isn't offered, unless it is the one the row already has.
+  const info = [...useModelInfo().values()].filter(({ model: m }) => !m.archivedAt || m.id === own);
   return (
     // Remount once the options arrive: an uncontrolled picker only applies defaultValue on mount.
     <Combobox
@@ -93,7 +97,7 @@ export function CatalogAddDialog<K extends CatalogKind>(props: {
 /** Brand picker (`brandId`) with "+ Add brand". */
 export function BrandPicker({ defaultValue, ...p }: ControlProps & { defaultValue?: string }) {
   const { t } = useTranslation();
-  const brands = useBrands().data ?? [];
+  const brands = useCatalogPicker("brands", defaultValue);
   const [id, setId] = useState(defaultValue);
   const [adding, setAdding] = useState(false);
   return (

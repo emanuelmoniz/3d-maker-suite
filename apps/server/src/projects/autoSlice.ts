@@ -25,8 +25,9 @@ const { projectSlicePlates, projects, roots } = schema;
 type Row = typeof projectSlicePlates.$inferSelect;
 type Project = typeof projects.$inferSelect;
 
-/** The project's own choice, else its root's. */
-function autoSliceOn(db: Db, project: Project) {
+/** The project's own choice, else its root's. Nothing slices or alerts for an archived project. */
+export function autoSliceOn(db: Db, project: Project) {
+  if (project.archivedAt) return false;
   if (project.autoSlice != null) return project.autoSlice;
   const root = project.rootId
     ? db.select().from(roots).where(eq(roots.id, project.rootId)).get()

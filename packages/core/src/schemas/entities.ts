@@ -109,6 +109,7 @@ export const brandSchema = z.object({
   url: z.url().nullable(),
   /** Relative to the data directory. */
   logoPath: z.string().nullable(),
+  archivedAt: isoDate.nullable(),
   ...timestamps,
 });
 
@@ -120,6 +121,7 @@ export const printerModelSchema = z.object({
   powerW: z.number().int().nonnegative().nullable(),
   /** Relative to the data directory. Shown for printers without a photo of their own. */
   imagePath: z.string().nullable(),
+  archivedAt: isoDate.nullable(),
   ...timestamps,
 });
 
@@ -130,7 +132,7 @@ export const machineProfileSchema = z.object({
   nozzleDiameterMm: z.number().positive(),
   /** Preset this profile was imported from, `<library>:<preset id>`; null for hand-made ones. */
   sourcePreset: z.string().nullable(),
-  /** An older version of an imported preset that prints still point at; hidden from pickers. */
+  /** Archived by you, or an older version of an imported preset that prints still point at. */
   archivedAt: isoDate.nullable(),
   ...timestamps,
 });
@@ -288,6 +290,7 @@ export const filamentBrandSchema = z.object({
   url: z.url().nullable(),
   /** Relative to the data directory. */
   logoPath: z.string().nullable(),
+  archivedAt: isoDate.nullable(),
   ...timestamps,
 });
 
@@ -298,6 +301,7 @@ export const filamentMaterialSchema = z.object({
   nozzleTempC: z.number().int().positive().nullable(),
   bedTempC: z.number().int().nonnegative().nullable(),
   densityGcm3: z.number().positive().nullable(),
+  archivedAt: isoDate.nullable(),
   ...timestamps,
 });
 
@@ -385,6 +389,7 @@ export const printSchema = z
     costSnapshot: z.json().nullable(),
     /** Imported prints: the design page (e.g. MakerWorld), when the vendor gives it. */
     sourceUrl: z.string().nullable(),
+    archivedAt: isoDate.nullable(),
     ...imported,
     ...timestamps,
   })
@@ -485,5 +490,6 @@ export const clientSchema = z.object({
   email: z.string().nullable(),
   address: z.string().nullable(),
   notes: z.string().nullable(),
+  archivedAt: isoDate.nullable(),
   ...timestamps,
 });

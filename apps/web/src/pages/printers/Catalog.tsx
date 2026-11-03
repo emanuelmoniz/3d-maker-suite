@@ -20,6 +20,7 @@ import {
   type CatalogKind,
   imageUrl,
   useBrands,
+  useCatalogWithArchived,
   useMachineProfiles,
   useModelInfo,
   usePrinterModels,
@@ -109,7 +110,8 @@ export function Catalog() {
   const info = useModelInfo();
   const machineProfiles = useMachineProfiles().data ?? [];
   const printProfiles = usePrintProfiles().data ?? [];
-  const brandOf = new Map(brands.map((b) => [b.id, b]));
+  // An active model keeps naming its brand once that is archived.
+  const brandOf = new Map(useCatalogWithArchived("brands").data?.map((b) => [b.id, b]));
   const none = t("printers:detail.info.none");
 
   // The slicer library a preset came from (`<library>:<preset>`); hand-made ones have none.

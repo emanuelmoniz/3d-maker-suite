@@ -20,6 +20,10 @@ export const useListPage = <T>(
     enabled,
   });
 
+/** A picker's rows plus the value the row already has, which the list leaves out once archived. */
+export const withOwn = <T extends { id: string }>(rows: T[], own: T | null | undefined) =>
+  own && !rows.some((r) => r.id === own.id) ? [...rows, own] : rows;
+
 /**
  * A table's list query, kept in the URL so a link reproduces the view. `prefix` namespaces
  * the params when a page holds more than one table (e.g. "spools." -> ?spools.page=2).

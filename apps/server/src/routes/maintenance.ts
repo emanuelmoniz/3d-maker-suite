@@ -18,10 +18,11 @@ import {
   pageOf,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
-import { eq, isNotNull, isNull, sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
+import { alertTasks, archivedAtOf, archivedWhere, resolveItemAlerts } from "../lib/archive.ts";
 import { modelName } from "../lib/catalog.ts";
 import { inIds, listPage } from "../lib/list.ts";
 import { accessoryUsageOf, dueItems, usageOf } from "../lib/maintenance.ts";
@@ -79,11 +80,7 @@ export const maintenanceRoutes =
             name: maintenanceTypes.name,
             appliesToModels: modelNames,
           },
-          where: [
-            req.query.archived === "true"
-              ? isNotNull(maintenanceTypes.archivedAt)
-              : isNull(maintenanceTypes.archivedAt),
-          ],
+          where: [archivedWhere(maintenanceTypes.archivedAt, req.query.archived)],
         }) as Page<MaintenanceType>,
     );
 
@@ -115,14 +112,16 @@ export const maintenanceRoutes =
       async (req) => {
         getType(req.params.id);
         const { archived, ...fields } = req.body;
-        const archivedAt =
-          archived === undefined ? undefined : archived ? new Date().toISOString() : null;
-        return db
-          .update(maintenanceTypes)
-          .set({ ...fields, archivedAt })
-          .where(eq(maintenanceTypes.id, req.params.id))
-          .returning()
-          .get() as MaintenanceType;
+        return db.transaction((tx) => {
+          const row = tx
+            .update(maintenanceTypes)
+            .set({ ...fields, archivedAt: archivedAtOf(archived) })
+            .where(eq(maintenanceTypes.id, req.params.id))
+            .returning()
+            .get();
+          if (archived) resolveItemAlerts(tx, alertTasks.maintenanceType(row.id));
+          return row as MaintenanceType;
+        });
       },
     );
 

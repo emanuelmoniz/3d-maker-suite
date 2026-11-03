@@ -17,20 +17,17 @@ import {
   pageOf,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
-import {
-  type AnyColumn,
-  and,
-  asc,
-  desc,
-  eq,
-  getTableColumns,
-  isNotNull,
-  isNull,
-  sql,
-} from "drizzle-orm";
+import { type AnyColumn, and, asc, desc, eq, getTableColumns, sql } from "drizzle-orm";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
+import {
+  alertTasks,
+  archivedAtOf,
+  archivedWhere,
+  canReference,
+  resolveItemAlerts,
+} from "../lib/archive.ts";
 import { printerLabel } from "../lib/catalog.ts";
 import { commentRoutes } from "../lib/comments.ts";
 import { imageRoutes } from "../lib/images.ts";
@@ -87,10 +84,13 @@ export const accessoriesRoutes =
           "accessory_installed",
           "Remove the accessory from its printer first",
         );
-      db.update(accessories)
-        .set({ archivedAt: archived ? new Date().toISOString() : null })
-        .where(eq(accessories.id, id))
-        .run();
+      db.transaction((tx) => {
+        tx.update(accessories)
+          .set({ archivedAt: archivedAtOf(archived) })
+          .where(eq(accessories.id, id))
+          .run();
+        if (archived) resolveItemAlerts(tx, alertTasks.accessory(id));
+      });
     };
     const getInstall = (accessoryId: string, installId: string) => {
       const row = db
@@ -151,9 +151,7 @@ export const accessoriesRoutes =
           },
           where: [
             taggedWith(db, "accessory", accessories.id, req.query.tagId),
-            req.query.archived === "true"
-              ? isNotNull(accessories.archivedAt)
-              : isNull(accessories.archivedAt),
+            archivedWhere(accessories.archivedAt, req.query.archived),
           ],
         }) as Page<Accessory>,
     );
@@ -259,7 +257,7 @@ export const accessoriesRoutes =
       async (req, reply) => {
         get(req.params.id);
         const { printerId, installedAt, removedAt = null } = req.body;
-        if (!db.select().from(printers).where(eq(printers.id, printerId)).get())
+        if (!canReference(db, printers, printerId))
           throw new HttpError(400, "invalid_printer", "Unknown printer");
         assertNoOverlap(req.params.id, installedAt, removedAt);
         const { id } = db

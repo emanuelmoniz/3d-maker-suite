@@ -1,5 +1,6 @@
 import {
   apiErrorSchema,
+  archivedFilter,
   type Client,
   clientFilters,
   clientInputSchema,
@@ -14,6 +15,7 @@ import { eq } from "drizzle-orm";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
+import { archivedAtOf, archivedWhere } from "../lib/archive.ts";
 import { unique } from "../lib/clients.ts";
 import { listPage } from "../lib/list.ts";
 
@@ -34,7 +36,7 @@ export const clientsRoutes =
       "/",
       {
         schema: {
-          querystring: listQuery(clientSortFields, {}, clientFilters),
+          querystring: listQuery(clientSortFields, { archived: archivedFilter }, clientFilters),
           response: { 200: pageOf(clientSchema) },
         },
       },
@@ -54,6 +56,7 @@ export const clientsRoutes =
             vat: clients.vat,
             email: clients.email,
           },
+          where: [archivedWhere(clients.archivedAt, req.query.archived)],
         }) as { items: Client[]; page: number; pageSize: number; total: number },
     );
 
@@ -86,8 +89,15 @@ export const clientsRoutes =
       },
       async (req) => {
         get(req.params.id);
-        if (Object.keys(req.body).length)
-          unique(() => db.update(clients).set(req.body).where(eq(clients.id, req.params.id)).run());
+        const { archived, ...fields } = req.body;
+        if (Object.keys(fields).length || archived !== undefined)
+          unique(() =>
+            db
+              .update(clients)
+              .set({ ...fields, archivedAt: archivedAtOf(archived) })
+              .where(eq(clients.id, req.params.id))
+              .run(),
+          );
         return get(req.params.id);
       },
     );

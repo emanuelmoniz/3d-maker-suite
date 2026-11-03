@@ -14,6 +14,7 @@ import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
 import { presetsChanged } from "../integrations/presetLibrary.ts";
+import { canReference } from "../lib/archive.ts";
 import { type Fingerprint, fingerprint, sameAsScanned, stateOf } from "../projects/fingerprint.ts";
 import { onDeviceRoot, projectFile } from "../projects/rootFs.ts";
 import {
@@ -181,55 +182,75 @@ export const projectSlicingRoutes =
         for (const p of plates)
           if (!meta.models.find((m) => m.file === p.file)?.plates.some((x) => x.index === p.plate))
             throw new HttpError(400, "invalid_reference", `Unknown plate ${p.plate} of ${p.file}`);
-        const known = (
-          table:
-            | typeof printProfiles
-            | typeof filamentProfiles
-            | typeof printers
-            | typeof integrations,
+        // What the project's plates already use stays allowed, even if archived since: a plate
+        // saved unchanged keeps its pick (ADR-0018). Anything new has to be active.
+        const own = db
+          .select()
+          .from(projectSlicePlates)
+          .where(eq(projectSlicePlates.projectId, req.params.id))
+          .all();
+        const free = (
+          table: typeof printProfiles | typeof filamentProfiles | typeof printers,
           ids: string[],
-        ) =>
-          new Set(
-            ids.length
-              ? db
-                  .select({ id: table.id })
-                  .from(table)
-                  .where(inArray(table.id, [...new Set(ids)]))
-                  .all()
-                  .map((r) => r.id)
-              : [],
-          );
+          was: (string | null)[],
+        ) => ids.every((i) => was.includes(i) || canReference(db, table, i));
+        const spoolIds = [
+          ...new Set(plates.flatMap((p) => p.spools.filter((s): s is string => !!s))),
+        ];
+        const spoolRows = spoolIds.length
+          ? db
+              .select({ id: spools.id, profileId: spools.profileId, archivedAt: spools.archivedAt })
+              .from(spools)
+              .where(inArray(spools.id, spoolIds))
+              .all()
+          : [];
+        const spoolProfile = new Map(spoolRows.map((s) => [s.id, s.profileId]));
         const printIds = plates.flatMap((p) => (p.printProfileId ? [p.printProfileId] : []));
         const filamentIds = plates.flatMap((p) => p.filaments.filter((f): f is string => !!f));
-        const prints = known(printProfiles, printIds);
-        const filaments = known(filamentProfiles, filamentIds);
-        if (printIds.some((i) => !prints.has(i)) || filamentIds.some((i) => !filaments.has(i)))
+        if (
+          !free(
+            printProfiles,
+            printIds,
+            own.map((p) => p.printProfileId),
+          ) ||
+          // A spool can keep a profile that has a newer version since: that one is fine too.
+          !free(filamentProfiles, filamentIds, [
+            ...own.flatMap((p) => p.filaments),
+            ...spoolProfile.values(),
+          ])
+        )
           throw new HttpError(400, "invalid_reference", "Unknown profile");
         const printerIds = plates.flatMap((p) => (p.printerId ? [p.printerId] : []));
-        const printerSet = known(printers, printerIds);
-        if (printerIds.some((i) => !printerSet.has(i)))
+        if (
+          !free(
+            printers,
+            printerIds,
+            own.map((p) => p.printerId),
+          )
+        )
           throw new HttpError(400, "invalid_reference", "Unknown printer");
         // Any integration, even one that can't slice now: a plate saved unchanged keeps its pick.
         const slicerIds = plates.flatMap((p) =>
           p.slicerIntegrationId ? [p.slicerIntegrationId] : [],
         );
-        const slicerSet = known(integrations, slicerIds);
-        if (slicerIds.some((i) => !slicerSet.has(i)))
-          throw new HttpError(400, "invalid_reference", "Unknown slicer");
-        const spoolIds = [
-          ...new Set(plates.flatMap((p) => p.spools.filter((s): s is string => !!s))),
-        ];
-        const spoolProfile = new Map(
-          spoolIds.length
+        const slicerSet = new Set(
+          slicerIds.length
             ? db
-                .select({ id: spools.id, profileId: spools.profileId })
-                .from(spools)
-                .where(inArray(spools.id, spoolIds))
+                .select({ id: integrations.id })
+                .from(integrations)
+                .where(inArray(integrations.id, [...new Set(slicerIds)]))
                 .all()
-                .map((s) => [s.id, s.profileId])
+                .map((r) => r.id)
             : [],
         );
-        if (spoolIds.some((i) => !spoolProfile.has(i)))
+        if (slicerIds.some((i) => !slicerSet.has(i)))
+          throw new HttpError(400, "invalid_reference", "Unknown slicer");
+        const ownSpools = own.flatMap((p) => p.spools);
+        const spoolOk = (id: string) => {
+          const s = spoolRows.find((r) => r.id === id);
+          return !!s && (!s.archivedAt || ownSpools.includes(id));
+        };
+        if (!spoolIds.every(spoolOk))
           throw new HttpError(400, "invalid_reference", "Unknown spool");
 
         // Stored fully resolved, so the projects list can tell in SQL what a plate slices with:

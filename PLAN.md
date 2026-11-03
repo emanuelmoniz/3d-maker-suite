@@ -1569,7 +1569,7 @@ Design:
 Do Step 8 of the 5.2.0 plan in PLAN.md. Show me the dependency table checked against the schema first.
 ```
 
-### [ ] Step 9 - Archive on every entity: schema and server  **[plan mode]**
+### [x] Step 9 - Archive on every entity: schema and server  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:**
 - Migration: `archivedAt` for printer brands, printer models, filament brands, filament materials, prints, orders, quotes, clients.

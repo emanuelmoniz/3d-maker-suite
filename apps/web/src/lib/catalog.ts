@@ -10,6 +10,7 @@ import {
 } from "@3d-maker-suite/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "./api.ts";
+import { withOwn } from "./list.ts";
 
 /** API path segment of each catalog entity, and its image endpoint (if any). */
 export type CatalogKind =
@@ -35,13 +36,16 @@ export const IMAGE_OF = {
   "filament-brands": "logo",
 } as const;
 
-/** Every row of a catalog (the API caps a page at 100), for selects and labels. */
-const useAll = <K extends CatalogKind>(kind: K) =>
+/** Every active row of a catalog (the API caps a page at 100); archived too to name what a row points at. */
+const useAll = <K extends CatalogKind>(kind: K, withArchived = false) =>
   useQuery({
-    queryKey: ["catalog", kind, "all"],
+    queryKey: ["catalog", kind, withArchived ? "withArchived" : "all"],
     queryFn: async () => {
       const get = (page: number) =>
-        api<Page<Row[K]>>("GET", `/api/${kind}?pageSize=100&page=${page}`);
+        api<Page<Row[K]>>(
+          "GET",
+          `/api/${kind}?pageSize=100&page=${page}${withArchived ? "&archived=all" : ""}`,
+        );
       const first = await get(1);
       const rest = await Promise.all(
         Array.from({ length: Math.ceil(first.total / 100) - 1 }, (_, i) => get(i + 2)),
@@ -55,6 +59,7 @@ export const useMachineProfiles = () => useAll("machine-profiles");
 export const usePrintProfiles = () => useAll("print-profiles");
 export const useFilamentBrands = () => useAll("filament-brands");
 export const useFilamentMaterials = () => useAll("filament-materials");
+export const useCatalogWithArchived = <K extends CatalogKind>(kind: K) => useAll(kind, true);
 
 /** One row; idle without `id` (create forms). */
 export const useCatalogItem = <K extends CatalogKind>(kind: K, id?: string) =>
@@ -64,10 +69,14 @@ export const useCatalogItem = <K extends CatalogKind>(kind: K, id?: string) =>
     enabled: Boolean(id),
   });
 
-/** Brand + model rows joined, by model id ("Bambu Lab P1S"). */
+/** A picker's active rows, plus the one the row already has: saving must not lose it. */
+export const useCatalogPicker = <K extends CatalogKind>(kind: K, own?: string | null) =>
+  withOwn<Row[K]>(useAll(kind).data ?? [], useCatalogItem(kind, own ?? undefined).data);
+
+/** Brand + model rows joined, by model id ("Bambu Lab P1S"), archived ones too: pickers filter them. */
 export function useModelInfo() {
-  const brands = new Map(useBrands().data?.map((b) => [b.id, b]));
-  const models = usePrinterModels().data ?? [];
+  const brands = new Map(useAll("brands", true).data?.map((b) => [b.id, b]));
+  const models = useAll("printer-models", true).data ?? [];
   return new Map(
     models.map((m) => {
       const brand = brands.get(m.brandId);

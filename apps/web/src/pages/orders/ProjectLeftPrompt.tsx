@@ -15,7 +15,7 @@ import { projectName, useProjects } from "../../lib/projects.ts";
 export function useProjectLeftPrompt() {
   const { t } = useTranslation();
   const qc = useQueryClient();
-  const projects = useProjects().data?.items ?? [];
+  const projects = useProjects(true).data?.items ?? [];
   const [ask, setAsk] = useState<{
     order: OrderDetail;
     projectId: string;
@@ -29,7 +29,7 @@ export function useProjectLeftPrompt() {
     if (order.projectIds.length < 2 || !order.projectIds.includes(projectId)) return false;
     const { items } = await api<Page<PrintDetail>>(
       "GET",
-      `/api/prints?${new URLSearchParams({ orderId, projectId, pageSize: "2" })}`,
+      `/api/prints?${new URLSearchParams({ orderId, projectId, pageSize: "2", archived: "all" })}`,
     );
     if (items.some((p) => p.id !== printId)) return false;
     return new Promise<boolean>((answer) => setAsk({ order, projectId, answer }));

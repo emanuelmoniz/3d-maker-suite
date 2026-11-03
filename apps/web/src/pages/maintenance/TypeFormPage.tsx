@@ -34,9 +34,9 @@ function TypeForm({ type }: { type?: MaintenanceType }) {
   const printers = usePrinters({ archived: false }).data?.items ?? [];
   const accessories = useAccessories().data?.items ?? [];
   const types = useAccessoryTypes().data ?? [];
-  const models = [...useModelInfo().entries()].sort(([, a], [, b]) =>
-    a.label.localeCompare(b.label),
-  );
+  const models = [...useModelInfo().entries()]
+    .filter(([id, m]) => !m.model.archivedAt || modelIds.includes(id))
+    .sort(([, a], [, b]) => a.label.localeCompare(b.label));
   const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const form = e.currentTarget;

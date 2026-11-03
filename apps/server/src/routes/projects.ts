@@ -37,12 +37,13 @@ import {
   ROOT_HUB,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
-import { and, asc, eq, inArray, isNotNull, isNull, max, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNotNull, max, sql } from "drizzle-orm";
 import type { FastifyReply, FastifyRequest } from "fastify";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
 import { capableRows } from "../integrations/capabilities.ts";
+import { alertTasks, archivedAtOf, archivedWhere, resolveItemAlerts } from "../lib/archive.ts";
 import {
   assertRootEditable,
   fromThisPc,
@@ -398,7 +399,7 @@ export const projectsRoutes =
             slicing,
           },
           where: [
-            isNull(projects.archivedAt),
+            archivedWhere(projects.archivedAt, req.query.archived),
             visibleProjects(req.user),
             material &&
               sql`exists (select 1 from json_each(${projects.meta}, '$.materials') where ${columnFilter(sql`value`, material)})`,
@@ -828,6 +829,7 @@ export const projectsRoutes =
           autoSlice,
           slicerIntegrationId,
           ownerId,
+          archived,
           ...fields
         } = req.body;
         assertNumberFree(db, projects, "project", number, req.params.id);
@@ -855,6 +857,7 @@ export const projectsRoutes =
           autoSlice,
           slicerIntegrationId,
           ownerId,
+          archivedAt: archivedAtOf(archived),
         };
         if (descriptionFile) {
           // Link a doc the scanner listed; its text becomes the description on the refresh below.
@@ -907,10 +910,13 @@ export const projectsRoutes =
             images: [...new Set(gallery.images)],
           };
         if (coverFile !== undefined) set.coverFile = coverFile;
-        db.update(projects)
-          .set({ ...set, editedFields: [...touched] })
-          .where(eq(projects.id, req.params.id))
-          .run();
+        db.transaction((tx) => {
+          tx.update(projects)
+            .set({ ...set, editedFields: [...touched] })
+            .where(eq(projects.id, req.params.id))
+            .run();
+          if (archived) resolveItemAlerts(tx, alertTasks.project(req.params.id));
+        });
         if (descriptionFile || previewFile === null || coverFile !== undefined)
           await scanner.refresh(current);
         // The device sends the folder again with the new picks (an offline one when it connects).

@@ -22,10 +22,17 @@ import {
   spoolWeightEntrySchema,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
-import { desc, eq, isNotNull, isNull, sql } from "drizzle-orm";
+import { desc, eq, sql } from "drizzle-orm";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
+import {
+  alertTasks,
+  archivedAtOf,
+  archivedWhere,
+  assertPresetFree,
+  resolveItemAlerts,
+} from "../lib/archive.ts";
 import {
   profileBrand,
   profileColumns,
@@ -40,8 +47,6 @@ import { createSpool, round, setRemaining } from "../lib/spools.ts";
 const { filamentProfiles, spools, spoolWeightEntries } = schema;
 const params = z.object({ id: z.uuid() });
 const notFound = { 404: apiErrorSchema };
-const archivedAt = (archived?: boolean) =>
-  archived === undefined ? undefined : archived ? new Date().toISOString() : null;
 
 export const filamentRoutes =
   (db: Db): FastifyPluginAsyncZod =>
@@ -91,11 +96,7 @@ export const filamentRoutes =
             materialId: filamentProfiles.materialId,
             pricePerKg: filamentProfiles.pricePerKg,
           },
-          where: [
-            req.query.archived === "true"
-              ? isNotNull(filamentProfiles.archivedAt)
-              : isNull(filamentProfiles.archivedAt),
-          ],
+          where: [archivedWhere(filamentProfiles.archivedAt, req.query.archived)],
         }) as Page<FilamentProfile>,
     );
 
@@ -129,14 +130,15 @@ export const filamentRoutes =
         schema: {
           params,
           body: filamentProfilePatchSchema,
-          response: { 200: filamentProfileSchema, ...notFound },
+          response: { 200: filamentProfileSchema, 409: apiErrorSchema, ...notFound },
         },
       },
       async (req) => {
-        getProfile(req.params.id);
+        const cur = getProfile(req.params.id);
         const { archived, ...fields } = req.body;
+        if (archived === false) assertPresetFree(db, filamentProfiles, cur);
         db.update(filamentProfiles)
-          .set({ ...fields, archivedAt: archivedAt(archived) })
+          .set({ ...fields, archivedAt: archivedAtOf(archived) })
           .where(eq(filamentProfiles.id, req.params.id))
           .run();
         return getProfile(req.params.id) as FilamentProfile;
@@ -174,9 +176,7 @@ export const filamentRoutes =
             status: spools.status,
           },
           where: [
-            req.query.archived === "true"
-              ? isNotNull(spools.archivedAt)
-              : isNull(spools.archivedAt),
+            archivedWhere(spools.archivedAt, req.query.archived),
             inIds(spools.profileId, req.query.profileId),
             taggedWith(db, "spool", spools.id, req.query.tagId),
           ],
@@ -228,10 +228,11 @@ export const filamentRoutes =
         return db.transaction((tx) => {
           const row = tx
             .update(spools)
-            .set({ ...fields, archivedAt: archivedAt(archived) })
+            .set({ ...fields, archivedAt: archivedAtOf(archived) })
             .where(eq(spools.id, req.params.id))
             .returning()
             .get();
+          if (archived) resolveItemAlerts(tx, alertTasks.spool(row.id));
           // The weight is known now: the spool holds all of it until told otherwise.
           if (row.remainingGrams == null && row.initialGrams != null)
             return (setRemaining(tx, row.id, "manual", row.initialGrams) ?? row) as Spool;

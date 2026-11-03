@@ -197,7 +197,7 @@ const imported = () => ({
   externalId: text(),
 });
 
-// Catalog: brand -> printer model -> machine profile. Hard-deleted; FKs restrict while in use.
+// Catalog: brand -> printer model -> machine profile. Archived or deleted; FKs restrict while in use.
 export const brands = sqliteTable(
   "brands",
   {
@@ -207,6 +207,7 @@ export const brands = sqliteTable(
     url: text(),
     /** Relative to the data directory (brands/<id>.<ext>). */
     logoPath: text(),
+    archivedAt: text(),
     ...timestamps,
   },
   (t) => [uniqueIndex("brands_name_uq").on(sql`${t.name} COLLATE NOCASE`)],
@@ -224,6 +225,7 @@ export const printerModels = sqliteTable(
     powerW: integer(),
     /** Relative to the data directory (models/<id>.<ext>). */
     imagePath: text(),
+    archivedAt: text(),
     ...timestamps,
   },
   (t) => [uniqueIndex("printer_models_name_uq").on(t.brandId, sql`${t.model} COLLATE NOCASE`)],
@@ -240,7 +242,7 @@ export const machineProfiles = sqliteTable(
     nozzleDiameterMm: real().notNull().default(0.4),
     /** Preset this profile was imported from, `<library>:<preset id>`; null for hand-made ones. */
     sourcePreset: text(),
-    /** An older version of a preset that prints still point at (see `sourcePreset`). */
+    /** Archived by you, or an older version of a preset that prints still point at (see `sourcePreset`). */
     archivedAt: text(),
     ...timestamps,
   },
@@ -475,6 +477,7 @@ export const filamentBrands = sqliteTable(
     url: text(),
     /** Relative to the data directory (filament-brands/<id>.<ext>). */
     logoPath: text(),
+    archivedAt: text(),
     ...timestamps,
   },
   (t) => [uniqueIndex("filament_brands_name_uq").on(sql`${t.name} COLLATE NOCASE`)],
@@ -489,6 +492,7 @@ export const filamentMaterials = sqliteTable(
     nozzleTempC: integer(),
     bedTempC: integer(),
     densityGcm3: real(),
+    archivedAt: text(),
     ...timestamps,
   },
   (t) => [uniqueIndex("filament_materials_name_uq").on(sql`${t.name} COLLATE NOCASE`)],
@@ -773,6 +777,7 @@ export const prints = sqliteTable(
     energySource: text({ enum: ENERGY_SOURCES }),
     costSnapshot: text({ mode: "json" }),
     sourceUrl: text(),
+    archivedAt: text(),
     ...imported(),
     ...timestamps,
   },
@@ -916,6 +921,7 @@ export const quotes = sqliteTable(
     form: text({ mode: "json" }).notNull(),
     cost: text({ mode: "json" }).notNull(),
     quote: text({ mode: "json" }).notNull(),
+    archivedAt: text(),
     ...timestamps,
   },
   (t) => [
@@ -957,6 +963,7 @@ export const clients = sqliteTable(
     email: text(),
     address: text(),
     notes: text(),
+    archivedAt: text(),
     ...timestamps,
   },
   (t) => [
@@ -980,6 +987,7 @@ export const orders = sqliteTable(
     price: integer().notNull(),
     status: text().notNull(),
     notes: text(),
+    archivedAt: text(),
     ...timestamps,
   },
   (t) => [

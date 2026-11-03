@@ -9,10 +9,11 @@ import {
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
 import { and, eq, isNotNull, isNull } from "drizzle-orm";
+import type { SQLiteColumn } from "drizzle-orm/sqlite-core";
 import { HttpError } from "../errors.ts";
 import { idByName, modelIdFor, modelIdOf } from "../lib/catalog.ts";
 import { printerImport } from "./printers.ts";
-import type { ImportHandler, WriteRow } from "./review.ts";
+import { type ImportHandler, keyLibrary, type WriteRow } from "./review.ts";
 import { names, num, str } from "./spools.ts";
 
 const {
@@ -67,6 +68,154 @@ function save(
   }
 }
 
+/** An update of a row you archived restores it. */
+const restored = (target: ImportTarget) => (target.archived ? { archivedAt: null } : {});
+/** Active rows, or the ones you archived. */
+const archivedIs = (column: SQLiteColumn, archived: boolean) =>
+  archived ? isNotNull(column) : isNull(column);
+const marked = (archived: boolean) => (archived ? { archived: true } : {});
+
+/** These match by name, and names are unique: a source row with an archived row's name is that row. */
+const archivedByName = (targets: ImportTarget[], ...keys: string[]) => {
+  const keyOf = (v: ImportValues) => keys.map((k) => str(v[k])?.toLowerCase() ?? "").join("|");
+  const byKey = new Map(targets.map((t) => [keyOf(t.values), t.id]));
+  return { targets, of: (_: string | undefined, v: ImportValues) => byKey.get(keyOf(v)) ?? null };
+};
+
+type PresetRow = { source: string | null; target: ImportTarget };
+
+/**
+ * A preset whose profile you archived comes back by its source key, the newest of its versions
+ * (`gone` is oldest first); one you never imported, by the brand, model and name of one you
+ * archived that no active profile has, of the same slicer library or made by hand (`sameLibrary`).
+ */
+function archivedPresets(active: PresetRow[], gone: PresetRow[]) {
+  const keyOf = (source: string | null | undefined, v: ImportValues) =>
+    `${keyLibrary(source) ?? ""}|${[v.brand, v.model, v.name].map((c) => str(c)?.toLowerCase() ?? "").join("|")}`;
+  const have = new Set(active.map((r) => keyOf(r.source, r.target.values)));
+  const bySource = new Map(gone.flatMap((r) => (r.source ? [[r.source, r.target.id]] : [])));
+  const byKey = new Map(
+    gone
+      .map((r) => [keyOf(r.source, r.target.values), r.target.id] as const)
+      .filter(([k]) => !have.has(k)),
+  );
+  return {
+    targets: gone.map((r) => r.target),
+    of: (source: string | undefined, v: ImportValues) =>
+      (source && bySource.get(source)) ||
+      byKey.get(keyOf(source, v)) ||
+      byKey.get(keyOf(null, v)) ||
+      null,
+  };
+}
+
+/** Machine profiles in the shape of the import columns: active by name, archived oldest first. */
+const machineRows = (db: Db, archived = false): PresetRow[] =>
+  db
+    .select({ profile: machineProfiles, model: printerModels.model, brand: brands.name })
+    .from(machineProfiles)
+    .innerJoin(printerModels, eq(printerModels.id, machineProfiles.printerModelId))
+    .innerJoin(brands, eq(brands.id, printerModels.brandId))
+    .where(archivedIs(machineProfiles.archivedAt, archived))
+    .orderBy(
+      ...(archived
+        ? [machineProfiles.createdAt]
+        : [brands.name, printerModels.model, machineProfiles.name]),
+    )
+    .all()
+    .map(({ profile: p, model, brand }) => ({
+      source: p.sourcePreset,
+      target: {
+        id: p.id,
+        label: p.name,
+        ...marked(archived),
+        values: { brand, model, name: p.name, nozzleDiameterMm: p.nozzleDiameterMm },
+      },
+    }));
+
+/** Print profiles in the shape of the import columns: active by name, archived oldest first. */
+const printProfileRows = (db: Db, archived = false): PresetRow[] =>
+  db
+    .select({ profile: printProfiles, model: printerModels.model, brand: brands.name })
+    .from(printProfiles)
+    .leftJoin(printerModels, eq(printerModels.id, printProfiles.printerModelId))
+    .leftJoin(brands, eq(brands.id, printerModels.brandId))
+    .where(archivedIs(printProfiles.archivedAt, archived))
+    .orderBy(archived ? printProfiles.createdAt : printProfiles.name)
+    .all()
+    .map(({ profile: p, model, brand }) => ({
+      source: p.sourcePreset,
+      target: {
+        id: p.id,
+        label: p.name,
+        ...marked(archived),
+        values: {
+          brand,
+          model,
+          name: p.name,
+          nozzleDiameterMm: p.nozzleDiameterMm,
+          layerHeightMm: p.layerHeightMm,
+        },
+      },
+    }));
+
+const brandTargets = (db: Db, archived = false): ImportTarget[] =>
+  db
+    .select()
+    .from(brands)
+    .where(archivedIs(brands.archivedAt, archived))
+    .orderBy(brands.name)
+    .all()
+    .map((b) => ({ id: b.id, label: b.name, ...marked(archived), values: { name: b.name } }));
+
+const modelTargets = (db: Db, archived = false): ImportTarget[] =>
+  db
+    .select({ model: printerModels, brand: brands.name })
+    .from(printerModels)
+    .innerJoin(brands, eq(brands.id, printerModels.brandId))
+    .where(archivedIs(printerModels.archivedAt, archived))
+    .orderBy(brands.name, printerModels.model)
+    .all()
+    .map(({ model: m, brand }) => ({
+      id: m.id,
+      label: modelLabel(brand, m.model),
+      ...marked(archived),
+      values: { brand, model: m.model, thumbnail: m.imagePath ? "yes" : null },
+    }));
+
+const filamentBrandTargets = (db: Db, archived = false): ImportTarget[] =>
+  db
+    .select()
+    .from(filamentBrands)
+    .where(archivedIs(filamentBrands.archivedAt, archived))
+    .orderBy(filamentBrands.name)
+    .all()
+    .map((b) => ({
+      id: b.id,
+      label: b.name,
+      ...marked(archived),
+      values: { name: b.name, url: b.url },
+    }));
+
+const materialTargets = (db: Db, archived = false): ImportTarget[] =>
+  db
+    .select()
+    .from(filamentMaterials)
+    .where(archivedIs(filamentMaterials.archivedAt, archived))
+    .orderBy(filamentMaterials.name)
+    .all()
+    .map((m) => ({
+      id: m.id,
+      label: m.name,
+      ...marked(archived),
+      values: {
+        name: m.name,
+        nozzleTempC: m.nozzleTempC,
+        bedTempC: m.bedTempC,
+        densityGcm3: m.densityGcm3,
+      },
+    }));
+
 /**
  * What a slicer ships besides filament (printer brands, printer models, machine and print
  * profiles, filament brands and materials), and the same types from a file. Rows are matched on
@@ -91,13 +240,8 @@ export function catalogImport(dataDir: string) {
 
   return {
     brands: {
-      targets: (db) =>
-        db
-          .select()
-          .from(brands)
-          .orderBy(brands.name)
-          .all()
-          .map((b) => ({ id: b.id, label: b.name, values: { name: b.name } })),
+      targets: (db) => brandTargets(db),
+      archived: (db) => archivedByName(brandTargets(db, true), "name"),
       match: matchRowsOn("name"),
       refs: (db) => ({ brands: printerImport.refs(db).brands }),
       missing: () => ({}),
@@ -108,22 +252,12 @@ export function catalogImport(dataDir: string) {
           .onConflictDoNothing()
           .returning({ id: brands.id })
           .get()?.id ?? false,
-      update: (db, target, patch) => save(db, brands, target.id, patch),
+      update: (db, target, patch) => save(db, brands, target.id, { ...patch, ...restored(target) }),
     },
 
     printerModels: {
-      targets: (db) =>
-        db
-          .select({ model: printerModels, brand: brands.name })
-          .from(printerModels)
-          .innerJoin(brands, eq(brands.id, printerModels.brandId))
-          .orderBy(brands.name, printerModels.model)
-          .all()
-          .map(({ model: m, brand }) => ({
-            id: m.id,
-            label: modelLabel(brand, m.model),
-            values: { brand, model: m.model, thumbnail: m.imagePath ? "yes" : null },
-          })),
+      targets: (db) => modelTargets(db),
+      archived: (db) => archivedByName(modelTargets(db, true), "brand", "model"),
       match: matchRowsOn("brand", "model"),
       refs: printerImport.refs,
       check: (db, v, file) =>
@@ -131,32 +265,27 @@ export function catalogImport(dataDir: string) {
           ? [{ column: "brand", code: "unresolved" }]
           : [],
       missing: (db, rows) => ({ brands: printerImport.missing(db, rows).brands }),
-      create: (db, v, row) => thumbnail(db, modelOf(db, v), row.image),
+      create: (db, v, row) => {
+        // A file doesn't see one you archived: it stays as it is, and nothing was added.
+        const brandId = idByName(db, brands, str(v.brand) ?? "");
+        const had = !!brandId && !!modelIdOf(db, brandId, str(v.model) ?? "");
+        thumbnail(db, modelOf(db, v), row.image);
+        return had ? false : undefined;
+      },
       update: (db, target, patch, row) => {
         const { brand, model } = patch;
         save(db, printerModels, target.id, {
           ...(brand != null && { brandId: idByName(db, brands, String(brand)) }),
           ...(model != null && { model: String(model).trim() }),
+          ...restored(target),
         });
         if (patch.thumbnail) thumbnail(db, target.id, row.image);
       },
     },
 
     machineProfiles: {
-      targets: (db) =>
-        db
-          .select({ profile: machineProfiles, model: printerModels.model, brand: brands.name })
-          .from(machineProfiles)
-          .innerJoin(printerModels, eq(printerModels.id, machineProfiles.printerModelId))
-          .innerJoin(brands, eq(brands.id, printerModels.brandId))
-          .where(isNull(machineProfiles.archivedAt))
-          .orderBy(brands.name, printerModels.model, machineProfiles.name)
-          .all()
-          .map(({ profile: p, model, brand }) => ({
-            id: p.id,
-            label: p.name,
-            values: { brand, model, name: p.name, nozzleDiameterMm: p.nozzleDiameterMm },
-          })),
+      targets: (db) => machineRows(db).map((r) => r.target),
+      archived: (db) => archivedPresets(machineRows(db), machineRows(db, true)),
       match: matchRowsOn("brand", "model", "name"),
       sameLibrary: true,
       refs: printerImport.refs,
@@ -195,7 +324,9 @@ export function catalogImport(dataDir: string) {
           printerModelId: modelOf(db, v),
           nozzleDiameterMm: num(v.nozzleDiameterMm) ?? cur.nozzleDiameterMm,
         };
+        // Nothing to change (one you archived coming back) is never a new version.
         const used =
+          Object.keys(patch).length > 0 &&
           row.source &&
           cur.sourcePreset === row.source &&
           db
@@ -206,7 +337,7 @@ export function catalogImport(dataDir: string) {
         if (!used) {
           // A profile made by hand is linked to the preset, so the next run knows it.
           db.update(machineProfiles)
-            .set({ ...values, sourcePreset: cur.sourcePreset ?? row.source })
+            .set({ ...values, sourcePreset: cur.sourcePreset ?? row.source, ...restored(target) })
             .where(eq(machineProfiles.id, cur.id))
             .run();
           return;
@@ -224,26 +355,8 @@ export function catalogImport(dataDir: string) {
 
     // Brand and model are optional: a process preset can name no printer we know.
     printProfiles: {
-      targets: (db) =>
-        db
-          .select({ profile: printProfiles, model: printerModels.model, brand: brands.name })
-          .from(printProfiles)
-          .leftJoin(printerModels, eq(printerModels.id, printProfiles.printerModelId))
-          .leftJoin(brands, eq(brands.id, printerModels.brandId))
-          .where(isNull(printProfiles.archivedAt))
-          .orderBy(printProfiles.name)
-          .all()
-          .map(({ profile: p, model, brand }) => ({
-            id: p.id,
-            label: p.name,
-            values: {
-              brand,
-              model,
-              name: p.name,
-              nozzleDiameterMm: p.nozzleDiameterMm,
-              layerHeightMm: p.layerHeightMm,
-            },
-          })),
+      targets: (db) => printProfileRows(db).map((r) => r.target),
+      archived: (db) => archivedPresets(printProfileRows(db), printProfileRows(db, true)),
       match: matchRowsOn("brand", "model", "name"),
       sameLibrary: true,
       refs: printerImport.refs,
@@ -272,6 +385,7 @@ export function catalogImport(dataDir: string) {
           .set({
             ...printProfileValues(db, { ...target.values, ...patch }),
             sourcePreset: cur.sourcePreset ?? row.source,
+            ...restored(target),
           })
           .where(eq(printProfiles.id, cur.id))
           .run();
@@ -280,15 +394,10 @@ export function catalogImport(dataDir: string) {
 
     // The keys of `patch` are named like the table's columns.
     filamentBrands: {
-      targets: (db) =>
-        db
-          .select()
-          .from(filamentBrands)
-          .orderBy(filamentBrands.name)
-          .all()
-          .map((b) => ({ id: b.id, label: b.name, values: { name: b.name, url: b.url } })),
+      targets: (db) => filamentBrandTargets(db),
+      archived: (db) => archivedByName(filamentBrandTargets(db, true), "name"),
       match: matchRowsOn("name"),
-      refs: (db) => ({ filamentBrands: names(db, filamentBrands) }),
+      refs: (db) => ({ filamentBrands: names(db, filamentBrands, true) }),
       missing: () => ({}),
       create: (db, v) =>
         db
@@ -297,28 +406,15 @@ export function catalogImport(dataDir: string) {
           .onConflictDoNothing()
           .returning({ id: filamentBrands.id })
           .get()?.id ?? false,
-      update: (db, target, patch) => save(db, filamentBrands, target.id, patch),
+      update: (db, target, patch) =>
+        save(db, filamentBrands, target.id, { ...patch, ...restored(target) }),
     },
 
     filamentMaterials: {
-      targets: (db) =>
-        db
-          .select()
-          .from(filamentMaterials)
-          .orderBy(filamentMaterials.name)
-          .all()
-          .map((m) => ({
-            id: m.id,
-            label: m.name,
-            values: {
-              name: m.name,
-              nozzleTempC: m.nozzleTempC,
-              bedTempC: m.bedTempC,
-              densityGcm3: m.densityGcm3,
-            },
-          })),
+      targets: (db) => materialTargets(db),
+      archived: (db) => archivedByName(materialTargets(db, true), "name"),
       match: matchRowsOn("name"),
-      refs: (db) => ({ filamentMaterials: names(db, filamentMaterials) }),
+      refs: (db) => ({ filamentMaterials: names(db, filamentMaterials, true) }),
       missing: () => ({}),
       create: (db, v) =>
         db
@@ -332,7 +428,8 @@ export function catalogImport(dataDir: string) {
           .onConflictDoNothing()
           .returning({ id: filamentMaterials.id })
           .get()?.id ?? false,
-      update: (db, target, patch) => save(db, filamentMaterials, target.id, patch),
+      update: (db, target, patch) =>
+        save(db, filamentMaterials, target.id, { ...patch, ...restored(target) }),
     },
   } satisfies Record<string, ImportHandler>;
 }

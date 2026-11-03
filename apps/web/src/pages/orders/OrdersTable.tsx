@@ -35,7 +35,7 @@ export function OrdersTable({
   const [query, setQuery] = useUrlListQuery("orders.");
   const { data } = useOrders({ ...query, ...fixed });
   // ponytail: first 100 clients for names and filter options, as QuotesTable.
-  const clients = useClients({ pageSize: "100" }).data?.items ?? [];
+  const clients = useClients({ pageSize: "100", archived: "all" }).data?.items ?? [];
   const projects = useProjects().data?.items ?? [];
   const del = useDeleteOrder();
   const [deleting, setDeleting] = useState<Order | null>(null);

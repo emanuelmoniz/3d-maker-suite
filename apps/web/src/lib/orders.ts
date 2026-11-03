@@ -13,6 +13,7 @@ export const useOrder = (id: string) =>
   useQuery({
     queryKey: ["orders", id],
     queryFn: () => api<OrderDetail>("GET", `/api/orders/${id}`),
+    enabled: !!id,
   });
 
 function useOrderMutation<V, R = unknown>(fn: (v: V) => Promise<R>) {

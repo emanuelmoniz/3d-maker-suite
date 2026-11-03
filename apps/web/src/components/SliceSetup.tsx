@@ -11,7 +11,7 @@ import {
 import type { TFunction } from "i18next";
 import { type ReactNode, useId } from "react";
 import { useTranslation } from "react-i18next";
-import { useMachineProfiles, useModelInfo, usePrintProfiles } from "../lib/catalog.ts";
+import { useCatalogWithArchived, useMachineProfiles, useModelInfo } from "../lib/catalog.ts";
 import { spoolName, useProfiles, useSpools } from "../lib/filament.ts";
 import { formatDuration, formatList, formatWeight } from "../lib/format.ts";
 import { useSlicers } from "../lib/integrations.ts";
@@ -121,7 +121,7 @@ type FileInfo = Pick<SliceSetupFile, "printerModel" | "nozzleDiameter">;
 export function usePlateFit(defaultPrinterId: string | null | undefined) {
   const { t } = useTranslation();
   const slicers = useSlicers();
-  const printProfiles = usePrintProfiles().data ?? [];
+  const printProfiles = useCatalogWithArchived("print-profiles").data ?? [];
   const machines = useMachineProfiles().data ?? [];
   const filaments = useProfiles().data?.items ?? [];
   const models = useModelInfo();
@@ -191,7 +191,7 @@ export function SliceSetup({
   const { t } = useTranslation();
   const uid = useId();
   const slicers = useSlicers();
-  const printProfiles = usePrintProfiles().data ?? [];
+  const printProfiles = useCatalogWithArchived("print-profiles").data ?? [];
   const allProfiles = useProfiles().data?.items ?? [];
   const filaments = allProfiles.filter((p) => !p.archivedAt);
   const spools = useSpools().data?.items ?? [];
@@ -260,7 +260,9 @@ export function SliceSetup({
     const listed = printProfiles.filter(
       (p) =>
         p.id === v.printProfileId ||
-        ((!printer || p.printerModelId === printer.modelId) && ofSlicer(library, p.sourcePreset)),
+        (!p.archivedAt &&
+          (!printer || p.printerModelId === printer.modelId) &&
+          ofSlicer(library, p.sourcePreset)),
     );
     return [
       ...(fitsFile(f, printer)

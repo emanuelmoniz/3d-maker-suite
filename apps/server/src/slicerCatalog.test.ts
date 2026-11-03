@@ -10,6 +10,7 @@ import type {
   SlicerCatalog,
 } from "@3d-maker-suite/core";
 import { openDb, schema } from "@3d-maker-suite/db";
+import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import { buildApp } from "./app.ts";
 import { reviewer } from "./testReview.ts";
@@ -114,6 +115,155 @@ const run = async (type: string) =>
   (
     await app.inject({ method: "POST", url: `/api/integrations/${id}/sync`, payload: { type } })
   ).json();
+
+describe("archived catalog rows", () => {
+  const { brands, printerModels, machineProfiles, printProfiles, filamentBrands } = schema;
+  const { filamentMaterials, filamentProfiles } = schema;
+  const types = [
+    ["brands", "/api/brands", brands],
+    ["printerModels", "/api/printer-models", printerModels],
+    ["machineProfiles", "/api/machine-profiles", machineProfiles],
+    ["printProfiles", "/api/print-profiles", printProfiles],
+    ["filamentBrands", "/api/filament-brands", filamentBrands],
+    ["filamentMaterials", "/api/filament-materials", filamentMaterials],
+  ] as const;
+
+  it.each(types)(
+    "%s: a run leaves it alone; a confirmed update restores it",
+    async (type, url, table) => {
+      const t = table as typeof brands;
+      await run(type);
+      const count = () => db.select().from(t).all().length;
+      const before = count();
+      const row = db.select().from(t).get();
+      if (!row) throw new Error("nothing imported");
+      await app.inject({ method: "PATCH", url: `${url}/${row.id}`, payload: { archived: true } });
+
+      // Not re-added, not touched, and nothing waits for a person.
+      expect(await run(type)).toMatchObject({ created: 0, updated: 0, pending: 0 });
+      expect(count()).toBe(before);
+      const stamp = db.select().from(t).where(eq(t.id, row.id)).get()?.archivedAt;
+      expect(stamp).toBeTruthy();
+
+      // The review offers it as a skip against the archived row.
+      const preview = await open(type);
+      const offered = preview.rows.find((r) => r.targetId === row.id);
+      expect(offered).toMatchObject({ action: "skip" });
+      expect(preview.targets.find((x) => x.id === row.id)?.archived).toBe(true);
+
+      if (!offered) throw new Error("not offered");
+      const res = await review.confirm(preview, [offered], { action: "update" });
+      expect(res.statusCode, res.body).toBe(200);
+      expect(res.json()).toMatchObject({ created: 0, updated: 1 });
+      expect(db.select().from(t).where(eq(t.id, row.id)).get()?.archivedAt).toBeNull();
+      expect(count()).toBe(before);
+    },
+  );
+
+  it("restoring a preset a print uses, unchanged, makes no new version", async () => {
+    await run("machineProfiles");
+    const row = db.select().from(machineProfiles).get();
+    if (!row) throw new Error("nothing imported");
+    const printer = db
+      .insert(schema.printers)
+      .values({ name: "P", number: 1, modelId: row.printerModelId })
+      .returning()
+      .get();
+    db.insert(schema.prints)
+      .values({
+        printerId: printer.id,
+        machineProfileId: row.id,
+        title: "T",
+        startedAt: new Date().toISOString(),
+        outcome: "success",
+      })
+      .run();
+    await app.inject({
+      method: "PATCH",
+      url: `/api/machine-profiles/${row.id}`,
+      payload: { archived: true },
+    });
+
+    const preview = await open("machineProfiles");
+    await review.confirm(preview, preview.rows, { action: "update" });
+
+    expect(db.select().from(machineProfiles).all()).toMatchObject([
+      { id: row.id, archivedAt: null },
+    ]);
+  });
+
+  it.each([
+    ["machineProfiles", machineProfiles],
+    ["printProfiles", printProfiles],
+    ["filamentProfiles", filamentProfiles],
+  ] as const)(
+    "%s: of several archived versions the newest is the one offered",
+    async (type, table) => {
+      await run("filamentBrands");
+      await run("filamentMaterials");
+      await run(type);
+      const t = table as typeof machineProfiles;
+      const newest = db.select().from(t).get();
+      if (!newest?.sourcePreset) throw new Error("nothing imported");
+      const { id: _id, ...fields } = newest;
+      const stamp = "2026-01-01T00:00:00.000Z";
+      // Inserted last and archived last, but the oldest: order must not decide.
+      db.update(t).set({ archivedAt: stamp }).where(eq(t.id, newest.id)).run();
+      db.insert(t)
+        .values({
+          ...fields,
+          createdAt: "2020-01-01T00:00:00.000Z",
+          archivedAt: "2026-06-01T00:00:00.000Z",
+        })
+        .run();
+
+      const preview = await open(type);
+      const offered = preview.rows.find((r) => r.values.name === newest.name);
+      expect(offered?.targetId).toBe(newest.id);
+    },
+  );
+
+  it("an archived brand isn't restored by a model that needs it, and templates don't offer it", async () => {
+    await run("brands");
+    const brand = db.select().from(brands).get();
+    await app.inject({
+      method: "PATCH",
+      url: `/api/brands/${brand?.id}`,
+      payload: { archived: true },
+    });
+
+    expect((await run("printerModels")).created).toBe(1);
+
+    expect(db.select().from(brands).all()).toMatchObject([{ id: brand?.id }]);
+    expect(db.select().from(brands).get()?.archivedAt).toBeTruthy();
+    expect(db.select().from(printerModels).get()?.brandId).toBe(brand?.id);
+    expect((await open("printerModels")).refNames.brands).toEqual([]);
+  });
+
+  it("a file naming an archived model adds nothing and doesn't say it did", async () => {
+    await run("printerModels");
+    const model = db.select().from(printerModels).get();
+    await app.inject({
+      method: "PATCH",
+      url: `/api/printer-models/${model?.id}`,
+      payload: { archived: true },
+    });
+    const preview = (
+      await app.inject({
+        method: "POST",
+        url: "/api/import/printerModels/preview",
+        headers: { "content-type": "text/csv" },
+        payload: "Brand,Model\nAcme,Acme X\n",
+      })
+    ).json() as ImportPreview;
+
+    const res = await review.confirm(preview);
+
+    expect(res.json()).toMatchObject({ created: 0 });
+    expect(db.select().from(printerModels).all()).toHaveLength(1);
+    expect(db.select().from(printerModels).get()?.archivedAt).toBeTruthy();
+  });
+});
 
 describe("slicer catalog import", () => {
   it("reviews, imports the confirmed rows, and a re-import adds nothing", async () => {

@@ -10,7 +10,7 @@ const optional = z
   .nullish()
   .transform((v) => v || null);
 
-/** Fields the user edits. `PATCH` takes any subset. */
+/** Fields the user edits. `PATCH` takes any subset, plus `archived` to archive/restore. */
 export const clientInputSchema = z.object({
   name: required,
   mobile: required,
@@ -19,7 +19,10 @@ export const clientInputSchema = z.object({
   address: optional,
   notes: optional,
 });
-export const clientPatchSchema = clientInputSchema.partial().strict();
+export const clientPatchSchema = clientInputSchema
+  .partial()
+  .extend({ archived: z.boolean().optional() })
+  .strict();
 
 export const clientSortFields = ["name", "mobile", "vat", "email", "createdAt"] as const;
 

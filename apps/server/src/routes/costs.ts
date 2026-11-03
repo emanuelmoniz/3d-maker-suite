@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { parse3mf, read3mfEntry } from "@3d-maker-suite/3mf";
 import {
   apiErrorSchema,
+  archivedFilter,
   costContextSchema,
   type IntegrationAdapter,
   listQuery,
@@ -31,6 +32,7 @@ import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
 import { presetsChanged, presetsSeq } from "../integrations/presetLibrary.ts";
+import { archivedAtOf, archivedWhere, canReference } from "../lib/archive.ts";
 import { projectVisible } from "../lib/auth.ts";
 import { projectLabel } from "../lib/catalog.ts";
 import { costContext } from "../lib/cost.ts";
@@ -84,12 +86,12 @@ export const costsRoutes =
       if (!row) throw new HttpError(404, "not_found", "Quote not found");
       return row as Quote;
     };
-    const checkProject = (projectId?: string | null) => {
-      if (projectId && !db.select().from(projects).where(eq(projects.id, projectId)).get())
+    const checkProject = (projectId?: string | null, was?: string | null) => {
+      if (projectId && !canReference(db, projects, projectId, was))
         throw new HttpError(400, "invalid_project", "Project not found");
     };
-    const checkClient = (clientId?: string | null) => {
-      if (clientId && !db.select().from(clients).where(eq(clients.id, clientId)).get())
+    const checkClient = (clientId?: string | null, was?: string | null) => {
+      if (clientId && !canReference(db, clients, clientId, was))
         throw new HttpError(400, "invalid_client", "Client not found");
     };
 
@@ -276,7 +278,7 @@ export const costsRoutes =
       "/quotes",
       {
         schema: {
-          querystring: listQuery(quoteSortFields, {}, quoteFilters),
+          querystring: listQuery(quoteSortFields, { archived: archivedFilter }, quoteFilters),
           response: { 200: pageOf(quoteSchema) },
         },
       },
@@ -298,6 +300,7 @@ export const costsRoutes =
             projectId: quotes.projectId,
             createdAt: quotes.createdAt,
           },
+          where: [archivedWhere(quotes.archivedAt, req.query.archived)],
         }) as Page<Quote>,
     );
 
@@ -338,12 +341,16 @@ export const costsRoutes =
         },
       },
       async (req) => {
-        get(req.params.id);
-        checkProject(req.body.projectId);
-        checkClient(req.body.clientId);
-        assertNumberFree(db, quotes, "quote", req.body.number, req.params.id);
-        if (Object.keys(req.body).length)
-          db.update(quotes).set(req.body).where(eq(quotes.id, req.params.id)).run();
+        const cur = get(req.params.id);
+        const { archived, ...fields } = req.body;
+        checkProject(fields.projectId, cur.projectId);
+        checkClient(fields.clientId, cur.clientId);
+        assertNumberFree(db, quotes, "quote", fields.number, req.params.id);
+        if (Object.keys(fields).length || archived !== undefined)
+          db.update(quotes)
+            .set({ ...fields, archivedAt: archivedAtOf(archived) })
+            .where(eq(quotes.id, req.params.id))
+            .run();
         return get(req.params.id);
       },
     );

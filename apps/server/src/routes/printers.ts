@@ -18,10 +18,17 @@ import {
   summarizePrints,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
-import { and, eq, getTableColumns, isNotNull, isNull } from "drizzle-orm";
+import { and, eq, getTableColumns, isNull } from "drizzle-orm";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
+import {
+  alertTasks,
+  archivedAtOf,
+  archivedWhere,
+  canReference,
+  resolveItemAlerts,
+} from "../lib/archive.ts";
 import { modelName, printerLabel } from "../lib/catalog.ts";
 import { commentRoutes } from "../lib/comments.ts";
 import { imageRoutes } from "../lib/images.ts";
@@ -49,12 +56,12 @@ export const printersRoutes =
       if (state !== undefined && !readPreferences(db).printerStates.includes(state))
         throw new HttpError(400, "invalid_state", `Unknown printer state "${state}"`);
     };
-    const checkModel = (modelId?: string) => {
-      if (modelId && !db.select().from(printerModels).where(eq(printerModels.id, modelId)).get())
+    const checkModel = (modelId?: string, was?: string | null) => {
+      if (modelId && !canReference(db, printerModels, modelId, was))
         throw new HttpError(400, "invalid_model", "Unknown printer model");
     };
-    const checkPrintProfile = (id?: string | null) => {
-      if (id && !db.select().from(printProfiles).where(eq(printProfiles.id, id)).get())
+    const checkPrintProfile = (id?: string | null, was?: string | null) => {
+      if (id && !canReference(db, printProfiles, id, was))
         throw new HttpError(400, "invalid_reference", "Unknown print profile");
     };
     // Like accessories: nothing stays installed on an archived printer.
@@ -102,9 +109,7 @@ export const printersRoutes =
           },
           where: [
             taggedWith(db, "printer", printers.id, req.query.tagId),
-            req.query.archived === "true"
-              ? isNotNull(printers.archivedAt)
-              : isNull(printers.archivedAt),
+            archivedWhere(printers.archivedAt, req.query.archived),
           ],
         }) as Page<PrinterRow>,
     );
@@ -148,21 +153,23 @@ export const printersRoutes =
         },
       },
       async (req) => {
-        get(req.params.id);
+        const cur = get(req.params.id);
         const { archived, ...fields } = req.body;
         checkState(fields.state);
-        checkModel(fields.modelId);
-        checkPrintProfile(fields.printProfileId);
+        checkModel(fields.modelId, cur.modelId);
+        checkPrintProfile(fields.printProfileId, cur.printProfileId);
         assertNumberFree(db, printers, "printer", fields.number, req.params.id);
         if (archived) assertNoAccessories(req.params.id);
-        const archivedAt =
-          archived === undefined ? undefined : archived ? new Date().toISOString() : null;
-        return db
-          .update(printers)
-          .set({ ...fields, archivedAt })
-          .where(eq(printers.id, req.params.id))
-          .returning()
-          .get() as Printer;
+        return db.transaction((tx) => {
+          const row = tx
+            .update(printers)
+            .set({ ...fields, archivedAt: archivedAtOf(archived) })
+            .where(eq(printers.id, req.params.id))
+            .returning()
+            .get();
+          if (archived) resolveItemAlerts(tx, alertTasks.printer(row.id));
+          return row as Printer;
+        });
       },
     );
 
@@ -173,10 +180,13 @@ export const printersRoutes =
       async (req, reply) => {
         get(req.params.id);
         assertNoAccessories(req.params.id);
-        db.update(printers)
-          .set({ archivedAt: new Date().toISOString() })
-          .where(eq(printers.id, req.params.id))
-          .run();
+        db.transaction((tx) => {
+          tx.update(printers)
+            .set({ archivedAt: archivedAtOf(true) })
+            .where(eq(printers.id, req.params.id))
+            .run();
+          resolveItemAlerts(tx, alertTasks.printer(req.params.id));
+        });
         return reply.status(204).send(null);
       },
     );
