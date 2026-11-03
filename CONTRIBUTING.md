@@ -58,7 +58,8 @@ Maintainers tag a version after the release checklist below. Do the steps in thi
 2. Bump `version` in the root `package.json` and every `apps/*` and `packages/*` `package.json` (all the same version).
 3. Put `Version X.Y.Z.` on the status line of [README.md](README.md).
 4. Check the docs that name features or versions (README features, `docs/*.md`, the screenshots if the UI changed).
-5. Run `pnpm version:check`. The release workflow runs it too and fails on a mismatch or on a tag that isn't `v` plus the version.
+5. Write the CHANGELOG entry so it lists everything that differs from the last release: the workflow publishes it as the GitHub release notes (`node scripts/release-notes.mjs X.Y.Z` previews them). A stable release's notes merge in all its pre-releases' sections.
+6. Run `pnpm version:check`. The release workflow runs it too and fails on a mismatch or on a tag that isn't `v` plus the version.
 
 - **Stable** (`vX.Y.Z`) is tagged on `main`. Fast-forward `main` to `dev` first.
 - **Pre-release** (`vX.Y.Z-alpha.N`) is tagged on `dev`.
