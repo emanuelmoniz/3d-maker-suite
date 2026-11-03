@@ -207,6 +207,8 @@ export type ConnectorSettingsResult = z.infer<typeof connectorSettingsResultSche
  */
 export const hubEventSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("device.renamed"), name }),
+  /** Live only: the name of the user it acts as changed (a reconnect has it in `X-Device-User`). */
+  z.object({ type: z.literal("device.user"), name: z.string() }),
   /** Update now (an admin): download the hub's version at once, even one that rolled back. */
   z.object({ type: z.literal("connector.update") }),
   /** Its roots were added, changed or removed, or a scan was asked for: read them, sync them all. */

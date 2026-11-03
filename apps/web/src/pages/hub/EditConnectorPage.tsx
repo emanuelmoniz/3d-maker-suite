@@ -78,6 +78,7 @@ function Identity({ device: d }: { device: Device }) {
             />
           )}
         </FormField>
+        <p className="text-muted wrap-anywhere">{t("hub:devices.user", { name: d.userName })}</p>
         <Alert error={rename.error} />
         <div>
           <Button type="submit" variant="primary" disabled={rename.isPending}>
@@ -97,7 +98,6 @@ function Software({ device: d }: { device: Device }) {
     <Section title={t("hub:edit.software")}>
       <p className="text-muted wrap-anywhere">
         {t("hub:devices.details", {
-          user: d.userName,
           os: d.os ?? unknown,
           version: d.connectorVersion ?? unknown,
         })}

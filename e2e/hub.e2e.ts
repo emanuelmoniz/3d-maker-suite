@@ -47,7 +47,8 @@ test("hub: pair a device, edit it, revoke it", async ({ page, app }) => {
   const row = page.getByRole("list", { name: "Devices" }).getByRole("listitem");
   await expect(row).toContainText("Desk PC");
   await expect(row).toContainText("Online");
-  await expect(row).toContainText("Ana Admin · win32 · connector 5.0.0");
+  await expect(row).toContainText("User: Ana Admin");
+  await expect(row).toContainText("win32 · connector 5.0.0");
 
   // The card has only the two connector actions; everything else is on the Edit connector page.
   await expect(row.getByRole("button")).toHaveText(["Restart connector", "Revoke"]);
@@ -79,6 +80,11 @@ test("hub: pair a device, edit it, revoke it", async ({ page, app }) => {
   await expect(page.getByLabel("Start with the computer")).toBeChecked();
 
   const identity = page.getByRole("region", { name: "Identity" });
+  await expect(identity).toContainText("User: Ana Admin");
+  // Both pages follow a rename of the user.
+  await page.request.patch("/api/auth/me", { data: { displayName: "Ana Renamed" } });
+  await page.reload();
+  await expect(identity).toContainText("User: Ana Renamed");
   await identity.getByLabel("Name").fill("Laptop");
   await identity.getByRole("button", { name: "Save" }).click();
   await expect(page.getByRole("heading", { name: "Edit connector: Laptop" })).toBeVisible();
@@ -92,6 +98,7 @@ test("hub: pair a device, edit it, revoke it", async ({ page, app }) => {
   ).toBeVisible();
   await page.getByRole("link", { name: "Back" }).click();
   await expect(row).toContainText("Laptop");
+  await expect(row).toContainText("User: Ana Renamed");
   await expect(row.getByRole("button", { name: "Restart connector" })).toBeDisabled();
 
   await row.getByRole("button", { name: "Revoke" }).click();

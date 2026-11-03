@@ -284,10 +284,18 @@ export const hubRoutes =
         .from(devices)
         .where(eq(devices.id, deviceId))
         .get();
+      const owner = db
+        .select({ name: users.displayName })
+        .from(devices)
+        .innerJoin(users, eq(users.id, devices.userId))
+        .where(eq(devices.id, deviceId))
+        .get();
       reply.hijack();
       const res = reply.raw;
       res.writeHead(200, {
         "content-type": "text/event-stream",
+        // The user this device acts as, for the connector's status page (percent-encoded: headers are latin-1).
+        ...(owner && { "x-device-user": encodeURIComponent(owner.name) }),
         "cache-control": "no-cache",
         "x-accel-buffering": "no",
         // On every connect, so a connector that missed `device.worker` (an older one) knows it.
@@ -318,9 +326,10 @@ export const hubRoutes =
         end: () => res.end(),
         port: port.success ? port.data : null,
       });
+      let userName = owner?.name;
       const beat = setInterval(() => {
         const live = db
-          .select({ disabled: users.disabled })
+          .select({ disabled: users.disabled, name: users.displayName })
           .from(devices)
           .innerJoin(users, eq(users.id, devices.userId))
           .where(eq(devices.id, deviceId))
@@ -330,6 +339,11 @@ export const hubRoutes =
           .set({ lastSeenAt: new Date().toISOString() })
           .where(eq(devices.id, deviceId))
           .run();
+        // Here, not in every route that can rename a user or change a device's.
+        if (live.name !== userName) {
+          userName = live.name;
+          res.write(channel.frame(null, { type: "device.user", name: live.name }));
+        }
         res.write(": hb\n\n");
       }, HUB_HEARTBEAT_MS);
       res.on("close", () => {

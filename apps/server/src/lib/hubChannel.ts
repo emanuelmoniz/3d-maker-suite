@@ -56,8 +56,8 @@ export function createHubChannel(db: Db) {
       for (const set of streams.values()) for (const s of set) s.write(frame(null, event));
     },
 
-    /** A stored event, for the replay when a stream opens. */
-    frame: (seq: number, event: HubEvent) => frame(seq, event),
+    /** A stored event, for the replay when a stream opens; null seq = a live one for one stream. */
+    frame: (seq: number | null, event: HubEvent) => frame(seq, event),
 
     /** Registers an open stream; returns the function that removes it when it closes. */
     attach(deviceId: string, stream: Stream) {

@@ -294,6 +294,27 @@ describe("hub events", () => {
     expect(await s.until("never")).toBeNull();
   });
 
+  it("tells the device its user's name on connect and when it changes, encoded and not stored", async () => {
+    const { db, open, viewer } = await live();
+    db.update(schema.users).set({ displayName: "Zoë" }).where(eq(schema.users.id, viewer.id)).run();
+    vi.useFakeTimers({ toFake: ["setInterval"] });
+    const s = await open();
+    await s.until(": open");
+    expect(s.res.headers.get("x-device-user")).toBe("Zo%C3%AB");
+
+    // Nothing to tell yet.
+    vi.advanceTimersByTime(15_000);
+    expect(await s.until(": hb")).not.toContain("device.user");
+
+    db.update(schema.users).set({ displayName: "Zoe" }).where(eq(schema.users.id, viewer.id)).run();
+    vi.advanceTimersByTime(15_000);
+    expect(await s.until('"Zoe"')).toContain(
+      `event: device.user\ndata: {"type":"device.user","name":"Zoe"}`,
+    );
+    expect(db.select().from(schema.hubEvents).all()).toEqual([]);
+    await s.cancel();
+  });
+
   it("takes a device root's index and folders like a scan, and tells offline from missing", async () => {
     const { db, app, send, open, token, deviceId } = await live();
     const dev = (method: "GET" | "PUT" | "DELETE", url: string, payload?: object) =>

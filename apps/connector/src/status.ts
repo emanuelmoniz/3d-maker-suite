@@ -183,6 +183,7 @@ ${controls(false)}
 <dl>
 <dt>${t("connector:status.hub")}</dt><dd><a href="${esc(state.hubUrl ?? "")}">${esc(state.hubUrl ?? "")}</a></dd>
 <dt>${t("connector:status.device")}</dt><dd>${esc(state.deviceName ?? "")}</dd>
+${link.userName() ? `<dt>${t("connector:status.user")}</dt><dd>${esc(link.userName() ?? "")}</dd>` : ""}
 <dt>${t("connector:status.state")}</dt><dd><span class="pill ${status}">${t(STATES[status])}</span></dd>
 <dt>${t("connector:status.version")}</dt><dd>${esc(version)}</dd>
 <dt>${t("connector:status.syncFolder")}</dt><dd>${esc(syncDir)}</dd>

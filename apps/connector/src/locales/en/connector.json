@@ -21,6 +21,7 @@
   "status": {
     "hub": "Hub",
     "device": "Device",
+    "user": "User",
     "state": "State",
     "version": "Connector version",
     "syncFolder": "Sync folder",

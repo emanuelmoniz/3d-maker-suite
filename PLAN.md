@@ -1459,7 +1459,7 @@ Do Step 1 of the 5.2.0 plan in PLAN.md.
 Do Step 2 of the 5.2.0 plan in PLAN.md.
 ```
 
-### [ ] Step 3 - Show the connector's user
+### [x] Step 3 - Show the connector's user
 **Model:** Sonnet · **Effort:** Low
 **Scope:**
 - Connector status page: the user this connector acts as, from the hub. Hidden in no-users mode.

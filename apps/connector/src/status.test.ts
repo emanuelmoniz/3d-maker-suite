@@ -4,7 +4,7 @@ import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, expect, it } from "vitest";
-import { createLink } from "./hub.ts";
+import { createLink, type Link } from "./hub.ts";
 import { openStore } from "./state.ts";
 import { allowed, createStatusPage, t } from "./status.ts";
 
@@ -19,9 +19,9 @@ afterEach(() => {
 });
 
 /** The page on a free port; `call` sends any Host/Origin (fetch won't set Host). */
-const serve = async () => {
+const serve = async (fake: Partial<Link> = {}) => {
   const store = openStore(dir);
-  const link = createLink({ store, version: "1.0.0", os: "x" });
+  const link = { ...createLink({ store, version: "1.0.0", os: "x" }), ...fake };
   const opened: string[] = [];
   const exits: number[] = [];
   const updater = { state: () => ({ failed: undefined, hubOlder: false, error: undefined }) };
@@ -102,6 +102,18 @@ it("answers health, shows the pair form, and refuses a cross-site pair", async (
   expect(bad.status).toBe(400);
   expect(bad.body).toContain(t("connector:pair.errors.unreachable"));
   expect(bad.body).toContain('value="WS"');
+});
+
+it("shows the hub user it acts as, and none when the hub names none", async () => {
+  const online = { state: () => ({ status: "online" as const, error: undefined }) };
+  const named = await serve({ ...online, userName: () => "<Zoë>" });
+  const { body } = await named.call("GET", "/");
+  const row = `<dt>${t("connector:status.user")}</dt>`;
+  expect(body).toContain(`${row}<dd>&#60;Zoë&#62;</dd>`);
+  close();
+
+  const none = await serve({ ...online, userName: () => undefined });
+  expect((await none.call("GET", "/")).body).not.toContain(row);
 });
 
 it("tells only its hub's page which device it is", async () => {

@@ -264,6 +264,10 @@ export function createLink({
     // A request has no id: it's live only, never stored or replayed. One it can't carry out is
     // answered at once, so the hub doesn't wait for it.
     if (id === undefined) {
+      if (event.success && event.data.type === "device.user") {
+        userName = event.data.name;
+        return;
+      }
       if (event.success && event.data.type === "open")
         return void slicers.open(event.data, local, (rootId, path, pid) =>
           sync?.opened(rootId, path, pid),
@@ -354,6 +358,8 @@ export function createLink({
         sharePresets: res.headers.get("x-share-presets") === "1",
         installPresets: res.headers.get("x-install-presets") === "1",
       });
+      const owner = res.headers.get("x-device-user");
+      userName = owner ? decodeURIComponent(owner) : undefined;
       status = "online";
       online = true;
       error = undefined;
@@ -386,6 +392,8 @@ export function createLink({
     }
   }
 
+  /** The hub user this device acts as: told on every connect, and when it changes (`device.user`). */
+  let userName: string | undefined;
   /** The hub's name, logo and favicon (settings any paired device may read), for the status page. */
   type Image = { type: string; data: Buffer };
   let branding: { name?: string; logo?: Image; favicon?: Image } = {};
@@ -466,6 +474,7 @@ export function createLink({
     },
     state: () => ({ status, error }),
     branding: () => branding,
+    userName: () => userName,
     /**
      * Unpair from this side (the hub is broken or being reinstalled): the token and state go, the
      * stream closes, and the hub shows the device offline until an admin removes it.
@@ -478,6 +487,7 @@ export function createLink({
       presetInstall?.stop();
       store.forget();
       branding = {};
+      userName = undefined;
       status = "unpaired";
       error = undefined;
       online = false;

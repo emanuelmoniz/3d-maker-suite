@@ -23,7 +23,7 @@ import {
 import { openDb, schema } from "@3d-maker-suite/db";
 import { buildApp } from "@3d-maker-suite/server/src/app.ts";
 import { hashPassword } from "@3d-maker-suite/server/src/lib/password.ts";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { createLink, type Link, PairError, sseParser } from "./hub.ts";
 import { openStore } from "./state.ts";
 
@@ -93,7 +93,7 @@ describe("connector and hub", () => {
       app.server.closeAllConnections();
       return app.close().finally(() => rmSync(dataDir, { recursive: true, force: true }));
     });
-    return { url, send, code };
+    return { url, send, code, admin, viewer };
   };
 
   const connector = (
@@ -145,6 +145,25 @@ describe("connector and hub", () => {
     await until(() => status(again.link) === "revoked");
     expect(again.store.token()).toBeUndefined();
     expect(again.store.get().hubUrl).toBe(h.url); // kept for the pair form
+  });
+
+  it("knows its hub user, follows a rename, and forgets it when unpaired", async () => {
+    const h = await hub();
+    const c = connector();
+    vi.useFakeTimers({ toFake: ["setInterval"] });
+    cleanup.push(() => vi.useRealTimers());
+    expect(c.link.userName()).toBeUndefined();
+    // The admin's: the one the test's session can rename.
+    const made = await h.send("POST", "/api/hub/pairing-codes", { userId: h.admin.id });
+    await c.link.pair(h.url, made.json().code, "WS-1");
+    await until(() => c.link.userName() === "admin");
+
+    await h.send("PATCH", "/api/auth/me", { displayName: "Zoë" });
+    vi.advanceTimersByTime(15_000);
+    await until(() => c.link.userName() === "Zoë");
+
+    c.link.unpair();
+    expect(c.link.userName()).toBeUndefined();
   });
 
   it("updates on Update now and tells the hub why it couldn't", async () => {

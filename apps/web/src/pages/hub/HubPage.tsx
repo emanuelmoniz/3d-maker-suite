@@ -40,9 +40,9 @@ function DeviceCard({ device: d, onRevoke }: { device: Device; onRevoke: () => v
             </span>
           )}
         </p>
+        <p className="text-muted wrap-anywhere">{t("hub:devices.user", { name: d.userName })}</p>
         <p className="text-muted wrap-anywhere">
           {t("hub:devices.details", {
-            user: d.userName,
             os: d.os ?? t("hub:devices.unknown"),
             version: d.connectorVersion ?? t("hub:devices.unknown"),
           })}
