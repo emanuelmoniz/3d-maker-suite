@@ -169,7 +169,8 @@ export async function buildApp(
       });
     }
     if (err instanceof HttpError) {
-      return reply.status(err.statusCode).send({ error: { code: err.code, message: err.message } });
+      const { code, message, details } = err;
+      return reply.status(err.statusCode).send({ error: { code, message, details } });
     }
     const status = isResponseSerializationError(err) ? 500 : (err.statusCode ?? 500);
     if (status >= 500) req.log.error(err);

@@ -24,6 +24,7 @@ import { z } from "zod";
 import { HttpError } from "../errors.ts";
 import { alertTasks, archivedAtOf, archivedWhere, resolveItemAlerts } from "../lib/archive.ts";
 import { modelName } from "../lib/catalog.ts";
+import { deleteItem } from "../lib/dependents.ts";
 import { inIds, listPage } from "../lib/list.ts";
 import { accessoryUsageOf, dueItems, usageOf } from "../lib/maintenance.ts";
 
@@ -99,7 +100,6 @@ export const maintenanceRoutes =
           .send(db.insert(maintenanceTypes).values(req.body).returning().get() as MaintenanceType),
     );
 
-    // Tasks point at types, so there is no DELETE: send `{ archived: true }`.
     app.patch(
       "/types/:id",
       {
@@ -122,6 +122,16 @@ export const maintenanceRoutes =
           if (archived) resolveItemAlerts(tx, alertTasks.maintenanceType(row.id));
           return row as MaintenanceType;
         });
+      },
+    );
+
+    app.delete(
+      "/types/:id",
+      { schema: { params, response: { 204: z.null(), 409: apiErrorSchema, ...notFound } } },
+      async (req, reply) => {
+        getType(req.params.id);
+        deleteItem(db, "maintenanceTypes", req.params.id, { user: req.user });
+        return reply.status(204).send(null);
       },
     );
 

@@ -67,9 +67,7 @@ describe("printers", () => {
     expect((await list("?state=maintenance")).total).toBe(1);
     expect((await list("?state=working")).total).toBe(0);
 
-    expect((await app.inject({ method: "DELETE", url: `/api/printers/${p.id}` })).statusCode).toBe(
-      204,
-    );
+    expect((await patch({ archived: true })).statusCode).toBe(200);
     expect((await list()).total).toBe(0);
     expect((await list("?archived=true")).total).toBe(1);
     expect((await patch({ archived: false })).json().archivedAt).toBeNull();

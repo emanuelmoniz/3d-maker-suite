@@ -117,6 +117,39 @@ export const apiErrorSchema = z.object({
   error: z.object({ code: z.string(), message: z.string(), details: z.unknown().optional() }),
 });
 
+/** What can stand in the way of a delete: the web's key for its plurals and links (ADR-0018). */
+export const DEPENDENT_TYPES = [
+  "printerModel",
+  "machineProfile",
+  "printProfile",
+  "printer",
+  "accessory",
+  "maintenanceType",
+  "maintenanceTask",
+  "filamentProfile",
+  "spool",
+  "print",
+  "order",
+  "quote",
+] as const;
+
+/**
+ * `details` of an `in_use` error. `total` and `archived` count every row of the type; `items` holds
+ * at most 20 the caller may read, active ones first.
+ */
+export const inUseDetailsSchema = z.object({
+  dependents: z.array(
+    z.object({
+      type: z.enum(DEPENDENT_TYPES),
+      total: z.number().int(),
+      archived: z.number().int(),
+      items: z.array(z.object({ id: z.string(), label: z.string(), archived: z.boolean() })),
+    }),
+  ),
+});
+
+export type DependentType = (typeof DEPENDENT_TYPES)[number];
+export type InUseDetails = z.infer<typeof inUseDetailsSchema>;
 export type PaginationQuery = z.infer<typeof paginationQuery>;
 export type DateRangeQuery = z.infer<typeof dateRangeQuery>;
 export type Page<T> = { items: T[]; page: number; pageSize: number; total: number };

@@ -144,11 +144,10 @@
     "title": "Delete {{name}}?",
     "body": "The project is deleted. This can't be undone.",
     "bodyFolder": "The project is deleted, and its folder too if no file is left in it. This can't be undone.",
-    "bodyKept": "The project is deleted. This can't be undone. Its kept folder {{path}} is no longer skipped: the next scan finds it as a new project unless you move it out of your project folders.",
+    "bodyKept": "The project is deleted, once its kept folder {{path}} has no files left. This can't be undone.",
     "error": "Couldn't delete the project. Try again.",
     "errors": {
-      "project_has_prints": "It has prints. Move them to another project, or to No project, first.",
-      "project_in_order": "It is part of an order. Remove it from the order first.",
+      "in_use": "Prints, orders or quotes still use it. Move or remove them first.",
       "folder_has_files": "Its folder still has files. Move or delete them first, or the next scan finds the project again."
     }
   },

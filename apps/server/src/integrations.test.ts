@@ -414,6 +414,38 @@ describe("integrations", () => {
     expect(db.select().from(schema.printers).all()).toHaveLength(2);
   });
 
+  it("a printer or print you deleted doesn't come back on the next run", async () => {
+    await spool();
+    const { id } = await create();
+    await sync(id);
+    const { printers, prints, deletedSources } = schema;
+    const printRow = db.select().from(prints).get();
+    expect(
+      (await app.inject({ method: "DELETE", url: `/api/prints/${printRow?.id}` })).statusCode,
+    ).toBe(204);
+    const before = db.select().from(prints).all().length;
+    expect(await syncType(id, "prints")).toMatchObject({ created: 0, pending: 0 });
+    expect(db.select().from(prints).all()).toHaveLength(before);
+
+    // A printer with no prints left is free to go, and stays gone.
+    for (const p of db.select().from(prints).all())
+      await app.inject({ method: "DELETE", url: `/api/prints/${p.id}` });
+    db.delete(deletedSources).run();
+    const printer = db.select().from(printers).get();
+    expect(
+      (await app.inject({ method: "DELETE", url: `/api/printers/${printer?.id}` })).statusCode,
+    ).toBe(204);
+    expect(await syncType(id, "printers")).toMatchObject({ created: 0, pending: 0 });
+    expect(db.select().from(printers).all()).toEqual([]);
+
+    const p = (await review.open(`/api/import/integration/${id}/printers`)).json() as ImportPreview;
+    expect(p.rows[0]).toMatchObject({ deleted: true, action: "skip" });
+    const done = await review.confirm(p, p.rows, { action: "create" });
+    expect(done.json()).toMatchObject({ created: 1 });
+    expect(db.select().from(printers).all()).toHaveLength(1);
+    expect(db.select().from(deletedSources).all()).toEqual([]);
+  });
+
   it("keeps the fields you edited and updates the rest under Keep my edits", async () => {
     const { id } = await create();
     await setPolicy(id, "printers", { merge: "keepEdits" });
@@ -1268,6 +1300,37 @@ describe("spool rows from a vendor", () => {
     remainingGrams: 400,
     emptyWeightGrams: null,
     status: "in_use" as const,
+  });
+
+  it("one you deleted doesn't come back on the next run", async () => {
+    const { id: profile } = (
+      await send("POST", "/api/filament/profiles", {
+        materialId: (await send("POST", "/api/filament-materials", { name: "PLA" })).json().id,
+        densityGcm3: 1.24,
+        name: "PLA",
+      })
+    ).json();
+    state.spools = [vendor("mock:1")];
+    const { id } = await create();
+    const open = async () =>
+      (await review.open(`/api/import/integration/${id}/spools`)).json() as ImportPreview;
+    const first = await open();
+    await review.confirm(first, first.rows, { action: "create", refs: { profile } });
+    const { spools, deletedSources } = schema;
+    const row = db.select().from(spools).get();
+    expect(row?.sourceSpool).toBe("mock:mock:1");
+    expect(
+      (await app.inject({ method: "DELETE", url: `/api/filament/spools/${row?.id}` })).statusCode,
+    ).toBe(204);
+
+    expect(await syncType(id, "spools")).toMatchObject({ created: 0, pending: 0 });
+    expect(db.select().from(spools).all()).toEqual([]);
+    const again = await open();
+    expect(again.rows[0]).toMatchObject({ deleted: true, action: "skip" });
+
+    await review.confirm(again, again.rows, { action: "create", refs: { profile } });
+    expect(db.select().from(spools).all()).toHaveLength(1);
+    expect(db.select().from(deletedSources).all()).toEqual([]);
   });
 
   it("spell a short name like the catalog only when one name fits", () => {

@@ -28,8 +28,9 @@ import {
   canReference,
   resolveItemAlerts,
 } from "../lib/archive.ts";
-import { printerLabel } from "../lib/catalog.ts";
+import { accessoryLabel, printerLabel } from "../lib/catalog.ts";
 import { commentRoutes } from "../lib/comments.ts";
+import { deleteItem } from "../lib/dependents.ts";
 import { imageRoutes } from "../lib/images.ts";
 import { assertPeriod } from "../lib/installs.ts";
 import { listPage, taggedWith } from "../lib/list.ts";
@@ -42,8 +43,6 @@ const params = z.object({ id: z.uuid() });
 const installParams = params.extend({ installId: z.uuid() });
 const notFound = { 404: apiErrorSchema };
 
-/** "01-AMS", the same as the web's `accessoryName`. */
-const accessoryLabel = sql<string>`printf('%02d', ${accessories.number}) || '-' || ${accessories.name}`;
 /** The printer the accessory is on now (its open install). */
 // Drizzle leaves single-table columns unqualified, and a bare "id" here would be the install's.
 const outerId = sql`${accessories}.${sql.identifier("id")}`;
@@ -192,7 +191,7 @@ export const accessoriesRoutes =
       async (req) => get(req.params.id),
     );
 
-    // `archived` archives/restores; DELETE below is the same as `{ archived: true }`.
+    // `archived` archives/restores.
     app.patch(
       "/:id",
       {
@@ -214,13 +213,13 @@ export const accessoriesRoutes =
       },
     );
 
-    // Accessories have history (installs), so deleting means archiving.
+    // An accessory with history (installs, maintenance) can only be archived.
     app.delete(
       "/:id",
       { schema: { params, response: { 204: z.null(), 409: apiErrorSchema, ...notFound } } },
       async (req, reply) => {
         get(req.params.id);
-        archive(req.params.id, true);
+        deleteItem(db, "accessories", req.params.id, { user: req.user, dataDir });
         return reply.status(204).send(null);
       },
     );

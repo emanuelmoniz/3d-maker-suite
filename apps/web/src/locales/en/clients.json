@@ -17,12 +17,12 @@
     "title": "Details",
     "edit": "Edit",
     "notFound": "Client not found.",
-    "inUse": "This client has orders, so it can't be deleted.",
+    "inUse": "This client has orders or quotes, so it can't be deleted.",
     "none": "-"
   },
   "delete": {
     "title": "Delete client?",
-    "body": "{{name}} will be deleted. Its quotes stay, without a client.",
+    "body": "{{name}} will be deleted. This can't be undone.",
     "confirm": "Delete",
     "named": "Delete {{name}}"
   },

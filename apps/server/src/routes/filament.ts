@@ -40,6 +40,7 @@ import {
   profileMaterial,
   spoolName,
 } from "../lib/catalog.ts";
+import { deleteItem } from "../lib/dependents.ts";
 import { inIds, listPage, taggedWith } from "../lib/list.ts";
 import { assertNumberFree } from "../lib/numbers.ts";
 import { createSpool, round, setRemaining } from "../lib/spools.ts";
@@ -66,7 +67,7 @@ export const filamentRoutes =
       return row;
     };
 
-    // --- Profiles (the product: brand, material, colour). Archived, never deleted.
+    // --- Profiles (the product: brand, material, colour).
     app.get(
       "/profiles",
       {
@@ -142,6 +143,16 @@ export const filamentRoutes =
           .where(eq(filamentProfiles.id, req.params.id))
           .run();
         return getProfile(req.params.id) as FilamentProfile;
+      },
+    );
+
+    app.delete(
+      "/profiles/:id",
+      { schema: { params, response: { 204: z.null(), 409: apiErrorSchema, ...notFound } } },
+      async (req, reply) => {
+        getProfile(req.params.id);
+        deleteItem(db, "filamentProfiles", req.params.id, { user: req.user });
+        return reply.status(204).send(null);
       },
     );
 
@@ -250,6 +261,16 @@ export const filamentRoutes =
           );
           return (moved ?? row) as Spool;
         });
+      },
+    );
+
+    app.delete(
+      "/spools/:id",
+      { schema: { params, response: { 204: z.null(), 409: apiErrorSchema, ...notFound } } },
+      async (req, reply) => {
+        getSpool(req.params.id);
+        deleteItem(db, "spools", req.params.id, { user: req.user });
+        return reply.status(204).send(null);
       },
     );
 

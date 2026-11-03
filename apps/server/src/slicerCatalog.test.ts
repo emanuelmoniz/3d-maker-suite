@@ -116,6 +116,77 @@ const run = async (type: string) =>
     await app.inject({ method: "POST", url: `/api/integrations/${id}/sync`, payload: { type } })
   ).json();
 
+describe("deleted catalog rows", () => {
+  const { brands, deletedSources, filamentBrands, filamentMaterials, filamentProfiles } = schema;
+  const { machineProfiles, printerModels, printProfiles } = schema;
+  const types = [
+    ["brands", "/api/brands", brands],
+    ["printerModels", "/api/printer-models", printerModels],
+    ["machineProfiles", "/api/machine-profiles", machineProfiles],
+    ["printProfiles", "/api/print-profiles", printProfiles],
+    ["filamentBrands", "/api/filament-brands", filamentBrands],
+    ["filamentMaterials", "/api/filament-materials", filamentMaterials],
+    ["filamentProfiles", "/api/filament/profiles", filamentProfiles],
+  ] as const;
+
+  it.each(types)(
+    "%s: a run doesn't bring it back; importing it by hand does",
+    async (type, url, table) => {
+      const t = table as typeof brands;
+      if (type === "filamentProfiles") {
+        await run("filamentBrands");
+        await run("filamentMaterials");
+      }
+      await run(type);
+      const count = () => db.select().from(t).all().length;
+      const before = count();
+      const row = db.select().from(t).get();
+      if (!row) throw new Error("nothing imported");
+      const res = await app.inject({ method: "DELETE", url: `${url}/${row.id}` });
+      expect(res.statusCode, res.body).toBe(204);
+
+      // Not re-added, and nothing waits for a person.
+      expect(await run(type)).toMatchObject({ created: 0, updated: 0, pending: 0 });
+      expect(count()).toBe(before - 1);
+
+      // The review offers it as a skip, marked.
+      const preview = await open(type);
+      const offered = preview.rows.find((r) => r.deleted);
+      expect(offered).toMatchObject({ action: "skip", status: "new" });
+      expect(offered?.auto).toBeUndefined();
+      if (!offered) throw new Error("not offered");
+
+      const done = await review.confirm(preview, [offered], { action: "create" });
+      expect(done.statusCode, done.body).toBe(200);
+      expect(count()).toBe(before);
+      expect(db.select().from(deletedSources).all()).toEqual([]);
+      expect((await open(type)).rows.some((r) => r.deleted)).toBe(false);
+    },
+  );
+
+  it("a model a run needs is still created, and that clears its brand's mark", async () => {
+    await run("brands");
+    const brand = db.select().from(brands).get();
+    await app.inject({ method: "DELETE", url: `/api/brands/${brand?.id}` });
+    expect(db.select().from(deletedSources).all()).toMatchObject([
+      { entity: "brands", source: "acme" },
+    ]);
+
+    expect((await run("printerModels")).created).toBe(1);
+
+    expect(db.select().from(brands).all()).toMatchObject([{ name: "Acme" }]);
+    expect(db.select().from(deletedSources).all()).toEqual([]);
+  });
+
+  it("a mark only counts when nothing you have is the row", async () => {
+    await run("brands");
+    const brand = db.select().from(brands).get();
+    await app.inject({ method: "DELETE", url: `/api/brands/${brand?.id}` });
+    await app.inject({ method: "POST", url: "/api/brands", payload: { name: "Acme" } });
+    expect((await open("brands")).rows.some((r) => r.deleted)).toBe(false);
+  });
+});
+
 describe("archived catalog rows", () => {
   const { brands, printerModels, machineProfiles, printProfiles, filamentBrands } = schema;
   const { filamentMaterials, filamentProfiles } = schema;

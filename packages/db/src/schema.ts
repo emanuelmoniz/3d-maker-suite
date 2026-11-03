@@ -144,8 +144,8 @@ export const syncPolicies = sqliteTable(
 );
 
 // What an integration last imported into a row, in the import columns, so a sync tells your
-// edits (row ≠ these) from a change at the source (source ≠ these).
-// ponytail: no FK to the row (one table per entity); a deleted row leaves a stale snapshot behind.
+// edits (row ≠ these) from a change at the source (source ≠ these). No FK to the row (one table per
+// entity): its delete removes these.
 export const importSnapshots = sqliteTable(
   "import_snapshots",
   {
@@ -157,6 +157,18 @@ export const importSnapshots = sqliteTable(
     values: text({ mode: "json" }).$type<Record<string, string | number | null>>().notNull(),
   },
   (t) => [primaryKey({ columns: [t.integrationId, t.entity, t.rowId] })],
+);
+
+// Imported rows you deleted, so a sync doesn't bring them back unnoticed (ADR-0018). `source` is
+// what the row is matched by: its source key, or a catalog row's lowercase name.
+export const deletedSources = sqliteTable(
+  "deleted_sources",
+  {
+    entity: text().notNull(),
+    source: text().notNull(),
+    deletedAt: text().notNull().$defaultFn(now),
+  },
+  (t) => [primaryKey({ columns: [t.entity, t.source] })],
 );
 
 // Sync log: one row per run (the server keeps the last 100 per integration).
@@ -833,7 +845,7 @@ export const tags = sqliteTable(
 );
 
 // Polymorphic: no FK to the tagged row. A trigger (migration 0001) removes taggings of deleted
-// prints; spools and projects are archived, never deleted.
+// prints; the delete of any other tagged row removes its own.
 export const taggings = sqliteTable(
   "taggings",
   {

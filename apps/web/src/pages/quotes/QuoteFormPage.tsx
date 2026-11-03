@@ -98,10 +98,13 @@ const initial = (ctx: CostContext): Form => ({
   markupPct: ctx.quoteDefaults.markupPct,
 });
 
-/** A saved form over the defaults; quotes from before Step 18 lack the plates and had `plate`. */
-function restore(ctx: CostContext, saved: Quote["form"] | undefined): Form {
-  const { plate: _old, ...rest } = (saved ?? {}) as Partial<Form> & { plate?: unknown };
-  return { ...initial(ctx), ...rest };
+/**
+ * A saved quote's form over the defaults; quotes from before Step 18 lack the plates and had
+ * `plate`. Its project is the quote's own: the form's copy can name one deleted since.
+ */
+function restore(ctx: CostContext, saved: Quote | undefined): Form {
+  const { plate: _old, ...rest } = (saved?.form ?? {}) as Partial<Form> & { plate?: unknown };
+  return { ...initial(ctx), ...rest, projectId: saved?.projectId ?? "" };
 }
 
 /** A project's saved setup as quote plates; a slice counts only while it's current. */
@@ -267,7 +270,7 @@ function QuoteForm({ ctx, editing }: { ctx: CostContext; editing?: Quote }) {
   const profiles = useProfiles().data?.items ?? [];
   const spools = useSpools().data?.items ?? [];
   const defaultPrinterId = usePreferences().data?.values.defaultPrinterId;
-  const [f, setF] = useState<Form>(() => restore(ctx, editing?.form));
+  const [f, setF] = useState<Form>(() => restore(ctx, editing));
   const [name, setName] = useState(editing?.name ?? "");
   const [notes, setNotes] = useState(editing?.notes ?? "");
   const [clientId, setClientId] = useState(editing?.clientId ?? "");

@@ -79,11 +79,16 @@ describe("orders", () => {
     expect(noProject.json().error.code).toBe("print_project_required");
   });
 
-  it("deleting an order keeps its prints, without the order", async () => {
+  it("an order with prints can't be deleted until they're gone", async () => {
     const { lamp, print } = await setup();
     const o = (await send("POST", "/api/orders", { projectIds: [lamp.id], price: 0 })).json();
     const p = await print(lamp.id, o.id);
-    expect((await send("DELETE", `/api/orders/${o.id}`)).statusCode).toBe(204);
-    expect((await send("GET", `/api/prints/${p.id}`)).json().orderId).toBeNull();
+    const refused = await send("DELETE", `/api/orders/${o.id}`);
+    expect([refused.statusCode, refused.json().error.code]).toEqual([409, "in_use"]);
+    expect((await send("GET", `/api/prints/${p.id}`)).json().orderId).toBe(o.id);
+    await app.inject({ method: "DELETE", url: `/api/prints/${p.id}` });
+    expect((await app.inject({ method: "DELETE", url: `/api/orders/${o.id}` })).statusCode).toBe(
+      204,
+    );
   });
 });

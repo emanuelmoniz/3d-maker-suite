@@ -11,7 +11,7 @@ import { type Db, schema } from "@3d-maker-suite/db";
 import { and, eq, isNotNull, isNull } from "drizzle-orm";
 import type { SQLiteColumn } from "drizzle-orm/sqlite-core";
 import { HttpError } from "../errors.ts";
-import { idByName, modelIdFor, modelIdOf } from "../lib/catalog.ts";
+import { idByName, modelIdFor, modelIdOf, nameKey } from "../lib/catalog.ts";
 import { printerImport } from "./printers.ts";
 import { type ImportHandler, keyLibrary, type WriteRow } from "./review.ts";
 import { names, num, str } from "./spools.ts";
@@ -67,6 +67,8 @@ function save(
     throw e;
   }
 }
+
+const nameOf = (v: ImportValues) => nameKey(str(v.name));
 
 /** An update of a row you archived restores it. */
 const restored = (target: ImportTarget) => (target.archived ? { archivedAt: null } : {});
@@ -242,6 +244,7 @@ export function catalogImport(dataDir: string) {
     brands: {
       targets: (db) => brandTargets(db),
       archived: (db) => archivedByName(brandTargets(db, true), "name"),
+      deletedKey: nameOf,
       match: matchRowsOn("name"),
       refs: (db) => ({ brands: printerImport.refs(db).brands }),
       missing: () => ({}),
@@ -258,6 +261,7 @@ export function catalogImport(dataDir: string) {
     printerModels: {
       targets: (db) => modelTargets(db),
       archived: (db) => archivedByName(modelTargets(db, true), "brand", "model"),
+      deletedKey: (v) => nameKey(str(v.brand), str(v.model)),
       match: matchRowsOn("brand", "model"),
       refs: printerImport.refs,
       check: (db, v, file) =>
@@ -396,6 +400,7 @@ export function catalogImport(dataDir: string) {
     filamentBrands: {
       targets: (db) => filamentBrandTargets(db),
       archived: (db) => archivedByName(filamentBrandTargets(db, true), "name"),
+      deletedKey: nameOf,
       match: matchRowsOn("name"),
       refs: (db) => ({ filamentBrands: names(db, filamentBrands, true) }),
       missing: () => ({}),
@@ -413,6 +418,7 @@ export function catalogImport(dataDir: string) {
     filamentMaterials: {
       targets: (db) => materialTargets(db),
       archived: (db) => archivedByName(materialTargets(db, true), "name"),
+      deletedKey: nameOf,
       match: matchRowsOn("name"),
       refs: (db) => ({ filamentMaterials: names(db, filamentMaterials, true) }),
       missing: () => ({}),

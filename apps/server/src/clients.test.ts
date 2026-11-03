@@ -58,14 +58,16 @@ describe("clients", () => {
         clientId: c.id,
       })
     ).json();
+    const quoted = await req("DELETE", `/api/clients/${c.id}`);
+    expect([quoted.statusCode, quoted.json().error.code]).toEqual([409, "in_use"]);
+    await req("DELETE", `/api/costs/quotes/${quote.id}`);
     expect((await req("DELETE", `/api/clients/${c.id}`)).statusCode).toBe(204);
     expect((await req("GET", `/api/clients/${c.id}`)).statusCode).toBe(404);
-    expect((await req("GET", `/api/costs/quotes/${quote.id}`)).json().clientId).toBeNull();
 
     const busy = (await create({ mobile: "922" })).json();
     const project = (await req("POST", "/api/projects", { name: "Lamp" })).json();
     await req("POST", "/api/orders", { projectIds: [project.id], price: 1, clientId: busy.id });
     const res = await req("DELETE", `/api/clients/${busy.id}`);
-    expect([res.statusCode, res.json().error.code]).toEqual([409, "client_in_use"]);
+    expect([res.statusCode, res.json().error.code]).toEqual([409, "in_use"]);
   });
 });

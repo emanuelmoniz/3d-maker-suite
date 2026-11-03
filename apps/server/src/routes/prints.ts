@@ -27,6 +27,7 @@ import { archivedAtOf, archivedWhere, canReference } from "../lib/archive.ts";
 import { projectVisible } from "../lib/auth.ts";
 import { printLabel } from "../lib/catalog.ts";
 import { printCosts } from "../lib/cost.ts";
+import { deleteItem } from "../lib/dependents.ts";
 import { columnFilter, listPage, orderBy, taggedWith } from "../lib/list.ts";
 import { assertNumberFree, nextNumber } from "../lib/numbers.ts";
 import { readPreferences } from "../lib/preferences.ts";
@@ -421,11 +422,7 @@ export const printsRoutes =
       "/:id",
       { schema: { params, response: { 204: z.null(), ...notFound } } },
       async (req, reply) => {
-        const cur = detail(req.params.id);
-        db.transaction((tx) => {
-          syncUsages(tx, cur.id, cur.title, []);
-          tx.delete(prints).where(eq(prints.id, cur.id)).run();
-        });
+        deleteItem(db, "prints", detail(req.params.id).id, { user: req.user });
         return reply.status(204).send(null);
       },
     );

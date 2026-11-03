@@ -173,6 +173,7 @@
     "action": "Action",
     "target": "Update which",
     "archivedTarget": "archived, an update restores it",
+    "deletedRow": "You deleted this",
     "policy": "Merge",
     "select": "Select row {{row}}",
     "selectAll_one": "Select the {{count}} row shown",

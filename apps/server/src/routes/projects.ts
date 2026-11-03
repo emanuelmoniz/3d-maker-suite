@@ -52,6 +52,7 @@ import {
   visibleProjects,
 } from "../lib/auth.ts";
 import { projectLabel } from "../lib/catalog.ts";
+import { assertFree, deleteItem } from "../lib/dependents.ts";
 import type { HubChannel } from "../lib/hubChannel.ts";
 import { openFolder, slicerLauncher } from "../lib/launcher.ts";
 import { columnFilter, listPage, taggedWith } from "../lib/list.ts";
@@ -78,15 +79,14 @@ const {
   projects,
   collectionProjects,
   deviceProjects,
+  deviceRootFolders,
   devices,
   integrations,
-  orderProjects,
   printFilamentUsages,
   prints,
   printers,
   projectSlicePlates: plates,
   slicerPresets,
-  taggings,
   users,
 } = schema;
 const params = z.object({ id: z.uuid() });
@@ -706,30 +706,38 @@ export const projectsRoutes =
       },
     );
 
+    /** Whether a scan would find this folder again: files in it, or (on a device) its last index. */
+    const holdsFiles = async (rootId: string | null, folder: string | null) => {
+      if (!rootId || folder === null) return false;
+      if (onDeviceRoot(db, rootId))
+        return !!db
+          .select({ folder: deviceRootFolders.folder })
+          .from(deviceRootFolders)
+          .where(and(eq(deviceRootFolders.rootId, rootId), eq(deviceRootFolders.folder, folder)))
+          .get();
+      const own = await projectDir(db, { rootId, folder });
+      return !!own && (await hasFiles(own.dir));
+    };
+
     // Deletes a project nothing points at. Its folder goes too, only when no file is left in it: a
-    // folder with files in a root would be scanned back in as a project.
+    // folder with files in a root would be scanned back in as a project, and so would one it was
+    // unlinked from and kept, which only its `unlinked*` columns keep out of the scan.
     app.delete(
       "/:id",
       { schema: { params, response: { 204: z.null(), ...errors } } },
       async (req, reply) => {
-        const p = get(req.params.id);
-        if (db.select({ id: prints.id }).from(prints).where(eq(prints.projectId, p.id)).get())
-          throw new HttpError(409, "project_has_prints", "Move or remove its prints first");
-        if (db.select().from(orderProjects).where(eq(orderProjects.projectId, p.id)).get())
-          throw new HttpError(409, "project_in_order", "Remove it from its orders first");
-        // Only a folder below a root is the app's to remove (and only there would a scan find it
-        // again); one gone or led out of its root by a link stays as it is.
-        const own = (await projectDir(db, p))?.dir;
-        if (own && (await hasFiles(own)))
+        const p = row(req.params.id);
+        assertFree(db, req.user, "projects", p.id);
+        if (
+          (await holdsFiles(p.rootId, p.folder)) ||
+          (await holdsFiles(p.unlinkedRootId, p.unlinkedFolder))
+        )
           throw new HttpError(409, "folder_has_files", "Its folder still has files");
-        db.transaction((tx) => {
-          tx.delete(taggings)
-            .where(and(eq(taggings.entityType, "project"), eq(taggings.entityId, p.id)))
-            .run();
-          tx.delete(projects).where(eq(projects.id, p.id)).run();
-        });
+        // Only a folder below a root is the app's to remove; one gone or led out of its root by a
+        // link stays as it is.
+        const own = (await projectDir(db, p))?.dir;
+        deleteItem(db, "projects", p.id, { user: req.user, dataDir });
         if (own) await rm(own, { recursive: true, force: true });
-        if (p.thumbnailPath) await rm(join(dataDir, p.thumbnailPath), { force: true });
         return reply.status(204).send(null);
       },
     );

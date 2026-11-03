@@ -58,7 +58,7 @@
   },
   "delete": {
     "title": "Delete order?",
-    "body": "{{name}} will be deleted. Its prints stay, without an order.",
+    "body": "{{name}} will be deleted. This can't be undone.",
     "confirm": "Delete",
     "named": "Delete {{name}}"
   },

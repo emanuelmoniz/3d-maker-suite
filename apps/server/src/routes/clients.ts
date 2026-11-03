@@ -17,9 +17,10 @@ import { z } from "zod";
 import { HttpError } from "../errors.ts";
 import { archivedAtOf, archivedWhere } from "../lib/archive.ts";
 import { unique } from "../lib/clients.ts";
+import { deleteItem } from "../lib/dependents.ts";
 import { listPage } from "../lib/list.ts";
 
-const { clients, orders } = schema;
+const { clients } = schema;
 const params = z.object({ id: z.uuid() });
 const notFound = { 404: apiErrorSchema };
 
@@ -102,17 +103,12 @@ export const clientsRoutes =
       },
     );
 
-    // Its quotes stay, without a client (FK set null). Orders block it.
     app.delete(
       "/:id",
       { schema: { params, response: { 204: z.null(), 409: apiErrorSchema, ...notFound } } },
       async (req, reply) => {
         get(req.params.id);
-        if (
-          db.select({ id: orders.id }).from(orders).where(eq(orders.clientId, req.params.id)).get()
-        )
-          throw new HttpError(409, "client_in_use", "This client has orders");
-        db.delete(clients).where(eq(clients.id, req.params.id)).run();
+        deleteItem(db, "clients", req.params.id, { user: req.user });
         return reply.status(204).send(null);
       },
     );

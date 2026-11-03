@@ -40,7 +40,8 @@ import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
 import { archivedAtOf, archivedWhere, assertPresetFree } from "../lib/archive.ts";
-import { brandModel, modelName } from "../lib/catalog.ts";
+import { brandModel, brandOf, modelName } from "../lib/catalog.ts";
+import { deleteItem, type ItemKind } from "../lib/dependents.ts";
 import { imageRoutes } from "../lib/images.ts";
 import { type ListOptions, listPage } from "../lib/list.ts";
 
@@ -49,18 +50,17 @@ const { brands, printerModels, machineProfiles, printProfiles, filamentBrands, f
 const params = z.object({ id: z.uuid() });
 const errors = { 400: apiErrorSchema, 404: apiErrorSchema, 409: apiErrorSchema };
 
-/** SQLite constraint errors -> API errors. FK on write = unknown parent id, FK on delete = in use. */
-function constraint(e: unknown, op: "write" | "delete") {
+/** SQLite constraint errors on a write -> API errors. FK = unknown parent id. */
+function constraint(e: unknown) {
   const msg = String((e as Error).message);
   if (msg.includes("UNIQUE")) return new HttpError(409, "duplicate", "This name already exists");
   if (msg.includes("FOREIGN KEY"))
-    return op === "delete"
-      ? new HttpError(409, "in_use", "Still used by other records")
-      : new HttpError(400, "invalid_reference", "Unknown parent record");
+    return new HttpError(400, "invalid_reference", "Unknown parent record");
   return e;
 }
 
 interface Entity {
+  kind: ItemKind;
   table: SQLiteTable & { id: SQLiteColumn };
   noun: string;
   row: z.ZodType;
@@ -73,7 +73,7 @@ interface Entity {
   image?: { name: string; dir: string; column: string };
 }
 
-/** List / get / create / patch and archive / hard delete (409 while referenced), plus an optional image. */
+/** List / get / create / patch and archive / delete (409 while referenced), plus an optional image. */
 const crud =
   (db: Db, dataDir: string, o: Entity): FastifyPluginAsyncZod =>
   async (app) => {
@@ -88,7 +88,7 @@ const crud =
       try {
         return run();
       } catch (e) {
-        throw constraint(e, "write");
+        throw constraint(e);
       }
     };
 
@@ -143,11 +143,7 @@ const crud =
       { schema: { params, response: { 204: z.null(), ...errors } } },
       async (req, reply) => {
         get(req.params.id);
-        try {
-          db.delete(table).where(eq(table.id, req.params.id)).run();
-        } catch (e) {
-          throw constraint(e, "delete");
-        }
+        deleteItem(db, o.kind, req.params.id, { user: req.user, dataDir });
         return reply.status(204).send(null);
       },
     );
@@ -169,10 +165,9 @@ const crud =
       });
   };
 
-const brandOf = sql`(SELECT ${brands.name} FROM ${brands} WHERE ${brands.id} = ${printerModels.brandId})`;
-
 export const brandsRoutes = (db: Db, dataDir: string) =>
   crud(db, dataDir, {
+    kind: "brands",
     table: brands,
     noun: "Brand",
     row: brandSchema,
@@ -188,6 +183,7 @@ export const brandsRoutes = (db: Db, dataDir: string) =>
 
 export const printerModelsRoutes = (db: Db, dataDir: string) =>
   crud(db, dataDir, {
+    kind: "printerModels",
     table: printerModels,
     noun: "Printer model",
     row: printerModelSchema,
@@ -212,6 +208,7 @@ export const printerModelsRoutes = (db: Db, dataDir: string) =>
 
 export const machineProfilesRoutes = (db: Db, dataDir: string) =>
   crud(db, dataDir, {
+    kind: "machineProfiles",
     table: machineProfiles,
     noun: "Machine profile",
     row: machineProfileSchema,
@@ -236,6 +233,7 @@ export const machineProfilesRoutes = (db: Db, dataDir: string) =>
 
 export const printProfilesRoutes = (db: Db, dataDir: string) =>
   crud(db, dataDir, {
+    kind: "printProfiles",
     table: printProfiles,
     noun: "Print profile",
     row: printProfileSchema,
@@ -262,6 +260,7 @@ export const printProfilesRoutes = (db: Db, dataDir: string) =>
 
 export const filamentBrandsRoutes = (db: Db, dataDir: string) =>
   crud(db, dataDir, {
+    kind: "filamentBrands",
     table: filamentBrands,
     noun: "Filament brand",
     row: filamentBrandSchema,
@@ -280,6 +279,7 @@ export const filamentBrandsRoutes = (db: Db, dataDir: string) =>
 
 export const filamentMaterialsRoutes = (db: Db, dataDir: string) =>
   crud(db, dataDir, {
+    kind: "filamentMaterials",
     table: filamentMaterials,
     noun: "Filament material",
     row: filamentMaterialSchema,

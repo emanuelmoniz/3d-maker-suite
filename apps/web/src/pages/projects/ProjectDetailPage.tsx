@@ -61,8 +61,7 @@ import { ProjectGallery } from "./ProjectGallery.tsx";
 const linkButton =
   "inline-flex h-9 items-center gap-2 whitespace-nowrap rounded-md border border-border bg-surface px-3 font-medium hover:bg-surface-2";
 const DELETE_ERRORS = {
-  project_has_prints: "projects:remove.errors.project_has_prints",
-  project_in_order: "projects:remove.errors.project_in_order",
+  in_use: "projects:remove.errors.in_use",
   folder_has_files: "projects:remove.errors.folder_has_files",
 } as const;
 

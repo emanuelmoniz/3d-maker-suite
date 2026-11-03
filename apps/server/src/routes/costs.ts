@@ -34,8 +34,9 @@ import { HttpError } from "../errors.ts";
 import { presetsChanged, presetsSeq } from "../integrations/presetLibrary.ts";
 import { archivedAtOf, archivedWhere, canReference } from "../lib/archive.ts";
 import { projectVisible } from "../lib/auth.ts";
-import { projectLabel } from "../lib/catalog.ts";
+import { projectLabel, quoteLabel } from "../lib/catalog.ts";
 import { costContext } from "../lib/cost.ts";
+import { deleteItem } from "../lib/dependents.ts";
 import { listPage } from "../lib/list.ts";
 import { assertNumberFree, nextNumber } from "../lib/numbers.ts";
 import { projectFile } from "../projects/rootFs.ts";
@@ -49,8 +50,6 @@ import {
 } from "../projects/sliceQueue.ts";
 
 const { quotes, projects, clients, projectSlicePlates } = schema;
-/** "001-Vase", the same as the web's `quoteName`. */
-const quoteLabel = sql<string>`printf('%03d', ${quotes.number}) || '-' || ${quotes.name}`;
 const params = z.object({ id: z.uuid() });
 const notFound = { 404: apiErrorSchema };
 /** Uploaded 3MFs, by sha256, in the data folder (backed up with it). */
@@ -357,10 +356,10 @@ export const costsRoutes =
 
     app.delete(
       "/quotes/:id",
-      { schema: { params, response: { 204: z.null(), ...notFound } } },
+      { schema: { params, response: { 204: z.null(), 409: apiErrorSchema, ...notFound } } },
       async (req, reply) => {
         get(req.params.id);
-        db.delete(quotes).where(eq(quotes.id, req.params.id)).run();
+        deleteItem(db, "quotes", req.params.id, { user: req.user });
         return reply.status(204).send(null);
       },
     );

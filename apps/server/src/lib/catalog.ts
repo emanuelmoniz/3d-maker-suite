@@ -1,17 +1,40 @@
 import { type Db, schema } from "@3d-maker-suite/db";
 import { and, eq, getTableColumns, isNull, type SQLWrapper, sql } from "drizzle-orm";
 
-const { brands, printerModels } = schema;
+const { brands, deletedSources, printerModels } = schema;
 
 /** `modelLabel` in SQL: "Brand Model", or the model alone when it already starts with the brand. */
 export const brandModel = (brand: SQLWrapper, model: SQLWrapper) =>
   sql`CASE WHEN lower(${model}) = lower(${brand}) OR lower(substr(${model}, 1, length(${brand}) + 1)) = lower(${brand}) || ' '
     THEN ${model} ELSE ${brand} || ' ' || ${model} END`;
 
+/** The brand name of a printer model row. */
+export const brandOf = sql`(SELECT ${brands.name} FROM ${brands} WHERE ${brands.id} = ${printerModels.brandId})`;
+
+/** A printer model's display name, "Brand Model". */
+export const printerModelLabel = sql<string>`${brandModel(brandOf, printerModels.model)}`;
+
+/** What `deleted_sources` knows a row that matches by name by (ADR-0018). */
+export const nameKey = (...names: (string | null | undefined)[]) =>
+  names.map((n) => n?.trim().toLowerCase() ?? "").join("|");
+
+/** The row is wanted again: a sync treats it as any other. */
+export const clearDeleted = (db: Db, entity: string, source: string) =>
+  db
+    .delete(deletedSources)
+    .where(and(eq(deletedSources.entity, entity), eq(deletedSources.source, source)))
+    .run();
+
 /** "Brand Model" of the printer model `modelId` points at (for sort/filter on other tables). */
 export const modelName = (modelId: SQLWrapper) =>
   sql`(SELECT ${brandModel(brands.name, printerModels.model)} FROM ${printerModels}
     JOIN ${brands} ON ${brands.id} = ${printerModels.brandId} WHERE ${printerModels.id} = ${modelId})`;
+
+/** A row a child needs is created even if you deleted it; the child is what you asked to keep. */
+function neededAgain<T>(db: Db, entity: string, source: string, insert: () => T) {
+  clearDeleted(db, entity, source);
+  return insert();
+}
 
 /** Finds (case-insensitive) or creates the brand and model, for imported printers. */
 export function modelIdFor(db: Db, brand: string, model: string): string {
@@ -22,7 +45,13 @@ export function modelIdFor(db: Db, brand: string, model: string): string {
       .select({ id: brands.id })
       .from(brands)
       .where(sql`${brands.name} = ${brandName} COLLATE NOCASE`)
-      .get()?.id ?? db.insert(brands).values({ name: brandName }).returning().get().id;
+      .get()?.id ??
+    neededAgain(
+      db,
+      "brands",
+      nameKey(brandName),
+      () => db.insert(brands).values({ name: brandName }).returning().get().id,
+    );
   return (
     db
       .select({ id: printerModels.id })
@@ -34,7 +63,12 @@ export function modelIdFor(db: Db, brand: string, model: string): string {
         ),
       )
       .get()?.id ??
-    db.insert(printerModels).values({ brandId, model: trimmed }).returning().get().id
+    neededAgain(
+      db,
+      "printerModels",
+      nameKey(brandName, trimmed),
+      () => db.insert(printerModels).values({ brandId, model: trimmed }).returning().get().id,
+    )
   );
 }
 
@@ -74,7 +108,13 @@ export function filamentBrandIdFor(db: Db, name: string): string | null {
       .select({ id: filamentBrands.id })
       .from(filamentBrands)
       .where(sql`${filamentBrands.name} = ${trimmed} COLLATE NOCASE`)
-      .get()?.id ?? db.insert(filamentBrands).values({ name: trimmed }).returning().get().id
+      .get()?.id ??
+    neededAgain(
+      db,
+      "filamentBrands",
+      nameKey(trimmed),
+      () => db.insert(filamentBrands).values({ name: trimmed }).returning().get().id,
+    )
   );
 }
 
@@ -86,7 +126,13 @@ export function filamentMaterialIdFor(db: Db, name: string): string {
       .select({ id: filamentMaterials.id })
       .from(filamentMaterials)
       .where(sql`${filamentMaterials.name} = ${trimmed} COLLATE NOCASE`)
-      .get()?.id ?? db.insert(filamentMaterials).values({ name: trimmed }).returning().get().id
+      .get()?.id ??
+    neededAgain(
+      db,
+      "filamentMaterials",
+      nameKey(trimmed),
+      () => db.insert(filamentMaterials).values({ name: trimmed }).returning().get().id,
+    )
   );
 }
 
@@ -97,7 +143,7 @@ export const profileMaterial = sql<string>`(SELECT ${filamentMaterials.name} FRO
 /** The label the app shows for a profile: its name, else "brand material". */
 export const profileLabel = sql<string>`coalesce(nullif(${filamentProfiles.name}, ''), trim(${profileBrand} || ' ' || ${profileMaterial}))`;
 
-const { spools, printers, projects, prints } = schema;
+const { accessories, orders, quotes, spools, printers, projects, prints } = schema;
 /**
  * A spool's display name, "012-Bambu PLA Matte Scarlet Red" (the hex without a colour name), as the
  * web's `spoolName()` builds it in English. Fixed here: import files match spools by it.
@@ -112,6 +158,15 @@ export const printLabel = sql<string>`printf('%04d', ${prints.number}) || '-' ||
 
 /** A project's display name, "001-aquaterrario" (the number padded like the folders). */
 export const projectLabel = sql<string>`printf('%03d', ${projects.number}) || '-' || ${projects.name}`;
+
+/** "01-AMS", the same as the web's `accessoryName`. */
+export const accessoryLabel = sql<string>`printf('%02d', ${accessories.number}) || '-' || ${accessories.name}`;
+
+/** "001-Vase", the same as the web's `quoteName`. */
+export const quoteLabel = sql<string>`printf('%03d', ${quotes.number}) || '-' || ${quotes.name}`;
+
+/** An order's number, as its filter reads it. */
+export const orderLabel = sql<string>`printf('%03d', ${orders.number})`;
 
 /** `select()` map for profiles: the row plus `brand` / `material` names, as the API returns them. */
 export const profileColumns = {

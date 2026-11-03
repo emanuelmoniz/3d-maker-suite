@@ -30,6 +30,7 @@ import { type Db, schema } from "@3d-maker-suite/db";
 import { and, eq } from "drizzle-orm";
 import { HttpError } from "../errors.ts";
 import { policyOf } from "../integrations/capabilities.ts";
+import { clearDeleted } from "../lib/catalog.ts";
 import { catalogImport } from "./catalog.ts";
 import { clientImport, orderImport, quoteImport } from "./commerce.ts";
 import { filamentProfileImport } from "./filamentProfiles.ts";
@@ -129,6 +130,8 @@ export type ImportHandler = {
     targets: ImportTarget[];
     of: (source: string | undefined, values: ImportValues) => string | null;
   };
+  /** What `deleted_sources` knows a row by, for a type that matches by name; else its source key. */
+  deletedKey?: (values: ImportValues) => string;
   /**
    * References the user picks instead of having them created, and the suggestion for a row; a run
    * with nobody watching leaves a row it isn't `sure` of for a person. A row is offered the keys
@@ -160,7 +163,7 @@ export type ImportHandler = {
   update: (db: Db, target: ImportTarget, patch: ImportValues, row: WriteRow) => void;
 };
 
-const { brands, filamentBrands, importSnapshots } = schema;
+const { brands, deletedSources, filamentBrands, importSnapshots } = schema;
 /** Where "Only already imported" looks up a new row's brand. Types not listed take no new rows. */
 // Slicer presets aren't here: a slicer ships hundreds per brand, so "imported" takes no new one.
 const BRAND_OF: Partial<Record<ReviewEntity, typeof brands | typeof filamentBrands>> = {
@@ -181,6 +184,9 @@ export const untracked = (stored: Stored): Stored =>
   stored.entity === "prints"
     ? { ...stored, rows: stored.rows.map((r) => ({ ...r, raw: { ...r.raw, trackUsage: "no" } })) }
     : stored;
+
+const deletedKeyOf = (handler: ImportHandler, values: ImportValues, source?: string) =>
+  handler.deletedKey?.(values) ?? source;
 
 /** A stored cell as the review shows it: text or a number. */
 const shown = (v: unknown) =>
@@ -324,6 +330,16 @@ export function createReview(db: Db, dataDir: string) {
     const bySource = (sourced && handler.bySource?.(db)) || new Map<string, string>();
     const picks = sourced || handler.filePicks ? handler.picks?.(db) : undefined;
     const held = sourced ? handler.held?.(db) : undefined;
+    const marks = new Set(
+      sourced
+        ? db
+            .select({ source: deletedSources.source })
+            .from(deletedSources)
+            .where(eq(deletedSources.entity, stored.entity))
+            .all()
+            .map((m) => m.source)
+        : [],
+    );
     const parsed = stored.rows.map((r) => {
       const p = parseRow(columns, r.raw);
       if (!p.errors.length) p.errors.push(...(handler.check?.(db, p.values, !sourced) ?? []));
@@ -334,7 +350,14 @@ export function createReview(db: Db, dataDir: string) {
       const hit = byId.has(id) ? id : (r.source && bySource.get(r.source)) || null;
       // One you archived is the row only when nothing you have is.
       const archived = (!hit && !p.errors.length && gone?.of(r.source, p.values)) || null;
-      return { hit: hit ?? archived, archived: !!archived, raw: r.raw, row: r.n, ...p };
+      return {
+        hit: hit ?? archived,
+        archived: !!archived,
+        raw: r.raw,
+        source: r.source,
+        row: r.n,
+        ...p,
+      };
     });
     // Only the columns (and the id) go to the review, not what a vendor's row carries besides.
     const cells = (raw: StoredRow["raw"]) =>
@@ -371,7 +394,7 @@ export function createReview(db: Db, dataDir: string) {
     return {
       entity: stored.entity,
       dir: stored.dir,
-      rows: parsed.map(({ hit, archived, raw, ...p }) => {
+      rows: parsed.map(({ hit, archived, raw, source, ...p }) => {
         const m = hit
           ? { candidates: [hit], targetId: hit }
           : (matchOf.get(p.row) ?? { candidates: [], targetId: null });
@@ -393,7 +416,10 @@ export function createReview(db: Db, dataDir: string) {
         };
         const flags = !p.errors.length && handler.flags?.(db, p.values);
         if (!sourced) return { ...p, raw: cells(raw), ...m, ...s, ...picked, ...flags };
-        const yours = (!!hit && !!handler.handsOff) || archived;
+        // A mark only counts when nothing you have or archived is the row.
+        const key = p.errors.length ? undefined : deletedKeyOf(handler, p.values, source);
+        const deleted = !!key && !m.candidates.length && marks.has(key);
+        const yours = (!!hit && !!handler.handsOff) || archived || deleted;
         // A row that has only required picks is skipped until picked (a vendor's spool); one with
         // optional ones too stays a create, so a missing required pick shows (a print's project).
         const unpicked = !!pick && !picks?.optional && Object.values(pick.refs).some((v) => !v);
@@ -430,6 +456,7 @@ export function createReview(db: Db, dataDir: string) {
           }),
           ...picked,
           ...(edited && { edited }),
+          ...(deleted && { deleted }),
           auto: autoOf({
             status: s.status,
             // Without a source key the name is the identity, so a match is the row itself.
@@ -592,6 +619,8 @@ export function createReview(db: Db, dataDir: string) {
         const row = op.row.n;
         if (!op.target) {
           const made = handler.create(db, op.values, op.row);
+          const key = stored.from && deletedKeyOf(handler, op.values, op.row.source);
+          if (key) clearDeleted(db, stored.entity, key);
           if (made !== false)
             written.push({
               event: "created",

@@ -560,7 +560,7 @@ describe("project folder: create, link, unlink, missing", () => {
       })
       .returning()
       .get();
-    expect(await code(q.id)).toBe("project_has_prints");
+    expect(await code(q.id)).toBe("in_use");
     db.delete(schema.prints).where(eq(schema.prints.id, print.id)).run();
     expect((await del(q.id)).statusCode).toBe(204);
   });

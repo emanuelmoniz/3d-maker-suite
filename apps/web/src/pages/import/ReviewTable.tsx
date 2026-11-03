@@ -449,9 +449,12 @@ export function ReviewTable({
       id: "status",
       header: t("import:review.status"),
       cell: (r) => (
-        <span className={cx("font-medium", r.status === "invalid" && "text-bad")}>
-          {t(STATUSES[r.status])}
-        </span>
+        <>
+          <span className={cx("font-medium", r.status === "invalid" && "text-bad")}>
+            {t(STATUSES[r.status])}
+          </span>
+          {r.deleted && <span className="block text-muted">{t("import:review.deletedRow")}</span>}
+        </>
       ),
       sortValue: (r) => IMPORT_STATUSES.indexOf(r.status),
     },

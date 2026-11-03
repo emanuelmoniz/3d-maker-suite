@@ -1585,7 +1585,7 @@ Do Step 9 of the 5.2.0 plan in PLAN.md. Show me the schema and the migration fir
 Back up the DB before editing schema.ts.
 ```
 
-### [ ] Step 10 - Real delete with the dependents check
+### [x] Step 10 - Real delete with the dependents check
 **Model:** Opus · **Effort:** Medium
 **Scope:**
 - One helper per ADR-0018's table: which items use this one, with names and archived state. Every `DELETE` route uses it and returns the `in_use` 409. `HttpError` gets `details` and the handler in `app.ts` passes it on; dependents the caller can't read are counted, not named.

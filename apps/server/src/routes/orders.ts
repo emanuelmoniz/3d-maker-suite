@@ -20,6 +20,7 @@ import { z } from "zod";
 import { HttpError } from "../errors.ts";
 import { archivedAtOf, archivedWhere, canReference } from "../lib/archive.ts";
 import { printCosts } from "../lib/cost.ts";
+import { deleteItem } from "../lib/dependents.ts";
 import { listPage } from "../lib/list.ts";
 import { assertNumberFree, nextNumber } from "../lib/numbers.ts";
 import { setProjects } from "../lib/orders.ts";
@@ -201,13 +202,12 @@ export const ordersRoutes =
       },
     );
 
-    // Its prints stay, without an order.
     app.delete(
       "/:id",
-      { schema: { params, response: { 204: z.null(), ...notFound } } },
+      { schema: { params, response: { 204: z.null(), 409: apiErrorSchema, ...notFound } } },
       async (req, reply) => {
         get(req.params.id);
-        db.delete(orders).where(eq(orders.id, req.params.id)).run();
+        deleteItem(db, "orders", req.params.id, { user: req.user });
         return reply.status(204).send(null);
       },
     );

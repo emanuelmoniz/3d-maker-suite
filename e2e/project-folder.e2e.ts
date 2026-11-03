@@ -63,7 +63,7 @@ test("delete project: refused while it has prints, then goes with its empty fold
   const dialog = page.getByRole("dialog");
   await page.getByRole("button", { name: "Delete", exact: true }).click();
   await dialog.getByRole("button", { name: "Delete" }).click();
-  await expect(dialog.getByRole("alert")).toContainText("It has prints");
+  await expect(dialog.getByRole("alert")).toContainText("Prints, orders or quotes");
 
   // With the print on No project, the project and its (empty) folder go.
   await app.api("PATCH", `/api/prints/${print.id}`, { projectId: null });

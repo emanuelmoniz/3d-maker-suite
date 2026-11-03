@@ -47,7 +47,9 @@ describe("accessories", () => {
     expect((await req("GET", "/api/accessories?powerW=20..30")).json().items).toHaveLength(1);
     expect((await req("GET", "/api/accessories?sort=-powerW")).json().items[0].id).toBe(a.id);
 
-    expect((await req("DELETE", `/api/accessories/${a.id}`)).statusCode).toBe(204);
+    expect((await req("PATCH", `/api/accessories/${a.id}`, { archived: true })).statusCode).toBe(
+      200,
+    );
     expect((await req("GET", "/api/accessories")).json().total).toBe(1);
     expect((await req("GET", "/api/accessories?archived=true")).json().total).toBe(1);
     await req("PATCH", `/api/accessories/${a.id}`, { archived: false });
@@ -69,7 +71,9 @@ describe("accessories", () => {
     // Still on p1: a second install anywhere overlaps.
     expect((await install(p2.id, 20)).json().error.code).toBe("install_overlap");
     // Still installed: archiving is refused.
-    expect((await req("DELETE", `/api/accessories/${a.id}`)).statusCode).toBe(409);
+    expect((await req("PATCH", `/api/accessories/${a.id}`, { archived: true })).statusCode).toBe(
+      409,
+    );
 
     const remove = (id: string, d: number) => req("PATCH", `${base}/${id}`, { removedAt: day(d) });
     expect((await remove(first.json().id, 5)).statusCode).toBe(400);
@@ -110,9 +114,8 @@ describe("accessories", () => {
     const open = (await req("POST", base, { printerId: p.id, installedAt: day(10) })).json();
     const archive = await req("PATCH", `/api/printers/${p.id}`, { archived: true });
     expect(archive.json().error.code).toBe("printer_has_accessories");
-    expect((await req("DELETE", `/api/printers/${p.id}`)).statusCode).toBe(409);
     await req("PATCH", `${base}/${open.id}`, { removedAt: day(11) });
-    expect((await req("DELETE", `/api/printers/${p.id}`)).statusCode).toBe(204);
+    expect((await req("PATCH", `/api/printers/${p.id}`, { archived: true })).statusCode).toBe(200);
   });
 
   it("photo and tags", async () => {

@@ -629,6 +629,8 @@ export const importPreviewRowSchema = z.object({
    * by `keepEdits`. Absent = not known (never imported from it), so `keepEdits` only fills blanks.
    */
   edited: z.array(z.string()).optional(),
+  /** Rows from an integration: you deleted this row, so it stays a skip unless you import it. */
+  deleted: z.boolean().optional(),
   /** Projects: the row names a folder that doesn't exist (yet). */
   folderMissing: z.boolean().optional(),
 });

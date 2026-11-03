@@ -31,6 +31,7 @@ import {
 } from "../lib/archive.ts";
 import { modelName, printerLabel } from "../lib/catalog.ts";
 import { commentRoutes } from "../lib/comments.ts";
+import { deleteItem } from "../lib/dependents.ts";
 import { imageRoutes } from "../lib/images.ts";
 import { dateRange, listPage, taggedWith } from "../lib/list.ts";
 import { printerUsageColumns } from "../lib/maintenance.ts";
@@ -142,7 +143,7 @@ export const printersRoutes =
       async (req) => get(req.params.id) as Printer,
     );
 
-    // `archived` archives/restores; DELETE below is the same as `{ archived: true }`.
+    // `archived` archives/restores.
     app.patch(
       "/:id",
       {
@@ -173,20 +174,13 @@ export const printersRoutes =
       },
     );
 
-    // Printers have history (prints, maintenance), so deleting means archiving.
+    // A printer with history (prints, maintenance, installs) can only be archived.
     app.delete(
       "/:id",
       { schema: { params, response: { 204: z.null(), 409: apiErrorSchema, ...notFound } } },
       async (req, reply) => {
         get(req.params.id);
-        assertNoAccessories(req.params.id);
-        db.transaction((tx) => {
-          tx.update(printers)
-            .set({ archivedAt: archivedAtOf(true) })
-            .where(eq(printers.id, req.params.id))
-            .run();
-          resolveItemAlerts(tx, alertTasks.printer(req.params.id));
-        });
+        deleteItem(db, "printers", req.params.id, { user: req.user, dataDir });
         return reply.status(204).send(null);
       },
     );
