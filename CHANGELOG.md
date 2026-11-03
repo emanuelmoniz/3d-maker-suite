@@ -2,6 +2,25 @@
 
 All notable changes are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [5.2.0-alpha.1] - 2026-11-03
+
+Pre-release. Test on a copy of your data first; back up before updating. Archive and delete come in a later 5.2.0 pre-release.
+
+### Added
+- **Bulk change projects root** in Settings → Projects: filter and select projects and point them at another root, keeping their relative folders. **Move files** also moves the files when both roots are on the server ([docs/projects.md](docs/projects.md#moving-projects-to-another-root))
+- **Change a connector's user** with a one-time code from Hub management, choosing whether the projects in its folders move to the new user ([docs/hub.md](docs/hub.md#change-a-connectors-user))
+- The connector's status page, and its card and edit page in Hub management, show the user it acts as
+- **Move all folders to** a root in the projects review of an import, and each folder can be edited in the table ([docs/import.md](docs/import.md#projects))
+- Docs: [moving to a new machine](docs/backups.md#moving-to-a-new-machine)
+
+### Changed
+- The GitHub release notes now come from this changelog
+- README screenshots for roles, My account and slicer presets
+
+### Fixed
+- The Filament table on Stats shows material cost instead of total cost
+- A successful sync resolves its open sync error alerts
+
 ## [5.1.0] - 2026-11-02
 
 Stable release. Everything in 5.1.0-alpha.1 to alpha.4 is included; nothing changed after alpha.4. Test on a copy of your data first; back up before updating. Updating from 5.0.0 keeps every user's rights and alerts.

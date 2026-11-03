@@ -25,6 +25,16 @@ Only admins pair devices.
 
 The hub stores only a hash of the device token. In Hub management you can **Rename** a device or **Revoke** it: a revoked device loses access at once, its local files stay on its disk, and it needs a new code to join again. The connector connects out to the hub, so devices need no open ports and no VPN. It works behind Caddy, nginx and Traefik with default settings: the hub marks its event stream as unbuffered and sends a heartbeat every 15 seconds.
 
+### Change a connector's user
+
+The status page and the device's card in Hub management show the user a connector acts as. To change it without pairing again:
+
+1. In **Hub management**, open the connector's edit page, choose **Change user**, pick the user and copy the code. It works once, for 10 minutes, only on this connector, and is shown once. Nothing changes yet.
+2. On the connector's status page, choose **Change user** and enter the code. The hub has to be online. After 5 wrong codes, wait 15 minutes.
+3. Choose what happens to the projects in this connector's folders: **Move to the new user**, or **Stay with their owner**. An owner who stays may no longer be able to edit them, and the new user may not see them. Then confirm.
+
+The connector keeps its identity, roots and settings, and acts with the new user's rights from then on. Projects in hub roots aren't affected. The change is written to the log.
+
 ## Device roots
 
 A project root can live on a paired device instead of the server.

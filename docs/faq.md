@@ -18,6 +18,9 @@ Yes: `ghcr.io/emanuelmoniz/3d-maker-suite`. See [Docker in install.md](install.m
 **Will my old costs change when I change a filament price?**
 No. Each print stores its cost when it is recorded.
 
+**Why does the Filament table on Stats show less than the total cost?**
+It shows **Material cost**: only what the filament cost. Energy, labour and wear aren't part of it. The other tables show the total cost.
+
 **Where do I report a bug?**
 Open an issue on GitHub and use the bug report template.
 

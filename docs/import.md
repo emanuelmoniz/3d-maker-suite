@@ -34,6 +34,8 @@ In the review, a row without a folder, or whose folder isn't there, is highlight
 - **Create folder**: the app makes it when you import. Leave the name empty to name it by number and name (`012_Vase`).
 - **No folder**: the project is saved without one.
 
+Each folder can also be edited in the table. To fix many at once, **Move all folders to** a root under **Bulk operations**: each row gets that root plus its own last folder (`D:\old\a\012_Vase` → `E:\3d\012_Vase`).
+
 After the import each folder is scanned (files, cover, materials). **Prints** shows the prints each project gets: the ones it has, plus imported prints whose title names one of its files, the same way a folder scan links them. Open it to add or remove prints; a project whose prints you changed gets exactly those.
 
 ## Clients, quotes and orders

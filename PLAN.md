@@ -1514,7 +1514,7 @@ Do Step 5 of the 5.2.0 plan in PLAN.md.
 Do Step 6 of the 5.2.0 plan in PLAN.md. Show me the dialog and the API first.
 ```
 
-### [ ] Step 7 - Docs, push & v5.2.0-alpha.1
+### [x] Step 7 - Docs, push & v5.2.0-alpha.1
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - Docs: moving to a new machine (backup, move the files, restore, bulk change projects root), changing a connector's user, material cost in stats.
