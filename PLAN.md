@@ -1916,7 +1916,7 @@ Do Step 1 of the 5.4.0 plan in PLAN.md. Guide me through the tests on real insta
 Do Step 2 of the 5.4.0 plan in PLAN.md. No visible change.
 ```
 
-### [ ] Step 3 - Change detection instead of a schedule  **[plan mode]**
+### [x] Step 3 - Change detection instead of a schedule  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:**
 - Migration: `integrations.catalogFingerprint`.

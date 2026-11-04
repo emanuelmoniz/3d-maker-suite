@@ -1,0 +1,1 @@
+ALTER TABLE `integrations` ADD `catalog_fingerprint` text;

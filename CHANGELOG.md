@@ -2,6 +2,11 @@
 
 All notable changes are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Changed
+- **Slicer catalogs no longer run on a schedule.** Existing Auto schedules on Bambu Studio's and OrcaSlicer's catalog types stop. A daily check, and one after a managed install, looks for a change in the slicer's system presets: on a change nothing is written, not even new rows, and a **Sync needs review** alert leads to the review. Only types you imported before raise it, in Manual mode too. Bambu Cloud's schedules don't change
+
 ## [5.3.0] - 2026-11-04
 
 Stable. Same code as 5.3.0-alpha.2; the release notes list everything since 5.2.0 (the 5.3.0-alpha sections below). No new migrations. Back up before updating from 5.2.0.

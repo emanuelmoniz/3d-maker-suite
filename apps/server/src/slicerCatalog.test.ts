@@ -10,15 +10,24 @@ import type {
   SlicerCatalog,
 } from "@3d-maker-suite/core";
 import { openDb, schema } from "@3d-maker-suite/db";
+import { loadKey } from "@3d-maker-suite/host";
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import { buildApp } from "./app.ts";
+import { createSyncer } from "./integrations/sync.ts";
 import { reviewer } from "./testReview.ts";
 
 // A slicer with a mutable catalog and presets, to change "in the slicer" between imports.
-const state: { catalog: SlicerCatalog; presets: LibraryPreset[] } = {
+const state: {
+  catalog: SlicerCatalog;
+  presets: LibraryPreset[];
+  fingerprint: string | null;
+  unreadable: boolean;
+} = {
   catalog: null as never,
   presets: [],
+  fingerprint: null,
+  unreadable: false,
 };
 const machine = (nozzle = 0.4, name = "Acme X 0.4") => ({
   presetId: "system/Acme X 0.4",
@@ -46,6 +55,7 @@ let db: ReturnType<typeof openDb>;
 let app: Awaited<ReturnType<typeof buildApp>>;
 let dataDir: string;
 let id: string;
+let slicer: IntegrationAdapter;
 
 beforeEach(async () => {
   dataDir = mkdtempSync(join(tmpdir(), "catalog-"));
@@ -76,13 +86,19 @@ beforeEach(async () => {
     ],
   };
   state.presets = [preset()];
+  state.fingerprint = "Acme=1";
+  state.unreadable = false;
   const library: FilamentLibrary = {
     id: "fake",
     defaultDirs: () => [dataDir],
     read: async () => state.presets,
-    readCatalog: async () => state.catalog,
+    readCatalog: async () => {
+      if (state.unreadable) throw new Error("unreadable");
+      return state.catalog;
+    },
+    catalogFingerprint: async () => state.fingerprint,
   };
-  const slicer = {
+  slicer = {
     ...mockAdapter(fixture()),
     id: "slicer",
     kind: "local",
@@ -96,9 +112,9 @@ beforeEach(async () => {
       "filamentProfiles",
     ],
     library,
-  };
+  } as IntegrationAdapter;
   db = openDb(":memory:");
-  app = await buildApp(db, false, dataDir, { adapters: [slicer as IntegrationAdapter] });
+  app = await buildApp(db, false, dataDir, { adapters: [slicer] });
   id = (
     await app.inject({
       method: "POST",
@@ -115,6 +131,173 @@ const run = async (type: string) =>
   (
     await app.inject({ method: "POST", url: `/api/integrations/${id}/sync`, payload: { type } })
   ).json();
+
+describe("catalog change detection", () => {
+  const { integrations, machineProfiles, syncPolicies, syncRuns } = schema;
+  const syncer = (adapters = [slicer]) =>
+    createSyncer(db, adapters, loadKey(dataDir), app.log, dataDir);
+  const fingerprints = () =>
+    db
+      .select({ value: integrations.catalogFingerprint })
+      .from(integrations)
+      .all()
+      .map((r) => r.value);
+  const pendingOf = (type: "machineProfiles" | "printProfiles") =>
+    db
+      .select()
+      .from(syncPolicies)
+      .all()
+      .find((p) => p.type === type)?.pending ?? 0;
+  const runs = () => db.select().from(syncRuns).all().length;
+  const alerts = async () => {
+    await app.inject({ method: "POST", url: "/api/alerts/evaluate" });
+    return (await app.inject("/api/alerts"))
+      .json()
+      .filter((a: { kind: string }) => a.kind === "sync_pending");
+  };
+  /** Machine profiles imported, the folder seen once, then one edited and one new in the slicer. */
+  const vendorUpdate = async () => {
+    await run("brands");
+    await run("printerModels");
+    await run("machineProfiles");
+    await syncer().checkCatalogs();
+    state.catalog.machines = [
+      machine(0.6),
+      { ...machine(0.2, "Acme X 0.2"), presetId: "system/Acme X 0.2" },
+    ];
+    state.fingerprint = "Acme=2";
+  };
+
+  it("the first check only records what it sees", async () => {
+    await run("machineProfiles");
+    state.catalog.machines = [machine(0.6)];
+    const before = runs();
+    await syncer().checkCatalogs();
+    expect(fingerprints()).toEqual(["Acme=1"]);
+    expect(pendingOf("machineProfiles")).toBe(0);
+    expect(runs()).toBe(before);
+    expect(await alerts()).toEqual([]);
+  });
+
+  it("an unchanged folder does nothing, whatever the presets say", async () => {
+    await vendorUpdate();
+    state.fingerprint = "Acme=1";
+    const before = runs();
+    await syncer().checkCatalogs();
+    expect(pendingOf("machineProfiles")).toBe(0);
+    expect(runs()).toBe(before);
+    expect(await alerts()).toEqual([]);
+  });
+
+  it("no fingerprint (Orca 2.5+) does nothing", async () => {
+    await vendorUpdate();
+    state.fingerprint = null;
+    await syncer().checkCatalogs();
+    expect(fingerprints()).toEqual(["Acme=1"]);
+    expect(pendingOf("machineProfiles")).toBe(0);
+  });
+
+  it("a change writes nothing and raises the alert; the review shows it and closes it", async () => {
+    await vendorUpdate();
+    const before = db.select().from(machineProfiles).all();
+    await syncer().checkCatalogs();
+
+    expect(db.select().from(machineProfiles).all()).toEqual(before);
+    expect(fingerprints()).toEqual(["Acme=2"]);
+    expect(pendingOf("machineProfiles")).toBe(2);
+    // A manual type, the default: the alert is how you hear of it.
+    const [alert, ...others] = await alerts();
+    expect(others).toEqual([]);
+    expect(alert).toMatchObject({
+      task: `sync:${id}:machineProfiles`,
+      context: { type: "machineProfiles", count: 2 },
+      hasDetail: true,
+    });
+
+    // Checked again, nothing has moved: nothing is counted or logged twice.
+    const logged = runs();
+    await syncer().checkCatalogs();
+    expect(runs()).toBe(logged);
+
+    const preview = await open("machineProfiles");
+    expect(preview.rows.map((r) => r.status).sort()).toEqual(["changed", "new"]);
+    // Taking the edit and leaving the new one out still closes it.
+    const edit = preview.rows.filter((r) => r.status === "changed");
+    expect((await review.confirm(preview, edit)).statusCode).toBe(200);
+    expect(pendingOf("machineProfiles")).toBe(0);
+    expect(await alerts()).toEqual([]);
+    expect(db.select().from(machineProfiles).all()).toHaveLength(before.length);
+  });
+
+  it("a type switched off raises nothing", async () => {
+    await vendorUpdate();
+    await syncer().checkCatalogs();
+    db.update(syncPolicies).set({ mode: "off" }).run();
+    expect(await alerts()).toEqual([]);
+  });
+
+  it("only counts types imported before, and only their system rows", async () => {
+    await vendorUpdate();
+    await syncer().checkCatalogs();
+    // Never imported: nothing waits, though the slicer has rows for it.
+    expect(pendingOf("printProfiles")).toBe(0);
+
+    await run("printProfiles");
+    state.catalog.processes.push({
+      presetId: "user/New",
+      scope: "user",
+      name: "New",
+      brand: null,
+      model: null,
+      nozzleDiameterMm: null,
+      layerHeightMm: 0.28,
+    });
+    state.fingerprint = "Acme=3";
+    await syncer().checkCatalogs();
+    expect(pendingOf("printProfiles")).toBe(0);
+  });
+
+  it("the scheduler leaves a slicer's catalog types alone", async () => {
+    db.insert(syncPolicies)
+      .values({ integrationId: id, type: "machineProfiles", mode: "auto", frequency: "1h" })
+      .run();
+    await syncer().runAll();
+    expect(runs()).toBe(0);
+    expect(db.select().from(machineProfiles).all()).toEqual([]);
+  });
+
+  it("a library's catalog belongs to its oldest row with a readable folder", async () => {
+    const other = { ...slicer, id: "slicer-2" };
+    const later = new Date(Date.now() + 60_000).toISOString();
+    const { id: second } = db
+      .insert(integrations)
+      .values({ adapterId: other.id, createdAt: later })
+      .returning()
+      .get();
+    const of = (rowId: string) =>
+      db.select().from(integrations).where(eq(integrations.id, rowId)).get()?.catalogFingerprint;
+
+    await syncer([slicer, other]).checkCatalogs();
+    expect([of(id), of(second)]).toEqual(["Acme=1", null]);
+
+    db.update(integrations).set({ enabled: false }).where(eq(integrations.id, id)).run();
+    await syncer([slicer, other]).checkCatalogs();
+    expect(of(second)).toBe("Acme=1");
+  });
+
+  it("a read that fails keeps the old fingerprint, so the next check tries again", async () => {
+    await vendorUpdate();
+    state.unreadable = true;
+    await syncer().checkCatalogs();
+    expect(fingerprints()).toEqual(["Acme=1"]);
+    expect(pendingOf("machineProfiles")).toBe(0);
+
+    state.unreadable = false;
+    await syncer().checkCatalogs();
+    expect(fingerprints()).toEqual(["Acme=2"]);
+    expect(pendingOf("machineProfiles")).toBe(2);
+  });
+});
 
 describe("deleted catalog rows", () => {
   const { brands, deletedSources, filamentBrands, filamentMaterials, filamentProfiles } = schema;

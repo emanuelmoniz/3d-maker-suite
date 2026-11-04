@@ -6,6 +6,7 @@ import {
   externalPrinterSchema,
   externalPrintSchema,
   type ImportApplyDecision,
+  type ImportPreviewRow,
   type IntegrationAdapter,
   IntegrationError,
   type IntegrationErrorCode,
@@ -28,7 +29,7 @@ import {
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
 import { Cron } from "croner";
-import { and, desc, eq, isNull, notInArray } from "drizzle-orm";
+import { and, asc, desc, eq, isNull, notInArray } from "drizzle-orm";
 import type { FastifyBaseLogger } from "fastify";
 import { raise } from "../alerts/evaluate.ts";
 import { HttpError } from "../errors.ts";
@@ -41,12 +42,15 @@ import {
   capableRow,
   policyOf,
   raisesSeverity,
+  slicerCatalogType,
+  slicerConfigDir,
   switchedOn,
 } from "./capabilities.ts";
 import { libraryOf } from "./imports.ts";
 import { secretStore } from "./secrets.ts";
 import {
   activeSpools,
+  type LibraryType,
   libraryRows,
   printerRows,
   printRows,
@@ -54,7 +58,8 @@ import {
   spoolRows,
 } from "./sourceRows.ts";
 
-const { integrations, prints, printFilamentUsages, syncPolicies, syncRuns } = schema;
+const { importSnapshots, integrations, prints, printFilamentUsages, syncPolicies, syncRuns } =
+  schema;
 
 /** The dates a prints read is limited to; none = since the last run. */
 type Range = { from?: string; to?: string };
@@ -83,6 +88,16 @@ const labelOf = (v: Record<string, unknown>) => {
   const s = String(v.title ?? v.name ?? v.model ?? spool);
   return s ? { label: s } : {};
 };
+/** A row waiting for a person, for a run's log. */
+const leftEntry = (r: ImportPreviewRow): SyncLogEntry => ({
+  event: "left",
+  ...labelOf(r.values),
+  reason: Object.values(r.refs ?? {}).some((v) => !v)
+    ? "pick"
+    : r.refsUnsure?.length
+      ? "unsure"
+      : "review",
+});
 // The scheduler ticks every minute (main.ts). An `auto` type with a time set runs at its
 // `schedulePattern`; without one, when its frequency has passed since the last run.
 // ponytail: "1M" is 30 days, not a calendar month.
@@ -244,22 +259,16 @@ export function createSyncer(
         ({ created, updated, pending } = done);
         for (const w of done.written) note({ event: w.event, ...labelOf(w.values) });
         for (const r of done.invalid) note({ event: "invalid", ...labelOf(r.values) });
-        for (const r of done.left)
-          note({
-            event: "left",
-            ...labelOf(r.values),
-            reason: Object.values(r.refs ?? {}).some((v) => !v)
-              ? "pick"
-              : r.refsUnsure?.length
-                ? "unsure"
-                : "review",
-          });
+        for (const r of done.left) note(leftEntry(r));
         // The sync log counts what was there already; rows left for review are not "skipped".
         skipped = Math.max(0, done.skipped - pending);
         // The next run starts at the oldest print left for review, so it is offered again.
         oldestLeft = done.left
           .map((r) => String(r.values.startedAt))
           .reduce<string | undefined>((a, b) => (a && a < b ? a : b), undefined);
+        // No scheduled run follows a slicer's catalog: what a review left out stays out, or its
+        // alert would never close.
+        if (pick && slicerCatalogType(adapter, type)) pending = 0;
       }
 
       if (type === "prints") {
@@ -379,7 +388,8 @@ export function createSyncer(
 
   /**
    * Scheduled job: in every enabled integration, each set-up type in `auto` mode whose frequency
-   * has passed since its last successful run, one after another (see NEEDS_USER / BACK_OFF).
+   * has passed since its last successful run, one after another (see NEEDS_USER / BACK_OFF). A
+   * slicer's catalog types have no schedule: see `checkCatalogs`.
    */
   async function runAll() {
     const rows = db.select().from(integrations).where(eq(integrations.enabled, true)).all();
@@ -399,7 +409,7 @@ export function createSyncer(
       const adapter = adapters.find((a) => a.id === row.adapterId);
       // Adapter order: printers come before the prints that point at them.
       for (const type of activeCapabilities(db, row, adapter)) {
-        if (isAction(type)) continue;
+        if (isAction(type) || slicerCatalogType(adapter, type)) continue;
         const p = policyOf(db, id, type);
         // A failed run leaves `lastRunAt` alone, so it is retried after RETRY_MS.
         if (p.mode !== "auto" || !isDue(p)) continue;
@@ -407,6 +417,93 @@ export function createSyncer(
         const done = await run(id, "scheduled", { type }).catch(() => null);
         // The vendor is failing: leave this integration's other types for a later tick.
         if (done?.errorCode) break;
+      }
+    }
+  }
+
+  /**
+   * Daily and after a managed install (ADR-0019): when a slicer's system presets changed, each type
+   * imported from it before counts what waits for a person, and `sync_pending` leads to the review.
+   * It writes no catalog row, not even a new one. The first sight of a folder is only recorded, and
+   * a type never imported stays silent: someone who only slices has nothing to review.
+   */
+  async function checkCatalogs() {
+    const libraries = new Set<string>();
+    const rows = db.select().from(integrations).orderBy(asc(integrations.createdAt)).all();
+    for (const row of rows) {
+      const adapter = adapters.find((a) => a.id === row.adapterId);
+      const lib = adapter?.library;
+      const dir = adapter && slicerConfigDir(row, adapter);
+      const types = activeCapabilities(db, row, adapter).filter((t): t is LibraryType =>
+        slicerCatalogType(adapter, t),
+      );
+      // A library's catalog belongs to its oldest row with a readable folder.
+      if (!lib || !dir || !types.length || libraries.has(lib.id)) continue;
+      libraries.add(lib.id);
+      if (running.has(row.id)) continue;
+      try {
+        const now = await lib.catalogFingerprint?.(dir);
+        if (!now || now === row.catalogFingerprint) continue;
+        const imported = new Set(
+          db
+            .select({ entity: importSnapshots.entity })
+            .from(importSnapshots)
+            .where(eq(importSnapshots.integrationId, row.id))
+            .all()
+            .map((s) => s.entity),
+        );
+        const waiting: { type: LibraryType; left: ImportPreviewRow[] }[] = [];
+        for (const type of row.catalogFingerprint ? types : []) {
+          if (!imported.has(type)) continue;
+          // ponytail: every new system row of a partly imported type counts, wanted or not; the
+          // brand pick of the Catalog row narrows it.
+          const stored: Stored = {
+            entity: type,
+            ignoredHeaders: [],
+            from: { kind: "integration", integrationId: row.id },
+            dir,
+            rows: await libraryRows(lib, dir, type, { dataDir, scope: "system" }),
+          };
+          waiting.push({ type, left: review.preview(stored).rows.filter((r) => r.auto) });
+        }
+        const at = new Date().toISOString();
+        // All or nothing: a stored fingerprint with no count would lose the alert for good.
+        db.transaction((tx) => {
+          for (const { type, left } of waiting) {
+            const pending = { pending: left.length };
+            tx.insert(syncPolicies)
+              .values({ integrationId: row.id, type, ...defaultPolicy(type), ...pending })
+              .onConflictDoUpdate({
+                target: [syncPolicies.integrationId, syncPolicies.type],
+                set: pending,
+              })
+              .run();
+            if (!left.length) continue;
+            // The alert's detail comes from the latest run: without this, an older run's rows.
+            const cut = left.length - MAX_LOG;
+            tx.insert(syncRuns)
+              .values({
+                integrationId: row.id,
+                trigger: "scheduled",
+                type,
+                startedAt: at,
+                finishedAt: at,
+                status: "ok",
+                log: [
+                  ...left.slice(0, MAX_LOG).map(leftEntry),
+                  ...(cut > 0 ? [{ event: "truncated" as const, count: cut }] : []),
+                ],
+              })
+              .run();
+          }
+          tx.update(integrations)
+            .set({ catalogFingerprint: now })
+            .where(eq(integrations.id, row.id))
+            .run();
+        });
+      } catch (err) {
+        // The fingerprint stays, so the next check tries again.
+        log.warn({ err, integrationId: row.id }, "catalog check failed");
       }
     }
   }
@@ -605,7 +702,7 @@ export function createSyncer(
     }
   }
 
-  return { run, runAll, test, offer, running, adapters };
+  return { run, runAll, checkCatalogs, test, offer, running, adapters };
 }
 
 export type Syncer = ReturnType<typeof createSyncer>;

@@ -326,10 +326,15 @@ export async function buildApp(
   await app.register(rootsRoutes(db, hub, scanner), { prefix: "/api/roots" });
   const installer = createSlicerInstaller(db, dataDir, syncer.adapters, logFor("integrations"), {
     // A new version outdates its slices (ADR-0013); auto slicing redoes them.
-    onInstalled: (id) =>
+    onInstalled: (id) => {
       void autoSliceSlicer(db, syncer.adapters, sliceQueue, projectsLog, id).catch((err) =>
         projectsLog.error({ err }, "auto slice after a slicer update failed"),
-      ),
+      );
+      // Its system presets came with it (ADR-0019); the next tick raises any alert.
+      void syncer
+        .checkCatalogs()
+        .catch((err) => logFor("integrations").error({ err }, "catalog check failed"));
+    },
     ...opts.slicerInstaller,
   });
   const workers = createWorkerSlicers(db, syncer.adapters, hub, installer);
@@ -426,8 +431,10 @@ export async function buildApp(
   const updater = createUpdater(db, dataDir, logFor("system"), opts.updater);
   await app.register(updatesRoutes(updater, opts.restart), { prefix: "/api/updates" });
   if (opts.updateCheckSchedule) {
-    // A new release (of the app or an installed slicer) raises an alert; evaluate sends it.
-    const check = () => Promise.all([updater.check(), installer.check()]).then(evaluate);
+    // A new release (of the app or an installed slicer) or a slicer's changed system presets raise
+    // an alert; evaluate sends it.
+    const check = () =>
+      Promise.all([updater.check(), installer.check(), syncer.checkCatalogs()]).then(evaluate);
     const daily = new Cron(opts.updateCheckSchedule, { protect: true }, check);
     // Not at once: a server started for a moment (tests, a restart loop) never asks GitHub.
     const first = setTimeout(check, 60_000).unref();

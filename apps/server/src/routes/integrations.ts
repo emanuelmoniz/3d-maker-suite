@@ -81,7 +81,8 @@ export const integrationsRoutes =
     // The encrypted column never leaves the server (ADR-0005); the setup fields only go to an
     // admin (ADR-0012): the others get what the task rows and "Open in slicer" need.
     const toApi = (full: typeof integrations.$inferSelect, admin = true) => {
-      const { secrets, config, slicerConfigDir, slicerPath, slicerVersion, ...row } = full;
+      const { secrets, config, slicerConfigDir, slicerPath, slicerVersion, ...rest } = full;
+      const { catalogFingerprint: _, ...row } = rest;
       const adapter = syncer.adapters.find((a) => a.id === row.adapterId);
       // A local (or server) source never syncs: it's there or it isn't.
       const local =

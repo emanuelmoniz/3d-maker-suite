@@ -115,6 +115,8 @@ export interface FilamentLibrary {
   read(dir: string, opts: { includeSystem: boolean }): Promise<LibraryPreset[]>;
   /** Vendors' printer models (with thumbnails) and machine presets, system and user ones. */
   readCatalog?(dir: string): Promise<SlicerCatalog>;
+  /** Changes when the system presets do (ADR-0019); null = nothing to tell right now. */
+  catalogFingerprint?(dir: string): Promise<string | null>;
 }
 
 /** One plate to slice. Preset ids are as the library names them (`system/<name>`, `user/<name>`). */

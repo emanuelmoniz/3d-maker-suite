@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { systemPresets } from "./index.ts";
+import { slicerPresetLibrary, systemPresets } from "./index.ts";
 import { presetsOf } from "./slice.ts";
 
 let dir: string;
@@ -17,6 +17,34 @@ const put = (rel: string, json: object) => {
   writeFileSync(file, JSON.stringify(json));
   return file;
 };
+
+describe("catalogFingerprint", () => {
+  const fingerprint = () => slicerPresetLibrary("s", () => []).catalogFingerprint?.(dir);
+
+  it("is the sorted vendor versions: a recopy changes nothing, a new version does", async () => {
+    put("system/Voron.json", { name: "Voron", version: "1.0" });
+    put("system/BBL.json", { name: "Bambulab", version: "02.09.00.74" });
+    put("system/BBL/machine/A1.json", { name: "A1", version: "9" });
+    const before = await fingerprint();
+    expect(before).toBe("BBL=02.09.00.74;Voron=1.0");
+
+    put("system/BBL.json", { name: "Bambulab", version: "02.09.00.74" });
+    expect(await fingerprint()).toBe(before);
+
+    put("system/BBL.json", { name: "Bambulab", version: "02.09.00.75" });
+    expect(await fingerprint()).not.toBe(before);
+  });
+
+  it("is null with no vendor index (Orca 2.5+) or one that can't be read yet", async () => {
+    expect(await fingerprint()).toBeNull();
+    writeFileSync(put("system/orca.opc", {}), "binary");
+    expect(await fingerprint()).toBeNull();
+
+    put("system/BBL.json", { version: "1" });
+    writeFileSync(join(dir, "system", "Voron.json"), '{"version":');
+    expect(await fingerprint()).toBeNull();
+  });
+});
 
 describe("flatten", () => {
   it("fills in parents of the same vendor and included templates, for the slicer CLI", async () => {

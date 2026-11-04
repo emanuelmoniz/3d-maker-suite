@@ -299,5 +299,19 @@ export function slicerPresetLibrary(id: string, defaultDirs: () => string[]): Fi
         processes: [...processes.values()],
       };
     },
+
+    // The vendor indexes' versions, not file times: a recopy with no new version moves those (ADR-0019).
+    async catalogFingerprint(dir) {
+      const files = await jsonFiles(join(dir, "system"), false);
+      const parts: string[] = [];
+      for (const f of files) {
+        const index = await readJson(f);
+        // A recopy in progress: ask again next time, it isn't a change.
+        if (!index) return null;
+        parts.push(`${parse(f).name}=${String(index.version)}`);
+      }
+      // Orca 2.5+ has no vendor indexes to read (ADR-0013).
+      return parts.length ? parts.sort().join(";") : null;
+    },
   };
 }

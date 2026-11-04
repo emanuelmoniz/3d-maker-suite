@@ -20,6 +20,8 @@ No schedule. When the source changes, nothing is written, not even new rows: an 
 
 The trigger is a fingerprint of `system/`: the sorted `<vendor>=<version>` of each `system/<vendor>.json`. It is 12 small files, read in about 2 ms. File times can't be used: Studio recopied a whole vendor folder with no change of version, which would raise a false alert. Orca ≥ 2.5 has only `.opc` files, which we can't read (ADR-0013), so it has no system catalog to fingerprint.
 
+A type never imported from that slicer raises nothing: someone who only slices has nothing to review, and a review opened by hand still shows its rows.
+
 ### User presets
 Added, updated and deleted automatically. A single PC checks within a minute, on the existing scheduler tick, which is more reliable than `fs.watch` on NAS and Docker volumes.
 

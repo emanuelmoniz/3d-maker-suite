@@ -18,7 +18,7 @@ import {
   type Release,
 } from "@3d-maker-suite/core";
 import { openDb, schema } from "@3d-maker-suite/db";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import yazl from "yazl";
 import { z } from "zod";
 import { buildApp } from "./app.ts";
@@ -89,9 +89,9 @@ afterEach(() => {
   rmSync(dir, { recursive: true, force: true });
 });
 
-const start = () =>
+const start = (used = adapter) =>
   buildApp(db, false, dir, {
-    adapters: [adapter],
+    adapters: [used],
     slicerInstaller: {
       releases: async () => releases,
       download: (async (url: string) => {
@@ -115,8 +115,8 @@ const send = (
   payload?: object,
 ) => app.inject({ method, url, payload });
 
-async function setup() {
-  const app = await start();
+async function setup(used = adapter) {
+  const app = await start(used);
   const { id } = (await send(app, "POST", "/api/integrations", { adapterId: "srv" })).json();
   return { app, id: id as string, base: `/api/integrations/${id}` };
 }
@@ -167,6 +167,24 @@ describe("managed slicer", () => {
       slicerConfigDir: join(slicers, "config"),
       capabilities: ["slice"],
     });
+  });
+
+  it("an install runs the catalog check", async () => {
+    const { app, base } = await setup({
+      ...adapter,
+      capabilities: ["brands", "slice"],
+      library: {
+        id: "srv",
+        defaultDirs: () => [],
+        read: async () => [],
+        catalogFingerprint: async (config) =>
+          readFileSync(join(config, "system", "BBL.json"), "utf8"),
+      },
+    });
+    const stored = () => db.select().from(schema.integrations).get()?.catalogFingerprint;
+    expect(stored()).toBeNull();
+    await install(app, base, "v1.0.0");
+    await vi.waitFor(() => expect(stored()).toBe("{}"));
   });
 
   it("an update keeps the old version until the new one passes its smoke test", async () => {

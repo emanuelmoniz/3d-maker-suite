@@ -88,6 +88,8 @@ export const integrations = sqliteTable("integrations", {
   slicerPath: text(),
   /** A server integration's installed slicer version (ADR-0013); null = none installed. */
   slicerVersion: text(),
+  /** What the catalog check last saw of a slicer's system presets (ADR-0019); null = not yet. */
+  catalogFingerprint: text(),
   status: text().notNull().default("new"),
   lastSyncAt: text(),
   lastError: text(),

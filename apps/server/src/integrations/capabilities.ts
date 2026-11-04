@@ -6,6 +6,7 @@ import {
   type FilamentLibrary,
   type IntegrationAdapter,
   isAction,
+  SLICER_ZIP_TYPES,
   workerConfigSchema,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
@@ -53,6 +54,13 @@ export const detectedDir = (lib?: FilamentLibrary) =>
 
 /** The library its presets are named after (`<library>:<preset>`), shared by a slicer's kinds. */
 export const presetLibrary = (adapter: IntegrationAdapter) => adapter.library?.id ?? adapter.id;
+
+/** A slicer's catalog type: it has no schedule, `checkCatalogs` looks after it (ADR-0019). */
+export const slicerCatalogType = (
+  adapter: IntegrationAdapter | undefined,
+  type: Capability,
+): type is (typeof SLICER_ZIP_TYPES)[number] =>
+  !!adapter?.library && (SLICER_ZIP_TYPES as readonly string[]).includes(type);
 
 /** The row's folder override, else the detected one; null when it doesn't exist. */
 export function slicerConfigDir(row: Row, adapter: IntegrationAdapter) {
