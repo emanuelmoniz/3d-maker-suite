@@ -1833,7 +1833,7 @@ Fix anything found and note it in the CHANGELOG (alpha.3 if needed).
 Do Step 10 of the 5.3.0 plan in PLAN.md. Guide me through each scenario, then fix what we find.
 ```
 
-### [ ] Step 11 - Docs, push & v5.3.0 release
+### [x] Step 11 - Docs, push & v5.3.0 release
 **Model:** Haiku · **Effort:** Low
 **Scope:**
 - `pnpm screenshots` if a README page changed, README, CHANGELOG, version `5.3.0`.
