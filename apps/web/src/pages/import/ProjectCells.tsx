@@ -1,9 +1,10 @@
-import type {
-  FsListResponse,
-  ImportDecision,
-  ImportPreview,
-  ImportPreviewRow,
-  Root,
+import {
+  type FsListResponse,
+  folderOf,
+  type ImportDecision,
+  type ImportPreview,
+  type ImportPreviewRow,
+  type Root,
 } from "@3d-maker-suite/core";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
@@ -19,16 +20,6 @@ import { cx } from "../../lib/cx.ts";
 
 type Suggestions = { suggested: Record<string, string[]>; prints: { id: string; label: string }[] };
 type Ask = { row: number; targetId?: string | null; folder?: string | null };
-
-/** The folder a project row ends up with: the one picked in the review, else the file's. */
-export const folderOf = (r: ImportPreviewRow, d: ImportDecision) =>
-  d.folder === undefined
-    ? typeof r.values.folder === "string"
-      ? r.values.folder
-      : null
-    : d.folder && "path" in d.folder
-      ? d.folder.path
-      : null;
 
 const ask = (rows: Ask[]) => api<Suggestions>("POST", "/api/import/projects/prints", { rows });
 

@@ -34,6 +34,7 @@ export * from "./schemas/users.ts";
 export * from "./services/cost.ts";
 export * from "./services/duration.ts";
 export * from "./services/import.ts";
+export * from "./services/importBulk.ts";
 export * from "./services/importMatch.ts";
 export * from "./services/maintenanceDue.ts";
 export * from "./services/managedSlicer.ts";

@@ -60,6 +60,12 @@ export type ImportColumn = {
   labelArgs?: Record<string, number>;
   /** An instruction for the import, not data of the row: it never counts as a difference. */
   fileOnly?: boolean;
+  /** Differs per row: the bulk form hides it when several rows are selected. */
+  perRow?: boolean;
+  /** Bulk form: read-only while this column's field holds a value (`value`: only that value). */
+  setBy?: { column: string; value?: string };
+  /** Bulk form: read-only when a selected row takes its names from its folder. */
+  scanned?: boolean;
 };
 
 /**
@@ -89,6 +95,7 @@ const printSlotColumns = (n: number): ImportColumn[] => [
     key: printSlotKeys(n).filament,
     type: "ref",
     ref: "filamentProfiles",
+    setBy: { column: printSlotKeys(n).spool },
     label: "import:prints.columns.filamentN",
     labelArgs: { n },
   },
@@ -103,7 +110,7 @@ const printSlotColumns = (n: number): ImportColumn[] => [
 export const IMPORT_COLUMNS = {
   spools: [
     // A spool's number is its identity in a file: a row with one updates that spool.
-    { key: "number", type: "integer", label: "import:spools.columns.number" },
+    { key: "number", type: "integer", perRow: true, label: "import:spools.columns.number" },
     { key: "brand", type: "ref", ref: "filamentBrands", label: "import:spools.columns.brand" },
     {
       key: "material",
@@ -137,7 +144,7 @@ export const IMPORT_COLUMNS = {
   ],
   printers: [
     // A printer's number is its identity in a file: a row with one updates that printer.
-    { key: "number", type: "integer", label: "import:printers.columns.number" },
+    { key: "number", type: "integer", perRow: true, label: "import:printers.columns.number" },
     { key: "name", type: "text", label: "import:printers.columns.name", required: true },
     {
       key: "brand",
@@ -176,7 +183,7 @@ export const IMPORT_COLUMNS = {
   ],
   accessories: [
     // Like printers: the number is its identity in a file.
-    { key: "number", type: "integer", label: "import:accessories.columns.number" },
+    { key: "number", type: "integer", perRow: true, label: "import:accessories.columns.number" },
     { key: "name", type: "text", label: "import:accessories.columns.name", required: true },
     { key: "type", type: "text", label: "import:accessories.columns.type", required: true },
     { key: "serial", type: "text", label: "import:accessories.columns.serial" },
@@ -226,15 +233,26 @@ export const IMPORT_COLUMNS = {
   // The number is its identity in a file. The folder is a full path inside a project root; the
   // scan fills in the rest (files, cover, materials) after the apply.
   projects: [
-    { key: "number", type: "integer", label: "import:projects.columns.number" },
-    { key: "name", type: "text", label: "import:projects.columns.name", required: true },
-    { key: "description", type: "text", label: "import:projects.columns.description" },
-    { key: "sourceUrl", type: "text", label: "import:projects.columns.sourceUrl" },
-    { key: "folder", type: "text", label: "import:projects.columns.folder" },
+    { key: "number", type: "integer", perRow: true, label: "import:projects.columns.number" },
+    {
+      key: "name",
+      type: "text",
+      scanned: true,
+      label: "import:projects.columns.name",
+      required: true,
+    },
+    {
+      key: "description",
+      type: "text",
+      scanned: true,
+      label: "import:projects.columns.description",
+    },
+    { key: "sourceUrl", type: "text", scanned: true, label: "import:projects.columns.sourceUrl" },
+    { key: "folder", type: "text", perRow: true, label: "import:projects.columns.folder" },
   ],
   prints: [
     // A print's number is its identity in a file: a row with one updates that print.
-    { key: "number", type: "integer", label: "import:prints.columns.number" },
+    { key: "number", type: "integer", perRow: true, label: "import:prints.columns.number" },
     {
       key: "printer",
       type: "ref",
@@ -259,13 +277,19 @@ export const IMPORT_COLUMNS = {
       label: "import:prints.columns.outcome",
       required: true,
     },
-    { key: "failureReason", type: "text", label: "import:prints.columns.failureReason" },
+    {
+      key: "failureReason",
+      type: "text",
+      setBy: { column: "outcome", value: "success" },
+      label: "import:prints.columns.failureReason",
+    },
     { key: "notes", type: "text", label: "import:prints.columns.notes" },
     { key: "spool", type: "ref", ref: "spools", label: "import:prints.columns.spool" },
     {
       key: "filament",
       type: "ref",
       ref: "filamentProfiles",
+      setBy: { column: "spool" },
       label: "import:prints.columns.filament",
     },
     { key: "grams", type: "number", label: "import:prints.columns.grams" },
@@ -283,16 +307,22 @@ export const IMPORT_COLUMNS = {
   // A client is its mobile (unique), else its email or VAT number; there is no number.
   clients: [
     { key: "name", type: "text", label: "import:clients.columns.name", required: true },
-    { key: "mobile", type: "text", label: "import:clients.columns.mobile", required: true },
-    { key: "vat", type: "text", label: "import:clients.columns.vat" },
-    { key: "email", type: "text", label: "import:clients.columns.email" },
+    {
+      key: "mobile",
+      type: "text",
+      perRow: true,
+      label: "import:clients.columns.mobile",
+      required: true,
+    },
+    { key: "vat", type: "text", perRow: true, label: "import:clients.columns.vat" },
+    { key: "email", type: "text", perRow: true, label: "import:clients.columns.email" },
     { key: "address", type: "text", label: "import:clients.columns.address" },
     { key: "notes", type: "text", label: "import:clients.columns.notes" },
   ],
   // A quote from a file is a typed-in print: the production cost of one print, then the pricing.
   // Empty settings on a new quote = the Costs defaults. Client and project must exist.
   quotes: [
-    { key: "number", type: "integer", label: "import:quotes.columns.number" },
+    { key: "number", type: "integer", perRow: true, label: "import:quotes.columns.number" },
     { key: "name", type: "text", label: "import:quotes.columns.name", required: true },
     { key: "client", type: "ref", ref: "clients", label: "import:quotes.columns.client" },
     { key: "project", type: "ref", ref: "projects", label: "import:quotes.columns.project" },
@@ -310,7 +340,7 @@ export const IMPORT_COLUMNS = {
   ],
   // Client, quote and projects must exist; `project` holds one or more, separated by ";".
   orders: [
-    { key: "number", type: "integer", label: "import:orders.columns.number" },
+    { key: "number", type: "integer", perRow: true, label: "import:orders.columns.number" },
     { key: "client", type: "ref", ref: "clients", label: "import:orders.columns.client" },
     { key: "quote", type: "ref", ref: "quotes", label: "import:orders.columns.quote" },
     {
@@ -330,6 +360,7 @@ export const IMPORT_COLUMNS = {
       key: "name",
       type: "ref",
       ref: "maintenanceTypes",
+      perRow: true,
       label: "import:maintenanceTypes.columns.name",
       required: true,
     },
@@ -449,6 +480,7 @@ export const IMPORT_COLUMNS = {
       key: "name",
       type: "ref",
       ref: "filamentProfiles",
+      perRow: true,
       label: "import:filamentProfiles.columns.name",
     },
     { key: "diameterMm", type: "number", label: "import:filamentProfiles.columns.diameterMm" },
@@ -467,6 +499,7 @@ export const IMPORT_COLUMNS = {
       key: "name",
       type: "ref",
       ref: "brands",
+      perRow: true,
       label: "import:brands.columns.name",
       required: true,
     },
@@ -483,6 +516,7 @@ export const IMPORT_COLUMNS = {
       key: "model",
       type: "ref",
       ref: "printerModels",
+      perRow: true,
       label: "import:printerModels.columns.model",
       required: true,
     },
@@ -539,6 +573,7 @@ export const IMPORT_COLUMNS = {
       key: "name",
       type: "ref",
       ref: "filamentBrands",
+      perRow: true,
       label: "import:filamentBrands.columns.name",
       required: true,
     },
@@ -549,6 +584,7 @@ export const IMPORT_COLUMNS = {
       key: "name",
       type: "ref",
       ref: "filamentMaterials",
+      perRow: true,
       label: "import:filamentMaterials.columns.name",
       required: true,
     },

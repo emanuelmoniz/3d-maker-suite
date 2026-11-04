@@ -2,6 +2,9 @@ import {
   applyBulk,
   BULK_ACTIONS,
   type BulkAction,
+  cellOf,
+  fixable,
+  folderOf,
   IMPORT_ACTIONS,
   IMPORT_COLUMNS,
   IMPORT_STATUSES,
@@ -16,16 +19,25 @@ import {
   type ImportStatus,
   type ImportTarget,
   type ImportValues,
+  inRoot,
+  isBroken,
+  missingPick as isMissingPick,
+  lastFolder,
   MERGE_POLICIES,
   type MergePolicy,
   mergeValues,
   NO_PROJECT,
   PRINT_MAX_SLOTS,
-  parseCell,
+  pickOptions,
+  picksOf,
   printSlotKeys,
   type ReviewEntity,
+  type RowProblem,
+  rowProblem,
+  slotOf,
   suggested,
-  usableOn,
+  targetUses,
+  writePick,
 } from "@3d-maker-suite/core";
 import { FileSpreadsheet, Lock } from "lucide-react";
 import { type ReactNode, useId, useState } from "react";
@@ -46,8 +58,7 @@ import { useApply } from "../../lib/import.ts";
 import { useRoots } from "../../lib/roots.ts";
 import { NewSpoolDialog } from "../filament/NewSpoolDialog.tsx";
 import { cellText, EditCell } from "./EditCell.tsx";
-import { inRoot, lastFolder } from "./folderPrefix.ts";
-import { FolderCell, folderOf, PrintsCell, useProjectPrints } from "./ProjectCells.tsx";
+import { FolderCell, PrintsCell, useProjectPrints } from "./ProjectCells.tsx";
 import { skippedCount } from "./skipCount.ts";
 
 // i18n keys are written out in full so `pnpm i18n:check` can see them.
@@ -94,6 +105,12 @@ const ERRORS: Record<ImportErrorCode, string> = {
   outside_roots: "import:errors.outside_roots",
   folder_in_use: "import:errors.folder_in_use",
 };
+const PROBLEMS: Record<RowProblem, string> = {
+  broken: "import:review.fixCells",
+  needsRef: "import:review.needsRef",
+  needsTarget: "import:review.needsTarget",
+  duplicate: "import:review.duplicateTarget",
+};
 const MISSING: Record<string, string> = {
   filamentBrands: "import:missing.filamentBrands",
   filamentMaterials: "import:missing.filamentMaterials",
@@ -132,11 +149,6 @@ const TARGET_DETAILS: Partial<Record<ReviewEntity, (v: ImportValues) => ImportCe
 const ALL_TARGETS = "__all";
 const NEW_SPOOL = "__new";
 const TRACK = "trackUsage";
-/** The slot of a print's spool column; undefined for any other column. */
-const slotOf = (key: string) =>
-  Array.from({ length: PRINT_MAX_SLOTS }, (_, i) => i + 1).find(
-    (i) => printSlotKeys(i).spool === key,
-  );
 /**
  * What a print's slot says about its filament, for a spool added from its picker: a file names a
  * profile, an integration reports material and colour ("PLA #ff8800"). The row's cells first,
@@ -197,29 +209,16 @@ export function ReviewTable({
   const { rows } = preview;
   const targets = new Map(preview.targets.map((x) => [x.id, x]));
   const decisionOf = (r: ImportPreviewRow) => decisions[r.row] ?? suggested(r);
-  /** A cell now: the file's value and error, or the edit read like a file cell. */
-  const cellOf = (r: ImportPreviewRow, c: ImportColumn) => {
-    const e = edits[r.row];
-    if (!e || !(c.key in e))
-      return {
-        value: r.values[c.key] ?? null,
-        error: r.errors.find((x) => x.column === c.key)?.code,
-        edited: false,
-      };
-    const p = parseCell(c, e[c.key]);
-    return "error" in p
-      ? { value: null, error: p.error, edited: true }
-      : { value: p.value, error: undefined, edited: true };
-  };
   /** A cell now, or the value of the row it updates when the row has none. */
   const valueNow = (r: ImportPreviewRow, key: string, target?: ImportTarget) => {
     const col = columns.find((c) => c.key === key);
-    return (col && cellOf(r, col).value) ?? target?.values[key] ?? null;
+    return (col && cellOf(r, col, edits[r.row]).value) ?? target?.values[key] ?? null;
   };
   const valuesOf = (r: ImportPreviewRow): ImportValues =>
-    edits[r.row] ? Object.fromEntries(columns.map((c) => [c.key, cellOf(r, c).value])) : r.values;
-  // Server-only errors (a name that must exist) come back on apply once a cell is edited.
-  const broken = (r: ImportPreviewRow) => columns.some((c) => cellOf(r, c).error);
+    edits[r.row]
+      ? Object.fromEntries(columns.map((c) => [c.key, cellOf(r, c, edits[r.row]).value]))
+      : r.values;
+  const broken = (r: ImportPreviewRow) => isBroken(r, columns, edits[r.row]);
   const editCell = (r: ImportPreviewRow, key: string, text: string | null | undefined) =>
     setEdits((all) => {
       const { [key]: _, ...rest } = all[r.row] ?? {};
@@ -231,11 +230,6 @@ export function ReviewTable({
   const tracks = (r: ImportPreviewRow) => decisionOf(r).trackUsage ?? r.values[TRACK] !== "no";
   const decide = (r: ImportPreviewRow, patch: Partial<ImportDecision>) =>
     setDecisions((d) => ({ ...d, [r.row]: { ...(d[r.row] ?? suggested(r)), ...patch } }));
-  /**
-   * The one way to write a picked cell. A spool slot of an update is a name edit of the cell; a
-   * row without the slot's grams (a print you have) takes the print's, so the slot stays whole.
-   * Any other pick is a ref id on the row's decision.
-   */
   const setCell = (
     r: ImportPreviewRow,
     key: string,
@@ -243,12 +237,12 @@ export function ReviewTable({
   ) => {
     const d = decisionOf(r);
     const target = d.action === "update" ? targets.get(d.targetId ?? "") : undefined;
-    const slot = entity === "prints" ? slotOf(key) : undefined;
-    if (!target || !slot) return decide(r, { refs: { ...d.refs, [key]: pick.id } });
-    editCell(r, key, pick.label);
-    const grams = printSlotKeys(slot).grams;
-    if (r.values[grams] == null && target.values[grams] != null)
-      editCell(r, grams, String(target.values[grams]));
+    const next = writePick(r, key, pick, d, edits[r.row], target);
+    decide(r, next.decision);
+    if (next.edits) {
+      const rowEdits = next.edits;
+      setEdits((all) => ({ ...all, [r.row]: rowEdits }));
+    }
   };
   const [project, setProject] = useState("");
   const [spool, setSpool] = useState("");
@@ -270,9 +264,6 @@ export function ReviewTable({
   };
   // Bulk folder change: every folder moves to this root, keeping its last folder.
   const [toPath, setToPath] = useState("");
-  // A row whose only error is its folder (outside the roots) takes part: the new path fixes it.
-  const fixable = (r: ImportPreviewRow) =>
-    r.status === "invalid" && r.errors.length > 0 && r.errors.every((e) => e.column === "folder");
   const anyBulk = !!bulk || (prints && !!(project || spool || track)) || (projects && !!toPath);
   // One Apply: the action first (so "All new" + a project works in one go), then the prints
   // picks. A project or spool only goes to a created row that takes it; a spool only to a row
@@ -337,43 +328,18 @@ export function ReviewTable({
   };
 
   const byStatus = shown.size ? rows.filter((r) => shown.has(r.status)) : rows;
-  const updates = rows.filter((r) => decisionOf(r).action === "update");
-  const pickedCount = new Map<string | null, number>();
-  for (const r of updates) {
-    const id = decisionOf(r).targetId;
-    pickedCount.set(id, (pickedCount.get(id) ?? 0) + 1);
-  }
+  const pickedCount = targetUses(rows, decisionOf);
   // References the user picks (a spool's filament profile, a print's project and spools) instead
-  // of having them created: the ones the row's suggestion names. Optional ones (a print's spools)
-  // may stay empty; any other is needed to create the row.
+  // of having them created: the ones the row's suggestion names.
   const picked = Object.keys(preview.refOptions ?? {});
   const optional = new Set(preview.refsOptional);
-  const picks = (r: ImportPreviewRow) => picked.filter((k) => r.refs && k in r.refs);
-  const missingPick = (r: ImportPreviewRow, k: string) =>
-    !optional.has(k) && !decisionOf(r).refs?.[k];
-  // A row's options: the ones that fit it first. A spool opened after the print started, or
-  // empty, is only listed when it is the pick already.
-  const optionsFor = (r: ImportPreviewRow, key: string, current: string | null | undefined) => {
-    const first = new Set(r.refsFirst?.[key]);
-    const started = String(r.values.startedAt ?? "");
-    return [...(preview.refOptions?.[key] ?? []), ...added]
-      .filter(
-        (o) =>
-          o.id === current ||
-          (!o.empty && (!started || usableOn({ openedAt: o.from ?? null }, started))),
-      )
-      .sort((a, b) => Number(first.has(b.id)) - Number(first.has(a.id)));
-  };
-  // An update needs a row to go to, and two file rows can't go to the same one; a new row needs
-  // its required picks.
+  const picks = (r: ImportPreviewRow) => picksOf(preview, r);
+  const missingPick = (r: ImportPreviewRow, k: string) => isMissingPick(preview, decisionOf(r), k);
+  const optionsFor = (r: ImportPreviewRow, key: string, current: string | null | undefined) =>
+    pickOptions(preview, r, key, current, added);
   const problem = (r: ImportPreviewRow) => {
-    const d = decisionOf(r);
-    if (d.action !== "skip" && broken(r)) return t("import:review.fixCells");
-    if (d.action === "create")
-      return picks(r).some((k) => missingPick(r, k)) ? t("import:review.needsRef") : null;
-    if (d.action !== "update") return null;
-    if (!d.targetId) return t("import:review.needsTarget");
-    return (pickedCount.get(d.targetId) ?? 0) > 1 ? t("import:review.duplicateTarget") : null;
+    const p = rowProblem(preview, columns, r, decisionOf(r), edits[r.row], pickedCount);
+    return p && t(PROBLEMS[p]);
   };
   const count = (a: ImportAction) => rows.filter((r) => decisionOf(r).action === a).length;
   const invalid = rows.filter((r) => r.status === "invalid").length;
@@ -561,8 +527,8 @@ export function ReviewTable({
         id: c.key,
         header: t(c.label, c.labelArgs),
         numeric: c.type === "number" || c.type === "integer" || c.type === "money",
-        sortValue: (r) => cellOf(r, c).value ?? "",
-        filterValue: (r) => cellOf(r, c).value ?? "",
+        sortValue: (r) => cellOf(r, c, edits[r.row]).value ?? "",
+        filterValue: (r) => cellOf(r, c, edits[r.row]).value ?? "",
         cell: (r) => {
           const d = decisionOf(r);
           if (c.key === TRACK)
@@ -587,7 +553,7 @@ export function ReviewTable({
                 onChange={(patch) => decideFolder(r, patch)}
               />
             );
-          const now = cellOf(r, c);
+          const now = cellOf(r, c, edits[r.row]);
           const value = format(c, now.value);
           const options = preview.refOptions?.[c.key];
           // A suggestion picked from several, until the user picks another.

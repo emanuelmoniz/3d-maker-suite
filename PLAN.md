@@ -1721,7 +1721,7 @@ Do Step 1 of the 5.3.0 plan in PLAN.md. No visible change except the Skip count.
 Do Step 2 of the 5.3.0 plan in PLAN.md.
 ```
 
-### [ ] Step 3 - Bulk edit logic  **[plan mode]**
+### [x] Step 3 - Bulk edit logic  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:**
 - Column rules on `ImportColumn`: which differ per row, and what makes a column read-only. Keep it to the list in the design, no rules engine.
