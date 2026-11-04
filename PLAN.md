@@ -1703,7 +1703,7 @@ Design:
 - **Removed:** the 7 presets (`applyBulk`, `BULK_ACTIONS`), the scope dropdown, the pending warning, the Merge column, the "When updating" setting, the separate Project, Spool, Track and Move fields.
 - **Default merge, for columns on Don't change:** no control on the page. Files overwrite; integrations use the sync type's choice (`preview.policy`). "Fill empty fields only" can no longer be picked in a review: on files it is the same as Keep my edits, and on integrations Keep my edits replaces it.
 
-### [ ] Step 1 - Review cells: one way to write a cell
+### [x] Step 1 - Review cells: one way to write a cell
 **Model:** Sonnet · **Effort:** Medium
 **Scope:** A print's spool is written two ways: as an id in `refs` when creating, as a name edit when updating (`pickSpool`), with grams copied along. Other picks differ too. Move these into one function in `ReviewTable` that takes a row, a column and a value, used by every cell. Fix the Skip count in the summary: it subtracts every invalid row, even fixed ones, so it can go negative.
 **Done when:** the review looks and works as before, except the count; test for the count; tests and e2e pass.

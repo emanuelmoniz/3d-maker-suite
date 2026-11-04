@@ -48,6 +48,7 @@ import { NewSpoolDialog } from "../filament/NewSpoolDialog.tsx";
 import { cellText, EditCell } from "./EditCell.tsx";
 import { inRoot, lastFolder } from "./folderPrefix.ts";
 import { FolderCell, folderOf, PrintsCell, useProjectPrints } from "./ProjectCells.tsx";
+import { skippedCount } from "./skipCount.ts";
 
 // i18n keys are written out in full so `pnpm i18n:check` can see them.
 const STATUSES: Record<ImportStatus, string> = {
@@ -231,12 +232,21 @@ export function ReviewTable({
   const decide = (r: ImportPreviewRow, patch: Partial<ImportDecision>) =>
     setDecisions((d) => ({ ...d, [r.row]: { ...(d[r.row] ?? suggested(r)), ...patch } }));
   /**
-   * An update's spool, picked by name as an edit of the cell. A row without the slot's grams (a
-   * print you have) takes the print's, so the slot stays whole.
+   * The one way to write a picked cell. A spool slot of an update is a name edit of the cell; a
+   * row without the slot's grams (a print you have) takes the print's, so the slot stays whole.
+   * Any other pick is a ref id on the row's decision.
    */
-  const pickSpool = (r: ImportPreviewRow, key: string, label: string, target: ImportTarget) => {
-    editCell(r, key, label);
-    const grams = printSlotKeys(slotOf(key) ?? 1).grams;
+  const setCell = (
+    r: ImportPreviewRow,
+    key: string,
+    pick: { id: string | null; label: string },
+  ) => {
+    const d = decisionOf(r);
+    const target = d.action === "update" ? targets.get(d.targetId ?? "") : undefined;
+    const slot = entity === "prints" ? slotOf(key) : undefined;
+    if (!target || !slot) return decide(r, { refs: { ...d.refs, [key]: pick.id } });
+    editCell(r, key, pick.label);
+    const grams = printSlotKeys(slot).grams;
     if (r.values[grams] == null && target.values[grams] != null)
       editCell(r, grams, String(target.values[grams]));
   };
@@ -610,7 +620,11 @@ export function ReviewTable({
                   onChange={(v) =>
                     v === NEW_SPOOL
                       ? setAdding({ row: r, key: c.key })
-                      : v && pickSpool(r, c.key, v, target)
+                      : v &&
+                        setCell(r, c.key, {
+                          id: optionsFor(r, c.key, null).find((o) => o.label === v)?.id ?? null,
+                          label: v,
+                        })
                   }
                   options={[
                     ...(label ? [] : [{ value: "", label: t("import:review.pickTarget") }]),
@@ -646,7 +660,7 @@ export function ReviewTable({
                   onChange={(v) =>
                     v === NEW_SPOOL
                       ? setAdding({ row: r, key: c.key })
-                      : decide(r, { refs: { ...d.refs, [c.key]: v || null } })
+                      : setCell(r, c.key, { id: v || null, label: v })
                   }
                   options={[
                     { value: "", label: t("import:review.pickTarget") },
@@ -965,7 +979,10 @@ export function ReviewTable({
           [
             [t(ACTIONS.create), count("create")],
             [t(ACTIONS.update), count("update")],
-            [t(ACTIONS.skip), count("skip") - invalid],
+            [
+              t(ACTIONS.skip),
+              skippedCount(rows.map((r) => ({ status: r.status, action: decisionOf(r).action }))),
+            ],
             [t(STATUSES.invalid), invalid],
           ] as const
         ).map(([label, n]) => (
@@ -1087,10 +1104,7 @@ export function ReviewTable({
           );
           setAdded((a) => [...a, { id: s.id, label }]);
           const { row, key } = adding;
-          const d = decisionOf(row);
-          const target = d.action === "update" && targets.get(d.targetId ?? "");
-          if (target) pickSpool(row, key, label, target);
-          else decide(row, { refs: { ...d.refs, [key]: s.id } });
+          setCell(row, key, { id: s.id, label });
         }}
       />
     </section>
