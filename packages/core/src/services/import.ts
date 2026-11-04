@@ -165,7 +165,8 @@ export const editedKeys = (
 
 /**
  * The values an update writes: the differences, under `fill` only those the row lacks, under
- * `keepEdits` all but the `edited` keys (not known = `fill`).
+ * `keepEdits` all but the `edited` keys (not known = `fill`). `perColumn` overrides `policy` for
+ * the keys it names.
  */
 export function mergeValues(
   columns: readonly ImportColumn[],
@@ -173,11 +174,12 @@ export function mergeValues(
   file: ImportValues,
   target: ImportValues,
   edited?: readonly string[],
+  perColumn?: Readonly<Record<string, MergePolicy>>,
 ): ImportValues {
   const keys = diffValues(columns, file, target).filter((k) =>
-    policy === "overwrite"
+    (perColumn?.[k] ?? policy) === "overwrite"
       ? true
-      : policy === "keepEdits" && edited
+      : (perColumn?.[k] ?? policy) === "keepEdits" && edited
         ? !edited.includes(k)
         : target[k] == null,
   );
@@ -244,6 +246,8 @@ export type ImportDecision = {
   action: ImportAction;
   targetId: string | null;
   policy?: MergePolicy;
+  /** By column key: overrides `policy` for that column. */
+  columnPolicies?: Record<string, MergePolicy>;
   /** By column key: the picked references. */
   refs?: Record<string, string | null>;
   /** Prints: take the filament from the spools (unset: what the row's `trackUsage` says). */

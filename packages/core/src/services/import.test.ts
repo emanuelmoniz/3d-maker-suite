@@ -138,6 +138,17 @@ describe("diff and merge", () => {
     ).toEqual({ initialGrams: 750 });
     expect(mergeValues(columns, "keepEdits", file, target)).toEqual({ location: "Shelf" });
   });
+
+  it("a column's own policy wins over the row's", () => {
+    const yours = { ...target, location: "Drawer" };
+    const edited = ["location", "initialGrams"];
+    expect(
+      mergeValues(columns, "keepEdits", file, yours, edited, { location: "overwrite" }),
+    ).toEqual({ location: "Shelf" });
+    expect(mergeValues(columns, "overwrite", file, yours, edited, { location: "fill" })).toEqual({
+      initialGrams: 750,
+    });
+  });
 });
 
 it("suggest never guesses", () => {

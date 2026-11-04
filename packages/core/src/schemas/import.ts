@@ -731,6 +731,8 @@ export const importApplySchema = z.object({
       targetId: id.optional(),
       /** Overrides `policy` for this row. */
       policy: z.enum(MERGE_POLICIES).optional(),
+      /** By column key: overrides the row's policy for that column. */
+      columnPolicies: z.record(z.string(), z.enum(MERGE_POLICIES)).optional(),
       /** By column key: the picked references (see `refOptions`). */
       refs: z.record(z.string(), id).optional(),
       /**

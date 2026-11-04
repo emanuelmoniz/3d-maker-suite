@@ -180,8 +180,14 @@ describe("import", () => {
       decisions: [
         { row: 2, action: "create" },
         { row: 4, action: "update", targetId: green.id },
-        // Picked by hand; only the fields that spool lacks are filled.
-        { row: 5, action: "update", targetId: white[1].id, policy: "fill" },
+        // Picked by hand; only the fields that spool lacks are filled, except the grams (per column).
+        {
+          row: 5,
+          action: "update",
+          targetId: white[1].id,
+          policy: "fill",
+          columnPolicies: { initialGrams: "overwrite" },
+        },
       ],
     });
     expect(done.json()).toMatchObject({ created: 1, updated: 2 });
@@ -196,7 +202,7 @@ describe("import", () => {
     });
     const history = (await app.inject(`/api/filament/spools/${green.id}/history`)).json();
     expect(history[0]).toMatchObject({ kind: "correction", deltaGrams: -600 });
-    expect(await getSpool(white[1].id)).toMatchObject({ location: "Drawer", initialGrams: 1000 });
+    expect(await getSpool(white[1].id)).toMatchObject({ location: "Drawer", initialGrams: 500 });
     expect(await getSpool(white[0].id)).toMatchObject({ location: null });
 
     const created = db

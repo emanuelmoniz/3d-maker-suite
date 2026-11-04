@@ -574,6 +574,7 @@ export function createReview(db: Db, dataDir: string) {
         values,
         target,
         policy: d.policy ?? policy,
+        columnPolicies: d.columnPolicies,
         row: {
           ...from,
           refs: d.refs,
@@ -636,6 +637,7 @@ export function createReview(db: Db, dataDir: string) {
           op.values,
           op.target.values,
           editedOf.get(row),
+          op.columnPolicies,
         );
         // Prints picked in the review, names taken from the folder, or a row you archived coming
         // back are a change of their own, and so is linking a row to its source for the first time

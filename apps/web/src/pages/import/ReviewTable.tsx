@@ -728,6 +728,7 @@ export function ReviewTable({
             valuesOf(r),
             target.values,
             r.edited,
+            d.columnPolicies,
           );
           return c.key in writes ? (
             <span className="inline-flex items-center gap-2">

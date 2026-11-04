@@ -1712,7 +1712,7 @@ Design:
 Do Step 1 of the 5.3.0 plan in PLAN.md. No visible change except the Skip count.
 ```
 
-### [ ] Step 2 - Merge per column
+### [x] Step 2 - Merge per column
 **Model:** Sonnet · **Effort:** Medium
 **Scope:** The apply decision gets an optional merge policy per column, over the row's `policy`. `mergeValues` honours it on the server and in the review's preview. No DB change. The apply's `policy` stays in the API; the web will send the default from the design.
 **Done when:** one row can overwrite one column and keep another; keepEdits with no known edits still means fill; unit and server tests; tests pass.
