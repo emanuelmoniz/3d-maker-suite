@@ -2,6 +2,25 @@
 
 All notable changes are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [5.3.0-alpha.1] - 2026-11-04
+
+Pre-release. Test on a copy of your data first; back up before updating. Bulk edit for the import review; no new migrations.
+
+### Added
+- **Bulk edit in the import review**: tick rows and a bar shows the count, with **Clear** and **Bulk edit…**. The form sets an Action (Create, Update, Skip or Use suggestion) and each column, every field starting on **Don't change**; Apply writes to the selected rows at once, and nothing is saved until Import ([docs/import.md](docs/import.md#review-rows))
+- Per column in an update, keep your edits and fill the rest from the file, or overwrite with the file's values
+- Bulk edit sets the **Folder** of projects (Move to root, Create folder, No folder) and the **Prints** flows: No project, a spool per filament slot, and Track usage
+- A result line after Apply says what was done and why the rest wasn't; problem rows stay selected
+
+### Changed
+- The **Bulk operations** panel is replaced by the selection bar and the Bulk edit form. The seven presets, the scope dropdown, the Merge column, the **When updating** setting and the separate Project, Spool, Track and Move fields are removed
+- Filter or status chips end the selection
+- **Bulk change projects root** in Settings → Projects uses the same bar as the other bulk actions
+
+### Fixed
+- Spools added in a review no longer show in the Project picker of other rows
+- The Skip count in the review no longer goes negative when invalid rows are fixed
+
 ## [5.2.0] - 2026-11-03
 
 Stable. Same code as 5.2.0-alpha.3; the release notes list everything since 5.1.0 (the 5.2.0-alpha sections below). No new migrations. Back up before updating from 5.1.0.

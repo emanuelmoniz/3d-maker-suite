@@ -1762,7 +1762,7 @@ Do Step 4 of the 5.3.0 plan in PLAN.md. Show me the bar and form for spools and 
 Do Step 5 of the 5.3.0 plan in PLAN.md.
 ```
 
-### [ ] Step 6 - Docs, push & v5.3.0-alpha.1
+### [x] Step 6 - Docs, push & v5.3.0-alpha.1
 **Model:** Haiku · **Effort:** Low
 **Scope:**
 - `docs/import.md` (Review rows, the folder paragraph, and "When updating" under integrations), `pnpm screenshots` if a README page changed, CHANGELOG, version `5.3.0-alpha.1`.

@@ -34,7 +34,7 @@ In the review, a row without a folder, or whose folder isn't there, is highlight
 - **Create folder**: the app makes it when you import. Leave the name empty to name it by number and name (`012_Vase`).
 - **No folder**: the project is saved without one.
 
-Each folder can also be edited in the table. To fix many at once, **Move all folders to** a root under **Bulk operations**: each row gets that root plus its own last folder (`D:\old\a\012_Vase` → `E:\3d\012_Vase`).
+Each folder can also be edited in the table. To fix many at once, tick the rows and open **Bulk edit**, then set the **Folder** field to **Move to root**: each row gets that root plus its own last folder (`D:\old\a\012_Vase` → `E:\3d\012_Vase`). **Create folder**, **No folder** and **Use import values** work the same way on every selected row.
 
 After the import each folder is scanned (files, cover, materials). **Prints** shows the prints each project gets: the ones it has, plus imported prints whose title names one of its files, the same way a folder scan links them. Open it to add or remove prints; a project whose prints you changed gets exactly those.
 
@@ -77,7 +77,9 @@ After upload, every row gets a status:
 
 The review shows the file's columns in the file's order. Click a cell to edit it, with an input for its kind: text, a number (`12,5` or `12.5`), a date, a date and time (in your local time), a list of options, a name (one you have, or a new one) or a colour. Enter or leaving the cell keeps the edit, Escape drops it. An edited cell has a bar on its left and an undo button. A value that can't be read shows its error as you type; a fixed invalid row can then be created or updated. The **Id**, and the **Number** of a row that updates, can't be edited. The edits are checked again when you import, and any error stops the whole import.
 
-For each row you choose **Create**, **Update** or **Skip**. For matched rows, pick a policy: **Overwrite with file values** or **Fill empty fields only** (from an integration also **Keep my edits, update the rest**, see below). The bulk actions apply to all, selected or filtered rows (for example *Auto-match: update matched, add new*, or *Skip all*). Reset to suggestions brings back the app's choices.
+For each row you choose **Create**, **Update**, **Skip** or **Use suggestion**. For matched rows, each column can overwrite the existing value with the file's, or keep your edits and fill the rest from the file.
+
+**Bulk edit** works on the rows you tick. A bar above the table shows how many are selected, with **Clear** and **Bulk edit…**. The form has an **Action** and one field per column, each starting on **Don't change**, so only what you change is applied. **Apply** writes to the selected rows at once; nothing is saved until **Import**. A row that still has a problem stays selected and says why, and a row with no match is shown in red: pick its match in the table first. A new filter or status chip ends the selection. Reset to suggestions brings back the app's choices.
 
 ### Spools of new prints
 
@@ -138,7 +140,7 @@ To start with only the brands you use: open **Manual import** for brands, filter
 
 The app remembers what each sync last imported into a row, and that's how it tells your edits from a change at the source. For rows imported before this setting existed it doesn't know yet: the first sync after the update only fills empty fields (Keep my edits) or takes the source as it is (Let me review), and from then on it tells them apart. With **Track usage** of spools off, a sync never changes the remaining weight of a spool you have.
 
-In the review of an integration, the **When updating** policy starts with the type's choice, and **Keep my edits, update the rest** is offered next to the file policies.
+In the review of an integration, a column left on **Don't change** follows the type's choice from the table above. Bulk edit can set a column to **Keep my edits, fill the rest with import values** instead.
 
 ## Slicer catalog from a zip
 
