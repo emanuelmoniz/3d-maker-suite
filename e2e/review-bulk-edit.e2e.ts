@@ -1,6 +1,7 @@
+import { basename, join } from "node:path";
 import type { Locator, Page } from "@playwright/test";
 import { expect, test } from "./fixtures.ts";
-import { hasHorizontalScroll, openBulkEdit, pick, seedSpool } from "./helpers.ts";
+import { addRoots, hasHorizontalScroll, openBulkEdit, pick, seedSpool } from "./helpers.ts";
 
 const upload = async (page: Page, lines: string[]) => {
   await page.goto("/import");
@@ -315,4 +316,92 @@ test("the bar and the form work at phone width", async ({ page }) => {
   await apply(form);
   await expect(page.getByText("1 row changed.")).toBeVisible();
   expect(await hasHorizontalScroll(page)).toBe(false);
+});
+
+test("projects: Move to root keeps each row's last folder, and fixes a row outside the roots", async ({
+  page,
+  app,
+}) => {
+  const root = app.makeProjectDir("cup");
+  await addRoots(app.api, root);
+  await page.goto("/import");
+  await pick(page.getByRole("combobox", { name: "What to import" }), "Projects");
+  await page.getByLabel("Upload a file").setInputFiles({
+    name: "projects.csv",
+    mimeType: "text/csv",
+    buffer: Buffer.from("Name;Folder\nMug;/volume1/projects/cup\nLamp;/volume1/projects/cup/sub\n"),
+  });
+  const form = await openBulkEdit(page);
+  await pick(field(form, "Folder"), "Move to root");
+  await apply(form);
+
+  await expect(page.getByText("2 rows changed.")).toBeVisible();
+  await expect(page.getByLabel("Edit folder of row 2")).toHaveValue(join(root, "cup"));
+  await expect(page.getByLabel("Edit folder of row 3")).toHaveValue(join(root, "sub"));
+  await importRows(page, 2);
+  const projects = await app.api<{ items: { name: string; folderPath: string }[] }>(
+    "GET",
+    "/api/projects?sort=name",
+  );
+  expect(projects.items.map((p) => basename(p.folderPath)).sort()).toEqual(["cup", "sub"]);
+});
+
+test("projects: Create folder and No folder from the form", async ({ page, app }) => {
+  const root = app.makeProjectDir("cup");
+  await addRoots(app.api, root);
+  await page.goto("/import");
+  await pick(page.getByRole("combobox", { name: "What to import" }), "Projects");
+  await page.getByLabel("Upload a file").setInputFiles({
+    name: "projects.csv",
+    mimeType: "text/csv",
+    buffer: Buffer.from("Name;Folder\nMug;\nLamp;\n"),
+  });
+  let form = await openBulkEdit(page);
+  await pick(field(form, "Folder"), "Create folder");
+  await apply(form);
+  await expect(page.getByText("New folder, named by number and name")).toHaveCount(2);
+
+  form = await openBulkEdit(page);
+  await pick(field(form, "Folder"), "No folder");
+  await apply(form);
+  await expect(page.getByText("New folder, named by number and name")).toHaveCount(0);
+  await expect(page.getByText("No folder", { exact: true })).toHaveCount(2);
+});
+
+test("prints: Project and Spool from the form reach the server", async ({ page, app }) => {
+  const { id } = await app.api<{ id: string }>("POST", "/api/integrations", {
+    adapterId: "mock",
+    secrets: { token: "t" },
+  });
+  await app.api("PATCH", `/api/integrations/${id}`, {
+    policies: [{ type: "prints", mode: "auto", frequency: "1h" }],
+  });
+  await app.api("POST", `/api/integrations/${id}/sync`, { type: "printers" });
+  await app.api("POST", `/api/integrations/${id}/sync`, { type: "prints" });
+  const spool = await seedSpool(app.api);
+  await page.goto(`/import/integration/${id}/prints`);
+  const form = await openBulkEdit(page);
+
+  await pick(field(form, "Project"), "Set a value");
+  await pick(
+    form.getByRole("combobox", { name: "Value for Project" }),
+    "No project (e.g. a calibration print)",
+  );
+  await pick(field(form, "Spool"), "Set a value");
+  await pick(form.getByRole("combobox", { name: "Value for Spool" }), 0);
+  await apply(form);
+  await expect(page.getByText("3 rows changed.")).toBeVisible();
+  await importRows(page, 3);
+
+  const prints = await app.api<{ items: { projectId: string | null; usages: unknown[] }[] }>(
+    "GET",
+    "/api/prints",
+  );
+  expect(prints.items).toHaveLength(3);
+  expect(prints.items.every((p) => p.projectId === null && p.usages.length > 0)).toBe(true);
+  const after = await app.api<{ remainingGrams: number }>(
+    "GET",
+    `/api/filament/spools/${spool.id}`,
+  );
+  expect(after.remainingGrams).toBeLessThan(1000);
 });

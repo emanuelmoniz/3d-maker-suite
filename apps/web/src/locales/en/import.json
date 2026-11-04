@@ -124,6 +124,8 @@
     "keep": "Don't change",
     "suggestion": "Use suggestion",
     "system": "Use system match",
+    "moveToRoot": "Move to root",
+    "root": "Root",
     "all": "All columns",
     "import": "Use import values",
     "overwrite": "Overwrite with import values",

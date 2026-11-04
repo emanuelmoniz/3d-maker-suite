@@ -9,6 +9,7 @@ import {
   type ImportPreview,
   NO_PROJECT,
   parseCell,
+  type Root,
   slotOf,
 } from "@3d-maker-suite/core";
 import { useState } from "react";
@@ -29,6 +30,13 @@ const ACTIONS: Record<BulkForm["action"], string> = {
   skip: "import:actions.skip",
   suggestion: "import:edit.suggestion",
 };
+const FOLDERS = {
+  keep: "import:edit.keep",
+  import: "import:edit.import",
+  moveToRoot: "import:edit.moveToRoot",
+  create: "import:projects.create",
+  none: "import:projects.none",
+} as const;
 const CHOICES: Record<Choice, string> = {
   keep: "import:edit.keep",
   import: "import:edit.import",
@@ -65,6 +73,7 @@ export function BulkEditDialog({
   columns,
   selected,
   added,
+  roots,
   optionLabel,
   errorText,
   onApply,
@@ -78,6 +87,8 @@ export function BulkEditDialog({
   selected: readonly ImportDecision[];
   /** Spools added in this review. */
   added: NonNullable<ImportPreview["refOptions"]>[string];
+  /** Projects only: the roots a folder can go to. Without it there is no Folder field. */
+  roots?: readonly Root[];
   optionLabel: (option: string) => string;
   errorText: (code: ImportErrorCode) => string;
   onApply: (form: BulkForm) => void;
@@ -85,6 +96,9 @@ export function BulkEditDialog({
 }) {
   const { t } = useTranslation();
   const [form, setForm] = useState<BulkForm>({ action: "keep", fields: {} });
+  const [folderKind, setFolderKind] = useState<keyof typeof FOLDERS>("keep");
+  const [folderRoot, setFolderRoot] = useState(roots?.[0]?.id ?? "");
+  const [folderName, setFolderName] = useState("");
   const stateOf = (col: ImportColumn) => bulkField(col, { form, selected, preview });
   const updating =
     form.action === "update" ||
@@ -120,8 +134,19 @@ export function BulkEditDialog({
       return text === undefined ? [] : [{ col, text }];
     });
     if (values.some(({ col, text }) => valueError(col, text))) return;
+    const root = roots?.find((r) => r.id === folderRoot) ?? roots?.[0];
+    // Skip and Use suggestion take no values, so no folder either (`bulkEdit` ignores it).
+    const folder: BulkForm["folder"] =
+      folderKind === "keep"
+        ? undefined
+        : folderKind === "moveToRoot"
+          ? root && { kind: "moveToRoot", root: root.path }
+          : folderKind === "create"
+            ? { kind: "create", name: folderName.trim() || undefined, rootId: root?.id }
+            : { kind: folderKind };
     onApply({
       ...form,
+      folder,
       target: updating ? form.target : undefined,
       fields: {
         ...form.fields,
@@ -199,6 +224,45 @@ export function BulkEditDialog({
               }))}
             />
           )}
+        </FormField>
+      )}
+      {roots && (
+        <FormField label={t("import:projects.columns.folder")}>
+          {(p) => {
+            const off = form.action === "skip" || form.action === "suggestion";
+            const rooted = !off && (folderKind === "moveToRoot" || folderKind === "create");
+            return (
+              <>
+                <Combobox
+                  {...p}
+                  disabled={off}
+                  className={fieldClass(!off && folderKind !== "keep", off)}
+                  value={off ? "keep" : folderKind}
+                  onChange={(v) => setFolderKind(v as keyof typeof FOLDERS)}
+                  options={(Object.keys(FOLDERS) as (keyof typeof FOLDERS)[])
+                    .filter((k) => roots.length || (k !== "moveToRoot" && k !== "create"))
+                    .map((k) => ({ value: k, label: t(FOLDERS[k]) }))}
+                />
+                {rooted && roots.length > 1 && (
+                  <Combobox
+                    aria-label={t("import:edit.root")}
+                    value={folderRoot}
+                    onChange={setFolderRoot}
+                    options={roots.map((r) => ({ value: r.id, label: r.name }))}
+                  />
+                )}
+                {rooted && folderKind === "create" && (
+                  <input
+                    className={inputClass}
+                    aria-label={t("import:projects.folderName")}
+                    placeholder={t("import:projects.folderNameHint")}
+                    value={folderName}
+                    onChange={(e) => setFolderName(e.target.value)}
+                  />
+                )}
+              </>
+            );
+          }}
         </FormField>
       )}
       <hr className="border-border" />

@@ -795,6 +795,7 @@ export function ReviewTable({
         columns={formColumns}
         selected={rows.filter((r) => selected.has(r.row)).map(decisionOf)}
         added={added}
+        roots={projects ? roots : undefined}
         optionLabel={(o) => (OPTIONS[o] ? t(OPTIONS[o] ?? "") : o)}
         errorText={(code) => t(ERRORS[code])}
         onApply={applyEdit}

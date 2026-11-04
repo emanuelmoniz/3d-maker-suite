@@ -1749,7 +1749,7 @@ Do Step 3 of the 5.3.0 plan in PLAN.md. Show me the function's input, output and
 Do Step 4 of the 5.3.0 plan in PLAN.md. Show me the bar and form for spools and prints first. Check them in the browser, light and dark, desktop and phone.
 ```
 
-### [ ] Step 5 - Folders and prints in the form
+### [x] Step 5 - Folders and prints in the form
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - Projects, Folder field: Don't change · Use import values · Move to root (each row keeps its own last folder, and fixes a row whose only error is its folder) · Create folder · No folder.
