@@ -1,4 +1,5 @@
 import type {
+  BulkResult,
   FilamentReviewItem,
   Page,
   PrintDetail,
@@ -71,6 +72,12 @@ export const useFilamentReview = (query: Record<string, string> = {}) =>
 export const useAssignReview = () =>
   useInvalidating((v: { usageId: string; spoolId: string }) =>
     api("POST", `/api/prints/filament-review/${v.usageId}/assign`, { spoolId: v.spoolId }),
+  );
+
+/** One spool for many slots; the rows it couldn't take come back in `blocked`. */
+export const useBulkAssignReview = () =>
+  useInvalidating((v: { usageIds: string[]; spoolId: string }) =>
+    api<BulkResult>("POST", "/api/prints/filament-review/assign", v),
   );
 
 export const useDismissReview = () =>

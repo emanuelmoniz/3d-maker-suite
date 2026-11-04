@@ -61,6 +61,17 @@ type ServerProps = {
   scope?: ListQuery;
 };
 
+/** Row selection with a bar of its own, for a list that isn't one of ADR-0018's `BULK_ITEMS`. */
+export type Selection<T> = {
+  /** The list select all reads, page by page. */
+  path: string;
+  can: boolean;
+  name: (row: T) => string;
+  when?: (row: T) => boolean;
+  /** `done` gets the ids still selected: the ones the action couldn't do. */
+  bar: (s: { rows: BulkRow[]; clear: () => void; done: (blocked: string[]) => void }) => ReactNode;
+};
+
 const PAGE_SIZES = [10, 25, 50, 100];
 /** These change how a list shows, not what it lists, so a selection outlives them. */
 const VIEW_ONLY = ["page", "pageSize", "sort"];
@@ -112,6 +123,7 @@ export function DataTable<T>({
   rowKey,
   server,
   client,
+  select,
 }: {
   label: string;
   columns: Column<T>[];
@@ -121,6 +133,8 @@ export function DataTable<T>({
   server?: ServerProps;
   /** Client mode: keep the list query yourself (e.g. to act on the rows it shows); see `viewOf`. */
   client?: { query: ListQuery; onQueryChange: (q: ListQuery) => void };
+  /** Server mode: tick rows and act on them with the table's own bar, instead of `archiveColumn`'s. */
+  select?: Selection<T>;
 }) {
   const { t } = useTranslation();
   const [ownQuery, setOwnQuery] = useState<ListQuery>({});
@@ -162,7 +176,15 @@ export function DataTable<T>({
 
   const bulkColumn = columns.find((c) => c.bulk)?.bulk;
   const mayBulk = useCan(bulkColumn ? BULK_ITEMS[bulkColumn.kind].module : "printers", "manage");
-  const bulk = mayBulk && server ? bulkColumn : undefined;
+  const bulkOfColumn: Selection<T> | undefined = bulkColumn && {
+    path: BULK_ITEMS[bulkColumn.kind].path,
+    can: mayBulk,
+    name: bulkColumn.name,
+    when: bulkColumn.when,
+    bar: (s) => <BulkBar kind={bulkColumn.kind} rows={s.rows} onClear={s.clear} onDone={s.done} />,
+  };
+  const picked = select ?? bulkOfColumn;
+  const bulk = picked?.can && server ? picked : undefined;
   const qc = useQueryClient();
   const list = filtersOf({ ...query, ...server?.scope });
   const [selection, setSelection] = useState<{
@@ -189,11 +211,7 @@ export function DataTable<T>({
     const finish = (next: Omit<typeof selection, "list">) =>
       setSelection((s) => (s.list === list ? { list, ...next } : s));
     try {
-      const found = await allRows<T>(
-        BULK_ITEMS[bulk.kind].path,
-        { ...query, ...server?.scope },
-        rowKey,
-      );
+      const found = await allRows<T>(bulk.path, { ...query, ...server?.scope }, rowKey);
       // Anything but the table's own count means these aren't the rows it shows.
       if (found.length !== server?.total) throw new Error("list changed");
       const rows = found.filter(selectable).map(toRow);
@@ -260,22 +278,19 @@ export function DataTable<T>({
           onChange={(on) => update({ archived: on ? "all" : "" })}
         />
       )}
-      {bulk && (
-        <BulkBar
-          kind={bulk.kind}
-          rows={bulkRows}
-          onClear={clearSelection}
-          onDone={(blocked) => {
-            const kept = new Set(blocked);
-            setSelection({
-              list,
-              rows: new Map([...selected].filter(([id]) => kept.has(id))),
-            });
-            // The page it was on may be gone.
-            if (query.page) update({});
-          }}
-        />
-      )}
+      {bulk?.bar({
+        rows: bulkRows,
+        clear: clearSelection,
+        done: (blocked) => {
+          const kept = new Set(blocked);
+          setSelection({
+            list,
+            rows: new Map([...selected].filter(([id]) => kept.has(id))),
+          });
+          // The page it was on may be gone.
+          if (query.page) update({});
+        },
+      })}
       {current.status === "busy" && (
         <p role="status" className="text-muted">
           {t("common:bulk.selecting", { count: total })}

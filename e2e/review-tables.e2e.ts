@@ -1,6 +1,6 @@
 import type { Page } from "@playwright/test";
 import { expect, test } from "./fixtures.ts";
-import { openBulkEdit, pick, seedProject } from "./helpers.ts";
+import { openBulkEdit, pick, seedProject, seedSpool } from "./helpers.ts";
 
 /** Opens the column's filter popover and applies a minimum. */
 const filterBy = async (page: Page, column: string, min: string) => {
@@ -139,4 +139,48 @@ test("choice filters search as you type and work from the keyboard", async ({ pa
   await head.getByRole("button", { name: /^Filter active|^Filter by/ }).click();
   await page.keyboard.press("Escape");
   await expect(head.getByRole("searchbox")).toBeHidden();
+});
+
+test("print review: select all, assign one spool and report the rows it can't take, then stop tracking", async ({
+  page,
+  app,
+}) => {
+  const { id } = await app.api<{ id: string }>("POST", "/api/integrations", {
+    adapterId: "mock",
+    secrets: { token: "t" },
+  });
+  await app.api("PATCH", `/api/integrations/${id}`, {
+    policies: [{ type: "prints", mode: "auto", frequency: "1h" }],
+  });
+  await app.api("POST", `/api/integrations/${id}/sync`, { type: "printers" });
+  await app.api("POST", `/api/integrations/${id}/sync`, { type: "prints" });
+  await seedProject(app.api);
+  await page.goto(`/import/integration/${id}/prints`);
+  const form = await openBulkEdit(page);
+  await pick(form.getByRole("combobox", { name: "Project", exact: true }), "Set a value");
+  await pick(form.getByRole("combobox", { name: "Value for Project" }), 1);
+  await form.getByRole("button", { name: "Apply", exact: true }).click();
+  await page.getByRole("button", { name: /^Import \d+ rows?$/ }).click();
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: /^Import \d+ rows?$/ })
+    .click();
+  await expect(page.getByText(/^Import finished/)).toBeVisible();
+  await seedSpool(app.api, 15); // takes the 10 g slot, not the 20 and 30 g ones
+
+  await page.goto("/prints/review");
+  await page.getByRole("checkbox", { name: "Select all matching rows, on every page" }).click();
+  await expect(page.getByText("3 selected")).toBeVisible();
+
+  await page.getByRole("button", { name: "Assign a spool…" }).click();
+  const dialog = page.getByRole("dialog");
+  await pick(dialog.getByRole("combobox", { name: "Spool" }), 1);
+  await dialog.getByRole("button", { name: "Assign", exact: true }).click();
+  await expect(page.getByText("Assigned 1 of 3")).toBeVisible();
+  // The two it couldn't take stay selected.
+  await expect(page.getByText("2 selected")).toBeVisible();
+
+  await page.getByRole("button", { name: "Don't track", exact: true }).first().click();
+  await page.getByRole("dialog").getByRole("button", { name: "Don't track" }).click();
+  await expect(page.getByText("Nothing to review")).toBeVisible();
 });

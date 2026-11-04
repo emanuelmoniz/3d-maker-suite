@@ -1790,7 +1790,7 @@ Design:
 Do Step 7 of the 5.3.0 plan in PLAN.md.
 ```
 
-### [ ] Step 8 - Filament to review: bar and form  **[plan mode]**
+### [x] Step 8 - Filament to review: bar and form  **[plan mode]**
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - `DataTable`'s selection is tied to `BULK_ITEMS` and `BulkBar`. Let a table give its own list path and bar, keeping select all's count check.
