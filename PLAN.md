@@ -1685,7 +1685,7 @@ Minor release, starts after the 5.2.0 release. Skills: `webapp-testing` for brow
 ## Phase 24 - Import review
 
 Design:
-- Tick rows, and a bar shows "12 selected · Clear · Edit…". Edit opens a vertical form, which replaces the Bulk operations panel. Its Apply writes to the rows at once. The dialog blocks Import while open, so nothing can be left "not applied yet". Nothing is saved until Import, which keeps its confirm and backup.
+- Tick rows, and a bar shows "12 selected · Clear · Bulk edit…". Bulk edit opens a vertical form, which replaces the Bulk operations panel. Its Apply writes to the rows at once. The dialog blocks Import while open, so nothing can be left "not applied yet". Nothing is saved until Import, which keeps its confirm and backup.
 - The form has Action, Update which, and the columns the table shows. Every field starts on a muted **Don't change**; only fields you change stand out.
 - **Action:** Don't change · Create · Update · Skip · Use suggestion.
 - **Fields by Action:**
@@ -1734,12 +1734,13 @@ Do Step 2 of the 5.3.0 plan in PLAN.md.
 Do Step 3 of the 5.3.0 plan in PLAN.md. Show me the function's input, output and the column rules first.
 ```
 
-### [ ] Step 4 - Selection bar and Edit form  **[plan mode]**
+### [x] Step 4 - Selection bar and Bulk edit form  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:**
 - Extract the bar's shell (count, Clear, actions) from `BulkBar`; archive and delete keep their look and behaviour.
 - A form dialog built from the columns, on `FormDialog`. Its inputs come out of `EditCell` into a shared component. Fields follow the design. Keyboard and screen reader support as in the rest of the app.
 - `ReviewTable`: the bar, the form and the result line replace the panel. Selection ends on a new filter or status chip. Remove everything the design lists.
+- Fix: spools added in a review also show in the Project picker. `pickOptions` adds `added` to every column; limit it to spool columns, with a test.
 - Update `e2e/review-tables`, `import-projects`, `project-folder` and `v11`, and add a spec with the old presets' flows: only new rows, only changed, all as new, skip.
 
 **Done when:** ticking 3 of 30 rows can only change those 3; the no-match flow shows red and the message and leaves those rows selected; dependent fields are read-only; works on phone width; e2e; `pnpm i18n:check`, lint and tests pass; no unused `import:bulk` or `scopes` keys.
@@ -1752,7 +1753,8 @@ Do Step 4 of the 5.3.0 plan in PLAN.md. Show me the bar and form for spools and 
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - Projects, Folder field: Don't change · Use import values · Move to root (each row keeps its own last folder, and fixes a row whose only error is its folder) · Create folder · No folder.
-- Prints: Project with No project, a Spool field per slot in use, Track usage. A spool that doesn't fit a row leaves it unchanged and reported; this ends today's one-slot limit.
+- Prints: Project with No project, a Spool field per slot in use and Track usage are in the form since Step 4. Prove the flows in e2e: a spool that doesn't fit a row leaves it unchanged and reported, and several slots work (no more one-slot limit).
+- Bring back the e2e "bulk move the folders to a root" removed in Step 4, on the Folder field.
 
 **Done when:** every flow of the old Move all folders, Project selection, Spool assign and Track usage fields works from the form; e2e; `pnpm i18n:check` and tests pass.
 **Prompt:**

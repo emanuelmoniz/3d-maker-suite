@@ -258,53 +258,9 @@ export type ImportDecision = {
   prints?: string[];
 };
 
-export const BULK_ACTIONS = [
-  "autoMatch",
-  "allNew",
-  "onlyNew",
-  "onlyChanged",
-  "updateMatched",
-  "skipAll",
-  "reset",
-] as const;
-export type BulkAction = (typeof BULK_ACTIONS)[number];
-
 /** The decision a row starts with: the server's suggestion. */
 export const suggested = (r: ImportPreviewRow): ImportDecision => ({
   action: r.action,
   targetId: r.targetId,
   refs: r.refs,
 });
-
-/**
- * Applies a bulk action to `rows` (all, the selected or the filtered ones) and returns the new
- * decisions by row number. Invalid rows never change. A target is the suggested one or one the
- * user picked; only `reset` drops a picked target.
- */
-export function applyBulk(
-  rows: ImportPreviewRow[],
-  decisions: Record<number, ImportDecision>,
-  bulk: BulkAction,
-): Record<number, ImportDecision> {
-  const next = { ...decisions };
-  for (const r of rows) {
-    if (r.status === "invalid") continue;
-    const d = decisions[r.row] ?? suggested(r);
-    if (bulk === "reset") {
-      delete next[r.row];
-      continue;
-    }
-    const matched = d.targetId !== null;
-    const untouched = r.status === "identical" && d.targetId === r.targetId;
-    const actions: Record<Exclude<BulkAction, "reset">, ImportAction> = {
-      allNew: "create",
-      autoMatch: matched ? (untouched ? "skip" : "update") : r.status === "new" ? "create" : "skip",
-      onlyNew: r.status === "new" ? "create" : "skip",
-      onlyChanged: r.status === "changed" && matched ? "update" : "skip",
-      updateMatched: matched ? "update" : "skip",
-      skipAll: "skip",
-    };
-    next[r.row] = { ...d, action: actions[bulk] };
-  }
-  return next;
-}

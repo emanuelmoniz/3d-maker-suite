@@ -18,6 +18,7 @@ import { ApiError, api } from "../lib/api.ts";
 import { Button } from "./Button.tsx";
 import { ConfirmDialog } from "./ConfirmDialog.tsx";
 import type { Column } from "./DataTable.tsx";
+import { SelectionBar } from "./SelectionBar.tsx";
 import { Write } from "./Write.tsx";
 
 type Action = "archive" | "restore" | "delete";
@@ -332,32 +333,22 @@ export function BulkBar({
 
   return (
     <>
-      {rows.length > 0 && (
-        <div className="sticky bottom-2 z-10 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-surface-2 p-2 shadow-lg">
-          <span aria-live="polite" className="font-medium">
-            {t("common:bulk.selected", { count: rows.length })}
-          </span>
-          <Button variant="ghost" onClick={onClear}>
-            {t("common:bulk.clear")}
-          </Button>
-          <span className="ml-auto flex flex-wrap gap-2">
-            {(["archive", "restore", "delete"] as const).map((action) => {
-              const count = targets(action).length;
-              return count ? (
-                <Button
-                  key={action}
-                  onClick={() => {
-                    run.reset();
-                    setAsk(action);
-                  }}
-                >
-                  {t(BULK_TEXT[action].button, { count })}
-                </Button>
-              ) : null;
-            })}
-          </span>
-        </div>
-      )}
+      <SelectionBar count={rows.length} onClear={onClear}>
+        {(["archive", "restore", "delete"] as const).map((action) => {
+          const count = targets(action).length;
+          return count ? (
+            <Button
+              key={action}
+              onClick={() => {
+                run.reset();
+                setAsk(action);
+              }}
+            >
+              {t(BULK_TEXT[action].button, { count })}
+            </Button>
+          ) : null;
+        })}
+      </SelectionBar>
       {ask && (
         <ConfirmDialog
           open

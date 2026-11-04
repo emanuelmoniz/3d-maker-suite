@@ -1,6 +1,6 @@
 import type { Page } from "@playwright/test";
 import { expect, test } from "./fixtures.ts";
-import { pick, seedProject } from "./helpers.ts";
+import { openBulkEdit, pick, seedProject } from "./helpers.ts";
 
 /** Opens the column's filter popover and applies a minimum. */
 const filterBy = async (page: Page, column: string, min: string) => {
@@ -27,9 +27,11 @@ test("print review: sort and filter the queue, an empty result keeps the table",
   // The auto run holds the prints for review; importing them leaves their filament in the queue.
   await seedProject(app.api);
   await page.goto(`/import/integration/${id}/prints`);
-  // 0 is "No change", 1 "No project", 2 the project.
-  await pick(page.getByRole("combobox", { name: "Project selection" }), 2);
-  await page.getByRole("button", { name: "Apply", exact: true }).click();
+  const form = await openBulkEdit(page);
+  await pick(form.getByRole("combobox", { name: "Project", exact: true }), "Set a value");
+  // 0 is "No project", 1 the project.
+  await pick(form.getByRole("combobox", { name: "Value for Project" }), 1);
+  await form.getByRole("button", { name: "Apply", exact: true }).click();
   await page.getByRole("button", { name: /^Import \d+ rows?$/ }).click();
   await page
     .getByRole("dialog")
@@ -71,11 +73,13 @@ test("print review: held prints can be imported with no project (calibration pri
   // No project matches their titles, so the run held them: each one asks for a project.
   await page.goto(`/import/integration/${id}/prints`);
   await expect(page.getByText("Pick a project, or No project").first()).toBeVisible();
+  const form = await openBulkEdit(page);
+  await pick(form.getByRole("combobox", { name: "Project", exact: true }), "Set a value");
   await pick(
-    page.getByRole("combobox", { name: "Project selection" }),
+    form.getByRole("combobox", { name: "Value for Project" }),
     "No project (e.g. a calibration print)",
   );
-  await page.getByRole("button", { name: "Apply", exact: true }).click();
+  await form.getByRole("button", { name: "Apply", exact: true }).click();
   await expect(page.getByText("Pick a project, or No project")).toHaveCount(0);
   await page.getByRole("button", { name: /^Import \d+ rows?$/ }).click();
   await page
@@ -109,30 +113,6 @@ test("import review: sort, filter and page cover every row", async ({ page }) =>
   await expect(page.getByText("1–6 of 6")).toBeVisible();
   await page.getByRole("button", { name: "Clear filters" }).click();
   await expect(page.getByText("1–25 of 30")).toBeVisible();
-});
-
-test("import review: a bulk choice blocks importing until it is applied", async ({ page }) => {
-  await page.goto("/import");
-  await page.getByLabel("Upload a file").setInputFiles({
-    name: "spools.csv",
-    mimeType: "text/csv",
-    buffer: Buffer.from(
-      ["Brand;Material;Initial weight (g)", "Acme;PLA;100", "Acme;PLA;200"].join("\n"),
-    ),
-  });
-  const importButton = page.getByRole("button", { name: /^Import \d+/ });
-  await expect(importButton).toBeEnabled();
-  await pick(page.getByRole("combobox", { name: "Action", exact: true }), "Skip all");
-  // Chosen, not applied: importing now would create both rows.
-  await expect(importButton).toBeDisabled();
-  await expect(page.getByText(/Click Apply to use the bulk choice/)).toBeVisible();
-  await page.getByRole("button", { name: "Apply", exact: true }).click();
-  await expect(page.getByText(/Click Apply to use the bulk choice/)).toHaveCount(0);
-  await expect(page.getByRole("combobox", { name: "Action", exact: true })).toHaveValue(
-    "No change",
-  );
-  // Everything skipped: nothing to import.
-  await expect(page.getByRole("button", { name: /^Import/ })).toBeDisabled();
 });
 
 test("choice filters search as you type and work from the keyboard", async ({ page }) => {

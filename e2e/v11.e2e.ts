@@ -7,6 +7,7 @@ import { expect, test } from "./fixtures.ts";
 import {
   gotoIntegrations,
   hasHorizontalScroll,
+  openBulkEdit,
   openIntegrationCards,
   pick,
   seedPrinter,
@@ -236,11 +237,9 @@ test("import: template download, XLSX upload, bulk action, apply and export roun
   await expect(page.getByRole("button", { name: "Identical (1)" })).toBeVisible();
 
   // Same file, but bulk: import everything as new.
-  await pick(
-    page.getByRole("group", { name: "Bulk operations" }).getByRole("combobox", { name: "Action" }),
-    "Import all as new",
-  );
-  await page.getByRole("button", { name: "Apply", exact: true }).click();
+  const form = await openBulkEdit(page);
+  await pick(form.getByRole("combobox", { name: "Action", exact: true }), "Create");
+  await form.getByRole("button", { name: "Apply", exact: true }).click();
   await page.getByRole("button", { name: "Import 1 row" }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Import 1 row" }).click();
   await expect(page.getByText("Import finished: 1 created, 0 updated.")).toBeVisible();

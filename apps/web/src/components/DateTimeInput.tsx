@@ -18,6 +18,7 @@ export function DateTimeInput({
   name?: string;
   required?: boolean;
   id?: string;
+  "aria-label"?: string;
   "aria-describedby"?: string;
   "aria-invalid"?: boolean;
 }) {
@@ -38,7 +39,7 @@ export function DateTimeInput({
       />
       <input
         type="time"
-        aria-label={name}
+        aria-label={name ?? rest["aria-label"]}
         required={required}
         value={time}
         onChange={(e) => {

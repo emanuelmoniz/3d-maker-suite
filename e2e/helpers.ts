@@ -129,6 +129,13 @@ export const pick = async (combo: Locator, option: string | number) => {
   ).click();
 };
 
+/** Import review: ticks every row shown and opens the bulk form. */
+export const openBulkEdit = async (page: Page) => {
+  await page.getByRole("checkbox", { name: /^Select (all|the) / }).check();
+  await page.getByRole("button", { name: "Bulk edit…" }).click();
+  return page.getByRole("dialog");
+};
+
 export const hasHorizontalScroll = (page: Page) =>
   page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
 

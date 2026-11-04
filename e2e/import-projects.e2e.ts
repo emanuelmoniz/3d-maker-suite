@@ -1,4 +1,4 @@
-import { basename, join } from "node:path";
+import { join } from "node:path";
 import { expect, test } from "./fixtures.ts";
 import { addRoots, pick, seedPrinter } from "./helpers.ts";
 
@@ -71,29 +71,4 @@ test("import projects: pick a folder, create one, add a print in the review", as
   ]);
   const print = await app.api<{ projectId: string }>("GET", `/api/prints/${benchy.id}`);
   expect(print.projectId).toBe(projects.items[0]?.id);
-});
-
-test("import projects: bulk move the folders to a root, keeping the last level", async ({
-  page,
-  app,
-}) => {
-  const root = app.makeProjectDir("cup");
-  await addRoots(app.api, root);
-
-  await page.goto("/import");
-  await pick(page.getByRole("combobox", { name: "What to import" }), "Projects");
-  await page.getByLabel("Upload a file").setInputFiles({
-    name: "projects.csv",
-    mimeType: "text/csv",
-    buffer: Buffer.from("Name;Folder\nMug;/volume1/projects/cup\nLamp;/volume1/projects/cup/sub\n"),
-  });
-  await page.getByRole("button", { name: "Browse for Move all folders to" }).click();
-  const browse = page.getByRole("dialog", { name: "Move all folders to" });
-  // The root itself can be picked: every folder keeps only its last level.
-  await browse.getByRole("button", { name: basename(root) }).click();
-  await browse.getByRole("button", { name: "Select this folder" }).click();
-  await page.getByRole("button", { name: "Apply" }).click();
-
-  await expect(page.getByLabel("Edit folder of row 2")).toHaveValue(join(root, "cup"));
-  await expect(page.getByLabel("Edit folder of row 3")).toHaveValue(join(root, "sub"));
 });

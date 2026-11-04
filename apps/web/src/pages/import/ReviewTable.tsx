@@ -1,9 +1,8 @@
 import {
-  applyBulk,
-  BULK_ACTIONS,
-  type BulkAction,
+  type BulkForm,
+  type BulkOutcome,
+  bulkEdit,
   cellOf,
-  fixable,
   folderOf,
   IMPORT_ACTIONS,
   IMPORT_COLUMNS,
@@ -19,12 +18,8 @@ import {
   type ImportStatus,
   type ImportTarget,
   type ImportValues,
-  inRoot,
   isBroken,
   missingPick as isMissingPick,
-  lastFolder,
-  MERGE_POLICIES,
-  type MergePolicy,
   mergeValues,
   NO_PROJECT,
   PRINT_MAX_SLOTS,
@@ -45,10 +40,16 @@ import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
 import { Combobox } from "../../components/Combobox.tsx";
 import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
-import { type Column, DataTable, type ListQuery, viewOf } from "../../components/DataTable.tsx";
+import {
+  type Column,
+  DataTable,
+  filtersOf,
+  type ListQuery,
+  viewOf,
+} from "../../components/DataTable.tsx";
 import { EmptyState } from "../../components/EmptyState.tsx";
 import { inputClass } from "../../components/FormField.tsx";
-import { PathPicker } from "../../components/PathPicker.tsx";
+import { SelectionBar } from "../../components/SelectionBar.tsx";
 import { ApiError } from "../../lib/api.ts";
 import { useMoney } from "../../lib/cost.ts";
 import { cx } from "../../lib/cx.ts";
@@ -57,6 +58,7 @@ import { formatDate, formatDateTime, formatNumber, formatWeight } from "../../li
 import { useApply } from "../../lib/import.ts";
 import { useRoots } from "../../lib/roots.ts";
 import { NewSpoolDialog } from "../filament/NewSpoolDialog.tsx";
+import { BulkEditDialog } from "./BulkEditDialog.tsx";
 import { cellText, EditCell } from "./EditCell.tsx";
 import { FolderCell, PrintsCell, useProjectPrints } from "./ProjectCells.tsx";
 import { skippedCount } from "./skipCount.ts";
@@ -74,20 +76,16 @@ const ACTIONS: Record<ImportAction, string> = {
   update: "import:actions.update",
   skip: "import:actions.skip",
 };
-const BULK: Record<BulkAction, string> = {
-  autoMatch: "import:bulk.autoMatch",
-  allNew: "import:bulk.allNew",
-  onlyNew: "import:bulk.onlyNew",
-  onlyChanged: "import:bulk.onlyChanged",
-  updateMatched: "import:bulk.updateMatched",
-  skipAll: "import:bulk.skipAll",
-  reset: "import:bulk.reset",
-};
-const POLICIES: Record<MergePolicy, string> = {
-  overwrite: "import:policies.overwrite",
-  fill: "import:policies.fill",
-  keepEdits: "import:policies.keepEdits",
-};
+// What a bulk edit did and why the rest wasn't, in this order. Only `done` isn't a problem.
+const RESULTS: [BulkOutcome, string, string?][] = [
+  ["done", "import:edit.result.done"],
+  ["noMatch", "import:edit.result.noMatch", "text-bad"],
+  ["broken", "import:edit.result.broken", "text-bad"],
+  ["needsRef", "import:edit.result.needsRef", "text-bad"],
+  ["duplicate", "import:edit.result.duplicate", "text-bad"],
+  ["noFit", "import:edit.result.noFit", "text-warn"],
+  ["onSkip", "import:edit.result.onSkip", "text-warn"],
+];
 const ERRORS: Record<ImportErrorCode, string> = {
   required: "import:errors.required",
   not_a_number: "import:errors.not_a_number",
@@ -125,12 +123,6 @@ const OPTIONS: Record<string, string> = {
   no: "import:options.no",
   printer: "import:options.printer",
   accessory: "import:options.accessory",
-};
-const SCOPES = ["all", "selected", "filtered"] as const;
-const SCOPE_LABELS: Record<(typeof SCOPES)[number], string> = {
-  all: "import:scopes.all",
-  selected: "import:scopes.selected",
-  filtered: "import:scopes.filtered",
 };
 
 /** What tells two rows with the same name apart in the target picker. */
@@ -183,18 +175,15 @@ export function ReviewTable({
   const apply = useApply(entity);
   const columns: readonly ImportColumn[] = IMPORT_COLUMNS[entity];
   const [decisions, setDecisions] = useState<Record<number, ImportDecision>>({});
-  // Rows from an integration start with its sync type's choice; "Keep my edits" needs one.
-  const [policy, setPolicy] = useState<MergePolicy>(preview.policy ?? "overwrite");
-  const policies = MERGE_POLICIES.filter((p) => p !== "keepEdits" || preview.policy).map((p) => ({
-    value: p,
-    label: t(POLICIES[p]),
-  }));
+  // Columns on Don't change: a file overwrites, an integration follows its sync type's choice.
+  const policy = preview.policy ?? "overwrite";
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [shown, setShown] = useState<Set<ImportStatus>>(new Set());
   // Rows whose target picker lists every existing row, not just the ones that fit.
   const [wide, setWide] = useState<Set<number>>(new Set());
-  const [scope, setScope] = useState<(typeof SCOPES)[number]>("all");
-  const [bulk, setBulk] = useState<BulkAction | "">("");
+  // Each opening is a new form; the dialog stays mounted so closing returns the focus.
+  const [editing, setEditing] = useState({ open: false, run: 0 });
+  const [result, setResult] = useState<Partial<Record<BulkOutcome, number>> | null>(null);
   const [confirming, setConfirming] = useState(false);
   const dismissHint = useId();
   const [tableQuery, setTableQuery] = useState<ListQuery>({});
@@ -202,8 +191,7 @@ export function ReviewTable({
   const [adding, setAdding] = useState<{ row: ImportPreviewRow; key: string } | null>(null);
   const [added, setAdded] = useState<NonNullable<ImportPreview["refOptions"]>[string]>([]);
   const profiles = useProfiles().data?.items ?? [];
-  // Cells edited in the review, by row, as a file cell would hold them. Kept apart from the
-  // decisions, so a bulk reset doesn't drop them.
+  // Cells edited in the review, by row, as a file cell would hold them.
   const [edits, setEdits] = useState<Record<number, ImportValues>>({});
 
   const { rows } = preview;
@@ -244,9 +232,6 @@ export function ReviewTable({
       setEdits((all) => ({ ...all, [r.row]: rowEdits }));
     }
   };
-  const [project, setProject] = useState("");
-  const [spool, setSpool] = useState("");
-  const [track, setTrack] = useState<"" | "on" | "off">("");
   const prints = entity === "prints";
   // Projects: a folder and the prints per row, besides the file's columns.
   const projects = entity === "projects";
@@ -262,64 +247,30 @@ export function ReviewTable({
         folder: folderOf(r, d),
       });
   };
-  // Bulk folder change: every folder moves to this root, keeping its last folder.
-  const [toPath, setToPath] = useState("");
-  const anyBulk = !!bulk || (prints && !!(project || spool || track)) || (projects && !!toPath);
-  // One Apply: the action first (so "All new" + a project works in one go), then the prints
-  // picks. A project or spool only goes to a created row that takes it; a spool only to a row
-  // with one spool slot that the spool fits.
-  const applyAll = () => {
-    // A row the edits fixed is a new one to the bulk actions.
-    const rowsIn = inScope[scope].map((r) =>
-      r.status === "invalid" && !broken(r) ? { ...r, status: "new" as const } : r,
-    );
-    const next = bulk ? applyBulk(rowsIn, decisions, bulk) : { ...decisions };
-    if (prints)
-      for (const r of rowsIn) {
-        let cur = next[r.row] ?? suggested(r);
-        const create = cur.action === "create";
-        if (project && create && r.refs && "project" in r.refs)
-          cur = { ...cur, refs: { ...cur.refs, project } };
-        const slots = picks(r).filter((k) => k !== "project");
-        const key = slots[0];
-        if (
-          spool &&
-          create &&
-          key &&
-          slots.length === 1 &&
-          optionsFor(r, key, null).some((o) => o.id === spool)
-        )
-          cur = { ...cur, refs: { ...cur.refs, [key]: spool } };
-        if (track) cur = { ...cur, trackUsage: track === "on" };
-        next[r.row] = cur;
-      }
-    if (projects && toPath) {
-      const asks: { row: number; targetId: string | null; folder: string }[] = [];
-      for (const r of rowsIn) {
-        const fix = fixable(r);
-        const cur =
-          next[r.row] ??
-          (fix ? { ...suggested(r), action: "create" as const, targetId: null } : suggested(r));
-        const old = cur.action === "skip" ? null : folderOf(r, cur);
-        const path = old && lastFolder(old) ? inRoot(toPath, lastFolder(old)) : null;
-        if (!path || path === old) continue;
-        if (fix) editCell(r, "folder", path);
-        next[r.row] = { ...cur, folder: { path }, fromFolder: undefined };
-        asks.push({
-          row: r.row,
-          targetId: cur.action === "update" ? cur.targetId : null,
-          folder: path,
-        });
-      }
-      if (asks.length) void projectPrints.refresh(asks);
-    }
-    setDecisions(next);
-    // Applied: a choice left in the bulk fields is one not applied yet (`pendingBulk`).
-    setBulk("");
-    setProject("");
-    setSpool("");
-    setTrack("");
-    setToPath("");
+  const endSelection = () => {
+    setSelected(new Set());
+    setResult(null);
+  };
+  // Finished rows leave the selection; the ones that still need something stay, to go on with.
+  const applyEdit = (form: BulkForm) => {
+    const out = bulkEdit({
+      preview,
+      columns,
+      shown: formColumns.map((c) => c.key),
+      selected: [...selected],
+      decisions,
+      edits,
+      added,
+      form,
+    });
+    setDecisions(out.decisions);
+    setEdits(out.edits);
+    setSelected(new Set([...selected].filter((n) => out.report[n] !== "done")));
+    const counts: Partial<Record<BulkOutcome, number>> = {};
+    for (const o of Object.values(out.report)) counts[o] = (counts[o] ?? 0) + 1;
+    setResult(counts);
+    if (out.folders.length) void projectPrints.refresh(out.folders);
+    setEditing((e) => ({ ...e, open: false }));
   };
   const toggle = <T,>(set: Set<T>, v: T) => {
     const next = new Set(set);
@@ -345,9 +296,7 @@ export function ReviewTable({
   const invalid = rows.filter((r) => r.status === "invalid").length;
   const importing = count("create") + count("update");
   const waitingChanges = rows.filter((r) => r.auto === "wait" && r.status === "changed").length;
-  // A bulk choice does nothing until Apply: importing past it would write what the rows show.
-  const pendingBulk = anyBulk;
-  const blocked = rows.some(problem) || pendingBulk;
+  const blocked = rows.some(problem);
 
   const format = (c: ImportColumn, v: ImportCell | undefined): ReactNode => {
     if (v == null) return "";
@@ -399,6 +348,8 @@ export function ReviewTable({
         ...columns.filter((c) => !fileKeys.includes(c.key) && needed(c)),
       ]
     : columns.filter(inUse);
+  // A project's folder is not a cell: the bulk form has its own field for it.
+  const formColumns = shownColumns.filter((c) => c.key !== "folder");
   const targetLabel = (x: ImportTarget) =>
     [
       x.label,
@@ -487,24 +438,6 @@ export function ReviewTable({
       },
       sortValue: targetName,
       filterValue: targetName,
-    },
-    {
-      id: "policy",
-      header: t("import:review.policy"),
-      cell: (r) => {
-        const d = decisionOf(r);
-        return d.action !== "update" ? (
-          ""
-        ) : (
-          <Combobox
-            aria-label={t("import:review.policyFor", { row: r.row })}
-            className={selectClass}
-            value={d.policy ?? ""}
-            onChange={(v) => decide(r, { policy: (v || undefined) as MergePolicy | undefined })}
-            options={[{ value: "", label: t("import:review.policyDefault") }, ...policies]}
-          />
-        );
-      },
     },
     ...(fileKeys?.includes("id")
       ? [
@@ -690,7 +623,7 @@ export function ReviewTable({
           // What this update writes: the old value struck out, the new one next to it.
           const writes = mergeValues(
             columns,
-            d.policy ?? policy,
+            policy,
             valuesOf(r),
             target.values,
             r.edited,
@@ -731,14 +664,9 @@ export function ReviewTable({
         ]
       : []),
   ];
-  // Filters and sort cover every row, then it is paged: "select all" and the "filtered" scope
-  // act on the rows the status chips and the column filters leave.
+  // Filters and sort cover every row, then it is paged: "select all" acts on the rows the status
+  // chips and the column filters leave.
   const visible = viewOf(dataColumns, byStatus, tableQuery);
-  const inScope = {
-    all: rows,
-    selected: rows.filter((r) => selected.has(r.row)),
-    filtered: visible,
-  };
   const allSelected = visible.length > 0 && visible.every((r) => selected.has(r.row));
   const someSelected = visible.some((r) => selected.has(r.row));
   const table: Column<ImportPreviewRow>[] = [
@@ -811,6 +739,7 @@ export function ReviewTable({
             onClick={() => {
               setShown((f) => toggle(f, s));
               setTableQuery(({ page: _, ...q }) => q);
+              endSelection();
             }}
             className="h-8 rounded-full border border-border px-3 hover:bg-surface-2 aria-pressed:border-accent aria-pressed:bg-accent-soft aria-pressed:text-accent"
           >
@@ -822,123 +751,57 @@ export function ReviewTable({
         ))}
       </fieldset>
 
-      <fieldset className="flex flex-wrap items-end gap-3 rounded-lg border border-border bg-surface p-3">
-        <legend className="px-1 font-semibold">{t("import:review.bulkTitle")}</legend>
-        <label className="flex flex-col gap-1.5">
-          <span className="font-medium">{t("import:review.scope")}</span>
-          <Combobox
-            className={selectClass}
-            value={scope}
-            onChange={(v) => setScope(v as typeof scope)}
-            options={SCOPES.map((s) => ({
-              value: s,
-              label: t(SCOPE_LABELS[s], { count: inScope[s].length }),
-            }))}
-          />
-        </label>
-        <label className="flex flex-col gap-1.5">
-          <span className="font-medium">{t("import:review.bulk")}</span>
-          <Combobox
-            className={selectClass}
-            value={bulk}
-            onChange={(v) => setBulk(v as BulkAction | "")}
-            options={[
-              { value: "", label: t("import:review.noChange") },
-              ...BULK_ACTIONS.map((b) => ({ value: b, label: t(BULK[b]) })),
-            ]}
-          />
-        </label>
-        {prints && (
-          <>
-            <label className="flex flex-col gap-1.5">
-              <span className="font-medium">{t("import:review.projectBulkPick")}</span>
-              <Combobox
-                className={selectClass}
-                value={project}
-                onChange={setProject}
-                options={[
-                  { value: "", label: t("import:review.noChange") },
-                  ...(preview.refOptions?.project ?? []).map((o) => ({
-                    value: o.id,
-                    label: o.id === NO_PROJECT ? t("import:review.noProject") : o.label,
-                  })),
-                ]}
-              />
-            </label>
-            <label className="flex flex-col gap-1.5">
-              <span className="font-medium">{t("import:review.spoolBulkPick")}</span>
-              <Combobox
-                className={selectClass}
-                value={spool}
-                onChange={setSpool}
-                options={[
-                  { value: "", label: t("import:review.noChange") },
-                  ...(preview.refOptions?.[printSlotKeys(1).spool] ?? [])
-                    .filter((o) => !o.empty)
-                    .map((o) => ({ value: o.id, label: o.label })),
-                ]}
-              />
-            </label>
-            <label className="flex flex-col gap-1.5">
-              <span className="font-medium">{t("import:review.trackBulk")}</span>
-              <Combobox
-                className={selectClass}
-                value={track}
-                onChange={(v) => setTrack(v as typeof track)}
-                options={[
-                  { value: "", label: t("import:review.noChange") },
-                  { value: "on", label: t("import:review.trackOn") },
-                  { value: "off", label: t("import:review.trackOff") },
-                ]}
-              />
-            </label>
-          </>
-        )}
-        {projects && (
-          <>
-            <span className="flex flex-col gap-1.5">
-              <span className="font-medium">{t("import:review.pathTo")}</span>
-              <span className="flex items-center gap-2">
-                <PathPicker
-                  label={t("import:review.pathToPick")}
-                  mode="folder"
-                  within={roots.map((r) => r.path)}
-                  pickRoots
-                  initial={toPath || roots[0]?.path}
-                  onPick={setToPath}
-                >
-                  {t("import:projects.pick")}
-                </PathPicker>
-                <span className="break-all">{toPath || t("import:review.noChange")}</span>
-              </span>
-            </span>
-          </>
-        )}
-        <Button disabled={!inScope[scope].length || !anyBulk} onClick={applyAll}>
-          {t("common:table.apply")}
-        </Button>
-        {pendingBulk && (
-          <p role="status" className="basis-full text-warn">
-            {t("import:review.bulkPending")}
-          </p>
-        )}
-        <label className="flex flex-col gap-1.5 sm:ml-auto">
-          <span className="font-medium">{t("import:review.policyBulk")}</span>
-          <Combobox
-            className={selectClass}
-            value={policy}
-            onChange={(v) => setPolicy(v as MergePolicy)}
-            options={policies}
-          />
-        </label>
-      </fieldset>
-
       <DataTable
         label={t("import:review.title")}
         columns={table}
         rows={byStatus}
         rowKey={(r) => String(r.row)}
-        client={{ query: tableQuery, onQueryChange: setTableQuery }}
+        client={{
+          query: tableQuery,
+          onQueryChange: (q) => {
+            if (filtersOf(q) !== filtersOf(tableQuery)) endSelection();
+            setTableQuery(q);
+          },
+        }}
+      />
+
+      {/* Sticks together: on a long table the result would be out of sight, or under the bar. */}
+      <div className="sticky bottom-16 z-10 grid gap-2 empty:hidden md:bottom-2">
+        <div
+          role="status"
+          className="grid gap-1 rounded-lg border border-border bg-surface p-2 shadow-lg empty:hidden"
+        >
+          {RESULTS.map(
+            ([outcome, key, tone]) =>
+              !!result?.[outcome] && (
+                <p key={outcome} className={tone}>
+                  {t(key, { count: result[outcome] })}
+                </p>
+              ),
+          )}
+        </div>
+        <SelectionBar count={selected.size} onClear={endSelection}>
+          <Button
+            onClick={() => {
+              setResult(null);
+              setEditing((e) => ({ open: true, run: e.run + 1 }));
+            }}
+          >
+            {t("import:edit.open")}
+          </Button>
+        </SelectionBar>
+      </div>
+      <BulkEditDialog
+        key={editing.run}
+        open={editing.open}
+        preview={preview}
+        columns={formColumns}
+        selected={rows.filter((r) => selected.has(r.row)).map(decisionOf)}
+        added={added}
+        optionLabel={(o) => (OPTIONS[o] ? t(OPTIONS[o] ?? "") : o)}
+        errorText={(code) => t(ERRORS[code])}
+        onApply={applyEdit}
+        onCancel={() => setEditing((e) => ({ ...e, open: false }))}
       />
 
       <dl className="flex flex-wrap gap-x-6 gap-y-1" aria-live="polite">
@@ -1025,7 +888,7 @@ export function ReviewTable({
                         row: r.row,
                         action: d.action,
                         targetId: d.action === "update" ? (d.targetId ?? undefined) : undefined,
-                        policy: d.policy,
+                        columnPolicies: d.columnPolicies,
                         values: edits[r.row],
                         ...(entity === "prints" && { trackUsage: tracks(r) }),
                         ...(projects && {

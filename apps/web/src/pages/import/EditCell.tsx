@@ -4,7 +4,7 @@ import {
   type ImportErrorCode,
   parseCell,
 } from "@3d-maker-suite/core";
-import { RotateCcw, X } from "lucide-react";
+import { RotateCcw } from "lucide-react";
 import {
   type FocusEvent,
   type KeyboardEvent,
@@ -14,18 +14,15 @@ import {
   useState,
 } from "react";
 import { useTranslation } from "react-i18next";
-import { Combobox } from "../../components/Combobox.tsx";
-import { DateInput } from "../../components/DateInput.tsx";
-import { DateTimeInput } from "../../components/DateTimeInput.tsx";
 import { inputClass } from "../../components/FormField.tsx";
 import { cx } from "../../lib/cx.ts";
 import { toLocalInput } from "../../lib/format.ts";
+import { CellInput, cellOut } from "./CellInput.tsx";
 
 /** A parsed value as a file cell holds it: money in major units. */
 export const cellText = (c: ImportColumn, v: ImportCell | undefined) =>
   v == null ? "" : c.type === "money" && typeof v === "number" ? String(v / 100) : String(v);
 
-const HEX = /^#[0-9a-f]{6}$/i;
 const fieldClass = `${inputClass} w-auto! min-w-28`;
 
 /**
@@ -70,16 +67,17 @@ export function EditCell({
     if (editing) wrap.current?.querySelector("input")?.focus();
   }, [editing]);
 
-  const date = col.type === "datetime";
-  // A time is typed in local time and kept as UTC, as the file's would be read.
-  const out = (draft: string) =>
-    date ? (draft ? new Date(draft).toISOString() : null) : draft.trim() || null;
   const open = () => {
-    const start = date ? (text && !Number.isNaN(Date.parse(text)) ? toLocalInput(text) : "") : text;
+    const start =
+      col.type === "datetime"
+        ? text && !Number.isNaN(Date.parse(text))
+          ? toLocalInput(text)
+          : ""
+        : text;
     setEdit({ start, draft: start });
   };
   const done = (draft = edit?.draft) => {
-    if (edit && draft !== undefined && draft !== edit.start) onCommit(out(draft));
+    if (edit && draft !== undefined && draft !== edit.start) onCommit(cellOut(col, draft));
     setEdit(null);
   };
   const set = (draft: string) => setEdit((e) => e && { ...e, draft });
@@ -114,91 +112,8 @@ export function EditCell({
       </span>
     );
 
-  const check = parseCell(col, out(edit.draft));
+  const check = parseCell(col, cellOut(col, edit.draft));
   const live = "error" in check ? errorText(check.error) : undefined;
-  const common = {
-    "aria-label": t("import:review.cellFor", name),
-    "aria-invalid": live ? true : undefined,
-    value: edit.draft,
-    onChange: (e: { target: { value: string } }) => set(e.target.value),
-    className: fieldClass,
-  };
-  const input =
-    col.type === "enum" ? (
-      <Combobox
-        aria-label={common["aria-label"]}
-        className={fieldClass}
-        value={edit.draft}
-        onChange={(v) => done(v)}
-        options={[
-          ...(col.required ? [] : [{ value: "", label: t("import:review.empty") }]),
-          ...(col.options ?? []).map((o) => ({ value: o, label: optionLabel(o) })),
-        ]}
-      />
-    ) : col.type === "color" ? (
-      <span className="inline-flex items-center gap-1">
-        <input
-          type="color"
-          aria-label={common["aria-label"]}
-          value={HEX.test(edit.draft) ? edit.draft : "#000000"}
-          onChange={common.onChange}
-          className="h-9 w-10 rounded border border-border"
-        />
-        <input {...common} type="text" className={`${inputClass} w-28!`} />
-        {!col.required && (
-          <button
-            type="button"
-            aria-label={t("import:review.clearCell", name)}
-            onClick={() => set("")}
-            className="rounded p-1 text-muted hover:bg-surface-2"
-          >
-            <X aria-hidden="true" className="size-4" />
-          </button>
-        )}
-      </span>
-    ) : col.type === "ref" ? (
-      // The app's own list (a native datalist is drawn by the browser, away from the cell); a
-      // name you type that isn't there is a new one.
-      <>
-        <Combobox
-          free
-          aria-label={common["aria-label"]}
-          aria-invalid={common["aria-invalid"]}
-          className={fieldClass}
-          value={edit.draft}
-          onChange={(v) => done(v)}
-          options={[
-            ...(col.required ? [] : [{ value: "", label: t("import:review.empty") }]),
-            ...(names ?? []).map((n) => ({ value: n, label: n })),
-          ]}
-        />
-        {!!edit.draft.trim() && names && !names.includes(edit.draft.trim()) && (
-          <span className="text-muted">{t("import:review.newName")}</span>
-        )}
-      </>
-    ) : col.type === "date" ? (
-      <DateInput
-        aria-label={common["aria-label"]}
-        aria-invalid={common["aria-invalid"]}
-        value={edit.draft}
-        onChange={set}
-        className={fieldClass}
-      />
-    ) : date ? (
-      <DateTimeInput aria-invalid={common["aria-invalid"]} value={edit.draft} onChange={set} />
-    ) : (
-      <input
-        {...common}
-        type="text"
-        inputMode={
-          col.type === "integer"
-            ? "numeric"
-            : col.type === "number" || col.type === "money"
-              ? "decimal"
-              : undefined
-        }
-      />
-    );
 
   return (
     <fieldset
@@ -215,7 +130,20 @@ export function EditCell({
         if (e.key === "Escape") setEdit(null);
       }}
     >
-      <span className="inline-flex items-center gap-1">{input}</span>
+      <span className="inline-flex items-center gap-1">
+        <CellInput
+          col={col}
+          label={t("import:review.cellFor", name)}
+          clearLabel={t("import:review.clearCell", name)}
+          value={edit.draft}
+          invalid={!!live}
+          names={names}
+          optionLabel={optionLabel}
+          onChange={set}
+          onPick={(v) => done(v)}
+          className={fieldClass}
+        />
+      </span>
       {live && <span className="text-bad">{live}</span>}
     </fieldset>
   );

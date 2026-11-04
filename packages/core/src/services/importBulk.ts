@@ -86,7 +86,7 @@ export const missingPick = (
 
 /**
  * A row's options: the ones that fit it first. A spool opened after the print started, or empty,
- * is only listed when it is the pick already.
+ * is only listed when it is the pick already. `added` spools only go to a spool column.
  */
 export const pickOptions = (
   preview: Pick<Preview, "refOptions">,
@@ -97,7 +97,7 @@ export const pickOptions = (
 ) => {
   const first = new Set(r.refsFirst?.[key]);
   const started = String(r.values.startedAt ?? "");
-  return [...(preview.refOptions?.[key] ?? []), ...added]
+  return [...(preview.refOptions?.[key] ?? []), ...(slotOf(key) ? added : [])]
     .filter(
       (o) =>
         o.id === current ||
@@ -260,7 +260,7 @@ export function bulkField(
 /**
  * The bulk form applied to the selected rows, values first so a value can fix an invalid row, then
  * the action. A row still broken doesn't change action, and one with no match takes no values.
- * Unselected rows never change. It replaces `applyBulk`.
+ * Unselected rows never change.
  */
 export function bulkEdit({
   preview,

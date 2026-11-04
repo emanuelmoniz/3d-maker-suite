@@ -9,7 +9,14 @@ import {
   NO_PROJECT,
 } from "../schemas/import.ts";
 import { type ImportDecision, mergeValues } from "./import.ts";
-import { type BulkForm, bulkEdit, bulkField, inRoot, lastFolder } from "./importBulk.ts";
+import {
+  type BulkForm,
+  bulkEdit,
+  bulkField,
+  inRoot,
+  lastFolder,
+  pickOptions,
+} from "./importBulk.ts";
 
 const spoolCols: readonly ImportColumn[] = IMPORT_COLUMNS.spools;
 const printCols: readonly ImportColumn[] = IMPORT_COLUMNS.prints;
@@ -103,6 +110,20 @@ describe("column rules", () => {
       "description",
       "sourceUrl",
     ]);
+  });
+});
+
+describe("pickOptions", () => {
+  it("offers a spool added in the review to spool columns only", () => {
+    const preview = {
+      refOptions: { project: [{ id: "p", label: "Vase" }], spool: [], spool2: [] },
+    };
+    const added = [{ id: "new", label: "New spool" }];
+    const ids = (key: string) =>
+      pickOptions(preview, row(2, "new"), key, null, added).map((o) => o.id);
+    expect(ids("spool")).toEqual(["new"]);
+    expect(ids("spool2")).toEqual(["new"]);
+    expect(ids("project")).toEqual(["p"]);
   });
 });
 

@@ -1,15 +1,8 @@
 import { describe, expect, it } from "vitest";
+import { IMPORT_COLUMNS, type ImportColumn, type ImportPreviewRow } from "../schemas/import.ts";
 import {
-  IMPORT_COLUMNS,
-  type ImportColumn,
-  type ImportPreviewRow,
-  type ImportStatus,
-} from "../schemas/import.ts";
-import {
-  applyBulk,
   autoDecisions,
   autoOf,
-  type BULK_ACTIONS,
   diffValues,
   editedKeys,
   headerKeys,
@@ -168,55 +161,6 @@ it("suggest never guesses", () => {
   expect(fits(["a"], { material: "PLA", location: "Shelf" })).toEqual({
     status: "identical",
     action: "skip",
-  });
-});
-
-describe("applyBulk", () => {
-  const row = (n: number, status: ImportStatus, targetId: string | null = null) =>
-    ({
-      row: n,
-      status,
-      targetId,
-      candidates: [],
-      values: {},
-      raw: {},
-      errors: [],
-      action: status === "new" ? "create" : status === "changed" ? "update" : "skip",
-    }) satisfies ImportPreviewRow;
-  const rows = [
-    row(2, "new"),
-    row(3, "identical", "a"),
-    row(4, "changed", "b"),
-    row(5, "ambiguous"),
-    row(6, "invalid"),
-  ];
-  const actions = (bulk: (typeof BULK_ACTIONS)[number], scope = rows, before = {}) => {
-    const out = applyBulk(scope, before, bulk);
-    return rows.map((r) => out[r.row]?.action ?? "-").join(" ");
-  };
-
-  it("sets each row's action; invalid rows never change", () => {
-    expect(actions("allNew")).toBe("create create create create -");
-    expect(actions("autoMatch")).toBe("create skip update skip -");
-    expect(actions("onlyNew")).toBe("create skip skip skip -");
-    expect(actions("onlyChanged")).toBe("skip skip update skip -");
-    expect(actions("updateMatched")).toBe("skip update update skip -");
-    expect(actions("skipAll")).toBe("skip skip skip skip -");
-  });
-
-  it("only touches the rows in scope (selected or filtered)", () => {
-    expect(actions("skipAll", rows.slice(0, 2))).toBe("skip skip - - -");
-  });
-
-  it("a picked target counts as a match and survives everything but reset", () => {
-    const picked = { 5: { action: "skip", targetId: "c", policy: "fill" } } as const;
-    expect(applyBulk(rows, picked, "autoMatch")[5]).toEqual({
-      action: "update",
-      targetId: "c",
-      policy: "fill",
-    });
-    expect(applyBulk(rows, picked, "allNew")[5]).toMatchObject({ targetId: "c" });
-    expect(applyBulk(rows, picked, "reset")).toEqual({});
   });
 });
 

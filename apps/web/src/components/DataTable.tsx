@@ -66,6 +66,14 @@ const PAGE_SIZES = [10, 25, 50, 100];
 const VIEW_ONLY = ["page", "pageSize", "sort"];
 const NOTHING: ReadonlyMap<string, BulkRow> = new Map();
 
+/** What a list query lists: a selection belongs to it, so a new filter ends one. */
+export const filtersOf = (query: ListQuery) =>
+  JSON.stringify(
+    Object.entries(query)
+      .filter(([k]) => !VIEW_ONLY.includes(k))
+      .sort(),
+  );
+
 const filterKey = <T,>(c: Column<T>, server: boolean) =>
   server ? c.filter : c.filterValue && c.id;
 const sortKey = <T,>(c: Column<T>, server: boolean) => (server ? c.sort : c.sortValue && c.id);
@@ -156,12 +164,7 @@ export function DataTable<T>({
   const mayBulk = useCan(bulkColumn ? BULK_ITEMS[bulkColumn.kind].module : "printers", "manage");
   const bulk = mayBulk && server ? bulkColumn : undefined;
   const qc = useQueryClient();
-  // A selection belongs to what the list lists, so a new filter ends it and paging doesn't.
-  const list = JSON.stringify(
-    Object.entries({ ...query, ...server?.scope })
-      .filter(([k]) => !VIEW_ONLY.includes(k))
-      .sort(),
-  );
+  const list = filtersOf({ ...query, ...server?.scope });
   const [selection, setSelection] = useState<{
     list: string;
     rows: ReadonlyMap<string, BulkRow>;
