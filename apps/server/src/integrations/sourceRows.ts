@@ -33,32 +33,41 @@ const names = (values: string[]) => [
 ];
 
 /**
- * What a slicer's folder offers for one type, built-in presets included: a sync imports them all,
- * whatever the type. Thumbnails are only offered when `dataDir` can take them.
+ * What a slicer's folder offers for one type: a sync imports it all, whatever the type. `scope`
+ * picks the system presets, the user presets or (left out) both. Thumbnails are only offered when
+ * `dataDir` can take them. Vendor models carry no scope: they are system.
  */
 export async function libraryRows(
   lib: FilamentLibrary,
   dir: string,
   type: LibraryType,
-  opts: { dataDir: string },
+  opts: { dataDir: string; scope?: "system" | "user" },
 ): Promise<StoredRow[]> {
+  const want = <T extends { scope: string }>(items: T[]) =>
+    opts.scope ? items.filter((i) => i.scope === opts.scope) : items;
+  const system = opts.scope !== "user";
   if (type === "filamentBrands" || type === "filamentMaterials") {
     // Filament vendors -> filament brands, filament types -> materials, from the filament presets.
-    const presets = await lib.read(dir, { includeSystem: true });
+    const presets = want(await lib.read(dir, { includeSystem: system }));
     const key = type === "filamentBrands" ? "brand" : "material";
     return numbered(names(presets.map((p) => p[key])).map((name) => ({ raw: { name } })));
   }
   if (type === "filamentProfiles")
     // A profile you archived comes back as a skip (`filamentProfileImport.archived`).
     return numbered(
-      (await lib.read(dir, { includeSystem: true })).map((preset) => {
+      want(await lib.read(dir, { includeSystem: system })).map((preset) => {
         const { presetId, scope: _scope, pricePerKg, ...p } = preset;
         // The price column is typed in major units, like a file's.
         const price = pricePerKg === null ? null : pricePerKg / 100;
         return { source: `${lib.id}:${presetId}`, raw: { ...p, pricePerKg: price } };
       }),
     );
-  const c = (await lib.readCatalog?.(dir)) ?? { models: [], machines: [], processes: [] };
+  const read = (await lib.readCatalog?.(dir)) ?? { models: [], machines: [], processes: [] };
+  const c = {
+    models: system ? read.models : [],
+    machines: want(read.machines),
+    processes: want(read.processes),
+  };
   if (type === "printProfiles")
     return numbered(
       c.processes.map(({ presetId, scope: _scope, ...raw }) => ({

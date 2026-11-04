@@ -1907,7 +1907,7 @@ Do Step 1 of the 5.4.0 plan in PLAN.md. Guide me through the tests on real insta
 
 ## Phase 28 - Catalog and user presets
 
-### [ ] Step 2 - Split system and user rows
+### [x] Step 2 - Split system and user rows
 **Model:** Sonnet · **Effort:** Medium
 **Scope:** `libraryRows` in `sourceRows.ts` keeps `scope` instead of dropping it, and a run can ask for system rows, user rows or both.
 **Done when:** no visible change; test for each choice; tests pass.
