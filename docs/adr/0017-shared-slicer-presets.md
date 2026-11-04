@@ -1,6 +1,6 @@
 # ADR-0017: Shared slicer presets
 
-- Status: Accepted (Plan 5.1.0 Step 14, after the preset spike)
+- Status: Accepted (Plan 5.1.0 Step 14, after the preset spike). Amended by ADR-0019: its delete rule, and its rejection of reading Bambu's preset API.
 - Date: 2026-11-02
 
 ## Context
@@ -55,7 +55,7 @@ The desktop folder is `user/<account id>/<kind>/` when signed in and `user/defau
 - **Never** `create` under a name that already has a cloud copy: Orca replaces the local file with the cloud copy at start. Any `setting_id` in the `.info` means a cloud copy, including Orca's `sync_info = delete` tombstones, which have no `.json`. A PC that hasn't downloaded the cloud copy yet can't know about it, so a kept earlier version's sha coming back is answered as `same`: an older cloud copy doesn't undo the hub's edit. The cost is that a preset put back by hand to a kept version's exact content is ignored until it's edited.
 - `.info` files use LF on every OS, and are written before the `.json`, so a failure in between is written again rather than leaving an edit never marked for upload.
 - **`user/default`:** `.json` only. No `.info` is needed, and none is created.
-- **Deletes never reach desktops**, because the cloud brings them back at the next start. A hub delete removes the preset from the hub and workers, and tells the user to delete it in each slicer. A desktop delete only shows "removed on <device>" on the preset.
+- **Deletes never reach desktops**, because the cloud brings them back at the next start. A hub delete removes the preset from the hub and workers, and tells the user to delete it in each slicer. A desktop delete only shows "removed on <device>" on the preset. *Amended by ADR-0019: deletes now reach signed-out folders and OrcaCloud accounts; this rule stays only for a signed-in Bambu Studio.*
 - **Skip** a preset whose `inherits` parent this slicer lacks, with a `preset_skipped` alert. **Orca ≥ 2.5 can't be checked:** its system presets are binary `.opc` files (ADR-0013), so it installs without the check, with `base_id` from the existing `.info`, else empty. Orca fills an empty one itself on upload. The same goes for a slicer that hasn't started yet.
 - **Back up** the desktop user folder to a zip before each batch of writes, and keep the last one (shown on the device page).
 - Write the json in the slicer's own style (sorted keys; 4 spaces for Studio, tabs for Orca, CRLF on Windows, and a line end after the last line), so a file's bytes don't change on its first cloud round trip.
@@ -114,8 +114,8 @@ The connector's writes on real installs on Windows 11: Bambu Studio 02.08.02.61 
 ## Rejected options
 - **A hidden hub root** (`roots.kind = presets`) reusing the hub file sync, as first planned. Roots have no kind today. Every hub root goes to every device and into project indexing, so each `listRoots` caller would need a filter, and a missed one leaks presets into projects. The connector couldn't reuse its root sync either, because preset writes need the `.info` handling and the closed-slicer queue. The parts worth reusing (base version, conflict name, versions pruning) are a few functions.
 - **Writing into desktop folders without `.info` handling:** an edit stays on one PC and never reaches the account's other PCs, with no sign of it. On Orca, a wrong `create` is overwritten at the next start.
-- **Reading Bambu Cloud's undocumented preset API** (what Printago does): no public contract, it needs the user's cloud token for a second purpose, and OrcaCloud would need its own client. The desktop slicer already does the cloud side.
-- **Propagating deletes to desktops:** the cloud restores them at the next start, so a delete would loop or silently fail.
+- **Reading Bambu Cloud's undocumented preset API** (what Printago does): no public contract, it needs the user's cloud token for a second purpose, and OrcaCloud would need its own client. The desktop slicer already does the cloud side. *Reversed by ADR-0019: an optional, read-only row on the Bambu Cloud card.*
+- **Propagating deletes to desktops:** the cloud restores them at the next start, so a delete would loop or silently fail. *Reversed by ADR-0019, except for a signed-in Bambu Studio: this spike only removed the file, and an Orca tombstone does delete the cloud copy.*
 - **Writing while the slicer runs:** it doesn't read the change until the next start or sign-in, and it may save over it first.
 - **Raw-bytes sha for echo suppression:** the clouds re-serialize presets.
 

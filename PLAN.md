@@ -1889,7 +1889,7 @@ Expected delete results, to confirm in Step 1:
 
 ## Phase 27 - Decide
 
-### [ ] Step 1 - Spikes and ADR-0019  **[plan mode]**
+### [x] Step 1 - Spikes and ADR-0019  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:**
 - On real installs, signed in and out, Bambu Studio and OrcaSlicer: does a tombstone delete the cloud copy and reach a second PC? Does the slicer bring it back? ADR-0017's spike only tested removing the file. Orca writes such tombstones itself; Bambu Studio is unknown.

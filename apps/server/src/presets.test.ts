@@ -1,18 +1,21 @@
 import { existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { bambuStudioWorkerAdapter } from "@3d-maker-suite/adapter-bambu";
 import {
   orcaSlicerAdapter,
   orcaSlicerServerAdapter,
   orcaSlicerWorkerAdapter,
 } from "@3d-maker-suite/adapter-orca";
-import type { SlicerPreset, SlicerPresetDetail } from "@3d-maker-suite/core";
+import type { ImportPreview, SlicerPreset, SlicerPresetDetail } from "@3d-maker-suite/core";
 import { openDb, schema } from "@3d-maker-suite/db";
 import { presetSha } from "@3d-maker-suite/host";
+import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import yazl from "yazl";
 import { buildApp } from "./app.ts";
-import { presetsChanged, usedPresets } from "./integrations/presetLibrary.ts";
+import { linkLibraries } from "./integrations/managedSlicer.ts";
+import { presetsChanged, savePreset, usedPresets } from "./integrations/presetLibrary.ts";
 
 const zipOf = (files: Record<string, string>) =>
   new Promise<Buffer>((resolve) => {
@@ -37,7 +40,12 @@ beforeEach(async () => {
   hub(true);
 });
 
-const ADAPTERS = [orcaSlicerAdapter(), orcaSlicerServerAdapter(), orcaSlicerWorkerAdapter()];
+const ADAPTERS = [
+  orcaSlicerAdapter(),
+  orcaSlicerServerAdapter(),
+  orcaSlicerWorkerAdapter(),
+  bambuStudioWorkerAdapter(),
+];
 const start = async () => {
   const a = await buildApp(db, false, dataDir, { adapters: ADAPTERS });
   await a.ready();
@@ -64,6 +72,62 @@ const addSlicer = async (adapterId: string, config?: object) =>
   ).json().id as string;
 const list = async () => (await app.inject("/api/presets")).json() as SlicerPreset[];
 const userDir = (id: string) => join(dataDir, "slicers", id, "config", "user", "default");
+
+// What a slicer really saves: only what differs from its parent, here without a `filament_type`.
+const realPreset = (name: string) =>
+  JSON.stringify({ name, inherits: "Generic PLA", filament_settings_id: [name] }, null, 4);
+const offered = async (id: string) => {
+  const res = await app.inject({
+    method: "POST",
+    url: `/api/import/integration/${id}/filamentProfiles`,
+  });
+  expect(res.statusCode).toBe(200);
+  return (res.json() as ImportPreview).rows.map((r) => r.values.name);
+};
+
+// ADR-0019: the known gap, three separate causes. Plan 5.4.0 Step 5 turns these into normal tests.
+describe("a shared preset reaches the catalog", () => {
+  const share = (library: string) =>
+    savePreset(db, dataDir, {
+      library,
+      kind: "filament",
+      name: "Shared",
+      json: realPreset("Shared"),
+    });
+
+  // capability_unavailable: a worker can only `slice`, of either slicer.
+  it.fails("on a worker-only hub", async () => {
+    const worker = await addSlicer("bambu-studio-worker", {
+      deviceId: crypto.randomUUID(),
+      source: "installed",
+    });
+    linkLibraries(db, dataDir, ADAPTERS);
+    share("bambu-studio");
+    expect(await offered(worker)).toContain("Shared");
+  });
+
+  // capability_unavailable: Orca's server adapter can only `slice` too, unlike Bambu's.
+  it.fails("on an Orca hub", async () => {
+    const server = await addSlicer("orca-slicer-server");
+    linkLibraries(db, dataDir, ADAPTERS);
+    share("orca-slicer");
+    expect(await offered(server)).toContain("Shared");
+  });
+
+  // The row is missing: with no readable system preset nothing resolves `filament_type`, so the
+  // reader drops it without a word.
+  it.fails("on a desktop Orca, whose system presets are .opc files", async () => {
+    const config = join(dataDir, "desktop-orca");
+    mkdirSync(join(config, "user", "default", "filament"), { recursive: true });
+    writeFileSync(join(config, "user", "default", "filament", "Shared.json"), realPreset("Shared"));
+    const desktop = await addSlicer("orca-slicer");
+    db.update(schema.integrations)
+      .set({ slicerConfigDir: config })
+      .where(eq(schema.integrations.id, desktop))
+      .run();
+    expect(await offered(desktop)).toContain("Shared");
+  });
+});
 
 describe("hub preset library (ADR-0017)", () => {
   it("merges zips from two PCs; the server slicer and a worker read the library", async () => {
