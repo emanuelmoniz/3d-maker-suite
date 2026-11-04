@@ -1816,7 +1816,7 @@ Do Step 9 of the 5.3.0 plan in PLAN.md. Then push dev, push the tag and confirm 
 
 ## Phase 26 - Release
 
-### [ ] Step 10 - Real test: file, integration, slicer zip, filament queue
+### [x] Step 10 - Real test: file, integration, slicer zip, filament queue
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - A copy of a real 5.2.0 DB.
@@ -2005,7 +2005,7 @@ Do Step 8 of the 5.4.0 plan in PLAN.md.
 Do Step 9 of the 5.4.0 plan in PLAN.md.
 ```
 
-### [ ] Step 10 - Real test, docs, push & v5.4.0-alpha.2
+### [x] Step 10 - Real test, docs, push & v5.4.0-alpha.2
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - Two real PCs on the same account: delete on a Share device. The hub and an Install device lose it, and the backup zip exists. Repeat with the slicer open, signed in, after a sign-out, and with a mass delete. Restore brings it back on both.
