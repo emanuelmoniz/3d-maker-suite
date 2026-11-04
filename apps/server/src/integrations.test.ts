@@ -1288,6 +1288,71 @@ describe("filament matching of imported prints", () => {
     });
     expect(await queue()).toHaveLength(3);
   });
+
+  describe("bulk assign", () => {
+    const bulk = async (usageIds: string[], spoolId: string) =>
+      (await send("POST", "/api/prints/filament-review/assign", { usageIds, spoolId })).json();
+
+    it("books the free rows and reports the one the spool is short for", async () => {
+      const { id } = await syncNow();
+      await importHeld(id);
+      const items = await queue(); // 30, 20, 10 g
+      const s = await spool("#123456", 45);
+      const res = await bulk(
+        items.map((i: { usageId: string }) => i.usageId),
+        s.id,
+      );
+      // 30 g fits, then 20 g is short of the 15 g left, and 10 g still fits.
+      expect(res.done).toEqual([items[0].usageId, items[2].usageId]);
+      expect(res.blocked).toMatchObject([{ id: items[1].usageId, code: "insufficient_filament" }]);
+      expect(await left(s.id)).toBe(5);
+      expect(await queue()).toHaveLength(1);
+    });
+
+    it("refuses a spool opened after the print, here and in the single assign", async () => {
+      const { id } = await syncNow();
+      await importHeld(id);
+      const items = await queue();
+      const s = await spool("#123456");
+      const opened = await send("PATCH", `/api/filament/spools/${s.id}`, {
+        openedAt: new Date(Date.now() + 10 * 24 * 3600 * 1000).toISOString(),
+      });
+      expect(opened.statusCode).toBe(200);
+      const res = await bulk([items[0].usageId], s.id);
+      expect(res).toMatchObject({
+        done: [],
+        blocked: [{ id: items[0].usageId, code: "spool_not_opened" }],
+      });
+      const single = await send("POST", `/api/prints/filament-review/${items[0].usageId}/assign`, {
+        spoolId: s.id,
+      });
+      expect(single.json().error.code).toBe("spool_not_opened");
+      expect(await left(s.id)).toBe(1000);
+    });
+
+    it("reports a row that is already handled, and counts a repeated id once", async () => {
+      const { id } = await syncNow();
+      await importHeld(id);
+      const [first, second] = await queue();
+      const s = await spool("#123456");
+      await send("POST", "/api/prints/filament-review/dismiss", { usageIds: [second.usageId] });
+      const res = await bulk([first.usageId, first.usageId, second.usageId], s.id);
+      expect(res.done).toEqual([first.usageId]);
+      expect(res.blocked).toMatchObject([{ id: second.usageId, code: "not_found" }]);
+      expect(await left(s.id)).toBe(1000 - first.grams);
+    });
+
+    it("blocks every row for an unknown spool", async () => {
+      const { id } = await syncNow();
+      await importHeld(id);
+      const [first] = await queue();
+      const res = await bulk([first.usageId], crypto.randomUUID());
+      expect(res).toMatchObject({
+        done: [],
+        blocked: [{ code: "invalid_spool" }],
+      });
+    });
+  });
 });
 
 describe("spool rows from a vendor", () => {

@@ -1,6 +1,8 @@
 import {
   apiErrorSchema,
   archivedFilter,
+  type BulkResult,
+  bulkResultSchema,
   type FilamentReviewItem,
   filamentReviewFilters,
   filamentReviewItemSchema,
@@ -16,6 +18,7 @@ import {
   printPatchSchema,
   printSortFields,
   reviewAssignSchema,
+  reviewBulkAssignSchema,
   reviewDismissSchema,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
@@ -137,6 +140,28 @@ export const printsRoutes =
       isNull(printFilamentUsages.spoolId),
       eq(printFilamentUsages.dismissed, false),
     );
+    /** One waiting slot onto a spool, through the ledger. Throws the refusal the single assign gives. */
+    const assignOne = (usageId: string, spoolId: string) => {
+      const row = db
+        .select({ usage: printFilamentUsages, title: prints.title, startedAt: prints.startedAt })
+        .from(printFilamentUsages)
+        .innerJoin(prints, eq(prints.id, printFilamentUsages.printId))
+        .where(and(eq(printFilamentUsages.id, usageId), waiting))
+        .get();
+      if (!row) throw new HttpError(404, "not_found", "Nothing to review here");
+      db.transaction((tx) => {
+        const spool = tx.select().from(spools).where(eq(spools.id, spoolId)).get();
+        if (!spool || spool.archivedAt)
+          throw new HttpError(400, "invalid_spool", "Spool not found");
+        const profileId = bookOrLink(tx, spool, row.usage.grams, row.title, row.startedAt);
+        if (!profileId) throw shortOf(tx, spool.id, row.title, row.usage.grams);
+        tx.update(printFilamentUsages)
+          .set({ spoolId: spool.id, profileId })
+          .where(eq(printFilamentUsages.id, row.usage.id))
+          .run();
+      });
+    };
+
     app.get(
       "/filament-review",
       {
@@ -205,25 +230,32 @@ export const printsRoutes =
         },
       },
       async (req, reply) => {
-        const row = db
-          .select({ usage: printFilamentUsages, title: prints.title, startedAt: prints.startedAt })
-          .from(printFilamentUsages)
-          .innerJoin(prints, eq(prints.id, printFilamentUsages.printId))
-          .where(and(eq(printFilamentUsages.id, req.params.usageId), waiting))
-          .get();
-        if (!row) throw new HttpError(404, "not_found", "Nothing to review here");
-        db.transaction((tx) => {
-          const spool = tx.select().from(spools).where(eq(spools.id, req.body.spoolId)).get();
-          if (!spool || spool.archivedAt)
-            throw new HttpError(400, "invalid_spool", "Spool not found");
-          const profileId = bookOrLink(tx, spool, row.usage.grams, row.title, row.startedAt);
-          if (!profileId) throw shortOf(tx, spool.id, row.title, row.usage.grams);
-          tx.update(printFilamentUsages)
-            .set({ spoolId: spool.id, profileId })
-            .where(eq(printFilamentUsages.id, row.usage.id))
-            .run();
-        });
+        assignOne(req.params.usageId, req.body.spoolId);
         return reply.status(204).send(null);
+      },
+    );
+
+    // The same assign for many rows: each in its own transaction, so one short row blocks only itself.
+    app.post(
+      "/filament-review/assign",
+      {
+        schema: {
+          body: reviewBulkAssignSchema,
+          response: { 200: bulkResultSchema },
+        },
+      },
+      async (req): Promise<BulkResult> => {
+        const result: BulkResult = { done: [], blocked: [] };
+        for (const id of new Set(req.body.usageIds)) {
+          try {
+            assignOne(id, req.body.spoolId);
+            result.done.push(id);
+          } catch (e) {
+            if (!(e instanceof HttpError)) throw e;
+            result.blocked.push({ id, code: e.code, message: e.message });
+          }
+        }
+        return result;
       },
     );
 

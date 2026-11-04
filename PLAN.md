@@ -1781,7 +1781,7 @@ Design:
 - **Assign** runs at once and reports what it couldn't do. **Don't track** confirms with the exact count, because nothing can undo it.
 - The "Don't track any of these" button goes: it only affected the current page.
 
-### [ ] Step 7 - Bulk assign: server
+### [x] Step 7 - Bulk assign: server
 **Model:** Sonnet · **Effort:** Medium
 **Scope:** `POST /api/prints/filament-review/assign` with `{ usageIds, spoolId }`, answering `{ done, blocked }` like `bulkResultSchema`. Each row runs the single assign's code in its own transaction, so free rows go through and a row short of filament is reported. Same permission as the single assign. Check that a spool opened after the print is refused here and in the single assign, as `docs/import.md` says.
 **Done when:** partial results, not enough filament, a spool opened later and an already-handled row are tested; tests pass.

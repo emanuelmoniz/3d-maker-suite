@@ -100,6 +100,10 @@ export const filamentReviewItemSchema = z.object({
   colorHex: z.string().nullable(),
 });
 export const reviewAssignSchema = z.object({ spoolId: id });
+export const reviewBulkAssignSchema = z.object({
+  usageIds: z.array(id).min(1).max(500),
+  spoolId: id,
+});
 export const reviewDismissSchema = z.object({ usageIds: z.array(id).min(1).max(500) });
 
 export type FilamentReviewItem = z.infer<typeof filamentReviewItemSchema>;
