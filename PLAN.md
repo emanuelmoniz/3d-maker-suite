@@ -1,4 +1,4 @@
-# 3D Maker Suite - Development Plans 4.1.0, 4.1.1, 4.2.0, 5.0.0, 5.1.0, 5.2.0, 5.3.0, 5.4.0 and 6.0.0
+# 3D Maker Suite - Development Plans 4.1.0, 4.1.1, 4.2.0, 5.0.0, 5.1.0, 5.2.0, 5.3.0, 5.4.0, 5.5.0 and 6.0.0
 Repo: `3d-maker-suite`
 
 How to use:
@@ -1802,7 +1802,7 @@ Do Step 7 of the 5.3.0 plan in PLAN.md.
 Do Step 8 of the 5.3.0 plan in PLAN.md. Show me how DataTable changes first.
 ```
 
-### [ ] Step 9 - Docs, push & v5.3.0-alpha.2
+### [x] Step 9 - Docs, push & v5.3.0-alpha.2
 **Model:** Haiku · **Effort:** Low
 **Scope:**
 - Docs, `pnpm screenshots` if a README page changed, CHANGELOG, version `5.3.0-alpha.2`.
@@ -2077,9 +2077,135 @@ Then fast-forward main to dev, push, push the v5.4.0 tag and confirm the release
 
 ---
 
+# Plan 5.5.0 - Clearer and quieter
+
+Minor release, starts after the 5.4.0 release. No DB migration. Skills: `frontend-design` for the folder page and the overlay, `webapp-testing` for browser checks.
+
+Design:
+- **Waiting:** show nothing under about 1 s, a busy indicator up to about 10 s, and progress beyond that. An update's length is unknown, so it shows phase text, not a percentage.
+- **Restart and update:** the server can't answer, so a full-screen overlay blocks the page until a health check answers, then the page reloads.
+- **Tags:** one setting for the whole install, on by default. Off only hides tags: the data, the API, backups and exports stay, and turning it back on restores everything. Collections aren't tags and stay.
+- **Project folders:** a table like Users and Roles, with add and edit on their own page. The UI says "project folder" for a root and "subfolder" for a project's own path; code keeps `root`.
+
+## Phase 31 - Less noise, clear waiting
+
+### [ ] Step 1 - Remove the "Sync from…" buttons
+**Model:** Sonnet · **Effort:** Low
+**Scope:**
+- Remove `SyncButtons` from the printers, filament and prints pages. Delete `components/ImportLinks.tsx`; its `ImportLinks` export is already unused.
+- Remove the `integrations:syncFrom` and `integrations:syncError` keys, and the `integrations` namespace loads that only served the button (`router.tsx`).
+- Rewrite the "Sync from cloud" test in `e2e/v13.e2e.ts` and update `docs/bambu-cloud.md`.
+- `useSyncIntegration` stays: `IntegrationCard` uses it. Sync now in Settings and scheduled syncs don't change.
+
+**Done when:** no page outside Settings offers a manual sync; an editor with the sync permission can still reach Sync now (`useMayTask`, `IntegrationsPage.tsx`); tests, e2e, lint and `pnpm i18n:check` pass.
+**Prompt:**
+```
+Do Step 1 of the 5.5.0 plan in PLAN.md.
+```
+
+### [ ] Step 2 - Small loader
+**Model:** Sonnet · **Effort:** Medium
+**Scope:**
+- No spinner exists today; buttons only go disabled. Add a `busy` prop to `Button.tsx`: it sets `disabled` and `aria-busy` and shows lucide `LoaderCircle` with `animate-spin`. No new dependency.
+- The spinner appears after about 1 s through a CSS delay, so fast actions don't flicker. It spins slower under `motion-reduce`.
+- `FormDialog`'s `busy` passes through, so form dialogs get it automatically.
+- Use it only on actions that can take over a second: Sync now (`PolicyRow`), check updates, slicer install start and remove (`ManagedSlicer`, `WorkerSlicer`), backup and restore, export, import apply, empty trash, change root, connector restart. Don't convert every `isPending`.
+- The slicer `<progress>` bar stays: exact while downloading, indeterminate in the other phases.
+
+**Done when:** those actions show the spinner when slow and nothing when fast; a screen reader gets the busy state; tests, lint and `pnpm i18n:check` pass.
+**Prompt:**
+```
+Do Step 2 of the 5.5.0 plan in PLAN.md.
+```
+
+### [ ] Step 3 - Full-screen overlay for restart and update
+**Model:** Opus · **Effort:** Medium
+**Scope:**
+- Replace `ServerBanner` (`AppShell.tsx`) with an overlay that blocks the page, built on the same base as the existing dialogs. Esc doesn't close it.
+- Extend `ServerState` (`lib/serverState.ts`) with `{ kind: "updating", phase }`. `useRunUpdate` (`lib/updates.ts`) sets it and the overlay shows the existing phase text. Blocking navigation keeps `AboutSection` mounted, so its "went back" and error messages still show once the overlay closes.
+- Restart: a spinner and the existing text; on timeout, the existing message and link. Update's `slow` phase: its message and a Close button. Stop: the stopped message, no spinner.
+- **Possible bug to check first:** the restart poll in `ServerSection.tsx` reloads on the first answer, and `no-cors` can't read the status. It may reload while the old process is still up, or on a Vite proxy error. If confirmed, wait until the server has been seen down, as `useRunUpdate` does.
+
+**Done when:** restart and update block the page and reload by themselves; a failed update returns to About with its message; e2e with `page.route` on the health and restart calls; browser check in both themes and at phone width; tests, lint and `pnpm i18n:check` pass.
+**Prompt:**
+```
+Do Step 3 of the 5.5.0 plan in PLAN.md. Use frontend-design for the overlay.
+```
+
+## Phase 32 - Tags switch and project folders
+
+### [ ] Step 4 - Tags setting
+**Model:** Sonnet · **Effort:** Medium
+**Scope:**
+- Add `tagsEnabled` to `schemas/preferences.ts`, default `true`, following `hubEnabled`. Add it to the keys in `lib/auth.ts`, in the same permission group as the General section's other preferences, and update the defaults in `app.test.ts`.
+- Add a `Switch` in the General section (`SettingsPage.tsx`). Its hint says hiding keeps your tags and turning it back on restores them.
+- Add `useTagsEnabled()` to `lib/tags.ts`. `useTags` and `useTaggings` get `enabled: on`, so no requests go out while off.
+- `TagPicker`, `TagList` and `TagFilter` return null when off, which covers forms and filters in one place.
+- Add `useTagColumn(type)`, returning zero or one column, to replace the 5 copies (printers, accessories, spools, prints, projects).
+- Hide the labelled rows on `PrintDetailPage` and `SpoolDetailPage`, and the filter on `StatsPage`.
+- **Edge case:** a saved `tagId` in the URL or stats state is ignored when off, or lists stay filtered with no visible reason (`ProjectsPage`, `StatsPage`, `widgets/period.ts`).
+- **Project form gap:** `ProjectFormPage` has no tag picker, so projects can't get tags from the UI. Add `useTagEditor("project", id)`, `TagPicker` and `persist`, as the other forms do.
+
+**Done when:** e2e: off hides the column, picker and detail row, and a `?tagId=` link shows all rows; on brings the tags back; a project can get a tag from its form; tests, lint and `pnpm i18n:check` pass.
+**Prompt:**
+```
+Do Step 4 of the 5.5.0 plan in PLAN.md.
+```
+
+### [ ] Step 5 - Project folder edit page  **[plan mode]**
+**Model:** Opus · **Effort:** High
+**Scope:**
+- New routes for add and edit under the projects settings, following `UserEditPage.tsx`, with an explicit Save.
+- Fields, each with its hint beside it: Location (only with the hub on and devices online), Path with `PathPicker` (read-only on edit), Project layout as plain-word radios, Files levels, Auto slice, Who can edit with the user list (`EditBy`).
+- **The page's signature element:** a live example folder tree that marks which level is a project and which folders are listed as its files. Built from a pure function with a unit test, as a real list so screen readers can read it, with translated example names.
+- Reuse `useChangeRoot`, `ROOT_ERRORS`, `ROOT_DEFAULTS` and `RootStateBadge`.
+- Check on the server what changing a depth does to existing projects, and say so on the page.
+
+**Done when:** a folder can be added and edited on the page; the tree follows the fields; unit test for the tree; e2e; browser check in both themes and at phone width; tests, lint and `pnpm i18n:check` pass.
+**Prompt:**
+```
+Plan Step 5 of the 5.5.0 plan in PLAN.md. Use frontend-design for the page.
+```
+
+### [ ] Step 6 - Project folders table and wording
+**Model:** Sonnet · **Effort:** Medium
+**Scope:**
+- Replace the row list and add form in `ProjectRoots.tsx` with a `DataTable`: Folder (link to edit, device, state), Projects (count from `useProjectFolders` in `lib/projects.ts`, grouped by `rootId`), Layout in plain words, Auto slice, Who can edit, Remove.
+- Header actions: **Add folder** and the bulk change dialog (`ChangeProjectsRoot`, behaviour unchanged).
+- Remove gets a `ConfirmDialog`; today it fires at once. Delete the three explanation paragraphs and the old add form.
+- Wording, UI only: "root" becomes "project folder", a project's own path becomes "subfolder", and "Bulk change projects root" becomes "Change project folder…". Update `settings.json`, `docs/projects.md`, `docs/hub.md` and any e2e specs using the old labels.
+
+**Done when:** the section is the table; no UI text says "root"; e2e; browser check in both themes and at phone width; tests, lint and `pnpm i18n:check` pass.
+**Prompt:**
+```
+Do Step 6 of the 5.5.0 plan in PLAN.md.
+```
+
+### [ ] Step 7 - Docs, push & v5.5.0 release
+**Model:** Haiku · **Effort:** Low
+**Scope:**
+- Docs for the tags setting, `pnpm screenshots`, CHANGELOG, version `5.5.0`, `pnpm version:check`.
+- Commit on `dev`, fast-forward `main` to `dev`, push both, tag `v5.5.0` on `main`. Check the run, the release and the images.
+
+**Done when:** `main`, `dev` and the tag are pushed; the workflow is green; updating 5.4.0 to 5.5.0 keeps all data.
+**Prompt:**
+```
+Do Step 7 of the 5.5.0 plan in PLAN.md. Only document what changed since 5.4.0.
+Then fast-forward main to dev, push, push the v5.5.0 tag and confirm the release.
+```
+
+
+## Out of scope for 5.5.0 (later plans)
+- Other open tabs don't see the overlay; they only see failed requests.
+- The connector's own UI (a separate backlog item).
+- Tag management (rename, delete).
+- Per-user tag visibility: the setting applies to the whole install.
+
+---
+
 # Plan 6.0.0 - Every printer
 
-Major release, agreed on 2026-10-27. Starts after the 5.4.0 release. Adapter steps add tests against recorded payloads (fixtures), never a live printer in CI.
+Major release, agreed on 2026-10-27. Starts after the 5.5.0 release. Adapter steps add tests against recorded payloads (fixtures), never a live printer in CI.
 
 Design: ADR-0015. Prints are recorded automatically from the most used printer systems, the dashboard shows live status, and spool usage follows:
 - a new `PrinterStatusSource` capability and one **job tracker** in core turn status snapshots into prints;
@@ -2089,7 +2215,7 @@ Design: ADR-0015. Prints are recorded automatically from the most used printer s
 
 Wave 1: Moonraker, Bambu LAN, PrusaLink, OctoPrint, plus Spoolman two-way.
 
-## Phase 31 - Foundations
+## Phase 33 - Foundations
 
 Design:
 - Snapshot: state, job file, progress, ETA, layer, temperatures, slots (material, colour, RFID or spool id). In memory only, pushed over SSE.
@@ -2192,7 +2318,7 @@ Do Step 6 of the 6.0.0 plan in PLAN.md. Back up the DB before editing schema.ts.
 Do Step 7 of the 6.0.0 plan in PLAN.md. Then push dev, push the tag and confirm the pre-release is published.
 ```
 
-## Phase 32 - Adapters
+## Phase 34 - Adapters
 
 Each adapter: a `local` package in `packages/adapters/<id>`, config and secrets schemas, status (and history where it exists), the recorded fixtures as tests, i18n names, a setup page in the docs. Added by host or IP.
 
@@ -2258,7 +2384,7 @@ Do Step 13 of the 6.0.0 plan in PLAN.md. Only document what changed since 6.0.0-
 Then push dev, push the tag and confirm the pre-release is published.
 ```
 
-## Phase 33 - Hub
+## Phase 35 - Hub
 
 ### [ ] Step 14 - Connector printer bridge  **[plan mode]**
 **Model:** Opus · **Effort:** High
@@ -2273,7 +2399,7 @@ Then push dev, push the tag and confirm the pre-release is published.
 Do Step 14 of the 6.0.0 plan in PLAN.md.
 ```
 
-## Phase 34 - Release
+## Phase 36 - Release
 
 ### [ ] Step 15 - Real test: one printer per adapter
 **Model:** Sonnet · **Effort:** Medium
