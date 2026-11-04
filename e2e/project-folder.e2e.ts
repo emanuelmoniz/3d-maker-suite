@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { basename, join } from "node:path";
 import { expect, test } from "./fixtures.ts";
-import { addRoots, hasHorizontalScroll, seedPrinter } from "./helpers.ts";
+import { addRoots, hasHorizontalScroll, pick, seedPrinter } from "./helpers.ts";
 
 test("project folder: create and unlink on the edit page", async ({ page, app }) => {
   const root = join(app.dataDir, "models");
@@ -152,17 +152,33 @@ test("change projects' root: moves the selection, reports a conflict, touches no
   await all.focus();
   await page.keyboard.press("Space");
   await expect(all).toBeChecked();
+  await expect(dialog.getByText("2 selected")).toBeVisible();
 
-  await dialog.getByRole("combobox", { name: "New root" }).selectOption({ label: to });
-  await dialog.getByRole("button", { name: "Change root of 2 projects" }).click();
-  await page.getByRole("button", { name: "Change root", exact: true }).click();
+  await dialog.getByRole("button", { name: "Change root…" }).click();
+  const form = page.getByRole("dialog", { name: "Change root of 2 projects" });
+  // Nothing to change it to yet: the browser asks for a root.
+  await form.getByRole("button", { name: "Change root", exact: true }).click();
+  await expect(form).toBeVisible();
+  await pick(form.getByRole("combobox", { name: "New root" }), to);
+  await expect(form.getByText(`to ${to}?`)).toBeVisible();
+  await form.getByRole("button", { name: "Change root", exact: true }).click();
+  await expect(form).toBeHidden();
 
   const summary = dialog.getByRole("status").filter({ hasText: "skipped" });
   await expect(summary).toContainText("1 project changed.");
   await expect(summary).toContainText("002-Two: 003-Holder already uses that folder.");
+  // The one it couldn't do stays selected.
+  await expect(dialog.getByText("1 selected")).toBeVisible();
+  await expect(dialog.getByRole("checkbox", { name: "Select 002-Two" })).toBeChecked();
+
+  // The message can go; the selection stays until a new filter ends it.
+  await dialog.getByRole("button", { name: "Dismiss this message" }).click();
+  await expect(summary).toHaveCount(0);
+  await expect(dialog.getByText("1 selected")).toBeVisible();
 
   // One now reads OK on the new root; Two stayed. Files are where the user left them.
-  await dialog.getByRole("button", { name: "Clear" }).click();
+  await dialog.getByRole("button", { name: "Clear filters" }).click();
+  await expect(dialog.getByText("1 selected")).toHaveCount(0);
   await expect(row("001-One")).toContainText(to);
   await expect(row("001-One")).toContainText("OK");
   await expect(row("002-Two")).toContainText(from);
@@ -194,13 +210,17 @@ test("bulk change projects root: Move files takes the files to the new root", as
   await page.getByRole("button", { name: "Bulk change projects root" }).click();
   const dialog = page.getByRole("dialog", { name: "Bulk change projects root" });
   await dialog.getByRole("checkbox", { name: "Select 001-Part" }).check();
-  await dialog.getByRole("combobox", { name: "New root" }).selectOption({ label: to });
-  await dialog.getByRole("checkbox", { name: "Move files" }).check();
-  await dialog.getByRole("button", { name: "Change root of 1 project" }).click();
-  await expect(page.getByText("and move its files there?")).toBeVisible();
-  await page.getByRole("button", { name: "Change root", exact: true }).click();
+  await dialog.getByRole("button", { name: "Change root…" }).click();
+  const form = page.getByRole("dialog", { name: "Change root of 1 project" });
+  await pick(form.getByRole("combobox", { name: "New root" }), to);
+  await form.getByRole("checkbox", { name: "Move files" }).check();
+  await expect(form.getByText("and move its files there?")).toBeVisible();
+  await form.getByRole("button", { name: "Change root", exact: true }).click();
 
-  await expect(dialog.getByRole("status").first()).toContainText("1 project changed.");
+  await expect(dialog.getByRole("status").filter({ hasText: "changed" })).toContainText(
+    "1 project changed.",
+  );
+  await expect(dialog.getByText(/\d+ selected/)).toHaveCount(0);
   const row = dialog.getByRole("row").filter({ hasText: "001-Part" });
   await expect(row).toContainText(to);
   await expect(row).toContainText("OK");

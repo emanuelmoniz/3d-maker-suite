@@ -84,7 +84,7 @@ The app does not rename folders. Renaming a project's **files** (in the app or o
 
 ## Moving projects to another root
 
-To move many projects (a new disk, NAS or machine), add the new folder as a root. For a whole new machine, start with [Moving to a new machine](backups.md#moving-to-a-new-machine). Then use Settings → Projects → **Bulk change projects root**: filter and select the projects, pick the new root and confirm. Each project keeps its relative folder (`/volume1/projects/a/012_vase` → `/mnt/nas/projects/a/012_vase`), its files, plates and slices.
+To move many projects (a new disk, NAS or machine), add the new folder as a root. For a whole new machine, start with [Moving to a new machine](backups.md#moving-to-a-new-machine). Then use Settings → Projects → **Bulk change projects root**: filter and select the projects, click **Change root…** on the bar above the table, pick the new root and confirm. Projects it had to skip stay selected, with the reason shown. Each project keeps its relative folder (`/volume1/projects/a/012_vase` → `/mnt/nas/projects/a/012_vase`), its files, plates and slices.
 
 - **Move files** off (the default) is for files you already moved: only the app's link changes, nothing on disk. A project whose folder isn't at the new root yet shows as missing until the folder is there.
 - **Move files** on moves each project's files from the old folder to the new one. It works when both roots are on this server; a project on a device is skipped, so move those files yourself. If a file with the same name is already in the new folder, nothing of that project moves. Folders above the project folder (`a` above) stay behind, empty. Connectors syncing these roots see the files as removed from the old root and new in the new one.

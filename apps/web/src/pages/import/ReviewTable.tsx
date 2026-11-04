@@ -34,7 +34,7 @@ import {
   targetUses,
   writePick,
 } from "@3d-maker-suite/core";
-import { FileSpreadsheet, Lock, X } from "lucide-react";
+import { FileSpreadsheet, Lock } from "lucide-react";
 import { type ReactNode, useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
@@ -49,7 +49,7 @@ import {
 } from "../../components/DataTable.tsx";
 import { EmptyState } from "../../components/EmptyState.tsx";
 import { inputClass } from "../../components/FormField.tsx";
-import { SelectionBar } from "../../components/SelectionBar.tsx";
+import { SelectionBar, SelectionResult } from "../../components/SelectionBar.tsx";
 import { ApiError } from "../../lib/api.ts";
 import { useMoney } from "../../lib/cost.ts";
 import { cx } from "../../lib/cx.ts";
@@ -753,35 +753,16 @@ export function ReviewTable({
 
       {/* Sticks together, so both stay in sight on a long table. */}
       <div className={cx("sticky top-2 z-10 grid gap-2", !result && !selected.size && "hidden")}>
-        <div
-          className={cx(
-            "flex items-start gap-2 rounded-lg border border-border bg-surface p-2 shadow-lg",
-            !result && "hidden",
+        <SelectionResult open={!!result} onDismiss={() => setResult(null)}>
+          {RESULTS.map(
+            ([outcome, key, tone]) =>
+              !!result?.[outcome] && (
+                <p key={outcome} className={tone}>
+                  {t(key, { count: result[outcome] })}
+                </p>
+              ),
           )}
-        >
-          {/* Always there, so a screen reader announces what appears in it. */}
-          <div role="status" className="grid min-w-0 flex-1 gap-1 py-1.5">
-            {RESULTS.map(
-              ([outcome, key, tone]) =>
-                !!result?.[outcome] && (
-                  <p key={outcome} className={tone}>
-                    {t(key, { count: result[outcome] })}
-                  </p>
-                ),
-            )}
-          </div>
-          {result && (
-            <button
-              type="button"
-              aria-label={t("import:edit.dismiss")}
-              title={t("import:edit.dismiss")}
-              onClick={() => setResult(null)}
-              className="inline-flex size-9 shrink-0 items-center justify-center rounded-md text-muted hover:bg-surface-2 hover:text-fg"
-            >
-              <X className="size-4" aria-hidden />
-            </button>
-          )}
-        </div>
+        </SelectionResult>
         <SelectionBar count={selected.size} onClear={endSelection}>
           <Button
             onClick={() => {

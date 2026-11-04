@@ -3,10 +3,19 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { AddDialog } from "../../components/AddDialog.tsx";
 import { Button } from "../../components/Button.tsx";
-import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
-import { type Column, DataTable, type ListQuery, viewOf } from "../../components/DataTable.tsx";
-import { inputClass } from "../../components/FormField.tsx";
+import { Combobox } from "../../components/Combobox.tsx";
+import {
+  type Column,
+  DataTable,
+  filtersOf,
+  type ListQuery,
+  viewOf,
+} from "../../components/DataTable.tsx";
+import { FormDialog } from "../../components/FormDialog.tsx";
+import { FormField } from "../../components/FormField.tsx";
 import { RootStateBadge } from "../../components/RootStateBadge.tsx";
+import { SelectionBar, SelectionResult } from "../../components/SelectionBar.tsx";
+import { cx } from "../../lib/cx.ts";
 import { projectName, useProjectFolders, useRelinkProjects } from "../../lib/projects.ts";
 import { useRoots } from "../../lib/roots.ts";
 
@@ -33,7 +42,7 @@ function RelinkSummary({
 }) {
   const { t } = useTranslation();
   return (
-    <div role="status" className="grid gap-1">
+    <>
       <p>
         {t("settings:projects.relink.moved", { count: result.moved.length })}{" "}
         {result.skipped.length > 0 &&
@@ -58,11 +67,11 @@ function RelinkSummary({
           })}
         </ul>
       )}
-    </div>
+    </>
   );
 }
 
-/** The table: filter and select projects, pick the new root, confirm. Mounted while the dialog is open. */
+/** The table: filter and select projects, then Change root… on the bar. Mounted while the dialog is open. */
 function RelinkForm({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation();
   const rows = useProjectFolders().data ?? [];
@@ -72,7 +81,11 @@ function RelinkForm({ onClose }: { onClose: () => void }) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [rootId, setRootId] = useState("");
   const [move, setMove] = useState(false);
-  const [confirming, setConfirming] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const endSelection = () => {
+    setSelected(new Set());
+    relink.reset();
+  };
   const rootLabel = (id: string | null) => {
     const r = roots.find((x) => x.id === id);
     if (!r) return "";
@@ -171,70 +184,90 @@ function RelinkForm({ onClose }: { onClose: () => void }) {
   return (
     <div className="grid gap-4">
       <p className="text-muted">{t("settings:projects.relink.hint")}</p>
-      {relink.data && <RelinkSummary result={relink.data} rows={rows} />}
+      {/* Sticks together, so both stay in sight on a long table. */}
+      <div
+        className={cx("sticky top-2 z-10 grid gap-2", !relink.data && !selected.size && "hidden")}
+      >
+        <SelectionResult open={!!relink.data} onDismiss={() => relink.reset()}>
+          {relink.data && <RelinkSummary result={relink.data} rows={rows} />}
+        </SelectionResult>
+        <SelectionBar count={selected.size} onClear={endSelection}>
+          <Button
+            onClick={() => {
+              relink.reset();
+              setRootId("");
+              setMove(false);
+              setEditing(true);
+            }}
+          >
+            {t("settings:projects.relink.action")}
+          </Button>
+        </SelectionBar>
+      </div>
       <DataTable
         label={t("settings:projects.relink.table")}
         columns={columns}
         rows={rows}
         rowKey={(r) => r.id}
-        client={{ query, onQueryChange: setQuery }}
-      />
-      <label className="flex flex-wrap items-center gap-2">
-        <span>{t("settings:projects.relink.newRoot")}</span>
-        <select
-          className={`${inputClass} w-auto! max-w-full min-w-0`}
-          value={rootId}
-          onChange={(e) => setRootId(e.target.value)}
-        >
-          <option value="">{t("settings:projects.relink.pickRoot")}</option>
-          {roots
-            .filter((r) => r.canEdit)
-            .map((r) => (
-              <option key={r.id} value={r.id}>
-                {rootLabel(r.id)}
-              </option>
-            ))}
-        </select>
-      </label>
-      <label className="flex items-center gap-2">
-        <input type="checkbox" checked={move} onChange={(e) => setMove(e.target.checked)} />
-        {t("settings:projects.relink.moveFiles")}
-      </label>
-      {relink.isError && (
-        <p role="alert" className="text-bad">
-          {t("settings:projects.relink.error")}
-        </p>
-      )}
-      <div className="flex flex-wrap gap-2">
-        <Button
-          variant="primary"
-          disabled={!selected.size || !rootId || relink.isPending}
-          onClick={() => setConfirming(true)}
-        >
-          {t("settings:projects.relink.submit", { count: selected.size })}
-        </Button>
-        <Button onClick={onClose}>{t("common:actions.close")}</Button>
-      </div>
-      <ConfirmDialog
-        open={confirming}
-        title={t("settings:projects.relink.confirmTitle")}
-        description={t(
-          move ? "settings:projects.relink.confirmMove" : "settings:projects.relink.confirm",
-          {
-            count: selected.size,
-            path: rootLabel(rootId),
+        client={{
+          query,
+          onQueryChange: (q) => {
+            if (filtersOf(q) !== filtersOf(query)) endSelection();
+            setQuery(q);
           },
-        )}
-        confirmLabel={t("settings:projects.relink.confirmLabel")}
-        onCancel={() => setConfirming(false)}
-        onConfirm={() => {
-          setConfirming(false);
-          relink.mutate(
-            { ids: [...selected], rootId, move },
-            { onSuccess: () => setSelected(new Set()) },
-          );
         }}
       />
+      <div>
+        <Button onClick={onClose}>{t("common:actions.close")}</Button>
+      </div>
+      <FormDialog
+        open={editing}
+        title={t("settings:projects.relink.submit", { count: selected.size })}
+        submitLabel={t("settings:projects.relink.confirmLabel")}
+        busy={relink.isPending}
+        error={relink.isError ? t("settings:projects.relink.error") : undefined}
+        onCancel={() => setEditing(false)}
+        onSubmit={() =>
+          relink.mutate(
+            { ids: [...selected], rootId, move },
+            {
+              // Done ones leave the selection; skipped ones stay, listed with why.
+              onSuccess: (result) => {
+                setSelected(new Set(result.skipped.map((s) => s.id)));
+                setEditing(false);
+              },
+            },
+          )
+        }
+      >
+        <FormField label={t("settings:projects.relink.newRoot")}>
+          {(p) => (
+            <Combobox
+              {...p}
+              required
+              placeholder={t("settings:projects.relink.pickRoot")}
+              value={rootId}
+              onChange={setRootId}
+              options={roots
+                .filter((r) => r.canEdit)
+                .map((r) => ({ value: r.id, label: rootLabel(r.id) }))}
+            />
+          )}
+        </FormField>
+        <label className="flex items-center gap-2">
+          <input type="checkbox" checked={move} onChange={(e) => setMove(e.target.checked)} />
+          {t("settings:projects.relink.moveFiles")}
+        </label>
+        {/* Says what Change root will do, so no second confirm is needed. */}
+        {rootId && (
+          <p className="text-muted wrap-anywhere">
+            {t(move ? "settings:projects.relink.confirmMove" : "settings:projects.relink.confirm", {
+              count: selected.size,
+              path: rootLabel(rootId),
+            })}
+          </p>
+        )}
+      </FormDialog>
     </div>
   );
 }
