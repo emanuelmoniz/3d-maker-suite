@@ -702,7 +702,63 @@ export function createSyncer(
     }
   }
 
-  return { run, runAll, checkCatalogs, test, offer, running, adapters };
+  /**
+   * The Catalog row's brand pick: adds what the slicer offers for these printer and filament brands
+   * (brands, models, machine and print profiles; filament brands, materials, filament profiles),
+   * one manual run per type after the one `backup`. It only adds: rows you have change in the review.
+   */
+  async function importBrands(
+    id: string,
+    pick: { brands: string[]; filamentBrands: string[] },
+    backup: string,
+  ) {
+    const row = rowOf(id);
+    const adapter = adapterOf(row);
+    const lower = (names: string[]) => new Set(names.map((n) => n.trim().toLowerCase()));
+    const [printer, filament] = [lower(pick.brands), lower(pick.filamentBrands)];
+    // The column that holds a row's brand; materials name none, so a filament pick takes them all.
+    const types: [LibraryType, Set<string>, string | null][] = [
+      ["brands", printer, "name"],
+      ["printerModels", printer, "brand"],
+      ["machineProfiles", printer, "brand"],
+      ["printProfiles", printer, "brand"],
+      ["filamentBrands", filament, "name"],
+      ["filamentMaterials", filament, null],
+      ["filamentProfiles", filament, "brand"],
+    ];
+    let created = 0;
+    for (const [type, names, column] of types) {
+      if (!names.size || !switchedOn(db, row, adapter, type)) continue;
+      const all = await offered(row, type);
+      // `picked`: past the type's `scope`, a pick is a decision whatever "only what I already have" says.
+      const stored: Stored = {
+        ...all,
+        picked: true,
+        rows: all.rows.filter(
+          (r) =>
+            !column ||
+            names.has(
+              String(r.raw[column] ?? "")
+                .trim()
+                .toLowerCase(),
+            ),
+        ),
+      };
+      const rows = review.preview(stored).rows.filter((r) => r.action === "create");
+      const decisions = autoDecisions(rows.map((r) => ({ ...r, auto: "apply" as const })));
+      if (!decisions.length) continue;
+      const done = await run(
+        id,
+        "manual",
+        { type },
+        { stored, decisions, policy: "keepEdits", backup },
+      );
+      created += done.created;
+    }
+    return created;
+  }
+
+  return { run, runAll, checkCatalogs, importBrands, test, offer, running, adapters };
 }
 
 export type Syncer = ReturnType<typeof createSyncer>;

@@ -6,6 +6,8 @@ import {
   IMPORT_ENTITIES,
   type ImportApplyDecision,
   importApplySchema,
+  importCatalogBrandsSchema,
+  importCatalogPickSchema,
   importPreviewQuerySchema,
   importPreviewSchema,
   importProjectPrintsResponseSchema,
@@ -199,6 +201,47 @@ export const importRoutes =
           ...rest,
           rows: rows.map(({ imported: _, ...r }) => r),
         };
+      },
+    );
+
+    // A slicer's printer and filament brands, and which you have: the Catalog row's picker.
+    app.get(
+      "/catalog/:id",
+      {
+        schema: {
+          params: z.object({ id: z.uuid() }),
+          response: { 200: importCatalogBrandsSchema, 404: apiErrorSchema },
+        },
+      },
+      async (req) => {
+        const { id } = req.params;
+        const list = async (type: "brands" | "filamentBrands") => {
+          const have = new Set(
+            review.handlers[type].targets(db).map((t) => t.label.trim().toLowerCase()),
+          );
+          return (await syncer.offer(id, type)).rows.map((r) => {
+            const name = String(r.raw.name);
+            return { name, have: have.has(name.trim().toLowerCase()) };
+          });
+        };
+        return { brands: await list("brands"), filamentBrands: await list("filamentBrands") };
+      },
+    );
+
+    // Adds the picked brands with their models and profiles, after one backup.
+    app.post(
+      "/catalog/:id",
+      {
+        schema: {
+          params: z.object({ id: z.uuid() }),
+          body: importCatalogPickSchema,
+          response: { 200: importResultSchema, 404: apiErrorSchema, 409: apiErrorSchema },
+        },
+      },
+      async (req) => {
+        const backup = (await createBackup(db, dataDir, "auto")).name;
+        const created = await syncer.importBrands(req.params.id, req.body, backup);
+        return { created, updated: 0, backup };
       },
     );
 

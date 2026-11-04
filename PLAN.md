@@ -1930,7 +1930,7 @@ Do Step 2 of the 5.4.0 plan in PLAN.md. No visible change.
 Do Step 3 of the 5.4.0 plan in PLAN.md.
 ```
 
-### [ ] Step 4 - One Catalog row
+### [x] Step 4 - One Catalog row
 **Model:** Sonnet · **Effort:** High
 **Scope:** On a slicer's card, one row replaces up to 7 in `PolicyRow.tsx`: pick your brands, then "only what I already have" (`scope: imported`, which exists). Writes apply to all 7 stored policies. This replaces the manual steps in `docs/import.md`. Cloud rows don't change.
 **Done when:** picking brands imports only those; Bambu Cloud's rows look as before; tests and e2e pass.

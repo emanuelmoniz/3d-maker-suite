@@ -128,7 +128,7 @@ Every type except print history has two more settings on the Integrations page (
 | Everything | Adds every row the source offers and keeps them up to date. |
 | Only what I already have | Keeps the rows you have up to date. A new row is added only when you have its brand: a new model of your printer brand still arrives, a brand you never imported doesn't. Brands, filament brands and materials themselves are never added. Rows it leaves out don't wait for review and raise no alert. |
 
-To start with only the brands you use: open **Manual import** for brands, filter the brand column, select all the rows shown, import them, then switch to **Only what I already have**.
+**A slicer's card has one Catalog row** instead of one row per type. **Choose brands** lists the slicer's printer brands and filament brands (the ones you have are checked). Pick the ones you use and **Import**: you get those brands with their models, machine and print profiles, and for filament brands their materials and filament profiles, after a backup. Then **Only what I already have** is switched on for all the catalog types at once; switch it off for **Everything**. The row's links open the review of each type, where the slicer's changes wait.
 
 **How to sync** (what a sync does when the source changes a row you have)
 

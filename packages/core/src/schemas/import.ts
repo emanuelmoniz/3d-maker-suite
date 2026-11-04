@@ -830,6 +830,18 @@ export const importResultSchema = z.object({
   backup: z.string(),
 });
 
+/** A slicer's brands, printer and filament, and whether you have each (the Catalog row's picker). */
+export const importCatalogBrandsSchema = z.object({
+  brands: z.array(z.object({ name: z.string(), have: z.boolean() })),
+  filamentBrands: z.array(z.object({ name: z.string(), have: z.boolean() })),
+});
+
+/** The brands to import from a slicer: with their models and profiles, and the materials. */
+export const importCatalogPickSchema = z.object({
+  brands: z.array(z.string().min(1)).max(1000),
+  filamentBrands: z.array(z.string().min(1)).max(1000),
+});
+
 export const importRunSchema = z.object({
   id,
   source: z.enum(IMPORT_SOURCES),
@@ -858,3 +870,5 @@ export type ImportTemplate = z.infer<typeof importTemplateSchema>;
 export type ImportApply = z.infer<typeof importApplySchema>;
 export type ImportApplyDecision = ImportApply["decisions"][number];
 export type ImportResult = z.infer<typeof importResultSchema>;
+export type ImportCatalogBrands = z.infer<typeof importCatalogBrandsSchema>;
+export type ImportCatalogPick = z.infer<typeof importCatalogPickSchema>;

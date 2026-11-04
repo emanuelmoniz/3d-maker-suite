@@ -720,4 +720,68 @@ describe("slicer catalog import", () => {
     const active = (await app.inject("/api/filament/profiles")).json();
     expect(active.total).toBe(1);
   });
+
+  it("the brand pick adds the models and profiles of those brands only, past 'only what I already have'", async () => {
+    state.catalog.models.push({ brand: "Prusa", model: "MK4", image: null });
+    state.catalog.machines.push({
+      ...machine(),
+      presetId: "system/MK4 0.4",
+      brand: "Prusa",
+      model: "MK4",
+      name: "MK4 0.4",
+    });
+    state.presets = [preset(), preset({ presetId: "user/P", brand: "Prusament", name: "P" })];
+    await app.inject({
+      method: "PATCH",
+      url: `/api/integrations/${id}`,
+      payload: {
+        policies: ["brands", "printerModels", "machineProfiles"].map((type) => ({
+          type,
+          scope: "imported",
+        })),
+      },
+    });
+    const offered = (await app.inject(`/api/import/catalog/${id}`)).json();
+    expect(offered).toEqual({
+      brands: [
+        { name: "Acme", have: false },
+        { name: "Prusa", have: false },
+      ],
+      filamentBrands: [
+        { name: "Acme", have: false },
+        { name: "Prusament", have: false },
+      ],
+    });
+
+    const res = await app.inject({
+      method: "POST",
+      url: `/api/import/catalog/${id}`,
+      payload: { brands: ["acme"], filamentBrands: ["Acme"] },
+    });
+    expect(res.statusCode, res.body).toBe(200);
+    const names = (rows: { name: string }[]) => rows.map((r) => r.name);
+    expect(names(db.select().from(schema.brands).all())).toEqual(["Acme"]);
+    expect(db.select().from(schema.printerModels).all()).toHaveLength(1);
+    expect(names(db.select().from(schema.machineProfiles).all())).toEqual(["Acme X 0.4"]);
+    // The process preset with no brand is no brand's.
+    expect(names(db.select().from(schema.printProfiles).all())).toEqual([
+      "0.20mm Standard @Acme X",
+    ]);
+    expect(names(db.select().from(schema.filamentBrands).all())).toEqual(["Acme"]);
+    expect(names(db.select().from(schema.filamentProfiles).all())).toEqual(["A"]);
+    // One of each of the seven types.
+    expect(res.json().created).toBe(7);
+
+    // Picking again adds nothing; the picker shows what you have.
+    const again = await app.inject({
+      method: "POST",
+      url: `/api/import/catalog/${id}`,
+      payload: { brands: ["Acme"], filamentBrands: [] },
+    });
+    expect(again.json().created).toBe(0);
+    expect((await app.inject(`/api/import/catalog/${id}`)).json().brands).toEqual([
+      { name: "Acme", have: true },
+      { name: "Prusa", have: false },
+    ]);
+  });
 });

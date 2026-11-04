@@ -31,6 +31,7 @@ import {
   usePatchIntegration,
   type useSyncIntegration,
 } from "../../lib/integrations.ts";
+import { CatalogRow } from "./CatalogRow.tsx";
 import { CAPS } from "./integrationLabels.ts";
 
 const RANGES = {
@@ -164,6 +165,7 @@ export function Policies({ integration: i, sync }: { integration: Integration; s
   const { t } = useTranslation();
   const patch = usePatchIntegration(i.id);
   const may = useMayTask();
+  const admin = useCan("integrations.manage");
   const tracking = (type: string) =>
     i.policies.some((p) => p.type === type && p.mode !== "off" && p.trackUsage);
   const doubleTracking = tracking("prints") && tracking("spools");
@@ -185,15 +187,21 @@ export function Policies({ integration: i, sync }: { integration: Integration; s
         );
         if (!rows.length) return null;
         const id = `${i.id}-${g}`;
+        // A slicer's catalog is one row for an admin; the cloud's rows stay as they are.
+        const catalog = g === "catalog" && admin && i.kind !== "cloud";
         return (
           <section key={g} aria-labelledby={id} className="grid gap-2">
             <h5 id={id} className="font-medium text-muted">
               {t(GROUPS[g])}
             </h5>
             <ul className="divide-y divide-border rounded-lg border border-border">
-              {rows.map((p) => (
-                <PolicyRow key={p.type} integration={i} policy={p} sync={sync} patch={patch} />
-              ))}
+              {catalog ? (
+                <CatalogRow integration={i} policies={rows} />
+              ) : (
+                rows.map((p) => (
+                  <PolicyRow key={p.type} integration={i} policy={p} sync={sync} patch={patch} />
+                ))
+              )}
             </ul>
             {g === "devices" && doubleTracking && (
               <p role="status" className="text-warn">

@@ -167,6 +167,22 @@
     "openInSlicer": "Open projects in the slicer",
     "slice": "Slice projects (time and grams)"
   },
+  "catalog": {
+    "title": "Catalog",
+    "chooseBrands": "Choose brands",
+    "pickHint": "Pick the brands you use. They come with their models and profiles, and from then on only what you have is kept up to date. Brands you already have are checked.",
+    "search": "Find a brand",
+    "brands": "Printer brands",
+    "filamentBrands": "Filament brands",
+    "have": "(you have it)",
+    "import_one": "Import {{count}} brand",
+    "import_other": "Import {{count}} brands",
+    "cancel": "Cancel",
+    "readError": "Couldn't read the slicer's brands. Check its folder above.",
+    "onlyHint": "Rows you have are kept up to date. A new model of a brand you have still arrives; a new brand, and the slicer's other profiles, wait for you here.",
+    "allHint": "Every brand, model and profile the slicer ships is offered for review when it changes.",
+    "review": "Review and import:"
+  },
   "policies": {
     "groups": {
       "devices": "Devices and prints",

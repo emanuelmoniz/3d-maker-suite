@@ -69,6 +69,8 @@ export type Stored = {
   range?: { from?: string; to?: string };
   /** A file's column keys in its order. */
   columns?: string[];
+  /** The rows were picked by hand: new ones count whatever the type's `scope` says. */
+  picked?: boolean;
 };
 
 /** The row a write is for, with the references the user picked for it. */
@@ -262,7 +264,9 @@ export function createReview(db: Db, dataDir: string) {
   function syncOf(stored: Stored) {
     if (stored.from?.kind !== "integration" || stored.entity === "prints") return undefined;
     const { integrationId } = stored.from;
-    const { scope, merge, trackUsage } = policyOf(db, integrationId, stored.entity as ReviewedType);
+    const policy = policyOf(db, integrationId, stored.entity as ReviewedType);
+    const { merge, trackUsage } = policy;
+    const scope = stored.picked ? "all" : policy.scope;
     const where = and(
       eq(importSnapshots.integrationId, integrationId),
       eq(importSnapshots.entity, stored.entity),

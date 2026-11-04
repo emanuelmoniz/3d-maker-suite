@@ -2,6 +2,9 @@ import {
   type AdapterInfo,
   type Capability,
   type DeviceSlicerCheck,
+  type ImportCatalogBrands,
+  type ImportCatalogPick,
+  type ImportResult,
   type Integration,
   type IntegrationInput,
   type IntegrationPatch,
@@ -154,6 +157,21 @@ export const useTestIntegration = (id: string) =>
 export const useSyncIntegration = (id: string) =>
   useInvalidating(
     (req: SyncRequest) => api<SyncResult>("POST", `/api/integrations/${id}/sync`, req),
+    true,
+  );
+
+/** A slicer's printer and filament brands and whether you have them, for the Catalog row. */
+export const useCatalogBrands = (id: string, enabled: boolean) =>
+  useQuery({
+    queryKey: ["integrations", id, "catalog"],
+    queryFn: () => api<ImportCatalogBrands>("GET", `/api/import/catalog/${id}`),
+    enabled,
+  });
+
+/** Adds the picked brands with their models and profiles. */
+export const useImportBrands = (id: string) =>
+  useInvalidating(
+    (pick: ImportCatalogPick) => api<ImportResult>("POST", `/api/import/catalog/${id}`, pick),
     true,
   );
 
