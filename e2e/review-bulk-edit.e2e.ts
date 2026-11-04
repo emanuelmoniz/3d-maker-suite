@@ -102,6 +102,8 @@ test("ticking 3 of 30 rows changes only those 3", async ({ page }) => {
   await expect(page.getByText("3 rows changed.")).toBeVisible();
   // Finished rows leave the selection.
   await expect(page.getByText(/\d+ selected/)).toHaveCount(0);
+  await page.getByRole("button", { name: "Dismiss this message" }).click();
+  await expect(page.getByText("3 rows changed.")).toHaveCount(0);
   expect(await actions(page, [2, 3, 4, 5, 6])).toEqual([
     "Create",
     "Skip",
@@ -177,6 +179,12 @@ test("update with no match: red, the message, still selected, then Create works"
   await expect(page.getByText("Pick the row to update")).toHaveCount(2);
   await expect(page.getByText("2 selected")).toBeVisible();
   await expect(page.getByRole("button", { name: /^Import \d+/ })).toBeDisabled();
+
+  // Dismissing the message leaves the rows as they are, still selected.
+  await page.getByRole("button", { name: "Dismiss this message" }).click();
+  await expect(page.getByText(/^2 rows have nothing to update/)).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Dismiss this message" })).toHaveCount(0);
+  await expect(page.getByText("2 selected")).toBeVisible();
 
   // They are still selected, so they can go on at once.
   await page.getByRole("button", { name: "Bulk edit…" }).click();

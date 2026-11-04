@@ -133,6 +133,7 @@
     "setBy": "Set by {{column}}",
     "fromFolder": "Taken from the folder",
     "numberLocked": "An update keeps the number",
+    "dismiss": "Dismiss this message",
     "result": {
       "done_one": "{{count, number}} row changed.",
       "done_other": "{{count, number}} rows changed.",

@@ -34,7 +34,7 @@ import {
   targetUses,
   writePick,
 } from "@3d-maker-suite/core";
-import { FileSpreadsheet, Lock } from "lucide-react";
+import { FileSpreadsheet, Lock, X } from "lucide-react";
 import { type ReactNode, useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
@@ -751,33 +751,35 @@ export function ReviewTable({
         ))}
       </fieldset>
 
-      <DataTable
-        label={t("import:review.title")}
-        columns={table}
-        rows={byStatus}
-        rowKey={(r) => String(r.row)}
-        client={{
-          query: tableQuery,
-          onQueryChange: (q) => {
-            if (filtersOf(q) !== filtersOf(tableQuery)) endSelection();
-            setTableQuery(q);
-          },
-        }}
-      />
-
-      {/* Sticks together: on a long table the result would be out of sight, or under the bar. */}
-      <div className="sticky bottom-16 z-10 grid gap-2 empty:hidden md:bottom-2">
+      {/* Sticks together, so both stay in sight on a long table. */}
+      <div className={cx("sticky top-2 z-10 grid gap-2", !result && !selected.size && "hidden")}>
         <div
-          role="status"
-          className="grid gap-1 rounded-lg border border-border bg-surface p-2 shadow-lg empty:hidden"
+          className={cx(
+            "flex items-start gap-2 rounded-lg border border-border bg-surface p-2 shadow-lg",
+            !result && "hidden",
+          )}
         >
-          {RESULTS.map(
-            ([outcome, key, tone]) =>
-              !!result?.[outcome] && (
-                <p key={outcome} className={tone}>
-                  {t(key, { count: result[outcome] })}
-                </p>
-              ),
+          {/* Always there, so a screen reader announces what appears in it. */}
+          <div role="status" className="grid min-w-0 flex-1 gap-1 py-1.5">
+            {RESULTS.map(
+              ([outcome, key, tone]) =>
+                !!result?.[outcome] && (
+                  <p key={outcome} className={tone}>
+                    {t(key, { count: result[outcome] })}
+                  </p>
+                ),
+            )}
+          </div>
+          {result && (
+            <button
+              type="button"
+              aria-label={t("import:edit.dismiss")}
+              title={t("import:edit.dismiss")}
+              onClick={() => setResult(null)}
+              className="inline-flex size-9 shrink-0 items-center justify-center rounded-md text-muted hover:bg-surface-2 hover:text-fg"
+            >
+              <X className="size-4" aria-hidden />
+            </button>
           )}
         </div>
         <SelectionBar count={selected.size} onClear={endSelection}>
@@ -791,6 +793,20 @@ export function ReviewTable({
           </Button>
         </SelectionBar>
       </div>
+
+      <DataTable
+        label={t("import:review.title")}
+        columns={table}
+        rows={byStatus}
+        rowKey={(r) => String(r.row)}
+        client={{
+          query: tableQuery,
+          onQueryChange: (q) => {
+            if (filtersOf(q) !== filtersOf(tableQuery)) endSelection();
+            setTableQuery(q);
+          },
+        }}
+      />
       <BulkEditDialog
         key={editing.run}
         open={editing.open}

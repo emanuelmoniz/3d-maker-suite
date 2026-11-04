@@ -284,7 +284,7 @@ const BULK_TEXT = {
 export type BulkRow = { id: string; name: string; archived: boolean };
 
 /**
- * The bar under a list with selected rows: Archive, Restore or Delete them after a confirm. Rows it
+ * The bar above a list with selected rows: Archive, Restore or Delete them after a confirm. Rows it
  * couldn't do stay selected and are listed with why (ADR-0018).
  */
 export function BulkBar({

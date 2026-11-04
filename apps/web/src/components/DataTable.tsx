@@ -260,6 +260,32 @@ export function DataTable<T>({
           onChange={(on) => update({ archived: on ? "all" : "" })}
         />
       )}
+      {bulk && (
+        <BulkBar
+          kind={bulk.kind}
+          rows={bulkRows}
+          onClear={clearSelection}
+          onDone={(blocked) => {
+            const kept = new Set(blocked);
+            setSelection({
+              list,
+              rows: new Map([...selected].filter(([id]) => kept.has(id))),
+            });
+            // The page it was on may be gone.
+            if (query.page) update({});
+          }}
+        />
+      )}
+      {current.status === "busy" && (
+        <p role="status" className="text-muted">
+          {t("common:bulk.selecting", { count: total })}
+        </p>
+      )}
+      {current.status === "failed" && (
+        <p role="alert" className="text-bad">
+          {t("common:bulk.selectFailed")}
+        </p>
+      )}
       {/* Scrollable on narrow screens, so it must be keyboard-focusable (and named) to be reachable. */}
       <section
         aria-label={label}
@@ -361,32 +387,6 @@ export function DataTable<T>({
           </tbody>
         </table>
       </section>
-      {bulk && (
-        <BulkBar
-          kind={bulk.kind}
-          rows={bulkRows}
-          onClear={clearSelection}
-          onDone={(blocked) => {
-            const kept = new Set(blocked);
-            setSelection({
-              list,
-              rows: new Map([...selected].filter(([id]) => kept.has(id))),
-            });
-            // The page it was on may be gone.
-            if (query.page) update({});
-          }}
-        />
-      )}
-      {current.status === "busy" && (
-        <p role="status" className="text-muted">
-          {t("common:bulk.selecting", { count: total })}
-        </p>
-      )}
-      {current.status === "failed" && (
-        <p role="alert" className="text-bad">
-          {t("common:bulk.selectFailed")}
-        </p>
-      )}
       {(server || total > 10 || hasFilters) && (
         <Pager
           query={query}

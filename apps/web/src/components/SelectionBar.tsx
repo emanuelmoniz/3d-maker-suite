@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "./Button.tsx";
 
-/** The bar under a list with selected rows: how many, Clear, and what can be done with them. */
+/** The bar above a list with selected rows: how many, Clear, and what can be done with them. */
 export function SelectionBar({
   count,
   onClear,
@@ -15,8 +15,7 @@ export function SelectionBar({
   const { t } = useTranslation();
   if (!count) return null;
   return (
-    // Above the phone's bottom nav (h-14).
-    <div className="sticky bottom-16 z-10 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-surface-2 p-2 shadow-lg md:bottom-2">
+    <div className="sticky top-2 z-10 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-surface-2 p-2 shadow-lg">
       <span aria-live="polite" className="font-medium">
         {t("common:bulk.selected", { count })}
       </span>
