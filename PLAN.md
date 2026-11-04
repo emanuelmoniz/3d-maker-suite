@@ -1,4 +1,4 @@
-# 3D Maker Suite - Development Plans 4.1.0, 4.1.1, 4.2.0, 5.0.0, 5.1.0, 5.2.0 and 6.0.0
+# 3D Maker Suite - Development Plans 4.1.0, 4.1.1, 4.2.0, 5.0.0, 5.1.0, 5.2.0, 5.3.0 and 6.0.0
 Repo: `3d-maker-suite`
 
 How to use:
@@ -1657,7 +1657,7 @@ Fix anything found and note it in the CHANGELOG (alpha.3 if needed).
 Do Step 14 of the 5.2.0 plan in PLAN.md. Guide me through each scenario, then fix what we find.
 ```
 
-### [ ] Step 15 - Docs, push & v5.2.0 release
+### [x] Step 15 - Docs, push & v5.2.0 release
 **Model:** Haiku · **Effort:** Low
 **Scope:**
 - `pnpm screenshots` if a README page changed, README, CHANGELOG, version `5.2.0`.
@@ -1678,9 +1678,182 @@ Then fast-forward main to dev, push, push the v5.2.0 tag and confirm the release
 
 ---
 
+# Plan 5.3.0 - Bulk edit
+
+Minor release, starts after the 5.2.0 release. Skills: `webapp-testing` for browser checks, `frontend-design` for the bar and the form.
+
+## Phase 24 - Import review
+
+Design:
+- Tick rows, and a bar shows "12 selected · Clear · Edit…". Edit opens a vertical form, which replaces the Bulk operations panel. Its Apply writes to the rows at once. The dialog blocks Import while open, so nothing can be left "not applied yet". Nothing is saved until Import, which keeps its confirm and backup.
+- The form has Action, Update which, and the columns the table shows. Every field starts on a muted **Don't change**; only fields you change stand out.
+- **Action:** Don't change · Create · Update · Skip · Use suggestion.
+- **Fields by Action:**
+  - Skip or Use suggestion: all disabled. Also disabled when Action is Don't change and every selected row is on Skip.
+  - Create: Don't change · Use import values · a value (the same input the table has) · Empty, if the column is optional.
+  - Update: Don't change · Overwrite with import values · Keep my edits, fill the rest with import values · a value. An **All columns** field on top sets every column to one of the two merge options at once; single columns can then differ.
+  - Don't change (rows may differ): Don't change · Use import values · a value.
+- **What the options write:** Use import values and the two Update options also undo that column's review edits. A value on an update row also sets that column to overwrite, otherwise keep and fill would ignore it. Update has no Empty: an empty cell never changes an existing value (`diffValues`).
+- **Update which:** Don't change · Use system match. One item can't take several rows (`duplicateTarget`), so picking a specific one stays in the table.
+- **Hidden with several rows selected:** columns that differ per row (Number, Folder path, a client's Mobile, Email and VAT, unique names). Number is locked on update, as today. The Prints column stays per row.
+- **Read-only, set by another field:** a slot's Filament by its Spool; Failure reason when Outcome is success; Name, Description and Link when taken from the folder. Other dependencies (brand and model, a maintenance type's target) stay editable and are checked per row, as in the table.
+- **Per-row order:** values first, so a bulk value can fix an invalid row, then the action. A row still broken doesn't change action.
+- **After Apply:** a status line gives what was done and why the rest wasn't. Finished rows are deselected, problem rows stay selected (as `BulkBar`). A new filter or status chip ends the selection (as ADR-0018).
+- **Update on a row with no match (New or Ambiguous):** it becomes Update and shows red, no values are added, and the message says to pick the match first, then edit. It stays selected, so it can go to Create or Skip at once. Update is not offered when there is nothing to update.
+- **Removed:** the 7 presets (`applyBulk`, `BULK_ACTIONS`), the scope dropdown, the pending warning, the Merge column, the "When updating" setting, the separate Project, Spool, Track and Move fields.
+- **Default merge, for columns on Don't change:** no control on the page. Files overwrite; integrations use the sync type's choice (`preview.policy`). "Fill empty fields only" can no longer be picked in a review: on files it is the same as Keep my edits, and on integrations Keep my edits replaces it.
+
+### [ ] Step 1 - Review cells: one way to write a cell
+**Model:** Sonnet · **Effort:** Medium
+**Scope:** A print's spool is written two ways: as an id in `refs` when creating, as a name edit when updating (`pickSpool`), with grams copied along. Other picks differ too. Move these into one function in `ReviewTable` that takes a row, a column and a value, used by every cell. Fix the Skip count in the summary: it subtracts every invalid row, even fixed ones, so it can go negative.
+**Done when:** the review looks and works as before, except the count; test for the count; tests and e2e pass.
+**Prompt:**
+```
+Do Step 1 of the 5.3.0 plan in PLAN.md. No visible change except the Skip count.
+```
+
+### [ ] Step 2 - Merge per column
+**Model:** Sonnet · **Effort:** Medium
+**Scope:** The apply decision gets an optional merge policy per column, over the row's `policy`. `mergeValues` honours it on the server and in the review's preview. No DB change. The apply's `policy` stays in the API; the web will send the default from the design.
+**Done when:** one row can overwrite one column and keep another; keepEdits with no known edits still means fill; unit and server tests; tests pass.
+**Prompt:**
+```
+Do Step 2 of the 5.3.0 plan in PLAN.md.
+```
+
+### [ ] Step 3 - Bulk edit logic  **[plan mode]**
+**Model:** Opus · **Effort:** High
+**Scope:**
+- Column rules on `ImportColumn`: which differ per row, and what makes a column read-only. Keep it to the list in the design, no rules engine.
+- One pure function: rows, current decisions and edits, and the form's choices in; next decisions and edits, plus a report per row (done, no match, doesn't fit, on Skip, still broken) out. Spool fit uses the same options as the row's picker. It replaces `applyBulk`.
+- Move `fixable`-style checks out of `applyAll` so nothing is lost.
+
+**Done when:** unit tests cover each Action, each field option, every design edge case and every old preset's flow; tests pass. No UI yet.
+**Prompt:**
+```
+Do Step 3 of the 5.3.0 plan in PLAN.md. Show me the function's input, output and the column rules first.
+```
+
+### [ ] Step 4 - Selection bar and Edit form  **[plan mode]**
+**Model:** Opus · **Effort:** High
+**Scope:**
+- Extract the bar's shell (count, Clear, actions) from `BulkBar`; archive and delete keep their look and behaviour.
+- A form dialog built from the columns, on `FormDialog`. Its inputs come out of `EditCell` into a shared component. Fields follow the design. Keyboard and screen reader support as in the rest of the app.
+- `ReviewTable`: the bar, the form and the result line replace the panel. Selection ends on a new filter or status chip. Remove everything the design lists.
+- Update `e2e/review-tables`, `import-projects`, `project-folder` and `v11`, and add a spec with the old presets' flows: only new rows, only changed, all as new, skip.
+
+**Done when:** ticking 3 of 30 rows can only change those 3; the no-match flow shows red and the message and leaves those rows selected; dependent fields are read-only; works on phone width; e2e; `pnpm i18n:check`, lint and tests pass; no unused `import:bulk` or `scopes` keys.
+**Prompt:**
+```
+Do Step 4 of the 5.3.0 plan in PLAN.md. Show me the bar and form for spools and prints first. Check them in the browser, light and dark, desktop and phone.
+```
+
+### [ ] Step 5 - Folders and prints in the form
+**Model:** Sonnet · **Effort:** Medium
+**Scope:**
+- Projects, Folder field: Don't change · Use import values · Move to root (each row keeps its own last folder, and fixes a row whose only error is its folder) · Create folder · No folder.
+- Prints: Project with No project, a Spool field per slot in use, Track usage. A spool that doesn't fit a row leaves it unchanged and reported; this ends today's one-slot limit.
+
+**Done when:** every flow of the old Move all folders, Project selection, Spool assign and Track usage fields works from the form; e2e; `pnpm i18n:check` and tests pass.
+**Prompt:**
+```
+Do Step 5 of the 5.3.0 plan in PLAN.md.
+```
+
+### [ ] Step 6 - Docs, push & v5.3.0-alpha.1
+**Model:** Haiku · **Effort:** Low
+**Scope:**
+- `docs/import.md` (Review rows, the folder paragraph, and "When updating" under integrations), `pnpm screenshots` if a README page changed, CHANGELOG, version `5.3.0-alpha.1`.
+- Commit on `dev`, push, tag `v5.3.0-alpha.1` on `dev`. Check the run and the release.
+
+**Done when:** the tag is pushed and the workflow is green.
+**Prompt:**
+```
+Do Step 6 of the 5.3.0 plan in PLAN.md. Then push dev, push the tag and confirm the pre-release.
+```
+
+## Phase 25 - Filament to review
+
+Design:
+- The same model: tick rows, select all across pages, then the bar and a form with Action (Assign · Don't track) and Spool. The rows' own Assign, Add new spool and Don't track stay.
+- **Assign** runs at once and reports what it couldn't do. **Don't track** confirms with the exact count, because nothing can undo it.
+- The "Don't track any of these" button goes: it only affected the current page.
+
+### [ ] Step 7 - Bulk assign: server
+**Model:** Sonnet · **Effort:** Medium
+**Scope:** `POST /api/prints/filament-review/assign` with `{ usageIds, spoolId }`, answering `{ done, blocked }` like `bulkResultSchema`. Each row runs the single assign's code in its own transaction, so free rows go through and a row short of filament is reported. Same permission as the single assign. Check that a spool opened after the print is refused here and in the single assign, as `docs/import.md` says.
+**Done when:** partial results, not enough filament, a spool opened later and an already-handled row are tested; tests pass.
+**Prompt:**
+```
+Do Step 7 of the 5.3.0 plan in PLAN.md.
+```
+
+### [ ] Step 8 - Filament to review: bar and form  **[plan mode]**
+**Model:** Sonnet · **Effort:** Medium
+**Scope:**
+- `DataTable`'s selection is tied to `BULK_ITEMS` and `BulkBar`. Let a table give its own list path and bar, keeping select all's count check.
+- `PrintReviewPage` uses them with the shared bar shell. Spools that don't fit a row are reported, not hidden.
+
+**Done when:** assign one spool to rows across pages; Don't track confirms the exact count and covers every selected row; archive and delete lists are unchanged; e2e; `pnpm i18n:check` and tests pass.
+**Prompt:**
+```
+Do Step 8 of the 5.3.0 plan in PLAN.md. Show me how DataTable changes first.
+```
+
+### [ ] Step 9 - Docs, push & v5.3.0-alpha.2
+**Model:** Haiku · **Effort:** Low
+**Scope:**
+- Docs, `pnpm screenshots` if a README page changed, CHANGELOG, version `5.3.0-alpha.2`.
+- Commit on `dev`, push, tag `v5.3.0-alpha.2` on `dev`. Check the run and the release.
+
+**Done when:** the tag is pushed and the workflow is green.
+**Prompt:**
+```
+Do Step 9 of the 5.3.0 plan in PLAN.md. Then push dev, push the tag and confirm the pre-release.
+```
+
+## Phase 26 - Release
+
+### [ ] Step 10 - Real test: file, integration, slicer zip, filament queue
+**Model:** Sonnet · **Effort:** Medium
+**Scope:**
+- A copy of a real 5.2.0 DB.
+- Export, edit and re-upload: changed values are written by default.
+- A real Bambu sync review: prints with projects and spools across slots, Keep my edits on some columns.
+- A slicer zip review. Projects with another machine's folders moved to a root.
+- The filament queue: assign across pages, a spool running short, Don't track.
+- As an admin and a `write` user, on a phone too.
+
+Fix anything found and note it in the CHANGELOG (alpha.3 if needed).
+**Done when:** every scenario worked; fixes released.
+**Prompt:**
+```
+Do Step 10 of the 5.3.0 plan in PLAN.md. Guide me through each scenario, then fix what we find.
+```
+
+### [ ] Step 11 - Docs, push & v5.3.0 release
+**Model:** Haiku · **Effort:** Low
+**Scope:**
+- `pnpm screenshots` if a README page changed, README, CHANGELOG, version `5.3.0`.
+- Commit on `dev`, fast-forward `main` to `dev`, push both, tag `v5.3.0` on `main`. Check the run, the release and the images.
+
+**Done when:** `main`, `dev` and the tag are pushed; the workflow is green; updating 5.2.0 to 5.3.0 keeps all data.
+**Prompt:**
+```
+Do Step 11 of the 5.3.0 plan in PLAN.md. Only document what changed since the last 5.3.0 pre-release.
+Then fast-forward main to dev, push, push the v5.3.0 tag and confirm the release.
+```
+
+## Out of scope for 5.3.0 (later plans)
+- Bulk setting a column the file doesn't have.
+- Clearing existing values on Update (an empty cell never changes a value).
+- Restoring a dismissed filament slot.
+
+---
+
 # Plan 6.0.0 - Every printer
 
-Major release, agreed on 2026-10-27. Starts after the 5.2.0 release. Adapter steps add tests against recorded payloads (fixtures), never a live printer in CI.
+Major release, agreed on 2026-10-27. Starts after the 5.3.0 release. Adapter steps add tests against recorded payloads (fixtures), never a live printer in CI.
 
 Design: ADR-0015. Prints are recorded automatically from the most used printer systems, the dashboard shows live status, and spool usage follows:
 - a new `PrinterStatusSource` capability and one **job tracker** in core turn status snapshots into prints;
@@ -1690,7 +1863,7 @@ Design: ADR-0015. Prints are recorded automatically from the most used printer s
 
 Wave 1: Moonraker, Bambu LAN, PrusaLink, OctoPrint, plus Spoolman two-way.
 
-## Phase 24 - Foundations
+## Phase 27 - Foundations
 
 Design:
 - Snapshot: state, job file, progress, ETA, layer, temperatures, slots (material, colour, RFID or spool id). In memory only, pushed over SSE.
@@ -1793,7 +1966,7 @@ Do Step 6 of the 6.0.0 plan in PLAN.md. Back up the DB before editing schema.ts.
 Do Step 7 of the 6.0.0 plan in PLAN.md. Then push dev, push the tag and confirm the pre-release is published.
 ```
 
-## Phase 25 - Adapters
+## Phase 28 - Adapters
 
 Each adapter: a `local` package in `packages/adapters/<id>`, config and secrets schemas, status (and history where it exists), the recorded fixtures as tests, i18n names, a setup page in the docs. Added by host or IP.
 
@@ -1859,7 +2032,7 @@ Do Step 13 of the 6.0.0 plan in PLAN.md. Only document what changed since 6.0.0-
 Then push dev, push the tag and confirm the pre-release is published.
 ```
 
-## Phase 26 - Hub
+## Phase 29 - Hub
 
 ### [ ] Step 14 - Connector printer bridge  **[plan mode]**
 **Model:** Opus · **Effort:** High
@@ -1874,7 +2047,7 @@ Then push dev, push the tag and confirm the pre-release is published.
 Do Step 14 of the 6.0.0 plan in PLAN.md.
 ```
 
-## Phase 27 - Release
+## Phase 30 - Release
 
 ### [ ] Step 15 - Real test: one printer per adapter
 **Model:** Sonnet · **Effort:** Medium
