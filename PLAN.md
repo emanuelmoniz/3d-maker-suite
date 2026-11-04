@@ -1,4 +1,4 @@
-# 3D Maker Suite - Development Plans 4.1.0, 4.1.1, 4.2.0, 5.0.0, 5.1.0, 5.2.0, 5.3.0 and 6.0.0
+# 3D Maker Suite - Development Plans 4.1.0, 4.1.1, 4.2.0, 5.0.0, 5.1.0, 5.2.0, 5.3.0, 5.4.0 and 6.0.0
 Repo: `3d-maker-suite`
 
 How to use:
@@ -1853,9 +1853,206 @@ Then fast-forward main to dev, push, push the v5.3.0 tag and confirm the release
 
 ---
 
+# Plan 5.4.0 - Slicers, catalog and presets made simple
+
+Minor release, starts after the 5.3.0 release. Design: ADR-0019 (Step 1). Skills: `webapp-testing` for browser checks, `frontend-design` for the slicer cards.
+
+"Add integration" offers Bambu Studio and OrcaSlicer several times (local, server, worker) with no use case. Catalog and system presets have per-type schedules, though they only change when the slicer's files change. User presets take different routes on a single PC, a hub and a connector. The outcome is three plain things:
+- **Account** (Bambu Cloud): data that keeps changing, so it keeps its schedules.
+- **Slicer** (Bambu Studio, OrcaSlicer): one card, with a list of where it runs.
+- **Device** (connector): a machine, a *location* a slicer runs in. It stays in Hub management. Connectors are not integrations: they also do file sync, roots, locks and pairing, and in 6.0.0 they relay LAN printers.
+
+Design:
+- **System catalog:** no schedule. When the source changes, nothing is written: an alert leads to a review. The trigger is the `system/` folder's content, not the program version, if Step 1 confirms profiles can update alone.
+- **User presets:** added, updated and deleted automatically. A single PC checks within a minute, on the existing scheduler tick: more reliable than `fs.watch` on NAS and Docker volumes.
+- **Delete rule:** a preset removed in a slicer is deleted only if nothing uses it, and it is removed from other machines that have preset sync on. This reverses ADR-0017's "deletes never reach desktops".
+- **"In use" is stricter than ADR-0018's delete check.** It also counts what ADR-0018 only clears: a plate's or printer's print profile (`project_slice_plates`, `printers.print_profile_id`), a plate's filament list (JSON), older archived versions with the same `sourcePreset`, and a preset another one `inherits` from.
+- **In use = nothing is deleted anywhere.** The hub and other machines keep it, or slicing would fail with `no_preset`. It shows "Removed on WS-3, still used by 2 plates". A daily check deletes it once it is free.
+- **A catalog row with your own edits (a typed price) is archived, not deleted,** so the typed value isn't lost.
+- **Who can delete:** only a device with **Share** on spreads a delete, and only a device with **Install** on receives one. The two switches stay, because farm PCs need install-only. Other devices only show "Removed on", as today.
+- **Safety, because one delete now reaches every machine:** over the mass delete limit at once, the delete is held and an alert asks. A slicer sign-in or sign-out moves the watched folder, and that never counts as a delete. A desktop file with unsent edits is kept: the edit wins. The backup zip runs before writes, and deletes wait for the slicer to close. The Presets page gets **Restore**, from the existing tombstone and kept versions.
+- **Database rows stay one per install.** `projects`, `project_slice_plates`, `prints` and `import_snapshots` point at them. Cards group by `presetLibrary(adapter)`. The catalog belongs to the library's oldest row with a readable folder.
+- **The connector can send a slicer's catalog.** The manual zip stays as a fallback.
+- **Unchanged:** Bambu Cloud policies, the hub-only library (ADR-0017), and Orca 2.5+ system presets staying unreadable (ADR-0013).
+
+Expected delete results, to confirm in Step 1:
+
+| Desktop slicer | Delete from another machine |
+|---|---|
+| Signed out (`user/default`) | Works: no cloud involved |
+| Signed in, tombstone works (`.info` with `sync_info = delete`, no `.json`) | Works, and the cloud copy goes too |
+| Signed in, tombstone doesn't work | Can't be automatic. The device shows "delete it in the slicer", as today |
+
+## Phase 27 - Decide
+
+### [ ] Step 1 - Spikes and ADR-0019  **[plan mode]**
+**Model:** Opus · **Effort:** High
+**Scope:**
+- On real installs, signed in and out, Bambu Studio and OrcaSlicer: does a tombstone delete the cloud copy and reach a second PC? Does the slicer bring it back? ADR-0017's spike only tested removing the file. Orca writes such tombstones itself; Bambu Studio is unknown.
+- Does `system/` change without a program update, and what is a cheap fingerprint (the vendor `.json` `version` field or file times)?
+- The suspected gap: a shared preset doesn't reach the catalog on Orca or a worker-only hub. Add a test marked `it.fails`, which Step 5 turns into a normal test.
+- The size of a `system` + `user` zip against the 100 MB limit.
+- ADR-0019 records the model and the results, and amends ADR-0017's delete rule.
+
+**Done when:** every question has a recorded answer from a real install; ADR-0019 accepted; tests pass.
+**Prompt:**
+```
+Do Step 1 of the 5.4.0 plan in PLAN.md. Guide me through the tests on real installs, then write ADR-0019.
+```
+
+## Phase 28 - Catalog and user presets
+
+### [ ] Step 2 - Split system and user rows
+**Model:** Sonnet · **Effort:** Medium
+**Scope:** `libraryRows` in `sourceRows.ts` keeps `scope` instead of dropping it, and a run can ask for system rows, user rows or both.
+**Done when:** no visible change; test for each choice; tests pass.
+**Prompt:**
+```
+Do Step 2 of the 5.4.0 plan in PLAN.md. No visible change.
+```
+
+### [ ] Step 3 - Change detection instead of a schedule  **[plan mode]**
+**Model:** Opus · **Effort:** High
+**Scope:**
+- Migration: `integrations.catalogFingerprint`.
+- `runAll` in `sync.ts` skips slicers' catalog types. A daily check, plus a check after a managed install, compares the fingerprint.
+- On a change it writes nothing, not even new rows. It sets `pending` and raises the existing `sync_pending` alert, so no alert migration. An auto run today writes new rows through `autoDecisions`, so this path must not call `review.write`.
+- Existing catalog schedules stop; the CHANGELOG says so.
+
+**Done when:** a changed fixture fingerprint raises the alert, writes nothing, and the review shows the changes; an unchanged folder does nothing; tests pass.
+**Prompt:**
+```
+Do Step 3 of the 5.4.0 plan in PLAN.md.
+```
+
+### [ ] Step 4 - One Catalog row
+**Model:** Sonnet · **Effort:** High
+**Scope:** On a slicer's card, one row replaces up to 7 in `PolicyRow.tsx`: pick your brands, then "only what I already have" (`scope: imported`, which exists). Writes apply to all 7 stored policies. This replaces the manual steps in `docs/import.md`. Cloud rows don't change.
+**Done when:** picking brands imports only those; Bambu Cloud's rows look as before; tests and e2e pass.
+**Prompt:**
+```
+Do Step 4 of the 5.4.0 plan in PLAN.md.
+```
+
+### [ ] Step 5 - Presets reach the catalog automatically  **[plan mode]**
+**Model:** Opus · **Effort:** High
+**Scope:**
+- Hub: `savePreset` triggers the catalog update. Single PC: the scheduler tick.
+- `keepEdits` protects your edits. Editing a preset clears its `deleted_sources` mark.
+- A preset whose parent can't be resolved (no system presets, as on Orca 2.5+) waits for review instead of failing.
+
+**Done when:** Step 1's `it.fails` test is a normal test; a preset saved in a real slicer is in the catalog within a minute; tests pass.
+**Prompt:**
+```
+Do Step 5 of the 5.4.0 plan in PLAN.md.
+```
+
+### [ ] Step 6 - Docs, push & v5.4.0-alpha.1
+**Model:** Haiku · **Effort:** Low
+**Scope:**
+- `docs/import.md`, `docs/slicing.md`, `pnpm screenshots` if a README page changed, CHANGELOG, version `5.4.0-alpha.1`.
+- Commit on `dev`, push, tag `v5.4.0-alpha.1` on `dev`. Check the run and the release.
+
+**Done when:** the tag is pushed and the workflow is green.
+**Prompt:**
+```
+Do Step 6 of the 5.4.0 plan in PLAN.md. Then push dev, push the tag and confirm the pre-release.
+```
+
+## Phase 29 - Deletes
+
+### [ ] Step 7 - "In use" and catalog delete
+**Model:** Opus · **Effort:** High
+**Scope:** A `presetInUse` check built on `lib/dependents.ts`, with the stricter rule from the design. A preset gone from the source: not in use = delete the row; edited = archive; in use = keep and show why.
+**Done when:** single-PC installs follow the delete rule; a test for each reference the rule counts; tests pass.
+**Prompt:**
+```
+Do Step 7 of the 5.4.0 plan in PLAN.md.
+```
+
+### [ ] Step 8 - Deletes reach other machines  **[plan mode]**
+**Model:** Opus · **Effort:** High
+**Scope:**
+- Hub: `presetRemovedOn` in `presetLibrary.ts` becomes delete-if-free for Share devices, with a daily re-check of `removedOn`.
+- Connector: `createPresetShare` holds mass deletes and ignores folder moves. `createPresetInstall` applies deletes per Step 1, when the slicer is closed, after the backup.
+- Web: per-device result, the held-deletes prompt, Restore.
+- Connector version gate: an older connector answers `device_outdated`.
+
+**Done when:** tests cover a free preset, one in use, a mass delete, a folder move, unsent edits and Restore; tests and e2e pass.
+**Prompt:**
+```
+Do Step 8 of the 5.4.0 plan in PLAN.md.
+```
+
+### [ ] Step 9 - Real test, docs, push & v5.4.0-alpha.2
+**Model:** Sonnet · **Effort:** Medium
+**Scope:**
+- Two real PCs on the same account: delete on a Share device. The hub and an Install device lose it, and the backup zip exists. Repeat with the slicer open, signed in, after a sign-out, and with a mass delete. Restore brings it back on both.
+- Fix anything found.
+- `docs/hub.md`, CHANGELOG, version `5.4.0-alpha.2`. Commit on `dev`, push, tag `v5.4.0-alpha.2` on `dev`. Check the run and the release.
+
+**Done when:** every scenario worked; the tag is pushed and the workflow is green.
+**Prompt:**
+```
+Do Step 9 of the 5.4.0 plan in PLAN.md. Guide me through each scenario and fix what we find. Then push dev, push the tag and confirm the pre-release.
+```
+
+## Phase 30 - Slicer cards and release
+
+### [ ] Step 10 - Add flow and grouped cards  **[plan mode]**
+**Model:** Opus · **Effort:** High
+**Scope:**
+- Add integration: pick a product, then for a slicer "Installed on this computer", "Download it to this server" or "On a connected workstation".
+- Replace the adapter list in `IntegrationFormPage.tsx`. `IntegrationsPage.tsx` groups by library. `IntegrationCard.tsx` splits into a slicer card with a "Runs on" list.
+- Installs keep their `Bambu Studio (WS-3)` label in slice pickers.
+
+**Done when:** from a clean database, each of the three locations can be added and slices, at phone and desktop width; a migrated 5.3 database keeps each project's slicer, and slices don't turn outdated; tests and e2e pass.
+**Prompt:**
+```
+Do Step 10 of the 5.4.0 plan in PLAN.md. Use the frontend-design skill for the cards.
+```
+
+### [ ] Step 11 - Worker setup in one place
+**Model:** Sonnet · **Effort:** Medium
+**Scope:** Adding a workstation location sets `devices.sliceWorker`; removing its last one clears it. The switch leaves the device page, whose Slicing card shows "Used by Bambu Studio" with a link. Any online device with the connector is offered, not only those already marked.
+**Done when:** a worker is set up from the slicer card alone; tests and e2e pass.
+**Prompt:**
+```
+Do Step 11 of the 5.4.0 plan in PLAN.md.
+```
+
+### [ ] Step 12 - Read the catalog from a workstation  **[plan mode]**
+**Model:** Opus · **Effort:** High
+**Scope:**
+- One new fixed connector operation: zip the slicer's `system` and `user` folders with the `packages/host` zip helper and upload them.
+- The hub reuses `unpackSlicerZip`, `keepPresets` and `libraryRows` from `routes/slicerZip.ts`.
+- ADR-0014's fixed operation list gains this entry.
+- The manual zip moves onto the slicer card as "No connector? Upload a zip".
+
+**Done when:** a worker-only hub gets its catalog from a device without a hand-made zip; an older connector answers `device_outdated`; tests pass.
+**Prompt:**
+```
+Do Step 12 of the 5.4.0 plan in PLAN.md.
+```
+
+### [ ] Step 13 - Docs, push & v5.4.0 release
+**Model:** Haiku · **Effort:** Low
+**Scope:**
+- `docs/slicing.md`, `docs/hub.md`, `docs/import.md`, README, `pnpm screenshots`, CHANGELOG, version `5.4.0`, `pnpm version:check`.
+- Commit on `dev`, fast-forward `main` to `dev`, push both, tag `v5.4.0` on `main`. Check the run, the release and the images.
+
+**Done when:** `main`, `dev` and the tag are pushed; the workflow is green; updating 5.3.0 to 5.4.0 keeps all data.
+**Prompt:**
+```
+Do Step 13 of the 5.4.0 plan in PLAN.md. Only document what changed since the last 5.4.0 pre-release.
+Then fast-forward main to dev, push, push the v5.4.0 tag and confirm the release.
+```
+
+---
+
 # Plan 6.0.0 - Every printer
 
-Major release, agreed on 2026-10-27. Starts after the 5.3.0 release. Adapter steps add tests against recorded payloads (fixtures), never a live printer in CI.
+Major release, agreed on 2026-10-27. Starts after the 5.4.0 release. Adapter steps add tests against recorded payloads (fixtures), never a live printer in CI.
 
 Design: ADR-0015. Prints are recorded automatically from the most used printer systems, the dashboard shows live status, and spool usage follows:
 - a new `PrinterStatusSource` capability and one **job tracker** in core turn status snapshots into prints;
@@ -1865,7 +2062,7 @@ Design: ADR-0015. Prints are recorded automatically from the most used printer s
 
 Wave 1: Moonraker, Bambu LAN, PrusaLink, OctoPrint, plus Spoolman two-way.
 
-## Phase 27 - Foundations
+## Phase 31 - Foundations
 
 Design:
 - Snapshot: state, job file, progress, ETA, layer, temperatures, slots (material, colour, RFID or spool id). In memory only, pushed over SSE.
@@ -1968,7 +2165,7 @@ Do Step 6 of the 6.0.0 plan in PLAN.md. Back up the DB before editing schema.ts.
 Do Step 7 of the 6.0.0 plan in PLAN.md. Then push dev, push the tag and confirm the pre-release is published.
 ```
 
-## Phase 28 - Adapters
+## Phase 32 - Adapters
 
 Each adapter: a `local` package in `packages/adapters/<id>`, config and secrets schemas, status (and history where it exists), the recorded fixtures as tests, i18n names, a setup page in the docs. Added by host or IP.
 
@@ -2034,7 +2231,7 @@ Do Step 13 of the 6.0.0 plan in PLAN.md. Only document what changed since 6.0.0-
 Then push dev, push the tag and confirm the pre-release is published.
 ```
 
-## Phase 29 - Hub
+## Phase 33 - Hub
 
 ### [ ] Step 14 - Connector printer bridge  **[plan mode]**
 **Model:** Opus · **Effort:** High
@@ -2049,7 +2246,7 @@ Then push dev, push the tag and confirm the pre-release is published.
 Do Step 14 of the 6.0.0 plan in PLAN.md.
 ```
 
-## Phase 30 - Release
+## Phase 34 - Release
 
 ### [ ] Step 15 - Real test: one printer per adapter
 **Model:** Sonnet · **Effort:** Medium
