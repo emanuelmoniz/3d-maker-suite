@@ -1873,7 +1873,11 @@ Design:
 - **Safety, because one delete now reaches every machine:** over the mass delete limit at once, the delete is held and an alert asks. A slicer sign-in or sign-out moves the watched folder, and that never counts as a delete. A desktop file with unsent edits is kept: the edit wins. The backup zip runs before writes, and deletes wait for the slicer to close. The Presets page gets **Restore**, from the existing tombstone and kept versions.
 - **Database rows stay one per install.** `projects`, `project_slice_plates`, `prints` and `import_snapshots` point at them. Cards group by `presetLibrary(adapter)`. The catalog belongs to the library's oldest row with a readable folder.
 - **The connector can send a slicer's catalog.** The manual zip stays as a fallback.
-- **Unchanged:** Bambu Cloud policies, the hub-only library (ADR-0017), and Orca 2.5+ system presets staying unreadable (ADR-0013).
+- **User presets from Bambu Cloud:** one optional **User presets** row on its card, off by default like spools, with the controls the other cloud syncs have: Off, Manual or Auto, frequency (default daily), Sync now, review, log, alerts and editor rights. No new sync type: it uses `machineProfiles`, `printProfiles` and `filamentProfiles`, shown as one row, and `sourcePreset` stays `bambu-studio:user/<name>`, so a preset from the cloud and from Studio is one catalog row. Read-only: the app never writes to Bambu Cloud. This reverses ADR-0017's rejection of reading that API.
+- **Where a cloud preset goes:** the catalog always. For slicing, a hub's library (so workers and Install devices get it), or a managed slicer's `config/user`. A single PC with desktop Studio writes nothing, because the server never writes to a desktop folder.
+- **Cloud delete guards,** on top of the delete rule: only presets this sync has seen before can be deleted, because presets from signed-out folders, zips or Orca never appear in the cloud. Only a complete, valid list counts. Over the mass delete limit, or a change of account, is held with an alert.
+- **OrcaCloud is on hold** until the Orca team issues a `client_id` (OrcaSlicer#14028). Orca presets keep connector Share and the zip.
+- **Unchanged:** Bambu Cloud's existing rows, the hub-only library (ADR-0017), and Orca 2.5+ system presets staying unreadable (ADR-0013).
 
 Expected delete results, to confirm in Step 1:
 
@@ -1892,7 +1896,8 @@ Expected delete results, to confirm in Step 1:
 - Does `system/` change without a program update, and what is a cheap fingerprint (the vendor `.json` `version` field or file times)?
 - The suspected gap: a shared preset doesn't reach the catalog on Orca or a worker-only hub. Add a test marked `it.fails`, which Step 5 turns into a normal test.
 - The size of a `system` + `user` zip against the 100 MB limit.
-- ADR-0019 records the model and the results, and amends ADR-0017's delete rule.
+- On a real Bambu account, for Step 9: does the list show when a preset changed? If not, every run needs one request per preset, and the daily default stays firm. What are the real response shapes (the community docs' sample is old)? Are presets saved by OrcaSlicer signed in with a Bambu account mixed into the list?
+- ADR-0019 records the model and the results, and amends ADR-0017's delete rule and its rejection of reading Bambu's preset API.
 
 **Done when:** every question has a recorded answer from a real install; ADR-0019 accepted; tests pass.
 **Prompt:**
@@ -1959,7 +1964,7 @@ Do Step 5 of the 5.4.0 plan in PLAN.md.
 Do Step 6 of the 5.4.0 plan in PLAN.md. Then push dev, push the tag and confirm the pre-release.
 ```
 
-## Phase 29 - Deletes
+## Phase 29 - Deletes and cloud presets
 
 ### [ ] Step 7 - "In use" and catalog delete
 **Model:** Opus · **Effort:** High
@@ -1984,22 +1989,39 @@ Do Step 7 of the 5.4.0 plan in PLAN.md.
 Do Step 8 of the 5.4.0 plan in PLAN.md.
 ```
 
-### [ ] Step 9 - Real test, docs, push & v5.4.0-alpha.2
+### [ ] Step 9 - Bambu Cloud user presets  **[plan mode]**
+**Model:** Opus · **Effort:** High
+**Scope:**
+- `IntegrationInstance.userPresets` in core, optional like the other sources. The Bambu adapter reads `/v1/iot-service/api/slicer/setting` (list, then get), zod-checked. A mismatch is `api_changed`.
+- `offered` in `sync.ts` reads the cloud for the three profile types on an account. The new row uses Step 4's grouped row. Off by default.
+- A cloud preset only holds its differences, so brand and material need its system parent: the same reader, with the slicer's system folder. With none, the row waits for review (Step 5's rule).
+- An older cloud copy never overwrites a newer edit: cloud copies go through `uploadPreset` in `presetLibrary.ts`. Compare resolved values, because a cloud copy drops values equal to the parent's, so the same settings make no new version.
+- Deletes follow Steps 7 and 8, with the cloud guards from the design.
+- With connector Share on the same account, it works, and the card suggests one route is enough.
+
+**Done when:** tests with recorded payloads, never a live account in CI, cover list and get, a schema change, a failed or partial list deleting nothing, and a zip's preset staying; tests and e2e pass.
+**Prompt:**
+```
+Do Step 9 of the 5.4.0 plan in PLAN.md.
+```
+
+### [ ] Step 10 - Real test, docs, push & v5.4.0-alpha.2
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - Two real PCs on the same account: delete on a Share device. The hub and an Install device lose it, and the backup zip exists. Repeat with the slicer open, signed in, after a sign-out, and with a mass delete. Restore brings it back on both.
+- A real Bambu account: turn User presets on and Sync now. Presets appear once, with no duplicate of Studio's row. Edit one in Studio: updated on the next run, and a typed price stays. Delete an unused one: it goes. Delete a used one: it stays, with the reason shown. A preset from a zip stays untouched. On a hub, a synced preset reaches a worker and an Install device, then settles with no extra versions.
 - Fix anything found.
-- `docs/hub.md`, CHANGELOG, version `5.4.0-alpha.2`. Commit on `dev`, push, tag `v5.4.0-alpha.2` on `dev`. Check the run and the release.
+- `docs/hub.md`, `docs/bambu-cloud.md`, CHANGELOG, version `5.4.0-alpha.2`. Commit on `dev`, push, tag `v5.4.0-alpha.2` on `dev`. Check the run and the release.
 
 **Done when:** every scenario worked; the tag is pushed and the workflow is green.
 **Prompt:**
 ```
-Do Step 9 of the 5.4.0 plan in PLAN.md. Guide me through each scenario and fix what we find. Then push dev, push the tag and confirm the pre-release.
+Do Step 10 of the 5.4.0 plan in PLAN.md. Guide me through each scenario and fix what we find. Then push dev, push the tag and confirm the pre-release.
 ```
 
 ## Phase 30 - Slicer cards and release
 
-### [ ] Step 10 - Add flow and grouped cards  **[plan mode]**
+### [ ] Step 11 - Add flow and grouped cards  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:**
 - Add integration: pick a product, then for a slicer "Installed on this computer", "Download it to this server" or "On a connected workstation".
@@ -2009,19 +2031,19 @@ Do Step 9 of the 5.4.0 plan in PLAN.md. Guide me through each scenario and fix w
 **Done when:** from a clean database, each of the three locations can be added and slices, at phone and desktop width; a migrated 5.3 database keeps each project's slicer, and slices don't turn outdated; tests and e2e pass.
 **Prompt:**
 ```
-Do Step 10 of the 5.4.0 plan in PLAN.md. Use the frontend-design skill for the cards.
+Do Step 11 of the 5.4.0 plan in PLAN.md. Use the frontend-design skill for the cards.
 ```
 
-### [ ] Step 11 - Worker setup in one place
+### [ ] Step 12 - Worker setup in one place
 **Model:** Sonnet · **Effort:** Medium
 **Scope:** Adding a workstation location sets `devices.sliceWorker`; removing its last one clears it. The switch leaves the device page, whose Slicing card shows "Used by Bambu Studio" with a link. Any online device with the connector is offered, not only those already marked.
 **Done when:** a worker is set up from the slicer card alone; tests and e2e pass.
 **Prompt:**
 ```
-Do Step 11 of the 5.4.0 plan in PLAN.md.
+Do Step 12 of the 5.4.0 plan in PLAN.md.
 ```
 
-### [ ] Step 12 - Read the catalog from a workstation  **[plan mode]**
+### [ ] Step 13 - Read the catalog from a workstation  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:**
 - One new fixed connector operation: zip the slicer's `system` and `user` folders with the `packages/host` zip helper and upload them.
@@ -2032,10 +2054,10 @@ Do Step 11 of the 5.4.0 plan in PLAN.md.
 **Done when:** a worker-only hub gets its catalog from a device without a hand-made zip; an older connector answers `device_outdated`; tests pass.
 **Prompt:**
 ```
-Do Step 12 of the 5.4.0 plan in PLAN.md.
+Do Step 13 of the 5.4.0 plan in PLAN.md.
 ```
 
-### [ ] Step 13 - Docs, push & v5.4.0 release
+### [ ] Step 14 - Docs, push & v5.4.0 release
 **Model:** Haiku · **Effort:** Low
 **Scope:**
 - `docs/slicing.md`, `docs/hub.md`, `docs/import.md`, README, `pnpm screenshots`, CHANGELOG, version `5.4.0`, `pnpm version:check`.
@@ -2044,9 +2066,14 @@ Do Step 12 of the 5.4.0 plan in PLAN.md.
 **Done when:** `main`, `dev` and the tag are pushed; the workflow is green; updating 5.3.0 to 5.4.0 keeps all data.
 **Prompt:**
 ```
-Do Step 13 of the 5.4.0 plan in PLAN.md. Only document what changed since the last 5.4.0 pre-release.
+Do Step 14 of the 5.4.0 plan in PLAN.md. Only document what changed since the last 5.4.0 pre-release.
 Then fast-forward main to dev, push, push the v5.4.0 tag and confirm the release.
 ```
+
+
+## Out of scope for 5.4.0 (later plans)
+- OrcaCloud user presets, until the Orca team issues a `client_id` (OrcaSlicer#14028). Then it's a separate **Orca Cloud** account integration with the same row.
+- Writing to Bambu Cloud. `DELETE /v1/iot-service/api/slicer/setting/{id}` is documented by the community and could remove a cloud copy if Step 1 shows tombstones don't work, but it's a destructive write on an unofficial API, so it needs its own decision.
 
 ---
 
