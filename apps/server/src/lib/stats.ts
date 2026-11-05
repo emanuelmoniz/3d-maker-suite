@@ -168,7 +168,7 @@ export function readStats(db: Db, q: StatsQuery, user?: Rights): Stats {
         sql`SELECT *, material + energy + wear + maintenance AS total FROM (
               SELECT use.profile_id || '|' || COALESCE(use.color, '') AS key,
                 trim(COALESCE(${profileLabel}, '') || ' ' || COALESCE(use.color, '')) AS label,
-                filament_profiles.archived_at AS archivedAt,
+                NULL AS archivedAt,
                 COUNT(DISTINCT use.print_id) AS prints,
                 COUNT(DISTINCT CASE WHEN pc.outcome = 'success' THEN pc.id END) AS successes,
                 CAST(ROUND(SUM(pc.sec * use.w / pc.share)) AS INTEGER) AS seconds,
