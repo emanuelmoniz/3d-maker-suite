@@ -2017,7 +2017,7 @@ Do Step 6 of the 5.4.0 plan in PLAN.md. Then push dev, push the tag and confirm 
 Do Step 7 of the 5.4.0 plan in PLAN.md.
 ```
 
-### [ ] Step 7b - A slicer zip is a source too
+### [x] Step 7b - A slicer zip is a source too
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - A zip's `user/` replaces `config/user` of the library's server slicers (ADR-0013), so a preset missing from a newer zip is a removal. Today Step 7 misses it: rows imported through the zip review are stored with `from: zip`, and `gone.ts` only counts rows with a snapshot of that integration.

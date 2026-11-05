@@ -66,7 +66,7 @@ export type Stored = {
   ignoredHeaders: string[];
   rows: StoredRow[];
   /** Set when the rows were read from an integration or a zip instead of a file. */
-  from?: { kind: "integration"; integrationId: string } | { kind: "zip" };
+  from?: { kind: "integration"; integrationId: string } | { kind: "zip"; integrationIds: string[] };
   dir?: string;
   /** The date range the rows were read for (prints), so applying them runs the same range. */
   range?: { from?: string; to?: string };
@@ -506,6 +506,35 @@ export function createReview(db: Db, dataDir: string) {
    * it waits again.
    */
   function snapshot(stored: Stored, wrote: Set<number>, reviewed: boolean) {
+    // A zip filled the `config/user` of these server slicers (ADR-0013): what it brought is their
+    // last import, so a preset missing from a newer zip is a removal for them (ADR-0019).
+    if (stored.from?.kind === "zip") {
+      const { integrationIds } = stored.from;
+      // Only the user presets: the zip's system folder is not what those slicers read.
+      const user = new Set(
+        stored.rows.filter((r) => /^[^:]*:user\//.test(r.source ?? "")).map((r) => r.n),
+      );
+      if (!integrationIds.length || !user.size) return;
+      db.transaction(() => {
+        for (const r of preview(stored).rows) {
+          if (!r.targetId || r.status === "invalid" || !wrote.has(r.row) || !user.has(r.row))
+            continue;
+          for (const integrationId of integrationIds)
+            db.insert(importSnapshots)
+              .values({ integrationId, entity: stored.entity, rowId: r.targetId, values: r.values })
+              .onConflictDoUpdate({
+                target: [
+                  importSnapshots.integrationId,
+                  importSnapshots.entity,
+                  importSnapshots.rowId,
+                ],
+                set: { values: r.values },
+              })
+              .run();
+        }
+      });
+      return;
+    }
     const sync = syncOf(stored);
     if (!sync) return;
     const rows = preview(stored).rows;

@@ -198,6 +198,67 @@ describe("slicer zip import", () => {
     expect(readdirSync(join(user, "default"))).toEqual(["process"]);
   });
 
+  describe("a preset missing from a newer zip", () => {
+    const TYPES = ["brands", "filamentBrands", "filamentMaterials", "filamentProfiles"];
+    const mine = JSON.stringify({
+      name: "Mine",
+      filament_type: ["PETG"],
+      filament_vendor: ["Acme"],
+    });
+    const other = JSON.stringify({
+      name: "Other",
+      filament_type: ["PETG"],
+      filament_vendor: ["Acme"],
+    });
+    const first = () =>
+      zipOf({ "system/Acme.json": FILES_ACME, "user/default/filament/Mine.json": mine });
+    const FILES_ACME = JSON.stringify(FILES["system/Acme.json"]);
+    const newer = () =>
+      zipOf({ "system/Acme.json": FILES_ACME, "user/default/filament/Other.json": other });
+    const firstImport = async () => {
+      const id = (await upload(await first())).json().uploadId;
+      for (const type of TYPES) await importAll(id, type);
+    };
+    const snapshots = () => db.select().from(schema.importSnapshots).all();
+
+    it("raises the removal alert for the server slicer, and Delete works as in Step 7", async () => {
+      const { id } = (
+        await app.inject({
+          method: "POST",
+          url: "/api/integrations",
+          payload: { adapterId: "orca-slicer-server" },
+        })
+      ).json();
+      await firstImport();
+      // As after the slicer's download: its config folder is where its presets are read.
+      db.update(schema.integrations)
+        .set({ slicerConfigDir: join(dataDir, "slicers", id, "config") })
+        .where(eq(schema.integrations.id, id))
+        .run();
+      expect(snapshots().map((s) => s.integrationId)).toEqual([id]);
+
+      expect((await upload(await newer())).statusCode).toBe(200);
+      const url = `/api/import/integration/${id}/userFilamentProfiles`;
+      const [gone] =
+        ((await app.inject({ method: "POST", url })).json() as ImportPreview).gone ?? [];
+      expect(gone).toMatchObject({ label: expect.stringContaining("Mine"), dependents: [] });
+      const del = await app.inject({ method: "DELETE", url: `${url}/gone/${gone?.id}` });
+      expect(del.statusCode).toBe(200);
+      expect(
+        db
+          .select()
+          .from(schema.filamentProfiles)
+          .all()
+          .map((p) => p.name),
+      ).not.toContain("Mine");
+    });
+
+    it("with no server row, a zip removes nothing", async () => {
+      await firstImport();
+      expect(snapshots()).toEqual([]);
+    });
+  });
+
   it("gives a worker slicer the whole zip, system and user: the hub slices its presets", async () => {
     const { id } = (
       await app.inject({

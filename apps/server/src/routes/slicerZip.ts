@@ -13,7 +13,7 @@ import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
 import { createReview, type Stored } from "../import/review.ts";
-import { keepPresets } from "../integrations/managedSlicer.ts";
+import { keepPresets, zipFilled } from "../integrations/managedSlicer.ts";
 import { openUpload, unpackSlicerZip } from "../integrations/slicerZip.ts";
 import { libraryRows } from "../integrations/sourceRows.ts";
 import type { Syncer } from "../integrations/sync.ts";
@@ -98,7 +98,7 @@ export const slicerZipRoutes =
         const stored: Stored = {
           entity: type,
           ignoredHeaders: [],
-          from: { kind: "zip" },
+          from: { kind: "zip", integrationIds: zipFilled(db, syncer.adapters, source) },
           rows: await libraryRows(libraryOf(source), root, type, { dataDir }),
         };
         return { uploadId: review.save(stored), ...review.preview(stored) };

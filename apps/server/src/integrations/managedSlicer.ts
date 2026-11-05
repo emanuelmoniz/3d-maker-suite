@@ -61,6 +61,13 @@ const managedOf = (db: Db, adapters: IntegrationAdapter[], library?: string) =>
         : [];
     });
 
+/**
+ * The server and worker slicers whose `config/user` a zip of `library` fills (see `keepPresets`):
+ * none on a hub, where the library's folder holds the user presets.
+ */
+export const zipFilled = (db: Db, adapters: IntegrationAdapter[], library: string) =>
+  readPreferences(db).hubEnabled ? [] : managedOf(db, adapters, library).map((m) => m.row.id);
+
 /** A worker's device's system (`X-Connector-System`); null before it reported one. */
 export function workerSystem(db: Db, row: typeof integrations.$inferSelect) {
   const deviceId = workerConfigSchema.safeParse(row.config).data?.deviceId;
