@@ -1868,6 +1868,7 @@ Design:
 - **Delete rule:** a preset removed in a slicer is deleted only if nothing uses it, and it is removed from other machines that have preset sync on. This reverses ADR-0017's "deletes never reach desktops".
 - **"In use" is stricter than ADR-0018's delete check.** It also counts what ADR-0018 only clears: a plate's or printer's print profile (`project_slice_plates`, `printers.print_profile_id`), a plate's filament list (JSON), older archived versions with the same `sourcePreset`, and a preset another one `inherits` from.
 - **In use = nothing is deleted anywhere.** The hub and other machines keep it, or slicing would fail with `no_preset`. It shows "Removed on WS-3, still used by 2 plates". A daily check deletes it once it is free.
+- **A catalog row is deleted only when you say so.** A preset gone from a slicer raises an alert. If nothing uses its row, the review offers **Delete**; if something does, the row stays and it shows why, with no Delete. Ignoring the alert keeps the row. A system preset a slicer update removes follows the same rule.
 - **A catalog row with your own edits (a typed price) is archived, not deleted,** so the typed value isn't lost.
 - **Who can delete: the preset's owner,** the user who first shared it. A removal on one of the owner's devices spreads the delete, if nothing uses the preset. Another user's removal changes nothing on the hub, and **Install** writes the preset back to that device. Only a device with Install on receives a delete. People with `presets.manage` can always delete from the app, and existing presets start with no owner, so only they can delete those.
 - **Shared accounts:** a cloud delete can remove a file from an owner's PC, and the connector can't tell that from the owner deleting it. If another device reports the same account folder, the delete is held and an alert asks.
@@ -2004,8 +2005,13 @@ Do Step 6 of the 5.4.0 plan in PLAN.md. Then push dev, push the tag and confirm 
 
 ### [ ] Step 7 - "In use" and catalog delete
 **Model:** Opus · **Effort:** High
-**Scope:** A `presetInUse` check built on `lib/dependents.ts`, with the stricter rule from the design. A preset gone from the source: not in use = delete the row; edited = archive; in use = keep and show why.
-**Done when:** single-PC installs follow the delete rule; a test for each reference the rule counts; tests pass.
+**Scope:**
+- A `presetInUse` check built on `lib/dependents.ts`, with the stricter rule from the design.
+- The file checks notice a catalog row whose preset is gone from the source: a user preset's file, or a system preset after a slicer update. Nothing is deleted on its own: it counts as waiting and raises the alert, whatever the card's mode. A sign-in or sign-out isn't a removal, because every account's folder is read.
+- The review shows these rows, with a new **Delete** action. Not in use: Delete removes the row; with your own edits, it archives it instead. In use: the row stays, it shows why ("used by 2 plates") and offers no Delete. When it becomes free, the alert offers Delete again. Skipped or ignored, the row stays and doesn't ask again until the source changes.
+- A preset that comes back in the source closes its alert.
+
+**Done when:** a preset removed in a real slicer raises an alert, and Delete removes an unused row after a person confirms; a used row can't be deleted and says why; nothing is ever deleted with nobody asking; a test for each reference the rule counts; tests and e2e pass.
 **Prompt:**
 ```
 Do Step 7 of the 5.4.0 plan in PLAN.md.
@@ -2016,7 +2022,7 @@ Do Step 7 of the 5.4.0 plan in PLAN.md.
 **Scope:**
 - Spike first: re-creating a name just deleted in the slicer, on Studio and Orca, signed in and out. A non-owner's removal depends on it.
 - Migration: `slicer_presets.ownerUserId`, set by the first save from the device's user or the zip's uploader. Null = only `presets.manage` can delete; existing presets start null.
-- Hub: `presetRemovedOn` in `presetLibrary.ts` becomes delete-if-free for the owner's devices, with a daily re-check of `removedOn`. A non-owner's removal changes nothing on the hub. If another device reports the same account folder, the delete is held and an alert asks.
+- Hub: `presetRemovedOn` in `presetLibrary.ts` becomes delete-if-free for the owner's devices, with a daily re-check of `removedOn`. This covers the library and other machines: its catalog row still follows Step 7, with an alert and a person's Delete. A non-owner's removal changes nothing on the hub. If another device reports the same account folder, the delete is held and an alert asks.
 - A hub PC's local slicer sends its user presets to the library through `mergeUserPresets`, with no owner.
 - Connector: `createPresetShare` holds mass deletes and ignores folder moves. `createPresetInstall` applies deletes per Step 1, when the slicer is closed, after the backup, and writes back a preset a non-owner removed. This reverses ADR-0017's "stays away until the hub has a new version".
 - Web: per-device result, the held-deletes prompt, Restore.
@@ -2049,7 +2055,7 @@ Do Step 9 of the 5.4.0 plan in PLAN.md.
 **Scope:**
 - Two real PCs on different accounts: delete as the owner. The hub and an Install device lose it, and the backup zip exists. Repeat with the slicer open, signed in, after a sign-out, and with a mass delete. Restore brings it back on both. Remove it as the other user: the hub keeps it, and Install writes it back.
 - Two real PCs on the same account: a delete is held, and the alert asks.
-- A real Bambu account: turn User presets on and Sync now. Presets appear once, with no duplicate of Studio's row. Edit one in Studio: updated on the next run, and a typed price stays. Delete an unused one: it goes. Delete a used one: it stays, with the reason shown. A preset from a zip stays untouched. On a hub, a synced preset reaches a worker and an Install device, then settles with no extra versions.
+- A real Bambu account: turn User presets on and Sync now. Presets appear once, with no duplicate of Studio's row. Edit one in Studio: updated on the next run, and a typed price stays. Delete an unused one: an alert asks, and Delete removes its row. Delete a used one: its row stays, with the reason shown. A preset from a zip stays untouched. On a hub, a synced preset reaches a worker and an Install device, then settles with no extra versions.
 - Fix anything found.
 - `docs/hub.md`, `docs/bambu-cloud.md`, CHANGELOG, version `5.4.0-alpha.2`. Commit on `dev`, push, tag `v5.4.0-alpha.2` on `dev`. Check the run and the release.
 

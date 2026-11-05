@@ -54,6 +54,8 @@ A delete made in Studio's own UI does remove the cloud copy, and a PC of that ac
 
 - **"In use" is stricter than ADR-0018's delete check.** It also counts what ADR-0018 only clears: a plate's or printer's print profile (`project_slice_plates`, `printers.print_profile_id`), a plate's filament list (JSON), older archived versions with the same `sourcePreset`, and a preset another one `inherits` from.
 - **In use = nothing is deleted anywhere.** The hub and other machines keep it, or slicing would fail with `no_preset`. It shows "Removed on WS-3, still used by 2 plates". A daily check deletes it once it is free.
+- **A catalog row is deleted only when you say so** (amended in Plan 5.4.0 Step 7). A preset gone from a slicer raises an alert, whatever the card's mode. If nothing uses its row, the review offers **Delete**; if something does, the row stays and it shows why, with no Delete. Ignoring the alert keeps the row, and it doesn't ask again until the source changes. A system preset a slicer update removes follows the same rule. A row can hold what a slicer can't give back: typed prices, or a link to your spools and prints.
+- **The rest of this rule covers the library and other machines.** Across several machines (Plan 5.4.0 Step 8) a removal still spreads there as below, and the catalog row still asks.
 - **A catalog row with your own edits (a typed price) is archived, not deleted,** so the typed value isn't lost.
 - **Who can delete: the preset's owner,** the user who first shared it (`slicer_presets.ownerUserId`). The owner is a user, not a device, so their other PCs count and a replaced workstation orphans nothing. A removal on one of the owner's devices spreads the delete. Another user's removal changes nothing on the hub, and **Install** writes the preset back to that device, which reverses ADR-0017's "stays away until the hub has a new version". Only a device with Install on receives a delete. The two switches stay, because farm PCs need install-only.
 - **`presets.manage` can always delete from the app,** or a departed user's presets could never be removed. Existing presets start with no owner, because only the last saver's name is stored and old versions get pruned, so only `presets.manage` can delete those.
@@ -168,6 +170,7 @@ Other Orca versions weren't tested.
 - **`fs.watch` for a single PC's presets.** Less reliable on NAS and Docker volumes than the scheduler tick.
 - **Writing catalog changes automatically by default.** A vendor update could rewrite prices and names no one asked to change. It's opt-in per type, with Keep my edits as the default.
 - **A frequency on a slicer's cards.** They read files, so a change in the files is the only time there is anything to do.
+- **Deleting a catalog row on its own once its preset is gone and unused.** Nothing asks, and a preset removed by mistake or by a cloud sync would take the row with it.
 - **An import switch per section.** A card in Manual never imported does nothing and its alerts can be unticked, and an "off" that data types otherwise don't have (migration 0064) would stop user presets too.
 - **Connectors as integrations.** They do far more than host a slicer.
 - **Merging install rows into one.** Projects, plates, prints and snapshots point at them.
