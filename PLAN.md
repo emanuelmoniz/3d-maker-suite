@@ -2017,13 +2017,26 @@ Do Step 6 of the 5.4.0 plan in PLAN.md. Then push dev, push the tag and confirm 
 Do Step 7 of the 5.4.0 plan in PLAN.md.
 ```
 
+### [ ] Step 7b - A slicer zip is a source too
+**Model:** Sonnet · **Effort:** Medium
+**Scope:**
+- A zip's `user/` replaces `config/user` of the library's server slicers (ADR-0013), so a preset missing from a newer zip is a removal. Today Step 7 misses it: rows imported through the zip review are stored with `from: zip`, and `gone.ts` only counts rows with a snapshot of that integration.
+- Rows imported from a zip are recorded for the library's server row whose `config/user` the zip filled, so Step 7's alert, Delete and "in use" rule cover them. With no server row, a zip removes nothing.
+- A server slicer's presets are never made or edited there: they come from a zip, the hub library or (Step 9) Bambu Cloud. Its User presets cards stay, because on a hub they are the library's route into the catalog (Step 5).
+
+**Done when:** a second zip without a preset the first one brought raises the removal alert, and Delete works as in Step 7; a zip with no server row deletes nothing; tests pass.
+**Prompt:**
+```
+Do Step 7b of the 5.4.0 plan in PLAN.md.
+```
+
 ### [ ] Step 8 - Deletes reach other machines  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:**
 - Spike first: re-creating a name just deleted in the slicer, on Studio and Orca, signed in and out. A non-owner's removal depends on it.
 - Migration: `slicer_presets.ownerUserId`, set by the first save from the device's user or the zip's uploader. Null = only `presets.manage` can delete; existing presets start null.
 - Hub: `presetRemovedOn` in `presetLibrary.ts` becomes delete-if-free for the owner's devices, with a daily re-check of `removedOn`. This covers the library and other machines: its catalog row still follows Step 7, with an alert and a person's Delete. A non-owner's removal changes nothing on the hub. If another device reports the same account folder, the delete is held and an alert asks.
-- A hub PC's local slicer sends its user presets to the library through `mergeUserPresets`, with no owner.
+- A hub PC's local slicer sends its user presets to the library through `mergeUserPresets`, with no owner. They then reach the catalog through the library only: the local folder's user preset check skips them, so one preset has one route (one review, one count, one removal alert).
 - Connector: `createPresetShare` holds mass deletes and ignores folder moves. `createPresetInstall` applies deletes per Step 1, when the slicer is closed, after the backup, and writes back a preset a non-owner removed. This reverses ADR-0017's "stays away until the hub has a new version".
 - Web: per-device result, the held-deletes prompt, Restore.
 - Connector version gate: an older connector answers `device_outdated`.
@@ -2042,9 +2055,10 @@ Do Step 8 of the 5.4.0 plan in PLAN.md.
 - A cloud preset only holds its differences, so brand and material need its system parent: the same reader, with the slicer's system folder. With none, the row waits for review (Step 5's rule).
 - An older cloud copy never overwrites a newer edit: cloud copies go through `uploadPreset` in `presetLibrary.ts`. Compare resolved values, because a cloud copy drops values equal to the parent's, so the same settings make no new version.
 - Deletes follow Steps 7 and 8, with the cloud guards from the design. The cloud row owns the presets first seen from it, and its delete guards apply only to those.
+- One preset, one route into the catalog. A cloud preset written to the hub library or a managed slicer's `config/user`, and the same preset in a desktop Studio folder of that account, would otherwise also be offered by that folder's user preset check: two cards counting it, two reviews in Manual, two removal alerts, and the file check alerting past the cloud's delete guards. So the first route to see a preset owns it (kept per preset), and the user preset file checks skip presets the cloud row owns. The catalog row is one either way, since both use `bambu-studio:user/<name>`.
 - With connector Share on the same account, it works, and the card suggests one route is enough.
 
-**Done when:** tests with recorded payloads, never a live account in CI, cover list and get, a schema change, a failed or partial list deleting nothing, and a zip's preset staying; tests and e2e pass.
+**Done when:** tests with recorded payloads, never a live account in CI, cover list and get, a schema change, a failed or partial list deleting nothing, a zip's preset staying, and a cloud preset written to the library or found in a desktop folder counted and reviewed by the cloud's card only; tests and e2e pass.
 **Prompt:**
 ```
 Do Step 9 of the 5.4.0 plan in PLAN.md.
@@ -2072,6 +2086,7 @@ Do Step 10 of the 5.4.0 plan in PLAN.md. Guide me through each scenario and fix 
 **Scope:**
 - Add integration: pick a product, then for a slicer "Installed on this computer", "Download it to this server" or "On a connected workstation".
 - Replace the adapter list in `IntegrationFormPage.tsx`. `IntegrationsPage.tsx` groups by library. `IntegrationCard.tsx` splits into a slicer card with Step 5's groups (User presets gains its count) and a "Runs on" list. Every connector that reports the slicer (`devices.slicers`) is listed.
+- A server location ("Download it to this server") has no User presets cards of its own: nobody makes or edits presets there. Its `config/user` (hub library, zip, Bambu Cloud) feeds the slicer card's User presets group, and its "Runs on" row says where its presets come from.
 - Installs keep their `Bambu Studio (WS-3)` label in slice pickers.
 
 **Done when:** from a clean database, each of the three locations can be added and slices, at phone and desktop width; a migrated 5.3 database keeps each project's slicer, and slices don't turn outdated; tests and e2e pass.
@@ -2136,6 +2151,7 @@ Then fast-forward main to dev, push, push the v5.4.0 tag and confirm the release
 ## Out of scope for 5.4.0 (later plans)
 - OrcaCloud user presets, until the Orca team issues a `client_id` (OrcaSlicer#14028). Then it's a separate **Orca Cloud** account integration with the same row.
 - Writing to Bambu Cloud. `DELETE /v1/iot-service/api/slicer/setting/{id}` is documented by the community and could remove a cloud copy if Step 1 shows tombstones don't work, but it's a destructive write on an unofficial API, so it needs its own decision.
+- Desktop presets for a server slicer on the same PC with the hub off. A preset made in desktop Studio reaches the catalog, but the managed slicer's `config/user` only gets presets from a zip, so slicing there fails with `no_preset` (the picker already warns). On a hub, Step 8's merge into the library covers it. Rare, since desktop Studio slices by itself; kept as an open discussion.
 
 ---
 
