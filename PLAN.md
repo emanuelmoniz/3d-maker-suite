@@ -2273,7 +2273,7 @@ Design:
 - **Open:** only on the machine the user sits at, and only if the user can edit the project. The server's computer uses its integration slicer. Any other computer needs a connector that answers the page's probe, is paired to this user and has a slicer. Everything else, phones included, gets no button. Nothing opens on another machine. Open folder follows the same rule.
 - **Device root:** the machine holding the files opens the original. Another machine with a connector opens a copy, whose saves stay on that machine.
 - **Public address:** one saved address used for links in alerts (email and ntfy). The server never reads it from a request: `Host` can be forged.
-- **Download:** on the rows of the files list only, not in the page header, and it works on a phone.
+- **Download:** anyone who can see a project can download its files, folders and the full project folder, viewers included. There's no separate permission: read access already means download, and the 3D view needs the same bytes, so a download right couldn't be enforced. It works from any machine, phones included, wherever the files are: the hub pulls a device root's files from its connector, whoever's device it is, as long as that device is online. Download sits in the files section, not the page header.
 
 ## Phase 33 - Mobile bar and links
 
@@ -2370,16 +2370,18 @@ Do Step 5 of the 5.6.0 plan in PLAN.md.
 Plan Step 6 of the 5.6.0 plan in PLAN.md.
 ```
 
-### [ ] Step 7 - Download files and folders
-**Model:** Sonnet · **Effort:** Medium
+### [ ] Step 7 - Download files, folders and the full project
+**Model:** Opus · **Effort:** Medium
 **Scope:**
-- `ProjectFiles` rows: a Download icon button on files and folders, behind `Write` (`canEdit`). A file links to `projectFileUrl`. No button in the page header.
-- A folder downloads as a zip: `GET /:id/folder/download?path=`, with a server-side edit check (`projectAccessOf`). Entries come from the scanner's `meta.files` under that path (no shortcuts, nothing the client invents). It streams with `yazl`, stored uncompressed since 3MF is already a zip. A device root's files come through the existing fetch and cache, one at a time.
-- `DeviceFileList` is flat today: group it by folder from the listed paths, so folders can be downloaded there too.
-- `/:id/file` stays open to anyone who can read the project: the 3D view needs it. View-only users keep the links they have today.
-- `docs/projects.md`.
+- One route, `GET /:id/files/download?path=`, for anyone who can see the project (else 404, as elsewhere; no `canEdit` check). A file comes back as an attachment, a folder as a zip, and an empty `path` as the full project folder, with the folder's name.
+- Don't reuse `/:id/file` for this: it only serves what the scanner listed, while hub root rows show the real folder, so a file beyond `filesDepth` or the scan cap would give a 404.
+- What goes in: on a hub root, the real folder through `projectPath`'s guard, without hidden files or links, like the list. On a device root, the last scan's files under that path (`meta.files`, no shortcuts), since only those can be pulled (`deviceFiles.ts`). Say so in the docs: files the scan leaves out aren't included.
+- Zips stream with `yazl`, stored uncompressed since 3MF is already a zip. A device root's files are pulled through the existing cache, one at a time. A failure before the first byte is a normal error; later, the connection is cut so the browser reports a failed download, not a broken zip.
+- `ProjectFiles` rows: a Download icon button on files and folders, outside `Write`. The files section gets **Download full project folder**, outside `Write` too. No button in the page header.
+- `DeviceFileList`: the same buttons. It's flat today, so group it by folder from the listed paths. While the device is offline it says the files can be downloaded once the device is back, instead of showing nothing.
+- `docs/projects.md`, `docs/hub.md` (the device must be online), `docs/users.md`.
 
-**Done when:** a server test covers a zip's entries, a path outside the project and no edit right; e2e on a hub root and a device root, at phone width too; no download button in the header; tests, lint and `pnpm i18n:check` pass.
+**Done when:** server tests cover a file beyond `filesDepth`, a zip's entries, the full project, a path outside the project, a viewer (allowed), a user who can't see the project (404), another user's device root and an offline device; e2e as a viewer on a hub root and a device root, at phone width too; no download button in the header; tests, lint and `pnpm i18n:check` pass.
 **Prompt:**
 ```
 Do Step 7 of the 5.6.0 plan in PLAN.md.
@@ -2394,7 +2396,7 @@ Do Step 7 of the 5.6.0 plan in PLAN.md.
 - On the real VPS, updated to the alpha, with a workstation connector on it:
   - Pick the domain as Public address and test it. Try a wrong name too. Send test by email and ntfy: the link opens the app on a phone.
   - On the workstation: Open and Open folder on a device root project (the slicer opens the original, and a save reaches the hub). A second computer with a connector: Open gets a copy. A phone: no Open or Open folder.
-  - On a phone: download a file and a folder.
+  - On a phone, as a viewer: download a file, a folder and the full project folder of a device root project on someone else's workstation, then the same with that workstation offline (a clear message, no download).
 - A NAS or Docker install: no link until an address is picked, then the typed LAN IP works.
 - Fix anything found.
 
@@ -2422,7 +2424,9 @@ Then fast-forward main to dev, push, push the v5.6.0 tag and confirm the release
 - A computer with a slicer but no connector: no button, because the page can't detect the slicer.
 - A connector paired to another user: no button for you on that computer.
 - Checking the address from outside the network: it would need a third-party service.
-- Downloading several picked files, or the whole project, as one zip.
+- Downloading several picked files as one zip.
+- A separate download permission: anyone who can see a project can download it.
+- Downloading from an offline device: its files are only on that machine.
 
 ---
 
