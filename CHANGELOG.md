@@ -2,7 +2,15 @@
 
 All notable changes are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased]
+## [5.4.0-alpha.1] - 2026-11-05
+
+Pre-release. Test on a copy of your data first; back up before updating. Lists everything since 5.3.0. One migration adds `catalogFingerprint` to integrations.
+
+### Added
+- **One Catalog row on a slicer's card** (Bambu Studio, OrcaSlicer): **Choose brands** lists the printer and filament brands with what's in your catalog checked, and imports only the ones you pick, with their models, profiles and materials after a backup ([docs/import.md](docs/import.md#from-an-integration))
+- **Presets reach the catalog on their own**: a preset you save in a slicer, or on a hub, is in the catalog within a minute, keeping the values you typed. A preset whose parent can't be found waits for review instead of failing
+- **OrcaSlicer's system presets** are read from its `.opc` files, so Orca gets brands, models and profiles like Bambu Studio. An unknown Orca format shows a message on the card
+- **Brand and Slicer columns** in the catalog tables on the Printers and Filament pages, with filters; sorting by brand and slicer, and a slicer filter on brands
 
 ### Changed
 - **Slicer cards run when the slicer's files change, not on a schedule.** Bambu Studio's and OrcaSlicer's cards are now the same cards as Bambu Cloud's, grouped into Catalog, System presets and User presets, and "When" is Automatic when the files change or Manual. An existing Auto schedule on one of these types becomes Automatic, and its frequency is ignored. In Manual nothing is written: on a change in the slicer's system presets a **Sync needs review** alert leads to the review, for types you imported before. Bambu Cloud's schedules don't change

@@ -128,7 +128,14 @@ Every type except print history has two more settings on the Integrations page (
 | Everything | Adds every row the source offers and keeps them up to date. |
 | Only what I already have | Keeps the rows you have up to date. A new row is added only when you have its brand: a new model of your printer brand still arrives, a brand you never imported doesn't. Brands, filament brands and materials themselves are never added. Rows it leaves out don't wait for review and raise no alert. |
 
-**A slicer's card has one Catalog row** instead of one row per type. **Choose brands** lists the slicer's printer brands and filament brands (the ones you have are checked). Pick the ones you use and **Import**: you get those brands with their models, machine and print profiles, and for filament brands their materials and filament profiles, after a backup. Then **Only what I already have** is switched on for all the catalog types at once; switch it off for **Everything**. The row's links open the review of each type, where the slicer's changes wait.
+**A slicer's card is grouped** into **Catalog**, **System presets** and **User presets**, each with its own rows. **Choose brands** sits above them and lists the slicer's printer brands and filament brands (the ones you have are checked, and **Select all** ticks every one). Pick the ones you use and **Import**: you get those brands with their models, machine and print profiles, and for filament brands their materials and filament profiles, after a backup. Then **Only what I already have** is switched on for all the catalog types at once; switch it off for **Everything**. The rows' links open the review of each type, where the slicer's changes wait.
+
+**When** on the card is one switch:
+
+- **Automatic**: a change in the slicer's files runs the type. A new user preset is added and a changed one updated within a minute, keeping the values you typed. Under **Only what I already have**, a new preset raises a **Sync needs review** alert and waits for you instead.
+- **Manual** (the default for catalog types): nothing is written. A change raises a **Sync needs review** alert, and the review offers the changes.
+
+Catalog types of a slicer don't run on a schedule: a daily check looks at the slicer's files and raises the alert when they changed. Your user presets reach only the catalog this way; sharing and installing them between machines is a separate step.
 
 **How to sync** (what a sync does when the source changes a row you have)
 

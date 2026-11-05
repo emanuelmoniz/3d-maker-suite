@@ -1989,7 +1989,7 @@ Do Step 5 of the 5.4.0 plan in PLAN.md.
 Do Step 5b of the 5.4.0 plan in PLAN.md.
 ```
 
-### [ ] Step 6 - Docs, push & v5.4.0-alpha.1
+### [x] Step 6 - Docs, push & v5.4.0-alpha.1
 **Model:** Haiku · **Effort:** Low
 **Scope:**
 - `docs/import.md` (Choose brands, the three groups, Automatic versus Manual and how to configure them), `docs/slicing.md`, `pnpm screenshots` if a README page changed, CHANGELOG, version `5.4.0-alpha.1`.
