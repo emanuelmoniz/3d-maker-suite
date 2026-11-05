@@ -20,7 +20,7 @@ No schedule: what a slicer's files feed runs when the files change. Each type ch
 - **Manual (default):** when the source changes, nothing is written, not even new rows: an alert leads to a review.
 - **Automatic:** the type runs, under its own "what to sync" and "how to sync", with Keep my edits as the default. A first sight of a folder only records it.
 
-The check runs on the scheduler's one-minute tick, because the fingerprint is cheap. The trigger is a fingerprint of `system/`: the sorted `<vendor>=<version>` of each `system/<vendor>.json`. It is 12 small files, read in about 2 ms. File times can't be used: Studio recopied a whole vendor folder with no change of version, which would raise a false alert. Orca ≥ 2.5 has only `.opc` files, which we can't read (ADR-0013), so it has no system catalog to fingerprint.
+The check runs on the scheduler's one-minute tick, because the fingerprint is cheap. The trigger is a fingerprint of `system/`: the sorted `<vendor>=<version>` of each `system/<vendor>.json`. It is 12 small files, read in about 2 ms. File times can't be used: Studio recopied a whole vendor folder with no change of version, which would raise a false alert. Orca ≥ 2.5 has only `.opc` files (ADR-0013): each one's header stamps its vendor and version, which gives the same fingerprint without reading the rest.
 
 A type never imported from that slicer raises nothing: someone who only slices has nothing to review, and a review opened by hand still shows its rows. A user preset's row doesn't count as importing its type's system presets.
 
@@ -95,7 +95,7 @@ Three concepts are kept apart. The **catalog** is database rows (brands, models,
 **Choose brands** sits above the groups, because a brand fills several cards: it brings the brand with its models and system presets, and sets the Catalog and System presets cards to "Only what I already have". Each list has Select all and shows the brands already in your catalog. A "Runs on" list ends the card. Each connector that reports the slicer is on that list, with Slice here, Share, Install and Read catalog. Share and Install become per slicer on a device, so a device can share one slicer and not another. The Presets button leaves Hub management.
 
 ### Unchanged
-Bambu Cloud's existing rows, the hub-only library (ADR-0017), and Orca 2.5+ system presets staying unreadable (ADR-0013).
+Bambu Cloud's existing rows and the hub-only library (ADR-0017).
 
 ## Spike results (2026-11-04)
 Found on real installs on Windows 11: Bambu Studio 02.09.01.70 (profiles 02.09.00.74) and OrcaSlicer 2.5.0-rc, on one PC. Studio's test preset was written to disk as the connector writes one; Orca's were saved in its UI. Each result was read from the folder, Orca's log and, for Bambu, the cloud's list. Each start was repeated, because ADR-0017 once saw a change only at the next start.

@@ -127,7 +127,7 @@ export function cliSlicer({
             scope === "system"
               ? procs.systemFiles.get(name)
               : await userFile(configDir, "process", name);
-          const proc = procFile && (await readJson(procFile));
+          const proc = procFile && (await procs.load(procFile));
           const machinePreset = await machines.load(machineFile);
           if (!proc) throw failed(`Print preset not found: ${name}`);
           if (!machinePreset) throw failed(`Printer preset unreadable: ${machine}`);
@@ -187,7 +187,7 @@ export function cliSlicer({
                     : (fils.systemFiles.get(name) ??
                       (await userFile(configDir, "filament", name)) ??
                       (await variantOf(baseName(name))));
-            const preset = file && (await readJson(file));
+            const preset = file && (await fils.load(file));
             if (!preset) throw failed(`Filament preset not found: ${name}`);
             const copy = join(out, `filament_${files.length + 1}.json`);
             const edits = id ? {} : own.filamentEdits(i);

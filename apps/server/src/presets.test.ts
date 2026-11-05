@@ -396,6 +396,17 @@ describe("user presets reach the catalog on their own (ADR-0019)", () => {
   });
 });
 
+it("a zip keeps Orca's system caches", async () => {
+  const res = await upload({
+    "system/Acme.opc": "binary",
+    "system/orca_plugins/plugin.dll": "not a preset",
+  });
+  expect(res.statusCode, res.body).toBe(200);
+  const files = readdirSync(dataDir, { recursive: true, encoding: "utf8" });
+  expect(files.some((f) => f.endsWith("Acme.opc"))).toBe(true);
+  expect(files.some((f) => f.endsWith("plugin.dll"))).toBe(false);
+});
+
 describe("hub preset library (ADR-0017)", () => {
   it("merges zips from two PCs; the server slicer and a worker read the library", async () => {
     const server = await addSlicer("orca-slicer-server");

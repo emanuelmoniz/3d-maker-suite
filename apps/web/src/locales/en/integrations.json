@@ -195,7 +195,7 @@
     "import_other": "Import {{count}} brands",
     "cancel": "Cancel",
     "readError": "Couldn't read the slicer's brands. Check its folder above.",
-    "none": "This slicer's system presets can't be read here, so there are no brands to pick. Your user presets still reach the catalog."
+    "none": "This slicer's system presets can't be read here, so there are no brands to pick. If it's a newer version than this app knows, update the app. Your user presets still reach the catalog."
   },
   "policies": {
     "groups": {

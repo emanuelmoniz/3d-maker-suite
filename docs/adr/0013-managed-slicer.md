@@ -33,7 +33,10 @@ ADR-0007 slices with the CLI of the slicer installed on the server's PC. A headl
 - Bambu: unchanged from ADR-0007 (`result.json` for success and errors). It refuses any flag it doesn't know (`--logfile` gives `-2`, "setup params error"), so the arguments are built per slicer.
 - Orca: always `--allow-newer-file`, and `--logfile <out>/log.txt`. It writes `result.json` on Linux but not on Windows or macOS. Success is exit code 0 plus `out.3mf`. Otherwise the exit code is the error code (e.g. `-24`), and the reason is the last error line of the log.
 - **Orca 2.5.0 is the minimum.** 2.4.x stops on Bambu files: `-24` (file from a newer Bambu Studio), then `-18` with `--allow-newer-file` because it requires `BBL/machine_full`. In 2.5.0 a missing `*_full` file is only a warning. Until 2.5.0 is stable, Orca is offered only with pre-releases switched on.
-- **Orca's system presets aren't listed.** From 2.5.0 Orca ships its profiles only as binary `resources/profiles/<vendor>.opc` files (magic `ZCRO`, Orca's `docs/HLSD/preset-cache.md`), which our JSON preset reader can't read. A managed Orca slices with the 3MF's own settings plus imported user presets (Step 14). System-preset picking for Orca waits until Orca offers a JSON export.
+- **Orca's system presets are read from its caches.** From 2.5.0 Orca ships its profiles only as binary `resources/profiles/<vendor>.opc` files (magic `ZCRO`, Orca's `docs/HLSD/preset-cache.md`). `packages/slicer-presets/src/opc.ts` reads them into the same shape as a JSON preset, so the catalog, a user preset's parent and slicing all work as they do with JSON (amended in Plan 5.4.0 Step 5b, see below). This was first decided the other way, waiting for a JSON export from Orca.
+- **The cache format is private.** Orca makes no promise about it: one version number changes when the layout does, and its own decoder PR (#16756) was closed unmerged. So the reader takes only the version it knows, a whole file with a matching CRC-32, and every byte read. Anything else means no system presets from that file, a warning in the log and a message in the picker, which is how Orca ≥ 2.5 behaved before. Each new Orca release needs the real-install test in `opc.test.ts`, and CONTRIBUTING's checklist says so.
+- **Checked against the real program** (Orca 2.5.0-rc, Windows): all 65 files of `system/` and 72 of `resources/profiles` parsed in about 0.2 s, with 8,833 filament, 3,648 process and 1,365 machine presets and no parent missing. Flattened copies of a machine, process and filament preset slice an Orca-saved project: exit 0 and a valid `out.3mf`.
+- **A Bambu-made project can refuse a process preset in Orca.** With a process preset loaded, Orca validates the settings embedded in the 3MF: Bambu's `raft_first_layer_expansion: -1` fails its range check with `-18`, though nothing in the preset names that key. The same project slices with no preset, or with machine or filament presets, and once saved by Orca it takes the process preset too.
 - **Headless:** the slicers need no display and no xvfb. They only need their shared libraries.
 - **Docker:** the base moves to `node:22-trixie-slim` (glibc 2.41; bookworm's 2.36 runs none of the Ubuntu 24.04 builds). The slicer libraries go only into a separate slicer image (Step 15), so the default image stays small:
   ```
@@ -67,14 +70,15 @@ Fixtures from `packages/3mf/fixtures`, plate 1. Bambu Studio 02.08.02.61, OrcaSl
 - Bambu on Windows arm64: no build. The x64 build would run under emulation (not tested).
 - Orca 2.4.x on Bambu projects (`-24`/`-18`, above).
 - Any Ubuntu 24.04 build (all of Orca's, Bambu's `ubu24`) on glibc < 2.38, e.g. Debian 12.
-- Picking Orca system presets (binary `.opc`, above).
+- A process preset on a Bambu-made project in Orca (`-18`, above).
+- A model's picture on a desktop Orca or from a zip: they live in the program's folder. A managed Orca has them.
 
 ## Rejected options
 - **Bundling a slicer in our release or Docker image:** still rejected for the reasons in ADR-0007 (licence, 150–700 MB per OS, version drift). Downloading on request keeps the user's choice of version and leaves redistribution to the vendor.
 - **Running the vendor's Windows installer:** it needs elevation and touches the user's desktop install. The zip is portable and complete.
 - **Mounting the AppImage with FUSE:** containers usually lack `/dev/fuse` and the capability. Extracting once works everywhere.
 - **xvfb in Docker:** not needed. The CLI slices without a display.
-- **Reading Orca's `.opc` files:** it's a private, versioned binary format tied to Orca's option table. Taking JSON profiles from the tag's source tree would work, but means downloading Orca's repo snapshot. Kept as an option if users ask for Orca system presets.
+- **Taking JSON profiles from the tag's source tree:** the format is stable, but the repo is 1.5 GB, so it means a large download or thousands of requests, and it fails offline. Reading the installed caches needs neither.
 - **Bookworm with Bambu's `ubuntu22.04` build only:** it works, but rules out Orca entirely and depends on Bambu keeping a 22.04 build.
 
 ## Risks and mitigations
@@ -87,7 +91,7 @@ Fixtures from `packages/3mf/fixtures`, plate 1. Bambu Studio 02.08.02.61, OrcaSl
 ## Consequences
 - Slicing works on headless servers, NAS and Docker (x86_64) without a desktop slicer.
 - Step 13: generalised `fetchReleases`, the descriptors and matchers above, the install job (download, digest, unpack, smoke test, set `slicerPath`), skipping `*.pdb`, per-slicer arguments and error reading.
-- Step 14: the managed config folder uses `resources/profiles` as `system/` (Bambu, Orca ≤ 2.4). For Orca ≥ 2.5 it has no system presets.
+- Step 14: the managed config folder uses `resources/profiles` as `system/` (Bambu, Orca, whose caches are read from there).
 - Step 15: `node:22-trixie-slim` base and a slicer image with the libraries above.
 
 ## Sources (checked 2026-10-26)

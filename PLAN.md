@@ -1,4 +1,4 @@
-# 3D Maker Suite - Development Plans 4.1.0, 4.1.1, 4.2.0, 5.0.0, 5.1.0, 5.2.0, 5.3.0, 5.4.0, 5.5.0 and 6.0.0
+# 3D Maker Suite - Development Plans 4.1.0, 4.1.1, 4.2.0, 5.0.0, 5.1.0, 5.2.0, 5.3.0, 5.4.0, 5.5.0, 5.6.0 and 6.0.0
 Repo: `3d-maker-suite`
 
 How to use:
@@ -1973,7 +1973,7 @@ Do Step 4 of the 5.4.0 plan in PLAN.md.
 Do Step 5 of the 5.4.0 plan in PLAN.md.
 ```
 
-### [ ] Step 5b - Orca system presets from `.opc`  **[plan mode]**
+### [x] Step 5b - Orca system presets from `.opc`  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:**
 - A pure parser in `packages/slicer-presets`, with no new dependency. Magic, checksum and format version are checked, and every byte must be consumed.
@@ -2259,9 +2259,170 @@ Then fast-forward main to dev, push, push the v5.5.0 tag and confirm the release
 
 ---
 
+# Plan 5.6.0 - Right link, right machine
+
+Minor release, starts after the 5.5.0 release. No DB migration and no new dependency (`yazl` is already in the server). Skills: `frontend-design` for the address picker, `webapp-testing` for browser checks.
+
+Design:
+- **Open:** only on the machine the user sits at, and only if the user can edit the project. The server's computer uses its integration slicer. Any other computer needs a connector that answers the page's probe, is paired to this user and has a slicer. Everything else, phones included, gets no button. Nothing opens on another machine. Open folder follows the same rule.
+- **Device root:** the machine holding the files opens the original. Another machine with a connector opens a copy, whose saves stay on that machine.
+- **Public address:** one saved address used for links in alerts (email and ntfy). The server never reads it from a request: `Host` can be forged.
+- **Download:** on the rows of the files list only, not in the page header, and it works on a phone.
+
+## Phase 33 - Mobile bar and links
+
+### [ ] Step 1 - Projects in the bottom bar
+**Model:** Haiku · **Effort:** Low
+**Scope:**
+- In `shell/nav.ts`, move `primary: true` from Printers to Projects. Printers moves to the More sheet. The sidebar doesn't change.
+
+**Done when:** at phone width the bar shows Dashboard, Filament, Projects, Prints and More, and More reaches Printers; an e2e checks both; tests, lint and `pnpm i18n:check` pass.
+**Prompt:**
+```
+Do Step 1 of the 5.6.0 plan in PLAN.md.
+```
+
+### [ ] Step 2 - Public address
+**Model:** Sonnet · **Effort:** Medium
+**Scope:**
+- Add `publicUrl` (http or https only, no trailing slash) to the saved config next to host and port, and `APP_PUBLIC_URL`, which wins and shows as fixed, as `hostSource` does. No restart needed: read it each time alerts are sent.
+- Add `detected`, the server's non-internal IPv4 addresses, to the config response. Empty in Docker (`APP_INSTALL=docker`), where they are container addresses.
+- Replace `baseUrl` in `app.ts` with one small function, in this order:
+  1. Public address, if set.
+  2. A specific `HOST`: `http://host:port`.
+  3. Wildcard `HOST`: the first detected IP (`ponytail:` naive with several network adapters; the Public address overrides it). In Docker: no link.
+  4. Loopback `HOST`: no link if `APP_ALLOWED_HOSTS` is set (a reverse proxy), else `127.0.0.1`.
+- Settings → Server gets a **Public address** picker: **Automatic**, **Internal IP** (the detected list, using the server's port) or **Domain or external IP** (typed, with its scheme). "Use this address" fills the typed field from `location.origin`. In Docker the Internal IP option is a typed field too. The mode comes from the saved value; only the URL is stored.
+- Test notifications carry the link too (`routes/alerts.ts`, `alerts/channels.ts`), so **Send test** shows the real address.
+- `docs/configuration.md`: the picker, `APP_PUBLIC_URL`, and the fallbacks.
+
+**Done when:** a test covers each row of the order above; email and ntfy links use the saved address without a restart; a non-http(s) value is refused; e2e; browser check at phone width in both themes; tests, lint and `pnpm i18n:check` pass.
+**Prompt:**
+```
+Do Step 2 of the 5.6.0 plan in PLAN.md. Use frontend-design for the picker.
+```
+
+### [ ] Step 3 - Test the address
+**Model:** Sonnet · **Effort:** Medium
+**Scope:**
+- A route under the server config routes, with their permission: the server calls `<url>/api/health` and compares `startedAt` with its own `STARTED_AT`, which proves it reached this server. 5 s timeout, no redirects followed, and only a result code comes back, never the response body.
+- Results: `ok`, `notFound` (DNS), `refused`, `certificate`, `timeout`, `otherServer` (it answered, but isn't this server, including a redirect) and `hostNotAllowed` (403 `forbidden_host`; tell the user to add it to `APP_ALLOWED_HOSTS`).
+- Picker: **Test** (with the `busy` prop from 5.5.0 Step 2), one line with the result, and **Open address** (a new tab, to check from this device). **Save** stays allowed after a failed test, with a warning: the test runs from the server, and a home router often can't reach its own external IP from inside, so a failure can be false.
+- No external IP lookup: it would need a third-party service (ADR-0014). The user types it.
+- `docs/configuration.md`: what the test proves and what it can't (it doesn't prove a phone on mobile data can reach it).
+
+**Done when:** a test covers each result against a local server; a failed test warns but still saves; e2e; tests, lint and `pnpm i18n:check` pass.
+**Prompt:**
+```
+Do Step 3 of the 5.6.0 plan in PLAN.md.
+```
+
+## Phase 34 - Open on this machine, download
+
+### [ ] Step 4 - Open only on this machine
+**Model:** Sonnet · **Effort:** Medium
+**Scope:**
+- `ProjectDetailPage.tsx`: remove the fallback to the user's online devices. Open and Open folder use the server's computer or the device whose connector answers `whoami` (`useConnectorId`). No answer: no buttons. Delete what only served the fallback: `deviceId`, `pickDevice`, `pickFolderDevice` and the device choice in the dialog. Keep the choice of slicer.
+- This also applies to hub root projects. Safari, a declined local network prompt, or a connector paired through another address gets no answer, so no button. `docs/hub.md` says so and how to fix it.
+- Same rule on the file rows and the header: edit permission first (`Write`, `canEdit`).
+- It's a UI rule: the server can't know where a browser is. `/:id/open` keeps checking that the device is the user's and online.
+- `docs/hub.md`: rewrite the Open section (remove "When the page can't ask").
+
+**Done when:** e2e with `page.route` on `whoami` and the devices call: answered with a slicer, buttons; answered without a slicer, no Open; no answer, no buttons, including with other devices online; no edit right, no buttons; tests, lint and `pnpm i18n:check` pass.
+**Prompt:**
+```
+Do Step 4 of the 5.6.0 plan in PLAN.md.
+```
+
+### [ ] Step 5 - Open a device root's files on their machine
+**Model:** Opus · **Effort:** Medium
+**Scope:**
+- Server: `openDevices` also serves a device root, marking the device that holds it (`holdsFiles`). `/:id/open`: no `deviceProjects` row and no lock for a device root (the slicer edits the original, and the connector's watcher sends the change).
+- Connector: `open` and `open.folder` look in the device's own roots when the path isn't in the sync folder: `roots` exposes a lookup through `baseOf` and `inRoot`, so no `..` and no link out of the root. Check that `sync.opened` ignores a root it doesn't sync.
+- Web: remove the `onDevice` exclusion for the machine holding the files. `DeviceFileList` takes `onOpen` and shows Open on model rows, behind `Write`.
+- `docs/hub.md`: replace "Open in slicer and Open folder are hidden on device projects". ADR-0014: add an amendment.
+
+**Done when:** connector tests cover a device root path, a `..` path and a link out of the root; server tests cover the holder, another user's device and an offline device; e2e for the header and file row; tests, lint and `pnpm i18n:check` pass.
+**Prompt:**
+```
+Do Step 5 of the 5.6.0 plan in PLAN.md.
+```
+
+### [ ] Step 6 - Open a copy on another machine **[plan mode]**
+**Model:** Opus · **Effort:** High
+**Scope:**
+- A device root's project, opened from another machine of a user who can edit it, with a connector and slicer there: the hub pulls the file from the holding device (its existing temp cache) and that connector downloads it to its data folder, then opens it. The holding device must be online. The target gets a time limit like `DEVICE_OPEN_MS`.
+- Before opening, a dialog says it's a copy and saves stay on this computer. Afterwards, the page says where the copy is.
+- No lock, no `deviceProjects` row, no sync back. A device token only gets files of a project its user may edit.
+- The connector removes copies older than 30 days at start.
+- To decide in the plan: the copy's folder (under the user's home, because a Flatpak slicer can't read `/tmp`; not a name that can clash with a root in the sync folder) and the hub event's shape (a new type, or a flag on `open`).
+- `docs/hub.md`, and the ADR-0014 amendment.
+
+**Done when:** connector and server tests cover the copy, the holder offline, no edit right and another user's token; e2e for the dialog; tests, lint and `pnpm i18n:check` pass.
+**Prompt:**
+```
+Plan Step 6 of the 5.6.0 plan in PLAN.md.
+```
+
+### [ ] Step 7 - Download files and folders
+**Model:** Sonnet · **Effort:** Medium
+**Scope:**
+- `ProjectFiles` rows: a Download icon button on files and folders, behind `Write` (`canEdit`). A file links to `projectFileUrl`. No button in the page header.
+- A folder downloads as a zip: `GET /:id/folder/download?path=`, with a server-side edit check (`projectAccessOf`). Entries come from the scanner's `meta.files` under that path (no shortcuts, nothing the client invents). It streams with `yazl`, stored uncompressed since 3MF is already a zip. A device root's files come through the existing fetch and cache, one at a time.
+- `DeviceFileList` is flat today: group it by folder from the listed paths, so folders can be downloaded there too.
+- `/:id/file` stays open to anyone who can read the project: the 3D view needs it. View-only users keep the links they have today.
+- `docs/projects.md`.
+
+**Done when:** a server test covers a zip's entries, a path outside the project and no edit right; e2e on a hub root and a device root, at phone width too; no download button in the header; tests, lint and `pnpm i18n:check` pass.
+**Prompt:**
+```
+Do Step 7 of the 5.6.0 plan in PLAN.md.
+```
+
+## Phase 35 - Release
+
+### [ ] Step 8 - Real test, docs, push & v5.6.0-alpha.1
+**Model:** Sonnet · **Effort:** Medium
+**Scope:**
+- CHANGELOG, version `5.6.0-alpha.1`, `pnpm version:check`. Commit on `dev`, push, tag `v5.6.0-alpha.1` on `dev`. Check the run and the release.
+- On the real VPS, updated to the alpha, with a workstation connector on it:
+  - Pick the domain as Public address and test it. Try a wrong name too. Send test by email and ntfy: the link opens the app on a phone.
+  - On the workstation: Open and Open folder on a device root project (the slicer opens the original, and a save reaches the hub). A second computer with a connector: Open gets a copy. A phone: no Open or Open folder.
+  - On a phone: download a file and a folder.
+- A NAS or Docker install: no link until an address is picked, then the typed LAN IP works.
+- Fix anything found.
+
+**Done when:** every scenario worked; the tag is pushed and the workflow is green.
+**Prompt:**
+```
+Do Step 8 of the 5.6.0 plan in PLAN.md. Push dev, push the tag and confirm the pre-release. Then guide me through each scenario and fix what we find.
+```
+
+### [ ] Step 9 - Docs, push & v5.6.0 release
+**Model:** Haiku · **Effort:** Low
+**Scope:**
+- Check the docs against what shipped, `pnpm screenshots`, CHANGELOG (everything since 5.5.0), version `5.6.0`, `pnpm version:check`.
+- Commit on `dev`, fast-forward `main` to `dev`, push both, tag `v5.6.0` on `main`. Check the run, the release and the images.
+
+**Done when:** `main`, `dev` and the tag are pushed; the workflow is green; updating 5.5.0 to 5.6.0 keeps all data.
+**Prompt:**
+```
+Do Step 9 of the 5.6.0 plan in PLAN.md. Only document what changed since 5.5.0.
+Then fast-forward main to dev, push, push the v5.6.0 tag and confirm the release.
+```
+
+## Out of scope for 5.6.0 (later plans)
+- `://` slicer links (dropped on 2026-11-05): they open a downloaded copy, and a browser can't tell if a slicer is installed.
+- A computer with a slicer but no connector: no button, because the page can't detect the slicer.
+- A connector paired to another user: no button for you on that computer.
+- Checking the address from outside the network: it would need a third-party service.
+- Downloading several picked files, or the whole project, as one zip.
+
+---
+
 # Plan 6.0.0 - Every printer
 
-Major release, agreed on 2026-10-27. Starts after the 5.5.0 release. Adapter steps add tests against recorded payloads (fixtures), never a live printer in CI.
+Major release, agreed on 2026-10-27. Starts after the 5.6.0 release. Adapter steps add tests against recorded payloads (fixtures), never a live printer in CI.
 
 Design: ADR-0015. Prints are recorded automatically from the most used printer systems, the dashboard shows live status, and spool usage follows:
 - a new `PrinterStatusSource` capability and one **job tracker** in core turn status snapshots into prints;
@@ -2271,7 +2432,7 @@ Design: ADR-0015. Prints are recorded automatically from the most used printer s
 
 Wave 1: Moonraker, Bambu LAN, PrusaLink, OctoPrint, plus Spoolman two-way.
 
-## Phase 33 - Foundations
+## Phase 36 - Foundations
 
 Design:
 - Snapshot: state, job file, progress, ETA, layer, temperatures, slots (material, colour, RFID or spool id). In memory only, pushed over SSE.
@@ -2374,7 +2535,7 @@ Do Step 6 of the 6.0.0 plan in PLAN.md. Back up the DB before editing schema.ts.
 Do Step 7 of the 6.0.0 plan in PLAN.md. Then push dev, push the tag and confirm the pre-release is published.
 ```
 
-## Phase 34 - Adapters
+## Phase 37 - Adapters
 
 Each adapter: a `local` package in `packages/adapters/<id>`, config and secrets schemas, status (and history where it exists), the recorded fixtures as tests, i18n names, a setup page in the docs. Added by host or IP.
 
@@ -2440,7 +2601,7 @@ Do Step 13 of the 6.0.0 plan in PLAN.md. Only document what changed since 6.0.0-
 Then push dev, push the tag and confirm the pre-release is published.
 ```
 
-## Phase 35 - Hub
+## Phase 38 - Hub
 
 ### [ ] Step 14 - Connector printer bridge  **[plan mode]**
 **Model:** Opus · **Effort:** High
@@ -2455,7 +2616,7 @@ Then push dev, push the tag and confirm the pre-release is published.
 Do Step 14 of the 6.0.0 plan in PLAN.md.
 ```
 
-## Phase 36 - Release
+## Phase 39 - Release
 
 ### [ ] Step 15 - Real test: one printer per adapter
 **Model:** Sonnet · **Effort:** Medium

@@ -7,9 +7,11 @@ import type {
   FilamentLibrary,
   LibraryPreset,
 } from "@3d-maker-suite/core";
+import { opcFingerprints, opcVendors } from "./opc.ts";
 
 // Bambu Studio and its fork OrcaSlicer keep presets as JSON under the same config folder layout
-// (checked on Windows against Bambu Studio 2.x and OrcaSlicer 2.4; this package is the shared reader):
+// (checked on Windows against Bambu Studio 2.x and OrcaSlicer 2.4; this package is the shared reader).
+// Orca 2.5+ has binary system/<vendor>.opc files instead of the system JSON, read in `opc.ts`:
 //   user/<account id | default>/filament/**/<name>.json   your own presets
 //   system/<vendor>/filament/**/<name>.json             shipped ones (BBL, ...); Orca nests them by brand
 //   user/<account | default>/machine/**/<name>.json      your machine presets
@@ -97,6 +99,9 @@ export function toProfile(
   };
 }
 
+const opcPath = (dir: string, vendor: string, subPath: string) =>
+  join(dir, "system", vendor, subPath);
+
 /** System presets of one kind in a Studio folder, loaded lazily, and setting lookup through `inherits`. */
 export async function systemPresets(dir: string, kind: "filament" | "machine" | "process") {
   // name -> file for every system preset (the first vendor's), and every vendor's file per name:
@@ -104,12 +109,22 @@ export async function systemPresets(dir: string, kind: "filament" | "machine" | 
   const systemFiles = new Map<string, string>();
   const allFiles = new Map<string, string[]>();
   const vendorOf = new Map<string, string>();
+  const cache = new Map<string, Preset | undefined>();
+  const add = (name: string, f: string, vendor: string) => {
+    if (!systemFiles.has(name)) systemFiles.set(name, f);
+    allFiles.set(name, [...(allFiles.get(name) ?? []), f]);
+    vendorOf.set(f, vendor);
+  };
   for (const vendor of await dirs(join(dir, "system")))
-    for (const f of await jsonFiles(join(dir, "system", vendor, kind), true)) {
-      const name = parse(f).name;
-      if (!systemFiles.has(name)) systemFiles.set(name, f);
-      allFiles.set(name, [...(allFiles.get(name) ?? []), f]);
-      vendorOf.set(f, vendor);
+    for (const f of await jsonFiles(join(dir, "system", vendor, kind), true))
+      add(parse(f).name, f, vendor);
+  // A preset in a cache has no file of its own: the path it came from names it here.
+  for (const { vendor, presets } of await opcVendors(dir))
+    for (const p of presets) {
+      if (p.kind !== kind) continue;
+      const f = opcPath(dir, vendor, p.subPath);
+      add(String(p.preset.name), f, vendor);
+      cache.set(f, p.preset);
     }
   /** A preset by name, from the vendor of `near` when it has one. */
   const find = (name: unknown, near?: string) => {
@@ -119,7 +134,6 @@ export async function systemPresets(dir: string, kind: "filament" | "machine" | 
     return files.find((f) => vendorOf.get(f) === vendor) ?? files[0];
   };
 
-  const cache = new Map<string, Preset | undefined>();
   const load = async (file: string) => {
     if (!cache.has(file)) cache.set(file, await readJson(file));
     return cache.get(file);
@@ -203,6 +217,14 @@ export function slicerPresetLibrary(id: string, defaultDirs: () => string[]): Fi
       const machines = new Map<string, CatalogMachine>();
       const { load, resolver, systemFiles } = await systemPresets(dir, "machine");
       const vendorOf = new Map<string, string>(); // system machine file -> brand
+      const addModel = async (vendor: string, brand: string, model: string) => {
+        const cover = join(dir, "system", vendor, `${model}_cover.png`);
+        const image = await access(cover).then(
+          () => cover,
+          () => null,
+        );
+        models.set(model.toLowerCase(), { brand, model, image });
+      };
 
       for (const vendor of await dirs(join(dir, "system"))) {
         const index = await readJson(join(dir, "system", `${vendor}.json`));
@@ -210,16 +232,16 @@ export function slicerPresetLibrary(id: string, defaultDirs: () => string[]): Fi
         const list: unknown = index?.machine_model_list;
         for (const m of Array.isArray(list) ? list : []) {
           const model = first((m as Preset)?.name);
-          if (!model) continue;
-          const cover = join(dir, "system", vendor, `${model}_cover.png`);
-          const image = await access(cover).then(
-            () => cover,
-            () => null,
-          );
-          models.set(model.toLowerCase(), { brand, model, image });
+          if (model) await addModel(vendor, brand, model);
         }
         for (const f of await jsonFiles(join(dir, "system", vendor, "machine"), true))
           vendorOf.set(f, brand);
+      }
+      for (const { vendor, name, models: names, presets } of await opcVendors(dir)) {
+        const brand = BRAND_NAMES[vendor] ?? (name || vendor);
+        for (const model of names) await addModel(vendor, brand, model);
+        for (const p of presets)
+          if (p.kind === "machine") vendorOf.set(opcPath(dir, vendor, p.subPath), brand);
       }
 
       const add = (
@@ -324,7 +346,9 @@ export function slicerPresetLibrary(id: string, defaultDirs: () => string[]): Fi
         if (!index) return null;
         parts.push(`${parse(f).name}=${String(index.version)}`);
       }
-      // Orca 2.5+ has no vendor indexes to read (ADR-0013).
+      const packed = await opcFingerprints(dir);
+      if (!packed) return null;
+      parts.push(...packed);
       return parts.length ? parts.sort().join(";") : null;
     },
   };

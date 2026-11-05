@@ -69,6 +69,7 @@ Maintainers tag a version after the release checklist below. Do the steps in thi
 4. Check the docs that name features or versions (README features, `docs/*.md`, the screenshots if the UI changed).
 5. Write the CHANGELOG entry so it lists everything that differs from the last release: the workflow publishes it as the GitHub release notes (`node scripts/release-notes.mjs X.Y.Z` previews them). A stable release's notes merge in all its pre-releases' sections.
 6. Run `pnpm version:check`. The release workflow runs it too and fails on a mismatch or on a tag that isn't `v` plus the version.
+7. If a new OrcaSlicer is out, open it once on a Windows PC and run `pnpm vitest run packages/slicer-presets/src/opc.test.ts`. Its real-install test reads that machine's `.opc` files, whose format is private ([ADR-0013](docs/adr/0013-managed-slicer.md)).
 
 - **Stable** (`vX.Y.Z`) is tagged on `main`. Fast-forward `main` to `dev` first.
 - **Pre-release** (`vX.Y.Z-alpha.N`) is tagged on `dev`.

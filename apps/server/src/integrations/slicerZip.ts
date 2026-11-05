@@ -16,7 +16,7 @@ import { HttpError } from "../errors.ts";
 // A zip of a slicer's config folder, unpacked so the local readers can read it like the real folder.
 const MAX_ENTRIES = 60000; // OrcaSlicer's own system folder is ~12000 files
 const MAX_BYTES = 500 * 1024 ** 2;
-const KEEP = /\.(json|png)$/i; // all the readers use; logs, caches and plugins stay out
+const KEEP = /\.(json|opc|png)$/i; // all the readers use; logs, caches and plugins stay out
 const DAY = 24 * 60 * 60 * 1000;
 
 const bad = (code: string, message: string) => new HttpError(400, code, message);

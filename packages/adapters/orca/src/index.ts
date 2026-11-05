@@ -110,9 +110,9 @@ export const orcaManaged: ManagedSlicer = {
         : "squashfs-root/resources/profiles",
 };
 
-// OrcaSlicer downloaded and run by the server. Its profiles ship as binary .opc files (ADR-0013),
-// so its catalog is only its user presets (ADR-0019): it slices with the 3MF's settings and those.
-// The library is only its id: presets imported from an Orca zip are `orca-slicer:<preset>`.
+// OrcaSlicer downloaded and run by the server. Its profiles ship as binary .opc files (ADR-0013).
+// The library has no default folders: its config folder is the managed one, and presets imported
+// from an Orca zip are `orca-slicer:<preset>`.
 export function orcaSlicerServerAdapter(): IntegrationAdapter {
   return {
     id: "orca-slicer-server",
