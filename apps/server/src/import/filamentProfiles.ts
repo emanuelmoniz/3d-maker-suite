@@ -140,14 +140,6 @@ export const filamentProfileImport = {
     };
   },
 
-  /** A run never adds a brand or a material on its own. */
-  held(db: Db) {
-    const brands = names(db, filamentBrands);
-    const materials = names(db, filamentMaterials);
-    return (v: ImportValues) =>
-      (!!v.brand && !brands.has(lower(v.brand))) || !materials.has(lower(v.material));
-  },
-
   create(db: Db, v: ImportValues, row: WriteRow) {
     const brandId = filamentBrandIdFor(db, str(v.brand) ?? "");
     const materialId = filamentMaterialIdFor(db, str(v.material) ?? "");

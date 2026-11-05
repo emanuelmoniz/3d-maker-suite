@@ -96,17 +96,32 @@ it("splits cloud and local, each declaring only what it provides", () => {
       "filamentBrands",
       "filamentMaterials",
       "filamentProfiles",
+      "userMachineProfiles",
+      "userPrintProfiles",
+      "userFilamentProfiles",
       "openInSlicer",
       "slice",
     ],
     undefined,
     "bambu-studio",
   ]);
-  // A worker's presets come from a zip import, so it only slices.
+  // A worker has no program to open, but the hub's presets reach the catalog through it (ADR-0019).
   const worker = bambuStudioWorkerAdapter();
   expect([worker.kind, worker.capabilities, worker.library?.id]).toEqual([
     "worker",
-    ["slice"],
+    [
+      "brands",
+      "printerModels",
+      "machineProfiles",
+      "printProfiles",
+      "filamentBrands",
+      "filamentMaterials",
+      "filamentProfiles",
+      "userMachineProfiles",
+      "userPrintProfiles",
+      "userFilamentProfiles",
+      "slice",
+    ],
     "bambu-studio",
   ]);
 });

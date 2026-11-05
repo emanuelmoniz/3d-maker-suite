@@ -1,4 +1,12 @@
-import { existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  utimesSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { bambuStudioWorkerAdapter } from "@3d-maker-suite/adapter-bambu";
@@ -9,13 +17,20 @@ import {
 } from "@3d-maker-suite/adapter-orca";
 import type { ImportPreview, SlicerPreset, SlicerPresetDetail } from "@3d-maker-suite/core";
 import { openDb, schema } from "@3d-maker-suite/db";
-import { presetSha } from "@3d-maker-suite/host";
+import { loadKey, presetSha } from "@3d-maker-suite/host";
 import { eq } from "drizzle-orm";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import yazl from "yazl";
 import { buildApp } from "./app.ts";
 import { linkLibraries } from "./integrations/managedSlicer.ts";
-import { presetsChanged, savePreset, usedPresets } from "./integrations/presetLibrary.ts";
+import {
+  presetsChanged,
+  rebuildLibraries,
+  savePreset,
+  usedPresets,
+} from "./integrations/presetLibrary.ts";
+import { createSyncer } from "./integrations/sync.ts";
+import { reviewer } from "./testReview.ts";
 
 const zipOf = (files: Record<string, string>) =>
   new Promise<Buffer>((resolve) => {
@@ -79,13 +94,13 @@ const realPreset = (name: string) =>
 const offered = async (id: string) => {
   const res = await app.inject({
     method: "POST",
-    url: `/api/import/integration/${id}/filamentProfiles`,
+    url: `/api/import/integration/${id}/userFilamentProfiles`,
   });
   expect(res.statusCode).toBe(200);
   return (res.json() as ImportPreview).rows.map((r) => r.values.name);
 };
 
-// ADR-0019: the known gap, three separate causes. Plan 5.4.0 Step 5 turns these into normal tests.
+// ADR-0019's catalog gap, three separate causes.
 describe("a shared preset reaches the catalog", () => {
   const share = (library: string) =>
     savePreset(db, dataDir, {
@@ -95,8 +110,7 @@ describe("a shared preset reaches the catalog", () => {
       json: realPreset("Shared"),
     });
 
-  // capability_unavailable: a worker can only `slice`, of either slicer.
-  it.fails("on a worker-only hub", async () => {
+  it("on a worker-only hub", async () => {
     const worker = await addSlicer("bambu-studio-worker", {
       deviceId: crypto.randomUUID(),
       source: "installed",
@@ -106,26 +120,279 @@ describe("a shared preset reaches the catalog", () => {
     expect(await offered(worker)).toContain("Shared");
   });
 
-  // capability_unavailable: Orca's server adapter can only `slice` too, unlike Bambu's.
-  it.fails("on an Orca hub", async () => {
+  it("on an Orca hub", async () => {
     const server = await addSlicer("orca-slicer-server");
     linkLibraries(db, dataDir, ADAPTERS);
     share("orca-slicer");
     expect(await offered(server)).toContain("Shared");
   });
 
-  // The row is missing: with no readable system preset nothing resolves `filament_type`, so the
-  // reader drops it without a word.
-  it.fails("on a desktop Orca, whose system presets are .opc files", async () => {
-    const config = join(dataDir, "desktop-orca");
-    mkdirSync(join(config, "user", "default", "filament"), { recursive: true });
-    writeFileSync(join(config, "user", "default", "filament", "Shared.json"), realPreset("Shared"));
-    const desktop = await addSlicer("orca-slicer");
-    db.update(schema.integrations)
-      .set({ slicerConfigDir: config })
-      .where(eq(schema.integrations.id, desktop))
-      .run();
-    expect(await offered(desktop)).toContain("Shared");
+  // With no readable system preset nothing resolves `filament_type`: the row waits for a person.
+  it("on a desktop Orca, whose system presets are .opc files", async () => {
+    const { id } = await desktopOrca();
+    saveFile("Shared", realPreset("Shared"));
+    expect(await offered(id)).toContain("Shared");
+  });
+});
+
+/** A desktop Orca row, with the folder its presets are saved in. */
+const desktopConfig = () => join(dataDir, "desktop-orca");
+const saveFile = (name: string, text: string) => {
+  const dir = join(desktopConfig(), "user", "default", "filament");
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, `${name}.json`), text);
+};
+const desktopOrca = async () => {
+  mkdirSync(desktopConfig(), { recursive: true });
+  const id = await addSlicer("orca-slicer");
+  db.update(schema.integrations)
+    .set({ slicerConfigDir: desktopConfig() })
+    .where(eq(schema.integrations.id, id))
+    .run();
+  return { id };
+};
+
+describe("user presets reach the catalog on their own (ADR-0019)", () => {
+  const { deletedSources, filamentProfiles, syncPolicies, syncRuns } = schema;
+  const syncer = () => createSyncer(db, ADAPTERS, loadKey(dataDir), app.log, dataDir);
+  const profiles = () => db.select().from(filamentProfiles).all();
+  const runs = () => db.select().from(syncRuns).all().length;
+  const review = reviewer(() => app);
+  const save = (name: string, extra: object = {}) =>
+    savePreset(db, dataDir, {
+      library: "bambu-studio",
+      kind: "filament",
+      name,
+      json: preset(name, { filament_vendor: ["Acme"], filament_cost: ["20"], ...extra }),
+    });
+  const addWorker = () =>
+    addSlicer("bambu-studio-worker", { deviceId: crypto.randomUUID(), source: "installed" });
+  const pendingOf = (id: string) =>
+    db
+      .select()
+      .from(syncPolicies)
+      .all()
+      .find((p) => p.integrationId === id && p.type === "userFilamentProfiles")?.pending ?? 0;
+  const setCard = (id: string, change: object) =>
+    app.inject({
+      method: "PATCH",
+      url: `/api/integrations/${id}`,
+      payload: { policies: [{ type: "userFilamentProfiles", ...change }] },
+    });
+  const sent = async () => {
+    await app.inject({ method: "POST", url: "/api/alerts/evaluate" });
+    const alerts = (await app.inject("/api/alerts")).json() as { kind: string; task: string }[];
+    return alerts.filter((a) => a.kind === "sync_pending").map((a) => a.task);
+  };
+
+  it("a hub's saved preset arrives, with its brand and material; nothing changed logs nothing", async () => {
+    await addWorker();
+    save("Mine");
+    const s = syncer();
+    await s.checkUserPresets();
+
+    expect(profiles()).toMatchObject([{ name: "Mine", sourcePreset: "bambu-studio:user/Mine" }]);
+    expect(db.select().from(schema.filamentBrands).all()).toMatchObject([{ name: "Acme" }]);
+    expect(db.select().from(schema.filamentMaterials).all()).toMatchObject([{ name: "PLA" }]);
+
+    const logged = runs();
+    await s.checkUserPresets();
+    expect(runs()).toBe(logged);
+  });
+
+  it("a saved zip reaches the catalog without waiting for the tick", async () => {
+    await addSlicer("orca-slicer-server");
+    await upload({ "user/default/filament/Zipped.json": preset("Zipped") });
+    await vi.waitFor(() => expect(profiles()).toMatchObject([{ name: "Zipped" }]), {
+      timeout: 5000,
+    });
+  });
+
+  it("an edit in the slicer updates the row and keeps what you typed", async () => {
+    await addWorker();
+    save("Mine", { nozzle_temperature: ["220"] });
+    const s = syncer();
+    await s.checkUserPresets();
+    const [first] = profiles();
+    expect(first).toMatchObject({ pricePerKg: 2000, nozzleTempC: 220 });
+    db.update(filamentProfiles).set({ pricePerKg: 3500 }).run();
+
+    save("Mine", { nozzle_temperature: ["240"] });
+    await s.checkUserPresets();
+
+    expect(profiles()).toMatchObject([{ id: first?.id, pricePerKg: 3500, nozzleTempC: 240 }]);
+  });
+
+  it("a row you deleted stays away, through a restart, until its preset is edited", async () => {
+    await addWorker();
+    save("Mine");
+    const s = syncer();
+    await s.checkUserPresets();
+    const [row] = profiles();
+    const res = await app.inject({ method: "DELETE", url: `/api/filament/profiles/${row?.id}` });
+    expect(res.statusCode, res.body).toBe(204);
+
+    // A start rewrites the library's files: no edit, and no change to look at.
+    const seen = () =>
+      db
+        .select()
+        .from(syncPolicies)
+        .all()
+        .find((p) => p.type === "userFilamentProfiles")?.cursor;
+    const before = seen();
+    rebuildLibraries(db, dataDir);
+    await s.checkUserPresets();
+    expect(seen()).toBe(before);
+    expect(profiles()).toEqual([]);
+    expect(db.select().from(deletedSources).all()).toMatchObject([
+      { entity: "filamentProfiles", source: "bambu-studio:user/Mine" },
+    ]);
+
+    save("Mine", { nozzle_temperature: ["240"] });
+    await s.checkUserPresets();
+    expect(profiles()).toMatchObject([{ name: "Mine", nozzleTempC: 240 }]);
+    expect(db.select().from(deletedSources).all()).toEqual([]);
+  });
+
+  it("a preset with no readable parent waits for a person, once", async () => {
+    const { id } = await desktopOrca();
+    saveFile("Shared", realPreset("Shared"));
+    const s = syncer();
+    await s.checkUserPresets();
+
+    expect(profiles()).toEqual([]);
+    expect(pendingOf(id)).toBe(1);
+    expect(await sent()).toEqual([`sync:${id}:userFilamentProfiles`]);
+
+    // Filled in by hand in the review.
+    const preview = (
+      await review.open(`/api/import/integration/${id}/userFilamentProfiles`)
+    ).json();
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/import/filamentProfiles/apply",
+      payload: {
+        uploadId: preview.uploadId,
+        policy: "overwrite",
+        decisions: [{ row: preview.rows[0].row, action: "create", values: { material: "PLA" } }],
+      },
+    });
+    expect(res.statusCode, res.body).toBe(200);
+    expect(profiles()).toMatchObject([{ name: "Shared", sourcePreset: "orca-slicer:user/Shared" }]);
+    expect(pendingOf(id)).toBe(0);
+
+    // The file moves on, its parent still unreadable: nothing asks again.
+    saveFile("Shared", `${realPreset("Shared")} `);
+    await s.checkUserPresets();
+    expect(pendingOf(id)).toBe(0);
+    expect(profiles()).toHaveLength(1);
+  });
+
+  it("a single PC's file arrives, and a restart has nothing to read again", async () => {
+    hub(false);
+    await desktopOrca();
+    saveFile("Mine", preset("Mine"));
+    await syncer().checkUserPresets();
+    expect(profiles()).toMatchObject([{ name: "Mine", sourcePreset: "orca-slicer:user/Mine" }]);
+
+    const logged = runs();
+    await syncer().checkUserPresets();
+    expect(runs()).toBe(logged);
+  });
+
+  it("a desktop row you deleted stays away until its file is edited, whatever 'how to sync' says", async () => {
+    const { id } = await desktopOrca();
+    saveFile("Mine", preset("Mine"));
+    const s = syncer();
+    await s.checkUserPresets();
+    await setCard(id, { merge: "review" });
+    const [row] = profiles();
+    const res = await app.inject({ method: "DELETE", url: `/api/filament/profiles/${row?.id}` });
+    expect(res.statusCode, res.body).toBe(204);
+
+    // Another preset's change looks at the folder again: this one stays away.
+    saveFile("Other", preset("Other"));
+    await s.checkUserPresets();
+    expect(profiles().map((p) => p.name)).toEqual(["Other"]);
+
+    saveFile("Mine", preset("Mine", { nozzle_temperature: ["240"] }));
+    const later = new Date(Date.now() + 2000);
+    utimesSync(join(desktopConfig(), "user", "default", "filament", "Mine.json"), later, later);
+    await s.checkUserPresets();
+    expect(
+      profiles()
+        .map((p) => p.name)
+        .sort(),
+    ).toEqual(["Mine", "Other"]);
+    expect(pendingOf(id)).toBe(0);
+  });
+
+  it("Automatic, 'only what I already have': an edit updates, a new preset alerts and waits", async () => {
+    const { id } = await desktopOrca();
+    saveFile("Mine", preset("Mine", { nozzle_temperature: ["220"] }));
+    const s = syncer();
+    await s.checkUserPresets();
+    expect(profiles()).toMatchObject([{ name: "Mine", nozzleTempC: 220 }]);
+    await setCard(id, { scope: "imported" });
+
+    saveFile("Mine", preset("Mine", { nozzle_temperature: ["240"] }));
+    await s.checkUserPresets();
+    expect(profiles()).toMatchObject([{ name: "Mine", nozzleTempC: 240 }]);
+    expect(pendingOf(id)).toBe(0);
+
+    saveFile("New", preset("New"));
+    await s.checkUserPresets();
+    expect(profiles()).toHaveLength(1);
+    expect(pendingOf(id)).toBe(1);
+    expect(await sent()).toEqual([`sync:${id}:userFilamentProfiles`]);
+
+    // Skipped in the review it stays new: no asking on every check, only at the next file change.
+    const preview = await review.open(`/api/import/integration/${id}/userFilamentProfiles`);
+    expect((await review.confirm(preview.json(), [])).statusCode).toBe(200);
+    expect(pendingOf(id)).toBe(0);
+    await s.checkUserPresets();
+    expect(pendingOf(id)).toBe(0);
+    saveFile("Other", preset("Other"));
+    await s.checkUserPresets();
+    expect(pendingOf(id)).toBe(2);
+
+    // Back to everything: at the next file change, they arrive.
+    await setCard(id, { scope: "all" });
+    saveFile("Other", `${preset("Other")} `);
+    await s.checkUserPresets();
+    expect(profiles().map((p) => p.name)).toEqual(["Mine", "New", "Other"]);
+    expect(pendingOf(id)).toBe(0);
+  });
+
+  it("Manual: an edit and a new preset both alert and write nothing", async () => {
+    const { id } = await desktopOrca();
+    saveFile("Mine", preset("Mine", { nozzle_temperature: ["220"] }));
+    const s = syncer();
+    await s.checkUserPresets();
+    await setCard(id, { mode: "manual" });
+
+    saveFile("Mine", preset("Mine", { nozzle_temperature: ["240"] }));
+    saveFile("New", preset("New"));
+    await s.checkUserPresets();
+    expect(profiles()).toMatchObject([{ name: "Mine", nozzleTempC: 220 }]);
+    expect(pendingOf(id)).toBe(2);
+    expect(await sent()).toEqual([`sync:${id}:userFilamentProfiles`]);
+
+    // Back to Automatic: nothing changed since, so the next change runs it.
+    await setCard(id, { mode: "auto" });
+    saveFile("Mine", preset("Mine", { nozzle_temperature: ["250"] }));
+    await s.checkUserPresets();
+    expect(profiles()).toMatchObject([{ name: "Mine", nozzleTempC: 250 }, { name: "New" }]);
+    expect(pendingOf(id)).toBe(0);
+  });
+
+  it("the cards only decide catalog rows: the hub's library keeps every preset for Install", async () => {
+    const worker = await addWorker();
+    await setCard(worker, { mode: "manual" });
+    save("Mine");
+    await syncer().checkUserPresets();
+    expect(profiles()).toEqual([]);
+    expect(db.select().from(schema.slicerPresets).all()).toMatchObject([{ name: "Mine" }]);
   });
 });
 

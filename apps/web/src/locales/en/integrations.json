@@ -164,30 +164,49 @@
     "filamentBrands": "Filament brands",
     "filamentMaterials": "Filament materials",
     "filamentProfiles": "Filament profiles",
+    "userMachineProfiles": "User machine profiles",
+    "userPrintProfiles": "User print profiles",
+    "userFilamentProfiles": "User filament profiles",
     "openInSlicer": "Open projects in the slicer",
     "slice": "Slice projects (time and grams)"
   },
+  "actionHints": {
+    "openInSlicer": "When active, you can open the slicer using a button on each project.",
+    "slice": "When active, this integration can be used for slicing projects."
+  },
   "catalog": {
-    "title": "Catalog",
     "chooseBrands": "Choose brands",
-    "pickHint": "Pick the brands you use. They come with their models and profiles, and from then on only what you have is kept up to date. Brands you already have are checked.",
+    "pickHint": "Pick the printer and filament brands you use. Each one brings its models and its system presets (machine, print and filament profiles). The Catalog and System presets cards then change to \"Only what I already have\", so only what you have is checked for updates. User presets don't change.",
     "search": "Find a brand",
     "brands": "Printer brands",
     "filamentBrands": "Filament brands",
-    "have": "(you have it)",
+    "selectAll": "Select all",
+    "inCatalog": "In your catalog",
+    "available": "Available",
+    "summary": {
+      "brands_one": "Printer brands in your catalog: {{names, list}} and {{count}} more",
+      "brands_other": "Printer brands in your catalog: {{names, list}} and {{count}} more",
+      "brandsAll": "Printer brands in your catalog: {{names, list}}",
+      "filamentBrands_one": "Filament brands in your catalog: {{names, list}} and {{count}} more",
+      "filamentBrands_other": "Filament brands in your catalog: {{names, list}} and {{count}} more",
+      "filamentBrandsAll": "Filament brands in your catalog: {{names, list}}"
+    },
     "import_one": "Import {{count}} brand",
     "import_other": "Import {{count}} brands",
     "cancel": "Cancel",
     "readError": "Couldn't read the slicer's brands. Check its folder above.",
-    "onlyHint": "Rows you have are kept up to date. A new model of a brand you have still arrives; a new brand, and the slicer's other profiles, wait for you here.",
-    "allHint": "Every brand, model and profile the slicer ships is offered for review when it changes.",
-    "review": "Review and import:"
+    "none": "This slicer's system presets can't be read here, so there are no brands to pick. Your user presets still reach the catalog."
   },
   "policies": {
     "groups": {
-      "devices": "Devices and prints",
-      "catalog": "Catalog"
+      "catalog": "Catalog",
+      "systemPresets": "System presets",
+      "userPresets": "User presets"
     },
+    "onFileChange": "Automatic when the files change",
+    "onFileChangeOf": "Automatic when the files change: {{type}}",
+    "onFileChangeHint": "When the slicer's files change, this runs on its own, within a minute.",
+    "manualFilesHint": "Nothing is written on its own. When the slicer's files change you get an alert, and you decide under \"Review and import\" or with Sync now.",
     "modes": {
       "manual": "Manual"
     },
@@ -278,6 +297,10 @@
     "scopeHints": {
       "all": "Every row the source offers is added and kept up to date.",
       "imported": "Rows you already have are kept up to date. A new printer, printer model or spool is added only if you have its brand, so a new model of your printer brand still arrives. New slicer presets (machine, print and filament profiles) are never added: only the ones you imported from this slicer are kept up to date. Start with \"Review and import\": filter the brand column, select all and import."
+    },
+    "userScopeHints": {
+      "all": "New presets are added and changed ones updated.",
+      "imported": "Presets you already have are updated. A new preset raises an alert and waits for you under \"Review and import\"."
     },
     "merge": "How to sync",
     "mergeOf": "How to sync: {{type}}",
@@ -380,7 +403,7 @@
     "licenceLink": "Licence",
     "source": "Source code of {{version}}",
     "profilesTitle": "Profiles and catalog",
-    "noProfiles": "{{name}}'s download has no profiles this app can read, so this card can't import brands, printers or profiles. It slices with the settings saved in each 3MF file. To use other profiles, import them from a desktop install:",
+    "noProfiles": "This slicer has no folder of yours to read. To use your brands, printers and profiles here, import them from a desktop install of {{name}}:",
     "zipSteps": {
       "install": "Install {{name}} on any computer and open it once.",
       "folder": "Open its config folder (Help → Show Configuration Folder), or find it yourself:",

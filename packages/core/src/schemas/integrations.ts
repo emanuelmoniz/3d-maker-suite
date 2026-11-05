@@ -5,6 +5,7 @@ import {
   type Capability,
   INTEGRATION_ERROR_CODES,
   INTEGRATION_KINDS,
+  isUserPresetType,
   LOGIN_CHALLENGES,
   PRINT_OUTCOMES,
   SYNC_LEFT_REASONS,
@@ -215,7 +216,7 @@ export const defaultPolicy = (
 ): { mode: SyncMode; frequency: SyncFrequency; scope: SyncScope; merge: SyncMerge } => ({
   ...(type === "prints"
     ? { mode: "auto", frequency: "1h" }
-    : type === "printers"
+    : type === "printers" || isUserPresetType(type)
       ? { mode: "auto", frequency: "1d" }
       : { mode: "manual", frequency: WEEKLY.includes(type) ? "1w" : "1d" }),
   scope: "all",

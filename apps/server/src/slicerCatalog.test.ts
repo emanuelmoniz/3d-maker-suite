@@ -1,13 +1,14 @@
-import { existsSync, mkdtempSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fixture, mockAdapter } from "@3d-maker-suite/adapter-mock";
-import type {
-  FilamentLibrary,
-  ImportPreview,
-  IntegrationAdapter,
-  LibraryPreset,
-  SlicerCatalog,
+import {
+  type FilamentLibrary,
+  type ImportPreview,
+  type IntegrationAdapter,
+  type LibraryPreset,
+  type SlicerCatalog,
+  USER_PRESET_TYPES,
 } from "@3d-maker-suite/core";
 import { openDb, schema } from "@3d-maker-suite/db";
 import { loadKey } from "@3d-maker-suite/host";
@@ -38,8 +39,8 @@ const machine = (nozzle = 0.4, name = "Acme X 0.4") => ({
   nozzleDiameterMm: nozzle,
 });
 const preset = (extra = {}): LibraryPreset => ({
-  presetId: "user/A",
-  scope: "user",
+  presetId: "system/A",
+  scope: "system",
   brand: "Acme",
   material: "PLA",
   name: "A",
@@ -75,8 +76,8 @@ beforeEach(async () => {
         layerHeightMm: 0.2,
       },
       {
-        presetId: "user/Loose",
-        scope: "user",
+        presetId: "system/Loose",
+        scope: "system",
         name: "Loose",
         brand: null,
         model: null,
@@ -110,6 +111,7 @@ beforeEach(async () => {
       "filamentBrands",
       "filamentMaterials",
       "filamentProfiles",
+      ...USER_PRESET_TYPES,
     ],
     library,
   } as IntegrationAdapter;
@@ -142,7 +144,7 @@ describe("catalog change detection", () => {
       .from(integrations)
       .all()
       .map((r) => r.value);
-  const pendingOf = (type: "machineProfiles" | "printProfiles") =>
+  const pendingOf = (type: string) =>
     db
       .select()
       .from(syncPolicies)
@@ -236,6 +238,74 @@ describe("catalog change detection", () => {
     expect(await alerts()).toEqual([]);
   });
 
+  const setMode = (type: string, mode: "auto" | "manual") =>
+    app.inject({
+      method: "PATCH",
+      url: `/api/integrations/${id}`,
+      payload: { policies: [{ type, mode }] },
+    });
+
+  it("an Automatic type writes when the folder changes; a Manual one beside it only counts", async () => {
+    await run("printProfiles");
+    await vendorUpdate();
+    await setMode("machineProfiles", "auto");
+    state.catalog.processes = state.catalog.processes.map((p) => ({ ...p, layerHeightMm: 0.3 }));
+    await syncer().checkCatalogs();
+
+    expect(
+      db
+        .select()
+        .from(machineProfiles)
+        .all()
+        .map((m) => m.nozzleDiameterMm)
+        .sort(),
+    ).toEqual([0.2, 0.6]);
+    expect(pendingOf("machineProfiles")).toBe(0);
+    expect(pendingOf("printProfiles")).toBe(2);
+    expect(db.select().from(schema.printProfiles).get()?.layerHeightMm).not.toBe(0.3);
+    expect(fingerprints()).toEqual(["Acme=2"]);
+
+    const logged = runs();
+    await syncer().checkCatalogs();
+    expect(runs()).toBe(logged);
+  });
+
+  it("Automatic writes nothing at the first sight of a folder", async () => {
+    await setMode("machineProfiles", "auto");
+    await syncer().checkCatalogs();
+    expect(db.select().from(machineProfiles).all()).toEqual([]);
+    expect(fingerprints()).toEqual(["Acme=1"]);
+  });
+
+  it("the review of a system card shows no user presets, and a user card's no system ones", async () => {
+    state.catalog.machines.push({
+      ...machine(),
+      presetId: "user/Mine",
+      scope: "user",
+      name: "Mine",
+    });
+    const names = async (type: string) => (await open(type)).rows.map((r) => r.values.name);
+    expect(await names("machineProfiles")).toEqual(["Acme X 0.4"]);
+    expect(await names("userMachineProfiles")).toEqual(["Mine"]);
+  });
+
+  it("a user preset you imported doesn't make a slicer update ask about its system presets", async () => {
+    await syncer().checkCatalogs();
+    state.catalog.machines = [
+      { ...machine(), presetId: "user/Mine", scope: "user", name: "Mine" },
+      machine(),
+    ];
+    mkdirSync(join(dataDir, "user", "default", "machine"), { recursive: true });
+    writeFileSync(join(dataDir, "user", "default", "machine", "Mine.json"), "{}");
+    await syncer().checkUserPresets();
+    expect(db.select().from(machineProfiles).all()).toMatchObject([{ name: "Mine" }]);
+
+    state.fingerprint = "Acme=2";
+    await syncer().checkCatalogs();
+    expect(pendingOf("machineProfiles")).toBe(0);
+    expect(await alerts()).toEqual([]);
+  });
+
   it("only counts types imported before, and only their system rows", async () => {
     await vendorUpdate();
     await syncer().checkCatalogs();
@@ -283,6 +353,33 @@ describe("catalog change detection", () => {
     db.update(integrations).set({ enabled: false }).where(eq(integrations.id, id)).run();
     await syncer([slicer, other]).checkCatalogs();
     expect(of(second)).toBe("Acme=1");
+  });
+
+  it("a user preset's count is its own: its run leaves what a catalog change left waiting", async () => {
+    await vendorUpdate();
+    await syncer().checkCatalogs();
+    expect(pendingOf("machineProfiles")).toBe(2);
+
+    state.catalog.machines.push({
+      ...machine(),
+      presetId: "user/Mine",
+      scope: "user",
+      name: "Mine",
+    });
+    mkdirSync(join(dataDir, "user", "default", "machine"), { recursive: true });
+    writeFileSync(join(dataDir, "user", "default", "machine", "Mine.json"), "{}");
+    await syncer().checkUserPresets();
+
+    expect(
+      db
+        .select()
+        .from(machineProfiles)
+        .all()
+        .map((m) => m.name),
+    ).toContain("Mine");
+    expect(pendingOf("machineProfiles")).toBe(2);
+    expect(pendingOf("userMachineProfiles")).toBe(0);
+    expect(await alerts()).toHaveLength(1);
   });
 
   it("a read that fails keeps the old fingerprint, so the next check tries again", async () => {
@@ -585,7 +682,7 @@ describe("slicer catalog import", () => {
     for (const type of ["brands", "printerModels", "filamentBrands", "filamentMaterials"])
       await run(type);
     // You import one filament preset of the brand; the slicer has another of it.
-    state.presets = [preset(), preset({ presetId: "user/B", name: "B" })];
+    state.presets = [preset(), preset({ presetId: "system/B", name: "B" })];
     const profiles = await open("filamentProfiles");
     const a = profiles.rows.filter((r) => r.values.name === "A");
     expect((await review.confirm(profiles, a)).json()).toMatchObject({ created: 1 });
@@ -603,7 +700,7 @@ describe("slicer catalog import", () => {
     expect(await run("filamentProfiles")).toMatchObject({ created: 0, pending: 0 });
     expect(await run("machineProfiles")).toMatchObject({ created: 0, pending: 0 });
     // The one you have follows the slicer.
-    state.presets = [preset({ pricePerKg: 2500 }), preset({ presetId: "user/B", name: "B" })];
+    state.presets = [preset({ pricePerKg: 2500 }), preset({ presetId: "system/B", name: "B" })];
     expect(await run("filamentProfiles")).toMatchObject({ created: 0, updated: 1, pending: 0 });
     expect(
       db
@@ -661,7 +758,7 @@ describe("slicer catalog import", () => {
     expect((await app.inject(`/api/machine-profiles/${first?.id}`)).json().archivedAt).toBeTruthy();
   });
 
-  it("a sync imports print profiles, built-in or not, with or without a known printer, and updates them in place", async () => {
+  it("a sync imports print profiles, with or without a known printer, and updates them in place", async () => {
     const preview = await open("printProfiles");
     expect(preview.rows.map((r) => [r.values.name, r.status])).toEqual([
       ["0.20mm Standard @Acme X", "new"],
@@ -672,7 +769,7 @@ describe("slicer catalog import", () => {
     const model = db.select().from(schema.printerModels).get();
     expect(rows).toMatchObject([
       { name: "0.20mm Standard @Acme X", printerModelId: model?.id, layerHeightMm: 0.2 },
-      { name: "Loose", printerModelId: null, sourcePreset: "fake:user/Loose" },
+      { name: "Loose", printerModelId: null, sourcePreset: "fake:system/Loose" },
     ]);
 
     state.catalog.processes = state.catalog.processes
@@ -730,7 +827,7 @@ describe("slicer catalog import", () => {
       model: "MK4",
       name: "MK4 0.4",
     });
-    state.presets = [preset(), preset({ presetId: "user/P", brand: "Prusament", name: "P" })];
+    state.presets = [preset(), preset({ presetId: "system/P", brand: "Prusament", name: "P" })];
     await app.inject({
       method: "PATCH",
       url: `/api/integrations/${id}`,

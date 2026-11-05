@@ -3,7 +3,7 @@ import { type Db, schema } from "@3d-maker-suite/db";
 import { and, isNull, like, or } from "drizzle-orm";
 import { HttpError } from "../errors.ts";
 import { profileColumns } from "../lib/catalog.ts";
-import { capableRow, slicerConfigDir } from "./capabilities.ts";
+import { capableRow, catalogDir } from "./capabilities.ts";
 
 const { filamentProfiles } = schema;
 
@@ -32,9 +32,10 @@ export function libraryOf(
   adapters: IntegrationAdapter[],
   integrationId: string,
   cap: Capability,
+  dataDir: string,
 ) {
   const { row, adapter } = capableRow(db, adapters, integrationId, cap);
-  const dir = slicerConfigDir(row, adapter);
+  const dir = catalogDir(db, dataDir, row, adapter);
   const lib = adapter.library;
   if (!dir || !lib) throw new HttpError(404, "library_not_found", "Slicer config folder not found");
   return { lib, dir };

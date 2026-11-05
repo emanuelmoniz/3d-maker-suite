@@ -20,6 +20,9 @@ export const TITLE: Record<ReviewedType, string> = {
   filamentBrands: "integrations:capabilities.filamentBrands",
   filamentMaterials: "integrations:capabilities.filamentMaterials",
   filamentProfiles: "integrations:capabilities.filamentProfiles",
+  userMachineProfiles: "integrations:capabilities.userMachineProfiles",
+  userPrintProfiles: "integrations:capabilities.userPrintProfiles",
+  userFilamentProfiles: "integrations:capabilities.userFilamentProfiles",
 };
 
 /** The review of what one integration, or one uploaded slicer zip, offers for one type. */

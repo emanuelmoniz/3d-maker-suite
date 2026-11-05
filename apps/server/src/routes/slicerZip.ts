@@ -27,7 +27,13 @@ const errors = { 400: apiErrorSchema, 404: apiErrorSchema };
 // A slicer's config folder uploaded as a zip, for a server that has no slicer installed: it is
 // unpacked and read by the same readers as the local folder, then reviewed per type like any import.
 export const slicerZipRoutes =
-  (db: Db, syncer: Syncer, dataDir: string): FastifyPluginAsyncZod =>
+  (
+    db: Db,
+    syncer: Syncer,
+    dataDir: string,
+    /** Its user presets are kept: they may reach the catalog. */
+    onPresetSaved: () => void = () => {},
+  ): FastifyPluginAsyncZod =>
   async (app) => {
     const base = join(dataDir, FOLDER);
     const review = createReview(db, dataDir);
@@ -77,6 +83,7 @@ export const slicerZipRoutes =
         keepPresets(db, dataDir, syncer.adapters, source, openUpload(base, uploadId).root, {
           user: req.user?.displayName,
         });
+        onPresetSaved();
         return { uploadId };
       },
     );

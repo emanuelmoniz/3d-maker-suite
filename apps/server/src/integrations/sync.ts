@@ -1,3 +1,5 @@
+import { existsSync, realpathSync } from "node:fs";
+import { join } from "node:path";
 import {
   autoDecisions,
   defaultPolicy,
@@ -12,12 +14,15 @@ import {
   type IntegrationErrorCode,
   type IntegrationInstance,
   isAction,
+  isUserPresetType,
   type LibrarySpool,
   librarySpoolSchema,
   type MergePolicy,
   matchPrint,
   REVIEWED_TYPES,
   type ReviewedType,
+  SLICER_PRESET_TYPES,
+  type SlicerPresetKind,
   type SyncFrequency,
   type SyncLogEntry,
   type SyncPolicy,
@@ -25,28 +30,37 @@ import {
   type SyncResult,
   type SyncRun,
   type SyncTrigger,
+  type SyncType,
   type TestResult,
+  USER_PRESET_ENTITY,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
+import { presetFileName } from "@3d-maker-suite/host";
 import { Cron } from "croner";
-import { and, asc, desc, eq, isNull, notInArray } from "drizzle-orm";
+import { and, asc, desc, eq, isNull, like, notInArray } from "drizzle-orm";
 import type { FastifyBaseLogger } from "fastify";
 import { raise } from "../alerts/evaluate.ts";
 import { HttpError } from "../errors.ts";
 import { createReview, type Stored, untracked } from "../import/review.ts";
+import { clearDeleted } from "../lib/catalog.ts";
 import { success } from "../lib/logSink.ts";
+import { readPreferences } from "../lib/preferences.ts";
 import { bookOrLink } from "../lib/prints.ts";
 import { linkPrints } from "../projects/linkPrints.ts";
 import {
   activeCapabilities,
   capableRow,
+  catalogDir,
   policyOf,
   raisesSeverity,
   slicerCatalogType,
   slicerConfigDir,
+  slicerFileType,
   switchedOn,
 } from "./capabilities.ts";
 import { libraryOf } from "./imports.ts";
+import { linkLibraries } from "./managedSlicer.ts";
+import { userPresetFiles } from "./presetLibrary.ts";
 import { secretStore } from "./secrets.ts";
 import {
   activeSpools,
@@ -58,8 +72,22 @@ import {
   spoolRows,
 } from "./sourceRows.ts";
 
-const { importSnapshots, integrations, prints, printFilamentUsages, syncPolicies, syncRuns } =
-  schema;
+const {
+  deletedSources,
+  importSnapshots,
+  integrations,
+  prints,
+  printFilamentUsages,
+  syncPolicies,
+  syncRuns,
+} = schema;
+
+/** The kind of preset each profile type holds. */
+const PRESET_KINDS: Record<string, SlicerPresetKind> = {
+  filamentProfiles: "filament",
+  machineProfiles: "machine",
+  printProfiles: "process",
+};
 
 /** The dates a prints read is limited to; none = since the last run. */
 type Range = { from?: string; to?: string };
@@ -266,9 +294,9 @@ export function createSyncer(
         oldestLeft = done.left
           .map((r) => String(r.values.startedAt))
           .reduce<string | undefined>((a, b) => (a && a < b ? a : b), undefined);
-        // No scheduled run follows a slicer's catalog: what a review left out stays out, or its
+        // No run follows until the slicer's files change: what a review left out stays out, or its
         // alert would never close.
-        if (pick && slicerCatalogType(adapter, type)) pending = 0;
+        if (pick && slicerFileType(adapter, type)) pending = 0;
       }
 
       if (type === "prints") {
@@ -388,8 +416,8 @@ export function createSyncer(
 
   /**
    * Scheduled job: in every enabled integration, each set-up type in `auto` mode whose frequency
-   * has passed since its last successful run, one after another (see NEEDS_USER / BACK_OFF). A
-   * slicer's catalog types have no schedule: see `checkCatalogs`.
+   * has passed since its last successful run, one after another (see NEEDS_USER / BACK_OFF). What a
+   * slicer's files feed has no schedule: see `checkCatalogs` and `checkUserPresets`.
    */
   async function runAll() {
     const rows = db.select().from(integrations).where(eq(integrations.enabled, true)).all();
@@ -409,7 +437,7 @@ export function createSyncer(
       const adapter = adapters.find((a) => a.id === row.adapterId);
       // Adapter order: printers come before the prints that point at them.
       for (const type of activeCapabilities(db, row, adapter)) {
-        if (isAction(type) || slicerCatalogType(adapter, type)) continue;
+        if (isAction(type) || slicerFileType(adapter, type)) continue;
         const p = policyOf(db, id, type);
         // A failed run leaves `lastRunAt` alone, so it is retried after RETRY_MS.
         if (p.mode !== "auto" || !isDue(p)) continue;
@@ -422,10 +450,48 @@ export function createSyncer(
   }
 
   /**
-   * Daily and after a managed install (ADR-0019): when a slicer's system presets changed, each type
-   * imported from it before counts what waits for a person, and `sync_pending` leads to the review.
-   * It writes no catalog row, not even a new one. The first sight of a folder is only recorded, and
-   * a type never imported stays silent: someone who only slices has nothing to review.
+   * Rows wait for a person: their count, and the run that names them. In a transaction with what
+   * marks the change as seen, or the alert would be lost for good.
+   */
+  function holdForReview(
+    integrationId: string,
+    type: SyncType,
+    left: ImportPreviewRow[],
+    at: string,
+  ) {
+    const pending = { pending: left.length };
+    db.insert(syncPolicies)
+      .values({ integrationId, type, ...defaultPolicy(type), ...pending })
+      .onConflictDoUpdate({
+        target: [syncPolicies.integrationId, syncPolicies.type],
+        set: pending,
+      })
+      .run();
+    if (!left.length) return;
+    // The alert's detail comes from the latest run: without this, an older run's rows.
+    const cut = left.length - MAX_LOG;
+    db.insert(syncRuns)
+      .values({
+        integrationId,
+        trigger: "scheduled",
+        type,
+        startedAt: at,
+        finishedAt: at,
+        status: "ok",
+        log: [
+          ...left.slice(0, MAX_LOG).map(leftEntry),
+          ...(cut > 0 ? [{ event: "truncated" as const, count: cut }] : []),
+        ],
+      })
+      .run();
+  }
+
+  /**
+   * On the scheduler's tick and after a managed install (ADR-0019), when a slicer's system presets
+   * changed: an `auto` type runs. A `manual` type imported from it before writes nothing and counts
+   * what waits for a person, and `sync_pending` leads to the review. The first sight of a folder is
+   * only recorded, and a type never imported stays silent: someone who only slices has nothing to
+   * review.
    */
   async function checkCatalogs() {
     const libraries = new Set<string>();
@@ -444,6 +510,16 @@ export function createSyncer(
       try {
         const now = await lib.catalogFingerprint?.(dir);
         if (!now || now === row.catalogFingerprint) continue;
+        const seenBefore = row.catalogFingerprint ? types : [];
+        const manual = seenBefore.filter((t) => policyOf(db, row.id, t).mode !== "auto");
+        let failed = false;
+        for (const type of seenBefore.filter((t) => !manual.includes(t))) {
+          // Nothing to do logs nothing: the sync log only shows real changes.
+          if (!review.preview(await offered(row, type)).rows.some((r) => r.auto)) continue;
+          if ((await run(row.id, "scheduled", { type })).errorCode) failed = true;
+        }
+        // The fingerprint stays, so the next check tries again.
+        if (failed) continue;
         const imported = new Set(
           db
             .select({ entity: importSnapshots.entity })
@@ -453,10 +529,10 @@ export function createSyncer(
             .map((s) => s.entity),
         );
         const waiting: { type: LibraryType; left: ImportPreviewRow[] }[] = [];
-        for (const type of row.catalogFingerprint ? types : []) {
+        for (const type of manual) {
           if (!imported.has(type)) continue;
           // ponytail: every new system row of a partly imported type counts, wanted or not; the
-          // brand pick of the Catalog row narrows it.
+          // brand pick narrows it.
           const stored: Stored = {
             entity: type,
             ignoredHeaders: [],
@@ -464,39 +540,16 @@ export function createSyncer(
             dir,
             rows: await libraryRows(lib, dir, type, { dataDir, scope: "system" }),
           };
-          waiting.push({ type, left: review.preview(stored).rows.filter((r) => r.auto) });
+          const { rows: read } = review.preview(stored);
+          // A user preset's row marks its type imported too: none of these rows being yours, the
+          // system presets never were.
+          if (!read.some((r) => r.targetId)) continue;
+          waiting.push({ type, left: read.filter((r) => r.auto) });
         }
         const at = new Date().toISOString();
-        // All or nothing: a stored fingerprint with no count would lose the alert for good.
-        db.transaction((tx) => {
-          for (const { type, left } of waiting) {
-            const pending = { pending: left.length };
-            tx.insert(syncPolicies)
-              .values({ integrationId: row.id, type, ...defaultPolicy(type), ...pending })
-              .onConflictDoUpdate({
-                target: [syncPolicies.integrationId, syncPolicies.type],
-                set: pending,
-              })
-              .run();
-            if (!left.length) continue;
-            // The alert's detail comes from the latest run: without this, an older run's rows.
-            const cut = left.length - MAX_LOG;
-            tx.insert(syncRuns)
-              .values({
-                integrationId: row.id,
-                trigger: "scheduled",
-                type,
-                startedAt: at,
-                finishedAt: at,
-                status: "ok",
-                log: [
-                  ...left.slice(0, MAX_LOG).map(leftEntry),
-                  ...(cut > 0 ? [{ event: "truncated" as const, count: cut }] : []),
-                ],
-              })
-              .run();
-          }
-          tx.update(integrations)
+        db.transaction(() => {
+          for (const { type, left } of waiting) holdForReview(row.id, type, left, at);
+          db.update(integrations)
             .set({ catalogFingerprint: now })
             .where(eq(integrations.id, row.id))
             .run();
@@ -507,6 +560,96 @@ export function createSyncer(
       }
     }
   }
+
+  /**
+   * A preset you deleted from the catalog is wanted again once it's edited (ADR-0019). ponytail: by
+   * file time, so a slicer rewriting a file with no edit brings the row back too, and it can be
+   * deleted again. Comparing content would need the sha kept with the mark.
+   */
+  function clearEdited(library: string, files: ReturnType<typeof userPresetFiles>) {
+    const prefix = `${library}:user/`;
+    const marks = db
+      .select()
+      .from(deletedSources)
+      .where(like(deletedSources.source, `${prefix}%`))
+      .all();
+    for (const m of marks) {
+      const name = presetFileName(m.source.slice(prefix.length));
+      const file = files.find((f) => f.kind === PRESET_KINDS[m.entity] && f.file === name);
+      if (file && file.mtimeMs > Date.parse(m.deletedAt)) clearDeleted(db, m.entity, m.source);
+    }
+  }
+
+  /**
+   * Each slicer folder's user presets, per kind, follow their card when a file changes (ADR-0019):
+   * `auto` runs it, and what needs a person waits; `manual` writes nothing and everything waits. Only
+   * the files' times and sizes are looked at until one changes, so it can run every minute. What was
+   * last seen is the type's `cursor`.
+   */
+  async function scanUserPresets() {
+    if (dataDir && readPreferences(db).hubEnabled) linkLibraries(db, dataDir, adapters);
+    const folders = new Set<string>();
+    // Oldest first, and a row with its own folder first: of the rows sharing the hub's library, one
+    // that can read the system presets resolves the parents.
+    const rows = db
+      .select()
+      .from(integrations)
+      .orderBy(asc(integrations.createdAt))
+      .all()
+      .sort((a, b) => Number(!a.slicerConfigDir) - Number(!b.slicerConfigDir));
+    for (const row of rows) {
+      const adapter = adapters.find((a) => a.id === row.adapterId);
+      const lib = adapter?.library;
+      const dir = adapter && catalogDir(db, dataDir, row, adapter);
+      const types = activeCapabilities(db, row, adapter).filter(isUserPresetType);
+      if (!lib || !dir || !types.length || running.has(row.id)) continue;
+      const user = join(dir, "user");
+      if (!existsSync(user)) continue;
+      const folder = realpathSync(user);
+      if (folders.has(folder)) continue;
+      folders.add(folder);
+      try {
+        const files = userPresetFiles(user);
+        for (const type of types) {
+          const kind = PRESET_KINDS[USER_PRESET_ENTITY[type]];
+          const mine = files.filter((f) => f.kind === kind);
+          const now = mine
+            .map((f) => `${f.path}:${f.mtimeMs}:${f.size}`)
+            .sort()
+            .join(";");
+          const policy = policyOf(db, row.id, type);
+          if (now === (policy.cursor ?? "")) continue;
+          clearEdited(lib.id, mine);
+          const left = review.preview(await offered(row, type)).rows.filter((r) => r.auto);
+          const see = () =>
+            db
+              .update(syncPolicies)
+              .set({ cursor: now })
+              .where(and(eq(syncPolicies.integrationId, row.id), eq(syncPolicies.type, type)))
+              .run();
+          // Nothing to do logs nothing: the sync log only shows real changes.
+          if (policy.mode === "auto" && left.length) {
+            // A failed run keeps the cursor, so the next check tries again.
+            if (!(await run(row.id, "scheduled", { type })).errorCode) see();
+          } else
+            db.transaction(() => {
+              holdForReview(row.id, type, left, new Date().toISOString());
+              see();
+            });
+        }
+      } catch (err) {
+        // The cursor stays, so the next check tries again.
+        log.warn({ err, integrationId: row.id }, "user presets check failed");
+      }
+    }
+  }
+
+  // One at a time: the scheduler's tick and a hub's saved preset can overlap.
+  let userPresetsCheck = Promise.resolve();
+  const checkUserPresets = () =>
+    (userPresetsCheck = userPresetsCheck
+      .then(scanUserPresets)
+      .catch((err) => log.warn({ err }, "user presets check failed")));
 
   /** The printers of one integration's account, read live; invalid ones are logged and left out. */
   async function readPrinters(id: string, instance: IntegrationInstance) {
@@ -681,8 +824,15 @@ export function createSyncer(
       const kept = range.from || range.to ? { from: range.from, to: range.to } : undefined;
       return { entity: type, ignoredHeaders: [], from, rows, range: kept };
     }
-    const { lib, dir } = libraryOf(db, adapters, row.id, type);
-    const rows = await libraryRows(lib, dir, type, { dataDir });
+    const { lib, dir } = libraryOf(db, adapters, row.id, type, dataDir);
+    if (isUserPresetType(type)) {
+      const entity = USER_PRESET_ENTITY[type];
+      const rows = await libraryRows(lib, dir, entity, { dataDir, scope: "user" });
+      return { entity, type, ignoredHeaders: [], from, dir, rows };
+    }
+    // Catalog rows read both: a user preset's brand is one to pick too.
+    const scope = (SLICER_PRESET_TYPES as readonly string[]).includes(type) ? "system" : undefined;
+    const rows = await libraryRows(lib, dir, type, { dataDir, scope });
     return { entity: type, ignoredHeaders: [], from, dir, rows };
   }
 
@@ -703,7 +853,7 @@ export function createSyncer(
   }
 
   /**
-   * The Catalog row's brand pick: adds what the slicer offers for these printer and filament brands
+   * The card's brand pick: adds what the slicer offers for these printer and filament brands
    * (brands, models, machine and print profiles; filament brands, materials, filament profiles),
    * one manual run per type after the one `backup`. It only adds: rows you have change in the review.
    */
@@ -758,7 +908,17 @@ export function createSyncer(
     return created;
   }
 
-  return { run, runAll, checkCatalogs, importBrands, test, offer, running, adapters };
+  return {
+    run,
+    runAll,
+    checkCatalogs,
+    checkUserPresets,
+    importBrands,
+    test,
+    offer,
+    running,
+    adapters,
+  };
 }
 
 export type Syncer = ReturnType<typeof createSyncer>;

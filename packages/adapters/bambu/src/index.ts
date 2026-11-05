@@ -10,6 +10,7 @@ import {
   type ManagedSlicer,
   pickAsset,
   tagPattern,
+  USER_PRESET_TYPES,
   workerConfigSchema,
 } from "@3d-maker-suite/core";
 import { z } from "zod";
@@ -351,6 +352,7 @@ export function bambuStudioAdapter(): IntegrationAdapter {
       "filamentBrands",
       "filamentMaterials",
       "filamentProfiles",
+      ...USER_PRESET_TYPES,
       "openInSlicer",
       "slice",
     ],
@@ -424,6 +426,7 @@ export function bambuStudioServerAdapter(): IntegrationAdapter {
       "filamentBrands",
       "filamentMaterials",
       "filamentProfiles",
+      ...USER_PRESET_TYPES,
       "slice",
     ],
     library: bambuStudioLibrary(() => []),
@@ -435,13 +438,12 @@ export function bambuStudioServerAdapter(): IntegrationAdapter {
 }
 
 // The same slicer on a slice worker (ADR-0014): installed on the device or downloaded there by the
-// hub. Its presets are the hub's (a zip import, reviewed there), so it has nothing to sync.
+// hub. Its presets are the hub's (a zip import, or shared by a device), which reach the catalog.
 export function bambuStudioWorkerAdapter(): IntegrationAdapter {
   return {
     ...bambuStudioServerAdapter(),
     id: "bambu-studio-worker",
     kind: "worker",
-    capabilities: ["slice"],
     configSchema: workerConfigSchema,
   };
 }

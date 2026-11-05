@@ -1,12 +1,16 @@
 import {
+  type ACTIONS,
   ALERT_SEVERITIES,
   type AlertSeverity,
   type Capability,
   type Integration,
   isAction,
+  isUserPresetType,
   type NewSpoolField,
   REVIEWED_TYPES,
   type ReviewedType,
+  SLICER_CATALOG_ROW_TYPES,
+  SLICER_PRESET_TYPES,
   type SyncFrequency,
   type SyncMerge,
   type SyncPolicy,
@@ -31,7 +35,7 @@ import {
   usePatchIntegration,
   type useSyncIntegration,
 } from "../../lib/integrations.ts";
-import { CatalogRow } from "./CatalogRow.tsx";
+import { ChooseBrands } from "./ChooseBrands.tsx";
 import { CAPS } from "./integrationLabels.ts";
 
 const RANGES = {
@@ -70,6 +74,14 @@ const SCOPE_HINTS: Record<SyncScope, string> = {
   all: "integrations:policies.scopeHints.all",
   imported: "integrations:policies.scopeHints.imported",
 };
+const USER_SCOPE_HINTS: Record<SyncScope, string> = {
+  all: "integrations:policies.userScopeHints.all",
+  imported: "integrations:policies.userScopeHints.imported",
+};
+const ACTION_HINTS: Record<(typeof ACTIONS)[number], string> = {
+  openInSlicer: "integrations:actionHints.openInSlicer",
+  slice: "integrations:actionHints.slice",
+};
 const MERGES: Record<SyncMerge, string> = {
   overwrite: "integrations:policies.merges.overwrite",
   keepEdits: "integrations:policies.merges.keepEdits",
@@ -101,14 +113,24 @@ const NEW_OPENED_AT_HINTS: Record<NewSpoolField, string> = {
   unset: "integrations:policies.newSpools.openedAtHints.unset",
   review: "integrations:policies.newSpools.openedAtHints.review",
 };
+// The first group has no heading: it is all a cloud card has.
 const GROUPS = {
-  devices: "integrations:policies.groups.devices",
+  devices: null,
   catalog: "integrations:policies.groups.catalog",
+  systemPresets: "integrations:policies.groups.systemPresets",
+  userPresets: "integrations:policies.groups.userPresets",
 };
-const DEVICES: readonly Capability[] = ["printers", "prints", "spools"];
+const groupOf = (c: Capability): keyof typeof GROUPS =>
+  (SLICER_CATALOG_ROW_TYPES as readonly string[]).includes(c)
+    ? "catalog"
+    : (SLICER_PRESET_TYPES as readonly string[]).includes(c)
+      ? "systemPresets"
+      : isUserPresetType(c)
+        ? "userPresets"
+        : "devices";
 // Types whose rows are reviewed and confirmed. They can also run straight from here: a run
-// imports the rows that need no decision (catalog rows, spools with one matching profile, presets
-// whose brand and material exist) and leaves the rest pending for the review page.
+// imports the rows that need no decision (catalog rows, spools with one matching profile, presets,
+// with the brand and material they need) and leaves the rest pending for the review page.
 const isReviewed = (c: Capability): c is ReviewedType =>
   (REVIEWED_TYPES as readonly string[]).includes(c);
 
@@ -160,7 +182,7 @@ function rangeFor(
   };
 }
 
-/** The data types an integration imports, in groups (devices & prints, catalog), one row each. */
+/** The data types an integration imports, in groups, one row each. */
 export function Policies({ integration: i, sync }: { integration: Integration; sync: Sync }) {
   const { t } = useTranslation();
   const patch = usePatchIntegration(i.id);
@@ -178,30 +200,25 @@ export function Policies({ integration: i, sync }: { integration: Integration; s
           {t("integrations:card.actionError")}
         </p>
       )}
+      {admin && i.capabilities.includes("brands") && <ChooseBrands integration={i} />}
       {(Object.keys(GROUPS) as (keyof typeof GROUPS)[]).map((g) => {
         const rows = i.policies.filter(
-          (p) =>
-            !isAction(p.type) &&
-            may(i.id, p.type, "any") &&
-            (DEVICES.includes(p.type) ? "devices" : "catalog") === g,
+          (p) => !isAction(p.type) && may(i.id, p.type, "any") && groupOf(p.type) === g,
         );
         if (!rows.length) return null;
         const id = `${i.id}-${g}`;
-        // A slicer's catalog is one row for an admin; the cloud's rows stay as they are.
-        const catalog = g === "catalog" && admin && i.kind !== "cloud";
+        const heading = GROUPS[g];
         return (
-          <section key={g} aria-labelledby={id} className="grid gap-2">
-            <h5 id={id} className="font-medium text-muted">
-              {t(GROUPS[g])}
-            </h5>
+          <section key={g} aria-labelledby={heading ? id : undefined} className="grid gap-2">
+            {heading && (
+              <h5 id={id} className="font-medium text-muted">
+                {t(heading)}
+              </h5>
+            )}
             <ul className="divide-y divide-border rounded-lg border border-border">
-              {catalog ? (
-                <CatalogRow integration={i} policies={rows} />
-              ) : (
-                rows.map((p) => (
-                  <PolicyRow key={p.type} integration={i} policy={p} sync={sync} patch={patch} />
-                ))
-              )}
+              {rows.map((p) => (
+                <PolicyRow key={p.type} integration={i} policy={p} sync={sync} patch={patch} />
+              ))}
             </ul>
             {g === "devices" && doubleTracking && (
               <p role="status" className="text-warn">
@@ -219,27 +236,32 @@ export function Policies({ integration: i, sync }: { integration: Integration; s
 export function ActionSwitches({ integration: i }: { integration: Integration }) {
   const { t } = useTranslation();
   const patch = usePatchIntegration(i.id);
-  return i.policies
-    .filter((p) => isAction(p.type))
-    .map((p) => (
-      <Switch
-        key={p.type}
-        label={t(CAPS[p.type])}
-        checked={p.mode !== "off"}
-        disabled={patch.isPending}
-        onChange={(e) =>
-          patch.mutate({
-            policies: [{ type: p.type, mode: e.target.checked ? "manual" : "off" }],
-          })
-        }
-      />
-    ));
+  return i.policies.flatMap(({ type, mode }) =>
+    isAction(type)
+      ? [
+          <div key={type} className="grid gap-1">
+            <Switch
+              label={t(CAPS[type])}
+              checked={mode !== "off"}
+              disabled={patch.isPending}
+              onChange={(e) =>
+                patch.mutate({
+                  policies: [{ type, mode: e.target.checked ? "manual" : "off" }],
+                })
+              }
+            />
+            <p className="text-muted">{t(ACTION_HINTS[type])}</p>
+          </div>,
+        ]
+      : [],
+  );
 }
 
 /** "Manual", "Auto, every day at 07:30", …, in the server's time zone. */
-function useSummary(p: SyncPolicy) {
+function useSummary(p: SyncPolicy, files: boolean) {
   const { t, i18n } = useTranslation();
   if (p.mode !== "auto") return t("integrations:policies.modes.manual");
+  if (files) return t("integrations:policies.onFileChange");
   const set = AT_FIELDS[p.frequency].some((f) => p[f] != null);
   if (!set) return t(SUMMARY[p.frequency].every);
   return t(SUMMARY[p.frequency].at, {
@@ -274,7 +296,9 @@ function PolicyRow({
   const accounts = !!useMe();
   const may = useMayTask();
   const name = t(CAPS[p.type]);
-  const summary = useSummary(p);
+  // A slicer's cards read files: a change in them runs the type, so it has no schedule (ADR-0019).
+  const files = i.kind !== "cloud";
+  const summary = useSummary(p, files);
   const set = (change: Partial<Omit<SyncPolicy, "type" | "lastRunAt" | "pending">>) =>
     patch.mutate({ policies: [{ type: p.type, ...change }] });
   const options = (map: Record<string, string>) =>
@@ -391,13 +415,25 @@ function PolicyRow({
             <fieldset className="grid gap-3">
               <legend className="mb-2 font-semibold">{t("integrations:policies.when")}</legend>
               <Switch
-                label={t("integrations:policies.auto")}
-                aria-label={t("integrations:policies.autoOf", { type: name })}
+                label={t(
+                  files ? "integrations:policies.onFileChange" : "integrations:policies.auto",
+                )}
+                aria-label={
+                  files
+                    ? t("integrations:policies.onFileChangeOf", { type: name })
+                    : t("integrations:policies.autoOf", { type: name })
+                }
                 checked={auto}
                 disabled={patch.isPending}
                 onChange={(e) => set({ mode: e.target.checked ? "auto" : "manual" })}
               />
-              {auto ? (
+              {files ? (
+                <p className="text-muted">
+                  {auto
+                    ? t("integrations:policies.onFileChangeHint")
+                    : t("integrations:policies.manualFilesHint")}
+                </p>
+              ) : auto ? (
                 <div className="grid gap-3">
                   <FormField label={t("integrations:policies.frequency")}>
                     {(f) => (
@@ -482,7 +518,7 @@ function PolicyRow({
                   <>
                     <FormField
                       label={t("integrations:policies.scope")}
-                      hint={t(SCOPE_HINTS[p.scope])}
+                      hint={t((isUserPresetType(type) ? USER_SCOPE_HINTS : SCOPE_HINTS)[p.scope])}
                     >
                       {(f) => (
                         <Combobox

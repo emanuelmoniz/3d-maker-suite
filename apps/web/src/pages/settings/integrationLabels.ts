@@ -46,6 +46,9 @@ export const ERRORS: Record<IntegrationErrorCode, string> = {
 };
 // Also the Type column of the sync log.
 export const CAPS: Record<Capability, string> = {
+  userMachineProfiles: "integrations:capabilities.userMachineProfiles",
+  userPrintProfiles: "integrations:capabilities.userPrintProfiles",
+  userFilamentProfiles: "integrations:capabilities.userFilamentProfiles",
   printers: "integrations:capabilities.printers",
   prints: "integrations:capabilities.prints",
   spools: "integrations:capabilities.spools",

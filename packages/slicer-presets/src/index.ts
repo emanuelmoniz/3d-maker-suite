@@ -78,7 +78,8 @@ export function toProfile(
   get: (key: string) => string | undefined,
 ): Omit<LibraryPreset, "presetId"> | undefined {
   const material = get("filament_type");
-  if (!material) return;
+  // A user preset with no readable parent still counts: it waits for a person (ADR-0019).
+  if (!material && scope === "system") return;
   const density = num(get("filament_density"));
   const cost = num(get("filament_cost"));
   const nozzle = num(get("nozzle_temperature"));
@@ -86,7 +87,7 @@ export function toProfile(
   return {
     scope,
     brand: get("filament_vendor") ?? "",
-    material,
+    material: material ?? "",
     name: baseName(name),
     diameterMm: num(get("filament_diameter")) || 1.75,
     densityGcm3: density && density > 0 ? density : DEFAULT_DENSITY,
@@ -243,8 +244,19 @@ export function slicerPresetLibrary(id: string, defaultDirs: () => string[]): Fi
           if (!p) continue;
           const name = typeof p.name === "string" ? p.name : parse(f).name;
           const get = await resolver(p);
-          const brand = models.get((get("printer_model") ?? "").toLowerCase())?.brand;
+          const model = get("printer_model") ?? "";
+          const brand = models.get(model.toLowerCase())?.brand;
           if (brand) add(`user/${name}`, "user", name, brand, get);
+          // No readable parent: it waits for a person, with what it does say (ADR-0019).
+          if (!machines.has(`user/${name}`))
+            machines.set(`user/${name}`, {
+              presetId: `user/${name}`,
+              scope: "user",
+              brand: "",
+              model,
+              name,
+              nozzleDiameterMm: num(get("nozzle_diameter")) ?? null,
+            });
         }
 
       for (const [name, f] of [...systemFiles].sort(([a], [b]) => a.localeCompare(b))) {
@@ -256,7 +268,9 @@ export function slicerPresetLibrary(id: string, defaultDirs: () => string[]): Fi
 
       // Process presets. Model and nozzle come from the first compatible machine we read.
       // ponytail: first machine only; a process for several models lands on the first one's.
-      const machineByName = new Map([...machines.values()].map((m) => [m.name, m]));
+      const machineByName = new Map(
+        [...machines.values()].filter((m) => m.brand).map((m) => [m.name, m]),
+      );
       const proc = await systemPresets(dir, "process");
       const processes = new Map<string, CatalogProcess>();
       const addProcess = (

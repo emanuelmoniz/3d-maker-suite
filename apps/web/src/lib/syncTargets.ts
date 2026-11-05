@@ -43,4 +43,19 @@ export const SYNC_TARGETS: Partial<Record<Capability, Target>> = {
     hash: "filament-profiles",
     label: "alerts:view.sync.filamentProfiles",
   },
+  userMachineProfiles: {
+    to: "/printers/settings",
+    hash: "machine-profiles",
+    label: "alerts:view.sync.machineProfiles",
+  },
+  userPrintProfiles: {
+    to: "/printers/settings",
+    hash: "print-profiles",
+    label: "alerts:view.sync.printProfiles",
+  },
+  userFilamentProfiles: {
+    to: "/filament/settings",
+    hash: "filament-profiles",
+    label: "alerts:view.sync.filamentProfiles",
+  },
 };

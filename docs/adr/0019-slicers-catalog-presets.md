@@ -16,14 +16,30 @@ ADR-0017 kept deletes away from desktops, because the cloud restored a removed f
 - **Device** (connector): a machine, a *location* a slicer runs in. It stays in Hub management. Connectors are not integrations: they also do file sync, roots, locks and pairing, and in 6.0.0 they relay LAN printers.
 
 ### System catalog
-No schedule. When the source changes, nothing is written, not even new rows: an alert leads to a review.
+No schedule: what a slicer's files feed runs when the files change. Each type chooses:
+- **Manual (default):** when the source changes, nothing is written, not even new rows: an alert leads to a review.
+- **Automatic:** the type runs, under its own "what to sync" and "how to sync", with Keep my edits as the default. A first sight of a folder only records it.
 
-The trigger is a fingerprint of `system/`: the sorted `<vendor>=<version>` of each `system/<vendor>.json`. It is 12 small files, read in about 2 ms. File times can't be used: Studio recopied a whole vendor folder with no change of version, which would raise a false alert. Orca ≥ 2.5 has only `.opc` files, which we can't read (ADR-0013), so it has no system catalog to fingerprint.
+The check runs on the scheduler's one-minute tick, because the fingerprint is cheap. The trigger is a fingerprint of `system/`: the sorted `<vendor>=<version>` of each `system/<vendor>.json`. It is 12 small files, read in about 2 ms. File times can't be used: Studio recopied a whole vendor folder with no change of version, which would raise a false alert. Orca ≥ 2.5 has only `.opc` files, which we can't read (ADR-0013), so it has no system catalog to fingerprint.
 
-A type never imported from that slicer raises nothing: someone who only slices has nothing to review, and a review opened by hand still shows its rows.
+A type never imported from that slicer raises nothing: someone who only slices has nothing to review, and a review opened by hand still shows its rows. A user preset's row doesn't count as importing its type's system presets.
 
 ### User presets
-Added, updated and deleted automatically. A single PC checks within a minute, on the existing scheduler tick, which is more reliable than `fs.watch` on NAS and Docker volumes.
+Three sync types of their own (`userMachineProfiles`, `userPrintProfiles`, `userFilamentProfiles`), writing the same rows as the three profile types. Settings are stored one per integration and type, so a preset's kind can't have two sets of settings otherwise, and each review and count stays apart from the system presets'. Automatic by default.
+
+A single PC looks at the files' times and sizes on the scheduler's tick, which is more reliable than `fs.watch` on NAS and Docker volumes, and reads the presets only when something changed. A hub also checks as soon as a preset is saved.
+
+| Card | Preset changed | New preset |
+|---|---|---|
+| Automatic + Everything (default) | Updated, keeping your edits | Added |
+| Automatic + Only what I already have | Updated, keeping your edits | Alert, waits in the review |
+| Manual | Alert, waits in the review | Alert, waits in the review |
+
+On other types a new row outside the scope is left out silently. Here it always asks, so no new preset goes unnoticed. One skipped in the review stays new and counts again at the next change of that kind's files.
+
+These cards decide catalog rows only. Share (device to hub) is all or nothing, because a device has no review, and Install (hub to device) sends every preset whatever the cards say.
+
+A preset brings the brand, material and model it needs, in a run as well as in a review.
 
 ### Delete rule
 This reverses ADR-0017's "deletes never reach desktops". A preset removed in a slicer is deleted only if nothing uses it, and it is removed from other machines that have preset sync on.
@@ -54,7 +70,7 @@ A delete made in Studio's own UI does remove the cloud copy, and a PC of that ac
 The manual zip stays as a fallback. A `system` + `user` zip is far below the 100 MB limit (results below).
 
 ### User presets from Bambu Cloud
-This reverses ADR-0017's rejection of reading that API. One optional **User presets** row on the card, off by default like spools, with the controls the other cloud syncs have: Off, Manual or Auto, frequency (default daily), Sync now, review, log, alerts and editor rights. No new sync type: it uses `machineProfiles`, `printProfiles` and `filamentProfiles`, shown as one row, and `sourcePreset` stays `bambu-studio:user/<name>`, so a preset from the cloud and from Studio is one catalog row. Read-only: the app never writes to Bambu Cloud.
+This reverses ADR-0017's rejection of reading that API. One optional **User presets** row on the card, off by default like spools, with the controls the other cloud syncs have: Off, Manual or Auto, frequency (default daily), Sync now, review, log, alerts and editor rights. It uses the three user preset types, with a frequency because a cloud isn't files, and `sourcePreset` stays `bambu-studio:user/<name>`, so a preset from the cloud and from Studio is one catalog row. Read-only: the app never writes to Bambu Cloud.
 
 - **Reading it:** the list answers one request and gives each preset's `update_time`, so a run fetches only the presets whose time changed. That time also moved on a re-upload with no edit, so a fetched preset is compared by its canonical sha (ADR-0017) before it counts as changed. Treat the time as an opaque value to compare, not a date: it reads as real time + 8 h and has no zone.
 - **Where a cloud preset goes:** the catalog always. For slicing, a hub's library (so workers and Install devices get it), or a managed slicer's `config/user`. A single PC with desktop Studio writes nothing, because the server never writes to a desktop folder.
@@ -74,7 +90,9 @@ A shared preset doesn't reach the catalog in three separate cases. Each has an `
 ### Everything about a slicer is on its card
 Three concepts are kept apart. The **catalog** is database rows (brands, models, profiles, materials) on the Printers and Filament pages. **System presets** ship with the slicer, are read-only, feed the catalog and never sync to desktops. **User presets** are made in a slicer, feed the catalog and sync between machines. Each preset has one of three kinds: filament, process or machine.
 
-The card has a Catalog row, a User presets row (an on/off switch, a count, and View for the list, versions, conflicts and Restore) and a "Runs on" list. Each connector that reports the slicer is on that list, with Slice here, Share, Install and Read catalog. Share and Install become per slicer on a device, so a device can share one slicer and not another. The Presets button leaves Hub management.
+"What to import" on a slicer's card uses the same cards as the cloud's, one per type, in three groups: **Catalog** (printer brands, printer models, filament brands, filament materials), **System presets** (machine, print and filament profiles) and **User presets** (their three types, with a count and View for the list, versions, conflicts and Restore). Each card has last sync, Sync now, Review and import, and its settings: when, what to sync, how to sync, alerts and editor rights. "When" is one switch, Automatic when the files change or Manual, in place of a frequency.
+
+**Choose brands** sits above the groups, because a brand fills several cards: it brings the brand with its models and system presets, and sets the Catalog and System presets cards to "Only what I already have". Each list has Select all and shows the brands already in your catalog. A "Runs on" list ends the card. Each connector that reports the slicer is on that list, with Slice here, Share, Install and Read catalog. Share and Install become per slicer on a device, so a device can share one slicer and not another. The Presets button leaves Hub management.
 
 ### Unchanged
 Bambu Cloud's existing rows, the hub-only library (ADR-0017), and Orca 2.5+ system presets staying unreadable (ADR-0013).
@@ -148,7 +166,9 @@ Other Orca versions weren't tested.
 - **File times as the catalog fingerprint.** A recopy with no new version changes them all.
 - **The program version as the catalog fingerprint.** Profiles have their own version.
 - **`fs.watch` for a single PC's presets.** Less reliable on NAS and Docker volumes than the scheduler tick.
-- **Writing catalog changes automatically.** A vendor update could rewrite prices and names no one asked to change.
+- **Writing catalog changes automatically by default.** A vendor update could rewrite prices and names no one asked to change. It's opt-in per type, with Keep my edits as the default.
+- **A frequency on a slicer's cards.** They read files, so a change in the files is the only time there is anything to do.
+- **An import switch per section.** A card in Manual never imported does nothing and its alerts can be unticked, and an "off" that data types otherwise don't have (migration 0064) would stop user presets too.
 - **Connectors as integrations.** They do far more than host a slicer.
 - **Merging install rows into one.** Projects, plates, prints and snapshots point at them.
 
@@ -156,7 +176,8 @@ Other Orca versions weren't tested.
 - ADR-0017's "deletes never reach desktops" now holds only for a signed-in Studio, where the device tells the user what to do.
 - One delete can now reach every machine, which is why the safety rules above come with it.
 - The connector gains tombstone writing for Orca account folders and file removal for signed-out folders, each behind the existing closed-slicer queue and backup.
-- `integrations.catalogFingerprint` is added, and catalog schedules stop (Step 3).
+- `integrations.catalogFingerprint` is added, and catalog schedules stop (Step 3): an Auto schedule on a slicer's type becomes Automatic when the files change, and its frequency is ignored.
+- Three sync types are added, and each one's last-seen files are kept in `sync_policies.cursor`.
 - The app's token is used for a second purpose, reading presets, but only if the user turns the row on.
 - `sync_config`'s download path is trusted from source: a real profile download may behave differently, and the alert would be the first sign.
 

@@ -289,7 +289,19 @@ export async function buildApp(
   await app.register(maintenanceRoutes(db), { prefix: "/api/maintenance" });
   const syncer = createSyncer(db, opts.adapters ?? [], key, logFor("integrations"), dataDir);
   await app.register(filamentRoutes(db), { prefix: "/api/filament" });
-  await app.register(slicerZipRoutes(db, syncer, dataDir), { prefix: "/api/slicer-zip" });
+  // A hub's saved preset reaches the catalog at once (ADR-0019). A connector shares them one at a
+  // time, so a batch is one check.
+  let presetNudge: NodeJS.Timeout | undefined;
+  const presetSaved = () => {
+    presetNudge ??= setTimeout(() => {
+      presetNudge = undefined;
+      void syncer.checkUserPresets().then(evaluate);
+    }, 1000);
+  };
+  app.addHook("onClose", async () => clearTimeout(presetNudge));
+  await app.register(slicerZipRoutes(db, syncer, dataDir, presetSaved), {
+    prefix: "/api/slicer-zip",
+  });
   await app.register(presetsRoutes(db, dataDir, hub), { prefix: "/api/presets" });
   // The library folder is a cache of its table (ADR-0017).
   app.addHook("onReady", async () => {
@@ -352,6 +364,7 @@ export async function buildApp(
       workers,
       dataDir,
       () => void evaluate(),
+      presetSaved,
     ),
     {
       prefix: "/api/hub/device",
@@ -423,6 +436,8 @@ export async function buildApp(
       const idle = readPreferences(db).hubLockIdleMin * 60_000;
       hubFiles.releaseLocks({ idleBefore: new Date(Date.now() - idle).toISOString() });
       await syncer.runAll();
+      await syncer.checkCatalogs();
+      await syncer.checkUserPresets();
       await evaluate();
     });
     app.addHook("onClose", async () => job.stop());
@@ -431,10 +446,8 @@ export async function buildApp(
   const updater = createUpdater(db, dataDir, logFor("system"), opts.updater);
   await app.register(updatesRoutes(updater, opts.restart), { prefix: "/api/updates" });
   if (opts.updateCheckSchedule) {
-    // A new release (of the app or an installed slicer) or a slicer's changed system presets raise
-    // an alert; evaluate sends it.
-    const check = () =>
-      Promise.all([updater.check(), installer.check(), syncer.checkCatalogs()]).then(evaluate);
+    // A new release (of the app or an installed slicer) raises an alert; evaluate sends it.
+    const check = () => Promise.all([updater.check(), installer.check()]).then(evaluate);
     const daily = new Cron(opts.updateCheckSchedule, { protect: true }, check);
     // Not at once: a server started for a moment (tests, a restart loop) never asks GitHub.
     const first = setTimeout(check, 60_000).unref();

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { id } from "./entities.ts";
-import { MAINTENANCE_TARGETS, PRINT_OUTCOMES, SPOOL_STATUSES } from "./enums.ts";
+import { MAINTENANCE_TARGETS, PRINT_OUTCOMES, SPOOL_STATUSES, USER_PRESET_TYPES } from "./enums.ts";
 import { SLICER_ZIP_TYPES } from "./slicerCatalog.ts";
 
 // File imports (XLSX / CSV). The columns of an entity are declared once here and drive the
@@ -23,7 +23,13 @@ export const IMPORT_ENTITIES = [
 /** Everything the review screen takes: every file entity; an integration or a zip offers some. */
 export const REVIEW_ENTITIES = IMPORT_ENTITIES;
 /** What an integration can offer for review; a run on its own takes only what needs no decision. */
-export const REVIEWED_TYPES = ["printers", "spools", "prints", ...SLICER_ZIP_TYPES] as const;
+export const REVIEWED_TYPES = [
+  "printers",
+  "spools",
+  "prints",
+  ...SLICER_ZIP_TYPES,
+  ...USER_PRESET_TYPES,
+] as const;
 export const IMPORT_SOURCES = ["file", "zip", "integration"] as const;
 export type ImportEntity = (typeof IMPORT_ENTITIES)[number];
 export type ReviewEntity = (typeof REVIEW_ENTITIES)[number];

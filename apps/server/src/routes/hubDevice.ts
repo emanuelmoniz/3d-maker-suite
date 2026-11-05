@@ -79,6 +79,8 @@ export const hubDeviceRoutes =
     dataDir: string,
     /** A device reported its sync state: the mass delete alert may open or close. */
     onSyncState: () => void = () => {},
+    /** A device's preset changed the library: it may reach the catalog. */
+    onPresetSaved: () => void = () => {},
   ): FastifyPluginAsyncZod =>
   async (app) => {
     // Raw stream, read by the file route itself (Fastify's bodyLimit doesn't apply to it).
@@ -292,10 +294,12 @@ export const hubDeviceRoutes =
       },
       async (req) => {
         const device = sharing(req, req.body.library);
-        return uploadPreset(db, dataDir, req.body, device.id, {
+        const res = uploadPreset(db, dataDir, req.body, device.id, {
           user: req.user?.displayName,
           device: device.name,
         });
+        if (res.result === "saved" || res.result === "conflict") onPresetSaved();
+        return res;
       },
     );
     app.post(

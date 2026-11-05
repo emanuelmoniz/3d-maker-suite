@@ -59,7 +59,11 @@ export async function libraryRows(
         const { presetId, scope: _scope, pricePerKg, ...p } = preset;
         // The price column is typed in major units, like a file's.
         const price = pricePerKg === null ? null : pricePerKg / 100;
-        return { source: `${lib.id}:${presetId}`, raw: { ...p, pricePerKg: price } };
+        return {
+          source: `${lib.id}:${presetId}`,
+          // No material: its parent can't be read, so a person fills it in (ADR-0019).
+          raw: { ...p, pricePerKg: price, ...(!p.material && { hold: true }) },
+        };
       }),
     );
   const read = (await lib.readCatalog?.(dir)) ?? { models: [], machines: [], processes: [] };
@@ -89,7 +93,7 @@ export async function libraryRows(
   return numbered(
     c.machines.map(({ presetId, scope: _scope, ...raw }) => ({
       source: `${lib.id}:${presetId}`,
-      raw,
+      raw: { ...raw, ...(!raw.brand && { hold: true }) },
     })),
   );
 }

@@ -42,14 +42,36 @@ test("catalog row: pick brands, only those arrive, then only what you have", asy
   await app.api("PATCH", `/api/integrations/${id}`, { slicerConfigDir: slicerFolder() });
   await gotoIntegrations(page);
 
-  // One row for the seven catalog types, and Bambu Cloud's rows (not here) keep theirs.
-  await expect(page.getByRole("button", { name: "Settings: Brands" })).toHaveCount(0);
-  await expect(page.getByText("Everything", { exact: true })).toBeVisible();
+  // The cloud's cards, grouped; no schedule, because a change in the files runs them.
+  const group = (name: string) => page.getByRole("region", { name, exact: true });
+  for (const name of ["Printer brands", "Printer models", "Filament brands", "Filament materials"])
+    await expect(group("Catalog").getByText(name, { exact: true })).toBeVisible();
+  for (const name of ["Machine profiles", "Print profiles", "Filament profiles"])
+    await expect(group("System presets").getByText(name, { exact: true })).toBeVisible();
+  for (const name of ["User machine profiles", "User print profiles", "User filament profiles"])
+    await expect(group("User presets").getByText(name, { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Settings: Machine profiles" }).click();
+  const whenOf = (name: string) =>
+    page.getByRole("switch", { name: `Automatic when the files change: ${name}` });
+  await expect(whenOf("Machine profiles")).not.toBeChecked();
+  await expect(page.getByRole("combobox", { name: "Frequency: Machine profiles" })).toHaveCount(0);
+  await page.getByRole("button", { name: "Settings: Machine profiles" }).click();
+  await page.getByRole("button", { name: "Settings: User machine profiles" }).click();
+  await expect(whenOf("User machine profiles")).toBeChecked();
+  await page.getByRole("button", { name: "Settings: User machine profiles" }).click();
 
+  // Actions say what they do.
+  await expect(page.getByText("When active, this integration can be used")).toBeVisible();
+
+  // Nothing yet in your catalog; select all takes both of a list, and you can take one back.
+  await expect(page.getByText(/Printer brands in your catalog/)).toHaveCount(0);
   await page.getByRole("button", { name: "Choose brands" }).click();
   const printerBrands = page.getByRole("group", { name: "Printer brands" });
-  await expect(printerBrands.getByRole("checkbox", { name: "Zeta" })).not.toBeChecked();
-  await printerBrands.getByRole("checkbox", { name: "Acme" }).check();
+  const all = printerBrands.getByRole("checkbox", { name: "Select all" });
+  await all.check();
+  await expect(printerBrands.getByRole("checkbox", { name: "Zeta" })).toBeChecked();
+  await printerBrands.getByRole("checkbox", { name: "Zeta" }).uncheck();
+  await expect(all).not.toBeChecked();
   await page.getByRole("button", { name: "Import 1 brand" }).click();
 
   await expect(page.getByRole("button", { name: "Import 1 brand" })).toBeHidden();
@@ -60,18 +82,17 @@ test("catalog row: pick brands, only those arrive, then only what you have", asy
   const { policies } = await app.api<{ policies: Policy[] }>("GET", `/api/integrations/${id}`);
   const catalog = policies.filter((p) => p.type !== "openInSlicer" && p.type !== "slice");
   expect(catalog.length).toBeGreaterThanOrEqual(7);
-  expect(catalog.filter((p) => p.scope === "imported").length).toBeGreaterThanOrEqual(7);
-  await expect(page.getByRole("switch", { name: "Only what I already have" })).toBeChecked();
+  // A pick keeps the catalog and system cards to what you have; the user preset cards don't change.
+  const scopeOf = (type: string) => catalog.find((p) => p.type === type)?.scope;
+  expect(scopeOf("machineProfiles")).toBe("imported");
+  expect(scopeOf("brands")).toBe("imported");
+  expect(scopeOf("userMachineProfiles")).toBe("all");
 
-  // The brand you picked is checked and locked when you choose again.
+  // What you have shows on the closed card, and is checked and locked when you choose again.
+  await expect(page.getByText("Printer brands in your catalog: Acme")).toBeVisible();
   await page.getByRole("button", { name: "Choose brands" }).click();
-  await expect(
-    page.getByRole("group", { name: "Printer brands" }).getByRole("checkbox", { name: /Acme/ }),
-  ).toBeDisabled();
-
-  // Back to everything.
-  // Controlled by the saved policies, so the state follows the request, not the click.
-  await page.getByRole("switch", { name: "Only what I already have" }).click({ force: true });
-  await expect(page.getByRole("switch", { name: "Only what I already have" })).not.toBeChecked();
-  await expect(page.getByText("Every brand, model and profile")).toBeVisible();
+  const again = page.getByRole("group", { name: "Printer brands" });
+  await expect(again.getByText("In your catalog", { exact: true })).toBeVisible();
+  await expect(again.getByRole("checkbox", { name: "Acme" })).toBeDisabled();
+  await expect(again.getByRole("checkbox", { name: "Acme" })).toBeChecked();
 });

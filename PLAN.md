@@ -1863,8 +1863,8 @@ Minor release, starts after the 5.3.0 release. Design: ADR-0019 (Step 1). Skills
 - **Device** (connector): a machine, a *location* a slicer runs in. It stays in Hub management. Connectors are not integrations: they also do file sync, roots, locks and pairing, and in 6.0.0 they relay LAN printers.
 
 Design:
-- **System catalog:** no schedule. When the source changes, nothing is written: an alert leads to a review. The trigger is the `system/` folder's content, not the program version, if Step 1 confirms profiles can update alone.
-- **User presets:** added, updated and deleted automatically. A single PC checks within a minute, on the existing scheduler tick: more reliable than `fs.watch` on NAS and Docker volumes.
+- **System catalog:** no schedule: a change in the slicer's files runs it. Manual (default): nothing is written, an alert leads to a review. Automatic: the type runs, keeping your edits. The trigger is the `system/` folder's content, not the program version, if Step 1 confirms profiles can update alone.
+- **User presets:** three sync types of their own, Automatic by default. A single PC checks within a minute, on the existing scheduler tick: more reliable than `fs.watch` on NAS and Docker volumes. Under "Only what I already have" or Manual a new preset raises an alert and waits for review. The cards decide catalog rows only: Share and Install still move every preset.
 - **Delete rule:** a preset removed in a slicer is deleted only if nothing uses it, and it is removed from other machines that have preset sync on. This reverses ADR-0017's "deletes never reach desktops".
 - **"In use" is stricter than ADR-0018's delete check.** It also counts what ADR-0018 only clears: a plate's or printer's print profile (`project_slice_plates`, `printers.print_profile_id`), a plate's filament list (JSON), older archived versions with the same `sourcePreset`, and a preset another one `inherits` from.
 - **In use = nothing is deleted anywhere.** The hub and other machines keep it, or slicing would fail with `no_preset`. It shows "Removed on WS-3, still used by 2 plates". A daily check deletes it once it is free.
@@ -1874,18 +1874,23 @@ Design:
 - **Safety, because one delete now reaches every machine:** over the mass delete limit at once, the delete is held and an alert asks. A slicer sign-in or sign-out moves the watched folder, and that never counts as a delete. A desktop file with unsent edits is kept: the edit wins. The backup zip runs before writes, and deletes wait for the slicer to close. The Presets page gets **Restore**, from the existing tombstone and kept versions.
 - **Database rows stay one per install.** `projects`, `project_slice_plates`, `prints` and `import_snapshots` point at them. Cards group by `presetLibrary(adapter)`. The catalog belongs to the library's oldest row with a readable folder.
 - **The connector can send a slicer's catalog.** The manual zip stays as a fallback.
-- **User presets from Bambu Cloud:** one optional **User presets** row on its card, off by default like spools, with the controls the other cloud syncs have: Off, Manual or Auto, frequency (default daily), Sync now, review, log, alerts and editor rights. No new sync type: it uses `machineProfiles`, `printProfiles` and `filamentProfiles`, shown as one row, and `sourcePreset` stays `bambu-studio:user/<name>`, so a preset from the cloud and from Studio is one catalog row. Read-only: the app never writes to Bambu Cloud. This reverses ADR-0017's rejection of reading that API.
+- **User presets from Bambu Cloud:** optional **User presets** cards on its card, off by default like spools, with the controls the other cloud syncs have: Off, Manual or Auto, frequency (default daily), Sync now, review, log, alerts and editor rights. They use the three user preset types, and `sourcePreset` stays `bambu-studio:user/<name>`, so a preset from the cloud and from Studio is one catalog row. Read-only: the app never writes to Bambu Cloud. This reverses ADR-0017's rejection of reading that API.
 - **Where a cloud preset goes:** the catalog always. For slicing, a hub's library (so workers and Install devices get it), or a managed slicer's `config/user`. A single PC with desktop Studio writes nothing, because the server never writes to a desktop folder.
 - **Cloud delete guards,** on top of the delete rule: only presets this sync has seen before can be deleted, because presets from signed-out folders, zips or Orca never appear in the cloud. Only a complete, valid list counts. Over the mass delete limit, or a change of account, is held with an alert.
 - **OrcaCloud is on hold** until the Orca team issues a `client_id` (OrcaSlicer#14028). Orca presets keep connector Share and the zip.
-- **Unchanged:** Bambu Cloud's existing rows, the hub-only library (ADR-0017), and Orca 2.5+ system presets staying unreadable (ADR-0013).
+- **Orca's system presets are read from its `.opc` files** (Step 5b), a private format: an unknown version falls back to today's behaviour, with a message on the card. This reverses ADR-0013's rejection.
+- **Unchanged:** Bambu Cloud's existing rows and the hub-only library (ADR-0017).
 - **Three concepts, kept apart:** the **catalog** is database rows (brands, models, profiles, materials) on the Printers and Filament pages. **System presets** ship with the slicer, are read-only, feed the catalog and never sync to desktops. **User presets** are made in a slicer, feed the catalog and sync between machines. Each preset has one of three kinds: filament, process or machine.
 - **Everything about a slicer is on its card,** so the Presets button leaves Hub management:
 
 ```
 Bambu Studio
-  Catalog        pick brands, review changes
-  User presets   23 · on · reach the catalog · View (the list, versions, conflicts, Restore)
+  What to import
+    Choose brands   select all · what's in your catalog
+    Catalog         > Printer brands  > Printer models  > Filament brands  > Filament materials
+    System presets  > Machine profiles  > Print profiles  > Filament profiles
+    User presets    23 · View (the list, versions, conflicts, Restore)
+                    > User machine profiles  > User print profiles  > User filament profiles
   Runs on
     This server       slices · receives presets automatically
     WS-3 (connector)  Slice here · Share · Install · Read catalog
@@ -1936,6 +1941,7 @@ Do Step 2 of the 5.4.0 plan in PLAN.md. No visible change.
 - `runAll` in `sync.ts` skips slicers' catalog types. A daily check, plus a check after a managed install, compares the fingerprint.
 - On a change it writes nothing, not even new rows. It sets `pending` and raises the existing `sync_pending` alert, so no alert migration. An auto run today writes new rows through `autoDecisions`, so this path must not call `review.write`.
 - Existing catalog schedules stop; the CHANGELOG says so.
+- Later (Step 5): Manual keeps this; an Automatic type runs when the folder changes.
 
 **Done when:** a changed fixture fingerprint raises the alert, writes nothing, and the review shows the changes; an unchanged folder does nothing; tests pass.
 **Prompt:**
@@ -1945,31 +1951,47 @@ Do Step 3 of the 5.4.0 plan in PLAN.md.
 
 ### [x] Step 4 - One Catalog row
 **Model:** Sonnet · **Effort:** High
-**Scope:** On a slicer's card, one row replaces up to 7 in `PolicyRow.tsx`: pick your brands, then "only what I already have" (`scope: imported`, which exists). Writes apply to all 7 stored policies. This replaces the manual steps in `docs/import.md`. Cloud rows don't change.
+**Scope:** On a slicer's card, one row replaces up to 7 in `PolicyRow.tsx`: pick your brands, then "only what I already have" (`scope: imported`, which exists). Writes apply to all 7 stored policies. This replaces the manual steps in `docs/import.md`. Cloud rows don't change. Later (Step 5): the one row becomes per-type cards; Choose brands stays above them.
 **Done when:** picking brands imports only those; Bambu Cloud's rows look as before; tests and e2e pass.
 **Prompt:**
 ```
 Do Step 4 of the 5.4.0 plan in PLAN.md.
 ```
 
-### [ ] Step 5 - Presets reach the catalog automatically  **[plan mode]**
+### [x] Step 5 - Presets reach the catalog automatically  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:**
 - Hub: `savePreset` triggers the catalog update. Single PC: the scheduler tick.
 - `keepEdits` protects your edits. Editing a preset clears its `deleted_sources` mark.
 - A preset whose parent can't be resolved (no system presets, as on Orca 2.5+) waits for review instead of failing.
-- A **User presets** on/off switch on the card, on by default, so automatic import can be turned off.
+- Three sync types for user presets, each with its own settings, count and review. Under "Only what I already have" or Manual, a new preset raises an alert and waits; an automatic run also brings the brand and material a preset needs.
+- A slicer's cards are the cloud's cards, grouped into **Catalog**, **System presets** and **User presets**. "When" is one switch, Automatic when the files change or Manual, in place of a frequency. **Choose brands** stays above the groups, with Select all and what's in your catalog. Actions get a hint. The cloud's "Devices and prints" heading goes.
 
-**Done when:** Step 1's `it.fails` test is a normal test; a preset saved in a real slicer is in the catalog within a minute; tests pass.
+**Done when:** Step 1's `it.fails` test is a normal test; a preset saved in a real slicer is in the catalog within a minute; each row of ADR-0019's user preset table holds; tests and e2e pass.
 **Prompt:**
 ```
 Do Step 5 of the 5.4.0 plan in PLAN.md.
 ```
 
+### [ ] Step 5b - Orca system presets from `.opc`  **[plan mode]**
+**Model:** Opus · **Effort:** High
+**Scope:**
+- A pure parser in `packages/slicer-presets`, with no new dependency. Magic, checksum and format version are checked, and every byte must be consumed.
+- `systemPresets`, `readCatalog` and `catalogFingerprint` use it when `system/` has `.opc` and no JSON, so Orca gets brands, models, system presets and change alerts, and user presets resolve their parent.
+- An unknown version or a bad file: no system rows, a warning in the log, and a message on the card.
+- Tests with an `.opc` built in the test (no vendor file in the repo), plus a real-install test skipped when the folder is missing, which is the check for each Orca release. CONTRIBUTING's release checklist gains it.
+- ADR-0013 and ADR-0019 reverse "Orca 2.5+ unreadable".
+
+**Done when:** a real Orca install lists its brands, and a picked brand arrives with its models and profiles; a user preset arrives with its material, with no review; tests and e2e pass.
+**Prompt:**
+```
+Do Step 5b of the 5.4.0 plan in PLAN.md.
+```
+
 ### [ ] Step 6 - Docs, push & v5.4.0-alpha.1
 **Model:** Haiku · **Effort:** Low
 **Scope:**
-- `docs/import.md`, `docs/slicing.md`, `pnpm screenshots` if a README page changed, CHANGELOG, version `5.4.0-alpha.1`.
+- `docs/import.md` (Choose brands, the three groups, Automatic versus Manual and how to configure them), `docs/slicing.md`, `pnpm screenshots` if a README page changed, CHANGELOG, version `5.4.0-alpha.1`.
 - Commit on `dev`, push, tag `v5.4.0-alpha.1` on `dev`. Check the run and the release.
 
 **Done when:** the tag is pushed and the workflow is green.
@@ -2010,7 +2032,7 @@ Do Step 8 of the 5.4.0 plan in PLAN.md.
 **Model:** Opus · **Effort:** High
 **Scope:**
 - `IntegrationInstance.userPresets` in core, optional like the other sources. The Bambu adapter reads `/v1/iot-service/api/slicer/setting` (list, then get), zod-checked. A mismatch is `api_changed`.
-- `offered` in `sync.ts` reads the cloud for the three profile types on an account. The new row uses Step 4's grouped row. Off by default.
+- `offered` in `sync.ts` reads the cloud for the three user preset types on an account, as cards with a frequency in a **User presets** group. Off by default.
 - A cloud preset only holds its differences, so brand and material need its system parent: the same reader, with the slicer's system folder. With none, the row waits for review (Step 5's rule).
 - An older cloud copy never overwrites a newer edit: cloud copies go through `uploadPreset` in `presetLibrary.ts`. Compare resolved values, because a cloud copy drops values equal to the parent's, so the same settings make no new version.
 - Deletes follow Steps 7 and 8, with the cloud guards from the design. The cloud row owns the presets first seen from it, and its delete guards apply only to those.
@@ -2043,7 +2065,7 @@ Do Step 10 of the 5.4.0 plan in PLAN.md. Guide me through each scenario and fix 
 **Model:** Opus · **Effort:** High
 **Scope:**
 - Add integration: pick a product, then for a slicer "Installed on this computer", "Download it to this server" or "On a connected workstation".
-- Replace the adapter list in `IntegrationFormPage.tsx`. `IntegrationsPage.tsx` groups by library. `IntegrationCard.tsx` splits into a slicer card with a "Runs on" list and the User presets row with its count. Every connector that reports the slicer (`devices.slicers`) is listed.
+- Replace the adapter list in `IntegrationFormPage.tsx`. `IntegrationsPage.tsx` groups by library. `IntegrationCard.tsx` splits into a slicer card with Step 5's groups (User presets gains its count) and a "Runs on" list. Every connector that reports the slicer (`devices.slicers`) is listed.
 - Installs keep their `Bambu Studio (WS-3)` label in slice pickers.
 
 **Done when:** from a clean database, each of the three locations can be added and slices, at phone and desktop width; a migrated 5.3 database keeps each project's slicer, and slices don't turn outdated; tests and e2e pass.
@@ -2067,7 +2089,7 @@ Do Step 12 of the 5.4.0 plan in PLAN.md.
 ### [ ] Step 12b - Presets on the slicer card
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
-- The User presets row's **View** opens the list, versions, conflicts and Restore. The Slicer presets button leaves Hub management, and its old address redirects.
+- **View** on the User presets group opens the list, versions, conflicts and Restore. The Slicer presets button leaves Hub management, and its old address redirects.
 - The Printers and Filament profile tables gain a System / User / By hand column, read from `sourcePreset`.
 
 **Done when:** everything the old page did is reachable from the card; tests and e2e pass.

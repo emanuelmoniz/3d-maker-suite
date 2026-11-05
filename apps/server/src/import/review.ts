@@ -19,6 +19,7 @@ import {
   type ImportPreviewRow,
   type ImportTarget,
   type ImportValues,
+  isUserPresetType,
   type MergePolicy,
   mergeValues,
   parseRow,
@@ -59,6 +60,8 @@ export type StoredRow = {
 /** Rows kept from the preview until they are applied. */
 export type Stored = {
   entity: ReviewEntity;
+  /** The sync type whose settings apply, when it isn't the entity's own: a user preset type. */
+  type?: ReviewedType;
   fileName?: string;
   ignoredHeaders: string[];
   rows: StoredRow[];
@@ -158,8 +161,6 @@ export type ImportHandler = {
   };
   /** Rows from a file get the `picks` too (a print's spools), not only rows from a source. */
   filePicks?: boolean;
-  /** Rows a run with nobody watching leaves for a person. */
-  held?: (db: Db) => (v: ImportValues) => boolean;
   /** Returns false when the row was there already and nothing was added; may return the new id. */
   create: (db: Db, values: ImportValues, row: WriteRow) => unknown;
   update: (db: Db, target: ImportTarget, patch: ImportValues, row: WriteRow) => void;
@@ -264,7 +265,7 @@ export function createReview(db: Db, dataDir: string) {
   function syncOf(stored: Stored) {
     if (stored.from?.kind !== "integration" || stored.entity === "prints") return undefined;
     const { integrationId } = stored.from;
-    const policy = policyOf(db, integrationId, stored.entity as ReviewedType);
+    const policy = policyOf(db, integrationId, stored.type ?? (stored.entity as ReviewedType));
     const { merge, trackUsage } = policy;
     const scope = stored.picked ? "all" : policy.scope;
     const where = and(
@@ -333,7 +334,6 @@ export function createReview(db: Db, dataDir: string) {
     const byId = new Map([...targets, ...(gone?.targets ?? [])].map((t) => [t.id, t]));
     const bySource = (sourced && handler.bySource?.(db)) || new Map<string, string>();
     const picks = sourced || handler.filePicks ? handler.picks?.(db) : undefined;
-    const held = sourced ? handler.held?.(db) : undefined;
     const marks = new Set(
       sourced
         ? db
@@ -421,7 +421,11 @@ export function createReview(db: Db, dataDir: string) {
         const flags = !p.errors.length && handler.flags?.(db, p.values);
         if (!sourced) return { ...p, raw: cells(raw), ...m, ...s, ...picked, ...flags };
         // A mark only counts when nothing you have or archived is the row.
-        const key = p.errors.length ? undefined : deletedKeyOf(handler, p.values, source);
+        // A name key needs valid cells; a source key is there whatever the row holds.
+        const key =
+          p.errors.length && handler.deletedKey
+            ? undefined
+            : deletedKeyOf(handler, p.values, source);
         const deleted = !!key && !m.candidates.length && marks.has(key);
         const yours = (!!hit && !!handler.handsOff) || archived || deleted;
         // A row that has only required picks is skipped until picked (a vendor's spool); one with
@@ -466,11 +470,15 @@ export function createReview(db: Db, dataDir: string) {
             // Without a source key the name is the identity, so a match is the row itself.
             linked: !!hit || (!handler.bySource && !!m.targetId),
             // `hold`: the source row asks for a person (a new spool to fill in).
-            held: !!held?.(p.values) || raw.hold === true || (!!pick && !pick.sure),
+            held: raw.hold === true || (!!pick && !pick.sure),
             optional: yours,
             outOfScope,
             seen,
             review: sync?.merge === "review",
+            // Once filled in and linked it has nothing more to ask.
+            waits: raw.hold === true && !hit,
+            // No new preset of yours goes unnoticed, whatever the card's scope.
+            newWaits: !!stored.type && isUserPresetType(stored.type),
           }),
         };
       }),

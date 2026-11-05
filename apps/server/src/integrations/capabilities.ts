@@ -1,4 +1,5 @@
 import { existsSync } from "node:fs";
+import { join } from "node:path";
 import {
   type AlertSeverity,
   type Capability,
@@ -6,12 +7,14 @@ import {
   type FilamentLibrary,
   type IntegrationAdapter,
   isAction,
+  SLICER_FILE_TYPES,
   SLICER_ZIP_TYPES,
   workerConfigSchema,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
 import { and, asc, eq } from "drizzle-orm";
 import { HttpError } from "../errors.ts";
+import { readPreferences } from "../lib/preferences.ts";
 
 const { syncPolicies } = schema;
 type Row = typeof schema.integrations.$inferSelect;
@@ -55,17 +58,36 @@ export const detectedDir = (lib?: FilamentLibrary) =>
 /** The library its presets are named after (`<library>:<preset>`), shared by a slicer's kinds. */
 export const presetLibrary = (adapter: IntegrationAdapter) => adapter.library?.id ?? adapter.id;
 
-/** A slicer's catalog type: it has no schedule, `checkCatalogs` looks after it (ADR-0019). */
+/** A slicer's catalog type: `checkCatalogs` looks after it (ADR-0019). */
 export const slicerCatalogType = (
   adapter: IntegrationAdapter | undefined,
   type: Capability,
 ): type is (typeof SLICER_ZIP_TYPES)[number] =>
   !!adapter?.library && (SLICER_ZIP_TYPES as readonly string[]).includes(type);
 
+/** Fed by a slicer's files, so it has no schedule: a change in them runs it (ADR-0019). */
+export const slicerFileType = (adapter: IntegrationAdapter | undefined, type: Capability) =>
+  !!adapter?.library && (SLICER_FILE_TYPES as readonly string[]).includes(type);
+
 /** The row's folder override, else the detected one; null when it doesn't exist. */
 export function slicerConfigDir(row: Row, adapter: IntegrationAdapter) {
   const dir = row.slicerConfigDir?.trim() || detectedDir(adapter.library);
   return dir && existsSync(dir) ? dir : null;
+}
+
+/** A hub's managed slicer reads the hub's library, before it has a folder of its own too (ADR-0019). */
+const readsLibrary = (db: Db, adapter: IntegrationAdapter) =>
+  !!adapter.managed && readPreferences(db).hubEnabled;
+
+/**
+ * Where a row's catalog is read: its folder, else the one `linkLibraries` gives a managed slicer.
+ * `slicerConfigDir` stays unset there: it would count as having the system presets to slice with.
+ */
+export function catalogDir(db: Db, dataDir: string, row: Row, adapter: IntegrationAdapter) {
+  return (
+    slicerConfigDir(row, adapter) ??
+    (readsLibrary(db, adapter) ? join(dataDir, "slicers", row.id, "config") : null)
+  );
 }
 
 /** The device a worker integration slices on; undefined for other kinds or a removed device. */
@@ -92,7 +114,9 @@ export function activeCapabilities(db: Db, row: Row, adapter?: IntegrationAdapte
   return adapter.capabilities.filter(
     (c) =>
       policyOf(db, row.id, c).mode !== "off" &&
-      (isAction(c) ? slicerApp && (c === "openInSlicer" || source) : source),
+      (isAction(c)
+        ? slicerApp && (c === "openInSlicer" || source)
+        : source || readsLibrary(db, adapter)),
   );
 }
 

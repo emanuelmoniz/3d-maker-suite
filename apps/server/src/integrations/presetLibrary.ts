@@ -1,6 +1,15 @@
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { dirname, join, parse } from "node:path";
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  utimesSync,
+  writeFileSync,
+} from "node:fs";
+import { basename, dirname, join, parse } from "node:path";
 import {
   type PresetRemoved,
   type PresetSkipped,
@@ -37,6 +46,9 @@ function writeLive(dataDir: string, row: Row) {
   if (row.deleted) return rmSync(file, { force: true });
   mkdirSync(dirname(file), { recursive: true });
   writeFileSync(file, row.json);
+  // Its time is its save's: a rebuild at start is no edit (`checkUserPresets`).
+  const saved = new Date(row.savedAt);
+  utimesSync(file, saved, saved);
 }
 
 /** Every library's live folder from the table: at start, so the folder is only a cache. */
@@ -183,6 +195,36 @@ export function deletePreset(db: Db, dataDir: string, id: string, by: SavedBy = 
   });
   if (row) writeLive(dataDir, row);
   return row;
+}
+
+/** A slicer config's user preset files (`<user>/<account>/<kind>/**.json`), without reading them. */
+export function userPresetFiles(user: string) {
+  const files: {
+    path: string;
+    kind: SlicerPresetKind;
+    file: string;
+    mtimeMs: number;
+    size: number;
+  }[] = [];
+  for (const account of existsSync(user) ? readdirSync(user) : [])
+    for (const kind of SLICER_PRESET_KINDS) {
+      const dir = join(user, account, kind);
+      if (!existsSync(dir)) continue;
+      for (const rel of readdirSync(dir, { recursive: true, encoding: "utf8" })) {
+        if (!rel.endsWith(".json")) continue;
+        // Gone since the listing: the next look sees it.
+        const st = statSync(join(dir, rel), { throwIfNoEntry: false });
+        if (st)
+          files.push({
+            path: join(account, kind, rel),
+            kind,
+            file: basename(rel),
+            mtimeMs: st.mtimeMs,
+            size: st.size,
+          });
+      }
+    }
+  return files;
 }
 
 /**

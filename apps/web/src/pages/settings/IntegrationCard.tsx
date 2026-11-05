@@ -241,10 +241,10 @@ export function IntegrationCard({ integration: i }: { integration: Integration }
               <WorkerSlicer integration={i} adapter={adapter} />
             </Part>
           )}
-          {/* A server slicer with nothing to import, or a worker: presets come from a zip instead. */}
+          {/* A server slicer or a worker has no folder of yours to read: a zip brings your presets. */}
           {admin &&
             i.enabled &&
-            (i.kind === "server" ? !imports : i.kind === "worker") &&
+            (i.kind === "server" || i.kind === "worker") &&
             adapter?.libraryId && (
               <Part title={t("integrations:managed.profilesTitle")}>
                 <ProfilesFromZip libraryId={adapter.libraryId} />

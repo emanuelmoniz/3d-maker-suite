@@ -86,6 +86,14 @@ export const SYNC_LEFT_REASONS = ["pick", "unsure", "review"] as const;
  * choice per row (e.g. the filament profile of a spool), so a run takes only the rows that need
  * none and the rest waits for the preview -> confirm flow.
  */
+/** A slicer's user presets: rows of the three profile types, with settings of their own. */
+export const USER_PRESET_TYPES = [
+  "userMachineProfiles",
+  "userPrintProfiles",
+  "userFilamentProfiles",
+] as const;
+export const isUserPresetType = (t: string): t is (typeof USER_PRESET_TYPES)[number] =>
+  (USER_PRESET_TYPES as readonly string[]).includes(t);
 export const SYNC_TYPES = [
   "printers",
   "prints",
@@ -97,6 +105,7 @@ export const SYNC_TYPES = [
   "filamentBrands",
   "filamentMaterials",
   "filamentProfiles",
+  ...USER_PRESET_TYPES,
 ] as const;
 // Per integration and type: switched off, run by hand only, or run by the scheduler too.
 export const SYNC_MODES = ["off", "manual", "auto"] as const;
@@ -151,6 +160,7 @@ export type IntegrationStatus = (typeof INTEGRATION_STATUSES)[number];
 export type IntegrationKind = (typeof INTEGRATION_KINDS)[number];
 export type SyncTrigger = (typeof SYNC_TRIGGERS)[number];
 export type SyncType = (typeof SYNC_TYPES)[number];
+export type UserPresetType = (typeof USER_PRESET_TYPES)[number];
 export type SyncMode = (typeof SYNC_MODES)[number];
 export type SyncFrequency = (typeof SYNC_FREQUENCIES)[number];
 export type SyncScope = (typeof SYNC_SCOPES)[number];

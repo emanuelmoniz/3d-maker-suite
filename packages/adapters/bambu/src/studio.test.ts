@@ -149,6 +149,7 @@ describe("bambu studio catalog", () => {
     ]);
     expect(machines.map((m) => [m.presetId, m.model, m.nozzleDiameterMm])).toEqual([
       ["user/My A1", "Bambu Lab A1", 0.4], // inherits model and nozzle from its system parent
+      ["user/Mystery", "Nope", 0.4], // no brand known: it waits for a person
       ["system/Bambu Lab A1 0.2 nozzle", "Bambu Lab A1", 0.2],
       ["system/Bambu Lab A1 0.4 nozzle", "Bambu Lab A1", 0.4],
     ]);

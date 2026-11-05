@@ -186,8 +186,8 @@ describe("filament brands and materials", () => {
 
 describe("filament library", () => {
   const preset = (n: string, extra = {}): LibraryPreset => ({
-    presetId: `user/${n}`,
-    scope: "user" as const,
+    presetId: `system/${n}`,
+    scope: "system" as const,
     brand: "Acme",
     material: "PLA",
     name: n,
@@ -299,25 +299,20 @@ describe("filament library", () => {
       .json()
       .policies.find((p: { type: string }) => p.type === type);
 
-  it("a profiles run imports user and built-in presets whose brand and material are in the catalog", async () => {
+  it("a profiles run imports presets, with the brand and material they need", async () => {
     // No folder yet: refused, and not logged as a failed run.
     expect((await run(slicerId, "filamentProfiles")).statusCode).toBe(404);
     expect(db.select().from(schema.syncRuns).all()).toEqual([]);
     await setDir(dir);
 
-    // "Acme" would be a new brand: that is the user's call, in the review.
-    filamentMaterialIdFor(db, "PLA");
     expect((await run(slicerId, "filamentProfiles")).json()).toMatchObject({
       type: "filamentProfiles",
       status: "ok",
-      created: 0,
+      created: 3,
     });
-    expect(await policy(slicerId, "filamentProfiles")).toMatchObject({ pending: 3 });
-    // A run that wrote nothing leaves the import history alone.
-    expect(db.select().from(schema.importRuns).all()).toEqual([]);
-
-    filamentBrandIdFor(db, "acme");
-    expect((await run(slicerId, "filamentProfiles")).json()).toMatchObject({ created: 3 });
+    expect(db.select().from(schema.filamentBrands).all()).toMatchObject([{ name: "Acme" }]);
+    expect(db.select().from(schema.filamentMaterials).all()).toMatchObject([{ name: "PLA" }]);
+    expect(await policy(slicerId, "filamentProfiles")).toMatchObject({ pending: 0 });
     expect(db.select().from(schema.importRuns).all()).toMatchObject([
       { source: "integration", type: "filamentProfiles", created: 3, backup: null },
     ]);
@@ -341,7 +336,7 @@ describe("filament library", () => {
     presets = [preset("A", { nozzleTempC: 235 }), preset("B"), preset("C")];
     await run(slicerId, "filamentProfiles");
     const rows = db.select().from(schema.filamentProfiles).all();
-    expect(rows.find((r) => r.sourcePreset === "fake:user/A")?.nozzleTempC).toBe(235);
+    expect(rows.find((r) => r.sourcePreset === "fake:system/A")?.nozzleTempC).toBe(235);
     expect(rows.find((r) => r.id === twin)).toMatchObject({ densityGcm3: 1.2, sourcePreset: null });
     expect(await policy(slicerId, "filamentProfiles")).toMatchObject({ pending: 1 });
 
@@ -356,7 +351,7 @@ describe("filament library", () => {
         .from(schema.filamentProfiles)
         .all()
         .find((r) => r.id === twin),
-    ).toMatchObject({ densityGcm3: 1.24, sourcePreset: "fake:user/C" });
+    ).toMatchObject({ densityGcm3: 1.24, sourcePreset: "fake:system/C" });
     expect(await policy(slicerId, "filamentProfiles")).toMatchObject({ pending: 0 });
   });
 
@@ -541,7 +536,7 @@ describe("filament library", () => {
     };
     expect((await only("A")).json()).toMatchObject({ created: 1, updated: 0 });
     expect((await only("A")).json()).toMatchObject({ created: 0 });
-    expect(db.select().from(schema.filamentProfiles).get()?.sourcePreset).toBe("fake:user/A");
+    expect(db.select().from(schema.filamentProfiles).get()?.sourcePreset).toBe("fake:system/A");
     // Import found-or-created the brand and material once, by name.
     expect(
       db

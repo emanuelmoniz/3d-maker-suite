@@ -380,7 +380,7 @@ export const importRoutes =
             db,
             req.user,
             stored.from.integrationId,
-            stored.entity as ReviewedType,
+            stored.type ?? (stored.entity as ReviewedType),
             "editorReview",
           );
         else if (req.user && !req.user.rights.permissions["integrations.manage"])
@@ -409,7 +409,7 @@ export const importRoutes =
                   stored.from.integrationId,
                   "manual",
                   // A review read for a range applies as that range: it never moves the cursor on.
-                  { type: stored.entity as ReviewedType, ...stored.range },
+                  { type: stored.type ?? (stored.entity as ReviewedType), ...stored.range },
                   { stored, decisions, policy, backup },
                 )
               : review.write(stored, decisions, policy, backup);

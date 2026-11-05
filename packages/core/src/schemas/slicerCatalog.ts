@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { USER_PRESET_TYPES } from "./enums.ts";
 
 // What a slicer ships besides filament: vendors (brands), printer models with a thumbnail, and
 // machine presets. Read from its config folder; the server turns them into the catalog.
@@ -14,10 +15,11 @@ export const catalogModelSchema = z.object({
 export const catalogMachineSchema = z.object({
   presetId: z.string().min(1),
   scope: z.enum(["user", "system"]),
-  brand: z.string().min(1),
-  model: z.string().min(1),
+  // Empty or null on a user preset with no readable parent: it waits for a person (ADR-0019).
+  brand: z.string(),
+  model: z.string(),
   name: z.string().min(1),
-  nozzleDiameterMm: z.number().positive(),
+  nozzleDiameterMm: z.number().positive().nullable(),
 });
 
 /**
@@ -45,6 +47,27 @@ export const SLICER_CATALOG_TYPES = [
 
 /** What a zip of a slicer folder can offer: the catalog types plus the filament profiles. */
 export const SLICER_ZIP_TYPES = [...SLICER_CATALOG_TYPES, "filamentProfiles"] as const;
+
+/** A slicer card's sections: the catalog's rows, and the system presets that point at them. */
+export const SLICER_CATALOG_ROW_TYPES = [
+  "brands",
+  "printerModels",
+  "filamentBrands",
+  "filamentMaterials",
+] as const;
+export const SLICER_PRESET_TYPES = [
+  "machineProfiles",
+  "printProfiles",
+  "filamentProfiles",
+] as const;
+/** The rows a user preset type writes. */
+export const USER_PRESET_ENTITY = {
+  userMachineProfiles: "machineProfiles",
+  userPrintProfiles: "printProfiles",
+  userFilamentProfiles: "filamentProfiles",
+} as const;
+/** What a slicer's files feed: these have no schedule, a change in the files runs them (ADR-0019). */
+export const SLICER_FILE_TYPES = [...SLICER_ZIP_TYPES, ...USER_PRESET_TYPES] as const;
 
 /** A slicer whose config folder can be uploaded as a zip, and where that folder is per OS. */
 export const slicerZipSourceSchema = z.object({

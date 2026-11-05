@@ -203,10 +203,12 @@ export function suggest(
 /**
  * What a run with nobody watching does with a row from an integration. It takes a `new` row and a
  * `changed` one that is `linked` to its source (imported from it before), unless the row needs a
- * person (`held`: it would add a brand, or no single profile fits). `optional` rows are only ever
+ * person (`held`: it has to be filled in, or no single profile fits). `optional` rows are only ever
  * offered, never waiting. Undefined = nothing to do.
  * `outOfScope`: a new row the sync type doesn't take. `seen`: the source has not changed since the
  * last import (only your edits differ). `review`: a source change waits for a person.
+ * `waits`: an invalid row a person can complete (a preset with no readable parent).
+ * `newWaits`: a new row outside the scope asks a person instead of being left out (a user preset).
  */
 export function autoOf(r: {
   status: ImportStatus;
@@ -216,9 +218,12 @@ export function autoOf(r: {
   outOfScope?: boolean;
   seen?: boolean;
   review?: boolean;
+  waits?: boolean;
+  newWaits?: boolean;
 }): "apply" | "wait" | undefined {
-  if (r.optional || r.status === "invalid" || r.status === "identical") return undefined;
-  if (r.status === "new" && r.outOfScope) return undefined;
+  if (r.optional || r.status === "identical") return undefined;
+  if (r.status === "invalid") return r.waits ? "wait" : undefined;
+  if (r.status === "new" && r.outOfScope) return r.newWaits ? "wait" : undefined;
   if (r.status === "changed" && r.linked && r.seen) return undefined;
   const known = r.status === "new" || (r.status === "changed" && r.linked && !r.review);
   return known && !r.held ? "apply" : "wait";

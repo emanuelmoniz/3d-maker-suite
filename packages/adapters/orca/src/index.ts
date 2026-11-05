@@ -7,6 +7,7 @@ import {
   type ManagedSlicer,
   pickAsset,
   tagPattern,
+  USER_PRESET_TYPES,
   workerConfigSchema,
 } from "@3d-maker-suite/core";
 import { cliSlicer, slicerPresetLibrary } from "@3d-maker-suite/slicer-presets";
@@ -52,6 +53,7 @@ export function orcaSlicerAdapter(): IntegrationAdapter {
       "filamentBrands",
       "filamentMaterials",
       "filamentProfiles",
+      ...USER_PRESET_TYPES,
       "openInSlicer",
       "slice",
     ],
@@ -109,13 +111,23 @@ export const orcaManaged: ManagedSlicer = {
 };
 
 // OrcaSlicer downloaded and run by the server. Its profiles ship as binary .opc files (ADR-0013),
-// so it imports nothing: it slices with the 3MF's settings (and imported user presets, Step 14).
+// so its catalog is only its user presets (ADR-0019): it slices with the 3MF's settings and those.
 // The library is only its id: presets imported from an Orca zip are `orca-slicer:<preset>`.
 export function orcaSlicerServerAdapter(): IntegrationAdapter {
   return {
     id: "orca-slicer-server",
     kind: "server",
-    capabilities: ["slice"],
+    capabilities: [
+      "brands",
+      "printerModels",
+      "machineProfiles",
+      "printProfiles",
+      "filamentBrands",
+      "filamentMaterials",
+      "filamentProfiles",
+      ...USER_PRESET_TYPES,
+      "slice",
+    ],
     library: orcaSlicerLibrary(() => []),
     slicer: cliSlicer({ flavor: "orca" }),
     managed: orcaManaged,

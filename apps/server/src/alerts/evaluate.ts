@@ -7,12 +7,12 @@ import {
   effectiveAlertKinds,
   type MaintenanceDueItem,
   type Notification,
-  SLICER_ZIP_TYPES,
+  SLICER_FILE_TYPES,
   type SyncLogEntry,
   type SyncType,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
-import { and, desc, eq, gt, inArray, isNotNull, isNull, lte, ne, or, sql } from "drizzle-orm";
+import { and, desc, eq, gt, inArray, isNull, lte, ne, or, sql } from "drizzle-orm";
 import { raisesSeverity } from "../integrations/capabilities.ts";
 import { alertVisible, hasUsers } from "../lib/auth.ts";
 import { spoolName } from "../lib/catalog.ts";
@@ -193,7 +193,7 @@ function conditions(db: Db, now: Date): Found {
   }
 
   // An auto sync left rows for a person (a print no spool matches, a twin preset...), or a slicer's
-  // catalog changed. A fingerprint marks the row `checkCatalogs` looks after, whatever its mode.
+  // catalog or user presets did: those are looked after whatever the type's mode, unless it's off.
   for (const p of db
     .select({ policy: syncPolicies, adapterId: integrations.adapterId })
     .from(syncPolicies)
@@ -204,11 +204,7 @@ function conditions(db: Db, now: Date): Found {
         gt(syncPolicies.pending, 0),
         or(
           eq(syncPolicies.mode, "auto"),
-          and(
-            ne(syncPolicies.mode, "off"),
-            isNotNull(integrations.catalogFingerprint),
-            inArray(syncPolicies.type, SLICER_ZIP_TYPES),
-          ),
+          and(ne(syncPolicies.mode, "off"), inArray(syncPolicies.type, SLICER_FILE_TYPES)),
         ),
       ),
     )

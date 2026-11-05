@@ -5,7 +5,11 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 ## [Unreleased]
 
 ### Changed
-- **Slicer catalogs no longer run on a schedule.** Existing Auto schedules on Bambu Studio's and OrcaSlicer's catalog types stop. A daily check, and one after a managed install, looks for a change in the slicer's system presets: on a change nothing is written, not even new rows, and a **Sync needs review** alert leads to the review. Only types you imported before raise it, in Manual mode too. Bambu Cloud's schedules don't change
+- **Slicer cards run when the slicer's files change, not on a schedule.** Bambu Studio's and OrcaSlicer's cards are now the same cards as Bambu Cloud's, grouped into Catalog, System presets and User presets, and "When" is Automatic when the files change or Manual. An existing Auto schedule on one of these types becomes Automatic, and its frequency is ignored. In Manual nothing is written: on a change in the slicer's system presets a **Sync needs review** alert leads to the review, for types you imported before. Bambu Cloud's schedules don't change
+- **Your user presets reach the catalog on their own.** Each kind has its own card, Automatic by default: new presets are added and changed ones updated within a minute, keeping values you typed. Under "Only what I already have", or in Manual, a new preset raises an alert and waits for you in the review. These cards decide catalog rows only: sharing and installing presets between machines still moves every preset
+- **Choose brands** has Select all on each list and shows the brands already in your catalog
+- An automatic run now adds the brand and material a filament preset needs, as a review already did
+- The cards' "Devices and prints" heading is gone, and "Open projects in the slicer" and "Slice projects" say what they do
 
 ## [5.3.0] - 2026-11-04
 
