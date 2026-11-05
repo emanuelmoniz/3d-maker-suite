@@ -1869,7 +1869,8 @@ Design:
 - **"In use" is stricter than ADR-0018's delete check.** It also counts what ADR-0018 only clears: a plate's or printer's print profile (`project_slice_plates`, `printers.print_profile_id`), a plate's filament list (JSON), older archived versions with the same `sourcePreset`, and a preset another one `inherits` from.
 - **In use = nothing is deleted anywhere.** The hub and other machines keep it, or slicing would fail with `no_preset`. It shows "Removed on WS-3, still used by 2 plates". A daily check deletes it once it is free.
 - **A catalog row with your own edits (a typed price) is archived, not deleted,** so the typed value isn't lost.
-- **Who can delete:** only a device with **Share** on spreads a delete, and only a device with **Install** on receives one. The two switches stay, because farm PCs need install-only. Other devices only show "Removed on", as today.
+- **Who can delete: the preset's owner,** the user who first shared it. A removal on one of the owner's devices spreads the delete, if nothing uses the preset. Another user's removal changes nothing on the hub, and **Install** writes the preset back to that device. Only a device with Install on receives a delete. People with `presets.manage` can always delete from the app, and existing presets start with no owner, so only they can delete those.
+- **Shared accounts:** a cloud delete can remove a file from an owner's PC, and the connector can't tell that from the owner deleting it. If another device reports the same account folder, the delete is held and an alert asks.
 - **Safety, because one delete now reaches every machine:** over the mass delete limit at once, the delete is held and an alert asks. A slicer sign-in or sign-out moves the watched folder, and that never counts as a delete. A desktop file with unsent edits is kept: the edit wins. The backup zip runs before writes, and deletes wait for the slicer to close. The Presets page gets **Restore**, from the existing tombstone and kept versions.
 - **Database rows stay one per install.** `projects`, `project_slice_plates`, `prints` and `import_snapshots` point at them. Cards group by `presetLibrary(adapter)`. The catalog belongs to the library's oldest row with a readable folder.
 - **The connector can send a slicer's catalog.** The manual zip stays as a fallback.
@@ -1878,6 +1879,18 @@ Design:
 - **Cloud delete guards,** on top of the delete rule: only presets this sync has seen before can be deleted, because presets from signed-out folders, zips or Orca never appear in the cloud. Only a complete, valid list counts. Over the mass delete limit, or a change of account, is held with an alert.
 - **OrcaCloud is on hold** until the Orca team issues a `client_id` (OrcaSlicer#14028). Orca presets keep connector Share and the zip.
 - **Unchanged:** Bambu Cloud's existing rows, the hub-only library (ADR-0017), and Orca 2.5+ system presets staying unreadable (ADR-0013).
+- **Three concepts, kept apart:** the **catalog** is database rows (brands, models, profiles, materials) on the Printers and Filament pages. **System presets** ship with the slicer, are read-only, feed the catalog and never sync to desktops. **User presets** are made in a slicer, feed the catalog and sync between machines. Each preset has one of three kinds: filament, process or machine.
+- **Everything about a slicer is on its card,** so the Presets button leaves Hub management:
+
+```
+Bambu Studio
+  Catalog        pick brands, review changes
+  User presets   23 · on · reach the catalog · View (the list, versions, conflicts, Restore)
+  Runs on
+    This server       slices · receives presets automatically
+    WS-3 (connector)  Slice here · Share · Install · Read catalog
+    WS-5 (connector)  Share · Install
+```
 
 Expected delete results, to confirm in Step 1:
 
@@ -1945,6 +1958,7 @@ Do Step 4 of the 5.4.0 plan in PLAN.md.
 - Hub: `savePreset` triggers the catalog update. Single PC: the scheduler tick.
 - `keepEdits` protects your edits. Editing a preset clears its `deleted_sources` mark.
 - A preset whose parent can't be resolved (no system presets, as on Orca 2.5+) waits for review instead of failing.
+- A **User presets** on/off switch on the card, on by default, so automatic import can be turned off.
 
 **Done when:** Step 1's `it.fails` test is a normal test; a preset saved in a real slicer is in the catalog within a minute; tests pass.
 **Prompt:**
@@ -1978,12 +1992,15 @@ Do Step 7 of the 5.4.0 plan in PLAN.md.
 ### [ ] Step 8 - Deletes reach other machines  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:**
-- Hub: `presetRemovedOn` in `presetLibrary.ts` becomes delete-if-free for Share devices, with a daily re-check of `removedOn`.
-- Connector: `createPresetShare` holds mass deletes and ignores folder moves. `createPresetInstall` applies deletes per Step 1, when the slicer is closed, after the backup.
+- Spike first: re-creating a name just deleted in the slicer, on Studio and Orca, signed in and out. A non-owner's removal depends on it.
+- Migration: `slicer_presets.ownerUserId`, set by the first save from the device's user or the zip's uploader. Null = only `presets.manage` can delete; existing presets start null.
+- Hub: `presetRemovedOn` in `presetLibrary.ts` becomes delete-if-free for the owner's devices, with a daily re-check of `removedOn`. A non-owner's removal changes nothing on the hub. If another device reports the same account folder, the delete is held and an alert asks.
+- A hub PC's local slicer sends its user presets to the library through `mergeUserPresets`, with no owner.
+- Connector: `createPresetShare` holds mass deletes and ignores folder moves. `createPresetInstall` applies deletes per Step 1, when the slicer is closed, after the backup, and writes back a preset a non-owner removed. This reverses ADR-0017's "stays away until the hub has a new version".
 - Web: per-device result, the held-deletes prompt, Restore.
 - Connector version gate: an older connector answers `device_outdated`.
 
-**Done when:** tests cover a free preset, one in use, a mass delete, a folder move, unsent edits and Restore; tests and e2e pass.
+**Done when:** tests cover a free preset, one in use, an owner's and a non-owner's removal, a shared account, a mass delete, a folder move, unsent edits and Restore; tests and e2e pass.
 **Prompt:**
 ```
 Do Step 8 of the 5.4.0 plan in PLAN.md.
@@ -1996,7 +2013,7 @@ Do Step 8 of the 5.4.0 plan in PLAN.md.
 - `offered` in `sync.ts` reads the cloud for the three profile types on an account. The new row uses Step 4's grouped row. Off by default.
 - A cloud preset only holds its differences, so brand and material need its system parent: the same reader, with the slicer's system folder. With none, the row waits for review (Step 5's rule).
 - An older cloud copy never overwrites a newer edit: cloud copies go through `uploadPreset` in `presetLibrary.ts`. Compare resolved values, because a cloud copy drops values equal to the parent's, so the same settings make no new version.
-- Deletes follow Steps 7 and 8, with the cloud guards from the design.
+- Deletes follow Steps 7 and 8, with the cloud guards from the design. The cloud row owns the presets first seen from it, and its delete guards apply only to those.
 - With connector Share on the same account, it works, and the card suggests one route is enough.
 
 **Done when:** tests with recorded payloads, never a live account in CI, cover list and get, a schema change, a failed or partial list deleting nothing, and a zip's preset staying; tests and e2e pass.
@@ -2005,10 +2022,11 @@ Do Step 8 of the 5.4.0 plan in PLAN.md.
 Do Step 9 of the 5.4.0 plan in PLAN.md.
 ```
 
-### [x] Step 10 - Real test, docs, push & v5.4.0-alpha.2
+### [ ] Step 10 - Real test, docs, push & v5.4.0-alpha.2
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
-- Two real PCs on the same account: delete on a Share device. The hub and an Install device lose it, and the backup zip exists. Repeat with the slicer open, signed in, after a sign-out, and with a mass delete. Restore brings it back on both.
+- Two real PCs on different accounts: delete as the owner. The hub and an Install device lose it, and the backup zip exists. Repeat with the slicer open, signed in, after a sign-out, and with a mass delete. Restore brings it back on both. Remove it as the other user: the hub keeps it, and Install writes it back.
+- Two real PCs on the same account: a delete is held, and the alert asks.
 - A real Bambu account: turn User presets on and Sync now. Presets appear once, with no duplicate of Studio's row. Edit one in Studio: updated on the next run, and a typed price stays. Delete an unused one: it goes. Delete a used one: it stays, with the reason shown. A preset from a zip stays untouched. On a hub, a synced preset reaches a worker and an Install device, then settles with no extra versions.
 - Fix anything found.
 - `docs/hub.md`, `docs/bambu-cloud.md`, CHANGELOG, version `5.4.0-alpha.2`. Commit on `dev`, push, tag `v5.4.0-alpha.2` on `dev`. Check the run and the release.
@@ -2025,7 +2043,7 @@ Do Step 10 of the 5.4.0 plan in PLAN.md. Guide me through each scenario and fix 
 **Model:** Opus · **Effort:** High
 **Scope:**
 - Add integration: pick a product, then for a slicer "Installed on this computer", "Download it to this server" or "On a connected workstation".
-- Replace the adapter list in `IntegrationFormPage.tsx`. `IntegrationsPage.tsx` groups by library. `IntegrationCard.tsx` splits into a slicer card with a "Runs on" list.
+- Replace the adapter list in `IntegrationFormPage.tsx`. `IntegrationsPage.tsx` groups by library. `IntegrationCard.tsx` splits into a slicer card with a "Runs on" list and the User presets row with its count. Every connector that reports the slicer (`devices.slicers`) is listed.
 - Installs keep their `Bambu Studio (WS-3)` label in slice pickers.
 
 **Done when:** from a clean database, each of the three locations can be added and slices, at phone and desktop width; a migrated 5.3 database keeps each project's slicer, and slices don't turn outdated; tests and e2e pass.
@@ -2034,13 +2052,28 @@ Do Step 10 of the 5.4.0 plan in PLAN.md. Guide me through each scenario and fix 
 Do Step 11 of the 5.4.0 plan in PLAN.md. Use the frontend-design skill for the cards.
 ```
 
-### [ ] Step 12 - Worker setup in one place
-**Model:** Sonnet · **Effort:** Medium
-**Scope:** Adding a workstation location sets `devices.sliceWorker`; removing its last one clears it. The switch leaves the device page, whose Slicing card shows "Used by Bambu Studio" with a link. Any online device with the connector is offered, not only those already marked.
-**Done when:** a worker is set up from the slicer card alone; tests and e2e pass.
+### [ ] Step 12 - Worker setup and preset switches in one place  **[plan mode]**
+**Model:** Opus · **Effort:** High
+**Scope:**
+- Adding a workstation location sets `devices.sliceWorker`; removing its last one clears it. The switch leaves the device page, whose Slicing card shows "Used by Bambu Studio" with a link. Any online device with the connector is offered, not only those already marked.
+- Share and Install move onto the "Runs on" rows and become per slicer on a device: a migration carries over today's values, the connector reads them per library, and an older connector answers `device_outdated`.
+
+**Done when:** a worker is set up from the slicer card alone; a device can share one slicer and not another; tests and e2e pass.
 **Prompt:**
 ```
 Do Step 12 of the 5.4.0 plan in PLAN.md.
+```
+
+### [ ] Step 12b - Presets on the slicer card
+**Model:** Sonnet · **Effort:** Medium
+**Scope:**
+- The User presets row's **View** opens the list, versions, conflicts and Restore. The Slicer presets button leaves Hub management, and its old address redirects.
+- The Printers and Filament profile tables gain a System / User / By hand column, read from `sourcePreset`.
+
+**Done when:** everything the old page did is reachable from the card; tests and e2e pass.
+**Prompt:**
+```
+Do Step 12b of the 5.4.0 plan in PLAN.md.
 ```
 
 ### [ ] Step 13 - Read the catalog from a workstation  **[plan mode]**
@@ -2049,6 +2082,7 @@ Do Step 12 of the 5.4.0 plan in PLAN.md.
 - One new fixed connector operation: zip the slicer's `system` and `user` folders with the `packages/host` zip helper and upload them.
 - The hub reuses `unpackSlicerZip`, `keepPresets` and `libraryRows` from `routes/slicerZip.ts`.
 - ADR-0014's fixed operation list gains this entry.
+- It's a **Read catalog** button on the location's "Runs on" row.
 - The manual zip moves onto the slicer card as "No connector? Upload a zip".
 
 **Done when:** a worker-only hub gets its catalog from a device without a hand-made zip; an older connector answers `device_outdated`; tests pass.

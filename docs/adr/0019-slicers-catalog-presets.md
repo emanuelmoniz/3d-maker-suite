@@ -39,10 +39,12 @@ A delete made in Studio's own UI does remove the cloud copy, and a PC of that ac
 - **"In use" is stricter than ADR-0018's delete check.** It also counts what ADR-0018 only clears: a plate's or printer's print profile (`project_slice_plates`, `printers.print_profile_id`), a plate's filament list (JSON), older archived versions with the same `sourcePreset`, and a preset another one `inherits` from.
 - **In use = nothing is deleted anywhere.** The hub and other machines keep it, or slicing would fail with `no_preset`. It shows "Removed on WS-3, still used by 2 plates". A daily check deletes it once it is free.
 - **A catalog row with your own edits (a typed price) is archived, not deleted,** so the typed value isn't lost.
-- **Who can delete:** only a device with **Share** on spreads a delete, and only a device with **Install** on receives one. The two switches stay, because farm PCs need install-only. Other devices only show "Removed on", as today.
+- **Who can delete: the preset's owner,** the user who first shared it (`slicer_presets.ownerUserId`). The owner is a user, not a device, so their other PCs count and a replaced workstation orphans nothing. A removal on one of the owner's devices spreads the delete. Another user's removal changes nothing on the hub, and **Install** writes the preset back to that device, which reverses ADR-0017's "stays away until the hub has a new version". Only a device with Install on receives a delete. The two switches stay, because farm PCs need install-only.
+- **`presets.manage` can always delete from the app,** or a departed user's presets could never be removed. Existing presets start with no owner, because only the last saver's name is stored and old versions get pruned, so only `presets.manage` can delete those.
 
 ### Safety, because one delete now reaches every machine
 - Over the mass delete limit at once, the delete is held and an alert asks.
+- If another device reports the same account folder as the owner's, a removal is held and an alert asks. A cloud delete can remove the file from an owner's PC (results below), and the connector can't tell that from the owner deleting it.
 - A slicer sign-in or sign-out moves the watched folder, and that never counts as a delete.
 - A desktop file with unsent edits is kept: the edit wins.
 - The backup zip runs before writes, and deletes wait for the slicer to close.
@@ -68,6 +70,11 @@ A shared preset doesn't reach the catalog in three separate cases. Each has an `
 | A worker-only hub | Workers of either slicer can only `slice`: `capability_unavailable` |
 | An Orca hub | Orca's server adapter can only `slice` too, unlike Bambu's: `capability_unavailable` |
 | A desktop Orca ≥ 2.5 | With no readable system preset, nothing resolves `filament_type`, and `toProfile` drops the preset without a word. Real presets only hold what differs from the parent, so they rarely carry it. A user machine preset is dropped the same way, because no model is known |
+
+### Everything about a slicer is on its card
+Three concepts are kept apart. The **catalog** is database rows (brands, models, profiles, materials) on the Printers and Filament pages. **System presets** ship with the slicer, are read-only, feed the catalog and never sync to desktops. **User presets** are made in a slicer, feed the catalog and sync between machines. Each preset has one of three kinds: filament, process or machine.
+
+The card has a Catalog row, a User presets row (an on/off switch, a count, and View for the list, versions, conflicts and Restore) and a "Runs on" list. Each connector that reports the slicer is on that list, with Slice here, Share, Install and Read catalog. Share and Install become per slicer on a device, so a device can share one slicer and not another. The Presets button leaves Hub management.
 
 ### Unchanged
 Bambu Cloud's existing rows, the hub-only library (ADR-0017), and Orca 2.5+ system presets staying unreadable (ADR-0013).
@@ -154,6 +161,11 @@ Other Orca versions weren't tested.
 - `sync_config`'s download path is trusted from source: a real profile download may behave differently, and the alert would be the first sign.
 
 ## Risks
+- **Ownership can't be enforced on a shared account.** Anyone's delete in Studio's UI removes the cloud copy and reaches that account's PCs. The hold stops the hub and other accounts' machines from following, but the file is already gone from those PCs.
+- **A signed-in Studio can't be deleted from outside,** so an owner's delete still needs a person on those PCs.
+- **A non-owner can't get rid of a preset** while Install is on: it keeps coming back. Install is all or nothing per slicer.
+- **Names are shared per slicer and kind.** Two users with the same name and content have one preset, owned by whoever shared first, whose delete reaches the other's copy.
+- **Re-creating a name just deleted in the slicer is untested,** and a non-owner's write-back depends on it (Plan 5.4.0 Step 8).
 - **No real second PC:** a real one may differ from a restored folder, for example through its own sync state.
 - **Orca's tombstone handling is new** and comes from one rc on Windows. A version that lacks it would bring the file back, the same as Studio.
 - **Studio may add tombstone handling or change this,** so this result needs checking on new versions.
