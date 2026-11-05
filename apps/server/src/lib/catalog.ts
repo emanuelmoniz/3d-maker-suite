@@ -14,6 +14,14 @@ export const brandOf = sql`(SELECT ${brands.name} FROM ${brands} WHERE ${brands.
 /** A printer model's display name, "Brand Model". */
 export const printerModelLabel = sql<string>`${brandModel(brandOf, printerModels.model)}`;
 
+/** The slicer library of a preset (`<library>:<preset>`), null for a hand-made one. */
+export const libraryOf = (preset: SQLWrapper) =>
+  sql`substr(${preset}, 1, instr(${preset} || ':', ':') - 1)`;
+
+/** The brand id of the printer model `modelId` points at (for filters on other tables). */
+export const modelBrandId = (modelId: SQLWrapper) =>
+  sql`(SELECT ${printerModels.brandId} FROM ${printerModels} WHERE ${printerModels.id} = ${modelId})`;
+
 /** What `deleted_sources` knows a row that matches by name by (ADR-0018). */
 export const nameKey = (...names: (string | null | undefined)[]) =>
   names.map((n) => n?.trim().toLowerCase() ?? "").join("|");

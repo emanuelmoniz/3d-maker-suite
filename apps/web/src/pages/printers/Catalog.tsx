@@ -148,16 +148,32 @@ export function Catalog() {
     models
       .filter((m) => m.brandId === brandId)
       .flatMap((m) => [...(modelLibraries.get(m.id) ?? [])]);
+  const slicerName = (l: string) => t(`filament:library.sources.${l}`, { defaultValue: l });
   const slicers = (libs: Iterable<string | null>) => {
-    const names = [...new Set([...libs].filter((l): l is string => !!l))]
-      .map((l) => t(`filament:library.sources.${l}`, { defaultValue: l }))
-      .sort();
+    const names = [...new Set([...libs].filter((l): l is string => !!l))].map(slicerName).sort();
     return names.length ? formatList(names) : none;
   };
-  const slicerColumn = <T,>(libs: (row: T) => Iterable<string | null>): Column<T> => ({
+  // The slicers to filter by are those the profiles came from.
+  const slicerOptions = [
+    ...new Set([...machineProfiles, ...printProfiles].map((p) => libraryOf(p.sourcePreset))),
+  ]
+    .filter((l): l is string => !!l)
+    .map((l) => ({ value: l, label: slicerName(l) }));
+  const slicerColumn = <T,>(
+    libs: (row: T) => Iterable<string | null>,
+    filterable = true,
+  ): Column<T> => ({
     id: "slicer",
     header: t("printers:catalog.slicer"),
     cell: (r) => slicers(libs(r)),
+    ...(filterable && { filter: "slicer", filterOptions: slicerOptions }),
+  });
+  const brandColumn = <T,>(modelId: (row: T) => string | null): Column<T> => ({
+    id: "brand",
+    header: t("printers:catalog.models.brand"),
+    cell: (r) => info.get(modelId(r) ?? "")?.brand?.name ?? none,
+    filter: "brandId",
+    filterOptions: brands.map((b) => ({ value: b.id, label: b.name })),
   });
 
   return (
@@ -196,7 +212,7 @@ export function Catalog() {
                 none
               ),
           },
-          slicerColumn<Brand>((b) => brandLibraries(b.id)),
+          slicerColumn<Brand>((b) => brandLibraries(b.id), false),
         ]}
       />
       <Section<PrinterModel>
@@ -266,6 +282,7 @@ export function Catalog() {
               label: info.get(m.id)?.label ?? m.model,
             })),
           },
+          brandColumn<MachineProfile>((p) => p.printerModelId),
           {
             id: "nozzle",
             header: t("printers:catalog.profiles.nozzle"),
@@ -302,6 +319,7 @@ export function Catalog() {
               label: info.get(m.id)?.label ?? m.model,
             })),
           },
+          brandColumn<PrintProfile>((p) => p.printerModelId),
           {
             id: "nozzle",
             header: t("printers:catalog.printProfiles.nozzle"),

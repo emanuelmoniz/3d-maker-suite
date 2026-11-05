@@ -34,13 +34,13 @@ import {
   printProfileSortFields,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
-import { eq, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, or, type SQL, sql } from "drizzle-orm";
 import type { SQLiteColumn, SQLiteTable } from "drizzle-orm/sqlite-core";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
 import { archivedAtOf, archivedWhere, assertPresetFree } from "../lib/archive.ts";
-import { brandModel, brandOf, modelName } from "../lib/catalog.ts";
+import { brandModel, brandOf, libraryOf, modelBrandId, modelName } from "../lib/catalog.ts";
 import { deleteItem, type ItemKind } from "../lib/dependents.ts";
 import { imageRoutes } from "../lib/images.ts";
 import { type ListOptions, listPage } from "../lib/list.ts";
@@ -68,6 +68,8 @@ interface Entity {
   patch: z.ZodType;
   query: z.ZodType;
   list: ListOptions;
+  /** A filter no single column answers, built from the query. */
+  where?: (q: { slicer?: string[] }) => SQL | undefined;
   /** Keeps old versions of a preset, so an old one can't be restored beside the current one. */
   preset?: boolean;
   image?: { name: string; dir: string; column: string };
@@ -93,10 +95,13 @@ const crud =
     };
 
     app.get("/", { schema: { querystring: o.query, response: { 200: pageOf(o.row) } } }, (req) => {
-      const q = req.query as Parameters<typeof listPage>[2] & { archived?: string };
+      const q = req.query as Parameters<typeof listPage>[2] & {
+        archived?: string;
+        slicer?: string[];
+      };
       return listPage(db, table, q, {
         ...o.list,
-        where: [...(o.list.where ?? []), archivedWhere(table.archivedAt, q.archived)],
+        where: [...(o.list.where ?? []), o.where?.(q), archivedWhere(table.archivedAt, q.archived)],
       });
     });
 
@@ -190,6 +195,20 @@ export const printerModelsRoutes = (db: Db, dataDir: string) =>
     input: printerModelInputSchema,
     patch: printerModelPatchSchema,
     query: listQuery(printerModelSortFields, { archived: archivedFilter }, printerModelFilters),
+    // A model's slicers are those of its active profiles.
+    where: ({ slicer }) =>
+      slicer &&
+      or(
+        ...[machineProfiles, printProfiles].map((t) =>
+          inArray(
+            printerModels.id,
+            db
+              .select({ id: t.printerModelId })
+              .from(t)
+              .where(and(isNull(t.archivedAt), inArray(libraryOf(t.sourcePreset), slicer))),
+          ),
+        ),
+      ),
     list: {
       sort: {
         model: sql`${brandModel(brandOf, printerModels.model)} COLLATE NOCASE`,
@@ -226,7 +245,9 @@ export const machineProfilesRoutes = (db: Db, dataDir: string) =>
       filters: {
         name: machineProfiles.name,
         printerModelId: machineProfiles.printerModelId,
+        brandId: modelBrandId(machineProfiles.printerModelId),
         nozzleDiameterMm: machineProfiles.nozzleDiameterMm,
+        slicer: libraryOf(machineProfiles.sourcePreset),
       },
     },
   });
@@ -252,8 +273,10 @@ export const printProfilesRoutes = (db: Db, dataDir: string) =>
       filters: {
         name: printProfiles.name,
         printerModelId: printProfiles.printerModelId,
+        brandId: modelBrandId(printProfiles.printerModelId),
         nozzleDiameterMm: printProfiles.nozzleDiameterMm,
         layerHeightMm: printProfiles.layerHeightMm,
+        slicer: libraryOf(printProfiles.sourcePreset),
       },
     },
   });

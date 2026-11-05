@@ -239,6 +239,33 @@ describe("catalog: brands, printer models, machine profiles", () => {
     );
   });
 
+  it("profiles filter by brand and slicer; models by slicer", async () => {
+    const acme = (await send("POST", "/api/brands", { name: "Acme" })).body;
+    const zed = (await send("POST", "/api/brands", { name: "Zed" })).body;
+    const model = (await send("POST", "/api/printer-models", { brandId: acme.id, model: "X1" }))
+      .body;
+    const other = (await send("POST", "/api/printer-models", { brandId: zed.id, model: "Z1" }))
+      .body;
+    await send("POST", "/api/machine-profiles", {
+      name: "M1",
+      printerModelId: model.id,
+      sourcePreset: "orca-slicer:M1",
+    });
+    await send("POST", "/api/machine-profiles", { name: "M2", printerModelId: other.id });
+    await send("POST", "/api/print-profiles", {
+      name: "P1",
+      printerModelId: other.id,
+      sourcePreset: "bambu-studio:P1",
+    });
+    const total = async (url: string) => (await app.inject(url)).json().total;
+    expect(await total(`/api/machine-profiles?brandId=${acme.id}`)).toBe(1);
+    expect(await total("/api/machine-profiles?slicer=orca-slicer")).toBe(1);
+    expect(await total(`/api/print-profiles?brandId=${zed.id}`)).toBe(1);
+    expect(await total("/api/print-profiles?slicer=orca-slicer,bambu-studio")).toBe(1);
+    expect(await total("/api/printer-models?slicer=orca-slicer")).toBe(1);
+    expect(await total("/api/printer-models?slicer=orca-slicer,bambu-studio")).toBe(2);
+  });
+
   it("model image and brand logo", async () => {
     const brand = (await send("POST", "/api/brands", { name: "Acme" })).body;
     const model = (await send("POST", "/api/printer-models", { brandId: brand.id, model: "X1" }))

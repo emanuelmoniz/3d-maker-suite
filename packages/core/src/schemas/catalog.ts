@@ -73,12 +73,18 @@ export const printerModelFilters = {
   model: { kind: "text" },
   brandId: { kind: "select" },
   powerW: { kind: "number" },
+  /** Slicer libraries (`bambu-studio`) of the model's profiles. */
+  slicer: { kind: "select" },
 } as const satisfies Record<string, ColumnFilter>;
 export const machineProfileSortFields = ["name", "model", "createdAt", "nozzleDiameterMm"] as const;
 export const machineProfileFilters = {
   name: { kind: "text" },
   printerModelId: { kind: "select" },
+  /** The brand of the profile's model. */
+  brandId: { kind: "select" },
   nozzleDiameterMm: { kind: "number" },
+  /** The slicer library the preset came from. */
+  slicer: { kind: "select" },
 } as const satisfies Record<string, ColumnFilter>;
 export const printProfileSortFields = [
   "name",
@@ -90,8 +96,10 @@ export const printProfileSortFields = [
 export const printProfileFilters = {
   name: { kind: "text" },
   printerModelId: { kind: "select" },
+  brandId: { kind: "select" },
   nozzleDiameterMm: { kind: "number" },
   layerHeightMm: { kind: "number" },
+  slicer: { kind: "select" },
 } as const satisfies Record<string, ColumnFilter>;
 
 export type BrandInput = z.infer<typeof brandInputSchema>;
