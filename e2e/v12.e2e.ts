@@ -81,7 +81,9 @@ test("printer settings tables show each row's slicer", async ({ page, app }) => 
   }
   // Brand and model: their profiles' slicers. A hand-made profile has none.
   for (const table of ["Brands", "Printer models", "Machine profiles"])
-    await expect(page.getByRole("table", { name: table }).getByText("Bambu Studio")).toBeVisible();
+    await expect(
+      page.getByRole("table", { name: table }).getByRole("cell", { name: "Bambu Studio" }),
+    ).toBeVisible();
   await expect(
     page.getByRole("table", { name: "Print profiles" }).getByRole("row", { name: /Mine/ }),
   ).not.toContainText("Bambu Studio");
