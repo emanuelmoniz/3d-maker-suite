@@ -33,6 +33,7 @@ export function policyOf(db: Db, integrationId: string, type: Capability) {
       lastRunAt: null,
       cursor: null,
       pending: 0,
+      goneInUse: [] as string[],
       alertSeverities: null,
       trackUsage: true,
       newWeight: "import" as const,

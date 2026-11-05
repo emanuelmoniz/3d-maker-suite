@@ -79,8 +79,9 @@ export const SYNC_LOG_EVENTS = [
   "failed",
   "truncated",
 ] as const;
-// Why a row was left for review: a pick nothing fits, a pick made from several, or just a look.
-export const SYNC_LEFT_REASONS = ["pick", "unsure", "review"] as const;
+// Why a row was left for review: a pick nothing fits, a pick made from several, just a look, or
+// its preset is gone from the slicer (ADR-0019).
+export const SYNC_LEFT_REASONS = ["pick", "unsure", "review", "removed"] as const;
 /**
  * The data one run syncs or imports. Printers and prints sync on their own; the others need a
  * choice per row (e.g. the filament profile of a spool), so a run takes only the rows that need

@@ -137,7 +137,11 @@
       "order_one": "{{count, number}} order",
       "order_other": "{{count, number}} orders",
       "quote_one": "{{count, number}} quote",
-      "quote_other": "{{count, number}} quotes"
+      "quote_other": "{{count, number}} quotes",
+      "plate_one": "{{count, number}} plate",
+      "plate_other": "{{count, number}} plates",
+      "preset_one": "{{count, number}} slicer preset that inherits from it",
+      "preset_other": "{{count, number}} slicer presets that inherit from it"
     },
     "errors": {
       "generic": "That didn't work. Try again.",

@@ -438,6 +438,7 @@ export async function buildApp(
       await syncer.runAll();
       await syncer.checkCatalogs();
       await syncer.checkUserPresets();
+      syncer.checkFreed();
       await evaluate();
     });
     app.addHook("onClose", async () => job.stop());

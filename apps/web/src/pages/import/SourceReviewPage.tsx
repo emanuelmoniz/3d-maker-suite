@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 import { EmptyState } from "../../components/EmptyState.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { useSourcePreview } from "../../lib/import.ts";
+import { GoneRows } from "./GoneRows.tsx";
 import { ReviewTable } from "./ReviewTable.tsx";
 
 // i18n keys are written out in full so `pnpm i18n:check` can see them.
@@ -69,6 +70,14 @@ export function SourceReviewPage() {
             {t("import:done.summary", { created: done.created, updated: done.updated })}
           </p>
         )}
+        {preview.data?.gone && (
+          <GoneRows
+            id={id}
+            type={type}
+            preview={{ ...preview.data, gone: preview.data.gone }}
+            onKept={preview.data.rows.length ? undefined : setDone}
+          />
+        )}
         {preview.data &&
           (preview.data.rows.length ? (
             // Applying reads the source again: what is left comes back as a fresh review.
@@ -80,11 +89,13 @@ export function SourceReviewPage() {
               onDone={setDone}
             />
           ) : (
-            <EmptyState
-              icon={Layers}
-              title={t("import:source.emptyTitle")}
-              description={t("import:source.emptyBody")}
-            />
+            !preview.data.gone && (
+              <EmptyState
+                icon={Layers}
+                title={t("import:source.emptyTitle")}
+                description={t("import:source.emptyBody")}
+              />
+            )
           ))}
       </div>
     </>

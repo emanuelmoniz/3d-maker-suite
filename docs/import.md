@@ -137,6 +137,14 @@ Every type except print history has two more settings on the Integrations page (
 
 Catalog types of a slicer don't run on a schedule: a daily check looks at the slicer's files and raises the alert when they changed. Your user presets reach only the catalog this way; sharing and installing them between machines is a separate step.
 
+**A preset gone from the slicer** (you deleted it there, or a slicer update dropped a system preset) is never deleted for you, in Automatic too. It raises a **Sync needs review** alert, and the review lists it under **Gone from the slicer**:
+
+- **Nothing uses it**: **Delete** removes its row after you confirm. A row you changed since the import (a price you typed) is archived instead, so the value stays; **Show archived** finds it.
+- **Something uses it**: the row stays, and the review says what: prints, spools, plates and printers that use it, its older versions, and other presets in the slicer that inherit from it. Once nothing uses it, the alert asks again.
+- **Keep the rest**, or ignoring the alert, keeps the rows. You aren't asked again until the slicer's presets change. A preset that comes back in the slicer closes its alert.
+
+A slicer folder that reads empty (moved, or not readable) counts nothing as gone. Signing in or out of the slicer isn't a removal either: every account's presets are read.
+
 **How to sync** (what a sync does when the source changes a row you have)
 
 | Option | What happens |

@@ -2,6 +2,13 @@
 
 All notable changes are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+One migration adds `goneInUse` to sync policies.
+
+### Added
+- **A preset removed in a slicer asks before its row goes.** A user preset you delete in Bambu Studio or OrcaSlicer, or a system preset a slicer update drops, raises a **Sync needs review** alert, whatever the card's mode. The review lists it under **Gone from the slicer** with **Delete** when nothing uses it (archived instead when you edited it, so a typed price stays), or says what still uses it: prints, spools, plates, printers, older versions and presets that inherit from it. Once it's free, the alert asks again. Nothing is deleted without a person ([docs/import.md](docs/import.md#from-an-integration))
+
 ## [5.4.0-alpha.1] - 2026-11-05
 
 Pre-release. Test on a copy of your data first; back up before updating. Lists everything since 5.3.0. One migration adds `catalogFingerprint` to integrations.

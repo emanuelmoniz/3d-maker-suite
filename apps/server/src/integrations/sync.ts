@@ -8,6 +8,7 @@ import {
   externalPrinterSchema,
   externalPrintSchema,
   type ImportApplyDecision,
+  type ImportGone,
   type ImportPreviewRow,
   type IntegrationAdapter,
   IntegrationError,
@@ -22,7 +23,6 @@ import {
   REVIEWED_TYPES,
   type ReviewedType,
   SLICER_PRESET_TYPES,
-  type SlicerPresetKind,
   type SyncFrequency,
   type SyncLogEntry,
   type SyncPolicy,
@@ -37,12 +37,15 @@ import {
 import { type Db, schema } from "@3d-maker-suite/db";
 import { presetFileName } from "@3d-maker-suite/host";
 import { Cron } from "croner";
-import { and, asc, desc, eq, isNull, like, notInArray } from "drizzle-orm";
+import { and, asc, desc, eq, isNull, like, notInArray, sql } from "drizzle-orm";
 import type { FastifyBaseLogger } from "fastify";
 import { raise } from "../alerts/evaluate.ts";
 import { HttpError } from "../errors.ts";
+import { freedRows, goneRows, isPresetKind, PRESET_KINDS } from "../import/gone.ts";
 import { createReview, type Stored, untracked } from "../import/review.ts";
+import type { Rights } from "../lib/auth.ts";
 import { clearDeleted } from "../lib/catalog.ts";
+import { deleteItem } from "../lib/dependents.ts";
 import { success } from "../lib/logSink.ts";
 import { readPreferences } from "../lib/preferences.ts";
 import { bookOrLink } from "../lib/prints.ts";
@@ -82,13 +85,6 @@ const {
   syncRuns,
 } = schema;
 
-/** The kind of preset each profile type holds. */
-const PRESET_KINDS: Record<string, SlicerPresetKind> = {
-  filamentProfiles: "filament",
-  machineProfiles: "machine",
-  printProfiles: "process",
-};
-
 /** The dates a prints read is limited to; none = since the last run. */
 type Range = { from?: string; to?: string };
 
@@ -126,6 +122,14 @@ const leftEntry = (r: ImportPreviewRow): SyncLogEntry => ({
       ? "unsure"
       : "review",
 });
+/** A catalog row whose preset is gone from the slicer, for a run's log. */
+const goneEntry = (g: { label: string }): SyncLogEntry => ({
+  event: "left",
+  label: g.label,
+  reason: "removed",
+});
+/** Gone rows in use: asked again once free (`checkFreed`). */
+const inUse = (gone: ImportGone[]) => gone.filter((g) => g.dependents.length).map((g) => g.id);
 // The scheduler ticks every minute (main.ts). An `auto` type with a time set runs at its
 // `schedulePattern`; without one, when its frequency has passed since the last run.
 // ponytail: "1M" is 30 days, not a calendar month.
@@ -255,6 +259,8 @@ export function createSyncer(
     let updated = 0;
     let skipped = 0;
     let pending = 0;
+    // A slicer's presets gone from it: set by a run nobody confirmed (ADR-0019).
+    let gone: ImportGone[] | undefined;
     let oldestLeft: string | undefined;
     let errorCode: IntegrationErrorCode | null = null;
     const runLog = log.child({ integrationId: id });
@@ -297,6 +303,12 @@ export function createSyncer(
         // No run follows until the slicer's files change: what a review left out stays out, or its
         // alert would never close.
         if (pick && slicerFileType(adapter, type)) pending = 0;
+        // Never deleted by a run: each waits for a person, whatever the card's mode.
+        if (!pick && slicerFileType(adapter, type)) {
+          gone = goneRows(db, review, stored);
+          pending += gone.length;
+          for (const g of gone) note(goneEntry(g));
+        }
       }
 
       if (type === "prints") {
@@ -317,7 +329,12 @@ export function createSyncer(
             : was && oldestLeft && Date.parse(oldestLeft) < Date.parse(was)
               ? oldestLeft
               : null;
-      const done = { pending, ...(!pick && { lastRunAt: startedAt }), ...(cursor && { cursor }) };
+      const done = {
+        pending,
+        ...(!pick && { lastRunAt: startedAt }),
+        ...(cursor && { cursor }),
+        ...(gone && { goneInUse: inUse(gone) }),
+      };
       db.insert(syncPolicies)
         .values({ integrationId: id, type, ...defaultPolicy(type), ...done })
         .onConflictDoUpdate({ target: [syncPolicies.integrationId, syncPolicies.type], set: done })
@@ -456,17 +473,20 @@ export function createSyncer(
   function holdForReview(
     integrationId: string,
     type: SyncType,
-    left: ImportPreviewRow[],
+    rows: ImportPreviewRow[],
+    gone: ImportGone[],
     at: string,
   ) {
-    const pending = { pending: left.length };
+    const set = { pending: rows.length + gone.length, goneInUse: inUse(gone) };
     db.insert(syncPolicies)
-      .values({ integrationId, type, ...defaultPolicy(type), ...pending })
-      .onConflictDoUpdate({
-        target: [syncPolicies.integrationId, syncPolicies.type],
-        set: pending,
-      })
+      .values({ integrationId, type, ...defaultPolicy(type), ...set })
+      .onConflictDoUpdate({ target: [syncPolicies.integrationId, syncPolicies.type], set })
       .run();
+    logLeft(integrationId, type, [...rows.map(leftEntry), ...gone.map(goneEntry)], at);
+  }
+
+  /** A run that only names rows left for a person, so the alert's detail lists them. */
+  function logLeft(integrationId: string, type: SyncType, left: SyncLogEntry[], at: string) {
     if (!left.length) return;
     // The alert's detail comes from the latest run: without this, an older run's rows.
     const cut = left.length - MAX_LOG;
@@ -479,7 +499,7 @@ export function createSyncer(
         finishedAt: at,
         status: "ok",
         log: [
-          ...left.slice(0, MAX_LOG).map(leftEntry),
+          ...left.slice(0, MAX_LOG),
           ...(cut > 0 ? [{ event: "truncated" as const, count: cut }] : []),
         ],
       })
@@ -513,10 +533,14 @@ export function createSyncer(
         const seenBefore = row.catalogFingerprint ? types : [];
         const manual = seenBefore.filter((t) => policyOf(db, row.id, t).mode !== "auto");
         let failed = false;
+        const waiting: { type: LibraryType; left: ImportPreviewRow[]; gone: ImportGone[] }[] = [];
         for (const type of seenBefore.filter((t) => !manual.includes(t))) {
-          // Nothing to do logs nothing: the sync log only shows real changes.
-          if (!review.preview(await offered(row, type)).rows.some((r) => r.auto)) continue;
-          if ((await run(row.id, "scheduled", { type })).errorCode) failed = true;
+          const stored = await offered(row, type);
+          // Nothing to do logs nothing: the sync log only shows real changes. A preset gone from
+          // the slicer only waits.
+          if (!review.preview(stored).rows.some((r) => r.auto))
+            waiting.push({ type, left: [], gone: goneRows(db, review, stored) });
+          else if ((await run(row.id, "scheduled", { type })).errorCode) failed = true;
         }
         // The fingerprint stays, so the next check tries again.
         if (failed) continue;
@@ -528,7 +552,6 @@ export function createSyncer(
             .all()
             .map((s) => s.entity),
         );
-        const waiting: { type: LibraryType; left: ImportPreviewRow[] }[] = [];
         for (const type of manual) {
           if (!imported.has(type)) continue;
           // ponytail: every new system row of a partly imported type counts, wanted or not; the
@@ -541,14 +564,16 @@ export function createSyncer(
             rows: await libraryRows(lib, dir, type, { dataDir, scope: "system" }),
           };
           const { rows: read } = review.preview(stored);
+          const gone = goneRows(db, review, stored);
           // A user preset's row marks its type imported too: none of these rows being yours, the
-          // system presets never were.
-          if (!read.some((r) => r.targetId)) continue;
-          waiting.push({ type, left: read.filter((r) => r.auto) });
+          // system presets never were. Unless the update took every one away.
+          const yours = read.some((r) => r.targetId);
+          if (!yours && !gone.length) continue;
+          waiting.push({ type, left: yours ? read.filter((r) => r.auto) : [], gone });
         }
         const at = new Date().toISOString();
         db.transaction(() => {
-          for (const { type, left } of waiting) holdForReview(row.id, type, left, at);
+          for (const { type, left, gone } of waiting) holdForReview(row.id, type, left, gone, at);
           db.update(integrations)
             .set({ catalogFingerprint: now })
             .where(eq(integrations.id, row.id))
@@ -575,7 +600,8 @@ export function createSyncer(
       .all();
     for (const m of marks) {
       const name = presetFileName(m.source.slice(prefix.length));
-      const file = files.find((f) => f.kind === PRESET_KINDS[m.entity] && f.file === name);
+      const kind = isPresetKind(m.entity) && PRESET_KINDS[m.entity];
+      const file = files.find((f) => f.kind === kind && f.file === name);
       if (file && file.mtimeMs > Date.parse(m.deletedAt)) clearDeleted(db, m.entity, m.source);
     }
   }
@@ -620,22 +646,26 @@ export function createSyncer(
           const policy = policyOf(db, row.id, type);
           if (now === (policy.cursor ?? "")) continue;
           clearEdited(lib.id, mine);
-          const left = review.preview(await offered(row, type)).rows.filter((r) => r.auto);
+          const stored = await offered(row, type);
+          const left = review.preview(stored).rows.filter((r) => r.auto);
           const see = () =>
             db
               .update(syncPolicies)
               .set({ cursor: now })
               .where(and(eq(syncPolicies.integrationId, row.id), eq(syncPolicies.type, type)))
               .run();
-          // Nothing to do logs nothing: the sync log only shows real changes.
+          // Nothing to do logs nothing: the sync log only shows real changes. A preset gone from
+          // the slicer only waits.
           if (policy.mode === "auto" && left.length) {
             // A failed run keeps the cursor, so the next check tries again.
             if (!(await run(row.id, "scheduled", { type })).errorCode) see();
-          } else
+          } else {
+            const gone = goneRows(db, review, stored);
             db.transaction(() => {
-              holdForReview(row.id, type, left, new Date().toISOString());
+              holdForReview(row.id, type, left, gone, new Date().toISOString());
               see();
             });
+          }
         }
       } catch (err) {
         // The cursor stays, so the next check tries again.
@@ -650,6 +680,75 @@ export function createSyncer(
     (userPresetsCheck = userPresetsCheck
       .then(scanUserPresets)
       .catch((err) => log.warn({ err }, "user presets check failed")));
+
+  /**
+   * On the scheduler's tick: a row gone from its slicer that was in use waits for a person again once
+   * nothing uses it (ADR-0019). Only if nothing of its type waits: then it's counted already, or its
+   * alert was ignored, and that doesn't ask again until the slicer's files change.
+   */
+  function checkFreed() {
+    const held = db
+      .select()
+      .from(syncPolicies)
+      .where(sql`json_array_length(${syncPolicies.goneInUse}) > 0`)
+      .all();
+    for (const p of held) {
+      const entity = isUserPresetType(p.type) ? USER_PRESET_ENTITY[p.type] : p.type;
+      if (!isPresetKind(entity)) continue;
+      const row = db.select().from(integrations).where(eq(integrations.id, p.integrationId)).get();
+      const adapter = adapters.find((a) => a.id === row?.adapterId);
+      const dir = row && adapter ? catalogDir(db, dataDir, row, adapter) : null;
+      const { still, free } = freedRows(db, entity, p.goneInUse, dir);
+      const at = new Date().toISOString();
+      const ask = !p.pending && free.length > 0;
+      db.transaction(() => {
+        db.update(syncPolicies)
+          .set({ goneInUse: still, ...(ask && { pending: free.length }) })
+          .where(
+            and(eq(syncPolicies.integrationId, p.integrationId), eq(syncPolicies.type, p.type)),
+          )
+          .run();
+        if (ask)
+          logLeft(
+            p.integrationId,
+            p.type as SyncType,
+            free.map((label) => goneEntry({ label })),
+            at,
+          );
+      });
+    }
+  }
+
+  /**
+   * A person's Delete in the review of a row gone from its slicer (ADR-0019): read the slicer again,
+   * and only a row still gone and free goes. One with your edits is archived instead, so the typed
+   * value isn't lost. The caller takes the backup.
+   */
+  async function deleteGone(id: string, type: ReviewedType, rowId: string, user?: Rights) {
+    const stored = await offer(id, type);
+    const gone = goneRows(db, review, stored, user).find((g) => g.id === rowId);
+    if (!gone || !isPresetKind(stored.entity))
+      throw new HttpError(404, "not_found", "No row of a preset gone from the slicer");
+    if (gone.dependents.length)
+      throw new HttpError(409, "in_use", "Still used by other records", {
+        dependents: gone.dependents,
+      });
+    const t = schema[stored.entity] as typeof schema.machineProfiles;
+    if (gone.edited)
+      db.update(t).set({ archivedAt: new Date().toISOString() }).where(eq(t.id, rowId)).run();
+    else deleteItem(db, stored.entity, rowId, { user, dataDir });
+    // ponytail: one less waiting, whatever it was counted for; the next change in the slicer's
+    // files counts afresh.
+    const p = policyOf(db, id, type);
+    db.update(syncPolicies)
+      .set({
+        pending: Math.max(p.pending - 1, 0),
+        goneInUse: p.goneInUse.filter((g) => g !== rowId),
+      })
+      .where(and(eq(syncPolicies.integrationId, id), eq(syncPolicies.type, type)))
+      .run();
+    return { result: gone.edited ? ("archived" as const) : ("deleted" as const) };
+  }
 
   /** The printers of one integration's account, read live; invalid ones are logged and left out. */
   async function readPrinters(id: string, instance: IntegrationInstance) {
@@ -913,6 +1012,8 @@ export function createSyncer(
     runAll,
     checkCatalogs,
     checkUserPresets,
+    checkFreed,
+    deleteGone,
     importBrands,
     test,
     offer,

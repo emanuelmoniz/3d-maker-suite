@@ -129,7 +129,8 @@
     "left": {
       "pick": "Waits for you: {{label}} (nothing fits, pick one)",
       "unsure": "Waits for you: {{label}} (several fit, check the pick)",
-      "review": "Waits for you: {{label}}"
+      "review": "Waits for you: {{label}}",
+      "removed": "Gone from the slicer: {{label}} (delete it or keep it)"
     },
     "failed": "Failed: {{reason}}",
     "truncated_one": "…and {{count}} more line",

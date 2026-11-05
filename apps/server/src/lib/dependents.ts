@@ -63,7 +63,14 @@ const {
 const MAX_ITEMS = 20;
 
 /** Rows of a table that can stand in the way, as the 409 names them. */
-type Of = { type: DependentType; module: PermissionModule; table: SQLiteTable; label: SQLWrapper };
+type Of = {
+  type: DependentType;
+  module: PermissionModule;
+  table: SQLiteTable;
+  label: SQLWrapper;
+  /** What the web links to; none = the row's id. */
+  id?: SQLWrapper;
+};
 type Use = Of & {
   /** The FK behind the reference; none for an id in a JSON list. */
   via?: SQLiteColumn;
@@ -94,6 +101,16 @@ const SPOOL = of("spool", "filament", spools, spoolName);
 const PRINT = of("print", "prints", prints, printLabel);
 const ORDER = of("order", "costs", orders, orderLabel);
 const QUOTE = of("quote", "costs", quotes, quoteLabel);
+// A plate is named and linked by its project.
+const PLATE = {
+  ...of(
+    "plate",
+    "projects",
+    plates,
+    sql`(SELECT ${projects.name} FROM ${projects} WHERE ${projects.id} = ${plates.projectId}) || ' · ' || ${plates.file} || ' #' || ${plates.plate}`,
+  ),
+  id: plates.projectId,
+};
 
 /** Loosely typed on purpose: every listed table has an id, most an `archivedAt`. */
 const columns = (table: SQLiteTable) =>
@@ -299,8 +316,8 @@ export function dependentsOf(
   user: Rights | undefined,
   kind: ItemKind,
   id: string,
+  uses: Use[] = ITEMS[kind].uses,
 ): InUseDetails["dependents"] {
-  const uses: Use[] = ITEMS[kind].uses;
   return uses.flatMap((use) => {
     const t = columns(use.table);
     const where = use.where(id);
@@ -313,7 +330,11 @@ export function dependentsOf(
     if (!counted?.total) return [];
     const items = mayRead(user, use.module)
       ? db
-          .select({ id: t.id, label: sql<string>`${use.label}`, at: sql<unknown>`${archivedAt}` })
+          .select({
+            id: sql<string>`${use.id ?? t.id}`,
+            label: sql<string>`${use.label}`,
+            at: sql<unknown>`${archivedAt}`,
+          })
           .from(use.table)
           .where(where)
           .orderBy(sql`${archivedAt} IS NOT NULL`, sql`${use.label}`)
@@ -333,6 +354,70 @@ export function dependentsOf(
       },
     ];
   });
+}
+
+export type PresetKind = "machineProfiles" | "printProfiles" | "filamentProfiles";
+
+/** Its older versions: archived rows of the same preset, which prints point at. */
+const versions = (o: Of): Use => {
+  const t = o.table as typeof machineProfiles;
+  return {
+    ...o,
+    where: (id) =>
+      sql`${t.id} <> ${id} AND ${t.archivedAt} IS NOT NULL AND ${t.sourcePreset} = (SELECT ${t.sourcePreset} FROM ${t} WHERE ${t.id} = ${id})`,
+  };
+};
+
+/** What ADR-0019 counts besides the delete check: what that only clears, and older versions. */
+const PRESET_USES: Record<PresetKind, Use[]> = {
+  machineProfiles: [versions(MACHINE_PROFILE)],
+  printProfiles: [
+    on(PRINTER, printers.printProfileId),
+    on(PLATE, plates.printProfileId),
+    versions(PRINT_PROFILE),
+  ],
+  filamentProfiles: [listed(PLATE, plates.filaments), versions(FILAMENT_PROFILE)],
+};
+
+/**
+ * ADR-0019's "in use", stricter than the delete check: a slicer preset's catalog row is also used
+ * by a plate's or printer's print profile, a plate's filament list, its older versions and the
+ * presets that inherit from it (`inheritedBy`, their names: the caller reads the slicer's files).
+ */
+export function presetInUse(
+  db: Db,
+  user: Rights | undefined,
+  kind: PresetKind,
+  id: string,
+  inheritedBy: string[] = [],
+): InUseDetails["dependents"] {
+  const found = dependentsOf(db, user, kind, id, [...ITEMS[kind].uses, ...PRESET_USES[kind]]);
+  // One entry per type: older versions join the ones the delete check names.
+  const merged = new Map<DependentType, InUseDetails["dependents"][number]>();
+  for (const d of found) {
+    const was = merged.get(d.type);
+    merged.set(
+      d.type,
+      was
+        ? {
+            ...was,
+            total: was.total + d.total,
+            archived: was.archived + d.archived,
+            items: [...was.items, ...d.items].slice(0, MAX_ITEMS),
+          }
+        : d,
+    );
+  }
+  if (inheritedBy.length)
+    merged.set("preset", {
+      type: "preset",
+      total: inheritedBy.length,
+      archived: 0,
+      items: inheritedBy
+        .slice(0, MAX_ITEMS)
+        .map((name) => ({ id: name, label: name, archived: false })),
+    });
+  return [...merged.values()];
 }
 
 export function assertFree(db: Db, user: Rights | undefined, kind: ItemKind, id: string) {

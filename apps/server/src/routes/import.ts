@@ -8,6 +8,7 @@ import {
   importApplySchema,
   importCatalogBrandsSchema,
   importCatalogPickSchema,
+  importGoneResultSchema,
   importPreviewQuerySchema,
   importPreviewSchema,
   importProjectPrintsResponseSchema,
@@ -28,6 +29,7 @@ import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { createBackup } from "../backup/backup.ts";
 import { HttpError } from "../errors.ts";
+import { goneRows } from "../import/gone.ts";
 import { createReview, edited, type Stored } from "../import/review.ts";
 import type { Syncer } from "../integrations/sync.ts";
 import { mayTask } from "../lib/auth.ts";
@@ -196,11 +198,31 @@ export const importRoutes =
         mayTask(db, req.user, id, type, "editorReview");
         const stored = await syncer.offer(id, type, { from, to });
         const { rows, ...rest } = review.preview(stored, waiting ? "waiting" : "all");
+        const gone = goneRows(db, review, stored, req.user);
         return {
           uploadId: review.save(stored),
           ...rest,
           rows: rows.map(({ imported: _, ...r }) => r),
+          ...(gone.length > 0 && { gone }),
         };
+      },
+    );
+
+    // A row whose preset is gone from the slicer, when nothing uses it: deleted, or archived if
+    // you edited it (ADR-0019). Only ever on a person's request, after a backup.
+    app.delete(
+      "/integration/:id/:type/gone/:rowId",
+      {
+        schema: {
+          params: z.object({ id: z.uuid(), type: z.enum(REVIEWED_TYPES), rowId: z.uuid() }),
+          response: { 200: importGoneResultSchema, 404: apiErrorSchema, 409: apiErrorSchema },
+        },
+      },
+      async (req) => {
+        const { id, type, rowId } = req.params;
+        mayTask(db, req.user, id, type, "editorReview");
+        await createBackup(db, dataDir, "auto");
+        return syncer.deleteGone(id, type, rowId, req.user);
       },
     );
 

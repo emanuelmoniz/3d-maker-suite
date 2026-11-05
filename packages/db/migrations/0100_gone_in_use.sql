@@ -1,0 +1,1 @@
+ALTER TABLE `sync_policies` ADD `gone_in_use` text DEFAULT '[]' NOT NULL;

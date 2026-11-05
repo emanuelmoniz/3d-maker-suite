@@ -2003,7 +2003,7 @@ Do Step 6 of the 5.4.0 plan in PLAN.md. Then push dev, push the tag and confirm 
 
 ## Phase 29 - Deletes and cloud presets
 
-### [ ] Step 7 - "In use" and catalog delete
+### [x] Step 7 - "In use" and catalog delete
 **Model:** Opus · **Effort:** High
 **Scope:**
 - A `presetInUse` check built on `lib/dependents.ts`, with the stricter rule from the design.

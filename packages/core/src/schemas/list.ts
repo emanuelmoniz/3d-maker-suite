@@ -132,6 +132,10 @@ export const DEPENDENT_TYPES = [
   "print",
   "order",
   "quote",
+  // ADR-0019's "in use" only: a project's plate (its id is the project's), and a slicer preset
+  // that inherits from it (its id is its name).
+  "plate",
+  "preset",
 ] as const;
 
 /**

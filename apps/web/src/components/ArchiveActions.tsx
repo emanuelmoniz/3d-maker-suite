@@ -51,7 +51,8 @@ const ERRORS: Record<string, string> = {
   not_found: "common:archive.errors.not_found",
 };
 
-const DEPENDENTS: Record<DependentType, { key: string; to: string }> = {
+// `to`: none = no page of its own.
+const DEPENDENTS: Record<DependentType, { key: string; to?: string }> = {
   printerModel: {
     key: "common:archive.dependents.printerModel",
     to: "/printers/models/$id/edit",
@@ -80,6 +81,10 @@ const DEPENDENTS: Record<DependentType, { key: string; to: string }> = {
   print: { key: "common:archive.dependents.print", to: "/prints/$id" },
   order: { key: "common:archive.dependents.order", to: "/orders/$id" },
   quote: { key: "common:archive.dependents.quote", to: "/quotes/$id" },
+  // Its id is its project's.
+  plate: { key: "common:archive.dependents.plate", to: "/projects/$id" },
+  // A file in the slicer.
+  preset: { key: "common:archive.dependents.preset" },
 };
 
 export function ArchivedBadge() {
@@ -92,36 +97,44 @@ export function ArchivedBadge() {
 }
 
 /** What keeps an item from being deleted, with links. Hidden rows are only counted (ADR-0018). */
-function Dependents({ details, onLeave }: { details: InUseDetails; onLeave: () => void }) {
+export function Dependents({ details, onLeave }: { details: InUseDetails; onLeave?: () => void }) {
   const { t } = useTranslation();
   return (
     <ul className="grid max-h-72 gap-3 overflow-y-auto">
-      {details.dependents.map((d) => (
-        <li key={d.type} className="grid gap-1">
-          <span className="font-medium">
-            {t(DEPENDENTS[d.type].key, { count: d.total })}
-            {d.archived > 0 && ` · ${t("common:archive.archivedCount", { count: d.archived })}`}
-          </span>
-          {d.items.map((i) => (
-            <span key={i.id} className="flex flex-wrap items-center gap-2">
-              <Link
-                to={DEPENDENTS[d.type].to}
-                params={{ id: i.id }}
-                onClick={onLeave}
-                className="underline wrap-anywhere"
-              >
-                {i.label}
-              </Link>
-              {i.archived && <ArchivedBadge />}
+      {details.dependents.map((d) => {
+        const { to } = DEPENDENTS[d.type];
+        return (
+          <li key={d.type} className="grid gap-1">
+            <span className="font-medium">
+              {t(DEPENDENTS[d.type].key, { count: d.total })}
+              {d.archived > 0 && ` · ${t("common:archive.archivedCount", { count: d.archived })}`}
             </span>
-          ))}
-          {d.total > d.items.length && (
-            <span className="text-muted">
-              {t("common:archive.notShown", { count: d.total - d.items.length })}
-            </span>
-          )}
-        </li>
-      ))}
+            {d.items.map((i) => (
+              // Several plates share their project's id.
+              <span key={`${i.id}:${i.label}`} className="flex flex-wrap items-center gap-2">
+                {to ? (
+                  <Link
+                    to={to}
+                    params={{ id: i.id }}
+                    onClick={onLeave}
+                    className="underline wrap-anywhere"
+                  >
+                    {i.label}
+                  </Link>
+                ) : (
+                  <span className="wrap-anywhere">{i.label}</span>
+                )}
+                {i.archived && <ArchivedBadge />}
+              </span>
+            ))}
+            {d.total > d.items.length && (
+              <span className="text-muted">
+                {t("common:archive.notShown", { count: d.total - d.items.length })}
+              </span>
+            )}
+          </li>
+        );
+      })}
     </ul>
   );
 }

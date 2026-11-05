@@ -113,6 +113,8 @@ export const syncPolicies = sqliteTable(
     cursor: text(),
     /** Rows the last run left for the preview -> confirm flow. */
     pending: integer().notNull().default(0),
+    /** A slicer's presets: rows gone from it but in use when last counted; asked again once free. */
+    goneInUse: text({ mode: "json" }).$type<string[]>().notNull().default([]),
     /** Severities this task raises (pending rows = warning); null = all three, the default. */
     alertSeverities: text({ mode: "json" }).$type<AlertSeverity[]>(),
     /** Prints in `auto` mode: take the filament from the spools (off: link them only). */

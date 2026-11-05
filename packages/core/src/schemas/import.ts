@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { id } from "./entities.ts";
 import { MAINTENANCE_TARGETS, PRINT_OUTCOMES, SPOOL_STATUSES, USER_PRESET_TYPES } from "./enums.ts";
+import { inUseDetailsSchema } from "./list.ts";
 import { SLICER_ZIP_TYPES } from "./slicerCatalog.ts";
 
 // File imports (XLSX / CSV). The columns of an entity are declared once here and drive the
@@ -677,6 +678,17 @@ export const importPreviewRowSchema = z.object({
   folderMissing: z.boolean().optional(),
 });
 
+export const importGoneSchema = z.object({
+  id,
+  label: z.string(),
+  /** You changed it since the import (a typed price): Delete archives it. */
+  edited: z.boolean(),
+  /** What uses it, by ADR-0019's stricter rule; empty = free to delete. */
+  dependents: inUseDetailsSchema.shape.dependents,
+});
+/** What Delete did to a gone row. */
+export const importGoneResultSchema = z.object({ result: z.enum(["deleted", "archived"]) });
+
 export const importPreviewSchema = z.object({
   uploadId: z.uuid(),
   entity: z.enum(REVIEW_ENTITIES),
@@ -721,6 +733,11 @@ export const importPreviewSchema = z.object({
   refNames: z.record(z.string(), z.array(z.string())),
   /** Rows from an integration: the merge policy its sync type asks for (the bulk default). */
   policy: z.enum(MERGE_POLICIES).optional(),
+  /**
+   * A slicer's presets: rows it brought whose preset is gone from it (ADR-0019). Deleted only by
+   * a person, and only when `dependents` is empty; `edited` ones are archived instead.
+   */
+  gone: z.array(importGoneSchema).optional(),
 });
 
 /** What the template and the export are written as. */
@@ -871,6 +888,7 @@ export type ImportCell = z.infer<typeof cell>;
 export type ImportValues = z.infer<typeof values>;
 export type ImportPreviewRow = z.infer<typeof importPreviewRowSchema>;
 export type ImportPreview = z.infer<typeof importPreviewSchema>;
+export type ImportGone = z.infer<typeof importGoneSchema>;
 export type ImportTarget = ImportPreview["targets"][number];
 export type ImportTemplate = z.infer<typeof importTemplateSchema>;
 export type ImportApply = z.infer<typeof importApplySchema>;

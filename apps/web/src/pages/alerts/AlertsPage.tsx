@@ -59,6 +59,7 @@ const LEFT: Record<NonNullable<SyncLogEntry["reason"]>, string> = {
   pick: "alerts:log.left.pick",
   unsure: "alerts:log.left.unsure",
   review: "alerts:log.left.review",
+  removed: "alerts:log.left.removed",
 };
 
 const link = "font-medium hover:underline";

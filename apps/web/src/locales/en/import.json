@@ -478,6 +478,15 @@
     "emptyTitle": "Nothing found",
     "emptyBody": "The source has nothing of this type."
   },
+  "gone": {
+    "title": "Gone from the slicer",
+    "body": "The slicer no longer has these presets. Their rows stay until you delete them: they can hold what the slicer can't give back, like a price you typed.",
+    "inUse": "Still in use, so it stays. Once nothing uses it, you're asked again.",
+    "edited": "You changed it since the import, so it is archived instead of deleted.",
+    "archiveBody": "You changed it since the import, so it is archived, not deleted: the values you typed stay. Show archived finds it, and Restore brings it back.",
+    "keep": "Keep the rest",
+    "keepHint": "Nothing changes, and you aren't asked again until the slicer's presets change."
+  },
   "zip": {
     "cardTitle": "Printer and filament profiles from a slicer",
     "cardHint": "Running on a server with no slicer installed? Zip your slicer's config folder on the PC that has it and import its brands, printers and filament profiles from the zip.",
