@@ -176,6 +176,21 @@ export const deletedSources = sqliteTable(
   (t) => [primaryKey({ columns: [t.entity, t.source] })],
 );
 
+// A user preset's one route into the catalog (ADR-0019): the integration whose card counts, reviews
+// and alerts for it. The first to see it, except a cloud account, which takes the presets it lists.
+// `source` is the catalog row's `sourcePreset`.
+export const presetRoutes = sqliteTable(
+  "preset_routes",
+  {
+    entity: text().notNull(),
+    source: text().notNull(),
+    integrationId: text()
+      .notNull()
+      .references(() => integrations.id, { onDelete: "cascade" }),
+  },
+  (t) => [primaryKey({ columns: [t.entity, t.source] })],
+);
+
 // Sync log: one row per run (the server keeps the last 100 per integration).
 export const syncRuns = sqliteTable(
   "sync_runs",

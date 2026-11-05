@@ -140,6 +140,36 @@ const spoolsResponse = z.object({
   ),
 });
 
+// Your Bambu Studio presets in the cloud (ADR-0019, read on a real account). A kind with none of
+// yours is null. Only filament entries were seen, so the other kinds need no field of their own.
+const presetEntry = z.object({
+  setting_id: z.string().min(1),
+  name: z.string().min(1),
+  update_time: z.union([z.string(), z.number()]),
+});
+const presetKind = z.object({ private: z.array(presetEntry).nullish() }).nullable();
+const presetsResponse = z.object({ print: presetKind, printer: presetKind, filament: presetKind });
+// `setting` only holds what differs from its parent, plus `inherits`; it has no `name`.
+const presetResponse = z.object({
+  name: z.string().min(1),
+  setting: z.record(z.string(), z.unknown()),
+});
+const PRESET_KINDS = { print: "process", printer: "machine", filament: "filament" } as const;
+// ponytail: the profile version seen on a real account, when no Studio folder tells ours. Whether
+// the list depends on it is unknown.
+const PROFILE_VERSION = "02.09.00.74";
+
+/** The installed Bambu profiles' version (`system/BBL.json`), else `PROFILE_VERSION`. */
+async function profileVersion(dirs: string[]) {
+  for (const dir of dirs) {
+    try {
+      const { version } = JSON.parse(await readFile(join(dir, "system", "BBL.json"), "utf8"));
+      if (typeof version === "string" && version) return version;
+    } catch {}
+  }
+  return PROFILE_VERSION;
+}
+
 /** Colour names by "filament type|#rrggbb", and by "#rrggbb" alone where a hex has one name. */
 type ColorNames = Map<string, string>;
 type ColorCode = { fila_type?: string; fila_color?: string[]; fila_color_name?: { en?: string } };
@@ -205,7 +235,7 @@ export function bambuCloudAdapter(colorDirs = studioDefaultDirs): IntegrationAda
   return {
     id: "bambu-cloud",
     kind: "cloud",
-    capabilities: ["printers", "prints", "spools"],
+    capabilities: ["printers", "prints", "spools", ...USER_PRESET_TYPES],
     configSchema,
     secretsSchema,
 
@@ -328,6 +358,31 @@ export function bambuCloudAdapter(colorDirs = studioDefaultDirs): IntegrationAda
               if (hits.length < SPOOL_PAGE) break;
             }
             return out;
+          },
+        },
+        userPresets: {
+          library: "bambu-studio",
+          list: async () => {
+            const query = new URLSearchParams({ version: await profileVersion(colorDirs()) });
+            const res = await parse(await authed(`${URLS.presets}?${query}`), presetsResponse, log);
+            return Object.entries(PRESET_KINDS).flatMap(([key, kind]) =>
+              (res[key as keyof typeof PRESET_KINDS]?.private ?? []).map((p) => ({
+                id: p.setting_id,
+                kind,
+                name: p.name,
+                updatedAt: String(p.update_time),
+              })),
+            );
+          },
+          get: async (id) => {
+            const { name, setting } = await parse(
+              await authed(`${URLS.presets}/${encodeURIComponent(id)}`),
+              presetResponse,
+              log,
+            );
+            // `updated_time` is the cloud's, and moves on a re-upload with no edit.
+            const { updated_time: _, ...json } = setting;
+            return { ...json, name, from: "User" };
           },
         },
       };

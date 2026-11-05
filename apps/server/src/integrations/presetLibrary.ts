@@ -109,7 +109,10 @@ function archive(tx: Tx, row: Row, keep: number) {
       .run();
 }
 
-const named = (q: Db | Tx, p: { library: string; kind: SlicerPresetKind; name: string }) =>
+export const namedPreset = (
+  q: Db | Tx,
+  p: { library: string; kind: SlicerPresetKind; name: string },
+) =>
   q
     .select()
     .from(slicerPresets)
@@ -155,7 +158,7 @@ export function savePreset(
   const sha256 = presetSha(JSON.parse(p.json));
   const keep = readPreferences(db).hubVersionsKeep;
   const row = db.transaction((tx) => {
-    const old = named(tx, p);
+    const old = namedPreset(tx, p);
     if (old && !old.deleted && old.sha256 === sha256) return undefined;
     const set = {
       json: p.json,
@@ -351,13 +354,13 @@ export function mergeUserPresets(
  * A preset from a device's slicer (Share my presets). The same canonical sha is no change, even
  * against a hub delete: only an edit brings a deleted preset back. Another content on the version
  * the hub has is its next version; on any other (`base`) it is a conflict copy, with the `name`
- * inside renamed and an alert, and the hub's version stays.
+ * inside renamed and an alert, and the hub's version stays. No `deviceId`: an account's cloud.
  */
 export function uploadPreset(
   db: Db,
   dataDir: string,
   { base, text, ...p }: PresetUpload,
-  deviceId: string,
+  deviceId: string | null,
   by: SavedBy,
 ): PresetUploadResult {
   const json = parsePreset(text);
@@ -367,9 +370,9 @@ export function uploadPreset(
     skipInvalid(db, ref, text, by);
     return { result: "invalid", name, version: 0 };
   }
-  const old = named(db, ref);
+  const old = namedPreset(db, ref);
   // Its file is there again: that removal is over, and so is its hold.
-  if (old?.removedOn.includes(deviceId))
+  if (deviceId && old?.removedOn.includes(deviceId))
     db.update(slicerPresets)
       .set({
         removedOn: old.removedOn.filter((d) => d !== deviceId),
@@ -401,7 +404,7 @@ export function uploadPreset(
   let copy = "";
   for (let n = 1; ; n++) {
     copy = `${name}${conflictMark(device, at, n)}`;
-    if (!named(db, { ...ref, name: copy })) break;
+    if (!namedPreset(db, { ...ref, name: copy })) break;
   }
   const kept = savePreset(
     db,
@@ -441,7 +444,7 @@ export function presetSkipped(
 
 /** A device deleted its copy: only shown on the preset (ADR-0017). A connector before 5.4.0's. */
 export function presetRemovedOn(db: Db, p: PresetRemoved, deviceId: string) {
-  const row = named(db, p);
+  const row = namedPreset(db, p);
   if (row && !row.removedOn.includes(deviceId))
     db.update(slicerPresets)
       .set({ removedOn: [...row.removedOn, deviceId] })
@@ -466,7 +469,7 @@ export function presetsRemoved(
   device: { id: string; userId: string },
   by: SavedBy,
 ): PresetRemovalResult {
-  const found = removed.map((r) => ({ r, row: named(db, { library, ...r }) }));
+  const found = removed.map((r) => ({ r, row: namedPreset(db, { library, ...r }) }));
   const owned = found.filter(
     ({ row }) => row && !row.deleted && row.ownerUserId === device.userId,
   ).length;
@@ -557,7 +560,7 @@ export function resolveHeld(
 }
 
 /**
- * The live library presets a slice uses, id → sha256, for `slicedPresets`: its `user/` process and
+ * The live library presets a slice uses, id â†’ sha256, for `slicedPresets`: its `user/` process and
  * filaments. ponytail: an unpicked slot's own user filament (the 3MF's) isn't tracked, and user
  * machine presets can't be passed (ADR-0007).
  */

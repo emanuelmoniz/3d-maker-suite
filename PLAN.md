@@ -2047,7 +2047,7 @@ Do Step 7b of the 5.4.0 plan in PLAN.md.
 Do Step 8 of the 5.4.0 plan in PLAN.md.
 ```
 
-### [ ] Step 9 - Bambu Cloud user presets  **[plan mode]**
+### [x] Step 9 - Bambu Cloud user presets  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:**
 - `IntegrationInstance.userPresets` in core, optional like the other sources. The Bambu adapter reads `/v1/iot-service/api/slicer/setting` (list, then get), zod-checked. A mismatch is `api_changed`.

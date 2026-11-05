@@ -1,7 +1,7 @@
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { IntegrationContext, SecretStore } from "@3d-maker-suite/core";
+import { type IntegrationContext, type SecretStore, USER_PRESET_TYPES } from "@3d-maker-suite/core";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import {
   bambuCloudAdapter,
@@ -82,7 +82,7 @@ const code = (p: Promise<unknown>) =>
 it("splits cloud and local, each declaring only what it provides", () => {
   expect([adapter.kind, adapter.capabilities, adapter.library]).toEqual([
     "cloud",
-    ["printers", "prints", "spools"],
+    ["printers", "prints", "spools", ...USER_PRESET_TYPES],
     undefined,
   ]);
   const studio = bambuStudioAdapter();
@@ -379,6 +379,110 @@ it("lists the cloud filament manager's spools, page by page", async () => {
     remainingGrams: 0,
     status: "empty",
   });
+});
+
+// Recorded from a real account (ADR-0019), trimmed: ids, names and times changed.
+const presetList = {
+  message: "success",
+  code: null,
+  error: null,
+  print: null,
+  printer: null,
+  filament: {
+    public: [],
+    private: [
+      {
+        setting_id: "PFUS9ac902733670a9",
+        version: "02.09.00.74",
+        update_time: "2026-11-04 21:13:05",
+        name: "Bambu PLA Basic @BBL X1C - Test",
+        nickname: null,
+        base_id: "GFSA00",
+        filament_vendor: "Bambu Lab",
+        filament_id: "GFA00",
+        filament_type: "PLA",
+        filament_is_support: "0",
+        nozzle_temperature: [190, 240],
+        nozzle_hrc: "3",
+        inherits: "Bambu PLA Basic @BBL X1C",
+      },
+    ],
+  },
+  settings: null,
+};
+const presetGet = {
+  message: "success",
+  code: null,
+  error: null,
+  public: false,
+  version: "02.09.00.74",
+  type: "filament",
+  name: "Bambu PLA Basic @BBL X1C - Test",
+  update_time: "2026-11-04 21:13:05",
+  nickname: null,
+  base_id: "GFSA00",
+  filament_id: "GFA00",
+  setting: {
+    inherits: "Bambu PLA Basic @BBL X1C",
+    filament_cost: ["30"],
+    updated_time: "1762290785",
+  },
+};
+
+it("lists your cloud presets per kind, with Studio's profile version", async () => {
+  queue(
+    json(200, {
+      ...presetList,
+      // Not seen on a real account: these kinds may carry fields of their own.
+      print: { private: [{ setting_id: "PPUS1", name: "0.16mm Mine", update_time: 1, x: [] }] },
+      printer: { public: null, private: [] },
+    }),
+  );
+  const writeVersion = join(studioDir, "system", "BBL.json");
+  writeFileSync(writeVersion, JSON.stringify({ version: "02.09.00.80" }));
+  const list = await instance("tok").userPresets?.list();
+  expect(sent(0).url).toBe(
+    "https://api.bambulab.com/v1/iot-service/api/slicer/setting?version=02.09.00.80",
+  );
+  expect(sent(0).init.headers).toMatchObject({ authorization: "Bearer tok" });
+  expect(list).toEqual([
+    { id: "PPUS1", kind: "process", name: "0.16mm Mine", updatedAt: "1" },
+    {
+      id: "PFUS9ac902733670a9",
+      kind: "filament",
+      name: "Bambu PLA Basic @BBL X1C - Test",
+      updatedAt: "2026-11-04 21:13:05",
+    },
+  ]);
+});
+
+it("reads one cloud preset as Studio stores it, without the cloud's time", async () => {
+  queue(json(200, presetGet));
+  expect(await instance("tok").userPresets?.get("PFUS9ac902733670a9")).toEqual({
+    inherits: "Bambu PLA Basic @BBL X1C",
+    filament_cost: ["30"],
+    name: "Bambu PLA Basic @BBL X1C - Test",
+    from: "User",
+  });
+  expect(sent(0).url).toBe(
+    "https://api.bambulab.com/v1/iot-service/api/slicer/setting/PFUS9ac902733670a9",
+  );
+});
+
+it("never reads a changed or failed preset list as a short one", async () => {
+  const { filament: _, ...noFilament } = presetList;
+  queue(
+    json(200, noFilament),
+    json(200, { ...presetList, filament: { private: [{ name: "No id" }] } }),
+    json(200, { ...presetGet, setting: "x" }),
+    json(500, {}),
+  );
+  const presets = instance("tok").userPresets;
+  expect(await code(presets?.list() ?? Promise.resolve())).toBe("api_changed");
+  expect(await code(presets?.list() ?? Promise.resolve())).toBe("api_changed");
+  expect(await code(presets?.get("PFUS1") ?? Promise.resolve())).toBe("api_changed");
+  expect(await code(presets?.list() ?? Promise.resolve())).toBe("unreachable");
+  expect(await code(instance().userPresets?.list() ?? Promise.resolve())).toBe("auth_required");
 });
 
 it("names a spool's colour from Bambu Studio's colour codes", async () => {

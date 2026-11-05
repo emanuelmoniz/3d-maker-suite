@@ -140,6 +140,8 @@
     "failed": "Failed: {{reason}}",
     "truncated_one": "…and {{count}} more line",
     "truncated_other": "…and {{count}} more lines",
+    "held_one": "{{count}} preset left the account at once, so it stays for slicing until you delete it here",
+    "held_other": "{{count}} presets left the account at once, so they stay for slicing until you delete them here",
     "noName": "(no name)"
   },
   "review": "Review",

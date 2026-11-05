@@ -185,6 +185,10 @@ export function slicerPresetLibrary(id: string, defaultDirs: () => string[]): Fi
   return {
     id,
     defaultDirs,
+    async flattener(dir, kind) {
+      const { flatten } = await systemPresets(dir, kind);
+      return (preset) => flatten(preset);
+    },
     async read(dir, { includeSystem }) {
       const { systemFiles, load, resolver } = await systemPresets(dir, "filament");
 

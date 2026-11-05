@@ -9,6 +9,7 @@ import {
   integrationPatchSchema,
   integrationSchema,
   isAction,
+  isUserPresetType,
   type LoginInput,
   type LoginResult,
   listQuery,
@@ -192,6 +193,12 @@ export const integrationsRoutes =
                 trackUsage: false,
               })
               .run();
+          // An account's user presets are read when you ask, like migration 0102's (ADR-0019).
+          if (adapter.kind === "cloud")
+            for (const type of adapter.capabilities.filter(isUserPresetType))
+              db.insert(syncPolicies)
+                .values({ integrationId: row.id, type, ...defaultPolicy(type), mode: "manual" })
+                .run();
           return row.id;
         });
         return reply.status(201).send(toApi(get(id)));

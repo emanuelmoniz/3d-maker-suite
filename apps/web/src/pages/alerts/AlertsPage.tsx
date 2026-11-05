@@ -54,6 +54,7 @@ const LOG: Record<Exclude<SyncLogEntry["event"], "left">, string> = {
   invalid: "alerts:log.invalid",
   failed: "alerts:log.failed",
   truncated: "alerts:log.truncated",
+  held: "alerts:log.held",
 };
 const LEFT: Record<NonNullable<SyncLogEntry["reason"]>, string> = {
   pick: "alerts:log.left.pick",

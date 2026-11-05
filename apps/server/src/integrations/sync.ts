@@ -61,9 +61,11 @@ import {
   slicerFileType,
   switchedOn,
 } from "./capabilities.ts";
+import { deleteCloudCopy, fetchCloudPresets, placeCloudPresets } from "./cloudPresets.ts";
 import { libraryOf } from "./imports.ts";
 import { linkLibraries } from "./managedSlicer.ts";
 import { mergeUserPresets, userPresetFiles } from "./presetLibrary.ts";
+import { ownRows, releaseRoute } from "./presetRoutes.ts";
 import { secretStore } from "./secrets.ts";
 import {
   activeSpools,
@@ -273,6 +275,11 @@ export function createSyncer(
       // Only an account has an instance; a local source is read from its folder.
       const instance = adapter.create && instanceFor(row, signal);
       const ranged = !!(req.from || req.to);
+      // An account's user presets: copied for slicing, and gone ones counted like a slicer's.
+      const cloud =
+        isUserPresetType(type) && instance?.userPresets
+          ? { type, library: instance.userPresets.library }
+          : undefined;
 
       if (REVIEWED.has(type)) {
         const offer = async () => {
@@ -281,6 +288,7 @@ export function createSyncer(
           return policyOf(db, id, type).trackUsage ? rows : untracked(rows);
         };
         const stored = pick?.stored ?? (await offer());
+        if (cloud) await placeCloudPresets(db, dataDir, adapters, row, cloud, note);
         // A run with nobody watching writes changes the way the type's `merge` says; under
         // `review` it writes none (they wait), so the policy only matters for new rows.
         const done = review.write(
@@ -304,7 +312,7 @@ export function createSyncer(
         // alert would never close.
         if (pick && slicerFileType(adapter, type)) pending = 0;
         // Never deleted by a run: each waits for a person, whatever the card's mode.
-        if (!pick && slicerFileType(adapter, type)) {
+        if (!pick && (slicerFileType(adapter, type) || cloud)) {
           gone = goneRows(db, review, stored);
           pending += gone.length;
           for (const g of gone) note(goneEntry(g));
@@ -762,9 +770,19 @@ export function createSyncer(
         dependents: gone.dependents,
       });
     const t = schema[stored.entity] as typeof schema.machineProfiles;
+    const source = db.select({ s: t.sourcePreset }).from(t).where(eq(t.id, rowId)).get()?.s;
     if (gone.edited)
       db.update(t).set({ archivedAt: new Date().toISOString() }).where(eq(t.id, rowId)).run();
     else deleteItem(db, stored.entity, rowId, { user, dataDir });
+    if (source) {
+      releaseRoute(db, stored.entity, source);
+      // An account's preset: its copy for slicing goes with the row, held or not.
+      const row = rowOf(id);
+      const [, library, name] = /^([^:]*):user\/(.+)$/.exec(source) ?? [];
+      const cloud = adapters.find((a) => a.id === row.adapterId)?.kind === "cloud";
+      if (cloud && isUserPresetType(type) && library && name)
+        deleteCloudCopy(db, dataDir, adapters, row, type, library, name);
+    }
     // ponytail: one less waiting, whatever it was counted for; the next change in the slicer's
     // files counts afresh.
     const p = policyOf(db, id, type);
@@ -951,12 +969,19 @@ export function createSyncer(
       const kept = range.from || range.to ? { from: range.from, to: range.to } : undefined;
       return { entity: type, ignoredHeaders: [], from, rows, range: kept };
     }
-    const { lib, dir } = libraryOf(db, adapters, row.id, type, dataDir);
     if (isUserPresetType(type)) {
       const entity = USER_PRESET_ENTITY[type];
-      const rows = await libraryRows(lib, dir, entity, { dataDir, scope: "user" });
+      // An account's presets are read into a folder of their own; a slicer's are its folder's.
+      const cloud = instance?.userPresets;
+      const { lib, dir } = cloud
+        ? await fetchCloudPresets(db, dataDir, adapters, row, type, cloud)
+        : libraryOf(db, adapters, row.id, type, dataDir);
+      const read = await libraryRows(lib, dir, entity, { dataDir, scope: "user" });
+      // One route per preset (ADR-0019): an account takes the ones it lists.
+      const rows = ownRows(db, row.id, entity, read, { take: !!cloud });
       return { entity, type, ignoredHeaders: [], from, dir, rows };
     }
+    const { lib, dir } = libraryOf(db, adapters, row.id, type, dataDir);
     // Catalog rows read both: a user preset's brand is one to pick too.
     const scope = (SLICER_PRESET_TYPES as readonly string[]).includes(type) ? "system" : undefined;
     const rows = await libraryRows(lib, dir, type, { dataDir, scope });
@@ -965,11 +990,14 @@ export function createSyncer(
 
   /** For the review: a vendor failure comes back as a 502 with its code. */
   async function offer(id: string, type: ReviewedType, range: Range = {}): Promise<Stored> {
-    const { row } = capableRow(db, adapters, id, type);
+    const { row, adapter } = capableRow(db, adapters, id, type);
     try {
       const signal = AbortSignal.timeout(TIMEOUT_MS);
       const instance =
-        type === "printers" || type === "spools" || type === "prints"
+        type === "printers" ||
+        type === "spools" ||
+        type === "prints" ||
+        (isUserPresetType(type) && adapter.kind === "cloud")
           ? instanceFor(row, signal)
           : undefined;
       return await offered(row, type, instance, range, signal, true);

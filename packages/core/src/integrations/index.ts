@@ -8,6 +8,7 @@ import type {
 import type { LibraryPreset, LibrarySpool } from "../schemas/filament.ts";
 import type { DesktopSlicer } from "../schemas/hub.ts";
 import type { ExternalPrint, ExternalPrinter, TestResult } from "../schemas/integrations.ts";
+import type { SlicerPresetKind } from "../schemas/presets.ts";
 import type { SlicerCatalog } from "../schemas/slicerCatalog.ts";
 
 // The contract a vendor package implements (ADR-0003, docs/architecture.md).
@@ -80,6 +81,27 @@ export interface IntegrationInstance {
   printers?: PrinterInventorySource;
   printHistory?: PrintHistorySource;
   spools?: SpoolInventorySource;
+  userPresets?: UserPresetSource;
+}
+
+/**
+ * Your slicer presets as the vendor's account keeps them (ADR-0019). Read-only. A list that can't
+ * be read whole must throw, never come back short: what is missing from it counts as removed.
+ */
+export interface UserPresetSource {
+  /** The library these presets are named after (`<library>:user/<name>`), e.g. "bambu-studio". */
+  library: string;
+  list(): Promise<UserPresetEntry[]>;
+  /** One preset's json as its slicer stores it, with `name`. Often only what differs from its parent. */
+  get(id: string): Promise<Record<string, unknown>>;
+}
+
+export interface UserPresetEntry {
+  id: string;
+  kind: SlicerPresetKind;
+  name: string;
+  /** Changes when the preset may have; compared, never read as a date. */
+  updatedAt: string;
 }
 
 export interface PrinterInventorySource {
@@ -117,6 +139,11 @@ export interface FilamentLibrary {
   readCatalog?(dir: string): Promise<SlicerCatalog>;
   /** Changes when the system presets do (ADR-0019); null = nothing to tell right now. */
   catalogFingerprint?(dir: string): Promise<string | null>;
+  /** Flattens presets of `kind` over the system presets in `dir`: every setting, its parents' too. */
+  flattener?(
+    dir: string,
+    kind: SlicerPresetKind,
+  ): Promise<(preset: Record<string, unknown>) => Promise<Record<string, unknown>>>;
 }
 
 /** One plate to slice. Preset ids are as the library names them (`system/<name>`, `user/<name>`). */

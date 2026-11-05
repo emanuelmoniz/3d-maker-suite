@@ -390,6 +390,8 @@ function lineOf(e: SyncLogEntry): string {
       return `Failed: ${e.code ?? "unknown"}`;
     case "truncated":
       return `…and ${e.count} more`;
+    case "held":
+      return `${e.count} presets left the account at once; they stay for slicing until deleted`;
   }
 }
 

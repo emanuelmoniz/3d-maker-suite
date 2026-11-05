@@ -11,6 +11,7 @@ import { type Db, schema } from "@3d-maker-suite/db";
 import { parsePreset, presetName } from "@3d-maker-suite/host";
 import { and, eq, inArray, isNull, like } from "drizzle-orm";
 import { userPresetFiles } from "../integrations/presetLibrary.ts";
+import { othersRoutes } from "../integrations/presetRoutes.ts";
 import type { Rights } from "../lib/auth.ts";
 import { type PresetKind, presetInUse } from "../lib/dependents.ts";
 import { keyLibrary, type Review, type Stored } from "./review.ts";
@@ -98,7 +99,11 @@ export function goneRows(db: Db, review: Review, stored: Stored, user?: Rights):
   const prefix = `${library}${scope}/`;
   // Loosely typed on purpose: the three tables share these columns.
   const t = schema[entity] as typeof schema.machineProfiles;
-  const there = new Set(stored.rows.map((r) => r.source));
+  // Another route's presets were left out of `stored`, not removed (ADR-0019).
+  const there = new Set([
+    ...stored.rows.map((r) => r.source),
+    ...othersRoutes(db, from.integrationId, entity),
+  ]);
   const rows = db
     .select({ id: t.id, source: t.sourcePreset, seen: importSnapshots.values })
     .from(t)

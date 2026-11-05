@@ -79,6 +79,8 @@ export const SYNC_LOG_EVENTS = [
   "left",
   "failed",
   "truncated",
+  // An account's presets removed at once: their copies for slicing stay (ADR-0019).
+  "held",
 ] as const;
 // Why a row was left for review: a pick nothing fits, a pick made from several, just a look, or
 // its preset is gone from the slicer (ADR-0019).

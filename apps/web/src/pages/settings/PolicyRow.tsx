@@ -113,7 +113,7 @@ const NEW_OPENED_AT_HINTS: Record<NewSpoolField, string> = {
   unset: "integrations:policies.newSpools.openedAtHints.unset",
   review: "integrations:policies.newSpools.openedAtHints.review",
 };
-// The first group has no heading: it is all a cloud card has.
+// The first group has no heading: a cloud card's devices and prints.
 const GROUPS = {
   devices: null,
   catalog: "integrations:policies.groups.catalog",
@@ -224,6 +224,9 @@ export function Policies({ integration: i, sync }: { integration: Integration; s
               <p role="status" className="text-warn">
                 {t("integrations:policies.doubleTracking")}
               </p>
+            )}
+            {g === "userPresets" && i.kind === "cloud" && (
+              <p className="text-muted">{t("integrations:policies.cloudPresetsRoute")}</p>
             )}
           </section>
         );
