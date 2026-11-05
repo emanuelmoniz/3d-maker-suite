@@ -22,7 +22,7 @@ import { runAutoBackup } from "./backup/backup.ts";
 import type { Config } from "./config.ts";
 import { HttpError } from "./errors.ts";
 import { createSlicerInstaller, linkLibraries } from "./integrations/managedSlicer.ts";
-import { rebuildLibraries } from "./integrations/presetLibrary.ts";
+import { rebuildLibraries, recheckRemovals } from "./integrations/presetLibrary.ts";
 import { createSyncer } from "./integrations/sync.ts";
 import { createWorkerSlicers } from "./integrations/workerSlicer.ts";
 import { authGuard } from "./lib/auth.ts";
@@ -415,7 +415,11 @@ export async function buildApp(
       .catch((err) => alertsLog.error({ err }, "alert check failed")));
   await app.register(alertsRoutes(db, key, evaluate), { prefix: "/api/alerts" });
   if (opts.alertsSchedule) {
-    const daily = new Cron(opts.alertsSchedule, { protect: true }, evaluate);
+    // Presets an owner removed while in use go once they're free (ADR-0019), before the alerts.
+    const daily = new Cron(opts.alertsSchedule, { protect: true }, () => {
+      if (recheckRemovals(db, dataDir)) presetSaved();
+      return evaluate();
+    });
     app.addHook("onClose", async () => daily.stop());
     app.addHook("onReady", async () => void evaluate());
     // On-event checks: any change that went through can open or clear an alert. A bulk request

@@ -15,21 +15,32 @@ import {
   orcaSlicerServerAdapter,
   orcaSlicerWorkerAdapter,
 } from "@3d-maker-suite/adapter-orca";
-import type { ImportPreview, SlicerPreset, SlicerPresetDetail } from "@3d-maker-suite/core";
+import {
+  BUILT_IN_ROLE_IDS,
+  type ImportPreview,
+  type SlicerPreset,
+  type SlicerPresetDetail,
+} from "@3d-maker-suite/core";
 import { openDb, schema } from "@3d-maker-suite/db";
 import { loadKey, presetSha } from "@3d-maker-suite/host";
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import yazl from "yazl";
 import { buildApp } from "./app.ts";
-import { linkLibraries } from "./integrations/managedSlicer.ts";
+import { keepPresets, linkLibraries } from "./integrations/managedSlicer.ts";
 import {
+  mergeUserPresets,
   presetsChanged,
+  presetsRemoved,
+  presetUses,
   rebuildLibraries,
+  recheckRemovals,
   savePreset,
+  uploadPreset,
   usedPresets,
 } from "./integrations/presetLibrary.ts";
 import { createSyncer } from "./integrations/sync.ts";
+import { hashPassword } from "./lib/password.ts";
 import { reviewer } from "./testReview.ts";
 
 const zipOf = (files: Record<string, string>) =>
@@ -286,6 +297,23 @@ describe("user presets reach the catalog on their own (ADR-0019)", () => {
     await s.checkUserPresets();
     expect(pendingOf(id)).toBe(0);
     expect(profiles()).toHaveLength(1);
+  });
+
+  it("a hub PC's own slicer shares into the library, which is then its one route", async () => {
+    const { id } = await desktopOrca();
+    const server = await addSlicer("orca-slicer-server");
+    saveFile("Mine", preset("Mine"));
+    const s = syncer();
+    // The library's own check may see the merge only at the next tick.
+    await s.checkUserPresets();
+    await s.checkUserPresets();
+
+    expect((await list()).map((p) => [p.name, p.owner])).toEqual([["Mine", null]]);
+    expect(profiles()).toMatchObject([{ name: "Mine", sourcePreset: "orca-slicer:user/Mine" }]);
+    // Counted and imported by the library's row only.
+    expect(pendingOf(id)).toBe(0);
+    const from = db.select().from(schema.importSnapshots).all();
+    expect([...new Set(from.map((r) => r.integrationId))]).toEqual([server]);
   });
 
   it("a single PC's file arrives, and a restart has nothing to read again", async () => {
@@ -588,5 +616,227 @@ describe("hub preset library (ADR-0017)", () => {
     const [id] = Object.keys(fresh);
     await app.inject({ method: "DELETE", url: `/api/presets/${id}` });
     expect(presetsChanged(db)({ slicedPresets: fresh })).toBe(true);
+  });
+});
+
+describe("deletes reach other machines (ADR-0019)", () => {
+  const LIB = "bambu-studio";
+  // Users turn sign-in on: an admin's session for the requests.
+  let cookie = "";
+  beforeEach(async () => {
+    db.insert(schema.users)
+      .values({
+        email: "admin@x.io",
+        displayName: "Admin",
+        roleId: BUILT_IN_ROLE_IDS.admin,
+        passwordHash: await hashPassword("password123"),
+      })
+      .run();
+    const login = await app.inject({
+      method: "POST",
+      url: "/api/auth/login",
+      payload: { email: "admin@x.io", password: "password123" },
+    });
+    cookie = String(login.headers["set-cookie"]).split(";")[0] ?? "";
+  });
+  const send = (method: "GET" | "POST" | "DELETE", url: string, payload?: object) =>
+    app.inject({ method, url, payload, headers: { cookie } });
+  const listed = async () => (await send("GET", "/api/presets")).json() as SlicerPreset[];
+  const user = (name: string) =>
+    db
+      .insert(schema.users)
+      .values({
+        email: `${name}@x.io`,
+        displayName: name,
+        roleId: BUILT_IN_ROLE_IDS.admin,
+        passwordHash: "x",
+      })
+      .returning()
+      .get();
+  const device = (name: string, userId: string, accounts: Record<string, string> = {}) =>
+    db
+      .insert(schema.devices)
+      .values({ name, userId, tokenHash: crypto.randomUUID(), presetAccounts: accounts })
+      .returning()
+      .get();
+  /** Shared from a device: its user owns it. */
+  const shared = (name: string, d: { id: string; name: string; userId: string }, json?: string) =>
+    uploadPreset(
+      db,
+      dataDir,
+      { library: LIB, kind: "process", name, base: 0, text: json ?? JSON.stringify({ name }) },
+      d.id,
+      { device: d.name, userId: d.userId },
+    );
+  const row = (name: string) =>
+    db
+      .select()
+      .from(schema.slicerPresets)
+      .all()
+      .find((r) => r.name === name);
+  const removed = (d: { id: string; userId: string }, names: string[], account = "default") =>
+    presetsRemoved(
+      db,
+      dataDir,
+      { library: LIB, account, removed: names.map((name) => ({ kind: "process" as const, name })) },
+      d,
+      { device: "x" },
+    ).map((r) => r.result);
+
+  it("the first save owns a preset, a zip's uploader too; a hub PC's merge nobody", () => {
+    const ana = user("Ana");
+    const pc = device("Studio PC", ana.id);
+    shared("Fast", pc);
+    expect(row("Fast")?.ownerUserId).toBe(ana.id);
+    // A later save by someone else doesn't take it over.
+    const bo = user("Bo");
+    shared("Fast", device("Farm PC", bo.id), JSON.stringify({ name: "Fast", x: 1 }));
+    expect(row("Fast")?.ownerUserId).toBe(ana.id);
+
+    const root = mkdtempSync(join(tmpdir(), "zip-"));
+    mkdirSync(join(root, "user", "default", "process"), { recursive: true });
+    writeFileSync(join(root, "user", "default", "process", "Zipped.json"), '{"name":"Zipped"}');
+    keepPresets(db, dataDir, ADAPTERS, LIB, root, { userId: bo.id });
+    expect(row("Zipped")?.ownerUserId).toBe(bo.id);
+
+    const local = mkdtempSync(join(tmpdir(), "local-"));
+    mkdirSync(join(local, "123", "process"), { recursive: true });
+    writeFileSync(join(local, "123", "process", "Mine.json"), '{"name":"Mine"}');
+    mergeUserPresets(db, dataDir, LIB, local);
+    expect(row("Mine")?.ownerUserId).toBeNull();
+  });
+
+  it("the owner's removal deletes a free preset; another user's, or none's, changes nothing", () => {
+    const ana = user("Ana");
+    const bo = user("Bo");
+    const a = device("Studio PC", ana.id);
+    const b = device("Farm PC", bo.id);
+    shared("Fast", a);
+    savePreset(db, dataDir, { library: LIB, kind: "process", name: "Old", json: '{"name":"Old"}' });
+
+    expect(removed(b, ["Fast", "Old", "Nope"])).toEqual(["kept", "kept", "unknown"]);
+    expect(removed(a, ["Old"])).toEqual(["kept"]);
+    expect(row("Fast")).toMatchObject({ deleted: false, removedOn: [] });
+    expect(row("Old")).toMatchObject({ deleted: false, removedOn: [] });
+
+    expect(removed(a, ["Fast"])).toEqual(["deleted"]);
+    expect(row("Fast")).toMatchObject({ deleted: true, removedOn: [], savedDevice: "x" });
+  });
+
+  it("one in use waits for the daily check; a parent waits for its child", async () => {
+    const ana = user("Ana");
+    const a = device("Studio PC", ana.id);
+    shared("Fast", a);
+    shared("Base", a);
+    shared("Child", a, JSON.stringify({ name: "Child", inherits: "Base" }));
+    const profile = db
+      .insert(schema.printProfiles)
+      .values({ name: "Fast", sourcePreset: `${LIB}:user/Fast` })
+      .returning()
+      .get();
+    const project = (await send("POST", "/api/projects", { name: "P" })).json();
+    db.insert(schema.projectSlicePlates)
+      .values({
+        projectId: project.id,
+        file: "a.3mf",
+        plate: 1,
+        fileSize: 1,
+        fileMtimeMs: 1,
+        fileSha256: "x",
+        printProfileId: profile.id,
+      })
+      .run();
+    expect(presetUses(db, { library: LIB, kind: "process", name: "Fast" })).toMatchObject([
+      { type: "plate", total: 1 },
+    ]);
+    expect(presetUses(db, { library: LIB, kind: "process", name: "Base" })).toMatchObject([
+      { type: "preset", items: [{ label: "Child" }] },
+    ]);
+
+    expect(removed(a, ["Fast", "Base"])).toEqual(["in_use", "in_use"]);
+    expect(row("Fast")).toMatchObject({ deleted: false, removedOn: [a.id] });
+    // The list says what keeps it.
+    expect((await listed()).find((p) => p.name === "Fast")).toMatchObject({
+      removedOn: ["Studio PC"],
+      usedBy: [{ type: "plate" }],
+    });
+    expect(recheckRemovals(db, dataDir)).toBe(0);
+
+    db.update(schema.projectSlicePlates).set({ printProfileId: null }).run();
+    expect(removed(a, ["Child"])).toEqual(["deleted"]);
+    expect(recheckRemovals(db, dataDir)).toBe(2);
+    expect([row("Fast")?.deleted, row("Base")?.deleted]).toEqual([true, true]);
+  });
+
+  it("holds a mass delete and a shared account's; the owner's own PCs don't hold", () => {
+    db.insert(schema.settings).values({ key: "hubDeleteGuard", value: 1 }).run();
+    const ana = user("Ana");
+    const bo = user("Bo");
+    const a = device("Studio PC", ana.id, { [LIB]: "123" });
+    const a2 = device("Laptop", ana.id, { [LIB]: "123" });
+    for (const n of ["P1", "P2", "P3", "P4"]) shared(n, a);
+
+    // The owner's laptop on the same account: no hold.
+    expect(removed(a2, ["P1"], "123")).toEqual(["deleted"]);
+    // More at once than the guard.
+    expect(removed(a, ["P2", "P3", "Nope"])).toEqual(["held", "held", "unknown"]);
+    expect(row("P2")).toMatchObject({ heldBy: a.id, heldReason: "mass", removedOn: [a.id] });
+
+    // Another user's device on that account.
+    device("Farm PC", bo.id, { [LIB]: "123" });
+    expect(removed(a, ["P4"], "123")).toEqual(["held"]);
+    expect(row("P4")).toMatchObject({ heldBy: a.id, heldReason: "shared" });
+    expect(recheckRemovals(db, dataDir)).toBe(0);
+  });
+
+  it("a held removal is deleted or kept by a person; the file coming back ends it", async () => {
+    db.insert(schema.settings).values({ key: "hubDeleteGuard", value: 1 }).run();
+    const ana = user("Ana");
+    const bo = user("Bo");
+    const a = device("Studio PC", ana.id, { [LIB]: "123" });
+    device("Farm PC", bo.id, { [LIB]: "123" });
+    shared("P1", a);
+    shared("P2", a);
+    shared("Shared", a);
+    expect(removed(a, ["Shared"], "123")).toEqual(["held"]);
+    expect((await listed()).find((p) => p.name === "Shared")?.held).toEqual({
+      deviceId: a.id,
+      device: "Studio PC",
+      reason: "shared",
+    });
+    // The file is back on that device: no removal any more.
+    shared("Shared", a);
+    expect(row("Shared")).toMatchObject({ heldBy: null, removedOn: [] });
+
+    expect(removed(a, ["P1", "P2"])).toEqual(["held", "held"]);
+    const held = (action: string) => send("POST", `/api/presets/devices/${a.id}/held`, { action });
+    expect((await held("keep")).statusCode).toBe(204);
+    expect(row("P1")).toMatchObject({ deleted: false, heldBy: null, removedOn: [] });
+
+    expect(removed(a, ["P1", "P2"])).toEqual(["held", "held"]);
+    expect((await held("delete")).statusCode).toBe(204);
+    expect([row("P1")?.deleted, row("P2")?.deleted]).toEqual([true, true]);
+  });
+
+  it("Restore brings back a deleted preset or an earlier version, as the next version", async () => {
+    const ana = user("Ana");
+    const a = device("Studio PC", ana.id);
+    shared("Fast", a, JSON.stringify({ name: "Fast", speed: 1 }));
+    const json = JSON.stringify({ name: "Fast", speed: 2 });
+    savePreset(db, dataDir, { library: LIB, kind: "process", name: "Fast", json });
+    const id = row("Fast")?.id;
+    expect((await send("DELETE", `/api/presets/${id}`)).statusCode).toBe(204);
+    const deleted = (await send("GET", "/api/presets/deleted")).json() as SlicerPreset[];
+    expect(deleted.map((p) => p.name)).toEqual(["Fast"]);
+
+    const restore = (payload: object) => send("POST", `/api/presets/${id}/restore`, payload);
+    const back = await restore({});
+    expect(back.json()).toMatchObject({ name: "Fast", version: 3, owner: "Ana" });
+    expect(JSON.parse(row("Fast")?.json ?? "")).toEqual({ name: "Fast", speed: 2 });
+    expect(existsSync(join(dataDir, "presets", LIB, "default", "process", "Fast.json"))).toBe(true);
+
+    expect((await restore({ version: 1 })).json()).toMatchObject({ version: 4 });
+    expect(JSON.parse(row("Fast")?.json ?? "")).toEqual({ name: "Fast", speed: 1 });
+    expect((await restore({ version: 99 })).statusCode).toBe(404);
   });
 });

@@ -63,7 +63,7 @@ import {
 } from "./capabilities.ts";
 import { libraryOf } from "./imports.ts";
 import { linkLibraries } from "./managedSlicer.ts";
-import { userPresetFiles } from "./presetLibrary.ts";
+import { mergeUserPresets, userPresetFiles } from "./presetLibrary.ts";
 import { secretStore } from "./secrets.ts";
 import {
   activeSpools,
@@ -613,7 +613,8 @@ export function createSyncer(
    * last seen is the type's `cursor`.
    */
   async function scanUserPresets() {
-    if (dataDir && readPreferences(db).hubEnabled) linkLibraries(db, dataDir, adapters);
+    const hub = !!dataDir && readPreferences(db).hubEnabled;
+    if (hub) linkLibraries(db, dataDir, adapters);
     const folders = new Set<string>();
     // Oldest first, and a row with its own folder first: of the rows sharing the hub's library, one
     // that can read the system presets resolves the parents.
@@ -623,6 +624,18 @@ export function createSyncer(
       .orderBy(asc(integrations.createdAt))
       .all()
       .sort((a, b) => Number(!a.slicerConfigDir) - Number(!b.slicerConfigDir));
+    // The libraries a hub's managed slicer reads into the catalog: a route of their own.
+    const readLibrary = new Set(
+      rows.flatMap((row) => {
+        const adapter = adapters.find((a) => a.id === row.adapterId);
+        return hub &&
+          adapter?.managed &&
+          adapter.library &&
+          activeCapabilities(db, row, adapter).some(isUserPresetType)
+          ? [adapter.library.id]
+          : [];
+      }),
+    );
     for (const row of rows) {
       const adapter = adapters.find((a) => a.id === row.adapterId);
       const lib = adapter?.library;
@@ -636,24 +649,39 @@ export function createSyncer(
       folders.add(folder);
       try {
         const files = userPresetFiles(user);
-        for (const type of types) {
-          const kind = PRESET_KINDS[USER_PRESET_ENTITY[type]];
-          const mine = files.filter((f) => f.kind === kind);
-          const now = mine
+        const filesOf = (type: (typeof types)[number]) =>
+          files.filter((f) => f.kind === PRESET_KINDS[USER_PRESET_ENTITY[type]]);
+        const cursorOf = (type: (typeof types)[number]) =>
+          filesOf(type)
             .map((f) => `${f.path}:${f.mtimeMs}:${f.size}`)
             .sort()
             .join(";");
+        const seeAt = (type: (typeof types)[number], now: string) =>
+          db
+            .update(syncPolicies)
+            .set({ cursor: now })
+            .where(and(eq(syncPolicies.integrationId, row.id), eq(syncPolicies.type, type)))
+            .run();
+        // A hub PC's own slicer shares into the library, with no owner (ADR-0019). Where a managed
+        // slicer reads the library, that is these presets' one route: one review, count and alert.
+        if (hub && !adapter?.managed) {
+          const due = types.filter((t) => cursorOf(t) !== (policyOf(db, row.id, t).cursor ?? ""));
+          // The library's own check sees the change at the latest on the next tick.
+          if (due.length) mergeUserPresets(db, dataDir, lib.id, user);
+          if (readLibrary.has(lib.id)) {
+            for (const t of due) seeAt(t, cursorOf(t));
+            continue;
+          }
+        }
+        for (const type of types) {
+          const mine = filesOf(type);
+          const now = cursorOf(type);
           const policy = policyOf(db, row.id, type);
           if (now === (policy.cursor ?? "")) continue;
           clearEdited(lib.id, mine);
           const stored = await offered(row, type);
           const left = review.preview(stored).rows.filter((r) => r.auto);
-          const see = () =>
-            db
-              .update(syncPolicies)
-              .set({ cursor: now })
-              .where(and(eq(syncPolicies.integrationId, row.id), eq(syncPolicies.type, type)))
-              .run();
+          const see = () => seeAt(type, now);
           // Nothing to do logs nothing: the sync log only shows real changes. A preset gone from
           // the slicer only waits.
           if (policy.mode === "auto" && left.length) {

@@ -77,8 +77,9 @@ it("reports json that doesn't parse once, after it settled", async () => {
   const sent: unknown[] = [];
   const share = (settleMs: number) =>
     createPresetShare({
-      request: async (_, init) => {
-        sent.push(init?.body);
+      request: async (path, init) => {
+        // Not the account report (`/presets/share`).
+        if (path === "/presets") sent.push(init?.body);
         return Response.json({ result: "invalid", name: "Broken", version: 0 });
       },
       store,
@@ -95,6 +96,7 @@ it("reports json that doesn't parse once, after it settled", async () => {
           presetIndent: "    ",
           uploadsDiskEdits: true,
           cloudClockLeadS: 0,
+          tombstones: false,
         },
       ],
       log: () => {},
@@ -155,7 +157,23 @@ describe("device presets (ADR-0017)", () => {
         .from(schema.alerts)
         .all()
         .filter((a) => a.kind === kind);
-    const device = async (name: string, config = temp("presets-cfg-")) => {
+    /** Another user, whose devices aren't the presets' owner. */
+    const another = (displayName: string) =>
+      db
+        .insert(schema.users)
+        .values({
+          email: `${displayName}@x.io`,
+          displayName,
+          roleId: BUILT_IN_ROLE_IDS.admin,
+          passwordHash: "x",
+        })
+        .returning()
+        .get().id;
+    const device = async (
+      name: string,
+      config = temp("presets-cfg-"),
+      { userId = user.id, library = "bambu-studio" } = {},
+    ) => {
       const at = temp("presets-device-");
       const store = openStore(at);
       /** The process list this device's check sees. */
@@ -169,12 +187,12 @@ describe("device presets (ADR-0017)", () => {
         presetHooks: {
           pollMs: 50,
           processes: async () =>
-            `"System","4"\n${slicer.running ? '"bambu-studio.exe","99"\n' : ""}`,
+            `"System","4"\n${slicer.running ? '"bambu-studio.exe","99"\n"orca-slicer.exe","98"\n' : ""}`,
         },
         slicers: {
           find: async (known) =>
             known
-              .filter((k) => k.library === "bambu-studio")
+              .filter((k) => k.library === library)
               .map(
                 (k): Found => ({
                   id: k.id,
@@ -190,7 +208,7 @@ describe("device presets (ADR-0017)", () => {
         log: () => {},
       });
       cleanup.push(() => link.close());
-      const code = (await send("POST", "/api/hub/pairing-codes", { userId: user.id })).json().code;
+      const code = (await send("POST", "/api/hub/pairing-codes", { userId })).json().code;
       await link.pair(url, code, name);
       const id = store.get().deviceId as string;
       await until(async () =>
@@ -234,7 +252,7 @@ describe("device presets (ADR-0017)", () => {
     /** A preset changed on the hub. */
     const save = (name: string, cost: string, kind: "filament" | "process" = "filament") =>
       savePreset(db, dataDir, { library: "bambu-studio", kind, name, json: preset(name, cost) });
-    return { db, dataDir, send, presets, alerts, device, save };
+    return { db, dataDir, send, presets, alerts, another, device, save };
   };
 
   it("a saved preset reaches the hub; two edits of one version give a conflict copy", async () => {
@@ -290,20 +308,107 @@ describe("device presets (ADR-0017)", () => {
     expect((await h.presets()).filter((p) => p.conflict)).toHaveLength(1);
   }, 120_000);
 
-  it("a desktop delete only shows on the preset, until the file is back", async () => {
+  it("another user's delete is written back; the owner's goes everywhere, after a backup", async () => {
+    const h = await hub();
+    const a = await h.device("Studio PC");
+    const b = await h.device("Farm PC", undefined, { userId: h.another("Bo") });
+    write(a.file("default/process/Fast.json"), preset("Fast", "1"));
+    await a.share();
+    await until(async () => (await h.presets()).length === 1);
+    expect((await h.presets())[0]).toMatchObject({ owner: "Ana" });
+    for (const step of [b.share, b.install]) await step();
+    await until(() => existsSync(b.file("default/process/Fast.json")));
+
+    // Bo isn't the owner: nothing changes on the hub, and Install puts it back.
+    rmSync(b.file("default/process/Fast.json"));
+    await until(() => existsSync(b.file("default/process/Fast.json")));
+    expect((await h.presets())[0]).toMatchObject({ removedOn: [], version: 1 });
+
+    // Ana's: deleted on the hub, then on Bo's PC (signed out: the file goes).
+    rmSync(a.file("default/process/Fast.json"));
+    await until(async () => (await h.presets()).length === 0);
+    await until(() => !existsSync(b.file("default/process/Fast.json")));
+    const out = temp("presets-backup-");
+    await extract(join(b.at, "preset-backups", "bambu-studio.zip"), out);
+    expect(existsSync(join(out, "default/process/Fast.json"))).toBe(true);
+    // Its removal doesn't come back to the hub as one of Bo's.
+    await new Promise((r) => setTimeout(r, 500));
+    const [gone] = (await h.send("GET", "/api/presets/deleted")).json() as SlicerPreset[];
+    expect(gone).toMatchObject({ name: "Fast", savedDevice: "Studio PC" });
+
+    // Restore brings it back to Bo's PC.
+    expect((await h.send("POST", `/api/presets/${gone?.id}/restore`, {})).statusCode).toBe(200);
+    await until(() => existsSync(b.file("default/process/Fast.json")));
+  }, 120_000);
+
+  it("a connector before 5.4.0's removal only shows, and its device says so", async () => {
     const h = await hub();
     const a = await h.device("Studio PC");
     write(a.file("default/process/Fast.json"), preset("Fast", "1"));
     await a.share();
     await until(async () => (await h.presets()).length === 1);
-
-    rmSync(a.file("default/process/Fast.json"));
-    await until(async () => (await h.presets())[0]?.removedOn.length === 1);
+    const old = await fetch(`${a.store.get().hubUrl}/api/hub/device/presets/removed`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${a.store.token()}`, "content-type": "application/json" },
+      body: JSON.stringify({ library: "bambu-studio", kind: "process", name: "Fast" }),
+    });
+    expect(old.status).toBe(204);
     expect((await h.presets())[0]).toMatchObject({ removedOn: ["Studio PC"], version: 1 });
+    // This test's connector says 0.0.0.
+    const devices = (await h.send("GET", "/api/presets/devices")).json() as PresetDevice[];
+    expect(devices[0]?.outdated).toBe(true);
+  }, 120_000);
 
-    write(a.file("default/process/Fast.json"), preset("Fast", "1"));
-    await until(async () => (await h.presets())[0]?.removedOn.length === 0);
-    expect((await h.presets())[0]?.version).toBe(1);
+  it("a move within its folder isn't a delete; a mass delete waits, and Keep writes it back", async () => {
+    const h = await hub();
+    await h.send("PATCH", "/api/preferences", { hubDeleteGuard: 1 });
+    const a = await h.device("Studio PC");
+    write(a.file("default/filament/Moved.json"), preset("Moved", "1"));
+    write(a.file("default/filament/Two.json"), preset("Two", "1"));
+    await a.share();
+    await until(async () => (await h.presets()).length === 2);
+
+    rmSync(a.file("default/filament/Moved.json"));
+    write(a.file("default/filament/base/Moved.json"), preset("Moved", "1"));
+    await new Promise((r) => setTimeout(r, 1500));
+    expect((await h.presets()).map((p) => [p.name, p.removedOn])).toEqual([
+      ["Moved", []],
+      ["Two", []],
+    ]);
+
+    await a.install();
+    rmSync(a.file("default/filament/base/Moved.json"));
+    rmSync(a.file("default/filament/Two.json"));
+    await until(async () => (await h.presets()).every((p) => p.held?.reason === "mass"));
+    await until(() => h.alerts("preset_held").length === 1);
+    expect(h.alerts("preset_held")[0]?.context).toMatchObject({ name: "Studio PC", count: 2 });
+    // Held: not written back meanwhile.
+    await new Promise((r) => setTimeout(r, 500));
+    expect(existsSync(a.file("default/filament/Two.json"))).toBe(false);
+
+    const res = await h.send("POST", `/api/presets/devices/${a.id}/held`, { action: "keep" });
+    expect(res.statusCode).toBe(204);
+    await until(() => existsSync(a.file("default/filament/Two.json")));
+    // Its old path is gone, so it comes back where a new one goes.
+    await until(() => existsSync(a.file("default/filament/Moved.json")));
+    expect((await h.presets()).every((p) => !p.held && !p.removedOn.length)).toBe(true);
+  }, 120_000);
+
+  it("a shared slicer account holds the owner's delete", async () => {
+    const h = await hub();
+    const a = await h.device("Studio PC");
+    const b = await h.device("Farm PC", undefined, { userId: h.another("Bo") });
+    for (const d of [a, b]) write(join(d.config, "BambuStudio.conf"), CONF("123"));
+    write(b.file("123/filament/Theirs.json"), preset("Theirs", "1"));
+    write(a.file("123/filament/Mine.json"), preset("Mine", "1"));
+    await b.share();
+    await a.share();
+    await until(async () => (await h.presets()).length === 2);
+
+    rmSync(a.file("123/filament/Mine.json"));
+    await until(
+      async () => (await h.presets()).find((p) => p.name === "Mine")?.held?.reason === "shared",
+    );
   }, 120_000);
 
   it("follows a sign-in to the account's folder, leaving the old one alone", async () => {
@@ -527,7 +632,7 @@ describe("device presets (ADR-0017)", () => {
       expect(text(b.file("456/filament/Lost.info"))).toContain("base_id = \n");
     }, 120_000);
 
-    it("leaves deletes alone, follows a sign-in, stays in its folder, skips conflict copies", async () => {
+    it("a signed-in Studio lists a hub delete for a person; writes back a desktop delete", async () => {
       const h = await hub();
       const a = await signedIn(h);
       const row = h.save("Farm PLA", "20");
@@ -543,24 +648,59 @@ describe("device presets (ADR-0017)", () => {
         "Farm PLA.json",
       ]);
 
-      // A hub delete doesn't reach the desktop.
+      // Studio's cloud brings back a file deleted from disk: a person deletes it in the slicer.
       expect((await h.send("DELETE", `/api/presets/${row?.id}`)).statusCode).toBe(204);
-      await pause();
+      await until(async () => (await a.status())?.deleteHere.length === 1);
+      expect((await a.status())?.deleteHere).toEqual([
+        { library: "bambu-studio", kind: "filament", name: "Farm PLA" },
+      ]);
       expect(existsSync(a.file("123/filament/Farm PLA.json"))).toBe(true);
+      rmSync(a.file("123/filament/Farm PLA.json"));
+      await until(async () => (await a.status())?.deleteHere.length === 0);
 
-      // A desktop delete stays until the hub has something new.
+      // A desktop delete the hub doesn't act on (Share is off here) is written back.
       h.save("Silk", "1");
       await until(() => existsSync(a.file("123/filament/Silk.json")));
       rmSync(a.file("123/filament/Silk.json"));
-      await pause();
-      expect(existsSync(a.file("123/filament/Silk.json"))).toBe(false);
-      h.save("Silk", "2");
       await until(() => existsSync(a.file("123/filament/Silk.json")));
 
       // Another account's folder gets its own copies.
       write(join(a.config, "BambuStudio.conf"), CONF("789"));
       await until(() => existsSync(a.file("789/filament/Silk.json")));
       expect(text(a.file("789/filament/Silk.info"))).toContain("user_id = 789");
+    }, 120_000);
+
+    it("a hub delete is a tombstone in an Orca account; an unsent edit is kept, and wins", async () => {
+      const h = await hub();
+      const o = await h.device("Orca PC", undefined, { library: "orca-slicer" });
+      write(join(o.config, "OrcaSlicer.conf"), CONF("abc"));
+      const orca = (name: string, cost: string) =>
+        savePreset(h.db, h.dataDir, {
+          library: "orca-slicer",
+          kind: "filament",
+          name,
+          json: preset(name, cost),
+        });
+      orca("Gone", "1");
+      orca("Edited", "1");
+      await o.install();
+      const GONE = "abc/filament/Gone.json";
+      const EDITED = "abc/filament/Edited.json";
+      await until(() => existsSync(o.file(GONE)) && existsSync(o.file(EDITED)));
+      // Share is off here, so this edit hasn't reached the hub.
+      write(o.file(EDITED), preset("Edited", "2"));
+      for (const p of await h.presets())
+        expect((await h.send("DELETE", `/api/presets/${p.id}`)).statusCode).toBe(204);
+
+      // Orca deletes the cloud copy at its next start.
+      await until(() => !existsSync(o.file(GONE)));
+      expect(text(o.file("abc/filament/Gone.info"))).toMatch(
+        /^sync_info = delete\nuser_id = abc\n/,
+      );
+      await until(async () => (await o.status())?.queued === 0);
+      expect(text(o.file(EDITED))).toContain('"2"');
+      await o.share();
+      await until(async () => (await h.presets()).map((p) => p.name).includes("Edited"));
     }, 120_000);
 
     it("doesn't echo: no new versions, no false conflicts, no older copy from a cloud", async () => {

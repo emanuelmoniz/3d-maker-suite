@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process";
 import { createWriteStream } from "node:fs";
-import { mkdir, readdir, readFile, rename, stat, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import { dirname, join, parse, relative, sep } from "node:path";
 import { pipeline } from "node:stream/promises";
 import { promisify } from "node:util";
@@ -152,8 +152,9 @@ async function writeAtomic(file: string, text: string) {
 /**
  * Install hub presets (ADR-0017): the hub's presets go to the user preset folder of the account each
  * found slicer last used, while that slicer is closed. Nothing is queued on disk: what's waiting is
- * the difference between the hub's list and `installed`, so a restart or a sign-in loses nothing,
- * and a preset deleted on this desktop stays away until the hub has a new version of it.
+ * the difference between the hub's lists and `installed`, so a restart or a sign-in loses nothing.
+ * A preset deleted on this desktop is written back unless the hub acts on that removal, and one
+ * deleted on the hub is deleted here, if this copy is the hub's (ADR-0019).
  */
 export function createPresetInstall({
   request,
@@ -174,7 +175,7 @@ export function createPresetInstall({
   slicers: () => DesktopSlicer[];
   dataDir: string;
   log: (line: string) => void;
-  /** Runs before a batch of writes: what's unsent goes to the hub first, so an edit isn't lost. */
+  /** Runs at the start of each pass: what's unsent goes to the hub first (Share's look). */
   beforeWrite?: () => Promise<void>;
   /** Where a slicer's config is, the process list and the timing (tests). */
   configDir?: (slicer: DesktopSlicer) => string;
@@ -188,15 +189,19 @@ export function createPresetInstall({
   /** Reported as skipped since the last connect, when their parent gets another look. */
   const skipped = new Set<string>();
 
-  async function flush(slicer: DesktopSlicer, live: PresetInstallItem[]) {
+  async function flush(
+    slicer: DesktopSlicer,
+    live: PresetInstallItem[],
+    deleted: PresetInstallItem[],
+  ) {
     const dir = configDir(slicer);
     // Each time: a sign-in moves it.
     const folder = await readFolder(dir, slicer);
     if (folder === null) return null;
     const user = join(dir, "user", folder);
     const keyOf = (p: PresetInstallItem) => `${slicer.library}/${folder}/${p.kind}/${p.name}`;
-    const due = (p: PresetInstallItem) =>
-      state.get().installed?.[keyOf(p)] !== p.sha256 && !skipped.has(`${keyOf(p)}@${p.sha256}`);
+    const fileKey = (kind: SlicerPresetKind, rel: string) =>
+      `${slicer.library}/${folder}/${kind}/${rel.split(sep).join("/")}`;
     const mine = live.filter((p) => p.library === slicer.library);
 
     // An existing file keeps its path (`filament/base/...`).
@@ -212,13 +217,22 @@ export function createPresetInstall({
       }
       return files;
     };
-    const relOf = async (p: PresetInstallItem) =>
-      (await filesOf(p.kind)).get(presetFileName(p.name)) ?? presetFileName(p.name);
+    for (const kind of SLICER_PRESET_KINDS) await filesOf(kind);
+    const here = (p: PresetInstallItem) => existing.get(p.kind)?.get(presetFileName(p.name));
+    // A missing file is written back (a non-owner's removal, ADR-0019) unless the hub acts on it.
+    const due = (p: PresetInstallItem) =>
+      !skipped.has(`${keyOf(p)}@${p.sha256}`) &&
+      (here(p) ? state.get().installed?.[keyOf(p)] !== p.sha256 : !p.removedHere);
+    const relOf = (p: PresetInstallItem) => here(p) ?? presetFileName(p.name);
+    const readDisk = async (p: PresetInstallItem, rel: string) => {
+      const disk = parsePreset(await readFile(join(user, p.kind, rel), "utf8").catch(() => ""));
+      return disk && presetSha(disk);
+    };
     /** Settled. Share knows the file came from the hub, so it has nothing to send back. */
     const record = async (p: PresetInstallItem, rel: string) => {
       const saved = state.get();
       saved.installed = { ...saved.installed, [keyOf(p)]: p.sha256 };
-      const key = `${slicer.library}/${folder}/${p.kind}/${rel.split(sep).join("/")}`;
+      const key = fileKey(p.kind, rel);
       saved.files[key] = {
         ...saved.files[key],
         name: p.name,
@@ -226,29 +240,81 @@ export function createPresetInstall({
         base: p.version,
         mtimeMs: (await stat(join(user, p.kind, rel))).mtimeMs,
       };
+      existing.get(p.kind)?.set(presetFileName(p.name), rel);
       state.touch();
     };
 
     // The same content needs no write, so no closed slicer either.
     for (const p of mine.filter(due)) {
-      const rel = await relOf(p);
-      const disk = parsePreset(await readFile(join(user, p.kind, rel), "utf8").catch(() => ""));
-      if (disk && presetSha(disk) === p.sha256) await record(p, rel);
+      const rel = relOf(p);
+      if ((await readDisk(p, rel)) === p.sha256) await record(p, rel);
     }
 
-    const running = mine.some(due) && isRunningIn(await processes(), slicer.process);
-    if (mine.some(due) && !running) {
-      await beforeWrite();
+    // Deleted on the hub: only a copy as the hub had it goes. Another content is an edit, which
+    // wins: Share sends it and the hub has it again. A signed-in account whose cloud ignores a
+    // tombstone needs a person in the slicer (ADR-0019).
+    const doomed: PresetInstallItem[] = [];
+    for (const p of deleted.filter((d) => d.library === slicer.library && here(d))) {
+      const rel = here(p);
+      if (rel && (await readDisk(p, rel)) === p.sha256) doomed.push(p);
+    }
+    const canDelete = folder === "default" || slicer.tombstones;
+    const deletes = canDelete ? doomed : [];
+
+    const work = mine.some(due) || deletes.length > 0;
+    const running = work && isRunningIn(await processes(), slicer.process);
+    if (work && !running) {
       let system: Promise<System | null> | undefined;
       let backedUp = false;
       const readInfo = (abs: string) =>
         readFile(abs.replace(/\.json$/, ".info"), "utf8").then(parseInfo, () => null);
+      const backup = async () => {
+        if (backedUp) return;
+        // ponytail: only the last batch's backup is kept (ADR-0017); keep more if one isn't enough.
+        const path = join(dataDir, "preset-backups", `${slicer.id}.zip`);
+        await zipFolder(join(dir, "user"), path);
+        const saved = state.get();
+        saved.backups = {
+          ...saved.backups,
+          [slicer.id]: { path, at: new Date().toISOString() },
+        };
+        state.touch();
+        backedUp = true;
+      };
+
+      for (const p of [...deletes]) {
+        if (!on) return null;
+        try {
+          const rel = here(p);
+          if (!rel) continue;
+          const abs = join(user, p.kind, rel);
+          await backup();
+          // `.info` first, as for a write: the cloud deletes its copy at the slicer's next start.
+          const info = folder === "default" ? null : await readInfo(abs);
+          if (info)
+            await writeAtomic(
+              abs.replace(/\.json$/, ".info"),
+              infoText({ ...info, sync_info: "delete" }),
+            );
+          else await rm(abs.replace(/\.json$/, ".info"), { force: true });
+          await rm(abs, { force: true });
+          const saved = state.get();
+          if (saved.installed) delete saved.installed[keyOf(p)];
+          delete saved.files[fileKey(p.kind, rel)];
+          existing.get(p.kind)?.delete(presetFileName(p.name));
+          state.touch();
+          deletes.splice(deletes.indexOf(p), 1);
+          log(`preset ${p.name}: deleted in ${slicer.id}`);
+        } catch (e) {
+          log(`preset ${p.name}: ${message(e)}`); // still there: the next pass
+        }
+      }
 
       for (const p of mine.filter(due)) {
         if (!on) return null;
         try {
           const files = await filesOf(p.kind);
-          const rel = await relOf(p);
+          const rel = relOf(p);
           const abs = join(user, p.kind, rel);
           const res = await request(`/presets/${p.id}`);
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -277,18 +343,7 @@ export function createPresetInstall({
             continue;
           }
 
-          if (!backedUp) {
-            // ponytail: only the last batch's backup is kept (ADR-0017); keep more if one isn't enough.
-            const path = join(dataDir, "preset-backups", `${slicer.id}.zip`);
-            await zipFolder(join(dir, "user"), path);
-            const saved = state.get();
-            saved.backups = {
-              ...saved.backups,
-              [slicer.id]: { path, at: new Date().toISOString() },
-            };
-            state.touch();
-            backedUp = true;
-          }
+          await backup();
           // `.info` first: a failure in between leaves the json to write again. The other way round,
           // the next look would see the right json and never mark the edit for upload.
           if (folder !== "default") {
@@ -317,19 +372,17 @@ export function createPresetInstall({
     }
     state.persist();
 
-    const queue = mine.filter(due);
+    const queue = [...mine.filter(due), ...deletes];
+    const ref = ({ library, kind, name }: PresetInstallItem) => ({ library, kind, name });
     const status: PresetInstallSlicer = {
       library: slicer.library,
       folder: user,
       waiting: running && queue.length > 0,
       queued: queue.length,
-      queue: queue.slice(0, PRESET_QUEUE_SHOWN).map(({ library, kind, name }) => ({
-        library,
-        kind,
-        name,
-      })),
+      queue: queue.slice(0, PRESET_QUEUE_SHOWN).map(ref),
       backup: state.get().backups?.[slicer.id] ?? null,
       editsStayLocal: !slicer.uploadsDiskEdits && folder !== "default",
+      deleteHere: canDelete ? [] : doomed.slice(0, PRESET_QUEUE_SHOWN).map(ref),
     };
     return status;
   }
@@ -337,14 +390,22 @@ export function createPresetInstall({
   /** One pass at a time; the next poll takes what's new. Resolves when it's done. */
   function pass(): Promise<void> {
     passing ??= (async () => {
-      const res = await request("/presets");
-      if (res.status === 403) return; // the switch just went off
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const live = z.array(presetInstallItemSchema).parse(await res.json());
+      // What's unsent goes to the hub first: an edit isn't lost, and a removal it just heard of
+      // isn't written back from a list read before it (`removedHere`).
+      await beforeWrite();
+      const list = async (path: string) => {
+        const res = await request(path);
+        if (res.status === 403) return null; // the switch just went off
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return z.array(presetInstallItemSchema).parse(await res.json());
+      };
+      const live = await list("/presets");
+      const deleted = live && (await list("/presets/deleted"));
+      if (!live || !deleted) return;
       const status: PresetInstallSlicer[] = [];
       for (const slicer of slicers()) {
         if (!on) return;
-        const one = await flush(slicer, live);
+        const one = await flush(slicer, live, deleted);
         if (one) status.push(one);
       }
       const text = JSON.stringify(status);

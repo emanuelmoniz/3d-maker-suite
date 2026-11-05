@@ -29,6 +29,7 @@ const known = [
     presetIndent: "    ",
     uploadsDiskEdits: true,
     cloudClockLeadS: 0,
+    tombstones: false,
   },
 ];
 

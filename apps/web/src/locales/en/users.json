@@ -231,7 +231,8 @@
       "hub_conflict": "Hub file conflict",
       "hub_mass_delete": "Mass delete on a device",
       "preset_conflict": "Slicer preset conflict",
-      "preset_skipped": "Slicer preset skipped"
+      "preset_skipped": "Slicer preset skipped",
+      "preset_held": "Slicer preset deletes held"
     }
   },
   "delivery": {

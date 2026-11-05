@@ -12,7 +12,7 @@ import {
   type SyncType,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
-import { and, desc, eq, gt, inArray, isNull, lte, ne, or, sql } from "drizzle-orm";
+import { and, desc, eq, gt, inArray, isNotNull, isNull, lte, ne, or, sql } from "drizzle-orm";
 import { raisesSeverity } from "../integrations/capabilities.ts";
 import { alertVisible, hasUsers } from "../lib/auth.ts";
 import { spoolName } from "../lib/catalog.ts";
@@ -34,6 +34,7 @@ const {
   spools,
   printers,
   roles,
+  slicerPresets,
   syncPolicies,
   syncRuns,
   users,
@@ -273,6 +274,32 @@ function conditions(db: Db, now: Date): Found {
         },
       });
     }
+  // An owner's preset removals on a device, held for a person (ADR-0019): open while any is held.
+  if (prefs.hubEnabled) {
+    const held = new Map<string, { reason: string; count: number }>();
+    for (const p of db
+      .select({ by: slicerPresets.heldBy, reason: slicerPresets.heldReason })
+      .from(slicerPresets)
+      .where(and(eq(slicerPresets.deleted, false), isNotNull(slicerPresets.heldBy)))
+      .all()) {
+      if (!p.by) continue;
+      const h = held.get(p.by) ?? { reason: p.reason ?? "mass", count: 0 };
+      held.set(p.by, { ...h, count: h.count + 1 });
+    }
+    for (const d of db.select({ id: devices.id, name: devices.name }).from(devices).all()) {
+      const h = held.get(d.id);
+      if (!h) continue;
+      add({
+        kind: "preset_held",
+        severity: "warning",
+        module: "hub",
+        task: `device:${d.id}`,
+        entityType: "device",
+        entityId: d.id,
+        context: { name: d.name, count: h.count, reason: h.reason },
+      });
+    }
+  }
   return found;
 }
 
@@ -337,6 +364,11 @@ function textOf(a: typeof alerts.$inferSelect): { title: string; body: string } 
       return {
         title: "Slicer preset skipped",
         body: `${c.name} from ${c.from} was not stored (${c.reason})`,
+      };
+    case "preset_held":
+      return {
+        title: "Slicer preset deletes held",
+        body: `${c.name} removed ${c.count} presets (${c.reason}); delete or keep them on the Presets page`,
       };
   }
 }

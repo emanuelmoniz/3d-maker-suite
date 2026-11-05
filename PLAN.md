@@ -2030,7 +2030,7 @@ Do Step 7 of the 5.4.0 plan in PLAN.md.
 Do Step 7b of the 5.4.0 plan in PLAN.md.
 ```
 
-### [ ] Step 8 - Deletes reach other machines  **[plan mode]**
+### [x] Step 8 - Deletes reach other machines  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:**
 - Spike first: re-creating a name just deleted in the slicer, on Studio and Orca, signed in and out. A non-owner's removal depends on it.

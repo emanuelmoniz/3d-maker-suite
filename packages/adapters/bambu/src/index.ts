@@ -368,6 +368,8 @@ export function bambuStudioAdapter(): IntegrationAdapter {
       uploadsDiskEdits: true,
       // Its cloud's times run 8 h ahead of real time (seen on a real account, ADR-0017).
       cloudClockLeadS: 9 * 3600,
+      // Studio ignores a tombstone and brings the file back (ADR-0019).
+      tombstones: false,
     },
     configSchema: z.object({}),
     secretsSchema: z.object({}),

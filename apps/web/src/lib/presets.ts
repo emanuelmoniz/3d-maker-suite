@@ -50,3 +50,31 @@ export function useDeletePreset() {
     onSuccess: () => qc.invalidateQueries({ queryKey: KEY }),
   });
 }
+
+/** Deleted presets, for Restore (ADR-0019); only fetched while `enabled` (presets.manage). */
+export const useDeletedPresets = (enabled: boolean) =>
+  useQuery({
+    queryKey: [...KEY, "deleted"],
+    queryFn: () => api<SlicerPreset[]>("GET", "/api/presets/deleted"),
+    enabled,
+  });
+
+/** A deleted preset's last content, or an earlier version, becomes its next version. */
+export function useRestorePreset() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, version }: { id: string; version?: number }) =>
+      api<SlicerPreset>("POST", `/api/presets/${id}/restore`, { version }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: KEY }),
+  });
+}
+
+/** A device's held removals go ahead, or the presets stay and Install writes them back there. */
+export function useResolveHeld() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ device, action }: { device: string; action: "delete" | "keep" }) =>
+      api("POST", `/api/presets/devices/${device}/held`, { action }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: KEY }),
+  });
+}

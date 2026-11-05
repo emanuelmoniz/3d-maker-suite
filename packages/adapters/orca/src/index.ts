@@ -68,6 +68,7 @@ export function orcaSlicerAdapter(): IntegrationAdapter {
       presetIndent: "\t",
       uploadsDiskEdits: false,
       cloudClockLeadS: 0,
+      tombstones: true,
     },
     configSchema: z.object({}),
     secretsSchema: z.object({}),

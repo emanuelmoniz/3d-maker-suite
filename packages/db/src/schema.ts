@@ -19,6 +19,7 @@ import {
   NEW_SPOOL_FIELD,
   ORIGINS,
   type Permissions,
+  PRESET_HOLD_REASONS,
   PRINT_OUTCOMES,
   type PROJECT_EDITABLE_FIELDS,
   type PresetInstallStatus,
@@ -1189,6 +1190,8 @@ export const devices = sqliteTable(
     installPresets: integer({ mode: "boolean" }).notNull().default(false),
     /** What it last reported of that (`PUT .../presets/install`). */
     presetInstall: text({ mode: "json" }).$type<PresetInstallStatus>(),
+    /** The slicer account folder Share last read, per library (`PUT .../presets/share`). */
+    presetAccounts: text({ mode: "json" }).$type<Record<string, string>>().notNull().default({}),
     /** Its OS, arch and glibc (`X-Connector-System`): which managed slicer build fits it. */
     system: text({ mode: "json" }).$type<SlicerSystem>(),
     lastSeenAt: text(),
@@ -1322,8 +1325,19 @@ export const slicerPresets = sqliteTable(
     savedUser: text(),
     savedDevice: text(),
     savedAt: text().notNull(),
-    /** The ids of the devices that deleted their copy; only shown, the hub keeps it. */
+    /**
+     * The ids of the devices that deleted their copy. One of the owner's: deleted once nothing
+     * uses it (ADR-0019); another user's is only shown.
+     */
     removedOn: text({ mode: "json" }).$type<string[]>().notNull().default([]),
+    /** Who first shared it, whose removal deletes it; null = only `presets.manage` (ADR-0019). */
+    ownerUserId: text().references(() => users.id, { onDelete: "set null" }),
+    /**
+     * An owner's removal on this device waits for a person, and why. ponytail: the first hold only.
+     * No CHECK on the reason: one would rebuild the table, and dropping it cascades to its versions.
+     */
+    heldBy: text().references(() => devices.id, { onDelete: "set null" }),
+    heldReason: text({ enum: PRESET_HOLD_REASONS }),
   },
   (t) => [
     uniqueIndex("slicer_presets_name_uq").on(t.library, t.kind, t.name),

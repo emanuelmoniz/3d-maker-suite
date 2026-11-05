@@ -11,6 +11,9 @@ import {
 } from "node:fs";
 import { basename, dirname, join, parse } from "node:path";
 import {
+  type PresetHoldReason,
+  type PresetRemovalResult,
+  type PresetRemovals,
   type PresetRemoved,
   type PresetSkipped,
   type PresetUpload,
@@ -21,8 +24,10 @@ import {
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
 import { parsePreset, presetFileName, presetName, presetSha } from "@3d-maker-suite/host";
-import { and, desc, eq, inArray, max } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, max, ne } from "drizzle-orm";
 import { raise } from "../alerts/evaluate.ts";
+import type { Rights } from "../lib/auth.ts";
+import { type PresetKind, presetInUse } from "../lib/dependents.ts";
 import { readPreferences } from "../lib/preferences.ts";
 import { conflictMark } from "../projects/hubFiles.ts";
 
@@ -30,11 +35,16 @@ import { conflictMark } from "../projects/hubFiles.ts";
 // `<dataDir>/presets/<library>/default/<kind>/` holds its live presets, rebuilt at start and kept
 // current on each change. Managed slicers' `config/user` is a junction to `<dataDir>/presets/<library>`.
 
-const { slicerPresets, slicerPresetVersions } = schema;
+const { devices, slicerPresets, slicerPresetVersions } = schema;
 type Row = typeof slicerPresets.$inferSelect;
 type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
-/** Who saved a change (names as they were); none = on the hub. */
-export type SavedBy = { user?: string | null; device?: string | null };
+/**
+ * Who saved a change (names as they were); none = on the hub. `userId`: the user a new preset (or
+ * one back from a delete) belongs to (ADR-0019).
+ */
+export type SavedBy = { user?: string | null; device?: string | null; userId?: string | null };
+/** Nothing waits: no device's removal is acted on or held. */
+const settled = { removedOn: [] as string[], heldBy: null, heldReason: null };
 
 export const libraryDir = (dataDir: string, library: string) => join(dataDir, "presets", library);
 const fileOf = (dataDir: string, r: Pick<Row, "library" | "kind" | "name">) =>
@@ -133,6 +143,8 @@ function skipInvalid(
 /**
  * Stores a preset (`json` must parse, see `parsePreset`): new, changed (the old content becomes a
  * version) or back from a delete. The same canonical sha is no change. Returns the row if it changed.
+ * A change is an edit, and an edit wins over removals waiting on it (ADR-0019). The owner is
+ * `by.userId` for a new preset or one back from a delete; Restore passes none and keeps it.
  */
 export function savePreset(
   db: Db,
@@ -153,17 +165,22 @@ export function savePreset(
       savedUser: by.user ?? null,
       savedDevice: by.device ?? null,
       savedAt: new Date().toISOString(),
+      ...settled,
     };
     if (!old)
       return tx
         .insert(slicerPresets)
-        .values({ ...p, ...set, version: 1 })
+        .values({ ...p, ...set, version: 1, ownerUserId: by.userId ?? null })
         .returning()
         .get();
     archive(tx, old, keep);
     return tx
       .update(slicerPresets)
-      .set({ ...set, version: old.version + 1 })
+      .set({
+        ...set,
+        version: old.version + 1,
+        ...(old.deleted && by.userId && { ownerUserId: by.userId }),
+      })
       .where(eq(slicerPresets.id, old.id))
       .returning()
       .get();
@@ -174,7 +191,7 @@ export function savePreset(
 
 /**
  * Deletes a live preset on the hub: a tombstone (its last json kept), gone from the folder and so
- * from the hub slicer and workers. Desktops keep theirs (ADR-0017: their cloud brings it back).
+ * from the hub slicer and workers, and from Install devices that hold it unedited (ADR-0019).
  */
 export function deletePreset(db: Db, dataDir: string, id: string, by: SavedBy = {}) {
   const row = db.transaction((tx) => {
@@ -188,6 +205,7 @@ export function deletePreset(db: Db, dataDir: string, id: string, by: SavedBy = 
         savedUser: by.user ?? null,
         savedDevice: by.device ?? null,
         savedAt: new Date().toISOString(),
+        ...settled,
       })
       .where(eq(slicerPresets.id, id))
       .returning()
@@ -195,6 +213,72 @@ export function deletePreset(db: Db, dataDir: string, id: string, by: SavedBy = 
   });
   if (row) writeLive(dataDir, row);
   return row;
+}
+
+/**
+ * Restore (ADR-0019): a deleted preset's last content, or an earlier version of it, becomes its
+ * next version. Its owner stays. Undefined = no such version; the row unchanged = the same content.
+ */
+export function restorePreset(
+  db: Db,
+  dataDir: string,
+  id: string,
+  version: number | undefined,
+  by: SavedBy = {},
+) {
+  const row = db.select().from(slicerPresets).where(eq(slicerPresets.id, id)).get();
+  if (!row) return undefined;
+  const json =
+    version === undefined || version === row.version
+      ? row.json
+      : db
+          .select({ json: slicerPresetVersions.json })
+          .from(slicerPresetVersions)
+          .where(
+            and(eq(slicerPresetVersions.presetId, id), eq(slicerPresetVersions.version, version)),
+          )
+          .get()?.json;
+  if (json === undefined) return undefined;
+  const { userId: _, ...who } = by;
+  const { library, kind, name } = row;
+  return savePreset(db, dataDir, { library, kind, name, json }, who) ?? row;
+}
+
+/** The profile table each kind of preset feeds. */
+const ENTITY: Record<SlicerPresetKind, PresetKind> = {
+  machine: "machineProfiles",
+  process: "printProfiles",
+  filament: "filamentProfiles",
+};
+
+/**
+ * ADR-0019's "in use" for a library preset: what uses its catalog row (`<library>:user/<name>`),
+ * and the live presets of its kind that inherit from it. Empty = free to delete everywhere.
+ */
+export function presetUses(db: Db, p: Pick<Row, "library" | "kind" | "name">, user?: Rights) {
+  const entity = ENTITY[p.kind];
+  // Loosely typed on purpose: the three tables share these columns.
+  const t = schema[entity] as typeof schema.machineProfiles;
+  const inheritedBy = db
+    .select({ name: slicerPresets.name, json: slicerPresets.json })
+    .from(slicerPresets)
+    .where(
+      and(
+        eq(slicerPresets.library, p.library),
+        eq(slicerPresets.kind, p.kind),
+        eq(slicerPresets.deleted, false),
+      ),
+    )
+    .all()
+    .filter((r) => parsePreset(r.json)?.inherits === p.name)
+    .map((r) => r.name);
+  const row = db
+    .select({ id: t.id })
+    .from(t)
+    .where(and(eq(t.sourcePreset, `${p.library}:user/${p.name}`), isNull(t.archivedAt)))
+    .get();
+  // No catalog row: nothing points at "", so only the inheriting presets count.
+  return presetInUse(db, user, entity, row?.id ?? "", inheritedBy);
 }
 
 /** A slicer config's user preset files (`<user>/<account>/<kind>/**.json`), without reading them. */
@@ -284,10 +368,13 @@ export function uploadPreset(
     return { result: "invalid", name, version: 0 };
   }
   const old = named(db, ref);
-  // Its file is there again.
+  // Its file is there again: that removal is over, and so is its hold.
   if (old?.removedOn.includes(deviceId))
     db.update(slicerPresets)
-      .set({ removedOn: old.removedOn.filter((d) => d !== deviceId) })
+      .set({
+        removedOn: old.removedOn.filter((d) => d !== deviceId),
+        ...(old.heldBy === deviceId && { heldBy: null, heldReason: null }),
+      })
       .where(eq(slicerPresets.id, old.id))
       .run();
   const sha256 = presetSha(json);
@@ -352,7 +439,7 @@ export function presetSkipped(
   });
 }
 
-/** A device deleted its copy: only shown on the preset (ADR-0017). */
+/** A device deleted its copy: only shown on the preset (ADR-0017). A connector before 5.4.0's. */
 export function presetRemovedOn(db: Db, p: PresetRemoved, deviceId: string) {
   const row = named(db, p);
   if (row && !row.removedOn.includes(deviceId))
@@ -360,6 +447,113 @@ export function presetRemovedOn(db: Db, p: PresetRemoved, deviceId: string) {
       .set({ removedOn: [...row.removedOn, deviceId] })
       .where(eq(slicerPresets.id, row.id))
       .run();
+}
+
+const withDevice = (row: Row, deviceId: string) =>
+  row.removedOn.includes(deviceId) ? row.removedOn : [...row.removedOn, deviceId];
+
+/**
+ * One look's removals on a device (ADR-0019). Another user's, or a preset with no owner, changes
+ * nothing: Install writes it back. The owner's is deleted if nothing uses it, and otherwise waits
+ * for the daily `recheckRemovals`. More of the owner's at once than `hubDeleteGuard`, or another
+ * user's device on the same slicer account, are held until a person chooses (`resolveHeld`).
+ * ponytail: a parent removed with its child waits for the daily check, being in use until then.
+ */
+export function presetsRemoved(
+  db: Db,
+  dataDir: string,
+  { library, account, removed }: PresetRemovals,
+  device: { id: string; userId: string },
+  by: SavedBy,
+): PresetRemovalResult {
+  const found = removed.map((r) => ({ r, row: named(db, { library, ...r }) }));
+  const owned = found.filter(
+    ({ row }) => row && !row.deleted && row.ownerUserId === device.userId,
+  ).length;
+  const shared =
+    account !== "default" &&
+    db
+      .select({ accounts: devices.presetAccounts })
+      .from(devices)
+      .where(ne(devices.userId, device.userId))
+      .all()
+      .some((d) => d.accounts[library] === account);
+  const hold: PresetHoldReason | null =
+    owned > readPreferences(db).hubDeleteGuard ? "mass" : shared ? "shared" : null;
+  return found.map(({ r, row }) => {
+    if (!row || row.deleted) return { ...r, result: "unknown" as const };
+    if (row.ownerUserId !== device.userId) return { ...r, result: "kept" as const };
+    const update = (set: Partial<Row>) =>
+      db.update(slicerPresets).set(set).where(eq(slicerPresets.id, row.id)).run();
+    if (hold) {
+      update({
+        removedOn: withDevice(row, device.id),
+        heldBy: row.heldBy ?? device.id,
+        heldReason: row.heldReason ?? hold,
+      });
+      return { ...r, result: "held" as const };
+    }
+    if (!presetUses(db, row).length) {
+      deletePreset(db, dataDir, row.id, by);
+      return { ...r, result: "deleted" as const };
+    }
+    update({ removedOn: withDevice(row, device.id) });
+    return { ...r, result: "in_use" as const };
+  });
+}
+
+/**
+ * Daily (ADR-0019): a preset an owner's device removed while it was in use is deleted once nothing
+ * uses it. A held one waits for a person. Returns how many went.
+ */
+export function recheckRemovals(db: Db, dataDir: string) {
+  const userOf = new Map(
+    db
+      .select({ id: devices.id, userId: devices.userId })
+      .from(devices)
+      .all()
+      .map((d) => [d.id, d.userId]),
+  );
+  let gone = 0;
+  for (const row of db
+    .select()
+    .from(slicerPresets)
+    .where(and(eq(slicerPresets.deleted, false), isNull(slicerPresets.heldBy)))
+    .all()) {
+    if (!row.ownerUserId || !row.removedOn.some((d) => userOf.get(d) === row.ownerUserId)) continue;
+    if (presetUses(db, row).length) continue;
+    if (deletePreset(db, dataDir, row.id)) gone++;
+  }
+  return gone;
+}
+
+/**
+ * A person's choice on a device's held removals: `delete` treats them as the owner's removal (in
+ * use still waits for the daily check); `keep` drops them, so Install writes the presets back there.
+ */
+export function resolveHeld(
+  db: Db,
+  dataDir: string,
+  deviceId: string,
+  action: "delete" | "keep",
+  by: SavedBy,
+) {
+  const held = db.select().from(slicerPresets).where(eq(slicerPresets.heldBy, deviceId)).all();
+  for (const row of held) {
+    if (action === "delete" && !presetUses(db, row).length) {
+      deletePreset(db, dataDir, row.id, by);
+      continue;
+    }
+    db.update(slicerPresets)
+      .set({
+        heldBy: null,
+        heldReason: null,
+        ...(action === "keep" && { removedOn: row.removedOn.filter((d) => d !== deviceId) }),
+      })
+      .where(eq(slicerPresets.id, row.id))
+      .run();
+  }
+  return held.length;
 }
 
 /**

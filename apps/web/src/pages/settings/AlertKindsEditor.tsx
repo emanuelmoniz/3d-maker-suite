@@ -28,6 +28,7 @@ const KIND_LABELS: Record<AlertKind, string> = {
   hub_mass_delete: "users:alerts.kinds.hub_mass_delete",
   preset_conflict: "users:alerts.kinds.preset_conflict",
   preset_skipped: "users:alerts.kinds.preset_skipped",
+  preset_held: "users:alerts.kinds.preset_held",
 };
 const SUB_LABELS: Record<AlertSubscription, string> = {
   off: "users:alerts.sub.off",

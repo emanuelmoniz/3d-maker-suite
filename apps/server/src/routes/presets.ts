@@ -3,6 +3,8 @@ import {
   isPresetConflict,
   presetDeviceSchema,
   presetDeviceUpdateSchema,
+  presetHeldActionSchema,
+  presetRestoreSchema,
   type SlicerPreset,
   slicerPresetDetailSchema,
   slicerPresetSchema,
@@ -13,14 +15,24 @@ import { and, asc, desc, eq } from "drizzle-orm";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
-import { deletePreset } from "../integrations/presetLibrary.ts";
+import {
+  deletePreset,
+  presetUses,
+  resolveHeld,
+  restorePreset,
+} from "../integrations/presetLibrary.ts";
+import type { Rights } from "../lib/auth.ts";
 import type { HubChannel } from "../lib/hubChannel.ts";
+import { VERSION } from "../updates/updates.ts";
 
-const { devices, slicerPresets, slicerPresetVersions } = schema;
+const { devices, slicerPresets, slicerPresetVersions, users } = schema;
 type Row = typeof slicerPresets.$inferSelect;
 const params = z.object({ id: z.uuid() });
 
-/** The hub's slicer preset library (ADR-0017): list, versions, download, delete, device switches. */
+/**
+ * The hub's slicer preset library (ADR-0017): list, versions, download, delete, Restore, held
+ * removals (ADR-0019), device switches.
+ */
 export const presetsRoutes =
   (db: Db, dataDir: string, channel: HubChannel): FastifyPluginAsyncZod =>
   async (app) => {
@@ -29,38 +41,64 @@ export const presetsRoutes =
       if (!row || row.deleted) throw new HttpError(404, "not_found", "Preset not found");
       return row;
     };
-    const deviceNames = () =>
-      new Map(
+    /** Device and user names now, and whose rights label what uses a preset. */
+    const lookups = (user?: Rights) => ({
+      devices: new Map(
         db
           .select({ id: devices.id, name: devices.name })
           .from(devices)
           .all()
           .map((d) => [d.id, d.name]),
-      );
+      ),
+      users: new Map(
+        db
+          .select({ id: users.id, name: users.displayName })
+          .from(users)
+          .all()
+          .map((u) => [u.id, u.name]),
+      ),
+      user,
+    });
     // A revoked device's delete says nothing any more.
     const itemOf = (
-      { json, deleted: _, seq: __, ...r }: Row,
-      names = deviceNames(),
+      { json, deleted: _, seq: __, ownerUserId, heldBy, heldReason, ...r }: Row,
+      names: ReturnType<typeof lookups>,
     ): SlicerPreset => {
       const inherits = parsePreset(json)?.inherits;
+      const heldOn = heldBy && names.devices.get(heldBy);
       return {
         ...r,
         inherits: typeof inherits === "string" && inherits ? inherits : null,
         conflict: isPresetConflict(r.name),
-        removedOn: r.removedOn.flatMap((id) => names.get(id) ?? []),
+        owner: (ownerUserId && names.users.get(ownerUserId)) || null,
+        removedOn: r.removedOn.flatMap((id) => names.devices.get(id) ?? []),
+        held:
+          heldBy && heldOn
+            ? { deviceId: heldBy, device: heldOn, reason: heldReason ?? "mass" }
+            : null,
+        usedBy: r.removedOn.length ? presetUses(db, r, names.user) : [],
       };
     };
-
-    app.get("/", { schema: { response: { 200: z.array(slicerPresetSchema) } } }, async () => {
-      const names = deviceNames();
+    const list = (deleted: boolean, user?: Rights) => {
+      const names = lookups(user);
       return db
         .select()
         .from(slicerPresets)
-        .where(eq(slicerPresets.deleted, false))
+        .where(eq(slicerPresets.deleted, deleted))
         .orderBy(asc(slicerPresets.library), asc(slicerPresets.kind), asc(slicerPresets.name))
         .all()
         .map((r) => itemOf(r, names));
-    });
+    };
+
+    app.get("/", { schema: { response: { 200: z.array(slicerPresetSchema) } } }, async (req) =>
+      list(false, req.user),
+    );
+    // What Restore can bring back (ADR-0019).
+    app.get(
+      "/deleted",
+      { schema: { response: { 200: z.array(slicerPresetSchema) } } },
+      async (req) => list(true, req.user),
+    );
 
     // Only devices with a slicer have presets to share or install.
     app.get("/devices", { schema: { response: { 200: z.array(presetDeviceSchema) } } }, async () =>
@@ -70,14 +108,35 @@ export const presetsRoutes =
         .orderBy(asc(devices.name))
         .all()
         .filter((d) => d.slicers.length)
-        .map(({ id, name, sharePresets, installPresets, presetInstall }) => ({
+        .map(({ id, name, sharePresets, installPresets, presetInstall, connectorVersion }) => ({
           id,
           name,
           sharePresets,
           installPresets,
+          // As `connector_outdated`: its removals are only shown, and it receives no deletes.
+          outdated: !!connectorVersion && connectorVersion !== VERSION,
           presetInstall,
           online: channel.online(id),
         })),
+    );
+
+    app.post(
+      "/devices/:id/held",
+      {
+        schema: {
+          params,
+          body: presetHeldActionSchema,
+          response: { 204: z.null(), 404: apiErrorSchema },
+        },
+      },
+      async (req, reply) => {
+        if (!db.select({ id: devices.id }).from(devices).where(eq(devices.id, req.params.id)).get())
+          throw new HttpError(404, "not_found", "Device not found");
+        resolveHeld(db, dataDir, req.params.id, req.body.action, {
+          user: req.user?.displayName,
+        });
+        return reply.status(204).send(null);
+      },
     );
 
     app.patch(
@@ -114,7 +173,7 @@ export const presetsRoutes =
       "/:id",
       { schema: { params, response: { 200: slicerPresetDetailSchema, 404: apiErrorSchema } } },
       async (req) => ({
-        ...itemOf(live(req.params.id)),
+        ...itemOf(live(req.params.id), lookups(req.user)),
         versions: db
           .select({
             version: slicerPresetVersions.version,
@@ -166,7 +225,26 @@ export const presetsRoutes =
       },
     );
 
-    // Gone from the hub slicer and workers; desktops keep theirs (their cloud would bring it back).
+    // A deleted preset's last content, or an earlier version, as its next version; its owner stays.
+    app.post(
+      "/:id/restore",
+      {
+        schema: {
+          params,
+          body: presetRestoreSchema,
+          response: { 200: slicerPresetSchema, 404: apiErrorSchema },
+        },
+      },
+      async (req) => {
+        const row = restorePreset(db, dataDir, req.params.id, req.body.version, {
+          user: req.user?.displayName,
+        });
+        if (!row) throw new HttpError(404, "not_found", "Version not found");
+        return itemOf(row, lookups(req.user));
+      },
+    );
+
+    // Gone from the hub slicer and workers, and from Install devices that hold it unedited.
     app.delete(
       "/:id",
       { schema: { params, response: { 204: z.null(), 404: apiErrorSchema } } },

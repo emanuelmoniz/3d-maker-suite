@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { id, isoDate } from "./entities.ts";
+import { inUseDetailsSchema } from "./list.ts";
 
 // The hub's slicer preset library (ADR-0017): per slicer library (`bambu-studio`, `orca-slicer`)
 // and kind, the preset's json as received, its versions and who saved them.
@@ -17,7 +18,13 @@ const saved = {
   savedAt: isoDate,
 };
 
-/** A live preset in `GET /api/presets`, without its json. */
+/**
+ * Why an owner's removal waits for a person (ADR-0019): more at once than `hubDeleteGuard`, or a
+ * device of another user on the same slicer account.
+ */
+export const PRESET_HOLD_REASONS = ["mass", "shared"] as const;
+
+/** A preset in `GET /api/presets` (live) or `GET /api/presets/deleted`, without its json. */
 export const slicerPresetSchema = z.object({
   id,
   library: z.string(),
@@ -28,8 +35,16 @@ export const slicerPresetSchema = z.object({
   version: z.number().int(),
   sha256: z.string(),
   conflict: z.boolean(),
-  /** The devices that deleted their copy (their names now); the hub keeps it. */
+  /** Who first shared it (their name now); null = nobody known, only `presets.manage` deletes it. */
+  owner: z.string().nullable(),
+  /** The devices that deleted their copy (their names now). */
   removedOn: z.array(z.string()),
+  /** A removal waiting for a person: the device (its name now) and why. */
+  held: z
+    .object({ deviceId: id, device: z.string(), reason: z.enum(PRESET_HOLD_REASONS) })
+    .nullable(),
+  /** What keeps a removed preset (`removedOn`) alive; empty for the others. */
+  usedBy: inUseDetailsSchema.shape.dependents,
   ...saved,
 });
 
@@ -67,6 +82,8 @@ export const presetInstallSlicerSchema = z.object({
   backup: z.object({ path: z.string().max(4096), at: isoDate }).nullable(),
   /** An account folder of a slicer whose cloud doesn't take edits written to disk. */
   editsStayLocal: z.boolean(),
+  /** Deleted on the hub, still here: this slicer's account can only delete them in the slicer. */
+  deleteHere: z.array(z.object(presetRef)).max(PRESET_QUEUE_SHOWN).default([]),
 });
 export const presetInstallStatusSchema = z.array(presetInstallSlicerSchema).max(20);
 
@@ -77,6 +94,8 @@ export const presetDeviceSchema = z.object({
   online: z.boolean(),
   sharePresets: z.boolean(),
   installPresets: z.boolean(),
+  /** Its connector is older than the hub: its removals are only shown, and it receives no deletes. */
+  outdated: z.boolean(),
   /** What it last reported; null = Install hub presets is off, or it hasn't yet. */
   presetInstall: presetInstallStatusSchema.nullable(),
 });
@@ -85,7 +104,10 @@ export const presetDeviceUpdateSchema = z.strictObject({
   installPresets: z.boolean().optional(),
 });
 
-/** A hub preset a device installs (`GET /api/hub/device/presets`), without its json. */
+/**
+ * A hub preset a device installs (`GET /api/hub/device/presets`), or one deleted on the hub
+ * (`.../presets/deleted`), without its json.
+ */
 export const presetInstallItemSchema = z.object({
   id,
   library: z.string(),
@@ -93,6 +115,8 @@ export const presetInstallItemSchema = z.object({
   name: z.string(),
   version: z.number().int(),
   sha256: z.string(),
+  /** This device deleted it and the hub acts on that: a missing file isn't written back. */
+  removedHere: z.boolean().default(false),
 });
 /** A preset that wasn't installed: its `inherits` parent isn't on that device. */
 export const presetSkippedSchema = z.object({ ...presetRef, sha256: z.string().max(64) });
@@ -112,8 +136,45 @@ export const presetUploadResultSchema = z.object({
   name: z.string(),
   version: z.number().int(),
 });
-/** A connector's preset file is gone (`POST /api/hub/device/presets/removed`). */
+/** A connector's preset file is gone (`POST /api/hub/device/presets/removed`, before 5.4.0). */
 export const presetRemovedSchema = z.object(presetRef);
+
+/** The slicer account folder (`default` = signed out) a device shares from, per library. */
+const account = z.string().min(1).max(255);
+
+/**
+ * The preset files one look of a connector found gone in one slicer's account folder
+ * (`POST /api/hub/device/presets/removals`): counted together for the mass delete limit.
+ */
+export const presetRemovalsSchema = z.object({
+  library: presetRef.library,
+  account,
+  removed: z
+    .array(z.object({ kind: presetRef.kind, name: presetRef.name }))
+    .min(1)
+    .max(10_000),
+});
+/**
+ * Per preset: deleted on the hub, kept while something uses it, held for a person, kept because
+ * it isn't the device's user's (Install writes it back), or not on the hub.
+ */
+export const PRESET_REMOVAL_RESULTS = ["deleted", "in_use", "held", "kept", "unknown"] as const;
+export const presetRemovalResultSchema = z.array(
+  z.object({
+    kind: slicerPresetKindSchema,
+    name: z.string(),
+    result: z.enum(PRESET_REMOVAL_RESULTS),
+  }),
+);
+/** The account folder each shared slicer uses (`PUT /api/hub/device/presets/share`). */
+export const presetShareStatusSchema = z
+  .array(z.object({ library: presetRef.library, account }))
+  .max(20);
+
+/** `POST /api/presets/:id/restore`: the deleted preset's last content, or an earlier version. */
+export const presetRestoreSchema = z.strictObject({ version: z.number().int().optional() });
+/** `POST /api/presets/devices/:id/held`: a device's held removals go ahead, or the preset stays. */
+export const presetHeldActionSchema = z.strictObject({ action: z.enum(["delete", "keep"]) });
 
 export type PresetDevice = z.infer<typeof presetDeviceSchema>;
 export type PresetDeviceUpdate = z.infer<typeof presetDeviceUpdateSchema>;
@@ -124,6 +185,10 @@ export type PresetInstallStatus = z.infer<typeof presetInstallStatusSchema>;
 export type PresetUpload = z.infer<typeof presetUploadSchema>;
 export type PresetUploadResult = z.infer<typeof presetUploadResultSchema>;
 export type PresetRemoved = z.infer<typeof presetRemovedSchema>;
+export type PresetRemovals = z.infer<typeof presetRemovalsSchema>;
+export type PresetRemovalResult = z.infer<typeof presetRemovalResultSchema>;
+export type PresetShareStatus = z.infer<typeof presetShareStatusSchema>;
+export type PresetHoldReason = (typeof PRESET_HOLD_REASONS)[number];
 export type SlicerPresetKind = z.infer<typeof slicerPresetKindSchema>;
 export type SlicerPreset = z.infer<typeof slicerPresetSchema>;
 export type SlicerPresetVersion = z.infer<typeof slicerPresetVersionSchema>;

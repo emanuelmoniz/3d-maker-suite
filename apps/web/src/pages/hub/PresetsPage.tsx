@@ -5,9 +5,10 @@ import type {
   SlicerPresetVersion,
 } from "@3d-maker-suite/core";
 import { Link } from "@tanstack/react-router";
-import { ChevronRight, Download, SlidersHorizontal, Trash2 } from "lucide-react";
+import { ChevronRight, Download, RotateCcw, SlidersHorizontal, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Dependents } from "../../components/ArchiveActions.tsx";
 import { Button } from "../../components/Button.tsx";
 import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { EmptyState } from "../../components/EmptyState.tsx";
@@ -17,10 +18,13 @@ import { useCan } from "../../lib/auth.ts";
 import { formatDateTime } from "../../lib/format.ts";
 import {
   presetDownloadUrl,
+  useDeletedPresets,
   useDeletePreset,
   usePresetDetail,
   usePresetDevices,
   usePresets,
+  useResolveHeld,
+  useRestorePreset,
   useUpdatePresetDevice,
 } from "../../lib/presets.ts";
 
@@ -57,8 +61,14 @@ function SavedLine({ v }: { v: SlicerPresetVersion }) {
   return <>{t(key, { version: v.version, when, user: v.savedUser, device: v.savedDevice })}</>;
 }
 
-/** The earlier versions, read when the row opens. */
-function Versions({ preset }: { preset: SlicerPreset }) {
+/** The earlier versions, read when the row opens; `onRestore` makes one the next version. */
+function Versions({
+  preset,
+  onRestore,
+}: {
+  preset: SlicerPreset;
+  onRestore?: (version: number) => void;
+}) {
   const { t } = useTranslation();
   const detail = usePresetDetail(preset.id, true);
   if (detail.isPending) return <p className="text-muted">{t("hub:presets.loadingVersions")}</p>;
@@ -77,22 +87,56 @@ function Versions({ preset }: { preset: SlicerPreset }) {
           <span className="min-w-0 text-muted wrap-anywhere">
             <SavedLine v={v} />
           </span>
-          <a
-            href={presetDownloadUrl(preset.id, v.version)}
-            download
-            className={iconButton}
-            aria-label={t("hub:presets.downloadVersion", { version: v.version })}
-          >
-            <Download className="size-4" aria-hidden />
-          </a>
+          <span className="flex shrink-0">
+            {onRestore && (
+              <button
+                type="button"
+                onClick={() => onRestore(v.version)}
+                className={iconButton}
+                aria-label={t("hub:presets.restoreVersion", { version: v.version })}
+              >
+                <RotateCcw className="size-4" aria-hidden />
+              </button>
+            )}
+            <a
+              href={presetDownloadUrl(preset.id, v.version)}
+              download
+              className={iconButton}
+              aria-label={t("hub:presets.downloadVersion", { version: v.version })}
+            >
+              <Download className="size-4" aria-hidden />
+            </a>
+          </span>
         </li>
       ))}
     </ol>
   );
 }
 
-function PresetRow({ preset: p, onDelete }: { preset: SlicerPreset; onDelete?: () => void }) {
+/** Why a removal waits, or what a removal waits on (ADR-0019); nothing when none. */
+function RemovalLine({ preset: p }: { preset: SlicerPreset }) {
   const { t, i18n } = useTranslation();
+  const devices = new Intl.ListFormat(i18n.language).format(p.removedOn);
+  const text = p.held
+    ? t(p.held.reason === "shared" ? "hub:presets.heldShared" : "hub:presets.heldMass", {
+        device: p.held.device,
+      })
+    : p.removedOn.length
+      ? t(p.usedBy.length ? "hub:presets.removedInUse" : "hub:presets.removedOn", { devices })
+      : null;
+  return text ? <span className="block text-sm text-warn wrap-anywhere">{text}</span> : null;
+}
+
+function PresetRow({
+  preset: p,
+  onDelete,
+  onRestore,
+}: {
+  preset: SlicerPreset;
+  onDelete?: () => void;
+  onRestore?: (version: number) => void;
+}) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const panel = `preset-${p.id}`;
   return (
@@ -119,13 +163,12 @@ function PresetRow({ preset: p, onDelete }: { preset: SlicerPreset; onDelete?: (
             <span className="block text-sm text-muted wrap-anywhere">
               <SavedLine v={p} />
             </span>
-            {p.removedOn.length > 0 && (
-              <span className="block text-sm text-warn wrap-anywhere">
-                {t("hub:presets.removedOn", {
-                  devices: new Intl.ListFormat(i18n.language).format(p.removedOn),
-                })}
+            {p.owner && (
+              <span className="block text-sm text-muted wrap-anywhere">
+                {t("hub:presets.owner", { user: p.owner })}
               </span>
             )}
+            <RemovalLine preset={p} />
           </span>
         </button>
         <a
@@ -148,8 +191,9 @@ function PresetRow({ preset: p, onDelete }: { preset: SlicerPreset; onDelete?: (
         )}
       </div>
       {open && (
-        <div id={panel} className="mt-1 ml-7 border-l-2 border-border pl-3">
-          <Versions preset={p} />
+        <div id={panel} className="mt-1 ml-7 grid gap-3 border-l-2 border-border pl-3">
+          {p.usedBy.length > 0 && <Dependents details={{ dependents: p.usedBy }} />}
+          <Versions preset={p} onRestore={onRestore} />
         </div>
       )}
     </li>
@@ -220,6 +264,22 @@ export function InstallStatus({ status }: { status: PresetInstallStatus }) {
               : t("hub:presets.noBackup")}
           </p>
           {s.editsStayLocal && <p className="text-warn">{t("hub:presets.editsStayLocal")}</p>}
+          {/* A report from before 5.4.0 has none. */}
+          {(s.deleteHere ?? []).length > 0 && (
+            <>
+              <p className="text-warn">
+                {t("hub:presets.deleteHere", { count: s.deleteHere.length })}
+              </p>
+              <ul
+                aria-label={t("hub:presets.deleteHereOf", { name: libName(s.library) })}
+                className="text-muted wrap-anywhere"
+              >
+                {s.deleteHere.map((q) => (
+                  <li key={`${q.kind}/${q.name}`}>{q.name}</li>
+                ))}
+              </ul>
+            </>
+          )}
         </div>
       ))}
     </div>
@@ -255,6 +315,11 @@ function PresetDevices() {
                   {!d.online && (
                     <span className="ml-2 text-sm text-muted">
                       {t("hub:presets.deviceOffline")}
+                    </span>
+                  )}
+                  {d.outdated && (
+                    <span className="block text-sm text-warn">
+                      {t("hub:presets.deviceOutdated")}
                     </span>
                   )}
                 </span>
@@ -295,16 +360,30 @@ export function PresetsPage() {
   const hub = useCan("hub.manage");
   const libName = useLibraryName();
   const remove = useDeletePreset();
+  const restore = useRestorePreset();
+  const resolve = useResolveHeld();
+  const deleted = useDeletedPresets(manage);
   const [library, setLibrary] = useState<string | null>(null);
   const [kind, setKind] = useState<SlicerPresetKind>("filament");
   const [query, setQuery] = useState("");
   const [deleting, setDeleting] = useState<SlicerPreset | null>(null);
 
   const all = presets.data ?? [];
-  const libraries = [...new Set(all.map((p) => p.library))];
+  // A library with only deleted presets left still offers Restore.
+  const libraries = [...new Set([...all, ...(deleted.data ?? [])].map((p) => p.library))];
   const lib = library && libraries.includes(library) ? library : libraries[0];
   const inLib = all.filter((p) => p.library === lib);
   const conflicts = inLib.filter((p) => p.conflict);
+  // Per device: its held removals in this library and why (ADR-0019).
+  const held = new Map<string, { device: string; reason: string; count: number }>();
+  for (const p of inLib)
+    if (p.held) {
+      const h = held.get(p.held.deviceId) ?? { ...p.held, count: 0 };
+      held.set(p.held.deviceId, { ...h, count: h.count + 1 });
+    }
+  const gone = (deleted.data ?? []).filter((p) => p.library === lib && !p.conflict);
+  const restoreOf = (p: SlicerPreset) =>
+    manage ? (version?: number) => restore.mutate({ id: p.id, version }) : undefined;
   const q = query.trim().toLocaleLowerCase();
   const shown = inLib.filter(
     (p) => !p.conflict && p.kind === kind && (!q || p.name.toLocaleLowerCase().includes(q)),
@@ -349,6 +428,66 @@ export function PresetsPage() {
               value={lib}
               onChange={setLibrary}
             />
+          )}
+
+          {restore.isError && (
+            <p role="alert" className="text-bad">
+              {t("hub:errors.generic")}
+            </p>
+          )}
+
+          {manage && held.size > 0 && (
+            <section
+              aria-labelledby="preset-held"
+              className="rounded-lg border border-l-4 border-border border-l-warn bg-surface px-4 py-3"
+            >
+              <h2 id="preset-held" className="text-base font-semibold">
+                {t("hub:presets.heldTitle")}
+              </h2>
+              <p className="mt-0.5 max-w-prose text-muted">{t("hub:presets.heldHint")}</p>
+              {resolve.isError && (
+                <p role="alert" className="text-bad">
+                  {t("hub:errors.generic")}
+                </p>
+              )}
+              <ul className="mt-2 divide-y divide-border">
+                {[...held].map(([id, h]) => (
+                  <li
+                    key={id}
+                    className="grid gap-2 py-2 sm:flex sm:items-center sm:justify-between"
+                  >
+                    <span className="wrap-anywhere">
+                      {t(
+                        h.reason === "shared"
+                          ? "hub:presets.heldSharedOn"
+                          : "hub:presets.heldMassOn",
+                        {
+                          device: h.device,
+                          count: h.count,
+                        },
+                      )}
+                    </span>
+                    <span className="flex flex-wrap gap-2">
+                      <Button
+                        variant="danger"
+                        disabled={resolve.isPending}
+                        onClick={() => resolve.mutate({ device: id, action: "delete" })}
+                        aria-label={t("hub:presets.heldDeleteOn", { device: h.device })}
+                      >
+                        {t("hub:presets.heldDelete")}
+                      </Button>
+                      <Button
+                        disabled={resolve.isPending}
+                        onClick={() => resolve.mutate({ device: id, action: "keep" })}
+                        aria-label={t("hub:presets.heldKeepOn", { device: h.device })}
+                      >
+                        {t("hub:presets.heldKeep")}
+                      </Button>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </section>
           )}
 
           {conflicts.length > 0 && (
@@ -404,6 +543,7 @@ export function PresetsPage() {
                     key={p.id}
                     preset={p}
                     onDelete={manage ? () => setDeleting(p) : undefined}
+                    onRestore={restoreOf(p)}
                   />
                 ))}
               </ul>
@@ -413,6 +553,34 @@ export function PresetsPage() {
               </p>
             )}
           </section>
+
+          {gone.length > 0 && (
+            <details className="rounded-lg border border-border bg-surface px-4 py-3">
+              <summary className="cursor-pointer font-semibold">
+                {t("hub:presets.deletedTitle", { count: gone.length })}
+              </summary>
+              <p className="mt-1 max-w-prose text-muted">{t("hub:presets.deletedHint")}</p>
+              <ul className="mt-2 divide-y divide-border">
+                {gone.map((p) => (
+                  <li key={p.id} className="flex items-center justify-between gap-2 py-2">
+                    <span className="min-w-0">
+                      <span className="block font-medium wrap-anywhere">{p.name}</span>
+                      <span className="block text-sm text-muted">
+                        {t("hub:presets.deletedAt", { when: formatDateTime(p.savedAt) })}
+                      </span>
+                    </span>
+                    <Button
+                      disabled={restore.isPending}
+                      onClick={() => restore.mutate({ id: p.id })}
+                      aria-label={t("hub:presets.restoreNamed", { name: p.name })}
+                    >
+                      {t("hub:presets.restore")}
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
         </div>
       )}
       {manage && <PresetDevices />}

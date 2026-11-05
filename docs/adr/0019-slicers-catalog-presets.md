@@ -61,8 +61,10 @@ A delete made in Studio's own UI does remove the cloud copy, and a PC of that ac
 - **`presets.manage` can always delete from the app,** or a departed user's presets could never be removed. Existing presets start with no owner, because only the last saver's name is stored and old versions get pruned, so only `presets.manage` can delete those.
 
 ### Safety, because one delete now reaches every machine
-- Over the mass delete limit at once, the delete is held and an alert asks.
-- If another device reports the same account folder as the owner's, a removal is held and an alert asks. A cloud delete can remove the file from an owner's PC (results below), and the connector can't tell that from the owner deleting it.
+- Over the mass delete limit at once (`hubDeleteGuard`, the hub roots' guard), the delete is held and an alert asks.
+- If a device of another user reports the same account folder as the owner's, a removal is held and an alert asks. A cloud delete can remove the file from an owner's PC (results below), and the connector can't tell that from the owner deleting it. The owner's own PCs on one account don't hold: a cloud delete there came from the owner.
+- **The hub holds both** (amended in Plan 5.4.0 Step 8): a connector sends a look's removals as one batch, and the hub counts it and checks the accounts, because only the hub sees the other devices. The Presets page asks Delete or Keep, so a device can be offline meanwhile.
+- A connector older than the hub keeps ADR-0017's behaviour: its removals are only shown, and its Install never deletes. The Presets page says to update it.
 - A slicer sign-in or sign-out moves the watched folder, and that never counts as a delete.
 - A desktop file with unsent edits is kept: the edit wins.
 - The backup zip runs before writes, and deletes wait for the slicer to close.
@@ -112,6 +114,18 @@ Found on real installs on Windows 11: Bambu Studio 02.09.01.70 (profiles 02.09.0
 | Second PC, holding the file, after a cloud delete | **removed** at the first start, not re-uploaded (cloud delete made in the UI) | **removed** at the first start (cloud delete made by a tombstone) |
 | Second PC, downloading everything | not tested; the cloud's list no longer holds it | stays gone |
 | Signed out: `.json` removed | stays gone | stays gone |
+
+### Re-creating a name just deleted (Plan 5.4.0 Step 8, 2026-11-05)
+The same installs, all four logins. A preset was saved (and uploaded where signed in), deleted, then written back to disk as Install writes one: the connector's json, and in an account folder an `.info` with `sync_info = create` and no `setting_id`. Then two starts, each read from the folder, the `.info` and, for Orca, its log.
+
+| Test | Deleted with | Written back |
+|---|---|---|
+| Studio, signed out | the files removed | loads, stays |
+| Studio, signed in | Studio's UI: `.json` and `.info` both gone, the cloud copy too | uploaded as a new cloud copy (a new `setting_id`), stays |
+| Orca, signed out | the files removed | loads, stays |
+| Orca, OrcaCloud | a tombstone, confirmed by the cloud | uploaded again, with the same `setting_id` (it comes from the name), stays; the cloud lists it |
+
+Neither slicer remembers a deleted name, so Install can write a non-owner's removal back everywhere. A Studio UI delete leaves no `.info`, so a write-back always starts from a fresh `create`.
 
 ### System folder
 | Question | Result |
@@ -189,7 +203,7 @@ Other Orca versions weren't tested.
 - **A signed-in Studio can't be deleted from outside,** so an owner's delete still needs a person on those PCs.
 - **A non-owner can't get rid of a preset** while Install is on: it keeps coming back. Install is all or nothing per slicer.
 - **Names are shared per slicer and kind.** Two users with the same name and content have one preset, owned by whoever shared first, whose delete reaches the other's copy.
-- **Re-creating a name just deleted in the slicer is untested,** and a non-owner's write-back depends on it (Plan 5.4.0 Step 8).
+- **A non-owner's write-back rests on one PC's results** (re-creating a name just deleted, above): a slicer version that remembers deleted names would remove it again at each start.
 - **No real second PC:** a real one may differ from a restored folder, for example through its own sync state.
 - **Orca's tombstone handling is new** and comes from one rc on Windows. A version that lacks it would bring the file back, the same as Studio.
 - **Studio may add tombstone handling or change this,** so this result needs checking on new versions.

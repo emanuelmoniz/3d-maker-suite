@@ -161,6 +161,11 @@ export function Title({ a, inList }: { a: Alert; inList?: boolean }) {
           : "alerts:kinds.preset_skipped_json",
         { name: c.name },
       ),
+    preset_held: () =>
+      t(
+        c.reason === "shared" ? "alerts:kinds.preset_held_shared" : "alerts:kinds.preset_held_mass",
+        { name: c.name, count: Number(c.count) },
+      ),
   }[a.kind]();
   if (inList)
     return (
@@ -237,6 +242,7 @@ export function Title({ a, inList }: { a: Alert; inList?: boolean }) {
       );
     case "preset_conflict":
     case "preset_skipped":
+    case "preset_held":
       return (
         <Link to="/hub/presets" className={link}>
           {text}
@@ -397,6 +403,7 @@ const KIND_NAMES: Record<AlertKind, string> = {
   hub_mass_delete: "alerts:kindNames.hub_mass_delete",
   preset_conflict: "alerts:kindNames.preset_conflict",
   preset_skipped: "alerts:kindNames.preset_skipped",
+  preset_held: "alerts:kindNames.preset_held",
 };
 const STATUS: Record<AlertStatus, string> = {
   snoozed: "alerts:status.snoozed",

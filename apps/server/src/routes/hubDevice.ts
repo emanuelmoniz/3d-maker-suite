@@ -22,7 +22,10 @@ import {
   isPresetConflict,
   presetInstallItemSchema,
   presetInstallStatusSchema,
+  presetRemovalResultSchema,
+  presetRemovalsSchema,
   presetRemovedSchema,
+  presetShareStatusSchema,
   presetSkippedSchema,
   presetUploadResultSchema,
   presetUploadSchema,
@@ -36,7 +39,12 @@ import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
 import { presetLibrary } from "../integrations/capabilities.ts";
-import { presetRemovedOn, presetSkipped, uploadPreset } from "../integrations/presetLibrary.ts";
+import {
+  presetRemovedOn,
+  presetSkipped,
+  presetsRemoved,
+  uploadPreset,
+} from "../integrations/presetLibrary.ts";
 import type { WorkerSlicers } from "../integrations/workerSlicer.ts";
 import type { HubChannel } from "../lib/hubChannel.ts";
 import { readPreferences } from "../lib/preferences.ts";
@@ -297,16 +305,51 @@ export const hubDeviceRoutes =
         const res = uploadPreset(db, dataDir, req.body, device.id, {
           user: req.user?.displayName,
           device: device.name,
+          userId: device.userId,
         });
         if (res.result === "saved" || res.result === "conflict") onPresetSaved();
         return res;
       },
     );
+    // A connector before 5.4.0: its removal is only shown (ADR-0019's version gate).
     app.post(
       "/presets/removed",
       { schema: { body: presetRemovedSchema, response: { 204: z.null(), ...errors } } },
       async (req, reply) => {
         presetRemovedOn(db, req.body, sharing(req, req.body.library).id);
+        return reply.status(204).send(null);
+      },
+    );
+    app.post(
+      "/presets/removals",
+      {
+        bodyLimit: 4 * 1024 * 1024,
+        schema: {
+          body: presetRemovalsSchema,
+          response: { 200: presetRemovalResultSchema, ...errors },
+        },
+      },
+      async (req) => {
+        const device = sharing(req, req.body.library);
+        const res = presetsRemoved(db, dataDir, req.body, device, {
+          user: req.user?.displayName,
+          device: device.name,
+        });
+        // A held one's alert opens with the check after each change (app.ts).
+        if (res.some((r) => r.result === "deleted")) onPresetSaved();
+        return res;
+      },
+    );
+    app.put(
+      "/presets/share",
+      { schema: { body: presetShareStatusSchema, response: { 204: z.null(), ...errors } } },
+      async (req, reply) => {
+        db.update(devices)
+          .set({
+            presetAccounts: Object.fromEntries(req.body.map((s) => [s.library, s.account])),
+          })
+          .where(eq(devices.id, deviceOf(req)))
+          .run();
         return reply.status(204).send(null);
       },
     );
@@ -323,26 +366,33 @@ export const hubDeviceRoutes =
         throw new HttpError(403, "not_installing", "Install hub presets is off for this device");
       return device;
     };
+    const installList = (deviceId: string, deleted: boolean) =>
+      db
+        .select({
+          id: slicerPresets.id,
+          library: slicerPresets.library,
+          kind: slicerPresets.kind,
+          name: slicerPresets.name,
+          version: slicerPresets.version,
+          sha256: slicerPresets.sha256,
+          removedOn: slicerPresets.removedOn,
+        })
+        .from(slicerPresets)
+        .where(eq(slicerPresets.deleted, deleted))
+        .orderBy(asc(slicerPresets.name))
+        .all()
+        .filter((p) => !isPresetConflict(p.name))
+        .map(({ removedOn, ...p }) => ({ ...p, removedHere: removedOn.includes(deviceId) }));
     app.get(
       "/presets",
       { schema: { response: { 200: z.array(presetInstallItemSchema), ...errors } } },
-      async (req) => {
-        installing(req);
-        return db
-          .select({
-            id: slicerPresets.id,
-            library: slicerPresets.library,
-            kind: slicerPresets.kind,
-            name: slicerPresets.name,
-            version: slicerPresets.version,
-            sha256: slicerPresets.sha256,
-          })
-          .from(slicerPresets)
-          .where(eq(slicerPresets.deleted, false))
-          .orderBy(asc(slicerPresets.name))
-          .all()
-          .filter((p) => !isPresetConflict(p.name));
-      },
+      async (req) => installList(installing(req).id, false),
+    );
+    // Deleted on the hub (ADR-0019): a device removes its unedited copy.
+    app.get(
+      "/presets/deleted",
+      { schema: { response: { 200: z.array(presetInstallItemSchema), ...errors } } },
+      async (req) => installList(installing(req).id, true),
     );
     app.get(
       "/presets/:id",

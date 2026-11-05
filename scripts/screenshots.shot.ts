@@ -227,16 +227,18 @@ test("hub screenshots", async ({ page, app }) => {
   const { code } = await page.request
     .post("/api/hub/pairing-codes", { data: { userId: user.id } })
     .then((r) => r.json() as Promise<{ code: string }>);
+  // The hub's own version: an older one shows "update the connector" on the presets page.
+  const connectorVersion: string = JSON.parse(readFileSync("package.json", "utf8")).version;
   const { token } = await fetch(`${app.url}/api/hub/pair`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ code, name: "Desk PC", os: "win32", connectorVersion: "5.1.0" }),
+    body: JSON.stringify({ code, name: "Desk PC", os: "win32", connectorVersion }),
   }).then((r) => r.json() as Promise<{ token: string }>);
   // Online = its event stream is open, as a running connector holds it (the stream stays open).
   const events = await fetch(`${app.url}/api/hub/events`, {
     headers: {
       authorization: `Bearer ${token}`,
-      "x-connector-version": "5.1.0",
+      "x-connector-version": connectorVersion,
       "x-connector-os": "win32 x64",
     },
   });

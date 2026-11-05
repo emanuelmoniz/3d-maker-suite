@@ -53,6 +53,11 @@ export const desktopSlicerSchema = z.object({
   uploadsDiskEdits: z.boolean(),
   /** Seconds an `update`'s `updated_time` leads real time, to look newer than its cloud's copy. */
   cloudClockLeadS: z.number().int().nonnegative(),
+  /**
+   * Its cloud deletes a preset whose `.info` says `sync_info = delete` with no `.json` (ADR-0019).
+   * False = a delete in a signed-in account folder needs a person in the slicer.
+   */
+  tombstones: z.boolean(),
 });
 /** A slicer the connector found (`PUT /api/hub/device/slicers`); `id` as in `desktopSlicerSchema`. */
 export const deviceSlicerSchema = z.object({

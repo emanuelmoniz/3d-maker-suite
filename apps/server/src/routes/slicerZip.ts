@@ -80,8 +80,10 @@ export const slicerZipRoutes =
         const uploadId = crypto.randomUUID();
         await unpackSlicerZip(base, uploadId, source, req.body);
         // The upload goes after a day; server and worker slicers keep its presets to slice with.
+        // The uploader owns the presets the zip brings first (ADR-0019).
         keepPresets(db, dataDir, syncer.adapters, source, openUpload(base, uploadId).root, {
           user: req.user?.displayName,
+          userId: req.user?.id,
         });
         onPresetSaved();
         return { uploadId };

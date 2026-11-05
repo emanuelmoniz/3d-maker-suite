@@ -80,11 +80,17 @@ test("hub presets: two PCs' zips in one library, versions, delete", async ({ pag
 
   await page.getByRole("button", { name: "Delete Silk" }).click();
   const confirm = page.getByRole("dialog").filter({ hasText: "Delete Silk?" });
-  await expect(confirm).toContainText("Workstations keep their own copy");
+  await expect(confirm).toContainText("every device with Install hub presets on");
   await confirm.getByRole("button", { name: "Delete preset" }).click();
   await expect(page.getByText("No preset of this type has that in its name.")).toBeVisible();
   await page.getByRole("searchbox", { name: "Find a preset" }).fill("");
   await expect(page.getByRole("button", { name: "Filament (1)" })).toBeVisible();
+
+  // Restore (ADR-0019): from the deleted list, as its next version.
+  await page.getByText("1 deleted preset").click();
+  await page.getByRole("button", { name: "Restore Silk" }).click();
+  await expect(page.getByRole("button", { name: "Filament (2)" })).toBeVisible();
+  await expect(page.getByText("1 deleted preset")).toHaveCount(0);
 
   await page.setViewportSize({ width: 375, height: 800 });
   expect(await hasHorizontalScroll(page)).toBe(false);
@@ -282,4 +288,38 @@ test("share my presets: the switch, a device's preset, a conflict copy, a deskto
   await expect(
     page.getByText(/Slicer preset Farm PLA changed on the hub and on Desk PC/),
   ).toBeVisible();
+
+  // Today's connector (ADR-0019): its user's presets, more at once than the limit, wait for a person.
+  await page.request.patch("/api/preferences", { data: { hubDeleteGuard: 1 } });
+  const silk = await device("PUT", "/presets", {
+    library: "bambu-studio",
+    kind: "filament",
+    name: "Silk",
+    base: 0,
+    text: JSON.stringify({ name: "Silk" }),
+  });
+  expect(silk.status).toBe(200);
+  const removals = await device("POST", "/presets/removals", {
+    library: "bambu-studio",
+    account: "default",
+    removed: [
+      { kind: "filament", name: "Farm PLA" },
+      { kind: "filament", name: "Silk" },
+    ],
+  });
+  expect((await removals.json()).map((r: { result: string }) => r.result)).toEqual([
+    "held",
+    "held",
+  ]);
+  await page.reload();
+  await expect(
+    page.getByText("Desk PC removed 2 slicer presets at once; they stay until someone deletes"),
+  ).toBeVisible();
+  await page.goto("/hub/presets");
+  const held = page.getByRole("region", { name: "Deletes waiting for you" });
+  await expect(held).toContainText("Desk PC removed 2 presets at once");
+  await expect(row).toContainText("Removed on Desk PC with many others at once");
+  await held.getByRole("button", { name: "Delete the presets removed on Desk PC" }).click();
+  await expect(held).toHaveCount(0);
+  await expect(page.getByText("2 deleted presets")).toBeVisible();
 });

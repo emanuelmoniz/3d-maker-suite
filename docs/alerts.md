@@ -15,7 +15,7 @@ Each kind of alert needs a permission, and a user never gets a kind whose permis
 | Sync done, sync failed | Sync integrations |
 | Slice setup changed, slice failed | Projects (read), and the project visible |
 | Hub file conflict | Projects (read) |
-| Preset conflict, preset skipped | Manage slicer presets |
+| Preset conflict, preset skipped, preset deletes held | Manage slicer presets |
 | Update available | Server settings |
 | Slicer update | Manage integrations |
 | Connector outdated, mass delete blocked | Manage the hub |

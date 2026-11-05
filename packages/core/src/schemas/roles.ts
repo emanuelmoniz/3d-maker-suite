@@ -254,6 +254,7 @@ export const ALERT_KIND_CATALOG: Record<AlertKind, KindRule> = {
   hub_mass_delete: { needs: (p) => p["hub.manage"], condition: true, default: "app" },
   preset_conflict: { needs: (p) => p["presets.manage"], condition: false, default: "app" },
   preset_skipped: { needs: (p) => p["presets.manage"], condition: false, default: "app" },
+  preset_held: { needs: (p) => p["presets.manage"], condition: true, default: "app" },
 };
 
 const subscription = z.enum(ALERT_SUBSCRIPTIONS);

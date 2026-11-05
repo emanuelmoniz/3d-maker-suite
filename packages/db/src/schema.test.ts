@@ -874,8 +874,8 @@ describe("migration 0088", () => {
       spool_no_price: "off",
       spool_no_open_date: "off",
     });
-    // The 15 kinds of 0088, and the two preset kinds 0090 adds.
-    expect(Object.keys(off.admin ?? {})).toHaveLength(17);
+    // The 15 kinds of 0088, the two preset kinds 0090 adds and 0101's.
+    expect(Object.keys(off.admin ?? {})).toHaveLength(18);
     expect([off.editor, off.viewer, off.nf]).toEqual([{}, {}, {}]);
 
     const on = kinds({ price: true, openDate: true });
@@ -885,6 +885,49 @@ describe("migration 0088", () => {
     expect([on.editor, on.viewer, on.nf]).toEqual([both, both, {}]);
 
     expect(kinds({ price: true }).viewer).toEqual({ spool_no_price: "app" });
+  });
+});
+
+describe("migration 0101", () => {
+  it("keeps presets, versions and alert states; owners start empty and go with their user", () => {
+    const now = migrateAcross(100, (sqlite) => {
+      const run = (q: string) => sqlite.prepare(q).run();
+      run(
+        `insert into users (id, email, display_name, password_hash, role_id, created_at, updated_at) values ('u', 'u@x.io', 'u', 'x', '${BUILT_IN_ROLE_IDS.admin}', 'x', 'x')`,
+      );
+      run(
+        "insert into slicer_presets (id, library, kind, name, json, sha256, version, seq, saved_at) values ('p', 'bambu-studio', 'filament', 'P', '{}', 's', 2, 1, 'x')",
+      );
+      run(
+        "insert into slicer_preset_versions (id, preset_id, version, json, sha256, saved_at) values ('v', 'p', 1, '{}', 's1', 'x')",
+      );
+      run(
+        "insert into alerts (id, kind, severity, module, task, entity_type, entity_id, created_at) values ('a', 'preset_conflict', 'warning', 'hub', 't', 'preset', 'p', 'x')",
+      );
+      run(
+        `insert into alert_states (alert_id, user_id, read_at, updated_at) values ('a', 'u', 'r', 'x')`,
+      );
+    });
+    expect(now.select().from(s.slicerPresets).get()).toMatchObject({
+      ownerUserId: null,
+      heldBy: null,
+      heldReason: null,
+    });
+    expect(now.select().from(s.slicerPresetVersions).all()).toHaveLength(1);
+    expect(now.select().from(s.alertStates).all()).toEqual([
+      expect.objectContaining({ alertId: "a", readAt: "r" }),
+    ]);
+    const admin = now
+      .select()
+      .from(s.roles)
+      .all()
+      .find((r) => r.builtIn === "admin");
+    expect(admin?.alertKinds.preset_held).toBe("notify");
+
+    // A deleted owner leaves the preset with none, so only presets.manage deletes it.
+    now.update(s.slicerPresets).set({ ownerUserId: "u" }).run();
+    now.delete(s.users).run();
+    expect(now.select().from(s.slicerPresets).get()?.ownerUserId).toBeNull();
   });
 });
 
