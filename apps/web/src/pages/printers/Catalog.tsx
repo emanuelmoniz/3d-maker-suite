@@ -159,19 +159,19 @@ export function Catalog() {
   ]
     .filter((l): l is string => !!l)
     .map((l) => ({ value: l, label: slicerName(l) }));
-  const slicerColumn = <T,>(
-    libs: (row: T) => Iterable<string | null>,
-    filterable = true,
-  ): Column<T> => ({
+  const slicerColumn = <T,>(libs: (row: T) => Iterable<string | null>): Column<T> => ({
     id: "slicer",
     header: t("printers:catalog.slicer"),
     cell: (r) => slicers(libs(r)),
-    ...(filterable && { filter: "slicer", filterOptions: slicerOptions }),
+    sort: "slicer",
+    filter: "slicer",
+    filterOptions: slicerOptions,
   });
   const brandColumn = <T,>(modelId: (row: T) => string | null): Column<T> => ({
     id: "brand",
     header: t("printers:catalog.models.brand"),
     cell: (r) => info.get(modelId(r) ?? "")?.brand?.name ?? none,
+    sort: "brand",
     filter: "brandId",
     filterOptions: brands.map((b) => ({ value: b.id, label: b.name })),
   });
@@ -212,7 +212,7 @@ export function Catalog() {
                 none
               ),
           },
-          slicerColumn<Brand>((b) => brandLibraries(b.id), false),
+          slicerColumn<Brand>((b) => brandLibraries(b.id)),
         ]}
       />
       <Section<PrinterModel>

@@ -62,13 +62,14 @@ export const printProfilePatchSchema = printProfileInputSchema
   .extend({ archived: z.boolean().optional() })
   .strict();
 
-export const brandSortFields = ["name", "createdAt"] as const;
-export const brandFilters = { name: { kind: "text" } } as const satisfies Record<
-  string,
-  ColumnFilter
->;
+export const brandSortFields = ["name", "slicer", "createdAt"] as const;
+export const brandFilters = {
+  name: { kind: "text" },
+  /** Slicer libraries (`bambu-studio`) of the profiles of the brand's models. */
+  slicer: { kind: "select" },
+} as const satisfies Record<string, ColumnFilter>;
 /** `model` sorts and filters on "Brand Model". */
-export const printerModelSortFields = ["model", "brand", "createdAt", "powerW"] as const;
+export const printerModelSortFields = ["model", "brand", "slicer", "createdAt", "powerW"] as const;
 export const printerModelFilters = {
   model: { kind: "text" },
   brandId: { kind: "select" },
@@ -76,7 +77,14 @@ export const printerModelFilters = {
   /** Slicer libraries (`bambu-studio`) of the model's profiles. */
   slicer: { kind: "select" },
 } as const satisfies Record<string, ColumnFilter>;
-export const machineProfileSortFields = ["name", "model", "createdAt", "nozzleDiameterMm"] as const;
+export const machineProfileSortFields = [
+  "name",
+  "model",
+  "brand",
+  "slicer",
+  "createdAt",
+  "nozzleDiameterMm",
+] as const;
 export const machineProfileFilters = {
   name: { kind: "text" },
   printerModelId: { kind: "select" },
@@ -89,6 +97,8 @@ export const machineProfileFilters = {
 export const printProfileSortFields = [
   "name",
   "model",
+  "brand",
+  "slicer",
   "createdAt",
   "nozzleDiameterMm",
   "layerHeightMm",

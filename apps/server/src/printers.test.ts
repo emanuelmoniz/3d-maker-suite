@@ -264,6 +264,13 @@ describe("catalog: brands, printer models, machine profiles", () => {
     expect(await total("/api/print-profiles?slicer=orca-slicer,bambu-studio")).toBe(1);
     expect(await total("/api/printer-models?slicer=orca-slicer")).toBe(1);
     expect(await total("/api/printer-models?slicer=orca-slicer,bambu-studio")).toBe(2);
+    expect(await total("/api/brands?slicer=bambu-studio")).toBe(1);
+    const names = async (url: string) =>
+      (await app.inject(url)).json().items.map((i: { name: string }) => i.name);
+    expect(await names("/api/brands?sort=-slicer")).toEqual(["Acme", "Zed"]);
+    expect(await names("/api/machine-profiles?sort=-brand")).toEqual(["M2", "M1"]);
+    expect(await names("/api/machine-profiles?sort=slicer")).toEqual(["M2", "M1"]);
+    expect(await names("/api/print-profiles?sort=slicer")).toEqual(["P1"]);
   });
 
   it("model image and brand logo", async () => {

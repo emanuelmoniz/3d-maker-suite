@@ -1,5 +1,5 @@
 import { type Db, schema } from "@3d-maker-suite/db";
-import { and, eq, getTableColumns, isNull, type SQLWrapper, sql } from "drizzle-orm";
+import { and, eq, getTableColumns, isNull, or, type SQL, type SQLWrapper, sql } from "drizzle-orm";
 
 const { brands, deletedSources, printerModels } = schema;
 
@@ -21,6 +21,37 @@ export const libraryOf = (preset: SQLWrapper) =>
 /** The brand id of the printer model `modelId` points at (for filters on other tables). */
 export const modelBrandId = (modelId: SQLWrapper) =>
   sql`(SELECT ${printerModels.brandId} FROM ${printerModels} WHERE ${printerModels.id} = ${modelId})`;
+
+/** The brand name of the printer model `modelId` points at (for sorts on other tables). */
+export const modelBrandName = (modelId: SQLWrapper) =>
+  sql`(SELECT ${brands.name} FROM ${printerModels} JOIN ${brands} ON ${brands.id} = ${printerModels.brandId}
+    WHERE ${printerModels.id} = ${modelId}) COLLATE NOCASE`;
+
+/**
+ * "bambu-studio, orca-slicer": the slicer libraries of the active profiles of the models that
+ * `inModels` accepts (given a profile's model id), for the sort and filter of brands and models.
+ */
+const slicersOf = (inModels: (modelId: SQLWrapper) => SQL) => {
+  const { machineProfiles: mp, printProfiles: pp } = schema;
+  return sql`(SELECT group_concat(lib, ', ') FROM (
+    SELECT ${libraryOf(mp.sourcePreset)} AS lib FROM ${mp}
+      WHERE ${mp.archivedAt} IS NULL AND ${inModels(mp.printerModelId)}
+    UNION
+    SELECT ${libraryOf(pp.sourcePreset)} FROM ${pp}
+      WHERE ${pp.archivedAt} IS NULL AND ${inModels(pp.printerModelId)}
+    ORDER BY 1) WHERE lib IS NOT NULL)`;
+};
+export const modelSlicers = slicersOf((id) => sql`${id} = ${printerModels.id}`);
+export const brandSlicers = slicersOf(
+  (id) =>
+    sql`${id} IN (SELECT ${printerModels.id} FROM ${printerModels} WHERE ${printerModels.brandId} = ${brands.id})`,
+);
+
+/** A `where` for `?slicer=a,b`: the row's slicers (`modelSlicers`, `brandSlicers`) include any. */
+export const hasSlicer =
+  (slicers: SQL) =>
+  ({ slicer }: { slicer?: string[] }) =>
+    slicer && or(...slicer.map((s) => sql`instr(', ' || ${slicers} || ', ', ${`, ${s}, `}) > 0`));
 
 /** What `deleted_sources` knows a row that matches by name by (ADR-0018). */
 export const nameKey = (...names: (string | null | undefined)[]) =>

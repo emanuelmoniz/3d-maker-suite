@@ -34,13 +34,23 @@ import {
   printProfileSortFields,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
-import { and, eq, inArray, isNull, or, type SQL, sql } from "drizzle-orm";
+import { eq, type SQL, sql } from "drizzle-orm";
 import type { SQLiteColumn, SQLiteTable } from "drizzle-orm/sqlite-core";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
 import { archivedAtOf, archivedWhere, assertPresetFree } from "../lib/archive.ts";
-import { brandModel, brandOf, libraryOf, modelBrandId, modelName } from "../lib/catalog.ts";
+import {
+  brandModel,
+  brandOf,
+  brandSlicers,
+  hasSlicer,
+  libraryOf,
+  modelBrandId,
+  modelBrandName,
+  modelName,
+  modelSlicers,
+} from "../lib/catalog.ts";
 import { deleteItem, type ItemKind } from "../lib/dependents.ts";
 import { imageRoutes } from "../lib/images.ts";
 import { type ListOptions, listPage } from "../lib/list.ts";
@@ -179,8 +189,13 @@ export const brandsRoutes = (db: Db, dataDir: string) =>
     input: brandInputSchema,
     patch: brandPatchSchema,
     query: listQuery(brandSortFields, { archived: archivedFilter }, brandFilters),
+    where: hasSlicer(brandSlicers),
     list: {
-      sort: { name: sql`${brands.name} COLLATE NOCASE`, createdAt: brands.createdAt },
+      sort: {
+        name: sql`${brands.name} COLLATE NOCASE`,
+        slicer: brandSlicers,
+        createdAt: brands.createdAt,
+      },
       filters: { name: brands.name },
     },
     image: { name: "logo", dir: "brands", column: "logoPath" },
@@ -195,24 +210,12 @@ export const printerModelsRoutes = (db: Db, dataDir: string) =>
     input: printerModelInputSchema,
     patch: printerModelPatchSchema,
     query: listQuery(printerModelSortFields, { archived: archivedFilter }, printerModelFilters),
-    // A model's slicers are those of its active profiles.
-    where: ({ slicer }) =>
-      slicer &&
-      or(
-        ...[machineProfiles, printProfiles].map((t) =>
-          inArray(
-            printerModels.id,
-            db
-              .select({ id: t.printerModelId })
-              .from(t)
-              .where(and(isNull(t.archivedAt), inArray(libraryOf(t.sourcePreset), slicer))),
-          ),
-        ),
-      ),
+    where: hasSlicer(modelSlicers),
     list: {
       sort: {
         model: sql`${brandModel(brandOf, printerModels.model)} COLLATE NOCASE`,
         brand: sql`${brandOf} COLLATE NOCASE`,
+        slicer: modelSlicers,
         createdAt: printerModels.createdAt,
         powerW: printerModels.powerW,
       },
@@ -239,6 +242,8 @@ export const machineProfilesRoutes = (db: Db, dataDir: string) =>
       sort: {
         name: sql`${machineProfiles.name} COLLATE NOCASE`,
         model: modelName(machineProfiles.printerModelId),
+        brand: modelBrandName(machineProfiles.printerModelId),
+        slicer: libraryOf(machineProfiles.sourcePreset),
         createdAt: machineProfiles.createdAt,
         nozzleDiameterMm: machineProfiles.nozzleDiameterMm,
       },
@@ -266,6 +271,8 @@ export const printProfilesRoutes = (db: Db, dataDir: string) =>
       sort: {
         name: sql`${printProfiles.name} COLLATE NOCASE`,
         model: modelName(printProfiles.printerModelId),
+        brand: modelBrandName(printProfiles.printerModelId),
+        slicer: libraryOf(printProfiles.sourcePreset),
         createdAt: printProfiles.createdAt,
         nozzleDiameterMm: printProfiles.nozzleDiameterMm,
         layerHeightMm: printProfiles.layerHeightMm,
