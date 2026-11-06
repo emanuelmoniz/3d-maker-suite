@@ -171,8 +171,8 @@ describe("POST /api/bulk/:kind", () => {
 
 describe("who may", () => {
   /** A row of each module, made while the app is still in the no-users mode. */
-  const row: [BulkKind, "printers" | "costs", () => Promise<string>][] = [
-    ["brands", "printers", () => made("/api/brands", { name: `B${++n}` })],
+  const row: [BulkKind, "catalog" | "costs", () => Promise<string>][] = [
+    ["brands", "catalog", () => made("/api/brands", { name: `B${++n}` })],
     ["clients", "costs", client],
   ];
 

@@ -367,10 +367,10 @@ function Slicing({ device: d }: { device: Device }) {
   );
 }
 
-/** Install hub presets on this device, for those who may see it (presets.manage). */
+/** Install hub presets on this device, for those who may see it (catalog write). */
 function PresetsCard({ device: d }: { device: Device }) {
   const { t } = useTranslation();
-  const allowed = useCan("presets.manage");
+  const allowed = useCan("catalog", "write");
   const status = usePresetDevices(allowed).data?.find((p) => p.id === d.id);
   if (!status?.installPresets) return null;
   return (

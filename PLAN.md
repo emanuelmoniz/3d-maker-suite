@@ -2092,7 +2092,7 @@ Do Step 10 of the 5.4.0 plan in PLAN.md. Guide me through each scenario and fix 
 
 Rewritten after Step 10 (2026-11-06, ADR-0020). It replaces the old Steps 11 to 14 (grouped slicer cards, preset switches on "Runs on", presets on the slicer card, a Read catalog button), which moved data and settings onto the slicer card. The data model changes first, so no page is built with profile forms or "How to sync" only to lose them.
 
-### [ ] Step 11 - The `catalog` permission  **[plan mode]**
+### [x] Step 11 - The `catalog` permission  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:**
 - `catalog` (none · read · write · manage) in `permissionsSchema`, `NO_RIGHTS` and `BUILT_IN_RIGHTS` (`schemas/roles.ts`); `presets.manage` goes.

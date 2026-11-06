@@ -50,6 +50,7 @@ const GROUPS: { title: string; rows: Row[] }[] = [
       mod("prints", "users:rights.prints", "users:rights.printsHint"),
       mod("costs", "users:rights.costs", "users:rights.costsHint"),
       mod("stats", "users:rights.stats", "users:rights.statsHint"),
+      mod("catalog", "users:rights.catalog", "users:rights.catalogHint"),
     ],
   },
   {
@@ -87,7 +88,6 @@ const GROUPS: { title: string; rows: Row[] }[] = [
     title: "users:rights.groups.admin",
     rows: [
       on("permissions", "hub.manage", "users:rights.hub", "users:rights.hubHint"),
-      on("permissions", "presets.manage", "users:rights.presets", "users:rights.presetsHint"),
       on("permissions", "settings.server", "users:rights.server", "users:rights.serverHint"),
       on("permissions", "settings.backup", "users:rights.backup", "users:rights.backupHint"),
       on("permissions", "settings.logs", "users:rights.logs", "users:rights.logsHint"),

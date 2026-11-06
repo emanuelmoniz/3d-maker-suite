@@ -92,7 +92,9 @@ const BULK: Need = (r, m) => {
 
 /** `^/api/(a|b)` followed by a slash or the end. */
 const p = (prefixes: string) => new RegExp(`^/api/(${prefixes})(/|$)`);
-const PRINTERS = "printers|accessories|brands|printer-models|machine-profiles|print-profiles";
+const PRINTERS = "printers|accessories";
+const CATALOG =
+  "brands|printer-models|machine-profiles|print-profiles|filament/profiles|filament-brands|filament-materials";
 const ROOTS_OR_SLICERS = either(at("projects", "write"), on("integrations.manage"));
 
 // ADR-0016 permission table: [path, methods (R = GET/HEAD, W = the rest, * = all, or one method),
@@ -116,6 +118,9 @@ const RULES: [RegExp, string, Need][] = [
   [p("tags"), "R", SESSION],
   [p("tags"), "W", ANY_WRITE],
   [/^\/api\/bulk\/([^/]+)$/, "POST", BULK],
+  // ADR-0020: the printer, spool and print forms' pickers read the catalog without `catalog`.
+  [p(CATALOG), "R", either(at("printers", "read"), at("filament", "read"), at("catalog", "read"))],
+  [p(CATALOG), "W", at("catalog", "manage")],
   [p(PRINTERS), "R", at("printers", "read")],
   // Logging work on accessories is write; their setup, and the printers', is manage.
   [/^\/api\/accessories\/[^/]+\/installs(\/|$)/, "W", at("printers", "write")],
@@ -123,8 +128,7 @@ const RULES: [RegExp, string, Need][] = [
   [p("maintenance"), "R", at("maintenance", "read")],
   [/^\/api\/maintenance\/tasks$/, "POST", at("maintenance", "write")],
   [p("maintenance"), "W", at("maintenance", "manage")],
-  [p("filament|filament-brands|filament-materials"), "R", at("filament", "read")],
-  [p("filament/profiles|filament-brands|filament-materials"), "W", at("filament", "manage")],
+  [p("filament"), "R", at("filament", "read")],
   [p("filament"), "W", at("filament", "write")],
   // Changing the root of many projects; each project and the root are checked by the route too.
   [/^\/api\/projects\/(folders|relink)$/, "*", at("projects", "manage")],
@@ -148,6 +152,12 @@ const RULES: [RegExp, string, Need][] = [
     "POST",
     either(on("integrations.sync"), on("integrations.manage")),
   ],
+  // Catalog import cards are catalog manage, the rest integrations.manage: narrowed by the route.
+  [
+    /^\/api\/integrations\/[^/]+$/,
+    "PATCH",
+    either(on("integrations.manage"), at("catalog", "manage")),
+  ],
   // The setup fields are left out without integrations.manage (route).
   [p("integrations"), "R", SESSION],
   [
@@ -157,10 +167,11 @@ const RULES: [RegExp, string, Need][] = [
   ],
   [p("integrations|import|slicer-zip"), "*", on("integrations.manage")],
   [p("hub"), "*", on("hub.manage")],
-  // ADR-0017: who sees projects sees what slices them; the device switches are presets.manage.
-  [p("presets/devices"), "*", on("presets.manage")],
-  [p("presets"), "R", at("projects", "read")],
-  [p("presets"), "W", on("presets.manage")],
+  // ADR-0017, ADR-0020: who sees projects sees what slices them; changing them and the device
+  // switches is catalog write.
+  [p("presets/devices"), "*", at("catalog", "write")],
+  [p("presets"), "R", either(at("projects", "read"), at("catalog", "read"))],
+  [p("presets"), "W", at("catalog", "write")],
   [p("server-config|updates|docs"), "*", on("settings.server")],
   // A restored database carries anyone's rights.
   [/^\/api\/backups\/[^/]+\/restore$/, "*", ADMIN_ROLE],

@@ -355,7 +355,7 @@ function PresetDevices() {
 export function PresetsPage() {
   const { t } = useTranslation();
   const presets = usePresets();
-  const manage = useCan("presets.manage");
+  const manage = useCan("catalog", "write");
   const integrations = useCan("integrations.manage");
   const hub = useCan("hub.manage");
   const libName = useLibraryName();

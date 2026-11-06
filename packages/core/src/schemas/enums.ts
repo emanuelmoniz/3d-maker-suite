@@ -111,6 +111,9 @@ export const SYNC_TYPES = [
   "filamentProfiles",
   ...USER_PRESET_TYPES,
 ] as const;
+/** The types that fill the catalog (ADR-0020): their import cards need `catalog` manage. */
+export const isCatalogType = (t: string) =>
+  (SYNC_TYPES as readonly string[]).includes(t) && !["printers", "prints", "spools"].includes(t);
 // Per integration and type: switched off, run by hand only, or run by the scheduler too.
 export const SYNC_MODES = ["off", "manual", "auto"] as const;
 // How often the scheduler runs an `auto` type ("1M" = 30 days). Ticks every 15 minutes.

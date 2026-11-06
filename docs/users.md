@@ -32,12 +32,15 @@ Modules have four steps: **None** (hidden), **Read**, **Write** and **Manage**.
 
 | Module | Write | Manage |
 |---|---|---|
-| Printers and accessories | Log accessory installs | Add and edit printers, accessories and the catalog |
+| Printers and accessories | Log accessory installs | Add and edit printers and accessories |
 | Maintenance | Log work done | Edit the tasks and types |
-| Filament | Add and edit spools | Edit profiles, brands and materials |
+| Filament | Add and edit spools | Archive and delete many spools at once |
 | Projects | Add and edit projects and their files | Set up the project folders |
 | Prints | Log and edit prints | Change print settings |
 | Quotes, orders and clients | Make quotes and orders | Change rates, currency and order statuses |
+| Catalog | Delete and restore hub presets, clean up conflict copies and held deletes, set what each workstation sends and installs | Add, edit, archive and delete brands, models, materials and profiles, and their import settings in Integrations |
+
+With **Catalog** at Read, a user sees the catalog and the slicer presets. The printer, spool and print forms read brands, models, materials and profiles with Printers or Filament read too, and the presets are readable with Projects read.
 
 **Stats** is None or Read. The rest are on or off:
 

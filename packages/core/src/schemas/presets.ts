@@ -35,7 +35,7 @@ export const slicerPresetSchema = z.object({
   version: z.number().int(),
   sha256: z.string(),
   conflict: z.boolean(),
-  /** Who first shared it (their name now); null = nobody known, only `presets.manage` deletes it. */
+  /** Who first shared it (their name now); null = nobody known, only `catalog` write deletes it. */
   owner: z.string().nullable(),
   /** The devices that deleted their copy (their names now). */
   removedOn: z.array(z.string()),

@@ -5,6 +5,7 @@ import {
   type Capability,
   type Integration,
   isAction,
+  isCatalogType,
   isUserPresetType,
   type NewSpoolField,
   REVIEWED_TYPES,
@@ -294,8 +295,9 @@ function PolicyRow({
   const navigate = useNavigate();
   const detailsId = useId();
   const [open, setOpen] = useState(false);
-  // An editor gets the buttons their flags allow and no settings (ADR-0012).
-  const admin = useCan("integrations.manage");
+  // An editor gets the buttons their flags allow and no settings (ADR-0012); catalog cards are
+  // catalog manage (ADR-0020).
+  const admin = useCan(isCatalogType(p.type) ? "catalog" : "integrations.manage", "manage");
   const accounts = !!useMe();
   const may = useMayTask();
   const name = t(CAPS[p.type]);

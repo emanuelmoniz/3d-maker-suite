@@ -36,10 +36,6 @@ export const IMAGE_OF = {
   "filament-brands": "logo",
 } as const;
 
-/** The permission module that manages a catalog. */
-export const catalogModule = (kind: CatalogKind) =>
-  kind.startsWith("filament") ? "filament" : "printers";
-
 /** Every active row of a catalog (the API caps a page at 100); archived too to name what a row points at. */
 const useAll = <K extends CatalogKind>(kind: K, withArchived = false) =>
   useQuery({

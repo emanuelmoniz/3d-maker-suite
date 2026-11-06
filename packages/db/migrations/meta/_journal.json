@@ -722,6 +722,13 @@
       "when": 1793917217644,
       "tag": "0102_cloud_presets",
       "breakpoints": true
+    },
+    {
+      "idx": 103,
+      "version": "6",
+      "when": 1793956241475,
+      "tag": "0103_catalog_permission",
+      "breakpoints": true
     }
   ]
 }

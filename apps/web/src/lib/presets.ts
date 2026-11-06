@@ -25,7 +25,7 @@ export const usePresetDetail = (id: string, enabled: boolean) =>
 export const presetDownloadUrl = (id: string, version?: number) =>
   `/api/presets/${id}/download${version === undefined ? "" : `?version=${version}`}`;
 
-/** Devices with a slicer, their two switches and install status; `enabled`: presets.manage. */
+/** Devices with a slicer, their two switches and install status; `enabled`: catalog write. */
 export const usePresetDevices = (enabled: boolean) =>
   useQuery({
     queryKey: [...KEY, "devices"],
@@ -51,7 +51,7 @@ export function useDeletePreset() {
   });
 }
 
-/** Deleted presets, for Restore (ADR-0019); only fetched while `enabled` (presets.manage). */
+/** Deleted presets, for Restore (ADR-0019); only fetched while `enabled` (catalog write). */
 export const useDeletedPresets = (enabled: boolean) =>
   useQuery({
     queryKey: [...KEY, "deleted"],

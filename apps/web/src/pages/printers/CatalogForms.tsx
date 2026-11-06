@@ -12,7 +12,6 @@ import { Write } from "../../components/Write.tsx";
 import {
   type CatalogKind,
   type CatalogRow,
-  catalogModule,
   type IMAGE_OF,
   imageUrl,
   isConflict,
@@ -224,7 +223,7 @@ export function CatalogForm<K extends CatalogKind>(props: {
         description={row?.archivedAt && <ArchivedBadge />}
         actions={
           row && (
-            <Write can={catalogModule(props.kind)} level="manage">
+            <Write can="catalog" level="manage">
               <ArchiveActions
                 path={`/api/${props.kind}/${row.id}`}
                 name={"name" in row ? row.name : row.model}

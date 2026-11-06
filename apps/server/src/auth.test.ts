@@ -111,7 +111,7 @@ const MATRIX: Record<string, [viewer: string, editor: string]> = {
   "/api/roles": ["-", "-"],
   "/api/hub/devices": ["-", "-"],
   "/api/hub/pairing-codes": ["-", "-"],
-  // ADR-0017: who sees projects sees the presets; presets.manage (Editor by migration 0090) deletes.
+  // ADR-0017, ADR-0020: who sees projects sees the presets; catalog write (Editor by 0103) deletes.
   "/api/presets": ["R", "RW"],
   "/api/presets/abc": ["R", "RW"],
   "/api/presets/devices": ["-", "RW"],
@@ -153,8 +153,8 @@ describe("permissions", () => {
     const rights = (permissions: Partial<EffectiveRights["permissions"]>) =>
       effectiveRights({ builtIn: null, permissions });
     const helper = rights({ filament: "manage", "settings.backup": true });
-    expect(can(helper, "/api/filament/profiles", "POST")).toBe(true);
-    expect(can(helper, "/api/filament-brands", "PATCH")).toBe(true);
+    expect(can(helper, "/api/filament/spools", "POST")).toBe(true);
+    expect(can(helper, "/api/bulk/spools", "POST")).toBe(true);
     expect(can(helper, "/api/printers", "GET")).toBe(false);
     expect(can(helper, "/api/backups", "POST")).toBe(true);
     // Restore stays with the Admin role: a restored database carries anyone's rights.
@@ -170,6 +170,71 @@ describe("permissions", () => {
     const hub = rights({ "hub.manage": true });
     expect(can(hub, "/api/hub/devices", "GET")).toBe(true);
     expect(can(hub, "/api/not-yet-in-the-table", "GET")).toBe(false);
+  });
+
+  it("catalog (ADR-0020): pickers read with printers or filament, edits need catalog manage", () => {
+    const rights = (permissions: Partial<EffectiveRights["permissions"]>) =>
+      effectiveRights({ builtIn: null, permissions });
+    const modules = rights({ printers: "manage", filament: "manage" });
+    for (const url of ["/api/brands", "/api/filament/profiles", "/api/filament-materials"]) {
+      expect(can(rights({ filament: "read" }), url, "GET")).toBe(true);
+      expect(can(rights({ catalog: "read" }), url, "GET")).toBe(true);
+      expect(can(modules, url, "POST")).toBe(false);
+    }
+    expect(can(modules, "/api/bulk/brands", "POST")).toBe(false);
+    expect(can(modules, "/api/integrations/abc", "PATCH")).toBe(false);
+
+    const manage = rights({ catalog: "manage" });
+    expect(can(manage, "/api/brands", "POST")).toBe(true);
+    expect(can(manage, "/api/filament/profiles/abc", "DELETE")).toBe(true);
+    expect(can(manage, "/api/bulk/filament-materials", "POST")).toBe(true);
+    expect(can(manage, "/api/filament/spools", "GET")).toBe(false);
+    expect(can(manage, "/api/printers", "GET")).toBe(false);
+    // The route narrows it to the catalog cards (the next test).
+    expect(can(manage, "/api/integrations/abc", "PATCH")).toBe(true);
+    expect(can(manage, "/api/integrations/abc", "DELETE")).toBe(false);
+
+    const read = rights({ catalog: "read" });
+    expect(can(read, "/api/presets", "GET")).toBe(true);
+    expect(can(read, "/api/presets/abc", "DELETE")).toBe(false);
+    expect(can(read, "/api/presets/devices", "GET")).toBe(false);
+    const write = rights({ catalog: "write" });
+    expect(can(write, "/api/presets/abc", "DELETE")).toBe(true);
+    expect(can(write, "/api/presets/devices/abc", "PATCH")).toBe(true);
+    expect(can(write, "/api/brands", "POST")).toBe(false);
+  });
+
+  it("integration PATCH: catalog cards need catalog manage, the rest integrations.manage", async () => {
+    const { db, app } = await setup({ adapters: [mockAdapter(fixture())] });
+    addUser(db, "admin");
+    const admin = as(app, cookieOf(await login(app, "admin@x.io")));
+    const { id } = (
+      await admin.send("POST", "/api/integrations", { adapterId: "mock", secrets: { token: "t" } })
+    ).json();
+    const session = async (name: string, permissions: object) => {
+      const role = (await admin.send("POST", "/api/roles", { name, permissions })).json();
+      const email = `${name}@x.io`;
+      await admin.send("POST", "/api/users", {
+        email,
+        displayName: name,
+        password: PW,
+        roleId: role.id,
+      });
+      return as(app, cookieOf(await login(app, email)));
+    };
+    const catalog = await session("catalog", { catalog: "manage" });
+    const integrations = await session("integrations", { "integrations.manage": true });
+    const patch = async (who: typeof admin, body: object) =>
+      (await who.send("PATCH", `/api/integrations/${id}`, body)).statusCode;
+    const brands = { policies: [{ type: "brands", mode: "manual" }] };
+    const printers = { policies: [{ type: "printers", mode: "manual" }] };
+    // Past the rights: the mock has no brands card.
+    expect(await patch(catalog, brands)).toBe(400);
+    expect(await patch(catalog, printers)).toBe(403);
+    expect(await patch(catalog, { enabled: true })).toBe(403);
+    expect(await patch(integrations, brands)).toBe(403);
+    expect(await patch(integrations, printers)).toBe(200);
+    expect(await patch(admin, brands)).toBe(400);
   });
 
   it("every registered prefix is in the matrix", async () => {
@@ -685,12 +750,17 @@ describe("roles and overrides (ADR-0016)", () => {
 
   it("a custom role and a user override change what the user may do, on the next request", async () => {
     const { admin, role, user } = await start();
-    const helper = await role("Filament helper", { permissions: { filament: "manage" } });
+    const helper = await role("Filament helper", {
+      permissions: { filament: "manage", catalog: "manage" },
+    });
     expect(helper).toMatchObject({ usersCount: 0, builtIn: null });
     expect(helper.permissions).toMatchObject({ filament: "manage", printers: "none" });
     const h = await user("h@x.io", helper.id);
     expect((await h.s.get("/api/filament/spools")).statusCode).toBe(200);
     expect((await h.s.send("POST", "/api/filament-brands", {})).statusCode).not.toBe(403);
+    // An override takes the catalog edits away again (ADR-0020).
+    await admin.send("PATCH", `/api/users/${h.id}`, { permissions: { catalog: "read" } });
+    expect((await h.s.send("POST", "/api/filament-brands", {})).statusCode).toBe(403);
     expect((await h.s.get("/api/costs/quotes")).statusCode).toBe(403);
     expect(
       (await admin.send("PATCH", `/api/users/${h.id}`, { permissions: { costs: "read" } }))
@@ -874,7 +944,7 @@ describe("who gets which alert (ADR-0016)", () => {
   // Written out, like MATRIX: sync kinds also need the policy flags (off by default).
   const GETS: Record<RoleBuiltIn, AlertKind[]> = {
     admin: ALERT_KINDS.filter((k) => !OPT_IN.includes(k)),
-    // presets.manage (ADR-0017, ADR-0019).
+    // catalog write (ADR-0017, ADR-0020).
     editor: [...BASIC, "preset_conflict", "preset_skipped", "preset_held"],
     viewer: BASIC,
   };

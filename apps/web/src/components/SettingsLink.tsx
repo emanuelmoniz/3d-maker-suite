@@ -22,7 +22,8 @@ const SETTINGS_PERMISSION: Record<SettingsModule, Permission> = {
   projects: "projects",
   alerts: "settings.alerts",
   printers: "printers",
-  filament: "filament",
+  // Filament → Settings holds only catalog tables (ADR-0020).
+  filament: "catalog",
   hub: "hub.manage",
 };
 

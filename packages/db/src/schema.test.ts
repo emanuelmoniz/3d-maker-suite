@@ -888,6 +888,79 @@ describe("migration 0088", () => {
   });
 });
 
+describe("migration 0103", () => {
+  // ADR-0020: catalog from printers, filament and presets.manage; users on their effective values.
+  const migrated = () =>
+    migrateAcross(102, (sqlite) => {
+      const run = (q: string, ...args: unknown[]) => sqlite.prepare(q).run(...args);
+      const role = (id: string, permissions: object) =>
+        run(
+          "insert into roles (id, name, permissions, project_rights, created_at, updated_at) values (?, ?, ?, '{}', 'x', 'x')",
+          id,
+          id,
+          JSON.stringify(permissions),
+        );
+      role("bothManage", { printers: "manage", filament: "manage", "presets.manage": false });
+      role("oneManage", { printers: "manage", filament: "write", "presets.manage": false });
+      role("presetsOnly", { printers: "read", filament: "none", "presets.manage": true });
+      role("bothRead", { printers: "read", filament: "read", "presets.manage": false });
+      role("empty", {});
+      const user = (id: string, roleId: string, permissions: object) =>
+        run(
+          "insert into users (id, email, display_name, password_hash, role_id, permissions, created_at, updated_at) values (?, ?, ?, 'x', ?, ?, 'x', 'x')",
+          id,
+          `${id}@x.io`,
+          id,
+          roleId,
+          JSON.stringify(permissions),
+        );
+      const { admin, editor, viewer } = BUILT_IN_ROLE_IDS;
+      user("raised", viewer, { printers: "manage", filament: "manage", "hub.manage": true });
+      user("noPresets", editor, { "presets.manage": false });
+      user("same", editor, { printers: "read" });
+      user("admin", admin, { "presets.manage": false, "projects.editOtherDevices": false });
+    });
+
+  it("gives each role catalog by the rules and drops presets.manage", () => {
+    const roles = Object.fromEntries(
+      migrated()
+        .select()
+        .from(s.roles)
+        .all()
+        .map((r) => [r.builtIn ?? r.id, r.permissions]),
+    );
+    expect(Object.fromEntries(Object.entries(roles).map(([k, p]) => [k, p.catalog]))).toEqual({
+      admin: "manage",
+      editor: "write",
+      viewer: "read",
+      // Gains preset housekeeping.
+      bothManage: "manage",
+      // Drops to read for catalog edits.
+      oneManage: "read",
+      presetsOnly: "write",
+      bothRead: "read",
+      empty: "none",
+    });
+    for (const p of Object.values(roles)) expect(p).not.toHaveProperty("presets.manage");
+  });
+
+  it("keeps a user's catalog override only where it differs from the role's", () => {
+    const users = Object.fromEntries(
+      migrated()
+        .select()
+        .from(s.users)
+        .all()
+        .map((u) => [u.id, u.permissions]),
+    );
+    expect(users).toEqual({
+      raised: { printers: "manage", filament: "manage", "hub.manage": true, catalog: "manage" },
+      noPresets: { catalog: "read" },
+      same: { printers: "read" },
+      admin: { "projects.editOtherDevices": false },
+    });
+  });
+});
+
 describe("migration 0101", () => {
   it("keeps presets, versions and alert states; owners start empty and go with their user", () => {
     const now = migrateAcross(100, (sqlite) => {
@@ -924,7 +997,7 @@ describe("migration 0101", () => {
       .find((r) => r.builtIn === "admin");
     expect(admin?.alertKinds.preset_held).toBe("notify");
 
-    // A deleted owner leaves the preset with none, so only presets.manage deletes it.
+    // A deleted owner leaves the preset with none, so only catalog write deletes it.
     now.update(s.slicerPresets).set({ ownerUserId: "u" }).run();
     now.delete(s.users).run();
     expect(now.select().from(s.slicerPresets).get()?.ownerUserId).toBeNull();
@@ -933,27 +1006,35 @@ describe("migration 0101", () => {
 
 describe("migration 0090", () => {
   it("sets presets.manage on Admin and Editor only, and keeps alert states through the rebuild", () => {
-    const now = migrateAcross(89, (sqlite) => {
-      const run = (q: string) => sqlite.prepare(q).run();
-      run(
-        `insert into roles (id, name, permissions, project_rights, created_at, updated_at) values ('c', 'Custom', '{"hub.manage":true}', '{}', 'x', 'x')`,
-      );
-      run(
-        `insert into users (id, email, display_name, password_hash, role_id, created_at, updated_at) values ('u', 'u@x.io', 'u', 'x', '${BUILT_IN_ROLE_IDS.admin}', 'x', 'x')`,
-      );
-      run(
-        "insert into alerts (id, kind, severity, module, task, entity_type, entity_id, created_at) values ('a', 'hub_conflict', 'warning', 'hub', 't', 'file', 'f', 'x')",
-      );
-      run(
-        `insert into alert_states (alert_id, user_id, read_at, updated_at, notified_at) values ('a', 'u', 'r', 'x', '{"email":"n"}')`,
-      );
-    });
+    // Up to 0090: 0103 turns presets.manage into catalog.
+    const now = migrateAcross(
+      89,
+      (sqlite) => {
+        const run = (q: string) => sqlite.prepare(q).run();
+        run(
+          `insert into roles (id, name, permissions, project_rights, created_at, updated_at) values ('c', 'Custom', '{"hub.manage":true}', '{}', 'x', 'x')`,
+        );
+        run(
+          `insert into users (id, email, display_name, password_hash, role_id, created_at, updated_at) values ('u', 'u@x.io', 'u', 'x', '${BUILT_IN_ROLE_IDS.admin}', 'x', 'x')`,
+        );
+        run(
+          "insert into alerts (id, kind, severity, module, task, entity_type, entity_id, created_at) values ('a', 'hub_conflict', 'warning', 'hub', 't', 'file', 'f', 'x')",
+        );
+        run(
+          `insert into alert_states (alert_id, user_id, read_at, updated_at, notified_at) values ('a', 'u', 'r', 'x', '{"email":"n"}')`,
+        );
+      },
+      90,
+    );
     const manage = Object.fromEntries(
       now
         .select()
         .from(s.roles)
         .all()
-        .map((r) => [r.builtIn ?? r.id, r.permissions["presets.manage"]]),
+        .map((r) => [
+          r.builtIn ?? r.id,
+          (r.permissions as Record<string, unknown>)["presets.manage"],
+        ]),
     );
     expect(manage).toEqual({ admin: true, editor: true, viewer: false, c: undefined });
     expect(now.select().from(s.alertStates).all()).toEqual([

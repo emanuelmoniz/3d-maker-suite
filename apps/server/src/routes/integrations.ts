@@ -3,12 +3,14 @@ import {
   apiErrorSchema,
   defaultPolicy,
   deviceSlicerCheckSchema,
+  hasLevel,
   type Integration,
   IntegrationError,
   integrationInputSchema,
   integrationPatchSchema,
   integrationSchema,
   isAction,
+  isCatalogType,
   isUserPresetType,
   type LoginInput,
   type LoginResult,
@@ -217,6 +219,19 @@ export const integrationsRoutes =
       async (req) => {
         const cur = get(req.params.id);
         const { config, secrets, slicerConfigDir, slicerPath, policies, ...fields } = req.body;
+        // ADR-0020: catalog import cards need catalog manage, everything else integrations.manage.
+        const rights = req.user?.rights;
+        if (rights && !rights.admin) {
+          const catalog = policies?.some((p) => isCatalogType(p.type));
+          const other =
+            Object.keys(req.body).some((k) => k !== "policies") ||
+            policies?.some((p) => !isCatalogType(p.type));
+          if (
+            (catalog && !hasLevel(rights.permissions, "catalog", "manage")) ||
+            (other && !rights.permissions["integrations.manage"])
+          )
+            throw new HttpError(403, "forbidden", "Not allowed for your role");
+        }
         if (
           (slicerConfigDir !== undefined || slicerPath !== undefined) &&
           syncer.adapters.find((a) => a.id === cur.adapterId)?.managed
