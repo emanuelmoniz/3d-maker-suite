@@ -154,8 +154,18 @@ export async function fetchCloudPresets(
 
 // Not settings: a slicer or its cloud writes them, so a copy differing in them alone is the same.
 const META = new Set(["from", "version", "updated_time", "setting_id", "base_id", "user_id"]);
+// The cloud writes a value as one string, text in quotes (`"255"`, `"\"PLA\""`), where a slicer's
+// file has a list (`["255"]`, `["PLA"]`): the same setting once unwrapped.
+const plain = (v: unknown) =>
+  (Array.isArray(v) ? v : [v]).map((x) =>
+    typeof x === "string" ? x.replace(/^"(.*)"$/s, "$1") : x,
+  );
 const settings = (j: Record<string, unknown>) =>
-  Object.fromEntries(Object.entries(j).filter(([k]) => !META.has(k)));
+  Object.fromEntries(
+    Object.entries(j)
+      .filter(([k]) => !META.has(k))
+      .map(([k, v]) => [k, plain(v)]),
+  );
 
 /** Off a hub, a server slicer's copy: in its `config/user`, where slicing finds it. */
 const managedCopy = (

@@ -150,6 +150,7 @@ Both slicers sync user presets through their cloud account, and the connector wr
 
 - **OrcaCloud** uploads new presets written to disk but not edits. A hub edit lands on that PC only, and the cloud keeps the old version for other PCs; the device page says so.
 - A preset the cloud sends back may differ slightly (it drops values equal to the parent's). With both switches on this makes one more version on the hub, then it settles.
+- The **User presets** cards on the Bambu Cloud integration read the account's presets into the hub's library themselves, so a hub needs no PC signed in to Studio for them. Both routes see a preset once: the account's cards own it, and the cloud's wording of the same settings (`"255"` instead of `["255"]`) makes no new version.
 - Presets in the slicer need the parent preset they inherit from. OrcaSlicer 2.5 and later can't be checked for this, so they install without the check.
 
 **Tip for farms:** with one cloud account on every PC, or cloud sync off on farm PCs, each PC gets the hub's presets from the connector alone, and the account's cloud can't bring back what you deleted or undo an edit. Use one Bambu account for the farm, or turn cloud sync off on those PCs.

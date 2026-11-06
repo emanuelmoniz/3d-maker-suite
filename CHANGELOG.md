@@ -2,12 +2,20 @@
 
 All notable changes are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased]
+## [5.4.0-alpha.2] - 2026-11-06
 
-One migration adds `goneInUse` to sync policies.
+Pre-release. Test on a copy of your data first; back up before updating. Lists everything since 5.4.0-alpha.1. Migrations add the preset owner and hold columns, `goneInUse` on sync policies, and the `preset_routes` table.
 
 ### Added
-- **A preset removed in a slicer asks before its row goes.** A user preset you delete in Bambu Studio or OrcaSlicer, or a system preset a slicer update drops, raises a **Sync needs review** alert, whatever the card's mode. The review lists it under **Gone from the slicer** with **Delete** when nothing uses it (archived instead when you edited it, so a typed price stays), or says what still uses it: prints, spools, plates, printers, older versions and presets that inherit from it. Once it's free, the alert asks again. Nothing is deleted without a person ([docs/import.md](docs/import.md#from-an-integration))
+- **Bambu Cloud user presets**: optional **User presets** cards on the Bambu Cloud card (machine, print and filament), Manual and daily by default, read-only. A preset already in your library from Studio is counted once, an edit in Studio updates the row and keeps a typed price, and one preset has one owner whichever way it arrives ([docs/bambu-cloud.md](docs/bambu-cloud.md))
+- **A preset removed in a slicer asks before its row goes.** A user preset you delete in Bambu Studio or OrcaSlicer, or a system preset a slicer update drops, raises a **Sync needs review** alert, whatever the card's mode. The review lists it under **Gone from the slicer** with **Delete** when nothing uses it (archived instead when you edited it, so a typed price stays), or says what still uses it. Once it's free, the alert asks again. Nothing is deleted without a person ([docs/import.md](docs/import.md#from-an-integration))
+- **Deletes reach other machines**: a preset removed in a slicer by its owner (whoever first shared it, or a zip's uploader) is deleted on the hub once nothing uses it, and Install devices remove their unedited copy after a backup. Another user's removal changes nothing and Install writes the preset back; a mass delete, or one on an account other users' devices share, is held for a person on the Presets page, which also has Restore for deleted presets ([docs/hub.md](docs/hub.md#deleting))
+
+### Fixed
+- An edit made in Bambu Studio no longer leaves a "(conflict bambu-cloud …)" copy and a conflict alert when the account's copy only words the same settings differently (`"255"` against `["255"]`)
+
+### Not tested on real hardware
+- Two PCs on different accounts and on one account (owner and other-user deletes, the held delete), and a synced preset reaching a worker and an Install device. They are covered by automated tests only.
 
 ## [5.4.0-alpha.1] - 2026-11-05
 

@@ -2064,7 +2064,7 @@ Do Step 8 of the 5.4.0 plan in PLAN.md.
 Do Step 9 of the 5.4.0 plan in PLAN.md.
 ```
 
-### [ ] Step 10 - Real test, docs, push & v5.4.0-alpha.2
+### [x] Step 10 - Real test, docs, push & v5.4.0-alpha.2
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - Two real PCs on different accounts: delete as the owner. The hub and an Install device lose it, and the backup zip exists. Repeat with the slicer open, signed in, after a sign-out, and with a mass delete. Restore brings it back on both. Remove it as the other user: the hub keeps it, and Install writes it back.

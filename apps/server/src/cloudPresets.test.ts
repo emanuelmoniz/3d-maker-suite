@@ -357,7 +357,8 @@ describe("one preset, one route", () => {
     await s.checkUserPresets();
     expect(importedBy("Mine")).toEqual([server]);
 
-    put("P1", "Mine", "t1");
+    // As the real cloud writes it: one string, text in quotes, where Studio's file has a list.
+    put("P1", "Mine", "t1", { filament_cost: "30", filament_type: '"PLA"' });
     put("P2", "Other", "t1");
     await sync(id);
     await s.checkUserPresets();
