@@ -1,6 +1,6 @@
 # ADR-0016: Roles, permissions and alerts per user
 
-- Status: Accepted (Plan 5.1.0 Step 6; partly supersedes ADR-0012)
+- Status: Accepted (Plan 5.1.0 Step 6; partly supersedes ADR-0012). Amended by ADR-0020: a `catalog` module permission takes the catalog writes from `printers` and `filament`, and replaces `presets.manage` (ADR-0017).
 - Date: 2026-11-02
 
 ## Context
@@ -45,6 +45,8 @@ The table is today's role × prefix table (ADR-0012) and the rules `can()` adds 
 | `settings.branding` | `/branding` writes; key `appName` | on | off | off |
 | `settings.alerts` | `/alerts/channels` (the mail and ntfy servers); keys `lowSpoolGrams`, `maintenanceLeadDays`, `maintenanceLeadHours`, `maintenanceLeadPrints` | on | off | off |
 | `users.manage` | `/users`, `/roles`. `GET /users` also with `projects` manage, for a root's picked editors | on | off | off |
+
+*Amended by ADR-0020: catalog writes (`/brands`, `/printer-models`, `/machine-profiles`, `/print-profiles`, `/filament/profiles`, `/filament-brands`, `/filament-materials`) move from `printers` and `filament` manage to a new `catalog` module (none · read · write · manage), which also replaces `presets.manage`. Their reads stay open to `printers` or `filament` read, for the pickers.*
 
 Not a permission:
 - **Any session:** `/auth` (logout, `me`: own name and password), GET `/preferences` and the own display keys (`USER_PREFERENCE_KEYS`), GET `/branding`, GET `/integrations` without the setup (the list "Open in slicer" needs), GET `/alerts` (list, history, detail; filtered as in "Who gets which alert"), `PATCH /alerts/:id` (the caller's own read, snooze, dismiss).

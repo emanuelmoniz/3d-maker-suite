@@ -1,6 +1,6 @@
 # ADR-0017: Shared slicer presets
 
-- Status: Accepted (Plan 5.1.0 Step 14, after the preset spike). Amended by ADR-0019: its delete rule, and its rejection of reading Bambu's preset API.
+- Status: Accepted (Plan 5.1.0 Step 14, after the preset spike). Amended by ADR-0019: its delete rule, and its rejection of reading Bambu's preset API. Amended by ADR-0020: the switches become per slicer in Catalog → Sources, and `catalog` replaces `presets.manage`.
 - Date: 2026-11-02
 
 ## Context
@@ -42,6 +42,8 @@ Off by default, set in Hub management by `presets.manage`:
 - **Share my presets** (desktop → hub). The connector watches the user preset folder of the account each slicer last used (`app.preset_folder` in `BambuStudio.conf` / `OrcaSlicer.conf`; empty or missing = `default`). It uploads a changed `.json` with its base version. It ignores `.info` files: Studio rewrites them on every start without a change.
 - **Install hub presets** (hub → desktop). The connector writes hub changes into that same folder, following the cloud rules below.
 
+*Amended by ADR-0020: one pair per device and slicer, named Send presets and Install, set only in Catalog → Sources with `catalog` write.*
+
 ### Conflicts
 - The same canonical sha is never a conflict and is never sent again. This also stops the same-account loop: a preset that comes back through the slicer's cloud has the sha the hub already holds. The one exception settles by itself: a cloud copy drops values that only repeat the parent's, which changes the sha, so with Share on that download makes one more hub version with the same settings, and no further ones. It holds against a hub delete too: only an edit brings a deleted preset back.
 - A stale base with other content becomes a conflict copy named as hub files are (`<name> (conflict <who> <when>)`, `conflictName` in `hubFiles.ts`). The `name` inside the json is renamed too, plus a `preset_conflict` alert.
@@ -65,7 +67,7 @@ The desktop folder is `user/<account id>/<kind>/` when signed in and `user/defau
 **OrcaCloud caveat:** Orca 2.5 uploads disk-written new presets but never disk-written edits. An `update` stays on that PC, and the cloud keeps the old version for PCs without a connector. The connector still writes `update` (the edit lands, and works if Orca fixes this). Orca's log says `uploading` for such an edit, but a delete and a cloud restore brought back the old version. If a `.info` is lost, the next write is a `create`, and the cloud copy replaces it at start, so that edit doesn't land either. The device page warns once per OrcaCloud device. The docs advise one account or cloud sync off on farm PCs.
 
 ### Permission
-A new on/off permission **`presets.manage`**: delete presets, clean up conflict copies, and set both device switches. On for Admin and Editor, off for Viewer. Seeing and downloading presets needs `projects` read: the people who can see projects can see what slices them. The ADR-0016 catalog gains the row; a data migration sets it on Editor.
+A new on/off permission **`presets.manage`**: delete presets, clean up conflict copies, and set both device switches. On for Admin and Editor, off for Viewer. Seeing and downloading presets needs `projects` read: the people who can see projects can see what slices them. The ADR-0016 catalog gains the row; a data migration sets it on Editor. *Replaced by ADR-0020: these rights are `catalog` write, and the alert kinds below need it.*
 
 ### Alerts
 Two new event kinds, both needing `presets.manage`:

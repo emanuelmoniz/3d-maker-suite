@@ -1855,7 +1855,7 @@ Then fast-forward main to dev, push, push the v5.3.0 tag and confirm the release
 
 # Plan 5.4.0 - Slicers, catalog and presets made simple
 
-Minor release, starts after the 5.3.0 release. Design: ADR-0019 (Step 1). Skills: `webapp-testing` for browser checks, `frontend-design` for the slicer cards.
+Minor release, starts after the 5.3.0 release. Design: ADR-0019 (Step 1), and ADR-0020 for Phase 30 on (agreed after Step 10, 2026-11-06). Skills: `webapp-testing` for browser checks, `frontend-design` for the Catalog pages and the slicer cards.
 
 "Add integration" offers Bambu Studio and OrcaSlicer several times (local, server, worker) with no use case. Catalog and system presets have per-type schedules, though they only change when the slicer's files change. User presets take different routes on a single PC, a hub and a connector. The outcome is three plain things:
 - **Account** (Bambu Cloud): data that keeps changing, so it keeps its schedules.
@@ -1869,7 +1869,7 @@ Design:
 - **"In use" is stricter than ADR-0018's delete check.** It also counts what ADR-0018 only clears: a plate's or printer's print profile (`project_slice_plates`, `printers.print_profile_id`), a plate's filament list (JSON), older archived versions with the same `sourcePreset`, and a preset another one `inherits` from.
 - **In use = nothing is deleted anywhere.** The hub and other machines keep it, or slicing would fail with `no_preset`. It shows "Removed on WS-3, still used by 2 plates". A daily check deletes it once it is free.
 - **A catalog row is deleted only when you say so.** A preset gone from a slicer raises an alert. If nothing uses its row, the review offers **Delete**; if something does, the row stays and it shows why, with no Delete. Ignoring the alert keeps the row. A system preset a slicer update removes follows the same rule.
-- **A catalog row with your own edits (a typed price) is archived, not deleted,** so the typed value isn't lost.
+- **A catalog row with your own edits (a typed price) is archived, not deleted,** so the typed value isn't lost. *Removed by ADR-0020 (Step 15): profiles become read-only and hold no price.*
 - **Who can delete: the preset's owner,** the user who first shared it. A removal on one of the owner's devices spreads the delete, if nothing uses the preset. Another user's removal changes nothing on the hub, and **Install** writes the preset back to that device. Only a device with Install on receives a delete. People with `presets.manage` can always delete from the app, and existing presets start with no owner, so only they can delete those.
 - **Shared accounts:** a cloud delete can remove a file from an owner's PC, and the connector can't tell that from the owner deleting it. If another device reports the same account folder, the delete is held and an alert asks.
 - **Safety, because one delete now reaches every machine:** over the mass delete limit at once, the delete is held and an alert asks. A slicer sign-in or sign-out moves the watched folder, and that never counts as a delete. A desktop file with unsent edits is kept: the edit wins. The backup zip runs before writes, and deletes wait for the slicer to close. The Presets page gets **Restore**, from the existing tombstone and kept versions.
@@ -1882,20 +1882,29 @@ Design:
 - **Orca's system presets are read from its `.opc` files** (Step 5b), a private format: an unknown version falls back to today's behaviour, with a message on the card. This reverses ADR-0013's rejection.
 - **Unchanged:** Bambu Cloud's existing rows and the hub-only library (ADR-0017).
 - **Three concepts, kept apart:** the **catalog** is database rows (brands, models, profiles, materials) on the Printers and Filament pages. **System presets** ship with the slicer, are read-only, feed the catalog and never sync to desktops. **User presets** are made in a slicer, feed the catalog and sync between machines. Each preset has one of three kinds: filament, process or machine.
-- **Everything about a slicer is on its card,** so the Presets button leaves Hub management:
+- ~~**Everything about a slicer is on its card.**~~ *Replaced by ADR-0020 (Phase 30 on): see "Catalog module" below.*
+
+Catalog module (ADR-0020, Phase 30 on):
+- **One module, Catalog** (`/catalog`, first in the sidebar's bottom block: Catalog, Integrations, Hub management, Import | Export, Logs, Settings, then the account): Printers (brands, models, machine and print profiles), Filament (brands, materials, filament profiles), Presets (hub on: the library), Sources (import cards per slicer library, catalog source, the device × slicer table). Integrations keeps connections (sign-in, installs, Slice here, the cloud's printers, prints and spools) with a summary line per card. Hub management keeps machines; the device page shows a read-only presets line. Filament → Settings goes. API paths don't move; old pages redirect.
+- **Profiles exist only as slicer files and are read-only.** Machine, print and filament profiles can't be made or edited in the app; Archive hides one from pickers. Brands, models, filament brands and materials can be made by hand or come from files; from files, the name is locked and the file only fills empty fields. Every row shows its source (By hand, \<Slicer\> system or user, Bambu Cloud). "How to sync" goes for slicer types.
+- **A profile's page shows every setting of its file,** parents filled in and marked, read from the source when the page opens.
+- **Spools describe the filament:** brand (optional), material (required), name ("PLA Basic"), colour hex and colour name; no profile. Price per kg: the spool's price paid, else the material's new default price. Bambu Cloud fills the spool's fields.
+- **A plate slot has a preset (always set, "From the file" by default) and a spool (optional).** Picking a spool looks up its preset (brand + material + name, then brand + material, then Generic; your own presets first) and only suggests: Use / Keep, as a warning when the material differs. Nothing switches on its own, and nothing blocks a slice.
+- **Sources:** one catalog source per library for its system presets (a device's connector sends `system/` when its fingerprint changes). Per device and slicer, **Send presets** and **Install**, edited only there.
+- **Permission `catalog`** (none · read · write · manage) replaces `presets.manage`. Built-in roles keep today's rights.
 
 ```
-Bambu Studio
-  What to import
-    Choose brands   select all · what's in your catalog
-    Catalog         > Printer brands  > Printer models  > Filament brands  > Filament materials
-    System presets  > Machine profiles  > Print profiles  > Filament profiles
-    User presets    23 · View (the list, versions, conflicts, Restore)
-                    > User machine profiles  > User print profiles  > User filament profiles
-  Runs on
-    This server       slices · receives presets automatically
-    WS-3 (connector)  Slice here · Share · Install · Read catalog
-    WS-5 (connector)  Share · Install
+Catalog
+  Printers   Brands · Models · Machine profiles · Print profiles      source badge · In use / Unused
+  Filament   Brands · Materials (default price) · Filament profiles
+  Presets    (hub on) library: versions, owners, conflicts, held deletes, Restore
+  Sources    Bambu Studio
+               Routes        this server · zip · Bambu Cloud · WS-3 · WS-5
+               Catalog source  ( ) this server  (•) WS-3
+               Choose brands · Catalog · System presets · User presets   (When, what to sync, alerts, editor rights)
+             (hub on) Device   Slicer        Send presets  Install  State
+                      WS-3     Bambu Studio  [x]           [x]      sent 2 min ago · backup ok
+                      WS-5     OrcaSlicer    [ ]           [x]      queue: 2 (slicer open)
 ```
 
 Expected delete results, to confirm in Step 1:
@@ -2079,71 +2088,190 @@ Do Step 9 of the 5.4.0 plan in PLAN.md.
 Do Step 10 of the 5.4.0 plan in PLAN.md. Guide me through each scenario and fix what we find. Then push dev, push the tag and confirm the pre-release.
 ```
 
-## Phase 30 - Slicer cards and release
+## Phase 30 - Catalog: rights and data
 
-### [ ] Step 11 - Add flow and grouped cards  **[plan mode]**
+Rewritten after Step 10 (2026-11-06, ADR-0020). It replaces the old Steps 11 to 14 (grouped slicer cards, preset switches on "Runs on", presets on the slicer card, a Read catalog button), which moved data and settings onto the slicer card. The data model changes first, so no page is built with profile forms or "How to sync" only to lose them.
+
+### [ ] Step 11 - The `catalog` permission  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:**
-- Add integration: pick a product, then for a slicer "Installed on this computer", "Download it to this server" or "On a connected workstation".
-- Replace the adapter list in `IntegrationFormPage.tsx`. `IntegrationsPage.tsx` groups by library. `IntegrationCard.tsx` splits into a slicer card with Step 5's groups (User presets gains its count) and a "Runs on" list. Every connector that reports the slicer (`devices.slicers`) is listed.
-- A server location ("Download it to this server") has no User presets cards of its own: nobody makes or edits presets there. Its `config/user` (hub library, zip, Bambu Cloud) feeds the slicer card's User presets group, and its "Runs on" row says where its presets come from.
-- Installs keep their `Bambu Studio (WS-3)` label in slice pickers.
+- `catalog` (none · read · write · manage) in `permissionsSchema`, `NO_RIGHTS` and `BUILT_IN_RIGHTS` (`schemas/roles.ts`); `presets.manage` goes.
+- Data migration per ADR-0020: **read** if `printers` and `filament` are both at least read, **write** if `presets.manage` is on, **manage** if both are manage. A user's overrides convert by the same rules on their effective values, kept only where the result differs from the role's.
+- `lib/auth.ts`: catalog reads open to `printers`, `filament` or `catalog` read; catalog writes need `catalog` manage; `/presets` reads with `projects` or `catalog` read, writes and `/presets/devices` with `catalog` write; policy writes of catalog and user preset types need `catalog` manage (Sync now and Review keep `integrations.sync` / `.review`).
+- `preset_conflict`, `preset_skipped`, `preset_held` need `catalog` write.
+- Roles and user pages show the row (`RightsEditor`). No page moves yet.
+- `docs/users.md` permission table.
 
-**Done when:** from a clean database, each of the three locations can be added and slices, at phone and desktop width; a migrated 5.3 database keeps each project's slicer, and slices don't turn outdated; tests and e2e pass.
+**Done when:** on a migrated 5.4.0-alpha.2 database, Admin, Editor and Viewer have the same effective rights on every route as before; a test per migration rule, including the two custom role cases in ADR-0020; an override survives; tests, lint and `pnpm i18n:check` pass.
 **Prompt:**
 ```
-Do Step 11 of the 5.4.0 plan in PLAN.md. Use the frontend-design skill for the cards.
+Do Step 11 of the 5.4.0 plan in PLAN.md. Read ADR-0020 first.
+Back up the DB before editing schema.ts.
 ```
 
-### [ ] Step 12 - Worker setup and preset switches in one place  **[plan mode]**
+### [ ] Step 12 - Spools describe the filament  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:**
-- Adding a workstation location sets `devices.sliceWorker`; removing its last one clears it. The switch leaves the device page, whose Slicing card shows "Used by Bambu Studio" with a link. Any online device with the connector is offered, not only those already marked.
-- Share and Install move onto the "Runs on" rows and become per slicer on a device: a migration carries over today's values, the connector reads them per library, and an older connector answers `device_outdated`.
+- Migration (back up first): `spools` gains `brandId`, `materialId` (required) and `name`, and loses `profileId` (a table rebuild); `filament_materials` gains `pricePerKg`; `print_filament_usages` loses `profileId`; `filament_profiles` loses `pricePerKg`, `origin`, `integrationId` and `externalId`. Data per ADR-0020: brand, material and name from the old profile (a leading brand name dropped), `pricePaid` filled where that keeps the cost, each material's default price from its profiles' average.
+- Core: spool schemas; `services/cost.ts` (spool price, else the material's default); the quote's `materialPrices` from spools, else defaults.
+- Server: `lib/cost.ts`, `lib/stats.ts` (breakdown by brand, material, name and colour; material filter through the spool), `lib/spools.ts`, `lib/dependents.ts`, `routes/filament.ts`, `import/spools.ts` and `integrations/sourceRows.ts` (Bambu Cloud fills the spool, no cloud profiles), `import/prints.ts`; `IMPORT_COLUMNS` (spools: no profile column, a name column; prints: the filament column names a material), the export and the template.
+- Web: spool form, detail, list (`spoolName`) and `NewSpoolDialog`; the filament review; the stats filter; the material form's default price.
+- `docs/import.md` (columns, spools of new prints), `docs/bambu-cloud.md`, `docs/architecture.md` (data model).
 
-**Done when:** a worker is set up from the slicer card alone; a device can share one slicer and not another; tests and e2e pass.
+**Done when:** on a migrated alpha.2 database, every spool has its old profile's brand, material and name, and print costs, stats totals with spools and quote material prices are unchanged; a spool can be added with no profile in the database; a Bambu Cloud spool sync fills the fields; tests and e2e pass.
 **Prompt:**
 ```
-Do Step 12 of the 5.4.0 plan in PLAN.md.
+Do Step 12 of the 5.4.0 plan in PLAN.md. Read ADR-0020 first.
+Back up the DB before editing schema.ts.
 ```
 
-### [ ] Step 12b - Presets on the slicer card
-**Model:** Sonnet · **Effort:** Medium
-**Scope:**
-- **View** on the User presets group opens the list, versions, conflicts and Restore. The Slicer presets button leaves Hub management, and its old address redirects.
-- The Printers and Filament profile tables gain a System / User / By hand column, read from `sourcePreset`.
-
-**Done when:** everything the old page did is reachable from the card; tests and e2e pass.
-**Prompt:**
-```
-Do Step 12b of the 5.4.0 plan in PLAN.md.
-```
-
-### [ ] Step 13 - Read the catalog from a workstation  **[plan mode]**
+### [ ] Step 13 - A slot's spool and preset  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:**
-- One new fixed connector operation: zip the slicer's `system` and `user` folders with the `packages/host` zip helper and upload them.
-- The hub reuses `unpackSlicerZip`, `keepPresets` and `libraryRows` from `routes/slicerZip.ts`.
-- ADR-0014's fixed operation list gains this entry.
-- It's a **Read catalog** button on the location's "Runs on" row.
-- The manual zip moves onto the slicer card as "No connector? Upload a zip".
+- `routes/projectSlicing.ts` stops writing the spool's profile into `filaments`. A slot's preset and spool are separate picks.
+- Preset, always set: "From the file" by default (`null`, named by the 3MF's `filament_settings_id` and `filament_type`); the picker lists the plate's slicer's filament profiles that fit its printer.
+- The spool's preset lookup and the suggestion table from ADR-0020, as a pure function with a unit test per level and per row: brand + material + name, then brand + material, then Generic; user presets first; several on a level head the picker. Use / Keep; a warning when the material differs; no block.
+- Price per slot: the spool's, else its material's default; no spool: the slot preset's material default.
+- A spool change leaves the preset; only a preset change marks a slice outdated. Quotes use the same setup.
+- `docs/slicing.md`.
 
-**Done when:** a worker-only hub gets its catalog from a device without a hand-made zip; an older connector answers `device_outdated`; tests pass.
+**Done when:** a PETG spool on a PLA slot suggests a PETG preset and Keep leaves PLA; a spool of the slot's brand and material changes nothing; plates of a migrated database slice the same and don't turn outdated; unit tests; e2e at phone and desktop width; tests, lint and `pnpm i18n:check` pass.
 **Prompt:**
 ```
-Do Step 13 of the 5.4.0 plan in PLAN.md.
+Do Step 13 of the 5.4.0 plan in PLAN.md. Show me the lookup function and its tests first.
 ```
 
-### [ ] Step 14 - Docs, push & v5.4.0 release
+### [ ] Step 14 - Docs, push & v5.4.0-alpha.3
 **Model:** Haiku · **Effort:** Low
 **Scope:**
-- `docs/slicing.md`, `docs/hub.md`, `docs/import.md`, README, `pnpm screenshots`, CHANGELOG, version `5.4.0`, `pnpm version:check`.
+- CHANGELOG: the `catalog` permission and the two custom role cases, the spools API change (`profileId` out; `brandId`, `materialId`, `name` in), stats for filament with no spool now priced by material, the slot's spool and preset. `pnpm screenshots` if a README page changed (spool, filament, project). Version `5.4.0-alpha.3`.
+- Commit on `dev`, push, tag `v5.4.0-alpha.3` on `dev`. Check the run and the release.
+
+**Done when:** the tag is pushed and the workflow is green.
+**Prompt:**
+```
+Do Step 14 of the 5.4.0 plan in PLAN.md. Only document what changed since 5.4.0-alpha.2.
+Then push dev, push the tag and confirm the pre-release.
+```
+
+## Phase 30b - Catalog module
+
+### [ ] Step 15 - Catalog module, profiles only from files  **[plan mode]**
+**Model:** Opus · **Effort:** High
+**Scope:**
+- `/catalog` with Printers and Filament tabs (the tables from `pages/printers/Catalog.tsx` and `pages/filament/Catalog.tsx`), and redirects: `/printers/settings#<table>` to its tab, `/filament/settings` to Catalog → Filament. Printers → Settings keeps the default printer and states; Filament → Settings and its gear go. `lib/syncTargets.ts`, the catalog forms' back links, the e2e specs that open the old pages.
+- Navigation: a `CATALOG_ITEM` in `shell/nav.ts`, shown with `catalog` read. The sidebar's bottom block (`AppShell.tsx`) becomes Catalog, Integrations, Hub management, Import | Export, Logs, Settings, then the account menu (today Import comes first). `ALL_ITEMS` takes the same order, so the mobile More sheet follows it.
+- Profiles read-only: remove their create and edit routes and forms (filament `ProfileFormPage`, the machine and print profile forms, the quick-add profile modals). Archive, restore and the gone review's Delete stay.
+- Migration: hand-made profiles are archived and labelled "By hand (older)"; Delete when nothing uses them.
+- The four catalog types from files: the name is locked, the file only fills empty fields, and a hand-made row with that name is linked on import. "How to sync" is ignored for slicer types; `edited` and the archive-on-edit path leave `import/gone.ts` and the review (the `import_snapshots` join stays).
+- A source badge on every row (`sourcePreset`; `import_snapshots` for the four types) with a filter, and In use / Unused on profiles (`presetInUse`).
+- `docs/import.md` (where the catalog is; by hand or from files).
+
+**Done when:** no route or page creates or edits a profile; a migrated hand-made profile is archived and its plates slice "From the file"; a brand from a file keeps a typed URL after the next import; old addresses land on the right tab; the sidebar and the More sheet show the bottom block in the new order, and Catalog only with `catalog` read; tests and e2e pass.
+**Prompt:**
+```
+Do Step 15 of the 5.4.0 plan in PLAN.md. Use frontend-design for the module.
+Back up the DB before editing schema.ts.
+```
+
+### [ ] Step 16 - A profile's file: All settings
+**Model:** Sonnet · **Effort:** High
+**Scope:**
+- One profile page for the three kinds: what the app uses, its source, where it is used, and **All settings**: every key and value, parents filled in (`systemPresets().flatten`), each marked with where it comes from, a search and a JSON download.
+- `GET` a profile's settings under its own prefix, with the row's read rights. Read from the single PC's folder, the server slicer's `config/system` and the library, or the catalog source's copy (Step 20); Bambu Cloud presets resolve their parent the same way.
+- A source that can't be read says so; a file changed while its row waits for review shows a banner to the review.
+
+**Done when:** a Bambu system filament profile lists its inherited values with their parent, on a single PC and on a hub with a server slicer; a user preset shows its own values over its parent's; an unreadable source shows the message; tests and e2e pass.
+**Prompt:**
+```
+Do Step 16 of the 5.4.0 plan in PLAN.md. Use frontend-design for the settings table.
+```
+
+### [ ] Step 17 - Presets tab
+**Model:** Sonnet · **Effort:** Medium
+**Scope:**
+- `pages/hub/PresetsPage.tsx` becomes Catalog → Presets (hub on): list, versions, owners, conflicts, held deletes, Restore. `PRESETS_ITEM` (and `usePresetsShown`) leaves the sidebar's bottom block and the More sheet, and the Hub page's link goes; `/hub/presets` redirects. Alerts link there (`AlertsPage.tsx`).
+- A user preset's profile page links to its library entry, and back.
+- `docs/hub.md` (Slicer presets).
+
+**Done when:** everything the old page did is reachable from Catalog; an Editor reaches it from the navigation without `hub.manage`; tests and e2e pass.
+**Prompt:**
+```
+Do Step 17 of the 5.4.0 plan in PLAN.md.
+```
+
+## Phase 30c - Sources and release
+
+### [ ] Step 18 - Integrations: add flow and connection cards  **[plan mode]**
+**Model:** Opus · **Effort:** High
+**Scope:**
+- Add integration: pick a product, then for a slicer "Installed on this computer", "Download it to this server" or "On a connected workstation". Replace the adapter list in `IntegrationFormPage.tsx`.
+- `IntegrationsPage.tsx` groups by library. `IntegrationCard.tsx` keeps the connection (sign-in, path, managed slicer, Slice here, the run log) and Bambu Cloud's printers, prints and spools; a summary line per card ("Catalog: 5 automatic · 2 waiting for review") links to Catalog → Sources.
+- Adding a workstation location sets `devices.sliceWorker`; removing its last one clears it. The device page's Slicing card shows "Used by Bambu Studio" with a link. Any online device with the connector is offered.
+- Installs keep their `Bambu Studio (WS-3)` label in slice pickers.
+
+**Done when:** from a clean database, each of the three locations can be added and slices, at phone and desktop width; a worker is set up from the card alone; a migrated database keeps each project's slicer, and slices don't turn outdated; tests and e2e pass.
+**Prompt:**
+```
+Do Step 18 of the 5.4.0 plan in PLAN.md. Use the frontend-design skill for the cards.
+```
+
+### [ ] Step 19 - Sources  **[plan mode]**
+**Model:** Opus · **Effort:** High
+**Scope:**
+- Catalog → Sources, per slicer library: its routes (`preset_routes`: local folder, server slicer, zip, Bambu Cloud, devices), Choose brands and the cards of every catalog and user preset type, from slicers and Bambu Cloud (`PolicyRow`, the same `sync_policies` rows), without "How to sync" for slicer types. The manual zip as "No connector? Upload a zip".
+- **Catalog source** per library: a server folder, a managed slicer or a device; default the oldest install row with a readable folder, else the first device that reports the slicer. Picking one turns on the library's Catalog and System presets cards.
+- Device × slicer table (hub on): Send presets and Install per device and slicer, with their state. A migration carries today's two switches over to each slicer the device reports (a JSON map by library on `devices`, like `presetAccounts`); the connector reads them per library, and an older one answers `device_outdated`. The switches leave the device page and the Presets page; the device page shows a read-only line per slicer with a link.
+- `docs/import.md` (From an integration), `docs/hub.md` (the switches).
+
+**Done when:** everything the slicer cards and the device switches did is reachable from Sources; a device sends one slicer's presets and not the other's; a catalog source can be switched between two devices; tests and e2e pass.
+**Prompt:**
+```
+Do Step 19 of the 5.4.0 plan in PLAN.md. Use frontend-design for the device table.
+Back up the DB before editing schema.ts.
+```
+
+### [ ] Step 20 - Catalog from a workstation  **[plan mode]**
+**Model:** Opus · **Effort:** High
+**Scope:**
+- One new fixed connector operation (ADR-0014's list gains it): on the device that is a library's catalog source, check the fingerprint (ADR-0019) on its tick and upload `system/` only when it changed, zipped with the `packages/host` helper.
+- The hub keeps that copy per library and feeds the catalog from it, reusing `unpackSlicerZip` and `libraryRows` from `routes/slicerZip.ts`. It also resolves user presets' parents and Step 16's All settings.
+- A device that stops being the source stops sending.
+
+**Done when:** a worker-only hub gets its catalog from a device without a hand-made zip; a slicer update on the source device raises the catalog change alert; a second device sends nothing; an older connector answers `device_outdated`; tests pass.
+**Prompt:**
+```
+Do Step 20 of the 5.4.0 plan in PLAN.md.
+```
+
+### [ ] Step 21 - Real test, docs, push & v5.4.0-alpha.4
+**Model:** Sonnet · **Effort:** Medium
+**Scope:**
+- Upgrade a copy of a real 5.4.0-alpha.2 database: roles keep their rights; spools keep brand, material, name and costs; hand-made profiles are archived; plates slice the same.
+- No integration at all: add a brand, model, material and spool by hand, log a print, make a quote.
+- A slot: a spool of another material suggests a preset; Keep and Use both slice.
+- All settings on a single PC, on a hub with a server slicer, and from a device catalog source.
+- Two devices: switch the catalog source; Send presets on one slicer only; Install.
+- If a second PC is available, the scenarios alpha.2 couldn't test: owner and other-user deletes, the held delete on a shared account, a synced preset reaching a worker and an Install device.
+- Fix anything found. `docs/hub.md`, `docs/import.md`, `docs/slicing.md`, CHANGELOG, version `5.4.0-alpha.4`. Commit on `dev`, push, tag `v5.4.0-alpha.4` on `dev`. Check the run and the release.
+
+**Done when:** every scenario worked (or is listed as not tested); the tag is pushed and the workflow is green.
+**Prompt:**
+```
+Do Step 21 of the 5.4.0 plan in PLAN.md. Guide me through each scenario and fix what we find. Then push dev, push the tag and confirm the pre-release.
+```
+
+### [ ] Step 22 - Docs, push & v5.4.0 release
+**Model:** Haiku · **Effort:** Low
+**Scope:**
+- `docs/slicing.md`, `docs/hub.md`, `docs/import.md`, `docs/users.md`, README, CHANGELOG, version `5.4.0`, `pnpm version:check`.
+- `pnpm screenshots`: `scripts/screenshots.shot.ts` takes the Catalog pages (presets, filament profile with All settings, spool, integrations, roles); README's images follow.
 - Commit on `dev`, fast-forward `main` to `dev`, push both, tag `v5.4.0` on `main`. Check the run, the release and the images.
 
 **Done when:** `main`, `dev` and the tag are pushed; the workflow is green; updating 5.3.0 to 5.4.0 keeps all data.
 **Prompt:**
 ```
-Do Step 14 of the 5.4.0 plan in PLAN.md. Only document what changed since the last 5.4.0 pre-release.
+Do Step 22 of the 5.4.0 plan in PLAN.md. Only document what changed since the last 5.4.0 pre-release.
 Then fast-forward main to dev, push, push the v5.4.0 tag and confirm the release.
 ```
 
@@ -2152,6 +2280,10 @@ Then fast-forward main to dev, push, push the v5.4.0 tag and confirm the release
 - OrcaCloud user presets, until the Orca team issues a `client_id` (OrcaSlicer#14028). Then it's a separate **Orca Cloud** account integration with the same row.
 - Writing to Bambu Cloud. `DELETE /v1/iot-service/api/slicer/setting/{id}` is documented by the community and could remove a cloud copy if Step 1 shows tombstones don't work, but it's a destructive write on an unofficial API, so it needs its own decision.
 - Desktop presets for a server slicer on the same PC with the hub off. A preset made in desktop Studio reaches the catalog, but the managed slicer's `config/user` only gets presets from a zip, so slicing there fails with `no_preset` (the picker already warns). On a hub, Step 8's merge into the library covers it. Rare, since desktop Studio slices by itself; kept as an open discussion.
+- Editing preset values in the app (ADR-0020: the slicer is their only editor) and making profiles by hand.
+- A filament product table between brand and spool (Spoolman's Filament), and a SpoolmanDB import, which would be the reason to add one.
+- Switching a slot's preset on its own when a better match exists, and blocking a slice on a material mismatch.
+- Letting Editors add a brand or material from the spool form: it stays `catalog` manage, as today's `filament` manage.
 
 ---
 
@@ -2605,6 +2737,7 @@ Do Step 11 of the 6.0.0 plan in PLAN.md.
 **Model:** Opus · **Effort:** High
 **Scope:**
 - A Spoolman integration: import spools (the usual review and merge), read the active spool, write usage back after each print.
+- A spool has no profile (ADR-0020): a Spoolman spool maps to brand, material, name, colour hex and colour name, and a write back finds or creates its Spoolman filament by those.
 - Each write carries an idempotency key (print id + slot); retries and re-imports never charge twice. A print that came from Moonraker's own Spoolman link isn't written back.
 
 **Done when:** a print charges the Spoolman spool exactly once across retries and restarts; tests pass.

@@ -1,6 +1,6 @@
 # ADR-0019: Slicers, catalog and presets
 
-- Status: Accepted (Plan 5.4.0 Step 1, after the spikes). Amends ADR-0017's delete rule and its rejection of reading Bambu's preset API.
+- Status: Accepted (Plan 5.4.0 Step 1, after the spikes). Amends ADR-0017's delete rule and its rejection of reading Bambu's preset API. Amended by ADR-0020: "everything about a slicer is on its card", the edit rules of catalog rows, and where the catalog comes from.
 - Date: 2026-11-04
 
 ## Context
@@ -12,7 +12,7 @@ ADR-0017 kept deletes away from desktops, because the cloud restored a removed f
 
 ### Three plain things
 - **Account** (Bambu Cloud): data that keeps changing, so it keeps its schedules.
-- **Slicer** (Bambu Studio, OrcaSlicer): one card, with a list of where it runs. Database rows stay one per install, because `projects`, `project_slice_plates`, `prints` and `import_snapshots` point at them. Cards group by `presetLibrary(adapter)`. The catalog belongs to the library's oldest row with a readable folder.
+- **Slicer** (Bambu Studio, OrcaSlicer): one card, with a list of where it runs. Database rows stay one per install, because `projects`, `project_slice_plates`, `prints` and `import_snapshots` point at them. Cards group by `presetLibrary(adapter)`. The catalog belongs to the library's oldest row with a readable folder. *Amended by ADR-0020: unless a catalog source is picked in Catalog → Sources, which can also be a device.*
 - **Device** (connector): a machine, a *location* a slicer runs in. It stays in Hub management. Connectors are not integrations: they also do file sync, roots, locks and pairing, and in 6.0.0 they relay LAN printers.
 
 ### System catalog
@@ -37,6 +37,8 @@ A single PC looks at the files' times and sizes on the scheduler's tick, which i
 
 On other types a new row outside the scope is left out silently. Here it always asks, so no new preset goes unnoticed. One skipped in the review stays new and counts again at the next change of that kind's files.
 
+*Amended by ADR-0020: profiles are read-only, so "keeping your edits" no longer applies: a changed preset updates its row.*
+
 These cards decide catalog rows only. Share (device to hub) is all or nothing, because a device has no review, and Install (hub to device) sends every preset whatever the cards say.
 
 A preset brings the brand, material and model it needs, in a run as well as in a review.
@@ -56,7 +58,7 @@ A delete made in Studio's own UI does remove the cloud copy, and a PC of that ac
 - **In use = nothing is deleted anywhere.** The hub and other machines keep it, or slicing would fail with `no_preset`. It shows "Removed on WS-3, still used by 2 plates". A daily check deletes it once it is free.
 - **A catalog row is deleted only when you say so** (amended in Plan 5.4.0 Step 7). A preset gone from a slicer raises an alert, whatever the card's mode. If nothing uses its row, the review offers **Delete**; if something does, the row stays and it shows why, with no Delete. Ignoring the alert keeps the row, and it doesn't ask again until the source changes. A system preset a slicer update removes follows the same rule. A row can hold what a slicer can't give back: typed prices, or a link to your spools and prints.
 - **The rest of this rule covers the library and other machines.** Across several machines (Plan 5.4.0 Step 8) a removal still spreads there as below, and the catalog row still asks.
-- **A catalog row with your own edits (a typed price) is archived, not deleted,** so the typed value isn't lost.
+- **A catalog row with your own edits (a typed price) is archived, not deleted,** so the typed value isn't lost. *Removed by ADR-0020: profiles are read-only and hold no price, so a gone row has no edits to keep.*
 - **Who can delete: the preset's owner,** the user who first shared it (`slicer_presets.ownerUserId`). The owner is a user, not a device, so their other PCs count and a replaced workstation orphans nothing. A removal on one of the owner's devices spreads the delete. Another user's removal changes nothing on the hub, and **Install** writes the preset back to that device, which reverses ADR-0017's "stays away until the hub has a new version". Only a device with Install on receives a delete. The two switches stay, because farm PCs need install-only.
 - **`presets.manage` can always delete from the app,** or a departed user's presets could never be removed. Existing presets start with no owner, because only the last saver's name is stored and old versions get pruned, so only `presets.manage` can delete those.
 
@@ -72,6 +74,8 @@ A delete made in Studio's own UI does remove the cloud copy, and a PC of that ac
 
 ### The connector can send a slicer's catalog
 The manual zip stays as a fallback. A `system` + `user` zip is far below the 100 MB limit (results below).
+
+*Amended by ADR-0020: not a button. The device picked as the library's catalog source sends `system/` when its fingerprint changes; user presets keep their own route (Send presets).*
 
 ### User presets from Bambu Cloud
 This reverses ADR-0017's rejection of reading that API. One optional **User presets** row on the card, off by default like spools, with the controls the other cloud syncs have: Off, Manual or Auto, frequency (default daily), Sync now, review, log, alerts and editor rights. It uses the three user preset types, with a frequency because a cloud isn't files, and `sourcePreset` stays `bambu-studio:user/<name>`, so a preset from the cloud and from Studio is one catalog row. Read-only: the app never writes to Bambu Cloud.
@@ -92,6 +96,8 @@ A shared preset doesn't reach the catalog in three separate cases. Each has an `
 | A desktop Orca ≥ 2.5 | With no readable system preset, nothing resolves `filament_type`, and `toProfile` drops the preset without a word. Real presets only hold what differs from the parent, so they rarely carry it. A user machine preset is dropped the same way, because no model is known |
 
 ### Everything about a slicer is on its card
+*Amended by ADR-0020: the catalog tables, the presets, "What to import", Choose brands and the Share and Install switches move to the Catalog module (Sources holds the cards and a device × slicer table). The slicer card keeps its connection, its locations and Slice here. "How to sync" goes for slicer types.*
+
 Three concepts are kept apart. The **catalog** is database rows (brands, models, profiles, materials) on the Printers and Filament pages. **System presets** ship with the slicer, are read-only, feed the catalog and never sync to desktops. **User presets** are made in a slicer, feed the catalog and sync between machines. Each preset has one of three kinds: filament, process or machine.
 
 "What to import" on a slicer's card uses the same cards as the cloud's, one per type, in three groups: **Catalog** (printer brands, printer models, filament brands, filament materials), **System presets** (machine, print and filament profiles) and **User presets** (their three types, with a count and View for the list, versions, conflicts and Restore). Each card has last sync, Sync now, Review and import, and its settings: when, what to sync, how to sync, alerts and editor rights. "When" is one switch, Automatic when the files change or Manual, in place of a frequency.

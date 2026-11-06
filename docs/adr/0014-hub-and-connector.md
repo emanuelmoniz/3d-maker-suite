@@ -1,6 +1,6 @@
 # ADR-0014: Hub and connector: central files, device roots, slice workers
 
-- Status: Accepted (after the Plan 5.0.0 Step 1 spikes, see Spike results)
+- Status: Accepted (after the Plan 5.0.0 Step 1 spikes, see Spike results). Amended by ADR-0020: the fixed operation list gains sending a slicer's `system/` folder.
 - Date: 2026-10-26, accepted 2026-10-27
 
 ## Context

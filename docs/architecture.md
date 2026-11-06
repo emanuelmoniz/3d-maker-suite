@@ -15,6 +15,7 @@ Decisions behind this document live in [`docs/adr`](adr/):
 | [0007](adr/0007-slicing.md) | Slice with the installed slicer's CLI (Bambu Studio first) |
 | [0010](adr/0010-stay-on-sqlite.md) | Stay on SQLite, no external database servers |
 | [0017](adr/0017-shared-slicer-presets.md) | One hub slicer preset library, shared with desktops through the slicers' own `.info` rules |
+| [0020](adr/0020-catalog-module.md) | One Catalog module; profiles come only from slicer files and are read-only; spools describe the filament |
 
 ## Packages
 
