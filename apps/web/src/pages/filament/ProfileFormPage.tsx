@@ -6,7 +6,6 @@ import { Button } from "../../components/Button.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { useCreateProfile, usePatchProfile, useProfile } from "../../lib/filament.ts";
-import { usePreferences } from "../../lib/preferences.ts";
 import { CatalogSelect } from "./CatalogSelect.tsx";
 
 const text = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
@@ -25,7 +24,6 @@ export function ProfileForm({
 }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const currency = usePreferences().data?.values.currency ?? "";
   const create = useCreateProfile();
   const patch = usePatchProfile();
   const save = profile ? patch : create;
@@ -51,7 +49,6 @@ export function ProfileForm({
       name: text(f, "name"),
       diameterMm: float(text(f, "diameter")) ?? 1.75,
       densityGcm3: Number(text(f, "density")),
-      pricePerKg: num(text(f, "price"), 100),
       nozzleTempC: num(text(f, "nozzle")),
       bedTempC: num(text(f, "bed")),
     };
@@ -105,19 +102,6 @@ export function ProfileForm({
         step: 0.01,
         defaultValue: profile?.densityGcm3 ?? 1.24,
       })}
-      <FormField label={`${t("filament:profiles.pricePerKg")} (${currency})`}>
-        {(p) => (
-          <input
-            {...p}
-            name="price"
-            type="number"
-            min={0}
-            step={0.01}
-            defaultValue={profile?.pricePerKg == null ? undefined : profile.pricePerKg / 100}
-            className={inputClass}
-          />
-        )}
-      </FormField>
       {field("nozzle", "filament:profiles.nozzleTemp", {
         type: "number",
         min: 1,

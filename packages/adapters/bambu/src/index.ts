@@ -217,7 +217,7 @@ export function toSpool(
   const remainingGrams = Math.min(Math.max(s.netWeight ?? 0, 0), initialGrams);
   return {
     spoolId: String(s.id),
-    profile: { brand: s.filamentVendor ?? "", material, name },
+    filament: { brand: s.filamentVendor ?? "", material, name },
     colorHex,
     colorName:
       colorNames.get(`${name.toLowerCase()}|${colorHex}`) ?? colorNames.get(colorHex) ?? null,

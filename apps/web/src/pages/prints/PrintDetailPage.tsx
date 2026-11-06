@@ -8,7 +8,7 @@ import { ProjectRef } from "../../components/ProjectRef.tsx";
 import { TagList } from "../../components/TagList.tsx";
 import { Write } from "../../components/Write.tsx";
 import { useCatalogItem } from "../../lib/catalog.ts";
-import { spoolName, useProfile, useSpool } from "../../lib/filament.ts";
+import { spoolName, useSpool } from "../../lib/filament.ts";
 import { formatDateTime, formatNumber, formatWeight } from "../../lib/format.ts";
 import { orderName, useOrder } from "../../lib/orders.ts";
 import { printerName, usePrinter } from "../../lib/printers.ts";
@@ -60,10 +60,9 @@ function OrderLink({ id }: { id: string }) {
 function SpoolLink({ id }: { id: string }) {
   const { t } = useTranslation();
   const spool = useSpool(id).data;
-  const { data: profile } = useProfile(spool?.profileId);
   return (
     <Link to="/filament/spools/$id" params={{ id }} className={link}>
-      {spool && spoolName(t, spool, profile)}
+      {spool && spoolName(t, spool)}
     </Link>
   );
 }

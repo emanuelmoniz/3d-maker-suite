@@ -7,7 +7,7 @@ import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { buildApp } from "./app.ts";
 import { printImport } from "./import/prints.ts";
-import { filamentProfileIdFor } from "./lib/catalog.ts";
+import { filamentBrandIdFor, filamentMaterialIdFor } from "./lib/catalog.ts";
 import { linkPrints } from "./projects/linkPrints.ts";
 
 let dataDir: string;
@@ -139,12 +139,16 @@ const backdate = (spool: { id: string }) => {
 describe("print import", () => {
   const setup = async (entered = true) => {
     await applySuggested("printers", await preview("printers", PRINTERS));
-    const profileId = filamentProfileIdFor(db, { brand: "Acme", material: "PLA", name: "Basic" });
+    const filament = {
+      brandId: filamentBrandIdFor(db, "Acme"),
+      materialId: filamentMaterialIdFor(db, "PLA"),
+      name: "Basic",
+    };
     const spool = (
       await app.inject({
         method: "POST",
         url: "/api/filament/spools",
-        payload: { profileId, colorHex: "#000000", initialGrams: 1000 },
+        payload: { ...filament, colorHex: "#000000", initialGrams: 1000 },
       })
     ).json() as { id: string };
     return entered ? backdate(spool) : spool;
@@ -304,7 +308,7 @@ describe("print import", () => {
     const spool = await setup();
     await applySuggested("prints", await preview("prints", FILE.replace("001-Basic #000000", "1")));
     expect(remaining(spool.id)).toBe(987.5);
-    expect(printImport.refs(db).spools).toEqual(["001-Basic #000000"]);
+    expect(printImport.refs(db).spools).toEqual(["001-Acme PLA Basic #000000"]);
   });
 
   it("a changed duration updates the print and leaves the spool alone", async () => {
@@ -368,11 +372,11 @@ box,Benchy,2026-03-04 10:00,,success,001-Basic #000000,15`;
     ]);
   });
 
-  it("offers spool picks for a file: the spool it names, its filament's spools first", async () => {
+  it("offers spool picks for a file: the spool it names, its material's spools first", async () => {
     const spool = await setup();
     const p = await preview(
       "prints",
-      `${PRINT_HEAD},filament\nbox,A,2026-03-04 10:00,,success,001-Basic #000000,5,\nbox,B,2026-03-05 10:00,,success,,5,Basic`,
+      `${PRINT_HEAD},filament\nbox,A,2026-03-04 10:00,,success,001-Basic #000000,5,\nbox,B,2026-03-05 10:00,,success,,5,PLA`,
     );
     expect(p.refsOptional).toContain("spool");
     expect(p.refOptions?.spool?.map((o) => o.id)).toEqual([spool.id]);
@@ -484,17 +488,17 @@ box,Benchy,2026-03-04 10:00,,success,001-Basic #000000,15`;
   describe("multicolor", () => {
     const HEAD = `${PRINT_HEAD},spool2,grams2,spool3,grams3,trackUsage`;
     const second = async () => {
-      const profileId = filamentProfileIdFor(db, {
-        brand: "Acme",
-        material: "PETG",
+      const filament = {
+        brandId: filamentBrandIdFor(db, "Acme"),
+        materialId: filamentMaterialIdFor(db, "PETG"),
         name: "Tough",
-      });
+      };
       return backdate(
         (
           await app.inject({
             method: "POST",
             url: "/api/filament/spools",
-            payload: { profileId, colorHex: "#ffffff", initialGrams: 500 },
+            payload: { ...filament, colorHex: "#ffffff", initialGrams: 500 },
           })
         ).json() as { id: string },
       );

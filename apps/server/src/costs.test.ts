@@ -28,21 +28,17 @@ describe("costs", () => {
         purchasePrice: 50000,
       })
     ).json();
-    const material = (await send("POST", "/api/filament-materials", { name: "PLA" })).json();
-    const profile = (
-      await send("POST", "/api/filament/profiles", {
-        materialId: material.id,
-        densityGcm3: 1.24,
-        pricePerKg: 2000,
-      })
+    const material = (
+      await send("POST", "/api/filament-materials", { name: "PLA", pricePerKg: 2000 })
     ).json();
+    await send("POST", "/api/filament-materials", { name: "PETG", pricePerKg: 2500 });
     const priced = (
-      await send("POST", "/api/filament/spools", { profileId: profile.id, initialGrams: 1000 })
+      await send("POST", "/api/filament/spools", { materialId: material.id, initialGrams: 1000 })
     ).json();
-    // Paid 15.00 for 500 g: 3000 per kg, beats the profile's 2000.
+    // Paid 15.00 for 500 g: 3000 per kg, beats the material's 2000.
     const paid = (
       await send("POST", "/api/filament/spools", {
-        profileId: profile.id,
+        materialId: material.id,
         initialGrams: 500,
         pricePaid: 1500,
       })
@@ -75,7 +71,8 @@ describe("costs", () => {
     const ctx = (await app.inject("/api/costs/context")).json();
     expect(ctx.rates.energyPerKwh).toBe(30);
     expect(ctx.printers[0]).toMatchObject({ id: printer.id, wearPerHour: 50 });
-    expect(ctx.materialPrices).toEqual({ PLA: 2000 });
+    // What your PLA spools cost on average (only one has a price paid), else the default.
+    expect(ctx.materialPrices).toEqual({ PLA: 3000, PETG: 2500 });
   });
 
   it("device settings override the defaults; accessories count inside their install periods", async () => {

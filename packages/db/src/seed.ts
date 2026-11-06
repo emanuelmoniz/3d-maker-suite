@@ -102,39 +102,46 @@ export function seed(db: Db, now = new Date(), { prints: printCount = 40 } = {})
       ]),
     );
     const materialId = Object.fromEntries(
-      ["PLA", "PETG", "TPU"].map((name) => [
+      (
+        [
+          ["PLA", 2299],
+          ["PETG", 2999],
+          ["TPU", 3999],
+        ] as const
+      ).map(([name, pricePerKg]) => [
         name,
-        tx.insert(s.filamentMaterials).values({ name }).returning().get().id,
+        tx.insert(s.filamentMaterials).values({ name, pricePerKg }).returning().get().id,
       ]),
     );
-    const profiles = tx
-      .insert(s.filamentProfiles)
+    tx.insert(s.filamentProfiles)
       .values([
         {
           brandId: filamentBrandId.Bambu,
           materialId: materialId.PLA,
           name: "Basic",
           densityGcm3: 1.24,
-          pricePerKg: 2299,
         },
         {
           brandId: filamentBrandId.Prusament,
           materialId: materialId.PETG,
           name: "PETG",
           densityGcm3: 1.27,
-          pricePerKg: 2999,
         },
         {
           brandId: filamentBrandId.Polymaker,
           materialId: materialId.TPU,
           name: "PolyFlex",
           densityGcm3: 1.22,
-          pricePerKg: 3999,
         },
       ])
-      .returning()
-      .all();
+      .run();
 
+    // Brand, material, name, price paid.
+    const filaments = [
+      [filamentBrandId.Bambu, materialId.PLA, "PLA Basic", 2299],
+      [filamentBrandId.Prusament, materialId.PETG, null, 2999],
+      [filamentBrandId.Polymaker, materialId.TPU, "PolyFlex", 3999],
+    ] as const;
     const spools = tx
       .insert(s.spools)
       .values(
@@ -147,12 +154,14 @@ export function seed(db: Db, now = new Date(), { prints: printCount = 40 } = {})
             [2, "#c0392b"],
           ] as const
         ).map(([p, colorHex], i) => ({
-          profileId: at(profiles, p).id,
+          brandId: at(filaments, p)[0],
+          materialId: at(filaments, p)[1] as string,
+          name: at(filaments, p)[2],
           number: i + 1,
           colorHex,
           initialGrams: 1000,
           remainingGrams: 1000,
-          pricePaid: at(profiles, p).pricePerKg,
+          pricePaid: at(filaments, p)[3],
           purchasedAt: ago(150 - i * 10),
           openedAt: ago(130 - i * 10),
           location: i < 3 ? "Dry box A" : "Shelf",
@@ -226,7 +235,7 @@ export function seed(db: Db, now = new Date(), { prints: printCount = 40 } = {})
         const grams = Math.round((durationSec / 3600) * (8 + rand() * 6) * 10) / 10;
         remaining.set(sp.id, (remaining.get(sp.id) ?? 0) - grams);
         tx.insert(s.printFilamentUsages)
-          .values({ printId: print.id, spoolId: sp.id, profileId: sp.profileId, grams, slot })
+          .values({ printId: print.id, spoolId: sp.id, grams, slot })
           .run();
       }
     }

@@ -343,7 +343,6 @@ export function SliceSetup({
       : null;
   };
 
-  const profileOf = (id: string) => allProfiles.find((p) => p.id === id);
   // As saved in the file (its preset's name), spools you can print from (and the one picked,
   // whatever its state), then profiles: the slicer's presets and hand-made ones (sliced with the
   // file's filament, priced as theirs). The one picked always stays listed.
@@ -359,7 +358,7 @@ export function SliceSetup({
       .map((s) => ({
         value: `spool:${s.id}`,
         label: t("projects:slicing.spoolOption", {
-          name: spoolName(t, s, profileOf(s.profileId)),
+          name: spoolName(t, s),
           weight: formatWeight(s.remainingGrams),
         }),
         group: t("projects:slicing.spoolsGroup"),
@@ -386,7 +385,8 @@ export function SliceSetup({
       ? spools.find((s) => s.id === value.slice(6))
       : undefined;
     spoolsNext[slot - 1] = spool?.id ?? null;
-    filamentsNext[slot - 1] = spool ? spool.profileId : value || null;
+    // A spool leaves the slot's preset as it is (ADR-0020); a preset picked here drops the spool.
+    if (!spool) filamentsNext[slot - 1] = value || null;
     patch(key, { filaments: filamentsNext, spools: spoolsNext });
   };
 

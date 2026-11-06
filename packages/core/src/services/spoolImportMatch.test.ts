@@ -4,7 +4,7 @@ import { matchSpoolRows } from "./spoolImportMatch.ts";
 const values = (over = {}) => ({
   brand: "Acme",
   material: "PLA",
-  profile: "Basic",
+  name: "Basic",
   colorHex: "#000000",
   ...over,
 });

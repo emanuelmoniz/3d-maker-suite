@@ -1,11 +1,4 @@
-import {
-  type FilamentProfile,
-  SPOOL_STATUSES,
-  type Spool,
-  spoolFilters,
-  spoolPricePerKg,
-} from "@3d-maker-suite/core";
-import { useQueries } from "@tanstack/react-query";
+import { SPOOL_STATUSES, type Spool, spoolFilters, spoolPricePerKg } from "@3d-maker-suite/core";
 import { Link } from "@tanstack/react-router";
 import { Plus, Spool as SpoolIcon } from "lucide-react";
 import { useEffect } from "react";
@@ -18,8 +11,8 @@ import { PageHeader } from "../../components/PageHeader.tsx";
 import { SettingsLink } from "../../components/SettingsLink.tsx";
 import { TagList } from "../../components/TagList.tsx";
 import { Write } from "../../components/Write.tsx";
-import { api } from "../../lib/api.ts";
-import { spoolName, useProfiles } from "../../lib/filament.ts";
+import { useCatalogWithArchived } from "../../lib/catalog.ts";
+import { spoolName } from "../../lib/filament.ts";
 import { formatCurrency, formatWeight } from "../../lib/format.ts";
 import { useListPage, useUrlListQuery } from "../../lib/list.ts";
 import { usePreferences } from "../../lib/preferences.ts";
@@ -65,23 +58,15 @@ export function FilamentPage() {
     "/api/filament/spools",
     spoolQuery,
   );
-  const allProfiles = useProfiles().data?.items;
-  const profileOf = new Map(allProfiles?.map((p) => [p.id, p]));
-  // Spools can point at archived profiles or ones past the first 100: fetch those by id.
-  const missing = [...new Set(spools.data?.items.map((s) => s.profileId))].filter(
-    (id) => allProfiles && !profileOf.has(id),
-  );
-  for (const q of useQueries({
-    queries: missing.map((id) => ({
-      queryKey: ["filament", "profile", id],
-      queryFn: () => api<FilamentProfile>("GET", `/api/filament/profiles/${id}`),
-    })),
-  }))
-    if (q.data) profileOf.set(q.data.id, q.data);
+  // Archived ones too: a spool keeps the material it has.
+  const materials = useCatalogWithArchived("filament-materials").data;
   const tagsOf = useTagsOf("spool");
   const tags = useTags().data ?? [];
   const spoolPrice = (s: Spool) => {
-    const perKg = spoolPricePerKg(s, profileOf.get(s.profileId) ?? { pricePerKg: null });
+    const perKg = spoolPricePerKg(
+      s,
+      materials?.find((m) => m.id === s.materialId),
+    );
     return perKg === null || s.initialGrams == null ? null : (perKg * s.initialGrams) / 1000;
   };
 
@@ -138,7 +123,7 @@ export function FilamentPage() {
                           params={{ id: s.id }}
                           className="font-medium hover:underline"
                         >
-                          {spoolName(t, s, profileOf.get(s.profileId))}
+                          {spoolName(t, s)}
                         </Link>
                       </span>
                     ),
@@ -200,7 +185,7 @@ export function FilamentPage() {
                   archiveColumn<Spool>(t, {
                     kind: "spools",
                     can: "filament",
-                    name: (s) => spoolName(t, s, profileOf.get(s.profileId)),
+                    name: (s) => spoolName(t, s),
                   }),
                 ]}
               />

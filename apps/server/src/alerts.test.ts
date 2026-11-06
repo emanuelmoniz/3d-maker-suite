@@ -53,17 +53,11 @@ const detail = async (id: string) => (await app.inject(`/api/alerts/${id}`)).jso
 async function lowSpool(bare = false) {
   const brand = (await send("POST", "/api/filament-brands", { name: "Prusament" })).json();
   const material = (await send("POST", "/api/filament-materials", { name: "PLA" })).json();
-  const p = (
-    await send("POST", "/api/filament/profiles", {
+  const s = (
+    await send("POST", "/api/filament/spools", {
       brandId: brand.id,
       materialId: material.id,
       name: "Galaxy",
-      densityGcm3: 1.24,
-    })
-  ).json();
-  const s = (
-    await send("POST", "/api/filament/spools", {
-      profileId: p.id,
       initialGrams: 1000,
       ...(!bare && { pricePaid: 2000, openedAt: "2026-10-01T12:00:00.000Z" }),
     })
@@ -140,9 +134,9 @@ describe("alerts", () => {
 
   it("a spool with no price or no open date always warns (ADR-0016: who sees it is the subscription), sealed ones aside", async () => {
     const used = await lowSpool(true); // in use: some was taken
-    const p = db.select().from(schema.spools).get()?.profileId ?? "";
+    const materialId = db.select().from(schema.spools).get()?.materialId ?? "";
     const sealed = (
-      await send("POST", "/api/filament/spools", { profileId: p, initialGrams: 1000 })
+      await send("POST", "/api/filament/spools", { materialId, initialGrams: 1000 })
     ).json().id;
     const kinds = async () => {
       await evaluate();

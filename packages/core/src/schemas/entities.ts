@@ -301,6 +301,8 @@ export const filamentMaterialSchema = z.object({
   nozzleTempC: z.number().int().positive().nullable(),
   bedTempC: z.number().int().nonnegative().nullable(),
   densityGcm3: z.number().positive().nullable(),
+  /** What a spool without a price paid costs per kg. */
+  pricePerKg: money.nullable(),
   archivedAt: isoDate.nullable(),
   ...timestamps,
 });
@@ -315,20 +317,25 @@ export const filamentProfileSchema = z.object({
   name: z.string(),
   diameterMm: z.number().positive(),
   densityGcm3: z.number().positive(),
-  pricePerKg: money.nullable(),
   nozzleTempC: z.number().int().positive().nullable(),
   bedTempC: z.number().int().nonnegative().nullable(),
   /** Preset this profile was imported from, `<library>:<preset id>`; null for hand-made ones. */
   sourcePreset: z.string().nullable(),
   archivedAt: isoDate.nullable(),
-  ...imported,
   ...timestamps,
 });
 
 export const spoolSchema = z.object({
   id,
-  profileId: id,
-  /** Short unique number the spool goes by ("012-Bambu PLA Matte Scarlet Red"). */
+  /** Null when the brand is unknown or generic. */
+  brandId: id.nullable(),
+  materialId: id,
+  /** Names of the brand and material above (empty brand = none), for labels. Read only. */
+  brand: z.string(),
+  material: z.string().min(1),
+  /** "PLA Basic"; null = the material alone. */
+  name: z.string().trim().min(1).nullable(),
+  /** Short unique number the spool goes by ("012-Bambu Lab PLA Matte Scarlet Red"). */
   number: z.number().int().positive(),
   colorHex: hexColor,
   /** e.g. "Scarlet Red"; the display name falls back to the hex without it. */
@@ -406,10 +413,9 @@ export const printFilamentUsageSchema = z.object({
   id,
   printId: id,
   spoolId: id.nullable(),
-  profileId: id.nullable(),
   grams,
   slot: z.number().int().nonnegative().nullable(),
-  /** What an import reported for this slot; used to match a spool. Null for manual prints. */
+  /** What an import reported for this slot; used to match a spool, and prices it without one. */
   material: z.string().nullable(),
   colorHex: hexColor.nullable(),
   /** The user chose not to track this filament (review queue). */

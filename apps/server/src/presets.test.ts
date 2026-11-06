@@ -219,19 +219,18 @@ describe("user presets reach the catalog on their own (ADR-0019)", () => {
     });
   });
 
-  it("an edit in the slicer updates the row and keeps what you typed", async () => {
+  it("an edit in the slicer updates the row in place", async () => {
     await addWorker();
     save("Mine", { nozzle_temperature: ["220"] });
     const s = syncer();
     await s.checkUserPresets();
     const [first] = profiles();
-    expect(first).toMatchObject({ pricePerKg: 2000, nozzleTempC: 220 });
-    db.update(filamentProfiles).set({ pricePerKg: 3500 }).run();
+    expect(first).toMatchObject({ nozzleTempC: 220 });
 
     save("Mine", { nozzle_temperature: ["240"] });
     await s.checkUserPresets();
 
-    expect(profiles()).toMatchObject([{ id: first?.id, pricePerKg: 3500, nozzleTempC: 240 }]);
+    expect(profiles()).toMatchObject([{ id: first?.id, nozzleTempC: 240 }]);
   });
 
   it("a row you deleted stays away, through a restart, until its preset is edited", async () => {

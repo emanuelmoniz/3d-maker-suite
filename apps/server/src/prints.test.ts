@@ -24,15 +24,9 @@ async function setup() {
     })
   ).json();
   const material = (await send("POST", "/api/filament-materials", { name: "PLA" })).json();
-  const profile = (
-    await send("POST", "/api/filament/profiles", {
-      materialId: material.id,
-      densityGcm3: 1.24,
-    })
-  ).json();
   const spool = async (initialGrams = 1000) =>
-    (await send("POST", "/api/filament/spools", { profileId: profile.id, initialGrams })).json();
-  return { printer, profile, spool, a: await spool(), b: await spool(500) };
+    (await send("POST", "/api/filament/spools", { materialId: material.id, initialGrams })).json();
+  return { printer, spool, a: await spool(), b: await spool(500) };
 }
 
 const remaining = async (id: string) =>
@@ -81,7 +75,6 @@ describe("prints", () => {
     expect(res.statusCode).toBe(201);
     const print = res.json();
     expect(print).toMatchObject({ energyWh: 100, energySource: "estimated" });
-    expect(print.usages.every((u: { profileId: string }) => u.profileId)).toBe(true);
     expect(await remaining(a.id)).toBe(900);
     expect(await remaining(b.id)).toBe(479.5);
 

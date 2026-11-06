@@ -118,13 +118,11 @@ export const syncUsages = (
     for (const u of old) if (u.spoolId) net.set(u.spoolId, (net.get(u.spoolId) ?? 0) + u.grams);
   for (const u of next) net.set(u.spoolId, (net.get(u.spoolId) ?? 0) - (ledger ? u.grams : 0));
 
-  const profileOf = new Map<string, string>();
   const print = tx.select().from(prints).where(eq(prints.id, printId)).get();
   const using = new Set(next.map((u) => u.spoolId));
   for (const [spoolId, grams] of net) {
     const spool = tx.select().from(spools).where(eq(spools.id, spoolId)).get();
     if (!spool) throw new HttpError(400, "invalid_spool", "Spool not found");
-    profileOf.set(spoolId, spool.profileId);
     if (print && using.has(spoolId)) assertOpened(spool, print.startedAt);
     // Weight not known yet: the print is linked, nothing is booked.
     // ponytail: a print booked before the weight was set gives back grams it never took when
@@ -144,7 +142,6 @@ export const syncUsages = (
         next.map((u) => ({
           printId,
           spoolId: u.spoolId,
-          profileId: profileOf.get(u.spoolId),
           grams: u.grams,
           slot: u.slot ?? null,
           material: u.material ?? null,

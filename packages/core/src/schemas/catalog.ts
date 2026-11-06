@@ -19,6 +19,16 @@ export function modelLabel(brand: string | null | undefined, model: string): str
   return lower === b.toLowerCase() || lower.startsWith(`${b.toLowerCase()} `) ? m : `${b} ${m}`;
 }
 
+/**
+ * A spool's filament, "Bambu Lab PLA Basic": the brand, then the name with the material in front
+ * unless it starts with it (no name = the material). Same rule as `filamentName` (SQL).
+ */
+export const spoolFilament = (f: {
+  brand?: string | null;
+  material: string;
+  name?: string | null;
+}) => modelLabel(f.brand, modelLabel(f.material, f.name?.trim() || f.material));
+
 // Brand -> printer model -> machine profile. Fields the user edits; `PATCH` takes any subset, plus
 // `archived` to archive/restore.
 export const brandInputSchema = brandSchema.pick({ name: true, url: true }).partial({ url: true });

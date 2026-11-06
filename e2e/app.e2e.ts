@@ -72,6 +72,8 @@ test("add a printer with a new brand and model without leaving the page", async 
 test("add a spool", async ({ page, app }) => {
   await seedProfile(app.api);
   await page.goto("/filament/spools/new");
+  // No profile needed: a material is all a spool must have.
+  await pick(page.getByLabel("Material", { exact: true }), "PLA");
   await page.getByLabel("Remaining weight (g)").fill("750");
   await page.getByRole("button", { name: "Save spool" }).click();
   await expect(page).toHaveURL(/\/filament(\?|$)/);

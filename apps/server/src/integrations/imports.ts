@@ -1,11 +1,7 @@
 import type { Capability, IntegrationAdapter } from "@3d-maker-suite/core";
-import { type Db, schema } from "@3d-maker-suite/db";
-import { and, isNull, like, or } from "drizzle-orm";
+import type { Db } from "@3d-maker-suite/db";
 import { HttpError } from "../errors.ts";
-import { profileColumns } from "../lib/catalog.ts";
 import { capableRow, catalogDir } from "./capabilities.ts";
-
-const { filamentProfiles } = schema;
 
 export const profileKey = (p: { brand: string; material: string; name: string }) =>
   [p.brand, p.material, p.name].map((v) => v.trim().toLowerCase()).join("|");
@@ -39,39 +35,4 @@ export function libraryOf(
   const lib = adapter.library;
   if (!dir || !lib) throw new HttpError(404, "library_not_found", "Slicer config folder not found");
   return { lib, dir };
-}
-
-/**
- * The profiles a vendor's spool could go on: Bambu Studio's (local or server, one library) or made
- * by hand, never another slicer's. `fits`: those with the same brand, material and name, else those
- * named like a slicer preset of it ("PLA Basic" -> "Bambu PLA Basic").
- */
-// ponytail: only Bambu Cloud has spools; give the adapter a library id when a second vendor does.
-// ponytail: suffix match is a naive heuristic; match on the vendor's filament id if it misfires.
-export function spoolProfiles(db: Db) {
-  const active = db
-    .select(profileColumns)
-    .from(filamentProfiles)
-    .where(
-      and(
-        isNull(filamentProfiles.archivedAt),
-        or(
-          isNull(filamentProfiles.sourcePreset),
-          like(filamentProfiles.sourcePreset, "bambu-studio:%"),
-        ),
-      ),
-    )
-    .all();
-  return {
-    active,
-    fits(s: { brand: string; material: string; name: string }) {
-      const same = active.filter((p) => profileKey(p) === profileKey(s));
-      if (same.length) return same;
-      return active.filter(
-        (p) =>
-          profileKey({ ...p, name: "" }) === profileKey({ ...s, name: "" }) &&
-          p.name.toLowerCase().endsWith(` ${s.name.trim().toLowerCase()}`),
-      );
-    },
-  };
 }

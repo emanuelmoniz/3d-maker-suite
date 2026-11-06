@@ -7,6 +7,7 @@ import type { Page } from "@playwright/test";
 import { expect, test } from "./fixtures.ts";
 import {
   addRoots,
+  filamentOf,
   gotoIntegrations,
   hasHorizontalScroll,
   openSections,
@@ -255,7 +256,7 @@ test("spools: automatic numbers, taken numbers are refused, color name shows in 
   const profile = await seedProfile(app.api);
   const make = (extra: object = {}) =>
     app.api<{ id: string; number: number }>("POST", "/api/filament/spools", {
-      profileId: profile.id,
+      ...filamentOf(profile),
       colorHex: "#cc0000",
       initialGrams: 500,
       ...extra,
@@ -299,7 +300,7 @@ test("estimated duration: button fills it, list shows ~, a real value clears it"
   await seedPrinter(app.api);
   const profile = await seedProfile(app.api);
   const spool = await app.api<{ id: string }>("POST", "/api/filament/spools", {
-    profileId: profile.id,
+    ...filamentOf(profile),
     colorHex: "#00aa00",
     initialGrams: 1000,
   });

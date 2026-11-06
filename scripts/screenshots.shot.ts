@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, test } from "../e2e/fixtures.ts";
-import { addRoots, png, seedPrinter, seedProfile } from "../e2e/helpers.ts";
+import { addRoots, filamentOf, png, seedPrinter, seedProfile } from "../e2e/helpers.ts";
 
 const IMAGES = "docs/images";
 
@@ -22,7 +22,7 @@ test("README screenshots", async ({ page, app }) => {
   ]) {
     spools.push(
       await app.api<{ id: string }>("POST", "/api/filament/spools", {
-        profileId: profile.id,
+        ...filamentOf(profile),
         colorHex,
         colorName,
         initialGrams: 1000,

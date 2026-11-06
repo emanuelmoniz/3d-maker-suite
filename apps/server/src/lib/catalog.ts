@@ -183,11 +183,30 @@ export const profileMaterial = sql<string>`(SELECT ${filamentMaterials.name} FRO
 export const profileLabel = sql<string>`coalesce(nullif(${filamentProfiles.name}, ''), trim(${profileBrand} || ' ' || ${profileMaterial}))`;
 
 const { accessories, orders, quotes, spools, printers, projects, prints } = schema;
+
+/** Brand / material names of a spool row (empty brand = none), for labels, sort and filters. */
+export const spoolBrand = sql<string>`coalesce((SELECT ${filamentBrands.name} FROM ${filamentBrands} WHERE ${filamentBrands.id} = ${spools.brandId}), '')`;
+export const spoolMaterial = sql<string>`(SELECT ${filamentMaterials.name} FROM ${filamentMaterials} WHERE ${filamentMaterials.id} = ${spools.materialId})`;
+
 /**
- * A spool's display name, "012-Bambu PLA Matte Scarlet Red" (the hex without a colour name), as the
- * web's `spoolName()` builds it in English. Fixed here: import files match spools by it.
+ * "Bambu Lab PLA Basic": the brand, then the name, with the material in front unless the name
+ * starts with it (no name = the material). The web's `filamentName()` builds the same.
  */
-export const spoolName = sql<string>`printf('%03d', ${spools.number}) || '-' || (SELECT ${profileLabel} FROM ${filamentProfiles} WHERE ${filamentProfiles.id} = ${spools.profileId}) || ' ' || coalesce(nullif(${spools.colorName}, ''), ${spools.colorHex})`;
+export const filamentName = (brand: SQLWrapper, material: SQLWrapper, name: SQLWrapper) =>
+  sql<string>`trim(${brandModel(brand, brandModel(material, sql`coalesce(nullif(${name}, ''), ${material})`))})`;
+
+/**
+ * A spool's display name, "012-Bambu Lab PLA Matte Scarlet Red" (the hex without a colour name),
+ * as the web's `spoolName()` builds it in English. Fixed here: import files match spools by it.
+ */
+export const spoolName = sql<string>`printf('%03d', ${spools.number}) || '-' || ${filamentName(spoolBrand, spoolMaterial, spools.name)} || ' ' || coalesce(nullif(${spools.colorName}, ''), ${spools.colorHex})`;
+
+/** `select()` map for spools: the row plus `brand` / `material` names, as the API returns them. */
+export const spoolColumns = {
+  ...getTableColumns(spools),
+  brand: spoolBrand,
+  material: spoolMaterial,
+};
 
 /** A printer's display name, "02-Bambu A1". Fixed here: import files match printers by it. */
 export const printerLabel = sql<string>`printf('%02d', ${printers.number}) || '-' || ${printers.name}`;
@@ -240,31 +259,3 @@ export const findFilamentProfile = (
       ),
     )
     .get();
-
-/**
- * Finds the active profile with that brand, material and name (case-insensitive) or creates it,
- * along with a brand or material you don't have yet. A new profile takes its material's density.
- */
-export function filamentProfileIdFor(
-  db: Db,
-  p: { brand: string; material: string; name: string },
-): string {
-  const brandId = filamentBrandIdFor(db, p.brand);
-  const materialId = filamentMaterialIdFor(db, p.material);
-  const name = p.name.trim();
-  const found = findFilamentProfile(db, brandId, materialId, name);
-  if (found) return found.id;
-  const material = db
-    .select({ density: filamentMaterials.densityGcm3 })
-    .from(filamentMaterials)
-    .where(eq(filamentMaterials.id, materialId))
-    .get();
-  return (
-    db
-      .insert(filamentProfiles)
-      // 1.24 (PLA) is what the profile form starts with too.
-      .values({ brandId, materialId, name, densityGcm3: material?.density ?? 1.24 })
-      .returning()
-      .get().id
-  );
-}

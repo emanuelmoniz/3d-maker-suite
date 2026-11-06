@@ -17,7 +17,7 @@ import {
 import { keyLibrary, type WriteRow } from "./review.ts";
 import { distinct, num, spoolImport, str } from "./spools.ts";
 
-const { filamentBrands, filamentMaterials, filamentProfiles, printFilamentUsages, spools } = schema;
+const { filamentBrands, filamentMaterials, filamentProfiles } = schema;
 
 const names = (db: Db, table: typeof filamentBrands | typeof filamentMaterials) =>
   new Set(
@@ -27,15 +27,6 @@ const names = (db: Db, table: typeof filamentBrands | typeof filamentMaterials) 
       .all()
       .map((r) => r.name.toLowerCase()),
   );
-
-/** A spool or a print points at it, so prints keep the preset they were made with. */
-const inUse = (db: Db, id: string) =>
-  !!db.select({ id: spools.id }).from(spools).where(eq(spools.profileId, id)).get() ||
-  !!db
-    .select({ id: printFilamentUsages.id })
-    .from(printFilamentUsages)
-    .where(eq(printFilamentUsages.profileId, id))
-    .get();
 
 const profileRows = (db: Db, archived: boolean) =>
   db
@@ -57,7 +48,6 @@ const profileTargets = (db: Db, archived = false): ImportTarget[] =>
       name: p.name || null,
       diameterMm: p.diameterMm,
       densityGcm3: p.densityGcm3,
-      pricePerKg: p.pricePerKg,
       nozzleTempC: p.nozzleTempC,
       bedTempC: p.bedTempC,
     },
@@ -116,7 +106,11 @@ export const filamentProfileImport = {
     };
   },
 
-  refs: spoolImport.refs,
+  /** The names the template's dropdowns offer. */
+  refs: (db: Db) => ({
+    ...spoolImport.refs(db),
+    filamentProfiles: distinct(profileRows(db, false).map((p) => p.name)).sort(),
+  }),
 
   check(db: Db, v: ImportValues, file: boolean) {
     const errors: { column: string; code: ImportErrorCode }[] = [];
@@ -154,7 +148,6 @@ export const filamentProfileImport = {
         name,
         diameterMm: num(v.diameterMm) ?? undefined,
         densityGcm3: num(v.densityGcm3) ?? 1.24,
-        pricePerKg: num(v.pricePerKg),
         nozzleTempC: num(v.nozzleTempC),
         bedTempC: num(v.bedTempC),
         sourcePreset: row.source,
@@ -163,8 +156,8 @@ export const filamentProfileImport = {
   },
 
   /**
-   * Writes `patch` (only the values that change). The preset's own profile is updated in place, or,
-   * when a spool or print uses it, archived and added again as the new version.
+   * Writes `patch` (only the values that change) in place: no spool or print points at a profile
+   * (ADR-0020), so it needs no older version kept.
    */
   update(db: Db, target: ImportTarget, patch: ImportValues, row: WriteRow) {
     const cur = db.select().from(filamentProfiles).where(eq(filamentProfiles.id, target.id)).get();
@@ -175,33 +168,10 @@ export const filamentProfileImport = {
     if (brand != null) set.brandId = filamentBrandIdFor(db, String(brand));
     if (material != null) set.materialId = filamentMaterialIdFor(db, String(material));
     if (target.archived) set.archivedAt = null;
-    // Nothing to change (one you archived coming back) is never a new version.
-    const changes = Object.keys(patch).length > 0;
-    if (!(changes && row.source && cur.sourcePreset === row.source && inUse(db, cur.id))) {
-      // A twin made by hand is linked to the preset, so the next run knows it.
-      db.update(filamentProfiles)
-        .set({ ...set, sourcePreset: cur.sourcePreset ?? row.source })
-        .where(eq(filamentProfiles.id, cur.id))
-        .run();
-      return;
-    }
+    // A twin made by hand is linked to the preset, so the next run knows it.
     db.update(filamentProfiles)
-      .set({ archivedAt: new Date().toISOString() })
+      .set({ ...set, sourcePreset: cur.sourcePreset ?? row.source })
       .where(eq(filamentProfiles.id, cur.id))
-      .run();
-    db.insert(filamentProfiles)
-      .values({
-        brandId: cur.brandId,
-        materialId: cur.materialId,
-        name: cur.name,
-        diameterMm: cur.diameterMm,
-        densityGcm3: cur.densityGcm3,
-        pricePerKg: cur.pricePerKg,
-        nozzleTempC: cur.nozzleTempC,
-        bedTempC: cur.bedTempC,
-        sourcePreset: cur.sourcePreset,
-        ...set,
-      })
       .run();
   },
 };

@@ -18,10 +18,9 @@ const ctx: CostContext = {
   ],
   materialPrices: { PLA: 2000, PETG: 3000 },
 };
-const profile = (id: string, material: string, pricePerKg: number | null) =>
-  ({ id, material, pricePerKg }) as FilamentProfile;
-const spool = (id: string, profileId: string, pricePaid: number | null) =>
-  ({ id, profileId, pricePaid, initialGrams: 1000 }) as Spool;
+const profile = (id: string, material: string) => ({ id, material }) as FilamentProfile;
+const spool = (id: string, material: string, pricePaid: number | null) =>
+  ({ id, material, pricePaid, initialGrams: 1000 }) as Spool;
 const plate = (p: Partial<PlateSetup>, grams: [number, number, string][]): PlateSetup =>
   ({
     printerId: null,
@@ -36,30 +35,36 @@ const plate = (p: Partial<PlateSetup>, grams: [number, number, string][]): Plate
     ...p,
   }) as PlateSetup;
 
-test("prices each slot by spool, then profile, then material average, on each plate's printer", () => {
-  const profiles = [profile("pla", "PLA", 1000)];
-  const red = spool("red", "pla", 5000); // 5 €/kg paid
+test("prices each slot by its spool, else its material, on each plate's printer", () => {
+  const profiles = [profile("pla", "PLA"), profile("petg", "PETG")];
+  const red = spool("red", "PLA", 5000); // 5 €/kg paid
+  const unpaid = spool("unpaid", "PETG", null);
   const out = estimateSlicedPlates(
     [
-      // 100 g from the spool (5000/kg) + 100 g from the profile (1000/kg), 1 h on "dear".
+      // 100 g from the spool (5000/kg) + 100 g of the slot profile's PLA (2000/kg), 1 h on "dear".
       plate({ printerId: "dear", spools: ["red"], filaments: ["pla", "pla"] }, [
         [1, 100, "PLA"],
-        [2, 100, "PLA"],
+        [2, 100, "PETG"],
       ]),
+      // A spool with no price paid: its own material's (PETG, 3000/kg), whatever the slot says.
+      plate({ printerId: "dear", spools: ["unpaid"] }, [[1, 100, "PLA"]]),
       // 100 g of the file's PETG: the PETG average (3000/kg), 1 h on the fallback "cheap".
       plate({}, [[1, 100, "PETG"]]),
       // Not sliced: left out.
       { ...plate({}, []), result: null },
     ],
     ctx,
-    { spools: [red], profiles, fallbackPrinterId: "cheap" },
+    { spools: [red, unpaid], profiles, fallbackPrinterId: "cheap" },
   );
-  expect(out.cost.material).toBe(500 + 100 + 300);
-  expect(out.cost.wear).toBe(300 + 100);
-  expect(out.spools).toEqual([{ spool: red, grams: 100 }]);
+  expect(out.cost.material).toBe(500 + 200 + 300 + 300);
+  expect(out.cost.wear).toBe(300 + 300 + 100);
+  expect(out.spools).toEqual([
+    { spool: red, grams: 100 },
+    { spool: unpaid, grams: 100 },
+  ]);
   expect(out.materials).toEqual([
     { material: "PLA", grams: 200 },
-    { material: "PETG", grams: 100 },
+    { material: "PETG", grams: 200 },
   ]);
 });
 

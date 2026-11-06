@@ -17,7 +17,6 @@ let brandId: string;
 let modelId: string;
 let printerId: string;
 let spoolId: string;
-let profileId: string;
 
 const startedAt = "2026-01-01T10:00:00.000Z";
 const total = (table: typeof s.printFilamentUsages | typeof s.taggings) =>
@@ -29,14 +28,9 @@ beforeEach(() => {
   modelId = db.insert(s.printerModels).values({ brandId, model: "M" }).returning().get().id;
   printerId = db.insert(s.printers).values({ name: "P", modelId }).returning().get().id;
   const materialId = db.insert(s.filamentMaterials).values({ name: "PLA" }).returning().get().id;
-  profileId = db
-    .insert(s.filamentProfiles)
-    .values({ materialId, name: "N", densityGcm3: 1.24 })
-    .returning()
-    .get().id;
   spoolId = db
     .insert(s.spools)
-    .values({ profileId, initialGrams: 1000, remainingGrams: 1000 })
+    .values({ materialId, initialGrams: 1000, remainingGrams: 1000 })
     .returning()
     .get().id;
 });
@@ -53,8 +47,8 @@ describe("schema", () => {
     const print = insertPrint({ energyWh: 120, energySource: "estimated" });
     db.insert(s.printFilamentUsages)
       .values([
-        { printId: print.id, spoolId, profileId, grams: 12.5, slot: 0 },
-        { printId: print.id, spoolId: null, profileId, grams: 3, slot: 1 },
+        { printId: print.id, spoolId, grams: 12.5, slot: 0 },
+        { printId: print.id, spoolId: null, material: "PLA", grams: 3, slot: 1 },
       ])
       .run();
     expect(total(s.printFilamentUsages)).toBe(2);
@@ -885,6 +879,143 @@ describe("migration 0088", () => {
     expect([on.editor, on.viewer, on.nf]).toEqual([both, both, {}]);
 
     expect(kinds({ price: true }).viewer).toEqual({ spool_no_price: "app" });
+  });
+});
+
+describe("migration 0104", () => {
+  // ADR-0020: a spool takes its profile's brand, material and name; prices move to the material.
+  const migrated = () =>
+    migrateAcross(103, (sqlite) => {
+      const run = (q: string, ...args: unknown[]) => sqlite.prepare(q).run(...args);
+      const at = "2026-01-01T00:00:00.000Z";
+      for (const [id, name] of [
+        ["bambu", "Bambu Lab"],
+        ["generic", "Generic"],
+      ])
+        run(
+          "insert into filament_brands (id, name, created_at, updated_at) values (?, ?, ?, ?)",
+          id,
+          name,
+          at,
+          at,
+        );
+      for (const [id, name] of [
+        ["pla", "PLA"],
+        ["petg", "PETG"],
+      ])
+        run(
+          "insert into filament_materials (id, name, created_at, updated_at) values (?, ?, ?, ?)",
+          id,
+          name,
+          at,
+          at,
+        );
+      const profile = (
+        id: string,
+        brand: string | null,
+        material: string,
+        name: string,
+        price: number | null,
+      ) =>
+        run(
+          "insert into filament_profiles (id, brand_id, material_id, name, density_gcm3, price_per_kg, created_at, updated_at) values (?, ?, ?, ?, 1.24, ?, ?, ?)",
+          id,
+          brand,
+          material,
+          name,
+          price,
+          at,
+          at,
+        );
+      profile("basic", "bambu", "pla", "Bambu PLA Basic", 2000);
+      profile("matte", "bambu", "pla", "Bambu Lab PLA Matte", 3000);
+      profile("gpla", "generic", "pla", "Generic PLA", null);
+      profile("own", null, "petg", "Silk Blue", null);
+      const spool = (id: string, profileId: string, initial: number | null, paid: number | null) =>
+        run(
+          "insert into spools (id, profile_id, number, initial_grams, remaining_grams, price_paid, created_at, updated_at) values (?, ?, ?, ?, ?, ?, ?, ?)",
+          id,
+          profileId,
+          id.length,
+          initial,
+          initial,
+          paid,
+          at,
+          at,
+        );
+      spool("a", "basic", 500, null);
+      spool("bb", "matte", 1000, 1500);
+      spool("ccc", "gpla", 1000, null);
+      spool("dddd", "own", null, null);
+      spool("eeeee", "basic", null, null);
+      run(
+        "insert into printers (id, name, created_at, updated_at) values ('p', 'P', ?, ?)",
+        at,
+        at,
+      );
+      run(
+        "insert into prints (id, printer_id, title, started_at, outcome, created_at, updated_at) values ('x', 'p', 'T', ?, 'success', ?, ?)",
+        at,
+        at,
+        at,
+      );
+      run(
+        "insert into print_filament_usages (id, print_id, spool_id, profile_id, grams) values ('u1', 'x', 'a', 'basic', 5)",
+      );
+      run(
+        "insert into print_filament_usages (id, print_id, profile_id, grams, material) values ('u2', 'x', 'own', 3, 'PLA')",
+      );
+    });
+
+  it("gives each spool its profile's brand, material and name, and keeps its cost", () => {
+    const now = migrated();
+    const spools = Object.fromEntries(
+      now
+        .select()
+        .from(s.spools)
+        .all()
+        .map((r) => [r.id, [r.brandId, r.materialId, r.name, r.pricePaid]]),
+    );
+    expect(spools).toEqual({
+      // The brand's first word leads: dropped. 2000/kg × 500 g.
+      a: ["bambu", "pla", "PLA Basic", 1000],
+      // The whole brand name leads: dropped. A price paid stays.
+      bb: ["bambu", "pla", "PLA Matte", 1500],
+      // Only the material is left: no name. No profile price: no price.
+      ccc: ["generic", "pla", null, null],
+      // No brand to drop.
+      dddd: [null, "petg", "Silk Blue", null],
+      // Weight unknown: nothing to work the price out from.
+      eeeee: ["bambu", "pla", "PLA Basic", null],
+    });
+  });
+
+  it("prices each material by its profiles' average and keeps usages' material", () => {
+    const now = migrated();
+    const prices = Object.fromEntries(
+      now
+        .select()
+        .from(s.filamentMaterials)
+        .all()
+        .map((m) => [m.name, m.pricePerKg]),
+    );
+    expect(prices).toEqual({ PLA: 2500, PETG: null });
+    const usages = Object.fromEntries(
+      now
+        .select()
+        .from(s.printFilamentUsages)
+        .all()
+        .map((u) => [u.id, [u.spoolId, u.material]]),
+    );
+    // Without a spool, the profile's material.
+    expect(usages).toEqual({ u1: ["a", null], u2: [null, "PETG"] });
+    const columns = (table: string) =>
+      (now.$client.pragma(`table_info(${table})`) as { name: string }[]).map((c) => c.name);
+    expect(columns("spools")).not.toContain("profile_id");
+    expect(columns("print_filament_usages")).not.toContain("profile_id");
+    for (const c of ["price_per_kg", "origin", "integration_id", "external_id"])
+      expect(columns("filament_profiles")).not.toContain(c);
+    expect(now.$client.pragma("foreign_key_check")).toEqual([]);
   });
 });
 

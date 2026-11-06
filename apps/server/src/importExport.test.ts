@@ -450,8 +450,9 @@ async function seedAll() {
     "number,name,client,project,unitCost,quantity,failureMarginPct,markupPct\n7,Vase,Ana,1-Box,10.5,2,0,10\n",
   );
   await load("orders", "number,client,quote,project,price,status\n3,Ana,7,1-Box,50,done\n");
-  // The printer and the spool made the brand, model, filament material and profile.
+  // The printer made the brand and model, the spool the filament material.
   await load("machineProfiles", "brand,model,name,nozzleDiameterMm\nBambu Lab,X1C,X1C 0.4,0.4\n");
+  await load("filamentProfiles", "material,name,densityGcm3\nPLA,Basic,1.24\n");
   await load(
     "printProfiles",
     "brand,model,name,layerHeightMm\nBambu Lab,X1C,0.20mm Standard,0.2\n",

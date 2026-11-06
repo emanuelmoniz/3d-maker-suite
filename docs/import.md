@@ -55,9 +55,10 @@ An unknown client, quote or project is an invalid row, and the message says whic
 
 Notes on the columns:
 
-- **Multicolor prints:** one print uses one *Spool*, *Filament* and *Filament used (g)* per colour: the first set, then *Spool 2* and so on, up to 16.
+- **Multicolor prints:** one print uses one *Spool*, *Filament* and *Filament used (g)* per colour: the first set, then *Spool 2* and so on, up to 16. *Filament* names the material (`PLA`); it prices grams that have no spool yet.
+- **Spools:** a spool is its *Brand* (optional), *Material* and *Name* (`PLA Basic`, optional), plus its colour. It needs no filament profile. A spool without a *Price paid* costs its material's default price per kg.
 - **Track usage:** leave empty or enter `yes` to subtract the filament from your spools. Enter `no` to save the print and its filament without changing the spools' weights.
-- **Names:** for brand, material and profile columns, pick an existing name or type a new one.
+- **Names:** for brand, material and profile columns, pick an existing name or type a new one. A new brand or material is added with the spool.
 
 To get your data back out, use **Export** on the same page, as `.xlsx`, `.csv` or `.json`. An export is the template with your rows in it, plus an `id` column, so it can be edited and imported again: a row with an id updates that item. Money is in your currency's units (not cents), names stand for references, and dates are ISO (`2026-03-04`). For a full copy of everything, take a [backup](backups.md).
 
@@ -86,7 +87,7 @@ For each row you choose **Create**, **Update**, **Skip** or **Use suggestion**. 
 Each filament slot of a new print has a spool picker:
 
 - From a file, the picker starts on the spool the row names. A slot without one stays empty: its grams wait on the **Filament to review** page (linked from **Prints**), where **Add new spool** works too.
-- The spools that fit the slot are listed first: the same material and colour the printer reported, or the filament profile the file names.
+- The spools that fit the slot are listed first: the same material and colour the printer reported, or the material the file names.
 - A spool opened after the print started is not offered, and neither is an empty one. The app refuses such a spool anywhere: in the review, the print form and the filament review queue.
 - **Add new spool…** at the end of the list adds a spool without leaving the review and picks it.
 - **Track usage** is a tick on every print row, from a file or an integration. It starts from the file's *Track usage* cell (ticked unless it says `no`; ticked for an integration). Untick a row to save that print and its filament without changing the spools' weights, for example for prints your spools already account for.

@@ -247,7 +247,7 @@ test("import: template download, XLSX upload, bulk action, apply and export roun
   expect(spools.items).toHaveLength(2);
 });
 
-test("import a slicer catalog from a zip, then a changed preset archives the used profile", async ({
+test("import a slicer catalog from a zip, then a changed preset updates its profile", async ({
   page,
   app,
 }) => {
@@ -280,11 +280,6 @@ test("import a slicer catalog from a zip, then a changed preset archives the use
     "/api/filament/profiles",
   );
   expect(first.items.map((p) => p.name)).toEqual(["Mine"]);
-  await app.api("POST", "/api/filament/spools", {
-    profileId: first.items[0]?.id,
-    colorHex: "#00ff00",
-    initialGrams: 500,
-  });
 
   await page.goto("/import/slicer-zip");
   await page.locator("input[type=file]").setInputFiles({
@@ -306,9 +301,10 @@ test("import a slicer catalog from a zip, then a changed preset archives the use
     "GET",
     "/api/filament/profiles?archived=true",
   );
+  // In place: no spool or print points at a profile (ADR-0020).
   expect(active.items).toHaveLength(1);
-  expect(active.items[0]?.id).not.toBe(first.items[0]?.id);
-  expect(all.items).toHaveLength(1); // the old version, kept for the spool
+  expect(active.items[0]?.id).toBe(first.items[0]?.id);
+  expect(all.items).toHaveLength(0);
 });
 
 test.describe("new pages fit every viewport", () => {

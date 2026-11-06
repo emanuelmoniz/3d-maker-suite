@@ -120,30 +120,39 @@ describe("stats", () => {
     ).toMatchObject({ wear: newest.cost.wear, maintenance: newest.cost.maintenance });
   });
 
-  it("handles filament without a price", async () => {
+  it("prices a spool without a price paid by its material, else leaves it unpriced", async () => {
     const { app, db } = await setup();
-    db.update(schema.filamentProfiles).set({ pricePerKg: null }).run();
+    const paid = (await get(app)).totals.material;
     db.update(schema.spools).set({ pricePaid: null }).run();
+    // The seed's prices paid are the materials' defaults (1000 g spools): the same cost.
+    expect((await get(app)).totals.material).toBe(paid);
+    // A usage without a spool is priced by the material it reports.
+    const print = db.select().from(schema.prints).get();
+    db.insert(schema.printFilamentUsages)
+      .values({ printId: print?.id ?? "", grams: 100, material: "pla" })
+      .run();
+    expect((await get(app)).totals.material).toBe(paid + Math.round(229.9));
+    db.update(schema.filamentMaterials).set({ pricePerKg: null }).run();
     const stats = await get(app);
     expect(stats.totals).toMatchObject({ material: 0 });
     expect(stats.totals.unpricedGrams).toBeCloseTo(stats.totals.grams);
     expect(stats.breakdowns.filament.every((f) => f.material === 0)).toBe(true);
   });
 
-  it("splits each print over its filaments by grams, one row per profile and colour", async () => {
+  it("splits each print over its filaments by grams, one row per filament and colour", async () => {
     const { app } = await setup();
     const stats = await get(app);
     const rows = stats.breakdowns.filament;
     const sum = (pick: (r: (typeof rows)[number]) => number) =>
       rows.reduce((n, r) => n + pick(r), 0);
-    // Seed: profile 0 comes in #1a1a1a (two spools) and #f5f5f5; profiles 1 and 2 in one colour each.
+    // Seed: Bambu PLA Basic comes in #1a1a1a (two spools) and #f5f5f5; the others in one colour.
     expect(rows).toHaveLength(4);
-    expect(rows.map((r) => r.label)).toEqual(
-      expect.arrayContaining([
-        expect.stringMatching(/#1a1a1a$/),
-        expect.stringMatching(/#f5f5f5$/),
-      ]),
-    );
+    expect(rows.map((r) => r.label).sort()).toEqual([
+      "Bambu PLA Basic #1a1a1a",
+      "Bambu PLA Basic #f5f5f5",
+      "Polymaker TPU PolyFlex #c0392b",
+      "Prusament PETG #2b2b3a",
+    ]);
     // Each row rounds on its own: at most a second / a cent per row away from the totals.
     expect(Math.abs(sum((r) => r.seconds) - stats.totals.seconds)).toBeLessThanOrEqual(rows.length);
     expect(Math.abs(sum((r) => r.total) - stats.totals.total)).toBeLessThanOrEqual(rows.length * 3);
@@ -177,21 +186,19 @@ describe("stats", () => {
 
   it("filters by material, counting only that material's grams", async () => {
     const { app, db } = await setup();
-    const profiles = db.select().from(schema.filamentProfiles).all();
-    const material = profiles[0]?.materialId ?? "";
-    const ofMaterial = new Set(profiles.filter((p) => p.materialId === material).map((p) => p.id));
+    const spools = db.select().from(schema.spools).all();
+    const material = spools[0]?.materialId ?? "";
+    const ofMaterial = new Set(spools.filter((s) => s.materialId === material).map((s) => s.id));
     const used = db
       .select()
       .from(schema.printFilamentUsages)
       .all()
-      .filter((u) => ofMaterial.has(u.profileId ?? ""));
+      .filter((u) => ofMaterial.has(u.spoolId ?? ""));
     const stats = await get(app, `?materialId=${material}`);
     expect(stats.totals.prints).toBe(new Set(used.map((u) => u.printId)).size);
     expect(stats.totals.grams).toBeCloseTo(used.reduce((n, u) => n + u.grams, 0));
     expect(stats.totals.grams).toBeLessThan((await get(app)).totals.grams);
-    expect(stats.breakdowns.filament.every((f) => ofMaterial.has(f.key?.split("|")[0] ?? ""))).toBe(
-      true,
-    );
+    expect(stats.breakdowns.filament.every((f) => f.key?.split("|")[1] === material)).toBe(true);
   });
 
   it("fills empty buckets and reports the estimated part of the time", async () => {
@@ -222,7 +229,7 @@ describe("stats", () => {
     const bySpool = await get(app, `?spoolId=${spool?.id}`);
     expect(bySpool.totals.prints).toBeLessThan((await get(app)).totals.prints);
     expect(bySpool.breakdowns.filament.map((f) => f.key)).toEqual([
-      `${spool?.profileId}|${spool?.colorHex}`,
+      `${spool?.brandId}|${spool?.materialId}|${spool?.name?.toLowerCase() ?? ""}|${spool?.colorHex}`,
     ]);
 
     expect((await get(app, "?from=2030-01-01")).totals).toMatchObject({ prints: 0, total: 0 });

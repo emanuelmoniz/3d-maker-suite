@@ -199,12 +199,11 @@ export const projectSlicingRoutes =
         ];
         const spoolRows = spoolIds.length
           ? db
-              .select({ id: spools.id, profileId: spools.profileId, archivedAt: spools.archivedAt })
+              .select({ id: spools.id, archivedAt: spools.archivedAt })
               .from(spools)
               .where(inArray(spools.id, spoolIds))
               .all()
           : [];
-        const spoolProfile = new Map(spoolRows.map((s) => [s.id, s.profileId]));
         const printIds = plates.flatMap((p) => (p.printProfileId ? [p.printProfileId] : []));
         const filamentIds = plates.flatMap((p) => p.filaments.filter((f): f is string => !!f));
         if (
@@ -213,11 +212,11 @@ export const projectSlicingRoutes =
             printIds,
             own.map((p) => p.printProfileId),
           ) ||
-          // A spool can keep a profile that has a newer version since: that one is fine too.
-          !free(filamentProfiles, filamentIds, [
-            ...own.flatMap((p) => p.filaments),
-            ...spoolProfile.values(),
-          ])
+          !free(
+            filamentProfiles,
+            filamentIds,
+            own.flatMap((p) => p.filaments),
+          )
         )
           throw new HttpError(400, "invalid_reference", "Unknown profile");
         const printerIds = plates.flatMap((p) => (p.printerId ? [p.printerId] : []));
@@ -254,23 +253,16 @@ export const projectSlicingRoutes =
           throw new HttpError(400, "invalid_reference", "Unknown spool");
 
         // Stored fully resolved, so the projects list can tell in SQL what a plate slices with:
-        // the printer filled in, a printer that isn't the file's on its default profile, and a
-        // picked spool's profile in `filaments`.
+        // the printer filled in, and a printer that isn't the file's on its default profile. A
+        // spool never sets a slot's preset (ADR-0020).
         const resolve = plateResolver(db);
         const stored = plates.map((p) => {
           const model = meta.models.find((m) => m.file === p.file);
           const { printer, fits } = resolve(p, model);
-          const filaments = [...p.filaments];
-          p.spools.forEach((s, i) => {
-            if (!s) return;
-            while (filaments.length <= i) filaments.push(null);
-            filaments[i] = spoolProfile.get(s) ?? null;
-          });
           return {
             ...p,
             printerId: printer?.id ?? null,
             useDefaultPrintProfile: !p.printProfileId && (p.useDefaultPrintProfile || !fits),
-            filaments,
           };
         });
 

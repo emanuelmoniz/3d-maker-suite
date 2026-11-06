@@ -10,7 +10,6 @@ const preset = (scope: "system" | "user", name: string): LibraryPreset => ({
   name,
   diameterMm: 1.75,
   densityGcm3: 1.24,
-  pricePerKg: null,
   nozzleTempC: 220,
   bedTempC: 55,
 });

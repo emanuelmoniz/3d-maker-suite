@@ -2109,7 +2109,7 @@ Do Step 11 of the 5.4.0 plan in PLAN.md. Read ADR-0020 first.
 Back up the DB before editing schema.ts.
 ```
 
-### [ ] Step 12 - Spools describe the filament  **[plan mode]**
+### [x] Step 12 - Spools describe the filament  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:**
 - Migration (back up first): `spools` gains `brandId`, `materialId` (required) and `name`, and loses `profileId` (a table rebuild); `filament_materials` gains `pricePerKg`; `print_filament_usages` loses `profileId`; `filament_profiles` loses `pricePerKg`, `origin`, `integrationId` and `externalId`. Data per ADR-0020: brand, material and name from the old profile (a leading brand name dropped), `pricePaid` filled where that keeps the cost, each material's default price from its profiles' average.
@@ -2118,7 +2118,7 @@ Back up the DB before editing schema.ts.
 - Web: spool form, detail, list (`spoolName`) and `NewSpoolDialog`; the filament review; the stats filter; the material form's default price.
 - `docs/import.md` (columns, spools of new prints), `docs/bambu-cloud.md`, `docs/architecture.md` (data model).
 
-**Done when:** on a migrated alpha.2 database, every spool has its old profile's brand, material and name, and print costs, stats totals with spools and quote material prices are unchanged; a spool can be added with no profile in the database; a Bambu Cloud spool sync fills the fields; tests and e2e pass.
+**Done when:** on a migrated alpha.2 database, every spool has its old profile's brand, material and name, and print costs and stats totals with spools are unchanged (quote material prices follow ADR-0020: the spools' average, else the material's default); a spool can be added with no profile in the database; a Bambu Cloud spool sync fills the fields; tests and e2e pass.
 **Prompt:**
 ```
 Do Step 12 of the 5.4.0 plan in PLAN.md. Read ADR-0020 first.

@@ -16,7 +16,6 @@ export const filamentProfileInputSchema = filamentProfileSchema
     name: true,
     diameterMm: true,
     densityGcm3: true,
-    pricePerKg: true,
     nozzleTempC: true,
     bedTempC: true,
   })
@@ -24,7 +23,6 @@ export const filamentProfileInputSchema = filamentProfileSchema
     brandId: true,
     name: true,
     diameterMm: true,
-    pricePerKg: true,
     nozzleTempC: true,
     bedTempC: true,
   });
@@ -37,8 +35,8 @@ export const filamentBrandPatchSchema = filamentBrandInputSchema
   .extend({ archived: z.boolean().optional() })
   .strict();
 export const filamentMaterialInputSchema = filamentMaterialSchema
-  .pick({ name: true, nozzleTempC: true, bedTempC: true, densityGcm3: true })
-  .partial({ nozzleTempC: true, bedTempC: true, densityGcm3: true });
+  .pick({ name: true, nozzleTempC: true, bedTempC: true, densityGcm3: true, pricePerKg: true })
+  .partial({ nozzleTempC: true, bedTempC: true, densityGcm3: true, pricePerKg: true });
 export const filamentMaterialPatchSchema = filamentMaterialInputSchema
   .partial()
   .extend({ archived: z.boolean().optional() })
@@ -61,7 +59,9 @@ export const filamentProfilePatchSchema = filamentProfileInputSchema
  */
 export const spoolInputSchema = spoolSchema
   .pick({
-    profileId: true,
+    brandId: true,
+    materialId: true,
+    name: true,
     number: true,
     colorHex: true,
     colorName: true,
@@ -77,6 +77,8 @@ export const spoolInputSchema = spoolSchema
     lowAlert: true,
   })
   .partial({
+    brandId: true,
+    name: true,
     number: true,
     colorHex: true,
     colorName: true,
@@ -104,13 +106,7 @@ export const spoolAdjustSchema = z.object({
   note: z.string().min(1).nullable().optional(),
 });
 
-export const filamentProfileSortFields = [
-  "brand",
-  "material",
-  "createdAt",
-  "filament",
-  "pricePerKg",
-] as const;
+export const filamentProfileSortFields = ["brand", "material", "createdAt", "filament"] as const;
 export const spoolSortFields = [
   "createdAt",
   "remainingGrams",
@@ -124,7 +120,6 @@ export const filamentProfileFilters = {
   filament: { kind: "text" },
   brandId: { kind: "select" },
   materialId: { kind: "select" },
-  pricePerKg: { kind: "number" },
 } as const satisfies Record<string, ColumnFilter>;
 
 export const spoolFilters = {
@@ -152,7 +147,6 @@ export const libraryPresetSchema = filamentProfileSchema
     name: true,
     diameterMm: true,
     densityGcm3: true,
-    pricePerKg: true,
     nozzleTempC: true,
     bedTempC: true,
   })
@@ -168,7 +162,7 @@ export const librarySourceSchema = z.object({
   detectedDir: z.string().nullable(),
 });
 
-/** A spool from an integration's inventory. `profile` names the filament, to find its profile. */
+/** A spool from an integration's inventory, with the filament it describes. */
 export const librarySpoolSchema = spoolSchema
   .pick({
     colorHex: true,
@@ -182,7 +176,7 @@ export const librarySpoolSchema = spoolSchema
   .extend({
     /** The vendor's id; the server prefixes it with the adapter id (`bambu-cloud:123`). */
     spoolId: z.string().min(1),
-    profile: filamentProfileSchema.pick({ brand: true, material: true, name: true }),
+    filament: filamentProfileSchema.pick({ brand: true, material: true, name: true }),
   });
 
 export type LibraryPreset = z.infer<typeof libraryPresetSchema>;

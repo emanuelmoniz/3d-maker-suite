@@ -24,10 +24,10 @@ describe("rates", () => {
     expect(maintenancePerHour(1000, 0)).toBe(0);
   });
 
-  it("prefers the price paid for the spool over the list price", () => {
-    const list = { pricePerKg: 3000 };
-    expect(spoolPricePerKg({ pricePaid: 1500, initialGrams: 750 }, list)).toBe(2000);
-    expect(spoolPricePerKg({ pricePaid: null, initialGrams: 1000 }, list)).toBe(3000);
+  it("prefers the price paid for the spool over its material's default", () => {
+    const material = { pricePerKg: 3000 };
+    expect(spoolPricePerKg({ pricePaid: 1500, initialGrams: 750 }, material)).toBe(2000);
+    expect(spoolPricePerKg({ pricePaid: null, initialGrams: 1000 }, material)).toBe(3000);
     expect(
       spoolPricePerKg({ pricePaid: null, initialGrams: 1000 }, { pricePerKg: null }),
     ).toBeNull();

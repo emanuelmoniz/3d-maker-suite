@@ -2,7 +2,7 @@ import { HIDDEN_PROJECT, type Stats, type StatsQuery, toMinor } from "@3d-maker-
 import { type Db, schema } from "@3d-maker-suite/db";
 import { and, inArray, type SQL, sql } from "drizzle-orm";
 import { projectVisible, type Rights } from "./auth.ts";
-import { printerLabel, profileLabel, projectLabel } from "./catalog.ts";
+import { filamentName, printerLabel, projectLabel } from "./catalog.ts";
 import { deviceRates, type Rate } from "./cost.ts";
 import { dateRange, inIds, taggedWith } from "./list.ts";
 import { readPreferences } from "./preferences.ts";
@@ -51,9 +51,9 @@ export function readStats(db: Db, q: StatsQuery, user?: Rights): Stats {
       ids.map((id) => sql`${id}`),
       sql`, `,
     );
-  // A usage's material is its profile's (the spool's profile when the usage has none).
-  const usageMaterial = sql`(SELECT fp.material_id FROM filament_profiles fp
-    WHERE fp.id = COALESCE(us.profile_id, (SELECT sp.profile_id FROM spools sp WHERE sp.id = us.spool_id)))`;
+  // A usage's material is its spool's, else the one it reports (by name).
+  const usageMaterial = sql`COALESCE((SELECT sp.material_id FROM spools sp WHERE sp.id = us.spool_id),
+    (SELECT fm.id FROM filament_materials fm WHERE fm.name = us.material COLLATE NOCASE))`;
   const where: SQL | undefined = and(
     dateRange(prints.startedAt, q),
     inIds(prints.printerId, q.printerId),
@@ -90,16 +90,16 @@ export function readStats(db: Db, q: StatsQuery, user?: Rights): Stats {
       JOIN acc ON acc.accessory_id = i.accessory_id
       GROUP BY p.id),
     use AS (
-      SELECT us.print_id, us.grams, COALESCE(us.profile_id, sp.profile_id) AS profile_id,
+      SELECT us.print_id, us.grams, sp.brand_id, sp.name, fm.id AS material_id,
         COALESCE(NULLIF(sp.color_name, ''), sp.color_hex, us.color_hex) AS color,
         CASE WHEN sp.price_paid IS NOT NULL AND sp.initial_grams > 0
-          THEN sp.price_paid * 1000.0 / sp.initial_grams ELSE fp.price_per_kg END AS price,
+          THEN sp.price_paid * 1000.0 / sp.initial_grams ELSE fm.price_per_kg END AS price,
         COALESCE(us.grams / NULLIF(SUM(us.grams) OVER (PARTITION BY us.print_id), 0),
           1.0 / COUNT(*) OVER (PARTITION BY us.print_id)) AS w,
         ${hit ?? sql`1`} AS hit
       FROM print_filament_usages us
       LEFT JOIN spools sp ON sp.id = us.spool_id
-      LEFT JOIN filament_profiles fp ON fp.id = COALESCE(us.profile_id, sp.profile_id)
+      LEFT JOIN filament_materials fm ON fm.id = ${usageMaterial}
       WHERE us.print_id IN (SELECT id FROM sel)),
     fil AS (
       SELECT print_id, SUM(grams) AS grams,
@@ -166,8 +166,10 @@ export function readStats(db: Db, q: StatsQuery, user?: Rights): Stats {
       // Each usage takes its grams' part (w / share) of the print's already filtered lines.
       filament: all<Stats["breakdowns"]["filament"][number]>(
         sql`SELECT *, material + energy + wear + maintenance AS total FROM (
-              SELECT use.profile_id || '|' || COALESCE(use.color, '') AS key,
-                trim(COALESCE(${profileLabel}, '') || ' ' || COALESCE(use.color, '')) AS label,
+              SELECT COALESCE(use.brand_id, '') || '|' || COALESCE(use.material_id, '') || '|'
+                  || COALESCE(lower(use.name), '') || '|' || COALESCE(use.color, '') AS key,
+                trim(COALESCE(${filamentName(sql`COALESCE(fb.name, '')`, sql`fm.name`, sql`MIN(use.name)`)}, '')
+                  || ' ' || COALESCE(use.color, '')) AS label,
                 NULL AS archivedAt,
                 COUNT(DISTINCT use.print_id) AS prints,
                 COUNT(DISTINCT CASE WHEN pc.outcome = 'success' THEN pc.id END) AS successes,
@@ -181,7 +183,8 @@ export function readStats(db: Db, q: StatsQuery, user?: Rights): Stats {
                 CAST(ROUND(SUM(pc.wear * use.w / pc.share)) AS INTEGER) AS wear,
                 CAST(ROUND(SUM(pc.maint * use.w / pc.share)) AS INTEGER) AS maintenance
               FROM use JOIN pc ON pc.id = use.print_id
-              LEFT JOIN filament_profiles ON filament_profiles.id = use.profile_id
+              LEFT JOIN filament_brands fb ON fb.id = use.brand_id
+              LEFT JOIN filament_materials fm ON fm.id = use.material_id
               WHERE use.hit
               GROUP BY key)
             ORDER BY total DESC, grams DESC`,

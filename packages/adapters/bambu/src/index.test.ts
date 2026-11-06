@@ -365,7 +365,7 @@ it("lists the cloud filament manager's spools, page by page", async () => {
   expect(spools).toHaveLength(101); // no material: skipped
   expect(spools[0]).toEqual({
     spoolId: "1",
-    profile: { brand: "Bambu Lab", material: "PLA", name: "PLA Basic" },
+    filament: { brand: "Bambu Lab", material: "PLA", name: "PLA Basic" },
     colorHex: "#042f56",
     colorName: "Cobalt Blue",
     initialGrams: 1000,

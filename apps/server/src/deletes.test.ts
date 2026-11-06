@@ -70,10 +70,12 @@ const profile = async (fields: object = {}) =>
     name: unique("Basic"),
     ...fields,
   });
-const spool = async (profileId?: string) =>
+const spool = async (fields: object = {}) =>
   made("/api/filament/spools", {
-    profileId: profileId ?? (await profile()),
+    materialId: await material(),
+    name: unique("Basic"),
     initialGrams: 1000,
+    ...fields,
   });
 const project = () => made("/api/projects", { name: unique("Vase") });
 const client = () => made("/api/clients", { name: unique("Ana"), mobile: unique("911") });
@@ -258,17 +260,13 @@ describe("delete", () => {
         }),
       /Basic/,
     ],
-    ["filamentProfiles", "spool", urls.spools, (id) => spool(id), /^\d{3}-.*Basic/],
+    ["filamentBrands", "spool", urls.spools, (id) => spool({ brandId: id }), /^\d{3}-.*Basic/],
     [
-      "filamentProfiles",
-      "print",
-      urls.prints,
-      async (id) => {
-        const printId = await print();
-        db.insert(schema.printFilamentUsages).values({ printId, profileId: id, grams: 1 }).run();
-        return printId;
-      },
-      /Body/,
+      "filamentMaterials",
+      "spool",
+      urls.spools,
+      (id) => spool({ materialId: id }),
+      /^\d{3}-.*Basic/,
     ],
     [
       "spools",

@@ -11,11 +11,10 @@ import {
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
 import { inArray, isNull, sql, sum } from "drizzle-orm";
-import { profileColumns } from "./catalog.ts";
 import { accessoryUsageColumns } from "./maintenance.ts";
 import { readPreferences } from "./preferences.ts";
 
-const { printers, prints, maintenanceTasks, spools, filamentProfiles, accessories } = schema;
+const { printers, prints, maintenanceTasks, spools, filamentMaterials, accessories } = schema;
 const { accessoryInstalls } = schema;
 
 export type Rate = { wearPerHour: number; maintenancePerHour: number };
@@ -139,16 +138,19 @@ export function costContext(db: Db): CostContext {
   const list = db.select().from(printers).where(isNull(printers.archivedAt)).all();
   const rates = deviceRates(db);
   const now = new Date().toISOString();
+  // What your spools of each material cost per kg on average, else its default price.
+  const materials = db.select().from(filamentMaterials).all();
   const byMaterial = new Map<string, number[]>();
-  for (const p of db
-    .select(profileColumns)
-    .from(filamentProfiles)
-    .where(isNull(filamentProfiles.archivedAt))
-    .all()) {
-    if (p.pricePerKg == null) continue;
-    const key = p.material.toUpperCase();
-    byMaterial.set(key, [...(byMaterial.get(key) ?? []), p.pricePerKg]);
+  for (const s of db.select().from(spools).where(isNull(spools.archivedAt)).all()) {
+    const paid = spoolPricePerKg(s, undefined);
+    const m = materials.find((x) => x.id === s.materialId);
+    if (paid == null || !m) continue;
+    const key = m.name.toUpperCase();
+    byMaterial.set(key, [...(byMaterial.get(key) ?? []), paid]);
   }
+  for (const m of materials)
+    if (m.pricePerKg != null && !byMaterial.has(m.name.toUpperCase()))
+      byMaterial.set(m.name.toUpperCase(), [m.pricePerKg]);
   return {
     rates: { energyPerKwh: toMinor(prefs.energyCostPerKwh) },
     quoteDefaults: {
@@ -173,7 +175,7 @@ export function costContext(db: Db): CostContext {
 type PrintWithUsages = Pick<
   typeof prints.$inferSelect,
   "id" | "printerId" | "startedAt" | "durationSec" | "energyWh"
-> & { usages: { grams: number; spoolId: string | null; profileId: string | null }[] };
+> & { usages: { grams: number; spoolId: string | null; material: string | null }[] };
 
 /**
  * Cost of each print, with today's prices and rates (and the accessories on its printer when it
@@ -199,22 +201,9 @@ export function printCosts(db: Db, list: PrintWithUsages[]): Map<string, CostBre
   const spoolRows = spoolIds.length
     ? db.select().from(spools).where(inArray(spools.id, spoolIds)).all()
     : [];
-  const profileIds = [
-    ...new Set([
-      ...spoolRows.map((s) => s.profileId),
-      ...list.flatMap((p) => p.usages.flatMap((u) => (u.profileId ? [u.profileId] : []))),
-    ]),
-  ];
-  const profiles = new Map(
-    (profileIds.length
-      ? db
-          .select(profileColumns)
-          .from(filamentProfiles)
-          .where(inArray(filamentProfiles.id, profileIds))
-          .all()
-      : []
-    ).map((p) => [p.id, p]),
-  );
+  const materials = db.select().from(filamentMaterials).all();
+  const materialById = new Map(materials.map((m) => [m.id, m]));
+  const materialByName = new Map(materials.map((m) => [m.name.toLowerCase(), m]));
   const spoolById = new Map(spoolRows.map((s) => [s.id, s]));
   for (const p of list) {
     const printer = printerRows.find((x) => x.id === p.printerId);
@@ -228,16 +217,14 @@ export function printCosts(db: Db, list: PrintWithUsages[]): Map<string, CostBre
         {
           durationSec: p.durationSec,
           energyWh: p.energyWh ?? estimateEnergyWh(printer?.powerW ?? null, p.durationSec),
+          // The spool's price, else its material's default; no spool: the reported material's.
           filaments: p.usages.map((u) => {
             const spool = u.spoolId ? spoolById.get(u.spoolId) : undefined;
-            const profile = profiles.get(u.profileId ?? spool?.profileId ?? "");
             return {
               grams: u.grams,
-              pricePerKg: profile
-                ? spool
-                  ? spoolPricePerKg(spool, profile)
-                  : profile.pricePerKg
-                : null,
+              pricePerKg: spool
+                ? spoolPricePerKg(spool, materialById.get(spool.materialId))
+                : (materialByName.get(u.material?.trim().toLowerCase() ?? "")?.pricePerKg ?? null),
             };
           }),
         },

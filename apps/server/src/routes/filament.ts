@@ -7,11 +7,11 @@ import {
   filamentProfilePatchSchema,
   filamentProfileSchema,
   filamentProfileSortFields,
-  idList,
   listQuery,
   type Page,
   pageOf,
   type Spool,
+  type SpoolInput,
   type SpoolWeightEntry,
   spoolAdjustSchema,
   spoolFilters,
@@ -31,6 +31,7 @@ import {
   archivedAtOf,
   archivedWhere,
   assertPresetFree,
+  canReference,
   resolveItemAlerts,
 } from "../lib/archive.ts";
 import {
@@ -38,14 +39,15 @@ import {
   profileColumns,
   profileLabel,
   profileMaterial,
+  spoolColumns,
   spoolName,
 } from "../lib/catalog.ts";
 import { deleteItem } from "../lib/dependents.ts";
-import { inIds, listPage, taggedWith } from "../lib/list.ts";
+import { listPage, taggedWith } from "../lib/list.ts";
 import { assertNumberFree } from "../lib/numbers.ts";
 import { createSpool, round, setRemaining } from "../lib/spools.ts";
 
-const { filamentProfiles, spools, spoolWeightEntries } = schema;
+const { filamentBrands, filamentMaterials, filamentProfiles, spools, spoolWeightEntries } = schema;
 const params = z.object({ id: z.uuid() });
 const notFound = { 404: apiErrorSchema };
 
@@ -62,9 +64,16 @@ export const filamentRoutes =
       return row;
     };
     const getSpool = (id: string) => {
-      const row = db.select().from(spools).where(eq(spools.id, id)).get();
+      const row = db.select(spoolColumns).from(spools).where(eq(spools.id, id)).get();
       if (!row) throw new HttpError(404, "not_found", "Spool not found");
-      return row;
+      return row as Spool;
+    };
+    // A brand or material you archived stays on the spools that have it, but no new one gets it.
+    const checkFilament = (b: Partial<SpoolInput>, cur?: Spool) => {
+      if (b.brandId && !canReference(db, filamentBrands, b.brandId, cur?.brandId))
+        throw new HttpError(400, "invalid_reference", "Filament brand not found");
+      if (b.materialId && !canReference(db, filamentMaterials, b.materialId, cur?.materialId))
+        throw new HttpError(400, "invalid_reference", "Filament material not found");
     };
 
     // --- Profiles (the product: brand, material, colour).
@@ -88,14 +97,12 @@ export const filamentRoutes =
             material: sql`${profileMaterial} COLLATE NOCASE`,
             createdAt: filamentProfiles.createdAt,
             filament: profileLabel,
-            pricePerKg: filamentProfiles.pricePerKg,
           },
           dateColumn: filamentProfiles.createdAt,
           filters: {
             filament: profileLabel,
             brandId: filamentProfiles.brandId,
             materialId: filamentProfiles.materialId,
-            pricePerKg: filamentProfiles.pricePerKg,
           },
           where: [archivedWhere(filamentProfiles.archivedAt, req.query.archived)],
         }) as Page<FilamentProfile>,
@@ -156,21 +163,18 @@ export const filamentRoutes =
       },
     );
 
-    // --- Spools (physical rolls of a profile)
+    // --- Spools (physical rolls: brand, material, name, colour)
     app.get(
       "/spools",
       {
         schema: {
-          querystring: listQuery(
-            spoolSortFields,
-            { archived: archivedFilter, profileId: idList.optional() },
-            spoolFilters,
-          ),
+          querystring: listQuery(spoolSortFields, { archived: archivedFilter }, spoolFilters),
           response: { 200: pageOf(spoolSchema) },
         },
       },
       async (req) =>
         listPage(db, spools, req.query, {
+          select: spoolColumns,
           sort: {
             createdAt: spools.createdAt,
             remainingGrams: spools.remainingGrams,
@@ -188,7 +192,6 @@ export const filamentRoutes =
           },
           where: [
             archivedWhere(spools.archivedAt, req.query.archived),
-            inIds(spools.profileId, req.query.profileId),
             taggedWith(db, "spool", spools.id, req.query.tagId),
           ],
         }) as Page<Spool>,
@@ -197,7 +200,7 @@ export const filamentRoutes =
     app.get(
       "/spools/:id",
       { schema: { params, response: { 200: spoolSchema, ...notFound } } },
-      async (req) => getSpool(req.params.id) as Spool,
+      async (req) => getSpool(req.params.id),
     );
 
     app.post(
@@ -209,14 +212,13 @@ export const filamentRoutes =
         },
       },
       async (req, reply) => {
-        if (getProfile(req.body.profileId).archivedAt)
-          throw new HttpError(400, "profile_archived", "Filament profile is archived");
+        checkFilament(req.body);
         assertNumberFree(db, spools, "spool", req.body.number);
         // No weight at all = not known yet.
         const initialGrams = req.body.initialGrams ?? null;
         const remainingGrams = req.body.remainingGrams ?? initialGrams;
         const row = createSpool(db, { ...req.body, initialGrams, remainingGrams });
-        return reply.status(201).send(row as Spool);
+        return reply.status(201).send(getSpool(row.id));
       },
     );
 
@@ -231,12 +233,13 @@ export const filamentRoutes =
       },
       async (req) => {
         const before = getSpool(req.params.id);
+        checkFilament(req.body, before);
         assertNumberFree(db, spools, "spool", req.body.number, req.params.id);
         const { archived, ...fields } = req.body;
         // A weight the ledger tracks can change, not go back to unknown.
         if (fields.initialGrams === null && before.initialGrams != null)
           throw new HttpError(400, "weight_required", "A spool's weight can't be unset");
-        return db.transaction((tx) => {
+        db.transaction((tx) => {
           const row = tx
             .update(spools)
             .set({ ...fields, archivedAt: archivedAtOf(archived) })
@@ -246,21 +249,21 @@ export const filamentRoutes =
           if (archived) resolveItemAlerts(tx, alertTasks.spool(row.id));
           // The weight is known now: the spool holds all of it until told otherwise.
           if (row.remainingGrams == null && row.initialGrams != null)
-            return (setRemaining(tx, row.id, "manual", row.initialGrams) ?? row) as Spool;
+            return setRemaining(tx, row.id, "manual", row.initialGrams);
           if (row.initialGrams == null || before.initialGrams == null || row.remainingGrams == null)
-            return row as Spool;
+            return;
           // A spool that started with more (or less) has that much more (or less) left now.
           const delta = row.initialGrams - before.initialGrams;
-          if (!delta) return row as Spool;
-          const moved = setRemaining(
-            tx,
-            row.id,
-            "manual",
-            Math.max(0, round(row.remainingGrams + delta)),
-            "Initial weight changed",
-          );
-          return (moved ?? row) as Spool;
+          if (delta)
+            setRemaining(
+              tx,
+              row.id,
+              "manual",
+              Math.max(0, round(row.remainingGrams + delta)),
+              "Initial weight changed",
+            );
         });
+        return getSpool(req.params.id);
       },
     );
 
@@ -287,7 +290,8 @@ export const filamentRoutes =
       async (req) => {
         const spool = getSpool(req.params.id);
         const { kind, remainingGrams, note } = req.body;
-        return (setRemaining(db, spool.id, kind, remainingGrams, note) ?? spool) as Spool;
+        setRemaining(db, spool.id, kind, remainingGrams, note);
+        return getSpool(spool.id);
       },
     );
 

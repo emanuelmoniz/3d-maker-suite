@@ -241,18 +241,19 @@ export const ITEMS = {
   },
   filamentBrands: {
     table: filamentBrands,
-    uses: [on(FILAMENT_PROFILE, filamentProfiles.brandId)],
+    uses: [on(FILAMENT_PROFILE, filamentProfiles.brandId), on(SPOOL, spools.brandId)],
     image: "logoPath",
     source: byName,
   },
   filamentMaterials: {
     table: filamentMaterials,
-    uses: [on(FILAMENT_PROFILE, filamentProfiles.materialId)],
+    uses: [on(FILAMENT_PROFILE, filamentProfiles.materialId), on(SPOOL, spools.materialId)],
     source: byName,
   },
   filamentProfiles: {
     table: filamentProfiles,
-    uses: [on(SPOOL, spools.profileId), through(PRINT, usages.profileId, usages.printId)],
+    // Plates name profiles without a foreign key: `presetUses` lists them.
+    uses: [],
     source: sourcePreset,
   },
   spools: {

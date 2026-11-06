@@ -524,6 +524,8 @@ export const filamentMaterials = sqliteTable(
     nozzleTempC: integer(),
     bedTempC: integer(),
     densityGcm3: real(),
+    /** Minor units per kg: what a spool without a price paid costs. */
+    pricePerKg: integer(),
     archivedAt: text(),
     ...timestamps,
   },
@@ -541,22 +543,18 @@ export const filamentProfiles = sqliteTable(
     name: text().notNull(),
     diameterMm: real().notNull().default(1.75),
     densityGcm3: real().notNull(),
-    pricePerKg: integer(),
     nozzleTempC: integer(),
     bedTempC: integer(),
     sourcePreset: text(),
     archivedAt: text(),
-    ...imported(),
     ...timestamps,
   },
   (t) => [
     index("filament_profiles_brand_idx").on(t.brandId),
     index("filament_profiles_material_idx").on(t.materialId),
-    uniqueIndex("filament_profiles_external_uq").on(t.integrationId, t.externalId),
     uniqueIndex("filament_profiles_source_uq")
       .on(t.sourcePreset)
       .where(sql`${t.archivedAt} IS NULL`),
-    check("filament_profiles_origin_ck", oneOf(t.origin, ORIGINS)),
   ],
 );
 
@@ -564,9 +562,13 @@ export const spools = sqliteTable(
   "spools",
   {
     id: id(),
-    profileId: text()
+    /** Null when the brand is unknown or generic. */
+    brandId: text().references(() => filamentBrands.id, { onDelete: "restrict" }),
+    materialId: text()
       .notNull()
-      .references(() => filamentProfiles.id, { onDelete: "restrict" }),
+      .references(() => filamentMaterials.id, { onDelete: "restrict" }),
+    /** "PLA Basic"; null = the material alone. */
+    name: text(),
     // ponytail: nullable only because SQLite can't ADD a NOT NULL column without a constant
     // default; createSpool always sets it. Rebuild the table with NOT NULL if a path ever skips it.
     number: integer(),
@@ -589,7 +591,8 @@ export const spools = sqliteTable(
     ...timestamps,
   },
   (t) => [
-    index("spools_profile_idx").on(t.profileId),
+    index("spools_brand_idx").on(t.brandId),
+    index("spools_material_idx").on(t.materialId),
     uniqueIndex("spools_source_uq").on(t.sourceSpool),
     uniqueIndex("spools_number_uq").on(t.number),
     check("spools_status_ck", oneOf(t.status, SPOOL_STATUSES)),
@@ -838,10 +841,10 @@ export const printFilamentUsages = sqliteTable(
       .notNull()
       .references(() => prints.id, { onDelete: "cascade" }),
     spoolId: text().references(() => spools.id, { onDelete: "restrict" }),
-    profileId: text().references(() => filamentProfiles.id, { onDelete: "restrict" }),
     grams: real().notNull(),
     slot: integer(),
     // As reported by an import; a spool is matched on these (or picked by hand in the review queue).
+    // Without a spool, `material` is what prices the grams.
     material: text(),
     colorHex: text(),
     dismissed: integer({ mode: "boolean" }).notNull().default(false),
@@ -849,7 +852,6 @@ export const printFilamentUsages = sqliteTable(
   (t) => [
     index("print_filament_usages_print_idx").on(t.printId),
     index("print_filament_usages_spool_idx").on(t.spoolId),
-    index("print_filament_usages_profile_idx").on(t.profileId),
   ],
 );
 

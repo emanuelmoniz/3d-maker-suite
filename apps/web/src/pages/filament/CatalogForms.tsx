@@ -1,11 +1,13 @@
 import { useTranslation } from "react-i18next";
 import { FormField, inputClass } from "../../components/FormField.tsx";
+import { usePreferences } from "../../lib/preferences.ts";
 import { CatalogForm } from "../printers/CatalogForms.tsx";
 
 const text = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
 const orNull = (v: string) => v || null;
 const int = (v: string) => (v ? Math.round(Number(v)) : null);
 const float = (v: string) => (v ? Number(v) : null);
+const minor = (v: string) => (v ? Math.round(Number(v) * 100) : null);
 
 export function FilamentBrandFormPage() {
   const { t } = useTranslation();
@@ -50,9 +52,11 @@ export function MaterialFields({
     nozzleTempC: number | null;
     bedTempC: number | null;
     densityGcm3: number | null;
+    pricePerKg: number | null;
   };
 }) {
   const { t } = useTranslation();
+  const currency = usePreferences().data?.values.currency ?? "";
   return (
     <>
       <FormField label={t("filament:catalog.materials.name")}>
@@ -98,6 +102,22 @@ export function MaterialFields({
           />
         )}
       </FormField>
+      <FormField
+        label={`${t("filament:catalog.materials.pricePerKg")} (${currency})`}
+        hint={t("filament:catalog.materials.pricePerKgHint")}
+      >
+        {(p) => (
+          <input
+            {...p}
+            name="price"
+            type="number"
+            min={0}
+            step={0.01}
+            className={inputClass}
+            defaultValue={m?.pricePerKg == null ? "" : m.pricePerKg / 100}
+          />
+        )}
+      </FormField>
     </>
   );
 }
@@ -107,6 +127,7 @@ export const materialBody = (f: FormData) => ({
   nozzleTempC: int(text(f, "nozzle")),
   bedTempC: int(text(f, "bed")),
   densityGcm3: float(text(f, "density")),
+  pricePerKg: minor(text(f, "price")),
 });
 
 export function FilamentMaterialFormPage() {

@@ -19,7 +19,7 @@ import { FormField } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { SelectionBar, SelectionResult } from "../../components/SelectionBar.tsx";
 import { useCan } from "../../lib/auth.ts";
-import { spoolName, useProfiles, useSpools } from "../../lib/filament.ts";
+import { spoolName, useSpools } from "../../lib/filament.ts";
 import { formatDateTime, formatWeight } from "../../lib/format.ts";
 import { useUrlListQuery } from "../../lib/list.ts";
 import {
@@ -180,7 +180,6 @@ export function PrintReviewPage() {
   const spools = (useSpools().data?.items ?? []).filter(
     (s) => !s.archivedAt && s.status !== "empty",
   );
-  const profiles = useProfiles().data?.items ?? [];
   const assign = useAssignReview();
   const dismiss = useDismissReview();
   const mayAssign = useCan("prints"); // the routes' "prints write"
@@ -192,11 +191,9 @@ export function PrintReviewPage() {
     spools
       .filter((s) => usableOn(s, i.startedAt))
       .map((s) => {
-        const profile = profiles.find((p) => p.id === s.profileId);
-        const material =
-          !!i.material && profile?.material.toLowerCase() === i.material.toLowerCase();
+        const material = !!i.material && s.material.toLowerCase() === i.material.toLowerCase();
         const color = !!i.colorHex && s.colorHex.toLowerCase() === i.colorHex.toLowerCase();
-        return { spool: s, profile, rank: Number(material) * (color ? 2 : 1) };
+        return { spool: s, rank: Number(material) * (color ? 2 : 1) };
       })
       .sort((a, b) => b.rank - a.rank);
 
@@ -239,11 +236,7 @@ export function PrintReviewPage() {
                   spools={spools.map((sp) => ({
                     value: sp.id,
                     label: t("prints:form.spoolOption", {
-                      name: spoolName(
-                        t,
-                        sp,
-                        profiles.find((p) => p.id === sp.profileId),
-                      ),
+                      name: spoolName(t, sp),
                       weight: formatWeight(sp.remainingGrams),
                     }),
                   }))}
@@ -320,10 +313,10 @@ export function PrintReviewPage() {
                     onChange={(v) => setPicked((p) => ({ ...p, [i.usageId]: v }))}
                     options={[
                       { value: "", label: "" },
-                      ...optionsFor(i).map(({ spool, profile }) => ({
+                      ...optionsFor(i).map(({ spool }) => ({
                         value: spool.id,
                         label: t("prints:form.spoolOption", {
-                          name: spoolName(t, spool, profile),
+                          name: spoolName(t, spool),
                           weight: formatWeight(spool.remainingGrams),
                         }),
                       })),

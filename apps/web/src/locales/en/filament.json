@@ -4,7 +4,7 @@
     "title": "Spools",
     "table": "Spools",
     "emptyTitle": "No spools yet",
-    "emptyBody": "Add a filament profile first, then add the spools you own.",
+    "emptyBody": "Add the spools you own: a material is all a spool needs.",
     "filament": "Filament",
     "remaining": "Remaining",
     "color": "Color",
@@ -15,10 +15,12 @@
     "addTitle": "Add spool",
     "editTitle": "Edit spool",
     "priceColumn": "Price",
-    "listPrice": "Estimated from the profile's price per kg",
-    "archivedProfile": "Archived profile",
+    "listPrice": "Estimated from the material's default price per kg",
     "save": "Save spool",
-    "profile": "Profile",
+    "brand": "Brand",
+    "material": "Material",
+    "filamentName": "Name",
+    "filamentNameHint": "The filament line, e.g. PLA Basic or PLA Matte. Leave empty for the material alone.",
     "initial": "Initial weight (g)",
     "initialHint": "Leave empty if you don't know it yet: nothing is taken from the spool until you set it.",
     "remainingNow": "Remaining weight (g)",
@@ -38,7 +40,7 @@
     },
     "low": "Low",
     "error": "Couldn't save the spool.",
-    "name": "{{number}}-{{profile}} {{color}}",
+    "name": "{{number}}-{{filament}} {{color}}",
     "number": "Number",
     "numberHint": "Leave empty for the next free number.",
     "numberTaken": "Another spool already has this number. It may be archived.",
@@ -52,7 +54,6 @@
     "name": "Name",
     "diameter": "Diameter (mm)",
     "density": "Density (g/cm³)",
-    "pricePerKg": "Price per kg",
     "nozzleTemp": "Nozzle (°C)",
     "bedTemp": "Bed (°C)",
     "temps": "{{nozzle}} / {{bed}} °C",
@@ -103,9 +104,7 @@
   },
   "profileDetail": {
     "title": "Profile details",
-    "notFound": "Filament profile not found.",
-    "spools": "Spools",
-    "noSpools": "No spools use this profile yet."
+    "notFound": "Filament profile not found."
   },
   "spoolImport": {
     "remainingOf": "{{remaining}} of {{initial}}"
@@ -128,7 +127,9 @@
       "addTitle": "Add filament material",
       "editTitle": "Edit filament material",
       "name": "Name",
-      "defaultsHint": "Optional defaults, applied when you pick this material on a new profile."
+      "defaultsHint": "Optional defaults, applied when you pick this material on a new profile.",
+      "pricePerKg": "Default price per kg",
+      "pricePerKgHint": "What a spool of this material costs when it has no price paid."
     }
   }
 }

@@ -28,7 +28,7 @@ import { projectMatcher } from "../projects/linkPrints.ts";
 import type { WriteRow } from "./review.ts";
 import { spoolImport, spoolLabels } from "./spools.ts";
 
-const { filamentProfiles, printFilamentUsages, printers, prints, projects } = schema;
+const { printFilamentUsages, printers, prints, projects } = schema;
 
 const num = (c: ImportCell | undefined) => (typeof c === "number" ? c : null);
 const str = (c: ImportCell | undefined) => (typeof c === "string" ? c : null);
@@ -45,11 +45,6 @@ const group = (pairs: (readonly [string, string])[]): Names => {
     if (!ids.includes(id)) map.set(lower(name), [...ids, id]);
   }
   return map;
-};
-/** The row a name means; null when it means none or several. */
-const one = (names: Names, name: ImportCell | undefined) => {
-  const ids = names.get(lower(name));
-  return ids?.length === 1 ? (ids[0] ?? null) : null;
 };
 
 const cellText = (c: ImportCell | undefined) => (c == null ? "" : String(c).trim());
@@ -123,7 +118,6 @@ type Lookups = {
   spools: Ref;
   /** Each spool's opening day, for `usableOn`. */
   opened: Map<string, string | null>;
-  profiles: Names;
 };
 function build(db: Db): Lookups {
   const spoolRows = spoolImport.targets(db);
@@ -148,14 +142,6 @@ function build(db: Db): Lookups {
       })),
     ),
     opened: new Map(spoolRows.map((s) => [s.id, str(s.values.openedAt)])),
-    profiles: group(
-      db
-        .select({ id: filamentProfiles.id, name: filamentProfiles.name })
-        .from(filamentProfiles)
-        .where(isNull(filamentProfiles.archivedAt))
-        .all()
-        .map((p) => [p.name, p.id] as const),
-    ),
   };
 }
 
@@ -239,7 +225,6 @@ function useFilament(
       waiting.push({
         printId,
         spoolId: null,
-        profileId: one(look.profiles, v[key.filament]),
         grams,
         material: str(v[key.filament]) ?? str(v[key.spool]),
         ...as,
@@ -276,13 +261,6 @@ export const printImport = {
     for (const u of db.select().from(printFilamentUsages).all())
       usages.set(u.printId, [...(usages.get(u.printId) ?? []), u]);
     const spools = spoolLabels(db);
-    const profiles = new Map(
-      db
-        .select({ id: filamentProfiles.id, name: filamentProfiles.name })
-        .from(filamentProfiles)
-        .all()
-        .map((p) => [p.id, p.name]),
-    );
     return db
       .select({ print: prints, printer: printerLabel, project: projectLabel })
       .from(prints)
@@ -295,11 +273,8 @@ export const printImport = {
         for (const [i, u] of (usages.get(p.id) ?? []).slice(0, PRINT_MAX_SLOTS).entries()) {
           const key = printSlotKeys(i + 1);
           slots[key.spool] = (u.spoolId && spools.get(u.spoolId)) || null;
-          // A slot without a profile: what the printer reported ("PLA #ff8800"), as a row shows it.
-          slots[key.filament] =
-            (u.profileId && profiles.get(u.profileId)) ||
-            [u.material, u.colorHex].filter(Boolean).join(" ") ||
-            null;
+          // What the printer reported ("PLA #ff8800"), as a row shows it, or the file's material.
+          slots[key.filament] = [u.material, u.colorHex].filter(Boolean).join(" ") || null;
           slots[key.grams] = u.grams;
         }
         return {
@@ -364,7 +339,7 @@ export const printImport = {
       .map((p) => p.name),
     // In number order, as the targets come.
     spools: spoolImport.targets(db).map((s) => s.label),
-    filamentProfiles: spoolImport.refs(db).filamentProfiles,
+    filamentMaterials: spoolImport.refs(db).filamentMaterials,
   }),
 
   /** A print needs a printer that exists; a project it names is created when missing. */
@@ -461,7 +436,7 @@ export const printImport = {
           const key = printSlotKeys(n);
           if ((num(v[key.grams]) ?? 0) <= 0) continue;
           refs[key.spool] = find(look.spools, v[key.spool]);
-          // What the printer reported for the slot, else the filament the file names, else the
+          // What the printer reported for the slot, else the material the file names, else the
           // filament and colour of the spool it names.
           const said = reported[n - 1];
           const named = targets.find((s) => s.id === refs[key.spool])?.values;
@@ -469,10 +444,11 @@ export const printImport = {
             said
               ? same(s.values.material, said.material) && same(s.values.colorHex, said.colorHex)
               : v[key.filament]
-                ? same(s.values.profile, str(v[key.filament]) ?? undefined)
+                ? same(s.values.material, str(v[key.filament]) ?? undefined)
                 : !!named &&
-                  same(s.values.profile, str(named.profile) ?? undefined) &&
-                  same(s.values.colorHex, str(named.colorHex) ?? undefined);
+                  (["brand", "material", "name", "colorHex"] as const).every(
+                    (k) => lower(s.values[k]) === lower(named[k]),
+                  );
           first[key.spool] = targets.filter(fits).map((s) => s.id);
         }
         const unsure = ((raw.unsure ?? []) as string[]).filter((k) => refs[k]);

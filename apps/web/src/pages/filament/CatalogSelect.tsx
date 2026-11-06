@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Combobox } from "../../components/Combobox.tsx";
 import { FormField } from "../../components/FormField.tsx";
 import { PickerWithAdd } from "../../components/PickerWithAdd.tsx";
+import { useCan } from "../../lib/auth.ts";
 import { useCatalogPicker } from "../../lib/catalog.ts";
 import { BrandFields, brandBody, CatalogAddDialog } from "../printers/CatalogForms.tsx";
 import { MaterialFields, materialBody } from "./CatalogForms.tsx";
@@ -11,7 +12,10 @@ import { MaterialFields, materialBody } from "./CatalogForms.tsx";
 type Kind = "filament-brands" | "filament-materials";
 type Row = FilamentBrand | FilamentMaterial;
 
-/** A brand / material picker with "+ Add …" (a modal), for the filament profile form. */
+/**
+ * A brand / material picker, for the spool and filament profile forms; with `catalog` manage, a
+ * "+ Add …" beside it (a modal).
+ */
 export function CatalogSelect<K extends Kind>(props: {
   kind: K;
   name: string;
@@ -27,6 +31,7 @@ export function CatalogSelect<K extends Kind>(props: {
   const rows: Row[] = useCatalogPicker<Kind>(props.kind, props.defaultValue);
   const [value, setValue] = useState(props.defaultValue ?? "");
   const [adding, setAdding] = useState(false);
+  const canAdd = useCan("catalog", "manage");
 
   const pick = (id: string, row = rows.find((r) => r.id === id)) => {
     setValue(id);
@@ -36,8 +41,8 @@ export function CatalogSelect<K extends Kind>(props: {
   return (
     <>
       <FormField label={props.label}>
-        {(p) => (
-          <PickerWithAdd label={props.addLabel} onAdd={() => setAdding(true)}>
+        {(p) => {
+          const picker = (
             <Combobox
               {...p}
               name={props.name}
@@ -49,8 +54,15 @@ export function CatalogSelect<K extends Kind>(props: {
                 ...rows.map((r) => ({ value: r.id, label: r.name })),
               ]}
             />
-          </PickerWithAdd>
-        )}
+          );
+          return canAdd ? (
+            <PickerWithAdd label={props.addLabel} onAdd={() => setAdding(true)}>
+              {picker}
+            </PickerWithAdd>
+          ) : (
+            picker
+          );
+        }}
       </FormField>
       <CatalogAddDialog
         kind={props.kind}

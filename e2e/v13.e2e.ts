@@ -4,6 +4,7 @@ import type { Page } from "@playwright/test";
 import { expect, test } from "./fixtures.ts";
 import {
   addRoots,
+  filamentOf,
   hasHorizontalScroll,
   offScreen,
   pick,
@@ -225,7 +226,7 @@ test("back: returns to where you came from; a deep link falls back to the parent
   const printer = await seedPrinter(app.api);
   const profile = await seedProfile(app.api);
   const spool = await app.api<{ id: string }>("POST", "/api/filament/spools", {
-    profileId: profile.id,
+    ...filamentOf(profile),
     colorHex: "#00aa00",
     initialGrams: 1000,
   });
@@ -250,7 +251,7 @@ test("filament page: new and in-use spools by default, clear shows the rest", as
   const profile = await seedProfile(app.api);
   const make = (status: string, n: number) =>
     app.api("POST", "/api/filament/spools", {
-      profileId: profile.id,
+      ...filamentOf(profile),
       colorHex: "#aa0000",
       initialGrams: 1000,
       number: n,

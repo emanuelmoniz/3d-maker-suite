@@ -55,7 +55,7 @@ function PrintForm({ print }: { print?: PrintDetail }) {
   );
   const projectLeft = useProjectLeftPrompt();
   const spools = useSpools().data?.items ?? [];
-  const profiles = useProfiles().data?.items ?? [];
+  const _profiles = useProfiles().data?.items ?? [];
   const reasons = usePreferences().data?.values.failureReasons ?? [];
   const create = useCreatePrint();
   const patch = usePatchPrint(print?.id ?? "");
@@ -102,11 +102,7 @@ function PrintForm({ print }: { print?: PrintDetail }) {
     setRows((rs) => rs.map((r) => (r.key === key ? { ...r, ...p } : r)));
   const spoolLabel = (s: Spool) =>
     t("prints:form.spoolOption", {
-      name: spoolName(
-        t,
-        s,
-        profiles.find((p) => p.id === s.profileId),
-      ),
+      name: spoolName(t, s),
       weight: formatWeight(s.remainingGrams),
     });
 

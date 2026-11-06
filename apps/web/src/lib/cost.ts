@@ -105,7 +105,7 @@ export function useMoney() {
 
 export type Plate = ProjectModel["plates"][number];
 
-/** Price per kg of a material from the profiles on hand (minor units), or null. */
+/** Price per kg of a material: your spools' average, else its default (minor units), or null. */
 export const materialPrice = (ctx: CostContext, type: string | null) =>
   (type && ctx.materialPrices[type.toUpperCase()]) || null;
 
@@ -188,8 +188,8 @@ export type SlicedEstimate = {
 
 /**
  * One print of a project: its sliced plates, each on its own printer (else `fallbackPrinterId`).
- * A slot costs its spool's price, else its filament profile's, else the material's average; its
- * material is the spool's or profile's, else the one the slicer reports.
+ * A slot costs its spool's price, else its material's (`materialPrice`); its material is the
+ * spool's, else the slot profile's, else the one the slicer reports.
  */
 export function estimateSlicedPlates(
   plates: Pick<PlateSetup, "printerId" | "result" | "spools" | "filaments">[],
@@ -204,15 +204,14 @@ export function estimateSlicedPlates(
     const seconds = p.result.printTimeSeconds;
     const filaments = p.result.filaments.map((f) => {
       const spool = catalog.spools.find((s) => s.id === p.spools[f.slot - 1]);
-      const profileId = spool?.profileId ?? p.filaments[f.slot - 1];
-      const profile = catalog.profiles.find((x) => x.id === profileId);
-      const material = (profile?.material ?? f.material ?? "").toUpperCase();
+      const profile = catalog.profiles.find((x) => x.id === p.filaments[f.slot - 1]);
+      const material = (spool?.material ?? profile?.material ?? f.material ?? "").toUpperCase();
       if (spool) {
         const seen = spools.get(spool.id) ?? { spool, grams: 0 };
         spools.set(spool.id, { spool, grams: seen.grams + f.grams });
       }
       if (material) materials.set(material, (materials.get(material) ?? 0) + f.grams);
-      const own = profile && (spool ? spoolPricePerKg(spool, profile) : profile.pricePerKg);
+      const own = spool && spoolPricePerKg(spool, undefined);
       return { grams: f.grams, pricePerKg: own ?? materialPrice(ctx, material) };
     });
     return [

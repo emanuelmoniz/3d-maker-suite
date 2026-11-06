@@ -76,23 +76,23 @@ export function createSpool(
 export const round = (g: number) => Math.round(g * 1000) / 1000;
 
 /**
- * Takes `grams` from a spool through the ledger (kind "print"). Returns the spool's profile id,
- * or `null` with nothing booked when the spool is missing or holds less than `grams`. A spool
- * whose weight isn't known takes the print without booking anything.
+ * Takes `grams` from a spool through the ledger (kind "print"). False, with nothing booked, when
+ * the spool is missing or holds less than `grams`. A spool whose weight isn't known takes the
+ * print without booking anything.
  */
 export function takeFromSpool(
   db: Pick<Db, "transaction">,
   spoolId: string,
   grams: number,
   title: string,
-): string | null {
+): boolean {
   return db.transaction((tx) => {
     const spool = tx.select().from(spools).where(eq(spools.id, spoolId)).get();
-    if (!spool) return null;
-    if (spool.remainingGrams == null) return spool.profileId;
+    if (!spool) return false;
+    if (spool.remainingGrams == null) return true;
     const remaining = round(spool.remainingGrams - grams);
-    if (remaining < 0) return null;
+    if (remaining < 0) return false;
     if (round(grams) !== 0) setRemaining(tx, spoolId, "print", remaining, title);
-    return spool.profileId;
+    return true;
   });
 }

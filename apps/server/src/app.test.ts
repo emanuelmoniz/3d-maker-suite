@@ -173,8 +173,17 @@ describe("listPage filters", () => {
       name: "",
       densityGcm3: 1.27,
     });
-    await post("/api/filament/spools", { profileId: pla.id, initialGrams: 1000 });
-    await post("/api/filament/spools", { profileId: petg.id, initialGrams: 500 });
+    await post("/api/filament/spools", {
+      brandId: pla.brandId,
+      materialId: pla.materialId,
+      name: pla.name,
+      initialGrams: 1000,
+    });
+    await post("/api/filament/spools", {
+      brandId: petg.brandId,
+      materialId: petg.materialId,
+      initialGrams: 500,
+    });
     expect(await names("/api/filament/spools?filament=basic", "initialGrams")).toEqual([1000]);
     expect(await names("/api/filament/spools?sort=-filament", "initialGrams")).toEqual([500, 1000]);
     // The spool's display name: "002-Zed PETG #808080".

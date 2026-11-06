@@ -46,10 +46,11 @@ export async function seedOneOfEach(app: App, db: ReturnType<typeof openDb>) {
     materialId: material.id,
     densityGcm3: 1.24,
     name: "Basic",
-    pricePerKg: 2000,
   });
   const spool = await made("/api/filament/spools", {
-    profileId: profile.id,
+    brandId: filamentBrand.id,
+    materialId: material.id,
+    name: "PLA Basic",
     initialGrams: 1000,
     pricePaid: 2000,
   });

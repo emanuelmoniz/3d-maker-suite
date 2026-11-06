@@ -83,7 +83,6 @@ export function toProfile(
   // A user preset with no readable parent still counts: it waits for a person (ADR-0019).
   if (!material && scope === "system") return;
   const density = num(get("filament_density"));
-  const cost = num(get("filament_cost"));
   const nozzle = num(get("nozzle_temperature"));
   const bed = num(get("hot_plate_temp"));
   return {
@@ -93,7 +92,6 @@ export function toProfile(
     name: baseName(name),
     diameterMm: num(get("filament_diameter")) || 1.75,
     densityGcm3: density && density > 0 ? density : DEFAULT_DENSITY,
-    pricePerKg: cost && cost > 0 ? Math.round(cost * 100) : null, // cost is per kg, in major units
     nozzleTempC: nozzle && nozzle > 0 ? Math.round(nozzle) : null,
     bedTempC: bed !== undefined && bed >= 0 ? Math.round(bed) : null,
   };

@@ -11,7 +11,7 @@ import { inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { StatCard } from "../../components/StatCard.tsx";
 import { useMoney } from "../../lib/cost.ts";
-import { spoolName, useProfiles, useSpools } from "../../lib/filament.ts";
+import { spoolName, useSpools } from "../../lib/filament.ts";
 import { formatDuration, formatEnergy, formatNumber, formatWeight } from "../../lib/format.ts";
 import { printerName, usePrinters } from "../../lib/printers.ts";
 import { projectName, useProjects } from "../../lib/projects.ts";
@@ -114,16 +114,8 @@ export function StatsPage() {
 
   const printers = usePrinters({ archived: false }).data?.items ?? [];
   const spools = useSpools().data?.items ?? [];
-  const profiles = useProfiles().data?.items ?? [];
   // Only the materials of your spools, not the whole catalog (presets bring dozens).
-  const materials = [
-    ...new Map(
-      spools.flatMap((s) => {
-        const p = profiles.find((x) => x.id === s.profileId);
-        return p?.materialId ? [[p.materialId, p.material] as const] : [];
-      }),
-    ),
-  ]
+  const materials = [...new Map(spools.map((s) => [s.materialId, s.material] as const))]
     .map(([value, label]) => ({ value, label }))
     .sort((a, b) => a.label.localeCompare(b.label));
   const projects = useProjects().data?.items ?? [];
@@ -250,11 +242,7 @@ export function StatsPage() {
           onChange={(spoolId) => set({ spoolId })}
           options={spools.map((s) => ({
             value: s.id,
-            label: spoolName(
-              t,
-              s,
-              profiles.find((p) => p.id === s.profileId),
-            ),
+            label: spoolName(t, s),
           }))}
         />
         <Select

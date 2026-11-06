@@ -54,7 +54,7 @@ test("a quote whose form names deleted rows still opens and saves", async ({ pag
     printerId: printer.id,
     printProfileId: null,
     useDefaultPrintProfile: false,
-    filaments: [spool.profileId],
+    filaments: [],
     spools: [spool.id],
     slicerIntegrationId: null,
     result: null,

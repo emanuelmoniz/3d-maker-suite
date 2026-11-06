@@ -153,10 +153,10 @@ export const printsRoutes =
         const spool = tx.select().from(spools).where(eq(spools.id, spoolId)).get();
         if (!spool || spool.archivedAt)
           throw new HttpError(400, "invalid_spool", "Spool not found");
-        const profileId = bookOrLink(tx, spool, row.usage.grams, row.title, row.startedAt);
-        if (!profileId) throw shortOf(tx, spool.id, row.title, row.usage.grams);
+        if (!bookOrLink(tx, spool, row.usage.grams, row.title, row.startedAt))
+          throw shortOf(tx, spool.id, row.title, row.usage.grams);
         tx.update(printFilamentUsages)
-          .set({ spoolId: spool.id, profileId })
+          .set({ spoolId: spool.id })
           .where(eq(printFilamentUsages.id, row.usage.id))
           .run();
       });

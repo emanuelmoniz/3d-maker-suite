@@ -25,8 +25,7 @@ Printers, accessories, maintenance types, printer brands, printer models, machin
 | Printer brand | printer models |
 | Printer model | printers, machine profiles, print profiles, maintenance types that list it |
 | Machine profile | prints |
-| Filament brand, filament material | filament profiles |
-| Filament profile | spools, prints that used it |
+| Filament brand, filament material | filament profiles, spools |
 | Spool | prints that used it |
 | Project | prints, orders, quotes, and files left in its folder |
 | Order | prints |

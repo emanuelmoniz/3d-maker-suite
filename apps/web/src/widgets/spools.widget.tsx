@@ -16,7 +16,7 @@ defineWidget({
   Component: function LowSpoolsWidget({ settings: s }) {
     const { t } = useTranslation();
     const threshold = usePreferences().data?.values.lowSpoolGrams ?? 0;
-    const profiles = useProfiles().data?.items ?? [];
+    const _profiles = useProfiles().data?.items ?? [];
     // A spool whose weight isn't known can't be low.
     const low = (useSpools().data?.items ?? [])
       .flatMap((x) =>
@@ -51,11 +51,7 @@ defineWidget({
                     className="size-3 rounded-full border border-border"
                     style={{ background: x.colorHex }}
                   />
-                  {spoolName(
-                    t,
-                    x,
-                    profiles.find((p) => p.id === x.profileId),
-                  )}
+                  {spoolName(t, x)}
                 </Link>
                 <span className="text-warn">{formatWeight(x.remainingGrams)}</span>
               </li>

@@ -190,7 +190,7 @@ export function ReviewTable({
   // The spool picker a new spool is being added for, and the spools added so far.
   const [adding, setAdding] = useState<{ row: ImportPreviewRow; key: string } | null>(null);
   const [added, setAdded] = useState<NonNullable<ImportPreview["refOptions"]>[string]>([]);
-  const profiles = useProfiles().data?.items ?? [];
+  const _profiles = useProfiles().data?.items ?? [];
   // Cells edited in the review, by row, as a file cell would hold them.
   const [edits, setEdits] = useState<Record<number, ImportValues>>({});
 
@@ -925,11 +925,7 @@ export function ReviewTable({
         onClose={() => setAdding(null)}
         onSaved={(s) => {
           if (!adding) return;
-          const label = spoolName(
-            t,
-            s,
-            profiles.find((p) => p.id === s.profileId),
-          );
+          const label = spoolName(t, s);
           setAdded((a) => [...a, { id: s.id, label }]);
           const { row, key } = adding;
           setCell(row, key, { id: s.id, label });

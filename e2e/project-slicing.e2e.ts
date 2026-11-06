@@ -123,7 +123,9 @@ test("slicing a project with the mock slicer: results, estimate, list filter, re
   await expect(page.getByRole("heading", { name: "Production cost of one print" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Material usage" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Aggregated cost" })).toBeVisible();
-  await expect(page.getByRole("term").filter({ hasText: /^001-Basic #ff0000$/ })).toBeVisible();
+  await expect(
+    page.getByRole("term").filter({ hasText: /^001-Acme PLA Basic #ff0000$/ }),
+  ).toBeVisible();
   await expect(page.getByRole("term").filter({ hasText: /^Total PLA$/ })).toBeVisible();
 
   await page.goto("/projects?slicing=done");

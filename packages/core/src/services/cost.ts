@@ -28,14 +28,14 @@ export const wearPerHour = (purchasePrice: number | null, lifetimeHours: number)
 export const maintenancePerHour = (totalCost: number, runtimeSec: number) =>
   runtimeSec > 0 ? totalCost / (runtimeSec / 3600) : 0;
 
-/** What a spool really cost per kg: its own price when known, else the profile's list price. */
+/** What a spool really cost per kg: its own price when known, else its material's default. */
 export function spoolPricePerKg(
   spool: { pricePaid: number | null; initialGrams: number | null },
-  profile: { pricePerKg: number | null },
+  material: { pricePerKg: number | null } | undefined,
 ): number | null {
   if (spool.pricePaid != null && spool.initialGrams != null && spool.initialGrams > 0)
     return (spool.pricePaid / spool.initialGrams) * 1000;
-  return profile.pricePerKg;
+  return material?.pricePerKg ?? null;
 }
 
 /** Each line is rounded on its own, so the lines always add up to the total shown. */

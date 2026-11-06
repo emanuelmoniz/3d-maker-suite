@@ -434,24 +434,25 @@ describe("slicing a project (mock slicer)", () => {
       (await app.inject({ method: "POST", url, payload })).json();
     const brand = await post("/api/filament-brands", { name: "Acme" });
     const material = await post("/api/filament-materials", { name: "PLA" });
-    const profile = await post("/api/filament/profiles", {
-      brandId: brand.id,
-      materialId: material.id,
-      densityGcm3: 1.24,
-      name: "Basic",
-    });
     const spool = (colorHex: string) =>
-      post("/api/filament/spools", { profileId: profile.id, colorHex, initialGrams: 1000 });
+      post("/api/filament/spools", {
+        brandId: brand.id,
+        materialId: material.id,
+        name: "Basic",
+        colorHex,
+        initialGrams: 1000,
+      });
     const red = await spool("#ff0000");
     const blue = await spool("#0000ff");
     const plate = { file: "benchy.3mf", plate: 1, printProfileId: null, filaments: [] };
 
     expect((await put([{ ...plate, spools: [crypto.randomUUID()] }])).statusCode).toBe(400);
     const saved = (await put([{ ...plate, spools: [red.id] }])).json();
-    expect(saved.plates[0]).toMatchObject({ spools: [red.id], filaments: [profile.id] });
+    // A spool never sets the slot's preset (ADR-0020).
+    expect(saved.plates[0]).toMatchObject({ spools: [red.id], filaments: [] });
     await run();
     await settled();
-    // Same profile, another spool: only the price changes, so no new slice.
+    // Another spool: only the price changes, so no new slice.
     await put([{ ...plate, spools: [blue.id] }]);
     expect((await settled()).plates[0]).toMatchObject({ needsSlicing: false, spools: [blue.id] });
   });

@@ -215,6 +215,7 @@ const materialTargets = (db: Db, archived = false): ImportTarget[] =>
         nozzleTempC: m.nozzleTempC,
         bedTempC: m.bedTempC,
         densityGcm3: m.densityGcm3,
+        pricePerKg: m.pricePerKg,
       },
     }));
 
@@ -430,6 +431,7 @@ export function catalogImport(dataDir: string) {
             nozzleTempC: num(v.nozzleTempC),
             bedTempC: num(v.bedTempC),
             densityGcm3: num(v.densityGcm3),
+            pricePerKg: num(v.pricePerKg),
           })
           .onConflictDoNothing()
           .returning({ id: filamentMaterials.id })

@@ -50,6 +50,7 @@ function useSlicerColumns() {
 /** Filament brands and materials. */
 export function FilamentCatalog() {
   const { t } = useTranslation();
+  const currency = usePreferences().data?.values.currency;
   const none = t("printers:detail.info.none");
   const slicer = useSlicerColumns();
   return (
@@ -116,6 +117,13 @@ export function FilamentCatalog() {
                     bed: m.bedTempC ?? "–",
                   }),
           },
+          {
+            id: "price",
+            header: t("filament:catalog.materials.pricePerKg"),
+            numeric: true,
+            cell: (m) =>
+              m.pricePerKg === null ? none : formatCurrency(m.pricePerKg / 100, currency),
+          },
           slicer.material,
         ]}
       />
@@ -126,7 +134,6 @@ export function FilamentCatalog() {
 /** Filament profiles table with its import and add actions. */
 export function FilamentProfiles() {
   const { t } = useTranslation();
-  const prefs = usePreferences().data?.values;
   const [profileQuery, setProfileQuery] = useUrlListQuery("profiles.");
   const profiles = useListPage<FilamentProfile>(
     ["filament", "profiles", "table"],
@@ -209,17 +216,6 @@ export function FilamentProfiles() {
                         nozzle: p.nozzleTempC ?? "–",
                         bed: p.bedTempC ?? "–",
                       }),
-              },
-              {
-                id: "price",
-                header: t("filament:profiles.pricePerKg"),
-                numeric: true,
-                cell: (p) =>
-                  p.pricePerKg === null ? "" : formatCurrency(p.pricePerKg / 100, prefs?.currency),
-                sort: "pricePerKg",
-                filter: "pricePerKg",
-                filterScale: 100,
-                filterHint: prefs?.currency,
               },
               slicer.profile,
               archiveColumn<FilamentProfile>(t, {

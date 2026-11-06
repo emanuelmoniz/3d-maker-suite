@@ -101,7 +101,7 @@ const printSlotColumns = (n: number): ImportColumn[] => [
   {
     key: printSlotKeys(n).filament,
     type: "ref",
-    ref: "filamentProfiles",
+    ref: "filamentMaterials",
     setBy: { column: printSlotKeys(n).spool },
     label: "import:prints.columns.filamentN",
     labelArgs: { n },
@@ -126,12 +126,7 @@ export const IMPORT_COLUMNS = {
       label: "import:spools.columns.material",
       required: true,
     },
-    {
-      key: "profile",
-      type: "ref",
-      ref: "filamentProfiles",
-      label: "import:spools.columns.profile",
-    },
+    { key: "name", type: "text", label: "import:spools.columns.name" },
     { key: "colorHex", type: "color", label: "import:spools.columns.colorHex" },
     { key: "colorName", type: "text", label: "import:spools.columns.colorName" },
     // Empty = weight not known yet.
@@ -295,7 +290,7 @@ export const IMPORT_COLUMNS = {
     {
       key: "filament",
       type: "ref",
-      ref: "filamentProfiles",
+      ref: "filamentMaterials",
       setBy: { column: "spool" },
       label: "import:prints.columns.filament",
     },
@@ -497,7 +492,6 @@ export const IMPORT_COLUMNS = {
       label: "import:filamentProfiles.columns.densityGcm3",
       required: true,
     },
-    { key: "pricePerKg", type: "money", label: "import:filamentProfiles.columns.pricePerKg" },
     { key: "nozzleTempC", type: "integer", label: "import:filamentProfiles.columns.nozzleTempC" },
     { key: "bedTempC", type: "integer", label: "import:filamentProfiles.columns.bedTempC" },
   ],
@@ -598,6 +592,7 @@ export const IMPORT_COLUMNS = {
     { key: "nozzleTempC", type: "integer", label: "import:filamentMaterials.columns.nozzleTempC" },
     { key: "bedTempC", type: "integer", label: "import:filamentMaterials.columns.bedTempC" },
     { key: "densityGcm3", type: "number", label: "import:filamentMaterials.columns.densityGcm3" },
+    { key: "pricePerKg", type: "money", label: "import:filamentMaterials.columns.pricePerKg" },
   ],
 } as const satisfies Record<ReviewEntity, readonly ImportColumn[]>;
 

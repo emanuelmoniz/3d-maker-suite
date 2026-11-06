@@ -17,10 +17,10 @@ import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import { buildApp } from "./app.ts";
-import { catalogName, spoolProfiles } from "./integrations/imports.ts";
+import { catalogName } from "./integrations/imports.ts";
 import { printerRows, spoolRows } from "./integrations/sourceRows.ts";
 import { createSyncer, schedulePattern } from "./integrations/sync.ts";
-import { filamentProfileIdFor, modelIdFor } from "./lib/catalog.ts";
+import { modelIdFor } from "./lib/catalog.ts";
 import { reviewer } from "./testReview.ts";
 
 let db: ReturnType<typeof openDb>;
@@ -94,11 +94,8 @@ const spool = async (colorHex = "#ff8800", initialGrams = 1000) => {
   const material =
     (await get("/api/filament-materials")).items[0] ??
     (await send("POST", "/api/filament-materials", { name: "PLA" })).json();
-  const profile = (
-    await send("POST", "/api/filament/profiles", { materialId: material.id, densityGcm3: 1.24 })
-  ).json();
   return (
-    await send("POST", "/api/filament/spools", { profileId: profile.id, colorHex, initialGrams })
+    await send("POST", "/api/filament/spools", { materialId: material.id, colorHex, initialGrams })
   ).json();
 };
 const left = async (id: string) => (await get(`/api/filament/spools/${id}`)).remainingGrams;
@@ -1110,7 +1107,6 @@ describe("filament matching of imported prints", () => {
     const usage = (await get("/api/prints?sort=startedAt")).items[0].usages[0];
     expect(usage).toMatchObject({
       spoolId: s.id,
-      profileId: s.profileId,
       material: "PLA",
       colorHex: "#ff8800",
     });
@@ -1358,7 +1354,7 @@ describe("filament matching of imported prints", () => {
 describe("spool rows from a vendor", () => {
   const vendor = (spoolId: string) => ({
     spoolId,
-    profile: { brand: "", material: "PLA", name: "PLA" },
+    filament: { brand: "", material: "PLA", name: "PLA" },
     colorHex: "#ff8800",
     colorName: null,
     initialGrams: 1000,
@@ -1368,19 +1364,12 @@ describe("spool rows from a vendor", () => {
   });
 
   it("one you deleted doesn't come back on the next run", async () => {
-    const { id: profile } = (
-      await send("POST", "/api/filament/profiles", {
-        materialId: (await send("POST", "/api/filament-materials", { name: "PLA" })).json().id,
-        densityGcm3: 1.24,
-        name: "PLA",
-      })
-    ).json();
     state.spools = [vendor("mock:1")];
     const { id } = await create();
     const open = async () =>
       (await review.open(`/api/import/integration/${id}/spools`)).json() as ImportPreview;
     const first = await open();
-    await review.confirm(first, first.rows, { action: "create", refs: { profile } });
+    await review.confirm(first, first.rows, { action: "create" });
     const { spools, deletedSources } = schema;
     const row = db.select().from(spools).get();
     expect(row?.sourceSpool).toBe("mock:mock:1");
@@ -1393,7 +1382,7 @@ describe("spool rows from a vendor", () => {
     const again = await open();
     expect(again.rows[0]).toMatchObject({ deleted: true, action: "skip" });
 
-    await review.confirm(again, again.rows, { action: "create", refs: { profile } });
+    await review.confirm(again, again.rows, { action: "create" });
     expect(db.select().from(spools).all()).toHaveLength(1);
     expect(db.select().from(deletedSources).all()).toEqual([]);
   });
@@ -1409,48 +1398,16 @@ describe("spool rows from a vendor", () => {
     expect(catalogName("PLA Matte", [...names, "Bambu PLA Matte"])).toBe("Bambu PLA Matte");
   });
 
-  it("take the catalog's name for a vendor's short one", () => {
-    filamentProfileIdFor(db, { brand: "Bambu Lab", material: "PLA", name: "Bambu PLA Basic" });
-    filamentProfileIdFor(db, { brand: "Bambu Lab", material: "PLA", name: "Bambu PLA Matte" });
-    const short = {
+  it("keep the vendor's filament; a printer model takes the catalog's name", () => {
+    const basic = {
       ...vendor("mock:3"),
-      profile: { brand: "Bambu Lab", material: "PLA", name: "PLA Basic" },
+      filament: { brand: "Bambu Lab", material: "PLA", name: "PLA Basic" },
     };
-    const unknown = {
-      ...short,
-      spoolId: "mock:4",
-      profile: { ...short.profile, name: "PLA Galaxy" },
-    };
-    expect(spoolRows(db, [short, unknown]).map((r) => r.raw.profile)).toEqual([
-      "Bambu PLA Basic",
-      "PLA Galaxy",
-    ]);
+    expect(spoolRows(db, [basic])[0]?.raw).toMatchObject(basic.filament);
     modelIdFor(db, "Bambu Lab", "Bambu Lab A1");
     modelIdFor(db, "Bambu Lab", "Bambu Lab A1 mini");
     const printer = { externalId: "d1", name: "A1", brand: "Bambu Lab", model: "A1" };
     expect(printerRows(db, "i1", [printer])[0]?.raw.model).toBe("Bambu Lab A1");
-  });
-
-  it("go on Bambu Studio's profiles or yours, never another slicer's", () => {
-    const from = (name: string, sourcePreset: string | null) => {
-      const id = filamentProfileIdFor(db, { brand: "Bambu Lab", material: "PLA", name });
-      db.update(schema.filamentProfiles)
-        .set({ sourcePreset })
-        .where(eq(schema.filamentProfiles.id, id))
-        .run();
-    };
-    from("Bambu PLA Matte", "bambu-studio:system/Bambu PLA Matte");
-    from("Bambu PLA Silk", "orca-slicer:system/Bambu PLA Silk");
-    from("Bambu PLA Basic", null);
-    const names = spoolProfiles(db).active.map((p) => p.name);
-    expect(names.sort()).toEqual(["Bambu PLA Basic", "Bambu PLA Matte"]);
-    const silk = {
-      ...vendor("mock:7"),
-      profile: { brand: "Bambu Lab", material: "PLA", name: "PLA Silk" },
-    };
-    // Orca's "Bambu PLA Silk" is not offered, so the short name stays as the vendor has it.
-    expect(spoolRows(db, [silk])[0]?.raw.profile).toBe("PLA Silk");
-    expect(spoolProfiles(db).fits({ ...silk.profile })).toEqual([]);
   });
 
   it("bring a new spool in the way the spools policy says", () => {

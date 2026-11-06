@@ -262,7 +262,6 @@ describe("a config folder with caches", () => {
         material: "PLA",
         name: "Acme PLA",
         densityGcm3: 1.3,
-        pricePerKg: 2500,
         nozzleTempC: 215,
       },
     ]);

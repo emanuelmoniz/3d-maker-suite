@@ -44,7 +44,6 @@ const filament = (name: string, scope: "system" | "user" = "system"): LibraryPre
   name,
   diameterMm: 1.75,
   densityGcm3: 1.24,
-  pricePerKg: 2000,
   nozzleTempC: 220,
   bedTempC: 55,
 });
@@ -223,7 +222,7 @@ describe("a preset gone from the slicer", () => {
     await app.inject({
       method: "PATCH",
       url: `/api/filament/profiles/${b?.id}`,
-      payload: { pricePerKg: 3500 },
+      payload: { densityGcm3: 1.3 },
     });
     state.presets = [filament("A")];
     state.fingerprint = "Acme=2";
@@ -238,7 +237,7 @@ describe("a preset gone from the slicer", () => {
       .from(filamentProfiles)
       .where(eq(filamentProfiles.id, b?.id ?? ""))
       .get();
-    expect(kept).toMatchObject({ pricePerKg: 3500, archivedAt: expect.any(String) });
+    expect(kept).toMatchObject({ densityGcm3: 1.3, archivedAt: expect.any(String) });
   });
 
   it("a preset that comes back closes its alert", async () => {
@@ -388,19 +387,6 @@ describe("in use, by ADR-0019's stricter rule", () => {
     ["printProfiles", "printer", (p) => printer({ printProfileId: p })],
     ["printProfiles", "plate", (p) => plate({ printProfileId: p })],
     ["printProfiles", "printProfile", version("printProfiles")],
-    [
-      "filamentProfiles",
-      "spool",
-      (f) => made("/api/filament/spools", { profileId: f, initialGrams: 1000 }),
-    ],
-    [
-      "filamentProfiles",
-      "print",
-      async (f) => {
-        const printId = await print();
-        db.insert(schema.printFilamentUsages).values({ printId, profileId: f, grams: 1 }).run();
-      },
-    ],
     ["filamentProfiles", "plate", (f) => plate({ filaments: [null, f] })],
     ["filamentProfiles", "filamentProfile", version("filamentProfiles")],
   ];

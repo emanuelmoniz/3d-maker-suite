@@ -13,11 +13,10 @@ import { type Db, schema } from "@3d-maker-suite/db";
 import { and, eq, isNotNull, isNull, ne } from "drizzle-orm";
 import type { StoredRow } from "../import/review.ts";
 import { spoolImport } from "../import/spools.ts";
-import { printerLabel, profileMaterial, spoolName } from "../lib/catalog.ts";
-import { catalogName, profileKey, spoolProfiles } from "./imports.ts";
+import { printerLabel, spoolMaterial, spoolName } from "../lib/catalog.ts";
+import { catalogName } from "./imports.ts";
 
-const { brands, filamentProfiles, printerModels, printers, printFilamentUsages, prints, spools } =
-  schema;
+const { brands, printerModels, printers, printFilamentUsages, prints, spools } = schema;
 
 export type LibraryType = (typeof SLICER_ZIP_TYPES)[number];
 type Row = Omit<StoredRow, "n">;
@@ -56,13 +55,11 @@ export async function libraryRows(
     // A profile you archived comes back as a skip (`filamentProfileImport.archived`).
     return numbered(
       want(await lib.read(dir, { includeSystem: system })).map((preset) => {
-        const { presetId, scope: _scope, pricePerKg, ...p } = preset;
-        // The price column is typed in major units, like a file's.
-        const price = pricePerKg === null ? null : pricePerKg / 100;
+        const { presetId, scope: _scope, ...p } = preset;
         return {
           source: `${lib.id}:${presetId}`,
           // No material: its parent can't be read, so a person fills it in (ADR-0019).
-          raw: { ...p, pricePerKg: price, ...(!p.material && { hold: true }) },
+          raw: { ...p, ...(!p.material && { hold: true }) },
         };
       }),
     );
@@ -104,8 +101,7 @@ export const activeSpools = (db: Db) =>
     .select({
       id: spools.id,
       number: spools.number,
-      profileId: spools.profileId,
-      material: profileMaterial,
+      material: spoolMaterial,
       colorHex: spools.colorHex,
       status: spools.status,
       purchasedAt: spools.purchasedAt,
@@ -116,7 +112,6 @@ export const activeSpools = (db: Db) =>
       label: spoolName,
     })
     .from(spools)
-    .innerJoin(filamentProfiles, eq(filamentProfiles.id, spools.profileId))
     .where(and(isNull(spools.archivedAt), ne(spools.status, "empty")))
     .all();
 
@@ -282,8 +277,8 @@ export function printerRows(db: Db, integrationId: string, items: ExternalPrinte
 export type NewSpools = { newWeight: NewSpoolField; newOpenedAt: NewSpoolField };
 
 /**
- * A vendor's spools. `spoolId` is already `<adapterId>:<id>`. A new one's profile is spelled like
- * the catalog's ("PLA Basic" -> "Bambu PLA Basic"); its weight and open date follow `policy`.
+ * A vendor's spools. `spoolId` is already `<adapterId>:<id>`. A new one takes the vendor's
+ * brand, material and name; its weight and open date follow `policy`.
  */
 export function spoolRows(
   db: Db,
@@ -295,21 +290,13 @@ export function spoolRows(
   const gone = spoolImport.archived(db);
   const linked = spoolImport.bySource(db);
   const yours = new Map([...spoolImport.targets(db), ...gone.targets].map((t) => [t.id, t.values]));
-  const profiles = spoolProfiles(db).active;
-  const profileName = (p: LibrarySpool["profile"]) =>
-    catalogName(
-      p.name,
-      profiles
-        .filter((x) => profileKey({ ...x, name: "" }) === profileKey({ ...p, name: "" }))
-        .map((x) => x.name),
-    );
   return numbered(
-    items.map(({ spoolId, profile, ...s }) => {
+    items.map(({ spoolId, filament: f, ...s }) => {
       // A spool you have keeps its own filament: the vendor's name for it is not a difference.
       const mine = yours.get(linked.get(spoolId) ?? gone.of(spoolId) ?? "");
       const filament = mine
-        ? { brand: mine.brand, material: mine.material, profile: mine.profile }
-        : { brand: profile.brand, material: profile.material, profile: profileName(profile) };
+        ? { brand: mine.brand, material: mine.material, name: mine.name }
+        : { brand: f.brand, material: f.material, name: f.name };
       const { remainingGrams, initialGrams, ...rest } = s;
       // Without "Track usage" the review leaves a spool you have its weight (`USAGE_KEYS`).
       if (mine)

@@ -70,18 +70,29 @@ export const seedProject = (api: Api, name = "Test Project") =>
 export const seedProfile = async (api: Api) => {
   const brand = await api<{ id: string }>("POST", "/api/filament-brands", { name: "Acme" });
   const material = await api<{ id: string }>("POST", "/api/filament-materials", { name: "PLA" });
-  return api<{ id: string }>("POST", "/api/filament/profiles", {
-    brandId: brand.id,
-    materialId: material.id,
-    densityGcm3: 1.24,
-    name: "Basic",
-  });
+  return api<{ id: string; brandId: string; materialId: string }>(
+    "POST",
+    "/api/filament/profiles",
+    {
+      brandId: brand.id,
+      materialId: material.id,
+      densityGcm3: 1.24,
+      name: "Basic",
+    },
+  );
 };
+
+/** A spool of the profile's filament: its brand and material, named "PLA Basic". */
+export const filamentOf = (p: { brandId: string; materialId: string }) => ({
+  brandId: p.brandId,
+  materialId: p.materialId,
+  name: "PLA Basic",
+});
 
 export const seedSpool = async (api: Api, grams = 1000) => {
   const profile = await seedProfile(api);
   return api<{ id: string }>("POST", "/api/filament/spools", {
-    profileId: profile.id,
+    ...filamentOf(profile),
     colorHex: "#ff0000",
     initialGrams: grams,
   });

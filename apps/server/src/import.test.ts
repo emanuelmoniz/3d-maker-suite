@@ -7,7 +7,7 @@ import ExcelJS from "exceljs";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { buildApp } from "./app.ts";
 import { listBackups } from "./backup/backup.ts";
-import { filamentProfileIdFor } from "./lib/catalog.ts";
+import { filamentBrandIdFor, filamentMaterialIdFor } from "./lib/catalog.ts";
 import { XLSX_TYPE } from "./lib/sheet.ts";
 
 let dataDir: string;
@@ -34,7 +34,9 @@ const spool = async (colorHex: string, over: Record<string, unknown> = {}) =>
       method: "POST",
       url: "/api/filament/spools",
       payload: {
-        profileId: filamentProfileIdFor(db, { brand: "Acme", material: "PLA", name: "Basic" }),
+        brandId: filamentBrandIdFor(db, "Acme"),
+        materialId: filamentMaterialIdFor(db, "PLA"),
+        name: "Basic",
         colorHex,
         initialGrams: 1000,
         ...over,
@@ -80,7 +82,7 @@ describe("import", () => {
       "number label",
       "brand label",
       "material label *",
-      "profile label",
+      "name label",
     ]);
     const column = (key: string) => IMPORT_COLUMNS.spools.findIndex((c) => c.key === key) + 1;
     expect(data.getCell(2, column("status")).dataValidation).toMatchObject({
@@ -136,7 +138,7 @@ describe("import", () => {
       for (const [i, c] of IMPORT_COLUMNS.spools.entries())
         if (c.key in cells) sheet.getCell(row, i + 1).value = cells[c.key] as ExcelJS.CellValue;
     };
-    const acme = { brand: "acme", material: "PLA", profile: "Basic", initialGrams: 1000 };
+    const acme = { brand: "acme", material: "PLA", name: "Basic", initialGrams: 1000 };
     fill(2, { brand: "Other", material: "PETG", colorHex: "FF0000", initialGrams: 750 });
     fill(3, { ...acme, colorHex: "#000000", location: "Shelf" });
     fill(4, {
@@ -169,7 +171,6 @@ describe("import", () => {
     expect(preview.missing).toEqual({
       filamentBrands: ["Other"],
       filamentMaterials: ["PETG"],
-      filamentProfiles: ["Other PETG"],
     });
     expect(preview.targets).toHaveLength(4);
     expect(spoolCount()).toBe(4); // a preview writes nothing
@@ -211,8 +212,9 @@ describe("import", () => {
       .all()
       .find((s) => s.colorHex === "#ff0000");
     expect(created).toMatchObject({ initialGrams: 750, remainingGrams: 750, status: "new" });
-    const profiles = (await app.inject("/api/filament/profiles")).json();
-    expect(profiles.items.map((p: { brand: string }) => p.brand).sort()).toEqual(["Acme", "Other"]);
+    // Its brand and material were added; no profile ever is.
+    expect(await getSpool(created?.id ?? "")).toMatchObject({ brand: "Other", material: "PETG" });
+    expect(db.select().from(schema.filamentProfiles).all()).toEqual([]);
     // The upload is gone once applied.
     expect(
       (

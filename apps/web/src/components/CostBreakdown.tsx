@@ -34,7 +34,7 @@ export function MaterialUsage({
   estimate: Pick<SlicedEstimate, "spools" | "materials">;
 }) {
   const { t } = useTranslation();
-  const profiles = useProfiles().data?.items ?? [];
+  const _profiles = useProfiles().data?.items ?? [];
   const { spools, materials } = estimate;
   if (!spools.length && !materials.length) return null;
   return (
@@ -44,11 +44,7 @@ export function MaterialUsage({
         format={formatWeight}
         rows={[
           ...spools.map((s) => ({
-            label: spoolName(
-              t,
-              s.spool,
-              profiles.find((p) => p.id === s.spool.profileId),
-            ),
+            label: spoolName(t, s.spool),
             value: s.grams,
           })),
           ...materials.map((m, i) => ({

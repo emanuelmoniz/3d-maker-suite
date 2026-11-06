@@ -71,7 +71,6 @@ describe("bambu studio library", () => {
         name: "My PETG",
         diameterMm: 1.75,
         densityGcm3: 1.24,
-        pricePerKg: 2550,
         nozzleTempC: 220,
         bedTempC: 55,
       },

@@ -1,13 +1,14 @@
-import type {
-  FilamentProfile,
-  FilamentProfileInput,
-  FilamentProfilePatch,
-  Page,
-  Spool,
-  SpoolAdjust,
-  SpoolInput,
-  SpoolPatch,
-  SpoolWeightEntry,
+import {
+  type FilamentProfile,
+  type FilamentProfileInput,
+  type FilamentProfilePatch,
+  type Page,
+  type Spool,
+  type SpoolAdjust,
+  type SpoolInput,
+  type SpoolPatch,
+  type SpoolWeightEntry,
+  spoolFilament,
 } from "@3d-maker-suite/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { TFunction } from "i18next";
@@ -94,12 +95,13 @@ export const filamentLabel = (p?: FilamentProfile) =>
   p ? p.name || [p.brand, p.material].filter(Boolean).join(" ") : "";
 
 /**
- * The name a spool goes by everywhere: "012-Bambu PLA Matte Scarlet Red" (the hex without a colour
- * name). The server builds the same in `lib/catalog.ts` `spoolName`, for sort, filter and imports.
+ * The name a spool goes by everywhere: "012-Bambu Lab PLA Matte Scarlet Red" (the hex without a
+ * colour name). The server builds the same in `lib/catalog.ts` `spoolName`, for sort, filter and
+ * imports.
  */
-export const spoolName = (t: TFunction, s: Spool, p?: FilamentProfile) =>
+export const spoolName = (t: TFunction, s: Spool) =>
   t("filament:spools.name", {
     number: String(s.number).padStart(3, "0"),
-    profile: filamentLabel(p),
+    filament: spoolFilament(s),
     color: s.colorName || s.colorHex,
   });

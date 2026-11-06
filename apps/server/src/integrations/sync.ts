@@ -31,6 +31,7 @@ import {
   type SyncRun,
   type SyncTrigger,
   type SyncType,
+  spoolFilament,
   type TestResult,
   USER_PRESET_ENTITY,
 } from "@3d-maker-suite/core";
@@ -109,9 +110,12 @@ const KEEP_RUNS = 200;
 const MAX_LOG = 200;
 // ponytail: a row's name for the log is its title or name column; per-entity labels if one shows blank.
 const labelOf = (v: Record<string, unknown>) => {
-  // A spool has no name of its own: its filament and colour ("Bambu PLA Silk Green").
-  const spool = [v.profile, v.colorName ?? v.colorHex].filter(Boolean).join(" ");
-  const s = String(v.title ?? v.name ?? v.model ?? spool);
+  // A spool is named by its filament and colour ("Bambu Lab PLA Silk Green").
+  const spool = () =>
+    [spoolFilament({ ...v, material: String(v.material ?? "") }), v.colorName ?? v.colorHex]
+      .filter(Boolean)
+      .join(" ");
+  const s = "colorHex" in v ? spool() : String(v.title ?? v.name ?? v.model ?? "");
   return s ? { label: s } : {};
 };
 /** A row waiting for a person, for a run's log. */
@@ -931,11 +935,10 @@ export function createSyncer(
         for (const [i, { usage: u }] of rows.entries()) {
           const m = matches[i];
           const spool = m?.sure ? byId.get(m.id ?? "") : undefined;
-          const profileId = spool && bookOrLink(tx, spool, u.grams, title, startedAt);
-          if (!spool || !profileId) continue;
+          if (!spool || !bookOrLink(tx, spool, u.grams, title, startedAt)) continue;
           if (spool.remainingGrams != null) spool.remainingGrams -= u.grams;
           tx.update(printFilamentUsages)
-            .set({ spoolId: spool.id, profileId })
+            .set({ spoolId: spool.id })
             .where(eq(printFilamentUsages.id, u.id))
             .run();
           history.add({ printerId, slot: u.slot, startedAt, spoolId: spool.id });

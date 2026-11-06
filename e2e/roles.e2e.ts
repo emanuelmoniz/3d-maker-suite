@@ -232,7 +232,7 @@ test("bulk needs manage: a write user gets no selection and the API refuses them
   expect(res.status()).toBe(403);
 });
 
-test("filament catalog rows follow the filament permission, not the printers one", async ({
+test("filament catalog rows follow the catalog permission, not the filament one", async ({
   page,
 }) => {
   await page.goto("/");
@@ -244,7 +244,8 @@ test("filament catalog rows follow the filament permission, not the printers one
   await post(page, "/api/filament-brands", { name: "Acme" });
   const role = await post(page, "/api/roles", {
     name: "Filament keeper",
-    permissions: { filament: "manage", printers: "read" },
+    // ADR-0020: catalog rows need catalog manage; filament manage alone doesn't edit them.
+    permissions: { filament: "read", printers: "read", catalog: "manage" },
   });
   await post(page, "/api/users", {
     displayName: "Fay",
