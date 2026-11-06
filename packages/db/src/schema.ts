@@ -755,8 +755,10 @@ export const projectSlicePlates = sqliteTable(
     useDefaultPrintProfile: integer({ mode: "boolean" }).notNull().default(false),
     // Filament profile id per slot; null = the 3MF's own. Not FKs: a deleted profile reads as null.
     filaments: text({ mode: "json" }).$type<(string | null)[]>().notNull().default([]),
-    /** Spool id per slot, for its price; its profile is also in `filaments`. Not FKs, as above. */
+    /** Spool id per slot, for its price; it never sets `filaments`. Not FKs, as above. */
     spools: text({ mode: "json" }).$type<(string | null)[]>().notNull().default([]),
+    /** Per slot, the spool its preset was kept for: that spool's suggestion or warning is hidden. */
+    kept: text({ mode: "json" }).$type<(string | null)[]>().notNull().default([]),
     /** Its slicer; null (or one that can't slice) = the project's, then the default (`pickSlicer`). */
     slicerIntegrationId: text().references(() => integrations.id, { onDelete: "set null" }),
     fileSize: integer().notNull(),

@@ -119,6 +119,7 @@ const fromProject = (s: ProjectSlicing): QuotePlate[] =>
     useDefaultPrintProfile: p.useDefaultPrintProfile,
     filaments: p.filaments,
     spools: p.spools,
+    kept: p.kept,
     slicerIntegrationId: p.slicerIntegrationId,
     result: p.needsSlicing ? null : p.result,
   }));

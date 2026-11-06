@@ -90,13 +90,15 @@ Each slot has a **preset**, always set, and a **spool**, optional.
 
 | Current preset | Result |
 |---|---|
-| Already a brand + material match for the spool | Nothing |
-| Same material, a brand match exists | A quiet suggestion: Use / Keep |
+| Already on the spool's best level (its name, else its brand and material) | Nothing |
+| Same material, a better match exists (the spool's name over another of its brand, or its brand) | A quiet suggestion: Use / Keep |
 | Same material, no brand match | Nothing |
 | Other material | A warning with the best match: Use / Keep |
 | Other material, no preset of that material | A warning; slicing isn't blocked |
 
 - A later spool change leaves the preset alone. A preset changed by hand to another material than the spool's shows the same warning.
+- **Keep is stored** with the plate (`project_slice_plates.kept`, the spool kept per slot): that spool's suggestion or warning stays hidden until the spool or the preset changes. A "From the file" preset that isn't in the catalog gets no suggestion: it may be a tuned one.
+- Amended 2026-11-06 (Step 13): a preset of the spool's brand but another name ("PLA Pure" for a "PLA Matte" spool) gets a suggestion when the spool's name has a preset; first written as "already a brand + material match: nothing".
 - **Price per slot:** the spool's, else its material's default; no spool: the default of the slot preset's material (the 3MF's `filament_type` for "From the file").
 - Only a changed preset marks a slice outdated, not a changed spool.
 

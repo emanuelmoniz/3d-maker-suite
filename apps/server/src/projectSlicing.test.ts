@@ -87,6 +87,7 @@ describe("project slicing setup", () => {
         printerId: null, // no printers yet
         useDefaultPrintProfile: false,
         spools: [],
+        kept: [],
         slicerIntegrationId: null,
         state: "ok",
         result: null,
@@ -466,10 +467,12 @@ describe("slicing a project (mock slicer)", () => {
     await put([{ ...plate, filaments: [profile.id], spools: [blue.id] }]);
     await run();
     await settled();
-    await put([{ ...plate, filaments: [profile.id], spools: [red.id] }]);
+    // Keep is stored with the plate and slices the same.
+    await put([{ ...plate, filaments: [profile.id], spools: [red.id], kept: [red.id] }]);
     expect((await settled()).plates[0]).toMatchObject({
       needsSlicing: false,
       filaments: [profile.id],
+      kept: [red.id],
     });
     await put([{ ...plate, spools: [red.id] }]);
     expect((await settled()).plates[0]).toMatchObject({ needsSlicing: true, filaments: [] });

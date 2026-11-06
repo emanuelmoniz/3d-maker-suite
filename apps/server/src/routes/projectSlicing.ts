@@ -142,6 +142,7 @@ export const projectSlicingRoutes =
               useDefaultPrintProfile: r.useDefaultPrintProfile,
               filaments: r.filaments,
               spools: r.spools,
+              kept: r.kept,
               slicerIntegrationId: r.slicerIntegrationId,
               state,
               result,

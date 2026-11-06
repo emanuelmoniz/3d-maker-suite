@@ -96,10 +96,23 @@ describe("a spool's presets", () => {
     const bambuBasic = spool("Bambu Lab", "PLA", "PLA Basic");
     const on = (id: string) => ({ id, name: null, material: null });
 
-    it("nothing when the preset is already the spool's brand and material", () => {
-      expect(slotAdvice(bambuBasic, on("Bambu PLA Matte"), presets)).toBeUndefined();
+    it("nothing when the preset is already on the spool's best level", () => {
+      expect(slotAdvice(bambuBasic, on("Bambu PLA Basic"), presets)).toBeUndefined();
       const fromFile = { id: null, name: "Bambu PLA Basic @BBL X1C", material: "PLA" };
       expect(slotAdvice(bambuBasic, fromFile, presets)).toBeUndefined();
+      // No preset has the spool's name: any of its brand and material fits.
+      const tough = spool("Bambu Lab", "PLA", "PLA Tough");
+      expect(slotAdvice(tough, on("Bambu PLA Matte"), presets)).toBeUndefined();
+    });
+
+    it("a suggestion for the preset of the spool's name over another of its brand", () => {
+      const pure = preset("Bambu Lab", "PLA", "Bambu PLA Pure");
+      const fromFile = { id: null, name: "Bambu PLA Pure @BBL A1", material: "PLA" };
+      const matteSpool = spool("Bambu Lab", "PLA", "PLA Matte");
+      expect(slotAdvice(matteSpool, fromFile, [...presets, pure])).toEqual({
+        kind: "suggest",
+        preset: matte,
+      });
     });
 
     it("a quiet suggestion for the same material when a brand match exists", () => {

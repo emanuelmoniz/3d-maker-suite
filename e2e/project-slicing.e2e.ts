@@ -282,6 +282,14 @@ for (const width of [412, 1280])
     await section.getByRole("button", { name: "Keep" }).click();
     await expect(warning).toHaveCount(0);
     await expect(preset).toHaveValue(fromFile);
+    // Keep is saved with the setup.
+    await page.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(page).toHaveURL(new RegExp(`/projects/${project.id}$`));
+    await page.goto(`/projects/${project.id}/edit`);
+    await openSections(page, "Print setup");
+    await expect(spool).toHaveValue(/PETG Basic/);
+    await expect(preset).toHaveValue(fromFile);
+    await expect(warning).toHaveCount(0);
 
     // A spool of the slot's brand and material: nothing to say, nothing changes.
     await pickSpool(spool, /PLA Matte/);

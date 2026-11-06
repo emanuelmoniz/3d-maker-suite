@@ -11,7 +11,7 @@ import {
   spoolPresets,
 } from "@3d-maker-suite/core";
 import type { TFunction } from "i18next";
-import { type ReactNode, useId, useState } from "react";
+import { type ReactNode, useId } from "react";
 import { useTranslation } from "react-i18next";
 import { useCatalogWithArchived, useMachineProfiles, useModelInfo } from "../lib/catalog.ts";
 import { cx } from "../lib/cx.ts";
@@ -224,6 +224,7 @@ export function SliceSetup({
       // One entry per slot, all as saved in the file.
       filaments: Array.from({ length: Math.max(0, ...p.filaments.map((x) => x.slot)) }, () => null),
       spools: [],
+      kept: [],
       slicerIntegrationId: null,
     }));
   };
@@ -398,23 +399,28 @@ export function SliceSetup({
         }),
       })),
   ];
+  const slotSet = (list: (string | null)[], slot: number, id: string | null) => {
+    const next = [...list];
+    while (next.length < slot) next.push(null);
+    next[slot - 1] = id || null;
+    return next;
+  };
+  // A new preset asks again about the slot's spool; a new spool asks about itself.
   const setSlot = (
     key: string,
     v: PlateSetupInput,
     slot: number,
     field: "filaments" | "spools",
     id: string,
-  ) => {
-    const next = [...v[field]];
-    while (next.length < slot) next.push(null);
-    next[slot - 1] = id || null;
-    patch(key, { [field]: next });
-  };
-  // Keep hides a slot's suggestion or warning for its spool until the page reloads.
-  const [kept, setKept] = useState<Set<string>>(new Set());
+  ) =>
+    patch(key, {
+      [field]: slotSet(v[field], slot, id),
+      ...(field === "filaments" && { kept: slotSet(v.kept, slot, null) }),
+    });
+  // Keep is stored with the plate: the spool's suggestion or warning stays hidden for that slot.
   const adviceOf = (key: string, v: PlateSetupInput, slot: Plate["filaments"][number]) => {
     const spool = spoolOf(v, slot.slot);
-    if (!spool || kept.has(`${key}#${slot.slot}#${spool.id}`)) return;
+    if (!spool || v.kept[slot.slot - 1] === spool.id) return;
     const id = v.filaments[slot.slot - 1] ?? null;
     const current = {
       id,
@@ -423,7 +429,7 @@ export function SliceSetup({
     };
     const advice = slotAdvice(spool, current, presetsOf(v));
     if (!advice) return;
-    const keep = () => setKept(new Set(kept).add(`${key}#${slot.slot}#${spool.id}`));
+    const keep = () => patch(key, { kept: slotSet(v.kept, slot.slot, spool.id) });
     const use =
       advice.preset && (() => setSlot(key, v, slot.slot, "filaments", advice.preset?.id ?? ""));
     const name = advice.preset && presetLabel(advice.preset);

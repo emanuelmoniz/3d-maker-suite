@@ -28,6 +28,7 @@ export function useSlicingDraft(id: string) {
     useDefaultPrintProfile: p.useDefaultPrintProfile,
     filaments: p.filaments,
     spools: p.spools,
+    kept: p.kept,
     slicerIntegrationId: p.slicerIntegrationId,
   }));
   const dirty = draft !== null && JSON.stringify(draft) !== JSON.stringify(stored);

@@ -28,6 +28,8 @@ export const plateSetupInputSchema = z.object({
   filaments: z.array(id.nullable()).max(PRINT_MAX_SLOTS),
   /** Spool per slot, for its price; it never sets the slot's preset (ADR-0020). */
   spools: z.array(id.nullable()).max(PRINT_MAX_SLOTS).default([]),
+  /** Per slot, the spool the preset was kept for (Keep): its suggestion or warning stays hidden. */
+  kept: z.array(id.nullable()).max(PRINT_MAX_SLOTS).default([]),
   /** The slicer integration; null = the project's, then the default slicer (see `pickSlicer`). */
   slicerIntegrationId: id.nullable().default(null),
 });
@@ -177,8 +179,9 @@ export type SlotAdvice<P> =
 /**
  * What a slot with a spool says about its preset (ADR-0020's table); it never changes one.
  * `current`: the slot's preset, or for "From the file" the 3MF's preset name and type. Nothing
- * when the preset already is the spool's brand and material, or no brand match exists; a quiet
- * suggestion when one does; a warning with the best match when the materials differ.
+ * when the preset already is on the spool's best level (its name, else its brand), or no brand
+ * match exists; a quiet suggestion for a better one ("PLA Matte" over "PLA Pure"); a warning with
+ * the best match when the materials differ.
  */
 export function slotAdvice<P extends SlotPreset>(
   spool: SlotSpool,
@@ -197,9 +200,9 @@ export function slotAdvice<P extends SlotPreset>(
   if (material && !same(material, spool.material))
     return { kind: "mismatch", preset: found?.best, presets: found?.presets ?? [] };
   // A preset we can't name (a tuned one saved with the file, another slicer's) may be on purpose.
-  if (!preset || (spool.brand && same(preset.brand, spool.brand))) return;
-  if (found && found.level !== "generic" && found.best)
-    return { kind: "suggest", preset: found.best };
+  // One on the spool's best level already fits; Generic is never suggested over another brand.
+  if (!preset || !found || found.level === "generic" || found.presets.includes(preset)) return;
+  if (found.best) return { kind: "suggest", preset: found.best };
 }
 
 /** A project in the list: no plates picked, some need slicing, or all sliced and current. */

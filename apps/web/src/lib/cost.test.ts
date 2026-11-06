@@ -77,6 +77,7 @@ test("a quote plate keeps its slice while it slices the same, and loses it when 
     useDefaultPrintProfile: false,
     filaments: ["pla"],
     spools: [],
+    kept: [],
     slicerIntegrationId: null,
   };
   const sliced = { ...setup, result: plate({}, [[1, 10, "PLA"]]).result };
@@ -96,6 +97,7 @@ test("a plate ticked again gets back its own setup and slice, not the defaults",
     useDefaultPrintProfile: false,
     filaments: ["pla", null],
     spools: ["red", null],
+    kept: [],
     slicerIntegrationId: null,
     result: plate({}, [[1, 10, "PLA"]]).result,
   };

@@ -736,6 +736,13 @@
       "when": 1793957758566,
       "tag": "0104_spools_describe_filament",
       "breakpoints": true
+    },
+    {
+      "idx": 105,
+      "version": "6",
+      "when": 1793963517563,
+      "tag": "0105_slot_kept_preset",
+      "breakpoints": true
     }
   ]
 }

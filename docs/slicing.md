@@ -56,14 +56,14 @@ Each filament slot of a plate has a **preset** and, optionally, a **spool**. The
 
 | The slot's preset | What you see after picking a spool |
 |---|---|
-| Already the spool's brand and material | Nothing |
-| Same material, and a preset of the spool's brand exists | A suggestion: **Use** or **Keep** |
+| Already the spool's preset (its brand, material and name), or one of its brand and material when none has its name | Nothing |
+| Same material, and a better preset exists: one with the spool's name (*PLA Matte* over *PLA Pure*), or of its brand | A suggestion: **Use** or **Keep** |
 | Same material, no preset of the spool's brand | Nothing |
 | As saved in the file, with a preset that isn't in the catalog | Nothing (it may be one tuned on purpose) |
 | Another material | A warning with the best match: **Use** or **Keep** |
 | Another material, and no preset of the spool's material | A warning; slicing still works |
 
-**Keep** hides it until you reload the page. When several presets match equally, none is suggested; they are listed first.
+**Keep** is saved with the plate: that spool's suggestion or warning stays hidden until you pick another spool or preset for the slot. When several presets match equally, none is suggested; they are listed first.
 
 **Price per slot:** the spool's price paid, else its material's default price. Without a spool: the default price of the preset's material (for *As saved in the file*, the file's material).
 
