@@ -153,20 +153,42 @@ export async function systemPresets(dir: string, kind: "filament" | "machine" | 
    * then each one's `include`d templates (e.g. a printer's start and filament change G-code), then
    * its own values. The slicer CLI follows neither for a preset file it is given.
    */
-  const flatten = async (start: Preset, startFile?: string): Promise<Preset> => {
+  const trace = async (start: Preset, startFile?: string) => {
     const out: Preset = {};
-    for (const { preset, file } of (await chainOf(start, startFile)).reverse()) {
+    /** Each key's preset: its parent's or template's name; null = the start preset's own. */
+    const from: Record<string, string | null> = {};
+    const chain = (await chainOf(start, startFile)).reverse();
+    const put = (values: Preset, by: string | null) => {
+      Object.assign(out, values);
+      for (const key of Object.keys(values)) from[key] = by;
+    };
+    const nameOf = (p: Preset, f?: string) =>
+      typeof p.name === "string" ? p.name : parse(f ?? "").name;
+    for (const { preset, file } of chain) {
+      const by = preset === start ? null : nameOf(preset, file);
       const includes = Array.isArray(preset.include) ? preset.include : [];
       for (const name of includes) {
         const f = find(name, file);
         const { name: _n, instantiation: _i, ...values } = (f && (await load(f))) || {};
-        Object.assign(out, values);
+        put(values, typeof name === "string" ? name : by);
       }
-      Object.assign(out, preset);
+      put(preset, by);
     }
-    const { inherits: _, include: __, ...flat } = out;
-    return flat;
+    const { inherits: _, include: __, ...values } = out;
+    delete from.inherits;
+    delete from.include;
+    const parents = chain.slice(0, -1).reverse(); // nearest first
+    // The root-most preset still names a parent: its file wasn't found.
+    const stop = chain[0]?.preset.inherits;
+    return {
+      values,
+      from,
+      parents: parents.map((c) => nameOf(c.preset, c.file)),
+      missing: typeof stop === "string" && stop ? stop : null,
+    };
   };
+  const flatten = async (start: Preset, startFile?: string): Promise<Preset> =>
+    (await trace(start, startFile)).values;
   /** Setting lookup through the `inherits` chain, nearest first. */
   const resolver = async (start: Preset, startFile?: string) => {
     const chain = (await chainOf(start, startFile)).map((c) => c.preset);
@@ -176,8 +198,16 @@ export async function systemPresets(dir: string, kind: "filament" | "machine" | 
       (chain.map((c) => c[key]).find((v) => Array.isArray(v) && v.length) as string[]) ?? [];
     return Object.assign(get, { list });
   };
-  return { systemFiles, load, resolver, flatten };
+  return { systemFiles, load, resolver, flatten, trace };
 }
+
+/** A setting's value as the app shows it: the slicer's one-element arrays join, other JSON is text. */
+const shown = (v: unknown) =>
+  typeof v === "string"
+    ? v
+    : Array.isArray(v) && v.every((x) => typeof x === "string")
+      ? v.join(", ")
+      : JSON.stringify(v);
 
 export function slicerPresetLibrary(id: string, defaultDirs: () => string[]): FilamentLibrary {
   return {
@@ -187,6 +217,40 @@ export function slicerPresetLibrary(id: string, defaultDirs: () => string[]): Fi
       const { flatten } = await systemPresets(dir, kind);
       return (preset) => flatten(preset);
     },
+    async settings(dir, kind, { scope, name }, own) {
+      const sys = await systemPresets(dir, kind);
+      let start = own;
+      let file: string | undefined;
+      if (scope === "system") {
+        // `toProfile` names a filament by its base: the first file of that name is the one it read.
+        const names = [...sys.systemFiles].sort(([a], [b]) => a.localeCompare(b));
+        for (const [n, f] of names) {
+          if ((kind === "filament" ? baseName(n) : n) !== name) continue;
+          const p = await sys.load(f);
+          if (p?.instantiation !== "true") continue;
+          [start, file] = [p, f];
+          break;
+        }
+      } else if (!start)
+        for (const account of await dirs(join(dir, "user"))) {
+          for (const f of await jsonFiles(join(dir, "user", account, kind), true)) {
+            const p = await readJson(f);
+            if (p && (typeof p.name === "string" ? p.name : parse(f).name) === name) start = p;
+            if (start) break;
+          }
+          if (start) break;
+        }
+      if (!start) return;
+      const { values, from, parents, missing } = await sys.trace(start, file);
+      return {
+        parents,
+        missing,
+        settings: Object.entries(values)
+          .sort(([a], [b]) => a.localeCompare(b))
+          .map(([key, value]) => ({ key, value: shown(value), from: from[key] ?? null })),
+      };
+    },
+
     async read(dir, { includeSystem }) {
       const { systemFiles, load, resolver } = await systemPresets(dir, "filament");
 

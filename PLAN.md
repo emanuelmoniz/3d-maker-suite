@@ -2188,7 +2188,7 @@ Back up the DB before editing schema.ts.
 Do Step 15b of the 5.4.0 plan in PLAN.md. Use frontend-design for the import controls.
 ```
 
-### [ ] Step 16 - A profile's file: All settings
+### [x] Step 16 - A profile's file: All settings
 **Model:** Sonnet · **Effort:** High
 **Scope:**
 - One profile page for the three kinds: what the app uses, its source, where it is used, and **All settings**: every key and value, parents filled in (`systemPresets().flatten`), each marked with where it comes from, a search and a JSON download.

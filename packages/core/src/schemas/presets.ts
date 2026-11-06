@@ -8,6 +8,34 @@ import { inUseDetailsSchema } from "./list.ts";
 export const SLICER_PRESET_KINDS = ["machine", "process", "filament"] as const;
 export const slicerPresetKindSchema = z.enum(SLICER_PRESET_KINDS);
 
+/** One key of a profile's file, parents filled in; `from` is the preset it comes from (null: its own). */
+export const presetSettingSchema = z.object({
+  key: z.string(),
+  value: z.string(),
+  from: z.string().nullable(),
+});
+
+/** Why a profile's file can't be read: no source of its slicer here, or the file is gone from it. */
+export const PROFILE_UNREADABLE = ["hand_made", "no_source", "not_found"] as const;
+
+/** `GET .../profiles/:id/settings` (ADR-0020): every setting of the profile's file. */
+export const profileSettingsSchema = z.object({
+  /** `unreadable`: `reason` says why, and `settings` is empty. */
+  status: z.enum(["ok", "unreadable"]),
+  reason: z.enum(PROFILE_UNREADABLE).nullable(),
+  /** `<library>:<scope>/<name>` as the row keeps it; null for a hand-made one. */
+  source: z.string().nullable(),
+  /** The `inherits` chain, nearest first. */
+  parents: z.array(z.string()),
+  /** The parent the chain stops at because its file can't be read; its values are missing. */
+  missing: z.string().nullable(),
+  settings: z.array(presetSettingSchema),
+  /** Changes in this slicer's files wait for a person's review: where, and how many rows. */
+  waiting: z.object({ integrationId: id, type: z.string(), count: z.number().int() }).nullable(),
+});
+export type PresetSetting = z.infer<typeof presetSettingSchema>;
+export type ProfileSettings = z.infer<typeof profileSettingsSchema>;
+
 /** A conflict copy's name, as hub files are named (`<name> (conflict <who> <when>)`). */
 export const isPresetConflict = (name: string) => / \(conflict .+\)$/.test(name);
 

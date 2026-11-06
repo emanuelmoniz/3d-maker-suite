@@ -138,7 +138,11 @@ test("printer model by hand; a machine profile from a file is read-only and arch
   await page.reload();
   const profiles = block(page, "Machine profiles");
   await expect(profiles.getByRole("link", { name: "Add profile" })).toHaveCount(0);
-  await expect(profiles.getByRole("link", { name: "Q1 0.4" })).toHaveCount(0);
+  // Read-only, but it has a page: its settings.
+  await expect(profiles.getByRole("link", { name: "Q1 0.4" })).toHaveAttribute(
+    "href",
+    /\/printers\/machine-profiles\//,
+  );
   const row = profiles.getByRole("row", { name: /Q1 0\.4/ });
   await expect(row).toContainText("Bambu Studio (system)");
   await expect(row).toContainText("Unused");

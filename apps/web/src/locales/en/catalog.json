@@ -34,5 +34,35 @@
     "body": "Profiles come only from a slicer. <integrations>Connect a slicer in Integrations</integrations>, or upload <zip>a zip of the slicer's config folder</zip>.",
     "where": "Where is the config folder, and what do I zip?"
   },
-  "moved": "Brands, printer models and profiles are in <link>Catalog</link>."
+  "moved": "Brands, printer models and profiles are in <link>Catalog</link>.",
+  "profile": {
+    "notFound": "Profile not found.",
+    "details": "What the app uses",
+    "usedBy": "Where it is used",
+    "unused": "Nothing uses this profile."
+  },
+  "settings": {
+    "title": "All settings",
+    "loading": "Reading the profile's file…",
+    "loadError": "Could not read the settings. Try again in a moment.",
+    "hand_made": "This profile was made by hand in an older version, so it has no file to read.",
+    "noSource": "{{slicer}}'s files aren't available here, so this profile's settings can't be read. <integrations>Connect {{slicer}} in Integrations</integrations>, or upload a zip of its config folder.",
+    "not_found": "{{slicer}} no longer has this preset. It may have been renamed or removed there.",
+    "missing": "The parent preset \"{{parent}}\" is not in {{slicer}}'s files, so the values it would give are missing.",
+    "search": "Search settings and values",
+    "download": "Download JSON",
+    "layers": "Show settings from",
+    "all": "All ({{count, number}})",
+    "own": "This profile",
+    "shown": "{{shown}} of {{total}} settings",
+    "none": "No setting matches \"{{query}}\".",
+    "setting": "Setting",
+    "value": "Value",
+    "from": "From",
+    "empty": "(empty)",
+    "unfold": "Show all",
+    "fold": "Show less",
+    "waiting_one": "{{slicer}}'s files changed and {{count, number}} row waits for your <review>review</review>. These are the file's current settings, so they may differ from what the app uses above.",
+    "waiting_other": "{{slicer}}'s files changed and {{count, number}} rows wait for your <review>review</review>. These are the file's current settings, so they may differ from what the app uses above."
+  }
 }

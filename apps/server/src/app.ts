@@ -66,6 +66,7 @@ import { preferencesRoutes } from "./routes/preferences.ts";
 import { presetsRoutes } from "./routes/presets.ts";
 import { printersRoutes } from "./routes/printers.ts";
 import { printsRoutes } from "./routes/prints.ts";
+import { profileFileRoutes } from "./routes/profileFile.ts";
 import { projectFilesRoutes } from "./routes/projectFiles.ts";
 import { projectSlicingRoutes } from "./routes/projectSlicing.ts";
 import { projectsRoutes } from "./routes/projects.ts";
@@ -293,6 +294,12 @@ export async function buildApp(
   });
   await app.register(machineProfilesRoutes(db, dataDir), { prefix: "/api/machine-profiles" });
   await app.register(printProfilesRoutes(db, dataDir), { prefix: "/api/print-profiles" });
+  for (const [kind, prefix] of [
+    ["machineProfiles", "/api/machine-profiles"],
+    ["printProfiles", "/api/print-profiles"],
+    ["filamentProfiles", "/api/filament/profiles"],
+  ] as const)
+    await app.register(profileFileRoutes(db, dataDir, adapters, kind), { prefix });
   await app.register(maintenanceRoutes(db), { prefix: "/api/maintenance" });
   const syncer = createSyncer(db, opts.adapters ?? [], key, logFor("integrations"), dataDir);
   await app.register(filamentRoutes(db), { prefix: "/api/filament" });

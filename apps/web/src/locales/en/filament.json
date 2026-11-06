@@ -97,10 +97,6 @@
     "prints": "Prints",
     "printsNone": "No print has used this spool yet."
   },
-  "profileDetail": {
-    "title": "Profile details",
-    "notFound": "Filament profile not found."
-  },
   "spoolImport": {
     "remainingOf": "{{remaining}} of {{initial}}"
   },

@@ -286,7 +286,15 @@ export function Catalog() {
           {
             id: "name",
             header: t("printers:catalog.profiles.name"),
-            cell: (p) => <span className="font-medium">{p.name}</span>,
+            cell: (p) => (
+              <Link
+                to="/printers/machine-profiles/$id"
+                params={{ id: p.id }}
+                className="font-medium hover:underline"
+              >
+                {p.name}
+              </Link>
+            ),
             sort: "name",
             filter: "name",
           },
@@ -324,7 +332,15 @@ export function Catalog() {
           {
             id: "name",
             header: t("printers:catalog.printProfiles.name"),
-            cell: (p) => <span className="font-medium">{p.name}</span>,
+            cell: (p) => (
+              <Link
+                to="/printers/print-profiles/$id"
+                params={{ id: p.id }}
+                className="font-medium hover:underline"
+              >
+                {p.name}
+              </Link>
+            ),
             sort: "name",
             filter: "name",
           },

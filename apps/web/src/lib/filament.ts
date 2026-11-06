@@ -35,13 +35,6 @@ export const useSpools = (tagId = "") =>
     queryFn: () => allOf<Spool>(`/api/filament/spools?${tagId ? `tagId=${tagId}` : ""}`),
   });
 
-export const useProfile = (id: string | undefined) =>
-  useQuery({
-    queryKey: ["filament", "profile", id],
-    queryFn: () => api<FilamentProfile>("GET", `/api/filament/profiles/${id}`),
-    enabled: !!id,
-  });
-
 export const useSpool = (id: string) =>
   useQuery({
     queryKey: ["filament", "spool", id],

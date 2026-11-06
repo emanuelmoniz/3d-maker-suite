@@ -58,9 +58,14 @@ const DEPENDENTS: Record<DependentType, { key: string; to?: string }> = {
     key: "common:archive.dependents.printerModel",
     to: "/printers/models/$id/edit",
   },
-  // Profiles have no page of their own yet.
-  machineProfile: { key: "common:archive.dependents.machineProfile" },
-  printProfile: { key: "common:archive.dependents.printProfile" },
+  machineProfile: {
+    key: "common:archive.dependents.machineProfile",
+    to: "/printers/machine-profiles/$id",
+  },
+  printProfile: {
+    key: "common:archive.dependents.printProfile",
+    to: "/printers/print-profiles/$id",
+  },
   printer: { key: "common:archive.dependents.printer", to: "/printers/$id" },
   accessory: { key: "common:archive.dependents.accessory", to: "/printers/accessories/$id" },
   maintenanceType: {

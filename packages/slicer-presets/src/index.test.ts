@@ -85,6 +85,70 @@ describe("flatten", () => {
   });
 });
 
+describe("settings", () => {
+  const settings = (
+    kind: "filament" | "machine" | "process",
+    scope: "system" | "user",
+    name: string,
+  ) => slicerPresetLibrary("s", () => []).settings?.(dir, kind, { scope, name });
+
+  beforeEach(() => {
+    put("system/BBL/filament/fdm_filament_common.json", {
+      name: "fdm_filament_common",
+      filament_type: ["PLA"],
+      nozzle_temperature: ["200"],
+      cool_plate_temp: ["35"],
+    });
+    put("system/BBL/filament/Bambu PLA Basic @BBL X1C.json", {
+      name: "Bambu PLA Basic @BBL X1C",
+      inherits: "fdm_filament_common",
+      instantiation: "true",
+      nozzle_temperature: ["220"],
+    });
+  });
+
+  it("lists a system filament by its base name, each value with the preset it comes from", async () => {
+    const got = await settings("filament", "system", "Bambu PLA Basic");
+    expect(got?.parents).toEqual(["fdm_filament_common"]);
+    expect(got?.missing).toBeNull();
+    expect(got?.settings).toEqual([
+      { key: "cool_plate_temp", value: "35", from: "fdm_filament_common" },
+      { key: "filament_type", value: "PLA", from: "fdm_filament_common" },
+      { key: "instantiation", value: "true", from: null },
+      { key: "name", value: "Bambu PLA Basic @BBL X1C", from: null },
+      { key: "nozzle_temperature", value: "220", from: null },
+    ]);
+  });
+
+  it("shows a user preset's own values over its parent's, and says when the parent is gone", async () => {
+    put("user/default/filament/Mine.json", {
+      name: "Mine",
+      inherits: "fdm_filament_common",
+      cool_plate_temp: ["40"],
+    });
+    put("user/default/filament/Orphan.json", { name: "Orphan", inherits: "Nowhere", x: ["1"] });
+
+    const mine = await settings("filament", "user", "Mine");
+    expect(mine?.settings.find((s) => s.key === "cool_plate_temp")).toEqual({
+      key: "cool_plate_temp",
+      value: "40",
+      from: null,
+    });
+    expect(mine?.settings.find((s) => s.key === "nozzle_temperature")?.from).toBe(
+      "fdm_filament_common",
+    );
+
+    const orphan = await settings("filament", "user", "Orphan");
+    expect(orphan).toMatchObject({ parents: [], missing: "Nowhere" });
+    expect(orphan?.settings.map((s) => s.key)).toEqual(["name", "x"]);
+  });
+
+  it("is undefined for a preset the folder doesn't have", async () => {
+    expect(await settings("filament", "system", "Nope")).toBeUndefined();
+    expect(await settings("machine", "user", "Nope")).toBeUndefined();
+  });
+});
+
 describe("presetsOf", () => {
   it("reads the 3MF's presets and the settings it changed from them", async () => {
     const own = await presetsOf(join(import.meta.dirname, "../../3mf/fixtures/multi_color.3mf"));

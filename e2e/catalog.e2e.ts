@@ -33,10 +33,10 @@ test("old catalog addresses land on their Catalog tab", async ({ page, app }) =>
   await expect(page).toHaveURL(/\/printers\/settings$/);
   await expect(page.getByLabel("Default printer")).toBeVisible();
   // Nothing makes a profile any more ("new" is no profile's id).
-  for (const path of ["/printers/profiles/new", "/printers/print-profiles/new"]) {
-    await page.goto(path);
-    await expect(page.getByRole("heading", { name: "Page not found" }), path).toBeVisible();
-  }
+  await page.goto("/printers/profiles/new");
+  await expect(page.getByRole("heading", { name: "Page not found" })).toBeVisible();
+  await page.goto("/printers/print-profiles/new");
+  await expect(page.getByRole("alert")).toContainText("Profile not found");
   await page.goto("/filament/profiles/new");
   await page.waitForLoadState("networkidle");
   await expect(page.getByRole("main").getByRole("textbox")).toHaveCount(0);

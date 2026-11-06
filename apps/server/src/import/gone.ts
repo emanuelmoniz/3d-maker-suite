@@ -21,7 +21,7 @@ export const PRESET_KINDS: Record<PresetKind, SlicerPresetKind> = {
 export const isPresetKind = (entity: string): entity is PresetKind => entity in PRESET_KINDS;
 
 /** By `<kind>/<parent name>`: the names of the user presets in a slicer folder that inherit from it. */
-function inheritors(dir: string) {
+export function inheritors(dir: string) {
   const user = join(dir, "user");
   const out = new Map<string, string[]>();
   for (const f of userPresetFiles(user)) {

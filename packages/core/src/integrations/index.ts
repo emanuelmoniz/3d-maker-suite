@@ -8,7 +8,7 @@ import type {
 import type { LibraryPreset, LibrarySpool } from "../schemas/filament.ts";
 import type { DesktopSlicer } from "../schemas/hub.ts";
 import type { ExternalPrint, ExternalPrinter, TestResult } from "../schemas/integrations.ts";
-import type { SlicerPresetKind } from "../schemas/presets.ts";
+import type { PresetSetting, SlicerPresetKind } from "../schemas/presets.ts";
 import type { SlicerCatalog } from "../schemas/slicerCatalog.ts";
 
 // The contract a vendor package implements (ADR-0003, docs/architecture.md).
@@ -139,6 +139,17 @@ export interface FilamentLibrary {
   readCatalog?(dir: string): Promise<SlicerCatalog>;
   /** Changes when the system presets do (ADR-0019); null = nothing to tell right now. */
   catalogFingerprint?(dir: string): Promise<string | null>;
+  /**
+   * Every setting of one preset, parents filled in, each with the preset it comes from (null: its
+   * own). Parents are read from the system presets in `dir`; a user preset is `own` or found in
+   * `dir`'s user folders. undefined = no such preset there.
+   */
+  settings?(
+    dir: string,
+    kind: SlicerPresetKind,
+    ref: { scope: "system" | "user"; name: string },
+    own?: Record<string, unknown>,
+  ): Promise<{ parents: string[]; missing: string | null; settings: PresetSetting[] } | undefined>;
   /** Flattens presets of `kind` over the system presets in `dir`: every setting, its parents' too. */
   flattener?(
     dir: string,

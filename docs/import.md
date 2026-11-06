@@ -29,6 +29,12 @@ Every table has a **Source** column, with a filter: **By hand**, **By hand (olde
 
 Under the profile tables, **How profiles arrive** says the same as above and lists, per slicer and operating system, the config folder to zip (the system and user folders in it).
 
+## A profile's page: All settings
+
+Click a profile's name in either tab to open its page: what the app uses (model, nozzle, material, temperatures), its source, **where it is used**, and **All settings**, every key and value of the slicer's file. A slicer file only holds what differs from the preset it inherits from, so the page fills the parents in and marks each row with where its value comes from: **This profile**, or the parent or template that gives it. The chips above the table show one source at a time, the search matches keys and values, and **Download JSON** saves the whole list.
+
+The settings are read from the file when the page opens: the slicer's folder on this server, the hub's library for a user preset, or a Bambu Cloud preset's copy (its parent is found in the slicer's system presets). If that can't be done, the page says why instead: the slicer's files aren't on this server (connect it in Integrations, or upload the zip), the slicer no longer has the preset, or the profile was made by hand in an older version. If the parent preset can't be found, the values it would give are missing and a note says so. If the slicer's files changed and rows wait for your review, a note links to the review: the settings shown are the file's current ones, so they may differ from what the app uses.
+
 The old addresses (Printers → Settings, Filament → Settings) open the matching tab. Printers → Settings keeps the default printer and the printer states.
 
 ## Accessory installs

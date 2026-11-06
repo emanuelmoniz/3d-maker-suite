@@ -17,12 +17,16 @@ import { AlertsPage } from "./pages/alerts/AlertsPage.tsx";
 import { LoginPage, SetupPage } from "./pages/auth/AuthPages.tsx";
 import { CatalogImportPage } from "./pages/catalog/CatalogImportPage.tsx";
 import { CATALOG_TABS, CatalogPage, PRINTER_TABLES } from "./pages/catalog/CatalogPage.tsx";
+import {
+  FilamentProfilePage,
+  MachineProfilePage,
+  PrintProfilePage,
+} from "./pages/catalog/ProfilePage.tsx";
 import { ClientDetailPage } from "./pages/clients/ClientDetailPage.tsx";
 import { ClientCreatePage, ClientEditPage } from "./pages/clients/ClientFormPage.tsx";
 import { ClientsPage } from "./pages/clients/ClientsPage.tsx";
 import { FilamentBrandFormPage, FilamentMaterialFormPage } from "./pages/filament/CatalogForms.tsx";
 import { FilamentPage } from "./pages/filament/FilamentPage.tsx";
-import { ProfileDetailPage } from "./pages/filament/ProfileDetailPage.tsx";
 import { SpoolDetailPage } from "./pages/filament/SpoolDetailPage.tsx";
 import { SpoolCreatePage, SpoolEditPage } from "./pages/filament/SpoolFormPage.tsx";
 import { HomePage } from "./pages/HomePage.tsx";
@@ -213,7 +217,9 @@ const routes: AnyRoute[] = [
   ...[
     ["/filament/spools/$id", SpoolDetailPage],
     ["/filament/spools/$id/edit", SpoolEditPage],
-    ["/filament/profiles/$id", ProfileDetailPage],
+    ["/filament/profiles/$id", FilamentProfilePage],
+    ["/printers/machine-profiles/$id", MachineProfilePage],
+    ["/printers/print-profiles/$id", PrintProfilePage],
   ].map(([path, component]) =>
     createRoute({
       getParentRoute: () => root,
