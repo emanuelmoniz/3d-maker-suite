@@ -246,7 +246,9 @@
     "fromFile": "As saved in the file",
     "forThisPrinter": "For this file's printer",
     "slot": "Slot {{slot}} · {{material}}",
-    "filamentOf": "Filament for {{plate}}, slot {{slot}}",
+    "presetOf": "Preset for {{plate}}, slot {{slot}}",
+    "spoolOf": "Spool for {{plate}}, slot {{slot}}",
+    "noSpool": "No spool",
     "state": {
       "outdated": "The file changed since this setup was saved",
       "missing": "Not in the file any more"
@@ -293,8 +295,14 @@
     "fromFileProfile": "As saved in the file ({{name}})",
     "printerDefault": "Printer default ({{name}})",
     "printerDefaultNone": "Printer default (none set)",
-    "spoolsGroup": "Spools",
-    "profilesGroup": "Filament profiles",
+    "forThisSpool": "For this spool",
+    "presetsGroup": "Filament presets",
+    "spoolSuggest": "{{name}} matches this spool.",
+    "spoolMismatch": "This spool is {{spool}}, the preset {{preset}}. Best match: {{name}}.",
+    "spoolMismatchSeveral": "This spool is {{spool}}, the preset {{preset}}. Its presets are at the top of the list.",
+    "spoolMismatchNone": "This spool is {{spool}}, the preset {{preset}}, and no {{spool}} preset fits. Slicing still works.",
+    "usePreset": "Use",
+    "keepPreset": "Keep",
     "spoolOption": "{{name}} · {{weight}} left"
   },
   "files": {

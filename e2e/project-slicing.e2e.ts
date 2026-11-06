@@ -1,7 +1,15 @@
 import { appendFileSync, copyFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { expect, test } from "./fixtures.ts";
-import { addRoots, openSections, pick, seedModel, seedProfile, seedSpool } from "./helpers.ts";
+import {
+  addRoots,
+  hasHorizontalScroll,
+  openSections,
+  pick,
+  seedModel,
+  seedProfile,
+  seedSpool,
+} from "./helpers.ts";
 
 type Plate = { index: number; name: string | null };
 
@@ -49,7 +57,7 @@ test("project slicing setup: defaults from the default printer, saves, reloads, 
   await expect(printProfile).toHaveValue("Printer default (0.20mm Standard)");
 
   await pick(printProfile, "0.12mm Fine");
-  const slot1 = section.getByRole("combobox", { name: `Filament for ${plateName}, slot 1` });
+  const slot1 = section.getByRole("combobox", { name: `Preset for ${plateName}, slot 1` });
   await pick(slot1, "Basic");
   await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`/projects/${project.id}$`));
@@ -104,8 +112,8 @@ test("slicing a project with the mock slicer: results, estimate, list filter, re
   await expect(section.getByRole("combobox", { name: /^Print profile for/ })).toHaveValue(
     "As saved in the file (0.20mm Standard @BBL A1)",
   );
-  // Slot 1 from the spool (the first entry after "As saved in the file").
-  await pick(section.getByRole("combobox", { name: /, slot 1$/ }), 1);
+  // Slot 1 from the spool (the first entry after "No spool").
+  await pick(section.getByRole("combobox", { name: /^Spool for .*, slot 1$/ }), 1);
   const slice = section.getByRole("button", { name: "Slice" });
   await expect(slice).toBeEnabled(); // an unsaved setup: Slice saves it first
   await slice.click();
@@ -190,7 +198,7 @@ test("plate pickers list the slicer's presets, slots default to the file's, misf
   await openSections(page, "Print setup");
   const section = page.getByRole("region", { name: "Print setup" });
   await section.getByRole("checkbox", { name: /benchy\.3mf/ }).check();
-  await expect(section.getByRole("combobox", { name: /, slot 1$/ })).toHaveValue(
+  await expect(section.getByRole("combobox", { name: /^Preset for .*, slot 1$/ })).toHaveValue(
     /^As saved in the file \(.+\)$/,
   );
   const warning = section.getByText(/has no preset for “Mine”, so this plate won't slice/).first();
@@ -205,3 +213,92 @@ test("plate pickers list the slicer's presets, slots default to the file's, misf
   await options.getByText("Fine", { exact: true }).click();
   await expect(warning).toHaveCount(0);
 });
+
+for (const width of [412, 1280])
+  test(`a slot's spool suggests its preset and never changes it (${width}px)`, async ({
+    page,
+    app,
+  }) => {
+    const root = join(app.dataDir, "models");
+    mkdirSync(join(root, "Benchy"), { recursive: true });
+    copyFileSync(
+      join(import.meta.dirname, "../packages/3mf/fixtures/multi_color.3mf"),
+      join(root, "Benchy", "benchy.3mf"),
+    );
+    await addRoots(app.api, { path: root, autoSlice: false });
+    const project = await app.api<{ id: string }>("POST", "/api/projects", {
+      name: "Benchy",
+      folderPath: join(root, "Benchy"),
+    });
+    const brand = await app.api<{ id: string }>("POST", "/api/filament-brands", {
+      name: "Bambu Lab",
+    });
+    const materials: Record<string, string> = {};
+    for (const name of ["PLA", "PETG"])
+      materials[name] = (
+        await app.api<{ id: string }>("POST", "/api/filament-materials", { name })
+      ).id;
+    for (const [material, name] of [
+      ["PLA", "Bambu PLA Matte"],
+      ["PETG", "Bambu PETG Basic"],
+    ] as const) {
+      await app.api("POST", "/api/filament/profiles", {
+        brandId: brand.id,
+        materialId: materials[material],
+        densityGcm3: 1.24,
+        name,
+      });
+      await app.api("POST", "/api/filament/spools", {
+        brandId: brand.id,
+        materialId: materials[material],
+        name: name.replace("Bambu ", ""),
+        colorHex: "#ff0000",
+        initialGrams: 1000,
+      });
+    }
+
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto(`/projects/${project.id}/edit`);
+    await openSections(page, "Print setup");
+    const section = page.getByRole("region", { name: "Print setup" });
+    await section.getByRole("checkbox", { name: /benchy\.3mf/ }).check();
+    // Slot 2 of the file is "Bambu PLA Matte @BBL A1", a PLA.
+    const preset = section.getByRole("combobox", { name: /^Preset for .*, slot 2$/ });
+    const spool = section.getByRole("combobox", { name: /^Spool for .*, slot 2$/ });
+    const fromFile = "As saved in the file (Bambu PLA Matte @BBL A1)";
+    await expect(preset).toHaveValue(fromFile);
+
+    // A PETG spool on a PLA slot: a warning with the PETG preset; Keep leaves the PLA one.
+    const pickSpool = async (combo: typeof spool, name: RegExp) => {
+      await combo.click();
+      await page.getByRole("listbox").getByRole("option").filter({ hasText: name }).click();
+    };
+    await pickSpool(spool, /PETG Basic/);
+    const warning = section.getByText(
+      "This spool is PETG, the preset PLA. Best match: Bambu PETG Basic.",
+    );
+    await expect(warning).toBeVisible();
+    expect(await hasHorizontalScroll(page)).toBe(false);
+    await section.getByRole("button", { name: "Keep" }).click();
+    await expect(warning).toHaveCount(0);
+    await expect(preset).toHaveValue(fromFile);
+
+    // A spool of the slot's brand and material: nothing to say, nothing changes.
+    await pickSpool(spool, /PLA Matte/);
+    await expect(section.getByRole("button", { name: "Use" })).toHaveCount(0);
+    await expect(preset).toHaveValue(fromFile);
+
+    // Kept stays kept; on another slot, Use puts the spool's preset on it.
+    await pickSpool(spool, /PETG Basic/);
+    await expect(warning).toHaveCount(0);
+    await pickSpool(
+      section.getByRole("combobox", { name: /^Spool for .*, slot 1$/ }),
+      /PETG Basic/,
+    );
+    await expect(warning).toBeVisible();
+    await section.getByRole("button", { name: "Use" }).click();
+    await expect(section.getByRole("combobox", { name: /^Preset for .*, slot 1$/ })).toHaveValue(
+      "Bambu PETG Basic",
+    );
+    await expect(warning).toHaveCount(0);
+  });

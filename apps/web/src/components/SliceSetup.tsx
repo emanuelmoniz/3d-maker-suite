@@ -7,15 +7,19 @@ import {
   type ProjectModel,
   presetMisfit,
   printerFitsFile,
+  slotAdvice,
+  spoolPresets,
 } from "@3d-maker-suite/core";
 import type { TFunction } from "i18next";
-import { type ReactNode, useId } from "react";
+import { type ReactNode, useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useCatalogWithArchived, useMachineProfiles, useModelInfo } from "../lib/catalog.ts";
+import { cx } from "../lib/cx.ts";
 import { spoolName, useProfiles, useSpools } from "../lib/filament.ts";
 import { formatDuration, formatList, formatWeight } from "../lib/format.ts";
 import { useSlicers } from "../lib/integrations.ts";
 import { printerName, usePrinters } from "../lib/printers.ts";
+import { Button } from "./Button.tsx";
 import { Combobox, type ComboOption } from "./Combobox.tsx";
 
 type Plate = ProjectModel["plates"][number];
@@ -175,8 +179,8 @@ export function usePlateFit(defaultPrinterId: string | null | undefined) {
 }
 
 /**
- * Pick the 3MF files and plates to print, and per plate its print profile and the filament
- * profile per slot. Controlled; saving is up to the parent.
+ * Pick the 3MF files and plates to print, and per plate its print profile and per slot its
+ * filament preset and spool. Controlled; saving is up to the parent.
  */
 export function SliceSetup({
   files,
@@ -343,51 +347,102 @@ export function SliceSetup({
       : null;
   };
 
-  // As saved in the file (its preset's name), spools you can print from (and the one picked,
-  // whatever its state), then profiles: the slicer's presets and hand-made ones (sliced with the
-  // file's filament, priced as theirs). The one picked always stays listed.
-  const filamentOptions = (v: PlateSetupInput, slot: Plate["filaments"][number]): ComboOption[] => [
-    {
-      value: "",
-      label: slot.profile
-        ? t("projects:slicing.fromFileProfile", { name: slot.profile })
-        : t("projects:slicing.fromFile"),
-    },
+  // A slot's preset and spool are separate picks (ADR-0020); neither changes the other.
+  // ponytail: "fits its printer" = the plate's slicer's presets; profiles keep no printer list
+  // (variants are merged, slicing picks the printer's). Store `compatible_printers` if it matters.
+  const presetsOf = (v: PlateSetupInput) =>
+    filaments.filter((p) => ofSlicer(libraryOf(v), p.sourcePreset));
+  const spoolOf = (v: PlateSetupInput, slot: number) =>
+    spools.find((s) => s.id === v.spools[slot - 1]);
+  const presetLabel = (p: (typeof allProfiles)[number]) =>
+    p.name || [p.brand, p.material].filter(Boolean).join(" ");
+  // As saved in the file (its preset's name), the spool's presets, then the slicer's others. The
+  // one picked always stays listed.
+  const presetOptions = (v: PlateSetupInput, slot: Plate["filaments"][number]): ComboOption[] => {
+    const spool = spoolOf(v, slot.slot);
+    const own = presetsOf(v);
+    const forSpool = (spool && spoolPresets(spool, own)?.presets) || [];
+    const picked = allProfiles.find((p) => p.id === v.filaments[slot.slot - 1]);
+    const rest = [...own, ...(picked && !own.includes(picked) ? [picked] : [])].filter(
+      (p) => !forSpool.includes(p),
+    );
+    return [
+      {
+        value: "",
+        label: slot.profile
+          ? t("projects:slicing.fromFileProfile", { name: slot.profile })
+          : t("projects:slicing.fromFile"),
+      },
+      ...forSpool.map((p) => ({
+        value: p.id,
+        label: presetLabel(p),
+        group: t("projects:slicing.forThisSpool"),
+      })),
+      ...rest.map((p) => ({
+        value: p.id,
+        label: presetLabel(p),
+        group: t("projects:slicing.presetsGroup"),
+      })),
+    ];
+  };
+  // Spools you can print from, and the one picked, whatever its state.
+  const spoolOptions = (v: PlateSetupInput): ComboOption[] => [
+    { value: "", label: t("projects:slicing.noSpool") },
     ...spools
       .filter((s) => (!s.archivedAt && s.status !== "empty") || v.spools.includes(s.id))
       .map((s) => ({
-        value: `spool:${s.id}`,
+        value: s.id,
         label: t("projects:slicing.spoolOption", {
           name: spoolName(t, s),
           weight: formatWeight(s.remainingGrams),
         }),
-        group: t("projects:slicing.spoolsGroup"),
-      })),
-    ...filaments
-      .filter(
-        (p) =>
-          !p.sourcePreset ||
-          ofSlicer(libraryOf(v), p.sourcePreset) ||
-          p.id === v.filaments[slot.slot - 1],
-      )
-      .map((p) => ({
-        value: p.id,
-        label: p.name || [p.brand, p.material].filter(Boolean).join(" "),
-        group: t("projects:slicing.profilesGroup"),
       })),
   ];
-  const setFilament = (key: string, v: PlateSetupInput, slot: number, value: string) => {
-    const filamentsNext = [...v.filaments];
-    const spoolsNext = [...v.spools];
-    while (filamentsNext.length < slot) filamentsNext.push(null);
-    while (spoolsNext.length < slot) spoolsNext.push(null);
-    const spool = value.startsWith("spool:")
-      ? spools.find((s) => s.id === value.slice(6))
-      : undefined;
-    spoolsNext[slot - 1] = spool?.id ?? null;
-    // A spool leaves the slot's preset as it is (ADR-0020); a preset picked here drops the spool.
-    if (!spool) filamentsNext[slot - 1] = value || null;
-    patch(key, { filaments: filamentsNext, spools: spoolsNext });
+  const setSlot = (
+    key: string,
+    v: PlateSetupInput,
+    slot: number,
+    field: "filaments" | "spools",
+    id: string,
+  ) => {
+    const next = [...v[field]];
+    while (next.length < slot) next.push(null);
+    next[slot - 1] = id || null;
+    patch(key, { [field]: next });
+  };
+  // Keep hides a slot's suggestion or warning for its spool until the page reloads.
+  const [kept, setKept] = useState<Set<string>>(new Set());
+  const adviceOf = (key: string, v: PlateSetupInput, slot: Plate["filaments"][number]) => {
+    const spool = spoolOf(v, slot.slot);
+    if (!spool || kept.has(`${key}#${slot.slot}#${spool.id}`)) return;
+    const id = v.filaments[slot.slot - 1] ?? null;
+    const current = {
+      id,
+      name: id ? null : slot.profile,
+      material: id ? (allProfiles.find((p) => p.id === id)?.material ?? null) : slot.type,
+    };
+    const advice = slotAdvice(spool, current, presetsOf(v));
+    if (!advice) return;
+    const keep = () => setKept(new Set(kept).add(`${key}#${slot.slot}#${spool.id}`));
+    const use =
+      advice.preset && (() => setSlot(key, v, slot.slot, "filaments", advice.preset?.id ?? ""));
+    const name = advice.preset && presetLabel(advice.preset);
+    const message =
+      advice.kind === "suggest"
+        ? t("projects:slicing.spoolSuggest", { name })
+        : t(
+            name
+              ? "projects:slicing.spoolMismatch"
+              : advice.presets.length
+                ? "projects:slicing.spoolMismatchSeveral"
+                : "projects:slicing.spoolMismatchNone",
+            {
+              spool: spool.material,
+              preset: current.material ?? t("projects:detail.unknownMaterial"),
+              name,
+            },
+          );
+    return { warn: advice.kind === "mismatch", message, use, keep };
   };
 
   if (!files.length) return <p className="text-muted">{t("projects:slicing.noFiles")}</p>;
@@ -497,40 +552,79 @@ export function SliceSetup({
                               />
                             </div>
                           )}
-                          {p.filaments.map((slot) => (
-                            <div key={slot.slot}>
-                              <span
-                                aria-hidden
-                                className="mb-1 flex items-center gap-1 text-sm text-muted"
+                          {p.filaments.map((slot) => {
+                            const advice = adviceOf(key, setup, slot);
+                            const adviceId = `${plateId}-slot${slot.slot}`;
+                            return (
+                              <div
+                                key={slot.slot}
+                                className="grid gap-2 sm:col-span-2 sm:grid-cols-2"
                               >
                                 <span
                                   aria-hidden
-                                  className="size-3 rounded-full border border-border"
-                                  style={{
-                                    backgroundColor: slot.color?.slice(0, 7) ?? "transparent",
-                                  }}
+                                  className="flex items-center gap-1 text-sm text-muted sm:col-span-2"
+                                >
+                                  <span
+                                    aria-hidden
+                                    className="size-3 rounded-full border border-border"
+                                    style={{
+                                      backgroundColor: slot.color?.slice(0, 7) ?? "transparent",
+                                    }}
+                                  />
+                                  {t("projects:slicing.slot", {
+                                    slot: slot.slot,
+                                    material: slot.type ?? t("projects:detail.unknownMaterial"),
+                                  })}
+                                </span>
+                                <Combobox
+                                  aria-label={t("projects:slicing.presetOf", {
+                                    plate: name,
+                                    slot: slot.slot,
+                                  })}
+                                  aria-describedby={advice ? adviceId : undefined}
+                                  options={presetOptions(setup, slot)}
+                                  value={setup.filaments[slot.slot - 1] ?? ""}
+                                  disabled={disabled}
+                                  onChange={(v) => setSlot(key, setup, slot.slot, "filaments", v)}
                                 />
-                                {t("projects:slicing.slot", {
-                                  slot: slot.slot,
-                                  material: slot.type ?? t("projects:detail.unknownMaterial"),
-                                })}
-                              </span>
-                              <Combobox
-                                aria-label={t("projects:slicing.filamentOf", {
-                                  plate: name,
-                                  slot: slot.slot,
-                                })}
-                                options={filamentOptions(setup, slot)}
-                                value={
-                                  setup.spools[slot.slot - 1]
-                                    ? `spool:${setup.spools[slot.slot - 1]}`
-                                    : (setup.filaments[slot.slot - 1] ?? "")
-                                }
-                                disabled={disabled}
-                                onChange={(v) => setFilament(key, setup, slot.slot, v)}
-                              />
-                            </div>
-                          ))}
+                                <Combobox
+                                  aria-label={t("projects:slicing.spoolOf", {
+                                    plate: name,
+                                    slot: slot.slot,
+                                  })}
+                                  options={spoolOptions(setup)}
+                                  value={setup.spools[slot.slot - 1] ?? ""}
+                                  disabled={disabled}
+                                  onChange={(v) => setSlot(key, setup, slot.slot, "spools", v)}
+                                />
+                                {advice && (
+                                  <div className="flex flex-wrap items-center gap-2 sm:col-span-2">
+                                    <p
+                                      id={adviceId}
+                                      className={cx(
+                                        "text-sm",
+                                        advice.warn ? "text-warn" : "text-muted",
+                                      )}
+                                    >
+                                      {advice.message}
+                                    </p>
+                                    {advice.use && (
+                                      <Button disabled={disabled} onClick={advice.use}>
+                                        {t("projects:slicing.usePreset")}
+                                      </Button>
+                                    )}
+                                    <Button
+                                      variant="ghost"
+                                      disabled={disabled}
+                                      onClick={advice.keep}
+                                    >
+                                      {t("projects:slicing.keepPreset")}
+                                    </Button>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
                           {warning && <p className="text-sm text-warn sm:col-span-2">{warning}</p>}
                           {note && <p className="text-sm text-muted sm:col-span-2">{note}</p>}
                         </div>

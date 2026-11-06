@@ -4,7 +4,7 @@ import { id, isoDate } from "./entities.ts";
 import { PRINT_MAX_SLOTS } from "./import.ts";
 
 // What a project prints: the plates picked per 3MF file, and per plate the printer, the print
-// profile and the filament (spool or profile) per slot. Slicing turns this into time and grams.
+// profile and per slot the filament preset and the spool. Slicing turns this into time and grams.
 
 /** `outdated`: the file changed on disk since the setup was saved. `missing`: file or plate is gone. */
 export const PLATE_STATES = ["ok", "outdated", "missing"] as const;
@@ -26,7 +26,7 @@ export const plateSetupInputSchema = z.object({
   useDefaultPrintProfile: z.boolean().default(false),
   /** Filament profile per slot (index 0 = slot 1); null = the one saved in the 3MF. */
   filaments: z.array(id.nullable()).max(PRINT_MAX_SLOTS),
-  /** Spool per slot, for its price; the server fills `filaments` with its profile. */
+  /** Spool per slot, for its price; it never sets the slot's preset (ADR-0020). */
   spools: z.array(id.nullable()).max(PRINT_MAX_SLOTS).default([]),
   /** The slicer integration; null = the project's, then the default slicer (see `pickSlicer`). */
   slicerIntegrationId: id.nullable().default(null),
@@ -125,6 +125,82 @@ export function presetMisfit(
 /** Filaments of another slicer's presets: a slicer of `library` slices them with the 3MF's own. */
 export const foreignFilaments = (library: string, filaments: Preset[]) =>
   filaments.filter((f) => f.sourcePreset && !f.sourcePreset.startsWith(`${library}:`));
+
+type SlotPreset = Preset & { id: string; brand: string; material: string };
+type SlotSpool = { brand: string; material: string; name: string | null };
+
+const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
+/** A preset's name without its brand, or the brand's first word, as migration 0104 named spools. */
+function bareName(name: string, brand: string) {
+  const lower = name.toLowerCase();
+  for (const prefix of new Set([brand, brand.split(" ")[0] ?? ""]))
+    if (prefix && lower.startsWith(`${prefix.toLowerCase()} `))
+      return name.slice(prefix.length + 1).trim();
+  return name.trim();
+}
+const userPreset = (p: Preset) => /^[^:]+:user\//.test(p.sourcePreset ?? "");
+
+/**
+ * The presets for a spool (ADR-0020): its brand, material and name, else its brand and material,
+ * else Generic of its material; the first level with any wins, user presets first. `best` only
+ * when one leads (the only user preset, else the only one): several head the picker, nothing is
+ * guessed. A spool without a name is its material alone ("Bambu PLA").
+ */
+export function spoolPresets<P extends SlotPreset>(
+  spool: SlotSpool,
+  presets: P[],
+): { level: "name" | "brand" | "generic"; presets: P[]; best?: P } | undefined {
+  const ofMaterial = presets.filter((p) => same(p.material, spool.material));
+  const ofBrand = spool.brand ? ofMaterial.filter((p) => same(p.brand, spool.brand)) : [];
+  const name = spool.name ?? spool.material;
+  const levels = [
+    ["name", ofBrand.filter((p) => same(bareName(p.name, p.brand), name))],
+    ["brand", ofBrand],
+    ["generic", ofMaterial.filter((p) => same(p.brand, "Generic"))],
+  ] as const;
+  for (const [level, found] of levels) {
+    if (!found.length) continue;
+    const user = found.filter(userPreset);
+    const lead = user.length ? user : found;
+    return {
+      level,
+      presets: [...user, ...found.filter((p) => !userPreset(p))],
+      best: lead.length === 1 ? lead[0] : undefined,
+    };
+  }
+}
+
+export type SlotAdvice<P> =
+  | { kind: "suggest"; preset: P }
+  | { kind: "mismatch"; preset?: P; presets: P[] };
+
+/**
+ * What a slot with a spool says about its preset (ADR-0020's table); it never changes one.
+ * `current`: the slot's preset, or for "From the file" the 3MF's preset name and type. Nothing
+ * when the preset already is the spool's brand and material, or no brand match exists; a quiet
+ * suggestion when one does; a warning with the best match when the materials differ.
+ */
+export function slotAdvice<P extends SlotPreset>(
+  spool: SlotSpool,
+  current: { id: string | null; name: string | null; material: string | null },
+  presets: P[],
+): SlotAdvice<P> | undefined {
+  // The 3MF names its preset for its printer ("Bambu PLA Basic @BBL A1"); the catalog doesn't.
+  const fileName = current.name?.split(" @")[0];
+  const preset = current.id
+    ? presets.find((p) => p.id === current.id)
+    : fileName
+      ? presets.find((p) => same(p.name, fileName))
+      : undefined;
+  const material = preset?.material ?? current.material;
+  const found = spoolPresets(spool, presets);
+  if (material && !same(material, spool.material))
+    return { kind: "mismatch", preset: found?.best, presets: found?.presets ?? [] };
+  // A preset we can't name (a tuned one saved with the file, another slicer's) may be on purpose.
+  if (!preset || (spool.brand && same(preset.brand, spool.brand))) return;
+  if (found && found.level !== "generic" && found.best)
+    return { kind: "suggest", preset: found.best };
+}
 
 /** A project in the list: no plates picked, some need slicing, or all sliced and current. */
 export const PROJECT_SLICING = ["none", "needed", "done"] as const;

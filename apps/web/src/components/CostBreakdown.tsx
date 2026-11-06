@@ -2,7 +2,7 @@ import type { CostBreakdown as Cost, QuoteBreakdown } from "@3d-maker-suite/core
 import { TriangleAlert } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { type SlicedEstimate, useMoney } from "../lib/cost.ts";
-import { spoolName, useProfiles } from "../lib/filament.ts";
+import { spoolName } from "../lib/filament.ts";
 import { formatWeight } from "../lib/format.ts";
 import { printerName } from "../lib/printers.ts";
 
@@ -34,7 +34,6 @@ export function MaterialUsage({
   estimate: Pick<SlicedEstimate, "spools" | "materials">;
 }) {
   const { t } = useTranslation();
-  const _profiles = useProfiles().data?.items ?? [];
   const { spools, materials } = estimate;
   if (!spools.length && !materials.length) return null;
   return (

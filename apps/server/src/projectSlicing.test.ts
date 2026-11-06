@@ -429,7 +429,7 @@ describe("slicing a project (mock slicer)", () => {
     expect((await settled()).plates[0]).toMatchObject({ result: null, needsSlicing: true });
   });
 
-  it("takes a spool's profile for its slot and keeps the slice when the spool changes", async () => {
+  it("keeps a slot's preset and slice when its spool changes; a preset change re-slices", async () => {
     const post = async (url: string, payload: object) =>
       (await app.inject({ method: "POST", url, payload })).json();
     const brand = await post("/api/filament-brands", { name: "Acme" });
@@ -455,6 +455,24 @@ describe("slicing a project (mock slicer)", () => {
     // Another spool: only the price changes, so no new slice.
     await put([{ ...plate, spools: [blue.id] }]);
     expect((await settled()).plates[0]).toMatchObject({ needsSlicing: false, spools: [blue.id] });
+
+    // A plate saved before 5.4 kept its spool's profile as the preset: saved again, it stays.
+    const profile = await post("/api/filament/profiles", {
+      brandId: brand.id,
+      materialId: material.id,
+      densityGcm3: 1.24,
+      name: "Acme PLA Basic",
+    });
+    await put([{ ...plate, filaments: [profile.id], spools: [blue.id] }]);
+    await run();
+    await settled();
+    await put([{ ...plate, filaments: [profile.id], spools: [red.id] }]);
+    expect((await settled()).plates[0]).toMatchObject({
+      needsSlicing: false,
+      filaments: [profile.id],
+    });
+    await put([{ ...plate, spools: [red.id] }]);
+    expect((await settled()).plates[0]).toMatchObject({ needsSlicing: true, filaments: [] });
   });
 
   it("slices a quote's plates: a project's with another profile and an uploaded 3MF", async () => {

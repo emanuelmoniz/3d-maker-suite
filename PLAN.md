@@ -2125,7 +2125,7 @@ Do Step 12 of the 5.4.0 plan in PLAN.md. Read ADR-0020 first.
 Back up the DB before editing schema.ts.
 ```
 
-### [ ] Step 13 - A slot's spool and preset  **[plan mode]**
+### [x] Step 13 - A slot's spool and preset  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:**
 - `routes/projectSlicing.ts` stops writing the spool's profile into `filaments`. A slot's preset and spool are separate picks.

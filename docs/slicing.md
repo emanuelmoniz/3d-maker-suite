@@ -45,7 +45,29 @@ The slice remembers the worker and the slicer version, so a new version marks it
 - **Bambu Studio (server)** imports its brands, printers and profiles from the download, with the same sync options as the local one.
 - **OrcaSlicer (server)** does the same: the app reads the binary profile files Orca ships. If a newer Orca changes their format, Choose brands says it can't read them, and Orca slices with the 3MF's own settings plus the user presets you import until the app is updated. In Orca, a print preset can't be applied to a project made in Bambu Studio: Orca rejects a setting saved in the file (error `-18`). Open and save the project in Orca first.
 - **Your own presets:** zip the slicer's config folder on your PC and upload it on [Import → slicer zip](import.md#slicer-catalog-from-a-zip). The zip is merged into the hub's [slicer preset library](hub.md#slicer-presets), so presets already there stay. Slicing on the server and on workers uses that library. A preset you save in a slicer that runs on the server reaches the catalog within a minute, on its own (see [the slicer's When setting](import.md#from-an-integration)).
-- **Presets belong to a slicer.** A Bambu Studio print or printer preset doesn't exist in OrcaSlicer and the other way round, and a slicer's presets are never matched to the other's, even with the same name. The slicer pickers mark slicers that don't fit a plate's profiles, and the plate warns before slicing. A filament preset of the other slicer is fine: that slot slices with the file's own filament, and the spool's price still counts.
+- **Presets belong to a slicer.** A Bambu Studio print or printer preset doesn't exist in OrcaSlicer and the other way round, and a slicer's presets are never matched to the other's, even with the same name. The slicer pickers mark slicers that don't fit a plate's profiles, and the plate warns before slicing. A filament preset of the other slicer is fine: that slot slices with the file's own filament.
+
+## Preset and spool per slot
+
+Each filament slot of a plate has a **preset** and, optionally, a **spool**. They are separate picks: the preset is what the slicer slices with, the spool is the roll you print from and what the filament costs.
+
+- **Preset:** *As saved in the file* by default, named after the 3MF's preset. The list shows the plate's slicer's filament presets. Presets aren't filtered by printer: when slicing, the slicer picks the version of the preset made for the plate's printer.
+- **Spool:** optional. Picking one never changes the preset. The presets that match the spool are at the top of the preset list: first its brand, material and name, then its brand and material, then *Generic* of its material. Your own presets come first.
+
+| The slot's preset | What you see after picking a spool |
+|---|---|
+| Already the spool's brand and material | Nothing |
+| Same material, and a preset of the spool's brand exists | A suggestion: **Use** or **Keep** |
+| Same material, no preset of the spool's brand | Nothing |
+| As saved in the file, with a preset that isn't in the catalog | Nothing (it may be one tuned on purpose) |
+| Another material | A warning with the best match: **Use** or **Keep** |
+| Another material, and no preset of the spool's material | A warning; slicing still works |
+
+**Keep** hides it until you reload the page. When several presets match equally, none is suggested; they are listed first.
+
+**Price per slot:** the spool's price paid, else its material's default price. Without a spool: the default price of the preset's material (for *As saved in the file*, the file's material).
+
+Only a changed preset marks a slice outdated. Changing the spool only changes the price.
 
 ## Docker
 
