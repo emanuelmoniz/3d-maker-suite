@@ -2179,7 +2179,7 @@ Back up the DB before editing schema.ts.
 **Scope:**
 - Each table of the four catalog types (brands, printer models, filament brands, filament materials) gets Import and Export next to Add (`Section.extra`), with today's upload, review and export; the review's back link returns to its tab.
 - Import | Export keeps printers, accessories, installs, projects, prints, spools, clients, quotes, orders and maintenance; the catalog types leave it, with one line: the catalog is imported in Catalog, slicer profiles come only from a slicer.
-- The profile tables say how profiles arrive: connect a slicer in Integrations, or upload a zip of the slicer's config folder (where it is per slicer and OS, what to zip), linking the zip page. Step 19 moves that page into Sources with the same text.
+- The profile tables say how profiles arrive: connect a slicer in Integrations, or upload a zip of the slicer's config folder (where it is per slicer and OS, what to zip), linking the zip page. Step 21 moves that page into Sources with the same text.
 - `docs/import.md`.
 
 **Done when:** a brand CSV round-trips from Catalog → Printers; Import | Export lists no catalog type; the profile tables explain the zip; tests and e2e pass.
@@ -2192,7 +2192,7 @@ Do Step 15b of the 5.4.0 plan in PLAN.md. Use frontend-design for the import con
 **Model:** Sonnet · **Effort:** High
 **Scope:**
 - One profile page for the three kinds: what the app uses, its source, where it is used, and **All settings**: every key and value, parents filled in (`systemPresets().flatten`), each marked with where it comes from, a search and a JSON download.
-- `GET` a profile's settings under its own prefix, with the row's read rights. Read from the single PC's folder, the server slicer's `config/system` and the library, or the catalog source's copy (Step 20); Bambu Cloud presets resolve their parent the same way.
+- `GET` a profile's settings under its own prefix, with the row's read rights. Read from the single PC's folder, the server slicer's `config/system` and the library, or the catalog source's copy (Step 22); Bambu Cloud presets resolve their parent the same way.
 - A source that can't be read says so; a file changed while its row waits for review shows a banner to the review.
 
 **Done when:** a Bambu system filament profile lists its inherited values with their parent, on a single PC and on a hub with a server slicer; a user preset shows its own values over its parent's; an unreadable source shows the message; tests and e2e pass.
@@ -2201,7 +2201,42 @@ Do Step 15b of the 5.4.0 plan in PLAN.md. Use frontend-design for the import con
 Do Step 16 of the 5.4.0 plan in PLAN.md. Use frontend-design for the settings table.
 ```
 
-### [ ] Step 17 - Presets tab
+### [ ] Step 17 - Machine profile: the printer's pick and defaults  **[plan mode]**
+**Model:** Opus · **Effort:** High
+**Scope:**
+- Today a machine profile is only "in use" when a print names it by hand, though slicing on another printer than the file's picks one by model and nozzle (`sliceQueue.ts`), so your printers' profiles show as unused.
+- `printers.machineProfileId`: the printer's machine profile, set on its own from model and nozzle when a printer is added or its model or nozzle changes. The printer form offers the model's machine profiles and warns when the pick no longer fits the nozzle. A migration fills today's printers the same way.
+- The import keeps what the files say: a machine profile's `default_print_profile` (`machine_profiles.defaultPrintPreset`) and a print profile's whole `compatible_printers` list (today only its first machine, `catalogProcessSchema`, so a process listing X1C and P1S only fits the X1C). Re-reading the catalog fills them for existing rows.
+- The printer's default print profile stays; with none, the machine profile's default is used.
+- Slicing on another printer than the file's uses the printer's machine profile when it is a preset of the plate's slicer, else the match by model and nozzle in that slicer, as today; `no_machine_preset` when there is none. Only system machine presets slice (ADR-0007).
+- "In use": a printer's machine profile counts (`PRESET_USES` in `dependents.ts`). A new print takes its printer's machine profile, from any source.
+
+**Done when:** each printer has a machine profile after the migration; your printers' machine profiles no longer show as unused; a plate on another printer slices with the printer's machine profile; a process listing several printers is stored for each of them; tests and e2e pass.
+**Prompt:**
+```
+Do Step 17 of the 5.4.0 plan in PLAN.md. Show me the migration and the machine profile lookup first.
+Back up the DB before editing schema.ts.
+```
+
+### [ ] Step 18 - Slice setup: printer, machine profile, print profile  **[plan mode]**
+**Model:** Opus · **Effort:** High
+**Scope:**
+- A plate reads top to bottom, as in the slicer: **Printer** (your printers, the ones that match the file first and marked so), **Machine profile**, **Print profile**, then the filaments as today.
+- **As saved in the file** is offered for the machine profile ("As saved in the file (Bambu Lab A1 0.4 nozzle)") only when the printer matches the file, and for the print profile only when the machine profile is the file's. Changing one resets the ones below to their default; filament presets and spools stay.
+- Machine profile: default the printer's. The list is the model's system machine profiles of the plate's slicer, every nozzle (a nozzle swap). A select only with more than one, else a read-only line; none shows the `no_machine_preset` warning before slicing.
+- Print profile: default the plate's pick, then the printer's default print profile if it fits the machine profile, then the machine profile's default (Step 17). The list: the plate's slicer's print profiles whose `compatible_printers` lists the machine profile. The hint says the file's own changes (e.g. supports) still go on top (`slice.ts`).
+- `project_slice_plates.machineProfileId` (null = the file's when the printer matches, else the printer's); `useDefaultPrintProfile` folds into the same rule if it can. `parse3mf` reads `printer_settings_id` for the label. The server (`plateResolver` and `slicePlate` in `sliceQueue.ts`) and the page (`usePlateFit` in `SliceSetup.tsx`) resolve a plate the same way; a changed machine profile makes a slice outdated.
+- Filaments: no change. Slicing already picks each filament's variant for the machine (`slice.ts`), so it follows the plate's machine profile.
+- ADR-0007 (the plate's machine profile), `docs/slicing.md`.
+
+**Done when:** a plate on the file's printer slices as saved in the file; a plate on another printer gets its machine profile and default print profile, and lists only print profiles for that machine; a nozzle-swap machine profile slices; changing the printer resets the profiles but keeps the spools; plates saved before this step slice the same; tests and e2e pass, at phone and desktop width.
+**Prompt:**
+```
+Do Step 18 of the 5.4.0 plan in PLAN.md. Show me a desktop and a mobile mock of a plate first.
+Use frontend-design for the plate. Back up the DB before editing schema.ts.
+```
+
+### [ ] Step 19 - Presets tab
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - `pages/hub/PresetsPage.tsx` becomes Catalog → Presets (hub on): list, versions, owners, conflicts, held deletes, Restore. `PRESETS_ITEM` (and `usePresetsShown`) leaves the sidebar's bottom block and the More sheet, and the Hub page's link goes; `/hub/presets` redirects. Alerts link there (`AlertsPage.tsx`).
@@ -2211,12 +2246,12 @@ Do Step 16 of the 5.4.0 plan in PLAN.md. Use frontend-design for the settings ta
 **Done when:** everything the old page did is reachable from Catalog; an Editor reaches it from the navigation without `hub.manage`; tests and e2e pass.
 **Prompt:**
 ```
-Do Step 17 of the 5.4.0 plan in PLAN.md.
+Do Step 19 of the 5.4.0 plan in PLAN.md.
 ```
 
 ## Phase 30c - Sources and release
 
-### [ ] Step 18 - Integrations: add flow and connection cards  **[plan mode]**
+### [ ] Step 20 - Integrations: add flow and connection cards  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:**
 - Add integration: pick a product, then for a slicer "Installed on this computer", "Download it to this server" or "On a connected workstation". Replace the adapter list in `IntegrationFormPage.tsx`.
@@ -2227,10 +2262,10 @@ Do Step 17 of the 5.4.0 plan in PLAN.md.
 **Done when:** from a clean database, each of the three locations can be added and slices, at phone and desktop width; a worker is set up from the card alone; a migrated database keeps each project's slicer, and slices don't turn outdated; tests and e2e pass.
 **Prompt:**
 ```
-Do Step 18 of the 5.4.0 plan in PLAN.md. Use the frontend-design skill for the cards.
+Do Step 20 of the 5.4.0 plan in PLAN.md. Use the frontend-design skill for the cards.
 ```
 
-### [ ] Step 19 - Sources  **[plan mode]**
+### [ ] Step 21 - Sources  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:**
 - Catalog → Sources, per slicer library: its routes (`preset_routes`: local folder, server slicer, zip, Bambu Cloud, devices), Choose brands and the cards of every catalog and user preset type, from slicers and Bambu Cloud (`PolicyRow`, the same `sync_policies` rows), without "How to sync" for slicer types. The manual zip as "No connector? Upload a zip".
@@ -2241,11 +2276,11 @@ Do Step 18 of the 5.4.0 plan in PLAN.md. Use the frontend-design skill for the c
 **Done when:** everything the slicer cards and the device switches did is reachable from Sources; a device sends one slicer's presets and not the other's; a catalog source can be switched between two devices; tests and e2e pass.
 **Prompt:**
 ```
-Do Step 19 of the 5.4.0 plan in PLAN.md. Use frontend-design for the device table.
+Do Step 21 of the 5.4.0 plan in PLAN.md. Use frontend-design for the device table.
 Back up the DB before editing schema.ts.
 ```
 
-### [ ] Step 20 - Catalog from a workstation  **[plan mode]**
+### [ ] Step 22 - Catalog from a workstation  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:**
 - One new fixed connector operation (ADR-0014's list gains it): on the device that is a library's catalog source, check the fingerprint (ADR-0019) on its tick and upload `system/` only when it changed, zipped with the `packages/host` helper.
@@ -2255,15 +2290,16 @@ Back up the DB before editing schema.ts.
 **Done when:** a worker-only hub gets its catalog from a device without a hand-made zip; a slicer update on the source device raises the catalog change alert; a second device sends nothing; an older connector answers `device_outdated`; tests pass.
 **Prompt:**
 ```
-Do Step 20 of the 5.4.0 plan in PLAN.md.
+Do Step 22 of the 5.4.0 plan in PLAN.md.
 ```
 
-### [ ] Step 21 - Real test, docs, push & v5.4.0-alpha.4
+### [ ] Step 23 - Real test, docs, push & v5.4.0-alpha.4
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - Upgrade a copy of a real 5.4.0-alpha.2 database: roles keep their rights; spools keep brand, material, name and costs; hand-made profiles are archived; plates slice the same.
 - No integration at all: add a brand, model, material and spool by hand, log a print, make a quote.
 - A slot: a spool of another material suggests a preset; Keep and Use both slice.
+- A plate on the file's printer and on another one: its machine profile, default print profile and the compatible list; a nozzle swap; the printers' machine profiles count as in use.
 - All settings on a single PC, on a hub with a server slicer, and from a device catalog source.
 - Two devices: switch the catalog source; Send presets on one slicer only; Install.
 - If a second PC is available, the scenarios alpha.2 couldn't test: owner and other-user deletes, the held delete on a shared account, a synced preset reaching a worker and an Install device.
@@ -2272,10 +2308,10 @@ Do Step 20 of the 5.4.0 plan in PLAN.md.
 **Done when:** every scenario worked (or is listed as not tested); the tag is pushed and the workflow is green.
 **Prompt:**
 ```
-Do Step 21 of the 5.4.0 plan in PLAN.md. Guide me through each scenario and fix what we find. Then push dev, push the tag and confirm the pre-release.
+Do Step 23 of the 5.4.0 plan in PLAN.md. Guide me through each scenario and fix what we find. Then push dev, push the tag and confirm the pre-release.
 ```
 
-### [ ] Step 22 - Docs, push & v5.4.0 release
+### [ ] Step 24 - Docs, push & v5.4.0 release
 **Model:** Haiku · **Effort:** Low
 **Scope:**
 - `docs/slicing.md`, `docs/hub.md`, `docs/import.md`, `docs/users.md`, README, CHANGELOG, version `5.4.0`, `pnpm version:check`.
@@ -2285,7 +2321,7 @@ Do Step 21 of the 5.4.0 plan in PLAN.md. Guide me through each scenario and fix 
 **Done when:** `main`, `dev` and the tag are pushed; the workflow is green; updating 5.3.0 to 5.4.0 keeps all data.
 **Prompt:**
 ```
-Do Step 22 of the 5.4.0 plan in PLAN.md. Only document what changed since the last 5.4.0 pre-release.
+Do Step 24 of the 5.4.0 plan in PLAN.md. Only document what changed since the last 5.4.0 pre-release.
 Then fast-forward main to dev, push, push the v5.4.0 tag and confirm the release.
 ```
 
