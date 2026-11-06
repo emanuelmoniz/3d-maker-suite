@@ -2,6 +2,23 @@
 
 All notable changes are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [5.4.0-alpha.3] - 2026-11-06
+
+Pre-release. Test on a copy of your data first; back up before updating. Lists everything since 5.4.0-alpha.2. Migrations 0103 to 0105 convert roles and overrides to the `catalog` permission, rebuild spools so they no longer point at a profile (filament profiles lose their price), and add the plate's kept-preset column.
+
+### Added
+- **`catalog` permission**: a module with none, read, write and manage levels replaces `presets.manage`. Catalog writes need catalog manage, the pickers still read with printers or filament read, presets read with projects or catalog read and change with catalog write, and catalog import cards need catalog manage. Built-in roles keep today's rights; a custom role and a user's overrides convert to the closest level ([docs/users.md](docs/users.md))
+- **A slot's spool and preset are separate picks** on a project plate. The preset defaults to "As saved in the file" and lists the slicer's presets, with the spool's matching presets first. A spool on a slot gives a quiet **Use / Keep** suggestion when its brand has a preset of the same material, and a warning with the best match when the materials differ. Slicing is never blocked ([docs/slicing.md](docs/slicing.md))
+- **A preset named after the spool gets a suggestion**: a "Bambu PLA Pure" preset suggests itself for a "PLA Matte" spool of the same brand and material. Nothing shows when the preset is already the spool's best match
+- **Spool name and material default price**: a spool has its own brand (optional), material (required) and name, and each material has a default price per kg. The spool import has a name column; a print's filament column names a material ([docs/import.md](docs/import.md))
+
+### Changed
+- **Spools describe the filament, not a profile**: the spools API no longer takes `profileId`; it takes `brandId`, `materialId` and `name`. Migration 0104 fills each spool from its old profile (a leading brand name is dropped) and sets a price paid where that keeps the cost
+- **Costs and stats price a spool** by its price paid, else its material's default. Filament with no spool is priced by the material it reports. A quote's material prices are your spools' average, else the material default
+- **Filament profiles have no price** and lose their unused cloud columns; Bambu Cloud fills a spool's fields and no longer needs a matching profile
+- **Picking a spool on a plate no longer overwrites the slot's preset**
+- **Keep is saved with the plate**: a kept suggestion stays hidden until the spool or the preset changes, and doesn't mark a slice outdated. Plates saved before keep their slice
+
 ## [5.4.0-alpha.2] - 2026-11-06
 
 Pre-release. Test on a copy of your data first; back up before updating. Lists everything since 5.4.0-alpha.1. Migrations add the preset owner and hold columns, `goneInUse` on sync policies, and the `preset_routes` table.

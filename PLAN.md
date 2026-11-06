@@ -2141,7 +2141,7 @@ Back up the DB before editing schema.ts.
 Do Step 13 of the 5.4.0 plan in PLAN.md. Show me the lookup function and its tests first.
 ```
 
-### [ ] Step 14 - Docs, push & v5.4.0-alpha.3
+### [x] Step 14 - Docs, push & v5.4.0-alpha.3
 **Model:** Haiku · **Effort:** Low
 **Scope:**
 - CHANGELOG: the `catalog` permission and the two custom role cases, the spools API change (`profileId` out; `brandId`, `materialId`, `name` in), stats for filament with no spool now priced by material, the slot's spool and preset. `pnpm screenshots` if a README page changed (spool, filament, project). Version `5.4.0-alpha.3`.
