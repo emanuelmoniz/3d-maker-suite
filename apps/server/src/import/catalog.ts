@@ -11,7 +11,15 @@ import { type Db, schema } from "@3d-maker-suite/db";
 import { and, eq, isNotNull, isNull } from "drizzle-orm";
 import type { SQLiteColumn } from "drizzle-orm/sqlite-core";
 import { HttpError } from "../errors.ts";
-import { idByName, modelIdFor, modelIdOf, nameKey } from "../lib/catalog.ts";
+import {
+  DEFAULT_NOZZLE,
+  idByName,
+  modelIdFor,
+  modelIdOf,
+  nameKey,
+  presetName,
+  presetNames,
+} from "../lib/catalog.ts";
 import { printerImport } from "./printers.ts";
 import { type ImportHandler, keyLibrary, type WriteRow } from "./review.ts";
 import { names, num, str } from "./spools.ts";
@@ -22,6 +30,7 @@ const {
   filamentMaterials,
   machineProfiles,
   printerModels,
+  printers,
   printProfiles,
   prints,
 } = schema;
@@ -30,12 +39,18 @@ type RowError = { column: string; code: ImportErrorCode };
 
 const modelOf = (db: Db, v: ImportValues) => modelIdFor(db, str(v.brand) ?? "", str(v.model) ?? "");
 const hasModel = (v: ImportValues) => !!str(v.brand) && !!str(v.model);
-const printProfileValues = (db: Db, v: ImportValues) => ({
+const printProfileValues = (db: Db, v: ImportValues, row: WriteRow) => ({
   name: str(v.name) ?? "",
   printerModelId: hasModel(v) ? modelOf(db, v) : null,
   nozzleDiameterMm: num(v.nozzleDiameterMm),
   layerHeightMm: num(v.layerHeightMm),
+  machinePresets: Array.isArray(row.raw.machinePresets) ? (row.raw.machinePresets as string[]) : [],
 });
+/** A machine preset's `default_print_profile` key, kept with the row besides its columns (`libraryRows`). */
+const defaultPrintPresetOf = (row: WriteRow) =>
+  typeof row.raw.defaultPrintPreset === "string" ? row.raw.defaultPrintPreset : null;
+/** What makes a machine profile another version for the prints made with it. */
+const VERSIONED = ["brand", "model", "name", "nozzleDiameterMm"];
 
 /** A file names a printer model you have, as the API takes only one you have. */
 function modelErrors(db: Db, v: ImportValues): RowError[] {
@@ -131,7 +146,13 @@ const machineRows = (db: Db, archived = false): PresetRow[] =>
         id: p.id,
         label: p.name,
         ...marked(archived),
-        values: { brand, model, name: p.name, nozzleDiameterMm: p.nozzleDiameterMm },
+        values: {
+          brand,
+          model,
+          name: p.name,
+          nozzleDiameterMm: p.nozzleDiameterMm,
+          defaultPrintProfile: p.defaultPrintPreset && presetName(p.defaultPrintPreset),
+        },
       },
     }));
 
@@ -157,6 +178,7 @@ const printProfileRows = (db: Db, archived = false): PresetRow[] =>
           name: p.name,
           nozzleDiameterMm: p.nozzleDiameterMm,
           layerHeightMm: p.layerHeightMm,
+          printers: presetNames(p.machinePresets),
         },
       },
     }));
@@ -305,17 +327,34 @@ export function catalogImport(dataDir: string) {
             .map((r) => [r.source ?? "", r.id] as const),
         ),
       missing: printerImport.missing,
-      create: (db, v, row) =>
-        db
+      create: (db, v, row) => {
+        const made = db
           .insert(machineProfiles)
           .values({
             name: str(v.name) ?? "",
             printerModelId: modelOf(db, v),
-            nozzleDiameterMm: num(v.nozzleDiameterMm) ?? 0.4,
+            nozzleDiameterMm: num(v.nozzleDiameterMm) ?? DEFAULT_NOZZLE,
             sourcePreset: row.source,
+            defaultPrintPreset: defaultPrintPresetOf(row),
           })
-          .run(),
-      /** The preset's own profile is updated in place, or archived and re-added when a print uses it. */
+          .returning()
+          .get();
+        // A printer added before its slicer's catalog gets its machine profile now.
+        db.update(printers)
+          .set({ machineProfileId: made.id })
+          .where(
+            and(
+              isNull(printers.machineProfileId),
+              eq(printers.modelId, made.printerModelId),
+              eq(printers.nozzleDiameterMm, made.nozzleDiameterMm),
+            ),
+          )
+          .run();
+      },
+      /**
+       * The preset's own profile is updated in place, or archived and re-added when a print uses it
+       * and what the print was made with changes; printers move to the new version.
+       */
       update(db: Db, target: ImportTarget, patch: ImportValues, row: WriteRow) {
         const cur = db
           .select()
@@ -328,10 +367,11 @@ export function catalogImport(dataDir: string) {
           name: str(v.name) ?? cur.name,
           printerModelId: modelOf(db, v),
           nozzleDiameterMm: num(v.nozzleDiameterMm) ?? cur.nozzleDiameterMm,
+          defaultPrintPreset: defaultPrintPresetOf(row),
         };
         // Nothing to change (one you archived coming back) is never a new version.
         const used =
-          Object.keys(patch).length > 0 &&
+          VERSIONED.some((k) => k in patch) &&
           row.source &&
           cur.sourcePreset === row.source &&
           db
@@ -352,8 +392,14 @@ export function catalogImport(dataDir: string) {
           .set({ archivedAt: new Date().toISOString() })
           .where(eq(machineProfiles.id, cur.id))
           .run();
-        db.insert(machineProfiles)
+        const made = db
+          .insert(machineProfiles)
           .values({ ...values, sourcePreset: cur.sourcePreset })
+          .returning({ id: machineProfiles.id })
+          .get();
+        db.update(printers)
+          .set({ machineProfileId: made.id })
+          .where(eq(printers.machineProfileId, cur.id))
           .run();
       },
     },
@@ -380,7 +426,7 @@ export function catalogImport(dataDir: string) {
       create: (db, v, row) =>
         db
           .insert(printProfiles)
-          .values({ ...printProfileValues(db, v), sourcePreset: row.source })
+          .values({ ...printProfileValues(db, v, row), sourcePreset: row.source })
           .run(),
       // No print points at a print profile, so it is always updated in place.
       update(db: Db, target: ImportTarget, patch: ImportValues, row: WriteRow) {
@@ -388,7 +434,7 @@ export function catalogImport(dataDir: string) {
         if (!cur) return;
         db.update(printProfiles)
           .set({
-            ...printProfileValues(db, { ...target.values, ...patch }),
+            ...printProfileValues(db, { ...target.values, ...patch }, row),
             sourcePreset: cur.sourcePreset ?? row.source,
             ...restored(target),
           })

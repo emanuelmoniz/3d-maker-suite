@@ -22,6 +22,7 @@ import { printerRows, spoolRows } from "./integrations/sourceRows.ts";
 import { createSyncer, schedulePattern } from "./integrations/sync.ts";
 import { modelIdFor } from "./lib/catalog.ts";
 import { reviewer } from "./testReview.ts";
+import { insertProfile } from "./testSeed.ts";
 
 let db: ReturnType<typeof openDb>;
 let app: Awaited<ReturnType<typeof buildApp>>;
@@ -559,6 +560,30 @@ describe("sync by type and date range", () => {
   const day = (d: number, end = false) =>
     new Date(Date.UTC(2026, 0, d, end ? 23 : 0, end ? 59 : 0)).toISOString();
   const printCount = () => db.select().from(schema.prints).all().length;
+
+  it("a synced print takes its printer's machine profile", async () => {
+    const { id } = await create();
+    await spool();
+    await syncWith(id, { type: "printers" });
+    const printer = db.select().from(schema.printers).get();
+    const machine = insertProfile(db, "machineProfiles", {
+      name: "M",
+      printerModelId: printer?.modelId ?? "",
+    });
+    db.update(schema.printers).set({ machineProfileId: machine.id }).run();
+    await syncWith(id, { type: "prints" });
+    const made = db.select({ m: schema.prints.machineProfileId }).from(schema.prints).all();
+    expect(made.length).toBeGreaterThan(0);
+    expect(made.every((p) => p.m === machine.id)).toBe(true);
+    // By hand too.
+    const res = await send("POST", "/api/prints", {
+      printerId: printer?.id,
+      title: "Hand",
+      startedAt: "2026-01-01T10:00:00.000Z",
+      outcome: "success",
+    });
+    expect(res.json().machineProfileId).toBe(machine.id);
+  });
 
   it("syncs one type alone and logs it", async () => {
     const { id } = await create();

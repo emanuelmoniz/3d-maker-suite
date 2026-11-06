@@ -6,7 +6,7 @@ import {
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
 import { and, eq, isNotNull, isNull, sql } from "drizzle-orm";
-import { modelIdFor } from "../lib/catalog.ts";
+import { DEFAULT_NOZZLE, machineProfileFor, modelIdFor } from "../lib/catalog.ts";
 import {
   accessoryTitle,
   assertNumberFree,
@@ -191,15 +191,18 @@ export const printerImport = {
       db.update(printers).set(source).where(eq(printers.id, twin.id)).run();
       return twin.id;
     }
+    const modelId = modelIdFor(db, str(v.brand) ?? "", str(v.model) ?? "");
+    const nozzleDiameterMm = num(v.nozzleDiameterMm) ?? DEFAULT_NOZZLE;
     db.insert(printers)
       .values({
         ...(source && { ...source, origin: "integration" as const }),
         // A number another printer has ("import as new" of an exported row) gets the next free one.
         number: freeNumber(db, printers, numberCell(v.number)) ?? nextNumber(printers),
         name: str(v.name) ?? "",
-        modelId: modelIdFor(db, str(v.brand) ?? "", str(v.model) ?? ""),
+        modelId,
         serial: str(v.serial),
-        nozzleDiameterMm: num(v.nozzleDiameterMm) ?? undefined,
+        nozzleDiameterMm,
+        machineProfileId: machineProfileFor(db, modelId, nozzleDiameterMm),
         purchasedAt: noon(v.purchasedAt),
         purchasePrice: num(v.purchasePrice),
         warrantyEndsAt: noon(v.warrantyEndsAt),
@@ -217,6 +220,17 @@ export const printerImport = {
     if (brand !== undefined || model !== undefined) {
       const v = { ...target.values, ...patch };
       set.modelId = modelIdFor(db, str(v.brand) ?? "", str(v.model) ?? "");
+    }
+    // A new model or nozzle takes its machine profile again, as the printer form does.
+    if (set.modelId !== undefined || set.nozzleDiameterMm != null) {
+      const cur = db.select().from(printers).where(eq(printers.id, target.id)).get();
+      set.machineProfileId = machineProfileFor(
+        db,
+        (set.modelId as string | undefined) ?? cur?.modelId ?? null,
+        (set.nozzleDiameterMm as number | null | undefined) ??
+          cur?.nozzleDiameterMm ??
+          DEFAULT_NOZZLE,
+      );
     }
     if (target.archived) set.archivedAt = null;
     if (Object.keys(set).length)

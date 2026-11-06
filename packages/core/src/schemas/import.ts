@@ -558,6 +558,12 @@ export const IMPORT_COLUMNS = {
       label: "import:machineProfiles.columns.nozzleDiameterMm",
       required: true,
     },
+    // Names only: the slicer's own key for the preset is kept with the row (`defaultPrintPreset`).
+    {
+      key: "defaultPrintProfile",
+      type: "text",
+      label: "import:machineProfiles.columns.defaultPrintProfile",
+    },
   ],
   // Brand and model are optional: a process preset can name no printer we know.
   printProfiles: [
@@ -575,6 +581,8 @@ export const IMPORT_COLUMNS = {
       label: "import:printProfiles.columns.nozzleDiameterMm",
     },
     { key: "layerHeightMm", type: "number", label: "import:printProfiles.columns.layerHeightMm" },
+    // Its `compatible_printers` by name; their keys are kept with the row (`machinePresets`).
+    { key: "printers", type: "text", label: "import:printProfiles.columns.printers" },
   ],
   filamentBrands: [
     {

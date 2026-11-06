@@ -22,7 +22,7 @@ import {
   printerTitle,
   printTitle,
 } from "../lib/numbers.ts";
-import { energyFor, estimatedDuration, syncUsages } from "../lib/prints.ts";
+import { energyFor, estimatedDuration, printerMachine, syncUsages } from "../lib/prints.ts";
 import { parseFolderName } from "../projects/folderName.ts";
 import { projectMatcher } from "../projects/linkPrints.ts";
 import type { WriteRow } from "./review.ts";
@@ -482,6 +482,7 @@ export const printImport = {
         // A number another print has ("import as new" of an exported row) gets the next free one.
         number: freeNumber(db, prints, numberCell(v.number)) ?? nextNumber(prints),
         printerId,
+        machineProfileId: printerMachine(db, printerId),
         projectId: noProject ? null : (src?.refs?.project ?? projectFor(db, v.project)),
         noProject,
         title: str(v.title) ?? "",

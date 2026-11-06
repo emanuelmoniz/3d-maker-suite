@@ -274,6 +274,8 @@ export const machineProfiles = sqliteTable(
     nozzleDiameterMm: real().notNull().default(0.4),
     /** Preset this profile was imported from, `<library>:<preset id>`; null for hand-made ones. */
     sourcePreset: text(),
+    /** Its `default_print_profile`, as a print profile's `sourcePreset`; null when the slicer names none. */
+    defaultPrintPreset: text(),
     /** Archived by you, or an older version of a preset that prints still point at (see `sourcePreset`). */
     archivedAt: text(),
     ...timestamps,
@@ -298,6 +300,8 @@ export const printProfiles = sqliteTable(
     layerHeightMm: real(),
     /** Preset this profile was imported from, `<library>:<preset id>`; null for hand-made ones. */
     sourcePreset: text(),
+    /** Every machine of its `compatible_printers`, as machine profiles' `sourcePreset`. */
+    machinePresets: text({ mode: "json" }).notNull().$type<string[]>().default([]),
     archivedAt: text(),
     ...timestamps,
   },
@@ -338,6 +342,8 @@ export const printers = sqliteTable(
     printProfileId: text().references((): AnySQLiteColumn => printProfiles.id, {
       onDelete: "set null",
     }),
+    // Its machine profile, set on its own from model and nozzle (`machineProfileFor`) unless picked.
+    machineProfileId: text().references(() => machineProfiles.id, { onDelete: "set null" }),
     photoPath: text(),
     archivedAt: text(),
     ...imported(),

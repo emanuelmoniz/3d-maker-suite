@@ -139,6 +139,41 @@ export function modelIdFor(db: Db, brand: string, model: string): string {
   );
 }
 
+const { machineProfiles } = schema;
+
+/** A preset's name from its key, `<library>:<scope>/<name>` or `<scope>/<name>`. */
+export const presetName = (key: string) => key.slice(key.indexOf("/") + 1);
+/** Presets as the review shows them: their names, or null for none. */
+export const presetNames = (keys: string[]) => keys.map(presetName).join(", ") || null;
+
+/** `printers.nozzle_diameter_mm`'s default. */
+export const DEFAULT_NOZZLE = 0.4;
+
+/**
+ * A printer's machine profile by its model and nozzle, as migration 0107 fills it: a system preset
+ * first (only those slice, ADR-0007), then by name. ponytail: two slicers' system presets for one
+ * printer tie on name; the printer form picks one by hand if the order ever matters.
+ */
+export const machineProfileFor = (db: Db, modelId: string | null, nozzleDiameterMm: number) =>
+  modelId
+    ? (db
+        .select({ id: machineProfiles.id })
+        .from(machineProfiles)
+        .where(
+          and(
+            eq(machineProfiles.printerModelId, modelId),
+            eq(machineProfiles.nozzleDiameterMm, nozzleDiameterMm),
+            isNull(machineProfiles.archivedAt),
+          ),
+        )
+        .orderBy(
+          sql`${machineProfiles.sourcePreset} LIKE '%:system/%' DESC`,
+          machineProfiles.name,
+          machineProfiles.createdAt,
+        )
+        .get()?.id ?? null)
+    : null;
+
 const { filamentBrands, filamentMaterials, filamentProfiles } = schema;
 
 /** The id of the row with that name (case-insensitive), if there is one. Never creates it. */

@@ -5,6 +5,7 @@ import {
   listQuery,
   type Page,
   type Printer,
+  type PrinterPatch,
   type PrinterRow,
   pageOf,
   printerCommentSchema,
@@ -29,7 +30,7 @@ import {
   canReference,
   resolveItemAlerts,
 } from "../lib/archive.ts";
-import { modelName, printerLabel } from "../lib/catalog.ts";
+import { DEFAULT_NOZZLE, machineProfileFor, modelName, printerLabel } from "../lib/catalog.ts";
 import { commentRoutes } from "../lib/comments.ts";
 import { deleteItem } from "../lib/dependents.ts";
 import { imageRoutes } from "../lib/images.ts";
@@ -40,6 +41,8 @@ import { readPreferences } from "../lib/preferences.ts";
 
 const { printers, printerComments, printerModels, printProfiles, prints, accessoryInstalls } =
   schema;
+const { machineProfiles } = schema;
+type PrinterRecord = typeof printers.$inferSelect;
 const params = z.object({ id: z.uuid() });
 const brandModel = modelName(printers.modelId);
 const usage = printerUsageColumns();
@@ -64,6 +67,35 @@ export const printersRoutes =
     const checkPrintProfile = (id?: string | null, was?: string | null) => {
       if (id && !canReference(db, printProfiles, id, was))
         throw new HttpError(400, "invalid_reference", "Unknown print profile");
+    };
+    /**
+     * The machine profile a save gives the printer: a pick, of its model, sets the nozzle to the
+     * pick's; else the one for its model and nozzle when the printer is new, asks for it (null), or
+     * its model or nozzle changes.
+     */
+    const withMachine = <T extends PrinterPatch>(fields: T, cur?: PrinterRecord): T => {
+      const modelId = fields.modelId ?? cur?.modelId ?? null;
+      const picked = fields.machineProfileId;
+      if (picked) {
+        const m = db.select().from(machineProfiles).where(eq(machineProfiles.id, picked)).get();
+        if (
+          !m ||
+          m.printerModelId !== modelId ||
+          !canReference(db, machineProfiles, picked, cur?.machineProfileId)
+        )
+          throw new HttpError(
+            400,
+            "invalid_machine_profile",
+            "Not a machine profile of this model",
+          );
+        return { ...fields, nozzleDiameterMm: m.nozzleDiameterMm };
+      }
+      const nozzle = fields.nozzleDiameterMm ?? cur?.nozzleDiameterMm ?? DEFAULT_NOZZLE;
+      const again =
+        !cur || picked === null || modelId !== cur.modelId || nozzle !== cur.nozzleDiameterMm;
+      return again
+        ? { ...fields, machineProfileId: machineProfileFor(db, modelId, nozzle) }
+        : fields;
     };
     // Like accessories: nothing stays installed on an archived printer.
     const assertNoAccessories = (id: string) => {
@@ -130,7 +162,7 @@ export const printersRoutes =
         assertNumberFree(db, printers, "printer", req.body.number);
         const row = db
           .insert(printers)
-          .values({ ...req.body, number: req.body.number ?? nextNumber(printers) })
+          .values({ ...withMachine(req.body), number: req.body.number ?? nextNumber(printers) })
           .returning()
           .get();
         return reply.status(201).send(row as Printer);
@@ -164,7 +196,7 @@ export const printersRoutes =
         return db.transaction((tx) => {
           const row = tx
             .update(printers)
-            .set({ ...fields, archivedAt: archivedAtOf(archived) })
+            .set({ ...withMachine(fields, cur), archivedAt: archivedAtOf(archived) })
             .where(eq(printers.id, req.params.id))
             .returning()
             .get();

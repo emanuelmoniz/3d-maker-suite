@@ -53,6 +53,44 @@ describe("printers", () => {
     ]);
   });
 
+  it("machine profile: by model and nozzle on its own, a pick sets the nozzle", async () => {
+    const p1s = modelIdFor(db, "Bambu Lab", "P1S");
+    const x1c = modelIdFor(db, "Bambu Lab", "X1C");
+    const machine = (name: string, printerModelId: string, nozzleDiameterMm: number) =>
+      insertProfile(db, "machineProfiles", { name, printerModelId, nozzleDiameterMm }).id;
+    // A user preset sorts after the system one: only system presets slice.
+    insertProfile(db, "machineProfiles", {
+      name: "A mine",
+      printerModelId: p1s,
+      sourcePreset: "bambu-studio:user/A mine",
+    });
+    const p04 = machine("P1S 0.4", p1s, 0.4);
+    const p06 = machine("P1S 0.6", p1s, 0.6);
+    const x04 = machine("X1C 0.4", x1c, 0.4);
+    const patch = (id: string, payload: object) =>
+      app.inject({ method: "PATCH", url: `/api/printers/${id}`, payload });
+
+    const p = await create();
+    expect(p.machineProfileId).toBe(p04);
+    // The model changes: its machine profile follows.
+    expect((await patch(p.id, { modelId: x1c })).json().machineProfileId).toBe(x04);
+    expect((await patch(p.id, { modelId: p1s })).json().machineProfileId).toBe(p04);
+    const picked = (await patch(p.id, { machineProfileId: p06 })).json();
+    expect(picked).toMatchObject({ machineProfileId: p06, nozzleDiameterMm: 0.6 });
+    // Another field leaves a pick alone.
+    expect((await patch(p.id, { name: "Renamed" })).json().machineProfileId).toBe(p06);
+    // A nozzle with no profile: none.
+    expect((await patch(p.id, { nozzleDiameterMm: 0.8 })).json().machineProfileId).toBeNull();
+    // Automatic (null) picks again, for the nozzle it has.
+    await patch(p.id, { nozzleDiameterMm: 0.4 });
+    expect((await patch(p.id, { machineProfileId: null })).json().machineProfileId).toBe(p04);
+    const wrong = await patch(p.id, { machineProfileId: x04 });
+    expect(wrong.statusCode).toBe(400);
+    expect(wrong.json().error.code).toBe("invalid_machine_profile");
+    // No profile for the model: none, and the printer is still added.
+    expect((await create({ modelId: modelIdFor(db, "Prusa", "MK4") })).machineProfileId).toBeNull();
+  });
+
   it("CRUD, state validation, archive/restore", async () => {
     const p = await create({ powerW: 120, purchasePrice: 59900 });
     expect(p).toMatchObject({ state: "working", powerW: 120, archivedAt: null });

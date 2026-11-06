@@ -36,6 +36,7 @@ const machine = (name: string, scope: "system" | "user" = "system") => ({
   model: "Acme X",
   name,
   nozzleDiameterMm: 0.4,
+  defaultPrintPreset: null,
 });
 const filament = (name: string, scope: "system" | "user" = "system"): LibraryPreset => ({
   presetId: `${scope}/${name}`,
@@ -366,6 +367,16 @@ describe("in use, by ADR-0019's stricter rule", () => {
 
   const uses: [PresetKind, string, (rowId: string) => Promise<unknown>][] = [
     ["machineProfiles", "print", (m) => print({ machineProfileId: m })],
+    [
+      "machineProfiles",
+      "printer",
+      async (m) =>
+        db
+          .update(schema.printers)
+          .set({ machineProfileId: m })
+          .where(eq(schema.printers.id, await printer()))
+          .run(),
+    ],
     ["machineProfiles", "machineProfile", version("machineProfiles")],
     ["printProfiles", "printer", (p) => printer({ printProfileId: p })],
     ["printProfiles", "plate", (p) => plate({ printProfileId: p })],

@@ -421,6 +421,57 @@ describe("slicing a project (mock slicer)", () => {
     expect((await settled()).plates[0]).toMatchObject({ result: null, needsSlicing: true });
   });
 
+  it("another printer slices with its machine profile, and that profile's default print profile", async () => {
+    const post = async (url: string, payload: object) =>
+      (await app.inject({ method: "POST", url, payload })).json();
+    const brand = await post("/api/brands", { name: "Bambu Lab" });
+    const p1s = await post("/api/printer-models", { brandId: brand.id, model: "P1S" });
+    const machine = (
+      name: string,
+      sourcePreset: string,
+      defaultPrintPreset: string | null = null,
+    ) =>
+      insertProfile(db, "machineProfiles", {
+        name,
+        printerModelId: p1s.id,
+        sourcePreset,
+        defaultPrintPreset,
+      });
+    machine("P1S A", "mock:system/P1S A");
+    const b = machine("P1S B", "mock:system/P1S B", "mock:system/0.20 P1S");
+    const mine = machine("P1S mine", "mock:user/P1S mine");
+    insertProfile(db, "printProfiles", { name: "0.20 P1S", sourcePreset: "mock:system/0.20 P1S" });
+    const other = await post("/api/printers", { name: "Other", modelId: p1s.id, state: "working" });
+    await app.inject({
+      method: "PATCH",
+      url: `/api/printers/${other.id}`,
+      payload: { machineProfileId: b.id },
+    });
+    const plate = { file: "benchy.3mf", plate: 1, printProfileId: null, filaments: [] };
+    const last = () => mock.sliced?.at(-1);
+
+    // The printer has no print profile of its own: its machine profile's default.
+    await put([{ ...plate, printerId: other.id }]);
+    await run();
+    expect((await settled()).plates[0]).toMatchObject({ error: null, needsSlicing: false });
+    expect(last()).toMatchObject({ machine: "system/P1S B", process: "system/0.20 P1S" });
+
+    // A user machine preset never slices (ADR-0007): the slicer's own for the model and nozzle.
+    // The printer's own print profile comes before its machine profile's default.
+    const own = insertProfile(db, "printProfiles", {
+      name: "Own",
+      sourcePreset: "mock:system/Own",
+    });
+    await app.inject({
+      method: "PATCH",
+      url: `/api/printers/${other.id}`,
+      payload: { machineProfileId: mine.id, printProfileId: own.id },
+    });
+    await run();
+    expect((await settled()).plates[0].error).toBeNull();
+    expect(last()).toMatchObject({ machine: "system/P1S A", process: "system/Own" });
+  });
+
   it("keeps a slot's preset and slice when its spool changes; a preset change re-slices", async () => {
     const post = async (url: string, payload: object) =>
       (await app.inject({ method: "POST", url, payload })).json();

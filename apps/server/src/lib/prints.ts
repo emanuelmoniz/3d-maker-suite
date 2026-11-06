@@ -13,6 +13,14 @@ import { round, setRemaining, takeFromSpool } from "./spools.ts";
 
 const { printFilamentUsages, printers, prints, spools } = schema;
 
+/** A new print that names no machine profile takes its printer's, whatever brought it in. */
+export const printerMachine = (db: Db, printerId: string) =>
+  db
+    .select({ id: printers.machineProfileId })
+    .from(printers)
+    .where(eq(printers.id, printerId))
+    .get()?.id ?? null;
+
 /** An explicit energy value is "measured". Otherwise estimate from printer power x duration. */
 export const energyFor = (
   db: Db,

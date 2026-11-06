@@ -20,6 +20,7 @@ const machine = (scope: "system" | "user", brand: string) => ({
   model: "X",
   name: `${scope} M`,
   nozzleDiameterMm: 0.4,
+  defaultPrintPreset: scope === "system" ? "system/P" : null,
 });
 const process = (scope: "system" | "user") => ({
   presetId: `${scope}/P`,
@@ -29,6 +30,7 @@ const process = (scope: "system" | "user") => ({
   model: null,
   nozzleDiameterMm: null,
   layerHeightMm: 0.2,
+  machines: scope === "system" ? ["system/M", "user/M"] : [],
 });
 
 const lib: FilamentLibrary = {
@@ -68,6 +70,16 @@ describe("libraryRows scope", () => {
     expect(await raws("brands", "user")).toEqual(["Mine"]);
     expect(await raws("printerModels")).toEqual(["X"]);
     expect(await raws("printerModels", "user")).toEqual([]);
+  });
+
+  it("keeps the presets a preset names by key, and shows their names", async () => {
+    const [proc] = await libraryRows(lib, "", "printProfiles", { dataDir: "", scope: "system" });
+    expect(proc?.raw).toMatchObject({
+      printers: "M, M",
+      machinePresets: ["fake:system/M", "fake:user/M"],
+    });
+    const [m] = await libraryRows(lib, "", "machineProfiles", { dataDir: "", scope: "system" });
+    expect(m?.raw).toMatchObject({ defaultPrintProfile: "P", defaultPrintPreset: "fake:system/P" });
   });
 
   it("filament brands: the user's only", async () => {

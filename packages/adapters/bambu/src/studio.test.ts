@@ -154,7 +154,7 @@ describe("bambu studio catalog", () => {
     ]);
   });
 
-  it("reads process presets with layer height and the first compatible machine", async () => {
+  it("reads process presets with layer height and every compatible machine", async () => {
     put("system/BBL/process/fdm_process_0.20.json", {
       name: "fdm_process_0.20",
       layer_height: "0.2",
@@ -164,7 +164,12 @@ describe("bambu studio catalog", () => {
       type: "process",
       inherits: "fdm_process_0.20",
       instantiation: "true",
-      compatible_printers: ["Unknown printer", "Bambu Lab A1 0.4 nozzle"],
+      compatible_printers: [
+        "Unknown printer",
+        "Bambu Lab A1 0.4 nozzle",
+        "My A1",
+        "Bambu Lab A1 0.2 nozzle",
+      ],
     });
     put("user/123/process/My strong.json", {
       name: "My strong",
@@ -183,8 +188,44 @@ describe("bambu studio catalog", () => {
         model: "Bambu Lab A1",
         nozzleDiameterMm: 0.4,
         layerHeightMm: 0.2,
+        // Inherited from its parent.
+        machines: [
+          "system/Bambu Lab A1 0.4 nozzle",
+          "user/My A1",
+          "system/Bambu Lab A1 0.2 nozzle",
+        ],
       },
       expect.objectContaining({ presetId: "system/0.20mm Standard @BBL A1", scope: "system" }),
     ]);
+  });
+
+  it("reads a machine's default print profile, as a process preset it has", async () => {
+    put("system/BBL/machine/Bambu Lab A1 0.4 nozzle.json", {
+      name: "Bambu Lab A1 0.4 nozzle",
+      type: "machine",
+      inherits: "fdm_machine_common",
+      instantiation: "true",
+      printer_model: "Bambu Lab A1",
+      nozzle_diameter: ["0.4"],
+      default_print_profile: "0.20mm Standard @BBL A1",
+    });
+    put("system/BBL/process/0.20mm Standard @BBL A1.json", {
+      name: "0.20mm Standard @BBL A1",
+      type: "process",
+      instantiation: "true",
+    });
+    put("user/123/machine/Other.json", {
+      name: "Other",
+      inherits: "Bambu Lab A1 0.4 nozzle",
+      default_print_profile: "Not here",
+    });
+    const { machines } = (await bambuStudioLibrary().readCatalog?.(dir)) ?? { machines: [] };
+    const defaults = Object.fromEntries(machines.map((m) => [m.presetId, m.defaultPrintPreset]));
+    expect(defaults).toMatchObject({
+      "system/Bambu Lab A1 0.4 nozzle": "system/0.20mm Standard @BBL A1",
+      "user/My A1": "system/0.20mm Standard @BBL A1", // inherited
+      "user/Other": null, // names a process the slicer doesn't have
+      "system/Bambu Lab A1 0.2 nozzle": null,
+    });
   });
 });

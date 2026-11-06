@@ -1689,3 +1689,40 @@ describe("migration 0106", () => {
     expect(now.$client.pragma("foreign_key_check")).toEqual([]);
   });
 });
+
+describe("migration 0107", () => {
+  it("gives each printer its machine profile by model and nozzle, a system preset first", () => {
+    const now = migrateAcross(106, (sqlite) => {
+      sqlite.exec(`
+        insert into brands (id, name, created_at, updated_at) values ('b', 'Acme', 'x', 'x');
+        insert into printer_models (id, brand_id, model, created_at, updated_at) values
+          ('x1', 'b', 'X1', 'x', 'x'), ('p1', 'b', 'P1', 'x', 'x');
+        insert into machine_profiles (id, name, printer_model_id, nozzle_diameter_mm, source_preset, archived_at, created_at, updated_at) values
+          ('aUser', 'A mine', 'x1', 0.4, 'bambu-studio:user/A mine', null, 'x', 'x'),
+          ('sys', 'Acme X1 0.4 nozzle', 'x1', 0.4, 'bambu-studio:system/Acme X1 0.4 nozzle', null, 'x', 'x'),
+          ('old', 'Acme X1 0.4 nozzle', 'x1', 0.4, 'bambu-studio:system/Acme X1 0.4 nozzle', '2026-01-01', 'x', 'x'),
+          ('six', 'Acme X1 0.6 nozzle', 'x1', 0.6, 'bambu-studio:system/Acme X1 0.6 nozzle', null, 'x', 'x');
+        insert into printers (id, number, name, model_id, nozzle_diameter_mm, state, created_at, updated_at) values
+          ('a', 1, 'A', 'x1', 0.4, 'working', 'x', 'x'), ('b', 2, 'B', 'x1', 0.6, 'working', 'x', 'x'),
+          ('c', 3, 'C', 'x1', 0.8, 'working', 'x', 'x'), ('d', 4, 'D', 'p1', 0.4, 'working', 'x', 'x');
+      `);
+    });
+    expect(
+      now
+        .select({ id: s.printers.id, m: s.printers.machineProfileId })
+        .from(s.printers)
+        .orderBy(s.printers.number)
+        .all(),
+    ).toEqual([
+      { id: "a", m: "sys" },
+      { id: "b", m: "six" },
+      { id: "c", m: null },
+      { id: "d", m: null },
+    ]);
+    // The printer's machine profile clears with it; the printer stays.
+    now.delete(s.machineProfiles).where(eq(s.machineProfiles.id, "six")).run();
+    expect(
+      now.select().from(s.printers).where(eq(s.printers.id, "b")).get()?.machineProfileId,
+    ).toBeNull();
+  });
+});

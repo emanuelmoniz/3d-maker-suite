@@ -2201,7 +2201,7 @@ Do Step 15b of the 5.4.0 plan in PLAN.md. Use frontend-design for the import con
 Do Step 16 of the 5.4.0 plan in PLAN.md. Use frontend-design for the settings table.
 ```
 
-### [ ] Step 17 - Machine profile: the printer's pick and defaults  **[plan mode]**
+### [x] Step 17 - Machine profile: the printer's pick and defaults  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:**
 - Today a machine profile is only "in use" when a print names it by hand, though slicing on another printer than the file's picks one by model and nozzle (`sliceQueue.ts`), so your printers' profiles show as unused.
@@ -2221,7 +2221,9 @@ Back up the DB before editing schema.ts.
 ### [ ] Step 18 - Slice setup: printer, machine profile, print profile  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:**
-- A plate reads top to bottom, as in the slicer: **Printer** (your printers, the ones that match the file first and marked so), **Machine profile**, **Print profile**, then the filaments as today.
+- A plate reads top to bottom, as in the slicer: **Slicer**, **Printer** (your printers, the ones that match the file first and marked so), **Machine profile**, **Print profile**, then the filaments as today.
+- **Slicer** per plate: default the project's slicer, else the default slicer (`slicers.resolve`, as today); always shown, a read-only line with only one slicer. Changing it resets the machine and print profile to their defaults in that slicer; a filament preset of another slicer goes back to "As saved in the file", spools stay. Every profile list only offers the plate's slicer's presets.
+- **Defaults for all plates**, above the files: Slicer, Printer, Machine profile and Print profile (no filaments or spools: plates have their own slots), with the same lists and rules as a plate. **Apply to all plates** writes them to every picked plate in one go (one save, as a plate edit), with the same resets; a plate can still be changed on its own after. Not stored: it starts from the project's slicer and the default printer. In the quote form's slice setup too (`SliceSetup.tsx` is shared).
 - **As saved in the file** is offered for the machine profile ("As saved in the file (Bambu Lab A1 0.4 nozzle)") only when the printer matches the file, and for the print profile only when the machine profile is the file's. Changing one resets the ones below to their default; filament presets and spools stay.
 - Machine profile: default the printer's. The list is the model's system machine profiles of the plate's slicer, every nozzle (a nozzle swap). A select only with more than one, else a read-only line; none shows the `no_machine_preset` warning before slicing.
 - Print profile: default the plate's pick, then the printer's default print profile if it fits the machine profile, then the machine profile's default (Step 17). The list: the plate's slicer's print profiles whose `compatible_printers` lists the machine profile. The hint says the file's own changes (e.g. supports) still go on top (`slice.ts`).
@@ -2229,10 +2231,10 @@ Back up the DB before editing schema.ts.
 - Filaments: no change. Slicing already picks each filament's variant for the machine (`slice.ts`), so it follows the plate's machine profile.
 - ADR-0007 (the plate's machine profile), `docs/slicing.md`.
 
-**Done when:** a plate on the file's printer slices as saved in the file; a plate on another printer gets its machine profile and default print profile, and lists only print profiles for that machine; a nozzle-swap machine profile slices; changing the printer resets the profiles but keeps the spools; plates saved before this step slice the same; tests and e2e pass, at phone and desktop width.
+**Done when:** a plate on the file's printer slices as saved in the file; a plate on another printer gets its machine profile and default print profile, and lists only print profiles for that machine; a plate on another slicer lists only that slicer's profiles; Apply to all plates sets slicer, printer and profiles on every picked plate, and one plate can then differ; a nozzle-swap machine profile slices; changing the printer resets the profiles but keeps the spools; plates saved before this step slice the same; tests and e2e pass, at phone and desktop width.
 **Prompt:**
 ```
-Do Step 18 of the 5.4.0 plan in PLAN.md. Show me a desktop and a mobile mock of a plate first.
+Do Step 18 of the 5.4.0 plan in PLAN.md. Show me a desktop and a mobile mock of a plate and of the defaults for all plates first.
 Use frontend-design for the plate. Back up the DB before editing schema.ts.
 ```
 

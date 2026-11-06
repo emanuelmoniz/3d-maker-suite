@@ -37,6 +37,7 @@ const machine = (nozzle = 0.4, name = "Acme X 0.4") => ({
   model: "Acme X",
   name,
   nozzleDiameterMm: nozzle,
+  defaultPrintPreset: null as string | null,
 });
 const preset = (extra = {}): LibraryPreset => ({
   presetId: "system/A",
@@ -73,6 +74,7 @@ beforeEach(async () => {
         model: "Acme X",
         nozzleDiameterMm: 0.4,
         layerHeightMm: 0.2,
+        machines: ["system/Acme X 0.4"],
       },
       {
         presetId: "system/Loose",
@@ -82,6 +84,7 @@ beforeEach(async () => {
         model: null,
         nozzleDiameterMm: null,
         layerHeightMm: 0.28,
+        machines: [],
       },
     ],
   };
@@ -320,6 +323,7 @@ describe("catalog change detection", () => {
       model: null,
       nozzleDiameterMm: null,
       layerHeightMm: 0.28,
+      machines: [],
     });
     state.fingerprint = "Acme=3";
     await syncer().checkCatalogs();
@@ -757,7 +761,12 @@ describe("slicer catalog import", () => {
 
     const printer = db
       .insert(schema.printers)
-      .values({ number: 1, name: "P", modelId: first?.printerModelId })
+      .values({
+        number: 1,
+        name: "P",
+        modelId: first?.printerModelId,
+        machineProfileId: first?.id,
+      })
       .returning()
       .get();
     db.insert(schema.prints)
@@ -769,6 +778,12 @@ describe("slicer catalog import", () => {
         outcome: "success",
       })
       .run();
+    // A new default print profile alone is no new version: the print was made the same way.
+    state.catalog.machines = [{ ...machine(0.6, "Acme X 0.6"), defaultPrintPreset: "system/Fine" }];
+    await run("machineProfiles");
+    expect(db.select().from(schema.machineProfiles).all()).toMatchObject([
+      { id: first?.id, defaultPrintPreset: "fake:system/Fine", archivedAt: null },
+    ]);
     state.catalog.machines = [machine(0.8, "Acme X 0.8")];
     await run("machineProfiles");
     const rows = db.select().from(schema.machineProfiles).all();
@@ -780,6 +795,10 @@ describe("slicer catalog import", () => {
       archivedAt: null,
       sourcePreset: "fake:system/Acme X 0.4",
     });
+    // The printer follows the preset; the print keeps the version it was made with.
+    const now = db.select().from(schema.printers).get();
+    expect(now?.machineProfileId).toBe(rows.find((r) => r.id !== first?.id)?.id);
+    expect(db.select().from(schema.prints).get()?.machineProfileId).toBe(first?.id);
 
     // The list hides the old version; the print still resolves it.
     const list = (await app.inject("/api/machine-profiles")).json();
@@ -808,6 +827,57 @@ describe("slicer catalog import", () => {
     expect(db.select().from(schema.printProfiles).all()).toHaveLength(2);
     const loose = (await app.inject("/api/print-profiles?name=Loose")).json();
     expect(loose.items).toMatchObject([{ id: rows[1]?.id, layerHeightMm: 0.32 }]);
+  });
+
+  it("keeps every printer a process lists and a machine's default; a re-read fills rows you have", async () => {
+    const two = { ...machine(0.4, "Acme Y 0.4"), presetId: "system/Acme Y 0.4" };
+    await run("machineProfiles");
+    await run("printProfiles");
+    const standard = () =>
+      db
+        .select()
+        .from(schema.printProfiles)
+        .where(eq(schema.printProfiles.name, "0.20mm Standard @Acme X"))
+        .get();
+    expect(standard()?.machinePresets).toEqual(["fake:system/Acme X 0.4"]);
+
+    // The slicer now says more: both machines, and a default.
+    state.catalog.machines = [
+      { ...machine(), defaultPrintPreset: "system/0.20mm Standard @Acme X" },
+      two,
+    ];
+    const [first] = state.catalog.processes;
+    if (first) first.machines = ["system/Acme X 0.4", "system/Acme Y 0.4"];
+    const preview = await open("printProfiles");
+    expect(preview.rows.find((r) => r.targetId === standard()?.id)).toMatchObject({
+      status: "changed",
+      values: { printers: "Acme X 0.4, Acme Y 0.4" },
+    });
+    await run("printProfiles");
+    await run("machineProfiles");
+    expect(standard()?.machinePresets).toEqual([
+      "fake:system/Acme X 0.4",
+      "fake:system/Acme Y 0.4",
+    ]);
+    const machines = db.select().from(schema.machineProfiles).all();
+    expect(
+      machines.find((m) => m.sourcePreset === "fake:system/Acme X 0.4")?.defaultPrintPreset,
+    ).toBe("fake:system/0.20mm Standard @Acme X");
+  });
+
+  it("a printer added before its slicer's catalog gets its machine profile from the import", async () => {
+    await run("brands");
+    await run("printerModels");
+    const model = db.select().from(schema.printerModels).get();
+    const printer = await app.inject({
+      method: "POST",
+      url: "/api/printers",
+      payload: { name: "P", modelId: model?.id },
+    });
+    expect(printer.json().machineProfileId).toBeNull();
+    await run("machineProfiles");
+    const made = db.select().from(schema.machineProfiles).get();
+    expect(db.select().from(schema.printers).get()?.machineProfileId).toBe(made?.id);
   });
 
   it("a changed filament preset updates in place: no spool or print points at it", async () => {

@@ -39,6 +39,7 @@ import {
   bookOrLink,
   energyFor,
   estimatedDuration,
+  printerMachine,
   shortOf,
   syncUsages,
 } from "../lib/prints.ts";
@@ -366,6 +367,7 @@ export const printsRoutes =
             .insert(prints)
             .values({
               ...fields,
+              machineProfileId: fields.machineProfileId ?? printerMachine(db, fields.printerId),
               number: fields.number ?? nextNumber(prints),
               ...energyFor(db, fields.printerId, fields.durationSec ?? null, energyWh),
             })

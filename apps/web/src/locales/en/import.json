@@ -434,7 +434,8 @@
       "brand": "Brand",
       "model": "Model",
       "name": "Name",
-      "nozzleDiameterMm": "Nozzle (mm)"
+      "nozzleDiameterMm": "Nozzle (mm)",
+      "defaultPrintProfile": "Default print profile"
     }
   },
   "printProfiles": {
@@ -443,7 +444,8 @@
       "model": "Model",
       "name": "Name",
       "nozzleDiameterMm": "Nozzle (mm)",
-      "layerHeightMm": "Layer height (mm)"
+      "layerHeightMm": "Layer height (mm)",
+      "printers": "Printers"
     }
   },
   "filamentBrands": {

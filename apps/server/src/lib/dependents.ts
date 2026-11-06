@@ -192,6 +192,7 @@ export const ITEMS = {
   machineProfiles: {
     table: machineProfiles,
     uses: [on(PRINT, prints.machineProfileId)],
+    clears: [printers.machineProfileId],
     source: sourcePreset,
   },
   printProfiles: {
@@ -375,7 +376,7 @@ const versions = (o: Of): Use => {
 
 /** What ADR-0019 counts besides the delete check: what that only clears, and older versions. */
 const PRESET_USES: Record<PresetKind, Use[]> = {
-  machineProfiles: [versions(MACHINE_PROFILE)],
+  machineProfiles: [on(PRINTER, printers.machineProfileId), versions(MACHINE_PROFILE)],
   printProfiles: [
     on(PRINTER, printers.printProfileId),
     on(PLATE, plates.printProfileId),
@@ -386,7 +387,8 @@ const PRESET_USES: Record<PresetKind, Use[]> = {
 
 /**
  * ADR-0019's "in use", stricter than the delete check: a slicer preset's catalog row is also used
- * by a plate's or printer's print profile, a plate's filament list, its older versions and the
+ * by a printer's machine profile, a plate's or printer's print profile, a plate's filament list,
+ * its older versions and the
  * presets that inherit from it (`inheritedBy`, their names: the caller reads the slicer's files).
  */
 export function presetInUse(

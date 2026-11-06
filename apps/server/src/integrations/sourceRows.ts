@@ -13,7 +13,7 @@ import { type Db, schema } from "@3d-maker-suite/db";
 import { and, eq, isNotNull, isNull, ne } from "drizzle-orm";
 import type { StoredRow } from "../import/review.ts";
 import { spoolImport } from "../import/spools.ts";
-import { printerLabel, spoolMaterial, spoolName } from "../lib/catalog.ts";
+import { presetName, presetNames, printerLabel, spoolMaterial, spoolName } from "../lib/catalog.ts";
 import { catalogName } from "./imports.ts";
 
 const { brands, printerModels, printers, printFilamentUsages, prints, spools } = schema;
@@ -69,11 +69,14 @@ export async function libraryRows(
     machines: want(read.machines),
     processes: want(read.processes),
   };
+  // Presets a preset names keep their keys (`machinePresets`, `defaultPrintPreset`); the review
+  // shows and compares their names.
+  const key = (presetId: string) => `${lib.id}:${presetId}`;
   if (type === "printProfiles")
     return numbered(
-      c.processes.map(({ presetId, scope: _scope, ...raw }) => ({
-        source: `${lib.id}:${presetId}`,
-        raw,
+      c.processes.map(({ presetId, scope: _scope, machines, ...raw }) => ({
+        source: key(presetId),
+        raw: { ...raw, printers: presetNames(machines), machinePresets: machines.map(key) },
       })),
     );
   if (type === "brands")
@@ -88,9 +91,14 @@ export async function libraryRows(
       })),
     );
   return numbered(
-    c.machines.map(({ presetId, scope: _scope, ...raw }) => ({
-      source: `${lib.id}:${presetId}`,
-      raw: { ...raw, ...(!raw.brand && { hold: true }) },
+    c.machines.map(({ presetId, scope: _scope, defaultPrintPreset: process, ...raw }) => ({
+      source: key(presetId),
+      raw: {
+        ...raw,
+        defaultPrintProfile: process && presetName(process),
+        defaultPrintPreset: process && key(process),
+        ...(!raw.brand && { hold: true }),
+      },
     })),
   );
 }

@@ -310,6 +310,8 @@ export function slicerPresetLibrary(id: string, defaultDirs: () => string[]): Fi
           if (p.kind === "machine") vendorOf.set(opcPath(dir, vendor, p.subPath), brand);
       }
 
+      // A machine's `default_print_profile` by name; a process `presetId` once those are read.
+      const defaults = new Map<string, string>();
       const add = (
         presetId: string,
         scope: CatalogMachine["scope"],
@@ -322,7 +324,17 @@ export function slicerPresetLibrary(id: string, defaultDirs: () => string[]): Fi
         if (!model || !nozzle || nozzle <= 0 || machines.has(presetId)) return;
         if (!models.has(model.toLowerCase()))
           models.set(model.toLowerCase(), { brand, model, image: null });
-        machines.set(presetId, { presetId, scope, brand, model, name, nozzleDiameterMm: nozzle });
+        const process = get("default_print_profile");
+        if (process) defaults.set(presetId, process);
+        machines.set(presetId, {
+          presetId,
+          scope,
+          brand,
+          model,
+          name,
+          nozzleDiameterMm: nozzle,
+          defaultPrintPreset: null,
+        });
       };
 
       // User presets first, like filament ones: the first account that has a name wins.
@@ -344,6 +356,7 @@ export function slicerPresetLibrary(id: string, defaultDirs: () => string[]): Fi
               model,
               name,
               nozzleDiameterMm: num(get("nozzle_diameter")) ?? null,
+              defaultPrintPreset: null,
             });
         }
 
@@ -354,11 +367,10 @@ export function slicerPresetLibrary(id: string, defaultDirs: () => string[]): Fi
         add(`system/${name}`, "system", name, vendorOf.get(f) ?? "", await resolver(p, f));
       }
 
-      // Process presets. Model and nozzle come from the first compatible machine we read.
-      // ponytail: first machine only; a process for several models lands on the first one's.
-      const machineByName = new Map(
-        [...machines.values()].filter((m) => m.brand).map((m) => [m.name, m]),
-      );
+      // Process presets: every compatible machine we read; model and nozzle are the first one's.
+      /** The `presetId` in `have` of a preset the slicer names, system first. */
+      const idOf = (have: Map<string, unknown>, name: string) =>
+        [`system/${name}`, `user/${name}`].find((id) => have.has(id));
       const proc = await systemPresets(dir, "process");
       const processes = new Map<string, CatalogProcess>();
       const addProcess = (
@@ -368,10 +380,15 @@ export function slicerPresetLibrary(id: string, defaultDirs: () => string[]): Fi
         get: Awaited<ReturnType<typeof proc.resolver>>,
       ) => {
         if (processes.has(presetId)) return;
-        const m = get
-          .list("compatible_printers")
-          .map((n) => machineByName.get(n))
-          .find(Boolean);
+        const ids = [
+          ...new Set(
+            get
+              .list("compatible_printers")
+              .map((n) => idOf(machines, n))
+              .filter((id): id is string => !!id),
+          ),
+        ];
+        const m = ids.map((id) => machines.get(id)).find((x) => x?.brand);
         const layer = num(get("layer_height"));
         processes.set(presetId, {
           presetId,
@@ -381,6 +398,7 @@ export function slicerPresetLibrary(id: string, defaultDirs: () => string[]): Fi
           model: m?.model ?? null,
           nozzleDiameterMm: m?.nozzleDiameterMm ?? null,
           layerHeightMm: layer && layer > 0 ? layer : null,
+          machines: ids,
         });
       };
       for (const account of await dirs(join(dir, "user")))
@@ -394,6 +412,10 @@ export function slicerPresetLibrary(id: string, defaultDirs: () => string[]): Fi
         const p = await proc.load(f);
         if (p?.instantiation !== "true") continue;
         addProcess(`system/${name}`, "system", name, await proc.resolver(p, f));
+      }
+      for (const [id, process] of defaults) {
+        const m = machines.get(id);
+        if (m) m.defaultPrintPreset = idOf(processes, process) ?? null;
       }
       return {
         models: [...models.values()],

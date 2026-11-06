@@ -20,11 +20,14 @@ export const catalogMachineSchema = z.object({
   model: z.string(),
   name: z.string().min(1),
   nozzleDiameterMm: z.number().positive().nullable(),
+  /** Its `default_print_profile`, as a process `presetId`; null when it names none we read. */
+  defaultPrintPreset: z.string().nullable(),
 });
 
 /**
- * A process preset ("0.20mm Standard @BBL X1C"). `model` and nozzle come from the first machine
- * in its `compatible_printers`; null when it lists none the reader knows.
+ * A process preset ("0.20mm Standard @BBL X1C"). `machines`: every machine of its
+ * `compatible_printers` we read, as `presetId`s. `model` and nozzle come from the first of them;
+ * null when it lists none the reader knows.
  */
 export const catalogProcessSchema = z.object({
   presetId: z.string().min(1),
@@ -34,6 +37,7 @@ export const catalogProcessSchema = z.object({
   model: z.string().nullable(),
   nozzleDiameterMm: z.number().positive().nullable(),
   layerHeightMm: z.number().positive().nullable(),
+  machines: z.array(z.string()),
 });
 
 export const SLICER_CATALOG_TYPES = [

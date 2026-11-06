@@ -191,6 +191,8 @@ export const printerSchema = z.object({
   countInCosts: z.boolean().nullable(),
   /** Default print profile for slicing a project's plates on this printer. */
   printProfileId: id.nullable(),
+  /** Its machine profile: picked, else set on its own from model and nozzle. */
+  machineProfileId: id.nullable(),
   /** Relative to the data directory. */
   photoPath: z.string().nullable(),
   archivedAt: isoDate.nullable(),

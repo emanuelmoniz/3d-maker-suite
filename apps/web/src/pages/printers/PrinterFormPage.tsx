@@ -9,7 +9,7 @@ import { FormField, inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { TagPicker } from "../../components/TagPicker.tsx";
 import { isConflict, useCatalogPicker, useModelInfo } from "../../lib/catalog.ts";
-import { dateInputToIso, isoToDateInput } from "../../lib/format.ts";
+import { dateInputToIso, formatNumber, isoToDateInput } from "../../lib/format.ts";
 import { usePreferences } from "../../lib/preferences.ts";
 import { useCreatePrinter, usePatchPrinter, usePrinter } from "../../lib/printers.ts";
 import { useTagEditor } from "../../lib/tags.ts";
@@ -39,8 +39,17 @@ function PrinterForm({ printer }: { printer?: Printer }) {
   const [printProfileId, setPrintProfileId] = useState(printer?.printProfileId ?? "");
   const printProfiles = useCatalogPicker("print-profiles", printer?.printProfileId);
   const forModel = (p: PrintProfile) => !!modelId && p.printerModelId === modelId;
+  // "" = Automatic: the server picks by model and nozzle. A pick sets the nozzle to its own.
+  const [machineProfileId, setMachineProfileId] = useState(printer?.machineProfileId ?? "");
+  const machineProfiles = useCatalogPicker("machine-profiles", printer?.machineProfileId).filter(
+    (m) => !!modelId && m.printerModelId === modelId,
+  );
+  const nozzle = machineProfiles.find((m) => m.id === machineProfileId)?.nozzleDiameterMm;
+  const nozzleChanges = nozzle != null && !!printer && nozzle !== printer.nozzleDiameterMm;
 
   const pickModel = (v: string, watts = models.get(v)?.model.powerW) => {
+    // Another model's machine profiles don't fit: back to Automatic.
+    if (v !== modelId) setMachineProfileId("");
     setModelId(v);
     // A new model's typical power fills Power, unless the user typed one.
     if (power.current && !power.current.value && watts != null) power.current.value = String(watts);
@@ -61,6 +70,7 @@ function PrinterForm({ printer }: { printer?: Printer }) {
       warrantyEndsAt: date(text(f, "warrantyEndsAt")),
       warrantyNotes: orNull(text(f, "warrantyNotes")),
       printProfileId: orNull(text(f, "printProfileId")),
+      machineProfileId: orNull(text(f, "machineProfileId")),
       ...readCostFields(f),
     };
     // mutateAsync, not mutate's onSuccess: the save refetches the row and the edit page remounts
@@ -106,6 +116,27 @@ function PrinterForm({ printer }: { printer?: Printer }) {
             required
             defaultValue={printer?.modelId}
             onChange={(v, added) => pickModel(v, added?.powerW)}
+          />
+        )}
+      </FormField>
+      <FormField
+        label={t("printers:form.machineProfile")}
+        hint={
+          nozzleChanges
+            ? t("printers:form.machineProfileNozzle", { nozzle: formatNumber(nozzle) })
+            : t("printers:form.machineProfileHint")
+        }
+      >
+        {(p) => (
+          <Combobox
+            {...p}
+            name="machineProfileId"
+            value={machineProfileId}
+            onChange={setMachineProfileId}
+            options={[
+              { value: "", label: t("printers:form.machineProfileAuto") },
+              ...machineProfiles.map((m) => ({ value: m.id, label: m.name })),
+            ]}
           />
         )}
       </FormField>

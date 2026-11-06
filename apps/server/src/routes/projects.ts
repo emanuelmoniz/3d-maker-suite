@@ -73,6 +73,7 @@ import {
   rootFs,
 } from "../projects/rootFs.ts";
 import type { ProjectScanner } from "../projects/scanner.ts";
+import { machineDefaultProfile } from "../projects/sliceQueue.ts";
 import { fsError } from "./fs.ts";
 
 const {
@@ -106,7 +107,7 @@ const isMulticolor = sql`case when json_extract(${projects.meta}, '$.multicolor'
 const projectId = sql`${projects}.${sql.identifier("id")}`;
 const projectMeta = sql`${projects}.${sql.identifier("meta")}`;
 // The print profile a plate slices with, as `plateResolver` (the PUT stores plates resolved).
-const plateProfile = sql`coalesce(${plates.printProfileId}, case when ${plates.useDefaultPrintProfile} then (select p.${sql.identifier("print_profile_id")} from ${printers} p where p.${sql.identifier("id")} = ${plates.printerId}) end)`;
+const plateProfile = sql`coalesce(${plates.printProfileId}, case when ${plates.useDefaultPrintProfile} then (select coalesce(${printers.printProfileId}, ${machineDefaultProfile}) from ${printers} where ${printers.id} = ${plates.printerId}) end)`;
 const projectSlicer = sql`${projects}.${sql.identifier("slicer_integration_id")}`;
 /** The slicer a plate slices with, as `slicerResolver`: `capable` can slice now, `fallback` = the default's pick. */
 const plateSlicer = (capable: string[], fallback: string | undefined) => {
