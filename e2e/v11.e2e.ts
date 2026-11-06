@@ -7,6 +7,7 @@ import { expect, test } from "./fixtures.ts";
 import {
   gotoIntegrations,
   hasHorizontalScroll,
+  insertProfile,
   openBulkEdit,
   openIntegrationCards,
   pick,
@@ -43,7 +44,7 @@ const zipOf = (files: Record<string, unknown>) =>
 test("catalog tables page, filter and keep their state in the URL", async ({ page, app }) => {
   for (let i = 1; i <= 30; i++)
     await app.api("POST", "/api/brands", { name: `Brand ${String(i).padStart(2, "0")}` });
-  await page.goto("/printers/settings");
+  await page.goto("/catalog/printers");
   const brands = block(page, "Brands");
   await expect(brands.getByText("1–25 of 30")).toBeVisible();
   await brands.getByRole("button", { name: "Next" }).click();
@@ -67,7 +68,7 @@ test("the back link returns to the parent page", async ({ page, app }) => {
   await expect(page).toHaveURL(/\/printers$/);
   await page.goto("/printers/brands/new");
   await page.getByRole("link", { name: "Back" }).click();
-  await expect(page).toHaveURL(/\/printers\/settings$/);
+  await expect(page).toHaveURL(/\/catalog\/printers#brands$/);
 });
 
 test("branding: app name, logo and favicon", async ({ page }) => {
@@ -116,59 +117,51 @@ test("maintenance task for models and a specific printer shows on each matching 
   await expect(due.getByRole("cell", { name: "Gamma" })).toHaveCount(0);
 });
 
-test("printer model and machine profile: create, edit and delete", async ({ page, app }) => {
+test("printer model by hand; a machine profile from a file is read-only and archives", async ({
+  page,
+  app,
+}) => {
   await app.api("POST", "/api/brands", { name: "Acme" });
   await page.goto("/printers/models/new");
   await pick(page.getByLabel("Brand"), "Acme");
   await page.getByLabel("Model", { exact: true }).fill("Q1");
   await page.getByRole("button", { name: "Save" }).click();
+  await expect(page).toHaveURL(/\/catalog\/printers#printer-models$/);
   await expect(block(page, "Printer models").getByRole("link", { name: "Acme Q1" })).toBeVisible();
 
-  await page.getByRole("link", { name: "Add profile" }).click();
-  await page.getByLabel("Name", { exact: true }).fill("Q1 0.4");
-  await pick(page.getByLabel("Printer model"), "Q1");
-  await page.getByLabel("Nozzle diameter (mm)").fill("0.4");
-  await page.getByRole("button", { name: "Save" }).click();
+  const { items } = await app.api<{ items: { id: string }[] }>("GET", "/api/printer-models");
+  insertProfile(app, "machine_profiles", {
+    name: "Q1 0.4",
+    printerModelId: items[0]?.id,
+    nozzleDiameterMm: 0.4,
+  });
+  await page.reload();
   const profiles = block(page, "Machine profiles");
-  await expect(profiles.getByRole("link", { name: "Q1 0.4" })).toBeVisible();
-
-  await profiles.getByRole("link", { name: "Q1 0.4" }).click();
-  await page.getByLabel("Name", { exact: true }).fill("Q1 0.6");
-  await page.getByLabel("Nozzle diameter (mm)").fill("0.6");
-  await page.getByRole("button", { name: "Save" }).click();
-  await expect(block(page, "Machine profiles").getByRole("link", { name: "Q1 0.6" })).toBeVisible();
-
-  await block(page, "Machine profiles").getByRole("link", { name: "Q1 0.6" }).click();
-  await page.getByRole("button", { name: "Delete" }).click();
-  await page.getByRole("dialog").getByRole("button", { name: "Delete" }).click();
+  await expect(profiles.getByRole("link", { name: "Add profile" })).toHaveCount(0);
+  await expect(profiles.getByRole("link", { name: "Q1 0.4" })).toHaveCount(0);
+  const row = profiles.getByRole("row", { name: /Q1 0\.4/ });
+  await expect(row).toContainText("Bambu Studio (system)");
+  await expect(row).toContainText("Unused");
+  await row.getByRole("button", { name: "Archive Q1 0.4" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Archive" }).click();
   await expect(block(page, "Machine profiles").getByText("No results")).toBeVisible();
 });
 
-test("filament profile: pick a brand, add a material in a modal", async ({ page, app }) => {
-  await app.api("POST", "/api/filament-brands", { name: "Acme" });
-  await page.goto("/filament/profiles/new");
-  await pick(page.getByLabel("Brand", { exact: true }), "Acme");
-  await page.getByRole("button", { name: "Add material" }).click();
-  const dialog = page.getByRole("dialog", { name: "Add filament material" });
-  await dialog.getByLabel("Name", { exact: true }).fill("PETG");
-  await dialog.getByRole("button", { name: "Save" }).click();
-  await expect(dialog).toBeHidden();
-  await expect(page.getByLabel("Material", { exact: true })).toHaveValue("PETG");
-  await page.getByLabel("Name", { exact: true }).fill("Tough");
-  await page.getByRole("button", { name: "Save profile" }).click();
-  await expect(page).toHaveURL(/\/filament\/settings$/);
-  const list = await app.api<{ items: { name: string }[] }>("GET", "/api/filament/profiles");
-  expect(list.items.map((p) => p.name)).toContain("Tough");
-});
-
-test("an archived profile leaves the list but stays on its spool", async ({ page, app }) => {
+test("an archived profile leaves the list; the spool keeps its own filament", async ({
+  page,
+  app,
+}) => {
   const spool = await seedSpool(app.api);
-  const { items } = await app.api<{ items: { id: string }[] }>("GET", "/api/filament/profiles");
-  await page.goto(`/filament/profiles/${items[0]?.id}`);
+  const { materialId } = (
+    await app.api<{ items: { materialId: string }[] }>("GET", "/api/filament/spools")
+  ).items[0] ?? { materialId: "" };
+  const profile = insertProfile(app, "filament_profiles", { materialId, name: "Basic" });
+  await page.goto(`/filament/profiles/${profile.id}`);
+  await expect(page.getByText("Bambu Studio (system)")).toBeVisible();
   await page.getByRole("button", { name: "Archive" }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Archive" }).click();
   await expect(page.getByText("Archived", { exact: true }).first()).toBeVisible();
-  await page.goto("/filament/settings");
+  await page.goto("/catalog/filament");
   await expect(page.getByRole("table", { name: "Filament profiles" })).not.toContainText("Basic");
   await page.goto(`/filament/spools/${spool.id}`);
   await expect(page.getByText("Basic").first()).toBeVisible();
@@ -311,7 +304,7 @@ test.describe("new pages fit every viewport", () => {
   for (const width of [375, 768, 1440]) {
     test(`no horizontal scroll at ${width}px`, async ({ page, app }) => {
       await seedPrinter(app.api);
-      await seedProfile(app.api);
+      await seedProfile(app);
       await app.api("POST", "/api/integrations", { adapterId: "mock", secrets: { token: "t" } });
       await page.setViewportSize({ width, height: 900 });
       const bad: string[] = [];
@@ -321,9 +314,9 @@ test.describe("new pages fit every viewport", () => {
         "/integrations",
         "/integrations/new",
         "/import/slicer-zip",
-        "/printers/profiles/new",
+        "/catalog/printers",
         "/maintenance/new",
-        "/filament/profiles/new",
+        "/catalog/filament",
       ]) {
         await page.goto(route);
         await page.waitForLoadState("networkidle");

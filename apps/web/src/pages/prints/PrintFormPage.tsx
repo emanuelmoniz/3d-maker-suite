@@ -22,11 +22,6 @@ import { projectName, useProject, useProjects } from "../../lib/projects.ts";
 import { useTagEditor } from "../../lib/tags.ts";
 import { NewSpoolDialog } from "../filament/NewSpoolDialog.tsx";
 import { useProjectLeftPrompt } from "../orders/ProjectLeftPrompt.tsx";
-import {
-  CatalogAddDialog,
-  MachineProfileFields,
-  machineProfileBody,
-} from "../printers/CatalogForms.tsx";
 
 const text = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
 const OUTCOMES = {
@@ -73,7 +68,6 @@ function PrintForm({ print }: { print?: PrintDetail }) {
     saved && !listed.some((mp) => mp.id === saved.id) ? [...listed, saved] : listed
   ).filter((mp) => mp.printerModelId === modelId || mp.id === print?.machineProfileId);
   const [machineProfileId, setMachineProfileId] = useState(print?.machineProfileId ?? "");
-  const [addProfile, setAddProfile] = useState(false);
   // The filament row a new spool is for.
   const [addSpoolTo, setAddSpoolTo] = useState<number | null>(null);
   const [rows, setRows] = useState<Row[]>(
@@ -233,23 +227,18 @@ function PrintForm({ print }: { print?: PrintDetail }) {
         {modelId && (
           <FormField label={t("prints:form.machineProfile")}>
             {(p) => (
-              <PickerWithAdd
-                label={t("printers:catalog.profiles.add")}
-                onAdd={() => setAddProfile(true)}
-              >
-                <Combobox
-                  // Options change with the printer; remount so defaultValue applies.
-                  key={`${modelId}:${machineProfiles.length}`}
-                  {...p}
-                  name="machineProfile"
-                  defaultValue={machineProfileId}
-                  onChange={setMachineProfileId}
-                  options={[
-                    { value: "", label: "" },
-                    ...machineProfiles.map((mp) => ({ value: mp.id, label: mp.name })),
-                  ]}
-                />
-              </PickerWithAdd>
+              <Combobox
+                // Options change with the printer; remount so defaultValue applies.
+                key={`${modelId}:${machineProfiles.length}`}
+                {...p}
+                name="machineProfile"
+                defaultValue={machineProfileId}
+                onChange={setMachineProfileId}
+                options={[
+                  { value: "", label: "" },
+                  ...machineProfiles.map((mp) => ({ value: mp.id, label: mp.name })),
+                ]}
+              />
             )}
           </FormField>
         )}
@@ -439,16 +428,6 @@ function PrintForm({ print }: { print?: PrintDetail }) {
         </div>
         {projectLeft.dialog}
       </form>
-      <CatalogAddDialog
-        kind="machine-profiles"
-        open={addProfile}
-        title={t("printers:catalog.profiles.addTitle")}
-        toBody={machineProfileBody}
-        onClose={() => setAddProfile(false)}
-        onSaved={(mp) => setMachineProfileId(mp.id)}
-      >
-        <MachineProfileFields modelId={modelId} />
-      </CatalogAddDialog>
       <NewSpoolDialog
         open={addSpoolTo === null ? null : {}}
         onClose={() => setAddSpoolTo(null)}

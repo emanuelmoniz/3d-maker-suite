@@ -20,7 +20,7 @@ A local-first manager for your 3D printing: printers, accessories, maintenance, 
 - **Orders**: work agreed with a client, from a quote or on its own, with a status, a price and the cost of its linked prints
 - **Costs and stats**: cost per print snapshotted at record time (printer, counted accessories, filament, energy, labour), charts by period, filters by material and outcome
 - **Integrations** (optional): Bambu Cloud, Bambu Studio and OrcaSlicer (on your PC, or installed on a server or NAS from the app), with a sync mode and frequency per data type
-- **Import**: 19 types as spreadsheets (your things, money, maintenance, printer and filament catalogs) and slicer catalogs from a zip, reviewed row by row before anything is saved; every type exports in the same format
+- **Import**: 16 types as spreadsheets (your things, money, maintenance, printer and filament catalogs) and slicer catalogs from a zip, reviewed row by row before anything is saved; every type exports in the same format
 - **Backups**: scheduled online SQLite backups, restore, CSV, JSON and spreadsheet export
 - **Logs** (optional): what the app does, by module and level, with retention limits; off by default
 - **Light and dark themes**, mobile-friendly, keyboard navigable, searchable dropdowns; set your own app name, logo, favicon, date and time format

@@ -23,7 +23,7 @@ test("cost settings persist across a reload", async ({ page }) => {
 });
 
 test("add a brand, a model and a printer of that model", async ({ page }) => {
-  await page.goto("/printers/settings");
+  await page.goto("/catalog/printers");
   await page.getByRole("link", { name: "Add brand" }).click();
   await page.getByLabel("Name", { exact: true }).fill("Bambu Lab");
   await page.getByRole("button", { name: "Save" }).click();
@@ -70,7 +70,7 @@ test("add a printer with a new brand and model without leaving the page", async 
 });
 
 test("add a spool", async ({ page, app }) => {
-  await seedProfile(app.api);
+  await seedProfile(app);
   await page.goto("/filament/spools/new");
   // No profile needed: a material is all a spool must have.
   await pick(page.getByLabel("Material", { exact: true }), "PLA");

@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { usePreferences } from "../../lib/preferences.ts";
-import { CatalogForm } from "../printers/CatalogForms.tsx";
+import { CatalogForm, useLockHint } from "../printers/CatalogForms.tsx";
 
 const text = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
 const orNull = (v: string) => v || null;
@@ -10,37 +10,49 @@ const float = (v: string) => (v ? Number(v) : null);
 const minor = (v: string) => (v ? Math.round(Number(v) * 100) : null);
 
 export function FilamentBrandFormPage() {
-  const { t } = useTranslation();
   return (
     <CatalogForm
       kind="filament-brands"
-      backTo="/filament/settings"
+      backTo="/catalog/filament"
       titles={["filament:catalog.brands.addTitle", "filament:catalog.brands.editTitle"]}
       imageLabel="filament:catalog.brands.logo"
       toBody={(f) => ({ name: text(f, "name"), url: orNull(text(f, "url")) })}
     >
-      {(b) => (
-        <>
-          <FormField label={t("filament:catalog.brands.name")}>
-            {(p) => (
-              <input {...p} name="name" required className={inputClass} defaultValue={b?.name} />
-            )}
-          </FormField>
-          <FormField label={t("filament:catalog.brands.url")}>
-            {(p) => (
-              <input
-                {...p}
-                name="url"
-                type="url"
-                placeholder="https://"
-                className={inputClass}
-                defaultValue={b?.url ?? ""}
-              />
-            )}
-          </FormField>
-        </>
-      )}
+      {(b) => <FilamentBrandFields b={b} />}
     </CatalogForm>
+  );
+}
+
+function FilamentBrandFields({ b }: { b?: { name: string; url: string | null; source?: string } }) {
+  const { t } = useTranslation();
+  const locked = useLockHint(b);
+  return (
+    <>
+      <FormField label={t("filament:catalog.brands.name")} hint={locked}>
+        {(p) => (
+          <input
+            {...p}
+            name="name"
+            required
+            readOnly={!!locked}
+            className={inputClass}
+            defaultValue={b?.name}
+          />
+        )}
+      </FormField>
+      <FormField label={t("filament:catalog.brands.url")}>
+        {(p) => (
+          <input
+            {...p}
+            name="url"
+            type="url"
+            placeholder="https://"
+            className={inputClass}
+            defaultValue={b?.url ?? ""}
+          />
+        )}
+      </FormField>
+    </>
   );
 }
 
@@ -53,14 +65,25 @@ export function MaterialFields({
     bedTempC: number | null;
     densityGcm3: number | null;
     pricePerKg: number | null;
+    source?: string;
   };
 }) {
   const { t } = useTranslation();
   const currency = usePreferences().data?.values.currency ?? "";
+  const locked = useLockHint(m);
   return (
     <>
-      <FormField label={t("filament:catalog.materials.name")}>
-        {(p) => <input {...p} name="name" required className={inputClass} defaultValue={m?.name} />}
+      <FormField label={t("filament:catalog.materials.name")} hint={locked}>
+        {(p) => (
+          <input
+            {...p}
+            name="name"
+            required
+            readOnly={!!locked}
+            className={inputClass}
+            defaultValue={m?.name}
+          />
+        )}
       </FormField>
       <p className="text-sm text-muted">{t("filament:catalog.materials.defaultsHint")}</p>
       <FormField label={t("filament:profiles.nozzleTemp")}>
@@ -134,7 +157,7 @@ export function FilamentMaterialFormPage() {
   return (
     <CatalogForm
       kind="filament-materials"
-      backTo="/filament/settings"
+      backTo="/catalog/filament"
       titles={["filament:catalog.materials.addTitle", "filament:catalog.materials.editTitle"]}
       toBody={materialBody}
     >

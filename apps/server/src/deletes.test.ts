@@ -10,6 +10,7 @@ import { buildApp } from "./app.ts";
 import type { Rights } from "./lib/auth.ts";
 import { dependentsOf, ITEMS } from "./lib/dependents.ts";
 import { readPreferences } from "./lib/preferences.ts";
+import { insertProfile } from "./testSeed.ts";
 
 let db: ReturnType<typeof openDb>;
 let app: Awaited<ReturnType<typeof buildApp>>;
@@ -45,12 +46,12 @@ const brand = () => made("/api/brands", { name: unique("Brand") });
 const model = async (brandId?: string) =>
   made("/api/printer-models", { brandId: brandId ?? (await brand()), model: unique("X") });
 const machine = async (printerModelId?: string) =>
-  made("/api/machine-profiles", {
+  insertProfile(db, "machineProfiles", {
     name: unique("Machine"),
     printerModelId: printerModelId ?? (await model()),
-  });
-const printProfile = (printerModelId?: string) =>
-  made("/api/print-profiles", { name: unique("Fine"), printerModelId });
+  }).id;
+const printProfile = async (printerModelId?: string) =>
+  insertProfile(db, "printProfiles", { name: unique("Fine"), printerModelId }).id;
 const printer = async (modelId?: string) =>
   made("/api/printers", {
     name: unique("P"),
@@ -64,12 +65,12 @@ const maintenanceType = (fields: object = {}) =>
 const filamentBrand = () => made("/api/filament-brands", { name: unique("FB") });
 const material = () => made("/api/filament-materials", { name: unique("PLA") });
 const profile = async (fields: object = {}) =>
-  made("/api/filament/profiles", {
+  insertProfile(db, "filamentProfiles", {
     materialId: await material(),
     densityGcm3: 1.24,
     name: unique("Basic"),
     ...fields,
-  });
+  }).id;
 const spool = async (fields: object = {}) =>
   made("/api/filament/spools", {
     materialId: await material(),
@@ -252,12 +253,7 @@ describe("delete", () => {
       "filamentMaterials",
       "filamentProfile",
       urls.filamentProfiles,
-      async (id) =>
-        made("/api/filament/profiles", {
-          materialId: id,
-          densityGcm3: 1.24,
-          name: unique("Basic"),
-        }),
+      (id) => profile({ materialId: id }),
       /Basic/,
     ],
     ["filamentBrands", "spool", urls.spools, (id) => spool({ brandId: id }), /^\d{3}-.*Basic/],

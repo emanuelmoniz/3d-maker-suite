@@ -48,35 +48,24 @@ export const ENTITIES: Record<ImportEntity, { label: string; to: string; view: s
     to: "/orders",
     view: "import:done.viewOrders",
   },
-  brands: { label: "import:entities.brands", to: "/printers", view: "import:done.viewCatalog" },
+  brands: {
+    label: "import:entities.brands",
+    to: "/catalog/printers",
+    view: "import:done.viewCatalog",
+  },
   printerModels: {
     label: "import:entities.printerModels",
-    to: "/printers",
-    view: "import:done.viewCatalog",
-  },
-  machineProfiles: {
-    label: "import:entities.machineProfiles",
-    to: "/printers",
-    view: "import:done.viewCatalog",
-  },
-  printProfiles: {
-    label: "import:entities.printProfiles",
-    to: "/printers",
+    to: "/catalog/printers",
     view: "import:done.viewCatalog",
   },
   filamentBrands: {
     label: "import:entities.filamentBrands",
-    to: "/filament",
+    to: "/catalog/filament",
     view: "import:done.viewFilamentCatalog",
   },
   filamentMaterials: {
     label: "import:entities.filamentMaterials",
-    to: "/filament",
-    view: "import:done.viewFilamentCatalog",
-  },
-  filamentProfiles: {
-    label: "import:entities.filamentProfiles",
-    to: "/filament",
+    to: "/catalog/filament",
     view: "import:done.viewFilamentCatalog",
   },
 };
@@ -106,9 +95,6 @@ const NOTES: Partial<Record<ImportEntity, string[][]>> = {
   maintenance: [["import:template.maintenance"]],
   orderProjects: [["import:template.orderLinks"]],
   printerModels: [["import:template.catalogRefs"], ["import:template.modelPicture"]],
-  machineProfiles: [["import:template.catalogRefs"]],
-  printProfiles: [["import:template.catalogRefs"]],
-  filamentProfiles: [["import:template.catalogRefs"]],
 };
 
 /** The translated headers and instruction sheet the server puts in a template, export or review. */

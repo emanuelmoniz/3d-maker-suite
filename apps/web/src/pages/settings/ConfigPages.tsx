@@ -1,7 +1,7 @@
 import { DEVICE_FOLDER_MAX_MB_LIMIT } from "@3d-maker-suite/core";
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { useTranslation } from "react-i18next";
+import { Trans, useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
 import { Combobox } from "../../components/Combobox.tsx";
 import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
@@ -15,8 +15,6 @@ import { usePreferences } from "../../lib/preferences.ts";
 import { usePrinters } from "../../lib/printers.ts";
 import { useEmptyProjectTrash, useProjectTrash } from "../../lib/projects.ts";
 import { ChannelsSection } from "../alerts/ChannelsSection.tsx";
-import { FilamentCatalog, FilamentProfiles } from "../filament/Catalog.tsx";
-import { Catalog } from "../printers/Catalog.tsx";
 import { ChangeProjectsRoot } from "./ChangeProjectsRoot.tsx";
 import { type ConfigCtx, ConfigPage } from "./ConfigPage.tsx";
 import { ProjectRoots } from "./ProjectRoots.tsx";
@@ -321,6 +319,7 @@ export function AlertsConfigPage() {
 export function PrintersConfigPage() {
   const { t } = useTranslation();
   const printers = usePrinters({ archived: false }).data?.items ?? [];
+  const catalog = useCan("catalog", "read");
   return (
     <ConfigPage module="printers">
       {({ v, commit }) => {
@@ -353,7 +352,21 @@ export function PrintersConfigPage() {
                 )}
               </FormField>
             </Section>
-            <Catalog />
+            {catalog && (
+              <p className="mt-6 text-muted">
+                <Trans
+                  i18nKey="catalog:moved"
+                  components={{
+                    link: (
+                      <Link
+                        to="/catalog/printers"
+                        className="font-medium text-accent hover:underline"
+                      />
+                    ),
+                  }}
+                />
+              </p>
+            )}
           </>
         );
       }}
@@ -412,19 +425,6 @@ export function OrdersConfigPage() {
             )}
           </FormField>
         </Section>
-      )}
-    </ConfigPage>
-  );
-}
-
-export function FilamentConfigPage() {
-  return (
-    <ConfigPage module="filament">
-      {() => (
-        <div className="grid gap-8">
-          <FilamentProfiles />
-          <FilamentCatalog />
-        </div>
       )}
     </ConfigPage>
   );

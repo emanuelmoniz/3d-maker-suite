@@ -1,7 +1,7 @@
 import { copyFileSync, mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, test } from "./fixtures.ts";
-import { addRoots, pick } from "./helpers.ts";
+import { addRoots, insertProfile, pick } from "./helpers.ts";
 
 const fixture = join(import.meta.dirname, "../packages/3mf/fixtures/multi_color.3mf");
 
@@ -26,7 +26,7 @@ test("quote from a project: filled, profile changed, sliced, file added, saved, 
     brandId: brand.id,
     model: "A1",
   });
-  await app.api("POST", "/api/print-profiles", {
+  insertProfile(app, "print_profiles", {
     name: "Fine",
     printerModelId: a1.id,
     sourcePreset: "mock:system/Fine",

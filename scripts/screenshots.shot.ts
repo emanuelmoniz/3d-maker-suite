@@ -13,7 +13,7 @@ test("README screenshots", async ({ page, app }) => {
     intervalDays: 10,
     warnLeadDays: 10,
   });
-  const profile = await seedProfile(app.api);
+  const profile = await seedProfile(app);
   const spools: { id: string }[] = [];
   for (const [colorHex, colorName] of [
     ["#e53935", "Red"],

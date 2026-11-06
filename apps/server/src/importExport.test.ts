@@ -451,12 +451,6 @@ async function seedAll() {
   );
   await load("orders", "number,client,quote,project,price,status\n3,Ana,7,1-Box,50,done\n");
   // The printer made the brand and model, the spool the filament material.
-  await load("machineProfiles", "brand,model,name,nozzleDiameterMm\nBambu Lab,X1C,X1C 0.4,0.4\n");
-  await load("filamentProfiles", "material,name,densityGcm3\nPLA,Basic,1.24\n");
-  await load(
-    "printProfiles",
-    "brand,model,name,layerHeightMm\nBambu Lab,X1C,0.20mm Standard,0.2\n",
-  );
   await load("filamentBrands", "name,url\nPolymaker,https://polymaker.com\n");
   await load(
     "maintenanceTypes",
@@ -503,11 +497,8 @@ it("catalog types: an edited export updates the row, a reference you don't have 
   const edits = {
     brands: { name: "Bambu" },
     printerModels: { model: "X1 Carbon" },
-    machineProfiles: { nozzleDiameterMm: 0.6 },
-    printProfiles: { layerHeightMm: 0.28 },
     filamentBrands: { url: "https://polymaker.eu" },
     filamentMaterials: { densityGcm3: 1.25 },
-    filamentProfiles: { nozzleTempC: 215 },
   } as const;
   for (const [entity, edit] of Object.entries(edits) as [ImportEntity, object][]) {
     const [row] = await download(entity, "export", "json");
@@ -534,15 +525,13 @@ it("catalog types: an edited export updates the row, a reference you don't have 
   expect(await invalid("printerModels", "brand,model\nNope,Z1\n")).toEqual([
     [{ column: "brand", code: "unresolved" }],
   ]);
-  expect(
-    await invalid("machineProfiles", "brand,model,name,nozzleDiameterMm\nBambu,Z1,Z1 0.4,0.4\n"),
-  ).toEqual([[{ column: "model", code: "unresolved" }]]);
-  expect(await invalid("printProfiles", "model,name\nX1 Carbon,Fast\n")).toEqual([
-    [{ column: "brand", code: "unresolved" }],
-  ]);
-  expect(await invalid("filamentProfiles", "brand,material,densityGcm3\nNope,PLA,1.24\n")).toEqual([
-    [{ column: "brand", code: "unresolved" }],
-  ]);
+  // Profiles come only from a slicer's files (ADR-0020): no spreadsheet brings or takes them.
+  for (const entity of ["machineProfiles", "printProfiles", "filamentProfiles"]) {
+    expect(
+      (await post(`/api/import/${entity}/preview`, "name\nFast\n", "text/csv")).statusCode,
+    ).toBe(400);
+    expect((await post(`/api/import/${entity}/export?format=json`, labels)).statusCode).toBe(400);
+  }
 });
 
 it("maintenance types, maintenance and order projects: updates, and wrong targets or references are invalid", async () => {

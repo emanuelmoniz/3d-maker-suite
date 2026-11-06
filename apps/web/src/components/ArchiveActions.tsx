@@ -46,6 +46,7 @@ const ERRORS: Record<string, string> = {
   printer_has_accessories: "common:archive.errors.printer_has_accessories",
   accessory_installed: "common:archive.errors.accessory_installed",
   preset_newer_exists: "common:archive.errors.preset_newer_exists",
+  hand_made: "common:archive.errors.hand_made",
   folder_has_files: "common:archive.errors.folder_has_files",
   forbidden: "common:archive.errors.forbidden",
   not_found: "common:archive.errors.not_found",
@@ -57,14 +58,9 @@ const DEPENDENTS: Record<DependentType, { key: string; to?: string }> = {
     key: "common:archive.dependents.printerModel",
     to: "/printers/models/$id/edit",
   },
-  machineProfile: {
-    key: "common:archive.dependents.machineProfile",
-    to: "/printers/profiles/$id/edit",
-  },
-  printProfile: {
-    key: "common:archive.dependents.printProfile",
-    to: "/printers/print-profiles/$id/edit",
-  },
+  // Profiles have no page of their own yet.
+  machineProfile: { key: "common:archive.dependents.machineProfile" },
+  printProfile: { key: "common:archive.dependents.printProfile" },
   printer: { key: "common:archive.dependents.printer", to: "/printers/$id" },
   accessory: { key: "common:archive.dependents.accessory", to: "/printers/accessories/$id" },
   maintenanceType: {

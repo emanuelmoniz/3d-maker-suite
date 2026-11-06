@@ -65,27 +65,22 @@ export function GoneRows({
           <li key={g.id} className="grid gap-2 p-3 sm:flex sm:items-start sm:justify-between">
             <div className="grid gap-1">
               <span className="font-medium wrap-anywhere">{g.label}</span>
-              {g.dependents.length > 0 ? (
+              {g.dependents.length > 0 && (
                 <>
                   <span className="text-muted">{t("import:gone.inUse")}</span>
                   <Dependents details={{ dependents: g.dependents }} />
                 </>
-              ) : (
-                g.edited && <span className="text-muted">{t("import:gone.edited")}</span>
               )}
             </div>
             {g.dependents.length === 0 && (
               <Button
-                aria-label={t(
-                  g.edited ? "common:archive.named.archive" : "common:archive.named.delete",
-                  { name: g.label },
-                )}
+                aria-label={t("common:archive.named.delete", { name: g.label })}
                 onClick={() => {
                   remove.reset();
                   setAsk(g);
                 }}
               >
-                {t(g.edited ? "common:archive.actions.archive" : "common:archive.actions.delete")}
+                {t("common:archive.actions.delete")}
               </Button>
             )}
           </li>
@@ -107,14 +102,10 @@ export function GoneRows({
       {ask && (
         <ConfirmDialog
           open
-          destructive={!ask.edited}
-          title={t(ask.edited ? "common:archive.archiveTitle" : "common:archive.deleteTitle", {
-            name: ask.label,
-          })}
-          description={t(ask.edited ? "import:gone.archiveBody" : "common:archive.deleteBody")}
-          confirmLabel={t(
-            ask.edited ? "common:archive.actions.archive" : "common:archive.actions.delete",
-          )}
+          destructive
+          title={t("common:archive.deleteTitle", { name: ask.label })}
+          description={t("common:archive.deleteBody")}
+          confirmLabel={t("common:archive.actions.delete")}
           onCancel={() => setAsk(null)}
           onConfirm={() => {
             if (!remove.isPending) remove.mutate(ask);

@@ -16,6 +16,7 @@ import { useServerState } from "../lib/serverState.ts";
 import { useVersion } from "../lib/updates.ts";
 import {
   ALL_ITEMS,
+  CATALOG_ITEM,
   HUB_ITEM,
   IMPORT_ITEM,
   INTEGRATIONS_ITEM,
@@ -259,6 +260,7 @@ function Sidebar() {
   const hubShown = useHubShown();
   const presetsShown = usePresetsShown();
   const importShown = useCan("integrations.manage");
+  const catalogShown = useCan("catalog", "read");
   const tasks = useHasTasks();
   return (
     <aside className="sticky top-0 hidden h-dvh w-14 shrink-0 flex-col border-r border-border bg-surface md:flex lg:w-56">
@@ -278,10 +280,11 @@ function Sidebar() {
         ))}
       </nav>
       <div className="flex flex-col gap-0.5 border-t border-border p-2">
-        {importShown && <SideLink item={IMPORT_ITEM} />}
+        {catalogShown && <SideLink item={CATALOG_ITEM} />}
         {tasks && <SideLink item={INTEGRATIONS_ITEM} />}
         {hubShown && <SideLink item={HUB_ITEM} />}
         {presetsShown && <SideLink item={PRESETS_ITEM} />}
+        {importShown && <SideLink item={IMPORT_ITEM} />}
         {logsShown && <SideLink item={LOGS_ITEM} />}
         <SideLink item={SETTINGS_ITEM} />
         <UserMenu />
@@ -331,10 +334,12 @@ function BottomNav() {
   const hubShown = useHubShown();
   const presetsShown = usePresetsShown();
   const importShown = useCan("integrations.manage");
+  const catalogShown = useCan("catalog", "read");
   const tasks = useHasTasks();
   const more = ALL_ITEMS.filter(
     (i) =>
       !i.primary &&
+      (catalogShown || i !== CATALOG_ITEM) &&
       (logsShown || i !== LOGS_ITEM) &&
       (importShown || i !== IMPORT_ITEM) &&
       (tasks || i !== INTEGRATIONS_ITEM) &&

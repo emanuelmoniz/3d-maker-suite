@@ -27,6 +27,10 @@
       "label": "Import | Export",
       "description": "Bring data in from spreadsheets, or take it out."
     },
+    "catalog": {
+      "label": "Catalog",
+      "description": "Printer and filament brands, models, materials and slicer profiles."
+    },
     "integrations": { "label": "Integrations", "description": "Connect vendor accounts and sync." },
     "hub": { "label": "Hub management", "description": "Paired devices and their access." },
     "presets": {

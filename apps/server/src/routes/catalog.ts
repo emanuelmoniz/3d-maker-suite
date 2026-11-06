@@ -15,10 +15,9 @@ import {
   filamentMaterialPatchSchema,
   filamentMaterialSchema,
   filamentMaterialSortFields,
+  type IntegrationAdapter,
   listQuery,
   machineProfileFilters,
-  machineProfileInputSchema,
-  machineProfilePatchSchema,
   machineProfileSchema,
   machineProfileSortFields,
   pageOf,
@@ -28,13 +27,12 @@ import {
   printerModelSchema,
   printerModelSortFields,
   printProfileFilters,
-  printProfileInputSchema,
-  printProfilePatchSchema,
   printProfileSchema,
   printProfileSortFields,
+  profilePatchSchema,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
-import { eq, type SQL, sql } from "drizzle-orm";
+import { eq, getTableColumns, type SQL, sql } from "drizzle-orm";
 import type { SQLiteColumn, SQLiteTable } from "drizzle-orm/sqlite-core";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
@@ -45,13 +43,14 @@ import {
   brandOf,
   brandSlicers,
   hasSlicer,
-  libraryOf,
+  importedSource,
   modelBrandId,
   modelBrandName,
   modelName,
   modelSlicers,
+  presetSource,
 } from "../lib/catalog.ts";
-import { deleteItem, type ItemKind } from "../lib/dependents.ts";
+import { deleteItem, type ItemKind, presetUsed } from "../lib/dependents.ts";
 import { imageRoutes } from "../lib/images.ts";
 import { type ListOptions, listPage } from "../lib/list.ts";
 
@@ -74,12 +73,18 @@ interface Entity {
   table: SQLiteTable & { id: SQLiteColumn };
   noun: string;
   row: z.ZodType;
-  input: z.ZodType;
+  /** None: rows only come from files (profiles, ADR-0020). */
+  input?: z.ZodType;
   patch: z.ZodType;
   query: z.ZodType;
   list: ListOptions;
   /** A filter no single column answers, built from the query. */
   where?: (q: { slicer?: string[] }) => SQL | undefined;
+  /** `catalogSource`, and a profile's `profileUse`. */
+  source: SQL;
+  use?: SQL;
+  /** What the next import finds the row by: fixed once a file brought it (ADR-0020). */
+  locked?: string[];
   /** Keeps old versions of a preset, so an old one can't be restored beside the current one. */
   preset?: boolean;
   image?: { name: string; dir: string; column: string };
@@ -91,12 +96,14 @@ const crud =
   async (app) => {
     // Loosely typed on purpose: one implementation for three tables; zod guards both ends.
     const table = o.table as typeof brands;
+    const computed = { source: o.source, ...(o.use && { use: o.use }) };
+    const select = { ...getTableColumns(table), ...computed };
     const get = (id: string) => {
-      const row = db.select().from(table).where(eq(table.id, id)).get();
+      const row = db.select(select).from(table).where(eq(table.id, id)).get();
       if (!row) throw new HttpError(404, "not_found", `${o.noun} not found`);
       return row as Record<string, unknown>;
     };
-    const write = (run: () => unknown) => {
+    const write = <T>(run: () => T) => {
       try {
         return run();
       } catch (e) {
@@ -111,6 +118,9 @@ const crud =
       };
       return listPage(db, table, q, {
         ...o.list,
+        select,
+        sort: { ...o.list.sort, ...computed },
+        filters: { ...o.list.filters, ...computed },
         where: [...(o.list.where ?? []), o.where?.(q), archivedWhere(table.archivedAt, q.archived)],
       });
     });
@@ -119,37 +129,46 @@ const crud =
       return get(req.params.id);
     });
 
-    app.post(
-      "/",
-      { schema: { body: o.input, response: { 201: o.row, ...errors } } },
-      (req, reply) =>
-        reply.status(201).send(
-          write(() =>
+    if (o.input)
+      app.post(
+        "/",
+        { schema: { body: o.input, response: { 201: o.row, ...errors } } },
+        (req, reply) => {
+          const { id } = write(() =>
             db
               .insert(table)
               .values(req.body as never)
               .returning()
               .get(),
-          ),
-        ),
-    );
+          );
+          return reply.status(201).send(get(id));
+        },
+      );
 
     app.patch(
       "/:id",
       { schema: { params, body: o.patch, response: { 200: o.row, ...errors } } },
       async (req) => {
         const cur = get(req.params.id);
-        const { archived, ...fields } = req.body as { archived?: boolean };
+        const { archived, ...fields } = req.body as { archived?: boolean } & Record<
+          string,
+          unknown
+        >;
         if (o.preset && archived === false)
           assertPresetFree(db, o.table as typeof machineProfiles, cur as never);
-        return write(() =>
+        if (
+          cur.source !== "hand" &&
+          o.locked?.some((k) => k in fields && String(fields[k]) !== String(cur[k]))
+        )
+          throw new HttpError(409, "name_locked", "The next import finds this row by its name");
+        write(() =>
           db
             .update(table)
             .set({ ...fields, archivedAt: archivedAtOf(archived) } as never)
             .where(eq(table.id, req.params.id))
-            .returning()
-            .get(),
+            .run(),
         );
+        return get(req.params.id);
       },
     );
 
@@ -170,17 +189,17 @@ const crud =
         dir: image.dir,
         response: o.row,
         get: (id) => get(id)[image.column] as string | null,
-        set: (id, path) =>
-          db
-            .update(table)
+        set: (id, path) => {
+          db.update(table)
             .set({ [image.column]: path })
             .where(eq(table.id, id))
-            .returning()
-            .get(),
+            .run();
+          return get(id);
+        },
       });
   };
 
-export const brandsRoutes = (db: Db, dataDir: string) =>
+export const brandsRoutes = (db: Db, dataDir: string, adapters: IntegrationAdapter[] = []) =>
   crud(db, dataDir, {
     kind: "brands",
     table: brands,
@@ -189,6 +208,8 @@ export const brandsRoutes = (db: Db, dataDir: string) =>
     input: brandInputSchema,
     patch: brandPatchSchema,
     query: listQuery(brandSortFields, { archived: archivedFilter }, brandFilters),
+    source: importedSource("brands", brands.id, adapters),
+    locked: ["name"],
     where: hasSlicer(brandSlicers),
     list: {
       sort: {
@@ -201,7 +222,7 @@ export const brandsRoutes = (db: Db, dataDir: string) =>
     image: { name: "logo", dir: "brands", column: "logoPath" },
   });
 
-export const printerModelsRoutes = (db: Db, dataDir: string) =>
+export const printerModelsRoutes = (db: Db, dataDir: string, adapters: IntegrationAdapter[] = []) =>
   crud(db, dataDir, {
     kind: "printerModels",
     table: printerModels,
@@ -210,6 +231,8 @@ export const printerModelsRoutes = (db: Db, dataDir: string) =>
     input: printerModelInputSchema,
     patch: printerModelPatchSchema,
     query: listQuery(printerModelSortFields, { archived: archivedFilter }, printerModelFilters),
+    source: importedSource("printerModels", printerModels.id, adapters),
+    locked: ["brandId", "model"],
     where: hasSlicer(modelSlicers),
     list: {
       sort: {
@@ -234,16 +257,16 @@ export const machineProfilesRoutes = (db: Db, dataDir: string) =>
     table: machineProfiles,
     noun: "Machine profile",
     row: machineProfileSchema,
-    input: machineProfileInputSchema,
-    patch: machineProfilePatchSchema,
+    patch: profilePatchSchema,
     query: listQuery(machineProfileSortFields, { archived: archivedFilter }, machineProfileFilters),
+    source: presetSource(machineProfiles.sourcePreset),
+    use: presetUsed("machineProfiles"),
     preset: true,
     list: {
       sort: {
         name: sql`${machineProfiles.name} COLLATE NOCASE`,
         model: modelName(machineProfiles.printerModelId),
         brand: modelBrandName(machineProfiles.printerModelId),
-        slicer: libraryOf(machineProfiles.sourcePreset),
         createdAt: machineProfiles.createdAt,
         nozzleDiameterMm: machineProfiles.nozzleDiameterMm,
       },
@@ -252,7 +275,6 @@ export const machineProfilesRoutes = (db: Db, dataDir: string) =>
         printerModelId: machineProfiles.printerModelId,
         brandId: modelBrandId(machineProfiles.printerModelId),
         nozzleDiameterMm: machineProfiles.nozzleDiameterMm,
-        slicer: libraryOf(machineProfiles.sourcePreset),
       },
     },
   });
@@ -263,16 +285,16 @@ export const printProfilesRoutes = (db: Db, dataDir: string) =>
     table: printProfiles,
     noun: "Print profile",
     row: printProfileSchema,
-    input: printProfileInputSchema,
-    patch: printProfilePatchSchema,
+    patch: profilePatchSchema,
     query: listQuery(printProfileSortFields, { archived: archivedFilter }, printProfileFilters),
+    source: presetSource(printProfiles.sourcePreset),
+    use: presetUsed("printProfiles"),
     preset: true,
     list: {
       sort: {
         name: sql`${printProfiles.name} COLLATE NOCASE`,
         model: modelName(printProfiles.printerModelId),
         brand: modelBrandName(printProfiles.printerModelId),
-        slicer: libraryOf(printProfiles.sourcePreset),
         createdAt: printProfiles.createdAt,
         nozzleDiameterMm: printProfiles.nozzleDiameterMm,
         layerHeightMm: printProfiles.layerHeightMm,
@@ -283,12 +305,15 @@ export const printProfilesRoutes = (db: Db, dataDir: string) =>
         brandId: modelBrandId(printProfiles.printerModelId),
         nozzleDiameterMm: printProfiles.nozzleDiameterMm,
         layerHeightMm: printProfiles.layerHeightMm,
-        slicer: libraryOf(printProfiles.sourcePreset),
       },
     },
   });
 
-export const filamentBrandsRoutes = (db: Db, dataDir: string) =>
+export const filamentBrandsRoutes = (
+  db: Db,
+  dataDir: string,
+  adapters: IntegrationAdapter[] = [],
+) =>
   crud(db, dataDir, {
     kind: "filamentBrands",
     table: filamentBrands,
@@ -297,6 +322,8 @@ export const filamentBrandsRoutes = (db: Db, dataDir: string) =>
     input: filamentBrandInputSchema,
     patch: filamentBrandPatchSchema,
     query: listQuery(filamentBrandSortFields, { archived: archivedFilter }, filamentCatalogFilters),
+    source: importedSource("filamentBrands", filamentBrands.id, adapters),
+    locked: ["name"],
     list: {
       sort: {
         name: sql`${filamentBrands.name} COLLATE NOCASE`,
@@ -307,7 +334,11 @@ export const filamentBrandsRoutes = (db: Db, dataDir: string) =>
     image: { name: "logo", dir: "filament-brands", column: "logoPath" },
   });
 
-export const filamentMaterialsRoutes = (db: Db, dataDir: string) =>
+export const filamentMaterialsRoutes = (
+  db: Db,
+  dataDir: string,
+  adapters: IntegrationAdapter[] = [],
+) =>
   crud(db, dataDir, {
     kind: "filamentMaterials",
     table: filamentMaterials,
@@ -320,6 +351,8 @@ export const filamentMaterialsRoutes = (db: Db, dataDir: string) =>
       { archived: archivedFilter },
       filamentCatalogFilters,
     ),
+    source: importedSource("filamentMaterials", filamentMaterials.id, adapters),
+    locked: ["name"],
     list: {
       sort: {
         name: sql`${filamentMaterials.name} COLLATE NOCASE`,

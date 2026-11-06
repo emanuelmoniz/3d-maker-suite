@@ -1,11 +1,12 @@
-import { Link, useNavigate, useParams } from "@tanstack/react-router";
+import { useNavigate, useParams } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import { ArchiveActions, ArchivedBadge } from "../../components/ArchiveActions.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { Write } from "../../components/Write.tsx";
 import { filamentLabel, useProfile } from "../../lib/filament.ts";
 import { formatNumber } from "../../lib/format.ts";
-import { Info, linkButton } from "./SpoolDetailPage.tsx";
+import { SourceBadge } from "../catalog/sources.tsx";
+import { Info } from "./SpoolDetailPage.tsx";
 
 export function ProfileDetailPage() {
   const { t } = useTranslation();
@@ -23,23 +24,19 @@ export function ProfileDetailPage() {
 
   const none = t("filament:detail.none");
   const archived = profile.archivedAt !== null;
-  const library = profile.sourcePreset?.split(":")[0];
 
   return (
     <>
       <PageHeader
         title={filamentLabel(profile)}
-        backTo={{ to: "/filament/settings" }}
+        backTo={{ to: "/catalog/filament" }}
         actions={
           <Write can="catalog" level="manage">
-            <Link to="/filament/profiles/$id/edit" params={{ id }} className={linkButton}>
-              {t("filament:detail.edit")}
-            </Link>
             <ArchiveActions
               path={`/api/filament/profiles/${id}`}
               name={filamentLabel(profile)}
               archived={archived}
-              onDeleted={() => navigate({ to: "/filament/settings" })}
+              onDeleted={() => navigate({ to: "/catalog/filament" })}
             />
           </Write>
         }
@@ -57,14 +54,9 @@ export function ProfileDetailPage() {
           <Info label={t("filament:profiles.density")}>{formatNumber(profile.densityGcm3)}</Info>
           <Info label={t("filament:profiles.nozzleTemp")}>{profile.nozzleTempC ?? none}</Info>
           <Info label={t("filament:profiles.bedTemp")}>{profile.bedTempC ?? none}</Info>
-          {/* Hand-made profiles have no preset, so only preset imports show a source. */}
-          {library && (
-            <Info label={t("filament:detail.source")}>
-              {t("filament:detail.imported", {
-                source: t(`filament:library.sources.${library}`),
-              })}
-            </Info>
-          )}
+          <Info label={t("filament:detail.source")}>
+            <SourceBadge source={profile.source} profile />
+          </Info>
         </dl>
       </section>
     </>

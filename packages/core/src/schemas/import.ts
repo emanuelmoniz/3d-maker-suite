@@ -2,7 +2,11 @@ import { z } from "zod";
 import { id } from "./entities.ts";
 import { MAINTENANCE_TARGETS, PRINT_OUTCOMES, SPOOL_STATUSES, USER_PRESET_TYPES } from "./enums.ts";
 import { inUseDetailsSchema } from "./list.ts";
-import { SLICER_ZIP_TYPES } from "./slicerCatalog.ts";
+import {
+  SLICER_CATALOG_ROW_TYPES,
+  SLICER_PRESET_TYPES,
+  SLICER_ZIP_TYPES,
+} from "./slicerCatalog.ts";
 
 // File imports (XLSX / CSV). The columns of an entity are declared once here and drive the
 // template, the parser, validation and the review table.
@@ -19,10 +23,13 @@ export const IMPORT_ENTITIES = [
   "maintenanceTypes",
   "maintenance",
   "orderProjects",
-  ...SLICER_ZIP_TYPES,
+  ...SLICER_CATALOG_ROW_TYPES,
 ] as const;
-/** Everything the review screen takes: every file entity; an integration or a zip offers some. */
-export const REVIEW_ENTITIES = IMPORT_ENTITIES;
+/**
+ * Everything the review screen takes: every file entity, and the profiles, which only an
+ * integration or a zip offers (ADR-0020: a slicer's files are their only source).
+ */
+export const REVIEW_ENTITIES = [...IMPORT_ENTITIES, ...SLICER_PRESET_TYPES] as const;
 /** What an integration can offer for review; a run on its own takes only what needs no decision. */
 export const REVIEWED_TYPES = [
   "printers",
@@ -676,13 +683,11 @@ export const importPreviewRowSchema = z.object({
 export const importGoneSchema = z.object({
   id,
   label: z.string(),
-  /** You changed it since the import (a typed price): Delete archives it. */
-  edited: z.boolean(),
   /** What uses it, by ADR-0019's stricter rule; empty = free to delete. */
   dependents: inUseDetailsSchema.shape.dependents,
 });
 /** What Delete did to a gone row. */
-export const importGoneResultSchema = z.object({ result: z.enum(["deleted", "archived"]) });
+export const importGoneResultSchema = z.object({ result: z.literal("deleted") });
 
 export const importPreviewSchema = z.object({
   uploadId: z.uuid(),

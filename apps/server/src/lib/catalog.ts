@@ -18,6 +18,34 @@ export const printerModelLabel = sql<string>`${brandModel(brandOf, printerModels
 export const libraryOf = (preset: SQLWrapper) =>
   sql`substr(${preset}, 1, instr(${preset} || ':', ':') - 1)`;
 
+/** A profile's `catalogSource`: "hand", else `<library>:system` / `<library>:user`. */
+export const presetSource = (preset: SQLWrapper) =>
+  sql<string>`CASE WHEN ${preset} IS NULL THEN 'hand' WHEN instr(${preset}, '/') > 0
+    THEN substr(${preset}, 1, instr(${preset}, '/') - 1) ELSE ${preset} END`;
+
+/**
+ * The `catalogSource` of one of the four catalog types (ADR-0020): "hand", else what imported it,
+ * a slicer by its library (any install of Bambu Studio is `bambu-studio`) or an account's adapter.
+ */
+export const importedSource = (
+  entity: string,
+  id: SQLWrapper,
+  adapters: readonly { id: string; library?: { id: string } }[],
+) => {
+  const { importSnapshots: s, integrations: i } = schema;
+  const libraries = adapters.filter((a) => a.library && a.library.id !== a.id);
+  const product = libraries.length
+    ? sql`CASE ${i.adapterId} ${sql.join(
+        libraries.map((a) => sql`WHEN ${a.id} THEN ${a.library?.id}`),
+        sql` `,
+      )} ELSE ${i.adapterId} END`
+    : sql`${i.adapterId}`;
+  // ponytail: the first importer only; list them all once a row can come from two products.
+  // `eq` names each column's table, so `id` is the outer row's, not the integration's.
+  return sql<string>`coalesce((SELECT ${product} FROM ${s} JOIN ${i} ON ${eq(i.id, s.integrationId)}
+    WHERE ${and(eq(s.entity, entity), eq(s.rowId, id))} ORDER BY ${i.createdAt} LIMIT 1), 'hand')`;
+};
+
 /** The brand id of the printer model `modelId` points at (for filters on other tables). */
 export const modelBrandId = (modelId: SQLWrapper) =>
   sql`(SELECT ${printerModels.brandId} FROM ${printerModels} WHERE ${printerModels.id} = ${modelId})`;

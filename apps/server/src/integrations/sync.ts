@@ -20,11 +20,13 @@ import {
   librarySpoolSchema,
   type MergePolicy,
   matchPrint,
+  mergeOf,
   REVIEWED_TYPES,
   type ReviewedType,
   SLICER_PRESET_TYPES,
   type SyncFrequency,
   type SyncLogEntry,
+  type SyncMerge,
   type SyncPolicy,
   type SyncRequest,
   type SyncResult,
@@ -101,6 +103,11 @@ export type Pick = {
 };
 
 const REVIEWED = new Set<string>(REVIEWED_TYPES);
+/** How a run with nobody watching writes: `review` writes like `overwrite`, as its changes wait. */
+const runPolicy = (type: string, merge: SyncMerge) => {
+  const m = mergeOf(type, merge);
+  return m === "keepEdits" || m === "fill" ? m : "overwrite";
+};
 // ponytail: re-fetch a 7-day window so prints that finished after the last run aren't missed;
 // insert-only dedupe makes the overlap free. Widen if a vendor reports later than that.
 const OVERLAP_MS = 7 * 24 * 3600 * 1000;
@@ -298,8 +305,7 @@ export function createSyncer(
         const done = review.write(
           stored,
           pick?.decisions ?? autoDecisions(review.preview(stored).rows),
-          pick?.policy ??
-            (policyOf(db, id, type).merge === "keepEdits" ? "keepEdits" : "overwrite"),
+          pick?.policy ?? runPolicy(type, policyOf(db, id, type).merge),
           pick?.backup ?? null,
         );
         ({ created, updated, pending } = done);
@@ -775,9 +781,7 @@ export function createSyncer(
       });
     const t = schema[stored.entity] as typeof schema.machineProfiles;
     const source = db.select({ s: t.sourcePreset }).from(t).where(eq(t.id, rowId)).get()?.s;
-    if (gone.edited)
-      db.update(t).set({ archivedAt: new Date().toISOString() }).where(eq(t.id, rowId)).run();
-    else deleteItem(db, stored.entity, rowId, { user, dataDir });
+    deleteItem(db, stored.entity, rowId, { user, dataDir });
     if (source) {
       releaseRoute(db, stored.entity, source);
       // An account's preset: its copy for slicing goes with the row, held or not.
@@ -797,7 +801,7 @@ export function createSyncer(
       })
       .where(and(eq(syncPolicies.integrationId, id), eq(syncPolicies.type, type)))
       .run();
-    return { result: gone.edited ? ("archived" as const) : ("deleted" as const) };
+    return { result: "deleted" as const };
   }
 
   /** The printers of one integration's account, read live; invalid ones are logged and left out. */

@@ -1635,3 +1635,57 @@ describe("upgrading from 5.1.0", () => {
     expect(now.$client.pragma("foreign_key_check")).toEqual([]);
   });
 });
+
+describe("migration 0106", () => {
+  it("archives hand-made profiles; their printers and plates slice from the file", () => {
+    const now = migrateAcross(105, (sqlite) => {
+      sqlite.exec(`
+        insert into brands (id, name, created_at, updated_at) values ('b', 'Acme', 'x', 'x');
+        insert into printer_models (id, brand_id, model, created_at, updated_at) values ('m', 'b', 'X1', 'x', 'x');
+        insert into print_profiles (id, name, source_preset, created_at, updated_at) values
+          ('hand', 'Mine', null, 'x', 'x'), ('file', 'Fine', 'bambu-studio:system/Fine', 'x', 'x');
+        insert into machine_profiles (id, name, printer_model_id, nozzle_diameter_mm, created_at, updated_at)
+          values ('mHand', 'M', 'm', 0.4, 'x', 'x');
+        insert into filament_materials (id, name, created_at, updated_at) values ('pla', 'PLA', 'x', 'x');
+        insert into filament_profiles (id, material_id, name, density_gcm3, source_preset, created_at, updated_at) values
+          ('fHand', 'pla', 'Cheap', 1.24, null, 'x', 'x'), ('fFile', 'pla', 'Basic', 1.24, 'bambu-studio:system/Basic', 'x', 'x');
+        insert into printers (id, number, name, model_id, state, print_profile_id, created_at, updated_at)
+          values ('p1', 1, 'A', 'm', 'working', 'hand', 'x', 'x'), ('p2', 2, 'B', 'm', 'working', 'file', 'x', 'x');
+        insert into projects (id, name, created_at, updated_at) values ('pr', 'Vase', 'x', 'x');
+        insert into project_slice_plates (id, project_id, file, plate, file_size, file_mtime_ms, file_sha256, print_profile_id, filaments, sliced_at, created_at, updated_at)
+          values ('pl', 'pr', 'a.3mf', 1, 1, 1, 'x', 'hand', '["fFile",null,"fHand"]', '2026-01-01', 'x', 'x');
+      `);
+    });
+    const archived = (
+      t: typeof s.printProfiles | typeof s.machineProfiles | typeof s.filamentProfiles,
+    ) =>
+      Object.fromEntries(
+        now
+          .select({ id: t.id, at: t.archivedAt })
+          .from(t)
+          .all()
+          .map((r) => [r.id, r.at !== null]),
+      );
+    expect(archived(s.printProfiles)).toEqual({ hand: true, file: false });
+    expect(archived(s.machineProfiles)).toEqual({ mHand: true });
+    expect(archived(s.filamentProfiles)).toEqual({ fHand: true, fFile: false });
+    expect(
+      now.select({ id: s.printers.id, p: s.printers.printProfileId }).from(s.printers).all(),
+    ).toEqual([
+      { id: "p1", p: null },
+      { id: "p2", p: "file" },
+    ]);
+    // The slice stays: a hand-made profile never sliced.
+    expect(
+      now
+        .select({
+          p: s.projectSlicePlates.printProfileId,
+          f: s.projectSlicePlates.filaments,
+          at: s.projectSlicePlates.slicedAt,
+        })
+        .from(s.projectSlicePlates)
+        .all(),
+    ).toEqual([{ p: null, f: ["fFile", null, null], at: "2026-01-01" }]);
+    expect(now.$client.pragma("foreign_key_check")).toEqual([]);
+  });
+});

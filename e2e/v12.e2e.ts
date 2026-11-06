@@ -2,7 +2,6 @@ import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSy
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { DatabaseSync } from "node:sqlite";
 import type { Page } from "@playwright/test";
 import { expect, test } from "./fixtures.ts";
 import {
@@ -10,6 +9,7 @@ import {
   filamentOf,
   gotoIntegrations,
   hasHorizontalScroll,
+  insertProfile,
   openSections,
   pick,
   roots,
@@ -37,7 +37,8 @@ const makeTree = (name: string, folders: string[], files: string[] = []) => {
 };
 
 test("every module page has a gear that opens its config page and links back", async ({ page }) => {
-  for (const module of ["Quotes", "Prints", "Projects", "Alerts", "Printers", "Filament"]) {
+  // Filament has none: its settings were only catalog tables, now in Catalog (ADR-0020).
+  for (const module of ["Quotes", "Prints", "Projects", "Alerts", "Printers"]) {
     await page.goto(`/${module.toLowerCase()}`);
     await page.getByRole("link", { name: `${module} settings` }).click();
     await expect(page).toHaveURL(new RegExp(`/${module.toLowerCase()}/settings$`));
@@ -53,41 +54,56 @@ test("the gear is reachable and activated from the keyboard", async ({ page }) =
   await expect(page).toHaveURL(/\/quotes\/settings$/);
 });
 
-test("config pages: printers and filament hold the catalogs, the module pages don't", async ({
-  page,
-}) => {
+test("Catalog holds the tables; Printers settings keeps the default printer", async ({ page }) => {
   await page.goto("/printers");
   await expect(page.getByRole("heading", { name: "Brands", level: 2 })).toHaveCount(0);
-  await page.goto("/printers/settings");
-  for (const h of ["Brands", "Printer models", "Machine profiles"])
+  await page.goto("/catalog");
+  await expect(page).toHaveURL(/\/catalog\/printers$/);
+  for (const h of ["Brands", "Printer models", "Machine profiles", "Print profiles"])
     await expect(page.getByRole("heading", { name: h, level: 2 })).toBeVisible();
-  await page.goto("/filament/settings");
+  await page
+    .getByRole("navigation", { name: "Catalog sections" })
+    .getByRole("link", { name: "Filament" })
+    .click();
   for (const h of ["Profiles", "Filament brands", "Filament materials"])
     await expect(page.getByRole("heading", { name: h, level: 2 })).toBeVisible();
+  await page.goto("/printers/settings");
+  await expect(page.getByLabel("Default printer")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Brands", level: 2 })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Catalog", exact: true }).last()).toBeVisible();
 });
 
-test("printer settings tables show each row's slicer", async ({ page, app }) => {
+test("printer catalog tables show each row's slicer and source", async ({ page, app }) => {
   const model = await seedModel(app.api);
-  await app.api("POST", "/api/machine-profiles", {
+  insertProfile(app, "machine_profiles", {
     name: "Acme X1 0.4 nozzle",
     printerModelId: model.id,
     nozzleDiameterMm: 0.4,
     sourcePreset: "bambu-studio:system/Acme X1 0.4 nozzle",
   });
-  await app.api("POST", "/api/print-profiles", { name: "Mine", printerModelId: model.id });
-  await page.goto("/printers/settings");
-  for (const table of ["Brands", "Printer models", "Machine profiles", "Print profiles"]) {
+  insertProfile(app, "print_profiles", {
+    name: "Mine",
+    printerModelId: model.id,
+    sourcePreset: null,
+    archivedAt: "2026-01-01T00:00:00.000Z",
+  });
+  await page.goto("/catalog/printers");
+  for (const table of ["Brands", "Printer models"]) {
     const t = page.getByRole("table", { name: table });
     await expect(t.getByRole("columnheader", { name: "Slicer" })).toBeVisible();
+    // Brand and model: their profiles' slicers; they were made by hand.
+    await expect(t.getByRole("cell", { name: "Bambu Studio", exact: true })).toBeVisible();
+    await expect(t.getByRole("cell", { name: "By hand" })).toBeVisible();
   }
-  // Brand and model: their profiles' slicers. A hand-made profile has none.
-  for (const table of ["Brands", "Printer models", "Machine profiles"])
-    await expect(
-      page.getByRole("table", { name: table }).getByRole("cell", { name: "Bambu Studio" }),
-    ).toBeVisible();
+  const machines = page.getByRole("table", { name: "Machine profiles" });
+  await expect(machines.getByRole("columnheader", { name: "Source" })).toBeVisible();
+  await expect(machines.getByRole("cell", { name: "Bambu Studio (system)" })).toBeVisible();
+  await expect(machines.getByRole("cell", { name: "Unused" })).toBeVisible();
+  // A hand-made profile from before 5.4 is archived as an older one.
+  await page.goto("/catalog/printers?print-profiles.archived=true");
   await expect(
     page.getByRole("table", { name: "Print profiles" }).getByRole("row", { name: /Mine/ }),
-  ).not.toContainText("Bambu Studio");
+  ).toContainText("By hand (older)");
 });
 
 test("path picker: project roots are filled by browsing, keyboard included", async ({
@@ -253,7 +269,7 @@ test("spools: automatic numbers, taken numbers are refused, color name shows in 
   page,
   app,
 }) => {
-  const profile = await seedProfile(app.api);
+  const profile = await seedProfile(app);
   const make = (extra: object = {}) =>
     app.api<{ id: string; number: number }>("POST", "/api/filament/spools", {
       ...filamentOf(profile),
@@ -298,7 +314,7 @@ test("estimated duration: button fills it, list shows ~, a real value clears it"
   app,
 }) => {
   await seedPrinter(app.api);
-  const profile = await seedProfile(app.api);
+  const profile = await seedProfile(app);
   const spool = await app.api<{ id: string }>("POST", "/api/filament/spools", {
     ...filamentOf(profile),
     colorHex: "#00aa00",
@@ -377,7 +393,7 @@ test.describe("v1.2 pages fit every viewport", () => {
   for (const width of [375, 768, 1440]) {
     test(`no horizontal scroll and a reachable gear at ${width}px`, async ({ page, app }) => {
       await seedPrinter(app.api);
-      await seedProfile(app.api);
+      await seedProfile(app);
       await app.api("POST", "/api/integrations", { adapterId: "orca-slicer" });
       await page.setViewportSize({ width, height: 900 });
       const bad: string[] = [];
@@ -387,7 +403,8 @@ test.describe("v1.2 pages fit every viewport", () => {
         "/projects/settings",
         "/alerts/settings",
         "/printers/settings",
-        "/filament/settings",
+        "/catalog/printers",
+        "/catalog/filament",
         "/projects",
         "/prints/new",
         "/filament/spools/new",
@@ -412,35 +429,19 @@ test.describe("v1.2 pages fit every viewport", () => {
   }
 });
 
-test("filament settings tables show each row's slicer", async ({ page, app }) => {
-  const imported = await seedProfile(app.api); // Acme / PLA
-  const brand = await app.api<{ id: string }>("POST", "/api/filament-brands", { name: "Handmade" });
-  const material = await app.api<{ id: string }>("POST", "/api/filament-materials", {
-    name: "PETG",
-  });
-  await app.api("POST", "/api/filament/profiles", {
-    brandId: brand.id,
-    materialId: material.id,
-    densityGcm3: 1.27,
-    name: "Mine",
-  });
-  // The API can't set a preset (only the slicer import does): mark the first one as imported.
-  const db = new DatabaseSync(join(app.dataDir, "app.sqlite"));
-  db.prepare("UPDATE filament_profiles SET source_preset = ? WHERE id = ?").run(
-    "bambu-studio:system/Basic",
-    imported.id,
-  );
-  db.close();
+test("filament catalog tables show each row's slicer and source", async ({ page, app }) => {
+  await seedProfile(app); // Acme / PLA, from Bambu Studio
+  await app.api("POST", "/api/filament-brands", { name: "Handmade" });
+  await app.api("POST", "/api/filament-materials", { name: "PETG" });
   await page.goto("/filament/settings");
-  // No import buttons any more, only "Add ...".
-  await expect(page.getByRole("main").getByRole("link", { name: /^Import / })).toHaveCount(0);
-  for (const table of ["Filament profiles", "Filament brands", "Filament materials"])
-    await expect(
-      page.getByRole("table", { name: table }).getByRole("columnheader", { name: "Slicer" }),
-    ).toBeVisible();
-  // Profile, brand and material of the imported one show its slicer; the hand-made ones none.
+  await expect(page).toHaveURL(/\/catalog\/filament$/);
+  // Profiles come from a slicer only: nothing adds one.
+  await expect(page.getByRole("main").getByRole("link", { name: /^Add profile/ })).toHaveCount(0);
+  await expect(
+    page.getByRole("table", { name: "Filament profiles" }).getByRole("row", { name: /Basic/ }),
+  ).toContainText("Bambu Studio (system)");
+  // Brand and material of the imported profile show its slicer; the hand-made ones none.
   for (const [table, name] of [
-    ["Filament profiles", /Basic/],
     ["Filament brands", /Acme/],
     ["Filament materials", /PLA/],
   ] as const)
@@ -448,11 +449,11 @@ test("filament settings tables show each row's slicer", async ({ page, app }) =>
       "Bambu Studio",
     );
   for (const [table, name] of [
-    ["Filament profiles", /Mine/],
     ["Filament brands", /Handmade/],
     ["Filament materials", /PETG/],
-  ] as const)
-    await expect(
-      page.getByRole("table", { name: table }).getByRole("row", { name }),
-    ).not.toContainText("Bambu Studio");
+  ] as const) {
+    const row = page.getByRole("table", { name: table }).getByRole("row", { name });
+    await expect(row).not.toContainText("Bambu Studio");
+    await expect(row).toContainText("By hand");
+  }
 });

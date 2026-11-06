@@ -23,8 +23,23 @@ import {
   useModelInfo,
   useSaveCatalog,
 } from "../../lib/catalog.ts";
+import { sourceLabel } from "../catalog/sources.tsx";
 
 const text = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
+
+/**
+ * What brought the row, when a file did: the next import finds it by its name, so that is locked
+ * (ADR-0020). Null for a row made by hand.
+ */
+export const lockedBy = (row?: { source?: string }) =>
+  row?.source && row.source !== "hand" ? row.source : null;
+
+/** The hint under a locked name. */
+export function useLockHint(row?: { source?: string }) {
+  const { t } = useTranslation();
+  const source = lockedBy(row);
+  return source ? t("catalog:nameLocked", { source: sourceLabel(t, source) }) : undefined;
+}
 const orNull = (v: string) => v || null;
 const int = (v: string) => (v ? Math.round(Number(v)) : null);
 
@@ -176,8 +191,8 @@ export function ModelPicker({
  */
 export function CatalogForm<K extends CatalogKind>(props: {
   kind: K;
-  /** Where to go after save / delete / back. */
-  backTo?: "/printers/settings" | "/filament/settings";
+  /** The Catalog tab to go back to after save / delete / back; the row's table is its `kind`. */
+  backTo?: "/catalog/printers" | "/catalog/filament";
   titles: [add: string, edit: string];
   imageLabel?: string;
   toBody: (f: FormData) => object;
@@ -190,8 +205,8 @@ export function CatalogForm<K extends CatalogKind>(props: {
   const save = useSaveCatalog(props.kind, id);
   const image = useCatalogImage(props.kind as keyof typeof IMAGE_OF);
   const [file, setFile] = useState<File | null>(null);
-  const to = props.backTo ?? "/printers/settings";
-  const back = () => navigate({ to });
+  const to = props.backTo ?? "/catalog/printers";
+  const back = () => navigate({ to, hash: props.kind });
   const row = item.data;
   const imagePath =
     row && ("logoPath" in row ? row.logoPath : "imagePath" in row ? row.imagePath : null);
@@ -219,7 +234,7 @@ export function CatalogForm<K extends CatalogKind>(props: {
     <>
       <PageHeader
         title={t(props.titles[id ? 1 : 0])}
-        backTo={{ to }}
+        backTo={{ to: `${to}#${props.kind}` as typeof to }}
         description={row?.archivedAt && <ArchivedBadge />}
         actions={
           row && (
@@ -278,12 +293,22 @@ export function CatalogForm<K extends CatalogKind>(props: {
   );
 }
 
-export function BrandFields({ b }: { b?: { name: string; url: string | null } }) {
+export function BrandFields({ b }: { b?: { name: string; url: string | null; source?: string } }) {
   const { t } = useTranslation();
+  const locked = useLockHint(b);
   return (
     <>
-      <FormField label={t("printers:catalog.brands.name")}>
-        {(p) => <input {...p} name="name" required className={inputClass} defaultValue={b?.name} />}
+      <FormField label={t("printers:catalog.brands.name")} hint={locked}>
+        {(p) => (
+          <input
+            {...p}
+            name="name"
+            required
+            readOnly={!!locked}
+            className={inputClass}
+            defaultValue={b?.name}
+          />
+        )}
       </FormField>
       <FormField label={t("printers:catalog.brands.url")}>
         {(p) => (
@@ -319,21 +344,39 @@ export function BrandFormPage() {
 export function ModelFields({
   m,
 }: {
-  m?: { brandId: string; model: string; powerW: number | null };
+  m?: { brandId: string; model: string; powerW: number | null; source?: string };
 }) {
   const { t } = useTranslation();
   const brands = useBrands().data ?? [];
+  const locked = useLockHint(m);
+  const brandName = useCatalogWithArchived("brands").data?.find((b) => b.id === m?.brandId)?.name;
   return (
     <>
       <FormField
         label={t("printers:catalog.models.brand")}
         hint={brands.length ? undefined : t("printers:catalog.models.noBrands")}
       >
-        {(p) => <BrandPicker {...p} defaultValue={m?.brandId} />}
+        {(p) =>
+          locked ? (
+            <>
+              <input {...p} readOnly className={inputClass} value={brandName ?? ""} />
+              <input type="hidden" name="brandId" value={m?.brandId} />
+            </>
+          ) : (
+            <BrandPicker {...p} defaultValue={m?.brandId} />
+          )
+        }
       </FormField>
-      <FormField label={t("printers:catalog.models.model")}>
+      <FormField label={t("printers:catalog.models.model")} hint={locked}>
         {(p) => (
-          <input {...p} name="model" required className={inputClass} defaultValue={m?.model} />
+          <input
+            {...p}
+            name="model"
+            required
+            readOnly={!!locked}
+            className={inputClass}
+            defaultValue={m?.model}
+          />
         )}
       </FormField>
       <FormField label={t("printers:form.power")} hint={t("printers:catalog.models.powerHint")}>
@@ -368,175 +411,6 @@ export function ModelFormPage() {
       toBody={modelBody}
     >
       {(m) => <ModelFields m={m} />}
-    </CatalogForm>
-  );
-}
-
-export function MachineProfileFields({
-  mp,
-  modelId,
-}: {
-  mp?: CatalogRow<"machine-profiles">;
-  /** Preselected model for a new profile. */
-  modelId?: string;
-}) {
-  const { t } = useTranslation();
-  return (
-    <>
-      <FormField label={t("printers:catalog.profiles.name")}>
-        {(p) => (
-          <input {...p} name="name" required className={inputClass} defaultValue={mp?.name} />
-        )}
-      </FormField>
-      <FormField label={t("printers:catalog.profiles.model")}>
-        {(p) => (
-          <ModelPicker
-            {...p}
-            name="printerModelId"
-            required
-            defaultValue={mp?.printerModelId ?? modelId}
-          />
-        )}
-      </FormField>
-      <FormField label={t("printers:catalog.profiles.nozzle")}>
-        {(p) => (
-          <input
-            {...p}
-            name="nozzle"
-            type="number"
-            required
-            min={0.1}
-            step={0.05}
-            className={inputClass}
-            defaultValue={mp?.nozzleDiameterMm ?? 0.4}
-          />
-        )}
-      </FormField>
-      <FormField
-        label={t("printers:catalog.profiles.source")}
-        hint={t("printers:catalog.profiles.sourceHint")}
-      >
-        {(p) => (
-          <input
-            {...p}
-            name="sourcePreset"
-            className={inputClass}
-            defaultValue={mp?.sourcePreset ?? ""}
-          />
-        )}
-      </FormField>
-    </>
-  );
-}
-
-export const machineProfileBody = (f: FormData) => ({
-  name: text(f, "name"),
-  printerModelId: text(f, "printerModelId"),
-  nozzleDiameterMm: Number(text(f, "nozzle")),
-  sourcePreset: orNull(text(f, "sourcePreset")),
-});
-
-export function MachineProfileFormPage() {
-  return (
-    <CatalogForm
-      kind="machine-profiles"
-      titles={["printers:catalog.profiles.addTitle", "printers:catalog.profiles.editTitle"]}
-      toBody={machineProfileBody}
-    >
-      {(mp) => <MachineProfileFields mp={mp} />}
-    </CatalogForm>
-  );
-}
-
-const optNumber = (v: string) => (v ? Number(v) : null);
-
-export function PrintProfileFields({
-  pp,
-  modelId,
-}: {
-  pp?: CatalogRow<"print-profiles">;
-  /** Preselected model for a new profile. */
-  modelId?: string;
-}) {
-  const { t } = useTranslation();
-  return (
-    <>
-      <FormField label={t("printers:catalog.printProfiles.name")}>
-        {(p) => (
-          <input {...p} name="name" required className={inputClass} defaultValue={pp?.name} />
-        )}
-      </FormField>
-      <FormField label={t("printers:catalog.printProfiles.model")}>
-        {(p) => (
-          <ModelPicker
-            {...p}
-            name="printerModelId"
-            defaultValue={pp ? (pp.printerModelId ?? "") : (modelId ?? "")}
-          />
-        )}
-      </FormField>
-      <FormField label={t("printers:catalog.printProfiles.nozzle")}>
-        {(p) => (
-          <input
-            {...p}
-            name="nozzle"
-            type="number"
-            min={0.1}
-            step={0.05}
-            className={inputClass}
-            defaultValue={pp?.nozzleDiameterMm ?? ""}
-          />
-        )}
-      </FormField>
-      <FormField label={t("printers:catalog.printProfiles.layer")}>
-        {(p) => (
-          <input
-            {...p}
-            name="layer"
-            type="number"
-            min={0.01}
-            step={0.01}
-            className={inputClass}
-            defaultValue={pp?.layerHeightMm ?? ""}
-          />
-        )}
-      </FormField>
-      <FormField
-        label={t("printers:catalog.profiles.source")}
-        hint={t("printers:catalog.profiles.sourceHint")}
-      >
-        {(p) => (
-          <input
-            {...p}
-            name="sourcePreset"
-            className={inputClass}
-            defaultValue={pp?.sourcePreset ?? ""}
-          />
-        )}
-      </FormField>
-    </>
-  );
-}
-
-export const printProfileBody = (f: FormData) => ({
-  name: text(f, "name"),
-  printerModelId: orNull(text(f, "printerModelId")),
-  nozzleDiameterMm: optNumber(text(f, "nozzle")),
-  layerHeightMm: optNumber(text(f, "layer")),
-  sourcePreset: orNull(text(f, "sourcePreset")),
-});
-
-export function PrintProfileFormPage() {
-  return (
-    <CatalogForm
-      kind="print-profiles"
-      titles={[
-        "printers:catalog.printProfiles.addTitle",
-        "printers:catalog.printProfiles.editTitle",
-      ]}
-      toBody={printProfileBody}
-    >
-      {(pp) => <PrintProfileFields pp={pp} />}
     </CatalogForm>
   );
 }

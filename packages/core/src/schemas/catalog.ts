@@ -1,10 +1,5 @@
 import { z } from "zod";
-import {
-  brandSchema,
-  machineProfileSchema,
-  printerModelSchema,
-  printProfileSchema,
-} from "./entities.ts";
+import { brandSchema, printerModelSchema } from "./entities.ts";
 import type { ColumnFilter } from "./list.ts";
 
 /**
@@ -29,7 +24,7 @@ export const spoolFilament = (f: {
   name?: string | null;
 }) => modelLabel(f.brand, modelLabel(f.material, f.name?.trim() || f.material));
 
-// Brand -> printer model -> machine profile. Fields the user edits; `PATCH` takes any subset, plus
+// Brand -> printer model. Fields the user edits; `PATCH` takes any subset, plus
 // `archived` to archive/restore.
 export const brandInputSchema = brandSchema.pick({ name: true, url: true }).partial({ url: true });
 export const brandPatchSchema = brandInputSchema
@@ -45,43 +40,36 @@ export const printerModelPatchSchema = printerModelInputSchema
   .extend({ archived: z.boolean().optional() })
   .strict();
 
-export const machineProfileInputSchema = machineProfileSchema
-  .pick({ name: true, printerModelId: true, nozzleDiameterMm: true, sourcePreset: true })
-  .partial({ nozzleDiameterMm: true, sourcePreset: true });
-export const machineProfilePatchSchema = machineProfileInputSchema
-  .partial()
-  .extend({ archived: z.boolean().optional() })
-  .strict();
+/**
+ * Machine, print and filament profiles are slicer files (ADR-0020): nothing makes or edits one here,
+ * `PATCH` only archives or restores.
+ */
+export const profilePatchSchema = z.object({ archived: z.boolean() }).strict();
 
-export const printProfileInputSchema = printProfileSchema
-  .pick({
-    name: true,
-    printerModelId: true,
-    nozzleDiameterMm: true,
-    layerHeightMm: true,
-    sourcePreset: true,
-  })
-  .partial({
-    printerModelId: true,
-    nozzleDiameterMm: true,
-    layerHeightMm: true,
-    sourcePreset: true,
-  });
-export const printProfilePatchSchema = printProfileInputSchema
-  .partial()
-  .extend({ archived: z.boolean().optional() })
-  .strict();
+/** "hand", or the adapter that imported the row (`catalogSource`). */
+const source = { kind: "select" } as const;
+/** "used" / "unused" (`profileUse`). */
+const use = { kind: "select", options: ["used", "unused"] } as const;
 
-export const brandSortFields = ["name", "slicer", "createdAt"] as const;
+export const brandSortFields = ["name", "slicer", "source", "createdAt"] as const;
 export const brandFilters = {
   name: { kind: "text" },
+  source,
   /** Slicer libraries (`bambu-studio`) of the profiles of the brand's models. */
   slicer: { kind: "select" },
 } as const satisfies Record<string, ColumnFilter>;
 /** `model` sorts and filters on "Brand Model". */
-export const printerModelSortFields = ["model", "brand", "slicer", "createdAt", "powerW"] as const;
+export const printerModelSortFields = [
+  "model",
+  "brand",
+  "slicer",
+  "source",
+  "createdAt",
+  "powerW",
+] as const;
 export const printerModelFilters = {
   model: { kind: "text" },
+  source,
   brandId: { kind: "select" },
   powerW: { kind: "number" },
   /** Slicer libraries (`bambu-studio`) of the model's profiles. */
@@ -91,7 +79,8 @@ export const machineProfileSortFields = [
   "name",
   "model",
   "brand",
-  "slicer",
+  "source",
+  "use",
   "createdAt",
   "nozzleDiameterMm",
 ] as const;
@@ -101,14 +90,16 @@ export const machineProfileFilters = {
   /** The brand of the profile's model. */
   brandId: { kind: "select" },
   nozzleDiameterMm: { kind: "number" },
-  /** The slicer library the preset came from. */
-  slicer: { kind: "select" },
+  /** "hand", or `<library>:system` / `<library>:user`. */
+  source,
+  use,
 } as const satisfies Record<string, ColumnFilter>;
 export const printProfileSortFields = [
   "name",
   "model",
   "brand",
-  "slicer",
+  "source",
+  "use",
   "createdAt",
   "nozzleDiameterMm",
   "layerHeightMm",
@@ -119,14 +110,13 @@ export const printProfileFilters = {
   brandId: { kind: "select" },
   nozzleDiameterMm: { kind: "number" },
   layerHeightMm: { kind: "number" },
-  slicer: { kind: "select" },
+  source,
+  use,
 } as const satisfies Record<string, ColumnFilter>;
 
 export type BrandInput = z.infer<typeof brandInputSchema>;
 export type BrandPatch = z.infer<typeof brandPatchSchema>;
 export type PrinterModelInput = z.infer<typeof printerModelInputSchema>;
 export type PrinterModelPatch = z.infer<typeof printerModelPatchSchema>;
-export type MachineProfileInput = z.infer<typeof machineProfileInputSchema>;
-export type MachineProfilePatch = z.infer<typeof machineProfilePatchSchema>;
-export type PrintProfileInput = z.infer<typeof printProfileInputSchema>;
-export type PrintProfilePatch = z.infer<typeof printProfilePatchSchema>;
+export { source as sourceFilter, use as useFilter };
+export type ProfilePatch = z.infer<typeof profilePatchSchema>;

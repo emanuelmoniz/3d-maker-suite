@@ -536,21 +536,24 @@ function PolicyRow({
                         />
                       )}
                     </FormField>
-                    <FormField
-                      label={t("integrations:policies.merge")}
-                      hint={t(MERGE_HINTS[p.merge])}
-                    >
-                      {(f) => (
-                        <Combobox
-                          {...f}
-                          aria-label={t("integrations:policies.mergeOf", { type: name })}
-                          value={p.merge}
-                          disabled={patch.isPending}
-                          onChange={(v) => set({ merge: v as SyncMerge })}
-                          options={options(MERGES)}
-                        />
-                      )}
-                    </FormField>
+                    {/* A profile follows its file, a catalog row only fills (ADR-0020). */}
+                    {!isCatalogType(type) && (
+                      <FormField
+                        label={t("integrations:policies.merge")}
+                        hint={t(MERGE_HINTS[p.merge])}
+                      >
+                        {(f) => (
+                          <Combobox
+                            {...f}
+                            aria-label={t("integrations:policies.mergeOf", { type: name })}
+                            value={p.merge}
+                            disabled={patch.isPending}
+                            onChange={(v) => set({ merge: v as SyncMerge })}
+                            options={options(MERGES)}
+                          />
+                        )}
+                      </FormField>
+                    )}
                   </>
                 )}
                 {/* Runs without a review (scheduled, "sync now"); a review asks on its own. */}

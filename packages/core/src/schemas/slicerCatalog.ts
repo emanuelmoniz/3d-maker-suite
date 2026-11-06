@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { USER_PRESET_TYPES } from "./enums.ts";
+import { isCatalogType, type SYNC_MERGES, USER_PRESET_TYPES } from "./enums.ts";
 
 // What a slicer ships besides filament: vendors (brands), printer models with a thumbnail, and
 // machine presets. Read from its config folder; the server turns them into the catalog.
@@ -60,6 +60,19 @@ export const SLICER_PRESET_TYPES = [
   "printProfiles",
   "filamentProfiles",
 ] as const;
+/**
+ * How a run writes a change to a row you have. "How to sync" (`merge`) is only for printers and
+ * spools (ADR-0020): a profile follows its file, the four catalog types only fill empty fields.
+ */
+export const mergeOf = (
+  type: string,
+  merge: (typeof SYNC_MERGES)[number],
+): (typeof SYNC_MERGES)[number] | "fill" =>
+  !isCatalogType(type)
+    ? merge
+    : (SLICER_CATALOG_ROW_TYPES as readonly string[]).includes(type)
+      ? "fill"
+      : "overwrite";
 /** The rows a user preset type writes. */
 export const USER_PRESET_ENTITY = {
   userMachineProfiles: "machineProfiles",

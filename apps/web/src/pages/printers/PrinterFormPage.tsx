@@ -7,19 +7,13 @@ import { Combobox } from "../../components/Combobox.tsx";
 import { DateInput } from "../../components/DateInput.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
-import { PickerWithAdd } from "../../components/PickerWithAdd.tsx";
 import { TagPicker } from "../../components/TagPicker.tsx";
 import { isConflict, useCatalogPicker, useModelInfo } from "../../lib/catalog.ts";
 import { dateInputToIso, isoToDateInput } from "../../lib/format.ts";
 import { usePreferences } from "../../lib/preferences.ts";
 import { useCreatePrinter, usePatchPrinter, usePrinter } from "../../lib/printers.ts";
 import { useTagEditor } from "../../lib/tags.ts";
-import {
-  CatalogAddDialog,
-  ModelPicker,
-  PrintProfileFields,
-  printProfileBody,
-} from "./CatalogForms.tsx";
+import { ModelPicker } from "./CatalogForms.tsx";
 import { CostFields, readCostFields } from "./CostFields.tsx";
 import { useStateLabel } from "./StateBadge.tsx";
 
@@ -43,7 +37,6 @@ function PrinterForm({ printer }: { printer?: Printer }) {
   const power = useRef<HTMLInputElement>(null);
   const [modelId, setModelId] = useState(printer?.modelId);
   const [printProfileId, setPrintProfileId] = useState(printer?.printProfileId ?? "");
-  const [addProfile, setAddProfile] = useState(false);
   const printProfiles = useCatalogPicker("print-profiles", printer?.printProfileId);
   const forModel = (p: PrintProfile) => !!modelId && p.printerModelId === modelId;
 
@@ -83,185 +76,154 @@ function PrinterForm({ printer }: { printer?: Printer }) {
   };
 
   return (
-    <>
-      <form onSubmit={onSubmit} className="grid gap-4 sm:max-w-md">
-        <FormField
-          label={t("printers:form.number")}
-          hint={printer ? undefined : t("printers:form.numberHint")}
-        >
-          {(p) => (
-            <input
-              {...p}
-              name="number"
-              type="number"
-              min={1}
-              step={1}
-              className={inputClass}
-              defaultValue={printer?.number}
-            />
-          )}
-        </FormField>
-        <FormField label={t("printers:form.name")}>
-          {(p) => (
-            <input
-              {...p}
-              name="name"
-              required
-              className={inputClass}
-              defaultValue={printer?.name}
-            />
-          )}
-        </FormField>
-        <FormField label={t("printers:form.model")}>
-          {(p) => (
-            <ModelPicker
-              {...p}
-              name="modelId"
-              required
-              defaultValue={printer?.modelId}
-              onChange={(v, added) => pickModel(v, added?.powerW)}
-            />
-          )}
-        </FormField>
-        <FormField
-          label={t("printers:form.printProfile")}
-          hint={t("printers:form.printProfileHint")}
-        >
-          {(p) => (
-            <PickerWithAdd
-              label={t("printers:catalog.printProfiles.add")}
-              onAdd={() => setAddProfile(true)}
-            >
-              <Combobox
-                // Remount once the options arrive: an uncontrolled picker only applies defaultValue on mount.
-                key={printProfiles.length}
-                {...p}
-                name="printProfileId"
-                defaultValue={printProfileId}
-                onChange={setPrintProfileId}
-                options={[
-                  { value: "", label: t("printers:form.printProfileNone") },
-                  ...[
-                    ...printProfiles.filter(forModel),
-                    ...printProfiles.filter((x) => !forModel(x)),
-                  ].map((x) => ({
-                    value: x.id,
-                    label: x.name,
-                    group: forModel(x)
-                      ? t("printers:form.printProfileForModel")
-                      : t("printers:form.printProfileOther"),
-                  })),
-                ]}
-              />
-            </PickerWithAdd>
-          )}
-        </FormField>
-        <FormField label={t("printers:form.serial")}>
-          {(p) => (
-            <input
-              {...p}
-              name="serial"
-              className={inputClass}
-              defaultValue={printer?.serial ?? ""}
-            />
-          )}
-        </FormField>
-        <FormField label={t("printers:form.state")}>
-          {(p) => (
-            <Combobox
-              {...p}
-              name="state"
-              defaultValue={printer?.state ?? states[0]}
-              // a state since removed from Settings stays selectable on printers that have it
-              options={[...new Set([...states, ...(printer ? [printer.state] : [])])].map((s) => ({
-                value: s,
-                label: stateLabel(s),
-              }))}
-            />
-          )}
-        </FormField>
-        <FormField label={t("printers:form.power")} hint={t("printers:form.powerHint")}>
-          {(p) => (
-            <input
-              {...p}
-              ref={power}
-              name="powerW"
-              type="number"
-              min={0}
-              step={1}
-              className={inputClass}
-              defaultValue={printer?.powerW ?? ""}
-            />
-          )}
-        </FormField>
-        <FormField label={t("printers:form.purchasedAt")}>
-          {(p) => (
-            <DateInput
-              {...p}
-              name="purchasedAt"
-              className={inputClass}
-              defaultValue={isoToDateInput(printer?.purchasedAt ?? null)}
-            />
-          )}
-        </FormField>
-        <FormField label={`${t("printers:form.purchasePrice")} (${prefs?.currency ?? ""})`}>
-          {(p) => (
-            <input
-              {...p}
-              name="purchasePrice"
-              type="number"
-              min={0}
-              step={0.01}
-              className={inputClass}
-              defaultValue={printer?.purchasePrice == null ? "" : printer.purchasePrice / 100}
-            />
-          )}
-        </FormField>
-        <CostFields values={printer} kind="printer" />
-        <FormField label={t("printers:form.warrantyEndsAt")}>
-          {(p) => (
-            <DateInput
-              {...p}
-              name="warrantyEndsAt"
-              className={inputClass}
-              defaultValue={isoToDateInput(printer?.warrantyEndsAt ?? null)}
-            />
-          )}
-        </FormField>
-        <FormField label={t("printers:form.warrantyNotes")}>
-          {(p) => (
-            <textarea
-              {...p}
-              name="warrantyNotes"
-              className={`${inputClass} h-20 py-2`}
-              defaultValue={printer?.warrantyNotes ?? ""}
-            />
-          )}
-        </FormField>
-        <TagPicker value={tags.value} onChange={tags.onChange} />
-        {save.isError && (
-          <p role="alert" className="text-bad">
-            {t(isConflict(save.error) ? "printers:form.numberTaken" : "printers:form.saveError")}
-          </p>
-        )}
-        <div className="flex gap-2">
-          <Button type="submit" variant="primary" disabled={save.isPending}>
-            {t("printers:form.save")}
-          </Button>
-          <Button onClick={() => history.back()}>{t("common:actions.cancel")}</Button>
-        </div>
-      </form>
-      <CatalogAddDialog
-        kind="print-profiles"
-        open={addProfile}
-        title={t("printers:catalog.printProfiles.addTitle")}
-        toBody={printProfileBody}
-        onClose={() => setAddProfile(false)}
-        onSaved={(pp) => setPrintProfileId(pp.id)}
+    <form onSubmit={onSubmit} className="grid gap-4 sm:max-w-md">
+      <FormField
+        label={t("printers:form.number")}
+        hint={printer ? undefined : t("printers:form.numberHint")}
       >
-        <PrintProfileFields modelId={modelId} />
-      </CatalogAddDialog>
-    </>
+        {(p) => (
+          <input
+            {...p}
+            name="number"
+            type="number"
+            min={1}
+            step={1}
+            className={inputClass}
+            defaultValue={printer?.number}
+          />
+        )}
+      </FormField>
+      <FormField label={t("printers:form.name")}>
+        {(p) => (
+          <input {...p} name="name" required className={inputClass} defaultValue={printer?.name} />
+        )}
+      </FormField>
+      <FormField label={t("printers:form.model")}>
+        {(p) => (
+          <ModelPicker
+            {...p}
+            name="modelId"
+            required
+            defaultValue={printer?.modelId}
+            onChange={(v, added) => pickModel(v, added?.powerW)}
+          />
+        )}
+      </FormField>
+      <FormField label={t("printers:form.printProfile")} hint={t("printers:form.printProfileHint")}>
+        {(p) => (
+          <Combobox
+            // Remount once the options arrive: an uncontrolled picker only applies defaultValue on mount.
+            key={printProfiles.length}
+            {...p}
+            name="printProfileId"
+            defaultValue={printProfileId}
+            onChange={setPrintProfileId}
+            options={[
+              { value: "", label: t("printers:form.printProfileNone") },
+              ...[
+                ...printProfiles.filter(forModel),
+                ...printProfiles.filter((x) => !forModel(x)),
+              ].map((x) => ({
+                value: x.id,
+                label: x.name,
+                group: forModel(x)
+                  ? t("printers:form.printProfileForModel")
+                  : t("printers:form.printProfileOther"),
+              })),
+            ]}
+          />
+        )}
+      </FormField>
+      <FormField label={t("printers:form.serial")}>
+        {(p) => (
+          <input {...p} name="serial" className={inputClass} defaultValue={printer?.serial ?? ""} />
+        )}
+      </FormField>
+      <FormField label={t("printers:form.state")}>
+        {(p) => (
+          <Combobox
+            {...p}
+            name="state"
+            defaultValue={printer?.state ?? states[0]}
+            // a state since removed from Settings stays selectable on printers that have it
+            options={[...new Set([...states, ...(printer ? [printer.state] : [])])].map((s) => ({
+              value: s,
+              label: stateLabel(s),
+            }))}
+          />
+        )}
+      </FormField>
+      <FormField label={t("printers:form.power")} hint={t("printers:form.powerHint")}>
+        {(p) => (
+          <input
+            {...p}
+            ref={power}
+            name="powerW"
+            type="number"
+            min={0}
+            step={1}
+            className={inputClass}
+            defaultValue={printer?.powerW ?? ""}
+          />
+        )}
+      </FormField>
+      <FormField label={t("printers:form.purchasedAt")}>
+        {(p) => (
+          <DateInput
+            {...p}
+            name="purchasedAt"
+            className={inputClass}
+            defaultValue={isoToDateInput(printer?.purchasedAt ?? null)}
+          />
+        )}
+      </FormField>
+      <FormField label={`${t("printers:form.purchasePrice")} (${prefs?.currency ?? ""})`}>
+        {(p) => (
+          <input
+            {...p}
+            name="purchasePrice"
+            type="number"
+            min={0}
+            step={0.01}
+            className={inputClass}
+            defaultValue={printer?.purchasePrice == null ? "" : printer.purchasePrice / 100}
+          />
+        )}
+      </FormField>
+      <CostFields values={printer} kind="printer" />
+      <FormField label={t("printers:form.warrantyEndsAt")}>
+        {(p) => (
+          <DateInput
+            {...p}
+            name="warrantyEndsAt"
+            className={inputClass}
+            defaultValue={isoToDateInput(printer?.warrantyEndsAt ?? null)}
+          />
+        )}
+      </FormField>
+      <FormField label={t("printers:form.warrantyNotes")}>
+        {(p) => (
+          <textarea
+            {...p}
+            name="warrantyNotes"
+            className={`${inputClass} h-20 py-2`}
+            defaultValue={printer?.warrantyNotes ?? ""}
+          />
+        )}
+      </FormField>
+      <TagPicker value={tags.value} onChange={tags.onChange} />
+      {save.isError && (
+        <p role="alert" className="text-bad">
+          {t(isConflict(save.error) ? "printers:form.numberTaken" : "printers:form.saveError")}
+        </p>
+      )}
+      <div className="flex gap-2">
+        <Button type="submit" variant="primary" disabled={save.isPending}>
+          {t("printers:form.save")}
+        </Button>
+        <Button onClick={() => history.back()}>{t("common:actions.cancel")}</Button>
+      </div>
+    </form>
   );
 }
 

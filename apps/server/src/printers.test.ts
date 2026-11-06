@@ -5,6 +5,7 @@ import { openDb, schema } from "@3d-maker-suite/db";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { buildApp } from "./app.ts";
 import { modelIdFor } from "./lib/catalog.ts";
+import { insertProfile } from "./testSeed.ts";
 
 let db: ReturnType<typeof openDb>;
 let app: Awaited<ReturnType<typeof buildApp>>;
@@ -212,10 +213,32 @@ describe("catalog: brands, printer models, machine profiles", () => {
     expect((await app.inject("/api/printer-models?model=acme%20x2")).json().total).toBe(1);
     expect((await app.inject("/api/printer-models?model=acme%20acme")).json().total).toBe(0);
 
-    const profile = (
-      await send("POST", "/api/machine-profiles", { name: "Acme X1 0.4", printerModelId: model.id })
-    ).body;
-    expect(profile).toMatchObject({ nozzleDiameterMm: 0.4, sourcePreset: null });
+    // A profile is a slicer file (ADR-0020): nothing makes or edits one, it archives and restores.
+    expect(
+      (await send("POST", "/api/machine-profiles", { name: "M", printerModelId: model.id })).status,
+    ).toBe(404);
+    const profile = insertProfile(db, "machineProfiles", {
+      name: "Acme X1 0.4",
+      printerModelId: model.id,
+    });
+    expect(
+      (await send("PATCH", `/api/machine-profiles/${profile.id}`, { name: "Mine" })).status,
+    ).toBe(400);
+    expect(
+      (await send("PATCH", `/api/machine-profiles/${profile.id}`, { archived: true })).body,
+    ).toMatchObject({ nozzleDiameterMm: 0.4, archivedAt: expect.any(String), use: "unused" });
+    expect(
+      (await send("PATCH", `/api/machine-profiles/${profile.id}`, { archived: false })).body,
+    ).toMatchObject({ archivedAt: null, source: "bambu-studio:system" });
+    // An older one made by hand stays archived: no slicer has its file.
+    const byHand = insertProfile(db, "machineProfiles", {
+      name: "Mine",
+      printerModelId: model.id,
+      sourcePreset: null,
+      archivedAt: "2026-01-01T00:00:00.000Z",
+    });
+    const restore = await send("PATCH", `/api/machine-profiles/${byHand.id}`, { archived: false });
+    expect([restore.status, restore.body.error.code]).toEqual([409, "hand_made"]);
 
     expect((await create({ modelId: missing })).error.code).toBe("invalid_model");
     const printer = await create({ modelId: model.id });
@@ -239,29 +262,36 @@ describe("catalog: brands, printer models, machine profiles", () => {
     );
   });
 
-  it("profiles filter by brand and slicer; models by slicer", async () => {
+  it("profiles filter by brand and source; models by slicer", async () => {
     const acme = (await send("POST", "/api/brands", { name: "Acme" })).body;
     const zed = (await send("POST", "/api/brands", { name: "Zed" })).body;
     const model = (await send("POST", "/api/printer-models", { brandId: acme.id, model: "X1" }))
       .body;
     const other = (await send("POST", "/api/printer-models", { brandId: zed.id, model: "Z1" }))
       .body;
-    await send("POST", "/api/machine-profiles", {
+    insertProfile(db, "machineProfiles", {
       name: "M1",
       printerModelId: model.id,
-      sourcePreset: "orca-slicer:M1",
+      sourcePreset: "orca-slicer:system/M1",
     });
-    await send("POST", "/api/machine-profiles", { name: "M2", printerModelId: other.id });
-    await send("POST", "/api/print-profiles", {
+    insertProfile(db, "machineProfiles", {
+      name: "M2",
+      printerModelId: other.id,
+      sourcePreset: null,
+    });
+    insertProfile(db, "printProfiles", {
       name: "P1",
       printerModelId: other.id,
-      sourcePreset: "bambu-studio:P1",
+      sourcePreset: "bambu-studio:user/P1",
     });
     const total = async (url: string) => (await app.inject(url)).json().total;
     expect(await total(`/api/machine-profiles?brandId=${acme.id}`)).toBe(1);
-    expect(await total("/api/machine-profiles?slicer=orca-slicer")).toBe(1);
+    expect(await total("/api/machine-profiles?source=orca-slicer:system")).toBe(1);
+    expect(await total("/api/machine-profiles?source=hand")).toBe(1);
     expect(await total(`/api/print-profiles?brandId=${zed.id}`)).toBe(1);
-    expect(await total("/api/print-profiles?slicer=orca-slicer,bambu-studio")).toBe(1);
+    expect(await total("/api/print-profiles?source=orca-slicer:system,bambu-studio:user")).toBe(1);
+    // Brands and models weren't imported: by hand.
+    expect(await total("/api/brands?source=hand")).toBe(2);
     expect(await total("/api/printer-models?slicer=orca-slicer")).toBe(1);
     expect(await total("/api/printer-models?slicer=orca-slicer,bambu-studio")).toBe(2);
     expect(await total("/api/brands?slicer=bambu-studio")).toBe(1);
@@ -269,8 +299,8 @@ describe("catalog: brands, printer models, machine profiles", () => {
       (await app.inject(url)).json().items.map((i: { name: string }) => i.name);
     expect(await names("/api/brands?sort=-slicer")).toEqual(["Acme", "Zed"]);
     expect(await names("/api/machine-profiles?sort=-brand")).toEqual(["M2", "M1"]);
-    expect(await names("/api/machine-profiles?sort=slicer")).toEqual(["M2", "M1"]);
-    expect(await names("/api/print-profiles?sort=slicer")).toEqual(["P1"]);
+    expect(await names("/api/machine-profiles?sort=source")).toEqual(["M2", "M1"]);
+    expect(await names("/api/print-profiles?sort=source")).toEqual(["P1"]);
   });
 
   it("model image and brand logo", async () => {

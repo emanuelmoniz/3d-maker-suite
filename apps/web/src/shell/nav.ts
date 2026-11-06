@@ -7,6 +7,7 @@ import {
   FolderKanban,
   House,
   Layers,
+  Library,
   type LucideIcon,
   MonitorSmartphone,
   Plug,
@@ -127,7 +128,15 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
   },
 ];
 
-/** Sits just above Settings, outside the groups. */
+/** The catalog and where it comes from (ADR-0020): first of the bottom block, with `catalog` read. */
+export const CATALOG_ITEM: NavItem = {
+  to: "/catalog",
+  icon: Library,
+  label: "nav:items.catalog.label",
+  description: "nav:items.catalog.description",
+};
+
+/** Sits just above Logs, outside the groups. */
 export const IMPORT_ITEM: NavItem = {
   to: "/import",
   icon: FileUp,
@@ -174,10 +183,11 @@ export const SETTINGS_ITEM: NavItem = {
 
 export const ALL_ITEMS = [
   ...NAV_GROUPS.flatMap((g) => g.items),
-  IMPORT_ITEM,
+  CATALOG_ITEM,
   INTEGRATIONS_ITEM,
   HUB_ITEM,
   PRESETS_ITEM,
+  IMPORT_ITEM,
   LOGS_ITEM,
   SETTINGS_ITEM,
 ];

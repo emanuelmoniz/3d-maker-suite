@@ -37,11 +37,8 @@
     "orderProjects": "Order projects",
     "brands": "Brands",
     "printerModels": "Printer models",
-    "machineProfiles": "Machine profiles",
-    "printProfiles": "Print profiles",
     "filamentBrands": "Filament brands",
-    "filamentMaterials": "Filament materials",
-    "filamentProfiles": "Filament profiles"
+    "filamentMaterials": "Filament materials"
   },
   "spools": {
     "columns": {
@@ -482,8 +479,6 @@
     "title": "Gone from the slicer",
     "body": "The slicer no longer has these presets. Their rows stay until you delete them: they can hold what the slicer can't give back, like a price you typed.",
     "inUse": "Still in use, so it stays. Once nothing uses it, you're asked again.",
-    "edited": "You changed it since the import, so it is archived instead of deleted.",
-    "archiveBody": "You changed it since the import, so it is archived, not deleted: the values you typed stay. Show archived finds it, and Restore brings it back.",
     "keep": "Keep the rest",
     "keepHint": "Nothing changes, and you aren't asked again until the slicer's presets change."
   },

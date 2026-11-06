@@ -103,6 +103,14 @@ export const integrationSchema = z.object({
   ...timestamps,
 });
 
+/**
+ * Where a catalog row came from (ADR-0020), in lists and gets: "hand", a profile's
+ * `<library>:system` / `<library>:user`, or the adapter that imported one of the four catalog types.
+ */
+export const catalogSource = z.string().optional();
+/** A profile's "in use" (ADR-0019, presets that inherit from it aside), in lists. */
+export const profileUse = z.enum(["used", "unused"]).optional();
+
 export const brandSchema = z.object({
   id,
   name: z.string().min(1),
@@ -110,6 +118,7 @@ export const brandSchema = z.object({
   /** Relative to the data directory. */
   logoPath: z.string().nullable(),
   archivedAt: isoDate.nullable(),
+  source: catalogSource,
   ...timestamps,
 });
 
@@ -122,6 +131,7 @@ export const printerModelSchema = z.object({
   /** Relative to the data directory. Shown for printers without a photo of their own. */
   imagePath: z.string().nullable(),
   archivedAt: isoDate.nullable(),
+  source: catalogSource,
   ...timestamps,
 });
 
@@ -130,10 +140,12 @@ export const machineProfileSchema = z.object({
   name: z.string().min(1),
   printerModelId: id,
   nozzleDiameterMm: z.number().positive(),
-  /** Preset this profile was imported from, `<library>:<preset id>`; null for hand-made ones. */
+  /** Preset this profile was imported from, `<library>:<preset id>`; null for an older hand-made one. */
   sourcePreset: z.string().nullable(),
   /** Archived by you, or an older version of an imported preset that prints still point at. */
   archivedAt: isoDate.nullable(),
+  source: catalogSource,
+  use: profileUse,
   ...timestamps,
 });
 
@@ -145,9 +157,11 @@ export const printProfileSchema = z.object({
   printerModelId: id.nullable(),
   nozzleDiameterMm: z.number().positive().nullable(),
   layerHeightMm: z.number().positive().nullable(),
-  /** Preset this profile was imported from, `<library>:<preset id>`; null for hand-made ones. */
+  /** Preset this profile was imported from, `<library>:<preset id>`; null for an older hand-made one. */
   sourcePreset: z.string().nullable(),
   archivedAt: isoDate.nullable(),
+  source: catalogSource,
+  use: profileUse,
   ...timestamps,
 });
 
@@ -291,6 +305,7 @@ export const filamentBrandSchema = z.object({
   /** Relative to the data directory. */
   logoPath: z.string().nullable(),
   archivedAt: isoDate.nullable(),
+  source: catalogSource,
   ...timestamps,
 });
 
@@ -304,6 +319,7 @@ export const filamentMaterialSchema = z.object({
   /** What a spool without a price paid costs per kg. */
   pricePerKg: money.nullable(),
   archivedAt: isoDate.nullable(),
+  source: catalogSource,
   ...timestamps,
 });
 
@@ -319,9 +335,11 @@ export const filamentProfileSchema = z.object({
   densityGcm3: z.number().positive(),
   nozzleTempC: z.number().int().positive().nullable(),
   bedTempC: z.number().int().nonnegative().nullable(),
-  /** Preset this profile was imported from, `<library>:<preset id>`; null for hand-made ones. */
+  /** Preset this profile was imported from, `<library>:<preset id>`; null for an older hand-made one. */
   sourcePreset: z.string().nullable(),
   archivedAt: isoDate.nullable(),
+  source: catalogSource,
+  use: profileUse,
   ...timestamps,
 });
 

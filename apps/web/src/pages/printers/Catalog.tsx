@@ -11,7 +11,7 @@ import {
 } from "@3d-maker-suite/core";
 import { Link } from "@tanstack/react-router";
 import { Plus } from "lucide-react";
-import type { ReactNode } from "react";
+import { type ReactNode, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { archiveColumn } from "../../components/ArchiveActions.tsx";
 import { type Column, DataTable } from "../../components/DataTable.tsx";
@@ -29,6 +29,7 @@ import {
 } from "../../lib/catalog.ts";
 import { formatList, formatNumber } from "../../lib/format.ts";
 import { useListPage, useUrlListQuery } from "../../lib/list.ts";
+import { sourceColumn, useColumn } from "../catalog/sources.tsx";
 
 export const addClass =
   "inline-flex h-9 items-center gap-2 whitespace-nowrap rounded-md bg-accent px-3 font-medium text-accent-fg hover:opacity-90";
@@ -43,9 +44,12 @@ export function Section<T extends { id: string; archivedAt: string | null }>(pro
   title: string;
   /** The row's name in its Archive and Delete buttons and dialogs. */
   name: (row: T) => string;
-  add: { to: string; label: string };
+  /** None: rows only come from a slicer's files (profiles, ADR-0020). */
+  add?: { to: string; label: string };
   /** Import links, next to the add button. */
   extra?: ReactNode;
+  /** One line under the title: where its rows come from. */
+  intro?: string;
   filters: Record<string, ColumnFilter>;
   columns: Column<T>[];
 }) {
@@ -56,20 +60,24 @@ export function Section<T extends { id: string; archivedAt: string | null }>(pro
     `/api/${props.kind}`,
     query,
   );
+  useScrolledTo(props.kind, !!data);
   return (
     <section id={props.kind} className="grid scroll-mt-4 gap-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-base font-semibold">{props.title}</h2>
         <span className="flex flex-wrap gap-2">
           {props.extra}
-          <Write can="catalog" level="manage">
-            <Link to={props.add.to} className={addClass}>
-              <Plus className="size-4" aria-hidden />
-              {props.add.label}
-            </Link>
-          </Write>
+          {props.add && (
+            <Write can="catalog" level="manage">
+              <Link to={props.add.to} className={addClass}>
+                <Plus className="size-4" aria-hidden />
+                {props.add.label}
+              </Link>
+            </Write>
+          )}
         </span>
       </div>
+      {props.intro && <p className="-mt-1 text-muted">{props.intro}</p>}
       {isError && (
         <p role="alert" className="text-bad">
           {t("printers:loadError")}
@@ -102,6 +110,13 @@ export function Section<T extends { id: string; archivedAt: string | null }>(pro
   );
 }
 
+/** A link to `#<id>` lands on that table once it is in, too late for the browser's own jump. */
+export function useScrolledTo(id: string, loaded: boolean) {
+  useEffect(() => {
+    if (loaded && location.hash === `#${id}`) document.getElementById(id)?.scrollIntoView();
+  }, [id, loaded]);
+}
+
 /** Name cell: a link to the edit form, or plain text for roles that can't edit. */
 function EditLink({ to, id, children }: { to: string; id: string; children: ReactNode }) {
   return useCan("catalog", "manage") ? (
@@ -119,7 +134,7 @@ export const editLink = (to: string, id: string, children: ReactNode) => (
   </EditLink>
 );
 
-/** Brands, printer models, machine profiles and print profiles, below the printers table. */
+/** Brands, printer models, machine profiles and print profiles: Catalog → Printers. */
 export function Catalog() {
   const { t } = useTranslation();
   const brands = useBrands().data ?? [];
@@ -152,7 +167,7 @@ export function Catalog() {
     const names = [...new Set([...libs].filter((l): l is string => !!l))].map(slicerName).sort();
     return names.length ? formatList(names) : none;
   };
-  // The slicers to filter by are those the profiles came from.
+  // The slicers to filter brands and models by are those their profiles came from.
   const slicerOptions = [
     ...new Set([...machineProfiles, ...printProfiles].map((p) => libraryOf(p.sourcePreset))),
   ]
@@ -176,7 +191,7 @@ export function Catalog() {
   });
 
   return (
-    <div className="mt-8 grid gap-8">
+    <div className="grid gap-10">
       <Section<Brand>
         kind="brands"
         title={t("printers:catalog.brands.title")}
@@ -212,6 +227,7 @@ export function Catalog() {
               ),
           },
           slicerColumn<Brand>((b) => brandLibraries(b.id)),
+          sourceColumn<Brand>(t, brands),
         ]}
       />
       <Section<PrinterModel>
@@ -254,19 +270,20 @@ export function Catalog() {
             filter: "powerW",
           },
           slicerColumn<PrinterModel>((m) => modelLibraries.get(m.id) ?? []),
+          sourceColumn<PrinterModel>(t, models),
         ]}
       />
       <Section<MachineProfile>
         kind="machine-profiles"
         title={t("printers:catalog.profiles.title")}
         name={(p) => p.name}
-        add={{ to: "/printers/profiles/new", label: t("printers:catalog.profiles.add") }}
+        intro={t("catalog:fromFiles")}
         filters={machineProfileFilters}
         columns={[
           {
             id: "name",
             header: t("printers:catalog.profiles.name"),
-            cell: (p) => editLink("/printers/profiles/$id/edit", p.id, p.name),
+            cell: (p) => <span className="font-medium">{p.name}</span>,
             sort: "name",
             filter: "name",
           },
@@ -290,20 +307,21 @@ export function Catalog() {
             sort: "nozzleDiameterMm",
             filter: "nozzleDiameterMm",
           },
-          slicerColumn<MachineProfile>((p) => [libraryOf(p.sourcePreset)]),
+          sourceColumn<MachineProfile>(t, machineProfiles, true),
+          useColumn<MachineProfile>(t),
         ]}
       />
       <Section<PrintProfile>
         kind="print-profiles"
         title={t("printers:catalog.printProfiles.title")}
         name={(p) => p.name}
-        add={{ to: "/printers/print-profiles/new", label: t("printers:catalog.printProfiles.add") }}
+        intro={t("catalog:fromFiles")}
         filters={printProfileFilters}
         columns={[
           {
             id: "name",
             header: t("printers:catalog.printProfiles.name"),
-            cell: (p) => editLink("/printers/print-profiles/$id/edit", p.id, p.name),
+            cell: (p) => <span className="font-medium">{p.name}</span>,
             sort: "name",
             filter: "name",
           },
@@ -341,7 +359,8 @@ export function Catalog() {
             sort: "layerHeightMm",
             filter: "layerHeightMm",
           },
-          slicerColumn<PrintProfile>((p) => [libraryOf(p.sourcePreset)]),
+          sourceColumn<PrintProfile>(t, printProfiles, true),
+          useColumn<PrintProfile>(t),
         ]}
       />
     </div>

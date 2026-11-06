@@ -1,5 +1,12 @@
 import { expect, test } from "./fixtures.ts";
-import { hasHorizontalScroll, offScreen, seedModel, seedPrinter, seedSpool } from "./helpers.ts";
+import {
+  hasHorizontalScroll,
+  insertProfile,
+  offScreen,
+  seedModel,
+  seedPrinter,
+  seedSpool,
+} from "./helpers.ts";
 
 // Detail and edit pages that no other sweep visits (clients, quotes, orders, projects: v2; spool: v13).
 for (const [name, width, height] of [
@@ -10,8 +17,11 @@ for (const [name, width, height] of [
   test(`detail pages fit the screen at ${name}`, async ({ page, app }) => {
     const printer = await seedPrinter(app.api);
     const spool = await seedSpool(app.api);
-    const profile = (await app.api<{ items: { id: string }[] }>("GET", "/api/filament/profiles"))
-      .items[0];
+    const profile = insertProfile(app, "filament_profiles", {
+      materialId: (await app.api<{ items: { id: string }[] }>("GET", "/api/filament-materials"))
+        .items[0]?.id,
+      name: "Basic",
+    });
     const model = await seedModel(app.api);
     const accessory = await app.api<{ id: string }>("POST", "/api/accessories", {
       name: "AMS",
@@ -44,8 +54,7 @@ for (const [name, width, height] of [
       `/maintenance/types/${type.id}/edit`,
       `/filament/spools/${spool.id}`,
       `/filament/spools/${spool.id}/edit`,
-      `/filament/profiles/${profile?.id}`,
-      `/filament/profiles/${profile?.id}/edit`,
+      `/filament/profiles/${profile.id}`,
       `/prints/${print.id}`,
       `/prints/${print.id}/edit`,
       ...(alerts[0] ? [`/alerts/${alerts[0].id}`] : []),

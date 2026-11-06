@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { buildApp } from "./app.ts";
 import { modelIdFor } from "./lib/catalog.ts";
 import { inIds, listPage } from "./lib/list.ts";
+import { insertProfile } from "./testSeed.ts";
 
 let db: ReturnType<typeof openDb>;
 let app: Awaited<ReturnType<typeof buildApp>>;
@@ -161,13 +162,13 @@ describe("listPage filters", () => {
     const brandZ = await post("/api/filament-brands", { name: "Zed" });
     const matPla = await post("/api/filament-materials", { name: "PLA" });
     const matPetg = await post("/api/filament-materials", { name: "PETG" });
-    const pla = await post("/api/filament/profiles", {
+    const pla = insertProfile(db, "filamentProfiles", {
       brandId: brandA.id,
       materialId: matPla.id,
       name: "Basic",
       densityGcm3: 1.24,
     });
-    const petg = await post("/api/filament/profiles", {
+    const petg = insertProfile(db, "filamentProfiles", {
       brandId: brandZ.id,
       materialId: matPetg.id,
       name: "",

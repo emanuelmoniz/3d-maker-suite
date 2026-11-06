@@ -1,12 +1,6 @@
 import { readFileSync } from "node:fs";
 import { join, parse } from "node:path";
-import {
-  editedKeys,
-  IMPORT_COLUMNS,
-  type ImportGone,
-  isUserPresetType,
-  type SlicerPresetKind,
-} from "@3d-maker-suite/core";
+import { type ImportGone, isUserPresetType, type SlicerPresetKind } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
 import { parsePreset, presetName } from "@3d-maker-suite/host";
 import { and, eq, inArray, isNull, like } from "drizzle-orm";
@@ -105,7 +99,7 @@ export function goneRows(db: Db, review: Review, stored: Stored, user?: Rights):
     ...othersRoutes(db, from.integrationId, entity),
   ]);
   const rows = db
-    .select({ id: t.id, source: t.sourcePreset, seen: importSnapshots.values })
+    .select({ id: t.id, source: t.sourcePreset })
     .from(t)
     .innerJoin(
       importSnapshots,
@@ -128,7 +122,6 @@ export function goneRows(db: Db, review: Review, stored: Stored, user?: Rights):
       {
         id: r.id,
         label: target.label,
-        edited: editedKeys(IMPORT_COLUMNS[entity], r.seen, target.values).length > 0,
         dependents: usesOf(db, user, entity, r, parents),
       },
     ];

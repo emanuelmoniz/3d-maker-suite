@@ -280,10 +280,17 @@ export async function buildApp(
   await app.register(accessoriesRoutes(db, dataDir), { prefix: "/api/accessories" });
   await app.register(clientsRoutes(db), { prefix: "/api/clients" });
   await app.register(ordersRoutes(db), { prefix: "/api/orders" });
-  await app.register(brandsRoutes(db, dataDir), { prefix: "/api/brands" });
-  await app.register(filamentBrandsRoutes(db, dataDir), { prefix: "/api/filament-brands" });
-  await app.register(filamentMaterialsRoutes(db, dataDir), { prefix: "/api/filament-materials" });
-  await app.register(printerModelsRoutes(db, dataDir), { prefix: "/api/printer-models" });
+  const adapters = opts.adapters ?? [];
+  await app.register(brandsRoutes(db, dataDir, adapters), { prefix: "/api/brands" });
+  await app.register(filamentBrandsRoutes(db, dataDir, adapters), {
+    prefix: "/api/filament-brands",
+  });
+  await app.register(filamentMaterialsRoutes(db, dataDir, adapters), {
+    prefix: "/api/filament-materials",
+  });
+  await app.register(printerModelsRoutes(db, dataDir, adapters), {
+    prefix: "/api/printer-models",
+  });
   await app.register(machineProfilesRoutes(db, dataDir), { prefix: "/api/machine-profiles" });
   await app.register(printProfilesRoutes(db, dataDir), { prefix: "/api/print-profiles" });
   await app.register(maintenanceRoutes(db), { prefix: "/api/maintenance" });

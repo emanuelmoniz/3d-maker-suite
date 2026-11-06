@@ -15,13 +15,13 @@ import { loadNamespace } from "./i18n.ts";
 import { AlertDetailPage } from "./pages/alerts/AlertDetailPage.tsx";
 import { AlertsPage } from "./pages/alerts/AlertsPage.tsx";
 import { LoginPage, SetupPage } from "./pages/auth/AuthPages.tsx";
+import { CATALOG_TABS, CatalogPage, PRINTER_TABLES } from "./pages/catalog/CatalogPage.tsx";
 import { ClientDetailPage } from "./pages/clients/ClientDetailPage.tsx";
 import { ClientCreatePage, ClientEditPage } from "./pages/clients/ClientFormPage.tsx";
 import { ClientsPage } from "./pages/clients/ClientsPage.tsx";
 import { FilamentBrandFormPage, FilamentMaterialFormPage } from "./pages/filament/CatalogForms.tsx";
 import { FilamentPage } from "./pages/filament/FilamentPage.tsx";
 import { ProfileDetailPage } from "./pages/filament/ProfileDetailPage.tsx";
-import { ProfileCreatePage, ProfileEditPage } from "./pages/filament/ProfileFormPage.tsx";
 import { SpoolDetailPage } from "./pages/filament/SpoolDetailPage.tsx";
 import { SpoolCreatePage, SpoolEditPage } from "./pages/filament/SpoolFormPage.tsx";
 import { HomePage } from "./pages/HomePage.tsx";
@@ -41,12 +41,7 @@ import { OrderCreatePage, OrderEditPage } from "./pages/orders/OrderFormPage.tsx
 import { OrdersPage } from "./pages/orders/OrdersPage.tsx";
 import { AccessoryDetailPage } from "./pages/printers/AccessoryDetailPage.tsx";
 import { AccessoryCreatePage, AccessoryEditPage } from "./pages/printers/AccessoryFormPage.tsx";
-import {
-  BrandFormPage,
-  MachineProfileFormPage,
-  ModelFormPage,
-  PrintProfileFormPage,
-} from "./pages/printers/CatalogForms.tsx";
+import { BrandFormPage, ModelFormPage } from "./pages/printers/CatalogForms.tsx";
 import { PrinterDetailPage } from "./pages/printers/PrinterDetailPage.tsx";
 import { PrinterCreatePage, PrinterEditPage } from "./pages/printers/PrinterFormPage.tsx";
 import { PrintersPage } from "./pages/printers/PrintersPage.tsx";
@@ -63,7 +58,6 @@ import { SettingsPage } from "./pages/SettingsPage.tsx";
 import {
   AlertsConfigPage,
   CostsConfigPage,
-  FilamentConfigPage,
   HubConfigPage,
   OrdersConfigPage,
   PrintersConfigPage,
@@ -80,6 +74,7 @@ import { StatsPage } from "./pages/stats/StatsPage.tsx";
 import { AppShell } from "./shell/AppShell.tsx";
 import {
   ALL_ITEMS,
+  CATALOG_ITEM,
   HUB_ITEM,
   IMPORT_ITEM,
   INTEGRATIONS_ITEM,
@@ -112,6 +107,7 @@ const root = createRootRoute({ component: Root, notFoundComponent: NotFound });
 // Feature routes load their i18n namespace here (code-split JSON), e.g. loader: () => loadNamespace("printers").
 const built = [
   "/",
+  CATALOG_ITEM.to,
   IMPORT_ITEM.to,
   INTEGRATIONS_ITEM.to,
   HUB_ITEM.to,
@@ -147,6 +143,8 @@ const printerRoute = (path: string, component: () => ReactNode) =>
         loadNamespace("settings"),
         loadNamespace("tags"),
         loadNamespace("integrations"),
+        // The catalog forms' locked names.
+        loadNamespace("catalog"),
       ]),
     component,
   });
@@ -171,8 +169,6 @@ const routes: AnyRoute[] = [
     [
       ["brands", BrandFormPage],
       ["models", ModelFormPage],
-      ["profiles", MachineProfileFormPage],
-      ["print-profiles", PrintProfileFormPage],
     ] as const
   ).flatMap(([kind, page]) => [
     printerRoute(`/printers/${kind}/new`, page),
@@ -217,15 +213,17 @@ const routes: AnyRoute[] = [
     ["/filament/spools/$id", SpoolDetailPage],
     ["/filament/spools/$id/edit", SpoolEditPage],
     ["/filament/profiles/$id", ProfileDetailPage],
-    ["/filament/profiles/$id/edit", ProfileEditPage],
   ].map(([path, component]) =>
     createRoute({
       getParentRoute: () => root,
       path: path as string,
       loader: () =>
         Promise.all(
-          // The spool page lists its projects and prints; printers: quick-add modals.
-          ["filament", "tags", "projects", "prints", "printers"].map(loadNamespace),
+          // The spool page lists its projects and prints; printers: quick-add modals; catalog: a
+          // profile's source.
+          ["filament", "tags", "projects", "prints", "printers", "catalog", "integrations"].map(
+            loadNamespace,
+          ),
         ),
       component: component as () => ReactNode,
     }),
@@ -240,17 +238,37 @@ const routes: AnyRoute[] = [
       createRoute({
         getParentRoute: () => root,
         path,
-        loader: () => Promise.all([loadNamespace("filament"), loadNamespace("printers")]),
+        loader: () =>
+          Promise.all(["filament", "printers", "catalog", "integrations"].map(loadNamespace)),
         component: page,
       }),
     ),
   ),
+  // Catalog (ADR-0020): one tab per part of the catalog, `/catalog` opens the first.
   createRoute({
     getParentRoute: () => root,
-    path: "/filament/profiles/new",
-    // printers: quick-add modals (brand, material) share the catalog forms.
-    loader: () => Promise.all(["filament", "tags", "printers"].map(loadNamespace)),
-    component: ProfileCreatePage,
+    path: "/catalog",
+    beforeLoad: ({ location }) => {
+      throw redirect({ to: "/catalog/printers", hash: location.hash });
+    },
+  }),
+  ...CATALOG_TABS.map((tab) =>
+    createRoute({
+      getParentRoute: () => root,
+      path: `/catalog/${tab}`,
+      // integrations: the names of the accounts a row can come from.
+      loader: () =>
+        Promise.all(["catalog", "printers", "filament", "integrations"].map(loadNamespace)),
+      component: () => <CatalogPage tab={tab} />,
+    }),
+  ),
+  // The catalog tables were in Printers and Filament settings before; old links still land.
+  createRoute({
+    getParentRoute: () => root,
+    path: "/filament/settings",
+    beforeLoad: ({ location }) => {
+      throw redirect({ to: "/catalog/filament", hash: location.hash });
+    },
   }),
   // The review of what an integration or an uploaded zip (`$source`) offers for one type.
   createRoute({
@@ -417,8 +435,7 @@ const routes: AnyRoute[] = [
     [
       ["/quotes/settings", CostsConfigPage, ["costs"]],
       ["/orders/settings", OrdersConfigPage, ["orders"]],
-      ["/printers/settings", PrintersConfigPage, ["printers", "integrations", "tags", "filament"]],
-      ["/filament/settings", FilamentConfigPage, ["filament", "printers", "integrations"]],
+      ["/printers/settings", PrintersConfigPage, ["printers", "catalog"]],
       ["/prints/settings", PrintsConfigPage, ["prints"]],
       ["/projects/settings", ProjectsConfigPage, ["projects"]],
       ["/alerts/settings", AlertsConfigPage, ["alerts", "integrations"]],
@@ -428,6 +445,11 @@ const routes: AnyRoute[] = [
     createRoute({
       getParentRoute: () => root,
       path,
+      // A catalog table's old address lands on its tab; the page keeps the default printer.
+      beforeLoad: ({ location }: { location: { pathname: string; hash: string } }) => {
+        if (location.pathname === "/printers/settings" && PRINTER_TABLES.includes(location.hash))
+          throw redirect({ to: "/catalog/printers", hash: location.hash });
+      },
       loader: () => Promise.all(["settings", ...ns].map(loadNamespace)),
       component,
     }),

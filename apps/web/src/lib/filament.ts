@@ -1,7 +1,5 @@
 import {
   type FilamentProfile,
-  type FilamentProfileInput,
-  type FilamentProfilePatch,
   type Page,
   type Spool,
   type SpoolAdjust,
@@ -65,14 +63,6 @@ function useInvalidating<V>(fn: (v: V) => Promise<unknown>) {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["filament"] }),
   });
 }
-
-export const useCreateProfile = () =>
-  useInvalidating((v: FilamentProfileInput) => api("POST", "/api/filament/profiles", v));
-
-export const usePatchProfile = () =>
-  useInvalidating((v: { id: string; patch: FilamentProfilePatch }) =>
-    api("PATCH", `/api/filament/profiles/${v.id}`, v.patch),
-  );
 
 export const useCreateSpool = () =>
   useInvalidating((v: SpoolInput) => api("POST", "/api/filament/spools", v));

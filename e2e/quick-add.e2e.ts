@@ -14,45 +14,32 @@ test("printer model page: add a brand from the brand picker", async ({ page, app
   await expect(page.getByLabel("Brand")).toHaveValue("Zeta");
 });
 
-test("machine profile page: add a model from the model picker", async ({ page, app }) => {
+test("printer form: add a model from the model picker; profiles come only from a slicer", async ({
+  page,
+  app,
+}) => {
   await seedModel(app.api);
-  await page.goto("/printers/profiles/new");
+  await page.goto("/printers/new");
   await page.getByRole("button", { name: "Add model" }).click();
   const dialog = page.getByRole("dialog", { name: "Add printer model" });
   await pick(dialog.getByLabel("Brand"), "Acme");
   await dialog.getByLabel("Model", { exact: true }).fill("Q9");
   await dialog.getByRole("button", { name: "Save" }).click();
   await expect(dialog).toBeHidden();
-  await expect(page.getByLabel("Printer model")).toHaveValue("Q9");
-});
-
-test("printer form: add a print profile for the picked model", async ({ page, app }) => {
-  await seedModel(app.api);
-  await page.goto("/printers/new");
-  await pick(page.getByLabel("Model", { exact: true }), "X1");
-  await page.getByRole("button", { name: "Add print profile" }).click();
-  const dialog = page.getByRole("dialog", { name: "Add print profile" });
-  await expect(dialog.getByLabel("Printer model")).toHaveValue("X1");
-  await dialog.getByLabel("Name", { exact: true }).fill("Fine");
-  await dialog.getByRole("button", { name: "Save" }).click();
-  await expect(dialog).toBeHidden();
-  await expect(page.getByLabel("Default print profile")).toHaveValue("Fine");
+  await expect(page.getByLabel("Model", { exact: true })).toHaveValue("Q9");
+  await expect(page.getByLabel("Default print profile")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Add print profile" })).toHaveCount(0);
   await expect(page).toHaveURL(/\/printers\/new$/);
 });
 
-test("print form: add a machine profile and a spool", async ({ page, app }) => {
+test("print form: add a spool; no machine profile is made here", async ({ page, app }) => {
   await seedPrinter(app.api);
   await seedProject(app.api);
-  await seedProfile(app.api);
+  await seedProfile(app);
   await page.goto("/prints/new");
 
-  await page.getByRole("button", { name: "Add profile" }).click();
-  const profile = page.getByRole("dialog", { name: "Add machine profile" });
-  await expect(profile.getByLabel("Printer model")).toHaveValue("X1");
-  await profile.getByLabel("Name", { exact: true }).fill("X1 0.4");
-  await profile.getByRole("button", { name: "Save" }).click();
-  await expect(profile).toBeHidden();
-  await expect(page.getByLabel("Machine profile")).toHaveValue("X1 0.4");
+  await expect(page.getByLabel("Machine profile")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Add profile" })).toHaveCount(0);
 
   await page.getByRole("button", { name: "Add spool" }).click();
   await page.getByRole("button", { name: "New spool" }).click();

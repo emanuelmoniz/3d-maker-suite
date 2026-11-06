@@ -17,6 +17,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { buildApp } from "./app.ts";
 import { createSyncer } from "./integrations/sync.ts";
 import { type PresetKind, presetInUse } from "./lib/dependents.ts";
+import { insertProfile } from "./testSeed.ts";
 
 // ADR-0019 (Plan 5.4.0 Step 7): a preset gone from a slicer raises an alert, and its catalog row
 // goes only when a person deletes it and nothing uses it.
@@ -153,9 +154,7 @@ describe("a preset gone from the slicer", () => {
     expect(lastLog()).toEqual([{ event: "left", label: "Acme X 0.6", reason: "removed" }]);
 
     const preview = await open("machineProfiles");
-    expect(preview.gone).toEqual([
-      { id: gone?.id, label: "Acme X 0.6", edited: false, dependents: [] },
-    ]);
+    expect(preview.gone).toEqual([{ id: gone?.id, label: "Acme X 0.6", dependents: [] }]);
     const res = await remove("machineProfiles", gone?.id ?? "");
     expect(res.json()).toEqual({ result: "deleted" });
     expect(machineOf("Acme X 0.6")).toBeUndefined();
@@ -213,31 +212,6 @@ describe("a preset gone from the slicer", () => {
     syncer().checkFreed();
     expect(pendingOf("machineProfiles")).toBe(1);
     expect((await remove("machineProfiles", used)).json()).toEqual({ result: "deleted" });
-  });
-
-  it("a row you edited is archived, not deleted", async () => {
-    await run("filamentProfiles");
-    await syncer().checkCatalogs();
-    const b = db.select().from(filamentProfiles).where(eq(filamentProfiles.name, "B")).get();
-    await app.inject({
-      method: "PATCH",
-      url: `/api/filament/profiles/${b?.id}`,
-      payload: { densityGcm3: 1.3 },
-    });
-    state.presets = [filament("A")];
-    state.fingerprint = "Acme=2";
-    await syncer().checkCatalogs();
-
-    expect((await open("filamentProfiles")).gone).toMatchObject([
-      { label: "Acme PLA B", edited: true },
-    ]);
-    expect((await remove("filamentProfiles", b?.id ?? "")).json()).toEqual({ result: "archived" });
-    const kept = db
-      .select()
-      .from(filamentProfiles)
-      .where(eq(filamentProfiles.id, b?.id ?? ""))
-      .get();
-    expect(kept).toMatchObject({ densityGcm3: 1.3, archivedAt: expect.any(String) });
   });
 
   it("a preset that comes back closes its alert", async () => {
@@ -355,15 +329,24 @@ describe("in use, by ADR-0019's stricter rule", () => {
       .run();
   const items = {
     machineProfiles: async () =>
-      made("/api/machine-profiles", { name: unique("M"), printerModelId: await model() }),
-    printProfiles: () => made("/api/print-profiles", { name: unique("Fine") }),
+      insertProfile(db, "machineProfiles", { name: unique("M"), printerModelId: await model() }).id,
+    printProfiles: async () => insertProfile(db, "printProfiles", { name: unique("Fine") }).id,
     filamentProfiles: async () =>
-      made("/api/filament/profiles", {
+      insertProfile(db, "filamentProfiles", {
         materialId: await made("/api/filament-materials", { name: unique("PLA") }),
-        densityGcm3: 1.24,
         name: unique("Basic"),
-      }),
+      }).id,
   };
+  const LISTS = {
+    machineProfiles: "/api/machine-profiles",
+    printProfiles: "/api/print-profiles",
+    filamentProfiles: "/api/filament/profiles",
+  };
+  /** The list's In use filter: the ids it lists as used. */
+  const listedUsed = async (kind: PresetKind) =>
+    ((await app.inject(`${LISTS[kind]}?use=used`)).json().items as { id: string }[]).map(
+      (r) => r.id,
+    );
   const TABLES = { machineProfiles, printProfiles, filamentProfiles };
   /** An archived row of the same preset: what prints of an older version point at. */
   const version = (kind: PresetKind) => async (rowId: string) => {
@@ -394,8 +377,10 @@ describe("in use, by ADR-0019's stricter rule", () => {
   it.each(uses)("%s: a %s counts", async (kind, type, use) => {
     const rowId = await items[kind]();
     expect(presetInUse(db, undefined, kind, rowId)).toEqual([]);
+    expect(await listedUsed(kind)).toEqual([]);
     await use(rowId);
     expect(presetInUse(db, undefined, kind, rowId)).toMatchObject([{ type, total: 1 }]);
+    expect(await listedUsed(kind)).toEqual([rowId]);
   });
 
   it("a preset that inherits from it counts, by name", async () => {

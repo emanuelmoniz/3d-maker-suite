@@ -2,15 +2,30 @@
 
 The **Import** page brings data in from spreadsheets. Nothing is saved until you review the rows and confirm. Integrations (Bambu Cloud, Bambu Studio, OrcaSlicer) import through the same review screen when a sync needs your decision.
 
-You can import 19 types, and every one can also be exported in the same format (Import | Export page):
+You can import 16 types, and every one can also be exported in the same format (Import | Export page):
 
 - **Your things:** spools, printers, accessories, accessory installs, projects, prints.
 - **Money:** clients, quotes, orders, order projects.
 - **Maintenance:** maintenance types and maintenance (the history).
-- **Printer catalog:** brands, printer models, machine profiles, print profiles.
-- **Filament catalog:** filament brands, filament materials, filament profiles.
+- **Printer catalog:** brands, printer models.
+- **Filament catalog:** filament brands, filament materials.
 
-A file names the brands, models and materials a row needs, and they must already exist (import them first, or add them in the catalog); a slicer zip or an integration creates them for you.
+A file names the brands, models and materials a row needs, and they must already exist (import them first, or add them in the catalog); a slicer zip or an integration creates them for you. Machine, print and filament profiles aren't in a spreadsheet: they come only from a slicer (see below).
+
+## The catalog
+
+**Catalog** in the menu (with the catalog permission at read) holds what your printers, spools and prints are described with, in two tabs:
+
+- **Printers:** brands, printer models, machine profiles and print profiles.
+- **Filament:** filament brands, filament materials and filament profiles.
+
+Brands, printer models, filament brands and materials can be added **by hand** or come **from a slicer**. A row a slicer brought keeps its name: that is how the next import finds it, so the name can't be edited. Its other fields (logo, website, power, picture, density, default price) stay yours: an import only fills the ones that are empty, it never overwrites one. A row you made by hand whose name later comes in a slicer's files is linked to it: it keeps your values and shows the slicer as its source from then on.
+
+Profiles are the slicer's own files, so they come **only from a slicer**: an integration (Bambu Studio, OrcaSlicer, Bambu Cloud) or a zip of its config folder. You can't add or edit one here: change it in the slicer and it changes here. **Archive** hides a profile from the pickers; **Delete** removes it once nothing uses it. Profiles made by hand before 5.4 are archived and shown as **By hand (older)**: no slicer has their file, so they can't come back, and a plate that pointed at one slices with the settings saved in its 3MF.
+
+Every table has a **Source** column, with a filter: **By hand**, **By hand (older)**, **Bambu Studio (system)** or **(user)** for a profile, or the slicer or account that brought a row. Profiles also show **In use** or **Unused**: a print, a printer's default, a plate or an older version of the preset uses it.
+
+The old addresses (Printers → Settings, Filament → Settings) open the matching tab. Printers → Settings keeps the default printer and the printer states.
 
 ## Accessory installs
 
@@ -140,18 +155,18 @@ Catalog types of a slicer don't run on a schedule: a daily check looks at the sl
 
 **A preset gone from the slicer** (you deleted it there, or a slicer update dropped a system preset) is never deleted for you, in Automatic too. It raises a **Sync needs review** alert, and the review lists it under **Gone from the slicer**:
 
-- **Nothing uses it**: **Delete** removes its row after you confirm. A row you changed since the import (a price you typed) is archived instead, so the value stays; **Show archived** finds it.
+- **Nothing uses it**: **Delete** removes its row after you confirm.
 - **Something uses it**: the row stays, and the review says what: prints, spools, plates and printers that use it, its older versions, and other presets in the slicer that inherit from it. Once nothing uses it, the alert asks again.
 - **Keep the rest**, or ignoring the alert, keeps the rows. You aren't asked again until the slicer's presets change. A preset that comes back in the slicer closes its alert.
 
 A slicer folder that reads empty (moved, or not readable) counts nothing as gone. Signing in or out of the slicer isn't a removal either: every account's presets are read.
 
-**How to sync** (what a sync does when the source changes a row you have)
+**How to sync** (what a sync does when the source changes a row you have) is only on Bambu Cloud's printers and spools. A catalog type doesn't need it: a profile follows its file, and brands, models, filament brands and materials only get their empty fields filled.
 
 | Option | What happens |
 |---|---|
 | Overwrite with the source | The source's values replace yours, your own edits included. |
-| Keep my edits | Fields you changed since the last sync stay as you left them; the other fields follow the source. The default for catalog types. |
+| Keep my edits | Fields you changed since the last sync stay as you left them; the other fields follow the source. |
 | Let me review the changes | An automatic run changes nothing you have. The row waits under **Manual import** and raises a **Sync needs review** alert. Import it there, or **Dismiss** it: a dismissed change only comes back when the source changes the row again. The default for printers and spools. |
 
 The app remembers what each sync last imported into a row, and that's how it tells your edits from a change at the source. For rows imported before this setting existed it doesn't know yet: the first sync after the update only fills empty fields (Keep my edits) or takes the source as it is (Let me review), and from then on it tells them apart. With **Track usage** of spools off, a sync never changes the remaining weight of a spool you have.

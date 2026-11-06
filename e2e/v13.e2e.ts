@@ -224,7 +224,7 @@ test("back: returns to where you came from; a deep link falls back to the parent
   app,
 }) => {
   const printer = await seedPrinter(app.api);
-  const profile = await seedProfile(app.api);
+  const profile = await seedProfile(app);
   const spool = await app.api<{ id: string }>("POST", "/api/filament/spools", {
     ...filamentOf(profile),
     colorHex: "#00aa00",
@@ -248,7 +248,7 @@ test("filament page: new and in-use spools by default, clear shows the rest", as
   page,
   app,
 }) => {
-  const profile = await seedProfile(app.api);
+  const profile = await seedProfile(app);
   const make = (status: string, n: number) =>
     app.api("POST", "/api/filament/spools", {
       ...filamentOf(profile),

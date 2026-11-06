@@ -148,6 +148,7 @@
       "printer_has_accessories": "Remove its accessories first.",
       "accessory_installed": "Remove it from its printer first.",
       "preset_newer_exists": "A newer version of this preset is in use, so this old one can't come back.",
+      "hand_made": "A profile made by hand can't come back: no slicer has its file. Delete it once nothing uses it.",
       "folder_has_files": "Its folder still has files. Move or delete them first, or the next scan finds the project again.",
       "forbidden": "You can't change this one.",
       "not_found": "It no longer exists, or you can't see it."

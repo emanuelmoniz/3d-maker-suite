@@ -85,7 +85,7 @@ test("selection follows the level: a writer has none, a manager has it", async (
   ] as const) {
     await page.context().clearCookies();
     await signIn(page, name);
-    for (const path of ["/prints", "/printers/settings"]) {
+    for (const path of ["/prints", "/catalog/printers"]) {
       await page.goto(path);
       await page.waitForLoadState("networkidle");
       const boxes = page.getByRole("checkbox", { name: SELECT_ALL });

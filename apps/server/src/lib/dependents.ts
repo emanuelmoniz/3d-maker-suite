@@ -9,8 +9,8 @@ import {
   type TAGGABLE_TYPES,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
-import { and, count, eq, type SQL, type SQLWrapper, sql } from "drizzle-orm";
-import type { SQLiteColumn, SQLiteTable } from "drizzle-orm/sqlite-core";
+import { and, count, eq, or, type SQL, type SQLWrapper, sql } from "drizzle-orm";
+import { alias, type SQLiteColumn, type SQLiteTable } from "drizzle-orm/sqlite-core";
 import { HttpError } from "../errors.ts";
 import { alertTasks, resolveItemAlerts } from "./archive.ts";
 import type { Rights } from "./auth.ts";
@@ -74,7 +74,10 @@ type Of = {
 type Use = Of & {
   /** The FK behind the reference; none for an id in a JSON list. */
   via?: SQLiteColumn;
-  where: (id: string) => SQL;
+  /** The item's id, or its column for a list's `presetUsed`. */
+  where: (id: string | SQLWrapper) => SQL;
+  /** Rows of the item's own table (older versions): `presetUsed` aliases them. */
+  self?: true;
 };
 const of = (type: DependentType, module: PermissionModule, table: SQLiteTable, label: SQLWrapper) =>
   ({ type, module, table, label }) as Of;
@@ -364,6 +367,7 @@ const versions = (o: Of): Use => {
   const t = o.table as typeof machineProfiles;
   return {
     ...o,
+    self: true,
     where: (id) =>
       sql`${t.id} <> ${id} AND ${t.archivedAt} IS NOT NULL AND ${t.sourcePreset} = (SELECT ${t.sourcePreset} FROM ${t} WHERE ${t.id} = ${id})`,
   };
@@ -419,6 +423,22 @@ export function presetInUse(
         .map((name) => ({ id: name, label: name, archived: false })),
     });
   return [...merged.values()];
+}
+
+/**
+ * `presetInUse` as a column of the list of `kind` ("used" / "unused"), for its In use filter.
+ * ponytail: presets that inherit from it aren't counted; they are in the slicer's files, not here.
+ */
+export function presetUsed(kind: PresetKind) {
+  const t = ITEMS[kind].table as typeof machineProfiles;
+  const v = alias(t, "v");
+  const uses = [...ITEMS[kind].uses, ...PRESET_USES[kind]].filter((u) => !u.self);
+  const used = or(
+    ...uses.map((u) => sql`EXISTS (SELECT 1 FROM ${u.table} WHERE ${u.where(t.id)})`),
+    sql`EXISTS (SELECT 1 FROM ${t} ${sql.identifier("v")} WHERE ${v.id} <> ${t.id} AND ${v.archivedAt} IS NOT NULL
+      AND ${v.sourcePreset} = ${t.sourcePreset})`,
+  );
+  return sql<"used" | "unused">`CASE WHEN ${used} THEN 'used' ELSE 'unused' END`;
 }
 
 export function assertFree(db: Db, user: Rights | undefined, kind: ItemKind, id: string) {

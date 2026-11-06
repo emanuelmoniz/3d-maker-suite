@@ -255,7 +255,7 @@ test("filament catalog rows follow the catalog permission, not the filament one"
   });
   await signInAs(page, "fay@example.com");
 
-  await page.goto("/filament/settings");
+  await page.goto("/catalog/filament");
   await expect(page.getByRole("link", { name: "Add brand" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Acme" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Archive Acme" })).toBeVisible();

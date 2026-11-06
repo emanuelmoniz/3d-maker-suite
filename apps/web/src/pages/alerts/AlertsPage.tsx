@@ -18,7 +18,7 @@ import { Button } from "../../components/Button.tsx";
 import { DataTable } from "../../components/DataTable.tsx";
 import { EmptyState } from "../../components/EmptyState.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
-import { SettingsLink, useCanSettings } from "../../components/SettingsLink.tsx";
+import { SettingsLink } from "../../components/SettingsLink.tsx";
 import {
   needsAttention,
   useAlertAction,
@@ -78,15 +78,15 @@ export function useMayOpenTask() {
 
 /**
  * A finished sync's call to action: the module or catalog section it filled. For whoever may run
- * the task; a catalog section is module settings, so it also needs that module's manage.
+ * the task; a catalog section also needs `catalog` read.
  */
 export function SyncTargetLink({ a }: { a: Alert }) {
   const { t } = useTranslation();
   const mayOpen = useMayOpenTask();
   const target = SYNC_TARGETS[a.context.type as Capability];
-  const settings = useCanSettings(target?.to.startsWith("/filament") ? "filament" : "printers");
+  const catalog = useCan("catalog", "read");
   if (a.kind !== "sync_success" || !target || !mayOpen(a)) return null;
-  if (!settings && target.to.endsWith("/settings")) return null;
+  if (!catalog && target.to.startsWith("/catalog")) return null;
   return (
     <Link to={target.to} hash={target.hash} className={buttonLink}>
       {t(target.label)}

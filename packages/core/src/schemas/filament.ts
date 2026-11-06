@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { sourceFilter, useFilter } from "./catalog.ts";
 import {
   filamentBrandSchema,
   filamentMaterialSchema,
@@ -8,24 +9,6 @@ import {
 import { SPOOL_STATUSES } from "./enums.ts";
 import type { ColumnFilter } from "./list.ts";
 
-/** Fields the user edits. `PATCH` takes any subset, plus `archived` to archive/restore. */
-export const filamentProfileInputSchema = filamentProfileSchema
-  .pick({
-    brandId: true,
-    materialId: true,
-    name: true,
-    diameterMm: true,
-    densityGcm3: true,
-    nozzleTempC: true,
-    bedTempC: true,
-  })
-  .partial({
-    brandId: true,
-    name: true,
-    diameterMm: true,
-    nozzleTempC: true,
-    bedTempC: true,
-  });
 // Filament brands and materials. Fields the user edits; `PATCH` takes any subset, plus `archived`.
 export const filamentBrandInputSchema = filamentBrandSchema
   .pick({ name: true, url: true })
@@ -41,17 +24,12 @@ export const filamentMaterialPatchSchema = filamentMaterialInputSchema
   .partial()
   .extend({ archived: z.boolean().optional() })
   .strict();
-export const filamentBrandSortFields = ["name", "createdAt"] as const;
-export const filamentMaterialSortFields = ["name", "createdAt"] as const;
-export const filamentCatalogFilters = { name: { kind: "text" } } as const satisfies Record<
-  string,
-  ColumnFilter
->;
-
-export const filamentProfilePatchSchema = filamentProfileInputSchema
-  .partial()
-  .extend({ archived: z.boolean().optional() })
-  .strict();
+export const filamentBrandSortFields = ["name", "source", "createdAt"] as const;
+export const filamentMaterialSortFields = ["name", "source", "createdAt"] as const;
+export const filamentCatalogFilters = {
+  name: { kind: "text" },
+  source: sourceFilter,
+} as const satisfies Record<string, ColumnFilter>;
 
 /**
  * `remainingGrams` defaults to `initialGrams` (a new spool). Afterwards only `adjust` changes it.
@@ -106,7 +84,14 @@ export const spoolAdjustSchema = z.object({
   note: z.string().min(1).nullable().optional(),
 });
 
-export const filamentProfileSortFields = ["brand", "material", "createdAt", "filament"] as const;
+export const filamentProfileSortFields = [
+  "brand",
+  "material",
+  "source",
+  "use",
+  "createdAt",
+  "filament",
+] as const;
 export const spoolSortFields = [
   "createdAt",
   "remainingGrams",
@@ -120,6 +105,8 @@ export const filamentProfileFilters = {
   filament: { kind: "text" },
   brandId: { kind: "select" },
   materialId: { kind: "select" },
+  source: sourceFilter,
+  use: useFilter,
 } as const satisfies Record<string, ColumnFilter>;
 
 export const spoolFilters = {
@@ -133,8 +120,6 @@ export type FilamentBrandInput = z.infer<typeof filamentBrandInputSchema>;
 export type FilamentBrandPatch = z.infer<typeof filamentBrandPatchSchema>;
 export type FilamentMaterialInput = z.infer<typeof filamentMaterialInputSchema>;
 export type FilamentMaterialPatch = z.infer<typeof filamentMaterialPatchSchema>;
-export type FilamentProfileInput = z.infer<typeof filamentProfileInputSchema>;
-export type FilamentProfilePatch = z.infer<typeof filamentProfilePatchSchema>;
 export type SpoolInput = z.infer<typeof spoolInputSchema>;
 export type SpoolPatch = z.infer<typeof spoolPatchSchema>;
 export type SpoolAdjust = z.infer<typeof spoolAdjustSchema>;

@@ -21,6 +21,7 @@ import {
   type ImportValues,
   isUserPresetType,
   type MergePolicy,
+  mergeOf,
   mergeValues,
   parseRow,
   type ReviewEntity,
@@ -265,8 +266,10 @@ export function createReview(db: Db, dataDir: string) {
   function syncOf(stored: Stored) {
     if (stored.from?.kind !== "integration" || stored.entity === "prints") return undefined;
     const { integrationId } = stored.from;
-    const policy = policyOf(db, integrationId, stored.type ?? (stored.entity as ReviewedType));
-    const { merge, trackUsage } = policy;
+    const type = stored.type ?? (stored.entity as ReviewedType);
+    const policy = policyOf(db, integrationId, type);
+    const { trackUsage } = policy;
+    const merge = mergeOf(type, policy.merge);
     const scope = stored.picked ? "all" : policy.scope;
     const where = and(
       eq(importSnapshots.integrationId, integrationId),
@@ -440,11 +443,13 @@ export function createReview(db: Db, dataDir: string) {
         const keep = !!sync && sync.merge !== "overwrite";
         // A review opened by hand writes what you see unless it is yours (`keepEdits`).
         const skipSeen = byHand ? sync?.merge === "keepEdits" : keep;
-        // Keeping your edits leaves nothing to write: the source only changed fields you edited.
+        // Keeping your edits leaves nothing to write: the source only changed fields you edited
+        // (or, filling, only fields you have).
+        const kept = sync?.merge === "keepEdits" || sync?.merge === "fill" ? sync.merge : null;
         const nothing =
-          sync?.merge === "keepEdits" &&
+          !!kept &&
           !!target &&
-          !Object.keys(mergeValues(columns, "keepEdits", p.values, target, edited)).length;
+          !Object.keys(mergeValues(columns, kept, p.values, target, edited)).length;
         const seen = nothing || (keep && !!target && (last ? sameSource : sync.merge === "review"));
         return {
           ...p,
@@ -496,7 +501,9 @@ export function createReview(db: Db, dataDir: string) {
       refNames: handler.refs?.(db) ?? {},
       refOptions: picks?.options,
       ...(picks?.optional && { refsOptional: picks.optional }),
-      ...(sync && { policy: sync.merge === "keepEdits" ? "keepEdits" : "overwrite" }),
+      ...(sync && {
+        policy: sync.merge === "keepEdits" || sync.merge === "fill" ? sync.merge : "overwrite",
+      }),
     };
   }
 

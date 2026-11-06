@@ -1,5 +1,7 @@
+import { randomUUID } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { DatabaseSync } from "node:sqlite";
 import { deflateSync } from "node:zlib";
 import type { Locator, Page } from "@playwright/test";
 
@@ -66,21 +68,50 @@ export const seedPrinter = async (api: Api, name = "Test Printer") =>
 export const seedProject = (api: Api, name = "Test Project") =>
   api<{ id: string }>("POST", "/api/projects", { name });
 
+let presets = 0;
+/**
+ * A profile as a slicer import leaves it (ADR-0020: no API makes one), written into the running
+ * app's database: from `bambu-studio`'s system presets unless `values` names its `sourcePreset`.
+ */
+export function insertProfile<V extends Record<string, unknown>>(
+  app: { dataDir: string },
+  table: "machine_profiles" | "print_profiles" | "filament_profiles",
+  values: V,
+): V & { id: string } {
+  const now = new Date().toISOString();
+  const row: Record<string, unknown> = {
+    id: randomUUID(),
+    sourcePreset: `bambu-studio:system/${values.name ?? "preset"} ${++presets}`,
+    createdAt: now,
+    updatedAt: now,
+    ...(table === "filament_profiles" && { name: "", densityGcm3: 1.24 }),
+    ...values,
+  };
+  const columns = Object.keys(row).map((k) => k.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`));
+  const db = new DatabaseSync(join(app.dataDir, "app.sqlite"), { timeout: 5000 });
+  try {
+    db.prepare(
+      `insert into ${table} (${columns.join(", ")}) values (${columns.map(() => "?").join(", ")})`,
+    ).run(...(Object.values(row) as (string | number | null)[]));
+  } finally {
+    db.close();
+  }
+  return row as V & { id: string };
+}
+
+/** The "Acme" brand and "PLA" material a spool or profile is of. Once per test. */
+export const seedFilament = async (api: Api) => ({
+  brandId: (await api<{ id: string }>("POST", "/api/filament-brands", { name: "Acme" })).id,
+  materialId: (await api<{ id: string }>("POST", "/api/filament-materials", { name: "PLA" })).id,
+});
+
 /** The "Acme PLA Basic" filament profile with its brand and material. Once per test. */
-export const seedProfile = async (api: Api) => {
-  const brand = await api<{ id: string }>("POST", "/api/filament-brands", { name: "Acme" });
-  const material = await api<{ id: string }>("POST", "/api/filament-materials", { name: "PLA" });
-  return api<{ id: string; brandId: string; materialId: string }>(
-    "POST",
-    "/api/filament/profiles",
-    {
-      brandId: brand.id,
-      materialId: material.id,
-      densityGcm3: 1.24,
-      name: "Basic",
-    },
-  );
-};
+export const seedProfile = async (app: { api: Api; dataDir: string }) =>
+  insertProfile(app, "filament_profiles", {
+    ...(await seedFilament(app.api)),
+    densityGcm3: 1.24,
+    name: "Basic",
+  });
 
 /** A spool of the profile's filament: its brand and material, named "PLA Basic". */
 export const filamentOf = (p: { brandId: string; materialId: string }) => ({
@@ -90,7 +121,7 @@ export const filamentOf = (p: { brandId: string; materialId: string }) => ({
 });
 
 export const seedSpool = async (api: Api, grams = 1000) => {
-  const profile = await seedProfile(api);
+  const profile = await seedFilament(api);
   return api<{ id: string }>("POST", "/api/filament/spools", {
     ...filamentOf(profile),
     colorHex: "#ff0000",
@@ -123,7 +154,8 @@ export const ROUTES = [
   "/projects/settings",
   "/alerts/settings",
   "/printers/settings",
-  "/filament/settings",
+  "/catalog/printers",
+  "/catalog/filament",
   "/import",
   "/settings",
   "/integrations",

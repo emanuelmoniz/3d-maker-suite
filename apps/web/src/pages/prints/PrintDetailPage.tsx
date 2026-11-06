@@ -38,13 +38,8 @@ function PrinterLink({ id }: { id: string }) {
   );
 }
 
-function MachineProfileLink({ id }: { id: string }) {
-  const name = useCatalogItem("machine-profiles", id).data?.name;
-  return (
-    <Link to="/printers/profiles/$id/edit" params={{ id }} className={link}>
-      {name}
-    </Link>
-  );
+function MachineProfileName({ id }: { id: string }) {
+  return <>{useCatalogItem("machine-profiles", id).data?.name}</>;
 }
 
 function OrderLink({ id }: { id: string }) {
@@ -145,7 +140,7 @@ export function PrintDetailPage() {
             )}
             {print.machineProfileId && (
               <Info label={t("prints:form.machineProfile")}>
-                <MachineProfileLink id={print.machineProfileId} />
+                <MachineProfileName id={print.machineProfileId} />
               </Info>
             )}
             <Info label={t("prints:form.outcome")}>

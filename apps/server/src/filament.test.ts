@@ -15,6 +15,7 @@ import { buildApp } from "./app.ts";
 import { filamentBrandIdFor, filamentMaterialIdFor, spoolName } from "./lib/catalog.ts";
 import { setRemaining, takeFromSpool } from "./lib/spools.ts";
 import { reviewer } from "./testReview.ts";
+import { insertProfile } from "./testSeed.ts";
 
 let db: ReturnType<typeof openDb>;
 let app: Awaited<ReturnType<typeof buildApp>>;
@@ -28,14 +29,12 @@ const send = (method: "POST" | "PATCH", url: string, payload: Record<string, unk
   app.inject({ method, url, payload });
 
 const profile = async () =>
-  (
-    await send("POST", "/api/filament/profiles", {
-      brandId: filamentBrandIdFor(db, "Prusament"),
-      materialId: filamentMaterialIdFor(db, "PLA"),
-      name: "Galaxy",
-      densityGcm3: 1.24,
-    })
-  ).json();
+  insertProfile(db, "filamentProfiles", {
+    brandId: filamentBrandIdFor(db, "Prusament"),
+    materialId: filamentMaterialIdFor(db, "PLA"),
+    name: "Galaxy",
+    densityGcm3: 1.24,
+  });
 
 /** A spool's filament: brand, material, name. */
 const galaxy = () => ({
@@ -193,7 +192,10 @@ describe("filament", () => {
 describe("filament brands and materials", () => {
   it("are unique by name, case-insensitive, and can't be deleted while a profile or spool uses them", async () => {
     const p = await profile();
-    expect(p).toMatchObject({ brand: "Prusament", material: "PLA" });
+    expect((await app.inject(`/api/filament/profiles/${p.id}`)).json()).toMatchObject({
+      brand: "Prusament",
+      material: "PLA",
+    });
     expect((await send("POST", "/api/filament-brands", { name: "prusament" })).statusCode).toBe(
       409,
     );

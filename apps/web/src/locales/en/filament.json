@@ -56,12 +56,7 @@
     "density": "Density (g/cm³)",
     "nozzleTemp": "Nozzle (°C)",
     "bedTemp": "Bed (°C)",
-    "temps": "{{nozzle}} / {{bed}} °C",
-    "add": "Add profile",
-    "addTitle": "Add filament profile",
-    "editTitle": "Edit filament profile",
-    "save": "Save profile",
-    "error": "Couldn't save the profile."
+    "temps": "{{nozzle}} / {{bed}} °C"
   },
   "library": {
     "sources": {

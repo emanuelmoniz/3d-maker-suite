@@ -11,7 +11,6 @@ export type SettingsModule =
   | "projects"
   | "alerts"
   | "printers"
-  | "filament"
   | "hub";
 
 /** What opens a module's settings page (ADR-0016): manage on a module, or the on/off permission. */
@@ -22,8 +21,6 @@ const SETTINGS_PERMISSION: Record<SettingsModule, Permission> = {
   projects: "projects",
   alerts: "settings.alerts",
   printers: "printers",
-  // Filament → Settings holds only catalog tables (ADR-0020).
-  filament: "catalog",
   hub: "hub.manage",
 };
 

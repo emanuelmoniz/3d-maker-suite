@@ -6,22 +6,21 @@ import {
   filamentProfileFilters,
 } from "@3d-maker-suite/core";
 import { Link } from "@tanstack/react-router";
-import { Plus } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { archiveColumn } from "../../components/ArchiveActions.tsx";
 import { type Column, DataTable } from "../../components/DataTable.tsx";
-import { Write } from "../../components/Write.tsx";
 import { imageUrl, useFilamentBrands, useFilamentMaterials } from "../../lib/catalog.ts";
 import { filamentLabel, useProfiles } from "../../lib/filament.ts";
 import { formatCurrency, formatList } from "../../lib/format.ts";
 import { useListPage, useUrlListQuery } from "../../lib/list.ts";
 import { usePreferences } from "../../lib/preferences.ts";
-import { addClass, editLink, Section, Thumb } from "../printers/Catalog.tsx";
+import { sourceColumn, useColumn } from "../catalog/sources.tsx";
+import { editLink, Section, Thumb, useScrolledTo } from "../printers/Catalog.tsx";
 
 // The slicer library a preset came from (`<library>:<preset>`); hand-made ones have none.
 const libraryOf = (source: string | null) => source?.split(":")[0] || null;
 
-/** Slicer columns for the three tables, worked out from the profiles' presets. */
+/** Slicer columns for brands and materials, worked out from their profiles' presets. */
 function useSlicerColumns() {
   const { t } = useTranslation();
   const profiles = useProfiles().data?.items ?? [];
@@ -37,7 +36,6 @@ function useSlicerColumns() {
   });
   // Brands and materials have no preset of their own: theirs are their profiles' slicers.
   return {
-    profile: column<FilamentProfile>((p) => [libraryOf(p.sourcePreset)]),
     brand: column<FilamentBrand>((b) =>
       profiles.filter((p) => p.brandId === b.id).map((p) => libraryOf(p.sourcePreset)),
     ),
@@ -53,6 +51,8 @@ export function FilamentCatalog() {
   const currency = usePreferences().data?.values.currency;
   const none = t("printers:detail.info.none");
   const slicer = useSlicerColumns();
+  const brands = useFilamentBrands().data ?? [];
+  const materials = useFilamentMaterials().data ?? [];
   return (
     <>
       <Section<FilamentBrand>
@@ -90,6 +90,7 @@ export function FilamentCatalog() {
               ),
           },
           slicer.brand,
+          sourceColumn<FilamentBrand>(t, brands),
         ]}
       />
       <Section<FilamentMaterial>
@@ -125,13 +126,14 @@ export function FilamentCatalog() {
               m.pricePerKg === null ? none : formatCurrency(m.pricePerKg / 100, currency),
           },
           slicer.material,
+          sourceColumn<FilamentMaterial>(t, materials),
         ]}
       />
     </>
   );
 }
 
-/** Filament profiles table with its import and add actions. */
+/** Filament profiles: slicer files, listed, archived and deleted here (ADR-0020). */
 export function FilamentProfiles() {
   const { t } = useTranslation();
   const [profileQuery, setProfileQuery] = useUrlListQuery("profiles.");
@@ -142,7 +144,8 @@ export function FilamentProfiles() {
   );
   const brands = useFilamentBrands().data ?? [];
   const materials = useFilamentMaterials().data ?? [];
-  const slicer = useSlicerColumns();
+  const all = useProfiles().data?.items ?? [];
+  useScrolledTo("filament-profiles", !!profiles.data);
   return (
     <>
       {profiles.isError && (
@@ -153,15 +156,8 @@ export function FilamentProfiles() {
       <section id="filament-profiles" className="grid scroll-mt-4 gap-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-base font-semibold">{t("filament:profiles.title")}</h2>
-          <span className="flex flex-wrap gap-2">
-            <Write can="catalog" level="manage">
-              <Link to="/filament/profiles/new" className={addClass}>
-                <Plus className="size-4" aria-hidden />
-                {t("filament:profiles.add")}
-              </Link>
-            </Write>
-          </span>
         </div>
+        <p className="-mt-1 text-muted">{t("catalog:fromFiles")}</p>
         {profiles.data && (
           <DataTable
             label={t("filament:profiles.table")}
@@ -217,10 +213,11 @@ export function FilamentProfiles() {
                         bed: p.bedTempC ?? "–",
                       }),
               },
-              slicer.profile,
+              sourceColumn<FilamentProfile>(t, all, true),
+              useColumn<FilamentProfile>(t),
               archiveColumn<FilamentProfile>(t, {
                 kind: "filament-profiles",
-                can: "filament",
+                can: "catalog",
                 level: "manage",
                 name: filamentLabel,
               }),

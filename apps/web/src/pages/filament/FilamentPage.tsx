@@ -8,7 +8,6 @@ import { DataTable } from "../../components/DataTable.tsx";
 import { EmptyState } from "../../components/EmptyState.tsx";
 import { SyncButtons } from "../../components/ImportLinks.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
-import { SettingsLink } from "../../components/SettingsLink.tsx";
 import { TagList } from "../../components/TagList.tsx";
 import { Write } from "../../components/Write.tsx";
 import { useCatalogWithArchived } from "../../lib/catalog.ts";
@@ -75,7 +74,6 @@ export function FilamentPage() {
       <PageHeader
         title={t("nav:items.filament.label")}
         description={t("nav:items.filament.description")}
-        actions={<SettingsLink module="filament" />}
       />
       {spools.isError && (
         <p role="alert" className="text-bad">

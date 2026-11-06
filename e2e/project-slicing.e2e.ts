@@ -4,6 +4,7 @@ import { expect, test } from "./fixtures.ts";
 import {
   addRoots,
   hasHorizontalScroll,
+  insertProfile,
   openSections,
   pick,
   seedModel,
@@ -31,11 +32,11 @@ test("project slicing setup: defaults from the default printer, saves, reloads, 
   const plateName = first.name ?? `Plate ${first.index}`;
 
   const model = await seedModel(app.api);
-  const standard = await app.api<{ id: string }>("POST", "/api/print-profiles", {
+  const standard = insertProfile(app, "print_profiles", {
     name: "0.20mm Standard",
     printerModelId: model.id,
   });
-  await app.api("POST", "/api/print-profiles", { name: "0.12mm Fine", printerModelId: model.id });
+  insertProfile(app, "print_profiles", { name: "0.12mm Fine", printerModelId: model.id });
   const printer = await app.api<{ id: string }>("POST", "/api/printers", {
     name: "Main",
     modelId: model.id,
@@ -43,7 +44,7 @@ test("project slicing setup: defaults from the default printer, saves, reloads, 
     printProfileId: standard.id,
   });
   await app.api("PATCH", "/api/preferences", { defaultPrinterId: printer.id });
-  await seedProfile(app.api);
+  await seedProfile(app);
 
   await page.goto(`/projects/${project.id}/edit`);
   await openSections(page, "Print setup");
@@ -171,13 +172,13 @@ test("plate pickers list the slicer's presets, slots default to the file's, misf
   });
   await app.api("PATCH", `/api/integrations/${mock.id}`, { slicerPath: process.execPath });
   const model = await seedModel(app.api);
-  // The mock slicer's preset, another slicer's, and a hand-made one (no slicer's).
+  // The mock slicer's preset, another slicer's, and an older hand-made one (no slicer's).
   for (const [name, sourcePreset] of [
     ["Fine", "mock:system/Fine"],
     ["Orca Fine", "orca-slicer:system/Fine"],
-    ["Mine", undefined],
+    ["Mine", null],
   ])
-    await app.api("POST", "/api/print-profiles", { name, printerModelId: model.id, sourcePreset });
+    insertProfile(app, "print_profiles", { name, printerModelId: model.id, sourcePreset });
   const mine = await app.api<{ items: { id: string; name: string }[] }>(
     "GET",
     "/api/print-profiles?name=Mine",
@@ -242,7 +243,7 @@ for (const width of [412, 1280])
       ["PLA", "Bambu PLA Matte"],
       ["PETG", "Bambu PETG Basic"],
     ] as const) {
-      await app.api("POST", "/api/filament/profiles", {
+      insertProfile(app, "filament_profiles", {
         brandId: brand.id,
         materialId: materials[material],
         densityGcm3: 1.24,

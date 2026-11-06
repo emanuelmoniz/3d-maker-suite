@@ -9,6 +9,7 @@ import { buildApp } from "./app.ts";
 import { autoSliceSlicer } from "./projects/autoSlice.ts";
 import { createSliceQueue } from "./projects/sliceQueue.ts";
 import { setRoots } from "./testRoots.ts";
+import { insertProfile } from "./testSeed.ts";
 
 const fixtures = join(import.meta.dirname, "../../../packages/3mf/fixtures");
 
@@ -53,12 +54,10 @@ const states = async () =>
 
 describe("project slicing setup", () => {
   it("refuses a new pick that is archived; a plate saved unchanged keeps its own", async () => {
-    const post = async (url: string, payload: object) =>
-      (await app.inject({ method: "POST", url, payload })).json();
     const archive = (url: string) =>
       app.inject({ method: "PATCH", url, payload: { archived: true } });
-    const { id: mine } = await post("/api/print-profiles", { name: "Mine" });
-    const { id: other } = await post("/api/print-profiles", { name: "Other" });
+    const { id: mine } = insertProfile(db, "printProfiles", { name: "Mine" });
+    const { id: other } = insertProfile(db, "printProfiles", { name: "Other" });
     const plate = { file: "benchy.3mf", plate: 1, filaments: [null] };
     expect((await put([{ ...plate, printProfileId: mine }])).statusCode).toBe(200);
     await archive(`/api/print-profiles/${mine}`);
@@ -76,9 +75,7 @@ describe("project slicing setup", () => {
       canSlice: false,
       canFallback: false,
     });
-    const profile = (
-      await app.inject({ method: "POST", url: "/api/print-profiles", payload: { name: "0.20mm" } })
-    ).json();
+    const profile = insertProfile(db, "printProfiles", { name: "0.20mm" });
     const plate = { file: "benchy.3mf", plate: 1, printProfileId: profile.id, filaments: [null] };
     expect((await put([plate])).statusCode).toBe(200);
     expect((await app.inject(`/api/projects/${id}/slicing`)).json().plates).toEqual([
@@ -207,13 +204,10 @@ describe("slicing a project (mock slicer)", () => {
   });
 
   it("slices, stores the result, re-slices only what changed", async () => {
-    const preset = (
-      await app.inject({
-        method: "POST",
-        url: "/api/print-profiles",
-        payload: { name: "Fine", sourcePreset: "mock:system/Fine" },
-      })
-    ).json();
+    const preset = insertProfile(db, "printProfiles", {
+      name: "Fine",
+      sourcePreset: "mock:system/Fine",
+    });
     expect(await listSlicing()).toEqual(["none"]);
     await put([{ file: "benchy.3mf", plate: 1, printProfileId: null, filaments: [] }]);
     expect(await listSlicing()).toEqual(["needed"]);
@@ -257,9 +251,7 @@ describe("slicing a project (mock slicer)", () => {
   });
 
   it("keeps the slicer's error on the plate, and refuses a profile that isn't its preset", async () => {
-    const handMade = (
-      await app.inject({ method: "POST", url: "/api/print-profiles", payload: { name: "Mine" } })
-    ).json();
+    const handMade = insertProfile(db, "printProfiles", { name: "Mine", sourcePreset: null });
     await put([{ file: "benchy.3mf", plate: 1, printProfileId: handMade.id, filaments: [] }]);
     await run();
     expect((await settled()).plates[0]).toMatchObject({ error: "no_preset: Mine", result: null });
@@ -292,9 +284,8 @@ describe("slicing a project (mock slicer)", () => {
       (await app.inject({ method: "POST", url, payload })).json();
     const brand = await post("/api/filament-brands", { name: "Acme" });
     const material = await post("/api/filament-materials", { name: "PLA" });
-    // Imported ones carry their preset; the API doesn't set it.
     const profile = async (name: string, sourcePreset: string | null = null) => {
-      const p = await post("/api/filament/profiles", {
+      const p = insertProfile(db, "filamentProfiles", {
         brandId: brand.id,
         materialId: material.id,
         densityGcm3: 1.24,
@@ -367,11 +358,11 @@ describe("slicing a project (mock slicer)", () => {
     // The fixture was saved for a "Bambu Lab A1" with a 0.4 mm nozzle.
     const a1 = await post("/api/printer-models", { brandId: brand.id, model: "A1" });
     const p1s = await post("/api/printer-models", { brandId: brand.id, model: "P1S" });
-    const std = await post("/api/print-profiles", {
+    const std = insertProfile(db, "printProfiles", {
       name: "0.20 A1",
       sourcePreset: "mock:system/0.20 A1",
     });
-    const x1c = await post("/api/print-profiles", {
+    const x1c = insertProfile(db, "printProfiles", {
       name: "0.20 X1C",
       sourcePreset: "mock:system/0.20 X1C",
     });
@@ -411,7 +402,7 @@ describe("slicing a project (mock slicer)", () => {
     await run();
     s = await settled();
     expect(s.plates[0].error).toBe("no_machine_preset: Other");
-    await post("/api/machine-profiles", {
+    insertProfile(db, "machineProfiles", {
       name: "Bambu Lab P1S 0.4 nozzle",
       printerModelId: p1s.id,
       sourcePreset: "mock:system/Bambu Lab P1S 0.4 nozzle",
@@ -458,7 +449,7 @@ describe("slicing a project (mock slicer)", () => {
     expect((await settled()).plates[0]).toMatchObject({ needsSlicing: false, spools: [blue.id] });
 
     // A plate saved before 5.4 kept its spool's profile as the preset: saved again, it stays.
-    const profile = await post("/api/filament/profiles", {
+    const profile = insertProfile(db, "filamentProfiles", {
       brandId: brand.id,
       materialId: material.id,
       densityGcm3: 1.24,
@@ -497,13 +488,10 @@ describe("slicing a project (mock slicer)", () => {
     // The same bytes again: the same file.
     expect((await upload("Copy.3mf", bytes)).json().id).toBe(fileId);
 
-    const preset = (
-      await app.inject({
-        method: "POST",
-        url: "/api/print-profiles",
-        payload: { name: "Fine", sourcePreset: "mock:system/Fine" },
-      })
-    ).json();
+    const preset = insertProfile(db, "printProfiles", {
+      name: "Fine",
+      sourcePreset: "mock:system/Fine",
+    });
     const plates = [
       { file: "benchy.3mf", plate: 1, printProfileId: preset.id, filaments: [] },
       { file: model.file, plate: 1, printProfileId: null, filaments: [] },

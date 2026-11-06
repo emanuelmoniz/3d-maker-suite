@@ -2156,7 +2156,7 @@ Then push dev, push the tag and confirm the pre-release.
 
 ## Phase 30b - Catalog module
 
-### [ ] Step 15 - Catalog module, profiles only from files  **[plan mode]**
+### [x] Step 15 - Catalog module, profiles only from files  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:**
 - `/catalog` with Printers and Filament tabs (the tables from `pages/printers/Catalog.tsx` and `pages/filament/Catalog.tsx`), and redirects: `/printers/settings#<table>` to its tab, `/filament/settings` to Catalog → Filament. Printers → Settings keeps the default printer and states; Filament → Settings and its gear go. `lib/syncTargets.ts`, the catalog forms' back links, the e2e specs that open the old pages.
@@ -2172,6 +2172,20 @@ Then push dev, push the tag and confirm the pre-release.
 ```
 Do Step 15 of the 5.4.0 plan in PLAN.md. Use frontend-design for the module.
 Back up the DB before editing schema.ts.
+```
+
+### [ ] Step 15b - Catalog import and export in Catalog
+**Model:** Sonnet · **Effort:** Medium
+**Scope:**
+- Each table of the four catalog types (brands, printer models, filament brands, filament materials) gets Import and Export next to Add (`Section.extra`), with today's upload, review and export; the review's back link returns to its tab.
+- Import | Export keeps printers, accessories, installs, projects, prints, spools, clients, quotes, orders and maintenance; the catalog types leave it, with one line: the catalog is imported in Catalog, slicer profiles come only from a slicer.
+- The profile tables say how profiles arrive: connect a slicer in Integrations, or upload a zip of the slicer's config folder (where it is per slicer and OS, what to zip), linking the zip page. Step 19 moves that page into Sources with the same text.
+- `docs/import.md`.
+
+**Done when:** a brand CSV round-trips from Catalog → Printers; Import | Export lists no catalog type; the profile tables explain the zip; tests and e2e pass.
+**Prompt:**
+```
+Do Step 15b of the 5.4.0 plan in PLAN.md. Use frontend-design for the import controls.
 ```
 
 ### [ ] Step 16 - A profile's file: All settings

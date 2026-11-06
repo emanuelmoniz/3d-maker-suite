@@ -3,13 +3,12 @@ import {
   archivedFilter,
   type FilamentProfile,
   filamentProfileFilters,
-  filamentProfileInputSchema,
-  filamentProfilePatchSchema,
   filamentProfileSchema,
   filamentProfileSortFields,
   listQuery,
   type Page,
   pageOf,
+  profilePatchSchema,
   type Spool,
   type SpoolInput,
   type SpoolWeightEntry,
@@ -35,6 +34,7 @@ import {
   resolveItemAlerts,
 } from "../lib/archive.ts";
 import {
+  presetSource,
   profileBrand,
   profileColumns,
   profileLabel,
@@ -42,7 +42,7 @@ import {
   spoolColumns,
   spoolName,
 } from "../lib/catalog.ts";
-import { deleteItem } from "../lib/dependents.ts";
+import { deleteItem, presetUsed } from "../lib/dependents.ts";
 import { listPage, taggedWith } from "../lib/list.ts";
 import { assertNumberFree } from "../lib/numbers.ts";
 import { createSpool, round, setRemaining } from "../lib/spools.ts";
@@ -54,9 +54,14 @@ const notFound = { 404: apiErrorSchema };
 export const filamentRoutes =
   (db: Db): FastifyPluginAsyncZod =>
   async (app) => {
+    const profileExtra = {
+      source: presetSource(filamentProfiles.sourcePreset),
+      use: presetUsed("filamentProfiles"),
+    };
+    const profileSelect = { ...profileColumns, ...profileExtra };
     const getProfile = (id: string) => {
       const row = db
-        .select(profileColumns)
+        .select(profileSelect)
         .from(filamentProfiles)
         .where(eq(filamentProfiles.id, id))
         .get();
@@ -76,7 +81,7 @@ export const filamentRoutes =
         throw new HttpError(400, "invalid_reference", "Filament material not found");
     };
 
-    // --- Profiles (the product: brand, material, colour).
+    // --- Profiles: slicer files (ADR-0020), listed, archived and deleted, never made here.
     app.get(
       "/profiles",
       {
@@ -91,10 +96,11 @@ export const filamentRoutes =
       },
       async (req) =>
         listPage(db, filamentProfiles, req.query, {
-          select: profileColumns,
+          select: profileSelect,
           sort: {
             brand: sql`${profileBrand} COLLATE NOCASE`,
             material: sql`${profileMaterial} COLLATE NOCASE`,
+            ...profileExtra,
             createdAt: filamentProfiles.createdAt,
             filament: profileLabel,
           },
@@ -103,27 +109,10 @@ export const filamentRoutes =
             filament: profileLabel,
             brandId: filamentProfiles.brandId,
             materialId: filamentProfiles.materialId,
+            ...profileExtra,
           },
           where: [archivedWhere(filamentProfiles.archivedAt, req.query.archived)],
         }) as Page<FilamentProfile>,
-    );
-
-    app.post(
-      "/profiles",
-      {
-        schema: {
-          body: filamentProfileInputSchema,
-          response: { 201: filamentProfileSchema, 400: apiErrorSchema },
-        },
-      },
-      async (req, reply) => {
-        const { id } = db
-          .insert(filamentProfiles)
-          .values({ name: "", ...req.body })
-          .returning()
-          .get();
-        return reply.status(201).send(getProfile(id) as FilamentProfile);
-      },
     );
 
     app.get(
@@ -137,16 +126,16 @@ export const filamentRoutes =
       {
         schema: {
           params,
-          body: filamentProfilePatchSchema,
+          body: profilePatchSchema,
           response: { 200: filamentProfileSchema, 409: apiErrorSchema, ...notFound },
         },
       },
       async (req) => {
         const cur = getProfile(req.params.id);
-        const { archived, ...fields } = req.body;
-        if (archived === false) assertPresetFree(db, filamentProfiles, cur);
+        const { archived } = req.body;
+        if (!archived) assertPresetFree(db, filamentProfiles, cur);
         db.update(filamentProfiles)
-          .set({ ...fields, archivedAt: archivedAtOf(archived) })
+          .set({ archivedAt: archivedAtOf(archived) })
           .where(eq(filamentProfiles.id, req.params.id))
           .run();
         return getProfile(req.params.id) as FilamentProfile;

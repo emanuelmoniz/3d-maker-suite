@@ -648,6 +648,36 @@ describe("slicer catalog import", () => {
     expect(db.select().from(schema.filamentMaterials).all()).toHaveLength(1);
   });
 
+  it("a row made by hand is linked by name: its name is locked, a file only fills empty fields", async () => {
+    const send = (method: "POST" | "PATCH", url: string, payload: object) =>
+      app.inject({ method, url, payload });
+    const mine = (
+      await send("POST", "/api/filament-brands", { name: "ACME", url: "https://acme.example" })
+    ).json();
+    expect(mine.source).toBe("hand");
+    // "How to sync" is for printers and spools: Overwrite changes nothing here.
+    await send("PATCH", `/api/integrations/${id}`, {
+      policies: [{ type: "filamentBrands", merge: "overwrite" }],
+    });
+    for (let i = 0; i < 2; i++) {
+      expect(await run("filamentBrands")).toMatchObject({ created: 0, status: "ok" });
+      expect((await app.inject(`/api/filament-brands/${mine.id}`)).json()).toMatchObject({
+        name: "ACME",
+        url: "https://acme.example",
+        // The slicer's library, whichever of its installs brought it.
+        source: "fake",
+      });
+    }
+    expect((await app.inject("/api/filament-brands?source=fake")).json().total).toBe(1);
+    const renamed = await send("PATCH", `/api/filament-brands/${mine.id}`, { name: "Acme Co" });
+    expect([renamed.statusCode, renamed.json().error.code]).toEqual([409, "name_locked"]);
+    const edited = await send("PATCH", `/api/filament-brands/${mine.id}`, {
+      name: "ACME",
+      url: "https://acme.example/en",
+    });
+    expect(edited.json()).toMatchObject({ url: "https://acme.example/en" });
+  });
+
   it("Only what I already have: models of your brands arrive, other brands' never", async () => {
     state.catalog.models.push({ brand: "Prusa", model: "MK4", image: null });
     // You import only Acme.
