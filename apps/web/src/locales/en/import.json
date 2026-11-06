@@ -1,6 +1,7 @@
 {
   "title": "Import | Export",
   "description": "Bring data in from a spreadsheet, or take it out. You review every row before anything is saved.",
+  "catalogMoved": "Brands, printer models, filament brands and materials are imported in <link>Catalog</link>. Slicer profiles come only from a slicer.",
   "import": {
     "title": "Import",
     "hint": "Data in another app or file? Download the template for what you want to import, copy your data into it, then upload it. Files you exported here earlier can be uploaded as they are.",

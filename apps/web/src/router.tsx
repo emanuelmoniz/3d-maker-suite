@@ -15,6 +15,7 @@ import { loadNamespace } from "./i18n.ts";
 import { AlertDetailPage } from "./pages/alerts/AlertDetailPage.tsx";
 import { AlertsPage } from "./pages/alerts/AlertsPage.tsx";
 import { LoginPage, SetupPage } from "./pages/auth/AuthPages.tsx";
+import { CatalogImportPage } from "./pages/catalog/CatalogImportPage.tsx";
 import { CATALOG_TABS, CatalogPage, PRINTER_TABLES } from "./pages/catalog/CatalogPage.tsx";
 import { ClientDetailPage } from "./pages/clients/ClientDetailPage.tsx";
 import { ClientCreatePage, ClientEditPage } from "./pages/clients/ClientFormPage.tsx";
@@ -258,7 +259,9 @@ const routes: AnyRoute[] = [
       path: `/catalog/${tab}`,
       // integrations: the names of the accounts a row can come from.
       loader: () =>
-        Promise.all(["catalog", "printers", "filament", "integrations"].map(loadNamespace)),
+        Promise.all(
+          ["catalog", "printers", "filament", "integrations", "import"].map(loadNamespace),
+        ),
       component: () => <CatalogPage tab={tab} />,
     }),
   ),
@@ -269,6 +272,13 @@ const routes: AnyRoute[] = [
     beforeLoad: ({ location }) => {
       throw redirect({ to: "/catalog/filament", hash: location.hash });
     },
+  }),
+  createRoute({
+    getParentRoute: () => root,
+    path: "/catalog/import/$entity",
+    // filament + printers: the review's pickers for brands, models and materials.
+    loader: () => Promise.all(["import", "catalog", "filament", "printers"].map(loadNamespace)),
+    component: CatalogImportPage,
   }),
   // The review of what an integration or an uploaded zip (`$source`) offers for one type.
   createRoute({

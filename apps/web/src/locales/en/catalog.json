@@ -22,5 +22,17 @@
     "unused": "Unused"
   },
   "nameLocked": "{{source}} brought this row. The next import finds it by this name, so the name can't change.",
+  "transfer": {
+    "import": "Import",
+    "export": "Export",
+    "format": "Export format for {{name}}",
+    "title": "Import {{name}}",
+    "description": "Upload a spreadsheet and review every row before anything is saved."
+  },
+  "arrive": {
+    "title": "How profiles arrive",
+    "body": "Profiles come only from a slicer. <integrations>Connect a slicer in Integrations</integrations>, or upload <zip>a zip of the slicer's config folder</zip>.",
+    "where": "Where is the config folder, and what do I zip?"
+  },
   "moved": "Brands, printer models and profiles are in <link>Catalog</link>."
 }

@@ -14,6 +14,7 @@ import { filamentLabel, useProfiles } from "../../lib/filament.ts";
 import { formatCurrency, formatList } from "../../lib/format.ts";
 import { useListPage, useUrlListQuery } from "../../lib/list.ts";
 import { usePreferences } from "../../lib/preferences.ts";
+import { CatalogTransfer } from "../catalog/CatalogTransfer.tsx";
 import { sourceColumn, useColumn } from "../catalog/sources.tsx";
 import { editLink, Section, Thumb, useScrolledTo } from "../printers/Catalog.tsx";
 
@@ -60,6 +61,7 @@ export function FilamentCatalog() {
         title={t("filament:catalog.brands.title")}
         name={(b) => b.name}
         add={{ to: "/filament/brands/new", label: t("filament:catalog.brands.add") }}
+        extra={<CatalogTransfer entity="filamentBrands" />}
         filters={filamentCatalogFilters}
         columns={[
           {
@@ -98,6 +100,7 @@ export function FilamentCatalog() {
         title={t("filament:catalog.materials.title")}
         name={(m) => m.name}
         add={{ to: "/filament/materials/new", label: t("filament:catalog.materials.add") }}
+        extra={<CatalogTransfer entity="filamentMaterials" />}
         filters={filamentCatalogFilters}
         columns={[
           {

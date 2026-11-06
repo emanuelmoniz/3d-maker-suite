@@ -2174,7 +2174,7 @@ Do Step 15 of the 5.4.0 plan in PLAN.md. Use frontend-design for the module.
 Back up the DB before editing schema.ts.
 ```
 
-### [ ] Step 15b - Catalog import and export in Catalog
+### [x] Step 15b - Catalog import and export in Catalog
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - Each table of the four catalog types (brands, printer models, filament brands, filament materials) gets Import and Export next to Add (`Section.extra`), with today's upload, review and export; the review's back link returns to its tab.

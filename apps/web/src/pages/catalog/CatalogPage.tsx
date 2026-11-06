@@ -5,6 +5,7 @@ import { PageHeader } from "../../components/PageHeader.tsx";
 import { meQuery, useCan } from "../../lib/auth.ts";
 import { FilamentCatalog, FilamentProfiles } from "../filament/Catalog.tsx";
 import { Catalog } from "../printers/Catalog.tsx";
+import { ProfilesHint } from "./ProfilesHint.tsx";
 
 export const CATALOG_TABS = ["printers", "filament"] as const;
 export type CatalogTab = (typeof CATALOG_TABS)[number];
@@ -38,14 +39,17 @@ export function CatalogPage({ tab }: { tab: CatalogTab }) {
       <p className="mb-8 max-w-prose text-muted">
         {tab === "printers" ? t("catalog:intro.printers") : t("catalog:intro.filament")}
       </p>
-      {tab === "printers" ? (
-        <Catalog />
-      ) : (
-        <div className="grid gap-10">
-          <FilamentCatalog />
-          <FilamentProfiles />
-        </div>
-      )}
+      <div className="grid gap-10">
+        {tab === "printers" ? (
+          <Catalog />
+        ) : (
+          <>
+            <FilamentCatalog />
+            <FilamentProfiles />
+          </>
+        )}
+        <ProfilesHint />
+      </div>
     </>
   );
 }
