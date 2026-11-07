@@ -2253,7 +2253,7 @@ Do Step 19 of the 5.4.0 plan in PLAN.md.
 
 ## Phase 30c - Sources and release
 
-### [ ] Step 20 - Integrations: add flow and connection cards  **[plan mode]**
+### [x] Step 20 - Integrations: add flow and connection cards  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:**
 - Add integration: pick a product, then for a slicer "Installed on this computer", "Download it to this server" or "On a connected workstation". Replace the adapter list in `IntegrationFormPage.tsx`.

@@ -13,11 +13,12 @@ import { api } from "./api.ts";
 const KEY = ["hub", "devices"];
 
 // Every 30 s, so online and last seen stay fresh while the page is open.
-export const useDevices = () =>
+export const useDevices = (enabled = true) =>
   useQuery({
     queryKey: KEY,
     queryFn: () => api<Device[]>("GET", "/api/hub/devices"),
     refetchInterval: 30_000,
+    enabled,
   });
 
 /** A connector's settings, read live from it: fails with 409 `device_offline` when it's offline. */
@@ -70,11 +71,6 @@ export function useDeviceActions() {
     rename: useMutation({
       mutationFn: ({ id, name }: { id: string; name: string }) =>
         api("PATCH", `/api/hub/devices/${id}`, { name }),
-      onSuccess: refresh,
-    }),
-    sliceWorker: useMutation({
-      mutationFn: ({ id, sliceWorker }: { id: string; sliceWorker: boolean }) =>
-        api("PATCH", `/api/hub/devices/${id}`, { sliceWorker }),
       onSuccess: refresh,
     }),
     syncMode: useMutation({

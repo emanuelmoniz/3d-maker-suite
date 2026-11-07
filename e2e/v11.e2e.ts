@@ -171,7 +171,7 @@ test("an archived profile leaves the list; the spool keeps its own filament", as
   await expect(page.getByText("Basic").first()).toBeVisible();
 });
 
-test("integrations hub groups cloud and local and edits the per-type policy", async ({
+test("integrations hub groups by account and slicer and edits the per-type policy", async ({
   page,
   app,
 }) => {
@@ -183,8 +183,9 @@ test("integrations hub groups cloud and local and edits the per-type policy", as
   await app.api("PATCH", `/api/integrations/${orca?.id}`, { slicerConfigDir: dir });
 
   await gotoIntegrations(page);
-  await expect(page.getByRole("heading", { name: "Cloud", level: 2 })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Local", level: 2 })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Demo data (mock)", level: 2 })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "OrcaSlicer", level: 2 })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "This computer", level: 3 })).toBeVisible();
   const auto = page.getByRole("switch", { name: "Auto sync: Print history" });
   const frequency = page.getByLabel("Frequency: Print history");
   const settings = page.getByRole("button", { name: "Settings: Print history" });

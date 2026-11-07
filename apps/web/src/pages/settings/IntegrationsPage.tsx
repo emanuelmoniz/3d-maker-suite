@@ -5,9 +5,8 @@ import { useTranslation } from "react-i18next";
 import { EmptyState } from "../../components/EmptyState.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { useCan } from "../../lib/auth.ts";
-import { useAdapters, useIntegrations, useMayTask } from "../../lib/integrations.ts";
-import { IntegrationCard } from "./IntegrationCard.tsx";
-import { KINDS } from "./integrationLabels.ts";
+import { libraryOf, useAdapters, useIntegrations, useMayTask } from "../../lib/integrations.ts";
+import { LibraryCard } from "./IntegrationCard.tsx";
 
 const addClass =
   "inline-flex h-9 items-center gap-2 whitespace-nowrap rounded-md bg-accent px-3 font-medium text-accent-fg hover:opacity-90";
@@ -30,6 +29,11 @@ export function IntegrationsPage() {
       {t("integrations:add")}
     </Link>
   );
+  // One card per slicer library or account (ADR-0019): accounts first, then slicers; inside, the
+  // places it runs in kind order (this computer, this server, workstations), oldest first.
+  const rank = (k: string) => INTEGRATION_KINDS.indexOf(k as (typeof INTEGRATION_KINDS)[number]);
+  const rows = [...(data ?? [])].sort((a, b) => rank(a.kind) - rank(b.kind));
+  const libraries = [...new Set(rows.map(libraryOf))];
   return (
     <>
       <PageHeader
@@ -46,23 +50,13 @@ export function IntegrationsPage() {
       {data &&
         (data.length ? (
           <div className="grid gap-6">
-            {INTEGRATION_KINDS.map((kind) => {
-              const rows = data.filter((i) => i.kind === kind);
-              return (
-                rows.length > 0 && (
-                  <section key={kind} aria-labelledby={`kind-${kind}`}>
-                    <h2 id={`kind-${kind}`} className="mb-3 font-semibold text-muted">
-                      {t(KINDS[kind])}
-                    </h2>
-                    <ul className="grid gap-4">
-                      {rows.map((i) => (
-                        <IntegrationCard key={i.id} integration={i} />
-                      ))}
-                    </ul>
-                  </section>
-                )
-              );
-            })}
+            {libraries.map((lib) => (
+              <LibraryCard
+                key={lib}
+                library={lib}
+                rows={rows.filter((i) => libraryOf(i) === lib)}
+              />
+            ))}
           </div>
         ) : (
           <EmptyState

@@ -8,8 +8,9 @@ import { FilamentCatalog, FilamentProfiles } from "../filament/Catalog.tsx";
 import { PresetsTab } from "../hub/PresetsPage.tsx";
 import { Catalog } from "../printers/Catalog.tsx";
 import { ProfilesHint } from "./ProfilesHint.tsx";
+import { SourcesTab } from "./SourcesTab.tsx";
 
-export const CATALOG_TABS = ["printers", "filament", "presets"] as const;
+export const CATALOG_TABS = ["printers", "filament", "presets", "sources"] as const;
 export type CatalogTab = (typeof CATALOG_TABS)[number];
 
 /** The tables of Catalog → Printers: their old `/printers/settings#<id>` lands on them. */
@@ -20,6 +21,7 @@ const INTRO = {
   printers: "catalog:intro.printers",
   filament: "catalog:intro.filament",
   presets: "catalog:intro.presets",
+  sources: "catalog:intro.sources",
 } as const;
 
 const tabClass =
@@ -53,11 +55,16 @@ export function CatalogPage({ tab }: { tab: CatalogTab }) {
             {t("catalog:tabs.presets")}
           </Link>
         )}
+        <Link to="/catalog/sources" className={tabClass}>
+          {t("catalog:tabs.sources")}
+        </Link>
       </nav>
       <p className="mb-8 max-w-prose text-muted">{t(INTRO[tab])}</p>
       <div className="grid gap-10">
         {tab === "presets" ? (
           <PresetsTab />
+        ) : tab === "sources" ? (
+          <SourcesTab />
         ) : tab === "printers" ? (
           <Catalog />
         ) : (
@@ -66,7 +73,7 @@ export function CatalogPage({ tab }: { tab: CatalogTab }) {
             <FilamentProfiles />
           </>
         )}
-        {tab !== "presets" && <ProfilesHint />}
+        {tab !== "presets" && tab !== "sources" && <ProfilesHint />}
       </div>
     </>
   );

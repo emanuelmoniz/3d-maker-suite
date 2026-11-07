@@ -136,6 +136,49 @@ async function live(adapters: IntegrationAdapter[] = []) {
   return { app, db, send, dev, next, answer, deviceId, token, pair, cancel, connect };
 }
 
+it("a device slices for the hub while a worker names it; the device PATCH can't set it", async () => {
+  const { db, send, next, answer, deviceId, pair } = await live();
+  const flag = async (id = deviceId) =>
+    (await send("GET", "/api/hub/devices")).json().find((d: { id: string }) => d.id === id)
+      .sliceWorker;
+  const add = async (id = deviceId) =>
+    (
+      await send("POST", "/api/integrations", {
+        adapterId: "bambu-studio-worker",
+        config: { deviceId: id, source: "installed" },
+      })
+    ).json();
+
+  expect(
+    (await send("PATCH", `/api/hub/devices/${deviceId}`, { sliceWorker: true })).statusCode,
+  ).toBe(400);
+
+  const a = await add();
+  expect((await next("device.worker")).on).toBe(true);
+  const b = await add();
+  const removed = send("DELETE", `/api/integrations/${a.id}`);
+  await answer((await next("slicer.remove")).requestId, { ok: true, result: null });
+  await removed;
+  expect(await flag()).toBe(true);
+
+  // Moved to another device: the flag follows.
+  const other = await pair();
+  await send("PATCH", `/api/integrations/${b.id}`, {
+    config: { deviceId: other.deviceId, source: "installed" },
+  });
+  expect((await next("device.worker")).on).toBe(false);
+  expect(await flag(other.deviceId)).toBe(true);
+  await send("DELETE", `/api/integrations/${b.id}`);
+  expect(await flag(other.deviceId)).toBe(false);
+
+  // A flag set by hand before this step is put right at boot.
+  db.update(schema.devices).set({ sliceWorker: true }).run();
+  const { createWorkerSlicers } = await import("./integrations/workerSlicer.ts");
+  const hub = { publish: () => {}, online: () => false } as never;
+  createWorkerSlicers(db, [bambuStudioWorkerAdapter()], hub, {} as never).syncWorkers();
+  expect(await flag()).toBe(false);
+});
+
 it("a device made a worker installs the hub's managed slicer for its system and reports it", async () => {
   const { send, dev, next, answer, deviceId, pair } = await live();
   const worker = (
@@ -145,14 +188,8 @@ it("a device made a worker installs the hub's managed slicer for its system and 
     })
   ).json();
   expect(worker).toMatchObject({ kind: "worker", status: "unavailable" });
-
-  // Not a worker yet: nothing goes to the device.
-  expect(
-    (await send("POST", `/api/integrations/${worker.id}/slicer/install`, { tag: TAG })).json(),
-  ).toMatchObject({ error: { code: "not_worker" } });
-  expect(
-    (await send("PATCH", `/api/hub/devices/${deviceId}`, { sliceWorker: true })).statusCode,
-  ).toBe(204);
+  // Adding the worker made the device one.
+  expect((await next("device.worker")).on).toBe(true);
   expect((await send("GET", "/api/hub/devices")).json()[0].sliceWorker).toBe(true);
 
   // The device's build: the dmg, not the hub's own.
@@ -242,14 +279,13 @@ it("slices a plate on the worker; offline, the plate waits and can fall back to 
     ).json().id;
 
     // A worker with the hub's presets (a zip import) and the device's installed slicer.
-    await send("PATCH", `/api/hub/devices/${deviceId}`, { sliceWorker: true });
-    expect((await next("device.worker")).on).toBe(true);
     const worker = (
       await send("POST", "/api/integrations", {
         adapterId: "bambu-studio-worker",
         config: { deviceId, source: "installed" },
       })
     ).json();
+    expect((await next("device.worker")).on).toBe(true);
     db.update(schema.integrations)
       .set({ slicerConfigDir: dir })
       .where(eq(schema.integrations.id, worker.id))
@@ -352,7 +388,6 @@ it("slices a plate on the worker; offline, the plate waits and can fall back to 
 
 it("an installed slicer becomes the worker's once it runs there; offline, nothing is sent", async () => {
   const { send, next, answer, deviceId, dev, cancel } = await live();
-  await send("PATCH", `/api/hub/devices/${deviceId}`, { sliceWorker: true });
   const worker = (
     await send("POST", "/api/integrations", {
       adapterId: "bambu-studio-worker",

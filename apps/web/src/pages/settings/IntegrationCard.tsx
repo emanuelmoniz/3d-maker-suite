@@ -2,15 +2,16 @@ import {
   type Integration,
   type IntegrationStatus,
   isAction,
+  isCatalogType,
   SYNC_RUN_STATUSES,
   SYNC_TRIGGERS,
   type SyncRun,
   syncRunFilters,
 } from "@3d-maker-suite/core";
-import { useNavigate } from "@tanstack/react-router";
-import { ChevronRight } from "lucide-react";
+import { Link, useNavigate } from "@tanstack/react-router";
+import { ChevronRight, Plus } from "lucide-react";
 import { type ReactNode, useId, useState } from "react";
-import { useTranslation } from "react-i18next";
+import { Trans, useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
 import { Collapsible } from "../../components/Collapsible.tsx";
 import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
@@ -23,18 +24,20 @@ import { useCan } from "../../lib/auth.ts";
 import { cx } from "../../lib/cx.ts";
 import { formatDate, formatDateTime, formatRelative } from "../../lib/format.ts";
 import {
+  catalogSummary,
   useAdapterName,
   useAdapters,
   useCapable,
   useDeleteIntegration,
+  useLocationLabel,
   usePatchIntegration,
   useSyncIntegration,
   useSyncRuns,
   useTestIntegration,
 } from "../../lib/integrations.ts";
 import { usePreferences, useSavePreferences } from "../../lib/preferences.ts";
-import { CAPS, ERRORS, KINDS } from "./integrationLabels.ts";
-import { ManagedSlicer, ProfilesFromZip } from "./ManagedSlicer.tsx";
+import { CAPS, ERRORS, LOCATION_ICONS } from "./integrationLabels.ts";
+import { ManagedSlicer } from "./ManagedSlicer.tsx";
 import { ActionSwitches, Policies } from "./PolicyRow.tsx";
 import { WorkerSlicer } from "./WorkerSlicer.tsx";
 
@@ -63,13 +66,84 @@ function Part({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
+const addClass =
+  "inline-flex h-9 items-center gap-2 whitespace-nowrap rounded-md border border-border px-3 font-medium hover:bg-surface-2";
+
+/** Its catalog import cards, now on Catalog → Sources: how many run on their own, how many wait. */
+function CatalogLine({ library, rows }: { library: string; rows: Integration[] }) {
+  const { t } = useTranslation();
+  const sources = useCan("catalog", "read");
+  const s = catalogSummary(rows);
+  if (!s.cards) return null;
+  const line =
+    s.auto || s.review ? (
+      <Trans
+        t={t}
+        i18nKey="integrations:card.summary"
+        values={{ auto: s.auto, review: s.review }}
+        components={{ review: <span className={s.review ? "text-warn" : undefined} /> }}
+      />
+    ) : (
+      t("integrations:card.summaryOff")
+    );
+  return sources ? (
+    <Link
+      to="/catalog/sources"
+      hash={`library-${library}`}
+      className="text-muted underline-offset-2 hover:text-fg hover:underline"
+    >
+      {line}
+    </Link>
+  ) : (
+    <span className="text-muted">{line}</span>
+  );
+}
+
 /**
- * One integration: name, on/off and a status line; then its account (cloud) or slicer (local),
- * what it imports, and the sync log.
+ * One card per slicer (or account): its name, its catalog line and the places it runs, one row
+ * each (ADR-0019). The rows' icons sit on a rail: one slicer, several places.
+ */
+export function LibraryCard({ library, rows }: { library: string; rows: Integration[] }) {
+  const { t } = useTranslation();
+  const adapterName = useAdapterName();
+  const admin = useCan("integrations.manage");
+  const slicer = rows.some((i) => i.kind !== "cloud");
+  return (
+    <section
+      aria-labelledby={`library-${library}`}
+      className="rounded-lg border border-border bg-surface p-4 sm:p-5"
+    >
+      <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
+        <div className="grid min-w-0 gap-1">
+          <h2 id={`library-${library}`} className="text-lg font-semibold">
+            {adapterName(library)}
+          </h2>
+          <CatalogLine library={library} rows={rows} />
+        </div>
+        {admin && slicer && (
+          <Link to="/integrations/new" search={{ product: library }} className={addClass}>
+            <Plus aria-hidden className="size-4" />
+            {t("integrations:card.addLocation")}
+          </Link>
+        )}
+      </div>
+      <ul className="mt-2">
+        {rows.map((i) => (
+          <IntegrationCard key={i.id} integration={i} />
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+/**
+ * One place a slicer runs (or an account): where, on/off and a status line; then its account
+ * (cloud) or slicer, what it imports that isn't catalog, and the sync log.
  */
 export function IntegrationCard({ integration: i }: { integration: Integration }) {
   const { t } = useTranslation();
   const adapterName = useAdapterName();
+  const locationLabel = useLocationLabel();
   const navigate = useNavigate();
   const adapter = useAdapters().data?.find((a) => a.id === i.adapterId);
   // An editor gets the status line and their task rows only (ADR-0012).
@@ -80,14 +154,17 @@ export function IntegrationCard({ integration: i }: { integration: Integration }
   const account = admin && i.enabled && i.kind === "cloud" && on.length > 0;
   const logged = admin && i.enabled && on.some((p) => !isAction(p.type));
   const hasLogin = account && adapter?.login;
-  const imports = i.policies.some((p) => !isAction(p.type));
+  // Catalog types are on Catalog → Sources (ADR-0020).
+  const imports = i.policies.some((p) => !isAction(p.type) && !isCatalogType(p.type));
   const [confirming, setConfirming] = useState(false);
   const patch = usePatchIntegration(i.id);
   const sync = useSyncIntegration(i.id);
   const test = useTestIntegration(i.id);
   const remove = useDeleteIntegration(i.id);
   const failed = [patch, sync, remove].some((m) => m.isError);
-  const name = adapterName(i.adapterId);
+  const where = locationLabel(i);
+  const name = t("integrations:nameOnDevice", { name: adapterName(i.adapterId), device: where });
+  const Icon = LOCATION_ICONS[i.kind];
   // Closed by default; a deep link (an alert's "Open integration") opens it.
   const [open, setOpen] = useState(() => location.hash === `#integration-${i.id}`);
   const bodyId = useId();
@@ -123,63 +200,74 @@ export function IntegrationCard({ integration: i }: { integration: Integration }
   return (
     <li
       id={`integration-${i.id}`}
-      className="scroll-mt-4 rounded-lg border border-border bg-surface p-4 sm:p-5"
+      // The rail: a line from this row's icon down to the next one's.
+      className="relative grid scroll-mt-4 grid-cols-[2.25rem_minmax(0,1fr)] gap-x-3 py-3 before:absolute before:top-13 before:-bottom-4 before:left-4.5 before:w-px before:bg-border last:before:hidden"
     >
-      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
-        <h3 className="min-w-0 text-base font-semibold">
-          <button
-            type="button"
-            aria-expanded={open}
-            aria-controls={bodyId}
-            onClick={() => setOpen(!open)}
-            className="flex min-h-11 max-w-full items-center gap-2 rounded-md text-left"
-          >
-            <ChevronRight
-              aria-hidden
-              className={cx("size-4 shrink-0 transition-transform", open && "rotate-90")}
-            />
-            <span className="truncate">{name}</span>
-            <span className="rounded-full bg-surface-2 px-2 py-0.5 text-xs font-medium text-muted">
-              {t(KINDS[i.kind])}
-            </span>
-          </button>
-        </h3>
-        {admin && (
-          <div className="flex items-center gap-1">
-            <Switch
-              label={t("integrations:card.enabled")}
-              checked={i.enabled}
-              disabled={patch.isPending}
-              onChange={(e) => patch.mutate({ enabled: e.target.checked })}
-            />
-            <Menu label={t("integrations:card.menu", { name })}>
-              <Button
-                variant="ghost"
-                className="justify-start text-bad"
-                onClick={() => setConfirming(true)}
-              >
-                {t("integrations:card.delete")}
-              </Button>
-            </Menu>
-          </div>
+      <span
+        aria-hidden
+        className="relative mt-1 grid size-9 place-items-center rounded-md border border-border bg-surface-2 text-muted"
+      >
+        <Icon className="size-4" />
+      </span>
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+          <h3 className="min-w-0 text-base font-semibold">
+            <button
+              type="button"
+              aria-expanded={open}
+              aria-controls={bodyId}
+              aria-label={name}
+              onClick={() => setOpen(!open)}
+              className="flex min-h-11 max-w-full items-center gap-2 rounded-md text-left"
+            >
+              <span className="truncate">{where}</span>
+              <ChevronRight
+                aria-hidden
+                className={cx(
+                  "size-4 shrink-0 text-muted transition-transform",
+                  open && "rotate-90",
+                )}
+              />
+            </button>
+          </h3>
+          {admin && (
+            <div className="flex items-center gap-1">
+              <Switch
+                label={t("integrations:card.enabled")}
+                checked={i.enabled}
+                disabled={patch.isPending}
+                onChange={(e) => patch.mutate({ enabled: e.target.checked })}
+              />
+              <Menu label={t("integrations:card.menu", { name })}>
+                <Button
+                  variant="ghost"
+                  className="justify-start text-bad"
+                  onClick={() => setConfirming(true)}
+                >
+                  {t("integrations:card.delete")}
+                </Button>
+              </Menu>
+            </div>
+          )}
+        </div>
+
+        <p
+          role={state === "error" ? "alert" : undefined}
+          className={cx("flex items-start gap-2", state === "error" ? "text-bad" : "text-muted")}
+        >
+          <span aria-hidden className={cx("mt-1.5 size-2 shrink-0 rounded-full", DOT[state])} />
+          <span>{status}</span>
+        </p>
+        {failed && (
+          <p role="alert" className="mt-1 text-bad">
+            {t("integrations:card.actionError")}
+          </p>
         )}
       </div>
 
-      <p
-        role={state === "error" ? "alert" : undefined}
-        className={cx("mt-2 flex items-start gap-2", state === "error" ? "text-bad" : "text-muted")}
-      >
-        <span aria-hidden className={cx("mt-1.5 size-2 shrink-0 rounded-full", DOT[state])} />
-        <span>{status}</span>
-      </p>
-      {failed && (
-        <p role="alert" className="mt-1 text-bad">
-          {t("integrations:card.actionError")}
-        </p>
-      )}
-
+      {/* Past the rail on wider screens, the full width on a phone. */}
       {open && (
-        <div id={bodyId}>
+        <div id={bodyId} className="col-span-2 sm:col-span-1 sm:col-start-2">
           {account && (
             <Part title={t("integrations:card.account")}>
               <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
@@ -239,17 +327,10 @@ export function IntegrationCard({ integration: i }: { integration: Integration }
           {admin && i.enabled && i.kind === "worker" && adapter && (
             <Part title={t("integrations:slicer.title")}>
               <WorkerSlicer integration={i} adapter={adapter} />
+              <DefaultSlicer integration={i} />
+              <ActionSwitches integration={i} />
             </Part>
           )}
-          {/* A server slicer or a worker has no folder of yours to read: a zip brings your presets. */}
-          {admin &&
-            i.enabled &&
-            (i.kind === "server" || i.kind === "worker") &&
-            adapter?.libraryId && (
-              <Part title={t("integrations:managed.profilesTitle")}>
-                <ProfilesFromZip libraryId={adapter.libraryId} />
-              </Part>
-            )}
           {/* A cloud adapter's slicer actions (a local one has them in its slicer part). */}
           {admin && i.enabled && i.kind === "cloud" && i.policies.some((p) => isAction(p.type)) && (
             <Part title={t("integrations:card.actions")}>
@@ -258,7 +339,7 @@ export function IntegrationCard({ integration: i }: { integration: Integration }
           )}
           {i.enabled && imports && (
             <Part title={t("integrations:card.imports")}>
-              <Policies integration={i} sync={sync} />
+              <Policies integration={i} sync={sync} part="connection" />
             </Part>
           )}
           {logged && (

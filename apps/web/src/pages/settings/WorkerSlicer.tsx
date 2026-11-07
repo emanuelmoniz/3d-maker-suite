@@ -1,5 +1,4 @@
 import { type AdapterInfo, type Integration, workerConfigSchema } from "@3d-maker-suite/core";
-import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
@@ -16,7 +15,6 @@ import {
 } from "../../lib/integrations.ts";
 import { ManagedSlicer } from "./ManagedSlicer.tsx";
 
-const link = "text-accent hover:underline";
 // Literal keys so `pnpm i18n:check` sees them.
 const CHECK_ERRORS: Record<string, string> = {
   smoke_failed: "integrations:worker.errors.smoke_failed",
@@ -59,19 +57,12 @@ export function WorkerSlicer({
   if (!config) return null;
   return (
     <div className="grid gap-3">
-      <p className={device?.sliceWorker && device.online ? undefined : "text-muted"}>
+      <p className={device?.online ? undefined : "text-muted"}>
         {!device
           ? t("integrations:worker.noDevice")
-          : !device.sliceWorker
-            ? t("integrations:worker.notWorker", { name: device.name })
-            : device.online
-              ? t("integrations:worker.online", { name: device.name })
-              : t("integrations:worker.offline", { name: device.name })}{" "}
-        {device && !device.sliceWorker && (
-          <Link to="/hub" className={link}>
-            {t("integrations:worker.toHub")}
-          </Link>
-        )}
+          : device.online
+            ? t("integrations:worker.online", { name: device.name })
+            : t("integrations:worker.offline", { name: device.name })}
       </p>
       <FormField label={t("integrations:worker.source")}>
         {(p) => (

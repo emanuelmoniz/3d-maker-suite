@@ -119,7 +119,7 @@ export const deviceSchema = z.object({
   projects: z.array(z.object({ id, name: z.string() })),
   /** The slicers its connector found; none = it can't open files. */
   slicers: z.array(deviceSlicerSchema),
-  /** A worker integration may slice on it (ADR-0014). */
+  /** A worker integration slices on it (ADR-0014): set by adding and removing those. */
   sliceWorker: z.boolean(),
   createdAt: isoDate,
 });
@@ -127,7 +127,7 @@ export const deviceSchema = z.object({
 const name = z.string().trim().min(1).max(100);
 
 export const deviceUpdateSchema = z
-  .object({ name, syncMode: deviceSyncModeSchema, sliceWorker: z.boolean() })
+  .object({ name, syncMode: deviceSyncModeSchema })
   .partial()
   .strict();
 /** One of the user's online devices, for a project's Open and Open folder. */

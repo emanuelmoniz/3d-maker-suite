@@ -3,12 +3,18 @@
     "label": "Catalog sections",
     "printers": "Printers",
     "filament": "Filament",
-    "presets": "Presets"
+    "presets": "Presets",
+    "sources": "Sources"
+  },
+  "sources": {
+    "empty": "No slicer or account brings anything into the catalog yet.",
+    "toIntegrations": "Connect one in Integrations."
   },
   "intro": {
     "printers": "Add printer brands and models by hand, or let a slicer bring them. Machine and print profiles come only from a slicer: they are its files, so you archive or delete them here and edit them in the slicer.",
     "filament": "Add filament brands and materials by hand, or let a slicer bring them. Filament profiles come only from a slicer: they are its files, so you archive or delete them here and edit them in the slicer.",
-    "presets": "The user presets the hub's slicer and every slice worker use. A slice that used a changed preset needs slicing again."
+    "presets": "The user presets the hub's slicer and every slice worker use. A slice that used a changed preset needs slicing again.",
+    "sources": "What each slicer and account brings into the catalog, and when. Where they run is under Integrations."
   },
   "fromFiles": "From your slicer's files. Archive one to hide it from the pickers.",
   "source": {

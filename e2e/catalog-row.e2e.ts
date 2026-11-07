@@ -40,9 +40,16 @@ test("catalog row: pick brands, only those arrive, then only what you have", asy
     adapterId: "orca-slicer",
   });
   await app.api("PATCH", `/api/integrations/${id}`, { slicerConfigDir: slicerFolder() });
+  // Actions say what they do; they stay with the connection.
   await gotoIntegrations(page);
+  await expect(page.getByText("When active, this integration can be used")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Choose brands" })).toHaveCount(0);
 
-  // The cloud's cards, grouped; no schedule, because a change in the files runs them.
+  // The summary line leads to the import cards on Catalog → Sources.
+  await page.getByRole("link", { name: /^Catalog: / }).click();
+  await expect(page).toHaveURL(/\/catalog\/sources#library-orca-slicer$/);
+
+  // The slicer's cards, grouped; no schedule, because a change in the files runs them.
   const group = (name: string) => page.getByRole("region", { name, exact: true });
   for (const name of ["Printer brands", "Printer models", "Filament brands", "Filament materials"])
     await expect(group("Catalog").getByText(name, { exact: true })).toBeVisible();
@@ -59,9 +66,6 @@ test("catalog row: pick brands, only those arrive, then only what you have", asy
   await page.getByRole("button", { name: "Settings: User machine profiles" }).click();
   await expect(whenOf("User machine profiles")).toBeChecked();
   await page.getByRole("button", { name: "Settings: User machine profiles" }).click();
-
-  // Actions say what they do.
-  await expect(page.getByText("When active, this integration can be used")).toBeVisible();
 
   // Nothing yet in your catalog; select all takes both of a list, and you can take one back.
   await expect(page.getByText(/Printer brands in your catalog/)).toHaveCount(0);

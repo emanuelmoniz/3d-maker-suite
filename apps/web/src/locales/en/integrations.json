@@ -15,6 +15,12 @@
   },
   "nameWithKind": "{{name}} - {{kind}}",
   "nameOnDevice": "{{name}} ({{device}})",
+  "locations": {
+    "cloud": "Account",
+    "local": "This computer",
+    "server": "This server",
+    "worker": "Workstation"
+  },
   "errors": {
     "auth_required": "Sign-in required. Check the credentials.",
     "auth_expired": "Sign-in expired. Connect again.",
@@ -47,7 +53,10 @@
     "disabledHint": "Switched off: nothing is synced, imported or offered in the app. Tick Enabled to use it and change its settings.",
     "unavailableHint": "The slicer's config folder wasn't found on this server. If it's on another computer, mount it here and set Config folder to that path.",
     "menu": "More actions for {{name}}",
-    "log": "Sync log"
+    "log": "Sync log",
+    "addLocation": "Add location",
+    "summary": "Catalog: {{auto}} automatic · <review>{{review}} waiting for review</review>",
+    "summaryOff": "Catalog: nothing imported yet"
   },
   "deleteDialog": {
     "title": "Delete {{name}}?",
@@ -76,11 +85,28 @@
   },
   "form": {
     "title": "Add integration",
-    "adapter": "Service",
+    "product": "What do you want to connect?",
+    "where": "Where does {{name}} run?",
+    "locations": {
+      "local": "Installed on this computer",
+      "localHint": "Uses the slicer and the presets already on the computer that runs this app.",
+      "server": "Download it to this server",
+      "serverHint": "The app downloads the slicer from the vendor's releases and slices with it here.",
+      "worker": "On a connected workstation",
+      "workerHint": "Slices on a computer paired with this hub, with its own slicer or one the hub installs there."
+    },
+    "taken": "Already added. Find it on the slicer's card.",
+    "noHub": "Turn on the hub in Hub management to slice on a workstation.",
+    "noDevice": "No workstation is online. Start the connector on it first.",
+    "device": "Workstation",
+    "source": {
+      "label": "Its slicer",
+      "installed": "The one installed on it",
+      "managed": "Download it there"
+    },
     "secretHint": "Stored encrypted on this computer.",
     "save": "Add",
-    "error": "Couldn't add the integration. Check the fields.",
-    "noWorkers": "No slice worker yet. Turn one on in Hub management."
+    "error": "Couldn't add the integration. Check the fields."
   },
   "adapters": {
     "mock": {
@@ -115,30 +141,10 @@
       "name": "OrcaSlicer"
     },
     "bambu-studio-worker": {
-      "name": "Bambu Studio",
-      "fields": {
-        "deviceId": "Device",
-        "source": "Slicer"
-      },
-      "options": {
-        "source": {
-          "installed": "Installed on the device",
-          "managed": "Installed by the hub"
-        }
-      }
+      "name": "Bambu Studio"
     },
     "orca-slicer-worker": {
-      "name": "OrcaSlicer",
-      "fields": {
-        "deviceId": "Device",
-        "source": "Slicer"
-      },
-      "options": {
-        "source": {
-          "installed": "Installed on the device",
-          "managed": "Installed by the hub"
-        }
-      }
+      "name": "OrcaSlicer"
     }
   },
   "login": {
@@ -328,10 +334,8 @@
     "makeDefault": "Make default slicer"
   },
   "worker": {
-    "unavailableHint": "Pick the slicer it uses on its device below, and import its presets from a zip.",
+    "unavailableHint": "Pick the slicer it uses on its device below. Its presets come from Catalog → Sources.",
     "noDevice": "Its device was revoked. Pick another one.",
-    "notWorker": "{{name}} isn't a slice worker.",
-    "toHub": "Turn it on in Hub management",
     "online": "Slices on {{name}}.",
     "offline": "Slices on {{name}}, which is offline now.",
     "source": "Slicer",

@@ -48,8 +48,8 @@
     "slicers": "Slicers found",
     "slicer": "{{name}} {{version}}",
     "noSlicers": "No slicer found, so files can't be opened on this device.",
-    "sliceWorker": "Slice worker",
-    "sliceWorkerHint": "Worker integrations can slice on this device. Add one under Integrations and pick its slicer there."
+    "usedBy": "Used by {{name}}",
+    "notWorker": "Doesn't slice for the hub. To slice here, add it as a location on a slicer's card in <add>Integrations</add>."
   },
   "edit": {
     "title": "Edit connector: {{name}}",

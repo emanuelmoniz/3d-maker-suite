@@ -8,6 +8,7 @@ import {
   type Integration,
   type IntegrationInput,
   type IntegrationPatch,
+  isCatalogType,
   type LoginRequest,
   type LoginResult,
   pickSlicer,
@@ -21,7 +22,7 @@ import {
 } from "@3d-maker-suite/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { KINDS } from "../pages/settings/integrationLabels.ts";
+import { KINDS, LOCATIONS } from "../pages/settings/integrationLabels.ts";
 import { api } from "./api.ts";
 import { useRights } from "./auth.ts";
 import { useListPage } from "./list.ts";
@@ -61,6 +62,29 @@ export function useIntegrationLabel() {
       ? t("integrations:nameOnDevice", { name: adapterName(i.adapterId), device: i.deviceName })
       : t("integrations:nameWithKind", { name: adapterName(i.adapterId), kind: t(KINDS[i.kind]) });
 }
+
+/** The card an integration sits on: its slicer library (every place it runs), else its adapter. */
+export const libraryOf = (i: Pick<Integration, "presetLibrary" | "adapterId">) =>
+  i.presetLibrary ?? i.adapterId;
+
+/** Where a slicer runs, on its card: this computer, this server, or the workstation's name. */
+export function useLocationLabel() {
+  const { t } = useTranslation();
+  return (i: Pick<Integration, "kind" | "deviceName">) =>
+    i.kind === "worker"
+      ? (i.deviceName ?? t("integrations:locations.worker"))
+      : t(LOCATIONS[i.kind]);
+}
+
+/** A card's catalog import cards (now on Catalog → Sources): automatic, and waiting for review. */
+export const catalogSummary = (rows: Integration[]) => {
+  const cards = rows.flatMap((i) => i.policies.filter((p) => isCatalogType(p.type)));
+  return {
+    cards: cards.length,
+    auto: cards.filter((p) => p.mode === "auto").length,
+    review: cards.filter((p) => p.pending > 0).length,
+  };
+};
 
 /** Integrations that can do `cap` right now. The server decides; the UI never checks vendors. */
 export const useCapable = (cap: Capability) =>
@@ -140,14 +164,15 @@ function useInvalidating<V, R = unknown>(fn: (v: V) => Promise<R>, all = false) 
   });
 }
 
+// Adding or removing a workstation also makes its device a slice worker or not: all of it.
 export const useCreateIntegration = () =>
-  useInvalidating((v: IntegrationInput) => api<Integration>("POST", "/api/integrations", v));
+  useInvalidating((v: IntegrationInput) => api<Integration>("POST", "/api/integrations", v), true);
 
 export const usePatchIntegration = (id: string) =>
   useInvalidating((v: IntegrationPatch) => api<Integration>("PATCH", `/api/integrations/${id}`, v));
 
 export const useDeleteIntegration = (id: string) =>
-  useInvalidating(() => api("DELETE", `/api/integrations/${id}`));
+  useInvalidating(() => api("DELETE", `/api/integrations/${id}`), true);
 
 export const useTestIntegration = (id: string) =>
   useMutation({

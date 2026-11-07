@@ -121,7 +121,31 @@ export function createWorkerSlicers(
       throw new HttpError(409, "install_running", "A slicer install is running");
   };
 
+  /** The device slices for the hub while a worker integration names it (Plan 5.4.0 Step 20). */
+  const syncWorker = (deviceId: string) => {
+    const device = db.select().from(devices).where(eq(devices.id, deviceId)).get();
+    if (!device) return;
+    const on = db
+      .select()
+      .from(integrations)
+      .all()
+      .some(
+        (r) =>
+          adapters.find((a) => a.id === r.adapterId)?.kind === "worker" &&
+          workerConfigSchema.safeParse(r.config).data?.deviceId === deviceId,
+      );
+    if (on === device.sliceWorker) return;
+    db.update(devices).set({ sliceWorker: on }).where(eq(devices.id, deviceId)).run();
+    channel.publish(deviceId, { type: "device.worker", on });
+  };
+
   return {
+    syncWorker,
+    /** Every device at boot: older databases set the flag by hand. */
+    syncWorkers: () => {
+      for (const d of db.select({ id: devices.id }).from(devices).all()) syncWorker(d.id);
+    },
+
     isWorker: (id: string) => {
       const row = db.select().from(integrations).where(eq(integrations.id, id)).get();
       return adapters.find((a) => a.id === row?.adapterId)?.kind === "worker";

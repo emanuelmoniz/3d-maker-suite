@@ -145,7 +145,7 @@ Prints that wait raise a **Sync needs review** alert when the type's alert is on
 
 ### What to sync and how to sync
 
-Every type except print history has two more settings on the Integrations page (open the type's row). Print history has neither: an imported print never changes.
+Every type except print history has two more settings (open the type's row): on the Integrations page for an account's printers and spools, on **Catalog → Sources** for the catalog and presets. Each card on the Integrations page has a line such as *Catalog: 5 automatic · 2 waiting for review* that leads there. Print history has neither: an imported print never changes.
 
 **What to sync**
 
@@ -154,7 +154,7 @@ Every type except print history has two more settings on the Integrations page (
 | Everything | Adds every row the source offers and keeps them up to date. |
 | Only what I already have | Keeps the rows you have up to date. A new row is added only when you have its brand: a new model of your printer brand still arrives, a brand you never imported doesn't. Brands, filament brands and materials themselves are never added. Rows it leaves out don't wait for review and raise no alert. |
 
-**A slicer's card is grouped** into **Catalog**, **System presets** and **User presets**, each with its own rows. **Choose brands** sits above them and lists the slicer's printer brands and filament brands (the ones you have are checked, and **Select all** ticks every one). Pick the ones you use and **Import**: you get those brands with their models, machine and print profiles, and for filament brands their materials and filament profiles, after a backup. Then **Only what I already have** is switched on for all the catalog types at once; switch it off for **Everything**. The rows' links open the review of each type, where the slicer's changes wait.
+**On Catalog → Sources, each place a slicer runs is grouped** into **Catalog**, **System presets** and **User presets**, each with its own rows. **Choose brands** sits above them and lists the slicer's printer brands and filament brands (the ones you have are checked, and **Select all** ticks every one). Pick the ones you use and **Import**: you get those brands with their models, machine and print profiles, and for filament brands their materials and filament profiles, after a backup. Then **Only what I already have** is switched on for all the catalog types at once; switch it off for **Everything**. The rows' links open the review of each type, where the slicer's changes wait.
 
 **When** on the card is one switch:
 

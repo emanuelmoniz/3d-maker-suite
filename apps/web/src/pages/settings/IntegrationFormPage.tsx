@@ -1,14 +1,22 @@
-import { type AdapterInfo, INTEGRATION_KINDS } from "@3d-maker-suite/core";
-import { useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { type AdapterInfo, type IntegrationKind, workerConfigSchema } from "@3d-maker-suite/core";
+import { useNavigate, useSearch } from "@tanstack/react-router";
+import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
 import { Combobox } from "../../components/Combobox.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
+import { useCan } from "../../lib/auth.ts";
 import { useDevices } from "../../lib/hub.ts";
-import { useAdapterName, useAdapters, useCreateIntegration } from "../../lib/integrations.ts";
-import { KINDS } from "./integrationLabels.ts";
+import {
+  libraryOf,
+  useAdapterName,
+  useAdapters,
+  useCreateIntegration,
+  useIntegrations,
+} from "../../lib/integrations.ts";
+import { usePreferences } from "../../lib/preferences.ts";
+import { LOCATION_ICONS } from "./integrationLabels.ts";
 
 // The adapter's zod schemas arrive as JSON Schema; flat string/number/boolean fields are enough
 // for API-key and URL style vendors. Adapters with an interactive sign-in (2FA, email codes) get
@@ -35,18 +43,72 @@ function read(f: FormData, prefix: string, fields: Field[]) {
   return out;
 }
 
+/** Where a slicer runs, in the order offered (Plan 5.4.0 Step 20). */
+const LOCATIONS = ["local", "server", "worker"] as const satisfies IntegrationKind[];
+type Location = (typeof LOCATIONS)[number];
+const isLocation = (k: IntegrationKind): k is Location => (LOCATIONS as string[]).includes(k);
+// Written out so `pnpm i18n:check` sees the keys.
+const LOCATION_TEXT = {
+  local: ["integrations:form.locations.local", "integrations:form.locations.localHint"],
+  server: ["integrations:form.locations.server", "integrations:form.locations.serverHint"],
+  worker: ["integrations:form.locations.worker", "integrations:form.locations.workerHint"],
+} as const;
+const SOURCES = {
+  installed: "integrations:form.source.installed",
+  managed: "integrations:form.source.managed",
+} as const;
+
+const tileClass =
+  "flex cursor-pointer items-start gap-3 rounded-md border border-border p-3 has-checked:border-accent has-disabled:cursor-not-allowed has-disabled:opacity-60";
+
+/** Add an account, or a slicer by where it runs: this computer, this server or a workstation. */
 export function IntegrationCreatePage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const adapterName = useAdapterName();
+  const id = useId();
+  const search = useSearch({ strict: false }) as { product?: string };
   const adapters = useAdapters().data ?? [];
+  const existing = useIntegrations().data ?? [];
+  const hub = !!usePreferences().data?.values.hubEnabled;
+  const hubManage = useCan("hub.manage");
+  const devices = useDevices(hub && hubManage).data ?? [];
   const create = useCreateIntegration();
-  const [adapterId, setAdapterId] = useState("");
-  const adapter = adapters.find((a) => a.id === (adapterId || adapters[0]?.id));
-  const config = adapter ? fieldsOf(adapter.config) : [];
+
+  // One product per library (a slicer's local, server and worker adapters), else per adapter.
+  const products = [...new Set(adapters.map((a) => a.libraryId ?? a.id))];
+  const [picked, setProduct] = useState(search.product);
+  const product = products.includes(picked ?? "") ? picked : products[0];
+  const choices = adapters.filter((a) => (a.libraryId ?? a.id) === product);
+  const slicer = choices.some((a) => isLocation(a.kind));
+
+  const taken = (kind: Location) =>
+    existing.filter((i) => libraryOf(i) === product && i.kind === kind);
+  // A workstation that already runs this slicer isn't offered again.
+  const busy = new Set(
+    taken("worker").map((i) => workerConfigSchema.safeParse(i.config).data?.deviceId),
+  );
+  const online = devices.filter((d) => d.online && !busy.has(d.id));
+  const why = (kind: Location) =>
+    kind !== "worker"
+      ? taken(kind).length
+        ? t("integrations:form.taken")
+        : null
+      : !hub
+        ? t("integrations:form.noHub")
+        : !online.length
+          ? t("integrations:form.noDevice")
+          : null;
+  const locations = LOCATIONS.filter((k) => choices.some((a) => a.kind === k));
+  const [chosen, setLocation] = useState<Location>();
+  const location = chosen && !why(chosen) ? chosen : locations.find((k) => !why(k));
+  const adapter = slicer ? choices.find((a) => a.kind === location) : choices[0];
+  const [deviceId, setDeviceId] = useState("");
+  const device = online.find((d) => d.id === deviceId) ?? online[0];
+  const [source, setSource] = useState<keyof typeof SOURCES>("installed");
+
+  const config = adapter && !slicer ? fieldsOf(adapter.config) : [];
   const secrets = adapter && !adapter.login ? fieldsOf(adapter.secrets) : [];
-  // A worker integration picks one of the devices made a slice worker in Hub management.
-  const workers = (useDevices().data ?? []).filter((d) => d.sliceWorker);
 
   const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -55,14 +117,17 @@ export function IntegrationCreatePage() {
     create.mutate(
       {
         adapterId: adapter.id,
-        config: read(f, "config", config),
+        config:
+          adapter.kind === "worker"
+            ? { deviceId: device?.id ?? "", source }
+            : read(f, "config", config),
         secrets: read(f, "secrets", secrets) as Record<string, string>,
       },
       {
         onSuccess: (row) =>
           adapter.login
             ? navigate({ to: "/integrations/$id/login", params: { id: row.id } })
-            : navigate({ to: "/integrations" }),
+            : navigate({ to: "/integrations", hash: `integration-${row.id}` }),
       },
     );
   };
@@ -76,13 +141,6 @@ export function IntegrationCreatePage() {
       {(p) =>
         type === "boolean" ? (
           <input {...p} type="checkbox" name={`${prefix}.${name}`} className="size-4" />
-        ) : name === "deviceId" ? (
-          <Combobox
-            {...p}
-            name={`${prefix}.${name}`}
-            placeholder={workers.length ? undefined : t("integrations:form.noWorkers")}
-            options={workers.map((d) => ({ value: d.id, label: d.name }))}
-          />
         ) : options ? (
           <Combobox
             {...p}
@@ -111,23 +169,92 @@ export function IntegrationCreatePage() {
   return (
     <>
       <PageHeader title={t("integrations:form.title")} backTo={{ to: "/integrations" }} />
-      <form onSubmit={onSubmit} className="grid gap-4 sm:max-w-md">
-        <FormField label={t("integrations:form.adapter")}>
-          {(p) => (
-            <Combobox
-              {...p}
-              value={adapter?.id ?? ""}
-              onChange={setAdapterId}
-              options={INTEGRATION_KINDS.flatMap((kind) =>
-                adapters
-                  .filter((a) => a.kind === kind)
-                  .map((a) => ({ value: a.id, label: adapterName(a.id), group: t(KINDS[kind]) })),
+      <form onSubmit={onSubmit} className="grid max-w-2xl gap-8">
+        <fieldset className="grid gap-3">
+          <legend className="mb-3 font-semibold">{t("integrations:form.product")}</legend>
+          <div className="grid gap-2 sm:grid-cols-3">
+            {products.map((p) => (
+              <label key={p} className={tileClass}>
+                <input
+                  type="radio"
+                  name={`${id}-product`}
+                  className="mt-1"
+                  checked={product === p}
+                  onChange={() => setProduct(p)}
+                />
+                <span className="font-medium">{adapterName(p)}</span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
+
+        {slicer && (
+          <fieldset className="grid gap-3">
+            <legend className="mb-3 font-semibold">
+              {t("integrations:form.where", { name: adapterName(product ?? "") })}
+            </legend>
+            {locations.map((k) => {
+              const Icon = LOCATION_ICONS[k];
+              const reason = why(k);
+              return (
+                <label key={k} className={tileClass}>
+                  <input
+                    type="radio"
+                    name={`${id}-location`}
+                    className="mt-1"
+                    checked={location === k}
+                    disabled={!!reason}
+                    onChange={() => setLocation(k)}
+                    aria-describedby={`${id}-${k}`}
+                  />
+                  <Icon aria-hidden className="mt-0.5 size-5 shrink-0 text-muted" />
+                  <span className="grid gap-0.5">
+                    <span className="font-medium">{t(LOCATION_TEXT[k][0])}</span>
+                    <span id={`${id}-${k}`} className="text-muted">
+                      {reason ?? t(LOCATION_TEXT[k][1])}
+                    </span>
+                  </span>
+                </label>
+              );
+            })}
+          </fieldset>
+        )}
+
+        {adapter?.kind === "worker" && device && (
+          <div className="grid gap-4 sm:max-w-md">
+            <FormField label={t("integrations:form.device")}>
+              {(p) => (
+                <Combobox
+                  {...p}
+                  value={device.id}
+                  onChange={setDeviceId}
+                  options={online.map((d) => ({ value: d.id, label: d.name }))}
+                />
               )}
-            />
-          )}
-        </FormField>
-        {config.map((field) => input("config", field))}
-        {secrets.map((field) => input("secrets", field))}
+            </FormField>
+            <fieldset className="grid gap-2">
+              <legend className="mb-2 font-medium">{t("integrations:form.source.label")}</legend>
+              {(Object.keys(SOURCES) as (keyof typeof SOURCES)[]).map((s) => (
+                <label key={s} className="flex min-h-9 items-center gap-2">
+                  <input
+                    type="radio"
+                    name={`${id}-source`}
+                    checked={source === s}
+                    onChange={() => setSource(s)}
+                  />
+                  {t(SOURCES[s])}
+                </label>
+              ))}
+            </fieldset>
+          </div>
+        )}
+
+        {(config.length > 0 || secrets.length > 0) && (
+          <div className="grid gap-4 sm:max-w-md">
+            {config.map((field) => input("config", field))}
+            {secrets.map((field) => input("secrets", field))}
+          </div>
+        )}
         {create.isError && (
           <p role="alert" className="text-bad">
             {t("integrations:form.error")}

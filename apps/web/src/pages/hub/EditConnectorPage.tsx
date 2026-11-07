@@ -1,8 +1,8 @@
-import type { Device, PairingCode } from "@3d-maker-suite/core";
-import { useParams } from "@tanstack/react-router";
+import { type Device, type PairingCode, workerConfigSchema } from "@3d-maker-suite/core";
+import { Link, useParams } from "@tanstack/react-router";
 import { X } from "lucide-react";
 import { type ReactNode, useState } from "react";
-import { useTranslation } from "react-i18next";
+import { Trans, useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
 import { Combobox } from "../../components/Combobox.tsx";
 import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
@@ -20,7 +20,7 @@ import {
   useDeviceActions,
   useDevices,
 } from "../../lib/hub.ts";
-import { useAdapterName } from "../../lib/integrations.ts";
+import { useAdapterName, useIntegrations } from "../../lib/integrations.ts";
 import { usePresetDevices } from "../../lib/presets.ts";
 import { useUsers } from "../../lib/users.ts";
 import { InstallStatus } from "./PresetsPage.tsx";
@@ -331,10 +331,12 @@ function SyncCard({ device: d }: { device: Device }) {
 function Slicing({ device: d }: { device: Device }) {
   const { t } = useTranslation();
   const adapterName = useAdapterName();
-  const { sliceWorker } = useDeviceActions();
+  // The slicers that slice on it for the hub: added as a location on their card.
+  const workers = (useIntegrations().data ?? []).filter(
+    (i) => i.kind === "worker" && workerConfigSchema.safeParse(i.config).data?.deviceId === d.id,
+  );
   return (
     <Section title={t("hub:edit.slicing")}>
-      <Alert error={sliceWorker.error} />
       {d.slicers.length ? (
         <div className="grid gap-1">
           <span className="text-muted">{t("hub:devices.slicers")}</span>
@@ -354,15 +356,25 @@ function Slicing({ device: d }: { device: Device }) {
       ) : (
         <p className="text-muted">{t("hub:devices.noSlicers")}</p>
       )}
-      <div>
-        <Switch
-          label={t("hub:devices.sliceWorker")}
-          checked={d.sliceWorker}
-          disabled={sliceWorker.isPending}
-          onChange={(e) => sliceWorker.mutate({ id: d.id, sliceWorker: e.target.checked })}
-        />
-        <p className="text-muted">{t("hub:devices.sliceWorkerHint")}</p>
-      </div>
+      {workers.length ? (
+        <ul className="grid gap-1">
+          {workers.map((i) => (
+            <li key={i.id}>
+              <Link to="/integrations" hash={`integration-${i.id}`} className="underline">
+                {t("hub:devices.usedBy", { name: adapterName(i.adapterId) })}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="text-muted">
+          <Trans
+            t={t}
+            i18nKey="hub:devices.notWorker"
+            components={{ add: <Link to="/integrations" className="underline" /> }}
+          />
+        </p>
+      )}
     </Section>
   );
 }

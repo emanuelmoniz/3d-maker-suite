@@ -364,6 +364,7 @@ export async function buildApp(
     ...opts.slicerInstaller,
   });
   const workers = createWorkerSlicers(db, syncer.adapters, hub, installer);
+  workers.syncWorkers();
   useSliceWorkers(db, (id) => workers.runner(id));
   // A device is back: slices waiting for their worker try again.
   hub.onOnline(() => sliceQueue.wake());

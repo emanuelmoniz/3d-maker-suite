@@ -121,7 +121,7 @@ A file deleted on a device moves to the root's trash on the hub, never a hard de
 
 ## Slice workers
 
-A device can slice for the hub. In **Hub management** turn on **Slice worker** for it; the slicers the connector found are listed, and a device that is a worker also shows that on its status page. Then add a **Bambu Studio (worker)** or **OrcaSlicer (worker)** integration for the device and pick or install its slicer. Steps, offline behaviour and the manual path: [slicing.md](slicing.md#slice-on-a-worker).
+A device can slice for the hub. On the Integrations page, add **On a connected workstation** as a location of Bambu Studio or OrcaSlicer, pick the device and pick or install its slicer. That makes it a slice worker, and removing its last location ends it. The device's page in **Hub management** lists the slicers the connector found and **Used by Bambu Studio** with a link to the location; its status page also says it is a worker. Steps, offline behaviour and the manual path: [slicing.md](slicing.md#slice-on-a-worker).
 
 Use a worker when the hub is on a VPS or an arm64 NAS with no server slicer, or when a workstation is faster. The hub keeps the presets and prepares each job; only the slicer runs on the device. Run the connector in its own data folder: it refuses to start in the hub's, because it would clean up the hub's slicer installs.
 

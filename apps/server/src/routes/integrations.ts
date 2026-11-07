@@ -30,6 +30,7 @@ import {
   syncRunSchema,
   syncRunSortFields,
   testResultSchema,
+  workerConfigSchema,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
 import { asc, eq } from "drizzle-orm";
@@ -54,6 +55,9 @@ import { listPage } from "../lib/list.ts";
 
 const { integrations, syncPolicies, syncRuns } = schema;
 const params = z.object({ id: z.uuid() });
+/** The device a worker integration slices on. */
+const workerDeviceId = (kind: string | undefined, config: unknown) =>
+  kind === "worker" ? workerConfigSchema.safeParse(config).data?.deviceId : undefined;
 const notFound = { 404: apiErrorSchema };
 const LOGIN_TTL_MS = 10 * 60 * 1000;
 const LOGIN_TIMEOUT_MS = 60 * 1000;
@@ -181,6 +185,7 @@ export const integrationsRoutes =
           config: parse(adapter.configSchema, config, "invalid_config"),
         };
         const plain = parse(adapter.secretsSchema, secrets, "invalid_secrets");
+        const deviceId = workerDeviceId(adapter.kind, values.config);
         const id = db.transaction(() => {
           const row = db.insert(integrations).values(values).returning().get();
           writeSecrets(db, key, row.id, plain as Record<string, string>);
@@ -203,6 +208,7 @@ export const integrationsRoutes =
                 .run();
           return row.id;
         });
+        if (deviceId) workers.syncWorker(deviceId);
         return reply.status(201).send(toApi(get(id)));
       },
     );
@@ -277,6 +283,12 @@ export const integrationsRoutes =
             writeSecrets(db, key, cur.id, merged);
           }
         });
+        // Another device: the old one may stop slicing, the new one starts.
+        if (config && adapter?.kind === "worker") {
+          const before = workerDeviceId(adapter.kind, cur.config);
+          const after = workerDeviceId(adapter.kind, get(cur.id).config);
+          if (before !== after) for (const d of [before, after]) if (d) workers.syncWorker(d);
+        }
         return toApi(get(cur.id));
       },
     );
@@ -286,13 +298,16 @@ export const integrationsRoutes =
       "/:id",
       { schema: { params, response: { 204: z.null(), ...notFound } } },
       async (req, reply) => {
-        get(req.params.id);
+        const row = get(req.params.id);
         if (syncer.running.has(req.params.id))
           throw new HttpError(409, "sync_running", "A sync is running");
         // A server or worker integration's slicer goes with it.
         if (workers.isWorker(req.params.id)) await workers.remove(req.params.id, false);
         installer.remove(req.params.id, false);
         db.delete(integrations).where(eq(integrations.id, req.params.id)).run();
+        const kind = syncer.adapters.find((a) => a.id === row.adapterId)?.kind;
+        const deviceId = workerDeviceId(kind, row.config);
+        if (deviceId) workers.syncWorker(deviceId);
         return reply.status(204).send(null);
       },
     );

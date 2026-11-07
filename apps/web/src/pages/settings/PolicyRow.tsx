@@ -183,8 +183,19 @@ function rangeFor(
   };
 }
 
-/** The data types an integration imports, in groups, one row each. */
-export function Policies({ integration: i, sync }: { integration: Integration; sync: Sync }) {
+/**
+ * The data types an integration imports, in groups, one row each: `connection` on its card (a
+ * cloud's printers, prints and spools), `catalog` on Catalog → Sources (ADR-0020).
+ */
+export function Policies({
+  integration: i,
+  sync,
+  part,
+}: {
+  integration: Integration;
+  sync: Sync;
+  part: "connection" | "catalog";
+}) {
   const { t } = useTranslation();
   const patch = usePatchIntegration(i.id);
   const may = useMayTask();
@@ -201,8 +212,11 @@ export function Policies({ integration: i, sync }: { integration: Integration; s
           {t("integrations:card.actionError")}
         </p>
       )}
-      {admin && i.capabilities.includes("brands") && <ChooseBrands integration={i} />}
+      {part === "catalog" && admin && i.capabilities.includes("brands") && (
+        <ChooseBrands integration={i} />
+      )}
       {(Object.keys(GROUPS) as (keyof typeof GROUPS)[]).map((g) => {
+        if ((g === "devices") !== (part === "connection")) return null;
         const rows = i.policies.filter(
           (p) => !isAction(p.type) && may(i.id, p.type, "any") && groupOf(p.type) === g,
         );
