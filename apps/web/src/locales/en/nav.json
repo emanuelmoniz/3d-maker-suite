@@ -33,10 +33,6 @@
     },
     "integrations": { "label": "Integrations", "description": "Connect vendor accounts and sync." },
     "hub": { "label": "Hub management", "description": "Paired devices and their access." },
-    "presets": {
-      "label": "Slicer presets",
-      "description": "The presets the hub's slicers use and what each workstation shares."
-    },
     "logs": { "label": "Logs", "description": "What the app did, by module and level." },
     "settings": { "label": "Settings" }
   }

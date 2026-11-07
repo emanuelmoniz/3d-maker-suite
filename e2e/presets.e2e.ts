@@ -48,9 +48,14 @@ test("hub presets: two PCs' zips in one library, versions, delete", async ({ pag
     "user/default/filament/Silk.json": { name: "Silk" },
   });
 
-  await page.goto("/hub");
-  await page.getByRole("link", { name: "Slicer presets" }).click();
-  await expect(page.getByRole("heading", { name: "Slicer presets" })).toBeVisible();
+  await page.goto("/catalog");
+  await page
+    .getByRole("navigation", { name: "Catalog sections" })
+    .getByRole("link", { name: "Presets" })
+    .click();
+  await expect(page).toHaveURL(/\/catalog\/presets$/);
+  await page.goto("/hub/presets");
+  await expect(page).toHaveURL(/\/catalog\/presets$/);
   await expect(page.getByRole("button", { name: "Filament (2)" })).toHaveAttribute(
     "aria-pressed",
     "true",
@@ -148,19 +153,19 @@ test("slicer presets without hub.manage: an editor's switches, a viewer's list, 
     { id: "orca-slicer", version: "2.5", path: "C:/Orca/orca-slicer.exe", default: true },
   ]);
   const side = page.getByRole("complementary");
-  const nav = side.getByRole("link", { name: "Slicer presets" });
-
-  // An admin has it on the Hub page, so no second item.
-  await page.goto("/hub");
-  await expect(side.getByRole("link", { name: "Hub management" })).toBeVisible();
-  await expect(nav).toHaveCount(0);
+  const tab = page
+    .getByRole("navigation", { name: "Catalog sections" })
+    .getByRole("link", { name: "Presets" });
+  const openPresets = async () => {
+    await side.getByRole("link", { name: "Catalog" }).click();
+    await tab.click();
+  };
 
   // Editor: from the navigation, with the switches and no way back to a page it can't open.
   await signInAs("eva@example.com");
   await page.goto("/");
   await expect(side.getByRole("link", { name: "Hub management" })).toHaveCount(0);
-  await nav.click();
-  await expect(page.getByRole("heading", { name: "Slicer presets", level: 1 })).toBeVisible();
+  await openPresets();
   await expect(page.getByText("Farm PLA")).toBeVisible();
   await expect(page.getByRole("button", { name: "Delete Farm PLA" })).toBeVisible();
   await expect(page.getByRole("link", { name: /back/i })).toHaveCount(0);
@@ -200,7 +205,7 @@ test("slicer presets without hub.manage: an editor's switches, a viewer's list, 
   // Viewer: sees the presets, without the switches or delete.
   await signInAs("vic@example.com");
   await page.goto("/");
-  await nav.click();
+  await openPresets();
   await expect(page.getByText("Farm PLA")).toBeVisible();
   await expect(page.getByRole("switch")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Delete Farm PLA" })).toHaveCount(0);
@@ -216,8 +221,10 @@ test("slicer presets without hub.manage: an editor's switches, a viewer's list, 
   await page.request.patch("/api/preferences", { data: { hubEnabled: false } });
   await signInAs("eva@example.com");
   await page.goto("/");
-  await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
-  await expect(nav).toHaveCount(0);
+  await side.getByRole("link", { name: "Catalog" }).click();
+  await expect(tab).toHaveCount(0);
+  await page.goto("/catalog/presets");
+  await expect(page).toHaveURL(/\/catalog\/printers$/);
 });
 
 test("share my presets: the switch, a device's preset, a conflict copy, a desktop delete", async ({
@@ -250,7 +257,7 @@ test("share my presets: the switch, a device's preset, a conflict copy, a deskto
   ]);
   expect(slicers.status).toBe(204);
 
-  await page.goto("/hub/presets");
+  await page.goto("/catalog/presets");
   await expect(page.getByText("No slicer presets yet")).toBeVisible();
   const toggle = page.getByRole("switch", { name: "Share my presets on Desk PC" });
   await expect(toggle).not.toBeChecked();
@@ -315,7 +322,7 @@ test("share my presets: the switch, a device's preset, a conflict copy, a deskto
   await expect(
     page.getByText("Desk PC removed 2 slicer presets at once; they stay until someone deletes"),
   ).toBeVisible();
-  await page.goto("/hub/presets");
+  await page.goto("/catalog/presets");
   const held = page.getByRole("region", { name: "Deletes waiting for you" });
   await expect(held).toContainText("Desk PC removed 2 presets at once");
   await expect(row).toContainText("Removed on Desk PC with many others at once");

@@ -32,7 +32,6 @@ import { SpoolCreatePage, SpoolEditPage } from "./pages/filament/SpoolFormPage.t
 import { HomePage } from "./pages/HomePage.tsx";
 import { EditConnectorPage } from "./pages/hub/EditConnectorPage.tsx";
 import { HubPage } from "./pages/hub/HubPage.tsx";
-import { PresetsPage } from "./pages/hub/PresetsPage.tsx";
 import { ImportPage } from "./pages/import/ImportPage.tsx";
 import { SlicerZipPage } from "./pages/import/SlicerZipPage.tsx";
 import { SourceReviewPage } from "./pages/import/SourceReviewPage.tsx";
@@ -84,7 +83,6 @@ import {
   IMPORT_ITEM,
   INTEGRATIONS_ITEM,
   LOGS_ITEM,
-  PRESETS_ITEM,
   SETTINGS_ITEM,
 } from "./shell/nav.ts";
 
@@ -116,7 +114,6 @@ const built = [
   IMPORT_ITEM.to,
   INTEGRATIONS_ITEM.to,
   HUB_ITEM.to,
-  PRESETS_ITEM.to,
   SETTINGS_ITEM.to,
   LOGS_ITEM.to,
   "/printers",
@@ -266,7 +263,7 @@ const routes: AnyRoute[] = [
       // integrations: the names of the accounts a row can come from.
       loader: () =>
         Promise.all(
-          ["catalog", "printers", "filament", "integrations", "import"].map(loadNamespace),
+          ["catalog", "printers", "filament", "integrations", "import", "hub"].map(loadNamespace),
         ),
       component: () => <CatalogPage tab={tab} />,
     }),
@@ -528,9 +525,10 @@ const routes: AnyRoute[] = [
   }),
   createRoute({
     getParentRoute: () => root,
-    path: PRESETS_ITEM.to,
-    loader: () => loadNamespace("hub"),
-    component: PresetsPage,
+    path: "/hub/presets",
+    beforeLoad: ({ location }) => {
+      throw redirect({ to: "/catalog/presets", hash: location.hash });
+    },
   }),
   createRoute({
     getParentRoute: () => root,

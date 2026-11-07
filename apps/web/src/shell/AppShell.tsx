@@ -23,7 +23,6 @@ import {
   LOGS_ITEM,
   NAV_GROUPS,
   type NavItem,
-  PRESETS_ITEM,
   SETTINGS_ITEM,
 } from "./nav.ts";
 import { ThemeToggle } from "./ThemeToggle.tsx";
@@ -246,19 +245,10 @@ const useHubShown = () => {
   return useCan("hub.manage") && on;
 };
 
-/** Slicer presets for who sees projects, while the hub is on; hub.manage has it on the Hub page. */
-const usePresetsShown = () => {
-  const on = !!usePreferences().data?.values.hubEnabled;
-  const read = useCan("projects", "read");
-  const hub = useCan("hub.manage");
-  return on && read && !hub;
-};
-
 function Sidebar() {
   const { t } = useTranslation();
   const logsShown = useLogsShown();
   const hubShown = useHubShown();
-  const presetsShown = usePresetsShown();
   const importShown = useCan("integrations.manage");
   const catalogShown = useCan("catalog", "read");
   const tasks = useHasTasks();
@@ -283,7 +273,6 @@ function Sidebar() {
         {catalogShown && <SideLink item={CATALOG_ITEM} />}
         {tasks && <SideLink item={INTEGRATIONS_ITEM} />}
         {hubShown && <SideLink item={HUB_ITEM} />}
-        {presetsShown && <SideLink item={PRESETS_ITEM} />}
         {importShown && <SideLink item={IMPORT_ITEM} />}
         {logsShown && <SideLink item={LOGS_ITEM} />}
         <SideLink item={SETTINGS_ITEM} />
@@ -332,7 +321,6 @@ function BottomNav() {
   const primary = ALL_ITEMS.filter((i) => i.primary);
   const logsShown = useLogsShown();
   const hubShown = useHubShown();
-  const presetsShown = usePresetsShown();
   const importShown = useCan("integrations.manage");
   const catalogShown = useCan("catalog", "read");
   const tasks = useHasTasks();
@@ -343,8 +331,7 @@ function BottomNav() {
       (logsShown || i !== LOGS_ITEM) &&
       (importShown || i !== IMPORT_ITEM) &&
       (tasks || i !== INTEGRATIONS_ITEM) &&
-      (hubShown || i !== HUB_ITEM) &&
-      (presetsShown || i !== PRESETS_ITEM),
+      (hubShown || i !== HUB_ITEM),
   );
   const tab =
     "flex flex-1 flex-col items-center justify-center gap-0.5 text-xs text-muted data-[status=active]:text-accent";

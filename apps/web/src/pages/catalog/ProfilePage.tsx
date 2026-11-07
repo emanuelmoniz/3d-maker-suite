@@ -5,7 +5,7 @@ import type {
   PrintProfile,
 } from "@3d-maker-suite/core";
 import { useQuery } from "@tanstack/react-query";
-import { useNavigate, useParams } from "@tanstack/react-router";
+import { Link, useNavigate, useParams } from "@tanstack/react-router";
 import { type ReactNode, useId } from "react";
 import { useTranslation } from "react-i18next";
 import { ArchiveActions, ArchivedBadge, Dependents } from "../../components/ArchiveActions.tsx";
@@ -15,6 +15,7 @@ import { api } from "../../lib/api.ts";
 import { useModelInfo } from "../../lib/catalog.ts";
 import { filamentLabel } from "../../lib/filament.ts";
 import { formatNumber } from "../../lib/format.ts";
+import { usePreferences } from "../../lib/preferences.ts";
 import { Info } from "../filament/SpoolDetailPage.tsx";
 import { AllSettings } from "./AllSettings.tsx";
 import { SourceBadge } from "./sources.tsx";
@@ -24,6 +25,8 @@ const KINDS = {
   machine: { path: "/api/machine-profiles", back: "/catalog/printers" },
   print: { path: "/api/print-profiles", back: "/catalog/printers" },
 } as const;
+
+const PRESET_KIND = { filament: "filament", machine: "machine", print: "process" } as const;
 
 type Row = (FilamentProfile | MachineProfile | PrintProfile) & { source?: string };
 
@@ -92,6 +95,7 @@ export function ProfilePage({ kind }: { kind: keyof typeof KINDS }) {
     // A profile that isn't there won't be in a moment.
     retry: false,
   });
+  const hub = !!usePreferences().data?.values.hubEnabled;
   const use = useQuery({
     queryKey: ["catalog-profile", kind, id, "use"],
     queryFn: () => api<InUseDetails>("GET", `${path}/${id}/use`),
@@ -107,6 +111,8 @@ export function ProfilePage({ kind }: { kind: keyof typeof KINDS }) {
 
   const name = kind === "filament" ? filamentLabel(row as FilamentProfile) : row.name;
   const archived = row.archivedAt !== null;
+  // A profile from a user preset links to its entry in the library (hub on).
+  const preset = hub ? row.sourcePreset?.match(/^([^:]+):user\/(.+)$/) : null;
 
   return (
     <>
@@ -137,6 +143,15 @@ export function ProfilePage({ kind }: { kind: keyof typeof KINDS }) {
             <Fields kind={kind} row={row} />
             <Info label={t("filament:detail.source")}>
               <SourceBadge source={row.source} profile />
+              {preset && (
+                <Link
+                  to="/catalog/presets"
+                  hash={encodeURIComponent(`${preset[1]}:${PRESET_KIND[kind]}:${preset[2]}`)}
+                  className="mt-1 block font-medium text-accent hover:underline"
+                >
+                  {t("catalog:profile.openPreset")}
+                </Link>
+              )}
             </Info>
           </dl>
         </Card>

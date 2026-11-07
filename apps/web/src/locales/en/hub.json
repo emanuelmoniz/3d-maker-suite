@@ -119,9 +119,7 @@
     "usage_other": "Using {{size}} for {{count}} kept versions."
   },
   "presets": {
-    "open": "Slicer presets",
-    "title": "Slicer presets",
-    "description": "The user presets the hub's slicer and every slice worker use. A slice that used a changed preset needs slicing again.",
+    "openProfile": "Open the profile",
     "loadError": "Couldn't load the presets.",
     "emptyTitle": "No slicer presets yet",
     "emptyBody": "Turn on Share my presets for a device below, or import a slicer zip on a server slicer's card in Integrations. Their user presets join this library.",

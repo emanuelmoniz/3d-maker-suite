@@ -129,9 +129,9 @@ Use a worker when the hub is on a VPS or an arm64 NAS with no server slicer, or 
 
 On a hub, one library holds the user presets (printer, process, filament) of Bambu Studio and OrcaSlicer. The hub's slicer and every slice worker use it, and a slice that used a changed preset shows as outdated. A single-PC install has no library: it slices with its desktop slicer's own folder.
 
-Open it from **Slicer presets** in the navigation (or the link on the Hub page). Anyone who can see projects can browse and download presets and their earlier versions. Changing things needs **Manage slicer presets**, which Admin and Editor have: delete a preset, clean up conflict copies, and set the two switches below.
+Open it from **Catalog → Presets** (shown while the hub is on; `/hub/presets` still lands there). A profile imported from a user preset links to its entry here, and the entry links back to the profile. Anyone who can see the catalog or projects can browse and download presets and their earlier versions. Changing things needs **Manage slicer presets**, which Admin and Editor have: delete a preset, clean up conflict copies, and set the two switches below.
 
-Presets get in from a slicer zip ([slicing.md](slicing.md#profiles)) or from a workstation. Per device, in Hub management → **Slicer presets** (both off by default):
+Presets get in from a slicer zip ([slicing.md](slicing.md#profiles)) or from a workstation. Per device, at the foot of **Catalog → Presets** (both off by default):
 
 - **Share my presets**: the connector sends each preset saved in its slicers to the hub within a minute. It follows the account the slicer last used, or the signed-out folder.
 - **Install hub presets**: the connector writes the library's presets into that slicer's folder. It waits until the slicer is closed, backs up the folder to a zip first (shown on the device page) and the preset shows at the slicer's next start.

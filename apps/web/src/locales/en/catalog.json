@@ -2,11 +2,13 @@
   "tabs": {
     "label": "Catalog sections",
     "printers": "Printers",
-    "filament": "Filament"
+    "filament": "Filament",
+    "presets": "Presets"
   },
   "intro": {
     "printers": "Add printer brands and models by hand, or let a slicer bring them. Machine and print profiles come only from a slicer: they are its files, so you archive or delete them here and edit them in the slicer.",
-    "filament": "Add filament brands and materials by hand, or let a slicer bring them. Filament profiles come only from a slicer: they are its files, so you archive or delete them here and edit them in the slicer."
+    "filament": "Add filament brands and materials by hand, or let a slicer bring them. Filament profiles come only from a slicer: they are its files, so you archive or delete them here and edit them in the slicer.",
+    "presets": "The user presets the hub's slicer and every slice worker use. A slice that used a changed preset needs slicing again."
   },
   "fromFiles": "From your slicer's files. Archive one to hide it from the pickers.",
   "source": {
@@ -37,6 +39,7 @@
   "moved": "Brands, printer models and profiles are in <link>Catalog</link>.",
   "profile": {
     "notFound": "Profile not found.",
+    "openPreset": "Open in Presets",
     "details": "What the app uses",
     "usedBy": "Where it is used",
     "unused": "Nothing uses this profile."

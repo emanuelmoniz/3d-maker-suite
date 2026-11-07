@@ -14,7 +14,6 @@ import {
   Printer,
   ScrollText,
   Settings,
-  SlidersHorizontal,
   Spool,
   Users,
   Wrench,
@@ -159,14 +158,6 @@ export const HUB_ITEM: NavItem = {
   description: "nav:items.hub.description",
 };
 
-/** Who sees projects but can't manage the hub reaches Slicer presets here (ADR-0017). */
-export const PRESETS_ITEM: NavItem = {
-  to: "/hub/presets",
-  icon: SlidersHorizontal,
-  label: "nav:items.presets.label",
-  description: "nav:items.presets.description",
-};
-
 /** Only in the menu while logging is on (Settings -> Logs). */
 export const LOGS_ITEM: NavItem = {
   to: "/logs",
@@ -186,7 +177,6 @@ export const ALL_ITEMS = [
   CATALOG_ITEM,
   INTEGRATIONS_ITEM,
   HUB_ITEM,
-  PRESETS_ITEM,
   IMPORT_ITEM,
   LOGS_ITEM,
   SETTINGS_ITEM,

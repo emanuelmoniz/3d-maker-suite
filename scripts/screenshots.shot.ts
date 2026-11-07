@@ -296,7 +296,7 @@ test("hub screenshots", async ({ page, app }) => {
   await device("PUT", "/slicers", [
     { id: "bambu-studio", version: "1", path: "C:/Studio/bambu-studio.exe", default: true },
   ]);
-  await page.goto("/hub/presets");
+  await page.goto("/catalog/presets");
   await page.getByRole("switch", { name: "Share my presets on Desk PC" }).click({ force: true });
   for (const [name, cost] of [
     ["Farm PLA", "20"],

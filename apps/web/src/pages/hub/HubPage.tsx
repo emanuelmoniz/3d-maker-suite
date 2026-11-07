@@ -105,12 +105,6 @@ export function HubPage() {
             <Button variant="primary" onClick={() => setDialog({ kind: "pair" })}>
               {t("hub:pair.action")}
             </Button>
-            <Link
-              to="/hub/presets"
-              className="inline-flex h-9 items-center justify-center rounded-md border border-border bg-surface px-3 font-medium hover:bg-surface-2"
-            >
-              {t("hub:presets.open")}
-            </Link>
             <SettingsLink module="hub" />
           </>
         }

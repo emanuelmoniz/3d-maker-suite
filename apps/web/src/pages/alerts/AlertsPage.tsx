@@ -245,7 +245,7 @@ export function Title({ a, inList }: { a: Alert; inList?: boolean }) {
     case "preset_skipped":
     case "preset_held":
       return (
-        <Link to="/hub/presets" className={link}>
+        <Link to="/catalog/presets" className={link}>
           {text}
         </Link>
       );

@@ -2238,7 +2238,7 @@ Do Step 18 of the 5.4.0 plan in PLAN.md. Show me a desktop and a mobile mock of 
 Use frontend-design for the plate. Back up the DB before editing schema.ts.
 ```
 
-### [ ] Step 19 - Presets tab
+### [x] Step 19 - Presets tab
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - `pages/hub/PresetsPage.tsx` becomes Catalog → Presets (hub on): list, versions, owners, conflicts, held deletes, Restore. `PRESETS_ITEM` (and `usePresetsShown`) leaves the sidebar's bottom block and the More sheet, and the Hub page's link goes; `/hub/presets` redirects. Alerts link there (`AlertsPage.tsx`).
