@@ -4,7 +4,7 @@ import { useZipSources } from "../../lib/slicerCatalog.ts";
 
 /**
  * How profiles arrive, under the profile tables. The zip steps are the ones of the zip page
- * (`import:zip.steps.*`); Step 19 moves that page into Sources with the same text.
+ * (`import:zip.steps.*`); the zip link leads to each slicer's zip on Catalog → Sources.
  */
 export function ProfilesHint() {
   const { t } = useTranslation();
@@ -17,7 +17,7 @@ export function ProfilesHint() {
           i18nKey="catalog:arrive.body"
           components={{
             integrations: <Link to="/integrations" className="underline" />,
-            zip: <Link to="/import/slicer-zip" className="underline" />,
+            zip: <Link to="/catalog/sources" className="underline" />,
           }}
         />
       </p>

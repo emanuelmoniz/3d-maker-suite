@@ -408,6 +408,7 @@
     "licenceLink": "Licence",
     "source": "Source code of {{version}}",
     "noProfiles": "This slicer has no folder of yours to read. To use your brands, printers and profiles here, import them from a desktop install of {{name}}:",
+    "fromZip": "To bring your brands, printers and profiles from {{name}} on a computer that isn't connected, import them as a zip:",
     "zipSteps": {
       "install": "Install {{name}} on any computer and open it once.",
       "folder": "Open its config folder (Help → Show Configuration Folder), or find it yourself:",

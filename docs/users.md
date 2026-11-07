@@ -38,7 +38,7 @@ Modules have four steps: **None** (hidden), **Read**, **Write** and **Manage**.
 | Projects | Add and edit projects and their files | Set up the project folders |
 | Prints | Log and edit prints | Change print settings |
 | Quotes, orders and clients | Make quotes and orders | Change rates, currency and order statuses |
-| Catalog | Delete and restore hub presets, clean up conflict copies and held deletes, set what each workstation sends and installs | Add, edit, archive and delete brands, models and materials; archive and delete profiles (a slicer makes and edits them); their import settings in Integrations |
+| Catalog | Delete and restore hub presets, clean up conflict copies and held deletes, set what each workstation sends and installs | Add, edit, archive and delete brands, models and materials; archive and delete profiles (a slicer makes and edits them); on Catalog → Sources, their import settings, Choose brands and each slicer's catalog source |
 
 With **Catalog** at Read, a user sees the catalog and the slicer presets. The printer, spool and print forms read brands, models, materials and profiles with Printers or Filament read too, and the presets are readable with Projects read.
 

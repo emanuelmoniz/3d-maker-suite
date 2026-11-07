@@ -245,17 +245,20 @@ function InstallDialog({
 }
 
 /**
- * A server slicer whose download has no readable profiles (OrcaSlicer's binary .opc): how to get
- * its presets from a desktop install as a zip instead.
+ * How to bring a slicer's presets as a zip of a desktop install's config folder. `noFolder`: it
+ * runs only where it has no folder of yours (this server, a workstation), e.g. OrcaSlicer's
+ * binary .opc download.
  */
-export function ProfilesFromZip({ libraryId }: { libraryId: string }) {
+export function ProfilesFromZip({ libraryId, noFolder }: { libraryId: string; noFolder: boolean }) {
   const { t } = useTranslation();
   const folders = useZipSources().data?.find((s) => s.id === libraryId)?.folders;
   // The desktop slicer's name (OrcaSlicer), not the card's (OrcaSlicer (server)).
   const name = t(`filament:library.sources.${libraryId}`);
   return (
     <div className="grid gap-2">
-      <p>{t("integrations:managed.noProfiles", { name })}</p>
+      <p>
+        {t(noFolder ? "integrations:managed.noProfiles" : "integrations:managed.fromZip", { name })}
+      </p>
       <ol className="grid list-decimal gap-1 pl-5">
         <li>{t("integrations:managed.zipSteps.install", { name })}</li>
         <li>

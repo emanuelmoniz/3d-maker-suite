@@ -165,6 +165,12 @@ const RULES: [RegExp, string, Need][] = [
     "POST",
     either(on("integrations.review"), on("integrations.manage")),
   ],
+  // Choose brands on Catalog → Sources: a Sources setting (ADR-0020).
+  [
+    /^\/api\/import\/catalog\/[^/]+$/,
+    "*",
+    either(on("integrations.manage"), at("catalog", "manage")),
+  ],
   [p("integrations|import|slicer-zip"), "*", on("integrations.manage")],
   [p("hub"), "*", on("hub.manage")],
   // ADR-0017, ADR-0020: who sees projects sees what slices them; changing them and the device

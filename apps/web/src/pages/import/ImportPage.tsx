@@ -54,11 +54,12 @@ export function ImportPage() {
               <h3 className="font-medium">{t("import:zip.cardTitle")}</h3>
               <p className="text-muted">{t("import:zip.cardHint")}</p>
             </div>
+            {/* The zip lives with what fills the catalog (ADR-0020). */}
             <Link
-              to="/import/slicer-zip"
+              to="/catalog/sources"
               className="inline-flex h-9 items-center rounded-md border border-border bg-surface px-3 font-medium hover:bg-surface-2"
             >
-              {t("import:zip.link")}
+              {t("import:zip.toSources")}
             </Link>
           </div>
         </section>

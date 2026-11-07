@@ -205,7 +205,8 @@ export function Policies({
   const { t } = useTranslation();
   const patch = usePatchIntegration(i.id);
   const may = useMayTask();
-  const admin = useCan("integrations.manage");
+  // Choose brands is a Sources setting (ADR-0020).
+  const chooseBrands = useCan("catalog", "manage");
   const tracking = (type: string) =>
     i.policies.some((p) => p.type === type && p.mode !== "off" && p.trackUsage);
   const doubleTracking = tracking("prints") && tracking("spools");
@@ -219,7 +220,7 @@ export function Policies({
           {t("integrations:card.actionError")}
         </p>
       )}
-      {part === "catalog" && admin && i.capabilities.includes("brands") && (
+      {part === "catalog" && chooseBrands && i.capabilities.includes("brands") && (
         <ChooseBrands integration={i} />
       )}
       {PARTS[part].map((g) => {

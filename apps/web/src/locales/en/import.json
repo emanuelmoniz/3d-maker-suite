@@ -487,8 +487,9 @@
   },
   "zip": {
     "cardTitle": "Printer and filament profiles from a slicer",
-    "cardHint": "Running on a server with no slicer installed? Zip your slicer's config folder on the PC that has it and import its brands, printers and filament profiles from the zip.",
+    "cardHint": "Running on a server with no slicer installed? Zip your slicer's config folder on the PC that has it and import its brands, printers and filament profiles from the zip, in each slicer's section of Catalog → Sources.",
     "link": "Import from a slicer zip",
+    "toSources": "Open Catalog → Sources",
     "title": "Import from a slicer zip",
     "description": "Zip your slicer's config folder on the PC that has it, upload it here and review what it offers. Nothing is saved until you confirm.",
     "stepsTitle": "How to get the zip",

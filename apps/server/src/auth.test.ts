@@ -206,6 +206,12 @@ describe("permissions", () => {
     expect(can(write, "/api/brands", "POST")).toBe(false);
     expect(can(write, "/api/catalog/sources/bambu-studio", "PUT")).toBe(false);
     expect(can(manage, "/api/catalog/sources/bambu-studio", "PUT")).toBe(true);
+    // Choose brands is a Sources setting; the rest of import stays integrations.manage.
+    expect(can(write, "/api/import/catalog/abc", "POST")).toBe(false);
+    expect(can(manage, "/api/import/catalog/abc", "GET")).toBe(true);
+    expect(can(manage, "/api/import/catalog/abc", "POST")).toBe(true);
+    expect(can(manage, "/api/import/printers/preview", "POST")).toBe(false);
+    expect(can(manage, "/api/slicer-zip/orca-slicer", "POST")).toBe(false);
   });
 
   it("integration PATCH: catalog cards need catalog manage, the rest integrations.manage", async () => {

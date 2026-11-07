@@ -12,6 +12,18 @@ for (const width of [375, 1440])
       data: { displayName: "Ana Admin", email: "ana@example.com", password: "correct horse" },
     });
     await page.request.patch("/api/preferences", { data: { hubEnabled: true } });
+    // Nothing connected yet: each slicer still offers its zip, and the zip page comes back here.
+    await page.goto("/catalog/sources");
+    await expect(page.getByText("No slicer or account brings anything")).toBeVisible();
+    const zip = page
+      .getByRole("region", { name: "Bambu Studio", exact: true })
+      .getByRole("region", { name: "No connector? Upload a zip" });
+    await expect(zip).toContainText("on a computer that isn't connected");
+    await zip.getByRole("link", { name: "Import from a slicer zip" }).click();
+    await expect(page).toHaveURL(/\/import\/slicer-zip\?slicer=bambu-studio$/);
+    await page.getByRole("link", { name: /back/i }).click();
+    await expect(page).toHaveURL(/\/catalog\/sources$/);
+
     const me = await (await page.request.get("/api/auth/me")).json();
     /** A paired device that reports these slicers, as its connector does. */
     const pair = async (name: string, slicers: string[]) => {
