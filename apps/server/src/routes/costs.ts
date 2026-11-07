@@ -31,6 +31,7 @@ import { and, eq, sql } from "drizzle-orm";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
+import { presetLibrary } from "../integrations/capabilities.ts";
 import { presetsChanged, presetsSeq } from "../integrations/presetLibrary.ts";
 import { archivedAtOf, archivedWhere, canReference } from "../lib/archive.ts";
 import { projectVisible } from "../lib/auth.ts";
@@ -186,10 +187,16 @@ export const costsRoutes =
           if (!abs || !s || !model?.plates.some((x) => x.index === p.plate))
             throw new HttpError(400, "invalid_reference", `Unknown plate ${p.plate} of ${p.file}`);
           // Same file (size, mtime) and the same printer, profiles and slicer once resolved: same slice.
-          const { printer, profileId } = resolve(p, model);
           const slicers = [p.slicerIntegrationId, project?.slicerIntegrationId];
-          const slicer = slicerOf(slicers)?.row;
-          const key = `quote:${JSON.stringify([abs, s.size, s.mtimeMs, p.plate, printer?.id ?? null, profileId, p.filaments, slicer?.id ?? null, slicer?.slicerVersion ?? null, presetsSeq(db)])}`;
+          const found = slicerOf(slicers);
+          const slicer = found?.row;
+          const { printer, machine, fromFile, profileId } = resolve(
+            p,
+            model,
+            found && presetLibrary(found.adapter),
+          );
+          const machineId = fromFile ? null : (machine?.id ?? null);
+          const key = `quote:${JSON.stringify([abs, s.size, s.mtimeMs, p.plate, printer?.id ?? null, machineId, profileId, p.filaments, slicer?.id ?? null, slicer?.slicerVersion ?? null, presetsSeq(db)])}`;
           // The project's own slice when it sliced exactly this: the slicer's time estimate moves by
           // a few seconds between runs of the same input, so slicing again would not match it.
           const own =
@@ -213,6 +220,7 @@ export const costsRoutes =
             own.fileSize === s.size &&
             own.fileMtimeMs === s.mtimeMs &&
             own.printerId === (printer?.id ?? null) &&
+            own.machineProfileId === p.machineProfileId &&
             own.slicedPrintProfileId === profileId &&
             !slicedWithOther(own, slicer, fallback) &&
             !presetsChanged(db)(own) &&

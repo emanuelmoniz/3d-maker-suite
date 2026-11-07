@@ -1,18 +1,17 @@
 import { parse3mf } from "@3d-maker-suite/3mf";
 import {
-  defaultSlicePrinter,
   type IntegrationAdapter,
   IntegrationError,
   type ProjectModel,
   pickSlicer,
-  printerFitsFile,
   projectMetaSchema,
+  resolvePlate,
   type SLICE_JOB_STATES,
   type SliceRequest,
   type SliceRun,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
-import { and, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import type { FastifyBaseLogger } from "fastify";
 import { capableRows, presetLibrary, slicerConfigDir } from "../integrations/capabilities.ts";
 import { usedPresets } from "../integrations/presetLibrary.ts";
@@ -35,14 +34,12 @@ export const SLICE_ERRORS = [
   "slice_failed",
 ] as const;
 
-/** The print profile a printer's machine profile names as its default (`printers.machine_profile_id`). */
-export const machineDefaultProfile = sql`(SELECT ${printProfiles.id} FROM ${printProfiles}
-  JOIN ${machineProfiles} ON ${machineProfiles.defaultPrintPreset} = ${printProfiles.sourcePreset}
-  WHERE ${machineProfiles.id} = ${printers.machineProfileId} AND ${printProfiles.archivedAt} IS NULL)`;
-
 type PlateRow = typeof projectSlicePlates.$inferSelect;
 type IntegrationRow = typeof schema.integrations.$inferSelect;
-type PlateChoice = Pick<PlateRow, "printerId" | "printProfileId" | "useDefaultPrintProfile">;
+type PlateChoice = Pick<
+  PlateRow,
+  "printerId" | "machineProfileId" | "printProfileId" | "useDefaultPrintProfile"
+>;
 type FileInfo = Pick<ProjectModel, "printerModel" | "nozzleDiameter">;
 type SliceJobState = (typeof SLICE_JOB_STATES)[number];
 
@@ -98,10 +95,8 @@ export const useSliceWorkers = (db: Db, run: (integrationId: string) => SliceRun
   void workerRuns.set(db, run);
 
 /**
- * How a plate slices: its printer (its own, else `defaultSlicePrinter`), whether that printer is
- * the 3MF's (then the file's own settings fit), and the print profile: its own, else the
- * printer's default (none: its machine profile's) when asked for or when the file's process is for
- * another printer.
+ * How a plate slices with a slicer of `library` (`resolvePlate`, as the page resolves it): its
+ * printer, machine profile and print profile.
  */
 export function plateResolver(db: Db) {
   const { defaultPrinterId } = readPreferences(db);
@@ -111,10 +106,8 @@ export function plateResolver(db: Db) {
       name: printers.name,
       modelId: printers.modelId,
       nozzleDiameterMm: printers.nozzleDiameterMm,
-      printProfileId: sql<
-        string | null
-      >`coalesce(${printers.printProfileId}, ${machineDefaultProfile})`,
-      machinePreset: machineProfiles.sourcePreset,
+      printProfileId: printers.printProfileId,
+      machineProfileId: printers.machineProfileId,
       archivedAt: printers.archivedAt,
       model: printerModels.model,
       brand: brands.name,
@@ -122,22 +115,28 @@ export function plateResolver(db: Db) {
     .from(printers)
     .leftJoin(printerModels, eq(printerModels.id, printers.modelId))
     .leftJoin(brands, eq(brands.id, printerModels.brandId))
-    .leftJoin(machineProfiles, eq(machineProfiles.id, printers.machineProfileId))
     .all()
     .map((p) => ({ ...p, model: p.model ?? "" }));
-  const active = all.filter((p) => !p.archivedAt);
-  return (row: PlateChoice, file: FileInfo | undefined) => {
-    const info = file ?? { printerModel: null, nozzleDiameter: null };
-    const printer =
-      all.find((p) => p.id === row.printerId) ??
-      defaultSlicePrinter(active, defaultPrinterId, info);
-    // No printer at all: nothing to compare, so the file's own settings.
-    const fits = !printer || printerFitsFile(printer, info);
-    const profileId =
-      row.printProfileId ??
-      (row.useDefaultPrintProfile || !fits ? (printer?.printProfileId ?? null) : null);
-    return { printer, fits, profileId };
-  };
+  // ponytail: every machine and print profile per call (a few thousand rows); fine locally.
+  const machines = db.select().from(machineProfiles).all();
+  const prints = db
+    .select({
+      id: printProfiles.id,
+      printerModelId: printProfiles.printerModelId,
+      sourcePreset: printProfiles.sourcePreset,
+      machinePresets: printProfiles.machinePresets,
+      archivedAt: printProfiles.archivedAt,
+    })
+    .from(printProfiles)
+    .all();
+  return (row: PlateChoice, file: FileInfo | undefined, library: string | undefined) =>
+    resolvePlate(row, file ?? { printerModel: null, nozzleDiameter: null }, {
+      printers: all,
+      defaultPrinterId,
+      machines,
+      prints,
+      library,
+    });
 }
 
 class SliceError extends Error {}
@@ -180,36 +179,20 @@ export async function slicePlate(
   const own = (source: string | null | undefined) =>
     source?.startsWith(prefix) ? source.slice(prefix.length) : undefined;
 
-  const { printer, fits, profileId } = plateResolver(db)(p, p.model);
+  const library = presetLibrary(found.adapter);
+  const { printer, machine, fromFile, profileId } = plateResolver(db)(p, p.model, library);
   const req: SliceRequest = { file: p.abs, plate: p.plate };
   if (profileId) {
     const row = db.select().from(printProfiles).where(eq(printProfiles.id, profileId)).get();
     req.process = own(row?.sourcePreset);
     if (!req.process) fail("no_preset", row?.name);
   }
-  if (printer && !fits) {
-    // Another printer than the file's: its machine profile when it is this slicer's, else the
-    // slicer's preset for its model and nozzle. Only system machine presets slice (ADR-0007).
+  if (printer && !fromFile) {
+    // Not the file's machine: the plate's or printer's machine profile, a system preset of this
+    // slicer (ADR-0007: only those slice).
     if (!req.process) fail("no_printer_profile", printer.name);
-    const system = (source: string | null | undefined) => {
-      const id = own(source);
-      return id?.startsWith("system/") ? id : undefined;
-    };
-    req.machine =
-      system(printer.machinePreset) ??
-      db
-        .select({ source: machineProfiles.sourcePreset })
-        .from(machineProfiles)
-        .where(
-          and(
-            eq(machineProfiles.printerModelId, printer.modelId ?? ""),
-            eq(machineProfiles.nozzleDiameterMm, printer.nozzleDiameterMm),
-            isNull(machineProfiles.archivedAt),
-          ),
-        )
-        .all()
-        .map((m) => system(m.source))
-        .find(Boolean);
+    const id = own(machine?.sourcePreset);
+    req.machine = id?.startsWith("system/") ? id : undefined;
     if (!req.machine) fail("no_machine_preset", printer.name);
   }
   if (p.filaments.some(Boolean)) {
@@ -241,7 +224,7 @@ export async function slicePlate(
     signal,
     run,
   );
-  const presets = usedPresets(db, presetLibrary(found.adapter), req);
+  const presets = usedPresets(db, library, req);
   return { fingerprint: before, profileId, slicer: found.row, presets, result };
 }
 
@@ -309,6 +292,7 @@ export function projectSliceJob(
       if (
         !now ||
         now.printerId !== row.printerId ||
+        now.machineProfileId !== row.machineProfileId ||
         now.printProfileId !== row.printProfileId ||
         now.useDefaultPrintProfile !== row.useDefaultPrintProfile ||
         JSON.stringify(now.filaments) !== JSON.stringify(row.filaments)

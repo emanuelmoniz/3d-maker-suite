@@ -2218,7 +2218,7 @@ Do Step 17 of the 5.4.0 plan in PLAN.md. Show me the migration and the machine p
 Back up the DB before editing schema.ts.
 ```
 
-### [ ] Step 18 - Slice setup: printer, machine profile, print profile  **[plan mode]**
+### [x] Step 18 - Slice setup: printer, machine profile, print profile  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:**
 - A plate reads top to bottom, as in the slicer: **Slicer**, **Printer** (your printers, the ones that match the file first and marked so), **Machine profile**, **Print profile**, then the filaments as today.

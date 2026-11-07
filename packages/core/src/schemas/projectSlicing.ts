@@ -18,9 +18,11 @@ export const plateSetupInputSchema = z.object({
   plate: z.number().int().positive(),
   /** The printer it slices for: its machine preset and cost rates. Null = `defaultSlicePrinter`. */
   printerId: id.nullable().default(null),
+  /** The machine profile. Null = the 3MF's when the printer fits the file, else the printer's. */
+  machineProfileId: id.nullable().default(null),
   /**
-   * The print profile. Null with `useDefaultPrintProfile` = the printer's default profile; null
-   * without = the one saved in the 3MF (only when the printer fits the file, see `printerFitsFile`).
+   * The print profile. Null with `useDefaultPrintProfile`, or when the machine isn't the file's,
+   * = the default (see `resolvePlate`); null without = the one saved in the 3MF.
    */
   printProfileId: id.nullable(),
   useDefaultPrintProfile: z.boolean().default(false),
@@ -97,6 +99,107 @@ export function defaultSlicePrinter<P extends SlicePrinter>(
   const fits = printers.filter((p) => printerFitsFile(p, file));
   const preferred = (list: P[]) => list.find((p) => p.id === defaultPrinterId) ?? list[0];
   return preferred(fits) ?? preferred(printers);
+}
+
+type PlatePrinter = SlicePrinter & {
+  modelId: string | null;
+  machineProfileId: string | null;
+  printProfileId: string | null;
+  archivedAt?: string | null;
+};
+type PlateMachine = {
+  id: string;
+  printerModelId: string;
+  nozzleDiameterMm: number;
+  sourcePreset: string | null;
+  defaultPrintPreset: string | null;
+  archivedAt: string | null;
+};
+type PlatePrint = {
+  id: string;
+  printerModelId: string | null;
+  sourcePreset: string | null;
+  machinePresets: string[];
+  archivedAt: string | null;
+};
+
+/**
+ * The machine profiles a slicer of `library` slices a printer model with: its system ones (ADR-0007),
+ * every nozzle (a nozzle swap). Without a library, all of the model's.
+ */
+export const slicerMachines = <M extends PlateMachine>(
+  machines: M[],
+  library: string | undefined,
+  modelId: string | null | undefined,
+) =>
+  machines.filter(
+    (m) =>
+      !m.archivedAt &&
+      m.printerModelId === modelId &&
+      (!library || !!m.sourcePreset?.startsWith(`${library}:system/`)),
+  );
+
+/**
+ * The print profile is made for the machine: its `compatible_printers` list it. One read before
+ * the list was kept (Step 17) goes by its printer model.
+ */
+export const fitsMachine = (p: PlatePrint, m: PlateMachine) =>
+  p.machinePresets.length
+    ? !!m.sourcePreset && p.machinePresets.includes(m.sourcePreset)
+    : p.printerModelId === m.printerModelId;
+
+/**
+ * How a plate slices, top to bottom as in the slicer; the server and the page both use this.
+ * `printer`: its own, else `defaultSlicePrinter`. `machine`: its own, else the printer's when it
+ * is one of the slicer's (`machines`), else the one for the printer's nozzle. `fromFile`: the
+ * printer fits the file and the plate picked no machine, so the 3MF's own machine settings slice.
+ * `profileId`: its own; the 3MF's (null) on the file's machine unless `useDefaultPrintProfile`;
+ * else `defaultProfileId`: the printer's default unless its `compatible_printers` name other
+ * machines, the machine's default, then the printer's anyway.
+ */
+export function resolvePlate<P extends PlatePrinter, M extends PlateMachine>(
+  plate: Pick<
+    PlateSetupInput,
+    "printerId" | "machineProfileId" | "printProfileId" | "useDefaultPrintProfile"
+  >,
+  file: SliceFile,
+  ctx: {
+    printers: P[];
+    defaultPrinterId: string | null | undefined;
+    machines: M[];
+    prints: PlatePrint[];
+    library: string | undefined;
+  },
+) {
+  const printer =
+    ctx.printers.find((p) => p.id === plate.printerId) ??
+    defaultSlicePrinter(
+      ctx.printers.filter((p) => !p.archivedAt),
+      ctx.defaultPrinterId,
+      file,
+    );
+  // No printer at all: nothing to compare, so the file's own settings.
+  const fits = !printer || printerFitsFile(printer, file);
+  const machines = printer ? slicerMachines(ctx.machines, ctx.library, printer.modelId) : [];
+  const machine =
+    ctx.machines.find((m) => m.id === plate.machineProfileId) ??
+    machines.find((m) => m.id === printer?.machineProfileId) ??
+    machines.find((m) => m.nozzleDiameterMm === printer?.nozzleDiameterMm);
+  const fromFile = fits && !plate.machineProfileId;
+  const preferred = ctx.prints.find((p) => p.id === printer?.printProfileId);
+  const ofMachine =
+    machine?.defaultPrintPreset &&
+    ctx.prints.find((p) => !p.archivedAt && p.sourcePreset === machine.defaultPrintPreset);
+  // A profile read before its list was kept, or a hand-made one, stays the printer's pick.
+  const elsewhere =
+    !!machine &&
+    !!preferred?.machinePresets.length &&
+    !preferred.machinePresets.includes(machine.sourcePreset ?? "");
+  const defaultProfileId =
+    (preferred && !elsewhere ? preferred : ofMachine || preferred)?.id ?? null;
+  const profileId =
+    plate.printProfileId ?? (fromFile && !plate.useDefaultPrintProfile ? null : defaultProfileId);
+  return { printer, fits, machines, machine, fromFile, defaultProfileId, profileId };
 }
 
 /**

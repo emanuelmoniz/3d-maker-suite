@@ -10,7 +10,22 @@ Slicing gives a project's plates their print time and grams, so costs and quotes
 | Bambu Studio (server) / OrcaSlicer (server) | The server, using a copy the app downloads | **Add integration**, then **Install** on its card |
 | Bambu Studio (worker) / OrcaSlicer (worker) | A workstation or NAS with the connector | Turn the device into a slice worker, then see [Slice on a worker](#slice-on-a-worker) |
 
-A plate slices with its own slicer, else its project's (**Print setup**), else the default slicer, else the first one that can slice. A slicer that is switched off is skipped; a deleted one is cleared. The pickers show only with two or more slicers.
+A plate slices with its own slicer, else its project's (**Print setup**), else the default slicer, else the first one that can slice. A slicer that is switched off is skipped; a deleted one is cleared. With one slicer, the plate shows its name instead of a picker.
+
+## A plate's setup
+
+A plate reads top to bottom, as in the slicer. Changing a line resets the lines below it to their default; filament presets and spools stay.
+
+| Line | Default | What the list offers |
+|---|---|---|
+| **Slicer** | The project's slicer, else the default slicer | Your slicers. Another slicer resets the profiles to its own, and a filament preset of the old slicer goes back to *As saved in the file* |
+| **Printer** | A printer the file was made for (the default printer first), else the default printer | Your printers, those *Made for this file* first |
+| **Machine profile** | *As saved in the file* on the file's printer, else the printer's machine profile | The printer model's system machine profiles in the plate's slicer, every nozzle (for a nozzle swap). A line instead of a picker when there's only one choice; *None for this printer* warns before slicing |
+| **Print profile** | *As saved in the file* when the machine profile is the file's, else the printer's default print profile (if made for that machine), else the machine profile's default | The slicer's print profiles made for the machine profile (their `compatible_printers`) |
+
+The file's own changes, such as supports, still go on top of a picked print profile. Changing the slicer, printer or machine profile marks the slice outdated.
+
+**Defaults for all plates**, above the files, sets slicer, printer, machine profile and print profile on every picked plate at once with **Apply**. *As saved in the file, where the printer matches* keeps the file's settings on plates made for that printer and the defaults on the others. A plate can still be changed on its own after. The defaults aren't saved: they start from the project's slicer and the default printer. Quotes have the same setup.
 
 ## Install a slicer on the server
 

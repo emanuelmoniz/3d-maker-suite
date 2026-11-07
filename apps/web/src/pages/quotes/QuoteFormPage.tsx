@@ -115,6 +115,7 @@ const fromProject = (s: ProjectSlicing): QuotePlate[] =>
     file: p.file,
     plate: p.plate,
     printerId: p.printerId,
+    machineProfileId: p.machineProfileId,
     printProfileId: p.printProfileId,
     useDefaultPrintProfile: p.useDefaultPrintProfile,
     filaments: p.filaments,
@@ -462,6 +463,7 @@ function QuoteForm({ ctx, editing }: { ctx: CostContext; editing?: Quote }) {
                   printerModel: m.printerModel,
                   nozzleDiameter: m.nozzleDiameter,
                   printProfile: m.printProfile,
+                  machineProfile: m.machineProfile,
                   thumbnailUrl: (entry: string) => projectFileUrl(project?.id ?? "", m.file, entry),
                 })),
                 ...f.uploads.map((u) => ({
@@ -471,6 +473,7 @@ function QuoteForm({ ctx, editing }: { ctx: CostContext; editing?: Quote }) {
                   printerModel: u.model.printerModel,
                   nozzleDiameter: u.model.nozzleDiameter,
                   printProfile: u.model.printProfile,
+                  machineProfile: u.model.machineProfile,
                   thumbnailUrl: (entry: string) => quoteFileUrl(u.id, entry),
                 })),
               ]}

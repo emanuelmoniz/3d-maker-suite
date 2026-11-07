@@ -142,6 +142,8 @@ export const machineProfileSchema = z.object({
   nozzleDiameterMm: z.number().positive(),
   /** Preset this profile was imported from, `<library>:<preset id>`; null for an older hand-made one. */
   sourcePreset: z.string().nullable(),
+  /** Its `default_print_profile`, as a print profile's `sourcePreset`; null when the slicer names none. */
+  defaultPrintPreset: z.string().nullable(),
   /** Archived by you, or an older version of an imported preset that prints still point at. */
   archivedAt: isoDate.nullable(),
   source: catalogSource,
@@ -159,6 +161,8 @@ export const printProfileSchema = z.object({
   layerHeightMm: z.number().positive().nullable(),
   /** Preset this profile was imported from, `<library>:<preset id>`; null for an older hand-made one. */
   sourcePreset: z.string().nullable(),
+  /** Every machine of its `compatible_printers`, as machine profiles' `sourcePreset`. */
+  machinePresets: z.array(z.string()),
   archivedAt: isoDate.nullable(),
   source: catalogSource,
   use: profileUse,

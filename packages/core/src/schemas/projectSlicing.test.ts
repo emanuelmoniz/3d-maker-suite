@@ -3,9 +3,102 @@ import {
   foreignFilaments,
   pickSlicer,
   presetMisfit,
+  resolvePlate,
   slotAdvice,
   spoolPresets,
 } from "./projectSlicing.ts";
+
+describe("resolvePlate", () => {
+  const machine = (id: string, model: string, nozzle: number, lib = "bambu-studio") => ({
+    id,
+    printerModelId: model,
+    nozzleDiameterMm: nozzle,
+    sourcePreset: `${lib}:system/${id}`,
+    defaultPrintPreset: `${lib}:system/${id} std`,
+    archivedAt: null,
+  });
+  const print = (id: string, model: string | null, machines: string[] = [], source = id) => ({
+    id,
+    printerModelId: model,
+    sourcePreset: `bambu-studio:system/${source}`,
+    machinePresets: machines.map((m) => `bambu-studio:system/${m}`),
+    archivedAt: null,
+  });
+  const a1 = { id: "a1", model: "A1", brand: "Bambu Lab", nozzleDiameterMm: 0.4, modelId: "A1" };
+  const p1s = { ...a1, id: "p1s", model: "P1S", modelId: "P1S", machineProfileId: "p1s-04" };
+  const myA1 = { ...a1, machineProfileId: "a1-04", printProfileId: null as string | null };
+  const ctx = {
+    printers: [myA1, { ...p1s, printProfileId: "fine" }],
+    defaultPrinterId: null,
+    machines: [
+      machine("a1-04", "A1", 0.4),
+      machine("a1-06", "A1", 0.6),
+      machine("p1s-04", "P1S", 0.4),
+      machine("p1s-orca", "P1S", 0.4, "orca-slicer"),
+    ],
+    prints: [
+      print("fine", "P1S", ["p1s-04"]),
+      print("std-a1", "A1", ["a1-04"], "a1-04 std"),
+      print("std-p1s", "P1S", ["p1s-04"], "p1s-04 std"),
+      print("old", "A1"), // read before compatible_printers were kept
+    ],
+    library: "bambu-studio",
+  };
+  const file = { printerModel: "Bambu Lab A1", nozzleDiameter: 0.4 };
+  const plate = {
+    printerId: null,
+    machineProfileId: null,
+    printProfileId: null,
+    useDefaultPrintProfile: false,
+  };
+
+  it("slices as saved in the file on the file's printer", () => {
+    const r = resolvePlate(plate, file, ctx);
+    expect([r.printer?.id, r.fromFile, r.machine?.id, r.profileId]).toEqual([
+      "a1",
+      true,
+      "a1-04",
+      null,
+    ]);
+    expect(r.machines.map((m) => m.id)).toEqual(["a1-04", "a1-06"]); // every nozzle, one slicer
+    // The default on request: the machine's, as the printer has none.
+    expect(resolvePlate({ ...plate, useDefaultPrintProfile: true }, file, ctx).profileId).toBe(
+      "std-a1",
+    );
+  });
+
+  it("another printer takes its machine profile and its default print profile", () => {
+    const r = resolvePlate({ ...plate, printerId: "p1s" }, file, ctx);
+    expect([r.fromFile, r.machine?.id, r.profileId]).toEqual([false, "p1s-04", "fine"]);
+    // In another slicer, that slicer's machine for the printer's nozzle.
+    const orca = resolvePlate({ ...plate, printerId: "p1s" }, file, {
+      ...ctx,
+      library: "orca-slicer",
+    });
+    expect(orca.machine?.id).toBe("p1s-orca");
+  });
+
+  it("a printer default that doesn't fit the machine gives way to the machine's", () => {
+    const x1c = print("fine", "X1C", ["x1c"]);
+    const other = { ...ctx, prints: ctx.prints.map((p) => (p.id === "fine" ? x1c : p)) };
+    expect(resolvePlate({ ...plate, printerId: "p1s" }, file, other).profileId).toBe("std-p1s");
+    // A profile read before compatible_printers were kept fits its model.
+    const old = { ...ctx, printers: [{ ...myA1, printProfileId: "old" }] };
+    expect(resolvePlate({ ...plate, useDefaultPrintProfile: true }, file, old).profileId).toBe(
+      "old",
+    );
+  });
+
+  it("a picked machine (a nozzle swap) is never the file's", () => {
+    const r = resolvePlate({ ...plate, machineProfileId: "a1-06" }, file, ctx);
+    expect([r.fits, r.fromFile, r.machine?.id]).toEqual([true, false, "a1-06"]);
+    expect(r.profileId).toBe(null); // a1-06 names no print profile we have, the A1 none
+    expect(
+      resolvePlate({ ...plate, machineProfileId: "a1-06", printProfileId: "std-a1" }, file, ctx)
+        .profileId,
+    ).toBe("std-a1");
+  });
+});
 
 it("picks the plate's slicer, then the project's, the default, the first", () => {
   const capable = ["a", "b", "c"];

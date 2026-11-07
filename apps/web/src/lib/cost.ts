@@ -142,6 +142,7 @@ export type QuotePlate = PlateSetupInput & { result: SliceResultInfo | null };
 const slicedWith = (p: PlateSetupInput) =>
   JSON.stringify([
     p.printerId,
+    p.machineProfileId ?? null,
     p.printProfileId,
     p.useDefaultPrintProfile,
     p.filaments,

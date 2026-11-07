@@ -42,7 +42,7 @@ import type { FastifyReply, FastifyRequest } from "fastify";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
-import { capableRows } from "../integrations/capabilities.ts";
+import { capableRows, presetLibrary } from "../integrations/capabilities.ts";
 import { alertTasks, archivedAtOf, archivedWhere, resolveItemAlerts } from "../lib/archive.ts";
 import {
   assertRootEditable,
@@ -73,7 +73,7 @@ import {
   rootFs,
 } from "../projects/rootFs.ts";
 import type { ProjectScanner } from "../projects/scanner.ts";
-import { machineDefaultProfile } from "../projects/sliceQueue.ts";
+import { plateResolver, slicerResolver } from "../projects/sliceQueue.ts";
 import { fsError } from "./fs.ts";
 
 const {
@@ -85,7 +85,6 @@ const {
   integrations,
   printFilamentUsages,
   prints,
-  printers,
   projectSlicePlates: plates,
   slicerPresets,
   users,
@@ -106,8 +105,37 @@ const isMulticolor = sql`case when json_extract(${projects.meta}, '$.multicolor'
 // Qualified: bare "id" / "meta" inside the subqueries would be the plate's.
 const projectId = sql`${projects}.${sql.identifier("id")}`;
 const projectMeta = sql`${projects}.${sql.identifier("meta")}`;
-// The print profile a plate slices with, as `plateResolver` (the PUT stores plates resolved).
-const plateProfile = sql`coalesce(${plates.printProfileId}, case when ${plates.useDefaultPrintProfile} then (select coalesce(${printers.printProfileId}, ${machineDefaultProfile}) from ${printers} where ${printers.id} = ${plates.printerId}) end)`;
+/**
+ * Every plate's print profile now, by plate id, as JSON (`plateResolver`; the PUT stores plates
+ * resolved, so `useDefaultPrintProfile` says whether it is the file's). ponytail: all plates per
+ * list read; key the map by the page's projects if that gets slow.
+ */
+function plateProfiles(db: Db, adapters: IntegrationAdapter[]) {
+  const resolve = plateResolver(db);
+  const slicerOf = slicerResolver(db, adapters);
+  const rows = db
+    .select({
+      id: plates.id,
+      printerId: plates.printerId,
+      machineProfileId: plates.machineProfileId,
+      printProfileId: plates.printProfileId,
+      useDefaultPrintProfile: plates.useDefaultPrintProfile,
+      slicer: plates.slicerIntegrationId,
+      projectSlicer: projects.slicerIntegrationId,
+    })
+    .from(plates)
+    .innerJoin(projects, eq(projects.id, plates.projectId))
+    .all();
+  return JSON.stringify(
+    Object.fromEntries(
+      rows.map((r) => {
+        const found = slicerOf([r.slicer, r.projectSlicer]);
+        const { defaultProfileId } = resolve(r, undefined, found && presetLibrary(found.adapter));
+        return [r.id, r.printProfileId ?? (r.useDefaultPrintProfile ? defaultProfileId : null)];
+      }),
+    ),
+  );
+}
 const projectSlicer = sql`${projects}.${sql.identifier("slicer_integration_id")}`;
 /** The slicer a plate slices with, as `slicerResolver`: `capable` can slice now, `fallback` = the default's pick. */
 const plateSlicer = (capable: string[], fallback: string | undefined) => {
@@ -116,7 +144,8 @@ const plateSlicer = (capable: string[], fallback: string | undefined) => {
     when ${projectSlicer} in ${can} then ${projectSlicer} else ${fallback ?? null} end`;
 };
 type Capable = { id: string; slicerVersion: string | null };
-const slicingOf = (slicers: Capable[], fallback: string | undefined) => {
+const slicingOf = (slicers: Capable[], fallback: string | undefined, profiles: string) => {
+  const plateProfile = sql`json_extract(${profiles}, '$."' || ${plates.id} || '"')`;
   const capable = slicers.map((s) => s.id);
   // A known version that isn't the resolved slicer's now (`slicedWithOther`).
   const versions = JSON.stringify(Object.fromEntries(slicers.map((s) => [s.id, s.slicerVersion])));
@@ -382,6 +411,7 @@ export const projectsRoutes =
             capable.map((r) => r.id),
             [readPreferences(db).defaultSlicerId],
           ),
+          plateProfiles(db, adapters),
         );
         const page = listPage(db, projects, req.query, {
           sort: {

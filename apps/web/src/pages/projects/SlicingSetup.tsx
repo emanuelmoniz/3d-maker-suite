@@ -24,6 +24,7 @@ export function useSlicingDraft(id: string) {
     file: p.file,
     plate: p.plate,
     printerId: p.printerId,
+    machineProfileId: p.machineProfileId,
     printProfileId: p.printProfileId,
     useDefaultPrintProfile: p.useDefaultPrintProfile,
     filaments: p.filaments,
@@ -143,6 +144,7 @@ export function SlicingSetup({ project, setup }: { project: Project; setup: Slic
           printerModel: m.printerModel,
           nozzleDiameter: m.nozzleDiameter,
           printProfile: m.printProfile,
+          machineProfile: m.machineProfile,
           thumbnailUrl: (entry) => projectFileUrl(project.id, m.file, entry),
         }))}
         value={value}

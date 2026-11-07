@@ -163,6 +163,11 @@ describe("parse3mf fixtures (saved without slicing)", () => {
     expect((await parse3mf(fixture("unsliced"))).printProfile).toBeNull();
   });
 
+  it("reads the machine preset the file was saved with", async () => {
+    expect((await parse3mf(fixture("multi_color"))).machineProfile).toBe("Bambu Lab A1 0.4 nozzle");
+    expect((await parse3mf(fixture("unsliced"))).machineProfile).toBeNull();
+  });
+
   it("accepts a Uint8Array", async () => {
     const { readFile } = await import("node:fs/promises");
     const info = await parse3mf(await readFile(fixture("single_color")));

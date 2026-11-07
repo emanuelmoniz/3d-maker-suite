@@ -55,7 +55,7 @@ test("project slicing setup: defaults from the default printer, saves, reloads, 
   await expect(section.getByRole("combobox", { name: `Printer for ${plateName}` })).toHaveValue(
     /Main/,
   );
-  await expect(printProfile).toHaveValue("Printer default (0.20mm Standard)");
+  await expect(printProfile).toHaveValue("Default (0.20mm Standard)");
 
   await pick(printProfile, "0.12mm Fine");
   const slot1 = section.getByRole("combobox", { name: `Preset for ${plateName}, slot 1` });
@@ -310,4 +310,67 @@ for (const width of [412, 1280])
       "Bambu PETG Basic",
     );
     await expect(warning).toHaveCount(0);
+  });
+
+for (const width of [412, 1280])
+  test(`defaults for all plates, then one plate on its own (${width}px)`, async ({ page, app }) => {
+    const root = join(app.dataDir, "models");
+    mkdirSync(join(root, "Two"), { recursive: true });
+    for (const f of ["multi_color", "single_color"])
+      copyFileSync(
+        join(import.meta.dirname, `../packages/3mf/fixtures/${f}.3mf`),
+        join(root, "Two", `${f}.3mf`),
+      );
+    await addRoots(app.api, { path: root, autoSlice: false });
+    const project = await app.api<{ id: string }>("POST", "/api/projects", {
+      name: "Two",
+      folderPath: join(root, "Two"),
+    });
+    const model = await seedModel(app.api);
+    const standard = insertProfile(app, "print_profiles", {
+      name: "0.20mm Standard",
+      printerModelId: model.id,
+    });
+    insertProfile(app, "print_profiles", { name: "0.12mm Fine", printerModelId: model.id });
+    for (const name of ["Main", "Second"])
+      await app.api("POST", "/api/printers", {
+        name,
+        modelId: model.id,
+        state: "working",
+        ...(name === "Main" && { printProfileId: standard.id }),
+      });
+    await seedSpool(app.api);
+
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto(`/projects/${project.id}/edit`);
+    await openSections(page, "Print setup");
+    const section = page.getByRole("region", { name: "Print setup" });
+    await section.getByRole("checkbox", { name: /multi_color\.3mf/ }).check();
+    await section.getByRole("checkbox", { name: /single_color\.3mf/ }).check();
+    const printers = section.getByRole("combobox", { name: /^Printer for/ });
+    const profiles = section.getByRole("combobox", { name: /^Print profile for/ });
+    const spool = section.getByRole("combobox", { name: /^Spool for .*, slot 1$/ }).first();
+    await pick(spool, 1);
+    const picked = await spool.inputValue();
+
+    // Second printer and Fine on both plates in one go.
+    const defaults = section.getByRole("region", { name: "Defaults for all plates" });
+    const pickPrinter = async (combo: typeof spool, name: RegExp) => {
+      await combo.click();
+      await page.getByRole("listbox").getByRole("option").filter({ hasText: name }).click();
+    };
+    await pickPrinter(defaults.getByRole("combobox", { name: "Printer" }), /Second/);
+    await pick(defaults.getByRole("combobox", { name: "Print profile" }), "0.12mm Fine");
+    await defaults.getByRole("button", { name: "Apply to 2 plates" }).click();
+    for (const i of [0, 1]) {
+      await expect(printers.nth(i)).toHaveValue(/Second/);
+      await expect(profiles.nth(i)).toHaveValue("0.12mm Fine");
+    }
+    expect(await hasHorizontalScroll(page)).toBe(false);
+
+    // One plate on its own: a new printer resets its profiles, keeps its spool.
+    await pickPrinter(printers.first(), /Main/);
+    await expect(profiles.first()).toHaveValue("Default (0.20mm Standard)");
+    await expect(profiles.nth(1)).toHaveValue("0.12mm Fine");
+    await expect(spool).toHaveValue(picked);
   });

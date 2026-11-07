@@ -192,7 +192,7 @@ export const ITEMS = {
   machineProfiles: {
     table: machineProfiles,
     uses: [on(PRINT, prints.machineProfileId)],
-    clears: [printers.machineProfileId],
+    clears: [printers.machineProfileId, plates.machineProfileId],
     source: sourcePreset,
   },
   printProfiles: {
@@ -376,7 +376,11 @@ const versions = (o: Of): Use => {
 
 /** What ADR-0019 counts besides the delete check: what that only clears, and older versions. */
 const PRESET_USES: Record<PresetKind, Use[]> = {
-  machineProfiles: [on(PRINTER, printers.machineProfileId), versions(MACHINE_PROFILE)],
+  machineProfiles: [
+    on(PRINTER, printers.machineProfileId),
+    on(PLATE, plates.machineProfileId),
+    versions(MACHINE_PROFILE),
+  ],
   printProfiles: [
     on(PRINTER, printers.printProfileId),
     on(PLATE, plates.printProfileId),

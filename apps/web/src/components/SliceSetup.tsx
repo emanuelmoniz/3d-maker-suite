@@ -1,5 +1,6 @@
 import {
   defaultSlicePrinter,
+  fitsMachine,
   foreignFilaments,
   type PlateSetup,
   type PlateSetupInput,
@@ -7,13 +8,14 @@ import {
   type ProjectModel,
   presetMisfit,
   printerFitsFile,
+  resolvePlate,
   slotAdvice,
   spoolPresets,
 } from "@3d-maker-suite/core";
 import type { TFunction } from "i18next";
-import { type ReactNode, useId } from "react";
+import { type ReactNode, useId, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useCatalogWithArchived, useMachineProfiles, useModelInfo } from "../lib/catalog.ts";
+import { useCatalogWithArchived, useModelInfo } from "../lib/catalog.ts";
 import { cx } from "../lib/cx.ts";
 import { spoolName, useProfiles, useSpools } from "../lib/filament.ts";
 import { formatDuration, formatList, formatWeight } from "../lib/format.ts";
@@ -34,6 +36,8 @@ export type SliceSetupFile = {
   nozzleDiameter?: number | null;
   /** The print preset the 3MF was saved with, for the "as saved in the file" option. */
   printProfile?: string | null;
+  /** The machine preset the 3MF was saved with, as above. */
+  machineProfile?: string | null;
   thumbnailUrl?: (thumbnail: string) => string;
 };
 
@@ -117,16 +121,20 @@ export function PlateSlice({
 }
 
 type FileInfo = Pick<SliceSetupFile, "printerModel" | "nozzleDiameter">;
+type Choice = Pick<
+  PlateSetupInput,
+  "printerId" | "machineProfileId" | "printProfileId" | "useDefaultPrintProfile"
+>;
 
 /**
- * A plate's printer and print profile as the server resolves them, `misfit`: what a slicer has
- * no preset for among the plate's profiles (`presetMisfit`), else undefined, and `fromFile`.
+ * A plate as the server slices it (`resolvePlate`) with a slicer, and `misfit`: what that slicer
+ * has no preset for among the plate's profiles (`presetMisfit`), else undefined.
  */
 export function usePlateFit(defaultPrinterId: string | null | undefined) {
   const { t } = useTranslation();
   const slicers = useSlicers();
-  const printProfiles = useCatalogWithArchived("print-profiles").data ?? [];
-  const machines = useMachineProfiles().data ?? [];
+  const prints = useCatalogWithArchived("print-profiles").data ?? [];
+  const machines = useCatalogWithArchived("machine-profiles").data ?? [];
   const filaments = useProfiles().data?.items ?? [];
   const models = useModelInfo();
   // Printers with what `printerFitsFile` compares: the model's name and brand, and the nozzle.
@@ -134,40 +142,33 @@ export function usePlateFit(defaultPrinterId: string | null | undefined) {
     const info = models.get(p.modelId ?? "");
     return { ...p, model: info?.model.model ?? "", brand: info?.brand?.name ?? null };
   });
-  type SlicePrinter = (typeof printers)[number];
   const fileInfo = (f: FileInfo) => ({
     printerModel: f.printerModel ?? null,
     nozzleDiameter: f.nozzleDiameter ?? null,
   });
-  const printerOf = (f: FileInfo, v: PlateSetupInput) =>
-    printers.find((p) => p.id === v.printerId) ??
-    defaultSlicePrinter(printers, defaultPrinterId, fileInfo(f));
-  const fitsFile = (f: FileInfo, printer?: SlicePrinter) =>
-    !printer || printerFitsFile(printer, fileInfo(f));
-  const misfit = (f: FileInfo, v: PlateSetupInput, slicerId: string | undefined) => {
-    const library = slicers.slicers.find((s) => s.id === slicerId)?.library;
+  const libraryOf = (slicerId: string | undefined) =>
+    slicers.slicers.find((s) => s.id === slicerId)?.library ?? undefined;
+  const resolve = (f: FileInfo, v: Choice, slicerId: string | undefined) =>
+    resolvePlate(v, fileInfo(f), {
+      printers,
+      defaultPrinterId,
+      machines,
+      prints,
+      library: libraryOf(slicerId),
+    });
+  const misfit = (f: FileInfo, v: Choice, slicerId: string | undefined) => {
+    const library = libraryOf(slicerId);
     if (!library) return undefined;
-    const printer = printerOf(f, v);
-    const fits = fitsFile(f, printer);
-    const profileId =
-      v.printProfileId ?? (v.useDefaultPrintProfile || !fits ? printer?.printProfileId : null);
+    const r = resolve(f, v, slicerId);
     return presetMisfit(library, {
-      print: printProfiles.find((p) => p.id === profileId),
-      machines:
-        printer && !fits
-          ? machines.filter(
-              (m) =>
-                m.printerModelId === printer.modelId &&
-                m.nozzleDiameterMm === printer.nozzleDiameterMm &&
-                !m.archivedAt,
-            )
-          : undefined,
-      printer: printer && printerName(t, printer),
+      print: prints.find((p) => p.id === r.profileId),
+      machines: r.fromFile ? undefined : r.machine ? [r.machine] : [],
+      printer: r.printer && printerName(t, r.printer),
     });
   };
   /** The plate's filaments that slicer slices with the 3MF's own (another slicer's presets). */
-  const fromFile = (v: PlateSetupInput, slicerId: string | undefined) => {
-    const library = slicers.slicers.find((s) => s.id === slicerId)?.library;
+  const foreign = (v: PlateSetupInput, slicerId: string | undefined) => {
+    const library = libraryOf(slicerId);
     if (!library) return [];
     const picked = v.filaments.flatMap((id) => {
       const p = id ? filaments.find((x) => x.id === id) : undefined;
@@ -175,12 +176,54 @@ export function usePlateFit(defaultPrinterId: string | null | undefined) {
     });
     return foreignFilaments(library, picked).map((f) => f.name);
   };
-  return { printers, printerOf, fitsFile, misfit, fromFile };
+  return { printers, prints, fileInfo, libraryOf, resolve, misfit, foreign };
 }
 
 /**
- * Pick the 3MF files and plates to print, and per plate its print profile and per slot its
- * filament preset and spool. Controlled; saving is up to the parent.
+ * The plate's setup top to bottom, as in the slicer: each line feeds the next, so the rail shows
+ * why changing one resets the ones below.
+ */
+function SetupRail({ children }: { children: ReactNode }) {
+  return <ol className="grid">{children}</ol>;
+}
+function SetupRow({
+  label,
+  first,
+  last,
+  readOnly,
+  children,
+}: {
+  label: string;
+  first?: boolean;
+  last?: boolean;
+  /** Then the label is the only name of the line for screen readers. */
+  readOnly?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <li className="flex gap-3">
+      <span aria-hidden className="flex w-2.5 shrink-0 flex-col items-center">
+        <span className={cx("h-1.5 w-px sm:h-3", !first && "bg-border")} />
+        <span className="size-2.5 rounded-full border-2 border-muted bg-surface" />
+        <span className={cx("w-px flex-1", !last && "bg-border")} />
+      </span>
+      <div className="grid min-w-0 flex-1 gap-1 pb-2 sm:grid-cols-[9rem_minmax(0,1fr)] sm:items-start sm:gap-3">
+        <span aria-hidden={!readOnly} className="text-sm text-muted sm:pt-2">
+          {label}
+        </span>
+        <div className="min-w-0">{children}</div>
+      </div>
+    </li>
+  );
+}
+const ReadOnly = ({ children }: { children: ReactNode }) => (
+  <p className="py-2 wrap-anywhere">{children}</p>
+);
+
+/**
+ * Pick the 3MF files and plates to print, and per plate its slicer, printer, machine profile,
+ * print profile and per slot its filament preset and spool; above them, defaults to set on all
+ * picked plates at once. Controlled; saving is up to the parent.
  */
 export function SliceSetup({
   files,
@@ -195,12 +238,15 @@ export function SliceSetup({
   const { t } = useTranslation();
   const uid = useId();
   const slicers = useSlicers();
-  const printProfiles = useCatalogWithArchived("print-profiles").data ?? [];
   const allProfiles = useProfiles().data?.items ?? [];
   const filaments = allProfiles.filter((p) => !p.archivedAt);
   const spools = useSpools().data?.items ?? [];
-  const { printers, printerOf, fitsFile, misfit, fromFile } = usePlateFit(defaultPrinterId);
+  const { printers, prints, fileInfo, libraryOf, resolve, misfit, foreign } =
+    usePlateFit(defaultPrinterId);
   const byKey = new Map(value.map((v) => [plateKey(v), v]));
+  const slicerOf = (v: Pick<PlateSetupInput, "slicerIntegrationId">) =>
+    slicers.resolve([v.slicerIntegrationId, projectSlicerId]);
+  const resolved = (f: FileInfo, v: PlateSetupInput) => resolve(f, v, slicerOf(v));
   const order = (next: PlateSetupInput[]) => {
     const rank = new Map(
       files.flatMap((f, i) =>
@@ -209,24 +255,33 @@ export function SliceSetup({
     );
     return [...next].sort((a, b) => (rank.get(plateKey(a)) ?? 0) - (rank.get(plateKey(b)) ?? 0));
   };
+  /** As the server stores it: a plate off the file's machine slices with the default profile. */
+  const settle = (f: FileInfo, v: PlateSetupInput): PlateSetupInput => ({
+    ...v,
+    useDefaultPrintProfile:
+      !v.printProfileId && (v.useDefaultPrintProfile || !resolved(f, v).fromFile),
+  });
   // New plates: the printer that fits the file, the file's settings when it does, else its default.
   const add = (f: SliceSetupFile, plates: Plate[]): PlateSetupInput[] => {
-    const printer = defaultSlicePrinter(printers, defaultPrinterId, {
-      printerModel: f.printerModel ?? null,
-      nozzleDiameter: f.nozzleDiameter ?? null,
-    });
-    return plates.map((p) => ({
-      file: f.path,
-      plate: p.index,
-      printerId: printer?.id ?? null,
-      printProfileId: null,
-      useDefaultPrintProfile: !fitsFile(f, printer),
-      // One entry per slot, all as saved in the file.
-      filaments: Array.from({ length: Math.max(0, ...p.filaments.map((x) => x.slot)) }, () => null),
-      spools: [],
-      kept: [],
-      slicerIntegrationId: null,
-    }));
+    const printer = defaultSlicePrinter(printers, defaultPrinterId, fileInfo(f));
+    return plates.map((p) =>
+      settle(f, {
+        file: f.path,
+        plate: p.index,
+        printerId: printer?.id ?? null,
+        machineProfileId: null,
+        printProfileId: null,
+        useDefaultPrintProfile: false,
+        // One entry per slot, all as saved in the file.
+        filaments: Array.from(
+          { length: Math.max(0, ...p.filaments.map((x) => x.slot)) },
+          () => null,
+        ),
+        spools: [],
+        kept: [],
+        slicerIntegrationId: null,
+      }),
+    );
   };
   const setFile = (f: SliceSetupFile, on: boolean) =>
     onChange(
@@ -245,100 +300,126 @@ export function SliceSetup({
   const patch = (key: string, change: Partial<PlateSetupInput>) =>
     onChange(value.map((v) => (plateKey(v) === key ? { ...v, ...change } : v)));
 
-  const printerOptions: ComboOption[] = printers.map((p) => ({
-    value: p.id,
-    label: printerName(t, p),
-  }));
-  /** The slicer library of the plate's slicer; its presets are the only ones it slices with. */
-  const libraryOf = (v: PlateSetupInput) =>
-    slicers.slicers.find((s) => s.id === slicers.resolve([v.slicerIntegrationId, projectSlicerId]))
-      ?.library;
   const ofSlicer = (library: string | null | undefined, source: string | null) =>
     !library || !!source?.startsWith(`${library}:`);
-  // The printer decides: the file's own settings (only on the file's printer), the printer's
-  // default profile, then the profiles of its model (all of them without a printer) that are
-  // presets of the plate's slicer. The one picked always stays listed.
-  const printOptions = (f: SliceSetupFile, v: PlateSetupInput): ComboOption[] => {
-    const printer = printerOf(f, v);
-    const ownDefault = printProfiles.find((p) => p.id === printer?.printProfileId);
-    const library = libraryOf(v);
-    const listed = printProfiles.filter(
+  /** Another slicer's filament presets go back to the file's; hand-made ones and spools stay. */
+  const ownFilaments = (list: (string | null)[], library: string | undefined) =>
+    list.map((id) => {
+      const p = allProfiles.find((x) => x.id === id);
+      return p?.sourcePreset && !ofSlicer(library, p.sourcePreset) ? null : id;
+    });
+  /** A changed slicer, printer or machine profile: the picks below it go back to their default. */
+  const below = (f: FileInfo, v: PlateSetupInput, change: Partial<PlateSetupInput>) =>
+    settle(f, { ...v, printProfileId: null, useDefaultPrintProfile: false, ...change });
+  const slicerChange = (v: PlateSetupInput, id: string | null): Partial<PlateSetupInput> => ({
+    slicerIntegrationId: id,
+    machineProfileId: null,
+    filaments: ownFilaments(v.filaments, libraryOf(slicers.resolve([id, projectSlicerId]))),
+  });
+  const setOf = (f: FileInfo, key: string, v: PlateSetupInput, change: Partial<PlateSetupInput>) =>
+    onChange(value.map((x) => (plateKey(x) === key ? below(f, v, change) : x)));
+
+  // Your printers, the ones made for the file (`fits`) first.
+  const printerOptions = (fits: (p: (typeof printers)[number]) => boolean): ComboOption[] => {
+    const made = printers.filter(fits);
+    const group = (p: (typeof printers)[number]) =>
+      made.length
+        ? t(
+            made.includes(p)
+              ? "projects:slicing.printersForFile"
+              : "projects:slicing.printersOther",
+          )
+        : undefined;
+    return [...made, ...printers.filter((p) => !made.includes(p))].map((p) => ({
+      value: p.id,
+      label: printerName(t, p),
+      group: group(p),
+    }));
+  };
+  type Resolved = ReturnType<typeof resolve>;
+  // Null: the file's on its printer (`fromFile`), else the printer's own, so that one isn't
+  // listed twice. The one picked always stays listed.
+  const machineOptions = (r: Resolved, own: Resolved["machine"], fileLabel: string) => [
+    {
+      value: "",
+      label: r.fits ? fileLabel : (own?.name ?? t("projects:slicing.machineNone")),
+    },
+    ...[...r.machines, ...(r.machine && !r.machines.includes(r.machine) ? [r.machine] : [])]
+      .filter((m) => r.fits || m.id !== own?.id)
+      .map((m) => ({ value: m.id, label: m.name })),
+  ];
+  // The file's own (on its machine), the default, then the slicer's profiles made for the
+  // machine profile. The one picked always stays listed.
+  const printOptions = (
+    r: Resolved,
+    library: string | undefined,
+    picked: string | null,
+    fileLabel: string,
+  ): ComboOption[] => {
+    const dflt = prints.find((p) => p.id === r.defaultProfileId);
+    const listed = prints.filter(
       (p) =>
-        p.id === v.printProfileId ||
+        p.id === picked ||
         (!p.archivedAt &&
-          (!printer || p.printerModelId === printer.modelId) &&
-          ofSlicer(library, p.sourcePreset)),
+          ofSlicer(library, p.sourcePreset) &&
+          (r.machine
+            ? fitsMachine(p, r.machine)
+            : !r.printer || p.printerModelId === r.printer.modelId)),
     );
     return [
-      ...(fitsFile(f, printer)
-        ? [
-            {
-              value: "",
-              label: f.printProfile
-                ? t("projects:slicing.fromFileProfile", { name: f.printProfile })
-                : t("projects:slicing.fromFile"),
-            },
-          ]
-        : []),
-      ...(printer
-        ? [
-            {
-              value: "default",
-              label: ownDefault
-                ? t("projects:slicing.printerDefault", { name: ownDefault.name })
-                : t("projects:slicing.printerDefaultNone"),
-            },
-          ]
-        : []),
+      ...(r.fromFile ? [{ value: "", label: fileLabel }] : []),
+      {
+        value: "default",
+        label: dflt
+          ? t("projects:slicing.printDefault", { name: dflt.name })
+          : t("projects:slicing.printDefaultNone"),
+      },
       ...listed.map((p) => ({
         value: p.id,
         label: p.name,
-        group: t("projects:slicing.forThisPrinter"),
+        group: t("projects:slicing.forThisMachine"),
       })),
     ];
   };
-  const printValue = (v: PlateSetupInput) =>
-    v.printProfileId ?? (v.useDefaultPrintProfile ? "default" : "");
-  const setPrintProfile = (key: string, value: string) =>
-    patch(key, {
-      printProfileId: value === "" || value === "default" ? null : value,
-      useDefaultPrintProfile: value === "default",
-    });
-  const setPrinter = (f: SliceSetupFile, key: string, id: string) => {
-    const printer = printers.find((p) => p.id === id);
-    patch(key, {
-      printerId: id,
-      printProfileId: null,
-      useDefaultPrintProfile: !fitsFile(f, printer),
-    });
-  };
+  const printValue = (v: Choice, r: Resolved) =>
+    v.printProfileId ?? (v.useDefaultPrintProfile || !r.fromFile ? "default" : "");
+  const printPick = (value: string) => ({
+    printProfileId: value === "" || value === "default" ? null : value,
+    useDefaultPrintProfile: value === "default",
+  });
+  const fromFileLabel = (name: string | null | undefined) =>
+    name ? t("projects:slicing.fromFileProfile", { name }) : t("projects:slicing.fromFile");
 
   // A plate without its own slicer (or whose one can't slice now) uses the project's, then the default.
   const inherited = slicers.usable(projectSlicerId);
-  const slicerOptions = (f: SliceSetupFile, v: PlateSetupInput): ComboOption[] => [
-    {
-      value: "",
-      label: t(inherited ? "projects:slicing.slicerProject" : "projects:slicing.slicerDefault", {
-        name: slicers.nameOf(slicers.resolve([projectSlicerId])),
-      }),
-    },
+  const inheritedLabel = t(
+    inherited ? "projects:slicing.slicerProject" : "projects:slicing.slicerDefault",
+    { name: slicers.nameOf(slicers.resolve([projectSlicerId])) },
+  );
+  // Each slicer as it would be picked: profiles back to their default there.
+  const slicerOptions = (f: FileInfo, v: PlateSetupInput): ComboOption[] => [
+    { value: "", label: inheritedLabel },
     ...slicers.slicers.map((s) => ({
       value: s.id,
-      label: misfit(f, v, s.id) ? t("projects:slicing.slicerMisfit", { name: s.name }) : s.name,
+      label: misfit(f, below(f, v, slicerChange(v, s.id)), s.id)
+        ? t("projects:slicing.slicerMisfit", { name: s.name })
+        : s.name,
     })),
   ];
-  /** Before slicing: the plate's slicer has no preset for one of its profiles. */
-  const misfitOf = (f: SliceSetupFile, v: PlateSetupInput) => {
-    const slicer = slicers.resolve([v.slicerIntegrationId, projectSlicerId]);
+  /** Before slicing: no machine profile, or the plate's slicer has no preset for a profile. */
+  // In the server's order: the print profile, then the machine profile.
+  const warningOf = (f: SliceSetupFile, v: PlateSetupInput, r: Resolved) => {
+    const slicer = slicerOf(v);
     const name = misfit(f, v, slicer);
-    return name === undefined
-      ? null
+    if (name === undefined) return null;
+    return r.printer && !r.fromFile && !r.machine && name === printerName(t, r.printer)
+      ? t("projects:slicing.error.no_machine_preset", { detail: name })
       : t("projects:slicing.presetMisfit", { slicer: slicers.nameOf(slicer), name });
   };
   /** Filaments picked from another slicer's presets: sliced with the 3MF's, still priced. */
-  const fromFileOf = (v: PlateSetupInput) => {
-    const slicer = slicers.resolve([v.slicerIntegrationId, projectSlicerId]);
-    const names = fromFile(v, slicer);
+  const foreignOf = (v: PlateSetupInput) => {
+    const slicer = slicerOf(v);
+    const names = foreign(v, slicer);
     return names.length
       ? t("projects:slicing.filamentFromFile", {
           slicer: slicers.nameOf(slicer),
@@ -352,7 +433,7 @@ export function SliceSetup({
   // ponytail: "fits its printer" = the plate's slicer's presets; profiles keep no printer list
   // (variants are merged, slicing picks the printer's). Store `compatible_printers` if it matters.
   const presetsOf = (v: PlateSetupInput) =>
-    filaments.filter((p) => ofSlicer(libraryOf(v), p.sourcePreset));
+    filaments.filter((p) => ofSlicer(libraryOf(slicerOf(v)), p.sourcePreset));
   const spoolOf = (v: PlateSetupInput, slot: number) =>
     spools.find((s) => s.id === v.spools[slot - 1]);
   const presetLabel = (p: (typeof allProfiles)[number]) =>
@@ -368,12 +449,7 @@ export function SliceSetup({
       (p) => !forSpool.includes(p),
     );
     return [
-      {
-        value: "",
-        label: slot.profile
-          ? t("projects:slicing.fromFileProfile", { name: slot.profile })
-          : t("projects:slicing.fromFile"),
-      },
+      { value: "", label: fromFileLabel(slot.profile) },
       ...forSpool.map((p) => ({
         value: p.id,
         label: presetLabel(p),
@@ -451,9 +527,140 @@ export function SliceSetup({
     return { warn: advice.kind === "mismatch", message, use, keep };
   };
 
+  // Defaults for all plates: not stored; the project's slicer and the default printer to start.
+  const [defaults, setDefaults] = useState<Choice & Pick<PlateSetupInput, "slicerIntegrationId">>({
+    slicerIntegrationId: null,
+    printerId: null,
+    machineProfileId: null,
+    printProfileId: null,
+    useDefaultPrintProfile: false,
+  });
+  const pickedFiles = files.filter((f) => value.some((v) => v.file === f.path));
+  const noFile = { printerModel: null, nozzleDiameter: null };
+  const defaultsPrinter = resolve(noFile, defaults, undefined).printer;
+  // "As saved in the file" where the printer is a picked file's: resolve as for that file.
+  const fitFile =
+    (defaultsPrinter && pickedFiles.find((f) => printerFitsFile(defaultsPrinter, fileInfo(f)))) ||
+    noFile;
+  const defaultsChoice = { ...defaults, printerId: defaultsPrinter?.id ?? null };
+  const defaultsSlicer = slicerOf(defaults);
+  const dr = resolve(fitFile, defaultsChoice, defaultsSlicer);
+  const fromFileWhere = t("projects:slicing.defaults.fromFile");
+  const defaultMachines = machineOptions(
+    dr,
+    resolve(fitFile, { ...defaultsChoice, machineProfileId: null }, defaultsSlicer).machine,
+    fromFileWhere,
+  );
+  const setDefault = (change: Partial<typeof defaults>) =>
+    setDefaults((d) => ({ ...d, printProfileId: null, useDefaultPrintProfile: false, ...change }));
+  const applyDefaults = () =>
+    onChange(
+      value.map((v) => {
+        const f = files.find((x) => x.path === v.file);
+        return f
+          ? settle(f, {
+              ...v,
+              ...defaultsChoice,
+              filaments: ownFilaments(v.filaments, libraryOf(defaultsSlicer)),
+            })
+          : v;
+      }),
+    );
+
   if (!files.length) return <p className="text-muted">{t("projects:slicing.noFiles")}</p>;
+  const slicerLine = (
+    label: string,
+    val: string | null,
+    onPick: (id: string | null) => void,
+    options: ComboOption[],
+  ) =>
+    slicers.slicers.length > 1 ? (
+      <Combobox
+        aria-label={label}
+        options={options}
+        value={slicers.usable(val) ?? ""}
+        disabled={disabled}
+        onChange={(id) => onPick(id || null)}
+      />
+    ) : (
+      <ReadOnly>{slicers.slicers[0]?.name}</ReadOnly>
+    );
   return (
     <div className="space-y-4">
+      {value.length > 0 && (
+        <section
+          aria-labelledby={`${uid}-defaults`}
+          className="rounded-lg border border-border bg-surface p-3"
+        >
+          <h3 id={`${uid}-defaults`} className="font-medium">
+            {t("projects:slicing.defaults.title")}
+          </h3>
+          <p className="mb-3 text-sm text-muted">{t("projects:slicing.defaults.hint")}</p>
+          <SetupRail>
+            {slicers.slicers.length > 0 && (
+              <SetupRow
+                first
+                label={t("projects:slicing.slicer")}
+                readOnly={slicers.slicers.length === 1}
+              >
+                {slicerLine(
+                  t("projects:slicing.slicer"),
+                  defaults.slicerIntegrationId,
+                  (id) => setDefault({ slicerIntegrationId: id, machineProfileId: null }),
+                  [
+                    { value: "", label: inheritedLabel },
+                    ...slicers.slicers.map((s) => ({ value: s.id, label: s.name })),
+                  ],
+                )}
+              </SetupRow>
+            )}
+            <SetupRow first={!slicers.slicers.length} label={t("projects:slicing.printer")}>
+              <Combobox
+                aria-label={t("projects:slicing.printer")}
+                options={printerOptions((p) =>
+                  pickedFiles.some((f) => printerFitsFile(p, fileInfo(f))),
+                )}
+                value={defaultsPrinter?.id ?? ""}
+                disabled={disabled || !printers.length}
+                onChange={(id) => setDefault({ printerId: id, machineProfileId: null })}
+              />
+            </SetupRow>
+            <SetupRow
+              label={t("projects:slicing.machineProfile")}
+              readOnly={defaultMachines.length === 1}
+            >
+              {defaultMachines.length > 1 ? (
+                <Combobox
+                  aria-label={t("projects:slicing.machineProfile")}
+                  options={defaultMachines}
+                  value={defaults.machineProfileId ?? ""}
+                  disabled={disabled}
+                  onChange={(id) => setDefault({ machineProfileId: id || null })}
+                />
+              ) : (
+                <ReadOnly>{defaultMachines[0]?.label}</ReadOnly>
+              )}
+            </SetupRow>
+            <SetupRow last label={t("projects:slicing.printProfile")}>
+              <Combobox
+                aria-label={t("projects:slicing.printProfile")}
+                options={printOptions(
+                  dr,
+                  libraryOf(defaultsSlicer),
+                  defaults.printProfileId,
+                  fromFileWhere,
+                )}
+                value={printValue(defaults, dr)}
+                disabled={disabled}
+                onChange={(v) => setDefaults((d) => ({ ...d, ...printPick(v) }))}
+              />
+            </SetupRow>
+          </SetupRail>
+          <Button className="mt-1" disabled={disabled} onClick={applyDefaults}>
+            {t("projects:slicing.defaults.apply", { count: value.length })}
+          </Button>
+        </section>
+      )}
       {files.map((f) => {
         const picked = value.filter((v) => v.file === f.path).length;
         const fileId = `${uid}-${f.path}`;
@@ -484,14 +691,24 @@ export function SliceSetup({
                   const state = states[key];
                   const name = p.name ?? t("projects:detail.plate", { index: p.index });
                   const plateId = `${uid}-${key}`;
-                  const warning = setup && misfitOf(f, setup);
-                  const note = setup && fromFileOf(setup);
+                  const r = setup && resolved(f, setup);
+                  const warning = setup && r && warningOf(f, setup, r);
+                  const note = setup && foreignOf(setup);
+                  const machines =
+                    setup &&
+                    r &&
+                    machineOptions(
+                      r,
+                      resolved(f, { ...setup, machineProfileId: null }).machine,
+                      fromFileLabel(f.machineProfile),
+                    );
                   return (
                     <li key={key} className="flex flex-wrap gap-3 border-t border-border pt-3">
-                      <label htmlFor={plateId} className="flex min-w-48 items-center gap-2">
+                      <label htmlFor={plateId} className="flex min-w-48 items-start gap-2">
                         <input
                           id={plateId}
                           type="checkbox"
+                          className="mt-1"
                           checked={!!setup}
                           disabled={disabled}
                           onChange={(e) => setPlate(f, p, e.target.checked)}
@@ -518,121 +735,155 @@ export function SliceSetup({
                           {setup && plateInfo?.(key)}
                         </span>
                       </label>
-                      {setup && (
-                        <div className="grid min-w-0 flex-1 gap-2 sm:grid-cols-2">
-                          <div>
-                            <span aria-hidden className="mb-1 block text-sm text-muted">
-                              {t("projects:slicing.printer")}
-                            </span>
-                            <Combobox
-                              aria-label={t("projects:slicing.printerOf", { plate: name })}
-                              options={printerOptions}
-                              value={printerOf(f, setup)?.id ?? ""}
-                              disabled={disabled || !printers.length}
-                              onChange={(v) => setPrinter(f, key, v)}
-                            />
-                          </div>
-                          <div>
-                            <span aria-hidden className="mb-1 block text-sm text-muted">
-                              {t("projects:slicing.printProfile")}
-                            </span>
-                            <Combobox
-                              aria-label={t("projects:slicing.printProfileOf", { plate: name })}
-                              options={printOptions(f, setup)}
-                              value={printValue(setup)}
-                              disabled={disabled}
-                              onChange={(v) => setPrintProfile(key, v)}
-                            />
-                          </div>
-                          {slicers.slicers.length > 1 && (
-                            <div>
-                              <span aria-hidden className="mb-1 block text-sm text-muted">
-                                {t("projects:slicing.slicer")}
-                              </span>
-                              <Combobox
-                                aria-label={t("projects:slicing.slicerOf", { plate: name })}
-                                options={slicerOptions(f, setup)}
-                                value={slicers.usable(setup.slicerIntegrationId) ?? ""}
-                                disabled={disabled}
-                                onChange={(v) => patch(key, { slicerIntegrationId: v || null })}
-                              />
-                            </div>
-                          )}
-                          {p.filaments.map((slot) => {
-                            const advice = adviceOf(key, setup, slot);
-                            const adviceId = `${plateId}-slot${slot.slot}`;
-                            return (
-                              <div
-                                key={slot.slot}
-                                className="grid gap-2 sm:col-span-2 sm:grid-cols-2"
+                      {setup && r && machines && (
+                        <div className="min-w-0 flex-1 basis-80 space-y-3">
+                          <SetupRail>
+                            {slicers.slicers.length > 0 && (
+                              <SetupRow
+                                first
+                                label={t("projects:slicing.slicer")}
+                                readOnly={slicers.slicers.length === 1}
                               >
-                                <span
-                                  aria-hidden
-                                  className="flex items-center gap-1 text-sm text-muted sm:col-span-2"
+                                {slicerLine(
+                                  t("projects:slicing.slicerOf", { plate: name }),
+                                  setup.slicerIntegrationId,
+                                  (id) => setOf(f, key, setup, slicerChange(setup, id)),
+                                  slicerOptions(f, setup),
+                                )}
+                              </SetupRow>
+                            )}
+                            <SetupRow
+                              first={!slicers.slicers.length}
+                              label={t("projects:slicing.printer")}
+                            >
+                              <Combobox
+                                aria-label={t("projects:slicing.printerOf", { plate: name })}
+                                options={printerOptions((x) => printerFitsFile(x, fileInfo(f)))}
+                                value={r.printer?.id ?? ""}
+                                disabled={disabled || !printers.length}
+                                onChange={(id) =>
+                                  setOf(f, key, setup, { printerId: id, machineProfileId: null })
+                                }
+                              />
+                            </SetupRow>
+                            <SetupRow
+                              label={t("projects:slicing.machineProfile")}
+                              readOnly={machines.length === 1}
+                            >
+                              {machines.length > 1 ? (
+                                <Combobox
+                                  aria-label={t("projects:slicing.machineProfileOf", {
+                                    plate: name,
+                                  })}
+                                  options={machines}
+                                  value={setup.machineProfileId ?? ""}
+                                  disabled={disabled}
+                                  onChange={(id) =>
+                                    setOf(f, key, setup, { machineProfileId: id || null })
+                                  }
+                                />
+                              ) : (
+                                <ReadOnly>{machines[0]?.label}</ReadOnly>
+                              )}
+                            </SetupRow>
+                            <SetupRow last label={t("projects:slicing.printProfile")}>
+                              <Combobox
+                                aria-label={t("projects:slicing.printProfileOf", { plate: name })}
+                                aria-describedby={r.profileId ? `${plateId}-hint` : undefined}
+                                options={printOptions(
+                                  r,
+                                  libraryOf(slicerOf(setup)),
+                                  setup.printProfileId,
+                                  fromFileLabel(f.printProfile),
+                                )}
+                                value={printValue(setup, r)}
+                                disabled={disabled}
+                                onChange={(v) => patch(key, printPick(v))}
+                              />
+                              {r.profileId && (
+                                <p id={`${plateId}-hint`} className="mt-1 text-sm text-muted">
+                                  {t("projects:slicing.printProfileHint")}
+                                </p>
+                              )}
+                            </SetupRow>
+                          </SetupRail>
+                          <div className="grid gap-2 sm:grid-cols-2">
+                            {p.filaments.map((slot) => {
+                              const advice = adviceOf(key, setup, slot);
+                              const adviceId = `${plateId}-slot${slot.slot}`;
+                              return (
+                                <div
+                                  key={slot.slot}
+                                  className="grid gap-2 sm:col-span-2 sm:grid-cols-2"
                                 >
                                   <span
                                     aria-hidden
-                                    className="size-3 rounded-full border border-border"
-                                    style={{
-                                      backgroundColor: slot.color?.slice(0, 7) ?? "transparent",
-                                    }}
+                                    className="flex items-center gap-1 text-sm text-muted sm:col-span-2"
+                                  >
+                                    <span
+                                      aria-hidden
+                                      className="size-3 rounded-full border border-border"
+                                      style={{
+                                        backgroundColor: slot.color?.slice(0, 7) ?? "transparent",
+                                      }}
+                                    />
+                                    {t("projects:slicing.slot", {
+                                      slot: slot.slot,
+                                      material: slot.type ?? t("projects:detail.unknownMaterial"),
+                                    })}
+                                  </span>
+                                  <Combobox
+                                    aria-label={t("projects:slicing.presetOf", {
+                                      plate: name,
+                                      slot: slot.slot,
+                                    })}
+                                    aria-describedby={advice ? adviceId : undefined}
+                                    options={presetOptions(setup, slot)}
+                                    value={setup.filaments[slot.slot - 1] ?? ""}
+                                    disabled={disabled}
+                                    onChange={(v) => setSlot(key, setup, slot.slot, "filaments", v)}
                                   />
-                                  {t("projects:slicing.slot", {
-                                    slot: slot.slot,
-                                    material: slot.type ?? t("projects:detail.unknownMaterial"),
-                                  })}
-                                </span>
-                                <Combobox
-                                  aria-label={t("projects:slicing.presetOf", {
-                                    plate: name,
-                                    slot: slot.slot,
-                                  })}
-                                  aria-describedby={advice ? adviceId : undefined}
-                                  options={presetOptions(setup, slot)}
-                                  value={setup.filaments[slot.slot - 1] ?? ""}
-                                  disabled={disabled}
-                                  onChange={(v) => setSlot(key, setup, slot.slot, "filaments", v)}
-                                />
-                                <Combobox
-                                  aria-label={t("projects:slicing.spoolOf", {
-                                    plate: name,
-                                    slot: slot.slot,
-                                  })}
-                                  options={spoolOptions(setup)}
-                                  value={setup.spools[slot.slot - 1] ?? ""}
-                                  disabled={disabled}
-                                  onChange={(v) => setSlot(key, setup, slot.slot, "spools", v)}
-                                />
-                                {advice && (
-                                  <div className="flex flex-wrap items-center gap-2 sm:col-span-2">
-                                    <p
-                                      id={adviceId}
-                                      className={cx(
-                                        "text-sm",
-                                        advice.warn ? "text-warn" : "text-muted",
+                                  <Combobox
+                                    aria-label={t("projects:slicing.spoolOf", {
+                                      plate: name,
+                                      slot: slot.slot,
+                                    })}
+                                    options={spoolOptions(setup)}
+                                    value={setup.spools[slot.slot - 1] ?? ""}
+                                    disabled={disabled}
+                                    onChange={(v) => setSlot(key, setup, slot.slot, "spools", v)}
+                                  />
+                                  {advice && (
+                                    <div className="flex flex-wrap items-center gap-2 sm:col-span-2">
+                                      <p
+                                        id={adviceId}
+                                        className={cx(
+                                          "text-sm",
+                                          advice.warn ? "text-warn" : "text-muted",
+                                        )}
+                                      >
+                                        {advice.message}
+                                      </p>
+                                      {advice.use && (
+                                        <Button disabled={disabled} onClick={advice.use}>
+                                          {t("projects:slicing.usePreset")}
+                                        </Button>
                                       )}
-                                    >
-                                      {advice.message}
-                                    </p>
-                                    {advice.use && (
-                                      <Button disabled={disabled} onClick={advice.use}>
-                                        {t("projects:slicing.usePreset")}
+                                      <Button
+                                        variant="ghost"
+                                        disabled={disabled}
+                                        onClick={advice.keep}
+                                      >
+                                        {t("projects:slicing.keepPreset")}
                                       </Button>
-                                    )}
-                                    <Button
-                                      variant="ghost"
-                                      disabled={disabled}
-                                      onClick={advice.keep}
-                                    >
-                                      {t("projects:slicing.keepPreset")}
-                                    </Button>
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })}
-                          {warning && <p className="text-sm text-warn sm:col-span-2">{warning}</p>}
-                          {note && <p className="text-sm text-muted sm:col-span-2">{note}</p>}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                          {warning && <p className="text-sm text-warn">{warning}</p>}
+                          {note && <p className="text-sm text-muted">{note}</p>}
                         </div>
                       )}
                     </li>

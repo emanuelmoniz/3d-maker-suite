@@ -757,6 +757,13 @@
       "when": 1793980918682,
       "tag": "0107_printer_machine_profile",
       "breakpoints": true
+    },
+    {
+      "idx": 108,
+      "version": "6",
+      "when": 1793982801522,
+      "tag": "0108_plate_machine_profile",
+      "breakpoints": true
     }
   ]
 }

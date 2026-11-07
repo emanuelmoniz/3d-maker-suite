@@ -46,6 +46,8 @@ export const projectModelSchema = z.object({
   printerModel: nullableText,
   /** The print preset the file was saved with. Older scans lack it. */
   printProfile: nullableText.default(null),
+  /** The machine preset it was saved with ("Bambu Lab A1 0.4 nozzle"). Older scans lack it. */
+  machineProfile: nullableText.default(null),
   nozzleDiameter: z.number().nullable(),
   sliced: z.boolean(),
   multicolor: z.boolean(),

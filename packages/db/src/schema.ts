@@ -756,7 +756,10 @@ export const projectSlicePlates = sqliteTable(
     plate: integer().notNull(),
     /** The printer it slices for (machine preset and cost rates); null = picked by the server. */
     printerId: text().references((): AnySQLiteColumn => printers.id, { onDelete: "set null" }),
-    // Null = the printer's default profile with `useDefaultPrintProfile`, else the 3MF's own.
+    /** Its machine profile; null = the 3MF's when the printer fits the file, else the printer's. */
+    machineProfileId: text().references(() => machineProfiles.id, { onDelete: "set null" }),
+    // Null = the default profile with `useDefaultPrintProfile` (or when the machine isn't the
+    // file's), else the 3MF's own (`resolvePlate`).
     printProfileId: text().references(() => printProfiles.id, { onDelete: "set null" }),
     useDefaultPrintProfile: integer({ mode: "boolean" }).notNull().default(false),
     // Filament profile id per slot; null = the 3MF's own. Not FKs: a deleted profile reads as null.

@@ -82,6 +82,7 @@ describe("project slicing setup", () => {
       {
         ...plate,
         printerId: null, // no printers yet
+        machineProfileId: null,
         useDefaultPrintProfile: false,
         spools: [],
         kept: [],
@@ -470,6 +471,56 @@ describe("slicing a project (mock slicer)", () => {
     await run();
     expect((await settled()).plates[0].error).toBeNull();
     expect(last()).toMatchObject({ machine: "system/P1S A", process: "system/Own" });
+  });
+
+  it("a plate's own machine profile (a nozzle swap) slices, and changing it re-slices", async () => {
+    const post = async (url: string, payload: object) =>
+      (await app.inject({ method: "POST", url, payload })).json();
+    const brand = await post("/api/brands", { name: "Bambu Lab" });
+    const a1 = await post("/api/printer-models", { brandId: brand.id, model: "A1" });
+    const machine = (nozzle: number) =>
+      insertProfile(db, "machineProfiles", {
+        name: `A1 ${nozzle}`,
+        printerModelId: a1.id,
+        nozzleDiameterMm: nozzle,
+        sourcePreset: `mock:system/A1 ${nozzle}`,
+        defaultPrintPreset: `mock:system/0.30 A1 ${nozzle}`,
+      });
+    machine(0.4);
+    const swap = machine(0.6);
+    insertProfile(db, "printProfiles", {
+      name: "0.30 A1 0.6",
+      sourcePreset: "mock:system/0.30 A1 0.6",
+      machinePresets: ["mock:system/A1 0.6"],
+    });
+    // The file's printer: the benchy fixture was saved for a Bambu Lab A1 0.4.
+    const mine = await post("/api/printers", { name: "A1", modelId: a1.id, state: "working" });
+    const plate = { file: "benchy.3mf", plate: 1, printerId: mine.id, printProfileId: null };
+    const last = () => mock.sliced?.at(-1);
+
+    await put([{ ...plate, filaments: [] }]);
+    await run();
+    expect((await settled()).plates[0]).toMatchObject({ error: null, needsSlicing: false });
+    expect(last()?.machine).toBeUndefined(); // as saved in the file
+
+    // Picking a machine is never the file's: it slices with it and its default print profile.
+    await put([{ ...plate, machineProfileId: swap.id, filaments: [] }]);
+    const picked = (await settled()).plates[0];
+    expect(picked).toMatchObject({
+      machineProfileId: swap.id,
+      useDefaultPrintProfile: true,
+      result: null, // a changed machine profile drops the last slice
+      needsSlicing: true,
+    });
+    await run();
+    expect((await settled()).plates[0].error).toBeNull();
+    expect(last()).toMatchObject({ machine: "system/A1 0.6", process: "system/0.30 A1 0.6" });
+    // The projects list agrees the plate is sliced.
+    const list = (await app.inject("/api/projects")).json();
+    expect(list.items.find((p: { id: string }) => p.id === id).slicing).toBe("done");
+
+    const gone = await put([{ ...plate, machineProfileId: crypto.randomUUID(), filaments: [] }]);
+    expect(gone.statusCode).toBe(400);
   });
 
   it("keeps a slot's preset and slice when its spool changes; a preset change re-slices", async () => {

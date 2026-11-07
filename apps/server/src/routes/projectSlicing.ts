@@ -13,6 +13,7 @@ import { eq, inArray } from "drizzle-orm";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
+import { presetLibrary } from "../integrations/capabilities.ts";
 import { presetsChanged } from "../integrations/presetLibrary.ts";
 import { canReference } from "../lib/archive.ts";
 import { type Fingerprint, fingerprint, sameAsScanned, stateOf } from "../projects/fingerprint.ts";
@@ -29,6 +30,7 @@ import {
 const {
   filamentProfiles,
   integrations,
+  machineProfiles,
   printers,
   printProfiles,
   projectSlicePlates,
@@ -129,15 +131,18 @@ export const projectSlicingRoutes =
                     slicedAt: r.slicedAt,
                   }
                 : null;
+            const found = slicerOf([r.slicerIntegrationId, slicerIntegrationId]);
+            const slicer = found?.row;
             const { profileId } = resolve(
               r,
               meta.models.find((m) => m.file === r.file),
+              found && presetLibrary(found.adapter),
             );
-            const slicer = slicerOf([r.slicerIntegrationId, slicerIntegrationId])?.row;
             return {
               file: r.file,
               plate: r.plate,
               printerId: r.printerId,
+              machineProfileId: r.machineProfileId,
               printProfileId: r.printProfileId,
               useDefaultPrintProfile: r.useDefaultPrintProfile,
               filaments: r.filaments,
@@ -177,7 +182,7 @@ export const projectSlicingRoutes =
         },
       },
       async (req) => {
-        const { place, meta } = project(req.params.id);
+        const { place, meta, slicerIntegrationId } = project(req.params.id);
         const { plates } = req.body;
         // Only plates of 3MFs the scanner listed; nothing the client invents is read.
         for (const p of plates)
@@ -191,7 +196,11 @@ export const projectSlicingRoutes =
           .where(eq(projectSlicePlates.projectId, req.params.id))
           .all();
         const free = (
-          table: typeof printProfiles | typeof filamentProfiles | typeof printers,
+          table:
+            | typeof printProfiles
+            | typeof machineProfiles
+            | typeof filamentProfiles
+            | typeof printers,
           ids: string[],
           was: (string | null)[],
         ) => ids.every((i) => was.includes(i) || canReference(db, table, i));
@@ -207,11 +216,17 @@ export const projectSlicingRoutes =
           : [];
         const printIds = plates.flatMap((p) => (p.printProfileId ? [p.printProfileId] : []));
         const filamentIds = plates.flatMap((p) => p.filaments.filter((f): f is string => !!f));
+        const machineIds = plates.flatMap((p) => (p.machineProfileId ? [p.machineProfileId] : []));
         if (
           !free(
             printProfiles,
             printIds,
             own.map((p) => p.printProfileId),
+          ) ||
+          !free(
+            machineProfiles,
+            machineIds,
+            own.map((p) => p.machineProfileId),
           ) ||
           !free(
             filamentProfiles,
@@ -253,17 +268,19 @@ export const projectSlicingRoutes =
         if (!spoolIds.every(spoolOk))
           throw new HttpError(400, "invalid_reference", "Unknown spool");
 
-        // Stored fully resolved, so the projects list can tell in SQL what a plate slices with:
-        // the printer filled in, and a printer that isn't the file's on its default profile. A
-        // spool never sets a slot's preset (ADR-0020).
+        // Stored resolved, so a stored plate says without its file what it slices with: the printer
+        // filled in, and a machine that isn't the file's on the default profile. A spool never
+        // sets a slot's preset (ADR-0020).
         const resolve = plateResolver(db);
+        const slicerOf = slicerResolver(db, adapters);
         const stored = plates.map((p) => {
           const model = meta.models.find((m) => m.file === p.file);
-          const { printer, fits } = resolve(p, model);
+          const found = slicerOf([p.slicerIntegrationId, slicerIntegrationId]);
+          const { printer, fromFile } = resolve(p, model, found && presetLibrary(found.adapter));
           return {
             ...p,
             printerId: printer?.id ?? null,
-            useDefaultPrintProfile: !p.printProfileId && (p.useDefaultPrintProfile || !fits),
+            useDefaultPrintProfile: !p.printProfileId && (p.useDefaultPrintProfile || !fromFile),
           };
         });
 
@@ -295,6 +312,7 @@ export const projectSlicingRoutes =
                       o.plate === p.plate &&
                       o.fileSha256 === fp.fileSha256 &&
                       o.printerId === p.printerId &&
+                      o.machineProfileId === p.machineProfileId &&
                       o.printProfileId === p.printProfileId &&
                       JSON.stringify(o.filaments) === JSON.stringify(p.filaments),
                   );

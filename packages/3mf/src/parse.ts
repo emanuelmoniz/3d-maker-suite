@@ -44,6 +44,8 @@ export interface ThreeMfInfo {
   printerModel: string | null;
   /** The print (process) preset the file was saved with, e.g. "0.20mm Standard @BBL A1". */
   printProfile: string | null;
+  /** The machine (printer) preset it was saved with, e.g. "Bambu Lab A1 0.4 nozzle". */
+  machineProfile: string | null;
   nozzleDiameter: number | null;
   sliced: boolean;
   multicolor: boolean;
@@ -440,6 +442,7 @@ export async function parse3mf(source: ThreeMfSource): Promise<ThreeMfInfo> {
       slicer: parseSlicer(head),
       printerModel: str(project.printer_model),
       printProfile: str(project.print_settings_id),
+      machineProfile: str(project.printer_settings_id),
       nozzleDiameter: num((project.nozzle_diameter as unknown[] | undefined)?.[0]),
       sliced: list.some((p) => p.sliced),
       multicolor: list.some((p) => p.multicolor),
