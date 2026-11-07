@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { id, isoDate } from "./entities.ts";
 import { slicerInstallStatusSchema } from "./integrations.ts";
+import { presetSwitchesSchema } from "./presets.ts";
 import { projectFileSchema, projectGallerySchema, projectModelSchema } from "./projects.ts";
 
 /**
@@ -121,6 +122,8 @@ export const deviceSchema = z.object({
   slicers: z.array(deviceSlicerSchema),
   /** A worker integration slices on it (ADR-0014): set by adding and removing those. */
   sliceWorker: z.boolean(),
+  /** Send presets and Install per slicer library, edited in Catalog → Sources (ADR-0020). */
+  presets: z.record(z.string(), presetSwitchesSchema),
   createdAt: isoDate,
 });
 
@@ -296,8 +299,15 @@ export const hubEventSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("slicer.remove"), requestId: id, integrationId: id }),
   /** An admin made this device a slice worker, or no longer one (its status page shows it). */
   z.object({ type: z.literal("device.worker"), on: z.boolean() }),
-  /** Share my presets or Install hub presets changed (ADR-0017). */
-  z.object({ type: z.literal("device.presets"), share: z.boolean(), install: z.boolean() }),
+  /**
+   * Send presets or Install changed for a slicer (ADR-0020): every library's switches; the answer
+   * is null. A connector before 5.4.0 Step 21's knows only one pair and answers ENOTSUP.
+   */
+  z.object({
+    type: z.literal("presets.set"),
+    requestId: id,
+    libraries: z.record(z.string().max(100), presetSwitchesSchema),
+  }),
   /** Edit connector: read its settings; the answer's result is a `connectorSettingsSchema`. */
   z.object({ type: z.literal("connector.settings.get"), requestId: id }),
   /**

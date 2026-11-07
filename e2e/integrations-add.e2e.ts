@@ -35,7 +35,8 @@ for (const width of [375, 1440])
     // Its catalog cards are on Catalog → Sources.
     await card.getByRole("link", { name: /^Catalog: / }).click();
     await expect(page).toHaveURL(/\/catalog\/sources#library-bambu-studio$/);
-    const sources = page.getByRole("region", { name: "Bambu Studio" });
-    await expect(sources.getByRole("heading", { name: "This computer", level: 3 })).toBeVisible();
-    await expect(sources.getByRole("heading", { name: "This server", level: 3 })).toBeVisible();
+    // Each location is a route of the library's presets.
+    const sources = page.getByRole("region", { name: "Where your presets come from" });
+    await expect(sources.getByRole("heading", { name: "This computer", level: 4 })).toBeVisible();
+    await expect(sources.getByRole("heading", { name: "This server", level: 4 })).toBeVisible();
   });

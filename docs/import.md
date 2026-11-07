@@ -154,7 +154,14 @@ Every type except print history has two more settings (open the type's row): on 
 | Everything | Adds every row the source offers and keeps them up to date. |
 | Only what I already have | Keeps the rows you have up to date. A new row is added only when you have its brand: a new model of your printer brand still arrives, a brand you never imported doesn't. Brands, filament brands and materials themselves are never added. Rows it leaves out don't wait for review and raise no alert. |
 
-**On Catalog → Sources, each place a slicer runs is grouped** into **Catalog**, **System presets** and **User presets**, each with its own rows. **Choose brands** sits above them and lists the slicer's printer brands and filament brands (the ones you have are checked, and **Select all** ticks every one). Pick the ones you use and **Import**: you get those brands with their models, machine and print profiles, and for filament brands their materials and filament profiles, after a backup. Then **Only what I already have** is switched on for all the catalog types at once; switch it off for **Everything**. The rows' links open the review of each type, where the slicer's changes wait.
+**Catalog → Sources has one section per slicer** (Bambu Studio, OrcaSlicer):
+
+- **Catalog source**: where the slicer's system presets, brands and printer models are read from. Only one place reads them, so two PCs on different slicer versions don't keep changing the catalog. It can be this computer's or this server's slicer folder, or, with the hub on, a workstation's connector. Until you pick one, the oldest install with a readable folder is used, else the first workstation that has the slicer. Picking one turns its **Catalog** and **System presets** rows on (Manual), and they sit right under the pick. A workstation sends its catalog from a later release; until then the catalog stays as it is.
+- **Where your presets come from**: each place the slicer runs and each account (Bambu Cloud's user presets sit under Bambu Studio), with how many presets it brought and its **User presets** rows. The first one to bring a preset keeps it.
+- **No connector? Upload a zip**: for a slicer on this server or a workstation, which has no folder of yours to read (see [below](#slicer-catalog-from-a-zip)).
+- **Devices** (hub on): each workstation's **Send presets** and **Install** for this slicer ([hub.md](hub.md#slicer-presets)).
+
+**Choose brands** sits above the catalog rows and lists the slicer's printer brands and filament brands (the ones you have are checked, and **Select all** ticks every one). Pick the ones you use and **Import**: you get those brands with their models, machine and print profiles, and for filament brands their materials and filament profiles, after a backup. Then **Only what I already have** is switched on for all the catalog types at once; switch it off for **Everything**. The rows' links open the review of each type, where the slicer's changes wait.
 
 **When** on the card is one switch:
 
@@ -185,7 +192,7 @@ In the review of an integration, a column left on **Don't change** follows the t
 
 ## Slicer catalog from a zip
 
-For a server with no slicer installed (a NAS, for example), you can import the filament and machine profiles from your slicer's config folder. Zip the folder on the PC where the slicer is installed, then upload the zip on **Import → Import from a slicer zip**.
+For a server with no slicer installed (a NAS, for example), you can import the filament and machine profiles from your slicer's config folder. Zip the folder on the PC where the slicer is installed, then upload the zip on **Import → Import from a slicer zip**, or from **No connector? Upload a zip** in the slicer's section on **Catalog → Sources**.
 
 1. Open the slicer's config folder: in Bambu Studio or OrcaSlicer, **Help → Show Configuration Folder**. Or find it yourself:
    - Windows: `%APPDATA%\BambuStudio` or `%APPDATA%\OrcaSlicer` (paste it into the File Explorer address bar)

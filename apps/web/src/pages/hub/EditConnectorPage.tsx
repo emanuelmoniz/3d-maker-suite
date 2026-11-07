@@ -12,7 +12,6 @@ import { PageHeader } from "../../components/PageHeader.tsx";
 import { Section } from "../../components/Section.tsx";
 import { Switch } from "../../components/Switch.tsx";
 import { ApiError } from "../../lib/api.ts";
-import { useCan } from "../../lib/auth.ts";
 import { formatDateTime, formatTime } from "../../lib/format.ts";
 import {
   useConnectorActions,
@@ -21,9 +20,7 @@ import {
   useDevices,
 } from "../../lib/hub.ts";
 import { useAdapterName, useIntegrations } from "../../lib/integrations.ts";
-import { usePresetDevices } from "../../lib/presets.ts";
 import { useUsers } from "../../lib/users.ts";
-import { InstallStatus } from "./PresetsPage.tsx";
 import { SyncLine } from "./SyncLine.tsx";
 
 /** The message for a failed save: a connector that is offline or silent says so. */
@@ -379,19 +376,37 @@ function Slicing({ device: d }: { device: Device }) {
   );
 }
 
-/** Install hub presets on this device, for those who may see it (catalog write). */
+// Written out so `pnpm i18n:check` sees the keys: [send][install].
+const PRESETS_STATE = [
+  ["hub:edit.presets.none", "hub:edit.presets.install"],
+  ["hub:edit.presets.send", "hub:edit.presets.both"],
+] as const;
+
+/** Send presets and Install per slicer, read-only: they are edited in Catalog → Sources (ADR-0020). */
 function PresetsCard({ device: d }: { device: Device }) {
   const { t } = useTranslation();
-  const allowed = useCan("catalog", "write");
-  const status = usePresetDevices(allowed).data?.find((p) => p.id === d.id);
-  if (!status?.installPresets) return null;
+  const adapterName = useAdapterName();
+  // A desktop slicer's id is its library's.
+  const libraries = [...new Set([...d.slicers.map((s) => s.id), ...Object.keys(d.presets)])];
+  if (!libraries.length) return null;
   return (
     <Section title={t("hub:presets.slicerPresets")}>
-      {status.presetInstall ? (
-        <InstallStatus status={status.presetInstall} />
-      ) : (
-        <p className="text-muted">{t("hub:edit.loading")}</p>
-      )}
+      <ul className="grid gap-1">
+        {libraries.map((lib) => {
+          const s = d.presets[lib];
+          return (
+            <li key={lib} className="flex flex-wrap gap-x-2">
+              <span>{adapterName(lib)}</span>
+              <span className="text-muted">
+                {t(PRESETS_STATE[s?.send ? 1 : 0][s?.install ? 1 : 0])}
+              </span>
+              <Link to="/catalog/sources" hash={`devices-${lib}`} className="underline">
+                {t("hub:edit.presets.change")}
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
     </Section>
   );
 }

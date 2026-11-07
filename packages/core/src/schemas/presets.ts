@@ -115,21 +115,45 @@ export const presetInstallSlicerSchema = z.object({
 });
 export const presetInstallStatusSchema = z.array(presetInstallSlicerSchema).max(20);
 
-/** A device with a slicer in `GET /api/presets/devices`, and its switches. */
+/**
+ * A device's switches for one slicer library (ADR-0020): Send presets (ADR-0017's Share) and
+ * Install. `devices.presetLibraries` keeps them by library, with when a preset was last stored.
+ */
+export const presetSwitchesSchema = z.object({ send: z.boolean(), install: z.boolean() });
+export type PresetSwitches = z.infer<typeof presetSwitchesSchema>;
+export type DevicePresetLibrary = PresetSwitches & { sentAt?: string };
+/** Only the switches, for the connector. */
+export const presetSwitches = (m: Record<string, DevicePresetLibrary>) =>
+  Object.fromEntries(
+    Object.entries(m).map(([lib, { send, install }]) => [lib, { send, install }]),
+  ) as Record<string, PresetSwitches>;
+
+/** One slicer of a device in `GET /api/presets/devices`: the device × slicer table's row. */
+export const presetDeviceLibrarySchema = presetSwitchesSchema.extend({
+  library: z.string(),
+  /** It still reports this slicer; false = a row kept with its values. */
+  reported: z.boolean(),
+  /** When a preset it sent was last stored. */
+  sentAt: isoDate.nullable(),
+  /** Its removals held for a person (Catalog → Presets). */
+  held: z.number().int().nonnegative(),
+  /** What it last reported of Install; null = off, or it hasn't yet. */
+  status: presetInstallSlicerSchema.nullable(),
+});
+
+/** A device with a slicer in `GET /api/presets/devices`, and its switches per slicer. */
 export const presetDeviceSchema = z.object({
   id,
   name: z.string(),
   online: z.boolean(),
-  sharePresets: z.boolean(),
-  installPresets: z.boolean(),
   /** Its connector is older than the hub: its removals are only shown, and it receives no deletes. */
   outdated: z.boolean(),
-  /** What it last reported; null = Install hub presets is off, or it hasn't yet. */
-  presetInstall: presetInstallStatusSchema.nullable(),
+  libraries: z.array(presetDeviceLibrarySchema),
 });
 export const presetDeviceUpdateSchema = z.strictObject({
-  sharePresets: z.boolean().optional(),
-  installPresets: z.boolean().optional(),
+  library: z.string().max(100),
+  send: z.boolean().optional(),
+  install: z.boolean().optional(),
 });
 
 /**

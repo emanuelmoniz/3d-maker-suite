@@ -20,6 +20,7 @@ import {
   pairingCodeSchema,
   pairResultSchema,
   pairSchema,
+  presetSwitches,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
 import { and, asc, count, eq, inArray, lte } from "drizzle-orm";
@@ -87,6 +88,7 @@ export const hubRoutes =
           syncMode: devices.syncMode,
           slicers: devices.slicers,
           sliceWorker: devices.sliceWorker,
+          presets: devices.presetLibraries,
           lastSeenAt: devices.lastSeenAt,
           createdAt: devices.createdAt,
         })
@@ -279,14 +281,12 @@ export const hubRoutes =
       const mine = eq(hubEvents.deviceId, deviceId);
 
       const switches = db
-        .select({
-          worker: devices.sliceWorker,
-          share: devices.sharePresets,
-          install: devices.installPresets,
-        })
+        .select({ worker: devices.sliceWorker, presets: devices.presetLibraries })
         .from(devices)
         .where(eq(devices.id, deviceId))
         .get();
+      const presets = presetSwitches(switches?.presets ?? {});
+      const any = (k: "send" | "install") => Object.values(presets).some((s) => s[k]);
       const owner = db
         .select({ name: users.displayName })
         .from(devices)
@@ -303,8 +303,11 @@ export const hubRoutes =
         "x-accel-buffering": "no",
         // On every connect, so a connector that missed `device.worker` (an older one) knows it.
         "x-slice-worker": switches?.worker ? "1" : "0",
-        "x-share-presets": switches?.share ? "1" : "0",
-        "x-install-presets": switches?.install ? "1" : "0",
+        // Per slicer library (ADR-0020). A connector before 5.4.0 Step 21's reads only the two
+        // below, any library on; the device routes keep it to the libraries that are.
+        "x-preset-libraries": JSON.stringify(presets),
+        "x-share-presets": any("send") ? "1" : "0",
+        "x-install-presets": any("install") ? "1" : "0",
         // Once the hub ends a stream (revoke, shutdown) the socket goes too, instead of idling in
         // keep-alive, which held up the server's close.
         connection: "close",

@@ -2267,7 +2267,7 @@ Do Step 19 of the 5.4.0 plan in PLAN.md.
 Do Step 20 of the 5.4.0 plan in PLAN.md. Use the frontend-design skill for the cards.
 ```
 
-### [ ] Step 21 - Sources  **[plan mode]**
+### [x] Step 21 - Sources  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:**
 - Catalog → Sources, per slicer library: its routes (`preset_routes`: local folder, server slicer, zip, Bambu Cloud, devices), Choose brands and the cards of every catalog and user preset type, from slicers and Bambu Cloud (`PolicyRow`, the same `sync_policies` rows), without "How to sync" for slicer types. The manual zip as "No connector? Upload a zip".

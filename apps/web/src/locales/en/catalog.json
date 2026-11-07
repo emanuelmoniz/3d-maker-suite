@@ -8,7 +8,46 @@
   },
   "sources": {
     "empty": "No slicer or account brings anything into the catalog yet.",
-    "toIntegrations": "Connect one in Integrations."
+    "toIntegrations": "Connect one in Integrations.",
+    "source": {
+      "title": "Catalog source",
+      "hint": "The system presets, brands and printer models come from one place, so a slicer update on one machine doesn't fight an older version on another.",
+      "label": "Read the catalog from",
+      "device": "{{name}} (connector)",
+      "unreadable": "{{name}} (folder not found)",
+      "none": "Nothing can read this slicer's catalog yet.",
+      "default": "Picked for you: the oldest install with a readable folder.",
+      "is": "The catalog is read from {{name}}.",
+      "isDefault": "The catalog is read from {{name}}, picked for you.",
+      "fromDevice": "A connector sends the catalog once it can. Until then, the catalog stays as it is."
+    },
+    "routes": {
+      "title": "Where your presets come from",
+      "hint": "Every place your own presets come from. The first one to bring a preset keeps it.",
+      "presets_one": "{{count}} preset",
+      "presets_other": "{{count}} presets"
+    },
+    "zip": "No connector? Upload a zip",
+    "devices": {
+      "title": "Devices",
+      "hint": "Send presets: user presets saved in {{slicer}} on a device go to the hub within a minute. Install: the hub's presets are written to {{slicer}} on a device while it's closed, and show at its next start. A preset deleted in a slicer by the user who sent it first is deleted everywhere once nothing uses it; another user's delete changes nothing.",
+      "device": "Device",
+      "send": "Send presets",
+      "install": "Install",
+      "held": "Held deletes",
+      "sendOn": "Send {{slicer}} presets from {{device}}",
+      "installOn": "Install presets in {{slicer}} on {{device}}",
+      "sentAt": "Last sent {{when}}",
+      "neverSent": "Nothing sent yet",
+      "noReport": "Waiting for the device's first report.",
+      "where": "Folder and backup",
+      "heldCount_one": "{{count}} held delete waits for you",
+      "heldCount_other": "{{count}} held deletes wait for you",
+      "noneHeld": "No held deletes",
+      "notReported": "{{slicer}} is no longer found on this device.",
+      "none": "No connected device has {{slicer}} yet.",
+      "outdatedError": "That device's connector is too old for a switch per slicer. Update it from Hub management, then try again."
+    }
   },
   "intro": {
     "printers": "Add printer brands and models by hand, or let a slicer bring them. Machine and print profiles come only from a slicer: they are its files, so you archive or delete them here and edit them in the slicer.",

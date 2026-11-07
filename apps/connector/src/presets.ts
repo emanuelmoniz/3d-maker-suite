@@ -12,7 +12,7 @@ import {
 } from "@3d-maker-suite/core";
 import { parsePreset, presetSha } from "@3d-maker-suite/host";
 import { QUIET_MS, type Request } from "./roots.ts";
-import type { Store } from "./state.ts";
+import { presetsOn, type Store } from "./state.ts";
 
 /** Another look this often: a sign-in changes the folder, and a watch can miss events. */
 const POLL_MS = 30_000;
@@ -139,6 +139,8 @@ export function createPresetShare({
   let again = false;
   /** The accounts last told to the hub, so an unchanged list isn't sent again. */
   let lastAccounts = "";
+  /** The found slicers with Send presets on (ADR-0020). */
+  const sending = () => slicers().filter((s) => presetsOn(store.get(), "send", s.library));
 
   async function send(
     slicer: DesktopSlicer,
@@ -252,7 +254,7 @@ export function createPresetShare({
       do {
         again = false;
         const accounts: { library: string; account: string }[] = [];
-        for (const slicer of slicers()) {
+        for (const slicer of sending()) {
           const account = await lookAt(slicer);
           if (account) accounts.push({ library: slicer.library, account });
         }
@@ -283,15 +285,15 @@ export function createPresetShare({
 
   return {
     stop,
-    /** A look now, if the switch is on: Install's writes come after what's unsent. */
+    /** A look now, if a switch is on: Install's writes come after what's unsent. */
     flush: () => (on ? look() : Promise.resolve()),
-    /** Connected, or the switch changed: looks now and keeps watching, if the switch is on. */
+    /** Connected, or a switch changed: looks now and keeps watching the slicers it is on for. */
     start() {
       stop();
-      if (!store.get().sharePresets) return Promise.resolve();
+      if (!presetsOn(store.get(), "send")) return Promise.resolve();
       on = true;
       lastAccounts = "";
-      for (const slicer of slicers()) {
+      for (const slicer of sending()) {
         const user = join(configDir(slicer), "user");
         try {
           const watcher = watch(user, { recursive: true }, (_, name) => {

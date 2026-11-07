@@ -72,7 +72,11 @@ describe("the slicer's folder", () => {
 it("reports json that doesn't parse once, after it settled", async () => {
   const at = temp("presets-settle-");
   const store = openStore(at);
-  store.set({ sharePresets: true, hubUrl: "http://hub", deviceId: "d" });
+  store.set({
+    presetLibraries: { s: { send: true, install: false } },
+    hubUrl: "http://hub",
+    deviceId: "d",
+  });
   write(join(at, "cfg", "user", "default", "filament", "Broken.json"), "{ not json");
   const sent: unknown[] = [];
   const share = (settleMs: number) =>
@@ -172,18 +176,24 @@ describe("device presets (ADR-0017)", () => {
     const device = async (
       name: string,
       config = temp("presets-cfg-"),
-      { userId = user.id, library = "bambu-studio" } = {},
+      {
+        userId = user.id,
+        library = "bambu-studio",
+        /** A second slicer it finds, with its own config folder. */
+        orca = undefined as string | undefined,
+      } = {},
     ) => {
       const at = temp("presets-device-");
       const store = openStore(at);
       /** The process list this device's check sees. */
       const slicer = { running: false };
+      const libraries = orca ? [library, "orca-slicer"] : [library];
       const link = createLink({
         store,
         version: "0.0.0",
         os: "test",
         sync: { dataDir: at, syncDir: join(at, "sync") },
-        presetConfigDir: () => config,
+        presetConfigDir: (s) => (orca && s.library === "orca-slicer" ? orca : config),
         presetHooks: {
           pollMs: 50,
           processes: async () =>
@@ -192,7 +202,7 @@ describe("device presets (ADR-0017)", () => {
         slicers: {
           find: async (known) =>
             known
-              .filter((k) => k.library === library)
+              .filter((k) => libraries.includes(k.library))
               .map(
                 (k): Found => ({
                   id: k.id,
@@ -232,21 +242,27 @@ describe("device presets (ADR-0017)", () => {
         store,
         put,
         slicer,
-        share: async () => {
-          const res = await send("PATCH", `/api/presets/devices/${id}`, { sharePresets: true });
+        share: async (lib = library) => {
+          const res = await send("PATCH", `/api/presets/devices/${id}`, {
+            library: lib,
+            send: true,
+          });
           expect(res.statusCode).toBe(204);
-          await until(() => store.get().sharePresets === true);
+          await until(() => store.get().presetLibraries?.[lib]?.send === true);
         },
-        install: async () => {
-          const res = await send("PATCH", `/api/presets/devices/${id}`, { installPresets: true });
+        install: async (lib = library) => {
+          const res = await send("PATCH", `/api/presets/devices/${id}`, {
+            library: lib,
+            install: true,
+          });
           expect(res.statusCode).toBe(204);
-          await until(() => store.get().installPresets === true);
+          await until(() => store.get().presetLibraries?.[lib]?.install === true);
         },
         file: (rel: string) => join(config, "user", rel),
         status: async () =>
-          ((await send("GET", "/api/presets/devices")).json() as PresetDevice[]).find(
-            (d) => d.id === id,
-          )?.presetInstall?.[0],
+          ((await send("GET", "/api/presets/devices")).json() as PresetDevice[])
+            .find((d) => d.id === id)
+            ?.libraries.find((l) => l.status)?.status,
       };
     };
     /** A preset changed on the hub. */
@@ -432,8 +448,10 @@ describe("device presets (ADR-0017)", () => {
 
     expect((await a.put({ ...body, text })).status).toBe(403);
     await a.share();
-    // The library names a folder on the hub.
-    expect((await a.put({ ...body, library: "../../etc", text })).status).toBe(404);
+    // The library names a folder on the hub: one with no switch is refused, and none can be set.
+    expect((await a.put({ ...body, library: "../../etc", text })).status).toBe(403);
+    const junk = { library: "../../etc", send: true };
+    expect((await h.send("PATCH", `/api/presets/devices/${a.id}`, junk)).statusCode).toBe(404);
 
     const invalid = await a.put({ ...body, text: "{ not json" });
     expect(await invalid.json()).toMatchObject({ result: "invalid", name: "Mine" });
@@ -458,6 +476,30 @@ describe("device presets (ADR-0017)", () => {
     const edited = await a.put({ ...body, base: 1, text: preset("Mine", "21") });
     expect(await edited.json()).toMatchObject({ result: "saved", version: 2 });
     expect((await h.presets()).map((p) => p.name)).toEqual(["Mine"]);
+  }, 120_000);
+
+  it("sends one slicer's presets and not the other's (ADR-0020)", async () => {
+    const h = await hub();
+    const orca = temp("presets-orca-");
+    const a = await h.device("Studio PC", undefined, { orca });
+    write(a.file("default/filament/Studio PLA.json"), preset("Studio PLA", "20"));
+    write(join(orca, "user", "default", "filament", "Orca PLA.json"), preset("Orca PLA", "20"));
+    await a.share("orca-slicer");
+    await until(async () => (await h.presets()).length === 1);
+    await new Promise((r) => setTimeout(r, 300));
+    expect((await h.presets()).map((p) => [p.library, p.name])).toEqual([
+      ["orca-slicer", "Orca PLA"],
+    ]);
+    // The other slicer's route stays shut.
+    const body = { library: "bambu-studio", kind: "filament", name: "X", base: 0 };
+    const res = await a.put({ ...body, text: preset("X", "1") });
+    expect(res.status).toBe(403);
+    // The table has a row per slicer, with when one last sent.
+    const [d] = (await h.send("GET", "/api/presets/devices")).json() as PresetDevice[];
+    expect(d?.libraries.map((l) => [l.library, l.send, !!l.sentAt])).toEqual([
+      ["bambu-studio", false, false],
+      ["orca-slicer", true, true],
+    ]);
   }, 120_000);
 
   describe("Install hub presets", () => {

@@ -52,6 +52,13 @@
     "notWorker": "Doesn't slice for the hub. To slice here, add it as a location on a slicer's card in <add>Integrations</add>."
   },
   "edit": {
+    "presets": {
+      "both": "Sends presets and installs the hub's",
+      "send": "Sends presets",
+      "install": "Installs the hub's presets",
+      "none": "Doesn't send or install presets",
+      "change": "Change in Catalog → Sources"
+    },
     "title": "Edit connector: {{name}}",
     "titleFallback": "Edit connector",
     "notFound": "This device doesn't exist anymore.",
@@ -122,7 +129,7 @@
     "openProfile": "Open the profile",
     "loadError": "Couldn't load the presets.",
     "emptyTitle": "No slicer presets yet",
-    "emptyBody": "Turn on Share my presets for a device below, or import a slicer zip on a server slicer's card in Integrations. Their user presets join this library.",
+    "emptyBody": "Turn on Send presets for a device in Catalog → Sources, or upload a slicer zip there. Their user presets join this library.",
     "toIntegrations": "Go to Integrations",
     "library": "Slicer",
     "libraries": {
@@ -153,7 +160,7 @@
     "conflictsHint": "A device saved its own version of a preset that had changed on the hub, so it was kept under a new name. Download both, keep what you need in your slicer, then delete the copy.",
     "delete": "Delete {{name}}",
     "deleteTitle": "Delete {{name}}?",
-    "deleteBody": "It's removed from the hub's slicer, the slice workers and every device with Install hub presets on, unless a device's copy has edits it hasn't sent yet. Slices that used it need slicing again. On a PC signed in to Bambu Studio, delete it in the slicer too. Restore brings it back.",
+    "deleteBody": "It's removed from the hub's slicer, the slice workers and every device with Install on, unless a device's copy has edits it hasn't sent yet. Slices that used it need slicing again. On a PC signed in to Bambu Studio, delete it in the slicer too. Restore brings it back.",
     "deleteConfirm": "Delete preset",
     "owner": "Shared first by {{user}}",
     "removedOn": "Removed on {{devices}}",
@@ -172,19 +179,13 @@
     "heldKeepOn": "Keep the presets removed on {{device}}",
     "deletedTitle_one": "{{count}} deleted preset",
     "deletedTitle_other": "{{count}} deleted presets",
-    "deletedHint": "Restore brings a preset back as its next version, and devices with Install hub presets on get it again.",
+    "deletedHint": "Restore brings a preset back as its next version, and devices with Install on get it again.",
     "deletedAt": "Deleted {{when}}",
     "restore": "Restore",
     "restoreNamed": "Restore {{name}}",
     "restoreVersion": "Restore version {{version}}",
-    "devicesTitle": "Devices",
-    "devicesHint": "A device with Share my presets on sends each preset saved in its slicers here within a minute. A preset deleted in a slicer by the user who shared it first is deleted everywhere once nothing uses it; another user's delete changes nothing here. With Install hub presets on, this library's presets are written to its slicers while they are closed, and show at their next start.",
     "deviceOffline": "Offline",
     "deviceOutdated": "Its connector is older than the hub: its deletes only show here, and the hub's don't reach it. Update the connector.",
-    "share": "Share my presets",
-    "shareOn": "Share my presets on {{name}}",
-    "install": "Install hub presets",
-    "installOn": "Install hub presets on {{name}}",
     "installFolder": "Writes to {{folder}}",
     "queueEmpty": "Nothing waiting to be written.",
     "queue_one": "{{count}} preset being written:",
@@ -198,7 +199,6 @@
     "deleteHere_one": "{{count}} preset deleted on the hub is still here. This slicer's cloud account brings back a file deleted from disk, so delete it in the slicer:",
     "deleteHere_other": "{{count}} presets deleted on the hub are still here. This slicer's cloud account brings back a file deleted from disk, so delete them in the slicer:",
     "deleteHereOf": "Presets to delete in {{name}}",
-    "noDevices": "No connector with a slicer yet.",
     "slicerPresets": "Slicer presets"
   }
 }

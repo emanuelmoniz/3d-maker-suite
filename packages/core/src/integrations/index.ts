@@ -32,6 +32,8 @@ export interface IntegrationAdapter {
   create?(ctx: IntegrationContext): IntegrationInstance;
   /** The vendor's desktop slicer presets. */
   library?: FilamentLibrary;
+  /** An account's user presets belong to this slicer library (Catalog → Sources groups them there). */
+  presetsLibrary?: string;
   /** Slices a 3MF plate with the vendor's slicer program (ADR-0007). Needs the `slice` capability. */
   slicer?: Slicer;
   /** `server` adapters: where to download the slicer and what is in the download (ADR-0013). */

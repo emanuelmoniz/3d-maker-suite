@@ -10,7 +10,7 @@ import type { DeviceSyncState, DeviceUserPreview } from "@3d-maker-suite/core";
 import { openFolder } from "@3d-maker-suite/host";
 import { type Link, type LinkStatus, PairError, type PairErrorCode } from "./hub.ts";
 import type { FolderError } from "./roots.ts";
-import type { Store } from "./state.ts";
+import { presetsOn, type Store } from "./state.ts";
 import { RESTART, type Updater } from "./update.ts";
 
 type Messages = { [k: string]: string | Messages };
@@ -263,9 +263,21 @@ ${locks}
   const slicersView = () => {
     const found = link.slicers.list();
     const pick = found.find((f) => f.id === store.get().defaultSlicer);
+    const described = link.slicers.described();
+    // Send presets and Install, per slicer (ADR-0020).
+    const presets = (id: string) => {
+      const lib = described.find((d) => d.id === id)?.library;
+      const on = (["send", "install"] as const).filter(
+        (k) => lib && presetsOn(store.get(), k, lib),
+      );
+      return on.length
+        ? `<span class="muted">${on.map((k) => t(k === "send" ? "connector:slicers.sending" : "connector:slicers.installing")).join(" · ")}</span>`
+        : "";
+    };
     const rows = found
       .map(
         (f) => `<li class="row"><span>${esc(f.name)}${f.version ? ` ${esc(f.version)}` : ""}</span>
+${presets(f.id)}
 ${
   f === pick
     ? `<span class="muted">${t("connector:slicers.default")}</span>`
@@ -279,8 +291,8 @@ ${
     return `<section aria-labelledby="slicers">
 <h2 id="slicers">${t("connector:slicers.title")}</h2>
 ${store.get().sliceWorker ? `<p>${t("connector:slicers.worker")}</p>` : ""}
-${store.get().sharePresets ? `<p>${t("connector:slicers.sharing")}</p>` : ""}
-${store.get().installPresets ? `<p>${t("connector:slicers.installing")}</p>` : ""}
+${presetsOn(store.get(), "send") ? `<p>${t("connector:slicers.sharing")}</p>` : ""}
+${presetsOn(store.get(), "install") ? `<p>${t("connector:slicers.installingIntro")}</p>` : ""}
 ${found.length ? `<p class="muted">${t("connector:slicers.intro")}</p><ul>${rows}</ul>${found.length > 1 ? ask : ""}` : `<p class="muted">${t("connector:slicers.none")}</p>`}
 </section>`;
   };

@@ -277,16 +277,16 @@ export const hubDeviceRoutes =
       },
     );
 
-    // Share my presets (ADR-0017): only with its switch on, and only into a slicer's library,
-    // whose id names a folder.
+    // Send presets (ADR-0017's Share): only with its switch on for that slicer (ADR-0020), and only
+    // into a slicer's library, whose id names a folder.
     const sharing = (req: FastifyRequest, library: string) => {
       const device = db
         .select()
         .from(devices)
         .where(eq(devices.id, deviceOf(req)))
         .get();
-      if (!device?.sharePresets)
-        throw new HttpError(403, "not_sharing", "Share my presets is off for this device");
+      if (!device?.presetLibraries[library]?.send)
+        throw new HttpError(403, "not_sharing", "Send presets is off for this slicer");
       if (!desktopSlicers().some((s) => s.library === library))
         throw new HttpError(404, "not_found", "No such preset library");
       return device;
@@ -307,7 +307,26 @@ export const hubDeviceRoutes =
           device: device.name,
           userId: device.userId,
         });
-        if (res.result === "saved" || res.result === "conflict") onPresetSaved();
+        if (res.result === "saved" || res.result === "conflict") {
+          const { library } = req.body;
+          const libs = device.presetLibraries;
+          db.update(devices)
+            .set({
+              presetLibraries: {
+                ...libs,
+                // `sharing` checked its switch is there.
+                [library]: {
+                  install: false,
+                  ...libs[library],
+                  send: true,
+                  sentAt: new Date().toISOString(),
+                },
+              },
+            })
+            .where(eq(devices.id, device.id))
+            .run();
+          onPresetSaved();
+        }
         return res;
       },
     );
@@ -354,19 +373,22 @@ export const hubDeviceRoutes =
       },
     );
 
-    // Install hub presets (ADR-0017): only with its switch on. Conflict copies are for cleaning up
-    // on the hub, and in a desktop slicer they would spread through its cloud.
+    // Install (ADR-0017): only the libraries its switch is on for (ADR-0020). Conflict copies are
+    // for cleaning up on the hub, and in a desktop slicer they would spread through its cloud.
     const installing = (req: FastifyRequest) => {
       const device = db
         .select()
         .from(devices)
         .where(eq(devices.id, deviceOf(req)))
         .get();
-      if (!device?.installPresets)
-        throw new HttpError(403, "not_installing", "Install hub presets is off for this device");
-      return device;
+      const libraries = new Set(
+        Object.entries(device?.presetLibraries ?? {}).flatMap(([lib, s]) => (s.install ? lib : [])),
+      );
+      if (!device || !libraries.size)
+        throw new HttpError(403, "not_installing", "Install is off for this device");
+      return { ...device, libraries };
     };
-    const installList = (deviceId: string, deleted: boolean) =>
+    const installList = (device: { id: string; libraries: Set<string> }, deleted: boolean) =>
       db
         .select({
           id: slicerPresets.id,
@@ -381,30 +403,31 @@ export const hubDeviceRoutes =
         .where(eq(slicerPresets.deleted, deleted))
         .orderBy(asc(slicerPresets.name))
         .all()
-        .filter((p) => !isPresetConflict(p.name))
-        .map(({ removedOn, ...p }) => ({ ...p, removedHere: removedOn.includes(deviceId) }));
+        .filter((p) => !isPresetConflict(p.name) && device.libraries.has(p.library))
+        .map(({ removedOn, ...p }) => ({ ...p, removedHere: removedOn.includes(device.id) }));
     app.get(
       "/presets",
       { schema: { response: { 200: z.array(presetInstallItemSchema), ...errors } } },
-      async (req) => installList(installing(req).id, false),
+      async (req) => installList(installing(req), false),
     );
     // Deleted on the hub (ADR-0019): a device removes its unedited copy.
     app.get(
       "/presets/deleted",
       { schema: { response: { 200: z.array(presetInstallItemSchema), ...errors } } },
-      async (req) => installList(installing(req).id, true),
+      async (req) => installList(installing(req), true),
     );
     app.get(
       "/presets/:id",
       { schema: { params: z.object({ id: z.uuid() }) } },
       async (req, reply) => {
-        installing(req);
+        const { libraries } = installing(req);
         const row = db
           .select()
           .from(slicerPresets)
           .where(eq(slicerPresets.id, req.params.id))
           .get();
-        if (!row || row.deleted) throw new HttpError(404, "not_found", "Preset not found");
+        if (!row || row.deleted || !libraries.has(row.library))
+          throw new HttpError(404, "not_found", "Preset not found");
         return reply.type("application/json").send(row.json);
       },
     );
@@ -420,9 +443,10 @@ export const hubDeviceRoutes =
       "/presets/install",
       { schema: { body: presetInstallStatusSchema, response: { 204: z.null(), ...errors } } },
       async (req, reply) => {
+        const { id, libraries } = installing(req);
         db.update(devices)
-          .set({ presetInstall: req.body })
-          .where(eq(devices.id, installing(req).id))
+          .set({ presetInstall: req.body.filter((s) => libraries.has(s.library)) })
+          .where(eq(devices.id, id))
           .run();
         return reply.status(204).send(null);
       },

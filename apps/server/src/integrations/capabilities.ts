@@ -59,6 +59,16 @@ export const detectedDir = (lib?: FilamentLibrary) =>
 /** The library its presets are named after (`<library>:<preset>`), shared by a slicer's kinds. */
 export const presetLibrary = (adapter: IntegrationAdapter) => adapter.library?.id ?? adapter.id;
 
+/** The libraries of the slicers a connector reports (`devices.slicers`: desktop adapters' ids). */
+export const deviceLibraries = (adapters: IntegrationAdapter[], slicers: { id: string }[]) => [
+  ...new Set(
+    slicers.flatMap((s) => {
+      const a = adapters.find((x) => x.id === s.id && x.desktop);
+      return a ? presetLibrary(a) : [];
+    }),
+  ),
+];
+
 /** A slicer's catalog type: `checkCatalogs` looks after it (ADR-0019). */
 export const slicerCatalogType = (
   adapter: IntegrationAdapter | undefined,

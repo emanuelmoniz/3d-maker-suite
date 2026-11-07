@@ -170,6 +170,8 @@ const RULES: [RegExp, string, Need][] = [
   // ADR-0017, ADR-0020: who sees projects sees what slices them; changing them and the device
   // switches is catalog write.
   [p("presets/devices"), "*", at("catalog", "write")],
+  [p("catalog/sources"), "R", at("catalog", "read")],
+  [p("catalog/sources"), "W", at("catalog", "manage")],
   [p("presets"), "R", either(at("projects", "read"), at("catalog", "read"))],
   [p("presets"), "W", at("catalog", "write")],
   [p("server-config|updates|docs"), "*", on("settings.server")],

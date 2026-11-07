@@ -9,6 +9,7 @@ import {
   COMMENT_STATUSES,
   type ConnectorUpdateFailure,
   DEVICE_SYNC_MODES,
+  type DevicePresetLibrary,
   type DeviceSlicer,
   type DeviceSyncState,
   ENERGY_SOURCES,
@@ -1212,11 +1213,15 @@ export const devices = sqliteTable(
     slicers: text({ mode: "json" }).$type<DeviceSlicer[]>().notNull().default([]),
     /** Worker integrations may slice on it (ADR-0014). */
     sliceWorker: integer({ mode: "boolean" }).notNull().default(false),
-    /** Share my presets: its slicers' user presets go to the hub's library (ADR-0017). */
-    sharePresets: integer({ mode: "boolean" }).notNull().default(false),
-    /** Install hub presets: the library's presets go to its slicers (ADR-0017). */
-    installPresets: integer({ mode: "boolean" }).notNull().default(false),
-    /** What it last reported of that (`PUT .../presets/install`). */
+    /**
+     * Per slicer library (ADR-0020): Send presets (its user presets go to the hub's library) and
+     * Install (the library's presets go to that slicer), and when a sent preset was last stored.
+     */
+    presetLibraries: text({ mode: "json" })
+      .$type<Record<string, DevicePresetLibrary>>()
+      .notNull()
+      .default({}),
+    /** What it last reported of Install, per library (`PUT .../presets/install`). */
     presetInstall: text({ mode: "json" }).$type<PresetInstallStatus>(),
     /** The slicer account folder Share last read, per library (`PUT .../presets/share`). */
     presetAccounts: text({ mode: "json" }).$type<Record<string, string>>().notNull().default({}),

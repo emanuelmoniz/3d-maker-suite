@@ -1,9 +1,4 @@
-import type {
-  PresetInstallStatus,
-  SlicerPreset,
-  SlicerPresetKind,
-  SlicerPresetVersion,
-} from "@3d-maker-suite/core";
+import type { SlicerPreset, SlicerPresetKind, SlicerPresetVersion } from "@3d-maker-suite/core";
 import { Link } from "@tanstack/react-router";
 import { ChevronRight, Download, RotateCcw, SlidersHorizontal, Trash2 } from "lucide-react";
 import { useState } from "react";
@@ -12,7 +7,6 @@ import { Dependents } from "../../components/ArchiveActions.tsx";
 import { Button } from "../../components/Button.tsx";
 import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { EmptyState } from "../../components/EmptyState.tsx";
-import { Switch } from "../../components/Switch.tsx";
 import { useCan } from "../../lib/auth.ts";
 import { useMachineProfiles, usePrintProfiles } from "../../lib/catalog.ts";
 import { useProfiles } from "../../lib/filament.ts";
@@ -22,11 +16,9 @@ import {
   useDeletedPresets,
   useDeletePreset,
   usePresetDetail,
-  usePresetDevices,
   usePresets,
   useResolveHeld,
   useRestorePreset,
-  useUpdatePresetDevice,
 } from "../../lib/presets.ts";
 
 // Written out so `pnpm i18n:check` sees the keys. The most edited kind first.
@@ -238,128 +230,6 @@ function Switcher<T extends string>({
         </Button>
       ))}
     </fieldset>
-  );
-}
-
-/** Where Install hub presets writes on a device, what waits and the last backup, per slicer. */
-export function InstallStatus({ status }: { status: PresetInstallStatus }) {
-  const { t } = useTranslation();
-  const libName = useLibraryName();
-  return (
-    <div className="grid gap-2">
-      {status.map((s) => (
-        <div key={s.library} className="grid gap-0.5 text-sm">
-          <p className="font-medium">{libName(s.library)}</p>
-          <p className="text-muted wrap-anywhere">
-            {t("hub:presets.installFolder", { folder: s.folder })}
-          </p>
-          <p className="text-muted">
-            {s.queued
-              ? t(s.waiting ? "hub:presets.queueWaiting" : "hub:presets.queue", {
-                  count: s.queued,
-                })
-              : t("hub:presets.queueEmpty")}
-          </p>
-          {s.queue.length > 0 && (
-            <ul
-              aria-label={t("hub:presets.queueOf", { name: libName(s.library) })}
-              className="text-muted wrap-anywhere"
-            >
-              {s.queue.map((q) => (
-                <li key={`${q.kind}/${q.name}`}>{q.name}</li>
-              ))}
-            </ul>
-          )}
-          <p className="text-muted wrap-anywhere">
-            {s.backup
-              ? t("hub:presets.backup", { when: formatDateTime(s.backup.at), path: s.backup.path })
-              : t("hub:presets.noBackup")}
-          </p>
-          {s.editsStayLocal && <p className="text-warn">{t("hub:presets.editsStayLocal")}</p>}
-          {/* A report from before 5.4.0 has none. */}
-          {(s.deleteHere ?? []).length > 0 && (
-            <>
-              <p className="text-warn">
-                {t("hub:presets.deleteHere", { count: s.deleteHere.length })}
-              </p>
-              <ul
-                aria-label={t("hub:presets.deleteHereOf", { name: libName(s.library) })}
-                className="text-muted wrap-anywhere"
-              >
-                {s.deleteHere.map((q) => (
-                  <li key={`${q.kind}/${q.name}`}>{q.name}</li>
-                ))}
-              </ul>
-            </>
-          )}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-/** What each device shares to and installs from this library. */
-function PresetDevices() {
-  const { t } = useTranslation();
-  const devices = usePresetDevices(true);
-  const update = useUpdatePresetDevice();
-  return (
-    <section
-      aria-labelledby="preset-devices"
-      className="mt-5 grid gap-2 rounded-lg border border-border bg-surface px-4 py-3"
-    >
-      <h2 id="preset-devices" className="text-base font-semibold">
-        {t("hub:presets.devicesTitle")}
-      </h2>
-      <p className="max-w-prose text-muted">{t("hub:presets.devicesHint")}</p>
-      {update.isError && (
-        <p role="alert" className="text-bad">
-          {t("hub:errors.generic")}
-        </p>
-      )}
-      {devices.data?.length ? (
-        <ul className="divide-y divide-border">
-          {devices.data.map((d) => (
-            <li key={d.id} className="grid gap-2 py-2">
-              <div className="flex flex-wrap items-center justify-between gap-x-4">
-                <span className="min-w-0 wrap-anywhere">
-                  {d.name}
-                  {!d.online && (
-                    <span className="ml-2 text-sm text-muted">
-                      {t("hub:presets.deviceOffline")}
-                    </span>
-                  )}
-                  {d.outdated && (
-                    <span className="block text-sm text-warn">
-                      {t("hub:presets.deviceOutdated")}
-                    </span>
-                  )}
-                </span>
-                <div className="flex flex-wrap gap-x-4">
-                  <Switch
-                    label={t("hub:presets.share")}
-                    aria-label={t("hub:presets.shareOn", { name: d.name })}
-                    checked={d.sharePresets}
-                    disabled={update.isPending}
-                    onChange={(e) => update.mutate({ id: d.id, sharePresets: e.target.checked })}
-                  />
-                  <Switch
-                    label={t("hub:presets.install")}
-                    aria-label={t("hub:presets.installOn", { name: d.name })}
-                    checked={d.installPresets}
-                    disabled={update.isPending}
-                    onChange={(e) => update.mutate({ id: d.id, installPresets: e.target.checked })}
-                  />
-                </div>
-              </div>
-              {d.installPresets && d.presetInstall && <InstallStatus status={d.presetInstall} />}
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p className="text-muted">{t("hub:presets.noDevices")}</p>
-      )}
-    </section>
   );
 }
 
@@ -606,7 +476,6 @@ export function PresetsTab() {
           )}
         </div>
       )}
-      {manage && <PresetDevices />}
 
       <ConfirmDialog
         open={!!deleting}

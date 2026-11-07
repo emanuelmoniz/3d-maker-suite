@@ -115,6 +115,8 @@ const MATRIX: Record<string, [viewer: string, editor: string]> = {
   "/api/presets": ["R", "RW"],
   "/api/presets/abc": ["R", "RW"],
   "/api/presets/devices": ["-", "RW"],
+  // ADR-0020: Sources settings and the catalog source are catalog manage (Admin by 0103).
+  "/api/catalog/sources": ["R", "R"],
   "/api/docs": ["-", "-"],
   "/api/not-yet-in-the-table": ["-", "-"],
 };
@@ -202,6 +204,8 @@ describe("permissions", () => {
     expect(can(write, "/api/presets/abc", "DELETE")).toBe(true);
     expect(can(write, "/api/presets/devices/abc", "PATCH")).toBe(true);
     expect(can(write, "/api/brands", "POST")).toBe(false);
+    expect(can(write, "/api/catalog/sources/bambu-studio", "PUT")).toBe(false);
+    expect(can(manage, "/api/catalog/sources/bambu-studio", "PUT")).toBe(true);
   });
 
   it("integration PATCH: catalog cards need catalog manage, the rest integrations.manage", async () => {

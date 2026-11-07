@@ -1726,3 +1726,33 @@ describe("migration 0107", () => {
     ).toBeNull();
   });
 });
+
+describe("migration 0109", () => {
+  it("carries a device's two switches over to each slicer it reports", () => {
+    const now = migrateAcross(108, (sqlite) => {
+      sqlite.exec(`
+        insert into users (id, email, display_name, password_hash, role_id, created_at, updated_at) values ('u', 'u@x.io', 'u', 'x', '${BUILT_IN_ROLE_IDS.admin}', 'x', 'x');
+        insert into devices (id, name, user_id, token_hash, slicers, share_presets, install_presets, created_at, updated_at) values
+          ('both', 'A', 'u', 't1', '[{"id":"bambu-studio","version":null,"path":"a"},{"id":"orca-slicer","version":null,"path":"b"}]', 1, 0, 'x', 'x'),
+          ('off', 'B', 'u', 't2', '[{"id":"bambu-studio","version":null,"path":"a"}]', 0, 0, 'x', 'x'),
+          ('none', 'C', 'u', 't3', '[]', 1, 1, 'x', 'x');
+      `);
+    });
+    const libs = Object.fromEntries(
+      now
+        .select({ id: s.devices.id, l: s.devices.presetLibraries })
+        .from(s.devices)
+        .all()
+        .map((d) => [d.id, d.l]),
+    );
+    expect(libs).toEqual({
+      both: {
+        "bambu-studio": { send: true, install: false },
+        "orca-slicer": { send: true, install: false },
+      },
+      off: {},
+      none: {},
+    });
+    expect(now.$client.pragma("foreign_key_check")).toEqual([]);
+  });
+});

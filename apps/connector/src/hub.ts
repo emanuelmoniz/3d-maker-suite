@@ -12,6 +12,7 @@ import {
   type HubEvent,
   hubEventSchema,
   pairResultSchema,
+  presetSwitchesSchema,
 } from "@3d-maker-suite/core";
 import { openFolder, systemInfo } from "@3d-maker-suite/host";
 import { z } from "zod";
@@ -303,6 +304,13 @@ export function createLink({
         return void slicers.remove(event.data);
       if (event.success && event.data.type === "slice")
         return void slicers.slice(event.data, (sha) => sync?.copyOf(sha) ?? Promise.resolve(null));
+      if (event.success && event.data.type === "presets.set") {
+        store.set({ presetLibraries: event.data.libraries });
+        void reply(event.data.requestId, { ok: true, result: null });
+        void presets?.start();
+        void presetInstall?.start();
+        return;
+      }
       if (event.success) return toRoots(event.data);
       const requestId = (json as { requestId?: unknown })?.requestId;
       if (typeof requestId === "string" && /^[0-9a-f-]{36}$/i.test(requestId))
@@ -318,15 +326,7 @@ export function createLink({
       store.set({ deviceName: event.data.name, cursor: seq });
     else if (event.success && event.data.type === "device.worker")
       store.set({ sliceWorker: event.data.on, cursor: seq });
-    else if (event.success && event.data.type === "device.presets") {
-      store.set({
-        sharePresets: event.data.share,
-        installPresets: event.data.install,
-        cursor: seq,
-      });
-      void presets?.start();
-      void presetInstall?.start();
-    } else store.set({ cursor: seq });
+    else store.set({ cursor: seq });
     if (!event.success) return;
     // Reconnecting runs the update first, and reports how it went when the stream opens again.
     if (event.data.type === "connector.update") {
@@ -368,10 +368,13 @@ export function createLink({
       if (res.status === 404) return "hubOff";
       if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
       if (signal.aborted) return "offline";
+      let libraries: unknown;
+      try {
+        libraries = JSON.parse(res.headers.get("x-preset-libraries") ?? "{}");
+      } catch {}
       store.set({
         sliceWorker: res.headers.get("x-slice-worker") === "1",
-        sharePresets: res.headers.get("x-share-presets") === "1",
-        installPresets: res.headers.get("x-install-presets") === "1",
+        presetLibraries: z.record(z.string(), presetSwitchesSchema).catch({}).parse(libraries),
       });
       const owner = res.headers.get("x-device-user");
       userName = owner ? decodeURIComponent(owner) : undefined;

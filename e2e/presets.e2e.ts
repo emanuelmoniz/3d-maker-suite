@@ -85,7 +85,7 @@ test("hub presets: two PCs' zips in one library, versions, delete", async ({ pag
 
   await page.getByRole("button", { name: "Delete Silk" }).click();
   const confirm = page.getByRole("dialog").filter({ hasText: "Delete Silk?" });
-  await expect(confirm).toContainText("every device with Install hub presets on");
+  await expect(confirm).toContainText("every device with Install on");
   await confirm.getByRole("button", { name: "Delete preset" }).click();
   await expect(page.getByText("No preset of this type has that in its name.")).toBeVisible();
   await page.getByRole("searchbox", { name: "Find a preset" }).fill("");
@@ -161,7 +161,7 @@ test("slicer presets without hub.manage: an editor's switches, a viewer's list, 
     await tab.click();
   };
 
-  // Editor: from the navigation, with the switches and no way back to a page it can't open.
+  // Editor: from the navigation, with no way back to a page it can't open.
   await signInAs("eva@example.com");
   await page.goto("/");
   await expect(side.getByRole("link", { name: "Hub management" })).toHaveCount(0);
@@ -169,13 +169,19 @@ test("slicer presets without hub.manage: an editor's switches, a viewer's list, 
   await expect(page.getByText("Farm PLA")).toBeVisible();
   await expect(page.getByRole("button", { name: "Delete Farm PLA" })).toBeVisible();
   await expect(page.getByRole("link", { name: /back/i })).toHaveCount(0);
-  const install = page.getByRole("switch", { name: "Install hub presets on Desk PC" });
+  // The switches are per slicer, in Sources (ADR-0020).
+  await expect(page.getByRole("switch")).toHaveCount(0);
+  await page
+    .getByRole("navigation", { name: "Catalog sections" })
+    .getByRole("link", { name: "Sources" })
+    .click();
+  const install = page.getByRole("switch", { name: "Install presets in OrcaSlicer on Desk PC" });
   await expect(install).not.toBeChecked();
   expect((await device("GET", "/presets", undefined)).status).toBe(403);
   await install.click({ force: true });
   await expect(install).toBeChecked();
 
-  // What the connector reports shows under the device.
+  // What the connector reports shows in the device's row.
   expect(
     (
       await device("PUT", "/presets/install", [
@@ -192,30 +198,37 @@ test("slicer presets without hub.manage: an editor's switches, a viewer's list, 
     ).status,
   ).toBe(204);
   await page.reload();
-  await expect(
-    page.getByText("Writes to C:/Users/me/AppData/Roaming/OrcaSlicer/user/abc"),
-  ).toBeVisible();
-  await expect(page.getByText("1 preset waits for this slicer to close:")).toBeVisible();
-  await expect(page.getByRole("list", { name: "Presets waiting for OrcaSlicer" })).toContainText(
+  const row = page.getByRole("row", { name: /Desk PC/ });
+  await expect(row.getByText("1 preset waits for this slicer to close:")).toBeVisible();
+  await expect(row.getByRole("list", { name: "Presets waiting for OrcaSlicer" })).toContainText(
     "Farm PLA",
   );
-  await expect(page.getByText("No backup yet.")).toBeVisible();
-  await expect(page.getByText("An edit from the hub stays on this PC")).toBeVisible();
+  await expect(row.getByText("An edit from the hub stays on this PC")).toBeVisible();
+  await row.getByText("Folder and backup").click();
+  await expect(
+    row.getByText("Writes to C:/Users/me/AppData/Roaming/OrcaSlicer/user/abc"),
+  ).toBeVisible();
+  await expect(row.getByText("No backup yet.")).toBeVisible();
 
-  // Viewer: sees the presets, without the switches or delete.
+  // Viewer: sees the presets and Sources, without the switches or delete.
   await signInAs("vic@example.com");
   await page.goto("/");
   await openPresets();
   await expect(page.getByText("Farm PLA")).toBeVisible();
-  await expect(page.getByRole("switch")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Delete Farm PLA" })).toHaveCount(0);
-  expect((await page.request.patch("/api/presets/devices/x", { data: {} })).status()).toBe(403);
+  await page.goto("/catalog/sources");
+  await expect(page.getByRole("heading", { name: "OrcaSlicer" })).toBeVisible();
+  await expect(page.getByRole("switch")).toHaveCount(0);
+  const patch = { data: { library: "orca-slicer", send: true } };
+  expect((await page.request.patch("/api/presets/devices/x", patch)).status()).toBe(403);
 
-  // The device's page shows the same to an admin.
+  // The device's page shows it read-only to an admin, with a link to the switches.
   await signInAs("ana@example.com");
   const [{ id }] = await (await page.request.get("/api/presets/devices")).json();
   await page.goto(`/hub/devices/${id}`);
-  await expect(page.getByText("1 preset waits for this slicer to close:")).toBeVisible();
+  await expect(page.getByText("Installs the hub's presets")).toBeVisible();
+  await page.getByRole("link", { name: "Change in Catalog → Sources" }).click();
+  await expect(page).toHaveURL(/\/catalog\/sources#devices-orca-slicer$/);
 
   // Hub off: hidden for all.
   await page.request.patch("/api/preferences", { data: { hubEnabled: false } });
@@ -259,7 +272,8 @@ test("share my presets: the switch, a device's preset, a conflict copy, a deskto
 
   await page.goto("/catalog/presets");
   await expect(page.getByText("No slicer presets yet")).toBeVisible();
-  const toggle = page.getByRole("switch", { name: "Share my presets on Desk PC" });
+  await page.goto("/catalog/sources");
+  const toggle = page.getByRole("switch", { name: "Send Bambu Studio presets from Desk PC" });
   await expect(toggle).not.toBeChecked();
   const preset = (cost: string) =>
     device("PUT", "/presets", {
@@ -276,6 +290,8 @@ test("share my presets: the switch, a device's preset, a conflict copy, a deskto
   // New, then the next version from base 1, then a stale edit, still from base 1.
   for (const cost of ["20", "21", "22"]) expect((await preset(cost)).status).toBe(200);
   await page.reload();
+  await expect(page.getByRole("row", { name: /Desk PC/ })).toContainText("Last sent");
+  await page.goto("/catalog/presets");
   const row = page.getByRole("listitem").filter({ hasText: /^Farm PLA(?! \()/ });
   await expect(row).toContainText("Version 2, saved");
   await expect(row).toContainText("by Ana Admin on Desk PC");

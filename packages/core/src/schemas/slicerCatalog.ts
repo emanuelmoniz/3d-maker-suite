@@ -93,7 +93,32 @@ export const slicerZipSourceSchema = z.object({
 });
 export const slicerZipUploadSchema = z.object({ uploadId: z.uuid() });
 
+/** A library's catalog source (ADR-0020): an install row on the server, or a device. */
+export const catalogSourcePickSchema = z.union([
+  z.strictObject({ integrationId: z.uuid() }),
+  z.strictObject({ deviceId: z.uuid() }),
+]);
+/** One slicer library of Catalog → Sources (`GET /api/catalog/sources`). */
+export const librarySourcesSchema = z.object({
+  library: z.string(),
+  /** Its install rows and accounts, with how many presets each brings (`preset_routes`). */
+  routes: z.array(z.object({ integrationId: z.uuid(), presets: z.number().int().nonnegative() })),
+  /** Where its system catalog comes from; `picked` false = the default. Null = nothing can. */
+  source: z.intersection(catalogSourcePickSchema, z.object({ picked: z.boolean() })).nullable(),
+  /** What can be picked: a server folder or managed slicer (`readable`: its folder is there), a device. */
+  options: z.array(
+    z.union([
+      z.object({ integrationId: z.uuid(), readable: z.boolean() }),
+      z.object({ deviceId: z.uuid(), name: z.string() }),
+    ]),
+  ),
+  /** The row whose Catalog and System presets cards the source fills; null = none yet. */
+  cardsOf: z.uuid().nullable(),
+});
+
 export type SlicerZipSource = z.infer<typeof slicerZipSourceSchema>;
+export type CatalogSourcePick = z.infer<typeof catalogSourcePickSchema>;
+export type LibrarySources = z.infer<typeof librarySourcesSchema>;
 export type CatalogModel = z.infer<typeof catalogModelSchema>;
 export type CatalogMachine = z.infer<typeof catalogMachineSchema>;
 export type CatalogProcess = z.infer<typeof catalogProcessSchema>;

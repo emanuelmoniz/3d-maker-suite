@@ -7,6 +7,7 @@ import { openDb, schema } from "@3d-maker-suite/db";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeAll, describe, expect, it, onTestFinished, vi } from "vitest";
 import { buildApp } from "./app.ts";
+import { adapters } from "./integrations/registry.ts";
 import { hashPassword } from "./lib/password.ts";
 import { VERSION } from "./updates/updates.ts";
 
@@ -344,8 +345,8 @@ describe("hub events", () => {
   });
 
   // A listening hub with one viewer device; `open` holds GET /api/hub/events like the connector.
-  const live = async () => {
-    const s = await setup();
+  const live = async (opts: Parameters<typeof buildApp>[3] = {}) => {
+    const s = await setup(opts);
     close = () => s.app.close();
     await s.send("PATCH", "/api/preferences", { hubEnabled: true });
     const { code } = (
@@ -647,6 +648,44 @@ describe("hub events", () => {
     const res = await listing;
     expect(res.statusCode).toBe(409);
     expect(res.json().error.code).toBe("device_outdated");
+    await s.cancel();
+  });
+
+  it("Send presets and Install per slicer: offline on the next connect, online asked (ADR-0020)", async () => {
+    const { app, send, open, token, deviceId, db } = await live({
+      adapters: adapters({ mock: false }),
+    });
+    const url = `/api/presets/devices/${deviceId}`;
+    expect((await send("PATCH", url, { library: "nope", send: true })).statusCode).toBe(404);
+    // Offline: stored, and told when it connects.
+    expect((await send("PATCH", url, { library: "bambu-studio", send: true })).statusCode).toBe(
+      204,
+    );
+    const s = await open();
+    await s.until(": open");
+    expect(JSON.parse(s.res.headers.get("x-preset-libraries") ?? "")).toEqual({
+      "bambu-studio": { send: true, install: false },
+    });
+    // What a connector before per-slicer switches reads.
+    expect(s.res.headers.get("x-share-presets")).toBe("1");
+    expect(s.res.headers.get("x-install-presets")).toBe("0");
+
+    // Online: asked first; one that doesn't know the request keeps its values.
+    const patch = send("PATCH", url, { library: "orca-slicer", install: true });
+    const text = (await s.until((t) => t.includes('"presets.set"'))) ?? "";
+    const requestId = /"requestId":"([^"]+)"/.exec(text)?.[1];
+    await app.inject({
+      method: "POST",
+      url: `/api/hub/device/replies/${requestId}`,
+      payload: { ok: false, code: "ENOTSUP" },
+      headers: { authorization: `Bearer ${token}` },
+    });
+    const res = await patch;
+    expect(res.statusCode).toBe(409);
+    expect(res.json().error.code).toBe("device_outdated");
+    expect(db.select().from(schema.devices).get()?.presetLibraries).toEqual({
+      "bambu-studio": { send: true, install: false },
+    });
     await s.cancel();
   });
 

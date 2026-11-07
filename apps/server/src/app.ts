@@ -50,6 +50,7 @@ import {
   printerModelsRoutes,
   printProfilesRoutes,
 } from "./routes/catalog.ts";
+import { catalogSourcesRoutes } from "./routes/catalogSources.ts";
 import { clientsRoutes } from "./routes/clients.ts";
 import { costsRoutes } from "./routes/costs.ts";
 import { filamentRoutes } from "./routes/filament.ts";
@@ -316,7 +317,10 @@ export async function buildApp(
   await app.register(slicerZipRoutes(db, syncer, dataDir, presetSaved), {
     prefix: "/api/slicer-zip",
   });
-  await app.register(presetsRoutes(db, dataDir, hub), { prefix: "/api/presets" });
+  await app.register(presetsRoutes(db, dataDir, hub, syncer.adapters), { prefix: "/api/presets" });
+  await app.register(catalogSourcesRoutes(db, syncer.adapters), {
+    prefix: "/api/catalog/sources",
+  });
   // The library folder is a cache of its table (ADR-0017).
   app.addHook("onReady", async () => {
     rebuildLibraries(db, dataDir);

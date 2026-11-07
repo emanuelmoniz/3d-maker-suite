@@ -1,4 +1,6 @@
 import type {
+  CatalogSourcePick,
+  LibrarySources,
   PresetDevice,
   PresetDeviceUpdate,
   SlicerPreset,
@@ -25,7 +27,28 @@ export const usePresetDetail = (id: string, enabled: boolean) =>
 export const presetDownloadUrl = (id: string, version?: number) =>
   `/api/presets/${id}/download${version === undefined ? "" : `?version=${version}`}`;
 
-/** Devices with a slicer, their two switches and install status; `enabled`: catalog write. */
+/** Catalog → Sources: each slicer library's routes and catalog source (ADR-0020). */
+export const useCatalogSources = () =>
+  useQuery({
+    queryKey: ["catalog-sources"],
+    queryFn: () => api<LibrarySources[]>("GET", "/api/catalog/sources"),
+  });
+
+/** Picks a library's catalog source; its Catalog and System presets cards turn on. */
+export function usePickCatalogSource() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ library, pick }: { library: string; pick: CatalogSourcePick }) =>
+      api("PUT", `/api/catalog/sources/${encodeURIComponent(library)}`, pick),
+    onSuccess: () =>
+      Promise.all([
+        qc.invalidateQueries({ queryKey: ["catalog-sources"] }),
+        qc.invalidateQueries({ queryKey: ["integrations"] }),
+      ]),
+  });
+}
+
+/** Devices with a slicer, their switches per slicer and install status; `enabled`: catalog write. */
 export const usePresetDevices = (enabled: boolean) =>
   useQuery({
     queryKey: [...KEY, "devices"],

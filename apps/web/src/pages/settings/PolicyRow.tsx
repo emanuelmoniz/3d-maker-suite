@@ -185,8 +185,14 @@ function rangeFor(
 
 /**
  * The data types an integration imports, in groups, one row each: `connection` on its card (a
- * cloud's printers, prints and spools), `catalog` on Catalog → Sources (ADR-0020).
+ * cloud's printers, prints and spools); on Catalog → Sources (ADR-0020), `catalog` (the catalog
+ * source's Catalog and System presets) and `userPresets` (each route's).
  */
+const PARTS: Record<"connection" | "catalog" | "userPresets", (keyof typeof GROUPS)[]> = {
+  connection: ["devices"],
+  catalog: ["catalog", "systemPresets"],
+  userPresets: ["userPresets"],
+};
 export function Policies({
   integration: i,
   sync,
@@ -194,7 +200,7 @@ export function Policies({
 }: {
   integration: Integration;
   sync: Sync;
-  part: "connection" | "catalog";
+  part: keyof typeof PARTS;
 }) {
   const { t } = useTranslation();
   const patch = usePatchIntegration(i.id);
@@ -206,7 +212,8 @@ export function Policies({
   return (
     // The rows follow the card's width, not the screen's.
     <div className="@container grid gap-4">
-      <p className="text-muted">{t("integrations:policies.hint")}</p>
+      {/* Once per library on Sources: above its catalog cards. */}
+      {part !== "userPresets" && <p className="text-muted">{t("integrations:policies.hint")}</p>}
       {patch.isError && (
         <p role="alert" className="text-bad">
           {t("integrations:card.actionError")}
@@ -215,8 +222,7 @@ export function Policies({
       {part === "catalog" && admin && i.capabilities.includes("brands") && (
         <ChooseBrands integration={i} />
       )}
-      {(Object.keys(GROUPS) as (keyof typeof GROUPS)[]).map((g) => {
-        if ((g === "devices") !== (part === "connection")) return null;
+      {PARTS[part].map((g) => {
         const rows = i.policies.filter(
           (p) => !isAction(p.type) && may(i.id, p.type, "any") && groupOf(p.type) === g,
         );

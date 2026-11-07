@@ -18,7 +18,7 @@ import yazl from "yazl";
 import { z } from "zod";
 import { configDirOf, type PresetState, readFolder } from "./presets.ts";
 import type { Request } from "./roots.ts";
-import type { Store } from "./state.ts";
+import { presetsOn, type Store } from "./state.ts";
 
 /** The queue is looked at this often: a closed slicer or a hub change needs nothing sooner. */
 const POLL_MS = 30_000;
@@ -403,7 +403,8 @@ export function createPresetInstall({
       const deleted = live && (await list("/presets/deleted"));
       if (!live || !deleted) return;
       const status: PresetInstallSlicer[] = [];
-      for (const slicer of slicers()) {
+      // Only the slicers Install is on for (ADR-0020); the hub lists only their libraries.
+      for (const slicer of slicers().filter((s) => presetsOn(store.get(), "install", s.library))) {
         if (!on) return;
         const one = await flush(slicer, live, deleted);
         if (one) status.push(one);
@@ -427,12 +428,12 @@ export function createPresetInstall({
 
   return {
     stop,
-    /** A pass now, if the switch is on (tests). */
+    /** A pass now, if a switch is on (tests). */
     pass: () => (on ? pass() : Promise.resolve()),
-    /** Connected, or a switch changed: looks now and keeps looking, if the switch is on. */
+    /** Connected, or a switch changed: looks now and keeps looking, if one is on. */
     start() {
       stop();
-      if (!store.get().installPresets) return Promise.resolve();
+      if (!presetsOn(store.get(), "install")) return Promise.resolve();
       on = true;
       lastReport = "";
       skipped.clear();

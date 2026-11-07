@@ -229,11 +229,15 @@ test("hub screenshots", async ({ page, app }) => {
     .then((r) => r.json() as Promise<{ code: string }>);
   // The hub's own version: an older one shows "update the connector" on the presets page.
   const connectorVersion: string = JSON.parse(readFileSync("package.json", "utf8")).version;
-  const { token } = await fetch(`${app.url}/api/hub/pair`, {
+  const { token, deviceId } = await fetch(`${app.url}/api/hub/pair`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ code, name: "Desk PC", os: "win32", connectorVersion }),
-  }).then((r) => r.json() as Promise<{ token: string }>);
+  }).then((r) => r.json() as Promise<{ token: string; deviceId: string }>);
+  // Send presets for its slicer while it's offline: online, the hub would ask this stand-in first.
+  await page.request.patch(`/api/presets/devices/${deviceId}`, {
+    data: { library: "bambu-studio", send: true },
+  });
   // Online = its event stream is open, as a running connector holds it (the stream stays open).
   const events = await fetch(`${app.url}/api/hub/events`, {
     headers: {
@@ -297,7 +301,6 @@ test("hub screenshots", async ({ page, app }) => {
     { id: "bambu-studio", version: "1", path: "C:/Studio/bambu-studio.exe", default: true },
   ]);
   await page.goto("/catalog/presets");
-  await page.getByRole("switch", { name: "Share my presets on Desk PC" }).click({ force: true });
   for (const [name, cost] of [
     ["Farm PLA", "20"],
     ["Eco PETG", "24"],

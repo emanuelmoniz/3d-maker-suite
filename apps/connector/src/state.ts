@@ -99,11 +99,18 @@ type State = {
   folders?: string[];
   /** An admin made this device a slice worker (`device.worker`): it runs the hub's slices. */
   sliceWorker?: boolean;
-  /** Share my presets is on (`device.presets`): its slicers' user presets go to the hub. */
-  sharePresets?: boolean;
-  /** Install hub presets is on (`device.presets`): the hub's presets go to its slicers. */
-  installPresets?: boolean;
+  /**
+   * Per slicer library (`presets.set`, `X-Preset-Libraries`): Send presets (its user presets go to
+   * the hub) and Install (the hub's presets go to that slicer).
+   */
+  presetLibraries?: Record<string, { send: boolean; install: boolean }>;
 };
+
+/** A switch is on for `library`, or for any library. */
+export const presetsOn = (s: State, key: "send" | "install", library?: string) =>
+  library
+    ? !!s.presetLibraries?.[library]?.[key]
+    : Object.values(s.presetLibraries ?? {}).some((l) => l[key]);
 type Saved = State & { token?: Blob };
 
 /**

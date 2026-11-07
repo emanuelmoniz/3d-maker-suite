@@ -236,6 +236,7 @@ export function bambuCloudAdapter(colorDirs = studioDefaultDirs): IntegrationAda
     id: "bambu-cloud",
     kind: "cloud",
     capabilities: ["printers", "prints", "spools", ...USER_PRESET_TYPES],
+    presetsLibrary: "bambu-studio",
     configSchema,
     secretsSchema,
 

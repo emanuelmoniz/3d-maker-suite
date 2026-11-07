@@ -64,6 +64,7 @@ import {
   slicerFileType,
   switchedOn,
 } from "./capabilities.ts";
+import { catalogSource } from "./catalogSource.ts";
 import { deleteCloudCopy, fetchCloudPresets, placeCloudPresets } from "./cloudPresets.ts";
 import { libraryOf } from "./imports.ts";
 import { linkLibraries } from "./managedSlicer.ts";
@@ -532,7 +533,6 @@ export function createSyncer(
    * review.
    */
   async function checkCatalogs() {
-    const libraries = new Set<string>();
     const rows = db.select().from(integrations).orderBy(asc(integrations.createdAt)).all();
     for (const row of rows) {
       const adapter = adapters.find((a) => a.id === row.adapterId);
@@ -541,9 +541,10 @@ export function createSyncer(
       const types = activeCapabilities(db, row, adapter).filter((t): t is LibraryType =>
         slicerCatalogType(adapter, t),
       );
-      // A library's catalog belongs to its oldest row with a readable folder.
-      if (!lib || !dir || !types.length || libraries.has(lib.id)) continue;
-      libraries.add(lib.id);
+      if (!lib || !dir || !types.length) continue;
+      // A library's catalog comes from its source (ADR-0020); a device's copy is Step 22's.
+      const source = catalogSource(db, adapters, lib.id);
+      if (!source || !("integrationId" in source) || source.integrationId !== row.id) continue;
       if (running.has(row.id)) continue;
       try {
         const now = await lib.catalogFingerprint?.(dir);
