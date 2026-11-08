@@ -2313,7 +2313,7 @@ Do Step 22 of the 5.4.0 plan in PLAN.md.
 Do Step 23 of the 5.4.0 plan in PLAN.md. Guide me through each scenario and fix what we find. Then push dev, push the tag and confirm the pre-release.
 ```
 
-### [ ] Step 24 - Docs, push & v5.4.0 release
+### [x] Step 24 - Docs, push & v5.4.0 release
 **Model:** Haiku · **Effort:** Low
 **Scope:**
 - `docs/slicing.md`, `docs/hub.md`, `docs/import.md`, `docs/users.md`, README, CHANGELOG, version `5.4.0`, `pnpm version:check`.
