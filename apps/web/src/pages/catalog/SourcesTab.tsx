@@ -101,6 +101,17 @@ function CatalogSource({ lib, rows }: { lib: LibrarySources; rows: Integration[]
             : t("hub:errors.generic")}
         </p>
       )}
+      {lib.noDevices && (
+        <p className="max-w-prose text-muted">
+          {lib.noDevices.reason === "ownSlicer"
+            ? t("catalog:sources.source.ownSlicer", {
+                name: locationLabel(
+                  byId(lib.noDevices.integrationId) ?? { kind: "local", deviceName: null },
+                ),
+              })
+            : t("catalog:sources.source.noWorker")}
+        </p>
+      )}
       {lib.source && "deviceId" in lib.source && (
         <p className="max-w-prose text-muted">{t("catalog:sources.source.fromDevice")}</p>
       )}

@@ -18,8 +18,8 @@ const MARK = ".from-device";
  * A device as a library's catalog source (ADR-0020): its connector sends `system/` when the
  * fingerprint changed, and the hub keeps it where a zip's goes (`keepPresets`): the worker row's
  * `config`, which `catalogDir` reads on a hub. So the catalog check, the review, user presets'
- * parents and All settings read it as they read any folder. ponytail: only a worker row's cards
- * take it; a device picked over a server slicer or a local folder sends nothing.
+ * parents and All settings read it as they read any folder. A device is a source only on a hub
+ * with a worker row and no slicer of its own (`devicesBlocked` in catalogSource.ts).
  */
 export function createDeviceCatalog(
   db: Db,

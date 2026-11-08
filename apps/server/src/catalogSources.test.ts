@@ -9,6 +9,7 @@ import {
 } from "@3d-maker-suite/core";
 import { openDb, schema } from "@3d-maker-suite/db";
 import { loadKey } from "@3d-maker-suite/host";
+import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import { librarySources, pickCatalogSource } from "./integrations/catalogSource.ts";
 import { createSyncer } from "./integrations/sync.ts";
@@ -41,7 +42,14 @@ beforeEach(() => {
   } as IntegrationAdapter;
   // The same slicer as a connector finds it on a workstation.
   const desk = { ...slicer, id: "slicer-desk", desktop: {} } as IntegrationAdapter;
-  adapters = [slicer, desk];
+  // On a slice worker: no folder on the hub.
+  const worker = {
+    ...slicer,
+    id: "slicer-worker",
+    kind: "worker",
+    library: { ...library, defaultDirs: () => [] },
+  } as IntegrationAdapter;
+  adapters = [slicer, desk, worker];
   db = openDb(":memory:");
   const row = (min: number) =>
     db
@@ -108,6 +116,7 @@ describe("catalog source (ADR-0020)", () => {
           { integrationId: second, readable: true },
         ],
         cardsOf: first,
+        noDevices: null,
       },
     ]);
     await check().checkCatalogs();
@@ -124,9 +133,19 @@ describe("catalog source (ADR-0020)", () => {
     expect(sources()).toEqual([]);
   });
 
-  it("switches between two devices; a device source reads no folder", async () => {
+  it("the hub's own slicer keeps devices out; with only workers, it switches between two devices", async () => {
     const [ws1, ws2] = twoDevices();
-    expect(sources()[0]?.options.slice(2)).toEqual([
+    // It slices with its own catalog: no device is offered.
+    expect(sources()[0]).toMatchObject({
+      options: [{ integrationId: first }, { integrationId: second }],
+      noDevices: { reason: "ownSlicer", integrationId: first },
+    });
+    await expect(pickCatalogSource(db, adapters, "fake", { deviceId: ws1 })).rejects.toMatchObject({
+      code: "not_a_source",
+    });
+
+    db.update(integrations).set({ adapterId: "slicer-worker" }).run();
+    expect(sources()[0]?.options).toEqual([
       { deviceId: ws1, name: "WS-1" },
       { deviceId: ws2, name: "WS-2" },
     ]);
@@ -137,17 +156,29 @@ describe("catalog source (ADR-0020)", () => {
     await check().checkCatalogs();
     expect(fingerprints()).toEqual({ [first]: null, [second]: null });
 
-    // It stops reporting the slicer: the default again.
-    db.update(devices).set({ slicers: [] }).run();
-    expect(sources()[0]?.source).toEqual({ integrationId: first, picked: false });
+    // A slicer on the hub (here a folder on this computer) takes over from the pick.
+    db.update(integrations).set({ adapterId: "slicer" }).where(eq(integrations.id, second)).run();
+    expect(sources()[0]).toMatchObject({
+      source: { integrationId: second, picked: false },
+      noDevices: { reason: "ownSlicer", integrationId: second },
+    });
   });
 
-  it("with no install row able to, the first device that reports it", () => {
+  it("with no install row able to, the first device, once a worker holds its cards", () => {
     const [ws1] = twoDevices();
     db.update(integrations)
       .set({ slicerConfigDir: join(dataDir, "gone") })
       .run();
-    expect(sources()[0]?.source).toEqual({ deviceId: ws1, picked: false });
+    expect(sources()[0]).toMatchObject({ source: null, noDevices: { reason: "noWorker" } });
+    db.update(integrations)
+      .set({ adapterId: "slicer-worker", slicerConfigDir: null })
+      .where(eq(integrations.id, second))
+      .run();
+    expect(sources()[0]).toMatchObject({
+      source: { deviceId: ws1, picked: false },
+      cardsOf: second,
+      noDevices: null,
+    });
   });
 
   it("picking turns the Catalog and System presets cards on, and refuses what can't be one", async () => {

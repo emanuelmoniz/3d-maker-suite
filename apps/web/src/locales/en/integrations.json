@@ -405,6 +405,7 @@
     "noneForSystem": "No release has a build for this server's system.",
     "releasesError": "Couldn't read the releases from GitHub. Check the server's internet connection and try again later.",
     "licence": "{{name}} is AGPL-3.0 software. 3D Maker Suite downloads the vendor's own release and doesn't change it.",
+    "takesCatalog": "Once installed, {{name}} on this server becomes the catalog source instead of {{device}}: the catalog then matches the version the hub slices with.",
     "licenceLink": "Licence",
     "source": "Source code of {{version}}",
     "noProfiles": "This slicer has no folder of yours to read. To use your brands, printers and profiles here, import them from a desktop install of {{name}}:",

@@ -64,8 +64,24 @@ const feeds = (db: Db, { row, adapter }: Install) =>
   activeCapabilities(db, row, adapter).some((t) => slicerCatalogType(adapter, t));
 
 /**
- * The library's catalog source: the pick while its row is enabled or its device reports the
- * slicer; else the oldest row with a readable folder; else the first device that reports it.
+ * Why no device can be the library's catalog source, if none can: the hub has a slicer of its own
+ * (a server slicer or a folder on this computer), whose catalog is the one it slices with; or no
+ * worker row holds the cards and the device's copy (deviceCatalog.ts).
+ */
+function devicesBlocked(rows: Install[]): LibrarySources["noDevices"] {
+  const own = rows.find((r) => r.adapter.kind !== "worker" && !!slicerConfigDir(r.row, r.adapter));
+  if (own) return { reason: "ownSlicer", integrationId: own.row.id };
+  return rows.some((r) => r.adapter.kind === "worker") ? null : { reason: "noWorker" };
+}
+
+/** The devices that can be the library's source: those that report it, unless none can. */
+const sourceDevices = (db: Db, adapters: IntegrationAdapter[], lib: string, rows: Install[]) =>
+  devicesBlocked(rows) ? [] : reporting(db, adapters, lib);
+
+/**
+ * The library's catalog source: the pick while its row is enabled or its device can be one; else
+ * the oldest row with a readable folder; else the first device that can. A server slicer installed
+ * while a device is picked so takes over (the install dialog says so).
  */
 export function catalogSource(
   db: Db,
@@ -78,22 +94,27 @@ export function catalogSource(
     pick &&
     ("integrationId" in pick
       ? rows.some((r) => r.row.id === pick.integrationId)
-      : reporting(db, adapters, lib).some((d) => d.id === pick.deviceId))
+      : sourceDevices(db, adapters, lib, rows).some((d) => d.id === pick.deviceId))
   )
     return { ...pick, picked: true };
   const row = rows.find((r) => feeds(db, r));
   if (row) return { integrationId: row.row.id, picked: false };
-  const device = reporting(db, adapters, lib)[0];
+  const device = sourceDevices(db, adapters, lib, rows)[0];
   return device ? { deviceId: device.id, picked: false } : null;
 }
 
-/** The row whose Catalog and System presets cards the source fills: a device's own worker row. */
+/**
+ * The row whose Catalog and System presets cards the source fills: for a device, its own worker
+ * row, else another worker's (one always is: `devicesBlocked`).
+ */
 function cardsOf(rows: Install[], source: CatalogSource | null) {
-  if (source && "integrationId" in source) return source.integrationId;
+  if (!source) return rows[0]?.row.id ?? null;
+  if ("integrationId" in source) return source.integrationId;
   const worker =
-    source &&
-    rows.find((r) => workerConfigSchema.safeParse(r.row.config).data?.deviceId === source.deviceId);
-  return (worker ?? rows[0])?.row.id ?? null;
+    rows.find(
+      (r) => workerConfigSchema.safeParse(r.row.config).data?.deviceId === source.deviceId,
+    ) ?? rows.find((r) => r.adapter.kind === "worker");
+  return worker?.row.id ?? null;
 }
 
 /** The install row whose cards a library's catalog source fills, with its adapter. */
@@ -146,9 +167,13 @@ export function librarySources(db: Db, adapters: IntegrationAdapter[]): LibraryS
           .map((r) => ({ id: r.row.id, kind: r.adapter.kind, readable: feeds(db, r) }))
           .filter((r) => r.kind !== "worker" || r.readable)
           .map(({ id, readable }) => ({ integrationId: id, readable })),
-        ...reporting(db, adapters, library).map((d) => ({ deviceId: d.id, name: d.name })),
+        ...sourceDevices(db, adapters, library, rows).map((d) => ({
+          deviceId: d.id,
+          name: d.name,
+        })),
       ],
       cardsOf: cardsOf(rows, source),
+      noDevices: reporting(db, adapters, library).length ? devicesBlocked(rows) : null,
     };
   });
 }

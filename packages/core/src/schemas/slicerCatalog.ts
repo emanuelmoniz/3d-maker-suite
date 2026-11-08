@@ -114,6 +114,16 @@ export const librarySourcesSchema = z.object({
   ),
   /** The row whose Catalog and System presets cards the source fills; null = none yet. */
   cardsOf: z.uuid().nullable(),
+  /**
+   * Why the devices that report the slicer can't be its source: the hub's own slicer reads it
+   * (`integrationId`), or no worker holds its cards. Null = they can, or none reports it.
+   */
+  noDevices: z
+    .discriminatedUnion("reason", [
+      z.object({ reason: z.literal("ownSlicer"), integrationId: z.uuid() }),
+      z.object({ reason: z.literal("noWorker") }),
+    ])
+    .nullable(),
 });
 
 export type SlicerZipSource = z.infer<typeof slicerZipSourceSchema>;

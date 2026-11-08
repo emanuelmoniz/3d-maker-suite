@@ -20,7 +20,9 @@
       "is": "The catalog is read from {{name}}.",
       "isDefault": "The catalog is read from {{name}}, picked for you.",
       "fromDevice": "The device's connector sends this slicer's system presets whenever a slicer update changes them. Until it has, the catalog stays as it is.",
-      "outdated": "The connector on that device is too old to send the catalog. Update it to the hub's version, then pick it again."
+      "outdated": "The connector on that device is too old to send the catalog. Update it to the hub's version, then pick it again.",
+      "ownSlicer": "Devices aren't offered: {{name}} reads this slicer's catalog here, and it's the catalog the hub slices with.",
+      "noWorker": "To read the catalog from a device, add it as a slice worker for this slicer first."
     },
     "routes": {
       "title": "Where your presets come from",
