@@ -2,6 +2,39 @@
 
 All notable changes are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [5.4.0] - 2026-11-08
+
+Lists everything since 5.3.0. Back up before updating. Migrations 0103 to 0109 convert roles and overrides to the `catalog` permission, rebuild spools so they no longer point at a profile (filament profiles lose their price), archive hand-made filament profiles, add the printer's and the plate's machine profile, carry each device's two preset switches over to every slicer it reports, and add the preset owner and hold columns, `goneInUse` on sync policies, the `preset_routes` table and `catalogFingerprint` on integrations.
+
+### Added
+- **One Catalog module**: profiles come only from files; import and export live in Catalog, and a profile's page shows **All settings**. A **Presets** tab lists the hub's user presets, and a profile imported from one links to its entry and back ([docs/import.md](docs/import.md))
+- **Machine profile per printer and per plate**: a printer keeps its machine profile and a preset keeps its default and compatible printers. A plate's setup reads top to bottom like the slicer (slicer, printer, machine profile, print profile, filaments); any pick, a nozzle swap included, slices with that system machine preset. **Defaults for all plates** apply a setup to every picked plate at once ([docs/slicing.md](docs/slicing.md))
+- **A slot's spool and preset are separate picks**. The preset defaults to "As saved in the file" and lists the slicer's presets, with the spool's matching presets first. A spool on a slot gives a quiet **Use / Keep** suggestion when its brand has a preset of the same material; slicing is never blocked ([docs/slicing.md](docs/slicing.md))
+- **Add a slicer by where it runs**: on this computer, downloaded to this server, or on a connected workstation. Integrations shows one card per slicer with a row per location
+- **Catalog → Sources**: one section per slicer with its catalog source, every route into the library and the zip upload. With the hub on a device, a table with **Send presets** and **Install** per device and slicer ([docs/hub.md](docs/hub.md#slicer-presets))
+- **A source device sends its slicer's system presets to the hub**, so a worker-only hub needs no hand-made zip ([docs/hub.md](docs/hub.md#catalog-source))
+- **Bambu Cloud user presets**: optional **User presets** cards on the Bambu Cloud card (machine, print and filament), read-only. One preset has one owner whichever way it arrives ([docs/bambu-cloud.md](docs/bambu-cloud.md))
+- **A preset removed in a slicer asks before its row goes**: a **Sync needs review** alert lists it under **Gone from the slicer**, with **Delete** when nothing uses it, or says what still uses it. Deletes reach other machines; a mass delete, or one on a shared account, is held for a person on the Presets page, which also has Restore ([docs/import.md](docs/import.md#from-an-integration), [docs/hub.md](docs/hub.md#deleting))
+- **Spool name and material default price**: a spool has its own brand (optional), material (required) and name, and each material has a default price per kg. A spool's preset suggestion also works for a preset named after the spool ("Bambu PLA Pure" for a "PLA Matte" spool) ([docs/import.md](docs/import.md))
+- **Bambu Studio and OrcaSlicer catalogs**: one Catalog row on a slicer's card with **Choose brands**, which imports only the brands you pick. OrcaSlicer's system presets are read from its `.opc` files, so Orca gets brands, models and profiles like Bambu Studio ([docs/import.md](docs/import.md#from-an-integration))
+- **Presets reach the catalog on their own**: a preset you save in a slicer, or on a hub, is in the catalog within a minute, keeping the values you typed. Slicer cards run when the slicer's files change, Automatic or Manual
+- **Brand and Slicer columns** in the catalog tables on the Printers and Filament pages, with filters
+
+### Changed
+- **`catalog` permission**: a module with none, read, write and manage levels replaces `presets.manage`. Built-in roles keep today's rights; a custom role and a user's overrides convert to the closest level ([docs/users.md](docs/users.md))
+- Choose brands needs catalog manage as well as integrations manage, and the zip upload moved to Sources
+- **Spools describe the filament, not a profile**: the spools API no longer takes `profileId`; it takes `brandId`, `materialId` and `name`. Migration 0104 fills each spool from its old profile
+- **Costs and stats price a spool** by its price paid, else its material's default. Filament with no spool is priced by the material it reports. A quote's material prices are your spools' average, else the material default
+- **Filament profiles have no price** and lose their unused cloud columns; Bambu Cloud fills a spool's fields and no longer needs a matching profile
+- **Picking a spool on a plate no longer overwrites the slot's preset**, and a kept suggestion stays hidden until the spool or the preset changes
+- A device is a catalog source only on a hub with no slicer of its own; adding a slicer on this computer warns when a device is the source. A source device's copy goes once the source moves away; a zip's copy stays
+
+### Fixed
+- An edit made in Bambu Studio no longer leaves a "(conflict bambu-cloud …)" copy when the account's copy only words the same settings differently
+
+### Not tested on real hardware
+- Two PCs on different accounts and on one account (owner and other-user deletes, the held delete), a synced preset reaching a worker and an Install device, switching the catalog source between two devices, and a plate on a second printer. They are covered by automated tests only.
+
 ## [5.4.0-alpha.4] - 2026-11-08
 
 Pre-release. Test on a copy of your data first; back up before updating. Lists everything since 5.4.0-alpha.3. Migrations 0106 to 0109 archive hand-made filament profiles, add the printer's and the plate's machine profile, and carry each device's two preset switches over to every slicer it reports.
