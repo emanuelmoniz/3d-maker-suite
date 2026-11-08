@@ -29,6 +29,7 @@ const model = (file: string, plates: ProjectModel["plates"]): ProjectModel => ({
   slicer: null,
   printerModel: null,
   printProfile: null,
+  machineProfile: null,
   nozzleDiameter: null,
   sliced: plates.some((p) => p.sliced),
   multicolor: false,
