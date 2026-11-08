@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { bambuStudioAdapter, bambuStudioWorkerAdapter } from "@3d-maker-suite/adapter-bambu";
@@ -8,6 +8,7 @@ import { zipFolder } from "@3d-maker-suite/host";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeAll, expect, it } from "vitest";
 import { buildApp } from "./app.ts";
+import { createDeviceCatalog } from "./integrations/deviceCatalog.ts";
 import { hashPassword } from "./lib/password.ts";
 
 const PW = "password123";
@@ -135,7 +136,7 @@ async function hub() {
 }
 
 it("a worker-only hub gets its catalog from the source device; another device sends nothing", async () => {
-  const { dataDir, send, ws1, ws2, worker, checked } = await hub();
+  const { db, dataDir, send, ws1, ws2, worker, checked } = await hub();
   // No row can read a catalog: the first device that reports the slicer is the source.
   const one = await ws1.connect();
   expect(one.sources).toEqual({ "bambu-studio": null });
@@ -184,5 +185,22 @@ it("a worker-only hub gets its catalog from the source device; another device se
   expect((await ws1.upload("01.02")).json()).toMatchObject({ error: { code: "not_source" } });
   await again.close();
   await two.close();
+
+  // No device reports the slicer any more, so nothing is the source: the copy goes, or parents and
+  // All settings would still read it. A zip's copy (no mark) stays.
+  const tell = () =>
+    createDeviceCatalog(
+      db,
+      [bambuStudioAdapter(), bambuStudioWorkerAdapter()],
+      { online: () => false } as never,
+      dataDir,
+    ).tell();
+  db.update(schema.devices).set({ slicers: [] }).run();
+  await tell();
+  expect(existsSync(copy)).toBe(false);
+  mkdirSync(join(copy, ".."), { recursive: true });
+  writeFileSync(copy, "{}");
+  await tell();
+  expect(existsSync(copy)).toBe(true);
   // A hub with two paired devices takes a few seconds to build.
 }, 20_000);

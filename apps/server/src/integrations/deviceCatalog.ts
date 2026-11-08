@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, renameSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { CatalogSources, IntegrationAdapter } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
@@ -10,7 +10,9 @@ import { deviceLibraries } from "./capabilities.ts";
 import { catalogCards, catalogSource } from "./catalogSource.ts";
 import { openUpload, unpackSlicerZip } from "./slicerZip.ts";
 
-const { devices } = schema;
+const { devices, integrations } = schema;
+/** In a copy's `system/`: it came from a device. No reader looks at it, and no zip can carry it. */
+const MARK = ".from-device";
 
 /**
  * A device as a library's catalog source (ADR-0020): its connector sends `system/` when the
@@ -53,6 +55,20 @@ export function createDeviceCatalog(
     return out;
   }
 
+  /**
+   * A copy whose library's source moved away: it goes, or user presets' parents and All settings
+   * would still read it. A zip's copy has no mark (`keepPresets` replaces the whole folder).
+   */
+  function forgetMoved() {
+    if (!dataDir) return;
+    for (const row of db.select().from(integrations).all()) {
+      const lib = adapters.find((a) => a.id === row.adapterId && a.kind === "worker")?.library;
+      const dir = join(dataDir, "slicers", row.id, "config");
+      if (lib && existsSync(join(dir, "system", MARK)) && target(lib.id)?.dir !== dir)
+        rmSync(join(dir, "system"), { recursive: true, force: true });
+    }
+  }
+
   /** What each online device was last told, so an unchanged map isn't sent again. */
   const told = new Map<string, string>();
   const ask = (deviceId: string, libraries: CatalogSources) =>
@@ -82,6 +98,7 @@ export function createDeviceCatalog(
      * stops being the source stops sending. One too old to know it isn't asked again.
      */
     async tell() {
+      forgetMoved();
       // At once: a device that doesn't answer holds up no other.
       const online = db
         .select({ id: devices.id })
@@ -116,6 +133,7 @@ export function createDeviceCatalog(
         mkdirSync(t.dir, { recursive: true });
         rmSync(join(t.dir, "system"), { recursive: true, force: true });
         renameSync(system, join(t.dir, "system"));
+        writeFileSync(join(t.dir, "system", MARK), deviceId);
       } finally {
         rmSync(join(base, id), { recursive: true, force: true });
       }
