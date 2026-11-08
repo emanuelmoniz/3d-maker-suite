@@ -42,6 +42,12 @@ for (const width of [375, 1440])
     };
     const ws1 = await pair("WS-1", ["bambu-studio", "orca-slicer"]);
     await pair("WS-2", ["bambu-studio"]);
+    // A device is a catalog source only on a library with a worker row and no slicer of its own.
+    const devices = await (await page.request.get("/api/hub/devices")).json();
+    const wsId = (devices.items ?? devices).find((d: { name: string }) => d.name === "WS-1").id;
+    await page.request.post("/api/integrations", {
+      data: { adapterId: "bambu-studio-worker", config: { deviceId: wsId, source: "installed" } },
+    });
 
     await page.goto("/catalog/sources");
     const studio = page.getByRole("region", { name: "Bambu Studio", exact: true });
