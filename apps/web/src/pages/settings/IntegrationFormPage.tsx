@@ -16,6 +16,7 @@ import {
   useIntegrations,
 } from "../../lib/integrations.ts";
 import { usePreferences } from "../../lib/preferences.ts";
+import { useDeviceCatalogSource } from "../../lib/presets.ts";
 import { LOCATION_ICONS } from "./integrationLabels.ts";
 
 // The adapter's zod schemas arrive as JSON Schema; flat string/number/boolean fields are enough
@@ -106,6 +107,8 @@ export function IntegrationCreatePage() {
   const [deviceId, setDeviceId] = useState("");
   const device = online.find((d) => d.id === deviceId) ?? online[0];
   const [source, setSource] = useState<keyof typeof SOURCES>("installed");
+  // A slicer folder found on this computer takes the catalog over from a device (ADR-0020).
+  const fromDevice = useDeviceCatalogSource(location === "local" ? product : null);
 
   const config = adapter && !slicer ? fieldsOf(adapter.config) : [];
   const secrets = adapter && !adapter.login ? fieldsOf(adapter.secrets) : [];
@@ -217,6 +220,14 @@ export function IntegrationCreatePage() {
                 </label>
               );
             })}
+            {fromDevice && (
+              <p role="note" className="text-warn">
+                {t("integrations:form.takesCatalog", {
+                  name: adapterName(product ?? ""),
+                  device: fromDevice,
+                })}
+              </p>
+            )}
           </fieldset>
         )}
 

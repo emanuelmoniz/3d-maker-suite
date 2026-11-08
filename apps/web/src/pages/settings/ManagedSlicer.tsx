@@ -15,7 +15,7 @@ import {
   useSlicerInstall,
   useSlicerReleases,
 } from "../../lib/integrations.ts";
-import { useCatalogSources } from "../../lib/presets.ts";
+import { useDeviceCatalogSource } from "../../lib/presets.ts";
 import { useZipSources } from "../../lib/slicerCatalog.ts";
 import { DEVICE_INSTALL_ERRORS, INSTALL_ERRORS, INSTALL_PHASES } from "./integrationLabels.ts";
 
@@ -181,11 +181,7 @@ function InstallDialog({
   const list = releases.data ?? [];
   const picked = list.find((r) => r.tag === tag) ?? list[0];
   // A slicer on the server reads the catalog it slices with, so it takes over from a device.
-  const lib = useCatalogSources().data?.find((l) => l.library === libraryId);
-  const deviceId = !onDevice && lib?.source && "deviceId" in lib.source && lib.source.deviceId;
-  const fromDevice = deviceId
-    ? lib?.options.find((o) => "deviceId" in o && o.deviceId === deviceId)
-    : undefined;
+  const fromDevice = useDeviceCatalogSource(onDevice ? null : libraryId);
 
   return (
     <FormDialog
@@ -227,9 +223,9 @@ function InstallDialog({
           </p>
         )
       )}
-      {fromDevice && "name" in fromDevice && (
+      {fromDevice && (
         <p role="note" className="text-warn">
-          {t("integrations:managed.takesCatalog", { name: program, device: fromDevice.name })}
+          {t("integrations:managed.takesCatalog", { name: program, device: fromDevice })}
         </p>
       )}
       <label className="flex items-center gap-2">

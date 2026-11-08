@@ -98,6 +98,7 @@
     "taken": "Already added. Find it on the slicer's card.",
     "noHub": "Turn on the hub in Hub management to slice on a workstation.",
     "noDevice": "No workstation is online. Start the connector on it first.",
+    "takesCatalog": "If {{name}}'s folder is found on this computer, it becomes the catalog source instead of {{device}}: the catalog then matches the version the hub slices with.",
     "device": "Workstation",
     "source": {
       "label": "Its slicer",
