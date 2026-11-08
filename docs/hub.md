@@ -138,6 +138,10 @@ Presets get in from a slicer zip ([slicing.md](slicing.md#profiles)) or from a w
 
 So a PC can send its Bambu Studio presets and not its OrcaSlicer ones. A slicer the device no longer reports keeps its row, greyed out, with its values. The device page in Hub management shows one read-only line per slicer, with a link to its row. Updating from 5.4.0-alpha.3 or earlier, each device keeps its two switches for every slicer it reported. A connector older than this asks to be updated when you change a switch while it is online; until then it only gets the slicers whose switch is on.
 
+### Catalog source
+
+A slicer's system presets (its brands and printer models) are read from one place per library. On a hub with no slicer of its own for that library, a workstation's connector can be that place: pick it on **Catalog → Sources**. It sends the slicer's system presets when they differ from the hub's copy, which raises the catalog change alert; any other device gets `not_source`. A connector older than this answers `device_outdated` when you pick it. When the source moves, the old device's copy is removed on the next tick; a zip's copy stays.
+
 ### Conflicts and skipped presets
 
 If a device and the hub both changed a preset, the device's version is kept as a *conflict copy* named like hub file conflicts, and you get a **Preset conflict** alert. Download both, keep what you need, then delete the copy. Conflict copies stay on the hub. A preset that isn't valid JSON is never stored or written, and one whose parent preset the slicer lacks isn't installed there: both raise **Preset skipped**.

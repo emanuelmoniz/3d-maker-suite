@@ -2,6 +2,25 @@
 
 All notable changes are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [5.4.0-alpha.4] - 2026-11-08
+
+Pre-release. Test on a copy of your data first; back up before updating. Lists everything since 5.4.0-alpha.3. Migrations 0106 to 0109 archive hand-made filament profiles, add the printer's and the plate's machine profile, and carry each device's two preset switches over to every slicer it reports.
+
+### Added
+- **One Catalog module**: profiles come only from files; import and export live in Catalog, and a profile's page shows **All settings**. A **Presets** tab lists the hub's user presets, and a profile imported from one links to its entry and back ([docs/import.md](docs/import.md))
+- **Machine profile per printer and per plate**: a printer keeps its machine profile and a preset keeps its default and compatible printers. A plate's setup reads top to bottom like the slicer (slicer, printer, machine profile, print profile, filaments); any pick, a nozzle swap included, slices with that system machine preset. The print profile defaults to the printer's, else the machine profile's. **Defaults for all plates** apply a setup to every picked plate at once ([docs/slicing.md](docs/slicing.md))
+- **Add a slicer by where it runs**: on this computer, downloaded to this server, or on a connected workstation. Integrations shows one card per slicer with a row per location
+- **Catalog → Sources**: one section per slicer with its catalog source, every route into the library, the zip upload, and with the hub on a device table with **Send presets** and **Install** per device and slicer ([docs/hub.md](docs/hub.md#slicer-presets))
+- **A source device sends its slicer's system presets to the hub**, so a worker-only hub needs no hand-made zip. The connector uploads only when the slicer's fingerprint differs from the hub's copy, which raises the catalog change alert. A second device gets `not_source`, and an older connector answers `device_outdated` ([docs/hub.md](docs/hub.md#catalog-source))
+
+### Changed
+- Choose brands needs catalog manage as well as integrations manage, and the zip upload moved to Sources
+- A device is a catalog source only on a hub with no slicer of its own; adding a slicer on this computer warns when a device is the source
+- A source device's copy goes once the source moves away; a zip's copy stays
+
+### Not tested on real hardware
+- Two PCs on different accounts and on one account (owner and other-user deletes, the held delete), a synced preset reaching a worker and an Install device, switching the catalog source between two devices, and a plate on a second printer (only one printer in the test data). They are covered by automated tests only.
+
 ## [5.4.0-alpha.3] - 2026-11-06
 
 Pre-release. Test on a copy of your data first; back up before updating. Lists everything since 5.4.0-alpha.2. Migrations 0103 to 0105 convert roles and overrides to the `catalog` permission, rebuild spools so they no longer point at a profile (filament profiles lose their price), and add the plate's kept-preset column.

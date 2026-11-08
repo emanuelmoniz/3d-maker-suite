@@ -2295,7 +2295,7 @@ Back up the DB before editing schema.ts.
 Do Step 22 of the 5.4.0 plan in PLAN.md.
 ```
 
-### [ ] Step 23 - Real test, docs, push & v5.4.0-alpha.4
+### [x] Step 23 - Real test, docs, push & v5.4.0-alpha.4
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - Upgrade a copy of a real 5.4.0-alpha.2 database: roles keep their rights; spools keep brand, material, name and costs; hand-made profiles are archived; plates slice the same.
