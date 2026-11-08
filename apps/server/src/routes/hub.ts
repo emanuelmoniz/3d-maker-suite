@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import {
   apiErrorSchema,
+  type CatalogSources,
   connectorInfoSchema,
   connectorSettingsPatchSchema,
   connectorSettingsResultSchema,
@@ -63,6 +64,8 @@ export const hubRoutes =
     onRevoke: (deviceId: string) => void = () => {},
     /** Disk used by the kept file versions. */
     versionsUsage: () => HubVersionsUsage = () => ({ files: 0, bytes: 0 }),
+    /** On connect: the libraries the device is the catalog source of (`DeviceCatalog.connected`). */
+    catalogSources: (deviceId: string) => Promise<CatalogSources> = async () => ({}),
   ): FastifyPluginAsyncZod =>
   async (app) => {
     app.addHook("onRequest", async () => {
@@ -293,6 +296,7 @@ export const hubRoutes =
         .innerJoin(users, eq(users.id, devices.userId))
         .where(eq(devices.id, deviceId))
         .get();
+      const sources = await catalogSources(deviceId);
       reply.hijack();
       const res = reply.raw;
       res.writeHead(200, {
@@ -308,6 +312,8 @@ export const hubRoutes =
         "x-preset-libraries": JSON.stringify(presets),
         "x-share-presets": any("send") ? "1" : "0",
         "x-install-presets": any("install") ? "1" : "0",
+        // The libraries it is the catalog source of (ADR-0020), with the hub copy's fingerprint.
+        "x-catalog-sources": JSON.stringify(sources),
         // Once the hub ends a stream (revoke, shutdown) the socket goes too, instead of idling in
         // keep-alive, which held up the server's close.
         connection: "close",

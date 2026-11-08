@@ -39,6 +39,7 @@ import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
 import { presetLibrary } from "../integrations/capabilities.ts";
+import type { DeviceCatalog } from "../integrations/deviceCatalog.ts";
 import {
   presetRemovedOn,
   presetSkipped,
@@ -61,6 +62,8 @@ const errors = {
   409: apiErrorSchema,
   413: apiErrorSchema,
 };
+/** The manual zip's limit; a Bambu `system/` zips to ~7 MB (ADR-0019). */
+const MAX_CATALOG_ZIP = 100 * 1024 ** 2;
 const sha256Header = z.object({ "x-file-sha256": z.string().regex(/^[0-9a-f]{64}$/) });
 
 /** The paired device making the request; the role check is skipped for these routes (lib/auth.ts). */
@@ -84,6 +87,7 @@ export const hubDeviceRoutes =
     sync: HubFiles,
     adapters: IntegrationAdapter[],
     workers: WorkerSlicers,
+    catalog: DeviceCatalog,
     dataDir: string,
     /** A device reported its sync state: the mass delete alert may open or close. */
     onSyncState: () => void = () => {},
@@ -464,6 +468,29 @@ export const hubDeviceRoutes =
           .set({ slicers: req.body })
           .where(eq(devices.id, deviceOf(req)))
           .run();
+        return reply.status(204).send(null);
+      },
+    );
+
+    // The catalog source's `system/`, zipped (ADR-0020), when its fingerprint changed.
+    app.put(
+      "/catalog/:library",
+      {
+        schema: {
+          params: z.object({ library: z.string().max(100) }),
+          response: { 204: z.null(), ...errors },
+        },
+      },
+      async (req, reply) => {
+        const chunks: Buffer[] = [];
+        let size = 0;
+        for await (const chunk of (req.body as Readable | undefined) ?? []) {
+          size += (chunk as Buffer).length;
+          if (size > MAX_CATALOG_ZIP)
+            throw new HttpError(413, "zip_too_large", "The zip is larger than 100 MB");
+          chunks.push(chunk as Buffer);
+        }
+        await catalog.receive(deviceOf(req), req.params.library, Buffer.concat(chunks));
         return reply.status(204).send(null);
       },
     );

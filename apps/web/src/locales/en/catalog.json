@@ -19,7 +19,8 @@
       "default": "Picked for you: the oldest install with a readable folder.",
       "is": "The catalog is read from {{name}}.",
       "isDefault": "The catalog is read from {{name}}, picked for you.",
-      "fromDevice": "A connector sends the catalog once it can. Until then, the catalog stays as it is."
+      "fromDevice": "The device's connector sends this slicer's system presets whenever a slicer update changes them. Until it has, the catalog stays as it is.",
+      "outdated": "The connector on that device is too old to send the catalog. Update it to the hub's version, then pick it again."
     },
     "routes": {
       "title": "Where your presets come from",

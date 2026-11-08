@@ -1,6 +1,7 @@
 import type { Integration, LibrarySources } from "@3d-maker-suite/core";
 import { Link } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
+import { ApiError } from "../../lib/api.ts";
 import { useCan } from "../../lib/auth.ts";
 import {
   useAdapterName,
@@ -95,7 +96,9 @@ function CatalogSource({ lib, rows }: { lib: LibrarySources; rows: Integration[]
       )}
       {pick.isError && (
         <p role="alert" className="text-bad">
-          {t("hub:errors.generic")}
+          {pick.error instanceof ApiError && pick.error.code === "device_outdated"
+            ? t("catalog:sources.source.outdated")
+            : t("hub:errors.generic")}
         </p>
       )}
       {lib.source && "deviceId" in lib.source && (

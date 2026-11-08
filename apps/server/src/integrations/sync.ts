@@ -64,7 +64,7 @@ import {
   slicerFileType,
   switchedOn,
 } from "./capabilities.ts";
-import { catalogSource } from "./catalogSource.ts";
+import { catalogCards, catalogSource } from "./catalogSource.ts";
 import { deleteCloudCopy, fetchCloudPresets, placeCloudPresets } from "./cloudPresets.ts";
 import { libraryOf } from "./imports.ts";
 import { linkLibraries } from "./managedSlicer.ts";
@@ -537,14 +537,19 @@ export function createSyncer(
     for (const row of rows) {
       const adapter = adapters.find((a) => a.id === row.adapterId);
       const lib = adapter?.library;
-      const dir = adapter && slicerConfigDir(row, adapter);
       const types = activeCapabilities(db, row, adapter).filter((t): t is LibraryType =>
         slicerCatalogType(adapter, t),
       );
-      if (!lib || !dir || !types.length) continue;
-      // A library's catalog comes from its source (ADR-0020); a device's copy is Step 22's.
+      if (!lib || !adapter || !types.length) continue;
+      // A library's catalog comes from its source (ADR-0020): this row's folder, or the copy a
+      // source device sent into its cards row (deviceCatalog.ts).
       const source = catalogSource(db, adapters, lib.id);
-      if (!source || !("integrationId" in source) || source.integrationId !== row.id) continue;
+      if (!source || catalogCards(db, adapters, lib.id)?.row.id !== row.id) continue;
+      const dir =
+        "integrationId" in source
+          ? slicerConfigDir(row, adapter)
+          : adapter.kind === "worker" && catalogDir(db, dataDir, row, adapter);
+      if (!dir) continue;
       if (running.has(row.id)) continue;
       try {
         const now = await lib.catalogFingerprint?.(dir);
@@ -635,14 +640,19 @@ export function createSyncer(
     const hub = !!dataDir && readPreferences(db).hubEnabled;
     if (hub) linkLibraries(db, dataDir, adapters);
     const folders = new Set<string>();
-    // Oldest first, and a row with its own folder first: of the rows sharing the hub's library, one
-    // that can read the system presets resolves the parents.
+    // Oldest first, and a row with system presets first (its own folder, or a source device's copy):
+    // of the rows sharing the hub's library, one that can read them resolves the parents.
+    const hasSystem = (row: typeof integrations.$inferSelect) => {
+      const adapter = adapters.find((a) => a.id === row.adapterId);
+      const dir = adapter && catalogDir(db, dataDir, row, adapter);
+      return !!dir && existsSync(join(dir, "system"));
+    };
     const rows = db
       .select()
       .from(integrations)
       .orderBy(asc(integrations.createdAt))
       .all()
-      .sort((a, b) => Number(!a.slicerConfigDir) - Number(!b.slicerConfigDir));
+      .sort((a, b) => Number(!hasSystem(a)) - Number(!hasSystem(b)));
     // The libraries a hub's managed slicer reads into the catalog: a route of their own.
     const readLibrary = new Set(
       rows.flatMap((row) => {

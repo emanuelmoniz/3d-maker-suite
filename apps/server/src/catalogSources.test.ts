@@ -113,7 +113,7 @@ describe("catalog source (ADR-0020)", () => {
     await check().checkCatalogs();
     expect(fingerprints()).toEqual({ [first]: "Acme=1", [second]: null });
 
-    pickCatalogSource(db, adapters, "fake", { integrationId: second });
+    await pickCatalogSource(db, adapters, "fake", { integrationId: second });
     expect(sources()[0]?.source).toEqual({ integrationId: second, picked: true });
     db.update(integrations).set({ catalogFingerprint: null }).run();
     await check().checkCatalogs();
@@ -130,9 +130,9 @@ describe("catalog source (ADR-0020)", () => {
       { deviceId: ws1, name: "WS-1" },
       { deviceId: ws2, name: "WS-2" },
     ]);
-    pickCatalogSource(db, adapters, "fake", { deviceId: ws1 });
+    await pickCatalogSource(db, adapters, "fake", { deviceId: ws1 });
     expect(sources()[0]).toMatchObject({ source: { deviceId: ws1, picked: true }, cardsOf: first });
-    pickCatalogSource(db, adapters, "fake", { deviceId: ws2 });
+    await pickCatalogSource(db, adapters, "fake", { deviceId: ws2 });
     expect(sources()[0]?.source).toEqual({ deviceId: ws2, picked: true });
     await check().checkCatalogs();
     expect(fingerprints()).toEqual({ [first]: null, [second]: null });
@@ -150,12 +150,12 @@ describe("catalog source (ADR-0020)", () => {
     expect(sources()[0]?.source).toEqual({ deviceId: ws1, picked: false });
   });
 
-  it("picking turns the Catalog and System presets cards on, and refuses what can't be one", () => {
+  it("picking turns the Catalog and System presets cards on, and refuses what can't be one", async () => {
     for (const type of ["brands", "machineProfiles"] as const)
       db.insert(syncPolicies)
         .values({ integrationId: second, type, mode: "off", frequency: "1d" })
         .run();
-    pickCatalogSource(db, adapters, "fake", { integrationId: second });
+    await pickCatalogSource(db, adapters, "fake", { integrationId: second });
     expect(
       db
         .select({ type: syncPolicies.type, mode: syncPolicies.mode })
@@ -166,9 +166,11 @@ describe("catalog source (ADR-0020)", () => {
       { type: "brands", mode: "manual" },
       { type: "machineProfiles", mode: "manual" },
     ]);
-    expect(() =>
+    await expect(
       pickCatalogSource(db, adapters, "fake", { deviceId: crypto.randomUUID() }),
-    ).toThrow(expect.objectContaining({ code: "not_a_source" }));
-    expect(() => pickCatalogSource(db, adapters, "other", { integrationId: first })).toThrow();
+    ).rejects.toMatchObject({ code: "not_a_source" });
+    await expect(
+      pickCatalogSource(db, adapters, "other", { integrationId: first }),
+    ).rejects.toThrow();
   });
 });

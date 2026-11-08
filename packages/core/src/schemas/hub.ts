@@ -224,6 +224,13 @@ export type ConnectorSettingsPatch = z.infer<typeof connectorSettingsPatchSchema
 export type ConnectorSettings = z.infer<typeof connectorSettingsSchema>;
 export type ConnectorSettingsResult = z.infer<typeof connectorSettingsResultSchema>;
 
+/** A device's catalog sources (`catalog.sources`, `X-Catalog-Sources`): library → hub copy's fingerprint. */
+export const catalogSourcesSchema = z.record(
+  z.string().max(100),
+  z.string().max(10_000).nullable(),
+);
+export type CatalogSources = z.infer<typeof catalogSourcesSchema>;
+
 /**
  * Hub → device events on `GET /api/hub/events` (ADR-0014): SSE frames `id: <seq>`, `event: <type>`,
  * `data: <json>`. The connector sends its last id as `Last-Event-ID`; that acks everything up to it.
@@ -307,6 +314,15 @@ export const hubEventSchema = z.discriminatedUnion("type", [
     type: z.literal("presets.set"),
     requestId: id,
     libraries: z.record(z.string().max(100), presetSwitchesSchema),
+  }),
+  /**
+   * The libraries this device is the catalog source of (ADR-0020), each with the fingerprint of
+   * the hub's copy of its `system/` (null = none yet); the answer is null.
+   */
+  z.object({
+    type: z.literal("catalog.sources"),
+    requestId: id,
+    libraries: catalogSourcesSchema,
   }),
   /** Edit connector: read its settings; the answer's result is a `connectorSettingsSchema`. */
   z.object({ type: z.literal("connector.settings.get"), requestId: id }),

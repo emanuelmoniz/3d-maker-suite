@@ -96,6 +96,13 @@ function cardsOf(rows: Install[], source: CatalogSource | null) {
   return (worker ?? rows[0])?.row.id ?? null;
 }
 
+/** The install row whose cards a library's catalog source fills, with its adapter. */
+export function catalogCards(db: Db, adapters: IntegrationAdapter[], lib: string) {
+  const rows = installRows(db, adapters, lib);
+  const id = cardsOf(rows, catalogSource(db, adapters, lib));
+  return rows.find((r) => r.row.id === id) ?? null;
+}
+
 /**
  * Catalog → Sources, one entry per library: its install rows, the accounts whose user presets go
  * there, and the slicers devices report or have switches for.
@@ -148,13 +155,15 @@ export function librarySources(db: Db, adapters: IntegrationAdapter[]): LibraryS
 
 /**
  * Picks a library's catalog source, and turns on its Catalog and System presets cards (off →
- * Manual, ADR-0019's default; Automatic stays). 422 when it can't be one.
+ * Manual, ADR-0019's default; Automatic stays). 422 when it can't be one. `confirm` runs before
+ * anything is saved: a device told it is the source, whose refusal keeps the old pick.
  */
-export function pickCatalogSource(
+export async function pickCatalogSource(
   db: Db,
   adapters: IntegrationAdapter[],
   lib: string,
   pick: CatalogSourcePick,
+  confirm: () => Promise<unknown> = async () => {},
 ) {
   const entry = librarySources(db, adapters).find((l) => l.library === lib);
   const ok = entry?.options.some((o) =>
@@ -164,6 +173,7 @@ export function pickCatalogSource(
   );
   if (!entry || !ok)
     throw new HttpError(422, "not_a_source", "That can't be this catalog's source");
+  await confirm();
   db.insert(settings)
     .values({ key: KEY, value: { ...picks(db), [lib]: pick } })
     .onConflictDoUpdate({ target: settings.key, set: { value: { ...picks(db), [lib]: pick } } })

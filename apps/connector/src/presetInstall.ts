@@ -1,8 +1,6 @@
 import { execFile } from "node:child_process";
-import { createWriteStream } from "node:fs";
 import { mkdir, readdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
-import { dirname, join, parse, relative, sep } from "node:path";
-import { pipeline } from "node:stream/promises";
+import { dirname, join, parse, sep } from "node:path";
 import { promisify } from "node:util";
 import {
   type DesktopSlicer,
@@ -13,8 +11,13 @@ import {
   SLICER_PRESET_KINDS,
   type SlicerPresetKind,
 } from "@3d-maker-suite/core";
-import { parsePreset, presetFileName, presetSha, presetText } from "@3d-maker-suite/host";
-import yazl from "yazl";
+import {
+  parsePreset,
+  presetFileName,
+  presetSha,
+  presetText,
+  zipFolder,
+} from "@3d-maker-suite/host";
 import { z } from "zod";
 import { configDirOf, type PresetState, readFolder } from "./presets.ts";
 import type { Request } from "./roots.ts";
@@ -125,22 +128,6 @@ export async function systemPresets(dir: string): Promise<System | null> {
     any = true;
   }
   return any ? found : null;
-}
-
-/** All of `dir` to a zip; the old one stays until the new one is complete. */
-async function zipFolder(dir: string, file: string) {
-  await mkdir(dirname(file), { recursive: true });
-  const zip = new yazl.ZipFile();
-  const failed = new Promise<never>((_, reject) => zip.on("error", reject));
-  const entries = await readdir(dir, { recursive: true, withFileTypes: true }).catch(() => []);
-  for (const e of entries) {
-    if (!e.isFile()) continue;
-    const abs = join(e.parentPath, e.name);
-    zip.addFile(abs, relative(dir, abs).split(sep).join("/"));
-  }
-  zip.end();
-  await Promise.race([pipeline(zip.outputStream, createWriteStream(`${file}.tmp`)), failed]);
-  await rename(`${file}.tmp`, file);
 }
 
 async function writeAtomic(file: string, text: string) {

@@ -2282,7 +2282,7 @@ Do Step 21 of the 5.4.0 plan in PLAN.md. Use frontend-design for the device tabl
 Back up the DB before editing schema.ts.
 ```
 
-### [ ] Step 22 - Catalog from a workstation  **[plan mode]**
+### [x] Step 22 - Catalog from a workstation  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:**
 - One new fixed connector operation (ADR-0014's list gains it): on the device that is a library's catalog source, check the fingerprint (ADR-0019) on its tick and upload `system/` only when it changed, zipped with the `packages/host` helper.

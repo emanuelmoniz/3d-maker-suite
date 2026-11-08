@@ -21,6 +21,7 @@ import { evaluateAlerts } from "./alerts/evaluate.ts";
 import { runAutoBackup } from "./backup/backup.ts";
 import type { Config } from "./config.ts";
 import { HttpError } from "./errors.ts";
+import { createDeviceCatalog } from "./integrations/deviceCatalog.ts";
 import { createSlicerInstaller, linkLibraries } from "./integrations/managedSlicer.ts";
 import { rebuildLibraries, recheckRemovals } from "./integrations/presetLibrary.ts";
 import { createSyncer } from "./integrations/sync.ts";
@@ -218,6 +219,18 @@ export async function buildApp(
   );
   useDeviceFiles(db, deviceFiles);
   app.addHook("onClose", async () => deviceFiles.close());
+  // A source device's `system/` (ADR-0020): the catalog check raises what changed at once.
+  const deviceCatalog = createDeviceCatalog(
+    db,
+    opts.adapters ?? [],
+    hub,
+    dataDir,
+    () =>
+      void syncer
+        .checkCatalogs()
+        .then(evaluate)
+        .catch((err) => logFor("integrations").error({ err }, "catalog check failed")),
+  );
   await app.register(
     hubRoutes(
       db,
@@ -225,6 +238,7 @@ export async function buildApp(
       () => void evaluate(),
       (id) => hubFiles.releaseLocks({ deviceId: id }),
       () => hubFiles.versionsUsage(),
+      (id) => deviceCatalog.connected(id),
     ),
     { prefix: "/api/hub" },
   );
@@ -318,7 +332,7 @@ export async function buildApp(
     prefix: "/api/slicer-zip",
   });
   await app.register(presetsRoutes(db, dataDir, hub, syncer.adapters), { prefix: "/api/presets" });
-  await app.register(catalogSourcesRoutes(db, syncer.adapters), {
+  await app.register(catalogSourcesRoutes(db, syncer.adapters, deviceCatalog), {
     prefix: "/api/catalog/sources",
   });
   // The library folder is a cache of its table (ADR-0017).
@@ -381,6 +395,7 @@ export async function buildApp(
       hubFiles,
       syncer.adapters,
       workers,
+      deviceCatalog,
       dataDir,
       () => void evaluate(),
       presetSaved,
@@ -459,6 +474,10 @@ export async function buildApp(
       const idle = readPreferences(db).hubLockIdleMin * 60_000;
       hubFiles.releaseLocks({ idleBefore: new Date(Date.now() - idle).toISOString() });
       await syncer.runAll();
+      // A source that moved: the new device starts sending, an old one stops.
+      await deviceCatalog
+        .tell()
+        .catch((err) => logFor("integrations").error({ err }, "tell failed"));
       await syncer.checkCatalogs();
       await syncer.checkUserPresets();
       syncer.checkFreed();

@@ -1,7 +1,28 @@
 import { createWriteStream, mkdirSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { mkdir, readdir, rename } from "node:fs/promises";
+import { dirname, join, relative, sep } from "node:path";
 import { pipeline } from "node:stream/promises";
 import yauzl from "yauzl";
+import yazl from "yazl";
+
+/**
+ * All of `dir` to a zip, each entry under `prefix` (`"system/"`); the old one stays until the new
+ * one is complete.
+ */
+export async function zipFolder(dir: string, file: string, prefix = "") {
+  await mkdir(dirname(file), { recursive: true });
+  const zip = new yazl.ZipFile();
+  const failed = new Promise<never>((_, reject) => zip.on("error", reject));
+  const entries = await readdir(dir, { recursive: true, withFileTypes: true }).catch(() => []);
+  for (const e of entries) {
+    if (!e.isFile()) continue;
+    const abs = join(e.parentPath, e.name);
+    zip.addFile(abs, prefix + relative(dir, abs).split(sep).join("/"));
+  }
+  zip.end();
+  await Promise.race([pipeline(zip.outputStream, createWriteStream(`${file}.tmp`)), failed]);
+  await rename(`${file}.tmp`, file);
+}
 
 function openZip(file: string) {
   return new Promise<yauzl.ZipFile>((res, rej) =>

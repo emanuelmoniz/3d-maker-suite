@@ -4,6 +4,7 @@ import {
   type ConnectorSettingsPatch,
   type ConnectorSettingsResult,
   type ConnectorUpdateFailure,
+  catalogSourcesSchema,
   type DeviceSyncMode,
   type DeviceUserChange,
   deviceUserPreviewSchema,
@@ -16,6 +17,7 @@ import {
 } from "@3d-maker-suite/core";
 import { openFolder, systemInfo } from "@3d-maker-suite/host";
 import { z } from "zod";
+import { createCatalogSend } from "./catalog.ts";
 import { createPresetInstall } from "./presetInstall.ts";
 import { createPresetShare, openPresetState } from "./presets.ts";
 import { createRootSync, type Request } from "./roots.ts";
@@ -205,6 +207,15 @@ export function createLink({
       beforeWrite: () => presets?.flush() ?? Promise.resolve(),
       ...presetHooks,
     });
+  const catalog =
+    syncAt &&
+    createCatalogSend({
+      request,
+      slicers: slicers.described,
+      dataDir: syncAt.dataDir,
+      log,
+      configDir: presetConfigDir,
+    });
   const local = (rootId: string, path: string) =>
     sync ? sync.local(rootId, path) : Promise.resolve(null);
   /** Open folder: the project's synced copy in the file manager, ENOENT when it isn't here. */
@@ -311,6 +322,11 @@ export function createLink({
         void presetInstall?.start();
         return;
       }
+      if (event.success && event.data.type === "catalog.sources") {
+        void reply(event.data.requestId, { ok: true, result: null });
+        void catalog?.set(event.data.libraries);
+        return;
+      }
       if (event.success) return toRoots(event.data);
       const requestId = (json as { requestId?: unknown })?.requestId;
       if (typeof requestId === "string" && /^[0-9a-f-]{36}$/i.test(requestId))
@@ -369,8 +385,10 @@ export function createLink({
       if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
       if (signal.aborted) return "offline";
       let libraries: unknown;
+      let sources: unknown;
       try {
         libraries = JSON.parse(res.headers.get("x-preset-libraries") ?? "{}");
+        sources = JSON.parse(res.headers.get("x-catalog-sources") ?? "{}");
       } catch {}
       store.set({
         sliceWorker: res.headers.get("x-slice-worker") === "1",
@@ -389,6 +407,7 @@ export function createLink({
         if (signal.aborted || quiet.signal.aborted) return;
         void presets?.start();
         void presetInstall?.start();
+        void catalog?.set(catalogSourcesSchema.catch({}).parse(sources));
       });
       void slicers.prune();
       void loadBranding(hub, token, signal);
@@ -406,6 +425,7 @@ export function createLink({
       sync?.stop();
       presets?.stop();
       presetInstall?.stop();
+      catalog?.stop();
       void sync?.offline();
     }
   }
@@ -489,6 +509,7 @@ export function createLink({
       sync?.stop();
       presets?.stop();
       presetInstall?.stop();
+      catalog?.stop();
     },
     state: () => ({ status, error }),
     branding: () => branding,
@@ -503,6 +524,7 @@ export function createLink({
       sync?.stop();
       presets?.stop();
       presetInstall?.stop();
+      catalog?.stop();
       store.forget();
       branding = {};
       userName = undefined;

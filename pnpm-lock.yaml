@@ -187,9 +187,9 @@ importers:
       '@3d-maker-suite/host':
         specifier: workspace:*
         version: link:../../packages/host
-      yazl:
-        specifier: ^3.3.1
-        version: 3.3.1
+      '@3d-maker-suite/slicer-presets':
+        specifier: workspace:*
+        version: link:../../packages/slicer-presets
       zod:
         specifier: ^4.6.5
         version: 4.6.5
@@ -207,6 +207,9 @@ importers:
         specifier: ^22.20.5
         version: 22.20.5
       '@types/yazl':
+        specifier: ^3.3.1
+        version: 3.3.1
+      yazl:
         specifier: ^3.3.1
         version: 3.3.1
 
@@ -447,6 +450,9 @@ importers:
       yauzl:
         specifier: ^3.4.0
         version: 3.4.0
+      yazl:
+        specifier: ^3.3.1
+        version: 3.3.1
     devDependencies:
       '@types/node':
         specifier: ^22.20.5
@@ -455,9 +461,6 @@ importers:
         specifier: ^3.4.0
         version: 3.4.0
       '@types/yazl':
-        specifier: ^3.3.1
-        version: 3.3.1
-      yazl:
         specifier: ^3.3.1
         version: 3.3.1
 
