@@ -9,20 +9,10 @@ export type Region = (typeof REGIONS)[number];
 export const URLS = {
   login: "https://api.bambulab.com/v1/user-service/user/login",
   emailCode: "https://api.bambulab.com/v1/user-service/user/sendemail/code",
-  csrf: "https://bambulab.com/api/csrf",
-  tfaLogin: "https://bambulab.com/api/sign-in/tfa",
   bind: "https://api.bambulab.com/v1/iot-service/api/user/bind",
   tasks: "https://api.bambulab.com/v1/user-service/my/tasks",
   spools: "https://api.bambulab.com/v1/design-user-service/my/filament/v2",
   presets: "https://api.bambulab.com/v1/iot-service/api/slicer/setting",
-};
-
-const HEADERS = {
-  "user-agent": "bambu_network_agent/01.09.05.01",
-  "x-bbl-client-name": "OrcaSlicer",
-  "x-bbl-client-type": "slicer",
-  "x-bbl-client-version": "01.09.05.51",
-  "x-bbl-os-type": "linux",
 };
 
 type CallOpts = {
@@ -45,8 +35,9 @@ export async function call(url: string, o: CallOpts): Promise<Response> {
   try {
     res = await fetch(target, {
       method: o.body === undefined ? "GET" : "POST",
+      // No slicer/network-agent identity headers: since 2026-11 Cloudflare blocks the old
+      // OrcaSlicer ones we sent, while a plain fetch gets normal JSON answers.
       headers: {
-        ...HEADERS,
         ...(o.body !== undefined && { "content-type": "application/json" }),
         ...(o.token && { authorization: `Bearer ${o.token}` }),
         ...o.headers,
@@ -80,10 +71,3 @@ export async function parse<T>(res: Response, schema: z.ZodType<T>, log: Logger)
   log.warn({ issues }, "unexpected bambu response");
   throw new IntegrationError("api_changed");
 }
-
-export const cookie = (res: Response, name: string) =>
-  res.headers
-    .getSetCookie()
-    .map((c) => c.split(";")[0] ?? "")
-    .find((c) => c.startsWith(`${name}=`))
-    ?.slice(name.length + 1);

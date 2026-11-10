@@ -148,19 +148,19 @@ it("signs in with an emailed code", async () => {
   expect(await code(login({ code: "000000", state }))).toBe("code_invalid");
 });
 
-it("signs in with an authenticator code via the CSRF-protected website", async () => {
+it("asks a 2FA account for its website token and checks it before storing", async () => {
   queue(json(200, { loginType: "tfa", tfaKey: "k1" }));
   const step = await login({ email: "a@b.c", password: "pw" });
-  expect(step).toMatchObject({ challenge: "totp" });
-
-  queue(
-    new Response(null, { status: 204, headers: [["set-cookie", "bbl_csrf_token=c1; Path=/"]] }),
-    json(200, {}, [["set-cookie", "token=tok; Path=/; HttpOnly"]]),
-  );
+  expect(step).toMatchObject({ challenge: "token" });
   const state = (step as { state: string }).state;
-  expect(await login({ code: "123456", state })).toEqual({ secrets: { token: "tok" } });
-  expect(sent(2).body).toEqual({ tfaKey: "k1", tfaCode: "123456" });
-  expect((sent(2).init.headers as Record<string, string>)["x-bbl-csrf-token"]).toBe("c1");
+
+  queue(json(200, { devices: [] }));
+  expect(await login({ code: "token=tok; Path=/", state })).toEqual({ secrets: { token: "tok" } });
+  expect(sent(1).url).toBe("https://api.bambulab.com/v1/iot-service/api/user/bind");
+  expect((sent(1).init.headers as Record<string, string>).authorization).toBe("Bearer tok");
+
+  queue(json(401, { code: 4, error: "Please login." }));
+  expect(await code(login({ code: "bad", state }))).toBe("code_invalid");
 });
 
 it("uses .cn hosts for the China region", async () => {

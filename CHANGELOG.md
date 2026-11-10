@@ -2,6 +2,12 @@
 
 All notable changes are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Fixed
+- **Bambu Cloud sign-in and sync work again**: Bambu's Cloudflare protection started refusing the app's requests ("The vendor's servers blocked the request"). The app no longer sends the slicer identity headers that triggered it
+- **Bambu Cloud two-step verification**: Bambu now only accepts the authenticator code in a web browser, so an account with it on pastes its access token from bambulab.com instead ([docs/bambu-cloud.md](docs/bambu-cloud.md#connect))
+
 ## [5.4.0] - 2026-11-08
 
 Lists everything since 5.3.0. Back up before updating. Migrations 0103 to 0109 convert roles and overrides to the `catalog` permission, rebuild spools so they no longer point at a profile (filament profiles lose their price), archive hand-made filament profiles, add the printer's and the plate's machine profile, carry each device's two preset switches over to every slicer it reports, and add the preset owner and hold columns, `goneInUse` on sync policies, the `preset_routes` table and `catalogFingerprint` on integrations.

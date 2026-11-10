@@ -24,7 +24,7 @@ LAN/MQTT (live status, AMS state) comes later, as a separate capability or adapt
 
 ## Risks and mitigations
 - **The API is unofficial** and can change without notice. Mitigation: the adapter is isolated (ADR-0003), DTOs are zod-validated, and failures surface as a `sync_failed` alert instead of crashes.
-- **Auth:** email codes / 2FA and token expiry. Mitigation: an interactive sign-in (`IntegrationAdapter.login`) stores only the token. Upstream token refresh no longer works (the endpoint only answers 401), so an expired token (about 3 months) maps to `auth_expired` and the UI asks the user to sign in again.
+- **Auth:** email codes / 2FA and token expiry. *Amended 2026-11:* Cloudflare now blocks the slicer identity headers we sent and puts a browser challenge on bambulab.com's CSRF/2FA endpoints. We send plain requests, and a 2FA account pastes the `token` cookie from a browser sign-in (checked against `user/bind`) instead of a challenge-solving client. Mitigation: an interactive sign-in (`IntegrationAdapter.login`) stores only the token. Upstream token refresh no longer works (the endpoint only answers 401), so an expired token (about 3 months) maps to `auth_expired` and the UI asks the user to sign in again.
 - **Rate limits and bot protection:** incremental sync (`since: lastSyncAt`), a modest job interval, and a 1 h scheduled-sync pause after `rate_limited` / `blocked` (Cloudflare challenge). Response shapes are zod-checked; a mismatch is reported as `api_changed`.
 - **Region:** global and China endpoints are a config option of the integration.
 - Phase 1 is fully usable without any integration, so an outage never blocks the user.

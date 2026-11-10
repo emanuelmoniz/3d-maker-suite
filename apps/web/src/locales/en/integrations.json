@@ -28,7 +28,7 @@
     "unreachable": "The vendor service can't be reached.",
     "login_failed": "Wrong email or password.",
     "code_invalid": "That code is wrong or has expired. Check it and try again.",
-    "blocked": "The vendor's servers blocked the request. Wait a while and try again.",
+    "blocked": "The vendor's servers refused this app's request. If it keeps happening, check for an update of 3D Maker Suite.",
     "api_changed": "The vendor changed its service and this version can't read it any more. Check for an update of 3D Maker Suite.",
     "slice_failed": "The slicer couldn't slice the file.",
     "unknown": "Something went wrong. See the server log for details."
@@ -156,7 +156,8 @@
     "submit": "Sign in",
     "code": "Verification code",
     "email_code": "We sent a code to your email. Enter it to finish signing in.",
-    "totp": "Enter the code from your authenticator app.",
+    "token": "Your account uses two-step verification, which Bambu only accepts in a web browser. Sign in at bambulab.com (bambulab.cn in China), open the browser's developer tools (F12), go to Application (Storage in Firefox) → Cookies, and copy the value of the token cookie. Paste it here.",
+    "tokenLabel": "Bambu access token",
     "verify": "Verify",
     "error": "Couldn't sign in. Enter your email and password again."
   },

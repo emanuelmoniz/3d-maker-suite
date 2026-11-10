@@ -11,7 +11,7 @@ import { ERRORS } from "./integrationLabels.ts";
 // Literal keys so `pnpm i18n:check` sees them.
 const CHALLENGES: Record<LoginChallenge, string> = {
   email_code: "integrations:login.email_code",
-  totp: "integrations:login.totp",
+  token: "integrations:login.token",
 };
 
 /** Email + password, then the code the vendor asks for. The server keeps the pending step. */
@@ -51,7 +51,21 @@ export function IntegrationLoginPage() {
         backTo={{ to: "/integrations" }}
       />
       <form key={challenge ?? "password"} onSubmit={onSubmit} className="grid gap-4 sm:max-w-md">
-        {challenge ? (
+        {challenge === "token" ? (
+          <FormField label={t("integrations:login.tokenLabel")}>
+            {(p) => (
+              <input
+                {...p}
+                name="code"
+                type="password"
+                required
+                autoComplete="off"
+                spellCheck={false}
+                className={inputClass}
+              />
+            )}
+          </FormField>
+        ) : challenge ? (
           <FormField label={t("integrations:login.code")}>
             {(p) => (
               <input

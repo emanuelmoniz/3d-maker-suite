@@ -18,7 +18,7 @@ import { z } from "zod";
 export { bambuStudioLibrary } from "./studio.ts";
 
 import { cliSlicer } from "@3d-maker-suite/slicer-presets";
-import { call, cookie, parse, REGIONS, type Region, URLS } from "./cloud.ts";
+import { call, parse, REGIONS, type Region, URLS } from "./cloud.ts";
 import { bambuStudioLibrary, studioDefaultDirs } from "./studio.ts";
 
 const configSchema = z.object({ region: z.enum(REGIONS).default("global") });
@@ -30,7 +30,6 @@ const secretsSchema = z.object({ token: z.string().min(1).optional() });
 const loginResponse = z.object({
   accessToken: z.string().optional(),
   loginType: z.string().optional(),
-  tfaKey: z.string().optional(),
 });
 // Unknown keys are dropped, so the LAN access code (`dev_access_code`) never leaves this file.
 const bindResponse = z.object({
@@ -228,7 +227,7 @@ export function toSpool(
   };
 }
 
-type LoginState = { email?: string; tfaKey?: string };
+type LoginState = { email?: string };
 
 /** `colorDirs`: Bambu Studio folders to read colour names from. */
 export function bambuCloudAdapter(colorDirs = studioDefaultDirs): IntegrationAdapter {
@@ -244,8 +243,8 @@ export function bambuCloudAdapter(colorDirs = studioDefaultDirs): IntegrationAda
       const { region } = config as { region: Region };
       const base = { region, log, signal };
       // Wrong credentials or codes come back as 400/401/403 JSON.
-      const attempt = (url: string, body: unknown, headers?: Record<string, string>) =>
-        call(url, { ...base, body, headers, expect: [400, 401, 403] });
+      const attempt = (url: string, body: unknown) =>
+        call(url, { ...base, body, expect: [400, 401, 403] });
 
       if ("password" in input) {
         const res = await attempt(URLS.login, {
@@ -260,23 +259,17 @@ export function bambuCloudAdapter(colorDirs = studioDefaultDirs): IntegrationAda
           await call(URLS.emailCode, { ...base, body: { email: input.email, type: "codeLogin" } });
           return { challenge: "email_code", state: JSON.stringify({ email: input.email }) };
         }
-        if (r.loginType === "tfa" && r.tfaKey)
-          return { challenge: "totp", state: JSON.stringify({ tfaKey: r.tfaKey }) };
+        // 2FA is only answered on bambulab.com, behind a Cloudflare browser challenge we don't
+        // solve. The user signs in there and pastes the `token` cookie instead.
+        if (r.loginType === "tfa") return { challenge: "token", state: JSON.stringify({}) };
         throw new IntegrationError("api_changed");
       }
 
       const state = JSON.parse(input.state) as LoginState;
-      if (state.tfaKey) {
-        // The 2FA step lives on the website and wants its CSRF cookie echoed as a header.
-        const csrf = cookie(await call(URLS.csrf, base), "bbl_csrf_token");
-        if (!csrf) throw new IntegrationError("api_changed");
-        const res = await attempt(
-          URLS.tfaLogin,
-          { tfaKey: state.tfaKey, tfaCode: input.code },
-          { "x-bbl-csrf-token": csrf, cookie: `bbl_csrf_token=${csrf}` },
-        );
-        const token = res.ok ? cookie(res, "token") : undefined;
-        if (!token) throw new IntegrationError("code_invalid");
+      if (!state.email) {
+        const token = input.code.replace(/^token=/, "").replace(/;.*$/, "");
+        const res = await call(URLS.bind, { ...base, token, expect: [400, 401, 403] });
+        if (!res.ok) throw new IntegrationError("code_invalid");
         return { secrets: { token } };
       }
       const res = await attempt(URLS.login, { account: state.email, code: input.code });

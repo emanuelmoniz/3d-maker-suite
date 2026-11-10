@@ -65,7 +65,8 @@ export const INTEGRATION_ERROR_CODES = [
   "unknown",
 ] as const;
 // What an interactive sign-in asks for after the password.
-export const LOGIN_CHALLENGES = ["email_code", "totp"] as const;
+/** `token`: the vendor's 2FA only works in a browser, so the user pastes the session token. */
+export const LOGIN_CHALLENGES = ["email_code", "token"] as const;
 // "syncing" (a run is in progress) and "unavailable" (a local source's folder isn't on this
 // server) are reported, never stored.
 export const INTEGRATION_STATUSES = ["new", "syncing", "ok", "error", "unavailable"] as const;

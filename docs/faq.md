@@ -7,7 +7,7 @@ No. The app stores everything locally. It contacts Bambu only if you connect the
 No. Manual entry works for everything. The account only adds automatic sync.
 
 **Why does Bambu Cloud ask for a code?**
-Bambu asks for an email code or 2FA code on new sign-ins. Enter the code in the app.
+Bambu asks for an email code on new sign-ins. Enter the code in the app. With two-step verification on, the app asks for your access token from bambulab.com instead ([how](bambu-cloud.md#connect)).
 
 **Can I use it with printers that are not Bambu?**
 Yes, add them manually. Other vendors can be added as adapters (see [CONTRIBUTING.md](../CONTRIBUTING.md)).
