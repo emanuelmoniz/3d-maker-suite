@@ -576,3 +576,37 @@ export function HubConfigPage() {
     </ConfigPage>
   );
 }
+
+export function FilamentConfigPage() {
+  const { t } = useTranslation();
+  return (
+    <ConfigPage module="filament">
+      {({ num }) => (
+        <Section title={t("settings:sections.filament")}>
+          <FormField label={t("settings:alerts.lowSpool")}>
+            {(p) => num("lowSpoolGrams", p)}
+          </FormField>
+        </Section>
+      )}
+    </ConfigPage>
+  );
+}
+
+// Nothing to set by hand yet: the tabs are here so their Sources and Library have a home.
+export function CatalogConfigPage() {
+  const { t } = useTranslation();
+  return (
+    <ConfigPage module="catalog">
+      {() => <p className="text-muted">{t("settings:catalog.nothing")}</p>}
+    </ConfigPage>
+  );
+}
+
+export function PresetsConfigPage() {
+  const { t } = useTranslation();
+  return (
+    <ConfigPage module="presets">
+      {() => <p className="text-muted">{t("settings:presets.nothing")}</p>}
+    </ConfigPage>
+  );
+}

@@ -1,13 +1,30 @@
 import { DEVICE_FOLDER_MAX_MB_LIMIT, type Preferences } from "@3d-maker-suite/core";
 import { useQuery } from "@tanstack/react-query";
-import { type LinkProps, Navigate } from "@tanstack/react-router";
+import { Link, type LinkProps, Navigate, useLocation } from "@tanstack/react-router";
+import { Cable, Server } from "lucide-react";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
+import { EmptyState } from "../../components/EmptyState.tsx";
 import { inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { type SettingsModule, useCanSettings } from "../../components/SettingsLink.tsx";
+import { Tabs } from "../../components/Tabs.tsx";
 import { meQuery } from "../../lib/auth.ts";
 import { usePreferences, useSavePreferences } from "../../lib/preferences.ts";
+import { PresetsTab } from "../hub/PresetsPage.tsx";
+
+/** Data types: their settings have General and Sources tabs (ADR-0021). */
+const SOURCE_MODULES: SettingsModule[] = [
+  "printers",
+  "prints",
+  "filament",
+  "projects",
+  "catalog",
+  "presets",
+];
+
+/** Where the back link goes; Presets has no page of its own until Step 4. */
+const BACK: Partial<Record<SettingsModule, LinkProps["to"]>> = { presets: "/catalog/presets" };
 
 export type NumKey =
   | "energyCostPerKwh"
@@ -44,9 +61,17 @@ export function ConfigPage({
   const { t } = useTranslation();
   const { data, isError } = usePreferences();
   const save = useSavePreferences();
-  const description = t(`nav:items.${module}.label`);
+  // Presets: written out so `pnpm i18n:check` sees the key (its sidebar item arrives in Step 4).
+  const description =
+    module === "presets" ? t("nav:items.presets.label") : t(`nav:items.${module}.label`);
   const title = t("common:actions.moduleSettings", { module: description });
-  const backTo = { to: `/${module}` as LinkProps["to"] };
+  const backTo = { to: BACK[module] ?? (`/${module}` as LinkProps["to"]) };
+  const base = `/${module}/settings`;
+  const path = useLocation().pathname;
+  const tab0 =
+    path === `${base}/sources` ? "sources" : path === `${base}/library` ? "library" : "general";
+  const hasTabs = SOURCE_MODULES.includes(module);
+  const tab = hasTabs ? tab0 : "general";
   const allowed = useCanSettings(module);
 
   // Without the permission, back to the module.
@@ -63,6 +88,7 @@ export function ConfigPage({
       </>
     );
   if (!data) return null;
+  const hub = data.values.hubEnabled;
   const v = data.values;
   const commit = (patch: Partial<Preferences>) => save.mutate(patch);
   // `key` must be passed directly in JSX; React warns when it arrives through a spread.
@@ -112,7 +138,47 @@ export function ConfigPage({
           {t("settings:saveError")}
         </p>
       )}
-      <div className="grid gap-4">{children({ v, commit, num })}</div>
+      {hasTabs && (
+        <Tabs
+          label={t("settings:tabs.label")}
+          items={[
+            { to: base as LinkProps["to"], label: t("settings:tabs.general"), exact: true },
+            { to: `${base}/sources` as LinkProps["to"], label: t("settings:tabs.sources") },
+            ...(module === "presets" && hub
+              ? [{ to: `${base}/library` as LinkProps["to"], label: t("settings:tabs.library") }]
+              : []),
+          ]}
+        />
+      )}
+      {tab === "sources" ? (
+        <EmptyState
+          icon={Cable}
+          title={t("settings:sources.emptyTitle")}
+          description={t("settings:sources.emptyText")}
+          action={
+            <div className="flex flex-wrap justify-center gap-2">
+              <Link
+                to="/integrations"
+                className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-border bg-surface px-3 font-medium transition-colors hover:bg-surface-2"
+              >
+                <Cable className="size-4" aria-hidden="true" />
+                {t("settings:sources.integrations")}
+              </Link>
+              <Link
+                to="/hub"
+                className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-border bg-surface px-3 font-medium transition-colors hover:bg-surface-2"
+              >
+                <Server className="size-4" aria-hidden="true" />
+                {t("settings:sources.hub")}
+              </Link>
+            </div>
+          }
+        />
+      ) : tab === "library" ? (
+        <PresetsTab />
+      ) : (
+        <div className="grid gap-4">{children({ v, commit, num })}</div>
+      )}
     </>
   );
 }

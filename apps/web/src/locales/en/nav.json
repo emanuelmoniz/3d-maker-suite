@@ -27,6 +27,7 @@
       "label": "Import | Export",
       "description": "Bring data in from spreadsheets, or take it out."
     },
+    "presets": { "label": "Presets" },
     "catalog": {
       "label": "Catalog",
       "description": "Printer and filament brands, models, materials and slicer presets."

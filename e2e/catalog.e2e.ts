@@ -21,8 +21,18 @@ test("old catalog addresses land on their Catalog tab", async ({ page, app }) =>
   await page.goto("/printers/settings#process-presets");
   await expect(page).toHaveURL(/\/catalog\/printers#process-presets$/);
   await expect(page.getByRole("heading", { name: "Process presets", level: 2 })).toBeInViewport();
+  // Filament settings is its own page now, with General and Sources tabs.
   await page.goto("/filament/settings");
-  await expect(page).toHaveURL(/\/catalog\/filament$/);
+  await expect(page).toHaveURL(/\/filament\/settings$/);
+  const settingsTabs = page.getByRole("navigation", { name: "Settings sections" });
+  await expect(settingsTabs.getByRole("link", { name: "General" })).toHaveAttribute(
+    "aria-current",
+    "page",
+  );
+  await settingsTabs.getByRole("link", { name: "Sources" }).click();
+  await expect(page).toHaveURL(/\/filament\/settings\/sources$/);
+  await expect(page.getByRole("heading", { name: "No sources yet" })).toBeVisible();
+  await page.goto("/catalog/filament");
   const tabs = page.getByRole("navigation", { name: "Catalog sections" });
   await expect(tabs.getByRole("link", { name: "Filament", exact: true })).toHaveAttribute(
     "aria-current",

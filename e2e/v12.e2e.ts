@@ -433,8 +433,7 @@ test("filament catalog tables show each row's slicer and source", async ({ page,
   await seedPreset(app); // Acme / PLA, from Bambu Studio
   await app.api("POST", "/api/filament-brands", { name: "Handmade" });
   await app.api("POST", "/api/filament-materials", { name: "PETG" });
-  await page.goto("/filament/settings");
-  await expect(page).toHaveURL(/\/catalog\/filament$/);
+  await page.goto("/catalog/filament");
   // Presets come from a slicer only: nothing adds one.
   await expect(page.getByRole("main").getByRole("link", { name: /^Add preset/ })).toHaveCount(0);
   await expect(

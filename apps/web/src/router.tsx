@@ -61,9 +61,12 @@ import { QuotesPage } from "./pages/quotes/QuotesPage.tsx";
 import { SettingsPage } from "./pages/SettingsPage.tsx";
 import {
   AlertsConfigPage,
+  CatalogConfigPage,
   CostsConfigPage,
+  FilamentConfigPage,
   HubConfigPage,
   OrdersConfigPage,
+  PresetsConfigPage,
   PrintersConfigPage,
   PrintsConfigPage,
   ProjectsConfigPage,
@@ -287,13 +290,6 @@ const routes: AnyRoute[] = [
   // The catalog tables were in Printers and Filament settings before; old links still land.
   createRoute({
     getParentRoute: () => root,
-    path: "/filament/settings",
-    beforeLoad: ({ location }) => {
-      throw redirect({ to: "/catalog/filament", hash: location.hash });
-    },
-  }),
-  createRoute({
-    getParentRoute: () => root,
     path: "/catalog/import/$entity",
     // filament + printers: the review's pickers for brands, models and materials.
     loader: () => Promise.all(["import", "catalog", "filament", "printers"].map(loadNamespace)),
@@ -469,19 +465,29 @@ const routes: AnyRoute[] = [
       ["/projects/settings", ProjectsConfigPage, ["projects"]],
       ["/alerts/settings", AlertsConfigPage, ["alerts", "integrations"]],
       ["/hub/settings", HubConfigPage, ["hub"]],
+      ["/filament/settings", FilamentConfigPage, ["filament"]],
+      ["/catalog/settings", CatalogConfigPage, ["catalog"]],
+      ["/presets/settings", PresetsConfigPage, ["catalog", "hub"]],
     ] as const
-  ).map(([path, component, ns]) =>
-    createRoute({
-      getParentRoute: () => root,
-      path,
-      // A catalog table's old address lands on its tab; the page keeps the default printer.
-      beforeLoad: ({ location }: { location: { pathname: string; hash: string } }) => {
-        if (location.pathname === "/printers/settings" && PRINTER_TABLES.includes(location.hash))
-          throw redirect({ to: "/catalog/printers", hash: location.hash });
-      },
-      loader: () => Promise.all(["settings", ...ns].map(loadNamespace)),
-      component,
-    }),
+  ).flatMap(([path, component, ns]) =>
+    // Data types also have a Sources tab (the Library tab only exists on Presets).
+    [path, `${path}/sources`, ...(path === "/presets/settings" ? [`${path}/library`] : [])].map(
+      (path) =>
+        createRoute({
+          getParentRoute: () => root,
+          path,
+          // A catalog table's old address lands on its tab; the page keeps the default printer.
+          beforeLoad: ({ location }: { location: { pathname: string; hash: string } }) => {
+            if (
+              location.pathname === "/printers/settings" &&
+              PRINTER_TABLES.includes(location.hash)
+            )
+              throw redirect({ to: "/catalog/printers", hash: location.hash });
+          },
+          loader: () => Promise.all(["settings", ...ns].map(loadNamespace)),
+          component,
+        }),
+    ),
   ),
   // After "/alerts/settings" so that wins the match.
   createRoute({

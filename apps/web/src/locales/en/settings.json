@@ -1,4 +1,18 @@
 {
+  "tabs": {
+    "label": "Settings sections",
+    "general": "General",
+    "sources": "Sources",
+    "library": "Preset library"
+  },
+  "catalog": { "nothing": "Nothing to set here yet." },
+  "presets": { "nothing": "Nothing to set here yet." },
+  "sources": {
+    "emptyTitle": "No sources yet",
+    "emptyText": "Sources that feed this data will be listed here. Connect an account in Integrations or a machine in Hub management.",
+    "integrations": "Open Integrations",
+    "hub": "Open Hub management"
+  },
   "loadError": "Couldn't load settings. Is the server running?",
   "uptime": "Server up time: {{time}}",
   "saveError": "Couldn't save your last change.",
@@ -10,6 +24,7 @@
     "appearance": "Appearance",
     "costs": "Costs",
     "printers": "Printers",
+    "filament": "Filament",
     "orders": "Orders",
     "prints": "Prints",
     "alerts": "Alerts",

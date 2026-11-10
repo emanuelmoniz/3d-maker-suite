@@ -2407,7 +2407,7 @@ Do Step 1 of the 5.5.0 plan in PLAN.md. Use frontend-design for the wireframes. 
 Plan Step 2 of the 5.5.0 plan in PLAN.md. Back up the DB before editing schema.ts.
 ```
 
-### [ ] Step 3 - Settings tabs: General and Sources
+### [x] Step 3 - Settings tabs: General and Sources
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - Turn `CatalogPage`'s link tabs (`tabClass`) into one `Tabs` component (router links, `aria-current`, keyboard, scrolls at phone width), and use it in `CatalogPage`.

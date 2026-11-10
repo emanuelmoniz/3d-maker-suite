@@ -11,6 +11,9 @@ export type SettingsModule =
   | "projects"
   | "alerts"
   | "printers"
+  | "filament"
+  | "catalog"
+  | "presets"
   | "hub";
 
 /** What opens a module's settings page (ADR-0016): manage on a module, or the on/off permission. */
@@ -21,6 +24,9 @@ const SETTINGS_PERMISSION: Record<SettingsModule, Permission> = {
   projects: "projects",
   alerts: "settings.alerts",
   printers: "printers",
+  filament: "filament",
+  catalog: "catalog",
+  presets: "catalog", // its own `presets` level arrives with the module (Step 4)
   hub: "hub.manage",
 };
 
