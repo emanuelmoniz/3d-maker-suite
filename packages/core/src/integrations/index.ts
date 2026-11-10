@@ -84,6 +84,15 @@ export interface IntegrationInstance {
   printHistory?: PrintHistorySource;
   spools?: SpoolInventorySource;
   userPresets?: UserPresetSource;
+  /** Who the account is, for its card. Read at sign-in and on each sync; a failure keeps the last. */
+  profile?(): Promise<AccountProfile>;
+}
+
+/** `avatarUrl` must be https; the server fetches it, never the browser. */
+export interface AccountProfile {
+  email?: string;
+  name?: string;
+  avatarUrl?: string;
 }
 
 /**

@@ -1,6 +1,12 @@
 import {
+  ACCOUNT_ALLOW_TYPES,
+  accountConfigOf,
+  accountMode,
   adapterInfoSchema,
+  allowCapabilities,
+  allows,
   apiErrorSchema,
+  type Capability,
   defaultPolicy,
   deviceSlicerCheckSchema,
   hasLevel,
@@ -92,6 +98,7 @@ export const integrationsRoutes =
       const { secrets, config, slicerConfigDir, slicerPath, slicerVersion, ...rest } = full;
       const { catalogFingerprint: _, ...row } = rest;
       const adapter = syncer.adapters.find((a) => a.id === row.adapterId);
+      const profile = accountConfigOf(config);
       // A local (or server) source never syncs: it's there or it isn't.
       const local =
         adapter?.kind !== "cloud" && adapter && (unavailable(full, adapter) ? "unavailable" : "ok");
@@ -107,6 +114,15 @@ export const integrationsRoutes =
         kind: adapter?.kind ?? "cloud",
         presetLibrary: adapter ? presetLibrary(adapter) : null,
         deviceName: adapter?.kind === "worker" ? (workerDevice(db, full)?.name ?? null) : null,
+        account:
+          adapter?.kind === "cloud"
+            ? {
+                email: profile.email ?? null,
+                name: profile.name ?? null,
+                avatar: !!profile.avatarUrl,
+                allow: Object.fromEntries(ACCOUNT_ALLOW_TYPES.map((t) => [t, allows(config, t)])),
+              }
+            : null,
         status: syncer.running.has(row.id) ? "syncing" : local || row.status,
         capabilities: activeCapabilities(db, full, adapter),
         policies: (adapter?.capabilities ?? []).map((type) => {
@@ -205,7 +221,12 @@ export const integrationsRoutes =
           if (adapter.kind === "cloud")
             for (const type of adapter.capabilities.filter(isUserPresetType))
               db.insert(syncPolicies)
-                .values({ integrationId: row.id, type, ...defaultPolicy(type), mode: "manual" })
+                .values({
+                  integrationId: row.id,
+                  type,
+                  ...defaultPolicy(type),
+                  mode: accountMode(type),
+                })
                 .run();
           return row.id;
         });
@@ -225,7 +246,8 @@ export const integrationsRoutes =
       },
       async (req) => {
         const cur = get(req.params.id);
-        const { config, secrets, slicerConfigDir, slicerPath, policies, ...fields } = req.body;
+        const { config, secrets, slicerConfigDir, slicerPath, policies, allow, ...fields } =
+          req.body;
         // ADR-0020, ADR-0021: catalog import cards need catalog manage, preset ones presets
         // manage, everything else integrations.manage.
         const rights = req.user?.rights;
@@ -247,7 +269,31 @@ export const integrationsRoutes =
           syncer.adapters.find((a) => a.id === cur.adapterId)?.managed
         )
           throw new HttpError(409, "slicer_managed", "The app manages this slicer's paths");
-        const adapter = config || secrets || policies ? adapterOf(cur.adapterId) : undefined;
+        const adapter =
+          config || secrets || policies || allow ? adapterOf(cur.adapterId) : undefined;
+        if (allow && adapter?.kind !== "cloud")
+          throw new HttpError(400, "invalid_allow", "Only an account has Allow switches");
+        // The server's own fields (ADR-0021) survive a new config: a client never writes them.
+        const kept = accountConfigOf(cur.config);
+        const nextConfig =
+          (config || allow) && adapter
+            ? {
+                ...(config
+                  ? parse(adapter.configSchema, config, "invalid_config")
+                  : (cur.config as object)),
+                ...kept,
+                ...(allow && { allow: { ...kept.allow, ...allow } }),
+              }
+            : undefined;
+        // An Allow switch turned off stops its types, on again gives them a new account's mode.
+        // The data stays either way.
+        const allowed = ACCOUNT_ALLOW_TYPES.filter(
+          (t) => allow?.[t] !== undefined && allow[t] !== allows(cur.config, t),
+        ).flatMap((t) =>
+          allowCapabilities(t)
+            .filter((c) => adapter?.capabilities.some((a) => a === c))
+            .map((c) => ({ type: c as Capability, on: !!allow?.[t] })),
+        );
         for (const p of policies ?? [])
           if (!adapter?.capabilities.includes(p.type) || (isAction(p.type) && p.mode === "auto"))
             throw new HttpError(400, "invalid_policy", `No such policy for "${p.type}"`);
@@ -261,6 +307,13 @@ export const integrationsRoutes =
                   set,
                 })
                 .run();
+          for (const { type, on } of allowed) {
+            const set = { mode: on ? accountMode(type) : ("off" as const) };
+            db.insert(syncPolicies)
+              .values({ integrationId: cur.id, type, ...defaultPolicy(type), ...set })
+              .onConflictDoUpdate({ target: [syncPolicies.integrationId, syncPolicies.type], set })
+              .run();
+          }
           db.update(integrations)
             .set({
               // Always something to set, also when only policies or secrets change.
@@ -269,8 +322,7 @@ export const integrationsRoutes =
               // An empty path means "none" (or "the detected folder").
               ...(slicerConfigDir !== undefined && { slicerConfigDir: slicerConfigDir || null }),
               ...(slicerPath !== undefined && { slicerPath: slicerPath || null }),
-              ...(config &&
-                adapter && { config: parse(adapter.configSchema, config, "invalid_config") }),
+              ...(nextConfig && { config: nextConfig }),
               // Another device or source: its slicer is picked again.
               ...(config &&
                 adapter?.kind === "worker" &&
@@ -309,6 +361,7 @@ export const integrationsRoutes =
         if (workers.isWorker(req.params.id)) await workers.remove(req.params.id, false);
         installer.remove(req.params.id, false);
         db.delete(integrations).where(eq(integrations.id, req.params.id)).run();
+        syncer.dropAvatar(req.params.id);
         const kind = syncer.adapters.find((a) => a.id === row.adapterId)?.kind;
         const deviceId = workerDeviceId(kind, row.config);
         if (deviceId) workers.syncWorker(deviceId);
@@ -436,6 +489,7 @@ export const integrationsRoutes =
               .where(eq(integrations.id, row.id))
               .run();
           });
+          await syncer.refreshProfile(row.id);
           // Import the printers right away; the card shows "syncing", failures land in the sync log.
           syncer.run(row.id, "manual", { type: "printers" }).catch(() => {});
           return { status: "ok" };
@@ -446,6 +500,16 @@ export const integrationsRoutes =
         }
       },
     );
+
+    // The account's photo, through the server (ADR-0021).
+    app.get("/:id/avatar", { schema: { params } }, async (req, reply) => {
+      const photo = await syncer.avatar(req.params.id);
+      if (!photo) throw new HttpError(404, "not_found", "No photo");
+      return reply
+        .type(photo.type)
+        .header("cache-control", "private, max-age=86400")
+        .send(photo.body);
+    });
 
     app.post(
       "/:id/sync",

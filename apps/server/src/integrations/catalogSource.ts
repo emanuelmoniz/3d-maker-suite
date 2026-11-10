@@ -1,4 +1,5 @@
 import {
+  allows,
   type CatalogSourcePick,
   defaultPolicy,
   type IntegrationAdapter,
@@ -158,7 +159,8 @@ export function librarySources(db: Db, adapters: IntegrationAdapter[]): LibraryS
     return {
       library,
       routes: all
-        .filter((r) => r.enabled && libraryOf(r) === library)
+        // An account is a route only while it allows user presets (ADR-0021).
+        .filter((r) => r.enabled && libraryOf(r) === library && allows(r.config, "userPresets"))
         .map((r) => ({ integrationId: r.id, presets: counts.get(r.id) ?? 0 })),
       source,
       options: [

@@ -2438,7 +2438,7 @@ Plan Step 4 of the 5.5.0 plan in PLAN.md. Back up the DB before editing schema.t
 
 ## Phase 33 - Accounts as sources
 
-### [ ] Step 5 - Bambu Cloud accounts  **[plan mode]**
+### [x] Step 5 - Bambu Cloud accounts  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:**
 - At sign-in and on each sync, the adapter reads `GET /v1/user-service/my/profile` (ADR-0021 Spike results: `account` = email, `name`, `avatar`; parse only these with zod, the rest is MakerWorld data) and stores `email`, `name`, `avatarUrl` in `integrations.config`. A failed read keeps the last values and never fails the sync. A new optional method on the integration interface in core, so other APIs can fill the same fields.
@@ -2459,6 +2459,7 @@ Plan Step 5 of the 5.5.0 plan in PLAN.md. Use frontend-design for the account ca
 - Build the Sources layout once, for every later tab: a `Section` per direction (Share to the hub, Receive from the hub; only the ones the type has), a block per source (name, link back on the right), an optional per-slicer heading, and a `DataTable` of lines (Item, On switch, When, What, How, Edit, `⋯`). No Add source or Remove: a source is listed while its switch is on.
 - Printers, Prints and Filament (spools) settings → Sources: Share to the hub only, one block per account with Allow on, one line each. The line's switch sets the policy `off`, or back to `defaultPolicy`'s mode. **Edit** opens today's `PolicyRow` fields in a `FormDialog` (when, frequency, time, scope, merge, new spools, track usage, alerts, editors); `⋯` holds Sync now, Review and import (with its count) and the sync log. No account allowing the type: `EmptyState` with a link to Integrations.
 - Editors with the sync or review right reach Sync now and Review here (`useMayTask`), as they did on the card.
+- Remove the account block's interim **Sync settings** (`Policies part="connection"` in `AccountCard.tsx`, kept by Step 5 so nothing was unreachable) and the `connection` part of `PolicyRow`; move the e2e tests that open it (`openIntegrationCards`: sync-options, alert-settings, roles, v11, v12, import-printers) to the Sources tabs.
 - Remove `SyncButtons` from the printers, filament and prints pages. Delete `components/ImportLinks.tsx`. Remove the `integrations:syncFrom` and `integrations:syncError` keys and the namespace loads that only served the button (`router.tsx`). `useSyncIntegration` stays.
 - Rewrite the "Sync from cloud" test in `e2e/v13.e2e.ts`; `docs/bambu-cloud.md`, `docs/import.md`.
 

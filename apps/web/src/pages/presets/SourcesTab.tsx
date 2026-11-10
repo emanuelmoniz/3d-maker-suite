@@ -191,7 +191,14 @@ export function SourcesTab() {
                   <section key={i.id} aria-labelledby={`route-${i.id}`} className="grid gap-3">
                     <h4 id={`route-${i.id}`} className="flex flex-wrap items-baseline gap-x-2">
                       <span className="font-medium">
-                        {i.kind === "cloud" ? adapterName(i.adapterId) : locationLabel(i)}
+                        {i.kind !== "cloud"
+                          ? locationLabel(i)
+                          : i.account?.email || i.account?.name
+                            ? t("integrations:account.source", {
+                                adapter: adapterName(i.adapterId),
+                                account: i.account.email || i.account.name,
+                              })
+                            : adapterName(i.adapterId)}
                       </span>
                       <span className="text-sm text-muted">
                         {t("catalog:sources.routes.presets", { count: count(i.id) })}

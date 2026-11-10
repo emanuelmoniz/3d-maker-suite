@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { id, isoDate, syncPolicySchema } from "./entities.ts";
+import { accountAllowSchema, id, isoDate, syncPolicySchema } from "./entities.ts";
 import {
   CAPABILITIES,
   type Capability,
@@ -75,6 +75,8 @@ export const integrationPatchSchema = z
     secrets: z.record(z.string(), z.string()),
     slicerConfigDir: z.string().trim().nullable(),
     slicerPath: z.string().trim().nullable(),
+    /** A cloud account's Allow switches: off sets those types' policies to `off`, data stays. */
+    allow: accountAllowSchema,
     /** Only the listed types change, and only the fields sent. */
     policies: z.array(
       syncPolicySchema
@@ -222,6 +224,11 @@ export const defaultPolicy = (
   scope: "all",
   merge: type === "printers" || type === "spools" ? "review" : "keepEdits",
 });
+
+/** A type's mode on a new account, and when its Allow switch turns on again. */
+export const accountMode = (type: Capability): SyncMode =>
+  // An account's user presets are read when you ask, like migration 0102's (ADR-0019).
+  isUserPresetType(type) ? "manual" : defaultPolicy(type).mode;
 
 export const syncRunSchema = z.object({
   id,

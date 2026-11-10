@@ -38,11 +38,7 @@
     "never": "Not synced yet",
     "syncing": "Syncing…",
     "ready": "Ready, nothing synced yet",
-    "account": "Account",
     "signedIn": "Signed in",
-    "notSignedIn": "Not signed in yet",
-    "imports": "What to import",
-    "actions": "Slicer actions",
     "enabled": "Enabled",
     "test": "Test connection",
     "testOk": "Connection works.",
@@ -57,6 +53,41 @@
     "addLocation": "Add location",
     "summary": "Catalog: {{auto}} automatic · <review>{{review}} waiting for review</review>",
     "summaryOff": "Catalog: nothing imported yet"
+  },
+  "account": {
+    "addAnother": "Add another account",
+    "untitled": "{{adapter}} account",
+    "source": "{{adapter}} · {{account}}",
+    "signedOut": "Signed out",
+    "disabledHint": "Switched off: nothing is synced from this account. Turn it on from More actions.",
+    "turnOff": "Turn off",
+    "turnOn": "Turn on",
+    "allowTitle": "Allow",
+    "allowLegend": "What {{name}} may sync",
+    "allow": {
+      "printers": "Printers",
+      "prints": "Prints",
+      "spools": "Spools",
+      "userPresets": "User presets"
+    },
+    "settings": {
+      "printers": "Printers settings",
+      "prints": "Prints settings",
+      "filament": "Filament settings",
+      "presets": "Presets settings"
+    },
+    "stop": {
+      "printers": "Stop syncing printers from this account?",
+      "printersBody": "The printers already imported stay.",
+      "prints": "Stop syncing prints from this account?",
+      "printsBody": "The prints already imported stay.",
+      "spools": "Stop syncing spools from this account?",
+      "spoolsBody": "The spools already imported stay.",
+      "userPresets": "Stop syncing user presets from this account?",
+      "userPresetsBody": "The presets already imported stay."
+    },
+    "stopConfirm": "Stop syncing",
+    "syncSettings": "Sync settings"
   },
   "deleteDialog": {
     "title": "Delete {{name}}?",
@@ -321,8 +352,8 @@
       "keepEdits": "Fields you changed since the last sync stay as you left them; the other fields follow the source.",
       "review": "Nothing you have is changed by an automatic run. When the source changes a row, you get an alert and decide under \"Review and import\". A change you skip there doesn't come back until the source changes again."
     },
-    "doubleTracking": "Tracking usage from both prints and spools at the same time is not recommended: the same filament can be counted twice, or the vendor's estimate can overwrite the weight your prints took off.",
     "cloudPresetsRoute": "Read from your account, read-only. A connector that shares this account's presets brings them too: one way is enough. With both on, the account's cards count and review each preset once.",
+    "doubleTracking": "Tracking usage from both prints and spools at the same time is not recommended: the same filament can be counted twice, or the vendor's estimate can overwrite the weight your prints took off.",
     "hint": "Automatic runs import only what needs no decision from you. Anything else waits under \"Review and import\"."
   },
   "slicer": {

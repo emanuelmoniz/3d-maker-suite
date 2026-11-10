@@ -15,9 +15,19 @@ No LAN mode, developer mode or access code is needed.
 2. Pick your region: **Global** or **China**.
 3. Enter your account email and password. The password is sent to Bambu once and never stored.
 4. If Bambu asks for a verification code (email or 2FA), enter it.
-5. Click **Test**. You should see your printers listed.
+5. Click **Test connection** on the account. You should see your printers listed.
 
 The app stores only the access token, encrypted on disk (see [ADR-0005](adr/0005-secrets-storage.md)).
+
+## Your accounts
+
+The **Bambu Cloud** card on the Integrations page has one block per account, with **Add another account** at the top. Each block shows the account's photo (or its initials), name, email and region, and whether it is signed in. **Sign in again** and **Test connection** sit next to the name. **More actions** turns the account off or deletes it.
+
+The name, email and photo are read from your Bambu profile when you sign in and on each sync. If that read fails, the last values stay and the sync goes on. The server downloads the photo from `public-cdn.bblmw.com` and keeps a copy, so your browser never calls Bambu. On a NAS or server with a firewall, allow that host too, or the card shows initials.
+
+**Allow** has one switch per type: Printers, Prints, Spools and User presets. Next to each switch that is on is a link to that type's settings. Turning one off asks first, stops syncing that type from this account and keeps everything already imported. Turning it on again brings back the default schedule.
+
+Each allowed type's schedule, **Sync now** and **Review and import** are under **Sync settings** on the account.
 
 ## What syncs
 
@@ -28,7 +38,7 @@ The app stores only the access token, encrypted on disk (see [ADR-0005](adr/0005
 
 Each slot of a print is matched to a spool by material and colour. A match only counts when exactly one active spool fits and it wasn't bought after the print. A print older than the spool's entry in the app gets the spool but takes nothing off it, because the weight you entered already includes it. A print with a slot that matches no single spool is not imported on its own. It waits under "Review and import" for print history, and "Sync now" opens that screen when anything is waiting. Once imported, its open slots go to **Prints → Filament to review**, and they are matched again on every sync.
 
-By default print history syncs every hour and printers every day. On the Integrations page each type is a row with its own Auto or Manual mode and frequency, an **Enabled** switch on the card, a "Sync now" button, and for print history a date range to re-import. **Manual import** opens the review screen with what the integration offers; printers and spools can also be imported that way. The Printers, Prints and Filament pages each have a **Sync from Bambu Cloud** button for their own type. Each sync reports its result as an alert: new and updated rows, rows waiting for review, or an error. Spools are imported by hand unless you set them to automatic.
+By default print history syncs every hour and printers every day. **Manual import** opens the review screen with what the integration offers; printers and spools can also be imported that way. The Printers, Prints and Filament pages each have a **Sync from Bambu Cloud** button for their own type. Each sync reports its result as an alert: new and updated rows, rows waiting for review, or an error. Spools are imported by hand unless you set them to automatic.
 
 ## Spools: why they are off by default
 

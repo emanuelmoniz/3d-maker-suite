@@ -15,6 +15,8 @@ export const URLS = {
   tasks: "https://api.bambulab.com/v1/user-service/my/tasks",
   spools: "https://api.bambulab.com/v1/design-user-service/my/filament/v2",
   presets: "https://api.bambulab.com/v1/iot-service/api/slicer/setting",
+  // ADR-0021 Spike results: `account` is the email; the rest is MakerWorld data.
+  profile: "https://api.bambulab.com/v1/user-service/my/profile",
 };
 
 type CallOpts = {

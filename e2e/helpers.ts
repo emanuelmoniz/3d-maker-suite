@@ -33,9 +33,9 @@ export const savedRoots = async (api: Api) =>
     }),
   );
 
-/** Opens every integration card on the page (they start closed). */
+/** Opens every integration card on the page, and each account's sync settings (they start closed). */
 export async function openIntegrationCards(page: Page) {
-  const closed = page.getByRole("heading", { level: 3 }).getByRole("button", { expanded: false });
+  const closed = page.locator(":is(h3, h4) > button[aria-expanded=false]");
   await closed.first().waitFor();
   while (await closed.count()) await closed.first().click();
 }

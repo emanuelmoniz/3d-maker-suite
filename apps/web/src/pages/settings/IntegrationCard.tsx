@@ -2,13 +2,12 @@ import {
   type Integration,
   type IntegrationStatus,
   isAction,
-  isCatalogType,
   SYNC_RUN_STATUSES,
   SYNC_TRIGGERS,
   type SyncRun,
   syncRunFilters,
 } from "@3d-maker-suite/core";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Link } from "@tanstack/react-router";
 import { ChevronRight, Plus } from "lucide-react";
 import { type ReactNode, useId, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
@@ -34,12 +33,11 @@ import {
   usePatchIntegration,
   useSyncIntegration,
   useSyncRuns,
-  useTestIntegration,
 } from "../../lib/integrations.ts";
 import { usePreferences, useSavePreferences } from "../../lib/preferences.ts";
 import { CAPS, ERRORS, LOCATION_ICONS } from "./integrationLabels.ts";
 import { ManagedSlicer } from "./ManagedSlicer.tsx";
-import { ActionSwitches, Policies } from "./PolicyRow.tsx";
+import { ActionSwitches } from "./PolicyRow.tsx";
 import { WorkerSlicer } from "./WorkerSlicer.tsx";
 
 // The status dot's colour; the line's text says the rest.
@@ -145,22 +143,16 @@ export function IntegrationCard({ integration: i }: { integration: Integration }
   const { t } = useTranslation();
   const adapterName = useAdapterName();
   const locationLabel = useLocationLabel();
-  const navigate = useNavigate();
   const adapter = useAdapters().data?.find((a) => a.id === i.adapterId);
   // An editor gets the status line and their task rows only (ADR-0012).
   const admin = useCan("integrations.manage");
   const on = i.policies.filter((p) => p.mode !== "off");
-  // Disabled = switched off entirely, so only the toggle and Delete stay. Sign-in and the test
-  // only matter for an account with something switched on, the log for anything that syncs.
-  const account = admin && i.enabled && i.kind === "cloud" && on.length > 0;
+  // Disabled = switched off entirely, so only the toggle and Delete stay; the log is for anything
+  // that syncs. Accounts have their own card (AccountCard.tsx).
   const logged = admin && i.enabled && on.some((p) => !isAction(p.type));
-  const hasLogin = account && adapter?.login;
-  // Catalog types are on Presets settings → Sources (ADR-0020).
-  const imports = i.policies.some((p) => !isAction(p.type) && !isCatalogType(p.type));
   const [confirming, setConfirming] = useState(false);
   const patch = usePatchIntegration(i.id);
   const sync = useSyncIntegration(i.id);
-  const test = useTestIntegration(i.id);
   const remove = useDeleteIntegration(i.id);
   const failed = [patch, sync, remove].some((m) => m.isError);
   const where = locationLabel(i);
@@ -269,41 +261,6 @@ export function IntegrationCard({ integration: i }: { integration: Integration }
       {/* Past the rail on wider screens, the full width on a phone. */}
       {open && (
         <div id={bodyId} className="col-span-2 sm:col-span-1 sm:col-start-2">
-          {account && (
-            <Part title={t("integrations:card.account")}>
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-                {adapter?.login && (
-                  <span className="text-muted">
-                    {i.hasSecrets
-                      ? t("integrations:card.signedIn")
-                      : t("integrations:card.notSignedIn")}
-                  </span>
-                )}
-                <span className="flex flex-wrap gap-2">
-                  {hasLogin && (
-                    <Button
-                      variant={i.hasSecrets ? "secondary" : "primary"}
-                      onClick={() =>
-                        navigate({ to: "/integrations/$id/login", params: { id: i.id } })
-                      }
-                    >
-                      {i.hasSecrets
-                        ? t("integrations:card.signInAgain")
-                        : t("integrations:card.signIn")}
-                    </Button>
-                  )}
-                  <Button disabled={test.isPending} onClick={() => test.mutate()}>
-                    {t("integrations:card.test")}
-                  </Button>
-                </span>
-              </div>
-              {test.data && (
-                <p role="status" className={test.data.ok ? "text-ok" : "text-bad"}>
-                  {test.data.ok ? t("integrations:card.testOk") : t(ERRORS[test.data.code])}
-                </p>
-              )}
-            </Part>
-          )}
           {admin && i.enabled && i.kind === "local" && (
             <Part title={t("integrations:slicer.title")}>
               <SlicerFields
@@ -330,17 +287,6 @@ export function IntegrationCard({ integration: i }: { integration: Integration }
               <WorkerSlicer integration={i} adapter={adapter} />
               <DefaultSlicer integration={i} />
               <ActionSwitches integration={i} />
-            </Part>
-          )}
-          {/* A cloud adapter's slicer actions (a local one has them in its slicer part). */}
-          {admin && i.enabled && i.kind === "cloud" && i.policies.some((p) => isAction(p.type)) && (
-            <Part title={t("integrations:card.actions")}>
-              <ActionSwitches integration={i} />
-            </Part>
-          )}
-          {i.enabled && imports && (
-            <Part title={t("integrations:card.imports")}>
-              <Policies integration={i} sync={sync} part="connection" />
             </Part>
           )}
           {logged && (
@@ -456,7 +402,7 @@ function DefaultSlicer({ integration: i }: { integration: Integration }) {
 }
 
 // Local state, not the URL: every integration card has its own log.
-function SyncLog({ id, types }: { id: string; types: SyncRun["type"][] }) {
+export function SyncLog({ id, types }: { id: string; types: SyncRun["type"][] }) {
   const { t } = useTranslation();
   const [query, setQuery] = useState<ListQuery>({ pageSize: "10" });
   const { data } = useSyncRuns(id, query);

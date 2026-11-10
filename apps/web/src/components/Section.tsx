@@ -8,6 +8,7 @@ export function Section({
   wide,
   id,
   help,
+  action,
   children,
 }: {
   title: string;
@@ -16,6 +17,8 @@ export function Section({
   id?: string;
   /** Doc path in the repo (e.g. `docs/projects.md`), shown as a small "Help" link. */
   help?: string;
+  /** A link or button on the right of the title (e.g. "Add another account"). */
+  action?: ReactNode;
   children: ReactNode;
 }) {
   const { t } = useTranslation();
@@ -26,7 +29,7 @@ export function Section({
       aria-labelledby={heading}
       className="scroll-mt-4 rounded-lg border border-border bg-surface p-4 sm:p-5"
     >
-      <div className="mb-4 flex items-baseline justify-between gap-3">
+      <div className="mb-4 flex flex-wrap items-baseline justify-between gap-3">
         <h2 id={heading} className="text-base font-semibold">
           {title}
         </h2>
@@ -40,6 +43,7 @@ export function Section({
             {t("common:help")}
           </a>
         )}
+        {action}
       </div>
       <div className={wide ? "grid gap-4" : "grid gap-4 sm:max-w-md"}>{children}</div>
     </section>

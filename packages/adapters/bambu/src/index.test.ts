@@ -500,3 +500,25 @@ it("names a spool's colour from Bambu Studio's colour codes", async () => {
   expect(toSpool(hit("PLA Matte", "#123456FF"), names)?.colorName).toBeNull();
   expect(await readColorNames([join(studioDir, "missing")])).toEqual(new Map());
 });
+
+it("reads who the account is, and only that", async () => {
+  queue(
+    json(200, {
+      uid: 1,
+      account: "ana@example.com",
+      name: "Ana Silva",
+      avatar: "https://public-cdn.bblmw.com/avatar/1.png",
+      fanCount: 3,
+      personal: { bio: "hi" },
+    }),
+    json(200, { account: "b@example.com", name: "", avatar: "https://evil.example.com/a.png" }),
+  );
+  expect(await instance("tok").profile?.()).toEqual({
+    email: "ana@example.com",
+    name: "Ana Silva",
+    avatarUrl: "https://public-cdn.bblmw.com/avatar/1.png",
+  });
+  expect(sent(0).url).toBe("https://api.bambulab.com/v1/user-service/my/profile");
+  // A photo off Bambu's CDN is dropped, never fetched.
+  expect(await instance("tok").profile?.()).toEqual({ email: "b@example.com" });
+});

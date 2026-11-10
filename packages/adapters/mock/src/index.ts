@@ -86,12 +86,18 @@ export function mockAdapter(state: MockState = fixture()): IntegrationAdapter {
       },
     },
     secretsSchema: z.object({ token: z.string().min(1) }),
-    create: ({ secrets }) => {
+    create: ({ config, secrets }) => {
+      const { label } = config as { label?: string };
       const check = async () => {
         if (state.fail) throw new IntegrationError(state.fail);
         if (!(await secrets.get("token"))) throw new IntegrationError("auth_required");
       };
       return {
+        // Named after the token, so two mock accounts tell apart.
+        profile: async () => {
+          await check();
+          return { email: `${await secrets.get("token")}@example.com`, name: label };
+        },
         test: async () => {
           try {
             await check();

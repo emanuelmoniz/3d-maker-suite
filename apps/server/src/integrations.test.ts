@@ -1461,3 +1461,111 @@ describe("spool rows from a vendor", () => {
     expect(rows("import", "review").map((r) => r.hold)).toEqual([true, true]);
   });
 });
+
+describe("accounts (ADR-0021)", () => {
+  it("reads who the account is on each sync; a failed read keeps the last and the sync runs", async () => {
+    const i = await create();
+    expect(i.account).toEqual({
+      email: null,
+      name: null,
+      avatar: false,
+      allow: { printers: true, prints: true, spools: true, userPresets: true },
+    });
+    await syncType(i.id, "printers");
+    expect((await get(`/api/integrations/${i.id}`)).account.email).toBe("s3cr3t-token@example.com");
+    // The profile read fails, the printers still sync.
+    let calls = 0;
+    const failing = mockAdapter(state);
+    const instance = failing.create;
+    failing.create = (ctx) => {
+      const made = instance?.(ctx);
+      if (!made) throw new Error("no instance");
+      return {
+        ...made,
+        profile: async () => {
+          calls++;
+          throw new IntegrationError("unreachable");
+        },
+      };
+    };
+    const syncer = createSyncer(db, [failing], loadKey(dataDir), app.log);
+    expect((await syncer.run(i.id, "manual", { type: "printers" })).errorCode).toBeNull();
+    expect(calls).toBe(1);
+    expect((await get(`/api/integrations/${i.id}`)).account.email).toBe("s3cr3t-token@example.com");
+  });
+
+  it("Test connection reads the profile too", async () => {
+    const i = await create();
+    expect((await send("POST", `/api/integrations/${i.id}/test`)).json()).toEqual({ ok: true });
+    expect((await get(`/api/integrations/${i.id}`)).account.email).toBe("s3cr3t-token@example.com");
+  });
+
+  it("an Allow switch off stops its types and keeps the data; on again gives a new account's mode", async () => {
+    const i = await create();
+    await syncType(i.id, "printers");
+    const before = (await get("/api/printers")).items.length;
+    expect(before).toBeGreaterThan(0);
+    const off = (
+      await send("PATCH", `/api/integrations/${i.id}`, { allow: { printers: false } })
+    ).json();
+    expect(off.account.allow.printers).toBe(false);
+    expect(off.policies.find((p: { type: string }) => p.type === "printers").mode).toBe("off");
+    expect((await get("/api/printers")).items.length).toBe(before);
+    expect(
+      (await send("POST", `/api/integrations/${i.id}/sync`, { type: "printers" })).statusCode,
+    ).toBe(409);
+    // A new config keeps the server's own fields.
+    const patched = (
+      await send("PATCH", `/api/integrations/${i.id}`, { config: { label: "x", email: "hack" } })
+    ).json();
+    expect(patched.account).toMatchObject({ email: "s3cr3t-token@example.com" });
+    expect(patched.account.allow.printers).toBe(false);
+    const on = (
+      await send("PATCH", `/api/integrations/${i.id}`, { allow: { printers: true } })
+    ).json();
+    expect(on.policies.find((p: { type: string }) => p.type === "printers").mode).toBe("auto");
+  });
+
+  it("serves the photo through the server, fetched once, images only", async () => {
+    const i = await create();
+    const row = db.select().from(schema.integrations).where(eq(schema.integrations.id, i.id)).get();
+    const setUrl = (avatarUrl: string) =>
+      db
+        .update(schema.integrations)
+        .set({ config: { ...(row?.config as object), avatarUrl } })
+        .where(eq(schema.integrations.id, i.id))
+        .run();
+    setUrl("https://public-cdn.bblmw.com/a.png");
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(new Uint8Array([137, 80]), { headers: { "content-type": "image/png" } }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    try {
+      for (const _ of [1, 2]) {
+        const res = await app.inject(`/api/integrations/${i.id}/avatar`);
+        expect(res.statusCode).toBe(200);
+        expect(res.headers["content-type"]).toBe("image/png");
+      }
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      // Another account whose photo URL answers with a page, not an image: refused.
+      await send("DELETE", `/api/integrations/${i.id}`);
+      const j = await create();
+      const jr = db
+        .select()
+        .from(schema.integrations)
+        .where(eq(schema.integrations.id, j.id))
+        .get();
+      db.update(schema.integrations)
+        .set({ config: { ...(jr?.config as object), avatarUrl: "https://public-cdn.bblmw.com/b" } })
+        .where(eq(schema.integrations.id, j.id))
+        .run();
+      fetchMock.mockImplementationOnce(
+        async () => new Response("<html>", { headers: { "content-type": "text/html" } }),
+      );
+      expect((await app.inject(`/api/integrations/${j.id}/avatar`)).statusCode).toBe(404);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+});

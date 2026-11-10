@@ -49,8 +49,11 @@ test("README screenshots", async ({ page, app }) => {
   );
   const mock = await app.api<{ id: string }>("POST", "/api/integrations", {
     adapterId: "mock",
-    secrets: { token: "t" },
+    config: { label: "Workshop" },
+    secrets: { token: "workshop" },
   });
+  // Reads the account's name and email for its card.
+  await app.api("POST", `/api/integrations/${mock.id}/test`);
   await app.api("PATCH", `/api/integrations/${mock.id}`, { slicerPath: process.execPath });
   await app.api("POST", "/api/integrations", { adapterId: "bambu-studio-server" });
   await app.api("PUT", `/api/projects/${dragon.id}/slicing`, {

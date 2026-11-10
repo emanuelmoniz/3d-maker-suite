@@ -429,3 +429,30 @@ describe("one preset, one route", () => {
     expect(existsSync(copy)).toBe(false);
   });
 });
+
+it("an account is a preset route only while it allows user presets (ADR-0021)", async () => {
+  app = await buildApp(db, false, dataDir, {
+    adapters: [{ ...cloudAdapter, presetsLibrary: "bambu-studio" }, bambuStudioAdapter()],
+  });
+  const id = await add("cloud-test");
+  const routes = async () =>
+    (
+      (await app.inject("/api/catalog/sources")).json() as {
+        library: string;
+        routes: { integrationId: string }[];
+      }[]
+    ).flatMap((l) => l.routes.map((r) => r.integrationId));
+  expect(await routes()).toContain(id);
+  await app.inject({
+    method: "PATCH",
+    url: `/api/integrations/${id}`,
+    payload: { allow: { userPresets: false } },
+  });
+  expect(await routes()).not.toContain(id);
+  const policies = db
+    .select()
+    .from(syncPolicies)
+    .all()
+    .filter((p) => p.integrationId === id);
+  expect(policies.map((p) => p.mode)).toEqual(["off", "off", "off"]);
+});

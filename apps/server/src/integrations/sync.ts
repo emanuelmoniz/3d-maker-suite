@@ -1,6 +1,7 @@
 import { existsSync, realpathSync } from "node:fs";
 import { join } from "node:path";
 import {
+  accountConfigOf,
   autoDecisions,
   defaultPolicy,
   type ExternalPrint,
@@ -53,6 +54,7 @@ import { success } from "../lib/logSink.ts";
 import { readPreferences } from "../lib/preferences.ts";
 import { bookOrLink } from "../lib/prints.ts";
 import { linkPrints } from "../projects/linkPrints.ts";
+import { avatar, dropAvatar } from "./avatar.ts";
 import {
   activeCapabilities,
   capableRow,
@@ -242,12 +244,48 @@ export function createSyncer(
 
   async function test(id: string): Promise<TestResult> {
     try {
-      return await instanceFor(rowOf(id), AbortSignal.timeout(TIMEOUT_MS)).test();
+      const instance = instanceFor(rowOf(id), AbortSignal.timeout(TIMEOUT_MS));
+      const result = await instance.test();
+      // A working account is read again, so its card shows who it is without waiting for a sync.
+      if (result.ok) await refreshProfile(id, instance);
+      return result;
     } catch (e) {
       if (e instanceof HttpError) throw e;
       return { ok: false, code: codeOf(e) };
     }
   }
+
+  /**
+   * Who the account is (ADR-0021), into its `config`. Best effort: a failed read keeps the last
+   * values and never fails the caller.
+   */
+  async function refreshProfile(id: string, instance?: IntegrationInstance) {
+    try {
+      const row = rowOf(id);
+      const read = instance ?? instanceFor(row, AbortSignal.timeout(TIMEOUT_MS));
+      if (!read.profile) return;
+      const { email, name, avatarUrl } = await read.profile();
+      const photoChanged = avatarUrl !== accountConfigOf(row.config).avatarUrl;
+      if (photoChanged) dropAvatar(dataDir, id);
+      db.update(integrations)
+        .set({
+          config: { ...(row.config as object), email, name, avatarUrl },
+          // The photo's URL in the browser carries it, so a new photo isn't served from its cache.
+          ...(photoChanged && { updatedAt: new Date().toISOString() }),
+        })
+        .where(eq(integrations.id, id))
+        .run();
+    } catch (e) {
+      log.warn({ integrationId: id, code: codeOf(e) }, "account profile not read");
+    }
+  }
+
+  /** The account's photo: cached, else fetched by the server. */
+  const avatarOf = (id: string) => {
+    const row = db.select().from(integrations).where(eq(integrations.id, id)).get();
+    if (!row) throw new HttpError(404, "not_found", "Integration not found");
+    return avatar(dataDir, id, accountConfigOf(row.config).avatarUrl).catch(() => undefined);
+  };
 
   /**
    * One run syncs one type. A `from`/`to` range (prints only) re-reads that window instead of
@@ -286,6 +324,7 @@ export function createSyncer(
     try {
       // Only an account has an instance; a local source is read from its folder.
       const instance = adapter.create && instanceFor(row, signal);
+      if (instance) await refreshProfile(id, instance);
       const ranged = !!(req.from || req.to);
       // An account's user presets: copied for slicing, and gone ones counted like a slicer's.
       const cloud =
@@ -1090,6 +1129,9 @@ export function createSyncer(
     deleteGone,
     importBrands,
     test,
+    refreshProfile,
+    avatar: avatarOf,
+    dropAvatar: (id: string) => dropAvatar(dataDir, id),
     offer,
     running,
     adapters,

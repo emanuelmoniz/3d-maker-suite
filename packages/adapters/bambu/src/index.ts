@@ -154,6 +154,15 @@ const presetResponse = z.object({
   name: z.string().min(1),
   setting: z.record(z.string(), z.unknown()),
 });
+// Only who the account is (ADR-0021). The photo's host is checked here: the server fetches it.
+const profileResponse = z.object({
+  account: z.string().nullish(),
+  name: z.string().nullish(),
+  avatar: z
+    .url({ protocol: /^https$/, hostname: /(^|\.)bblmw\.com$/ })
+    .nullish()
+    .catch(null),
+});
 const PRESET_KINDS = { print: "process", printer: "machine", filament: "filament" } as const;
 // ponytail: the profile version seen on a real account, when no Studio folder tells ours. Whether
 // the list depends on it is unknown.
@@ -287,6 +296,14 @@ export function bambuCloudAdapter(colorDirs = studioDefaultDirs): IntegrationAda
         test: async () => {
           await devices();
           return { ok: true };
+        },
+        profile: async () => {
+          const p = await parse(await authed(URLS.profile), profileResponse, log);
+          return {
+            email: p.account || undefined,
+            name: p.name || undefined,
+            avatarUrl: p.avatar || undefined,
+          };
         },
         printers: {
           listPrinters: async () =>

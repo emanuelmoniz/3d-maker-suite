@@ -6,6 +6,7 @@ import { EmptyState } from "../../components/EmptyState.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { useCan } from "../../lib/auth.ts";
 import { libraryOf, useAdapters, useIntegrations, useMayTask } from "../../lib/integrations.ts";
+import { AccountsCard } from "./AccountCard.tsx";
 import { LibraryCard } from "./IntegrationCard.tsx";
 
 const addClass =
@@ -50,13 +51,15 @@ export function IntegrationsPage() {
       {data &&
         (data.length ? (
           <div className="grid gap-6">
-            {libraries.map((lib) => (
-              <LibraryCard
-                key={lib}
-                library={lib}
-                rows={rows.filter((i) => libraryOf(i) === lib)}
-              />
-            ))}
+            {libraries.map((lib) => {
+              const of = rows.filter((i) => libraryOf(i) === lib);
+              // An API's accounts (ADR-0021); a slicer's places.
+              return of.every((i) => i.kind === "cloud") ? (
+                <AccountsCard key={lib} adapterId={lib} rows={of} />
+              ) : (
+                <LibraryCard key={lib} library={lib} rows={of} />
+              );
+            })}
           </div>
         ) : (
           <EmptyState
