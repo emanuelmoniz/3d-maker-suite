@@ -138,7 +138,8 @@ function ZipBlock({ library, noFolder }: { library: string; noFolder: boolean })
 }
 
 /**
- * Catalog → Sources: what fills the catalog, per slicer library (ADR-0020). Its catalog source,
+ * Presets settings → Sources (ADR-0021; Step 10 splits it per data type): what fills the catalog,
+ * per slicer library (ADR-0020). Its catalog source,
  * the routes its user presets take, the zip, and with the hub on, each device's Send presets and
  * Install. A slicer nothing brings yet still offers its zip, to whoever may upload one.
  */
@@ -148,7 +149,7 @@ export function SourcesTab() {
   const locationLabel = useLocationLabel();
   const admin = useCan("integrations.manage");
   const zips = (useZipSources().data ?? []).map((z) => z.id);
-  const devices = useCan("catalog", "write") && !!usePreferences().data?.values.hubEnabled;
+  const devices = useCan("presets", "write") && !!usePreferences().data?.values.hubEnabled;
   const list = useIntegrations().data;
   const libraries = useCatalogSources().data;
   if (!list || !libraries) return null;

@@ -10,20 +10,21 @@ import { type ReactNode, useId } from "react";
 import { useTranslation } from "react-i18next";
 import { ArchiveActions, ArchivedBadge, Dependents } from "../../components/ArchiveActions.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
+import { useCanSettings } from "../../components/SettingsLink.tsx";
 import { Write } from "../../components/Write.tsx";
 import { api } from "../../lib/api.ts";
 import { useModelInfo } from "../../lib/catalog.ts";
 import { filamentLabel } from "../../lib/filament.ts";
 import { formatNumber } from "../../lib/format.ts";
 import { usePreferences } from "../../lib/preferences.ts";
+import { SourceBadge } from "../catalog/sources.tsx";
 import { Info } from "../filament/SpoolDetailPage.tsx";
 import { AllSettings } from "./AllSettings.tsx";
-import { SourceBadge } from "./sources.tsx";
 
 const KINDS = {
-  filament: { path: "/api/filament/presets", back: "/catalog/filament" },
-  machine: { path: "/api/machine-presets", back: "/catalog/printers" },
-  process: { path: "/api/process-presets", back: "/catalog/printers" },
+  filament: { path: "/api/filament/presets", back: "/presets/filament" },
+  machine: { path: "/api/machine-presets", back: "/presets/printer" },
+  process: { path: "/api/process-presets", back: "/presets/process" },
 } as const;
 
 type Row = (FilamentPreset | MachinePreset | ProcessPreset) & { source?: string };
@@ -94,6 +95,7 @@ export function PresetPage({ kind }: { kind: keyof typeof KINDS }) {
     retry: false,
   });
   const hub = !!usePreferences().data?.values.hubEnabled;
+  const library = useCanSettings("presets");
   const use = useQuery({
     queryKey: ["catalog-preset", kind, id, "use"],
     queryFn: () => api<InUseDetails>("GET", `${path}/${id}/use`),
@@ -109,8 +111,8 @@ export function PresetPage({ kind }: { kind: keyof typeof KINDS }) {
 
   const name = kind === "filament" ? filamentLabel(row as FilamentPreset) : row.name;
   const archived = row.archivedAt !== null;
-  // A preset from a user preset links to its entry in the library (hub on).
-  const preset = hub ? row.sourcePreset?.match(/^([^:]+):user\/(.+)$/) : null;
+  // A preset from a user preset links to its entry in the library (hub on, Presets settings).
+  const preset = hub && library ? row.sourcePreset?.match(/^([^:]+):user\/(.+)$/) : null;
 
   return (
     <>
@@ -118,7 +120,7 @@ export function PresetPage({ kind }: { kind: keyof typeof KINDS }) {
         title={name}
         backTo={{ to: back }}
         actions={
-          <Write can="catalog" level="manage">
+          <Write can="presets" level="manage">
             <ArchiveActions
               path={`${path}/${id}`}
               name={name}
@@ -143,7 +145,7 @@ export function PresetPage({ kind }: { kind: keyof typeof KINDS }) {
               <SourceBadge source={row.source} preset />
               {preset && (
                 <Link
-                  to="/catalog/presets"
+                  to="/presets/settings/library"
                   hash={encodeURIComponent(`${preset[1]}:${kind}:${preset[2]}`)}
                   className="mt-1 block font-medium text-accent hover:underline"
                 >

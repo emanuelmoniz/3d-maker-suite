@@ -19,6 +19,7 @@ import { DataTable, type ListQuery } from "../../components/DataTable.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { Menu } from "../../components/Menu.tsx";
 import { PathPicker } from "../../components/PathPicker.tsx";
+import { useCanSettings } from "../../components/SettingsLink.tsx";
 import { Switch } from "../../components/Switch.tsx";
 import { useCan } from "../../lib/auth.ts";
 import { cx } from "../../lib/cx.ts";
@@ -69,10 +70,10 @@ function Part({ title, children }: { title: string; children: ReactNode }) {
 const addClass =
   "inline-flex h-9 items-center gap-2 whitespace-nowrap rounded-md border border-border px-3 font-medium hover:bg-surface-2";
 
-/** Its catalog import cards, now on Catalog → Sources: how many run on their own, how many wait. */
+/** Its catalog import cards, now on Presets settings → Sources: how many run on their own, how many wait. */
 function CatalogLine({ library, rows }: { library: string; rows: Integration[] }) {
   const { t } = useTranslation();
-  const sources = useCan("catalog", "read");
+  const sources = useCanSettings("presets");
   const s = catalogSummary(rows);
   if (!s.cards) return null;
   const line =
@@ -88,7 +89,7 @@ function CatalogLine({ library, rows }: { library: string; rows: Integration[] }
     );
   return sources ? (
     <Link
-      to="/catalog/sources"
+      to="/presets/settings/sources"
       hash={`library-${library}`}
       className="text-muted underline-offset-2 hover:text-fg hover:underline"
     >
@@ -154,7 +155,7 @@ export function IntegrationCard({ integration: i }: { integration: Integration }
   const account = admin && i.enabled && i.kind === "cloud" && on.length > 0;
   const logged = admin && i.enabled && on.some((p) => !isAction(p.type));
   const hasLogin = account && adapter?.login;
-  // Catalog types are on Catalog → Sources (ADR-0020).
+  // Catalog types are on Presets settings → Sources (ADR-0020).
   const imports = i.policies.some((p) => !isAction(p.type) && !isCatalogType(p.type));
   const [confirming, setConfirming] = useState(false);
   const patch = usePatchIntegration(i.id);

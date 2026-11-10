@@ -32,9 +32,9 @@ for (const width of [375, 1440])
       width,
     );
 
-    // Its catalog cards are on Catalog → Sources.
+    // Its catalog cards are on Presets settings → Sources.
     await card.getByRole("link", { name: /^Catalog: / }).click();
-    await expect(page).toHaveURL(/\/catalog\/sources#library-bambu-studio$/);
+    await expect(page).toHaveURL(/\/presets\/settings\/sources#library-bambu-studio$/);
     // Each location is a route of the library's presets.
     const sources = page.getByRole("region", { name: "Where your presets come from" });
     await expect(sources.getByRole("heading", { name: "This computer", level: 4 })).toBeVisible();

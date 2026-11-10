@@ -233,11 +233,11 @@ function Switcher<T extends string>({
   );
 }
 
-/** Catalog → Presets (ADR-0017, ADR-0020): the one library the hub slicer and workers use. */
+/** Presets settings → Library (ADR-0017, ADR-0021): the one library the hub slicer and workers use. */
 export function PresetsTab() {
   const { t } = useTranslation();
   const presets = usePresets();
-  const manage = useCan("catalog", "write");
+  const manage = useCan("presets", "write");
   const integrations = useCan("integrations.manage");
   const libName = useLibraryName();
   const remove = useDeletePreset();
@@ -252,12 +252,12 @@ export function PresetsTab() {
   );
   const [query, setQuery] = useState(fromName.join(":"));
   const catalogRows = [
-    ...(useFilamentPresets().data?.items ?? []).map((p) => ({ ...p, to: "/filament/presets/$id" })),
+    ...(useFilamentPresets().data?.items ?? []).map((p) => ({ ...p, to: "/presets/filament/$id" })),
     ...(useMachinePresets().data ?? []).map((p) => ({
       ...p,
-      to: "/printers/machine-presets/$id",
+      to: "/presets/printer/$id",
     })),
-    ...(useProcessPresets().data ?? []).map((p) => ({ ...p, to: "/printers/process-presets/$id" })),
+    ...(useProcessPresets().data ?? []).map((p) => ({ ...p, to: "/presets/process/$id" })),
   ];
   const presetOf = (p: SlicerPreset) => {
     const hit = catalogRows.find((r) => r.sourcePreset === `${p.library}:user/${p.name}`);

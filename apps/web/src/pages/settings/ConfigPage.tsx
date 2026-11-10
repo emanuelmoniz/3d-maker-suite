@@ -11,7 +11,8 @@ import { type SettingsModule, useCanSettings } from "../../components/SettingsLi
 import { Tabs } from "../../components/Tabs.tsx";
 import { meQuery } from "../../lib/auth.ts";
 import { usePreferences, useSavePreferences } from "../../lib/preferences.ts";
-import { PresetsTab } from "../hub/PresetsPage.tsx";
+import { PresetsTab } from "../presets/LibraryTab.tsx";
+import { SourcesTab } from "../presets/SourcesTab.tsx";
 
 /** Data types: their settings have General and Sources tabs (ADR-0021). */
 const SOURCE_MODULES: SettingsModule[] = [
@@ -22,9 +23,6 @@ const SOURCE_MODULES: SettingsModule[] = [
   "catalog",
   "presets",
 ];
-
-/** Where the back link goes; Presets has no page of its own until Step 4. */
-const BACK: Partial<Record<SettingsModule, LinkProps["to"]>> = { presets: "/catalog/presets" };
 
 export type NumKey =
   | "energyCostPerKwh"
@@ -61,13 +59,12 @@ export function ConfigPage({
   const { t } = useTranslation();
   const { data, isError } = usePreferences();
   const save = useSavePreferences();
-  // Presets: written out so `pnpm i18n:check` sees the key (its sidebar item arrives in Step 4).
-  const description =
-    module === "presets" ? t("nav:items.presets.label") : t(`nav:items.${module}.label`);
-  const title = t("common:actions.moduleSettings", { module: description });
-  const backTo = { to: BACK[module] ?? (`/${module}` as LinkProps["to"]) };
+  const title = t("common:actions.moduleSettings", { module: t(`nav:items.${module}.label`) });
+  const backTo = { to: `/${module}` as LinkProps["to"] };
   const base = `/${module}/settings`;
-  const path = useLocation().pathname;
+  // Only the pathname: a re-render on every location change would make the `Navigate` below (a
+  // denied page) navigate again on each one, and never stop.
+  const path = useLocation({ select: (l) => l.pathname });
   const tab0 =
     path === `${base}/sources` ? "sources" : path === `${base}/library` ? "library" : "general";
   const hasTabs = SOURCE_MODULES.includes(module);
@@ -89,6 +86,8 @@ export function ConfigPage({
     );
   if (!data) return null;
   const hub = data.values.hubEnabled;
+  // The library is the hub's: without the hub there is no tab.
+  if (tab === "library" && !hub) return <Navigate to={base as LinkProps["to"]} replace />;
   const v = data.values;
   const commit = (patch: Partial<Preferences>) => save.mutate(patch);
   // `key` must be passed directly in JSX; React warns when it arrives through a spread.
@@ -150,7 +149,12 @@ export function ConfigPage({
           ]}
         />
       )}
-      {tab === "sources" ? (
+      {tab === "sources" && module === "presets" ? (
+        // The former Catalog → Sources, until Step 10 splits it per data type (ADR-0021).
+        <div className="grid gap-10">
+          <SourcesTab />
+        </div>
+      ) : tab === "sources" ? (
         <EmptyState
           icon={Cable}
           title={t("settings:sources.emptyTitle")}

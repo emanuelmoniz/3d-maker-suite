@@ -2,9 +2,7 @@
   "tabs": {
     "label": "Catalog sections",
     "printers": "Printers",
-    "filament": "Filament",
-    "presets": "Preset library",
-    "sources": "Sources"
+    "filament": "Filament"
   },
   "sources": {
     "empty": "No slicer or account brings anything into the catalog yet.",
@@ -53,10 +51,19 @@
     }
   },
   "intro": {
-    "printers": "Add printer brands and models by hand, or let a slicer bring them. Printer and process presets come only from a slicer: they are its files, so you archive or delete them here and edit them in the slicer.",
-    "filament": "Add filament brands and materials by hand, or let a slicer bring them. Filament presets come only from a slicer: they are its files, so you archive or delete them here and edit them in the slicer.",
-    "presets": "The user presets the hub's slicer and every slice worker use. A slice that used a changed preset needs slicing again.",
-    "sources": "What each slicer and account brings into the catalog, and when. Where they run is under Integrations."
+    "printers": "Add printer brands and models by hand, or let a slicer bring them. Their presets are under Presets.",
+    "filament": "Add filament brands and materials by hand, or let a slicer bring them. Their presets are under Presets."
+  },
+  "presetTabs": {
+    "label": "Preset kinds",
+    "printer": "Printer",
+    "process": "Process",
+    "filament": "Filament"
+  },
+  "presetIntro": {
+    "printer": "Printer presets come only from a slicer: they are its files, so you archive or delete them here and edit them in the slicer.",
+    "process": "Process presets come only from a slicer: they are its files, so you archive or delete them here and edit them in the slicer.",
+    "filament": "Filament presets come only from a slicer: they are its files, so you archive or delete them here and edit them in the slicer."
   },
   "fromFiles": "From your slicer's files. Archive one to hide it from the pickers.",
   "source": {

@@ -45,9 +45,9 @@ test("catalog row: pick brands, only those arrive, then only what you have", asy
   await expect(page.getByText("When active, this integration can be used")).toBeVisible();
   await expect(page.getByRole("button", { name: "Choose brands" })).toHaveCount(0);
 
-  // The summary line leads to the import cards on Catalog → Sources.
+  // The summary line leads to the import cards on Presets settings → Sources.
   await page.getByRole("link", { name: /^Catalog: / }).click();
-  await expect(page).toHaveURL(/\/catalog\/sources#library-orca-slicer$/);
+  await expect(page).toHaveURL(/\/presets\/settings\/sources#library-orca-slicer$/);
 
   // The slicer's cards, grouped; no schedule, because a change in the files runs them.
   const group = (name: string) => page.getByRole("region", { name, exact: true });

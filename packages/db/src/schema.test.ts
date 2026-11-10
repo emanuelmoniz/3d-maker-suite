@@ -1083,11 +1083,60 @@ describe("migration 0103", () => {
         .all()
         .map((u) => [u.id, u.permissions]),
     );
+    // 0111 copies each catalog override to presets.
     expect(users).toEqual({
-      raised: { printers: "manage", filament: "manage", "hub.manage": true, catalog: "manage" },
-      noPresets: { catalog: "read" },
+      raised: {
+        printers: "manage",
+        filament: "manage",
+        "hub.manage": true,
+        catalog: "manage",
+        presets: "manage",
+      },
+      noPresets: { catalog: "read", presets: "read" },
       same: { printers: "read" },
       admin: { "projects.editOtherDevices": false },
+    });
+  });
+});
+
+describe("migration 0111", () => {
+  it("gives roles and users `presets` at their `catalog` level", () => {
+    const now = migrateAcross(110, (sqlite) => {
+      const run = (q: string, ...args: unknown[]) => sqlite.prepare(q).run(...args);
+      run(
+        "insert into roles (id, name, permissions, project_rights, created_at, updated_at) values ('custom', 'custom', ?, '{}', 'x', 'x')",
+        JSON.stringify({ catalog: "write", printers: "read" }),
+      );
+      const user = (id: string, permissions: object) =>
+        run(
+          "insert into users (id, email, display_name, password_hash, role_id, permissions, created_at, updated_at) values (?, ?, ?, 'x', ?, ?, 'x', 'x')",
+          id,
+          `${id}@x.io`,
+          id,
+          BUILT_IN_ROLE_IDS.viewer,
+          JSON.stringify(permissions),
+        );
+      user("raised", { catalog: "manage" });
+      user("same", { printers: "write" });
+    });
+    const roles = Object.fromEntries(
+      now
+        .select()
+        .from(s.roles)
+        .all()
+        .map((r) => [r.builtIn ?? r.id, r.permissions.presets]),
+    );
+    expect(roles).toEqual({ admin: "manage", editor: "write", viewer: "read", custom: "write" });
+    const users = Object.fromEntries(
+      now
+        .select()
+        .from(s.users)
+        .all()
+        .map((u) => [u.id, u.permissions]),
+    );
+    expect(users).toEqual({
+      raised: { catalog: "manage", presets: "manage" },
+      same: { printers: "write" },
     });
   });
 });

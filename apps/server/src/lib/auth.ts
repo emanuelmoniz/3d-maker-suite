@@ -93,8 +93,8 @@ const BULK: Need = (r, m) => {
 /** `^/api/(a|b)` followed by a slash or the end. */
 const p = (prefixes: string) => new RegExp(`^/api/(${prefixes})(/|$)`);
 const PRINTERS = "printers|accessories";
-const CATALOG =
-  "brands|printer-models|machine-presets|process-presets|filament/presets|filament-brands|filament-materials";
+const CATALOG = "brands|printer-models|filament-brands|filament-materials";
+const PRESETS = "machine-presets|process-presets|filament/presets";
 const ROOTS_OR_SLICERS = either(at("projects", "write"), on("integrations.manage"));
 
 // ADR-0016 permission table: [path, methods (R = GET/HEAD, W = the rest, * = all, or one method),
@@ -121,6 +121,18 @@ const RULES: [RegExp, string, Need][] = [
   // ADR-0020: the printer, spool and print forms' pickers read the catalog without `catalog`.
   [p(CATALOG), "R", either(at("printers", "read"), at("filament", "read"), at("catalog", "read"))],
   [p(CATALOG), "W", at("catalog", "manage")],
+  // ADR-0021: the same pickers read presets, and Catalog's slicer columns; the rest is `presets`.
+  [
+    p(PRESETS),
+    "R",
+    either(
+      at("printers", "read"),
+      at("filament", "read"),
+      at("catalog", "read"),
+      at("presets", "read"),
+    ),
+  ],
+  [p(PRESETS), "W", at("presets", "manage")],
   [p(PRINTERS), "R", at("printers", "read")],
   // Logging work on accessories is write; their setup, and the printers', is manage.
   [/^\/api\/accessories\/[^/]+\/installs(\/|$)/, "W", at("printers", "write")],
@@ -152,11 +164,12 @@ const RULES: [RegExp, string, Need][] = [
     "POST",
     either(on("integrations.sync"), on("integrations.manage")),
   ],
-  // Catalog import cards are catalog manage, the rest integrations.manage: narrowed by the route.
+  // Catalog import cards are catalog manage, preset ones presets manage, the rest
+  // integrations.manage: narrowed by the route.
   [
     /^\/api\/integrations\/[^/]+$/,
     "PATCH",
-    either(on("integrations.manage"), at("catalog", "manage")),
+    either(on("integrations.manage"), at("catalog", "manage"), at("presets", "manage")),
   ],
   // The setup fields are left out without integrations.manage (route).
   [p("integrations"), "R", SESSION],
@@ -173,13 +186,14 @@ const RULES: [RegExp, string, Need][] = [
   ],
   [p("integrations|import|slicer-zip"), "*", on("integrations.manage")],
   [p("hub"), "*", on("hub.manage")],
-  // ADR-0017, ADR-0020: who sees projects sees what slices them; changing them and the device
-  // switches is catalog write.
-  [p("presets/devices"), "*", at("catalog", "write")],
-  [p("catalog/sources"), "R", at("catalog", "read")],
+  // ADR-0017, ADR-0021: who sees projects sees what slices them; changing them and the device
+  // switches is presets write.
+  [p("presets/devices"), "*", at("presets", "write")],
+  // Shown in Presets settings → Sources; the source pick fills the catalog too, so it stays catalog.
+  [p("catalog/sources"), "R", either(at("catalog", "read"), at("presets", "read"))],
   [p("catalog/sources"), "W", at("catalog", "manage")],
-  [p("presets"), "R", either(at("projects", "read"), at("catalog", "read"))],
-  [p("presets"), "W", at("catalog", "write")],
+  [p("presets"), "R", either(at("projects", "read"), at("presets", "read"))],
+  [p("presets"), "W", at("presets", "write")],
   [p("server-config|updates|docs"), "*", on("settings.server")],
   // A restored database carries anyone's rights.
   [/^\/api\/backups\/[^/]+\/restore$/, "*", ADMIN_ROLE],

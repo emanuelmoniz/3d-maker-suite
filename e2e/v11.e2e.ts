@@ -135,13 +135,14 @@ test("printer model by hand; a printer preset from a file is read-only and archi
     printerModelId: items[0]?.id,
     nozzleDiameterMm: 0.4,
   });
-  await page.reload();
+  // ADR-0021: presets are their own module.
+  await page.goto("/presets/printer");
   const presetsBlock = block(page, "Printer presets");
   await expect(presetsBlock.getByRole("link", { name: "Add preset" })).toHaveCount(0);
   // Read-only, but it has a page: its settings.
   await expect(presetsBlock.getByRole("link", { name: "Q1 0.4" })).toHaveAttribute(
     "href",
-    /\/printers\/machine-presets\//,
+    /\/presets\/printer\//,
   );
   const row = presetsBlock.getByRole("row", { name: /Q1 0\.4/ });
   await expect(row).toContainText("Bambu Studio (system)");
@@ -160,12 +161,12 @@ test("an archived preset leaves the list; the spool keeps its own filament", asy
     await app.api<{ items: { materialId: string }[] }>("GET", "/api/filament/spools")
   ).items[0] ?? { materialId: "" };
   const filament = insertPreset(app, "filament_presets", { materialId, name: "Basic" });
-  await page.goto(`/filament/presets/${filament.id}`);
+  await page.goto(`/presets/filament/${filament.id}`);
   await expect(page.getByText("Bambu Studio (system)")).toBeVisible();
   await page.getByRole("button", { name: "Archive" }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Archive" }).click();
   await expect(page.getByText("Archived", { exact: true }).first()).toBeVisible();
-  await page.goto("/catalog/filament");
+  await page.goto("/presets/filament");
   await expect(page.getByRole("table", { name: "Filament presets" })).not.toContainText("Basic");
   await page.goto(`/filament/spools/${spool.id}`);
   await expect(page.getByText("Basic").first()).toBeVisible();

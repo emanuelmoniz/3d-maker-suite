@@ -57,7 +57,7 @@
       "send": "Sends presets",
       "install": "Installs the hub's presets",
       "none": "Doesn't send or install presets",
-      "change": "Change in Catalog → Sources"
+      "change": "Change in Presets settings → Sources"
     },
     "title": "Edit connector: {{name}}",
     "titleFallback": "Edit connector",
@@ -129,7 +129,7 @@
     "openPreset": "Open the preset",
     "loadError": "Couldn't load the presets.",
     "emptyTitle": "No slicer presets yet",
-    "emptyBody": "Turn on Send presets for a device in Catalog → Sources, or upload a slicer zip there. Their user presets join this library.",
+    "emptyBody": "Turn on Send presets for a device in Presets settings → Sources, or upload a slicer zip there. Their user presets join this library.",
     "toIntegrations": "Go to Integrations",
     "library": "Slicer",
     "libraries": {

@@ -111,7 +111,7 @@ const MATRIX: Record<string, [viewer: string, editor: string]> = {
   "/api/roles": ["-", "-"],
   "/api/hub/devices": ["-", "-"],
   "/api/hub/pairing-codes": ["-", "-"],
-  // ADR-0017, ADR-0020: who sees projects sees the presets; catalog write (Editor by 0103) deletes.
+  // ADR-0017, ADR-0021: who sees projects sees the presets; presets write (Editor by 0111) deletes.
   "/api/presets": ["R", "RW"],
   "/api/presets/abc": ["R", "RW"],
   "/api/presets/devices": ["-", "RW"],
@@ -178,7 +178,7 @@ describe("permissions", () => {
     const rights = (permissions: Partial<EffectiveRights["permissions"]>) =>
       effectiveRights({ builtIn: null, permissions });
     const modules = rights({ printers: "manage", filament: "manage" });
-    for (const url of ["/api/brands", "/api/filament/presets", "/api/filament-materials"]) {
+    for (const url of ["/api/brands", "/api/filament-materials"]) {
       expect(can(rights({ filament: "read" }), url, "GET")).toBe(true);
       expect(can(rights({ catalog: "read" }), url, "GET")).toBe(true);
       expect(can(modules, url, "POST")).toBe(false);
@@ -188,7 +188,9 @@ describe("permissions", () => {
 
     const manage = rights({ catalog: "manage" });
     expect(can(manage, "/api/brands", "POST")).toBe(true);
-    expect(can(manage, "/api/filament/presets/abc", "DELETE")).toBe(true);
+    // Presets are their own module (ADR-0021); catalog still reads them, for its slicer columns.
+    expect(can(manage, "/api/filament/presets/abc", "DELETE")).toBe(false);
+    expect(can(manage, "/api/machine-presets", "GET")).toBe(true);
     expect(can(manage, "/api/bulk/filament-materials", "POST")).toBe(true);
     expect(can(manage, "/api/filament/spools", "GET")).toBe(false);
     expect(can(manage, "/api/printers", "GET")).toBe(false);
@@ -196,13 +198,8 @@ describe("permissions", () => {
     expect(can(manage, "/api/integrations/abc", "PATCH")).toBe(true);
     expect(can(manage, "/api/integrations/abc", "DELETE")).toBe(false);
 
-    const read = rights({ catalog: "read" });
-    expect(can(read, "/api/presets", "GET")).toBe(true);
-    expect(can(read, "/api/presets/abc", "DELETE")).toBe(false);
-    expect(can(read, "/api/presets/devices", "GET")).toBe(false);
     const write = rights({ catalog: "write" });
-    expect(can(write, "/api/presets/abc", "DELETE")).toBe(true);
-    expect(can(write, "/api/presets/devices/abc", "PATCH")).toBe(true);
+    expect(can(write, "/api/presets/abc", "DELETE")).toBe(false);
     expect(can(write, "/api/brands", "POST")).toBe(false);
     expect(can(write, "/api/catalog/sources/bambu-studio", "PUT")).toBe(false);
     expect(can(manage, "/api/catalog/sources/bambu-studio", "PUT")).toBe(true);
@@ -214,7 +211,31 @@ describe("permissions", () => {
     expect(can(manage, "/api/slicer-zip/orca-slicer", "POST")).toBe(false);
   });
 
-  it("integration PATCH: catalog cards need catalog manage, the rest integrations.manage", async () => {
+  it("presets (ADR-0021): the preset tables, the library and the device switches", () => {
+    const rights = (permissions: Partial<EffectiveRights["permissions"]>) =>
+      effectiveRights({ builtIn: null, permissions });
+    const read = rights({ presets: "read" });
+    for (const url of ["/api/machine-presets", "/api/process-presets", "/api/filament/presets"]) {
+      expect(can(read, url, "GET")).toBe(true);
+      expect(can(read, `${url}/abc`, "DELETE")).toBe(false);
+      expect(can(rights({ presets: "manage" }), `${url}/abc`, "DELETE")).toBe(true);
+    }
+    expect(can(read, "/api/brands", "GET")).toBe(false);
+    expect(can(read, "/api/filament/spools", "GET")).toBe(false);
+    expect(can(read, "/api/presets", "GET")).toBe(true);
+    expect(can(read, "/api/presets/abc", "DELETE")).toBe(false);
+    expect(can(read, "/api/presets/devices", "GET")).toBe(false);
+    expect(can(read, "/api/catalog/sources", "GET")).toBe(true);
+    const write = rights({ presets: "write" });
+    expect(can(write, "/api/presets/abc", "DELETE")).toBe(true);
+    expect(can(write, "/api/presets/devices/abc", "PATCH")).toBe(true);
+    expect(can(write, "/api/machine-presets/abc", "DELETE")).toBe(false);
+    expect(can(write, "/api/catalog/sources/bambu-studio", "PUT")).toBe(false);
+    expect(can(rights({ presets: "manage" }), "/api/bulk/machine-presets", "POST")).toBe(true);
+    expect(can(rights({ catalog: "manage" }), "/api/bulk/machine-presets", "POST")).toBe(false);
+  });
+
+  it("integration PATCH: catalog cards need catalog manage, presets presets manage, the rest integrations.manage", async () => {
     const { db, app } = await setup({ adapters: [mockAdapter(fixture())] });
     addUser(db, "admin");
     const admin = as(app, cookieOf(await login(app, "admin@x.io")));
@@ -233,13 +254,19 @@ describe("permissions", () => {
       return as(app, cookieOf(await login(app, email)));
     };
     const catalog = await session("catalog", { catalog: "manage" });
+    const presets = await session("presets", { presets: "manage" });
     const integrations = await session("integrations", { "integrations.manage": true });
     const patch = async (who: typeof admin, body: object) =>
       (await who.send("PATCH", `/api/integrations/${id}`, body)).statusCode;
     const brands = { policies: [{ type: "brands", mode: "manual" }] };
     const printers = { policies: [{ type: "printers", mode: "manual" }] };
     // Past the rights: the mock has no brands card.
+    const machinePresets = { policies: [{ type: "machinePresets", mode: "manual" }] };
     expect(await patch(catalog, brands)).toBe(400);
+    expect(await patch(catalog, machinePresets)).toBe(403);
+    expect(await patch(presets, machinePresets)).toBe(400);
+    expect(await patch(presets, brands)).toBe(403);
+    expect(await patch(presets, printers)).toBe(403);
     expect(await patch(catalog, printers)).toBe(403);
     expect(await patch(catalog, { enabled: true })).toBe(403);
     expect(await patch(integrations, brands)).toBe(403);
@@ -954,7 +981,7 @@ describe("who gets which alert (ADR-0016)", () => {
   // Written out, like MATRIX: sync kinds also need the policy flags (off by default).
   const GETS: Record<RoleBuiltIn, AlertKind[]> = {
     admin: ALERT_KINDS.filter((k) => !OPT_IN.includes(k)),
-    // catalog write (ADR-0017, ADR-0020).
+    // presets write (ADR-0017, ADR-0021).
     editor: [...BASIC, "preset_conflict", "preset_skipped", "preset_held"],
     viewer: BASIC,
   };

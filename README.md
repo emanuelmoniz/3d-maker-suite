@@ -9,7 +9,8 @@ A local-first manager for your 3D printing: printers, accessories, maintenance, 
 - **Printers**: inventory, timeline, comments, warranty and purchase info, lifetime and maintenance cost
 - **Accessories**: install on a printer with dates, usage, photos, tags, maintenance and cost
 - **Maintenance**: reusable tasks for printers and accessories, due by hours, prints or days
-- **Filament**: brands, materials, presets, spools with numbers and colour names, remaining grams, low-spool alerts
+- **Filament**: spools with numbers and colour names, remaining grams, low-spool alerts
+- **Catalog and presets**: printer and filament brands, models and materials, and the slicer's printer, process and filament presets, by hand or from a slicer
 - **Hub and connector**: workstations, a NAS or a file server join your server with a small connector app ([docs/hub.md](docs/hub.md))
 - **Users and roles**: accounts for a LAN, NAS or Docker install, with viewer, editor and admin roles and a log of who changed what ([docs/users.md](docs/users.md))
 - **Alerts**: one list of what needs attention (low spools, maintenance, warranties, sync results), with severity, read, snooze and dismiss, a history table, and optional ntfy or email channels; each task chooses what it raises

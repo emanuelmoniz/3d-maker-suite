@@ -487,9 +487,9 @@
   },
   "zip": {
     "cardTitle": "Printer and filament presets from a slicer",
-    "cardHint": "Running on a server with no slicer installed? Zip your slicer's config folder on the PC that has it and import its brands, printers and filament presets from the zip, in each slicer's section of Catalog → Sources.",
+    "cardHint": "Running on a server with no slicer installed? Zip your slicer's config folder on the PC that has it and import its brands, printers and filament presets from the zip, in each slicer's section of Presets settings → Sources.",
     "link": "Import from a slicer zip",
-    "toSources": "Open Catalog → Sources",
+    "toSources": "Open Presets settings → Sources",
     "title": "Import from a slicer zip",
     "description": "Zip your slicer's config folder on the PC that has it, upload it here and review what it offers. Nothing is saved until you confirm.",
     "stepsTitle": "How to get the zip",

@@ -20,6 +20,7 @@ export const permissionsSchema = z.object({
   costs: level,
   stats: z.enum(["none", "read"]),
   catalog: level,
+  presets: level,
   "integrations.sync": z.boolean(),
   "integrations.review": z.boolean(),
   "integrations.manage": z.boolean(),
@@ -65,6 +66,7 @@ const modules = (l: PermissionLevel, stats: "none" | "read") => ({
   costs: l,
   stats,
   catalog: l,
+  presets: l,
 });
 const switches = (on: boolean) => ({
   "integrations.sync": on,
@@ -252,16 +254,16 @@ export const ALERT_KIND_CATALOG: Record<AlertKind, KindRule> = {
   hub_conflict: { needs: (p) => hasLevel(p, "projects", "read"), condition: false, default: "app" },
   hub_mass_delete: { needs: (p) => p["hub.manage"], condition: true, default: "app" },
   preset_conflict: {
-    needs: (p) => hasLevel(p, "catalog", "write"),
+    needs: (p) => hasLevel(p, "presets", "write"),
     condition: false,
     default: "app",
   },
   preset_skipped: {
-    needs: (p) => hasLevel(p, "catalog", "write"),
+    needs: (p) => hasLevel(p, "presets", "write"),
     condition: false,
     default: "app",
   },
-  preset_held: { needs: (p) => hasLevel(p, "catalog", "write"), condition: true, default: "app" },
+  preset_held: { needs: (p) => hasLevel(p, "presets", "write"), condition: true, default: "app" },
 };
 
 const subscription = z.enum(ALERT_SUBSCRIPTIONS);

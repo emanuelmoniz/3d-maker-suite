@@ -14,13 +14,41 @@ const post = async (page: Page, path: string, data: unknown) => {
 const linkNames = async (block: ReturnType<Page["locator"]>) =>
   (await block.getByRole("link").allInnerTexts()).map((n) => n.trim()).filter(Boolean);
 
-test("old catalog addresses land on their Catalog tab", async ({ page, app }) => {
+test("old catalog addresses land on their Catalog or Presets tab", async ({ page, app }) => {
   const model = await seedModel(app.api);
   insertPreset(app, "process_presets", { name: "Fine", printerModelId: model.id });
+  const machine = insertPreset(app, "machine_presets", {
+    name: "Q1 0.4",
+    printerModelId: model.id,
+    nozzleDiameterMm: 0.4,
+  });
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto("/printers/settings#process-presets");
-  await expect(page).toHaveURL(/\/catalog\/printers#process-presets$/);
-  await expect(page.getByRole("heading", { name: "Process presets", level: 2 })).toBeInViewport();
+  await expect(page).toHaveURL(/\/presets\/process$/);
+  await expect(page.getByRole("heading", { name: "Process presets", level: 2 })).toBeVisible();
+  // ADR-0021: the preset tables, their pages, the library and the sources left Catalog.
+  for (const [from, to] of [
+    ["/catalog/printers#machine-presets", "/presets/printer"],
+    ["/catalog/filament#filament-presets", "/presets/filament"],
+    [`/printers/machine-presets/${machine.id}`, `/presets/printer/${machine.id}`],
+    [`/printers/machine-profiles/${machine.id}`, `/presets/printer/${machine.id}`],
+    ["/catalog/presets", "/presets/settings/library"],
+    ["/hub/presets", "/presets/settings/library"],
+    ["/catalog/sources", "/presets/settings/sources"],
+    ["/presets", "/presets/printer"],
+  ]) {
+    await page.goto(from);
+    await expect(page).toHaveURL(new RegExp(`${to}$`));
+  }
+  await expect(page.getByRole("heading", { name: "Printer presets", level: 2 })).toBeVisible();
+  const presetTabs = page.getByRole("navigation", { name: "Preset kinds" });
+  await expect(presetTabs.getByRole("link", { name: "Printer" })).toHaveAttribute(
+    "aria-current",
+    "page",
+  );
+  await page.getByRole("link", { name: "Q1 0.4" }).click();
+  await expect(page).toHaveURL(`/presets/printer/${machine.id}`);
+  await expect(page.getByRole("heading", { name: "Q1 0.4", level: 1 })).toBeVisible();
   // Filament settings is its own page now, with General and Sources tabs.
   await page.goto("/filament/settings");
   await expect(page).toHaveURL(/\/filament\/settings$/);
@@ -52,13 +80,13 @@ test("old catalog addresses land on their Catalog tab", async ({ page, app }) =>
   await expect(page.getByRole("main").getByRole("textbox")).toHaveCount(0);
 });
 
-test("the bottom block and the More sheet start with Catalog, Import | Export after Integrations", async ({
+test("the bottom block and the More sheet: Integrations, Catalog, Presets, Import | Export", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto("/");
   const bottom = page.getByRole("complementary").locator("div.border-t").first();
-  const order = ["Catalog", "Integrations", "Import | Export", "Settings"];
+  const order = ["Integrations", "Catalog", "Presets", "Import | Export", "Settings"];
   const side = (await linkNames(bottom)).filter((n) => order.includes(n));
   expect(side).toEqual(order);
 
@@ -68,7 +96,7 @@ test("the bottom block and the More sheet start with Catalog, Import | Export af
   expect(sheet).toEqual(order);
 });
 
-test("Catalog needs catalog read: not in the menu, and its page sends you home", async ({
+test("Catalog and Presets need their read: not in the menu, and their page sends you home", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
@@ -96,5 +124,10 @@ test("Catalog needs catalog read: not in the menu, and its page sends you home",
     0,
   );
   await page.goto("/catalog/printers");
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.getByRole("complementary").getByRole("link", { name: "Presets" })).toHaveCount(
+    0,
+  );
+  await page.goto("/presets/printer");
   await expect(page).toHaveURL(/\/$/);
 });

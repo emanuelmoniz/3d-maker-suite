@@ -60,11 +60,11 @@ const DEPENDENTS: Record<DependentType, { key: string; to?: string }> = {
   },
   machinePreset: {
     key: "common:archive.dependents.machinePreset",
-    to: "/printers/machine-presets/$id",
+    to: "/presets/printer/$id",
   },
   processPreset: {
     key: "common:archive.dependents.processPreset",
-    to: "/printers/process-presets/$id",
+    to: "/presets/process/$id",
   },
   printer: { key: "common:archive.dependents.printer", to: "/printers/$id" },
   accessory: { key: "common:archive.dependents.accessory", to: "/printers/accessories/$id" },

@@ -335,7 +335,7 @@
     "makeDefault": "Make default slicer"
   },
   "worker": {
-    "unavailableHint": "Pick the slicer it uses on its device below. Its presets come from Catalog → Sources.",
+    "unavailableHint": "Pick the slicer it uses on its device below. Its presets come from Presets settings → Sources.",
     "noDevice": "Its device was revoked. Pick another one.",
     "online": "Slices on {{name}}.",
     "offline": "Slices on {{name}}, which is offline now.",

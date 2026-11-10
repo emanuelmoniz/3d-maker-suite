@@ -7,7 +7,7 @@ import { Trans, useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
 import { api } from "../../lib/api.ts";
 import { cx } from "../../lib/cx.ts";
-import { sourceLabel } from "./sources.tsx";
+import { sourceLabel } from "../catalog/sources.tsx";
 
 // Static keys so `pnpm i18n:check` sees them.
 const UNREADABLE = {

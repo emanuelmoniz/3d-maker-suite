@@ -48,14 +48,14 @@ test("hub presets: two PCs' zips in one library, versions, delete", async ({ pag
     "user/default/filament/Silk.json": { name: "Silk" },
   });
 
-  await page.goto("/catalog");
+  await page.goto("/presets/settings");
   await page
-    .getByRole("navigation", { name: "Catalog sections" })
-    .getByRole("link", { name: "Preset library" })
+    .getByRole("navigation", { name: "Settings sections" })
+    .getByRole("link", { name: "Library" })
     .click();
-  await expect(page).toHaveURL(/\/catalog\/presets$/);
+  await expect(page).toHaveURL(/\/presets\/settings\/library$/);
   await page.goto("/hub/presets");
-  await expect(page).toHaveURL(/\/catalog\/presets$/);
+  await expect(page).toHaveURL(/\/presets\/settings\/library$/);
   await expect(page.getByRole("button", { name: "Filament (2)" })).toHaveAttribute(
     "aria-pressed",
     "true",
@@ -153,28 +153,25 @@ test("slicer presets without hub.manage: an editor's switches, a viewer's list, 
     { id: "orca-slicer", version: "2.5", path: "C:/Orca/orca-slicer.exe", default: true },
   ]);
   const side = page.getByRole("complementary");
-  const tab = page
-    .getByRole("navigation", { name: "Catalog sections" })
-    .getByRole("link", { name: "Preset library" });
+  const tabs = page.getByRole("navigation", { name: "Settings sections" });
+  const tab = tabs.getByRole("link", { name: "Library" });
+  // ADR-0021: Presets → its settings → Library, open to `presets` read.
   const openPresets = async () => {
-    await side.getByRole("link", { name: "Catalog" }).click();
+    await side.getByRole("link", { name: "Presets" }).click();
+    await page.getByRole("link", { name: "Presets settings" }).click();
     await tab.click();
   };
 
-  // Editor: from the navigation, with no way back to a page it can't open.
+  // Editor: from the navigation.
   await signInAs("eva@example.com");
   await page.goto("/");
   await expect(side.getByRole("link", { name: "Hub management" })).toHaveCount(0);
   await openPresets();
   await expect(page.getByText("Farm PLA")).toBeVisible();
   await expect(page.getByRole("button", { name: "Delete Farm PLA" })).toBeVisible();
-  await expect(page.getByRole("link", { name: /back/i })).toHaveCount(0);
   // The switches are per slicer, in Sources (ADR-0020).
   await expect(page.getByRole("switch")).toHaveCount(0);
-  await page
-    .getByRole("navigation", { name: "Catalog sections" })
-    .getByRole("link", { name: "Sources" })
-    .click();
+  await tabs.getByRole("link", { name: "Sources" }).click();
   const install = page.getByRole("switch", { name: "Install presets in OrcaSlicer on Desk PC" });
   await expect(install).not.toBeChecked();
   expect((await device("GET", "/presets", undefined)).status).toBe(403);
@@ -216,7 +213,7 @@ test("slicer presets without hub.manage: an editor's switches, a viewer's list, 
   await openPresets();
   await expect(page.getByText("Farm PLA")).toBeVisible();
   await expect(page.getByRole("button", { name: "Delete Farm PLA" })).toHaveCount(0);
-  await page.goto("/catalog/sources");
+  await page.goto("/presets/settings/sources");
   await expect(page.getByRole("heading", { name: "OrcaSlicer" })).toBeVisible();
   await expect(page.getByRole("switch")).toHaveCount(0);
   const patch = { data: { library: "orca-slicer", send: true } };
@@ -227,17 +224,17 @@ test("slicer presets without hub.manage: an editor's switches, a viewer's list, 
   const [{ id }] = await (await page.request.get("/api/presets/devices")).json();
   await page.goto(`/hub/devices/${id}`);
   await expect(page.getByText("Installs the hub's presets")).toBeVisible();
-  await page.getByRole("link", { name: "Change in Catalog → Sources" }).click();
-  await expect(page).toHaveURL(/\/catalog\/sources#devices-orca-slicer$/);
+  await page.getByRole("link", { name: "Change in Presets settings → Sources" }).click();
+  await expect(page).toHaveURL(/\/presets\/settings\/sources#devices-orca-slicer$/);
 
   // Hub off: hidden for all.
   await page.request.patch("/api/preferences", { data: { hubEnabled: false } });
   await signInAs("eva@example.com");
-  await page.goto("/");
-  await side.getByRole("link", { name: "Catalog" }).click();
+  await page.goto("/presets/settings");
+  await expect(tabs.getByRole("link", { name: "Sources" })).toBeVisible();
   await expect(tab).toHaveCount(0);
   await page.goto("/catalog/presets");
-  await expect(page).toHaveURL(/\/catalog\/printers$/);
+  await expect(page).toHaveURL(/\/presets\/settings$/);
 });
 
 test("share my presets: the switch, a device's preset, a conflict copy, a desktop delete", async ({
@@ -272,7 +269,7 @@ test("share my presets: the switch, a device's preset, a conflict copy, a deskto
 
   await page.goto("/catalog/presets");
   await expect(page.getByText("No slicer presets yet")).toBeVisible();
-  await page.goto("/catalog/sources");
+  await page.goto("/presets/settings/sources");
   const toggle = page.getByRole("switch", { name: "Send Bambu Studio presets from Desk PC" });
   await expect(toggle).not.toBeChecked();
   const preset = (cost: string) =>

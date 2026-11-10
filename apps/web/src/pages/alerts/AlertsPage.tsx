@@ -78,15 +78,17 @@ export function useMayOpenTask() {
 
 /**
  * A finished sync's call to action: the module or catalog section it filled. For whoever may run
- * the task; a catalog section also needs `catalog` read.
+ * the task; a catalog section also needs `catalog` read, a preset tab `presets` read.
  */
 export function SyncTargetLink({ a }: { a: Alert }) {
   const { t } = useTranslation();
   const mayOpen = useMayOpenTask();
   const target = SYNC_TARGETS[a.context.type as Capability];
   const catalog = useCan("catalog", "read");
+  const presets = useCan("presets", "read");
   if (a.kind !== "sync_success" || !target || !mayOpen(a)) return null;
   if (!catalog && target.to.startsWith("/catalog")) return null;
+  if (!presets && target.to.startsWith("/presets")) return null;
   return (
     <Link to={target.to} hash={target.hash} className={buttonLink}>
       {t(target.label)}
@@ -245,7 +247,7 @@ export function Title({ a, inList }: { a: Alert; inList?: boolean }) {
     case "preset_skipped":
     case "preset_held":
       return (
-        <Link to="/catalog/presets" className={link}>
+        <Link to="/presets/settings/library" className={link}>
           {text}
         </Link>
       );

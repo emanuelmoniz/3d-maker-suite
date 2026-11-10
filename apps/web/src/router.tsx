@@ -16,12 +16,12 @@ import { AlertDetailPage } from "./pages/alerts/AlertDetailPage.tsx";
 import { AlertsPage } from "./pages/alerts/AlertsPage.tsx";
 import { LoginPage, SetupPage } from "./pages/auth/AuthPages.tsx";
 import { CatalogImportPage } from "./pages/catalog/CatalogImportPage.tsx";
-import { CATALOG_TABS, CatalogPage, PRINTER_TABLES } from "./pages/catalog/CatalogPage.tsx";
 import {
-  FilamentPresetPage,
-  MachinePresetPage,
-  ProcessPresetPage,
-} from "./pages/catalog/PresetPage.tsx";
+  CATALOG_TABS,
+  CatalogPage,
+  PRESET_TABLES,
+  PRINTER_TABLES,
+} from "./pages/catalog/CatalogPage.tsx";
 import { ClientDetailPage } from "./pages/clients/ClientDetailPage.tsx";
 import { ClientCreatePage, ClientEditPage } from "./pages/clients/ClientFormPage.tsx";
 import { ClientsPage } from "./pages/clients/ClientsPage.tsx";
@@ -43,6 +43,12 @@ import { TypeCreatePage, TypeEditPage } from "./pages/maintenance/TypeFormPage.t
 import { OrderDetailPage } from "./pages/orders/OrderDetailPage.tsx";
 import { OrderCreatePage, OrderEditPage } from "./pages/orders/OrderFormPage.tsx";
 import { OrdersPage } from "./pages/orders/OrdersPage.tsx";
+import {
+  FilamentPresetPage,
+  MachinePresetPage,
+  ProcessPresetPage,
+} from "./pages/presets/PresetPage.tsx";
+import { PRESET_TABS, PresetsPage } from "./pages/presets/PresetsPage.tsx";
 import { AccessoryDetailPage } from "./pages/printers/AccessoryDetailPage.tsx";
 import { AccessoryCreatePage, AccessoryEditPage } from "./pages/printers/AccessoryFormPage.tsx";
 import { BrandFormPage, ModelFormPage } from "./pages/printers/CatalogForms.tsx";
@@ -86,6 +92,7 @@ import {
   IMPORT_ITEM,
   INTEGRATIONS_ITEM,
   LOGS_ITEM,
+  PRESETS_ITEM,
   SETTINGS_ITEM,
 } from "./shell/nav.ts";
 
@@ -114,6 +121,7 @@ const root = createRootRoute({ component: Root, notFoundComponent: NotFound });
 const built = [
   "/",
   CATALOG_ITEM.to,
+  PRESETS_ITEM.to,
   IMPORT_ITEM.to,
   INTEGRATIONS_ITEM.to,
   HUB_ITEM.to,
@@ -217,9 +225,9 @@ const routes: AnyRoute[] = [
   ...[
     ["/filament/spools/$id", SpoolDetailPage],
     ["/filament/spools/$id/edit", SpoolEditPage],
-    ["/filament/presets/$id", FilamentPresetPage],
-    ["/printers/machine-presets/$id", MachinePresetPage],
-    ["/printers/process-presets/$id", ProcessPresetPage],
+    ["/presets/filament/$id", FilamentPresetPage],
+    ["/presets/printer/$id", MachinePresetPage],
+    ["/presets/process/$id", ProcessPresetPage],
   ].map(([path, component]) =>
     createRoute({
       getParentRoute: () => root,
@@ -235,12 +243,16 @@ const routes: AnyRoute[] = [
       component: component as () => ReactNode,
     }),
   ),
-  // Presets were profiles before 5.5 (ADR-0021); old links and bookmarks still land.
+  // Presets were profiles before 5.5, and lived in Printers and Filament (ADR-0021); old links and
+  // bookmarks still land.
   ...(
     [
-      ["/filament/profiles/$id", "/filament/presets/$id"],
-      ["/printers/machine-profiles/$id", "/printers/machine-presets/$id"],
-      ["/printers/print-profiles/$id", "/printers/process-presets/$id"],
+      ["/filament/profiles/$id", "/presets/filament/$id"],
+      ["/printers/machine-profiles/$id", "/presets/printer/$id"],
+      ["/printers/print-profiles/$id", "/presets/process/$id"],
+      ["/filament/presets/$id", "/presets/filament/$id"],
+      ["/printers/machine-presets/$id", "/presets/printer/$id"],
+      ["/printers/process-presets/$id", "/presets/process/$id"],
     ] as const
   ).map(([path, to]) =>
     createRoute({
@@ -279,12 +291,52 @@ const routes: AnyRoute[] = [
     createRoute({
       getParentRoute: () => root,
       path: `/catalog/${tab}`,
+      // A preset table's old address lands on its Presets tab (ADR-0021).
+      beforeLoad: ({ location }: { location: { hash: string } }) => {
+        const to = PRESET_TABLES[location.hash];
+        if (to) throw redirect({ to: `/presets/${to}` });
+      },
       // integrations: the names of the accounts a row can come from.
       loader: () =>
         Promise.all(
           ["catalog", "printers", "filament", "integrations", "import", "hub"].map(loadNamespace),
         ),
       component: () => <CatalogPage tab={tab} />,
+    }),
+  ),
+  // The library and the sources were Catalog tabs before ADR-0021.
+  ...(
+    [
+      ["/catalog/presets", "/presets/settings/library"],
+      ["/catalog/sources", "/presets/settings/sources"],
+    ] as const
+  ).map(([path, to]) =>
+    createRoute({
+      getParentRoute: () => root,
+      path,
+      beforeLoad: ({ location }) => {
+        throw redirect({ to, hash: location.hash });
+      },
+    }),
+  ),
+  // Presets (ADR-0021): one tab per kind, `/presets` opens the first.
+  createRoute({
+    getParentRoute: () => root,
+    path: "/presets",
+    beforeLoad: () => {
+      throw redirect({ to: "/presets/printer" });
+    },
+  }),
+  ...PRESET_TABS.map((tab) =>
+    createRoute({
+      getParentRoute: () => root,
+      path: `/presets/${tab}`,
+      // integrations: the names of the accounts a row can come from.
+      loader: () =>
+        Promise.all(
+          ["catalog", "printers", "filament", "integrations", "import"].map(loadNamespace),
+        ),
+      component: () => <PresetsPage tab={tab} />,
     }),
   ),
   // The catalog tables were in Printers and Filament settings before; old links still land.
@@ -467,7 +519,12 @@ const routes: AnyRoute[] = [
       ["/hub/settings", HubConfigPage, ["hub"]],
       ["/filament/settings", FilamentConfigPage, ["filament"]],
       ["/catalog/settings", CatalogConfigPage, ["catalog"]],
-      ["/presets/settings", PresetsConfigPage, ["catalog", "hub"]],
+      // catalog, import, integrations: the moved Sources tab (until Step 10).
+      [
+        "/presets/settings",
+        PresetsConfigPage,
+        ["catalog", "hub", "import", "integrations", "filament"],
+      ],
     ] as const
   ).flatMap(([path, component, ns]) =>
     // Data types also have a Sources tab (the Library tab only exists on Presets).
@@ -478,11 +535,11 @@ const routes: AnyRoute[] = [
           path,
           // A catalog table's old address lands on its tab; the page keeps the default printer.
           beforeLoad: ({ location }: { location: { pathname: string; hash: string } }) => {
-            if (
-              location.pathname === "/printers/settings" &&
-              PRINTER_TABLES.includes(location.hash)
-            )
+            if (location.pathname !== "/printers/settings") return;
+            if (PRINTER_TABLES.includes(location.hash))
               throw redirect({ to: "/catalog/printers", hash: location.hash });
+            const preset = PRESET_TABLES[location.hash];
+            if (preset) throw redirect({ to: `/presets/${preset}` });
           },
           loader: () => Promise.all(["settings", ...ns].map(loadNamespace)),
           component,
@@ -549,7 +606,7 @@ const routes: AnyRoute[] = [
     getParentRoute: () => root,
     path: "/hub/presets",
     beforeLoad: ({ location }) => {
-      throw redirect({ to: "/catalog/presets", hash: location.hash });
+      throw redirect({ to: "/presets/settings/library", hash: location.hash });
     },
   }),
   createRoute({

@@ -13,7 +13,7 @@ for (const width of [375, 1440])
     });
     await page.request.patch("/api/preferences", { data: { hubEnabled: true } });
     // Nothing connected yet: each slicer still offers its zip, and the zip page comes back here.
-    await page.goto("/catalog/sources");
+    await page.goto("/presets/settings/sources");
     await expect(page.getByText("No slicer or account brings anything")).toBeVisible();
     const zip = page
       .getByRole("region", { name: "Bambu Studio", exact: true })
@@ -22,7 +22,7 @@ for (const width of [375, 1440])
     await zip.getByRole("link", { name: "Import from a slicer zip" }).click();
     await expect(page).toHaveURL(/\/import\/slicer-zip\?slicer=bambu-studio$/);
     await page.getByRole("link", { name: /back/i }).click();
-    await expect(page).toHaveURL(/\/catalog\/sources$/);
+    await expect(page).toHaveURL(/\/presets\/settings\/sources$/);
 
     const me = await (await page.request.get("/api/auth/me")).json();
     /** A paired device that reports these slicers, as its connector does. */
@@ -49,7 +49,7 @@ for (const width of [375, 1440])
       data: { adapterId: "bambu-studio-worker", config: { deviceId: wsId, source: "installed" } },
     });
 
-    await page.goto("/catalog/sources");
+    await page.goto("/presets/settings/sources");
     const studio = page.getByRole("region", { name: "Bambu Studio", exact: true });
     const orca = page.getByRole("region", { name: "OrcaSlicer", exact: true });
 

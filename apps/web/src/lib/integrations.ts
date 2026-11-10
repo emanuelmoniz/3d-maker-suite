@@ -76,7 +76,7 @@ export function useLocationLabel() {
       : t(LOCATIONS[i.kind]);
 }
 
-/** A card's catalog import cards (now on Catalog → Sources): automatic, and waiting for review. */
+/** A card's catalog import cards (now on Presets settings → Sources): automatic, and waiting for review. */
 export const catalogSummary = (rows: Integration[]) => {
   const cards = rows.flatMap((i) => i.policies.filter((p) => isCatalogType(p.type)));
   return {

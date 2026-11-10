@@ -38,9 +38,10 @@ Modules have four steps: **None** (hidden), **Read**, **Write** and **Manage**.
 | Projects | Add and edit projects and their files | Set up the project folders |
 | Prints | Log and edit prints | Change print settings |
 | Quotes, orders and clients | Make quotes and orders | Change rates, currency and order statuses |
-| Catalog | Delete and restore hub presets, clean up conflict copies and held deletes, set what each workstation sends and installs | Add, edit, archive and delete brands, models and materials; archive and delete presets (a slicer makes and edits them); on Catalog → Sources, their import settings, Choose brands and each slicer's catalog source |
+| Catalog | (nothing more than Read yet) | Add, edit, archive and delete brands, models and materials; on Presets → Settings → Sources, their import settings, Choose brands and each slicer's catalog source |
+| Presets | Delete and restore Preset library presets, clean up conflict copies and held deletes, set what each workstation sends and installs | Archive and delete presets (a slicer makes and edits them); their import settings on Presets → Settings → Sources |
 
-With **Catalog** at Read, a user sees the catalog and the slicer presets. The printer, spool and print forms read brands, models, materials and presets with Printers or Filament read too, and the presets are readable with Projects read.
+With **Catalog** at Read, a user sees the brands, models and materials; with **Presets** at Read, the slicer presets, their Sources and the Preset library. The printer, spool and print forms read brands, models, materials and presets with Printers or Filament read too, and the presets are readable with Projects or Catalog read. Presets took over from Catalog in 5.5: each role and user starts with the Presets level its Catalog level had.
 
 **Stats** is None or Read. The rest are on or off:
 

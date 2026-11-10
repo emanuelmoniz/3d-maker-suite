@@ -6,6 +6,7 @@ import {
   type Integration,
   isAction,
   isCatalogType,
+  isPresetType,
   isUserPresetType,
   type NewSpoolField,
   REVIEWED_TYPES,
@@ -185,7 +186,7 @@ function rangeFor(
 
 /**
  * The data types an integration imports, in groups, one row each: `connection` on its card (a
- * cloud's printers, prints and spools); on Catalog → Sources (ADR-0020), `catalog` (the catalog
+ * cloud's printers, prints and spools); on Presets settings → Sources (ADR-0020), `catalog` (the catalog
  * source's Catalog and System presets) and `userPresets` (each route's).
  */
 const PARTS: Record<"connection" | "catalog" | "userPresets", (keyof typeof GROUPS)[]> = {
@@ -317,8 +318,11 @@ function PolicyRow({
   const detailsId = useId();
   const [open, setOpen] = useState(false);
   // An editor gets the buttons their flags allow and no settings (ADR-0012); catalog cards are
-  // catalog manage (ADR-0020).
-  const admin = useCan(isCatalogType(p.type) ? "catalog" : "integrations.manage", "manage");
+  // catalog manage (ADR-0020), preset cards presets manage (ADR-0021).
+  const admin = useCan(
+    isPresetType(p.type) ? "presets" : isCatalogType(p.type) ? "catalog" : "integrations.manage",
+    "manage",
+  );
   const accounts = !!useMe();
   const may = useMayTask();
   const name = t(CAPS[p.type]);

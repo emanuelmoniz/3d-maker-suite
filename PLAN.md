@@ -2420,7 +2420,7 @@ Plan Step 2 of the 5.5.0 plan in PLAN.md. Back up the DB before editing schema.t
 Do Step 3 of the 5.5.0 plan in PLAN.md. Use frontend-design for the tabs.
 ```
 
-### [ ] Step 4 - Presets module and the sidebar  **[plan mode]**
+### [x] Step 4 - Presets module and the sidebar  **[plan mode]**
 **Model:** Opus · **Effort:** Medium
 **Scope:**
 - Catalog keeps Printers (brands, models) and Filament (brands, materials). Its Presets and Sources tabs leave.

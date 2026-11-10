@@ -26,12 +26,16 @@ const SETTINGS_PERMISSION: Record<SettingsModule, Permission> = {
   printers: "printers",
   filament: "filament",
   catalog: "catalog",
-  presets: "catalog", // its own `presets` level arrives with the module (Step 4)
+  presets: "presets",
   hub: "hub.manage",
 };
 
+/**
+ * Presets settings open with read: their Library and Sources tabs were Catalog tabs that read
+ * showed (ADR-0021); each control in them checks its own level.
+ */
 export const useCanSettings = (module: SettingsModule) =>
-  useCan(SETTINGS_PERMISSION[module], "manage");
+  useCan(SETTINGS_PERMISSION[module], module === "presets" ? "read" : "manage");
 
 /** Gear button for a module's PageHeader actions; opens the module's config page. */
 export function SettingsLink({ module }: { module: SettingsModule }) {

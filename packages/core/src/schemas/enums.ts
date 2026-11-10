@@ -111,7 +111,10 @@ export const SYNC_TYPES = [
   "filamentPresets",
   ...USER_PRESET_TYPES,
 ] as const;
-/** The types that fill the catalog (ADR-0020): their import cards need `catalog` manage. */
+/**
+ * The types that fill the catalog (ADR-0020). Their import cards need `catalog` manage, or `presets`
+ * manage for the presets (`isPresetType`, ADR-0021).
+ */
 export const isCatalogType = (t: string) =>
   (SYNC_TYPES as readonly string[]).includes(t) && !["printers", "prints", "spools"].includes(t);
 // Per integration and type: switched off, run by hand only, or run by the scheduler too.

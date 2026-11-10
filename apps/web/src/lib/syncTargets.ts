@@ -1,8 +1,16 @@
 import type { Capability } from "@3d-maker-suite/core";
 
 type Target = {
-  to: "/printers" | "/prints" | "/filament" | "/catalog/printers" | "/catalog/filament";
-  /** Id of the catalog table on its tab. */
+  to:
+    | "/printers"
+    | "/prints"
+    | "/filament"
+    | "/catalog/printers"
+    | "/catalog/filament"
+    | "/presets/printer"
+    | "/presets/process"
+    | "/presets/filament";
+  /** Id of the catalog table on its tab; a preset tab has one table. */
   hash?: string;
   label: string;
 };
@@ -19,13 +27,11 @@ export const SYNC_TARGETS: Partial<Record<Capability, Target>> = {
     label: "alerts:view.sync.printerModels",
   },
   machinePresets: {
-    to: "/catalog/printers",
-    hash: "machine-presets",
+    to: "/presets/printer",
     label: "alerts:view.sync.machinePresets",
   },
   processPresets: {
-    to: "/catalog/printers",
-    hash: "process-presets",
+    to: "/presets/process",
     label: "alerts:view.sync.processPresets",
   },
   filamentBrands: {
@@ -39,23 +45,19 @@ export const SYNC_TARGETS: Partial<Record<Capability, Target>> = {
     label: "alerts:view.sync.filamentMaterials",
   },
   filamentPresets: {
-    to: "/catalog/filament",
-    hash: "filament-presets",
+    to: "/presets/filament",
     label: "alerts:view.sync.filamentPresets",
   },
   userMachinePresets: {
-    to: "/catalog/printers",
-    hash: "machine-presets",
+    to: "/presets/printer",
     label: "alerts:view.sync.machinePresets",
   },
   userProcessPresets: {
-    to: "/catalog/printers",
-    hash: "process-presets",
+    to: "/presets/process",
     label: "alerts:view.sync.processPresets",
   },
   userFilamentPresets: {
-    to: "/catalog/filament",
-    hash: "filament-presets",
+    to: "/presets/filament",
     label: "alerts:view.sync.filamentPresets",
   },
 };

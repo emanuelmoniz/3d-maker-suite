@@ -2,12 +2,8 @@ import {
   type Brand,
   brandFilters,
   type ColumnFilter,
-  type MachinePreset,
-  machinePresetFilters,
   type PrinterModel,
-  type ProcessPreset,
   printerModelFilters,
-  processPresetFilters,
 } from "@3d-maker-suite/core";
 import { Link } from "@tanstack/react-router";
 import { Plus } from "lucide-react";
@@ -27,10 +23,10 @@ import {
   usePrinterModels,
   useProcessPresets,
 } from "../../lib/catalog.ts";
-import { formatList, formatNumber } from "../../lib/format.ts";
+import { formatList } from "../../lib/format.ts";
 import { useListPage, useUrlListQuery } from "../../lib/list.ts";
 import { CatalogTransfer } from "../catalog/CatalogTransfer.tsx";
-import { sourceColumn, useColumn } from "../catalog/sources.tsx";
+import { sourceColumn } from "../catalog/sources.tsx";
 
 export const addClass =
   "inline-flex h-9 items-center gap-2 whitespace-nowrap rounded-md bg-accent px-3 font-medium text-accent-fg hover:opacity-90";
@@ -100,7 +96,7 @@ export function Section<T extends { id: string; archivedAt: string | null }>(pro
             ...props.columns,
             archiveColumn<T>(t, {
               kind: props.kind,
-              can: "catalog",
+              can: props.kind.endsWith("-presets") ? "presets" : "catalog",
               level: "manage",
               name: props.name,
             }),
@@ -135,7 +131,7 @@ export const editLink = (to: string, id: string, children: ReactNode) => (
   </EditLink>
 );
 
-/** Brands, printer models, machine presets and process presets: Catalog → Printers. */
+/** Brands and printer models: Catalog → Printers. */
 export function Catalog() {
   const { t } = useTranslation();
   const brands = useBrands().data ?? [];
@@ -181,14 +177,6 @@ export function Catalog() {
     sort: "slicer",
     filter: "slicer",
     filterOptions: slicerOptions,
-  });
-  const brandColumn = <T,>(modelId: (row: T) => string | null): Column<T> => ({
-    id: "brand",
-    header: t("printers:catalog.models.brand"),
-    cell: (r) => info.get(modelId(r) ?? "")?.brand?.name ?? none,
-    sort: "brand",
-    filter: "brandId",
-    filterOptions: brands.map((b) => ({ value: b.id, label: b.name })),
   });
 
   return (
@@ -274,112 +262,6 @@ export function Catalog() {
           },
           slicerColumn<PrinterModel>((m) => modelLibraries.get(m.id) ?? []),
           sourceColumn<PrinterModel>(t, models),
-        ]}
-      />
-      <Section<MachinePreset>
-        kind="machine-presets"
-        title={t("printers:catalog.presets.title")}
-        name={(p) => p.name}
-        intro={t("catalog:fromFiles")}
-        filters={machinePresetFilters}
-        columns={[
-          {
-            id: "name",
-            header: t("printers:catalog.presets.name"),
-            cell: (p) => (
-              <Link
-                to="/printers/machine-presets/$id"
-                params={{ id: p.id }}
-                className="font-medium hover:underline"
-              >
-                {p.name}
-              </Link>
-            ),
-            sort: "name",
-            filter: "name",
-          },
-          {
-            id: "model",
-            header: t("printers:catalog.presets.model"),
-            cell: (p) => info.get(p.printerModelId)?.label,
-            sort: "model",
-            filter: "printerModelId",
-            filterOptions: models.map((m) => ({
-              value: m.id,
-              label: info.get(m.id)?.label ?? m.model,
-            })),
-          },
-          brandColumn<MachinePreset>((p) => p.printerModelId),
-          {
-            id: "nozzle",
-            header: t("printers:catalog.presets.nozzle"),
-            numeric: true,
-            cell: (p) => t("printers:catalog.mm", { value: formatNumber(p.nozzleDiameterMm) }),
-            sort: "nozzleDiameterMm",
-            filter: "nozzleDiameterMm",
-          },
-          sourceColumn<MachinePreset>(t, machinePresets, true),
-          useColumn<MachinePreset>(t),
-        ]}
-      />
-      <Section<ProcessPreset>
-        kind="process-presets"
-        title={t("printers:catalog.processPresets.title")}
-        name={(p) => p.name}
-        intro={t("catalog:fromFiles")}
-        filters={processPresetFilters}
-        columns={[
-          {
-            id: "name",
-            header: t("printers:catalog.processPresets.name"),
-            cell: (p) => (
-              <Link
-                to="/printers/process-presets/$id"
-                params={{ id: p.id }}
-                className="font-medium hover:underline"
-              >
-                {p.name}
-              </Link>
-            ),
-            sort: "name",
-            filter: "name",
-          },
-          {
-            id: "model",
-            header: t("printers:catalog.processPresets.model"),
-            cell: (p) => (p.printerModelId ? info.get(p.printerModelId)?.label : none),
-            sort: "model",
-            filter: "printerModelId",
-            filterOptions: models.map((m) => ({
-              value: m.id,
-              label: info.get(m.id)?.label ?? m.model,
-            })),
-          },
-          brandColumn<ProcessPreset>((p) => p.printerModelId),
-          {
-            id: "nozzle",
-            header: t("printers:catalog.processPresets.nozzle"),
-            numeric: true,
-            cell: (p) =>
-              p.nozzleDiameterMm === null
-                ? none
-                : t("printers:catalog.mm", { value: formatNumber(p.nozzleDiameterMm) }),
-            sort: "nozzleDiameterMm",
-            filter: "nozzleDiameterMm",
-          },
-          {
-            id: "layer",
-            header: t("printers:catalog.processPresets.layer"),
-            numeric: true,
-            cell: (p) =>
-              p.layerHeightMm === null
-                ? none
-                : t("printers:catalog.mm", { value: formatNumber(p.layerHeightMm) }),
-            sort: "layerHeightMm",
-            filter: "layerHeightMm",
-          },
-          sourceColumn<ProcessPreset>(t, processPresets, true),
-          useColumn<ProcessPreset>(t),
         ]}
       />
     </div>

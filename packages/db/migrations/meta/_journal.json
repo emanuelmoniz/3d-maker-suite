@@ -778,6 +778,13 @@
       "when": 1794336536230,
       "tag": "0110_profiles_become_presets",
       "breakpoints": true
+    },
+    {
+      "idx": 111,
+      "version": "6",
+      "when": 1794347807325,
+      "tag": "0111_presets_permission",
+      "breakpoints": true
     }
   ]
 }

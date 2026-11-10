@@ -1,22 +1,17 @@
 import {
   type FilamentBrand,
   type FilamentMaterial,
-  type FilamentPreset,
   filamentCatalogFilters,
-  filamentPresetFilters,
 } from "@3d-maker-suite/core";
-import { Link } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
-import { archiveColumn } from "../../components/ArchiveActions.tsx";
-import { type Column, DataTable } from "../../components/DataTable.tsx";
+import type { Column } from "../../components/DataTable.tsx";
 import { imageUrl, useFilamentBrands, useFilamentMaterials } from "../../lib/catalog.ts";
-import { filamentLabel, useFilamentPresets } from "../../lib/filament.ts";
+import { useFilamentPresets } from "../../lib/filament.ts";
 import { formatCurrency, formatList } from "../../lib/format.ts";
-import { useListPage, useUrlListQuery } from "../../lib/list.ts";
 import { usePreferences } from "../../lib/preferences.ts";
 import { CatalogTransfer } from "../catalog/CatalogTransfer.tsx";
-import { sourceColumn, useColumn } from "../catalog/sources.tsx";
-import { editLink, Section, Thumb, useScrolledTo } from "../printers/Catalog.tsx";
+import { sourceColumn } from "../catalog/sources.tsx";
+import { editLink, Section, Thumb } from "../printers/Catalog.tsx";
 
 // The slicer library a preset came from (`<library>:<preset>`); hand-made ones have none.
 const libraryOf = (source: string | null) => source?.split(":")[0] || null;
@@ -132,102 +127,6 @@ export function FilamentCatalog() {
           sourceColumn<FilamentMaterial>(t, materials),
         ]}
       />
-    </>
-  );
-}
-
-/** Filament presets: slicer files, listed, archived and deleted here (ADR-0020). */
-export function FilamentPresets() {
-  const { t } = useTranslation();
-  const [presetQuery, setPresetQuery] = useUrlListQuery("presets.");
-  const presets = useListPage<FilamentPreset>(
-    ["filament", "presets", "table"],
-    "/api/filament/presets",
-    presetQuery,
-  );
-  const brands = useFilamentBrands().data ?? [];
-  const materials = useFilamentMaterials().data ?? [];
-  const all = useFilamentPresets().data?.items ?? [];
-  useScrolledTo("filament-presets", !!presets.data);
-  return (
-    <>
-      {presets.isError && (
-        <p role="alert" className="text-bad">
-          {t("filament:loadError")}
-        </p>
-      )}
-      <section id="filament-presets" className="grid scroll-mt-4 gap-3">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-base font-semibold">{t("filament:presets.title")}</h2>
-        </div>
-        <p className="-mt-1 text-muted">{t("catalog:fromFiles")}</p>
-        {presets.data && (
-          <DataTable
-            label={t("filament:presets.table")}
-            rows={presets.data.items}
-            rowKey={(p) => p.id}
-            server={{
-              query: presetQuery,
-              onQueryChange: setPresetQuery,
-              total: presets.data.total,
-              filters: filamentPresetFilters,
-              archivable: true,
-            }}
-            columns={[
-              {
-                id: "name",
-                header: t("filament:spools.filament"),
-                cell: (p) => (
-                  <Link
-                    to="/filament/presets/$id"
-                    params={{ id: p.id }}
-                    className="font-medium hover:underline"
-                  >
-                    {filamentLabel(p)}
-                  </Link>
-                ),
-                sort: "filament",
-                filter: "filament",
-              },
-              {
-                id: "brand",
-                header: t("filament:presets.brand"),
-                cell: (p) => p.brand,
-                sort: "brand",
-                filter: "brandId",
-                filterOptions: brands.map((b) => ({ value: b.id, label: b.name })),
-              },
-              {
-                id: "material",
-                header: t("filament:presets.material"),
-                cell: (p) => p.material,
-                sort: "material",
-                filter: "materialId",
-                filterOptions: materials.map((m) => ({ value: m.id, label: m.name })),
-              },
-              {
-                id: "temps",
-                header: `${t("filament:presets.nozzleTemp")} / ${t("filament:presets.bedTemp")}`,
-                cell: (p) =>
-                  p.nozzleTempC === null && p.bedTempC === null
-                    ? ""
-                    : t("filament:presets.temps", {
-                        nozzle: p.nozzleTempC ?? "–",
-                        bed: p.bedTempC ?? "–",
-                      }),
-              },
-              sourceColumn<FilamentPreset>(t, all, true),
-              useColumn<FilamentPreset>(t),
-              archiveColumn<FilamentPreset>(t, {
-                kind: "filament-presets",
-                can: "catalog",
-                level: "manage",
-                name: filamentLabel,
-              }),
-            ]}
-          />
-        )}
-      </section>
     </>
   );
 }

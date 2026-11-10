@@ -41,7 +41,7 @@ export function SlicerZipPage() {
       <PageHeader
         title={t("import:zip.title")}
         description={t("import:zip.description")}
-        backTo={{ to: "/catalog/sources" }}
+        backTo={{ to: "/presets/settings/sources" }}
       />
       <div className="grid max-w-3xl gap-4">
         {source && (

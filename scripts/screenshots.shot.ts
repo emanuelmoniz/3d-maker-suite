@@ -300,7 +300,7 @@ test("hub screenshots", async ({ page, app }) => {
   await device("PUT", "/slicers", [
     { id: "bambu-studio", version: "1", path: "C:/Studio/bambu-studio.exe", default: true },
   ]);
-  await page.goto("/catalog/presets");
+  await page.goto("/presets/settings/library");
   for (const [name, cost] of [
     ["Farm PLA", "20"],
     ["Eco PETG", "24"],

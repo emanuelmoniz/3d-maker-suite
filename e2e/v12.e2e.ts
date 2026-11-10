@@ -54,19 +54,30 @@ test("the gear is reachable and activated from the keyboard", async ({ page }) =
   await expect(page).toHaveURL(/\/quotes\/settings$/);
 });
 
-test("Catalog holds the tables; Printers settings keeps the default printer", async ({ page }) => {
+test("Catalog and Presets hold the tables; Printers settings keeps the default printer", async ({
+  page,
+}) => {
   await page.goto("/printers");
   await expect(page.getByRole("heading", { name: "Brands", level: 2 })).toHaveCount(0);
   await page.goto("/catalog");
   await expect(page).toHaveURL(/\/catalog\/printers$/);
-  for (const h of ["Brands", "Printer models", "Printer presets", "Process presets"])
+  for (const h of ["Brands", "Printer models"])
     await expect(page.getByRole("heading", { name: h, level: 2 })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Printer presets", level: 2 })).toHaveCount(0);
   await page
     .getByRole("navigation", { name: "Catalog sections" })
     .getByRole("link", { name: "Filament" })
     .click();
-  for (const h of ["Presets", "Filament brands", "Filament materials"])
+  for (const h of ["Filament brands", "Filament materials"])
     await expect(page.getByRole("heading", { name: h, level: 2 })).toBeVisible();
+  for (const [tab, h] of [
+    ["printer", "Printer presets"],
+    ["process", "Process presets"],
+    ["filament", "Presets"],
+  ]) {
+    await page.goto(`/presets/${tab}`);
+    await expect(page.getByRole("heading", { name: h, level: 2 })).toBeVisible();
+  }
   await page.goto("/printers/settings");
   await expect(page.getByLabel("Default printer")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Brands", level: 2 })).toHaveCount(0);
@@ -95,12 +106,13 @@ test("printer catalog tables show each row's slicer and source", async ({ page, 
     await expect(t.getByRole("cell", { name: "Bambu Studio", exact: true })).toBeVisible();
     await expect(t.getByRole("cell", { name: "By hand" })).toBeVisible();
   }
+  await page.goto("/presets/printer");
   const machines = page.getByRole("table", { name: "Printer presets" });
   await expect(machines.getByRole("columnheader", { name: "Source" })).toBeVisible();
   await expect(machines.getByRole("cell", { name: "Bambu Studio (system)" })).toBeVisible();
   await expect(machines.getByRole("cell", { name: "Unused" })).toBeVisible();
   // A hand-made preset from before 5.4 is archived as an older one.
-  await page.goto("/catalog/printers?process-presets.archived=true");
+  await page.goto("/presets/process?process-presets.archived=true");
   await expect(
     page.getByRole("table", { name: "Process presets" }).getByRole("row", { name: /Mine/ }),
   ).toContainText("By hand (older)");
@@ -433,12 +445,13 @@ test("filament catalog tables show each row's slicer and source", async ({ page,
   await seedPreset(app); // Acme / PLA, from Bambu Studio
   await app.api("POST", "/api/filament-brands", { name: "Handmade" });
   await app.api("POST", "/api/filament-materials", { name: "PETG" });
-  await page.goto("/catalog/filament");
+  await page.goto("/presets/filament");
   // Presets come from a slicer only: nothing adds one.
   await expect(page.getByRole("main").getByRole("link", { name: /^Add preset/ })).toHaveCount(0);
   await expect(
     page.getByRole("table", { name: "Filament presets" }).getByRole("row", { name: /Basic/ }),
   ).toContainText("Bambu Studio (system)");
+  await page.goto("/catalog/filament");
   // Brand and material of the imported preset show its slicer; the hand-made ones none.
   for (const [table, name] of [
     ["Filament brands", /Acme/],

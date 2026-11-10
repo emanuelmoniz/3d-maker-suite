@@ -58,7 +58,7 @@ function InstallDetails({ s, slicer }: { s: PresetInstallSlicer; slicer: string 
 }
 
 /**
- * Catalog → Sources, hub on: one row per device that reports this slicer (or did), with Send
+ * Presets settings → Sources, hub on: one row per device that reports this slicer (or did), with Send
  * presets and Install and how they stand (ADR-0020). The only place the two are edited.
  */
 export function DeviceSlicers({ library, slicer }: { library: string; slicer: string }) {
@@ -173,7 +173,7 @@ export function DeviceSlicers({ library, slicer }: { library: string; slicer: st
                   </td>
                   <td className="block text-sm sm:table-cell sm:w-1/6 sm:px-3 sm:py-3 sm:align-top">
                     {l.held ? (
-                      <Link to="/catalog/presets" className="text-warn underline">
+                      <Link to="/presets/settings/library" className="text-warn underline">
                         {t("catalog:sources.devices.heldCount", { count: l.held })}
                       </Link>
                     ) : (

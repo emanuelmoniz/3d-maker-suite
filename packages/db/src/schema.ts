@@ -1361,7 +1361,7 @@ export const slicerPresets = sqliteTable(
      * uses it (ADR-0019); another user's is only shown.
      */
     removedOn: text({ mode: "json" }).$type<string[]>().notNull().default([]),
-    /** Who first shared it, whose removal deletes it; null = only `catalog` write (ADR-0019). */
+    /** Who first shared it, whose removal deletes it; null = only `presets` write (ADR-0019, ADR-0021). */
     ownerUserId: text().references(() => users.id, { onDelete: "set null" }),
     /**
      * An owner's removal on this device waits for a person, and why. ponytail: the first hold only.

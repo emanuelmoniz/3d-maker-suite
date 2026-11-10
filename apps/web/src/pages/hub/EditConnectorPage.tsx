@@ -382,7 +382,7 @@ const PRESETS_STATE = [
   ["hub:edit.presets.send", "hub:edit.presets.both"],
 ] as const;
 
-/** Send presets and Install per slicer, read-only: they are edited in Catalog → Sources (ADR-0020). */
+/** Send presets and Install per slicer, read-only: they are edited in Presets settings → Sources (ADR-0020). */
 function PresetsCard({ device: d }: { device: Device }) {
   const { t } = useTranslation();
   const adapterName = useAdapterName();
@@ -400,7 +400,7 @@ function PresetsCard({ device: d }: { device: Device }) {
               <span className="text-muted">
                 {t(PRESETS_STATE[s?.send ? 1 : 0][s?.install ? 1 : 0])}
               </span>
-              <Link to="/catalog/sources" hash={`devices-${lib}`} className="underline">
+              <Link to="/presets/settings/sources" hash={`devices-${lib}`} className="underline">
                 {t("hub:edit.presets.change")}
               </Link>
             </li>
