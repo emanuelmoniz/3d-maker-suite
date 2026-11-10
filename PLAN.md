@@ -2341,7 +2341,7 @@ Then fast-forward main to dev, push, push the v5.4.0 tag and confirm the release
 
 # Plan 5.5.0 - Sources, machines and presets
 
-Minor release, starts after the 5.4.0 release. DB migrations: back up the DB before every step that edits `schema.ts`. Design: ADR-0021 (Step 1), agreed on 2026-11-10. Skills: `frontend-design` for the machine page, the tabs, the Sources tabs, the account cards and the folder page; `webapp-testing` for browser checks.
+Minor release, starts after the 5.4.0 release. DB migrations: back up the DB before every step that edits `schema.ts`; the dev data is in `data/` at the repo root, not `%APPDATA%`. Design: ADR-0021 (Step 1), accepted on 2026-11-10; its wireframes are the reference for every page below. Skills: `frontend-design` for the machine page, the tabs, the Sources tabs, the account cards and the folder page; `webapp-testing` for browser checks.
 
 Hub management, Integrations, Catalog and the connector work, but they are hard to follow: sync settings sit on integration cards, device switches sit in Catalog → Sources, shared folders are only picked on the connector, and "profile" and "preset" overlap. The outcome is one rule: **a source says what it allows, a data type says which sources feed it.**
 
@@ -2353,32 +2353,19 @@ Concepts:
 - **Data type:** printers, prints, spools, catalog, presets, projects. Each can be kept by hand; sources are optional.
 
 Design:
-- **A source allows, a data type configures.** An account's card has an **Allow** switch per type (printers, prints, spools, user presets). A machine's page has its feature switches. Nothing else is set there.
-- **Every data type's settings page has two tabs: General** (today's settings) **and Sources.** Sources lists the sources that allow the type; adding one shows its sync options (today's `PolicyRow`: when, what, merge, alerts, editor rights). A switch with nothing else to set (Share presets, Share catalog) shows its state and a link, not an empty form.
-- **Links both ways.** A machine page or account card shows where each allowed type is configured, and the data type's Sources tab links back.
+- **A source allows, a data type configures.** An account's card has an **Allow** switch per type (printers, prints, spools, user presets). The server's slicer card has **Use as slicer** (today's Slice here). A machine's page has its feature switches: per slicer Use as slicer, Catalog and Presets Receive and Share; Projects Receive and Share. Nothing else is set there; each switch has the link to its settings on its right.
+- **Every data type's settings page has two tabs: General** (today's settings) **and Sources.** A Sources tab lists every source whose switch is on: no Add source or Remove. Two sections, each only where the type has that direction: **Share to the hub** (sources feeding the hub) and **Receive from the hub** (machines the hub sends to; printers, prints and spools have none). One block per source (account or machine, linking back), split by slicer where the type belongs to one. **One line per item** with its own switch (a line off = its policy `off`; on again = `defaultPolicy`): the four catalog types, the preset kinds, a pick, a folder. A line with a schedule has **Edit** (today's `PolicyRow` fields in a `FormDialog`) and `⋯` (Sync now, Review and import, sync log); a line that follows the files shows its state.
+- **Links both ways.** Each switch on a card or machine page links to the Sources tab that configures it, and each block there links back.
+- **One design system.** Every page uses the existing components only: `PageHeader`, `Section`, `Switch`, `Button`, `DataTable` for every list of lines, `EmptyState`, `FormDialog`, `ConfirmDialog`, `PathPicker`, the row `Menu`, and Step 3's `Tabs`.
 - **Presets, not profiles,** in the UI and the code, as Bambu Studio, OrcaSlicer and PrusaSlicer say. Code follows the slicer files' `type`: `machine_presets`, `process_presets`, `filament_presets`. The UI says Printer, Process and Filament presets. The hub library (`slicer_presets`) keeps its name and is the **Preset library** in the UI.
 - **Catalog** keeps brands, models and materials: Printers and Filament tabs. **Presets** is a new module: Printer, Process and Filament tabs; its settings add a **Library** tab (today's Presets tab, hub on).
-- **One slicer install per machine.** The server and each machine run a slicer once per library, installed or downloaded, never both. A machine runs a slicer for the hub only with **Use as slicer** on.
+- **One slicer install per machine.** The server and each machine run a slicer once per library, installed or downloaded, never both. A machine runs a slicer for the hub only with that slicer's **Use as slicer** on (per slicer: the worker integration row, as today). Integrations keeps a slicer card only for the server's own install; machines' slicers are set up on their page.
 - **Machine settings are edited on the hub.** The machine's own user sees its page; editing a section needs that section's switch (`machine.connection`, `machine.slicers`, `machine.catalog`, `machine.presets`, `machine.projects`), on top of the right for the data itself. `hub.manage` edits every machine. Built-in Editor and Viewer roles get none.
 - **The connector opens the hub page.** Paired: its icon opens the machine's page on the hub. Not paired: the local pair screen. A slim local page stays for a hub that can't be reached and for what only works locally: open the sync folder, held deletes, a change-user code, Restart, Stop, Unpair.
-- **Shared folders are picked on the hub,** browsing the machine's whole disk, with `hub.manage` or the machine user's `machine.projects`. Each change asks for confirmation and is logged with its actor. The connector still refuses any path outside the saved list.
-- **Projects from the hub, per pick.** A machine receives picks: a project folder or a subfolder of one. Each pick has a users and roles list with Read or Edit. A machine syncs a pick only if its user is on the list, directly or through a role, and never beyond that user's `projects` level and folder rights (ADR-0016). It replaces `syncMode` all / selected. The connector mirrors the picked paths: `root1/*`, `root2/project2`.
+- **Shared folders are picked on the hub,** in Projects settings → Sources, browsing the machine's whole disk (`PathPicker`; the connector's `fs.list` widens to directories anywhere), with `hub.manage` or the machine user's `machine.projects`. Each change asks for confirmation and is logged with its actor. The hub stores the list; the connector still refuses any path outside it.
+- **Projects from the hub, per pick.** A machine receives picks: a project folder or a subfolder of one. Each pick has a users and roles list with Read or Edit. A machine syncs a pick only if its user is on the list, directly or through a role, and never beyond that user's `projects` level and folder rights (ADR-0016). It replaces `syncMode` all / selected. The connector mirrors the picked paths: `root1/*`, `root2/project2`. Picks and shared folders can be paused.
+- **A machine's presets per kind:** Share and Receive filter by printer, process and filament (`shareKinds`, `receiveKinds`, all three by default), set as lines in Presets settings → Sources.
 - **Catalog to a machine:** a machine can receive the hub catalog source's `system/` folder, so every slicer has the same vendor presets.
-
-```
-Machine WS-3                                    (hub page; the connector icon opens it)
-  Identity · Software · Connection
-  Slicers      [x] Use as slicer      Default: Bambu Studio
-               Bambu Studio   Catalog: [ ] receive [x] share   Presets: [x] receive [x] share
-                              → used by Integrations · configure in Catalog / Presets settings
-  Projects     [x] Receive from hub   → 3 picks, configure in Projects settings → Sources
-               [x] Share from machine   D:\Models  E:\Clients  [Add folder]
-  Actions      Restart · Stop · Revoke
-
-Printers settings     General | Sources
-  Sources      Bambu Cloud · ana@example.com     Auto, daily 03:00 · scope · merge · alerts   [Remove]
-               [Add source]  (accounts with "Allow printers" on)
-```
 
 ## Phase 31 - Decide
 
@@ -2424,7 +2411,7 @@ Plan Step 2 of the 5.5.0 plan in PLAN.md. Back up the DB before editing schema.t
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - Turn `CatalogPage`'s link tabs (`tabClass`) into one `Tabs` component (router links, `aria-current`, keyboard, scrolls at phone width), and use it in `CatalogPage`.
-- `ConfigPage` gets two tabs: `/x/settings` (General, today's content) and `/x/settings/sources` (empty state for now: "No sources yet", with a link to Integrations or Hub management).
+- `ConfigPage` gets two tabs: `/x/settings` (General, today's content) and `/x/settings/sources` (`EmptyState` for now: "No sources yet", with a link to Integrations or Hub management). Presets settings gets a third tab, Library (filled in Step 4).
 - New settings pages: Filament (spools; `/filament/settings` stops redirecting), Catalog and Presets. Each has a gear `SettingsLink` in its header.
 
 **Done when:** each data type's settings page has both tabs; the old Catalog tabs look the same; browser check at phone width in both themes; tests, e2e, lint and `pnpm i18n:check` pass.
@@ -2440,7 +2427,7 @@ Do Step 3 of the 5.5.0 plan in PLAN.md. Use frontend-design for the tabs.
 - New `/presets` module: Printer, Process and Filament tabs, with the tables and preset pages that were in Catalog. Presets settings: General, Sources and **Library** (`PresetsTab` from `pages/hub/PresetsPage.tsx`, hub on). Move the files out of `pages/hub` and `pages/catalog`.
 - Permission `presets` (none · read · write · manage). The migration copies each role's and user's `catalog` level. `RULES` in `lib/auth.ts` and `RightsEditor` follow.
 - Sidebar bottom block, top to bottom: Hub management, Integrations, Catalog, Presets, Import | Export, Logs, Settings.
-- Old URLs redirect (`/catalog/presets`, `/catalog/sources`, the preset pages).
+- Old URLs redirect (`/catalog/presets`, `/catalog/sources`, the preset pages). Until Step 10 splits it, today's `SourcesTab` sits in Presets settings → Sources, so nothing becomes unreachable.
 - `docs/` for the two modules.
 
 **Done when:** each table is in its new module; old links land on the right page; a role keeps its rights in both modules; tests, e2e, lint and `pnpm i18n:check` pass.
@@ -2454,13 +2441,13 @@ Plan Step 4 of the 5.5.0 plan in PLAN.md. Back up the DB before editing schema.t
 ### [ ] Step 5 - Bambu Cloud accounts  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:**
-- At sign-in and on each sync, the adapter reads the profile (Step 1's endpoint) and stores email, name and avatar URL in `integrations.config`. A failed read keeps the last values. A new optional method on the integration interface in core, so other APIs can fill the same fields.
-- The server fetches and caches the avatar: `GET /api/integrations/:id/avatar`, so the browser never calls Bambu. No avatar: initials.
-- The Bambu Cloud card shows one section per account: photo, name, email, region, signed in or not, Sign in again, Test connection.
-- "What to import" becomes one **Allow** switch per type: printers, prints, spools, user presets. Turning one off sets its policy to `off` and keeps its data. Each allowed type links to where it is configured. `Policies part="connection"` leaves the card.
-- Adding a second account is offered on the card.
+- At sign-in and on each sync, the adapter reads `GET /v1/user-service/my/profile` (ADR-0021 Spike results: `account` = email, `name`, `avatar`; parse only these with zod, the rest is MakerWorld data) and stores `email`, `name`, `avatarUrl` in `integrations.config`. A failed read keeps the last values and never fails the sync. A new optional method on the integration interface in core, so other APIs can fill the same fields.
+- The server fetches and caches the avatar (`public-cdn.bblmw.com`): `GET /api/integrations/:id/avatar`, so the browser never calls Bambu. No avatar: initials.
+- The Bambu Cloud card (a `Section`) shows one block per account: photo, name, email, region, signed in or not (badge), Sign in again, Test connection. **Add another account** is the section's link.
+- "What to import" becomes one **Allow** switch per type: printers, prints, spools, user presets (`integrations.config.allow`, missing = on). The link to the type's settings sits on the right of each switch; a type that's off shows none. Turning one off asks first ("The spools already imported stay"), sets its policies to `off` and keeps the data. `Policies part="connection"` leaves the card.
+- Migration: `allow[type]` = the type's effective mode is not `off` (today: all on).
 
-**Done when:** two accounts show apart with their email and photo; an Allow switch hides the type from that data type's Sources; no request from the browser goes to Bambu; tests, e2e, lint and `pnpm i18n:check` pass.
+**Done when:** two accounts show apart with their email and photo; an Allow switch hides the account from that data type's Sources; no request from the browser goes to Bambu; tests, e2e, lint and `pnpm i18n:check` pass.
 **Prompt:**
 ```
 Plan Step 5 of the 5.5.0 plan in PLAN.md. Use frontend-design for the account card.
@@ -2469,13 +2456,13 @@ Plan Step 5 of the 5.5.0 plan in PLAN.md. Use frontend-design for the account ca
 ### [ ] Step 6 - Sources tabs: printers, prints, spools  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:**
-- The Sources tab of Printers, Prints and Filament (spools) lists the accounts that allow the type, with their policy (`PolicyRow`: when, schedule, scope, merge, alerts, editor rights, Sync now, Review and import, sync log). **Add source** picks an allowed account; **Remove** sets the policy to `off`.
+- Build the Sources layout once, for every later tab: a `Section` per direction (Share to the hub, Receive from the hub; only the ones the type has), a block per source (name, link back on the right), an optional per-slicer heading, and a `DataTable` of lines (Item, On switch, When, What, How, Edit, `⋯`). No Add source or Remove: a source is listed while its switch is on.
+- Printers, Prints and Filament (spools) settings → Sources: Share to the hub only, one block per account with Allow on, one line each. The line's switch sets the policy `off`, or back to `defaultPolicy`'s mode. **Edit** opens today's `PolicyRow` fields in a `FormDialog` (when, frequency, time, scope, merge, new spools, track usage, alerts, editors); `⋯` holds Sync now, Review and import (with its count) and the sync log. No account allowing the type: `EmptyState` with a link to Integrations.
 - Editors with the sync or review right reach Sync now and Review here (`useMayTask`), as they did on the card.
 - Remove `SyncButtons` from the printers, filament and prints pages. Delete `components/ImportLinks.tsx`. Remove the `integrations:syncFrom` and `integrations:syncError` keys and the namespace loads that only served the button (`router.tsx`). `useSyncIntegration` stays.
-- The card's summary line ("Printers: auto, daily") links to these tabs.
 - Rewrite the "Sync from cloud" test in `e2e/v13.e2e.ts`; `docs/bambu-cloud.md`, `docs/import.md`.
 
-**Done when:** everything the card's "What to import" did is reachable from the Sources tabs; two accounts can feed printers with different schedules; no page outside settings offers a manual sync; tests, e2e, lint and `pnpm i18n:check` pass.
+**Done when:** everything the card's "What to import" did is reachable from the Sources tabs; two accounts can feed printers with different schedules; a line turned off keeps its data; no page outside settings offers a manual sync; tests, e2e, lint and `pnpm i18n:check` pass.
 **Prompt:**
 ```
 Plan Step 6 of the 5.5.0 plan in PLAN.md. Use frontend-design for the Sources tab.
@@ -2501,13 +2488,13 @@ Do Step 7 of the 5.5.0 plan in PLAN.md. Push dev, push the tag and confirm the p
 - `EditConnectorPage.tsx` becomes the machine page. Besides `hub.manage`, the machine's own user can open it: read-only, or editable per section with its `machine.*` switch (added here, enforced on the server's device routes).
 - Sections:
   - Identity, Software and Connection, as today.
-  - **Slicers:** **Use as slicer** (replaces the derived `sliceWorker`); the default slicer, set from the hub (a new key in `connector.settings.set`); per slicer found, Share and Receive catalog, Share and Receive presets (today's Send presets and Install). Each line says where it's used, with a link.
-  - **Projects:** **Receive from hub** (the picks come in Step 17; until then today's mode moves here) and **Share from machine** with a folder picker that browses the machine's whole disk. Each change asks for confirmation and is logged.
+  - **Slicers:** the default slicer, set from the hub (a new key in `connector.settings.set`); per slicer found, **Use as slicer** (turns that slicer's worker integration row's slicing on or off; `devices.sliceWorker` stays derived), Catalog Receive and Share, Presets Receive and Share (today's Install and Send presets), with "Catalog settings" / "Presets settings" on the right of each row. The state of today's `DeviceSlicers.tsx` table (last sent, queue, backup, held deletes) moves to the Presets settings lines in Step 10.
+  - **Projects:** **Receive from the hub** and **Share to the hub** switches (new `devices.receiveProjects`, `shareProjects`), each with its count (picks, folders) and "Projects settings" on the right. Until Step 17, today's all / selected mode sits under Receive; until Step 14, the shared folders stay on the connector's page.
   - **Actions:** Restart, Stop (new operation `connector.stop`) and Revoke, moved from the device cards on `HubPage.tsx`.
-- Migrations: Use as slicer from `sliceWorker`; the share and receive switches from `presetLibraries`; the shared folders from the connector's `state.json`, sent once on its first connect after the update. An older connector answers `device_outdated` for the new operations.
+- Migrations: `presetLibraries[lib]` becomes `{ catalog: { receive, share }, presets: { receive, share, receiveKinds, shareKinds }, sentAt? }` (`share = send`, `receive = install`, all three kinds; the library's catalog source machine gets `catalog.share`); `receiveProjects` on for every existing machine; `shareProjects` from whether the connector shares a folder. An older connector answers `device_outdated` for the new operations.
 - `docs/hub.md`.
 
-**Done when:** each switch saves from the hub and reaches the connector; the machine's user sees their page and edits only the sections they may; a folder outside the list is still refused by the connector; an older connector shows outdated; browser check at phone width in both themes; tests, e2e, lint and `pnpm i18n:check` pass.
+**Done when:** each switch saves from the hub and reaches the connector; Use as slicer works per slicer; the machine's user sees their page and edits only the sections they may; an older connector shows outdated; browser check at phone width in both themes; tests, e2e, lint and `pnpm i18n:check` pass.
 **Prompt:**
 ```
 Plan Step 8 of the 5.5.0 plan in PLAN.md. Use frontend-design for the machine page.
@@ -2517,12 +2504,14 @@ Back up the DB before editing schema.ts.
 ### [ ] Step 9 - One slicer install per machine
 **Model:** Opus · **Effort:** Medium
 **Scope:**
-- Add integration, for a slicer: **This server** or **A machine**. This server uses the installed slicer if one is found, else offers the download (merge of today's `local` and `server` locations, like `WorkerSlicer`'s source choice). A machine is offered only with Use as slicer on and no install of that library there; with no slicer found, it installs remotely.
+- Add integration, for a slicer, is **this server** only: the installed slicer if one is found, else the download (merge of today's `local` and `server` locations, like `WorkerSlicer`'s source choice).
+- A machine's slicer is set up on its page (Slicers section, `machine.slicers`): installed (found or a typed path) or managed (downloaded), today's `WorkerSlicer`, moved there. With no slicer found, it installs remotely.
+- The server's slicer card keeps its install, updates, the default slicer and the run log. Slice here becomes **Use as slicer** (label only), and the card's list of machines ("Runs on", workers) goes.
 - The server refuses a second install of a library on the same machine (`slicer_exists`).
 - A database that already has both a local and a server install keeps both working, with a warning on the card to remove one.
-- `IntegrationFormPage.tsx`, `IntegrationCard.tsx`, `routes/integrations.ts`. `docs/slicing.md`.
+- `IntegrationFormPage.tsx`, `IntegrationCard.tsx`, `WorkerSlicer.tsx`, `routes/integrations.ts`. `docs/slicing.md`.
 
-**Done when:** a second install on the same machine can't be added from the UI or the API; a machine without Use as slicer isn't offered; an old database with both keeps slicing; tests, e2e, lint and `pnpm i18n:check` pass.
+**Done when:** a second install on the same machine can't be added from the UI or the API; a machine's slicer is set up from its page only; an old database with both keeps slicing; tests, e2e, lint and `pnpm i18n:check` pass.
 **Prompt:**
 ```
 Do Step 9 of the 5.5.0 plan in PLAN.md.
@@ -2531,12 +2520,14 @@ Do Step 9 of the 5.5.0 plan in PLAN.md.
 ### [ ] Step 10 - Catalog and Presets: Sources  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:**
-- Catalog → Sources, per slicer library: the catalog source (server slicer, a machine with Share catalog, or the zip), Choose brands and the Catalog card (change detection, review, alerts). Machines with Receive catalog are listed with their state (Step 11 makes it work).
-- Presets → Sources, per library: System presets (follows the catalog source, linked), the user preset routes, Bambu Cloud user presets (accounts that allow them), the machines with Share and Receive (today's `DeviceSlicers.tsx` table, read-only here with a link to each machine page) and "No connector? Upload a zip".
-- `SourcesTab.tsx` and `PresetsCard` go; the integration card's summary line links here.
+- Both tabs use Step 6's Sources layout.
+- **Catalog settings → Sources.** Share to the hub: per library, the server's slicer and each machine with Catalog Share. The catalog source's block has four lines (printer brands, printer models, filament brands, filament materials: switch, When, What, Edit, `⋯`) and **Choose brands**; the others show **Use as catalog source**. Receive from the hub: machines with Catalog Receive, per slicer, one `system/` folder line with its state (Step 11 makes it work).
+- **Presets settings → Sources.** Share to the hub: the server's slicer (system and user lines per kind), accounts with Allow user presets (user lines per kind), machines with Presets Share per slicer (a line per kind: switch and state, no Edit), and "No connector? Upload a zip" on the section. Receive from the hub: machines with Presets Receive per slicer, a line per kind with its state (up to date, waiting for the slicer to close, last backup). Choose brands shows read-only with a link to Catalog settings.
+- **Per kind:** a machine's kind lines write `shareKinds` / `receiveKinds`. The hub filters, so an older connector needs no change: an upload of a kind that's off is ignored, and Install sends only the kinds that are on.
+- `SourcesTab.tsx`, `DeviceSlicers.tsx` and `PresetsCard` go.
 - `docs/import.md`, `docs/hub.md`.
 
-**Done when:** everything Catalog → Sources did is reachable from the two tabs; a catalog source can be switched between two machines; a machine shares one slicer's presets and not the other's; tests, e2e, lint and `pnpm i18n:check` pass.
+**Done when:** everything Catalog → Sources did is reachable from the two tabs; a catalog source can be switched between two machines; a machine shares one slicer's filament presets and nothing else; a line turned off keeps its rows; tests, e2e, lint and `pnpm i18n:check` pass.
 **Prompt:**
 ```
 Plan Step 10 of the 5.5.0 plan in PLAN.md. Use frontend-design for the Sources tabs.
@@ -2560,7 +2551,7 @@ Plan Step 11 of the 5.5.0 plan in PLAN.md.
 **Model:** Opus · **Effort:** High
 **Scope:**
 - The connector's icon, launcher and tray: paired, open the machine's page on the hub; not paired, the local pair screen.
-- `apps/connector/src/status.ts` shrinks to the slim local page: hub reachable or not, open sync folder, held deletes, Done editing locks, change-user code, Restart, Stop, Unpair, and a link to the hub page. Settings it shows today (sync mode, slicers, default slicer, shared folders) leave it.
+- `apps/connector/src/status.ts` shrinks to the slim local page: the machine, its paired user and the hub, hub reachable or not, open sync folder, held deletes, Done editing locks, change-user code, Restart, Stop, Unpair, and Open on the hub. Sync mode, slicers and default slicer leave it; the shared folders leave it in Step 14, when the hub takes them.
 - The machine page links to the slim local page when this browser is on that machine (`whoami`).
 - The `machine.*` switches in `RightsEditor` with hints; built-in roles: Admin all, Editor and Viewer none.
 - `docs/hub.md`, `docs/users.md`.
@@ -2575,7 +2566,7 @@ Plan Step 12 of the 5.5.0 plan in PLAN.md.
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - Upgrade a copy of a real 5.4.0 database to the alpha: presets keep their rows and slices; policies, device switches and shared folders keep their values.
-- Two machines: Use as slicer on one only; Share catalog on one, Receive catalog on the other; Share and Receive presets on one slicer only; Restart and Stop from the hub; a user with one `machine.*` switch.
+- Two machines: Use as slicer on one slicer of one machine only; Share catalog on one, Receive catalog on the other; Share and Receive presets on one slicer only, and filament presets only on the other; Restart and Stop from the hub; a user with one `machine.*` switch.
 - Two Bambu Cloud accounts with their own photo and Sources.
 - Fix anything found. `docs/`, CHANGELOG, version `5.5.0-alpha.2`. Commit on `dev`, push, tag `v5.5.0-alpha.2` on `dev`. Check the run and the release.
 
@@ -2590,12 +2581,14 @@ Do Step 13 of the 5.5.0 plan in PLAN.md. Guide me through each scenario and fix 
 ### [ ] Step 14 - Projects: Sources  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:**
-- Projects settings → Sources: this server, and each machine with Share from machine, with its shared folders and their state.
+- Projects settings → Sources, Share to the hub (Step 6's layout): a block per machine with Share to the hub on, one line per shared folder (switch to pause it, its project folder, `⋯` Remove) and **Add folder**.
+- Add folder: `PathPicker` on the machine's whole disk (the connector's `fs.list` lists directories anywhere, no file contents), then a `ConfirmDialog`; each change is logged with its actor. Needs `hub.manage`, or the machine's own user with `machine.projects` and `projects` write.
+- The hub stores the list (`devices.sharedFolders`: `{ path, paused }`, null until reported) and pushes it (`folders.set`, queued). On its first connect after the update a connector sends its `state.json` list once (`PUT /api/hub/device/folders`), kept only while the column is null. The connector still refuses any file operation outside the saved list. The shared folders leave the connector's local page.
 - Adding a project folder picks a source, then a folder from it (the server, or the machine's shared folders). The Location select in `ProjectRoots.tsx` goes.
-- A machine that stops sharing a folder in use: its project folders show `unshared`, as today.
+- A machine that stops sharing (or pauses) a folder in use: its project folders show `unshared`, as today.
 - `docs/projects.md`, `docs/hub.md`.
 
-**Done when:** a folder shared on the machine page can be added as a project folder from Sources; a folder not shared can't; tests, e2e, lint and `pnpm i18n:check` pass.
+**Done when:** a folder added from Sources can become a project folder; a folder not shared can't; a connector's old list arrives once and the hub's wins after; a path outside the list is refused by the connector; tests, e2e, lint and `pnpm i18n:check` pass.
 **Prompt:**
 ```
 Plan Step 14 of the 5.5.0 plan in PLAN.md.
@@ -2634,11 +2627,10 @@ Do Step 16 of the 5.5.0 plan in PLAN.md.
 ### [ ] Step 17 - Projects to machines  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:**
-- Projects settings → Sources, per machine with Receive from hub: its **picks**, each a project folder or a subfolder of one (`root1`, `root2/project2`), with a users and roles list at Read or Edit.
+- Projects settings → Sources, Receive from the hub (Step 6's layout): a block per machine with Receive from the hub on, one line per **pick** (switch to pause it, Who, Edit, `⋯` Remove) and **Add pick**. A pick is a project folder or a subfolder of one (`root1`, `root2/project2`), with a users and roles list at Read or Edit. Tables `device_picks` (with `paused`) and `device_pick_access`.
 - The machine syncs a pick only if its user is on the list, directly or through a role, and only up to that user's `projects` level and the folder's edit rights. Read-only files sync as `access: "read"`, as today.
 - The connector mirrors the picked paths under its sync folder (`root1/*`, `root2/project2`). A removed pick follows the existing delete guard.
-- Replaces `devices.syncMode` and `hubDefaultSyncMode`: `all` becomes a pick per project folder with the machine's user at Edit; `selected` becomes its `device_projects`. Open on a machine still adds a pick for that project.
-- The machine page's Projects section lists the picks with a link here.
+- Replaces `devices.syncMode` and `device_projects`: `all` becomes a pick per hub project folder with the machine's user at Edit; `selected` becomes a pick per `device_projects` row. `hubDefaultSyncMode` becomes **New machines receive**: every hub project folder, or nothing until picked. Open on a machine still adds a pick for that project. The mode select leaves the machine page.
 - `hubDevice.ts` (`/sync/roots`, `/sync/changes`), `apps/connector/src/sync.ts`. `docs/hub.md`, `docs/projects.md`.
 
 **Done when:** a machine receives only its picks; a user off the list gets nothing; Read stays read-only on the machine; a migrated database syncs the same files as before; tests, e2e, lint and `pnpm i18n:check` pass.
@@ -2653,7 +2645,7 @@ Plan Step 17 of the 5.5.0 plan in PLAN.md. Back up the DB before editing schema.
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - Upgrade a copy of a real 5.5.0-alpha.2 database: project folders, picks and shared folders keep their projects and files.
-- On the real VPS with two workstations: share a folder from one and add it as a project folder; pick `root1` and `root2/project2` for the other, with a user at Read and one at Edit; a user off the list.
+- On the real VPS with two workstations: share a folder from one (browsing its whole disk) and add it as a project folder; pick `root1` and `root2/project2` for the other, with a user at Read and one at Edit; a user off the list; pause a pick and a folder.
 - The connector icon on a paired and an unpaired machine; the hub stopped (the slim page).
 - Fix anything found. `docs/`, CHANGELOG, version `5.5.0-alpha.3`. Commit on `dev`, push, tag `v5.5.0-alpha.3` on `dev`. Check the run and the release.
 
