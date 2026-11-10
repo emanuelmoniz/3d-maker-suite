@@ -1,6 +1,6 @@
 # ADR-0014: Hub and connector: central files, device roots, slice workers
 
-- Status: Accepted (after the Plan 5.0.0 Step 1 spikes, see Spike results). Amended by ADR-0020: the fixed operation list gains sending a slicer's `system/` folder.
+- Status: Accepted (after the Plan 5.0.0 Step 1 spikes, see Spike results). Amended by ADR-0020: the fixed operation list gains sending a slicer's `system/` folder. Amended by ADR-0021: the connector opens the hub page, shared folders are picked and stored on the hub, picks replace the sync mode, `fs.list` reaches the whole disk, and three operations are added (see the 2026-11-10 amendment).
 - Date: 2026-10-26, accepted 2026-10-27
 
 ## Context
@@ -214,3 +214,12 @@ The project page has one **Open** button instead of "Open in slicer" and "Open o
 **No default slicer.** The status page can drop the default ("Ask each time"); the connector reports which slicer is the default (`default` on `PUT /api/hub/device/slicers`). With several slicers and none picked, the web app asks which one in Open's dialog and sends it as `slicer` in `open`; a single slicer always opens without asking. Before, the first one found opened.
 
 **Edit connector** (5.1.0) adds three fixed operations, all live requests that are never queued: `connector.settings.get`, `connector.settings.set` (port, start at login) and `connector.restart`. An admin uses them from the device's Edit connector page. The port is saved in `config.json` and used after a restart; start at login applies at once; the restart is answered first, then the connector exits for its launcher. An offline connector answers 409 `device_offline`, a connector too old to know them 409 `device_outdated`.
+
+## Amendment (2026-11-10): machines are set up on the hub (ADR-0021)
+
+- **The connector opens the hub page.** Paired, its start-menu or launcher entry opens the machine's page on the hub; not paired, the local pair screen. The local status page keeps what only works on the machine or without the hub: open the sync folder, held deletes, Done editing, a change-user code, Restart, Stop, Unpair. Sync mode, the default slicer and the shared folders leave it.
+- **Shared folders are picked on the hub** (Projects settings → Sources), browsing the machine's whole disk, with `hub.manage` or the machine's own user with `machine.projects` (ADR-0016 as amended). Each change is confirmed and logged with its actor. The hub stores the list (`devices.sharedFolders`) and pushes it; the connector keeps its copy and **still refuses any path outside it**. On its first connect after the update a connector sends its local list once.
+- **Picks replace the sync mode** ("Sync mode per device" above): a machine receives picks, each a hub root or a folder inside one, with a users and roles list at Read or Edit. "Selected projects" and Open's `device_projects` row become picks. "Per-device settings cover only where and how" stays true: the picks' lists only narrow what the user's rights already allow.
+- **`fs.list` reaches the whole disk.** It lists directories only, no file contents, for Add folder; until now it listed only inside the shared folders. Every other file operation still checks the saved list.
+- **New fixed operations,** all live requests that are never queued unless noted: `connector.stop` (as `connector.restart`, without the relaunch), `folders.set` (the saved shared folders; queued), and `catalog.install` (write the hub's copy of a library's `system/` into the slicer, only while it is closed, after a backup; queued). An older connector answers 409 `device_outdated`.
+

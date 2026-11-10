@@ -1,6 +1,6 @@
 # ADR-0020: Catalog module, profiles from files, spools without a profile
 
-- Status: Accepted (2026-11-06, design discussion after Plan 5.4.0 Step 10). Amends ADR-0016's permission catalog, ADR-0017's switches and permission, ADR-0019's "everything about a slicer is on its card", its edit rules and its catalog source, and ADR-0014's fixed operation list.
+- Status: Accepted (2026-11-06, design discussion after Plan 5.4.0 Step 10). Amends ADR-0016's permission catalog, ADR-0017's switches and permission, ADR-0019's "everything about a slicer is on its card", its edit rules and its catalog source, and ADR-0014's fixed operation list. Amended by ADR-0021: the presets and the Preset library move to a Presets module, profiles are presets, Sources becomes a tab of each data type's settings, and the device × slicer table moves to the machine page.
 - Date: 2026-11-06
 
 ## Context
@@ -38,6 +38,8 @@ The other places keep what isn't catalog data:
 | Filament → Settings | Gone: it held only catalog tables. `/filament/settings` redirects to Catalog → Filament |
 
 API paths don't move (`/api/brands`, `/api/filament/profiles`, `/api/presets`…). Old pages redirect: `/printers/settings#<table>`, `/filament/settings`, `/hub/presets`.
+
+*Amended by ADR-0021: Catalog keeps Printers (brands, models) and Filament (brands, materials). Machine, print and filament profiles become Printer, Process and Filament presets in a **Presets** module (`/presets`), whose settings add a **Library** tab for the preset library. The Sources tab becomes a Sources tab on each module's settings (Catalog settings, Presets settings). Send presets and Install become Presets Share and Receive on the machine page, where the `machine.*` switches (ADR-0016) let a machine's own user set them; the device × slicer table goes, which reverses "Per-device switches on the device page" below. The sidebar's bottom block reads Hub management, Integrations, Catalog, Presets, Import | Export, Logs, Settings.*
 
 ### Two kinds of catalog data
 | Type | By hand | From files | A row from files |

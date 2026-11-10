@@ -1,6 +1,6 @@
 # ADR-0017: Shared slicer presets
 
-- Status: Accepted (Plan 5.1.0 Step 14, after the preset spike). Amended by ADR-0019: its delete rule, and its rejection of reading Bambu's preset API. Amended by ADR-0020: the switches become per slicer in Catalog → Sources, and `catalog` replaces `presets.manage`.
+- Status: Accepted (Plan 5.1.0 Step 14, after the preset spike). Amended by ADR-0019: its delete rule, and its rejection of reading Bambu's preset API. Amended by ADR-0020: the switches become per slicer in Catalog → Sources, and `catalog` replaces `presets.manage`. Amended by ADR-0021: Share and Install become Presets Share and Receive on the machine page, each filtered per preset kind (printer, process, filament) in Presets settings → Sources.
 - Date: 2026-11-02
 
 ## Context

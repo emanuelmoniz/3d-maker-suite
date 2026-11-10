@@ -1,6 +1,6 @@
 # ADR-0019: Slicers, catalog and presets
 
-- Status: Accepted (Plan 5.4.0 Step 1, after the spikes). Amends ADR-0017's delete rule and its rejection of reading Bambu's preset API. Amended by ADR-0020: "everything about a slicer is on its card", the edit rules of catalog rows, and where the catalog comes from.
+- Status: Accepted (Plan 5.4.0 Step 1, after the spikes). Amends ADR-0017's delete rule and its rejection of reading Bambu's preset API. Amended by ADR-0020: "everything about a slicer is on its card", the edit rules of catalog rows, and where the catalog comes from. Amended by ADR-0021: "profiles" are presets in the UI and the code (`machine_presets`, `process_presets`, `filament_presets`), and the Share and Install switches of a machine are set on its page.
 - Date: 2026-11-04
 
 ## Context

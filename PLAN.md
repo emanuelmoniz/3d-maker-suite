@@ -2382,7 +2382,7 @@ Printers settings     General | Sources
 
 ## Phase 31 - Decide
 
-### [ ] Step 1 - ADR-0021 sources and data types  **[plan mode]**
+### [x] Step 1 - ADR-0021 sources and data types  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:**
 - ADR-0021 records the concepts and the design above, and the data model:
