@@ -10,30 +10,30 @@ You can import 16 types, and every one can also be exported in the same format. 
 
 The other four are the catalog: brands, printer models, filament brands and filament materials. They are imported and exported in **Catalog** (see below), not on this page.
 
-A file names the brands, models and materials a row needs, and they must already exist (import them first, or add them in the catalog); a slicer zip or an integration creates them for you. Machine, print and filament profiles aren't in a spreadsheet: they come only from a slicer (see below).
+A file names the brands, models and materials a row needs, and they must already exist (import them first, or add them in the catalog); a slicer zip or an integration creates them for you. Printer, process and filament presets aren't in a spreadsheet: they come only from a slicer (see below).
 
 ## The catalog
 
 **Catalog** in the menu (with the catalog permission at read) holds what your printers, spools and prints are described with, in two tabs:
 
-- **Printers:** brands, printer models, machine profiles and print profiles.
-- **Filament:** filament brands, filament materials and filament profiles.
+- **Printers:** brands, printer models, printer presets and process presets.
+- **Filament:** filament brands, filament materials and filament presets.
 
 Brands, printer models, filament brands and materials can be added **by hand** or come **from a slicer**. A row a slicer brought keeps its name: that is how the next import finds it, so the name can't be edited. Its other fields (logo, website, power, picture, density, default price) stay yours: an import only fills the ones that are empty, it never overwrites one. A row you made by hand whose name later comes in a slicer's files is linked to it: it keeps your values and shows the slicer as its source from then on.
 
-Profiles are the slicer's own files, so they come **only from a slicer**: an integration (Bambu Studio, OrcaSlicer, Bambu Cloud) or a zip of its config folder. You can't add or edit one here: change it in the slicer and it changes here. **Archive** hides a profile from the pickers; **Delete** removes it once nothing uses it. Profiles made by hand before 5.4 are archived and shown as **By hand (older)**: no slicer has their file, so they can't come back, and a plate that pointed at one slices with the settings saved in its 3MF.
+Presets are the slicer's own files, so they come **only from a slicer**: an integration (Bambu Studio, OrcaSlicer, Bambu Cloud) or a zip of its config folder. You can't add or edit one here: change it in the slicer and it changes here. **Archive** hides a preset from the pickers; **Delete** removes it once nothing uses it. Presets made by hand before 5.4 are archived and shown as **By hand (older)**: no slicer has their file, so they can't come back, and a plate that pointed at one slices with the settings saved in its 3MF.
 
-Every table has a **Source** column, with a filter: **By hand**, **By hand (older)**, **Bambu Studio (system)** or **(user)** for a profile, or the slicer or account that brought a row. Profiles also show **In use** or **Unused**: a print, a printer's default, a plate or an older version of the preset uses it.
+Every table has a **Source** column, with a filter: **By hand**, **By hand (older)**, **Bambu Studio (system)** or **(user)** for a preset, or the slicer or account that brought a row. Presets also show **In use** or **Unused**: a print, a printer's default, a plate or an older version of the preset uses it.
 
 **Import** and **Export** sit next to **Add** on the brands, printer models, filament brands and filament materials tables. Export picks a format (`csv`, `xlsx` or `json`) and downloads the table; Import opens the template, upload and review described under Spreadsheet template, and its back link returns to the tab. Both need the catalog permission (Import at manage).
 
-Under the profile tables, **How profiles arrive** says the same as above and lists, per slicer and operating system, the config folder to zip (the system and user folders in it).
+Under the preset tables, **How presets arrive** says the same as above and lists, per slicer and operating system, the config folder to zip (the system and user folders in it).
 
-## A profile's page: All settings
+## A preset's page: All settings
 
-Click a profile's name in either tab to open its page: what the app uses (model, nozzle, material, temperatures), its source, **where it is used**, and **All settings**, every key and value of the slicer's file. A slicer file only holds what differs from the preset it inherits from, so the page fills the parents in and marks each row with where its value comes from: **This profile**, or the parent or template that gives it. The chips above the table show one source at a time, the search matches keys and values, and **Download JSON** saves the whole list.
+Click a preset's name in either tab to open its page: what the app uses (model, nozzle, material, temperatures), its source, **where it is used**, and **All settings**, every key and value of the slicer's file. A slicer file only holds what differs from the preset it inherits from, so the page fills the parents in and marks each row with where its value comes from: **This preset**, or the parent or template that gives it. The chips above the table show one source at a time, the search matches keys and values, and **Download JSON** saves the whole list.
 
-The settings are read from the file when the page opens: the slicer's folder on this server, the hub's library for a user preset, or a Bambu Cloud preset's copy (its parent is found in the slicer's system presets). If that can't be done, the page says why instead: the slicer's files aren't on this server (connect it in Integrations, or upload the zip), the slicer no longer has the preset, or the profile was made by hand in an older version. If the parent preset can't be found, the values it would give are missing and a note says so. If the slicer's files changed and rows wait for your review, a note links to the review: the settings shown are the file's current ones, so they may differ from what the app uses.
+The settings are read from the file when the page opens: the slicer's folder on this server, the hub's library for a user preset, or a Bambu Cloud preset's copy (its parent is found in the slicer's system presets). If that can't be done, the page says why instead: the slicer's files aren't on this server (connect it in Integrations, or upload the zip), the slicer no longer has the preset, or the preset was made by hand in an older version. If the parent preset can't be found, the values it would give are missing and a note says so. If the slicer's files changed and rows wait for your review, a note links to the review: the settings shown are the file's current ones, so they may differ from what the app uses.
 
 The old addresses (Printers → Settings, Filament → Settings) open the matching tab. Printers → Settings keeps the default printer and the printer states.
 
@@ -81,9 +81,9 @@ An unknown client, quote or project is an invalid row, and the message says whic
 Notes on the columns:
 
 - **Multicolor prints:** one print uses one *Spool*, *Filament* and *Filament used (g)* per colour: the first set, then *Spool 2* and so on, up to 16. *Filament* names the material (`PLA`); it prices grams that have no spool yet.
-- **Spools:** a spool is its *Brand* (optional), *Material* and *Name* (`PLA Basic`, optional), plus its colour. It needs no filament profile. A spool without a *Price paid* costs its material's default price per kg.
+- **Spools:** a spool is its *Brand* (optional), *Material* and *Name* (`PLA Basic`, optional), plus its colour. It needs no filament preset. A spool without a *Price paid* costs its material's default price per kg.
 - **Track usage:** leave empty or enter `yes` to subtract the filament from your spools. Enter `no` to save the print and its filament without changing the spools' weights.
-- **Names:** for brand, material and profile columns, pick an existing name or type a new one. A new brand or material is added with the spool.
+- **Names:** for brand, material and preset columns, pick an existing name or type a new one. A new brand or material is added with the spool.
 
 To get your data back out, use **Export** on the same page (catalog tables: their own Export), as `.xlsx`, `.csv` or `.json`. An export is the template with your rows in it, plus an `id` column, so it can be edited and imported again: a row with an id updates that item. Money is in your currency's units (not cents), names stand for references, and dates are ISO (`2026-03-04`). For a full copy of everything, take a [backup](backups.md).
 
@@ -158,10 +158,10 @@ Every type except print history has two more settings (open the type's row): on 
 
 - **Catalog source**: where the slicer's system presets, brands and printer models are read from. Only one place reads them, so two PCs on different slicer versions don't keep changing the catalog. It can be this computer's or this server's slicer folder, or, with the hub on, a workstation's connector. Until you pick one, the oldest install with a readable folder is used, else the first workstation that has the slicer. Picking one turns its **Catalog** and **System presets** rows on (Manual), and they sit right under the pick. A workstation sends its catalog from a later release; until then the catalog stays as it is.
 - **Where your presets come from**: each place the slicer runs and each account (Bambu Cloud's user presets sit under Bambu Studio), with how many presets it brought and its **User presets** rows. The first one to bring a preset keeps it.
-- **No connector? Upload a zip**: brings the presets of a desktop install that isn't connected, for example to a slicer on this server, which has no folder of yours to read (see [below](#slicer-catalog-from-a-zip)). Every slicer that can take a zip shows it, even before anything is connected. **How profiles arrive** under the profile tables and the zip card on **Import | Export** lead here.
+- **No connector? Upload a zip**: brings the presets of a desktop install that isn't connected, for example to a slicer on this server, which has no folder of yours to read (see [below](#slicer-catalog-from-a-zip)). Every slicer that can take a zip shows it, even before anything is connected. **How presets arrive** under the preset tables and the zip card on **Import | Export** lead here.
 - **Devices** (hub on): each workstation's **Send presets** and **Install** for this slicer ([hub.md](hub.md#slicer-presets)).
 
-**Choose brands** sits above the catalog rows and lists the slicer's printer brands and filament brands (the ones you have are checked, and **Select all** ticks every one). Pick the ones you use and **Import**: you get those brands with their models, machine and print profiles, and for filament brands their materials and filament profiles, after a backup. Then **Only what I already have** is switched on for all the catalog types at once; switch it off for **Everything**. The rows' links open the review of each type, where the slicer's changes wait.
+**Choose brands** sits above the catalog rows and lists the slicer's printer brands and filament brands (the ones you have are checked, and **Select all** ticks every one). Pick the ones you use and **Import**: you get those brands with their models, printer and process presets, and for filament brands their materials and filament presets, after a backup. Then **Only what I already have** is switched on for all the catalog types at once; switch it off for **Everything**. The rows' links open the review of each type, where the slicer's changes wait.
 
 **When** on the card is one switch:
 
@@ -178,7 +178,7 @@ Catalog types of a slicer don't run on a schedule: a daily check looks at the sl
 
 A slicer folder that reads empty (moved, or not readable) counts nothing as gone. Signing in or out of the slicer isn't a removal either: every account's presets are read.
 
-**How to sync** (what a sync does when the source changes a row you have) is only on Bambu Cloud's printers and spools. A catalog type doesn't need it: a profile follows its file, and brands, models, filament brands and materials only get their empty fields filled.
+**How to sync** (what a sync does when the source changes a row you have) is only on Bambu Cloud's printers and spools. A catalog type doesn't need it: a preset follows its file, and brands, models, filament brands and materials only get their empty fields filled.
 
 | Option | What happens |
 |---|---|
@@ -192,7 +192,7 @@ In the review of an integration, a column left on **Don't change** follows the t
 
 ## Slicer catalog from a zip
 
-For a server with no slicer installed (a NAS, for example), you can import the filament and machine profiles from your slicer's config folder. Zip the folder on the PC where the slicer is installed, then upload it from **No connector? Upload a zip** in the slicer's section on **Catalog → Sources**.
+For a server with no slicer installed (a NAS, for example), you can import the filament and printer presets from your slicer's config folder. Zip the folder on the PC where the slicer is installed, then upload it from **No connector? Upload a zip** in the slicer's section on **Catalog → Sources**.
 
 1. Open the slicer's config folder: in Bambu Studio or OrcaSlicer, **Help → Show Configuration Folder**. Or find it yourself:
    - Windows: `%APPDATA%\BambuStudio` or `%APPDATA%\OrcaSlicer` (paste it into the File Explorer address bar)

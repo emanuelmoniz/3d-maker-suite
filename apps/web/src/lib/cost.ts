@@ -4,7 +4,7 @@ import {
   type CostRates,
   computeCost,
   estimateEnergyWh,
-  type FilamentProfile,
+  type FilamentPreset,
   type PlateSetup,
   type PlateSetupInput,
   type ProjectModel,
@@ -137,14 +137,14 @@ export function estimatePlate(plate: Plate, printerId: string | undefined, ctx: 
 /** A plate on a quote: its slicing setup, and its slice once there is one. */
 export type QuotePlate = PlateSetupInput & { result: SliceResultInfo | null };
 
-// What a slice depends on; a spool of the same profile only changes the price. Quotes saved
+// What a slice depends on; a spool of the same preset only changes the price. Quotes saved
 // before slicer picks have no `slicerIntegrationId`.
 const slicedWith = (p: PlateSetupInput) =>
   JSON.stringify([
     p.printerId,
-    p.machineProfileId ?? null,
-    p.printProfileId,
-    p.useDefaultPrintProfile,
+    p.machinePresetId ?? null,
+    p.processPresetId,
+    p.useDefaultProcessPreset,
     p.filaments,
     p.slicerIntegrationId ?? null,
   ]);
@@ -190,12 +190,12 @@ export type SlicedEstimate = {
 /**
  * One print of a project: its sliced plates, each on its own printer (else `fallbackPrinterId`).
  * A slot costs its spool's price, else its material's (`materialPrice`); its material is the
- * spool's, else the slot profile's, else the one the slicer reports.
+ * spool's, else the slot preset's, else the one the slicer reports.
  */
 export function estimateSlicedPlates(
   plates: Pick<PlateSetup, "printerId" | "result" | "spools" | "filaments">[],
   ctx: CostContext,
-  catalog: { spools: Spool[]; profiles: FilamentProfile[]; fallbackPrinterId?: string },
+  catalog: { spools: Spool[]; presets: FilamentPreset[]; fallbackPrinterId?: string },
 ): SlicedEstimate {
   const spools = new Map<string, { spool: Spool; grams: number }>();
   const materials = new Map<string, number>();
@@ -205,8 +205,8 @@ export function estimateSlicedPlates(
     const seconds = p.result.printTimeSeconds;
     const filaments = p.result.filaments.map((f) => {
       const spool = catalog.spools.find((s) => s.id === p.spools[f.slot - 1]);
-      const profile = catalog.profiles.find((x) => x.id === p.filaments[f.slot - 1]);
-      const material = (spool?.material ?? profile?.material ?? f.material ?? "").toUpperCase();
+      const preset = catalog.presets.find((x) => x.id === p.filaments[f.slot - 1]);
+      const material = (spool?.material ?? preset?.material ?? f.material ?? "").toUpperCase();
       if (spool) {
         const seen = spools.get(spool.id) ?? { spool, grams: 0 };
         spools.set(spool.id, { spool, grams: seen.grams + f.grams });

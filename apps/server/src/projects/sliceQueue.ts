@@ -20,8 +20,8 @@ import { readPreferences } from "../lib/preferences.ts";
 import { fingerprint } from "./fingerprint.ts";
 import { projectFile } from "./rootFs.ts";
 
-const { brands, filamentProfiles, machineProfiles, printerModels, printers } = schema;
-const { printProfiles, projectSlicePlates, projects } = schema;
+const { brands, filamentPresets, machinePresets, printerModels, printers } = schema;
+const { processPresets, projectSlicePlates, projects } = schema;
 
 /** Stored in `sliceError` as `code` or `code: detail` (the detail is the slicer's own text). */
 export const SLICE_ERRORS = [
@@ -29,7 +29,7 @@ export const SLICE_ERRORS = [
   "not_allowed",
   "no_preset",
   "no_machine_preset",
-  "no_printer_profile",
+  "no_printer_preset",
   "empty_plate",
   "slice_failed",
 ] as const;
@@ -38,7 +38,7 @@ type PlateRow = typeof projectSlicePlates.$inferSelect;
 type IntegrationRow = typeof schema.integrations.$inferSelect;
 type PlateChoice = Pick<
   PlateRow,
-  "printerId" | "machineProfileId" | "printProfileId" | "useDefaultPrintProfile"
+  "printerId" | "machinePresetId" | "processPresetId" | "useDefaultProcessPreset"
 >;
 type FileInfo = Pick<ProjectModel, "printerModel" | "nozzleDiameter">;
 type SliceJobState = (typeof SLICE_JOB_STATES)[number];
@@ -96,7 +96,7 @@ export const useSliceWorkers = (db: Db, run: (integrationId: string) => SliceRun
 
 /**
  * How a plate slices with a slicer of `library` (`resolvePlate`, as the page resolves it): its
- * printer, machine profile and print profile.
+ * printer, machine preset and process preset.
  */
 export function plateResolver(db: Db) {
   const { defaultPrinterId } = readPreferences(db);
@@ -106,8 +106,8 @@ export function plateResolver(db: Db) {
       name: printers.name,
       modelId: printers.modelId,
       nozzleDiameterMm: printers.nozzleDiameterMm,
-      printProfileId: printers.printProfileId,
-      machineProfileId: printers.machineProfileId,
+      processPresetId: printers.processPresetId,
+      machinePresetId: printers.machinePresetId,
       archivedAt: printers.archivedAt,
       model: printerModels.model,
       brand: brands.name,
@@ -117,17 +117,17 @@ export function plateResolver(db: Db) {
     .leftJoin(brands, eq(brands.id, printerModels.brandId))
     .all()
     .map((p) => ({ ...p, model: p.model ?? "" }));
-  // ponytail: every machine and print profile per call (a few thousand rows); fine locally.
-  const machines = db.select().from(machineProfiles).all();
+  // ponytail: every machine and process preset per call (a few thousand rows); fine locally.
+  const machines = db.select().from(machinePresets).all();
   const prints = db
     .select({
-      id: printProfiles.id,
-      printerModelId: printProfiles.printerModelId,
-      sourcePreset: printProfiles.sourcePreset,
-      machinePresets: printProfiles.machinePresets,
-      archivedAt: printProfiles.archivedAt,
+      id: processPresets.id,
+      printerModelId: processPresets.printerModelId,
+      sourcePreset: processPresets.sourcePreset,
+      machinePresets: processPresets.machinePresets,
+      archivedAt: processPresets.archivedAt,
     })
-    .from(printProfiles)
+    .from(processPresets)
     .all();
   return (row: PlateChoice, file: FileInfo | undefined, library: string | undefined) =>
     resolvePlate(row, file ?? { printerModel: null, nozzleDiameter: null }, {
@@ -145,7 +145,7 @@ const fail = (code: (typeof SLICE_ERRORS)[number], detail?: string): never => {
 };
 
 /**
- * A plate to slice: the 3MF (absolute, already checked), its info, the profile choices, and the
+ * A plate to slice: the 3MF (absolute, already checked), its info, the preset choices, and the
  * slicer picks (the plate's, its project's; see `sliceIntegration`). `here`: the server's own
  * slicers only.
  */
@@ -159,7 +159,7 @@ export type PlateToSlice = PlateChoice & {
 };
 
 /**
- * Slices one plate with the slicer integration: the plate's printer, print profile and filament
+ * Slices one plate with the slicer integration: the plate's printer, process preset and filament
  * per slot, as presets of that slicer. Throws `SliceError` (code, see `SLICE_ERRORS`) or the
  * slicer's own error; `sliceErrorText` turns either into the stored text.
  */
@@ -180,17 +180,17 @@ export async function slicePlate(
     source?.startsWith(prefix) ? source.slice(prefix.length) : undefined;
 
   const library = presetLibrary(found.adapter);
-  const { printer, machine, fromFile, profileId } = plateResolver(db)(p, p.model, library);
+  const { printer, machine, fromFile, presetId } = plateResolver(db)(p, p.model, library);
   const req: SliceRequest = { file: p.abs, plate: p.plate };
-  if (profileId) {
-    const row = db.select().from(printProfiles).where(eq(printProfiles.id, profileId)).get();
+  if (presetId) {
+    const row = db.select().from(processPresets).where(eq(processPresets.id, presetId)).get();
     req.process = own(row?.sourcePreset);
     if (!req.process) fail("no_preset", row?.name);
   }
   if (printer && !fromFile) {
-    // Not the file's machine: the plate's or printer's machine profile, a system preset of this
+    // Not the file's machine: the plate's or printer's machine preset, a system preset of this
     // slicer (ADR-0007: only those slice).
-    if (!req.process) fail("no_printer_profile", printer.name);
+    if (!req.process) fail("no_printer_preset", printer.name);
     const id = own(machine?.sourcePreset);
     req.machine = id?.startsWith("system/") ? id : undefined;
     if (!req.machine) fail("no_machine_preset", printer.name);
@@ -199,9 +199,9 @@ export async function slicePlate(
     const ids = p.filaments.filter((f): f is string => !!f);
     const presets = new Map(
       db
-        .select({ id: filamentProfiles.id, source: filamentProfiles.sourcePreset })
-        .from(filamentProfiles)
-        .where(inArray(filamentProfiles.id, ids))
+        .select({ id: filamentPresets.id, source: filamentPresets.sourcePreset })
+        .from(filamentPresets)
+        .where(inArray(filamentPresets.id, ids))
         .all()
         .map((f) => [f.id, own(f.source)]),
     );
@@ -225,7 +225,7 @@ export async function slicePlate(
     run,
   );
   const presets = usedPresets(db, library, req);
-  return { fingerprint: before, profileId, slicer: found.row, presets, result };
+  return { fingerprint: before, presetId, slicer: found.row, presets, result };
 }
 
 /** The error text stored for a failed slice; unexpected errors are logged. A wait isn't one. */
@@ -276,7 +276,7 @@ export function projectSliceJob(
         done = {
           ...out.fingerprint,
           slicedAt: new Date().toISOString(),
-          slicedPrintProfileId: out.profileId,
+          slicedProcessPresetId: out.presetId,
           slicedIntegrationId: out.slicer.id,
           slicedSlicerVersion: out.slicer.slicerVersion,
           slicedPresets: out.presets,
@@ -287,14 +287,14 @@ export function projectSliceJob(
       } catch (e) {
         error = sliceErrorText(e, log, { job });
       }
-      // Only if the plate still has the profiles it was sliced with (the setup may have been saved).
+      // Only if the plate still has the presets it was sliced with (the setup may have been saved).
       const now = db.select().from(projectSlicePlates).where(where).get();
       if (
         !now ||
         now.printerId !== row.printerId ||
-        now.machineProfileId !== row.machineProfileId ||
-        now.printProfileId !== row.printProfileId ||
-        now.useDefaultPrintProfile !== row.useDefaultPrintProfile ||
+        now.machinePresetId !== row.machinePresetId ||
+        now.processPresetId !== row.processPresetId ||
+        now.useDefaultProcessPreset !== row.useDefaultProcessPreset ||
         JSON.stringify(now.filaments) !== JSON.stringify(row.filaments)
       )
         return;

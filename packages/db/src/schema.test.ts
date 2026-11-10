@@ -516,19 +516,19 @@ describe("migration 0046", () => {
         )
         .run(at, at);
     });
-    expect(now.select().from(s.printers).get()?.printProfileId).toBeNull();
+    expect(now.select().from(s.printers).get()?.processPresetId).toBeNull();
 
     const profile = now
-      .insert(s.printProfiles)
+      .insert(s.processPresets)
       .values({ name: "0.20mm Standard" })
       .returning()
       .get();
-    now.update(s.printers).set({ printProfileId: profile.id }).run();
+    now.update(s.printers).set({ processPresetId: profile.id }).run();
     const project = now.insert(s.projects).values({ name: "X" }).returning().get();
     const plate = { file: "a.3mf", fileSize: 1, fileMtimeMs: 1, fileSha256: "h" };
     now
       .insert(s.projectSlicePlates)
-      .values({ ...plate, projectId: project.id, plate: 1, printProfileId: profile.id })
+      .values({ ...plate, projectId: project.id, plate: 1, processPresetId: profile.id })
       .run();
     expect(() =>
       now
@@ -537,9 +537,9 @@ describe("migration 0046", () => {
         .run(),
     ).toThrow(/UNIQUE/);
 
-    now.delete(s.printProfiles).run();
-    expect(now.select().from(s.printers).get()?.printProfileId).toBeNull();
-    expect(now.select().from(s.projectSlicePlates).get()?.printProfileId).toBeNull();
+    now.delete(s.processPresets).run();
+    expect(now.select().from(s.printers).get()?.processPresetId).toBeNull();
+    expect(now.select().from(s.projectSlicePlates).get()?.processPresetId).toBeNull();
     now.delete(s.projects).run();
     expect(now.select().from(s.projectSlicePlates).all()).toEqual([]);
   });
@@ -1657,7 +1657,7 @@ describe("migration 0106", () => {
       `);
     });
     const archived = (
-      t: typeof s.printProfiles | typeof s.machineProfiles | typeof s.filamentProfiles,
+      t: typeof s.processPresets | typeof s.machinePresets | typeof s.filamentPresets,
     ) =>
       Object.fromEntries(
         now
@@ -1666,11 +1666,11 @@ describe("migration 0106", () => {
           .all()
           .map((r) => [r.id, r.at !== null]),
       );
-    expect(archived(s.printProfiles)).toEqual({ hand: true, file: false });
-    expect(archived(s.machineProfiles)).toEqual({ mHand: true });
-    expect(archived(s.filamentProfiles)).toEqual({ fHand: true, fFile: false });
+    expect(archived(s.processPresets)).toEqual({ hand: true, file: false });
+    expect(archived(s.machinePresets)).toEqual({ mHand: true });
+    expect(archived(s.filamentPresets)).toEqual({ fHand: true, fFile: false });
     expect(
-      now.select({ id: s.printers.id, p: s.printers.printProfileId }).from(s.printers).all(),
+      now.select({ id: s.printers.id, p: s.printers.processPresetId }).from(s.printers).all(),
     ).toEqual([
       { id: "p1", p: null },
       { id: "p2", p: "file" },
@@ -1679,7 +1679,7 @@ describe("migration 0106", () => {
     expect(
       now
         .select({
-          p: s.projectSlicePlates.printProfileId,
+          p: s.projectSlicePlates.processPresetId,
           f: s.projectSlicePlates.filaments,
           at: s.projectSlicePlates.slicedAt,
         })
@@ -1709,7 +1709,7 @@ describe("migration 0107", () => {
     });
     expect(
       now
-        .select({ id: s.printers.id, m: s.printers.machineProfileId })
+        .select({ id: s.printers.id, m: s.printers.machinePresetId })
         .from(s.printers)
         .orderBy(s.printers.number)
         .all(),
@@ -1720,9 +1720,9 @@ describe("migration 0107", () => {
       { id: "d", m: null },
     ]);
     // The printer's machine profile clears with it; the printer stays.
-    now.delete(s.machineProfiles).where(eq(s.machineProfiles.id, "six")).run();
+    now.delete(s.machinePresets).where(eq(s.machinePresets.id, "six")).run();
     expect(
-      now.select().from(s.printers).where(eq(s.printers.id, "b")).get()?.machineProfileId,
+      now.select().from(s.printers).where(eq(s.printers.id, "b")).get()?.machinePresetId,
     ).toBeNull();
   });
 });
@@ -1753,6 +1753,77 @@ describe("migration 0109", () => {
       off: {},
       none: {},
     });
+    expect(now.$client.pragma("foreign_key_check")).toEqual([]);
+  });
+});
+
+describe("migration 0110", () => {
+  it("renames profiles to presets and keeps every link, id and stored type", () => {
+    const now = migrateAcross(109, (sqlite) => {
+      sqlite.exec(`
+        insert into brands (id, name, created_at, updated_at) values ('b', 'Acme', 'x', 'x');
+        insert into printer_models (id, brand_id, model, created_at, updated_at) values ('m', 'b', 'X1', 'x', 'x');
+        insert into machine_profiles (id, name, printer_model_id, default_print_preset, created_at, updated_at)
+          values ('mp', 'Acme X1 0.4', 'm', 'lib:system/Fine', 'x', 'x');
+        insert into print_profiles (id, name, created_at, updated_at) values ('pp', 'Fine', 'x', 'x');
+        insert into printers (id, number, name, model_id, state, print_profile_id, machine_profile_id, created_at, updated_at)
+          values ('p', 1, 'A', 'm', 'working', 'pp', 'mp', 'x', 'x');
+        insert into projects (id, name, meta, created_at, updated_at) values ('pr', 'Vase',
+          '{"models":[{"printProfile":"0.20mm","machineProfile":"A1","plates":[{"filaments":[{"profile":"PLA \\"profile\\": x"}]}]}]}', 'x', 'x');
+        insert into project_slice_plates (id, project_id, file, plate, file_size, file_mtime_ms, file_sha256, printer_id, machine_profile_id, print_profile_id, use_default_print_profile, sliced_print_profile_id, slice_error, created_at, updated_at)
+          values ('pl', 'pr', 'a.3mf', 1, 1, 1, 'x', 'p', 'mp', 'pp', 1, 'pp', 'no_printer_profile: A', 'x', 'x');
+        insert into integrations (id, adapter_id, config, created_at, updated_at) values ('i', 'bambu-studio', '{}', 'x', 'x');
+        insert into sync_policies (integration_id, type, mode, frequency) values
+          ('i', 'userPrintProfiles', 'auto', '1d'), ('i', 'machineProfiles', 'manual', '1d'), ('i', 'printers', 'manual', '1d');
+        insert into import_snapshots (integration_id, entity, row_id, "values") values ('i', 'machineProfiles', 'mp', '{"name":"A","defaultPrintProfile":"Fine"}');
+        insert into deleted_sources (entity, source, deleted_at) values ('filamentProfiles', 'lib:user/X', 'x');
+        insert into alerts (id, kind, severity, module, task, entity_type, entity_id, context, created_at) values
+          ('a', 'sync_pending', 'warning', 'integrations', 'sync:i:userFilamentProfiles', 'integration', 'i:userFilamentProfiles', '{"integrationId":"i","type":"userFilamentProfiles","count":2}', 'x');
+      `);
+    });
+    expect(now.select().from(s.printers).get()).toMatchObject({
+      processPresetId: "pp",
+      machinePresetId: "mp",
+    });
+    expect(now.select().from(s.machinePresets).get()?.defaultProcessPreset).toBe("lib:system/Fine");
+    expect(now.select().from(s.projectSlicePlates).get()).toMatchObject({
+      machinePresetId: "mp",
+      processPresetId: "pp",
+      useDefaultProcessPreset: true,
+      slicedProcessPresetId: "pp",
+      sliceError: "no_printer_preset: A",
+    });
+    // Only keys are renamed, not a quoted "profile": inside a value.
+    expect(now.select().from(s.projects).get()?.meta).toEqual({
+      models: [
+        {
+          processPreset: "0.20mm",
+          machinePreset: "A1",
+          plates: [{ filaments: [{ preset: 'PLA "profile": x' }] }],
+        },
+      ],
+    });
+    expect(
+      now
+        .select({ t: s.syncPolicies.type })
+        .from(s.syncPolicies)
+        .all()
+        .map((r) => r.t)
+        .sort(),
+    ).toEqual(["machinePresets", "printers", "userProcessPresets"]);
+    expect(now.select().from(s.importSnapshots).get()).toMatchObject({
+      entity: "machinePresets",
+      values: { name: "A", defaultProcessPresetName: "Fine" },
+    });
+    expect(now.select().from(s.deletedSources).get()?.entity).toBe("filamentPresets");
+    expect(now.select().from(s.alerts).get()).toMatchObject({
+      task: "sync:i:userFilamentPresets",
+      entityId: "i:userFilamentPresets",
+      context: { type: "userFilamentPresets", count: 2 },
+    });
+    // RENAME rewrote the references: deleting a preset still clears what pointed at it.
+    now.delete(s.processPresets).run();
+    expect(now.select().from(s.printers).get()?.processPresetId).toBeNull();
     expect(now.$client.pragma("foreign_key_check")).toEqual([]);
   });
 });

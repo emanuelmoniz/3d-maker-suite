@@ -1,6 +1,6 @@
 # Archive and delete
 
-Printers, accessories, maintenance types, printer brands, printer models, machine profiles, print profiles, spools, filament brands, filament materials, filament profiles, projects, prints, orders, quotes and clients can all be archived, restored and deleted. Maintenance records stay as permanent history.
+Printers, accessories, maintenance types, printer brands, printer models, printer presets, process presets, spools, filament brands, filament materials, filament presets, projects, prints, orders, quotes and clients can all be archived, restored and deleted. Maintenance records stay as permanent history.
 
 ## Archive
 
@@ -11,7 +11,7 @@ Printers, accessories, maintenance types, printer brands, printer models, machin
 - Archiving resolves the item's open alerts, and auto slice skips archived projects.
 - A printer with accessories installed, or an installed accessory, can't be archived. Remove the accessory first.
 - A sync or import leaves an archived item alone.
-- Machine, print and filament profiles also show old preset versions under **Show archived**. Restoring an old version while a newer one is in use isn't possible.
+- Printer, process and filament presets also show old preset versions under **Show archived**. Restoring an old version while a newer one is in use isn't possible.
 
 ## Delete
 
@@ -23,17 +23,17 @@ Printers, accessories, maintenance types, printer brands, printer models, machin
 | Accessory | maintenance records, installs, maintenance types that list it |
 | Maintenance type | maintenance records |
 | Printer brand | printer models |
-| Printer model | printers, machine profiles, print profiles, maintenance types that list it |
-| Machine profile | prints |
-| Filament brand, filament material | filament profiles, spools |
+| Printer model | printers, printer presets, process presets, maintenance types that list it |
+| Printer preset | prints |
+| Filament brand, filament material | filament presets, spools |
 | Spool | prints that used it |
 | Project | prints, orders, quotes, and files left in its folder |
 | Order | prints |
 | Quote | orders |
 | Client | orders, quotes |
-| Print, print profile | nothing |
+| Print, process preset | nothing |
 
-Comments, a spool's weight log, a print's filament usages (the filament goes back to the spool), tags and open alerts go with the item. Deleting a print profile or printer empties the places that pointed at it (a plate's printer, the default printer) and leaves those rows.
+Comments, a spool's weight log, a print's filament usages (the filament goes back to the spool), tags and open alerts go with the item. Deleting a process preset or printer empties the places that pointed at it (a plate's printer, the default printer) and leaves those rows.
 
 A project's folder is checked as before: a folder that still has files, a device's folder or a kept unlinked folder blocks the delete, because the next scan would find it again.
 

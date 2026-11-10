@@ -74,7 +74,7 @@ const BRAND_NAMES: Record<string, string> = { BBL: "Bambu Lab" };
 
 const DEFAULT_DENSITY = 1.24; // ponytail: PLA's density when a preset gives none; per-material table if it matters
 
-export function toProfile(
+export function toPreset(
   name: string,
   scope: LibraryPreset["scope"],
   get: (key: string) => string | undefined,
@@ -222,7 +222,7 @@ export function slicerPresetLibrary(id: string, defaultDirs: () => string[]): Fi
       let start = own;
       let file: string | undefined;
       if (scope === "system") {
-        // `toProfile` names a filament by its base: the first file of that name is the one it read.
+        // `toPreset` names a filament by its base: the first file of that name is the one it read.
         const names = [...sys.systemFiles].sort(([a], [b]) => a.localeCompare(b));
         for (const [n, f] of names) {
           if ((kind === "filament" ? baseName(n) : n) !== name) continue;
@@ -265,7 +265,7 @@ export function slicerPresetLibrary(id: string, defaultDirs: () => string[]): Fi
           const p = await readJson(f);
           if (!p) continue;
           const name = typeof p.name === "string" ? p.name : parse(f).name;
-          add(`user/${name}`, toProfile(name, "user", await resolver(p)));
+          add(`user/${name}`, toPreset(name, "user", await resolver(p)));
         }
 
       if (includeSystem)
@@ -273,7 +273,7 @@ export function slicerPresetLibrary(id: string, defaultDirs: () => string[]): Fi
           const p = await load(f);
           // Only presets you can pick in the slicer (not the abstract `fdm_*` / `@base` ones).
           if (p?.instantiation !== "true") continue;
-          add(`system/${baseName(name)}`, toProfile(name, "system", await resolver(p, f)));
+          add(`system/${baseName(name)}`, toPreset(name, "system", await resolver(p, f)));
         }
       return [...out.values()];
     },
@@ -333,7 +333,7 @@ export function slicerPresetLibrary(id: string, defaultDirs: () => string[]): Fi
           model,
           name,
           nozzleDiameterMm: nozzle,
-          defaultPrintPreset: null,
+          defaultProcessPreset: null,
         });
       };
 
@@ -356,7 +356,7 @@ export function slicerPresetLibrary(id: string, defaultDirs: () => string[]): Fi
               model,
               name,
               nozzleDiameterMm: num(get("nozzle_diameter")) ?? null,
-              defaultPrintPreset: null,
+              defaultProcessPreset: null,
             });
         }
 
@@ -415,7 +415,7 @@ export function slicerPresetLibrary(id: string, defaultDirs: () => string[]): Fi
       }
       for (const [id, process] of defaults) {
         const m = machines.get(id);
-        if (m) m.defaultPrintPreset = idOf(processes, process) ?? null;
+        if (m) m.defaultProcessPreset = idOf(processes, process) ?? null;
       }
       return {
         models: [...models.values()],

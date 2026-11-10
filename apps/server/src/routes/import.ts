@@ -250,7 +250,7 @@ export const importRoutes =
       },
     );
 
-    // Adds the picked brands with their models and profiles, after one backup.
+    // Adds the picked brands with their models and presets, after one backup.
     app.post(
       "/catalog/:id",
       {

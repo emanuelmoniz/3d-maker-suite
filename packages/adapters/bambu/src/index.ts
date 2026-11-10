@@ -388,15 +388,15 @@ export function bambuStudioAdapter(): IntegrationAdapter {
     // Same id as the library, which already prefixes imported presets (`bambu-studio:<preset>`).
     id: "bambu-studio",
     kind: "local",
-    // Order = run order: brands, then the models and profiles that point at them.
+    // Order = run order: brands, then the models and presets that point at them.
     capabilities: [
       "brands",
       "printerModels",
-      "machineProfiles",
-      "printProfiles",
+      "machinePresets",
+      "processPresets",
       "filamentBrands",
       "filamentMaterials",
-      "filamentProfiles",
+      "filamentPresets",
       ...USER_PRESET_TYPES,
       "openInSlicer",
       "slice",
@@ -459,7 +459,7 @@ export const bambuManaged: ManagedSlicer = {
         : "squashfs-root/resources/profiles",
 };
 
-// Bambu Studio downloaded and run by the server: its own system profiles are the preset source,
+// Bambu Studio downloaded and run by the server: its own system presets are the preset source,
 // so it imports like the local one (same library id, so the same presets), but has no GUI to open.
 export function bambuStudioServerAdapter(): IntegrationAdapter {
   return {
@@ -468,11 +468,11 @@ export function bambuStudioServerAdapter(): IntegrationAdapter {
     capabilities: [
       "brands",
       "printerModels",
-      "machineProfiles",
-      "printProfiles",
+      "machinePresets",
+      "processPresets",
       "filamentBrands",
       "filamentMaterials",
-      "filamentProfiles",
+      "filamentPresets",
       ...USER_PRESET_TYPES,
       "slice",
     ],

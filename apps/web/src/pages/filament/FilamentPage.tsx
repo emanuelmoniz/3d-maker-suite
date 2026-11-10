@@ -170,7 +170,7 @@ export function FilamentPage() {
                       const price = spoolPrice(s);
                       if (price === null) return "";
                       const text = formatCurrency(price / 100, prefs?.currency);
-                      // No price paid: estimated from the profile's price per kg.
+                      // No price paid: estimated from the preset's price per kg.
                       return s.pricePaid === null ? (
                         <span className="text-muted" title={t("filament:spools.listPrice")}>
                           {text}

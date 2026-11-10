@@ -1,8 +1,8 @@
 import type {
-  FilamentProfile,
+  FilamentPreset,
   InUseDetails,
-  MachineProfile,
-  PrintProfile,
+  MachinePreset,
+  ProcessPreset,
 } from "@3d-maker-suite/core";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "@tanstack/react-router";
@@ -21,14 +21,12 @@ import { AllSettings } from "./AllSettings.tsx";
 import { SourceBadge } from "./sources.tsx";
 
 const KINDS = {
-  filament: { path: "/api/filament/profiles", back: "/catalog/filament" },
-  machine: { path: "/api/machine-profiles", back: "/catalog/printers" },
-  print: { path: "/api/print-profiles", back: "/catalog/printers" },
+  filament: { path: "/api/filament/presets", back: "/catalog/filament" },
+  machine: { path: "/api/machine-presets", back: "/catalog/printers" },
+  process: { path: "/api/process-presets", back: "/catalog/printers" },
 } as const;
 
-const PRESET_KIND = { filament: "filament", machine: "machine", print: "process" } as const;
-
-type Row = (FilamentProfile | MachineProfile | PrintProfile) & { source?: string };
+type Row = (FilamentPreset | MachinePreset | ProcessPreset) & { source?: string };
 
 function Card({ title, children }: { title: ReactNode; children: ReactNode }) {
   const heading = useId();
@@ -45,7 +43,7 @@ function Card({ title, children }: { title: ReactNode; children: ReactNode }) {
   );
 }
 
-/** What the app uses from the profile, by kind. */
+/** What the app uses from the preset, by kind. */
 function Fields({ kind, row }: { kind: keyof typeof KINDS; row: Row }) {
   const { t } = useTranslation();
   const info = useModelInfo();
@@ -53,65 +51,65 @@ function Fields({ kind, row }: { kind: keyof typeof KINDS; row: Row }) {
   const mm = (v: number | null) =>
     v === null ? none : t("printers:catalog.mm", { value: formatNumber(v) });
   if (kind === "filament") {
-    const p = row as FilamentProfile;
+    const p = row as FilamentPreset;
     return (
       <>
-        <Info label={t("filament:profiles.brand")}>{p.brand || none}</Info>
-        <Info label={t("filament:profiles.material")}>{p.material}</Info>
-        <Info label={t("filament:profiles.name")}>{p.name || none}</Info>
-        <Info label={t("filament:profiles.diameter")}>{formatNumber(p.diameterMm)}</Info>
-        <Info label={t("filament:profiles.density")}>{formatNumber(p.densityGcm3)}</Info>
-        <Info label={t("filament:profiles.nozzleTemp")}>{p.nozzleTempC ?? none}</Info>
-        <Info label={t("filament:profiles.bedTemp")}>{p.bedTempC ?? none}</Info>
+        <Info label={t("filament:presets.brand")}>{p.brand || none}</Info>
+        <Info label={t("filament:presets.material")}>{p.material}</Info>
+        <Info label={t("filament:presets.name")}>{p.name || none}</Info>
+        <Info label={t("filament:presets.diameter")}>{formatNumber(p.diameterMm)}</Info>
+        <Info label={t("filament:presets.density")}>{formatNumber(p.densityGcm3)}</Info>
+        <Info label={t("filament:presets.nozzleTemp")}>{p.nozzleTempC ?? none}</Info>
+        <Info label={t("filament:presets.bedTemp")}>{p.bedTempC ?? none}</Info>
       </>
     );
   }
-  const p = row as MachineProfile | PrintProfile;
+  const p = row as MachinePreset | ProcessPreset;
   return (
     <>
-      <Info label={t("printers:catalog.profiles.model")}>
+      <Info label={t("printers:catalog.presets.model")}>
         {(p.printerModelId && info.get(p.printerModelId)?.label) || none}
       </Info>
-      <Info label={t("printers:catalog.profiles.nozzle")}>{mm(p.nozzleDiameterMm)}</Info>
+      <Info label={t("printers:catalog.presets.nozzle")}>{mm(p.nozzleDiameterMm)}</Info>
       {"layerHeightMm" in p && (
-        <Info label={t("printers:catalog.printProfiles.layer")}>{mm(p.layerHeightMm)}</Info>
+        <Info label={t("printers:catalog.processPresets.layer")}>{mm(p.layerHeightMm)}</Info>
       )}
     </>
   );
 }
 
 /**
- * One profile of any kind (ADR-0020): what the app uses, where it comes from and is used, and every
- * setting of its file. The profile is read-only: it is edited in the slicer.
+ * One preset of any kind (ADR-0020): what the app uses, where it comes from and is used, and every
+ * setting of its file. The preset is read-only: it is edited in the slicer.
  */
-export function ProfilePage({ kind }: { kind: keyof typeof KINDS }) {
+export function PresetPage({ kind }: { kind: keyof typeof KINDS }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { id } = useParams({ strict: false }) as { id: string };
   const { path, back } = KINDS[kind];
   const { data: row, isError } = useQuery({
-    queryKey: ["catalog-profile", kind, id],
+    queryKey: ["catalog-preset", kind, id],
     queryFn: () => api<Row>("GET", `${path}/${id}`),
-    // A profile that isn't there won't be in a moment.
+    // A preset that isn't there won't be in a moment.
     retry: false,
   });
   const hub = !!usePreferences().data?.values.hubEnabled;
   const use = useQuery({
-    queryKey: ["catalog-profile", kind, id, "use"],
+    queryKey: ["catalog-preset", kind, id, "use"],
     queryFn: () => api<InUseDetails>("GET", `${path}/${id}/use`),
   });
 
   if (isError)
     return (
       <p role="alert" className="text-bad">
-        {t("catalog:profile.notFound")}
+        {t("catalog:preset.notFound")}
       </p>
     );
   if (!row) return null;
 
-  const name = kind === "filament" ? filamentLabel(row as FilamentProfile) : row.name;
+  const name = kind === "filament" ? filamentLabel(row as FilamentPreset) : row.name;
   const archived = row.archivedAt !== null;
-  // A profile from a user preset links to its entry in the library (hub on).
+  // A preset from a user preset links to its entry in the library (hub on).
   const preset = hub ? row.sourcePreset?.match(/^([^:]+):user\/(.+)$/) : null;
 
   return (
@@ -134,7 +132,7 @@ export function ProfilePage({ kind }: { kind: keyof typeof KINDS }) {
         <Card
           title={
             <>
-              {t("catalog:profile.details")}
+              {t("catalog:preset.details")}
               {archived && <ArchivedBadge />}
             </>
           }
@@ -142,24 +140,24 @@ export function ProfilePage({ kind }: { kind: keyof typeof KINDS }) {
           <dl className="grid gap-3 sm:grid-cols-2">
             <Fields kind={kind} row={row} />
             <Info label={t("filament:detail.source")}>
-              <SourceBadge source={row.source} profile />
+              <SourceBadge source={row.source} preset />
               {preset && (
                 <Link
                   to="/catalog/presets"
-                  hash={encodeURIComponent(`${preset[1]}:${PRESET_KIND[kind]}:${preset[2]}`)}
+                  hash={encodeURIComponent(`${preset[1]}:${kind}:${preset[2]}`)}
                   className="mt-1 block font-medium text-accent hover:underline"
                 >
-                  {t("catalog:profile.openPreset")}
+                  {t("catalog:preset.openPreset")}
                 </Link>
               )}
             </Info>
           </dl>
         </Card>
-        <Card title={t("catalog:profile.usedBy")}>
+        <Card title={t("catalog:preset.usedBy")}>
           {use.data?.dependents.length ? (
             <Dependents details={use.data} />
           ) : (
-            use.data && <p className="text-muted">{t("catalog:profile.unused")}</p>
+            use.data && <p className="text-muted">{t("catalog:preset.unused")}</p>
           )}
         </Card>
         <Card title={t("catalog:settings.title")}>
@@ -170,6 +168,6 @@ export function ProfilePage({ kind }: { kind: keyof typeof KINDS }) {
   );
 }
 
-export const FilamentProfilePage = () => <ProfilePage kind="filament" />;
-export const MachineProfilePage = () => <ProfilePage kind="machine" />;
-export const PrintProfilePage = () => <ProfilePage kind="print" />;
+export const FilamentPresetPage = () => <PresetPage kind="filament" />;
+export const MachinePresetPage = () => <PresetPage kind="machine" />;
+export const ProcessPresetPage = () => <PresetPage kind="process" />;

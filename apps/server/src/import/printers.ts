@@ -6,7 +6,7 @@ import {
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
 import { and, eq, isNotNull, isNull, sql } from "drizzle-orm";
-import { DEFAULT_NOZZLE, machineProfileFor, modelIdFor } from "../lib/catalog.ts";
+import { DEFAULT_NOZZLE, machinePresetFor, modelIdFor } from "../lib/catalog.ts";
 import {
   accessoryTitle,
   assertNumberFree,
@@ -202,7 +202,7 @@ export const printerImport = {
         modelId,
         serial: str(v.serial),
         nozzleDiameterMm,
-        machineProfileId: machineProfileFor(db, modelId, nozzleDiameterMm),
+        machinePresetId: machinePresetFor(db, modelId, nozzleDiameterMm),
         purchasedAt: noon(v.purchasedAt),
         purchasePrice: num(v.purchasePrice),
         warrantyEndsAt: noon(v.warrantyEndsAt),
@@ -221,10 +221,10 @@ export const printerImport = {
       const v = { ...target.values, ...patch };
       set.modelId = modelIdFor(db, str(v.brand) ?? "", str(v.model) ?? "");
     }
-    // A new model or nozzle takes its machine profile again, as the printer form does.
+    // A new model or nozzle takes its machine preset again, as the printer form does.
     if (set.modelId !== undefined || set.nozzleDiameterMm != null) {
       const cur = db.select().from(printers).where(eq(printers.id, target.id)).get();
-      set.machineProfileId = machineProfileFor(
+      set.machinePresetId = machinePresetFor(
         db,
         (set.modelId as string | undefined) ?? cur?.modelId ?? null,
         (set.nozzleDiameterMm as number | null | undefined) ??

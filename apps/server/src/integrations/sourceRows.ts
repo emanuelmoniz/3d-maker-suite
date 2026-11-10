@@ -51,8 +51,8 @@ export async function libraryRows(
     const key = type === "filamentBrands" ? "brand" : "material";
     return numbered(names(presets.map((p) => p[key])).map((name) => ({ raw: { name } })));
   }
-  if (type === "filamentProfiles")
-    // A profile you archived comes back as a skip (`filamentProfileImport.archived`).
+  if (type === "filamentPresets")
+    // A preset you archived comes back as a skip (`filamentPresetImport.archived`).
     return numbered(
       want(await lib.read(dir, { includeSystem: system })).map((preset) => {
         const { presetId, scope: _scope, ...p } = preset;
@@ -69,10 +69,10 @@ export async function libraryRows(
     machines: want(read.machines),
     processes: want(read.processes),
   };
-  // Presets a preset names keep their keys (`machinePresets`, `defaultPrintPreset`); the review
+  // Presets a preset names keep their keys (`machinePresets`, `defaultProcessPreset`); the review
   // shows and compares their names.
   const key = (presetId: string) => `${lib.id}:${presetId}`;
-  if (type === "printProfiles")
+  if (type === "processPresets")
     return numbered(
       c.processes.map(({ presetId, scope: _scope, machines, ...raw }) => ({
         source: key(presetId),
@@ -91,12 +91,12 @@ export async function libraryRows(
       })),
     );
   return numbered(
-    c.machines.map(({ presetId, scope: _scope, defaultPrintPreset: process, ...raw }) => ({
+    c.machines.map(({ presetId, scope: _scope, defaultProcessPreset: process, ...raw }) => ({
       source: key(presetId),
       raw: {
         ...raw,
-        defaultPrintProfile: process && presetName(process),
-        defaultPrintPreset: process && key(process),
+        defaultProcessPresetName: process && presetName(process),
+        defaultProcessPreset: process && key(process),
         ...(!raw.brand && { hold: true }),
       },
     })),

@@ -6,16 +6,16 @@ import {
   defaultPolicy,
   type FilamentLibrary,
   type IntegrationAdapter,
-  type ProfileSettings,
+  type PresetSettings,
   USER_PRESET_TYPES,
 } from "@3d-maker-suite/core";
 import { openDb, schema } from "@3d-maker-suite/db";
 import { beforeEach, describe, expect, it } from "vitest";
 import { buildApp } from "./app.ts";
 import { savePreset } from "./integrations/presetLibrary.ts";
-import { insertProfile } from "./testSeed.ts";
+import { insertPreset } from "./testSeed.ts";
 
-// Plan 5.4.0 Step 16: a profile's file, every setting with its parents filled in. The reader itself
+// Plan 5.4.0 Step 16: a preset's file, every setting with its parents filled in. The reader itself
 // is tested in packages/slicer-presets; this is which source the server reads and what it says.
 
 const { syncPolicies } = schema;
@@ -29,7 +29,7 @@ let id: string;
 let asked: { dir: string; kind: string; ref: Ref; own?: Record<string, unknown> }[];
 
 beforeEach(async () => {
-  dataDir = mkdtempSync(join(tmpdir(), "profile-settings-"));
+  dataDir = mkdtempSync(join(tmpdir(), "preset-settings-"));
   asked = [];
   const library: FilamentLibrary = {
     id: "fake",
@@ -59,7 +59,7 @@ beforeEach(async () => {
     ...mockAdapter(fixture()),
     id: "slicer",
     kind: "local",
-    capabilities: ["filamentProfiles", ...USER_PRESET_TYPES],
+    capabilities: ["filamentPresets", ...USER_PRESET_TYPES],
     library,
   } as IntegrationAdapter;
   db = openDb(":memory:");
@@ -76,15 +76,15 @@ beforeEach(async () => {
 const settings = async (url: string) => {
   const res = await app.inject(url);
   expect(res.statusCode, res.body).toBe(200);
-  return res.json() as ProfileSettings;
+  return res.json() as PresetSettings;
 };
 const filament = (sourcePreset: string | null) =>
-  insertProfile(db, "filamentProfiles", { name: "A", sourcePreset }).id;
+  insertPreset(db, "filamentPresets", { name: "A", sourcePreset }).id;
 
-describe("a profile's settings", () => {
-  it("lists a system profile's values with their parents, from the slicer's folder", async () => {
+describe("a preset's settings", () => {
+  it("lists a system preset's values with their parents, from the slicer's folder", async () => {
     mkdirSync(join(dataDir, "system"));
-    const got = await settings(`/api/filament/profiles/${filament("fake:system/A")}/settings`);
+    const got = await settings(`/api/filament/presets/${filament("fake:system/A")}/settings`);
     expect(got).toMatchObject({
       status: "ok",
       parents: ["Base", "Root"],
@@ -96,7 +96,7 @@ describe("a profile's settings", () => {
     expect(asked[0]).toMatchObject({ dir: dataDir, kind: "filament", ref: { scope: "system" } });
   });
 
-  it("reads machine and print profiles under their own prefix", async () => {
+  it("reads machine and process presets under their own prefix", async () => {
     mkdirSync(join(dataDir, "system"));
     const brand = (
       await app.inject({ method: "POST", url: "/api/brands", payload: { name: "Acme" } })
@@ -108,30 +108,30 @@ describe("a profile's settings", () => {
         payload: { brandId: brand.id, model: "X1" },
       })
     ).json();
-    const machine = insertProfile(db, "machineProfiles", {
+    const machine = insertPreset(db, "machinePresets", {
       name: "A",
       sourcePreset: "fake:system/A",
       printerModelId: model.id,
     });
-    const print = insertProfile(db, "printProfiles", { name: "A", sourcePreset: "fake:system/A" });
-    await settings(`/api/machine-profiles/${machine.id}/settings`);
-    await settings(`/api/print-profiles/${print.id}/settings`);
+    const print = insertPreset(db, "processPresets", { name: "A", sourcePreset: "fake:system/A" });
+    await settings(`/api/machine-presets/${machine.id}/settings`);
+    await settings(`/api/process-presets/${print.id}/settings`);
     expect(asked.map((a) => a.kind)).toEqual(["machine", "process"]);
   });
 
   it("says why it can't be read", async () => {
-    const hand = await settings(`/api/filament/profiles/${filament(null)}/settings`);
+    const hand = await settings(`/api/filament/presets/${filament(null)}/settings`);
     expect(hand).toMatchObject({ status: "unreadable", reason: "hand_made", settings: [] });
     // No system folder here: nothing to read it from.
-    const none = await settings(`/api/filament/profiles/${filament("fake:system/A")}/settings`);
+    const none = await settings(`/api/filament/presets/${filament("fake:system/A")}/settings`);
     expect(none).toMatchObject({ status: "unreadable", reason: "no_source" });
     // A folder that no longer has the preset.
     mkdirSync(join(dataDir, "system"));
-    const gone = await settings(`/api/filament/profiles/${filament("fake:system/Gone")}/settings`);
+    const gone = await settings(`/api/filament/presets/${filament("fake:system/Gone")}/settings`);
     expect(gone).toMatchObject({ status: "unreadable", reason: "not_found" });
     // A slicer this server doesn't have.
     const other = await settings(
-      `/api/filament/profiles/${filament("orca-slicer:system/A")}/settings`,
+      `/api/filament/presets/${filament("orca-slicer:system/A")}/settings`,
     );
     expect(other).toMatchObject({ status: "unreadable", reason: "no_source" });
   });
@@ -145,7 +145,7 @@ describe("a profile's settings", () => {
       name: "Mine",
       json: JSON.stringify({ name: "Mine", inherits: "Base" }),
     });
-    const got = await settings(`/api/filament/profiles/${filament("fake:user/Mine")}/settings`);
+    const got = await settings(`/api/filament/presets/${filament("fake:user/Mine")}/settings`);
     expect(got.settings).toEqual([{ key: "name", value: "Mine", from: null }]);
     expect(asked[0]).toMatchObject({ dir: dataDir, own: { name: "Mine" } });
   });
@@ -153,26 +153,26 @@ describe("a profile's settings", () => {
   it("points to the review while the type waits for one", async () => {
     mkdirSync(join(dataDir, "system"));
     const row = filament("fake:system/A");
-    expect((await settings(`/api/filament/profiles/${row}/settings`)).waiting).toBeNull();
+    expect((await settings(`/api/filament/presets/${row}/settings`)).waiting).toBeNull();
     db.insert(syncPolicies)
       .values({
         integrationId: id,
-        type: "filamentProfiles",
-        ...defaultPolicy("filamentProfiles"),
+        type: "filamentPresets",
+        ...defaultPolicy("filamentPresets"),
         pending: 2,
       })
       .run();
-    expect((await settings(`/api/filament/profiles/${row}/settings`)).waiting).toEqual({
+    expect((await settings(`/api/filament/presets/${row}/settings`)).waiting).toEqual({
       integrationId: id,
-      type: "filamentProfiles",
+      type: "filamentPresets",
       count: 2,
     });
   });
 
-  it("404s an unknown profile, and lists no use for a free one", async () => {
-    const res = await app.inject(`/api/filament/profiles/${crypto.randomUUID()}/settings`);
+  it("404s an unknown preset, and lists no use for a free one", async () => {
+    const res = await app.inject(`/api/filament/presets/${crypto.randomUUID()}/settings`);
     expect(res.statusCode).toBe(404);
-    const use = await app.inject(`/api/filament/profiles/${filament("fake:system/A")}/use`);
+    const use = await app.inject(`/api/filament/presets/${filament("fake:system/A")}/use`);
     expect(use.json()).toEqual({ dependents: [] });
   });
 });

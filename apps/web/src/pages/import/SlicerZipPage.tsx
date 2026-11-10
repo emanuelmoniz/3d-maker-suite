@@ -11,11 +11,11 @@ import { useZipSources, useZipUpload } from "../../lib/slicerCatalog.ts";
 const TYPES = {
   brands: "integrations:capabilities.brands",
   printerModels: "integrations:capabilities.printerModels",
-  machineProfiles: "integrations:capabilities.machineProfiles",
-  printProfiles: "integrations:capabilities.printProfiles",
+  machinePresets: "integrations:capabilities.machinePresets",
+  processPresets: "integrations:capabilities.processPresets",
   filamentBrands: "integrations:capabilities.filamentBrands",
   filamentMaterials: "integrations:capabilities.filamentMaterials",
-  filamentProfiles: "integrations:capabilities.filamentProfiles",
+  filamentPresets: "integrations:capabilities.filamentPresets",
 } as const;
 const ERRORS: Record<string, string> = {
   invalid_zip: "import:zip.errors.invalid_zip",
@@ -28,7 +28,7 @@ export function SlicerZipPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { id } = useParams({ strict: false }) as { id?: string };
-  // `?slicer=` preselects a source (e.g. from a server slicer card that can't read profiles).
+  // `?slicer=` preselects a source (e.g. from a server slicer card that can't read presets).
   const { slicer } = useSearch({ strict: false }) as { slicer?: string };
   const sources = useZipSources();
   const [picked, setPicked] = useState(slicer ?? "");

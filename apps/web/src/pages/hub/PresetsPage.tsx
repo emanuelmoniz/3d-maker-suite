@@ -8,8 +8,8 @@ import { Button } from "../../components/Button.tsx";
 import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { EmptyState } from "../../components/EmptyState.tsx";
 import { useCan } from "../../lib/auth.ts";
-import { useMachineProfiles, usePrintProfiles } from "../../lib/catalog.ts";
-import { useProfiles } from "../../lib/filament.ts";
+import { useMachinePresets, useProcessPresets } from "../../lib/catalog.ts";
+import { useFilamentPresets } from "../../lib/filament.ts";
 import { formatDateTime } from "../../lib/format.ts";
 import {
   presetDownloadUrl,
@@ -122,12 +122,12 @@ function RemovalLine({ preset: p }: { preset: SlicerPreset }) {
 
 function PresetRow({
   preset: p,
-  profile,
+  catalogRow,
   onDelete,
   onRestore,
 }: {
   preset: SlicerPreset;
-  profile?: { to: string; id: string };
+  catalogRow?: { to: string; id: string };
   onDelete?: () => void;
   onRestore?: (version: number) => void;
 }) {
@@ -188,13 +188,13 @@ function PresetRow({
       {open && (
         <div id={panel} className="mt-1 ml-7 grid gap-3 border-l-2 border-border pl-3">
           {p.usedBy.length > 0 && <Dependents details={{ dependents: p.usedBy }} />}
-          {profile && (
+          {catalogRow && (
             <Link
-              to={profile.to}
-              params={{ id: profile.id }}
+              to={catalogRow.to}
+              params={{ id: catalogRow.id }}
               className="font-medium text-accent hover:underline"
             >
-              {t("hub:presets.openProfile")}
+              {t("hub:presets.openPreset")}
             </Link>
           )}
           <Versions preset={p} onRestore={onRestore} />
@@ -244,23 +244,23 @@ export function PresetsTab() {
   const restore = useRestorePreset();
   const resolve = useResolveHeld();
   const deleted = useDeletedPresets(manage);
-  // A profile page links here as `#<library>:<kind>:<name>` (see `presetLink`).
+  // A preset page links here as `#<library>:<kind>:<name>` (see `presetLink`).
   const [from = "", fromKind, ...fromName] = decodeURIComponent(location.hash.slice(1)).split(":");
   const [library, setLibrary] = useState<string | null>(from || null);
   const [kind, setKind] = useState<SlicerPresetKind>(
     KINDS.some(([k]) => k === fromKind) ? (fromKind as SlicerPresetKind) : "filament",
   );
   const [query, setQuery] = useState(fromName.join(":"));
-  const profiles = [
-    ...(useProfiles().data?.items ?? []).map((p) => ({ ...p, to: "/filament/profiles/$id" })),
-    ...(useMachineProfiles().data ?? []).map((p) => ({
+  const catalogRows = [
+    ...(useFilamentPresets().data?.items ?? []).map((p) => ({ ...p, to: "/filament/presets/$id" })),
+    ...(useMachinePresets().data ?? []).map((p) => ({
       ...p,
-      to: "/printers/machine-profiles/$id",
+      to: "/printers/machine-presets/$id",
     })),
-    ...(usePrintProfiles().data ?? []).map((p) => ({ ...p, to: "/printers/print-profiles/$id" })),
+    ...(useProcessPresets().data ?? []).map((p) => ({ ...p, to: "/printers/process-presets/$id" })),
   ];
-  const profileOf = (p: SlicerPreset) => {
-    const hit = profiles.find((r) => r.sourcePreset === `${p.library}:user/${p.name}`);
+  const presetOf = (p: SlicerPreset) => {
+    const hit = catalogRows.find((r) => r.sourcePreset === `${p.library}:user/${p.name}`);
     return hit && { to: hit.to, id: hit.id };
   };
   const [deleting, setDeleting] = useState<SlicerPreset | null>(null);
@@ -434,7 +434,7 @@ export function PresetsTab() {
                   <PresetRow
                     key={p.id}
                     preset={p}
-                    profile={profileOf(p)}
+                    catalogRow={presetOf(p)}
                     onDelete={manage ? () => setDeleting(p) : undefined}
                     onRestore={restoreOf(p)}
                   />

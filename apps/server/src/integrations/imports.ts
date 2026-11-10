@@ -3,7 +3,7 @@ import type { Db } from "@3d-maker-suite/db";
 import { HttpError } from "../errors.ts";
 import { capableRow, catalogDir } from "./capabilities.ts";
 
-export const profileKey = (p: { brand: string; material: string; name: string }) =>
+export const presetKey = (p: { brand: string; material: string; name: string }) =>
   [p.brand, p.material, p.name].map((v) => v.trim().toLowerCase()).join("|");
 
 /**

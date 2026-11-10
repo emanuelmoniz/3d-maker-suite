@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, test } from "../e2e/fixtures.ts";
-import { addRoots, filamentOf, png, seedPrinter, seedProfile } from "../e2e/helpers.ts";
+import { addRoots, filamentOf, png, seedPreset, seedPrinter } from "../e2e/helpers.ts";
 
 const IMAGES = "docs/images";
 
@@ -13,7 +13,7 @@ test("README screenshots", async ({ page, app }) => {
     intervalDays: 10,
     warnLeadDays: 10,
   });
-  const profile = await seedProfile(app);
+  const preset = await seedPreset(app);
   const spools: { id: string }[] = [];
   for (const [colorHex, colorName] of [
     ["#e53935", "Red"],
@@ -22,7 +22,7 @@ test("README screenshots", async ({ page, app }) => {
   ]) {
     spools.push(
       await app.api<{ id: string }>("POST", "/api/filament/spools", {
-        ...filamentOf(profile),
+        ...filamentOf(preset),
         colorHex,
         colorName,
         initialGrams: 1000,
@@ -58,9 +58,9 @@ test("README screenshots", async ({ page, app }) => {
       {
         file: "dragon.3mf",
         plate: dragon.meta.models[0]?.plates[0]?.index ?? 1,
-        printerId: null, // no printer exists yet, so the file's own profile is used
-        printProfileId: null,
-        useDefaultPrintProfile: false,
+        printerId: null, // no printer exists yet, so the file's own preset is used
+        processPresetId: null,
+        useDefaultProcessPreset: false,
         filaments: [],
         spools: [spools[0]?.id ?? null],
       },
@@ -143,7 +143,7 @@ test("README screenshots", async ({ page, app }) => {
   });
   await app.api("POST", "/api/alerts/evaluate");
   const alerts = await app.api<{ id: string }[]>("GET", "/api/alerts");
-  const profileId = profile.id;
+  const presetId = preset.id;
 
   const shots: [string, string][] = [
     ["dashboard", "/"],
@@ -154,7 +154,7 @@ test("README screenshots", async ({ page, app }) => {
     ["maintenance-type", `/maintenance/types/${type.id}`],
     ["filament", "/filament"],
     ["spool", `/filament/spools/${spools[0]?.id}`],
-    ["filament-profile", `/filament/profiles/${profileId}`],
+    ["filament-preset", `/filament/presets/${presetId}`],
     ["prints", "/prints"],
     ["print", `/prints/${lastPrint}`],
     ["projects", "/projects"],

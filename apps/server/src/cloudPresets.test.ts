@@ -75,7 +75,7 @@ const drop = (...ids: string[]) => {
 let db: ReturnType<typeof openDb>;
 let app: Awaited<ReturnType<typeof buildApp>>;
 let dataDir: string;
-const { filamentProfiles, importSnapshots, slicerPresets, syncPolicies, syncRuns } = schema;
+const { filamentPresets, importSnapshots, slicerPresets, syncPolicies, syncRuns } = schema;
 
 beforeEach(async () => {
   account = { list: [], presets: {}, lists: 0, gets: [] };
@@ -95,7 +95,7 @@ const setting = (key: string, value: unknown) =>
 const add = async (adapterId: string) =>
   (await app.inject({ method: "POST", url: "/api/integrations", payload: { adapterId } })).json()
     .id as string;
-const TYPE = "userFilamentProfiles";
+const TYPE = "userFilamentPresets";
 const auto = (id: string) =>
   app.inject({
     method: "PATCH",
@@ -125,7 +125,7 @@ const pendingOf = (id: string) =>
     .from(syncPolicies)
     .all()
     .find((p) => p.integrationId === id && p.type === TYPE)?.pending ?? 0;
-const profiles = () => db.select().from(filamentProfiles).all();
+const filamentRows = () => db.select().from(filamentPresets).all();
 const library = () =>
   Object.fromEntries(
     db
@@ -135,7 +135,7 @@ const library = () =>
       .map((p) => [p.name, p.deleted ? "deleted" : p.version]),
   );
 const importedBy = (name: string) => {
-  const row = profiles().find((p) => p.name === name);
+  const row = filamentRows().find((p) => p.name === name);
   return db
     .select()
     .from(importSnapshots)
@@ -189,7 +189,7 @@ it("reaches the catalog as Studio's preset, fetching only what changed, and vers
   expect((await sync(id)).errorCode).toBeNull();
 
   // Its parent gives the material, so it needs no review.
-  expect(profiles()).toMatchObject([{ name: "Mine", sourcePreset: "bambu-studio:user/Mine" }]);
+  expect(filamentRows()).toMatchObject([{ name: "Mine", sourcePreset: "bambu-studio:user/Mine" }]);
   expect(pendingOf(id)).toBe(0);
   expect(library()).toEqual({ Mine: 1 });
   expect(account.gets).toEqual(["P1"]);
@@ -212,7 +212,7 @@ it("with no system presets to read, a preset waits for review", async () => {
   const id = await addCloud();
   put("P1", "Mine", "t1");
   await sync(id);
-  expect(profiles()).toEqual([]);
+  expect(filamentRows()).toEqual([]);
   expect(pendingOf(id)).toBe(1);
 });
 
@@ -230,7 +230,7 @@ it("a failed or changed list, or a failed get, writes and deletes nothing", asyn
   expect((await sync(id)).errorCode).toBe("unreachable");
 
   expect(library()).toEqual({ Mine: 1 });
-  expect(profiles().map((p) => p.name)).toEqual(["Mine"]);
+  expect(filamentRows().map((p) => p.name)).toEqual(["Mine"]);
   expect(pendingOf(id)).toBe(0);
 });
 
@@ -254,7 +254,7 @@ describe("a preset gone from the account", () => {
     expect(library()).toMatchObject({ Mine: "deleted", Other: 1, Third: 1 });
     // Never deleted by a run: each catalog row waits for a person.
     expect(
-      profiles()
+      filamentRows()
         .map((p) => p.name)
         .sort(),
     ).toEqual(["Mine", "Other", "Third"]);
@@ -293,7 +293,7 @@ describe("a preset gone from the account", () => {
     });
     expect(del.statusCode, del.body).toBe(200);
     expect(library()).toMatchObject({ Mine: "deleted", Other: 1 });
-    expect(profiles().map((p) => p.name)).not.toContain("Mine");
+    expect(filamentRows().map((p) => p.name)).not.toContain("Mine");
 
     // All of an account's presets gone at once looks like another account.
     setting("hubDeleteGuard", 20);
@@ -365,7 +365,7 @@ describe("one preset, one route", () => {
     await s.checkUserPresets();
 
     expect(
-      profiles()
+      filamentRows()
         .map((p) => p.name)
         .sort(),
     ).toEqual(["Mine", "Other"]);

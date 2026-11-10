@@ -29,7 +29,7 @@
     },
     "catalog": {
       "label": "Catalog",
-      "description": "Printer and filament brands, models, materials and slicer profiles."
+      "description": "Printer and filament brands, models, materials and slicer presets."
     },
     "integrations": { "label": "Integrations", "description": "Connect vendor accounts and sync." },
     "hub": { "label": "Hub management", "description": "Paired devices and their access." },

@@ -56,7 +56,7 @@
     "spoolOption": "{{name}} · {{weight}} left",
     "save": "Save print",
     "error": "Couldn't save the print. Check that every spool has enough filament.",
-    "machineProfile": "Machine profile",
+    "machinePreset": "Printer preset",
     "number": "Number",
     "numberHint": "Leave empty for the next free number.",
     "numberTaken": "Another print already has this number. It may be archived."

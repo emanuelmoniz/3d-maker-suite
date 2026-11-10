@@ -30,7 +30,7 @@ import {
   canReference,
   resolveItemAlerts,
 } from "../lib/archive.ts";
-import { DEFAULT_NOZZLE, machineProfileFor, modelName, printerLabel } from "../lib/catalog.ts";
+import { DEFAULT_NOZZLE, machinePresetFor, modelName, printerLabel } from "../lib/catalog.ts";
 import { commentRoutes } from "../lib/comments.ts";
 import { deleteItem } from "../lib/dependents.ts";
 import { imageRoutes } from "../lib/images.ts";
@@ -39,9 +39,9 @@ import { printerUsageColumns } from "../lib/maintenance.ts";
 import { assertNumberFree, nextNumber } from "../lib/numbers.ts";
 import { readPreferences } from "../lib/preferences.ts";
 
-const { printers, printerComments, printerModels, printProfiles, prints, accessoryInstalls } =
+const { printers, printerComments, printerModels, processPresets, prints, accessoryInstalls } =
   schema;
-const { machineProfiles } = schema;
+const { machinePresets } = schema;
 type PrinterRecord = typeof printers.$inferSelect;
 const params = z.object({ id: z.uuid() });
 const brandModel = modelName(printers.modelId);
@@ -64,38 +64,32 @@ export const printersRoutes =
       if (modelId && !canReference(db, printerModels, modelId, was))
         throw new HttpError(400, "invalid_model", "Unknown printer model");
     };
-    const checkPrintProfile = (id?: string | null, was?: string | null) => {
-      if (id && !canReference(db, printProfiles, id, was))
-        throw new HttpError(400, "invalid_reference", "Unknown print profile");
+    const checkProcessPreset = (id?: string | null, was?: string | null) => {
+      if (id && !canReference(db, processPresets, id, was))
+        throw new HttpError(400, "invalid_reference", "Unknown process preset");
     };
     /**
-     * The machine profile a save gives the printer: a pick, of its model, sets the nozzle to the
+     * The machine preset a save gives the printer: a pick, of its model, sets the nozzle to the
      * pick's; else the one for its model and nozzle when the printer is new, asks for it (null), or
      * its model or nozzle changes.
      */
     const withMachine = <T extends PrinterPatch>(fields: T, cur?: PrinterRecord): T => {
       const modelId = fields.modelId ?? cur?.modelId ?? null;
-      const picked = fields.machineProfileId;
+      const picked = fields.machinePresetId;
       if (picked) {
-        const m = db.select().from(machineProfiles).where(eq(machineProfiles.id, picked)).get();
+        const m = db.select().from(machinePresets).where(eq(machinePresets.id, picked)).get();
         if (
           !m ||
           m.printerModelId !== modelId ||
-          !canReference(db, machineProfiles, picked, cur?.machineProfileId)
+          !canReference(db, machinePresets, picked, cur?.machinePresetId)
         )
-          throw new HttpError(
-            400,
-            "invalid_machine_profile",
-            "Not a machine profile of this model",
-          );
+          throw new HttpError(400, "invalid_machine_preset", "Not a machine preset of this model");
         return { ...fields, nozzleDiameterMm: m.nozzleDiameterMm };
       }
       const nozzle = fields.nozzleDiameterMm ?? cur?.nozzleDiameterMm ?? DEFAULT_NOZZLE;
       const again =
         !cur || picked === null || modelId !== cur.modelId || nozzle !== cur.nozzleDiameterMm;
-      return again
-        ? { ...fields, machineProfileId: machineProfileFor(db, modelId, nozzle) }
-        : fields;
+      return again ? { ...fields, machinePresetId: machinePresetFor(db, modelId, nozzle) } : fields;
     };
     // Like accessories: nothing stays installed on an archived printer.
     const assertNoAccessories = (id: string) => {
@@ -158,7 +152,7 @@ export const printersRoutes =
       async (req, reply) => {
         checkState(req.body.state);
         checkModel(req.body.modelId);
-        checkPrintProfile(req.body.printProfileId);
+        checkProcessPreset(req.body.processPresetId);
         assertNumberFree(db, printers, "printer", req.body.number);
         const row = db
           .insert(printers)
@@ -190,7 +184,7 @@ export const printersRoutes =
         const { archived, ...fields } = req.body;
         checkState(fields.state);
         checkModel(fields.modelId, cur.modelId);
-        checkPrintProfile(fields.printProfileId, cur.printProfileId);
+        checkProcessPreset(fields.processPresetId, cur.processPresetId);
         assertNumberFree(db, printers, "printer", fields.number, req.params.id);
         if (archived) assertNoAccessories(req.params.id);
         return db.transaction((tx) => {

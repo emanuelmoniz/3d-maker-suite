@@ -2,11 +2,11 @@ import {
   type Brand,
   type FilamentBrand,
   type FilamentMaterial,
-  type MachineProfile,
+  type MachinePreset,
   modelLabel,
   type Page,
   type PrinterModel,
-  type PrintProfile,
+  type ProcessPreset,
 } from "@3d-maker-suite/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "./api.ts";
@@ -16,15 +16,15 @@ import { withOwn } from "./list.ts";
 export type CatalogKind =
   | "brands"
   | "printer-models"
-  | "machine-profiles"
-  | "print-profiles"
+  | "machine-presets"
+  | "process-presets"
   | "filament-brands"
   | "filament-materials";
 type Row = {
   brands: Brand;
   "printer-models": PrinterModel;
-  "machine-profiles": MachineProfile;
-  "print-profiles": PrintProfile;
+  "machine-presets": MachinePreset;
+  "process-presets": ProcessPreset;
   "filament-brands": FilamentBrand;
   "filament-materials": FilamentMaterial;
 };
@@ -55,8 +55,8 @@ const useAll = <K extends CatalogKind>(kind: K, withArchived = false) =>
   });
 export const useBrands = () => useAll("brands");
 export const usePrinterModels = () => useAll("printer-models");
-export const useMachineProfiles = () => useAll("machine-profiles");
-export const usePrintProfiles = () => useAll("print-profiles");
+export const useMachinePresets = () => useAll("machine-presets");
+export const useProcessPresets = () => useAll("process-presets");
 export const useFilamentBrands = () => useAll("filament-brands");
 export const useFilamentMaterials = () => useAll("filament-materials");
 export const useCatalogWithArchived = <K extends CatalogKind>(kind: K) => useAll(kind, true);

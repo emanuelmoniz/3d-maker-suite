@@ -56,20 +56,20 @@ export function resolveItemAlerts(tx: Pick<Db, "update">, tasks: string[]) {
 
 /**
  * `*_source_uq` holds one current row per preset, so an old version can't come back beside it. A
- * hand-made profile stays archived (ADR-0020): no slicer has its file, so it can't slice.
+ * hand-made preset stays archived (ADR-0020): no slicer has its file, so it can't slice.
  */
 export function assertPresetFree(
   db: Db,
   table:
-    | typeof schema.machineProfiles
-    | typeof schema.printProfiles
-    | typeof schema.filamentProfiles,
+    | typeof schema.machinePresets
+    | typeof schema.processPresets
+    | typeof schema.filamentPresets,
   row: { id: string; sourcePreset: string | null },
 ) {
   if (!row.sourcePreset)
-    throw new HttpError(409, "hand_made", "A profile made by hand can't be restored");
+    throw new HttpError(409, "hand_made", "A preset made by hand can't be restored");
   // Loosely typed on purpose: one lookup for three tables.
-  const t = table as typeof schema.machineProfiles;
+  const t = table as typeof schema.machinePresets;
   const current = db
     .select({ id: t.id })
     .from(t)

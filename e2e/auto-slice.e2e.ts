@@ -71,7 +71,7 @@ test("a changed file slices again; a new slot raises an alert that opens the pri
   const setup = (slots: number) =>
     app.api("PUT", url, {
       plates: [
-        { file: "benchy.3mf", plate: 1, printProfileId: null, filaments: Array(slots).fill(null) },
+        { file: "benchy.3mf", plate: 1, processPresetId: null, filaments: Array(slots).fill(null) },
       ],
     });
 

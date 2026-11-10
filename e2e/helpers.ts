@@ -70,12 +70,12 @@ export const seedProject = (api: Api, name = "Test Project") =>
 
 let presets = 0;
 /**
- * A profile as a slicer import leaves it (ADR-0020: no API makes one), written into the running
+ * A preset as a slicer import leaves it (ADR-0020: no API makes one), written into the running
  * app's database: from `bambu-studio`'s system presets unless `values` names its `sourcePreset`.
  */
-export function insertProfile<V extends Record<string, unknown>>(
+export function insertPreset<V extends Record<string, unknown>>(
   app: { dataDir: string },
-  table: "machine_profiles" | "print_profiles" | "filament_profiles",
+  table: "machine_presets" | "process_presets" | "filament_presets",
   values: V,
 ): V & { id: string } {
   const now = new Date().toISOString();
@@ -84,7 +84,7 @@ export function insertProfile<V extends Record<string, unknown>>(
     sourcePreset: `bambu-studio:system/${values.name ?? "preset"} ${++presets}`,
     createdAt: now,
     updatedAt: now,
-    ...(table === "filament_profiles" && { name: "", densityGcm3: 1.24 }),
+    ...(table === "filament_presets" && { name: "", densityGcm3: 1.24 }),
     ...values,
   };
   const columns = Object.keys(row).map((k) => k.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`));
@@ -99,21 +99,21 @@ export function insertProfile<V extends Record<string, unknown>>(
   return row as V & { id: string };
 }
 
-/** The "Acme" brand and "PLA" material a spool or profile is of. Once per test. */
+/** The "Acme" brand and "PLA" material a spool or preset is of. Once per test. */
 export const seedFilament = async (api: Api) => ({
   brandId: (await api<{ id: string }>("POST", "/api/filament-brands", { name: "Acme" })).id,
   materialId: (await api<{ id: string }>("POST", "/api/filament-materials", { name: "PLA" })).id,
 });
 
-/** The "Acme PLA Basic" filament profile with its brand and material. Once per test. */
-export const seedProfile = async (app: { api: Api; dataDir: string }) =>
-  insertProfile(app, "filament_profiles", {
+/** The "Acme PLA Basic" filament preset with its brand and material. Once per test. */
+export const seedPreset = async (app: { api: Api; dataDir: string }) =>
+  insertPreset(app, "filament_presets", {
     ...(await seedFilament(app.api)),
     densityGcm3: 1.24,
     name: "Basic",
   });
 
-/** A spool of the profile's filament: its brand and material, named "PLA Basic". */
+/** A spool of the preset's filament: its brand and material, named "PLA Basic". */
 export const filamentOf = (p: { brandId: string; materialId: string }) => ({
   brandId: p.brandId,
   materialId: p.materialId,
@@ -121,9 +121,9 @@ export const filamentOf = (p: { brandId: string; materialId: string }) => ({
 });
 
 export const seedSpool = async (api: Api, grams = 1000) => {
-  const profile = await seedFilament(api);
+  const preset = await seedFilament(api);
   return api<{ id: string }>("POST", "/api/filament/spools", {
-    ...filamentOf(profile),
+    ...filamentOf(preset),
     colorHex: "#ff0000",
     initialGrams: grams,
   });

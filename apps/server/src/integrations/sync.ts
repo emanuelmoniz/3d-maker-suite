@@ -790,7 +790,7 @@ export function createSyncer(
       throw new HttpError(409, "in_use", "Still used by other records", {
         dependents: gone.dependents,
       });
-    const t = schema[stored.entity] as typeof schema.machineProfiles;
+    const t = schema[stored.entity] as typeof schema.machinePresets;
     const source = db.select({ s: t.sourcePreset }).from(t).where(eq(t.id, rowId)).get()?.s;
     deleteItem(db, stored.entity, rowId, { user, dataDir });
     if (source) {
@@ -841,7 +841,7 @@ export function createSyncer(
    * for review, skipped, or missed): nothing already done shows up again. A review with a range
    * shows every print in it, imported or not.
    * A print already imported only gets a plate that was never known, and its model's name for a
-   * title that is still the print profile's.
+   * title that is still the process preset's.
    */
   async function readPrints(
     id: string,
@@ -888,7 +888,7 @@ export function createSyncer(
           .set({ plate: p.plate })
           .where(and(same, isNull(prints.plate)))
           .run();
-      // Imported when the title was the profile's name; one the user renamed stays theirs.
+      // Imported when the title was the preset's name; one the user renamed stays theirs.
       if (p.profileTitle)
         db.update(prints)
           .set({ title: p.title })
@@ -1027,7 +1027,7 @@ export function createSyncer(
 
   /**
    * The card's brand pick: adds what the slicer offers for these printer and filament brands
-   * (brands, models, machine and print profiles; filament brands, materials, filament profiles),
+   * (brands, models, machine and process presets; filament brands, materials, filament presets),
    * one manual run per type after the one `backup`. It only adds: rows you have change in the review.
    */
   async function importBrands(
@@ -1043,11 +1043,11 @@ export function createSyncer(
     const types: [LibraryType, Set<string>, string | null][] = [
       ["brands", printer, "name"],
       ["printerModels", printer, "brand"],
-      ["machineProfiles", printer, "brand"],
-      ["printProfiles", printer, "brand"],
+      ["machinePresets", printer, "brand"],
+      ["processPresets", printer, "brand"],
       ["filamentBrands", filament, "name"],
       ["filamentMaterials", filament, null],
-      ["filamentProfiles", filament, "brand"],
+      ["filamentPresets", filament, "brand"],
     ];
     let created = 0;
     for (const [type, names, column] of types) {

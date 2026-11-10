@@ -566,7 +566,7 @@ describe("connector and hub", () => {
       await h.send("PATCH", `/api/integrations/${slicer}`, { slicerPath: process.execPath });
       // Its plate uses slot 4: auto slicing keeps a setup that maps every slot.
       const filaments = [null, null, null, null];
-      const plate = { file: "box.3mf", plate: 1, printProfileId: null, filaments };
+      const plate = { file: "box.3mf", plate: 1, processPresetId: null, filaments };
       expect(
         (await h.send("PUT", `/api/projects/${p.id}/slicing`, { plates: [plate] })).statusCode,
       ).toBe(200);

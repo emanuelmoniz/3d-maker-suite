@@ -38,8 +38,8 @@ function PrinterLink({ id }: { id: string }) {
   );
 }
 
-function MachineProfileName({ id }: { id: string }) {
-  return <>{useCatalogItem("machine-profiles", id).data?.name}</>;
+function MachinePresetName({ id }: { id: string }) {
+  return <>{useCatalogItem("machine-presets", id).data?.name}</>;
 }
 
 function OrderLink({ id }: { id: string }) {
@@ -138,9 +138,9 @@ export function PrintDetailPage() {
                 <OrderLink id={print.orderId} />
               </Info>
             )}
-            {print.machineProfileId && (
-              <Info label={t("prints:form.machineProfile")}>
-                <MachineProfileName id={print.machineProfileId} />
+            {print.machinePresetId && (
+              <Info label={t("prints:form.machinePreset")}>
+                <MachinePresetName id={print.machinePresetId} />
               </Info>
             )}
             <Info label={t("prints:form.outcome")}>

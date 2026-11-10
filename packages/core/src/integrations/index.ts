@@ -227,7 +227,7 @@ export interface ManagedSlicer {
   asset(tag: string, names: string[], sys: SlicerSystem): string | undefined;
   /** The program, relative to the unpacked folder. */
   exe(platform: string): string;
-  /** The system profiles folder (layout of `<configDir>/system/`), relative to the unpacked folder. */
+  /** The system presets folder (layout of `<configDir>/system/`), relative to the unpacked folder. */
   profiles(platform: string): string;
 }
 

@@ -98,7 +98,7 @@ const DEVICE_OPEN_MS = 10 * 60_000;
 const lastPrintAt = sql`(select max(${prints.startedAt}) from ${prints} where ${prints.projectId} = ${projects.id})`;
 const isMulticolor = sql`case when json_extract(${projects.meta}, '$.multicolor') then 'true' else 'false' end`;
 /**
- * `PROJECT_SLICING` of a project: a plate never sliced, sliced with other profiles or slicer than now, or
+ * `PROJECT_SLICING` of a project: a plate never sliced, sliced with other presets or slicer than now, or
  * whose file the last scan saw at another size makes it "needed". ponytail: size only, the project
  * page hashes; a same-size edit shows there first. Store the scanned mtime if that misleads.
  */
@@ -106,20 +106,20 @@ const isMulticolor = sql`case when json_extract(${projects.meta}, '$.multicolor'
 const projectId = sql`${projects}.${sql.identifier("id")}`;
 const projectMeta = sql`${projects}.${sql.identifier("meta")}`;
 /**
- * Every plate's print profile now, by plate id, as JSON (`plateResolver`; the PUT stores plates
- * resolved, so `useDefaultPrintProfile` says whether it is the file's). ponytail: all plates per
+ * Every plate's process preset now, by plate id, as JSON (`plateResolver`; the PUT stores plates
+ * resolved, so `useDefaultProcessPreset` says whether it is the file's). ponytail: all plates per
  * list read; key the map by the page's projects if that gets slow.
  */
-function plateProfiles(db: Db, adapters: IntegrationAdapter[]) {
+function platePresets(db: Db, adapters: IntegrationAdapter[]) {
   const resolve = plateResolver(db);
   const slicerOf = slicerResolver(db, adapters);
   const rows = db
     .select({
       id: plates.id,
       printerId: plates.printerId,
-      machineProfileId: plates.machineProfileId,
-      printProfileId: plates.printProfileId,
-      useDefaultPrintProfile: plates.useDefaultPrintProfile,
+      machinePresetId: plates.machinePresetId,
+      processPresetId: plates.processPresetId,
+      useDefaultProcessPreset: plates.useDefaultProcessPreset,
       slicer: plates.slicerIntegrationId,
       projectSlicer: projects.slicerIntegrationId,
     })
@@ -130,8 +130,8 @@ function plateProfiles(db: Db, adapters: IntegrationAdapter[]) {
     Object.fromEntries(
       rows.map((r) => {
         const found = slicerOf([r.slicer, r.projectSlicer]);
-        const { defaultProfileId } = resolve(r, undefined, found && presetLibrary(found.adapter));
-        return [r.id, r.printProfileId ?? (r.useDefaultPrintProfile ? defaultProfileId : null)];
+        const { defaultPresetId } = resolve(r, undefined, found && presetLibrary(found.adapter));
+        return [r.id, r.processPresetId ?? (r.useDefaultProcessPreset ? defaultPresetId : null)];
       }),
     ),
   );
@@ -144,8 +144,8 @@ const plateSlicer = (capable: string[], fallback: string | undefined) => {
     when ${projectSlicer} in ${can} then ${projectSlicer} else ${fallback ?? null} end`;
 };
 type Capable = { id: string; slicerVersion: string | null };
-const slicingOf = (slicers: Capable[], fallback: string | undefined, profiles: string) => {
-  const plateProfile = sql`json_extract(${profiles}, '$."' || ${plates.id} || '"')`;
+const slicingOf = (slicers: Capable[], fallback: string | undefined, presets: string) => {
+  const platePreset = sql`json_extract(${presets}, '$."' || ${plates.id} || '"')`;
   const capable = slicers.map((s) => s.id);
   // A known version that isn't the resolved slicer's now (`slicedWithOther`).
   const versions = JSON.stringify(Object.fromEntries(slicers.map((s) => [s.id, s.slicerVersion])));
@@ -154,7 +154,7 @@ const slicingOf = (slicers: Capable[], fallback: string | undefined, profiles: s
   when not exists (select 1 from ${plates} where ${plates.projectId} = ${projectId}) then 'none'
   when exists (select 1 from ${plates} where ${plates.projectId} = ${projectId} and (
     ${plates.slicedAt} is null
-    or ${plates.slicedPrintProfileId} is not ${plateProfile}
+    or ${plates.slicedProcessPresetId} is not ${platePreset}
     or coalesce(${plates.slicedIntegrationId}, ${fallback ?? null}) is not ${plateSlicer(capable, fallback)}
     or (${plates.slicedSlicerVersion} is not null and ${plates.slicedSlicerVersion} is not ${version})
     or exists (select 1 from json_each(coalesce(${plates.slicedPresets}, '{}')) j
@@ -411,7 +411,7 @@ export const projectsRoutes =
             capable.map((r) => r.id),
             [readPreferences(db).defaultSlicerId],
           ),
-          plateProfiles(db, adapters),
+          platePresets(db, adapters),
         );
         const page = listPage(db, projects, req.query, {
           sort: {

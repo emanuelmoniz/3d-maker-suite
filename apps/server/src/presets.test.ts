@@ -105,7 +105,7 @@ const realPreset = (name: string) =>
 const offered = async (id: string) => {
   const res = await app.inject({
     method: "POST",
-    url: `/api/import/integration/${id}/userFilamentProfiles`,
+    url: `/api/import/integration/${id}/userFilamentPresets`,
   });
   expect(res.statusCode).toBe(200);
   return (res.json() as ImportPreview).rows.map((r) => r.values.name);
@@ -164,9 +164,9 @@ const desktopOrca = async () => {
 };
 
 describe("user presets reach the catalog on their own (ADR-0019)", () => {
-  const { deletedSources, filamentProfiles, syncPolicies, syncRuns } = schema;
+  const { deletedSources, filamentPresets, syncPolicies, syncRuns } = schema;
   const syncer = () => createSyncer(db, ADAPTERS, loadKey(dataDir), app.log, dataDir);
-  const profiles = () => db.select().from(filamentProfiles).all();
+  const presets = () => db.select().from(filamentPresets).all();
   const runs = () => db.select().from(syncRuns).all().length;
   const review = reviewer(() => app);
   const save = (name: string, extra: object = {}) =>
@@ -183,12 +183,12 @@ describe("user presets reach the catalog on their own (ADR-0019)", () => {
       .select()
       .from(syncPolicies)
       .all()
-      .find((p) => p.integrationId === id && p.type === "userFilamentProfiles")?.pending ?? 0;
+      .find((p) => p.integrationId === id && p.type === "userFilamentPresets")?.pending ?? 0;
   const setCard = (id: string, change: object) =>
     app.inject({
       method: "PATCH",
       url: `/api/integrations/${id}`,
-      payload: { policies: [{ type: "userFilamentProfiles", ...change }] },
+      payload: { policies: [{ type: "userFilamentPresets", ...change }] },
     });
   const sent = async () => {
     await app.inject({ method: "POST", url: "/api/alerts/evaluate" });
@@ -202,7 +202,7 @@ describe("user presets reach the catalog on their own (ADR-0019)", () => {
     const s = syncer();
     await s.checkUserPresets();
 
-    expect(profiles()).toMatchObject([{ name: "Mine", sourcePreset: "bambu-studio:user/Mine" }]);
+    expect(presets()).toMatchObject([{ name: "Mine", sourcePreset: "bambu-studio:user/Mine" }]);
     expect(db.select().from(schema.filamentBrands).all()).toMatchObject([{ name: "Acme" }]);
     expect(db.select().from(schema.filamentMaterials).all()).toMatchObject([{ name: "PLA" }]);
 
@@ -214,7 +214,7 @@ describe("user presets reach the catalog on their own (ADR-0019)", () => {
   it("a saved zip reaches the catalog without waiting for the tick", async () => {
     await addSlicer("orca-slicer-server");
     await upload({ "user/default/filament/Zipped.json": preset("Zipped") });
-    await vi.waitFor(() => expect(profiles()).toMatchObject([{ name: "Zipped" }]), {
+    await vi.waitFor(() => expect(presets()).toMatchObject([{ name: "Zipped" }]), {
       timeout: 5000,
     });
   });
@@ -224,13 +224,13 @@ describe("user presets reach the catalog on their own (ADR-0019)", () => {
     save("Mine", { nozzle_temperature: ["220"] });
     const s = syncer();
     await s.checkUserPresets();
-    const [first] = profiles();
+    const [first] = presets();
     expect(first).toMatchObject({ nozzleTempC: 220 });
 
     save("Mine", { nozzle_temperature: ["240"] });
     await s.checkUserPresets();
 
-    expect(profiles()).toMatchObject([{ id: first?.id, nozzleTempC: 240 }]);
+    expect(presets()).toMatchObject([{ id: first?.id, nozzleTempC: 240 }]);
   });
 
   it("a row you deleted stays away, through a restart, until its preset is edited", async () => {
@@ -238,8 +238,8 @@ describe("user presets reach the catalog on their own (ADR-0019)", () => {
     save("Mine");
     const s = syncer();
     await s.checkUserPresets();
-    const [row] = profiles();
-    const res = await app.inject({ method: "DELETE", url: `/api/filament/profiles/${row?.id}` });
+    const [row] = presets();
+    const res = await app.inject({ method: "DELETE", url: `/api/filament/presets/${row?.id}` });
     expect(res.statusCode, res.body).toBe(204);
 
     // A start rewrites the library's files: no edit, and no change to look at.
@@ -248,19 +248,19 @@ describe("user presets reach the catalog on their own (ADR-0019)", () => {
         .select()
         .from(syncPolicies)
         .all()
-        .find((p) => p.type === "userFilamentProfiles")?.cursor;
+        .find((p) => p.type === "userFilamentPresets")?.cursor;
     const before = seen();
     rebuildLibraries(db, dataDir);
     await s.checkUserPresets();
     expect(seen()).toBe(before);
-    expect(profiles()).toEqual([]);
+    expect(presets()).toEqual([]);
     expect(db.select().from(deletedSources).all()).toMatchObject([
-      { entity: "filamentProfiles", source: "bambu-studio:user/Mine" },
+      { entity: "filamentPresets", source: "bambu-studio:user/Mine" },
     ]);
 
     save("Mine", { nozzle_temperature: ["240"] });
     await s.checkUserPresets();
-    expect(profiles()).toMatchObject([{ name: "Mine", nozzleTempC: 240 }]);
+    expect(presets()).toMatchObject([{ name: "Mine", nozzleTempC: 240 }]);
     expect(db.select().from(deletedSources).all()).toEqual([]);
   });
 
@@ -270,17 +270,15 @@ describe("user presets reach the catalog on their own (ADR-0019)", () => {
     const s = syncer();
     await s.checkUserPresets();
 
-    expect(profiles()).toEqual([]);
+    expect(presets()).toEqual([]);
     expect(pendingOf(id)).toBe(1);
-    expect(await sent()).toEqual([`sync:${id}:userFilamentProfiles`]);
+    expect(await sent()).toEqual([`sync:${id}:userFilamentPresets`]);
 
     // Filled in by hand in the review.
-    const preview = (
-      await review.open(`/api/import/integration/${id}/userFilamentProfiles`)
-    ).json();
+    const preview = (await review.open(`/api/import/integration/${id}/userFilamentPresets`)).json();
     const res = await app.inject({
       method: "POST",
-      url: "/api/import/filamentProfiles/apply",
+      url: "/api/import/filamentPresets/apply",
       payload: {
         uploadId: preview.uploadId,
         policy: "overwrite",
@@ -288,14 +286,14 @@ describe("user presets reach the catalog on their own (ADR-0019)", () => {
       },
     });
     expect(res.statusCode, res.body).toBe(200);
-    expect(profiles()).toMatchObject([{ name: "Shared", sourcePreset: "orca-slicer:user/Shared" }]);
+    expect(presets()).toMatchObject([{ name: "Shared", sourcePreset: "orca-slicer:user/Shared" }]);
     expect(pendingOf(id)).toBe(0);
 
     // The file moves on, its parent still unreadable: nothing asks again.
     saveFile("Shared", `${realPreset("Shared")} `);
     await s.checkUserPresets();
     expect(pendingOf(id)).toBe(0);
-    expect(profiles()).toHaveLength(1);
+    expect(presets()).toHaveLength(1);
   });
 
   it("a hub PC's own slicer shares into the library, which is then its one route", async () => {
@@ -308,7 +306,7 @@ describe("user presets reach the catalog on their own (ADR-0019)", () => {
     await s.checkUserPresets();
 
     expect((await list()).map((p) => [p.name, p.owner])).toEqual([["Mine", null]]);
-    expect(profiles()).toMatchObject([{ name: "Mine", sourcePreset: "orca-slicer:user/Mine" }]);
+    expect(presets()).toMatchObject([{ name: "Mine", sourcePreset: "orca-slicer:user/Mine" }]);
     // Counted and imported by the library's row only.
     expect(pendingOf(id)).toBe(0);
     const from = db.select().from(schema.importSnapshots).all();
@@ -320,7 +318,7 @@ describe("user presets reach the catalog on their own (ADR-0019)", () => {
     await desktopOrca();
     saveFile("Mine", preset("Mine"));
     await syncer().checkUserPresets();
-    expect(profiles()).toMatchObject([{ name: "Mine", sourcePreset: "orca-slicer:user/Mine" }]);
+    expect(presets()).toMatchObject([{ name: "Mine", sourcePreset: "orca-slicer:user/Mine" }]);
 
     const logged = runs();
     await syncer().checkUserPresets();
@@ -333,21 +331,21 @@ describe("user presets reach the catalog on their own (ADR-0019)", () => {
     const s = syncer();
     await s.checkUserPresets();
     await setCard(id, { merge: "review" });
-    const [row] = profiles();
-    const res = await app.inject({ method: "DELETE", url: `/api/filament/profiles/${row?.id}` });
+    const [row] = presets();
+    const res = await app.inject({ method: "DELETE", url: `/api/filament/presets/${row?.id}` });
     expect(res.statusCode, res.body).toBe(204);
 
     // Another preset's change looks at the folder again: this one stays away.
     saveFile("Other", preset("Other"));
     await s.checkUserPresets();
-    expect(profiles().map((p) => p.name)).toEqual(["Other"]);
+    expect(presets().map((p) => p.name)).toEqual(["Other"]);
 
     saveFile("Mine", preset("Mine", { nozzle_temperature: ["240"] }));
     const later = new Date(Date.now() + 2000);
     utimesSync(join(desktopConfig(), "user", "default", "filament", "Mine.json"), later, later);
     await s.checkUserPresets();
     expect(
-      profiles()
+      presets()
         .map((p) => p.name)
         .sort(),
     ).toEqual(["Mine", "Other"]);
@@ -359,22 +357,22 @@ describe("user presets reach the catalog on their own (ADR-0019)", () => {
     saveFile("Mine", preset("Mine", { nozzle_temperature: ["220"] }));
     const s = syncer();
     await s.checkUserPresets();
-    expect(profiles()).toMatchObject([{ name: "Mine", nozzleTempC: 220 }]);
+    expect(presets()).toMatchObject([{ name: "Mine", nozzleTempC: 220 }]);
     await setCard(id, { scope: "imported" });
 
     saveFile("Mine", preset("Mine", { nozzle_temperature: ["240"] }));
     await s.checkUserPresets();
-    expect(profiles()).toMatchObject([{ name: "Mine", nozzleTempC: 240 }]);
+    expect(presets()).toMatchObject([{ name: "Mine", nozzleTempC: 240 }]);
     expect(pendingOf(id)).toBe(0);
 
     saveFile("New", preset("New"));
     await s.checkUserPresets();
-    expect(profiles()).toHaveLength(1);
+    expect(presets()).toHaveLength(1);
     expect(pendingOf(id)).toBe(1);
-    expect(await sent()).toEqual([`sync:${id}:userFilamentProfiles`]);
+    expect(await sent()).toEqual([`sync:${id}:userFilamentPresets`]);
 
     // Skipped in the review it stays new: no asking on every check, only at the next file change.
-    const preview = await review.open(`/api/import/integration/${id}/userFilamentProfiles`);
+    const preview = await review.open(`/api/import/integration/${id}/userFilamentPresets`);
     expect((await review.confirm(preview.json(), [])).statusCode).toBe(200);
     expect(pendingOf(id)).toBe(0);
     await s.checkUserPresets();
@@ -387,7 +385,7 @@ describe("user presets reach the catalog on their own (ADR-0019)", () => {
     await setCard(id, { scope: "all" });
     saveFile("Other", `${preset("Other")} `);
     await s.checkUserPresets();
-    expect(profiles().map((p) => p.name)).toEqual(["Mine", "New", "Other"]);
+    expect(presets().map((p) => p.name)).toEqual(["Mine", "New", "Other"]);
     expect(pendingOf(id)).toBe(0);
   });
 
@@ -401,15 +399,15 @@ describe("user presets reach the catalog on their own (ADR-0019)", () => {
     saveFile("Mine", preset("Mine", { nozzle_temperature: ["240"] }));
     saveFile("New", preset("New"));
     await s.checkUserPresets();
-    expect(profiles()).toMatchObject([{ name: "Mine", nozzleTempC: 220 }]);
+    expect(presets()).toMatchObject([{ name: "Mine", nozzleTempC: 220 }]);
     expect(pendingOf(id)).toBe(2);
-    expect(await sent()).toEqual([`sync:${id}:userFilamentProfiles`]);
+    expect(await sent()).toEqual([`sync:${id}:userFilamentPresets`]);
 
     // Back to Automatic: nothing changed since, so the next change runs it.
     await setCard(id, { mode: "auto" });
     saveFile("Mine", preset("Mine", { nozzle_temperature: ["250"] }));
     await s.checkUserPresets();
-    expect(profiles()).toMatchObject([{ name: "Mine", nozzleTempC: 250 }, { name: "New" }]);
+    expect(presets()).toMatchObject([{ name: "Mine", nozzleTempC: 250 }, { name: "New" }]);
     expect(pendingOf(id)).toBe(0);
   });
 
@@ -418,7 +416,7 @@ describe("user presets reach the catalog on their own (ADR-0019)", () => {
     await setCard(worker, { mode: "manual" });
     save("Mine");
     await syncer().checkUserPresets();
-    expect(profiles()).toEqual([]);
+    expect(presets()).toEqual([]);
     expect(db.select().from(schema.slicerPresets).all()).toMatchObject([{ name: "Mine" }]);
   });
 });
@@ -728,8 +726,8 @@ describe("deletes reach other machines (ADR-0019)", () => {
     shared("Fast", a);
     shared("Base", a);
     shared("Child", a, JSON.stringify({ name: "Child", inherits: "Base" }));
-    const profile = db
-      .insert(schema.printProfiles)
+    const processRow = db
+      .insert(schema.processPresets)
       .values({ name: "Fast", sourcePreset: `${LIB}:user/Fast` })
       .returning()
       .get();
@@ -742,7 +740,7 @@ describe("deletes reach other machines (ADR-0019)", () => {
         fileSize: 1,
         fileMtimeMs: 1,
         fileSha256: "x",
-        printProfileId: profile.id,
+        processPresetId: processRow.id,
       })
       .run();
     expect(presetUses(db, { library: LIB, kind: "process", name: "Fast" })).toMatchObject([
@@ -761,7 +759,7 @@ describe("deletes reach other machines (ADR-0019)", () => {
     });
     expect(recheckRemovals(db, dataDir)).toBe(0);
 
-    db.update(schema.projectSlicePlates).set({ printProfileId: null }).run();
+    db.update(schema.projectSlicePlates).set({ processPresetId: null }).run();
     expect(removed(a, ["Child"])).toEqual(["deleted"]);
     expect(recheckRemovals(db, dataDir)).toBe(2);
     expect([row("Fast")?.deleted, row("Base")?.deleted]).toEqual([true, true]);

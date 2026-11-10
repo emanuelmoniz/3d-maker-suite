@@ -7,17 +7,17 @@ import {
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
 import { and, eq, isNotNull, isNull } from "drizzle-orm";
-import { profileKey } from "../integrations/imports.ts";
+import { presetKey } from "../integrations/imports.ts";
 import {
   filamentBrandIdFor,
   filamentMaterialIdFor,
-  findFilamentProfile,
-  profileColumns,
+  findFilamentPreset,
+  presetColumns,
 } from "../lib/catalog.ts";
 import { keyLibrary, type WriteRow } from "./review.ts";
 import { distinct, num, spoolImport, str } from "./spools.ts";
 
-const { filamentBrands, filamentMaterials, filamentProfiles } = schema;
+const { filamentBrands, filamentMaterials, filamentPresets } = schema;
 
 const names = (db: Db, table: typeof filamentBrands | typeof filamentMaterials) =>
   new Set(
@@ -28,17 +28,17 @@ const names = (db: Db, table: typeof filamentBrands | typeof filamentMaterials) 
       .map((r) => r.name.toLowerCase()),
   );
 
-const profileRows = (db: Db, archived: boolean) =>
+const presetRows = (db: Db, archived: boolean) =>
   db
-    .select(profileColumns)
-    .from(filamentProfiles)
-    .where(archived ? isNotNull(filamentProfiles.archivedAt) : isNull(filamentProfiles.archivedAt))
-    .orderBy(profileColumns.brand, profileColumns.material, filamentProfiles.name)
+    .select(presetColumns)
+    .from(filamentPresets)
+    .where(archived ? isNotNull(filamentPresets.archivedAt) : isNull(filamentPresets.archivedAt))
+    .orderBy(presetColumns.brand, presetColumns.material, filamentPresets.name)
     .all();
 
-/** Active profiles, or archived ones, in the shape of the import columns. */
-const profileTargets = (db: Db, archived = false): ImportTarget[] =>
-  profileRows(db, archived).map((p) => ({
+/** Active presets, or archived ones, in the shape of the import columns. */
+const presetTargets = (db: Db, archived = false): ImportTarget[] =>
+  presetRows(db, archived).map((p) => ({
     id: p.id,
     label: [p.brand, p.material, p.name].filter(Boolean).join(" "),
     ...(archived && { archived: true }),
@@ -54,44 +54,44 @@ const profileTargets = (db: Db, archived = false): ImportTarget[] =>
   }));
 
 /**
- * Filament profiles from a slicer's presets or a file. A preset's brand and material are found by
+ * Filament presets from a slicer's presets or a file. A preset's brand and material are found by
  * name or created; a file names ones you have.
  */
-export const filamentProfileImport = {
-  /** Active profiles, in the shape of the import columns. */
-  targets: (db: Db) => profileTargets(db),
+export const filamentPresetImport = {
+  /** Active presets, in the shape of the import columns. */
+  targets: (db: Db) => presetTargets(db),
 
-  // A profile made by hand with the same brand, material and name is the preset's twin.
+  // A preset made by hand with the same brand, material and name is the preset's twin.
   match: matchRowsOn("brand", "material", "name"),
   sameLibrary: true,
 
   bySource: (db: Db) =>
     new Map(
       db
-        .select({ source: filamentProfiles.sourcePreset, id: filamentProfiles.id })
-        .from(filamentProfiles)
-        .where(and(isNotNull(filamentProfiles.sourcePreset), isNull(filamentProfiles.archivedAt)))
+        .select({ source: filamentPresets.sourcePreset, id: filamentPresets.id })
+        .from(filamentPresets)
+        .where(and(isNotNull(filamentPresets.sourcePreset), isNull(filamentPresets.archivedAt)))
         .all()
         .map((r) => [r.source ?? "", r.id] as const),
     ),
 
   /**
-   * A preset whose profile you archived comes back by its source key; one you never imported, by
-   * the brand, material and name of one you archived that no active profile has, of the same
+   * A preset whose preset you archived comes back by its source key; one you never imported, by
+   * the brand, material and name of one you archived that no active preset has, of the same
    * slicer library or made by hand (`sameLibrary`).
    */
   archived(db: Db) {
     // Oldest first: where several share a source, the newest version wins.
-    const gone = profileRows(db, true).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
-    const keyOf = (p: { sourcePreset: string | null } & Parameters<typeof profileKey>[0]) =>
-      `${keyLibrary(p.sourcePreset) ?? ""}|${profileKey(p)}`;
-    const active = new Set(profileRows(db, false).map(keyOf));
+    const gone = presetRows(db, true).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+    const keyOf = (p: { sourcePreset: string | null } & Parameters<typeof presetKey>[0]) =>
+      `${keyLibrary(p.sourcePreset) ?? ""}|${presetKey(p)}`;
+    const active = new Set(presetRows(db, false).map(keyOf));
     const bySource = new Map(gone.flatMap((p) => (p.sourcePreset ? [[p.sourcePreset, p.id]] : [])));
     const byKey = new Map(gone.filter((p) => !active.has(keyOf(p))).map((p) => [keyOf(p), p.id]));
     return {
-      targets: profileTargets(db, true),
+      targets: presetTargets(db, true),
       of: (source: string | undefined, v: ImportValues) => {
-        const key = profileKey({
+        const key = presetKey({
           brand: str(v.brand) ?? "",
           material: str(v.material) ?? "",
           name: str(v.name) ?? "",
@@ -109,7 +109,7 @@ export const filamentProfileImport = {
   /** The names the template's dropdowns offer. */
   refs: (db: Db) => ({
     ...spoolImport.refs(db),
-    filamentProfiles: distinct(profileRows(db, false).map((p) => p.name)).sort(),
+    filamentPresets: distinct(presetRows(db, false).map((p) => p.name)).sort(),
   }),
 
   check(db: Db, v: ImportValues, file: boolean) {
@@ -139,9 +139,9 @@ export const filamentProfileImport = {
     const materialId = filamentMaterialIdFor(db, str(v.material) ?? "");
     const name = str(v.name) ?? "";
     // Two presets of one slicer can be the same filament: the second one adds nothing. Another
-    // slicer's of that name is its own profile (`sameLibrary`).
-    if (findFilamentProfile(db, brandId, materialId, name, keyLibrary(row.source))) return false;
-    db.insert(filamentProfiles)
+    // slicer's of that name is its own preset (`sameLibrary`).
+    if (findFilamentPreset(db, brandId, materialId, name, keyLibrary(row.source))) return false;
+    db.insert(filamentPresets)
       .values({
         brandId,
         materialId,
@@ -156,11 +156,11 @@ export const filamentProfileImport = {
   },
 
   /**
-   * Writes `patch` (only the values that change) in place: no spool or print points at a profile
+   * Writes `patch` (only the values that change) in place: no spool or print points at a preset
    * (ADR-0020), so it needs no older version kept.
    */
   update(db: Db, target: ImportTarget, patch: ImportValues, row: WriteRow) {
-    const cur = db.select().from(filamentProfiles).where(eq(filamentProfiles.id, target.id)).get();
+    const cur = db.select().from(filamentPresets).where(eq(filamentPresets.id, target.id)).get();
     if (!cur) return;
     const { brand, material, ...fields } = patch;
     // The other keys are named like the table's columns.
@@ -169,9 +169,9 @@ export const filamentProfileImport = {
     if (material != null) set.materialId = filamentMaterialIdFor(db, String(material));
     if (target.archived) set.archivedAt = null;
     // A twin made by hand is linked to the preset, so the next run knows it.
-    db.update(filamentProfiles)
+    db.update(filamentPresets)
       .set({ ...set, sourcePreset: cur.sourcePreset ?? row.source })
-      .where(eq(filamentProfiles.id, cur.id))
+      .where(eq(filamentPresets.id, cur.id))
       .run();
   },
 };

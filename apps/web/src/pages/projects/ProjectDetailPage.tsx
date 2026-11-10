@@ -29,7 +29,7 @@ import { Write } from "../../components/Write.tsx";
 import { ApiError } from "../../lib/api.ts";
 import { estimateSlicedPlates, useCostContext } from "../../lib/cost.ts";
 import { cx } from "../../lib/cx.ts";
-import { useProfiles, useSpools } from "../../lib/filament.ts";
+import { useFilamentPresets, useSpools } from "../../lib/filament.ts";
 import { formatDuration, formatWeight } from "../../lib/format.ts";
 import { useAdapterName, useCapable, useIntegrationLabel } from "../../lib/integrations.ts";
 import { useHasArchived, useUrlListQuery } from "../../lib/list.ts";
@@ -309,7 +309,7 @@ function SlicedEstimate({ project }: { project: ProjectDetail }) {
   const plates = own.some((p) => p.result) ? own : savedSlices(project);
   const ctx = useCostContext().data;
   const defaultId = usePreferences().data?.values.defaultPrinterId;
-  const profiles = useProfiles().data?.items ?? [];
+  const presets = useFilamentPresets().data?.items ?? [];
   const spools = useSpools().data?.items ?? [];
   const sliced = plates.filter((p) => p.result).length;
   // Its plates are of files in a folder it doesn't have now (unlinked and kept, or missing).
@@ -338,7 +338,7 @@ function SlicedEstimate({ project }: { project: ProjectDetail }) {
   const used = new Set(plates.filter((p) => p.result).map((p) => p.printerId ?? fallback?.id));
   const estimate = estimateSlicedPlates(plates, ctx, {
     spools,
-    profiles,
+    presets,
     fallbackPrinterId: fallback?.id,
   });
   return (

@@ -46,12 +46,12 @@ describe("archive and restore", () => {
     ["maintenance type", "/api/maintenance/types", (s) => s.type.id],
     ["printer brand", "/api/brands", (s) => s.brand.id],
     ["printer model", "/api/printer-models", (s) => s.model.id],
-    ["machine profile", "/api/machine-profiles", (s) => s.machine.id],
-    ["print profile", "/api/print-profiles", (s) => s.printProfile.id],
+    ["machine preset", "/api/machine-presets", (s) => s.machine.id],
+    ["process preset", "/api/process-presets", (s) => s.processPreset.id],
     ["spool", "/api/filament/spools", (s) => s.spool.id],
     ["filament brand", "/api/filament-brands", (s) => s.filamentBrand.id],
     ["filament material", "/api/filament-materials", (s) => s.material.id],
-    ["filament profile", "/api/filament/profiles", (s) => s.profile.id],
+    ["filament preset", "/api/filament/presets", (s) => s.preset.id],
     ["project", "/api/projects", (s) => s.project.id],
     ["print", "/api/prints", (s) => s.print.id],
     ["order", "/api/orders", (s) => s.order.id],
@@ -142,7 +142,7 @@ describe("what still counts", () => {
     ["printer", (s: Seed) => `/api/printers/${s.printer.id}`],
     ["project", (s: Seed) => `/api/projects/${s.project.id}`],
     ["spool", (s: Seed) => `/api/filament/spools/${s.spool.id}`],
-    ["filament profile", (s: Seed) => `/api/filament/profiles/${s.profile.id}`],
+    ["filament preset", (s: Seed) => `/api/filament/presets/${s.preset.id}`],
     ["order", (s: Seed) => `/api/orders/${s.order.id}`],
     ["client", (s: Seed) => `/api/clients/${s.client.id}`],
     ["printer model", (s: Seed) => `/api/printer-models/${s.model.id}`],
@@ -178,28 +178,28 @@ describe("restoring an old preset version", () => {
   const rows = (s: Seed) =>
     [
       [
-        "/api/machine-profiles",
+        "/api/machine-presets",
         (extra: object) =>
           db
-            .insert(schema.machineProfiles)
+            .insert(schema.machinePresets)
             .values({ name: "M2", printerModelId: s.model.id, ...extra })
             .returning()
             .get().id,
       ],
       [
-        "/api/print-profiles",
+        "/api/process-presets",
         (extra: object) =>
           db
-            .insert(schema.printProfiles)
+            .insert(schema.processPresets)
             .values({ name: "P2", ...extra })
             .returning()
             .get().id,
       ],
       [
-        "/api/filament/profiles",
+        "/api/filament/presets",
         (extra: object) =>
           db
-            .insert(schema.filamentProfiles)
+            .insert(schema.filamentPresets)
             .values({ name: "F2", materialId: s.material.id, densityGcm3: 1.24, ...extra })
             .returning()
             .get().id,
@@ -227,9 +227,9 @@ describe("references to archived rows", () => {
   it("printers: a new one is refused, the one it has stays", async () => {
     const s = await seed();
     const printer = `/api/printers/${s.printer.id}`;
-    await send("PATCH", printer, { printProfileId: s.printProfile.id });
+    await send("PATCH", printer, { processPresetId: s.processPreset.id });
     await archive(`/api/printer-models/${s.model.id}`);
-    await archive(`/api/print-profiles/${s.printProfile.id}`);
+    await archive(`/api/process-presets/${s.processPreset.id}`);
 
     const made = await send("POST", "/api/printers", {
       name: "Q",
@@ -244,14 +244,14 @@ describe("references to archived rows", () => {
         await send("POST", "/api/printer-models", { brandId: s.brand.id, model: "X2" })
       ).json().id,
       state: "working",
-      printProfileId: s.printProfile.id,
+      processPresetId: s.processPreset.id,
     });
     expect(other.json().error.code).toBe("invalid_reference");
 
     const edited = await send("PATCH", printer, {
       name: "P renamed",
       modelId: s.model.id,
-      printProfileId: s.printProfile.id,
+      processPresetId: s.processPreset.id,
     });
     expect(edited.statusCode, edited.body).toBe(200);
   });
@@ -308,13 +308,13 @@ describe("references to archived rows", () => {
     expect(edited.statusCode, edited.body).toBe(200);
   });
 
-  it("prints: a new printer, project, order or profile is refused, the ones it has stay", async () => {
+  it("prints: a new printer, project, order or preset is refused, the ones it has stay", async () => {
     const s = await seed();
-    await send("PATCH", `/api/prints/${s.print.id}`, { machineProfileId: s.machine.id });
+    await send("PATCH", `/api/prints/${s.print.id}`, { machinePresetId: s.machine.id });
     await archive(`/api/printers/${s.printer.id}`);
     await archive(`/api/projects/${s.project.id}`);
     await archive(`/api/orders/${s.order.id}`);
-    await archive(`/api/machine-profiles/${s.machine.id}`);
+    await archive(`/api/machine-presets/${s.machine.id}`);
 
     const printer = await made("/api/printers", {
       name: "Q",
@@ -328,7 +328,7 @@ describe("references to archived rows", () => {
     expect(await code({ printerId: s.printer.id })).toBe("invalid_printer");
     expect(await code({ projectId: s.project.id })).toBe("invalid_project");
     expect(await code({ projectId: project.id, orderId: s.order.id })).toBe("invalid_order");
-    expect(await code({ machineProfileId: s.machine.id })).toBe("invalid_machine_profile");
+    expect(await code({ machinePresetId: s.machine.id })).toBe("invalid_machine_preset");
 
     const edited = await send("PATCH", `/api/prints/${s.print.id}`, { notes: "kept" });
     expect(edited.statusCode, edited.body).toBe(200);

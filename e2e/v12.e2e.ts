@@ -9,14 +9,14 @@ import {
   filamentOf,
   gotoIntegrations,
   hasHorizontalScroll,
-  insertProfile,
+  insertPreset,
   openSections,
   pick,
   roots,
   savedRoots,
   seedModel,
+  seedPreset,
   seedPrinter,
-  seedProfile,
   seedProject,
 } from "./helpers.ts";
 
@@ -59,13 +59,13 @@ test("Catalog holds the tables; Printers settings keeps the default printer", as
   await expect(page.getByRole("heading", { name: "Brands", level: 2 })).toHaveCount(0);
   await page.goto("/catalog");
   await expect(page).toHaveURL(/\/catalog\/printers$/);
-  for (const h of ["Brands", "Printer models", "Machine profiles", "Print profiles"])
+  for (const h of ["Brands", "Printer models", "Printer presets", "Process presets"])
     await expect(page.getByRole("heading", { name: h, level: 2 })).toBeVisible();
   await page
     .getByRole("navigation", { name: "Catalog sections" })
     .getByRole("link", { name: "Filament" })
     .click();
-  for (const h of ["Profiles", "Filament brands", "Filament materials"])
+  for (const h of ["Presets", "Filament brands", "Filament materials"])
     await expect(page.getByRole("heading", { name: h, level: 2 })).toBeVisible();
   await page.goto("/printers/settings");
   await expect(page.getByLabel("Default printer")).toBeVisible();
@@ -75,13 +75,13 @@ test("Catalog holds the tables; Printers settings keeps the default printer", as
 
 test("printer catalog tables show each row's slicer and source", async ({ page, app }) => {
   const model = await seedModel(app.api);
-  insertProfile(app, "machine_profiles", {
+  insertPreset(app, "machine_presets", {
     name: "Acme X1 0.4 nozzle",
     printerModelId: model.id,
     nozzleDiameterMm: 0.4,
     sourcePreset: "bambu-studio:system/Acme X1 0.4 nozzle",
   });
-  insertProfile(app, "print_profiles", {
+  insertPreset(app, "process_presets", {
     name: "Mine",
     printerModelId: model.id,
     sourcePreset: null,
@@ -91,18 +91,18 @@ test("printer catalog tables show each row's slicer and source", async ({ page, 
   for (const table of ["Brands", "Printer models"]) {
     const t = page.getByRole("table", { name: table });
     await expect(t.getByRole("columnheader", { name: "Slicer" })).toBeVisible();
-    // Brand and model: their profiles' slicers; they were made by hand.
+    // Brand and model: their presets' slicers; they were made by hand.
     await expect(t.getByRole("cell", { name: "Bambu Studio", exact: true })).toBeVisible();
     await expect(t.getByRole("cell", { name: "By hand" })).toBeVisible();
   }
-  const machines = page.getByRole("table", { name: "Machine profiles" });
+  const machines = page.getByRole("table", { name: "Printer presets" });
   await expect(machines.getByRole("columnheader", { name: "Source" })).toBeVisible();
   await expect(machines.getByRole("cell", { name: "Bambu Studio (system)" })).toBeVisible();
   await expect(machines.getByRole("cell", { name: "Unused" })).toBeVisible();
-  // A hand-made profile from before 5.4 is archived as an older one.
-  await page.goto("/catalog/printers?print-profiles.archived=true");
+  // A hand-made preset from before 5.4 is archived as an older one.
+  await page.goto("/catalog/printers?process-presets.archived=true");
   await expect(
-    page.getByRole("table", { name: "Print profiles" }).getByRole("row", { name: /Mine/ }),
+    page.getByRole("table", { name: "Process presets" }).getByRole("row", { name: /Mine/ }),
   ).toContainText("By hand (older)");
 });
 
@@ -269,10 +269,10 @@ test("spools: automatic numbers, taken numbers are refused, color name shows in 
   page,
   app,
 }) => {
-  const profile = await seedProfile(app);
+  const preset = await seedPreset(app);
   const make = (extra: object = {}) =>
     app.api<{ id: string; number: number }>("POST", "/api/filament/spools", {
-      ...filamentOf(profile),
+      ...filamentOf(preset),
       colorHex: "#cc0000",
       initialGrams: 500,
       ...extra,
@@ -314,9 +314,9 @@ test("estimated duration: button fills it, list shows ~, a real value clears it"
   app,
 }) => {
   await seedPrinter(app.api);
-  const profile = await seedProfile(app);
+  const preset = await seedPreset(app);
   const spool = await app.api<{ id: string }>("POST", "/api/filament/spools", {
-    ...filamentOf(profile),
+    ...filamentOf(preset),
     colorHex: "#00aa00",
     initialGrams: 1000,
   });
@@ -393,7 +393,7 @@ test.describe("v1.2 pages fit every viewport", () => {
   for (const width of [375, 768, 1440]) {
     test(`no horizontal scroll and a reachable gear at ${width}px`, async ({ page, app }) => {
       await seedPrinter(app.api);
-      await seedProfile(app);
+      await seedPreset(app);
       await app.api("POST", "/api/integrations", { adapterId: "orca-slicer" });
       await page.setViewportSize({ width, height: 900 });
       const bad: string[] = [];
@@ -430,17 +430,17 @@ test.describe("v1.2 pages fit every viewport", () => {
 });
 
 test("filament catalog tables show each row's slicer and source", async ({ page, app }) => {
-  await seedProfile(app); // Acme / PLA, from Bambu Studio
+  await seedPreset(app); // Acme / PLA, from Bambu Studio
   await app.api("POST", "/api/filament-brands", { name: "Handmade" });
   await app.api("POST", "/api/filament-materials", { name: "PETG" });
   await page.goto("/filament/settings");
   await expect(page).toHaveURL(/\/catalog\/filament$/);
-  // Profiles come from a slicer only: nothing adds one.
-  await expect(page.getByRole("main").getByRole("link", { name: /^Add profile/ })).toHaveCount(0);
+  // Presets come from a slicer only: nothing adds one.
+  await expect(page.getByRole("main").getByRole("link", { name: /^Add preset/ })).toHaveCount(0);
   await expect(
-    page.getByRole("table", { name: "Filament profiles" }).getByRole("row", { name: /Basic/ }),
+    page.getByRole("table", { name: "Filament presets" }).getByRole("row", { name: /Basic/ }),
   ).toContainText("Bambu Studio (system)");
-  // Brand and material of the imported profile show its slicer; the hand-made ones none.
+  // Brand and material of the imported preset show its slicer; the hand-made ones none.
   for (const [table, name] of [
     ["Filament brands", /Acme/],
     ["Filament materials", /PLA/],

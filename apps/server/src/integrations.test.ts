@@ -22,7 +22,7 @@ import { printerRows, spoolRows } from "./integrations/sourceRows.ts";
 import { createSyncer, schedulePattern } from "./integrations/sync.ts";
 import { modelIdFor } from "./lib/catalog.ts";
 import { reviewer } from "./testReview.ts";
-import { insertProfile } from "./testSeed.ts";
+import { insertPreset } from "./testSeed.ts";
 
 let db: ReturnType<typeof openDb>;
 let app: Awaited<ReturnType<typeof buildApp>>;
@@ -246,13 +246,13 @@ describe("integrations", () => {
     const rack = project(["03_model/spice-rack-parametric/printables/spice_rack_rotation.3mf"]);
     await spool();
     await syncType(id, "printers");
-    const profile = "0.2mm layer, 2 walls, 15% infill";
+    const preset = "0.2mm layer, 2 walls, 15% infill";
     const [a, b, c] = state.prints as [ExternalPrint, ExternalPrint, ExternalPrint];
     // Imported before the adapter titled prints after their model (and before a print needed a
-    // project): the profile's name only; `b` renamed by hand since.
+    // project): the preset's name only; `b` renamed by hand since.
     const printerId = db.select().from(schema.printers).get()?.id ?? "";
     for (const [p, title] of [
-      [a, profile],
+      [a, preset],
       [b, "my codenames"],
     ] as const)
       db.insert(schema.prints)
@@ -267,8 +267,8 @@ describe("integrations", () => {
           externalId: p.externalId,
         })
         .run();
-    Object.assign(a, { title: "Azul Tile Pour Box", profileTitle: profile });
-    Object.assign(b, { title: "Codenames Grid", profileTitle: profile });
+    Object.assign(a, { title: "Azul Tile Pour Box", profileTitle: preset });
+    Object.assign(b, { title: "Codenames Grid", profileTitle: preset });
     Object.assign(c, { title: "spice-rack-parametric_rd_v2_Plate 3" });
     await syncType(id, "prints");
     const row = (p: ExternalPrint) =>
@@ -561,18 +561,18 @@ describe("sync by type and date range", () => {
     new Date(Date.UTC(2026, 0, d, end ? 23 : 0, end ? 59 : 0)).toISOString();
   const printCount = () => db.select().from(schema.prints).all().length;
 
-  it("a synced print takes its printer's machine profile", async () => {
+  it("a synced print takes its printer's machine preset", async () => {
     const { id } = await create();
     await spool();
     await syncWith(id, { type: "printers" });
     const printer = db.select().from(schema.printers).get();
-    const machine = insertProfile(db, "machineProfiles", {
+    const machine = insertPreset(db, "machinePresets", {
       name: "M",
       printerModelId: printer?.modelId ?? "",
     });
-    db.update(schema.printers).set({ machineProfileId: machine.id }).run();
+    db.update(schema.printers).set({ machinePresetId: machine.id }).run();
     await syncWith(id, { type: "prints" });
-    const made = db.select({ m: schema.prints.machineProfileId }).from(schema.prints).all();
+    const made = db.select({ m: schema.prints.machinePresetId }).from(schema.prints).all();
     expect(made.length).toBeGreaterThan(0);
     expect(made.every((p) => p.m === machine.id)).toBe(true);
     // By hand too.
@@ -582,7 +582,7 @@ describe("sync by type and date range", () => {
       startedAt: "2026-01-01T10:00:00.000Z",
       outcome: "success",
     });
-    expect(res.json().machineProfileId).toBe(machine.id);
+    expect(res.json().machinePresetId).toBe(machine.id);
   });
 
   it("syncs one type alone and logs it", async () => {
@@ -998,7 +998,7 @@ describe("capabilities", () => {
       const local: IntegrationAdapter = {
         id: "local",
         kind: "local",
-        capabilities: ["filamentProfiles"],
+        capabilities: ["filamentPresets"],
         configSchema: z.object({}),
         secretsSchema: z.object({}),
         library: { id: "local", defaultDirs: () => [join(dir, "missing")], read: async () => [] },
@@ -1016,14 +1016,14 @@ describe("capabilities", () => {
       ).json();
       expect(created).toMatchObject({ kind: "local", status: "unavailable", capabilities: [] });
       const found = await send("PATCH", `/api/integrations/${id}`, { slicerConfigDir: dir });
-      expect(found.json()).toMatchObject({ status: "ok", capabilities: ["filamentProfiles"] });
+      expect(found.json()).toMatchObject({ status: "ok", capabilities: ["filamentPresets"] });
 
       expect(
         (await send("POST", `/api/integrations/${id}/sync`, { type: "printers" })).statusCode,
       ).toBe(409);
       expect((await send("POST", `/api/integrations/${id}/test`)).statusCode).toBe(409);
       expect(db.select().from(schema.syncRuns).all()).toEqual([]);
-      expect(await syncType(id, "filamentProfiles")).toMatchObject({ status: "ok", created: 0 });
+      expect(await syncType(id, "filamentPresets")).toMatchObject({ status: "ok", created: 0 });
       expect((await get(`/api/integrations/${id}`)).status).toBe("ok");
     } finally {
       rmSync(dir, { recursive: true, force: true });

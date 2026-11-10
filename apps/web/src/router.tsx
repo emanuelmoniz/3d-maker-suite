@@ -18,10 +18,10 @@ import { LoginPage, SetupPage } from "./pages/auth/AuthPages.tsx";
 import { CatalogImportPage } from "./pages/catalog/CatalogImportPage.tsx";
 import { CATALOG_TABS, CatalogPage, PRINTER_TABLES } from "./pages/catalog/CatalogPage.tsx";
 import {
-  FilamentProfilePage,
-  MachineProfilePage,
-  PrintProfilePage,
-} from "./pages/catalog/ProfilePage.tsx";
+  FilamentPresetPage,
+  MachinePresetPage,
+  ProcessPresetPage,
+} from "./pages/catalog/PresetPage.tsx";
 import { ClientDetailPage } from "./pages/clients/ClientDetailPage.tsx";
 import { ClientCreatePage, ClientEditPage } from "./pages/clients/ClientFormPage.tsx";
 import { ClientsPage } from "./pages/clients/ClientsPage.tsx";
@@ -207,16 +207,16 @@ const routes: AnyRoute[] = [
   createRoute({
     getParentRoute: () => root,
     path: "/filament/spools/new",
-    // printers: quick-add modals (profile, brand, material) share the catalog forms.
+    // printers: quick-add modals (preset, brand, material) share the catalog forms.
     loader: () => Promise.all(["filament", "tags", "printers"].map(loadNamespace)),
     component: SpoolCreatePage,
   }),
   ...[
     ["/filament/spools/$id", SpoolDetailPage],
     ["/filament/spools/$id/edit", SpoolEditPage],
-    ["/filament/profiles/$id", FilamentProfilePage],
-    ["/printers/machine-profiles/$id", MachineProfilePage],
-    ["/printers/print-profiles/$id", PrintProfilePage],
+    ["/filament/presets/$id", FilamentPresetPage],
+    ["/printers/machine-presets/$id", MachinePresetPage],
+    ["/printers/process-presets/$id", ProcessPresetPage],
   ].map(([path, component]) =>
     createRoute({
       getParentRoute: () => root,
@@ -224,12 +224,28 @@ const routes: AnyRoute[] = [
       loader: () =>
         Promise.all(
           // The spool page lists its projects and prints; printers: quick-add modals; catalog: a
-          // profile's source.
+          // preset's source.
           ["filament", "tags", "projects", "prints", "printers", "catalog", "integrations"].map(
             loadNamespace,
           ),
         ),
       component: component as () => ReactNode,
+    }),
+  ),
+  // Presets were profiles before 5.5 (ADR-0021); old links and bookmarks still land.
+  ...(
+    [
+      ["/filament/profiles/$id", "/filament/presets/$id"],
+      ["/printers/machine-profiles/$id", "/printers/machine-presets/$id"],
+      ["/printers/print-profiles/$id", "/printers/process-presets/$id"],
+    ] as const
+  ).map(([path, to]) =>
+    createRoute({
+      getParentRoute: () => root,
+      path,
+      beforeLoad: ({ params }) => {
+        throw redirect({ to, params });
+      },
     }),
   ),
   ...(
@@ -287,7 +303,7 @@ const routes: AnyRoute[] = [
   createRoute({
     getParentRoute: () => root,
     path: "/import/$source/$id/$type",
-    // filament + tags + printers: a print's review can add a spool (NewSpoolDialog) and its profile.
+    // filament + tags + printers: a print's review can add a spool (NewSpoolDialog) and its preset.
     loader: () =>
       Promise.all(["import", "integrations", "filament", "tags", "printers"].map(loadNamespace)),
     component: SourceReviewPage,
@@ -335,7 +351,7 @@ const routes: AnyRoute[] = [
           loadNamespace("costs"),
           loadNamespace("orders"), // the print's order
           loadNamespace("integrations"), // the Sync from cloud button on the list
-          loadNamespace("printers"), // quick-add modals (machine profile, spool profile)
+          loadNamespace("printers"), // quick-add modals (machine preset, spool preset)
         ]),
       component: component as () => ReactNode,
     }),
@@ -477,7 +493,7 @@ const routes: AnyRoute[] = [
   createRoute({
     getParentRoute: () => root,
     path: IMPORT_ITEM.to,
-    // filament + tags + printers: a print's review can add a spool (NewSpoolDialog) and its profile.
+    // filament + tags + printers: a print's review can add a spool (NewSpoolDialog) and its preset.
     loader: () =>
       Promise.all(["import", "integrations", "filament", "tags", "printers"].map(loadNamespace)),
     component: ImportPage,

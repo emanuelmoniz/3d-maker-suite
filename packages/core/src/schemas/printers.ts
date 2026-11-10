@@ -5,12 +5,12 @@ import type { ColumnFilter } from "./list.ts";
 
 /**
  * Fields the user edits. `PATCH` takes any subset, plus `archived` to archive/restore.
- * `number` defaults to the next free one. `machineProfileId`: null or left out = by model and
+ * `number` defaults to the next free one. `machinePresetId`: null or left out = by model and
  * nozzle; a picked one sets the nozzle to its own.
  */
 export const printerInputSchema = printerSchema
   .pick({
-    machineProfileId: true,
+    machinePresetId: true,
     number: true,
     name: true,
     modelId: true,
@@ -25,11 +25,11 @@ export const printerInputSchema = printerSchema
     lifetimeHours: true,
     includeMaintenanceCost: true,
     countInCosts: true,
-    printProfileId: true,
+    processPresetId: true,
   })
   .partial({
-    machineProfileId: true,
-    printProfileId: true,
+    machinePresetId: true,
+    processPresetId: true,
     number: true,
     serial: true,
     nozzleDiameterMm: true,

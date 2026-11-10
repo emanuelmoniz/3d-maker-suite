@@ -20,25 +20,25 @@ export const QUOTE_BODY = {
   },
 };
 
-type ProfileKind = "machineProfiles" | "printProfiles" | "filamentProfiles";
+type PresetKind = "machinePresets" | "processPresets" | "filamentPresets";
 let presets = 0;
 
 /**
- * A profile as a slicer import leaves it (ADR-0020: no API makes one): from `bambu-studio`'s system
+ * A preset as a slicer import leaves it (ADR-0020: no API makes one): from `bambu-studio`'s system
  * presets unless `values` names its `sourcePreset` (`null` = an older hand-made one).
  */
-export function insertProfile<K extends ProfileKind>(
+export function insertPreset<K extends PresetKind>(
   db: ReturnType<typeof openDb>,
   kind: K,
   values: Partial<(typeof schema)[K]["$inferInsert"]>,
 ): (typeof schema)[K]["$inferSelect"] {
-  const table = schema[kind] as typeof schema.filamentProfiles;
+  const table = schema[kind] as typeof schema.filamentPresets;
   const name = (values as { name?: string }).name ?? "";
   return db
     .insert(table)
     .values({
       sourcePreset: `bambu-studio:system/${name || "preset"} ${++presets}`,
-      ...(kind === "filamentProfiles" && { name: "", densityGcm3: 1.24 }),
+      ...(kind === "filamentPresets" && { name: "", densityGcm3: 1.24 }),
       ...(values as object),
     } as never)
     .returning()
@@ -54,8 +54,8 @@ export async function seedOneOfEach(app: App, db: ReturnType<typeof openDb>) {
   };
   const brand = await made("/api/brands", { name: "Acme" });
   const model = await made("/api/printer-models", { brandId: brand.id, model: "X1" });
-  const machine = insertProfile(db, "machineProfiles", { name: "M", printerModelId: model.id });
-  const printProfile = insertProfile(db, "printProfiles", { name: "Fine" });
+  const machine = insertPreset(db, "machinePresets", { name: "M", printerModelId: model.id });
+  const processPreset = insertPreset(db, "processPresets", { name: "Fine" });
   const printer = await made("/api/printers", {
     name: "P",
     modelId: model.id,
@@ -66,7 +66,7 @@ export async function seedOneOfEach(app: App, db: ReturnType<typeof openDb>) {
   const type = db.insert(schema.maintenanceTypes).values({ name: "Oil" }).returning().get();
   const filamentBrand = await made("/api/filament-brands", { name: "Acme" });
   const material = await made("/api/filament-materials", { name: "PLA" });
-  const profile = insertProfile(db, "filamentProfiles", {
+  const preset = insertPreset(db, "filamentPresets", {
     brandId: filamentBrand.id,
     materialId: material.id,
     densityGcm3: 1.24,
@@ -97,13 +97,13 @@ export async function seedOneOfEach(app: App, db: ReturnType<typeof openDb>) {
     brand,
     model,
     machine,
-    printProfile,
+    processPreset,
     printer,
     accessory,
     type,
     filamentBrand,
     material,
-    profile,
+    preset,
     spool,
     project,
     client,

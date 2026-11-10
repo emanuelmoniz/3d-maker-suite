@@ -1,16 +1,16 @@
 import {
   type FilamentBrand,
   type FilamentMaterial,
-  type FilamentProfile,
+  type FilamentPreset,
   filamentCatalogFilters,
-  filamentProfileFilters,
+  filamentPresetFilters,
 } from "@3d-maker-suite/core";
 import { Link } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import { archiveColumn } from "../../components/ArchiveActions.tsx";
 import { type Column, DataTable } from "../../components/DataTable.tsx";
 import { imageUrl, useFilamentBrands, useFilamentMaterials } from "../../lib/catalog.ts";
-import { filamentLabel, useProfiles } from "../../lib/filament.ts";
+import { filamentLabel, useFilamentPresets } from "../../lib/filament.ts";
 import { formatCurrency, formatList } from "../../lib/format.ts";
 import { useListPage, useUrlListQuery } from "../../lib/list.ts";
 import { usePreferences } from "../../lib/preferences.ts";
@@ -21,10 +21,10 @@ import { editLink, Section, Thumb, useScrolledTo } from "../printers/Catalog.tsx
 // The slicer library a preset came from (`<library>:<preset>`); hand-made ones have none.
 const libraryOf = (source: string | null) => source?.split(":")[0] || null;
 
-/** Slicer columns for brands and materials, worked out from their profiles' presets. */
+/** Slicer columns for brands and materials, worked out from their presets' presets. */
 function useSlicerColumns() {
   const { t } = useTranslation();
-  const profiles = useProfiles().data?.items ?? [];
+  const presets = useFilamentPresets().data?.items ?? [];
   const column = <T,>(libs: (row: T) => (string | null)[]): Column<T> => ({
     id: "slicer",
     header: t("filament:catalog.slicer"),
@@ -35,13 +35,13 @@ function useSlicerColumns() {
       return names.length ? formatList(names) : t("printers:detail.info.none");
     },
   });
-  // Brands and materials have no preset of their own: theirs are their profiles' slicers.
+  // Brands and materials have no preset of their own: theirs are their presets' slicers.
   return {
     brand: column<FilamentBrand>((b) =>
-      profiles.filter((p) => p.brandId === b.id).map((p) => libraryOf(p.sourcePreset)),
+      presets.filter((p) => p.brandId === b.id).map((p) => libraryOf(p.sourcePreset)),
     ),
     material: column<FilamentMaterial>((m) =>
-      profiles.filter((p) => p.materialId === m.id).map((p) => libraryOf(p.sourcePreset)),
+      presets.filter((p) => p.materialId === m.id).map((p) => libraryOf(p.sourcePreset)),
     ),
   };
 }
@@ -112,11 +112,11 @@ export function FilamentCatalog() {
           },
           {
             id: "temps",
-            header: `${t("filament:profiles.nozzleTemp")} / ${t("filament:profiles.bedTemp")}`,
+            header: `${t("filament:presets.nozzleTemp")} / ${t("filament:presets.bedTemp")}`,
             cell: (m) =>
               m.nozzleTempC === null && m.bedTempC === null
                 ? none
-                : t("filament:profiles.temps", {
+                : t("filament:presets.temps", {
                     nozzle: m.nozzleTempC ?? "–",
                     bed: m.bedTempC ?? "–",
                   }),
@@ -136,41 +136,41 @@ export function FilamentCatalog() {
   );
 }
 
-/** Filament profiles: slicer files, listed, archived and deleted here (ADR-0020). */
-export function FilamentProfiles() {
+/** Filament presets: slicer files, listed, archived and deleted here (ADR-0020). */
+export function FilamentPresets() {
   const { t } = useTranslation();
-  const [profileQuery, setProfileQuery] = useUrlListQuery("profiles.");
-  const profiles = useListPage<FilamentProfile>(
-    ["filament", "profiles", "table"],
-    "/api/filament/profiles",
-    profileQuery,
+  const [presetQuery, setPresetQuery] = useUrlListQuery("presets.");
+  const presets = useListPage<FilamentPreset>(
+    ["filament", "presets", "table"],
+    "/api/filament/presets",
+    presetQuery,
   );
   const brands = useFilamentBrands().data ?? [];
   const materials = useFilamentMaterials().data ?? [];
-  const all = useProfiles().data?.items ?? [];
-  useScrolledTo("filament-profiles", !!profiles.data);
+  const all = useFilamentPresets().data?.items ?? [];
+  useScrolledTo("filament-presets", !!presets.data);
   return (
     <>
-      {profiles.isError && (
+      {presets.isError && (
         <p role="alert" className="text-bad">
           {t("filament:loadError")}
         </p>
       )}
-      <section id="filament-profiles" className="grid scroll-mt-4 gap-3">
+      <section id="filament-presets" className="grid scroll-mt-4 gap-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-base font-semibold">{t("filament:profiles.title")}</h2>
+          <h2 className="text-base font-semibold">{t("filament:presets.title")}</h2>
         </div>
         <p className="-mt-1 text-muted">{t("catalog:fromFiles")}</p>
-        {profiles.data && (
+        {presets.data && (
           <DataTable
-            label={t("filament:profiles.table")}
-            rows={profiles.data.items}
+            label={t("filament:presets.table")}
+            rows={presets.data.items}
             rowKey={(p) => p.id}
             server={{
-              query: profileQuery,
-              onQueryChange: setProfileQuery,
-              total: profiles.data.total,
-              filters: filamentProfileFilters,
+              query: presetQuery,
+              onQueryChange: setPresetQuery,
+              total: presets.data.total,
+              filters: filamentPresetFilters,
               archivable: true,
             }}
             columns={[
@@ -179,7 +179,7 @@ export function FilamentProfiles() {
                 header: t("filament:spools.filament"),
                 cell: (p) => (
                   <Link
-                    to="/filament/profiles/$id"
+                    to="/filament/presets/$id"
                     params={{ id: p.id }}
                     className="font-medium hover:underline"
                   >
@@ -191,7 +191,7 @@ export function FilamentProfiles() {
               },
               {
                 id: "brand",
-                header: t("filament:profiles.brand"),
+                header: t("filament:presets.brand"),
                 cell: (p) => p.brand,
                 sort: "brand",
                 filter: "brandId",
@@ -199,7 +199,7 @@ export function FilamentProfiles() {
               },
               {
                 id: "material",
-                header: t("filament:profiles.material"),
+                header: t("filament:presets.material"),
                 cell: (p) => p.material,
                 sort: "material",
                 filter: "materialId",
@@ -207,19 +207,19 @@ export function FilamentProfiles() {
               },
               {
                 id: "temps",
-                header: `${t("filament:profiles.nozzleTemp")} / ${t("filament:profiles.bedTemp")}`,
+                header: `${t("filament:presets.nozzleTemp")} / ${t("filament:presets.bedTemp")}`,
                 cell: (p) =>
                   p.nozzleTempC === null && p.bedTempC === null
                     ? ""
-                    : t("filament:profiles.temps", {
+                    : t("filament:presets.temps", {
                         nozzle: p.nozzleTempC ?? "–",
                         bed: p.bedTempC ?? "–",
                       }),
               },
-              sourceColumn<FilamentProfile>(t, all, true),
-              useColumn<FilamentProfile>(t),
-              archiveColumn<FilamentProfile>(t, {
-                kind: "filament-profiles",
+              sourceColumn<FilamentPreset>(t, all, true),
+              useColumn<FilamentPreset>(t),
+              archiveColumn<FilamentPreset>(t, {
+                kind: "filament-presets",
                 can: "catalog",
                 level: "manage",
                 name: filamentLabel,

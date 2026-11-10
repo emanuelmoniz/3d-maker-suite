@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import { z } from "zod";
-import { spoolName, useProfiles, useSpools } from "../lib/filament.ts";
+import { spoolName, useFilamentPresets, useSpools } from "../lib/filament.ts";
 import { formatWeight } from "../lib/format.ts";
 import { usePreferences } from "../lib/preferences.ts";
 import { defineWidget } from "./registry.ts";
@@ -16,7 +16,7 @@ defineWidget({
   Component: function LowSpoolsWidget({ settings: s }) {
     const { t } = useTranslation();
     const threshold = usePreferences().data?.values.lowSpoolGrams ?? 0;
-    const _profiles = useProfiles().data?.items ?? [];
+    const _presets = useFilamentPresets().data?.items ?? [];
     // A spool whose weight isn't known can't be low.
     const low = (useSpools().data?.items ?? [])
       .flatMap((x) =>

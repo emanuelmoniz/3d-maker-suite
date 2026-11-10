@@ -173,7 +173,7 @@ describe("auto mode", () => {
     // Matched to a row made by hand: a person decides.
     expect(autoOf({ ...facts, status: "changed" })).toBe("wait");
     expect(autoOf({ ...facts, status: "ambiguous" })).toBe("wait");
-    // It would add a brand, or no single profile fits.
+    // It would add a brand, or no single preset fits.
     expect(autoOf({ ...facts, status: "new", held: true })).toBe("wait");
   });
 
@@ -208,13 +208,13 @@ describe("auto mode", () => {
     });
     expect(
       autoDecisions([
-        row({ refs: { profile: "p1" } }),
+        row({ refs: { preset: "p1" } }),
         row({ row: 3, status: "changed", action: "update", targetId: "t1" }),
         row({ row: 4, auto: "wait" }),
         row({ row: 5, auto: undefined }),
       ]),
     ).toEqual([
-      { row: 2, action: "create", targetId: undefined, refs: { profile: "p1" } },
+      { row: 2, action: "create", targetId: undefined, refs: { preset: "p1" } },
       { row: 3, action: "update", targetId: "t1", refs: {} },
     ]);
   });

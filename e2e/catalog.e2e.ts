@@ -1,6 +1,6 @@
 import type { Page } from "@playwright/test";
 import { expect, test } from "./fixtures.ts";
-import { insertProfile, seedModel } from "./helpers.ts";
+import { insertPreset, seedModel } from "./helpers.ts";
 
 const PASSWORD = "correct horse";
 
@@ -16,11 +16,11 @@ const linkNames = async (block: ReturnType<Page["locator"]>) =>
 
 test("old catalog addresses land on their Catalog tab", async ({ page, app }) => {
   const model = await seedModel(app.api);
-  insertProfile(app, "print_profiles", { name: "Fine", printerModelId: model.id });
+  insertPreset(app, "process_presets", { name: "Fine", printerModelId: model.id });
   await page.setViewportSize({ width: 1280, height: 900 });
-  await page.goto("/printers/settings#print-profiles");
-  await expect(page).toHaveURL(/\/catalog\/printers#print-profiles$/);
-  await expect(page.getByRole("heading", { name: "Print profiles", level: 2 })).toBeInViewport();
+  await page.goto("/printers/settings#process-presets");
+  await expect(page).toHaveURL(/\/catalog\/printers#process-presets$/);
+  await expect(page.getByRole("heading", { name: "Process presets", level: 2 })).toBeInViewport();
   await page.goto("/filament/settings");
   await expect(page).toHaveURL(/\/catalog\/filament$/);
   const tabs = page.getByRole("navigation", { name: "Catalog sections" });
@@ -32,12 +32,12 @@ test("old catalog addresses land on their Catalog tab", async ({ page, app }) =>
   await page.goto("/printers/settings");
   await expect(page).toHaveURL(/\/printers\/settings$/);
   await expect(page.getByLabel("Default printer")).toBeVisible();
-  // Nothing makes a profile any more ("new" is no profile's id).
-  await page.goto("/printers/profiles/new");
+  // Nothing makes a preset any more ("new" is no preset's id).
+  await page.goto("/printers/presets/new");
   await expect(page.getByRole("heading", { name: "Page not found" })).toBeVisible();
-  await page.goto("/printers/print-profiles/new");
-  await expect(page.getByRole("alert")).toContainText("Profile not found");
-  await page.goto("/filament/profiles/new");
+  await page.goto("/printers/process-presets/new");
+  await expect(page.getByRole("alert")).toContainText("Preset not found");
+  await page.goto("/filament/presets/new");
   await page.waitForLoadState("networkidle");
   await expect(page.getByRole("main").getByRole("textbox")).toHaveCount(0);
 });

@@ -18,7 +18,7 @@ export const printerModelLabel = sql<string>`${brandModel(brandOf, printerModels
 export const libraryOf = (preset: SQLWrapper) =>
   sql`substr(${preset}, 1, instr(${preset} || ':', ':') - 1)`;
 
-/** A profile's `catalogSource`: "hand", else `<library>:system` / `<library>:user`. */
+/** A preset's `catalogSource`: "hand", else `<library>:system` / `<library>:user`. */
 export const presetSource = (preset: SQLWrapper) =>
   sql<string>`CASE WHEN ${preset} IS NULL THEN 'hand' WHEN instr(${preset}, '/') > 0
     THEN substr(${preset}, 1, instr(${preset}, '/') - 1) ELSE ${preset} END`;
@@ -56,11 +56,11 @@ export const modelBrandName = (modelId: SQLWrapper) =>
     WHERE ${printerModels.id} = ${modelId}) COLLATE NOCASE`;
 
 /**
- * "bambu-studio, orca-slicer": the slicer libraries of the active profiles of the models that
- * `inModels` accepts (given a profile's model id), for the sort and filter of brands and models.
+ * "bambu-studio, orca-slicer": the slicer libraries of the active presets of the models that
+ * `inModels` accepts (given a preset's model id), for the sort and filter of brands and models.
  */
 const slicersOf = (inModels: (modelId: SQLWrapper) => SQL) => {
-  const { machineProfiles: mp, printProfiles: pp } = schema;
+  const { machinePresets: mp, processPresets: pp } = schema;
   return sql`(SELECT group_concat(lib, ', ') FROM (
     SELECT ${libraryOf(mp.sourcePreset)} AS lib FROM ${mp}
       WHERE ${mp.archivedAt} IS NULL AND ${inModels(mp.printerModelId)}
@@ -139,7 +139,7 @@ export function modelIdFor(db: Db, brand: string, model: string): string {
   );
 }
 
-const { machineProfiles } = schema;
+const { machinePresets } = schema;
 
 /** A preset's name from its key, `<library>:<scope>/<name>` or `<scope>/<name>`. */
 export const presetName = (key: string) => key.slice(key.indexOf("/") + 1);
@@ -150,31 +150,31 @@ export const presetNames = (keys: string[]) => keys.map(presetName).join(", ") |
 export const DEFAULT_NOZZLE = 0.4;
 
 /**
- * A printer's machine profile by its model and nozzle, as migration 0107 fills it: a system preset
+ * A printer's machine preset by its model and nozzle, as migration 0107 fills it: a system preset
  * first (only those slice, ADR-0007), then by name. ponytail: two slicers' system presets for one
  * printer tie on name; the printer form picks one by hand if the order ever matters.
  */
-export const machineProfileFor = (db: Db, modelId: string | null, nozzleDiameterMm: number) =>
+export const machinePresetFor = (db: Db, modelId: string | null, nozzleDiameterMm: number) =>
   modelId
     ? (db
-        .select({ id: machineProfiles.id })
-        .from(machineProfiles)
+        .select({ id: machinePresets.id })
+        .from(machinePresets)
         .where(
           and(
-            eq(machineProfiles.printerModelId, modelId),
-            eq(machineProfiles.nozzleDiameterMm, nozzleDiameterMm),
-            isNull(machineProfiles.archivedAt),
+            eq(machinePresets.printerModelId, modelId),
+            eq(machinePresets.nozzleDiameterMm, nozzleDiameterMm),
+            isNull(machinePresets.archivedAt),
           ),
         )
         .orderBy(
-          sql`${machineProfiles.sourcePreset} LIKE '%:system/%' DESC`,
-          machineProfiles.name,
-          machineProfiles.createdAt,
+          sql`${machinePresets.sourcePreset} LIKE '%:system/%' DESC`,
+          machinePresets.name,
+          machinePresets.createdAt,
         )
         .get()?.id ?? null)
     : null;
 
-const { filamentBrands, filamentMaterials, filamentProfiles } = schema;
+const { filamentBrands, filamentMaterials, filamentPresets } = schema;
 
 /** The id of the row with that name (case-insensitive), if there is one. Never creates it. */
 export const idByName = (
@@ -238,12 +238,12 @@ export function filamentMaterialIdFor(db: Db, name: string): string {
   );
 }
 
-/** Brand / material names of a profile row (empty brand = none), for labels, sort and filters. */
-export const profileBrand = sql<string>`coalesce((SELECT ${filamentBrands.name} FROM ${filamentBrands} WHERE ${filamentBrands.id} = ${filamentProfiles.brandId}), '')`;
-export const profileMaterial = sql<string>`(SELECT ${filamentMaterials.name} FROM ${filamentMaterials} WHERE ${filamentMaterials.id} = ${filamentProfiles.materialId})`;
+/** Brand / material names of a preset row (empty brand = none), for labels, sort and filters. */
+export const presetBrand = sql<string>`coalesce((SELECT ${filamentBrands.name} FROM ${filamentBrands} WHERE ${filamentBrands.id} = ${filamentPresets.brandId}), '')`;
+export const presetMaterial = sql<string>`(SELECT ${filamentMaterials.name} FROM ${filamentMaterials} WHERE ${filamentMaterials.id} = ${filamentPresets.materialId})`;
 
-/** The label the app shows for a profile: its name, else "brand material". */
-export const profileLabel = sql<string>`coalesce(nullif(${filamentProfiles.name}, ''), trim(${profileBrand} || ' ' || ${profileMaterial}))`;
+/** The label the app shows for a preset: its name, else "brand material". */
+export const presetLabel = sql<string>`coalesce(nullif(${filamentPresets.name}, ''), trim(${presetBrand} || ' ' || ${presetMaterial}))`;
 
 const { accessories, orders, quotes, spools, printers, projects, prints } = schema;
 
@@ -289,18 +289,18 @@ export const quoteLabel = sql<string>`printf('%03d', ${quotes.number}) || '-' ||
 /** An order's number, as its filter reads it. */
 export const orderLabel = sql<string>`printf('%03d', ${orders.number})`;
 
-/** `select()` map for profiles: the row plus `brand` / `material` names, as the API returns them. */
-export const profileColumns = {
-  ...getTableColumns(filamentProfiles),
-  brand: profileBrand,
-  material: profileMaterial,
+/** `select()` map for presets: the row plus `brand` / `material` names, as the API returns them. */
+export const presetColumns = {
+  ...getTableColumns(filamentPresets),
+  brand: presetBrand,
+  material: presetMaterial,
 };
 
 /**
- * The active profile with that brand, material and name (case-insensitive), if there is one;
+ * The active preset with that brand, material and name (case-insensitive), if there is one;
  * with `library` (`bambu-studio:`), only one of that slicer library or made by hand.
  */
-export const findFilamentProfile = (
+export const findFilamentPreset = (
   db: Db,
   brandId: string | null,
   materialId: string,
@@ -308,16 +308,16 @@ export const findFilamentProfile = (
   library?: string | null,
 ) =>
   db
-    .select({ id: filamentProfiles.id })
-    .from(filamentProfiles)
+    .select({ id: filamentPresets.id })
+    .from(filamentPresets)
     .where(
       and(
-        brandId ? eq(filamentProfiles.brandId, brandId) : isNull(filamentProfiles.brandId),
-        eq(filamentProfiles.materialId, materialId),
-        sql`${filamentProfiles.name} = ${name} COLLATE NOCASE`,
-        isNull(filamentProfiles.archivedAt),
+        brandId ? eq(filamentPresets.brandId, brandId) : isNull(filamentPresets.brandId),
+        eq(filamentPresets.materialId, materialId),
+        sql`${filamentPresets.name} = ${name} COLLATE NOCASE`,
+        isNull(filamentPresets.archivedAt),
         library
-          ? sql`(${filamentProfiles.sourcePreset} is null or substr(${filamentProfiles.sourcePreset}, 1, ${library.length}) = ${library})`
+          ? sql`(${filamentPresets.sourcePreset} is null or substr(${filamentPresets.sourcePreset}, 1, ${library.length}) = ${library})`
           : undefined,
       ),
     )

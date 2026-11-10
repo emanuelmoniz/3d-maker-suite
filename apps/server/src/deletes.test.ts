@@ -10,7 +10,7 @@ import { buildApp } from "./app.ts";
 import type { Rights } from "./lib/auth.ts";
 import { dependentsOf, ITEMS } from "./lib/dependents.ts";
 import { readPreferences } from "./lib/preferences.ts";
-import { insertProfile } from "./testSeed.ts";
+import { insertPreset } from "./testSeed.ts";
 
 let db: ReturnType<typeof openDb>;
 let app: Awaited<ReturnType<typeof buildApp>>;
@@ -46,12 +46,12 @@ const brand = () => made("/api/brands", { name: unique("Brand") });
 const model = async (brandId?: string) =>
   made("/api/printer-models", { brandId: brandId ?? (await brand()), model: unique("X") });
 const machine = async (printerModelId?: string) =>
-  insertProfile(db, "machineProfiles", {
+  insertPreset(db, "machinePresets", {
     name: unique("Machine"),
     printerModelId: printerModelId ?? (await model()),
   }).id;
-const printProfile = async (printerModelId?: string) =>
-  insertProfile(db, "printProfiles", { name: unique("Fine"), printerModelId }).id;
+const processPreset = async (printerModelId?: string) =>
+  insertPreset(db, "processPresets", { name: unique("Fine"), printerModelId }).id;
 const printer = async (modelId?: string) =>
   made("/api/printers", {
     name: unique("P"),
@@ -64,8 +64,8 @@ const maintenanceType = (fields: object = {}) =>
   made("/api/maintenance/types", { name: unique("Oil"), ...fields });
 const filamentBrand = () => made("/api/filament-brands", { name: unique("FB") });
 const material = () => made("/api/filament-materials", { name: unique("PLA") });
-const profile = async (fields: object = {}) =>
-  insertProfile(db, "filamentProfiles", {
+const preset = async (fields: object = {}) =>
+  insertPreset(db, "filamentPresets", {
     materialId: await material(),
     densityGcm3: 1.24,
     name: unique("Basic"),
@@ -115,14 +115,14 @@ afterEach(async () => {
 const urls = {
   brands: "/api/brands",
   printerModels: "/api/printer-models",
-  machineProfiles: "/api/machine-profiles",
-  printProfiles: "/api/print-profiles",
+  machinePresets: "/api/machine-presets",
+  processPresets: "/api/process-presets",
   printers: "/api/printers",
   accessories: "/api/accessories",
   maintenanceTypes: "/api/maintenance/types",
   filamentBrands: "/api/filament-brands",
   filamentMaterials: "/api/filament-materials",
-  filamentProfiles: "/api/filament/profiles",
+  filamentPresets: "/api/filament/presets",
   spools: "/api/filament/spools",
   projects: "/api/projects",
   prints: "/api/prints",
@@ -133,14 +133,14 @@ const urls = {
 const fresh: Record<keyof typeof urls, () => Promise<string>> = {
   brands: brand,
   printerModels: () => model(),
-  machineProfiles: () => machine(),
-  printProfiles: () => printProfile(),
+  machinePresets: () => machine(),
+  processPresets: () => processPreset(),
   printers: () => printer(),
   accessories: accessory,
   maintenanceTypes: () => maintenanceType(),
   filamentBrands: filamentBrand,
   filamentMaterials: material,
-  filamentProfiles: () => profile(),
+  filamentPresets: () => preset(),
   spools: () => spool(),
   projects: project,
   prints: () => print(),
@@ -170,8 +170,8 @@ describe("delete", () => {
   ][] = [
     ["brands", "printerModel", urls.printerModels, (id) => model(id), /X/],
     ["printerModels", "printer", urls.printers, (id) => printer(id), /^\d\d-P/],
-    ["printerModels", "machineProfile", urls.machineProfiles, (id) => machine(id), /Machine/],
-    ["printerModels", "printProfile", urls.printProfiles, (id) => printProfile(id), /Fine/],
+    ["printerModels", "machinePreset", urls.machinePresets, (id) => machine(id), /Machine/],
+    ["printerModels", "processPreset", urls.processPresets, (id) => processPreset(id), /Fine/],
     [
       "printerModels",
       "maintenanceType",
@@ -180,10 +180,10 @@ describe("delete", () => {
       /Oil/,
     ],
     [
-      "machineProfiles",
+      "machinePresets",
       "print",
       urls.prints,
-      async (id) => print({ machineProfileId: id }),
+      async (id) => print({ machinePresetId: id }),
       /^\d{4}-Body/,
     ],
     ["printers", "print", urls.prints, (id) => print({ printerId: id }), /Body/],
@@ -244,16 +244,16 @@ describe("delete", () => {
     ],
     [
       "filamentBrands",
-      "filamentProfile",
-      urls.filamentProfiles,
-      (id) => profile({ brandId: id }),
+      "filamentPreset",
+      urls.filamentPresets,
+      (id) => preset({ brandId: id }),
       /Basic/,
     ],
     [
       "filamentMaterials",
-      "filamentProfile",
-      urls.filamentProfiles,
-      (id) => profile({ materialId: id }),
+      "filamentPreset",
+      urls.filamentPresets,
+      (id) => preset({ materialId: id }),
       /Basic/,
     ],
     ["filamentBrands", "spool", urls.spools, (id) => spool({ brandId: id }), /^\d{3}-.*Basic/],

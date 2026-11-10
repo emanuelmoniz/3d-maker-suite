@@ -1,4 +1,4 @@
-import type { PresetSetting, ProfileSettings } from "@3d-maker-suite/core";
+import type { PresetSetting, PresetSettings } from "@3d-maker-suite/core";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { Download } from "lucide-react";
@@ -48,8 +48,8 @@ function Value({ text }: { text: string }) {
   );
 }
 
-/** The layers a settings list draws on: the profile itself, then each parent or template it names. */
-function layersOf(data: ProfileSettings) {
+/** The layers a settings list draws on: the preset itself, then each parent or template it names. */
+function layersOf(data: PresetSettings) {
   const seen = new Set(data.settings.map((s) => s.from));
   const named = data.settings.flatMap((s) => (s.from === null ? [] : [s.from]));
   return [
@@ -72,7 +72,7 @@ function download(name: string, settings: PresetSetting[]) {
 }
 
 /**
- * Every key and value of a profile's slicer file, parents filled in (ADR-0020), read from its source
+ * Every key and value of a preset's slicer file, parents filled in (ADR-0020), read from its source
  * when the page opens. Each row says which layer it comes from; the layer chips, and the search,
  * narrow the list.
  */
@@ -81,8 +81,8 @@ export function AllSettings({ path, name }: { path: string; name: string }) {
   const [query, setQuery] = useState("");
   const [layer, setLayer] = useState<string | null | undefined>(undefined);
   const { data, isError, isPending } = useQuery({
-    queryKey: ["profile-settings", path],
-    queryFn: () => api<ProfileSettings>("GET", `${path}/settings`),
+    queryKey: ["preset-settings", path],
+    queryFn: () => api<PresetSettings>("GET", `${path}/settings`),
     // The file is the source of truth: read it again every time the page opens.
     staleTime: 0,
   });

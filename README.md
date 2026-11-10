@@ -9,7 +9,7 @@ A local-first manager for your 3D printing: printers, accessories, maintenance, 
 - **Printers**: inventory, timeline, comments, warranty and purchase info, lifetime and maintenance cost
 - **Accessories**: install on a printer with dates, usage, photos, tags, maintenance and cost
 - **Maintenance**: reusable tasks for printers and accessories, due by hours, prints or days
-- **Filament**: brands, materials, profiles, spools with numbers and colour names, remaining grams, low-spool alerts
+- **Filament**: brands, materials, presets, spools with numbers and colour names, remaining grams, low-spool alerts
 - **Hub and connector**: workstations, a NAS or a file server join your server with a small connector app ([docs/hub.md](docs/hub.md))
 - **Users and roles**: accounts for a LAN, NAS or Docker install, with viewer, editor and admin roles and a log of who changed what ([docs/users.md](docs/users.md))
 - **Alerts**: one list of what needs attention (low spools, maintenance, warranties, sync results), with severity, read, snooze and dismiss, a history table, and optional ntfy or email channels; each task chooses what it raises
@@ -38,7 +38,7 @@ A local-first manager for your 3D printing: printers, accessories, maintenance, 
 |---|---|
 | ![Printer](docs/images/printer.png) | ![Accessory](docs/images/accessory.png) |
 | ![Maintenance](docs/images/maintenance.png) | ![Maintenance task](docs/images/maintenance-type.png) |
-| ![Spool](docs/images/spool.png) | ![Filament profile](docs/images/filament-profile.png) |
+| ![Spool](docs/images/spool.png) | ![Filament preset](docs/images/filament-preset.png) |
 | ![Print](docs/images/print.png) | ![Projects](docs/images/projects.png) |
 | ![Quotes](docs/images/quotes.png) | ![Quote](docs/images/quote.png) |
 | ![Orders](docs/images/orders.png) | ![Order](docs/images/order.png) |
@@ -90,7 +90,7 @@ By default the app only answers on this PC. To reach it from your phone or anoth
 | Project folders: structure, depths, Docker | [docs/projects.md](docs/projects.md) |
 | Import spreadsheets and slicer catalogs | [docs/import.md](docs/import.md) |
 | Archive, delete and bulk actions | [docs/archive-delete.md](docs/archive-delete.md) |
-| Slicing: server slicers, profiles, Docker | [docs/slicing.md](docs/slicing.md) |
+| Slicing: server slicers, presets, Docker | [docs/slicing.md](docs/slicing.md) |
 | Open in slicer | [docs/open-in-slicer.md](docs/open-in-slicer.md) |
 | Backups | [docs/backups.md](docs/backups.md) |
 | Logs | [docs/logs.md](docs/logs.md) |

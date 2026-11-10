@@ -20,7 +20,7 @@ const threeMfFilamentSchema = z.object({
   slot: z.number().int(),
   type: nullableText,
   color: nullableText,
-  profile: nullableText,
+  preset: nullableText,
   grams: z.number().nullable(),
   meters: z.number().nullable(),
 });
@@ -45,9 +45,9 @@ export const projectModelSchema = z.object({
   slicer: z.object({ name: z.string(), version: nullableText }).nullable(),
   printerModel: nullableText,
   /** The print preset the file was saved with. Older scans lack it. */
-  printProfile: nullableText.default(null),
+  processPreset: nullableText.default(null),
   /** The machine preset it was saved with ("Bambu Lab A1 0.4 nozzle"). Older scans lack it. */
-  machineProfile: nullableText.default(null),
+  machinePreset: nullableText.default(null),
   nozzleDiameter: z.number().nullable(),
   sliced: z.boolean(),
   multicolor: z.boolean(),

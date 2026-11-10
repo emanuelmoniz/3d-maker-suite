@@ -4,7 +4,7 @@ import { id, isoDate } from "./entities.ts";
 import { PRINT_MAX_SLOTS } from "./import.ts";
 
 // What a project prints: the plates picked per 3MF file, and per plate the printer, the print
-// profile and per slot the filament preset and the spool. Slicing turns this into time and grams.
+// preset and per slot the filament preset and the spool. Slicing turns this into time and grams.
 
 /** `outdated`: the file changed on disk since the setup was saved. `missing`: file or plate is gone. */
 export const PLATE_STATES = ["ok", "outdated", "missing"] as const;
@@ -18,15 +18,15 @@ export const plateSetupInputSchema = z.object({
   plate: z.number().int().positive(),
   /** The printer it slices for: its machine preset and cost rates. Null = `defaultSlicePrinter`. */
   printerId: id.nullable().default(null),
-  /** The machine profile. Null = the 3MF's when the printer fits the file, else the printer's. */
-  machineProfileId: id.nullable().default(null),
+  /** The machine preset. Null = the 3MF's when the printer fits the file, else the printer's. */
+  machinePresetId: id.nullable().default(null),
   /**
-   * The print profile. Null with `useDefaultPrintProfile`, or when the machine isn't the file's,
+   * The process preset. Null with `useDefaultProcessPreset`, or when the machine isn't the file's,
    * = the default (see `resolvePlate`); null without = the one saved in the 3MF.
    */
-  printProfileId: id.nullable(),
-  useDefaultPrintProfile: z.boolean().default(false),
-  /** Filament profile per slot (index 0 = slot 1); null = the one saved in the 3MF. */
+  processPresetId: id.nullable(),
+  useDefaultProcessPreset: z.boolean().default(false),
+  /** Filament preset per slot (index 0 = slot 1); null = the one saved in the 3MF. */
   filaments: z.array(id.nullable()).max(PRINT_MAX_SLOTS),
   /** Spool per slot, for its price; it never sets the slot's preset (ADR-0020). */
   spools: z.array(id.nullable()).max(PRINT_MAX_SLOTS).default([]),
@@ -61,7 +61,7 @@ export const plateSetupSchema = plateSetupInputSchema.extend({
   result: sliceResultSchema.nullable(),
   /** Why the last slice failed, in the slicer's words (not translated). */
   error: z.string().nullable(),
-  /** Never sliced, the file, the profiles (incl. the default printer's) or the slicer changed. */
+  /** Never sliced, the file, the presets (incl. the default printer's) or the slicer changed. */
   needsSlicing: z.boolean(),
   /** In the slice queue right now; `waiting`: for its slice worker's device to come online. */
   job: z.enum(SLICE_JOB_STATES).nullable(),
@@ -103,8 +103,8 @@ export function defaultSlicePrinter<P extends SlicePrinter>(
 
 type PlatePrinter = SlicePrinter & {
   modelId: string | null;
-  machineProfileId: string | null;
-  printProfileId: string | null;
+  machinePresetId: string | null;
+  processPresetId: string | null;
   archivedAt?: string | null;
 };
 type PlateMachine = {
@@ -112,7 +112,7 @@ type PlateMachine = {
   printerModelId: string;
   nozzleDiameterMm: number;
   sourcePreset: string | null;
-  defaultPrintPreset: string | null;
+  defaultProcessPreset: string | null;
   archivedAt: string | null;
 };
 type PlatePrint = {
@@ -124,7 +124,7 @@ type PlatePrint = {
 };
 
 /**
- * The machine profiles a slicer of `library` slices a printer model with: its system ones (ADR-0007),
+ * The machine presets a slicer of `library` slices a printer model with: its system ones (ADR-0007),
  * every nozzle (a nozzle swap). Without a library, all of the model's.
  */
 export const slicerMachines = <M extends PlateMachine>(
@@ -140,7 +140,7 @@ export const slicerMachines = <M extends PlateMachine>(
   );
 
 /**
- * The print profile is made for the machine: its `compatible_printers` list it. One read before
+ * The process preset is made for the machine: its `compatible_printers` list it. One read before
  * the list was kept (Step 17) goes by its printer model.
  */
 export const fitsMachine = (p: PlatePrint, m: PlateMachine) =>
@@ -153,14 +153,14 @@ export const fitsMachine = (p: PlatePrint, m: PlateMachine) =>
  * `printer`: its own, else `defaultSlicePrinter`. `machine`: its own, else the printer's when it
  * is one of the slicer's (`machines`), else the one for the printer's nozzle. `fromFile`: the
  * printer fits the file and the plate picked no machine, so the 3MF's own machine settings slice.
- * `profileId`: its own; the 3MF's (null) on the file's machine unless `useDefaultPrintProfile`;
- * else `defaultProfileId`: the printer's default unless its `compatible_printers` name other
+ * `presetId`: its own; the 3MF's (null) on the file's machine unless `useDefaultProcessPreset`;
+ * else `defaultPresetId`: the printer's default unless its `compatible_printers` name other
  * machines, the machine's default, then the printer's anyway.
  */
 export function resolvePlate<P extends PlatePrinter, M extends PlateMachine>(
   plate: Pick<
     PlateSetupInput,
-    "printerId" | "machineProfileId" | "printProfileId" | "useDefaultPrintProfile"
+    "printerId" | "machinePresetId" | "processPresetId" | "useDefaultProcessPreset"
   >,
   file: SliceFile,
   ctx: {
@@ -182,24 +182,24 @@ export function resolvePlate<P extends PlatePrinter, M extends PlateMachine>(
   const fits = !printer || printerFitsFile(printer, file);
   const machines = printer ? slicerMachines(ctx.machines, ctx.library, printer.modelId) : [];
   const machine =
-    ctx.machines.find((m) => m.id === plate.machineProfileId) ??
-    machines.find((m) => m.id === printer?.machineProfileId) ??
+    ctx.machines.find((m) => m.id === plate.machinePresetId) ??
+    machines.find((m) => m.id === printer?.machinePresetId) ??
     machines.find((m) => m.nozzleDiameterMm === printer?.nozzleDiameterMm);
-  const fromFile = fits && !plate.machineProfileId;
-  const preferred = ctx.prints.find((p) => p.id === printer?.printProfileId);
+  const fromFile = fits && !plate.machinePresetId;
+  const preferred = ctx.prints.find((p) => p.id === printer?.processPresetId);
   const ofMachine =
-    machine?.defaultPrintPreset &&
-    ctx.prints.find((p) => !p.archivedAt && p.sourcePreset === machine.defaultPrintPreset);
-  // A profile read before its list was kept, or a hand-made one, stays the printer's pick.
+    machine?.defaultProcessPreset &&
+    ctx.prints.find((p) => !p.archivedAt && p.sourcePreset === machine.defaultProcessPreset);
+  // A preset read before its list was kept, or a hand-made one, stays the printer's pick.
   const elsewhere =
     !!machine &&
     !!preferred?.machinePresets.length &&
     !preferred.machinePresets.includes(machine.sourcePreset ?? "");
-  const defaultProfileId =
+  const defaultPresetId =
     (preferred && !elsewhere ? preferred : ofMachine || preferred)?.id ?? null;
-  const profileId =
-    plate.printProfileId ?? (fromFile && !plate.useDefaultPrintProfile ? null : defaultProfileId);
-  return { printer, fits, machines, machine, fromFile, defaultProfileId, profileId };
+  const presetId =
+    plate.processPresetId ?? (fromFile && !plate.useDefaultProcessPreset ? null : defaultPresetId);
+  return { printer, fits, machines, machine, fromFile, defaultPresetId, presetId };
 }
 
 /**
@@ -212,9 +212,9 @@ export const pickSlicer = (capable: string[], picks: (string | null | undefined)
 type Preset = { name: string; sourcePreset: string | null };
 
 /**
- * The first of a plate's profiles a slicer of `library` can't slice with, as the slice queue
+ * The first of a plate's presets a slicer of `library` can't slice with, as the slice queue
  * checks them (presets are `<library>:<preset>`, so Bambu Studio's mean nothing to OrcaSlicer):
- * the print profile (a hand-made one fits no slicer) and a machine preset for the printer when it
+ * the process preset (a hand-made one fits no slicer) and a machine preset for the printer when it
  * isn't the file's (`machines`: its model's and nozzle's; unset when the file's printer slices).
  * Undefined when both fit. Filaments never block: see `foreignFilaments`.
  */

@@ -35,7 +35,7 @@ import { policyOf } from "../integrations/capabilities.ts";
 import { clearDeleted } from "../lib/catalog.ts";
 import { catalogImport } from "./catalog.ts";
 import { clientImport, orderImport, quoteImport } from "./commerce.ts";
-import { filamentProfileImport } from "./filamentProfiles.ts";
+import { filamentPresetImport } from "./filamentPresets.ts";
 import { installImport } from "./installs.ts";
 import { maintenanceImport, maintenanceTypeImport } from "./maintenance.ts";
 import { orderProjectImport } from "./orderProjects.ts";
@@ -239,7 +239,7 @@ export function createReview(db: Db, dataDir: string) {
     maintenanceTypes: maintenanceTypeImport,
     maintenance: maintenanceImport,
     orderProjects: orderProjectImport,
-    filamentProfiles: filamentProfileImport,
+    filamentPresets: filamentPresetImport,
     ...catalogImport(dataDir),
   };
 

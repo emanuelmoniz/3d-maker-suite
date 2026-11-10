@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { buildApp } from "./app.ts";
 import { modelIdFor } from "./lib/catalog.ts";
 import { inIds, listPage } from "./lib/list.ts";
-import { insertProfile } from "./testSeed.ts";
+import { insertPreset } from "./testSeed.ts";
 
 let db: ReturnType<typeof openDb>;
 let app: Awaited<ReturnType<typeof buildApp>>;
@@ -138,7 +138,7 @@ describe("listPage filters", () => {
     expect((await titles(`projectId=${NO_PROJECT},${boat.id}`))[0]).toBe(3);
   });
 
-  it("expression columns: printers by brand + model, spools by profile label, projects by material", async () => {
+  it("expression columns: printers by brand + model, spools by preset label, projects by material", async () => {
     const post = async (url: string, payload: object) =>
       (await app.inject({ method: "POST", url, payload })).json();
     const names = async (url: string, key = "name") =>
@@ -162,13 +162,13 @@ describe("listPage filters", () => {
     const brandZ = await post("/api/filament-brands", { name: "Zed" });
     const matPla = await post("/api/filament-materials", { name: "PLA" });
     const matPetg = await post("/api/filament-materials", { name: "PETG" });
-    const pla = insertProfile(db, "filamentProfiles", {
+    const pla = insertPreset(db, "filamentPresets", {
       brandId: brandA.id,
       materialId: matPla.id,
       name: "Basic",
       densityGcm3: 1.24,
     });
-    const petg = insertProfile(db, "filamentProfiles", {
+    const petg = insertPreset(db, "filamentPresets", {
       brandId: brandZ.id,
       materialId: matPetg.id,
       name: "",
@@ -191,7 +191,7 @@ describe("listPage filters", () => {
     expect(
       await names("/api/filament/spools?filament=002-zed%20petg%20%23808080", "number"),
     ).toEqual([2]);
-    expect(await names("/api/filament/profiles?filament=petg", "brand")).toEqual(["Zed"]);
+    expect(await names("/api/filament/presets?filament=petg", "brand")).toEqual(["Zed"]);
 
     db.insert(schema.projects)
       .values([

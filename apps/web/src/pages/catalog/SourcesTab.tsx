@@ -12,7 +12,7 @@ import {
 import { usePreferences } from "../../lib/preferences.ts";
 import { useCatalogSources, usePickCatalogSource } from "../../lib/presets.ts";
 import { useZipSources } from "../../lib/slicerCatalog.ts";
-import { ProfilesFromZip } from "../settings/ManagedSlicer.tsx";
+import { PresetsFromZip } from "../settings/ManagedSlicer.tsx";
 import { Policies } from "../settings/PolicyRow.tsx";
 import { DeviceSlicers } from "./DeviceSlicers.tsx";
 
@@ -132,7 +132,7 @@ function ZipBlock({ library, noFolder }: { library: string; noFolder: boolean })
       <h3 id={`zip-${library}-title`} className="font-semibold">
         {t("catalog:sources.zip")}
       </h3>
-      <ProfilesFromZip libraryId={library} noFolder={noFolder} />
+      <PresetsFromZip libraryId={library} noFolder={noFolder} />
     </section>
   );
 }

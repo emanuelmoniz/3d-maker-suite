@@ -203,7 +203,7 @@ export function suggest(
 /**
  * What a run with nobody watching does with a row from an integration. It takes a `new` row and a
  * `changed` one that is `linked` to its source (imported from it before), unless the row needs a
- * person (`held`: it has to be filled in, or no single profile fits). `optional` rows are only ever
+ * person (`held`: it has to be filled in, or no single preset fits). `optional` rows are only ever
  * offered, never waiting. Undefined = nothing to do.
  * `outOfScope`: a new row the sync type doesn't take. `seen`: the source has not changed since the
  * last import (only your edits differ). `review`: a source change waits for a person.

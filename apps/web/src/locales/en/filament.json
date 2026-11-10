@@ -46,9 +46,9 @@
     "numberTaken": "Another spool already has this number. It may be archived.",
     "colorName": "Color name"
   },
-  "profiles": {
-    "title": "Profiles",
-    "table": "Filament profiles",
+  "presets": {
+    "title": "Presets",
+    "table": "Filament presets",
     "brand": "Brand",
     "material": "Material",
     "name": "Name",
@@ -118,7 +118,7 @@
       "addTitle": "Add filament material",
       "editTitle": "Edit filament material",
       "name": "Name",
-      "defaultsHint": "Optional defaults, applied when you pick this material on a new profile.",
+      "defaultsHint": "Optional defaults, applied when you pick this material on a new preset.",
       "pricePerKg": "Default price per kg",
       "pricePerKgHint": "What a spool of this material costs when it has no price paid."
     }

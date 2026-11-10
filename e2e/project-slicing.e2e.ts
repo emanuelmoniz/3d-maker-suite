@@ -4,11 +4,11 @@ import { expect, test } from "./fixtures.ts";
 import {
   addRoots,
   hasHorizontalScroll,
-  insertProfile,
+  insertPreset,
   openSections,
   pick,
   seedModel,
-  seedProfile,
+  seedPreset,
   seedSpool,
 } from "./helpers.ts";
 
@@ -32,32 +32,32 @@ test("project slicing setup: defaults from the default printer, saves, reloads, 
   const plateName = first.name ?? `Plate ${first.index}`;
 
   const model = await seedModel(app.api);
-  const standard = insertProfile(app, "print_profiles", {
+  const standard = insertPreset(app, "process_presets", {
     name: "0.20mm Standard",
     printerModelId: model.id,
   });
-  insertProfile(app, "print_profiles", { name: "0.12mm Fine", printerModelId: model.id });
+  insertPreset(app, "process_presets", { name: "0.12mm Fine", printerModelId: model.id });
   const printer = await app.api<{ id: string }>("POST", "/api/printers", {
     name: "Main",
     modelId: model.id,
     state: "working",
-    printProfileId: standard.id,
+    processPresetId: standard.id,
   });
   await app.api("PATCH", "/api/preferences", { defaultPrinterId: printer.id });
-  await seedProfile(app);
+  await seedPreset(app);
 
   await page.goto(`/projects/${project.id}/edit`);
   await openSections(page, "Print setup");
   const section = page.getByRole("region", { name: "Print setup" });
   await section.getByRole("checkbox", { name: /benchy\.3mf/ }).check();
-  const printProfile = section.getByRole("combobox", { name: `Print profile for ${plateName}` });
-  // "Acme X1" isn't the A1 the file was made for: its default profile, and only its profiles.
+  const processPreset = section.getByRole("combobox", { name: `Process preset for ${plateName}` });
+  // "Acme X1" isn't the A1 the file was made for: its default preset, and only its presets.
   await expect(section.getByRole("combobox", { name: `Printer for ${plateName}` })).toHaveValue(
     /Main/,
   );
-  await expect(printProfile).toHaveValue("Default (0.20mm Standard)");
+  await expect(processPreset).toHaveValue("Default (0.20mm Standard)");
 
-  await pick(printProfile, "0.12mm Fine");
+  await pick(processPreset, "0.12mm Fine");
   const slot1 = section.getByRole("combobox", { name: `Preset for ${plateName}, slot 1` });
   await pick(slot1, "Basic");
   await page.getByRole("button", { name: "Save", exact: true }).click();
@@ -65,7 +65,7 @@ test("project slicing setup: defaults from the default printer, saves, reloads, 
 
   await page.goto(`/projects/${project.id}/edit`);
   await openSections(page, "Print setup");
-  await expect(printProfile).toHaveValue("0.12mm Fine");
+  await expect(processPreset).toHaveValue("0.12mm Fine");
   await expect(slot1).toHaveValue("Basic");
   await expect(section.getByText("The file changed since this setup was saved")).toHaveCount(0);
 
@@ -109,8 +109,8 @@ test("slicing a project with the mock slicer: results, estimate, list filter, re
   await openSections(page, "Print setup");
   const section = page.getByRole("region", { name: "Print setup" });
   await section.getByRole("checkbox", { name: /benchy\.3mf/ }).check();
-  // No printer: the file's own print profile, named after the 3MF's preset.
-  await expect(section.getByRole("combobox", { name: /^Print profile for/ })).toHaveValue(
+  // No printer: the file's own process preset, named after the 3MF's preset.
+  await expect(section.getByRole("combobox", { name: /^Process preset for/ })).toHaveValue(
     "As saved in the file (0.20mm Standard @BBL A1)",
   );
   // Slot 1 from the spool (the first entry after "No spool").
@@ -178,19 +178,19 @@ test("plate pickers list the slicer's presets, slots default to the file's, misf
     ["Orca Fine", "orca-slicer:system/Fine"],
     ["Mine", null],
   ])
-    insertProfile(app, "print_profiles", { name, printerModelId: model.id, sourcePreset });
+    insertPreset(app, "process_presets", { name, printerModelId: model.id, sourcePreset });
   const mine = await app.api<{ items: { id: string; name: string }[] }>(
     "GET",
-    "/api/print-profiles?name=Mine",
+    "/api/process-presets?name=Mine",
   );
-  // Not the file's printer (an A1): it slices with its default profile, the hand-made one.
+  // Not the file's printer (an A1): it slices with its default preset, the hand-made one.
   await app.api("PATCH", "/api/preferences", {
     defaultPrinterId: (
       await app.api<{ id: string }>("POST", "/api/printers", {
         name: "Main",
         modelId: model.id,
         state: "working",
-        printProfileId: mine.items[0]?.id,
+        processPresetId: mine.items[0]?.id,
       })
     ).id,
   });
@@ -205,8 +205,8 @@ test("plate pickers list the slicer's presets, slots default to the file's, misf
   const warning = section.getByText(/has no preset for “Mine”, so this plate won't slice/).first();
   await expect(warning).toBeVisible();
 
-  const printProfile = section.getByRole("combobox", { name: /^Print profile for/ }).first();
-  await printProfile.click();
+  const processPreset = section.getByRole("combobox", { name: /^Process preset for/ }).first();
+  await processPreset.click();
   const options = page.getByRole("listbox").getByRole("option");
   await expect(options.getByText("Fine", { exact: true })).toBeVisible();
   await expect(options.getByText("Orca Fine", { exact: true })).toHaveCount(0);
@@ -243,7 +243,7 @@ for (const width of [412, 1280])
       ["PLA", "Bambu PLA Matte"],
       ["PETG", "Bambu PETG Basic"],
     ] as const) {
-      insertProfile(app, "filament_profiles", {
+      insertPreset(app, "filament_presets", {
         brandId: brand.id,
         materialId: materials[material],
         densityGcm3: 1.24,
@@ -327,17 +327,17 @@ for (const width of [412, 1280])
       folderPath: join(root, "Two"),
     });
     const model = await seedModel(app.api);
-    const standard = insertProfile(app, "print_profiles", {
+    const standard = insertPreset(app, "process_presets", {
       name: "0.20mm Standard",
       printerModelId: model.id,
     });
-    insertProfile(app, "print_profiles", { name: "0.12mm Fine", printerModelId: model.id });
+    insertPreset(app, "process_presets", { name: "0.12mm Fine", printerModelId: model.id });
     for (const name of ["Main", "Second"])
       await app.api("POST", "/api/printers", {
         name,
         modelId: model.id,
         state: "working",
-        ...(name === "Main" && { printProfileId: standard.id }),
+        ...(name === "Main" && { processPresetId: standard.id }),
       });
     await seedSpool(app.api);
 
@@ -348,7 +348,7 @@ for (const width of [412, 1280])
     await section.getByRole("checkbox", { name: /multi_color\.3mf/ }).check();
     await section.getByRole("checkbox", { name: /single_color\.3mf/ }).check();
     const printers = section.getByRole("combobox", { name: /^Printer for/ });
-    const profiles = section.getByRole("combobox", { name: /^Print profile for/ });
+    const presets = section.getByRole("combobox", { name: /^Process preset for/ });
     const spool = section.getByRole("combobox", { name: /^Spool for .*, slot 1$/ }).first();
     await pick(spool, 1);
     const picked = await spool.inputValue();
@@ -360,17 +360,17 @@ for (const width of [412, 1280])
       await page.getByRole("listbox").getByRole("option").filter({ hasText: name }).click();
     };
     await pickPrinter(defaults.getByRole("combobox", { name: "Printer" }), /Second/);
-    await pick(defaults.getByRole("combobox", { name: "Print profile" }), "0.12mm Fine");
+    await pick(defaults.getByRole("combobox", { name: "Process preset" }), "0.12mm Fine");
     await defaults.getByRole("button", { name: "Apply to 2 plates" }).click();
     for (const i of [0, 1]) {
       await expect(printers.nth(i)).toHaveValue(/Second/);
-      await expect(profiles.nth(i)).toHaveValue("0.12mm Fine");
+      await expect(presets.nth(i)).toHaveValue("0.12mm Fine");
     }
     expect(await hasHorizontalScroll(page)).toBe(false);
 
-    // One plate on its own: a new printer resets its profiles, keeps its spool.
+    // One plate on its own: a new printer resets its presets, keeps its spool.
     await pickPrinter(printers.first(), /Main/);
-    await expect(profiles.first()).toHaveValue("Default (0.20mm Standard)");
-    await expect(profiles.nth(1)).toHaveValue("0.12mm Fine");
+    await expect(presets.first()).toHaveValue("Default (0.20mm Standard)");
+    await expect(presets.nth(1)).toHaveValue("0.12mm Fine");
     await expect(spool).toHaveValue(picked);
   });

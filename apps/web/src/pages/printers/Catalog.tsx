@@ -2,12 +2,12 @@ import {
   type Brand,
   brandFilters,
   type ColumnFilter,
-  type MachineProfile,
-  machineProfileFilters,
+  type MachinePreset,
+  machinePresetFilters,
   type PrinterModel,
-  type PrintProfile,
+  type ProcessPreset,
   printerModelFilters,
-  printProfileFilters,
+  processPresetFilters,
 } from "@3d-maker-suite/core";
 import { Link } from "@tanstack/react-router";
 import { Plus } from "lucide-react";
@@ -22,10 +22,10 @@ import {
   imageUrl,
   useBrands,
   useCatalogWithArchived,
-  useMachineProfiles,
+  useMachinePresets,
   useModelInfo,
   usePrinterModels,
-  usePrintProfiles,
+  useProcessPresets,
 } from "../../lib/catalog.ts";
 import { formatList, formatNumber } from "../../lib/format.ts";
 import { useListPage, useUrlListQuery } from "../../lib/list.ts";
@@ -45,7 +45,7 @@ export function Section<T extends { id: string; archivedAt: string | null }>(pro
   title: string;
   /** The row's name in its Archive and Delete buttons and dialogs. */
   name: (row: T) => string;
-  /** None: rows only come from a slicer's files (profiles, ADR-0020). */
+  /** None: rows only come from a slicer's files (presets, ADR-0020). */
   add?: { to: string; label: string };
   /** Import links, next to the add button. */
   extra?: ReactNode;
@@ -135,23 +135,23 @@ export const editLink = (to: string, id: string, children: ReactNode) => (
   </EditLink>
 );
 
-/** Brands, printer models, machine profiles and print profiles: Catalog → Printers. */
+/** Brands, printer models, machine presets and process presets: Catalog → Printers. */
 export function Catalog() {
   const { t } = useTranslation();
   const brands = useBrands().data ?? [];
   const models = usePrinterModels().data ?? [];
   const info = useModelInfo();
-  const machineProfiles = useMachineProfiles().data ?? [];
-  const printProfiles = usePrintProfiles().data ?? [];
+  const machinePresets = useMachinePresets().data ?? [];
+  const processPresets = useProcessPresets().data ?? [];
   // An active model keeps naming its brand once that is archived.
   const brandOf = new Map(useCatalogWithArchived("brands").data?.map((b) => [b.id, b]));
   const none = t("printers:detail.info.none");
 
   // The slicer library a preset came from (`<library>:<preset>`); hand-made ones have none.
-  // Brands and models have no preset of their own: theirs are their profiles' slicers.
+  // Brands and models have no preset of their own: theirs are their presets' slicers.
   const libraryOf = (source: string | null) => source?.split(":")[0] || null;
   const modelLibraries = new Map<string, Set<string>>();
-  for (const p of [...machineProfiles, ...printProfiles]) {
+  for (const p of [...machinePresets, ...processPresets]) {
     const lib = libraryOf(p.sourcePreset);
     if (!lib || !p.printerModelId) continue;
     modelLibraries.set(
@@ -168,9 +168,9 @@ export function Catalog() {
     const names = [...new Set([...libs].filter((l): l is string => !!l))].map(slicerName).sort();
     return names.length ? formatList(names) : none;
   };
-  // The slicers to filter brands and models by are those their profiles came from.
+  // The slicers to filter brands and models by are those their presets came from.
   const slicerOptions = [
-    ...new Set([...machineProfiles, ...printProfiles].map((p) => libraryOf(p.sourcePreset))),
+    ...new Set([...machinePresets, ...processPresets].map((p) => libraryOf(p.sourcePreset))),
   ]
     .filter((l): l is string => !!l)
     .map((l) => ({ value: l, label: slicerName(l) }));
@@ -276,19 +276,19 @@ export function Catalog() {
           sourceColumn<PrinterModel>(t, models),
         ]}
       />
-      <Section<MachineProfile>
-        kind="machine-profiles"
-        title={t("printers:catalog.profiles.title")}
+      <Section<MachinePreset>
+        kind="machine-presets"
+        title={t("printers:catalog.presets.title")}
         name={(p) => p.name}
         intro={t("catalog:fromFiles")}
-        filters={machineProfileFilters}
+        filters={machinePresetFilters}
         columns={[
           {
             id: "name",
-            header: t("printers:catalog.profiles.name"),
+            header: t("printers:catalog.presets.name"),
             cell: (p) => (
               <Link
-                to="/printers/machine-profiles/$id"
+                to="/printers/machine-presets/$id"
                 params={{ id: p.id }}
                 className="font-medium hover:underline"
               >
@@ -300,7 +300,7 @@ export function Catalog() {
           },
           {
             id: "model",
-            header: t("printers:catalog.profiles.model"),
+            header: t("printers:catalog.presets.model"),
             cell: (p) => info.get(p.printerModelId)?.label,
             sort: "model",
             filter: "printerModelId",
@@ -309,32 +309,32 @@ export function Catalog() {
               label: info.get(m.id)?.label ?? m.model,
             })),
           },
-          brandColumn<MachineProfile>((p) => p.printerModelId),
+          brandColumn<MachinePreset>((p) => p.printerModelId),
           {
             id: "nozzle",
-            header: t("printers:catalog.profiles.nozzle"),
+            header: t("printers:catalog.presets.nozzle"),
             numeric: true,
             cell: (p) => t("printers:catalog.mm", { value: formatNumber(p.nozzleDiameterMm) }),
             sort: "nozzleDiameterMm",
             filter: "nozzleDiameterMm",
           },
-          sourceColumn<MachineProfile>(t, machineProfiles, true),
-          useColumn<MachineProfile>(t),
+          sourceColumn<MachinePreset>(t, machinePresets, true),
+          useColumn<MachinePreset>(t),
         ]}
       />
-      <Section<PrintProfile>
-        kind="print-profiles"
-        title={t("printers:catalog.printProfiles.title")}
+      <Section<ProcessPreset>
+        kind="process-presets"
+        title={t("printers:catalog.processPresets.title")}
         name={(p) => p.name}
         intro={t("catalog:fromFiles")}
-        filters={printProfileFilters}
+        filters={processPresetFilters}
         columns={[
           {
             id: "name",
-            header: t("printers:catalog.printProfiles.name"),
+            header: t("printers:catalog.processPresets.name"),
             cell: (p) => (
               <Link
-                to="/printers/print-profiles/$id"
+                to="/printers/process-presets/$id"
                 params={{ id: p.id }}
                 className="font-medium hover:underline"
               >
@@ -346,7 +346,7 @@ export function Catalog() {
           },
           {
             id: "model",
-            header: t("printers:catalog.printProfiles.model"),
+            header: t("printers:catalog.processPresets.model"),
             cell: (p) => (p.printerModelId ? info.get(p.printerModelId)?.label : none),
             sort: "model",
             filter: "printerModelId",
@@ -355,10 +355,10 @@ export function Catalog() {
               label: info.get(m.id)?.label ?? m.model,
             })),
           },
-          brandColumn<PrintProfile>((p) => p.printerModelId),
+          brandColumn<ProcessPreset>((p) => p.printerModelId),
           {
             id: "nozzle",
-            header: t("printers:catalog.printProfiles.nozzle"),
+            header: t("printers:catalog.processPresets.nozzle"),
             numeric: true,
             cell: (p) =>
               p.nozzleDiameterMm === null
@@ -369,7 +369,7 @@ export function Catalog() {
           },
           {
             id: "layer",
-            header: t("printers:catalog.printProfiles.layer"),
+            header: t("printers:catalog.processPresets.layer"),
             numeric: true,
             cell: (p) =>
               p.layerHeightMm === null
@@ -378,8 +378,8 @@ export function Catalog() {
             sort: "layerHeightMm",
             filter: "layerHeightMm",
           },
-          sourceColumn<PrintProfile>(t, printProfiles, true),
-          useColumn<PrintProfile>(t),
+          sourceColumn<ProcessPreset>(t, processPresets, true),
+          useColumn<ProcessPreset>(t),
         ]}
       />
     </div>

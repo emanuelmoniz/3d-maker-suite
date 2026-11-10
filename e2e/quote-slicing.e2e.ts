@@ -1,11 +1,11 @@
 import { copyFileSync, mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, test } from "./fixtures.ts";
-import { addRoots, insertProfile, pick } from "./helpers.ts";
+import { addRoots, insertPreset, pick } from "./helpers.ts";
 
 const fixture = join(import.meta.dirname, "../packages/3mf/fixtures/multi_color.3mf");
 
-test("quote from a project: filled, profile changed, sliced, file added, saved, reopened the same", async ({
+test("quote from a project: filled, preset changed, sliced, file added, saved, reopened the same", async ({
   page,
   app,
 }) => {
@@ -26,7 +26,7 @@ test("quote from a project: filled, profile changed, sliced, file added, saved, 
     brandId: brand.id,
     model: "A1",
   });
-  insertProfile(app, "print_profiles", {
+  insertPreset(app, "process_presets", {
     name: "Fine",
     printerModelId: a1.id,
     sourcePreset: "mock:system/Fine",
@@ -45,7 +45,7 @@ test("quote from a project: filled, profile changed, sliced, file added, saved, 
   );
   // The project's own setup, sliced: plate 1, 1 h (see `fakeSlice`).
   await app.api("PUT", `/api/projects/${project.id}/slicing`, {
-    plates: [{ file: "benchy.3mf", plate: 1, printProfileId: null, filaments: [] }],
+    plates: [{ file: "benchy.3mf", plate: 1, processPresetId: null, filaments: [] }],
   });
   await app.api("POST", `/api/projects/${project.id}/slicing/run`);
   await expect
@@ -88,8 +88,8 @@ test("quote from a project: filled, profile changed, sliced, file added, saved, 
   await expect(page.getByText("Needs slicing", { exact: true })).toHaveCount(0);
   await expect(energy).toHaveText(/1[.,]00/);
 
-  // Another print profile: that plate needs slicing again, and slices 1.5 h.
-  await pick(page.getByRole("combobox", { name: /^Print profile for/ }).first(), "Fine");
+  // Another process preset: that plate needs slicing again, and slices 1.5 h.
+  await pick(page.getByRole("combobox", { name: /^Process preset for/ }).first(), "Fine");
   await expect(page.getByText("Needs slicing", { exact: true }).first()).toBeVisible();
   await expect(energy).toHaveText(/0[.,]00/);
   await page.getByRole("button", { name: "Slice" }).click();

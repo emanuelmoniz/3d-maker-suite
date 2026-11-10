@@ -193,7 +193,7 @@ export const useCatalogBrands = (id: string, enabled: boolean) =>
     enabled,
   });
 
-/** Adds the picked brands with their models and profiles. */
+/** Adds the picked brands with their models and presets. */
 export const useImportBrands = (id: string) =>
   useInvalidating(
     (pick: ImportCatalogPick) => api<ImportResult>("POST", `/api/import/catalog/${id}`, pick),

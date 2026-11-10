@@ -93,68 +93,68 @@ describe("slicer zip import", () => {
       for (const type of [
         "brands",
         "printerModels",
-        "machineProfiles",
+        "machinePresets",
         "filamentBrands",
         "filamentMaterials",
       ])
         expect((await importAll(id, type)).created).toBeGreaterThan(0);
-      expect((await importAll(id, "filamentProfiles")).created).toBe(2);
+      expect((await importAll(id, "filamentPresets")).created).toBe(2);
 
       // A second upload of the same folder finds everything already there.
       const again = (await upload(await folder(prefix))).json().uploadId;
       for (const type of [
         "brands",
         "printerModels",
-        "machineProfiles",
+        "machinePresets",
         "filamentBrands",
         "filamentMaterials",
-        "filamentProfiles",
+        "filamentPresets",
       ])
         expect((await preview(again, type)).rows.every((r) => r.status === "identical")).toBe(true);
       // Each confirmed review is in the import history.
       const logged = db.select().from(schema.importRuns).all();
       expect(logged).toHaveLength(6);
       expect(logged.every((r) => r.source === "zip" && r.backup)).toBe(true);
-      expect(db.select().from(schema.machineProfiles).all()).toHaveLength(1);
-      expect(db.select().from(schema.filamentProfiles).all()).toHaveLength(2);
-      expect(db.select().from(schema.machineProfiles).get()?.sourcePreset).toBe(
+      expect(db.select().from(schema.machinePresets).all()).toHaveLength(1);
+      expect(db.select().from(schema.filamentPresets).all()).toHaveLength(2);
+      expect(db.select().from(schema.machinePresets).get()?.sourcePreset).toBe(
         "orca-slicer:system/Acme X 0.4",
       );
     },
   );
 
-  it("never matches or updates another slicer's profiles of the same name", async () => {
+  it("never matches or updates another slicer's presets of the same name", async () => {
     const id = (await upload(await folder())).json().uploadId;
     for (const type of ["brands", "printerModels", "filamentBrands", "filamentMaterials"])
       await importAll(id, type);
-    await importAll(id, "machineProfiles");
-    await importAll(id, "filamentProfiles");
+    await importAll(id, "machinePresets");
+    await importAll(id, "filamentPresets");
     // As if Bambu Studio had imported them: same names, its keys, and a hand-edited name.
-    const relabel = (table: typeof schema.machineProfiles | typeof schema.filamentProfiles) =>
+    const relabel = (table: typeof schema.machinePresets | typeof schema.filamentPresets) =>
       db
         .update(table)
         .set({ sourcePreset: sql`replace(${table.sourcePreset}, 'orca-slicer:', 'bambu-studio:')` })
         .run();
-    relabel(schema.machineProfiles);
-    relabel(schema.filamentProfiles);
-    const bambu = db.select().from(schema.filamentProfiles).all();
+    relabel(schema.machinePresets);
+    relabel(schema.filamentPresets);
+    const bambu = db.select().from(schema.filamentPresets).all();
 
     const again = (await upload(await folder())).json().uploadId;
-    for (const type of ["machineProfiles", "filamentProfiles"]) {
+    for (const type of ["machinePresets", "filamentPresets"]) {
       const rows = (await preview(again, type)).rows;
       expect(rows.every((r) => r.status === "new" && !r.targetId)).toBe(true);
     }
-    expect((await importAll(again, "machineProfiles")).created).toBe(1);
-    expect((await importAll(again, "filamentProfiles")).created).toBe(2);
-    const sources = (table: typeof schema.machineProfiles | typeof schema.filamentProfiles) =>
+    expect((await importAll(again, "machinePresets")).created).toBe(1);
+    expect((await importAll(again, "filamentPresets")).created).toBe(2);
+    const sources = (table: typeof schema.machinePresets | typeof schema.filamentPresets) =>
       db
         .select({ s: table.sourcePreset })
         .from(table)
         .all()
         .map((r) => r.s?.split(":")[0])
         .sort();
-    expect(sources(schema.machineProfiles)).toEqual(["bambu-studio", "orca-slicer"]);
-    expect(sources(schema.filamentProfiles)).toEqual([
+    expect(sources(schema.machinePresets)).toEqual(["bambu-studio", "orca-slicer"]);
+    expect(sources(schema.filamentPresets)).toEqual([
       "bambu-studio",
       "bambu-studio",
       "orca-slicer",
@@ -163,7 +163,7 @@ describe("slicer zip import", () => {
     // Bambu Studio's are as they were.
     for (const b of bambu)
       expect(
-        db.select().from(schema.filamentProfiles).where(eq(schema.filamentProfiles.id, b.id)).get(),
+        db.select().from(schema.filamentPresets).where(eq(schema.filamentPresets.id, b.id)).get(),
       ).toEqual(b);
   });
 
@@ -199,7 +199,7 @@ describe("slicer zip import", () => {
   });
 
   describe("a preset missing from a newer zip", () => {
-    const TYPES = ["brands", "filamentBrands", "filamentMaterials", "filamentProfiles"];
+    const TYPES = ["brands", "filamentBrands", "filamentMaterials", "filamentPresets"];
     const mine = JSON.stringify({
       name: "Mine",
       filament_type: ["PETG"],
@@ -238,7 +238,7 @@ describe("slicer zip import", () => {
       expect(snapshots().map((s) => s.integrationId)).toEqual([id]);
 
       expect((await upload(await newer())).statusCode).toBe(200);
-      const url = `/api/import/integration/${id}/userFilamentProfiles`;
+      const url = `/api/import/integration/${id}/userFilamentPresets`;
       const [gone] =
         ((await app.inject({ method: "POST", url })).json() as ImportPreview).gone ?? [];
       expect(gone).toMatchObject({ label: expect.stringContaining("Mine"), dependents: [] });
@@ -247,7 +247,7 @@ describe("slicer zip import", () => {
       expect(
         db
           .select()
-          .from(schema.filamentProfiles)
+          .from(schema.filamentPresets)
           .all()
           .map((p) => p.name),
       ).not.toContain("Mine");

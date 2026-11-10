@@ -186,17 +186,17 @@ export const costsRoutes =
           const s = abs && (await stat(abs).catch(() => null));
           if (!abs || !s || !model?.plates.some((x) => x.index === p.plate))
             throw new HttpError(400, "invalid_reference", `Unknown plate ${p.plate} of ${p.file}`);
-          // Same file (size, mtime) and the same printer, profiles and slicer once resolved: same slice.
+          // Same file (size, mtime) and the same printer, presets and slicer once resolved: same slice.
           const slicers = [p.slicerIntegrationId, project?.slicerIntegrationId];
           const found = slicerOf(slicers);
           const slicer = found?.row;
-          const { printer, machine, fromFile, profileId } = resolve(
+          const { printer, machine, fromFile, presetId } = resolve(
             p,
             model,
             found && presetLibrary(found.adapter),
           );
           const machineId = fromFile ? null : (machine?.id ?? null);
-          const key = `quote:${JSON.stringify([abs, s.size, s.mtimeMs, p.plate, printer?.id ?? null, machineId, profileId, p.filaments, slicer?.id ?? null, slicer?.slicerVersion ?? null, presetsSeq(db)])}`;
+          const key = `quote:${JSON.stringify([abs, s.size, s.mtimeMs, p.plate, printer?.id ?? null, machineId, presetId, p.filaments, slicer?.id ?? null, slicer?.slicerVersion ?? null, presetsSeq(db)])}`;
           // The project's own slice when it sliced exactly this: the slicer's time estimate moves by
           // a few seconds between runs of the same input, so slicing again would not match it.
           const own =
@@ -220,8 +220,8 @@ export const costsRoutes =
             own.fileSize === s.size &&
             own.fileMtimeMs === s.mtimeMs &&
             own.printerId === (printer?.id ?? null) &&
-            own.machineProfileId === p.machineProfileId &&
-            own.slicedPrintProfileId === profileId &&
+            own.machinePresetId === p.machinePresetId &&
+            own.slicedProcessPresetId === presetId &&
             !slicedWithOther(own, slicer, fallback) &&
             !presetsChanged(db)(own) &&
             JSON.stringify(own.filaments) === JSON.stringify(p.filaments)

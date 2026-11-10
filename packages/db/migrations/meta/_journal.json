@@ -771,6 +771,13 @@
       "when": 1794081080668,
       "tag": "0109_device_preset_libraries",
       "breakpoints": true
+    },
+    {
+      "idx": 110,
+      "version": "6",
+      "when": 1794336536230,
+      "tag": "0110_profiles_become_presets",
+      "breakpoints": true
     }
   ]
 }

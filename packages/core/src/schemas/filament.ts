@@ -3,7 +3,7 @@ import { sourceFilter, useFilter } from "./catalog.ts";
 import {
   filamentBrandSchema,
   filamentMaterialSchema,
-  filamentProfileSchema,
+  filamentPresetSchema,
   spoolSchema,
 } from "./entities.ts";
 import { SPOOL_STATUSES } from "./enums.ts";
@@ -84,7 +84,7 @@ export const spoolAdjustSchema = z.object({
   note: z.string().min(1).nullable().optional(),
 });
 
-export const filamentProfileSortFields = [
+export const filamentPresetSortFields = [
   "brand",
   "material",
   "source",
@@ -100,8 +100,8 @@ export const spoolSortFields = [
   "status",
 ] as const;
 
-/** `filament` is the profile label ("brand material name"). */
-export const filamentProfileFilters = {
+/** `filament` is the preset label ("brand material name"). */
+export const filamentPresetFilters = {
   filament: { kind: "text" },
   brandId: { kind: "select" },
   materialId: { kind: "select" },
@@ -125,7 +125,7 @@ export type SpoolPatch = z.infer<typeof spoolPatchSchema>;
 export type SpoolAdjust = z.infer<typeof spoolAdjustSchema>;
 
 /** A filament preset read from a slicer's local library (Bambu Studio, ...). */
-export const libraryPresetSchema = filamentProfileSchema
+export const libraryPresetSchema = filamentPresetSchema
   .pick({
     brand: true,
     material: true,
@@ -161,7 +161,7 @@ export const librarySpoolSchema = spoolSchema
   .extend({
     /** The vendor's id; the server prefixes it with the adapter id (`bambu-cloud:123`). */
     spoolId: z.string().min(1),
-    filament: filamentProfileSchema.pick({ brand: true, material: true, name: true }),
+    filament: filamentPresetSchema.pick({ brand: true, material: true, name: true }),
   });
 
 export type LibraryPreset = z.infer<typeof libraryPresetSchema>;

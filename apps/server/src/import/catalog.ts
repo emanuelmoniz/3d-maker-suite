@@ -28,10 +28,10 @@ const {
   brands,
   filamentBrands,
   filamentMaterials,
-  machineProfiles,
+  machinePresets,
   printerModels,
   printers,
-  printProfiles,
+  processPresets,
   prints,
 } = schema;
 
@@ -39,7 +39,7 @@ type RowError = { column: string; code: ImportErrorCode };
 
 const modelOf = (db: Db, v: ImportValues) => modelIdFor(db, str(v.brand) ?? "", str(v.model) ?? "");
 const hasModel = (v: ImportValues) => !!str(v.brand) && !!str(v.model);
-const printProfileValues = (db: Db, v: ImportValues, row: WriteRow) => ({
+const processPresetValues = (db: Db, v: ImportValues, row: WriteRow) => ({
   name: str(v.name) ?? "",
   printerModelId: hasModel(v) ? modelOf(db, v) : null,
   nozzleDiameterMm: num(v.nozzleDiameterMm),
@@ -47,9 +47,9 @@ const printProfileValues = (db: Db, v: ImportValues, row: WriteRow) => ({
   machinePresets: Array.isArray(row.raw.machinePresets) ? (row.raw.machinePresets as string[]) : [],
 });
 /** A machine preset's `default_print_profile` key, kept with the row besides its columns (`libraryRows`). */
-const defaultPrintPresetOf = (row: WriteRow) =>
-  typeof row.raw.defaultPrintPreset === "string" ? row.raw.defaultPrintPreset : null;
-/** What makes a machine profile another version for the prints made with it. */
+const defaultProcessPresetOf = (row: WriteRow) =>
+  typeof row.raw.defaultProcessPreset === "string" ? row.raw.defaultProcessPreset : null;
+/** What makes a machine preset another version for the prints made with it. */
 const VERSIONED = ["brand", "model", "name", "nozzleDiameterMm"];
 
 /** A file names a printer model you have, as the API takes only one you have. */
@@ -102,9 +102,9 @@ const archivedByName = (targets: ImportTarget[], ...keys: string[]) => {
 type PresetRow = { source: string | null; target: ImportTarget };
 
 /**
- * A preset whose profile you archived comes back by its source key, the newest of its versions
+ * A preset whose preset you archived comes back by its source key, the newest of its versions
  * (`gone` is oldest first); one you never imported, by the brand, model and name of one you
- * archived that no active profile has, of the same slicer library or made by hand (`sameLibrary`).
+ * archived that no active preset has, of the same slicer library or made by hand (`sameLibrary`).
  */
 function archivedPresets(active: PresetRow[], gone: PresetRow[]) {
   const keyOf = (source: string | null | undefined, v: ImportValues) =>
@@ -126,21 +126,21 @@ function archivedPresets(active: PresetRow[], gone: PresetRow[]) {
   };
 }
 
-/** Machine profiles in the shape of the import columns: active by name, archived oldest first. */
+/** Machine presets in the shape of the import columns: active by name, archived oldest first. */
 const machineRows = (db: Db, archived = false): PresetRow[] =>
   db
-    .select({ profile: machineProfiles, model: printerModels.model, brand: brands.name })
-    .from(machineProfiles)
-    .innerJoin(printerModels, eq(printerModels.id, machineProfiles.printerModelId))
+    .select({ preset: machinePresets, model: printerModels.model, brand: brands.name })
+    .from(machinePresets)
+    .innerJoin(printerModels, eq(printerModels.id, machinePresets.printerModelId))
     .innerJoin(brands, eq(brands.id, printerModels.brandId))
-    .where(archivedIs(machineProfiles.archivedAt, archived))
+    .where(archivedIs(machinePresets.archivedAt, archived))
     .orderBy(
       ...(archived
-        ? [machineProfiles.createdAt]
-        : [brands.name, printerModels.model, machineProfiles.name]),
+        ? [machinePresets.createdAt]
+        : [brands.name, printerModels.model, machinePresets.name]),
     )
     .all()
-    .map(({ profile: p, model, brand }) => ({
+    .map(({ preset: p, model, brand }) => ({
       source: p.sourcePreset,
       target: {
         id: p.id,
@@ -151,22 +151,22 @@ const machineRows = (db: Db, archived = false): PresetRow[] =>
           model,
           name: p.name,
           nozzleDiameterMm: p.nozzleDiameterMm,
-          defaultPrintProfile: p.defaultPrintPreset && presetName(p.defaultPrintPreset),
+          defaultProcessPresetName: p.defaultProcessPreset && presetName(p.defaultProcessPreset),
         },
       },
     }));
 
-/** Print profiles in the shape of the import columns: active by name, archived oldest first. */
-const printProfileRows = (db: Db, archived = false): PresetRow[] =>
+/** Process presets in the shape of the import columns: active by name, archived oldest first. */
+const processPresetRows = (db: Db, archived = false): PresetRow[] =>
   db
-    .select({ profile: printProfiles, model: printerModels.model, brand: brands.name })
-    .from(printProfiles)
-    .leftJoin(printerModels, eq(printerModels.id, printProfiles.printerModelId))
+    .select({ preset: processPresets, model: printerModels.model, brand: brands.name })
+    .from(processPresets)
+    .leftJoin(printerModels, eq(printerModels.id, processPresets.printerModelId))
     .leftJoin(brands, eq(brands.id, printerModels.brandId))
-    .where(archivedIs(printProfiles.archivedAt, archived))
-    .orderBy(archived ? printProfiles.createdAt : printProfiles.name)
+    .where(archivedIs(processPresets.archivedAt, archived))
+    .orderBy(archived ? processPresets.createdAt : processPresets.name)
     .all()
-    .map(({ profile: p, model, brand }) => ({
+    .map(({ preset: p, model, brand }) => ({
       source: p.sourcePreset,
       target: {
         id: p.id,
@@ -243,7 +243,7 @@ const materialTargets = (db: Db, archived = false): ImportTarget[] =>
 
 /**
  * What a slicer ships besides filament (printer brands, printer models, machine and print
- * profiles, filament brands and materials), and the same types from a file. Rows are matched on
+ * presets, filament brands and materials), and the same types from a file. Rows are matched on
  * their names. A file names parents you have (a model's brand); a slicer's are created. `dataDir`
  * is where model thumbnails are copied to; empty (tests) = none.
  */
@@ -310,7 +310,7 @@ export function catalogImport(dataDir: string) {
       },
     },
 
-    machineProfiles: {
+    machinePresets: {
       targets: (db) => machineRows(db).map((r) => r.target),
       archived: (db) => archivedPresets(machineRows(db), machineRows(db, true)),
       match: matchRowsOn("brand", "model", "name"),
@@ -320,31 +320,31 @@ export function catalogImport(dataDir: string) {
       bySource: (db) =>
         new Map(
           db
-            .select({ source: machineProfiles.sourcePreset, id: machineProfiles.id })
-            .from(machineProfiles)
-            .where(and(isNotNull(machineProfiles.sourcePreset), isNull(machineProfiles.archivedAt)))
+            .select({ source: machinePresets.sourcePreset, id: machinePresets.id })
+            .from(machinePresets)
+            .where(and(isNotNull(machinePresets.sourcePreset), isNull(machinePresets.archivedAt)))
             .all()
             .map((r) => [r.source ?? "", r.id] as const),
         ),
       missing: printerImport.missing,
       create: (db, v, row) => {
         const made = db
-          .insert(machineProfiles)
+          .insert(machinePresets)
           .values({
             name: str(v.name) ?? "",
             printerModelId: modelOf(db, v),
             nozzleDiameterMm: num(v.nozzleDiameterMm) ?? DEFAULT_NOZZLE,
             sourcePreset: row.source,
-            defaultPrintPreset: defaultPrintPresetOf(row),
+            defaultProcessPreset: defaultProcessPresetOf(row),
           })
           .returning()
           .get();
-        // A printer added before its slicer's catalog gets its machine profile now.
+        // A printer added before its slicer's catalog gets its machine preset now.
         db.update(printers)
-          .set({ machineProfileId: made.id })
+          .set({ machinePresetId: made.id })
           .where(
             and(
-              isNull(printers.machineProfileId),
+              isNull(printers.machinePresetId),
               eq(printers.modelId, made.printerModelId),
               eq(printers.nozzleDiameterMm, made.nozzleDiameterMm),
             ),
@@ -352,62 +352,54 @@ export function catalogImport(dataDir: string) {
           .run();
       },
       /**
-       * The preset's own profile is updated in place, or archived and re-added when a print uses it
+       * The preset's own preset is updated in place, or archived and re-added when a print uses it
        * and what the print was made with changes; printers move to the new version.
        */
       update(db: Db, target: ImportTarget, patch: ImportValues, row: WriteRow) {
-        const cur = db
-          .select()
-          .from(machineProfiles)
-          .where(eq(machineProfiles.id, target.id))
-          .get();
+        const cur = db.select().from(machinePresets).where(eq(machinePresets.id, target.id)).get();
         if (!cur) return;
         const v = { ...target.values, ...patch };
         const values = {
           name: str(v.name) ?? cur.name,
           printerModelId: modelOf(db, v),
           nozzleDiameterMm: num(v.nozzleDiameterMm) ?? cur.nozzleDiameterMm,
-          defaultPrintPreset: defaultPrintPresetOf(row),
+          defaultProcessPreset: defaultProcessPresetOf(row),
         };
         // Nothing to change (one you archived coming back) is never a new version.
         const used =
           VERSIONED.some((k) => k in patch) &&
           row.source &&
           cur.sourcePreset === row.source &&
-          db
-            .select({ id: prints.id })
-            .from(prints)
-            .where(eq(prints.machineProfileId, cur.id))
-            .get();
+          db.select({ id: prints.id }).from(prints).where(eq(prints.machinePresetId, cur.id)).get();
         if (!used) {
-          // A profile made by hand is linked to the preset, so the next run knows it.
-          db.update(machineProfiles)
+          // A preset made by hand is linked to the preset, so the next run knows it.
+          db.update(machinePresets)
             .set({ ...values, sourcePreset: cur.sourcePreset ?? row.source, ...restored(target) })
-            .where(eq(machineProfiles.id, cur.id))
+            .where(eq(machinePresets.id, cur.id))
             .run();
           return;
         }
         // Prints keep the version they were made with.
-        db.update(machineProfiles)
+        db.update(machinePresets)
           .set({ archivedAt: new Date().toISOString() })
-          .where(eq(machineProfiles.id, cur.id))
+          .where(eq(machinePresets.id, cur.id))
           .run();
         const made = db
-          .insert(machineProfiles)
+          .insert(machinePresets)
           .values({ ...values, sourcePreset: cur.sourcePreset })
-          .returning({ id: machineProfiles.id })
+          .returning({ id: machinePresets.id })
           .get();
         db.update(printers)
-          .set({ machineProfileId: made.id })
-          .where(eq(printers.machineProfileId, cur.id))
+          .set({ machinePresetId: made.id })
+          .where(eq(printers.machinePresetId, cur.id))
           .run();
       },
     },
 
     // Brand and model are optional: a process preset can name no printer we know.
-    printProfiles: {
-      targets: (db) => printProfileRows(db).map((r) => r.target),
-      archived: (db) => archivedPresets(printProfileRows(db), printProfileRows(db, true)),
+    processPresets: {
+      targets: (db) => processPresetRows(db).map((r) => r.target),
+      archived: (db) => archivedPresets(processPresetRows(db), processPresetRows(db, true)),
       match: matchRowsOn("brand", "model", "name"),
       sameLibrary: true,
       refs: printerImport.refs,
@@ -416,29 +408,29 @@ export function catalogImport(dataDir: string) {
       bySource: (db) =>
         new Map(
           db
-            .select({ source: printProfiles.sourcePreset, id: printProfiles.id })
-            .from(printProfiles)
-            .where(and(isNotNull(printProfiles.sourcePreset), isNull(printProfiles.archivedAt)))
+            .select({ source: processPresets.sourcePreset, id: processPresets.id })
+            .from(processPresets)
+            .where(and(isNotNull(processPresets.sourcePreset), isNull(processPresets.archivedAt)))
             .all()
             .map((r) => [r.source ?? "", r.id] as const),
         ),
       missing: (db, rows) => printerImport.missing(db, rows.filter(hasModel)),
       create: (db, v, row) =>
         db
-          .insert(printProfiles)
-          .values({ ...printProfileValues(db, v, row), sourcePreset: row.source })
+          .insert(processPresets)
+          .values({ ...processPresetValues(db, v, row), sourcePreset: row.source })
           .run(),
-      // No print points at a print profile, so it is always updated in place.
+      // No print points at a process preset, so it is always updated in place.
       update(db: Db, target: ImportTarget, patch: ImportValues, row: WriteRow) {
-        const cur = db.select().from(printProfiles).where(eq(printProfiles.id, target.id)).get();
+        const cur = db.select().from(processPresets).where(eq(processPresets.id, target.id)).get();
         if (!cur) return;
-        db.update(printProfiles)
+        db.update(processPresets)
           .set({
-            ...printProfileValues(db, { ...target.values, ...patch }, row),
+            ...processPresetValues(db, { ...target.values, ...patch }, row),
             sourcePreset: cur.sourcePreset ?? row.source,
             ...restored(target),
           })
-          .where(eq(printProfiles.id, cur.id))
+          .where(eq(processPresets.id, cur.id))
           .run();
       },
     },

@@ -3,7 +3,7 @@
     "label": "Catalog sections",
     "printers": "Printers",
     "filament": "Filament",
-    "presets": "Presets",
+    "presets": "Preset library",
     "sources": "Sources"
   },
   "sources": {
@@ -53,8 +53,8 @@
     }
   },
   "intro": {
-    "printers": "Add printer brands and models by hand, or let a slicer bring them. Machine and print profiles come only from a slicer: they are its files, so you archive or delete them here and edit them in the slicer.",
-    "filament": "Add filament brands and materials by hand, or let a slicer bring them. Filament profiles come only from a slicer: they are its files, so you archive or delete them here and edit them in the slicer.",
+    "printers": "Add printer brands and models by hand, or let a slicer bring them. Printer and process presets come only from a slicer: they are its files, so you archive or delete them here and edit them in the slicer.",
+    "filament": "Add filament brands and materials by hand, or let a slicer bring them. Filament presets come only from a slicer: they are its files, so you archive or delete them here and edit them in the slicer.",
     "presets": "The user presets the hub's slicer and every slice worker use. A slice that used a changed preset needs slicing again.",
     "sources": "What each slicer and account brings into the catalog, and when. Where they run is under Integrations."
   },
@@ -80,31 +80,31 @@
     "description": "Upload a spreadsheet and review every row before anything is saved."
   },
   "arrive": {
-    "title": "How profiles arrive",
-    "body": "Profiles come only from a slicer. <integrations>Connect a slicer in Integrations</integrations>, or upload <zip>a zip of the slicer's config folder</zip>.",
+    "title": "How presets arrive",
+    "body": "Presets come only from a slicer. <integrations>Connect a slicer in Integrations</integrations>, or upload <zip>a zip of the slicer's config folder</zip>.",
     "where": "Where is the config folder, and what do I zip?"
   },
-  "moved": "Brands, printer models and profiles are in <link>Catalog</link>.",
-  "profile": {
-    "notFound": "Profile not found.",
+  "moved": "Brands, printer models and presets are in <link>Catalog</link>.",
+  "preset": {
+    "notFound": "Preset not found.",
     "openPreset": "Open in Presets",
     "details": "What the app uses",
     "usedBy": "Where it is used",
-    "unused": "Nothing uses this profile."
+    "unused": "Nothing uses this preset."
   },
   "settings": {
     "title": "All settings",
-    "loading": "Reading the profile's file…",
+    "loading": "Reading the preset's file…",
     "loadError": "Could not read the settings. Try again in a moment.",
-    "hand_made": "This profile was made by hand in an older version, so it has no file to read.",
-    "noSource": "{{slicer}}'s files aren't available here, so this profile's settings can't be read. <integrations>Connect {{slicer}} in Integrations</integrations>, or upload a zip of its config folder.",
+    "hand_made": "This preset was made by hand in an older version, so it has no file to read.",
+    "noSource": "{{slicer}}'s files aren't available here, so this preset's settings can't be read. <integrations>Connect {{slicer}} in Integrations</integrations>, or upload a zip of its config folder.",
     "not_found": "{{slicer}} no longer has this preset. It may have been renamed or removed there.",
     "missing": "The parent preset \"{{parent}}\" is not in {{slicer}}'s files, so the values it would give are missing.",
     "search": "Search settings and values",
     "download": "Download JSON",
     "layers": "Show settings from",
     "all": "All ({{count, number}})",
-    "own": "This profile",
+    "own": "This preset",
     "shown": "{{shown}} of {{total}} settings",
     "none": "No setting matches \"{{query}}\".",
     "setting": "Setting",

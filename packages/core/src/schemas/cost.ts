@@ -123,7 +123,7 @@ export const costContextSchema = z.object({
       maintenancePerHour: z.number(),
     }),
   ),
-  /** Average price per kg of the (non-archived) profiles of each material, upper-case key. */
+  /** Average price per kg of the (non-archived) presets of each material, upper-case key. */
   materialPrices: z.record(z.string(), z.number()),
 });
 

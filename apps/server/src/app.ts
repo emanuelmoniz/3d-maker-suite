@@ -47,9 +47,9 @@ import {
   brandsRoutes,
   filamentBrandsRoutes,
   filamentMaterialsRoutes,
-  machineProfilesRoutes,
+  machinePresetsRoutes,
   printerModelsRoutes,
-  printProfilesRoutes,
+  processPresetsRoutes,
 } from "./routes/catalog.ts";
 import { catalogSourcesRoutes } from "./routes/catalogSources.ts";
 import { clientsRoutes } from "./routes/clients.ts";
@@ -65,10 +65,10 @@ import { logsRoutes } from "./routes/logs.ts";
 import { maintenanceRoutes } from "./routes/maintenance.ts";
 import { ordersRoutes } from "./routes/orders.ts";
 import { preferencesRoutes } from "./routes/preferences.ts";
+import { presetFileRoutes } from "./routes/presetFile.ts";
 import { presetsRoutes } from "./routes/presets.ts";
 import { printersRoutes } from "./routes/printers.ts";
 import { printsRoutes } from "./routes/prints.ts";
-import { profileFileRoutes } from "./routes/profileFile.ts";
 import { projectFilesRoutes } from "./routes/projectFiles.ts";
 import { projectSlicingRoutes } from "./routes/projectSlicing.ts";
 import { projectsRoutes } from "./routes/projects.ts";
@@ -81,6 +81,30 @@ import { collectionsRoutes, tagsRoutes } from "./routes/tags.ts";
 import { updatesRoutes } from "./routes/updates.ts";
 import { usersRoutes } from "./routes/users.ts";
 import { createUpdater } from "./updates/updates.ts";
+
+// Before 5.5 presets were profiles (ADR-0021): old API paths, bulk kinds and import types still work.
+const LEGACY_PRESET_SEGMENTS: Record<string, string> = {
+  "machine-profiles": "machine-presets",
+  "print-profiles": "process-presets",
+  "filament-profiles": "filament-presets",
+  machineProfiles: "machinePresets",
+  printProfiles: "processPresets",
+  filamentProfiles: "filamentPresets",
+  userMachineProfiles: "userMachinePresets",
+  userPrintProfiles: "userProcessPresets",
+  userFilamentProfiles: "userFilamentPresets",
+};
+export function legacyPresetUrl(url: string) {
+  const q = url.indexOf("?");
+  const path = q < 0 ? url : url.slice(0, q);
+  if (!path.startsWith("/api/") || !path.includes("rofiles")) return url;
+  const segments = path
+    .split("/")
+    .map((s, i, all) =>
+      s === "profiles" && all[i - 1] === "filament" ? "presets" : (LEGACY_PRESET_SEGMENTS[s] ?? s),
+    );
+  return segments.join("/") + (q < 0 ? "" : url.slice(q));
+}
 
 export async function buildApp(
   db: Db,
@@ -138,6 +162,7 @@ export async function buildApp(
       stream: sink,
     },
     trustProxy: opts.trustProxy ?? false,
+    rewriteUrl: (req) => legacyPresetUrl(req.url ?? "/"),
     // Replaced by the one line per API call below.
     disableRequestLogging: true,
     childLoggerFactory: (log, bindings, o, raw) =>
@@ -307,14 +332,14 @@ export async function buildApp(
   await app.register(printerModelsRoutes(db, dataDir, adapters), {
     prefix: "/api/printer-models",
   });
-  await app.register(machineProfilesRoutes(db, dataDir), { prefix: "/api/machine-profiles" });
-  await app.register(printProfilesRoutes(db, dataDir), { prefix: "/api/print-profiles" });
+  await app.register(machinePresetsRoutes(db, dataDir), { prefix: "/api/machine-presets" });
+  await app.register(processPresetsRoutes(db, dataDir), { prefix: "/api/process-presets" });
   for (const [kind, prefix] of [
-    ["machineProfiles", "/api/machine-profiles"],
-    ["printProfiles", "/api/print-profiles"],
-    ["filamentProfiles", "/api/filament/profiles"],
+    ["machinePresets", "/api/machine-presets"],
+    ["processPresets", "/api/process-presets"],
+    ["filamentPresets", "/api/filament/presets"],
   ] as const)
-    await app.register(profileFileRoutes(db, dataDir, adapters, kind), { prefix });
+    await app.register(presetFileRoutes(db, dataDir, adapters, kind), { prefix });
   await app.register(maintenanceRoutes(db), { prefix: "/api/maintenance" });
   const syncer = createSyncer(db, opts.adapters ?? [], key, logFor("integrations"), dataDir);
   await app.register(filamentRoutes(db), { prefix: "/api/filament" });

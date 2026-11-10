@@ -94,7 +94,7 @@ const BULK: Need = (r, m) => {
 const p = (prefixes: string) => new RegExp(`^/api/(${prefixes})(/|$)`);
 const PRINTERS = "printers|accessories";
 const CATALOG =
-  "brands|printer-models|machine-profiles|print-profiles|filament/profiles|filament-brands|filament-materials";
+  "brands|printer-models|machine-presets|process-presets|filament/presets|filament-brands|filament-materials";
 const ROOTS_OR_SLICERS = either(at("projects", "write"), on("integrations.manage"));
 
 // ADR-0016 permission table: [path, methods (R = GET/HEAD, W = the rest, * = all, or one method),

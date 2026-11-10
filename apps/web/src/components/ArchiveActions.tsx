@@ -58,13 +58,13 @@ const DEPENDENTS: Record<DependentType, { key: string; to?: string }> = {
     key: "common:archive.dependents.printerModel",
     to: "/printers/models/$id/edit",
   },
-  machineProfile: {
-    key: "common:archive.dependents.machineProfile",
-    to: "/printers/machine-profiles/$id",
+  machinePreset: {
+    key: "common:archive.dependents.machinePreset",
+    to: "/printers/machine-presets/$id",
   },
-  printProfile: {
-    key: "common:archive.dependents.printProfile",
-    to: "/printers/print-profiles/$id",
+  processPreset: {
+    key: "common:archive.dependents.processPreset",
+    to: "/printers/process-presets/$id",
   },
   printer: { key: "common:archive.dependents.printer", to: "/printers/$id" },
   accessory: { key: "common:archive.dependents.accessory", to: "/printers/accessories/$id" },
@@ -74,9 +74,9 @@ const DEPENDENTS: Record<DependentType, { key: string; to?: string }> = {
   },
   // A logged task has no page of its own.
   maintenanceTask: { key: "common:archive.dependents.maintenanceTask", to: "/maintenance" },
-  filamentProfile: {
-    key: "common:archive.dependents.filamentProfile",
-    to: "/filament/profiles/$id",
+  filamentPreset: {
+    key: "common:archive.dependents.filamentPreset",
+    to: "/filament/presets/$id",
   },
   spool: { key: "common:archive.dependents.spool", to: "/filament/spools/$id" },
   print: { key: "common:archive.dependents.print", to: "/prints/$id" },

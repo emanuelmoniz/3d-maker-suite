@@ -2390,7 +2390,7 @@ Do Step 1 of the 5.5.0 plan in PLAN.md. Use frontend-design for the wireframes. 
 
 ## Phase 32 - Names and modules
 
-### [ ] Step 2 - Profiles become presets  **[plan mode]**
+### [x] Step 2 - Profiles become presets  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:**
 - Rename in code: tables `machine_profiles`, `print_profiles`, `filament_profiles` to `machine_presets`, `process_presets`, `filament_presets`; columns such as `printers.print_profile_id` and `machine_profile_id`, and plate columns; schemas, services, API paths (`/api/machine-profiles` and the others), hooks and components. One Drizzle migration with table and column renames.

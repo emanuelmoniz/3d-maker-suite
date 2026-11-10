@@ -28,11 +28,11 @@ import {
 } from "../projects/sliceQueue.ts";
 
 const {
-  filamentProfiles,
+  filamentPresets,
   integrations,
-  machineProfiles,
+  machinePresets,
   printers,
-  printProfiles,
+  processPresets,
   projectSlicePlates,
   projects,
   spools,
@@ -40,13 +40,13 @@ const {
 const params = z.object({ id: z.uuid() });
 type Row = typeof projectSlicePlates.$inferSelect;
 
-/** The result columns a saved-again plate keeps when its file and profiles didn't change. */
+/** The result columns a saved-again plate keeps when its file and presets didn't change. */
 const resultOf = (r: Row) => ({
   fileSize: r.fileSize,
   fileMtimeMs: r.fileMtimeMs,
   fileSha256: r.fileSha256,
   slicedAt: r.slicedAt,
-  slicedPrintProfileId: r.slicedPrintProfileId,
+  slicedProcessPresetId: r.slicedProcessPresetId,
   slicedIntegrationId: r.slicedIntegrationId,
   slicedSlicerVersion: r.slicedSlicerVersion,
   slicedPresets: r.slicedPresets,
@@ -133,7 +133,7 @@ export const projectSlicingRoutes =
                 : null;
             const found = slicerOf([r.slicerIntegrationId, slicerIntegrationId]);
             const slicer = found?.row;
-            const { profileId } = resolve(
+            const { presetId } = resolve(
               r,
               meta.models.find((m) => m.file === r.file),
               found && presetLibrary(found.adapter),
@@ -142,9 +142,9 @@ export const projectSlicingRoutes =
               file: r.file,
               plate: r.plate,
               printerId: r.printerId,
-              machineProfileId: r.machineProfileId,
-              printProfileId: r.printProfileId,
-              useDefaultPrintProfile: r.useDefaultPrintProfile,
+              machinePresetId: r.machinePresetId,
+              processPresetId: r.processPresetId,
+              useDefaultProcessPreset: r.useDefaultProcessPreset,
               filaments: r.filaments,
               spools: r.spools,
               kept: r.kept,
@@ -156,7 +156,7 @@ export const projectSlicingRoutes =
                 state !== "missing" &&
                 (!result ||
                   state === "outdated" ||
-                  r.slicedPrintProfileId !== profileId ||
+                  r.slicedProcessPresetId !== presetId ||
                   slicedWithOther(r, slicer, fallback) ||
                   presetsStale(r)),
               job: jobs[i] ?? null,
@@ -197,9 +197,9 @@ export const projectSlicingRoutes =
           .all();
         const free = (
           table:
-            | typeof printProfiles
-            | typeof machineProfiles
-            | typeof filamentProfiles
+            | typeof processPresets
+            | typeof machinePresets
+            | typeof filamentPresets
             | typeof printers,
           ids: string[],
           was: (string | null)[],
@@ -214,27 +214,27 @@ export const projectSlicingRoutes =
               .where(inArray(spools.id, spoolIds))
               .all()
           : [];
-        const printIds = plates.flatMap((p) => (p.printProfileId ? [p.printProfileId] : []));
+        const printIds = plates.flatMap((p) => (p.processPresetId ? [p.processPresetId] : []));
         const filamentIds = plates.flatMap((p) => p.filaments.filter((f): f is string => !!f));
-        const machineIds = plates.flatMap((p) => (p.machineProfileId ? [p.machineProfileId] : []));
+        const machineIds = plates.flatMap((p) => (p.machinePresetId ? [p.machinePresetId] : []));
         if (
           !free(
-            printProfiles,
+            processPresets,
             printIds,
-            own.map((p) => p.printProfileId),
+            own.map((p) => p.processPresetId),
           ) ||
           !free(
-            machineProfiles,
+            machinePresets,
             machineIds,
-            own.map((p) => p.machineProfileId),
+            own.map((p) => p.machinePresetId),
           ) ||
           !free(
-            filamentProfiles,
+            filamentPresets,
             filamentIds,
             own.flatMap((p) => p.filaments),
           )
         )
-          throw new HttpError(400, "invalid_reference", "Unknown profile");
+          throw new HttpError(400, "invalid_reference", "Unknown preset");
         const printerIds = plates.flatMap((p) => (p.printerId ? [p.printerId] : []));
         if (
           !free(
@@ -269,7 +269,7 @@ export const projectSlicingRoutes =
           throw new HttpError(400, "invalid_reference", "Unknown spool");
 
         // Stored resolved, so a stored plate says without its file what it slices with: the printer
-        // filled in, and a machine that isn't the file's on the default profile. A spool never
+        // filled in, and a machine that isn't the file's on the default preset. A spool never
         // sets a slot's preset (ADR-0020).
         const resolve = plateResolver(db);
         const slicerOf = slicerResolver(db, adapters);
@@ -280,7 +280,7 @@ export const projectSlicingRoutes =
           return {
             ...p,
             printerId: printer?.id ?? null,
-            useDefaultPrintProfile: !p.printProfileId && (p.useDefaultPrintProfile || !fromFile),
+            useDefaultProcessPreset: !p.processPresetId && (p.useDefaultProcessPreset || !fromFile),
           };
         });
 
@@ -305,15 +305,15 @@ export const projectSlicingRoutes =
               .values(
                 stored.map((p) => {
                   const fp = fingerprints.get(p.file) as Fingerprint;
-                  // Same file bytes, printer and profiles: the last slice still holds.
+                  // Same file bytes, printer and presets: the last slice still holds.
                   const was = old.find(
                     (o) =>
                       o.file === p.file &&
                       o.plate === p.plate &&
                       o.fileSha256 === fp.fileSha256 &&
                       o.printerId === p.printerId &&
-                      o.machineProfileId === p.machineProfileId &&
-                      o.printProfileId === p.printProfileId &&
+                      o.machinePresetId === p.machinePresetId &&
+                      o.processPresetId === p.processPresetId &&
                       JSON.stringify(o.filaments) === JSON.stringify(p.filaments),
                   );
                   return { ...p, ...fp, ...(was && resultOf(was)), projectId: req.params.id };
@@ -325,7 +325,7 @@ export const projectSlicingRoutes =
       },
     );
 
-    // Queues every plate that needs it (never sliced, file or profiles changed) and returns at once.
+    // Queues every plate that needs it (never sliced, file or presets changed) and returns at once.
     // Waiting ones try their worker again, or with `fallback` slice on the server's own slicer.
     app.post(
       "/:id/slicing/run",

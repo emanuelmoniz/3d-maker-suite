@@ -525,8 +525,8 @@ it("catalog types: an edited export updates the row, a reference you don't have 
   expect(await invalid("printerModels", "brand,model\nNope,Z1\n")).toEqual([
     [{ column: "brand", code: "unresolved" }],
   ]);
-  // Profiles come only from a slicer's files (ADR-0020): no spreadsheet brings or takes them.
-  for (const entity of ["machineProfiles", "printProfiles", "filamentProfiles"]) {
+  // Presets come only from a slicer's files (ADR-0020): no spreadsheet brings or takes them.
+  for (const entity of ["machinePresets", "processPresets", "filamentPresets"]) {
     expect(
       (await post(`/api/import/${entity}/preview`, "name\nFast\n", "text/csv")).statusCode,
     ).toBe(400);

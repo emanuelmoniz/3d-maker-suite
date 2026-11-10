@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test } from "./fixtures.ts";
 
-type Profile = { id: string; name: string };
+type Preset = { id: string; name: string };
 
 test("a preset gone from the slicer waits for a person, who deletes its row", async ({
   page,
@@ -23,9 +23,9 @@ test("a preset gone from the slicer waits for a person, who deletes its row", as
   });
   await app.api("PATCH", `/api/integrations/${id}`, { slicerConfigDir: dir });
   const sync = () =>
-    app.api("POST", `/api/integrations/${id}/sync`, { type: "userFilamentProfiles" });
+    app.api("POST", `/api/integrations/${id}/sync`, { type: "userFilamentPresets" });
   const names = async () =>
-    (await app.api<{ items: Profile[] }>("GET", "/api/filament/profiles")).items.map((p) => p.name);
+    (await app.api<{ items: Preset[] }>("GET", "/api/filament/presets")).items.map((p) => p.name);
   await sync();
   expect((await names()).sort()).toEqual(["Mine", "Other"]);
 
@@ -34,7 +34,7 @@ test("a preset gone from the slicer waits for a person, who deletes its row", as
   await sync();
   expect((await names()).sort()).toEqual(["Mine", "Other"]);
 
-  await page.goto(`/import/integration/${id}/userFilamentProfiles`);
+  await page.goto(`/import/integration/${id}/userFilamentPresets`);
   const gone = page.getByRole("region", { name: "Gone from the slicer" });
   await expect(gone.getByText(/Mine/)).toBeVisible();
   await gone.getByRole("button", { name: /^Delete .*Mine/ }).click();

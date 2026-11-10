@@ -51,7 +51,7 @@ test("hub presets: two PCs' zips in one library, versions, delete", async ({ pag
   await page.goto("/catalog");
   await page
     .getByRole("navigation", { name: "Catalog sections" })
-    .getByRole("link", { name: "Presets" })
+    .getByRole("link", { name: "Preset library" })
     .click();
   await expect(page).toHaveURL(/\/catalog\/presets$/);
   await page.goto("/hub/presets");
@@ -155,7 +155,7 @@ test("slicer presets without hub.manage: an editor's switches, a viewer's list, 
   const side = page.getByRole("complementary");
   const tab = page
     .getByRole("navigation", { name: "Catalog sections" })
-    .getByRole("link", { name: "Presets" });
+    .getByRole("link", { name: "Preset library" });
   const openPresets = async () => {
     await side.getByRole("link", { name: "Catalog" }).click();
     await tab.click();

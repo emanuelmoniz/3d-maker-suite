@@ -63,7 +63,7 @@ describe("parse3mf fixtures (saved without slicing)", () => {
       [3, "PLA", "#A3D8E1"],
       [4, "PLA", "#F99963"],
     ]);
-    expect(plate?.filaments[1]?.profile).toBe("Bambu PLA Matte @BBL A1");
+    expect(plate?.filaments[1]?.preset).toBe("Bambu PLA Matte @BBL A1");
     expect(plate?.printTimeSeconds).toBeNull();
     expect(plate?.filaments[0]?.grams).toBeNull();
   });
@@ -159,13 +159,13 @@ describe("parse3mf fixtures (saved without slicing)", () => {
   });
 
   it("reads the print preset the file was saved with", async () => {
-    expect((await parse3mf(fixture("multi_color"))).printProfile).toBe("0.20mm Standard @BBL A1");
-    expect((await parse3mf(fixture("unsliced"))).printProfile).toBeNull();
+    expect((await parse3mf(fixture("multi_color"))).processPreset).toBe("0.20mm Standard @BBL A1");
+    expect((await parse3mf(fixture("unsliced"))).processPreset).toBeNull();
   });
 
   it("reads the machine preset the file was saved with", async () => {
-    expect((await parse3mf(fixture("multi_color"))).machineProfile).toBe("Bambu Lab A1 0.4 nozzle");
-    expect((await parse3mf(fixture("unsliced"))).machineProfile).toBeNull();
+    expect((await parse3mf(fixture("multi_color"))).machinePreset).toBe("Bambu Lab A1 0.4 nozzle");
+    expect((await parse3mf(fixture("unsliced"))).machinePreset).toBeNull();
   });
 
   it("accepts a Uint8Array", async () => {
@@ -218,11 +218,11 @@ describe("parse3mf sliced data", () => {
         slot: 1,
         type: "PLA",
         color: "#FFFFFF",
-        profile: "Bambu PLA Basic",
+        preset: "Bambu PLA Basic",
         grams: 10.5,
         meters: 3.5,
       },
-      { slot: 2, type: "PETG", color: "#000000", profile: "Bambu PETG HF", grams: 2, meters: 0.7 },
+      { slot: 2, type: "PETG", color: "#000000", preset: "Bambu PETG HF", grams: 2, meters: 0.7 },
     ]);
   });
 

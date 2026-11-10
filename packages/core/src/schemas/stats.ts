@@ -53,7 +53,7 @@ export const statsSchema = z.object({
     project: z.array(group),
     outcome: z.array(group),
     /**
-     * By filament profile + colour. A print's time, energy, wear and maintenance are split over its
+     * By filament preset + colour. A print's time, energy, wear and maintenance are split over its
      * filaments by grams, so the rows add up to the totals (give or take a cent of rounding).
      */
     filament: z.array(group),

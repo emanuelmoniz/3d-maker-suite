@@ -10,8 +10,8 @@ import { FormField, inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { PickerWithAdd } from "../../components/PickerWithAdd.tsx";
 import { TagPicker } from "../../components/TagPicker.tsx";
-import { isConflict, useCatalogItem, useMachineProfiles } from "../../lib/catalog.ts";
-import { spoolName, useProfiles, useSpools } from "../../lib/filament.ts";
+import { isConflict, useCatalogItem, useMachinePresets } from "../../lib/catalog.ts";
+import { spoolName, useFilamentPresets, useSpools } from "../../lib/filament.ts";
 import { formatWeight, toLocalInput } from "../../lib/format.ts";
 import { withOwn } from "../../lib/list.ts";
 import { orderName, useOrder, useOrders } from "../../lib/orders.ts";
@@ -50,7 +50,7 @@ function PrintForm({ print }: { print?: PrintDetail }) {
   );
   const projectLeft = useProjectLeftPrompt();
   const spools = useSpools().data?.items ?? [];
-  const _profiles = useProfiles().data?.items ?? [];
+  const _presets = useFilamentPresets().data?.items ?? [];
   const reasons = usePreferences().data?.values.failureReasons ?? [];
   const create = useCreatePrint();
   const patch = usePatchPrint(print?.id ?? "");
@@ -60,14 +60,14 @@ function PrintForm({ print }: { print?: PrintDetail }) {
   // The select starts on the first printer until the user picks one.
   const [printerId, setPrinterId] = useState(print?.printerId ?? "");
   const modelId = printers.find((p) => p.id === (printerId || printers[0]?.id))?.modelId;
-  // Profiles for the printer's model, plus the one already saved (even if the model changed).
-  const saved = useCatalogItem("machine-profiles", print?.machineProfileId ?? undefined).data;
-  const listed = useMachineProfiles().data ?? [];
-  // An archived profile isn't listed, but the print keeps it.
-  const machineProfiles = (
+  // Presets for the printer's model, plus the one already saved (even if the model changed).
+  const saved = useCatalogItem("machine-presets", print?.machinePresetId ?? undefined).data;
+  const listed = useMachinePresets().data ?? [];
+  // An archived preset isn't listed, but the print keeps it.
+  const machinePresets = (
     saved && !listed.some((mp) => mp.id === saved.id) ? [...listed, saved] : listed
-  ).filter((mp) => mp.printerModelId === modelId || mp.id === print?.machineProfileId);
-  const [machineProfileId, setMachineProfileId] = useState(print?.machineProfileId ?? "");
+  ).filter((mp) => mp.printerModelId === modelId || mp.id === print?.machinePresetId);
+  const [machinePresetId, setMachinePresetId] = useState(print?.machinePresetId ?? "");
   // The filament row a new spool is for.
   const [addSpoolTo, setAddSpoolTo] = useState<number | null>(null);
   const [rows, setRows] = useState<Row[]>(
@@ -110,7 +110,7 @@ function PrintForm({ print }: { print?: PrintDetail }) {
       printerId: text(f, "printer"),
       projectId: text(f, "project") || null,
       orderId: text(f, "order") || null,
-      machineProfileId: text(f, "machineProfile") || null,
+      machinePresetId: text(f, "machinePreset") || null,
       title: text(f, "title"),
       startedAt: new Date(text(f, "startedAt")).toISOString(),
       durationSec: hours || minutes ? Math.round(hours * 3600 + minutes * 60) : null,
@@ -225,18 +225,18 @@ function PrintForm({ print }: { print?: PrintDetail }) {
           )}
         </FormField>
         {modelId && (
-          <FormField label={t("prints:form.machineProfile")}>
+          <FormField label={t("prints:form.machinePreset")}>
             {(p) => (
               <Combobox
                 // Options change with the printer; remount so defaultValue applies.
-                key={`${modelId}:${machineProfiles.length}`}
+                key={`${modelId}:${machinePresets.length}`}
                 {...p}
-                name="machineProfile"
-                defaultValue={machineProfileId}
-                onChange={setMachineProfileId}
+                name="machinePreset"
+                defaultValue={machinePresetId}
+                onChange={setMachinePresetId}
                 options={[
                   { value: "", label: "" },
-                  ...machineProfiles.map((mp) => ({ value: mp.id, label: mp.name })),
+                  ...machinePresets.map((mp) => ({ value: mp.id, label: mp.name })),
                 ]}
               />
             )}

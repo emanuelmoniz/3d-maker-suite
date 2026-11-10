@@ -38,11 +38,11 @@
       "spools": "View spools",
       "brands": "View brands",
       "printerModels": "View printer models",
-      "machineProfiles": "View machine profiles",
-      "printProfiles": "View print profiles",
+      "machinePresets": "View printer presets",
+      "processPresets": "View process presets",
       "filamentBrands": "View filament brands",
       "filamentMaterials": "View filament materials",
-      "filamentProfiles": "View filament profiles"
+      "filamentPresets": "View filament presets"
     },
     "openPrintSetup": "Open print setup",
     "openHub": "Open Hub management",

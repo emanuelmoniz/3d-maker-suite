@@ -1,5 +1,5 @@
 import { expect, test } from "./fixtures.ts";
-import { pick, seedModel, seedPrinter, seedProfile, seedProject } from "./helpers.ts";
+import { pick, seedModel, seedPreset, seedPrinter, seedProject } from "./helpers.ts";
 
 // Every "+ Add …" beside a picker opens a modal; saving there selects the new row in the picker.
 
@@ -14,7 +14,7 @@ test("printer model page: add a brand from the brand picker", async ({ page, app
   await expect(page.getByLabel("Brand")).toHaveValue("Zeta");
 });
 
-test("printer form: add a model from the model picker; profiles come only from a slicer", async ({
+test("printer form: add a model from the model picker; presets come only from a slicer", async ({
   page,
   app,
 }) => {
@@ -27,19 +27,19 @@ test("printer form: add a model from the model picker; profiles come only from a
   await dialog.getByRole("button", { name: "Save" }).click();
   await expect(dialog).toBeHidden();
   await expect(page.getByLabel("Model", { exact: true })).toHaveValue("Q9");
-  await expect(page.getByLabel("Default print profile")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Add print profile" })).toHaveCount(0);
+  await expect(page.getByLabel("Default process preset")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Add process preset" })).toHaveCount(0);
   await expect(page).toHaveURL(/\/printers\/new$/);
 });
 
-test("print form: add a spool; no machine profile is made here", async ({ page, app }) => {
+test("print form: add a spool; no printer preset is made here", async ({ page, app }) => {
   await seedPrinter(app.api);
   await seedProject(app.api);
-  await seedProfile(app);
+  await seedPreset(app);
   await page.goto("/prints/new");
 
-  await expect(page.getByLabel("Machine profile")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Add profile" })).toHaveCount(0);
+  await expect(page.getByLabel("Printer preset")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Add preset" })).toHaveCount(0);
 
   await page.getByRole("button", { name: "Add spool" }).click();
   await page.getByRole("button", { name: "New spool" }).click();
@@ -52,7 +52,7 @@ test("print form: add a spool; no machine profile is made here", async ({ page, 
   await expect(page).toHaveURL(/\/prints\/new$/);
 });
 
-test("spool form: add a new brand and material, no profile needed", async ({ page }) => {
+test("spool form: add a new brand and material, no preset needed", async ({ page }) => {
   await page.goto("/filament/spools/new");
 
   await page.getByRole("button", { name: "Add brand" }).click();

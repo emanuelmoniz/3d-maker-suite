@@ -4,17 +4,17 @@ import { useTranslation } from "react-i18next";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { meQuery, useCan } from "../../lib/auth.ts";
 import { usePreferences } from "../../lib/preferences.ts";
-import { FilamentCatalog, FilamentProfiles } from "../filament/Catalog.tsx";
+import { FilamentCatalog, FilamentPresets } from "../filament/Catalog.tsx";
 import { PresetsTab } from "../hub/PresetsPage.tsx";
 import { Catalog } from "../printers/Catalog.tsx";
-import { ProfilesHint } from "./ProfilesHint.tsx";
+import { PresetsHint } from "./PresetsHint.tsx";
 import { SourcesTab } from "./SourcesTab.tsx";
 
 export const CATALOG_TABS = ["printers", "filament", "presets", "sources"] as const;
 export type CatalogTab = (typeof CATALOG_TABS)[number];
 
 /** The tables of Catalog → Printers: their old `/printers/settings#<id>` lands on them. */
-export const PRINTER_TABLES = ["brands", "printer-models", "machine-profiles", "print-profiles"];
+export const PRINTER_TABLES = ["brands", "printer-models", "machine-presets", "process-presets"];
 
 // Written out so `pnpm i18n:check` sees the keys.
 const INTRO = {
@@ -70,10 +70,10 @@ export function CatalogPage({ tab }: { tab: CatalogTab }) {
         ) : (
           <>
             <FilamentCatalog />
-            <FilamentProfiles />
+            <FilamentPresets />
           </>
         )}
-        {tab !== "presets" && tab !== "sources" && <ProfilesHint />}
+        {tab !== "presets" && tab !== "sources" && <PresetsHint />}
       </div>
     </>
   );

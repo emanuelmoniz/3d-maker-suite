@@ -15,7 +15,7 @@ Decisions behind this document live in [`docs/adr`](adr/):
 | [0007](adr/0007-slicing.md) | Slice with the installed slicer's CLI (Bambu Studio first) |
 | [0010](adr/0010-stay-on-sqlite.md) | Stay on SQLite, no external database servers |
 | [0017](adr/0017-shared-slicer-presets.md) | One hub slicer preset library, shared with desktops through the slicers' own `.info` rules |
-| [0020](adr/0020-catalog-module.md) | One Catalog module; profiles come only from slicer files and are read-only; spools describe the filament |
+| [0020](adr/0020-catalog-module.md) | One Catalog module; presets come only from slicer files and are read-only; spools describe the filament |
 
 ## Packages
 
@@ -43,7 +43,7 @@ flowchart LR
 - **Money:** integer minor units in one app currency, set in Settings.
 - **Display:** all formatting goes through `Intl` (see ADR-0004).
 - **Imported rows:** any row that can come from an integration has `origin: 'manual' | 'integration'`, `integrationId?` and `externalId?`, with a unique constraint on `(integrationId, externalId)`. That makes sync an idempotent upsert.
-- **Catalog:** brands, printer models and machine profiles are hard-deleted, and only while nothing points at them (the API answers 409 `in_use` with the dependents). Imported printers keep sending brand/model strings; sync finds or creates the catalog rows.
+- **Catalog:** brands, printer models and printer presets are hard-deleted, and only while nothing points at them (the API answers 409 `in_use` with the dependents). Imported printers keep sending brand/model strings; sync finds or creates the catalog rows.
 - **Archive and delete:** the 16 archivable entities have `archivedAt`; delete is real and refused while something depends on the item (ADR-0018, [docs/archive-delete.md](archive-delete.md)). History rows keep `ON DELETE RESTRICT` as a backstop.
 - **Dates in queries:** stored as `toISOString()` text, so range filters compare as strings and use the date indexes (`prints.startedAt`).
 
@@ -53,15 +53,15 @@ flowchart LR
 |---|---|---|
 | **Brand** | Printer maker | name (unique, any case), url?, logoPath? |
 | **PrinterModel** | A model of a brand | brandId, model (unique per brand, any case), powerW? (pre-fills new printers), imagePath? (shown for printers without a photo) |
-| **MachineProfile** | Slicer machine preset for a model | name, printerModelId, nozzleDiameterMm, sourcePreset? (`<library>:<preset id>` when imported) |
+| **MachinePreset** | Slicer machine preset for a model | name, printerModelId, nozzleDiameterMm, sourcePreset? (`<library>:<preset id>` when imported) |
 | **Printer** | A physical machine | name, modelId, serial?, nozzleDiameterMm, runtimeOffsetSec, printsOffset (baseline for a used machine), state (from the `printerStates` setting), powerW?, purchasedAt?, purchasePrice?, warrantyEndsAt?, warrantyNotes?, photoPath?, archivedAt? |
 | **PrinterComment** | Note on a printer timeline | printerId, body, pinned, status (`open` | `resolved`) |
 | **MaintenanceType** | Reusable maintenance template | name, intervalSec?, intervalPrints?, intervalDays? (the first one reached triggers), appliesToModelIds[] + appliesToPrinterIds[] (union; empty = all printers) |
 | **MaintenanceTask** | A logged "done" event | printerId, typeId, doneAt, printerRuntimeSecAt, printerPrintsAt, notes? |
 | **FilamentMaterial** | A plastic (PLA, PETG…) | name, densityGcm3?, nozzleTempC?, bedTempC?, pricePerKg? (the default for a spool without a price paid) |
-| **FilamentProfile** | A slicer's filament preset (settings only, no colour) | brand, material, name, diameterMm, densityGcm3, sourcePreset? |
+| **FilamentPreset** | A slicer's filament preset (settings only, no colour) | brand, material, name, diameterMm, densityGcm3, sourcePreset? |
 | **Spool** | A physical roll of filament | brandId?, materialId, name?, colorHex, colorName?, initialGrams, remainingGrams, pricePaid?, purchasedAt?, openedAt?, location?, archivedAt? |
-| **Print** | One print job | printerId, projectId?, noProject (no project on purpose), machineProfileId?, title, plate?, startedAt, durationSec, outcome, failureReason?, notes?, energyWh?, energySource? (`'estimated' \| 'measured'`), costSnapshot? |
+| **Print** | One print job | printerId, projectId?, noProject (no project on purpose), machinePresetId?, title, plate?, startedAt, durationSec, outcome, failureReason?, notes?, energyWh?, energySource? (`'estimated' \| 'measured'`), costSnapshot? |
 | **PrintFilamentUsage** | Filament used by one print, one row per slot (AMS) | printId, spoolId?, grams, slot?, material?, colorHex? |
 | **PrintOutcome** | Value type on Print, no table of its own | `'success' \| 'failed' \| 'cancelled'`, plus an optional failureReason |
 | **Project** | A printable model, usually a 3MF file | name, filePath?, sourceUrl?, thumbnailPath?, meta (plates, estimated time and grams per plate) |
@@ -75,7 +75,7 @@ Notes:
 - **Maintenance "due" is computed, not stored.** It comes from the latest MaintenanceTask for each (printer, type), compared with the printer's current hours, print count and the date.
 - **Printer totals are derived.** Hours and print count are the sum of its Prints plus `runtimeOffsetSec`/`printsOffset`.
 - **Usage keeps the material.** `PrintFilamentUsage.spoolId` can be null for imported prints where the spool is unknown. Its `material` is then what prices it (that material's default), so cost and stats still work.
-- **A spool is not a profile** (ADR-0020). A spool says what is on the shelf (brand, material, name, colour); a profile is a slicer setting. A plate keeps both per slot. A spool's price per kg is its price paid, else its material's default.
+- **A spool is not a preset** (ADR-0020). A spool says what is on the shelf (brand, material, name, colour); a preset is a slicer setting. A plate keeps both per slot. A spool's price per kg is its price paid, else its material's default.
 - **Cost is snapshotted.** `costSnapshot` freezes the computed cost when a print is recorded, so later price changes don't rewrite history (cost engine: Step 19).
 - **Alerts** (ADR-0008) have a kind (the message), a severity (`error`, `warning`, `success`), a module, a task (what raised it) and an optional detail (a sync run's log). At most one unresolved alert exists per (kind, entityType, entityId).
 - **Tag storage** is one polymorphic table, `taggings(tagId, entityType, entityId)`. It has no FK to the tagged row, so a trigger removes the taggings of deleted prints, and the delete helper removes those of other deleted items.
@@ -92,7 +92,7 @@ erDiagram
   Print ||--|{ PrintFilamentUsage : "uses"
   Spool |o--o{ PrintFilamentUsage : "consumed from"
   FilamentMaterial ||--o{ Spool : "is made of"
-  FilamentMaterial ||--o{ FilamentProfile : "is set up for"
+  FilamentMaterial ||--o{ FilamentPreset : "is set up for"
   Collection ||--o{ CollectionProject : "contains"
   Project ||--o{ CollectionProject : "member of"
   Tag }o--o{ Project : "labels"
@@ -100,7 +100,7 @@ erDiagram
   Tag }o--o{ Spool : "labels"
   Integration |o--o{ Printer : "imports"
   Integration |o--o{ Print : "imports"
-  Integration |o--o{ FilamentProfile : "imports"
+  Integration |o--o{ FilamentPreset : "imports"
   Integration |o--o{ Project : "imports"
 ```
 
@@ -162,7 +162,7 @@ interface PrintHistorySource {
 }
 
 interface FilamentLibrarySource {
-  listProfiles(): Promise<ExternalFilamentProfile[]>;
+  listPresets(): Promise<ExternalFilamentPreset[]>;
 }
 
 interface ProjectSource {
@@ -192,7 +192,7 @@ type ExternalPrint = {
   sourceUrl?: string;  // shown, never fetched by core
 };
 
-type ExternalFilamentProfile = {
+type ExternalFilamentPreset = {
   externalId: string; brand: string; material: string; name: string;
   diameterMm: number; densityGcm3?: number;
 };
@@ -224,9 +224,9 @@ sequenceDiagram
 ```
 
 - **Where:** `apps/server/src/integrations/sync.ts`. One run syncs one type. Each integration + type has a policy in `sync_policies`: `mode` (`off`, `manual`, `auto`), `frequency` (`15m`, `1h`, `1d`, `1w`, `1M`), `lastRunAt`, `cursor` and `pending`. Rows are sparse: a type without one follows `defaultPolicy` in `packages/core` (prints auto 1h, printers auto 1d, everything with a preview manual). A croner job ticks every 15 minutes and runs each set-up `auto` type whose frequency has passed since its last successful run, manual or scheduled. A prints run can take a `from`/`to` range, which re-reads that window without moving the incremental start (the prints `cursor`). Each run is logged with its type and range. One run per integration at a time (409 `sync_running`).
-- **Types with a preview** (slicer filament profiles; `apps/server/src/integrations/imports.ts`) need a choice per row, so a run imports only the rows that need none: a user preset whose brand and material are already in the catalog. The rest is counted in `pending` and waits for the preview and confirm flow, which is itself logged as a manual run of that type.
+- **Types with a preview** (slicer filament presets; `apps/server/src/integrations/imports.ts`) need a choice per row, so a run imports only the rows that need none: a user preset whose brand and material are already in the catalog. The rest is counted in `pending` and waits for the preview and confirm flow, which is itself logged as a manual run of that type.
 - **Dedupe is insert-only** on `(integrationId, externalId)`: a row that already exists is skipped, never overwritten, so local edits win. Each incremental run re-fetches prints from its cursor minus 7 days, so prints that finished after the previous run are not missed.
-- **Imported prints** need their printer to be imported by the same integration first; otherwise they are skipped. Filament usages are stored with grams and slot only (spool/profile matching: Step 13).
+- **Imported prints** need their printer to be imported by the same integration first; otherwise they are skipped. Filament usages are stored with grams and slot only (spool/preset matching: Step 13).
 - **Sync log:** `sync_runs` keeps the last 100 runs per integration (trigger, result, error code, created/skipped counts).
 - **Deleting an integration** keeps the imported rows (`integrationId` becomes null) and drops its credentials and sync log.
 

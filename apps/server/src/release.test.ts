@@ -210,7 +210,7 @@ describe.each(KINDS)("%s", (kind) => {
     expect((await patch(false, admin)).json().archivedAt).toBeNull();
 
     const needsManage =
-      /^(printers|accessories|brands|printer-models|machine-profiles|print-profiles|maintenance-types|filament-brands|filament-materials|filament-profiles)$/;
+      /^(printers|accessories|brands|printer-models|machine-presets|process-presets|maintenance-types|filament-brands|filament-materials|filament-presets)$/;
     const asWriter = await patch(true, writer);
     expect(asWriter.statusCode, asWriter.body).toBe(needsManage.test(kind) ? 403 : 200);
 
@@ -395,11 +395,11 @@ describe("a sync after archiving and deleting imported rows", () => {
   const CATALOG: [string, BulkKind][] = [
     ["brands", "brands"],
     ["printerModels", "printer-models"],
-    ["machineProfiles", "machine-profiles"],
-    ["printProfiles", "print-profiles"],
+    ["machinePresets", "machine-presets"],
+    ["processPresets", "process-presets"],
     ["filamentBrands", "filament-brands"],
     ["filamentMaterials", "filament-materials"],
-    ["filamentProfiles", "filament-profiles"],
+    ["filamentPresets", "filament-presets"],
   ];
   it.skipIf(!REAL_DB || !existsSync(STUDIO_PRESETS)).each(CATALOG)(
     "%s from this machine's Bambu Studio: the same, on real presets",
@@ -574,7 +574,7 @@ describe("moving a NAS install to a VPS", () => {
           file: "benchy.3mf",
           plate: 1,
           printerId: a1.json().id,
-          printProfileId: null,
+          processPresetId: null,
           filaments: [],
           slicerIntegrationId,
         },

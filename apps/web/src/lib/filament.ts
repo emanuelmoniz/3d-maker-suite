@@ -1,5 +1,5 @@
 import {
-  type FilamentProfile,
+  type FilamentPreset,
   type Page,
   type Spool,
   type SpoolAdjust,
@@ -22,11 +22,11 @@ async function allOf<T>(url: string): Promise<Page<T>> {
   return { ...first, items: [first, ...rest].flatMap((p) => p.items) };
 }
 
-// A slicer's catalog brings hundreds of profiles: a select must offer them all.
-export const useProfiles = () =>
+// A slicer's catalog brings hundreds of presets: a select must offer them all.
+export const useFilamentPresets = () =>
   useQuery({
-    queryKey: ["filament", "profiles"],
-    queryFn: () => allOf<FilamentProfile>("/api/filament/profiles?"),
+    queryKey: ["filament", "presets"],
+    queryFn: () => allOf<FilamentPreset>("/api/filament/presets?"),
   });
 
 export const useSpools = (tagId = "") =>
@@ -74,7 +74,7 @@ export const useAdjustSpool = () =>
     }),
   );
 
-export const filamentLabel = (p?: FilamentProfile) =>
+export const filamentLabel = (p?: FilamentPreset) =>
   p ? p.name || [p.brand, p.material].filter(Boolean).join(" ") : "";
 
 /**

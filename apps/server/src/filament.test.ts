@@ -15,7 +15,7 @@ import { buildApp } from "./app.ts";
 import { filamentBrandIdFor, filamentMaterialIdFor, spoolName } from "./lib/catalog.ts";
 import { setRemaining, takeFromSpool } from "./lib/spools.ts";
 import { reviewer } from "./testReview.ts";
-import { insertProfile } from "./testSeed.ts";
+import { insertPreset } from "./testSeed.ts";
 
 let db: ReturnType<typeof openDb>;
 let app: Awaited<ReturnType<typeof buildApp>>;
@@ -28,8 +28,8 @@ beforeEach(async () => {
 const send = (method: "POST" | "PATCH", url: string, payload: Record<string, unknown>) =>
   app.inject({ method, url, payload });
 
-const profile = async () =>
-  insertProfile(db, "filamentProfiles", {
+const firstPreset = async () =>
+  insertPreset(db, "filamentPresets", {
     brandId: filamentBrandIdFor(db, "Prusament"),
     materialId: filamentMaterialIdFor(db, "PLA"),
     name: "Galaxy",
@@ -44,11 +44,11 @@ const galaxy = () => ({
 });
 
 describe("filament", () => {
-  it("a spool describes its filament with no profile; archived materials take no new spools", async () => {
+  it("a spool describes its filament with no preset; archived materials take no new spools", async () => {
     const res = await send("POST", "/api/filament/spools", { ...galaxy(), initialGrams: 1000 });
     expect(res.statusCode).toBe(201);
     expect(res.json()).toMatchObject({ brand: "Prusament", material: "PLA", name: "Galaxy" });
-    expect(db.select().from(schema.filamentProfiles).all()).toEqual([]);
+    expect(db.select().from(schema.filamentPresets).all()).toEqual([]);
     // No brand: a generic one.
     const plain = await send("POST", "/api/filament/spools", { materialId: galaxy().materialId });
     expect(plain.json()).toMatchObject({ brandId: null, brand: "", name: null });
@@ -190,9 +190,9 @@ describe("filament", () => {
 });
 
 describe("filament brands and materials", () => {
-  it("are unique by name, case-insensitive, and can't be deleted while a profile or spool uses them", async () => {
-    const p = await profile();
-    expect((await app.inject(`/api/filament/profiles/${p.id}`)).json()).toMatchObject({
+  it("are unique by name, case-insensitive, and can't be deleted while a preset or spool uses them", async () => {
+    const p = await firstPreset();
+    expect((await app.inject(`/api/filament/presets/${p.id}`)).json()).toMatchObject({
       brand: "Prusament",
       material: "PLA",
     });
@@ -207,7 +207,7 @@ describe("filament brands and materials", () => {
       expect(
         (await app.inject({ method: "DELETE", url: `/api/filament-${kind}/${id}` })).statusCode,
       ).toBe(409);
-    expect((await app.inject(`/api/filament/profiles?brandId=${p.brandId}`)).json().total).toBe(1);
+    expect((await app.inject(`/api/filament/presets?brandId=${p.brandId}`)).json().total).toBe(1);
     // A spool's material holds on to it too.
     const material = (await send("POST", "/api/filament-materials", { name: "ASA" })).json();
     await send("POST", "/api/filament/spools", { materialId: material.id });
@@ -258,7 +258,7 @@ describe("filament library", () => {
       ...mockAdapter(mock),
       id: "slicer",
       kind: "local",
-      capabilities: ["filamentProfiles"],
+      capabilities: ["filamentPresets"],
       library,
     };
     app = await buildApp(db, false, dir, {
@@ -273,7 +273,7 @@ describe("filament library", () => {
     ).json().id;
   });
 
-  const profilesUrl = (q = "") => `/api/import/integration/${slicerId}/filamentProfiles${q}`;
+  const presetsUrl = (q = "") => `/api/import/integration/${slicerId}/filamentPresets${q}`;
   const open = async (url: string) => (await review.open(url)).json() as ImportPreview;
   const patchSlicer = (payload: object) =>
     app.inject({ method: "PATCH", url: `/api/integrations/${slicerId}`, payload });
@@ -294,9 +294,9 @@ describe("filament library", () => {
     });
     return id;
   };
-  const addProfile = (name: string) =>
+  const addPreset = (name: string) =>
     db
-      .insert(schema.filamentProfiles)
+      .insert(schema.filamentPresets)
       .values({
         brandId: filamentBrandIdFor(db, "Acme"),
         materialId: filamentMaterialIdFor(db, "PLA"),
@@ -316,14 +316,14 @@ describe("filament library", () => {
   });
 
   it("404s until a config folder exists, then honours the override", async () => {
-    const closed = await review.open(profilesUrl());
+    const closed = await review.open(presetsUrl());
     expect([closed.statusCode, closed.json().error.code]).toEqual([404, "capability_unavailable"]);
     await setDir(dir);
-    expect((await open(profilesUrl())).dir).toBe(dir);
-    expect(await review.rows(profilesUrl())).toEqual(["A:new", "B:new", "S:new"]);
+    expect((await open(presetsUrl())).dir).toBe(dir);
+    expect(await review.rows(presetsUrl())).toEqual(["A:new", "B:new", "S:new"]);
     // Switched off = gone.
-    await patchSlicer({ policies: [{ type: "filamentProfiles", mode: "off" }] });
-    expect((await review.open(profilesUrl())).statusCode).toBe(404);
+    await patchSlicer({ policies: [{ type: "filamentPresets", mode: "off" }] });
+    expect((await review.open(presetsUrl())).statusCode).toBe(404);
   });
 
   const run = (id: string, type: string) =>
@@ -333,29 +333,29 @@ describe("filament library", () => {
       .json()
       .policies.find((p: { type: string }) => p.type === type);
 
-  it("a profiles run imports presets, with the brand and material they need", async () => {
+  it("a presets run imports presets, with the brand and material they need", async () => {
     // No folder yet: refused, and not logged as a failed run.
-    expect((await run(slicerId, "filamentProfiles")).statusCode).toBe(404);
+    expect((await run(slicerId, "filamentPresets")).statusCode).toBe(404);
     expect(db.select().from(schema.syncRuns).all()).toEqual([]);
     await setDir(dir);
 
-    expect((await run(slicerId, "filamentProfiles")).json()).toMatchObject({
-      type: "filamentProfiles",
+    expect((await run(slicerId, "filamentPresets")).json()).toMatchObject({
+      type: "filamentPresets",
       status: "ok",
       created: 3,
     });
     expect(db.select().from(schema.filamentBrands).all()).toMatchObject([{ name: "Acme" }]);
     expect(db.select().from(schema.filamentMaterials).all()).toMatchObject([{ name: "PLA" }]);
-    expect(await policy(slicerId, "filamentProfiles")).toMatchObject({ pending: 0 });
+    expect(await policy(slicerId, "filamentPresets")).toMatchObject({ pending: 0 });
     expect(db.select().from(schema.importRuns).all()).toMatchObject([
-      { source: "integration", type: "filamentProfiles", created: 3, backup: null },
+      { source: "integration", type: "filamentPresets", created: 3, backup: null },
     ]);
-    expect((await run(slicerId, "filamentProfiles")).json()).toMatchObject({
+    expect((await run(slicerId, "filamentPresets")).json()).toMatchObject({
       created: 0,
       skipped: 3,
     });
-    expect(await review.rows(profilesUrl())).toEqual(["A:identical", "B:identical", "S:identical"]);
-    const after = await policy(slicerId, "filamentProfiles");
+    expect(await review.rows(presetsUrl())).toEqual(["A:identical", "B:identical", "S:identical"]);
+    const after = await policy(slicerId, "filamentPresets");
     expect(after).toMatchObject({ mode: "manual", pending: 0 });
     expect(after.lastRunAt).toBeTruthy();
   });
@@ -364,32 +364,32 @@ describe("filament library", () => {
     await setDir(dir);
     filamentBrandIdFor(db, "Acme");
     filamentMaterialIdFor(db, "PLA");
-    await run(slicerId, "filamentProfiles");
+    await run(slicerId, "filamentPresets");
 
-    const twin = addProfile("C");
+    const twin = addPreset("C");
     presets = [preset("A", { nozzleTempC: 235 }), preset("B"), preset("C")];
-    await run(slicerId, "filamentProfiles");
-    const rows = db.select().from(schema.filamentProfiles).all();
+    await run(slicerId, "filamentPresets");
+    const rows = db.select().from(schema.filamentPresets).all();
     expect(rows.find((r) => r.sourcePreset === "fake:system/A")?.nozzleTempC).toBe(235);
     expect(rows.find((r) => r.id === twin)).toMatchObject({ densityGcm3: 1.2, sourcePreset: null });
-    expect(await policy(slicerId, "filamentProfiles")).toMatchObject({ pending: 1 });
+    expect(await policy(slicerId, "filamentPresets")).toMatchObject({ pending: 1 });
 
     // In the review the twin is a matched row: updating it links it to the preset.
-    const p = await open(profilesUrl());
+    const p = await open(presetsUrl());
     const row = p.rows.filter((r) => r.values.name === "C");
     expect(row).toMatchObject([{ status: "changed", targetId: twin, auto: "wait" }]);
     expect((await review.confirm(p, row)).json()).toMatchObject({ created: 0, updated: 1 });
     expect(
       db
         .select()
-        .from(schema.filamentProfiles)
+        .from(schema.filamentPresets)
         .all()
         .find((r) => r.id === twin),
     ).toMatchObject({ densityGcm3: 1.24, sourcePreset: "fake:system/C" });
-    expect(await policy(slicerId, "filamentProfiles")).toMatchObject({ pending: 0 });
+    expect(await policy(slicerId, "filamentPresets")).toMatchObject({ pending: 0 });
   });
 
-  it("a spools run imports each spool with its brand, material and name; no profile needed", async () => {
+  it("a spools run imports each spool with its brand, material and name; no preset needed", async () => {
     mock.spools = [vendorSpool("1", "A"), vendorSpool("2", "PLA Matte"), vendorSpool("3", "PLA")];
     const mockId = await addMock();
     const spoolsUrl = `/api/import/integration/${mockId}/spools`;
@@ -408,7 +408,7 @@ describe("filament library", () => {
       // A name that is only the material is none.
       { sourceSpool: "mock:3", brandId: acme, materialId: pla, name: null },
     ]);
-    expect(db.select().from(schema.filamentProfiles).all()).toEqual([]);
+    expect(db.select().from(schema.filamentPresets).all()).toEqual([]);
     expect(await policy(mockId, "spools")).toMatchObject({ pending: 0 });
     // The log names each spool by its filament and colour.
     expect(db.select().from(schema.syncRuns).get()?.log[0]).toMatchObject({
@@ -430,7 +430,7 @@ describe("filament library", () => {
     expect([failed.statusCode, failed.json().error.code]).toEqual([502, "auth_expired"]);
   });
 
-  it("offers a spool or a profile you archived as a skip; a run leaves it, an update restores it", async () => {
+  it("offers a spool or a preset you archived as a skip; a run leaves it, an update restores it", async () => {
     mock.spools = [vendorSpool("1", "A")];
     const mockId = await addMock();
     await run(mockId, "spools");
@@ -455,26 +455,26 @@ describe("filament library", () => {
     await setDir(dir);
     filamentBrandIdFor(db, "Acme");
     filamentMaterialIdFor(db, "PLA");
-    await run(slicerId, "filamentProfiles");
-    const profile = () =>
+    await run(slicerId, "filamentPresets");
+    const current = () =>
       db
         .select()
-        .from(schema.filamentProfiles)
+        .from(schema.filamentPresets)
         .all()
         .find((x) => x.name === "B");
-    const b = profile();
+    const b = current();
     await app.inject({
       method: "PATCH",
-      url: `/api/filament/profiles/${b?.id}`,
+      url: `/api/filament/presets/${b?.id}`,
       payload: { archived: true },
     });
-    expect((await run(slicerId, "filamentProfiles")).json()).toMatchObject({ created: 0 });
-    const q = await open(profilesUrl());
+    expect((await run(slicerId, "filamentPresets")).json()).toMatchObject({ created: 0 });
+    const q = await open(presetsUrl());
     const row = q.rows.find((r) => r.values.name === "B");
     expect(row).toMatchObject({ status: "identical", action: "skip", targetId: b?.id });
     expect(row?.auto).toBeUndefined();
     await review.confirm(q, row ? [row] : [], { action: "update" });
-    expect(profile()).toMatchObject({ id: b?.id, archivedAt: null });
+    expect(current()).toMatchObject({ id: b?.id, archivedAt: null });
   });
 
   it("leaves an imported spool's new vendor weight for review, and writes it on request", async () => {
@@ -553,7 +553,7 @@ describe("filament library", () => {
   it("imports only the picked presets, once, and links them to the source", async () => {
     await setDir(dir);
     const only = async (name: string) => {
-      const p = await open(profilesUrl());
+      const p = await open(presetsUrl());
       return review.confirm(
         p,
         p.rows.filter((r) => r.values.name === name),
@@ -562,7 +562,7 @@ describe("filament library", () => {
     };
     expect((await only("A")).json()).toMatchObject({ created: 1, updated: 0 });
     expect((await only("A")).json()).toMatchObject({ created: 0 });
-    expect(db.select().from(schema.filamentProfiles).get()?.sourcePreset).toBe("fake:system/A");
+    expect(db.select().from(schema.filamentPresets).get()?.sourcePreset).toBe("fake:system/A");
     // Import found-or-created the brand and material once, by name.
     expect(
       db
@@ -578,13 +578,13 @@ describe("filament library", () => {
         .all()
         .map((m) => m.name),
     ).toEqual(["PLA"]);
-    expect(await review.rows(profilesUrl())).toEqual(["A:identical", "B:new", "S:new"]);
+    expect(await review.rows(presetsUrl())).toEqual(["A:identical", "B:new", "S:new"]);
 
     // Same filament made by hand is its twin: matched, and never created again.
-    addProfile("B");
-    expect(await review.rows(profilesUrl())).toEqual(["A:identical", "B:changed", "S:new"]);
+    addPreset("B");
+    expect(await review.rows(presetsUrl())).toEqual(["A:identical", "B:changed", "S:new"]);
     expect((await only("B")).json()).toMatchObject({ created: 0 });
-    expect(db.select().from(schema.filamentProfiles).all()).toHaveLength(2);
+    expect(db.select().from(schema.filamentPresets).all()).toHaveLength(2);
   });
 
   it("imports spools from the integration's inventory in a review, with the vendor's filament", async () => {

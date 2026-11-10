@@ -61,11 +61,11 @@ const MATRIX: Record<string, [viewer: string, editor: string]> = {
   "/api/maintenance": ["R", "R"],
   "/api/brands": ["R", "R"],
   "/api/printer-models": ["R", "R"],
-  "/api/machine-profiles": ["R", "R"],
+  "/api/machine-presets": ["R", "R"],
   "/api/filament": ["R", "RW"],
   "/api/filament-brands": ["R", "R"],
   "/api/filament-materials": ["R", "R"],
-  "/api/print-profiles": ["R", "R"],
+  "/api/process-presets": ["R", "R"],
   "/api/projects": ["R", "RW"],
   "/api/roots": ["R", "R"],
   "/api/prints": ["R", "RW"],
@@ -75,7 +75,7 @@ const MATRIX: Record<string, [viewer: string, editor: string]> = {
   "/api/accessories/abc/installs": ["R", "RW"],
   "/api/maintenance/tasks": ["R", "RW"],
   "/api/maintenance/types": ["R", "R"],
-  "/api/filament/profiles": ["R", "R"],
+  "/api/filament/presets": ["R", "R"],
   "/api/stats": ["R", "R"],
   "/api/tags": ["R", "RW"],
   // Manage on the item's module, which neither seeded role has on costs.
@@ -178,7 +178,7 @@ describe("permissions", () => {
     const rights = (permissions: Partial<EffectiveRights["permissions"]>) =>
       effectiveRights({ builtIn: null, permissions });
     const modules = rights({ printers: "manage", filament: "manage" });
-    for (const url of ["/api/brands", "/api/filament/profiles", "/api/filament-materials"]) {
+    for (const url of ["/api/brands", "/api/filament/presets", "/api/filament-materials"]) {
       expect(can(rights({ filament: "read" }), url, "GET")).toBe(true);
       expect(can(rights({ catalog: "read" }), url, "GET")).toBe(true);
       expect(can(modules, url, "POST")).toBe(false);
@@ -188,7 +188,7 @@ describe("permissions", () => {
 
     const manage = rights({ catalog: "manage" });
     expect(can(manage, "/api/brands", "POST")).toBe(true);
-    expect(can(manage, "/api/filament/profiles/abc", "DELETE")).toBe(true);
+    expect(can(manage, "/api/filament/presets/abc", "DELETE")).toBe(true);
     expect(can(manage, "/api/bulk/filament-materials", "POST")).toBe(true);
     expect(can(manage, "/api/filament/spools", "GET")).toBe(false);
     expect(can(manage, "/api/printers", "GET")).toBe(false);

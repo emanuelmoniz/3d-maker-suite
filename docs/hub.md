@@ -129,9 +129,9 @@ Use a worker when the hub is on a VPS or an arm64 NAS with no server slicer, or 
 
 On a hub, one library holds the user presets (printer, process, filament) of Bambu Studio and OrcaSlicer. The hub's slicer and every slice worker use it, and a slice that used a changed preset shows as outdated. A single-PC install has no library: it slices with its desktop slicer's own folder.
 
-Open it from **Catalog → Presets** (shown while the hub is on; `/hub/presets` still lands there). A profile imported from a user preset links to its entry here, and the entry links back to the profile. Anyone who can see the catalog or projects can browse and download presets and their earlier versions. Changing things needs **Catalog** write, which Admin and Editor have: delete a preset, clean up conflict copies, and set the two switches below.
+Open it from **Catalog → Preset library** (shown while the hub is on; `/hub/presets` still lands there). A catalog preset imported from a user preset links to its entry here, and the entry links back to it. Anyone who can see the catalog or projects can browse and download presets and their earlier versions. Changing things needs **Catalog** write, which Admin and Editor have: delete a preset, clean up conflict copies, and set the two switches below.
 
-Presets get in from a slicer zip ([slicing.md](slicing.md#profiles)) or from a workstation. Per device and per slicer, in the **Devices** table of each slicer on **Catalog → Sources** (both off by default, and the only place they are set):
+Presets get in from a slicer zip ([slicing.md](slicing.md#presets)) or from a workstation. Per device and per slicer, in the **Devices** table of each slicer on **Catalog → Sources** (both off by default, and the only place they are set):
 
 - **Send presets**: the connector sends each preset saved in that slicer to the hub within a minute. It follows the account the slicer last used, or the signed-out folder. The row shows when a preset it sent was last stored.
 - **Install**: the connector writes the library's presets into that slicer's folder. It waits until the slicer is closed, backs up the folder to a zip first and the preset shows at the slicer's next start. The row shows what waits, and under **Folder and backup** where it writes and the last backup.

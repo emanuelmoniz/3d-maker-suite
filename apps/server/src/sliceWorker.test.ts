@@ -302,7 +302,7 @@ it("slices a plate on the worker; offline, the plate waits and can fall back to 
       capabilities: expect.arrayContaining(["slice"]),
     });
 
-    const plate = { file: "benchy.3mf", plate: 1, printProfileId: null, filaments: [null] };
+    const plate = { file: "benchy.3mf", plate: 1, processPresetId: null, filaments: [null] };
     await send("PUT", `/api/projects/${projectId}/slicing`, { plates: [plate] });
     const slicing = async () => (await send("GET", `/api/projects/${projectId}/slicing`)).json();
     const until = async (ok: (s: { plates: { job: string | null }[] }) => boolean) => {

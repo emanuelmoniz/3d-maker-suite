@@ -220,7 +220,7 @@ describe("bambu studio catalog", () => {
       default_print_profile: "Not here",
     });
     const { machines } = (await bambuStudioLibrary().readCatalog?.(dir)) ?? { machines: [] };
-    const defaults = Object.fromEntries(machines.map((m) => [m.presetId, m.defaultPrintPreset]));
+    const defaults = Object.fromEntries(machines.map((m) => [m.presetId, m.defaultProcessPreset]));
     expect(defaults).toMatchObject({
       "system/Bambu Lab A1 0.4 nozzle": "system/0.20mm Standard @BBL A1",
       "user/My A1": "system/0.20mm Standard @BBL A1", // inherited

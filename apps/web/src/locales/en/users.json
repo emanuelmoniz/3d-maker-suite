@@ -172,7 +172,7 @@
     "stats": "Stats",
     "statsHint": "Read opens the Stats page.",
     "catalog": "Catalog",
-    "catalogHint": "Read sees the catalog and the presets. Write deletes and restores presets and sets what workstations send and install. Manage adds and edits brands, models, materials and profiles, and their import settings.",
+    "catalogHint": "Read sees the catalog and the presets. Write deletes and restores presets and sets what workstations send and install. Manage adds and edits brands, models, materials and presets, and their import settings.",
     "seeAll": "See everyone's projects",
     "seeAllHint": "Off: only projects they own.",
     "editOthers": "Edit everyone's projects",

@@ -166,14 +166,14 @@
     "spools": "Spools",
     "brands": "Printer brands",
     "printerModels": "Printer models",
-    "machineProfiles": "Machine profiles",
-    "printProfiles": "Print profiles",
+    "machinePresets": "Printer presets",
+    "processPresets": "Process presets",
     "filamentBrands": "Filament brands",
     "filamentMaterials": "Filament materials",
-    "filamentProfiles": "Filament profiles",
-    "userMachineProfiles": "User machine profiles",
-    "userPrintProfiles": "User print profiles",
-    "userFilamentProfiles": "User filament profiles",
+    "filamentPresets": "Filament presets",
+    "userMachinePresets": "User printer presets",
+    "userProcessPresets": "User process presets",
+    "userFilamentPresets": "User filament presets",
     "openInSlicer": "Open projects in the slicer",
     "slice": "Slice projects (time and grams)"
   },
@@ -183,7 +183,7 @@
   },
   "catalog": {
     "chooseBrands": "Choose brands",
-    "pickHint": "Pick the printer and filament brands you use. Each one brings its models and its system presets (machine, print and filament profiles). The Catalog and System presets cards then change to \"Only what I already have\", so only what you have is checked for updates. User presets don't change.",
+    "pickHint": "Pick the printer and filament brands you use. Each one brings its models and its system presets (printer, process and filament presets). The Catalog and System presets cards then change to \"Only what I already have\", so only what you have is checked for updates. User presets don't change.",
     "search": "Find a brand",
     "brands": "Printer brands",
     "filamentBrands": "Filament brands",
@@ -303,7 +303,7 @@
     },
     "scopeHints": {
       "all": "Every row the source offers is added and kept up to date.",
-      "imported": "Rows you already have are kept up to date. A new printer, printer model or spool is added only if you have its brand, so a new model of your printer brand still arrives. New slicer presets (machine, print and filament profiles) are never added: only the ones you imported from this slicer are kept up to date. Start with \"Review and import\": filter the brand column, select all and import."
+      "imported": "Rows you already have are kept up to date. A new printer, printer model or spool is added only if you have its brand, so a new model of your printer brand still arrives. New slicer presets (printer, process and filament presets) are never added: only the ones you imported from this slicer are kept up to date. Start with \"Review and import\": filter the brand column, select all and import."
     },
     "userScopeHints": {
       "all": "New presets are added and changed ones updated.",
@@ -375,7 +375,7 @@
     "retry": "Try again",
     "remove": "Remove slicer",
     "removeTitle": "Remove {{name}}'s slicer?",
-    "removeBody": "Its program and profiles are deleted from this server. Slicing with it stops until you install it again. Imported presets stay.",
+    "removeBody": "Its program and presets are deleted from this server. Slicing with it stops until you install it again. Imported presets stay.",
     "progress": "Install progress",
     "phases": {
       "download": "Downloading {{version}}… {{done}} of {{total}}",
@@ -409,8 +409,8 @@
     "takesCatalog": "Once installed, {{name}} on this server becomes the catalog source instead of {{device}}: the catalog then matches the version the hub slices with.",
     "licenceLink": "Licence",
     "source": "Source code of {{version}}",
-    "noProfiles": "This slicer has no folder of yours to read. To use your brands, printers and profiles here, import them from a desktop install of {{name}}:",
-    "fromZip": "To bring your brands, printers and profiles from {{name}} on a computer that isn't connected, import them as a zip:",
+    "noPresets": "This slicer has no folder of yours to read. To use your brands, printers and presets here, import them from a desktop install of {{name}}:",
+    "fromZip": "To bring your brands, printers and presets from {{name}} on a computer that isn't connected, import them as a zip:",
     "zipSteps": {
       "install": "Install {{name}} on any computer and open it once.",
       "folder": "Open its config folder (Help → Show Configuration Folder), or find it yourself:",

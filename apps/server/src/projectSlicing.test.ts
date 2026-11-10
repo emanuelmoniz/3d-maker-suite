@@ -9,7 +9,7 @@ import { buildApp } from "./app.ts";
 import { autoSliceSlicer } from "./projects/autoSlice.ts";
 import { createSliceQueue } from "./projects/sliceQueue.ts";
 import { setRoots } from "./testRoots.ts";
-import { insertProfile } from "./testSeed.ts";
+import { insertPreset } from "./testSeed.ts";
 
 const fixtures = join(import.meta.dirname, "../../../packages/3mf/fixtures");
 
@@ -56,17 +56,17 @@ describe("project slicing setup", () => {
   it("refuses a new pick that is archived; a plate saved unchanged keeps its own", async () => {
     const archive = (url: string) =>
       app.inject({ method: "PATCH", url, payload: { archived: true } });
-    const { id: mine } = insertProfile(db, "printProfiles", { name: "Mine" });
-    const { id: other } = insertProfile(db, "printProfiles", { name: "Other" });
+    const { id: mine } = insertPreset(db, "processPresets", { name: "Mine" });
+    const { id: other } = insertPreset(db, "processPresets", { name: "Other" });
     const plate = { file: "benchy.3mf", plate: 1, filaments: [null] };
-    expect((await put([{ ...plate, printProfileId: mine }])).statusCode).toBe(200);
-    await archive(`/api/print-profiles/${mine}`);
-    await archive(`/api/print-profiles/${other}`);
+    expect((await put([{ ...plate, processPresetId: mine }])).statusCode).toBe(200);
+    await archive(`/api/process-presets/${mine}`);
+    await archive(`/api/process-presets/${other}`);
 
-    const refused = await put([{ ...plate, printProfileId: other }]);
+    const refused = await put([{ ...plate, processPresetId: other }]);
     expect(refused.statusCode).toBe(400);
     expect(refused.json().error.code).toBe("invalid_reference");
-    expect((await put([{ ...plate, printProfileId: mine }])).statusCode).toBe(200);
+    expect((await put([{ ...plate, processPresetId: mine }])).statusCode).toBe(200);
   });
 
   it("saves and reloads, and tells a changed or missing file", async () => {
@@ -75,15 +75,20 @@ describe("project slicing setup", () => {
       canSlice: false,
       canFallback: false,
     });
-    const profile = insertProfile(db, "printProfiles", { name: "0.20mm" });
-    const plate = { file: "benchy.3mf", plate: 1, printProfileId: profile.id, filaments: [null] };
+    const processRow = insertPreset(db, "processPresets", { name: "0.20mm" });
+    const plate = {
+      file: "benchy.3mf",
+      plate: 1,
+      processPresetId: processRow.id,
+      filaments: [null],
+    };
     expect((await put([plate])).statusCode).toBe(200);
     expect((await app.inject(`/api/projects/${id}/slicing`)).json().plates).toEqual([
       {
         ...plate,
         printerId: null, // no printers yet
-        machineProfileId: null,
-        useDefaultPrintProfile: false,
+        machinePresetId: null,
+        useDefaultProcessPreset: false,
         spools: [],
         kept: [],
         slicerIntegrationId: null,
@@ -104,18 +109,18 @@ describe("project slicing setup", () => {
     await rm(file);
     expect(await states()).toEqual(["missing"]);
 
-    // A deleted print profile falls back to the default.
-    await app.inject({ method: "DELETE", url: `/api/print-profiles/${profile.id}` });
-    expect((await app.inject(`/api/projects/${id}/slicing`)).json().plates[0].printProfileId).toBe(
+    // A deleted process preset falls back to the default.
+    await app.inject({ method: "DELETE", url: `/api/process-presets/${processRow.id}` });
+    expect((await app.inject(`/api/projects/${id}/slicing`)).json().plates[0].processPresetId).toBe(
       null,
     );
   });
 
-  it("refuses plates, files and profiles the project doesn't have", async () => {
-    const ok = { file: "benchy.3mf", plate: 1, printProfileId: null, filaments: [] };
+  it("refuses plates, files and presets the project doesn't have", async () => {
+    const ok = { file: "benchy.3mf", plate: 1, processPresetId: null, filaments: [] };
     expect((await put([{ ...ok, plate: 99 }])).statusCode).toBe(400);
     expect((await put([{ ...ok, file: "../other.3mf" }])).statusCode).toBe(400);
-    expect((await put([{ ...ok, printProfileId: crypto.randomUUID() }])).statusCode).toBe(400);
+    expect((await put([{ ...ok, processPresetId: crypto.randomUUID() }])).statusCode).toBe(400);
     expect((await put([{ ...ok, filaments: [crypto.randomUUID()] }])).statusCode).toBe(400);
     expect((await put([ok, ok])).statusCode).toBe(400);
     expect((await put([ok])).statusCode).toBe(200);
@@ -163,7 +168,7 @@ describe("slicing a project (mock slicer)", () => {
 
   it("slices with the plate's slicer, else the project's, else the default", async () => {
     const second = await addSlicer();
-    const plate = { file: "benchy.3mf", plate: 1, printProfileId: null, filaments: [] };
+    const plate = { file: "benchy.3mf", plate: 1, processPresetId: null, filaments: [] };
     const project = (slicerIntegrationId: string | null) =>
       app.inject({ method: "PATCH", url: `/api/projects/${id}`, payload: { slicerIntegrationId } });
 
@@ -205,12 +210,12 @@ describe("slicing a project (mock slicer)", () => {
   });
 
   it("slices, stores the result, re-slices only what changed", async () => {
-    const preset = insertProfile(db, "printProfiles", {
+    const preset = insertPreset(db, "processPresets", {
       name: "Fine",
       sourcePreset: "mock:system/Fine",
     });
     expect(await listSlicing()).toEqual(["none"]);
-    await put([{ file: "benchy.3mf", plate: 1, printProfileId: null, filaments: [] }]);
+    await put([{ file: "benchy.3mf", plate: 1, processPresetId: null, filaments: [] }]);
     expect(await listSlicing()).toEqual(["needed"]);
     expect(await listSlicing("?slicing=needed")).toHaveLength(1);
     expect(await listSlicing("?slicing=done")).toHaveLength(0);
@@ -230,11 +235,11 @@ describe("slicing a project (mock slicer)", () => {
     await run();
     await settled();
     expect(mock.sliced).toHaveLength(1);
-    await put([{ file: "benchy.3mf", plate: 1, printProfileId: null, filaments: [] }]);
+    await put([{ file: "benchy.3mf", plate: 1, processPresetId: null, filaments: [] }]);
     expect((await settled()).plates[0].needsSlicing).toBe(false);
 
-    // Another print profile: re-sliced with its preset.
-    await put([{ file: "benchy.3mf", plate: 1, printProfileId: preset.id, filaments: [] }]);
+    // Another process preset: re-sliced with its preset.
+    await put([{ file: "benchy.3mf", plate: 1, processPresetId: preset.id, filaments: [] }]);
     expect((await settled()).plates[0]).toMatchObject({ needsSlicing: true, result: null });
     await run();
     s = await settled();
@@ -251,14 +256,14 @@ describe("slicing a project (mock slicer)", () => {
     expect(mock.sliced).toHaveLength(3);
   });
 
-  it("keeps the slicer's error on the plate, and refuses a profile that isn't its preset", async () => {
-    const handMade = insertProfile(db, "printProfiles", { name: "Mine", sourcePreset: null });
-    await put([{ file: "benchy.3mf", plate: 1, printProfileId: handMade.id, filaments: [] }]);
+  it("keeps the slicer's error on the plate, and refuses a preset that isn't its preset", async () => {
+    const handMade = insertPreset(db, "processPresets", { name: "Mine", sourcePreset: null });
+    await put([{ file: "benchy.3mf", plate: 1, processPresetId: handMade.id, filaments: [] }]);
     await run();
     expect((await settled()).plates[0]).toMatchObject({ error: "no_preset: Mine", result: null });
     expect(mock.sliced ?? []).toHaveLength(0);
 
-    await put([{ file: "benchy.3mf", plate: 1, printProfileId: null, filaments: [] }]);
+    await put([{ file: "benchy.3mf", plate: 1, processPresetId: null, filaments: [] }]);
     mock.sliceError = "Nothing to be sliced (-50)";
     await run();
     expect((await settled()).plates[0]).toMatchObject({
@@ -274,7 +279,7 @@ describe("slicing a project (mock slicer)", () => {
       url: `/api/projects/${id}`,
       payload: { previewFile: null },
     });
-    await put([{ file: "benchy.3mf", plate: 2, printProfileId: null, filaments: [] }]);
+    await put([{ file: "benchy.3mf", plate: 2, processPresetId: null, filaments: [] }]);
     await run();
     expect((await settled()).plates[0]).toMatchObject({ error: "empty_plate: 2", result: null });
     expect(mock.sliced ?? []).toHaveLength(0);
@@ -285,23 +290,23 @@ describe("slicing a project (mock slicer)", () => {
       (await app.inject({ method: "POST", url, payload })).json();
     const brand = await post("/api/filament-brands", { name: "Acme" });
     const material = await post("/api/filament-materials", { name: "PLA" });
-    const profile = async (name: string, sourcePreset: string | null = null) => {
-      const p = insertProfile(db, "filamentProfiles", {
+    const filamentPreset = async (name: string, sourcePreset: string | null = null) => {
+      const p = insertPreset(db, "filamentPresets", {
         brandId: brand.id,
         materialId: material.id,
         densityGcm3: 1.24,
         name,
       });
-      db.update(schema.filamentProfiles)
+      db.update(schema.filamentPresets)
         .set({ sourcePreset })
-        .where(eq(schema.filamentProfiles.id, p.id))
+        .where(eq(schema.filamentPresets.id, p.id))
         .run();
       return p;
     };
-    const own = await profile("Basic", "mock:system/Basic");
-    const handMade = await profile("Cheap");
-    const orca = await profile("Silk", "orca-slicer:user/Silk");
-    const plate = { file: "benchy.3mf", plate: 1, printProfileId: null };
+    const own = await filamentPreset("Basic", "mock:system/Basic");
+    const handMade = await filamentPreset("Cheap");
+    const orca = await filamentPreset("Silk", "orca-slicer:user/Silk");
+    const plate = { file: "benchy.3mf", plate: 1, processPresetId: null };
 
     await put([{ ...plate, filaments: [own.id, handMade.id] }]);
     await run();
@@ -323,13 +328,13 @@ describe("slicing a project (mock slicer)", () => {
         .where(eq(schema.integrations.id, first))
         .run();
     // Sliced before 0073 (no version stored) counts as the current version.
-    await put([{ file: "benchy.3mf", plate: 1, printProfileId: null, filaments: [] }]);
+    await put([{ file: "benchy.3mf", plate: 1, processPresetId: null, filaments: [] }]);
     await run();
     expect((await settled()).plates[0].needsSlicing).toBe(false);
     version("1.0");
     expect((await settled()).plates[0].needsSlicing).toBe(false);
     await put([]);
-    await put([{ file: "benchy.3mf", plate: 1, printProfileId: null, filaments: [] }]);
+    await put([{ file: "benchy.3mf", plate: 1, processPresetId: null, filaments: [] }]);
     await run();
     expect((await settled()).plates[0].needsSlicing).toBe(false);
     expect(await listSlicing("?slicing=done")).toHaveLength(1);
@@ -359,11 +364,11 @@ describe("slicing a project (mock slicer)", () => {
     // The fixture was saved for a "Bambu Lab A1" with a 0.4 mm nozzle.
     const a1 = await post("/api/printer-models", { brandId: brand.id, model: "A1" });
     const p1s = await post("/api/printer-models", { brandId: brand.id, model: "P1S" });
-    const std = insertProfile(db, "printProfiles", {
+    const std = insertPreset(db, "processPresets", {
       name: "0.20 A1",
       sourcePreset: "mock:system/0.20 A1",
     });
-    const x1c = insertProfile(db, "printProfiles", {
+    const x1c = insertPreset(db, "processPresets", {
       name: "0.20 X1C",
       sourcePreset: "mock:system/0.20 X1C",
     });
@@ -371,18 +376,18 @@ describe("slicing a project (mock slicer)", () => {
       name: "Mine",
       modelId: a1.id,
       state: "working",
-      printProfileId: std.id,
+      processPresetId: std.id,
     });
     const other = await post("/api/printers", {
       name: "Other",
       modelId: p1s.id,
       state: "working",
-      printProfileId: x1c.id,
+      processPresetId: x1c.id,
     });
-    const plate = { file: "benchy.3mf", plate: 1, printProfileId: null, filaments: [] };
+    const plate = { file: "benchy.3mf", plate: 1, processPresetId: null, filaments: [] };
     const last = () => mock.sliced?.at(-1);
 
-    // No printer given: the one that fits the file. No profile: the file's own settings.
+    // No printer given: the one that fits the file. No preset: the file's own settings.
     await put([plate]);
     expect((await settled()).plates[0]).toMatchObject({ printerId: mine.id, needsSlicing: true });
     await run();
@@ -390,20 +395,20 @@ describe("slicing a project (mock slicer)", () => {
     expect(last()?.process).toBeUndefined();
     expect(last()?.machine).toBeUndefined();
 
-    // The printer's default profile.
-    await put([{ ...plate, printerId: mine.id, useDefaultPrintProfile: true }]);
+    // The printer's default preset.
+    await put([{ ...plate, printerId: mine.id, useDefaultProcessPreset: true }]);
     await run();
     await settled();
     expect(last()).toMatchObject({ process: "system/0.20 A1" });
 
-    // Another model: its default profile, always, and its machine preset, which is missing yet.
+    // Another model: its default preset, always, and its machine preset, which is missing yet.
     await put([{ ...plate, printerId: other.id }]);
     let s = await settled();
-    expect(s.plates[0]).toMatchObject({ useDefaultPrintProfile: true, result: null });
+    expect(s.plates[0]).toMatchObject({ useDefaultProcessPreset: true, result: null });
     await run();
     s = await settled();
     expect(s.plates[0].error).toBe("no_machine_preset: Other");
-    insertProfile(db, "machineProfiles", {
+    insertPreset(db, "machinePresets", {
       name: "Bambu Lab P1S 0.4 nozzle",
       printerModelId: p1s.id,
       sourcePreset: "mock:system/Bambu Lab P1S 0.4 nozzle",
@@ -422,7 +427,7 @@ describe("slicing a project (mock slicer)", () => {
     expect((await settled()).plates[0]).toMatchObject({ result: null, needsSlicing: true });
   });
 
-  it("another printer slices with its machine profile, and that profile's default print profile", async () => {
+  it("another printer slices with its machine preset, and that preset's default process preset", async () => {
     const post = async (url: string, payload: object) =>
       (await app.inject({ method: "POST", url, payload })).json();
     const brand = await post("/api/brands", { name: "Bambu Lab" });
@@ -430,72 +435,72 @@ describe("slicing a project (mock slicer)", () => {
     const machine = (
       name: string,
       sourcePreset: string,
-      defaultPrintPreset: string | null = null,
+      defaultProcessPreset: string | null = null,
     ) =>
-      insertProfile(db, "machineProfiles", {
+      insertPreset(db, "machinePresets", {
         name,
         printerModelId: p1s.id,
         sourcePreset,
-        defaultPrintPreset,
+        defaultProcessPreset,
       });
     machine("P1S A", "mock:system/P1S A");
     const b = machine("P1S B", "mock:system/P1S B", "mock:system/0.20 P1S");
     const mine = machine("P1S mine", "mock:user/P1S mine");
-    insertProfile(db, "printProfiles", { name: "0.20 P1S", sourcePreset: "mock:system/0.20 P1S" });
+    insertPreset(db, "processPresets", { name: "0.20 P1S", sourcePreset: "mock:system/0.20 P1S" });
     const other = await post("/api/printers", { name: "Other", modelId: p1s.id, state: "working" });
     await app.inject({
       method: "PATCH",
       url: `/api/printers/${other.id}`,
-      payload: { machineProfileId: b.id },
+      payload: { machinePresetId: b.id },
     });
-    const plate = { file: "benchy.3mf", plate: 1, printProfileId: null, filaments: [] };
+    const plate = { file: "benchy.3mf", plate: 1, processPresetId: null, filaments: [] };
     const last = () => mock.sliced?.at(-1);
 
-    // The printer has no print profile of its own: its machine profile's default.
+    // The printer has no process preset of its own: its machine preset's default.
     await put([{ ...plate, printerId: other.id }]);
     await run();
     expect((await settled()).plates[0]).toMatchObject({ error: null, needsSlicing: false });
     expect(last()).toMatchObject({ machine: "system/P1S B", process: "system/0.20 P1S" });
 
     // A user machine preset never slices (ADR-0007): the slicer's own for the model and nozzle.
-    // The printer's own print profile comes before its machine profile's default.
-    const own = insertProfile(db, "printProfiles", {
+    // The printer's own process preset comes before its machine preset's default.
+    const own = insertPreset(db, "processPresets", {
       name: "Own",
       sourcePreset: "mock:system/Own",
     });
     await app.inject({
       method: "PATCH",
       url: `/api/printers/${other.id}`,
-      payload: { machineProfileId: mine.id, printProfileId: own.id },
+      payload: { machinePresetId: mine.id, processPresetId: own.id },
     });
     await run();
     expect((await settled()).plates[0].error).toBeNull();
     expect(last()).toMatchObject({ machine: "system/P1S A", process: "system/Own" });
   });
 
-  it("a plate's own machine profile (a nozzle swap) slices, and changing it re-slices", async () => {
+  it("a plate's own machine preset (a nozzle swap) slices, and changing it re-slices", async () => {
     const post = async (url: string, payload: object) =>
       (await app.inject({ method: "POST", url, payload })).json();
     const brand = await post("/api/brands", { name: "Bambu Lab" });
     const a1 = await post("/api/printer-models", { brandId: brand.id, model: "A1" });
     const machine = (nozzle: number) =>
-      insertProfile(db, "machineProfiles", {
+      insertPreset(db, "machinePresets", {
         name: `A1 ${nozzle}`,
         printerModelId: a1.id,
         nozzleDiameterMm: nozzle,
         sourcePreset: `mock:system/A1 ${nozzle}`,
-        defaultPrintPreset: `mock:system/0.30 A1 ${nozzle}`,
+        defaultProcessPreset: `mock:system/0.30 A1 ${nozzle}`,
       });
     machine(0.4);
     const swap = machine(0.6);
-    insertProfile(db, "printProfiles", {
+    insertPreset(db, "processPresets", {
       name: "0.30 A1 0.6",
       sourcePreset: "mock:system/0.30 A1 0.6",
       machinePresets: ["mock:system/A1 0.6"],
     });
     // The file's printer: the benchy fixture was saved for a Bambu Lab A1 0.4.
     const mine = await post("/api/printers", { name: "A1", modelId: a1.id, state: "working" });
-    const plate = { file: "benchy.3mf", plate: 1, printerId: mine.id, printProfileId: null };
+    const plate = { file: "benchy.3mf", plate: 1, printerId: mine.id, processPresetId: null };
     const last = () => mock.sliced?.at(-1);
 
     await put([{ ...plate, filaments: [] }]);
@@ -503,13 +508,13 @@ describe("slicing a project (mock slicer)", () => {
     expect((await settled()).plates[0]).toMatchObject({ error: null, needsSlicing: false });
     expect(last()?.machine).toBeUndefined(); // as saved in the file
 
-    // Picking a machine is never the file's: it slices with it and its default print profile.
-    await put([{ ...plate, machineProfileId: swap.id, filaments: [] }]);
+    // Picking a machine is never the file's: it slices with it and its default process preset.
+    await put([{ ...plate, machinePresetId: swap.id, filaments: [] }]);
     const picked = (await settled()).plates[0];
     expect(picked).toMatchObject({
-      machineProfileId: swap.id,
-      useDefaultPrintProfile: true,
-      result: null, // a changed machine profile drops the last slice
+      machinePresetId: swap.id,
+      useDefaultProcessPreset: true,
+      result: null, // a changed machine preset drops the last slice
       needsSlicing: true,
     });
     await run();
@@ -519,7 +524,7 @@ describe("slicing a project (mock slicer)", () => {
     const list = (await app.inject("/api/projects")).json();
     expect(list.items.find((p: { id: string }) => p.id === id).slicing).toBe("done");
 
-    const gone = await put([{ ...plate, machineProfileId: crypto.randomUUID(), filaments: [] }]);
+    const gone = await put([{ ...plate, machinePresetId: crypto.randomUUID(), filaments: [] }]);
     expect(gone.statusCode).toBe(400);
   });
 
@@ -538,7 +543,7 @@ describe("slicing a project (mock slicer)", () => {
       });
     const red = await spool("#ff0000");
     const blue = await spool("#0000ff");
-    const plate = { file: "benchy.3mf", plate: 1, printProfileId: null, filaments: [] };
+    const plate = { file: "benchy.3mf", plate: 1, processPresetId: null, filaments: [] };
 
     expect((await put([{ ...plate, spools: [crypto.randomUUID()] }])).statusCode).toBe(400);
     const saved = (await put([{ ...plate, spools: [red.id] }])).json();
@@ -550,28 +555,28 @@ describe("slicing a project (mock slicer)", () => {
     await put([{ ...plate, spools: [blue.id] }]);
     expect((await settled()).plates[0]).toMatchObject({ needsSlicing: false, spools: [blue.id] });
 
-    // A plate saved before 5.4 kept its spool's profile as the preset: saved again, it stays.
-    const profile = insertProfile(db, "filamentProfiles", {
+    // A plate saved before 5.4 kept its spool's preset as the preset: saved again, it stays.
+    const filament = insertPreset(db, "filamentPresets", {
       brandId: brand.id,
       materialId: material.id,
       densityGcm3: 1.24,
       name: "Acme PLA Basic",
     });
-    await put([{ ...plate, filaments: [profile.id], spools: [blue.id] }]);
+    await put([{ ...plate, filaments: [filament.id], spools: [blue.id] }]);
     await run();
     await settled();
     // Keep is stored with the plate and slices the same.
-    await put([{ ...plate, filaments: [profile.id], spools: [red.id], kept: [red.id] }]);
+    await put([{ ...plate, filaments: [filament.id], spools: [red.id], kept: [red.id] }]);
     expect((await settled()).plates[0]).toMatchObject({
       needsSlicing: false,
-      filaments: [profile.id],
+      filaments: [filament.id],
       kept: [red.id],
     });
     await put([{ ...plate, spools: [red.id] }]);
     expect((await settled()).plates[0]).toMatchObject({ needsSlicing: true, filaments: [] });
   });
 
-  it("slices a quote's plates: a project's with another profile and an uploaded 3MF", async () => {
+  it("slices a quote's plates: a project's with another preset and an uploaded 3MF", async () => {
     const upload = (name: string, body: Buffer | string) =>
       app.inject({
         method: "POST",
@@ -590,13 +595,13 @@ describe("slicing a project (mock slicer)", () => {
     // The same bytes again: the same file.
     expect((await upload("Copy.3mf", bytes)).json().id).toBe(fileId);
 
-    const preset = insertProfile(db, "printProfiles", {
+    const preset = insertPreset(db, "processPresets", {
       name: "Fine",
       sourcePreset: "mock:system/Fine",
     });
     const plates = [
-      { file: "benchy.3mf", plate: 1, printProfileId: preset.id, filaments: [] },
-      { file: model.file, plate: 1, printProfileId: null, filaments: [] },
+      { file: "benchy.3mf", plate: 1, processPresetId: preset.id, filaments: [] },
+      { file: model.file, plate: 1, processPresetId: null, filaments: [] },
     ];
     const slice = async (run: boolean, body: object = { projectId: id, plates }) =>
       app.inject({ method: "POST", url: "/api/costs/slice", payload: { ...body, run } });
@@ -630,7 +635,7 @@ describe("slicing a project (mock slicer)", () => {
   });
 
   it("gives a quote the project's own slice when its setup is the project's", async () => {
-    await put([{ file: "benchy.3mf", plate: 1, printProfileId: null, filaments: [] }]);
+    await put([{ file: "benchy.3mf", plate: 1, processPresetId: null, filaments: [] }]);
     await run();
     const [saved] = (await settled()).plates;
     expect(mock.sliced).toHaveLength(1);
@@ -638,8 +643,8 @@ describe("slicing a project (mock slicer)", () => {
       file: saved.file,
       plate: saved.plate,
       printerId: saved.printerId,
-      printProfileId: saved.printProfileId,
-      useDefaultPrintProfile: saved.useDefaultPrintProfile,
+      processPresetId: saved.processPresetId,
+      useDefaultProcessPreset: saved.useDefaultProcessPreset,
       filaments: saved.filaments,
       spools: saved.spools,
     };
@@ -657,7 +662,7 @@ describe("slicing a project (mock slicer)", () => {
     /** Slices plate 1 with a setup for `slots` slots, so a 4-slot file fits it or not. */
     async function sliced(slots = 4) {
       await put([
-        { file: "benchy.3mf", plate: 1, printProfileId: null, filaments: Array(slots).fill(null) },
+        { file: "benchy.3mf", plate: 1, processPresetId: null, filaments: Array(slots).fill(null) },
       ]);
       await run();
       await settled();

@@ -3,10 +3,10 @@ import { Trans, useTranslation } from "react-i18next";
 import { useZipSources } from "../../lib/slicerCatalog.ts";
 
 /**
- * How profiles arrive, under the profile tables. The zip steps are the ones of the zip page
+ * How presets arrive, under the preset tables. The zip steps are the ones of the zip page
  * (`import:zip.steps.*`); the zip link leads to each slicer's zip on Catalog → Sources.
  */
-export function ProfilesHint() {
+export function PresetsHint() {
   const { t } = useTranslation();
   const sources = useZipSources().data ?? [];
   return (

@@ -79,7 +79,7 @@ export const integrationSchema = z.object({
   adapterId: z.string().min(1),
   /** The adapter's kind; the hub groups by it. */
   kind: z.enum(INTEGRATION_KINDS),
-  /** Its presets are `<presetLibrary>:<preset>` profiles (a slicer's local and server kinds share it). */
+  /** Its presets are `<presetLibrary>:<preset>` presets (a slicer's local and server kinds share it). */
   presetLibrary: z.string().nullable(),
   /** A worker's device name ("Bambu Studio (WS-3)"); null for other kinds. */
   deviceName: z.string().nullable().optional(),
@@ -104,12 +104,12 @@ export const integrationSchema = z.object({
 });
 
 /**
- * Where a catalog row came from (ADR-0020), in lists and gets: "hand", a profile's
+ * Where a catalog row came from (ADR-0020), in lists and gets: "hand", a preset's
  * `<library>:system` / `<library>:user`, or the adapter that imported one of the four catalog types.
  */
 export const catalogSource = z.string().optional();
-/** A profile's "in use" (ADR-0019, presets that inherit from it aside), in lists. */
-export const profileUse = z.enum(["used", "unused"]).optional();
+/** A preset's "in use" (ADR-0019, presets that inherit from it aside), in lists. */
+export const presetUse = z.enum(["used", "unused"]).optional();
 
 export const brandSchema = z.object({
   id,
@@ -135,37 +135,37 @@ export const printerModelSchema = z.object({
   ...timestamps,
 });
 
-export const machineProfileSchema = z.object({
+export const machinePresetSchema = z.object({
   id,
   name: z.string().min(1),
   printerModelId: id,
   nozzleDiameterMm: z.number().positive(),
-  /** Preset this profile was imported from, `<library>:<preset id>`; null for an older hand-made one. */
+  /** Preset this preset was imported from, `<library>:<preset id>`; null for an older hand-made one. */
   sourcePreset: z.string().nullable(),
-  /** Its `default_print_profile`, as a print profile's `sourcePreset`; null when the slicer names none. */
-  defaultPrintPreset: z.string().nullable(),
+  /** Its `default_print_profile`, as a process preset's `sourcePreset`; null when the slicer names none. */
+  defaultProcessPreset: z.string().nullable(),
   /** Archived by you, or an older version of an imported preset that prints still point at. */
   archivedAt: isoDate.nullable(),
   source: catalogSource,
-  use: profileUse,
+  use: presetUse,
   ...timestamps,
 });
 
 /** A slicer process preset: layer height, walls, infill, supports, speeds. */
-export const printProfileSchema = z.object({
+export const processPresetSchema = z.object({
   id,
   name: z.string().min(1),
   /** The printer model it is made for; null when the preset names none we know. */
   printerModelId: id.nullable(),
   nozzleDiameterMm: z.number().positive().nullable(),
   layerHeightMm: z.number().positive().nullable(),
-  /** Preset this profile was imported from, `<library>:<preset id>`; null for an older hand-made one. */
+  /** Preset this preset was imported from, `<library>:<preset id>`; null for an older hand-made one. */
   sourcePreset: z.string().nullable(),
-  /** Every machine of its `compatible_printers`, as machine profiles' `sourcePreset`. */
+  /** Every machine of its `compatible_printers`, as machine presets' `sourcePreset`. */
   machinePresets: z.array(z.string()),
   archivedAt: isoDate.nullable(),
   source: catalogSource,
-  use: profileUse,
+  use: presetUse,
   ...timestamps,
 });
 
@@ -193,10 +193,10 @@ export const printerSchema = z.object({
   includeMaintenanceCost: z.boolean().nullable(),
   /** Off: adds no wear or maintenance. Null = `Preferences.printerCountInCosts`. */
   countInCosts: z.boolean().nullable(),
-  /** Default print profile for slicing a project's plates on this printer. */
-  printProfileId: id.nullable(),
-  /** Its machine profile: picked, else set on its own from model and nozzle. */
-  machineProfileId: id.nullable(),
+  /** Default process preset for slicing a project's plates on this printer. */
+  processPresetId: id.nullable(),
+  /** Its machine preset: picked, else set on its own from model and nozzle. */
+  machinePresetId: id.nullable(),
   /** Relative to the data directory. */
   photoPath: z.string().nullable(),
   archivedAt: isoDate.nullable(),
@@ -318,7 +318,7 @@ export const filamentBrandSchema = z.object({
 export const filamentMaterialSchema = z.object({
   id,
   name: z.string().min(1),
-  /** Pre-fill a new profile of this material. */
+  /** Pre-fill a new preset of this material. */
   nozzleTempC: z.number().int().positive().nullable(),
   bedTempC: z.number().int().nonnegative().nullable(),
   densityGcm3: z.number().positive().nullable(),
@@ -329,7 +329,7 @@ export const filamentMaterialSchema = z.object({
   ...timestamps,
 });
 
-export const filamentProfileSchema = z.object({
+export const filamentPresetSchema = z.object({
   id,
   brandId: id.nullable(),
   materialId: id,
@@ -341,11 +341,11 @@ export const filamentProfileSchema = z.object({
   densityGcm3: z.number().positive(),
   nozzleTempC: z.number().int().positive().nullable(),
   bedTempC: z.number().int().nonnegative().nullable(),
-  /** Preset this profile was imported from, `<library>:<preset id>`; null for an older hand-made one. */
+  /** Preset this preset was imported from, `<library>:<preset id>`; null for an older hand-made one. */
   sourcePreset: z.string().nullable(),
   archivedAt: isoDate.nullable(),
   source: catalogSource,
-  use: profileUse,
+  use: presetUse,
   ...timestamps,
 });
 
@@ -405,7 +405,7 @@ export const printSchema = z
     projectId: id.nullable(),
     /** The order it was printed for; its project is one of the order's. */
     orderId: id.nullable(),
-    machineProfileId: id.nullable(),
+    machinePresetId: id.nullable(),
     title: z.string().min(1),
     plate: z.number().int().positive().nullable(),
     startedAt: isoDate,
@@ -489,8 +489,8 @@ export const alertSchema = z.object({
 export type Integration = z.infer<typeof integrationSchema>;
 export type Brand = z.infer<typeof brandSchema>;
 export type PrinterModel = z.infer<typeof printerModelSchema>;
-export type MachineProfile = z.infer<typeof machineProfileSchema>;
-export type PrintProfile = z.infer<typeof printProfileSchema>;
+export type MachinePreset = z.infer<typeof machinePresetSchema>;
+export type ProcessPreset = z.infer<typeof processPresetSchema>;
 export type Printer = z.infer<typeof printerSchema>;
 export type PrinterComment = z.infer<typeof printerCommentSchema>;
 export type Accessory = z.infer<typeof accessorySchema>;
@@ -500,7 +500,7 @@ export type MaintenanceType = z.infer<typeof maintenanceTypeSchema>;
 export type MaintenanceTask = z.infer<typeof maintenanceTaskSchema>;
 export type FilamentBrand = z.infer<typeof filamentBrandSchema>;
 export type FilamentMaterial = z.infer<typeof filamentMaterialSchema>;
-export type FilamentProfile = z.infer<typeof filamentProfileSchema>;
+export type FilamentPreset = z.infer<typeof filamentPresetSchema>;
 export type Spool = z.infer<typeof spoolSchema>;
 export type SpoolWeightEntry = z.infer<typeof spoolWeightEntrySchema>;
 export type Print = z.infer<typeof printSchema>;

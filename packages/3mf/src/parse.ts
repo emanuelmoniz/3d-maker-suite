@@ -7,8 +7,8 @@ export interface ThreeMfFilament {
   type: string | null;
   /** `#RRGGBB` (Bambu may append alpha, kept as-is). */
   color: string | null;
-  /** Slicer filament profile name, e.g. "Bambu PLA Matte @BBL A1". */
-  profile: string | null;
+  /** Slicer filament preset name, e.g. "Bambu PLA Matte @BBL A1". */
+  preset: string | null;
   /** Only present when the file was sliced. */
   grams: number | null;
   meters: number | null;
@@ -43,9 +43,9 @@ export interface ThreeMfInfo {
   slicer: { name: string; version: string | null } | null;
   printerModel: string | null;
   /** The print (process) preset the file was saved with, e.g. "0.20mm Standard @BBL A1". */
-  printProfile: string | null;
+  processPreset: string | null;
   /** The machine (printer) preset it was saved with, e.g. "Bambu Lab A1 0.4 nozzle". */
-  machineProfile: string | null;
+  machinePreset: string | null;
   nozzleDiameter: number | null;
   sliced: boolean;
   multicolor: boolean;
@@ -333,12 +333,12 @@ export async function parse3mf(source: ThreeMfSource): Promise<ThreeMfInfo> {
 
     const types = (project.filament_type as string[] | undefined) ?? [];
     const colors = (project.filament_colour as string[] | undefined) ?? [];
-    const profiles = (project.filament_settings_id as string[] | undefined) ?? [];
+    const presets = (project.filament_settings_id as string[] | undefined) ?? [];
     const filament = (slot: number, over?: Node): ThreeMfFilament => ({
       slot,
       type: str(over?.["@_type"]) ?? str(types[slot - 1]),
       color: str(over?.["@_color"]) ?? str(colors[slot - 1]),
-      profile: str(profiles[slot - 1]),
+      preset: str(presets[slot - 1]),
       grams: num(over?.["@_used_g"]),
       meters: num(over?.["@_used_m"]),
     });
@@ -441,8 +441,8 @@ export async function parse3mf(source: ThreeMfSource): Promise<ThreeMfInfo> {
       partColors: partColors(build, partSlot, colors),
       slicer: parseSlicer(head),
       printerModel: str(project.printer_model),
-      printProfile: str(project.print_settings_id),
-      machineProfile: str(project.printer_settings_id),
+      processPreset: str(project.print_settings_id),
+      machinePreset: str(project.printer_settings_id),
       nozzleDiameter: num((project.nozzle_diameter as unknown[] | undefined)?.[0]),
       sliced: list.some((p) => p.sliced),
       multicolor: list.some((p) => p.multicolor),

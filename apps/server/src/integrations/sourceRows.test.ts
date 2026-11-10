@@ -20,7 +20,7 @@ const machine = (scope: "system" | "user", brand: string) => ({
   model: "X",
   name: `${scope} M`,
   nozzleDiameterMm: 0.4,
-  defaultPrintPreset: scope === "system" ? "system/P" : null,
+  defaultProcessPreset: scope === "system" ? "system/P" : null,
 });
 const process = (scope: "system" | "user") => ({
   presetId: `${scope}/P`,
@@ -55,9 +55,9 @@ const raws = async (type: LibraryType, scope?: "system" | "user") =>
 
 describe("libraryRows scope", () => {
   it.each([
-    ["filamentProfiles", ["fake:user/U", "fake:system/S"]],
-    ["machineProfiles", ["fake:system/M", "fake:user/M"]],
-    ["printProfiles", ["fake:system/P", "fake:user/P"]],
+    ["filamentPresets", ["fake:user/U", "fake:system/S"]],
+    ["machinePresets", ["fake:system/M", "fake:user/M"]],
+    ["processPresets", ["fake:system/P", "fake:user/P"]],
   ] as const)("%s: both by default, then each alone", async (type, both) => {
     expect((await sources(type)).sort()).toEqual([...both].sort());
     expect(await sources(type, "system")).toEqual([both.find((s) => s.includes("system"))]);
@@ -73,13 +73,16 @@ describe("libraryRows scope", () => {
   });
 
   it("keeps the presets a preset names by key, and shows their names", async () => {
-    const [proc] = await libraryRows(lib, "", "printProfiles", { dataDir: "", scope: "system" });
+    const [proc] = await libraryRows(lib, "", "processPresets", { dataDir: "", scope: "system" });
     expect(proc?.raw).toMatchObject({
       printers: "M, M",
       machinePresets: ["fake:system/M", "fake:user/M"],
     });
-    const [m] = await libraryRows(lib, "", "machineProfiles", { dataDir: "", scope: "system" });
-    expect(m?.raw).toMatchObject({ defaultPrintProfile: "P", defaultPrintPreset: "fake:system/P" });
+    const [m] = await libraryRows(lib, "", "machinePresets", { dataDir: "", scope: "system" });
+    expect(m?.raw).toMatchObject({
+      defaultProcessPresetName: "P",
+      defaultProcessPreset: "fake:system/P",
+    });
   });
 
   it("filament brands: the user's only", async () => {

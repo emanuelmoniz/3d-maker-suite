@@ -8,7 +8,7 @@ export const reviewer = (app: () => App) => ({
   open: (url: string) => app().inject({ method: "POST", url }),
   rows: async (url: string) =>
     ((await app().inject({ method: "POST", url })).json() as ImportPreview).rows.map(
-      (r) => `${r.values.name ?? r.values.profile}:${r.status}`,
+      (r) => `${r.values.name ?? r.values.preset}:${r.status}`,
     ),
   /**
    * Confirms the suggested action and picks of `rows` (default: every row not suggested to skip);

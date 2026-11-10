@@ -7,12 +7,12 @@ import { expect, test } from "./fixtures.ts";
 import {
   gotoIntegrations,
   hasHorizontalScroll,
-  insertProfile,
+  insertPreset,
   openBulkEdit,
   openIntegrationCards,
   pick,
+  seedPreset,
   seedPrinter,
-  seedProfile,
   seedSpool,
 } from "./helpers.ts";
 
@@ -117,7 +117,7 @@ test("maintenance task for models and a specific printer shows on each matching 
   await expect(due.getByRole("cell", { name: "Gamma" })).toHaveCount(0);
 });
 
-test("printer model by hand; a machine profile from a file is read-only and archives", async ({
+test("printer model by hand; a printer preset from a file is read-only and archives", async ({
   page,
   app,
 }) => {
@@ -130,28 +130,28 @@ test("printer model by hand; a machine profile from a file is read-only and arch
   await expect(block(page, "Printer models").getByRole("link", { name: "Acme Q1" })).toBeVisible();
 
   const { items } = await app.api<{ items: { id: string }[] }>("GET", "/api/printer-models");
-  insertProfile(app, "machine_profiles", {
+  insertPreset(app, "machine_presets", {
     name: "Q1 0.4",
     printerModelId: items[0]?.id,
     nozzleDiameterMm: 0.4,
   });
   await page.reload();
-  const profiles = block(page, "Machine profiles");
-  await expect(profiles.getByRole("link", { name: "Add profile" })).toHaveCount(0);
+  const presetsBlock = block(page, "Printer presets");
+  await expect(presetsBlock.getByRole("link", { name: "Add preset" })).toHaveCount(0);
   // Read-only, but it has a page: its settings.
-  await expect(profiles.getByRole("link", { name: "Q1 0.4" })).toHaveAttribute(
+  await expect(presetsBlock.getByRole("link", { name: "Q1 0.4" })).toHaveAttribute(
     "href",
-    /\/printers\/machine-profiles\//,
+    /\/printers\/machine-presets\//,
   );
-  const row = profiles.getByRole("row", { name: /Q1 0\.4/ });
+  const row = presetsBlock.getByRole("row", { name: /Q1 0\.4/ });
   await expect(row).toContainText("Bambu Studio (system)");
   await expect(row).toContainText("Unused");
   await row.getByRole("button", { name: "Archive Q1 0.4" }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Archive" }).click();
-  await expect(block(page, "Machine profiles").getByText("No results")).toBeVisible();
+  await expect(block(page, "Printer presets").getByText("No results")).toBeVisible();
 });
 
-test("an archived profile leaves the list; the spool keeps its own filament", async ({
+test("an archived preset leaves the list; the spool keeps its own filament", async ({
   page,
   app,
 }) => {
@@ -159,14 +159,14 @@ test("an archived profile leaves the list; the spool keeps its own filament", as
   const { materialId } = (
     await app.api<{ items: { materialId: string }[] }>("GET", "/api/filament/spools")
   ).items[0] ?? { materialId: "" };
-  const profile = insertProfile(app, "filament_profiles", { materialId, name: "Basic" });
-  await page.goto(`/filament/profiles/${profile.id}`);
+  const filament = insertPreset(app, "filament_presets", { materialId, name: "Basic" });
+  await page.goto(`/filament/presets/${filament.id}`);
   await expect(page.getByText("Bambu Studio (system)")).toBeVisible();
   await page.getByRole("button", { name: "Archive" }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Archive" }).click();
   await expect(page.getByText("Archived", { exact: true }).first()).toBeVisible();
   await page.goto("/catalog/filament");
-  await expect(page.getByRole("table", { name: "Filament profiles" })).not.toContainText("Basic");
+  await expect(page.getByRole("table", { name: "Filament presets" })).not.toContainText("Basic");
   await page.goto(`/filament/spools/${spool.id}`);
   await expect(page.getByText("Basic").first()).toBeVisible();
 });
@@ -245,7 +245,7 @@ test("import: template download, XLSX upload, bulk action, apply and export roun
   expect(spools.items).toHaveLength(2);
 });
 
-test("import a slicer catalog from a zip, then a changed preset updates its profile", async ({
+test("import a slicer catalog from a zip, then a changed preset updates its preset", async ({
   page,
   app,
 }) => {
@@ -264,7 +264,7 @@ test("import a slicer catalog from a zip, then a changed preset updates its prof
       mimeType: "application/zip",
       buffer: await zipOf(preset(temp)),
     });
-    await page.getByRole("link", { name: "Filament profiles" }).click();
+    await page.getByRole("link", { name: "Filament presets" }).click();
     await page.getByRole("button", { name: /^Import \d+ rows?$/ }).click();
     await page
       .getByRole("dialog")
@@ -275,7 +275,7 @@ test("import a slicer catalog from a zip, then a changed preset updates its prof
   await importZip("230");
   const first = await app.api<{ items: { id: string; name: string }[] }>(
     "GET",
-    "/api/filament/profiles",
+    "/api/filament/presets",
   );
   expect(first.items.map((p) => p.name)).toEqual(["Mine"]);
 
@@ -285,7 +285,7 @@ test("import a slicer catalog from a zip, then a changed preset updates its prof
     mimeType: "application/zip",
     buffer: await zipOf(preset("250")),
   });
-  await page.getByRole("link", { name: "Filament profiles" }).click();
+  await page.getByRole("link", { name: "Filament presets" }).click();
   await expect(page.getByRole("button", { name: "Changed (1)" })).toBeVisible();
   await page.getByRole("button", { name: /^Import \d+ rows?$/ }).click();
   await page
@@ -294,12 +294,12 @@ test("import a slicer catalog from a zip, then a changed preset updates its prof
     .click();
   await expect(page.getByText(/Import finished/)).toBeVisible();
 
-  const active = await app.api<{ items: { id: string }[] }>("GET", "/api/filament/profiles");
+  const active = await app.api<{ items: { id: string }[] }>("GET", "/api/filament/presets");
   const all = await app.api<{ items: { id: string }[] }>(
     "GET",
-    "/api/filament/profiles?archived=true",
+    "/api/filament/presets?archived=true",
   );
-  // In place: no spool or print points at a profile (ADR-0020).
+  // In place: no spool or print points at a preset (ADR-0020).
   expect(active.items).toHaveLength(1);
   expect(active.items[0]?.id).toBe(first.items[0]?.id);
   expect(all.items).toHaveLength(0);
@@ -309,7 +309,7 @@ test.describe("new pages fit every viewport", () => {
   for (const width of [375, 768, 1440]) {
     test(`no horizontal scroll at ${width}px`, async ({ page, app }) => {
       await seedPrinter(app.api);
-      await seedProfile(app);
+      await seedPreset(app);
       await app.api("POST", "/api/integrations", { adapterId: "mock", secrets: { token: "t" } });
       await page.setViewportSize({ width, height: 900 });
       const bad: string[] = [];

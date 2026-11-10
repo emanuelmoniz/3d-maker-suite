@@ -45,7 +45,7 @@ import {
 } from "../lib/prints.ts";
 
 const {
-  machineProfiles,
+  machinePresets,
   orderProjects,
   orders,
   prints,
@@ -93,7 +93,7 @@ export const printsRoutes =
         printerId?: string;
         projectId?: string | null;
         orderId?: string | null;
-        machineProfileId?: string | null;
+        machinePresetId?: string | null;
         failureReason?: string | null;
       },
       /** The print as it is: what it already points at stays allowed, even if archived since. */
@@ -108,10 +108,10 @@ export const printsRoutes =
       if (b.orderId && !canReference(db, orders, b.orderId, cur?.orderId))
         throw new HttpError(400, "invalid_order", "Order not found");
       if (
-        b.machineProfileId &&
-        !canReference(db, machineProfiles, b.machineProfileId, cur?.machineProfileId)
+        b.machinePresetId &&
+        !canReference(db, machinePresets, b.machinePresetId, cur?.machinePresetId)
       )
-        throw new HttpError(400, "invalid_machine_profile", "Machine profile not found");
+        throw new HttpError(400, "invalid_machine_preset", "Machine preset not found");
       if (
         b.failureReason &&
         b.failureReason !== cur?.failureReason &&
@@ -367,7 +367,7 @@ export const printsRoutes =
             .insert(prints)
             .values({
               ...fields,
-              machineProfileId: fields.machineProfileId ?? printerMachine(db, fields.printerId),
+              machinePresetId: fields.machinePresetId ?? printerMachine(db, fields.printerId),
               number: fields.number ?? nextNumber(prints),
               ...energyFor(db, fields.printerId, fields.durationSec ?? null, energyWh),
             })

@@ -247,11 +247,11 @@ export function restorePreset(
   return savePreset(db, dataDir, { library, kind, name, json }, who) ?? row;
 }
 
-/** The profile table each kind of preset feeds. */
+/** The preset table each kind of preset feeds. */
 const ENTITY: Record<SlicerPresetKind, PresetKind> = {
-  machine: "machineProfiles",
-  process: "printProfiles",
-  filament: "filamentProfiles",
+  machine: "machinePresets",
+  process: "processPresets",
+  filament: "filamentPresets",
 };
 
 /**
@@ -261,7 +261,7 @@ const ENTITY: Record<SlicerPresetKind, PresetKind> = {
 export function presetUses(db: Db, p: Pick<Row, "library" | "kind" | "name">, user?: Rights) {
   const entity = ENTITY[p.kind];
   // Loosely typed on purpose: the three tables share these columns.
-  const t = schema[entity] as typeof schema.machineProfiles;
+  const t = schema[entity] as typeof schema.machinePresets;
   const inheritedBy = db
     .select({ name: slicerPresets.name, json: slicerPresets.json })
     .from(slicerPresets)

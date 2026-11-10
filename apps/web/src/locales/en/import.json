@@ -1,7 +1,7 @@
 {
   "title": "Import | Export",
   "description": "Bring data in from a spreadsheet, or take it out. You review every row before anything is saved.",
-  "catalogMoved": "Brands, printer models, filament brands and materials are imported in <link>Catalog</link>. Slicer profiles come only from a slicer.",
+  "catalogMoved": "Brands, printer models, filament brands and materials are imported in <link>Catalog</link>. Slicer presets come only from a slicer.",
   "import": {
     "title": "Import",
     "hint": "Data in another app or file? Download the template for what you want to import, copy your data into it, then upload it. Files you exported here earlier can be uploaded as they are.",
@@ -170,7 +170,7 @@
   "missing": {
     "filamentBrands": "Brands you don't have yet, added when their rows are imported: {{names, list}}.",
     "filamentMaterials": "Materials you don't have yet, added when their rows are imported: {{names, list}}.",
-    "filamentProfiles": "Filament profiles you don't have yet, added when their rows are imported: {{names, list}}.",
+    "filamentPresets": "Filament presets you don't have yet, added when their rows are imported: {{names, list}}.",
     "brands": "Printer brands you don't have yet, added when their rows are imported: {{names, list}}.",
     "printerModels": "Printer models you don't have yet, added when their rows are imported: {{names, list}}.",
     "projects": "Projects you don't have yet, added without a folder when their rows are imported: {{names, list}}."
@@ -406,7 +406,7 @@
       "project": "Project"
     }
   },
-  "filamentProfiles": {
+  "filamentPresets": {
     "columns": {
       "brand": "Brand",
       "material": "Material",
@@ -429,16 +429,16 @@
       "thumbnail": "Picture"
     }
   },
-  "machineProfiles": {
+  "machinePresets": {
     "columns": {
       "brand": "Brand",
       "model": "Model",
       "name": "Name",
       "nozzleDiameterMm": "Nozzle (mm)",
-      "defaultPrintProfile": "Default print profile"
+      "defaultProcessPresetName": "Default process preset"
     }
   },
-  "printProfiles": {
+  "processPresets": {
     "columns": {
       "brand": "Brand",
       "model": "Model",
@@ -486,8 +486,8 @@
     "keepHint": "Nothing changes, and you aren't asked again until the slicer's presets change."
   },
   "zip": {
-    "cardTitle": "Printer and filament profiles from a slicer",
-    "cardHint": "Running on a server with no slicer installed? Zip your slicer's config folder on the PC that has it and import its brands, printers and filament profiles from the zip, in each slicer's section of Catalog → Sources.",
+    "cardTitle": "Printer and filament presets from a slicer",
+    "cardHint": "Running on a server with no slicer installed? Zip your slicer's config folder on the PC that has it and import its brands, printers and filament presets from the zip, in each slicer's section of Catalog → Sources.",
     "link": "Import from a slicer zip",
     "toSources": "Open Catalog → Sources",
     "title": "Import from a slicer zip",

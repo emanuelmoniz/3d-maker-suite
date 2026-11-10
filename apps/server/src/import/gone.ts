@@ -12,11 +12,11 @@ import { keyLibrary, type Review, type Stored } from "./review.ts";
 
 const { importSnapshots } = schema;
 
-/** The kind of preset each profile type holds. */
+/** The kind of preset each preset type holds. */
 export const PRESET_KINDS: Record<PresetKind, SlicerPresetKind> = {
-  filamentProfiles: "filament",
-  machineProfiles: "machine",
-  printProfiles: "process",
+  filamentPresets: "filament",
+  machinePresets: "machine",
+  processPresets: "process",
 };
 export const isPresetKind = (entity: string): entity is PresetKind => entity in PRESET_KINDS;
 
@@ -64,7 +64,7 @@ const usesOf = (
  * One archived or deleted since drops out.
  */
 export function freedRows(db: Db, entity: PresetKind, ids: string[], dir: string | null) {
-  const t = schema[entity] as typeof schema.machineProfiles;
+  const t = schema[entity] as typeof schema.machinePresets;
   const parents = dir ? inheritors(dir) : new Map<string, string[]>();
   const rows = db
     .select({ id: t.id, source: t.sourcePreset, name: t.name })
@@ -92,7 +92,7 @@ export function goneRows(db: Db, review: Review, stored: Stored, user?: Rights):
   const scope = stored.type && isUserPresetType(stored.type) ? "user" : "system";
   const prefix = `${library}${scope}/`;
   // Loosely typed on purpose: the three tables share these columns.
-  const t = schema[entity] as typeof schema.machineProfiles;
+  const t = schema[entity] as typeof schema.machinePresets;
   // Another route's presets were left out of `stored`, not removed (ADR-0019).
   const there = new Set([
     ...stored.rows.map((r) => r.source),

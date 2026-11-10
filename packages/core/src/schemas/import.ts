@@ -26,7 +26,7 @@ export const IMPORT_ENTITIES = [
   ...SLICER_CATALOG_ROW_TYPES,
 ] as const;
 /**
- * Everything the review screen takes: every file entity, and the profiles, which only an
+ * Everything the review screen takes: every file entity, and the presets, which only an
  * integration or a zip offers (ADR-0020: a slicer's files are their only source).
  */
 export const REVIEW_ENTITIES = [...IMPORT_ENTITIES, ...SLICER_PRESET_TYPES] as const;
@@ -471,36 +471,36 @@ export const IMPORT_COLUMNS = {
     },
   ],
   // A name that is the row's identity is a `ref`, so its spelling alone is never a difference.
-  filamentProfiles: [
+  filamentPresets: [
     {
       key: "brand",
       type: "ref",
       ref: "filamentBrands",
-      label: "import:filamentProfiles.columns.brand",
+      label: "import:filamentPresets.columns.brand",
     },
     {
       key: "material",
       type: "ref",
       ref: "filamentMaterials",
-      label: "import:filamentProfiles.columns.material",
+      label: "import:filamentPresets.columns.material",
       required: true,
     },
     {
       key: "name",
       type: "ref",
-      ref: "filamentProfiles",
+      ref: "filamentPresets",
       perRow: true,
-      label: "import:filamentProfiles.columns.name",
+      label: "import:filamentPresets.columns.name",
     },
-    { key: "diameterMm", type: "number", label: "import:filamentProfiles.columns.diameterMm" },
+    { key: "diameterMm", type: "number", label: "import:filamentPresets.columns.diameterMm" },
     {
       key: "densityGcm3",
       type: "number",
-      label: "import:filamentProfiles.columns.densityGcm3",
+      label: "import:filamentPresets.columns.densityGcm3",
       required: true,
     },
-    { key: "nozzleTempC", type: "integer", label: "import:filamentProfiles.columns.nozzleTempC" },
-    { key: "bedTempC", type: "integer", label: "import:filamentProfiles.columns.bedTempC" },
+    { key: "nozzleTempC", type: "integer", label: "import:filamentPresets.columns.nozzleTempC" },
+    { key: "bedTempC", type: "integer", label: "import:filamentPresets.columns.bedTempC" },
   ],
   brands: [
     {
@@ -536,53 +536,53 @@ export const IMPORT_COLUMNS = {
       label: "import:printerModels.columns.thumbnail",
     },
   ],
-  machineProfiles: [
+  machinePresets: [
     {
       key: "brand",
       type: "ref",
       ref: "brands",
-      label: "import:machineProfiles.columns.brand",
+      label: "import:machinePresets.columns.brand",
       required: true,
     },
     {
       key: "model",
       type: "ref",
       ref: "printerModels",
-      label: "import:machineProfiles.columns.model",
+      label: "import:machinePresets.columns.model",
       required: true,
     },
-    { key: "name", type: "text", label: "import:machineProfiles.columns.name", required: true },
+    { key: "name", type: "text", label: "import:machinePresets.columns.name", required: true },
     {
       key: "nozzleDiameterMm",
       type: "number",
-      label: "import:machineProfiles.columns.nozzleDiameterMm",
+      label: "import:machinePresets.columns.nozzleDiameterMm",
       required: true,
     },
-    // Names only: the slicer's own key for the preset is kept with the row (`defaultPrintPreset`).
+    // Names only: the slicer's own key for the preset is kept with the row (`defaultProcessPreset`).
     {
-      key: "defaultPrintProfile",
+      key: "defaultProcessPresetName",
       type: "text",
-      label: "import:machineProfiles.columns.defaultPrintProfile",
+      label: "import:machinePresets.columns.defaultProcessPresetName",
     },
   ],
   // Brand and model are optional: a process preset can name no printer we know.
-  printProfiles: [
-    { key: "brand", type: "ref", ref: "brands", label: "import:printProfiles.columns.brand" },
+  processPresets: [
+    { key: "brand", type: "ref", ref: "brands", label: "import:processPresets.columns.brand" },
     {
       key: "model",
       type: "ref",
       ref: "printerModels",
-      label: "import:printProfiles.columns.model",
+      label: "import:processPresets.columns.model",
     },
-    { key: "name", type: "text", label: "import:printProfiles.columns.name", required: true },
+    { key: "name", type: "text", label: "import:processPresets.columns.name", required: true },
     {
       key: "nozzleDiameterMm",
       type: "number",
-      label: "import:printProfiles.columns.nozzleDiameterMm",
+      label: "import:processPresets.columns.nozzleDiameterMm",
     },
-    { key: "layerHeightMm", type: "number", label: "import:printProfiles.columns.layerHeightMm" },
+    { key: "layerHeightMm", type: "number", label: "import:processPresets.columns.layerHeightMm" },
     // Its `compatible_printers` by name; their keys are kept with the row (`machinePresets`).
-    { key: "printers", type: "text", label: "import:printProfiles.columns.printers" },
+    { key: "printers", type: "text", label: "import:processPresets.columns.printers" },
   ],
   filamentBrands: [
     {
@@ -867,7 +867,7 @@ export const importCatalogBrandsSchema = z.object({
   filamentBrands: z.array(z.object({ name: z.string(), have: z.boolean() })),
 });
 
-/** The brands to import from a slicer: with their models and profiles, and the materials. */
+/** The brands to import from a slicer: with their models and presets, and the materials. */
 export const importCatalogPickSchema = z.object({
   brands: z.array(z.string().min(1)).max(1000),
   filamentBrands: z.array(z.string().min(1)).max(1000),

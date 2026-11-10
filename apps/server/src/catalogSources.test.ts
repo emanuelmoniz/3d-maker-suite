@@ -37,7 +37,7 @@ beforeEach(() => {
     ...mockAdapter(fixture()),
     id: "slicer",
     kind: "local",
-    capabilities: ["brands", "printerModels", "machineProfiles", "printProfiles"],
+    capabilities: ["brands", "printerModels", "machinePresets", "processPresets"],
     library,
   } as IntegrationAdapter;
   // The same slicer as a connector finds it on a workstation.
@@ -182,7 +182,7 @@ describe("catalog source (ADR-0020)", () => {
   });
 
   it("picking turns the Catalog and System presets cards on, and refuses what can't be one", async () => {
-    for (const type of ["brands", "machineProfiles"] as const)
+    for (const type of ["brands", "machinePresets"] as const)
       db.insert(syncPolicies)
         .values({ integrationId: second, type, mode: "off", frequency: "1d" })
         .run();
@@ -192,10 +192,10 @@ describe("catalog source (ADR-0020)", () => {
         .select({ type: syncPolicies.type, mode: syncPolicies.mode })
         .from(syncPolicies)
         .all()
-        .filter((p) => ["brands", "machineProfiles"].includes(p.type)),
+        .filter((p) => ["brands", "machinePresets"].includes(p.type)),
     ).toEqual([
       { type: "brands", mode: "manual" },
-      { type: "machineProfiles", mode: "manual" },
+      { type: "machinePresets", mode: "manual" },
     ]);
     await expect(
       pickCatalogSource(db, adapters, "fake", { deviceId: crypto.randomUUID() }),

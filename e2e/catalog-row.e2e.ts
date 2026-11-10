@@ -53,19 +53,19 @@ test("catalog row: pick brands, only those arrive, then only what you have", asy
   const group = (name: string) => page.getByRole("region", { name, exact: true });
   for (const name of ["Printer brands", "Printer models", "Filament brands", "Filament materials"])
     await expect(group("Catalog").getByText(name, { exact: true })).toBeVisible();
-  for (const name of ["Machine profiles", "Print profiles", "Filament profiles"])
+  for (const name of ["Printer presets", "Process presets", "Filament presets"])
     await expect(group("System presets").getByText(name, { exact: true })).toBeVisible();
-  for (const name of ["User machine profiles", "User print profiles", "User filament profiles"])
+  for (const name of ["User printer presets", "User process presets", "User filament presets"])
     await expect(group("User presets").getByText(name, { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Settings: Machine profiles" }).click();
+  await page.getByRole("button", { name: "Settings: Printer presets" }).click();
   const whenOf = (name: string) =>
     page.getByRole("switch", { name: `Automatic when the files change: ${name}` });
-  await expect(whenOf("Machine profiles")).not.toBeChecked();
-  await expect(page.getByRole("combobox", { name: "Frequency: Machine profiles" })).toHaveCount(0);
-  await page.getByRole("button", { name: "Settings: Machine profiles" }).click();
-  await page.getByRole("button", { name: "Settings: User machine profiles" }).click();
-  await expect(whenOf("User machine profiles")).toBeChecked();
-  await page.getByRole("button", { name: "Settings: User machine profiles" }).click();
+  await expect(whenOf("Printer presets")).not.toBeChecked();
+  await expect(page.getByRole("combobox", { name: "Frequency: Printer presets" })).toHaveCount(0);
+  await page.getByRole("button", { name: "Settings: Printer presets" }).click();
+  await page.getByRole("button", { name: "Settings: User printer presets" }).click();
+  await expect(whenOf("User printer presets")).toBeChecked();
+  await page.getByRole("button", { name: "Settings: User printer presets" }).click();
 
   // Nothing yet in your catalog; select all takes both of a list, and you can take one back.
   await expect(page.getByText(/Printer brands in your catalog/)).toHaveCount(0);
@@ -82,15 +82,15 @@ test("catalog row: pick brands, only those arrive, then only what you have", asy
   const names = async (path: string) =>
     (await app.api<{ items: { name: string }[] }>("GET", path)).items.map((r) => r.name);
   expect(await names("/api/brands")).toEqual(["Acme"]);
-  expect(await names("/api/machine-profiles")).toEqual(["Acme X 0.4 nozzle"]);
+  expect(await names("/api/machine-presets")).toEqual(["Acme X 0.4 nozzle"]);
   const { policies } = await app.api<{ policies: Policy[] }>("GET", `/api/integrations/${id}`);
   const catalog = policies.filter((p) => p.type !== "openInSlicer" && p.type !== "slice");
   expect(catalog.length).toBeGreaterThanOrEqual(7);
   // A pick keeps the catalog and system cards to what you have; the user preset cards don't change.
   const scopeOf = (type: string) => catalog.find((p) => p.type === type)?.scope;
-  expect(scopeOf("machineProfiles")).toBe("imported");
+  expect(scopeOf("machinePresets")).toBe("imported");
   expect(scopeOf("brands")).toBe("imported");
-  expect(scopeOf("userMachineProfiles")).toBe("all");
+  expect(scopeOf("userMachinePresets")).toBe("all");
 
   // What you have shows on the closed card, and is checked and locked when you choose again.
   await expect(page.getByText("Printer brands in your catalog: Acme")).toBeVisible();

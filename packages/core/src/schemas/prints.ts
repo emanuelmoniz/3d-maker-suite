@@ -4,7 +4,7 @@ import { id, isoDate, printFilamentUsageSchema, printSchema } from "./entities.t
 import { PRINT_OUTCOMES } from "./enums.ts";
 import type { ColumnFilter } from "./list.ts";
 
-/** Filament taken from one spool. The profile is derived from the spool. Failed prints use partial grams. */
+/** Filament taken from one spool. The preset is derived from the spool. Failed prints use partial grams. */
 export const printUsageInputSchema = z.object({
   spoolId: id,
   grams: z.number().positive(),
@@ -23,7 +23,7 @@ const base = z.object({
   projectId: id.nullable().optional(),
   /** Needs a project; the server adds the project to the order when it isn't one of its own. */
   orderId: id.nullable().optional(),
-  machineProfileId: id.nullable().optional(),
+  machinePresetId: id.nullable().optional(),
   title: z.string().min(1),
   plate: z.number().int().positive().nullable().optional(),
   startedAt: isoDate,

@@ -230,7 +230,7 @@ const imported = () => ({
   externalId: text(),
 });
 
-// Catalog: brand -> printer model -> machine profile. Archived or deleted; FKs restrict while in use.
+// Catalog: brand -> printer model -> machine preset. Archived or deleted; FKs restrict while in use.
 export const brands = sqliteTable(
   "brands",
   {
@@ -264,8 +264,8 @@ export const printerModels = sqliteTable(
   (t) => [uniqueIndex("printer_models_name_uq").on(t.brandId, sql`${t.model} COLLATE NOCASE`)],
 );
 
-export const machineProfiles = sqliteTable(
-  "machine_profiles",
+export const machinePresets = sqliteTable(
+  "machine_presets",
   {
     id: id(),
     name: text().notNull(),
@@ -273,42 +273,40 @@ export const machineProfiles = sqliteTable(
       .notNull()
       .references(() => printerModels.id, { onDelete: "restrict" }),
     nozzleDiameterMm: real().notNull().default(0.4),
-    /** Preset this profile was imported from, `<library>:<preset id>`; null for hand-made ones. */
+    /** Preset this preset was imported from, `<library>:<preset id>`; null for hand-made ones. */
     sourcePreset: text(),
-    /** Its `default_print_profile`, as a print profile's `sourcePreset`; null when the slicer names none. */
-    defaultPrintPreset: text(),
+    /** Its `default_print_profile`, as a process preset's `sourcePreset`; null when the slicer names none. */
+    defaultProcessPreset: text(),
     /** Archived by you, or an older version of a preset that prints still point at (see `sourcePreset`). */
     archivedAt: text(),
     ...timestamps,
   },
   (t) => [
-    index("machine_profiles_model_idx").on(t.printerModelId),
+    index("machine_presets_model_idx").on(t.printerModelId),
     // Unique only among current rows: an archived version keeps its key.
-    uniqueIndex("machine_profiles_source_uq")
-      .on(t.sourcePreset)
-      .where(sql`${t.archivedAt} IS NULL`),
+    uniqueIndex("machine_presets_source_uq").on(t.sourcePreset).where(sql`${t.archivedAt} IS NULL`),
   ],
 );
 
 // A slicer process preset. Model and nozzle are null when the preset names no printer we know.
-export const printProfiles = sqliteTable(
-  "print_profiles",
+export const processPresets = sqliteTable(
+  "process_presets",
   {
     id: id(),
     name: text().notNull(),
     printerModelId: text().references(() => printerModels.id, { onDelete: "restrict" }),
     nozzleDiameterMm: real(),
     layerHeightMm: real(),
-    /** Preset this profile was imported from, `<library>:<preset id>`; null for hand-made ones. */
+    /** Preset this preset was imported from, `<library>:<preset id>`; null for hand-made ones. */
     sourcePreset: text(),
-    /** Every machine of its `compatible_printers`, as machine profiles' `sourcePreset`. */
+    /** Every machine of its `compatible_printers`, as machine presets' `sourcePreset`. */
     machinePresets: text({ mode: "json" }).notNull().$type<string[]>().default([]),
     archivedAt: text(),
     ...timestamps,
   },
   (t) => [
-    index("print_profiles_model_idx").on(t.printerModelId),
-    uniqueIndex("print_profiles_source_uq").on(t.sourcePreset).where(sql`${t.archivedAt} IS NULL`),
+    index("process_presets_model_idx").on(t.printerModelId),
+    uniqueIndex("process_presets_source_uq").on(t.sourcePreset).where(sql`${t.archivedAt} IS NULL`),
   ],
 );
 
@@ -339,12 +337,12 @@ export const printers = sqliteTable(
     lifetimeHours: integer(),
     includeMaintenanceCost: integer({ mode: "boolean" }),
     countInCosts: integer({ mode: "boolean" }),
-    // Default print profile for slicing on this printer.
-    printProfileId: text().references((): AnySQLiteColumn => printProfiles.id, {
+    // Default process preset for slicing on this printer.
+    processPresetId: text().references((): AnySQLiteColumn => processPresets.id, {
       onDelete: "set null",
     }),
-    // Its machine profile, set on its own from model and nozzle (`machineProfileFor`) unless picked.
-    machineProfileId: text().references(() => machineProfiles.id, { onDelete: "set null" }),
+    // Its machine preset, set on its own from model and nozzle (`machinePresetFor`) unless picked.
+    machinePresetId: text().references(() => machinePresets.id, { onDelete: "set null" }),
     photoPath: text(),
     archivedAt: text(),
     ...imported(),
@@ -527,7 +525,7 @@ export const filamentMaterials = sqliteTable(
   {
     id: id(),
     name: text().notNull(),
-    /** Optional defaults that pre-fill a new profile of this material. */
+    /** Optional defaults that pre-fill a new preset of this material. */
     nozzleTempC: integer(),
     bedTempC: integer(),
     densityGcm3: real(),
@@ -539,8 +537,8 @@ export const filamentMaterials = sqliteTable(
   (t) => [uniqueIndex("filament_materials_name_uq").on(sql`${t.name} COLLATE NOCASE`)],
 );
 
-export const filamentProfiles = sqliteTable(
-  "filament_profiles",
+export const filamentPresets = sqliteTable(
+  "filament_presets",
   {
     id: id(),
     /** Null when the brand is unknown (it was optional as free text). */
@@ -557,9 +555,9 @@ export const filamentProfiles = sqliteTable(
     ...timestamps,
   },
   (t) => [
-    index("filament_profiles_brand_idx").on(t.brandId),
-    index("filament_profiles_material_idx").on(t.materialId),
-    uniqueIndex("filament_profiles_source_uq")
+    index("filament_presets_brand_idx").on(t.brandId),
+    index("filament_presets_material_idx").on(t.materialId),
+    uniqueIndex("filament_presets_source_uq")
       .on(t.sourcePreset)
       .where(sql`${t.archivedAt} IS NULL`),
   ],
@@ -757,13 +755,13 @@ export const projectSlicePlates = sqliteTable(
     plate: integer().notNull(),
     /** The printer it slices for (machine preset and cost rates); null = picked by the server. */
     printerId: text().references((): AnySQLiteColumn => printers.id, { onDelete: "set null" }),
-    /** Its machine profile; null = the 3MF's when the printer fits the file, else the printer's. */
-    machineProfileId: text().references(() => machineProfiles.id, { onDelete: "set null" }),
-    // Null = the default profile with `useDefaultPrintProfile` (or when the machine isn't the
+    /** Its machine preset; null = the 3MF's when the printer fits the file, else the printer's. */
+    machinePresetId: text().references(() => machinePresets.id, { onDelete: "set null" }),
+    // Null = the default preset with `useDefaultProcessPreset` (or when the machine isn't the
     // file's), else the 3MF's own (`resolvePlate`).
-    printProfileId: text().references(() => printProfiles.id, { onDelete: "set null" }),
-    useDefaultPrintProfile: integer({ mode: "boolean" }).notNull().default(false),
-    // Filament profile id per slot; null = the 3MF's own. Not FKs: a deleted profile reads as null.
+    processPresetId: text().references(() => processPresets.id, { onDelete: "set null" }),
+    useDefaultProcessPreset: integer({ mode: "boolean" }).notNull().default(false),
+    // Filament preset id per slot; null = the 3MF's own. Not FKs: a deleted preset reads as null.
     filaments: text({ mode: "json" }).$type<(string | null)[]>().notNull().default([]),
     /** Spool id per slot, for its price; it never sets `filaments`. Not FKs, as above. */
     spools: text({ mode: "json" }).$type<(string | null)[]>().notNull().default([]),
@@ -775,10 +773,10 @@ export const projectSlicePlates = sqliteTable(
     fileMtimeMs: real().notNull(),
     fileSha256: text().notNull(),
     // Last slice, of the file as fingerprinted above; null = never sliced. Cleared when the
-    // profiles change, kept (with the fingerprint) when the setup is saved unchanged.
+    // presets change, kept (with the fingerprint) when the setup is saved unchanged.
     slicedAt: text(),
-    /** The print profile it was sliced with, after the default printer's was filled in. */
-    slicedPrintProfileId: text(),
+    /** The process preset it was sliced with, after the default printer's was filled in. */
+    slicedProcessPresetId: text(),
     /** The slicer integration that sliced it. Not an FK: a deleted one reads as another slicer. */
     slicedIntegrationId: text(),
     /** That integration's `slicerVersion` then; null = unknown (a local slicer, or before 0073). */
@@ -811,7 +809,7 @@ export const prints = sqliteTable(
     orderId: text().references((): AnySQLiteColumn => orders.id, { onDelete: "set null" }),
     // ponytail: nullable like printers.number; every insert sets it (nextNumber).
     number: integer(),
-    machineProfileId: text().references(() => machineProfiles.id, { onDelete: "restrict" }),
+    machinePresetId: text().references(() => machinePresets.id, { onDelete: "restrict" }),
     title: text().notNull(),
     plate: integer(),
     startedAt: text().notNull(),

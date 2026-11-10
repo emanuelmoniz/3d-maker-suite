@@ -45,7 +45,7 @@ import {
   useSaveQuote,
   useUploadQuoteFile,
 } from "../../lib/cost.ts";
-import { useProfiles, useSpools } from "../../lib/filament.ts";
+import { useFilamentPresets, useSpools } from "../../lib/filament.ts";
 import { withOwn } from "../../lib/list.ts";
 import { usePreferences } from "../../lib/preferences.ts";
 import { printerName } from "../../lib/printers.ts";
@@ -115,9 +115,9 @@ const fromProject = (s: ProjectSlicing): QuotePlate[] =>
     file: p.file,
     plate: p.plate,
     printerId: p.printerId,
-    machineProfileId: p.machineProfileId,
-    printProfileId: p.printProfileId,
-    useDefaultPrintProfile: p.useDefaultPrintProfile,
+    machinePresetId: p.machinePresetId,
+    processPresetId: p.processPresetId,
+    useDefaultProcessPreset: p.useDefaultProcessPreset,
     filaments: p.filaments,
     spools: p.spools,
     kept: p.kept,
@@ -271,7 +271,7 @@ function QuoteForm({ ctx, editing }: { ctx: CostContext; editing?: Quote }) {
   const qc = useQueryClient();
   const upload = useUploadQuoteFile();
   const runSlice = useRunQuoteSlice();
-  const profiles = useProfiles().data?.items ?? [];
+  const presets = useFilamentPresets().data?.items ?? [];
   const spools = useSpools().data?.items ?? [];
   const defaultPrinterId = usePreferences().data?.values.defaultPrinterId;
   const [f, setF] = useState<Form>(() => restore(ctx, editing));
@@ -315,7 +315,7 @@ function QuoteForm({ ctx, editing }: { ctx: CostContext; editing?: Quote }) {
     set({ plates: changePlates(next, plates, remembered) });
   };
 
-  // A project brings its saved setup (plates, printers, profiles, filaments) and its slices.
+  // A project brings its saved setup (plates, printers, presets, filaments) and its slices.
   const pickProject = (id: string) => {
     setF((cur) => ({
       ...cur,
@@ -353,7 +353,7 @@ function QuoteForm({ ctx, editing }: { ctx: CostContext; editing?: Quote }) {
   const fallback = ctx.printers.find((p) => p.id === defaultPrinterId) ?? ctx.printers[0];
   const sliced = estimateSlicedPlates(plates, ctx, {
     spools,
-    profiles,
+    presets,
     fallbackPrinterId: fallback?.id,
   });
   const platesCost = sliced.cost;
@@ -462,8 +462,8 @@ function QuoteForm({ ctx, editing }: { ctx: CostContext; editing?: Quote }) {
                   plates: m.plates,
                   printerModel: m.printerModel,
                   nozzleDiameter: m.nozzleDiameter,
-                  printProfile: m.printProfile,
-                  machineProfile: m.machineProfile,
+                  processPreset: m.processPreset,
+                  machinePreset: m.machinePreset,
                   thumbnailUrl: (entry: string) => projectFileUrl(project?.id ?? "", m.file, entry),
                 })),
                 ...f.uploads.map((u) => ({
@@ -472,8 +472,8 @@ function QuoteForm({ ctx, editing }: { ctx: CostContext; editing?: Quote }) {
                   plates: u.model.plates,
                   printerModel: u.model.printerModel,
                   nozzleDiameter: u.model.nozzleDiameter,
-                  printProfile: u.model.printProfile,
-                  machineProfile: u.model.machineProfile,
+                  processPreset: u.model.processPreset,
+                  machinePreset: u.model.machinePreset,
                   thumbnailUrl: (entry: string) => quoteFileUrl(u.id, entry),
                 })),
               ]}

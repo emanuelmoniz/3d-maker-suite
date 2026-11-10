@@ -1,6 +1,6 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import type { IntegrationAdapter, ProfileSettings } from "@3d-maker-suite/core";
+import type { IntegrationAdapter, PresetSettings } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
 import { parsePreset } from "@3d-maker-suite/host";
 import { asc, eq } from "drizzle-orm";
@@ -13,29 +13,29 @@ import { catalogDir, policyOf } from "./capabilities.ts";
 import { cloudPresetsDir } from "./cloudPresets.ts";
 import { namedPreset } from "./presetLibrary.ts";
 
-/** The sync type that brings a profile kind's user presets. */
+/** The sync type that brings a preset kind's user presets. */
 const USER_TYPE = {
-  filamentProfiles: "userFilamentProfiles",
-  machineProfiles: "userMachineProfiles",
-  printProfiles: "userPrintProfiles",
+  filamentPresets: "userFilamentPresets",
+  machinePresets: "userMachinePresets",
+  processPresets: "userProcessPresets",
 } as const;
 
 const TABLES = {
-  filamentProfiles: schema.filamentProfiles,
-  machineProfiles: schema.machineProfiles,
-  printProfiles: schema.printProfiles,
+  filamentPresets: schema.filamentPresets,
+  machinePresets: schema.machinePresets,
+  processPresets: schema.processPresets,
 };
 
 /** The row's `<library>:<scope>/<name>`, or an error if the row isn't there. */
 function sourceOf(db: Db, kind: PresetKind, id: string) {
   const table = TABLES[kind];
   const row = db.select({ s: table.sourcePreset }).from(table).where(eq(table.id, id)).get();
-  if (!row) throw new HttpError(404, "not_found", "Profile not found");
+  if (!row) throw new HttpError(404, "not_found", "Preset not found");
   return row.s;
 }
 
 /**
- * Where a profile's slicer files can be read on this server, best first: each row's folder (its
+ * Where a preset's slicer files can be read on this server, best first: each row's folder (its
  * install, a managed slicer's config), then a Bambu Cloud account's copy. A hub's library is read
  * by name (`namedPreset`), not from a folder.
  */
@@ -55,19 +55,19 @@ function foldersOf(db: Db, dataDir: string, adapters: IntegrationAdapter[], libr
 }
 
 /**
- * Every setting of a profile's file, parents filled in (ADR-0020), read when asked: from the
+ * Every setting of a preset's file, parents filled in (ADR-0020), read when asked: from the
  * slicer's folder on this server, the hub's library for a user preset, or a Bambu Cloud copy. A
  * source that can't be read says why instead of failing.
  */
-export async function profileSettings(
+export async function presetSettings(
   db: Db,
   dataDir: string,
   adapters: IntegrationAdapter[],
   kind: PresetKind,
   id: string,
-): Promise<ProfileSettings> {
+): Promise<PresetSettings> {
   const source = sourceOf(db, kind, id);
-  const no = (reason: "hand_made" | "no_source" | "not_found"): ProfileSettings => ({
+  const no = (reason: "hand_made" | "no_source" | "not_found"): PresetSettings => ({
     status: "unreadable",
     reason,
     source,
@@ -113,10 +113,10 @@ export async function profileSettings(
 }
 
 /**
- * Where a profile is used (`presetInUse`), with the presets in the slicer's folders that inherit
+ * Where a preset is used (`presetInUse`), with the presets in the slicer's folders that inherit
  * from it when that folder is on this server.
  */
-export function profileUse(
+export function presetUse(
   db: Db,
   dataDir: string,
   adapters: IntegrationAdapter[],

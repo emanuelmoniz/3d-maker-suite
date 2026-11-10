@@ -86,7 +86,7 @@ export function MaterialFields({
         )}
       </FormField>
       <p className="text-sm text-muted">{t("filament:catalog.materials.defaultsHint")}</p>
-      <FormField label={t("filament:profiles.nozzleTemp")}>
+      <FormField label={t("filament:presets.nozzleTemp")}>
         {(p) => (
           <input
             {...p}
@@ -99,7 +99,7 @@ export function MaterialFields({
           />
         )}
       </FormField>
-      <FormField label={t("filament:profiles.bedTemp")}>
+      <FormField label={t("filament:presets.bedTemp")}>
         {(p) => (
           <input
             {...p}
@@ -112,7 +112,7 @@ export function MaterialFields({
           />
         )}
       </FormField>
-      <FormField label={t("filament:profiles.density")}>
+      <FormField label={t("filament:presets.density")}>
         {(p) => (
           <input
             {...p}

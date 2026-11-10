@@ -37,7 +37,7 @@ const machine = (nozzle = 0.4, name = "Acme X 0.4") => ({
   model: "Acme X",
   name,
   nozzleDiameterMm: nozzle,
-  defaultPrintPreset: null as string | null,
+  defaultProcessPreset: null as string | null,
 });
 const preset = (extra = {}): LibraryPreset => ({
   presetId: "system/A",
@@ -108,11 +108,11 @@ beforeEach(async () => {
     capabilities: [
       "brands",
       "printerModels",
-      "machineProfiles",
-      "printProfiles",
+      "machinePresets",
+      "processPresets",
       "filamentBrands",
       "filamentMaterials",
-      "filamentProfiles",
+      "filamentPresets",
       ...USER_PRESET_TYPES,
     ],
     library,
@@ -137,7 +137,7 @@ const run = async (type: string) =>
   ).json();
 
 describe("catalog change detection", () => {
-  const { integrations, machineProfiles, syncPolicies, syncRuns } = schema;
+  const { integrations, machinePresets, syncPolicies, syncRuns } = schema;
   const syncer = (adapters = [slicer]) =>
     createSyncer(db, adapters, loadKey(dataDir), app.log, dataDir);
   const fingerprints = () =>
@@ -159,11 +159,11 @@ describe("catalog change detection", () => {
       .json()
       .filter((a: { kind: string }) => a.kind === "sync_pending");
   };
-  /** Machine profiles imported, the folder seen once, then one edited and one new in the slicer. */
+  /** Machine presets imported, the folder seen once, then one edited and one new in the slicer. */
   const vendorUpdate = async () => {
     await run("brands");
     await run("printerModels");
-    await run("machineProfiles");
+    await run("machinePresets");
     await syncer().checkCatalogs();
     state.catalog.machines = [
       machine(0.6),
@@ -173,12 +173,12 @@ describe("catalog change detection", () => {
   };
 
   it("the first check only records what it sees", async () => {
-    await run("machineProfiles");
+    await run("machinePresets");
     state.catalog.machines = [machine(0.6)];
     const before = runs();
     await syncer().checkCatalogs();
     expect(fingerprints()).toEqual(["Acme=1"]);
-    expect(pendingOf("machineProfiles")).toBe(0);
+    expect(pendingOf("machinePresets")).toBe(0);
     expect(runs()).toBe(before);
     expect(await alerts()).toEqual([]);
   });
@@ -188,7 +188,7 @@ describe("catalog change detection", () => {
     state.fingerprint = "Acme=1";
     const before = runs();
     await syncer().checkCatalogs();
-    expect(pendingOf("machineProfiles")).toBe(0);
+    expect(pendingOf("machinePresets")).toBe(0);
     expect(runs()).toBe(before);
     expect(await alerts()).toEqual([]);
   });
@@ -198,23 +198,23 @@ describe("catalog change detection", () => {
     state.fingerprint = null;
     await syncer().checkCatalogs();
     expect(fingerprints()).toEqual(["Acme=1"]);
-    expect(pendingOf("machineProfiles")).toBe(0);
+    expect(pendingOf("machinePresets")).toBe(0);
   });
 
   it("a change writes nothing and raises the alert; the review shows it and closes it", async () => {
     await vendorUpdate();
-    const before = db.select().from(machineProfiles).all();
+    const before = db.select().from(machinePresets).all();
     await syncer().checkCatalogs();
 
-    expect(db.select().from(machineProfiles).all()).toEqual(before);
+    expect(db.select().from(machinePresets).all()).toEqual(before);
     expect(fingerprints()).toEqual(["Acme=2"]);
-    expect(pendingOf("machineProfiles")).toBe(2);
+    expect(pendingOf("machinePresets")).toBe(2);
     // A manual type, the default: the alert is how you hear of it.
     const [alert, ...others] = await alerts();
     expect(others).toEqual([]);
     expect(alert).toMatchObject({
-      task: `sync:${id}:machineProfiles`,
-      context: { type: "machineProfiles", count: 2 },
+      task: `sync:${id}:machinePresets`,
+      context: { type: "machinePresets", count: 2 },
       hasDetail: true,
     });
 
@@ -223,14 +223,14 @@ describe("catalog change detection", () => {
     await syncer().checkCatalogs();
     expect(runs()).toBe(logged);
 
-    const preview = await open("machineProfiles");
+    const preview = await open("machinePresets");
     expect(preview.rows.map((r) => r.status).sort()).toEqual(["changed", "new"]);
     // Taking the edit and leaving the new one out still closes it.
     const edit = preview.rows.filter((r) => r.status === "changed");
     expect((await review.confirm(preview, edit)).statusCode).toBe(200);
-    expect(pendingOf("machineProfiles")).toBe(0);
+    expect(pendingOf("machinePresets")).toBe(0);
     expect(await alerts()).toEqual([]);
-    expect(db.select().from(machineProfiles).all()).toHaveLength(before.length);
+    expect(db.select().from(machinePresets).all()).toHaveLength(before.length);
   });
 
   it("a type switched off raises nothing", async () => {
@@ -248,23 +248,23 @@ describe("catalog change detection", () => {
     });
 
   it("an Automatic type writes when the folder changes; a Manual one beside it only counts", async () => {
-    await run("printProfiles");
+    await run("processPresets");
     await vendorUpdate();
-    await setMode("machineProfiles", "auto");
+    await setMode("machinePresets", "auto");
     state.catalog.processes = state.catalog.processes.map((p) => ({ ...p, layerHeightMm: 0.3 }));
     await syncer().checkCatalogs();
 
     expect(
       db
         .select()
-        .from(machineProfiles)
+        .from(machinePresets)
         .all()
         .map((m) => m.nozzleDiameterMm)
         .sort(),
     ).toEqual([0.2, 0.6]);
-    expect(pendingOf("machineProfiles")).toBe(0);
-    expect(pendingOf("printProfiles")).toBe(2);
-    expect(db.select().from(schema.printProfiles).get()?.layerHeightMm).not.toBe(0.3);
+    expect(pendingOf("machinePresets")).toBe(0);
+    expect(pendingOf("processPresets")).toBe(2);
+    expect(db.select().from(schema.processPresets).get()?.layerHeightMm).not.toBe(0.3);
     expect(fingerprints()).toEqual(["Acme=2"]);
 
     const logged = runs();
@@ -273,9 +273,9 @@ describe("catalog change detection", () => {
   });
 
   it("Automatic writes nothing at the first sight of a folder", async () => {
-    await setMode("machineProfiles", "auto");
+    await setMode("machinePresets", "auto");
     await syncer().checkCatalogs();
-    expect(db.select().from(machineProfiles).all()).toEqual([]);
+    expect(db.select().from(machinePresets).all()).toEqual([]);
     expect(fingerprints()).toEqual(["Acme=1"]);
   });
 
@@ -287,8 +287,8 @@ describe("catalog change detection", () => {
       name: "Mine",
     });
     const names = async (type: string) => (await open(type)).rows.map((r) => r.values.name);
-    expect(await names("machineProfiles")).toEqual(["Acme X 0.4"]);
-    expect(await names("userMachineProfiles")).toEqual(["Mine"]);
+    expect(await names("machinePresets")).toEqual(["Acme X 0.4"]);
+    expect(await names("userMachinePresets")).toEqual(["Mine"]);
   });
 
   it("a user preset you imported doesn't make a slicer update ask about its system presets", async () => {
@@ -300,11 +300,11 @@ describe("catalog change detection", () => {
     mkdirSync(join(dataDir, "user", "default", "machine"), { recursive: true });
     writeFileSync(join(dataDir, "user", "default", "machine", "Mine.json"), "{}");
     await syncer().checkUserPresets();
-    expect(db.select().from(machineProfiles).all()).toMatchObject([{ name: "Mine" }]);
+    expect(db.select().from(machinePresets).all()).toMatchObject([{ name: "Mine" }]);
 
     state.fingerprint = "Acme=2";
     await syncer().checkCatalogs();
-    expect(pendingOf("machineProfiles")).toBe(0);
+    expect(pendingOf("machinePresets")).toBe(0);
     expect(await alerts()).toEqual([]);
   });
 
@@ -312,9 +312,9 @@ describe("catalog change detection", () => {
     await vendorUpdate();
     await syncer().checkCatalogs();
     // Never imported: nothing waits, though the slicer has rows for it.
-    expect(pendingOf("printProfiles")).toBe(0);
+    expect(pendingOf("processPresets")).toBe(0);
 
-    await run("printProfiles");
+    await run("processPresets");
     state.catalog.processes.push({
       presetId: "user/New",
       scope: "user",
@@ -327,16 +327,16 @@ describe("catalog change detection", () => {
     });
     state.fingerprint = "Acme=3";
     await syncer().checkCatalogs();
-    expect(pendingOf("printProfiles")).toBe(0);
+    expect(pendingOf("processPresets")).toBe(0);
   });
 
   it("the scheduler leaves a slicer's catalog types alone", async () => {
     db.insert(syncPolicies)
-      .values({ integrationId: id, type: "machineProfiles", mode: "auto", frequency: "1h" })
+      .values({ integrationId: id, type: "machinePresets", mode: "auto", frequency: "1h" })
       .run();
     await syncer().runAll();
     expect(runs()).toBe(0);
-    expect(db.select().from(machineProfiles).all()).toEqual([]);
+    expect(db.select().from(machinePresets).all()).toEqual([]);
   });
 
   it("a library's catalog belongs to its oldest row with a readable folder", async () => {
@@ -361,7 +361,7 @@ describe("catalog change detection", () => {
   it("a user preset's count is its own: its run leaves what a catalog change left waiting", async () => {
     await vendorUpdate();
     await syncer().checkCatalogs();
-    expect(pendingOf("machineProfiles")).toBe(2);
+    expect(pendingOf("machinePresets")).toBe(2);
 
     state.catalog.machines.push({
       ...machine(),
@@ -376,12 +376,12 @@ describe("catalog change detection", () => {
     expect(
       db
         .select()
-        .from(machineProfiles)
+        .from(machinePresets)
         .all()
         .map((m) => m.name),
     ).toContain("Mine");
-    expect(pendingOf("machineProfiles")).toBe(2);
-    expect(pendingOf("userMachineProfiles")).toBe(0);
+    expect(pendingOf("machinePresets")).toBe(2);
+    expect(pendingOf("userMachinePresets")).toBe(0);
     expect(await alerts()).toHaveLength(1);
   });
 
@@ -390,33 +390,33 @@ describe("catalog change detection", () => {
     state.unreadable = true;
     await syncer().checkCatalogs();
     expect(fingerprints()).toEqual(["Acme=1"]);
-    expect(pendingOf("machineProfiles")).toBe(0);
+    expect(pendingOf("machinePresets")).toBe(0);
 
     state.unreadable = false;
     await syncer().checkCatalogs();
     expect(fingerprints()).toEqual(["Acme=2"]);
-    expect(pendingOf("machineProfiles")).toBe(2);
+    expect(pendingOf("machinePresets")).toBe(2);
   });
 });
 
 describe("deleted catalog rows", () => {
-  const { brands, deletedSources, filamentBrands, filamentMaterials, filamentProfiles } = schema;
-  const { machineProfiles, printerModels, printProfiles } = schema;
+  const { brands, deletedSources, filamentBrands, filamentMaterials, filamentPresets } = schema;
+  const { machinePresets, printerModels, processPresets } = schema;
   const types = [
     ["brands", "/api/brands", brands],
     ["printerModels", "/api/printer-models", printerModels],
-    ["machineProfiles", "/api/machine-profiles", machineProfiles],
-    ["printProfiles", "/api/print-profiles", printProfiles],
+    ["machinePresets", "/api/machine-presets", machinePresets],
+    ["processPresets", "/api/process-presets", processPresets],
     ["filamentBrands", "/api/filament-brands", filamentBrands],
     ["filamentMaterials", "/api/filament-materials", filamentMaterials],
-    ["filamentProfiles", "/api/filament/profiles", filamentProfiles],
+    ["filamentPresets", "/api/filament/presets", filamentPresets],
   ] as const;
 
   it.each(types)(
     "%s: a run doesn't bring it back; importing it by hand does",
     async (type, url, table) => {
       const t = table as typeof brands;
-      if (type === "filamentProfiles") {
+      if (type === "filamentPresets") {
         await run("filamentBrands");
         await run("filamentMaterials");
       }
@@ -471,13 +471,13 @@ describe("deleted catalog rows", () => {
 });
 
 describe("archived catalog rows", () => {
-  const { brands, printerModels, machineProfiles, printProfiles, filamentBrands } = schema;
-  const { filamentMaterials, filamentProfiles } = schema;
+  const { brands, printerModels, machinePresets, processPresets, filamentBrands } = schema;
+  const { filamentMaterials, filamentPresets } = schema;
   const types = [
     ["brands", "/api/brands", brands],
     ["printerModels", "/api/printer-models", printerModels],
-    ["machineProfiles", "/api/machine-profiles", machineProfiles],
-    ["printProfiles", "/api/print-profiles", printProfiles],
+    ["machinePresets", "/api/machine-presets", machinePresets],
+    ["processPresets", "/api/process-presets", processPresets],
     ["filamentBrands", "/api/filament-brands", filamentBrands],
     ["filamentMaterials", "/api/filament-materials", filamentMaterials],
   ] as const;
@@ -515,8 +515,8 @@ describe("archived catalog rows", () => {
   );
 
   it("restoring a preset a print uses, unchanged, makes no new version", async () => {
-    await run("machineProfiles");
-    const row = db.select().from(machineProfiles).get();
+    await run("machinePresets");
+    const row = db.select().from(machinePresets).get();
     if (!row) throw new Error("nothing imported");
     const printer = db
       .insert(schema.printers)
@@ -526,7 +526,7 @@ describe("archived catalog rows", () => {
     db.insert(schema.prints)
       .values({
         printerId: printer.id,
-        machineProfileId: row.id,
+        machinePresetId: row.id,
         title: "T",
         startedAt: new Date().toISOString(),
         outcome: "success",
@@ -534,29 +534,29 @@ describe("archived catalog rows", () => {
       .run();
     await app.inject({
       method: "PATCH",
-      url: `/api/machine-profiles/${row.id}`,
+      url: `/api/machine-presets/${row.id}`,
       payload: { archived: true },
     });
 
-    const preview = await open("machineProfiles");
+    const preview = await open("machinePresets");
     await review.confirm(preview, preview.rows, { action: "update" });
 
-    expect(db.select().from(machineProfiles).all()).toMatchObject([
+    expect(db.select().from(machinePresets).all()).toMatchObject([
       { id: row.id, archivedAt: null },
     ]);
   });
 
   it.each([
-    ["machineProfiles", machineProfiles],
-    ["printProfiles", printProfiles],
-    ["filamentProfiles", filamentProfiles],
+    ["machinePresets", machinePresets],
+    ["processPresets", processPresets],
+    ["filamentPresets", filamentPresets],
   ] as const)(
     "%s: of several archived versions the newest is the one offered",
     async (type, table) => {
       await run("filamentBrands");
       await run("filamentMaterials");
       await run(type);
-      const t = table as typeof machineProfiles;
+      const t = table as typeof machinePresets;
       const newest = db.select().from(t).get();
       if (!newest?.sourcePreset) throw new Error("nothing imported");
       const { id: _id, ...fields } = newest;
@@ -628,9 +628,9 @@ describe("slicer catalog import", () => {
       { source: "integration", type: "brands", created: 1 },
     ]);
 
-    // Models and machine profiles find the brand, and the thumbnail is copied once.
+    // Models and machine presets find the brand, and the thumbnail is copied once.
     expect((await run("printerModels")).created).toBe(1);
-    expect((await run("machineProfiles")).created).toBe(1);
+    expect((await run("machinePresets")).created).toBe(1);
     const model = db.select().from(schema.printerModels).get();
     expect(model?.imagePath).toBe(`models/${model?.id}.png`);
     expect(existsSync(join(dataDir, model?.imagePath ?? ""))).toBe(true);
@@ -640,14 +640,14 @@ describe("slicer catalog import", () => {
     for (const type of [
       "brands",
       "printerModels",
-      "machineProfiles",
+      "machinePresets",
       "filamentBrands",
       "filamentMaterials",
     ])
       expect(await run(type)).toMatchObject({ created: 0, status: "ok" });
     expect(db.select().from(schema.brands).all()).toHaveLength(1);
     expect(db.select().from(schema.printerModels).all()).toHaveLength(1);
-    expect(db.select().from(schema.machineProfiles).all()).toHaveLength(1);
+    expect(db.select().from(schema.machinePresets).all()).toHaveLength(1);
     expect(db.select().from(schema.filamentBrands).all()).toHaveLength(1);
     expect(db.select().from(schema.filamentMaterials).all()).toHaveLength(1);
   });
@@ -716,46 +716,46 @@ describe("slicer catalog import", () => {
       await run(type);
     // You import one filament preset of the brand; the slicer has another of it.
     state.presets = [preset(), preset({ presetId: "system/B", name: "B" })];
-    const profiles = await open("filamentProfiles");
-    const a = profiles.rows.filter((r) => r.values.name === "A");
-    expect((await review.confirm(profiles, a)).json()).toMatchObject({ created: 1 });
+    const filaments = await open("filamentPresets");
+    const a = filaments.rows.filter((r) => r.values.name === "A");
+    expect((await review.confirm(filaments, a)).json()).toMatchObject({ created: 1 });
     await app.inject({
       method: "PATCH",
       url: `/api/integrations/${id}`,
       payload: {
-        policies: ["filamentProfiles", "machineProfiles"].map((type) => ({
+        policies: ["filamentPresets", "machinePresets"].map((type) => ({
           type,
           scope: "imported",
         })),
       },
     });
     // "B" has a brand you have, yet it is neither added nor left for review.
-    expect(await run("filamentProfiles")).toMatchObject({ created: 0, pending: 0 });
-    expect(await run("machineProfiles")).toMatchObject({ created: 0, pending: 0 });
+    expect(await run("filamentPresets")).toMatchObject({ created: 0, pending: 0 });
+    expect(await run("machinePresets")).toMatchObject({ created: 0, pending: 0 });
     // The one you have follows the slicer.
     state.presets = [preset({ nozzleTempC: 230 }), preset({ presetId: "system/B", name: "B" })];
-    expect(await run("filamentProfiles")).toMatchObject({ created: 0, updated: 1, pending: 0 });
+    expect(await run("filamentPresets")).toMatchObject({ created: 0, updated: 1, pending: 0 });
     expect(
       db
-        .select({ name: schema.filamentProfiles.name })
-        .from(schema.filamentProfiles)
+        .select({ name: schema.filamentPresets.name })
+        .from(schema.filamentPresets)
         .all()
         .map((p) => p.name),
     ).toEqual(["A"]);
   });
 
   it("a changed unused machine preset updates in place; a used one is archived and re-added", async () => {
-    await run("machineProfiles");
-    const first = db.select().from(schema.machineProfiles).get();
+    await run("machinePresets");
+    const first = db.select().from(schema.machinePresets).get();
     expect(first?.sourcePreset).toBe("fake:system/Acme X 0.4");
 
     state.catalog.machines = [machine(0.6, "Acme X 0.6")];
-    expect((await open("machineProfiles")).rows[0]).toMatchObject({
+    expect((await open("machinePresets")).rows[0]).toMatchObject({
       status: "changed",
       auto: "apply",
     });
-    await run("machineProfiles");
-    expect(db.select().from(schema.machineProfiles).all()).toMatchObject([
+    await run("machinePresets");
+    expect(db.select().from(schema.machinePresets).all()).toMatchObject([
       { id: first?.id, name: "Acme X 0.6", nozzleDiameterMm: 0.6, archivedAt: null },
     ]);
 
@@ -765,28 +765,30 @@ describe("slicer catalog import", () => {
         number: 1,
         name: "P",
         modelId: first?.printerModelId,
-        machineProfileId: first?.id,
+        machinePresetId: first?.id,
       })
       .returning()
       .get();
     db.insert(schema.prints)
       .values({
         printerId: printer.id,
-        machineProfileId: first?.id,
+        machinePresetId: first?.id,
         title: "t",
         startedAt: "2026-01-01T00:00:00.000Z",
         outcome: "success",
       })
       .run();
-    // A new default print profile alone is no new version: the print was made the same way.
-    state.catalog.machines = [{ ...machine(0.6, "Acme X 0.6"), defaultPrintPreset: "system/Fine" }];
-    await run("machineProfiles");
-    expect(db.select().from(schema.machineProfiles).all()).toMatchObject([
-      { id: first?.id, defaultPrintPreset: "fake:system/Fine", archivedAt: null },
+    // A new default process preset alone is no new version: the print was made the same way.
+    state.catalog.machines = [
+      { ...machine(0.6, "Acme X 0.6"), defaultProcessPreset: "system/Fine" },
+    ];
+    await run("machinePresets");
+    expect(db.select().from(schema.machinePresets).all()).toMatchObject([
+      { id: first?.id, defaultProcessPreset: "fake:system/Fine", archivedAt: null },
     ]);
     state.catalog.machines = [machine(0.8, "Acme X 0.8")];
-    await run("machineProfiles");
-    const rows = db.select().from(schema.machineProfiles).all();
+    await run("machinePresets");
+    const rows = db.select().from(schema.machinePresets).all();
     expect(rows).toHaveLength(2);
     expect(rows.find((r) => r.id === first?.id)).toMatchObject({ name: "Acme X 0.6" });
     expect(rows.find((r) => r.id === first?.id)?.archivedAt).toBeTruthy();
@@ -797,23 +799,23 @@ describe("slicer catalog import", () => {
     });
     // The printer follows the preset; the print keeps the version it was made with.
     const now = db.select().from(schema.printers).get();
-    expect(now?.machineProfileId).toBe(rows.find((r) => r.id !== first?.id)?.id);
-    expect(db.select().from(schema.prints).get()?.machineProfileId).toBe(first?.id);
+    expect(now?.machinePresetId).toBe(rows.find((r) => r.id !== first?.id)?.id);
+    expect(db.select().from(schema.prints).get()?.machinePresetId).toBe(first?.id);
 
     // The list hides the old version; the print still resolves it.
-    const list = (await app.inject("/api/machine-profiles")).json();
+    const list = (await app.inject("/api/machine-presets")).json();
     expect(list.items.map((m: { name: string }) => m.name)).toEqual(["Acme X 0.8"]);
-    expect((await app.inject(`/api/machine-profiles/${first?.id}`)).json().archivedAt).toBeTruthy();
+    expect((await app.inject(`/api/machine-presets/${first?.id}`)).json().archivedAt).toBeTruthy();
   });
 
-  it("a sync imports print profiles, with or without a known printer, and updates them in place", async () => {
-    const preview = await open("printProfiles");
+  it("a sync imports process presets, with or without a known printer, and updates them in place", async () => {
+    const preview = await open("processPresets");
     expect(preview.rows.map((r) => [r.values.name, r.status])).toEqual([
       ["0.20mm Standard @Acme X", "new"],
       ["Loose", "new"],
     ]);
-    expect(await run("printProfiles")).toMatchObject({ created: 2, skipped: 0 });
-    const rows = db.select().from(schema.printProfiles).all();
+    expect(await run("processPresets")).toMatchObject({ created: 2, skipped: 0 });
+    const rows = db.select().from(schema.processPresets).all();
     const model = db.select().from(schema.printerModels).get();
     expect(rows).toMatchObject([
       { name: "0.20mm Standard @Acme X", printerModelId: model?.id, layerHeightMm: 0.2 },
@@ -823,49 +825,49 @@ describe("slicer catalog import", () => {
     state.catalog.processes = state.catalog.processes
       .filter((p) => p.name === "Loose")
       .map((p) => ({ ...p, layerHeightMm: 0.32 }));
-    await run("printProfiles");
-    expect(db.select().from(schema.printProfiles).all()).toHaveLength(2);
-    const loose = (await app.inject("/api/print-profiles?name=Loose")).json();
+    await run("processPresets");
+    expect(db.select().from(schema.processPresets).all()).toHaveLength(2);
+    const loose = (await app.inject("/api/process-presets?name=Loose")).json();
     expect(loose.items).toMatchObject([{ id: rows[1]?.id, layerHeightMm: 0.32 }]);
   });
 
   it("keeps every printer a process lists and a machine's default; a re-read fills rows you have", async () => {
     const two = { ...machine(0.4, "Acme Y 0.4"), presetId: "system/Acme Y 0.4" };
-    await run("machineProfiles");
-    await run("printProfiles");
+    await run("machinePresets");
+    await run("processPresets");
     const standard = () =>
       db
         .select()
-        .from(schema.printProfiles)
-        .where(eq(schema.printProfiles.name, "0.20mm Standard @Acme X"))
+        .from(schema.processPresets)
+        .where(eq(schema.processPresets.name, "0.20mm Standard @Acme X"))
         .get();
     expect(standard()?.machinePresets).toEqual(["fake:system/Acme X 0.4"]);
 
     // The slicer now says more: both machines, and a default.
     state.catalog.machines = [
-      { ...machine(), defaultPrintPreset: "system/0.20mm Standard @Acme X" },
+      { ...machine(), defaultProcessPreset: "system/0.20mm Standard @Acme X" },
       two,
     ];
     const [first] = state.catalog.processes;
     if (first) first.machines = ["system/Acme X 0.4", "system/Acme Y 0.4"];
-    const preview = await open("printProfiles");
+    const preview = await open("processPresets");
     expect(preview.rows.find((r) => r.targetId === standard()?.id)).toMatchObject({
       status: "changed",
       values: { printers: "Acme X 0.4, Acme Y 0.4" },
     });
-    await run("printProfiles");
-    await run("machineProfiles");
+    await run("processPresets");
+    await run("machinePresets");
     expect(standard()?.machinePresets).toEqual([
       "fake:system/Acme X 0.4",
       "fake:system/Acme Y 0.4",
     ]);
-    const machines = db.select().from(schema.machineProfiles).all();
+    const machines = db.select().from(schema.machinePresets).all();
     expect(
-      machines.find((m) => m.sourcePreset === "fake:system/Acme X 0.4")?.defaultPrintPreset,
+      machines.find((m) => m.sourcePreset === "fake:system/Acme X 0.4")?.defaultProcessPreset,
     ).toBe("fake:system/0.20mm Standard @Acme X");
   });
 
-  it("a printer added before its slicer's catalog gets its machine profile from the import", async () => {
+  it("a printer added before its slicer's catalog gets its machine preset from the import", async () => {
     await run("brands");
     await run("printerModels");
     const model = db.select().from(schema.printerModels).get();
@@ -874,38 +876,38 @@ describe("slicer catalog import", () => {
       url: "/api/printers",
       payload: { name: "P", modelId: model?.id },
     });
-    expect(printer.json().machineProfileId).toBeNull();
-    await run("machineProfiles");
-    const made = db.select().from(schema.machineProfiles).get();
-    expect(db.select().from(schema.printers).get()?.machineProfileId).toBe(made?.id);
+    expect(printer.json().machinePresetId).toBeNull();
+    await run("machinePresets");
+    const made = db.select().from(schema.machinePresets).get();
+    expect(db.select().from(schema.printers).get()?.machinePresetId).toBe(made?.id);
   });
 
   it("a changed filament preset updates in place: no spool or print points at it", async () => {
     await run("filamentBrands");
     await run("filamentMaterials");
     // Confirms what the review suggests for the one preset.
-    const imp = async () => review.confirm(await open("filamentProfiles"));
+    const imp = async () => review.confirm(await open("filamentPresets"));
     await imp();
-    const first = db.select().from(schema.filamentProfiles).get();
+    const first = db.select().from(schema.filamentPresets).get();
 
     state.presets = [preset({ nozzleTempC: 230 })];
-    const status = async () => (await open("filamentProfiles")).rows[0]?.status;
+    const status = async () => (await open("filamentPresets")).rows[0]?.status;
     expect(await status()).toBe("changed");
     expect((await imp()).json()).toMatchObject({ created: 0, updated: 1 });
-    expect(db.select().from(schema.filamentProfiles).all()).toMatchObject([
+    expect(db.select().from(schema.filamentPresets).all()).toMatchObject([
       { id: first?.id, nozzleTempC: 230, archivedAt: null },
     ]);
     expect(await status()).toBe("identical");
 
-    // Prints and spools never point at a profile: a later change is in place too.
+    // Prints and spools never point at a preset: a later change is in place too.
     state.presets = [preset({ nozzleTempC: 240 })];
     await imp();
-    expect(db.select().from(schema.filamentProfiles).all()).toMatchObject([
+    expect(db.select().from(schema.filamentPresets).all()).toMatchObject([
       { id: first?.id, nozzleTempC: 240, archivedAt: null },
     ]);
   });
 
-  it("the brand pick adds the models and profiles of those brands only, past 'only what I already have'", async () => {
+  it("the brand pick adds the models and presets of those brands only, past 'only what I already have'", async () => {
     state.catalog.models.push({ brand: "Prusa", model: "MK4", image: null });
     state.catalog.machines.push({
       ...machine(),
@@ -919,7 +921,7 @@ describe("slicer catalog import", () => {
       method: "PATCH",
       url: `/api/integrations/${id}`,
       payload: {
-        policies: ["brands", "printerModels", "machineProfiles"].map((type) => ({
+        policies: ["brands", "printerModels", "machinePresets"].map((type) => ({
           type,
           scope: "imported",
         })),
@@ -946,13 +948,13 @@ describe("slicer catalog import", () => {
     const names = (rows: { name: string }[]) => rows.map((r) => r.name);
     expect(names(db.select().from(schema.brands).all())).toEqual(["Acme"]);
     expect(db.select().from(schema.printerModels).all()).toHaveLength(1);
-    expect(names(db.select().from(schema.machineProfiles).all())).toEqual(["Acme X 0.4"]);
+    expect(names(db.select().from(schema.machinePresets).all())).toEqual(["Acme X 0.4"]);
     // The process preset with no brand is no brand's.
-    expect(names(db.select().from(schema.printProfiles).all())).toEqual([
+    expect(names(db.select().from(schema.processPresets).all())).toEqual([
       "0.20mm Standard @Acme X",
     ]);
     expect(names(db.select().from(schema.filamentBrands).all())).toEqual(["Acme"]);
-    expect(names(db.select().from(schema.filamentProfiles).all())).toEqual(["A"]);
+    expect(names(db.select().from(schema.filamentPresets).all())).toEqual(["A"]);
     // One of each of the seven types.
     expect(res.json().created).toBe(7);
 

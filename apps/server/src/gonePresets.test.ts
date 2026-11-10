@@ -17,12 +17,12 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { buildApp } from "./app.ts";
 import { createSyncer } from "./integrations/sync.ts";
 import { type PresetKind, presetInUse } from "./lib/dependents.ts";
-import { insertProfile } from "./testSeed.ts";
+import { insertPreset } from "./testSeed.ts";
 
 // ADR-0019 (Plan 5.4.0 Step 7): a preset gone from a slicer raises an alert, and its catalog row
 // goes only when a person deletes it and nothing uses it.
 
-const { filamentProfiles, machineProfiles, printProfiles, syncPolicies, syncRuns } = schema;
+const { filamentPresets, machinePresets, processPresets, syncPolicies, syncRuns } = schema;
 
 const state: { catalog: SlicerCatalog; presets: LibraryPreset[]; fingerprint: string } = {
   catalog: null as never,
@@ -36,7 +36,7 @@ const machine = (name: string, scope: "system" | "user" = "system") => ({
   model: "Acme X",
   name,
   nozzleDiameterMm: 0.4,
-  defaultPrintPreset: null,
+  defaultProcessPreset: null,
 });
 const filament = (name: string, scope: "system" | "user" = "system"): LibraryPreset => ({
   presetId: `${scope}/${name}`,
@@ -79,11 +79,11 @@ beforeEach(async () => {
     capabilities: [
       "brands",
       "printerModels",
-      "machineProfiles",
-      "printProfiles",
+      "machinePresets",
+      "processPresets",
       "filamentBrands",
       "filamentMaterials",
-      "filamentProfiles",
+      "filamentPresets",
       ...USER_PRESET_TYPES,
     ],
     library,
@@ -128,7 +128,7 @@ const lastLog = () =>
     .sort((a, b) => a.startedAt.localeCompare(b.startedAt))
     .at(-1)?.log;
 const machineOf = (name: string) =>
-  db.select().from(machineProfiles).where(eq(machineProfiles.name, name)).get();
+  db.select().from(machinePresets).where(eq(machinePresets.name, name)).get();
 const made = async (url: string, payload: object): Promise<string> => {
   const res = await app.inject({ method: "POST", url, payload });
   expect(res.statusCode, res.body).toBe(201);
@@ -137,7 +137,7 @@ const made = async (url: string, payload: object): Promise<string> => {
 
 /** Both machine presets imported and the folder seen; then the slicer drops "Acme X 0.6". */
 const dropMachine = async () => {
-  for (const type of ["brands", "printerModels", "machineProfiles"]) await run(type);
+  for (const type of ["brands", "printerModels", "machinePresets"]) await run(type);
   await syncer().checkCatalogs();
   state.catalog.machines = [machine("Acme X 0.4")];
   state.fingerprint = "Acme=2";
@@ -150,19 +150,19 @@ describe("a preset gone from the slicer", () => {
 
     const gone = machineOf("Acme X 0.6");
     expect(gone?.archivedAt).toBeNull();
-    expect(pendingOf("machineProfiles")).toBe(1);
-    expect(await alerts()).toMatchObject([{ context: { type: "machineProfiles", count: 1 } }]);
+    expect(pendingOf("machinePresets")).toBe(1);
+    expect(await alerts()).toMatchObject([{ context: { type: "machinePresets", count: 1 } }]);
     expect(lastLog()).toEqual([{ event: "left", label: "Acme X 0.6", reason: "removed" }]);
 
-    const preview = await open("machineProfiles");
+    const preview = await open("machinePresets");
     expect(preview.gone).toEqual([{ id: gone?.id, label: "Acme X 0.6", dependents: [] }]);
-    const res = await remove("machineProfiles", gone?.id ?? "");
+    const res = await remove("machinePresets", gone?.id ?? "");
     expect(res.json()).toEqual({ result: "deleted" });
     expect(machineOf("Acme X 0.6")).toBeUndefined();
     expect(machineOf("Acme X 0.4")).toBeDefined();
-    expect(pendingOf("machineProfiles")).toBe(0);
+    expect(pendingOf("machinePresets")).toBe(0);
     expect(await alerts()).toEqual([]);
-    expect((await open("machineProfiles")).gone).toBeUndefined();
+    expect((await open("machinePresets")).gone).toBeUndefined();
   });
 
   it("a used row can't be deleted and says why; once free, the alert asks again", async () => {
@@ -172,47 +172,47 @@ describe("a preset gone from the slicer", () => {
     const printerId = await made("/api/printers", { name: "P1", modelId, state: "working" });
     const printId = await made("/api/prints", {
       printerId,
-      machineProfileId: used,
+      machinePresetId: used,
       title: "Benchy",
       startedAt: "2026-01-01T10:00:00.000Z",
       outcome: "success",
     });
     await syncer().checkCatalogs();
-    expect(pendingOf("machineProfiles")).toBe(1);
+    expect(pendingOf("machinePresets")).toBe(1);
 
-    const [why] = (await open("machineProfiles")).gone ?? [];
+    const [why] = (await open("machinePresets")).gone ?? [];
     expect(why?.dependents).toMatchObject([
       { type: "print", total: 1, items: [{ id: printId, label: expect.stringMatching(/Benchy/) }] },
     ]);
-    const refused = await remove("machineProfiles", used);
+    const refused = await remove("machinePresets", used);
     expect(refused.statusCode).toBe(409);
     expect(refused.json().error.code).toBe("in_use");
     expect(machineOf("Acme X 0.6")).toBeDefined();
 
     // Kept: no Delete to offer, so the review closes and doesn't ask while it's used.
-    const preview = await open("machineProfiles");
+    const preview = await open("machinePresets");
     const kept = await app.inject({
       method: "POST",
-      url: "/api/import/machineProfiles/apply",
+      url: "/api/import/machinePresets/apply",
       payload: { uploadId: preview.uploadId, policy: "keepEdits", decisions: [] },
     });
     expect(kept.statusCode).toBe(200);
-    expect(pendingOf("machineProfiles")).toBe(0);
+    expect(pendingOf("machinePresets")).toBe(0);
     syncer().checkFreed();
-    expect(pendingOf("machineProfiles")).toBe(0);
+    expect(pendingOf("machinePresets")).toBe(0);
     expect(await alerts()).toEqual([]);
 
     expect((await app.inject({ method: "DELETE", url: `/api/prints/${printId}` })).statusCode).toBe(
       204,
     );
     syncer().checkFreed();
-    expect(pendingOf("machineProfiles")).toBe(1);
+    expect(pendingOf("machinePresets")).toBe(1);
     expect(await alerts()).toHaveLength(1);
     expect(lastLog()).toEqual([{ event: "left", label: "Acme X 0.6", reason: "removed" }]);
     // Asked once: the next tick doesn't count it again.
     syncer().checkFreed();
-    expect(pendingOf("machineProfiles")).toBe(1);
-    expect((await remove("machineProfiles", used)).json()).toEqual({ result: "deleted" });
+    expect(pendingOf("machinePresets")).toBe(1);
+    expect((await remove("machinePresets", used)).json()).toEqual({ result: "deleted" });
   });
 
   it("a preset that comes back closes its alert", async () => {
@@ -223,32 +223,32 @@ describe("a preset gone from the slicer", () => {
     state.catalog.machines = [machine("Acme X 0.4"), machine("Acme X 0.6")];
     state.fingerprint = "Acme=3";
     await syncer().checkCatalogs();
-    expect(pendingOf("machineProfiles")).toBe(0);
+    expect(pendingOf("machinePresets")).toBe(0);
     expect(await alerts()).toEqual([]);
-    expect((await open("machineProfiles")).gone).toBeUndefined();
+    expect((await open("machinePresets")).gone).toBeUndefined();
   });
 
   it("an Automatic card deletes nothing either; Delete is refused while it is still there", async () => {
     await app.inject({
       method: "PATCH",
       url: `/api/integrations/${id}`,
-      payload: { policies: [{ type: "machineProfiles", mode: "auto" }] },
+      payload: { policies: [{ type: "machinePresets", mode: "auto" }] },
     });
     await dropMachine();
     await syncer().checkCatalogs();
     expect(machineOf("Acme X 0.6")).toBeDefined();
-    expect(pendingOf("machineProfiles")).toBe(1);
+    expect(pendingOf("machinePresets")).toBe(1);
     // Not gone: nothing to delete.
     const kept = machineOf("Acme X 0.4")?.id ?? "";
-    expect((await remove("machineProfiles", kept)).statusCode).toBe(404);
+    expect((await remove("machinePresets", kept)).statusCode).toBe(404);
   });
 
   it("a slicer that reads empty counts nothing gone", async () => {
     await dropMachine();
     state.catalog.machines = [];
     await syncer().checkCatalogs();
-    expect(pendingOf("machineProfiles")).toBe(0);
-    expect((await open("machineProfiles")).gone).toBeUndefined();
+    expect(pendingOf("machinePresets")).toBe(0);
+    expect((await open("machinePresets")).gone).toBeUndefined();
   });
 
   it("a user preset gone from the folder waits for a person, with the presets that inherit from it", async () => {
@@ -263,7 +263,7 @@ describe("a preset gone from the slicer", () => {
     expect(
       db
         .select()
-        .from(filamentProfiles)
+        .from(filamentPresets)
         .all()
         .map((p) => p.name)
         .sort(),
@@ -278,17 +278,17 @@ describe("a preset gone from the slicer", () => {
     expect(
       db
         .select()
-        .from(filamentProfiles)
+        .from(filamentPresets)
         .all()
         .map((p) => p.name),
     ).toContain("Mine");
-    expect(pendingOf("userFilamentProfiles")).toBe(1);
-    const [mine] = (await open("userFilamentProfiles")).gone ?? [];
+    expect(pendingOf("userFilamentPresets")).toBe(1);
+    const [mine] = (await open("userFilamentPresets")).gone ?? [];
     expect(mine).toMatchObject({
       label: "Acme PLA Mine",
       dependents: [{ type: "preset", total: 1, items: [{ label: "Child" }] }],
     });
-    expect((await remove("userFilamentProfiles", mine?.id ?? "")).statusCode).toBe(409);
+    expect((await remove("userFilamentPresets", mine?.id ?? "")).statusCode).toBe(409);
   });
 });
 
@@ -329,29 +329,29 @@ describe("in use, by ADR-0019's stricter rule", () => {
       })
       .run();
   const items = {
-    machineProfiles: async () =>
-      insertProfile(db, "machineProfiles", { name: unique("M"), printerModelId: await model() }).id,
-    printProfiles: async () => insertProfile(db, "printProfiles", { name: unique("Fine") }).id,
-    filamentProfiles: async () =>
-      insertProfile(db, "filamentProfiles", {
+    machinePresets: async () =>
+      insertPreset(db, "machinePresets", { name: unique("M"), printerModelId: await model() }).id,
+    processPresets: async () => insertPreset(db, "processPresets", { name: unique("Fine") }).id,
+    filamentPresets: async () =>
+      insertPreset(db, "filamentPresets", {
         materialId: await made("/api/filament-materials", { name: unique("PLA") }),
         name: unique("Basic"),
       }).id,
   };
   const LISTS = {
-    machineProfiles: "/api/machine-profiles",
-    printProfiles: "/api/print-profiles",
-    filamentProfiles: "/api/filament/profiles",
+    machinePresets: "/api/machine-presets",
+    processPresets: "/api/process-presets",
+    filamentPresets: "/api/filament/presets",
   };
   /** The list's In use filter: the ids it lists as used. */
   const listedUsed = async (kind: PresetKind) =>
     ((await app.inject(`${LISTS[kind]}?use=used`)).json().items as { id: string }[]).map(
       (r) => r.id,
     );
-  const TABLES = { machineProfiles, printProfiles, filamentProfiles };
+  const TABLES = { machinePresets, processPresets, filamentPresets };
   /** An archived row of the same preset: what prints of an older version point at. */
   const version = (kind: PresetKind) => async (rowId: string) => {
-    const t = TABLES[kind] as typeof machineProfiles;
+    const t = TABLES[kind] as typeof machinePresets;
     db.update(t).set({ sourcePreset: "fake:system/P" }).where(eq(t.id, rowId)).run();
     const row = db.select().from(t).where(eq(t.id, rowId)).get();
     const {
@@ -359,30 +359,30 @@ describe("in use, by ADR-0019's stricter rule", () => {
       createdAt: __,
       updatedAt: ___,
       ...copy
-    } = row as typeof machineProfiles.$inferSelect;
+    } = row as typeof machinePresets.$inferSelect;
     db.insert(t)
       .values({ ...copy, archivedAt: "2026-01-01T00:00:00.000Z" })
       .run();
   };
 
   const uses: [PresetKind, string, (rowId: string) => Promise<unknown>][] = [
-    ["machineProfiles", "print", (m) => print({ machineProfileId: m })],
+    ["machinePresets", "print", (m) => print({ machinePresetId: m })],
     [
-      "machineProfiles",
+      "machinePresets",
       "printer",
       async (m) =>
         db
           .update(schema.printers)
-          .set({ machineProfileId: m })
+          .set({ machinePresetId: m })
           .where(eq(schema.printers.id, await printer()))
           .run(),
     ],
-    ["machineProfiles", "machineProfile", version("machineProfiles")],
-    ["printProfiles", "printer", (p) => printer({ printProfileId: p })],
-    ["printProfiles", "plate", (p) => plate({ printProfileId: p })],
-    ["printProfiles", "printProfile", version("printProfiles")],
-    ["filamentProfiles", "plate", (f) => plate({ filaments: [null, f] })],
-    ["filamentProfiles", "filamentProfile", version("filamentProfiles")],
+    ["machinePresets", "machinePreset", version("machinePresets")],
+    ["processPresets", "printer", (p) => printer({ processPresetId: p })],
+    ["processPresets", "plate", (p) => plate({ processPresetId: p })],
+    ["processPresets", "processPreset", version("processPresets")],
+    ["filamentPresets", "plate", (f) => plate({ filaments: [null, f] })],
+    ["filamentPresets", "filamentPreset", version("filamentPresets")],
   ];
 
   it.each(uses)("%s: a %s counts", async (kind, type, use) => {
@@ -395,8 +395,8 @@ describe("in use, by ADR-0019's stricter rule", () => {
   });
 
   it("a preset that inherits from it counts, by name", async () => {
-    const rowId = await items.filamentProfiles();
-    expect(presetInUse(db, undefined, "filamentProfiles", rowId, ["Child"])).toEqual([
+    const rowId = await items.filamentPresets();
+    expect(presetInUse(db, undefined, "filamentPresets", rowId, ["Child"])).toEqual([
       {
         type: "preset",
         total: 1,
@@ -407,10 +407,10 @@ describe("in use, by ADR-0019's stricter rule", () => {
   });
 
   it("a plate links to its project", async () => {
-    const rowId = await items.printProfiles();
-    await plate({ printProfileId: rowId });
+    const rowId = await items.processPresets();
+    await plate({ processPresetId: rowId });
     const projectId = db.select().from(schema.projects).get()?.id;
-    expect(presetInUse(db, undefined, "printProfiles", rowId)).toMatchObject([
+    expect(presetInUse(db, undefined, "processPresets", rowId)).toMatchObject([
       {
         type: "plate",
         items: [{ id: projectId, label: expect.stringMatching(/^Vase \d+ · a\.3mf #1$/) }],

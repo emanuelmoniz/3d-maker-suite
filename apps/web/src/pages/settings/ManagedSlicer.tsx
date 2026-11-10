@@ -260,7 +260,7 @@ function InstallDialog({
  * runs only where it has no folder of yours (this server, a workstation), e.g. OrcaSlicer's
  * binary .opc download.
  */
-export function ProfilesFromZip({ libraryId, noFolder }: { libraryId: string; noFolder: boolean }) {
+export function PresetsFromZip({ libraryId, noFolder }: { libraryId: string; noFolder: boolean }) {
   const { t } = useTranslation();
   const folders = useZipSources().data?.find((s) => s.id === libraryId)?.folders;
   // The desktop slicer's name (OrcaSlicer), not the card's (OrcaSlicer (server)).
@@ -268,7 +268,7 @@ export function ProfilesFromZip({ libraryId, noFolder }: { libraryId: string; no
   return (
     <div className="grid gap-2">
       <p>
-        {t(noFolder ? "integrations:managed.noProfiles" : "integrations:managed.fromZip", { name })}
+        {t(noFolder ? "integrations:managed.noPresets" : "integrations:managed.fromZip", { name })}
       </p>
       <ol className="grid list-decimal gap-1 pl-5">
         <li>{t("integrations:managed.zipSteps.install", { name })}</li>

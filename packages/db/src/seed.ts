@@ -51,7 +51,7 @@ export function seed(db: Db, now = new Date(), { prints: printCount = 40 } = {})
           .returning()
           .get().id,
     );
-    tx.insert(s.machineProfiles)
+    tx.insert(s.machinePresets)
       .values({ name: "Bambu Lab X1 Carbon 0.4 nozzle", printerModelId: at(models, 0) })
       .run();
     const printers = [
@@ -113,7 +113,7 @@ export function seed(db: Db, now = new Date(), { prints: printCount = 40 } = {})
         tx.insert(s.filamentMaterials).values({ name, pricePerKg }).returning().get().id,
       ]),
     );
-    tx.insert(s.filamentProfiles)
+    tx.insert(s.filamentPresets)
       .values([
         {
           brandId: filamentBrandId.Bambu,

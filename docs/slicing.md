@@ -20,14 +20,14 @@ A plate reads top to bottom, as in the slicer. Changing a line resets the lines 
 
 | Line | Default | What the list offers |
 |---|---|---|
-| **Slicer** | The project's slicer, else the default slicer | Your slicers. Another slicer resets the profiles to its own, and a filament preset of the old slicer goes back to *As saved in the file* |
+| **Slicer** | The project's slicer, else the default slicer | Your slicers. Another slicer resets the presets to its own, and a filament preset of the old slicer goes back to *As saved in the file* |
 | **Printer** | A printer the file was made for (the default printer first), else the default printer | Your printers, those *Made for this file* first |
-| **Machine profile** | *As saved in the file* on the file's printer, else the printer's machine profile | The printer model's system machine profiles in the plate's slicer, every nozzle (for a nozzle swap). A line instead of a picker when there's only one choice; *None for this printer* warns before slicing |
-| **Print profile** | *As saved in the file* when the machine profile is the file's, else the printer's default print profile (if made for that machine), else the machine profile's default | The slicer's print profiles made for the machine profile (their `compatible_printers`) |
+| **Printer preset** | *As saved in the file* on the file's printer, else the printer's own | The printer model's system printer presets in the plate's slicer, every nozzle (for a nozzle swap). A line instead of a picker when there's only one choice; *None for this printer* warns before slicing |
+| **Process preset** | *As saved in the file* when the printer preset is the file's, else the printer's default process preset (if made for that machine), else the printer preset's default | The slicer's process presets made for the printer preset (their `compatible_printers`) |
 
-The file's own changes, such as supports, still go on top of a picked print profile. Changing the slicer, printer or machine profile marks the slice outdated.
+The file's own changes, such as supports, still go on top of a picked process preset. Changing the slicer, printer or printer preset marks the slice outdated.
 
-**Defaults for all plates**, above the files, sets slicer, printer, machine profile and print profile on every picked plate at once with **Apply**. *As saved in the file, where the printer matches* keeps the file's settings on plates made for that printer and the defaults on the others. A plate can still be changed on its own after. The defaults aren't saved: they start from the project's slicer and the default printer. Quotes have the same setup.
+**Defaults for all plates**, above the files, sets slicer, printer, printer preset and process preset on every picked plate at once with **Apply**. *As saved in the file, where the printer matches* keeps the file's settings on plates made for that printer and the defaults on the others. A plate can still be changed on its own after. The defaults aren't saved: they start from the project's slicer and the default printer. Quotes have the same setup.
 
 ## Install a slicer on the server
 
@@ -56,12 +56,12 @@ The slicer pickers show the worker as "Bambu Studio (WS-3)", named after its dev
 
 The slice remembers the worker and the slicer version, so a new version marks it outdated like on the server. It also remembers the presets it used: when one of them changes in the [library](hub.md#slicer-presets), the slice shows as outdated.
 
-## Profiles
+## Presets
 
-- **Bambu Studio (server)** imports its brands, printers and profiles from the download, with the same sync options as the local one.
-- **OrcaSlicer (server)** does the same: the app reads the binary profile files Orca ships. If a newer Orca changes their format, Choose brands says it can't read them, and Orca slices with the 3MF's own settings plus the user presets you import until the app is updated. In Orca, a print preset can't be applied to a project made in Bambu Studio: Orca rejects a setting saved in the file (error `-18`). Open and save the project in Orca first.
+- **Bambu Studio (server)** imports its brands, printers and presets from the download, with the same sync options as the local one.
+- **OrcaSlicer (server)** does the same: the app reads the binary preset files Orca ships. If a newer Orca changes their format, Choose brands says it can't read them, and Orca slices with the 3MF's own settings plus the user presets you import until the app is updated. In Orca, a process preset can't be applied to a project made in Bambu Studio: Orca rejects a setting saved in the file (error `-18`). Open and save the project in Orca first.
 - **Your own presets:** zip the slicer's config folder on your PC and upload it from the slicer's section on [Catalog → Sources](import.md#slicer-catalog-from-a-zip). The zip is merged into the hub's [slicer preset library](hub.md#slicer-presets), so presets already there stay. Slicing on the server and on workers uses that library. A preset you save in a slicer that runs on the server reaches the catalog within a minute, on its own (see [the slicer's When setting](import.md#from-an-integration)).
-- **Presets belong to a slicer.** A Bambu Studio print or printer preset doesn't exist in OrcaSlicer and the other way round, and a slicer's presets are never matched to the other's, even with the same name. The slicer pickers mark slicers that don't fit a plate's profiles, and the plate warns before slicing. A filament preset of the other slicer is fine: that slot slices with the file's own filament.
+- **Presets belong to a slicer.** A Bambu Studio process or printer preset doesn't exist in OrcaSlicer and the other way round, and a slicer's presets are never matched to the other's, even with the same name. The slicer pickers mark slicers that don't fit a plate's presets, and the plate warns before slicing. A filament preset of the other slicer is fine: that slot slices with the file's own filament.
 
 ## Preset and spool per slot
 

@@ -1,6 +1,6 @@
 {
   "loadError": "Couldn't load cost data. Is the server running?",
-  "unpriced": "{{weight}} of filament has no price, so the material cost is too low. Set a price on the spool or filament profile.",
+  "unpriced": "{{weight}} of filament has no price, so the material cost is too low. Set a price on the spool or filament preset.",
   "lines": {
     "material": "Material",
     "energy": "Energy",
@@ -30,7 +30,7 @@
     "project": "Project",
     "noProject": "No project",
     "plates": "Files and plates",
-    "platesHint": "Pick a project, or add .3mf files from your computer. Then tick the plates one print takes and choose the printer, print profile and filament for each. A project starts with its own slicing setup. Plates marked “Needs slicing” get their time and weight when you click Slice.",
+    "platesHint": "Pick a project, or add .3mf files from your computer. Then tick the plates one print takes and choose the printer, process preset and filament for each. A project starts with its own slicing setup. Plates marked “Needs slicing” get their time and weight when you click Slice.",
     "addFile": "Add .3mf files",
     "uploading": "Uploading…",
     "uploadFailed": "Couldn't read that file. Only .3mf files can be added.",

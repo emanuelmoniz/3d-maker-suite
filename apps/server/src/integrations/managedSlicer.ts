@@ -30,7 +30,7 @@ import { libraryDir, mergeUserPresets, type SavedBy } from "./presetLibrary.ts";
 
 // Server integrations download their slicer from the vendor's GitHub releases (ADR-0013):
 // <dataDir>/slicers/<integrationId>/<version>/ holds the program (packages/host installs it),
-// config/system points at its profiles and config/user keeps the user presets of an imported zip
+// config/system points at its presets and config/user keeps the user presets of an imported zip
 // (on a hub, it points at the preset library, ADR-0017).
 
 const { alerts, devices, integrations } = schema;

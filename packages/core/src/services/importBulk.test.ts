@@ -98,7 +98,7 @@ describe("column rules", () => {
     expect(hidden("filamentBrands")).toEqual(["name"]);
     expect(hidden("filamentMaterials")).toEqual(["name"]);
     expect(hidden("maintenanceTypes")).toEqual(["name"]);
-    expect(hidden("filamentProfiles")).toEqual(["name"]);
+    expect(hidden("filamentPresets")).toEqual(["name"]);
   });
 
   it("knows what sets a column", () => {

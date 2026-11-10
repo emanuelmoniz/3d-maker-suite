@@ -1,4 +1,4 @@
-import type { CostContext, FilamentProfile, PlateSetup, Spool } from "@3d-maker-suite/core";
+import type { CostContext, FilamentPreset, PlateSetup, Spool } from "@3d-maker-suite/core";
 import { expect, test } from "vitest";
 import { changePlates, estimateSlicedPlates, keepResults } from "./cost.ts";
 
@@ -18,7 +18,7 @@ const ctx: CostContext = {
   ],
   materialPrices: { PLA: 2000, PETG: 3000 },
 };
-const profile = (id: string, material: string) => ({ id, material }) as FilamentProfile;
+const preset = (id: string, material: string) => ({ id, material }) as FilamentPreset;
 const spool = (id: string, material: string, pricePaid: number | null) =>
   ({ id, material, pricePaid, initialGrams: 1000 }) as Spool;
 const plate = (p: Partial<PlateSetup>, grams: [number, number, string][]): PlateSetup =>
@@ -36,12 +36,12 @@ const plate = (p: Partial<PlateSetup>, grams: [number, number, string][]): Plate
   }) as PlateSetup;
 
 test("prices each slot by its spool, else its material, on each plate's printer", () => {
-  const profiles = [profile("pla", "PLA"), profile("petg", "PETG")];
+  const presets = [preset("pla", "PLA"), preset("petg", "PETG")];
   const red = spool("red", "PLA", 5000); // 5 €/kg paid
   const unpaid = spool("unpaid", "PETG", null);
   const out = estimateSlicedPlates(
     [
-      // 100 g from the spool (5000/kg) + 100 g of the slot profile's PLA (2000/kg), 1 h on "dear".
+      // 100 g from the spool (5000/kg) + 100 g of the slot preset's PLA (2000/kg), 1 h on "dear".
       plate({ printerId: "dear", spools: ["red"], filaments: ["pla", "pla"] }, [
         [1, 100, "PLA"],
         [2, 100, "PETG"],
@@ -54,7 +54,7 @@ test("prices each slot by its spool, else its material, on each plate's printer"
       { ...plate({}, []), result: null },
     ],
     ctx,
-    { spools: [red, unpaid], profiles, fallbackPrinterId: "cheap" },
+    { spools: [red, unpaid], presets, fallbackPrinterId: "cheap" },
   );
   expect(out.cost.material).toBe(500 + 200 + 300 + 300);
   expect(out.cost.wear).toBe(300 + 300 + 100);
@@ -73,18 +73,18 @@ test("a quote plate keeps its slice while it slices the same, and loses it when 
     file: "a.3mf",
     plate: 1,
     printerId: "dear",
-    machineProfileId: null,
-    printProfileId: null,
-    useDefaultPrintProfile: false,
+    machinePresetId: null,
+    processPresetId: null,
+    useDefaultProcessPreset: false,
     filaments: ["pla"],
     spools: [],
     kept: [],
     slicerIntegrationId: null,
   };
   const sliced = { ...setup, result: plate({}, [[1, 10, "PLA"]]).result };
-  // Another spool of the same profile: same slice. Another profile, slicer or plate: none.
+  // Another spool of the same preset: same slice. Another preset, slicer or plate: none.
   expect(keepResults([{ ...setup, spools: ["red"] }], [sliced])[0]?.result).toBe(sliced.result);
-  expect(keepResults([{ ...setup, printProfileId: "fine" }], [sliced])[0]?.result).toBeNull();
+  expect(keepResults([{ ...setup, processPresetId: "fine" }], [sliced])[0]?.result).toBeNull();
   expect(keepResults([{ ...setup, slicerIntegrationId: "orca" }], [sliced])[0]?.result).toBeNull();
   expect(keepResults([{ ...setup, plate: 2 }], [sliced])[0]?.result).toBeNull();
 });
@@ -94,9 +94,9 @@ test("a plate ticked again gets back its own setup and slice, not the defaults",
     file: "a.3mf",
     plate: 1,
     printerId: "dear",
-    machineProfileId: null,
-    printProfileId: null,
-    useDefaultPrintProfile: false,
+    machinePresetId: null,
+    processPresetId: null,
+    useDefaultProcessPreset: false,
     filaments: ["pla", null],
     spools: ["red", null],
     kept: [],

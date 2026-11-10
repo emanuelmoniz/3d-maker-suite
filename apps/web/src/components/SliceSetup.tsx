@@ -17,7 +17,7 @@ import { type ReactNode, useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useCatalogWithArchived, useModelInfo } from "../lib/catalog.ts";
 import { cx } from "../lib/cx.ts";
-import { spoolName, useProfiles, useSpools } from "../lib/filament.ts";
+import { spoolName, useFilamentPresets, useSpools } from "../lib/filament.ts";
 import { formatDuration, formatList, formatWeight } from "../lib/format.ts";
 import { useSlicers } from "../lib/integrations.ts";
 import { printerName, usePrinters } from "../lib/printers.ts";
@@ -35,9 +35,9 @@ export type SliceSetupFile = {
   printerModel?: string | null;
   nozzleDiameter?: number | null;
   /** The print preset the 3MF was saved with, for the "as saved in the file" option. */
-  printProfile?: string | null;
+  processPreset?: string | null;
   /** The machine preset the 3MF was saved with, as above. */
-  machineProfile?: string | null;
+  machinePreset?: string | null;
   thumbnailUrl?: (thumbnail: string) => string;
 };
 
@@ -65,7 +65,7 @@ const SLICE_ERRORS: Record<string, string> = {
   not_allowed: "projects:slicing.error.not_allowed",
   no_preset: "projects:slicing.error.no_preset",
   no_machine_preset: "projects:slicing.error.no_machine_preset",
-  no_printer_profile: "projects:slicing.error.no_printer_profile",
+  no_printer_preset: "projects:slicing.error.no_printer_preset",
   empty_plate: "projects:slicing.error.empty_plate",
   slice_failed: "projects:slicing.error.slice_failed",
 };
@@ -123,19 +123,19 @@ export function PlateSlice({
 type FileInfo = Pick<SliceSetupFile, "printerModel" | "nozzleDiameter">;
 type Choice = Pick<
   PlateSetupInput,
-  "printerId" | "machineProfileId" | "printProfileId" | "useDefaultPrintProfile"
+  "printerId" | "machinePresetId" | "processPresetId" | "useDefaultProcessPreset"
 >;
 
 /**
  * A plate as the server slices it (`resolvePlate`) with a slicer, and `misfit`: what that slicer
- * has no preset for among the plate's profiles (`presetMisfit`), else undefined.
+ * has no preset for among the plate's presets (`presetMisfit`), else undefined.
  */
 export function usePlateFit(defaultPrinterId: string | null | undefined) {
   const { t } = useTranslation();
   const slicers = useSlicers();
-  const prints = useCatalogWithArchived("print-profiles").data ?? [];
-  const machines = useCatalogWithArchived("machine-profiles").data ?? [];
-  const filaments = useProfiles().data?.items ?? [];
+  const prints = useCatalogWithArchived("process-presets").data ?? [];
+  const machines = useCatalogWithArchived("machine-presets").data ?? [];
+  const filaments = useFilamentPresets().data?.items ?? [];
   const models = useModelInfo();
   // Printers with what `printerFitsFile` compares: the model's name and brand, and the nozzle.
   const printers = (usePrinters({ archived: false }).data?.items ?? []).map((p) => {
@@ -161,7 +161,7 @@ export function usePlateFit(defaultPrinterId: string | null | undefined) {
     if (!library) return undefined;
     const r = resolve(f, v, slicerId);
     return presetMisfit(library, {
-      print: prints.find((p) => p.id === r.profileId),
+      print: prints.find((p) => p.id === r.presetId),
       machines: r.fromFile ? undefined : r.machine ? [r.machine] : [],
       printer: r.printer && printerName(t, r.printer),
     });
@@ -221,8 +221,8 @@ const ReadOnly = ({ children }: { children: ReactNode }) => (
 );
 
 /**
- * Pick the 3MF files and plates to print, and per plate its slicer, printer, machine profile,
- * print profile and per slot its filament preset and spool; above them, defaults to set on all
+ * Pick the 3MF files and plates to print, and per plate its slicer, printer, machine preset,
+ * process preset and per slot its filament preset and spool; above them, defaults to set on all
  * picked plates at once. Controlled; saving is up to the parent.
  */
 export function SliceSetup({
@@ -238,8 +238,8 @@ export function SliceSetup({
   const { t } = useTranslation();
   const uid = useId();
   const slicers = useSlicers();
-  const allProfiles = useProfiles().data?.items ?? [];
-  const filaments = allProfiles.filter((p) => !p.archivedAt);
+  const allPresets = useFilamentPresets().data?.items ?? [];
+  const filaments = allPresets.filter((p) => !p.archivedAt);
   const spools = useSpools().data?.items ?? [];
   const { printers, prints, fileInfo, libraryOf, resolve, misfit, foreign } =
     usePlateFit(defaultPrinterId);
@@ -255,11 +255,11 @@ export function SliceSetup({
     );
     return [...next].sort((a, b) => (rank.get(plateKey(a)) ?? 0) - (rank.get(plateKey(b)) ?? 0));
   };
-  /** As the server stores it: a plate off the file's machine slices with the default profile. */
+  /** As the server stores it: a plate off the file's machine slices with the default preset. */
   const settle = (f: FileInfo, v: PlateSetupInput): PlateSetupInput => ({
     ...v,
-    useDefaultPrintProfile:
-      !v.printProfileId && (v.useDefaultPrintProfile || !resolved(f, v).fromFile),
+    useDefaultProcessPreset:
+      !v.processPresetId && (v.useDefaultProcessPreset || !resolved(f, v).fromFile),
   });
   // New plates: the printer that fits the file, the file's settings when it does, else its default.
   const add = (f: SliceSetupFile, plates: Plate[]): PlateSetupInput[] => {
@@ -269,9 +269,9 @@ export function SliceSetup({
         file: f.path,
         plate: p.index,
         printerId: printer?.id ?? null,
-        machineProfileId: null,
-        printProfileId: null,
-        useDefaultPrintProfile: false,
+        machinePresetId: null,
+        processPresetId: null,
+        useDefaultProcessPreset: false,
         // One entry per slot, all as saved in the file.
         filaments: Array.from(
           { length: Math.max(0, ...p.filaments.map((x) => x.slot)) },
@@ -305,15 +305,15 @@ export function SliceSetup({
   /** Another slicer's filament presets go back to the file's; hand-made ones and spools stay. */
   const ownFilaments = (list: (string | null)[], library: string | undefined) =>
     list.map((id) => {
-      const p = allProfiles.find((x) => x.id === id);
+      const p = allPresets.find((x) => x.id === id);
       return p?.sourcePreset && !ofSlicer(library, p.sourcePreset) ? null : id;
     });
-  /** A changed slicer, printer or machine profile: the picks below it go back to their default. */
+  /** A changed slicer, printer or machine preset: the picks below it go back to their default. */
   const below = (f: FileInfo, v: PlateSetupInput, change: Partial<PlateSetupInput>) =>
-    settle(f, { ...v, printProfileId: null, useDefaultPrintProfile: false, ...change });
+    settle(f, { ...v, processPresetId: null, useDefaultProcessPreset: false, ...change });
   const slicerChange = (v: PlateSetupInput, id: string | null): Partial<PlateSetupInput> => ({
     slicerIntegrationId: id,
-    machineProfileId: null,
+    machinePresetId: null,
     filaments: ownFilaments(v.filaments, libraryOf(slicers.resolve([id, projectSlicerId]))),
   });
   const setOf = (f: FileInfo, key: string, v: PlateSetupInput, change: Partial<PlateSetupInput>) =>
@@ -348,15 +348,15 @@ export function SliceSetup({
       .filter((m) => r.fits || m.id !== own?.id)
       .map((m) => ({ value: m.id, label: m.name })),
   ];
-  // The file's own (on its machine), the default, then the slicer's profiles made for the
-  // machine profile. The one picked always stays listed.
+  // The file's own (on its machine), the default, then the slicer's presets made for the
+  // machine preset. The one picked always stays listed.
   const printOptions = (
     r: Resolved,
     library: string | undefined,
     picked: string | null,
     fileLabel: string,
   ): ComboOption[] => {
-    const dflt = prints.find((p) => p.id === r.defaultProfileId);
+    const dflt = prints.find((p) => p.id === r.defaultPresetId);
     const listed = prints.filter(
       (p) =>
         p.id === picked ||
@@ -382,13 +382,13 @@ export function SliceSetup({
     ];
   };
   const printValue = (v: Choice, r: Resolved) =>
-    v.printProfileId ?? (v.useDefaultPrintProfile || !r.fromFile ? "default" : "");
+    v.processPresetId ?? (v.useDefaultProcessPreset || !r.fromFile ? "default" : "");
   const printPick = (value: string) => ({
-    printProfileId: value === "" || value === "default" ? null : value,
-    useDefaultPrintProfile: value === "default",
+    processPresetId: value === "" || value === "default" ? null : value,
+    useDefaultProcessPreset: value === "default",
   });
   const fromFileLabel = (name: string | null | undefined) =>
-    name ? t("projects:slicing.fromFileProfile", { name }) : t("projects:slicing.fromFile");
+    name ? t("projects:slicing.fromFilePreset", { name }) : t("projects:slicing.fromFile");
 
   // A plate without its own slicer (or whose one can't slice now) uses the project's, then the default.
   const inherited = slicers.usable(projectSlicerId);
@@ -396,7 +396,7 @@ export function SliceSetup({
     inherited ? "projects:slicing.slicerProject" : "projects:slicing.slicerDefault",
     { name: slicers.nameOf(slicers.resolve([projectSlicerId])) },
   );
-  // Each slicer as it would be picked: profiles back to their default there.
+  // Each slicer as it would be picked: presets back to their default there.
   const slicerOptions = (f: FileInfo, v: PlateSetupInput): ComboOption[] => [
     { value: "", label: inheritedLabel },
     ...slicers.slicers.map((s) => ({
@@ -406,8 +406,8 @@ export function SliceSetup({
         : s.name,
     })),
   ];
-  /** Before slicing: no machine profile, or the plate's slicer has no preset for a profile. */
-  // In the server's order: the print profile, then the machine profile.
+  /** Before slicing: no machine preset, or the plate's slicer has no preset for a preset. */
+  // In the server's order: the process preset, then the machine preset.
   const warningOf = (f: SliceSetupFile, v: PlateSetupInput, r: Resolved) => {
     const slicer = slicerOf(v);
     const name = misfit(f, v, slicer);
@@ -430,13 +430,13 @@ export function SliceSetup({
   };
 
   // A slot's preset and spool are separate picks (ADR-0020); neither changes the other.
-  // ponytail: "fits its printer" = the plate's slicer's presets; profiles keep no printer list
+  // ponytail: "fits its printer" = the plate's slicer's presets; presets keep no printer list
   // (variants are merged, slicing picks the printer's). Store `compatible_printers` if it matters.
   const presetsOf = (v: PlateSetupInput) =>
     filaments.filter((p) => ofSlicer(libraryOf(slicerOf(v)), p.sourcePreset));
   const spoolOf = (v: PlateSetupInput, slot: number) =>
     spools.find((s) => s.id === v.spools[slot - 1]);
-  const presetLabel = (p: (typeof allProfiles)[number]) =>
+  const presetLabel = (p: (typeof allPresets)[number]) =>
     p.name || [p.brand, p.material].filter(Boolean).join(" ");
   // As saved in the file (its preset's name), the spool's presets, then the slicer's others. The
   // one picked always stays listed.
@@ -444,12 +444,12 @@ export function SliceSetup({
     const spool = spoolOf(v, slot.slot);
     const own = presetsOf(v);
     const forSpool = (spool && spoolPresets(spool, own)?.presets) || [];
-    const picked = allProfiles.find((p) => p.id === v.filaments[slot.slot - 1]);
+    const picked = allPresets.find((p) => p.id === v.filaments[slot.slot - 1]);
     const rest = [...own, ...(picked && !own.includes(picked) ? [picked] : [])].filter(
       (p) => !forSpool.includes(p),
     );
     return [
-      { value: "", label: fromFileLabel(slot.profile) },
+      { value: "", label: fromFileLabel(slot.preset) },
       ...forSpool.map((p) => ({
         value: p.id,
         label: presetLabel(p),
@@ -500,8 +500,8 @@ export function SliceSetup({
     const id = v.filaments[slot.slot - 1] ?? null;
     const current = {
       id,
-      name: id ? null : slot.profile,
-      material: id ? (allProfiles.find((p) => p.id === id)?.material ?? null) : slot.type,
+      name: id ? null : slot.preset,
+      material: id ? (allPresets.find((p) => p.id === id)?.material ?? null) : slot.type,
     };
     const advice = slotAdvice(spool, current, presetsOf(v));
     if (!advice) return;
@@ -531,9 +531,9 @@ export function SliceSetup({
   const [defaults, setDefaults] = useState<Choice & Pick<PlateSetupInput, "slicerIntegrationId">>({
     slicerIntegrationId: null,
     printerId: null,
-    machineProfileId: null,
-    printProfileId: null,
-    useDefaultPrintProfile: false,
+    machinePresetId: null,
+    processPresetId: null,
+    useDefaultProcessPreset: false,
   });
   const pickedFiles = files.filter((f) => value.some((v) => v.file === f.path));
   const noFile = { printerModel: null, nozzleDiameter: null };
@@ -548,11 +548,16 @@ export function SliceSetup({
   const fromFileWhere = t("projects:slicing.defaults.fromFile");
   const defaultMachines = machineOptions(
     dr,
-    resolve(fitFile, { ...defaultsChoice, machineProfileId: null }, defaultsSlicer).machine,
+    resolve(fitFile, { ...defaultsChoice, machinePresetId: null }, defaultsSlicer).machine,
     fromFileWhere,
   );
   const setDefault = (change: Partial<typeof defaults>) =>
-    setDefaults((d) => ({ ...d, printProfileId: null, useDefaultPrintProfile: false, ...change }));
+    setDefaults((d) => ({
+      ...d,
+      processPresetId: null,
+      useDefaultProcessPreset: false,
+      ...change,
+    }));
   const applyDefaults = () =>
     onChange(
       value.map((v) => {
@@ -606,7 +611,7 @@ export function SliceSetup({
                 {slicerLine(
                   t("projects:slicing.slicer"),
                   defaults.slicerIntegrationId,
-                  (id) => setDefault({ slicerIntegrationId: id, machineProfileId: null }),
+                  (id) => setDefault({ slicerIntegrationId: id, machinePresetId: null }),
                   [
                     { value: "", label: inheritedLabel },
                     ...slicers.slicers.map((s) => ({ value: s.id, label: s.name })),
@@ -622,32 +627,32 @@ export function SliceSetup({
                 )}
                 value={defaultsPrinter?.id ?? ""}
                 disabled={disabled || !printers.length}
-                onChange={(id) => setDefault({ printerId: id, machineProfileId: null })}
+                onChange={(id) => setDefault({ printerId: id, machinePresetId: null })}
               />
             </SetupRow>
             <SetupRow
-              label={t("projects:slicing.machineProfile")}
+              label={t("projects:slicing.machinePreset")}
               readOnly={defaultMachines.length === 1}
             >
               {defaultMachines.length > 1 ? (
                 <Combobox
-                  aria-label={t("projects:slicing.machineProfile")}
+                  aria-label={t("projects:slicing.machinePreset")}
                   options={defaultMachines}
-                  value={defaults.machineProfileId ?? ""}
+                  value={defaults.machinePresetId ?? ""}
                   disabled={disabled}
-                  onChange={(id) => setDefault({ machineProfileId: id || null })}
+                  onChange={(id) => setDefault({ machinePresetId: id || null })}
                 />
               ) : (
                 <ReadOnly>{defaultMachines[0]?.label}</ReadOnly>
               )}
             </SetupRow>
-            <SetupRow last label={t("projects:slicing.printProfile")}>
+            <SetupRow last label={t("projects:slicing.processPreset")}>
               <Combobox
-                aria-label={t("projects:slicing.printProfile")}
+                aria-label={t("projects:slicing.processPreset")}
                 options={printOptions(
                   dr,
                   libraryOf(defaultsSlicer),
-                  defaults.printProfileId,
+                  defaults.processPresetId,
                   fromFileWhere,
                 )}
                 value={printValue(defaults, dr)}
@@ -699,8 +704,8 @@ export function SliceSetup({
                     r &&
                     machineOptions(
                       r,
-                      resolved(f, { ...setup, machineProfileId: null }).machine,
-                      fromFileLabel(f.machineProfile),
+                      resolved(f, { ...setup, machinePresetId: null }).machine,
+                      fromFileLabel(f.machinePreset),
                     );
                   return (
                     <li key={key} className="flex flex-wrap gap-3 border-t border-border pt-3">
@@ -762,47 +767,47 @@ export function SliceSetup({
                                 value={r.printer?.id ?? ""}
                                 disabled={disabled || !printers.length}
                                 onChange={(id) =>
-                                  setOf(f, key, setup, { printerId: id, machineProfileId: null })
+                                  setOf(f, key, setup, { printerId: id, machinePresetId: null })
                                 }
                               />
                             </SetupRow>
                             <SetupRow
-                              label={t("projects:slicing.machineProfile")}
+                              label={t("projects:slicing.machinePreset")}
                               readOnly={machines.length === 1}
                             >
                               {machines.length > 1 ? (
                                 <Combobox
-                                  aria-label={t("projects:slicing.machineProfileOf", {
+                                  aria-label={t("projects:slicing.machinePresetOf", {
                                     plate: name,
                                   })}
                                   options={machines}
-                                  value={setup.machineProfileId ?? ""}
+                                  value={setup.machinePresetId ?? ""}
                                   disabled={disabled}
                                   onChange={(id) =>
-                                    setOf(f, key, setup, { machineProfileId: id || null })
+                                    setOf(f, key, setup, { machinePresetId: id || null })
                                   }
                                 />
                               ) : (
                                 <ReadOnly>{machines[0]?.label}</ReadOnly>
                               )}
                             </SetupRow>
-                            <SetupRow last label={t("projects:slicing.printProfile")}>
+                            <SetupRow last label={t("projects:slicing.processPreset")}>
                               <Combobox
-                                aria-label={t("projects:slicing.printProfileOf", { plate: name })}
-                                aria-describedby={r.profileId ? `${plateId}-hint` : undefined}
+                                aria-label={t("projects:slicing.processPresetOf", { plate: name })}
+                                aria-describedby={r.presetId ? `${plateId}-hint` : undefined}
                                 options={printOptions(
                                   r,
                                   libraryOf(slicerOf(setup)),
-                                  setup.printProfileId,
-                                  fromFileLabel(f.printProfile),
+                                  setup.processPresetId,
+                                  fromFileLabel(f.processPreset),
                                 )}
                                 value={printValue(setup, r)}
                                 disabled={disabled}
                                 onChange={(v) => patch(key, printPick(v))}
                               />
-                              {r.profileId && (
+                              {r.presetId && (
                                 <p id={`${plateId}-hint`} className="mt-1 text-sm text-muted">
-                                  {t("projects:slicing.printProfileHint")}
+                                  {t("projects:slicing.processPresetHint")}
                                 </p>
                               )}
                             </SetupRow>

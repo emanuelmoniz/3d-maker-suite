@@ -18,15 +18,15 @@ export const SYNC_TARGETS: Partial<Record<Capability, Target>> = {
     hash: "printer-models",
     label: "alerts:view.sync.printerModels",
   },
-  machineProfiles: {
+  machinePresets: {
     to: "/catalog/printers",
-    hash: "machine-profiles",
-    label: "alerts:view.sync.machineProfiles",
+    hash: "machine-presets",
+    label: "alerts:view.sync.machinePresets",
   },
-  printProfiles: {
+  processPresets: {
     to: "/catalog/printers",
-    hash: "print-profiles",
-    label: "alerts:view.sync.printProfiles",
+    hash: "process-presets",
+    label: "alerts:view.sync.processPresets",
   },
   filamentBrands: {
     to: "/catalog/filament",
@@ -38,24 +38,24 @@ export const SYNC_TARGETS: Partial<Record<Capability, Target>> = {
     hash: "filament-materials",
     label: "alerts:view.sync.filamentMaterials",
   },
-  filamentProfiles: {
+  filamentPresets: {
     to: "/catalog/filament",
-    hash: "filament-profiles",
-    label: "alerts:view.sync.filamentProfiles",
+    hash: "filament-presets",
+    label: "alerts:view.sync.filamentPresets",
   },
-  userMachineProfiles: {
+  userMachinePresets: {
     to: "/catalog/printers",
-    hash: "machine-profiles",
-    label: "alerts:view.sync.machineProfiles",
+    hash: "machine-presets",
+    label: "alerts:view.sync.machinePresets",
   },
-  userPrintProfiles: {
+  userProcessPresets: {
     to: "/catalog/printers",
-    hash: "print-profiles",
-    label: "alerts:view.sync.printProfiles",
+    hash: "process-presets",
+    label: "alerts:view.sync.processPresets",
   },
-  userFilamentProfiles: {
+  userFilamentPresets: {
     to: "/catalog/filament",
-    hash: "filament-profiles",
-    label: "alerts:view.sync.filamentProfiles",
+    hash: "filament-presets",
+    label: "alerts:view.sync.filamentPresets",
   },
 };

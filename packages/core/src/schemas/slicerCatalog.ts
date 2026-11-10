@@ -21,7 +21,7 @@ export const catalogMachineSchema = z.object({
   name: z.string().min(1),
   nozzleDiameterMm: z.number().positive().nullable(),
   /** Its `default_print_profile`, as a process `presetId`; null when it names none we read. */
-  defaultPrintPreset: z.string().nullable(),
+  defaultProcessPreset: z.string().nullable(),
 });
 
 /**
@@ -43,14 +43,14 @@ export const catalogProcessSchema = z.object({
 export const SLICER_CATALOG_TYPES = [
   "brands",
   "printerModels",
-  "machineProfiles",
-  "printProfiles",
+  "machinePresets",
+  "processPresets",
   "filamentBrands",
   "filamentMaterials",
 ] as const;
 
-/** What a zip of a slicer folder can offer: the catalog types plus the filament profiles. */
-export const SLICER_ZIP_TYPES = [...SLICER_CATALOG_TYPES, "filamentProfiles"] as const;
+/** What a zip of a slicer folder can offer: the catalog types plus the filament presets. */
+export const SLICER_ZIP_TYPES = [...SLICER_CATALOG_TYPES, "filamentPresets"] as const;
 
 /** A slicer card's sections: the catalog's rows, and the system presets that point at them. */
 export const SLICER_CATALOG_ROW_TYPES = [
@@ -59,14 +59,10 @@ export const SLICER_CATALOG_ROW_TYPES = [
   "filamentBrands",
   "filamentMaterials",
 ] as const;
-export const SLICER_PRESET_TYPES = [
-  "machineProfiles",
-  "printProfiles",
-  "filamentProfiles",
-] as const;
+export const SLICER_PRESET_TYPES = ["machinePresets", "processPresets", "filamentPresets"] as const;
 /**
  * How a run writes a change to a row you have. "How to sync" (`merge`) is only for printers and
- * spools (ADR-0020): a profile follows its file, the four catalog types only fill empty fields.
+ * spools (ADR-0020): a preset follows its file, the four catalog types only fill empty fields.
  */
 export const mergeOf = (
   type: string,
@@ -79,9 +75,9 @@ export const mergeOf = (
       : "overwrite";
 /** The rows a user preset type writes. */
 export const USER_PRESET_ENTITY = {
-  userMachineProfiles: "machineProfiles",
-  userPrintProfiles: "printProfiles",
-  userFilamentProfiles: "filamentProfiles",
+  userMachinePresets: "machinePresets",
+  userProcessPresets: "processPresets",
+  userFilamentPresets: "filamentPresets",
 } as const;
 /** What a slicer's files feed: these have no schedule, a change in the files runs them (ADR-0019). */
 export const SLICER_FILE_TYPES = [...SLICER_ZIP_TYPES, ...USER_PRESET_TYPES] as const;

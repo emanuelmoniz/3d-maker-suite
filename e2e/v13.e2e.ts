@@ -8,8 +8,8 @@ import {
   hasHorizontalScroll,
   offScreen,
   pick,
+  seedPreset,
   seedPrinter,
-  seedProfile,
   seedProject,
   seedSpool,
 } from "./helpers.ts";
@@ -224,9 +224,9 @@ test("back: returns to where you came from; a deep link falls back to the parent
   app,
 }) => {
   const printer = await seedPrinter(app.api);
-  const profile = await seedProfile(app);
+  const preset = await seedPreset(app);
   const spool = await app.api<{ id: string }>("POST", "/api/filament/spools", {
-    ...filamentOf(profile),
+    ...filamentOf(preset),
     colorHex: "#00aa00",
     initialGrams: 1000,
   });
@@ -248,10 +248,10 @@ test("filament page: new and in-use spools by default, clear shows the rest", as
   page,
   app,
 }) => {
-  const profile = await seedProfile(app);
+  const preset = await seedPreset(app);
   const make = (status: string, n: number) =>
     app.api("POST", "/api/filament/spools", {
-      ...filamentOf(profile),
+      ...filamentOf(preset),
       colorHex: "#aa0000",
       initialGrams: 1000,
       number: n,

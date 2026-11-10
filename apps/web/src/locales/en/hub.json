@@ -126,7 +126,7 @@
     "usage_other": "Using {{size}} for {{count}} kept versions."
   },
   "presets": {
-    "openProfile": "Open the profile",
+    "openPreset": "Open the preset",
     "loadError": "Couldn't load the presets.",
     "emptyTitle": "No slicer presets yet",
     "emptyBody": "Turn on Send presets for a device in Catalog → Sources, or upload a slicer zip there. Their user presets join this library.",

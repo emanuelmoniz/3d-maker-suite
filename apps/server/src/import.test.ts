@@ -212,9 +212,9 @@ describe("import", () => {
       .all()
       .find((s) => s.colorHex === "#ff0000");
     expect(created).toMatchObject({ initialGrams: 750, remainingGrams: 750, status: "new" });
-    // Its brand and material were added; no profile ever is.
+    // Its brand and material were added; no preset ever is.
     expect(await getSpool(created?.id ?? "")).toMatchObject({ brand: "Other", material: "PETG" });
-    expect(db.select().from(schema.filamentProfiles).all()).toEqual([]);
+    expect(db.select().from(schema.filamentPresets).all()).toEqual([]);
     // The upload is gone once applied.
     expect(
       (

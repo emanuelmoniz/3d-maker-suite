@@ -87,14 +87,14 @@ export const SYNC_LOG_EVENTS = [
 export const SYNC_LEFT_REASONS = ["pick", "unsure", "review", "removed"] as const;
 /**
  * The data one run syncs or imports. Printers and prints sync on their own; the others need a
- * choice per row (e.g. the filament profile of a spool), so a run takes only the rows that need
+ * choice per row (e.g. the filament preset of a spool), so a run takes only the rows that need
  * none and the rest waits for the preview -> confirm flow.
  */
-/** A slicer's user presets: rows of the three profile types, with settings of their own. */
+/** A slicer's user presets: rows of the three preset types, with settings of their own. */
 export const USER_PRESET_TYPES = [
-  "userMachineProfiles",
-  "userPrintProfiles",
-  "userFilamentProfiles",
+  "userMachinePresets",
+  "userProcessPresets",
+  "userFilamentPresets",
 ] as const;
 export const isUserPresetType = (t: string): t is (typeof USER_PRESET_TYPES)[number] =>
   (USER_PRESET_TYPES as readonly string[]).includes(t);
@@ -104,11 +104,11 @@ export const SYNC_TYPES = [
   "spools",
   "brands",
   "printerModels",
-  "machineProfiles",
-  "printProfiles",
+  "machinePresets",
+  "processPresets",
   "filamentBrands",
   "filamentMaterials",
-  "filamentProfiles",
+  "filamentPresets",
   ...USER_PRESET_TYPES,
 ] as const;
 /** The types that fill the catalog (ADR-0020): their import cards need `catalog` manage. */

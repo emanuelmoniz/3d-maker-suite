@@ -24,9 +24,9 @@ export function useSlicingDraft(id: string) {
     file: p.file,
     plate: p.plate,
     printerId: p.printerId,
-    machineProfileId: p.machineProfileId,
-    printProfileId: p.printProfileId,
-    useDefaultPrintProfile: p.useDefaultPrintProfile,
+    machinePresetId: p.machinePresetId,
+    processPresetId: p.processPresetId,
+    useDefaultProcessPreset: p.useDefaultProcessPreset,
     filaments: p.filaments,
     spools: p.spools,
     kept: p.kept,
@@ -43,7 +43,7 @@ export function useSlicingDraft(id: string) {
 }
 export type SlicingDraft = ReturnType<typeof useSlicingDraft>;
 
-/** Which plates a print of the project takes, with the print profile and filaments per plate. */
+/** Which plates a print of the project takes, with the process preset and filaments per plate. */
 export function SlicingSetup({ project, setup }: { project: Project; setup: SlicingDraft }) {
   const { t } = useTranslation();
   const { saved, save, setDraft, dirty, value } = setup;
@@ -143,8 +143,8 @@ export function SlicingSetup({ project, setup }: { project: Project; setup: Slic
           plates: m.plates,
           printerModel: m.printerModel,
           nozzleDiameter: m.nozzleDiameter,
-          printProfile: m.printProfile,
-          machineProfile: m.machineProfile,
+          processPreset: m.processPreset,
+          machinePreset: m.machinePreset,
           thumbnailUrl: (entry) => projectFileUrl(project.id, m.file, entry),
         }))}
         value={value}

@@ -54,19 +54,19 @@ export const ERRORS: Record<IntegrationErrorCode, string> = {
 };
 // Also the Type column of the sync log.
 export const CAPS: Record<Capability, string> = {
-  userMachineProfiles: "integrations:capabilities.userMachineProfiles",
-  userPrintProfiles: "integrations:capabilities.userPrintProfiles",
-  userFilamentProfiles: "integrations:capabilities.userFilamentProfiles",
+  userMachinePresets: "integrations:capabilities.userMachinePresets",
+  userProcessPresets: "integrations:capabilities.userProcessPresets",
+  userFilamentPresets: "integrations:capabilities.userFilamentPresets",
   printers: "integrations:capabilities.printers",
   prints: "integrations:capabilities.prints",
   spools: "integrations:capabilities.spools",
   brands: "integrations:capabilities.brands",
   printerModels: "integrations:capabilities.printerModels",
-  machineProfiles: "integrations:capabilities.machineProfiles",
-  printProfiles: "integrations:capabilities.printProfiles",
+  machinePresets: "integrations:capabilities.machinePresets",
+  processPresets: "integrations:capabilities.processPresets",
   filamentBrands: "integrations:capabilities.filamentBrands",
   filamentMaterials: "integrations:capabilities.filamentMaterials",
-  filamentProfiles: "integrations:capabilities.filamentProfiles",
+  filamentPresets: "integrations:capabilities.filamentPresets",
   openInSlicer: "integrations:capabilities.openInSlicer",
   slice: "integrations:capabilities.slice",
 };

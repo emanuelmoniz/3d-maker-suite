@@ -130,7 +130,7 @@ const groupOf = (c: Capability): keyof typeof GROUPS =>
         ? "userPresets"
         : "devices";
 // Types whose rows are reviewed and confirmed. They can also run straight from here: a run
-// imports the rows that need no decision (catalog rows, spools with one matching profile, presets,
+// imports the rows that need no decision (catalog rows, spools with one matching preset, presets,
 // with the brand and material they need) and leaves the rest pending for the review page.
 const isReviewed = (c: Capability): c is ReviewedType =>
   (REVIEWED_TYPES as readonly string[]).includes(c);
@@ -557,7 +557,7 @@ function PolicyRow({
                         />
                       )}
                     </FormField>
-                    {/* A profile follows its file, a catalog row only fills (ADR-0020). */}
+                    {/* A preset follows its file, a catalog row only fills (ADR-0020). */}
                     {!isCatalogType(type) && (
                       <FormField
                         label={t("integrations:policies.merge")}

@@ -482,7 +482,7 @@ export const printImport = {
         // A number another print has ("import as new" of an exported row) gets the next free one.
         number: freeNumber(db, prints, numberCell(v.number)) ?? nextNumber(prints),
         printerId,
-        machineProfileId: printerMachine(db, printerId),
+        machinePresetId: printerMachine(db, printerId),
         projectId: noProject ? null : (src?.refs?.project ?? projectFor(db, v.project)),
         noProject,
         title: str(v.title) ?? "",

@@ -17,19 +17,19 @@ import {
   filamentMaterialSortFields,
   type IntegrationAdapter,
   listQuery,
-  machineProfileFilters,
-  machineProfileSchema,
-  machineProfileSortFields,
+  machinePresetFilters,
+  machinePresetSchema,
+  machinePresetSortFields,
   pageOf,
+  presetPatchSchema,
   printerModelFilters,
   printerModelInputSchema,
   printerModelPatchSchema,
   printerModelSchema,
   printerModelSortFields,
-  printProfileFilters,
-  printProfileSchema,
-  printProfileSortFields,
-  profilePatchSchema,
+  processPresetFilters,
+  processPresetSchema,
+  processPresetSortFields,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
 import { eq, getTableColumns, type SQL, sql } from "drizzle-orm";
@@ -54,7 +54,7 @@ import { deleteItem, type ItemKind, presetUsed } from "../lib/dependents.ts";
 import { imageRoutes } from "../lib/images.ts";
 import { type ListOptions, listPage } from "../lib/list.ts";
 
-const { brands, printerModels, machineProfiles, printProfiles, filamentBrands, filamentMaterials } =
+const { brands, printerModels, machinePresets, processPresets, filamentBrands, filamentMaterials } =
   schema;
 const params = z.object({ id: z.uuid() });
 const errors = { 400: apiErrorSchema, 404: apiErrorSchema, 409: apiErrorSchema };
@@ -73,14 +73,14 @@ interface Entity {
   table: SQLiteTable & { id: SQLiteColumn };
   noun: string;
   row: z.ZodType;
-  /** None: rows only come from files (profiles, ADR-0020). */
+  /** None: rows only come from files (presets, ADR-0020). */
   input?: z.ZodType;
   patch: z.ZodType;
   query: z.ZodType;
   list: ListOptions;
   /** A filter no single column answers, built from the query. */
   where?: (q: { slicer?: string[] }) => SQL | undefined;
-  /** `catalogSource`, and a profile's `profileUse`. */
+  /** `catalogSource`, and a preset's `presetUse`. */
   source: SQL;
   use?: SQL;
   /** What the next import finds the row by: fixed once a file brought it (ADR-0020). */
@@ -155,7 +155,7 @@ const crud =
           unknown
         >;
         if (o.preset && archived === false)
-          assertPresetFree(db, o.table as typeof machineProfiles, cur as never);
+          assertPresetFree(db, o.table as typeof machinePresets, cur as never);
         if (
           cur.source !== "hand" &&
           o.locked?.some((k) => k in fields && String(fields[k]) !== String(cur[k]))
@@ -251,60 +251,60 @@ export const printerModelsRoutes = (db: Db, dataDir: string, adapters: Integrati
     image: { name: "image", dir: "models", column: "imagePath" },
   });
 
-export const machineProfilesRoutes = (db: Db, dataDir: string) =>
+export const machinePresetsRoutes = (db: Db, dataDir: string) =>
   crud(db, dataDir, {
-    kind: "machineProfiles",
-    table: machineProfiles,
-    noun: "Machine profile",
-    row: machineProfileSchema,
-    patch: profilePatchSchema,
-    query: listQuery(machineProfileSortFields, { archived: archivedFilter }, machineProfileFilters),
-    source: presetSource(machineProfiles.sourcePreset),
-    use: presetUsed("machineProfiles"),
+    kind: "machinePresets",
+    table: machinePresets,
+    noun: "Machine preset",
+    row: machinePresetSchema,
+    patch: presetPatchSchema,
+    query: listQuery(machinePresetSortFields, { archived: archivedFilter }, machinePresetFilters),
+    source: presetSource(machinePresets.sourcePreset),
+    use: presetUsed("machinePresets"),
     preset: true,
     list: {
       sort: {
-        name: sql`${machineProfiles.name} COLLATE NOCASE`,
-        model: modelName(machineProfiles.printerModelId),
-        brand: modelBrandName(machineProfiles.printerModelId),
-        createdAt: machineProfiles.createdAt,
-        nozzleDiameterMm: machineProfiles.nozzleDiameterMm,
+        name: sql`${machinePresets.name} COLLATE NOCASE`,
+        model: modelName(machinePresets.printerModelId),
+        brand: modelBrandName(machinePresets.printerModelId),
+        createdAt: machinePresets.createdAt,
+        nozzleDiameterMm: machinePresets.nozzleDiameterMm,
       },
       filters: {
-        name: machineProfiles.name,
-        printerModelId: machineProfiles.printerModelId,
-        brandId: modelBrandId(machineProfiles.printerModelId),
-        nozzleDiameterMm: machineProfiles.nozzleDiameterMm,
+        name: machinePresets.name,
+        printerModelId: machinePresets.printerModelId,
+        brandId: modelBrandId(machinePresets.printerModelId),
+        nozzleDiameterMm: machinePresets.nozzleDiameterMm,
       },
     },
   });
 
-export const printProfilesRoutes = (db: Db, dataDir: string) =>
+export const processPresetsRoutes = (db: Db, dataDir: string) =>
   crud(db, dataDir, {
-    kind: "printProfiles",
-    table: printProfiles,
-    noun: "Print profile",
-    row: printProfileSchema,
-    patch: profilePatchSchema,
-    query: listQuery(printProfileSortFields, { archived: archivedFilter }, printProfileFilters),
-    source: presetSource(printProfiles.sourcePreset),
-    use: presetUsed("printProfiles"),
+    kind: "processPresets",
+    table: processPresets,
+    noun: "Process preset",
+    row: processPresetSchema,
+    patch: presetPatchSchema,
+    query: listQuery(processPresetSortFields, { archived: archivedFilter }, processPresetFilters),
+    source: presetSource(processPresets.sourcePreset),
+    use: presetUsed("processPresets"),
     preset: true,
     list: {
       sort: {
-        name: sql`${printProfiles.name} COLLATE NOCASE`,
-        model: modelName(printProfiles.printerModelId),
-        brand: modelBrandName(printProfiles.printerModelId),
-        createdAt: printProfiles.createdAt,
-        nozzleDiameterMm: printProfiles.nozzleDiameterMm,
-        layerHeightMm: printProfiles.layerHeightMm,
+        name: sql`${processPresets.name} COLLATE NOCASE`,
+        model: modelName(processPresets.printerModelId),
+        brand: modelBrandName(processPresets.printerModelId),
+        createdAt: processPresets.createdAt,
+        nozzleDiameterMm: processPresets.nozzleDiameterMm,
+        layerHeightMm: processPresets.layerHeightMm,
       },
       filters: {
-        name: printProfiles.name,
-        printerModelId: printProfiles.printerModelId,
-        brandId: modelBrandId(printProfiles.printerModelId),
-        nozzleDiameterMm: printProfiles.nozzleDiameterMm,
-        layerHeightMm: printProfiles.layerHeightMm,
+        name: processPresets.name,
+        printerModelId: processPresets.printerModelId,
+        brandId: modelBrandId(processPresets.printerModelId),
+        nozzleDiameterMm: processPresets.nozzleDiameterMm,
+        layerHeightMm: processPresets.layerHeightMm,
       },
     },
   });

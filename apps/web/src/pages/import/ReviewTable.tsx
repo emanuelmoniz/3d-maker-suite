@@ -53,7 +53,7 @@ import { SelectionBar, SelectionResult } from "../../components/SelectionBar.tsx
 import { ApiError } from "../../lib/api.ts";
 import { useMoney } from "../../lib/cost.ts";
 import { cx } from "../../lib/cx.ts";
-import { spoolName, useProfiles } from "../../lib/filament.ts";
+import { spoolName, useFilamentPresets } from "../../lib/filament.ts";
 import { formatDate, formatDateTime, formatNumber, formatWeight } from "../../lib/format.ts";
 import { useApply } from "../../lib/import.ts";
 import { useRoots } from "../../lib/roots.ts";
@@ -112,7 +112,7 @@ const PROBLEMS: Record<RowProblem, string> = {
 const MISSING: Record<string, string> = {
   filamentBrands: "import:missing.filamentBrands",
   filamentMaterials: "import:missing.filamentMaterials",
-  filamentProfiles: "import:missing.filamentProfiles",
+  filamentPresets: "import:missing.filamentPresets",
   brands: "import:missing.brands",
   printerModels: "import:missing.printerModels",
   projects: "import:missing.projects",
@@ -143,7 +143,7 @@ const NEW_SPOOL = "__new";
 const TRACK = "trackUsage";
 /**
  * What a print's slot says about its filament, for a spool added from its picker: a file names a
- * profile, an integration reports material and colour ("PLA #ff8800"). The row's cells first,
+ * preset, an integration reports material and colour ("PLA #ff8800"). The row's cells first,
  * then the print it updates (one you have). The spool was open by the time the print started.
  */
 const slotFilament = (r: ImportPreviewRow, spoolKey: string, target?: ImportTarget) => {
@@ -190,7 +190,7 @@ export function ReviewTable({
   // The spool picker a new spool is being added for, and the spools added so far.
   const [adding, setAdding] = useState<{ row: ImportPreviewRow; key: string } | null>(null);
   const [added, setAdded] = useState<NonNullable<ImportPreview["refOptions"]>[string]>([]);
-  const _profiles = useProfiles().data?.items ?? [];
+  const _presets = useFilamentPresets().data?.items ?? [];
   // Cells edited in the review, by row, as a file cell would hold them.
   const [edits, setEdits] = useState<Record<number, ImportValues>>({});
 
@@ -280,7 +280,7 @@ export function ReviewTable({
 
   const byStatus = shown.size ? rows.filter((r) => shown.has(r.status)) : rows;
   const pickedCount = targetUses(rows, decisionOf);
-  // References the user picks (a spool's filament profile, a print's project and spools) instead
+  // References the user picks (a spool's filament preset, a print's project and spools) instead
   // of having them created: the ones the row's suggestion names.
   const picked = Object.keys(preview.refOptions ?? {});
   const optional = new Set(preview.refsOptional);

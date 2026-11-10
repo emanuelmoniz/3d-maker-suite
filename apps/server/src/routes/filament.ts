@@ -1,14 +1,14 @@
 import {
   apiErrorSchema,
   archivedFilter,
-  type FilamentProfile,
-  filamentProfileFilters,
-  filamentProfileSchema,
-  filamentProfileSortFields,
+  type FilamentPreset,
+  filamentPresetFilters,
+  filamentPresetSchema,
+  filamentPresetSortFields,
   listQuery,
   type Page,
   pageOf,
-  profilePatchSchema,
+  presetPatchSchema,
   type Spool,
   type SpoolInput,
   type SpoolWeightEntry,
@@ -34,11 +34,11 @@ import {
   resolveItemAlerts,
 } from "../lib/archive.ts";
 import {
+  presetBrand,
+  presetColumns,
+  presetLabel,
+  presetMaterial,
   presetSource,
-  profileBrand,
-  profileColumns,
-  profileLabel,
-  profileMaterial,
   spoolColumns,
   spoolName,
 } from "../lib/catalog.ts";
@@ -47,25 +47,25 @@ import { listPage, taggedWith } from "../lib/list.ts";
 import { assertNumberFree } from "../lib/numbers.ts";
 import { createSpool, round, setRemaining } from "../lib/spools.ts";
 
-const { filamentBrands, filamentMaterials, filamentProfiles, spools, spoolWeightEntries } = schema;
+const { filamentBrands, filamentMaterials, filamentPresets, spools, spoolWeightEntries } = schema;
 const params = z.object({ id: z.uuid() });
 const notFound = { 404: apiErrorSchema };
 
 export const filamentRoutes =
   (db: Db): FastifyPluginAsyncZod =>
   async (app) => {
-    const profileExtra = {
-      source: presetSource(filamentProfiles.sourcePreset),
-      use: presetUsed("filamentProfiles"),
+    const presetExtra = {
+      source: presetSource(filamentPresets.sourcePreset),
+      use: presetUsed("filamentPresets"),
     };
-    const profileSelect = { ...profileColumns, ...profileExtra };
-    const getProfile = (id: string) => {
+    const presetSelect = { ...presetColumns, ...presetExtra };
+    const getPreset = (id: string) => {
       const row = db
-        .select(profileSelect)
-        .from(filamentProfiles)
-        .where(eq(filamentProfiles.id, id))
+        .select(presetSelect)
+        .from(filamentPresets)
+        .where(eq(filamentPresets.id, id))
         .get();
-      if (!row) throw new HttpError(404, "not_found", "Filament profile not found");
+      if (!row) throw new HttpError(404, "not_found", "Filament preset not found");
       return row;
     };
     const getSpool = (id: string) => {
@@ -81,73 +81,73 @@ export const filamentRoutes =
         throw new HttpError(400, "invalid_reference", "Filament material not found");
     };
 
-    // --- Profiles: slicer files (ADR-0020), listed, archived and deleted, never made here.
+    // --- Presets: slicer files (ADR-0020), listed, archived and deleted, never made here.
     app.get(
-      "/profiles",
+      "/presets",
       {
         schema: {
           querystring: listQuery(
-            filamentProfileSortFields,
+            filamentPresetSortFields,
             { archived: archivedFilter },
-            filamentProfileFilters,
+            filamentPresetFilters,
           ),
-          response: { 200: pageOf(filamentProfileSchema) },
+          response: { 200: pageOf(filamentPresetSchema) },
         },
       },
       async (req) =>
-        listPage(db, filamentProfiles, req.query, {
-          select: profileSelect,
+        listPage(db, filamentPresets, req.query, {
+          select: presetSelect,
           sort: {
-            brand: sql`${profileBrand} COLLATE NOCASE`,
-            material: sql`${profileMaterial} COLLATE NOCASE`,
-            ...profileExtra,
-            createdAt: filamentProfiles.createdAt,
-            filament: profileLabel,
+            brand: sql`${presetBrand} COLLATE NOCASE`,
+            material: sql`${presetMaterial} COLLATE NOCASE`,
+            ...presetExtra,
+            createdAt: filamentPresets.createdAt,
+            filament: presetLabel,
           },
-          dateColumn: filamentProfiles.createdAt,
+          dateColumn: filamentPresets.createdAt,
           filters: {
-            filament: profileLabel,
-            brandId: filamentProfiles.brandId,
-            materialId: filamentProfiles.materialId,
-            ...profileExtra,
+            filament: presetLabel,
+            brandId: filamentPresets.brandId,
+            materialId: filamentPresets.materialId,
+            ...presetExtra,
           },
-          where: [archivedWhere(filamentProfiles.archivedAt, req.query.archived)],
-        }) as Page<FilamentProfile>,
+          where: [archivedWhere(filamentPresets.archivedAt, req.query.archived)],
+        }) as Page<FilamentPreset>,
     );
 
     app.get(
-      "/profiles/:id",
-      { schema: { params, response: { 200: filamentProfileSchema, ...notFound } } },
-      async (req) => getProfile(req.params.id) as FilamentProfile,
+      "/presets/:id",
+      { schema: { params, response: { 200: filamentPresetSchema, ...notFound } } },
+      async (req) => getPreset(req.params.id) as FilamentPreset,
     );
 
     app.patch(
-      "/profiles/:id",
+      "/presets/:id",
       {
         schema: {
           params,
-          body: profilePatchSchema,
-          response: { 200: filamentProfileSchema, 409: apiErrorSchema, ...notFound },
+          body: presetPatchSchema,
+          response: { 200: filamentPresetSchema, 409: apiErrorSchema, ...notFound },
         },
       },
       async (req) => {
-        const cur = getProfile(req.params.id);
+        const cur = getPreset(req.params.id);
         const { archived } = req.body;
-        if (!archived) assertPresetFree(db, filamentProfiles, cur);
-        db.update(filamentProfiles)
+        if (!archived) assertPresetFree(db, filamentPresets, cur);
+        db.update(filamentPresets)
           .set({ archivedAt: archivedAtOf(archived) })
-          .where(eq(filamentProfiles.id, req.params.id))
+          .where(eq(filamentPresets.id, req.params.id))
           .run();
-        return getProfile(req.params.id) as FilamentProfile;
+        return getPreset(req.params.id) as FilamentPreset;
       },
     );
 
     app.delete(
-      "/profiles/:id",
+      "/presets/:id",
       { schema: { params, response: { 204: z.null(), 409: apiErrorSchema, ...notFound } } },
       async (req, reply) => {
-        getProfile(req.params.id);
-        deleteItem(db, "filamentProfiles", req.params.id, { user: req.user });
+        getPreset(req.params.id);
+        deleteItem(db, "filamentPresets", req.params.id, { user: req.user });
         return reply.status(204).send(null);
       },
     );

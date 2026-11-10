@@ -13,7 +13,7 @@ type Kind = "filament-brands" | "filament-materials";
 type Row = FilamentBrand | FilamentMaterial;
 
 /**
- * A brand / material picker, for the spool and filament profile forms; with `catalog` manage, a
+ * A brand / material picker, for the spool and filament preset forms; with `catalog` manage, a
  * "+ Add …" beside it (a modal).
  */
 export function CatalogSelect<K extends Kind>(props: {

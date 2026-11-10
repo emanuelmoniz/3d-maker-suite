@@ -18,10 +18,10 @@ import {
   accessoryLabel,
   nameKey,
   orderLabel,
+  presetLabel,
   printerLabel,
   printerModelLabel,
   printLabel,
-  profileLabel,
   quoteLabel,
   spoolName,
 } from "./catalog.ts";
@@ -38,9 +38,9 @@ const {
   deviceProjects,
   filamentBrands,
   filamentMaterials,
-  filamentProfiles,
+  filamentPresets,
   importSnapshots,
-  machineProfiles,
+  machinePresets,
   maintenanceTasks: tasks,
   maintenanceTypes,
   orderProjects,
@@ -49,7 +49,7 @@ const {
   printerModels,
   printers,
   printFilamentUsages: usages,
-  printProfiles,
+  processPresets,
   prints,
   projectSlicePlates: plates,
   projects,
@@ -83,8 +83,8 @@ const of = (type: DependentType, module: PermissionModule, table: SQLiteTable, l
   ({ type, module, table, label }) as Of;
 
 const PRINTER_MODEL = of("printerModel", "printers", printerModels, printerModelLabel);
-const MACHINE_PROFILE = of("machineProfile", "printers", machineProfiles, machineProfiles.name);
-const PRINT_PROFILE = of("printProfile", "printers", printProfiles, printProfiles.name);
+const MACHINE_PRESET = of("machinePreset", "printers", machinePresets, machinePresets.name);
+const PROCESS_PRESET = of("processPreset", "printers", processPresets, processPresets.name);
 const PRINTER = of("printer", "printers", printers, printerLabel);
 const ACCESSORY = of("accessory", "printers", accessories, accessoryLabel);
 const MAINTENANCE_TYPE = of(
@@ -99,7 +99,7 @@ const MAINTENANCE_TASK = of(
   tasks,
   sql`(SELECT ${maintenanceTypes.name} FROM ${maintenanceTypes} WHERE ${maintenanceTypes.id} = ${tasks.typeId})`,
 );
-const FILAMENT_PROFILE = of("filamentProfile", "filament", filamentProfiles, profileLabel);
+const FILAMENT_PRESET = of("filamentPreset", "filament", filamentPresets, presetLabel);
 const SPOOL = of("spool", "filament", spools, spoolName);
 const PRINT = of("print", "prints", prints, printLabel);
 const ORDER = of("order", "costs", orders, orderLabel);
@@ -174,8 +174,8 @@ export const ITEMS = {
     table: printerModels,
     uses: [
       on(PRINTER, printers.modelId),
-      on(MACHINE_PROFILE, machineProfiles.printerModelId),
-      on(PRINT_PROFILE, printProfiles.printerModelId),
+      on(MACHINE_PRESET, machinePresets.printerModelId),
+      on(PROCESS_PRESET, processPresets.printerModelId),
       listed(MAINTENANCE_TYPE, maintenanceTypes.appliesToModelIds),
     ],
     image: "imagePath",
@@ -189,16 +189,16 @@ export const ITEMS = {
         row.model as string,
       ),
   },
-  machineProfiles: {
-    table: machineProfiles,
-    uses: [on(PRINT, prints.machineProfileId)],
-    clears: [printers.machineProfileId, plates.machineProfileId],
+  machinePresets: {
+    table: machinePresets,
+    uses: [on(PRINT, prints.machinePresetId)],
+    clears: [printers.machinePresetId, plates.machinePresetId],
     source: sourcePreset,
   },
-  printProfiles: {
-    table: printProfiles,
+  processPresets: {
+    table: processPresets,
     uses: [],
-    clears: [printers.printProfileId, plates.printProfileId],
+    clears: [printers.processPresetId, plates.processPresetId],
     source: sourcePreset,
   },
   printers: {
@@ -245,18 +245,18 @@ export const ITEMS = {
   },
   filamentBrands: {
     table: filamentBrands,
-    uses: [on(FILAMENT_PROFILE, filamentProfiles.brandId), on(SPOOL, spools.brandId)],
+    uses: [on(FILAMENT_PRESET, filamentPresets.brandId), on(SPOOL, spools.brandId)],
     image: "logoPath",
     source: byName,
   },
   filamentMaterials: {
     table: filamentMaterials,
-    uses: [on(FILAMENT_PROFILE, filamentProfiles.materialId), on(SPOOL, spools.materialId)],
+    uses: [on(FILAMENT_PRESET, filamentPresets.materialId), on(SPOOL, spools.materialId)],
     source: byName,
   },
-  filamentProfiles: {
-    table: filamentProfiles,
-    // Plates name profiles without a foreign key: `presetUses` lists them.
+  filamentPresets: {
+    table: filamentPresets,
+    // Plates name presets without a foreign key: `presetUses` lists them.
     uses: [],
     source: sourcePreset,
   },
@@ -361,11 +361,11 @@ export function dependentsOf(
   });
 }
 
-export type PresetKind = "machineProfiles" | "printProfiles" | "filamentProfiles";
+export type PresetKind = "machinePresets" | "processPresets" | "filamentPresets";
 
 /** Its older versions: archived rows of the same preset, which prints point at. */
 const versions = (o: Of): Use => {
-  const t = o.table as typeof machineProfiles;
+  const t = o.table as typeof machinePresets;
   return {
     ...o,
     self: true,
@@ -376,22 +376,22 @@ const versions = (o: Of): Use => {
 
 /** What ADR-0019 counts besides the delete check: what that only clears, and older versions. */
 const PRESET_USES: Record<PresetKind, Use[]> = {
-  machineProfiles: [
-    on(PRINTER, printers.machineProfileId),
-    on(PLATE, plates.machineProfileId),
-    versions(MACHINE_PROFILE),
+  machinePresets: [
+    on(PRINTER, printers.machinePresetId),
+    on(PLATE, plates.machinePresetId),
+    versions(MACHINE_PRESET),
   ],
-  printProfiles: [
-    on(PRINTER, printers.printProfileId),
-    on(PLATE, plates.printProfileId),
-    versions(PRINT_PROFILE),
+  processPresets: [
+    on(PRINTER, printers.processPresetId),
+    on(PLATE, plates.processPresetId),
+    versions(PROCESS_PRESET),
   ],
-  filamentProfiles: [listed(PLATE, plates.filaments), versions(FILAMENT_PROFILE)],
+  filamentPresets: [listed(PLATE, plates.filaments), versions(FILAMENT_PRESET)],
 };
 
 /**
  * ADR-0019's "in use", stricter than the delete check: a slicer preset's catalog row is also used
- * by a printer's machine profile, a plate's or printer's print profile, a plate's filament list,
+ * by a printer's machine preset, a plate's or printer's process preset, a plate's filament list,
  * its older versions and the
  * presets that inherit from it (`inheritedBy`, their names: the caller reads the slicer's files).
  */
@@ -436,7 +436,7 @@ export function presetInUse(
  * ponytail: presets that inherit from it aren't counted; they are in the slicer's files, not here.
  */
 export function presetUsed(kind: PresetKind) {
-  const t = ITEMS[kind].table as typeof machineProfiles;
+  const t = ITEMS[kind].table as typeof machinePresets;
   const v = alias(t, "v");
   const uses = [...ITEMS[kind].uses, ...PRESET_USES[kind]].filter((u) => !u.self);
   const used = or(

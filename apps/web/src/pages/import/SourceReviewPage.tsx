@@ -16,14 +16,14 @@ export const TITLE: Record<ReviewedType, string> = {
   prints: "integrations:capabilities.prints",
   brands: "integrations:capabilities.brands",
   printerModels: "integrations:capabilities.printerModels",
-  machineProfiles: "integrations:capabilities.machineProfiles",
-  printProfiles: "integrations:capabilities.printProfiles",
+  machinePresets: "integrations:capabilities.machinePresets",
+  processPresets: "integrations:capabilities.processPresets",
   filamentBrands: "integrations:capabilities.filamentBrands",
   filamentMaterials: "integrations:capabilities.filamentMaterials",
-  filamentProfiles: "integrations:capabilities.filamentProfiles",
-  userMachineProfiles: "integrations:capabilities.userMachineProfiles",
-  userPrintProfiles: "integrations:capabilities.userPrintProfiles",
-  userFilamentProfiles: "integrations:capabilities.userFilamentProfiles",
+  filamentPresets: "integrations:capabilities.filamentPresets",
+  userMachinePresets: "integrations:capabilities.userMachinePresets",
+  userProcessPresets: "integrations:capabilities.userProcessPresets",
+  userFilamentPresets: "integrations:capabilities.userFilamentPresets",
 };
 
 /** The review of what one integration, or one uploaded slicer zip, offers for one type. */
