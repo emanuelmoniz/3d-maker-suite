@@ -156,8 +156,7 @@
     "submit": "Sign in",
     "code": "Verification code",
     "email_code": "We sent a code to your email. Enter it to finish signing in.",
-    "token": "Your account uses two-step verification, which Bambu only accepts in a web browser. Sign in at bambulab.com (bambulab.cn in China), open the browser's developer tools (F12), go to Application (Storage in Firefox) → Cookies, and copy the value of the token cookie. Paste it here.",
-    "tokenLabel": "Bambu access token",
+    "totp": "Enter the code from your authenticator app.",
     "verify": "Verify",
     "error": "Couldn't sign in. Enter your email and password again."
   },

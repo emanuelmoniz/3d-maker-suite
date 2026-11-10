@@ -6,7 +6,7 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ### Fixed
 - **Bambu Cloud sign-in and sync work again**: Bambu's Cloudflare protection started refusing the app's requests ("The vendor's servers blocked the request"). The app no longer sends the slicer identity headers that triggered it
-- **Bambu Cloud two-step verification**: Bambu now only accepts the authenticator code in a web browser, so an account with it on pastes its access token from bambulab.com instead ([docs/bambu-cloud.md](docs/bambu-cloud.md#connect))
+- **Bambu Cloud two-step verification**: the authenticator code is sent to Bambu's API instead of its website, which now refuses the app
 
 ## [5.4.0] - 2026-11-08
 

@@ -148,19 +148,19 @@ it("signs in with an emailed code", async () => {
   expect(await code(login({ code: "000000", state }))).toBe("code_invalid");
 });
 
-it("asks a 2FA account for its website token and checks it before storing", async () => {
+it("signs in with an authenticator code on the API host, not the website", async () => {
   queue(json(200, { loginType: "tfa", tfaKey: "k1" }));
   const step = await login({ email: "a@b.c", password: "pw" });
-  expect(step).toMatchObject({ challenge: "token" });
+  expect(step).toMatchObject({ challenge: "totp" });
   const state = (step as { state: string }).state;
 
-  queue(json(200, { devices: [] }));
-  expect(await login({ code: "token=tok; Path=/", state })).toEqual({ secrets: { token: "tok" } });
-  expect(sent(1).url).toBe("https://api.bambulab.com/v1/iot-service/api/user/bind");
-  expect((sent(1).init.headers as Record<string, string>).authorization).toBe("Bearer tok");
+  queue(json(200, { accessToken: "tok" }));
+  expect(await login({ code: "123456", state })).toEqual({ secrets: { token: "tok" } });
+  expect(sent(1).url).toBe("https://api.bambulab.com/v1/user-service/user/tfa/login");
+  expect(sent(1).body).toEqual({ tfaKey: "k1", tfaCode: "123456" });
 
-  queue(json(401, { code: 4, error: "Please login." }));
-  expect(await code(login({ code: "bad", state }))).toBe("code_invalid");
+  queue(json(400, { code: 5, error: "Login failed" }));
+  expect(await code(login({ code: "000000", state }))).toBe("code_invalid");
 });
 
 it("uses .cn hosts for the China region", async () => {

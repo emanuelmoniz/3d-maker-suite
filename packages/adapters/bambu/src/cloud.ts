@@ -9,6 +9,8 @@ export type Region = (typeof REGIONS)[number];
 export const URLS = {
   login: "https://api.bambulab.com/v1/user-service/user/login",
   emailCode: "https://api.bambulab.com/v1/user-service/user/sendemail/code",
+  // Bambu Handy's 2FA step; the website's (`bambulab.com/api/sign-in/tfa`) needs a browser.
+  tfaLogin: "https://api.bambulab.com/v1/user-service/user/tfa/login",
   bind: "https://api.bambulab.com/v1/iot-service/api/user/bind",
   tasks: "https://api.bambulab.com/v1/user-service/my/tasks",
   spools: "https://api.bambulab.com/v1/design-user-service/my/filament/v2",

@@ -30,6 +30,7 @@ const secretsSchema = z.object({ token: z.string().min(1).optional() });
 const loginResponse = z.object({
   accessToken: z.string().optional(),
   loginType: z.string().optional(),
+  tfaKey: z.string().optional(),
 });
 // Unknown keys are dropped, so the LAN access code (`dev_access_code`) never leaves this file.
 const bindResponse = z.object({
@@ -227,7 +228,7 @@ export function toSpool(
   };
 }
 
-type LoginState = { email?: string };
+type LoginState = { email?: string; tfaKey?: string };
 
 /** `colorDirs`: Bambu Studio folders to read colour names from. */
 export function bambuCloudAdapter(colorDirs = studioDefaultDirs): IntegrationAdapter {
@@ -259,20 +260,15 @@ export function bambuCloudAdapter(colorDirs = studioDefaultDirs): IntegrationAda
           await call(URLS.emailCode, { ...base, body: { email: input.email, type: "codeLogin" } });
           return { challenge: "email_code", state: JSON.stringify({ email: input.email }) };
         }
-        // 2FA is only answered on bambulab.com, behind a Cloudflare browser challenge we don't
-        // solve. The user signs in there and pastes the `token` cookie instead.
-        if (r.loginType === "tfa") return { challenge: "token", state: JSON.stringify({}) };
+        if (r.loginType === "tfa" && r.tfaKey)
+          return { challenge: "totp", state: JSON.stringify({ tfaKey: r.tfaKey }) };
         throw new IntegrationError("api_changed");
       }
 
       const state = JSON.parse(input.state) as LoginState;
-      if (!state.email) {
-        const token = input.code.replace(/^token=/, "").replace(/;.*$/, "");
-        const res = await call(URLS.bind, { ...base, token, expect: [400, 401, 403] });
-        if (!res.ok) throw new IntegrationError("code_invalid");
-        return { secrets: { token } };
-      }
-      const res = await attempt(URLS.login, { account: state.email, code: input.code });
+      const res = state.tfaKey
+        ? await attempt(URLS.tfaLogin, { tfaKey: state.tfaKey, tfaCode: input.code })
+        : await attempt(URLS.login, { account: state.email, code: input.code });
       const token = res.ok ? (await parse(res, loginResponse, log)).accessToken : undefined;
       if (!token) throw new IntegrationError("code_invalid");
       return { secrets: { token } };

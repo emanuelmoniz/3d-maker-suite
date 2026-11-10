@@ -14,10 +14,7 @@ No LAN mode, developer mode or access code is needed.
 1. Open **Integrations** and choose **Bambu Cloud**.
 2. Pick your region: **Global** or **China**.
 3. Enter your account email and password. The password is sent to Bambu once and never stored.
-4. If Bambu emails you a verification code, enter it. If your account uses two-step verification (authenticator app), Bambu only accepts that code in a web browser, so the app asks for your access token instead:
-   1. Sign in at [bambulab.com](https://bambulab.com) (bambulab.cn in China) in your browser.
-   2. Open the developer tools (F12), then **Application** (Chrome, Edge) or **Storage** (Firefox) → **Cookies**.
-   3. Copy the value of the `token` cookie and paste it into the app. The app checks it with Bambu before saving it.
+4. If Bambu asks for a verification code (email or 2FA), enter it.
 5. Click **Test**. You should see your printers listed.
 
 The app stores only the access token, encrypted on disk (see [ADR-0005](adr/0005-secrets-storage.md)).
