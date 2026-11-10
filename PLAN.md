@@ -2339,33 +2339,369 @@ Then fast-forward main to dev, push, push the v5.4.0 tag and confirm the release
 
 ---
 
-# Plan 5.5.0 - Clearer and quieter
+# Plan 5.5.0 - Sources, machines and presets
 
-Minor release, starts after the 5.4.0 release. No DB migration. Skills: `frontend-design` for the folder page and the overlay, `webapp-testing` for browser checks.
+Minor release, starts after the 5.4.0 release. DB migrations: back up the DB before every step that edits `schema.ts`. Design: ADR-0021 (Step 1), agreed on 2026-11-10. Skills: `frontend-design` for the machine page, the tabs, the Sources tabs, the account cards and the folder page; `webapp-testing` for browser checks.
+
+Hub management, Integrations, Catalog and the connector work, but they are hard to follow: sync settings sit on integration cards, device switches sit in Catalog → Sources, shared folders are only picked on the connector, and "profile" and "preset" overlap. The outcome is one rule: **a source says what it allows, a data type says which sources feed it.**
+
+Concepts:
+- **Software:** programs on the server or on a machine, today the slicers (Bambu Studio, OrcaSlicer).
+- **API:** an outside service that serves data: Bambu Cloud today; Spoolman and OrcaCloud later.
+- **Machine:** a computer paired to the hub with the connector: a workstation, a file server, a print farm PC.
+- **Source:** any of the above, feeding the hub one or more data types. Several sources can feed the same type.
+- **Data type:** printers, prints, spools, catalog, presets, projects. Each can be kept by hand; sources are optional.
+
+Design:
+- **A source allows, a data type configures.** An account's card has an **Allow** switch per type (printers, prints, spools, user presets). A machine's page has its feature switches. Nothing else is set there.
+- **Every data type's settings page has two tabs: General** (today's settings) **and Sources.** Sources lists the sources that allow the type; adding one shows its sync options (today's `PolicyRow`: when, what, merge, alerts, editor rights). A switch with nothing else to set (Share presets, Share catalog) shows its state and a link, not an empty form.
+- **Links both ways.** A machine page or account card shows where each allowed type is configured, and the data type's Sources tab links back.
+- **Presets, not profiles,** in the UI and the code, as Bambu Studio, OrcaSlicer and PrusaSlicer say. Code follows the slicer files' `type`: `machine_presets`, `process_presets`, `filament_presets`. The UI says Printer, Process and Filament presets. The hub library (`slicer_presets`) keeps its name and is the **Preset library** in the UI.
+- **Catalog** keeps brands, models and materials: Printers and Filament tabs. **Presets** is a new module: Printer, Process and Filament tabs; its settings add a **Library** tab (today's Presets tab, hub on).
+- **One slicer install per machine.** The server and each machine run a slicer once per library, installed or downloaded, never both. A machine runs a slicer for the hub only with **Use as slicer** on.
+- **Machine settings are edited on the hub.** The machine's own user sees its page; editing a section needs that section's switch (`machine.connection`, `machine.slicers`, `machine.catalog`, `machine.presets`, `machine.projects`), on top of the right for the data itself. `hub.manage` edits every machine. Built-in Editor and Viewer roles get none.
+- **The connector opens the hub page.** Paired: its icon opens the machine's page on the hub. Not paired: the local pair screen. A slim local page stays for a hub that can't be reached and for what only works locally: open the sync folder, held deletes, a change-user code, Restart, Stop, Unpair.
+- **Shared folders are picked on the hub,** browsing the machine's whole disk, with `hub.manage` or the machine user's `machine.projects`. Each change asks for confirmation and is logged with its actor. The connector still refuses any path outside the saved list.
+- **Projects from the hub, per pick.** A machine receives picks: a project folder or a subfolder of one. Each pick has a users and roles list with Read or Edit. A machine syncs a pick only if its user is on the list, directly or through a role, and never beyond that user's `projects` level and folder rights (ADR-0016). It replaces `syncMode` all / selected. The connector mirrors the picked paths: `root1/*`, `root2/project2`.
+- **Catalog to a machine:** a machine can receive the hub catalog source's `system/` folder, so every slicer has the same vendor presets.
+
+```
+Machine WS-3                                    (hub page; the connector icon opens it)
+  Identity · Software · Connection
+  Slicers      [x] Use as slicer      Default: Bambu Studio
+               Bambu Studio   Catalog: [ ] receive [x] share   Presets: [x] receive [x] share
+                              → used by Integrations · configure in Catalog / Presets settings
+  Projects     [x] Receive from hub   → 3 picks, configure in Projects settings → Sources
+               [x] Share from machine   D:\Models  E:\Clients  [Add folder]
+  Actions      Restart · Stop · Revoke
+
+Printers settings     General | Sources
+  Sources      Bambu Cloud · ana@example.com     Auto, daily 03:00 · scope · merge · alerts   [Remove]
+               [Add source]  (accounts with "Allow printers" on)
+```
+
+## Phase 31 - Decide
+
+### [ ] Step 1 - ADR-0021 sources and data types  **[plan mode]**
+**Model:** Opus · **Effort:** High
+**Scope:**
+- ADR-0021 records the concepts and the design above, and the data model:
+  - Allow switches: `integrations.config.allow` per type.
+  - A source on a data type: the existing `sync_policies` row (added = mode not `off`), no new table.
+  - Machine features: columns on `devices` (use as slicer, receive and share projects, shared folders) and per library in `presetLibraries` (share and receive catalog and presets).
+  - Picks: a table of picks (device, root, subfolder) and one of their users and roles with a level.
+- Each existing switch's new place and its migration: `devices.sliceWorker`, `presetLibraries`, `syncMode` and `device_projects`, the connector's `folders` in `state.json`, today's cloud policy rows.
+- Wireframes for each changed page: machine page, account card, the Sources tab of each type, Presets module, connector local page.
+- Spike on a real account: Bambu's profile endpoint (the community docs name `my/profile`: uid, name, account, avatar). Record the shape.
+- Amend ADR-0014 (connector opens the hub page, whole-disk browse, `connector.stop`, `catalog.install`, shared folders stored on the hub), ADR-0016 (`machine.*` switches, `presets` level), ADR-0019 and ADR-0020 (Presets module, naming).
+
+**Done when:** ADR-0021 accepted with the wireframes; the amendments written; the profile endpoint's answer recorded; tests pass.
+**Prompt:**
+```
+Do Step 1 of the 5.5.0 plan in PLAN.md. Use frontend-design for the wireframes. Guide me through the Bambu profile spike.
+```
+
+## Phase 32 - Names and modules
+
+### [ ] Step 2 - Profiles become presets  **[plan mode]**
+**Model:** Opus · **Effort:** High
+**Scope:**
+- Rename in code: tables `machine_profiles`, `print_profiles`, `filament_profiles` to `machine_presets`, `process_presets`, `filament_presets`; columns such as `printers.print_profile_id` and `machine_profile_id`, and plate columns; schemas, services, API paths (`/api/machine-profiles` and the others), hooks and components. One Drizzle migration with table and column renames.
+- Capability ids (`userMachineProfiles` and the others) follow. A data migration rewrites the stored strings in `sync_policies.type`, `sync_runs`, `import_snapshots`, `deleted_sources` and alert rows.
+- `print` becomes `process` where it names a preset kind, so the `PRESET_KIND` map in `ProfilePage.tsx` goes.
+- UI: "Printer / Process / Filament presets"; the hub library is "Preset library". Every `profile` key in `apps/web/src/locales/en/*.json` changes.
+- Old web URLs redirect. Catalog import still accepts the old entity and column names, so older exports work. A full DB import of an older backup migrates as usual.
+- Check that no connector route uses the renamed paths; if one does, keep the old path as an alias.
+- `docs/` wording.
+
+**Done when:** `grep -ri profile` finds only the alias, redirects and old-name import; a copy of a real 5.4.0 DB migrates and slices the same; an old catalog export imports; tests, e2e, lint and `pnpm i18n:check` pass.
+**Prompt:**
+```
+Plan Step 2 of the 5.5.0 plan in PLAN.md. Back up the DB before editing schema.ts.
+```
+
+### [ ] Step 3 - Settings tabs: General and Sources
+**Model:** Sonnet · **Effort:** Medium
+**Scope:**
+- Turn `CatalogPage`'s link tabs (`tabClass`) into one `Tabs` component (router links, `aria-current`, keyboard, scrolls at phone width), and use it in `CatalogPage`.
+- `ConfigPage` gets two tabs: `/x/settings` (General, today's content) and `/x/settings/sources` (empty state for now: "No sources yet", with a link to Integrations or Hub management).
+- New settings pages: Filament (spools; `/filament/settings` stops redirecting), Catalog and Presets. Each has a gear `SettingsLink` in its header.
+
+**Done when:** each data type's settings page has both tabs; the old Catalog tabs look the same; browser check at phone width in both themes; tests, e2e, lint and `pnpm i18n:check` pass.
+**Prompt:**
+```
+Do Step 3 of the 5.5.0 plan in PLAN.md. Use frontend-design for the tabs.
+```
+
+### [ ] Step 4 - Presets module and the sidebar  **[plan mode]**
+**Model:** Opus · **Effort:** Medium
+**Scope:**
+- Catalog keeps Printers (brands, models) and Filament (brands, materials). Its Presets and Sources tabs leave.
+- New `/presets` module: Printer, Process and Filament tabs, with the tables and preset pages that were in Catalog. Presets settings: General, Sources and **Library** (`PresetsTab` from `pages/hub/PresetsPage.tsx`, hub on). Move the files out of `pages/hub` and `pages/catalog`.
+- Permission `presets` (none · read · write · manage). The migration copies each role's and user's `catalog` level. `RULES` in `lib/auth.ts` and `RightsEditor` follow.
+- Sidebar bottom block, top to bottom: Hub management, Integrations, Catalog, Presets, Import | Export, Logs, Settings.
+- Old URLs redirect (`/catalog/presets`, `/catalog/sources`, the preset pages).
+- `docs/` for the two modules.
+
+**Done when:** each table is in its new module; old links land on the right page; a role keeps its rights in both modules; tests, e2e, lint and `pnpm i18n:check` pass.
+**Prompt:**
+```
+Plan Step 4 of the 5.5.0 plan in PLAN.md. Back up the DB before editing schema.ts.
+```
+
+## Phase 33 - Accounts as sources
+
+### [ ] Step 5 - Bambu Cloud accounts  **[plan mode]**
+**Model:** Opus · **Effort:** High
+**Scope:**
+- At sign-in and on each sync, the adapter reads the profile (Step 1's endpoint) and stores email, name and avatar URL in `integrations.config`. A failed read keeps the last values. A new optional method on the integration interface in core, so other APIs can fill the same fields.
+- The server fetches and caches the avatar: `GET /api/integrations/:id/avatar`, so the browser never calls Bambu. No avatar: initials.
+- The Bambu Cloud card shows one section per account: photo, name, email, region, signed in or not, Sign in again, Test connection.
+- "What to import" becomes one **Allow** switch per type: printers, prints, spools, user presets. Turning one off sets its policy to `off` and keeps its data. Each allowed type links to where it is configured. `Policies part="connection"` leaves the card.
+- Adding a second account is offered on the card.
+
+**Done when:** two accounts show apart with their email and photo; an Allow switch hides the type from that data type's Sources; no request from the browser goes to Bambu; tests, e2e, lint and `pnpm i18n:check` pass.
+**Prompt:**
+```
+Plan Step 5 of the 5.5.0 plan in PLAN.md. Use frontend-design for the account card.
+```
+
+### [ ] Step 6 - Sources tabs: printers, prints, spools  **[plan mode]**
+**Model:** Opus · **Effort:** High
+**Scope:**
+- The Sources tab of Printers, Prints and Filament (spools) lists the accounts that allow the type, with their policy (`PolicyRow`: when, schedule, scope, merge, alerts, editor rights, Sync now, Review and import, sync log). **Add source** picks an allowed account; **Remove** sets the policy to `off`.
+- Editors with the sync or review right reach Sync now and Review here (`useMayTask`), as they did on the card.
+- Remove `SyncButtons` from the printers, filament and prints pages. Delete `components/ImportLinks.tsx`. Remove the `integrations:syncFrom` and `integrations:syncError` keys and the namespace loads that only served the button (`router.tsx`). `useSyncIntegration` stays.
+- The card's summary line ("Printers: auto, daily") links to these tabs.
+- Rewrite the "Sync from cloud" test in `e2e/v13.e2e.ts`; `docs/bambu-cloud.md`, `docs/import.md`.
+
+**Done when:** everything the card's "What to import" did is reachable from the Sources tabs; two accounts can feed printers with different schedules; no page outside settings offers a manual sync; tests, e2e, lint and `pnpm i18n:check` pass.
+**Prompt:**
+```
+Plan Step 6 of the 5.5.0 plan in PLAN.md. Use frontend-design for the Sources tab.
+```
+
+### [ ] Step 7 - Docs, push & v5.5.0-alpha.1
+**Model:** Sonnet · **Effort:** Low
+**Scope:**
+- `docs/` for presets, the Presets module, the tabs and the account cards. CHANGELOG, version `5.5.0-alpha.1`, `pnpm version:check`.
+- Commit on `dev`, push, tag `v5.5.0-alpha.1` on `dev`. Check the run and the release.
+
+**Done when:** the tag is pushed and the workflow is green.
+**Prompt:**
+```
+Do Step 7 of the 5.5.0 plan in PLAN.md. Push dev, push the tag and confirm the pre-release.
+```
+
+## Phase 34 - Machines and slicers
+
+### [ ] Step 8 - Machine page  **[plan mode]**
+**Model:** Opus · **Effort:** High
+**Scope:**
+- `EditConnectorPage.tsx` becomes the machine page. Besides `hub.manage`, the machine's own user can open it: read-only, or editable per section with its `machine.*` switch (added here, enforced on the server's device routes).
+- Sections:
+  - Identity, Software and Connection, as today.
+  - **Slicers:** **Use as slicer** (replaces the derived `sliceWorker`); the default slicer, set from the hub (a new key in `connector.settings.set`); per slicer found, Share and Receive catalog, Share and Receive presets (today's Send presets and Install). Each line says where it's used, with a link.
+  - **Projects:** **Receive from hub** (the picks come in Step 17; until then today's mode moves here) and **Share from machine** with a folder picker that browses the machine's whole disk. Each change asks for confirmation and is logged.
+  - **Actions:** Restart, Stop (new operation `connector.stop`) and Revoke, moved from the device cards on `HubPage.tsx`.
+- Migrations: Use as slicer from `sliceWorker`; the share and receive switches from `presetLibraries`; the shared folders from the connector's `state.json`, sent once on its first connect after the update. An older connector answers `device_outdated` for the new operations.
+- `docs/hub.md`.
+
+**Done when:** each switch saves from the hub and reaches the connector; the machine's user sees their page and edits only the sections they may; a folder outside the list is still refused by the connector; an older connector shows outdated; browser check at phone width in both themes; tests, e2e, lint and `pnpm i18n:check` pass.
+**Prompt:**
+```
+Plan Step 8 of the 5.5.0 plan in PLAN.md. Use frontend-design for the machine page.
+Back up the DB before editing schema.ts.
+```
+
+### [ ] Step 9 - One slicer install per machine
+**Model:** Opus · **Effort:** Medium
+**Scope:**
+- Add integration, for a slicer: **This server** or **A machine**. This server uses the installed slicer if one is found, else offers the download (merge of today's `local` and `server` locations, like `WorkerSlicer`'s source choice). A machine is offered only with Use as slicer on and no install of that library there; with no slicer found, it installs remotely.
+- The server refuses a second install of a library on the same machine (`slicer_exists`).
+- A database that already has both a local and a server install keeps both working, with a warning on the card to remove one.
+- `IntegrationFormPage.tsx`, `IntegrationCard.tsx`, `routes/integrations.ts`. `docs/slicing.md`.
+
+**Done when:** a second install on the same machine can't be added from the UI or the API; a machine without Use as slicer isn't offered; an old database with both keeps slicing; tests, e2e, lint and `pnpm i18n:check` pass.
+**Prompt:**
+```
+Do Step 9 of the 5.5.0 plan in PLAN.md.
+```
+
+### [ ] Step 10 - Catalog and Presets: Sources  **[plan mode]**
+**Model:** Opus · **Effort:** High
+**Scope:**
+- Catalog → Sources, per slicer library: the catalog source (server slicer, a machine with Share catalog, or the zip), Choose brands and the Catalog card (change detection, review, alerts). Machines with Receive catalog are listed with their state (Step 11 makes it work).
+- Presets → Sources, per library: System presets (follows the catalog source, linked), the user preset routes, Bambu Cloud user presets (accounts that allow them), the machines with Share and Receive (today's `DeviceSlicers.tsx` table, read-only here with a link to each machine page) and "No connector? Upload a zip".
+- `SourcesTab.tsx` and `PresetsCard` go; the integration card's summary line links here.
+- `docs/import.md`, `docs/hub.md`.
+
+**Done when:** everything Catalog → Sources did is reachable from the two tabs; a catalog source can be switched between two machines; a machine shares one slicer's presets and not the other's; tests, e2e, lint and `pnpm i18n:check` pass.
+**Prompt:**
+```
+Plan Step 10 of the 5.5.0 plan in PLAN.md. Use frontend-design for the Sources tabs.
+```
+
+### [ ] Step 11 - Catalog to a machine  **[plan mode]**
+**Model:** Opus · **Effort:** High
+**Scope:**
+- New fixed connector operation `catalog.install` (ADR-0014's list gains it): on a machine with Receive catalog, the hub sends its copy of the catalog source's `system/` (Step 22 of 5.4.0) when the machine's fingerprint differs.
+- The connector waits for the slicer to close, backs up the folder (the zip helper in `packages/host`), then writes it. A slicer update that overwrites it changes the fingerprint and is sent again.
+- A machine that is itself the catalog source can't receive.
+- `docs/hub.md`.
+
+**Done when:** a machine receives the catalog and its slicer shows the vendor presets; a slicer open delays the write; a backup exists before it; the catalog source can't receive; an older connector answers `device_outdated`; tests pass.
+**Prompt:**
+```
+Plan Step 11 of the 5.5.0 plan in PLAN.md.
+```
+
+### [ ] Step 12 - Connector: hub page first, permissions  **[plan mode]**
+**Model:** Opus · **Effort:** High
+**Scope:**
+- The connector's icon, launcher and tray: paired, open the machine's page on the hub; not paired, the local pair screen.
+- `apps/connector/src/status.ts` shrinks to the slim local page: hub reachable or not, open sync folder, held deletes, Done editing locks, change-user code, Restart, Stop, Unpair, and a link to the hub page. Settings it shows today (sync mode, slicers, default slicer, shared folders) leave it.
+- The machine page links to the slim local page when this browser is on that machine (`whoami`).
+- The `machine.*` switches in `RightsEditor` with hints; built-in roles: Admin all, Editor and Viewer none.
+- `docs/hub.md`, `docs/users.md`.
+
+**Done when:** a paired connector opens the hub page; an unpaired one opens the pair screen; with the hub down the slim page works; a user with only `machine.projects` edits only Projects on their own machine and nothing on another; tests, e2e, lint and `pnpm i18n:check` pass.
+**Prompt:**
+```
+Plan Step 12 of the 5.5.0 plan in PLAN.md.
+```
+
+### [ ] Step 13 - Real test, docs, push & v5.5.0-alpha.2
+**Model:** Sonnet · **Effort:** Medium
+**Scope:**
+- Upgrade a copy of a real 5.4.0 database to the alpha: presets keep their rows and slices; policies, device switches and shared folders keep their values.
+- Two machines: Use as slicer on one only; Share catalog on one, Receive catalog on the other; Share and Receive presets on one slicer only; Restart and Stop from the hub; a user with one `machine.*` switch.
+- Two Bambu Cloud accounts with their own photo and Sources.
+- Fix anything found. `docs/`, CHANGELOG, version `5.5.0-alpha.2`. Commit on `dev`, push, tag `v5.5.0-alpha.2` on `dev`. Check the run and the release.
+
+**Done when:** every scenario worked (or is listed as not tested); the tag is pushed and the workflow is green.
+**Prompt:**
+```
+Do Step 13 of the 5.5.0 plan in PLAN.md. Guide me through each scenario and fix what we find. Then push dev, push the tag and confirm the pre-release.
+```
+
+## Phase 35 - Projects
+
+### [ ] Step 14 - Projects: Sources  **[plan mode]**
+**Model:** Opus · **Effort:** High
+**Scope:**
+- Projects settings → Sources: this server, and each machine with Share from machine, with its shared folders and their state.
+- Adding a project folder picks a source, then a folder from it (the server, or the machine's shared folders). The Location select in `ProjectRoots.tsx` goes.
+- A machine that stops sharing a folder in use: its project folders show `unshared`, as today.
+- `docs/projects.md`, `docs/hub.md`.
+
+**Done when:** a folder shared on the machine page can be added as a project folder from Sources; a folder not shared can't; tests, e2e, lint and `pnpm i18n:check` pass.
+**Prompt:**
+```
+Plan Step 14 of the 5.5.0 plan in PLAN.md.
+```
+
+### [ ] Step 15 - Project folder edit page  **[plan mode]**
+**Model:** Opus · **Effort:** High
+**Scope:**
+- New routes for add and edit under the projects settings, following `UserEditPage.tsx`, with an explicit Save.
+- Fields, each with its hint beside it: Source (this server or a sharing machine, from Step 14), Path with `PathPicker` (read-only on edit), Project layout as plain-word radios, Files levels, Auto slice, Who can edit.
+- **The page's signature element:** a live example folder tree that marks which level is a project and which folders are listed as its files. Built from a pure function with a unit test, as a real list so screen readers can read it, with translated example names.
+- Reuse `useChangeRoot`, `ROOT_ERRORS`, `ROOT_DEFAULTS` and `RootStateBadge`.
+- Check on the server what changing a depth does to existing projects, and say so on the page.
+- Who can edit, in plain words: the owner always; **All users** (with edit rights), **Admins**, **Picked users** (a user picker) or **Nobody else**. Same values as today's `EditBy`.
+
+**Done when:** a folder can be added and edited on the page; the tree follows the fields; unit test for the tree; e2e; browser check in both themes and at phone width; tests, lint and `pnpm i18n:check` pass.
+**Prompt:**
+```
+Plan Step 15 of the 5.5.0 plan in PLAN.md. Use frontend-design for the page.
+```
+
+### [ ] Step 16 - Project folders table and wording
+**Model:** Sonnet · **Effort:** Medium
+**Scope:**
+- Replace the row list and add form in `ProjectRoots.tsx` with a `DataTable`: Folder (link to edit, device, state), Projects (count from `useProjectFolders` in `lib/projects.ts`, grouped by `rootId`), Layout in plain words, Auto slice, Who can edit, Remove.
+- Header actions: **Add folder** and the bulk change dialog (`ChangeProjectsRoot`, behaviour unchanged).
+- Remove gets a `ConfirmDialog`; today it fires at once. Delete the three explanation paragraphs and the old add form.
+- Wording, UI only: "root" becomes "project folder", a project's own path becomes "subfolder", and "Bulk change projects root" becomes "Change project folder…". Update `settings.json`, `docs/projects.md`, `docs/hub.md` and any e2e specs using the old labels.
+
+**Done when:** the section is the table; no UI text says "root"; e2e; browser check in both themes and at phone width; tests, lint and `pnpm i18n:check` pass.
+**Prompt:**
+```
+Do Step 16 of the 5.5.0 plan in PLAN.md.
+```
+
+### [ ] Step 17 - Projects to machines  **[plan mode]**
+**Model:** Opus · **Effort:** High
+**Scope:**
+- Projects settings → Sources, per machine with Receive from hub: its **picks**, each a project folder or a subfolder of one (`root1`, `root2/project2`), with a users and roles list at Read or Edit.
+- The machine syncs a pick only if its user is on the list, directly or through a role, and only up to that user's `projects` level and the folder's edit rights. Read-only files sync as `access: "read"`, as today.
+- The connector mirrors the picked paths under its sync folder (`root1/*`, `root2/project2`). A removed pick follows the existing delete guard.
+- Replaces `devices.syncMode` and `hubDefaultSyncMode`: `all` becomes a pick per project folder with the machine's user at Edit; `selected` becomes its `device_projects`. Open on a machine still adds a pick for that project.
+- The machine page's Projects section lists the picks with a link here.
+- `hubDevice.ts` (`/sync/roots`, `/sync/changes`), `apps/connector/src/sync.ts`. `docs/hub.md`, `docs/projects.md`.
+
+**Done when:** a machine receives only its picks; a user off the list gets nothing; Read stays read-only on the machine; a migrated database syncs the same files as before; tests, e2e, lint and `pnpm i18n:check` pass.
+**Prompt:**
+```
+Plan Step 17 of the 5.5.0 plan in PLAN.md. Back up the DB before editing schema.ts.
+```
+
+## Phase 36 - Release
+
+### [ ] Step 18 - Real test, docs, push & v5.5.0-alpha.3
+**Model:** Sonnet · **Effort:** Medium
+**Scope:**
+- Upgrade a copy of a real 5.5.0-alpha.2 database: project folders, picks and shared folders keep their projects and files.
+- On the real VPS with two workstations: share a folder from one and add it as a project folder; pick `root1` and `root2/project2` for the other, with a user at Read and one at Edit; a user off the list.
+- The connector icon on a paired and an unpaired machine; the hub stopped (the slim page).
+- Fix anything found. `docs/`, CHANGELOG, version `5.5.0-alpha.3`. Commit on `dev`, push, tag `v5.5.0-alpha.3` on `dev`. Check the run and the release.
+
+**Done when:** every scenario worked (or is listed as not tested); the tag is pushed and the workflow is green.
+**Prompt:**
+```
+Do Step 18 of the 5.5.0 plan in PLAN.md. Guide me through each scenario and fix what we find. Then push dev, push the tag and confirm the pre-release.
+```
+
+### [ ] Step 19 - Docs, push & v5.5.0 release
+**Model:** Haiku · **Effort:** Low
+**Scope:**
+- Check the docs against what shipped, `pnpm screenshots` (Catalog, Presets, Integrations, Hub and settings pages changed; update `scripts/screenshots.shot.ts`), CHANGELOG (everything since 5.4.0), version `5.5.0`, `pnpm version:check`.
+- Commit on `dev`, fast-forward `main` to `dev`, push both, tag `v5.5.0` on `main`. Check the run, the release and the images.
+
+**Done when:** `main`, `dev` and the tag are pushed; the workflow is green; updating 5.4.0 to 5.5.0 keeps all data.
+**Prompt:**
+```
+Do Step 19 of the 5.5.0 plan in PLAN.md. Only document what changed since the last 5.5.0 pre-release.
+Then fast-forward main to dev, push, push the v5.5.0 tag and confirm the release.
+```
+
+## Out of scope for 5.5.0 (later plans)
+- Spoolman (6.0.0 Step 12) and OrcaCloud (when the Orca team issues a `client_id`) as sources.
+- Rights per machine beyond the five `machine.*` switches.
+- Machines without the connector (a NAS share, SMB).
+- The connector's own React UI: it opens the hub page instead.
+
+---
+
+# Plan 5.6.0 - Clearer, accounts, brand and the right machine
+
+Minor release, starts after the 5.5.0 release. Old plans 5.5.0 (Steps 2-4) and 5.6.0 merged, plus accounts and the logo. One DB change: the accounts switch preference. No new dependency (`yazl` is already in the server). Skills: `frontend-design` for the overlay, the Users | Roles page and the address picker; `webapp-testing` for browser checks.
 
 Design:
 - **Waiting:** show nothing under about 1 s, a busy indicator up to about 10 s, and progress beyond that. An update's length is unknown, so it shows phase text, not a percentage.
 - **Restart and update:** the server can't answer, so a full-screen overlay blocks the page until a health check answers, then the page reloads.
 - **Tags:** one setting for the whole install, on by default. Off only hides tags: the data, the API, backups and exports stay, and turning it back on restores everything. Collections aren't tags and stay.
-- **Project folders:** a table like Users and Roles, with add and edit on their own page. The UI says "project folder" for a root and "subfolder" for a project's own path; code keeps `root`.
+- **User accounts switch:** off works like the no-users mode (the host guard and `APP_PASSWORD`), for a single user. Accounts are kept, and turning it back on restores them. The hub needs accounts, so each switch blocks the other.
+- **Logo:** `3D_Maker_Suite_BRAND_Icon_Color.svg` is the app icon everywhere (favicon, sidebar and sign-in fallback, connector, installers). The horizontal logo heads the README.
+- **Open:** only on the machine the user sits at, and only if the user can edit the project. The server's computer uses its integration slicer. Any other computer needs a connector that answers the page's probe, is paired to this user and has a slicer. Everything else, phones included, gets no button. Nothing opens on another machine. Open folder follows the same rule.
+- **Device root** (a machine's shared folder added as a project folder): the machine holding the files opens the original. Another machine with a connector opens a copy, whose saves stay on that machine.
+- **Public address:** one saved address used for links in alerts (email and ntfy). The server never reads it from a request: `Host` can be forged.
+- **Download:** anyone who can see a project can download its files, folders and the full project folder, viewers included. There's no separate permission: read access already means download, and the 3D view needs the same bytes, so a download right couldn't be enforced. It works from any machine, phones included, wherever the files are: the hub pulls a device root's files from its connector, whoever's device it is, as long as that device is online. Download sits in the files section, not the page header.
 
-## Phase 31 - Less noise, clear waiting
+## Phase 37 - Clear waiting and tags
 
-### [ ] Step 1 - Remove the "Sync from…" buttons
-**Model:** Sonnet · **Effort:** Low
-**Scope:**
-- Remove `SyncButtons` from the printers, filament and prints pages. Delete `components/ImportLinks.tsx`; its `ImportLinks` export is already unused.
-- Remove the `integrations:syncFrom` and `integrations:syncError` keys, and the `integrations` namespace loads that only served the button (`router.tsx`).
-- Rewrite the "Sync from cloud" test in `e2e/v13.e2e.ts` and update `docs/bambu-cloud.md`.
-- `useSyncIntegration` stays: `IntegrationCard` uses it. Sync now in Settings and scheduled syncs don't change.
-
-**Done when:** no page outside Settings offers a manual sync; an editor with the sync permission can still reach Sync now (`useMayTask`, `IntegrationsPage.tsx`); tests, e2e, lint and `pnpm i18n:check` pass.
-**Prompt:**
-```
-Do Step 1 of the 5.5.0 plan in PLAN.md.
-```
-
-### [ ] Step 2 - Small loader
+### [ ] Step 1 - Small loader
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - No spinner exists today; buttons only go disabled. Add a `busy` prop to `Button.tsx`: it sets `disabled` and `aria-busy` and shows lucide `LoaderCircle` with `animate-spin`. No new dependency.
@@ -2377,10 +2713,10 @@ Do Step 1 of the 5.5.0 plan in PLAN.md.
 **Done when:** those actions show the spinner when slow and nothing when fast; a screen reader gets the busy state; tests, lint and `pnpm i18n:check` pass.
 **Prompt:**
 ```
-Do Step 2 of the 5.5.0 plan in PLAN.md.
+Do Step 1 of the 5.6.0 plan in PLAN.md.
 ```
 
-### [ ] Step 3 - Full-screen overlay for restart and update
+### [ ] Step 2 - Full-screen overlay for restart and update
 **Model:** Opus · **Effort:** Medium
 **Scope:**
 - Replace `ServerBanner` (`AppShell.tsx`) with an overlay that blocks the page, built on the same base as the existing dialogs. Esc doesn't close it.
@@ -2391,12 +2727,10 @@ Do Step 2 of the 5.5.0 plan in PLAN.md.
 **Done when:** restart and update block the page and reload by themselves; a failed update returns to About with its message; e2e with `page.route` on the health and restart calls; browser check in both themes and at phone width; tests, lint and `pnpm i18n:check` pass.
 **Prompt:**
 ```
-Do Step 3 of the 5.5.0 plan in PLAN.md. Use frontend-design for the overlay.
+Do Step 2 of the 5.6.0 plan in PLAN.md. Use frontend-design for the overlay.
 ```
 
-## Phase 32 - Tags switch and project folders
-
-### [ ] Step 4 - Tags setting
+### [ ] Step 3 - Tags setting
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - Add `tagsEnabled` to `schemas/preferences.ts`, default `true`, following `hubEnabled`. Add it to the keys in `lib/auth.ts`, in the same permission group as the General section's other preferences, and update the defaults in `app.test.ts`.
@@ -2411,73 +2745,70 @@ Do Step 3 of the 5.5.0 plan in PLAN.md. Use frontend-design for the overlay.
 **Done when:** e2e: off hides the column, picker and detail row, and a `?tagId=` link shows all rows; on brings the tags back; a project can get a tag from its form; tests, lint and `pnpm i18n:check` pass.
 **Prompt:**
 ```
-Do Step 4 of the 5.5.0 plan in PLAN.md.
+Do Step 3 of the 5.6.0 plan in PLAN.md.
 ```
 
-### [ ] Step 5 - Project folder edit page  **[plan mode]**
-**Model:** Opus · **Effort:** High
-**Scope:**
-- New routes for add and edit under the projects settings, following `UserEditPage.tsx`, with an explicit Save.
-- Fields, each with its hint beside it: Location (only with the hub on and devices online), Path with `PathPicker` (read-only on edit), Project layout as plain-word radios, Files levels, Auto slice, Who can edit with the user list (`EditBy`).
-- **The page's signature element:** a live example folder tree that marks which level is a project and which folders are listed as its files. Built from a pure function with a unit test, as a real list so screen readers can read it, with translated example names.
-- Reuse `useChangeRoot`, `ROOT_ERRORS`, `ROOT_DEFAULTS` and `RootStateBadge`.
-- Check on the server what changing a depth does to existing projects, and say so on the page.
+## Phase 38 - Accounts and brand
 
-**Done when:** a folder can be added and edited on the page; the tree follows the fields; unit test for the tree; e2e; browser check in both themes and at phone width; tests, lint and `pnpm i18n:check` pass.
-**Prompt:**
-```
-Plan Step 5 of the 5.5.0 plan in PLAN.md. Use frontend-design for the page.
-```
-
-### [ ] Step 6 - Project folders table and wording
+### [ ] Step 4 - Users | Roles page
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
-- Replace the row list and add form in `ProjectRoots.tsx` with a `DataTable`: Folder (link to edit, device, state), Projects (count from `useProjectFolders` in `lib/projects.ts`, grouped by `rootId`), Layout in plain words, Auto slice, Who can edit, Remove.
-- Header actions: **Add folder** and the bulk change dialog (`ChangeProjectsRoot`, behaviour unchanged).
-- Remove gets a `ConfirmDialog`; today it fires at once. Delete the three explanation paragraphs and the old add form.
-- Wording, UI only: "root" becomes "project folder", a project's own path becomes "subfolder", and "Bulk change projects root" becomes "Change project folder…". Update `settings.json`, `docs/projects.md`, `docs/hub.md` and any e2e specs using the old labels.
+- New `/users` page with Users and Roles tabs (the `Tabs` component from 5.5.0 Step 3). `UsersSection` and `RolesSection` move there from `SettingsPage.tsx`.
+- Edit routes move to `/users/$id`, `/users/roles/new` and `/users/roles/$id`, with `backTo` the new page. Old `/settings/users/...`, `/settings/roles/...` and `/settings#users` links redirect.
+- Sidebar: **Users | Roles** right before Settings, with `users.manage`. Also in the mobile More sheet.
+- `docs/users.md`.
 
-**Done when:** the section is the table; no UI text says "root"; e2e; browser check in both themes and at phone width; tests, lint and `pnpm i18n:check` pass.
+**Done when:** Settings has no Users or Roles section; old links land on the new page; a user without `users.manage` doesn't see it; e2e; tests, lint and `pnpm i18n:check` pass.
 **Prompt:**
 ```
-Do Step 6 of the 5.5.0 plan in PLAN.md.
+Do Step 4 of the 5.6.0 plan in PLAN.md.
 ```
 
-### [ ] Step 7 - Docs, push & v5.5.0 release
-**Model:** Haiku · **Effort:** Low
+### [ ] Step 5 - User accounts switch
+**Model:** Opus · **Effort:** Medium
 **Scope:**
-- Docs for the tags setting, `pnpm screenshots`, CHANGELOG, version `5.5.0`, `pnpm version:check`.
-- Commit on `dev`, fast-forward `main` to `dev`, push both, tag `v5.5.0` on `main`. Check the run, the release and the images.
+- `accountsEnabled` in `schemas/preferences.ts`, default `true`, admin only. Off: `authGuard` (`lib/auth.ts`) takes the no-users path, the same as `hasUsers(db)` false, and `useMe`/`useRights` behave as with no users. Users, roles and sessions stay in the database.
+- Can't turn it off while the hub is on (409 `hub_needs_users`, as `routes/preferences.ts` does today); `HubSwitch` stays disabled while it's off, with its hint.
+- The switch sits in Settings → General. Turning it off asks for confirmation; on a network bind without `APP_PASSWORD` the dialog says only this PC will reach the app.
+- Turning it back on needs the existing admin password: the next request goes to `/login`.
+- Users | Roles leaves the sidebar while off.
+- `docs/users.md`, `docs/configuration.md`.
 
-**Done when:** `main`, `dev` and the tag are pushed; the workflow is green; updating 5.4.0 to 5.5.0 keeps all data.
+**Done when:** a test covers the guard both ways and the hub conflict both ways; off and on keeps users and roles; e2e; tests, lint and `pnpm i18n:check` pass.
 **Prompt:**
 ```
-Do Step 7 of the 5.5.0 plan in PLAN.md. Only document what changed since 5.4.0.
-Then fast-forward main to dev, push, push the v5.5.0 tag and confirm the release.
+Do Step 5 of the 5.6.0 plan in PLAN.md.
 ```
 
+### [ ] Step 6 - Logo and icons
+**Model:** Sonnet · **Effort:** Medium
+**Scope:**
+- Copy the brand files from `C:\Users\emanu\OneDrive\Work\3d_Maker_Suite\brand\` into `docs/brand/`: the colour, black and white icons and the horizontal logos. The colour icon also goes to `apps/web/public/icon.svg`.
+- Web: `index.html` uses `/icon.svg` as the favicon (an uploaded favicon still wins, `lib/branding.ts`). The colour icon replaces the lucide `Printer` fallback in `Brand` (`AppShell.tsx`) and on the sign-in and setup pages (`AuthPages.tsx`). The connector's slim page uses it when the hub has no branding.
+- Installers: make `icon.ico` (16-256 px), `icon.icns` and a 512 px `icon.png` from the SVG once and commit them in `packaging/`, with how they were made in a comment (no new dependency). `setup.iss`: `SetupIconFile`, `UninstallDisplayIcon` and the shortcuts' `IconFilename`. `build.mjs`: `CFBundleIconFile` in the mac `Info.plist`. `install.sh`: `Icon=` in the `.desktop` file. Same for the connector's installers.
+- README: the horizontal colour logo on top (`docs/brand/`), in place of the plain title. GitHub has no logo setting for a repo: add to the summary that the social preview (Settings → Social preview, a 1280×640 PNG) is uploaded by hand.
 
-## Out of scope for 5.5.0 (later plans)
-- Other open tabs don't see the overlay; they only see failed requests.
-- The connector's own UI (a separate backlog item).
-- Tag management (rename, delete).
-- Per-user tag visibility: the setting applies to the whole install.
+**Done when:** the favicon, sidebar, sign-in page, connector page, the Windows setup and shortcuts, the mac app and the Linux menu show the logo; an uploaded logo still wins in the app; tests, lint and `pnpm i18n:check` pass.
+**Prompt:**
+```
+Do Step 6 of the 5.6.0 plan in PLAN.md.
+```
 
----
+### [ ] Step 7 - Docs, push & v5.6.0-alpha.1
+**Model:** Sonnet · **Effort:** Low
+**Scope:**
+- Docs for the tags setting, the accounts switch and Users | Roles. CHANGELOG, version `5.6.0-alpha.1`, `pnpm version:check`.
+- Commit on `dev`, push, tag `v5.6.0-alpha.1` on `dev`. Check the run, the release, and the icon on the built setup `.exe`.
 
-# Plan 5.6.0 - Right link, right machine
+**Done when:** the tag is pushed and the workflow is green.
+**Prompt:**
+```
+Do Step 7 of the 5.6.0 plan in PLAN.md. Push dev, push the tag and confirm the pre-release.
+```
 
-Minor release, starts after the 5.5.0 release. No DB migration and no new dependency (`yazl` is already in the server). Skills: `frontend-design` for the address picker, `webapp-testing` for browser checks.
+## Phase 39 - Mobile bar and links
 
-Design:
-- **Open:** only on the machine the user sits at, and only if the user can edit the project. The server's computer uses its integration slicer. Any other computer needs a connector that answers the page's probe, is paired to this user and has a slicer. Everything else, phones included, gets no button. Nothing opens on another machine. Open folder follows the same rule.
-- **Device root:** the machine holding the files opens the original. Another machine with a connector opens a copy, whose saves stay on that machine.
-- **Public address:** one saved address used for links in alerts (email and ntfy). The server never reads it from a request: `Host` can be forged.
-- **Download:** anyone who can see a project can download its files, folders and the full project folder, viewers included. There's no separate permission: read access already means download, and the 3D view needs the same bytes, so a download right couldn't be enforced. It works from any machine, phones included, wherever the files are: the hub pulls a device root's files from its connector, whoever's device it is, as long as that device is online. Download sits in the files section, not the page header.
-
-## Phase 33 - Mobile bar and links
-
-### [ ] Step 1 - Projects in the bottom bar
+### [ ] Step 8 - Projects in the bottom bar
 **Model:** Haiku · **Effort:** Low
 **Scope:**
 - In `shell/nav.ts`, move `primary: true` from Printers to Projects. Printers moves to the More sheet. The sidebar doesn't change.
@@ -2485,10 +2816,10 @@ Design:
 **Done when:** at phone width the bar shows Dashboard, Filament, Projects, Prints and More, and More reaches Printers; an e2e checks both; tests, lint and `pnpm i18n:check` pass.
 **Prompt:**
 ```
-Do Step 1 of the 5.6.0 plan in PLAN.md.
+Do Step 8 of the 5.6.0 plan in PLAN.md.
 ```
 
-### [ ] Step 2 - Public address
+### [ ] Step 9 - Public address
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - Add `publicUrl` (http or https only, no trailing slash) to the saved config next to host and port, and `APP_PUBLIC_URL`, which wins and shows as fixed, as `hostSource` does. No restart needed: read it each time alerts are sent.
@@ -2505,27 +2836,27 @@ Do Step 1 of the 5.6.0 plan in PLAN.md.
 **Done when:** a test covers each row of the order above; email and ntfy links use the saved address without a restart; a non-http(s) value is refused; e2e; browser check at phone width in both themes; tests, lint and `pnpm i18n:check` pass.
 **Prompt:**
 ```
-Do Step 2 of the 5.6.0 plan in PLAN.md. Use frontend-design for the picker.
+Do Step 9 of the 5.6.0 plan in PLAN.md. Use frontend-design for the picker.
 ```
 
-### [ ] Step 3 - Test the address
+### [ ] Step 10 - Test the address
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - A route under the server config routes, with their permission: the server calls `<url>/api/health` and compares `startedAt` with its own `STARTED_AT`, which proves it reached this server. 5 s timeout, no redirects followed, and only a result code comes back, never the response body.
 - Results: `ok`, `notFound` (DNS), `refused`, `certificate`, `timeout`, `otherServer` (it answered, but isn't this server, including a redirect) and `hostNotAllowed` (403 `forbidden_host`; tell the user to add it to `APP_ALLOWED_HOSTS`).
-- Picker: **Test** (with the `busy` prop from 5.5.0 Step 2), one line with the result, and **Open address** (a new tab, to check from this device). **Save** stays allowed after a failed test, with a warning: the test runs from the server, and a home router often can't reach its own external IP from inside, so a failure can be false.
+- Picker: **Test** (with the `busy` prop from Step 1), one line with the result, and **Open address** (a new tab, to check from this device). **Save** stays allowed after a failed test, with a warning: the test runs from the server, and a home router often can't reach its own external IP from inside, so a failure can be false.
 - No external IP lookup: it would need a third-party service (ADR-0014). The user types it.
 - `docs/configuration.md`: what the test proves and what it can't (it doesn't prove a phone on mobile data can reach it).
 
 **Done when:** a test covers each result against a local server; a failed test warns but still saves; e2e; tests, lint and `pnpm i18n:check` pass.
 **Prompt:**
 ```
-Do Step 3 of the 5.6.0 plan in PLAN.md.
+Do Step 10 of the 5.6.0 plan in PLAN.md.
 ```
 
-## Phase 34 - Open on this machine, download
+## Phase 40 - Open on this machine, download
 
-### [ ] Step 4 - Open only on this machine
+### [ ] Step 11 - Open only on this machine
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - `ProjectDetailPage.tsx`: remove the fallback to the user's online devices. Open and Open folder use the server's computer or the device whose connector answers `whoami` (`useConnectorId`). No answer: no buttons. Delete what only served the fallback: `deviceId`, `pickDevice`, `pickFolderDevice` and the device choice in the dialog. Keep the choice of slicer.
@@ -2537,10 +2868,10 @@ Do Step 3 of the 5.6.0 plan in PLAN.md.
 **Done when:** e2e with `page.route` on `whoami` and the devices call: answered with a slicer, buttons; answered without a slicer, no Open; no answer, no buttons, including with other devices online; no edit right, no buttons; tests, lint and `pnpm i18n:check` pass.
 **Prompt:**
 ```
-Do Step 4 of the 5.6.0 plan in PLAN.md.
+Do Step 11 of the 5.6.0 plan in PLAN.md.
 ```
 
-### [ ] Step 5 - Open a device root's files on their machine
+### [ ] Step 12 - Open a device root's files on their machine
 **Model:** Opus · **Effort:** Medium
 **Scope:**
 - Server: `openDevices` also serves a device root, marking the device that holds it (`holdsFiles`). `/:id/open`: no `deviceProjects` row and no lock for a device root (the slicer edits the original, and the connector's watcher sends the change).
@@ -2551,10 +2882,10 @@ Do Step 4 of the 5.6.0 plan in PLAN.md.
 **Done when:** connector tests cover a device root path, a `..` path and a link out of the root; server tests cover the holder, another user's device and an offline device; e2e for the header and file row; tests, lint and `pnpm i18n:check` pass.
 **Prompt:**
 ```
-Do Step 5 of the 5.6.0 plan in PLAN.md.
+Do Step 12 of the 5.6.0 plan in PLAN.md.
 ```
 
-### [ ] Step 6 - Open a copy on another machine **[plan mode]**
+### [ ] Step 13 - Open a copy on another machine **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:**
 - A device root's project, opened from another machine of a user who can edit it, with a connector and slicer there: the hub pulls the file from the holding device (its existing temp cache) and that connector downloads it to its data folder, then opens it. The holding device must be online. The target gets a time limit like `DEVICE_OPEN_MS`.
@@ -2567,10 +2898,10 @@ Do Step 5 of the 5.6.0 plan in PLAN.md.
 **Done when:** connector and server tests cover the copy, the holder offline, no edit right and another user's token; e2e for the dialog; tests, lint and `pnpm i18n:check` pass.
 **Prompt:**
 ```
-Plan Step 6 of the 5.6.0 plan in PLAN.md.
+Plan Step 13 of the 5.6.0 plan in PLAN.md.
 ```
 
-### [ ] Step 7 - Download files, folders and the full project
+### [ ] Step 14 - Download files, folders and the full project
 **Model:** Opus · **Effort:** Medium
 **Scope:**
 - One route, `GET /:id/files/download?path=`, for anyone who can see the project (else 404, as elsewhere; no `canEdit` check). A file comes back as an attachment, a folder as a zip, and an empty `path` as the full project folder, with the folder's name.
@@ -2584,29 +2915,31 @@ Plan Step 6 of the 5.6.0 plan in PLAN.md.
 **Done when:** server tests cover a file beyond `filesDepth`, a zip's entries, the full project, a path outside the project, a viewer (allowed), a user who can't see the project (404), another user's device root and an offline device; e2e as a viewer on a hub root and a device root, at phone width too; no download button in the header; tests, lint and `pnpm i18n:check` pass.
 **Prompt:**
 ```
-Do Step 7 of the 5.6.0 plan in PLAN.md.
+Do Step 14 of the 5.6.0 plan in PLAN.md.
 ```
 
-## Phase 35 - Release
+## Phase 41 - Release
 
-### [ ] Step 8 - Real test, docs, push & v5.6.0-alpha.1
+### [ ] Step 15 - Real test, docs, push & v5.6.0-alpha.2
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
-- CHANGELOG, version `5.6.0-alpha.1`, `pnpm version:check`. Commit on `dev`, push, tag `v5.6.0-alpha.1` on `dev`. Check the run and the release.
+- CHANGELOG, version `5.6.0-alpha.2`, `pnpm version:check`. Commit on `dev`, push, tag `v5.6.0-alpha.2` on `dev`. Check the run and the release.
 - On the real VPS, updated to the alpha, with a workstation connector on it:
   - Pick the domain as Public address and test it. Try a wrong name too. Send test by email and ntfy: the link opens the app on a phone.
   - On the workstation: Open and Open folder on a device root project (the slicer opens the original, and a save reaches the hub). A second computer with a connector: Open gets a copy. A phone: no Open or Open folder.
   - On a phone, as a viewer: download a file, a folder and the full project folder of a device root project on someone else's workstation, then the same with that workstation offline (a clear message, no download).
 - A NAS or Docker install: no link until an address is picked, then the typed LAN IP works.
+- A single PC: accounts off and on again; the hub switch blocked while off.
+- Install the Windows setup and the connector: the logo on the setup, the shortcuts and the uninstall entry.
 - Fix anything found.
 
 **Done when:** every scenario worked; the tag is pushed and the workflow is green.
 **Prompt:**
 ```
-Do Step 8 of the 5.6.0 plan in PLAN.md. Push dev, push the tag and confirm the pre-release. Then guide me through each scenario and fix what we find.
+Do Step 15 of the 5.6.0 plan in PLAN.md. Push dev, push the tag and confirm the pre-release. Then guide me through each scenario and fix what we find.
 ```
 
-### [ ] Step 9 - Docs, push & v5.6.0 release
+### [ ] Step 16 - Docs, push & v5.6.0 release
 **Model:** Haiku · **Effort:** Low
 **Scope:**
 - Check the docs against what shipped, `pnpm screenshots`, CHANGELOG (everything since 5.5.0), version `5.6.0`, `pnpm version:check`.
@@ -2615,11 +2948,15 @@ Do Step 8 of the 5.6.0 plan in PLAN.md. Push dev, push the tag and confirm the p
 **Done when:** `main`, `dev` and the tag are pushed; the workflow is green; updating 5.5.0 to 5.6.0 keeps all data.
 **Prompt:**
 ```
-Do Step 9 of the 5.6.0 plan in PLAN.md. Only document what changed since 5.5.0.
+Do Step 16 of the 5.6.0 plan in PLAN.md. Only document what changed since 5.5.0.
 Then fast-forward main to dev, push, push the v5.6.0 tag and confirm the release.
 ```
 
 ## Out of scope for 5.6.0 (later plans)
+- Other open tabs don't see the overlay; they only see failed requests.
+- Tag management (rename, delete).
+- Per-user tag visibility: the setting applies to the whole install.
+- A login-free mode with the hub on: the hub needs accounts.
 - `://` slicer links (dropped on 2026-11-05): they open a downloaded copy, and a browser can't tell if a slicer is installed.
 - A computer with a slicer but no connector: no button, because the page can't detect the slicer.
 - A connector paired to another user: no button for you on that computer.
@@ -2642,7 +2979,7 @@ Design: ADR-0015. Prints are recorded automatically from the most used printer s
 
 Wave 1: Moonraker, Bambu LAN, PrusaLink, OctoPrint, plus Spoolman two-way.
 
-## Phase 36 - Foundations
+## Phase 42 - Foundations
 
 Design:
 - Snapshot: state, job file, progress, ETA, layer, temperatures, slots (material, colour, RFID or spool id). In memory only, pushed over SSE.
@@ -2745,7 +3082,7 @@ Do Step 6 of the 6.0.0 plan in PLAN.md. Back up the DB before editing schema.ts.
 Do Step 7 of the 6.0.0 plan in PLAN.md. Then push dev, push the tag and confirm the pre-release is published.
 ```
 
-## Phase 37 - Adapters
+## Phase 43 - Adapters
 
 Each adapter: a `local` package in `packages/adapters/<id>`, config and secrets schemas, status (and history where it exists), the recorded fixtures as tests, i18n names, a setup page in the docs. Added by host or IP.
 
@@ -2812,7 +3149,7 @@ Do Step 13 of the 6.0.0 plan in PLAN.md. Only document what changed since 6.0.0-
 Then push dev, push the tag and confirm the pre-release is published.
 ```
 
-## Phase 38 - Hub
+## Phase 44 - Hub
 
 ### [ ] Step 14 - Connector printer bridge  **[plan mode]**
 **Model:** Opus · **Effort:** High
@@ -2827,7 +3164,7 @@ Then push dev, push the tag and confirm the pre-release is published.
 Do Step 14 of the 6.0.0 plan in PLAN.md.
 ```
 
-## Phase 39 - Release
+## Phase 45 - Release
 
 ### [ ] Step 15 - Real test: one printer per adapter
 **Model:** Sonnet · **Effort:** Medium
@@ -2928,3 +3265,12 @@ Then fast-forward main to dev, push, push the v6.0.0 tag and confirm the release
 | Spoolman: sync spools two-way | 6.0 · 12 |
 | other systems: Klipper/Moonraker, Prusa, OctoPrint, Bambu LAN | 6.0 · 8-11 (Creality stock, Elegoo SDCP in 6.x) |
 | automatic prints and spool usage without Bambu Cloud | 6.0 · 2-6, 14 |
+| hub management, connector and integrations: sources per data type, machine settings on the hub | 5.5 · 1, 5-17 |
+| profiles or presets: one name | 5.5 · 2 |
+| catalog and a new presets module, sidebar order | 5.5 · 4 |
+| bambu cloud: several accounts, email, name and photo | 5.5 · 5 |
+| slicers: one install per machine, use as slicer | 5.5 · 8, 9 |
+| projects: sources, folders shared from a machine, picks per machine with users and roles | 5.5 · 14-17 |
+| users and roles can be switched off (single user) | 5.6 · 5 |
+| users and roles on their own page | 5.6 · 4 |
+| logo: favicon, app, installers, README | 5.6 · 6 |
