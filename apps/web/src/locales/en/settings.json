@@ -62,7 +62,6 @@
     "catalog": {
       "source": "The hub's slicer",
       "picked": "Picked for you",
-      "notSource": "Not the hub's slicer: its catalog isn't read.",
       "unreadable": "Folder not found",
       "fromDevice": "The machine's connector sends this slicer's system presets whenever a slicer update changes them. Until it has, the catalog stays as it is.",
       "system": "system/ folder",

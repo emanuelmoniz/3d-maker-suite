@@ -8,7 +8,7 @@ import { useTranslation } from "react-i18next";
 import { EmptyState } from "../../components/EmptyState.tsx";
 import { useCan } from "../../lib/auth.ts";
 import { formatDate, formatDateTime } from "../../lib/format.ts";
-import { useAdapterName, useIntegrations, useLocationLabel } from "../../lib/integrations.ts";
+import { useAdapterName, useIntegrations } from "../../lib/integrations.ts";
 import { useCatalogSources } from "../../lib/presets.ts";
 import { IntegrationsLink, PolicyLines } from "./AccountSources.tsx";
 import { ChooseBrands } from "./ChooseBrands.tsx";
@@ -32,12 +32,15 @@ export const serverRows = (lib: LibrarySources, list: Integration[]) =>
       : [],
   );
 
-/** The machines of the libraries, each with the libraries it has a switch for. */
-export function machinesOf(libraries: LibrarySources[], on: "slicer" | "receive") {
+/** The machines of the libraries, each with the libraries `on` picks for it. */
+function machinesOf(
+  libraries: LibrarySources[],
+  on: (lib: LibrarySources, m: LibrarySources["machines"][number]) => boolean,
+) {
   const byId = new Map<string, { name: string; libraries: LibrarySources[] }>();
   for (const lib of libraries)
     for (const m of lib.machines)
-      if (m[on]) {
+      if (on(lib, m)) {
         const entry = byId.get(m.deviceId) ?? { name: m.name, libraries: [] };
         entry.libraries.push(lib);
         byId.set(m.deviceId, entry);
@@ -46,9 +49,9 @@ export function machinesOf(libraries: LibrarySources[], on: "slicer" | "receive"
 }
 
 /**
- * Catalog settings → Sources: per library, the server's slicer and each machine that offers it.
- * Only the hub's slicer (ADR-0022, picked in Integrations) reads the catalog: its four lines and
- * Choose brands. Then the machines that receive its `system/`.
+ * Catalog settings → Sources: per library, only its hub's slicer (ADR-0022, picked in
+ * Integrations), the one install that shares the catalog: this server's or one machine's, with its
+ * four lines and Choose brands. Then the machines that receive its `system/`.
  */
 export function CatalogSources() {
   const { t } = useTranslation();
@@ -56,9 +59,13 @@ export function CatalogSources() {
   const list = useIntegrations().data;
   const libraries = useCatalogSources().data;
   if (!list || !libraries) return null;
-  const server = libraries.filter((l) => serverRows(l, list).length);
-  const sharing = machinesOf(libraries, "slicer");
-  const receiving = machinesOf(libraries, "receive");
+  const server = libraries.flatMap((lib) => {
+    const s = lib.source;
+    const i = s && "integrationId" in s ? list.find((x) => x.id === s.integrationId) : undefined;
+    return i ? [{ lib, i }] : [];
+  });
+  const sharing = machinesOf(libraries, (lib, m) => isSource(lib, { deviceId: m.deviceId }));
+  const receiving = machinesOf(libraries, (_, m) => m.receive);
   if (!server.length && !sharing.length && !receiving.length)
     return (
       <EmptyState
@@ -81,18 +88,15 @@ export function CatalogSources() {
                 : undefined
             }
           >
-            {server.flatMap((lib) =>
-              serverRows(lib, list).map((i) => (
-                <CatalogSlicer
-                  key={i.id}
-                  lib={lib}
-                  list={list}
-                  pick={{ integrationId: i.id }}
-                  id={`server-${lib.library}`}
-                  location={i}
-                />
-              )),
-            )}
+            {server.map(({ lib, i }) => (
+              <CatalogSlicer
+                key={i.id}
+                lib={lib}
+                list={list}
+                pick={{ integrationId: i.id }}
+                id={`server-${lib.library}`}
+              />
+            ))}
           </SourceBlock>
         )}
         {sharing.map((m) => (
@@ -147,36 +151,31 @@ export function MachineBlock({
   );
 }
 
-/** One slicer of a source in Share to the hub: the hub's slicer's four lines and Choose brands. */
+/** The hub's slicer in Share to the hub: its catalog's four lines and Choose brands. */
 function CatalogSlicer({
   lib,
   list,
   pick,
   id,
-  location,
 }: {
   lib: LibrarySources;
   list: Integration[];
   pick: { integrationId: string } | { deviceId: string };
   id?: string;
-  location?: Integration;
 }) {
   const { t } = useTranslation();
   const adapterName = useAdapterName();
-  const locationLabel = useLocationLabel();
   const manage = useCan("catalog", "manage");
   const name = adapterName(lib.library);
-  const source = isSource(lib, pick);
-  const cards = source && lib.cardsOf ? list.find((i) => i.id === lib.cardsOf) : undefined;
+  const cards = lib.cardsOf ? list.find((i) => i.id === lib.cardsOf) : undefined;
   const unreadable =
     "integrationId" in pick &&
     lib.options.some(
       (o) => "integrationId" in o && o.integrationId === pick.integrationId && !o.readable,
     );
   const meta = [
-    location && serverRowsCount(lib, list) > 1 ? locationLabel(location) : null,
     unreadable ? t("settings:sources.catalog.unreadable") : null,
-    source && !lib.source?.picked ? t("settings:sources.catalog.picked") : null,
+    !lib.source?.picked ? t("settings:sources.catalog.picked") : null,
   ]
     .filter(Boolean)
     .join(" · ");
@@ -184,28 +183,22 @@ function CatalogSlicer({
     <SlicerGroup
       id={id ?? ("deviceId" in pick ? `machine-${pick.deviceId}-${lib.library}` : undefined)}
       name={name}
-      badge={source && <SourceBadge>{t("settings:sources.catalog.source")}</SourceBadge>}
+      badge={<SourceBadge>{t("settings:sources.catalog.source")}</SourceBadge>}
       meta={meta || undefined}
     >
-      {source ? (
-        <>
-          {"deviceId" in pick && (
-            <p className="max-w-prose text-muted">{t("settings:sources.catalog.fromDevice")}</p>
-          )}
-          {cards && manage && cards.capabilities.includes("brands") && (
-            <ChooseBrands integration={cards} />
-          )}
-          {cards && (
-            <PolicyLines
-              integration={cards}
-              types={[...SLICER_CATALOG_ROW_TYPES]}
-              title={name}
-              how={false}
-            />
-          )}
-        </>
-      ) : (
-        <p className="max-w-prose text-muted">{t("settings:sources.catalog.notSource")}</p>
+      {"deviceId" in pick && (
+        <p className="max-w-prose text-muted">{t("settings:sources.catalog.fromDevice")}</p>
+      )}
+      {cards && manage && cards.capabilities.includes("brands") && (
+        <ChooseBrands integration={cards} />
+      )}
+      {cards && (
+        <PolicyLines
+          integration={cards}
+          types={[...SLICER_CATALOG_ROW_TYPES]}
+          title={name}
+          how={false}
+        />
       )}
     </SlicerGroup>
   );

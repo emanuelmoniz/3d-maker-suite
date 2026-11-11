@@ -156,18 +156,17 @@ Every type except print history has two more settings. For an account's printers
 | Everything | Adds every row the source offers and keeps them up to date. |
 | Only what I already have | Keeps the rows you have up to date. A new row is added only when you have its brand: a new model of your printer brand still arrives, a brand you never imported doesn't. Brands, filament brands and materials themselves are never added. Rows it leaves out don't wait for review and raise no alert. |
 
-**Catalog → Settings → Sources** lists, under **Share to the hub**, this server's slicer and each machine with **Catalog Share** on its page, one slicer at a time:
-
-- The **catalog source** of each slicer: where its system presets, brands and printer models are read from. Only one place reads them, so two PCs on different slicer versions don't keep changing the catalog. Until you pick one, the oldest install with a readable folder is used (marked *Picked for you*), else the first machine that has the slicer. The source has four lines: **Printer brands**, **Printer models**, **Filament brands** and **Filament materials**, each with its switch, **Edit** and **⋯** (Sync now, Review and import, the sync log). Picking a source turns them on (Manual).
-- Every other one says it isn't the catalog source and offers **Use as catalog source**. A machine can be picked only with its Catalog Share on.
+**Catalog → Settings → Sources** lists, under **Share to the hub**, only each slicer's **hub's slicer** ([ADR-0022](adr/0022-one-slicer-per-type.md)): this server's install or one machine's, picked on the slicer's card in **Settings → Integrations**. It is where the slicer's system presets, brands and printer models are read from, so two PCs on different slicer versions don't keep changing the catalog. Other installs of the slicer, on this server or a machine, aren't listed: they share nothing to the catalog. Until you pick one, the hub's slicer is chosen for you (marked *Picked for you*). It has four lines: **Printer brands**, **Printer models**, **Filament brands** and **Filament materials**, each with its switch, **Edit** and **⋯** (Sync now, Review and import, the sync log), and **Choose brands**.
 
 **Receive from the hub** lists the machines with **Catalog Receive** on, one `system/` folder line per slicer. Sending the catalog to them comes in a later release.
 
 **Presets → Settings → Sources** lists, under **Share to the hub**:
 
-- **This server**: per slicer, its **User printer**, **process** and **filament presets** lines, and while it is the catalog source its **System** preset lines too. **Choose brands** links to Catalog settings.
+- **This server**: per slicer, its **User printer**, **process** and **filament presets** lines, and while it is the hub's slicer its **System** preset lines too. **Choose brands** links to Catalog settings.
 - Each account that allows user presets, with its user preset lines (Bambu Cloud's sit under Bambu Studio). The first source to bring a preset keeps it.
-- Each machine with **Presets Share**, per slicer: one line per kind (printer, process, filament) with its own switch, and when it last sent ([hub.md](hub.md#slicer-presets)).
+- Each machine with **Presets Share**, per slicer: one line per kind (printer, process, filament) with its own switch, and when it last sent ([hub.md](hub.md#slicer-presets)). The machine that is the hub's slicer also has the **System** preset lines.
+
+System presets come only from each slicer's hub's slicer; user presets come from every install, account and machine that shares them.
 - **No connector? Upload a zip**: brings the presets of a desktop install that isn't connected, for example to a slicer on this server, which has no folder of yours to read (see [below](#slicer-catalog-from-a-zip)). Every slicer that can take a zip shows it, even before anything is connected. **How presets arrive** under the preset tables and the zip card on **Import | Export** lead here.
 
 **Receive from the hub** lists the machines with **Presets Receive**, per slicer and kind, with what waits there.

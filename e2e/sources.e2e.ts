@@ -84,7 +84,8 @@ for (const width of [375, 1440])
     await page.reload();
     await expect(share1.getByText("The hub's slicer", { exact: true })).toBeVisible();
     await expect(share1.getByText("Picked for you")).toBeVisible();
-    await expect(share2.getByText("Not the hub's slicer")).toBeVisible();
+    // Only the hub's slicer shares the catalog: another machine with it isn't listed.
+    await expect(share2).toHaveCount(0);
     expect(
       (
         await page.request.put("/api/integrations/slicers/bambu-studio", {
@@ -95,7 +96,7 @@ for (const width of [375, 1440])
     await page.reload();
     await expect(share2.getByText("The hub's slicer", { exact: true })).toBeVisible();
     await expect(share2.getByText("Picked for you")).toHaveCount(0);
-    await expect(share1.getByText("Not the hub's slicer")).toBeVisible();
+    await expect(share1).toHaveCount(0);
 
     // WS-1 shares Bambu Studio's filament presets and nothing else; OrcaSlicer stays off.
     await set("WS-1", "bambu-studio", { user: { share: true } });
