@@ -72,7 +72,7 @@
       "printers": "Printers settings",
       "prints": "Prints settings",
       "filament": "Filament settings",
-      "presets": "Preset sources"
+      "presets": "Catalog settings"
     },
     "stop": {
       "printers": "Stop syncing printers from this account?",
@@ -180,14 +180,14 @@
     "spools": "Spools",
     "brands": "Printer brands",
     "printerModels": "Printer models",
-    "machinePresets": "System printer presets",
-    "processPresets": "System process presets",
+    "machinePresets": "Printer system presets",
+    "processPresets": "Process system presets",
     "filamentBrands": "Filament brands",
     "filamentMaterials": "Filament materials",
-    "filamentPresets": "System filament presets",
-    "userMachinePresets": "User printer presets",
-    "userProcessPresets": "User process presets",
-    "userFilamentPresets": "User filament presets",
+    "filamentPresets": "Filament system presets",
+    "userMachinePresets": "Printer user presets",
+    "userProcessPresets": "Process user presets",
+    "userFilamentPresets": "Filament user presets",
     "openInSlicer": "Open projects in the slicer",
     "slice": "Use as slicer"
   },
@@ -373,7 +373,7 @@
       "not_worker": "The device isn't a slice worker. Turn it on in Hub management.",
       "device_outdated": "The connector on the device is too old for slice workers. Update it to the hub's version, then try again."
     },
-    "noPresetsHint": "Its program is set. It slices once the hub has this slicer's system presets: sent by the hub's slicer, or from a zip on Catalog settings → Preset sources."
+    "noPresetsHint": "Its program is set. It slices once the hub has this slicer's system presets: sent by the hub's slicer, or from a zip on Catalog settings → Sources."
   },
   "managed": {
     "notInstalled": "Not installed.",

@@ -2636,7 +2636,7 @@ Plan Step 11f of the 5.5.0 plan in PLAN.md. Read ADR-0022 first. Back up the DB 
 Do Step 11g of the 5.5.0 plan in PLAN.md. Use frontend-design for the tabs.
 ```
 
-### [ ] Step 11h - One Sources tab  **[plan mode]**
+### [x] Step 11h - One Sources tab  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:** ADR-0023. Catalog settings → Sources merges today's Catalog and Presets Sources tabs.
 - Share to the hub: a card per source, one table with the lines it has, of: Printer brands, Printer models, Printer system presets, Process system presets, Filament brands, Filament materials, Filament system presets, Printer user presets, Process user presets, Filament user presets.

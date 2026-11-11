@@ -193,7 +193,7 @@ test("slicer presets without hub.manage: an editor's switches, a viewer's list, 
   await openPresets();
   await expect(page.getByText("Farm PLA")).toBeVisible();
   await expect(page.getByRole("button", { name: "Delete Farm PLA" })).toBeVisible();
-  await tabs.getByRole("link", { name: "Preset sources" }).click();
+  await tabs.getByRole("link", { name: "Sources" }).click();
   await openSources(page);
   const machine = page
     .getByRole("region", { name: "Receive from the hub" })
@@ -221,7 +221,7 @@ test("slicer presets without hub.manage: an editor's switches, a viewer's list, 
   await openPresets();
   await expect(page.getByText("Farm PLA")).toBeVisible();
   await expect(page.getByRole("button", { name: "Delete Farm PLA" })).toHaveCount(0);
-  await page.goto("/catalog/settings/preset-sources");
+  await page.goto("/catalog/settings/sources");
   await expect(page.getByRole("switch")).toHaveCount(0);
   // Someone else's machine is as unknown as a missing one.
   expect((await page.request.patch(slicer, receive)).status()).toBe(404);
@@ -232,8 +232,9 @@ test("slicer presets without hub.manage: an editor's switches, a viewer's list, 
   await expect(
     page.getByRole("switch", { name: "Receive OrcaSlicer user presets from the hub" }),
   ).toBeChecked();
-  await page.getByRole("link", { name: "Preset sources" }).click();
-  await expect(page).toHaveURL(new RegExp(`/catalog/settings/preset-sources#receive-${id}$`));
+  // Its System and User presets rows both link to its card on Catalog settings → Sources.
+  await page.getByRole("link", { name: "Catalog settings" }).last().click();
+  await expect(page).toHaveURL(new RegExp(`/catalog/settings/sources#receive-${id}$`));
 
   // Hub off: hidden for all.
   await page.request.patch("/api/preferences", { data: { hubEnabled: false } });

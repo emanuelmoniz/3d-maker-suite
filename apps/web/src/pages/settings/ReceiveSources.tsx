@@ -3,17 +3,24 @@ import {
   type Integration,
   type LibrarySources,
   mayEditMachine,
+  type PresetDevice,
 } from "@3d-maker-suite/core";
-import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { ApiError } from "../../lib/api.ts";
 import { useCan, useMe, useRights } from "../../lib/auth.ts";
 import { formatDate, formatDateTime } from "../../lib/format.ts";
 import { useDeviceActions } from "../../lib/hub.ts";
 import { useAdapterName, usePatchIntegration } from "../../lib/integrations.ts";
-import { isSource, MachineBlock } from "./CatalogSources.tsx";
+import { isSource, MachineBlock, useMayEdit } from "./CatalogSources.tsx";
 import { LOCATION_ICONS } from "./integrationLabels.ts";
-import { SourceBlock, SourceIcon, SourcesSection, type StateLine } from "./Sources.tsx";
+import {
+  SlicerGroup,
+  SourceBlock,
+  SourceIcon,
+  SourcesSection,
+  type StateLine,
+  StateLines,
+} from "./Sources.tsx";
 
 type Machine = LibrarySources["machines"][number];
 
@@ -60,24 +67,38 @@ export function receiversOf(libraries: LibrarySources[], list: Integration[]): R
   return [...(server.slicers.length ? [server] : []), ...machines.values()];
 }
 
-/** Receive from the hub, on Catalog settings → Sources and Preset sources: a card per receiver, `slicer` per slicer. */
+/** Receive from the hub, on Catalog settings → Sources: a card per receiver, its lines per slicer. */
 export function ReceiveSection({
   receivers,
-  slicer,
+  devices,
 }: {
   receivers: Receiver[];
-  slicer: (s: ReceiveSlicer, receiver: Receiver) => ReactNode;
+  /** The machines' preset switches; none without `catalog` write. */
+  devices: PresetDevice[];
 }) {
   const { t } = useTranslation();
   const admin = useCan("integrations.manage");
   if (!receivers.length) return null;
+  const slicers = (r: Receiver) =>
+    r.slicers.map((s) => {
+      const d = devices.find((x) => x.id === s.machine?.deviceId);
+      return (
+        <ReceiveLines
+          key={s.lib.library}
+          slicer={s}
+          receiver={r.name}
+          device={d}
+          library={d?.libraries.find((l) => l.library === s.lib.library)}
+        />
+      );
+    });
   return (
     <SourcesSection direction="receive">
       {receivers.map((r) =>
         r.machine ? (
           <MachineBlock key={r.id} id={r.id} name={r.name} receive>
             <DeviceState device={r.machine} />
-            {r.slicers.map((s) => slicer(s, r))}
+            {slicers(r)}
           </MachineBlock>
         ) : (
           <SourceBlock
@@ -91,7 +112,7 @@ export function ReceiveSection({
                 : undefined
             }
           >
-            {r.slicers.map((s) => slicer(s, r))}
+            {slicers(r)}
           </SourceBlock>
         ),
       )}
@@ -178,22 +199,141 @@ export function useSystemLine({ lib, machine: m, integration: i }: ReceiveSlicer
       : undefined,
     ...state(),
   };
-  const after = (
-    <>
-      {receive && s && (
-        <details className="text-muted text-sm">
+  const backup =
+    receive && s
+      ? s.backup
+        ? t("hub:presets.backup", { when: formatDateTime(s.backup.at), path: s.backup.path })
+        : t("hub:presets.noBackup")
+      : null;
+  return { row, backup, error: m ? device.error : patch.error };
+}
+
+/**
+ * One slicer of a receiver, in one table (ADR-0023): its System presets line, then a machine's User
+ * presets line (every kind) with what waits; then one Folder and backup for both.
+ */
+function ReceiveLines({
+  slicer,
+  receiver,
+  device: d,
+  library: l,
+}: {
+  slicer: ReceiveSlicer;
+  receiver: string;
+  /** Its machine's preset switches; none = this server, or no `catalog` write. */
+  device: PresetDevice | undefined;
+  library: PresetDevice["libraries"][number] | undefined;
+}) {
+  const { t } = useTranslation();
+  const name = useAdapterName()(slicer.lib.library);
+  const actions = useDeviceActions();
+  const may = useMayEdit(d);
+  const system = useSystemLine(slicer);
+  const s = l?.status;
+  const state = (): { state: string; tone?: "warn" } => {
+    if (!l?.install) return { state: t("integrations:policies.modes.off") };
+    if (!s) return { state: t("settings:sources.presets.noReport") };
+    if (!s.queued) return { state: t("settings:sources.presets.upToDate") };
+    const key = s.waiting ? "settings:sources.presets.waiting" : "settings:sources.presets.queued";
+    return { state: t(key, { count: s.queued }), tone: "warn" };
+  };
+  const user: StateLine[] = !l
+    ? []
+    : [
+        {
+          key: "user",
+          item: t("settings:sources.presets.user"),
+          // As on the machine page: no switch without the right, its state says Off or what waits.
+          on:
+            d && may
+              ? {
+                  checked: l.install,
+                  label: t("settings:sources.presets.receiveOn", { slicer: name, machine: d.name }),
+                  disabled: !l.reported || actions.library.isPending,
+                  set: (on) =>
+                    actions.library.mutate({ id: d.id, library: l.library, user: { receive: on } }),
+                }
+              : undefined,
+          ...state(),
+        },
+      ];
+  return (
+    <SlicerGroup
+      id={`receive-${slicer.machine?.deviceId ?? "server"}-${slicer.lib.library}`}
+      name={name}
+    >
+      {l && !l.reported && (
+        <p className="text-muted">{t("settings:sources.presets.notReported", { slicer: name })}</p>
+      )}
+      <StateLines
+        label={t("settings:sources.presets.linesOf", {
+          slicer: name,
+          machine: receiver || t("settings:sources.server"),
+        })}
+        rows={[system.row, ...user]}
+      />
+      <SwitchError error={system.error ?? (l ? actions.library.error : null)} />
+      {s && (s.queue.length > 0 || s.editsStayLocal || s.deleteHere.length > 0) && (
+        <div className="grid gap-0.5 text-sm">
+          {s.queue.length > 0 && (
+            <ul
+              aria-label={t("hub:presets.queueOf", { name })}
+              className="text-muted wrap-anywhere"
+            >
+              {s.queue.map((q) => (
+                <li key={`${q.kind}/${q.name}`}>{q.name}</li>
+              ))}
+            </ul>
+          )}
+          {s.editsStayLocal && <p className="text-warn">{t("hub:presets.editsStayLocal")}</p>}
+          {s.deleteHere.length > 0 && (
+            <>
+              <p className="text-warn">
+                {t("hub:presets.deleteHere", { count: s.deleteHere.length })}
+              </p>
+              <ul
+                aria-label={t("hub:presets.deleteHereOf", { name })}
+                className="text-muted wrap-anywhere"
+              >
+                {s.deleteHere.map((q) => (
+                  <li key={`${q.kind}/${q.name}`}>{q.name}</li>
+                ))}
+              </ul>
+            </>
+          )}
+        </div>
+      )}
+      {(system.backup || s) && (
+        <details className="text-sm text-muted">
           <summary className="w-fit cursor-pointer rounded-sm focus-visible:outline-2 focus-visible:outline-accent">
-            {t("settings:sources.catalog.backup")}
+            {t("settings:sources.presets.where")}
           </summary>
-          <p className="wrap-anywhere">
-            {s.backup
-              ? t("hub:presets.backup", { when: formatDateTime(s.backup.at), path: s.backup.path })
-              : t("hub:presets.noBackup")}
-          </p>
+          <dl className="mt-1 grid gap-1">
+            {system.backup && (
+              <div>
+                <dt className="font-medium text-fg">{t("settings:sources.catalog.item")}</dt>
+                <dd className="wrap-anywhere">{system.backup}</dd>
+              </div>
+            )}
+            {s && (
+              <div>
+                <dt className="font-medium text-fg">{t("settings:sources.presets.user")}</dt>
+                <dd className="wrap-anywhere">
+                  {t("hub:presets.installFolder", { folder: s.folder })}
+                </dd>
+                <dd className="wrap-anywhere">
+                  {s.backup
+                    ? t("hub:presets.backup", {
+                        when: formatDateTime(s.backup.at),
+                        path: s.backup.path,
+                      })
+                    : t("hub:presets.noBackup")}
+                </dd>
+              </div>
+            )}
+          </dl>
         </details>
       )}
-      <SwitchError error={m ? device.error : patch.error} />
-    </>
+    </SlicerGroup>
   );
-  return { row, after };
 }

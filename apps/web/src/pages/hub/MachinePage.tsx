@@ -486,11 +486,11 @@ function SlicerBlock({ device: d, library }: { device: Device; library: string }
       ),
       link: (
         <Link
-          to="/catalog/settings/preset-sources"
+          to="/catalog/settings/sources"
           hash={`${lib?.user.share ? "machine" : "receive"}-${d.id}`}
           className={link}
         >
-          {t("hub:machine.presetsSettings")}
+          {t("hub:machine.catalogSettings")}
         </Link>
       ),
     },

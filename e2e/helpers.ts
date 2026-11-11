@@ -194,7 +194,6 @@ export const ROUTES = [
   "/catalog/printers",
   "/catalog/filament",
   "/catalog/settings/sources",
-  "/catalog/settings/preset-sources",
   "/import",
   "/settings",
   "/integrations",

@@ -45,7 +45,9 @@ test("old catalog and Presets addresses land on their Catalog tab and table", as
     ["/hub/presets", "/catalog/settings/library"],
     ["/presets/settings", "/catalog/settings"],
     ["/presets/settings/library", "/catalog/settings/library"],
-    ["/presets/settings/sources", "/catalog/settings/preset-sources"],
+    ["/presets/settings/sources", "/catalog/settings/sources"],
+    // Preset sources merged into Sources (ADR-0023): a link into a card keeps its anchor.
+    ["/catalog/settings/preset-sources#receive-x", "/catalog/settings/sources#receive-x"],
     ["/catalog/sources", "/catalog/settings/sources"],
     ["/presets/printer", "/catalog/printers#machine-presets"],
   ]) {

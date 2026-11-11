@@ -17,7 +17,7 @@ export function PresetsHint() {
           i18nKey="catalog:arrive.body"
           components={{
             integrations: <Link to="/integrations" className="underline" />,
-            zip: <Link to="/catalog/settings/preset-sources" className="underline" />,
+            zip: <Link to="/catalog/settings/sources" className="underline" />,
           }}
         />
       </p>

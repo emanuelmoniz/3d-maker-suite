@@ -305,8 +305,9 @@ const routes: AnyRoute[] = [
       ["/catalog/sources", "/catalog/settings/sources"],
       ["/presets/settings", "/catalog/settings"],
       ["/presets/settings/library", "/catalog/settings/library"],
-      // ponytail: its own tab until Step 11h merges it into Sources.
-      ["/presets/settings/sources", "/catalog/settings/preset-sources"],
+      ["/presets/settings/sources", "/catalog/settings/sources"],
+      // Preset sources was a tab of its own until ADR-0023's Step 11h.
+      ["/catalog/settings/preset-sources", "/catalog/settings/sources"],
     ] as const
   ).map(([path, to]) =>
     createRoute({
@@ -518,24 +519,21 @@ const routes: AnyRoute[] = [
       ],
     ] as const
   ).flatMap(([path, component, ns]) =>
-    // Data types also have a Sources tab; Catalog has Preset sources and Library too (ADR-0023).
-    [
-      path,
-      `${path}/sources`,
-      ...(path === "/catalog/settings" ? [`${path}/preset-sources`, `${path}/library`] : []),
-    ].map((path) =>
-      createRoute({
-        getParentRoute: () => root,
-        path,
-        // A catalog table's old address lands on its tab; the page keeps the default printer.
-        beforeLoad: ({ location }: { location: { pathname: string; hash: string } }) => {
-          if (location.pathname !== "/printers/settings") return;
-          const tab = tabOf(location.hash);
-          if (tab) throw redirect({ to: `/catalog/${tab}`, hash: location.hash });
-        },
-        loader: () => Promise.all(["settings", ...ns].map(loadNamespace)),
-        component,
-      }),
+    // Data types also have a Sources tab; Catalog has Library too (ADR-0023).
+    [path, `${path}/sources`, ...(path === "/catalog/settings" ? [`${path}/library`] : [])].map(
+      (path) =>
+        createRoute({
+          getParentRoute: () => root,
+          path,
+          // A catalog table's old address lands on its tab; the page keeps the default printer.
+          beforeLoad: ({ location }: { location: { pathname: string; hash: string } }) => {
+            if (location.pathname !== "/printers/settings") return;
+            const tab = tabOf(location.hash);
+            if (tab) throw redirect({ to: `/catalog/${tab}`, hash: location.hash });
+          },
+          loader: () => Promise.all(["settings", ...ns].map(loadNamespace)),
+          component,
+        }),
     ),
   ),
   // After "/alerts/settings" so that wins the match.

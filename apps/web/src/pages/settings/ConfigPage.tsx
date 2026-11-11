@@ -18,7 +18,6 @@ import { usePreferences, useSavePreferences } from "../../lib/preferences.ts";
 import { PresetsTab } from "../presets/LibraryTab.tsx";
 import { AccountSources } from "./AccountSources.tsx";
 import { CatalogSources } from "./CatalogSources.tsx";
-import { PresetSources } from "./PresetSources.tsx";
 
 /** Data types: their settings have General and Sources tabs (ADR-0021). */
 const SOURCE_MODULES: SettingsModule[] = ["printers", "prints", "filament", "projects", "catalog"];
@@ -65,13 +64,7 @@ export function ConfigPage({
   // denied page) navigate again on each one, and never stop.
   const path = useLocation({ select: (l) => l.pathname });
   const tab0 =
-    path === `${base}/sources`
-      ? "sources"
-      : path === `${base}/library`
-        ? "library"
-        : path === `${base}/preset-sources`
-          ? "preset-sources"
-          : "general";
+    path === `${base}/sources` ? "sources" : path === `${base}/library` ? "library" : "general";
   const hasTabs = SOURCE_MODULES.includes(module);
   // An editor with a sync or review task gets only the Sources tab (ADR-0012, ADR-0021).
   const { settings: allowed, sources, loading } = useSettingsAccess(module);
@@ -155,15 +148,6 @@ export function ConfigPage({
               ? [{ to: base as LinkProps["to"], label: t("settings:tabs.general"), exact: true }]
               : []),
             { to: `${base}/sources` as LinkProps["to"], label: t("settings:tabs.sources") },
-            // ponytail: Preset sources is its own tab until Step 11h merges it into Sources.
-            ...(module === "catalog"
-              ? [
-                  {
-                    to: `${base}/preset-sources` as LinkProps["to"],
-                    label: t("settings:tabs.presetSources"),
-                  },
-                ]
-              : []),
             ...(module === "catalog" && hub
               ? [{ to: `${base}/library` as LinkProps["to"], label: t("settings:tabs.library") }]
               : []),
@@ -175,10 +159,6 @@ export function ConfigPage({
       ) : tab === "sources" && module === "catalog" ? (
         <div className="grid gap-10">
           <CatalogSources />
-        </div>
-      ) : tab === "preset-sources" ? (
-        <div className="grid gap-10">
-          <PresetSources />
         </div>
       ) : tab === "sources" ? (
         <EmptyState

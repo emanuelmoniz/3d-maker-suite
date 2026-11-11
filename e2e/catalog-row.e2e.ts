@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test } from "./fixtures.ts";
-import { gotoIntegrations, openSources } from "./helpers.ts";
+import { gotoIntegrations } from "./helpers.ts";
 
 type Policy = { type: string; scope: string };
 
@@ -45,19 +45,22 @@ test("catalog row: pick brands, only those arrive, then only what you have", asy
   await expect(page.getByText("When active, this integration can be used")).toBeVisible();
   await expect(page.getByRole("button", { name: "Choose brands" })).toHaveCount(0);
 
-  // The slicer's lines are on Catalog settings → Sources; a link into its card opens it.
+  // The slicer's lines are one table on Catalog settings → Sources, in the ADR-0023 order; a link
+  // into its card opens it. No schedule: a change in the files runs them.
   await page.goto("/catalog/settings/sources#server-orca-slicer");
   const lines = page.getByRole("table", { name: "What OrcaSlicer syncs" });
-  for (const name of ["Printer brands", "Printer models", "Filament brands", "Filament materials"])
-    await expect(lines.getByText(name, { exact: true })).toBeVisible();
-
-  // Its presets are on Catalog settings → Preset sources; no schedule, because a change in the files runs them.
-  await page.goto("/catalog/settings/preset-sources");
-  await openSources(page);
-  const presets = page.getByRole("table", { name: "What OrcaSlicer syncs" });
-  for (const kind of ["printer", "process", "filament"])
-    for (const name of [`System ${kind} presets`, `User ${kind} presets`])
-      await expect(presets.getByText(name, { exact: true })).toBeVisible();
+  await expect(lines.locator("tbody tr td:first-child")).toHaveText([
+    "Printer brands",
+    "Printer models",
+    "Printer system presets",
+    "Process system presets",
+    "Filament brands",
+    "Filament materials",
+    "Filament system presets",
+    "Printer user presets",
+    "Process user presets",
+    "Filament user presets",
+  ]);
   const whenOf = async (name: string) => {
     await page.getByRole("button", { name: `Edit ${name} from OrcaSlicer` }).click();
     const dialog = page.getByRole("dialog", { name: `${name} from OrcaSlicer` });
@@ -68,10 +71,8 @@ test("catalog row: pick brands, only those arrive, then only what you have", asy
     return on;
   };
   // Both follow the files on their own by default, the system presets too.
-  expect(await whenOf("System printer presets")).toBe(true);
-  expect(await whenOf("User printer presets")).toBe(true);
-  await page.goto("/catalog/settings/sources");
-  await openSources(page);
+  expect(await whenOf("Printer system presets")).toBe(true);
+  expect(await whenOf("Printer user presets")).toBe(true);
 
   // Nothing yet in your catalog; select all takes both of a list, and you can take one back.
   await expect(page.getByText(/Printer brands in your catalog/)).toHaveCount(0);

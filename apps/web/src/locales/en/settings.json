@@ -3,7 +3,6 @@
     "label": "Settings sections",
     "general": "General",
     "sources": "Sources",
-    "presetSources": "Preset sources",
     "library": "Preset library"
   },
   "catalog": {
@@ -45,9 +44,7 @@
       "spools": "No sources",
       "spoolsBody": "Spools here are added by hand. To sync them from an account, allow spools on it in Integrations.",
       "catalog": "No sources",
-      "catalogBody": "Brands, models and materials here are added by hand. To read them from a slicer, add one in Integrations, or turn on Catalog Share on a machine.",
-      "presets": "No sources",
-      "presetsBody": "Presets here come from a slicer, an account or a zip. Add a slicer or an account in Integrations, or turn on Presets Share on a machine."
+      "catalogBody": "Brands, models and materials here are added by hand; presets come from a slicer, an account or a zip. Add a slicer or an account in Integrations, or pick a machine as the hub's slicer."
     },
     "server": "This server",
     "toIntegrations": "Integrations",
@@ -71,11 +68,9 @@
       "waiting": "Waiting for the slicer to close",
       "writing": "Being written",
       "received": "Received {{when}}, presets {{fingerprint}}",
-      "upToDate": "Up to date, presets {{fingerprint}}",
-      "backup": "Backup"
+      "upToDate": "Up to date, presets {{fingerprint}}"
     },
     "presets": {
-      "chooseBrands": "Choose brands in Catalog settings",
       "shareOn": "Share {{type}} from {{slicer}} on {{machine}}",
       "receiveOn": "Receive user presets in {{slicer}} on {{machine}}",
       "linesOf": "{{slicer}} on {{machine}}",
