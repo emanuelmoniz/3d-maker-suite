@@ -105,9 +105,16 @@ for (const width of [375, 1440])
       "/integrations#library-bambu-studio",
     );
 
-    // Receive from the hub: every machine with the slicer but the hub's slicer, its System and User
-    // presets lines on one card.
-    await expect(block(page, "Receive from the hub", "WS-2")).toHaveCount(0);
+    // Receive from the hub: every machine with the slicer, its System and User presets lines on one
+    // card. The hub's slicer receives user presets only: its own folder is the catalog.
+    const receive2 = block(page, "Receive from the hub", "WS-2");
+    await expect(receive2.getByText("The hub's slicer", { exact: true })).toBeVisible();
+    await expect(receive2.getByRole("switch", { name: /Receive the system presets/ })).toHaveCount(
+      0,
+    );
+    await expect(
+      receive2.getByRole("switch", { name: "Receive user presets in Bambu Studio on WS-2" }),
+    ).toBeVisible();
     const catalogLine =
       "Receive the system presets, brands and printer models in Bambu Studio on WS-1";
     const receive1 = block(page, "Receive from the hub", "WS-1");

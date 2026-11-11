@@ -165,7 +165,7 @@ Every type except print history has two more settings. For an account's printers
 
 The hub's slicer is this server's install or one machine's, picked on the slicer's card in **Settings → Integrations** (its heading has **Change in Integrations**); until you pick one, it is chosen for you. It is where the slicer's system presets, brands and printer models are read from, so two PCs on different slicer versions don't keep changing the catalog. Other installs of the slicer share no system lines. User presets come from every install, account and machine that shares them.
 
-**Receive from the hub** lists every install that can get the hub's slicer's presets: **This server** for a slicer installed on the server's computer, and every machine with the slicer, all but the hub's slicer itself. Per slicer, one table:
+**Receive from the hub** lists every install that can get the hub's slicer's presets: **This server** for a slicer installed on the server's computer, and every machine with the slicer. The hub's slicer is there too, for user presets only: its System presets line says *The hub's slicer*, with no switch, as its own folder is the catalog. Per slicer, one table:
 
 - **System presets** (the whole `system/`: system presets, brands and printer models): its **Receive** switch (the same as on the machine page) and its state: *Off*, not received yet, waiting for the slicer to close, received with the date and the presets' version, a version that doesn't match, or the error.
 - **User presets**: its **Receive** switch (on a machine, the same as on the machine page; it takes every kind) and how many presets wait there for the slicer to close.

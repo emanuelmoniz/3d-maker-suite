@@ -38,22 +38,17 @@ type Receiver = {
 };
 
 /**
- * Who can receive (ADR-0022): this server's own installs and every machine with the slicer, all
- * but the hub's slicer, whose own folder is the catalog.
+ * Who can receive (ADR-0022): this server's own installs and every machine with the slicer. The
+ * hub's slicer is one too, for user presets only: its own folder is the catalog.
  */
 export function receiversOf(libraries: LibrarySources[], list: Integration[]): Receiver[] {
   const server: Receiver = { id: "server", name: "", slicers: [] };
   const machines = new Map<string, Receiver>();
   for (const lib of libraries) {
     for (const i of list)
-      if (
-        i.kind === "local" &&
-        i.presetLibrary === lib.library &&
-        !isSource(lib, { integrationId: i.id })
-      )
+      if (i.kind === "local" && i.presetLibrary === lib.library)
         server.slicers.push({ lib, integration: i });
     for (const m of lib.machines) {
-      if (isSource(lib, { deviceId: m.deviceId })) continue;
       const r = machines.get(m.deviceId) ?? {
         id: m.deviceId,
         name: m.name,
@@ -159,8 +154,11 @@ export function useSystemLine({ lib, machine: m, integration: i }: ReceiveSlicer
   const patch = usePatchIntegration(i?.id ?? "");
   const receive = m ? m.receive : !!i?.catalogReceive;
   const s: CatalogInstallSlicer | null | undefined = m ? m.install : i?.catalogInstall;
-  const may = m ? !!rights && mayEditMachine(rights, me?.id, m, "catalog") : admin;
+  // The hub's slicer's own folder is the catalog: nothing to receive, no switch.
+  const hub = isSource(lib, m ? { deviceId: m.deviceId } : { integrationId: i?.id });
+  const may = !hub && (m ? !!rights && mayEditMachine(rights, me?.id, m, "catalog") : admin);
   const state = (): { state: string; tone?: "warn" } => {
+    if (hub) return { state: t("settings:sources.catalog.source") };
     if (!receive) return { state: t("integrations:policies.modes.off") };
     if (m?.mismatch)
       return { state: t("settings:sources.catalog.mismatch", m.mismatch), tone: "warn" };
@@ -200,7 +198,7 @@ export function useSystemLine({ lib, machine: m, integration: i }: ReceiveSlicer
     ...state(),
   };
   const backup =
-    receive && s
+    !hub && receive && s
       ? s.backup
         ? t("hub:presets.backup", { when: formatDateTime(s.backup.at), path: s.backup.path })
         : t("hub:presets.noBackup")
