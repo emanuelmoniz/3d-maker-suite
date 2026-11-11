@@ -211,8 +211,8 @@ test("hub: pair a device, edit it, revoke it", async ({ page, app }) => {
   await card.getByLabel("Add a machine…").click();
   await page.getByRole("option", { name: "Laptop" }).click();
   await expect(card.getByRole("heading", { name: "Laptop", level: 4 })).toBeVisible();
-  await expect(card.getByRole("radio", { name: "Laptop" })).toBeDisabled();
   await expect(card.getByText("Not offered: its user turns on Use as slicer")).toBeVisible();
+  await expect(card.getByLabel("Change the hub's slicer…")).toHaveCount(0);
   // Offering it is the machine's, on its page.
   await page.goto(`/hub/devices/${deviceId}`);
   const slicers = page.getByRole("region", { name: "Slicers" });

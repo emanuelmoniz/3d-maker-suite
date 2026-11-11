@@ -350,7 +350,7 @@
     "makeDefault": "Make default slicer"
   },
   "worker": {
-    "unavailableHint": "Pick the slicer it uses on its device below. Its presets come from Presets settings → Sources.",
+    "unavailableHint": "Pick the program it runs on the device below.",
     "noDevice": "Its device was revoked. Pick another one.",
     "online": "{{name}} is online.",
     "offline": "{{name}} is offline now.",
@@ -364,7 +364,7 @@
     "noneYet": "No slicer picked yet. Use one found on the device, or type the path of its program.",
     "found": "Slicers found on the device",
     "foundSlicer": "{{name}} {{version}}",
-    "use": "Use this one",
+    "use": "Use this program",
     "manual": "Manual path",
     "path": "Program path on the device",
     "pathHint": "An AppImage, or any slicer that wasn't found. It's checked by starting it there with --help.",
@@ -378,7 +378,8 @@
       "device_no_slicer": "The device doesn't have that slicer any more.",
       "not_worker": "The device isn't a slice worker. Turn it on in Hub management.",
       "device_outdated": "The connector on the device is too old for slice workers. Update it to the hub's version, then try again."
-    }
+    },
+    "noPresetsHint": "Its program is set. It slices once the hub has this slicer's system presets: sent by the hub's slicer, or from a zip on Presets → Settings → Sources."
   },
   "managed": {
     "notInstalled": "Not installed.",
@@ -456,9 +457,9 @@
   },
   "hub": {
     "title": "The hub's slicer",
-    "hint": "The one install that slices this slicer type for the hub. Its catalog and system presets are the hub's, and every machine that receives them gets its copy.",
-    "isHub": "The hub's slicer: it slices, and its catalog is the hub's.",
-    "notOffered": "Not offered: its user turns on Use as slicer on the machine page.",
+    "hint": "This server's installs can be picked, and a machine's once its user turns on Use as slicer on its machine page.",
+    "isHub": "Slices this slicer type for the hub. Its catalog and system presets are the hub's, and every machine that receives them gets this copy.",
+    "notOffered": "Not offered: its user turns on Use as slicer on the machine page, then it can be picked above.",
     "offers": "Offers it, not set up yet.",
     "setUp": "Set up",
     "addMachine": "Add a machine…",
@@ -474,6 +475,10 @@
       "slicer_exists": "This slicer is already set up on that machine."
     },
     "none": "No install yet. Add one to this server, or to a machine below.",
-    "pickBodyUnknown": "The catalog and system presets become this install's: every machine that receives them gets the new ones, and plates sliced with another version are sliced again."
+    "pickBodyUnknown": "The catalog and system presets become this install's: every machine that receives them gets the new ones, and plates sliced with another version are sliced again.",
+    "change": "Change the hub's slicer…",
+    "option": "{{where}}, version {{version}}",
+    "noneYet": "None yet: set up an install below, or have a machine offer it.",
+    "installs": "Installs"
   }
 }

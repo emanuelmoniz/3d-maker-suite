@@ -22,8 +22,11 @@ for (const width of [375, 1440])
     const card = page.getByRole("region", { name: "Bambu Studio" });
     const where = found ? "This computer" : "This server";
     await expect(card.getByRole("heading", { name: where, level: 4 })).toBeVisible();
-    await expect(card.getByRole("radio", { name: where })).toBeChecked();
-    await expect(card.getByText("The hub's slicer: it slices")).toBeVisible();
+    const hub = card.getByRole("region", { name: "The hub's slicer" });
+    await expect(hub.getByText(where, { exact: true })).toBeVisible();
+    await expect(hub.getByText("Slices this slicer type for the hub.")).toBeVisible();
+    // Nothing else to pick: no Change.
+    await expect(hub.getByLabel("Change the hub's slicer…")).toHaveCount(0);
     await expect(
       found
         ? card.getByRole("textbox", { name: "Config folder" })

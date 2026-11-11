@@ -249,9 +249,9 @@ const deviceOf = (i: Integration) =>
   i.kind === "worker" ? workerConfigSchema.safeParse(i.config).data?.deviceId : undefined;
 
 /**
- * The hub's slicer (ADR-0022): a radio over this server's installs and every machine's, each rail
- * node being its radio. Only a machine that offers the slicer (Use as slicer) can be picked; one
- * that offers it without an install gets Set up, any other machine is in Add a machine.
+ * The hub's slicer (ADR-0022), on a panel of its own with Change: this server's installs and every
+ * machine's that offers the slicer (Use as slicer). Then the installs, each with its setup; a
+ * machine that offers it without one gets Set up, any other machine is in Add a machine.
  */
 function HubSlicer({
   library,
@@ -266,6 +266,7 @@ function HubSlicer({
   const adapterName = useAdapterName();
   const locationLabel = useLocationLabel();
   const legend = useId();
+  const hubHeading = useId();
   const worker = useAdapters().data?.find((a) => a.kind === "worker" && a.libraryId === library);
   const devices = useDevices().data ?? [];
   const pick = usePickHubSlicer(library);
@@ -297,115 +298,158 @@ function HubSlicer({
     : [];
   const error = pick.error ?? create.error;
   const code = error instanceof ApiError && error.code ? PICK_ERRORS[error.code] : undefined;
+  const others = rows.filter((i) => i.id !== current?.id && pickable(i));
+  const optionLabel = (i: Integration) =>
+    i.slicerVersion
+      ? t("integrations:hub.option", { where: locationLabel(i), version: i.slicerVersion })
+      : locationLabel(i);
+  const CurrentIcon = current && LOCATION_ICONS[current.kind];
   return (
-    <fieldset
-      aria-labelledby={legend}
-      className="mt-4 grid min-w-0 gap-1 border-t border-border pt-4"
-    >
-      <h3 id={legend} className="font-semibold">
-        {t("integrations:hub.title")}
-      </h3>
-      <p className="max-w-prose text-muted">
-        {t(rows.length || offered.length ? "integrations:hub.hint" : "integrations:hub.none")}
-      </p>
-      <ul>
-        {rows.map((i) => (
-          <IntegrationCard
-            key={i.id}
-            integration={i}
-            hub={{
-              library,
-              checked: lib?.cardsOf === i.id,
-              pickable: pickable(i),
-              busy: pick.isPending,
-              onPick: () => choose(i),
-            }}
-          />
-        ))}
-        {offered.map((m) => (
-          <li key={m.deviceId} className={RAIL}>
-            <span aria-hidden className={cx(NODE, "border-dashed border-border text-muted")}>
-              <LOCATION_ICONS.worker className="size-4" />
-            </span>
-            <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-1">
+    <>
+      <section aria-labelledby={hubHeading} className="mt-4 grid gap-2 border-t border-border pt-4">
+        <h3 id={hubHeading} className="font-semibold">
+          {t("integrations:hub.title")}
+        </h3>
+        {current && CurrentIcon ? (
+          // The one bold thing on the card: which install slices for the hub.
+          <div className="grid gap-3 rounded-lg border border-accent/40 bg-accent/10 p-3 sm:grid-cols-[auto_minmax(0,1fr)_minmax(14rem,18rem)] sm:items-center">
+            <div className="flex min-w-0 items-start gap-3 sm:contents">
+              <span
+                aria-hidden
+                className={cx(NODE, "mt-0 shrink-0 border-accent bg-accent text-accent-fg")}
+              >
+                <CurrentIcon className="size-4" />
+              </span>
               <div className="min-w-0">
-                <p className="flex min-h-11 items-center font-semibold wrap-anywhere">{m.name}</p>
-                <p className="text-muted">{t("integrations:hub.offers")}</p>
+                <p className="font-semibold wrap-anywhere">
+                  {locationLabel(current)}
+                  {current.slicerVersion && (
+                    <span className="ml-2 font-normal text-muted">
+                      {t("integrations:hub.version", { version: current.slicerVersion })}
+                    </span>
+                  )}
+                </p>
+                <p className="text-muted">{t("integrations:hub.isHub")}</p>
               </div>
-              {worker && (
-                <Button disabled={create.isPending} onClick={() => setUp(m.deviceId)}>
-                  {t("integrations:hub.setUp")}
-                </Button>
-              )}
             </div>
-          </li>
-        ))}
-      </ul>
-      {more.length > 0 && (
-        <div className="sm:max-w-sm">
-          <Combobox
-            aria-label={t("integrations:hub.addMachine")}
-            value=""
-            disabled={create.isPending}
-            options={[
-              { value: "", label: t("integrations:hub.addMachine") },
-              ...more.map((d) => ({ value: d.id, label: d.name })),
-            ]}
-            onChange={(v) => v && setUp(v)}
-          />
-        </div>
-      )}
-      {error && (
-        <p role="alert" className="text-bad">
-          {t(code ?? "integrations:card.actionError")}
-        </p>
-      )}
-      <ConfirmDialog
-        open={!!asking}
-        title={t("integrations:hub.pickTitle", {
-          name: adapterName(library),
-          where: asking ? locationLabel(asking) : "",
-        })}
-        description={
-          current?.slicerVersion && asking?.slicerVersion
-            ? t("integrations:hub.pickBody", {
-                from: current.slicerVersion,
-                to: asking.slicerVersion,
-              })
-            : t("integrations:hub.pickBodyUnknown")
-        }
-        confirmLabel={t("integrations:hub.pick")}
-        onCancel={() => setAsking(null)}
-        onConfirm={() => {
-          if (asking) pick.mutate(asking.id);
-          setAsking(null);
-        }}
-      />
-    </fieldset>
+            {others.length > 0 && (
+              <Combobox
+                aria-label={t("integrations:hub.change")}
+                value=""
+                disabled={pick.isPending}
+                options={[
+                  { value: "", label: t("integrations:hub.change") },
+                  ...others.map((i) => ({ value: i.id, label: optionLabel(i) })),
+                ]}
+                onChange={(v) => {
+                  const next = others.find((i) => i.id === v);
+                  if (next) choose(next);
+                }}
+              />
+            )}
+          </div>
+        ) : (
+          <p className="text-muted">
+            {t(
+              rows.length || offered.length ? "integrations:hub.noneYet" : "integrations:hub.none",
+            )}
+          </p>
+        )}
+        <p className="max-w-prose text-sm text-muted">{t("integrations:hub.hint")}</p>
+      </section>
+      <section aria-labelledby={legend} className="mt-4 grid min-w-0 gap-1">
+        <h3 id={legend} className="font-semibold">
+          {t("integrations:hub.installs")}
+        </h3>
+        <ul>
+          {rows.map((i) => (
+            <IntegrationCard
+              key={i.id}
+              integration={i}
+              hub={{
+                checked: lib?.cardsOf === i.id,
+                notOffered: i.kind === "worker" && !pickable(i),
+              }}
+            />
+          ))}
+          {offered.map((m) => (
+            <li key={m.deviceId} className={RAIL}>
+              <span aria-hidden className={cx(NODE, "border-dashed border-border text-muted")}>
+                <LOCATION_ICONS.worker className="size-4" />
+              </span>
+              <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-1">
+                <div className="min-w-0">
+                  <p className="flex min-h-11 items-center font-semibold wrap-anywhere">{m.name}</p>
+                  <p className="text-muted">{t("integrations:hub.offers")}</p>
+                </div>
+                {worker && (
+                  <Button disabled={create.isPending} onClick={() => setUp(m.deviceId)}>
+                    {t("integrations:hub.setUp")}
+                  </Button>
+                )}
+              </div>
+            </li>
+          ))}
+        </ul>
+        {more.length > 0 && (
+          <div className="sm:max-w-sm">
+            <Combobox
+              aria-label={t("integrations:hub.addMachine")}
+              value=""
+              disabled={create.isPending}
+              options={[
+                { value: "", label: t("integrations:hub.addMachine") },
+                ...more.map((d) => ({ value: d.id, label: d.name })),
+              ]}
+              onChange={(v) => v && setUp(v)}
+            />
+          </div>
+        )}
+        {error && (
+          <p role="alert" className="text-bad">
+            {t(code ?? "integrations:card.actionError")}
+          </p>
+        )}
+        <ConfirmDialog
+          open={!!asking}
+          title={t("integrations:hub.pickTitle", {
+            name: adapterName(library),
+            where: asking ? locationLabel(asking) : "",
+          })}
+          description={
+            current?.slicerVersion && asking?.slicerVersion
+              ? t("integrations:hub.pickBody", {
+                  from: current.slicerVersion,
+                  to: asking.slicerVersion,
+                })
+              : t("integrations:hub.pickBodyUnknown")
+          }
+          confirmLabel={t("integrations:hub.pick")}
+          onCancel={() => setAsking(null)}
+          onConfirm={() => {
+            if (asking) pick.mutate(asking.id);
+            setAsking(null);
+          }}
+        />
+      </section>
+    </>
   );
 }
 
-/** A row as a choice of the hub's slicer: its rail node is the radio. */
-type HubChoice = {
-  library: string;
-  checked: boolean;
-  /** An option of the server's (a machine's only while it offers the slicer). */
-  pickable: boolean;
-  busy: boolean;
-  onPick: () => void;
-};
+/** A row on its slicer type's card: whether it is the hub's slicer, or a machine not offering it. */
+type HubRole = { checked: boolean; notOffered: boolean };
 
 /**
  * One place a slicer runs (or an account): where, on/off and a status line; then its account
- * (cloud) or slicer, what it imports that isn't catalog, and the sync log. `hub`: a choice of the
- * hub's slicer, on its slicer type's card.
+ * (cloud) or slicer, what it imports that isn't catalog, and the sync log. `hub`: its role on its
+ * slicer type's card.
  */
 export function IntegrationCard({
   integration: i,
   hub,
 }: {
   integration: Integration;
-  hub?: HubChoice;
+  hub?: HubRole;
 }) {
   const { t } = useTranslation();
   const adapterName = useAdapterName();
@@ -428,7 +472,6 @@ export function IntegrationCard({
   // Closed by default; a deep link (an alert's "Open integration") opens it.
   const [open, setOpen] = useState(() => location.hash === `#integration-${i.id}`);
   const bodyId = useId();
-  const roleId = useId();
   const H = hub ? "h4" : "h3";
 
   // The status line: one sentence for where the integration stands.
@@ -442,7 +485,12 @@ export function IntegrationCard({
       i.kind === "server" ? (
         t("integrations:managed.notInstalledHint")
       ) : i.kind === "worker" ? (
-        t("integrations:worker.unavailableHint")
+        // Its program is picked, or the hub has no system presets for it yet: one sentence each.
+        t(
+          i.slicerPath
+            ? "integrations:worker.noPresetsHint"
+            : "integrations:worker.unavailableHint",
+        )
       ) : (
         t("integrations:card.unavailableHint")
       )
@@ -461,36 +509,19 @@ export function IntegrationCard({
 
   return (
     <li id={`integration-${i.id}`} className={RAIL}>
-      {hub ? (
-        // The hub's slicer reads down the rail: its node is filled.
-        <label
-          className={cx(
-            NODE,
-            "has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-accent",
-            hub.checked
-              ? "border-accent bg-accent text-accent-fg"
-              : "border-border bg-surface-2 text-muted",
-            hub.pickable && !hub.checked ? "cursor-pointer hover:border-accent" : "",
-            !hub.pickable && !hub.checked && "border-dashed",
-          )}
-        >
-          <input
-            type="radio"
-            name={`hub-slicer-${hub.library}`}
-            className="sr-only"
-            checked={hub.checked}
-            disabled={!hub.pickable || hub.busy}
-            onChange={hub.onPick}
-            aria-label={where}
-            aria-describedby={roleId}
-          />
-          <Icon aria-hidden className="size-4" />
-        </label>
-      ) : (
-        <span aria-hidden className={cx(NODE, "border-border bg-surface-2 text-muted")}>
-          <Icon className="size-4" />
-        </span>
-      )}
+      {/* The hub's slicer's node is filled, as on its panel above; a machine not offering it, dashed. */}
+      <span
+        aria-hidden
+        className={cx(
+          NODE,
+          hub?.checked
+            ? "border-accent bg-accent text-accent-fg"
+            : "border-border bg-surface-2 text-muted",
+          hub?.notOffered && "border-dashed",
+        )}
+      >
+        <Icon className="size-4" />
+      </span>
       <div className="min-w-0">
         <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
           <H className="flex min-w-0 flex-wrap items-center gap-x-2 text-base font-semibold">
@@ -516,6 +547,7 @@ export function IntegrationCard({
                 {t("integrations:hub.version", { version: i.slicerVersion })}
               </span>
             )}
+            {hub?.checked && <SourceBadge>{t("integrations:hub.title")}</SourceBadge>}
           </H>
           {admin && (
             <div className="flex items-center gap-1">
@@ -545,15 +577,7 @@ export function IntegrationCard({
           <span aria-hidden className={cx("mt-1.5 size-2 shrink-0 rounded-full", DOT[state])} />
           <span>{status}</span>
         </p>
-        {hub && (
-          <p id={roleId} className={hub.checked ? "font-medium text-accent" : "text-muted"}>
-            {hub.checked
-              ? t("integrations:hub.isHub")
-              : !hub.pickable && i.kind === "worker"
-                ? t("integrations:hub.notOffered")
-                : null}
-          </p>
-        )}
+        {hub?.notOffered && <p className="text-muted">{t("integrations:hub.notOffered")}</p>}
         {failed && (
           <p role="alert" className="mt-1 text-bad">
             {t("integrations:card.actionError")}

@@ -159,6 +159,9 @@ it("a worker-only hub gets its catalog from the hub's slicer's machine; another 
   expect((await ws1.upload("01.00")).statusCode).toBe(204);
   const copy = join(dataDir, "slicers", worker.id, "config", "system", "BBL.json");
   expect(JSON.parse(readFileSync(copy, "utf8")).version).toBe("01.00");
+  // The copy is the worker's presets to slice with, as a zip's would be: it isn't unavailable.
+  const row = (await send("GET", `/api/integrations/${worker.id}`)).json();
+  expect(row.slicerConfigDir).toBe(join(dataDir, "slicers", worker.id, "config"));
   // A first sight is only recorded (ADR-0019); a slicer update is a change for the check.
   expect(await checked("BBL=01.00")).toBe("BBL=01.00");
   expect((await ws1.upload("01.01")).statusCode).toBe(204);

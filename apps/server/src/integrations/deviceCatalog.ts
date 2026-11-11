@@ -84,7 +84,7 @@ export function createDeviceCatalog(
     if (!dataDir || !source || !("deviceId" in source) || cards?.adapter.kind !== "worker")
       return null;
     const dir = join(dataDir, "slicers", cards.row.id, "config");
-    return { deviceId: source.deviceId, library: cards.adapter.library, dir };
+    return { deviceId: source.deviceId, library: cards.adapter.library, dir, row: cards.row };
   }
 
   /**
@@ -339,6 +339,12 @@ export function createDeviceCatalog(
         rmSync(join(t.dir, "system"), { recursive: true, force: true });
         renameSync(system, join(t.dir, "system"));
         writeFileSync(join(t.dir, "system", MARK), deviceId);
+        // Its presets to slice with, as a zip's are (`keepPresets`): the worker is available now.
+        if (!t.row.slicerConfigDir)
+          db.update(schema.integrations)
+            .set({ slicerConfigDir: t.dir, updatedAt: new Date().toISOString() })
+            .where(eq(schema.integrations.id, t.row.id))
+            .run();
       } finally {
         rmSync(join(base, id), { recursive: true, force: true });
       }
