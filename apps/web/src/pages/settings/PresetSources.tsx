@@ -115,12 +115,7 @@ export function PresetSources() {
     );
   return (
     <>
-      <SourcesSection
-        direction="share"
-        footer={
-          zipLibs.length > 0 && <ZipFooter libraries={zipLibs} list={list} sources={libraries} />
-        }
-      >
+      <SourcesSection direction="share">
         {server.length > 0 && (
           <SourceBlock
             id="server"
@@ -156,6 +151,7 @@ export function PresetSources() {
               ))}
           </MachineBlock>
         ))}
+        {zipLibs.length > 0 && <ZipBlock libraries={zipLibs} list={list} sources={libraries} />}
       </SourcesSection>
       {receiving.length > 0 && (
         <SourcesSection direction="receive">
@@ -495,7 +491,7 @@ function ReceiveSlicer({ device: d, library: l }: { device: PresetDevice; librar
 }
 
 /** "No connector? Upload a zip", under Share to the hub: a desktop install's config folder. */
-function ZipFooter({
+function ZipBlock({
   libraries,
   list,
   sources,
@@ -506,16 +502,8 @@ function ZipFooter({
 }) {
   const { t } = useTranslation();
   const adapterName = useAdapterName();
-  const heading = useId();
   return (
-    <section
-      id="zip"
-      aria-labelledby={heading}
-      className="grid scroll-mt-4 gap-4 border-t border-border pt-5"
-    >
-      <h3 id={heading} className="text-base font-semibold">
-        {t("settings:sources.presets.zip")}
-      </h3>
+    <SourceBlock id="zip" title={t("settings:sources.presets.zip")}>
       {libraries.map((library) => {
         const routes = (sources.find((l) => l.library === library)?.routes ?? []).flatMap(
           (r) => list.find((i) => i.id === r.integrationId) ?? [],
@@ -533,6 +521,6 @@ function ZipFooter({
           </SlicerGroup>
         );
       })}
-    </section>
+    </SourceBlock>
   );
 }

@@ -338,7 +338,8 @@
       "review": "Nothing you have is changed by an automatic run. When the source changes a row, you get an alert and decide under \"Review and import\". A change you skip there doesn't come back until the source changes again."
     },
     "cloudPresetsRoute": "Read from your account, read-only. A machine that shares this account's presets brings them too: one way is enough. With both on, each preset is counted and reviewed once.",
-    "doubleTracking": "Tracking usage from both prints and spools at the same time is not recommended: the same filament can be counted twice, or the vendor's estimate can overwrite the weight your prints took off."
+    "doubleTracking": "Tracking usage from both prints and spools at the same time is not recommended: the same filament can be counted twice, or the vendor's estimate can overwrite the weight your prints took off.",
+    "onFileChangeReview": "When the files change, after your review"
   },
   "slicer": {
     "title": "Slicer",

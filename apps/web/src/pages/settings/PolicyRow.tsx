@@ -192,7 +192,11 @@ export function ActionSwitches({ integration: i }: { integration: Integration })
 export function useSummary(p: SyncPolicy, files: boolean) {
   const { t, i18n } = useTranslation();
   if (p.mode === "off") return t("integrations:policies.modes.off");
-  if (p.mode !== "auto") return t("integrations:policies.modes.manual");
+  // A slicer's line follows its files either way; Manual means its changes wait for review.
+  if (p.mode !== "auto")
+    return t(
+      files ? "integrations:policies.onFileChangeReview" : "integrations:policies.modes.manual",
+    );
   if (files) return t("integrations:policies.onFileChange");
   const set = AT_FIELDS[p.frequency].some((f) => p[f] != null);
   if (!set) return t(SUMMARY[p.frequency].every);

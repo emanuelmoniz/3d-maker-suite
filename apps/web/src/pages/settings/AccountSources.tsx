@@ -142,6 +142,7 @@ export function AccountBlock({
   const prints = types.length === 1 && types[0] === "prints";
   return (
     <SourceBlock
+      id={`account-${i.id}`}
       icon={<Avatar integration={i} text={account?.name || account?.email || title} />}
       title={title}
       badge={

@@ -1,5 +1,6 @@
 import { Link, type LinkProps } from "@tanstack/react-router";
-import { type ReactNode, useId } from "react";
+import { ChevronRight } from "lucide-react";
+import { type ReactNode, useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { DataTable } from "../../components/DataTable.tsx";
 import { Section } from "../../components/Section.tsx";
@@ -8,16 +9,14 @@ import { cx } from "../../lib/cx.ts";
 
 /**
  * A Sources tab's section (ADR-0021): the sources that feed the hub, or the machines it sends to.
- * Its blocks are the children, one per source; `footer` sits under them.
+ * Its blocks are the children, one card per source.
  */
 export function SourcesSection({
   direction,
   children,
-  footer,
 }: {
   direction: "share" | "receive";
   children: ReactNode;
-  footer?: ReactNode;
 }) {
   const { t } = useTranslation();
   return (
@@ -25,15 +24,25 @@ export function SourcesSection({
       wide
       title={direction === "share" ? t("settings:sources.share") : t("settings:sources.receive")}
     >
-      <ul className="divide-y divide-border">{children}</ul>
-      {footer}
+      <ul className="grid gap-3">{children}</ul>
     </Section>
   );
 }
 
+// The blocks a viewer folded, per page: a convenience, so a failed read just shows them open.
+const FOLDED = "sources-folded";
+const readFolded = (): string[] => {
+  try {
+    return JSON.parse(localStorage.getItem(FOLDED) ?? "[]");
+  } catch {
+    return [];
+  }
+};
+
 /**
- * One source in a section: who it is (an account, a machine and its user) and the link back to
- * where it allows the type. Its lines (a `DataTable`, or a `SlicerGroup` each) are the children.
+ * One source in a section, as a card that folds: who it is (an account, a machine and its user) and
+ * the link back to where it allows the type. Its lines (a `DataTable`, or a `SlicerGroup` each) are
+ * the children. Open at first; a fold is remembered per page, and a link into it opens it again.
  */
 export function SourceBlock({
   id,
@@ -53,23 +62,53 @@ export function SourceBlock({
   children: ReactNode;
 }) {
   const heading = useId();
+  const body = useId();
+  const key = id && `${location.pathname}#${id}`;
+  const [open, setOpen] = useState(() => {
+    const hash = location.hash.slice(1);
+    const linked = !!id && (hash === id || hash.startsWith(`${id}-`));
+    return linked || !key || !readFolded().includes(key);
+  });
+  const toggle = () => {
+    setOpen(!open);
+    if (!key) return;
+    try {
+      const rest = readFolded().filter((k) => k !== key);
+      localStorage.setItem(FOLDED, JSON.stringify(open ? [...rest, key] : rest));
+    } catch {
+      // Not remembered: it still folds.
+    }
+  };
   return (
     <li
       id={id}
       aria-labelledby={heading}
-      className="grid scroll-mt-4 gap-4 py-5 first:pt-0 last:pb-0"
+      className="scroll-mt-4 rounded-lg border border-border bg-surface"
     >
-      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-        <div className="flex min-w-0 items-center gap-3">
-          {icon}
-          <div className="grid min-w-0">
-            <h3 id={heading} className="min-w-0 wrap-anywhere text-base font-semibold">
-              {title}
-            </h3>
-            {subtitle && <p className="text-sm text-muted">{subtitle}</p>}
-          </div>
-          {badge}
-        </div>
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-3 py-2 sm:px-4">
+        <h3 id={heading} className="min-w-0 text-base font-semibold">
+          <button
+            type="button"
+            aria-expanded={open}
+            aria-controls={body}
+            onClick={toggle}
+            className="flex min-h-11 max-w-full items-center gap-3 rounded-md text-left"
+          >
+            <ChevronRight
+              aria-hidden
+              className={cx(
+                "size-4 shrink-0 text-muted transition-transform motion-reduce:transition-none",
+                open && "rotate-90",
+              )}
+            />
+            {icon}
+            <span className="grid min-w-0">
+              <span className="wrap-anywhere">{title}</span>
+              {subtitle && <span className="text-sm font-normal text-muted">{subtitle}</span>}
+            </span>
+            {badge}
+          </button>
+        </h3>
         {link && (
           <Link
             to={link.to}
@@ -81,7 +120,9 @@ export function SourceBlock({
           </Link>
         )}
       </div>
-      {children}
+      <div id={body} hidden={!open} className="grid gap-4 border-t border-border p-3 sm:p-4">
+        {children}
+      </div>
     </li>
   );
 }

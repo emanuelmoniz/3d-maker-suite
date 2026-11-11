@@ -171,6 +171,8 @@ System presets come only from each slicer's hub's slicer; user presets come from
 
 **Receive from the hub** lists the machines with **Presets Receive**, per slicer and kind, with what waits there.
 
+Every source on a Sources tab (this server, an account, a machine, the zip) is a card that folds; a folded card stays folded on that page until you open it again, and a link into it opens it. Only an account's lines run on a schedule. A slicer's lines, on this server or a machine, follow its files: *Automatic when the files change* imports a change at once, *When the files change, after your review* (Manual) leaves it waiting for review with an alert. System presets and the catalog start as Manual, because a slicer update can change hundreds of vendor presets; **Edit** switches a line to Automatic.
+
 A line turned off keeps what it brought. **Choose brands** sits on the catalog source in Catalog settings and lists the slicer's printer brands and filament brands (the ones you have are checked, and **Select all** ticks every one). Pick the ones you use and **Import**: you get those brands with their models, printer and process presets, and for filament brands their materials and filament presets, after a backup. Then **Only what I already have** is switched on for all the catalog types at once; switch it off for **Everything**. The rows' links open the review of each type, where the slicer's changes wait.
 
 **When** on the card is one switch:

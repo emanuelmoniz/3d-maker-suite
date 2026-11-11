@@ -26,7 +26,8 @@ for (const width of [375, 1440])
     await expect(page.getByRole("heading", { name: "No sources" })).toBeVisible();
     await page.goto("/presets/settings/sources");
     const zip = page
-      .getByRole("region", { name: "No connector? Upload a zip" })
+      .getByRole("listitem")
+      .filter({ has: page.getByRole("heading", { name: "No connector? Upload a zip" }) })
       .getByRole("region", { name: "Bambu Studio", exact: true });
     await expect(zip).toContainText("on a computer that isn't connected");
     await zip.getByRole("link", { name: "Import from a slicer zip" }).click();
