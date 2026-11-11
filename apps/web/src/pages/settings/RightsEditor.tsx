@@ -51,7 +51,6 @@ const GROUPS: { title: string; rows: Row[] }[] = [
       mod("costs", "users:rights.costs", "users:rights.costsHint"),
       mod("stats", "users:rights.stats", "users:rights.statsHint"),
       mod("catalog", "users:rights.catalog", "users:rights.catalogHint"),
-      mod("presets", "users:rights.presets", "users:rights.presetsHint"),
     ],
   },
   {
@@ -106,12 +105,6 @@ const GROUPS: { title: string; rows: Row[] }[] = [
         "machine.catalog",
         "users:rights.machineCatalog",
         "users:rights.machineCatalogHint",
-      ),
-      on(
-        "permissions",
-        "machine.presets",
-        "users:rights.machinePresets",
-        "users:rights.machinePresetsHint",
       ),
       on(
         "permissions",

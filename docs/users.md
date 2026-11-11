@@ -38,17 +38,16 @@ Modules have four steps: **None** (hidden), **Read**, **Write** and **Manage**.
 | Projects | Add and edit projects and their files | Set up the project folders |
 | Prints | Log and edit prints | Change print settings |
 | Quotes, orders and clients | Make quotes and orders | Change rates, currency and order statuses |
-| Catalog | (nothing more than Read yet) | Add, edit, archive and delete brands, models and materials; on Catalog → Settings → Sources, their import settings, Choose brands and each slicer's catalog source |
-| Presets | Delete and restore Preset library presets, clean up conflict copies and held deletes | Archive and delete presets (a slicer makes and edits them); their import settings on Presets → Settings → Sources |
+| Catalog | Delete and restore Preset library presets, clean up conflict copies and held deletes | Add, edit, archive and delete brands, models and materials, and archive and delete presets (a slicer makes and edits them); on Catalog and Presets → Settings → Sources, their import settings and Choose brands |
 
-With **Catalog** at Read, a user sees the brands, models and materials; with **Presets** at Read, the slicer presets, their Sources and the Preset library. The printer, spool and print forms read brands, models, materials and presets with Printers or Filament read too, and the presets are readable with Projects or Catalog read. Presets took over from Catalog in 5.5: each role and user starts with the Presets level its Catalog level had.
+With **Catalog** at Read, a user sees the brands, models, materials and slicer presets, their Sources and the Preset library. The printer, spool and print forms read brands, models, materials and presets with Printers or Filament read too, and the presets are readable with Projects read. Catalog and presets are one module ([ADR-0023](adr/0023-one-catalog-module.md)): updating from a 5.5.0 pre-release, each role and user keeps the higher of its old Catalog and Presets levels.
 
 **Stats** is None or Read. The rest are on or off:
 
 - **Run syncs** and **Review imports**: only the integration tasks set to allow them (see below).
 - **Set up integrations**: add, sign in and configure integrations and slicers.
 - **Manage the hub**: pair and edit workstations, change hub settings.
-- **Their own machines**: five switches for the sections of a machine's page in Hub management, on the machines paired to that user only ([hub.md](hub.md#machine-page)). **Connection** (port, start at login, Restart, Stop), **Slicers** (Use as slicer, default slicer), **Catalog** (also needs Catalog write), **Presets** (also needs Presets write) and **Projects** (also needs Projects write). Admin has them all; Editor and Viewer have none. Without any, a user still sees their own machines' pages, read-only.
+- **Their own machines**: four switches for the sections of a machine's page in Hub management, on the machines paired to that user only ([hub.md](hub.md#machine-page)). **Connection** (port, start at login, Restart, Stop), **Slicers** (Use as slicer, default slicer), **Catalog** (System and User presets; also needs Catalog write) and **Projects** (also needs Projects write). Admin has them all; Editor and Viewer have none. Without any, a user still sees their own machines' pages, read-only.
 - **Server and updates**, **Backups** (make, download, delete; only the Admin role restores one), **Logs**, **Branding**, **Alert settings** (thresholds, email and ntfy).
 - **Users and roles**: add and edit users and roles.
 

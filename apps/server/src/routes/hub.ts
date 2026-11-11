@@ -323,8 +323,7 @@ export const hubRoutes =
         if (!adapters.some((a) => (a.desktop || a.library) && presetLibrary(a) === library))
           throw new HttpError(404, "not_found", "No such slicer");
         if (slicer !== undefined) machineGuard(db, req.user, row.id, "slicers");
-        if (system) machineGuard(db, req.user, row.id, "catalog");
-        if (user) machineGuard(db, req.user, row.id, "presets");
+        if (system || user) machineGuard(db, req.user, row.id, "catalog");
         // A picked hub's slicer stays offered until another is picked in Integrations (a default
         // one moves on), and its own folder is the catalog: it receives none.
         const hub = hubSlicerOn(row.id, library);

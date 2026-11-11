@@ -235,7 +235,7 @@ export function FilamentPresets() {
               useColumn<FilamentPreset>(t),
               archiveColumn<FilamentPreset>(t, {
                 kind: "filament-presets",
-                can: "presets",
+                can: "catalog",
                 level: "manage",
                 name: filamentLabel,
               }),

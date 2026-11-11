@@ -83,7 +83,7 @@ export function PresetSources() {
   const hub = !!usePreferences().data?.values.hubEnabled;
   const list = useIntegrations().data;
   const libraries = useCatalogSources().data;
-  const devices = usePresetDevices(useCan("presets", "write") && hub).data ?? [];
+  const devices = usePresetDevices(useCan("catalog", "write") && hub).data ?? [];
   const zips = (useZipSources().data ?? []).map((z) => z.id);
   if (!list || !libraries) return null;
 
@@ -270,35 +270,26 @@ function AccountPresets({
   );
 }
 
-/** Whether the viewer may turn a machine's preset lines on and off (ADR-0021's `machine.presets`). */
+/** Whether the viewer may turn a machine's preset lines on and off (`machine.catalog`, ADR-0023). */
 function useMayEdit(d: PresetDevice | undefined) {
   const rights = useRights();
   const me = useMe();
-  return !!d && !!rights && mayEditMachine(rights, me?.id, d, "presets");
+  return !!d && !!rights && mayEditMachine(rights, me?.id, d, "catalog");
 }
 
-/** A kind line's switch: it writes `shareKinds` / `receiveKinds`; the hub filters (ADR-0021). */
-function useKindSwitch(
-  d: PresetDevice | undefined,
-  l: Library | undefined,
-  side: "shareKinds" | "receiveKinds",
-) {
+/** A Share kind line's switch: it writes `shareKinds`; the hub filters (ADR-0021). */
+function useKindSwitch(d: PresetDevice | undefined, l: Library | undefined) {
   const { t } = useTranslation();
   const actions = useDeviceActions();
   const may = useMayEdit(d);
   const slicer = useAdapterName()(l?.library ?? "");
   return (kind: SlicerPresetKind): NonNullable<StateLine["on"]> => ({
-    checked: !!l?.[side].includes(kind),
-    label: t(
-      side === "shareKinds"
-        ? "settings:sources.presets.shareOn"
-        : "settings:sources.presets.receiveOn",
-      {
-        type: t(KINDS[kind]),
-        slicer,
-        machine: d?.name,
-      },
-    ),
+    checked: !!l?.shareKinds.includes(kind),
+    label: t("settings:sources.presets.shareOn", {
+      type: t(KINDS[kind]),
+      slicer,
+      machine: d?.name,
+    }),
     disabled: !d || !l || !may || !l.reported || actions.library.isPending,
     set: (on) =>
       l &&
@@ -307,7 +298,7 @@ function useKindSwitch(
         id: d.id,
         library: l.library,
         user: {
-          [side]: on ? [...l[side], kind] : l[side].filter((k) => k !== kind),
+          shareKinds: on ? [...l.shareKinds, kind] : l.shareKinds.filter((k) => k !== kind),
         },
       }),
   });
@@ -334,7 +325,7 @@ function ShareSlicer({
   const { t } = useTranslation();
   const name = useAdapterName()(l.library);
   const actions = useDeviceActions();
-  const kind = useKindSwitch(d, l, "shareKinds");
+  const kind = useKindSwitch(d, l);
   const source = !!lib && isSource(lib, { deviceId: d.id });
   const cards = source && lib?.cardsOf ? list.find((i) => i.id === lib.cardsOf) : undefined;
   // Its user lines import what it sends: its own install's row, else the slicer's other route.
@@ -402,8 +393,8 @@ function ShareSlicer({
 }
 
 /**
- * One slicer of a receiver, in one table: its Catalog and system presets line, then a machine's
- * user presets per kind with what waits (while User presets Receive is on), then folder and backup.
+ * One slicer of a receiver, in one table (ADR-0023): its System presets line, then a machine's User
+ * presets line (every kind) with what waits, then folder and backup.
  */
 function ReceivePresets({
   slicer,
@@ -413,46 +404,44 @@ function ReceivePresets({
 }: {
   slicer: ReceiveSlicer;
   receiver: string;
-  /** Its machine's preset switches; none = this server, or no `presets` write. */
+  /** Its machine's preset switches; none = this server, or no `catalog` write. */
   device: PresetDevice | undefined;
   library: Library | undefined;
 }) {
   const { t } = useTranslation();
   const name = useAdapterName()(slicer.lib.library);
   const actions = useDeviceActions();
-  const kind = useKindSwitch(d, l, "receiveKinds");
+  const may = useMayEdit(d);
   const system = useSystemLine(slicer);
   const s = l?.status;
-  // ponytail: per kind from the first 100 queued (`queue`); past that, the total says the rest.
-  const queued = (k: SlicerPresetKind) => s?.queue.filter((q) => q.kind === k).length ?? 0;
-  const state = (k: SlicerPresetKind) => {
-    if (!l?.receiveKinds.includes(k)) return { text: t("integrations:policies.modes.off") };
-    if (!s) return { text: t("settings:sources.presets.noReport") };
-    const count = queued(k);
-    if (!count) return { text: t("settings:sources.presets.upToDate") };
-    return {
-      text: t(s.waiting ? "settings:sources.presets.waiting" : "settings:sources.presets.queued", {
-        count,
-      }),
-      tone: "warn" as const,
-    };
+  const state = (): { state: string; tone?: "warn" } => {
+    if (!l?.install) return { state: t("integrations:policies.modes.off") };
+    if (!s) return { state: t("settings:sources.presets.noReport") };
+    if (!s.queued) return { state: t("settings:sources.presets.upToDate") };
+    const key = s.waiting ? "settings:sources.presets.waiting" : "settings:sources.presets.queued";
+    return { state: t(key, { count: s.queued }), tone: "warn" };
   };
   const queueId = useId();
   const user: StateLine[] = !l
     ? []
-    : l.install
-      ? SLICER_PRESET_KINDS.map((k) => {
-          const { text, tone } = state(k);
-          return { key: k, item: t(KINDS[k]), on: kind(k), state: text, tone };
-        })
-      : // Receive is turned on on the machine page; its kinds show once it is.
-        [
-          {
-            key: "user",
-            item: t("settings:sources.presets.user"),
-            state: t("settings:sources.presets.userOff"),
-          },
-        ];
+    : [
+        {
+          key: "user",
+          item: t("settings:sources.presets.user"),
+          // As on the machine page: no switch without the right, its state says Off or what waits.
+          on:
+            d && may
+              ? {
+                  checked: l.install,
+                  label: t("settings:sources.presets.receiveOn", { slicer: name, machine: d.name }),
+                  disabled: !l.reported || actions.library.isPending,
+                  set: (on) =>
+                    actions.library.mutate({ id: d.id, library: l.library, user: { receive: on } }),
+                }
+              : undefined,
+          ...state(),
+        },
+      ];
   return (
     <SlicerGroup
       id={`receive-${slicer.machine?.deviceId ?? "server"}-${slicer.lib.library}`}

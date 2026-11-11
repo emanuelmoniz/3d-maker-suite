@@ -256,8 +256,8 @@ describe("device presets (ADR-0017)", () => {
           expect(res.statusCode).toBe(204);
           await until(() => store.get().presetLibraries?.[lib]?.install === true);
         },
-        /** Only these kinds on its Share or Receive lines (Presets settings → Sources). */
-        kinds: async (body: { shareKinds?: string[]; receiveKinds?: string[] }, lib = library) => {
+        /** Only these kinds on its Share lines (Presets settings → Sources). */
+        kinds: async (body: { shareKinds?: string[] }, lib = library) => {
           const res = await send("PATCH", `/api/hub/devices/${id}/slicers/${lib}`, {
             user: body,
           });
@@ -548,7 +548,6 @@ describe("device presets (ADR-0017)", () => {
     // The line off keeps the hub's rows.
     expect((await h.send("GET", "/api/presets/devices")).json()[0].libraries[0]).toMatchObject({
       shareKinds: ["filament"],
-      receiveKinds: ["machine", "process", "filament"],
     });
   }, 120_000);
 
@@ -610,10 +609,14 @@ describe("device presets (ADR-0017)", () => {
       });
     }, 120_000);
 
-    it("installs only the kinds whose Receive line is on (ADR-0021)", async () => {
+    it("installs every kind (ADR-0023)", async () => {
       const h = await hub();
       const a = await signedIn(h);
-      await a.kinds({ receiveKinds: ["filament"] });
+      // Its parent, as a slicer ships it: without one the process preset is skipped.
+      write(
+        join(a.config, "system/BBL/process/Generic PLA.json"),
+        JSON.stringify({ name: "Generic PLA", setting_id: "GP001" }),
+      );
       h.save("Fine", "1", "process");
       h.save("Farm PLA", "20");
       await a.install();
@@ -621,8 +624,11 @@ describe("device presets (ADR-0017)", () => {
       const list = await fetch(`${a.store.get().hubUrl}/api/hub/device/presets`, {
         headers: { authorization: `Bearer ${a.store.token()}` },
       });
-      expect((await list.json()).map((p: { name: string }) => p.name)).toEqual(["Farm PLA"]);
-      expect(existsSync(a.file("123/process/Fine.json"))).toBe(false);
+      expect((await list.json()).map((p: { name: string }) => p.name)).toEqual([
+        "Farm PLA",
+        "Fine",
+      ]);
+      await until(() => existsSync(a.file("123/process/Fine.json")));
     }, 120_000);
 
     it("waits while the slicer runs, and then writes", async () => {

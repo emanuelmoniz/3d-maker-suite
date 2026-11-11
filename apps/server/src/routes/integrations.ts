@@ -18,7 +18,6 @@ import {
   integrationSchema,
   isAction,
   isCatalogType,
-  isPresetType,
   isUserPresetType,
   type LoginInput,
   type LoginResult,
@@ -290,17 +289,15 @@ export const integrationsRoutes =
         const cur = get(req.params.id);
         const { config, secrets, slicerConfigDir, slicerPath, policies, allow, ...fields } =
           req.body;
-        // ADR-0020, ADR-0021: catalog import cards need catalog manage, preset ones presets
-        // manage, everything else integrations.manage.
+        // ADR-0020, ADR-0023: catalog import cards (presets too) need catalog manage, everything
+        // else integrations.manage.
         const rights = req.user?.rights;
         if (rights && !rights.admin) {
-          const presets = policies?.some((p) => isPresetType(p.type));
-          const catalog = policies?.some((p) => isCatalogType(p.type) && !isPresetType(p.type));
+          const catalog = policies?.some((p) => isCatalogType(p.type));
           const other =
             Object.keys(req.body).some((k) => k !== "policies") ||
             policies?.some((p) => !isCatalogType(p.type));
           if (
-            (presets && !hasLevel(rights.permissions, "presets", "manage")) ||
             (catalog && !hasLevel(rights.permissions, "catalog", "manage")) ||
             (other && !rights.permissions["integrations.manage"])
           )

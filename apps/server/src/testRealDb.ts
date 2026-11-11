@@ -84,16 +84,10 @@ export async function signedIn(
 /** The permissions of a user who has this level on every module. */
 export const everyModule = (level: string) =>
   Object.fromEntries(
-    [
-      "printers",
-      "maintenance",
-      "filament",
-      "projects",
-      "prints",
-      "costs",
-      "catalog",
-      "presets",
-    ].map((m) => [m, level]),
+    ["printers", "maintenance", "filament", "projects", "prints", "costs", "catalog"].map((m) => [
+      m,
+      level,
+    ]),
   );
 
 /**

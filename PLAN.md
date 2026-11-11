@@ -2608,30 +2608,58 @@ Plan Step 11d of the 5.5.0 plan in PLAN.md. Use frontend-design for the slicer c
 Do Step 11e of the 5.5.0 plan in PLAN.md.
 ```
 
-### [ ] Step 11f - Receive: catalog and system presets apart  **[plan mode]**
+### [x] Step 11f - One Catalog module: rights and two Receive switches  **[plan mode]**
 **Model:** Opus · **Effort:** High
-**Scope:** Step 11e review: Receive from the hub has a **Catalog** line on the Catalog tab and a **System presets** line on the Presets tab, each with its own switch (amends ADR-0022's single `system.receive`).
-- Decide first what each writes from the hub's `system/` copy (vendor brand and printer model files vs process and filament presets; what a printer preset needs to load), and what the machine page's rows become.
-- `devices.presetLibraries[lib].system` and the server's `catalogReceive` split in two, with a migration that keeps today's value on both; the connector's `catalog.install` writes only the parts switched on (an older connector: `device_outdated` when they differ).
-- Both tabs, the machine page, `docs/hub.md`, `docs/import.md`, ADR-0022.
+**Scope:** Step 11e review, ADR-0023 (a slicer's `system/` doesn't split into catalog and system presets: one vendor index lists every file, and Orca's `.opc` holds a whole vendor). Catalog and Presets become one module; this step does its data and rights.
+- ADR-0023; ADR-0021 and ADR-0022 amended.
+- Migration: `presets` merges into `catalog` and `machine.presets` into `machine.catalog` (roles and user overrides keep the higher value); `presetLibraries[lib].user.receiveKinds` goes (a receiver gets every kind).
+- A receiver has two switches per slicer: **System** (`system.receive`, `catalogReceive`, the whole `system/` as today) and **User presets** (`user.receive`). The machine page's Slicers rows: Use as slicer, System, User presets (Receive, Share), with `machine.catalog`. Presets → Sources → Receive: a System line and a User presets line.
+- Rights editor, `docs/hub.md`, `docs/import.md`, `docs/users.md`.
 
-**Done when:** each line saves alone from its tab and the machine page; a machine with only one on gets only those files, after a backup; an old database keeps what it received; tests, e2e, lint and `pnpm i18n:check` pass.
+**Done when:** an old database keeps everyone's higher right and what each machine received; a machine that received some kinds receives all three; each switch saves from the machine page and the Sources tab; tests, e2e, lint and `pnpm i18n:check` pass.
 **Prompt:**
 ```
 Plan Step 11f of the 5.5.0 plan in PLAN.md. Read ADR-0022 first. Back up the DB before editing schema.ts.
 ```
 
-### [ ] Step 11g - This server receives user presets  **[plan mode]**
+### [ ] Step 11g - Catalog page: Printers and Filament tabs
 **Model:** Opus · **Effort:** Medium
-**Scope:** Step 11e review: This server's own install (a folder on this computer, not the hub's preset source for that preset) receives the hub's user presets like a machine.
-- Its switch and kinds on the integration row (migration), the install queue shared with the connector's (only while the slicer is closed, a backup first, state kept on the row).
-- Presets → Sources → Receive from the hub → This server: the **User presets** kind lines with their switches (integrations.manage) and what waits, as a machine's.
-- `docs/hub.md`, `docs/import.md`.
+**Scope:** ADR-0023.
+- **Printers** tab: Brands, Printer models, Printer presets, Process presets. **Filament** tab: Filament brands, Materials, Filament presets. A preset table keeps system and user presets together, with its Scope column.
+- The Presets page and its nav item go; `/presets/*` lands on the matching Catalog tab and table, and a preset's page stays reachable.
+- Catalog settings gets the **Library** tab; Presets settings goes, `/presets/settings/*` lands on Catalog settings.
+- `docs/`, `pnpm screenshots` if a README page changed.
 
-**Done when:** the server's desktop slicer gets the hub's user presets after it closes, with a backup, per kind; its lines save from the Presets tab; tests, e2e, lint and `pnpm i18n:check` pass.
+**Done when:** every table is on its Catalog tab; old Presets links land; the Library tab works from Catalog settings; tests, e2e, lint and `pnpm i18n:check` pass.
 **Prompt:**
 ```
-Plan Step 11g of the 5.5.0 plan in PLAN.md.
+Do Step 11g of the 5.5.0 plan in PLAN.md. Use frontend-design for the tabs.
+```
+
+### [ ] Step 11h - One Sources tab  **[plan mode]**
+**Model:** Opus · **Effort:** High
+**Scope:** ADR-0023. Catalog settings → Sources merges today's Catalog and Presets Sources tabs.
+- Share to the hub: a card per source, one table with the lines it has, of: Printer brands, Printer models, Printer system presets, Process system presets, Filament brands, Filament materials, Filament system presets, Printer user presets, Process user presets, Filament user presets.
+- Receive from the hub: a card per receiver, per slicer a System line and a User presets line, with their state.
+- `docs/hub.md`, `docs/import.md`; `pnpm screenshots` if a README page changed.
+
+**Done when:** every source and receiver is on the one tab with its lines; each line saves; old Presets Sources links land; tests, e2e, lint and `pnpm i18n:check` pass.
+**Prompt:**
+```
+Plan Step 11h of the 5.5.0 plan in PLAN.md. Use frontend-design for the cards.
+```
+
+### [ ] Step 11i - This server receives user presets  **[plan mode]**
+**Model:** Opus · **Effort:** Medium
+**Scope:** Step 11e review: This server's own install (a folder on this computer, not the hub's preset source for that preset) receives the hub's user presets like a machine.
+- Its User presets switch on the integration row (migration), the install queue shared with the connector's (only while the slicer is closed, a backup first, state kept on the row).
+- Catalog → Sources → Receive from the hub → This server: the **User presets** line with its switch (integrations.manage) and what waits, as a machine's.
+- `docs/hub.md`, `docs/import.md`.
+
+**Done when:** the server's desktop slicer gets the hub's user presets after it closes, with a backup; its line saves from the Sources tab; tests, e2e, lint and `pnpm i18n:check` pass.
+**Prompt:**
+```
+Plan Step 11i of the 5.5.0 plan in PLAN.md.
 ```
 
 ### [ ] Step 12 - Connector: hub page first, permissions  **[plan mode]**
@@ -2653,7 +2681,7 @@ Plan Step 12 of the 5.5.0 plan in PLAN.md.
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - Upgrade a copy of a real 5.4.0 database to the alpha: presets keep their rows and slices; policies, device switches and shared folders keep their values.
-- Two machines: Use as slicer on one slicer of one machine only; the hub's slicer switched between the server and a machine with **Change the hub's slicer…** (another version asks first), and that machine offline (jobs wait); the machine as the hub's slicer slices without a zip (its `system/` copy); Catalog and system presets received on the other machine and on the server's own slicer; Share and Receive presets on one slicer only, and filament presets only on the other; Restart and Stop from the hub; a user with one `machine.*` switch.
+- Two machines: Use as slicer on one slicer of one machine only; the hub's slicer switched between the server and a machine with **Change the hub's slicer…** (another version asks first), and that machine offline (jobs wait); the machine as the hub's slicer slices without a zip (its `system/` copy); System and User presets received on the other machine (each alone, then both) and System on the server's own slicer; Share and Receive user presets on one slicer only, and filament presets only shared from the other; Restart and Stop from the hub; a user with one `machine.*` switch.
 - After the upgrade: the catalog and system preset lines are Automatic (migration 0116) and a slicer update imports on its own (only your rows under Only what I already have); Sources cards start closed and remember the ones opened.
 - Two Bambu Cloud accounts with their own photo and Sources.
 - Fix anything found. `docs/`, CHANGELOG, version `5.5.0-alpha.2`. Commit on `dev`, push, tag `v5.5.0-alpha.2` on `dev`. Check the run and the release.
@@ -2746,7 +2774,7 @@ Do Step 18 of the 5.5.0 plan in PLAN.md. Guide me through each scenario and fix 
 ### [ ] Step 19 - Docs, push & v5.5.0 release
 **Model:** Haiku · **Effort:** Low
 **Scope:**
-- Check the docs against what shipped, `pnpm screenshots` (Catalog, Presets, Integrations, Hub and settings pages changed; update `scripts/screenshots.shot.ts`), CHANGELOG (everything since 5.4.0), version `5.5.0`, `pnpm version:check`.
+- Check the docs against what shipped, `pnpm screenshots` (Catalog, Integrations, Hub and settings pages changed; the Presets page is gone; update `scripts/screenshots.shot.ts`), CHANGELOG (everything since 5.4.0), version `5.5.0`, `pnpm version:check`.
 - Commit on `dev`, fast-forward `main` to `dev`, push both, tag `v5.5.0` on `main`. Check the run, the release and the images.
 
 **Done when:** `main`, `dev` and the tag are pushed; the workflow is green; updating 5.4.0 to 5.5.0 keeps all data.

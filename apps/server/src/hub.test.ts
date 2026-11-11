@@ -731,12 +731,12 @@ describe("hub events", () => {
       ).statusCode,
     ).toBe(404);
     expect((await mine("PATCH", lib, { user: { share: true } })).statusCode).toBe(403);
-    // The switch alone isn't enough: Presets also needs presets write.
-    grant({ "machine.presets": true });
-    expect((await mine("PATCH", lib, { user: { share: true } })).statusCode).toBe(403);
-    grant({ "machine.presets": true, presets: "write" });
-    expect((await mine("PATCH", lib, { user: { share: true } })).statusCode).toBe(204);
     expect((await mine("PATCH", lib, { system: { receive: true } })).statusCode).toBe(403);
+    // The switch alone isn't enough: System and User presets also need catalog write (ADR-0023).
+    grant({ "machine.catalog": true });
+    expect((await mine("PATCH", lib, { user: { share: true } })).statusCode).toBe(403);
+    grant({ "machine.catalog": true, catalog: "write" });
+    expect((await mine("PATCH", lib, { user: { share: true } })).statusCode).toBe(204);
     expect(
       db.select().from(schema.devices).where(eq(schema.devices.id, deviceId)).get()
         ?.presetLibraries["bambu-studio"]?.user.share,

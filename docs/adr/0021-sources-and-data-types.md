@@ -1,6 +1,6 @@
 # ADR-0021: Sources and data types
 
-- Status: Accepted (2026-11-10, Plan 5.5.0 Step 1, after the profile spike). Amends ADR-0014 (the connector opens the hub page, shared folders on the hub, picks replace sync mode, whole-disk `fs.list`, new operations), ADR-0016 (`machine.*` switches, a `presets` module), ADR-0017 and ADR-0019 (presets instead of profiles; a machine's Share and Install per preset kind) and ADR-0020 (a Presets module, where the device switches live, the device × slicer table). Amended by ADR-0022: one slicer per slicer type; Catalog Share goes, and a machine's switches are Use as slicer, Catalog and system presets, and User presets.
+- Status: Accepted (2026-11-10, Plan 5.5.0 Step 1, after the profile spike). Amends ADR-0014 (the connector opens the hub page, shared folders on the hub, picks replace sync mode, whole-disk `fs.list`, new operations), ADR-0016 (`machine.*` switches, a `presets` module), ADR-0017 and ADR-0019 (presets instead of profiles; a machine's Share and Install per preset kind) and ADR-0020 (a Presets module, where the device switches live, the device × slicer table). Amended by ADR-0022: one slicer per slicer type; Catalog Share goes, and a machine's switches are Use as slicer, Catalog and system presets, and User presets. Amended by ADR-0023: the Presets module, the `presets` level, `machine.presets` and the per-kind Receive lines go.
 - Date: 2026-11-10
 
 ## Context

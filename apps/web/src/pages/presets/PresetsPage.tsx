@@ -22,7 +22,7 @@ const TABLE = { printer: MachinePresets, process: ProcessPresets, filament: Fila
 /** The slicer presets (ADR-0021), one tab per kind. Needs `presets` read. */
 export function PresetsPage({ tab }: { tab: PresetTab }) {
   const { t } = useTranslation();
-  const allowed = useCan("presets", "read");
+  const allowed = useCan("catalog", "read");
   if (!useQuery(meQuery).data) return null;
   if (!allowed) return <Navigate to="/" replace />;
   const Table = TABLE[tab];

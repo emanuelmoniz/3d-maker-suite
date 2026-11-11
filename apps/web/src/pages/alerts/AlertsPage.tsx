@@ -98,17 +98,15 @@ export function useMayOpenTask() {
 
 /**
  * A finished sync's call to action: the module or catalog section it filled. For whoever may run
- * the task; a catalog section also needs `catalog` read, a preset tab `presets` read.
+ * the task; a catalog section or a preset tab also needs `catalog` read (ADR-0023).
  */
 export function SyncTargetLink({ a }: { a: Alert }) {
   const { t } = useTranslation();
   const mayOpen = useMayOpenTask();
   const target = SYNC_TARGETS[a.context.type as Capability];
   const catalog = useCan("catalog", "read");
-  const presets = useCan("presets", "read");
   if (a.kind !== "sync_success" || !target || !mayOpen(a)) return null;
-  if (!catalog && target.to.startsWith("/catalog")) return null;
-  if (!presets && target.to.startsWith("/presets")) return null;
+  if (!catalog && /^\/(catalog|presets)/.test(target.to)) return null;
   return (
     <Link to={target.to} hash={target.hash} className={buttonLink}>
       {t(target.label)}

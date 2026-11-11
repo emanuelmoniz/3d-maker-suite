@@ -392,9 +392,9 @@ function DefaultSlicer({ device: d, edit }: { device: Device; edit: boolean }) {
 }
 
 /**
- * One slicer on the machine (ADR-0022): Use as slicer (it offers it; the admin picks the hub's
- * slicer in Integrations), Catalog and system presets (Receive only, none on the hub's slicer) and
- * User presets (Receive and Share), each with a link to where the rest of it is. The columns line
+ * One slicer on the machine (ADR-0022, ADR-0023): Use as slicer (it offers it; the admin picks the
+ * hub's slicer in Integrations), System presets (Receive only: the hub's whole `system/`, none on
+ * the hub's slicer) and User presets (Receive and Share), each with a link to where the rest of it is. The columns line
  * up across slicers; below `sm` each line stacks.
  */
 function SlicerBlock({ device: d, library }: { device: Device; library: string }) {
@@ -443,12 +443,12 @@ function SlicerBlock({ device: d, library }: { device: Device; library: string }
     },
     {
       key: "system",
-      label: t("hub:machine.catalog"),
+      label: t("hub:machine.system"),
       controls: (
         <Setting
           edit={may.edit("catalog") && !hub}
           label={t("hub:machine.receive")}
-          name={t("hub:machine.receiveOf.catalog", { name })}
+          name={t("hub:machine.receiveOf.system", { name })}
           checked={!!lib?.system.receive && !hub}
           busy={busy}
           onChange={(receive) => send({ system: { receive } })}
@@ -467,7 +467,7 @@ function SlicerBlock({ device: d, library }: { device: Device; library: string }
       controls: (
         <>
           <Setting
-            edit={may.edit("presets")}
+            edit={may.edit("catalog")}
             label={t("hub:machine.receive")}
             name={t("hub:machine.receiveOf.presets", { name })}
             checked={!!lib?.user.receive}
@@ -475,7 +475,7 @@ function SlicerBlock({ device: d, library }: { device: Device; library: string }
             onChange={(receive) => send({ user: { receive } })}
           />
           <Setting
-            edit={may.edit("presets")}
+            edit={may.edit("catalog")}
             label={t("hub:machine.share")}
             name={t("hub:machine.shareOf.presets", { name })}
             checked={!!lib?.user.share}

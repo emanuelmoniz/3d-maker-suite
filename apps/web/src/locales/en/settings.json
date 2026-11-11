@@ -64,8 +64,8 @@
       "change": "Change in Integrations",
       "unreadable": "Folder not found",
       "fromDevice": "The machine's connector sends this slicer's system presets whenever a slicer update changes them. Until it has, the catalog stays as it is.",
-      "item": "Catalog and system presets",
-      "receiveOn": "Receive the catalog and system presets in {{slicer}} on {{machine}}",
+      "item": "System presets",
+      "receiveOn": "Receive the system presets, brands and printer models in {{slicer}} on {{machine}}",
       "notReceived": "Not received yet",
       "noCopy": "The hub has no catalog yet",
       "mismatch": "Not sent: slicer {{here}} here, catalog from {{source}}",
@@ -79,7 +79,7 @@
     "presets": {
       "chooseBrands": "Choose brands in Catalog settings",
       "shareOn": "Share {{type}} from {{slicer}} on {{machine}}",
-      "receiveOn": "Receive {{type}} in {{slicer}} on {{machine}}",
+      "receiveOn": "Receive user presets in {{slicer}} on {{machine}}",
       "linesOf": "{{slicer}} on {{machine}}",
       "onSave": "On each save",
       "notReported": "{{slicer}} is no longer found on this machine.",
@@ -94,8 +94,7 @@
       "waiting_other": "{{count}} waiting for the slicer to close",
       "queued_one": "{{count}} being written",
       "queued_other": "{{count}} being written",
-      "user": "User presets",
-      "userOff": "Off: turn on Receive on the machine page"
+      "user": "User presets"
     }
   },
   "loadError": "Couldn't load settings. Is the server running?",

@@ -164,7 +164,6 @@ export const deviceLibraryUpdateSchema = z.strictObject({
       receive: z.boolean(),
       share: z.boolean(),
       // A line per kind in Presets settings → Sources; the hub filters, the connector doesn't know.
-      receiveKinds: presetKinds,
       shareKinds: presetKinds,
     })
     .partial()

@@ -1,6 +1,6 @@
 # ADR-0022: One slicer per slicer type
 
-- Status: Accepted (2026-11-11, design discussion after Plan 5.5.0 Step 11). Amends ADR-0019 (a slicer's catalog and system presets default to Automatic), ADR-0020 (the catalog source is no longer a pick: it is the hub's slicer) and ADR-0021 (Catalog Share goes; a machine's Catalog and Presets switches become Use as slicer, Catalog and system presets, and User presets; a Sources tab's sources are cards). ADR-0014's `catalog.sources` and `catalog.install` stay. Extended after the Step 11d review (2026-11-11): *Sources and defaults* below.
+- Status: Accepted (2026-11-11, design discussion after Plan 5.5.0 Step 11). Amends ADR-0019 (a slicer's catalog and system presets default to Automatic), ADR-0020 (the catalog source is no longer a pick: it is the hub's slicer) and ADR-0021 (Catalog Share goes; a machine's Catalog and Presets switches become Use as slicer, Catalog and system presets, and User presets; a Sources tab's sources are cards). ADR-0014's `catalog.sources` and `catalog.install` stay. Extended after the Step 11d review (2026-11-11): *Sources and defaults* below. Amended by ADR-0023: one Catalog module (no Presets page), one Sources tab, a receiver's System and User presets switches.
 - Date: 2026-11-11
 
 ## Context

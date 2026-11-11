@@ -125,10 +125,10 @@ export type PresetSwitches = z.infer<typeof presetSwitchesSchema>;
 
 const kinds = z.array(slicerPresetKindSchema).max(SLICER_PRESET_KINDS.length);
 /**
- * A machine's switches for one slicer library (ADR-0022), on its page: Use as slicer (offers it to
- * the hub), Catalog and system presets (Receive only), User presets (Receive and Share, with the
- * kinds each takes). `devices.presetLibraries` keeps them by library, with when a preset was last
- * stored.
+ * A machine's switches for one slicer library (ADR-0022, ADR-0023), on its page: Use as slicer
+ * (offers it to the hub), System (Receive only: the hub's whole `system/`), User presets (Receive
+ * every kind, Share the kinds in `shareKinds`). `devices.presetLibraries` keeps them by library,
+ * with when a preset was last stored.
  */
 export const devicePresetLibrarySchema = z.object({
   slicer: z.boolean(),
@@ -136,7 +136,6 @@ export const devicePresetLibrarySchema = z.object({
   user: z.object({
     receive: z.boolean(),
     share: z.boolean(),
-    receiveKinds: kinds,
     shareKinds: kinds,
   }),
   sentAt: isoDate.optional(),
@@ -149,7 +148,6 @@ export const emptyPresetLibrary = (): DevicePresetLibrary => ({
   user: {
     receive: false,
     share: false,
-    receiveKinds: [...SLICER_PRESET_KINDS],
     shareKinds: [...SLICER_PRESET_KINDS],
   },
 });
@@ -164,9 +162,8 @@ export const presetDeviceLibrarySchema = presetSwitchesSchema.extend({
   library: z.string(),
   /** It still reports this slicer; false = a row kept with its values. */
   reported: z.boolean(),
-  /** The kinds its Share and Receive lines take (Presets settings → Sources). */
+  /** The kinds its Share lines take (Presets settings → Sources). */
   shareKinds: z.array(slicerPresetKindSchema),
-  receiveKinds: z.array(slicerPresetKindSchema),
   /** When a preset it sent was last stored. */
   sentAt: isoDate.nullable(),
   /** Its removals held for a person (Catalog → Presets). */
@@ -179,7 +176,7 @@ export const presetDeviceLibrarySchema = presetSwitchesSchema.extend({
 export const presetDeviceSchema = z.object({
   id,
   name: z.string(),
-  /** Its user: the one who may edit its switches with `machine.presets` (ADR-0021). */
+  /** Its user: the one who may edit its switches with `machine.catalog` (ADR-0023). */
   userId: z.uuid(),
   online: z.boolean(),
   /** Its connector is older than the hub: its removals are only shown, and it receives no deletes. */

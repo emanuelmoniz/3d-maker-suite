@@ -27,7 +27,7 @@ const SETTINGS_PERMISSION: Record<SettingsModule, Permission> = {
   printers: "printers",
   filament: "filament",
   catalog: "catalog",
-  presets: "presets",
+  presets: "catalog",
   hub: "hub.manage",
 };
 

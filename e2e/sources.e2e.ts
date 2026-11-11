@@ -107,7 +107,8 @@ for (const width of [375, 1440])
 
     // Receive from the hub: every machine with the slicer but the hub's slicer, from either tab.
     await expect(block(page, "Receive from the hub", "WS-2")).toHaveCount(0);
-    const catalogLine = "Receive the catalog and system presets in Bambu Studio on WS-1";
+    const catalogLine =
+      "Receive the system presets, brands and printer models in Bambu Studio on WS-1";
     const receive1 = block(page, "Receive from the hub", "WS-1");
     const system = receive1.getByRole("switch", { name: catalogLine });
     await expect(system).not.toBeChecked();
@@ -153,7 +154,6 @@ for (const width of [375, 1440])
           library: "bambu-studio",
           send: true,
           shareKinds: ["filament"],
-          receiveKinds: ["machine", "process", "filament"],
         }),
       ]),
     );
@@ -168,7 +168,7 @@ for (const width of [375, 1440])
       receives.getByText("OrcaSlicer is no longer found on this machine."),
     ).toBeVisible();
     const filament = receives.getByRole("switch", {
-      name: "Receive Filament presets in OrcaSlicer on WS-1",
+      name: "Receive user presets in OrcaSlicer on WS-1",
     });
     await expect(filament).toBeChecked();
     await expect(filament).toBeDisabled();

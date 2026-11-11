@@ -1025,35 +1025,39 @@ describe("migration 0104", () => {
 describe("migration 0103", () => {
   // ADR-0020: catalog from printers, filament and presets.manage; users on their effective values.
   const migrated = () =>
-    migrateAcross(102, (sqlite) => {
-      const run = (q: string, ...args: unknown[]) => sqlite.prepare(q).run(...args);
-      const role = (id: string, permissions: object) =>
-        run(
-          "insert into roles (id, name, permissions, project_rights, created_at, updated_at) values (?, ?, ?, '{}', 'x', 'x')",
-          id,
-          id,
-          JSON.stringify(permissions),
-        );
-      role("bothManage", { printers: "manage", filament: "manage", "presets.manage": false });
-      role("oneManage", { printers: "manage", filament: "write", "presets.manage": false });
-      role("presetsOnly", { printers: "read", filament: "none", "presets.manage": true });
-      role("bothRead", { printers: "read", filament: "read", "presets.manage": false });
-      role("empty", {});
-      const user = (id: string, roleId: string, permissions: object) =>
-        run(
-          "insert into users (id, email, display_name, password_hash, role_id, permissions, created_at, updated_at) values (?, ?, ?, 'x', ?, ?, 'x', 'x')",
-          id,
-          `${id}@x.io`,
-          id,
-          roleId,
-          JSON.stringify(permissions),
-        );
-      const { admin, editor, viewer } = BUILT_IN_ROLE_IDS;
-      user("raised", viewer, { printers: "manage", filament: "manage", "hub.manage": true });
-      user("noPresets", editor, { "presets.manage": false });
-      user("same", editor, { printers: "read" });
-      user("admin", admin, { "presets.manage": false, "projects.editOtherDevices": false });
-    });
+    migrateAcross(
+      102,
+      (sqlite) => {
+        const run = (q: string, ...args: unknown[]) => sqlite.prepare(q).run(...args);
+        const role = (id: string, permissions: object) =>
+          run(
+            "insert into roles (id, name, permissions, project_rights, created_at, updated_at) values (?, ?, ?, '{}', 'x', 'x')",
+            id,
+            id,
+            JSON.stringify(permissions),
+          );
+        role("bothManage", { printers: "manage", filament: "manage", "presets.manage": false });
+        role("oneManage", { printers: "manage", filament: "write", "presets.manage": false });
+        role("presetsOnly", { printers: "read", filament: "none", "presets.manage": true });
+        role("bothRead", { printers: "read", filament: "read", "presets.manage": false });
+        role("empty", {});
+        const user = (id: string, roleId: string, permissions: object) =>
+          run(
+            "insert into users (id, email, display_name, password_hash, role_id, permissions, created_at, updated_at) values (?, ?, ?, 'x', ?, ?, 'x', 'x')",
+            id,
+            `${id}@x.io`,
+            id,
+            roleId,
+            JSON.stringify(permissions),
+          );
+        const { admin, editor, viewer } = BUILT_IN_ROLE_IDS;
+        user("raised", viewer, { printers: "manage", filament: "manage", "hub.manage": true });
+        user("noPresets", editor, { "presets.manage": false });
+        user("same", editor, { printers: "read" });
+        user("admin", admin, { "presets.manage": false, "projects.editOtherDevices": false });
+      },
+      116,
+    );
 
   it("gives each role catalog by the rules and drops presets.manage", () => {
     const roles = Object.fromEntries(
@@ -1104,30 +1108,34 @@ describe("migration 0103", () => {
 
 describe("migration 0111", () => {
   it("gives roles and users `presets` at their `catalog` level", () => {
-    const now = migrateAcross(110, (sqlite) => {
-      const run = (q: string, ...args: unknown[]) => sqlite.prepare(q).run(...args);
-      run(
-        "insert into roles (id, name, permissions, project_rights, created_at, updated_at) values ('custom', 'custom', ?, '{}', 'x', 'x')",
-        JSON.stringify({ catalog: "write", printers: "read" }),
-      );
-      const user = (id: string, permissions: object) =>
+    const now = migrateAcross(
+      110,
+      (sqlite) => {
+        const run = (q: string, ...args: unknown[]) => sqlite.prepare(q).run(...args);
         run(
-          "insert into users (id, email, display_name, password_hash, role_id, permissions, created_at, updated_at) values (?, ?, ?, 'x', ?, ?, 'x', 'x')",
-          id,
-          `${id}@x.io`,
-          id,
-          BUILT_IN_ROLE_IDS.viewer,
-          JSON.stringify(permissions),
+          "insert into roles (id, name, permissions, project_rights, created_at, updated_at) values ('custom', 'custom', ?, '{}', 'x', 'x')",
+          JSON.stringify({ catalog: "write", printers: "read" }),
         );
-      user("raised", { catalog: "manage" });
-      user("same", { printers: "write" });
-    });
+        const user = (id: string, permissions: object) =>
+          run(
+            "insert into users (id, email, display_name, password_hash, role_id, permissions, created_at, updated_at) values (?, ?, ?, 'x', ?, ?, 'x', 'x')",
+            id,
+            `${id}@x.io`,
+            id,
+            BUILT_IN_ROLE_IDS.viewer,
+            JSON.stringify(permissions),
+          );
+        user("raised", { catalog: "manage" });
+        user("same", { printers: "write" });
+      },
+      116,
+    );
     const roles = Object.fromEntries(
       now
         .select()
         .from(s.roles)
         .all()
-        .map((r) => [r.builtIn ?? r.id, r.permissions.presets]),
+        .map((r) => [r.builtIn ?? r.id, (r.permissions as Record<string, unknown>).presets]),
     );
     expect(roles).toEqual({ admin: "manage", editor: "write", viewer: "read", custom: "write" });
     const users = Object.fromEntries(
@@ -1948,10 +1956,12 @@ describe("migration 0112", () => {
 describe("migration 0114", () => {
   const kinds = ["machine", "process", "filament"];
   it("gives each library one hub's slicer and a machine's switches Use as slicer, system and user", () => {
-    const now = migrateAcross(113, (sqlite) => {
-      const lib = (receive: boolean, share: boolean) =>
-        `{"catalog":{"receive":${receive},"share":${share}},"presets":{"receive":true,"share":false,"receiveKinds":["machine"],"shareKinds":${JSON.stringify(kinds)}}}`;
-      sqlite.exec(`
+    const now = migrateAcross(
+      113,
+      (sqlite) => {
+        const lib = (receive: boolean, share: boolean) =>
+          `{"catalog":{"receive":${receive},"share":${share}},"presets":{"receive":true,"share":false,"receiveKinds":["machine"],"shareKinds":${JSON.stringify(kinds)}}}`;
+        sqlite.exec(`
         insert into users (id, email, display_name, password_hash, role_id, created_at, updated_at) values ('u', 'u@x.io', 'u', 'x', '${BUILT_IN_ROLE_IDS.admin}', 'x', 'x');
         insert into devices (id, name, user_id, token_hash, preset_libraries, created_at, updated_at) values
           ('a', 'A', 'u', 't1', '{"bambu-studio":${lib(true, true)},"orca-slicer":${lib(false, false).replace("}}", '},"sentAt":"2026-11-01T00:00:00.000Z"}')}}', 'x', 'x'),
@@ -1965,7 +1975,9 @@ describe("migration 0114", () => {
         insert into sync_policies (integration_id, type, mode, frequency) values ('wc', 'slice', 'off', '1d');
         insert into settings (key, value) values ('catalogSources', '{"bambu-studio":{"integrationId":"srv"},"orca-slicer":{"deviceId":"b"},"gone":{"deviceId":"c"}}');
       `);
-    });
+      },
+      116,
+    );
     const libs = Object.fromEntries(
       now
         .select({ id: s.devices.id, l: s.devices.presetLibraries })
@@ -2048,6 +2060,121 @@ describe("migration 0116", () => {
       filamentPresets: "off",
       userMachinePresets: "manual",
       slice: "manual",
+    });
+  });
+});
+
+describe("migration 0117", () => {
+  it("merges `presets` into `catalog` and `machine.presets` into `machine.catalog`, at the higher value", () => {
+    const now = migrateAcross(116, (sqlite) => {
+      const run = (q: string, ...args: unknown[]) => sqlite.prepare(q).run(...args);
+      const role = (id: string, permissions: object) =>
+        run(
+          "insert into roles (id, name, permissions, project_rights, created_at, updated_at) values (?, ?, ?, '{}', 'x', 'x')",
+          id,
+          id,
+          JSON.stringify(permissions),
+        );
+      role("up", {
+        catalog: "read",
+        presets: "manage",
+        "machine.catalog": false,
+        "machine.presets": true,
+      });
+      role("down", {
+        catalog: "write",
+        presets: "none",
+        "machine.catalog": true,
+        "machine.presets": false,
+      });
+      role("bare", { printers: "read" });
+      const user = (id: string, roleId: string, permissions: object) =>
+        run(
+          "insert into users (id, email, display_name, password_hash, role_id, permissions, created_at, updated_at) values (?, ?, ?, 'x', ?, ?, 'x', 'x')",
+          id,
+          `${id}@x.io`,
+          id,
+          roleId,
+          JSON.stringify(permissions),
+        );
+      // `down` merges to catalog write: a presets manage override raises it, a catalog write one is the role's.
+      user("raised", "down", { presets: "manage", printers: "read" });
+      user("asRole", "down", { catalog: "write", presets: "read" });
+      // `up` merges to manage: a user with read on both keeps read.
+      user("lowered", "up", { catalog: "read", presets: "read" });
+      user("switch", "bare", { "machine.presets": true });
+      user("switchAsRole", "up", { "machine.catalog": false });
+      user("none", "bare", {});
+      run(
+        "insert into devices (id, name, user_id, token_hash, preset_libraries, created_at, updated_at) values ('d', 'D', 'none', 't', ?, 'x', 'x'), ('e', 'E', 'none', 't2', '{}', 'x', 'x')",
+        JSON.stringify({
+          "bambu-studio": {
+            slicer: true,
+            system: { receive: true },
+            user: {
+              receive: true,
+              share: false,
+              receiveKinds: ["machine"],
+              shareKinds: ["filament"],
+            },
+            sentAt: "2026-11-01T00:00:00.000Z",
+          },
+        }),
+      );
+    });
+    const pick = ({ permissions: p }: { permissions: Record<string, unknown> }) =>
+      Object.fromEntries(
+        Object.entries(p).filter(([k]) =>
+          ["catalog", "presets", "machine.catalog", "machine.presets"].includes(k),
+        ),
+      );
+    const roles = Object.fromEntries(
+      now
+        .select()
+        .from(s.roles)
+        .all()
+        .map((r) => [r.builtIn ?? r.id, pick(r)]),
+    );
+    expect(roles).toEqual({
+      admin: { catalog: "manage", "machine.catalog": true },
+      editor: { catalog: "write", "machine.catalog": false },
+      viewer: { catalog: "read", "machine.catalog": false },
+      up: { catalog: "manage", "machine.catalog": true },
+      down: { catalog: "write", "machine.catalog": true },
+      bare: {},
+    });
+    const users = Object.fromEntries(
+      now
+        .select()
+        .from(s.users)
+        .all()
+        .map((u) => [u.id, u.permissions]),
+    );
+    expect(users).toEqual({
+      raised: { catalog: "manage", printers: "read" },
+      asRole: {},
+      lowered: { catalog: "read" },
+      switch: { "machine.catalog": true },
+      switchAsRole: {},
+      none: {},
+    });
+    const libs = Object.fromEntries(
+      now
+        .select({ id: s.devices.id, l: s.devices.presetLibraries })
+        .from(s.devices)
+        .all()
+        .map((d) => [d.id, d.l]),
+    );
+    expect(libs).toEqual({
+      d: {
+        "bambu-studio": {
+          slicer: true,
+          system: { receive: true },
+          user: { receive: true, share: false, shareKinds: ["filament"] },
+          sentAt: "2026-11-01T00:00:00.000Z",
+        },
+      },
+      e: {},
     });
   });
 });

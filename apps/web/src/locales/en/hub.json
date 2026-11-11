@@ -196,12 +196,12 @@
     "notFound": "not found on this machine",
     "useAsSlicer": "Use as slicer",
     "useAsSlicerOf": "Use {{name}} on this machine as a slicer for the hub",
-    "catalog": "Catalog and system presets",
+    "system": "System presets",
     "presets": "User presets",
     "receive": "Receive",
     "share": "Share",
     "receiveOf": {
-      "catalog": "Receive the {{name}} catalog and system presets from the hub",
+      "system": "Receive the {{name}} system presets, brands and printer models from the hub",
       "presets": "Receive {{name}} user presets from the hub"
     },
     "shareOf": {

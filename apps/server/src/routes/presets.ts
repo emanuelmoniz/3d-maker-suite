@@ -140,7 +140,6 @@ export const presetsRoutes =
                   send: !!s?.user.share,
                   install: !!s?.user.receive,
                   shareKinds: s?.user.shareKinds ?? [],
-                  receiveKinds: s?.user.receiveKinds ?? [],
                   sentAt: s?.sentAt ?? null,
                   held: held.filter((h) => h.device === d.id && h.library === library).length,
                   status:

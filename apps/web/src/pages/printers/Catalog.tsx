@@ -96,7 +96,7 @@ export function Section<T extends { id: string; archivedAt: string | null }>(pro
             ...props.columns,
             archiveColumn<T>(t, {
               kind: props.kind,
-              can: props.kind.endsWith("-presets") ? "presets" : "catalog",
+              can: "catalog",
               level: "manage",
               name: props.name,
             }),

@@ -3,7 +3,6 @@ import {
   defaultPolicy,
   type Integration,
   isCatalogType,
-  isPresetType,
   type SyncPolicy,
   type SyncRun,
 } from "@3d-maker-suite/core";
@@ -173,12 +172,9 @@ export function AccountBlock({
 
 type LineType = SyncPolicy["type"];
 
-/** Who edits a line: catalog lines catalog manage (ADR-0020), preset lines presets manage (ADR-0021). */
+/** Who edits a line: catalog and preset lines catalog manage (ADR-0020, ADR-0023). */
 export const useManagesLine = (type: LineType) =>
-  useCan(
-    isPresetType(type) ? "presets" : isCatalogType(type) ? "catalog" : "integrations.manage",
-    "manage",
-  );
+  useCan(isCatalogType(type) ? "catalog" : "integrations.manage", "manage");
 
 /** A machine's own switch on a line: it sends that kind or not. */
 export type SendLine = NonNullable<StateLine["on"]>;

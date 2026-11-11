@@ -198,12 +198,13 @@ test("slicer presets without hub.manage: an editor's switches, a viewer's list, 
   const machine = page
     .getByRole("region", { name: "Receive from the hub" })
     .getByRole("region", { name: "OrcaSlicer", exact: true });
-  const filament = machine.getByRole("row", { name: /Filament presets/ });
-  await expect(filament).toContainText("1 waiting for the slicer to close");
-  await expect(machine.getByRole("row", { name: /Printer presets/ })).toContainText("Up to date");
+  // One User presets line for every kind (ADR-0023); no switch without the machine's right.
+  await expect(machine.getByRole("row", { name: /User presets/ })).toContainText(
+    "1 waiting for the slicer to close",
+  );
   await expect(
-    machine.getByRole("switch", { name: "Receive Filament presets in OrcaSlicer on Desk PC" }),
-  ).toBeDisabled();
+    machine.getByRole("switch", { name: "Receive user presets in OrcaSlicer on Desk PC" }),
+  ).toHaveCount(0);
   await expect(machine.getByRole("list", { name: "Presets waiting for OrcaSlicer" })).toContainText(
     "Farm PLA",
   );

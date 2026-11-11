@@ -20,7 +20,6 @@ export const permissionsSchema = z.object({
   costs: level,
   stats: z.enum(["none", "read"]),
   catalog: level,
-  presets: level,
   "integrations.sync": z.boolean(),
   "integrations.review": z.boolean(),
   "integrations.manage": z.boolean(),
@@ -35,7 +34,6 @@ export const permissionsSchema = z.object({
   "machine.connection": z.boolean(),
   "machine.slicers": z.boolean(),
   "machine.catalog": z.boolean(),
-  "machine.presets": z.boolean(),
   "machine.projects": z.boolean(),
 });
 
@@ -72,7 +70,6 @@ const modules = (l: PermissionLevel, stats: "none" | "read") => ({
   costs: l,
   stats,
   catalog: l,
-  presets: l,
 });
 const switches = (on: boolean) => ({
   "integrations.sync": on,
@@ -88,7 +85,6 @@ const switches = (on: boolean) => ({
   "machine.connection": on,
   "machine.slicers": on,
   "machine.catalog": on,
-  "machine.presets": on,
   "machine.projects": on,
 });
 
@@ -190,7 +186,6 @@ export const MACHINE_SECTIONS = {
   connection: null,
   slicers: null,
   catalog: "catalog",
-  presets: "presets",
   projects: "projects",
 } as const satisfies Record<string, PermissionModule | null>;
 export type MachineSection = keyof typeof MACHINE_SECTIONS;
@@ -301,16 +296,16 @@ export const ALERT_KIND_CATALOG: Record<AlertKind, KindRule> = {
   hub_conflict: { needs: (p) => hasLevel(p, "projects", "read"), condition: false, default: "app" },
   hub_mass_delete: { needs: (p) => p["hub.manage"], condition: true, default: "app" },
   preset_conflict: {
-    needs: (p) => hasLevel(p, "presets", "write"),
+    needs: (p) => hasLevel(p, "catalog", "write"),
     condition: false,
     default: "app",
   },
   preset_skipped: {
-    needs: (p) => hasLevel(p, "presets", "write"),
+    needs: (p) => hasLevel(p, "catalog", "write"),
     condition: false,
     default: "app",
   },
-  preset_held: { needs: (p) => hasLevel(p, "presets", "write"), condition: true, default: "app" },
+  preset_held: { needs: (p) => hasLevel(p, "catalog", "write"), condition: true, default: "app" },
 };
 
 const subscription = z.enum(ALERT_SUBSCRIPTIONS);

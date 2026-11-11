@@ -247,13 +247,13 @@ test("hub: a machine's own user edits only the sections their switches allow", a
     email: "ana@example.com",
     password: "correct horse",
   });
-  // A viewer, with the Presets section of their own machines (and presets write it needs).
+  // A viewer, with the Catalog section of their own machines (and catalog write it needs).
   const ben = await post("/api/users", {
     displayName: "Ben Bench",
     email: "ben@example.com",
     password: "correct horse",
     roleId: "00000000-0000-4000-8000-000000000003",
-    permissions: { "machine.presets": true, presets: "write" },
+    permissions: { "machine.catalog": true, catalog: "write" },
   });
   await page.request.patch("/api/preferences", { data: { hubEnabled: true } });
   const pair = async (userId: string, name: string) => {
@@ -283,17 +283,16 @@ test("hub: a machine's own user edits only the sections their switches allow", a
   });
   await page.goto(`/hub/devices/${bens.deviceId}`);
   await expect(page.getByRole("heading", { name: "Ben PC" })).toBeVisible();
-  // Presets is theirs to change; Catalog, Projects and the actions are not.
+  // System and User presets are theirs to change (ADR-0023); Projects and the actions are not.
   const share = page.getByRole("switch", { name: "Share OrcaSlicer user presets with the hub" });
   await expect(share).not.toBeChecked();
   await share.click({ force: true });
   await expect(share).toBeChecked();
   await expect(
     page.getByRole("switch", {
-      name: "Receive the OrcaSlicer catalog and system presets from the hub",
+      name: "Receive the OrcaSlicer system presets, brands and printer models from the hub",
     }),
-  ).toHaveCount(0);
-  await expect(page.getByText("Receive: off").first()).toBeVisible();
+  ).toBeVisible();
   await expect(page.getByRole("switch", { name: "Receive from the hub" })).toHaveCount(0);
   await expect(page.getByText("Receive from the hub: on")).toBeVisible();
   await expect(page.getByRole("button", { name: "Revoke" })).toHaveCount(0);

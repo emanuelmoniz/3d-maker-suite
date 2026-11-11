@@ -120,7 +120,7 @@ export function PresetPage({ kind }: { kind: keyof typeof KINDS }) {
         title={name}
         backTo={{ to: back }}
         actions={
-          <Write can="presets" level="manage">
+          <Write can="catalog" level="manage">
             <ArchiveActions
               path={`${path}/${id}`}
               name={name}

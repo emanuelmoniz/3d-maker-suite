@@ -251,7 +251,6 @@ function Sidebar() {
   const hubShown = useHubShown();
   const importShown = useCan("integrations.manage");
   const catalogShown = useCan("catalog", "read");
-  const presetsShown = useCan("presets", "read");
   const tasks = useHasTasks();
   return (
     <aside className="sticky top-0 hidden h-dvh w-14 shrink-0 flex-col border-r border-border bg-surface md:flex lg:w-56">
@@ -274,7 +273,7 @@ function Sidebar() {
         {hubShown && <SideLink item={HUB_ITEM} />}
         {tasks && <SideLink item={INTEGRATIONS_ITEM} />}
         {catalogShown && <SideLink item={CATALOG_ITEM} />}
-        {presetsShown && <SideLink item={PRESETS_ITEM} />}
+        {catalogShown && <SideLink item={PRESETS_ITEM} />}
         {importShown && <SideLink item={IMPORT_ITEM} />}
         {logsShown && <SideLink item={LOGS_ITEM} />}
         <SideLink item={SETTINGS_ITEM} />
@@ -325,13 +324,12 @@ function BottomNav() {
   const hubShown = useHubShown();
   const importShown = useCan("integrations.manage");
   const catalogShown = useCan("catalog", "read");
-  const presetsShown = useCan("presets", "read");
   const tasks = useHasTasks();
   const more = ALL_ITEMS.filter(
     (i) =>
       !i.primary &&
       (catalogShown || i !== CATALOG_ITEM) &&
-      (presetsShown || i !== PRESETS_ITEM) &&
+      (catalogShown || i !== PRESETS_ITEM) &&
       (logsShown || i !== LOGS_ITEM) &&
       (importShown || i !== IMPORT_ITEM) &&
       (tasks || i !== INTEGRATIONS_ITEM) &&

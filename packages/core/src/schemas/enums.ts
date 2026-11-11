@@ -117,8 +117,8 @@ export const SYNC_TYPES = [
   ...USER_PRESET_TYPES,
 ] as const;
 /**
- * The types that fill the catalog (ADR-0020). Their import cards need `catalog` manage, or `presets`
- * manage for the presets (`isPresetType`, ADR-0021).
+ * The types that fill the catalog (ADR-0020), presets too (ADR-0023). Their import cards need
+ * `catalog` manage.
  */
 export const isCatalogType = (t: string) =>
   (SYNC_TYPES as readonly string[]).includes(t) && !["printers", "prints", "spools"].includes(t);

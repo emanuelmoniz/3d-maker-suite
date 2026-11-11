@@ -426,14 +426,12 @@ export const hubDeviceRoutes =
       const libraries = new Set(on.map(([lib]) => lib));
       if (!device || !libraries.size)
         throw new HttpError(403, "not_installing", "Install is off for this device");
-      // A kind's Receive line off: none of it is written or deleted there.
-      const kinds = new Map(on.map(([lib, s]) => [lib, s.user.receiveKinds]));
-      const receives = (p: { library: string; kind: SlicerPresetKind }) =>
-        kinds.get(p.library)?.includes(p.kind) ?? false;
+      // Every kind (ADR-0023).
+      const receives = (p: { library: string }) => libraries.has(p.library);
       return { ...device, libraries, receives };
     };
     const installList = (
-      device: { id: string; receives: (p: { library: string; kind: SlicerPresetKind }) => boolean },
+      device: { id: string; receives: (p: { library: string }) => boolean },
       deleted: boolean,
     ) =>
       db

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { catalogInstallSlicerSchema } from "./entities.ts";
-import { isCatalogType, isUserPresetType, type SYNC_MERGES, USER_PRESET_TYPES } from "./enums.ts";
+import { isCatalogType, type SYNC_MERGES, USER_PRESET_TYPES } from "./enums.ts";
 
 // What a slicer ships besides filament: vendors (brands), printer models with a thumbnail, and
 // machine presets. Read from its config folder; the server turns them into the catalog.
@@ -61,9 +61,6 @@ export const SLICER_CATALOG_ROW_TYPES = [
   "filamentMaterials",
 ] as const;
 export const SLICER_PRESET_TYPES = ["machinePresets", "processPresets", "filamentPresets"] as const;
-/** The catalog types that are presets (ADR-0021): their import cards need `presets` manage. */
-export const isPresetType = (t: string) =>
-  (SLICER_PRESET_TYPES as readonly string[]).includes(t) || isUserPresetType(t);
 /**
  * How a run writes a change to a row you have. "How to sync" (`merge`) is only for printers and
  * spools (ADR-0020): a preset follows its file, the four catalog types only fill empty fields.

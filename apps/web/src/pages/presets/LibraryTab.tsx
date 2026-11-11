@@ -237,7 +237,7 @@ function Switcher<T extends string>({
 export function PresetsTab() {
   const { t } = useTranslation();
   const presets = usePresets();
-  const manage = useCan("presets", "write");
+  const manage = useCan("catalog", "write");
   const integrations = useCan("integrations.manage");
   const libName = useLibraryName();
   const remove = useDeletePreset();

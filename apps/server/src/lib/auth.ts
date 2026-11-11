@@ -124,18 +124,9 @@ const RULES: [RegExp, string, Need][] = [
   // ADR-0020: the printer, spool and print forms' pickers read the catalog without `catalog`.
   [p(CATALOG), "R", either(at("printers", "read"), at("filament", "read"), at("catalog", "read"))],
   [p(CATALOG), "W", at("catalog", "manage")],
-  // ADR-0021: the same pickers read presets, and Catalog's slicer columns; the rest is `presets`.
-  [
-    p(PRESETS),
-    "R",
-    either(
-      at("printers", "read"),
-      at("filament", "read"),
-      at("catalog", "read"),
-      at("presets", "read"),
-    ),
-  ],
-  [p(PRESETS), "W", at("presets", "manage")],
+  // ADR-0021: the same pickers read presets, and Catalog's slicer columns (ADR-0023).
+  [p(PRESETS), "R", either(at("printers", "read"), at("filament", "read"), at("catalog", "read"))],
+  [p(PRESETS), "W", at("catalog", "manage")],
   [p(PRINTERS), "R", at("printers", "read")],
   // Logging work on accessories is write; their setup, and the printers', is manage.
   [/^\/api\/accessories\/[^/]+\/installs(\/|$)/, "W", at("printers", "write")],
@@ -167,12 +158,12 @@ const RULES: [RegExp, string, Need][] = [
     "POST",
     either(on("integrations.sync"), on("integrations.manage")),
   ],
-  // Catalog import cards are catalog manage, preset ones presets manage, the rest
-  // integrations.manage: narrowed by the route.
+  // Catalog import cards (presets too) are catalog manage, the rest integrations.manage: narrowed
+  // by the route.
   [
     /^\/api\/integrations\/[^/]+$/,
     "PATCH",
-    either(on("integrations.manage"), at("catalog", "manage"), at("presets", "manage")),
+    either(on("integrations.manage"), at("catalog", "manage")),
   ],
   // The setup fields are left out without integrations.manage (route).
   [p("integrations"), "R", SESSION],
@@ -197,18 +188,14 @@ const RULES: [RegExp, string, Need][] = [
   [/^\/api\/hub\/devices\/[^/]+\/projects\/[^/]+$/, "DELETE", SESSION],
   [/^\/api\/hub\/devices\/[^/]+\/slicers\/[^/]+$/, "PATCH", SESSION],
   [p("hub"), "*", on("hub.manage")],
-  // ADR-0017, ADR-0021: the machines' preset lines and their held deletes are presets write; the
+  // ADR-0017, ADR-0021: the machines' preset lines and their held deletes are catalog write; the
   // switches themselves are the machine's (`/hub/devices/:id/slicers/:library`).
-  [p("presets/devices"), "*", at("presets", "write")],
+  [p("presets/devices"), "*", at("catalog", "write")],
   // Shown in Catalog and Presets settings → Sources, read-only; and on Integrations' slicer cards,
   // where the hub's slicer is picked.
-  [
-    p("catalog/sources"),
-    "R",
-    either(at("catalog", "read"), at("presets", "read"), on("integrations.manage")),
-  ],
-  [p("presets"), "R", either(at("projects", "read"), at("presets", "read"))],
-  [p("presets"), "W", at("presets", "write")],
+  [p("catalog/sources"), "R", either(at("catalog", "read"), on("integrations.manage"))],
+  [p("presets"), "R", either(at("projects", "read"), at("catalog", "read"))],
+  [p("presets"), "W", at("catalog", "write")],
   [p("server-config|updates|docs"), "*", on("settings.server")],
   // A restored database carries anyone's rights.
   [/^\/api\/backups\/[^/]+\/restore$/, "*", ADMIN_ROLE],
