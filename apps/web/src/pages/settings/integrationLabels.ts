@@ -5,7 +5,7 @@ import type {
   SlicerInstallError,
   SlicerInstallStatus,
 } from "@3d-maker-suite/core";
-import { Cloud, Laptop, Monitor, Server } from "lucide-react";
+import { Cloud, Laptop, Server } from "lucide-react";
 
 // Literal keys so `pnpm i18n:check` sees them.
 export const KINDS: Record<IntegrationKind, string> = {
@@ -15,7 +15,7 @@ export const KINDS: Record<IntegrationKind, string> = {
   worker: "integrations:kinds.worker",
 };
 /** Where a slicer runs: the same icon on the add form and on its card. */
-export const LOCATION_ICONS = { cloud: Cloud, local: Monitor, server: Server, worker: Laptop };
+export const LOCATION_ICONS = { cloud: Cloud, local: Server, server: Server, worker: Laptop };
 export const LOCATIONS: Record<Exclude<IntegrationKind, "worker">, string> = {
   cloud: "integrations:locations.cloud",
   local: "integrations:locations.local",

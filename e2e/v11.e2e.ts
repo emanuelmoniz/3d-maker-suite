@@ -186,7 +186,7 @@ test("integrations hub groups by account and slicer and edits the per-type polic
   await gotoIntegrations(page);
   await expect(page.getByRole("heading", { name: "Demo data (mock)", level: 2 })).toBeVisible();
   await expect(page.getByRole("heading", { name: "OrcaSlicer", level: 2 })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "This computer", level: 4 })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "This server", level: 4 })).toBeVisible();
 
   // The account's print history is set on Prints settings → Sources (ADR-0021).
   let dialog = await editLine(page, "prints", "Print history");

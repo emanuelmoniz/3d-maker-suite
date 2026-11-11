@@ -10,11 +10,11 @@ Each slicer type (Bambu Studio, OrcaSlicer) has one card on the Integrations pag
 
 | Where it runs | What it uses | Set up |
 |---|---|---|
-| **This computer** (found) | The PC that runs the server, using the installed program | Set its **Slicer program** ([open-in-slicer.md](open-in-slicer.md)). OrcaSlicer needs 2.5 or newer |
-| **This server** (not found) | The server, using a copy the app downloads | **Install** on its row |
+| **This server**, installed | The PC that runs the server, using the slicer installed there | Set its **Slicer program** ([open-in-slicer.md](open-in-slicer.md)). OrcaSlicer needs 2.5 or newer |
+| **This server**, downloaded | The server, using a copy the app downloads | **Install** on its row |
 | A workstation | A workstation or NAS with the connector | The slicer's card: see [Slice on a worker](#slice-on-a-worker) |
 
-A second install on the same machine is refused (`slicer_exists`). A database from before 5.5.0 that has both this computer's and a downloaded copy keeps both working; the card warns you to delete one.
+A second install on the same machine is refused (`slicer_exists`). A database from before 5.5.0 that has both an installed and a downloaded copy on this server keeps both working; the card warns you to delete one.
 
 The slicer pickers of a plate, a project (**Print setup**) and a quote list slicer types, and every type slices on its hub's slicer. A plate slices with its own slicer type, else its project's, else the default slicer, else the first one that can slice. The default slicer is a slicer type too: **Make default slicer** on its card, shown when there is more than one. A type with no hub's slicer that can slice is skipped. With one slicer type, the plate shows its name instead of a picker.
 

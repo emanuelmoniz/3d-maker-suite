@@ -17,7 +17,7 @@
   "nameOnDevice": "{{name}} ({{device}})",
   "locations": {
     "cloud": "Account",
-    "local": "This computer",
+    "local": "This server",
     "server": "This server",
     "worker": "Workstation"
   },
@@ -53,7 +53,7 @@
     "addLocation": "Add to this server",
     "summary": "{{area}}: {{auto}} automatic, <review>{{review}} waiting for review</review>",
     "summaryOff": "{{area}}: nothing imported yet",
-    "twoInstalls": "Installed twice on this server: on this computer and as a download. Both keep working; delete one.",
+    "twoInstalls": "Installed twice on this server: the copy found installed here and a download. Both keep working; delete one.",
     "areas": {
       "catalog": "Catalog",
       "system": "System presets",

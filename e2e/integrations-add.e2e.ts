@@ -20,7 +20,7 @@ for (const width of [375, 1440])
     // One card for the slicer, with this server's install open: the only one, so the hub's slicer.
     await expect(page).toHaveURL(/\/integrations#integration-/);
     const card = page.getByRole("region", { name: "Bambu Studio" });
-    const where = found ? "This computer" : "This server";
+    const where = "This server";
     await expect(card.getByRole("heading", { name: where, level: 4 })).toBeVisible();
     const hub = card.getByRole("region", { name: "The hub's slicer" });
     await expect(hub.getByText(where, { exact: true })).toBeVisible();
