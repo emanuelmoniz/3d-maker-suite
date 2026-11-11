@@ -61,10 +61,13 @@
     },
     "catalog": {
       "source": "The hub's slicer",
+      "version": "Version {{version}}",
+      "change": "Change in Integrations",
       "picked": "Picked for you",
       "unreadable": "Folder not found",
       "fromDevice": "The machine's connector sends this slicer's system presets whenever a slicer update changes them. Until it has, the catalog stays as it is.",
-      "system": "system/ folder",
+      "item": "Catalog and system presets",
+      "receiveOn": "Receive the catalog and system presets in {{slicer}} on {{machine}}",
       "notReceived": "Not received yet",
       "noCopy": "The hub has no catalog yet",
       "mismatch": "Not sent: slicer {{here}} here, catalog from {{source}}",
@@ -94,7 +97,9 @@
       "waiting_one": "{{count}} waiting for the slicer to close",
       "waiting_other": "{{count}} waiting for the slicer to close",
       "queued_one": "{{count}} being written",
-      "queued_other": "{{count}} being written"
+      "queued_other": "{{count}} being written",
+      "user": "User presets",
+      "userOff": "Off: turn on Receive on the machine page"
     }
   },
   "loadError": "Couldn't load settings. Is the server running?",

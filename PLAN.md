@@ -2594,7 +2594,7 @@ Plan Step 11c of the 5.5.0 plan in PLAN.md.
 Plan Step 11d of the 5.5.0 plan in PLAN.md. Use frontend-design for the slicer card and the machine page.
 ```
 
-### [ ] Step 11e - Catalog and Presets: Receive from the hub
+### [x] Step 11e - Catalog and Presets: Receive from the hub
 **Model:** Opus · **Effort:** Medium
 **Scope:** Share to the hub is done (Step 11d review: only the hub's slicer shares the catalog and system presets, one table per source, cards). What's left:
 - **Share to the hub, the hub's slicer:** its version and **Change in Integrations** on its slicer heading, on both tabs.
@@ -2606,6 +2606,32 @@ Plan Step 11d of the 5.5.0 plan in PLAN.md. Use frontend-design for the slicer c
 **Prompt:**
 ```
 Do Step 11e of the 5.5.0 plan in PLAN.md.
+```
+
+### [ ] Step 11f - Receive: catalog and system presets apart  **[plan mode]**
+**Model:** Opus · **Effort:** High
+**Scope:** Step 11e review: Receive from the hub has a **Catalog** line on the Catalog tab and a **System presets** line on the Presets tab, each with its own switch (amends ADR-0022's single `system.receive`).
+- Decide first what each writes from the hub's `system/` copy (vendor brand and printer model files vs process and filament presets; what a printer preset needs to load), and what the machine page's rows become.
+- `devices.presetLibraries[lib].system` and the server's `catalogReceive` split in two, with a migration that keeps today's value on both; the connector's `catalog.install` writes only the parts switched on (an older connector: `device_outdated` when they differ).
+- Both tabs, the machine page, `docs/hub.md`, `docs/import.md`, ADR-0022.
+
+**Done when:** each line saves alone from its tab and the machine page; a machine with only one on gets only those files, after a backup; an old database keeps what it received; tests, e2e, lint and `pnpm i18n:check` pass.
+**Prompt:**
+```
+Plan Step 11f of the 5.5.0 plan in PLAN.md. Read ADR-0022 first. Back up the DB before editing schema.ts.
+```
+
+### [ ] Step 11g - This server receives user presets  **[plan mode]**
+**Model:** Opus · **Effort:** Medium
+**Scope:** Step 11e review: This server's own install (a folder on this computer, not the hub's preset source for that preset) receives the hub's user presets like a machine.
+- Its switch and kinds on the integration row (migration), the install queue shared with the connector's (only while the slicer is closed, a backup first, state kept on the row).
+- Presets → Sources → Receive from the hub → This server: the **User presets** kind lines with their switches (integrations.manage) and what waits, as a machine's.
+- `docs/hub.md`, `docs/import.md`.
+
+**Done when:** the server's desktop slicer gets the hub's user presets after it closes, with a backup, per kind; its lines save from the Presets tab; tests, e2e, lint and `pnpm i18n:check` pass.
+**Prompt:**
+```
+Plan Step 11g of the 5.5.0 plan in PLAN.md.
 ```
 
 ### [ ] Step 12 - Connector: hub page first, permissions  **[plan mode]**

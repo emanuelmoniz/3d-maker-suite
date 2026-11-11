@@ -3,16 +3,22 @@ import {
   type LibrarySources,
   SLICER_CATALOG_ROW_TYPES,
 } from "@3d-maker-suite/core";
+import { Link } from "@tanstack/react-router";
 import { Cable } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { EmptyState } from "../../components/EmptyState.tsx";
 import { useCan } from "../../lib/auth.ts";
-import { formatDate, formatDateTime } from "../../lib/format.ts";
 import { useAdapterName, useIntegrations } from "../../lib/integrations.ts";
 import { useCatalogSources } from "../../lib/presets.ts";
 import { IntegrationsLink, PolicyLines } from "./AccountSources.tsx";
 import { ChooseBrands } from "./ChooseBrands.tsx";
 import { LOCATION_ICONS } from "./integrationLabels.ts";
+import {
+  ReceiveSection,
+  type ReceiveSlicer,
+  receiversOf,
+  useSystemLine,
+} from "./ReceiveSources.tsx";
 import {
   SlicerGroup,
   SourceBadge,
@@ -59,7 +65,7 @@ function machinesOf(
 /**
  * Catalog settings → Sources: per library, only its hub's slicer (ADR-0022, picked in
  * Integrations), the one install that shares the catalog: this server's or one machine's, with its
- * four lines and Choose brands. Then the machines that receive its `system/`.
+ * four lines and Choose brands. Then every other install that can receive its `system/`.
  */
 export function CatalogSources() {
   const { t } = useTranslation();
@@ -73,8 +79,8 @@ export function CatalogSources() {
     return i ? [{ lib, i }] : [];
   });
   const sharing = machinesOf(libraries, (lib, m) => isSource(lib, { deviceId: m.deviceId }));
-  const receiving = machinesOf(libraries, (_, m) => m.receive);
-  if (!server.length && !sharing.length && !receiving.length)
+  const receivers = receiversOf(libraries, list);
+  if (!server.length && !sharing.length && !receivers.length)
     return (
       <EmptyState
         icon={Cable}
@@ -116,17 +122,10 @@ export function CatalogSources() {
           </MachineBlock>
         ))}
       </SourcesSection>
-      {receiving.length > 0 && (
-        <SourcesSection direction="receive">
-          {receiving.map((m) => (
-            <MachineBlock key={m.id} id={m.id} name={m.name} receive>
-              {m.libraries.map((lib) => (
-                <ReceiveSystem key={lib.library} lib={lib} machineId={m.id} machine={m.name} />
-              ))}
-            </MachineBlock>
-          ))}
-        </SourcesSection>
-      )}
+      <ReceiveSection
+        receivers={receivers}
+        slicer={(sl, r) => <ReceiveCatalog key={sl.lib.library} slicer={sl} receiver={r.name} />}
+      />
     </>
   );
 }
@@ -176,6 +175,7 @@ function CatalogSlicer({
   const { t } = useTranslation();
   const adapterName = useAdapterName();
   const manage = useCan("catalog", "manage");
+  const meta = useHubSlicerMeta();
   const name = adapterName(lib.library);
   const cards = lib.cardsOf ? list.find((i) => i.id === lib.cardsOf) : undefined;
   const unreadable =
@@ -183,18 +183,13 @@ function CatalogSlicer({
     lib.options.some(
       (o) => "integrationId" in o && o.integrationId === pick.integrationId && !o.readable,
     );
-  const meta = [
-    unreadable ? t("settings:sources.catalog.unreadable") : null,
-    !lib.source?.picked ? t("settings:sources.catalog.picked") : null,
-  ]
-    .filter(Boolean)
-    .join(" · ");
   return (
     <SlicerGroup
       id={id ?? ("deviceId" in pick ? `machine-${pick.deviceId}-${lib.library}` : undefined)}
       name={name}
       badge={<SourceBadge>{t("settings:sources.catalog.source")}</SourceBadge>}
-      meta={meta || undefined}
+      meta={meta(lib, unreadable)}
+      action={<ChangeHubSlicer library={lib.library} />}
     >
       {"deviceId" in pick && (
         <p className="max-w-prose text-muted">{t("settings:sources.catalog.fromDevice")}</p>
@@ -217,59 +212,50 @@ function CatalogSlicer({
 export const serverRowsCount = (lib: LibrarySources, list: Integration[]) =>
   serverRows(lib, list).length;
 
-/**
- * A machine's `system/` folder line (Receive catalog, ADR-0021): the hub's copy of the catalog
- * source's, written while the slicer is closed, after a backup.
- */
-function ReceiveSystem({
-  lib,
-  machineId,
-  machine,
-}: {
-  lib: LibrarySources;
-  machineId: string;
-  machine: string;
-}) {
+/** The hub's slicer heading's facts: its version, a folder not found, picked for you. */
+export function useHubSlicerMeta() {
   const { t } = useTranslation();
-  const name = useAdapterName()(lib.library);
-  const m = lib.machines.find((x) => x.deviceId === machineId);
-  const s = m?.install;
-  const state = (): { state: string; tone?: "warn" } => {
-    if (m?.mismatch)
-      return { state: t("settings:sources.catalog.mismatch", m.mismatch), tone: "warn" };
-    if (!s) return { state: t("settings:sources.catalog.notReceived") };
-    if (!s.hub) return { state: t("settings:sources.catalog.noCopy") };
-    if (s.error)
-      return { state: t("settings:sources.catalog.failed", { error: s.error }), tone: "warn" };
-    if (s.waiting) return { state: t("settings:sources.catalog.waiting"), tone: "warn" };
-    if (s.fingerprint !== s.hub) return { state: t("settings:sources.catalog.writing") };
-    return {
-      state: s.backup
-        ? t("settings:sources.catalog.received", {
-            when: formatDate(s.backup.at),
-            fingerprint: s.fingerprint,
-          })
-        : t("settings:sources.catalog.upToDate", { fingerprint: s.fingerprint }),
-    };
-  };
+  return (lib: LibrarySources, unreadable = false) =>
+    [
+      lib.version ? t("settings:sources.catalog.version", { version: lib.version }) : null,
+      unreadable ? t("settings:sources.catalog.unreadable") : null,
+      !lib.source?.picked ? t("settings:sources.catalog.picked") : null,
+    ]
+      .filter(Boolean)
+      .join(" · ") || undefined;
+}
+
+/** "Change in Integrations" on the hub's slicer heading: it is picked there (ADR-0022). */
+export function ChangeHubSlicer({ library }: { library: string }) {
+  const { t } = useTranslation();
+  if (!useCan("integrations.manage")) return null;
   return (
-    <SlicerGroup name={name}>
+    <Link
+      to="/integrations"
+      hash={`library-${library}`}
+      className="text-sm font-medium text-accent hover:underline"
+    >
+      {t("settings:sources.catalog.change")}
+    </Link>
+  );
+}
+
+/** A receiver's slicer on the Catalog tab: its Catalog and system presets line. */
+function ReceiveCatalog({ slicer, receiver }: { slicer: ReceiveSlicer; receiver: string }) {
+  const { t } = useTranslation();
+  const name = useAdapterName()(slicer.lib.library);
+  const { row, after } = useSystemLine(slicer);
+  const id = slicer.machine?.deviceId ?? "server";
+  return (
+    <SlicerGroup id={`receive-${id}-${slicer.lib.library}`} name={name}>
       <StateLines
-        label={t("settings:sources.presets.linesOf", { slicer: name, machine })}
-        rows={[{ key: "system", item: t("settings:sources.catalog.system"), ...state() }]}
+        label={t("settings:sources.presets.linesOf", {
+          slicer: name,
+          machine: receiver || t("settings:sources.server"),
+        })}
+        rows={[row]}
       />
-      {s && (
-        <details className="text-muted text-sm">
-          <summary className="w-fit cursor-pointer rounded-sm focus-visible:outline-2 focus-visible:outline-accent">
-            {t("settings:sources.catalog.backup")}
-          </summary>
-          <p className="wrap-anywhere">
-            {s.backup
-              ? t("hub:presets.backup", { when: formatDateTime(s.backup.at), path: s.backup.path })
-              : t("hub:presets.noBackup")}
-          </p>
-        </details>
-      )}
+      {after}
     </SlicerGroup>
   );
 }

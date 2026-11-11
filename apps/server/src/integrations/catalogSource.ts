@@ -13,6 +13,7 @@ import { type Db, schema } from "@3d-maker-suite/db";
 import { asc, eq, like } from "drizzle-orm";
 import { HttpError } from "../errors.ts";
 import { readPreferences } from "../lib/preferences.ts";
+import { VERSION } from "../updates/updates.ts";
 import {
   activeCapabilities,
   deviceLibraries,
@@ -107,7 +108,11 @@ export function catalogMismatch(
  * Catalog → Sources, one entry per library: the accounts whose user presets go there, its hub's
  * slicer and what else could be, and the machines that offer it or receive its catalog.
  */
-export function librarySources(db: Db, adapters: IntegrationAdapter[]): LibrarySources[] {
+export function librarySources(
+  db: Db,
+  adapters: IntegrationAdapter[],
+  online: (deviceId: string) => boolean = () => false,
+): LibrarySources[] {
   const all = db.select().from(integrations).orderBy(asc(integrations.createdAt)).all();
   const libraryOf = (row: Row) => {
     const a = adapters.find((x) => x.id === row.adapterId);
@@ -139,6 +144,7 @@ export function librarySources(db: Db, adapters: IntegrationAdapter[]): LibraryS
         .filter((r) => r.enabled && libraryOf(r) === library && allows(r.config, "userPresets"))
         .map((r) => ({ integrationId: r.id, presets: counts.get(r.id) ?? 0 })),
       source,
+      version: source ? sourceVersion(db, adapters, library) : null,
       options: slicerOptions(db, adapters, library).flatMap((o): LibrarySources["options"] => {
         if (o.adapter.kind !== "worker")
           return [{ integrationId: o.row.id, readable: feeds(db, adapters, o) }];
@@ -148,9 +154,9 @@ export function librarySources(db: Db, adapters: IntegrationAdapter[]): LibraryS
       machines: machines
         .filter(
           (d) =>
-            d.presetLibraries[library]?.slicer ||
+            !!d.presetLibraries[library] ||
             isSource(d.id) ||
-            d.presetLibraries[library]?.system.receive,
+            deviceLibraries(adapters, d.slicers).includes(library),
         )
         .map((d) => {
           // The hub's slicer can't receive (ADR-0022): its own folder is the catalog.
@@ -158,6 +164,9 @@ export function librarySources(db: Db, adapters: IntegrationAdapter[]): LibraryS
           return {
             deviceId: d.id,
             name: d.name,
+            userId: d.userId,
+            online: online(d.id),
+            outdated: !!d.connectorVersion && d.connectorVersion !== VERSION,
             slicer: !!d.presetLibraries[library]?.slicer,
             receive,
             install: (receive && d.catalogInstall?.find((s) => s.library === library)) || null,

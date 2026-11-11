@@ -186,6 +186,9 @@ it("a worker-only hub gets its catalog from the hub's slicer's machine; another 
     {
       deviceId: ws1.deviceId,
       name: "WS-1",
+      userId: expect.any(String),
+      online: true,
+      outdated: false,
       slicer: true,
       receive: false,
       install: null,
@@ -194,6 +197,9 @@ it("a worker-only hub gets its catalog from the hub's slicer's machine; another 
     {
       deviceId: ws2.deviceId,
       name: "WS-2",
+      userId: expect.any(String),
+      online: true,
+      outdated: false,
       slicer: true,
       receive: false,
       install: null,
@@ -299,7 +305,8 @@ it("a machine with Receive catalog gets the hub's copy; the source can't receive
   const off = await two.next("catalog.install");
   expect(off.libraries).toEqual({});
   await two.answer(off.requestId, { ok: true, result: null });
-  expect(await machine()).toBeUndefined();
+  // Still listed: a machine with the slicer can receive (Receive from the hub lists it).
+  expect(await machine()).toMatchObject({ receive: false, install: null });
 
   // A connector too old for it refuses, and the switch stays off.
   const refused = receive(ws2.deviceId, true);

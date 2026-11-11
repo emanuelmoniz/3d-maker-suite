@@ -110,6 +110,8 @@ export const librarySourcesSchema = z.object({
    * default. Null = no install.
    */
   source: z.intersection(catalogSourcePickSchema, z.object({ picked: z.boolean() })).nullable(),
+  /** The hub's slicer's version; null = unknown, or none. */
+  version: z.string().nullable(),
   /**
    * What can be the hub's slicer: a server folder or managed slicer (`readable`: its folder is
    * there), a machine that offers it (Use as slicer) with an install row.
@@ -120,11 +122,16 @@ export const librarySourcesSchema = z.object({
       z.object({ deviceId: z.uuid(), name: z.string() }),
     ]),
   ),
-  /** Machines that offer it (Use as slicer), are its hub's slicer, or receive its catalog. */
+  /** Machines with the slicer, or with switches for it (Receive from the hub lists them). */
   machines: z.array(
     z.object({
       deviceId: z.uuid(),
       name: z.string(),
+      /** Its user: the one who may edit its switches with `machine.catalog` (ADR-0021). */
+      userId: z.uuid(),
+      online: z.boolean(),
+      /** Its connector is older than the hub. */
+      outdated: z.boolean(),
       slicer: z.boolean(),
       receive: z.boolean(),
       /** What it last reported of Receive catalog; null = off, or it hasn't yet. */

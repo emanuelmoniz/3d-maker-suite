@@ -13,7 +13,6 @@ import { Cable, FileArchive } from "lucide-react";
 import { useId } from "react";
 import { useTranslation } from "react-i18next";
 import { EmptyState } from "../../components/EmptyState.tsx";
-import { ApiError } from "../../lib/api.ts";
 import { useCan, useMe, useRights } from "../../lib/auth.ts";
 import { formatDateTime } from "../../lib/format.ts";
 import { useDeviceActions } from "../../lib/hub.ts";
@@ -28,9 +27,24 @@ import {
   type SendLine,
   useAccountTitle,
 } from "./AccountSources.tsx";
-import { isSource, MachineBlock, serverRows, serverRowsCount } from "./CatalogSources.tsx";
+import {
+  ChangeHubSlicer,
+  isSource,
+  MachineBlock,
+  serverRows,
+  serverRowsCount,
+  useHubSlicerMeta,
+} from "./CatalogSources.tsx";
 import { LOCATION_ICONS } from "./integrationLabels.ts";
 import { PresetsFromZip } from "./ManagedSlicer.tsx";
+import {
+  DeviceState,
+  ReceiveSection,
+  type ReceiveSlicer,
+  receiversOf,
+  SwitchError,
+  useSystemLine,
+} from "./ReceiveSources.tsx";
 import {
   SlicerGroup,
   SourceBadge,
@@ -61,7 +75,8 @@ type Library = PresetDevice["libraries"][number];
  * Presets settings → Sources (ADR-0021 wireframe 5). Share to the hub: the server's slicer (its
  * system lines while it is the catalog source, and its user lines), accounts that allow user
  * presets, machines with Presets Share per slicer and kind, and the zip. Receive from the hub:
- * machines with Presets Receive, per slicer and kind, with what waits there.
+ * every install but the hub's slicer, its Catalog and system presets line and per kind its user
+ * presets, with what waits there.
  */
 export function PresetSources() {
   const { t } = useTranslation();
@@ -104,9 +119,9 @@ export function PresetSources() {
     return l.send || (!!lib && isSource(lib, { deviceId: d.id }));
   };
   const sharing = devices.filter((d) => d.libraries.some((l) => shares(d, l)));
-  const receiving = devices.filter((d) => d.libraries.some((l) => l.install));
+  const receivers = receiversOf(libraries, list);
   const zipLibs = admin ? zips : [];
-  if (!server.length && !accounts.length && !sharing.length && !receiving.length && !zipLibs.length)
+  if (!server.length && !accounts.length && !sharing.length && !receivers.length && !zipLibs.length)
     return (
       <EmptyState
         icon={Cable}
@@ -156,21 +171,32 @@ export function PresetSources() {
         ))}
         {zipLibs.length > 0 && <ZipBlock libraries={zipLibs} list={list} sources={libraries} />}
       </SourcesSection>
-      {receiving.length > 0 && (
-        <SourcesSection direction="receive">
-          {receiving.map((d) => (
-            <MachineBlock key={d.id} id={d.id} name={d.name} receive>
-              <DeviceState device={d} />
-              {d.libraries
-                .filter((l) => l.install)
-                .map((l) => (
-                  <ReceiveSlicer key={l.library} device={d} library={l} />
-                ))}
-            </MachineBlock>
-          ))}
-        </SourcesSection>
-      )}
+      <ReceiveSection
+        receivers={receivers}
+        slicer={(sl, r) => {
+          const d = devices.find((x) => x.id === sl.machine?.deviceId);
+          return (
+            <ReceivePresets
+              key={sl.lib.library}
+              slicer={sl}
+              receiver={r.name}
+              device={d}
+              library={d?.libraries.find((l) => l.library === sl.lib.library)}
+            />
+          );
+        }}
+      />
     </>
+  );
+}
+
+/** The hub's slicer heading's links: Change in Integrations, Choose brands. */
+function HubSlicerLinks({ library }: { library: string }) {
+  return (
+    <span className="flex flex-wrap gap-x-4 gap-y-1">
+      <ChangeHubSlicer library={library} />
+      <ChooseBrandsLink />
+    </span>
   );
 }
 
@@ -200,6 +226,7 @@ function ServerSlicer({
   const { t } = useTranslation();
   const name = useAdapterName()(lib.library);
   const locationLabel = useLocationLabel();
+  const hubMeta = useHubSlicerMeta();
   const source = isSource(lib, { integrationId: i.id });
   const routed = lib.routes.some((r) => r.integrationId === i.id);
   if (!source && !routed) return null;
@@ -208,8 +235,12 @@ function ServerSlicer({
       id={`server-${lib.library}`}
       name={name}
       badge={source && <SourceBadge>{t("settings:sources.catalog.source")}</SourceBadge>}
-      meta={serverRowsCount(lib, list) > 1 ? locationLabel(i) : undefined}
-      action={source && <ChooseBrandsLink />}
+      meta={
+        [serverRowsCount(lib, list) > 1 ? locationLabel(i) : null, source ? hubMeta(lib) : null]
+          .filter(Boolean)
+          .join(" · ") || undefined
+      }
+      action={source && <HubSlicerLinks library={lib.library} />}
     >
       <PolicyLines
         integration={i}
@@ -245,32 +276,25 @@ function AccountPresets({
   );
 }
 
-/** A machine's state that holds for every line: offline, connector too old. */
-function DeviceState({ device: d }: { device: PresetDevice }) {
-  const { t } = useTranslation();
-  if (d.online && !d.outdated) return null;
-  return (
-    <p className={d.outdated ? "text-warn" : "text-muted"}>
-      {d.outdated ? t("hub:presets.deviceOutdated") : t("hub:presets.deviceOffline")}
-    </p>
-  );
-}
-
 /** Whether the viewer may turn a machine's preset lines on and off (ADR-0021's `machine.presets`). */
-function useMayEdit(d: PresetDevice) {
+function useMayEdit(d: PresetDevice | undefined) {
   const rights = useRights();
   const me = useMe();
-  return !!rights && mayEditMachine(rights, me?.id, d, "presets");
+  return !!d && !!rights && mayEditMachine(rights, me?.id, d, "presets");
 }
 
 /** A kind line's switch: it writes `shareKinds` / `receiveKinds`; the hub filters (ADR-0021). */
-function useKindSwitch(d: PresetDevice, l: Library, side: "shareKinds" | "receiveKinds") {
+function useKindSwitch(
+  d: PresetDevice | undefined,
+  l: Library | undefined,
+  side: "shareKinds" | "receiveKinds",
+) {
   const { t } = useTranslation();
   const actions = useDeviceActions();
   const may = useMayEdit(d);
-  const slicer = useAdapterName()(l.library);
+  const slicer = useAdapterName()(l?.library ?? "");
   return (kind: SlicerPresetKind): NonNullable<StateLine["on"]> => ({
-    checked: l[side].includes(kind),
+    checked: !!l?.[side].includes(kind),
     label: t(
       side === "shareKinds"
         ? "settings:sources.presets.shareOn"
@@ -278,11 +302,13 @@ function useKindSwitch(d: PresetDevice, l: Library, side: "shareKinds" | "receiv
       {
         type: t(KINDS[kind]),
         slicer,
-        machine: d.name,
+        machine: d?.name,
       },
     ),
-    disabled: !may || !l.reported || actions.library.isPending,
+    disabled: !d || !l || !may || !l.reported || actions.library.isPending,
     set: (on) =>
+      l &&
+      d &&
       actions.library.mutate({
         id: d.id,
         library: l.library,
@@ -291,19 +317,6 @@ function useKindSwitch(d: PresetDevice, l: Library, side: "shareKinds" | "receiv
         },
       }),
   });
-}
-
-/** The error of a kind switch, once per slicer. */
-function SwitchError({ error }: { error: Error | null }) {
-  const { t } = useTranslation();
-  if (!error) return null;
-  return (
-    <p role="alert" className="text-bad">
-      {error instanceof ApiError && error.code === "device_outdated"
-        ? t("settings:sources.presets.outdated")
-        : t("hub:errors.generic")}
-    </p>
-  );
 }
 
 /**
@@ -328,6 +341,7 @@ function ShareSlicer({
   const name = useAdapterName()(l.library);
   const actions = useDeviceActions();
   const kind = useKindSwitch(d, l, "shareKinds");
+  const hubMeta = useHubSlicerMeta();
   const source = !!lib && isSource(lib, { deviceId: d.id });
   const cards = source && lib?.cardsOf ? list.find((i) => i.id === lib.cardsOf) : undefined;
   // Its user lines import what it sends: its own install's row, else the slicer's other route.
@@ -360,13 +374,18 @@ function ShareSlicer({
       name={name}
       badge={source && <SourceBadge>{t("settings:sources.catalog.source")}</SourceBadge>}
       meta={
-        l.send
-          ? l.sentAt
-            ? t("settings:sources.presets.sentAt", { when: formatDateTime(l.sentAt) })
-            : t("settings:sources.presets.neverSent")
-          : undefined
+        [
+          source && lib ? hubMeta(lib) : null,
+          l.send
+            ? l.sentAt
+              ? t("settings:sources.presets.sentAt", { when: formatDateTime(l.sentAt) })
+              : t("settings:sources.presets.neverSent")
+            : null,
+        ]
+          .filter(Boolean)
+          .join(" · ") || undefined
       }
-      action={source && <ChooseBrandsLink />}
+      action={source && lib && <HubSlicerLinks library={lib.library} />}
     >
       {!l.reported && (
         <p className="text-muted">{t("settings:sources.presets.notReported", { slicer: name })}</p>
@@ -401,17 +420,32 @@ function ShareSlicer({
   );
 }
 
-/** One slicer of a receiving machine: a line per kind with what waits, then its folder and backup. */
-function ReceiveSlicer({ device: d, library: l }: { device: PresetDevice; library: Library }) {
+/**
+ * One slicer of a receiver, in one table: its Catalog and system presets line, then a machine's
+ * user presets per kind with what waits (while User presets Receive is on), then folder and backup.
+ */
+function ReceivePresets({
+  slicer,
+  receiver,
+  device: d,
+  library: l,
+}: {
+  slicer: ReceiveSlicer;
+  receiver: string;
+  /** Its machine's preset switches; none = this server, or no `presets` write. */
+  device: PresetDevice | undefined;
+  library: Library | undefined;
+}) {
   const { t } = useTranslation();
-  const name = useAdapterName()(l.library);
+  const name = useAdapterName()(slicer.lib.library);
   const actions = useDeviceActions();
   const kind = useKindSwitch(d, l, "receiveKinds");
-  const s = l.status;
+  const system = useSystemLine(slicer);
+  const s = l?.status;
   // ponytail: per kind from the first 100 queued (`queue`); past that, the total says the rest.
   const queued = (k: SlicerPresetKind) => s?.queue.filter((q) => q.kind === k).length ?? 0;
   const state = (k: SlicerPresetKind) => {
-    if (!l.receiveKinds.includes(k)) return { text: t("integrations:policies.modes.off") };
+    if (!l?.receiveKinds.includes(k)) return { text: t("integrations:policies.modes.off") };
     if (!s) return { text: t("settings:sources.presets.noReport") };
     const count = queued(k);
     if (!count) return { text: t("settings:sources.presets.upToDate") };
@@ -423,19 +457,38 @@ function ReceiveSlicer({ device: d, library: l }: { device: PresetDevice; librar
     };
   };
   const queueId = useId();
+  const user: StateLine[] = !l
+    ? []
+    : l.install
+      ? SLICER_PRESET_KINDS.map((k) => {
+          const { text, tone } = state(k);
+          return { key: k, item: t(KINDS[k]), on: kind(k), state: text, tone };
+        })
+      : // Receive is turned on on the machine page; its kinds show once it is.
+        [
+          {
+            key: "user",
+            item: t("settings:sources.presets.user"),
+            state: t("settings:sources.presets.userOff"),
+          },
+        ];
   return (
-    <SlicerGroup id={`receive-${d.id}-${l.library}`} name={name}>
-      {!l.reported && (
+    <SlicerGroup
+      id={`receive-${slicer.machine?.deviceId ?? "server"}-${slicer.lib.library}`}
+      name={name}
+    >
+      {l && !l.reported && (
         <p className="text-muted">{t("settings:sources.presets.notReported", { slicer: name })}</p>
       )}
       <StateLines
-        label={t("settings:sources.presets.linesOf", { slicer: name, machine: d.name })}
-        rows={SLICER_PRESET_KINDS.map((k) => {
-          const { text, tone } = state(k);
-          return { key: k, item: t(KINDS[k]), on: kind(k), state: text, tone };
+        label={t("settings:sources.presets.linesOf", {
+          slicer: name,
+          machine: receiver || t("settings:sources.server"),
         })}
+        rows={[system.row, ...user]}
       />
-      <SwitchError error={actions.library.error} />
+      {system.after}
+      {l && <SwitchError error={actions.library.error} />}
       {s && (
         <div className="grid gap-0.5 text-sm">
           {s.queue.length > 0 && (

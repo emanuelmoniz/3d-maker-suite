@@ -101,6 +101,36 @@ for (const width of [375, 1440])
     await expect(share2.getByText("The hub's slicer", { exact: true })).toBeVisible();
     await expect(share2.getByText("Picked for you")).toHaveCount(0);
     await expect(share1).toHaveCount(0);
+    // Its heading: the version, and where it is changed.
+    await expect(share2.getByText("Version 1", { exact: true })).toBeVisible();
+    await expect(share2.getByRole("link", { name: "Change in Integrations" })).toHaveAttribute(
+      "href",
+      "/integrations#library-bambu-studio",
+    );
+
+    // Receive from the hub: every machine with the slicer but the hub's slicer, from either tab.
+    await expect(block(page, "Receive from the hub", "WS-2")).toHaveCount(0);
+    const catalogLine = "Receive the catalog and system presets in Bambu Studio on WS-1";
+    const receive1 = block(page, "Receive from the hub", "WS-1");
+    const system = receive1.getByRole("switch", { name: catalogLine });
+    await expect(system).not.toBeChecked();
+    await expect(receive1.getByText("Offline", { exact: true })).toBeVisible();
+    await system.dispatchEvent("click");
+    await expect(system).toBeChecked();
+    const sources = await (await page.request.get("/api/catalog/sources")).json();
+    expect(
+      sources
+        .find((l: { library: string }) => l.library === "bambu-studio")
+        .machines.find((m: { name: string }) => m.name === "WS-1"),
+    ).toMatchObject({ receive: true });
+    await page.goto("/presets/settings/sources");
+    await openSources(page);
+    const onPresets = block(page, "Receive from the hub", "WS-1").getByRole("switch", {
+      name: catalogLine,
+    });
+    await expect(onPresets).toBeChecked();
+    await onPresets.dispatchEvent("click");
+    await expect(onPresets).not.toBeChecked();
 
     // WS-1 shares Bambu Studio's filament presets and nothing else; OrcaSlicer stays off.
     await set("WS-1", "bambu-studio", { user: { share: true } });
