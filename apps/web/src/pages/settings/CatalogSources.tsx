@@ -175,7 +175,6 @@ function CatalogSlicer({
   const { t } = useTranslation();
   const adapterName = useAdapterName();
   const manage = useCan("catalog", "manage");
-  const meta = useHubSlicerMeta();
   const name = adapterName(lib.library);
   const cards = lib.cardsOf ? list.find((i) => i.id === lib.cardsOf) : undefined;
   const unreadable =
@@ -188,7 +187,7 @@ function CatalogSlicer({
       id={id ?? ("deviceId" in pick ? `machine-${pick.deviceId}-${lib.library}` : undefined)}
       name={name}
       badge={<SourceBadge>{t("settings:sources.catalog.source")}</SourceBadge>}
-      meta={meta(lib, unreadable)}
+      meta={unreadable ? t("settings:sources.catalog.unreadable") : undefined}
       action={<ChangeHubSlicer library={lib.library} />}
     >
       {"deviceId" in pick && (
@@ -211,19 +210,6 @@ function CatalogSlicer({
 
 export const serverRowsCount = (lib: LibrarySources, list: Integration[]) =>
   serverRows(lib, list).length;
-
-/** The hub's slicer heading's facts: its version, a folder not found, picked for you. */
-export function useHubSlicerMeta() {
-  const { t } = useTranslation();
-  return (lib: LibrarySources, unreadable = false) =>
-    [
-      lib.version ? t("settings:sources.catalog.version", { version: lib.version }) : null,
-      unreadable ? t("settings:sources.catalog.unreadable") : null,
-      !lib.source?.picked ? t("settings:sources.catalog.picked") : null,
-    ]
-      .filter(Boolean)
-      .join(" · ") || undefined;
-}
 
 /** "Change in Integrations" on the hub's slicer heading: it is picked there (ADR-0022). */
 export function ChangeHubSlicer({ library }: { library: string }) {

@@ -45,9 +45,8 @@ test("catalog row: pick brands, only those arrive, then only what you have", asy
   await expect(page.getByText("When active, this integration can be used")).toBeVisible();
   await expect(page.getByRole("button", { name: "Choose brands" })).toHaveCount(0);
 
-  // The summary line leads to the slicer's lines on Catalog settings → Sources.
-  await page.getByRole("link", { name: /^Catalog: / }).click();
-  await expect(page).toHaveURL(/\/catalog\/settings\/sources#server-orca-slicer$/);
+  // The slicer's lines are on Catalog settings → Sources; a link into its card opens it.
+  await page.goto("/catalog/settings/sources#server-orca-slicer");
   const lines = page.getByRole("table", { name: "What OrcaSlicer syncs" });
   for (const name of ["Printer brands", "Printer models", "Filament brands", "Filament materials"])
     await expect(lines.getByText(name, { exact: true })).toBeVisible();

@@ -110,8 +110,6 @@ export const librarySourcesSchema = z.object({
    * default. Null = no install.
    */
   source: z.intersection(catalogSourcePickSchema, z.object({ picked: z.boolean() })).nullable(),
-  /** The hub's slicer's version; null = unknown, or none. */
-  version: z.string().nullable(),
   /**
    * What can be the hub's slicer: a server folder or managed slicer (`readable`: its folder is
    * there), a machine that offers it (Use as slicer) with an install row.

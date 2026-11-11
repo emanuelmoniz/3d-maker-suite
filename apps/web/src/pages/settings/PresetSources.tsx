@@ -33,7 +33,6 @@ import {
   MachineBlock,
   serverRows,
   serverRowsCount,
-  useHubSlicerMeta,
 } from "./CatalogSources.tsx";
 import { LOCATION_ICONS } from "./integrationLabels.ts";
 import { PresetsFromZip } from "./ManagedSlicer.tsx";
@@ -226,7 +225,6 @@ function ServerSlicer({
   const { t } = useTranslation();
   const name = useAdapterName()(lib.library);
   const locationLabel = useLocationLabel();
-  const hubMeta = useHubSlicerMeta();
   const source = isSource(lib, { integrationId: i.id });
   const routed = lib.routes.some((r) => r.integrationId === i.id);
   if (!source && !routed) return null;
@@ -235,11 +233,7 @@ function ServerSlicer({
       id={`server-${lib.library}`}
       name={name}
       badge={source && <SourceBadge>{t("settings:sources.catalog.source")}</SourceBadge>}
-      meta={
-        [serverRowsCount(lib, list) > 1 ? locationLabel(i) : null, source ? hubMeta(lib) : null]
-          .filter(Boolean)
-          .join(" · ") || undefined
-      }
+      meta={serverRowsCount(lib, list) > 1 ? locationLabel(i) : undefined}
       action={source && <HubSlicerLinks library={lib.library} />}
     >
       <PolicyLines
@@ -341,7 +335,6 @@ function ShareSlicer({
   const name = useAdapterName()(l.library);
   const actions = useDeviceActions();
   const kind = useKindSwitch(d, l, "shareKinds");
-  const hubMeta = useHubSlicerMeta();
   const source = !!lib && isSource(lib, { deviceId: d.id });
   const cards = source && lib?.cardsOf ? list.find((i) => i.id === lib.cardsOf) : undefined;
   // Its user lines import what it sends: its own install's row, else the slicer's other route.
@@ -373,18 +366,6 @@ function ShareSlicer({
       id={`machine-${d.id}-${l.library}`}
       name={name}
       badge={source && <SourceBadge>{t("settings:sources.catalog.source")}</SourceBadge>}
-      meta={
-        [
-          source && lib ? hubMeta(lib) : null,
-          l.send
-            ? l.sentAt
-              ? t("settings:sources.presets.sentAt", { when: formatDateTime(l.sentAt) })
-              : t("settings:sources.presets.neverSent")
-            : null,
-        ]
-          .filter(Boolean)
-          .join(" · ") || undefined
-      }
       action={source && lib && <HubSlicerLinks library={lib.library} />}
     >
       {!l.reported && (

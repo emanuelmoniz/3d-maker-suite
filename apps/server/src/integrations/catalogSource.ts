@@ -144,7 +144,6 @@ export function librarySources(
         .filter((r) => r.enabled && libraryOf(r) === library && allows(r.config, "userPresets"))
         .map((r) => ({ integrationId: r.id, presets: counts.get(r.id) ?? 0 })),
       source,
-      version: source ? sourceVersion(db, adapters, library) : null,
       options: slicerOptions(db, adapters, library).flatMap((o): LibrarySources["options"] => {
         if (o.adapter.kind !== "worker")
           return [{ integrationId: o.row.id, readable: feeds(db, adapters, o) }];

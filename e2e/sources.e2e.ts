@@ -86,7 +86,6 @@ for (const width of [375, 1440])
     await page.reload();
     await openSources(page);
     await expect(share1.getByText("The hub's slicer", { exact: true })).toBeVisible();
-    await expect(share1.getByText("Picked for you")).toBeVisible();
     // Only the hub's slicer shares the catalog: another machine with it isn't listed.
     await expect(share2).toHaveCount(0);
     expect(
@@ -99,10 +98,8 @@ for (const width of [375, 1440])
     await page.reload();
     await openSources(page);
     await expect(share2.getByText("The hub's slicer", { exact: true })).toBeVisible();
-    await expect(share2.getByText("Picked for you")).toHaveCount(0);
     await expect(share1).toHaveCount(0);
-    // Its heading: the version, and where it is changed.
-    await expect(share2.getByText("Version 1", { exact: true })).toBeVisible();
+    // Its heading says where it is changed.
     await expect(share2.getByRole("link", { name: "Change in Integrations" })).toHaveAttribute(
       "href",
       "/integrations#library-bambu-studio",

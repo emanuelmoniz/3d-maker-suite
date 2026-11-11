@@ -8,7 +8,6 @@ import {
   type Integration,
   type IntegrationInput,
   type IntegrationPatch,
-  isCatalogType,
   type LoginRequest,
   type LoginResult,
   pickSlicer,
@@ -75,21 +74,6 @@ export function useLocationLabel() {
       ? (i.deviceName ?? t("integrations:locations.worker"))
       : t(LOCATIONS[i.kind]);
 }
-
-/**
- * A card's catalog import cards (on Catalog and Presets settings → Sources): automatic, and waiting
- * for review; `types`: only those.
- */
-export const catalogSummary = (rows: Integration[], types?: readonly string[]) => {
-  const cards = rows.flatMap((i) =>
-    i.policies.filter((p) => (types ? types.includes(p.type) : isCatalogType(p.type))),
-  );
-  return {
-    cards: cards.length,
-    auto: cards.filter((p) => p.mode === "auto").length,
-    review: cards.filter((p) => p.pending > 0).length,
-  };
-};
 
 /** The data types an account feeds on their own Sources tab (ADR-0021). */
 const ACCOUNT_TYPES = ["printers", "prints", "spools"] as const;

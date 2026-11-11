@@ -51,14 +51,7 @@
     "menu": "More actions for {{name}}",
     "log": "Sync log",
     "addLocation": "Add to this server",
-    "summary": "{{area}}: {{auto}} automatic, <review>{{review}} waiting for review</review>",
-    "summaryOff": "{{area}}: nothing imported yet",
-    "twoInstalls": "Installed twice on this server: the copy found installed here and a download. Both keep working; delete one.",
-    "areas": {
-      "catalog": "Catalog",
-      "system": "System presets",
-      "user": "User presets"
-    }
+    "twoInstalls": "Installed twice on this server: the copy found installed here and a download. Both keep working; delete one."
   },
   "account": {
     "addAnother": "Add another account",

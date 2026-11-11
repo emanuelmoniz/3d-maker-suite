@@ -46,9 +46,7 @@ for (const width of [375, 1440])
     );
 
     // Its catalog lines are on Catalog settings → Sources, under This server.
-    await page.goto("/integrations");
-    await card.getByRole("link", { name: /^Catalog: / }).click();
-    await expect(page).toHaveURL(/\/catalog\/settings\/sources#server-bambu-studio$/);
+    await page.goto("/catalog/settings/sources#server-bambu-studio");
     const slicer = page.locator("#server-bambu-studio");
     await expect(slicer.getByRole("heading", { name: "Bambu Studio", level: 4 })).toBeVisible();
     await expect(slicer.getByText("The hub's slicer", { exact: true })).toBeVisible();

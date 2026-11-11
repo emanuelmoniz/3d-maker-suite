@@ -61,9 +61,7 @@
     },
     "catalog": {
       "source": "The hub's slicer",
-      "version": "Version {{version}}",
       "change": "Change in Integrations",
-      "picked": "Picked for you",
       "unreadable": "Folder not found",
       "fromDevice": "The machine's connector sends this slicer's system presets whenever a slicer update changes them. Until it has, the catalog stays as it is.",
       "item": "Catalog and system presets",
@@ -84,8 +82,6 @@
       "receiveOn": "Receive {{type}} in {{slicer}} on {{machine}}",
       "linesOf": "{{slicer}} on {{machine}}",
       "onSave": "On each save",
-      "sentAt": "Last sent {{when}}",
-      "neverSent": "Nothing sent yet",
       "notReported": "{{slicer}} is no longer found on this machine.",
       "held_one": "{{count}} held delete waits for you",
       "held_other": "{{count}} held deletes wait for you",

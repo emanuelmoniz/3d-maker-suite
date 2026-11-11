@@ -136,7 +136,6 @@ describe("the hub's slicer is the catalog source (ADR-0022)", () => {
           { integrationId: second, presets: 0 },
         ],
         source: { integrationId: first, picked: false },
-        version: null,
         options: [
           { integrationId: first, readable: true },
           { integrationId: second, readable: true },
@@ -218,8 +217,6 @@ describe("the hub's slicer is the catalog source (ADR-0022)", () => {
         .run();
     version(ws1, "02.04.00.70");
     version(ws2, "2.4.1");
-    // The hub's slicer heading shows its version.
-    expect(sources()[0]?.version).toBe("02.04.00.70");
     expect(machine(ws2)?.mismatch).toBeNull();
     version(ws2, "02.03.01.00");
     expect(machine(ws2)?.mismatch).toEqual({ here: "2.3", source: "2.4" });

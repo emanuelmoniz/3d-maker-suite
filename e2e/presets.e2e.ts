@@ -294,8 +294,6 @@ test("share my presets: the switch, a device's preset, a conflict copy, a deskto
 
   // New, then the next version from base 1, then a stale edit, still from base 1.
   for (const cost of ["20", "21", "22"]) expect((await preset(cost)).status).toBe(200);
-  await page.goto("/presets/settings/sources");
-  await expect(page.locator(`#machine-${id}-bambu-studio`)).toContainText("Last sent");
   await page.goto("/catalog/presets");
   const row = page.getByRole("listitem").filter({ hasText: /^Farm PLA(?! \()/ });
   await expect(row).toContainText("Version 2, saved");

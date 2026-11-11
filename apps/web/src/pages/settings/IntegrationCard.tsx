@@ -3,19 +3,16 @@ import {
   type IntegrationStatus,
   isAction,
   type LibrarySources,
-  SLICER_CATALOG_ROW_TYPES,
-  SLICER_PRESET_TYPES,
   SYNC_RUN_STATUSES,
   SYNC_TRIGGERS,
   type SyncRun,
   syncRunFilters,
-  USER_PRESET_TYPES,
   workerConfigSchema,
 } from "@3d-maker-suite/core";
 import { Link } from "@tanstack/react-router";
 import { ChevronRight, Plus } from "lucide-react";
 import { type ReactNode, useId, useState } from "react";
-import { Trans, useTranslation } from "react-i18next";
+import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
 import { Collapsible } from "../../components/Collapsible.tsx";
 import { Combobox } from "../../components/Combobox.tsx";
@@ -24,7 +21,6 @@ import { DataTable, type ListQuery } from "../../components/DataTable.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { Menu } from "../../components/Menu.tsx";
 import { PathPicker } from "../../components/PathPicker.tsx";
-import { useCanSettings } from "../../components/SettingsLink.tsx";
 import { Switch } from "../../components/Switch.tsx";
 import { ApiError } from "../../lib/api.ts";
 import { useCan } from "../../lib/auth.ts";
@@ -32,7 +28,6 @@ import { cx } from "../../lib/cx.ts";
 import { formatDate, formatDateTime, formatRelative } from "../../lib/format.ts";
 import { useDevices } from "../../lib/hub.ts";
 import {
-  catalogSummary,
   libraryOf,
   useAdapterName,
   useAdapters,
@@ -96,71 +91,6 @@ const PICK_ERRORS: Record<string, string> = {
   slicer_exists: "integrations:hub.errors.slicer_exists",
 };
 
-/** Where a slicer's import cards are set: the catalog's four lines, its system and user presets. */
-const AREAS = [
-  {
-    label: "integrations:card.areas.catalog",
-    types: SLICER_CATALOG_ROW_TYPES,
-    to: "/catalog/settings/sources",
-    module: "catalog",
-  },
-  {
-    label: "integrations:card.areas.system",
-    types: SLICER_PRESET_TYPES,
-    to: "/presets/settings/sources",
-    module: "presets",
-  },
-  {
-    label: "integrations:card.areas.user",
-    types: USER_PRESET_TYPES,
-    to: "/presets/settings/sources",
-    module: "presets",
-  },
-] as const;
-
-/** One line per area with cards: how many run on their own, how many wait; a link to its tab. */
-function Summary({ library, rows }: { library: string; rows: Integration[] }) {
-  const { t } = useTranslation();
-  const may = { catalog: useCanSettings("catalog"), presets: useCanSettings("presets") };
-  const items = AREAS.flatMap((a) => {
-    const s = catalogSummary(rows, a.types);
-    if (!s.cards) return [];
-    const area = t(a.label);
-    const line =
-      s.auto || s.review ? (
-        <Trans
-          t={t}
-          i18nKey="integrations:card.summary"
-          values={{ area, auto: s.auto, review: s.review }}
-          components={{ review: <span className={s.review ? "text-warn" : undefined} /> }}
-        />
-      ) : (
-        t("integrations:card.summaryOff", { area })
-      );
-    return [{ key: a.label, line, to: may[a.module] ? a.to : null }];
-  });
-  if (!items.length) return null;
-  return (
-    <ul className="flex flex-wrap gap-x-5 gap-y-1">
-      {items.map((x) => (
-        <li key={x.key}>
-          {x.to ? (
-            <Link
-              to={x.to}
-              hash={`server-${library}`}
-              className="text-muted underline-offset-2 hover:text-fg hover:underline"
-            >
-              {x.line}
-            </Link>
-          ) : (
-            <span className="text-muted">{x.line}</span>
-          )}
-        </li>
-      ))}
-    </ul>
-  );
-}
-
 /**
  * The default slicer is a slicer type (ADR-0022), shown when there is more than one: its hub's
  * slicer is saved, else its install on this computer that opens files.
@@ -218,7 +148,6 @@ export function LibraryCard({ library, rows }: { library: string; rows: Integrat
             </h2>
             <DefaultSlicer library={library} rows={rows} />
           </div>
-          <Summary library={library} rows={rows} />
         </div>
         {admin && slicer && !here.length && (
           <Link to="/integrations/new" search={{ product: library }} className={addClass}>
