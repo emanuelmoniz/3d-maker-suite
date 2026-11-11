@@ -9,6 +9,7 @@ import {
   hasHorizontalScroll,
   lineMenu,
   offScreen,
+  openSources,
   pick,
   seedPreset,
   seedPrinter,
@@ -180,6 +181,7 @@ test("Sources: two accounts feed printers on their own schedules; no sync on the
 
   // One block per account; the second one runs weekly, the first stays daily.
   await page.goto("/printers/settings/sources");
+  await openSources(page);
   await expect(page.getByRole("region", { name: /^What .* syncs$/ })).toHaveCount(2);
   const dialog = await editLine(page, "printers", "Printers", 1);
   await pick(dialog.getByRole("combobox", { name: "Frequency: Printers" }), "Every week");

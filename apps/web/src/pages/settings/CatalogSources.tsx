@@ -12,7 +12,15 @@ import { useAdapterName, useIntegrations } from "../../lib/integrations.ts";
 import { useCatalogSources } from "../../lib/presets.ts";
 import { IntegrationsLink, PolicyLines } from "./AccountSources.tsx";
 import { ChooseBrands } from "./ChooseBrands.tsx";
-import { SlicerGroup, SourceBadge, SourceBlock, SourcesSection, StateLines } from "./Sources.tsx";
+import { LOCATION_ICONS } from "./integrationLabels.ts";
+import {
+  SlicerGroup,
+  SourceBadge,
+  SourceBlock,
+  SourceIcon,
+  SourcesSection,
+  StateLines,
+} from "./Sources.tsx";
 
 /** Whether a library's catalog source is this pick (an install row or a machine). */
 export const isSource = (
@@ -81,6 +89,7 @@ export function CatalogSources() {
         {server.length > 0 && (
           <SourceBlock
             id="server"
+            icon={<SourceIcon icon={LOCATION_ICONS.server} />}
             title={t("settings:sources.server")}
             link={
               admin
@@ -139,6 +148,7 @@ export function MachineBlock({
   return (
     <SourceBlock
       id={`${receive ? "receive" : "machine"}-${id}`}
+      icon={<SourceIcon icon={LOCATION_ICONS.worker} />}
       title={name}
       link={{
         to: "/hub/devices/$deviceId",

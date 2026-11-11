@@ -1,7 +1,7 @@
 import { createRequire } from "node:module";
 import { join } from "node:path";
 import { expect, test } from "./fixtures.ts";
-import { hasHorizontalScroll } from "./helpers.ts";
+import { hasHorizontalScroll, openSources } from "./helpers.ts";
 
 // yazl is the server's dependency (it reads the zips); the tests only borrow it to build one.
 const yazl = createRequire(join(import.meta.dirname, "..", "apps", "server", "package.json"))(
@@ -194,6 +194,7 @@ test("slicer presets without hub.manage: an editor's switches, a viewer's list, 
   await expect(page.getByText("Farm PLA")).toBeVisible();
   await expect(page.getByRole("button", { name: "Delete Farm PLA" })).toBeVisible();
   await tabs.getByRole("link", { name: "Sources" }).click();
+  await openSources(page);
   const machine = page
     .getByRole("region", { name: "Receive from the hub" })
     .getByRole("region", { name: "OrcaSlicer", exact: true });

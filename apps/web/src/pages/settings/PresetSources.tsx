@@ -9,7 +9,7 @@ import {
   USER_PRESET_TYPES,
 } from "@3d-maker-suite/core";
 import { Link } from "@tanstack/react-router";
-import { Cable } from "lucide-react";
+import { Cable, FileArchive } from "lucide-react";
 import { useId } from "react";
 import { useTranslation } from "react-i18next";
 import { EmptyState } from "../../components/EmptyState.tsx";
@@ -29,11 +29,13 @@ import {
   useAccountTitle,
 } from "./AccountSources.tsx";
 import { isSource, MachineBlock, serverRows, serverRowsCount } from "./CatalogSources.tsx";
+import { LOCATION_ICONS } from "./integrationLabels.ts";
 import { PresetsFromZip } from "./ManagedSlicer.tsx";
 import {
   SlicerGroup,
   SourceBadge,
   SourceBlock,
+  SourceIcon,
   SourcesSection,
   type StateLine,
   StateLines,
@@ -119,6 +121,7 @@ export function PresetSources() {
         {server.length > 0 && (
           <SourceBlock
             id="server"
+            icon={<SourceIcon icon={LOCATION_ICONS.server} />}
             title={t("settings:sources.server")}
             link={
               admin
@@ -503,7 +506,11 @@ function ZipBlock({
   const { t } = useTranslation();
   const adapterName = useAdapterName();
   return (
-    <SourceBlock id="zip" title={t("settings:sources.presets.zip")}>
+    <SourceBlock
+      id="zip"
+      icon={<SourceIcon icon={FileArchive} />}
+      title={t("settings:sources.presets.zip")}
+    >
       {libraries.map((library) => {
         const routes = (sources.find((l) => l.library === library)?.routes ?? []).flatMap(
           (r) => list.find((i) => i.id === r.integrationId) ?? [],

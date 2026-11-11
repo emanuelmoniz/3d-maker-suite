@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test } from "./fixtures.ts";
-import { gotoIntegrations } from "./helpers.ts";
+import { gotoIntegrations, openSources } from "./helpers.ts";
 
 type Policy = { type: string; scope: string };
 
@@ -54,6 +54,7 @@ test("catalog row: pick brands, only those arrive, then only what you have", asy
 
   // Its presets are on Presets settings; no schedule, because a change in the files runs them.
   await page.goto("/presets/settings/sources");
+  await openSources(page);
   const presets = page.getByRole("table", { name: "What OrcaSlicer syncs" });
   for (const kind of ["printer", "process", "filament"])
     for (const name of [`System ${kind} presets`, `User ${kind} presets`])
@@ -70,6 +71,7 @@ test("catalog row: pick brands, only those arrive, then only what you have", asy
   expect(await whenOf("System printer presets")).toBe(false);
   expect(await whenOf("User printer presets")).toBe(true);
   await page.goto("/catalog/settings/sources");
+  await openSources(page);
 
   // Nothing yet in your catalog; select all takes both of a list, and you can take one back.
   await expect(page.getByText(/Printer brands in your catalog/)).toHaveCount(0);

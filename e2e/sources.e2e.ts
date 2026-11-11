@@ -1,6 +1,6 @@
 import type { Page } from "@playwright/test";
 import { expect, test } from "./fixtures.ts";
-import { hasHorizontalScroll } from "./helpers.ts";
+import { hasHorizontalScroll, openSources } from "./helpers.ts";
 
 /** A machine's block in a section of a Sources tab: its heading names it. */
 const block = (page: Page, section: string, machine: string) =>
@@ -25,6 +25,7 @@ for (const width of [375, 1440])
     await page.goto("/catalog/settings/sources");
     await expect(page.getByRole("heading", { name: "No sources" })).toBeVisible();
     await page.goto("/presets/settings/sources");
+    await openSources(page);
     const zip = page
       .getByRole("listitem")
       .filter({ has: page.getByRole("heading", { name: "No connector? Upload a zip" }) })
@@ -83,6 +84,7 @@ for (const width of [375, 1440])
     await set("WS-1", "bambu-studio", { slicer: true });
     await set("WS-2", "bambu-studio", { slicer: true });
     await page.reload();
+    await openSources(page);
     await expect(share1.getByText("The hub's slicer", { exact: true })).toBeVisible();
     await expect(share1.getByText("Picked for you")).toBeVisible();
     // Only the hub's slicer shares the catalog: another machine with it isn't listed.
@@ -95,6 +97,7 @@ for (const width of [375, 1440])
       ).status(),
     ).toBe(204);
     await page.reload();
+    await openSources(page);
     await expect(share2.getByText("The hub's slicer", { exact: true })).toBeVisible();
     await expect(share2.getByText("Picked for you")).toHaveCount(0);
     await expect(share1).toHaveCount(0);
@@ -102,6 +105,7 @@ for (const width of [375, 1440])
     // WS-1 shares Bambu Studio's filament presets and nothing else; OrcaSlicer stays off.
     await set("WS-1", "bambu-studio", { user: { share: true } });
     await page.goto("/presets/settings/sources");
+    await openSources(page);
     const shares = block(page, "Share to the hub", "WS-1");
     for (const kind of ["Printer presets", "Process presets"]) {
       const line = shares.getByRole("switch", { name: `Share ${kind} from Bambu Studio on WS-1` });
@@ -131,6 +135,7 @@ for (const width of [375, 1440])
     await set("WS-1", "orca-slicer", { user: { receive: true } });
     await ws1(["bambu-studio"]);
     await page.reload();
+    await openSources(page);
     const receives = block(page, "Receive from the hub", "WS-1");
     await expect(
       receives.getByText("OrcaSlicer is no longer found on this machine."),

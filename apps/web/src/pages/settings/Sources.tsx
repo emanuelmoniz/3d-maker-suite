@@ -1,5 +1,5 @@
 import { Link, type LinkProps } from "@tanstack/react-router";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, type LucideIcon } from "lucide-react";
 import { type ReactNode, useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { DataTable } from "../../components/DataTable.tsx";
@@ -29,11 +29,23 @@ export function SourcesSection({
   );
 }
 
-// The blocks a viewer folded, per page: a convenience, so a failed read just shows them open.
-const FOLDED = "sources-folded";
-const readFolded = (): string[] => {
+/** A source card's icon, as on Integrations: a computer, a machine, a zip (an account has its photo). */
+export function SourceIcon({ icon: Icon }: { icon: LucideIcon }) {
+  return (
+    <span
+      aria-hidden
+      className="grid size-10 shrink-0 place-items-center rounded-md border border-border bg-surface-2 text-muted"
+    >
+      <Icon className="size-4" />
+    </span>
+  );
+}
+
+// The blocks a viewer opened, per page: a convenience, so a failed read just shows them closed.
+const OPENED = "sources-opened";
+const readOpened = (): string[] => {
   try {
-    return JSON.parse(localStorage.getItem(FOLDED) ?? "[]");
+    return JSON.parse(localStorage.getItem(OPENED) ?? "[]");
   } catch {
     return [];
   }
@@ -42,7 +54,7 @@ const readFolded = (): string[] => {
 /**
  * One source in a section, as a card that folds: who it is (an account, a machine and its user) and
  * the link back to where it allows the type. Its lines (a `DataTable`, or a `SlicerGroup` each) are
- * the children. Open at first; a fold is remembered per page, and a link into it opens it again.
+ * the children. Closed at first; one opened is remembered per page, and a link into it opens it.
  */
 export function SourceBlock({
   id,
@@ -67,14 +79,14 @@ export function SourceBlock({
   const [open, setOpen] = useState(() => {
     const hash = location.hash.slice(1);
     const linked = !!id && (hash === id || hash.startsWith(`${id}-`));
-    return linked || !key || !readFolded().includes(key);
+    return linked || (!!key && readOpened().includes(key));
   });
   const toggle = () => {
     setOpen(!open);
     if (!key) return;
     try {
-      const rest = readFolded().filter((k) => k !== key);
-      localStorage.setItem(FOLDED, JSON.stringify(open ? [...rest, key] : rest));
+      const rest = readOpened().filter((k) => k !== key);
+      localStorage.setItem(OPENED, JSON.stringify(open ? rest : [...rest, key]));
     } catch {
       // Not remembered: it still folds.
     }

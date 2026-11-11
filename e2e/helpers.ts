@@ -46,12 +46,26 @@ export async function gotoIntegrations(page: Page) {
   await openIntegrationCards(page);
 }
 
+/**
+ * Opens every source card on a Sources tab (they start closed). An opened card stays open on that
+ * page for the rest of the test (the app remembers it).
+ */
+export async function openSources(page: Page) {
+  await page
+    .getByRole("heading", { name: /^(Share to|Receive from) the hub$/ })
+    .first()
+    .waitFor();
+  const closed = page.locator("li[aria-labelledby] > div > h3 > button[aria-expanded=false]");
+  while (await closed.count()) await closed.first().click();
+}
+
 /** The Sources tab an account's printers, prints or spools are set on (ADR-0021). */
 export type SourcesTab = "printers" | "prints" | "filament";
 
 /** Opens the Edit dialog of an account's line (`item`: "Printers", "Print history", "Spools"). */
 export async function editLine(page: Page, tab: SourcesTab, item: string, nth = 0) {
   if (!page.url().endsWith(`/${tab}/settings/sources`)) await page.goto(`/${tab}/settings/sources`);
+  await openSources(page);
   await page
     .getByRole("button", { name: new RegExp(`^Edit ${item} from `) })
     .nth(nth)
@@ -61,6 +75,7 @@ export async function editLine(page: Page, tab: SourcesTab, item: string, nth = 
 
 /** Opens the `⋯` of an account's line. */
 export async function lineMenu(page: Page, item: string, nth = 0) {
+  await openSources(page);
   await page
     .getByLabel(new RegExp(`^More for ${item} from `))
     .nth(nth)
