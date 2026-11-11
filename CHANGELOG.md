@@ -2,11 +2,24 @@
 
 All notable changes are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased]
+## [5.5.0-alpha.1] - 2026-11-11
+
+Pre-release, first of 5.5.0. Lists everything since 5.4.0. Back up before updating. Migration 0110 renames the profile tables to presets and 0111 adds the `presets` permission, copying each role's and user's `catalog` level.
+
+### Added
+- **Presets module**: Printer, Process and Filament tabs, with its own settings (General, Sources, Library) and a `presets` permission (none, read, write, manage) that takes the preset rights from `catalog` ([docs/users.md](docs/users.md))
+- **General and Sources tabs** on the settings of printers, prints, filament and presets. A Sources tab lists the accounts that allow the type, one line each with its switch, **Edit** and a **⋯** menu (Sync now, Review and import, sync log) ([docs/bambu-cloud.md](docs/bambu-cloud.md))
+- **Account cards**: each Bambu Cloud account shows its photo, name, email and region, and has an **Allow** switch per type (printers, prints, spools, user presets) linking to that type's Sources tab. The photo is fetched and cached by the server ([docs/bambu-cloud.md](docs/bambu-cloud.md))
+
+### Changed
+- **Profiles are now presets**, as the slicers call them, in the UI, API and code. Old API paths, import types and page addresses still work and redirect. The hub library is the **Preset library** ([docs/import.md](docs/import.md))
+- Sync settings left the Integrations cards for the Sources tabs; the "Sync from..." buttons on the Printers, Prints and Filament pages are gone. Editors with a sync or review task reach the Sources tab from the module's gear ([docs/users.md](docs/users.md))
 
 ### Fixed
 - **Bambu Cloud sign-in and sync work again**: Bambu's Cloudflare protection started refusing the app's requests ("The vendor's servers blocked the request"). The app no longer sends the slicer identity headers that triggered it
 - **Bambu Cloud two-step verification**: the authenticator code is sent to Bambu's API instead of its website, which now refuses the app
+- A denied settings page no longer hangs the browser
+- The Tabs bar no longer shows a vertical scrollbar
 
 ## [5.4.0] - 2026-11-08
 

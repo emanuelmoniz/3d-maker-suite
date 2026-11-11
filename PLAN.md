@@ -2469,7 +2469,7 @@ Plan Step 5 of the 5.5.0 plan in PLAN.md. Use frontend-design for the account ca
 Plan Step 6 of the 5.5.0 plan in PLAN.md. Use frontend-design for the Sources tab.
 ```
 
-### [ ] Step 7 - Docs, push & v5.5.0-alpha.1
+### [x] Step 7 - Docs, push & v5.5.0-alpha.1
 **Model:** Sonnet · **Effort:** Low
 **Scope:**
 - `docs/` for presets, the Presets module, the tabs and the account cards. CHANGELOG, version `5.5.0-alpha.1`, `pnpm version:check`.
@@ -2788,7 +2788,7 @@ Do Step 5 of the 5.6.0 plan in PLAN.md.
 Do Step 6 of the 5.6.0 plan in PLAN.md.
 ```
 
-### [ ] Step 7 - Docs, push & v5.6.0-alpha.1
+### [x] Step 7 - Docs, push & v5.6.0-alpha.1
 **Model:** Sonnet · **Effort:** Low
 **Scope:**
 - Docs for the tags setting, the accounts switch and Users | Roles. CHANGELOG, version `5.6.0-alpha.1`, `pnpm version:check`.
@@ -3063,7 +3063,7 @@ Do Step 5 of the 6.0.0 plan in PLAN.md. Back up the DB before editing schema.ts.
 Do Step 6 of the 6.0.0 plan in PLAN.md. Back up the DB before editing schema.ts.
 ```
 
-### [ ] Step 7 - Docs, push & v6.0.0-alpha.1
+### [x] Step 7 - Docs, push & v6.0.0-alpha.1
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - `docs/printers.md`: live status, how prints are recorded, grams and spools, the review policy.
