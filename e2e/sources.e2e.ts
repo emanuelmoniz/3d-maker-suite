@@ -1,3 +1,6 @@
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { Page } from "@playwright/test";
 import { expect, test } from "./fixtures.ts";
 import { hasHorizontalScroll, openSources } from "./helpers.ts";
@@ -170,5 +173,28 @@ for (const width of [375, 1440])
     });
     await expect(filament).toBeChecked();
     await expect(filament).toBeDisabled();
+
+    // This server's own install receives user presets too (5.5.0 Step 11i). Its own folder: never
+    // this computer's real slicer.
+    const { id: local } = await (
+      await page.request.post("/api/integrations", { data: { adapterId: "bambu-studio" } })
+    ).json();
+    await page.request.patch(`/api/integrations/${local}`, {
+      data: { slicerConfigDir: mkdtempSync(join(tmpdir(), "e2e-receive-")) },
+    });
+    await page.reload();
+    await openSources(page);
+    const server = page
+      .getByRole("region", { name: "Receive from the hub", exact: true })
+      .locator("#receive-server");
+    const userLine = server.getByRole("switch", {
+      name: "Receive user presets in Bambu Studio on This server",
+    });
+    await expect(userLine).not.toBeChecked();
+    await userLine.dispatchEvent("click");
+    await expect(userLine).toBeChecked();
+    expect(
+      (await (await page.request.get(`/api/integrations/${local}`)).json()).presetReceive,
+    ).toBe(true);
     expect(await hasHorizontalScroll(page)).toBe(false);
   });

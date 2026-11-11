@@ -21,7 +21,6 @@ import {
   hubSyncRootsSchema,
   hubUploadResultSchema,
   type IntegrationAdapter,
-  isPresetConflict,
   presetInstallItemSchema,
   presetInstallStatusSchema,
   presetRemovalResultSchema,
@@ -46,6 +45,7 @@ import { presetLibrary } from "../integrations/capabilities.ts";
 import type { DeviceCatalog } from "../integrations/deviceCatalog.ts";
 import {
   namedPreset,
+  presetInstallList,
   presetRemovedOn,
   presetSkipped,
   presetsRemoved,
@@ -414,8 +414,7 @@ export const hubDeviceRoutes =
       },
     );
 
-    // Install (ADR-0017): only the libraries its switch is on for (ADR-0020). Conflict copies are
-    // for cleaning up on the hub, and in a desktop slicer they would spread through its cloud.
+    // Install (ADR-0017): only the libraries its switch is on for (ADR-0020).
     const installing = (req: FastifyRequest) => {
       const device = db
         .select()
@@ -430,26 +429,8 @@ export const hubDeviceRoutes =
       const receives = (p: { library: string }) => libraries.has(p.library);
       return { ...device, libraries, receives };
     };
-    const installList = (
-      device: { id: string; receives: (p: { library: string }) => boolean },
-      deleted: boolean,
-    ) =>
-      db
-        .select({
-          id: slicerPresets.id,
-          library: slicerPresets.library,
-          kind: slicerPresets.kind,
-          name: slicerPresets.name,
-          version: slicerPresets.version,
-          sha256: slicerPresets.sha256,
-          removedOn: slicerPresets.removedOn,
-        })
-        .from(slicerPresets)
-        .where(eq(slicerPresets.deleted, deleted))
-        .orderBy(asc(slicerPresets.name))
-        .all()
-        .filter((p) => !isPresetConflict(p.name) && device.receives(p))
-        .map(({ removedOn, ...p }) => ({ ...p, removedHere: removedOn.includes(device.id) }));
+    const installList = (device: { id: string; libraries: Set<string> }, deleted: boolean) =>
+      presetInstallList(db, device.libraries, device.id, deleted);
     app.get(
       "/presets",
       { schema: { response: { 200: z.array(presetInstallItemSchema), ...errors } } },

@@ -2649,7 +2649,7 @@ Do Step 11g of the 5.5.0 plan in PLAN.md. Use frontend-design for the tabs.
 Plan Step 11h of the 5.5.0 plan in PLAN.md. Use frontend-design for the cards.
 ```
 
-### [ ] Step 11i - This server receives user presets  **[plan mode]**
+### [x] Step 11i - This server receives user presets  **[plan mode]**
 **Model:** Opus · **Effort:** Medium
 **Scope:** Step 11e review: This server's own install (a folder on this computer, not the hub's preset source for that preset) receives the hub's user presets like a machine.
 - Its User presets switch on the integration row (migration), the install queue shared with the connector's (only while the slicer is closed, a backup first, state kept on the row).

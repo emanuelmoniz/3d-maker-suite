@@ -1,10 +1,10 @@
 import { z } from "zod";
 import { id, isoDate } from "./entities.ts";
+import { SLICER_PRESET_KINDS } from "./enums.ts";
 import { slicerInstallStatusSchema } from "./integrations.ts";
 import {
   devicePresetLibrarySchema,
   presetSwitchesSchema,
-  SLICER_PRESET_KINDS,
   slicerPresetKindSchema,
 } from "./presets.ts";
 import { projectFileSchema, projectGallerySchema, projectModelSchema } from "./projects.ts";

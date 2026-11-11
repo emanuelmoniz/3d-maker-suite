@@ -24,6 +24,7 @@ import { HttpError } from "./errors.ts";
 import { createDeviceCatalog } from "./integrations/deviceCatalog.ts";
 import { createSlicerInstaller, linkLibraries } from "./integrations/managedSlicer.ts";
 import { rebuildLibraries, recheckRemovals } from "./integrations/presetLibrary.ts";
+import { createServerPresets } from "./integrations/serverPresets.ts";
 import { createSyncer } from "./integrations/sync.ts";
 import { createWorkerSlicers } from "./integrations/workerSlicer.ts";
 import { authGuard } from "./lib/auth.ts";
@@ -455,9 +456,18 @@ export async function buildApp(
     app.addHook("onClose", async () => backup.stop());
   }
 
-  await app.register(integrationsRoutes(db, key, syncer, installer, workers, deviceCatalog), {
-    prefix: "/api/integrations",
-  });
+  // This server's own install receives the hub's user presets (5.5.0 Step 11i).
+  const serverPresets = createServerPresets(db, opts.adapters ?? [], dataDir, (line) =>
+    logFor("integrations").info(line),
+  );
+  if (dataDir) serverPresets.start();
+  app.addHook("onClose", async () => serverPresets.stop());
+  await app.register(
+    integrationsRoutes(db, key, syncer, installer, workers, deviceCatalog, serverPresets),
+    {
+      prefix: "/api/integrations",
+    },
+  );
 
   // Runs one at a time, so a condition can't be sent twice by overlapping checks.
   let queue = Promise.resolve();

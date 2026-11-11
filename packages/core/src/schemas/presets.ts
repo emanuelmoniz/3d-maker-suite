@@ -1,11 +1,17 @@
 import { z } from "zod";
-import { catalogInstallSlicerSchema, id, isoDate } from "./entities.ts";
+import {
+  catalogInstallSlicerSchema,
+  id,
+  isoDate,
+  presetInstallSlicerSchema,
+  presetRef,
+} from "./entities.ts";
+import { SLICER_PRESET_KINDS } from "./enums.ts";
 import { inUseDetailsSchema } from "./list.ts";
 
 // The hub's slicer preset library (ADR-0017): per slicer library (`bambu-studio`, `orca-slicer`)
 // and kind, the preset's json as received, its versions and who saved them.
 
-export const SLICER_PRESET_KINDS = ["machine", "process", "filament"] as const;
 export const slicerPresetKindSchema = z.enum(SLICER_PRESET_KINDS);
 
 /** One key of a preset's file, parents filled in; `from` is the preset it comes from (null: its own). */
@@ -87,32 +93,6 @@ export const slicerPresetDetailSchema = slicerPresetSchema.extend({
   versions: z.array(slicerPresetVersionSchema),
 });
 
-const presetRef = {
-  library: z.string().max(100),
-  kind: slicerPresetKindSchema,
-  /** The file's name, for a preset without a `name` inside. */
-  name: z.string().min(1).max(255),
-};
-
-/** How many queued names a connector reports; `queued` still counts them all. */
-export const PRESET_QUEUE_SHOWN = 100;
-
-/** Install hub presets on one slicer of a device (`PUT /api/hub/device/presets/install`). */
-export const presetInstallSlicerSchema = z.object({
-  library: z.string().max(100),
-  /** The user preset folder it writes to. */
-  folder: z.string().max(4096),
-  /** The slicer is open: the queue waits until it closes. */
-  waiting: z.boolean(),
-  queued: z.number().int().nonnegative(),
-  queue: z.array(z.object(presetRef)).max(PRESET_QUEUE_SHOWN),
-  /** The zip made before the last writes. */
-  backup: z.object({ path: z.string().max(4096), at: isoDate }).nullable(),
-  /** An account folder of a slicer whose cloud doesn't take edits written to disk. */
-  editsStayLocal: z.boolean(),
-  /** Deleted on the hub, still here: this slicer's account can only delete them in the slicer. */
-  deleteHere: z.array(z.object(presetRef)).max(PRESET_QUEUE_SHOWN).default([]),
-});
 export const presetInstallStatusSchema = z.array(presetInstallSlicerSchema).max(20);
 
 export const catalogInstallStatusSchema = z.array(catalogInstallSlicerSchema).max(20);
@@ -259,6 +239,11 @@ export const presetHeldActionSchema = z.strictObject({ action: z.enum(["delete",
 export type PresetDevice = z.infer<typeof presetDeviceSchema>;
 export type PresetInstallItem = z.infer<typeof presetInstallItemSchema>;
 export type PresetSkipped = z.infer<typeof presetSkippedSchema>;
+/** What Install keeps: the sha it last settled per folder, kind and name, and the last backup per slicer id. */
+export type PresetInstallSaved = {
+  installed?: Record<string, string>;
+  backups?: Record<string, { path: string; at: string }>;
+};
 export type PresetInstallSlicer = z.infer<typeof presetInstallSlicerSchema>;
 export type PresetInstallStatus = z.infer<typeof presetInstallStatusSchema>;
 export type PresetUpload = z.infer<typeof presetUploadSchema>;

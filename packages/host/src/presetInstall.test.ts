@@ -1,9 +1,9 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { presetFileName, presetText } from "@3d-maker-suite/host";
 import { describe, expect, it } from "vitest";
 import { infoText, nextInfo, parseInfo, systemPresets } from "./presetInstall.ts";
+import { presetFileName, presetText } from "./presets.ts";
 
 // As Bambu Studio and OrcaSlicer wrote them on real installs (ADR-0017).
 const SYNCED =

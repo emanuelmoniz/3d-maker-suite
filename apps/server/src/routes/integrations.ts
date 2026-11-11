@@ -58,6 +58,7 @@ import { pickHubSlicer } from "../integrations/catalogSource.ts";
 import type { DeviceCatalog } from "../integrations/deviceCatalog.ts";
 import type { SlicerInstaller } from "../integrations/managedSlicer.ts";
 import { readSecrets, writeSecrets } from "../integrations/secrets.ts";
+import type { ServerPresets } from "../integrations/serverPresets.ts";
 import type { Syncer } from "../integrations/sync.ts";
 import type { WorkerSlicers } from "../integrations/workerSlicer.ts";
 import { mayTask } from "../lib/auth.ts";
@@ -84,6 +85,8 @@ export const integrationsRoutes =
       confirm: async () => {},
       tell: async () => {},
     },
+    /** This server's own install receives user presets (5.5.0 Step 11i). */
+    presets: Pick<ServerPresets, "pass"> = { pass: async () => {} },
   ): FastifyPluginAsyncZod =>
   async (app) => {
     /** A worker's slicer is on its device; a server's is here. */
@@ -104,7 +107,7 @@ export const integrationsRoutes =
     // admin (ADR-0012): the others get what the task rows and "Open in slicer" need.
     const toApi = (full: typeof integrations.$inferSelect, admin = true) => {
       const { secrets, config, slicerConfigDir, slicerPath, slicerVersion, ...rest } = full;
-      const { catalogFingerprint: _, ...row } = rest;
+      const { catalogFingerprint: _, presetState: __, ...row } = rest;
       const adapter = syncer.adapters.find((a) => a.id === row.adapterId);
       const profile = accountConfigOf(config);
       // A local (or server) source never syncs: it's there or it isn't.
@@ -318,6 +321,14 @@ export const integrationsRoutes =
             throw new HttpError(409, "hub_slicer", "It is this slicer's hub's slicer");
           if (!catalogReceive) Object.assign(fields, { catalogInstall: null });
         }
+        // Receive user presets (5.5.0 Step 11i): any slicer on this computer, as a machine.
+        const { presetReceive } = fields;
+        if (presetReceive !== undefined) {
+          const lib = adapterOf(cur.adapterId);
+          if (lib.kind !== "local" || !lib.desktop || !lib.library)
+            throw new HttpError(400, "not_local", "Only a slicer on this computer receives");
+          if (!presetReceive) Object.assign(fields, { presetInstall: null });
+        }
         const adapter =
           config || secrets || policies || allow ? adapterOf(cur.adapterId) : undefined;
         if (allow && adapter?.kind !== "cloud")
@@ -400,6 +411,7 @@ export const integrationsRoutes =
           if (before !== after) for (const d of [before, after]) if (d) workers.syncWorker(d);
         }
         if (catalogReceive) await catalog.tell();
+        if (presetReceive) await presets.pass();
         return toApi(get(cur.id));
       },
     );

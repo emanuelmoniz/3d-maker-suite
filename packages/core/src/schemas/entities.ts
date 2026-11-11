@@ -15,6 +15,7 @@ import {
   NEW_SPOOL_FIELD,
   ORIGINS,
   PRINT_OUTCOMES,
+  SLICER_PRESET_KINDS,
   SPOOL_STATUSES,
   SYNC_FREQUENCIES,
   SYNC_MERGES,
@@ -120,6 +121,34 @@ export const catalogInstallSlicerSchema = z.object({
   error: z.string().max(1000).nullable(),
 });
 
+// Shared with the hub's preset library (presets.ts), which imports this file.
+export const presetRef = {
+  library: z.string().max(100),
+  kind: z.enum(SLICER_PRESET_KINDS),
+  /** The file's name, for a preset without a `name` inside. */
+  name: z.string().min(1).max(255),
+};
+
+/** How many queued names a connector reports; `queued` still counts them all. */
+export const PRESET_QUEUE_SHOWN = 100;
+
+/** Install hub presets on one slicer of a device (`PUT /api/hub/device/presets/install`). */
+export const presetInstallSlicerSchema = z.object({
+  library: z.string().max(100),
+  /** The user preset folder it writes to. */
+  folder: z.string().max(4096),
+  /** The slicer is open: the queue waits until it closes. */
+  waiting: z.boolean(),
+  queued: z.number().int().nonnegative(),
+  queue: z.array(z.object(presetRef)).max(PRESET_QUEUE_SHOWN),
+  /** The zip made before the last writes. */
+  backup: z.object({ path: z.string().max(4096), at: isoDate }).nullable(),
+  /** An account folder of a slicer whose cloud doesn't take edits written to disk. */
+  editsStayLocal: z.boolean(),
+  /** Deleted on the hub, still here: this slicer's account can only delete them in the slicer. */
+  deleteHere: z.array(z.object(presetRef)).max(PRESET_QUEUE_SHOWN).default([]),
+});
+
 /** API shape: the encrypted `secrets` column is never exposed, only whether it is set. */
 export const integrationSchema = z.object({
   id,
@@ -144,6 +173,10 @@ export const integrationSchema = z.object({
   catalogReceive: z.boolean().optional(),
   /** Its last look; null = none yet. */
   catalogInstall: catalogInstallSlicerSchema.nullable().optional(),
+  /** The server's own install receives the hub's user presets; local slicers only. */
+  presetReceive: z.boolean().optional(),
+  /** Its last look; null = none yet. */
+  presetInstall: presetInstallSlicerSchema.nullable().optional(),
   /** Supported, switched on and set up: the only thing the UI looks at to offer actions. */
   capabilities: z.array(z.enum(CAPABILITIES)),
   /** One per capability the adapter supports, in its order. */

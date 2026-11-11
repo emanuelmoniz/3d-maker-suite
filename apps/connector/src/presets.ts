@@ -5,12 +5,13 @@ import { homedir } from "node:os";
 import { join, parse, sep } from "node:path";
 import {
   type DesktopSlicer,
+  type PresetInstallSaved,
   presetRemovalResultSchema,
   presetUploadResultSchema,
   SLICER_PRESET_KINDS,
   type SlicerPresetKind,
 } from "@3d-maker-suite/core";
-import { parsePreset, presetSha } from "@3d-maker-suite/host";
+import { parsePreset, presetSha, readFolder } from "@3d-maker-suite/host";
 import { QUIET_MS, type Request } from "./roots.ts";
 import { presetsOn, type Store } from "./state.ts";
 
@@ -32,26 +33,6 @@ export function configDirOf(
 }
 
 /**
- * The account folder a slicer last used: `app.preset_folder` of its `.conf` (json, then a
- * `# MD5 checksum` line); empty or missing = `default`. Null = no json (it's being saved). Nothing
- * else of this file is used: it holds printers' access codes.
- */
-export function presetFolder(conf: string) {
-  try {
-    const folder = JSON.parse(conf.replace(/^#.*$/gm, ""))?.app?.preset_folder;
-    return typeof folder === "string" && folder ? folder : "default";
-  } catch {
-    return null;
-  }
-}
-
-/** The account folder of the slicer whose config is `dir`; null = its `.conf` is being saved. */
-export const readFolder = (dir: string, { config }: Pick<DesktopSlicer, "config">) =>
-  readFile(join(dir, `${config}.conf`), "utf8").then(presetFolder, (e: NodeJS.ErrnoException) =>
-    e.code === "ENOENT" ? "default" : null,
-  );
-
-/**
  * What the hub knows of a preset file. `sha`: the content last sent, never sent again. `base`: the
  * hub version it started from; a conflict leaves it, as the file still didn't start from the hub's.
  */
@@ -64,13 +45,7 @@ type Sent = {
   removed?: boolean;
 };
 /** `files`: what Share sent. `installed`: the sha Install last settled, per folder, kind and name. */
-type Saved = {
-  link: string;
-  files: Record<string, Sent>;
-  installed?: Record<string, string>;
-  /** The last backup per slicer id. */
-  backups?: Record<string, { path: string; at: string }>;
-};
+type Saved = PresetInstallSaved & { link: string; files: Record<string, Sent> };
 
 /** `<dataDir>/presets.json`, which Share and Install keep together: a state of another pairing starts over. */
 export function openPresetState(dataDir: string, identity: () => string) {

@@ -78,6 +78,8 @@ export const integrationPatchSchema = z
     slicerPath: z.string().trim().nullable(),
     /** A local slicer receives the hub's catalog (ADR-0022); 409 `hub_slicer` on the hub's slicer. */
     catalogReceive: z.boolean(),
+    /** A local slicer receives the hub's user presets, as a machine does. */
+    presetReceive: z.boolean(),
     /** A cloud account's Allow switches: off sets those types' policies to `off`, data stays. */
     allow: accountAllowSchema,
     /** Only the listed types change, and only the fields sent. */

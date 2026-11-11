@@ -209,8 +209,8 @@ export function useSystemLine({ lib, machine: m, integration: i }: ReceiveSlicer
 }
 
 /**
- * One slicer of a receiver, in one table (ADR-0023): its System presets line, then a machine's User
- * presets line (every kind) with what waits; then one Folder and backup for both.
+ * One slicer of a receiver, in one table (ADR-0023): its System presets line, then its User presets
+ * line (every kind) with what waits; then one Folder and backup for both.
  */
 function ReceiveLines({
   slicer,
@@ -227,33 +227,60 @@ function ReceiveLines({
   const { t } = useTranslation();
   const name = useAdapterName()(slicer.lib.library);
   const actions = useDeviceActions();
-  const may = useMayEdit(d);
+  const mayMachine = useMayEdit(d);
+  const admin = useCan("integrations.manage");
+  const i = slicer.integration;
+  const patch = usePatchIntegration(i?.id ?? "");
   const system = useSystemLine(slicer);
-  const s = l?.status;
+  // A machine's switch and report (5.1.0), or this server's install's (5.5.0 Step 11i).
+  const u = i
+    ? {
+        install: !!i.presetReceive,
+        status: i.presetInstall ?? null,
+        reported: true,
+        may: admin,
+        pending: patch.isPending,
+        error: patch.error,
+        set: (on: boolean) => patch.mutate({ presetReceive: on }),
+      }
+    : l && d
+      ? {
+          install: l.install,
+          status: l.status,
+          reported: l.reported,
+          may: mayMachine,
+          pending: actions.library.isPending,
+          error: actions.library.error,
+          set: (on: boolean) =>
+            actions.library.mutate({ id: d.id, library: l.library, user: { receive: on } }),
+        }
+      : undefined;
+  const s = u?.status;
   const state = (): { state: string; tone?: "warn" } => {
-    if (!l?.install) return { state: t("integrations:policies.modes.off") };
+    if (!u?.install) return { state: t("integrations:policies.modes.off") };
     if (!s) return { state: t("settings:sources.presets.noReport") };
     if (!s.queued) return { state: t("settings:sources.presets.upToDate") };
     const key = s.waiting ? "settings:sources.presets.waiting" : "settings:sources.presets.queued";
     return { state: t(key, { count: s.queued }), tone: "warn" };
   };
-  const user: StateLine[] = !l
+  const user: StateLine[] = !u
     ? []
     : [
         {
           key: "user",
           item: t("settings:sources.presets.user"),
           // As on the machine page: no switch without the right, its state says Off or what waits.
-          on:
-            d && may
-              ? {
-                  checked: l.install,
-                  label: t("settings:sources.presets.receiveOn", { slicer: name, machine: d.name }),
-                  disabled: !l.reported || actions.library.isPending,
-                  set: (on) =>
-                    actions.library.mutate({ id: d.id, library: l.library, user: { receive: on } }),
-                }
-              : undefined,
+          on: u.may
+            ? {
+                checked: u.install,
+                label: t("settings:sources.presets.receiveOn", {
+                  slicer: name,
+                  machine: d?.name ?? t("settings:sources.server"),
+                }),
+                disabled: !u.reported || u.pending,
+                set: u.set,
+              }
+            : undefined,
           ...state(),
         },
       ];
@@ -262,7 +289,7 @@ function ReceiveLines({
       id={`receive-${slicer.machine?.deviceId ?? "server"}-${slicer.lib.library}`}
       name={name}
     >
-      {l && !l.reported && (
+      {u && !u.reported && (
         <p className="text-muted">{t("settings:sources.presets.notReported", { slicer: name })}</p>
       )}
       <StateLines
@@ -272,7 +299,7 @@ function ReceiveLines({
         })}
         rows={[system.row, ...user]}
       />
-      <SwitchError error={system.error ?? (l ? actions.library.error : null)} />
+      <SwitchError error={system.error ?? u?.error ?? null} />
       {s && (s.queue.length > 0 || s.editsStayLocal || s.deleteHere.length > 0) && (
         <div className="grid gap-0.5 text-sm">
           {s.queue.length > 0 && (

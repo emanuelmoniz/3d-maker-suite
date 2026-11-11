@@ -4,6 +4,7 @@ export * from "./bundle.ts";
 export * from "./findSlicers.ts";
 export * from "./launch.ts";
 export * from "./listFolder.ts";
+export * from "./presetInstall.ts";
 export * from "./presets.ts";
 export * from "./processes.ts";
 export * from "./rootPath.ts";

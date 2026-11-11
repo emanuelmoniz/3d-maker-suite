@@ -11,6 +11,7 @@ import {
 } from "node:fs";
 import { basename, dirname, join, parse } from "node:path";
 import {
+  isPresetConflict,
   type PresetHoldReason,
   type PresetRemovalResult,
   type PresetRemovals,
@@ -24,7 +25,7 @@ import {
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
 import { parsePreset, presetFileName, presetName, presetSha } from "@3d-maker-suite/host";
-import { and, desc, eq, inArray, isNull, max, ne } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, max, ne } from "drizzle-orm";
 import { raise } from "../alerts/evaluate.ts";
 import type { Rights } from "../lib/auth.ts";
 import { type PresetKind, presetInUse } from "../lib/dependents.ts";
@@ -424,6 +425,37 @@ export function uploadPreset(
     });
   return { result: "conflict", name, version: old.version };
 }
+
+/**
+ * What a receiver of user presets installs (ADR-0017): every kind of its libraries (ADR-0023).
+ * Conflict copies are for cleaning up on the hub, and in a desktop slicer they would spread through
+ * its cloud. `receiver`: a device's id, for its own removals; null = this server's install.
+ */
+export const presetInstallList = (
+  db: Db,
+  libraries: Set<string>,
+  receiver: string | null,
+  deleted: boolean,
+) =>
+  db
+    .select({
+      id: slicerPresets.id,
+      library: slicerPresets.library,
+      kind: slicerPresets.kind,
+      name: slicerPresets.name,
+      version: slicerPresets.version,
+      sha256: slicerPresets.sha256,
+      removedOn: slicerPresets.removedOn,
+    })
+    .from(slicerPresets)
+    .where(eq(slicerPresets.deleted, deleted))
+    .orderBy(asc(slicerPresets.name))
+    .all()
+    .filter((p) => !isPresetConflict(p.name) && libraries.has(p.library))
+    .map(({ removedOn, ...p }) => ({
+      ...p,
+      removedHere: receiver !== null && removedOn.includes(receiver),
+    }));
 
 /** A device can't install a preset: its `inherits` parent isn't there. An alert per device and content. */
 export function presetSkipped(

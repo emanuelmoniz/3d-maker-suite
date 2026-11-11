@@ -25,6 +25,8 @@ import {
   PRESET_HOLD_REASONS,
   PRINT_OUTCOMES,
   type PROJECT_EDITABLE_FIELDS,
+  type PresetInstallSaved,
+  type PresetInstallSlicer,
   type PresetInstallStatus,
   type ProjectRights,
   ROLE_BUILT_INS,
@@ -98,6 +100,12 @@ export const integrations = sqliteTable("integrations", {
   catalogReceive: integer({ mode: "boolean" }).notNull().default(false),
   /** What its last look saw: the same state a machine reports (`catalogInstall`). */
   catalogInstall: text({ mode: "json" }).$type<CatalogInstallSlicer>(),
+  /** The server's own install receives the hub's user presets, as a machine does (ADR-0017). */
+  presetReceive: integer({ mode: "boolean" }).notNull().default(false),
+  /** Its last look: the same state a machine reports (`presetInstall`). */
+  presetInstall: text({ mode: "json" }).$type<PresetInstallSlicer>(),
+  /** What its install queue settled: the sha per preset and the last backup. Not in the API. */
+  presetState: text({ mode: "json" }).$type<PresetInstallSaved>(),
   status: text().notNull().default("new"),
   lastSyncAt: text(),
   lastError: text(),

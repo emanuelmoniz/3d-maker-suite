@@ -14,14 +14,14 @@ import { EOL, tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { BUILT_IN_ROLE_IDS, type PresetDevice, type SlicerPreset } from "@3d-maker-suite/core";
 import { openDb, schema } from "@3d-maker-suite/db";
-import { extract } from "@3d-maker-suite/host";
+import { extract, presetFolder } from "@3d-maker-suite/host";
 import { buildApp } from "@3d-maker-suite/server/src/app.ts";
 import { savePreset } from "@3d-maker-suite/server/src/integrations/presetLibrary.ts";
 import { adapters } from "@3d-maker-suite/server/src/integrations/registry.ts";
 import { hashPassword } from "@3d-maker-suite/server/src/lib/password.ts";
 import { afterEach, describe, expect, it } from "vitest";
 import { createLink } from "./hub.ts";
-import { configDirOf, createPresetShare, openPresetState, presetFolder } from "./presets.ts";
+import { configDirOf, createPresetShare, openPresetState } from "./presets.ts";
 import type { Found } from "./slicers.ts";
 import { openStore } from "./state.ts";
 

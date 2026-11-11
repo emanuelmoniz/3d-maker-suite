@@ -1,4 +1,6 @@
 // Shared by zod schemas and DB check constraints (packages/db), so both stay in sync.
+/** A slicer preset's kinds (ADR-0017). */
+export const SLICER_PRESET_KINDS = ["machine", "process", "filament"] as const;
 export const ORIGINS = ["manual", "integration"] as const;
 export const PRINT_OUTCOMES = ["success", "failed", "cancelled"] as const;
 export const ENERGY_SOURCES = ["estimated", "measured"] as const;
