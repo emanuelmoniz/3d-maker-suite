@@ -1,6 +1,6 @@
 # ADR-0020: Catalog module, profiles from files, spools without a profile
 
-- Status: Accepted (2026-11-06, design discussion after Plan 5.4.0 Step 10). Amends ADR-0016's permission catalog, ADR-0017's switches and permission, ADR-0019's "everything about a slicer is on its card", its edit rules and its catalog source, and ADR-0014's fixed operation list. Amended by ADR-0021: the presets and the Preset library move to a Presets module, profiles are presets, Sources becomes a tab of each data type's settings, and the device × slicer table moves to the machine page.
+- Status: Accepted (2026-11-06, design discussion after Plan 5.4.0 Step 10). Amends ADR-0016's permission catalog, ADR-0017's switches and permission, ADR-0019's "everything about a slicer is on its card", its edit rules and its catalog source, and ADR-0014's fixed operation list. Amended by ADR-0021: the presets and the Preset library move to a Presets module, profiles are presets, Sources becomes a tab of each data type's settings, and the device × slicer table moves to the machine page. Amended by ADR-0022: the catalog source is the hub's slicer, not a pick.
 - Date: 2026-11-06
 
 ## Context

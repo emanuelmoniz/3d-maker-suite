@@ -2522,7 +2522,7 @@ Do Step 9 of the 5.5.0 plan in PLAN.md.
 **Model:** Opus · **Effort:** High
 **Scope:**
 - Both tabs use Step 6's Sources layout.
-- **Catalog settings → Sources.** Share to the hub: per library, the server's slicer and each machine with Catalog Share. The catalog source's block has four lines (printer brands, printer models, filament brands, filament materials: switch, When, What, Edit, `⋯`) and **Choose brands**; the others show **Use as catalog source**. Receive from the hub: machines with Catalog Receive, per slicer, one `system/` folder line with its state (Step 11 makes it work).
+- **Catalog settings → Sources.** Share to the hub: per library, the server's slicer and each machine with Catalog Share. The catalog source's block has four lines (printer brands, printer models, filament brands, filament materials: switch, When, What, Edit, `⋯`) and **Choose brands**; the others show **Use as catalog source**. Receive from the hub: machines with Catalog Receive, per slicer, one `system/` folder line with its state (Step 11 makes it work). *Use as catalog source and Catalog Share are replaced by Steps 11b–11e (ADR-0022).*
 - **Presets settings → Sources.** Share to the hub: the server's slicer (system and user lines per kind), accounts with Allow user presets (user lines per kind), machines with Presets Share per slicer (a line per kind: switch and state, no Edit), and "No connector? Upload a zip" on the section. Receive from the hub: machines with Presets Receive per slicer, a line per kind with its state (up to date, waiting for the slicer to close, last backup). Choose brands shows read-only with a link to Catalog settings.
 - **Per kind:** a machine's kind lines write `shareKinds` / `receiveKinds`. The hub filters, so an older connector needs no change: an upload of a kind that's off is ignored, and Install sends only the kinds that are on.
 - `SourcesTab.tsx` and `DeviceSlicers.tsx` go (`PresetsCard` went with Step 8).
@@ -2549,6 +2549,62 @@ Plan Step 10 of the 5.5.0 plan in PLAN.md. Use frontend-design for the Sources t
 Plan Step 11 of the 5.5.0 plan in PLAN.md.
 ```
 
+### [ ] Step 11b - The hub's slicer: schema and server  **[plan mode]**
+**Model:** Opus · **Effort:** High
+**Scope:** ADR-0022: one slicer per slicer type.
+- `hubSlicers` setting (`{ [library]: integrationId }`) with its migration. Per library: the current catalog source's row (a device source: its worker row), else the default slicer if it is that library, else the oldest row that can slice.
+- `devices.presetLibraries[lib]` becomes `{ slicer, system: { receive }, user: { receive, share, receiveKinds, shareKinds }, sentAt? }`. `slicer` is on where the worker row was slicing; `catalog.receive` becomes `system.receive`; `presets` becomes `user`. The connector's `presetSwitches` and `catalog.*` maps don't change.
+- Only the hub's slicer slices: `activeCapabilities` gives `slice` to that row only, and `slicerResolver` maps a plate, project or default pick to its library's hub slicer. A machine that's offline makes its jobs wait; "Slice on the server instead" goes.
+- `catalogSource` becomes the hub's slicer. A worker sends `system/` as today (`deviceCatalog.ts`); a server install is read in place. `devicesBlocked`, `pickCatalogSource`, the `catalogSources` setting and `PUT /api/catalog/sources/:library` go.
+- `PUT /api/integrations/slicers/:library` (`integrations.manage`) picks the hub's slicer, among the server's install and machines with `slicer` on. Picking it turns that machine's `system.receive` off; Receive on the hub's slicer is 409 `hub_slicer`.
+- `PATCH /api/integrations/:id` checks `slicer_exists` when a worker's machine changes.
+
+**Done when:** a copy of an old database migrates to one hub's slicer per library with slicing and the catalog following it; a pick moves both; a project's pick of another install of the same library slices on the hub's slicer; an offline machine's jobs wait; an older connector still answers `device_outdated`; tests pass.
+**Prompt:**
+```
+Plan Step 11b of the 5.5.0 plan in PLAN.md. Read ADR-0022 first. Back up the DB before editing schema.ts.
+```
+
+### [ ] Step 11c - The server receives the catalog  **[plan mode]**
+**Model:** Opus · **Effort:** Medium
+**Scope:**
+- The server's own install (a folder on this computer) that isn't the hub's slicer can receive the hub's `system/` like a machine: the same overlay, the backup first, only while the slicer is closed, the same major.minor rule. Its switch and state are kept on the integration row.
+- `isRunningIn` and `listProcesses` move from the connector to `packages/host`; the overlay write is shared too.
+- Check where a machine's managed install keeps `system/`, so the catalog send reads the right folder.
+
+**Done when:** the server's desktop slicer receives the catalog after it closes, with a backup; a different major.minor gets nothing; a managed install on a machine sends its catalog; tests pass.
+**Prompt:**
+```
+Plan Step 11c of the 5.5.0 plan in PLAN.md.
+```
+
+### [ ] Step 11d - Integrations and the machine page
+**Model:** Opus · **Effort:** High
+**Scope:**
+- Integrations: one card per slicer type. **The hub's slicer** is a radio over the server's install and every machine that offers the slicer, each with its setup, update and removal (`WorkerSlicer` moves back here from the machine page). Picking another version asks first. Choose brands and the Catalog, System presets and User presets cards stay on the card.
+- Machine page → Slicers, per slicer: **Use as slicer** (offers it; "The hub's slicer" or "Offered: pick it in Integrations"), **Catalog and system presets** (Receive only; off and locked on the hub's slicer), **User presets** (Receive, Share), each with a link to its settings.
+- Project, plate and quote slicer pickers name a slicer type (`SlicingSetup.tsx`, `SliceSetup.tsx`); the default slicer is a slicer type too.
+- `docs/slicing.md`, `docs/hub.md`.
+
+**Done when:** the hub's slicer is picked only in Integrations and shows on the machine page; a machine's three rows save and lock as described; pickers list slicer types; browser check at phone width in both themes; tests, e2e, lint and `pnpm i18n:check` pass.
+**Prompt:**
+```
+Plan Step 11d of the 5.5.0 plan in PLAN.md. Use frontend-design for the slicer card and the machine page.
+```
+
+### [ ] Step 11e - Catalog and Presets Sources, simplified
+**Model:** Opus · **Effort:** Medium
+**Scope:**
+- Catalog → Settings → Sources and Presets → Settings → Sources: **Source**, one read-only line per slicer type (the hub's slicer, its version, "Change in Integrations") with the catalog's four lines and Choose brands; **Receive from the hub**, every machine with the slicer and This server, each with its switch and its `system/` state (Step 11). Presets also shows **User presets** Share and Receive per machine and kind, as today.
+- "Use as catalog source", Catalog Share and the "Machines aren't offered" text go.
+- `docs/import.md`, `docs/hub.md`; `pnpm screenshots` if a README page changed.
+
+**Done when:** both tabs show one source per slicer type and every receiver; a receiver switch saves from either tab; tests, e2e, lint and `pnpm i18n:check` pass.
+**Prompt:**
+```
+Do Step 11e of the 5.5.0 plan in PLAN.md.
+```
+
 ### [ ] Step 12 - Connector: hub page first, permissions  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:**
@@ -2568,7 +2624,7 @@ Plan Step 12 of the 5.5.0 plan in PLAN.md.
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - Upgrade a copy of a real 5.4.0 database to the alpha: presets keep their rows and slices; policies, device switches and shared folders keep their values.
-- Two machines: Use as slicer on one slicer of one machine only; Share catalog on one, Receive catalog on the other; Share and Receive presets on one slicer only, and filament presets only on the other; Restart and Stop from the hub; a user with one `machine.*` switch.
+- Two machines: Use as slicer on one slicer of one machine only; the hub's slicer switched between the server and a machine, and that machine offline (jobs wait); Catalog and system presets received on the other machine and on the server's own slicer; Share and Receive presets on one slicer only, and filament presets only on the other; Restart and Stop from the hub; a user with one `machine.*` switch.
 - Two Bambu Cloud accounts with their own photo and Sources.
 - Fix anything found. `docs/`, CHANGELOG, version `5.5.0-alpha.2`. Commit on `dev`, push, tag `v5.5.0-alpha.2` on `dev`. Check the run and the release.
 
